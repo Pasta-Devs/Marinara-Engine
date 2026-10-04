@@ -144,7 +144,7 @@ export interface PreparedAdvancedMemory {
   currentSceneSummary: string | null;
   recalledScenes: string | null;
   recalledMessages: string | null;
-  /** Persisted optional recall record IDs, distinct from source scene/message IDs. */
+  /** Persisted IDs used only by optional recall; constant-summary dependencies remain when recall is omitted. */
   recalledRecordIds: string[];
   receipt: AdvancedMemoryReceipt;
 }

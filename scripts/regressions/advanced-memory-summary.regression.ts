@@ -604,6 +604,11 @@ try {
     "saved timing takes precedence over old dates after other edits and memory preparation",
   );
   assert(!correctedTimeline.recalledScenes!.includes("PRIVATE_LEDGER"));
+  assert(partialRecord.id in correctedTimeline.receipt.recordRevisions);
+  assert(
+    !correctedTimeline.recalledRecordIds.includes(partialRecord.id),
+    "a scene used for constant timing is not disposable with optional recall",
+  );
   const timelineExport = await memory.exportMemory(partialChat.id);
   const exportedTimeline = timelineExport.records.find((entry) => entry.record.id === partialRecord.id)!.record;
   assert.equal(exportedTimeline.timeline, "June 14, before dawn");
@@ -661,6 +666,27 @@ try {
       payload: { timeline: "June 15" },
     });
     assert.equal(invalidRecord.statusCode, 400, invalidRecord.body);
+  }
+  await memory.updateSettings(partialChat.id, { retrieveMaxScenes: 0 });
+  await memory.updateRecord(partialChat.id, partialRecord.id, {
+    timeline: "PRIVATE_CORRECTED_TIMEFRAME",
+    audienceCharacterIds: [borrower.id],
+  });
+  for (const characterId of [borrower.id, otherPov.id]) {
+    const constantOnly = await memory.prepare({
+      chatId: partialChat.id,
+      messages: timelineSource,
+      audienceCharacterIds: [characterId],
+      budgetTokens: 12000,
+      readOnly: true,
+    });
+    assert.equal(constantOnly.recalledScenes, null, "constant timing cannot rely on optional scene recall");
+    assert.equal(
+      constantOnly.chatSummary?.includes("PRIVATE_CORRECTED_TIMEFRAME"),
+      characterId === borrower.id,
+      "constant summaries expose corrected timing only to the scene's permitted audience",
+    );
+    if (characterId === borrower.id) assert(!constantOnly.chatSummary?.includes("PRIVATE_LEDGER"));
   }
 
   const changedVisibilityChat = await createChat("Source visibility changed after a plain recap was saved");
@@ -989,6 +1015,84 @@ try {
     "the corrected date survives continuity preparation unchanged",
   );
 
+  await memory.updateSettings(correctedDate.id, { retrieveMaxScenes: 0 });
+  const constantTimelineSource = await chats.listMessages(correctedDate.id);
+  const prepareConstantTimeline = () =>
+    memory.prepare({
+      chatId: correctedDate.id,
+      messages: constantTimelineSource,
+      audienceCharacterIds: [],
+      budgetTokens: 700,
+      readOnly: true,
+    });
+  const beforeConstantTiming = await prepareConstantTimeline();
+  assert(
+    JSON.parse((await chats.getById(correctedDate.id))!.metadata).advancedMemoryState.constantSummarySceneIds.includes(
+      correctedScene.id,
+    ),
+    "the scene has already been copied into constant summaries",
+  );
+  await memory.updateRecord(correctedDate.id, correctedScene.id, { timeline: "June 16, at dusk" });
+  await assert.rejects(
+    memory.validatePrepared(correctedDate.id, constantTimelineSource, beforeConstantTiming.receipt),
+    /A memory changed before generation/,
+    "the first timeframe edit invalidates a constant-only cached prompt",
+  );
+  const correctedConstant = await prepareConstantTimeline();
+  assert.equal(correctedConstant.recalledScenes, null);
+  assert.match(
+    correctedConstant.chatSummary!,
+    /user-corrected story timeframe \(takes precedence\): June 16, at dusk/u,
+  );
+  assert(correctedScene.id in correctedConstant.receipt.recordRevisions);
+  await memory.updateRecord(correctedDate.id, correctedScene.id, { timeline: "" });
+  const clearedConstant = await prepareConstantTimeline();
+  assert.match(clearedConstant.chatSummary!, /user-corrected story timeframe \(takes precedence\): unknown/u);
+  await memory.updateRecord(correctedDate.id, correctedScene.id, { enabled: false });
+  const disabledConstant = await prepareConstantTimeline();
+  assert(!disabledConstant.chatSummary?.includes("user-corrected story timeframe"));
+  assert.match(disabledConstant.chatSummary!, /source timeframe \(summary corrections take precedence\): June 10/u);
+
+  const dependentTimelineChat = await createChat("Timing edits preserve generated recap dependencies");
+  const dependentSource = await chats.listMessages(dependentTimelineChat.id);
+  const supportingSummary = createChatSummaryEntry({
+    id: "timeframe-support",
+    content: "The original blue compass account.",
+    enabled: true,
+    rangeStartIndex: 1,
+    rangeEndIndex: 1,
+  });
+  await chats.patchMetadata(dependentTimelineChat.id, { summaryEntries: [supportingSummary] });
+  await memory.initialize(dependentTimelineChat.id);
+  const generatedTimingScene = (await memory.status(dependentTimelineChat.id)).records.find(
+    (record) => record.kind === "scene" && record.content,
+  )!;
+  assert.equal(generatedTimingScene.manualOverride, false);
+  assert(generatedTimingScene.dependencies.some((item) => item.id === `summary:${supportingSummary.id}`));
+  const timingOnly = (
+    await memory.updateRecord(dependentTimelineChat.id, generatedTimingScene.id, { timeline: "July 5" })
+  ).records.find((record) => record.id === generatedTimingScene.id)!;
+  assert.equal(timingOnly.manualOverride, false, "timeframe edits do not freeze generated recap text");
+  for (const dependency of generatedTimingScene.dependencies)
+    assert(timingOnly.dependencies.some((item) => item.id === dependency.id && item.revision === dependency.revision));
+  await chats.patchMetadata(dependentTimelineChat.id, {
+    summaryEntries: [{ ...supportingSummary, content: "The corrected golden compass account." }],
+  });
+  summaryResponse = "The refreshed golden compass recap.";
+  const beforeTimingRefresh = requests.length;
+  await memory.initialize(dependentTimelineChat.id);
+  summaryResponse = summary;
+  const refreshedTimingScene = (await memory.status(dependentTimelineChat.id)).records.find(
+    (record) => record.id === generatedTimingScene.id,
+  )!;
+  assert.equal(refreshedTimingScene.content, "The refreshed golden compass recap.");
+  assert.equal(refreshedTimingScene.timeline, "July 5");
+  assert.equal(refreshedTimingScene.manualOverride, false);
+  const timingRefreshInput = JSON.stringify(requests.slice(beforeTimingRefresh));
+  assert(timingRefreshInput.includes("The corrected golden compass account."));
+  assert(timingRefreshInput.includes("User-corrected story timeframe (takes precedence): July 5"));
+  assert.deepEqual(await chats.listMessages(dependentTimelineChat.id), dependentSource);
+
   const deletedChat = await createChat("Delete one shared scene summary");
   await chats.update(deletedChat.id, { characterIds: ["maukie", "powers"] });
   await chats.patchMetadata(deletedChat.id, {
@@ -1015,6 +1119,7 @@ try {
     "deleting a recap cannot destroy its structural scene boundary",
   );
   const sourceBeforeDelete = await chats.listMessages(deletedChat.id);
+  await memory.updateRecord(deletedChat.id, deletedScene.id, { timeline: "DISCARDED_SCENE_TIMEFRAME" });
   const deleted = await app.inject({ method: "DELETE", url: deleteUrl });
   assert.equal(deleted.statusCode, 200);
   assert(
@@ -1042,6 +1147,19 @@ try {
   assert.equal(deletionMarker.content, "");
   assert.equal(deletionMarker.embedding, null);
   assert.equal(deletionMarker.summaryWork, null);
+  const beforeRestore = requests.length;
+  await memory.initialize(deletedChat.id, { sceneId: deletedScene.sceneId, detectScenes: false });
+  assert(requests.length > beforeRestore, "explicit restoration generates a fresh recap");
+  assert(
+    !JSON.stringify(requests.slice(beforeRestore)).includes("DISCARDED_SCENE_TIMEFRAME"),
+    "restoration cannot feed the deleted timeframe correction back to the helper",
+  );
+  assert.equal(
+    (await memory.status(deletedChat.id)).records.find(
+      (record) => record.kind === "scene" && record.sceneId === deletedScene.sceneId && record.content,
+    )?.timeline,
+    null,
+  );
 
   const withoutReasoning = await createChat("Explicitly omitted reasoning parameter", undefined, true);
   const withoutReasoningStart = requests.length;

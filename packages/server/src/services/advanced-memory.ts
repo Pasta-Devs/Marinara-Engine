@@ -241,7 +241,7 @@ function policyFingerprint(ctx: Context): string {
 
 function preparationPolicyRevision(ctx: Context): string {
   return hash([
-    "partial-scene-visibility-v19", // Invalidate reusable contexts without rebuilding valid source archives.
+    "scene-timeframe-constants-v20", // Invalidate reusable contexts without rebuilding valid source archives.
     policyFingerprint(ctx),
     ctx.settings,
     ctx.metadata.summaryEntries,
@@ -1739,6 +1739,11 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
           const inputs = [
             logMessages(ctx, source, true),
             ...entries.map((entry) => `User-corrected summary (preserve every character condition):\n${entry.content}`),
+            ...(!restoring && previousRecord && hasSceneTimelineCorrection(previousRecord)
+              ? [
+                  `User-corrected story timeframe (takes precedence): ${previousRecord.timeline || "unknown (use message order)"}.`,
+                ]
+              : []),
             ...corrections.map(
               (item) =>
                 `User-corrected scene summary (honor its corrections):\n${hasSceneTimelineCorrection(item) ? `User-corrected story timeframe (takes precedence): ${item.timeline || "unknown (use message order)"}.\n` : ""}${item.content}`,
@@ -2840,9 +2845,11 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
     if (ctx.individual && !audience.length && input.audienceMode !== "owner")
       throw new Error("Individual Advanced Memory requires a responding character");
     const eligible = allowed(ctx, sources, audience);
+    const eligibleIds = new Set(eligible.map((message) => message.id));
     const visible = eligible.filter((message) => object(message.extra).hiddenFromAI !== true);
+    const currentRecords = await operationRecords(ctx);
     const available = withSourceTimelines(
-      sceneRecords(await operationRecords(ctx)).filter((record) => recordValid(ctx, record)),
+      sceneRecords(currentRecords).filter((record) => recordValid(ctx, record)),
       sources,
     );
     const indexes = new Map(sources.map((message, index) => [message.id, index]));
@@ -2876,6 +2883,20 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
     const { boundaryIndex: initialBoundary } = contextBoundary(ctx, audience);
     let boundaryIndex = initialBoundary;
     let live = visible.filter((message) => indexes.get(message.id)! > boundaryIndex);
+    const constantScenes = available.filter(
+      (record) =>
+        record.kind === "scene" &&
+        record.id !== record.sceneId &&
+        record.status === "closed" &&
+        record.content &&
+        record.enabled &&
+        indexes.has(record.startMessageId) &&
+        indexes.has(record.endMessageId) &&
+        recallAudienceMatches(ctx, record, audience) &&
+        record.messageIds.some((id) => eligibleIds.has(id)) &&
+        !needsSceneVisibilityReview(ctx, record) &&
+        dependenciesValid(record, currentRecords, ctx),
+    );
     const constants = sourceEntries(ctx, sources, historical)
       .map((entry) => {
         const covered = entry.messageIds?.length
@@ -2884,23 +2905,45 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
             ? sources.slice(entry.rangeStartIndex - 1, entry.rangeEndIndex)
             : [];
         const text = renderEntry(ctx, entry.content, audience);
+        const coveredIds = new Set(covered.map((message) => message.id));
+        const timelineRecords = text.trim()
+          ? constantScenes.filter((record) => record.messageIds.some((id) => coveredIds.has(id)))
+          : [];
+        const correctedTimelines = timelineRecords.filter(hasSceneTimelineCorrection);
+        const wholeTimeline =
+          correctedTimelines.length === 1 &&
+          covered.every((message) => correctedTimelines[0]!.messageIds.includes(message.id))
+            ? correctedTimelines[0]
+            : undefined;
+        // Combined constants can span several scenes: keep each correction tied to its own source range.
+        const timelineNotes = wholeTimeline
+          ? ""
+          : correctedTimelines
+              .map((record) => renderMemoryText(indexes, record.messageIds, "", record.timeline, false, true).trim())
+              .join("\n");
         const rendered = covered.length
           ? renderMemoryText(
               indexes,
               covered.map((message) => message.id),
-              text,
-              sourceTimeline(covered),
+              [timelineNotes, text].filter(Boolean).join("\n"),
+              wholeTimeline ? wholeTimeline.timeline : sourceTimeline(covered),
               true,
+              !!wholeTimeline,
             )
           : text;
-        return { messageIds: covered.map((message) => message.id), text: rendered };
+        return { messageIds: covered.map((message) => message.id), text: rendered, timelineRecords };
       })
       .filter((entry) => entry.text);
+    const constantTimelineRecords = new Map<string, StoredRecord>();
     const constantText = () => {
+      constantTimelineRecords.clear();
       const liveIds = new Set(live.map((message) => message.id));
       return constants
         .filter((entry) => entry.messageIds.every((id) => !liveIds.has(id)))
-        .map((entry) => entry.text)
+        .map((entry) => {
+          for (const record of entry.timelineRecords) constantTimelineRecords.set(record.id, record);
+          return entry.text;
+        })
         .join("\n\n");
     };
     let chatSummary = constantText();
@@ -2968,7 +3011,6 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
         tokenSize(currentSceneSummary ?? ""),
     );
     const liveIds = new Set(live.map((message) => message.id));
-    const eligibleIds = new Set(eligible.map((message) => message.id));
     const disabledSceneIds = new Set(
       available
         .filter((record) => record.kind === "scene" && !record.enabled && recallAudienceMatches(ctx, record, audience))
@@ -3304,12 +3346,13 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
           (reason) => reason === "decision-recall-fallback" || reason === "decision-excerpt-fallback",
         ),
       );
-    for (const record of recalledRecords) {
+    for (const record of [...constantTimelineRecords.values(), ...recalledRecords]) {
       receipt.recordRevisions[record.id] = hash([
         record.content,
         record.enabled,
         record.updatedAt,
         record.dependencies,
+        hasSceneTimelineCorrection(record) ? record.timeline : null,
       ]);
     }
     if (
@@ -3330,7 +3373,9 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
       currentSceneSummary,
       recalledScenes,
       recalledMessages,
-      recalledRecordIds: [...new Set(recalledRecords.map((record) => record.id))],
+      recalledRecordIds: [...new Set(recalledRecords.map((record) => record.id))].filter(
+        (id) => !constantTimelineRecords.has(id),
+      ),
       receipt,
     };
   }
@@ -3578,9 +3623,12 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
       const record = await getRecord(chatId, recordId);
       await validateSceneEdits(ctx, record);
       const correctedScene =
-        record.kind === "scene" &&
-        (patch.content !== undefined || patch.timeline !== undefined || patch.audienceCharacterIds !== undefined);
-      if (correctedScene || (record.kind === "scene" && record.manualOverride && patch.enabled === true)) {
+        record.kind === "scene" && (patch.content !== undefined || patch.audienceCharacterIds !== undefined);
+      if (
+        correctedScene ||
+        patch.timeline !== undefined ||
+        (record.kind === "scene" && record.manualOverride && patch.enabled === true)
+      ) {
         const scaffold = (await operationRecords(ctx)).find(
           (item) => item.id === record.sceneId && item.kind === "scene" && recordValid(ctx, item),
         );
@@ -3647,7 +3695,14 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
           : {}),
         // An explicit empty string means unknown; null would recover the old source timeframe.
         ...(patch.timeline !== undefined
-          ? { timeline: patch.timeline.trim(), manualOverride: 1, sourceFingerprint }
+          ? {
+              timeline: patch.timeline.trim(),
+              // Timing is independent of generated recap text and its supporting summary revisions.
+              dependencies: JSON.stringify([
+                ...record.dependencies.filter((dependency) => dependency.id !== SCENE_TIMELINE.id),
+                SCENE_TIMELINE,
+              ]),
+            }
           : {}),
         ...(audienceChanged
           ? {
@@ -3782,7 +3837,13 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
         !record ||
         !recordValid(ctx, record) ||
         !dependenciesValid(record, current, ctx) ||
-        hash([record.content, record.enabled, record.updatedAt, record.dependencies]) !== revision
+        hash([
+          record.content,
+          record.enabled,
+          record.updatedAt,
+          record.dependencies,
+          hasSceneTimelineCorrection(record) ? record.timeline : null,
+        ]) !== revision
       ) {
         throw new Error("A memory changed before generation; retry");
       }
