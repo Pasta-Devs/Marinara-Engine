@@ -112,7 +112,7 @@ World Maps पेज इंस्टॉल किए गए पैकेज क�
 ### Roleplay
 
 1. Roleplay चैट खोलें।
-2. गियर बटन से **Chat Settings** (चैट सेटिंग्स) खोलें।
+2. **Chat Settings** (चैट सेटिंग्स) खोलें।
 3. **Enable Agents** चालू करें।
 4. **Tracker Agents** के नीचे **World Maps** चालू करें।
 5. **Edit world map** या **World map library** खोलें। जिन Engine बिल्ड में यह सुविधा

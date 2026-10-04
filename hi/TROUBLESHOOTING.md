@@ -205,7 +205,7 @@ GitHub से बने सोर्स आर्काइव के बाइ�
 
 चैट के सारांश लिखने के लिए एक चालू टेक्स्ट कनेक्शन चाहिए।
 
-- Roleplay मोड में **Chat Summary** पॉपओवर खोलें और देखें कि कनेक्शन सेट है। पुरानी चैट की भरपाई के लिए **Backfill Summary** इस्तेमाल करें।
+- Roleplay मोड में **Chat Settings** → **Chat Summary** खोलें और देखें कि कनेक्शन सेट है। पुरानी चैट की भरपाई के लिए **Backfill Summary** इस्तेमाल करें।
 - Conversation मोड में **Automatic Summarization** खोलें और जिन दिनों का सारांश फ़ेल हुआ, उनके लिए **Backfill** इस्तेमाल करें।
 - अगर आपकी चैट में एजेंट के लिखे को मंज़ूरी चाहिए, तो AI सारांश लागू होने से पहले आपकी समीक्षा का इंतज़ार करता है।
 - बार-बार फ़ेल होने वाला सारांश (जैसे गलत API कुंजी की वजह से) कुछ देर बाद अपने आप दोबारा आज़माया जाता है। कनेक्शन ठीक करें, फिर **Backfill** इस्तेमाल करें।
@@ -238,9 +238,9 @@ pnpm backgroundremover:install
 Game Mode Storyboards पूरे हो चुके GM (कहानी चलाने वाला AI) नैरेशन को कीफ़्रेम इमेज और वैकल्पिक क्लिप में बदलते हैं। Roleplay Storyboards पूरी हो चुकी बातचीत को जोड़ते हैं और नतीजा असिस्टेंट के जवाब के ठीक बाद वहीं दिखाते हैं।
 
 - देख लें कि **Agents** > **Download Agents** से **Storyboard** इंस्टॉल है, फिर उस चैट के लिए **Enable Agents** और **Enable Storyboards** चालू करें।
-- मैन्युअल सीन वीडियो के लिए पहले **Gallery** (गैलरी) में कोई इमेज जेनरेट करें या अपलोड करें, फिर उसका **Video** या **Animate** एक्शन इस्तेमाल करें। **Gallery** में **Images** और **Videos** अलग टैब में होते हैं, इसलिए **Videos** टैब देखें।
+- मैन्युअल सीन वीडियो के लिए **Chat Settings** → **Gallery** (चैट सेटिंग्स → गैलरी) खोलें, कोई इमेज जेनरेट करें या अपलोड करें, फिर उसका **Video** या **Animate** एक्शन इस्तेमाल करें। **Gallery** में **Images** और **Videos** अलग टैब में होते हैं, इसलिए **Videos** टैब देखें।
 - अपने आप बनने वाले Game Mode Storyboards के लिए **Chat Settings** > **Agents** > **Storyboards** खोलें और देखें कि **Automatic Storyboard Illustrations** चालू है। क्लिप भी चाहिए तो **Automatic Storyboard Animations** भी चालू करें।
-- Roleplay में चैट में **Storyboard** एजेंट जोड़ें। **Still images** या **Animations** चुनें, **Messages per episode** सेट करें, और Storyboard के लिए इमेज कनेक्शन चुनें। **Manual only** चुनने पर यह गैलरी के **Create storyboard** से चलता है।
+- Roleplay में चैट में **Storyboard** एजेंट जोड़ें। **Still images** या **Animations** चुनें, **Messages per episode** सेट करें, और Storyboard के लिए इमेज कनेक्शन चुनें। **Manual only** चुनने पर यह **Chat Settings** के **Gallery** सेक्शन में **Create storyboard** से चलता है।
 - कीफ़्रेम इमेज के लिए इमेज कनेक्शन चाहिए। क्लिप के लिए वीडियो कनेक्शन भी चाहिए।
 - अगर सारे कैरेक्टर एक साथ रखने पर कस्टम प्रॉम्प्ट बेहतर काम करे, तो **Use NovelAI Character Prompts** बंद कर दें।
 - धीमे प्रोवाइडर पर टाइमआउट (सर्वर धीमे काम का कितनी देर इंतज़ार करता है) हो सकता है। `.env` में `IMAGE_GEN_TIMEOUT_MS` या `VIDEO_GEN_TIMEOUT_MS` बढ़ाएँ, फिर Marinara दोबारा शुरू करें। सर्वर ये वैल्यू सिर्फ़ शुरू होते समय पढ़ता है।

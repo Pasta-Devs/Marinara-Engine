@@ -2,6 +2,24 @@
 
 इस गाइड में बताया गया है कि कस्टम CSS थीम से Marinara Engine का पूरा लुक कैसे बदलें। यहाँ थीम बनाना, इंपोर्ट करना, एक्सपोर्ट करना और चालू करना सीखेंगे। साथ ही यह भी पता चलेगा कि कौन-कौन से CSS वेरिएबल बदले जा सकते हैं और थीम Card CSS के साथ कैसे चलती है।
 
+## चैट विंडो के तैयार स्टाइल
+
+CSS लिखे बिना जल्दी रूप बदलने के लिए **Settings → Appearance → App** (सेटिंग्स → अपीयरेंस → ऐप) खोलें और **App Style** के नीचे **Chat widget style** (चैट विजेट स्टाइल) ढूँढें। **Dottore** चैट के कंट्रोल को सियान रंग के उपकरण जैसे फ़्रेम और कटे हुए कोने देता है। **Mari** में गुलाबी और सुनहरे फ़्रेम हैं, जिनकी विंडो के शीर्षक पर Primogem रहता है। उसके बटन और विंडो का बैकग्राउंड एक ही है। हर प्रीसेट का अपना फ़ॉन्ट है, लाइट और डार्क मोड में काम करता है और बटन, विंडो व फैलने वाले सेक्शन को एक साथ बदलता है।
+
+**Font** (फ़ॉन्ट) और **Shape** (आकार) से ये विवरण अलग-अलग बदल सकते हैं। **Preset font** और **Preset shape** चुने हुए स्टाइल का फ़ॉन्ट और आकार इस्तेमाल करते हैं।
+
+उनके नीचे रंग के तीन कंट्रोल हैं। हर कंट्रोल में एक रंग चुनने के लिए पिकर और रंग मिलाने के लिए ग्रेडिएंट का विकल्प है:
+
+- **Border & Buttons Color** (बॉर्डर और बटन का रंग) बाहरी रेखा और बटन के आइकन बदलता है। आइकन ग्रेडिएंट का पहला रंग इस्तेमाल करते हैं।
+- **Background Color** (बैकग्राउंड का रंग) बटन, विंडो, फैलने वाले सेक्शन और एडिट की जा सकने वाली फ़ील्ड भरता है।
+- **Text Color** (टेक्स्ट का रंग) विजेट का टेक्स्ट बदलता है। ग्रेडिएंट शीर्षक और लेबल पर दिखता है; एडिट की जा सकने वाली फ़ील्ड का टेक्स्ट पहला रंग इस्तेमाल करता है।
+
+रंग के ये कंट्रोल सजावटी चिह्नों के मूल रंग नहीं बदलते।
+
+किसी कंट्रोल के पास **Reset color** (रंग रीसेट करें) दबाने से फिर प्रीसेट के लाइट या डार्क रंग लागू होते हैं। प्रीसेट चुनने पर **Font**, **Shape** और तीनों रंग रीसेट होते हैं। **Default** मूल रूप वापस लाता है। विंडो की जगह वैसी ही रहती है जैसी आपने रखी थी।
+
+कस्टम CSS थीम अब भी इन प्रीसेट को बदल सकती हैं। नीचे दिए गए विंडो और ड्रॉअर के सार्वजनिक वेरिएबल प्रीसेट के रंगों से पहले लागू होते हैं। विंडो के अक्षरों के लिए `--mari-window-font-family`, सेक्शन के कोनों के लिए `--mari-drawer-radius`, और शीर्षक की सजावट छिपाने के लिए `--mari-window-ornament: none` इस्तेमाल करें। प्रीसेट की पूरी सजावट हटाने के लिए पहले **Default** चुनें।
+
 ## कस्टम थीम क्या है
 
 कस्टम थीम यानी CSS का एक हिस्सा जो Marinara को नए रंग-रूप में ढाल देता है। CSS का पूरा नाम Cascading Style Sheets है। यही वह कोड है जो पूरे ऐप में रंग, बॉर्डर और स्पेसिंग तय करता है। थीम से पेज का बैकग्राउंड, एक्सेंट रंग, कार्ड, बॉर्डर, टेक्स्ट और बहुत कुछ बदला जा सकता है।
@@ -91,6 +109,100 @@
 कुछ विज़ुअल इफ़ेक्ट के अपने वेरिएबल हैं। उदाहरण के लिए, `--marinara-theme-accent-pulse: enabled` सेट करके थीम एक्सेंट पल्स एनिमेशन माँग सकती है।
 
 सुरक्षा के लिए कस्टम थीम का CSS चलने से पहले साफ़ किया जाता है। ऐसी स्टाइल काम नहीं करतीं जो किसी दूसरी वेबसाइट से फ़ाइल लोड करती हों। थीम के अंदर कोई इमेज या फ़ॉन्ट इस्तेमाल करना हो तो उसे वेब लिंक के बजाय `data:` URI के रूप में एम्बेड करें। `data:` URI फ़ाइल की सामग्री सीधे CSS के अंदर रखता है।
+
+## चैट विंडो और ड्रॉअर की स्टाइल बदलना
+
+कंप्यूटर पर **Chat Settings** (चैट सेटिंग्स) खिसकाई जा सकने वाली विंडो में खुलता है। उसके सिमटने वाले सेक्शन **ड्रॉअर** कहलाते हैं। ड्रॉअर अपनी अलग विंडो में खुल सकता है, फिर छोटे खिसकाए जा सकने वाले बटन में सिमट सकता है, जिसे **बबल** कहते हैं।
+
+बाकी चैट टूल भी यही विंडो और बटन इस्तेमाल करते हैं, जैसे Game controls, Session, Volume, Game Assets, जुड़ी हुई चैट और पैकेज के कंट्रोल। फ़ोन पर विंडो पूरी चौड़ाई वाले पैनल में खुलती हैं और Tracker Panel का अपना खिसकाया जा सकने वाला बटन होता है।
+
+नीचे की क्लास, डेटा एट्रिब्यूट और वेरिएबल से थीम इन हिस्सों को एक साथ बदल सकती है। आपकी थीम के नियम `!important` के बिना भी डिफ़ॉल्ट की जगह लग जाते हैं।
+
+### क्लास
+
+| हिस्सा | क्लास |
+| --- | --- |
+| विंडो | `.mari-window` |
+| टाइटल बार | `.mari-window__header` |
+| शीर्षक और उसका आइकन | `.mari-window__title-row` |
+| शीर्षक | `.mari-window__title` |
+| टाइटल बार के बटन (Reset View, पसंदीदा लेआउट का स्टार, Tracker Panel, छोटा करें, पिन, लॉक, बंद करें, वापस रखें) | `.mari-window__controls` (हर बटन `.mari-window__control` है) |
+| विंडो का कंटेंट | `.mari-window__body` |
+| आकार बदलने वाले किनारे और कोने | `.mari-window__resize-handle` |
+| विंडो में पॉइंटर या फ़ोकस होने पर दिखने वाला कोने का निशान | `.mari-window__resize-grip` |
+| ड्रॉअर | `.mari-drawer` |
+| ड्रॉअर का हेडर और शीर्षक | `.mari-drawer__header`, `.mari-drawer__title` |
+| ड्रॉअर का आइकन, गिनती का बैज और **?** | `.mari-drawer__icon`, `.mari-drawer__count`, `.mari-drawer__help` |
+| सिमटे हुए ड्रॉअर का प्रीव्यू (ट्रैकर का छोटा विजेट) | `.mari-drawer__summary` |
+| तीर के पास ड्रॉअर के बटन और अलग विंडो में खोलने वाला बटन | `.mari-drawer__actions`, `.mari-drawer__popout` |
+| ड्रॉअर का तीर और कंटेंट | `.mari-drawer__arrow`, `.mari-drawer__body` |
+| ड्रॉअर बाहर खींचते समय पॉइंटर के साथ चलने वाला प्रीव्यू | `.mari-drawer-ghost` |
+| छोटी की गई विंडो का बटन (बबल) | `.mari-window-bubble` |
+| खींचा जा रहा बबल दूसरे के साथ सीध में होने पर दिखने वाली रेखा | `.mari-window-snap-guide` |
+| एजेंट चलने पर दिखने वाला बिंदु (Chat Settings बटन, Trackers विंडो) | `.mari-agents-running-dot` |
+
+### डेटा एट्रिब्यूट
+
+- `data-window` विंडो और उसके बबल का नाम बताता है: `chat-settings`, `trackers`, कंट्रोल विंडो के नाम `control:game`, `control:session`, `control:volume`, `control:assets`, `control:connected-chat`, `control:package:<package>` और `control:beholder:<package>`, तथा बाहर निकले ड्रॉअर के लिए `drawer:<window>:<drawer>`, जैसे `drawer:chat-settings:chat-name`।
+- `data-drawer` ड्रॉअर का नाम बताता है, जैसे `chat-name`। कुछ नाम चैट मोड से शुरू होते हैं, जैसे `roleplay-agents` या `conversation-agents`। ट्रैकर के नाम `tracker-world`, `tracker-persona`, `tracker-characters`, `tracker-quests`, `tracker-inventory`, `tracker-custom` और `agent-activity` हैं।
+- `data-presentation` कंप्यूटर की विंडो पर `"window"` और फ़ोन के पैनल पर `"sheet"` होता है।
+- विंडो पिन या लॉक होने पर `data-pinned` और `data-locked` की वैल्यू `"true"` होती है।
+- `data-window-control` हर टाइटल बार बटन का नाम बताता है: `"minimize"`, `"pin"`, `"lock"`, `"close"` या `"put-back"`। दबे हुए पिन या लॉक बटन पर `aria-pressed="true"` भी होता है।
+- `data-chat-settings-control` Chat Settings के अतिरिक्त टाइटल बार बटन पहचानता है: `"reset-view"`, `"favorite-layout"` और `"tracker-panel"`। मौजूदा लेआउट सेव किए गए पसंदीदा लेआउट से मेल खाने पर स्टार का आइकन भरा होता है और `aria-pressed="true"` होता है।
+- आकार बदलने वाले हर हैंडल पर `data-edge` की वैल्यू `"n"`, `"s"`, `"e"`, `"w"`, `"ne"`, `"nw"`, `"se"` या `"sw"` होती है।
+- खुले ड्रॉअर के `.mari-drawer__header` के अंदर वाले टॉगल बटन पर `aria-expanded="true"` होता है।
+- `data-drawer-control="pop-out"` ड्रॉअर को अलग विंडो में खोलने वाला बटन पहचानता है।
+- `data-outside="true"` उस प्रीव्यू पर होता है जिसे विंडो से इतना बाहर खींच लिया गया है कि छोड़ने पर वह अलग विंडो बन जाएगा।
+- ऊपर से नीचे जाने वाली सीध की गाइड पर `data-axis` की वैल्यू `"x"` होती है और आड़ी गाइड पर `"y"`।
+- अपनी विंडो में दिखने वाले ड्रॉअर पर `data-detached` की वैल्यू `"true"` होती है, विंडो पर भी और उसके अंदर के ड्रॉअर पर भी। बाहर निकले ड्रॉअर की विंडो का नाम `data-window="drawer:<window>:<drawer>"` होता है, जैसे `data-window="drawer:chat-settings:chat-name"`, और `data-drawer-host` उस विंडो का नाम बताता है जिससे वह निकला था।
+- शीर्षक खींचते समय ड्रॉअर पर `data-dragging` की वैल्यू `"true"` होती है। बाहर निकला ड्रॉअर वापस रखने के लिए किसी विंडो के ऊपर पकड़ा हो, तो उस विंडो पर `data-drop-target` की वैल्यू `"true"` होती है।
+- बबल पर उसकी विंडो का `data-window` और `data-minimized="true"` होता है, जैसे `.mari-window-bubble[data-window="control:volume"]`। कंट्रोल विंडो के नाम `control:game`, `control:session`, `control:volume`, `control:assets`, `control:connected-chat`, `control:package:<package>` और `control:beholder:<package>` हैं। बबल खींचते समय उस पर `data-dragging` की वैल्यू `"true"` होती है।
+- लॉक किए गए बबल पर `data-locked="true"` होता है, Chat Settings बटन पर भी। वह अपनी विंडो अब भी खोलता है, लेकिन विंडो अनलॉक होने तक खिसक नहीं सकता। ऐसे बटन को अलग रूप देने के लिए `.mari-window-bubble[data-locked="true"]` इस्तेमाल करें।
+- फ़ोन पर विंडो और उनके थोड़े बड़े बबल, दोनों पर `data-presentation="sheet"` होता है। Tracker Panel का बबल `.mari-window-bubble[data-tracker-panel-toggle="bubble"]` है।
+- Chat Settings बटन भी बबल है: `.mari-window-bubble[data-chat-settings-button]`; Chat Settings खुला हो, तो उस पर `data-open="true"` होता है।
+- बाहर निकला सेक्शन जिस बबल में सिमटता है, उस पर `data-drawer-host` होता है (वह विंडो जिससे यह निकला था)। उसकी विंडो का **Put back** बटन `[data-window-control="put-back"]` है।
+
+### वेरिएबल
+
+वैल्यू न देने पर हर वेरिएबल चैट के इंटरफ़ेस के साझा रंग इस्तेमाल करता है। इसलिए थीम को सिर्फ़ वही वेरिएबल देना होता है जिसे वह बदलना चाहती है।
+
+| वेरिएबल | क्या बदलता है |
+| --- | --- |
+| `--mari-window-bg` | विंडो का बैकग्राउंड |
+| `--mari-window-text` | विंडो का टेक्स्ट |
+| `--mari-window-border`, `--mari-window-border-width` | विंडो का बॉर्डर |
+| `--mari-window-radius` | विंडो के कोनों का गोलपन |
+| `--mari-window-shadow` | विंडो की छाया |
+| `--mari-window-backdrop-filter` | विंडो के पीछे का धुँधलापन |
+| `--mari-window-header-bg`, `--mari-window-header-text`, `--mari-window-header-border` | टाइटल बार के रंग |
+| `--mari-window-header-padding` | टाइटल बार में खाली जगह |
+| `--mari-window-control-color`, `--mari-window-control-color-hover`, `--mari-window-control-bg-hover` | टाइटल बार के बटन, पसंदीदा स्टार समेत |
+| `--mari-window-control-color-active`, `--mari-window-control-bg-active` | दबे हुए टाइटल बार बटन, पिन, लॉक और भरे पसंदीदा स्टार समेत |
+| `--mari-window-control-radius`, `--mari-window-control-gap` | बटन का गोलपन और उनके बीच की जगह |
+| `--mari-window-focus-ring` | कीबोर्ड फ़ोकस की बाहरी रेखा और उस विंडो की रेखा जिसमें ड्रॉअर वापस जाएगा |
+| `--mari-window-resize-handle-size` | आकार बदलने वाले किनारों की चौड़ाई |
+| `--mari-window-bubble-size`, `--mari-window-bubble-radius`, `--mari-window-bubble-shadow` | बबल का आकार, गोलपन और छाया |
+| `--mari-window-bubble-bg`, `--mari-window-bubble-bg-hover`, `--mari-window-bubble-border` | बबल का बैकग्राउंड और बॉर्डर |
+| `--mari-window-bubble-text`, `--mari-window-bubble-text-hover` | बबल के आइकन का रंग |
+| `--mari-window-snap-guide` | सीध की गाइड का रंग |
+| `--mari-drawer-bg`, `--mari-drawer-border` | ड्रॉअर का बैकग्राउंड और बीच की रेखा |
+| `--mari-drawer-header-bg`, `--mari-drawer-header-bg-hover` | ड्रॉअर के हेडर के रंग |
+| `--mari-drawer-header-padding`, `--mari-drawer-body-padding-inline`, `--mari-drawer-body-padding-bottom` | ड्रॉअर में खाली जगह |
+| `--mari-drawer-title-color`, `--mari-drawer-icon-color`, `--mari-drawer-arrow-color` | ड्रॉअर के हेडर का टेक्स्ट और आइकन |
+| `--mari-drawer-count-bg`, `--mari-drawer-count-text` | ड्रॉअर पर गिनती का बैज |
+
+सभी विंडो बदलने के लिए वेरिएबल `:root` में सेट करें, या किसी एक को बदलने के लिए उसके सिलेक्टर पर:
+
+```css
+:root {
+  --mari-window-radius: 0.5rem;
+  --mari-window-bubble-bg: #3b0764;
+}
+
+[data-window="chat-settings"] .mari-drawer[data-drawer="chat-name"] {
+  --mari-drawer-border: transparent;
+}
+```
 
 ## साइज़ और नाम की सीमाएँ
 
