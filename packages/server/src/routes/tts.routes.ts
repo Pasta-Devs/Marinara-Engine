@@ -1540,7 +1540,7 @@ export async function ttsRoutes(app: FastifyInstance) {
 
     // Normal speech builds explicit voice requests from this response. Identity
     // overrides are never persisted; editors retain the masked legacy snapshot.
-    const effective = selectedAudio ? maskTTSConfigForResponse(await resolveAudioConfig(storage, connections)) : masked;
+    const effective = selectedAudio ? maskTTSConfigForResponse(voiceContext.config) : masked;
     return {
       ...masked,
       source: effective.source,

@@ -1,6 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 import { seedUIState } from "./ui-state-fixture.js";
 import { readFileSync } from "node:fs";
+import { prepareViteFixtureDependencies } from "./vite-fixture-dependencies.js";
 
 const APP_VERSION = (
   JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as { version: string }
@@ -217,6 +218,65 @@ async function openCard(
 }
 
 test.describe("TTS card selected backend (fully mocked)", () => {
+  test("voice hook follows config cache identity with unchanged props and preserves explicit scopes", async ({
+    page,
+  }) => {
+    const reads: string[] = [];
+    await seedUIState(page, { hasCompletedOnboarding: true, chibiProfessorMariEnabled: false });
+    await page.route("**/api/tts/config", (route) => route.fulfill({ json: {} }));
+    await page.route("**/api/tts/voices*", (route) => {
+      const id = new URL(route.request().url()).searchParams.get("connectionId") ?? "legacy";
+      reads.push(id);
+      return route.fulfill({ json: { voices: [id], source: "openai", fromProvider: true } });
+    });
+    await page.goto("/");
+    await prepareViteFixtureDependencies(page);
+    await page.evaluate(async () => {
+      const url = window.__viteFixtureDependencyUrl;
+      const { default: React } = await import(url("react"));
+      const { default: ReactDOM } = await import(url("react-dom_client"));
+      const { QueryClient, QueryClientProvider } = await import(url("@tanstack_react-query"));
+      const { useTTSVoices } = await import("/src/hooks/use-tts.ts" as string);
+      const qc = new QueryClient({ defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } } });
+      qc.setQueryData(["tts", "config"], {});
+      const mount = document.createElement("div");
+      mount.id = "tts-hook-regression";
+      document.body.appendChild(mount);
+      mount.addEventListener("scope", (event) => {
+        qc.setQueryData(["tts", "config"], { cacheConnectionId: (event as CustomEvent).detail });
+      });
+      function Voices({ label, connectionId }: { label: string; connectionId?: string }) {
+        // No parent config subscriber and no changing props: only the hook can
+        // observe the config update. Fresh voice caches must not mask the switch.
+        const result = useTTSVoices("openai", "https://same.invalid/v1", true, connectionId);
+        return React.createElement("output", { "data-scope": label }, result.data?.voices.join(",") ?? "pending");
+      }
+      ReactDOM.createRoot(mount).render(
+        React.createElement(
+          QueryClientProvider,
+          { client: qc },
+          React.createElement(Voices, { label: "implicit" }),
+          React.createElement(Voices, { label: "explicit", connectionId: "explicit" }),
+          React.createElement(Voices, { label: "legacy", connectionId: "" }),
+        ),
+      );
+    });
+    const fixture = page.locator("#tts-hook-regression");
+    await expect(fixture.locator('[data-scope="implicit"]')).toHaveText("legacy");
+    await expect(fixture.locator('[data-scope="explicit"]')).toHaveText("explicit");
+    await expect(fixture.locator('[data-scope="legacy"]')).toHaveText("legacy");
+    for (const id of ["scope-a", "scope-b", "scope-a", ""]) {
+      await fixture.evaluate((mount, scope) => mount.dispatchEvent(new CustomEvent("scope", { detail: scope })), id);
+      await expect(fixture.locator('[data-scope="implicit"]')).toHaveText(id || "legacy");
+      await expect(fixture.locator('[data-scope="explicit"]')).toHaveText("explicit");
+      await expect(fixture.locator('[data-scope="legacy"]')).toHaveText("legacy");
+    }
+    expect(reads.filter((id) => id === "scope-a")).toHaveLength(1);
+    expect(reads.filter((id) => id === "scope-b")).toHaveLength(1);
+    expect(reads.filter((id) => id === "explicit")).toHaveLength(1);
+    expect(reads.filter((id) => id === "legacy")).toHaveLength(1);
+  });
+
   test("disabled legacy parent assignment and narrator lists share selected provider voices without writes", async ({
     page,
   }) => {

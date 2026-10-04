@@ -175,14 +175,19 @@ export function CustomVoiceManager({ connectionId, onClose }: CustomVoiceManager
     setLocalPreviewPlaying(false);
   }, []);
 
-  // Stop TTS preview playback and release the local object URL on close.
+  // Changing a recording must not cancel a registered-voice TTS preview.
   useEffect(
     () => () => {
       ttsService.stop();
-      stopLocalPreview();
+      localPreviewAudioRef.current?.pause();
+    },
+    [],
+  );
+  useEffect(
+    () => () => {
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     },
-    [objectUrl, stopLocalPreview],
+    [objectUrl],
   );
 
   // Revalidate when the connection changes; drop stale form/file state.
@@ -202,8 +207,12 @@ export function CustomVoiceManager({ connectionId, onClose }: CustomVoiceManager
   const chooseFile = useCallback(
     (next: File | null) => {
       const cid = connectionIdRef.current;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
       stopLocalPreview();
+      if (localPreviewAudioRef.current) {
+        localPreviewAudioRef.current.onended = null;
+        localPreviewAudioRef.current.removeAttribute("src");
+        localPreviewAudioRef.current = null;
+      }
       setFile(next);
       setAudioDuration(null);
       setFileIssue(null);
@@ -230,7 +239,7 @@ export function CustomVoiceManager({ connectionId, onClose }: CustomVoiceManager
         }
       };
     },
-    [objectUrl, stopLocalPreview, t],
+    [stopLocalPreview, t],
   );
 
   const toggleLocalPreview = useCallback(() => {
@@ -333,7 +342,9 @@ export function CustomVoiceManager({ connectionId, onClose }: CustomVoiceManager
       );
       invalidateTTSQueries();
       if (isCurrent(cid)) {
-        const created = result.voices.find((v) => v.displayName === body.displayName);
+        const created = result.voices
+          .filter((v) => v.displayName === body.displayName && v.status !== "deleted")
+          .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
         if (created?.status === "ready") {
           toast.success(t("ui.panels.customvoicemanager.uploadSuccess", { value1: body.displayName }));
         } else {

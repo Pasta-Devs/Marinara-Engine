@@ -26,6 +26,8 @@ const { TTS_API_KEY_MASK, TTS_SETTINGS_KEY } = await import("../../packages/shar
 const { createFileNativeDB } = await import("../../packages/server/src/db/file-backed-store.js");
 const { createAppSettingsStorage } = await import("../../packages/server/src/services/storage/app-settings.storage.js");
 const { decryptApiKey } = await import("../../packages/server/src/utils/crypto.js");
+const { createConnectionsStorage } = await import("../../packages/server/src/services/storage/connections.storage.js");
+const { apiConnections } = await import("../../packages/server/src/db/schema/index.js");
 const { errorHandler } = await import("../../packages/server/src/middleware/error-handler.js");
 const { ttsRoutes } = await import("../../packages/server/src/routes/tts.routes.js");
 const { voiceContextSnapshot } = await import("../../packages/server/src/services/tts/custom-voice-service.js");
@@ -306,6 +308,72 @@ try {
     assert.deepEqual(afterCleanup.sourceProfiles.elevenlabs, beforeCleanup.sourceProfiles.elevenlabs);
     assert.equal((await journal.read())!.voices[0]!.status, "deleted", "cleanup retains the tombstone");
   }
+
+  // Switch defaults after the selected context's row has been captured. The
+  // response identity and managed-voice revision must still describe that row,
+  // not independently resolve the new default after reading its voice journal.
+  const connections = createConnectionsStorage(db);
+  const a = (await connections.create({
+    name: "Context A",
+    provider: "audio",
+    audioSource: "openai",
+    baseUrl: "https://a.invalid/v1",
+    model: "model-a",
+    audioVoice: "voice-a",
+    apiKey: "secret-a",
+    defaultForAgents: true,
+  }))!;
+  const b = (await connections.create({
+    name: "Context B",
+    provider: "audio",
+    audioSource: "elevenlabs",
+    baseUrl: "https://b.invalid",
+    model: "model-b",
+    audioVoice: "voice-b",
+    apiKey: "secret-b",
+  }))!;
+  const beforeSwitch = await readConfig();
+  const originalSelect = db.select;
+  let connectionReads = 0;
+  let switched = false;
+  db.select = ((...args: Parameters<typeof db.select>) => {
+    const query = originalSelect(...args);
+    const originalFrom = query.from.bind(query);
+    query.from = ((...fromArgs: Parameters<typeof query.from>) => {
+      const selection = originalFrom(...fromArgs);
+      if (fromArgs[0] === apiConnections) {
+        const originalRun = selection.run.bind(selection);
+        selection.run = async () => {
+          const rows = await originalRun();
+          if (++connectionReads === 3) {
+            switched = true;
+            await connections.update(b.id, { defaultForAgents: true });
+          }
+          return rows;
+        };
+      }
+      return selection;
+    }) as typeof query.from;
+    return query;
+  }) as typeof db.select;
+  try {
+    const response = await app.inject({ method: "GET", url: "/api/tts/config" });
+    assert.equal(response.statusCode, 200, response.body);
+    assert.ok(switched, "the default switched during the request");
+    const config = response.json<TTSConfig & { legacyConfig: TTSConfig }>();
+    assert.equal(config.cacheConnectionId, a.id);
+    assert.equal(config.cacheVoiceRevision, beforeSwitch.cacheVoiceRevision);
+    assert.equal(config.source, "openai");
+    assert.equal(config.baseUrl, "https://a.invalid/v1");
+    assert.equal(config.model, "model-a");
+    assert.equal(config.voice, "voice-a");
+    assert.equal(config.apiKey, TTS_API_KEY_MASK);
+    assert.deepEqual(config.legacyConfig, (beforeSwitch as typeof config).legacyConfig);
+    assert.ok(!response.body.includes("secret-a") && !response.body.includes("secret-b"));
+  } finally {
+    db.select = originalSelect;
+  }
+  assert.equal((await readConfig()).cacheConnectionId, b.id, "the next request sees the new default");
 
   // Settings this version cannot read, such as a newer version's provider, are kept instead of replaced by defaults.
   const unreadable = JSON.stringify({ ...recovered, source: "newer-provider" });

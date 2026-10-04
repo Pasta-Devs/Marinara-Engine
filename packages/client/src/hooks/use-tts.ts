@@ -71,8 +71,8 @@ export function useUpdateTTSVoiceMode() {
 // ── Voices ───────────────────────────────────────
 
 export function useTTSVoices(source: TTSSource, baseUrl: string, enabled: boolean, connectionId?: string) {
-  const qc = useQueryClient();
-  connectionId ??= qc.getQueryData<TTSConfigResponse>(KEYS.config)?.cacheConnectionId;
+  const { data: config } = useTTSConfig();
+  connectionId ??= config?.cacheConnectionId;
   return useQuery({
     queryKey: KEYS.voices(source, baseUrl, connectionId),
     queryFn: () =>

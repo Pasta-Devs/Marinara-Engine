@@ -26,8 +26,9 @@ test.beforeEach(async ({ page }) => {
  *
  * Honest limitation: because the endpoints are mocked, this verifies the client
  * flow (read-only open/refresh, file preview without synthesis/registration,
- * capability explanation, register happy-path, uncertain outcome, and stale
- * snapshot isolation) — not the acoustic quality of the resulting voice.
+ * capability explanation, register happy-path, uncertain outcome, stale
+ * snapshot isolation, recording replacement, and independent preview lifecycles)
+ * — not the acoustic quality of the resulting voice.
  *
  */
 
@@ -250,6 +251,159 @@ test.describe("custom voice management (mocked provider)", () => {
     expect(tracker.speak).toEqual([]);
   });
 
+  test("replacing an already-previewed recording plays the new object URL", async ({ page, request }) => {
+    const id = await createAudioConnection(request, "CVM Replace Preview", "openai");
+    const tracker = trackRequests(page);
+    mockCustomVoices(page, {
+      get: () => baseMgmt({ profile: "vllm-omni", capability: "explicit" }),
+    });
+    await openConnectionEditor(page, id);
+    await manageButton(page).click();
+    const modal = page.getByRole("dialog");
+    await expect(modal.locator("#cvm-file")).toBeAttached();
+
+    // Instrument source selection/lifecycle only: no real playback or acoustic claim.
+    await page.evaluate(() => {
+      const state = {
+        created: [] as string[],
+        revoked: [] as string[],
+        played: [] as string[],
+        paused: [] as string[],
+      };
+      (window as any).__cvmAudio = state;
+      const create = URL.createObjectURL.bind(URL);
+      const revoke = URL.revokeObjectURL.bind(URL);
+      URL.createObjectURL = (blob) => {
+        const url = create(blob);
+        state.created.push(url);
+        return url;
+      };
+      URL.revokeObjectURL = (url) => {
+        state.revoked.push(url);
+        revoke(url);
+      };
+      const paused = new WeakMap<HTMLMediaElement, boolean>();
+      Object.defineProperty(HTMLMediaElement.prototype, "paused", {
+        get() {
+          return paused.get(this) ?? true;
+        },
+      });
+      HTMLMediaElement.prototype.play = function () {
+        paused.set(this, false);
+        state.played.push(this.src);
+        return Promise.resolve();
+      };
+      HTMLMediaElement.prototype.pause = function () {
+        paused.set(this, true);
+        state.paused.push(this.src);
+      };
+    });
+
+    await modal.locator("#cvm-file").setInputFiles(makeWav());
+    await modal.getByRole("button", { name: "Play local preview", exact: true }).click();
+    await expect(modal.getByRole("button", { name: "Stop local preview", exact: true })).toBeVisible();
+    await modal.locator("#cvm-file").setInputFiles({ ...makeWav(), name: "replacement.wav" });
+    await expect(modal.getByRole("button", { name: "Play local preview", exact: true })).toBeVisible();
+    await modal.getByRole("button", { name: "Play local preview", exact: true }).click();
+    await expect(modal.getByRole("button", { name: "Stop local preview", exact: true })).toBeVisible();
+
+    const audio = await page.evaluate(() => (window as any).__cvmAudio);
+    expect(audio.created).toHaveLength(2);
+    expect(audio.created[1]).not.toBe(audio.created[0]);
+    expect(audio.played).toEqual(audio.created);
+    expect(audio.paused).toContain(audio.created[0]);
+    expect(audio.revoked).toEqual([audio.created[0]]);
+    expect(tracker.mutations).toEqual([]);
+    expect(tracker.speak).toEqual([]);
+  });
+
+  test("choosing and replacing a recording does not stop a registered voice test", async ({ page, request }) => {
+    const id = await createAudioConnection(request, "CVM Independent Preview", "openai");
+    mockCustomVoices(page, {
+      get: () =>
+        baseMgmt({
+          profile: "vllm-omni",
+          capability: "explicit",
+          voices: [
+            {
+              id: "marinara_preview",
+              displayName: "Existing Clone",
+              status: "ready",
+              createdAt: "2026-01-01T00:00:00Z",
+            },
+          ],
+        }),
+    });
+    await openConnectionEditor(page, id);
+    await manageButton(page).click();
+    const modal = page.getByRole("dialog");
+    await expect(modal.getByRole("button", { name: "Test", exact: true })).toBeVisible();
+    // Hold the service call pending deterministically; spy on cancellation, not sound.
+    await page.evaluate(async () => {
+      const { ttsService } = await import("/src/lib/tts-service.ts" as string);
+      const state = { stops: 0, voices: [] as string[] };
+      (window as any).__cvmTTS = state;
+      let finish: (() => void) | undefined;
+      ttsService.speak = (_text: string, _id: string, options: { voice: string }) => {
+        state.voices.push(options.voice);
+        return new Promise<void>((resolve) => {
+          finish = resolve;
+        });
+      };
+      ttsService.stop = () => {
+        state.stops += 1;
+        finish?.();
+      };
+    });
+    await modal.getByRole("button", { name: "Test", exact: true }).click();
+    await expect(modal.getByRole("button", { name: "Speaking…", exact: true })).toBeVisible();
+    await modal.locator("#cvm-file").setInputFiles(makeWav());
+    await expect(modal.getByRole("button", { name: "Play local preview", exact: true })).toBeVisible();
+    await modal.locator("#cvm-file").setInputFiles({ ...makeWav(), name: "replacement.wav" });
+    await expect(modal.getByText(/replacement\.wav/)).toBeVisible();
+    await expect(modal.getByRole("button", { name: "Speaking…", exact: true })).toBeVisible();
+    expect(await page.evaluate(() => (window as any).__cvmTTS)).toEqual({ stops: 0, voices: ["marinara_preview"] });
+
+    // Positive control: closing management still cancels the registered preview.
+    await page.keyboard.press("Escape");
+    await expect(modal).toHaveCount(0);
+    await expect.poll(() => page.evaluate(() => (window as any).__cvmTTS.stops)).toBe(1);
+  });
+
+  test("a failed deletion reports uncertainty rather than claiming the provider retained the voice", async ({
+    page,
+    request,
+  }) => {
+    const id = await createAudioConnection(request, "CVM Unconfirmed Delete", "openai");
+    mockCustomVoices(page, {
+      get: () =>
+        baseMgmt({
+          profile: "vllm-omni",
+          capability: "explicit",
+          voices: [{ id: "marinara_delete", displayName: "Clone", status: "ready", createdAt: "2026-01-01T00:00:00Z" }],
+        }),
+      post: (body, _s, isDelete) => {
+        expect(isDelete).toBe(true);
+        expect(body.id).toBe("marinara_delete");
+        return { __status: 502, error: "Provider response lost." };
+      },
+    });
+    await openConnectionEditor(page, id);
+    await manageButton(page).click();
+    const modal = page.getByRole("dialog");
+    await modal.getByRole("button", { name: "Delete", exact: true }).click();
+    await modal.getByRole("button", { name: "Delete voice", exact: true }).click();
+    await expect(
+      modal.getByText(
+        "Could not confirm deletion: Provider response lost. Refresh the provider list before retrying.",
+        { exact: true },
+      ),
+    ).toBeVisible();
+    await expect(modal.getByText(/The voice was not removed/)).toHaveCount(0);
+    await expect(modal.getByRole("button", { name: "Delete voice", exact: true })).toBeEnabled();
+    await expect(page.getByText("Deleted Clone", { exact: true })).toHaveCount(0);
+  });
+
   test("unsupported source explains why the profile cannot be used", async ({ page, request }) => {
     const id = await createAudioConnection(request, "CVM Unsupported", "elevenlabs");
     mockCustomVoices(page, {
@@ -313,6 +467,61 @@ test.describe("custom voice management (mocked provider)", () => {
     await expect(modal.getByText("Aria Clone").first()).toBeVisible();
     await expect(modal.getByText("Ready", { exact: true })).toBeVisible();
     await expect(page.getByText("Uploaded custom voice Aria Clone", { exact: true })).toBeVisible();
+  });
+
+  test("upload reusing a deleted display name reports the newest live voice as successful", async ({
+    page,
+    request,
+  }) => {
+    const id = await createAudioConnection(request, "CVM Reused Name", "openai");
+    mockCustomVoices(page, {
+      get: (s) =>
+        s.profile
+          ? s
+          : baseMgmt({
+              profile: "vllm-omni",
+              capability: "explicit",
+              voices: [
+                {
+                  id: "marinara_deleted",
+                  displayName: "Aria Clone",
+                  status: "deleted",
+                  createdAt: "2026-01-01T00:00:00Z",
+                },
+                {
+                  id: "marinara_old",
+                  displayName: "Aria Clone",
+                  status: "unavailable",
+                  createdAt: "2026-01-02T00:00:00Z",
+                },
+              ],
+            }),
+      post: (b, s) => ({
+        ...s,
+        voices: [
+          ...s.voices,
+          { id: "marinara_new", displayName: b.displayName, status: "ready", createdAt: "2026-01-03T00:00:00Z" },
+        ],
+      }),
+    });
+    await openConnectionEditor(page, id);
+    await manageButton(page).click();
+    const modal = page.getByRole("dialog");
+    await expect(modal.getByText("Deleted", { exact: true })).toBeVisible();
+    await modal.locator("#cvm-file").setInputFiles(makeWav());
+    await modal.locator("#cvm-display-name").fill("Aria Clone");
+    await modal.locator("#cvm-consent").fill("rec-reused-name");
+    await modal.locator('input[type="checkbox"]').first().check();
+    await modal.getByRole("button", { name: "Upload voice" }).click();
+    await expect(page.getByText("Uploaded custom voice Aria Clone", { exact: true })).toBeVisible();
+    await expect(modal.getByText("Ready", { exact: true })).toBeVisible();
+    await expect(modal.getByText("Deleted", { exact: true })).toBeVisible();
+    await expect(
+      page.getByText(
+        "The server accepted the upload but can't confirm the voice is ready yet. Refresh before re-uploading.",
+        { exact: true },
+      ),
+    ).toHaveCount(0);
   });
 
   test("saving a different profile invalidates upload permission and deletion confirmation", async ({
