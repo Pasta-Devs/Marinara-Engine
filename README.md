@@ -36,6 +36,9 @@ inventory, five translation issues, four newly translated guides, and the
 explicitly deferred Game Mode work. Audits are contributor records outside the
 downloadable packs.
 
+[Chat window guide catch-up](audits/2026-10-04-chat-window-guides.md) tracks the
+in-progress #7054 update across all ten packs, including widget color controls.
+
 ## UI language packs
 
 `ui/<BCP-47>.json` contains community interface translations, separate from documentation folders.
