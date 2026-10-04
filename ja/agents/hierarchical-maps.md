@@ -77,7 +77,7 @@ World Mapsのページには、インストール済みのパッケージのバ�
 ### Roleplay
 
 1. Roleplayのチャットを開きます。
-2. 歯車ボタンで**Chat Settings**を開きます。
+2. **Chat Settings**を開きます。
 3. **Enable Agents**をオンにします。
 4. **Tracker Agents**の下で**World Maps**を有効にします。
 5. **Edit world map**または**World map library**を開きます。対応しているEngineのビルドでは、デスクトップの上部バーにある地球儀のアイコンから同じライブラリーを開けます。モバイルではChatsのパネルにある地球儀のアイコンを使います。

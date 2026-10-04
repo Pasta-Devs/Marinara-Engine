@@ -15,7 +15,7 @@
 基本値は**Presets > Parameters**(プリセット > パラメーター)、接続の値は**Connections > Default Parameters**(接続 > デフォルトパラメーター)で編集します。チャットごとの上書きは**Chat Settings > Advanced Parameters**(チャット設定 > 詳細パラメーター)で設定します。
 
 1. 変更したいチャットを開きます。
-2. **Chat Settings**(チャット設定)を開きます(アクティブなチャットの歯車アイコンです)。
+2. **Chat Settings**(チャット設定)を開きます(チャット内の**Chat Settings**ボタンで、移動していなければ右上にあります)。
 3. **Advanced Parameters**セクションを探し、クリックして展開します。
 
 「Override generation parameters for this chat. Only change these if you know what you're doing.」という補足が表示されます。以下で説明する設定は、すべて**Advanced Parameters**の中にあります。

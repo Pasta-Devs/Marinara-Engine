@@ -109,7 +109,7 @@ Roleplayの絵コンテは、完了した一連のメッセージを1つの映�
    - **Still images**: イラスト付きのエピソードを自動で作ります。
    - **Animations**: キーフレーム画像と、フレームごとのクリップを自動で作ります。動画の接続が必要です。
 4. **Messages per episode**と**Keyframes per episode**を設定します。
-5. 新しいAIの返信を完了させるか、Galleryを開いて**Create storyboard**を選びます。
+5. 新しいAIの返信を完了させるか、**Chat Settings > Gallery**を開いて**Create storyboard**を選びます。
 
 キーフレームが複数ある絵コンテでは、矢印でフレームを切り替えます。アニメーション付きのフレームは、そのまま再生できるクリップを表示します。クリップが生成中か利用できない場合は画像を表示します。
 
@@ -149,7 +149,7 @@ Game Modeの絵コンテは、完了したGMの語り1ターンだけを物語�
 3. **Chat Settings > Agents**を開き、**Enable Agents**をオンにしてから**Enable Storyboards**をオンにします。
 4. そのGameに画像の接続があるか、全体のStoryboardの設定が画像の接続を用意しているかを確かめます。
 5. GMの語りのターンを終わらせます。
-6. **Gallery**を開いて**Create storyboard**を選びます。
+6. **Chat Settings > Gallery**を開いて**Create storyboard**を選びます。
 
 閉じたGameのビューアーを開き直すには、Galleryで**View storyboard**を選びます。手動生成は現在のアニメーション設定に従うので、**Automatic Storyboard Animations**がオンなら、手動の絵コンテもクリップを要求します。
 
@@ -275,7 +275,7 @@ Storyboardエージェントは、StandardとStoryboard Optimizedのどちらの
 
 **Floating viewer**は、Gameの上に浮かぶ、ドラッグとリサイズができるパネルです。GMの語りを読んでいる位置を追いかけ、対応するフレームを表示します。動画は用意できていれば再生し、そうでなければフレームの画像を表示します。
 
-**Game background**は、現在のフレームをGameの操作要素の後ろに敷きます。このモードのあいだは通常生成するシーンの背景を置き換えるため、いつもの**Generate background**は使えません。背景のクリップは1回だけ再生し、最後のフレームで停止します。再生し直し、再生と一時停止、ミュートの操作はGameの操作要素から行えます。
+**Game background**は、再生中のフレームをGame画面のほかの要素の背後に置きます。このモードが有効な間は、通常の生成されたシーン背景を置き換えるため、通常の**Generate background**操作は使えません。背景のクリップは一度再生され、最後のフレームで止まります。最初から再生、再生と一時停止、ミュートを操作するには、**Game controls**(ゲームの操作、最初はチャットの右上付近にある円形の矢印ボタン)をクリックまたはタップしてください。コンピューターではウィンドウ、スマートフォンではパネルとして開きます。Chat Settingsに移した場合は、代わりにそこの**Game controls**セクションを開いてください。
 
 フローティングのビューアーを閉じると、現在のターンのあいだだけ隠れます。開き直すには**Gallery > View storyboard**を使います。
 

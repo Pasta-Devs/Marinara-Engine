@@ -152,7 +152,7 @@ Game ModeにはGame Assetsを使った独自の背景音楽が最初から用意
 
 SpotifyはGame Modeでは少し動きが違います。シーンが変わるたびに、サーバーが選択中のソースから実在する候補曲の短いリストを作ります。AIはそのリストから1曲を選びます。この仕組みによって、AIが存在しない曲を作り出すことを防いでいます。Game Modeでは常に1曲をループ再生します。
 
-ターン中は、アクションメニューに**Retry Music DJ**ボタンが表示され、そのシーンの曲を選び直せます。
+**Game controls**(ゲームの操作)を開き、**Retry Music DJ**を選ぶと、現在のシーンの曲を選び直せます。コンピューターでもスマートフォンでも使えます。[Gameの操作](../game/getting-started.md#the-games-controls)を参照してください。
 
 ## ConversationのMusicコマンド
 

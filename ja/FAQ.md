@@ -133,7 +133,7 @@ Noodleは、キャラクターのためにMarinaraが用意した、ローカル
 AIモデルが一度に扱える文章の量には限りがあるので、長いチャットでは古いメッセージが視界から外れていきます。Marinaraには、これを補う仕組みが2つあります。
 
 - **Memory Recall**(記憶の呼び出し)は過去のメッセージを検索し、関連の深い部分だけをそっとプロンプトに挿入します。**Chat Settings**の**Memory Recall**でオンにします。
-- 要約は古いメッセージを短くまとめます。Roleplayのチャットでは**Chat Summary**、Conversationのチャットでは**Automatic Summarization**を使います。
+- 要約は古いメッセージを短くまとめます。Roleplayのチャットでは**Chat Summary**、Conversationのチャットでは**Automatic Summarization**を使います。どちらも**Chat Settings**にあります。
 
 Roleplayのコンテキストを自動管理するには、**Chat Settings → Memory Recall**で**Advanced Memory Recall**(高度な記憶の呼び出し)をオンにしてください。直近の履歴を残し、長さを制限した継続用の要約を保ち、選んだ推定コンテキスト上限の範囲で古いシーンを選択的に呼び出します。設定、進捗、編集はドロワー内で行います。以前からあるIndividual(個別)グループチャットでは、各キャラクターの知識範囲を一度確認する必要がある場合があります。 任意の**Use Decision model**を使うと、保存した判断接続がシーンを検出して記憶を選択します。要約は引き続き補助モデルが作成します。
 
@@ -182,7 +182,7 @@ Professor MariはMarinaraの通常のソースファイルなら編集できま�
 
 ダウンロードして使う**Storyboard**エージェントは、できあがった物語の文章を、順番に並んだキーフレーム画像に変えます。各キーフレームを短いクリップとして動かすこともできます。**Game Mode**では、終了したゲームマスター(GM)の語り1ターン分を絵コンテにして、フローティングのビューアーかGameの背景にキーフレームを表示します。**Roleplay**では、新しくそろったやり取りをまとめ、チャット内のエピソードとして表示します。
 
-Game Modeで使うには、**Agents > Download Agents**から**Storyboard**をインストールします。Gameを開いて**Chat Settings > Agents**に移動し、**Enable Agents**(エージェントを有効にする)と**Enable Storyboards**(絵コンテを有効にする)をオンにして、Game側かStoryboardの全体設定で画像生成の接続を指定します。GMの語りが1ターン分終わったら、**Gallery**(ギャラリー)を開いて**Create storyboard**(絵コンテの作成)をクリックします。ビューアーを開き直すときは**View storyboard**(絵コンテの表示)を使います。
+Game Modeで使うには、**Agents > Download Agents**から**Storyboard**をインストールします。Gameを開いて**Chat Settings > Agents**に移動し、**Enable Agents**(エージェントを有効にする)と**Enable Storyboards**(絵コンテを有効にする)をオンにして、Game側かStoryboardの全体設定で画像生成の接続を指定します。GMの語りが1ターン分終わったら、**Chat Settings > Gallery**(チャット設定 > ギャラリー)を開いて**Create storyboard**(絵コンテの作成)をクリックします。ビューアーを開き直すときは**View storyboard**(絵コンテの表示)を使います。
 
 Gameの絵コンテを自動で作るには、**Automatic Storyboard Illustrations**をオンにします。クリップも欲しいときは、**Automatic Storyboard Animations**もオンにして、Video Generationの接続を選びます。新規Gameの設定ウィザードにある**Storyboard Optimized**の演出は、GMの語り方を整えるだけです。エージェントのインストールや有効化は行いません。GameとRoleplayの設定、プロンプト、ビューアー、移行時の動作、トラブル対処については、[Storyboardエージェントガイド](game/storyboard.md)を参照してください。
 

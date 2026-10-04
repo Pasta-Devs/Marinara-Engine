@@ -146,6 +146,22 @@ Game Modeでもっとも難しいのは世界の生成です。項目の欠け�
 
 パラメーターの詳しい説明は[生成パラメーター](../prompts/generation-parameters.md)を参照してください。
 
+<a id="the-games-controls"></a>
+
+## Gameの操作
+
+Gameの操作は、チャットの右上付近にあるボタンから開きます。
+
+- **Game controls**(ゲームの操作、円形の矢印): **Retry turn**、**Retry scene analysis**、Music DJがGameの音楽を流している場合の**Retry Music DJ**、**Retry assets image generation**があります。絵コンテをGameの背景として再生しているときは、最初から再生、再生と一時停止、ミュートの操作も表示されます。
+- **Session**(セッション、羽根): セッション履歴、記録、セッションの操作があります。[Game Mode: セッションと保存](sessions-and-saves.md)を参照してください。
+- **Volume**(音量、スピーカー): **Master**、**Music**、**Sound Effects**、**TTS**、**Ambient**の音量を調整します。
+- **Game Assets**(ゲームアセット、フォルダー): シーンのメディアとAsset Browserがあります。[ゲームアセット](game-assets.md)を参照してください。
+- **Connected chat**(接続したチャット): GameがConversationにリンクされているときに表示されます。[接続したチャット](../chats/connected-chats.md#switching-between-connected-chats)を参照してください。
+
+ボタンをクリックまたはタップすると、コンピューターでは移動できるウィンドウ、スマートフォンでは画面幅いっぱいのパネルに操作が開きます。ボタンはドラッグして移動できます。ウィンドウやパネルを閉じると、ボタンが戻ります。[操作ウィンドウとボタン](../chats/chat-settings.md#control-windows-and-their-buttons)を参照してください。
+
+これらの操作は**Chat Settings**の中にも置けます。操作ウィンドウを開き、**Put back in Chat Settings**(Chat Settingsに戻す)を選ぶと、展開できるセクションとして表示されます。その切り離しボタンで、再び独立したウィンドウにできます。選択はゲームごとに保存され、**Reset View**で初期位置のボタンに戻せます。
+
 ## 各トピックの解説はどこにあるか
 
 このガイドはゲームを始めるところまでを扱います。より詳しいトピックには、それぞれ専用のガイドがあります。

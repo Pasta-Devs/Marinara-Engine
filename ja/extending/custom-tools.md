@@ -140,7 +140,7 @@ AIが`x`に2、`y`に3を入れて`add_numbers`を呼び出すと、ツールは
 
 ツールを作っただけでは、AIはそれを使いません。チャットごとにツール利用をオンにする必要があります。
 
-1. チャットを開き、歯車をクリックして**Chat Settings**(チャット設定)を開きます。
+1. チャットを開き、**Chat Settings**(チャット設定)を開きます。
 2. **Function Calling**セクションを開きます(アイコンはレンチです)。
 3. **Enable Tool Use**(ツールの使用を有効にする)をオンにします。説明には**Allow AI to call functions (dice rolls, game state, etc.)**と表示されます。新しいチャットではデフォルトでオフです。
 

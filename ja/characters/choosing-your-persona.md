@@ -16,7 +16,7 @@
 
 ### Chat Settingsからの設定
 
-1. **Chat Settings**(チャット設定)を開きます(チャットの近くにある歯車アイコン)。
+1. **Chat Settings**(チャット設定)を開きます(チャット内の**Chat Settings**ボタンで、移動していなければ右上にあります)。
 2. **Persona**セクションを探します。説明文は「Your persona defines who you are in this chat.」で始まります。
 3. ペルソナが未設定のときは「No persona selected.」と表示します。
 4. **Choose Persona**(ペルソナを選ぶ)をクリックします。ペルソナを設定済みの場合、このボタンは**Change Persona**に変わります。

@@ -40,9 +40,9 @@ Marinaraでは「group」という言葉がいくつかの意味で使われま�
 
 ## 作成後のメンバー管理
 
-キャラクターの追加、削除、並べ替えは**Chat Settings**(チャット設定)パネルで行います。チャットヘッダーの歯車アイコンから開きます。歯車のツールチップは**Chat Settings**です。
+キャラクターの追加、削除、並べ替えは**Chat Settings**(チャット設定)で行います。チャット内の**Chat Settings**ボタンから開きます。
 
-パネルの中には**Characters**セクションがあります。ここにはメンバー数と、「Characters in this chat. Each character has their own personality that the AI roleplays as.」という説明文が表示されます。各メンバーの行には、アバター、キャラクター名、ドラッグハンドル、目のアイコン、ゴミ箱アイコンが並びます。
+Chat Settingsの中には**Characters**セクションがあります。ここにはメンバー数と、「Characters in this chat. Each character has their own personality that the AI roleplays as.」という説明文が表示されます。各メンバーの行には、アバター、キャラクター名、ドラッグハンドル、目のアイコン、ゴミ箱アイコンが並びます。
 
 - キャラクターを1人追加するには、**Add Character**をクリックして検索します。
 - フォルダーごと追加するには、**Add from Folder**をクリックして選びます。

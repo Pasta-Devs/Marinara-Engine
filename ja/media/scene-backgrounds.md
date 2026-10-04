@@ -1,6 +1,6 @@
 # シーン背景とギャラリー
 
-このガイドでは、AIが生成するシーン背景、つまりMarinara Engineが**Gallery**(ギャラリー)から作る背景画像と、Galleryパネルそのものについて説明します。関連するガイドが2つあります。手動でアップロードして選ぶライブラリーについては[チャットの背景](../appearance/chat-backgrounds.md)を、ターンごとに背景を自動で選ぶエージェントについては[Roleplayの背景](../roleplay/backgrounds.md)を参照してください。
+このガイドでは、AIが生成するシーン背景、つまりMarinara Engineが**Gallery**(ギャラリー)から作る背景画像と、Galleryそのものについて説明します。関連するガイドが2つあります。手動でアップロードして選ぶライブラリーについては[チャットの背景](../appearance/chat-backgrounds.md)を、ターンごとに背景を自動で選ぶエージェントについては[Roleplayの背景](../roleplay/backgrounds.md)を参照してください。
 
 ## シーン背景が使える場所
 
@@ -14,11 +14,11 @@ Scene background generation is available in Roleplay and Game modes.
 
 ## Galleryから背景を生成して適用する
 
-**Gallery**は、チャットごとの画像と動画のパネルです。チャットのツールバーにある画像アイコンから開きます。**Background**(背景)ボタンを押すと、現在のシーンに合わせた背景を生成できます。
+**Gallery**には、チャットの画像と動画が保存されます。**Chat Settings**(チャット設定)内のセクションなので、Chat Settingsを開いて**Gallery**を展開してください。コンピューターでは、独立したウィンドウとして切り離すこともできます([チャット設定の概要](../chats/chat-settings.md#popping-a-section-out-into-its-own-window)を参照)。**Background**(背景)ボタンを押すと、現在のシーンに合わせた背景を生成できます。
 
 背景を生成する手順は次のとおりです。
 
-1. **Gallery**パネルを開きます。
+1. **Chat Settings**内の**Gallery**セクションを開きます。
 2. **Background**ボタンをクリックします。
 3. 画像を作成している間、ボタンの表示が**Generating...**に変わります。
 4. 次の状態メッセージが表示されます: 「AI background generation is running. The new background will be applied when it finishes.」
@@ -36,11 +36,11 @@ Choose an image generation connection for the Illustrator agent, or mark one as 
 
 このときは、**Connections**(接続)パネルを開いて**Defaults**(デフォルト)を展開し、**Images**で画像の接続を選びます。または**Illustrator**エージェント側で画像の接続を個別に指定します。
 
-## Galleryパネル
+## Galleryセクション
 
 **Gallery**には**Images**と**Videos**の2つのタブがあります。各タブには保持している項目数が表示されます。**Videos**タブは、そのチャットでシーン動画が有効なときだけ表示されます。
 
-パネル上部の操作ボタンは、対応する機能がそのチャットで使えるときだけ表示されます。
+セクション上部の操作ボタンは、対応する機能がそのチャットで使えるときだけ表示されます。
 
 - **Illustrate**(イラスト生成): Illustratorエージェントを実行し、その場かぎりのシーン画像を作ります。[Illustratorエージェント](illustrator-agent.md)を参照してください。
 - **Selfie**(自撮り): Conversationモードでキャラクターの自撮り写真を生成します。

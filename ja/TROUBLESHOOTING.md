@@ -205,7 +205,7 @@ GitHubが生成するソースアーカイブは、コミットの内容が変�
 
 チャットの要約を書くには、動作するテキスト用の接続が必要です。
 
-- Roleplayモードでは、**Chat Summary**のポップオーバーを開いて接続が設定されているか確かめます。古いチャットに追いつかせるには**Backfill Summary**を使います。
+- Roleplayモードでは、**Chat Settings** > **Chat Summary**を開いて接続が設定されているか確かめます。古いチャットに追いつかせるには**Backfill Summary**を使います。
 - Conversationモードでは、**Automatic Summarization**を開き、失敗した日付を**Backfill**で再試行します。
 - チャットでエージェントの書き込み承認を必須にしている場合、AIによる要約は反映される前にレビュー待ちになります。
 - 失敗が続く要約(たとえばAPIキーが誤っている場合)は、時間をおいて再試行されます。接続を直してから**Backfill**を使ってください。
@@ -238,9 +238,9 @@ pnpm backgroundremover:install
 Game Modeの絵コンテは、そろったGMの語りをキーフレーム画像と、任意で短い動画に変換します。Roleplayの絵コンテは、そろったやり取りをまとめ、その結果をアシスタントの返信の下に表示します。
 
 - **Agents** > **Download Agents**から**Storyboard**をインストールしてあるか確かめ、そのチャットで**Enable Agents**(エージェントを有効にする)と**Enable Storyboards**(絵コンテを有効にする)をオンにします。
-- 手動でシーンの動画を作るには、先に**Gallery**(ギャラリー)の画像を生成またはアップロードし、その**Video**または**Animate**の操作を使います。**Gallery**は**Images**と**Videos**のタブに分かれているので、**Videos**タブを確認してください。
+- 手動でシーンの動画を作るには、**Chat Settings** > **Gallery**(チャット設定 > ギャラリー)を開いて画像を生成またはアップロードし、その**Video**または**Animate**の操作を使います。**Gallery**は**Images**と**Videos**のタブに分かれているので、**Videos**タブを確認してください。
 - Game Modeの絵コンテを自動生成するには、**Chat Settings** > **Agents** > **Storyboards**を開き、**Automatic Storyboard Illustrations**がオンになっているか確かめます。短い動画も欲しい場合は**Automatic Storyboard Animations**もオンにします。
-- Roleplayでは、**Storyboard**エージェントをチャットに追加します。**Still images**か**Animations**を選び、**Messages per episode**を設定して、Storyboardの画像用の接続を選びます。**Manual only**の場合は、代わりにGalleryの**Create storyboard**から実行します。
+- Roleplayでは、**Storyboard**エージェントをチャットに追加します。**Still images**か**Animations**を選び、**Messages per episode**を設定して、Storyboardの画像用の接続を選びます。**Manual only**の場合は、代わりに**Chat Settings**の**Gallery**セクションにある**Create storyboard**から実行します。
 - キーフレーム画像には画像用の接続が必要です。動画にはさらに動画用の接続も必要です。
 - すべてのキャラクターをまとめたカスタムのプロンプトのほうが結果が良い場合は、**Use NovelAI Character Prompts**をオフにします。
 - 応答の遅いプロバイダーではタイムアウトになることがあります。`.env`の`IMAGE_GEN_TIMEOUT_MS`または`VIDEO_GEN_TIMEOUT_MS`を大きくしてから、Marinaraを再起動してください。サーバーはこれらの値を起動時にしか読み込みません。

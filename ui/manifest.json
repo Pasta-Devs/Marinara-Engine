@@ -27,13 +27,13 @@
     },
     {
       "path": "ja.json",
-      "sha256": "730fda381e1f49d1981e7841deffa319fa68212ca22f68cc2d02fc2f42af6547",
-      "bytes": 24733
+      "sha256": "8412b9083cecc6a28f61e5c9f564abba875894b7f5e4f701d60b3e4ed0bf4240",
+      "bytes": 24221
     },
     {
       "path": "ko.json",
-      "sha256": "68e6537dc53582d310fde0c34ce25292eb027b4f72465ea7bde3dc366ef3a233",
-      "bytes": 1183506
+      "sha256": "817864f116fc1f918ad365f12773ba4985f9c990ec0dd3a8b950119b1859b50a",
+      "bytes": 1179976
     },
     {
       "path": "pl.json",

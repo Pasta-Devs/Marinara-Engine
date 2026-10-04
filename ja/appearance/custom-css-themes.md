@@ -2,6 +2,24 @@
 
 このガイドでは、カスタムCSSテーマを使ってMarinara Engineの見た目全体を変える方法を説明します。テーマの作成、インポート、エクスポート、切り替えの手順に加えて、変更できるCSS変数と、Card CSSとの関係もわかります。
 
+## 用意されているチャットウィンドウのスタイル
+
+CSSを書かずに外観を変えるには、**Settings > Appearance > App**(設定 > 外観 > アプリ)を開き、**App Style**の下部にある**Chat widget style**(チャットウィジェットのスタイル)を探してください。**Dottore**は、シアンの計器を思わせる枠と切り落とした角を使います。**Mari**は、ローズとゴールドの枠に、ウィンドウのタイトルの原石を添えます。ボタンにはウィンドウと同じ背景を使います。各プリセットには専用のフォントがあり、ライトモードとダークモードに対応し、ボタン、ウィンドウ、展開できるセクションの外観をまとめて変えます。
+
+**Font**(フォント)と**Shape**(形)では、それぞれを個別に変更できます。**Preset font**(プリセットのフォント)と**Preset shape**(プリセットの形)は、選択したスタイルに従います。
+
+その下には3つの色設定があります。どれも単色用のカラーピッカーと、色を混ぜるグラデーションの選択肢を備えています。
+
+- **Border & Buttons Color**(枠線とボタンの色)は、輪郭とボタンのアイコンを変えます。アイコンにはグラデーションの最初の色を使います。
+- **Background Color**(背景色)は、ボタン、ウィンドウ、展開できるセクション、編集欄を塗りつぶします。
+- **Text Color**(文字色)は、ウィジェットの文字を変えます。見出しとラベルにはグラデーションが表示され、編集欄の文字には最初の色を使います。
+
+色設定を変えても、装飾の紋章は元の色を保ちます。
+
+各設定の横にある**Reset color**(色をリセット)を使うと、再びプリセットのライトモードまたはダークモードの色に従います。プリセットを選ぶと、**Font**、**Shape**、3つの色がすべてリセットされます。**Default**は元の外観に戻します。ウィンドウの位置は、配置したままです。
+
+カスタムCSSテーマは、これらのプリセットを上書きできます。以下の公開されたウィンドウとドロワーの変数は、プリセットの色より優先されます。ウィンドウの書体には`--mari-window-font-family`、セクションの角には`--mari-drawer-radius`を使い、タイトルの装飾を隠すには`--mari-window-ornament: none`を指定してください。プリセットの装飾をすべて取り除くには、先に**Default**を選んでください。
+
 ## カスタムテーマとは
 
 カスタムテーマとは、Marinaraの外観を塗り替えるCSSのかたまりです。CSSはCascading Style Sheetsの略で、アプリ全体の色、枠線、余白を決めるコードです。テーマではページの背景、アクセントカラー、カード、枠線、文字などを変更できます。
@@ -91,6 +109,100 @@
 視覚効果の中には専用の変数を持つものもあります。たとえば`--marinara-theme-accent-pulse: enabled`を設定すると、アクセントが脈打つアニメーションを有効にできます。
 
 カスタムテーマのCSSは、安全のため実行前に不要な記述を取り除きます。他のWebサイトからファイルを読み込むスタイルは動作しません。テーマの中で画像やフォントを使うときは、Webのリンクではなく`data:` URIとして埋め込んでください。`data:` URIはファイルの内容をCSSの中に直接持たせる書き方です。
+
+## チャットウィンドウとドロワーの外観
+
+コンピューターでは、**Chat Settings**(チャット設定)は移動できるウィンドウとして開きます。その中の折りたたみ可能なセクションは**drawers**(ドロワー)と呼ばれます。ドロワーは独立したウィンドウに切り離し、さらに**bubble**(バブル)と呼ばれる小さな移動可能なボタンに最小化できます。
+
+Game controls、Session、Volume、Game Assets、接続したチャット、パッケージの操作など、ほかのチャットツールもこれらのウィンドウとボタンを使います。スマートフォンでは、ウィンドウは画面幅いっぱいのパネルとして開き、Tracker Panelには専用の移動可能なボタンがあります。
+
+以下のクラス、データ属性、変数を使うと、これらの部品の外観をまとめて変えられます。テーマのルールは、`!important`を使わずにデフォルトを上書きします。
+
+### クラス
+
+| 部品 | クラス |
+| --- | --- |
+| ウィンドウ | `.mari-window` |
+| タイトルバー | `.mari-window__header` |
+| タイトルとそのアイコン | `.mari-window__title-row` |
+| タイトル | `.mari-window__title` |
+| タイトルバーのボタン(Reset View、お気に入りレイアウトの星、Tracker Panel、最小化、ピン留め、ロック、閉じる、戻す) | `.mari-window__controls`(各ボタンは`.mari-window__control`) |
+| ウィンドウの内容 | `.mari-window__body` |
+| サイズ変更用の辺と角 | `.mari-window__resize-handle` |
+| ポインターまたはフォーカスがウィンドウ内にある間に表示される角のマーク | `.mari-window__resize-grip` |
+| ドロワー | `.mari-drawer` |
+| ドロワーのヘッダーとタイトル | `.mari-drawer__header`、`.mari-drawer__title` |
+| ドロワーのアイコン、件数バッジ、**?** | `.mari-drawer__icon`、`.mari-drawer__count`、`.mari-drawer__help` |
+| 折りたたんだドロワーのプレビュー(トラッカーの小さなウィジェット) | `.mari-drawer__summary` |
+| 矢印の横のドロワーボタンと、切り離しボタン | `.mari-drawer__actions`、`.mari-drawer__popout` |
+| ドロワーの矢印と内容 | `.mari-drawer__arrow`、`.mari-drawer__body` |
+| ドロワーを外へドラッグする間、ポインターに追従するプレビュー | `.mari-drawer-ghost` |
+| 最小化したウィンドウのボタン(バブル) | `.mari-window-bubble` |
+| ドラッグ中のバブルがほかのバブルとそろうときに表示される線 | `.mari-window-snap-guide` |
+| エージェントの実行中に表示される点(Chat Settingsボタン、Trackersウィンドウ) | `.mari-agents-running-dot` |
+
+### データ属性
+
+- `data-window`はウィンドウとそのバブルの名前です。`chat-settings`、`trackers`、操作ウィンドウの`control:game`、`control:session`、`control:volume`、`control:assets`、`control:connected-chat`、`control:package:<package>`、`control:beholder:<package>`を使い、切り離したドロワーには`drawer:<window>:<drawer>`を使います。例は`drawer:chat-settings:chat-name`です。
+- `data-drawer`はドロワーの名前です。例は`chat-name`です。`roleplay-agents`や`conversation-agents`のように、チャットモードで始まる名前もあります。トラッカーには`tracker-world`、`tracker-persona`、`tracker-characters`、`tracker-quests`、`tracker-inventory`、`tracker-custom`、`agent-activity`を使います。
+- `data-presentation`は、コンピューターのウィンドウでは`"window"`、スマートフォンのパネルでは`"sheet"`です。
+- `data-pinned`と`data-locked`は、ウィンドウがピン留めまたはロックされている間、`"true"`です。
+- `data-window-control`は、タイトルバーの各ボタンの名前です。`"minimize"`、`"pin"`、`"lock"`、`"close"`、`"put-back"`があります。押された状態のピン留めボタンとロックボタンには、`aria-pressed="true"`も付きます。
+- `data-chat-settings-control`は、Chat Settingsの追加のタイトルバーボタンを識別します。`"reset-view"`、`"favorite-layout"`、`"tracker-panel"`があります。現在のレイアウトが保存済みのお気に入りと一致すると、お気に入りの星には`aria-pressed="true"`が付き、アイコンが塗りつぶされます。
+- 各サイズ変更ハンドルの`data-edge`は、`"n"`、`"s"`、`"e"`、`"w"`、`"ne"`、`"nw"`、`"se"`、`"sw"`のいずれかです。
+- 開いたドロワーの`.mari-drawer__header`内にある切り替えボタンには、`aria-expanded="true"`が付きます。
+- `data-drawer-control="pop-out"`は、ドロワーの切り離しボタンを示します。
+- `data-outside="true"`は、ドロップすると切り離される距離まで、ウィンドウの外へ移動したドラッグプレビューを示します。
+- `data-axis`は、縦に伸びる位置合わせガイドでは`"x"`、横に伸びるガイドでは`"y"`です。
+- ドロワーを独立したウィンドウに表示しているとき、ウィンドウとその中のドロワーの両方で`data-detached`が`"true"`になります。切り離したドロワーのウィンドウの名前は`data-window="drawer:<window>:<drawer>"`で、例は`data-window="drawer:chat-settings:chat-name"`です。`data-drawer-host`は元のウィンドウの名前です。
+- タイトルをドラッグしているドロワーの`data-dragging`は`"true"`になります。切り離したドロワーを元に戻せる状態でウィンドウの上に重ねている間、そのウィンドウの`data-drop-target`は`"true"`になります。
+- バブルには、対応するウィンドウの`data-window`と`data-minimized="true"`が付きます。例は`.mari-window-bubble[data-window="control:volume"]`です。操作ウィンドウの名前は`control:game`、`control:session`、`control:volume`、`control:assets`、`control:connected-chat`、`control:package:<package>`、`control:beholder:<package>`です。ドラッグ中のバブルでは`data-dragging`が`"true"`になります。
+- ロックされたバブルには、Chat Settingsボタンを含め、`data-locked="true"`が付きます。ウィンドウを開くことはできますが、そのウィンドウのロックを解除するまで移動はできません。`.mari-window-bubble[data-locked="true"]`で、これらのボタンに別の外観を付けられます。
+- スマートフォンでは、ウィンドウと、その少し大きなバブルの両方に`data-presentation="sheet"`が付きます。Tracker Panelのバブルは`.mari-window-bubble[data-tracker-panel-toggle="bubble"]`です。
+- Chat Settingsボタンもバブルです。`.mari-window-bubble[data-chat-settings-button]`で指定でき、Chat Settingsが開いている間は`data-open="true"`が付きます。
+- 切り離したセクションは、`data-drawer-host`(元のウィンドウ)が付いたバブルに縮みます。そのウィンドウの**Put back**ボタンは`[data-window-control="put-back"]`です。
+
+### 変数
+
+各変数には、共通のチャットUIの色へのフォールバックがあります。そのため、テーマでは変えたいものだけ指定すれば十分です。
+
+| 変数 | 制御するもの |
+| --- | --- |
+| `--mari-window-bg` | ウィンドウの背景 |
+| `--mari-window-text` | ウィンドウの文字 |
+| `--mari-window-border`, `--mari-window-border-width` | ウィンドウの枠線 |
+| `--mari-window-radius` | ウィンドウの角の丸み |
+| `--mari-window-shadow` | ウィンドウの影 |
+| `--mari-window-backdrop-filter` | ウィンドウの背後のぼかし |
+| `--mari-window-header-bg`, `--mari-window-header-text`, `--mari-window-header-border` | タイトルバーの色 |
+| `--mari-window-header-padding` | タイトルバーの余白 |
+| `--mari-window-control-color`, `--mari-window-control-color-hover`, `--mari-window-control-bg-hover` | お気に入りの星を含むタイトルバーのボタン |
+| `--mari-window-control-color-active`, `--mari-window-control-bg-active` | ピン留め、ロック、塗りつぶされたお気に入りの星を含む、押された状態のタイトルバーボタン |
+| `--mari-window-control-radius`, `--mari-window-control-gap` | ボタンの丸みと間隔 |
+| `--mari-window-focus-ring` | キーボードフォーカスの輪郭と、ドロワーを戻す先のウィンドウの輪郭 |
+| `--mari-window-resize-handle-size` | サイズ変更用の辺の幅 |
+| `--mari-window-bubble-size`, `--mari-window-bubble-radius`, `--mari-window-bubble-shadow` | バブルのサイズ、丸み、影 |
+| `--mari-window-bubble-bg`, `--mari-window-bubble-bg-hover`, `--mari-window-bubble-border` | バブルの背景と枠線 |
+| `--mari-window-bubble-text`, `--mari-window-bubble-text-hover` | バブルのアイコンの色 |
+| `--mari-window-snap-guide` | 位置合わせガイドの色 |
+| `--mari-drawer-bg`, `--mari-drawer-border` | ドロワーの背景と区切り線 |
+| `--mari-drawer-header-bg`, `--mari-drawer-header-bg-hover` | ドロワーのヘッダーの色 |
+| `--mari-drawer-header-padding`, `--mari-drawer-body-padding-inline`, `--mari-drawer-body-padding-bottom` | ドロワーの余白 |
+| `--mari-drawer-title-color`, `--mari-drawer-icon-color`, `--mari-drawer-arrow-color` | ドロワーのヘッダーの文字とアイコン |
+| `--mari-drawer-count-bg`, `--mari-drawer-count-text` | ドロワーの件数バッジ |
+
+すべてのウィンドウを変えるには`:root`に、1つだけ変えるにはセレクターに変数を設定してください。
+
+```css
+:root {
+  --mari-window-radius: 0.5rem;
+  --mari-window-bubble-bg: #3b0764;
+}
+
+[data-window="chat-settings"] .mari-drawer[data-drawer="chat-name"] {
+  --mari-drawer-border: transparent;
+}
+```
 
 ## サイズと名前の上限
 

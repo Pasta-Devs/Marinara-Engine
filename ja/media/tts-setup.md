@@ -152,7 +152,7 @@ TTSをオンにすると、キャラクターや語り手のメッセージの�
 
 - Roleplayでは、**Roleplay messages**の自動再生トグルと、メッセージごとの**Speak**の操作を使います。[Roleplayモード: はじめに](../roleplay/getting-started.md)を参照してください。
 - Conversation Modeでは、**Conversation messages**のトグルと同じ**Speak**の操作を使います。音声通話はより大きな機能で、[Conversationの音声通話とビデオ通話](../conversation/calls.md)で説明します。
-- Game Modeでは**Game narration**のトグルを使います。Game Modeには独自の音声ミキサーもあり、**Master**、**Music**、**Sound Effects**、**Ambient**と並んで**TTS**のチャンネルがあります。このチャンネルはゲーム内の読み上げ音声全体の音量を決め、最初は100パーセントです。[Game Mode: はじめに](../game/getting-started.md)を参照してください。
+- Game Modeでは**Game narration**のトグルを使います。Game Modeには独自の音声ミキサーもあり、**Master**、**Music**、**Sound Effects**、**Ambient**と並んで**TTS**のチャンネルがあります。このチャンネルはゲーム内の読み上げ音声全体の音量を決め、最初は100パーセントです。[Gameの操作](../game/getting-started.md#the-games-controls)を参照してください。
 
 ## Phonetic name (通話での読み方)
 

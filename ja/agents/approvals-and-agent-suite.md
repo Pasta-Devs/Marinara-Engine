@@ -9,7 +9,7 @@
 トグルの場所は次のとおりです。
 
 1. 制御したいチャットを開きます。
-2. **Chat Settings**(チャット設定)を開きます(歯車のアイコン)。
+2. **Chat Settings**(チャット設定)を開きます。
 3. **Agents**(エージェント)セクションまでスクロールします。
 4. **Review Agent Outputs**をオンにします。
 
@@ -60,7 +60,7 @@
 
 開き方は次のとおりです。
 
-1. **Chat Settings**を開きます(歯車のアイコン)。
+1. **Chat Settings**を開きます。
 2. **Agents**セクションまでスクロールします。
 3. **Agent Suite**をクリックします。
 
@@ -90,7 +90,7 @@
 
 ## Cached prompt injectionsパネル
 
-返信が生成される前に、書き込み系のエージェントがプロンプトへテキストを追加することがあります。**Prose Guardian**、**Narrative Director**、独自に追加した挿入用のエージェントでよく起こります。**Cached prompt injections**パネルは、その追加されたテキストを調べるための画面です。Roleplayチャットの**Agents**メニューから開けます。対象になるのは直近の返信です。
+返信が生成される前に、書き込み系のエージェントがプロンプトへテキストを追加することがあります。**Prose Guardian**、**Narrative Director**、独自に追加した挿入用のエージェントでよく起こります。**Cached prompt injections**パネルは、その追加されたテキストを調べるための画面です。Roleplayチャットの**Agent activity**(エージェントの動作)にある**Injections**タブから開けます。このタブは**Debug mode**がオンのときに表示されます。[エージェントの動作](../roleplay/getting-started.md#agent-activity)を参照してください。対象になるのは直近の返信です。
 
 キャッシュされた挿入ごとに、次の操作ができます。
 

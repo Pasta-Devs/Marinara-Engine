@@ -18,7 +18,7 @@
 これはキャラクターカードではなく、チャット側で設定します。ここで扱う項目はすべて**Chat Settings**(チャット設定)の**Autonomous Messaging**(自律メッセージ)セクションにあります。
 
 1. Conversationのチャットを開きます。
-2. **Chat Settings**(歯車アイコン)を開きます。
+2. **Chat Settings**(チャット設定)を開きます(チャット内の**Chat Settings**ボタンで、移動していなければ右上にあります)。
 3. **Autonomous Messaging**セクションを探します。
 4. **Autonomous Messages**トグルをオンにします。
 
