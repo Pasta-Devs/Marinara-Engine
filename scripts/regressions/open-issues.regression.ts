@@ -5873,7 +5873,7 @@ assert.equal(
 );
 assert.match(
   echoChamberPanelSource,
-  /const rootAttributes = \{ "data-roleplay-agent-window": "echo" \}/u,
+  /const rootAttributes = \{[^}]*"data-roleplay-agent-window": "echo"[^}]*\}/u,
   "Echo Chamber should retain its marker for mobile composer visibility",
 );
 assert.match(
