@@ -4,6 +4,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- On phones, the **Chat tools** menu and its buttons follow your selected chat widget shape, including Dottore and custom shapes. Touch reordering keeps tools in your preferred order (#7144).
+
 - In Game Mode, HUD widgets, the map panel on computers, characters' side remarks and character sheets now follow **Apply preset font**, **Apply preset shape** and **Apply preset colors**, like the dialogue box beside them. Widget numbers keep the game's own accent colors. With the switches off, nothing changes (#7136).
 
 - Claude agents now keep signed thinking across tool calls, and Opus 4/4.1 batches stay within the model output limit when reasoning is enabled. Agent thinking headroom respects small context windows, including fallback connections, and connection Send switches remain effective on shared-connection agents and retries (#7131).
