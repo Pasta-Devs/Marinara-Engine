@@ -1,0 +1,542 @@
+<!doctype html>
+<!-- Kitchens mockup v2. Static, not shipped. Visual language copied from HomeBrowserHub (FeedModule, recent-chat cards, browser chrome). -->
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Kitchens mockup</title>
+<style>
+  :root {
+    --background: #050312; --foreground: #e4e4e7;
+    --card: #141414d9; --muted-foreground: #a1a1aa;
+    --secondary: #1a1a2e; --accent: #2a1a3e;
+    --primary: #ec4b97; --border: color-mix(in srgb, var(--primary) 20%, transparent);
+    --sidebar: #08061a; --sidebar-border: color-mix(in srgb, var(--primary) 13%, transparent);
+    --cyan: oklch(0.79 0.16 205); --orange: oklch(0.76 0.19 52); --pink: oklch(0.73 0.21 345); --violet: oklch(0.72 0.17 303); --gold: oklch(0.83 0.14 85);
+    --chrome: #0c0b16;
+  }
+  [data-theme="light"] {
+    --background: #faf8ff; --foreground: #1a1025; --card: #ffffffee; --muted-foreground: #65656f;
+    --secondary: #f0eaf7; --accent: #ede4f7; --border: color-mix(in srgb, var(--primary) 27%, transparent);
+    --sidebar: #f5f0fc; --sidebar-border: color-mix(in srgb, var(--primary) 20%, transparent); --chrome: #f3eefa;
+    --cyan: oklch(0.58 0.14 215); --orange: oklch(0.62 0.18 45); --pink: oklch(0.6 0.22 350); --violet: oklch(0.55 0.2 300); --gold: oklch(0.62 0.14 75);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body { background: var(--background); color: var(--foreground); font: 14px/1.45 Inter, "Liberation Sans", -apple-system, "Segoe UI", Roboto, sans-serif; display: flex; flex-direction: column; height: 100dvh; overflow: hidden; }
+  button, input { font: inherit; color: inherit; }
+  button { cursor: pointer; background: none; border: 0; padding: 0; }
+  :focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+  svg.i { width: 1em; height: 1em; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+  img { display: block; }
+
+  /* ── mockup-only bar ── */
+  .mock { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; padding: 5px 10px; font-size: 11px; background: #000; color: #aaa; }
+  .mock button { padding: 3px 10px; border-radius: 999px; border: 1px solid #333; }
+  .mock button[aria-pressed="true"] { background: var(--primary); color: #000; border-color: transparent; }
+
+  /* ── app chrome (matches Home browser) ── */
+  .iconbar { display: flex; align-items: center; justify-content: space-between; padding: 8px 14px; background: var(--chrome); }
+  .iconbar .grp { display: flex; gap: 6px; }
+  .ib { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 10px; color: var(--muted-foreground); font-size: 17px; }
+  .ib:hover, .ib[aria-pressed="true"] { background: color-mix(in srgb, var(--primary) 16%, transparent); color: var(--foreground); }
+  .browser { background: var(--chrome); border-bottom: 1px solid var(--sidebar-border); }
+  .tabs { display: flex; align-items: end; gap: 4px; padding: 0 14px; overflow-x: auto; scrollbar-width: none; }
+  .brand { display: flex; align-items: center; gap: 8px; padding: 6px 14px 8px 0; flex: none; }
+  .brand img { width: 34px; height: 34px; border-radius: 8px; }
+  .brand b { display: block; font-size: 13px; background: linear-gradient(90deg, var(--pink), var(--cyan)); -webkit-background-clip: text; color: transparent; }
+  .brand small { font-size: 9px; letter-spacing: .14em; color: var(--muted-foreground); }
+  .tab { flex: none; display: flex; align-items: center; gap: 8px; height: 38px; padding: 0 22px; border-radius: 12px 12px 0 0; color: var(--muted-foreground); font-weight: 600; font-size: 13px; }
+  .tab img { width: 18px; height: 18px; border-radius: 4px; }
+  .tab[aria-selected="true"] { background: var(--background); color: var(--foreground); box-shadow: inset 0 1px 0 var(--sidebar-border), inset 1px 0 0 var(--sidebar-border), inset -1px 0 0 var(--sidebar-border); }
+  .tab[aria-selected="true"] .i { color: var(--orange); }
+  .addr { display: flex; gap: 10px; align-items: center; padding: 8px 14px; background: var(--background); }
+  .addr .nav { display: flex; gap: 14px; color: var(--muted-foreground); opacity: .7; }
+  .url { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; height: 36px; padding: 0 12px; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--cyan) 35%, var(--sidebar-border)); font-family: "Liberation Mono", monospace; font-size: 13px; white-space: nowrap; overflow: hidden; }
+  .url b { color: var(--orange); font-weight: 400; }
+
+  .body { flex: 1; display: grid; grid-template-columns: 280px minmax(0, 1fr) 300px; min-height: 0; }
+  body.hide-left .body { grid-template-columns: minmax(0,1fr) 300px; } body.hide-left aside.left { display: none; }
+
+  /* ── side panels ── */
+  aside { background: var(--sidebar); min-height: 0; display: flex; flex-direction: column; }
+  aside.left { border-right: 1px solid var(--sidebar-border); }
+  aside.right { border-left: 1px solid var(--sidebar-border); }
+  .phead { padding: 14px 14px 10px; display: flex; flex-direction: column; gap: 10px; }
+  .ptitle { font-size: 10px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; color: var(--muted-foreground); padding: 10px 8px 4px; }
+  .pscroll { flex: 1; min-height: 0; overflow: auto; padding: 0 8px 12px; }
+  .search { height: 36px; border-radius: 10px; border: 1px solid var(--sidebar-border); background: color-mix(in srgb, var(--foreground) 4%, transparent); padding: 0 12px; width: 100%; color: var(--foreground); }
+  .row { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 6px 8px; border-radius: 12px; cursor: grab; user-select: none; position: relative; }
+  .row:hover { background: color-mix(in srgb, var(--primary) 9%, transparent); }
+  .row:active { cursor: grabbing; }
+  .row .t { min-width: 0; flex: 1; }
+  .row .t div { font-weight: 600; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row .t small { color: var(--muted-foreground); font-size: 11px; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row .put { opacity: 0; width: 32px; height: 32px; border-radius: 9px; display: grid; place-items: center; color: var(--primary); transition: opacity .15s, background .15s; }
+  .row:hover .put, .row .put:focus-visible { opacity: 1; }
+  .row .put:hover { background: color-mix(in srgb, var(--primary) 16%, transparent); }
+  @media (hover: none) { .row .put { opacity: 1; } }
+  .row.dim { opacity: .45; }
+  .av { width: 36px; height: 36px; border-radius: 12px; overflow: hidden; flex: none; background: color-mix(in srgb, var(--h, var(--violet)) 30%, var(--secondary)); display: grid; place-items: end center; }
+  .av img { width: 82%; height: 82%; object-fit: contain; object-position: bottom; }
+  .av.round { border-radius: 999px; }
+  .av.ico { place-items: center; color: var(--h); font-size: 17px; }
+  .dot { width: 8px; height: 8px; border-radius: 99px; flex: none; }
+  .ptabs { display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; }
+  .ptabs button { display: flex; align-items: center; gap: 6px; flex: none; padding: 6px 10px; border-radius: 9px; color: var(--muted-foreground); font-size: 12px; font-weight: 600; min-height: 34px; }
+  .ptabs button[aria-selected="true"] { background: color-mix(in srgb, var(--primary) 13%, transparent); color: var(--foreground); }
+
+  /* mode segments (matches .mari-chrome-segmented) */
+  .seg { display: flex; padding: 3px; gap: 2px; border-radius: 12px; background: color-mix(in srgb, var(--foreground) 5%, transparent); border: 1px solid var(--sidebar-border); }
+  .seg > * { flex: 1; min-width: 0; }
+  .sb { width: 100%; min-width: 0; overflow: hidden; display: flex; align-items: center; justify-content: center; gap: 4px; height: 32px; border-radius: 9px; font-size: 10px; font-weight: 700; letter-spacing: .04em; color: var(--muted-foreground); white-space: nowrap; }
+  .sb[aria-pressed="true"] { background: color-mix(in srgb, var(--m, var(--primary)) 18%, var(--card)); color: var(--foreground); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--m, var(--primary)) 40%, transparent); }
+  .sb[aria-pressed="true"] .i { color: var(--m, var(--primary)); }
+  .khead { display: flex; align-items: center; gap: 8px; padding: 10px 8px 4px; }
+  .khead .eyebrow { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .newin { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 44px; padding: 6px 10px; margin-top: 6px; border-radius: 12px; border: 1px dashed color-mix(in srgb, var(--orange) 40%, transparent); color: var(--orange); font-weight: 700; font-size: 13px; }
+  .badge { font-size: 9px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--orange); background: color-mix(in srgb, var(--orange) 12%, transparent); padding: 2px 6px; border-radius: 99px; max-width: 90px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: none; }
+  .modetag { font-size: 9px; font-weight: 800; letter-spacing: .08em; color: var(--muted-foreground); flex: none; }
+  .explain { margin: 8px 0; border-radius: 16px; overflow: hidden; border: 1px solid color-mix(in srgb, var(--orange) 30%, var(--border)); background: color-mix(in srgb, var(--orange) 5%, var(--card)); }
+
+  /* kitchen switcher */
+  .switch { display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 10px; border-radius: 14px; text-align: left;
+    border: 1px solid color-mix(in srgb, var(--orange) 30%, var(--sidebar-border)); background: color-mix(in srgb, var(--orange) 7%, var(--card)); }
+  .switch .k-ico { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; color: var(--orange); background: color-mix(in srgb, var(--orange) 16%, transparent); font-size: 17px; }
+  .switch .t { flex: 1; min-width: 0; }
+  .eyebrow { font-size: 10px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; color: var(--m, var(--orange)); }
+  .switch .nm { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pop { position: absolute; z-index: 30; top: 76px; left: 12px; right: 12px; border-radius: 18px; overflow: hidden;
+    background: color-mix(in srgb, var(--orange) 5%, var(--background)); border: 1px solid color-mix(in srgb, var(--orange) 30%, var(--border)); box-shadow: 0 30px 70px -20px #000c; }
+  .pop[hidden] { display: none; }
+  .pop .opt { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 44px; padding: 6px 12px; border-radius: 12px; text-align: left; font-weight: 600; font-size: 13px; }
+  .pop .opt:hover, .pop .opt[aria-current="true"] { background: color-mix(in srgb, var(--orange) 12%, transparent); }
+  .pop .opt small { margin-left: auto; color: var(--muted-foreground); font-weight: 400; }
+
+  /* ── center: Kitchen page ── */
+  main { position: relative; min-width: 0; min-height: 0; overflow: auto; padding: 22px clamp(12px, 1.6vw, 22px) 40px; }
+  .stars { position: absolute; inset: 0; pointer-events: none; background-image: radial-gradient(1.5px 1.5px at 12% 18%, #fff5, transparent), radial-gradient(1px 1px at 72% 12%, #fff6, transparent), radial-gradient(1.5px 1.5px at 88% 40%, #fff4, transparent), radial-gradient(1px 1px at 30% 60%, #fff3, transparent), radial-gradient(1px 1px at 55% 30%, #fff5, transparent); }
+  [data-theme="light"] .stars { display: none; }
+  .hero { position: relative; display: flex; align-items: center; gap: 18px; margin: 0 auto 20px; max-width: 1200px; }
+  .hero .art { width: 92px; height: 92px; flex: none; filter: drop-shadow(0 10px 24px color-mix(in srgb, var(--orange) 45%, transparent)); object-fit: contain; }
+  .hero .ht { flex: 1; min-width: 0; }
+  .kname { display: block; width: 100%; font-size: clamp(22px, 2.4vw, 30px); font-weight: 800; letter-spacing: -.01em; border: 1px solid transparent; border-radius: 10px; background: none; padding: 0 8px; margin-left: -8px; }
+  .kname:hover { border-color: var(--border); } .kname:focus { outline: none; border-color: var(--orange); background: var(--card); }
+  .hero p { margin: 2px 0 0; color: var(--muted-foreground); font-size: 13px; }
+  .makers { display: flex; gap: 8px; flex-wrap: wrap; }
+  .mk { display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 14px 0 6px; border-radius: 12px; font-weight: 700; font-size: 13px; border: 1px solid color-mix(in srgb, var(--m) 45%, transparent); background: color-mix(in srgb, var(--m) 10%, transparent); }
+  .mk span { width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; color: var(--m); border: 1px solid color-mix(in srgb, var(--m) 45%, transparent); }
+
+  .grid { position: relative; max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 12px; }
+  .c8 { grid-column: span 8; } .c4 { grid-column: span 4; } .c6 { grid-column: span 6; } .c12 { grid-column: 1 / -1; }
+  @media (max-width: 1300px) { .c8, .c4, .c6 { grid-column: 1 / -1; } }
+  .mod { --m: var(--cyan); position: relative; overflow: hidden; border-radius: 18px; padding: clamp(13px, .9vw, 18px);
+    border: 1px solid color-mix(in srgb, var(--m) 30%, var(--border)); background: color-mix(in srgb, var(--m) 6%, var(--card));
+    box-shadow: 0 20px 50px -38px color-mix(in srgb, var(--m) 70%, transparent); transition: border-color .15s, box-shadow .15s, opacity .15s; }
+  .mod::before { content: ""; position: absolute; right: -48px; top: -64px; width: 160px; height: 160px; border-radius: 999px; background: color-mix(in srgb, var(--m) 11%, transparent); filter: blur(40px); pointer-events: none; }
+  .mod > header { position: relative; display: flex; align-items: end; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+  .mod h2 { margin: 2px 0 0; font-size: 16px; font-weight: 700; }
+  .mod .deco { position: absolute; right: -14px; bottom: -10px; width: 150px; height: 120px; object-fit: contain; object-position: right bottom; opacity: .22; pointer-events: none; }
+  .add { position: relative; z-index: 1; display: inline-flex; align-items: center; gap: 4px; min-height: 32px; padding: 0 8px; border-radius: 9px; font-size: 12px; font-weight: 700; color: var(--m); flex: none; }
+  .add:hover { background: color-mix(in srgb, var(--m) 12%, transparent); }
+  .mod.can { border-color: var(--m); box-shadow: 0 0 0 1px var(--m), 0 20px 60px -30px var(--m); }
+  .mod.over { background: color-mix(in srgb, var(--m) 14%, var(--card)); }
+  .mod.nope { opacity: .35; }
+  .dropnote { display: none; position: absolute; inset: 10px; z-index: 2; border-radius: 14px; border: 1.5px dashed var(--m); background: color-mix(in srgb, var(--m) 10%, var(--background)); place-items: center; font-weight: 700; color: var(--m); }
+  .mod.can .dropnote { display: grid; }
+
+  /* chat cards (from Home recent chats) */
+  .cards { position: relative; display: flex; gap: 10px; overflow-x: auto; scrollbar-width: thin; padding-bottom: 4px; }
+  .cards .cc { flex: 1 0 210px; } .cards .cc.new { flex: 0 0 132px; }
+  .cc { --cm: var(--orange); position: relative; overflow: hidden; min-height: 168px; padding: 14px 14px 14px 16px; border-radius: 14px; display: flex; flex-direction: column; justify-content: flex-end; gap: 6px; text-align: left;
+    border: 1px solid color-mix(in srgb, var(--cm) 35%, transparent); background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--cm) 9%, transparent)), var(--card); }
+  .cc::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--cm); box-shadow: 0 0 18px var(--cm); }
+  .cc.conv { --cm: var(--cyan); }
+  .cc .wm { position: absolute; right: 10px; bottom: 8px; font-size: 64px; color: var(--cm); opacity: .16; }
+  .pill { align-self: flex-start; display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 999px; font-size: 10px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--cm); border: 1px solid color-mix(in srgb, var(--cm) 50%, transparent); background: color-mix(in srgb, var(--cm) 10%, transparent); }
+  .cc b { font-size: 14px; }
+  .cc p { margin: 0; font-size: 12px; color: var(--muted-foreground); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .cc .step { position: absolute; top: 10px; left: 16px; font-size: 10px; font-weight: 800; letter-spacing: .14em; color: var(--muted-foreground); }
+  .cc.new { border-style: dashed; background: transparent; align-items: center; justify-content: center; text-align: center; color: var(--muted-foreground); }
+  .cc.new::before { display: none; }
+  .cc.new .i { font-size: 22px; color: var(--cyan); }
+
+  /* cast */
+  .cast { position: relative; display: flex; gap: 10px; flex-wrap: wrap; }
+  .who { width: 92px; text-align: center; font-size: 12px; font-weight: 600; }
+  .who .av { width: 92px; height: 108px; border-radius: 16px; margin-bottom: 6px; border: 1px solid color-mix(in srgb, var(--h) 40%, transparent); }
+  .who span { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .who small { color: var(--muted-foreground); font-weight: 400; font-size: 11px; }
+
+  /* list rows inside modules */
+  .lines { position: relative; display: flex; flex-direction: column; gap: 4px; }
+  .line { display: flex; align-items: center; gap: 10px; padding: 6px 4px; border-radius: 10px; }
+  .line .t { flex: 1; min-width: 0; } .line .t div { font-weight: 600; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .line .t small { color: var(--muted-foreground); font-size: 11px; }
+  .tag { font-size: 10px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--m); padding: 2px 7px; border-radius: 99px; background: color-mix(in srgb, var(--m) 12%, transparent); flex: none; }
+  .map { position: relative; margin-top: 10px; height: 150px; border-radius: 14px; overflow: hidden; border: 1px solid color-mix(in srgb, var(--m) 25%, transparent);
+    background: repeating-linear-gradient(0deg, transparent 0 23px, color-mix(in srgb, var(--m) 8%, transparent) 23px 24px), repeating-linear-gradient(90deg, transparent 0 23px, color-mix(in srgb, var(--m) 8%, transparent) 23px 24px), color-mix(in srgb, var(--m) 4%, var(--background)); }
+  .pin { position: absolute; display: flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 700; transform: translate(-6px, -6px); }
+  .pin i { width: 12px; height: 12px; border-radius: 99px; background: var(--m); box-shadow: 0 0 0 4px color-mix(in srgb, var(--m) 25%, transparent); }
+  .map .you { position: absolute; left: 10px; bottom: 8px; font-size: 10px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--muted-foreground); }
+  .recipe { margin-top: 10px; padding: 10px 12px; border-radius: 12px; background: color-mix(in srgb, var(--m) 7%, var(--background)); border: 1px solid color-mix(in srgb, var(--m) 20%, transparent); font-size: 12px; }
+  .recipe .eyebrow { margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+  .recipe dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; } .recipe dt { color: var(--m); font-family: "Liberation Mono", monospace; } .recipe dd { margin: 0; color: var(--muted-foreground); }
+
+  .quiet { position: relative; display: flex; align-items: center; gap: 12px; padding: 14px; border-radius: 14px; color: var(--muted-foreground); font-size: 12px; background: color-mix(in srgb, var(--m) 5%, transparent); }
+  .quiet .i { font-size: 22px; color: var(--m); opacity: .8; }
+
+  /* empty kitchen hero */
+  .stock { position: relative; max-width: 1200px; margin: 0 auto 14px; border-radius: 22px; overflow: hidden; display: grid; grid-template-columns: 1fr 1.1fr; align-items: center;
+    border: 1px solid color-mix(in srgb, var(--orange) 30%, var(--border)); background: radial-gradient(ellipse at 20% 60%, color-mix(in srgb, var(--orange) 18%, transparent), transparent 60%), color-mix(in srgb, var(--orange) 5%, var(--card)); }
+  .stock .pic { position: relative; height: 250px; }
+  .stock .pic img { position: absolute; bottom: 0; }
+  .stock .pic .planet { left: 8%; bottom: 14px; width: 190px; opacity: .9; }
+  .stock .pic .mari { left: 44%; height: 230px; }
+  .stock .txt { padding: 26px 30px 26px 0; }
+  .stock h2 { margin: 4px 0 8px; font-size: clamp(22px, 2.3vw, 30px); font-weight: 800; letter-spacing: -.01em; }
+  .stock p { margin: 0 0 16px; color: var(--muted-foreground); max-width: 46ch; }
+  .todo { display: flex; flex-wrap: wrap; gap: 6px; }
+  .todo span { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 99px; font-size: 12px; font-weight: 600; background: color-mix(in srgb, var(--m) 12%, transparent); color: var(--m); }
+
+  /* no kitchens yet */
+  .welcome { position: relative; max-width: 1100px; margin: 0 auto; text-align: center; }
+  .welcome h1 { margin: 6px 0 6px; font-size: clamp(26px, 3vw, 36px); font-weight: 800; letter-spacing: -.02em; }
+  .welcome > p { margin: 0 auto 22px; color: var(--muted-foreground); max-width: 62ch; }
+  .rooms { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; margin-bottom: 22px; }
+  .room { --m: var(--orange); position: relative; height: 200px; border-radius: 18px; overflow: hidden; border: 1px solid color-mix(in srgb, var(--m) 35%, transparent);
+    background: radial-gradient(ellipse at 50% 100%, color-mix(in srgb, var(--m) 35%, transparent), transparent 70%), color-mix(in srgb, var(--m) 6%, var(--card)); }
+  .room img { position: absolute; left: 50%; bottom: 0; transform: translateX(-50%); height: 72%; max-width: 110%; object-fit: contain; }
+  .room span { position: absolute; left: 0; right: 0; top: 10px; font-size: 10px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: var(--m); }
+  .room em { position: absolute; top: 30px; left: 0; right: 0; font-style: normal; font-size: 22px; }
+  .feats { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 10px; text-align: left; margin-bottom: 22px; }
+  .feats .mod h2 { font-size: 14px; } .feats .mod p { margin: 4px 0 0; font-size: 12px; color: var(--muted-foreground); }
+  .feats .mod .i { font-size: 20px; color: var(--m); margin-bottom: 8px; }
+  .open { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+  .open input { width: min(360px, 100%); height: 44px; padding: 0 14px; border-radius: 12px; border: 1px solid color-mix(in srgb, var(--orange) 40%, var(--border)); background: var(--card); }
+  .open input::placeholder { color: var(--muted-foreground); }
+  .cta { height: 44px; padding: 0 18px; border-radius: 12px; font-weight: 800; background: var(--orange); color: #140a02; display: inline-flex; align-items: center; gap: 8px; }
+  .artnote { font-size: 10px; color: var(--muted-foreground); opacity: .7; margin-top: 8px; }
+
+  .toast { position: fixed; bottom: calc(18px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); display: flex; gap: 14px; align-items: center; padding: 10px 16px; border-radius: 14px; background: var(--card); backdrop-filter: blur(12px); border: 1px solid var(--border); box-shadow: 0 20px 50px -20px #000; z-index: 40; font-size: 13px; }
+  .toast[hidden] { display: none; } .toast button { color: var(--primary); font-weight: 800; }
+
+  /* ── responsive: panels become drawers ── */
+  .drawers { display: none; }
+  @media (max-width: 1180px) {
+    .body { grid-template-columns: 260px minmax(0,1fr); } aside.right { display: none; }
+    body.show-right aside.right { display: flex; position: fixed; right: 0; top: 0; bottom: 0; width: min(320px, 88vw); z-index: 35; box-shadow: -30px 0 60px #0009; }
+    .rooms { grid-template-columns: repeat(3, minmax(0,1fr)); } .feats { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  }
+  @media (max-width: 767px) {
+    .body { grid-template-columns: minmax(0,1fr); } aside.left { display: none; }
+    body.show-left aside.left { display: flex; position: fixed; left: 0; top: 0; bottom: 0; width: min(310px, 88vw); z-index: 35; box-shadow: 30px 0 60px #0009; }
+    .brand div, .addr .nav, .iconbar .hide-sm { display: none; }
+    .tab { padding: 0 14px; }
+    .drawers { display: flex; gap: 8px; position: fixed; left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom)); z-index: 20; }
+    .drawers button { flex: 1; height: 48px; border-radius: 14px; display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 700; background: color-mix(in srgb, var(--card) 90%, transparent); backdrop-filter: blur(12px); border: 1px solid var(--border); }
+    main { padding-bottom: 100px; }
+    .hero { flex-wrap: wrap; } .hero .art { width: 64px; height: 64px; } .makers { width: 100%; } .mk { flex: 1; justify-content: center; }
+    .stock { grid-template-columns: 1fr; } .stock .pic { height: 170px; } .stock .pic .mari { height: 160px; left: 50%; } .stock .pic .planet { width: 130px; left: 6%; } .stock .txt { padding: 0 18px 20px; }
+    .rooms { grid-template-columns: repeat(2, minmax(0,1fr)); } .room { height: 150px; } .feats { grid-template-columns: 1fr; }
+    .cards .cc { flex-basis: 70%; } .cards .cc.new { flex-basis: 110px; } .cc { min-height: 150px; }
+    .who, .who .av { width: 76px; } .who .av { height: 90px; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="mock" role="toolbar" aria-label="Mockup controls">MOCKUP ·
+  <button data-state="none">No Kitchens yet</button>
+  <button data-state="empty">Empty Kitchen</button>
+  <button data-state="stocked" aria-pressed="true">Stocked Kitchen</button>
+  <span style="flex:1"></span><button id="theme">Light / dark</button>
+</div>
+
+<div class="iconbar">
+  <div class="grp"><button class="ib" id="tgl-left" aria-label="Chats" aria-pressed="true"><svg class="i"><use href="#msg"/></svg></button><button class="ib" aria-label="Home"><svg class="i"><use href="#home"/></svg></button></div>
+  <div class="grp"><button class="ib" aria-label="Characters"><svg class="i"><use href="#users"/></svg></button><button class="ib hide-sm" aria-label="Personas"><svg class="i"><use href="#mask"/></svg></button><button class="ib" aria-label="Lorebooks"><svg class="i"><use href="#book"/></svg></button><button class="ib hide-sm" aria-label="Connections"><svg class="i"><use href="#plug"/></svg></button><button class="ib" aria-label="Agents"><svg class="i"><use href="#bot"/></svg></button><button class="ib hide-sm" aria-label="Settings"><svg class="i"><use href="#cog"/></svg></button></div>
+</div>
+<div class="browser">
+  <div class="tabs" role="tablist">
+    <div class="brand"><img src="../../../packages/client/public/logo.png" alt=""><div><b>Marinara Engine</b><small>V2.4.6 (STAGING)</small></div></div>
+    <button class="tab" role="tab"><svg class="i"><use href="#home"/></svg>Home</button>
+    <button class="tab" role="tab"><img src="../../../packages/client/public/sprites/mari/Mari_profile.png" alt="">Professor</button>
+    <button class="tab" role="tab" aria-selected="true" id="ktab"><svg class="i"><use href="#chef"/></svg><span>Tomato Noir</span></button>
+  </div>
+  <div class="addr"><div class="nav"><svg class="i"><use href="#left"/></svg><svg class="i"><use href="#right"/></svg><svg class="i"><use href="#refresh"/></svg></div>
+    <div class="url"><svg class="i" style="color:var(--orange)"><use href="#chef"/></svg><span>marinara/<b id="url">kitchen/tomato-noir</b></span></div></div>
+</div>
+
+<div class="body">
+  <aside class="left" aria-label="Chats">
+    <div class="phead" style="position:relative">
+      <div style="display:flex;gap:6px">
+        <button class="switch" id="switch" aria-haspopup="dialog" aria-expanded="false">
+          <span class="k-ico"><svg class="i"><use href="#chef"/></svg></span>
+          <span class="t"><span class="eyebrow" id="sw-eb">Kitchen</span><div class="nm" id="sw-nm">Tomato Noir</div></span>
+          <svg class="i" style="color:var(--muted-foreground)"><use href="#down"/></svg>
+        </button>
+        <button class="ib" id="openk" aria-label="Open Kitchen page" title="Open Kitchen page" style="height:auto;width:44px;border:1px solid var(--sidebar-border);border-radius:14px;color:var(--orange)"><svg class="i"><use href="#right"/></svg></button>
+      </div>
+      <div class="seg" role="group" aria-label="Chat modes">
+        <button class="sb" data-seg="conversation" style="--m:var(--cyan)" aria-pressed="false"><svg class="i"><use href="#msg"/></svg>CONVO</button>
+        <button class="sb" data-seg="roleplay" style="--m:var(--orange)" aria-pressed="false"><svg class="i"><use href="#drama"/></svg>RP</button>
+        <button class="sb" data-seg="game" style="--m:var(--violet)" aria-pressed="false"><svg class="i"><use href="#map"/></svg>GM</button>
+      </div>
+      <input class="search" placeholder="Search chats" aria-label="Search chats">
+      <div class="pop" id="pop" role="dialog" aria-label="Kitchens" hidden></div>
+    </div>
+    <div class="pscroll" id="chats"></div>
+  </aside>
+
+  <main id="main"><div class="stars"></div><div id="page"></div></main>
+
+  <aside class="right" aria-label="Library">
+    <div class="phead"><div class="ptabs" role="tablist" id="ptabs"></div><input class="search" placeholder="Search" aria-label="Search library"></div>
+    <div class="pscroll" id="lib"></div>
+  </aside>
+</div>
+
+<div class="drawers"><button id="d-left"><svg class="i"><use href="#msg"/></svg>Chats</button><button id="d-right"><svg class="i"><use href="#book"/></svg>Library</button></div>
+<div class="toast" id="toast" role="status" hidden><span id="tmsg"></span><button id="undo">Undo</button></div>
+
+<!-- Lucide icons (the app's icon set) -->
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="msg" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></symbol>
+  <symbol id="home" viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></symbol>
+  <symbol id="users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
+  <symbol id="mask" viewBox="0 0 24 24"><path d="M2 10s3-3 3-8c2 1 5 2 7 2s5-1 7-2c0 5 3 8 3 8-1 6-5 11-10 11S3 16 2 10z"/><path d="M8 11h.01M16 11h.01M9 16c1.5 1 4.5 1 6 0"/></symbol>
+  <symbol id="book" viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2zM22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></symbol>
+  <symbol id="plug" viewBox="0 0 24 24"><path d="M12 22v-5M9 8V2M15 8V2M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8z"/></symbol>
+  <symbol id="bot" viewBox="0 0 24 24"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2M20 14h2M15 13v2M9 13v2"/></symbol>
+  <symbol id="cog" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2V21a2 2 0 0 1-4 0v-.1A1.7 1.7 0 0 0 7 19.4l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.7 1.7 0 0 0 3 13.6H3a2 2 0 0 1 0-4h.1A1.7 1.7 0 0 0 4.6 7l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.7 1.7 0 0 0 10 3.1V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 2.9 1.2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0 1.2 2.9h.1a2 2 0 0 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></symbol>
+  <symbol id="chef" viewBox="0 0 24 24"><path d="M17 21a1 1 0 0 0 1-1v-5.35c0-.46.3-.87.7-1.08A4 4 0 0 0 17 6a5 5 0 0 0-10 0 4 4 0 0 0-1.7 7.57c.4.2.7.62.7 1.08V20a1 1 0 0 0 1 1zM6 17h12"/></symbol>
+  <symbol id="drama" viewBox="0 0 24 24"><path d="M10 11h.01M14 6h.01M18 6h.01M6.5 13.1h.01M22 5c0 9-4 12-6 12s-6-3-6-12c0-2 2-3 6-3s6 1 6 3"/><path d="M17.4 9.9c-.8.8-2 .8-2.8 0M10.1 7.1C9 7.2 7.7 7.7 6 8.6c-3.5 2-4.7 3.9-3.7 5.6 4.5 7.8 9.5 8.4 11.2 7.4.9-.5 1.9-2.1 1.9-4.7"/><path d="M9.1 16.5c.3-1.1 1.4-1.7 2.4-1.4"/></symbol>
+  <symbol id="left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7M19 12H5"/></symbol>
+  <symbol id="right" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></symbol>
+  <symbol id="refresh" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 15-6.7L21 8M21 3v5h-5M21 12a9 9 0 0 1-15 6.7L3 16M8 16H3v5"/></symbol>
+  <symbol id="chev" viewBox="0 0 24 24"><path d="m7 15 5 5 5-5M7 9l5-5 5 5"/></symbol>
+  <symbol id="down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+  <symbol id="plus" viewBox="0 0 24 24"><path d="M5 12h14M12 5v14"/></symbol>
+  <symbol id="map" viewBox="0 0 24 24"><path d="M14.1 4.1 9 2 3 4.5v17L9 19l6 2.5 6-2.5v-17zM9 2v17M15 4.5v17"/></symbol>
+  <symbol id="brain" viewBox="0 0 24 24"><path d="M12 5a3 3 0 1 0-6 .1 4 4 0 0 0-2.5 5.8 4 4 0 0 0 .6 6.6A4 4 0 1 0 12 18zM12 5a3 3 0 1 1 6 .1 4 4 0 0 1 2.5 5.8 4 4 0 0 1-.6 6.6A4 4 0 1 1 12 18zM15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4"/></symbol>
+  <symbol id="link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></symbol>
+</svg>
+
+<script>
+const P = "../../../packages/client/public";
+const MARI = [`${P}/sprites/mari/Mari_greet.png`, `${P}/sprites/mari/Mari_explaining.png`, `${P}/sprites/mari/Mari_thinking.png`, `${P}/sprites/mari/Mari_wave.png`, `${P}/sprites/mari/Mari_point_down_left.png`, `${P}/sprites/mari/chibi-professor-mari.png`];
+const NPC = `${P}/npc-silhouette.svg`;
+const HUES = ["var(--pink)", "var(--cyan)", "var(--orange)", "var(--violet)", "var(--gold)"];
+const icon = (id) => `<svg class="i"><use href="#${id}"/></svg>`;
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+
+const CHATS = {
+  c1: { name: "The Last Espresso", mode: "rp", last: "Vesna slides the cup across the counter. “You're late, detective.”" },
+  c2: { name: "Rooftop stakeout", mode: "rp", last: "Rain on the tin roof. Somewhere below, a car door shuts twice." },
+  c3: { name: "Dario texts at 3am", mode: "conv", last: "ok but hear me out. what if the barista did it" },
+  c4: { name: "Dragon school", mode: "rp", last: "Ilse finally gets the egg to stop smoking." },
+  c5: { name: "Professor Mari", mode: "conv", last: "Ready when you are." },
+};
+const LIB = {
+  characters: { label: "Characters", icon: "users", items: ["Vesna Moretti", "Dario Bellandi", "Inspector Kale", "Ilse of the Vale", "Nonna Rosa"] },
+  lorebooks: { label: "Lorebooks", icon: "book", items: ["Noir City: districts", "Moretti crime family", "1947 slang", "Dragon school canon"] },
+  agents: { label: "Agents", icon: "bot", items: ["Lorebook Keeper", "World State", "Illustrator", "Music DJ", "Expression"] },
+  personas: { label: "Personas", icon: "mask", items: ["Detective Sal", "New student"] },
+  connections: { label: "Connections", icon: "plug", items: ["Claude Opus 5.5", "Local llama 70B"] },
+};
+const hue = (s) => HUES[[...s].reduce((a, c) => a + c.charCodeAt(0), 0) % HUES.length];
+const avatar = (name, cls = "") => `<span class="av ${cls}" style="--h:${hue(name)}"><img src="${NPC}" alt=""></span>`;
+
+let seg = "roleplay", scope = "kitchen", state = "stocked", ptab = "characters", kname = "Tomato Noir", K, lastUndo = null;
+const full = () => ({ chats: ["c1", "c2", "c3"], characters: ["Vesna Moretti", "Dario Bellandi", "Inspector Kale"], lorebooks: ["Noir City: districts", "Moretti crime family"], agents: ["Lorebook Keeper", "World State"], personas: ["Detective Sal"], connections: ["Claude Opus 5.5"] });
+const none = () => ({ chats: [], characters: [], lorebooks: [], agents: [], personas: [], connections: [] });
+K = full();
+const $ = (s) => document.querySelector(s);
+const slug = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+
+/* ── left: chats ── */
+function renderLeft() {
+  const inK = state === "none" ? [] : K.chats;
+  const kscope = scope === "kitchen" && state !== "none";
+  const want = { conversation: "conv", roleplay: "rp", game: "game" };
+  const label = { conversation: "conversation", roleplay: "roleplay", game: "game" };
+  document.querySelectorAll("[data-seg]").forEach((b) => {
+    const n = Object.keys(CHATS).filter((id) => CHATS[id].mode === want[b.dataset.seg] && (!kscope || inK.includes(id))).length;
+    b.setAttribute("aria-pressed", String(b.dataset.seg === seg));
+    b.lastChild.textContent = { conversation: "CONVO", roleplay: "RP", game: "GM" }[b.dataset.seg] + (kscope ? ` ${n}` : "");
+  });
+  const row = (id) => { const c = CHATS[id], m = c.mode === "rp", mine = inK.includes(id);
+    return `<div class="row" draggable="true" data-kind="chats" data-id="${id}">
+      <span class="av round ico" style="--h:${m ? "var(--orange)" : "var(--cyan)"}">${icon(m ? "drama" : "msg")}</span>
+      <span class="t"><div>${esc(c.name)}</div><small>${esc(c.last)}</small></span>
+      ${!kscope && mine ? `<span class="badge" title="In ${esc(kname)}">${esc(kname)}</span>` : ""}
+      ${!kscope && state !== "none" && !mine ? `<button class="put" data-put="chats:${id}" aria-label="Add ${esc(c.name)} to ${esc(kname)}">${icon("plus")}</button>` : ""}</div>`; };
+  const list = Object.keys(CHATS).filter((id) => CHATS[id].mode === want[seg] && (!kscope || inK.includes(id)));
+  const empty = kscope
+    ? `<div class="quiet" style="--m:var(--orange);margin:4px 0">${icon("chef")}<span>No ${label[seg]} chats in ${esc(kname)} yet.</span></div>`
+    : `<div class="quiet" style="--m:var(--violet)">${icon("map")}<span>No ${label[seg]} chats.</span></div>`;
+  $("#chats").innerHTML = `<div class="ptitle"${kscope ? ' style="color:var(--orange)"' : ""}>${kscope ? esc(kname) + " · " : ""}${label[seg]} chats</div>`
+    + (list.map(row).join("") || empty)
+    + (kscope ? `<button class="newin">${icon("plus")} New ${label[seg]} in ${esc(kname)}</button>` : "");
+  $("#sw-eb").textContent = state === "none" ? "Kitchens" : kscope ? "Kitchen" : "Showing";
+  $("#sw-nm").textContent = state === "none" ? "All chats" : kscope ? kname : "All chats";
+  $("#openk").hidden = !kscope;
+  $("#ktab span").textContent = state === "none" ? "Kitchens" : kname;
+  $("#url").textContent = state === "none" ? "kitchens" : "kitchen/" + slug(kname);
+}
+const explainer = () => `<div style="position:relative;height:130px;background:radial-gradient(ellipse at 50% 100%, color-mix(in srgb, var(--orange) 35%, transparent), transparent 70%)">
+    <img src="${MARI[0]}" alt="" style="position:absolute;left:50%;bottom:0;height:120px;transform:translateX(-50%)"></div>
+  <div style="padding:14px 16px 16px"><div class="eyebrow">New in Marinara</div>
+    <b style="font-size:15px">What is a Kitchen?</b>
+    <p style="margin:6px 0 12px;font-size:13px;color:var(--muted-foreground)">A Kitchen is a workspace for one story world. Its chats share a cast, lorebooks, a map, agents, and agent memory. Your library stays the same everywhere.</p>
+    <button class="cta" style="width:100%;justify-content:center" data-go="create">${icon("chef")} Open your first Kitchen</button></div>`;
+
+function renderPop() {
+  $("#pop").innerHTML = state === "none"
+    ? explainer()
+    : `<div style="padding:6px">
+         <button class="opt" data-scope="all" aria-current="${scope === "all"}"><span class="dot" style="background:var(--muted-foreground)"></span>All chats<small>${Object.keys(CHATS).length}</small></button>
+         <button class="opt" data-scope="kitchen" aria-current="${scope === "kitchen"}"><span class="dot" style="background:var(--orange)"></span>${esc(kname)}<small>${K.chats.length}</small></button>
+         <button class="opt"><span class="dot" style="background:var(--cyan)"></span>Dragon school<small>1</small></button>
+         <button class="opt" style="color:var(--orange)">${icon("plus")} New Kitchen</button></div>`;
+}
+
+/* ── right: library ── */
+function renderRight() {
+  $("#ptabs").innerHTML = Object.entries(LIB).map(([k, v]) => `<button role="tab" aria-selected="${k === ptab}" data-ptab="${k}">${icon(v.icon)}${v.label}</button>`).join("");
+  $("#lib").innerHTML = LIB[ptab].items.map((n) => {
+    const inK = state !== "none" && K[ptab].includes(n);
+    const lead = ptab === "characters" || ptab === "personas" ? avatar(n) : `<span class="av ico" style="--h:${hue(n)}">${icon(LIB[ptab].icon)}</span>`;
+    return `<div class="row ${inK ? "dim" : ""}" draggable="${!inK}" data-kind="${ptab}" data-id="${esc(n)}">${lead}
+      <span class="t"><div>${esc(n)}</div><small>${inK ? "In this Kitchen" : LIB[ptab].label.slice(0, -1)}</small></span>
+      ${state !== "none" && !inK ? `<button class="put" data-put="${ptab}:${esc(n)}" aria-label="Add ${esc(n)} to ${esc(kname)}">${icon("plus")}</button>` : ""}</div>`;
+  }).join("");
+}
+
+/* ── center ── */
+const mod = (kind, m, eyebrow, title, body, cls, deco = "") =>
+  `<section class="mod ${cls}" style="--m:var(--${m})" data-drop="${kind}">${deco}
+    <header><div><div class="eyebrow">${eyebrow}</div><h2>${title}</h2></div>
+    <button class="add" data-add="${kind}">${icon("plus")} Add</button></header>${body}
+    <div class="dropnote">Drop to add to ${esc(kname)}</div></section>`;
+const quiet = (ic, text) => `<div class="quiet">${icon(ic)}<span>${text}</span></div>`;
+
+function chatCards() {
+  const cards = K.chats.map((id, i) => { const c = CHATS[id], m = c.mode === "rp";
+    return `<div class="cc ${m ? "" : "conv"}"><span class="step">COURSE ${i + 1}</span><span class="wm">${icon(m ? "drama" : "msg")}</span>
+      <span class="pill">${icon(m ? "drama" : "msg")}${m ? "Roleplay" : "Conversation"}</span><b>${esc(c.name)}</b><p>${esc(c.last)}</p></div>`; }).join("");
+  return `<div class="cards">${cards}<button class="cc new" data-add="chats">${icon("plus")}<b style="color:var(--foreground)">Add a chat</b><span style="font-size:12px">or drag one in from the left</span></button></div>`;
+}
+
+function renderCenter() {
+  const pg = $("#page");
+  if (state === "none") {
+    const rooms = [["Pizzeria", "🍕", "orange"], ["Sushi bar", "🍣", "cyan"], ["Witch's hut", "🧪", "violet"], ["Space galley", "🚀", "cyan"], ["Café", "☕", "gold"], ["Noir diner", "🕵️", "pink"]];
+    pg.innerHTML = `<div class="welcome">
+      <div class="eyebrow">New in Marinara</div>
+      <h1>Welcome to the Kitchens</h1>
+      <p>A Kitchen is a workspace for one story world. Put related chats together, and they cook with the same ingredients: one cast, one world, the same agents, and shared memory.</p>
+      <div class="rooms">${rooms.map(([n, e, m], i) => `<div class="room" style="--m:var(--${m})"><span>${n}</span><em>${e}</em><img src="${MARI[i]}" alt=""></div>`).join("")}</div>
+      <div class="feats">
+        <section class="mod" style="--m:var(--cyan)"><div class="i">${icon("link")}</div><h2>String chats together</h2><p>Roleplay and conversation chats, in order.</p></section>
+        <section class="mod" style="--m:var(--pink)"><div class="i">${icon("users")}</div><h2>Keep one cast</h2><p>Characters, persona, and connection come with every chat.</p></section>
+        <section class="mod" style="--m:var(--orange)"><div class="i">${icon("map")}</div><h2>Share one world</h2><p>Lorebooks, the map, and world state apply everywhere.</p></section>
+        <section class="mod" style="--m:var(--violet)"><div class="i">${icon("brain")}</div><h2>Agents remember</h2><p>Agents share memory across every chat in the Kitchen.</p></section>
+      </div>
+      <form class="open" id="create"><input id="newname" maxlength="60" placeholder="Name your Kitchen, e.g. Tomato Noir" aria-label="Kitchen name"><button class="cta" type="submit">${icon("chef")} Open Kitchen</button></form>
+      <div class="artnote">Art placeholder: Mari sprites. Final art: Mari in six themed kitchens (mari-kitchens.prompt.txt)</div>
+    </div>`;
+    $("#create").onsubmit = (e) => { e.preventDefault(); kname = $("#newname").value.trim() || "My Kitchen"; K = none(); setState("empty", true); };
+    return;
+  }
+  const count = Object.values(K).reduce((a, b) => a + b.length, 0);
+  const hero = `<div class="hero"><img class="art" src="${P}/home/kitchen-orbit.png" alt="">
+      <div class="ht"><div class="eyebrow">Kitchen</div><input class="kname" id="kname" value="${esc(kname)}" maxlength="60" aria-label="Kitchen name">
+      <p>${K.chats.length} chat${K.chats.length === 1 ? "" : "s"} · everything on this page applies live to every chat in the Kitchen</p></div>
+      <div class="makers"><button class="mk" style="--m:var(--cyan)"><span>${icon("msg")}</span>Conversation</button><button class="mk" style="--m:var(--orange)"><span>${icon("drama")}</span>Roleplay</button></div></div>`;
+
+  const stockHero = count ? "" : `<div class="stock">
+      <div class="pic"><img class="planet" src="${P}/home/kitchen-orbit.png" alt=""><img class="mari" src="${MARI[4]}" alt=""></div>
+      <div class="txt"><div class="eyebrow">Empty shelves</div><h2>Stock up your kitchen</h2>
+        <p>Drag chats in from the left, and characters, lorebooks, and agents in from the right. On a phone, tap <b>Add</b> on any shelf.</p>
+        <div class="todo"><span style="--m:var(--cyan)">${icon("msg")}Chats</span><span style="--m:var(--pink)">${icon("users")}Cast</span><span style="--m:var(--orange)">${icon("book")}World</span><span style="--m:var(--violet)">${icon("bot")}Agents</span><span style="--m:var(--gold)">${icon("mask")}House defaults</span></div>
+        <div class="artnote" style="text-align:left">Art placeholder. Final art: stock-up-kitchen.prompt.txt</div></div></div>`;
+
+  const cast = K.characters.length
+    ? `<div class="cast">${K.characters.map((n) => `<div class="who">${avatar(n)}<span>${esc(n)}</span><small>in ${K.chats.length} chats</small></div>`).join("")}</div>`
+    : quiet("users", "No cast yet. Characters here join every chat in the Kitchen.");
+  const world = K.lorebooks.length
+    ? `<div class="lines">${K.lorebooks.map((n) => `<div class="line"><span class="av ico" style="--h:var(--orange)">${icon("book")}</span><span class="t"><div>${esc(n)}</div><small>Always active in this Kitchen</small></span></div>`).join("")}</div>
+       <div class="map"><span class="pin" style="left:22%;top:34%"><i></i>Harbor</span><span class="pin" style="left:58%;top:62%"><i></i>Moretti café</span><span class="pin" style="left:76%;top:24%"><i></i>Precinct 9</span><span class="you">Shared map</span></div>`
+    : quiet("book", "No lorebooks yet. The world here is shared by all Kitchen chats.");
+  const staff = K.agents.length
+    ? `<div class="lines">${K.agents.map((n) => `<div class="line"><span class="av ico" style="--h:var(--violet)">${icon("bot")}</span><span class="t"><div>${esc(n)}</div><small>Runs in every Kitchen chat</small></span><span class="tag">On</span></div>`).join("")}</div>
+       <div class="recipe"><div class="eyebrow">${icon("brain")} Shared memory</div><dl><dt>suspects</dt><dd>Kale, the barista</dd><dt>last_seen</dt><dd>Moretti café, 2:14 am</dd></dl></div>`
+    : quiet("bot", "No agents yet. Agents here share one memory across the Kitchen.");
+  const house = (K.personas.length || K.connections.length)
+    ? `<div class="lines">
+        ${K.personas.map((n) => `<div class="line">${avatar(n)}<span class="t"><div>${esc(n)}</div><small>Persona</small></span></div>`).join("")}
+        ${K.connections.map((n) => `<div class="line"><span class="av ico" style="--h:var(--gold)">${icon("plug")}</span><span class="t"><div>${esc(n)}</div><small>Connection</small></span></div>`).join("")}</div>`
+    : quiet("mask", "No defaults yet. Add a persona and a connection.");
+
+  pg.innerHTML = hero + stockHero + `<div class="grid">
+    ${mod("chats", "cyan", "On the stove", "Chats", K.chats.length ? chatCards() : quiet("msg", "No chats yet. Drag chats in from the left, or start a new one above."), "c12")}
+    ${mod("characters", "pink", "The cast", "Characters", cast, "c6")}
+    ${mod("personas", "gold", "House defaults", "Persona and connection", house, "c6")}
+    ${mod("lorebooks", "orange", "The pantry", "World", world, "c6", `<img class="deco" src="${P}/home/story-comet.png" alt="">`)}
+    ${mod("agents", "violet", "Kitchen staff", "Agents", staff, "c6", `<img class="deco" src="${P}/home/achievement-trophy.png" alt="">`)}
+  </div>`;
+  $("#kname").onchange = (e) => { kname = e.target.value.trim() || kname; renderLeft(); renderPop(); };
+}
+
+function render() { renderLeft(); renderRight(); renderCenter(); renderPop(); }
+function setState(s, keep) {
+  state = s; if (!keep) K = s === "stocked" ? full() : none();
+  document.querySelectorAll("[data-state]").forEach((b) => b.setAttribute("aria-pressed", b.dataset.state === s));
+  $("#pop").hidden = true; render();
+}
+
+/* ── add / drag ── */
+const target = (kind) => (kind === "connections" ? "personas" : kind); // persona + connection share a shelf
+function put(kind, id) {
+  if (state === "none" || K[kind].includes(id)) return;
+  const single = kind === "personas" || kind === "connections";
+  lastUndo = { kind, prev: [...K[kind]] };
+  K[kind] = single ? [id] : [...K[kind], id];
+  toast(`${kind === "chats" ? CHATS[id].name : id} added to ${kname}`); render();
+}
+let dragKind = null;
+document.addEventListener("dragstart", (e) => { const r = e.target.closest("[draggable=true]"); if (!r) return;
+  dragKind = r.dataset.kind; e.dataTransfer.setData("text/plain", r.dataset.kind + ":" + r.dataset.id);
+  document.querySelectorAll("[data-drop]").forEach((m) => m.classList.add(m.dataset.drop === target(dragKind) ? "can" : "nope")); });
+document.addEventListener("dragend", () => document.querySelectorAll("[data-drop]").forEach((m) => m.classList.remove("can", "nope", "over")));
+document.addEventListener("dragover", (e) => { const m = e.target.closest("[data-drop]"); if (m && dragKind && m.dataset.drop === target(dragKind)) { e.preventDefault(); m.classList.add("over"); } });
+document.addEventListener("dragleave", (e) => { const m = e.target.closest("[data-drop]"); if (m && !m.contains(e.relatedTarget)) m.classList.remove("over"); });
+document.addEventListener("drop", (e) => { const m = e.target.closest("[data-drop]"); if (!m) return; e.preventDefault();
+  const [kind, ...rest] = e.dataTransfer.getData("text/plain").split(":"); if (m.dataset.drop === target(kind)) put(kind, rest.join(":")); });
+function toast(msg) { $("#tmsg").textContent = msg; $("#toast").hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => ($("#toast").hidden = true), 5000); }
+$("#undo").onclick = () => { if (lastUndo) { K[lastUndo.kind] = lastUndo.prev; lastUndo = null; render(); } $("#toast").hidden = true; };
+
+document.addEventListener("click", (e) => {
+  const t = e.target;
+  const st = t.closest("[data-state]"); if (st) return setState(st.dataset.state);
+  const sg = t.closest("[data-seg]"); if (sg) { seg = sg.dataset.seg; renderLeft(); return; }
+  const sc = t.closest("[data-scope]"); if (sc) { scope = sc.dataset.scope; $("#pop").hidden = true; renderLeft(); renderPop(); return; }
+  const pt = t.closest("[data-ptab]"); if (pt) { ptab = pt.dataset.ptab; renderRight(); }
+  const pu = t.closest("[data-put]"); if (pu) { const [k, ...r] = pu.dataset.put.split(":"); put(k, r.join(":")); }
+  const ad = t.closest("[data-add]"); if (ad) { const k = ad.dataset.add; if (k === "chats") document.body.classList.add("show-left"); else { ptab = k; renderRight(); document.body.classList.add("show-right"); } }
+  if (t.closest("[data-go=create]")) { $("#pop").hidden = true; $("#newname")?.focus(); }
+  if (t.closest("#switch")) { const p = $("#pop"); p.hidden = !p.hidden; $("#switch").setAttribute("aria-expanded", String(!p.hidden)); }
+  else if (!t.closest("#pop")) $("#pop").hidden = true;
+  if (t.closest("main") && !ad) document.body.classList.remove("show-left", "show-right");
+  if (t.closest("#d-left")) document.body.classList.toggle("show-left");
+  if (t.closest("#d-right")) document.body.classList.toggle("show-right");
+  if (t.closest("#tgl-left") && innerWidth > 767) { document.body.classList.toggle("hide-left"); $("#tgl-left").setAttribute("aria-pressed", String(!document.body.classList.contains("hide-left"))); }
+});
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") { $("#pop").hidden = true; document.body.classList.remove("show-left", "show-right"); } });
+$("#theme").onclick = () => { const h = document.documentElement; h.dataset.theme = h.dataset.theme === "dark" ? "light" : "dark"; };
+render();
+</script>
+</body>
+</html>
