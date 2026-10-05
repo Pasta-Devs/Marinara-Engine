@@ -14,6 +14,15 @@ and visible everywhere.
 Name: **Kitchen / Kitchens** in UI and code. "Workspace" is taken by
 `professor-mari-workspace`, and "Kitchen" matches "Marinara's Kitchen".
 
+## Naming
+
+"Kitchen" is a UI label only, so the product name can change without a migration.
+
+- Code, storage, API, and localization keys use the neutral internal name **`sphere`** (no other use in the codebase): type `Sphere`, table `spheres`, `sphereId` / `sphere_id` on chats, `/api/spheres`, `setSphereForChat`, keys like `spheres.title`.
+- Only the English locale values say "Kitchen" / "Kitchens". A rename changes locale values only.
+- Avoided: `world` (lorebooks, world state), `scope` (lorebook scope), `space` (too common), `workspace` (Professor Mari workspace).
+- In this document, "Kitchen" means the product concept; field names below written as `kitchen*` map to `sphere*` in code.
+
 ## Decisions
 
 | Topic | Decision |
