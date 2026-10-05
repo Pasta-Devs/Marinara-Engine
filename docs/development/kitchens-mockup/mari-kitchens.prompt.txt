@@ -1,0 +1,9 @@
+Use case: stylized-concept
+Asset type: decorative PNG for the Marinara Engine Kitchens intro and empty Kitchen switcher
+Primary request: A 3x2 grid of small vignettes, each showing Professor Mari (use the reference: professor-mari-whats-new.webp and public/sprites/mari — keep her face, hair, outfit colors) cooking in a differently themed kitchen: (1) Italian pizzeria with wood-fired oven, (2) neon sushi bar, (3) witch's cottage with a bubbling cauldron, (4) spaceship galley with floating ingredients, (5) cozy café with espresso machine, (6) noir detective diner at night. Each vignette is a rounded tile; Mari's pose and expression change per tile (proud, focused, mischievous, surprised, sleepy, smug).
+Style/medium: polished 2D game UI illustration, clean bold silhouettes, softly painted highlights, charming premium fantasy interface art, consistent character model across tiles
+Composition/framing: 3 columns x 2 rows of equal rounded tiles with small even gaps, whole grid about 4:3, no cropped edges; also export each tile separately for the narrow switcher (3 tiles)
+Lighting/mood: playful, each kitchen has its own lighting color, overall warm
+Color palette: Marinara logo colors, tomato orange, coral pink, pasta gold, electric cyan, violet
+Constraints: no text, no letters, no watermark. Transparent or flat #00ff00 chroma-key background outside the tiles. Do not use #00ff00 anywhere in subject.
+Avoid: photorealism, 3D plastic, off-model Mari, excessive detail
