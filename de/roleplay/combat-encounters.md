@@ -9,7 +9,7 @@ Kampfbegegnungen sind eine optionale Roleplay-Funktion. Sie geben der Szene eine
 Ein Agent ist ein Helfer, der während der Generierung einer Nachricht automatisch mitläuft. Der **Combat**-Agent (Kampf) bringt die Kampffunktion in einen Roleplay-Chat. Standardmäßig ist er aus – du aktivierst ihn also pro Chat.
 
 1. Öffne den Chat, den du um Kämpfe erweitern willst.
-2. Öffne **Chat Settings** (Chat-Einstellungen) über das Zahnrad-Symbol.
+2. Öffne **Chat Settings** (Chat-Einstellungen) über die Schaltfläche im Chat; anfangs liegt sie oben rechts.
 3. Öffne den Bereich **Agents** (Agenten).
 4. Aktiviere **Enable Agents** (Agenten einschalten), falls noch nicht geschehen.
 5. Füge dem Chat den **Combat**-Agenten hinzu.

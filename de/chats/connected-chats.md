@@ -31,7 +31,7 @@ Kurz gesagt: **Cross-Chat Awareness** verbindet einen Charakter automatisch übe
 Die Verknüpfung startest du entweder im Conversation-Chat oder in einem Game-Chat. So geht's von der Conversation-Seite aus:
 
 1. Öffne den Conversation-Chat, den du verknüpfen willst.
-2. Öffne die **Chat Settings** (Zahnrad).
+2. Öffne **Chat Settings** über die Schaltfläche im Chat. Sie liegt oben rechts, solange du sie nicht verschoben hast.
 3. Such den Abschnitt **Connected Chats**.
 4. Klick auf **Link to Roleplay or Game** (mit einem Roleplay oder Game verknüpfen).
 5. Such den Roleplay- oder Game-Chat in der Auswahl und klick ihn an.
@@ -70,11 +70,15 @@ Dieser Abschnitt listet alle gespeicherten Notizen. Jede Notiz hat eine Schaltfl
 
 Hat noch kein Charakter eine Notiz gespeichert, erklärt der Abschnitt, dass hier alles erscheint, was in ein `<note>`-Tag eingefasst und gespeichert wurde.
 
+<a id="switching-between-connected-chats"></a>
+
 ## Zwischen verknüpften Chats wechseln
 
-Hat ein Chat eine Verknüpfung, zeigt seine Werkzeugleiste eine Schaltfläche zum Wechseln, erkennbar am Doppelpfeil-Symbol. Ihr Tooltip lautet „Switch to“, gefolgt vom Namen des anderen Chats.
+Hat ein Chat eine Verknüpfung, erscheint oben rechts im Chat eine kleine Schaltfläche **Connected chat** (verknüpfter Chat) mit einem Doppelpfeil. Du kannst sie am Computer oder Telefon an eine andere Stelle ziehen. Klick oder tippe darauf, um ein kleines Fenster zu öffnen. Wähle darin **Switch to**, gefolgt vom Namen des anderen Chats.
 
-Ein Klick darauf bringt dich direkt in den verknüpften Chat. Das spart die Suche in der Chatliste. Die Schaltfläche erscheint auf beiden Seiten der Verknüpfung, in der Conversation wie im Roleplay.
+So gelangst du direkt in den verknüpften Chat. Die Schaltfläche erscheint auf beiden Seiten der Verknüpfung.
+
+Mit **Put back in Chat Settings** verschiebst du diese Steuerung in die Chat Settings. Dort erscheint sie als eigener Abschnitt **Connected chat**. Über dessen Schaltfläche zum Herauslösen öffnest du sie wieder in einem eigenen Fenster.
 
 ## Weitere Bedienelemente in diesem Abschnitt
 

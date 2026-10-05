@@ -152,7 +152,7 @@ A mesma configuração de TTS serve para todos os modos, com alguns detalhes pr�
 
 - O Roleplay usa o botão liga/desliga **Roleplay messages** da leitura automática e os controles **Speak** de cada mensagem. Veja [Roleplay Mode: primeiros passos](../roleplay/getting-started.md).
 - O Conversation Mode usa o botão **Conversation messages** e os mesmos controles **Speak**. As chamadas de áudio faladas são um recurso maior, explicado em [Chamadas de áudio e vídeo no Conversation Mode](../conversation/calls.md).
-- O Game Mode usa o botão **Game narration**. O Game Mode também tem o próprio mixer de áudio, com um canal **TTS** ao lado de **Master**, **Music**, **Sound Effects** e **Ambient**. Esse canal define o volume geral do áudio falado no jogo e começa em 100 por cento. Veja [Game Mode: primeiros passos](../game/getting-started.md).
+- O Game Mode usa o botão **Game narration**. O Game Mode também tem o próprio mixer de áudio, com um canal **TTS** ao lado de **Master**, **Music**, **Sound Effects** e **Ambient**. Esse canal define o volume geral do áudio falado no jogo e começa em 100 por cento. Veja [Os controles do jogo](../game/getting-started.md#the-games-controls).
 
 ## Nome fonético (pronúncia nas chamadas)
 

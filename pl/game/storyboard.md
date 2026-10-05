@@ -109,7 +109,7 @@ Storyboardy w trybie Roleplay łączą zakończone wymiany wiadomości w odcinek
    - **Still images**: automatycznie tworzy odcinek ilustrowany.
    - **Animations**: automatycznie tworzy obrazy klatek kluczowych i klip do każdej z nich; wymaga połączenia wideo.
 4. Ustaw pola **Messages per episode** i **Keyframes per episode**.
-5. Doprowadź do końca nową odpowiedź AI albo otwórz panel Gallery i kliknij przycisk **Create storyboard** (utworzenie storyboardu).
+5. Doprowadź do końca nową odpowiedź AI albo otwórz **Chat Settings > Gallery** i kliknij przycisk **Create storyboard** (utworzenie storyboardu).
 
 Strzałkami przełączaj kadry storyboardu złożonego z kilku klatek kluczowych. Klatka animowana pokazuje gotowy do odtworzenia klip na miejscu, a w czasie oczekiwania na klip albo przy jego braku wraca do obrazu.
 
@@ -149,7 +149,7 @@ Storyboard w trybie Game Mode bierze za źródło fabuły dokładnie jedną zako
 3. Otwórz **Chat Settings > Agents**, włącz opcję **Enable Agents**, a potem opcję **Enable Storyboards**.
 4. Sprawdź, czy gra ma połączenie obrazowe albo czy dostarcza je globalna konfiguracja agenta Storyboard.
 5. Doprowadź do końca turę narracji GM.
-6. Otwórz panel **Gallery** i kliknij przycisk **Create storyboard**.
+6. Otwórz **Chat Settings > Gallery** i kliknij przycisk **Create storyboard**.
 
 Zamknięty podgląd gry otwiera się ponownie przyciskiem **View storyboard** w panelu Gallery. Generowanie ręczne korzysta z bieżącego ustawienia animacji: przy włączonej opcji **Automatic Storyboard Animations** ręczny storyboard prosi też o klipy.
 
@@ -275,7 +275,7 @@ Agent Storyboard działa i z prezentacją Standard, i ze Storyboard Optimized. I
 
 Opcja **Floating viewer** to przeciągany panel o zmiennym rozmiarze, wyświetlany nad grą. Podąża za miejscem czytania w narracji GM i pokazuje odpowiadającą mu klatkę. Wideo odtwarza się, gdy jest gotowe, a w przeciwnym razie widać obraz klatki.
 
-Opcja **Game background** umieszcza aktywną klatkę za kontrolkami gry. Zastępuje wtedy zwykłe generowane tło sceny, więc przycisk **Generate background** jest nieaktywny. Klipy w tle odtwarzają się raz i zostają na ostatniej klatce; kontrolki gry dają powtórzenie, odtwarzanie/pauzę i wyciszenie.
+Opcja **Game background** umieszcza aktywną klatkę za pozostałą zawartością ekranu gry. Zastępuje wtedy zwykłe generowane tło sceny, więc przycisk **Generate background** jest nieaktywny. Klipy w tle odtwarzają się raz i zostają na ostatniej klatce. Żeby odtworzyć klip ponownie, wstrzymać go, wznowić lub wyciszyć, kliknij lub dotknij **Game controls** (przycisk z okrągłą strzałką, domyślnie blisko prawego górnego rogu czatu). Otwiera się w oknie na komputerze lub panelu na telefonie. Jeśli jest przeniesiony do Chat Settings, otwórz tam sekcję **Game controls**.
 
 Zamknięcie pływającego podglądu ukrywa go na czas bieżącej tury. Do ponownego otwarcia służy **Gallery > View storyboard**.
 

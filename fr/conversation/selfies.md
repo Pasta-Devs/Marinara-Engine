@@ -87,7 +87,7 @@ Les formes `[selfie: "standing beside the river"]` et `[selfie: standing beside 
 
 Autre option : demander toi-même un selfie plutôt que d'attendre le personnage.
 
-1. Ouvre le panneau **Gallery** (galerie) du chat.
+1. Ouvre **Chat Settings** et déplie **Gallery** (galerie).
 2. Clique sur le bouton **Selfie**, l'icône d'appareil photo.
 3. Si le chat compte plusieurs personnages, choisis qui prend le selfie dans la liste des personnages située à côté du bouton.
 4. Si l'option **Expose media prompts before sending** est activée sous **Settings**, **Generations**, **Image Generation**, relis ou modifie le prompt de selfie final, puis clique sur **Generate**. Si tu annules à cette étape, aucune requête d'image n'est envoyée.

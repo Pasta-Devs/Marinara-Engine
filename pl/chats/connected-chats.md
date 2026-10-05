@@ -31,7 +31,7 @@ W skrócie: **Cross-Chat Awareness** automatycznie łączy postać między jej w
 Połączenie zaczyna się od strony czatu Conversation albo od czatu Game. Oto, jak zrobić to od strony czatu Conversation.
 
 1. Otwórz czat Conversation, który chcesz połączyć.
-2. Otwórz panel **Chat Settings** (ikona koła zębatego).
+2. Otwórz **Chat Settings** przyciskiem w czacie. Domyślnie jest w prawym górnym rogu; możesz go przenieść.
 3. Znajdź sekcję **Connected Chats**.
 4. Kliknij przycisk **Link to Roleplay or Game**.
 5. Wyszukaj czat Roleplay lub Game w oknie wyboru, a potem go kliknij.
@@ -70,11 +70,15 @@ Sekcja ta wymienia wszystkie zapisane notatki. Przy każdej znajduje się przyci
 
 Jeśli żadna postać nie zapisała jeszcze notatki, sekcja wyjaśnia, że notatki objęte tagiem `<note>` pojawią się tutaj po zapisaniu.
 
+<a id="switching-between-connected-chats"></a>
+
 ## Przeskakiwanie między połączonymi czatami
 
-Kiedy czat ma swój odpowiednik, na jego pasku narzędzi pojawia się przycisk przełączania z ikoną podwójnej strzałki. Jego podpowiedź brzmi "Switch to" i nazwa drugiego czatu.
+Kiedy czat ma swój odpowiednik, w prawym górnym rogu czatu pojawia się mały przycisk **Connected chat** z ikoną podwójnej strzałki. Możesz przeciągnąć go w inne miejsce na komputerze lub telefonie. Kliknij go lub dotknij, żeby otworzyć małe okno, a następnie wybierz **Switch to** z nazwą drugiego czatu.
 
-Kliknij go, żeby od razu przejść do połączonego czatu. Nie trzeba wtedy szukać drugiego czatu na liście czatów. Przycisk działa po obu stronach połączenia: w czacie Conversation i w czacie Roleplay.
+Od razu przejdziesz do połączonego czatu. Przycisk działa po obu stronach połączenia.
+
+Przyciskiem **Put back in Chat Settings** możesz przenieść tę kontrolkę do Chat Settings. Pojawi się tam w osobnej sekcji **Connected chat**. Przycisk otwierania sekcji w osobnym oknie pozwala ponownie ją odłączyć.
 
 ## Pozostałe kontrolki w tej sekcji
 

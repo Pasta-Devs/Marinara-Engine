@@ -6,7 +6,7 @@ Esta guía explica las ramas de chat en Marinara Engine: qué es una rama y cóm
 
 Una rama es una copia de un chat que comparte el historial hasta un punto que tú eliges. Usas las ramas para explorar una dirección distinta mientras mantienes a salvo el chat original.
 
-Todas las ramas del mismo chat se agrupan juntas. En la lista de chats, un chat con más de una rama aparece como una sola fila. Junto a él aparece un pequeño contador de ramas. Abres y cambias entre sus ramas desde el panel emergente **Chat Branches** (Ramas de chat) (ver más abajo).
+Todas las ramas del mismo chat se agrupan juntas. En la lista de chats, un chat con más de una rama aparece como una sola fila. Junto a él aparece un pequeño contador de ramas. Abres y cambias entre sus ramas desde la sección **Chat Branches** (Ramas de chat) de **Chat Settings** (ver más abajo).
 
 Cada rama puede tener su propio nombre para mostrar, así puedes etiquetarlas como "final amistoso" y "final oscuro". Este nombre para mostrar es distinto del nombre del chat subyacente.
 
@@ -33,19 +33,19 @@ Los resúmenes diarios y semanales no se traspasan. Los resúmenes continuos con
 
 No puedes ramificar un chat de escena. En un chat de escena, el botón **Branch from here** no aparece. Los chats de escena tienen en su lugar una acción **Clone from here** (Clonar desde aquí) aparte. Consulta [Escenas: Ramificar un Roleplay](../roleplay/scenes.md) para saber cómo funciona.
 
-## El panel emergente Chat Branches
+## La sección Chat Branches
 
-Abre el panel emergente desde el botón de rama en la barra de herramientas del chat. El botón usa un icono de ramificación y muestra el contador de ramas actual. Su tooltip (texto de ayuda) dice **Switch branch**.
+Abre **Chat Settings** y despliega **Chat Branches**, debajo de **Chat Name**. El encabezado muestra el número actual de ramas. En una computadora puedes sacarla a una ventana propia; consulta [Vista general de Chat Settings](chat-settings.md#popping-a-section-out-into-its-own-window).
 
-El panel emergente se titula **Chat Branches** y tiene el subtítulo "Switch, import, export, or clean up this chat's branches." Lista todas las ramas del chat actual, con la rama que estás viendo mostrada primero. Cada fila muestra el nombre para mostrar de la rama y su hora de última actualización.
+La sección lista todas las ramas del chat actual y muestra primero la que estás viendo. Cada fila muestra el nombre de la rama y la hora de su última actualización.
 
 ### Cambiar a otra rama
 
-Haz clic en cualquier fila de rama del panel emergente para abrir esa rama. El panel emergente se cierra y la vista del chat cambia a la rama que elegiste.
+Haz clic en una fila para abrir esa rama. La vista del chat cambia a la rama que elegiste.
 
 ### Renombrar una rama
 
-1. Abre el panel emergente **Chat Branches**.
+1. Abre la sección **Chat Branches**.
 2. Haz clic en el botón del lápiz (renombrar) en la fila de la rama que quieres renombrar.
 3. Se abre una ventana titulada **Rename Branch** (Renombrar rama) con el mensaje "Set a display name for this chat branch."
 4. Escribe un nombre nuevo y confirma con el botón **Rename**.
@@ -54,7 +54,7 @@ Un nombre vacío, o un nombre que no cambiaste, se ignora.
 
 ### Eliminar una rama
 
-1. Abre el panel emergente **Chat Branches**.
+1. Abre la sección **Chat Branches**.
 2. Haz clic en el botón de la papelera (eliminar) en la fila de la rama.
 3. Una ventana titulada **Delete Branch** (Eliminar rama) pregunta "Delete this branch? Messages will be lost."
 4. Confirma con el botón **Delete**.
@@ -63,13 +63,13 @@ Eliminar una rama quita solo esa rama y sus mensajes. Las demás ramas se quedan
 
 ### Eliminar todas las ramas
 
-Cuando un chat tiene dos ramas o más, aparece un botón **Delete All Branches** (Eliminar todas las ramas) en la parte inferior del panel emergente. Pregunta "Delete all N branches? This cannot be undone." Confirma con el botón **Delete All** para quitar todas las ramas del grupo de una vez.
+Cuando un chat tiene dos ramas o más, aparece un botón **Delete All Branches** (Eliminar todas las ramas) en la parte inferior de la sección. Pregunta "Delete all N branches? This cannot be undone." Confirma con el botón **Delete All** para quitar todas las ramas del grupo de una vez.
 
 También puedes iniciar esto desde la lista de chats. Elimina un chat que tenga ramas desde su icono de papelera. Entonces una ventana titulada **Delete Chat** (Eliminar chat) pregunta qué quieres eliminar. Ofrece un botón **Delete This Branch Only** (Eliminar solo esta rama) y un botón **Delete All N Branches** (Eliminar las N ramas). Consulta [Gestionar tu lista de chats](managing-chats.md) para más información sobre eliminar desde la lista.
 
 ## Exportar una rama
 
-El panel emergente **Chat Branches** tiene botones de exportación en la parte superior. Exportan la rama que estás viendo en ese momento.
+La sección **Chat Branches** tiene botones de exportación en la parte superior. Exportan la rama que estás viendo en ese momento.
 
 - **JSONL**: descarga la rama como un archivo JSONL. JSONL significa un mensaje por línea de texto, y este formato es compatible con SillyTavern.
 - **Text**: descarga la rama como una transcripción de texto sin formato.
@@ -80,7 +80,7 @@ Para exportar en bloque muchos chats a la vez, consulta [Exportar e importar cha
 
 Puedes traer un registro de chat guardado como una rama nueva del chat que tienes abierto.
 
-1. Abre el panel emergente **Chat Branches**.
+1. Abre la sección **Chat Branches**.
 2. Haz clic en el botón **Import** (Importar).
 3. Elige un archivo JSONL (`.jsonl`) exportado desde SillyTavern o desde Marinara.
 

@@ -133,7 +133,7 @@ Pełne przewodniki: [Noodle: wbudowana oś czasu społecznościowa](noodle/overv
 Modele AI mieszczą naraz ograniczoną ilość tekstu, więc w długich czatach stare wiadomości wypadają z pola widzenia. Marinara ma dwa systemy pamięci, które w tym pomagają:
 
 - **Memory Recall** przeszukuje wcześniejsze wiadomości i po cichu dokłada do promptu najbardziej pasujące fragmenty. Włącz tę funkcję w panelu **Chat Settings** w sekcji **Memory Recall**.
-- Podsumowania skracają stare wiadomości do krótkich streszczeń. Czaty w trybie Roleplay używają funkcji **Chat Summary**, a czaty w trybie Conversation – funkcji **Automatic Summarization**.
+- Podsumowania skracają stare wiadomości do krótkich streszczeń. Czaty w trybie Roleplay używają funkcji **Chat Summary**, a czaty w trybie Conversation – funkcji **Automatic Summarization**. Obie znajdziesz w **Chat Settings**.
 
 Aby automatycznie zarządzać kontekstem Roleplay, włącz **Advanced Memory Recall** (zaawansowane przywoływanie pamięci) w **Chat Settings → Memory Recall**. Funkcja zachowuje niedawną historię, utrzymuje ograniczone podsumowanie ciągłości i wybiórczo przywołuje starsze sceny w ramach wybranego szacunkowego limitu kontekstu. Konfiguracja, postęp i edycja pozostają w panelu bocznym. Starsze czaty grupowe w trybie Individual mogą wymagać jednorazowego potwierdzenia zakresu wiedzy każdej postaci. Opcjonalny przełącznik **Use Decision model** pozwala wybranemu połączeniu decyzyjnemu wykrywać sceny i wybierać wspomnienia; podsumowania nadal pisze model pomocniczy.
 
@@ -182,7 +182,7 @@ Uwaga: na zwykłym adresie zdalnym działania Professor Mari zmieniające dane w
 
 Agent **Storyboard** do pobrania zamienia gotowy tekst opowieści w uporządkowaną serię klatek kluczowych. Każdą klatkę potrafi też ożywić w krótkim klipie. W trybie **Game Mode** obejmuje jedną gotową turę narracji GM (mistrza gry) i pokazuje klatki w pływającym podglądzie albo jako tło gry. W trybie **Roleplay** łączy nowo zakończone wymiany zdań w odcinek osadzony w czacie.
 
-Żeby użyć go w trybie Game Mode, zainstaluj agenta **Storyboard** z **Agents > Download Agents**. Otwórz grę, przejdź do **Chat Settings > Agents**, włącz przełączniki **Enable Agents** i **Enable Storyboards**, a potem wskaż połączenie do generowania obrazów w grze albo w globalnej konfiguracji agenta Storyboard. Zakończ turę narracji GM, otwórz sekcję **Gallery** (galeria) i kliknij przycisk **Create storyboard**. Podgląd otwiera się ponownie przyciskiem **View storyboard**.
+Żeby użyć go w trybie Game Mode, zainstaluj agenta **Storyboard** z **Agents > Download Agents**. Otwórz grę, przejdź do **Chat Settings > Agents**, włącz przełączniki **Enable Agents** i **Enable Storyboards**, a potem wskaż połączenie do generowania obrazów w grze albo w globalnej konfiguracji agenta Storyboard. Zakończ turę narracji GM, otwórz **Chat Settings > Gallery** (galeria) i kliknij przycisk **Create storyboard**. Podgląd otwiera się ponownie przyciskiem **View storyboard**.
 
 Żeby storyboardy w grze powstawały automatycznie, włącz przełącznik **Automatic Storyboard Illustrations**. Kiedy potrzebne są też klipy, włącz **Automatic Storyboard Animations** i wybierz połączenie typu Video Generation. Prezentacja **Storyboard Optimized** z kreatora nowej gry kształtuje wyłącznie narrację GM – nie instaluje agenta ani go nie włącza. Konfigurację w trybach Game Mode i Roleplay, prompty, podglądy, zachowanie po migracji i rozwiązywanie problemów opisuje [Przewodnik po agencie Storyboard](game/storyboard.md).
 

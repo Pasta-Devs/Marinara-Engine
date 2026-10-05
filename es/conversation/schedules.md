@@ -18,7 +18,7 @@ Los horarios son opcionales. Con los mensajes autónomos activados pero los hora
 Esto lo controlas desde el chat, no desde la tarjeta de personaje. Todos estos controles están en la sección **Autonomous Messaging** (Mensajería autónoma) de **Chat Settings** (Ajustes del chat).
 
 1. Abre un chat de Conversation.
-2. Abre **Chat Settings** (el icono de engranaje).
+2. Abre **Chat Settings** (Ajustes del chat) con su botón en el chat. Está arriba a la derecha, salvo que lo hayas movido.
 3. Busca la sección **Autonomous Messaging**.
 4. Activa el interruptor **Autonomous Messages**.
 

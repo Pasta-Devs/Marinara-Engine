@@ -109,7 +109,7 @@ En Roleplay, les storyboards regroupent des échanges terminés en un épisode v
    - **Still images** : crée automatiquement un épisode illustré.
    - **Animations** : crée automatiquement les images-clés et un clip par image ; une connexion vidéo est obligatoire.
 4. Règle **Messages per episode** et **Keyframes per episode**.
-5. Termine une nouvelle réponse de l'assistant, ou ouvre le panneau **Gallery** et choisis **Create storyboard**.
+5. Termine une nouvelle réponse de l'assistant, ou ouvre **Chat Settings > Gallery** et choisis **Create storyboard**.
 
 Sur un storyboard à plusieurs images-clés, les flèches permettent de passer d'une image à l'autre. Une image animée affiche son clip au fil du chat, et se rabat sur l'image fixe tant que le clip est en attente ou indisponible.
 
@@ -149,7 +149,7 @@ En Game Mode, le storyboard part d'un seul tour de narration GM terminé. Marina
 3. Ouvre **Chat Settings > Agents**, active **Enable Agents**, puis **Enable Storyboards**.
 4. Vérifie que la partie dispose d'une connexion d'image, ou que la configuration globale de Storyboard en fournit une.
 5. Termine un tour de narration GM.
-6. Ouvre le panneau **Gallery** et choisis **Create storyboard**.
+6. Ouvre **Chat Settings > Gallery** et choisis **Create storyboard**.
 
 Pour rouvrir une visionneuse de jeu que tu as fermée, choisis **View storyboard** (voir le storyboard) dans le panneau **Gallery**. La génération manuelle suit le réglage d'animation en cours : si **Automatic Storyboard Animations** est activé, le storyboard manuel demande aussi les clips.
 
@@ -275,7 +275,7 @@ L'agent Storyboard fonctionne aussi bien avec la présentation Standard qu'avec 
 
 **Floating viewer** (visionneuse flottante) est un panneau déplaçable et redimensionnable posé au-dessus du jeu. Il suit ta position de lecture dans la narration du GM et affiche l'image correspondante. La vidéo se lit dès qu'elle est prête ; sinon, c'est l'image fixe qui s'affiche.
 
-**Game background** (arrière-plan du jeu) place l'image active derrière les commandes du jeu. Tant que ce mode est actif, il remplace l'arrière-plan de scène généré habituel, et l'action **Generate background** reste indisponible. Les clips d'arrière-plan se lisent une seule fois et restent figés sur leur dernière image ; les commandes du jeu proposent la relecture, la lecture/pause et la coupure du son.
+**Game background** (arrière-plan du jeu) place l'image active derrière le reste de l'écran de jeu. Tant que ce mode est actif, il remplace le décor généré habituel, et **Generate background** reste indisponible. Les clips se lisent une fois et restent sur leur dernière image. Ouvre **Game controls** avec le bouton de flèche circulaire, qui commence en haut à droite, pour relire, lire/mettre en pause ou couper le son. C'est une fenêtre sur ordinateur et un panneau sur téléphone. Si tu l'as rangé dans Chat Settings, ouvre sa section **Game controls**.
 
 Fermer la visionneuse flottante la masque pour le tour en cours. Pour la rouvrir, passe par **Gallery > View storyboard**.
 

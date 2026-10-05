@@ -513,7 +513,6 @@ Les outils de mémoire des agents passent par `/api/agents/memory/:agentType/:ch
 | Préfixe | Description |
 | ------------------------------- | ---------------------------- |
 | `/api/bot-browser/chub/*`       | Recherche de personnages Chub |
-| `/api/bot-browser/chartavern/*` | Recherche CharacterTavern |
 | `/api/bot-browser/janny/*`      | Recherche JannyAI |
 | `/api/bot-browser/pygmalion/*`  | Recherche Pygmalion |
 | `/api/bot-browser/wyvern/*`     | Recherche Wyvern |

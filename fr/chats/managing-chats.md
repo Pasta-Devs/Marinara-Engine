@@ -45,7 +45,7 @@ Pour toutes les façons d'importer et d'exporter des chats, formats et import en
 Le nom du chat n'est visible que par toi. Marinara ne l'envoie pas à l'IA et il ne change rien à la conversation.
 
 1. Ouvre le chat.
-2. Ouvre le panneau **Chat Settings** avec le bouton en forme d'engrenage, dans la barre d'outils du chat.
+2. Ouvre **Chat Settings** avec son bouton dans le chat.
 3. Dans la section **Chat Name**, clique sur le nom actuel pour le transformer en champ de saisie.
 4. Saisis le nouveau nom, puis appuie sur Enter ou clique sur le bouton en forme de coche.
 

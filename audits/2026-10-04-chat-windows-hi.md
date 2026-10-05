@@ -19,7 +19,7 @@ The changed instructions explain movable chat controls, drawers, pins and locks,
 - Whole-pack Devanagari token audit introduces no new nukta-stripped spelling splits. Existing unrelated residuals recorded in the Hindi glossary remain separate.
 - No new nonbreaking spaces or zero-width characters. Changed prose follows the glossary's आप, modern technical Hindi and danda conventions.
 - The UI pack translates all 126 relevant new/changed keys. The two guided-regeneration keys are outside this chat-window UI scope and retain English fallback. Existing guide updates from #7064 are preserved. Removed the 12 obsolete chat-help keys that were present among the 41 deleted English keys. The final close-button correction also removes the two newly introduced minimize labels.
-- UI validation passed for 280 current Hindi keys with zero stale entries, including key ordering, interpolation/markup preservation and manifest hashes. Missing unrelated UI keys continue to use English fallback. Other language packs' existing stale keys are reported separately.
+- UI validation passed for the 280-key chat-window candidate against English `d133948`. Integration with the current translation branch preserves four newer CharacterTavern strings from #7079, giving 284 current Hindi keys with zero stale entries against that upstream English catalog. Key ordering, interpolation/markup and manifest hashes pass. Missing unrelated UI keys continue to use English fallback. Other language packs' existing stale keys are reported separately.
 
 An independent agent checked the three largest guides, the changed UI strings, new links and source parity. Its two substantive wording/evidence refinements were applied. The two autonomous-pacing paragraphs from #7067 are preserved during integration.
 
@@ -70,3 +70,9 @@ From the translation checkout, run `node scripts/ui-i18n/validate-packs.mjs /pat
 - `docs/roleplay/combat-encounters.md`
 - `docs/roleplay/getting-started.md`
 - `docs/roleplay/hud-and-trackers.md`
+
+## Review and base integration
+
+Local CodeRabbit completed all 41 changed files at `bf7ce35b7192a1b3266121ec9e5c63b3dd121f12` against `3386e3518c81802abf2dd0bdf998bb3e3499800c`, with zero findings. The subsequent merge of `docs-i18n` at `72ba79633069a4e5333596980ad92d8d97e03150` preserves its already-reviewed CharacterTavern guide changes and four Hindi UI strings. The three conflicts were generated manifests and adjacent JSON additions; there was no conflicting translation wording. Both manifests were regenerated and the 136-guide pack and UI pack validated again.
+
+The #7054 translation source remains `d1339485460a6ce82a4248b8459c45b67af910db`. Later movable Echo/tracker and chat-style/menu changes are separate follow-ups. Hosted review is requested after this integration; local review alone is not merge clearance.

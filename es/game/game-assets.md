@@ -43,9 +43,11 @@ Desde **Settings** (Configuración):
 Desde un juego:
 
 1. Abre un chat de Game Mode.
-2. Haz clic en el botón **Game Assets** en la barra de herramientas del chat.
+2. Haz clic o toca el botón **Game Assets** (la carpeta), que empieza arriba a la derecha del chat. Puedes arrastrarlo en la computadora o el teléfono.
 
-El botón de la barra de herramientas solo aparece en chats que usan Game Mode. Abrirlo ahí muestra el **Asset Browser** como un panel dentro del juego.
+El botón solo aparece en Game Mode. Abre **Game Assets**, que contiene el **Asset Browser**: una ventana móvil en computadora o un panel de ancho completo en teléfono.
+
+Si lo guardaste con **Put back in Chat Settings**, abre la sección **Game Assets** dentro de Chat Settings.
 
 La barra de herramientas de arriba tiene una ruta de navegación que empieza en **Game Assets**. A su lado están un interruptor de **Grid view** (vista de cuadrícula) y **List view** (vista de lista), un botón **Upload** y un botón **New**. También tiene un botón **Rescan**, un botón **Open in system folder** y una caja **Search in folder**. Un árbol de carpetas a la izquierda te deja saltar entre categorías en pantallas más anchas.
 
@@ -137,7 +139,7 @@ Si copias archivos a la carpeta de recursos del juego directamente en tu computa
 
 Cada chat de Game Mode puede limitarse a solo algunas de tus carpetas de recursos. Esto es útil cuando quieres que un juego de terror se salte tu música alegre, por ejemplo.
 
-Durante la configuración, expande **Adjust Game Assets for this Game** en el paso **Features**. Para un juego existente, abre el panel **Asset Browser** del juego desde la barra de herramientas del chat.
+Durante la configuración, expande **Adjust Game Assets for this Game** en el paso **Features**. Para un juego existente, abre la ventana **Game Assets** del juego.
 
 Luego:
 

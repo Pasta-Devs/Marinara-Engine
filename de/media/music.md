@@ -152,7 +152,7 @@ Ist er an, stehen dir dieselben Optionen **Spotify**, **YouTube** und **Custom**
 
 Spotify verhält sich im Game Mode etwas anders. Nach jeder Szene stellt der Server eine kurze Liste echter Songkandidaten aus der gewählten Quelle zusammen. Daraus wählt die KI dann einen Song aus. So kann sie sich keinen Song ausdenken, den es gar nicht gibt. Der Game Mode spielt immer genau einen Song in Schleife.
 
-Im Zug findest du im Aktionsmenü die Schaltfläche **Retry Music DJ**, die für die aktuelle Szene eine neue Auswahl erzwingt.
+Öffne **Game controls** (Spielsteuerung) und wähle **Retry Music DJ**, um für die aktuelle Szene eine neue Auswahl anzufordern. Das geht am Computer und am Telefon. Siehe [Die Bedienelemente des Spiels](../game/getting-started.md#the-games-controls).
 
 ## Der Music-Befehl im Conversation Mode
 

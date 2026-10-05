@@ -140,7 +140,7 @@ Desde el panel **Presets**:
 Desde **Chat Settings** (Ajustes del chat):
 
 1. Abre el chat.
-2. Abre **Chat Settings** (el engranaje).
+2. Abre **Chat Settings**.
 3. Busca la sección **Prompt Preset**.
 4. Elige un preset en el menú desplegable.
 

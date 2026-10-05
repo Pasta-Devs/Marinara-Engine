@@ -513,7 +513,6 @@ Personal Extensionsは、サーバーに保存され、ハッシュの完全一�
 | プレフィックス                          | 説明                  |
 | ------------------------------- | ---------------------------- |
 | `/api/bot-browser/chub/*`       | Chubのキャラクター検索        |
-| `/api/bot-browser/chartavern/*` | CharacterTavernの検索           |
 | `/api/bot-browser/janny/*`      | JannyAIの検索                  |
 | `/api/bot-browser/pygmalion/*`  | Pygmalionの検索               |
 | `/api/bot-browser/wyvern/*`     | Wyvernの検索                  |

@@ -206,7 +206,7 @@ Pars d'un tour de GM terminé qui contient une action visuelle évidente : ouvri
 
 1. Pour la vérification la plus rapide en VRAM limitée, règle temporairement **Keyframes per Turn** sur 1, en laissant **Animation Clip Duration** à 5 secondes. Le profil testé habituel utilise 3 images-clés.
 2. Active les deux réglages automatiques de storyboard une fois le tour de GM en cours déjà terminé.
-3. Ouvre la galerie et choisis **Create storyboard** pour ce tour de GM terminé. Cela démarre manuellement tout le chemin illustration + animation, sans attendre un nouveau tour.
+3. Ouvre **Chat Settings > Gallery** et choisis **Create storyboard** pour ce tour de GM terminé. Cela démarre manuellement tout le chemin illustration + animation, sans attendre un nouveau tour.
 4. Si l'affichage des prompts est activé, relis le prompt de première image avant de l'envoyer.
 5. Vérifie que la première image générée offre une pose de départ réellement exploitable.
 6. Attends la fin du rendu de la première image, puis celle du clip ComfyUI.

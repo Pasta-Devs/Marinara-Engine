@@ -31,7 +31,7 @@ Resumindo: **Cross-Chat Awareness** conecta um personagem entre os chats de Conv
 A ligação começa pelo chat de Conversation ou por um chat de Game. Siga estes passos para começar pelo lado da Conversation.
 
 1. Abra o chat de Conversation que você quer ligar.
-2. Abra **Chat Settings** (a engrenagem).
+2. Abra **Chat Settings** (configurações do chat) pelo botão no chat. Ele começa no canto superior direito, a menos que você o tenha movido.
 3. Localize a seção **Connected Chats**.
 4. Clique em **Link to Roleplay or Game**.
 5. Procure o chat de Roleplay ou Game no seletor e clique nele.
@@ -70,11 +70,15 @@ Essa seção lista todas as notas salvas. Cada nota tem um botão para excluir. 
 
 Se nenhum personagem salvou nota ainda, a seção explica que as notas envolvidas por uma tag `<note>` vão aparecer ali depois de salvas.
 
+<a id="switching-between-connected-chats"></a>
+
 ## Alternar entre chats conectados
 
-Quando um chat tem outro ligado a ele, a barra de ferramentas mostra um botão de alternância. O ícone é uma seta dupla. A dica dele diz "Switch to" seguido do nome do outro chat.
+Quando um chat tem outro ligado a ele, aparece um botão móvel **Connected chat**, com uma seta dupla, inicialmente no canto superior direito. Você pode arrastá-lo no computador ou no celular. Clique ou toque nele para abrir uma pequena janela e escolha **Switch to** seguido do nome do outro chat.
 
-Clique nele para pular direto para o chat conectado. Assim você não precisa procurar o outro chat na lista à mão. O botão aparece nos dois lados da ligação: no de Conversation e no de Roleplay.
+A ação leva direto ao chat conectado, sem precisar procurá-lo na lista. O botão aparece nos dois lados da ligação, em Conversation e em Roleplay.
+
+Se preferir mantê-lo dentro de Chat Settings, escolha **Put back in Chat Settings** na janela. Ele vira a seção **Connected chat**. O botão para destacar essa seção abre uma janela própria novamente.
 
 ## Outros controles nesta seção
 

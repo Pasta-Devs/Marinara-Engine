@@ -140,7 +140,7 @@ Cuando está activado, tu webhook o script recibe un valor `context` junto con l
 
 Crear una herramienta no hace que la IA la use. También debes activar el uso de herramientas en el chat.
 
-1. Abre un chat y haz clic en el engranaje para abrir **Chat Settings** (Ajustes del chat).
+1. Abre un chat y abre **Chat Settings** (Ajustes del chat).
 2. Abre la sección **Function Calling** (su icono es una llave inglesa).
 3. Activa **Enable Tool Use**. Su descripción dice **Allow AI to call functions (dice rolls, game state, etc.)**. Está desactivado de forma predeterminada en un chat nuevo.
 

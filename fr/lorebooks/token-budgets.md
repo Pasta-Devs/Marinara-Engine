@@ -45,9 +45,11 @@ Quand plus d'entrées correspondent qu'un budget ne l'autorise, Marinara garde l
 
 Marinara parcourt cette liste et ajoute chaque entrée qui tient encore. Si une entrée fait dépasser un budget, Marinara l'écarte et passe à la suivante. Toutes les entrées situées en dessous sont malgré tout examinées. Une petite entrée peut donc passer même après qu'une plus grosse a été écartée.
 
+<a id="seeing-skipped-entries-in-active-context"></a>
+
 ## Voir les entrées écartées dans Active Context
 
-Pas besoin de deviner quelles entrées ont été abandonnées. Le bouton **Active Context** (contexte actif), dans la barre d'outils du chat, ouvre un panneau. Il affiche le résultat en direct de la dernière analyse des lorebooks.
+Pas besoin de deviner quelles entrées ont été écartées. Ouvre **Chat Settings** et déplie **Active Context** (contexte actif). Cette section affiche le résultat en direct de la dernière analyse des lorebooks.
 
 Si des entrées correspondantes ont été écartées, un avertissement ambre s'affiche en haut. Il indique "N matching lore entries were skipped by token budget." Déplie-le pour voir chaque entrée écartée.
 
@@ -57,7 +59,7 @@ Chaque entrée écartée indique de quel lorebook elle provient et pourquoi elle
 - **chat budget** : l'entrée ne tenait pas dans le **Lorebook Token Budget** commun au chat.
 - **lorebook and chat budgets** : les deux plafonds étaient déjà pleins.
 
-Déplie une entrée écartée pour en savoir plus. Tu y trouves les mots-clés correspondants, la taille estimée en tokens et la part du budget déjà consommée. Si de gros lorebooks sont écartés en permanence, le panneau suggère les agents **Knowledge Retrieval** ou **Knowledge Router**. Ils gèrent souvent mieux les gros lorebooks qu'une augmentation des plafonds.
+Déplie une entrée écartée pour en savoir plus. Tu y trouves les mots-clés correspondants, la taille estimée en tokens et la part du budget déjà consommée. Si de gros lorebooks sont écartés en permanence, **Active Context** suggère les agents **Knowledge Retrieval** ou **Knowledge Router**. Ils gèrent souvent mieux les gros lorebooks qu'une augmentation des plafonds.
 
 ## Analyse récursive
 

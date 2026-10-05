@@ -109,7 +109,7 @@ No Roleplay, o storyboard reúne as trocas de mensagens já concluídas em um ep
    - **Still images**: cria automaticamente um episódio ilustrado.
    - **Animations**: cria automaticamente as imagens dos quadros-chave e um clipe para cada quadro; é preciso ter uma conexão de vídeo.
 4. Ajuste os campos **Messages per episode** e **Keyframes per episode**.
-5. Termine uma nova resposta do assistente ou abra a Gallery e clique em **Create storyboard**.
+5. Termine uma nova resposta do assistente ou abra **Chat Settings > Gallery** e clique em **Create storyboard**.
 
 Nos storyboards com vários quadros-chave, use as setas para passar de um quadro para outro. O quadro animado mostra o clipe dentro do chat; enquanto o clipe está pendente ou indisponível, ele exibe a imagem no lugar.
 
@@ -149,7 +149,7 @@ No Game Mode, o Storyboard usa exatamente um turno concluído de narração do G
 3. Abra a seção **Chat Settings > Agents**, ative **Enable Agents** e depois **Enable Storyboards**.
 4. Verifique se o jogo tem uma conexão de imagem, ou se a configuração global do Storyboard fornece uma.
 5. Termine um turno de narração do GM.
-6. Abra o painel **Gallery** e clique em **Create storyboard**.
+6. Abra **Chat Settings > Gallery** e clique em **Create storyboard**.
 
 Para reabrir um visualizador do Game que você fechou, clique em **View storyboard** na Gallery. A geração manual segue a configuração de animação do momento: com **Automatic Storyboard Animations** ativado, o storyboard manual também pede os clipes.
 
@@ -275,7 +275,7 @@ O agente Storyboard funciona tanto com a apresentação Standard quanto com a St
 
 A opção **Floating viewer** é um painel arrastável e redimensionável sobre o jogo. Ele acompanha o ponto da narração do GM em que você está lendo e mostra o quadro correspondente. O vídeo toca assim que fica pronto; enquanto isso, aparece a imagem do quadro.
 
-A opção **Game background** coloca o quadro ativo atrás dos controles do jogo. Enquanto esse modo está ligado, ela substitui o plano de fundo de cena gerado normalmente, e por isso a ação **Generate background** fica indisponível. Os clipes do plano de fundo tocam uma vez e ficam parados no último quadro; os controles do jogo oferecem as ações de repetir, reproduzir/pausar e silenciar.
+A opção **Game background** coloca o quadro ativo atrás do restante da tela do jogo. Enquanto esse modo está ligado, substitui o fundo de cena gerado normalmente, e **Generate background** fica indisponível. Os clipes tocam uma vez e ficam no último quadro. Abra **Game controls** pelo botão de seta circular, que começa no canto superior direito, para repetir, reproduzir/pausar ou silenciar. Ele abre uma janela no computador e um painel no celular. Se você o guardou em Chat Settings, abra a seção **Game controls** ali.
 
 Fechar o visualizador flutuante o esconde apenas no turno atual. Para reabri-lo, use a ação **Gallery > View storyboard**.
 

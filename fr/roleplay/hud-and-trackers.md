@@ -1,14 +1,16 @@
 # Le HUD de Roleplay et les trackers
 
-Ce guide explique le HUD du mode Roleplay et les petits widgets de tracker qu'il affiche. Au programme : modifier et verrouiller leurs valeurs, et comprendre le fonctionnement du panneau **Tracker Panel** (panneau de suivi), plus grand. Tout cela concerne le mode Roleplay de Marinara Engine.
+Ce guide explique les trackers de Roleplay : les petits widgets sur téléphone, la fenêtre **Trackers** et Tracker Panel sur ordinateur. Tu apprendras à modifier et verrouiller leurs valeurs. Il concerne le mode Roleplay de Marinara Engine.
 
 ## Le HUD, qu'est-ce que c'est
 
-Le HUD (heads-up display, le bandeau d'infos en haut du chat) est une rangée de petits widgets à icône, placée au-dessus de la zone de chat. Chaque widget affiche un élément vivant de l'histoire : l'heure, tes caractéristiques, les personnages présents. Marinara tient ces valeurs à jour au fil du récit.
+Sur téléphone, le HUD (heads-up display) est une rangée de petits widgets en haut du chat. Chacun montre un élément de l'état de l'histoire, comme l'heure, tes caractéristiques ou les personnages présents. Marinara les tient à jour au fil du récit.
+
+Sur ordinateur, les trackers ne sont pas dans la rangée du HUD. Ils apparaissent dans **Tracker Panel** quand il est affiché, sinon dans la fenêtre **Trackers** décrite ci-dessous.
 
 Les valeurs viennent des agents de suivi, les trackers. Un agent est un petit assistant IA qui travaille en arrière-plan. Chaque tracker observe l'histoire et met à jour une partie du HUD après chaque message, sans que tu aies à le demander.
 
-Un widget n'apparaît que si son tracker est activé pour le chat. L'activation et la désactivation des agents se font dans la section **Agents** de **Chat Settings** (réglages du chat). Sans aucun tracker actif, le HUD n'affiche que le bouton **Agents & Actions** (agents et actions), sans aucun widget.
+Un widget n'apparaît que si son tracker est activé pour le chat. L'activation et la désactivation des agents se font dans la section **Agents** de **Chat Settings** (réglages du chat). Sans aucun tracker actif, le HUD n'affiche aucun widget.
 
 ## Les widgets du HUD
 
@@ -34,9 +36,33 @@ Pour changer une quantité qui vaut un, active **add mode** (mode ajout) ou **lo
 
 Le widget **Present Characters** affiche jusqu'à trois emoji de personnage, suivis d'un compteur "+N" pour les suivants. Les widgets **Inventory** et **Custom Tracker** font défiler leurs entrées une par une.
 
+<a id="the-trackers-window"></a>
+
+## La fenêtre Trackers
+
+Sur ordinateur, quand **Tracker Panel** est masqué, les trackers de Roleplay utilisent la fenêtre **Trackers**. Si la place suffit à côté des messages, elle s'ouvre à gauche. Sinon, elle commence comme petit bouton **Trackers** en haut à gauche du chat. Clique dessus pour l'ouvrir. Un chat avec une disposition enregistrée garde celle que tu as choisie.
+
+À la mise à jour d'un ancien chat, ses widgets de trackers sur ordinateur sont regroupés dans cette fenêtre. Les autres outils gardent leurs icônes sous forme de boutons déplaçables.
+
+Tu peux déplacer la fenêtre par sa barre de titre, la redimensionner par ses bords et utiliser les boutons en haut à droite :
+
+- **Pin** la garde ouverte au clic extérieur. Elle commence épinglée.
+- **Lock** empêche de la déplacer ou redimensionner et immobilise son bouton. Celui-ci ouvre toujours la fenêtre, où tu peux la déverrouiller.
+- **Close** la réduit au bouton déplaçable **Trackers**. Clique dessus pour la rouvrir là où tu l'as laissée.
+
+Pour utiliser Tracker Panel, clique sur le dé dans la barre de titre de Chat Settings. Quand le panneau est masqué, les trackers restent accessibles par leur fenêtre ou bouton. **Reset View** dans Chat Settings efface la disposition enregistrée et choisit la fenêtre ou le bouton de départ selon la place disponible.
+
+Pendant le travail des agents, un petit point apparaît près du titre de la fenêtre et sur le bouton **Chat Settings**.
+
+Chaque tracker a sa section repliable, appelée tiroir. Clique sur son en-tête pour le réduire à l'aperçu du petit widget, puis à nouveau pour voir le tracker complet. Marinara mémorise les tiroirs repliés.
+
+Un tracker peut aussi avoir sa propre fenêtre : clique sur le bouton de détachement près de sa flèche, ou fais glisser son titre hors de Trackers. La nouvelle fenêtre n'est pas épinglée au départ. Épingle-la pour la garder ouverte quand tu cliques ailleurs ou fermes Trackers. Son **X** la réduit à un bouton portant l'icône du tracker, qui la rouvre là où tu l'as laissée. Clique sur **Put back in Trackers** (la flèche courbe à gauche de **X**) ou fais-la glisser sur Trackers pour la ranger. Chaque chat mémorise les trackers détachés et leurs positions.
+
+En bas, **Agent activity** montre ce que les agents ont fait. Tu peux y relancer les trackers, réessayer les agents en échec, arrêter ceux qui tournent et utiliser **Clear Trackers**. Tracker Panel possède la même section en bas.
+
 ## Modifier les valeurs dans un panneau contextuel
 
-Clique sur un widget pour ouvrir son panneau contextuel, une petite fenêtre flottante. Tous les champs y sont modifiables : corrige toi-même une valeur que l'IA a mal comprise. Marinara enregistre tes modifications immédiatement.
+Sur téléphone, appuie sur un widget pour ouvrir son panneau contextuel. Sur ordinateur, les mêmes éditeurs se trouvent dans les tiroirs de la fenêtre Trackers. Un panneau contextuel est un petit panneau flottant. Tous ses champs sont modifiables pour corriger les erreurs de l'IA. Les changements sont enregistrés immédiatement.
 
 Voici ce que chaque panneau contextuel permet de modifier :
 
@@ -69,13 +95,17 @@ Tu peux forcer la mise à jour d'un tracker au lieu d'attendre le message suivan
 
 Chaque panneau contextuel contient un petit bouton d'actualisation, en forme de flèche circulaire. Clique dessus pour relancer ce seul tracker sur le dernier tour. Les infobulles nomment le tracker concerné, par exemple **Re-run world state tracker only** ou **Re-run quest tracker only**.
 
-Dans **Chat Settings → Agents**, l'option **Manual Trackers** fait passer tous les trackers actifs en commande manuelle. Autre possibilité : laisse cet interrupteur désactivé et règle seulement certains agents en manuel, sous **Individual tracker schedule**. Un bouton d'actualisation apparaît dans la rangée du HUD dès qu'au moins un tracker est en manuel ; clique dessus pour lancer l'ensemble des trackers manuels sur le tour en cours. Le bouton d'actualisation de chaque panneau contextuel, lui, continue de lancer directement ce tracker précis.
+Dans **Chat Settings → Agents**, **Manual Trackers** passe tous les trackers actifs en commande manuelle. Tu peux aussi le laisser désactivé et choisir seulement certains agents sous **Individual tracker schedule**. Dès qu'un tracker est manuel, un bouton d'actualisation apparaît : dans la rangée du HUD sur téléphone, et près du titre de Trackers sur ordinateur. Clique dessus pour lancer les trackers manuels sur le tour actuel. Le bouton de chaque tracker continue de lancer ce tracker seul.
 
-L'icône en forme d'étincelles, au début de la rangée du HUD, ouvre le menu **Agents & Actions**. Tu peux y relancer tous les trackers, réessayer les agents en échec et utiliser **Clear Trackers** pour effacer tout l'état du monde suivi pour ce chat. **Clear Trackers** est irréversible : à manier avec précaution.
+**Agent activity** a sa section sous **Agents** dans **Chat Settings**, en bas de Tracker Panel et, sur ordinateur, en bas de la fenêtre Trackers. Tu peux y relancer tous les trackers, réessayer les agents en échec et utiliser **Clear Trackers** pour effacer tout l'état du monde suivi dans le chat. **Clear Trackers** est irréversible : utilise-le avec précaution.
 
 ## Le panneau Tracker Panel
 
 Le **Tracker Panel** est un panneau latéral plus grand, qui affiche les mêmes données de suivi que les widgets compacts du HUD. Il donne plus de place aux cartes de tracker et ajoute des portraits et des pensées. La configuration se trouve dans **Settings** (Paramètres), sous l'onglet **Appearance**, dans la section **Tracker Panel**.
+
+Pour l'activer dans un chat Roleplay, ouvre **Chat Settings** et clique sur **Tracker Panel** (le dé) dans la barre de titre, près de l'épinglage et du verrouillage. Il reste mis en évidence quand le panneau est actif, et le panneau apparaît à côté du chat. Clique à nouveau pour le désactiver et le masquer. Sur ordinateur, les trackers passent alors dans la fenêtre Trackers.
+
+Sur téléphone, l'activer ajoute au chat un bouton Tracker Panel que tu peux déplacer librement. Appuie dessus pour ouvrir le panneau ; le fermer ramène le bouton. Quand le panneau est désactivé, la rangée du HUD garde les widgets.
 
 Les contrôles de l'en-tête du panneau permettent aussi de personnaliser la structure des trackers :
 
@@ -88,8 +118,8 @@ Les noms des champs personnalisés définissent la structure et restent stables 
 
 Voici les réglages disponibles :
 
-- **Tracker Panel** : l'interrupteur principal, activé ou désactivé. Il est activé par défaut. Quand il est activé, l'étiquette indique "Shown in the Roleplay HUD".
-- **Replace tracker HUD icons** : masque la bande d'icônes compacte, pour que le panneau puisse s'ancrer au bord de l'écran à la place. Le bouton **Agents & Actions** reste visible.
+- **Tracker Panel** : l'interrupteur principal, le même que contrôle le dé de Chat Settings. Il est activé par défaut. Quand il est actif, l'étiquette indique "Shown in the Roleplay HUD". Quand il est désactivé, les trackers sur ordinateur apparaissent dans la fenêtre Trackers.
+- **Replace tracker HUD icons** : masque la bande compacte d'icônes sur téléphone et permet au panneau de s'ancrer au bord de l'écran.
 - **Use expression sprites for tracker portraits** : les portraits des trackers utilisent le sprite d'expression du personnage (l'image de son émotion du moment) au lieu du simple avatar, quand il en existe un. Les sprites d'expression sont expliqués dans [Sprites de personnage](../characters/sprites.md).
 - **Panel background** : un sélecteur de couleur ou de dégradé pour l'arrière-plan du panneau.
 - **Desktop size** : choisis la largeur du panneau. Les options sont **Compact**, **Standard** et **Expanded**.

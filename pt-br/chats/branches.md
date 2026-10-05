@@ -6,7 +6,7 @@ Este guia explica as ramificações de chat no Marinara Engine: o que é uma ram
 
 Uma ramificação é uma cópia do chat que compartilha o histórico até um ponto escolhido. Use as ramificações para explorar outra direção e, ao mesmo tempo, manter o chat original intacto.
 
-Todas as ramificações de um mesmo chat ficam agrupadas. Na lista de chats, um chat com mais de uma ramificação aparece como uma linha só. Ao lado dela fica um contador pequeno de ramificações. Para abrir e alternar entre elas, use a janela **Chat Branches** (ramificações do chat), explicada abaixo.
+Todas as ramificações de um mesmo chat ficam agrupadas. Na lista de chats, um chat com mais de uma ramificação aparece como uma linha só. Ao lado dela fica um contador pequeno de ramificações. Para abrir e alternar entre elas, use a seção **Chat Branches** (ramificações do chat) de **Chat Settings**, explicada abaixo.
 
 Cada ramificação pode ter o próprio nome de exibição, então você consegue rotulá-las como "final feliz" e "final sombrio". Esse nome de exibição é independente do nome do chat que está por trás.
 
@@ -33,19 +33,19 @@ Os resumos diários e semanais não são levados junto. Os resumos contínuos co
 
 Não é possível ramificar um chat de cena. Nesse tipo de chat, o botão **Branch from here** não aparece. Os chats de cena têm uma ação própria, a **Clone from here** (clonar a partir daqui). Veja [Cenas: criando uma ramificação do roleplay](../roleplay/scenes.md) para saber como ela funciona.
 
-## A janela Chat Branches
+## A seção Chat Branches
 
-Abra a janela pelo botão de ramificação na barra de ferramentas do chat. O botão usa um ícone de ramificação e mostra o número atual de ramificações. A dica dele diz **Switch branch**.
+Abra **Chat Settings** e expanda **Chat Branches**, abaixo de **Chat Name**. O cabeçalho mostra o número atual de ramificações. No computador, você pode destacá-la em uma janela própria; veja [Visão geral de Chat Settings](chat-settings.md#popping-a-section-out-into-its-own-window).
 
-A janela se chama **Chat Branches** e traz o subtítulo "Switch, import, export, or clean up this chat's branches." Ela lista todas as ramificações do chat atual, e a ramificação que você está vendo aparece em primeiro lugar. Cada linha mostra o nome de exibição da ramificação e a hora da última atualização.
+A seção lista todas as ramificações do chat atual, com a que você está vendo em primeiro lugar. Cada linha mostra o nome da ramificação e a hora da última atualização.
 
 ### Trocar para outra ramificação
 
-Clique em qualquer linha de ramificação na janela para abri-la. A janela se fecha e a tela do chat passa para a ramificação escolhida.
+Clique na linha de uma ramificação para abri-la. A tela do chat passa para a ramificação escolhida.
 
 ### Renomear uma ramificação
 
-1. Abra a janela **Chat Branches**.
+1. Abra a seção **Chat Branches**.
 2. Clique no botão de lápis (renomear) na linha da ramificação que você quer renomear.
 3. Abre-se uma caixa de diálogo chamada **Rename Branch**, com a mensagem "Set a display name for this chat branch."
 4. Digite um nome novo e confirme no botão **Rename**.
@@ -54,7 +54,7 @@ Um nome vazio, ou um nome que você não alterou, é ignorado.
 
 ### Excluir uma ramificação
 
-1. Abra a janela **Chat Branches**.
+1. Abra a seção **Chat Branches**.
 2. Clique no botão de lixeira (excluir) na linha da ramificação.
 3. Uma caixa de diálogo chamada **Delete Branch** pergunta "Delete this branch? Messages will be lost."
 4. Confirme no botão **Delete**.
@@ -63,13 +63,13 @@ Ao excluir uma ramificação, só ela e as mensagens dela somem. As outras ramif
 
 ### Excluir todas as ramificações
 
-Quando um chat tem duas ou mais ramificações, um botão **Delete All Branches** (excluir todas as ramificações) aparece na parte de baixo da janela. Ele pergunta "Delete all N branches? This cannot be undone." Confirme no botão **Delete All** para remover de uma vez todas as ramificações do grupo.
+Quando um chat tem duas ou mais ramificações, um botão **Delete All Branches** (excluir todas as ramificações) aparece na parte de baixo da seção. Ele pergunta "Delete all N branches? This cannot be undone." Confirme no botão **Delete All** para remover de uma vez todas as ramificações do grupo.
 
 Isso também pode ser feito pela lista de chats. Exclua um chat com ramificações pelo ícone de lixeira dele. Uma caixa de diálogo chamada **Delete Chat** pergunta então o que você quer excluir. Ela oferece o botão **Delete This Branch Only** e o botão **Delete All N Branches**. Veja [Gerenciar a lista de chats](managing-chats.md) para mais detalhes sobre excluir pela lista.
 
 ## Exportar uma ramificação
 
-A janela **Chat Branches** tem botões de exportação na parte de cima. Eles exportam a ramificação que você está vendo no momento.
+A seção **Chat Branches** tem botões de exportação na parte de cima. Eles exportam a ramificação que você está vendo no momento.
 
 - **JSONL**: baixa a ramificação como um arquivo JSONL. JSONL significa uma mensagem por linha de texto, e esse formato é compatível com SillyTavern.
 - **Text**: baixa a ramificação como uma transcrição em texto simples.
@@ -80,7 +80,7 @@ Para exportar vários chats de uma vez, veja [Exportar e importar chats](export-
 
 Um registro de chat salvo pode entrar como nova ramificação do chat que você tem aberto.
 
-1. Abra a janela **Chat Branches**.
+1. Abra a seção **Chat Branches**.
 2. Clique no botão **Import** (importar).
 3. Escolha um arquivo JSONL (`.jsonl`) exportado do SillyTavern ou do Marinara.
 

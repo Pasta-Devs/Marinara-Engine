@@ -1,6 +1,6 @@
 # Tła scen i galeria
 
-Ten przewodnik opisuje tła scen generowane przez AI, czyli obrazy, które aplikacja Marinara Engine tworzy z poziomu panelu **Gallery** (galeria), oraz sam panel **Gallery**. Są też dwa pokrewne przewodniki: [Tła czatu](../appearance/chat-backgrounds.md) opisuje bibliotekę wgranych obrazów wybieranych ręcznie, a [Tła w trybie Roleplay](../roleplay/backgrounds.md) – agenta, który sam dobiera tło w każdej turze.
+Ten przewodnik opisuje tła scen generowane przez AI, czyli obrazy, które aplikacja Marinara Engine tworzy z poziomu **Gallery** (galeria), oraz samą galerię. Są też dwa pokrewne przewodniki: [Tła czatu](../appearance/chat-backgrounds.md) opisuje bibliotekę wgranych obrazów wybieranych ręcznie, a [Tła w trybie Roleplay](../roleplay/backgrounds.md) – agenta, który sam dobiera tło w każdej turze.
 
 ## Gdzie działają tła scen
 
@@ -14,11 +14,11 @@ Do wygenerowania tła potrzebne jest połączenie **Image Generation** (generowa
 
 ## Generowanie i ustawianie tła z poziomu panelu Gallery
 
-Panel **Gallery** zbiera obrazy i wideo z danego czatu. Otwórz go ikoną obrazu na pasku narzędzi czatu. Przycisk **Background** (tło) generuje grafikę tła dla bieżącej sceny.
+**Gallery** zbiera obrazy i wideo z danego czatu. Jest sekcją w **Chat Settings**: otwórz Chat Settings i rozwiń **Gallery**. Na komputerze możesz otworzyć ją w osobnym oknie (zobacz [Panel **Chat Settings** – przegląd](../chats/chat-settings.md#popping-a-section-out-into-its-own-window)). Przycisk **Background** (tło) generuje grafikę tła dla bieżącej sceny.
 
 Jak wygenerować tło:
 
-1. Otwórz panel **Gallery**.
+1. Otwórz sekcję **Gallery** w **Chat Settings**.
 2. Kliknij przycisk **Background**.
 3. Na czas tworzenia obrazu napis na przycisku zmienia się na **Generating...**.
 4. Powinien pojawić się taki komunikat o stanie: "AI background generation is running. The new background will be applied when it finishes."
@@ -36,11 +36,11 @@ Choose an image generation connection for the Illustrator agent, or mark one as 
 
 Aby to naprawić, otwórz panel **Connections** (połączenia), rozwiń sekcję **Defaults** i wybierz połączenie do obrazów w sekcji **Images**. Druga opcja: ustaw osobne połączenie do obrazów bezpośrednio w agencie **Illustrator**.
 
-## Panel Gallery
+## Sekcja Gallery
 
 Panel **Gallery** ma dwie zakładki: **Images** i **Videos**. Każda z nich pokazuje liczbę elementów, które zawiera. Zakładka **Videos** jest dostępna tylko wtedy, gdy dla czatu włączono wideo ze scen.
 
-Na górze panelu przyciski akcji pojawiają się tylko wtedy, gdy dana funkcja dotyczy tego czatu:
+Na górze sekcji przyciski akcji pojawiają się tylko wtedy, gdy dana funkcja dotyczy tego czatu:
 
 - **Illustrate**: uruchamia agenta Illustrator i tworzy pojedynczy obraz sceny. Zobacz [Agent Illustrator](illustrator-agent.md).
 - **Selfie**: generuje selfie postaci w trybie Conversation.

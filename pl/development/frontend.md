@@ -513,7 +513,6 @@ Narzędzia pamięci agentów korzystają z `/api/agents/memory/:agentType/:chatI
 | Prefiks                         | Opis                         |
 | ------------------------------- | ---------------------------- |
 | `/api/bot-browser/chub/*`       | Wyszukiwanie postaci w Chub  |
-| `/api/bot-browser/chartavern/*` | Wyszukiwanie w CharacterTavern |
 | `/api/bot-browser/janny/*`      | Wyszukiwanie w JannyAI       |
 | `/api/bot-browser/pygmalion/*`  | Wyszukiwanie w Pygmalion     |
 | `/api/bot-browser/wyvern/*`     | Wyszukiwanie w Wyvern        |

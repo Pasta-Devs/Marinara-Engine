@@ -9,7 +9,7 @@ Les rencontres de combat sont une option du mode Roleplay. Elles ajoutent à la 
 Un agent est un assistant qui s'exécute automatiquement pendant la génération des messages. L'agent **Combat** ajoute la fonctionnalité de bataille à un chat de roleplay. Il est désactivé par défaut : à toi de l'activer, chat par chat.
 
 1. Ouvre le chat auquel tu veux ajouter le combat.
-2. Ouvre la section **Chat Settings** (réglages du chat) via l'icône d'engrenage.
+2. Ouvre **Chat Settings** (réglages du chat) avec son bouton dans le chat. Il se trouve en haut à droite, sauf si tu l'as déplacé.
 3. Ouvre la section **Agents**.
 4. Active l'interrupteur **Enable Agents** (activer les agents) s'il ne l'est pas déjà.
 5. Ajoute l'agent **Combat** au chat.

@@ -141,6 +141,22 @@ Evita los modelos gratuitos o de enrutamiento automático para la generación de
 
 Para la referencia completa de parámetros, consulta [Parámetros de generación](../prompts/generation-parameters.md).
 
+<a id="the-games-controls"></a>
+
+## Los controles del juego
+
+Los controles del juego se abren con los botones cercanos a la esquina superior derecha del chat:
+
+- **Game controls** (la flecha circular): **Retry turn**, **Retry scene analysis**, **Retry Music DJ** cuando Music DJ pone la música del juego, y **Retry assets image generation**. Si un storyboard se reproduce como fondo del juego, también ofrece repetir, reproducir/pausar y silenciar.
+- **Session** (la pluma): historial de sesiones, diario y controles de sesión. Consulta [Game Mode: sesiones y guardado](sessions-and-saves.md).
+- **Volume** (el altavoz): volumen de **Master**, **Music**, **Sound Effects**, **TTS** y **Ambient**.
+- **Game Assets** (la carpeta): medios de la escena y Asset Browser. Consulta [Recursos del juego](game-assets.md).
+- **Connected chat**, cuando el juego está enlazado a Conversation. Consulta [Chats conectados](../chats/connected-chats.md#switching-between-connected-chats).
+
+Haz clic o toca un botón para abrir sus controles en una ventana móvil en computadora o un panel de ancho completo en teléfono. Arrastra un botón para moverlo. Cerrar la ventana o el panel devuelve el botón. Consulta [Ventanas de controles y sus botones](../chats/chat-settings.md#control-windows-and-their-buttons).
+
+También puedes guardar estos controles dentro de **Chat Settings**. Abre la ventana de un control y elige **Put back in Chat Settings**; aparecerá allí como sección desplegable. Su botón para sacarla vuelve a darle una ventana propia. Cada juego guarda tu elección y **Reset View** restaura los botones iniciales.
+
 ## Dónde vive cada tema de juego
 
 Esta guía te mete en una partida. Cada tema más avanzado tiene su propia guía:

@@ -39,7 +39,7 @@ As atualizações automáticas de inicialização nunca instalam um pacote que v
 Os agentes são ativados dentro de cada chat, no painel lateral **Chat Settings** (configurações do chat).
 
 1. Abra o chat que você quer.
-2. Abra o painel **Chat Settings** (a engrenagem).
+2. Abra **Chat Settings**.
 3. Encontre a seção **Agents**.
 4. Ative a opção **Enable Agents** (ativar agentes). Esse é o interruptor principal. Quando ele está desligado, nenhum agente roda nesse chat.
 5. Adicione os agentes que você quer nas listas abaixo do interruptor, ou remova os que não quer.

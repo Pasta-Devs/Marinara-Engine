@@ -130,7 +130,7 @@ pacote deixa o recurso disponível, mas não o ativa em todos os chats.
 ### Roleplay
 
 1. Abra o chat de Roleplay.
-2. Abra **Chat Settings** pelo botão de engrenagem.
+2. Abra **Chat Settings**.
 3. Ative **Enable Agents**.
 4. Em **Tracker Agents**, ative **World Maps**.
 5. Abra **Edit world map** (editar o mapa do mundo) ou a biblioteca **World map

@@ -40,9 +40,9 @@ También puedes hacer clic en la fila **Random** (etiquetada **Dice pick**) para
 
 ## Administrar miembros después de crear el chat
 
-Agregas, quitas y reordenas personajes desde el panel lateral **Chat Settings** (Ajustes del chat). Ábrelo con el icono de engranaje en el encabezado del chat. La tooltip (texto de ayuda) del engranaje dice **Chat Settings**.
+Agregas, quitas y reordenas personajes en **Chat Settings** (Ajustes del chat). Ábrelo con su botón en el chat.
 
-Dentro del panel, busca la sección **Characters**. Muestra un número de miembros y el texto de ayuda "Characters in this chat. Each character has their own personality that the AI roleplays as." Cada fila de miembro tiene un avatar, el nombre del personaje, un tirador para arrastrar, un icono de ojo y un icono de papelera.
+Dentro de Chat Settings, busca la sección **Characters**. Muestra un número de miembros y el texto de ayuda "Characters in this chat. Each character has their own personality that the AI roleplays as." Cada fila de miembro tiene un avatar, el nombre del personaje, un tirador para arrastrar, un icono de ojo y un icono de papelera.
 
 - Para agregar un personaje más, haz clic en **Add Character** y búscalo.
 - Para agregar una Folder entera, haz clic en **Add from Folder** y elige una.

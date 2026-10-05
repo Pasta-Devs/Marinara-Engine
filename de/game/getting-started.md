@@ -141,6 +141,22 @@ Finger weg von kostenlosen oder automatisch weiterleitenden Modellen für die We
 
 Die vollständige Referenz zu den Parametern findest du unter [Generierungsparameter](../prompts/generation-parameters.md).
 
+<a id="the-games-controls"></a>
+
+## Die Bedienelemente des Spiels
+
+Die Bedienelemente des Spiels öffnen sich über Schaltflächen nahe der oberen rechten Ecke des Chats:
+
+- **Game controls** (Spielsteuerung, der kreisförmige Pfeil): **Retry turn**, **Retry scene analysis**, **Retry Music DJ**, wenn Music DJ die Spielmusik übernimmt, und **Retry assets image generation**. Läuft ein Storyboard als Spielhintergrund, findest du dort auch Wiederholung, Wiedergabe/Pause und Stummschaltung.
+- **Session** (Sitzung, die Feder): Sitzungsverlauf, Journal und Sitzungssteuerung. Siehe [Game Mode: Sitzungen und Spielstände](sessions-and-saves.md).
+- **Volume** (Lautstärke, der Lautsprecher): die Lautstärke für **Master**, **Music**, **Sound Effects**, **TTS** und **Ambient**.
+- **Game Assets** (Spielressourcen, der Ordner): Szenenmedien und Asset Browser. Siehe [Game-Assets: Musik, Sound, Sprites und Hintergründe](game-assets.md).
+- **Connected chat** (verknüpfter Chat), wenn das Spiel mit einer Conversation verbunden ist. Siehe [Eine Conversation mit einem Roleplay oder Game verknüpfen](../chats/connected-chats.md#switching-between-connected-chats).
+
+Klick oder tippe auf eine Schaltfläche, um ihre Steuerung am Computer in einem verschiebbaren Fenster oder am Telefon in einem Panel über die ganze Breite zu öffnen. Zieh die Schaltfläche, um sie zu bewegen. Schließt du das Fenster oder Panel, kommt die Schaltfläche zurück. Siehe [Steuerungsfenster und ihre Schaltflächen](../chats/chat-settings.md#control-windows-and-their-buttons).
+
+Du kannst diese Steuerungen auch in **Chat Settings** unterbringen. Öffne das jeweilige Fenster und wähle **Put back in Chat Settings**. Dort erscheint es als aufklappbarer Abschnitt. Über dessen Schaltfläche zum Herauslösen wird es wieder ein eigenes Fenster. Jedes Spiel speichert deine Auswahl; **Reset View** stellt die ursprünglichen Schaltflächen wieder her.
+
 ## Wo welches Spielthema steht
 
 Diese Anleitung bringt dich ins Spiel. Jedes tiefergehende Thema hat eine eigene Anleitung:

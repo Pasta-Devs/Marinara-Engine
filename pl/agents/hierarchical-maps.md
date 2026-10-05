@@ -116,7 +116,7 @@ udostępnia, ale nie włącza go w każdym czacie.
 ### Roleplay
 
 1. Otwórz czat Roleplay.
-2. Otwórz panel **Chat Settings** przyciskiem z zębatką.
+2. Otwórz **Chat Settings**.
 3. Włącz przełącznik **Enable Agents**.
 4. W sekcji **Tracker Agents** włącz pakiet **World Maps**.
 5. Otwórz edytor **Edit world map** albo bibliotekę **World map library**.

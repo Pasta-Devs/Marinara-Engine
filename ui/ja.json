@@ -169,6 +169,10 @@
   "settings.notifications.customSound.toasts.tooLarge": "通知音は10 MB以下にしてください。",
   "settings.notifications.customSound.toasts.uploaded": "カスタム通知音を保存しました。",
   "settings.notifications.customSound.toasts.uploadFailed": "カスタム通知音を保存できませんでした。",
+  "ui.botBrowser.providerUnavailable.badge": "利用不可",
+  "ui.botBrowser.providerUnavailable.chartavern": "CharacterTavernはWebサイトを作り直し、Marinaraがカードの検索とダウンロードに使っていた接続を提供しなくなりました。CharacterTavernがAPIでのアクセスを提供すれば、閲覧できるようになる可能性があります。それまでは、character-tavern.comからカードをダウンロードし、そのファイルをインポートしてください。",
+  "ui.botBrowser.providerUnavailable.openSite": "{{value1}}を開く",
+  "ui.botBrowser.providerUnavailable.title": "{{value1}}は現在ここでは閲覧できません",
   "ui.chat.slash.usage.illustrate": "/illustrate [range=N|range=N-M（任意）] [プロンプト（任意）]",
   "ui.chatSettings.translationsection.addATranslateButtonBesideSendSoYouCan": "送信の横に翻訳ショートカットを追加します。Conversationでは、入力欄のスマイルメニューにあるツールタブから、モバイルでも常に下書きを翻訳できます。"
 }

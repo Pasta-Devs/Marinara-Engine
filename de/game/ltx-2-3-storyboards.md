@@ -206,7 +206,7 @@ Nimm einen abgeschlossenen Zug des Game Master (GM – die KI, die das Spiel lei
 
 1. Für den schnellsten Test mit wenig VRAM setzt du **Keyframes per Turn** vorübergehend auf 1 und lässt **Animation Clip Duration** bei 5 Sekunden. Das normale getestete Profil nutzt 3 Keyframes.
 2. Schalte beide automatischen Storyboard-Einstellungen erst ein, wenn der aktuelle GM-Zug bereits abgeschlossen ist.
-3. Öffne die Galerie und wähle **Create storyboard** (Storyboard erstellen) für diesen abgeschlossenen GM-Zug. Damit startest du den kompletten Pfad aus Illustration und Animation von Hand, ohne auf einen weiteren Zug zu warten.
+3. Öffne **Chat Settings > Gallery** und wähle **Create storyboard** (Storyboard erstellen) für diesen abgeschlossenen GM-Zug. Damit startest du den kompletten Pfad aus Illustration und Animation von Hand, ohne auf einen weiteren Zug zu warten.
 4. Falls die Prompt-Anzeige aktiv ist, prüf den Prompt für das erste Bild vor dem Absenden.
 5. Prüf, ob das erzeugte erste Bild eine physisch brauchbare Ausgangspose zeigt.
 6. Warte, bis das erste Bild und danach der Clip in ComfyUI fertig gerendert sind.

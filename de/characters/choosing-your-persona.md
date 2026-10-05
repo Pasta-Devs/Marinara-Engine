@@ -16,7 +16,7 @@ Jeder Chat kann seine eigene Persona speichern. Du kannst in verschiedenen Chats
 
 ### Über Chat Settings
 
-1. Öffne **Chat Settings** (Chat-Einstellungen) – das Zahnrad neben dem Chat.
+1. Öffne **Chat Settings** (Chat-Einstellungen) über die Schaltfläche im Chat; anfangs liegt sie oben rechts.
 2. Such den Abschnitt **Persona**. Sein Hilfetext beginnt mit „Your persona defines who you are in this chat.“
 3. Ist keine Persona gesetzt, steht dort „No persona selected.“
 4. Klick auf **Choose Persona** (Persona wählen). Sobald eine Persona gesetzt ist, heißt die Schaltfläche **Change Persona**.

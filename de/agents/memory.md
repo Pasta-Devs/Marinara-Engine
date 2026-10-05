@@ -19,7 +19,7 @@ Beide Systeme lassen sich gleichzeitig nutzen. Sie erledigen unterschiedliche Au
 
 ### Memory Recall aktivieren
 
-1. Öffne einen Chat und klick auf die Schaltfläche **Chat Settings** (Chat-Einstellungen) in der Kopfzeile des Chats.
+1. Öffne einen Chat und klick auf die Schaltfläche **Chat Settings** (Chat-Einstellungen) im Chat (anfangs oben rechts).
 2. Such den Abschnitt **Memory Recall** (Symbol: ein Gehirn).
 3. Aktiviere den Schalter **Enable Memory Recall**.
 
@@ -114,7 +114,7 @@ Die Prompt-Inspektion bleibt schreibgeschützt und zeigt normalen Abruf ohne Auf
 
 ### Während des Chats
 
-Die Szenenerkennung läuft nach dem Speichern der Hauptantwort in Roleplay. **Standalone scene check interval (messages)** ist standardmäßig **5**. Der Prüfer erhält die nummerierten letzten Nachrichten, eine vorherige Nachricht als Kontext, Szenenanweisungen und das Ausgabeformat. Er nennt die genaue Abschlussnachricht jeder Szene oder keine Enden, wenn die Szene weiterläuft. Persona- und Charakternachrichten zählen beide. Der Rhythmus ist unabhängig von Tracker-Zeitplänen. Bei ausgeschaltetem Entscheidungsmodus teilt ein fälliger Check sich einen geeigneten nachgelagerten Tracker-Aufruf, wenn Quellsichtbarkeit und Kontextbudget passen; sonst ruft er das Hilfsmodell separat auf. Jeder neue Bereich beginnt nach dem vorherigen Szenenende und schließt das gemeldete Ende ein. Nur ein erkanntes Ende startet die Hintergrundvorbereitung von Zusammenfassung und Nachrichtenindex, auch wenn die neueste Antwort die Szene beendet. Unsichere Übergänge lassen sie offen. Das Menü **Agents** oben links zeigt die Vorbereitung als **Advanced Recall** mit Fortschritt, Fehlern und Wiederaufnahme, auch bei ausgeschalteten normalen Agenten. Nur laufende Speicheraufgaben fragen Fortschritt ab; fertige Archive werden im Leerlauf nicht abgefragt. Bei aktiviertem Entscheidungsmodus übernimmt die ausgewählte Entscheidungsverbindung diese Prüfung.
+Die Szenenerkennung läuft nach dem Speichern der Hauptantwort in Roleplay. **Standalone scene check interval (messages)** ist standardmäßig **5**. Der Prüfer erhält die nummerierten letzten Nachrichten, eine vorherige Nachricht als Kontext, Szenenanweisungen und das Ausgabeformat. Er nennt die genaue Abschlussnachricht jeder Szene oder keine Enden, wenn die Szene weiterläuft. Persona- und Charakternachrichten zählen beide. Der Rhythmus ist unabhängig von Tracker-Zeitplänen. Bei ausgeschaltetem Entscheidungsmodus teilt ein fälliger Check sich einen geeigneten nachgelagerten Tracker-Aufruf, wenn Quellsichtbarkeit und Kontextbudget passen; sonst ruft er das Hilfsmodell separat auf. Jeder neue Bereich beginnt nach dem vorherigen Szenenende und schließt das gemeldete Ende ein. Nur ein erkanntes Ende startet die Hintergrundvorbereitung von Zusammenfassung und Nachrichtenindex, auch wenn die neueste Antwort die Szene beendet. Unsichere Übergänge lassen sie offen. Der Abschnitt **Agent activity** in **Chat Settings** zeigt die Vorbereitung als **Advanced Recall** mit Fortschritt, Fehlern und Wiederaufnahme, auch bei ausgeschalteten normalen Agenten. Nur laufende Speicheraufgaben fragen Fortschritt ab; fertige Archive werden im Leerlauf nicht abgefragt. Bei aktiviertem Entscheidungsmodus übernimmt die ausgewählte Entscheidungsverbindung diese Prüfung.
 
 Bei ausgeschaltetem Entscheidungsmodus: Normaler Abruf liest vorbereiteten Speicher. Ein optionales Anfrage-Embedding hat ein kurzes Zeitlimit und fällt auf Textabgleich zurück. Der Textabgleich gewichtet charakteristische Begriffe in der neuesten Nutzernachricht stärker, damit ein kurzes Detail eine lange Szenenzusammenfassung finden kann. Indizierte Originalnachrichten können Szenen auch dann finden, wenn die Ausgabe von Auszügen ausgeschaltet ist. Beides benötigt keinen zusätzlichen Modellaufruf. Abruf läuft ausschließlich für die Hauptgenerierung in Roleplay: Agenten, manuelle Agentenwiederholungen und zusätzliche Testgenerierungen starten ihn nicht und erhalten keine abgerufenen Zusammenfassungen oder Auszüge. Haupt-Prompt-Inspektion bleibt schreibgeschützt.
 
@@ -152,11 +152,13 @@ Die Prompt-Vorschau nutzt vorbereiteten Speicher ohne Modell- oder Embedding-Auf
 
 Abruf ist selektiv und Zusammenfassungen können Nuancen verlieren. Bewahre wichtige Korrekturen im Quelltranskript oder Zusammenfassungseditor auf. Kein System rekonstruiert nie erfasste Details. Fallen Embeddings aus, bleiben begrenzter lexikalischer Abruf und gültige Kontinuität verfügbar; das Archiv wird nie vollständig eingefügt. Passen Pflichtanweisungen oder ein Anhang nicht in die Prompt-Grenze, verkleinere sie oder erhöhe die Grenze. Passt die Antwortreserve nicht in den Gesamtkontext des Modells, senke die Ausgabegröße oder wähle ein Modell mit größerem Kontext. Advanced Memory stoppt, statt Anweisungen still zu löschen.
 
+<a id="chat-summary-roleplay"></a>
+
 ## Chat Summary (Roleplay)
 
 **Chat Summary** presst ältere Nachrichten zu kurzen erzählerischen Rückblicken zusammen, den sogenannten Summary Entries. Jeder Eintrag stammt entweder von der KI oder von dir selbst, und jeder lässt sich einzeln an- und abschalten. Die Funktion gibt es nur in Roleplay-Chats. Das Speichern eines Schalters lässt andere Einträge bedienbar; Activate All und Deactivate All speichern die Auswahl gemeinsam.
 
-Zum Öffnen klick auf die Schaltfläche **Chat Summary** (Schriftrollen-Symbol) in der Kopfzeile des Roleplay-Chats. Es öffnet sich das Popover **Chat Summary**, ein kleines Einblendfenster.
+Öffne **Chat Settings** und klapp den Abschnitt **Chat Summary** unter **Lorebooks** auf. Am Computer kannst du ihn in einem eigenen Fenster öffnen (siehe [Chat Settings im Überblick](../chats/chat-settings.md#popping-a-section-out-into-its-own-window)).
 
 ### Einen Summary Entry anlegen
 
@@ -188,7 +190,7 @@ Das Feld **Maximum output size** begrenzt die Länge einer generierten Zusammenf
 
 ### Anzeigeoptionen
 
-Die Bedienelemente unter **Display** im Popover bestimmen, wie zusammengefasste Nachrichten auf dem Bildschirm erscheinen:
+Die Bedienelemente unter **Display** in **Chat Summary** bestimmen, wie zusammengefasste Nachrichten auf dem Bildschirm erscheinen:
 
 - **Hide summarised messages**: blendet die Originalnachrichten aus, sobald eine Zusammenfassung sie abdeckt. Standardmäßig aus.
 - **Recent message tail**: hält so viele der neuesten Nachrichten weiterhin voll sichtbar, auch wenn das Ausblenden an ist. Der Standard ist 10, erlaubt ist jede nicht-negative ganze Zahl. Bei 0 verschwindet der zusammengefasste Block komplett. Höhere Werte vergrößern den Prompt und damit die Kosten beim Modell.

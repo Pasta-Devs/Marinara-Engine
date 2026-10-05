@@ -152,7 +152,7 @@ La misma configuración de TTS sirve para todos los modos, con algunos extras po
 
 - Roleplay usa el interruptor de reproducción automática **Roleplay messages** y los controles **Speak** por mensaje. Consulta [Modo Roleplay: Primeros pasos](../roleplay/getting-started.md).
 - Conversation Mode usa el interruptor **Conversation messages** y los mismos controles **Speak**. Las llamadas de audio habladas son una función más amplia que se cubre en [Llamadas de audio y video de Conversation](../conversation/calls.md).
-- Game Mode usa el interruptor **Game narration**. Game Mode también tiene su propio mezclador de audio con un canal **TTS** junto a **Master**, **Music**, **Sound Effects** y **Ambient**. Ese canal ajusta el volumen general del audio hablado del juego y empieza en 100 por ciento. Consulta [Game Mode: Primeros pasos](../game/getting-started.md).
+- Game Mode usa el interruptor **Game narration**. Game Mode también tiene su propio mezclador de audio con un canal **TTS** junto a **Master**, **Music**, **Sound Effects** y **Ambient**. Ese canal ajusta el volumen general del audio hablado del juego y empieza en 100 por ciento. Consulta [Los controles del juego](../game/getting-started.md#the-games-controls).
 
 ## Phonetic name (pronunciación en las llamadas)
 

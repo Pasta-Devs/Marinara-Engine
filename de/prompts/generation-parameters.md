@@ -15,7 +15,7 @@ Ein Parameter macht Antworten zum Beispiel zufälliger und kreativer. Ein andere
 Die Basiswerte bearbeitest du unter **Presets > Parameters** (Presets > Parameter), die Verbindungswerte unter **Connections > Default Parameters** (Verbindungen > Standardparameter). Chat-spezifische Werte legst du unter **Chat Settings > Advanced Parameters** (Chat-Einstellungen > Erweiterte Parameter) fest.
 
 1. Öffne den Chat, den du ändern willst.
-2. Öffne **Chat Settings** (Chat-Einstellungen) über das Zahnradsymbol des aktiven Chats.
+2. Öffne **Chat Settings** (Chat-Einstellungen) über die Schaltfläche im Chat; anfangs liegt sie oben rechts.
 3. Such den Bereich **Advanced Parameters** und klick darauf, um ihn aufzuklappen.
 
 Dort steht ein Hinweis: "Override generation parameters for this chat. Only change these if you know what you're doing." Alle folgenden Einstellungen sitzen innerhalb von **Advanced Parameters**.

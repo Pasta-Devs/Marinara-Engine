@@ -43,9 +43,11 @@ Z poziomu panelu **Settings** (Ustawienia):
 Z poziomu gry:
 
 1. Otwórz czat w trybie Game Mode.
-2. Kliknij przycisk **Game Assets** na pasku narzędzi czatu.
+2. Kliknij lub dotknij przycisk **Game Assets** (ikona folderu). Domyślnie znajduje się blisko prawego górnego rogu czatu. Możesz przeciągnąć go w inne miejsce na komputerze lub telefonie.
 
-Przycisk na pasku narzędzi pojawia się tylko w czatach korzystających z trybu Game Mode. Otwarty w ten sposób **Asset Browser** wyświetla się jako panel wewnątrz gry.
+Przycisk pojawia się tylko w czatach korzystających z trybu Game Mode. Otwiera **Game Assets**, a w nim **Asset Browser**: w ruchomym oknie na komputerze lub panelu na całą szerokość ekranu na telefonie.
+
+Jeśli okno zostało przeniesione przyciskiem **Put back in Chat Settings**, otwórz zamiast niego sekcję **Game Assets** w Chat Settings.
 
 Na górnym pasku narzędzi jest ścieżka nawigacji zaczynająca się od **Game Assets**. Obok niej stoją przełączniki **Grid view** i **List view**, przycisk **Upload** oraz przycisk **New**. Znajdziesz tam także przycisk **Rescan**, przycisk **Open in system folder** i pole **Search in folder**. Na szerszych ekranach drzewo folderów po lewej stronie pozwala przeskakiwać między kategoriami.
 
@@ -137,7 +139,7 @@ Jeśli skopiujesz pliki do folderu zasobów gry bezpośrednio na komputerze, poz
 
 Każdy czat w trybie Game Mode może ograniczyć się tylko do części folderów zasobów. Przydaje się to na przykład wtedy, gdy gra grozy ma pomijać wesołą muzykę.
 
-W trakcie konfiguracji rozwiń sekcję **Adjust Game Assets for this Game** w kroku **Features**. W istniejącej grze otwórz panel **Asset Browser** z paska narzędzi czatu.
+W trakcie konfiguracji rozwiń sekcję **Adjust Game Assets for this Game** w kroku **Features**. W istniejącej grze otwórz okno **Game Assets**.
 
 Następnie:
 

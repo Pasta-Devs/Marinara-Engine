@@ -513,7 +513,6 @@ Personal Extensions – это изолированный код, который
 | Префикс                          | Описание                  |
 | ------------------------------- | ---------------------------- |
 | `/api/bot-browser/chub/*`       | Поиск персонажей на Chub        |
-| `/api/bot-browser/chartavern/*` | Поиск на CharacterTavern           |
 | `/api/bot-browser/janny/*`      | Поиск на JannyAI                |
 | `/api/bot-browser/pygmalion/*`  | Поиск на Pygmalion              |
 | `/api/bot-browser/wyvern/*`     | Поиск на Wyvern                 |

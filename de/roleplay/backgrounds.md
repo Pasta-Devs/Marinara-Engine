@@ -15,7 +15,7 @@ Der Agent **Background** ist ein optionaler Helfer und sucht den Szenenhintergru
 Der Agent **Background** ist standardmäßig deaktiviert. So aktivierst du ihn:
 
 1. Öffne den Roleplay-Chat.
-2. Öffne **Chat Settings** (Chat-Einstellungen, das Zahnrad-Symbol).
+2. Öffne **Chat Settings** (Chat-Einstellungen) über die Schaltfläche im Chat; anfangs liegt sie oben rechts.
 3. Öffne den Bereich **Agents** (Agenten).
 4. Aktiviere den Agenten **Background**.
 
@@ -25,7 +25,7 @@ Danach aktualisiert sich der Szenenhintergrund von allein, sobald die Geschichte
 
 Einen neuen Hintergrund kannst du auch selbst erzeugen, ganz ohne Agenten. Marinara baut aus der Szene einen Bild-Prompt (also den Text für die KI) – aus Genre, Setting, aktuellem Ort, Wetter und Uhrzeit – und erstellt daraus einen frischen Hintergrund.
 
-1. Öffne die **Gallery** (Galerie, das Bild-Symbol in der Chat-Werkzeugleiste).
+1. Öffne den Abschnitt **Gallery** (Galerie) in **Chat Settings**.
 2. Klick auf die Schaltfläche **Background**.
 3. Warte, bis die Schaltfläche fertig ist. Währenddessen zeigt sie **Generating...** an.
 

@@ -13,13 +13,12 @@ L'import de chat accepte uniquement un fichier `.jsonl`. Si tu comptes réimport
 
 ## Exporter un seul chat
 
-Pour exporter un chat dans un fichier, passe par le panneau **Chat Branches** (branches du chat). C'est le moyen le plus rapide d'exporter l'historique du chat d'une seule conversation.
+Pour exporter un chat dans un fichier, passe par la section **Chat Branches** de **Chat Settings** (branches du chat). C'est le moyen le plus rapide d'exporter l'historique du chat d'une seule conversation.
 
 1. Ouvre le chat à exporter.
-2. Dans la barre d'outils du chat, clique sur le bouton de branche (son infobulle indique **Switch branch**).
-3. Le panneau **Chat Branches** s'ouvre. Il annonce "Switch, import, export, or clean up this chat's branches."
-4. Clique sur **JSONL** pour enregistrer le chat en fichier JSONL, ou sur **Text** pour l'enregistrer en fichier texte lisible.
-5. Le navigateur télécharge le fichier.
+2. Ouvre **Chat Settings** et déplie **Chat Branches**, sous **Chat Name**.
+3. Clique sur **JSONL** pour enregistrer le chat en fichier JSONL, ou sur **Text** pour l'enregistrer en fichier texte lisible.
+4. Le navigateur télécharge le fichier.
 
 Le téléchargement porte sur le chat actuellement ouvert, messages compris.
 
@@ -54,8 +53,8 @@ Pour que le nouveau chat soit en mode Roleplay, ouvre l'onglet **RP** avant d'im
 Autre option : charger un fichier `.jsonl` dans un chat existant sous forme de nouvelle branche. Une branche est une copie enregistrée à part d'un chat, que tu explores de ton côté. Voir [Branches du chat](branches.md) pour en savoir plus.
 
 1. Ouvre le chat auquel ajouter la branche.
-2. Dans la barre d'outils du chat, clique sur le bouton de branche (infobulle **Switch branch**) pour ouvrir le panneau **Chat Branches**.
-3. Clique sur **Import** dans ce panneau.
+2. Ouvre **Chat Settings** et déplie **Chat Branches**, sous **Chat Name**.
+3. Clique sur **Import** dans cette section.
 4. Choisis le fichier `.jsonl`.
 5. Un message "Imported N messages as a new branch" doit s'afficher.
 

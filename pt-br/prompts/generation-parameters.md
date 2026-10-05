@@ -15,7 +15,7 @@ Só mude essas configurações quando quiser resolver um problema específico. P
 Edite os valores base em **Presets > Parameters** (presets > parâmetros) e os valores da conexão em **Connections > Default Parameters** (conexões > parâmetros padrão). As substituições do chat ficam em **Chat Settings > Advanced Parameters** (configurações do chat > parâmetros avançados).
 
 1. Abra o chat que você quer mudar.
-2. Abra **Chat Settings** (configurações do chat, no ícone de engrenagem do chat ativo).
+2. Abra **Chat Settings** (configurações do chat) pelo botão no chat. Ele começa no canto superior direito, a menos que você o tenha movido.
 3. Localize a seção **Advanced Parameters** e clique nela para expandir.
 
 Você vai ver um aviso de ajuda com este texto: "Override generation parameters for this chat. Only change these if you know what you're doing." Todas as configurações descritas abaixo ficam dentro da seção **Advanced Parameters**.

@@ -169,6 +169,10 @@
   "settings.notifications.customSound.toasts.tooLarge": "يجب ألا يزيد حجم صوت الإشعار عن 10 م.ب.",
   "settings.notifications.customSound.toasts.uploaded": "تم حفظ صوت الإشعار المخصص.",
   "settings.notifications.customSound.toasts.uploadFailed": "تعذر حفظ صوت الإشعار المخصص.",
+  "ui.botBrowser.providerUnavailable.badge": "غير متاح",
+  "ui.botBrowser.providerUnavailable.chartavern": "أعاد CharacterTavern بناء موقعه ولم يعد يوفّر الاتصال الذي كان Marinara يستخدمه للبحث عن البطاقات وتنزيلها. قد يعود التصفّح إذا أتاح CharacterTavern الوصول عبر API. حتى ذلك الحين، يمكنك تنزيل البطاقات من character-tavern.com واستيراد الملف.",
+  "ui.botBrowser.providerUnavailable.openSite": "فتح {{value1}}",
+  "ui.botBrowser.providerUnavailable.title": "لا يمكن تصفّح {{value1}} هنا حاليًا",
   "ui.chat.slash.usage.illustrate": "/illustrate [range=N|range=N-M (اختياري)] [وصف (اختياري)]",
   "ui.chatSettings.translationsection.addATranslateButtonBesideSendSoYouCan": "أضف اختصار الترجمة بجانب الإرسال. في Conversation، تتوفر ترجمة المسودة دائمًا في تبويب الأدوات بقائمة الوجه المبتسم في حقل الرسالة، بما في ذلك على الهاتف."
 }

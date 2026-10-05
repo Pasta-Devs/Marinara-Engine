@@ -6,7 +6,7 @@ Ce guide explique les branches de chat dans Marinara Engine : ce qu'est une bran
 
 Une branche est une copie d'un chat qui partage l'historique jusqu'à un point que tu choisis. Les branches servent à explorer une autre direction sans toucher au chat d'origine.
 
-Toutes les branches d'un même chat sont regroupées. Dans la liste des chats, un chat qui a plusieurs branches n'occupe qu'une seule ligne. Un petit compteur de branches s'affiche à côté. Pour ouvrir ses branches et passer de l'une à l'autre, utilise le panneau contextuel **Chat Branches** (branches du chat), décrit plus bas.
+Toutes les branches d'un même chat sont regroupées. Dans la liste des chats, un chat qui a plusieurs branches n'occupe qu'une seule ligne. Un petit compteur de branches s'affiche à côté. Pour ouvrir ses branches et passer de l'une à l'autre, utilise la section **Chat Branches** (branches du chat) de **Chat Settings**, décrit plus bas.
 
 Chaque branche peut avoir son propre nom d'affichage : tu peux ainsi les étiqueter "fin amicale" et "fin sombre". Ce nom d'affichage est indépendant du nom du chat sous-jacent.
 
@@ -33,19 +33,19 @@ Les résumés du jour et de la semaine ne sont pas repris. Les résumés glissan
 
 Impossible de créer une branche dans un chat de scène. Dans ce type de chat, le bouton **Branch from here** n'apparaît pas : une action distincte, **Clone from here** (cloner à partir d'ici), prend le relais. Le guide [Scènes : créer une branche d'un roleplay](../roleplay/scenes.md) explique son fonctionnement.
 
-## Le panneau contextuel **Chat Branches**
+## La section Chat Branches
 
-Ouvre le panneau depuis le bouton de branche, dans la barre d'outils du chat. Ce bouton porte une icône de branche et affiche le nombre de branches actuel. Son infobulle indique **Switch branch** (changer de branche).
+Ouvre **Chat Settings** et déplie **Chat Branches**, sous **Chat Name**. L'en-tête indique le nombre actuel de branches. Sur ordinateur, tu peux en faire une fenêtre séparée ; consulte [Présentation de Chat Settings](chat-settings.md#popping-a-section-out-into-its-own-window).
 
-Le panneau s'intitule **Chat Branches** et porte le sous-titre "Switch, import, export, or clean up this chat's branches." Il liste toutes les branches du chat en cours, en affichant d'abord celle que tu consultes. Chaque ligne indique le nom d'affichage de la branche et la date de sa dernière modification.
+La section liste toutes les branches du chat actuel, en affichant d'abord celle que tu consultes. Chaque ligne indique le nom de la branche et la date de sa dernière modification.
 
 ### Passer à une autre branche
 
-Clique sur la ligne d'une branche dans le panneau pour l'ouvrir. Le panneau se ferme et la vue du chat bascule sur la branche choisie.
+Clique sur la ligne d'une branche pour l'ouvrir. La vue du chat passe à la branche choisie.
 
 ### Renommer une branche
 
-1. Ouvre le panneau contextuel **Chat Branches**.
+1. Ouvre la section **Chat Branches** de **Chat Settings**.
 2. Clique sur le bouton en forme de crayon (renommer) sur la ligne de la branche concernée.
 3. Une fenêtre intitulée **Rename Branch** s'ouvre avec le message "Set a display name for this chat branch."
 4. Saisis un nouveau nom et valide avec le bouton **Rename**.
@@ -54,7 +54,7 @@ Un nom vide, ou un nom que tu n'as pas modifié, est ignoré.
 
 ### Supprimer une branche
 
-1. Ouvre le panneau contextuel **Chat Branches**.
+1. Ouvre la section **Chat Branches** de **Chat Settings**.
 2. Clique sur le bouton en forme de corbeille (supprimer) sur la ligne de la branche.
 3. Une fenêtre intitulée **Delete Branch** demande "Delete this branch? Messages will be lost."
 4. Valide avec le bouton **Delete**.
@@ -63,13 +63,13 @@ Supprimer une branche efface uniquement cette branche et ses messages. Les autre
 
 ### Supprimer toutes les branches
 
-Dès qu'un chat compte au moins deux branches, un bouton **Delete All Branches** (tout supprimer) apparaît en bas du panneau. Il demande "Delete all N branches? This cannot be undone." Valide avec le bouton **Delete All** pour supprimer d'un coup toutes les branches du groupe.
+Dès qu'un chat compte au moins deux branches, un bouton **Delete All Branches** (tout supprimer) apparaît en bas de la section. Il demande "Delete all N branches? This cannot be undone." Valide avec le bouton **Delete All** pour supprimer d'un coup toutes les branches du groupe.
 
 Autre point de départ : la liste des chats. Supprime un chat qui a des branches via son icône de corbeille. Une fenêtre intitulée **Delete Chat** demande alors ce que tu veux supprimer. Elle propose un bouton **Delete This Branch Only** et un bouton **Delete All N Branches**. Le guide [Gérer la liste des chats](managing-chats.md) donne plus de détails sur la suppression depuis la liste.
 
 ## Exporter une branche
 
-Le panneau **Chat Branches** propose des boutons d'export en haut. Ils exportent la branche que tu consultes.
+La section **Chat Branches** propose des boutons d'export en haut. Ils exportent la branche que tu consultes.
 
 - **JSONL** : télécharge la branche dans un fichier JSONL. JSONL signifie un message par ligne de texte, et ce format est compatible avec SillyTavern.
 - **Text** : télécharge la branche sous forme de transcription en texte brut.
@@ -80,7 +80,7 @@ Pour exporter plusieurs chats d'un coup, consulte [Exporter et importer des chat
 
 Un historique de chat enregistré s'importe comme nouvelle branche du chat ouvert.
 
-1. Ouvre le panneau contextuel **Chat Branches**.
+1. Ouvre la section **Chat Branches** de **Chat Settings**.
 2. Clique sur le bouton **Import**.
 3. Choisis un fichier JSONL (`.jsonl`) exporté depuis SillyTavern ou depuis Marinara.
 

@@ -206,7 +206,7 @@ Use um turno de GM já concluído com uma ação visual bem evidente, como abrir
 
 1. Para a checagem mais rápida com pouca VRAM, coloque **Keyframes per Turn** temporariamente em 1 e mantenha **Animation Clip Duration** em 5 segundos. O perfil testado normal usa 3 quadros-chave.
 2. Ative as duas configurações automáticas de Storyboard depois que o turno de GM atual já estiver concluído.
-3. Abra a galeria e escolha **Create storyboard** para aquele turno de GM concluído. Isso inicia manualmente todo o caminho de ilustração e animação, sem esperar por outro turno.
+3. Abra **Chat Settings > Gallery** e escolha **Create storyboard** para aquele turno de GM concluído. Isso inicia manualmente todo o caminho de ilustração e animação, sem esperar por outro turno.
 4. Se a exibição do prompt estiver ativada, revise o prompt do primeiro quadro antes de enviá-lo.
 5. Confirme que o primeiro quadro gerado traz uma pose inicial fisicamente útil.
 6. Espere a renderização do primeiro quadro e, em seguida, a conclusão do clipe no ComfyUI.

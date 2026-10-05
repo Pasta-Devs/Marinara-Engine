@@ -109,7 +109,7 @@ Los Storyboards de Roleplay agrupan los intercambios ya terminados en un episodi
    - **Still images**: crea automáticamente un episodio ilustrado.
    - **Animations**: crea automáticamente las imágenes de fotogramas clave y un clip para cada fotograma; hace falta una conexión de video.
 4. Fija **Messages per episode** (Mensajes por episodio) y **Keyframes per episode** (Fotogramas clave por episodio).
-5. Termina una respuesta nueva del asistente, o abre la **Gallery** y selecciona **Create storyboard**.
+5. Termina una respuesta nueva del asistente, o abre **Chat Settings > Gallery** y selecciona **Create storyboard**.
 
 Usa las flechas de un Storyboard con varios fotogramas clave para moverte entre ellos. Un fotograma animado muestra su clip reproducible dentro del chat, y recurre a su imagen mientras el clip está pendiente o no está disponible.
 
@@ -149,7 +149,7 @@ El Storyboard del Game Mode usa exactamente un turno de narración del GM ya ter
 3. Abre **Chat Settings > Agents**, activa **Enable Agents** y luego activa **Enable Storyboards**.
 4. Comprueba que el juego tenga una conexión de imagen, o que la configuración global de Storyboard aporte una.
 5. Termina un turno de narración del GM.
-6. Abre la **Gallery** y selecciona **Create storyboard**.
+6. Abre **Chat Settings > Gallery** y selecciona **Create storyboard**.
 
 Selecciona **View storyboard** (Ver storyboard) en la **Gallery** para volver a abrir un visor del juego que hayas cerrado. La generación manual usa el ajuste de animación actual: cuando **Automatic Storyboard Animations** está activado, el Storyboard manual también pide clips.
 
@@ -275,7 +275,7 @@ Puedes usar el agente Storyboard con la presentación Standard o con Storyboard 
 
 **Floating viewer** es un panel arrastrable y redimensionable que se coloca sobre el juego. Sigue la posición del lector dentro de la narración del GM y muestra el fotograma que le corresponde. El video se reproduce cuando está listo; si no, recurre a la imagen del fotograma.
 
-**Game background** coloca el fotograma activo detrás de los controles del juego. Mientras este modo está activo, reemplaza el fondo de escena generado normal, así que la acción habitual **Generate background** (Generar fondo) no está disponible. Los clips de fondo se reproducen una vez y se quedan en su fotograma final; los controles del juego ofrecen repetir, reproducir/pausar y silenciar.
+**Game background** coloca el fotograma activo detrás del resto de la pantalla del juego. Mientras este modo está activo, reemplaza el fondo de escena generado normal, así que **Generate background** (Generar fondo) no está disponible. Los clips se reproducen una vez y quedan en el fotograma final. Abre **Game controls** con el botón de flecha circular, que empieza arriba a la derecha, para repetir, reproducir/pausar o silenciar. Es una ventana en computadora y un panel en teléfono. Si lo guardaste en Chat Settings, abre allí la sección **Game controls**.
 
 Cerrar el visor flotante lo oculta durante el turno actual. Usa **Gallery > View storyboard** para volver a abrirlo.
 

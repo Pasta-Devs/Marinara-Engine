@@ -16,7 +16,7 @@ Cada chat puede guardar su propia persona. Puedes usar distintas personas en dis
 
 ### Desde Chat Settings
 
-1. Abre **Chat Settings** (Ajustes del chat) (el engranaje cerca del chat).
+1. Abre **Chat Settings** (Ajustes del chat) con su botón en el chat. Está arriba a la derecha, salvo que lo hayas movido.
 2. Busca la sección **Persona**. Su texto de ayuda empieza con "Your persona defines who you are in this chat."
 3. Cuando no hay ninguna persona establecida, ves "No persona selected."
 4. Haz clic en **Choose Persona** (Elegir persona). Este botón muestra **Change Persona** (Cambiar persona) una vez que hay una persona establecida.

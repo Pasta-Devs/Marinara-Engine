@@ -9,7 +9,7 @@ Starcia bojowe to opcjonalna funkcja trybu Roleplay. Dodają do sceny osobny ekr
 Agent to pomocnik, który uruchamia się automatycznie podczas generowania wiadomości. Agent **Combat** dodaje funkcję walki do czatu w trybie Roleplay. Domyślnie jest wyłączony, więc trzeba go włączyć osobno w każdym czacie.
 
 1. Otwórz czat, do którego chcesz dodać walkę.
-2. Otwórz panel **Chat Settings** (ustawienia czatu) ikoną koła zębatego.
+2. Otwórz **Chat Settings** (ustawienia czatu) przyciskiem w czacie. Domyślnie jest w prawym górnym rogu.
 3. Przejdź do sekcji **Agents**.
 4. Włącz przełącznik **Enable Agents**, jeśli jeszcze nie jest włączony.
 5. Dodaj do czatu agenta **Combat**.

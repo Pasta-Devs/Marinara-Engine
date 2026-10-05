@@ -19,7 +19,7 @@ Les deux systèmes s'utilisent en même temps. Ils font des choses différentes 
 
 ### Activer Memory Recall
 
-1. Ouvre un chat et clique sur le bouton **Chat Settings** (réglages du chat) dans l'en-tête du chat.
+1. Ouvre un chat et clique sur le bouton **Chat Settings** (réglages du chat). Au départ, il se trouve en haut à droite.
 2. Repère la section **Memory Recall** (elle porte une icône de cerveau).
 3. Active l'interrupteur **Enable Memory Recall**.
 
@@ -114,7 +114,7 @@ L'inspection du prompt reste en lecture seule et présente le rappel habituel sa
 
 ### Pendant le chat
 
-La détection des scènes intervient après l'enregistrement de la réponse principale Roleplay. **Standalone scene check interval (messages)** vaut **5** par défaut. Le vérificateur reçoit les derniers messages numérotés, un message précédent pour le contexte, les instructions et le format de sortie. Il indique le numéro exact terminant chaque scène, ou aucune fin si elle continue. Messages de persona et de personnage comptent tous. La cadence est indépendante des plannings des agents de suivi. Lorsque le mode de décision est désactivé, une vérification due partage un appel de suivi après génération si la visibilité des sources et le budget le permettent ; sinon, le modèle auxiliaire reçoit un appel séparé. Chaque plage commence après la fin précédente et inclut le nouveau message de fin. Seule une fin détectée prépare en arrière-plan le résumé et l'index de la scène close, même si la dernière réponse la termine. Un changement incertain laisse la scène ouverte. Le menu **Agents** en haut à gauche affiche **Advanced Recall**, avec progression, erreurs et reprise, même lorsque les agents ordinaires sont désactivés. Le suivi périodique ne fonctionne que pendant une tâche mémoire ; les archives prêtes ne sont pas interrogées au repos. Lorsque le mode de décision est activé, la connexion de décision choisie effectue cette vérification.
+La détection des scènes intervient après l'enregistrement de la réponse principale Roleplay. **Standalone scene check interval (messages)** vaut **5** par défaut. Le vérificateur reçoit les derniers messages numérotés, un message précédent pour le contexte, les instructions et le format de sortie. Il indique le numéro exact terminant chaque scène, ou aucune fin si elle continue. Messages de persona et de personnage comptent tous. La cadence est indépendante des plannings des agents de suivi. Lorsque le mode de décision est désactivé, une vérification due partage un appel de suivi après génération si la visibilité des sources et le budget le permettent ; sinon, le modèle auxiliaire reçoit un appel séparé. Chaque plage commence après la fin précédente et inclut le nouveau message de fin. Seule une fin détectée prépare en arrière-plan le résumé et l'index de la scène close, même si la dernière réponse la termine. Un changement incertain laisse la scène ouverte. **Chat Settings → Agent activity** affiche **Advanced Recall**, avec progression, erreurs et reprise, même lorsque les agents ordinaires sont désactivés. Le suivi périodique ne fonctionne que pendant une tâche mémoire ; les archives prêtes ne sont pas interrogées au repos. Lorsque le mode de décision est activé, la connexion de décision choisie effectue cette vérification.
 
 Lorsque le mode de décision est désactivé : Le rappel lit la mémoire préparée. L'embedding facultatif de la requête a un délai court et utilise une recherche textuelle en repli. La recherche textuelle donne plus de poids aux termes distinctifs du dernier message utilisateur, pour qu'un bref détail puisse retrouver un long résumé de scène. Les messages originaux indexés permettent aussi de retrouver des scènes lorsque la sortie des extraits est désactivée. Aucun de ces mécanismes n'ajoute d'appel au modèle. Le rappel fonctionne uniquement pour la génération principale de Roleplay : agents, relances manuelles et générations auxiliaires d'essai ne le déclenchent pas et ne reçoivent ni résumés ni extraits rappelés. L'inspection du prompt principal reste en lecture seule.
 
@@ -156,7 +156,7 @@ Le rappel est sélectif et les résumés peuvent perdre des nuances. Conserve le
 
 **Chat Summary** compresse les messages anciens en courts récapitulatifs narratifs appelés entrées de résumé. Chaque entrée peut être écrite par l'IA ou à la main, et s'active ou se désactive individuellement. Cette fonction n'existe que dans les chats Roleplay. L'enregistrement d'un commutateur laisse les autres entrées utilisables ; Activate All et Deactivate All enregistrent la sélection ensemble.
 
-Pour l'ouvrir, clique sur le bouton **Chat Summary** (une icône de parchemin) dans l'en-tête du chat Roleplay. Le panneau contextuel **Chat Summary** s'ouvre.
+Pour l'ouvrir, ouvre **Chat Settings** et déplie **Chat Summary**, sous **Lorebooks**. Sur un ordinateur, tu peux en faire une fenêtre séparée ; consulte [Présentation de Chat Settings](../chats/chat-settings.md#popping-a-section-out-into-its-own-window).
 
 ### Créer une entrée de résumé
 
@@ -188,7 +188,7 @@ Le champ **Maximum output size** fixe la longueur maximale d'un résumé génér
 
 ### Options d'affichage
 
-Les contrôles **Display** du panneau contextuel décident de l'apparence à l'écran des messages résumés :
+Les contrôles **Display** de **Chat Summary** décident de l'apparence à l'écran des messages résumés :
 
 - **Hide summarised messages** : masque les messages bruts dès qu'un résumé les couvre. Désactivé par défaut.
 - **Recent message tail** : garde ce nombre de messages récents entièrement visibles, même quand le masquage est actif. La valeur par défaut est 10, et tout nombre entier positif ou nul est accepté. Avec 0, tout le lot résumé est masqué. Plus la valeur est élevée, plus le prompt grossit et plus le modèle coûte cher.

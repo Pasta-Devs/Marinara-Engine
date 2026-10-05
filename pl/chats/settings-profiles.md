@@ -24,6 +24,8 @@ Profil zapisuje sposób, w jaki czat rozmawia z AI:
 - Memory Recall
 - Advanced Parameters
 - Pozostałe wielokrotnie używane opcje czatu
+- Układ okien i przycisków: pozycje i rozmiary okien, przypięcia i blokady, narzędzia wewnątrz Chat Settings lub w osobnych oknach, otwarte okna kontrolek oraz pozycje przycisków na komputerze i telefonie. Profile bez zapisanego układu, takie jak **Default**, zachowują obecny układ czatu.
+- Widoczność wskazówek dotyczących układu w Chat Settings. Zastosowanie **Default** lub starszego profilu bez tej opcji pokazuje wskazówki ponownie.
 
 Profil nie zastępuje treści należących do czatu, czyli postaci, persony (postaci, w którą się wcielasz), lorebooków (zbiorów faktów o twoim świecie), sprite'ów (obrazków postaci na obszarze sceny), podsumowania, tagów ani promptu sceny. Nie zawiera też historii czatu.
 
@@ -62,6 +64,18 @@ Podpowiedzi gwiazdki opisują bieżący stan:
 - **Mark this profile as default for new chats in this mode**
 - **This profile is the default for new chats in this mode**
 - **Select a profile to mark it as default**
+
+## Ulubione układy okien
+
+Gwiazdka obok **Reset View** na pasku tytułu Chat Settings zapisuje ulubiony układ okien dla nowych czatów w bieżącym trybie. Zapamiętuje też, czy wskazówki dotyczące układu są ukryte. Możesz z niej korzystać w trybach Conversation, Roleplay i Game. Gwiazdka obok listy **Profile** nadal wybiera domyślny profil ustawień.
+
+Po aktualizacji istniejącej instalacji znajomy układ przycisków narzędzi staje się ulubionym układem dla nowych czatów we wszystkich trzech trybach. Dzieje się to raz i zachowuje wcześniejszy wybór lub wyczyszczenie ulubionego układu. Układ pozostaje domyślny, dopóki go nie zmienisz. Świeża instalacja zaczyna z narzędziami wewnątrz Chat Settings i bez wybranego ulubionego układu.
+
+Rozmieść okna i przyciski, a potem kliknij gwiazdkę na pasku tytułu, żeby zapisać układ. Gwiazdka jest wypełniona, gdy bieżący układ i widoczność wskazówek odpowiadają ulubionemu. Po przesunięciu okna lub zmianie układu kliknij ją ponownie, żeby zastąpić ulubiony układ. Kliknięcie wypełnionej gwiazdki usuwa ten wybór i przywraca standardowy układ dla przyszłych czatów. Istniejące czaty pozostają bez zmian.
+
+Jeśli nowy czat korzysta z domyślnego profilu ustawień, układ zapisany w profilu ma pierwszeństwo przed ulubionym układem. Profil bez zapisanego układu zachowuje rozmieszczenie czatu, także to pochodzące z ulubionego układu. Profil nadal stosuje własne ustawienie widoczności wskazówek; starsze profile bez tego ustawienia pokazują wskazówki.
+
+Instrukcję znajdziesz w sekcji [Wybór układu dla nowych czatów](chat-settings.md#choosing-a-layout-for-new-chats).
 
 ## Import i eksport profili
 

@@ -9,7 +9,7 @@ Os encontros de combate são um recurso opcional do Roleplay. Eles dão à cena 
 Um agente é um ajudante que roda automaticamente durante a geração da mensagem. O agente **Combat** acrescenta o recurso de batalha a um chat de Roleplay. Ele vem desativado por padrão, então precisa ser ativado chat a chat.
 
 1. Abra o chat em que você quer usar o combate.
-2. Abra **Chat Settings** (configurações do chat), no ícone de engrenagem.
+2. Abra **Chat Settings** (configurações do chat) pelo botão no chat. Ele começa no canto superior direito, a menos que você o tenha movido.
 3. Abra a seção **Agents**.
 4. Ative a opção **Enable Agents**, caso ainda não esteja ativa.
 5. Adicione o agente **Combat** ao chat.

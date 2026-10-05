@@ -9,7 +9,7 @@ Manche Agenten wollen neue Daten in den Chat schreiben. Ein Lorebook-Agent legt 
 So findest du den Schalter:
 
 1. Öffne den Chat, den du steuern willst.
-2. Öffne **Chat Settings** (Chat-Einstellungen, das Zahnrad-Symbol).
+2. Öffne **Chat Settings** (Chat-Einstellungen).
 3. Scroll zum Abschnitt **Agents**.
 4. Aktivier **Review Agent Outputs**.
 
@@ -60,7 +60,7 @@ In der **Agent Suite** siehst und bearbeitest du alles, was die Agenten dieses C
 
 So öffnest du sie:
 
-1. Öffne **Chat Settings** (das Zahnrad-Symbol).
+1. Öffne **Chat Settings**.
 2. Scroll zum Abschnitt **Agents**.
 3. Klick auf **Agent Suite**.
 
@@ -90,7 +90,7 @@ Noch ein paar Hinweise:
 
 ## Das Panel „Cached prompt injections“
 
-Bevor eine Antwort generiert wird, fügen manche schreibenden Agenten Text in den Prompt ein, also in den Text, den Marinara an die KI schickt. Typisch ist das bei **Prose Guardian**, **Narrative Director** und eigenen Einfügungs-Agenten. Das Panel **Cached prompt injections** zeigt diesen zusätzlichen Text zur Fehlersuche. Du findest es im Agents-Menü eines Roleplay-Chats. Es bezieht sich auf die jeweils letzte Antwort.
+Bevor eine Antwort generiert wird, fügen manche schreibenden Agenten Text in den Prompt ein, also in den Text, den Marinara an die KI schickt. Typisch ist das bei **Prose Guardian**, **Narrative Director** und eigenen Einfügungs-Agenten. Das Panel **Cached prompt injections** zeigt diesen zusätzlichen Text zur Fehlersuche. Du findest es im Tab **Injections** von **Agent activity**, wenn **Debug mode** eingeschaltet ist (siehe [Roleplay Mode: Erste Schritte](../roleplay/getting-started.md#agent-activity)). Es bezieht sich auf die jeweils letzte Antwort.
 
 Zu jeder zwischengespeicherten Einfügung kannst du:
 

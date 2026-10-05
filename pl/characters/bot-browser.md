@@ -1,12 +1,12 @@
 # Card Browser: wyszukiwanie i importowanie postaci
 
-Ten przewodnik wyjaśnia, do czego służy panel **Card Browser** (przeglądarka kart) w aplikacji Marinara Engine. To wbudowane narzędzie wyszukuje karty postaci na publicznych stronach i importuje je do biblioteki. Poznasz sześć źródeł, sposoby wyszukiwania i filtrowania oraz zasady dotyczące treści dla dorosłych w każdym źródle. Dowiesz się też, jak zaimportować postać albo zapisać ją jako plik. W starszych wersjach ta zakładka nosiła nazwę **Bot Browser** lub **Browser**.
+Ten przewodnik wyjaśnia, do czego służy panel **Card Browser** (przeglądarka kart) w aplikacji Marinara Engine. To wbudowane narzędzie wyszukuje karty postaci na publicznych stronach i importuje je do biblioteki. Poznasz dostępne źródła, sposoby wyszukiwania i filtrowania oraz zasady dotyczące treści dla dorosłych w każdym źródle. Dowiesz się też, jak zaimportować postać albo zapisać ją jako plik. W starszych wersjach ta zakładka nosiła nazwę **Bot Browser** lub **Browser**.
 
 Karta postaci to plik z imieniem jednej postaci, jej osobowością, powitaniem i innymi szczegółami. Zwykle trzeba pobrać kartę ze strony internetowej, a potem wgrać ją do aplikacji Marinara. Panel **Card Browser** wykonuje oba kroki w jednym miejscu.
 
 ## Do czego służy Card Browser
 
-Panel **Card Browser** przeszukuje kilka publicznych stron z kartami postaci bez wychodzenia z aplikacji Marinara. Obsługuje sześć źródeł: **ChubAI**, **JannyAI**, **CharacterTavern**, **Pygmalion**, **Wyvern** i **DataCat**. Wybrane źródło da się przeszukać, wyniki przefiltrować, a szczegóły postaci obejrzeć przed decyzją. Potem wystarczy zaimportować postać do biblioteki albo zapisać ją jako plik PNG. Przy ustawieniach domyślnych przeglądanie i importowanie kart postaci nie wymaga konta ani klucza API (tajnego kodu, trochę jak hasło).
+Panel **Card Browser** przeszukuje kilka publicznych stron z kartami postaci bez wychodzenia z aplikacji Marinara. Obsługuje pięć źródeł: **ChubAI**, **JannyAI**, **Pygmalion**, **Wyvern** i **DataCat**. Źródło **CharacterTavern** nadal jest na liście, ale na razie nie da się go przeglądać (zobacz [CharacterTavern](#charactertavern)). Wybrane źródło da się przeszukać, wyniki przefiltrować, a szczegóły postaci obejrzeć przed decyzją. Potem wystarczy zaimportować postać do biblioteki albo zapisać ją jako plik PNG. Przy ustawieniach domyślnych przeglądanie i importowanie kart postaci nie wymaga konta ani klucza API (tajnego kodu, trochę jak hasło).
 
 ## Otwieranie panelu Card Browser
 
@@ -23,11 +23,23 @@ Panel **Card Browser** pozostaje wczytany przez cały czas działania aplikacji.
 
 ## Wybór źródła
 
-Kliknij przycisk źródła w nagłówku. Widnieje na nim nazwa bieżącego źródła i mała strzałka. Otwiera się menu z sześcioma źródłami w tej kolejności: **ChubAI**, **JannyAI**, **CharacterTavern**, **Pygmalion**, **Wyvern** i **DataCat**.
+Kliknij przycisk źródła w nagłówku. Widnieje na nim nazwa bieżącego źródła i mała strzałka. Otwiera się menu ze źródłami w tej kolejności: **ChubAI**, **JannyAI**, **CharacterTavern**, **Pygmalion**, **Wyvern** i **DataCat**. Źródło **CharacterTavern** ma oznaczenie **Unavailable** (Niedostępne).
 
 Przy pierwszym otwarciu panelu **Card Browser** wybrane jest źródło **ChubAI**. Zmiana źródła czyści wpisany tekst wyszukiwania, tagi i filtry. Każde źródło pamięta własne ustawienie treści dla dorosłych i własne logowanie, więc zmiana w jednym źródle nie wpływa na pozostałe.
 
-Jedna uwaga o nazewnictwie: menu wymienia **ChubAI**, ale na stronie ze szczegółami postaci link zewnętrzny nosi nazwę **View on Chub**. Tak nazywa siebie sama strona. Pozostałych pięć źródeł używa w obu miejscach tej samej nazwy.
+Jedna uwaga o nazewnictwie: menu wymienia **ChubAI**, ale na stronie ze szczegółami postaci link zewnętrzny nosi nazwę **View on Chub**. Tak nazywa siebie sama strona. Pozostałe źródła używają w obu miejscach tej samej nazwy.
+
+## CharacterTavern
+
+Serwis CharacterTavern przebudował swoją stronę i nie udostępnia już połączenia, przez które Marinara wyszukiwała i pobierała karty. Po wybraniu źródła **CharacterTavern** panel **Card Browser** zamiast wyników wyszukiwania pokazuje krótki komunikat. Przeglądanie może wrócić, jeśli serwis CharacterTavern zapewni dostęp do API.
+
+Do tego czasu postacie z serwisu CharacterTavern nadal da się ręcznie przenieść do aplikacji Marinara:
+
+1. Kliknij **Open CharacterTavern** (Otwórz CharacterTavern) w komunikacie. Strona otwiera się w nowej zakładce.
+2. Pobierz plik karty postaci ze strony character-tavern.com.
+3. Kliknij **Import Character** (import postaci) w komunikacie i wybierz pobrany plik. Zobacz [Importowanie i eksportowanie kart postaci](import-export.md).
+
+Postacie zaimportowane wcześniej z serwisu CharacterTavern zostają w bibliotece.
 
 ## Wyszukiwanie, sortowanie i strony
 
@@ -35,14 +47,13 @@ Wpisz tekst w polu **Search characters...**, żeby wyszukać. Nie trzeba naciska
 
 Obok pola wyszukiwania jest lista rozwijana sortowania. Opcje różnią się w każdym źródle, a każde źródło startuje z własnym domyślnym sortowaniem:
 
-| Źródło          | Domyślne sortowanie |
-| --------------- | --------------- |
-| ChubAI          | Most Downloaded |
-| JannyAI         | Newest          |
-| CharacterTavern | Most Popular    |
-| Pygmalion       | Downloads       |
-| Wyvern          | Popular         |
-| DataCat         | Relevance       |
+| Źródło    | Domyślne sortowanie |
+| --------- | --------------- |
+| ChubAI    | Most Downloaded |
+| JannyAI   | Newest          |
+| Pygmalion | Downloads       |
+| Wyvern    | Popular         |
+| DataCat   | Relevance       |
 
 Kliknij przycisk **Refresh** (odświeżenie, ikona okrągłej strzałki), aby powtórzyć bieżące wyszukiwanie.
 
@@ -81,17 +92,17 @@ Uwaga o źródle **Wyvern**: pola wyboru **Lorebook** i **Alt Greetings** są wi
 Treści dla dorosłych aplikacja oznacza jako **NSFW**. Na pasku narzędzi jest jedno pole wyboru **NSFW**, ale każde źródło traktuje je inaczej. To najczęstsze pytanie, więc czytaj uważnie.
 
 - **ChubAI** i **JannyAI**: pole wyboru **NSFW** działa od razu, bez logowania. Domyślnie jest wyłączone.
-- **CharacterTavern** i **Pygmalion**: pole wyboru **NSFW** jest wyszarzone do czasu zalogowania. Podpowiedź prosi o wcześniejsze zalogowanie. Po zalogowaniu aplikacja stosuje ustawienia konta na tej zewnętrznej stronie. Pole wyboru pokazuje wtedy napis **NSFW depends on your account settings**. Po zalogowaniu nie ma już osobnego przełącznika włącz/wyłącz.
+- **Pygmalion**: pole wyboru **NSFW** jest wyszarzone do czasu zalogowania. Podpowiedź prosi o wcześniejsze zalogowanie. Po zalogowaniu aplikacja stosuje ustawienia konta w serwisie Pygmalion. Pole wyboru pokazuje wtedy napis **NSFW depends on your account settings**. Po zalogowaniu nie ma już osobnego przełącznika włącz/wyłącz.
 - **Wyvern**: pole wyboru **NSFW** jest zawsze wyszarzone. Komunikat brzmi **Use "🔞 Popular NSFW" sort for NSFW content**. Aby zobaczyć treści dla dorosłych w tym źródle, wybierz opcję **🔞 Popular NSFW** na liście rozwijanej sortowania.
 - **DataCat**: każda postać ma tam tag treści dla dorosłych, więc pole wyboru jest zablokowane we włączonej pozycji. Przy pierwszym wyborze źródła **DataCat** pojawia się okno o tytule **DataCat is NSFW only**. Kliknij **Continue to DataCat**, aby je przeglądać, albo **Don't continue to DataCat**, aby wrócić.
 
 Postacie dla dorosłych mają małą czerwoną plakietkę **NSFW** w rogu miniatury.
 
-## Logowanie do CharacterTavern i Pygmalion
+## Logowanie do serwisu Pygmalion
 
-Źródła **CharacterTavern** i **Pygmalion** ukrywają treści dla dorosłych za logowaniem. Zwykłe, publiczne postacie są dostępne bez logowania. Logowanie odblokowuje wyłącznie treści dla dorosłych.
+Źródło **Pygmalion** ukrywa treści dla dorosłych za logowaniem. Zwykłe, publiczne postacie są dostępne bez logowania. Logowanie odblokowuje wyłącznie treści dla dorosłych.
 
-Aby się zalogować, kliknij przycisk **Log In** (zalogowanie) na pasku narzędzi. Otwiera się okno logowania. Wklejasz w nim wartość skopiowaną z własnego konta na tej zewnętrznej stronie. Marinara nie prosi o hasło.
+Aby się zalogować, kliknij przycisk **Log In** (zalogowanie) na pasku narzędzi. Otwiera się okno logowania. Wklejasz w nim wartość skopiowaną z własnego konta w serwisie Pygmalion. Marinara nie prosi o hasło.
 
 Dla źródła **Pygmalion** okno nosi tytuł **Pygmalion Authentication** i prosi o wartość **Auth Token**:
 
@@ -102,18 +113,9 @@ Dla źródła **Pygmalion** okno nosi tytuł **Pygmalion Authentication** i pros
 5. Wklej wartość w pole **Auth Token** w aplikacji Marinara.
 6. Kliknij przycisk **Save & Connect**. Powinien pojawić się komunikat o włączeniu treści NSFW.
 
-Dla źródła **CharacterTavern** okno nosi tytuł **CharacterTavern Session** i prosi o wartość **Cookie String**:
+Okno ma sekcję pomocy, która powtarza powyższe kroki, oraz link **Website**, który otwiera stronę pygmalion.chat. Aby się wylogować, otwórz okno logowania ponownie i kliknij przycisk **Log Out**.
 
-1. Wejdź na character-tavern.com i zaloguj się na swoje konto.
-2. Otwórz narzędzia deweloperskie klawiszem F12.
-3. Otwórz zakładkę **Application**, a w niej **Cookies**.
-4. Znajdź ciasteczko o nazwie `session` i skopiuj jego wartość.
-5. Wklej wartość w pole **Cookie String** w aplikacji Marinara.
-6. Kliknij przycisk **Save & Connect**. Powinien pojawić się komunikat o włączeniu treści NSFW.
-
-Każde z tych okien ma sekcję pomocy, która powtarza powyższe kroki. W każdym jest też link otwierający stronę danego źródła. W oknie **Pygmalion** ten link nosi nazwę **Website**, a w oknie **CharacterTavern** nazwę **CharacterTavern**. Aby się wylogować, otwórz okno logowania ponownie i kliknij przycisk **Log Out**.
-
-Ważne: te dane logowania serwer trzyma tylko w pamięci. Nigdy nie trafiają do pliku. Po restarcie serwera Marinara logowanie w obu źródłach przepada i trzeba wkleić wartość jeszcze raz. Marinara wyświetla wtedy komunikat z prośbą o ponowne zalogowanie.
+Ważne: te dane logowania serwer trzyma tylko w pamięci. Nigdy nie trafiają do pliku. Po restarcie serwera Marinara logowanie przepada i trzeba wkleić token jeszcze raz. Marinara wyświetla wtedy komunikat z prośbą o ponowne zalogowanie.
 
 ## Przeglądanie postaci przed importem
 
@@ -172,7 +174,9 @@ Panel **Card Browser** na prawym pasku bocznym prowadzi osobną listę postaci z
 
 **Wyszukiwanie lub szczegóły w źródle JannyAI kończą się błędem Cloudflare.** Niektóre strony blokują zautomatyzowane zapytania. Odwiedź raz jannyai.com w tej samej przeglądarce, przejdź ewentualne zabezpieczenie, a potem wróć do aplikacji Marinara i wyszukaj ponownie.
 
-**Logowanie do CharacterTavern lub Pygmalion przestało działać.** Restart serwera Marinara czyści te dane logowania. Otwórz okno **Log In** jeszcze raz i wklej token lub wartość ciasteczka ponownie.
+**Logowanie do serwisu Pygmalion przestało działać.** Restart serwera Marinara czyści te dane logowania. Otwórz okno **Log In** jeszcze raz i wklej token ponownie.
+
+**Źródło CharacterTavern pokazuje tylko komunikat.** Tak ma być. Jak zaimportować karty z tego serwisu jako pliki, opisuje sekcja [CharacterTavern](#charactertavern).
 
 **Wyszukiwanie się nie udaje albo źródło przestaje działać.** Publiczne strony mogą w każdej chwili zmienić swoje podstrony lub zablokować dostęp. Spróbuj później. Jeśli źródło zawodzi uparcie, otwórz postać bezpośrednio na stronie i pobierz kartę samodzielnie. Potem wczytaj ją zwykłą drogą importu. Zobacz [Importowanie i eksportowanie kart postaci](import-export.md).
 

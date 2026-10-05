@@ -26,7 +26,7 @@ Sans connexion d'images utilisable, l'image échoue et l'application te demande 
 L'agent Illustrator est désactivé par défaut. Dans un chat **Roleplay**, ajoute-le ainsi :
 
 1. Ouvre le chat que tu veux illustrer.
-2. Ouvre la section **Chat Settings** (réglages du chat) via l'icône d'engrenage.
+2. Ouvre **Chat Settings** (réglages du chat) avec son bouton dans le chat. Il se trouve en haut à droite, sauf si tu l'as déplacé.
 3. Va dans la section **Agents** et active l'interrupteur **Enable Agents** (activer les agents).
 4. Dans le groupe **Misc Agents**, repère **Illustrator** et ajoute-le avec le bouton Plus.
 
@@ -85,7 +85,7 @@ La carte Illustrator comporte un bouton **Open Setup** (ouvrir la configuration)
 
 Règle **Run Interval** (intervalle d'exécution) sur **0** pour générer uniquement à la demande. Cela arrête les exécutions automatiques d'Illustrator, y compris ses arrière-plans de scène automatiques, tout en gardant l'agent installé et disponible pour les actions de Gallery. La valeur par défaut reste **5** ; choisis un intervalle positif pour reprendre les exécutions automatiques. Tu peux aussi choisir 0 lorsque tu ajoutes Illustrator à un chat.
 
-Il est aussi possible de créer une image à la demande, sans attendre. Ouvre la section **Gallery** du chat et utilise le bouton **Illustrate** (illustrer). L'agent Illustrator se lance immédiatement pour une passe, et le bouton affiche **Generating...** pendant le travail. Pratique quand tu veux une image du moment présent et que l'agent n'en a pas encore dessiné.
+Il est aussi possible de créer une image à la demande, sans attendre. Ouvre **Chat Settings** et déplie **Gallery** et utilise le bouton **Illustrate** (illustrer). L'agent Illustrator se lance immédiatement pour une passe, et le bouton affiche **Generating...** pendant le travail. Pratique quand tu veux une image du moment présent et que l'agent n'en a pas encore dessiné.
 
 ## Enregistrement dans les galeries et inspection du prompt
 

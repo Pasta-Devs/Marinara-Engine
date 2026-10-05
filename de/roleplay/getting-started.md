@@ -1,12 +1,12 @@
 # Roleplay Mode: Erste Schritte
 
-In dieser Anleitung erfährst du, was Roleplay Mode ist, wie eine Rollenspielrunde startet und was auf dem Bildschirm passiert. Dazu kommen die Sprite-Steuerung, die Chat-Werkzeugleiste, **Author's Notes** (Autorennotizen) und Verweise auf die tiefergehenden Funktionen.
+In dieser Anleitung erfährst du, was Roleplay Mode ist, wie eine Rollenspielrunde startet und was auf dem Bildschirm passiert. Dazu kommen die Sprite-Steuerung, die Chat-Tools, **Author's Notes** (Autorennotizen) und Verweise auf die tiefergehenden Funktionen.
 
 ## Was Roleplay Mode ist
 
 Roleplay Mode ist einer der Chat-Modi von Marinara Engine. Die anderen heißen Conversation und Game. Roleplay liefert dir eine Szenenansicht, die ganz auf eine Geschichte ausgerichtet ist.
 
-Eine Roleplay-Szene kann ein Hintergrundbild, Charakter-Sprites und eine Info-Leiste mit dem Weltzustand zeigen. Ein Sprite ist ein Charakterbild auf der Bühne, das sich mit der Stimmung ändert. Diese Info-Leiste am oberen Chatrand heißt HUD.
+Eine Roleplay-Szene kann ein Hintergrundbild, Charakter-Sprites und eine Info-Leiste mit dem Weltzustand zeigen. Ein Sprite ist ein Charakterbild auf der Bühne, das sich mit der Stimmung ändert. Das HUD zeigt diesen Zustand am Telefon in kleinen Widgets am oberen Chatrand und am Computer im Tracker Panel oder im Trackers-Fenster.
 
 Roleplay setzt außerdem auf Helfer, die Agenten heißen. Ein Agent ist eine kleine automatische Aufgabe, die parallel zur KI-Antwort läuft. Agenten führen den Weltzustand mit, wählen Sprites und Hintergründe aus und vieles mehr.
 
@@ -34,7 +34,7 @@ Der **Hintergrund** ist ein bildschirmfüllendes Bild hinter der Nachrichtenspal
 
 **Sprites** sind die Charakterbilder auf der Bühne. Eine feste Obergrenze gibt es nicht. Jeder Charakter im Chat mit aktivierten Sprites kann erscheinen. Dafür braucht die Charakterkarte eine hochgeladene Sprite-Bibliothek. Fehlt sie, bleibt der Sprite-Platz leer. Wie Sprites zu einem Charakter kommen, steht unter [Charakter-Sprites](../characters/sprites.md).
 
-Das **HUD** ist eine Reihe kleiner Widgets am oberen Chatrand. Jedes Widget gehört zu einem Tracker – einem Agenten, der Werte mitführt. Ein Widget erscheint also nur, wenn sein Agent läuft. Widgets zeigen Datum, Uhrzeit, Wetter, Ort, anwesende Charaktere, Inventar, Quests und Werte. Klick auf ein Widget, um ein Panel zu öffnen und die Werte zu bearbeiten. Alle Widgets und Sperrmodi erklärt [Roleplay-HUD und Tracker](hud-and-trackers.md).
+Das **HUD** zeigt deine Tracker. Am Telefon besteht es aus kleinen Widgets am oberen Chatrand. Am Computer erscheinen die Tracker im **Tracker Panel** oder im Fenster **Trackers**, wenn das Tracker Panel in den Einstellungen aus ist. Jeder Tracker gehört zu einem Tracker-Agenten und erscheint nur, wenn dieser eingeschaltet ist. Tracker zeigen Datum, Uhrzeit, Wetter, Ort, anwesende Charaktere, Inventar, Quests und Werte, die du bearbeiten kannst. Alle Widgets und Sperrmodi erklärt [Roleplay-HUD und Tracker](hud-and-trackers.md).
 
 ### Steuerung der Sprite-Darstellung
 
@@ -59,19 +59,25 @@ Einen Gesichtsausdruck kannst du auch per **/emote** im Chatfeld setzen. Zwei Sc
 
 Die erste Form setzt den Gesichtsausdruck für die Szene. Die zweite spricht einen bestimmten Charakter an. Tipp **/emote** ohne weitere Angaben ein, dann erscheinen die verfügbaren Gesichtsausdrücke für jeden Charakter in der Szene.
 
-## Die Chat-Werkzeugleiste
+## Die Chat-Tools
 
-Die Werkzeugleiste sitzt oben im Chatbereich. Ihre Schaltflächen öffnen kleine Einblendfenster, sogenannte Popovers. Die wichtigsten sind:
+Die Chat-Tools sind Abschnitte in **Chat Settings**. Öffne die Einstellungen über die Schieberegler-Schaltfläche im Chat. Sie liegt anfangs oben rechts und lässt sich an eine andere Stelle ziehen. Im Roleplay-Chat findest du:
 
+- **Search messages** (Nachrichten suchen), einen aufklappbaren Abschnitt nahe dem oberen Rand. Er findet Nachrichten anhand von Wörtern oder ihrer Nummer und hat Tabs für Lesezeichen und gelöschte Nachrichten.
+- **Chat Branches** (Chat-Verzweigungen). Wechselt, benennt, exportiert und importiert die Verzweigungen des Chats. Siehe [Chat-Verzweigungen](../chats/branches.md).
 - **Chat Summary** (Chat-Zusammenfassung). Zeigt die laufende Zusammenfassung des Chats und lässt sie bearbeiten.
 - **Active Context** (aktiver Kontext). Listet die verknüpften Charaktere, Lorebook-Einträge und das Preset auf, die in die letzte Antwort geflossen sind. Dabei siehst du, welche Lorebook-Einträge gegriffen haben und eingefügt wurden.
+- **Agent activity** (Agentenaktivität), direkt unter **Agents**. Mehr dazu unten.
 - **Author's Notes**. Eine freie Notiz, die in jedem Zug in den Prompt wandert. Mehr dazu unten.
-- **Gallery** (Galerie). Öffnet die Bild- und Videogalerie des Chats, in der sich eine Illustration oder ein Hintergrund generieren lässt.
-- **Chat Settings**. Öffnet das vollständige Einstellungs-Panel für diesen Chat.
+- **Gallery** (Galerie). Die Bilder und Videos des Chats; hier kannst du eine Illustration oder einen Hintergrund generieren.
+
+Jeder dieser Abschnitte, auch Search, lässt sich in ein eigenes Fenster herauslösen oder am Telefon über eine eigene Schaltfläche öffnen. Ältere Chats behalten ihre vertrauten Tool-Symbole als verschiebbare Schaltflächen. Öffne eines und wähle **Put back in Chat Settings**, um das Tool in die Einstellungen zu verschieben. Siehe [Chat Settings im Überblick](../chats/chat-settings.md).
+
+<a id="authors-notes"></a>
 
 ### Author's Notes
 
-**Author's Notes** ist eine Notiz von dir, die die KI bei jeder Generierung mitliest. Nutze sie für dauerhafte Hinweise, etwa eine Regel zum Tonfall oder eine verborgene Tatsache. Öffne sie über die Stift-Schaltfläche in der Werkzeugleiste.
+**Author's Notes** ist eine Notiz von dir, die die KI bei jeder Generierung mitliest. Nutze sie für dauerhafte Hinweise, etwa eine Regel zum Tonfall oder eine verborgene Tatsache. Öffne **Chat Settings** und klapp **Author's Notes** unter **Agents** auf.
 
 Schreib die Notiz in das Feld. Zum Beispiel: „Halte den Ton düster und spannungsgeladen. Der Bösewicht ist insgeheim ein Verbündeter.“
 
@@ -79,11 +85,15 @@ Darunter liegt das Zahlenfeld **Injection Depth**. Es legt fest, wie weit oben i
 
 **Author's Notes** funktioniert in Game Mode und Conversation Mode genauso. Diese Anleitung ist die zentrale Referenz dazu.
 
-## Das Menü „Agents & Actions“
+<a id="agent-activity"></a>
 
-Die Funkel-Schaltfläche in der HUD-Zeile öffnet das Menü **Agents & Actions** (Agenten und Aktionen). Der Tab **Activity** listet die Ausgaben der Agenten auf, die sogenannten Gedankenblasen. Einzelne Blasen lassen sich ausblenden, **Clear all** räumt alle auf einmal weg. Auch die Ausgaben eigener Agenten erscheinen hier.
+## Agent activity
 
-Ist ein Agent im letzten Zug gescheitert, erscheint eine Fehlerliste samt Schaltfläche zum erneuten Versuch. Über dieses Menü lassen sich auch alle Tracker erneut ausführen. Eine leicht verständliche Tour durch das gesamte Agenten-System bietet [Agenten: KI-Helfer für deine Chats](../agents/agents-overview.md).
+**Agent activity** zeigt, was die Agenten des Chats getan haben. Der Abschnitt erscheint, sobald der Chat Agenten oder Advanced Memory nutzt. Du findest ihn direkt unter **Agents** in **Chat Settings**, außerdem unten im **Tracker Panel** und am Computer unten im Fenster **Trackers**.
+
+Der Tab **Activity** listet die Ausgaben der Agenten auf, die sogenannten Gedankenblasen. Einzelne Blasen lassen sich ausblenden, **Clear all** räumt alle auf einmal weg. Auch die Ausgaben eigener Agenten erscheinen hier.
+
+Ist ein Agent im letzten Zug gescheitert, erscheint eine Fehlerliste samt Schaltfläche zum erneuten Versuch. Du kannst auch laufende Agenten stoppen, alle Tracker neu ausführen und **Clear Trackers** nutzen. Eine leicht verständliche Tour durch das gesamte Agenten-System bietet [Agenten: KI-Helfer für deine Chats](../agents/agents-overview.md).
 
 Ein Tab **Injections** erscheint nur bei aktiviertem **Debug mode** (Debug-Modus). Aktivieren kannst du ihn unter **Settings** (Einstellungen) im Bereich **Advanced**. Der Tab zeigt die Prompt-Schnipsel, die schreibende Agenten vor der letzten Antwort gespeichert haben. Zu diesen Agenten zählen **Prose Guardian**, der Antworten an deine Stilregeln anpasst, und der **Narrative Director**, der die Handlung lenkt.
 
@@ -153,7 +163,7 @@ Für Agenten darf ein günstigeres Modell laufen als für den Chat. Viele Nutzen
 
 **Der Hintergrund wechselt nie.** Der Agent **Background** wählt aus der Hintergrund-Bibliothek aus. Bei nur ein oder zwei Hintergründen landet er immer wieder bei denselben. Leg weitere Hintergründe an, damit der Agent mehr Auswahl hat. Siehe [Roleplay-Hintergründe](backgrounds.md).
 
-**Eine neu generierte Antwort schlägt weiter die falsche Richtung ein.** Aktiviere **Debug mode** unter **Settings** im Bereich **Advanced**. Öffne das Menü **Agents & Actions**, geh auf den Tab **Injections** und bearbeite oder wiederhole den gespeicherten Schnipsel, bevor du neu generierst. Weitere Hilfe bietet [Fehlerbehebung in Marinara Engine](../TROUBLESHOOTING.md).
+**Eine neu generierte Antwort schlägt weiter die falsche Richtung ein.** Aktiviere **Debug mode** unter **Settings** im Bereich **Advanced**. Öffne **Agent activity**, geh auf den Tab **Injections** und bearbeite oder wiederhole den gespeicherten Schnipsel, bevor du neu generierst. Weitere Hilfe bietet [Fehlerbehebung in Marinara Engine](../TROUBLESHOOTING.md).
 
 ## Verwandte Anleitungen
 

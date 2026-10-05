@@ -23,6 +23,8 @@ Un perfil guarda cómo se comunica el chat con la IA:
 - Translation
 - Memory Recall
 - Advanced Parameters
+- Diseño de ventanas y botones: posiciones y tamaños de ventanas, fijaciones y bloqueos, herramientas dentro o fuera de Chat Settings, ventanas de controles abiertas y posiciones de botones en computadoras y teléfonos. Los perfiles sin diseño guardado, como **Default**, dejan el diseño del chat tal como está.
+- Si los consejos de diseño de Chat Settings están ocultos. Aplicar **Default** o un perfil antiguo sin esta elección vuelve a mostrar los consejos.
 - Otras opciones de chat reutilizables
 
 Un perfil no reemplaza contenido propio del chat como los personajes, la persona, los lorebooks, los sprites, el resumen, las etiquetas o el prompt de escena. Tampoco contiene el historial de conversación.
@@ -62,6 +64,18 @@ Sus tooltips describen el estado actual:
 - **Mark this profile as default for new chats in this mode**
 - **This profile is the default for new chats in this mode**
 - **Select a profile to mark it as default**
+
+## Diseños de ventanas favoritos
+
+La estrella junto a **Reset View** en la barra de título de Chat Settings guarda un diseño favorito para los chats nuevos del modo actual. También recuerda si ocultaste los consejos de diseño. Puedes usarla en Conversation, Roleplay y Game. La estrella junto al menú **Profile** sigue eligiendo el perfil de ajustes predeterminado.
+
+Al actualizar una instalación existente, la disposición conocida de botones de herramientas pasa a ser el favorito para los chats nuevos de los tres modos. Esto sucede una vez y respeta cualquier favorito que ya hayas guardado o borrado. El diseño sigue siendo el predeterminado hasta que lo cambies. Una instalación nueva empieza con las herramientas dentro de Chat Settings y sin diseño favorito.
+
+Organiza las ventanas y los botones y pulsa la estrella de la barra de título para guardarlos. La estrella se rellena cuando la disposición y los consejos actuales coinciden con el favorito. Si mueves una ventana o cambias la disposición, vuelve a pulsar la estrella para reemplazarlo. Pulsa la estrella rellena para borrarlo y usar el diseño estándar en los chats futuros. Estos cambios no alteran los chats existentes.
+
+Si un chat nuevo usa un perfil de ajustes predeterminado, el diseño guardado de ese perfil tiene prioridad sobre el favorito. Los perfiles sin diseño guardado conservan la disposición del chat, incluida la procedente de un favorito. Un perfil sigue aplicando su propio ajuste de consejos de diseño; los perfiles antiguos sin ese ajuste muestran los consejos.
+
+Consulta los pasos en [Elegir un diseño para chats nuevos](chat-settings.md#choosing-a-layout-for-new-chats).
 
 ## Importar y exportar perfiles
 

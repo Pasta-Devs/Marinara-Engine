@@ -1,12 +1,12 @@
 # Card Browser：查找并导入角色
 
-本指南介绍 Marinara Engine 的 **Card Browser**(角色卡浏览器)，它是内置的角色卡查找工具，可以在公开网站上找角色卡，并直接导入到自己的角色库。内容包括六个来源站点、搜索和筛选的方法，以及各来源对成人内容的处理方式，另外还有导入角色和把角色存成文件的做法。旧版本里这个选项卡叫 **Bot Browser** 或 **Browser**。
+本指南介绍 Marinara Engine 的 **Card Browser**(角色卡浏览器)，它是内置的角色卡查找工具，可以在公开网站上找角色卡，并直接导入到自己的角色库。内容包括各个来源站点、搜索和筛选的方法，以及各来源对成人内容的处理方式，另外还有导入角色和把角色存成文件的做法。旧版本里这个选项卡叫 **Bot Browser** 或 **Browser**。
 
 角色卡是一个文件，里面存着一个角色的名字、性格、开场白和其他细节。通常的做法是先从网站下载角色卡，再上传到 Marinara。**Card Browser** 把这两步合并到了一处。
 
 ## Card Browser 是什么
 
-**Card Browser** 可以在 Marinara 内部搜索多个公开的角色卡网站，支持六个来源：**ChubAI**、**JannyAI**、**CharacterTavern**、**Pygmalion**、**Wyvern** 和 **DataCat**。选定来源后可以搜索、筛选结果，并预览角色的完整信息，然后把角色导入角色库，或者存成 PNG 文件。默认设置下，浏览和导入角色卡都不需要账号，也不需要 API 密钥（类似密码的一串秘密字符）。
+**Card Browser** 可以在 Marinara 内部搜索多个公开的角色卡网站，支持五个来源：**ChubAI**、**JannyAI**、**Pygmalion**、**Wyvern** 和 **DataCat**。**CharacterTavern** 仍在列表里，但暂时无法浏览（见 [CharacterTavern](#charactertavern)）。选定来源后可以搜索、筛选结果，并预览角色的完整信息，然后把角色导入角色库，或者存成 PNG 文件。默认设置下，浏览和导入角色卡都不需要账号，也不需要 API 密钥（类似密码的一串秘密字符）。
 
 ## 打开 Card Browser
 
@@ -23,11 +23,23 @@
 
 ## 选择来源
 
-点击顶部的来源按钮，它上面显示当前来源名和一个小箭头。菜单会按这个顺序列出全部六个来源：**ChubAI**、**JannyAI**、**CharacterTavern**、**Pygmalion**、**Wyvern** 和 **DataCat**。
+点击顶部的来源按钮，它上面显示当前来源名和一个小箭头。菜单会按这个顺序列出各个来源：**ChubAI**、**JannyAI**、**CharacterTavern**、**Pygmalion**、**Wyvern** 和 **DataCat**。**CharacterTavern** 会标为 **Unavailable**(不可用)。
 
 第一次打开 **Card Browser** 时默认选中 **ChubAI**。切换来源会清空搜索词、标签和筛选条件。每个来源的成人内容设置和登录状态各自独立保存，改动其中一个不会影响其他来源。
 
-名称上有一处要注意：菜单里写的是 **ChubAI**，但在角色详情页上，跳转到站外的链接写的是 **View on Chub**。这是那个网站自己的叫法。另外五个来源在两处用的是同一个名字。
+名称上有一处要注意：菜单里写的是 **ChubAI**，但在角色详情页上，跳转到站外的链接写的是 **View on Chub**。这是那个网站自己的叫法。其他来源在两处用的是同一个名字。
+
+## CharacterTavern
+
+CharacterTavern 重建了网站，不再提供 Marinara 原先用来搜索和下载角色卡的连接。选择 **CharacterTavern** 时，**Card Browser** 会显示一段简短的说明，而不是搜索结果。如果 CharacterTavern 日后开放 API 访问，浏览功能可能会恢复。
+
+在那之前，仍然可以手动把 CharacterTavern 的角色带进 Marinara：
+
+1. 点击说明里的 **Open CharacterTavern**(打开 CharacterTavern)，网站会在新选项卡里打开。
+2. 从 character-tavern.com 下载角色卡文件。
+3. 点击说明里的 **Import Character**(导入角色)，选择下载好的文件。导入方法见[导入和导出角色卡](import-export.md)。
+
+之前从 CharacterTavern 导入的角色仍然留在角色库里。
 
 ## 搜索、排序与翻页
 
@@ -35,14 +47,13 @@
 
 搜索框旁边是排序下拉菜单。各来源的选项不一样，默认排序也各不相同：
 
-| 来源            | 默认排序        |
-| --------------- | --------------- |
-| ChubAI          | Most Downloaded |
-| JannyAI         | Newest          |
-| CharacterTavern | Most Popular    |
-| Pygmalion       | Downloads       |
-| Wyvern          | Popular         |
-| DataCat         | Relevance       |
+| 来源      | 默认排序        |
+| --------- | --------------- |
+| ChubAI    | Most Downloaded |
+| JannyAI   | Newest          |
+| Pygmalion | Downloads       |
+| Wyvern    | Popular         |
+| DataCat   | Relevance       |
 
 点击 **Refresh**(刷新) 按钮（圆形箭头图标）可以重新执行当前的搜索。
 
@@ -81,17 +92,17 @@
 应用里把成人内容标记为 **NSFW**。工具栏上只有一个 **NSFW** 复选框，但每个来源对它的处理都不一样。这是最常被问到的地方，看仔细一点。
 
 - **ChubAI** 和 **JannyAI**：**NSFW** 复选框直接生效，不需要登录，默认关闭。
-- **CharacterTavern** 和 **Pygmalion**：登录之前 **NSFW** 复选框是灰的，鼠标悬停的提示会让你先登录。登录之后，应用会跟随你在那个站外网站上的账号设置，复选框的文字随之变成 **NSFW depends on your account settings**。登录后就没有单独的开关了。
+- **Pygmalion**：登录之前 **NSFW** 复选框是灰的，鼠标悬停的提示会让你先登录。登录之后，应用会跟随你在 Pygmalion 上的账号设置，复选框的文字随之变成 **NSFW depends on your account settings**。登录后就没有单独的开关了。
 - **Wyvern**：**NSFW** 复选框始终是灰的，旁边有一条说明 **Use "🔞 Popular NSFW" sort for NSFW content**。想在 **Wyvern** 上看成人内容，要在排序下拉菜单里选 **🔞 Popular NSFW**。
 - **DataCat**：站上每个角色都带成人标记，所以复选框被锁定为开启。第一次选择 **DataCat** 时会弹出一个标题为 **DataCat is NSFW only** 的窗口，点击 **Continue to DataCat** 继续浏览，点击 **Don't continue to DataCat** 返回。
 
 成人角色的缩略图角上会有一个红色的 **NSFW** 小角标。
 
-## 登录 CharacterTavern 和 Pygmalion
+## 登录 Pygmalion
 
-**CharacterTavern** 和 **Pygmalion** 把成人内容藏在登录之后。普通的公开角色不用登录，登录只是为了解锁成人内容。
+**Pygmalion** 把成人内容藏在登录之后。普通的公开角色不用登录，登录只是为了解锁成人内容。
 
-登录时点击工具栏的 **Log In**(登录) 按钮，会打开一个登录窗口，需要粘贴一段从你在那个站外网站的账号里复制出来的值。Marinara 不会索要密码。
+登录时点击工具栏的 **Log In**(登录) 按钮，会打开一个登录窗口，需要粘贴一段从你的 Pygmalion 账号里复制出来的值。Marinara 不会索要密码。
 
 **Pygmalion** 的窗口标题是 **Pygmalion Authentication**，要填的是 **Auth Token**：
 
@@ -102,18 +113,9 @@
 5. 把这个值粘贴到 Marinara 的 **Auth Token** 输入框里。
 6. 点击 **Save & Connect**。接着应该会看到一条提示，说明 NSFW 内容已启用。
 
-**CharacterTavern** 的窗口标题是 **CharacterTavern Session**，要填的是 **Cookie String**：
+窗口里有一段帮助说明，把这些步骤重复了一遍，还有一个打开 pygmalion.chat 的 **Website** 链接。想退出登录，重新打开登录窗口并点击 **Log Out**。
 
-1. 打开 character-tavern.com 并登录账号。
-2. 按 F12 键打开开发者工具。
-3. 切换到 **Application** 选项卡，再进入 **Cookies**。
-4. 找到名为 `session` 的 cookie，复制它的值。
-5. 把这个值粘贴到 Marinara 的 **Cookie String** 输入框里。
-6. 点击 **Save & Connect**。接着应该会看到一条提示，说明 NSFW 内容已启用。
-
-两个窗口里都有一段帮助说明，把这些步骤重复了一遍，也都有一个打开该来源官网的链接。**Pygmalion** 窗口里这个链接写作 **Website**，**CharacterTavern** 窗口里写作 **CharacterTavern**。想退出登录，重新打开登录窗口并点击 **Log Out**。
-
-重要提示：这两个登录信息只保存在服务器的内存里，绝不会写进文件。重启 Marinara 服务器之后，两个来源的登录都会失效，必须重新粘贴一次。发生这种情况时，Marinara 会提示重新登录。
+重要提示：这个登录信息只保存在服务器的内存里，绝不会写进文件。重启 Marinara 服务器之后就会退出登录，必须重新粘贴一次 Token。发生这种情况时，Marinara 会提示重新登录。
 
 ## 导入前先查看角色
 
@@ -172,7 +174,9 @@ JSON 和 PNG 是同一份角色数据的两种常见格式。JSON 是纯文本�
 
 **JannyAI 的搜索或详情加载失败，报 Cloudflare 错误。** 有些网站会拦截自动化请求。用同一个浏览器访问一次 jannyai.com，通过它出示的验证，然后回到 Marinara 重新搜索。
 
-**CharacterTavern 或 Pygmalion 的登录突然失效了。** 重启 Marinara 服务器会清掉这些登录信息。重新打开 **Log In** 窗口，再粘贴一次 token 或 cookie 值。
+**Pygmalion 的登录突然失效了。** 重启 Marinara 服务器会清掉这个登录信息。重新打开 **Log In** 窗口，再粘贴一次 Token。
+
+**CharacterTavern 只显示一条说明。** 这是正常现象。想把它的角色卡作为文件导入，见 [CharacterTavern](#charactertavern)。
 
 **搜索失败，或者某个来源用不了了。** 公开网站随时可能改版或者封锁访问，过一阵再试。某个来源一直失败的话，直接到该网站上打开角色，自己下载角色卡，再走常规的导入流程带进来，见[导入和导出角色卡](import-export.md)。
 

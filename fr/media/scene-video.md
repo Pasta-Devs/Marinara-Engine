@@ -112,7 +112,7 @@ Si une option enregistrée ne correspond plus au modèle, par exemple après une
 
 ## Générer une vidéo depuis la galerie
 
-Les chats **Roleplay** comme **Game Mode** peuvent créer des vidéos de scène depuis le panneau **Gallery** (galerie). Ouvre-le avec l'icône d'image ou de galerie du chat. Les chats Game Mode disposent d'un second endroit pour cela, le panneau **Game Assets**, présenté plus loin dans ce guide.
+Les chats **Roleplay** et **Game Mode** créent des vidéos de scène depuis **Gallery** (galerie). Ouvre **Chat Settings** et déplie **Gallery**. Game Mode propose aussi **Game Assets**, présenté plus loin dans ce guide.
 
 La galerie a un onglet **Images** et un onglet **Videos**, chacun avec un compteur. Les images fixes se trouvent sous **Images**. Les clips terminés se trouvent sous **Videos**.
 
@@ -138,11 +138,11 @@ Si tu tentes de créer une vidéo alors que le chat ne contient aucune image, Ma
 
 ## La vidéo de scène en Game Mode
 
-Game Mode offre un second endroit pour créer une vidéo de scène : le panneau **Game Assets** (ressources de la partie). Ouvre-le avec le bouton **Game Assets** dans les commandes de jeu.
+Game Mode propose aussi **Game Assets** pour créer des vidéos de scène. Clique ou appuie sur son bouton de dossier, qui commence en haut à droite. Il ouvre une fenêtre sur ordinateur ou un panneau sur toute la largeur sur téléphone. Si tu l'as rangé avec **Put back in Chat Settings**, ouvre la section **Game Assets** dans Chat Settings.
 
-1. Ouvre le panneau **Game Assets**.
+1. Ouvre **Game Assets**.
 2. Clique sur **Generate video** (générer une vidéo). Son infobulle indique "Generate a scene video from the latest illustration."
-3. Le clip le plus récent se lit dans le panneau dès qu'il est prêt.
+3. Le clip le plus récent s'y lit dès qu'il est prêt.
 
 Le bouton **Generate video** reste inactif tant que la partie n'a pas à la fois une connexion vidéo et une illustration de scène. Si tu cliques trop tôt, un de ces messages peut apparaître :
 

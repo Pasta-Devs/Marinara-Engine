@@ -1,6 +1,6 @@
 # Game Mode : sessions et sauvegardes
 
-Ce guide explique comment Marinara Engine suit ta progression en Game Mode d'une session de jeu à l'autre. Au programme : terminer une session, en démarrer une nouvelle et relire les sessions passées dans le panneau **Session History** (historique des sessions). Tu découvres aussi la vue **Show Spoilers** (afficher les spoilers) et la façon dont le jeu enregistre tes données.
+Ce guide explique comment Marinara Engine suit ta progression en Game Mode d'une session de jeu à l'autre. Au programme : terminer une session, en démarrer une nouvelle et relire les sessions passées dans **Session History** (historique des sessions). Tu découvres aussi la vue **Show Spoilers** (afficher les spoilers) et la façon dont le jeu enregistre tes données.
 
 ## Ce qu'est une session
 
@@ -8,23 +8,25 @@ Game Mode découpe ton aventure en sessions numérotées. Une session, c'est une
 
 La première session porte le nom **Session 1**. Termine-la puis relance le jeu, et voilà la **Session 2**, et ainsi de suite.
 
-## Ouvrir le panneau Session
+<a id="opening-session"></a>
 
-Le panneau **Session** sert à terminer une session, à en démarrer une nouvelle et à relire ton historique.
+## Ouvrir Session
 
-1. Démarre ou ouvre un chat Game Mode pour afficher la surface de jeu.
-2. Dans la barre d'outils en haut, clique sur le bouton **Session** (l'icône en forme de plume).
-3. Le panneau s'ouvre. L'en-tête affiche **Session** avec le numéro et le statut en cours.
-4. Le panneau comporte deux onglets : **Session History** et **Journal**. Reste sur **Session History** pour les commandes de session et le partage de la configuration.
+Dans **Session**, tu termines des sessions, en démarres de nouvelles et consultes ton historique.
 
-L'en-tête du panneau propose aussi un bouton **Game tutorial** (tutoriel du jeu) qui rouvre la visite guidée.
+1. Démarre ou ouvre un chat Game Mode pour afficher le jeu.
+2. Clique ou appuie sur le bouton **Session** (la plume). Il commence près du coin supérieur droit du chat. Tu peux le déplacer ailleurs ; consulte [Fenêtres de contrôles et leurs boutons](../chats/chat-settings.md#control-windows-and-their-buttons).
+3. **Session** s'ouvre dans une fenêtre sur ordinateur ou un panneau sur toute la largeur sur téléphone. Sa première ligne affiche **Session** avec le numéro et le statut actuels.
+4. Il contient deux onglets : **Session History** et **Journal**. Reste sur **Session History** pour les contrôles de session et le partage de configuration.
+
+Si tu as utilisé **Put back in Chat Settings** pour ranger cette fenêtre, ouvre la section **Session** dans Chat Settings.
 
 ## Partager la configuration à l'origine d'une partie
 
 Game Mode conserve un instantané figé de la configuration utilisée pour créer chaque nouvelle campagne. Tu peux ainsi jouer d'abord, constater que la combinaison fonctionne bien, puis la partager après coup, sans avoir noté chaque champ à la main avant de commencer.
 
 1. Ouvre la campagne Game Mode que tu veux partager.
-2. Clique sur le bouton **Session** (l'icône en forme de plume) dans la barre d'outils en haut.
+2. Ouvre **Session** (le bouton avec la plume).
 3. Reste sur **Session History**, puis déplie la section **Initial Game Setup** (configuration initiale de la partie).
 4. Passe en revue les réglages enregistrés : aventure, distribution des personnages, modèle, prompt (le texte que Marinara envoie à l'IA), paramètres de génération effectifs, visuel, storyboard et outils de monde.
 5. Clique sur **Copy setup** (copier la configuration) pour placer le texte dans le presse-papiers, ou sur **Download .txt** (télécharger le fichier .txt) pour enregistrer un fichier texte partageable.
@@ -37,7 +39,7 @@ Les campagnes créées avant l'arrivée des instantanés de configuration ne peu
 
 Termine une session quand tu veux clore le chapitre en cours et laisser le GM le résumer.
 
-1. Ouvre le panneau **Session** et reste sur l'onglet **Session History**.
+1. Ouvre **Session** et reste sur l'onglet **Session History**.
 2. En haut, tu vois la session en cours, avec la mention **Session N (Current)**.
 3. Sur cette ligne, clique sur le bouton **End Session** (terminer la session), la petite icône carrée à côté de **Show Spoilers**.
 4. Une fenêtre intitulée **End Session** s'ouvre et te demande de confirmer.
@@ -51,7 +53,7 @@ Une fois que tu as confirmé, le moteur génère un résumé. Reste sur cet écr
 
 Dès que la session en cours est conclue, ce même bouton devient **New Session** (nouvelle session).
 
-1. Ouvre le panneau **Session** et va sur l'onglet **Session History**.
+1. Ouvre **Session** et va sur l'onglet **Session History**.
 2. Sur la ligne de la session en cours, clique sur le bouton **New Session** (l'icône de lecture).
 3. Le GM reprend l'histoire. Il s'appuie sur le résumé de la session précédente et sur la note pour la session suivante que tu as éventuellement écrite en la terminant.
 
@@ -102,9 +104,9 @@ Un bouton **Regenerate Lorebook** (régénérer le lorebook) apparaît seulement
 
 **Show Spoilers** dévoile les notes secrètes du GM pour la session en cours. Elles te sont normalement cachées pendant le jeu. Les lire peut gâcher des retournements de situation.
 
-1. Ouvre le panneau **Session** et va sur l'onglet **Session History**.
+1. Ouvre **Session** et va sur l'onglet **Session History**.
 2. Sur la ligne de la session en cours, clique sur **Show Spoilers** (l'icône en forme d'œil).
-3. Le panneau révèle l'état privé du GM.
+3. L'état privé du GM apparaît.
 
 La vue des spoilers peut afficher les sections suivantes :
 

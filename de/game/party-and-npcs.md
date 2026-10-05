@@ -80,7 +80,7 @@ Willst du selbst einen Gefährten ziehen lassen, nutz das **X** in der Party-Lei
 
 Das Adventure Journal (Abenteuer-Tagebuch) protokolliert die Kampagne fortlaufend. Es entsteht aus gespeicherten Spielereignissen und stammt nicht von der KI – deshalb bleibt es sachlich.
 
-Klick in der oberen Werkzeugleiste auf die Schaltfläche **Session** (Sitzung) und wähl dann den Tab **Journal**. Es öffnet sich ein Journal-Panel mit diesen Tabs:
+Öffne **Session** (Sitzung; siehe [Session öffnen](sessions-and-saves.md#opening-session)) und wähl dann den Tab **Journal**. Das Journal hat diese Tabs:
 
 - **Timeline** (Zeitleiste): eine Liste der Ereignisse – gefundene Orte, Treffen mit NPCs, Kampfergebnisse, Quests und alles rund um Gegenstände.
 - **NPCs**: die NPCs, denen du begegnet bist, mit Porträt und Ruf-Stufe (siehe unten).

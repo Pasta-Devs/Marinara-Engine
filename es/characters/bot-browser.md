@@ -1,12 +1,12 @@
 # Card Browser: buscar e importar personajes
 
-Esta guía explica el **Card Browser** (Explorador de tarjetas) de Marinara Engine, la herramienta integrada para encontrar tarjetas de personaje en sitios públicos e importarlas a tu biblioteca. Cubre las seis fuentes, cómo buscar y filtrar, y cómo funciona el contenido para adultos en cada fuente. También explica cómo importar un personaje o guardarlo como archivo. Las versiones anteriores llamaban a esta pestaña **Bot Browser** o **Browser**.
+Esta guía explica el **Card Browser** (Explorador de tarjetas) de Marinara Engine, la herramienta integrada para encontrar tarjetas de personaje en sitios públicos e importarlas a tu biblioteca. Cubre las fuentes, cómo buscar y filtrar, y cómo funciona el contenido para adultos en cada fuente. También explica cómo importar un personaje o guardarlo como archivo. Las versiones anteriores llamaban a esta pestaña **Bot Browser** o **Browser**.
 
 Una tarjeta de personaje es un archivo que guarda el nombre, la personalidad, el saludo inicial y otros detalles de un personaje. Normalmente descargarías una tarjeta de un sitio web y luego la subirías a Marinara. El **Card Browser** hace ambos pasos por ti en un solo lugar.
 
 ## Qué es el Card Browser
 
-El **Card Browser** busca en varios sitios públicos de tarjetas de personaje desde dentro de Marinara. Admite seis fuentes: **ChubAI**, **JannyAI**, **CharacterTavern**, **Pygmalion**, **Wyvern** y **DataCat**. Puedes buscar en una fuente, filtrar los resultados y ver una vista previa con todos los detalles de un personaje. Luego puedes importar ese personaje a tu biblioteca o guardarlo como archivo PNG. No necesitas una cuenta ni una API key (clave de API) para explorar e importar tarjetas de personaje con la configuración predeterminada.
+El **Card Browser** busca en varios sitios públicos de tarjetas de personaje desde dentro de Marinara. Admite cinco fuentes: **ChubAI**, **JannyAI**, **Pygmalion**, **Wyvern** y **DataCat**. **CharacterTavern** sigue en la lista, pero por ahora no se puede explorar (consulta [CharacterTavern](#charactertavern)). Puedes buscar en una fuente, filtrar los resultados y ver una vista previa con todos los detalles de un personaje. Luego puedes importar ese personaje a tu biblioteca o guardarlo como archivo PNG. No necesitas una cuenta ni una API key (clave de API) para explorar e importar tarjetas de personaje con la configuración predeterminada.
 
 ## Abrir el Card Browser
 
@@ -23,11 +23,23 @@ El **Card Browser** se mantiene cargado mientras la app está abierta. Si lo cie
 
 ## Elegir una fuente
 
-Haz clic en el botón de fuente en el encabezado. Muestra el nombre de la fuente actual y una pequeña flecha. Se abre un menú con las seis fuentes en este orden: **ChubAI**, **JannyAI**, **CharacterTavern**, **Pygmalion**, **Wyvern** y **DataCat**.
+Haz clic en el botón de fuente en el encabezado. Muestra el nombre de la fuente actual y una pequeña flecha. Se abre un menú con las fuentes en este orden: **ChubAI**, **JannyAI**, **CharacterTavern**, **Pygmalion**, **Wyvern** y **DataCat**. **CharacterTavern** está marcada como **Unavailable** (No disponible).
 
 **ChubAI** está seleccionada la primera vez que abres el **Card Browser**. Cuando cambias de fuente, se borran tu texto de búsqueda, etiquetas y filtros. Cada fuente recuerda por separado su propia configuración de contenido para adultos y su inicio de sesión, así que un cambio en una fuente no afecta a las demás.
 
-Una nota sobre los nombres: el menú lista **ChubAI**, pero en la página de detalle de un personaje el enlace externo dice **View on Chub**. Ese es el nombre que el sitio se da a sí mismo. Las otras cinco fuentes usan el mismo nombre en ambos lugares.
+Una nota sobre los nombres: el menú lista **ChubAI**, pero en la página de detalle de un personaje el enlace externo dice **View on Chub**. Ese es el nombre que el sitio se da a sí mismo. Las otras fuentes usan el mismo nombre en ambos lugares.
+
+## CharacterTavern
+
+CharacterTavern rehízo su sitio web y ya no ofrece la conexión que Marinara usaba para buscar y descargar tarjetas. Cuando eliges **CharacterTavern**, el **Card Browser** muestra un aviso breve en lugar de resultados de búsqueda. Es posible que la exploración vuelva si CharacterTavern ofrece acceso a su API.
+
+Hasta entonces, todavía puedes traer a mano personajes de CharacterTavern a Marinara:
+
+1. Haz clic en **Open CharacterTavern** (Abrir CharacterTavern) en el aviso. El sitio se abre en una pestaña nueva.
+2. Descarga el archivo de la tarjeta de personaje desde character-tavern.com.
+3. Haz clic en **Import Character** (Importar personaje) en el aviso y elige el archivo descargado. Consulta [Importar y exportar tarjetas de personaje](import-export.md).
+
+Los personajes que ya importaste desde CharacterTavern siguen en tu biblioteca.
 
 ## Buscar, ordenar y páginas
 
@@ -39,7 +51,6 @@ Junto al cuadro de búsqueda hay un menú desplegable de orden. Las opciones son
 | --------------- | --------------- |
 | ChubAI          | Most Downloaded |
 | JannyAI         | Newest          |
-| CharacterTavern | Most Popular    |
 | Pygmalion       | Downloads       |
 | Wyvern          | Popular         |
 | DataCat         | Relevance       |
@@ -81,17 +92,17 @@ Nota sobre **Wyvern**: sus casillas **Lorebook** y **Alt Greetings** aparecen, y
 El contenido para adultos se etiqueta como **NSFW** en la app. Hay una sola casilla **NSFW** en la barra de herramientas, pero cada fuente la trata de forma distinta. Esta es la pregunta más común, así que léela con atención.
 
 - **ChubAI** y **JannyAI**: la casilla **NSFW** funciona de inmediato. No hace falta iniciar sesión. Está desactivada de forma predeterminada.
-- **CharacterTavern** y **Pygmalion**: la casilla **NSFW** está atenuada hasta que inicias sesión. Su tooltip (texto de ayuda) te indica que inicies sesión primero. Después de iniciar sesión, la app sigue la configuración de tu cuenta en ese sitio externo. La casilla entonces dice **NSFW depends on your account settings** (El contenido NSFW depende de la configuración de tu cuenta). No hay un interruptor separado de encendido y apagado después de iniciar sesión.
+- **Pygmalion**: la casilla **NSFW** está atenuada hasta que inicias sesión. Su tooltip (texto de ayuda) te indica que inicies sesión primero. Después de iniciar sesión, la app sigue la configuración de tu cuenta en Pygmalion. La casilla entonces dice **NSFW depends on your account settings** (El contenido NSFW depende de la configuración de tu cuenta). No hay un interruptor separado de encendido y apagado después de iniciar sesión.
 - **Wyvern**: la casilla **NSFW** siempre está atenuada. Un aviso dice **Use "🔞 Popular NSFW" sort for NSFW content** (Usa el orden "🔞 Popular NSFW" para contenido NSFW). Para ver contenido para adultos en **Wyvern**, elige la opción **🔞 Popular NSFW** en el menú desplegable de orden.
 - **DataCat**: todos los personajes están etiquetados como para adultos, así que la casilla queda bloqueada en activado. La primera vez que eliges **DataCat**, aparece una ventana titulada **DataCat is NSFW only** (DataCat es solo NSFW). Haz clic en **Continue to DataCat** para explorarla, o en **Don't continue to DataCat** para volver atrás.
 
 Los personajes para adultos muestran una pequeña insignia roja **NSFW** en la esquina de su miniatura.
 
-## Iniciar sesión en CharacterTavern y Pygmalion
+## Iniciar sesión en Pygmalion
 
-**CharacterTavern** y **Pygmalion** ocultan su contenido para adultos detrás de un inicio de sesión. No necesitas iniciar sesión para los personajes normales y públicos. Iniciar sesión solo desbloquea el contenido para adultos.
+**Pygmalion** oculta su contenido para adultos detrás de un inicio de sesión. No necesitas iniciar sesión para los personajes normales y públicos. Iniciar sesión solo desbloquea el contenido para adultos.
 
-Para iniciar sesión, haz clic en el botón **Log In** (Iniciar sesión) en la barra de herramientas. Se abre una ventana de inicio de sesión. Pegas un valor copiado desde tu propia cuenta en ese sitio externo. Marinara no te pide tu contraseña.
+Para iniciar sesión, haz clic en el botón **Log In** (Iniciar sesión) en la barra de herramientas. Se abre una ventana de inicio de sesión. Pegas un valor copiado desde tu propia cuenta de Pygmalion. Marinara no te pide tu contraseña.
 
 Para **Pygmalion**, la ventana se titula **Pygmalion Authentication** y pide un **Auth Token**:
 
@@ -102,18 +113,9 @@ Para **Pygmalion**, la ventana se titula **Pygmalion Authentication** y pide un 
 5. Pega el valor en el cuadro **Auth Token** de Marinara.
 6. Haz clic en **Save & Connect** (Guardar y conectar). Deberías ver un mensaje de que el contenido NSFW está activado.
 
-Para **CharacterTavern**, la ventana se titula **CharacterTavern Session** y pide un **Cookie String**:
+La ventana tiene una sección de ayuda que repite estos pasos y un enlace **Website** que abre pygmalion.chat. Para cerrar sesión, abre de nuevo la ventana de inicio de sesión y haz clic en **Log Out** (Cerrar sesión).
 
-1. Ve a character-tavern.com e inicia sesión en tu cuenta.
-2. Abre las herramientas de desarrollo con la tecla F12.
-3. Abre la pestaña **Application**, luego **Cookies**.
-4. Busca la cookie llamada `session` y copia su valor.
-5. Pega el valor en el cuadro **Cookie String** de Marinara.
-6. Haz clic en **Save & Connect**. Deberías ver un mensaje de que el contenido NSFW está activado.
-
-Cada ventana tiene una sección de ayuda que repite estos pasos. Cada ventana también tiene un enlace que abre el sitio web de la fuente. En la ventana de **Pygmalion**, este enlace dice **Website**. En la ventana de **CharacterTavern**, dice **CharacterTavern**. Para cerrar sesión, abre de nuevo la ventana de inicio de sesión y haz clic en **Log Out** (Cerrar sesión).
-
-Importante: estos inicios de sesión se mantienen solo en la memoria del servidor. Nunca se guardan en un archivo. Si reinicias el servidor de Marinara, se cierra tu sesión en ambas fuentes y debes pegar el valor de nuevo. Marinara muestra un mensaje que te dice que inicies sesión otra vez cuando esto ocurre.
+Importante: este inicio de sesión se mantiene solo en la memoria del servidor. Nunca se guarda en un archivo. Si reinicias el servidor de Marinara, se cierra tu sesión y debes pegar el token de nuevo. Marinara muestra un mensaje que te dice que inicies sesión otra vez cuando esto ocurre.
 
 ## Revisar un personaje antes de importar
 
@@ -172,7 +174,9 @@ El panel **Card Browser** en la barra lateral derecha mantiene una lista separad
 
 **La búsqueda o los detalles de JannyAI fallan con un error de Cloudflare.** Algunos sitios bloquean las solicitudes automatizadas. Visita jannyai.com una vez en el mismo navegador web, pasa cualquier desafío que muestre y luego vuelve a Marinara y busca de nuevo.
 
-**Mi inicio de sesión de CharacterTavern o Pygmalion dejó de funcionar.** Reiniciar el servidor de Marinara borra estos inicios de sesión. Abre de nuevo la ventana **Log In** y pega tu token o valor de cookie una vez más.
+**Mi inicio de sesión de Pygmalion dejó de funcionar.** Reiniciar el servidor de Marinara borra este inicio de sesión. Abre de nuevo la ventana **Log In** y pega tu token una vez más.
+
+**CharacterTavern solo muestra un aviso.** Eso es lo esperado. Consulta [CharacterTavern](#charactertavern) para ver cómo importar sus tarjetas como archivos.
 
 **Una búsqueda falla o una fuente deja de funcionar.** Los sitios públicos pueden cambiar sus páginas o bloquear el acceso en cualquier momento. Inténtalo de nuevo más tarde. Si una fuente sigue fallando, abre el personaje en el sitio directamente y descarga la tarjeta tú mismo. Luego tráela a través del flujo de importación normal. Consulta [Importar y exportar tarjetas de personaje](import-export.md).
 
