@@ -4,7 +4,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
-- On phones, the **Chat tools** menu and its buttons follow your selected chat widget shape, including Dottore and custom shapes. Touch reordering keeps tools in your preferred order (#7144).
+- On phones, the **Chat tools** three-dots button, lock and expanded tools now follow your selected chat widget shape, including Dottore's cut corners and custom shapes, instead of always appearing circular (#7144).
 
 - In Game Mode, HUD widgets, the map panel on computers, characters' side remarks and character sheets now follow **Apply preset font**, **Apply preset shape** and **Apply preset colors**, like the dialogue box beside them. Widget numbers keep the game's own accent colors. With the switches off, nothing changes (#7136).
 

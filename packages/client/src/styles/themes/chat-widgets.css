@@ -625,18 +625,3 @@
     var(--mari-widget-custom-border-solid, var(--mari-widget-accent, var(--marinara-chat-chrome-accent)))
   );
 }
-
-/* Mobile Chat tools rolls out a column of round buttons. Keep the chosen
-   palette, ornaments and custom color paint, with circular hit/paint shapes. */
-@layer components {
-  .mari-window-bubble:is(.mari-chat-tools-button, [data-chat-tools-menu-button]) {
-    --mari-window-bubble-radius: 50%;
-    --mari-widget-button-shell: initial;
-    --mari-widget-button-clip: none;
-    --mari-widget-button-inner-clip: none;
-    --mari-widget-ornament-inset: 2px;
-    --mari-widget-ornament-bg: transparent;
-    --mari-widget-ornament-shadow: none;
-    --mari-widget-ornament-z: auto;
-  }
-}

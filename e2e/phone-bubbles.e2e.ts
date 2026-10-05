@@ -100,6 +100,24 @@ async function box(locator: Locator): Promise<Box> {
   return value!;
 }
 
+async function sharedBubbleShape(page: Page) {
+  return page.evaluate(() => {
+    // Resolve inherited shape tokens outside the menu so a menu-specific override
+    // cannot make the expected shape agree with the same broken declaration.
+    const probe = document.createElement("span");
+    probe.style.borderRadius =
+      "var(--mari-window-bubble-radius, var(--mari-widget-bubble-radius, calc(var(--radius) + 0.125rem)))";
+    probe.style.clipPath = "var(--mari-widget-button-clip, none)";
+    document.body.append(probe);
+    const radius = getComputedStyle(probe).borderRadius;
+    const clip = getComputedStyle(probe).clipPath;
+    probe.style.clipPath = "var(--mari-widget-button-inner-clip, none)";
+    const innerClip = getComputedStyle(probe).clipPath;
+    probe.remove();
+    return { radius, clip, innerClip };
+  });
+}
+
 async function openSettingsSheet(page: Page) {
   await chatSettingsButton(page).click();
   const settings = sheet(page, "chat-settings");
@@ -152,7 +170,7 @@ test.describe("phone bubbles", () => {
     test.skip(!testInfo.project.name.includes("mobile"), "Phones only; computers keep windows.");
   });
 
-  test("phone Chat tools expands round buttons that stay reachable, movable, reorderable and locked per chat", async ({
+  test("phone Chat tools expands themed buttons that stay reachable, movable, reorderable and locked per chat", async ({
     page,
     request,
   }, testInfo) => {
@@ -204,10 +222,10 @@ test.describe("phone bubbles", () => {
       for (const button of await menu.locator("button").all()) {
         const bounds = await box(button);
         expect(bounds.width).toBe(bounds.height);
-        await expect(button).toHaveCSS("border-radius", "50%");
+        await expect(button).toHaveCSS("border-radius", (await sharedBubbleShape(page)).radius);
         await expect(button).toHaveAccessibleName(/.+/);
       }
-      await page.screenshot({ path: testInfo.outputPath("round-tools-default.png"), animations: "disabled" });
+      await page.screenshot({ path: testInfo.outputPath("themed-tools-default.png"), animations: "disabled" });
       const order = () =>
         rows.evaluateAll((items) => items.map((item) => item.getAttribute("data-chat-tools-menu-item")!));
       const initial = await order();
@@ -215,7 +233,7 @@ test.describe("phone bubbles", () => {
       await secondHandle.press("ArrowUp");
       await expect.poll(order).toEqual([...initial].reverse());
       await expect(rows.first()).toHaveAttribute("aria-posinset", "1");
-      // Drag the round button itself; ending that gesture must not open its tool.
+      // Drag the tool button itself; ending that gesture must not open its tool.
       const dragHandle = menu.locator(`[data-chat-tools-menu-tool="${initial[1]}"]`);
       // Framer animates the keyboard reorder; use actionability before measuring its new position.
       await dragHandle.hover();
@@ -332,6 +350,180 @@ test.describe("phone bubbles", () => {
       await expect(page.locator('[data-chat-mode="roleplay"]')).toBeVisible();
       await expect(launcher).toHaveAttribute("data-locked", "true");
     } finally {
+      await chat.remove();
+    }
+  });
+
+  for (const theme of ["dark", "light"] as const) {
+    test(`phone Chat tools follows every preset and shape override with gradient paint in ${theme} mode`, async ({
+      page,
+      request,
+    }, testInfo) => {
+      const chat = await createChat(request, "game", {}, { connected: true });
+      try {
+        await prepare(page, chat.id, { theme, appAccentPulseMode: false });
+        await page.goto("/");
+        await expect(page.locator('[data-chat-mode="game"]')).toBeVisible({ timeout: 30_000 });
+        const launcher = bubble(page, TOOLS_MENU);
+        await launcher.click();
+        const menu = page.locator("[data-chat-tools-menu]");
+        await expect(menu.locator("[data-chat-tools-menu-tool]")).toHaveCount(GAME_CONTROLS.length);
+        const buttons = page.locator("[data-chat-tools-menu-button], [data-chat-tools-menu] button");
+        await expect(buttons).toHaveCount(GAME_CONTROLS.length + 2);
+        for (const [preset, shape] of [
+          ["default", "preset"],
+          ["dottore", "preset"],
+          ["mari", "preset"],
+          ["dottore", "rounded"],
+          ["mari", "square"],
+          ["mari", "cut-corner"],
+          ["dottore", "arched"],
+        ] as const) {
+          for (const gradient of [false, true]) {
+            await test.step(`${preset}/${shape}, ${gradient ? "custom gradients" : "preset colors"}`, async () => {
+              await page.evaluate(
+                async ({ preset, shape, gradient }) => {
+                  const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+                  useUIStore.setState({
+                    chatWidgetPreset: preset,
+                    chatWidgetShape: shape,
+                    chatWidgetBorderColor: gradient ? "linear-gradient(90deg, #cca077, #88ccdd)" : "",
+                    chatWidgetBackgroundColor: gradient ? "linear-gradient(135deg, #202838, #384050)" : "",
+                  });
+                },
+                { preset, shape, gradient },
+              );
+              const resolvedShape =
+                shape !== "preset" ? shape : preset === "dottore" ? "cut-corner" : preset === "mari" ? "arched" : null;
+              if (resolvedShape)
+                await expect(page.locator("html")).toHaveAttribute("data-chat-widget-shape", resolvedShape);
+              else await expect(page.locator("html")).not.toHaveAttribute("data-chat-widget-shape");
+              if (gradient) await expect(page.locator("html")).toHaveAttribute("data-chat-widget-colors", /border/);
+              else await expect(page.locator("html")).not.toHaveAttribute("data-chat-widget-colors");
+              const expected = await sharedBubbleShape(page);
+              if (resolvedShape === "cut-corner") expect(expected.clip).toContain("polygon(");
+              for (const button of await buttons.all()) {
+                await expect(button).toHaveCSS("border-radius", expected.radius);
+                const paint = await button.evaluate((element, gradient) => {
+                  const frame = gradient ? element.querySelector(".mari-window-bubble__paint")! : element;
+                  const outer = getComputedStyle(frame, gradient ? null : "::after");
+                  const inner = getComputedStyle(frame, "::after");
+                  return {
+                    clip: outer.clipPath,
+                    innerClip: inner.clipPath,
+                    border: outer.backgroundImage,
+                    background: inner.backgroundImage,
+                  };
+                }, gradient);
+                expect(paint.clip).toBe(expected.clip);
+                if (gradient) {
+                  expect(paint.innerClip).toBe(expected.innerClip);
+                  expect(paint.border).toContain("linear-gradient");
+                  expect(paint.background).toContain("linear-gradient");
+                }
+              }
+              await expectComposerClearAndNoSideScroll(page);
+              await page.screenshot({
+                path: testInfo.outputPath(`tools-${preset}-${shape}-${theme}-${gradient ? "gradient" : "preset"}.png`),
+                animations: "disabled",
+              });
+            });
+          }
+        }
+      } finally {
+        await chat.remove();
+      }
+    });
+  }
+
+  test("holding a phone tool reorders five tools, saves after reload and respects locking", async ({
+    page,
+    request,
+  }, testInfo) => {
+    const nativeTouch = testInfo.project.name.includes("chromium");
+    testInfo.annotations.push({
+      type: "input",
+      description: nativeTouch ? "Native Chromium CDP touch" : "WebKit real mouse fallback; not native iOS touch",
+    });
+    const chat = await createChat(request, "game", {}, { connected: true });
+    const cdp = nativeTouch ? await page.context().newCDPSession(page) : null;
+    try {
+      await prepare(page, chat.id, { chatWidgetPreset: "dottore" });
+      await page.goto("/");
+      await expect(page.locator('[data-chat-mode="game"]')).toBeVisible({ timeout: 30_000 });
+      const launcher = bubble(page, TOOLS_MENU);
+      await launcher.click();
+      const menu = page.locator("[data-chat-tools-menu]");
+      const rows = menu.locator("[data-chat-tools-menu-item]");
+      await expect(rows).toHaveCount(GAME_CONTROLS.length);
+      const order = () =>
+        rows.evaluateAll((items) => items.map((item) => item.getAttribute("data-chat-tools-menu-item")!));
+      const initial = await order();
+      const movedId = initial.at(-1)!;
+      const reordered = [movedId, ...initial.slice(0, -1)];
+      const movedTool = menu.locator(`[data-chat-tools-menu-tool="${movedId}"]`);
+      const heldDrag = async (target: Locator, destination: Locator, expected: string[]) => {
+        await target.hover();
+        const icon = await box(target.locator("svg").first());
+        const to = await box(destination);
+        const start = { x: icon.x + icon.width / 2, y: icon.y + icon.height / 2 };
+        const end = { x: to.x + to.width / 2, y: to.y + 8 };
+        if (cdp) await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [start] });
+        else {
+          await page.mouse.move(start.x, start.y);
+          await page.mouse.down();
+        }
+        try {
+          // Keep the pointer down before moving to exercise the reported held-drag path.
+          await page.waitForTimeout(600);
+          for (let step = 1; step <= 16; step++) {
+            const point = {
+              x: start.x + ((end.x - start.x) * step) / 16,
+              y: start.y + ((end.y - start.y) * step) / 16,
+            };
+            if (cdp) await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [point] });
+            else await page.mouse.move(point.x, point.y);
+            await page.waitForTimeout(16);
+          }
+          await expect.poll(order).toEqual(expected);
+        } finally {
+          if (cdp) await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+          else await page.mouse.up();
+        }
+      };
+      await heldDrag(movedTool, rows.first(), reordered);
+      await expect.poll(order).toEqual(reordered);
+      await expect(menu).toBeVisible();
+      await expect(sheet(page, movedId)).toHaveCount(0);
+      await expect.poll(async () => (await readSavedLayout(request, chat.id))?.phoneMenu?.order).toEqual(reordered);
+      await page.reload();
+      await expect(launcher).toBeVisible();
+      await launcher.click();
+      await expect.poll(order).toEqual(reordered);
+      const lock = menu.locator('[data-window-control="lock"]');
+      await lock.click();
+      await expect(lock).toHaveAttribute("aria-pressed", "true");
+      await heldDrag(menu.locator("[data-chat-tools-menu-tool]").last(), rows.first(), reordered);
+      await expect.poll(order).toEqual(reordered);
+      await expect(menu).toBeVisible();
+      await expect
+        .poll(async () => (await readSavedLayout(request, chat.id))?.phoneMenu)
+        .toEqual({ locked: true, order: reordered });
+      await page.screenshot({
+        path: testInfo.outputPath("held-tools-reordered-and-locked.png"),
+        animations: "disabled",
+      });
+      // A deliberate next tap must open immediately, even if the browser omitted the drag-release click.
+      if (cdp) {
+        const target = await box(movedTool.locator("svg").first());
+        const point = { x: target.x + target.width / 2, y: target.y + target.height / 2 };
+        await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [point] });
+        await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+      } else await movedTool.click();
+      await expect(sheet(page, movedId)).toBeVisible();
+      await expect(menu).toHaveCount(0);
+    } finally {
+      await cdp?.detach();
       await chat.remove();
     }
   });
@@ -709,7 +901,7 @@ test.describe("phone bubbles", () => {
     }
   });
 
-  test("large themed round tools scroll inside a short phone viewport without covering their trigger", async ({
+  test("large themed tools scroll inside a short phone viewport without covering their trigger", async ({
     page,
     request,
   }, testInfo) => {
@@ -759,7 +951,7 @@ test.describe("phone bubbles", () => {
         await last.scrollIntoViewIfNeeded();
         await expect(last).toHaveCSS("width", "96px");
         await expect(last).toHaveCSS("height", "96px");
-        await expect(last).toHaveCSS("border-radius", "50%");
+        await expect(last).toHaveCSS("border-radius", (await sharedBubbleShape(page)).radius);
         expect(
           await last.evaluate(
             (node) => getComputedStyle(node.querySelector(".mari-window-bubble__paint")!).backgroundImage,
@@ -767,7 +959,7 @@ test.describe("phone bubbles", () => {
         ).toContain("linear-gradient");
         await expectComposerClearAndNoSideScroll(page);
         await page.screenshot({
-          path: testInfo.outputPath(`round-tools-${preset}-${theme}.png`),
+          path: testInfo.outputPath(`themed-tools-${preset}-${theme}.png`),
           animations: "disabled",
         });
         const id = await last.getAttribute("data-chat-tools-menu-tool");
