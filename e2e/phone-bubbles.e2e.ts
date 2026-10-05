@@ -901,6 +901,83 @@ test.describe("phone bubbles", () => {
     }
   });
 
+  test("edge-docked phone Chat tools stay centered above and below their launcher", async ({
+    page,
+    request,
+  }, testInfo) => {
+    const chat = await createChat(request, "game", {}, { connected: true });
+    try {
+      await prepare(page, chat.id, { appAccentPulseMode: false });
+      await page.goto("/");
+      await expect(page.locator('[data-chat-mode="game"]')).toBeVisible({ timeout: 30_000 });
+      const launcher = bubble(page, TOOLS_MENU);
+      const menu = page.locator("[data-chat-tools-menu]");
+      const viewport = page.viewportSize()!;
+      for (const [preset, size] of [
+        ["dottore", null],
+        ["mari", 96],
+      ] as const) {
+        await page.evaluate(
+          async ({ preset, size }) => {
+            const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+            useUIStore.setState({ chatWidgetPreset: preset, chatWidgetButtonSize: size });
+          },
+          { preset, size },
+        );
+        await expect(launcher).toHaveCSS("width", `${size ?? 36}px`);
+        for (const edge of ["right", "left"] as const) {
+          for (const direction of ["below", "above"] as const) {
+            await dragBubble(page, launcher, {
+              x: edge === "left" ? -100 : viewport.width + 100,
+              y: direction === "below" ? 130 : viewport.height + 100,
+            });
+            await launcher.click();
+            await expect(menu.locator("[data-chat-tools-menu-tool]")).toHaveCount(GAME_CONTROLS.length);
+            const visibleGaps = await menu.evaluate((element) => {
+              const scroller = element.querySelector("ul")!.getBoundingClientRect();
+              const buttons = Array.from(element.querySelectorAll("button"), (button) => ({
+                rect: button.getBoundingClientRect(),
+                tool: button.hasAttribute("data-chat-tools-menu-tool"),
+              }));
+              const visible = ({ rect, tool }: (typeof buttons)[number]) =>
+                !tool || (rect.top >= scroller.top && rect.bottom <= scroller.bottom);
+              return buttons
+                .slice(1)
+                .flatMap((button, index) =>
+                  visible(buttons[index]!) && visible(button) ? [button.rect.top - buttons[index]!.rect.bottom] : [],
+                );
+            });
+            // Scrollable large controls still share the launcher's center; their wrapper's padding may sit outside it.
+            await menu.locator("[data-chat-tools-menu-tool]").last().scrollIntoViewIfNeeded();
+            await page.screenshot({
+              path: testInfo.outputPath(`edge-tools-${preset}-${edge}-${direction}.png`),
+              animations: "disabled",
+            });
+            const trigger = await box(launcher);
+            const center = trigger.x + trigger.width / 2;
+            for (const button of await menu.locator("button").all()) {
+              const rect = await box(button);
+              expect(Math.abs(rect.x + rect.width / 2 - center)).toBeLessThanOrEqual(1);
+              expect(rect.x).toBeGreaterThanOrEqual(0);
+              expect(rect.x + rect.width).toBeLessThanOrEqual(viewport.width);
+            }
+            // Match the 8px spacing of other snapped phone buttons, including the lock-to-first-tool gap.
+            expect(visibleGaps.length).toBeGreaterThanOrEqual(2);
+            for (const gap of visibleGaps) expect(Math.abs(gap - 8)).toBeLessThanOrEqual(1);
+            const expanded = await box(menu);
+            if (direction === "below") expect(expanded.y).toBeGreaterThanOrEqual(trigger.y + trigger.height);
+            else expect(expanded.y + expanded.height).toBeLessThanOrEqual(trigger.y);
+            await expectComposerClearAndNoSideScroll(page);
+            await launcher.click();
+            await expect(menu).toHaveCount(0);
+          }
+        }
+      }
+    } finally {
+      await chat.remove();
+    }
+  });
+
   test("large themed tools scroll inside a short phone viewport without covering their trigger", async ({
     page,
     request,
