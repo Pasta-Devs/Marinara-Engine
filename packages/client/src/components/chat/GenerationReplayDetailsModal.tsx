@@ -84,7 +84,7 @@ function TextBlock({
           <button
             type="button"
             onClick={() => void handleCopy()}
-            className="inline-flex min-h-8 items-center gap-1.5 rounded-lg bg-[var(--secondary)] px-2.5 py-1.5 text-[0.6875rem] font-medium text-[var(--muted-foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+            className="mari-chat-style-control inline-flex min-h-8 items-center gap-1.5 rounded-lg bg-[var(--secondary)] px-2.5 py-1.5 text-[0.6875rem] font-medium text-[var(--muted-foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
             title={copy.title}
             aria-label={copy.title}
           >
@@ -94,7 +94,7 @@ function TextBlock({
         )}
       </div>
       <pre
-        className={`max-h-48 overflow-y-auto whitespace-pre-wrap break-words rounded-lg border border-[var(--border)] bg-[var(--muted)]/30 px-3 py-2 text-[0.8125rem] leading-relaxed ${
+        className={`mari-chat-style-text max-h-48 overflow-y-auto whitespace-pre-wrap break-words rounded-lg border border-[var(--border)] bg-[var(--muted)]/30 px-3 py-2 text-[0.8125rem] leading-relaxed ${
           muted ? "text-[var(--muted-foreground)]" : "text-[var(--foreground)]"
         }`}
       >
@@ -172,7 +172,13 @@ export function GenerationReplayDetailsModal({
       replay?.impersonateBlockAgents === true);
 
   return (
-    <Modal open={open} onClose={onClose} title={localizeUi("ui.chat.chatmessage.storedGuidance")} width="max-w-xl">
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={localizeUi("ui.chat.chatmessage.storedGuidance")}
+      width="max-w-xl"
+      panelClassName="mari-chat-style-surface mari-chat-action-panel"
+    >
       <div className="space-y-5">
         {generationGuide && !hasImpersonate && (
           <TextBlock

@@ -2172,6 +2172,7 @@ const LocalChatArea = memo(function LocalChatArea({
           title: localizeUi("ui.chat.chatarea.regenerateMessage"),
           message: localizeUi("ui.chat.chatarea.regenerateThisMessageAsANewSwipe"),
           confirmLabel: localizeUi("ui.agents.secretplotpanel.regenerate"),
+          chatStyle: true,
         }))
       ) {
         return;
@@ -2336,6 +2337,7 @@ const LocalChatArea = memo(function LocalChatArea({
         title: localizeUi("ui.chat.chatarea.createANewBranch"),
         message: localizeUi("ui.chat.chatarea.thisWillCopyTheChatThroughThisMessageAnd"),
         confirmLabel: localizeUi("ui.chat.chatarea.createBranch"),
+        chatStyle: true,
       });
       if (!confirmed || useChatStore.getState().activeChatId !== chatId) {
         branchPendingRef.current = false;

@@ -66,7 +66,8 @@ type DeleteDialogProps = {
   onClose: () => void;
 };
 
-const DELETE_DIALOG_ACTION_CLASS = "mari-chrome-control min-h-10 w-full justify-start px-3 py-2 text-left text-xs";
+const DELETE_DIALOG_ACTION_CLASS =
+  "mari-chat-style-control mari-chrome-control min-h-10 w-full justify-start px-3 py-2 text-left text-xs";
 
 function DeleteConfirmationDialog({
   messageId,
@@ -88,6 +89,7 @@ function DeleteConfirmationDialog({
       onClose={onClose}
       title={t("chat.delete.dialog.title")}
       width="max-w-sm"
+      panelClassName="mari-chat-style-surface mari-chat-action-panel"
       chatFloatingPanel
     >
       <p className="mb-4 text-sm leading-relaxed text-[var(--marinara-chat-chrome-panel-muted)]">
@@ -155,7 +157,7 @@ function MultiSelectBar({
       data-component="MessageMultiSelectBar"
       className={cn(
         NEUTRAL_PANEL_SHELL,
-        "mari-chrome-token-scope fixed bottom-[max(1rem,var(--mari-safe-area-inset-bottom,env(safe-area-inset-bottom)))] left-1/2 z-50 flex w-[min(30rem,calc(100vw-1.5rem))] -translate-x-1/2 flex-col gap-2 p-3",
+        "mari-chat-style-surface mari-chat-action-panel mari-chrome-token-scope fixed bottom-[max(1rem,var(--mari-safe-area-inset-bottom,env(safe-area-inset-bottom)))] left-1/2 z-50 flex w-[min(30rem,calc(100vw-1.5rem))] -translate-x-1/2 flex-col gap-2 p-3",
       )}
     >
       <span className="text-center text-xs font-medium text-[var(--marinara-chat-chrome-panel-muted)]">
@@ -166,12 +168,16 @@ function MultiSelectBar({
           type="button"
           onClick={onDelete}
           disabled={selectedCount === 0}
-          className="mari-chrome-control min-h-10 w-full px-3 py-2 text-xs"
+          className="mari-chat-style-control mari-chrome-control min-h-10 w-full px-3 py-2 text-xs"
         >
           <Trash2 size="0.75rem" />
           <span>{t("chat.delete.selection.delete")}</span>
         </button>
-        <button type="button" onClick={onCancel} className="mari-chrome-control min-h-10 w-full px-3 py-2 text-xs">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="mari-chat-style-control mari-chrome-control min-h-10 w-full px-3 py-2 text-xs"
+        >
           <X size="0.75rem" />
           <span>{t("chat.delete.selection.cancel")}</span>
         </button>
@@ -183,7 +189,7 @@ function MultiSelectBar({
           disabled={selectedCount === 0}
           title={t("chat.delete.selection.above")}
           aria-label={t("chat.delete.selection.above")}
-          className="mari-chrome-control mari-chrome-control--small h-8 w-8 p-0"
+          className="mari-chat-style-control mari-chrome-control mari-chrome-control--small h-8 w-8 p-0"
         >
           <ChevronUp size="0.85rem" />
         </button>
@@ -191,7 +197,7 @@ function MultiSelectBar({
           type="button"
           onClick={onUnselectAll}
           disabled={selectedCount === 0}
-          className="mari-chrome-control mari-chrome-control--small px-3 text-[0.6875rem]"
+          className="mari-chat-style-control mari-chrome-control mari-chrome-control--small px-3 text-[0.6875rem]"
         >
           <span>{t("chat.delete.selection.unselectAll")}</span>
         </button>
@@ -201,7 +207,7 @@ function MultiSelectBar({
           disabled={selectedCount === 0}
           title={t("chat.delete.selection.below")}
           aria-label={t("chat.delete.selection.below")}
-          className="mari-chrome-control mari-chrome-control--small h-8 w-8 p-0"
+          className="mari-chat-style-control mari-chrome-control mari-chrome-control--small h-8 w-8 p-0"
         >
           <ChevronDown size="0.85rem" />
         </button>

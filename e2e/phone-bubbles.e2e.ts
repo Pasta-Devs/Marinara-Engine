@@ -947,8 +947,10 @@ test.describe("phone bubbles", () => {
                   visible(buttons[index]!) && visible(button) ? [button.rect.top - buttons[index]!.rect.bottom] : [],
                 );
             });
-            // Scrollable large controls still share the launcher's center; their wrapper's padding may sit outside it.
-            await menu.locator("[data-chat-tools-menu-tool]").last().scrollIntoViewIfNeeded();
+            // Reach the full scroll endpoint, including padding after the last button.
+            await menu.locator("ul").evaluate((element) => {
+              element.scrollTop = element.scrollHeight;
+            });
             await page.screenshot({
               path: testInfo.outputPath(`edge-tools-${preset}-${edge}-${direction}.png`),
               animations: "disabled",
@@ -967,6 +969,14 @@ test.describe("phone bubbles", () => {
             const expanded = await box(menu);
             if (direction === "below") expect(expanded.y).toBeGreaterThanOrEqual(trigger.y + trigger.height);
             else expect(expanded.y + expanded.height).toBeLessThanOrEqual(trigger.y);
+            const nearest = await box(
+              direction === "below"
+                ? menu.locator('[data-window-control="lock"]')
+                : menu.locator("[data-chat-tools-menu-tool]").last(),
+            );
+            const launcherGap =
+              direction === "below" ? nearest.y - trigger.y - trigger.height : trigger.y - nearest.y - nearest.height;
+            expect(Math.abs(launcherGap - 8)).toBeLessThanOrEqual(1);
             await expectComposerClearAndNoSideScroll(page);
             await launcher.click();
             await expect(menu).toHaveCount(0);

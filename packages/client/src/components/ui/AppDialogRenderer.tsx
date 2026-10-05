@@ -43,6 +43,7 @@ export function AppDialogRenderer() {
     dialog.tone === "destructive" || dialog.tone === "accent"
       ? "mari-chrome-control mari-chrome-control--primary"
       : "bg-[var(--primary)] text-white hover:bg-[var(--primary)]/85";
+  const chatControlClass = dialog.chatStyle ? "mari-chat-style-control" : "";
 
   return (
     // chatFloatingPanel: app dialogs are topmost confirmations — clicking them
@@ -54,6 +55,7 @@ export function AppDialogRenderer() {
       title={getDialogTitle(dialog.kind, dialog.title)}
       width="max-w-sm"
       chatFloatingPanel
+      panelClassName={dialog.chatStyle ? "mari-chat-style-surface mari-chat-action-panel" : undefined}
     >
       <div className="space-y-4">
         <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-[var(--foreground)]">
@@ -108,14 +110,14 @@ export function AppDialogRenderer() {
               <button
                 type="button"
                 onClick={dismissActiveDialog}
-                className="rounded-lg px-3 py-2 text-sm font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+                className={`rounded-lg px-3 py-2 text-sm font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] ${chatControlClass}`}
               >
                 {dialog.cancelLabel ?? "Cancel"}
               </button>
               <button
                 type="button"
                 onClick={() => resolveActiveDialog(true)}
-                className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${confirmToneClass}`}
+                className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${confirmToneClass} ${chatControlClass}`}
               >
                 {dialog.confirmLabel ?? "Confirm"}
               </button>

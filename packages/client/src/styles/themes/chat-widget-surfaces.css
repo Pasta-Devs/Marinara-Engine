@@ -7,6 +7,7 @@
     .mari-chat-style-text,
     .mari-chat-style-control,
     .marinara-chat-input-shell button,
+    :where(.mari-chat-action-panel > .marinara-chat-popover__header) > button,
     [data-roleplay-vn-navigation] button
   ) {
   font-family: var(
@@ -30,6 +31,7 @@
     .mari-chat-style-text,
     .mari-chat-style-control,
     .marinara-chat-input-shell button,
+    :where(.mari-chat-action-panel > .marinara-chat-popover__header) > button,
     [data-roleplay-vn-navigation] button
   ) {
   --mari-chat-resolved-bg: var(
@@ -79,6 +81,60 @@
   border-color: var(--mari-chat-resolved-border-solid);
 }
 
+/* Action windows use the same chat palette inside their neutral dialog shell.
+   Resolve these aliases on the shell before remapping descendant chrome tokens:
+   Default has no widget palette, so remapping on the shell would create cycles. */
+:root[data-chat-widget-apply-colors="true"] .mari-chat-action-panel {
+  --mari-action-text: var(--mari-chat-resolved-text);
+  --mari-action-control: var(--mari-chat-resolved-control);
+  --mari-action-border: var(--mari-chat-resolved-border-solid);
+  --mari-action-bg: var(
+    --mari-widget-custom-background-solid,
+    var(--mari-widget-bg, var(--marinara-chat-chrome-panel-bg))
+  );
+  --mari-action-soft: color-mix(in srgb, var(--mari-action-text) 8%, var(--mari-action-bg));
+  --background: var(--mari-action-bg);
+  --card: var(--mari-action-bg);
+  --popover: var(--mari-action-bg);
+  --popover-foreground: var(--mari-action-text);
+  --secondary: var(--mari-action-soft);
+  --muted: var(--mari-action-soft);
+  --accent: var(--mari-action-soft);
+  --accent-foreground: var(--mari-action-text);
+  --primary: var(--mari-action-control);
+  --primary-foreground: var(--mari-action-bg);
+  --input: var(--mari-action-border);
+  --ring: var(--mari-action-control);
+}
+
+:root[data-chat-widget-apply-colors="true"] .mari-chat-action-panel > * {
+  --marinara-chat-chrome-panel-bg: var(--mari-action-bg);
+  --marinara-chat-chrome-panel-text: var(--mari-action-text);
+  --marinara-chat-chrome-panel-title: var(--mari-action-text);
+  --marinara-chat-chrome-panel-muted: var(--mari-action-text);
+  --marinara-chat-chrome-panel-border: var(--mari-action-border);
+  --marinara-chat-chrome-panel-divider: var(--mari-action-border);
+  --marinara-chat-chrome-panel-scrollbar: var(--mari-action-border);
+  --marinara-chat-chrome-highlight-bg: var(--mari-action-soft);
+  --marinara-chat-chrome-highlight-bg-hover: var(--mari-action-soft);
+  --marinara-chat-chrome-highlight-text: var(--mari-action-control);
+  --marinara-chat-chrome-button-bg: var(--mari-action-bg);
+  --marinara-chat-chrome-button-bg-hover: var(--mari-action-soft);
+  --marinara-chat-chrome-button-bg-active: var(--mari-action-soft);
+  --marinara-chat-chrome-surface-bg-hover: var(--mari-action-soft);
+  --marinara-chat-chrome-surface-bg-active: var(--mari-action-soft);
+  --marinara-chat-chrome-button-text: var(--mari-action-control);
+  --marinara-chat-chrome-button-text-hover: var(--mari-action-control);
+  --marinara-chat-chrome-button-text-active: var(--mari-action-control);
+  --marinara-chat-chrome-button-border: var(--mari-action-border);
+  --marinara-chat-chrome-button-border-hover: var(--mari-action-border);
+  --marinara-chat-chrome-button-border-active: var(--mari-action-border);
+  --marinara-chat-chrome-input-bg: var(--mari-action-bg);
+  --marinara-chat-chrome-input-border: var(--mari-action-border);
+  --marinara-chat-chrome-input-border-focus: var(--mari-action-control);
+  --marinara-chat-chrome-focus-ring: var(--mari-action-control);
+}
+
 /* A gradient outline lives in its own paint layer. It does not clip message
    media, menus, expanded touch targets, or keyboard focus outlines. */
 :root[data-chat-widget-apply-colors="true"] :is(.mari-chat-style-surface, .mari-chat-style-conversation)::before {
@@ -112,7 +168,12 @@
 }
 
 :root[data-chat-widget-apply-colors="true"]
-  :is(.mari-chat-style-control, .marinara-chat-input-shell button, [data-roleplay-vn-navigation] button) {
+  :is(
+    .mari-chat-style-control,
+    .marinara-chat-input-shell button,
+    :where(.mari-chat-action-panel > .marinara-chat-popover__header) > button,
+    [data-roleplay-vn-navigation] button
+  ) {
   --mari-chat-control-paint: var(--mari-chat-control-bg, var(--mari-chat-resolved-bg));
   background: var(--mari-chat-control-paint);
   border-color: var(--mari-chat-resolved-border-solid);
@@ -121,12 +182,12 @@
 }
 
 :root[data-chat-widget-apply-colors="true"]
-  :is(.mari-chat-style-control, .marinara-chat-input-shell button, [data-roleplay-vn-navigation] button):is(
-    :hover,
-    [aria-pressed="true"],
-    [aria-expanded="true"],
-    .mari-swipe-input:focus-within
-  ) {
+  :is(
+    .mari-chat-style-control,
+    .marinara-chat-input-shell button,
+    :where(.mari-chat-action-panel > .marinara-chat-popover__header) > button,
+    [data-roleplay-vn-navigation] button
+  ):is(:hover, [aria-pressed="true"], [aria-expanded="true"], .mari-swipe-input:focus-within) {
   --mari-chat-control-paint: var(
     --mari-chat-control-bg-hover,
     var(--mari-widget-custom-background, var(--mari-widget-soft, var(--marinara-chat-chrome-button-bg-hover)))
@@ -181,7 +242,12 @@
 }
 
 :root[data-chat-widget-apply-shape="true"]
-  :is(.mari-chat-style-control, .marinara-chat-input-shell button, [data-roleplay-vn-navigation] button) {
+  :is(
+    .mari-chat-style-control,
+    .marinara-chat-input-shell button,
+    :where(.mari-chat-action-panel > .marinara-chat-popover__header) > button,
+    [data-roleplay-vn-navigation] button
+  ) {
   border-radius: var(--mari-chat-control-radius, var(--mari-widget-drawer-radius, 0.5rem));
 }
 
@@ -192,6 +258,20 @@
 }
 .mari-chat-style-surface.border-foreground\/10 {
   --mari-chat-existing-border: color-mix(in oklab, var(--foreground) 10%, transparent);
+}
+.mari-chat-action-panel {
+  --mari-chat-existing-bg: var(--marinara-chat-chrome-panel-bg);
+  --mari-chat-existing-border: var(--marinara-chat-chrome-panel-border);
+}
+/* Voice Controls uses the light popover palette until gradient app chrome
+   supplies its own panel paint. Shape alone must preserve either owner. */
+.mari-chat-action-panel[class~="bg-[var(--popover)]"] {
+  --mari-chat-existing-bg: var(--popover);
+  --mari-chat-existing-border: var(--border);
+}
+[data-marinara-chat-chrome-accent-mode="gradient"] .mari-chat-action-panel {
+  --mari-chat-existing-bg: var(--marinara-chat-chrome-panel-bg);
+  --mari-chat-existing-border: var(--marinara-chat-chrome-panel-border);
 }
 .mari-chat-input-popup {
   --mari-chat-existing-bg: var(--card);
@@ -249,6 +329,7 @@
 /* Preserve the owners' normal, active and hover fills when only Shape is on. */
 .mari-chat-style-control,
 .marinara-chat-input-shell button,
+:where(.mari-chat-action-panel > .marinara-chat-popover__header) > button,
 [data-roleplay-vn-navigation] button {
   --mari-chat-control-existing-bg: transparent;
 }
@@ -387,11 +468,11 @@
   box-shadow: none;
 }
 
-/* Popup lists, Game widget headers and character sheet banners paint to their
-   edges. Keep those fills inside the cut frame without clipping the media or
+/* Popup lists, action dialogs, Game widget headers and character sheet banners
+   paint to their edges. Keep those fills inside the cut frame without clipping the media or
    controls on ordinary chat surfaces. */
 :root[data-chat-widget-apply-shape="true"][data-chat-widget-shape="cut-corner"]
-  :is(.mari-chat-input-popup, .mari-game-panel-surface) {
+  :is(.mari-chat-input-popup, .mari-game-panel-surface, .mari-chat-action-panel) {
   clip-path: var(--mari-chat-frame-clip, var(--mari-widget-frame-clip));
 }
 
@@ -466,22 +547,33 @@
 /* A control needs only one decorative layer: its other pseudo-element may be
    the enlarged phone hit target. Keep that element and the actual button intact. */
 :root[data-chat-widget-apply-shape="true"][data-chat-widget-shape="cut-corner"]
-  :is(.mari-chat-style-control, .marinara-chat-input-shell button, [data-roleplay-vn-navigation] button):not(
-    .fixed,
-    .absolute,
-    .sticky
-  ) {
+  :is(
+    .mari-chat-style-control,
+    .marinara-chat-input-shell button,
+    :where(.mari-chat-action-panel > .marinara-chat-popover__header) > button,
+    [data-roleplay-vn-navigation] button
+  ):not(.fixed, .absolute, .sticky) {
   position: relative;
 }
 :root[data-chat-widget-apply-shape="true"][data-chat-widget-shape="cut-corner"]
-  :is(.mari-chat-style-control, .marinara-chat-input-shell button, [data-roleplay-vn-navigation] button) {
+  :is(
+    .mari-chat-style-control,
+    .marinara-chat-input-shell button,
+    :where(.mari-chat-action-panel > .marinara-chat-popover__header) > button,
+    [data-roleplay-vn-navigation] button
+  ) {
   isolation: isolate;
   background: transparent;
   border-color: transparent;
 }
 
 :root[data-chat-widget-apply-shape="true"][data-chat-widget-shape="cut-corner"]
-  :is(.mari-chat-style-control, .marinara-chat-input-shell button, [data-roleplay-vn-navigation] button)::after {
+  :is(
+    .mari-chat-style-control,
+    .marinara-chat-input-shell button,
+    :where(.mari-chat-action-panel > .marinara-chat-popover__header) > button,
+    [data-roleplay-vn-navigation] button
+  )::after {
   --mari-chat-control-edge: var(
     --mari-chat-resolved-border-solid,
     var(--mari-chat-control-existing-border, var(--marinara-chat-chrome-button-border))
@@ -499,4 +591,53 @@
   clip-path: var(--mari-chat-control-clip, var(--mari-widget-button-clip));
   z-index: -1;
   pointer-events: none;
+}
+
+/* Shape-only action buttons keep their existing fills. */
+.mari-chat-action-panel .mari-chat-style-control.mari-chrome-control {
+  --mari-chat-control-existing-bg: var(--marinara-chat-chrome-button-bg);
+}
+.mari-chat-action-panel .mari-chat-style-control.mari-chrome-control:hover {
+  --mari-chat-control-existing-bg: var(--marinara-chat-chrome-button-bg-hover);
+}
+[data-marinara-chat-chrome-accent-mode="gradient"]
+  .mari-chat-action-panel
+  .mari-chat-style-control.mari-chrome-control:hover {
+  --mari-chat-control-existing-bg: var(--marinara-chat-chrome-surface-bg-hover);
+}
+.mari-chat-action-panel .mari-chat-style-control[class~="bg-[var(--secondary)]"] {
+  --mari-chat-control-existing-bg: var(--secondary);
+}
+.mari-chat-action-panel .mari-chat-style-control[class~="bg-[var(--primary)]"] {
+  --mari-chat-control-existing-bg: var(--primary);
+}
+.mari-chat-action-panel .mari-chat-style-control[class~="bg-[var(--primary)]"]:hover {
+  --mari-chat-control-existing-bg: color-mix(in oklab, var(--primary) 85%, transparent);
+}
+.mari-chat-action-panel .mari-chat-style-control[class~="hover:bg-[var(--accent)]"]:hover {
+  --mari-chat-control-existing-bg: var(--accent);
+}
+.mari-chat-action-panel .mari-chat-style-control[class~="hover:bg-[var(--accent)]/50"]:hover {
+  --mari-chat-control-existing-bg: color-mix(in oklab, var(--accent) 50%, transparent);
+}
+.mari-chat-action-panel .mari-chat-style-control[class~="hover:bg-[var(--accent)]/30"]:hover {
+  --mari-chat-control-existing-bg: color-mix(in oklab, var(--accent) 30%, transparent);
+}
+:where(.mari-chat-action-panel > .marinara-chat-popover__header) > button:hover,
+.mari-chat-action-panel
+  .mari-chat-style-control[class~="hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)]"]:hover {
+  --mari-chat-control-existing-bg: var(--marinara-chat-chrome-highlight-bg-hover);
+}
+/* Outrank gradient app chrome without painting over a cut-corner frame. */
+:root[data-chat-widget-apply-colors="true"]
+  .mari-chat-action-panel.mari-chat-style-surface
+  .mari-chat-style-control.mari-chrome-control:not(.mari-chrome-control--danger) {
+  background: var(--mari-chat-control-paint);
+  border-color: var(--mari-chat-resolved-border-solid);
+}
+:root[data-chat-widget-apply-shape="true"][data-chat-widget-shape="cut-corner"]
+  .mari-chat-action-panel.mari-chat-style-surface
+  .mari-chat-style-control.mari-chrome-control:not(.mari-chrome-control--danger) {
+  background: transparent;
+  border-color: transparent;
 }
