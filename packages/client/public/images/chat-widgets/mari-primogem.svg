@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" fill="none">
+  <defs>
+    <linearGradient id="gem" x1="35" y1="8" x2="61" y2="88" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFE8B9"/>
+      <stop offset=".38" stop-color="#F7BFE5"/>
+      <stop offset=".53" stop-color="#C8F7FC"/>
+      <stop offset="1" stop-color="#369BEE"/>
+    </linearGradient>
+  </defs>
+  <path d="M48 4 61.5 33.5 92 48 61.5 62 48 92 34 62 4 48 34 34Z" fill="url(#gem)" stroke="#BEA275" stroke-width="2" stroke-linejoin="round"/>
+  <path d="m48 9-2 37-10-12Z" fill="#FFF2CB"/>
+  <path d="m48 9 11.5 25.5L49 46Z" fill="#F8C8E5"/>
+  <path d="m36 34 10 12L10 48Z" fill="#FFDDF3"/>
+  <path d="m59.5 34.5 26 13.5-36.5-2Z" fill="#B4EAF9"/>
+  <path d="m10 48 36 2-11 10Z" fill="#6AD9F5"/>
+  <path d="m49 50 37-2-26 12Z" fill="#38B9F1"/>
+  <path d="m35 60 11-10 2 36Z" fill="#A2E9FF"/>
+  <path d="m49 50 11 10-12 26Z" fill="#469EEF"/>
+  <path d="M48 9v77M10 48h76M36 34l24 26M59.5 34.5 35 60" stroke="#F7FDFF" stroke-width="1.2" stroke-linejoin="round"/>
+  <path d="m48 9 11.5 25.5L86 48 60 60 48 86 35 60 10 48l26-14Z" stroke="#FFF6E6" stroke-width="1.1" stroke-linejoin="round"/>
+</svg>

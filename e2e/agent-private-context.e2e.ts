@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { seedUIState } from "./ui-state-fixture.js";
+import { openChatSettingsTool } from "./chat-settings-tools.js";
 
 test("agent output and private context have separate editors inside the spoiler", async ({ page }, testInfo) => {
   const created = await page.request.post("/api/chats", {
@@ -63,7 +64,7 @@ test("agent output and private context have separate editors inside the spoiler"
     );
     await page.goto("/");
     await expect(page.getByText("A quiet day in the garden.", { exact: true })).toBeVisible();
-    await page.getByRole("button", { name: "Agents & Actions", exact: true }).click();
+    await openChatSettingsTool(page, "agent-activity");
     await page.getByRole("button", { name: /Custom outputs/ }).click();
     const spoiler = page.locator("details").filter({ hasText: "Garden planner" });
     await expect(spoiler.getByText("Garden planner", { exact: true })).not.toBeVisible();

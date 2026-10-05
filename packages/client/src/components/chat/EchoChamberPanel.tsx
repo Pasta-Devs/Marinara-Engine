@@ -4,20 +4,11 @@
 // Positions itself within the chat area, respecting sidebar, right panel,
 // HUD widget position (top/left/right), and the top bar.
 // ──────────────────────────────────────────────
-import {
-  useRef,
-  useEffect,
-  useMemo,
-  useState,
-  useCallback,
-  type CSSProperties,
-  type KeyboardEvent as ReactKeyboardEvent,
-  type PointerEvent as ReactPointerEvent,
-} from "react";
-import { ChevronDown, MessageCircle, Trash2, RefreshCw } from "lucide-react";
+import { useRef, useEffect, useMemo, useState, useCallback, type CSSProperties } from "react";
+import { MessageCircle, Trash2, RefreshCw } from "lucide-react";
 import { useAgentStore } from "../../stores/agent.store";
 import { useUIStore } from "../../stores/ui.store";
-import type { EchoChamberSide, EchoChamberSize } from "../../stores/ui.store";
+import type { EchoChamberSide } from "../../stores/ui.store";
 import { useChatStore } from "../../stores/chat.store";
 import { hasActiveTextSelection } from "../../lib/text-selection";
 import { useChat } from "../../hooks/use-chats";
@@ -25,7 +16,10 @@ import { useAgentConfigs } from "../../hooks/use-agents";
 import { useGenerate } from "../../hooks/use-generate";
 import { api } from "../../lib/api-client";
 import { cn } from "../../lib/utils";
-import { NEUTRAL_PANEL_SHELL } from "../ui/neutral-surface-styles";
+import { FloatingWindow, readFloatingWindowBounds, usePhoneBubbleBounds } from "../ui/FloatingWindow";
+import { WindowBubble } from "../ui/WindowBubble";
+import { PHONE_BUBBLE_Z_INDEX, useFloatingWindowStore } from "../../stores/floating-window.store";
+import { PHONE_BUBBLE_SIZE_PX, type WindowBounds, type WindowLayout } from "../../lib/floating-window-layout";
 import {
   getEchoChamberMessageInterval,
   normalizeEchoChamberMessageDelaySeconds,
@@ -51,6 +45,12 @@ const NAME_COLORS = [
 ];
 
 const CORNERS: EchoChamberSide[] = ["top-left", "top-right", "bottom-left", "bottom-right"];
+const CORNER_LABELS: Record<EchoChamberSide, string> = {
+  "top-left": "ui.chat.echochamberpanel.corner.topLeft",
+  "top-right": "ui.chat.echochamberpanel.corner.topRight",
+  "bottom-left": "ui.chat.echochamberpanel.corner.bottomLeft",
+  "bottom-right": "ui.chat.echochamberpanel.corner.bottomRight",
+};
 
 // Layout constants (px)
 const WIDGET_BAR_H = 76; // top HUD toolbar: py-2 (16px) + widget buttons h-[3.75rem] (60px)
@@ -62,7 +62,7 @@ const DESKTOP_PANEL_WIDTH = 236;
 const DEFAULT_DESKTOP_PANEL_MAX_HEIGHT = 352;
 const MIN_PANEL_WIDTH = 176;
 const MIN_PANEL_HEIGHT = 96;
-const RESIZE_KEYBOARD_STEP = 24;
+const ECHO_WINDOW_ID = "echo-chamber";
 const ROLEPLAY_AREA_SELECTOR = ".rpg-chat-area";
 const ROLEPLAY_TOP_ANCHOR_SELECTOR = '[data-tracker-panel-anchor="roleplay-hud"]';
 const ROLEPLAY_TOP_RIGHT_CONTROLS_SELECTOR = '[data-roleplay-top-controls="right"]';
@@ -153,7 +153,16 @@ function getDesktopPanelPosition(isTop: boolean, isLeft: boolean, stackBelowTrac
 }
 
 /** Tiny 4-square grid icon; the active corner is highlighted. */
-function CornerPicker({ current, onChange }: { current: EchoChamberSide; onChange: (c: EchoChamberSide) => void }) {
+function CornerPicker({
+  current,
+  onChange,
+  disabled,
+}: {
+  current: EchoChamberSide;
+  onChange: (c: EchoChamberSide) => void;
+  disabled: boolean;
+}) {
+  const { t } = useUiTranslation();
   if (typeof window !== "undefined" && window.innerWidth < 768) return null;
   return (
     <div className="grid grid-cols-2 gap-px">
@@ -161,13 +170,14 @@ function CornerPicker({ current, onChange }: { current: EchoChamberSide; onChang
         <button
           key={c}
           onClick={() => onChange(c)}
+          disabled={disabled}
           className={cn(
-            "h-[0.4375rem] w-[0.4375rem] rounded-[0.09375rem] transition-colors",
-            c === current
-              ? "bg-[var(--marinara-chat-chrome-button-text-hover)]"
-              : "bg-[var(--marinara-chat-chrome-highlight-bg)] hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)]",
+            "h-[0.4375rem] w-[0.4375rem] rounded-[0.09375rem] transition-colors disabled:opacity-40",
+            c === current ? "bg-current" : "bg-current opacity-30 hover:opacity-70",
           )}
-          title={c.replace("-", " ")}
+          title={t(CORNER_LABELS[c])}
+          aria-label={t(CORNER_LABELS[c])}
+          aria-pressed={c === current}
         />
       ))}
     </div>
@@ -182,26 +192,20 @@ export function EchoChamberPanel({ hiddenOnMobile = false }: EchoChamberPanelPro
   );
   const setEchoChamberSideForChat = useUIStore((s) => s.setEchoChamberSideForChat);
   const echoChamberOpen = useUIStore((s) => s.echoChamberOpen);
-  const toggleEchoChamber = useUIStore((s) => s.toggleEchoChamber);
+  const useWidgetTextColor = useUIStore((s) => s.chatWidgetPreset !== "default" || !!s.chatWidgetTextColor);
   const rememberedPanelSize = useUIStore((s) =>
     activeChatId ? (s.echoChamberSizeByChatId[activeChatId] ?? null) : null,
   );
-  const setEchoChamberSizeForChat = useUIStore((s) => s.setEchoChamberSizeForChat);
-  const setEchoChamberSide = useCallback(
-    (side: EchoChamberSide) => {
-      if (activeChatId) setEchoChamberSideForChat(activeChatId, side);
-    },
-    [activeChatId, setEchoChamberSideForChat],
-  );
+  const savedLayout = useFloatingWindowStore((s) => s.layouts[ECHO_WINDOW_ID]);
+  const savedPhoneBubble = useFloatingWindowStore((s) => s.phoneBubbles[ECHO_WINDOW_ID]);
+  const saveLayout = useFloatingWindowStore((s) => s.saveLayout);
   const trackerPanelEnabled = useUIStore((s) => s.trackerPanelEnabled);
   const trackerPanelOpen = useUIStore((s) => s.trackerPanelOpen);
   const trackerPanelSide = useUIStore((s) => s.trackerPanelSide);
   const echoMessages = useAgentStore((s) => s.echoMessages);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const panelRef = useRef<HTMLDivElement>(null);
-  const resizeRef = useRef<{ startX: number; startY: number; width: number; height: number } | null>(null);
-  const pendingPanelSizeRef = useRef<EchoChamberSize | null>(null);
-  const [panelSize, setPanelSize] = useState<EchoChamberSize | null>(null);
+  const phoneBubbleRef = useRef<HTMLButtonElement>(null);
+  const [defaultPanelHeight, setDefaultPanelHeight] = useState(MIN_PANEL_HEIGHT);
 
   const isAgentProcessing = useAgentStore((s) =>
     activeChatId ? s.processingChatIds.includes(activeChatId) : s.isProcessing,
@@ -339,130 +343,94 @@ export function EchoChamberPanel({ hiddenOnMobile = false }: EchoChamberPanelPro
   // ── Compute position style relative to the chat area container ──
   const [posStyle, setPosStyle] = useState<CSSProperties>({});
   const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" && window.innerWidth < 768);
-  const mobileCollapsed = isMobile && !echoChamberOpen;
-  const resizeFromLeft = !isMobile && echoChamberSide.endsWith("right");
-  const resizeFromTop = !isMobile && echoChamberSide.startsWith("bottom");
+  const minimized = savedLayout?.minimized ?? !echoChamberOpen;
+  const mobileCollapsed = isMobile && minimized;
+  const phoneBounds = usePhoneBubbleBounds(isMobile);
 
-  const clampPanelSize = useCallback((width: number, height: number) => {
+  useEffect(() => {
+    const update = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
+
+  // Only the initial height follows the reaction stream; a saved resize always wins.
+  useEffect(() => {
+    if (isMobile || minimized || rememberedPanelSize || !echoEnabled) return;
+    const content = scrollRef.current?.firstElementChild;
+    const header = scrollRef.current?.closest(".mari-window")?.querySelector(".mari-window__header");
+    if (!content || !header) return;
+    setDefaultPanelHeight(
+      Math.min(
+        DEFAULT_DESKTOP_PANEL_MAX_HEIGHT,
+        Math.max(
+          MIN_PANEL_HEIGHT,
+          Math.ceil(content.getBoundingClientRect().height + header.getBoundingClientRect().height + 8),
+        ),
+      ),
+    );
+  }, [echoEnabled, isMobile, minimized, rememberedPanelSize, visibleCount]);
+
+  const getDefaultLayout = useCallback(
+    (bounds: WindowBounds): WindowLayout => {
+      const area = getRoleplayAreaRect();
+      const isTop = echoChamberSide.startsWith("top");
+      const isLeft = echoChamberSide.endsWith("left");
+      const position = getDesktopPanelPosition(
+        isTop,
+        isLeft,
+        isTop && trackerPanelEnabled && trackerPanelOpen && trackerPanelSide === (isLeft ? "left" : "right"),
+      );
+      const width = rememberedPanelSize?.width ?? DESKTOP_PANEL_WIDTH;
+      const availableHeight = typeof position.maxHeight === "number" ? position.maxHeight : bounds.bottom - bounds.top;
+      const height = Math.min(rememberedPanelSize?.height ?? defaultPanelHeight, availableHeight);
+      return {
+        x: isLeft
+          ? (area?.left ?? bounds.left) + Number.parseFloat(String(position.left ?? FLOATING_EDGE_GAP))
+          : (area?.right ?? bounds.right) - FLOATING_EDGE_GAP - width,
+        y: isTop
+          ? (area?.top ?? bounds.top) + Number(position.top ?? WIDGET_BAR_H)
+          : (area?.bottom ?? bounds.bottom) - INPUT_BOX_H - FLOATING_EDGE_GAP - height,
+        width,
+        height,
+        pinned: true,
+        locked: false,
+        minimized: !echoChamberOpen,
+      };
+    },
+    [
+      defaultPanelHeight,
+      echoChamberOpen,
+      echoChamberSide,
+      rememberedPanelSize,
+      trackerPanelEnabled,
+      trackerPanelOpen,
+      trackerPanelSide,
+    ],
+  );
+
+  const setEchoChamberSide = (side: EchoChamberSide) => {
+    if (!activeChatId || savedLayout?.locked) return;
+    setEchoChamberSideForChat(activeChatId, side);
+    const current = savedLayout ?? getDefaultLayout(readFloatingWindowBounds());
     const area = getRoleplayAreaRect();
-    const maxWidth = Math.max(MIN_PANEL_WIDTH, (area?.width ?? window.innerWidth) - FLOATING_EDGE_GAP * 2);
-    const maxHeight = Math.max(
-      MIN_PANEL_HEIGHT,
-      (area?.height ?? window.innerHeight) - INPUT_BOX_H - FLOATING_EDGE_GAP,
+    const bounds = readFloatingWindowBounds();
+    const isTop = side.startsWith("top");
+    const isLeft = side.endsWith("left");
+    const position = getDesktopPanelPosition(
+      isTop,
+      isLeft,
+      isTop && trackerPanelEnabled && trackerPanelOpen && trackerPanelSide === (isLeft ? "left" : "right"),
     );
-    return {
-      width: Math.round(Math.min(maxWidth, Math.max(MIN_PANEL_WIDTH, width))),
-      height: Math.round(Math.min(maxHeight, Math.max(MIN_PANEL_HEIGHT, height))),
-    };
-  }, []);
-
-  const commitPanelSize = useCallback(
-    (width: number, height: number) => {
-      const nextSize = clampPanelSize(width, height);
-      pendingPanelSizeRef.current = null;
-      setPanelSize(nextSize);
-      if (activeChatId) setEchoChamberSizeForChat(activeChatId, nextSize);
-    },
-    [activeChatId, clampPanelSize, setEchoChamberSizeForChat],
-  );
-
-  useEffect(() => {
-    pendingPanelSizeRef.current = null;
-    setPanelSize(
-      activeChatId && rememberedPanelSize
-        ? clampPanelSize(rememberedPanelSize.width, rememberedPanelSize.height)
-        : null,
-    );
-  }, [activeChatId, clampPanelSize, rememberedPanelSize]);
-
-  const handleResizeStart = useCallback((event: ReactPointerEvent<HTMLButtonElement>) => {
-    const rect = panelRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    event.preventDefault();
-    event.stopPropagation();
-    resizeRef.current = { startX: event.clientX, startY: event.clientY, width: rect.width, height: rect.height };
-    event.currentTarget.setPointerCapture(event.pointerId);
-  }, []);
-
-  const handleResizeMove = useCallback(
-    (event: ReactPointerEvent<HTMLButtonElement>) => {
-      const start = resizeRef.current;
-      if (!start) return;
-      event.preventDefault();
-      event.stopPropagation();
-      const horizontalDelta = (event.clientX - start.startX) * (resizeFromLeft ? -1 : 1);
-      const verticalDelta = (event.clientY - start.startY) * (resizeFromTop ? -1 : 1);
-      const nextSize = clampPanelSize(start.width + horizontalDelta, start.height + verticalDelta);
-      pendingPanelSizeRef.current = nextSize;
-      setPanelSize(nextSize);
-    },
-    [clampPanelSize, resizeFromLeft, resizeFromTop],
-  );
-
-  const handleResizeEnd = useCallback(
-    (event: ReactPointerEvent<HTMLButtonElement>) => {
-      const pendingSize = pendingPanelSizeRef.current;
-      const rect = panelRef.current?.getBoundingClientRect();
-      resizeRef.current = null;
-      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-        event.currentTarget.releasePointerCapture(event.pointerId);
-      }
-      if (pendingSize) {
-        commitPanelSize(pendingSize.width, pendingSize.height);
-      } else if (rect) {
-        commitPanelSize(rect.width, rect.height);
-      }
-    },
-    [commitPanelSize],
-  );
-
-  const handleResizeCancel = useCallback(
-    (event: ReactPointerEvent<HTMLButtonElement>) => {
-      const start = resizeRef.current;
-      resizeRef.current = null;
-      pendingPanelSizeRef.current = null;
-      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-        event.currentTarget.releasePointerCapture(event.pointerId);
-      }
-      if (start) {
-        setPanelSize(clampPanelSize(start.width, start.height));
-      }
-    },
-    [clampPanelSize],
-  );
-
-  const handleResizeLostCapture = useCallback(() => {
-    if (!resizeRef.current) return;
-    const pendingSize = pendingPanelSizeRef.current;
-    const rect = panelRef.current?.getBoundingClientRect();
-    resizeRef.current = null;
-    if (pendingSize) commitPanelSize(pendingSize.width, pendingSize.height);
-    else if (rect) commitPanelSize(rect.width, rect.height);
-  }, [commitPanelSize]);
-
-  const handleResizeKeyDown = useCallback(
-    (event: ReactKeyboardEvent<HTMLButtonElement>) => {
-      if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) return;
-      event.preventDefault();
-      const rect = panelRef.current?.getBoundingClientRect();
-      if (!rect) return;
-      const widthDelta =
-        event.key === "ArrowRight" ? RESIZE_KEYBOARD_STEP : event.key === "ArrowLeft" ? -RESIZE_KEYBOARD_STEP : 0;
-      const heightDelta =
-        event.key === "ArrowDown" ? RESIZE_KEYBOARD_STEP : event.key === "ArrowUp" ? -RESIZE_KEYBOARD_STEP : 0;
-      commitPanelSize(rect.width + widthDelta, rect.height + heightDelta);
-    },
-    [commitPanelSize],
-  );
-
-  useEffect(() => {
-    const clampCurrentSize = () => {
-      setIsMobile(window.innerWidth < 768);
-      setPanelSize((size) => (size ? clampPanelSize(size.width, size.height) : null));
-    };
-    window.addEventListener("resize", clampCurrentSize);
-    return () => window.removeEventListener("resize", clampCurrentSize);
-  }, [clampPanelSize]);
+    saveLayout(ECHO_WINDOW_ID, {
+      ...current,
+      x: isLeft
+        ? (area?.left ?? bounds.left) + Number.parseFloat(String(position.left ?? FLOATING_EDGE_GAP))
+        : (area?.right ?? bounds.right) - FLOATING_EDGE_GAP - current.width,
+      y: isTop
+        ? (area?.top ?? bounds.top) + Number(position.top ?? WIDGET_BAR_H)
+        : (area?.bottom ?? bounds.bottom) - INPUT_BOX_H - FLOATING_EDGE_GAP - current.height,
+    });
+  };
 
   useEffect(() => {
     if (!echoEnabled) return;
@@ -488,7 +456,7 @@ export function EchoChamberPanel({ hiddenOnMobile = false }: EchoChamberPanelPro
 
       return () => ro?.disconnect();
     }
-    // Desktop: position within the chat area container (absolute, not fixed)
+    // Legacy anchors only choose the default. Saved shared-window geometry wins.
     const isTop = echoChamberSide.startsWith("top");
     const isLeft = echoChamberSide.endsWith("left");
     const stackBelowTracker =
@@ -551,7 +519,7 @@ export function EchoChamberPanel({ hiddenOnMobile = false }: EchoChamberPanelPro
   }, [echoEnabled, echoChamberSide, isMobile, trackerPanelEnabled, trackerPanelOpen, trackerPanelSide]);
 
   useEffect(() => {
-    if (!echoEnabled || (isMobile && hiddenOnMobile) || mobileCollapsed) return;
+    if (!echoEnabled || (isMobile && hiddenOnMobile) || minimized) return;
 
     let frame = window.requestAnimationFrame(() => {
       frame = window.requestAnimationFrame(() => {
@@ -562,86 +530,94 @@ export function EchoChamberPanel({ hiddenOnMobile = false }: EchoChamberPanelPro
     });
 
     return () => window.cancelAnimationFrame(frame);
-  }, [echoEnabled, hiddenOnMobile, isMobile, mobileCollapsed]);
+  }, [echoEnabled, hiddenOnMobile, isMobile, minimized]);
 
   if (!echoEnabled || (isMobile && hiddenOnMobile)) return null;
   const visibleMessages = echoMessages.slice(0, visibleCount);
-  if (!echoChamberOpen) {
-    const collapsedStyle = { ...posStyle };
-    delete collapsedStyle.width;
-    delete collapsedStyle.maxHeight;
+  const title = localizeUi("ui.chat.echochamberpanel.title");
+  const rootAttributes = { "data-roleplay-agent-window": "echo" };
+  const status = (
+    <span aria-hidden="true" className="relative flex h-1.5 w-1.5 shrink-0">
+      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-60" />
+      <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-red-500" />
+    </span>
+  );
+
+  // Echo keeps its compact phone view. Its saved minimized state and movable button
+  // use the same layout as the desktop window, rather than a second position store.
+  if (mobileCollapsed) {
     return (
-      <button
-        type="button"
-        data-roleplay-agent-window="echo"
-        onClick={toggleEchoChamber}
-        className={cn(
-          NEUTRAL_PANEL_SHELL,
-          "absolute z-[60] pointer-events-auto inline-flex items-center gap-2 px-2.5 py-1.5 text-[0.6875rem] font-semibold uppercase tracking-wider",
-          "text-[var(--marinara-chat-chrome-button-text)] transition-colors hover:text-[var(--marinara-chat-chrome-button-text-hover)]",
-        )}
-        style={collapsedStyle}
-        title={localizeUi("ui.chat.echochamberpanel.openEchoChamber")}
-      >
-        <span className="relative flex h-1.5 w-1.5 shrink-0">
-          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-60" />
-          <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-red-500" />
-        </span>
-        <MessageCircle size="0.75rem" />
-        {localizeUi("ui.chat.echochamberpanel.echo")}
-        {visibleMessages.length > 0 && (
-          <span className="rounded-full bg-[var(--marinara-chat-chrome-highlight-bg)] px-1.5 py-0.5 text-[0.5625rem] font-normal text-[var(--marinara-chat-chrome-panel-muted)]">
-            {visibleMessages.length}
-          </span>
-        )}
-      </button>
+      <WindowBubble
+        buttonRef={phoneBubbleRef}
+        id={ECHO_WINDOW_ID}
+        point={
+          savedPhoneBubble ?? {
+            automatic: true,
+            x: phoneBounds.left + FLOATING_EDGE_GAP,
+            y: (getRoleplayAreaRect()?.top ?? 0) + Number(posStyle.top ?? WIDGET_BAR_H),
+          }
+        }
+        bounds={phoneBounds}
+        size={PHONE_BUBBLE_SIZE_PX}
+        icon={<MessageCircle size="1rem" />}
+        label={title}
+        locked={savedLayout?.locked ?? false}
+        zIndex={PHONE_BUBBLE_Z_INDEX}
+        attributes={{ ...rootAttributes, "data-presentation": "sheet" }}
+        onMove={(point) => useFloatingWindowStore.getState().savePhoneBubble(ECHO_WINDOW_ID, point)}
+        onOpen={(bubble) => {
+          saveLayout(ECHO_WINDOW_ID, {
+            ...(savedLayout ?? getDefaultLayout(readFloatingWindowBounds())),
+            minimized: false,
+          });
+          useFloatingWindowStore.getState().openWindow(ECHO_WINDOW_ID, bubble);
+        }}
+      />
     );
   }
 
-  const availableHeight = typeof posStyle.maxHeight === "number" ? posStyle.maxHeight : null;
-  const expandedPanelStyle: CSSProperties = {
-    ...posStyle,
-    ...(availableHeight !== null && {
-      maxHeight: Math.min(availableHeight, panelSize?.height ?? DEFAULT_DESKTOP_PANEL_MAX_HEIGHT),
-    }),
-    ...(panelSize && { width: panelSize.width, height: panelSize.height }),
-  };
-
   return (
-    <div
-      ref={panelRef}
-      data-roleplay-agent-window="echo"
-      className={cn(
-        NEUTRAL_PANEL_SHELL,
-        "absolute z-[60] flex min-w-0 flex-col",
-        "pointer-events-auto max-md:w-auto md:w-[14.75rem]",
-        !panelSize && "max-md:max-h-28 md:max-h-[22rem]",
-      )}
-      style={expandedPanelStyle}
-    >
-      {/* Header — live dot, corner picker, close */}
-      <div className="flex items-center justify-between px-2 py-1">
-        <span className="flex items-center gap-1.5 text-[0.625rem] font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">
-          <span className="relative flex h-1.5 w-1.5">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-60" />
-            <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-red-500" />
-          </span>
-          {localizeUi("ui.chat.echochamberpanel.echo")}
-          {visibleMessages.length > 0 && (
-            <span className="ml-0.5 text-[0.5625rem] font-normal text-[var(--marinara-chat-chrome-panel-muted)]">
-              {visibleMessages.length}
-            </span>
-          )}
-        </span>
-        <div className="flex items-center gap-1.5">
+    <FloatingWindow
+      id={ECHO_WINDOW_ID}
+      title={localizeUi("ui.chat.echochamberpanel.echo")}
+      titleIcon={status}
+      titleAccessory={
+        visibleMessages.length > 0 ? <span className="text-[0.5625rem]">{visibleMessages.length}</span> : undefined
+      }
+      closeLabel={localizeUi("window.controls.close")}
+      getDefaultLayout={getDefaultLayout}
+      defaultLayoutKey={JSON.stringify([
+        activeChatId,
+        posStyle,
+        rememberedPanelSize,
+        defaultPanelHeight,
+        echoChamberOpen,
+      ])}
+      minWidth={MIN_PANEL_WIDTH}
+      minHeight={MIN_PANEL_HEIGHT}
+      presentation={isMobile ? "sheet" : "window"}
+      autoFocus={false}
+      className="pointer-events-auto min-w-0"
+      sheetClassName="absolute z-[71] max-h-28"
+      sheetStyle={posStyle}
+      headerClassName="flex-wrap"
+      titleClassName="text-[0.625rem] font-semibold uppercase tracking-wider"
+      bodyClassName="overflow-hidden"
+      rootAttributes={rootAttributes}
+      minimizable={isMobile ? undefined : { icon: <MessageCircle size="1rem" />, label: title }}
+      ignoreOutsidePointer={isMobile ? () => true : undefined}
+      onRequestClose={() => {
+        saveLayout(ECHO_WINDOW_ID, {
+          ...(savedLayout ?? getDefaultLayout(readFloatingWindowBounds())),
+          minimized: true,
+        });
+        useFloatingWindowStore.getState().closeWindow(ECHO_WINDOW_ID);
+        requestAnimationFrame(() => phoneBubbleRef.current?.focus({ preventScroll: true }));
+      }}
+      headerControls={
+        <>
           <button
-            onClick={toggleEchoChamber}
-            className="rounded p-0.5 text-[var(--marinara-chat-chrome-button-text)] transition-colors hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)] hover:text-[var(--marinara-chat-chrome-button-text-hover)]"
-            title={localizeUi("ui.chat.echochamberpanel.collapseEchoChamber")}
-          >
-            <ChevronDown size="0.5625rem" />
-          </button>
-          <button
+            type="button"
             onClick={() => {
               if (!activeChatId || echoRetryBusy) return;
               void retryAgents(activeChatId, ["echo-chamber"]);
@@ -652,12 +628,13 @@ export function EchoChamberPanel({ hiddenOnMobile = false }: EchoChamberPanelPro
                 ? localizeUi("ui.chat.echochamberpanel.aReplyOrAgentIsAlreadyRunning")
                 : localizeUi("ui.chat.echochamberpanel.reRunEchoChamber")
             }
-            className="rounded p-0.5 text-[var(--marinara-chat-chrome-button-text)] transition-colors hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)] hover:text-[var(--marinara-chat-chrome-button-text-hover)] disabled:opacity-30 disabled:cursor-not-allowed"
+            className="mari-window__control disabled:opacity-30 disabled:cursor-not-allowed"
           >
-            <RefreshCw size="0.5625rem" className={echoRetryBusy ? "animate-spin" : ""} />
+            <RefreshCw size="0.75rem" className={echoRetryBusy ? "animate-spin" : ""} />
           </button>
           {visibleMessages.length > 0 && (
             <button
+              type="button"
               onClick={async () => {
                 if (!activeChatId) return;
                 clearEchoMessages();
@@ -669,23 +646,26 @@ export function EchoChamberPanel({ hiddenOnMobile = false }: EchoChamberPanelPro
                   /* best-effort */
                 }
               }}
-              className="rounded p-0.5 text-[var(--marinara-chat-chrome-button-text)] transition-colors hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)] hover:text-[var(--marinara-chat-chrome-button-text-hover)]"
+              className="mari-window__control"
               title={localizeUi("ui.chat.echochamberpanel.clearMessages")}
             >
-              <Trash2 size="0.5625rem" />
+              <Trash2 size="0.75rem" />
             </button>
           )}
-          {/* Hide position button on mobile */}
-          <span className="hidden md:inline-flex">
-            <CornerPicker current={echoChamberSide} onChange={setEchoChamberSide} />
+          <span className="hidden md:inline-flex px-1">
+            <CornerPicker
+              current={echoChamberSide}
+              onChange={setEchoChamberSide}
+              disabled={savedLayout?.locked ?? false}
+            />
           </span>
-        </div>
-      </div>
-
+        </>
+      }
+    >
       {/* Scrollable message area */}
       <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-2 pb-1.5 scrollbar-thin">
         {visibleMessages.length === 0 ? (
-          <p className="py-1.5 text-center text-[0.625rem] text-[var(--marinara-chat-chrome-panel-muted)]">
+          <p className="py-1.5 text-center text-[0.625rem] opacity-70">
             {localizeUi("ui.chat.echochamberpanel.waitingForReactions")}
           </p>
         ) : (
@@ -695,43 +675,21 @@ export function EchoChamberPanel({ hiddenOnMobile = false }: EchoChamberPanelPro
                 key={i}
                 className="min-w-0 animate-in fade-in slide-in-from-bottom-1 [animation-duration:300ms] break-words"
               >
-                <span className={cn("text-[0.6875rem] font-bold", nameColorMap.get(msg.characterName))}>
+                <span
+                  className={cn(
+                    "text-[0.6875rem] font-bold",
+                    !useWidgetTextColor && nameColorMap.get(msg.characterName),
+                  )}
+                >
                   {msg.characterName}
                 </span>
-                <span className="text-[0.6875rem] text-[var(--marinara-chat-chrome-panel-muted)]">: </span>
-                <span className="text-[0.6875rem] leading-snug text-[var(--marinara-chat-chrome-panel-text)]">
-                  {msg.reaction}
-                </span>
+                <span className="text-[0.6875rem] opacity-70">: </span>
+                <span className="text-[0.6875rem] leading-snug">{msg.reaction}</span>
               </div>
             ))}
           </div>
         )}
       </div>
-      <button
-        type="button"
-        aria-label={localizeUi("ui.chat.echochamberpanel.resizeEchoChamber")}
-        title={localizeUi("ui.chat.echochamberpanel.dragToResizeEchoChamber")}
-        className={cn(
-          "absolute z-20 flex h-7 w-7 touch-none items-center justify-center rounded-md border border-[var(--marinara-chat-chrome-button-border)] bg-[var(--marinara-chat-chrome-button-bg)] text-[var(--marinara-chat-chrome-button-text)] shadow-md transition-colors hover:border-[var(--marinara-chat-chrome-button-border-hover)] hover:bg-[var(--marinara-chat-chrome-button-bg-hover)] hover:text-[var(--marinara-chat-chrome-button-text-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)] md:h-6 md:w-6",
-          resizeFromLeft ? "-left-2 cursor-nesw-resize" : "-right-2 cursor-nwse-resize",
-          resizeFromTop ? "-top-2" : "-bottom-2",
-        )}
-        onPointerDown={handleResizeStart}
-        onPointerMove={handleResizeMove}
-        onPointerUp={handleResizeEnd}
-        onPointerCancel={handleResizeCancel}
-        onLostPointerCapture={handleResizeLostCapture}
-        onKeyDown={handleResizeKeyDown}
-      >
-        <span
-          aria-hidden="true"
-          className={cn(
-            "h-2.5 w-2.5 border-current",
-            resizeFromTop ? "border-t-2" : "border-b-2",
-            resizeFromLeft ? "border-l-2" : "border-r-2",
-          )}
-        />
-      </button>
-    </div>
+    </FloatingWindow>
   );
 }

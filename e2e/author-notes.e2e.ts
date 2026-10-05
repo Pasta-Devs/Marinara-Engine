@@ -1,6 +1,7 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { seedUIState } from "./ui-state-fixture.js";
+import { openChatSettingsTool } from "./chat-settings-tools.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 
@@ -21,16 +22,8 @@ async function seedChat(request: APIRequestContext, name: string, connectionId: 
 }
 
 async function openNotes(page: Page) {
-  const button = page.getByRole("button", { name: "Author's Notes", exact: true }).filter({ visible: true });
-  await page
-    .getByRole("button", { name: "Author's Notes", exact: true, includeHidden: true })
-    .first()
-    .waitFor({ state: "attached" });
-  if (!(await button.count())) {
-    await page.getByRole("button", { name: "More options", exact: true }).click();
-  }
-  await button.click();
-  const input = page.getByRole("textbox", { name: "Author's Notes", exact: true });
+  const drawer = await openChatSettingsTool(page, "author-notes");
+  const input = drawer.getByRole("textbox", { name: "Author's Notes", exact: true });
   await expect(input).toBeVisible();
   return input;
 }
@@ -134,7 +127,14 @@ test("Author's Notes saves stay ordered, remain per chat, and finish before gene
     // Give an incorrectly concurrent request time to reach the controlled route.
     await page.waitForTimeout(300);
     expect(saves, "A later note save must wait for the first request").toBe(1);
-    await page.getByRole("button", { name: "Close author's notes", exact: true }).click();
+    // Closing Chat Settings waits for the held save. On desktop the composer sits beside the window; the
+    // phone sheet covers it, so there the test closes the sheet straight away.
+    if (testInfo.project.name.includes("mobile")) {
+      await page.evaluate(async () => {
+        const { useFloatingWindowStore } = await import("/src/stores/floating-window.store.ts" as string);
+        useFloatingWindowStore.getState().closeWindow("chat-settings");
+      });
+    }
     await page.locator("textarea.mari-chat-input-textarea").fill("Continue the experiment.");
     await page.locator("button.mari-chat-send-btn").click();
     await page.waitForTimeout(300);

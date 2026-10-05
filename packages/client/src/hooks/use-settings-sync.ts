@@ -21,7 +21,11 @@ import {
 } from "@marinara-engine/shared";
 import { api } from "../lib/api-client";
 import { normalizeConversationTimeZone } from "../lib/conversation-time-zone";
+import { normalizeChatWidgetFont } from "../lib/font-family";
 import {
+  normalizeChatWidgetColor,
+  normalizeChatWidgetPreset,
+  normalizeChatWidgetShape,
   normalizeTrackerPanelCollapsedSections,
   normalizeTrackerPanelSectionOrder,
   normalizeTrackerPanelSizeProfile,
@@ -287,6 +291,37 @@ export function useSettingsSync() {
                 parsed.settings.conversationTimeZone = normalizeConversationTimeZone(
                   parsed.settings.conversationTimeZone,
                 );
+              }
+              if ("chatWidgetPreset" in parsed.settings) {
+                parsed.settings.chatWidgetPreset = normalizeChatWidgetPreset(parsed.settings.chatWidgetPreset);
+              }
+              if ("chatWidgetFont" in parsed.settings) {
+                parsed.settings.chatWidgetFont = normalizeChatWidgetFont(parsed.settings.chatWidgetFont);
+              }
+              if ("chatWidgetShape" in parsed.settings) {
+                parsed.settings.chatWidgetShape = normalizeChatWidgetShape(parsed.settings.chatWidgetShape);
+              }
+              for (const key of [
+                "chatWidgetBorderColor",
+                "chatWidgetBackgroundColor",
+                "chatWidgetTextColor",
+              ] as const) {
+                if (key in parsed.settings) {
+                  parsed.settings[key] = normalizeChatWidgetColor(parsed.settings[key]);
+                }
+              }
+
+              // Dismissal is permanent, even if it happened while this request was pending.
+              // A newer preference blob must not restore guidance dismissed on either device.
+              for (const key of ["chatSettingsMoveTipDismissed", "chatWindowIntroDismissed"] as const) {
+                const locallyDismissed = useUIStore.getState()[key] === true;
+                if (locallyDismissed || parsed.settings[key] === true) {
+                  if (parsed.settings[key] !== true) staleSyncedShape = true;
+                  parsed.settings[key] = true;
+                  if (!locallyDismissed) {
+                    useUIStore.setState({ [key]: true });
+                  }
+                }
               }
 
               const serverUpdatedAt = parsed.updatedAt;

@@ -47,7 +47,7 @@ Marinara goes down that list and adds each entry that still fits. If an entry wo
 
 ## Seeing skipped entries in Active Context
 
-You do not have to guess which entries were dropped. The **Active Context** button in the chat toolbar opens a panel. It shows the live result of the most recent lorebook scan.
+You do not have to guess which entries were dropped. Open **Chat Settings** and expand the **Active Context** section. It shows the live result of the most recent lorebook scan.
 
 If any matching entries were skipped, an amber notice appears at the top. It reads "N matching lore entries were skipped by token budget." Expand it to see each skipped entry.
 
@@ -57,7 +57,7 @@ Each skipped entry names the lorebook it came from and why it was blocked. The r
 - **chat budget**: the entry did not fit the chat-wide **Lorebook Token Budget**.
 - **lorebook and chat budgets**: both caps were already full.
 
-Expand a skipped entry to see more detail. It shows the matched keywords, the estimated token size, and how much of the budget was already used. If large lorebooks keep getting skipped, the panel suggests the **Knowledge Retrieval** or **Knowledge Router** agents. These often fit big lorebooks better than raising your caps.
+Expand a skipped entry to see more detail. It shows the matched keywords, the estimated token size, and how much of the budget was already used. If large lorebooks keep getting skipped, **Active Context** suggests the **Knowledge Retrieval** or **Knowledge Router** agents. These often fit big lorebooks better than raising your caps.
 
 ## Recursive scanning
 

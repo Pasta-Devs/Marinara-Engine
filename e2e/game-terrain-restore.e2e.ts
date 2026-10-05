@@ -68,9 +68,6 @@ async function openGame(page: Page, chatId: string, testInfo: TestInfo) {
 }
 
 async function chooseClassicForNextBattle(page: Page, testInfo: TestInfo) {
-  if (testInfo.project.name.includes("mobile")) {
-    await page.getByRole("button", { name: "Game actions", exact: true }).click();
-  }
   await page.getByRole("button", { name: "Chat Settings", exact: true }).filter({ visible: true }).click();
   const section = page.locator('[data-chat-settings-section="combat-style"]');
   await section.locator('[role="button"][aria-expanded]').click();

@@ -93,6 +93,7 @@ Read more in [Sending and Streaming Messages](../chats/sending-and-streaming.md)
 The **Input & Editing** section controls:
 
 - **Send on Enter**: pick which modes send when you press Enter.
+- **Keep guidance after regenerating**: leave your direction in the message box after a guided regenerate. On by default.
 - **Speech-to-text microphone**: show a microphone button in chat inputs.
 - **Intuitive swipe navigation**: use arrow keys or touch swipes to move between alternate replies.
 - **Reroll past the newest swipe**: make a new reply when you swipe past the newest one.

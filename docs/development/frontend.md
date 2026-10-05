@@ -513,7 +513,6 @@ Agent memory tools use `/api/agents/memory/:agentType/:chatId`, where `agentType
 | Prefix                          | Description                  |
 | ------------------------------- | ---------------------------- |
 | `/api/bot-browser/chub/*`       | Chub character search        |
-| `/api/bot-browser/chartavern/*` | CharacterTavern search       |
 | `/api/bot-browser/janny/*`      | JannyAI search               |
 | `/api/bot-browser/pygmalion/*`  | Pygmalion search             |
 | `/api/bot-browser/wyvern/*`     | Wyvern search                |

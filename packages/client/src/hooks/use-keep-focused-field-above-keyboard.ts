@@ -6,8 +6,6 @@ import {
 
 /** Space kept between the field and the edge of what is visible. */
 const REVEAL_MARGIN = 8;
-/** Set on the root while the keyboard is open for a field outside its [data-chat-floating-footer] (see globals.css). */
-const KEYBOARD_HIDES_FOOTER_ATTRIBUTE = "data-keyboard-hides-footer";
 
 function acceptsText(element: Element | null): element is HTMLElement {
   if (element instanceof HTMLTextAreaElement) return true;
@@ -50,11 +48,9 @@ function revealFieldAboveKeyboard(field: HTMLElement, root: HTMLElement): void {
 }
 
 /**
- * Keep the text field being edited inside `rootRef` (a panel or dialog) visible when the
+ * Keep the text field being edited inside `rootRef` (a panel, dialog or window) visible when the
  * on-screen keyboard opens or grows and shrinks the space around it. Scrolling the panel
- * yourself afterwards is left alone. While the keyboard is open, the root's pinned footer is
- * hidden unless the field is in it. That choice follows the last field typed in, not live focus,
- * so a tap that moves focus to a button does not show or hide the footer under the finger.
+ * yourself afterwards is left alone.
  */
 export function useKeepFocusedFieldAboveKeyboard(rootRef: RefObject<HTMLElement | null>): void {
   useEffect(() => {
@@ -67,13 +63,11 @@ export function useKeepFocusedFieldAboveKeyboard(rootRef: RefObject<HTMLElement 
       const detail = (event as CustomEvent<ChatVisualViewportChangeDetail>).detail;
       const field = document.activeElement;
       const panel = rootRef.current;
-      if (!detail?.keyboardOpen) panel?.removeAttribute(KEYBOARD_HIDES_FOOTER_ATTRIBUTE);
       if (!detail?.keyboardOpen || !acceptsText(field) || !panel?.contains(field)) {
         revealedField = null;
         revealedHeight = Number.POSITIVE_INFINITY;
         return;
       }
-      panel.toggleAttribute(KEYBOARD_HIDES_FOOTER_ATTRIBUTE, !field.closest("[data-chat-floating-footer]"));
       if (field === revealedField && detail.height >= revealedHeight) return;
       revealedField = field;
       revealedHeight = detail.height;

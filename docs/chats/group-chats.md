@@ -40,9 +40,9 @@ You can also click the **Random** row (labeled **Dice pick**) to add one random 
 
 ## Managing members after creation
 
-You add, remove, and reorder characters from the **Chat Settings** drawer. Open it with the gear icon in the chat header. The gear tooltip reads **Chat Settings**.
+You add, remove, and reorder characters in **Chat Settings**. Open it with the **Chat Settings** button in the chat.
 
-Inside the drawer, find the **Characters** section. It shows a member count and the help text "Characters in this chat. Each character has their own personality that the AI roleplays as." Each member row has an avatar, the character name, a drag handle, an eye icon, and a trash icon.
+Inside Chat Settings, find the **Characters** section. It shows a member count and the help text "Characters in this chat. Each character has their own personality that the AI roleplays as." Each member row has an avatar, the character name, a drag handle, an eye icon, and a trash icon.
 
 - To add one more character, click **Add Character** and search for them.
 - To add a whole Folder, click **Add from Folder** and pick one.
@@ -147,6 +147,8 @@ The button tooltip reads "Trigger character response".
 Turn on **Character Exchanges** to let characters talk to each other on their own. It is off by default. The description reads "Characters chat with each other in group chats."
 
 When it is on, the characters can reply to each other while you are away, not only to you. This runs only while Marinara is open in your browser. If you close the app, the exchanges stop. It also shares the same daily message limit that autonomous messages use.
+
+Exchanges work whether or not character schedules are on. In a group set to **Individual**, exchanges and @mention replies between characters never use the group's last check-in of the day, so a later check-in can still use it.
 
 ## Turn handling at a glance
 

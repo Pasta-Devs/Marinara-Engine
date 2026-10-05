@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @source "./capability-package-safelist.html";
 @import "./themes/sillytavern.css";
+@import "./themes/chat-widgets.css";
 
 /* World state & tracker widgets: equal flex sizing on mobile */
 @media (max-width: 767px) {
@@ -35,6 +36,7 @@
     2.  Dark Theme Variables .............. colors, palette, fonts
     3.  Light Theme Variables ............. light-mode overrides
     4.  Light Theme Component Overrides ... glass, grid, scrollbar tweaks
+    4a2. Floating Windows & Drawers ..... .mari-window, .mari-drawer, --mari-window-*
     5.  Base Reset & Body ................. border reset, body defaults
     6.  Custom Cursors .................... Y2K SVG cursors
     7.  Scrollbars ........................ retro scrollbar styling
@@ -609,7 +611,8 @@
   color: var(--marinara-chat-chrome-button-text-active);
 }
 
-[data-marinara-chat-chrome-accent-mode="gradient"] .marinara-chat-popover {
+/* Windows take these colours from --mari-window-* so custom themes can override them. */
+[data-marinara-chat-chrome-accent-mode="gradient"] .marinara-chat-popover:not(.mari-window) {
   border-color: var(--marinara-chat-chrome-panel-border);
   background: var(--marinara-chat-chrome-panel-bg);
 }
@@ -647,6 +650,504 @@
 
 .marinara-chat-popover.marinara-chat-toolbar-overflow-menu {
   border-radius: 0.5rem;
+}
+
+/* ─────────────────────────────────────────────
+   4a2. FLOATING WINDOWS AND DRAWERS
+   Every chat window (Chat Settings, the Trackers window, popped-out drawers)
+   renders through <FloatingWindow>, and every collapsible section through
+   <Drawer>, so custom themes can restyle them all at once.
+
+   Classes:     .mari-window, .mari-window__header, .mari-window__title,
+                .mari-window__controls, .mari-window__control, .mari-window__body,
+                .mari-window__resize-handle, .mari-window__resize-grip (the
+                corner's resize cue, shown on hover or focus); .mari-drawer, .mari-drawer__header,
+                .mari-drawer__icon, .mari-drawer__title, .mari-drawer__count,
+                .mari-drawer__summary, .mari-drawer__help, .mari-drawer__actions,
+                .mari-drawer__popout, .mari-drawer__arrow, .mari-drawer__body;
+                .mari-drawer-ghost (the preview while a drawer is dragged out);
+                .mari-window-bubble (a minimized window's button, and every
+                phone bubble: [data-presentation="sheet"]) and
+                .mari-window-snap-guide (the line shown while a bubble snaps)
+   Attributes:  [data-window="<id>"], [data-drawer="<id>"], [data-pinned],
+                [data-locked], [data-detached], [data-presentation="window|sheet"],
+                [data-window-control="pin|lock|close"], [data-edge],
+                [data-minimized="true"] with [data-window] on a bubble, [data-axis="x|y"]
+                on a snap guide,
+                [data-drawer-control="pop-out"], [data-drawer-host="<id>"] and
+                [data-detached="true"] on a popped-out drawer's window
+                (data-window="drawer:<host id>:<drawer id>"), [data-dragging]
+                on a drawer being dragged, [data-outside] on its preview, and
+                [data-drop-target] on a window a drawer will dock back into
+   Variables:   set them on :root (every window) or on a selector such as
+                [data-window="chat-settings"]. Unset, each falls back to the
+                theme token shown, read where the window or drawer is drawn.
+     --mari-window-bg                   var(--marinara-chat-chrome-panel-bg)
+     --mari-window-text                 var(--marinara-chat-chrome-panel-text)
+     --mari-window-border               var(--marinara-chat-chrome-panel-border)
+     --mari-window-border-width         1px
+     --mari-window-radius               calc(var(--radius) + 0.25rem)
+     --mari-window-shadow               0 25px 50px -12px rgb(0 0 0 / 0.4)
+     --mari-window-backdrop-filter      blur(12px)
+     --mari-window-header-bg            transparent
+     --mari-window-header-text          var(--marinara-chat-chrome-panel-title)
+     --mari-window-header-border        var(--marinara-chat-chrome-panel-divider)
+     --mari-window-header-padding       0.625rem 0.75rem
+     --mari-window-control-color        var(--marinara-chat-chrome-panel-muted)
+     --mari-window-control-color-hover  var(--marinara-chat-chrome-panel-text)
+     --mari-window-control-bg-hover     var(--marinara-chat-chrome-highlight-bg)
+     --mari-window-control-color-active var(--marinara-chat-chrome-button-text-active)
+     --mari-window-control-bg-active    var(--marinara-chat-chrome-highlight-bg)
+     --mari-window-control-radius       var(--radius)
+     --mari-window-control-gap          0.125rem
+     --mari-window-focus-ring           var(--marinara-chat-chrome-focus-ring)
+     --mari-window-resize-handle-size   0.5rem
+     --mari-window-bubble-size          2rem
+     --mari-window-bubble-bg            var(--marinara-chat-chrome-button-bg)
+     --mari-window-bubble-bg-hover      var(--marinara-chat-chrome-button-bg-hover)
+     --mari-window-bubble-text          var(--marinara-chat-chrome-button-text)
+     --mari-window-bubble-text-hover    var(--marinara-chat-chrome-button-text-hover)
+     --mari-window-bubble-border        var(--marinara-chat-chrome-button-border)
+     --mari-window-bubble-radius        calc(var(--radius) + 0.125rem)
+     --mari-window-bubble-shadow        0 4px 12px rgb(0 0 0 / 0.25)
+     --mari-window-snap-guide           var(--marinara-chat-chrome-focus-ring)
+     --mari-drawer-bg                   transparent
+     --mari-drawer-border               var(--border)
+     --mari-drawer-header-bg            transparent
+     --mari-drawer-header-bg-hover      color-mix(in oklab, var(--accent) 50%, transparent)
+     --mari-drawer-header-padding       0.75rem 1rem
+     --mari-drawer-title-color          inherit
+     --mari-drawer-icon-color           var(--muted-foreground)
+     --mari-drawer-arrow-color          var(--muted-foreground)
+     --mari-drawer-count-bg             color-mix(in oklab, var(--primary) 15%, transparent)
+     --mari-drawer-count-text           var(--primary)
+     --mari-drawer-body-padding-inline  1rem
+     --mari-drawer-body-padding-bottom  0.75rem
+   ───────────────────────────────────────────── */
+/* In the components layer, so Tailwind classes passed to <FloatingWindow> or <Drawer> (className,
+   bodyClassName…) override these defaults; custom theme CSS, which is not layered, overrides both. */
+@layer components {
+  .mari-window {
+    --mari-widget-field-option-bg: var(--mari-widget-custom-background-solid);
+    --mari-widget-field-option-text: var(--mari-widget-custom-text-solid);
+    border: var(--mari-window-border-width, 1px) solid
+      var(
+        --mari-widget-shell-border,
+        var(
+          --mari-window-border,
+          var(--mari-widget-custom-border-solid, var(--mari-widget-border, var(--marinara-chat-chrome-panel-border)))
+        )
+      );
+    border-radius: var(--mari-window-radius, var(--mari-widget-radius, calc(var(--radius) + 0.25rem)));
+    background: var(
+      --mari-widget-shell-bg,
+      var(
+        --mari-window-bg,
+        var(--mari-widget-custom-background, var(--mari-widget-bg, var(--marinara-chat-chrome-panel-bg)))
+      )
+    );
+    color: var(
+      --mari-window-text,
+      var(--mari-widget-custom-text-solid, var(--mari-widget-text, var(--marinara-chat-chrome-panel-text)))
+    );
+    box-shadow: var(
+      --mari-window-shadow,
+      var(--mari-widget-shadow, var(--mari-widget-frame-shadow, 0 25px 50px -12px rgb(0 0 0 / 0.4)))
+    );
+    -webkit-backdrop-filter: var(--mari-window-backdrop-filter, blur(12px));
+    backdrop-filter: var(--mari-window-backdrop-filter, blur(12px));
+  }
+
+  .mari-window__header {
+    border-bottom: 1px solid
+      var(
+        --mari-window-header-border,
+        var(--mari-widget-custom-border-solid, var(--mari-widget-border, var(--marinara-chat-chrome-panel-divider)))
+      );
+    border-top-left-radius: inherit;
+    border-top-right-radius: inherit;
+    background: var(
+      --mari-widget-header-shell-bg,
+      var(--mari-window-header-bg, var(--mari-widget-custom-background, var(--mari-widget-header-bg, transparent)))
+    );
+    padding: var(--mari-window-header-padding, var(--mari-widget-header-padding, 0.625rem 0.75rem));
+  }
+
+  .mari-window__header:focus-visible {
+    outline: none;
+    box-shadow: inset 0 0 0 2px
+      var(
+        --mari-window-focus-ring,
+        var(--mari-widget-custom-border-solid, var(--mari-widget-accent, var(--marinara-chat-chrome-focus-ring)))
+      );
+  }
+
+  .mari-window__title {
+    color: var(
+      --mari-window-header-text,
+      var(--mari-widget-custom-text-solid, var(--mari-widget-accent, var(--marinara-chat-chrome-panel-title)))
+    );
+  }
+
+  .mari-window__controls {
+    gap: var(--mari-window-control-gap, 0.125rem);
+  }
+
+  .mari-window__control {
+    display: inline-flex;
+    width: 1.75rem;
+    height: 1.75rem;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--mari-window-control-radius, var(--radius));
+    color: var(
+      --mari-window-control-color,
+      var(--mari-widget-custom-border-solid, var(--mari-widget-accent, var(--marinara-chat-chrome-panel-muted)))
+    );
+    transition:
+      background-color 150ms ease,
+      color 150ms ease;
+  }
+
+  .mari-window__control[aria-pressed="true"] {
+    background: var(
+      --mari-window-control-bg-active,
+      var(--mari-widget-custom-background, var(--mari-widget-soft, var(--marinara-chat-chrome-highlight-bg)))
+    );
+    color: var(
+      --mari-window-control-color-active,
+      var(--mari-widget-custom-border-solid, var(--mari-widget-accent, var(--marinara-chat-chrome-button-text-active)))
+    );
+  }
+
+  @media (hover: hover) {
+    .mari-window__control:hover {
+      background: var(
+        --mari-window-control-bg-hover,
+        var(--mari-widget-custom-background, var(--mari-widget-soft, var(--marinara-chat-chrome-highlight-bg)))
+      );
+      color: var(
+        --mari-window-control-color-hover,
+        var(--mari-widget-custom-border-solid, var(--mari-widget-text, var(--marinara-chat-chrome-panel-text)))
+      );
+    }
+  }
+
+  /* A minimized window: a small button the user places anywhere, like the chat's toolbar buttons. */
+  .mari-window-bubble {
+    display: inline-flex;
+    width: var(--mari-window-bubble-size, 2rem);
+    height: var(--mari-window-bubble-size, 2rem);
+    align-items: center;
+    justify-content: center;
+    border: 1px solid
+      var(
+        --mari-widget-button-shell,
+        var(
+          --mari-window-bubble-border,
+          var(--mari-widget-custom-border-solid, var(--mari-widget-gold, var(--marinara-chat-chrome-button-border)))
+        )
+      );
+    border-radius: var(--mari-window-bubble-radius, var(--mari-widget-bubble-radius, calc(var(--radius) + 0.125rem)));
+    background: var(
+      --mari-widget-button-shell,
+      var(
+        --mari-window-bubble-bg,
+        var(
+          --mari-widget-bubble-bg,
+          var(--mari-widget-custom-background, var(--mari-widget-bg, var(--marinara-chat-chrome-button-bg)))
+        )
+      )
+    );
+    color: var(
+      --mari-window-bubble-text,
+      var(
+        --mari-widget-button-text,
+        var(--mari-widget-custom-border-solid, var(--mari-widget-accent, var(--marinara-chat-chrome-button-text)))
+      )
+    );
+    box-shadow: var(--mari-window-bubble-shadow, var(--mari-widget-button-shadow, 0 4px 12px rgb(0 0 0 / 0.25)));
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+    cursor: pointer;
+    touch-action: none;
+    user-select: none;
+    transition:
+      background-color 150ms ease,
+      color 150ms ease;
+  }
+
+  @media (hover: hover) {
+    .mari-window-bubble:hover {
+      background: var(
+        --mari-widget-button-shell,
+        var(
+          --mari-window-bubble-bg-hover,
+          var(--mari-widget-custom-background, var(--mari-widget-soft, var(--marinara-chat-chrome-button-bg-hover)))
+        )
+      );
+      color: var(
+        --mari-window-bubble-text-hover,
+        var(--mari-widget-custom-border-solid, var(--mari-widget-accent, var(--marinara-chat-chrome-button-text-hover)))
+      );
+    }
+  }
+
+  .mari-window-bubble[data-dragging="true"] {
+    cursor: grabbing;
+  }
+
+  /* Chat-local modals can live in a lower stacking context. Their controls must stay above windows. */
+  body:has([data-chat-mode] [role="dialog"][aria-modal="true"]) .mari-window-bubble,
+  body:has([data-chat-mode] [role="dialog"][aria-modal="true"])
+    .mari-window:not(:has([role="dialog"][aria-modal="true"])) {
+    visibility: hidden;
+  }
+
+  /* Phones draw bubbles like their toolbar buttons, in pixels so their default row lines up. */
+  .mari-window-bubble[data-presentation="sheet"] {
+    width: var(--mari-window-bubble-size, 36px);
+    height: var(--mari-window-bubble-size, 36px);
+  }
+
+  /* Touch gets a 44px tap area around every bubble, centred on it, without changing its look. */
+  @media (pointer: coarse) {
+    .mari-window-bubble::before {
+      content: "";
+      position: absolute;
+      inset: min(0px, calc((100% - 44px) / 2));
+    }
+  }
+
+  .mari-window-snap-guide {
+    position: fixed;
+    background: var(--mari-window-snap-guide, var(--marinara-chat-chrome-focus-ring));
+    pointer-events: none;
+  }
+
+  .mari-window-bubble:focus-visible,
+  .mari-window__control:focus-visible,
+  .mari-window__resize-handle:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px
+      var(
+        --mari-window-focus-ring,
+        var(--mari-widget-custom-border-solid, var(--mari-widget-accent, var(--marinara-chat-chrome-focus-ring)))
+      );
+  }
+
+  /* The body clips its content to the window's rounded corners; the root does not
+     clip, so the resize handles can sit on the border, clear of the scrollbar. */
+  .mari-window__body {
+    overflow: hidden;
+    border-bottom-left-radius: inherit;
+    border-bottom-right-radius: inherit;
+  }
+
+  .mari-window__resize-handle {
+    --mari-window-resize-hit: var(--mari-window-resize-handle-size, 0.5rem);
+    --mari-window-resize-offset: calc(2px - var(--mari-window-resize-hit));
+    position: absolute;
+    z-index: 1;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    touch-action: none;
+  }
+
+  .mari-window__resize-handle[data-edge="n"],
+  .mari-window__resize-handle[data-edge="s"] {
+    left: var(--mari-window-resize-hit);
+    right: var(--mari-window-resize-hit);
+    height: var(--mari-window-resize-hit);
+    cursor: ns-resize;
+  }
+
+  .mari-window__resize-handle[data-edge="e"],
+  .mari-window__resize-handle[data-edge="w"] {
+    top: var(--mari-window-resize-hit);
+    bottom: var(--mari-window-resize-hit);
+    width: var(--mari-window-resize-hit);
+    cursor: ew-resize;
+  }
+
+  .mari-window__resize-handle:is([data-edge="ne"], [data-edge="nw"], [data-edge="se"], [data-edge="sw"]) {
+    width: calc(var(--mari-window-resize-hit) * 1.5);
+    height: calc(var(--mari-window-resize-hit) * 1.5);
+  }
+
+  .mari-window__resize-handle:is([data-edge="n"], [data-edge="ne"], [data-edge="nw"]) {
+    top: var(--mari-window-resize-offset);
+  }
+
+  .mari-window__resize-handle:is([data-edge="s"], [data-edge="se"], [data-edge="sw"]) {
+    bottom: var(--mari-window-resize-offset);
+  }
+
+  .mari-window__resize-handle:is([data-edge="e"], [data-edge="ne"], [data-edge="se"]) {
+    right: var(--mari-window-resize-offset);
+  }
+
+  .mari-window__resize-handle:is([data-edge="w"], [data-edge="nw"], [data-edge="sw"]) {
+    left: var(--mari-window-resize-offset);
+  }
+
+  .mari-window__resize-handle:is([data-edge="ne"], [data-edge="sw"]) {
+    cursor: nesw-resize;
+  }
+
+  .mari-window__resize-handle:is([data-edge="nw"], [data-edge="se"]) {
+    cursor: nwse-resize;
+  }
+
+  /* The resize cue in the bottom-right corner, like Echo Chamber's: shown while the pointer or focus is
+     in the window. It belongs to the corner handle, so dragging it resizes. Locked windows have none. */
+  .mari-window__resize-grip {
+    position: absolute;
+    right: -2px;
+    bottom: -2px;
+    display: flex;
+    width: 1.5rem;
+    height: 1.5rem;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--mari-widget-custom-border-solid, var(--marinara-chat-chrome-button-border));
+    border-radius: calc(var(--radius) - 0.125rem);
+    background: var(--mari-widget-custom-background, var(--marinara-chat-chrome-button-bg));
+    color: var(--mari-widget-custom-border-solid, var(--marinara-chat-chrome-button-text));
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.2);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 150ms ease;
+  }
+
+  .mari-window__resize-grip::after {
+    content: "";
+    width: 0.625rem;
+    height: 0.625rem;
+    border-right: 2px solid currentColor;
+    border-bottom: 2px solid currentColor;
+  }
+
+  .mari-window:is(:hover, :focus-within) .mari-window__resize-grip {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .mari-window__resize-handle:is(:hover, :focus-visible) .mari-window__resize-grip {
+    border-color: var(--mari-widget-custom-border-solid, var(--marinara-chat-chrome-button-border-hover));
+    background: var(--mari-widget-custom-background, var(--marinara-chat-chrome-button-bg-hover));
+    color: var(--mari-widget-custom-border-solid, var(--marinara-chat-chrome-button-text-hover));
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .mari-window__resize-grip {
+      transition: none;
+    }
+  }
+
+  .mari-drawer {
+    border-bottom: 1px solid
+      var(--mari-drawer-border, var(--mari-widget-custom-border-solid, var(--mari-widget-border, var(--border))));
+    background: var(--mari-drawer-bg, var(--mari-widget-custom-background, var(--mari-widget-field, transparent)));
+  }
+
+  .mari-drawer__header {
+    padding: var(--mari-drawer-header-padding, 0.75rem 1rem);
+    background: var(
+      --mari-drawer-header-bg,
+      var(--mari-widget-custom-background, var(--mari-widget-field, transparent))
+    );
+  }
+
+  @media (hover: hover) {
+    .mari-drawer__header:hover {
+      background: var(
+        --mari-drawer-header-bg-hover,
+        var(
+          --mari-widget-custom-background,
+          var(--mari-widget-soft, color-mix(in oklab, var(--accent) 50%, transparent))
+        )
+      );
+    }
+  }
+
+  .mari-drawer__icon {
+    color: var(
+      --mari-drawer-icon-color,
+      var(--mari-widget-custom-border-solid, var(--mari-widget-accent, var(--muted-foreground)))
+    );
+  }
+
+  .mari-drawer__title {
+    color: var(--mari-drawer-title-color, var(--mari-widget-custom-text-solid, var(--mari-widget-text, inherit)));
+  }
+
+  .mari-drawer__count {
+    background: var(
+      --mari-drawer-count-bg,
+      var(
+        --mari-widget-custom-background,
+        var(--mari-widget-soft, color-mix(in oklab, var(--primary) 15%, transparent))
+      )
+    );
+    color: var(
+      --mari-drawer-count-text,
+      var(--mari-widget-custom-text-solid, var(--mari-widget-accent, var(--primary)))
+    );
+  }
+
+  .mari-drawer__arrow {
+    color: var(
+      --mari-drawer-arrow-color,
+      var(--mari-widget-custom-border-solid, var(--mari-widget-accent, var(--muted-foreground)))
+    );
+  }
+
+  .mari-drawer__body {
+    padding-inline: var(--mari-drawer-body-padding-inline, 1rem);
+    padding-bottom: var(--mari-drawer-body-padding-bottom, 0.75rem);
+  }
+
+  .mari-drawer[data-dragging="true"] > .mari-drawer__header {
+    opacity: 0.5;
+  }
+
+  .mari-drawer-ghost {
+    border: var(--mari-window-border-width, 1px) solid
+      var(
+        --mari-window-border,
+        var(--mari-widget-custom-border-solid, var(--mari-widget-border, var(--marinara-chat-chrome-panel-border)))
+      );
+    border-radius: var(--mari-window-radius, var(--mari-widget-radius, calc(var(--radius) + 0.25rem)));
+    background: var(
+      --mari-window-bg,
+      var(--mari-widget-custom-background, var(--mari-widget-bg, var(--marinara-chat-chrome-panel-bg)))
+    );
+    color: var(
+      --mari-window-header-text,
+      var(--mari-widget-custom-text-solid, var(--mari-widget-accent, var(--marinara-chat-chrome-panel-title)))
+    );
+    box-shadow: var(
+      --mari-window-shadow,
+      var(--mari-widget-shadow, var(--mari-widget-frame-shadow, 0 25px 50px -12px rgb(0 0 0 / 0.4)))
+    );
+    opacity: 0.6;
+  }
+
+  .mari-drawer-ghost[data-outside="true"] {
+    opacity: 1;
+  }
+
+  .mari-window[data-drop-target="true"] {
+    outline: 2px solid
+      var(
+        --mari-window-focus-ring,
+        var(--mari-widget-custom-border-solid, var(--mari-widget-accent, var(--marinara-chat-chrome-focus-ring)))
+      );
+    outline-offset: 2px;
+  }
 }
 
 /* ─────────────────────────────────────────────
@@ -1340,7 +1841,7 @@
   color-scheme: dark;
   border-color: var(--marinara-chat-chrome-input-border);
   background-color: var(--marinara-chat-chrome-panel-bg);
-  color: var(--marinara-chat-chrome-panel-text);
+  color: var(--mari-widget-field-option-text, var(--marinara-chat-chrome-panel-text));
 }
 
 [data-theme="light"] .mari-chat-settings-popover select,
@@ -1352,14 +1853,17 @@
 .mari-chat-settings-popover select optgroup,
 .mari-chat-settings-drawer select option,
 .mari-chat-settings-drawer select optgroup {
-  background-color: var(--marinara-chat-chrome-panel-bg);
-  color: var(--marinara-chat-chrome-panel-text);
+  background-color: var(--mari-widget-field-option-bg, var(--marinara-chat-chrome-panel-bg));
+  color: var(--mari-widget-field-option-text, var(--marinara-chat-chrome-panel-text));
 }
 
 .mari-preset-native-select {
   color-scheme: dark;
   background-color: var(--marinara-preset-select-bg, var(--marinara-chat-chrome-panel-bg));
-  color: var(--marinara-preset-select-text, var(--marinara-chat-chrome-panel-text));
+  color: var(
+    --marinara-preset-select-text,
+    var(--mari-widget-field-option-text, var(--marinara-chat-chrome-panel-text))
+  );
 }
 
 [data-theme="light"] .mari-preset-native-select {
@@ -1368,8 +1872,14 @@
 
 .mari-preset-native-select option,
 .mari-preset-native-select optgroup {
-  background-color: var(--marinara-preset-select-option-bg, var(--marinara-chat-chrome-panel-bg)) !important;
-  color: var(--marinara-preset-select-option-text, var(--marinara-chat-chrome-panel-text)) !important;
+  background-color: var(
+    --marinara-preset-select-option-bg,
+    var(--mari-widget-field-option-bg, var(--marinara-chat-chrome-panel-bg))
+  ) !important;
+  color: var(
+    --marinara-preset-select-option-text,
+    var(--mari-widget-field-option-text, var(--marinara-chat-chrome-panel-text))
+  ) !important;
 }
 
 .mari-preset-native-select option:checked {
@@ -6370,15 +6880,18 @@ strong {
     flex: 1 1 auto !important;
   }
 
-  /* A footer pinned under a panel's scroll area can fill all the room left
-     above the keyboard and hide the field being typed in. It is hidden until
-     the keyboard closes, unless that field is in it. The panel attribute comes
-     from useKeepFocusedFieldAboveKeyboard and follows the field typed in, not
-     live focus, so a tap does not show or hide the footer under the finger. */
-  html[data-mari-software-keyboard-open]
-    body
-    > [data-chat-floating-panel][data-keyboard-hides-footer]
-    [data-chat-floating-footer] {
+  /* A window you type in on a touch screen (the phone Chat Settings sheet, or the window on a phone
+     turned sideways) fits the same visible screen; its scroll area keeps the field in view. */
+  html[data-mari-software-keyboard-open] .mari-window:focus-within {
+    top: calc(var(--mari-visual-viewport-offset-top, 0px) + 0.5rem) !important;
+    bottom: auto !important;
+    height: calc(var(--mari-visual-viewport-height, 100dvh) - 1rem) !important;
+    max-height: none !important;
+  }
+
+  /* Chat Settings' rows above its sections (Tracker Panel, Reset View, the drag-and-drop hint) step
+     aside while you type, so a phone turned sideways still shows the field. */
+  html[data-mari-software-keyboard-open] .mari-window:focus-within [data-chat-settings-top-row] {
     display: none;
   }
 
@@ -6707,6 +7220,17 @@ strong {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* Floating windows open in place without the entrance animation. */
+@media (prefers-reduced-motion: reduce) {
+  .mari-window {
+    animation: none;
+  }
+}
+
+html[data-marinara-reduced-effects="true"] .mari-window {
+  animation: none;
 }
 
 /* ─────────────────────────────────────────────

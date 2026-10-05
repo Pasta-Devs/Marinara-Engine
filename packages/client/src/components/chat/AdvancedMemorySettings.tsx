@@ -162,7 +162,12 @@ export function AdvancedMemorySettings({
               ))}
             </ul>
           ) : null}
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {/* Chat Settings follows its window's width; the setup wizard follows the screen. */}
+          <div
+            className={
+              variant === "drawer" ? "grid grid-cols-1 gap-3 @lg:grid-cols-2" : "grid grid-cols-1 gap-3 sm:grid-cols-2"
+            }
+          >
             <label className="space-y-1 text-xs">
               <span>{t("chat.advancedMemory.contextCap")}</span>
               <DraftNumberInput

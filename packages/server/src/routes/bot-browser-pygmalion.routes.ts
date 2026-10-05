@@ -1,39 +1,131 @@
 // ──────────────────────────────────────────────
 // Routes: Browser — Pygmalion provider
 // ──────────────────────────────────────────────
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyReply } from "fastify";
 import { logger } from "../lib/logger.js";
+import { BotBrowserUpstreamError, fetchBotBrowserJson } from "../services/bot-browser/fetch-json.js";
 import { resolveValidatedImage, safeFetch } from "../utils/security.js";
 
+const PYGMALION_API_HOSTS = ["server.pygmalion.chat"];
 const PYGMALION_API_BASE = "https://server.pygmalion.chat/galatea.v1.PublicCharacterService";
-const PYGMALION_ORIGIN = "https://pygmalion.chat";
 const PYGMALION_ASSETS_BASE = "https://assets.pygmalion.chat";
+// Base64url/JWT characters only: a pasted value can never smuggle text into the Authorization header.
+const TOKEN_PATTERN = /^[A-Za-z0-9._~+/=-]{1,8192}$/;
+
+// Requests that carry the token answer with one of these fixed reasons, never upstream error text.
+type PygmalionFailure = "unreachable" | "rejected" | "busy";
+const FAILURES: Record<PygmalionFailure, { status: number; error: string }> = {
+  unreachable: { status: 502, error: "Couldn't reach Pygmalion" },
+  rejected: { status: 400, error: "Pygmalion rejected the token" },
+  busy: { status: 503, error: "Pygmalion is busy, try again" },
+};
 
 // In-memory token store (persists until server restart)
 let pygToken: string = "";
 
+function failureForStatus(status: number): PygmalionFailure {
+  if (status === 401 || status === 403) return "rejected";
+  return status === 408 || status === 429 || status >= 500 ? "busy" : "unreachable";
+}
+
+/** Status or error code only: an error message can quote the Authorization header. */
+function failureDetail(err: unknown): string | number {
+  if (err instanceof BotBrowserUpstreamError) return err.upstreamStatus;
+  const { code, cause } = (err ?? {}) as { code?: unknown; cause?: { code?: unknown } };
+  const detail = code ?? cause?.code;
+  if (typeof detail === "string") return detail;
+  return err instanceof Error ? err.name : "unknown";
+}
+
+/** Checks a token with Pygmalion; resolves to the failure reason, or null when it is accepted. */
+async function checkToken(token: string): Promise<PygmalionFailure | null> {
+  try {
+    const res = await safeFetch(`${PYGMALION_API_BASE}/CharacterSearch`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        query: "",
+        orderBy: "downloads",
+        orderDescending: true,
+        pageSize: 1,
+        page: 0,
+        includeSensitive: true,
+      }),
+      signal: AbortSignal.timeout(15_000),
+      policy: { allowedProtocols: ["https:"], allowedHostnames: PYGMALION_API_HOSTS, maxRedirects: 0 },
+      maxResponseBytes: 1024 * 1024,
+    });
+    if (res.ok) return null;
+    logger.warn("[bot-browser] Pygmalion token check failed: HTTP %d", res.status);
+    return failureForStatus(res.status);
+  } catch (err) {
+    logger.warn("[bot-browser] Pygmalion token check failed: %s", failureDetail(err));
+    return "unreachable";
+  }
+}
+
+/** Authenticated Connect call; a rejected token ends the session so the client can ask for a new login. */
+async function fetchWithToken(reply: FastifyReply, procedure: string, message: Record<string, unknown>) {
+  const token = pygToken;
+  try {
+    return await fetchBotBrowserJson(`${PYGMALION_API_BASE}/${procedure}`, {
+      allowedHosts: PYGMALION_API_HOSTS,
+      maxResponseBytes: 8 * 1024 * 1024,
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify(message),
+    });
+  } catch (err) {
+    const detail = failureDetail(err);
+    logger.warn("[bot-browser] Pygmalion %s request failed: %s", procedure, detail);
+    // Connect answers 401 (unauthenticated) for a token it no longer accepts. A 403 is permission_denied
+    // for one item, which any page could request, so it must not end the login.
+    if (detail === 401) {
+      if (pygToken === token) pygToken = "";
+      return reply.status(401).send({ error: "Pygmalion session expired", reason: "rejected", sessionExpired: true });
+    }
+    const failure = typeof detail === "number" ? failureForStatus(detail) : "unreachable";
+    return reply.status(FAILURES[failure].status).send({ error: FAILURES[failure].error, reason: failure });
+  }
+}
+
+function isPygmalionHost(hostname: string): boolean {
+  return hostname === "pygmalion.chat" || hostname.endsWith(".pygmalion.chat");
+}
+
 export async function botBrowserPygmalionRoutes(app: FastifyInstance) {
   // ── Store token directly (user pastes their auth token) ──
-  app.post<{ Body: { token: string } }>("/pygmalion/set-token", async (req, reply) => {
+  // The token is checked with Pygmalion first and stored only when accepted.
+  app.post<{ Body: { token?: unknown } }>("/pygmalion/set-token", async (req, reply) => {
     const { token } = req.body ?? {};
-    if (!token || typeof token !== "string" || !token.trim()) {
-      return reply.status(400).send({ error: "token string is required" });
-    }
-
-    let value = token.trim();
+    let value = typeof token === "string" ? token.trim() : "";
 
     // Normalize: strip "Bearer " prefix if pasted with it
     if (value.toLowerCase().startsWith("bearer ")) {
       value = value.slice("bearer ".length).trim();
     }
 
-    if (value.length > 8192 || value.includes(" ") || value.includes("\n")) {
-      return reply.status(400).send({ error: "Invalid token value. Paste only the token string." });
+    if (!TOKEN_PATTERN.test(value)) {
+      return reply.status(400).send({
+        error: "Paste only the token. It can't contain spaces or line breaks.",
+        reason: "invalid",
+        active: !!pygToken,
+      });
+    }
+
+    const failure = await checkToken(value);
+    if (failure) {
+      const { status, error } = FAILURES[failure];
+      return reply.status(status).send({ error, reason: failure, active: !!pygToken });
     }
 
     pygToken = value;
     logger.info("[bot-browser] Pygmalion token stored");
-    return { ok: true };
+    return { ok: true, active: true };
   });
 
   // ── Validate stored token by making a test authenticated search ──
@@ -41,47 +133,14 @@ export async function botBrowserPygmalionRoutes(app: FastifyInstance) {
     if (!pygToken) {
       return { valid: false, reason: "no token stored" };
     }
-
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 15_000);
-    try {
-      const res = await fetch(`${PYGMALION_API_BASE}/CharacterSearch`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-          Authorization: `Bearer ${pygToken}`,
-          Origin: PYGMALION_ORIGIN,
-          Referer: `${PYGMALION_ORIGIN}/`,
-        },
-        body: JSON.stringify({
-          query: "",
-          orderBy: "downloads",
-          orderDescending: true,
-          pageSize: 1,
-          page: 0,
-          includeSensitive: true,
-        }),
-        signal: controller.signal,
-      });
-
-      if (res.ok) {
-        logger.info("[bot-browser] Pygmalion token validated");
-        return { valid: true };
-      }
-
-      if (res.status === 401 || res.status === 403) {
-        pygToken = "";
-        return { valid: false, reason: "Token rejected (expired or invalid)" };
-      }
-
-      return { valid: false, reason: `HTTP ${res.status}` };
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Unknown error";
-      return { valid: false, reason: msg };
-    } finally {
-      clearTimeout(timeout);
+    const token = pygToken;
+    const failure = await checkToken(token);
+    if (!failure) {
+      logger.info("[bot-browser] Pygmalion token validated");
+      return { valid: true };
     }
+    if (failure === "rejected" && pygToken === token) pygToken = "";
+    return { valid: false, reason: FAILURES[failure].error };
   });
 
   // ── Logout (clear stored token) ──
@@ -108,7 +167,7 @@ export async function botBrowserPygmalionRoutes(app: FastifyInstance) {
       tagsExclude?: string;
       includeSensitive?: string;
     };
-  }>("/pygmalion/search", async (req) => {
+  }>("/pygmalion/search", async (req, reply) => {
     const {
       q = "",
       page = "0",
@@ -144,25 +203,7 @@ export async function botBrowserPygmalionRoutes(app: FastifyInstance) {
     // Authenticated search with NSFW
     if (includeSensitive === "true" && pygToken) {
       message.includeSensitive = true;
-
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 30_000);
-      try {
-        const res = await fetch(`${PYGMALION_API_BASE}/CharacterSearch`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-            Authorization: `Bearer ${pygToken}`,
-          },
-          body: JSON.stringify(message),
-          signal: controller.signal,
-        });
-        if (!res.ok) throw new Error(`Pygmalion search error ${res.status}`);
-        return res.json();
-      } finally {
-        clearTimeout(timeout);
-      }
+      return fetchWithToken(reply, "CharacterSearch", message);
     }
 
     // Unauthenticated GET — public SFW results only
@@ -171,19 +212,9 @@ export async function botBrowserPygmalionRoutes(app: FastifyInstance) {
       encoding: "json",
       message: JSON.stringify(message),
     });
-
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 30_000);
-    try {
-      const res = await fetch(`${PYGMALION_API_BASE}/CharacterSearch?${params}`, {
-        headers: { Accept: "application/json" },
-        signal: controller.signal,
-      });
-      if (!res.ok) throw new Error(`Pygmalion search error ${res.status}`);
-      return res.json();
-    } finally {
-      clearTimeout(timeout);
-    }
+    return fetchBotBrowserJson(`${PYGMALION_API_BASE}/CharacterSearch?${params}`, {
+      allowedHosts: PYGMALION_API_HOSTS,
+    });
   });
 
   // ── Get full character detail from Pygmalion ──
@@ -192,7 +223,7 @@ export async function botBrowserPygmalionRoutes(app: FastifyInstance) {
       id: string;
       versionId?: string;
     };
-  }>("/pygmalion/character", async (req) => {
+  }>("/pygmalion/character", async (req, reply) => {
     const { id, versionId } = req.query;
     if (!id) throw new Error("Missing character id");
 
@@ -200,60 +231,37 @@ export async function botBrowserPygmalionRoutes(app: FastifyInstance) {
     if (versionId) message.characterVersionId = versionId;
 
     // Authenticated detail fetch (needed for NSFW characters)
-    if (pygToken) {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 30_000);
-      try {
-        const res = await fetch(`${PYGMALION_API_BASE}/Character`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-            Authorization: `Bearer ${pygToken}`,
-          },
-          body: JSON.stringify(message),
-          signal: controller.signal,
-        });
-        if (!res.ok) throw new Error(`Pygmalion character fetch error ${res.status}`);
-        return res.json();
-      } finally {
-        clearTimeout(timeout);
-      }
-    }
+    if (pygToken) return fetchWithToken(reply, "Character", message);
 
     const params = new URLSearchParams({
       connect: "v1",
       encoding: "json",
       message: JSON.stringify(message),
     });
-
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 30_000);
-    try {
-      const res = await fetch(`${PYGMALION_API_BASE}/Character?${params}`, {
-        headers: { Accept: "application/json" },
-        signal: controller.signal,
-      });
-      if (!res.ok) throw new Error(`Pygmalion character fetch error ${res.status}`);
-      return res.json();
-    } finally {
-      clearTimeout(timeout);
-    }
+    return fetchBotBrowserJson(`${PYGMALION_API_BASE}/Character?${params}`, {
+      allowedHosts: PYGMALION_API_HOSTS,
+      maxResponseBytes: 8 * 1024 * 1024,
+    });
   });
 
   // ── Proxy Pygmalion avatar images ──
+  // Relative paths live on assets.pygmalion.chat; absolute URLs must stay on Pygmalion's own domain.
   app.get<{ Params: { "*": string } }>("/pygmalion/avatar/*", async (req, reply) => {
     const assetPath = (req.params as Record<string, string>)["*"];
     if (!assetPath) throw new Error("Missing asset path");
 
-    const url = assetPath.startsWith("http") ? assetPath : `${PYGMALION_ASSETS_BASE}/${assetPath}`;
+    const url = URL.parse(assetPath.startsWith("http") ? assetPath : `${PYGMALION_ASSETS_BASE}/${assetPath}`);
+    if (!url || url.protocol !== "https:" || !isPygmalionHost(url.hostname)) {
+      return reply.status(400).send({ error: "Avatar must come from Pygmalion" });
+    }
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 30_000);
     try {
       const res = await safeFetch(url, {
         signal: controller.signal,
-        policy: { allowedProtocols: ["https:"] },
+        // Redirect hops must stay on the host that passed the check above.
+        policy: { allowedProtocols: ["https:"], allowedHostnames: [url.hostname] },
         maxResponseBytes: 25 * 1024 * 1024,
       });
       if (!res.ok) return reply.status(404).send({ error: "Avatar not found" });

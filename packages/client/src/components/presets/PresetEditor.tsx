@@ -1349,7 +1349,10 @@ function SectionsTab({
       setShowAddMenu(false);
     };
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setShowAddMenu(false);
+      if (event.key !== "Escape") return;
+      // Claimed, so the Chat Settings window around the quick editor stays open.
+      event.preventDefault();
+      setShowAddMenu(false);
     };
 
     window.addEventListener("pointerdown", handlePointerDown, true);

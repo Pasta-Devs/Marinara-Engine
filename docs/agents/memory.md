@@ -19,7 +19,7 @@ You can use both systems at the same time. They do different jobs and do not con
 
 ### Turning Memory Recall on
 
-1. Open a chat and click the **Chat Settings** button in the chat header.
+1. Open a chat and click the **Chat Settings** button in the chat (it starts at the top right).
 2. Find the **Memory Recall** section (it has a brain icon).
 3. Turn on the **Enable Memory Recall** toggle.
 
@@ -111,7 +111,7 @@ Prompt inspection stays read-only and previews ordinary recall without calling t
 
 ### While chatting
 
-Scene detection runs after the main Roleplay reply is saved. **Standalone scene check interval (messages)** defaults to **5**. At that interval, the checker receives the numbered recent messages, one preceding message for context, scene instructions and output format. It identifies the exact message ending each scene, or returns no endings when the scene continues. Both persona and character messages count. The cadence is independent of tracker schedules, but with Decision mode off, a due check shares an eligible post-processing tracker call when its source visibility and context budget allow it; otherwise the helper makes a standalone call. Each new scene range begins after the previous scene's end and includes the newly reported ending message. Only a detected ending triggers background preparation of that completed scene's summary and message index, including when the latest reply ends the scene. Uncertain transitions leave the scene open. The top-left **Agents** menu shows preparation as **Advanced Recall**, including progress, errors and recovery controls, even when ordinary agents are disabled. Progress polls only while a memory job is running; ready archives are not polled while idle.
+Scene detection runs after the main Roleplay reply is saved. **Standalone scene check interval (messages)** defaults to **5**. At that interval, the checker receives the numbered recent messages, one preceding message for context, scene instructions and output format. It identifies the exact message ending each scene, or returns no endings when the scene continues. Both persona and character messages count. The cadence is independent of tracker schedules, but with Decision mode off, a due check shares an eligible post-processing tracker call when its source visibility and context budget allow it; otherwise the helper makes a standalone call. Each new scene range begins after the previous scene's end and includes the newly reported ending message. Only a detected ending triggers background preparation of that completed scene's summary and message index, including when the latest reply ends the scene. Uncertain transitions leave the scene open. **Chat Settings → Agent activity** shows preparation as **Advanced Recall**, including progress, errors and recovery controls, even when ordinary agents are disabled. Progress polls only while a memory job is running; ready archives are not polled while idle.
 
 With Decision mode off, ordinary recall reads prepared memories instead of preparing the archive again. An optional query embedding has a short time limit and falls back to text matching if unavailable. Text matching gives distinctive terms in the latest user message more weight, so a brief detail can find a long scene recap. Indexed original messages can also find scenes when excerpt output is disabled. Text matching adds no model call. Recall runs only for the main Roleplay generation: agent calls, manual agent reruns and auxiliary dry-run generations neither trigger it nor receive its returned summaries or excerpts. Main prompt inspection remains read-only.
 
@@ -151,7 +151,7 @@ Recall is selective and summaries can miss nuance. Keep important corrections in
 
 **Chat Summary** compresses older messages into short narrative recaps called summary entries. Each entry can be written by AI or by hand, and each can be turned on or off on its own. Saving a toggle leaves other entries usable; Activate All and Deactivate All save the selection together. This feature is only in Roleplay chats.
 
-To open it, click the **Chat Summary** button (a scroll icon) in the Roleplay chat header. This opens the **Chat Summary** popover.
+To open it, open **Chat Settings** and expand the **Chat Summary** section, under **Lorebooks**. On a computer, you can pop it out into its own window (see [Chat Settings Overview](../chats/chat-settings.md#popping-a-section-out-into-its-own-window)).
 
 ### Creating a summary entry
 
@@ -183,7 +183,7 @@ The **Maximum output size** field sets how long a generated summary can be. The 
 
 ### Display options
 
-The **Display** controls in the popover decide how summarized messages appear on screen:
+The **Display** controls in **Chat Summary** decide how summarized messages appear on screen:
 
 - **Hide summarised messages**: hides the raw messages once a summary covers them. Off by default.
 - **Recent message tail**: keeps this many of the newest messages fully visible even when hiding is on. The default is 10, and any non-negative whole number is accepted. Setting 0 hides the whole summarized batch. Higher values increase prompt size and model cost.

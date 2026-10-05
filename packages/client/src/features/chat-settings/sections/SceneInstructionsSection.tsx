@@ -1,4 +1,4 @@
-import { Maximize2, Sparkles } from "lucide-react";
+import { Maximize2, Clapperboard } from "lucide-react";
 import { ExpandedTextarea } from "../../../components/ui/ExpandedTextarea";
 import { ChatSettingsSection } from "../ChatSettingsSection";
 import { useTranslation as useUiTranslation } from "react-i18next";
@@ -29,7 +29,7 @@ export function SceneInstructionsSection({
     <ChatSettingsSection
       id="scene-instructions"
       label={localizeUi("ui.chatSettings.sceneinstructionssection.sceneInstructions")}
-      icon={<Sparkles size="0.875rem" />}
+      icon={<Clapperboard size="0.875rem" />}
       help={localizeUi("ui.chatSettings.sceneinstructionssection.theSystemPromptGeneratedForThisSceneYouCan")}
     >
       <div className="relative">

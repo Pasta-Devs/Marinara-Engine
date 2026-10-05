@@ -169,6 +169,7 @@ export * from "./utils/illustrator-generation-count.js";
 export * from "./utils/tracker-field-locks.js";
 export * from "./utils/chat-summary-entries.js";
 export * from "./utils/chat-summary-prompt-settings.js";
+export * from "./utils/chat-window-defaults.js";
 export * from "./utils/translator-defaults.js";
 export * from "./utils/chat-persona.js";
 export * from "./utils/message-continuation.js";

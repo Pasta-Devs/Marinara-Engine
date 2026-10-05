@@ -14,6 +14,16 @@ export interface BotBrowserJsonFetchOptions extends Omit<
   timeoutMs?: number;
 }
 
+/** A non-2xx reply from the catalog, with its status so callers can react to it (e.g. an expired login). */
+export class BotBrowserUpstreamError extends Error {
+  readonly upstreamStatus: number;
+
+  constructor(status: number, detail: string) {
+    super(`Upstream ${status}: ${detail}`);
+    this.upstreamStatus = status;
+  }
+}
+
 export async function fetchBotBrowserJson(url: string | URL, options: BotBrowserJsonFetchOptions): Promise<unknown> {
   const {
     allowedHosts,
@@ -52,7 +62,7 @@ export async function fetchBotBrowserJson(url: string | URL, options: BotBrowser
     });
     if (!response.ok) {
       const text = await response.text().catch(() => "");
-      throw new Error(`Upstream ${response.status}: ${text.slice(0, 300)}`);
+      throw new BotBrowserUpstreamError(response.status, text.slice(0, 300));
     }
     return await response.json();
   } finally {

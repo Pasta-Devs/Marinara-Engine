@@ -4,7 +4,10 @@ import { seedUIState } from "./ui-state-fixture.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 
-test("provider-aware controls narrow to model capabilities while presets keep all controls", async ({ page, request }, info) => {
+test("provider-aware controls narrow to model capabilities while presets keep all controls", async ({
+  page,
+  request,
+}, info) => {
   const connectionResponse = await request.post("/api/connections", {
     data: {
       name: "Parameter controls UI fixture",
@@ -17,7 +20,12 @@ test("provider-aware controls narrow to model capabilities while presets keep al
   expect(connectionResponse.ok()).toBeTruthy();
   const connection = await connectionResponse.json();
   const chatResponse = await request.post("/api/chats", {
-    data: { name: "Parameter controls UI fixture", mode: "conversation", characterIds: [], connectionId: connection.id },
+    data: {
+      name: "Parameter controls UI fixture",
+      mode: "conversation",
+      characterIds: [],
+      connectionId: connection.id,
+    },
   });
   expect(chatResponse.ok()).toBeTruthy();
   const chat = await chatResponse.json();
@@ -56,8 +64,6 @@ test("provider-aware controls narrow to model capabilities while presets keep al
     );
     await page.goto("/");
 
-    if (info.project.name.includes("mobile"))
-      await page.getByRole("button", { name: "More options", exact: true }).click();
     await page.getByRole("button", { name: "Chat Settings", exact: true }).filter({ visible: true }).click();
     await page
       .locator('.mari-chat-settings-drawer [data-chat-settings-section="advanced-parameters"]')

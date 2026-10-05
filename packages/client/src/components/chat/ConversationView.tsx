@@ -15,21 +15,13 @@ import {
   type MouseEvent as ReactMouseEvent,
 } from "react";
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
-import { Loader2, ChevronUp, Settings2, Image as ImageIcon, ArrowRightLeft } from "lucide-react";
+import { Loader2, ChevronUp, Puzzle } from "lucide-react";
 import { ConversationMessage } from "./ConversationMessage";
 import { ConversationInput } from "./ConversationInput";
 import { ConversationGamesPicker } from "./ConversationGamesPicker";
 import { SceneBanner, EndSceneBar } from "./SceneBanner";
-import { ChatBranchSelector } from "./ChatBranchSelector";
-import { ChatMessageSearch } from "./ChatMessageSearch";
-import { ActiveLorebookEntriesButton } from "./ActiveLorebookEntriesButton";
-import {
-  CHAT_TOOLBAR_OVERFLOW_BUTTON_SIZE_CLASS,
-  ChatToolbarButton,
-  ChatToolbarMenu,
-  getChatToolbarButtonClass,
-} from "./ChatToolbarControls";
-import { ChatHelpButton } from "./ChatHelpButton";
+import { CHAT_TOOLBAR_OVERFLOW_BUTTON_SIZE_CLASS, getChatToolbarButtonClass } from "./ChatToolbarControls";
+import { CHAT_CONTROL_WINDOW_IDS, ChatControlWindow } from "./ChatControlWindow";
 import { ConversationPresenceCard } from "./ConversationPresenceCard";
 import { PendingTypingDots } from "./PendingTypingDots";
 import { TranscriptWindowControls } from "./TranscriptWindowControls";
@@ -56,6 +48,7 @@ import {
   normalizeTextForMatch,
   parseGroupedSpeakerSegments,
   stripLeadingMessageTimestamps,
+  type InstalledCapabilityPackage,
   type Message,
 } from "@marinara-engine/shared";
 import { useInstalledCapabilityPackages } from "../../hooks/use-capability-packages";
@@ -87,8 +80,6 @@ interface ConversationViewProps {
   characterNames: string[];
   personaInfo?: PersonaInfo;
   chatMeta: Record<string, any>;
-  chatName?: string;
-  chatGroupId?: string | null;
   chatCharIds: string[];
   onDelete: (messageId: string) => void;
   onRegenerate: (messageId: string) => void;
@@ -101,13 +92,10 @@ interface ConversationViewProps {
   lastAssistantMessageId: string | null;
   onOpenSettings: (event?: ReactMouseEvent<HTMLElement>, options?: { initialSection?: "autonomous" | null }) => void;
   onOpenScheduleEditor?: (characterId: string, options?: { initialDay?: string | null }) => void;
-  onOpenGallery: (event?: ReactMouseEvent<HTMLElement>) => void;
   onBranch?: (messageId: string) => void;
   multiSelectMode?: boolean;
   selectedMessageIds?: Set<string>;
   onToggleSelectMessage?: (toggle: MessageSelectionToggle) => void;
-  connectedChatName?: string;
-  onSwitchChat?: () => void;
   sceneInfo?: {
     variant: "origin" | "scene";
     sceneChatId?: string;
@@ -319,6 +307,63 @@ function ConversationBackground({
   ) : null;
 }
 
+/** The chat's package integrations the user turned on (Calls, which keeps its header button, aside). */
+function selectEnabledConversationPackages(installed: InstalledCapabilityPackage[], chatMeta: Record<string, any>) {
+  if (chatMeta.enableAgents !== true) return [];
+  const activeAgentIds: string[] = Array.isArray(chatMeta.activeAgentIds) ? chatMeta.activeAgentIds : [];
+  return installed.filter((item) => {
+    if (item.status !== "active" || !item.manifest.entrypoints.client) return false;
+    if (item.manifest.kind.includes("conversation-calls")) return false;
+    const contributedAgentIds = item.manifest.contributions?.agentDetail?.agentIds ?? [];
+    return activeAgentIds.includes(item.id) || contributedAgentIds.some((id: string) => activeAgentIds.includes(id));
+  });
+}
+
+/** Package toolbars (the conversation-toolbar slot) as control windows that minimize to bubbles. */
+export function ConversationPackageWindows({
+  chatId,
+  chatMeta,
+  characterMap,
+  chatCharIds,
+  personaInfo,
+}: {
+  chatId: string;
+  chatMeta: Record<string, any>;
+  characterMap: CharacterMap;
+  chatCharIds: string[];
+  personaInfo?: PersonaInfo;
+}) {
+  const { data: installedCapabilities = [] } = useInstalledCapabilityPackages();
+  const packages = selectEnabledConversationPackages(installedCapabilities, chatMeta).filter((item) =>
+    item.manifest.contributions?.slots?.includes("conversation-toolbar"),
+  );
+  const capabilityProps = {
+    chatId,
+    metadata: chatMeta,
+    characterMap,
+    chatCharIds,
+    personaInfo,
+    toolbarButtonClass: getChatToolbarButtonClass(),
+  };
+  return packages.map((item, index) => (
+    <ChatControlWindow
+      key={item.id}
+      id={CHAT_CONTROL_WINDOW_IDS.package(item.id)}
+      title={item.manifest.name}
+      icon={<Puzzle size={14} />}
+      // The connected chat takes slot 0.
+      slot={index + 1}
+      width={280}
+      height={140}
+      helpTarget="agent-controls"
+    >
+      <div className="flex flex-wrap items-center gap-0.5 p-2">
+        <CapabilityElement packageId={item.id} view="toolbar" capabilityProps={capabilityProps} className="contents" />
+      </div>
+    </ChatControlWindow>
+  ));
+}
+
 export function ConversationView({
   chatId,
   messages,
@@ -332,8 +377,6 @@ export function ConversationView({
   characterNames,
   personaInfo,
   chatMeta,
-  chatName,
-  chatGroupId,
   chatCharIds,
   onDelete,
   onRegenerate,
@@ -346,13 +389,10 @@ export function ConversationView({
   lastAssistantMessageId,
   onOpenSettings,
   onOpenScheduleEditor,
-  onOpenGallery,
   onBranch,
   multiSelectMode,
   selectedMessageIds,
   onToggleSelectMessage,
-  connectedChatName,
-  onSwitchChat,
   sceneInfo,
   onConcludeScene,
   onAbandonScene,
@@ -497,61 +537,10 @@ export function ConversationView({
     personaInfo,
     toolbarButtonClass: getChatToolbarButtonClass({ sizeClassName: CHAT_TOOLBAR_OVERFLOW_BUTTON_SIZE_CLASS }),
   };
-  const activeAgentIds = chatMeta.activeAgentIds;
-  const enabledConversationCapabilities =
-    chatMeta.enableAgents === true
-      ? installedCapabilities.filter((item) => {
-          if (item.status !== "active" || !item.manifest.entrypoints.client) return false;
-          if (item.manifest.kind.includes("conversation-calls")) return false;
-          const contributedAgentIds = item.manifest.contributions?.agentDetail?.agentIds ?? [];
-          return activeAgentIds.includes(item.id) || contributedAgentIds.some((id) => activeAgentIds.includes(id));
-        })
-      : [];
-  const conversationToolbarPackages = enabledConversationCapabilities.filter((item) =>
-    item.manifest.contributions?.slots?.includes("conversation-toolbar"),
-  );
-  const conversationSurfacePackages = enabledConversationCapabilities.filter((item) =>
-    item.manifest.contributions?.slots?.includes("conversation-surface"),
+  const conversationSurfacePackages = selectEnabledConversationPackages(installedCapabilities, chatMeta).filter(
+    (item) => item.manifest.contributions?.slots?.includes("conversation-surface"),
   );
   const conversationCapabilityProps = { chatId, metadata: chatMeta, characterMap, chatCharIds, personaInfo };
-  const renderToolbarActions = (compact = false) => (
-    <>
-      <ChatHelpButton mode="conversation" compact={compact} />
-      <ChatBranchSelector
-        activeChatId={chatId}
-        activeChatName={chatName}
-        groupId={chatGroupId}
-        variant="roleplay"
-        compact={compact}
-      />
-      <ActiveLorebookEntriesButton chatId={chatId} />
-      <ChatToolbarButton
-        icon={<ImageIcon size="0.875rem" />}
-        title={t("chat.toolbar.gallery")}
-        panelAction="gallery"
-        onClick={onOpenGallery}
-      />
-      {onSwitchChat && (
-        <ChatToolbarButton
-          icon={<ArrowRightLeft size="0.875rem" />}
-          helpTarget="connected-chat"
-          title={
-            connectedChatName
-              ? t("chat.toolbar.switchTo", { name: connectedChatName })
-              : t("chat.toolbar.switchToConnected")
-          }
-          onClick={onSwitchChat}
-        />
-      )}
-      <ChatMessageSearch chatId={chatId} />
-      <ChatToolbarButton
-        icon={<Settings2 size="0.875rem" />}
-        title={t("chat.toolbar.settings")}
-        panelAction="settings"
-        onClick={onOpenSettings}
-      />
-    </>
-  );
   // Like the Roleplay strip, the see-through header lets touches through to the transcript except on its controls.
   const renderHeader = () => (
     <div className="pointer-events-none sticky top-0 z-30 flex items-center justify-between px-4 py-2">
@@ -577,28 +566,7 @@ export function ConversationView({
           </span>
         )}
       </div>
-
-      <div className="ml-2 flex min-w-0 flex-1 items-center justify-end gap-2">
-        {/* The menu keeps its full width to decide when to collapse; only its buttons take touches. */}
-        <ChatToolbarMenu
-          className="flex-1 [&>*]:pointer-events-auto"
-          desktopChildren={renderToolbarActions()}
-          mobileChildren={renderToolbarActions(true)}
-        />
-        {conversationToolbarPackages.map((item) => (
-          <span key={`${item.id}-toolbar`} data-chat-help="agent-controls" className="pointer-events-auto contents">
-            <CapabilityElement
-              packageId={item.id}
-              view="toolbar"
-              capabilityProps={{
-                ...conversationCapabilityProps,
-                toolbarButtonClass: getChatToolbarButtonClass(),
-              }}
-              className="contents"
-            />
-          </span>
-        ))}
-      </div>
+      {/* Chat Settings, the connected chat and package toolbars sit in the topbar and in bubbles. */}
     </div>
   );
   const scrollRef = useRef<HTMLDivElement>(null);

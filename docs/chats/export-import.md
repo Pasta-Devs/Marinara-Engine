@@ -13,13 +13,12 @@ The chat import feature accepts a `.jsonl` file only. If you want to re-import a
 
 ## Export a single chat
 
-To export one chat to a file, use the **Chat Branches** panel. This is the quickest way to export chat history for a single conversation.
+To export one chat to a file, use the **Chat Branches** section of **Chat Settings**. This is the quickest way to export chat history for a single conversation.
 
 1. Open the chat you want to export.
-2. In the chat toolbar, click the branch button (its tooltip reads **Switch branch**).
-3. The **Chat Branches** panel opens. It says "Switch, import, export, or clean up this chat's branches."
-4. Click **JSONL** to save the chat as a JSONL file, or click **Text** to save it as a readable text file.
-5. Your browser downloads the file.
+2. Open **Chat Settings** and expand the **Chat Branches** section, under **Chat Name**.
+3. Click **JSONL** to save the chat as a JSONL file, or click **Text** to save it as a readable text file.
+4. Your browser downloads the file.
 
 The download saves the chat that is currently open, including its messages.
 
@@ -54,8 +53,8 @@ If you want the new chat in Roleplay mode, open the **RP** tab before you import
 You can also load a `.jsonl` file into an existing chat as a new branch. A branch is a separate saved copy of a chat that you can explore on its own. See [Chat Branches](branches.md) for more about branches.
 
 1. Open the chat you want to add the branch to.
-2. In the chat toolbar, click the branch button (tooltip **Switch branch**) to open the **Chat Branches** panel.
-3. Click **Import** in that panel.
+2. Open **Chat Settings** and expand the **Chat Branches** section.
+3. Click **Import** in that section.
 4. Choose your `.jsonl` file.
 5. You should see a message that says "Imported N messages as a new branch".
 

@@ -141,7 +141,7 @@ See [Noodle: The In-App Social Timeline](noodle/overview.md) and [Noodle Setting
 AI models can only hold so much text at once, so old messages fall out of view in long chats. Marinara has two memory systems that help:
 
 - **Memory Recall** searches earlier messages and quietly adds the most relevant bits back into the prompt. Turn it on in **Chat Settings** under **Memory Recall**.
-- Summaries compress old messages into short recaps. Roleplay chats use **Chat Summary**, and Conversation chats use **Automatic Summarization**.
+- Summaries compress old messages into short recaps. Roleplay chats use **Chat Summary**, and Conversation chats use **Automatic Summarization**. Both are in **Chat Settings**.
 
 For automatic Roleplay context management, enable **Advanced Memory Recall** in **Chat Settings → Memory Recall**. It keeps recent history, maintains bounded continuity, and selectively recalls older scenes within your chosen estimated context cap. Setup, progress and editing stay in the drawer. Older Individual group chats may need one-time confirmation of each character's knowledge range. The optional **Use Decision model** toggle lets a saved Decision connection detect scenes and select memories; the Helper model still writes summaries.
 
@@ -190,7 +190,7 @@ Note: on an ordinary remote address, Professor Mari's data-changing actions need
 
 The downloadable **Storyboard** Agent turns completed story text into an ordered sequence of keyframe images and can animate each keyframe into a short clip. In **Game Mode**, it storyboards one finished GM narration turn and displays the frames in a floating viewer or as the Game background. In **Roleplay**, it combines newly completed exchanges into an inline episode.
 
-To use it in Game Mode, install **Storyboard** from **Agents > Download Agents**. Open the Game, go to **Chat Settings > Agents**, turn on **Enable Agents** and **Enable Storyboards**, and set an image connection in the Game or the global Storyboard setup. Finish a GM narration turn, then open the **Gallery** and click **Create storyboard**. Use **View storyboard** to reopen its viewer.
+To use it in Game Mode, install **Storyboard** from **Agents > Download Agents**. Open the Game, go to **Chat Settings > Agents**, turn on **Enable Agents** and **Enable Storyboards**, and set an image connection in the Game or the global Storyboard setup. Finish a GM narration turn, then open **Chat Settings > Gallery** and click **Create storyboard**. Use **View storyboard** to reopen its viewer.
 
 For automatic Game Storyboards, turn on **Automatic Storyboard Illustrations**. Also turn on **Automatic Storyboard Animations** and select a Video Generation connection when you want clips. The new-game wizard's **Storyboard Optimized** presentation only shapes GM narration; it does not install or activate the Agent. For Game and Roleplay setup, prompts, viewers, migration behavior, and troubleshooting, see the [Storyboard Agent Guide](game/storyboard.md).
 

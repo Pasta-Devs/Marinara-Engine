@@ -491,6 +491,9 @@ export function GameInventory({
 
   return (
     <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={localizeUi("ui.game.gamecharactersheet.inventory")}
       className="fixed inset-y-0 z-[80] flex items-center justify-center bg-black/70 p-3 pb-[max(var(--mari-safe-area-inset-bottom,env(safe-area-inset-bottom)),0.75rem)] pt-[max(env(safe-area-inset-top),0.75rem)] backdrop-blur-sm sm:p-4"
       style={{
         left: "var(--mari-chat-ui-inset-left, 0px)",
@@ -514,6 +517,7 @@ export function GameInventory({
           </div>
           <button
             onClick={onClose}
+            aria-label={localizeUi("navigation.common.close")}
             className="rounded p-1 text-white/40 transition-colors hover:bg-white/10 hover:text-white/70"
           >
             <X size={14} />

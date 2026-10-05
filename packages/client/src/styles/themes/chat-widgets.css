@@ -1,0 +1,603 @@
+/* Optional chat chrome. Public --mari-window-* / --mari-drawer-* theme hooks
+   take precedence over these preset fallbacks. Default supplies no palette. */
+[data-chat-widget-preview] {
+  --mari-widget-custom-border: initial;
+  --mari-widget-custom-border-solid: initial;
+  --mari-widget-custom-background: initial;
+  --mari-widget-custom-background-solid: initial;
+  --mari-widget-custom-background-image: initial;
+  --mari-widget-custom-text: initial;
+  --mari-widget-custom-text-solid: initial;
+  --mari-widget-custom-text-image: initial;
+  --mari-widget-custom-text-fill: initial;
+  --mari-widget-custom-border-content: initial;
+  --mari-widget-custom-isolation: initial;
+  --mari-widget-bg: initial;
+  --mari-widget-text: initial;
+  --mari-widget-accent: initial;
+  --mari-widget-muted: initial;
+  --mari-widget-field: initial;
+  --mari-widget-border: initial;
+  --mari-widget-gold: initial;
+  --mari-widget-soft: initial;
+  --mari-widget-font-preset: initial;
+  --mari-widget-header-bg: initial;
+  --mari-widget-header-shell-bg: initial;
+  --mari-widget-bubble-bg: initial;
+  --mari-widget-radius: initial;
+  --mari-widget-bubble-radius: initial;
+  --mari-widget-drawer-radius: initial;
+  --mari-widget-shell-bg: initial;
+  --mari-widget-shell-border: initial;
+  --mari-widget-frame-content: initial;
+  --mari-widget-frame-clip: initial;
+  --mari-widget-frame-inner-clip: initial;
+  --mari-widget-frame-inset: initial;
+  --mari-widget-frame-shadow: initial;
+  --mari-widget-crest: initial;
+  --mari-widget-crest-content: initial;
+  --mari-widget-ornament-content: initial;
+  --mari-widget-isolation: initial;
+  --mari-widget-drawer-margin: initial;
+  --mari-widget-body-inset: initial;
+  --mari-widget-drawer-border-width: initial;
+  --mari-widget-button-clip: initial;
+  --mari-widget-button-inner-clip: initial;
+  --mari-widget-button-shell: initial;
+  --mari-widget-button-crest: initial;
+  --mari-widget-button-text: initial;
+  --mari-widget-button-shadow: initial;
+  --mari-widget-ornament-inset: initial;
+  --mari-widget-ornament-border: initial;
+  --mari-widget-ornament-bg: initial;
+  --mari-widget-ornament-z: initial;
+  --mari-widget-ornament-shadow: initial;
+  --mari-widget-shadow: initial;
+  --mari-widget-filter: initial;
+  --mari-widget-header-padding: initial;
+  --mari-widget-crest-height: initial;
+}
+
+[data-chat-widget-preset="dottore"] {
+  --mari-widget-bg: oklch(0.965 0.012 220);
+  --mari-widget-text: oklch(0.3 0.052 227);
+  --mari-widget-accent: oklch(0.39 0.077 227);
+  --mari-widget-muted: oklch(0.47 0.04 220);
+  --mari-widget-field: oklch(0.935 0.017 216);
+  --mari-widget-border: oklch(0.7 0.048 218);
+  --mari-widget-gold: oklch(0.58 0.065 83);
+  --mari-widget-soft: oklch(0.87 0.037 210);
+  --mari-widget-font-preset: ui-monospace, "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace;
+  --mari-widget-header-bg: linear-gradient(110deg, transparent, oklch(0.85 0.04 197 / 0.22));
+  --mari-widget-header-padding: 0.75rem 1.75rem;
+  --mari-widget-crest-height: 3rem;
+  --mari-widget-crest: url("/images/chat-widgets/dottore-crest.svg");
+  --mari-widget-crest-content: "";
+  --mari-widget-ornament-content: "";
+  --mari-widget-isolation: isolate;
+  --mari-widget-drawer-margin: 0 0.625rem;
+  --mari-widget-body-inset: 0 0.375rem 0.375rem;
+  --mari-widget-drawer-border-width: 1px;
+  --mari-widget-drawer-radius: 0.25rem;
+  --mari-widget-frame-shadow:
+    inset 0 0 0 3px var(--mari-widget-custom-background-solid, var(--mari-widget-bg)),
+    inset 0 0 0 4px var(--mari-widget-custom-border-solid, var(--mari-widget-accent));
+}
+
+[data-theme="dark"][data-chat-widget-preset="dottore"],
+[data-theme="dark"] [data-chat-widget-preset="dottore"] {
+  --mari-widget-bg: oklch(0.205 0.023 224);
+  --mari-widget-text: oklch(0.9 0.044 203);
+  --mari-widget-accent: oklch(0.86 0.083 202);
+  --mari-widget-muted: oklch(0.73 0.037 219);
+  --mari-widget-field: oklch(0.26 0.027 221);
+  --mari-widget-border: oklch(0.44 0.049 219);
+  --mari-widget-gold: oklch(0.73 0.067 86);
+  --mari-widget-soft: oklch(0.34 0.044 216);
+}
+
+[data-chat-widget-preset="mari"] {
+  --mari-widget-bg: oklch(0.975 0.018 76);
+  --mari-widget-text: oklch(0.35 0.07 12);
+  --mari-widget-accent: oklch(0.46 0.125 9);
+  --mari-widget-muted: oklch(0.5 0.055 22);
+  --mari-widget-field: oklch(0.95 0.021 63);
+  --mari-widget-border: oklch(0.79 0.054 65);
+  --mari-widget-gold: oklch(0.59 0.102 69);
+  --mari-widget-soft: oklch(0.9 0.05 24);
+  --mari-widget-font-preset: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+  --mari-widget-header-bg: linear-gradient(110deg, transparent, oklch(0.79 0.1 17 / 0.1));
+  --mari-widget-header-padding: 0.75rem 1.75rem;
+  --mari-widget-crest-height: 2rem;
+  --mari-widget-crest: url("/images/chat-widgets/mari-primogem.svg");
+  --mari-widget-crest-content: "";
+  --mari-widget-ornament-content: "";
+  --mari-widget-isolation: isolate;
+  --mari-widget-drawer-margin: 0 0.625rem;
+  --mari-widget-body-inset: 0 0.375rem 0.375rem;
+  --mari-widget-drawer-border-width: 1px;
+  --mari-widget-drawer-radius: 0.5rem;
+  --mari-widget-frame-shadow:
+    inset 0 0 0 3px var(--mari-widget-custom-background-solid, var(--mari-widget-bg)),
+    inset 0 0 0 4px var(--mari-widget-custom-border-solid, var(--mari-widget-gold));
+  --mari-widget-button-crest: none;
+  --mari-widget-button-shadow:
+    inset 0 0 0 2px var(--mari-widget-custom-background-solid, var(--mari-widget-bg)),
+    inset 0 0 0 3px var(--mari-widget-custom-border-solid, var(--mari-widget-gold)), 0 3px 8px rgb(0 0 0 / 0.3);
+  --mari-widget-ornament-inset: -0.375rem -1px;
+  --mari-widget-ornament-border: 0;
+  --mari-widget-ornament-bg: var(--mari-widget-button-crest) top center / 0.75rem 0.75rem no-repeat;
+}
+
+[data-theme="dark"][data-chat-widget-preset="mari"],
+[data-theme="dark"] [data-chat-widget-preset="mari"] {
+  --mari-widget-bg: oklch(0.215 0.022 339);
+  --mari-widget-text: oklch(0.91 0.044 69);
+  --mari-widget-accent: oklch(0.81 0.087 13);
+  --mari-widget-muted: oklch(0.73 0.049 22);
+  --mari-widget-field: oklch(0.26 0.032 351);
+  --mari-widget-border: oklch(0.45 0.058 22);
+  --mari-widget-gold: oklch(0.76 0.096 75);
+  --mari-widget-soft: oklch(0.35 0.058 354);
+}
+
+[data-chat-widget-shape="rounded"] {
+  --mari-widget-radius: 1rem;
+  --mari-widget-bubble-radius: 0.75rem;
+  --mari-widget-drawer-radius: 0.625rem;
+}
+
+[data-chat-widget-shape="square"] {
+  --mari-widget-radius: 0px;
+  --mari-widget-bubble-radius: 0px;
+  --mari-widget-drawer-radius: 0px;
+}
+
+[data-chat-widget-shape="arched"],
+[data-chat-widget-preset="mari"][data-chat-widget-shape="preset"] {
+  --mari-widget-radius: 1.75rem 1.75rem 0.875rem 0.875rem;
+  --mari-widget-bubble-radius: 50%;
+  --mari-widget-drawer-radius: 0.625rem 0.625rem 0.25rem 0.25rem;
+}
+
+[data-chat-widget-shape="cut-corner"],
+[data-chat-widget-preset="dottore"][data-chat-widget-shape="preset"] {
+  --mari-widget-radius: 0px;
+  --mari-widget-bubble-radius: 0.25rem;
+  --mari-widget-shell-bg: transparent;
+  --mari-widget-header-shell-bg: transparent;
+  /* A rectangular box shadow leaves bright wedges outside the cut corners. */
+  --mari-widget-shadow: none;
+  --mari-widget-filter: drop-shadow(0 12px 16px rgb(0 0 0 / 0.25));
+  --mari-widget-shell-border: transparent;
+  --mari-widget-frame-content: "";
+  --mari-widget-isolation: isolate;
+  --mari-widget-frame-clip: polygon(
+    14px 0,
+    calc(100% - 14px) 0,
+    100% 14px,
+    100% calc(100% - 14px),
+    calc(100% - 14px) 100%,
+    14px 100%,
+    0 calc(100% - 14px),
+    0 14px
+  );
+  --mari-widget-frame-inner-clip: polygon(
+    12px 0,
+    calc(100% - 12px) 0,
+    100% 12px,
+    100% calc(100% - 12px),
+    calc(100% - 12px) 100%,
+    12px 100%,
+    0 calc(100% - 12px),
+    0 12px
+  );
+  --mari-widget-frame-inset: 2px;
+  --mari-widget-button-clip: polygon(
+    7px 0,
+    calc(100% - 7px) 0,
+    100% 7px,
+    100% calc(100% - 7px),
+    calc(100% - 7px) 100%,
+    7px 100%,
+    0 calc(100% - 7px),
+    0 7px
+  );
+  --mari-widget-button-inner-clip: polygon(
+    6px 0,
+    calc(100% - 6px) 0,
+    100% 6px,
+    100% calc(100% - 6px),
+    calc(100% - 6px) 100%,
+    6px 100%,
+    0 calc(100% - 6px),
+    0 6px
+  );
+  --mari-widget-button-shell: transparent;
+  --mari-widget-ornament-content: "";
+  --mari-widget-ornament-inset: -1px;
+  --mari-widget-ornament-border: 1px solid
+    var(--mari-window-bubble-border, var(--mari-widget-gold, var(--marinara-chat-chrome-button-border)));
+  --mari-widget-ornament-z: -1;
+  --mari-widget-ornament-bg:
+    linear-gradient(135deg, var(--mari-widget-gold, var(--border)) 5px, transparent 5px),
+    linear-gradient(225deg, var(--mari-widget-gold, var(--border)) 5px, transparent 5px),
+    linear-gradient(45deg, var(--mari-widget-gold, var(--border)) 5px, transparent 5px),
+    linear-gradient(315deg, var(--mari-widget-gold, var(--border)) 5px, transparent 5px),
+    var(
+      --mari-window-bubble-bg,
+      var(
+        --mari-widget-custom-background,
+        var(--mari-widget-custom-background-solid, var(--mari-widget-bg, var(--marinara-chat-chrome-button-bg)))
+      )
+    );
+  --mari-widget-ornament-shadow:
+    inset 0 0 0 2px
+      var(--mari-widget-custom-background-solid, var(--mari-widget-bg, var(--marinara-chat-chrome-button-bg))),
+    inset 0 0 0 3px var(--mari-widget-custom-border-solid, var(--mari-widget-border, var(--border)));
+}
+
+@layer components {
+  .mari-window,
+  .mari-drawer-ghost {
+    font-family: var(
+      --mari-window-font-family,
+      var(--mari-widget-font-override, var(--mari-widget-font-preset, inherit))
+    );
+    isolation: var(--mari-widget-custom-isolation, var(--mari-widget-isolation, auto));
+    filter: var(--mari-widget-filter, none);
+  }
+
+  /* Clip only the painted frame, never the root: resize handles, focus rings
+     and the phone button's expanded hit target must remain outside it. */
+  .mari-window::before,
+  .mari-window::after {
+    content: var(--mari-widget-custom-border-content, var(--mari-widget-frame-content, none));
+    position: absolute;
+    inset: -1px;
+    z-index: -2;
+    background: var(
+      --mari-window-border,
+      var(--mari-widget-custom-border, var(--mari-widget-gold, var(--marinara-chat-chrome-panel-border)))
+    );
+    border-radius: inherit;
+    clip-path: var(--mari-widget-frame-clip, none);
+    pointer-events: none;
+  }
+
+  .mari-window::after {
+    inset: var(--mari-widget-frame-inset, 1px);
+    clip-path: var(--mari-widget-frame-inner-clip, none);
+    z-index: -1;
+    background: var(
+      --mari-window-bg,
+      var(--mari-widget-custom-background, var(--mari-widget-bg, var(--marinara-chat-chrome-panel-bg)))
+    );
+    box-shadow: var(--mari-widget-frame-shadow, none);
+  }
+
+  .mari-window__header {
+    position: relative;
+    isolation: var(--mari-widget-custom-isolation, var(--mari-widget-isolation, auto));
+  }
+
+  /* A cut frame needs cut header paint too, without clipping its crest,
+     focus ring or controls. Custom header backgrounds use the same boundary. */
+  .mari-window__header::before {
+    content: var(--mari-widget-frame-content, none);
+    position: absolute;
+    inset: 7px 7px 0;
+    z-index: -1;
+    background: var(
+      --mari-window-header-bg,
+      var(--mari-widget-custom-background, var(--mari-widget-header-bg, transparent))
+    );
+    /* Seven pixels on each side already clear the 14px outer cut. */
+    pointer-events: none;
+  }
+
+  .mari-window__header::after {
+    content: var(--mari-widget-crest-content, none);
+    position: absolute;
+    width: 2rem;
+    height: var(--mari-widget-crest-height, 2rem);
+    left: calc(50% - 1rem);
+    top: calc(var(--mari-widget-crest-height, 2rem) * -0.55);
+    background: var(--mari-window-ornament, var(--mari-widget-crest)) center / contain no-repeat;
+    pointer-events: none;
+  }
+
+  /* Phone panels clip their contents. Keep the crest inside the title bar and
+     beside the title, clear of the actions on the right. */
+  .mari-window[data-presentation="sheet"] .mari-window__header::after {
+    left: 0.25rem;
+    top: calc(50% - 1rem);
+    width: 1.25rem;
+    height: 2rem;
+  }
+
+  /* Keep scrolling content inside the decorative inner frame. The root stays
+     unclipped so its resize handles and title crest remain accessible. */
+  .mari-window__body {
+    margin: var(--mari-widget-body-inset, 0);
+  }
+
+  .mari-drawer {
+    margin: var(--mari-widget-drawer-margin, 0);
+    border-width: var(--mari-widget-drawer-border-width, 0) var(--mari-widget-drawer-border-width, 0) 1px;
+    border-style: solid;
+    border-color: var(
+      --mari-drawer-border,
+      var(--mari-widget-custom-border-solid, var(--mari-widget-border, var(--border)))
+    );
+    border-radius: var(--mari-drawer-radius, var(--mari-widget-drawer-radius, 0));
+  }
+
+  /* Attached Mari sections form one continuous stack inside the outer frame. */
+  :root[data-chat-widget-preset="mari"] .mari-drawer[data-detached="false"],
+  [data-chat-widget-preview][data-chat-widget-preset="mari"] .mari-drawer {
+    border-radius: var(--mari-drawer-radius, 0);
+  }
+
+  .mari-drawer__header {
+    border-radius: inherit;
+    font-family: inherit;
+  }
+
+  .mari-window-bubble {
+    isolation: var(--mari-widget-custom-isolation, var(--mari-widget-isolation, auto));
+  }
+
+  .mari-window-bubble::after {
+    content: var(--mari-widget-ornament-content, none);
+    position: absolute;
+    inset: var(--mari-widget-ornament-inset, 2px);
+    border: var(
+      --mari-widget-ornament-border,
+      1px solid var(--mari-widget-custom-border-solid, var(--mari-widget-gold))
+    );
+    border-radius: inherit;
+    background: var(--mari-widget-ornament-bg, transparent);
+    z-index: var(--mari-widget-ornament-z, auto);
+    clip-path: var(--mari-widget-button-clip, none);
+    box-shadow: var(--mari-widget-ornament-shadow, none);
+    pointer-events: none;
+  }
+
+  /* Color overrides are opt-in. Preview cards form their own color scope, so
+     unselected cards keep showing their preset rather than the active colors. */
+  :root[data-chat-widget-colors~="border"] .mari-window:not([data-chat-widget-preview] *),
+  [data-chat-widget-preview][data-chat-widget-colors~="border"] .mari-window {
+    border-color: var(--mari-window-border, transparent);
+  }
+
+  :root[data-chat-widget-colors~="border"] .mari-drawer:not([data-chat-widget-preview] *),
+  [data-chat-widget-preview][data-chat-widget-colors~="border"] .mari-drawer {
+    position: relative;
+  }
+
+  :root[data-chat-widget-colors~="border"] .mari-drawer:not([data-chat-widget-preview] *)::before,
+  [data-chat-widget-preview][data-chat-widget-colors~="border"] .mari-drawer::before {
+    content: "";
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    padding: var(--mari-widget-drawer-border-width, 0) var(--mari-widget-drawer-border-width, 0) 1px;
+    background: var(--mari-drawer-border, var(--mari-widget-custom-border));
+    mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    mask-composite: exclude;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  :root[data-chat-widget-colors~="border"] .mari-window button svg:not([data-chat-widget-preview] *),
+  [data-chat-widget-preview][data-chat-widget-colors~="border"] .mari-window button svg {
+    color: var(--mari-window-control-color, var(--mari-widget-custom-border-solid));
+  }
+
+  .mari-window-bubble__paint {
+    display: none;
+    pointer-events: none;
+  }
+
+  :root[data-chat-widget-colors~="border"] .mari-window-bubble:not([data-chat-widget-preview] *),
+  [data-chat-widget-preview][data-chat-widget-colors~="border"] .mari-window-bubble {
+    border-color: transparent;
+    background: transparent;
+    box-shadow: var(--mari-window-bubble-shadow, 0 4px 12px rgb(0 0 0 / 0.25));
+  }
+
+  :root[data-chat-widget-colors~="border"] .mari-window-bubble:not([data-chat-widget-preview] *)::after,
+  [data-chat-widget-preview][data-chat-widget-colors~="border"] .mari-window-bubble::after {
+    content: none;
+  }
+
+  :root[data-chat-widget-colors~="border"]
+    .mari-window-bubble:not([data-chat-widget-preview] *)
+    > .mari-window-bubble__paint,
+  [data-chat-widget-preview][data-chat-widget-colors~="border"] .mari-window-bubble > .mari-window-bubble__paint {
+    display: block;
+    position: absolute;
+    inset: -1px;
+    z-index: -1;
+    border-radius: inherit;
+    background: var(--mari-window-bubble-border, var(--mari-widget-custom-border));
+    clip-path: var(--mari-widget-button-clip, none);
+  }
+
+  .mari-window-bubble__paint::after {
+    content: "";
+    position: absolute;
+    inset: 1px;
+    border-radius: inherit;
+    background: var(
+      --mari-window-bubble-bg,
+      var(--mari-widget-custom-background, var(--mari-widget-bg, var(--marinara-chat-chrome-button-bg)))
+    );
+    clip-path: var(--mari-widget-button-inner-clip, none);
+  }
+
+  @media (hover: hover) {
+    .mari-window-bubble:hover > .mari-window-bubble__paint::after {
+      background: var(
+        --mari-window-bubble-bg-hover,
+        var(
+          --mari-window-bubble-bg,
+          var(--mari-widget-custom-background, var(--mari-widget-soft, var(--marinara-chat-chrome-button-bg-hover)))
+        )
+      );
+    }
+  }
+
+  :root[data-chat-widget-colors~="border"] .mari-window-bubble:focus-visible:not([data-chat-widget-preview] *) {
+    box-shadow: 0 0 0 2px var(--mari-window-focus-ring, var(--mari-widget-custom-border-solid));
+  }
+
+  /* Native fields must follow the chosen surface when their text does too.
+     An image layer also covers existing utility background colors. */
+  :root[data-chat-widget-colors~="background"]
+    .mari-window
+    :is(
+      input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"], [type="file"]),
+      textarea,
+      select
+    ):not([data-chat-widget-preview] *),
+  [data-chat-widget-preview][data-chat-widget-colors~="background"]
+    .mari-window
+    :is(input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"], [type="file"]), textarea, select) {
+    background-image: var(--mari-widget-custom-background-image);
+  }
+
+  .mari-window :is(option, optgroup) {
+    background-color: var(--mari-widget-field-option-bg);
+    color: var(--mari-widget-field-option-text);
+    -webkit-text-fill-color: currentColor;
+  }
+
+  /* Text gradients belong on captions, never on a container: inherited
+     transparent text fill would hide editable fields and unrelated controls. */
+  :root[data-chat-widget-colors~="text"]
+    :is(.mari-window__title, .mari-drawer__title, .mari-drawer__summary):not([data-chat-widget-preview] *),
+  [data-chat-widget-preview][data-chat-widget-colors~="text"]
+    :is(.mari-window__title, .mari-drawer__title, .mari-drawer__summary) {
+    background-image: var(--mari-widget-custom-text-image);
+    background-clip: text;
+    -webkit-text-fill-color: var(--mari-window-text, var(--mari-widget-custom-text-fill));
+  }
+
+  :root[data-chat-widget-colors~="text"] .mari-window__title:not([data-chat-widget-preview] *),
+  [data-chat-widget-preview][data-chat-widget-colors~="text"] .mari-window__title {
+    -webkit-text-fill-color: var(
+      --mari-window-header-text,
+      var(--mari-window-text, var(--mari-widget-custom-text-fill))
+    );
+  }
+
+  :root[data-chat-widget-colors~="text"] .mari-drawer__title:not([data-chat-widget-preview] *),
+  [data-chat-widget-preview][data-chat-widget-colors~="text"] .mari-drawer__title {
+    -webkit-text-fill-color: var(
+      --mari-drawer-title-color,
+      var(--mari-window-text, var(--mari-widget-custom-text-fill))
+    );
+  }
+
+  :root[data-chat-widget-colors~="text"]
+    .mari-window__body
+    :is(p, span, label, small, strong, em, h1, h2, h3, h4):not(
+      :has(*),
+      [class*="bg-"],
+      .mari-drawer__count,
+      .mari-drawer__title,
+      [data-chat-widget-preview] *
+    ),
+  [data-chat-widget-preview][data-chat-widget-colors~="text"]
+    .mari-window__body
+    :is(p, span, label, small, strong, em, h1, h2, h3, h4):not(
+      :has(*),
+      [class*="bg-"],
+      .mari-drawer__count,
+      .mari-drawer__title
+    ) {
+    color: var(--mari-window-text, var(--mari-widget-custom-text-solid));
+    background-image: var(--mari-widget-custom-text-image);
+    background-clip: text;
+    -webkit-text-fill-color: var(--mari-window-text, var(--mari-widget-custom-text-fill));
+  }
+
+  :root[data-chat-widget-colors~="text"] .mari-window :is(input, textarea, select):not([data-chat-widget-preview] *),
+  [data-chat-widget-preview][data-chat-widget-colors~="text"] .mari-window :is(input, textarea, select) {
+    color: var(--mari-window-text, var(--mari-widget-custom-text-solid));
+    -webkit-text-fill-color: var(--mari-window-text, var(--mari-widget-custom-text-solid));
+  }
+
+  .mari-widget-style-preview {
+    padding: 0.875rem 0 0.25rem;
+  }
+
+  .mari-widget-style-preview__window {
+    min-height: 5.5rem;
+    font-size: 0.625rem;
+    --mari-window-header-padding: 0.625rem 0.5rem;
+    --mari-drawer-header-padding: 0.5rem 0.25rem;
+    --mari-widget-drawer-margin: 0;
+  }
+
+  [data-chat-widget-preview][data-chat-widget-preset="dottore"] .mari-widget-style-preview__window,
+  [data-chat-widget-preview][data-chat-widget-preset="mari"] .mari-widget-style-preview__window {
+    --mari-window-header-padding: 0.625rem 1rem;
+  }
+
+  .mari-widget-style-preview .mari-window__header::after {
+    width: 1rem;
+    height: 1.5rem;
+    left: calc(50% - 0.5rem);
+    top: -0.875rem;
+  }
+}
+
+/* Title icons can carry utility colors; custom button colors must still reach them. */
+:root[data-chat-widget-colors~="border"] .mari-window__title-row > svg:not([data-chat-widget-preview] *),
+[data-chat-widget-preview][data-chat-widget-colors~="border"] .mari-window__title-row > svg {
+  color: var(--mari-window-control-color, var(--mari-widget-custom-border-solid));
+}
+
+/* Small phone trackers reuse the editable tracker content. Keep its local surface
+   tokens in the widget palette without changing the standalone Tracker Panel. */
+.mari-window[data-mobile-tracker-window] {
+  --foreground: var(
+    --mari-window-text,
+    var(--mari-widget-custom-text-solid, var(--mari-widget-text, var(--marinara-chat-chrome-panel-text)))
+  );
+  --muted-foreground: var(
+    --mari-window-text,
+    var(--mari-widget-custom-text-solid, var(--mari-widget-muted, var(--marinara-chat-chrome-panel-muted)))
+  );
+  --border: var(
+    --mari-window-border,
+    var(--mari-widget-custom-border-solid, var(--mari-widget-border, var(--marinara-chat-chrome-panel-border)))
+  );
+  --background: var(--mari-widget-custom-background-solid, var(--mari-widget-bg, var(--marinara-chat-chrome-panel-bg)));
+  --popover: var(--background);
+  --muted: var(--mari-widget-custom-background-solid, var(--mari-widget-soft, var(--marinara-chat-chrome-highlight-bg)));
+  --accent: var(--muted);
+}
+
+.mari-window[data-mobile-tracker-window] .marinara-chat-popover__header {
+  border-color: var(--border);
+}
+
+.mari-window[data-mobile-tracker-window] .marinara-chat-popover__title {
+  color: var(
+    --mari-window-header-text,
+    var(--mari-widget-custom-text-solid, var(--mari-widget-accent, var(--marinara-chat-chrome-panel-title)))
+  );
+}
+
+.mari-window[data-mobile-tracker-window] svg[class*="--marinara-chat-chrome-accent"] {
+  color: var(
+    --mari-window-control-color,
+    var(--mari-widget-custom-border-solid, var(--mari-widget-accent, var(--marinara-chat-chrome-accent)))
+  );
+}

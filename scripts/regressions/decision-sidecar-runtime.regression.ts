@@ -69,6 +69,8 @@ const { hubRevisionUrl, isLoadableArtifactFile, listHubFiles } =
 const { inspectDecisionRepo } = await import("../../packages/server/src/services/sidecar/decision-byo.js");
 
 const realFetch = globalThis.fetch;
+const platformDescriptor = Object.getOwnPropertyDescriptor(process, "platform")!;
+const archDescriptor = Object.getOwnPropertyDescriptor(process, "arch")!;
 const model = structuredClone(SIDECAR_DECISION_MODELS[0]!);
 
 // The address the fake Python announces: a stand-in decision server that records what
@@ -402,6 +404,11 @@ exec sleep 30
   mkdirSync(join(artifactSnapshotPath(model.artifacts[0]!), "package", "checkpoint"), { recursive: true });
   assert.ok(decisionRuntimeInstalled(), "the fake runtime reads as installed");
 
+  // The fake CUDA/Python runtime represents its supported Linux x64 host too, even
+  // when this regression runs on a Mac. Otherwise platform refusal hides every lifecycle case.
+  Object.defineProperty(process, "platform", { ...platformDescriptor, value: "linux" });
+  Object.defineProperty(process, "arch", { ...archDescriptor, value: "x64" });
+
   // ── free disk is not asked of a model already on disk ─────────────────────────
 
   // More disk than any machine has, so the only way past the disk check is not
@@ -541,6 +548,8 @@ exec sleep 30
   // waits for the start that is waiting on it.
   held?.respond(200);
   await decisionProcessService.stop().catch(() => null);
+  Object.defineProperty(process, "platform", platformDescriptor);
+  Object.defineProperty(process, "arch", archDescriptor);
   fakeDecisionServer.close();
   rmSync(root, { recursive: true, force: true });
 }

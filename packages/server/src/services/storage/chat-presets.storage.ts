@@ -65,6 +65,7 @@ function sanitizePresetAgentMap(value: unknown) {
 }
 
 function sanitizePresetMetadataValue(key: string, value: unknown) {
+  if (key === "chatSettingsHintDismissed") return value === true;
   if (key === "activeAgentIds") return sanitizePresetAgentIds(value);
   if (key === "agentOverrides" || key === "agentPromptTemplateIds" || key === "customAgentImageSettings") {
     return sanitizePresetAgentMap(value);
@@ -317,6 +318,13 @@ export function createChatPresetsStorage(db: DB) {
         if (!Object.prototype.hasOwnProperty.call(presetMetadata, "customAgentImageSettings")) {
           preserved.customAgentImageSettings = sanitizePresetAgentMap(currentMetadata.customAgentImageSettings);
         }
+        // Profiles saved before window layouts existed leave the chat's layout as it is.
+        if (
+          !Object.prototype.hasOwnProperty.call(presetMetadata, "windowLayout") &&
+          Object.prototype.hasOwnProperty.call(currentMetadata, "windowLayout")
+        ) {
+          preserved.windowLayout = currentMetadata.windowLayout;
+        }
 
         const baseDefaults: Record<string, unknown> = {
           ...normalizeTranslatorSettings(await createAppSettingsStorage(db).get(TRANSLATOR_DEFAULTS_SETTINGS_KEY)),
@@ -324,6 +332,7 @@ export function createChatPresetsStorage(db: DB) {
           tags: [],
           enableAgents: true,
           activeToolIds: [],
+          chatSettingsHintDismissed: false,
         };
 
         const newMetadata: Record<string, unknown> = {

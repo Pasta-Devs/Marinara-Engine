@@ -140,7 +140,7 @@ When it is on, your webhook or script receives a `context` value alongside the a
 
 Creating a tool does not make the AI use it. You must also turn tool use on for the chat.
 
-1. Open a chat and click the gear to open **Chat Settings**.
+1. Open a chat and open **Chat Settings**.
 2. Open the **Function Calling** section (its icon is a wrench).
 3. Turn on **Enable Tool Use**. Its description reads **Allow AI to call functions (dice rolls, game state, etc.)**. It is off by default for a new chat.
 

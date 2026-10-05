@@ -17,6 +17,8 @@ import {
   featureSettingsSchema,
   type FeatureSettingsResponse,
   impersonatePromptTemplateCatalogSchema,
+  getChatWindowDefaultSettingsKey,
+  parseChatWindowDefault,
 } from "@marinara-engine/shared";
 import { logger } from "../lib/logger.js";
 import {
@@ -25,6 +27,7 @@ import {
   replaceHomeWidgetCatalog,
 } from "../services/home-widget-catalog.service.js";
 import { createAppSettingsStorage } from "../services/storage/app-settings.storage.js";
+import { initializeChatWindowDefaults } from "../services/storage/chat-window-defaults.js";
 import { featureSettingsResponse, loadFeatureSettings } from "../services/features/feature-settings.js";
 
 const ALLOWED_KEYS = new Set([
@@ -34,9 +37,13 @@ const ALLOWED_KEYS = new Set([
   CUSTOM_GENERATION_PARAMETERS_SETTINGS_KEY,
   STORAGE_MIGRATION_NOTICE_SETTINGS_KEY,
   VIDEO_GENERATION_SETTINGS_KEY,
+  getChatWindowDefaultSettingsKey("conversation"),
+  getChatWindowDefaultSettingsKey("roleplay"),
+  getChatWindowDefaultSettingsKey("game"),
 ]);
 
 export async function appSettingsRoutes(app: FastifyInstance) {
+  await initializeChatWindowDefaults(app.db);
   const storage = createAppSettingsStorage(app.db);
   // Prime the in-memory feature switches; storage writes keep them current from here on.
   await loadFeatureSettings(storage);
@@ -95,6 +102,14 @@ export async function appSettingsRoutes(app: FastifyInstance) {
       return reply.status(404).send({ error: "Unknown settings key" });
     }
     const input = appSettingsUpdateSchema.parse(req.body);
+    if (req.params.key.startsWith("chat-window-default-")) {
+      const favorite = parseChatWindowDefault(input.value);
+      if (favorite === null && input.value.trim() !== "null") {
+        return reply.status(400).send({ error: "Invalid chat window default" });
+      }
+      // Store only layout and hint preferences, never chat-specific content sent alongside them.
+      input.value = JSON.stringify(favorite);
+    }
     await storage.set(req.params.key, input.value);
     return { value: input.value };
   });

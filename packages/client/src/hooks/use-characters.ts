@@ -1406,36 +1406,7 @@ export function useDeletePersonaGroup() {
   });
 }
 
-// ── Library maintenance: duplicates and bulk tags ──
-
-export interface CharacterDuplicateCard {
-  id: string;
-  name: string;
-  comment: string;
-  avatarPath: string | null;
-  creator: string;
-  version: string;
-  tags: string[];
-  description: string;
-  personality: string;
-  descriptionLength: number;
-  createdAt: string | null;
-  updatedAt: string | null;
-}
-
-export interface CharacterDuplicatesResult {
-  scanned: number;
-  groups: Array<{ ids: string[]; nameMatch: boolean; similarity: number; characters: CharacterDuplicateCard[] }>;
-}
-
-export function useCharacterDuplicates(enabled: boolean) {
-  return useQuery({
-    queryKey: [...characterKeys.all, "duplicates"] as const,
-    queryFn: () => api.get<CharacterDuplicatesResult>("/characters/duplicates"),
-    enabled,
-    staleTime: 0,
-  });
-}
+// ── Library maintenance: bulk tags ──
 
 export function useBulkEditCharacterTags() {
   const qc = useQueryClient();

@@ -66,13 +66,17 @@ import {
   type MouseEvent as ReactMouseEvent,
 } from "react";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { useMatchMedia } from "../../hooks/use-match-media";
+import {
+  PHONE_LAYOUT_QUERY,
+  TRACKER_PANEL_BUBBLE_ID,
+  useFloatingWindowStore,
+} from "../../stores/floating-window.store";
+import { closeTrackerPanel } from "../../lib/tracker-panel-surface";
 
 const ChatArea = lazy(() => import("../chat/ChatArea").then((module) => ({ default: module.ChatArea })));
 const CharacterEditor = lazy(() =>
   import("../characters/CharacterEditor").then((module) => ({ default: module.CharacterEditor })),
-);
-const CharacterDuplicatesModal = lazy(() =>
-  import("../characters/CharacterDuplicatesModal").then((module) => ({ default: module.CharacterDuplicatesModal })),
 );
 const CharacterLibraryView = lazy(() =>
   import("../characters/CharacterLibraryView").then((module) => ({ default: module.CharacterLibraryView })),
@@ -232,8 +236,15 @@ function SidePanelFallback() {
   );
 }
 
-export function AppShell() {
+export function AppShell({
+  chatWindowIntroAllowed = false,
+  onChatWindowIntroOpenChange,
+}: {
+  chatWindowIntroAllowed?: boolean;
+  onChatWindowIntroOpenChange?: (open: boolean) => void;
+}) {
   const { t: localizeUi } = useUiTranslation();
+  const chatWindowIntroNavigationBlocked = useUIStore((state) => state.hasAnyDetailOpen());
   const queryClient = useQueryClient();
   const capabilityAgents = useCapabilityAgentRegistry();
   const installedCapabilities = useCapabilityClientModules();
@@ -413,6 +424,8 @@ export function AppShell() {
   const openAgentCatalog = useUIStore((s) => s.openAgentCatalog);
   const setTrackerPanelOpen = useUIStore((s) => s.setTrackerPanelOpen);
   const restoreTrackerPanelOpenForChat = useUIStore((s) => s.restoreTrackerPanelOpenForChat);
+  const phoneChatLayout = useMatchMedia(PHONE_LAYOUT_QUERY);
+  const phoneTrackerPanelOpen = useFloatingWindowStore((s) => s.open[TRACKER_PANEL_BUBBLE_ID] === true);
   const refreshLorebooks = useCallback(
     () => queryClient.invalidateQueries({ queryKey: lorebookKeys.all }),
     [queryClient],
@@ -596,58 +609,8 @@ export function AppShell() {
   }, [debouncedCheckOverflow]);
 
   const characterDetailId = useUIStore((s) => s.characterDetailId);
-  const characterDuplicatesOpen = useUIStore((s) => s.characterDuplicatesOpen);
-  const setCharacterDuplicatesOpen = useUIStore((s) => s.setCharacterDuplicatesOpen);
-  const openCharacterDetail = useUIStore((s) => s.openCharacterDetail);
-  const activeRightPanel = useUIStore((s) => s.rightPanel);
   const characterLibraryOpen = useUIStore((s) => s.characterLibraryOpen);
   const cardLibraryKind = useUIStore((s) => s.cardLibraryKind);
-  const detailReturnRightPanel = useUIStore((s) => s.detailReturnRightPanel);
-  const characterDuplicatesTriggerRef = useRef<HTMLElement | null>(null);
-  const rememberCharacterDuplicatesFocusTarget = useCallback(() => {
-    for (const selector of [
-      "[data-character-duplicates-trigger]",
-      '[data-tour="panel-characters"]',
-      "[data-topbar-more]",
-    ]) {
-      const candidate = Array.from(document.querySelectorAll<HTMLElement>(selector)).find(
-        (element) => element.isConnected && !element.hasAttribute("disabled") && element.getClientRects().length > 0,
-      );
-      if (candidate) {
-        characterDuplicatesTriggerRef.current = candidate;
-        return;
-      }
-    }
-    characterDuplicatesTriggerRef.current = null;
-  }, []);
-  const inCharacterContext =
-    (activeRightPanel === "characters" &&
-      (rightPanelOpen || (Boolean(characterDetailId) && detailReturnRightPanel === "characters"))) ||
-    (characterLibraryOpen && cardLibraryKind === "characters");
-  useLayoutEffect(() => {
-    if (characterDetailId) {
-      characterDuplicatesTriggerRef.current = document.querySelector<HTMLElement>(
-        '[data-component="MobileDetailSheet"], [data-component="DetailEditor"]',
-      );
-    } else if (characterDuplicatesOpen && inCharacterContext) {
-      rememberCharacterDuplicatesFocusTarget();
-    }
-  }, [characterDetailId, characterDuplicatesOpen, inCharacterContext, rememberCharacterDuplicatesFocusTarget]);
-  useLayoutEffect(() => {
-    if (!characterDuplicatesOpen || inCharacterContext) return;
-    const activeElement = document.activeElement;
-    if (
-      activeElement instanceof HTMLElement &&
-      activeElement !== document.body &&
-      activeElement.isConnected &&
-      !activeElement.closest('[data-component="Modal"]')
-    ) {
-      characterDuplicatesTriggerRef.current = activeElement;
-    } else {
-      rememberCharacterDuplicatesFocusTarget();
-    }
-    setCharacterDuplicatesOpen(false);
-  }, [characterDuplicatesOpen, inCharacterContext, rememberCharacterDuplicatesFocusTarget, setCharacterDuplicatesOpen]);
   const agentCatalogOpen = useUIStore((s) => s.agentCatalogOpen);
   const lorebookDetailId = useUIStore((s) => s.lorebookDetailId);
   const presetDetailId = useUIStore((s) => s.presetDetailId);
@@ -920,7 +883,12 @@ export function AppShell() {
   const trackerPanelDetached = trackerPanelWindowTarget !== null;
   const trackerPanelSurfaceAvailable =
     trackerPanelModeAvailable && !botBrowserOpen && !gameAssetsBrowserOpen && !hasDetailView;
-  const trackerPanelVisible = trackerPanelActive && trackerPanelSurfaceAvailable && !trackerPanelDetached;
+  // On a phone the switch shows the Tracker Panel's bubble; the panel shows while the bubble has it open.
+  const trackerPanelVisible =
+    trackerPanelActive &&
+    trackerPanelSurfaceAvailable &&
+    !trackerPanelDetached &&
+    (!phoneChatLayout || phoneTrackerPanelOpen);
   const chatSurfaceActive =
     !botBrowserOpen &&
     !gameAssetsBrowserOpen &&
@@ -1311,7 +1279,7 @@ export function AppShell() {
         data-tracker-size-profile={trackerPanelSizeProfile}
         aria-label={localizeUi("ui.layout.appshell.trackerDataPanel")}
         className={cn(
-          "mari-tracker-panel fixed z-30 hidden overflow-hidden bg-zinc-950/95 shadow-2xl ring-1 ring-[var(--marinara-app-accent-static)] backdrop-blur-2xl transition-[width] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-[transform,opacity] md:block",
+          "mari-tracker-panel fixed z-30 hidden overflow-hidden bg-zinc-950/95 shadow-2xl ring-1 ring-[var(--marinara-app-accent-solid)] backdrop-blur-2xl transition-[width] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-[transform,opacity] md:block",
           side === "left" ? "rounded-r-xl" : "rounded-l-xl",
         )}
         style={{
@@ -1453,7 +1421,18 @@ export function AppShell() {
               } as CSSProperties
             }
           >
-            <Suspense fallback={<MainPaneFallback />}>{(shellOverlayMode || !hasDetailView) && <ChatArea />}</Suspense>
+            <Suspense fallback={<MainPaneFallback />}>
+              {(shellOverlayMode || !hasDetailView) && (
+                <ChatArea
+                  chatWindowIntroAllowed={
+                    chatWindowIntroAllowed &&
+                    !chatWindowIntroNavigationBlocked &&
+                    (!shellOverlayMode || (!mobileNavigationPanel && !trackerPanelVisible))
+                  }
+                  onChatWindowIntroOpenChange={onChatWindowIntroOpenChange}
+                />
+              )}
+            </Suspense>
           </div>
           {/* Keep the detail host at one React tree position across the mobile breakpoint.
               Moving an editor between separate desktop/mobile branches remounts it and
@@ -1483,17 +1462,6 @@ export function AppShell() {
               </motion.aside>
             )}
           </AnimatePresence>
-          <MountOnceWhenOpened open={characterDuplicatesOpen}>
-            <CharacterDuplicatesModal
-              open={characterDuplicatesOpen && !characterDetailId && inCharacterContext}
-              onClose={() => {
-                rememberCharacterDuplicatesFocusTarget();
-                setCharacterDuplicatesOpen(false);
-              }}
-              onOpenCharacter={(id) => openCharacterDetail(id, { preserveCharacterLibrary: true })}
-              restoreFocusRef={characterDuplicatesTriggerRef}
-            />
-          </MountOnceWhenOpened>
         </div>
         {/* Floating avatar notification bubbles (right edge) */}
         <Suspense fallback={null}>
@@ -1519,7 +1487,7 @@ export function AppShell() {
       {trackerPanelVisible && shellOverlayMode && (
         <div
           className={cn("fixed inset-x-0 bottom-0 z-[45] bg-black/50 backdrop-blur-sm", MOBILE_SHELL_PANEL_TOP_CLASS)}
-          onClick={() => setTrackerPanelOpen(false, activeChatId)}
+          onClick={() => closeTrackerPanel(activeChatId)}
         />
       )}
 
@@ -1536,7 +1504,7 @@ export function AppShell() {
               data-component="TrackerDataSidebarMobile"
               aria-label={localizeUi("ui.layout.appshell.trackerDataPanel")}
               className={cn(
-                "mari-tracker-panel !fixed bottom-0 z-50 w-screen max-w-none overflow-hidden bg-zinc-950/95 shadow-2xl ring-1 ring-[var(--marinara-app-accent-static)] backdrop-blur-xl",
+                "mari-tracker-panel !fixed bottom-0 z-50 w-screen max-w-none overflow-hidden bg-zinc-950/95 shadow-2xl ring-1 ring-[var(--marinara-app-accent-solid)] backdrop-blur-xl",
                 MOBILE_SHELL_PANEL_TOP_CLASS,
                 MOBILE_SHELL_PANEL_BOTTOM_PADDING_CLASS,
                 trackerPanelSide === "left" ? "left-0" : "right-0",

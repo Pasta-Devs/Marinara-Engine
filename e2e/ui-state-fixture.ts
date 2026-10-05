@@ -24,7 +24,7 @@ export async function seedUIState(
       }
       localStorage.setItem(name, JSON.stringify({ state: { ...previous, ...state }, version }));
     },
-    // Surprise visits are random, interactive overlays, not part of unrelated UI proofs.
-    { ...UI_PERSISTENCE, state: { chibiProfessorMariEnabled: false, ...state }, mode },
+    // Keep unrelated proofs clear of surprise visits and the one-time chat introduction.
+    { ...UI_PERSISTENCE, state: { chibiProfessorMariEnabled: false, chatWindowIntroDismissed: true, ...state }, mode },
   );
 }

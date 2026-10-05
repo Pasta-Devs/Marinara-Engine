@@ -52,7 +52,8 @@ export function SemanticSummaryRetrievalControls({
   ] as const;
 
   return (
-    <div className="grid gap-2 sm:grid-cols-3">
+    // Lays out by the Chat Settings window's width, not the screen's.
+    <div className="grid gap-2 @lg:grid-cols-3">
       {controls.map((control) => (
         <label
           key={control.field}

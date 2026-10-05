@@ -39,6 +39,8 @@ You can also guide a reply while you regenerate it. This reuses whatever text yo
 
 When the setting is on and you have text in the box, the **Regenerate** button changes its tooltip to **Regenerate (guided)**. The AI makes a new version of the reply using your typed text as the direction.
 
+Your direction stays in the message box afterwards, so you can adjust it and regenerate again; to clear it instead, turn off **Keep guidance after regenerating** in **Settings** > **General** > **Input & Editing**.
+
 ### Reading Stored guidance
 
 When a reply was made with a direction, Marinara saves that direction so you can see it later. A **Stored guidance** action (a scroll icon) appears on the message.

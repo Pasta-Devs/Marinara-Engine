@@ -1,6 +1,6 @@
 # Scene Backgrounds and the Gallery
 
-This guide covers AI-generated scene backgrounds, the backdrop images Marinara Engine creates for you from the **Gallery**, and the Gallery panel itself. Two related guides exist: [Chat Backgrounds](../appearance/chat-backgrounds.md) covers the hand-picked upload library, and [Roleplay Backgrounds](../roleplay/backgrounds.md) covers the agent that auto-picks a backdrop each turn.
+This guide covers AI-generated scene backgrounds, the backdrop images Marinara Engine creates for you from the **Gallery**, and the Gallery itself. Two related guides exist: [Chat Backgrounds](../appearance/chat-backgrounds.md) covers the hand-picked upload library, and [Roleplay Backgrounds](../roleplay/backgrounds.md) covers the agent that auto-picks a backdrop each turn.
 
 ## Where scene backgrounds work
 
@@ -14,11 +14,11 @@ To generate a background, you need an **Image Generation** connection. Set one u
 
 ## Generating and applying a background from the Gallery
 
-The **Gallery** is the image and video panel for a chat. Open it from the image icon in the chat toolbar. The **Background** button lets you generate background art for the current scene.
+The **Gallery** holds a chat's images and videos. It is a section of **Chat Settings**: open Chat Settings and expand **Gallery**. On a computer, you can pop it out into its own window (see [Chat Settings Overview](../chats/chat-settings.md#popping-a-section-out-into-its-own-window)). The **Background** button lets you generate background art for the current scene.
 
 To generate a background:
 
-1. Open the **Gallery** panel.
+1. Open the **Gallery** section in **Chat Settings**.
 2. Click the **Background** button.
 3. The button label changes to **Generating...** while the image is made.
 4. You should see this status message: "AI background generation is running. The new background will be applied when it finishes."
@@ -36,11 +36,11 @@ Choose an image generation connection for the Illustrator agent, or mark one as 
 
 To fix this, open the **Connections** panel, expand **Defaults**, and choose an image connection under **Images**, or set an image connection override on the **Illustrator** agent.
 
-## The Gallery panel
+## The Gallery section
 
 The **Gallery** has two tabs, **Images** and **Videos**. Each tab shows a count of how many items it holds. The **Videos** tab is available only when scene videos are enabled for the chat.
 
-At the top of the panel, action buttons appear only when the matching feature applies to the chat:
+At the top of the section, action buttons appear only when the matching feature applies to the chat:
 
 - **Illustrate**: runs the Illustrator agent for a one-off scene image. See [Illustrator Agent](illustrator-agent.md).
 - **Selfie**: generates a character selfie in Conversation mode.

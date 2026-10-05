@@ -436,7 +436,7 @@ const chatStoreSource = readSourceText(
   "utf8",
 );
 const summaryPopoverSource = readSourceText(
-  new URL("../../packages/client/src/components/chat/SummaryPopover.tsx", import.meta.url),
+  new URL("../../packages/client/src/components/chat/ChatSummaryPanel.tsx", import.meta.url),
   "utf8",
 );
 const professorMariHomeSource = readSourceText(
@@ -526,22 +526,20 @@ assert.doesNotMatch(
 );
 assert.doesNotMatch(pageActivitySource, /document\.hasFocus|addEventListener\(\s*["'](?:blur|focus)["']/u);
 assert.match(pageActivitySource, /document\.visibilityState === "visible"/u);
-const activeContextLinksButtonSource =
-  chatRoleplaySurfaceSource.match(/function ActiveContextLinksButton[\s\S]*?\nfunction SummaryButton/u)?.[0] ?? "";
-assert.match(
+const activeContextLinksPanelSource =
+  chatRoleplaySurfaceSource.match(/function ActiveContextLinksPanel[\s\S]*?\nfunction RoleplaySummaryPanel/u)?.[0] ??
+  "";
+assert.match(activeContextLinksPanelSource, /data-component="RoleplayActiveContextPanel"/u);
+// Both are drawers in the Chat Settings window now, so they render inline instead of portaling over the chat.
+assert.doesNotMatch(
   summaryPopoverSource,
-  /className="fixed z-\[9999\]"[\s\S]*?return createPortal\(content, document\.body\)/u,
-  "the Roleplay Chat Summary panel should portal above independent floating-panel stacking contexts",
-);
-assert.match(
-  activeContextLinksButtonSource,
-  /desktopAnchor &&[\s\S]*?createPortal\([\s\S]*?data-component="RoleplayActiveContextPanel"[\s\S]*?fixed z-\[9999\][\s\S]*?document\.body/u,
-  "the desktop Roleplay Active Context panel should portal above independent floating-panel stacking contexts",
+  /createPortal|fixed z-\[9999\]/u,
+  "the Roleplay Chat Summary drawer should render inline in Chat Settings",
 );
 assert.doesNotMatch(
-  activeContextLinksButtonSource,
-  /absolute right-0 top-full/u,
-  "the desktop Roleplay Active Context panel must not remain trapped in the toolbar stacking context",
+  activeContextLinksPanelSource,
+  /createPortal|fixed z-\[9999\]/u,
+  "the Roleplay Active Context drawer should render inline in Chat Settings",
 );
 const spatialTransitionEventSource =
   useGenerateSource.match(/case "spatial_transition_committed": \{[\s\S]*?case "token":/u)?.[0] ?? "";
@@ -682,23 +680,18 @@ assert.match(
 );
 assert.match(
   echoChamberPanelSource,
-  /if \(activeChatId\) setEchoChamberSizeForChat\(activeChatId, nextSize\);/u,
-  "Echo Chamber should persist a completed resize against the active chat",
+  /<FloatingWindow\s+id=\{ECHO_WINDOW_ID\}/u,
+  "Echo Chamber should reuse the shared window's drag and resize behavior",
 );
 assert.match(
   echoChamberPanelSource,
-  /onPointerCancel=\{handleResizeCancel\}/u,
-  "a canceled Echo Chamber resize should use its rollback path",
+  /useFloatingWindowStore\(\(s\) => s\.layouts\[ECHO_WINDOW_ID\]\)/u,
+  "Echo Chamber should read the shared per-chat layout before falling back to legacy dimensions",
 );
 assert.match(
   echoChamberPanelSource,
-  /onLostPointerCapture=\{handleResizeLostCapture\}/u,
-  "Echo Chamber should still commit a finished drag when the browser drops pointer capture",
-);
-assert.doesNotMatch(
-  echoChamberPanelSource,
-  /onPointerCancel=\{handleResizeEnd\}/u,
-  "pointer cancellation must not persist an incomplete Echo Chamber resize",
+  /const minimized = savedLayout\?\.minimized \?\? !echoChamberOpen/u,
+  "a saved Echo Chamber close should take precedence over the old global open preference",
 );
 assert.match(
   uiStoreSource,

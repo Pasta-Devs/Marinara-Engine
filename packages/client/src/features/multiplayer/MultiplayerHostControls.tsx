@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { Users } from "lucide-react";
+import { Joystick } from "lucide-react";
 import type { MultiplayerHostAction, MultiplayerHostState } from "@marinara-engine/shared";
 import { useMultiplayerHost, useMultiplayerMutation } from "../../hooks/use-multiplayer";
 import { characterKeys } from "../../hooks/use-characters";
@@ -347,7 +347,7 @@ export function MultiplayerPlayersSection({
     <ChatSettingsSection
       id="multiplayer"
       label={t("multiplayer.title")}
-      icon={<Users size={16} />}
+      icon={<Joystick size={16} />}
       count={host.snapshot.players.length}
       forceOpen={forceOpen}
       style={{ order: -1450 }}

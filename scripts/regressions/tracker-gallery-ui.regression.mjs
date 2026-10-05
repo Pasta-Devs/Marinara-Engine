@@ -14,6 +14,7 @@ const trackerSectionControls = readSource(
 );
 const trackerSectionList = readSource("packages/client/src/features/tracker-panel/components/TrackerSectionList.tsx");
 const roleplayHud = readSource("packages/client/src/components/chat/RoleplayHUD.tsx");
+const trackerWindow = readSource("packages/client/src/components/chat/RoleplayTrackerWindow.tsx");
 const chatToolbarControls = readSource("packages/client/src/components/chat/ChatToolbarControls.tsx");
 const roleplayPanels = readSource("packages/client/src/components/chat/RoleplayHUDPanels.tsx");
 const appShell = readSource("packages/client/src/components/layout/AppShell.tsx");
@@ -22,7 +23,6 @@ const uiStore = readSource("packages/client/src/stores/ui.store.ts");
 const chatGallery = readSource("packages/client/src/components/chat/ChatGallery.tsx");
 const chatSettingsDrawer = readSource("packages/client/src/components/chat/ChatSettingsDrawer.tsx");
 const chatSidebar = readSource("packages/client/src/components/layout/ChatSidebar.tsx");
-const chatBranchSelector = readSource("packages/client/src/components/chat/ChatBranchSelector.tsx");
 const homeBrowserHub = readSource("packages/client/src/components/chat/HomeBrowserHub.tsx");
 const storyboardChatSettings = readSource("packages/client/src/components/chat/StoryboardChatSettingsPanel.tsx");
 const conversationView = readSource("packages/client/src/components/chat/ConversationView.tsx");
@@ -61,13 +61,14 @@ assert.match(
 );
 assert.match(
   appShell,
-  /mari-tracker-panel[^"\n]*ring-\[var\(--marinara-app-accent-static\)\]/u,
-  "Tracker Panel frames must use the configured app accent",
+  /mari-tracker-panel[^"\n]*ring-\[var\(--marinara-app-accent-solid\)\]/u,
+  "Tracker Panel frames must follow the live app accent",
 );
+// #7034: on a phone the Tracker Panel launches from a bubble like every other chat control's.
 assert.match(
-  roleplayHud,
-  /function TrackerPanelToggleButton[\s\S]*?className=\{WIDGET\}[\s\S]*?<TrackerPanelIcon/u,
-  "the roleplay Tracker Panel launcher must reuse the shared tracker widget control",
+  readSource("packages/client/src/components/chat/TrackerPanelBubble.tsx"),
+  /<WindowBubble[\s\S]*?icon=\{<TrackerPanelIcon/u,
+  "the phone Tracker Panel launcher must reuse the shared bubble control",
 );
 assert.match(
   roleplayHud,
@@ -112,18 +113,18 @@ assert.match(
 );
 assert.match(
   roleplayHud,
-  /const left =\s*window\.innerWidth < 768\s*\? Math\.max\(8, Math\.round\(\(window\.innerWidth - dropdownWidth\) \/ 2\)\)[\s\S]*?style=\{\{ top: pos\.top, left: pos\.left \}\}/u,
-  "the mobile Agents menu must center with layout coordinates, avoiding a conflict with its transform animation",
-);
-assert.match(
-  roleplayHud,
   /const hasWorldState =[\s\S]*?getChatToolbarButtonClass\([\s\S]*?hasWorldState \? "w-auto min-w-8 gap-1 px-2" : "group flex-col gap-0 overflow-hidden"[\s\S]*?!hasWorldState \? \([\s\S]*?<MapPin/u,
   "World State must use the shared toolbar treatment and stay compact until it has generated content",
 );
 assert.match(
   roleplayHud,
-  /function InventoryTrackerWidget[\s\S]*?className=\{WIDGET\}[\s\S]*?total > 0 \?[\s\S]*?<Backpack/u,
-  "the Inventory launcher must reuse the shared toolbar treatment and only show its backpack while empty",
+  /function InventoryTrackerMiniature[\s\S]*?total > 0 \?[\s\S]*?<Backpack/u,
+  "the Inventory miniature must only show its backpack while empty",
+);
+assert.match(
+  trackerWindow,
+  /<span className=\{TRACKER_MINIATURE_TILE\}>\s*<InventoryTrackerMiniature/u,
+  "the Inventory miniature must sit in the shared toolbar tile in the Tracker window",
 );
 assert.match(
   roleplayPanels,
@@ -215,9 +216,13 @@ assert.match(
   /aria-expanded=\{advancedMemoryEnabled \? memoryView === "advanced" : undefined\}/u,
   "Memory Recall access must expose its inline Advanced Memory disclosure state",
 );
+const noodleTimelineSwitch = chatSettingsDrawer.match(
+  /<SettingsSwitch\b(?:(?!\/>)[\s\S])*?checked=\{noodleTimelineContextEnabled\}(?:(?!\/>)[\s\S])*?\/>/u,
+)?.[0];
+assert.ok(noodleTimelineSwitch, "the Noodle timeline setting must retain its shared switch");
 assert.doesNotMatch(
-  chatSettingsDrawer,
-  /noodleTimelineContextEnabled[\s\S]*disabled=\{updateMeta\.isPending\}/u,
+  noodleTimelineSwitch,
+  /disabled=\{updateMeta\.isPending\}/u,
   "unrelated metadata writes must not visually disable the Noodle timeline switch",
 );
 assert.equal(
@@ -251,19 +256,15 @@ assert.match(
   "chat-list branch counts must use the shared compact tag treatment",
 );
 assert.match(
-  chatBranchSelector,
-  /mari-chrome-muted-badge absolute -right-1 -top-1/u,
-  "the active-chat branch count must use the same shared compact tag treatment",
-);
-assert.match(
   globalStyles,
   /\.mari-chrome-tag\s*\{\s*border-radius: 0\.625rem;/u,
   "the shared compact tag class must own the same softly rounded geometry as library tags",
 );
 assert.match(
   conversationView,
-  /data-conversation-header-identity[\s\S]*?<ConversationPresenceCard[\s\S]*?data-chat-help="call"[\s\S]*?<div className="ml-2 flex/u,
-  "the Conversation call launcher must sit beside the character or group identity instead of the right action cluster",
+  /data-conversation-header-identity[\s\S]*?<ConversationPresenceCard[\s\S]*?data-chat-help="call"[\s\S]*?<\/div>/u,
+  // #7034: the right action cluster is gone (Chat Settings is in the topbar, the rest are bubbles); Calls stays.
+  "the Conversation call launcher must sit beside the character or group identity in the header",
 );
 assert.doesNotMatch(
   chatSettingsDrawer,

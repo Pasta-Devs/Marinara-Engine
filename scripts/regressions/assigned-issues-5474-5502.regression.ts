@@ -11,8 +11,6 @@ const agentCatalog = readSource("packages/client/src/components/agents/AgentCata
 const agentModeFilter = readSource("packages/client/src/components/agents/AgentModeFilter.tsx");
 const uiStore = readSource("packages/client/src/stores/ui.store.ts");
 const widgetEditor = readSource("packages/client/src/components/game/GameWidgetSetupEditor.tsx");
-const roleplaySurface = readSource("packages/client/src/components/chat/ChatRoleplaySurface.tsx");
-const branchSelector = readSource("packages/client/src/components/chat/ChatBranchSelector.tsx");
 const gameSurface = readSource("packages/client/src/components/game/GameSurface.tsx");
 const gameNarration = readSource("packages/client/src/components/game/GameNarration.tsx");
 const chatRoutes = readSource("packages/server/src/routes/chats.routes.ts");
@@ -33,10 +31,6 @@ assert.match(
   widgetEditor,
   /event\.currentTarget\.value = replaceWidgetId\(widget\.id, event\.currentTarget\.value\);/u,
 );
-
-const themedCountBadge = /mari-chrome-muted-badge[^"]*text-\[var\(--marinara-chat-chrome-accent\)\]/u;
-assert.match(roleplaySurface, themedCountBadge);
-assert.match(branchSelector, themedCountBadge);
 
 assert.match(gameSurface, /const turnKey = narrationTurnKey\(msg\);/u);
 assert.match(gameSurface, /setNarrationDoneTurnKey\(null\);\s+setActiveChoices\(null\);/u);

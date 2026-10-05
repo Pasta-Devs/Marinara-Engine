@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { seedUIState } from "./ui-state-fixture.js";
+import { chatSettingsDrawer, closeChatSettings, openChatSettingsTool } from "./chat-settings-tools.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 
@@ -63,26 +64,19 @@ test("Roleplay Gallery and slash illustrate work without enabling automatic agen
     },
     { id: chat.id, appVersion: version },
   );
-  const openGallery = async () => {
-    if (info.project.name.includes("mobile"))
-      await page.getByRole("button", { name: "More options", exact: true }).click();
-    await page.getByRole("button", { name: "Gallery", exact: true }).click();
-    await expect(page.locator(".mari-chat-gallery-drawer")).toBeVisible();
-  };
+  const openGallery = () => openChatSettingsTool(page, "gallery");
   try {
     await page.goto("/");
     await openGallery();
     await page.screenshot({ path: info.outputPath("manual-illustration-agents-disabled.png"), animations: "disabled" });
-    const illustrate = page
-      .locator(".mari-chat-gallery-drawer")
-      .getByRole("button", { name: "Illustrate", exact: true });
+    const illustrate = chatSettingsDrawer(page, "gallery").getByRole("button", { name: "Illustrate", exact: true });
     await expect(illustrate).toBeVisible();
     await expect(illustrate).toBeInViewport();
     await page.screenshot({ path: info.outputPath("manual-illustration-available.png"), animations: "disabled" });
     await illustrate.click();
     await expect.poll(() => calls.length).toBe(1);
     await expect(illustrate).toBeEnabled();
-    await page.getByRole("button", { name: "Close gallery", exact: true }).click();
+    await closeChatSettings(page);
     const input = page.locator("textarea[data-chat-composer]");
     await input.fill("/illustrate ");
     await page.locator(".mari-chat-send-btn").click();
@@ -100,7 +94,7 @@ test("Roleplay Gallery and slash illustrate work without enabling automatic agen
     await page.reload();
     await openGallery();
     await expect(illustrate).toHaveCount(0);
-    await page.getByRole("button", { name: "Close gallery", exact: true }).click();
+    await closeChatSettings(page);
     await input.fill("/illustrate");
     await expect(page.locator(".chat-input-container").getByRole("button", { name: /^\/illustrate\b/ })).toHaveCount(0);
     expect(calls).toHaveLength(2);
@@ -221,9 +215,6 @@ test("Illustrator manual-only interval saves and survives reopening and chat set
       useUIStore.getState().closeAgentDetail();
     });
 
-    if (testInfo.project.name.includes("mobile")) {
-      await page.getByRole("button", { name: "More options", exact: true }).click();
-    }
     await page.getByRole("button", { name: "Chat Settings", exact: true }).click();
     const drawer = page.locator(".mari-chat-settings-drawer");
     const agents = drawer.locator('[role="button"][aria-expanded]').filter({ hasText: /^Agents/ });

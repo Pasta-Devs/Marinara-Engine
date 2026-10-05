@@ -16,7 +16,7 @@ Every chat can store its own persona. You can use different personas in differen
 
 ### From Chat Settings
 
-1. Open **Chat Settings** (the gear near the chat).
+1. Open **Chat Settings** (the **Chat Settings** button in the chat, at the top right unless you moved it).
 2. Find the **Persona** section. Its help text starts with "Your persona defines who you are in this chat."
 3. When no persona is set, you see "No persona selected."
 4. Click **Choose Persona**. This button reads **Change Persona** once a persona is set.

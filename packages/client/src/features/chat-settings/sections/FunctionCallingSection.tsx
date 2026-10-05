@@ -179,7 +179,7 @@ export function FunctionCallingSection({
                   labelClassName="text-xs font-medium"
                 />
                 {gameDicePoolMode && (
-                  <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="grid gap-3 @lg:grid-cols-2">
                     <label className="flex flex-col gap-1 text-[0.625rem] font-medium text-[var(--muted-foreground)]">
                       {localizeUi("chat.settings.tools.dicePoolWindow")}
                       {/* The repo's canonical numeric control, not a raw number input: it holds
@@ -346,7 +346,7 @@ export function FunctionCallingSection({
             )}
 
             {!showToolPicker ? (
-              <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <div className="mt-2 grid grid-cols-1 gap-2 @lg:grid-cols-2">
                 <button
                   type="button"
                   onClick={() => {
@@ -373,7 +373,7 @@ export function FunctionCallingSection({
                 onClose={() => onShowToolPickerChange(false)}
                 placeholder={localizeUi("ui.chatSettings.functioncallingsection.searchFunctions")}
                 footer={
-                  <div className="grid gap-2 border-t border-[var(--border)] px-3 py-2 sm:grid-cols-2">
+                  <div className="grid gap-2 border-t border-[var(--border)] px-3 py-2 @lg:grid-cols-2">
                     <button
                       type="button"
                       onClick={onCreateCustomTool}

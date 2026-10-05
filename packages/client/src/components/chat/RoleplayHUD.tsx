@@ -1,35 +1,18 @@
 // ──────────────────────────────────────────────
 // Chat: Roleplay HUD — immersive world-state widgets
-// Each tracker category gets its own mini widget with
-// a compact preview and expandable editable popover.
-// Uses a compact horizontal strip with bottom popovers.
+// Phones keep World and Player trackers in separate movable buttons and themed sheets.
+// Package controls and the manual tracker trigger remain in the compact strip.
 // ──────────────────────────────────────────────
-import { Suspense, lazy, useState, useEffect, useRef, useCallback, useLayoutEffect } from "react";
+import { Suspense, lazy, useState, useEffect, useCallback, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import {
-  MapPin,
-  Users,
-  Backpack,
-  Scroll,
-  Sparkles,
-  Swords,
-  RefreshCw,
-  BarChart3,
-  SlidersHorizontal,
-  Loader2,
-} from "lucide-react";
+import { MapPin, Users, Backpack, Scroll, Swords, RefreshCw, BarChart3, SlidersHorizontal } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { api } from "../../lib/api-client";
-import type { AgentFailure } from "../../lib/agent-failures";
-import { TrackerPanelIcon } from "../ui/TrackerPanelIcon";
 import { WorldCalendarIcon } from "../ui/WorldCalendarIcon";
 import { WorldClockIcon, WorldThermometerIcon } from "../ui/WorldStateInstruments";
 import { useGameStateStore } from "../../stores/game-state.store";
-import { useAgentStore, EMPTY_AGENT_TYPES, EMPTY_AGENT_FAILURES } from "../../stores/agent.store";
-import { useAgentConfigs, useCustomAgentRuns, type AgentConfigRow } from "../../hooks/use-agents";
-import { useUpdateMessageExtra } from "../../hooks/use-chats";
-import { useAdvancedMemoryStatus } from "../../hooks/use-advanced-memory";
-import { discardPendingGameStatePatch, useGameStatePatcher } from "../../hooks/use-game-state-patcher";
+import { useAgentStore } from "../../stores/agent.store";
+import { useGameStatePatcher } from "../../hooks/use-game-state-patcher";
 import { useUIStore } from "../../stores/ui.store";
 import { useReducedAmbientEffects } from "../../hooks/use-reduced-ambient-effects";
 import {
@@ -48,7 +31,11 @@ import {
 import { TrackerLockProvider, useTrackerLockContext } from "../../features/tracker-panel/components/TrackerLockContext";
 import { buildInventoryTrackerEditPatch } from "../../features/tracker-panel/lib/inventory-tracker-edit";
 import { useTrackerFieldLockUpdater } from "../../features/tracker-panel/hooks/use-tracker-field-lock-updater";
-import { NEUTRAL_PANEL_SCROLL_AREA, NEUTRAL_PANEL_SHELL } from "../ui/neutral-surface-styles";
+import { NEUTRAL_PANEL_SCROLL_AREA, NEUTRAL_SURFACE_VARIABLES } from "../ui/neutral-surface-styles";
+import { FloatingWindow, PHONE_SHEET_CLASS } from "../ui/FloatingWindow";
+import { useMatchMedia } from "../../hooks/use-match-media";
+import { useFloatingWindowStore } from "../../stores/floating-window.store";
+import { getChatControlDefaultLayout } from "./ChatControlWindow";
 import {
   CHAT_TOOLBAR_ICON_GAP_CLASS,
   CHAT_TOOLBAR_MOBILE_OVERFLOW_HEIGHT_CLASS,
@@ -63,9 +50,8 @@ import type {
   QuestProgress,
   CustomTrackerField,
   WorldCustomField,
-  Message,
-  AdvancedMemoryStatus,
   TrackerHiddenFields,
+  InstalledCapabilityPackage,
 } from "@marinara-engine/shared";
 import {
   isNamedTrackerRow,
@@ -76,198 +62,57 @@ import {
 import type { TrackerTemperatureUnit } from "../../stores/ui.store";
 import { useTranslation as useUiTranslation } from "react-i18next";
 
-const ACTIONS_DROPDOWN_WIDTH_PX = 288;
 const EMPTY_AGENT_TYPE_SET = new Set<string>();
+const MOBILE_WORLD_WINDOW_ID = "control:tracker-world";
+const MOBILE_PLAYER_WINDOW_ID = "control:tracker-player";
 
 interface RoleplayHUDProps {
   chatId: string;
-  advancedMemoryEnabled?: boolean;
   isStreaming: boolean;
   onRetriggerTrackers?: () => void;
   /** Re-run one tracker agent only (same pipeline as full tracker run). */
   onRerunSingleTracker?: (agentType: string) => void;
-  onRetryFailedAgents?: () => void;
   /** When true, tracker agents are manual — show a trigger button in the widget strip */
   manualTrackers?: boolean;
   /** When provided, overrides the globally-computed set so that only per-chat agents show widgets. */
   enabledAgentTypes?: Set<string>;
-  /** Chat messages (chronological) — used to resolve cached prompt injections on the latest assistant reply */
-  injectionSourceMessages?: Message[];
 }
 
-const RoleplayHUDActionsMenu = lazy(async () =>
-  import("./RoleplayHUDActionsMenu").then((module) => ({ default: module.RoleplayHUDActionsMenu })),
-);
 const CombinedPlayerPanel = lazy(async () =>
   import("./RoleplayHUDPanels").then((module) => ({ default: module.CombinedPlayerPanel })),
-);
-const PersonaStatsPanel = lazy(async () =>
-  import("./RoleplayHUDPanels").then((module) => ({ default: module.PersonaStatsPanel })),
-);
-const CharactersPanel = lazy(async () =>
-  import("./RoleplayHUDPanels").then((module) => ({ default: module.CharactersPanel })),
-);
-const RoleplayInventoryTrackerPanel = lazy(async () =>
-  import("./RoleplayHUDPanels").then((module) => ({ default: module.RoleplayInventoryTrackerPanel })),
-);
-const QuestsPanel = lazy(async () => import("./RoleplayHUDPanels").then((module) => ({ default: module.QuestsPanel })));
-const CustomTrackerPanel = lazy(async () =>
-  import("./RoleplayHUDPanels").then((module) => ({ default: module.CustomTrackerPanel })),
 );
 const CombinedWorldPanel = lazy(async () =>
   import("./RoleplayHUDPanels").then((module) => ({ default: module.CombinedWorldPanel })),
 );
 
-export function RoleplayHUD({
-  chatId,
-  advancedMemoryEnabled = false,
-  isStreaming,
-  onRetriggerTrackers,
-  onRerunSingleTracker,
-  onRetryFailedAgents,
-  manualTrackers,
-  mobileCompact,
-  enabledAgentTypes: enabledAgentTypesProp,
-  injectionSourceMessages,
-}: RoleplayHUDProps & { mobileCompact?: boolean }) {
-  const { t: localizeUi } = useUiTranslation();
-  const [agentsOpen, setAgentsOpen] = useState(false);
-  const [lockMode, setLockMode] = useState(false);
-  const gameState = useGameStateStore((s) => s.current);
-  const gameStateRefreshing = useGameStateStore((s) => s.isRefreshing);
-  const setGameState = useGameStateStore((s) => s.setGameState);
-  const { patchField, patchPlayerStats, patchPlayerStatsMany } = useGameStatePatcher(chatId, "roleplay-hud");
-
-  const { data: agentConfigs } = useAgentConfigs();
-  const { data: advancedMemoryStatus } = useAdvancedMemoryStatus(chatId, advancedMemoryEnabled);
-  const enabledAgentTypes = enabledAgentTypesProp ?? EMPTY_AGENT_TYPE_SET;
-  const { data: installedCapabilities = [] } = useInstalledCapabilityPackages();
-  const roleplayTrackerPackages = installedCapabilities.filter(
+/** Installed tracker packages the chat runs that draw in the Roleplay HUD. */
+export function selectRoleplayTrackerPackages(
+  installed: readonly InstalledCapabilityPackage[],
+  enabledAgentTypes: Set<string>,
+) {
+  return installed.filter(
     (item) =>
       item.status === "active" &&
       enabledAgentTypes.has(item.id) &&
       Boolean(item.manifest.entrypoints.client) &&
       item.manifest.contributions?.slots?.includes("roleplay-tracker"),
   );
-  const {
-    memoryNag: memoryNagTrackerPackages,
-    beholder: beholderTrackerPackages,
-    other: otherRoleplayTrackerPackages,
-  } = partitionTrackerCapabilityPackages(roleplayTrackerPackages);
+}
 
-  const thoughtBubbles = useAgentStore((s) => s.thoughtBubbles);
-  const isAgentProcessing = useAgentStore((s) => s.processingChatIds.includes(chatId));
-  const failedAgentTypes = useAgentStore((s) =>
-    s.failedAgentChatId && s.failedAgentChatId !== chatId ? EMPTY_AGENT_TYPES : s.failedAgentTypes,
+/**
+ * Live tracker values and their edit handlers, shared by the HUD and the Tracker window. Each caller
+ * passes its own `registrationId` so their pending edits flush independently.
+ */
+export function useRoleplayTrackerState(chatId: string, enabledAgentTypes: Set<string>, registrationId: string) {
+  const [lockMode, setLockMode] = useState(false);
+  const gameState = useGameStateStore((s) => s.current);
+  const { patchField, patchPlayerStats, patchPlayerStatsMany } = useGameStatePatcher(chatId, registrationId);
+  const { data: installedCapabilities = [] } = useInstalledCapabilityPackages();
+  const packages = partitionTrackerCapabilityPackages(
+    selectRoleplayTrackerPackages(installedCapabilities, enabledAgentTypes),
   );
-  const failedAgentFailures = useAgentStore((s) =>
-    s.failedAgentChatId && s.failedAgentChatId !== chatId ? EMPTY_AGENT_FAILURES : s.failedAgentFailures,
-  );
-  const dismissThoughtBubble = useAgentStore((s) => s.dismissThoughtBubble);
-  const clearThoughtBubbles = useAgentStore((s) => s.clearThoughtBubbles);
-  const resetAgentStore = useAgentStore((s) => s.reset);
-  const updateMessageExtra = useUpdateMessageExtra(chatId);
-  const trackerPanelEnabled = useUIStore((s) => s.trackerPanelEnabled);
-  const trackerPanelOpen = useUIStore((s) => s.trackerPanelOpen);
-  const trackerPanelHideHudWidgets = useUIStore((s) => s.trackerPanelHideHudWidgets);
-  const trackerTemperatureUnit = useUIStore((s) => s.trackerTemperatureUnit);
-  const toggleTrackerPanel = useUIStore((s) => s.toggleTrackerPanel);
-  const showInjectionsTab = useUIStore((s) => s.debugMode);
 
-  const isTrackerBusy = isAgentProcessing || isStreaming || gameStateRefreshing;
-  const showHudTrackerWidgets = !(trackerPanelEnabled && trackerPanelHideHudWidgets);
-
-  useEffect(() => {
-    if (!chatId) return;
-    // If the store already holds state for this chat, skip the redundant fetch.
-    // This happens when ChatArea remounts after visiting an editor panel.
-    const existing = useGameStateStore.getState().current;
-    if (existing?.chatId === chatId) return;
-
-    let cancelled = false;
-    api
-      .get<GameState | null>(`/chats/${chatId}/game-state`)
-      .then((gs) => {
-        if (!cancelled) setGameState(gs ?? null);
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [chatId, setGameState]);
-
-  const clearGameState = useCallback(() => {
-    const cleared = {
-      date: null,
-      time: null,
-      location: null,
-      weather: null,
-      temperature: null,
-      worldCustomFields: [],
-      presentCharacters: [],
-      recentEvents: [],
-      playerStats: {
-        stats: [],
-        attributes: null,
-        skills: {},
-        inventory: [],
-        inventoryTrackerCurrencies: [],
-        inventoryTrackerEquipped: [],
-        inventoryTrackerInventory: [],
-        activeQuests: [],
-        status: "",
-      },
-      personaStats: [],
-      fieldLocks: null,
-      hiddenTrackerFields: null,
-    };
-    discardPendingGameStatePatch(chatId);
-    const prev = useGameStateStore.getState().current;
-    if (prev?.chatId === chatId) {
-      setGameState({ ...prev, ...cleared } as GameState);
-    } else {
-      setGameState({
-        id: "",
-        chatId,
-        messageId: "",
-        swipeIndex: 0,
-        createdAt: "",
-        ...cleared,
-      } as GameState);
-    }
-    api.patch(`/chats/${chatId}/game-state`, { ...cleared, manual: true, clearOverrides: true }).catch(() => {});
-    // Clear committed agent runs & memory from DB + reset client state
-    api.delete(`/agents/runs/${chatId}`).catch(() => {});
-    const latestAssistantMessage = [...(injectionSourceMessages ?? [])]
-      .reverse()
-      .find((message) => message.role === "assistant");
-    if (latestAssistantMessage) {
-      updateMessageExtra.mutate({ messageId: latestAssistantMessage.id, extra: { cyoaChoices: [] } });
-    }
-    resetAgentStore();
-  }, [chatId, injectionSourceMessages, resetAgentStore, setGameState, updateMessageExtra]);
-  const stopAgents = useCallback(async () => {
-    const result = await api.post<{ aborted: boolean }>("/generate/abort", { chatId, agentsOnly: true });
-    if (!result.aborted) throw new Error("No active agent run was found");
-  }, [chatId]);
-
-  const date = gameState?.date ?? null;
-  const time = gameState?.time ?? null;
-  const location = gameState?.location ?? null;
-  const weather = gameState?.weather ?? null;
-  const temperature = gameState?.temperature ?? null;
-  const worldCustomFields = Array.isArray(gameState?.worldCustomFields) ? gameState.worldCustomFields : [];
-  const presentCharacters = gameState?.presentCharacters ?? [];
-  const personaStatBars = gameState?.personaStats ?? [];
   const playerStats = gameState?.playerStats ?? null;
-  const personaStatus = playerStats?.status ?? "";
-  const activeQuests = playerStats?.activeQuests ?? [];
-  const customTrackerFields = Array.isArray(playerStats?.customTrackerFields)
-    ? playerStats.customTrackerFields.filter(isNamedTrackerRow)
-    : [];
-  const inventoryTrackerCurrencies = playerStats?.inventoryTrackerCurrencies ?? [];
-  const inventoryTrackerEquipped = playerStats?.inventoryTrackerEquipped ?? [];
-  const inventoryTrackerInventory = playerStats?.inventoryTrackerInventory ?? [];
   // Editing one group can rewrite two, so this must land as a single patch.
   const editInventoryTracker = (group: InventoryTrackerGroup, rows: InventoryTrackerRow[]) =>
     patchPlayerStatsMany((current) => buildInventoryTrackerEditPatch(current, group, rows));
@@ -291,6 +136,109 @@ export function RoleplayHUD({
     },
     [updateFieldLocks],
   );
+
+  return {
+    packages,
+    patchField,
+    patchPlayerStats,
+    editInventoryTracker,
+    date: gameState?.date ?? null,
+    time: gameState?.time ?? null,
+    location: gameState?.location ?? null,
+    weather: gameState?.weather ?? null,
+    temperature: gameState?.temperature ?? null,
+    worldCustomFields: Array.isArray(gameState?.worldCustomFields) ? gameState.worldCustomFields : [],
+    presentCharacters: gameState?.presentCharacters ?? [],
+    personaStatBars: gameState?.personaStats ?? [],
+    personaStatus: playerStats?.status ?? "",
+    activeQuests: playerStats?.activeQuests ?? [],
+    customTrackerFields: Array.isArray(playerStats?.customTrackerFields)
+      ? playerStats.customTrackerFields.filter(isNamedTrackerRow)
+      : [],
+    inventoryTrackerCurrencies: playerStats?.inventoryTrackerCurrencies ?? [],
+    inventoryTrackerEquipped: playerStats?.inventoryTrackerEquipped ?? [],
+    inventoryTrackerInventory: playerStats?.inventoryTrackerInventory ?? [],
+    lockProviderProps: {
+      fieldLocks,
+      hiddenTrackerFields,
+      lockMode,
+      onSetLockMode: setLockMode,
+      onToggleFieldLock: toggleFieldLock,
+      onUpdateFieldLocks: updateFieldLocks,
+      onUpdateHiddenFields: updateHiddenTrackerFields,
+    },
+  };
+}
+
+export function RoleplayHUD({
+  chatId,
+  isStreaming,
+  onRetriggerTrackers,
+  onRerunSingleTracker,
+  manualTrackers,
+  mobileCompact,
+  enabledAgentTypes: enabledAgentTypesProp,
+}: RoleplayHUDProps & { mobileCompact?: boolean }) {
+  const [trackerPortalHost, setTrackerPortalHost] = useState<HTMLElement | null>(null);
+  const attachHud = useCallback((node: HTMLDivElement | null) => {
+    // Escape the clipped toolbar while sharing Chat Settings' stacking context.
+    setTrackerPortalHost(node?.closest<HTMLElement>('[data-component="ChatArea.Roleplay"]') ?? null);
+  }, []);
+  const gameStateRefreshing = useGameStateStore((s) => s.isRefreshing);
+  const setGameState = useGameStateStore((s) => s.setGameState);
+
+  const enabledAgentTypes = enabledAgentTypesProp ?? EMPTY_AGENT_TYPE_SET;
+  const {
+    packages: { memoryNag: memoryNagTrackerPackages, other: otherRoleplayTrackerPackages },
+    patchField,
+    patchPlayerStats,
+    editInventoryTracker,
+    date,
+    time,
+    location,
+    weather,
+    temperature,
+    worldCustomFields,
+    presentCharacters,
+    personaStatBars,
+    personaStatus,
+    activeQuests,
+    customTrackerFields,
+    inventoryTrackerCurrencies,
+    inventoryTrackerEquipped,
+    inventoryTrackerInventory,
+    lockProviderProps,
+  } = useRoleplayTrackerState(chatId, enabledAgentTypes, "roleplay-hud");
+
+  const isAgentProcessing = useAgentStore((s) => s.processingChatIds.includes(chatId));
+  const trackerPanelEnabled = useUIStore((s) => s.trackerPanelEnabled);
+  const trackerPanelHideHudWidgets = useUIStore((s) => s.trackerPanelHideHudWidgets);
+  const trackerTemperatureUnit = useUIStore((s) => s.trackerTemperatureUnit);
+
+  const isTrackerBusy = isAgentProcessing || isStreaming || gameStateRefreshing;
+  const phoneLayout = useMatchMedia("(max-width: 767px)");
+  // Phones only: on a computer, trackers live in the Tracker Panel or the Tracker window.
+  const showHudTrackerWidgets = !(trackerPanelEnabled && trackerPanelHideHudWidgets);
+
+  useEffect(() => {
+    if (!chatId) return;
+    // If the store already holds state for this chat, skip the redundant fetch.
+    // This happens when ChatArea remounts after visiting an editor panel.
+    const existing = useGameStateStore.getState().current;
+    if (existing?.chatId === chatId) return;
+
+    let cancelled = false;
+    api
+      .get<GameState | null>(`/chats/${chatId}/game-state`)
+      .then((gs) => {
+        if (!cancelled) setGameState(gs ?? null);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [chatId, setGameState]);
+
   const hasPersonaStatsTracker = enabledAgentTypes.has("persona-stats");
   const hasPlayerTrackerSections =
     hasPersonaStatsTracker ||
@@ -301,66 +249,15 @@ export function RoleplayHUD({
   const hasMobilePlayerTrackerSections =
     hasPlayerTrackerSections || hasInventoryTracker || memoryNagTrackerPackages.length > 0;
 
-  // If mobileCompact, widgets are even narrower and action buttons are not cut off
-
   return (
-    <TrackerLockProvider
-      fieldLocks={fieldLocks}
-      hiddenTrackerFields={hiddenTrackerFields}
-      lockMode={lockMode}
-      onSetLockMode={setLockMode}
-      onToggleFieldLock={toggleFieldLock}
-      onUpdateFieldLocks={updateFieldLocks}
-      onUpdateHiddenFields={updateHiddenTrackerFields}
-    >
-      <div className={cn("rpg-hud", "flex items-center", CHAT_TOOLBAR_ICON_GAP_CLASS, mobileCompact && "min-w-0")}>
-        {trackerPanelEnabled && !trackerPanelOpen && (
-          <TrackerPanelToggleButton onToggle={() => toggleTrackerPanel(chatId)} />
-        )}
-
-        {beholderTrackerPackages.map((item) => (
-          <RoleplayTrackerCapability
-            key={`${item.id}-beholder-launcher`}
-            packageId={item.id}
-            chatId={chatId}
-            compact={mobileCompact}
-            onRerunSingleTracker={onRerunSingleTracker}
-            isTrackerRetryBusy={isTrackerBusy}
-          />
-        ))}
-
-        {/* Actions (Agents + Clear) */}
-        <ActionsGroup
-          chatId={chatId}
-          advancedMemoryStatus={advancedMemoryEnabled ? advancedMemoryStatus : undefined}
-          injectionSourceMessages={injectionSourceMessages}
-          agentConfigs={agentConfigs}
-          agentsOpen={agentsOpen}
-          setAgentsOpen={setAgentsOpen}
-          isAgentProcessing={isAgentProcessing}
-          isGenerationBusy={isTrackerBusy}
-          thoughtBubbles={thoughtBubbles}
-          clearThoughtBubbles={clearThoughtBubbles}
-          dismissThoughtBubble={dismissThoughtBubble}
-          enabledAgentTypes={enabledAgentTypes}
-          clearGameState={clearGameState}
-          onRetriggerTrackers={onRetriggerTrackers}
-          onRetryFailedAgents={onRetryFailedAgents}
-          onStopAgents={stopAgents}
-          failedAgentTypes={failedAgentTypes}
-          failedAgentFailures={failedAgentFailures}
-          showInjectionsTab={showInjectionsTab}
-        />
-
-        {/* ── Mobile: combined widgets, grouped with tracker and agent controls ── */}
-        {showHudTrackerWidgets && (
-          <div
-            className={cn(
-              "flex items-center md:hidden",
-              CHAT_TOOLBAR_ICON_GAP_CLASS,
-              mobileCompact && "min-w-0 justify-start",
-            )}
-          >
+    <TrackerLockProvider {...lockProviderProps}>
+      {/* Only the compact phone HUD owns these windows; the portal escapes the clipped toolbar. */}
+      {mobileCompact &&
+        phoneLayout &&
+        showHudTrackerWidgets &&
+        trackerPortalHost &&
+        createPortal(
+          <>
             {enabledAgentTypes.has("world-state") && (
               <CombinedWorldWidget
                 location={location ?? ""}
@@ -410,7 +307,23 @@ export function RoleplayHUD({
                 isTrackerRetryBusy={isTrackerBusy}
               />
             )}
-
+          </>,
+          trackerPortalHost,
+        )}
+      <div
+        ref={attachHud}
+        className={cn("rpg-hud", "flex items-center", CHAT_TOOLBAR_ICON_GAP_CLASS, mobileCompact && "min-w-0")}
+      >
+        {/* Chat Settings turns the Tracker Panel on, and Beholder has its own window (a bubble). */}
+        {/* Mobile package and manual tracker controls. */}
+        {showHudTrackerWidgets && (
+          <div
+            className={cn(
+              "flex items-center md:hidden",
+              CHAT_TOOLBAR_ICON_GAP_CLASS,
+              mobileCompact && "min-w-0 justify-start",
+            )}
+          >
             {otherRoleplayTrackerPackages.map((item) => (
               <RoleplayTrackerCapability
                 key={`${item.id}-roleplay-tracker-mobile`}
@@ -441,136 +354,16 @@ export function RoleplayHUD({
             )}
           </div>
         )}
-
-        {/* ── Desktop: separate individual widgets ── */}
-        {showHudTrackerWidgets && (
-          <div className={cn("hidden items-center md:flex", CHAT_TOOLBAR_ICON_GAP_CLASS)}>
-            {enabledAgentTypes.has("world-state") && (
-              <CombinedWorldWidget
-                location={location ?? ""}
-                date={date ?? ""}
-                time={time ?? ""}
-                weather={weather ?? ""}
-                temperature={temperature ?? ""}
-                worldCustomFields={worldCustomFields}
-                trackerTemperatureUnit={trackerTemperatureUnit}
-                onSaveLocation={(v) => patchField("location", v)}
-                onSaveDate={(v) => patchField("date", v)}
-                onSaveTime={(v) => patchField("time", v)}
-                onSaveWeather={(v) => patchField("weather", v)}
-                onSaveTemperature={(v) => patchField("temperature", v)}
-                onUpdateWorldCustomFields={(fields) => patchField("worldCustomFields", fields)}
-                onRerunSingleTracker={onRerunSingleTracker}
-                isTrackerRetryBusy={isTrackerBusy}
-              />
-            )}
-
-            {hasPersonaStatsTracker && (
-              <PersonaStatsWidget
-                bars={personaStatBars}
-                onUpdate={(bars) => patchField("personaStats", bars)}
-                status={personaStatus}
-                onUpdateStatus={(status) => patchPlayerStats("status", status)}
-                onRerunSingleTracker={onRerunSingleTracker}
-                isTrackerRetryBusy={isTrackerBusy}
-              />
-            )}
-
-            {enabledAgentTypes.has("character-tracker") && (
-              <CharactersWidget
-                characters={presentCharacters}
-                onUpdate={(chars) => patchField("presentCharacters", chars)}
-                chatId={chatId}
-                onRerunSingleTracker={onRerunSingleTracker}
-                isTrackerRetryBusy={isTrackerBusy}
-              />
-            )}
-
-            {enabledAgentTypes.has("quest") && (
-              <QuestsWidget
-                quests={activeQuests}
-                onUpdate={(q) => patchPlayerStats("activeQuests", q)}
-                onRerunSingleTracker={onRerunSingleTracker}
-                isTrackerRetryBusy={isTrackerBusy}
-              />
-            )}
-
-            {hasInventoryTracker && (
-              <InventoryTrackerWidget
-                currencies={inventoryTrackerCurrencies}
-                equipped={inventoryTrackerEquipped}
-                inventory={inventoryTrackerInventory}
-                onUpdateCurrencies={(rows) => editInventoryTracker("currencies", rows)}
-                onUpdateEquipped={(rows) => editInventoryTracker("equipped", rows)}
-                onUpdateInventory={(rows) => editInventoryTracker("inventory", rows)}
-                onRerunSingleTracker={onRerunSingleTracker}
-                isTrackerRetryBusy={isTrackerBusy}
-              />
-            )}
-
-            {memoryNagTrackerPackages.map((item) => (
-              <RoleplayTrackerCapability
-                key={`${item.id}-roleplay-tracker`}
-                packageId={item.id}
-                chatId={chatId}
-                onRerunSingleTracker={onRerunSingleTracker}
-                isTrackerRetryBusy={isTrackerBusy}
-              />
-            ))}
-
-            {enabledAgentTypes.has("custom-tracker") && (
-              <CustomTrackerWidget
-                fields={customTrackerFields}
-                onUpdate={(fields) => patchPlayerStats("customTrackerFields", fields)}
-                onRerunSingleTracker={onRerunSingleTracker}
-                isTrackerRetryBusy={isTrackerBusy}
-              />
-            )}
-
-            {otherRoleplayTrackerPackages.map((item) => (
-              <RoleplayTrackerCapability
-                key={`${item.id}-roleplay-tracker`}
-                packageId={item.id}
-                chatId={chatId}
-                onRerunSingleTracker={onRerunSingleTracker}
-                isTrackerRetryBusy={isTrackerBusy}
-              />
-            ))}
-
-            {/* Manual tracker trigger button (desktop) */}
-            {manualTrackers && onRetriggerTrackers && (
-              <button
-                onClick={(e) => {
-                  e.preventDefault();
-                  onRetriggerTrackers();
-                }}
-                disabled={isTrackerBusy}
-                className={cn(WIDGET, isTrackerBusy && "text-[var(--marinara-chat-chrome-button-text-active)]")}
-                title={
-                  isTrackerBusy
-                    ? localizeUi("ui.chat.roleplayhud.trackersRunning")
-                    : localizeUi("ui.chat.roleplayhud.runTrackers")
-                }
-              >
-                <RefreshCw size="0.875rem" className={cn(isTrackerBusy && "animate-spin")} />
-              </button>
-            )}
-          </div>
-        )}
       </div>
     </TrackerLockProvider>
   );
 }
 
-// ═══════════════════════════════════════════════
-// Actions Group (Agents dropdown, Echo Chamber toggle, Clear)
-// ═══════════════════════════════════════════════
-
 /** Common mobile HUD button sizing – used by all four strip buttons */
 const HUD_ICON_BUTTON = getChatToolbarButtonClass({ compact: true });
 const MOBILE_HUD_BTN = cn(HUD_ICON_BUTTON, CHAT_TOOLBAR_MOBILE_OVERFLOW_HEIGHT_CLASS, "cursor-pointer select-none");
 
-function RoleplayTrackerCapability({
+export function RoleplayTrackerCapability({
   packageId,
   chatId,
   compact = false,
@@ -610,244 +403,6 @@ function RoleplayTrackerCapability({
 
 function DeferredHUDPanelFallback({ label }: { label: string }) {
   return <div className="px-3 py-4 text-center text-[0.625rem] text-[var(--muted-foreground)]/60">{label}</div>;
-}
-
-function DeferredActionsFallback({ isAgentProcessing }: { isAgentProcessing: boolean }) {
-  const { t: localizeUi } = useUiTranslation();
-  return (
-    <div className="px-3 py-4 text-center text-[0.625rem] text-[var(--muted-foreground)]/60">
-      {isAgentProcessing
-        ? localizeUi("ui.chat.deferredactionsfallback.loadingAgentActivity")
-        : localizeUi("ui.chat.deferredactionsfallback.loadingActions")}
-    </div>
-  );
-}
-
-function customAgentRunIdentity(run: { agentType?: string | null; id?: string | null }) {
-  return run.agentType?.trim() || run.id?.trim() || "custom-agent";
-}
-
-function TrackerPanelToggleButton({ onToggle }: { onToggle: () => void }) {
-  const { t: localizeUi } = useUiTranslation();
-  return (
-    <button
-      data-tracker-panel-toggle="roleplay-hud"
-      onClick={onToggle}
-      className={WIDGET}
-      title={localizeUi("ui.chat.trackerpaneltogglebutton.showTrackerPanel")}
-      aria-label={localizeUi("ui.chat.trackerpaneltogglebutton.showTrackerPanel")}
-    >
-      <TrackerPanelIcon size="1.05rem" className="shrink-0" />
-      <span className="sr-only">{localizeUi("ui.panels.trackerpanelappearancedrawer.trackerPanel")}</span>
-    </button>
-  );
-}
-
-interface ActionsGroupProps {
-  chatId: string;
-  advancedMemoryStatus?: AdvancedMemoryStatus;
-  injectionSourceMessages?: Message[];
-  agentConfigs?: AgentConfigRow[];
-  agentsOpen: boolean;
-  setAgentsOpen: (v: boolean) => void;
-  isAgentProcessing: boolean;
-  isGenerationBusy: boolean;
-  thoughtBubbles: Array<{ agentId: string; agentName: string; content: string; timestamp: number }>;
-  clearThoughtBubbles: () => void;
-  dismissThoughtBubble: (i: number) => void;
-  enabledAgentTypes: Set<string>;
-  clearGameState: () => void;
-  onRetriggerTrackers?: () => void;
-  onRetryFailedAgents?: () => void;
-  onStopAgents?: () => Promise<void>;
-  failedAgentTypes: string[];
-  failedAgentFailures: AgentFailure[];
-  showInjectionsTab?: boolean;
-}
-
-function ActionsGroup({
-  chatId,
-  advancedMemoryStatus,
-  injectionSourceMessages,
-  agentConfigs,
-  agentsOpen,
-  setAgentsOpen,
-  isAgentProcessing,
-  isGenerationBusy,
-  thoughtBubbles,
-  clearThoughtBubbles,
-  dismissThoughtBubble,
-  enabledAgentTypes,
-  clearGameState,
-  onRetriggerTrackers,
-  onRetryFailedAgents,
-  onStopAgents,
-  failedAgentTypes,
-  failedAgentFailures,
-  showInjectionsTab,
-}: ActionsGroupProps) {
-  const btnRef = useRef<HTMLButtonElement>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
-  const echoMessages = useAgentStore((s) => s.echoMessages);
-  const { data: customAgentRuns = [], isLoading: customAgentRunsLoading } = useCustomAgentRuns(chatId, agentsOpen);
-
-  const computeActionsPosition = useCallback(() => {
-    if (!btnRef.current) return null;
-    const rect = btnRef.current.getBoundingClientRect();
-    const dropdownWidth = dropdownRef.current?.offsetWidth ?? ACTIONS_DROPDOWN_WIDTH_PX;
-    const dropdownHeight = dropdownRef.current?.offsetHeight ?? Math.min(320, window.innerHeight - 16);
-    const belowTop = rect.bottom + 4;
-    const aboveTop = rect.top - dropdownHeight - 4;
-    const preferredTop = belowTop + dropdownHeight > window.innerHeight - 8 ? aboveTop : belowTop;
-    const top = Math.max(8, Math.min(preferredTop, window.innerHeight - dropdownHeight - 8));
-    // Center with layout coordinates: the panel's entrance animation owns transform.
-    const left =
-      window.innerWidth < 768
-        ? Math.max(8, Math.round((window.innerWidth - dropdownWidth) / 2))
-        : Math.max(8, Math.min(rect.left, window.innerWidth - dropdownWidth - 8));
-    return { top, left };
-  }, []);
-
-  // Position with fixed layout to avoid overflow clipping
-  useLayoutEffect(() => {
-    if (!agentsOpen) return;
-    setPos(computeActionsPosition());
-  }, [agentsOpen, computeActionsPosition]);
-
-  useEffect(() => {
-    if (!agentsOpen) return;
-    const update = () => setPos(computeActionsPosition());
-    window.addEventListener("scroll", update, true);
-    window.addEventListener("resize", update);
-    const observer = new ResizeObserver(update);
-    if (dropdownRef.current) observer.observe(dropdownRef.current);
-    return () => {
-      window.removeEventListener("scroll", update, true);
-      window.removeEventListener("resize", update);
-      observer.disconnect();
-    };
-  }, [agentsOpen, computeActionsPosition]);
-
-  // Close on outside click or Escape
-  useEffect(() => {
-    if (!agentsOpen) return;
-    const handler = (e: MouseEvent) => {
-      if (btnRef.current?.contains(e.target as Node) || dropdownRef.current?.contains(e.target as Node)) return;
-      setAgentsOpen(false);
-    };
-    const keyHandler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setAgentsOpen(false);
-    };
-    document.addEventListener("mousedown", handler);
-    document.addEventListener("keydown", keyHandler);
-    return () => {
-      document.removeEventListener("mousedown", handler);
-      document.removeEventListener("keydown", keyHandler);
-    };
-  }, [agentsOpen, setAgentsOpen]);
-
-  // Badge count — unique agent types that produced results
-  const generatedAgentIds = new Set([
-    ...thoughtBubbles.map((bubble) => bubble.agentId),
-    ...customAgentRuns.map(customAgentRunIdentity),
-  ]);
-  if (echoMessages.length > 0 && !generatedAgentIds.has("echo-chamber")) generatedAgentIds.add("echo-chamber");
-  const memoryActive = advancedMemoryStatus?.settings.enabled && advancedMemoryStatus.job.id;
-  const memoryRunning = memoryActive && advancedMemoryStatus.job.status === "running";
-  if (memoryActive) generatedAgentIds.add("advanced-recall");
-  const generatedAgentCount = generatedAgentIds.size;
-  const agentsLabel = `Agents & Actions${generatedAgentCount > 0 ? ` - ${generatedAgentCount} generated` : ""}${
-    failedAgentTypes.length > 0 ? ` - ${failedAgentTypes.length} failed` : ""
-  }`;
-  const hasAgentCount = generatedAgentCount > 0 || failedAgentTypes.length > 0;
-
-  // ── Shared dropdown portal (used by both desktop & mobile) ──
-  const dropdownContent =
-    agentsOpen &&
-    pos &&
-    createPortal(
-      <div
-        ref={dropdownRef}
-        className={cn(
-          NEUTRAL_PANEL_SHELL,
-          NEUTRAL_PANEL_SCROLL_AREA,
-          "fixed z-[9999] max-h-80 w-72 max-w-[calc(100vw-1rem)] overflow-y-auto",
-        )}
-        style={{ top: pos.top, left: pos.left }}
-      >
-        <Suspense fallback={<DeferredActionsFallback isAgentProcessing={isAgentProcessing} />}>
-          <RoleplayHUDActionsMenu
-            chatId={chatId}
-            advancedMemoryStatus={memoryActive ? advancedMemoryStatus : undefined}
-            injectionSourceMessages={injectionSourceMessages}
-            isAgentProcessing={isAgentProcessing}
-            isGenerationBusy={isGenerationBusy}
-            thoughtBubbles={thoughtBubbles}
-            clearThoughtBubbles={clearThoughtBubbles}
-            dismissThoughtBubble={dismissThoughtBubble}
-            customAgentRuns={customAgentRuns}
-            customAgentRunsLoading={customAgentRunsLoading}
-            agentConfigs={agentConfigs}
-            enabledAgentTypes={enabledAgentTypes}
-            clearGameState={clearGameState}
-            onRetriggerTrackers={onRetriggerTrackers}
-            onRetryFailedAgents={onRetryFailedAgents}
-            onStopAgents={onStopAgents}
-            failedAgentTypes={failedAgentTypes}
-            failedAgentFailures={failedAgentFailures}
-            onClose={() => setAgentsOpen(false)}
-            showInjectionsTab={showInjectionsTab}
-          />
-        </Suspense>
-      </div>,
-      document.body,
-    );
-
-  return (
-    <div className={cn("relative flex items-center", CHAT_TOOLBAR_ICON_GAP_CLASS)}>
-      <button
-        ref={btnRef}
-        onClick={() => setAgentsOpen(!agentsOpen)}
-        className={cn(
-          getChatToolbarButtonClass({
-            compact: true,
-            open: agentsOpen,
-            className: cn(CHAT_TOOLBAR_MOBILE_OVERFLOW_HEIGHT_CLASS, hasAgentCount && "w-auto min-w-8 gap-1.5 px-2"),
-          }),
-          "group cursor-pointer select-none",
-        )}
-        title={agentsLabel}
-        aria-label={agentsLabel}
-      >
-        {isAgentProcessing || memoryRunning ? (
-          <Loader2 size="0.875rem" strokeWidth={2.5} className="shrink-0 animate-spin transition-colors" />
-        ) : (
-          <Sparkles size="0.875rem" strokeWidth={2.5} className="shrink-0 transition-colors" />
-        )}
-        {generatedAgentCount > 0 && (
-          <span
-            className={cn(
-              "shrink-0 rounded-full bg-[var(--marinara-chat-chrome-highlight-bg)] px-1.5 py-0.5 text-[0.625rem] font-medium tabular-nums text-[var(--marinara-chat-chrome-button-text-hover)]",
-              agentsOpen && "bg-[var(--marinara-chat-chrome-highlight-bg-hover)]",
-            )}
-            aria-hidden="true"
-          >
-            {generatedAgentCount}
-          </span>
-        )}
-        {failedAgentTypes.length > 0 && (
-          <span
-            className="shrink-0 rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[0.625rem] font-medium tabular-nums text-amber-200"
-            aria-hidden="true"
-          >
-            {failedAgentTypes.length}
-          </span>
-        )}
-      </button>
-      {dropdownContent}
-    </div>
-  );
 }
 
 // ═══════════════════════════════════════════════
@@ -909,307 +464,136 @@ function CombinedPlayerWidget({
   isTrackerRetryBusy?: boolean;
 }) {
   const { t: localizeUi } = useUiTranslation();
-  const [open, setOpen] = useState(false);
-  const buttonRef = useRef<HTMLButtonElement>(null);
+  const close = () => useFloatingWindowStore.getState().closeWindow(MOBILE_PLAYER_WINDOW_ID);
 
   return (
-    <div className="relative">
-      <button
-        ref={buttonRef}
-        onClick={() => setOpen(!open)}
-        className={WIDGET}
-        title={localizeUi("ui.chat.combinedplayerwidget.playerTracker")}
-      >
-        <div className="flex h-4 items-center justify-center shrink-0">
-          <Swords size="0.875rem" className="max-md:h-4 max-md:w-4" />
-        </div>
-        <span className="sr-only">{localizeUi("ui.chat.combinedplayerwidget.tracker")}</span>
-      </button>
-
-      <WidgetPopover
-        open={open}
-        onClose={() => setOpen(false)}
-        anchorRef={buttonRef}
-        className="w-80 max-h-[min(75vh,32rem)]"
-      >
-        <Suspense
-          fallback={<DeferredHUDPanelFallback label={localizeUi("ui.chat.combinedplayerwidget.loadingTrackers")} />}
-        >
-          <CombinedPlayerPanel
-            showPersona={showPersona}
-            showCharacters={showCharacters}
-            showQuests={showQuests}
-            showInventory={showInventory}
-            memoryNagPackageIds={memoryNagPackageIds}
-            chatId={chatId}
-            showCustomTracker={showCustomTracker}
-            personaStats={personaStats}
-            onUpdatePersonaStats={onUpdatePersonaStats}
-            personaStatus={personaStatus}
-            onUpdatePersonaStatus={onUpdatePersonaStatus}
-            characters={characters}
-            onUpdateCharacters={onUpdateCharacters}
-            quests={quests}
-            onUpdateQuests={onUpdateQuests}
-            inventoryCurrencies={inventoryCurrencies}
-            inventoryEquipped={inventoryEquipped}
-            inventory={inventory}
-            onUpdateInventoryCurrencies={onUpdateInventoryCurrencies}
-            onUpdateInventoryEquipped={onUpdateInventoryEquipped}
-            onUpdateInventory={onUpdateInventory}
-            customTrackerFields={customTrackerFields}
-            onUpdateCustomTracker={onUpdateCustomTracker}
-            onClose={() => setOpen(false)}
-            onRerunSingleTracker={onRerunSingleTracker}
-            isTrackerRetryBusy={isTrackerRetryBusy}
-          />
-        </Suspense>
-      </WidgetPopover>
-    </div>
-  );
-}
-
-/** Shared popover wrapper used by tracker widgets — renders via portal to escape overflow clipping */
-function WidgetPopover({
-  open,
-  onClose,
-  anchorRef,
-  children,
-  className,
-}: {
-  open: boolean;
-  onClose: () => void;
-  anchorRef: React.RefObject<HTMLElement | null>;
-  children: React.ReactNode;
-  className?: string;
-}) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
-
-  const computePosition = useCallback(() => {
-    if (!anchorRef.current) return null;
-    const rect = anchorRef.current.getBoundingClientRect();
-    const popoverWidth = ref.current?.offsetWidth ?? 288;
-    const popoverHeight = ref.current?.offsetHeight ?? 200;
-    const top = rect.bottom + 4;
-    let left: number;
-
-    // Bottom placement — center horizontally on screen for mobile
-    const isMobile = window.innerWidth < 768;
-    if (isMobile) {
-      left = Math.round((window.innerWidth - popoverWidth) / 2);
-    } else {
-      left = rect.left;
-      if (left + popoverWidth > window.innerWidth - 8) {
-        left = Math.max(8, window.innerWidth - popoverWidth - 8);
-      }
-    }
-    return {
-      top: Math.max(8, Math.min(top, window.innerHeight - popoverHeight - 8)),
-      left: Math.max(8, Math.min(left, window.innerWidth - popoverWidth - 8)),
-    };
-  }, [anchorRef]);
-
-  // Position the popover relative to the anchor element
-  useLayoutEffect(() => {
-    if (!open) return;
-    setPos(computePosition());
-  }, [open, computePosition]);
-
-  // Reposition on scroll/resize
-  useEffect(() => {
-    if (!open) return;
-    const update = () => setPos(computePosition());
-    window.addEventListener("scroll", update, true);
-    window.addEventListener("resize", update);
-    const observer = new ResizeObserver(update);
-    if (ref.current) observer.observe(ref.current);
-    return () => {
-      window.removeEventListener("scroll", update, true);
-      window.removeEventListener("resize", update);
-      observer.disconnect();
-    };
-  }, [open, computePosition]);
-
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: MouseEvent) => {
-      const target = e.target as Node;
-      if (ref.current && !ref.current.contains(target) && !anchorRef.current?.contains(target)) {
-        // Delay close so that the input's blur event fires first, committing any edits
-        requestAnimationFrame(() => onClose());
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [open, onClose, anchorRef]);
-
-  if (!open) return null;
-  return createPortal(
-    <div
-      ref={ref}
-      style={pos ? { position: "fixed", top: pos.top, left: pos.left } : { position: "fixed", top: -9999, left: -9999 }}
-      className={cn(
-        NEUTRAL_PANEL_SHELL,
-        NEUTRAL_PANEL_SCROLL_AREA,
-        "z-[9999] min-h-24 min-w-60 max-w-[calc(100vw-1rem)] resize overflow-auto",
-        className,
-        "!max-h-[calc(100vh-1rem)]",
-      )}
+    <MobileTrackerWindow
+      id={MOBILE_PLAYER_WINDOW_ID}
+      title={localizeUi("ui.chat.combinedplayerwidget.playerTracker")}
+      icon={<Swords size="0.875rem" />}
+      width={320}
+      height={512}
     >
-      {children}
-    </div>,
-    document.body,
+      <Suspense
+        fallback={<DeferredHUDPanelFallback label={localizeUi("ui.chat.combinedplayerwidget.loadingTrackers")} />}
+      >
+        <CombinedPlayerPanel
+          showPersona={showPersona}
+          showCharacters={showCharacters}
+          showQuests={showQuests}
+          showInventory={showInventory}
+          memoryNagPackageIds={memoryNagPackageIds}
+          chatId={chatId}
+          showCustomTracker={showCustomTracker}
+          personaStats={personaStats}
+          onUpdatePersonaStats={onUpdatePersonaStats}
+          personaStatus={personaStatus}
+          onUpdatePersonaStatus={onUpdatePersonaStatus}
+          characters={characters}
+          onUpdateCharacters={onUpdateCharacters}
+          quests={quests}
+          onUpdateQuests={onUpdateQuests}
+          inventoryCurrencies={inventoryCurrencies}
+          inventoryEquipped={inventoryEquipped}
+          inventory={inventory}
+          onUpdateInventoryCurrencies={onUpdateInventoryCurrencies}
+          onUpdateInventoryEquipped={onUpdateInventoryEquipped}
+          onUpdateInventory={onUpdateInventory}
+          customTrackerFields={customTrackerFields}
+          onUpdateCustomTracker={onUpdateCustomTracker}
+          onClose={close}
+          onRerunSingleTracker={onRerunSingleTracker}
+          isTrackerRetryBusy={isTrackerRetryBusy}
+        />
+      </Suspense>
+    </MobileTrackerWindow>
   );
 }
 
-// ── Present Characters Widget ────────────────
-
-function CharactersWidget({
-  characters,
-  onUpdate,
-  chatId,
-  onRerunSingleTracker,
-  isTrackerRetryBusy,
+/** The phone tracker's movable button and themed sheet share every other chat window's layout storage. */
+function MobileTrackerWindow({
+  id,
+  title,
+  icon,
+  width,
+  height,
+  children,
 }: {
-  characters: PresentCharacter[];
-  onUpdate: (chars: PresentCharacter[]) => void;
-  chatId: string;
-  onRerunSingleTracker?: (agentType: string) => void;
-  isTrackerRetryBusy?: boolean;
+  id: string;
+  title: string;
+  icon: ReactNode;
+  width: number;
+  height: number;
+  children: ReactNode;
 }) {
-  const { t: localizeUi } = useUiTranslation();
-  const [open, setOpen] = useState(false);
-  const buttonRef = useRef<HTMLButtonElement>(null);
-
+  const { t } = useUiTranslation();
+  useEffect(() => () => useFloatingWindowStore.getState().closeWindow(id), [id]);
   return (
-    <div className="relative">
-      <button
-        ref={buttonRef}
-        onClick={() => setOpen(!open)}
-        className={WIDGET}
-        title={localizeUi("ui.chat.characterswidget.presentCharacters")}
-      >
-        <Users size="0.875rem" className="transition-colors max-md:h-3.5 max-md:w-3.5" />
-      </button>
-
-      <WidgetPopover
-        open={open}
-        onClose={() => setOpen(false)}
-        anchorRef={buttonRef}
-        className="w-72 max-h-80 overflow-y-auto"
-      >
-        <Suspense
-          fallback={<DeferredHUDPanelFallback label={localizeUi("ui.chat.characterswidget.loadingCharacters")} />}
-        >
-          <CharactersPanel
-            characters={characters}
-            onUpdate={onUpdate}
-            chatId={chatId}
-            onRerunSingleTracker={onRerunSingleTracker}
-            isTrackerRetryBusy={isTrackerRetryBusy}
-          />
-        </Suspense>
-      </WidgetPopover>
-    </div>
+    <FloatingWindow
+      id={id}
+      title={title}
+      titleIcon={icon}
+      closeLabel={t("window.controls.close")}
+      presentation="sheet"
+      sheetClassName={PHONE_SHEET_CLASS}
+      minimizable={{ icon, label: title }}
+      getDefaultLayout={(bounds, bubbleSize) =>
+        getChatControlDefaultLayout(bounds, 0, { width, height }, 0, bubbleSize)
+      }
+      autoFocus={false}
+      className={NEUTRAL_SURFACE_VARIABLES}
+      rootAttributes={{ "data-mobile-tracker-window": id }}
+      ignoreOutsidePointer={(target) => !!target.closest("[data-chat-floating-panel], [data-macro-modal]")}
+    >
+      <div className={cn(NEUTRAL_PANEL_SCROLL_AREA, "@container min-h-0 flex-1 overflow-y-auto overscroll-contain")}>
+        {children}
+      </div>
+    </FloatingWindow>
   );
 }
 
-// ── Persona Stats Widget ─────────────────────
+// ═══════════════════════════════════════════════
+// Miniature displays: each tracker's compact view, shown while its
+// Tracker window drawer is collapsed
+// ═══════════════════════════════════════════════
 
-function PersonaStatsWidget({
-  bars,
-  onUpdate,
-  status,
-  onUpdateStatus,
-  onRerunSingleTracker,
-  isTrackerRetryBusy,
-}: {
-  bars: CharacterStat[];
-  onUpdate: (bars: CharacterStat[]) => void;
-  status: string;
-  onUpdateStatus: (status: string) => void;
-  onRerunSingleTracker?: (agentType: string) => void;
-  isTrackerRetryBusy?: boolean;
-}) {
-  const { t: localizeUi } = useUiTranslation();
-  const [open, setOpen] = useState(false);
-  const buttonRef = useRef<HTMLButtonElement>(null);
+/** The toolbar tile a miniature sits in. It ignores the pointer, so a press reaches the drawer header. */
+export const TRACKER_MINIATURE_TILE = cn(
+  getChatToolbarButtonClass({ compact: true }),
+  "pointer-events-none group flex-col gap-0 overflow-hidden",
+);
 
+export function PersonaStatsMiniature({ bars }: { bars: CharacterStat[] }) {
+  if (bars.length === 0) return <BarChart3 size="0.875rem" className="max-md:h-3.5 max-md:w-3.5" />;
   return (
-    <div className="relative">
-      <button
-        ref={buttonRef}
-        onClick={() => setOpen(!open)}
-        className={WIDGET}
-        title={localizeUi("ui.chat.personastatswidget.personaStats")}
-      >
-        {bars.length > 0 ? (
-          <div className="flex w-6 max-md:w-8 flex-col justify-center gap-0.5 max-md:gap-px shrink-0">
-            {bars.map((bar) => {
-              const pct = bar.max > 0 ? Math.min(100, (bar.value / bar.max) * 100) : 0;
-              return (
-                <div
-                  key={bar.name}
-                  className="h-1 max-md:h-px w-full rounded-full bg-[var(--muted)]/30 dark:bg-foreground/10 overflow-hidden"
-                >
-                  <div
-                    className="h-full rounded-full transition-all duration-500"
-                    style={{
-                      width: `${pct}%`,
-                      backgroundColor: bar.color || "#a1a1aa",
-                    }}
-                  />
-                </div>
-              );
-            })}
+    <div className="flex w-6 max-md:w-8 flex-col justify-center gap-0.5 max-md:gap-px shrink-0">
+      {bars.map((bar) => {
+        const pct = bar.max > 0 ? Math.min(100, (bar.value / bar.max) * 100) : 0;
+        return (
+          <div
+            key={bar.name}
+            className="h-1 max-md:h-px w-full rounded-full bg-[var(--muted)]/30 dark:bg-foreground/10 overflow-hidden"
+          >
+            <div
+              className="h-full rounded-full transition-all duration-500"
+              style={{
+                width: `${pct}%`,
+                backgroundColor: bar.color || "#a1a1aa",
+              }}
+            />
           </div>
-        ) : (
-          <BarChart3 size="0.875rem" className="max-md:h-3.5 max-md:w-3.5" />
-        )}
-        <span className="sr-only">{localizeUi("ui.characters.cardlibrarydetailcard.persona")}</span>
-      </button>
-
-      <WidgetPopover
-        open={open}
-        onClose={() => setOpen(false)}
-        anchorRef={buttonRef}
-        className="w-60 max-h-80 overflow-y-auto"
-      >
-        <Suspense
-          fallback={<DeferredHUDPanelFallback label={localizeUi("ui.chat.personastatswidget.loadingPersonaStats")} />}
-        >
-          <PersonaStatsPanel
-            bars={bars}
-            onUpdate={onUpdate}
-            status={status}
-            onUpdateStatus={onUpdateStatus}
-            onRerunSingleTracker={onRerunSingleTracker}
-            isTrackerRetryBusy={isTrackerRetryBusy}
-          />
-        </Suspense>
-      </WidgetPopover>
+        );
+      })}
     </div>
   );
 }
 
-// ── Custom Tracker Widget ────────────────────
+export function CharactersMiniature() {
+  return <Users size="0.875rem" className="transition-colors max-md:h-3.5 max-md:w-3.5" />;
+}
 
-function CustomTrackerWidget({
-  fields,
-  onUpdate,
-  onRerunSingleTracker,
-  isTrackerRetryBusy,
-}: {
-  fields: CustomTrackerField[];
-  onUpdate: (fields: CustomTrackerField[]) => void;
-  onRerunSingleTracker?: (agentType: string) => void;
-  isTrackerRetryBusy?: boolean;
-}) {
-  const { t: localizeUi } = useUiTranslation();
+export function CustomTrackerMiniature({ fields }: { fields: CustomTrackerField[] }) {
   const reduceAmbientEffects = useReducedAmbientEffects();
-  const [open, setOpen] = useState(false);
-  const buttonRef = useRef<HTMLButtonElement>(null);
   const [cycleIdx, setCycleIdx] = useState(0);
   const [animKey, setAnimKey] = useState(0);
 
@@ -1228,179 +612,49 @@ function CustomTrackerWidget({
   }, [fields.length, cycleIdx]);
 
   const currentField = fields[cycleIdx];
-  const previewLabel = currentField
-    ? currentField.value
-      ? `${currentField.name}: ${currentField.value}`
-      : currentField.name
-    : "";
+  if (fields.length === 0 || !currentField) {
+    return <SlidersHorizontal size="0.875rem" className="max-md:h-3 max-md:w-3" />;
+  }
+  const previewLabel = currentField.value ? `${currentField.name}: ${currentField.value}` : currentField.name;
   const longestWord = previewLabel.split(/\s+/).reduce((max, w) => Math.max(max, w.length), 0);
   const previewFontSize = Math.max(3.5, Math.min(6, 60 / Math.max(longestWord, 1)));
-
   return (
-    <div className="relative">
-      <button
-        ref={buttonRef}
-        onClick={() => setOpen(!open)}
-        className={WIDGET}
-        title={localizeUi("ui.chat.customtrackerwidget.customTracker")}
-      >
-        {fields.length > 0 && currentField ? (
-          <span
-            key={animKey}
-            className={cn(
-              "w-full px-0.5 text-center font-semibold leading-[1.2]",
-              !reduceAmbientEffects && "animate-[inventory-cycle_0.4s_ease-out]",
-            )}
-            style={{ fontSize: `${previewFontSize}px` }}
-          >
-            {previewLabel}
-          </span>
-        ) : (
-          <SlidersHorizontal size="0.875rem" className="max-md:h-3 max-md:w-3" />
-        )}
-      </button>
-
-      <WidgetPopover
-        open={open}
-        onClose={() => setOpen(false)}
-        anchorRef={buttonRef}
-        className="w-72 max-h-80 overflow-y-auto"
-      >
-        <Suspense
-          fallback={<DeferredHUDPanelFallback label={localizeUi("ui.chat.customtrackerwidget.loadingCustomTracker")} />}
-        >
-          <CustomTrackerPanel
-            fields={fields}
-            onUpdate={onUpdate}
-            onRerunSingleTracker={onRerunSingleTracker}
-            isTrackerRetryBusy={isTrackerRetryBusy}
-          />
-        </Suspense>
-      </WidgetPopover>
-    </div>
+    <span
+      key={animKey}
+      className={cn(
+        "w-full px-0.5 text-center font-semibold leading-[1.2]",
+        !reduceAmbientEffects && "animate-[inventory-cycle_0.4s_ease-out]",
+      )}
+      style={{ fontSize: `${previewFontSize}px` }}
+    >
+      {previewLabel}
+    </span>
   );
 }
 
-function InventoryTrackerWidget({
-  currencies,
-  equipped,
-  inventory,
-  onUpdateCurrencies,
-  onUpdateEquipped,
-  onUpdateInventory,
-  onRerunSingleTracker,
-  isTrackerRetryBusy,
-}: {
-  currencies: InventoryTrackerRow[];
-  equipped: InventoryTrackerRow[];
-  inventory: InventoryTrackerRow[];
-  onUpdateCurrencies: (rows: InventoryTrackerRow[]) => void;
-  onUpdateEquipped: (rows: InventoryTrackerRow[]) => void;
-  onUpdateInventory: (rows: InventoryTrackerRow[]) => void;
-  onRerunSingleTracker?: (agentType: string) => void;
-  isTrackerRetryBusy?: boolean;
-}) {
-  const { t: localizeUi } = useUiTranslation();
-  const [open, setOpen] = useState(false);
-  const buttonRef = useRef<HTMLButtonElement>(null);
-  const total = currencies.length + equipped.length + inventory.length;
-  return (
-    <div className="relative">
-      <button
-        ref={buttonRef}
-        onClick={() => setOpen(!open)}
-        className={WIDGET}
-        title={localizeUi("ui.chat.inventoryTracker.title")}
-      >
-        {total > 0 ? (
-          <span className="text-[0.625rem] font-semibold tabular-nums">{total}</span>
-        ) : (
-          <Backpack size="0.875rem" className="max-md:h-3 max-md:w-3" />
-        )}
-      </button>
-      <WidgetPopover
-        open={open}
-        onClose={() => setOpen(false)}
-        anchorRef={buttonRef}
-        className="w-[min(34rem,calc(100vw-1rem))] max-h-80 overflow-y-auto"
-      >
-        <Suspense fallback={<DeferredHUDPanelFallback label={localizeUi("ui.chat.inventoryTracker.loading")} />}>
-          <RoleplayInventoryTrackerPanel
-            currencies={currencies}
-            equipped={equipped}
-            inventory={inventory}
-            onUpdateCurrencies={onUpdateCurrencies}
-            onUpdateEquipped={onUpdateEquipped}
-            onUpdateInventory={onUpdateInventory}
-            onRerunSingleTracker={onRerunSingleTracker}
-            isTrackerRetryBusy={isTrackerRetryBusy}
-          />
-        </Suspense>
-      </WidgetPopover>
-    </div>
+export function InventoryTrackerMiniature({ total }: { total: number }) {
+  return total > 0 ? (
+    <span className="text-[0.625rem] font-semibold tabular-nums">{total}</span>
+  ) : (
+    <Backpack size="0.875rem" className="max-md:h-3 max-md:w-3" />
   );
 }
 
-// ── Quests Widget ────────────────────────────
-
-function QuestsWidget({
-  quests,
-  onUpdate,
-  onRerunSingleTracker,
-  isTrackerRetryBusy,
-}: {
-  quests: QuestProgress[];
-  onUpdate: (quests: QuestProgress[]) => void;
-  onRerunSingleTracker?: (agentType: string) => void;
-  isTrackerRetryBusy?: boolean;
-}) {
-  const { t: localizeUi } = useUiTranslation();
-  const [open, setOpen] = useState(false);
-  const buttonRef = useRef<HTMLButtonElement>(null);
-
-  // Find the first incomplete objective from the most recent incomplete quest
+export function QuestsMiniature({ quests }: { quests: QuestProgress[] }) {
+  // The first incomplete objective from the most recent incomplete quest
   const incompleteQuests = quests.filter((q) => !q.completed);
   const mainQuest = incompleteQuests.length > 0 ? incompleteQuests[incompleteQuests.length - 1] : undefined;
   const currentObjective = mainQuest?.objectives.find((o) => !o.completed);
-
+  if (!currentObjective) return <Scroll size="0.875rem" className="max-md:h-3 max-md:w-3" />;
   return (
-    <div className="relative">
-      <button
-        ref={buttonRef}
-        onClick={() => setOpen(!open)}
-        className={WIDGET}
-        title={localizeUi("ui.chat.questswidget.activeQuests")}
-      >
-        {currentObjective ? (
-          <span className="widget-scroll-text w-full px-0.5 text-center text-[0.375rem] font-semibold leading-[1.15] max-md:text-[0.5rem]">
-            <span className="inline-flex animate-[widget-scroll_8s_linear_infinite] whitespace-nowrap">
-              <span className="px-3">{currentObjective.text}</span>
-              <span className="px-3" aria-hidden>
-                {currentObjective.text}
-              </span>
-            </span>
-          </span>
-        ) : (
-          <Scroll size="0.875rem" className="max-md:h-3 max-md:w-3" />
-        )}
-      </button>
-
-      <WidgetPopover
-        open={open}
-        onClose={() => setOpen(false)}
-        anchorRef={buttonRef}
-        className="w-72 max-h-96 overflow-y-auto"
-      >
-        <Suspense fallback={<DeferredHUDPanelFallback label={localizeUi("ui.chat.questswidget.loadingQuests")} />}>
-          <QuestsPanel
-            quests={quests}
-            onUpdate={onUpdate}
-            onRerunSingleTracker={onRerunSingleTracker}
-            isTrackerRetryBusy={isTrackerRetryBusy}
-          />
-        </Suspense>
-      </WidgetPopover>
-    </div>
+    <span className="widget-scroll-text w-full px-0.5 text-center text-[0.375rem] font-semibold leading-[1.15] max-md:text-[0.5rem]">
+      <span className="inline-flex animate-[widget-scroll_8s_linear_infinite] whitespace-nowrap">
+        <span className="px-3">{currentObjective.text}</span>
+        <span className="px-3" aria-hidden>
+          {currentObjective.text}
+        </span>
+      </span>
+    </span>
   );
 }
 
@@ -1408,15 +662,57 @@ function QuestsWidget({
 // Uniform World-State Widgets
 // ═══════════════════════════════════════════════
 
-const WIDGET = cn(
-  HUD_ICON_BUTTON,
-  CHAT_TOOLBAR_MOBILE_OVERFLOW_HEIGHT_CLASS,
-  "group flex-col gap-0 overflow-hidden cursor-pointer select-none",
-);
+// ═══════════════════════════════════════════════
+// Combined World-State Widget (icon strip + popover, phones)
+// ═══════════════════════════════════════════════
 
-// ═══════════════════════════════════════════════
-// Combined World-State Widget (icon strip + popover, desktop & mobile)
-// ═══════════════════════════════════════════════
+interface WorldTrackerValues {
+  location: string;
+  date: string;
+  time: string;
+  weather: string;
+  temperature: string;
+  worldCustomFields: WorldCustomField[];
+}
+
+/** Icons and colors the World State miniature and its panel share. */
+export function getWorldTrackerDisplay(world: WorldTrackerValues, trackerTemperatureUnit: TrackerTemperatureUnit) {
+  const { location, date, time, weather, temperature, worldCustomFields } = world;
+  const weatherFamily = classifyWorldWeather(weather);
+  const weatherStyle = HUD_WEATHER_STYLES[weatherFamily];
+  const dateDisplay = getWorldDateDisplay(date);
+  const timeDisplay = getWorldTimeDisplay(time);
+  const temperatureDisplay = getTemperatureGaugeDisplay(temperature, trackerTemperatureUnit);
+  const hasWorldState =
+    [location, date, time, weather, temperature].some((value) => value.trim().length > 0) ||
+    worldCustomFields.some((field) => field.name.trim().length > 0 || field.value.trim().length > 0);
+  return {
+    hasWorldState,
+    weatherEmoji: weatherStyle.emoji,
+    weatherColor: weatherFamily === "atmosphere" && !weather ? "text-[var(--muted-foreground)]/70" : weatherStyle.color,
+    pinColor: getLocationPinColor(location),
+    dateDisplay,
+    timeDisplay,
+    timeColor:
+      timeDisplay.kind === "empty" ? "text-[var(--muted-foreground)]/70" : HUD_TIME_COLORS[timeDisplay.timeOfDay],
+    temperatureDisplay,
+    tempColor: temperatureDisplay.color,
+  };
+}
+
+type WorldTrackerDisplay = ReturnType<typeof getWorldTrackerDisplay>;
+
+/** The World State tile: a square until there is world state, then a row of icons. */
+export function getWorldMiniatureTileClass(hasWorldState: boolean, open = false) {
+  return cn(
+    getChatToolbarButtonClass({
+      compact: true,
+      open,
+      className: CHAT_TOOLBAR_MOBILE_OVERFLOW_HEIGHT_CLASS,
+    }),
+    hasWorldState ? "w-auto min-w-8 gap-1 px-2" : "group flex-col gap-0 overflow-hidden",
+  );
+}
 
 function CombinedWorldWidget({
   location,
@@ -1434,13 +730,7 @@ function CombinedWorldWidget({
   onUpdateWorldCustomFields,
   onRerunSingleTracker,
   isTrackerRetryBusy,
-}: {
-  location: string;
-  date: string;
-  time: string;
-  weather: string;
-  temperature: string;
-  worldCustomFields: WorldCustomField[];
+}: WorldTrackerValues & {
   trackerTemperatureUnit: TrackerTemperatureUnit;
   onSaveLocation: (v: string) => void;
   onSaveDate: (v: string) => void;
@@ -1452,116 +742,90 @@ function CombinedWorldWidget({
   isTrackerRetryBusy?: boolean;
 }) {
   const { t: localizeUi } = useUiTranslation();
-  const [open, setOpen] = useState(false);
-  const buttonRef = useRef<HTMLButtonElement>(null);
-  const weatherFamily = classifyWorldWeather(weather);
-  const weatherStyle = HUD_WEATHER_STYLES[weatherFamily];
-  const weatherEmoji = weatherStyle.emoji;
-  const pinColor = getLocationPinColor(location);
-  const dateDisplay = getWorldDateDisplay(date);
-  const timeDisplay = getWorldTimeDisplay(time);
-  const timeColor =
-    timeDisplay.kind === "empty" ? "text-[var(--muted-foreground)]/70" : HUD_TIME_COLORS[timeDisplay.timeOfDay];
-  const weatherColor =
-    weatherFamily === "atmosphere" && !weather ? "text-[var(--muted-foreground)]/70" : weatherStyle.color;
-  const temperatureDisplay = getTemperatureGaugeDisplay(temperature, trackerTemperatureUnit);
-  const tempColor = temperatureDisplay.color;
-  const hasWorldState =
-    [location, date, time, weather, temperature].some((value) => value.trim().length > 0) ||
-    worldCustomFields.some((field) => field.name.trim().length > 0 || field.value.trim().length > 0);
+  const close = () => useFloatingWindowStore.getState().closeWindow(MOBILE_WORLD_WINDOW_ID);
+  const display = getWorldTrackerDisplay(
+    { location, date, time, weather, temperature, worldCustomFields },
+    trackerTemperatureUnit,
+  );
 
   return (
-    <div className="relative">
-      <button
-        ref={buttonRef}
-        onClick={() => setOpen(!open)}
-        className={cn(
-          getChatToolbarButtonClass({
-            compact: true,
-            open,
-            className: CHAT_TOOLBAR_MOBILE_OVERFLOW_HEIGHT_CLASS,
-          }),
-          "cursor-pointer select-none",
-          hasWorldState ? "w-auto min-w-8 gap-1 px-2" : "group flex-col gap-0 overflow-hidden",
-        )}
-        title={localizeUi("ui.panels.appearancesettings.worldState")}
+    <MobileTrackerWindow
+      id={MOBILE_WORLD_WINDOW_ID}
+      title={localizeUi("ui.panels.appearancesettings.worldState")}
+      icon={<MapPin size="0.875rem" />}
+      width={288}
+      height={400}
+    >
+      <Suspense
+        fallback={<DeferredHUDPanelFallback label={localizeUi("ui.chat.combinedworldwidget.loadingWorldState")} />}
       >
-        {!hasWorldState ? (
-          <MapPin size="0.875rem" className="shrink-0 max-md:h-3.5 max-md:w-3.5" />
-        ) : (
-          <>
-            {/* Location pin */}
-            <MapPin size="0.9375rem" className="shrink-0 drop-shadow-sm" />
+        <CombinedWorldPanel
+          location={location}
+          date={date}
+          time={time}
+          weather={weather}
+          temperature={temperature}
+          worldCustomFields={worldCustomFields}
+          onSaveLocation={onSaveLocation}
+          onSaveDate={onSaveDate}
+          onSaveTime={onSaveTime}
+          onSaveWeather={onSaveWeather}
+          onSaveTemperature={onSaveTemperature}
+          onUpdateWorldCustomFields={onUpdateWorldCustomFields}
+          weatherEmoji={display.weatherEmoji}
+          pinColor={display.pinColor}
+          dateColor={display.dateDisplay.iconColor}
+          timeColor={display.timeColor}
+          weatherColor={display.weatherColor}
+          tempColor={display.tempColor}
+          onClose={close}
+          onRerunSingleTracker={onRerunSingleTracker}
+          isTrackerRetryBusy={isTrackerRetryBusy}
+        />
+      </Suspense>
+    </MobileTrackerWindow>
+  );
+}
 
-            {/* Mini calendar with day number */}
-            <WorldCalendarIcon
-              day={dateDisplay.day}
-              className={cn("h-4 w-4 shrink-0 drop-shadow-sm", dateDisplay.iconColor)}
-            />
+export function WorldStateMiniature({ display }: { display: WorldTrackerDisplay }) {
+  const { hasWorldState, dateDisplay, timeDisplay, timeColor, weatherColor, weatherEmoji, temperatureDisplay } =
+    display;
+  return !hasWorldState ? (
+    <MapPin size="0.875rem" className="shrink-0 max-md:h-3.5 max-md:w-3.5" />
+  ) : (
+    <>
+      {/* Location pin */}
+      <MapPin size="0.9375rem" className="shrink-0 drop-shadow-sm" />
 
-            <WorldClockIcon
-              display={timeDisplay}
-              variant="monochrome"
-              className={cn("h-4 w-4 shrink-0 drop-shadow-sm", timeColor)}
-            />
+      {/* Mini calendar with day number */}
+      <WorldCalendarIcon
+        day={dateDisplay.day}
+        className={cn("h-4 w-4 shrink-0 drop-shadow-sm", dateDisplay.iconColor)}
+      />
 
-            {/* Weather emoji */}
-            <span
-              className={cn(
-                "text-sm leading-none shrink-0 drop-shadow-sm [text-shadow:0_0_8px_currentColor]",
-                weatherColor,
-              )}
-            >
-              {weatherEmoji}
-            </span>
+      <WorldClockIcon
+        display={timeDisplay}
+        variant="monochrome"
+        className={cn("h-4 w-4 shrink-0 drop-shadow-sm", timeColor)}
+      />
 
-            <WorldThermometerIcon
-              display={temperatureDisplay}
-              variant="solid-bulb"
-              className="h-4 w-[0.625rem] shrink-0"
-            />
-            {temperatureDisplay.isPure && (
-              <span
-                className="shrink-0 text-[0.5rem] font-bold leading-none md:text-[0.5625rem]"
-                style={{ color: tempColor }}
-              >
-                {temperatureDisplay.label}
-              </span>
-            )}
-          </>
-        )}
-      </button>
+      {/* Weather emoji */}
+      <span
+        className={cn("text-sm leading-none shrink-0 drop-shadow-sm [text-shadow:0_0_8px_currentColor]", weatherColor)}
+      >
+        {weatherEmoji}
+      </span>
 
-      <WidgetPopover open={open} onClose={() => setOpen(false)} anchorRef={buttonRef} className="w-64">
-        <Suspense
-          fallback={<DeferredHUDPanelFallback label={localizeUi("ui.chat.combinedworldwidget.loadingWorldState")} />}
+      <WorldThermometerIcon display={temperatureDisplay} variant="solid-bulb" className="h-4 w-[0.625rem] shrink-0" />
+      {temperatureDisplay.isPure && (
+        <span
+          className="shrink-0 text-[0.5rem] font-bold leading-none md:text-[0.5625rem]"
+          style={{ color: display.tempColor }}
         >
-          <CombinedWorldPanel
-            location={location}
-            date={date}
-            time={time}
-            weather={weather}
-            temperature={temperature}
-            worldCustomFields={worldCustomFields}
-            onSaveLocation={onSaveLocation}
-            onSaveDate={onSaveDate}
-            onSaveTime={onSaveTime}
-            onSaveWeather={onSaveWeather}
-            onSaveTemperature={onSaveTemperature}
-            onUpdateWorldCustomFields={onUpdateWorldCustomFields}
-            weatherEmoji={weatherEmoji}
-            pinColor={pinColor}
-            dateColor={dateDisplay.iconColor}
-            timeColor={timeColor}
-            weatherColor={weatherColor}
-            tempColor={tempColor}
-            onClose={() => setOpen(false)}
-            onRerunSingleTracker={onRerunSingleTracker}
-            isTrackerRetryBusy={isTrackerRetryBusy}
-          />
-        </Suspense>
-      </WidgetPopover>
-    </div>
+          {temperatureDisplay.label}
+        </span>
+      )}
+    </>
   );
 }
 

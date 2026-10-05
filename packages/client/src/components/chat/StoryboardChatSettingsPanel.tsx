@@ -151,7 +151,7 @@ function StoryboardNumberInput({
 
   return (
     <div className="flex h-full flex-col gap-1">
-      <label className="grid flex-1 gap-2 rounded-lg bg-[var(--background)]/75 px-3 py-2 ring-1 ring-[var(--border)] sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+      <label className="grid flex-1 gap-2 rounded-lg bg-[var(--background)]/75 px-3 py-2 ring-1 ring-[var(--border)] @lg:grid-cols-[minmax(0,1fr)_auto] @lg:items-center">
         <span className="min-w-0">
           <span className="block text-[0.625rem] font-medium text-[var(--foreground)]">{label}</span>
           <span className="mt-0.5 block text-[0.5625rem] leading-snug text-[var(--muted-foreground)]">
@@ -415,7 +415,7 @@ export function StoryboardChatSettingsPanel({
             onReset={() => onUpdate({ gameStoryboardUseNovelAiCharacterPrompts: null })}
           />
 
-          <div className="grid gap-2 md:grid-cols-2">
+          <div className="grid gap-2 @lg:grid-cols-2">
             <StoryboardSlider
               label={localizeUi("ui.chat.chatsettingsdrawer.keyframesPerTurn")}
               description={localizeUi(
@@ -476,7 +476,7 @@ export function StoryboardChatSettingsPanel({
                 {localizeUi("ui.chat.chatsettingsdrawer.plannersSplitACompletedGmTurnIntoOrderedKeyframes")}
               </p>
             </div>
-            <div className="grid gap-2 md:grid-cols-2">
+            <div className="grid gap-2 @lg:grid-cols-2">
               <GamePromptTemplateSelect
                 label={localizeUi("ui.agents.storyboard.stillPlanner")}
                 description={localizeUi(
@@ -756,7 +756,7 @@ function RoleplayStoryboardChatSettingsPanel({
             />
           </div>
 
-          <div className="grid gap-2 md:grid-cols-3">
+          <div className="grid gap-2 @lg:grid-cols-3">
             <StoryboardSlider
               label={localizeUi("ui.agents.storyboard.assistantMessagesPerEpisode")}
               description={localizeUi("ui.agents.storyboard.assistantMessagesPerEpisodeDescription")}
@@ -790,7 +790,7 @@ function RoleplayStoryboardChatSettingsPanel({
             />
           </div>
 
-          <div className="grid gap-2 md:grid-cols-2">
+          <div className="grid gap-2 @lg:grid-cols-2">
             {renderConnectionSelect(
               localizeUi("ui.agents.storyboard.promptConnection"),
               metadata.roleplayStoryboardPromptConnectionId,
@@ -811,7 +811,7 @@ function RoleplayStoryboardChatSettingsPanel({
             )}
           </div>
 
-          <div className="grid gap-2 md:grid-cols-2">
+          <div className="grid gap-2 @lg:grid-cols-2">
             <GamePromptTemplateSelect
               label={localizeUi("ui.agents.storyboard.roleplayEpisodeContract")}
               description={localizeUi("ui.agents.storyboard.roleplayEpisodeContractDescription")}
@@ -858,7 +858,7 @@ function RoleplayStoryboardChatSettingsPanel({
             />
           </div>
 
-          <div className="grid gap-2 md:grid-cols-2">
+          <div className="grid gap-2 @lg:grid-cols-2">
             <AgentSettingsToggle
               label={localizeUi("ui.chat.agentaddsetupfields.attachCardAppearance")}
               description={localizeUi("ui.agents.storyboard.roleplayAppearanceDescription")}

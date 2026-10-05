@@ -26,7 +26,7 @@ If no image connection can be found, the picture fails and the app asks you to c
 The Illustrator is off by default. In a **Roleplay** chat, add it like this:
 
 1. Open the chat you want to illustrate.
-2. Open **Chat Settings** using the gear icon.
+2. Open **Chat Settings** (the **Chat Settings** button in the chat, at the top right unless you moved it).
 3. Find the **Agents** section and turn on **Enable Agents**.
 4. In the **Misc Agents** group, find **Illustrator** and add it with the Plus button.
 
@@ -85,7 +85,7 @@ The Illustrator card has an **Open Setup** button. It opens the agent's full set
 
 Set **Run Interval** to **0** for manual-only generation. This stops automatic Illustrator runs, including its automatic scene backgrounds, while keeping the agent installed and available for Gallery actions. The default remains **5**; set a positive interval to resume automatic runs. You can also choose 0 when adding Illustrator to a chat.
 
-You can also make a picture on demand instead of waiting. Open the chat **Gallery** and use the **Illustrate** button. The Illustrator runs once right away and the button shows **Generating...** while it works. This is useful when you want a picture of the current moment and the agent has not drawn one yet.
+You can also make a picture on demand instead of waiting. Open **Chat Settings**, expand the **Gallery** section, and use the **Illustrate** button. The Illustrator runs once right away and the button shows **Generating...** while it works. This is useful when you want a picture of the current moment and the agent has not drawn one yet.
 
 ## Gallery saving and prompt inspection
 

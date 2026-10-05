@@ -21,7 +21,8 @@ interface GameVolumeMixerProps {
   onTtsVolumeChange: (value: number) => void;
   onAmbientVolumeChange: (value: number) => void;
   onToggleMute: () => void;
-  onClose: () => void;
+  /** Without it (inside the Volume window, which has its own title and close), only the mute button heads the mixer. */
+  onClose?: () => void;
   onAudioInteract?: () => void;
   className?: string;
   style?: CSSProperties;
@@ -66,13 +67,13 @@ export function GameVolumeMixer({
 
   return (
     <div
-      data-chat-floating-panel
-      className={cn(NEUTRAL_PANEL_SHELL, "w-64 max-w-[calc(100vw-1.5rem)] p-3", className)}
+      data-chat-floating-panel={onClose ? true : undefined}
+      className={cn(onClose ? cn(NEUTRAL_PANEL_SHELL, "w-64 max-w-[calc(100vw-1.5rem)]") : "w-full", "p-3", className)}
       style={style}
     >
       <div className="mb-2 flex items-center justify-between gap-3 border-b border-[var(--marinara-chat-chrome-panel-divider)] pb-2">
         <span className="text-[0.6875rem] font-semibold uppercase text-[var(--marinara-chat-chrome-panel-muted)]">
-          {localizeUi("game.toolbar.volume")}
+          {onClose ? localizeUi("game.toolbar.volume") : null}
         </span>
         <div className="flex items-center gap-1">
           <button
@@ -93,14 +94,16 @@ export function GameVolumeMixer({
           >
             {audioMuted ? <VolumeX size={12} /> : <Volume2 size={12} />}
           </button>
-          <button
-            type="button"
-            onClick={onClose}
-            className={NEUTRAL_PANEL_CLOSE_BUTTON}
-            aria-label={localizeUi("ui.game.gamevolumemixer.closeVolume")}
-          >
-            <X size={NEUTRAL_PANEL_CLOSE_ICON_SIZE} />
-          </button>
+          {onClose && (
+            <button
+              type="button"
+              onClick={onClose}
+              className={NEUTRAL_PANEL_CLOSE_BUTTON}
+              aria-label={localizeUi("ui.game.gamevolumemixer.closeVolume")}
+            >
+              <X size={NEUTRAL_PANEL_CLOSE_ICON_SIZE} />
+            </button>
+          )}
         </div>
       </div>
 

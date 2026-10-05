@@ -1,14 +1,18 @@
-import { Suspense, lazy, type ComponentProps, type CSSProperties } from "react";
+import { Suspense, lazy, type ComponentProps } from "react";
 import type { SpriteSide } from "@marinara-engine/shared";
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
 import { ChevronUp, ChevronDown, Layers, ListChecks, Loader2, Trash2, X } from "lucide-react";
 import type { PeekPromptData } from "./chat-area.types";
 import type { LocalSpriteVisualSettings } from "./local-sprite-visual-settings";
-import type { ChatImage } from "../../hooks/use-gallery";
 import { cn } from "../../lib/utils";
 import { Modal } from "../ui/Modal";
 import { NEUTRAL_PANEL_SHELL } from "../ui/neutral-surface-styles";
-import { getChatFloatingPanelDesktopRight, type ChatToolbarFloatingPanelAnchor } from "./ChatToolbarControls";
+import { type ChatToolbarFloatingPanelAnchor } from "./ChatToolbarControls";
+import { FloatingWindow } from "../ui/FloatingWindow";
+import { useMatchMedia } from "../../hooks/use-match-media";
+import { CHAT_SETTINGS_WINDOW_ID } from "../../stores/floating-window.store";
+import { getChatSettingsWindowProps } from "./chat-settings-window";
+import { useHostHasDetachedDrawers } from "../ui/drawer-host";
 
 const loadChatSettingsDrawer = async () => {
   const module = await import("./ChatSettingsDrawer");
@@ -24,11 +28,6 @@ export function preloadChatSettingsDrawer() {
 
 const ChatSettingsDrawer = lazy(preloadChatSettingsDrawer);
 
-const ChatGalleryDrawer = lazy(async () => {
-  const module = await import("./ChatGalleryDrawer");
-  return { default: module.ChatGalleryDrawer };
-});
-
 const ChatSetupWizard = lazy(async () => {
   const module = await import("./ChatSetupWizard");
   return { default: module.ChatSetupWizard };
@@ -42,6 +41,7 @@ const PeekPromptModal = lazy(async () => {
 type ChatData = ComponentProps<typeof ChatSettingsDrawer>["chat"];
 export type ChatFloatingPanelAnchor = ChatToolbarFloatingPanelAnchor;
 export type ChatSettingsInitialSection = ComponentProps<typeof ChatSettingsDrawer>["initialSection"];
+export type ChatSettingsTools = NonNullable<ComponentProps<typeof ChatSettingsDrawer>["chatTools"]>;
 
 type SharedSceneSettingsProps = {
   spriteArrangeMode: boolean;
@@ -210,35 +210,30 @@ function MultiSelectBar({
   );
 }
 
-function ChatSettingsLoadingFallback({ anchor }: { anchor: ChatFloatingPanelAnchor }) {
+function ChatSettingsLoadingFallback({
+  anchor,
+  onClose,
+}: {
+  anchor: ChatFloatingPanelAnchor;
+  onClose: (options?: { force?: boolean }) => void;
+}) {
   const { t: localizeUi } = useUiTranslation();
-  const anchoredOnMobile = !!anchor && typeof window !== "undefined" && window.innerWidth < 768;
-  const panelStyle: CSSProperties | undefined = anchor
-    ? anchoredOnMobile
-      ? {
-          bottom: "auto",
-          left: "auto",
-          right: `${anchor.right}px`,
-          top: `${anchor.top}px`,
-          width: `min(34rem, calc(100vw - ${anchor.right}px - 0.75rem))`,
-        }
-      : { right: getChatFloatingPanelDesktopRight(anchor), top: `${anchor.top}px` }
-    : undefined;
+  const phoneLayout = useMatchMedia("(max-width: 767px)");
 
   return (
-    <div
-      data-chat-floating-panel
-      className="mari-chrome-token-scope fixed bottom-3 right-[calc(var(--mari-chat-ui-inset-right,0px)+0.75rem)] top-14 z-[70] flex w-[min(34rem,calc(100vw-var(--mari-chat-ui-inset-left,0px)-var(--mari-chat-ui-inset-right,0px)-1.5rem))] flex-col overflow-hidden rounded-xl border border-[var(--marinara-chat-chrome-panel-border)] bg-[var(--marinara-chat-chrome-panel-bg)] text-[var(--marinara-chat-chrome-panel-text)] shadow-2xl shadow-black/40 backdrop-blur-md max-md:inset-x-2 max-md:bottom-[calc(0.75rem+var(--mari-safe-area-inset-bottom,env(safe-area-inset-bottom)))] max-md:top-[calc(3.5rem+env(safe-area-inset-top))] max-md:w-auto"
-      style={panelStyle}
+    <FloatingWindow
+      id={CHAT_SETTINGS_WINDOW_ID}
+      presentation={phoneLayout ? "sheet" : "window"}
+      title={localizeUi("chat.toolbar.settings")}
+      titleIcon={<Loader2 size="0.8125rem" className="mari-chrome-accent-icon shrink-0 animate-spin" />}
+      closeLabel={localizeUi("ui.chat.chatsettingsdrawer.closeChatSettings")}
+      {...getChatSettingsWindowProps(anchor)}
+      onRequestClose={() => onClose({ force: true })}
     >
-      <div className="mari-chrome-text-strong flex shrink-0 items-center gap-2 border-b border-[var(--marinara-chat-chrome-panel-divider)] px-4 py-3 text-sm font-semibold">
-        <Loader2 size="0.875rem" className="mari-chrome-accent-icon animate-spin" />
-        {localizeUi("chat.toolbar.settings")}
-      </div>
       <div className="mari-chrome-text-muted flex min-h-32 items-center justify-center px-4 py-8 text-xs">
         {localizeUi("ui.chat.chatsettingsloadingfallback.loadingSettings")}
       </div>
-    </div>
+    </FloatingWindow>
   );
 }
 
@@ -247,8 +242,8 @@ type ChatCommonOverlaysProps = {
   settingsOpen: boolean;
   settingsAnchor: ChatFloatingPanelAnchor;
   settingsInitialSection?: ChatSettingsInitialSection;
-  galleryOpen: boolean;
-  galleryAnchor: ChatFloatingPanelAnchor;
+  /** Drawers only the chat surface can fill (Roleplay's summary, notes, context and agent activity). */
+  chatTools?: ChatSettingsTools;
   wizardOpen: boolean;
   peekPromptData: PeekPromptData | null;
   deleteDialogMessageId: string | null;
@@ -259,25 +254,8 @@ type ChatCommonOverlaysProps = {
   multiSelectMode: boolean;
   selectedMessageCount: number;
   sceneSettings: SharedSceneSettingsProps;
-  onCloseSettings: () => void;
-  onCloseGallery: () => void;
+  onCloseSettings: (options?: { force?: boolean }) => void;
   onOpenScheduleEditor?: (characterId: string, options?: { initialDay?: string | null }) => void;
-  /** Manually trigger the Illustrator agent */
-  onIllustrate?: () => void;
-  onIllustrateWithAgent?: (agentType: string) => void | Promise<void>;
-  /** Generate an on-demand Conversation selfie. */
-  onGenerateSelfie?: (characterId?: string) => void | Promise<void>;
-  selfieCharacters?: Array<{ id: string; name: string }>;
-  /** Run Illustrator in its background prompt mode. */
-  onGenerateBackground?: () => void | Promise<void>;
-  /** Generate a storyboard for the latest completed Game or Roleplay episode. */
-  onGenerateStoryboard?: () => void | Promise<void>;
-  /** Show the latest Game Mode storyboard viewer. */
-  onViewStoryboard?: () => void;
-  /** Generate a scene video from the latest gallery image. */
-  onGenerateVideo?: () => void | Promise<void>;
-  /** Generate a scene video from a specific gallery image. */
-  onAnimateImage?: (image: ChatImage) => void | Promise<void>;
   onWizardFinish: () => void;
   onClosePeekPrompt: () => void;
   onDeleteConfirm: () => void;
@@ -297,8 +275,7 @@ export function ChatCommonOverlays({
   settingsOpen,
   settingsAnchor,
   settingsInitialSection,
-  galleryOpen,
-  galleryAnchor,
+  chatTools,
   wizardOpen,
   peekPromptData,
   deleteDialogMessageId,
@@ -310,17 +287,7 @@ export function ChatCommonOverlays({
   selectedMessageCount,
   sceneSettings,
   onCloseSettings,
-  onCloseGallery,
   onOpenScheduleEditor,
-  onIllustrate,
-  onIllustrateWithAgent,
-  onGenerateSelfie,
-  selfieCharacters,
-  onGenerateBackground,
-  onGenerateStoryboard,
-  onViewStoryboard,
-  onGenerateVideo,
-  onAnimateImage,
   onWizardFinish,
   onClosePeekPrompt,
   onDeleteConfirm,
@@ -334,16 +301,24 @@ export function ChatCommonOverlays({
   onSelectAllAboveSelection,
   onSelectAllBelowSelection,
 }: ChatCommonOverlaysProps) {
+  // Popped-out sections render from inside Chat Settings, so it stays mounted (hidden) while any is out.
+  const settingsSectionsPoppedOut = useHostHasDetachedDrawers(CHAT_SETTINGS_WINDOW_ID);
   return (
     <>
-      {chat && settingsOpen && (
-        <Suspense fallback={<ChatSettingsLoadingFallback anchor={settingsAnchor} />}>
+      {chat && (settingsOpen || settingsSectionsPoppedOut) && (
+        <Suspense
+          fallback={
+            settingsOpen ? <ChatSettingsLoadingFallback anchor={settingsAnchor} onClose={onCloseSettings} /> : null
+          }
+        >
           <ChatSettingsDrawer
             chat={chat}
             open={settingsOpen}
             onClose={onCloseSettings}
             anchor={settingsAnchor}
+            showHelpLayout
             initialSection={settingsInitialSection}
+            chatTools={chatTools ?? {}}
             spriteArrangeMode={sceneSettings.spriteArrangeMode}
             onToggleSpriteArrange={sceneSettings.onToggleSpriteArrange}
             onResetSpritePlacements={sceneSettings.onResetSpritePlacements}
@@ -353,27 +328,6 @@ export function ChatCommonOverlays({
             onSpriteVisualSettingsChange={sceneSettings.onSpriteVisualSettingsChange}
             onOpenScheduleEditor={onOpenScheduleEditor}
           />
-        </Suspense>
-      )}
-      {chat && (
-        <Suspense fallback={null}>
-          {galleryOpen && (
-            <ChatGalleryDrawer
-              chat={chat}
-              open={galleryOpen}
-              onClose={onCloseGallery}
-              anchor={galleryAnchor}
-              onIllustrate={onIllustrate}
-              onIllustrateWithAgent={onIllustrateWithAgent}
-              onGenerateSelfie={onGenerateSelfie}
-              selfieCharacters={selfieCharacters}
-              onGenerateStoryboard={onGenerateStoryboard}
-              onViewStoryboard={onViewStoryboard}
-              onGenerateVideo={onGenerateVideo}
-              onAnimateImage={onAnimateImage}
-              onGenerateBackground={onGenerateBackground}
-            />
-          )}
         </Suspense>
       )}
       {chat && (

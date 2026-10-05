@@ -148,14 +148,21 @@ test("Saved nameless custom tracker rows do not crash Roleplay on open or reload
       },
       { chatId: chat.id, version },
     );
+    // Phones open the tracker strip's popover; computers show the tracker in the Tracker window.
+    const openTracker = async () => {
+      if (!isMobile) {
+        await expect(page.locator('[data-window="trackers"] [data-drawer="tracker-custom"]')).toBeVisible();
+        return;
+      }
+      const tracker = page.getByRole("button", { name: "Tracker", exact: true });
+      await expect(tracker).toBeVisible();
+      await tracker.click();
+    };
     await page.goto("/");
-    const tracker = page.getByRole("button", { name: isMobile ? "Tracker" : "Health: Fine", exact: true });
-    await expect(tracker).toBeVisible();
-    await tracker.click();
+    await openTracker();
     await expect(page.getByRole("button", { name: "Health", exact: true })).toBeVisible();
     await page.reload();
-    await expect(tracker).toBeVisible();
-    await tracker.click();
+    await openTracker();
     await expect(page.getByRole("button", { name: "Health", exact: true })).toBeVisible();
     expect(errors).toEqual([]);
     await page.screenshot({ path: info.outputPath("saved-blank-tracker.png") });

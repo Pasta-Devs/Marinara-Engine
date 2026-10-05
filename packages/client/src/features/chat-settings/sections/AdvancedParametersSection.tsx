@@ -1,7 +1,7 @@
 import { useEffectiveGenerationParameters } from "../../../hooks/use-effective-generation-parameters";
-import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
-import { ChevronDown, RotateCcw, Save, Settings2 } from "lucide-react";
-import { HelpTooltip } from "../../../components/ui/HelpTooltip";
+import { useEffect, useMemo, useState } from "react";
+import { RotateCcw, Save, Gauge } from "lucide-react";
+import { Drawer, useDrawerContentVisible } from "../../../components/ui/Drawer";
 import { AgentSettingsActionButton } from "../../../components/chat/AgentSettingsControls";
 import {
   CHAT_PARAMETER_DEFAULTS,
@@ -89,7 +89,8 @@ export function AdvancedParametersSection({
   const imageCaptioningDefaults = parseConnectionImageCaptioningDefaults(conn?.defaultParameters);
   const saveDefaults = useSaveConnectionDefaults();
   const [expanded, setExpanded] = useState(false);
-  const preview = useEffectiveGenerationParameters(connectionId, expanded);
+  const contentVisible = useDrawerContentVisible("advanced-parameters", expanded);
+  const preview = useEffectiveGenerationParameters(connectionId, contentVisible);
   const awaitingDefaults = preview.canPreview && !preview.data;
   const defaults = getEditableGenerationParameters(
     strictModeDefaults,
@@ -178,266 +179,239 @@ export function AdvancedParametersSection({
     }
     onChatParametersChange(sparse);
   };
-  const toggleExpanded = () => setExpanded((open) => !open);
-  const handleHeaderKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.target !== event.currentTarget) return;
-    if (event.key !== "Enter" && event.key !== " ") return;
-    event.preventDefault();
-    toggleExpanded();
-  };
-
   return (
-    <div data-chat-settings-section="advanced-parameters" className="border-b border-[var(--border)]">
-      <div
-        role="button"
-        tabIndex={0}
-        aria-expanded={expanded}
-        onClick={toggleExpanded}
-        onKeyDown={handleHeaderKeyDown}
-        className="flex w-full items-center gap-2 px-4 py-3 text-left transition-colors hover:bg-[var(--accent)]/50"
-      >
-        <span className="shrink-0 text-[var(--muted-foreground)]">
-          <Settings2 size="0.875rem" />
-        </span>
-        <span className="min-w-0 flex-1 text-xs font-semibold">
-          {localizeUi("ui.chatSettings.advancedparameterssection.advancedParameters")}
-        </span>
-        <span className="flex shrink-0 items-center" onClick={(event) => event.stopPropagation()}>
-          <HelpTooltip
-            text={localizeUi(
-              "ui.chatSettings.advancedparameterssection.overrideGenerationParametersForThisChatOnlyChangeThese",
-            )}
-            side="left"
-          />
-        </span>
-        <ChevronDown
-          size="0.75rem"
-          className={cn("shrink-0 text-[var(--muted-foreground)] transition-transform", expanded && "rotate-180")}
+    // Starts collapsed on every open, as before, so the parameter preview loads only when asked for.
+    <Drawer
+      id="advanced-parameters"
+      title={localizeUi("ui.chatSettings.advancedparameterssection.advancedParameters")}
+      icon={<Gauge size="0.875rem" />}
+      help={localizeUi(
+        "ui.chatSettings.advancedparameterssection.overrideGenerationParametersForThisChatOnlyChangeThese",
+      )}
+      open={expanded}
+      onOpenChange={setExpanded}
+      bodyClassName="pt-3 space-y-3"
+      rootAttributes={{ "data-chat-settings-section": "advanced-parameters" }}
+    >
+      <p className="text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
+        {localizeUi("settings.customGenerationParameters.availabilityHint")}
+      </p>
+      <p className="text-[0.625rem] text-[var(--muted-foreground)]">
+        {localizeUi(
+          preview.isError
+            ? "generationParameters.effective.unavailable"
+            : awaitingDefaults
+              ? "generationParameters.effective.loading"
+              : "generationParameters.effective.hint",
+        )}
+      </p>
+      {preview.isError && (
+        <AgentSettingsActionButton type="button" onClick={() => void preview.refetch()}>
+          {localizeUi("generationParameters.effective.retry")}
+        </AgentSettingsActionButton>
+      )}
+      <fieldset disabled={awaitingDefaults} className="min-w-0 disabled:opacity-60">
+        <GenerationParametersFields
+          effectiveParameters={preview.data?.parameters}
+          value={effectiveParams}
+          provider={conn?.provider ?? null}
+          model={conn?.model ?? null}
+          baseUrl={typeof conn?.baseUrl === "string" ? conn.baseUrl : null}
+          modelCapabilities={connectionModelCapabilities}
+          enabledParametersFallback={STRICT_CONNECTION_PARAMETER_SEND_DEFAULTS}
+          onChange={setParameters}
         />
-      </div>
-      {expanded && (
-        <div className="px-4 pb-3 pt-3 space-y-3">
-          <p className="text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
-            {localizeUi("settings.customGenerationParameters.availabilityHint")}
-          </p>
-          <p className="text-[0.625rem] text-[var(--muted-foreground)]">
-            {localizeUi(
-              preview.isError
-                ? "generationParameters.effective.unavailable"
-                : awaitingDefaults
-                  ? "generationParameters.effective.loading"
-                  : "generationParameters.effective.hint",
-            )}
-          </p>
-          {preview.isError && (
-            <AgentSettingsActionButton type="button" onClick={() => void preview.refetch()}>
-              {localizeUi("generationParameters.effective.retry")}
-            </AgentSettingsActionButton>
+      </fieldset>
+      <div className="space-y-2 pt-3">
+        <SettingsSwitch
+          label={localizeUi("ui.chatSettings.advancedparameterssection.limitContextMessages")}
+          description={localizeUi("ui.chatSettings.advancedparameterssection.onlySendTheLastNMessagesToTheModel")}
+          checked={Boolean(contextMessageLimit)}
+          onChange={(checked) => onContextMessageLimitChange(checked ? 50 : null)}
+          labelPosition="start"
+          className={cn(
+            "justify-between rounded-lg px-3 py-2.5 text-left",
+            contextMessageLimit
+              ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
+              : "bg-[var(--secondary)] hover:bg-[var(--accent)]",
           )}
-          <fieldset disabled={awaitingDefaults} className="min-w-0 disabled:opacity-60">
-            <GenerationParametersFields
-              effectiveParameters={preview.data?.parameters}
-              value={effectiveParams}
-              provider={conn?.provider ?? null}
-              model={conn?.model ?? null}
-              baseUrl={typeof conn?.baseUrl === "string" ? conn.baseUrl : null}
-              modelCapabilities={connectionModelCapabilities}
-              enabledParametersFallback={STRICT_CONNECTION_PARAMETER_SEND_DEFAULTS}
-              onChange={setParameters}
+          labelClassName="text-xs font-medium"
+        />
+        {contextMessageLimit && (
+          <div className="flex items-center gap-2 px-1">
+            <DraftNumberInput
+              aria-label={localizeUi("ui.chatSettings.advancedparameterssection.contextMessageLimit")}
+              min={1}
+              max={9999}
+              value={contextMessageLimit}
+              onCommit={(value) => onContextMessageLimitChange(Math.max(1, Math.min(9999, value)))}
+              selectOnFocus
+              className="w-20 rounded-lg bg-[var(--secondary)] px-3 py-1.5 text-xs outline-none ring-1 ring-transparent transition-shadow focus:ring-[var(--primary)]/40"
             />
-          </fieldset>
-          <div className="space-y-2 pt-3">
-            <SettingsSwitch
-              label={localizeUi("ui.chatSettings.advancedparameterssection.limitContextMessages")}
-              description={localizeUi("ui.chatSettings.advancedparameterssection.onlySendTheLastNMessagesToTheModel")}
-              checked={Boolean(contextMessageLimit)}
-              onChange={(checked) => onContextMessageLimitChange(checked ? 50 : null)}
-              labelPosition="start"
-              className={cn(
-                "justify-between rounded-lg px-3 py-2.5 text-left",
-                contextMessageLimit
-                  ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
-                  : "bg-[var(--secondary)] hover:bg-[var(--accent)]",
-              )}
-              labelClassName="text-xs font-medium"
+            <span className="text-[0.625rem] text-[var(--muted-foreground)]">
+              {localizeUi("ui.agents.agenteditor.messages")}
+            </span>
+          </div>
+        )}
+        <SettingsSwitch
+          label={localizeUi("ui.chatSettings.advancedparameterssection.excludePastReasoning")}
+          description={localizeUi(
+            "ui.chatSettings.advancedparameterssection.keepStoredThinkingReasoningMetadataOutOfFuturePrompts",
+          )}
+          checked={excludeReasoningEnabled}
+          onChange={onExcludePastReasoningChange}
+          labelPosition="start"
+          className={cn(
+            "justify-between rounded-lg px-3 py-2.5 text-left",
+            excludeReasoningEnabled
+              ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
+              : "bg-[var(--secondary)] hover:bg-[var(--accent)]",
+          )}
+          labelClassName="text-xs font-medium"
+        />
+        {!excludeReasoningEnabled && (
+          <label className="block space-y-1 px-1">
+            <span className="text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
+              {localizeUi("chatSettings.advanced.pastReasoningLimit")}
+            </span>
+            <DraftNumberInput
+              ariaLabel={localizeUi("chatSettings.advanced.pastReasoningLimit")}
+              min={0}
+              max={9999}
+              value={typeof metadata.pastReasoningLimit === "number" ? metadata.pastReasoningLimit : 1}
+              onCommit={(value) => onPastReasoningLimitChange(Math.max(0, Math.min(9999, Math.floor(value))))}
+              selectOnFocus
+              className="w-20 rounded-lg bg-[var(--secondary)] px-3 py-1.5 text-xs outline-none ring-1 ring-transparent transition-shadow focus:ring-[var(--primary)]/40"
             />
-            {contextMessageLimit && (
-              <div className="flex items-center gap-2 px-1">
-                <DraftNumberInput
-                  aria-label={localizeUi("ui.chatSettings.advancedparameterssection.contextMessageLimit")}
-                  min={1}
-                  max={9999}
-                  value={contextMessageLimit}
-                  onCommit={(value) => onContextMessageLimitChange(Math.max(1, Math.min(9999, value)))}
-                  selectOnFocus
-                  className="w-20 rounded-lg bg-[var(--secondary)] px-3 py-1.5 text-xs outline-none ring-1 ring-transparent transition-shadow focus:ring-[var(--primary)]/40"
-                />
-                <span className="text-[0.625rem] text-[var(--muted-foreground)]">
-                  {localizeUi("ui.agents.agenteditor.messages")}
-                </span>
-              </div>
-            )}
-            <SettingsSwitch
-              label={localizeUi("ui.chatSettings.advancedparameterssection.excludePastReasoning")}
-              description={localizeUi(
-                "ui.chatSettings.advancedparameterssection.keepStoredThinkingReasoningMetadataOutOfFuturePrompts",
-              )}
-              checked={excludeReasoningEnabled}
-              onChange={onExcludePastReasoningChange}
-              labelPosition="start"
-              className={cn(
-                "justify-between rounded-lg px-3 py-2.5 text-left",
-                excludeReasoningEnabled
-                  ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
-                  : "bg-[var(--secondary)] hover:bg-[var(--accent)]",
-              )}
-              labelClassName="text-xs font-medium"
-            />
-            {!excludeReasoningEnabled && (
-              <label className="block space-y-1 px-1">
-                <span className="text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
-                  {localizeUi("chatSettings.advanced.pastReasoningLimit")}
-                </span>
-                <DraftNumberInput
-                  ariaLabel={localizeUi("chatSettings.advanced.pastReasoningLimit")}
-                  min={0}
-                  max={9999}
-                  value={typeof metadata.pastReasoningLimit === "number" ? metadata.pastReasoningLimit : 1}
-                  onCommit={(value) => onPastReasoningLimitChange(Math.max(0, Math.min(9999, Math.floor(value))))}
-                  selectOnFocus
-                  className="w-20 rounded-lg bg-[var(--secondary)] px-3 py-1.5 text-xs outline-none ring-1 ring-transparent transition-shadow focus:ring-[var(--primary)]/40"
-                />
-                <span className="block text-[0.625rem] text-[var(--muted-foreground)]">
-                  {localizeUi("chatSettings.advanced.pastReasoningLimitHint")}
-                </span>
-              </label>
-            )}
-            <SettingsSwitch
-              label={localizeUi("ui.chatSettings.advancedparameterssection.imageCaptioning")}
-              description={
-                hasCaptioningConnection
-                  ? localizeUi(
-                      "ui.chatSettings.advancedparameterssection.describeImageAttachmentsWithASelectedConnectionInsteadOf",
-                    )
-                  : localizeUi("ui.chatSettings.advancedparameterssection.addAConnectionBeforeEnablingImageCaptioning")
-              }
-              checked={captioningEnabled}
-              onChange={(checked) =>
+            <span className="block text-[0.625rem] text-[var(--muted-foreground)]">
+              {localizeUi("chatSettings.advanced.pastReasoningLimitHint")}
+            </span>
+          </label>
+        )}
+        <SettingsSwitch
+          label={localizeUi("ui.chatSettings.advancedparameterssection.imageCaptioning")}
+          description={
+            hasCaptioningConnection
+              ? localizeUi(
+                  "ui.chatSettings.advancedparameterssection.describeImageAttachmentsWithASelectedConnectionInsteadOf",
+                )
+              : localizeUi("ui.chatSettings.advancedparameterssection.addAConnectionBeforeEnablingImageCaptioning")
+          }
+          checked={captioningEnabled}
+          onChange={(checked) =>
+            onImageCaptioningChange({
+              imageCaptioningEnabled: checked,
+              ...(checked && !chatConnectionCanCaption
+                ? { imageCaptioningConnectionId: fallbackCaptioningConnectionId }
+                : {}),
+            })
+          }
+          disabled={!hasCaptioningConnection}
+          labelPosition="start"
+          className={cn(
+            "justify-between rounded-lg px-3 py-2.5 text-left",
+            captioningEnabled
+              ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
+              : "bg-[var(--secondary)] hover:bg-[var(--accent)]",
+          )}
+          labelClassName="text-xs font-medium"
+        />
+        {captioningEnabled && (
+          <label className="block space-y-1 px-1">
+            <span className="text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
+              {localizeUi("ui.chatSettings.advancedparameterssection.captioningConnection")}
+            </span>
+            <select
+              value={selectedCaptioningConnectionId ?? ""}
+              onChange={(event) =>
                 onImageCaptioningChange({
-                  imageCaptioningEnabled: checked,
-                  ...(checked && !chatConnectionCanCaption
-                    ? { imageCaptioningConnectionId: fallbackCaptioningConnectionId }
-                    : {}),
+                  imageCaptioningConnectionId: event.target.value || null,
                 })
               }
-              disabled={!hasCaptioningConnection}
-              labelPosition="start"
-              className={cn(
-                "justify-between rounded-lg px-3 py-2.5 text-left",
-                captioningEnabled
-                  ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
-                  : "bg-[var(--secondary)] hover:bg-[var(--accent)]",
+              className="w-full rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs outline-none ring-1 ring-transparent transition-shadow focus:ring-[var(--primary)]/40"
+            >
+              {chatConnectionCanCaption ? (
+                <option value="">{localizeUi("ui.agents.agenteditor.useChatConnection")}</option>
+              ) : (
+                <option value="" disabled>
+                  {localizeUi("ui.chatSettings.advancedparameterssection.selectACaptioningConnection")}
+                </option>
               )}
-              labelClassName="text-xs font-medium"
-            />
-            {captioningEnabled && (
-              <label className="block space-y-1 px-1">
-                <span className="text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
-                  {localizeUi("ui.chatSettings.advancedparameterssection.captioningConnection")}
-                </span>
-                <select
-                  value={selectedCaptioningConnectionId ?? ""}
-                  onChange={(event) =>
-                    onImageCaptioningChange({
-                      imageCaptioningConnectionId: event.target.value || null,
-                    })
-                  }
-                  className="w-full rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs outline-none ring-1 ring-transparent transition-shadow focus:ring-[var(--primary)]/40"
+              {connectionOptions.map((connection) => (
+                <option key={connection.id} value={connection.id}>
+                  {connection.name}
+                  {connection.model
+                    ? localizeUi("ui.chatSettings.advancedparameterssection.value1", { value1: connection.model })
+                    : ""}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+        {captioningEnabled && (
+          <div className="space-y-1 px-1">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
+                {localizeUi("chatSettings.advanced.imageCaptioningPrompt")}
+              </span>
+              {customCaptioningPrompt && (
+                <button
+                  type="button"
+                  onClick={() => onImageCaptioningChange({ imageCaptioningPrompt: null })}
+                  className="flex items-center justify-center rounded-lg bg-[var(--secondary)] px-2 py-1 text-[0.625rem] text-[var(--muted-foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+                  title={localizeUi("chatSettings.advanced.imageCaptioningPromptReset")}
+                  aria-label={localizeUi("chatSettings.advanced.imageCaptioningPromptReset")}
                 >
-                  {chatConnectionCanCaption ? (
-                    <option value="">{localizeUi("ui.agents.agenteditor.useChatConnection")}</option>
-                  ) : (
-                    <option value="" disabled>
-                      {localizeUi("ui.chatSettings.advancedparameterssection.selectACaptioningConnection")}
-                    </option>
-                  )}
-                  {connectionOptions.map((connection) => (
-                    <option key={connection.id} value={connection.id}>
-                      {connection.name}
-                      {connection.model
-                        ? localizeUi("ui.chatSettings.advancedparameterssection.value1", { value1: connection.model })
-                        : ""}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            )}
-            {captioningEnabled && (
-              <div className="space-y-1 px-1">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
-                    {localizeUi("chatSettings.advanced.imageCaptioningPrompt")}
-                  </span>
-                  {customCaptioningPrompt && (
-                    <button
-                      type="button"
-                      onClick={() => onImageCaptioningChange({ imageCaptioningPrompt: null })}
-                      className="flex items-center justify-center rounded-lg bg-[var(--secondary)] px-2 py-1 text-[0.625rem] text-[var(--muted-foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
-                      title={localizeUi("chatSettings.advanced.imageCaptioningPromptReset")}
-                      aria-label={localizeUi("chatSettings.advanced.imageCaptioningPromptReset")}
-                    >
-                      <RotateCcw size="0.625rem" />
-                    </button>
-                  )}
-                </div>
-                <DraftTextarea
-                  aria-label={localizeUi("chatSettings.advanced.imageCaptioningPrompt")}
-                  value={customCaptioningPrompt || DEFAULT_IMAGE_CAPTIONING_PROMPT}
-                  onCommit={(value) => {
-                    // Clearing the box or matching the default drops the chat's own prompt.
-                    const trimmed = value.trim();
-                    onImageCaptioningChange({
-                      imageCaptioningPrompt: trimmed && trimmed !== DEFAULT_IMAGE_CAPTIONING_PROMPT ? value : null,
-                    });
-                  }}
-                  rows={5}
-                  spellCheck={false}
-                  className="w-full resize-y rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs leading-relaxed outline-none ring-1 ring-transparent transition-shadow focus:ring-[var(--primary)]/40"
-                />
-                <span className="block text-[0.625rem] text-[var(--muted-foreground)]">
-                  {localizeUi("chatSettings.advanced.imageCaptioningPromptHint")}
-                </span>
-              </div>
-            )}
-          </div>
-          {canSaveConnectionDefaults && (
-            <AgentSettingsActionButton
-              type="button"
-              variant="primary"
-              disabled={awaitingDefaults || saveDefaults.isPending}
-              onClick={() => {
-                saveDefaults.mutate({
-                  id: connectionId,
-                  params: {
-                    ...(effectiveParams as unknown as Record<string, unknown>),
-                    imageCaptioningEnabled: captioningEnabled,
-                    imageCaptioningConnectionId: selectedCaptioningConnectionId,
-                  },
+                  <RotateCcw size="0.625rem" />
+                </button>
+              )}
+            </div>
+            <DraftTextarea
+              aria-label={localizeUi("chatSettings.advanced.imageCaptioningPrompt")}
+              value={customCaptioningPrompt || DEFAULT_IMAGE_CAPTIONING_PROMPT}
+              onCommit={(value) => {
+                // Clearing the box or matching the default drops the chat's own prompt.
+                const trimmed = value.trim();
+                onImageCaptioningChange({
+                  imageCaptioningPrompt: trimmed && trimmed !== DEFAULT_IMAGE_CAPTIONING_PROMPT ? value : null,
                 });
               }}
-              className="w-full"
-            >
-              <Save size="0.625rem" className="inline mr-1 -mt-px" />
-              {saveDefaults.isPending
-                ? localizeUi("chat.settings.inlineEditor.saving")
-                : localizeUi("ui.chatSettings.advancedparameterssection.saveAsConnectionDefault")}
-            </AgentSettingsActionButton>
-          )}
-          <AgentSettingsActionButton type="button" onClick={() => onChatParametersChange({})} className="w-full">
-            {localizeUi("ui.chatSettings.advancedparameterssection.resetToDefaults")}
-          </AgentSettingsActionButton>
-        </div>
+              rows={5}
+              spellCheck={false}
+              className="w-full resize-y rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs leading-relaxed outline-none ring-1 ring-transparent transition-shadow focus:ring-[var(--primary)]/40"
+            />
+            <span className="block text-[0.625rem] text-[var(--muted-foreground)]">
+              {localizeUi("chatSettings.advanced.imageCaptioningPromptHint")}
+            </span>
+          </div>
+        )}
+      </div>
+      {canSaveConnectionDefaults && (
+        <AgentSettingsActionButton
+          type="button"
+          variant="primary"
+          disabled={awaitingDefaults || saveDefaults.isPending}
+          onClick={() => {
+            saveDefaults.mutate({
+              id: connectionId,
+              params: {
+                ...(effectiveParams as unknown as Record<string, unknown>),
+                imageCaptioningEnabled: captioningEnabled,
+                imageCaptioningConnectionId: selectedCaptioningConnectionId,
+              },
+            });
+          }}
+          className="w-full"
+        >
+          <Save size="0.625rem" className="inline mr-1 -mt-px" />
+          {saveDefaults.isPending
+            ? localizeUi("chat.settings.inlineEditor.saving")
+            : localizeUi("ui.chatSettings.advancedparameterssection.saveAsConnectionDefault")}
+        </AgentSettingsActionButton>
       )}
-    </div>
+      <AgentSettingsActionButton type="button" onClick={() => onChatParametersChange({})} className="w-full">
+        {localizeUi("ui.chatSettings.advancedparameterssection.resetToDefaults")}
+      </AgentSettingsActionButton>
+    </Drawer>
   );
 }

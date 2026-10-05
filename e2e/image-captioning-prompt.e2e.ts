@@ -39,8 +39,6 @@ test("image captioning prompt shows under the toggle, saves, and resets", async 
     const prompt = section.getByRole("textbox", { name: "Captioning Prompt", exact: true });
     const reset = section.getByRole("button", { name: "Reset to default prompt", exact: true });
     const openSettings = async () => {
-      if (testInfo.project.name.includes("mobile"))
-        await page.getByRole("button", { name: "More options", exact: true }).click();
       await page.getByRole("button", { name: "Chat Settings", exact: true }).filter({ visible: true }).click();
       await section.getByText("Advanced Parameters", { exact: true }).click();
     };

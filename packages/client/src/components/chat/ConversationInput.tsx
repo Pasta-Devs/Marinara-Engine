@@ -1154,6 +1154,11 @@ export function ConversationInput({
       name: attachment.name,
     }));
 
+    // Cancel the pending draft save so it cannot restore the sent text after clearInputDraft.
+    if (draftTimerRef.current) {
+      clearTimeout(draftTimerRef.current);
+      draftTimerRef.current = null;
+    }
     if (textareaRef.current) {
       textareaRef.current.value = "";
       textareaRef.current.style.height = "auto";

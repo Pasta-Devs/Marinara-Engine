@@ -10,9 +10,17 @@ import { getPrivilegedActionErrorMessage } from "../../lib/api-client";
 import { AgentUpdateDialog } from "./AgentUpdateDialog";
 import { useTranslation as useUiTranslation } from "react-i18next";
 
-export function AgentUpdatePrompter({ presentationAllowed }: { presentationAllowed: boolean }) {
+export function AgentUpdatePrompter({
+  presentationAllowed,
+  onOpenChange,
+  onResolved,
+}: {
+  presentationAllowed: boolean;
+  onOpenChange?: (open: boolean) => void;
+  onResolved?: () => void;
+}) {
   const { t: localizeUi } = useUiTranslation();
-  const { data: pendingUpdateData, refetch: refetchPendingUpdates } = usePendingCapabilityPackageUpdates();
+  const { data: pendingUpdateData, isFetched, refetch: refetchPendingUpdates } = usePendingCapabilityPackageUpdates();
   const install = useInstallCapabilityPackage();
   const decline = useDeclineCapabilityPackageUpdate();
   // Kept as a ref, not state: a dismissed update must not re-prompt this session,
@@ -22,12 +30,21 @@ export function AgentUpdatePrompter({ presentationAllowed }: { presentationAllow
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
+    onOpenChange?.(prompted !== null);
+  }, [onOpenChange, prompted]);
+
+  useEffect(() => {
+    if (!isFetched) return;
     const updates = (pendingUpdateData ?? []).filter(
       (update) => !handledUpdates.current.has(`${update.id}@${update.version}`),
     );
-    if (!presentationAllowed || updates.length === 0 || prompted) return;
+    if (updates.length === 0) {
+      onResolved?.();
+      return;
+    }
+    if (!presentationAllowed || prompted) return;
     setPrompted(updates);
-  }, [pendingUpdateData, presentationAllowed, prompted]);
+  }, [isFetched, onResolved, pendingUpdateData, presentationAllowed, prompted]);
 
   const finish = useCallback(
     async (updates: CapabilityPackageUpdate[]) => {

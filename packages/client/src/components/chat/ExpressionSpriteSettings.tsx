@@ -228,7 +228,7 @@ export function ExpressionSpriteSettings({
             </AgentSettingsActionButton>
           </div>
 
-          <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
+          <div className="mt-2 flex flex-col gap-2 @lg:flex-row @lg:items-center">
             <label
               htmlFor={`sprite-layout-apply-to-${chatId}`}
               className="text-[0.625rem] font-medium text-[var(--muted-foreground)]"
@@ -276,7 +276,7 @@ export function ExpressionSpriteSettings({
             </div>
           </div>
 
-          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <div className="mt-3 grid gap-3 @lg:grid-cols-2">
             <SpriteRangeSlider
               label={localizeUi("ui.chat.expressionsetupfields.expressionSize")}
               value={expressionSpriteScalePercent}

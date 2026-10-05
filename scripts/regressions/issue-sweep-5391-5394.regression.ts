@@ -195,7 +195,7 @@ assert.deepEqual(
 );
 
 const summaryPopoverSource = readFileSync(
-  join(REPOSITORY_ROOT, "packages/client/src/components/chat/SummaryPopover.tsx"),
+  join(REPOSITORY_ROOT, "packages/client/src/components/chat/ChatSummaryPanel.tsx"),
   "utf8",
 );
 assert.match(summaryPopoverSource, /deleteSummaryEntry\.mutateAsync\(\{ chatId, entryIds \}\)/u);

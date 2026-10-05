@@ -117,7 +117,7 @@ does not enable it in every chat.
 ### Roleplay
 
 1. Open the Roleplay chat.
-2. Open **Chat Settings** with the gear button.
+2. Open **Chat Settings**.
 3. Turn on **Enable Agents**.
 4. Under **Tracker Agents**, enable **World Maps**.
 5. Open **Edit world map** or the **World map library**. On supported Engine

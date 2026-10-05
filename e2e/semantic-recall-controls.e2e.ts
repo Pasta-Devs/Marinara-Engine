@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { seedUIState } from "./ui-state-fixture.js";
+import { openChatSettingsTool } from "./chat-settings-tools.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 
@@ -45,16 +46,9 @@ for (const scenario of scenarios) {
     };
 
     const openControlsSurface = async () => {
-      if (testInfo.project.name.includes("mobile")) {
-        await page.getByRole("button", { name: "More options", exact: true }).click();
-      }
-
       if (scenario.mode === "roleplay") {
-        const summaryButton = page.getByRole("button", { name: "Chat Summary", exact: true }).filter({ visible: true });
-        await expect(summaryButton).toHaveCount(1, { timeout: 30_000 });
-        await summaryButton.click();
-        const panel = page.locator("[data-chat-floating-panel]").filter({ hasText: "Automatic Summaries" });
-        await expect(panel).toBeVisible();
+        const panel = await openChatSettingsTool(page, "chat-summary");
+        await expect(panel).toContainText("Automatic Summaries");
         return panel;
       }
 

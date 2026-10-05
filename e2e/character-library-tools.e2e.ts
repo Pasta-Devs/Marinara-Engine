@@ -6,13 +6,14 @@ import { prepareViteFixtureDependencies } from "./vite-fixture-dependencies.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 
-test("character library compares duplicates and bulk tags persist across reload", async ({
+test("character library restores New Folder and bulk tags persist across reload", async ({
   page,
   request,
 }, testInfo) => {
   const suffix = Date.now().toString();
   const name = `E2E Synthetic Library ${suffix}`;
   const createdIds: string[] = [];
+  let createdFolderId: string | undefined;
   try {
     for (const cardName of [name, `${name} (copy)`]) {
       const response = await request.post("/api/characters", {
@@ -48,43 +49,23 @@ test("character library compares duplicates and bulk tags persist across reload"
     await page.goto("/");
     await clickTopbarPanel(page, "characters");
 
-    await page.getByRole("button", { name: "Possible duplicates", exact: true }).click();
-    const duplicateDialog = page.getByRole("dialog", { name: "Possible duplicates" });
-    await expect(duplicateDialog.getByText(name, { exact: true })).toBeVisible();
-    await expect(duplicateDialog.getByText(`${name} (copy)`, { exact: true })).toBeVisible();
-    await duplicateDialog.getByRole("button", { name: "Compare", exact: true }).click();
-    await expect(duplicateDialog.getByText(/^First message\s*Same$/i)).toBeVisible();
-    await expect(duplicateDialog.getByText(/^Scenario\s*Same$/i)).toBeVisible();
-    await expect(duplicateDialog.getByText("Different", { exact: true })).toBeVisible();
-    await expect(duplicateDialog.getByText("Same", { exact: true }).first()).toBeVisible();
-
-    const originalCard = duplicateDialog
-      .locator("li > div.grid.grid-cols-1")
-      .getByText(name, { exact: true })
-      .locator("xpath=../../..");
-    await originalCard.getByRole("button", { name: "Open", exact: true }).click();
-    await expect(page.getByRole("textbox", { name: "Character name", exact: true })).toHaveValue(name);
-    await expect(duplicateDialog).toBeHidden();
-    // Detail editors return through their explicit Back action on both layouts.
-    await page.getByRole("button", { name: "Back", exact: true }).click();
-    await expect(duplicateDialog).toBeVisible();
-    await page.keyboard.press("Escape");
-    await expect(duplicateDialog).toBeHidden();
-    await expect(page.getByRole("button", { name: "Possible duplicates", exact: true })).toBeFocused();
-
-    if (testInfo.project.name.includes("desktop")) {
-      await page.getByRole("button", { name: "Possible duplicates", exact: true }).click();
-      const reopenedOriginalCard = duplicateDialog
-        .locator("li > div.grid.grid-cols-1")
-        .getByText(name, { exact: true })
-        .locator("xpath=../../..");
-      await reopenedOriginalCard.getByRole("button", { name: "Open", exact: true }).click();
-      await expect(page.getByRole("textbox", { name: "Character name", exact: true })).toHaveValue(name);
-      await clickTopbarPanel(page, "personas");
-      await page.getByRole("button", { name: "Back", exact: true }).click();
-      await expect(duplicateDialog).toBeHidden();
-      await clickTopbarPanel(page, "characters");
-    }
+    await expect(page.getByRole("button", { name: "Possible duplicates", exact: true })).toHaveCount(0);
+    const newFolder = page.getByRole("button", { name: "New Folder", exact: true });
+    await expect(newFolder).toBeVisible();
+    const folderWidth = await newFolder.evaluate((button) => ({
+      button: button.getBoundingClientRect().width,
+      row: button.parentElement!.getBoundingClientRect().width,
+    }));
+    expect(Math.abs(folderWidth.button - folderWidth.row)).toBeLessThanOrEqual(1);
+    const folderCreated = page.waitForResponse(
+      (response) => response.url().endsWith("/api/characters/groups") && response.request().method() === "POST",
+    );
+    await newFolder.click();
+    const folderResponse = await folderCreated;
+    expect(folderResponse.ok()).toBeTruthy();
+    createdFolderId = ((await folderResponse.json()) as { id: string }).id;
+    await expect(page.locator(`[data-character-folder-id="${createdFolderId}"]`)).toBeVisible();
+    await page.screenshot({ path: testInfo.outputPath("character-new-folder-restored.png") });
 
     await page.getByRole("button", { name: "Select", exact: true }).click();
     for (const [index, id] of createdIds.entries()) {
@@ -162,6 +143,7 @@ test("character library compares duplicates and bulk tags persist across reload"
       expect(tags).not.toContain("remove-this-tag");
     }
   } finally {
+    if (createdFolderId) await request.delete(`/api/characters/groups/${createdFolderId}`).catch(() => undefined);
     for (const id of createdIds) await request.delete(`/api/characters/${id}`).catch(() => undefined);
   }
 });

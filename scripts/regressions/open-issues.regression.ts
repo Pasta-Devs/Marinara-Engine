@@ -5871,10 +5871,20 @@ assert.equal(
   3,
   "Roleplay must identify both HUD layouts and package-provided agent surfaces",
 );
-assert.equal(
-  echoChamberPanelSource.match(/data-roleplay-agent-window="echo"/gu)?.length,
-  2,
-  "Collapsed and expanded Echo Chamber windows must share the mobile edit marker",
+assert.match(
+  echoChamberPanelSource,
+  /const rootAttributes = \{ "data-roleplay-agent-window": "echo" \}/u,
+  "Echo Chamber should retain its marker for mobile composer visibility",
+);
+assert.match(
+  echoChamberPanelSource,
+  /<FloatingWindow[\s\S]*?rootAttributes=\{rootAttributes\}/u,
+  "the Echo Chamber window and desktop bubble must share the mobile edit marker",
+);
+assert.match(
+  echoChamberPanelSource,
+  /<WindowBubble[\s\S]*?attributes=\{\{ \.\.\.rootAttributes,/u,
+  "the collapsed phone Echo Chamber button must retain the mobile edit marker",
 );
 assert.match(chatRowPeekSource, /mari-chrome-accent-text-muted mari-accent-animated text-\[0\.6875rem\]/u);
 assert.match(assignedSweepChatAreaSource, /mari-chrome-accent-text-muted mari-accent-animated max-w-sm text-xs/u);
@@ -5925,25 +5935,11 @@ assert.match(
   /CHAT_SUMMARY_OPEN_REQUEST_EVENT[\s\S]{0,240}detail:\s*\{\s*chatId\s*\}/u,
   "Summary requests must carry the target chat ID",
 );
+// Chat Summary is a Chat Settings drawer, so a request opens Chat Settings there (desktop window or phone sheet).
 assert.match(
-  roleplaySurfaceSource,
-  /requestedChatId !== chatId/u,
-  "SummaryButton must filter requests by chat and only open visible instances",
-);
-assert.match(
-  roleplaySurfaceSource,
-  /rect\.width <= 0 \|\| rect\.height <= 0[\s\S]{0,180}setOpen\(true\)/u,
-  "SummaryButton must only open a measurable visible instance",
-);
-assert.match(
-  chatToolbarControlsSource,
-  /pendingSummaryChatIdRef\.current = chatId[\s\S]{0,80}setOpen\(true\)/u,
-  "Compact and mobile Summary requests must queue the target chat and open the overflow menu",
-);
-assert.match(
-  chatToolbarControlsSource,
-  /if \(!open \|\| !chatId\) return;[\s\S]{0,140}requestAnimationFrame\(\(\) => requestChatSummaryOpen\(chatId\)\)/u,
-  "Compact and mobile Summary requests must forward only after the overflow menu mounts",
+  assignedSweepChatAreaSource,
+  /chatId !== useChatStore\.getState\(\)\.activeChatId\) return;\s*handleOpenSettingsPanel\(undefined, \{ initialSection: "summary" \}\)[\s\S]{0,120}CHAT_SUMMARY_OPEN_REQUEST_EVENT/u,
+  "Summary requests must open Chat Settings at the Chat Summary drawer for the active chat only",
 );
 assert.match(
   narratorUiStoreSource,
@@ -5990,8 +5986,9 @@ assert.equal(
   1,
   "The dedicated Roleplay Inventory Tracker widget must suppress mount animations with reduced ambient effects",
 );
+// Clear Trackers is shared by every Agent activity section (Chat Settings, Trackers window, Tracker Panel).
 assert.match(
-  roleplayHudSource,
+  readFileSync(new URL("../../packages/client/src/hooks/use-agent-activity.ts", import.meta.url), "utf8"),
   /latestAssistantMessage[\s\S]{0,240}extra: \{ cyoaChoices: \[\] \}/u,
   "clearing Roleplay tracker state must also clear the persisted active CYOA prompt",
 );
@@ -6081,7 +6078,8 @@ assert.match(
 );
 assert.match(
   conversationGroupSettingsSource,
-  /if \(!\(await flushProseGuardianDrafts\(\)\)\) return false;[\s\S]{0,250}onClose\(\)[\s\S]{0,100}return true/u,
+  // The close button also closes a pinned window, hence `onClose({ force: true })` (#7036).
+  /if \(!\(await flushProseGuardianDrafts\(\)\)\) return false;[\s\S]{0,250}onClose\((?:\{ force: true \})?\)[\s\S]{0,100}return true/u,
   "Closing Chat Settings must persist changed Prose Guardian preferences before unmounting the drawer",
 );
 assert.match(
@@ -6399,7 +6397,8 @@ assert.match(
 );
 assert.match(
   chatSettingsDrawerSource,
-  /flex w-full min-w-0 flex-col items-stretch gap-1\.5 sm:w-auto sm:shrink-0 sm:flex-row/u,
+  // Chat Settings content follows the window's width (container queries) since #7036.
+  /flex w-full min-w-0 flex-col items-stretch gap-1\.5 @lg:w-auto @lg:shrink-0 @lg:flex-row/u,
   "Lorebook Keeper actions must stack inside their mobile settings card",
 );
 const characterGreetingsSource = readFileSync(
@@ -6751,7 +6750,38 @@ assert.doesNotMatch(
   /inline-flex h-4 w-7 shrink-0 items-center rounded-full/u,
   "Preset choices must not restore the undersized Android toggle",
 );
-assert.match(gameSurfaceSource, /h-\[min\(42rem,calc\(100dvh-6rem\)\)\]/u);
+// #3624: the Session window embeds the Game Journal, whose tabs scroll only inside a bounded height. The old
+// popover's fixed height cap moved to the control windows: a computer's window has a set height, and a phone's
+// sheet for content that scrolls itself is pinned top and bottom.
+const chatControlWindowSource = readFileSync(
+  new URL("../../packages/client/src/components/chat/ChatControlWindow.tsx", import.meta.url),
+  "utf8",
+);
+const floatingWindowSource = readFileSync(
+  new URL("../../packages/client/src/components/ui/FloatingWindow.tsx", import.meta.url),
+  "utf8",
+);
+assert.match(
+  gameSurfaceSource,
+  /id=\{CHAT_CONTROL_WINDOW_IDS\.session\}[\s\S]{0,400}scroll=\{false\}[\s\S]{0,200}\{renderSessionPanel\(\)\}/u,
+  "The Session window must leave scrolling to the Game Journal inside it",
+);
+assert.match(
+  gameSurfaceSource,
+  /const renderSessionPanel = \(\) => \{[\s\S]{0,300}<div className="flex min-h-0 flex-1 flex-col overflow-hidden">/u,
+  "The Session panel must fill its window as a bounded flex column",
+);
+assert.match(floatingWindowSource, /height: geometry\.height/u, "A computer's control window must have a set height");
+assert.match(
+  chatControlWindowSource,
+  /sheetClassName=\{cn\(PHONE_SHEET_CLASS, !scroll && PHONE_FULL_SHEET_CLASS\)\}/u,
+  "A phone sheet whose content scrolls itself must get a bounded height",
+);
+assert.match(
+  floatingWindowSource,
+  /export const PHONE_SHEET_CLASS =\s*"fixed[^"]*top-\[[^"]*max-h-\[[^"]*";\s*export const PHONE_FULL_SHEET_CLASS =\s*"bottom-\[/u,
+  "Phone sheets must stay on screen, and the full-height one must pin its bottom",
+);
 assert.match(gameSetupWizardSource, /ui\.game\.gamesetupwizard\.adjustGameAssetsForThisGame/u);
 assert.match(gameSetupWizardSource, /selectFoldersByDefault/u);
 assert.match(gameSetupWizardSource, /enableAgents: enableAgents \|\| undefined/u);
@@ -8721,7 +8751,7 @@ assert.match(
   "Only Conversation chats should create character membership timeline notices",
 );
 const summaryPopoverSource = readFileSync(
-  join(REPOSITORY_ROOT, "packages/client/src/components/chat/SummaryPopover.tsx"),
+  join(REPOSITORY_ROOT, "packages/client/src/components/chat/ChatSummaryPanel.tsx"),
   "utf8",
 );
 assert.match(
@@ -8957,8 +8987,8 @@ assert.doesNotMatch(
 );
 assert.match(
   summaryPopoverSource,
-  /if \(await commitCombinePromptDraft\(\)\) onClose\(\);/u,
-  "The Summary popover must close only after its Combine draft is safely persisted",
+  /batchAbortControllerRef\.current\?\.abort\(\);\s*void commitCombinePromptDraftRef\.current\(\);/u,
+  "Collapsing the Chat Summary drawer or closing Chat Settings must still persist the Combine draft",
 );
 assert.equal(
   summaryPopoverSource.match(/className="h-48 space-y-[12] overflow-y-auto pr-0\.5"/gu)?.length,
@@ -10464,10 +10494,14 @@ assert.equal(({} as { tags?: string[] }).tags, undefined, "Background metadata m
 
   assert.match(
     chatAreaSource,
-    /<ChatConversationSurface[\s\S]*?onIllustrateWithAgent=\{async \(agentType\)[\s\S]*?forceImageGeneration: true/u,
+    /const handleIllustrateWithAgent = useCallback\([\s\S]*?forceImageGeneration: true[\s\S]*?<ChatConversationSurface[\s\S]*?onIllustrateWithAgent=\{handleIllustrateWithAgent\}/u,
     "Conversation Gallery must forward custom image-agent illustration requests",
   );
-  assert.match(conversationSurfaceSource, /onIllustrateWithAgent=\{onIllustrateWithAgent\}/u);
+  // The Gallery drawer in Chat Settings reads the actions the conversation surface provides.
+  assert.match(
+    conversationSurfaceSource,
+    /onIllustrateWithAgent,[\s\S]*?useProvideChatGalleryActions\(activeChatId, galleryActions\)/u,
+  );
 
   assert.match(settingsDrawerSource, /useGenerationStatus\(\s*chat\.id,\s*open && isRoleplayMode/u);
   const generationStatusHookSource = readFileSync(

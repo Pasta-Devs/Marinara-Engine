@@ -246,10 +246,12 @@ const HOME_FAQ_ITEMS: HomeFaqItem[] = [
     id: "chat-settings-location",
     category: "Core",
     question: "Where did Chat Settings, Gallery, and Active Context go?",
-    answer: "Inside chats, those live in the top toolbar as expandable windows instead of sidebars.",
+    answer:
+      "Open Chat Settings with the sliders button inside your chat. It starts at the top right, below the app’s top bar. Gallery, Active Context and the other chat tools are sections inside it.",
     bullets: [
-      "Conversation, Roleplay, and Game Mode share the same compact button style for these windows.",
-      "On mobile, the overflow menu groups buttons when the screen cannot fit them in one row.",
+      "Drag the sliders button to a convenient spot. Each chat remembers where you put it.",
+      "Use a section’s Pop out button to give it its own window. Closing that window shrinks it to a button; Put back returns it to Chat Settings.",
+      "On phones, the same buttons open their windows as full-width panels.",
     ],
   },
   {
@@ -277,7 +279,7 @@ const HOME_FAQ_ITEMS: HomeFaqItem[] = [
     id: "same-character-chats",
     category: "Core",
     question: "How do I switch between different chats with the same character?",
-    answer: "Use Recent Chats from the home screen or the Branches button inside the chat.",
+    answer: "Use Recent Chats from the home screen or the Chat Branches section in Chat Settings.",
     bullets: [
       "Chats with the same character are organized as branches rather than one giant flat thread.",
       "Conversation, Roleplay, and Game Mode all use branch tools now, and some modes can branch directly from user inputs.",

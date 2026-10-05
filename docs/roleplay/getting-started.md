@@ -1,12 +1,12 @@
 # Roleplay Mode: Getting Started
 
-This guide covers what Roleplay Mode is, how to start a roleplay, and what you see on screen. It also explains sprite controls, the chat toolbar, Author's Notes, and where to read about deeper features.
+This guide covers what Roleplay Mode is, how to start a roleplay, and what you see on screen. It also explains sprite controls, the chat tools, Author's Notes, and where to read about deeper features.
 
 ## What Roleplay Mode is
 
 Roleplay Mode is one of Marinara Engine's chat modes. The others are Conversation and Game. Roleplay gives you an immersive scene view built around a story.
 
-A roleplay scene can show a background image, character sprites, and a heads-up display of world state. A sprite is a character picture that changes with emotion. A heads-up display, or HUD, is the small strip of info widgets at the top of the chat.
+A roleplay scene can show a background image, character sprites, and a heads-up display of world state. A sprite is a character picture that changes with emotion. A heads-up display, or HUD, shows that state: movable **World State** and **Player & Tracker** buttons on a phone, and the Tracker Panel or the Trackers window on a computer.
 
 Roleplay also uses helpers called agents. An agent is a small automatic task that runs alongside the AI reply. Agents track world state, pick sprites, choose backgrounds, and more.
 
@@ -34,7 +34,7 @@ The **background** is a full-scene image behind the message column. It crossfade
 
 **Sprites** are the character pictures placed on the stage. There is no fixed limit. Every sprite-enabled character in the chat can appear. Sprites need an uploaded sprite library on the character card. Without one, the sprite slot renders nothing. See [Character Sprites](../characters/sprites.md) to add sprites to a character.
 
-The **HUD** is a row of small widgets at the top of the chat. Each widget belongs to a tracker agent, so a widget only appears when its agent is on. Widgets can show date, time, weather, location, present characters, inventory, quests, and stats. Click a widget to open a panel and edit its values. See [Roleplay HUD and Trackers](hud-and-trackers.md) for every widget and lock mode.
+The **HUD** shows your trackers. On a phone, trackers open from movable **World State** and **Player & Tracker** buttons. On a computer, the trackers show in the **Tracker Panel**, or in the **Trackers** window when the Tracker Panel is off in Settings. Each tracker belongs to a tracker agent, so it only appears when its agent is on. Trackers can show date, time, weather, location, present characters, inventory, quests, and stats, and you can edit their values. See [Roleplay HUD and Trackers](hud-and-trackers.md) for every widget and lock mode.
 
 ### Sprite display controls
 
@@ -59,19 +59,23 @@ You can also set an expression by typing the **/emote** command in the chat box.
 
 The first form sets the expression for the scene. The second form targets one named character. Type **/emote** with no words to list the available expressions for each character in the scene.
 
-## The chat toolbar
+## The chat tools
 
-The toolbar sits at the top of the chat area. It has buttons that open small panels called popovers. The main buttons are:
+The chat's tools are sections of **Chat Settings**. Open it with the sliders button inside the chat; the button starts at the top right and can be dragged to another spot. In a Roleplay chat you find:
 
+- **Search messages**, an expandable section near the top. Finds a message by its words or its number, with tabs for bookmarks and deleted messages.
+- **Chat Branches**. Switches, renames, exports and imports the chat's branches. See [Chat Branches](../chats/branches.md).
 - **Chat Summary**. Shows and edits the rolling summary of the chat.
 - **Active Context**. Lists the linked characters, lorebook entries, and preset that fed the last reply. It shows which lorebook entries matched and were injected.
+- **Agent activity**, just below **Agents**. See below.
 - **Author's Notes**. A free-text note added to the prompt every turn. See below.
-- **Gallery**. Opens the chat's image and video gallery, where you can generate an illustration or background.
-- **Chat Settings**. Opens the full settings drawer for this chat.
+- **Gallery**. The chat's images and videos, where you can generate an illustration or background.
+
+You can pop out any of these sections, including Search, to keep it in a separate window or open it from its own button on a phone. Older chats keep their familiar tool icons as movable buttons; open one and choose **Put back in Chat Settings** to move it inside. See [Chat Settings Overview](../chats/chat-settings.md).
 
 ### Author's Notes
 
-**Author's Notes** is a note you write that the AI reads on every generation. Use it for a standing reminder, like a tone rule or a hidden fact. Open it with the pen button in the toolbar.
+**Author's Notes** is a note you write that the AI reads on every generation. Use it for a standing reminder, like a tone rule or a hidden fact. Open **Chat Settings** and expand **Author's Notes**, under **Agents**.
 
 Type your note in the box. For example: "Keep the tone dark and suspenseful. The villain is secretly an ally."
 
@@ -79,11 +83,13 @@ Below the note is an **Injection Depth** number field. It sets how far up the ch
 
 Author's Notes also works the same way in Game Mode and Conversation Mode. This guide is its main reference.
 
-## The Agents and Actions menu
+## Agent activity
 
-The sparkle button in the HUD row opens the **Agents & Actions** menu. Its **Activity** tab lists agent outputs, called thought bubbles. You can dismiss each one or use **Clear all**. Custom agent outputs also appear here.
+**Agent activity** shows what the chat's agents did. It appears once the chat uses agents or Advanced Memory. Find its own section just below **Agents** in **Chat Settings**. It is also at the bottom of the **Tracker Panel** and, on a computer, of the **Trackers** window.
 
-If an agent failed on the last turn, a failed list appears with a retry button. You can also re-run all tracker agents from this menu. For a plain-language tour of the whole agent system, see [Agents: AI Helpers for Your Chats](../agents/agents-overview.md).
+Its **Activity** tab lists agent outputs, called thought bubbles. You can dismiss each one or use **Clear all**. Custom agent outputs also appear here.
+
+If an agent failed on the last turn, a failed list appears with a retry button. You can also stop running agents, re-run all tracker agents, and use **Clear Trackers** from here. For a plain-language tour of the whole agent system, see [Agents: AI Helpers for Your Chats](../agents/agents-overview.md).
 
 An **Injections** tab appears only when **Debug mode** is on. Turn it on in **Settings**, under **Advanced**. This tab shows the prompt snippets that writer-style agents saved before the last reply. Writer-style agents include **Prose Guardian**, which rewrites replies to match your style rules, and the **Narrative Director**, which steers the plot.
 
@@ -123,7 +129,7 @@ Open the reply's command information and choose **Restore original message** to 
 
 ## Echo Chamber
 
-**Echo Chamber** is an optional agent that adds a live audience reacting to your scene. It works like a streaming chat that posts a new reaction on a timer. Turn it on in **Chat Settings**, under **Agents**, on the **Echo Chamber** card. The panel floats over the scene and can collapse to a small pill.
+**Echo Chamber** is an optional agent that adds a live audience reacting to your scene. It works like a streaming chat that posts a new reaction on a timer. Turn it on in **Chat Settings**, under **Agents**, on the **Echo Chamber** card. On a computer, drag its title bar to move it, resize it from an edge, or pin it to keep it open. **X** closes it to a movable button. On a phone, Echo keeps a compact view above the messages; **X** closes it to a movable button there too. Echo follows your **Chat widget style** in **Settings → Appearance → App**, and each chat remembers its layout.
 
 ## CYOA choices
 
@@ -153,7 +159,7 @@ You can set a cheaper model for agents than for chat. Many users run chat on a s
 
 **The background never changes.** The **Background** agent picks from your background library. With only one or two backgrounds, it keeps picking those. Add more backgrounds so the agent has more choices. See [Roleplay Backgrounds](backgrounds.md).
 
-**A regenerated reply keeps the wrong direction.** Turn on **Debug mode** in **Settings**, under **Advanced**. Open the **Agents & Actions** menu, find the **Injections** tab, then edit or re-run the saved snippet before you regenerate. For more help, see [Troubleshooting Marinara Engine](../TROUBLESHOOTING.md).
+**A regenerated reply keeps the wrong direction.** Turn on **Debug mode** in **Settings**, under **Advanced**. Open **Agent activity**, find the **Injections** tab, then edit or re-run the saved snippet before you regenerate. For more help, see [Troubleshooting Marinara Engine](../TROUBLESHOOTING.md).
 
 ## Related guides
 

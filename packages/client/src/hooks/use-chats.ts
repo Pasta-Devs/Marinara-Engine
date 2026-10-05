@@ -927,8 +927,10 @@ export function useUpdateChatMetadata(options?: { serialize?: boolean }) {
       const previous = qc.getQueryData<Chat>(chatKeys.detail(id));
       const fallback = useChatStore.getState().activeChat?.id === id ? useChatStore.getState().activeChat : null;
       const base = previous ?? fallback;
-      const updatedAt = new Date().toISOString();
       const changedKeys = Object.keys(metadata);
+      const viewOnly =
+        changedKeys.length > 0 &&
+        changedKeys.every((key) => key === "windowLayout" || key === "chatSettingsHintDismissed");
       const version = nextChatMetadataMutationVersion(id, changedKeys);
       if (base) {
         syncCachedChat(qc, {
@@ -937,10 +939,10 @@ export function useUpdateChatMetadata(options?: { serialize?: boolean }) {
             ...(normalizeChatMetadataValue(base.metadata) as Record<string, unknown>),
             ...metadata,
           } as Chat["metadata"],
-          updatedAt,
+          updatedAt: viewOnly ? base.updatedAt : new Date().toISOString(),
         });
       }
-      return { previous, version, changedKeys };
+      return { previous, version, changedKeys, viewOnly };
     },
     onError: (_error, variables, context) => {
       if (context?.previous) {
@@ -954,7 +956,7 @@ export function useUpdateChatMetadata(options?: { serialize?: boolean }) {
             context.version,
             context.changedKeys,
           ),
-          updatedAt: context.previous.updatedAt,
+          updatedAt: context.viewOnly ? current.updatedAt : context.previous.updatedAt,
         });
       }
       if (options?.serialize || Object.hasOwn(variables, "background")) {
@@ -977,7 +979,7 @@ export function useUpdateChatMetadata(options?: { serialize?: boolean }) {
             data.metadata,
             context?.version ?? chatMetadataMutationVersions.get(vars.id) ?? 0,
           ),
-          updatedAt: data.updatedAt,
+          updatedAt: context?.viewOnly ? base.updatedAt : data.updatedAt,
         });
       } else {
         qc.invalidateQueries({ queryKey: chatKeys.detail(vars.id) });

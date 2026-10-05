@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { seedUIState } from "./ui-state-fixture.js";
+import { openChatMessageSearch } from "./chat-settings-tools.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 
@@ -167,11 +168,7 @@ for (const mode of ["conversation", "roleplay"] as const) {
       await page.reload();
       const trashedRow = page.locator(`[data-message-id="${messageId}"]`);
       await expect(trashedRow).toHaveCount(0);
-      if (testInfo.project.name.includes("mobile")) {
-        await page.getByRole("button", { name: "More options", exact: true }).click();
-      }
-      await page.getByRole("button", { name: "Search messages" }).click();
-      const searchPanel = page.getByRole("dialog");
+      const searchPanel = await openChatMessageSearch(page);
       await searchPanel.getByRole("tab", { name: "Bookmarks", exact: true }).click();
       await expect(searchPanel).not.toContainText("Hidden bookmarked fixture.");
       await searchPanel.getByRole("tab", { name: "Trash", exact: true }).click();

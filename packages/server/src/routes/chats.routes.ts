@@ -1494,7 +1494,12 @@ export async function chatsRoutes(app: FastifyInstance) {
       });
       return updated ? normalizeChatForResponse(updated) : updated;
     }
-    const updated = await storage.patchMetadata(req.params.id, incoming);
+    // Rearranging windows or dismissing their hint is a view preference, not new chat activity.
+    const changedKeys = Object.keys(incoming);
+    const viewOnly =
+      changedKeys.length > 0 &&
+      changedKeys.every((key) => key === "windowLayout" || key === "chatSettingsHintDismissed");
+    const updated = await storage.patchMetadata(req.params.id, incoming, { touchUpdatedAt: !viewOnly });
     return updated ? normalizeChatForResponse(updated) : updated;
   });
 

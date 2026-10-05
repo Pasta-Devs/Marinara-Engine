@@ -591,7 +591,7 @@ export function ChatGallery({
 
   return (
     <>
-      <div className="flex flex-col gap-3 p-4 max-md:p-3">
+      <div className="flex flex-col gap-3">
         {(canIllustrate ||
           onGenerateSelfie ||
           onGenerateStoryboard ||
@@ -759,7 +759,7 @@ export function ChatGallery({
           </div>
         )}
 
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <div className="flex flex-col gap-2 @md:flex-row @md:items-center">
           <div className="relative min-w-0 flex-1">
             <Search
               size="0.875rem"
@@ -784,7 +784,7 @@ export function ChatGallery({
               </button>
             )}
           </div>
-          <div className="grid shrink-0 grid-cols-2 gap-2 sm:flex">
+          <div className="grid shrink-0 grid-cols-2 gap-2 @md:flex">
             <button
               type="button"
               disabled={!images?.length}
@@ -904,7 +904,7 @@ export function ChatGallery({
             )}
 
             {!assetsLoading && displayedAssets.length > 0 && (
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+              <div className="grid grid-cols-2 gap-2 @md:grid-cols-3">
                 {displayedAssets.map((asset) => {
                   const imageId = getChatGalleryImageId(asset, chatId);
                   const selected = imageId ? selectedImageIds.has(imageId) : false;
@@ -1050,7 +1050,7 @@ export function ChatGallery({
 
             {/* Image grid */}
             {hasImages && (
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-2">
+              <div className="grid grid-cols-2 gap-2">
                 {images!.map((img) => (
                   <div
                     key={img.id}
@@ -1196,7 +1196,7 @@ export function ChatGallery({
                   <Film size="0.75rem" />
                   {localizeUi("ui.chat.chatgallery.sceneVideos")}
                 </div>
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <div className="grid grid-cols-1 gap-2 @sm:grid-cols-2">
                   {sceneVideos.map((video) => (
                     <div
                       key={video.id}

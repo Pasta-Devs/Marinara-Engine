@@ -6,7 +6,7 @@ This guide explains chat branches in Marinara Engine: what a branch is and how t
 
 A branch is a copy of a chat that shares history up to a chosen point. You use branches to explore a different direction while keeping the original chat safe.
 
-All branches of the same chat are grouped together. In the chat list, a chat with more than one branch shows as a single row. A small branch count appears next to it. You open and switch between its branches from the **Chat Branches** popover (see below).
+All branches of the same chat are grouped together. In the chat list, a chat with more than one branch shows as a single row. A small branch count appears next to it. You open and switch between its branches from the **Chat Branches** section of **Chat Settings** (see below).
 
 Each branch can have its own display name, so you can label them like "friendly ending" and "dark ending". This display name is separate from the underlying chat name.
 
@@ -33,19 +33,19 @@ Day and week summaries do not carry over. Rolling summaries with persisted messa
 
 You cannot branch a scene chat. In a scene chat, the **Branch from here** button does not appear. Scene chats have a separate **Clone from here** action instead. See [Scenes: Branching a Roleplay](../roleplay/scenes.md) for how it works.
 
-## The Chat Branches popover
+## The Chat Branches section
 
-Open the popover from the branch button in the chat toolbar. The button uses a branching icon and shows the current branch count. Its tooltip reads **Switch branch**.
+Open **Chat Settings** and expand the **Chat Branches** section, under **Chat Name**. Its header shows the current branch count. On a computer, you can pop it out into its own window (see [Chat Settings Overview](chat-settings.md#popping-a-section-out-into-its-own-window)).
 
-The popover is titled **Chat Branches**, with the subtitle "Switch, import, export, or clean up this chat's branches." It lists every branch of the current chat, with the branch you are viewing shown first. Each row shows the branch display name and its last updated time.
+The section lists every branch of the current chat, with the branch you are viewing shown first. Each row shows the branch display name and its last updated time.
 
 ### Switch to another branch
 
-Click any branch row in the popover to open that branch. The popover closes and the chat view switches to the branch you picked.
+Click any branch row to open that branch. The chat view switches to the branch you picked.
 
 ### Rename a branch
 
-1. Open the **Chat Branches** popover.
+1. Open the **Chat Branches** section.
 2. Click the pencil (rename) button on the branch row you want to rename.
 3. A dialog titled **Rename Branch** opens with the message "Set a display name for this chat branch."
 4. Type a new name and confirm with the **Rename** button.
@@ -54,7 +54,7 @@ An empty name, or a name you did not change, is ignored.
 
 ### Delete a branch
 
-1. Open the **Chat Branches** popover.
+1. Open the **Chat Branches** section.
 2. Click the trash (delete) button on the branch row.
 3. A dialog titled **Delete Branch** asks "Delete this branch? Messages will be lost."
 4. Confirm with the **Delete** button.
@@ -63,13 +63,13 @@ Deleting a branch removes that branch and its messages only. The other branches 
 
 ### Delete all branches
 
-When a chat has two or more branches, a **Delete All Branches** button appears at the bottom of the popover. It asks "Delete all N branches? This cannot be undone." Confirm with the **Delete All** button to remove every branch in the group at once.
+When a chat has two or more branches, a **Delete All Branches** button appears at the bottom of the section. It asks "Delete all N branches? This cannot be undone." Confirm with the **Delete All** button to remove every branch in the group at once.
 
 You can also start this from the chat list. Delete a chat that has branches from its trash icon. A dialog titled **Delete Chat** then asks what you want to delete. It offers a **Delete This Branch Only** button and a **Delete All N Branches** button. See [Managing Your Chat List](managing-chats.md) for more on deleting from the list.
 
 ## Export a branch
 
-The **Chat Branches** popover has export buttons at the top. They export the branch you are currently viewing.
+The **Chat Branches** section has export buttons at the top. They export the branch you are currently viewing.
 
 - **JSONL**: downloads the branch as a JSONL file. JSONL means one message per line of text, and this format is compatible with SillyTavern.
 - **Text**: downloads the branch as a plain text transcript.
@@ -80,7 +80,7 @@ For bulk export of many chats at once, see [Exporting and Importing Chats](expor
 
 You can bring a saved chat log in as a new branch of the chat you have open.
 
-1. Open the **Chat Branches** popover.
+1. Open the **Chat Branches** section.
 2. Click the **Import** button.
 3. Pick a JSONL file (`.jsonl`) exported from SillyTavern or from Marinara.
 

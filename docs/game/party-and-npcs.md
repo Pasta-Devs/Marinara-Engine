@@ -131,7 +131,7 @@ To drop a companion yourself, use the **X** button on the party bar, as describe
 
 The Adventure Journal is a running record of your campaign. It is built from saved game events, not written by the AI, so it stays factual.
 
-Click the **Session** button in the top toolbar, then choose the **Journal** tab. A Journal panel opens with these tabs:
+Open **Session** (see [Opening Session](sessions-and-saves.md#opening-session)), then choose the **Journal** tab. The Journal has these tabs:
 
 - **Timeline**: a list of what has happened, such as locations found, NPC meetings, combat results, quests, and item events.
 - **NPCs**: the NPCs you have met, with portraits and reputation labels (see below).

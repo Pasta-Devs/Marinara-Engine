@@ -16,6 +16,7 @@ import {
   createChatSummaryEntry,
 } from "@marinara-engine/shared";
 import { seedUIState } from "./ui-state-fixture.js";
+import { openChatSettingsTool } from "./chat-settings-tools.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version as string;
 test.use({ actionTimeout: 10_000 });
@@ -1089,10 +1090,10 @@ test("Advanced Recall background activity appears without ordinary agents", asyn
   });
   try {
     await openChat(page, fixture.chat.id, false);
-    const agents = page.getByRole("button", { name: /^Agents & Actions/ }).filter({ visible: true });
-    await expect(agents.locator(".lucide-loader-circle")).toBeVisible();
-    await agents.click();
-    const activity = page.locator('[data-component="AdvancedRecallActivity"]');
+    // Agent activity is a Chat Settings section below Agents.
+    const activity = (await openChatSettingsTool(page, "agent-activity")).locator(
+      '[data-component="AdvancedRecallActivity"]',
+    );
     await expect(activity).toContainText("Advanced Recall");
     await expect(activity).toContainText("Summarizing scenes");
     await expect(activity.getByRole("progressbar")).toHaveAttribute("value", "1");
@@ -1104,8 +1105,6 @@ test("Advanced Recall background activity appears without ordinary agents", asyn
     await expect(activity).toContainText("Indexing messages and scenes");
     status.job = { ...status.job, status: "ready", stage: "ready", completed: 2 };
     await expect(activity).toContainText("Memory is ready");
-    await expect(agents.locator(".lucide-loader-circle")).toHaveCount(0);
-    await expect(page.locator(".mari-chat-settings-drawer")).toBeHidden();
   } finally {
     await fixture.cleanup();
   }
@@ -1212,6 +1211,10 @@ for (const work of ["scene-check", "summary"] as const)
         if (response.url().endsWith(`/chats/${fixture.chat.id}/advanced-memory`)) polls++;
       });
       await openChat(page, fixture.chat.id, false);
+      // Agent activity, the Chat Settings section below Agents, shows Advanced Recall progress.
+      const activity = (await openChatSettingsTool(page, "agent-activity")).locator(
+        '[data-component="AdvancedRecallActivity"]',
+      );
       await expect.poll(() => polls).toBeGreaterThan(0);
       const idlePolls = polls;
       // Observe beyond the former five-second interval: an idle archive must stay idle.
@@ -1238,10 +1241,8 @@ for (const work of ["scene-check", "summary"] as const)
       await expect(page.getByText(firstChunk + lastChunk, { exact: true })).toBeVisible();
       await expect(page.locator("button.mari-chat-send-btn .lucide-send")).toBeVisible();
       await expect.poll(() => !!pendingMemory).toBe(true);
-      const agents = page.getByRole("button", { name: /^Agents & Actions/ }).filter({ visible: true });
-      await expect(agents.locator(".lucide-loader-circle")).toBeVisible();
-      await agents.click();
-      const activity = page.locator('[data-component="AdvancedRecallActivity"]');
+      // Typing in the composer closed the unpinned Chat Settings window.
+      await openChatSettingsTool(page, "agent-activity");
       await expect(activity).toContainText(work === "scene-check" ? "Finding scene boundaries" : "Updating continuity");
       const sceneCheckRun = page.locator('[data-agent-activity="advanced-recall"]');
       await expect(sceneCheckRun).toContainText("Advanced Recall");
@@ -1271,7 +1272,6 @@ for (const work of ["scene-check", "summary"] as const)
           ],
         }),
       );
-      await expect(agents.locator(".lucide-loader-circle")).toHaveCount(0);
       await expect(activity).toContainText("Memory is ready");
       await expect(sceneCheckRun).toBeVisible();
       await expect.poll(() => statusRequests.size).toBe(0);
@@ -1422,9 +1422,6 @@ test("Advanced Memory keeps routine normal and guided replies quiet while preser
       }
       if (index === 1) {
         // Quiet progress remains available through the normal settings action.
-        if ((page.viewportSize()?.width ?? 0) < 768) {
-          await page.getByRole("button", { name: "More options", exact: true }).click();
-        }
         await page.getByRole("button", { name: "Chat Settings", exact: true }).filter({ visible: true }).click();
         const section = drawer.locator('[data-chat-settings-section="roleplay-memory-recall"]');
         const header = section.locator(':scope > [role="button"]');

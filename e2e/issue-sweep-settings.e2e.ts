@@ -55,8 +55,6 @@ for (const mode of ["conversation", "roleplay"] as const) {
         { chatId: chat.id, appVersion: version },
       );
       const openSettings = async () => {
-        if (testInfo.project.name.includes("mobile"))
-          await page.getByRole("button", { name: "More options", exact: true }).click();
         await page.getByRole("button", { name: "Chat Settings", exact: true }).filter({ visible: true }).click();
         await page
           .locator('.mari-chat-settings-drawer [data-chat-settings-section="advanced-parameters"]')

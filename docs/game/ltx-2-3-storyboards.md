@@ -206,7 +206,7 @@ Use a completed GM turn containing one obvious visual action, such as opening a 
 
 1. For the quickest low-VRAM check, temporarily set **Keyframes per Turn** to 1 while leaving **Animation Clip Duration** at 5 seconds. The normal tested profile uses 3 keyframes.
 2. Turn both automatic Storyboard settings on after the current GM turn is already complete.
-3. Open the Gallery and choose **Create storyboard** for that completed GM turn. This manually starts the full illustration-and-animation path without waiting for another turn.
+3. Open **Chat Settings > Gallery** and choose **Create storyboard** for that completed GM turn. This manually starts the full illustration-and-animation path without waiting for another turn.
 4. If prompt exposure is enabled, review the first-frame prompt before submitting it.
 5. Confirm that the generated first frame is a physically useful starting pose.
 6. Wait for the first-frame render and then the ComfyUI clip to finish.

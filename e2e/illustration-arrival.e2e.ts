@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { crc32 } from "node:zlib";
 import { seedUIState } from "./ui-state-fixture.js";
+import { openChatSettingsTool } from "./chat-settings-tools.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 const requireServer = createRequire(new URL("../packages/server/package.json", import.meta.url));
@@ -108,11 +109,11 @@ for (const mode of ["roleplay", "conversation"] as const) {
           contentType: "image/png",
         });
 
-        if (mobile) await page.getByRole("button", { name: "More options", exact: true }).click();
-        await page.getByRole("button", { name: "Gallery", exact: true }).filter({ visible: true }).click();
-        const drawer = page.locator(".mari-chat-gallery-drawer");
+        const drawer = await openChatSettingsTool(page, "gallery");
         const tile = drawer.getByRole("img", { name: "Synthetic arrival illustration", exact: true });
-        await expect(tile).toBeVisible();
+        // The tile can sit below the fold of the Chat Settings sheet, where a lazy image waits to load.
+        await tile.evaluate((img) => img.scrollIntoView({ block: "center" }));
+        await expect(tile).toBeInViewport();
         await expect
           .poll(() => tile.evaluate((img: HTMLImageElement) => img.naturalWidth))
           .toBe(mobile ? Math.round((320 * 1024) / height) : 1024);
@@ -126,7 +127,9 @@ for (const mode of ["roleplay", "conversation"] as const) {
         });
 
         await drawer.getByRole("button", { name: "Open gallery image", exact: true }).click();
-        const fullImage = page.getByRole("dialog").getByRole("img", { name: "Synthetic arrival illustration" });
+        const fullImage = page
+          .getByRole("dialog", { name: "Image preview", exact: true })
+          .getByRole("img", { name: "Synthetic arrival illustration" });
         await expect(fullImage).toBeVisible();
         await expect.poll(() => fullImage.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBe(1024);
         await expect.poll(() => fullImage.evaluate((img: HTMLImageElement) => img.naturalHeight)).toBe(height);

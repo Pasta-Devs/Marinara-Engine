@@ -1,13 +1,16 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { useAgentStore, type AgentProgressEntry } from "../../stores/agent.store";
+import { cn } from "../../lib/utils";
 
 export function AgentTaskStatus({
   chatId,
   renderOutput,
+  className,
 }: {
   chatId: string;
   renderOutput?: (agentType: string) => ReactNode;
+  className?: string;
 }) {
   const { t } = useTranslation();
   const progress = useAgentStore((state) => state.taskProgress);
@@ -39,7 +42,7 @@ export function AgentTaskStatus({
   return (
     <section
       aria-label={t("agents.progress.title")}
-      className="space-y-2 border-b border-[var(--border)] px-3 py-2 text-[0.625rem]"
+      className={cn("space-y-2 border-b border-[var(--border)] px-3 py-2 text-[0.625rem]", className)}
     >
       <h3 className="font-semibold">{t("agents.progress.title")}</h3>
       {[...new Set(groups.map(([, { agent }]) => agent.type))].map((agentType) => (

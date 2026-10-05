@@ -102,3 +102,83 @@ for (const action of ["Import", "Download as PNG"] as const) {
     await testInfo.attach("character-download-after", { path: screenshot, contentType: "image/png" });
   });
 }
+
+test("CharacterTavern explains it is unavailable without contacting the site", async ({ page }, testInfo) => {
+  const errors: string[] = [];
+  const characterTavernRequests: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  page.on("request", (request) => {
+    if (/chartavern|character-tavern\.com/u.test(request.url())) characterTavernRequests.push(request.url());
+  });
+  await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "" } }));
+  await seedUIState(page, { hasCompletedOnboarding: true, sidebarOpen: false, rightPanelOpen: false });
+  await page.addInitScript((appVersion) => {
+    localStorage.setItem("marinara:whats-new:seen-version", appVersion);
+    // Browser state left behind by a CharacterTavern login before the integration was removed.
+    localStorage.setItem(
+      "marinara-bot-browser",
+      JSON.stringify({ nsfw: { chartavern: true }, logins: { chartavern: true }, lastSource: "chartavern" }),
+    );
+  }, version);
+  // Hold the opening ChubAI search so it finishes after the user has switched source.
+  let releaseChubSearch = () => {};
+  const chubSearchReleased = new Promise<void>((resolve) => (releaseChubSearch = resolve));
+  await page.route("**/api/bot-browser/chub/search?*", async (route) => {
+    await chubSearchReleased;
+    await route.fulfill({ json: { data: { count: 4321, nodes: [] } } });
+  });
+  await page.route("**/api/bot-browser/wyvern/search?*", (route) => route.fulfill({ json: { results: [], total: 0 } }));
+  const openCardBrowser = () =>
+    page.evaluate(async () => {
+      const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+      useUIStore.getState().openBotBrowser();
+    });
+
+  await page.goto("/");
+  await openCardBrowser();
+  const browser = page.locator('[data-component="BotBrowserView"]');
+  const header = browser.locator("header");
+  await browser.getByRole("button", { name: /ChubAI/u }).click();
+  const wyvernSearch = page.waitForResponse("**/api/bot-browser/wyvern/search?*");
+  await page.getByRole("button", { name: /Wyvern/u }).click();
+  await wyvernSearch;
+  const staleChubSearch = page.waitForResponse("**/api/bot-browser/chub/search?*");
+  releaseChubSearch();
+  await staleChubSearch;
+  await page.waitForTimeout(300);
+  await expect(header).toContainText("Browsing Wyvern");
+  await expect(header).not.toContainText("4,321");
+
+  await browser.getByRole("button", { name: /Wyvern/u }).click();
+  await expect(page.getByRole("button", { name: /CharacterTavern.*Unavailable/u })).toBeVisible();
+  await page.getByRole("button", { name: /CharacterTavern/u }).click();
+
+  const notice = browser.locator('[data-component="BotBrowserProviderUnavailable"]');
+  await expect(notice).toContainText("CharacterTavern can't be browsed here for now");
+  await expect(notice).toContainText("Browsing may return if CharacterTavern offers API access.");
+  await expect(notice.getByRole("link", { name: "Open CharacterTavern" })).toHaveAttribute(
+    "href",
+    "https://character-tavern.com",
+  );
+  await expect(browser.getByPlaceholder("Search characters")).toHaveCount(0);
+  await expect(browser.getByRole("button", { name: "Log In" })).toHaveCount(0);
+  await expect(header).not.toContainText("Browsing CharacterTavern");
+  const screenshot = testInfo.outputPath("chartavern-unavailable.png");
+  await page.screenshot({ path: screenshot });
+  await testInfo.attach("chartavern-unavailable", { path: screenshot, contentType: "image/png" });
+
+  await notice.getByRole("button", { name: "Import Character" }).click();
+  const importDialog = page.getByRole("dialog", { name: "Import Character", exact: true });
+  await expect(importDialog).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(importDialog).toBeHidden();
+
+  // The source choice is not saved, so a reload returns to the default site instead of a blank page.
+  await page.reload();
+  await openCardBrowser();
+  await expect(browser.getByRole("button", { name: /ChubAI/u })).toBeVisible();
+  await expect(browser.getByPlaceholder("Search characters")).toBeVisible();
+  await expect(page.getByText(/CharacterTavern session expired/u)).toHaveCount(0);
+  expect(characterTavernRequests).toEqual([]);
+  expect(errors).toEqual([]);
+});

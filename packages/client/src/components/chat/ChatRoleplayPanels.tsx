@@ -1,26 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import type { TFunction } from "i18next";
-import {
-  AlertTriangle,
-  BookOpen,
-  ChevronDown,
-  ChevronRight,
-  Loader2,
-  MapPin,
-  PenLine,
-  Sparkles,
-  X,
-} from "lucide-react";
+import { AlertTriangle, ChevronDown, ChevronRight, Loader2, MapPin, Sparkles } from "lucide-react";
 import { useUpdateChatMetadata } from "../../hooks/use-chats";
 import { type BudgetSkippedLorebookEntry, useActiveLorebookEntries } from "../../hooks/use-lorebooks";
 import { cn } from "../../lib/utils";
 import { useUIStore } from "../../stores/ui.store";
-import {
-  NEUTRAL_PANEL_CLOSE_BUTTON,
-  NEUTRAL_PANEL_CLOSE_ICON_SIZE,
-  NEUTRAL_PANEL_SUBTITLE,
-  NEUTRAL_PANEL_TITLE,
-} from "../ui/neutral-surface-styles";
+import { NEUTRAL_PANEL_SUBTITLE } from "../ui/neutral-surface-styles";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { MacroTextarea } from "../ui/MacroTextarea";
 
@@ -372,36 +357,8 @@ export function ActiveLorebookEntriesContent({ chatId }: { chatId: string }) {
   );
 }
 
-export function ActiveLorebookEntriesPanel({ chatId, onClose }: { chatId: string; onClose: () => void }) {
-  const { t: localizeUi } = useUiTranslation();
-  return (
-    <>
-      <h3 className={cn(NEUTRAL_PANEL_TITLE, "mb-2")}>
-        <BookOpen size="0.75rem" />
-        {localizeUi("ui.chat.activelorebookentriespanel.activeContext")}
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label={localizeUi("ui.chat.activelorebookentriespanel.closeActiveContext")}
-          className={cn(NEUTRAL_PANEL_CLOSE_BUTTON, "ml-auto -my-1")}
-        >
-          <X size={NEUTRAL_PANEL_CLOSE_ICON_SIZE} />
-        </button>
-      </h3>
-      <ActiveLorebookEntriesContent chatId={chatId} />
-    </>
-  );
-}
-
-export function AuthorNotesPanel({
-  chatId,
-  chatMeta,
-  onClose,
-}: {
-  chatId: string;
-  chatMeta: Record<string, any>;
-  onClose: () => void;
-}) {
+/** Author's Notes for one chat (a Chat Settings drawer). */
+export function AuthorNotesPanel({ chatId, chatMeta }: { chatId: string; chatMeta: Record<string, any> }) {
   const { t: localizeUi } = useUiTranslation();
   const [notes, setNotes] = useState((chatMeta.authorNotes as string) ?? "");
   const [depthStr, setDepthStr] = useState(String((chatMeta.authorNotesDepth as number) ?? 4));
@@ -456,18 +413,6 @@ export function AuthorNotesPanel({
 
   return (
     <>
-      <h3 className={cn(NEUTRAL_PANEL_TITLE, "mb-2")}>
-        <PenLine size="0.75rem" />
-        {localizeUi("ui.chat.authornotespanel.authorSNotes")}
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label={localizeUi("ui.chat.authornotespanel.closeAuthorSNotes")}
-          className={cn(NEUTRAL_PANEL_CLOSE_BUTTON, "ml-auto -my-1")}
-        >
-          <X size={NEUTRAL_PANEL_CLOSE_ICON_SIZE} />
-        </button>
-      </h3>
       <p className={cn(NEUTRAL_PANEL_SUBTITLE, "mb-2")}>
         {localizeUi("ui.chat.authornotespanel.textHereIsInjectedIntoThePromptAtThe")}
       </p>

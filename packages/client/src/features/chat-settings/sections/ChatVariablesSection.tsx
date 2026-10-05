@@ -5,6 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { MAX_CHAT_VARIABLE_VALUE_LENGTH, type ChatVariableNameIssue } from "@marinara-engine/shared";
 import { ChatSettingsSection } from "../ChatSettingsSection";
+import { useDrawerContentVisible } from "../../../components/ui/Drawer";
 import { chatKeys, useUpdateChatMetadata } from "../../../hooks/use-chats";
 import { useUIStore } from "../../../stores/ui.store";
 import { useChatStore } from "../../../stores/chat.store";
@@ -41,6 +42,7 @@ export function ChatVariablesSection({ sectionId, order, chatId, variables }: Ch
   // save() queues the whole mutation so each patch uses the last successful name.
   const updateMeta = useUpdateChatMetadata();
   const expanded = useUIStore((s) => s.chatSettingsExpandedSections[sectionId]);
+  const contentVisible = useDrawerContentVisible(sectionId, Boolean(expanded));
 
   const [rows, setRows] = useState<VariableRow[]>(() => toRows(variables));
   // removeRow waits for an answer; a save that lands meanwhile changes the row it must remove.
@@ -67,20 +69,20 @@ export function ChatVariablesSection({ sectionId, order, chatId, variables }: Ch
   // that write deliberately leaves updatedAt alone, to keep the chat list from
   // reordering. So refetch on the two moments that matter: when the section is
   // opened, and when a generation for this chat finishes while it is open.
-  const wasExpanded = useRef(false);
+  const wasVisible = useRef(false);
   useEffect(() => {
-    if (expanded && !wasExpanded.current) void qc.invalidateQueries({ queryKey: chatKeys.detail(chatId) });
-    wasExpanded.current = Boolean(expanded);
-  }, [expanded, chatId, qc]);
+    if (contentVisible && !wasVisible.current) void qc.invalidateQueries({ queryKey: chatKeys.detail(chatId) });
+    wasVisible.current = contentVisible;
+  }, [contentVisible, chatId, qc]);
 
   const streaming = useChatStore((s) => s.streamingChatId === chatId);
   const wasStreaming = useRef(false);
   useEffect(() => {
-    if (!streaming && wasStreaming.current && expanded) {
+    if (!streaming && wasStreaming.current && contentVisible) {
       void qc.invalidateQueries({ queryKey: chatKeys.detail(chatId) });
     }
     wasStreaming.current = streaming;
-  }, [streaming, expanded, chatId, qc]);
+  }, [streaming, contentVisible, chatId, qc]);
 
   // `onSaved` stamps the row's saved snapshot, and runs only once the PATCH has
   // landed: a failed write rolls the cached metadata back, so a row marked

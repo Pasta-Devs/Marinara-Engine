@@ -87,7 +87,7 @@ Here is a picture from my walk!
 
 You can also request a selfie yourself instead of waiting for the character.
 
-1. Open the chat **Gallery** panel.
+1. Open **Chat Settings** and expand the **Gallery** section.
 2. Click the **Selfie** button (the camera icon).
 3. If the chat has more than one character, pick who should take the selfie from the character list next to the button.
 4. If **Expose media prompts before sending** is enabled under **Settings**, **Generations**, **Image Generation**, review or edit the final compiled selfie prompt and click **Generate**. Canceling the review does not send an image request.

@@ -104,10 +104,6 @@ for (const mode of ["game", "roleplay", "conversation"] as const) {
         { id: a.id, version },
       );
       const openEditor = async () => {
-        if (testInfo.project.name.includes("mobile"))
-          await page
-            .getByRole("button", { name: mode === "game" ? "Game actions" : "More options", exact: true })
-            .click();
         await page.getByRole("button", { name: "Chat Settings", exact: true }).filter({ visible: true }).click();
         const drawer = page.locator(".mari-chat-settings-drawer");
         await drawer.getByText("Lorebooks", { exact: true }).first().click();

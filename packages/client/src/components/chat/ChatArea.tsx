@@ -36,6 +36,10 @@ import {
 import { getCurrentInputSnapshot, useChatStore } from "../../stores/chat.store";
 import { hasActiveTextSelection } from "../../lib/text-selection";
 import { readChatMetadata } from "../../lib/chat-wizard-defaults";
+import { useChatWindowLayout } from "../../hooks/use-chat-window-layout";
+import { ChatSettingsBubble } from "./ChatSettingsBubble";
+import { ChatWindowWelcomeModal } from "../modals/ChatWindowWelcomeModal";
+import { useGameModeStore } from "../../stores/game-mode.store";
 import { useGenerate } from "../../hooks/use-generate";
 import { useGenerateGallerySelfie } from "../../hooks/use-gallery";
 import {
@@ -70,7 +74,6 @@ import { useGalleryStore } from "../../stores/gallery.store";
 import { toast } from "sonner";
 import { Check, X } from "lucide-react";
 import {
-  BUILT_IN_AGENTS,
   PROFESSOR_MARI_ID,
   buildGuidedGenerationInstructionMessage,
   normalizeAvatarCrop,
@@ -84,13 +87,13 @@ import {
 import { resolveLiveConversationStatus } from "../../lib/conversation-presence-status";
 import { useUIStore } from "../../stores/ui.store";
 import { useAgentStore, EMPTY_AGENT_TYPES } from "../../stores/agent.store";
-import { illustratorRetryTargetsForFailures } from "../../lib/agent-failures";
+import { isBuiltInTrackerAgentType, resolveTrackerRerunTypes } from "../../lib/tracker-agents";
 import { Modal } from "../ui/Modal";
 import { useEncounter } from "../../hooks/use-encounter";
 import { useScene } from "../../hooks/use-scene";
 import { useEncounterStore } from "../../stores/encounter.store";
 import { useTranslationStore } from "../../stores/translation.store";
-import { getChatTranslationConfig } from "@marinara-engine/shared";
+import { getChatTranslationConfig, type ChatMode } from "@marinara-engine/shared";
 import { ttsService } from "../../lib/tts-service";
 import { useTTSConfig } from "../../hooks/use-tts";
 import {
@@ -113,7 +116,11 @@ import {
 } from "../../lib/tts-autoplay";
 import { CHAT_SCROLL_TO_BOTTOM_EVENT, type ChatScrollToBottomDetail } from "../../lib/chat-scroll-events";
 import { CHAT_RESOURCE_AGENT_SETUP_EVENT } from "../../lib/chat-resource-drag";
-import { blurActiveChatFloatingUiControl, CHAT_FLOATING_UI_DISMISS_EVENT } from "../../lib/chat-floating-ui-events";
+import {
+  blurActiveChatFloatingUiControl,
+  CHAT_FLOATING_UI_DISMISS_EVENT,
+  CHAT_SUMMARY_OPEN_REQUEST_EVENT,
+} from "../../lib/chat-floating-ui-events";
 import {
   CHAT_TOOLBAR_ACTION_EVENT,
   readAnnouncedChatToolbarPanelAction,
@@ -156,13 +163,10 @@ import {
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { ChatResourceDropOverlay } from "./ChatResourceDropOverlay";
 import { ChatHelpOverlay } from "./ChatHelpOverlay";
+import { CHAT_SETTINGS_WINDOW_ID, useFloatingWindowStore } from "../../stores/floating-window.store";
 import { readChatHelpMode } from "../../lib/chat-help-events";
 
 export type { CharacterMap };
-
-const isBuiltInAgentType = (agentType: string) => BUILT_IN_AGENTS.some((agent) => agent.id === agentType);
-const isBuiltInTrackerAgentType = (agentType: string) =>
-  BUILT_IN_AGENTS.some((agent) => agent.id === agentType && agent.category === "tracker" && !agent.libraryHidden);
 
 function compareMessagesByCursor(left: MessageWithSwipes, right: MessageWithSwipes): number {
   const createdAtCompare = left.createdAt.localeCompare(right.createdAt);
@@ -542,9 +546,29 @@ const MultiplayerChat = lazy(() =>
   import("../../features/multiplayer/MultiplayerChat").then((module) => ({ default: module.MultiplayerChat })),
 );
 
-export const ChatArea = memo(function ChatArea() {
+interface ChatWindowIntroProps {
+  chatWindowIntroAllowed?: boolean;
+  onChatWindowIntroOpenChange?: (open: boolean) => void;
+}
+
+export const ChatArea = memo(function ChatArea({
+  chatWindowIntroAllowed,
+  onChatWindowIntroOpenChange,
+}: ChatWindowIntroProps) {
   const activeChatId = useChatStore((state) => state.activeChatId);
   const { data: chat, error, refetch } = useChat(activeChatId);
+  const metadata = chat ? readChatMetadata(chat) : {};
+  // Keep the local host registered while the next chat loads. Multiplayer registers its own host
+  // once the room is ready; its setup screen must not offer Chat Settings.
+  const hostsChatSettings = Boolean(activeChatId && !(metadata.multiplayerSetup === true || metadata.multiplayer));
+  useEffect(() => {
+    if (!hostsChatSettings) return;
+    return useFloatingWindowStore.getState().registerHost(CHAT_SETTINGS_WINDOW_ID);
+  }, [hostsChatSettings]);
+  // The Chat Settings button shows while a chat that hosts Chat Settings is open.
+  const chatSettingsHosted = useFloatingWindowStore((state) => (state.hosts[CHAT_SETTINGS_WINDOW_ID] ?? 0) > 0);
+  // Windows and popped-out drawers follow the open chat's saved layout.
+  useChatWindowLayout(activeChatId ? (chat?.id === activeChatId ? chat : undefined) : null);
   useEffect(() => {
     if (activeChatId && error instanceof ApiError && error.status === 404) {
       useChatStore.getState().setActiveChatId(null);
@@ -554,23 +578,36 @@ export const ChatArea = memo(function ChatArea() {
     return (
       <ChatOpeningState error={error} onRetry={refetch} onBack={() => useChatStore.getState().setActiveChatId(null)} />
     );
-  const metadata = chat ? readChatMetadata(chat) : {};
+  const chatSettingsButton =
+    chat && chatSettingsHosted ? <ChatSettingsBubble chatId={chat.id} mode={readChatMode(chat)} /> : null;
   if (chat && (metadata.multiplayerSetup === true || metadata.multiplayer)) {
     return (
       <Suspense fallback={null}>
         <MultiplayerChat key={chat.id} chat={chat} />
+        {chatSettingsButton}
       </Suspense>
     );
   }
   return (
     <>
-      <LocalChatArea />
+      <LocalChatArea
+        chatWindowIntroAllowed={chatWindowIntroAllowed}
+        onChatWindowIntroOpenChange={onChatWindowIntroOpenChange}
+      />
       <SelectionLorebookButton />
+      {chatSettingsButton}
     </>
   );
 });
 
-const LocalChatArea = memo(function LocalChatArea() {
+function readChatMode(chat: { mode?: unknown }): ChatMode {
+  return chat.mode === "conversation" || chat.mode === "game" ? chat.mode : "roleplay";
+}
+
+const LocalChatArea = memo(function LocalChatArea({
+  chatWindowIntroAllowed = false,
+  onChatWindowIntroOpenChange,
+}: ChatWindowIntroProps) {
   const { t: localizeUi } = useUiTranslation();
   useRenderTimer("chat-area"); // [#3104 diagnostic]
   const activeChatId = useChatStore((s) => s.activeChatId);
@@ -584,10 +621,13 @@ const LocalChatArea = memo(function LocalChatArea() {
   const isPageActive = usePageActivity();
   const regenerateMessageId = useChatStore((s) => s.regenerateMessageId);
   const chatBackground = useUIStore((s) => s.chatBackground);
+  const chatWindowIntroDismissed = useUIStore((s) => s.chatWindowIntroDismissed);
+  const gameSetupActive = useGameModeStore((state) => state.isSetupActive);
   const weatherEffects = useUIStore((s) => s.weatherEffects);
   const messagesPerPage = useUIStore((s) => s.messagesPerPage);
   const centerCompact = useUIStore((s) => s.centerCompact);
   const guideGenerations = useUIStore((s) => s.guideGenerations);
+  const keepGuidanceAfterRegenerate = useUIStore((s) => s.keepGuidanceAfterRegenerate);
   const intuitiveSwipeNavigation = useUIStore((s) => s.intuitiveSwipeNavigation);
   const intuitiveSwipeRerollLatest = useUIStore((s) => s.intuitiveSwipeRerollLatest);
   const editLastMessageOnArrowUp = useUIStore((s) => s.editLastMessageOnArrowUp);
@@ -603,11 +643,10 @@ const LocalChatArea = memo(function LocalChatArea() {
   // After the first render with messages, new/re-mounted messages
   // skip the entry animation to avoid a visible flash on refetch.
   const hasAnimatedRef = useRef(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const settingsOpen = useFloatingWindowStore((s) => s.open[CHAT_SETTINGS_WINDOW_ID] === true);
+  const settingsPinned = useFloatingWindowStore((s) => s.layouts[CHAT_SETTINGS_WINDOW_ID]?.pinned === true);
   const [settingsInitialSection, setSettingsInitialSection] = useState<ChatSettingsInitialSection>(null);
-  const [galleryOpen, setGalleryOpen] = useState(false);
   const [settingsAnchor, setSettingsAnchor] = useState<FloatingPanelAnchor>(null);
-  const [galleryAnchor, setGalleryAnchor] = useState<FloatingPanelAnchor>(null);
   const [wizardOpen, setWizardOpen] = useState(false);
   const [spriteArrangeMode, setSpriteArrangeMode] = useState(false);
   const [agentInjectionReview, setAgentInjectionReview] = useState<AgentInjectionReviewRequest | null>(null);
@@ -669,60 +708,44 @@ const LocalChatArea = memo(function LocalChatArea() {
   const handleOpenSettingsPanel = useCallback(
     (event?: ReactMouseEvent<HTMLElement>, options?: OpenSettingsOptions) => {
       void preloadChatSettingsDrawer();
-      const nextOpen = event ? !settingsOpen : true;
-      setGalleryOpen(false);
-      setGalleryAnchor(null);
+      const windows = useFloatingWindowStore.getState();
+      const nextOpen = event ? !windows.open[CHAT_SETTINGS_WINDOW_ID] : true;
       setSettingsAnchor(nextOpen ? readFloatingPanelAnchor(event) : null);
       setSettingsInitialSection(nextOpen ? (options?.initialSection ?? null) : null);
-      setSettingsOpen(nextOpen);
+      if (nextOpen) windows.openWindow(CHAT_SETTINGS_WINDOW_ID, event?.currentTarget ?? null);
+      else windows.dismissWindow(CHAT_SETTINGS_WINDOW_ID, { force: true });
     },
-    [readFloatingPanelAnchor, settingsOpen],
+    [readFloatingPanelAnchor],
   );
-  const handleOpenGalleryPanel = useCallback(
-    (event?: ReactMouseEvent<HTMLElement>) => {
-      const nextOpen = event ? !galleryOpen : true;
-      setSettingsOpen(false);
-      setSettingsAnchor(null);
-      setSettingsInitialSection(null);
-      setGalleryAnchor(nextOpen ? readFloatingPanelAnchor(event) : null);
-      setGalleryOpen(nextOpen);
-    },
-    [galleryOpen, readFloatingPanelAnchor],
-  );
-  const handleCloseSettingsPanel = useCallback(() => {
-    blurActiveChatFloatingUiControl();
-    setSettingsOpen(false);
+  // Other chat panels and toolbar actions dismiss Chat Settings unless it is pinned; `force` (its own
+  // close button) always closes it.
+  const handleCloseSettingsPanel = useCallback((options?: { force?: boolean }) => {
+    // React unmounts the window after this handler returns, so a field being edited still saves on blur.
+    if (useFloatingWindowStore.getState().dismissWindow(CHAT_SETTINGS_WINDOW_ID, options)) {
+      blurActiveChatFloatingUiControl();
+    }
+  }, []);
+  useEffect(() => {
+    if (settingsOpen) return;
     setSettingsAnchor(null);
     setSettingsInitialSection(null);
-  }, []);
-
-  const handleCloseGalleryPanel = useCallback(() => {
-    blurActiveChatFloatingUiControl();
-    setGalleryOpen(false);
-    setGalleryAnchor(null);
-  }, []);
-
+  }, [settingsOpen]);
   useEffect(() => {
     if (!activeChatId) return;
     homeProfessorChatOpenRef.current = false;
     setHomeProfessorChatOpen(false);
     setHomeProfessorChatActive(false);
   }, [activeChatId]);
-  const closeFloatingChatDrawers = useCallback((event?: Event) => {
-    const preservedPanel = event ? readAnnouncedChatToolbarPanelAction(event) : null;
-    blurActiveChatFloatingUiControl();
-    if (preservedPanel !== "settings") {
-      setSettingsOpen(false);
-      setSettingsAnchor(null);
-      setSettingsInitialSection(null);
-    }
-    if (preservedPanel !== "gallery") {
-      setGalleryOpen(false);
-      setGalleryAnchor(null);
-    }
-    setPeekPromptData(null);
-    setDeleteDialogMessageId(null);
-  }, []);
+  const closeFloatingChatDrawers = useCallback(
+    (event?: Event) => {
+      const preservedPanel = event ? readAnnouncedChatToolbarPanelAction(event) : null;
+      if (preservedPanel !== "settings") handleCloseSettingsPanel();
+      blurActiveChatFloatingUiControl({ keepWindowFocus: true });
+      setPeekPromptData(null);
+      setDeleteDialogMessageId(null);
+    },
+    [handleCloseSettingsPanel],
+  );
   // A dropped agent parks a setup request; open chat settings so its modal can run.
   useEffect(() => {
     const openAgentSetup = (event: Event) => {
@@ -742,6 +765,17 @@ const LocalChatArea = memo(function LocalChatArea() {
     };
     window.addEventListener(ADVANCED_MEMORY_SETTINGS_EVENT, openMemorySettings);
     return () => window.removeEventListener(ADVANCED_MEMORY_SETTINGS_EVENT, openMemorySettings);
+  }, [handleOpenSettingsPanel]);
+
+  // The Chat Summary agent's "open summaries" link lands on the Chat Summary drawer.
+  useEffect(() => {
+    const openSummary = (event: Event) => {
+      const chatId = (event as CustomEvent<{ chatId?: string }>).detail?.chatId;
+      if (chatId !== useChatStore.getState().activeChatId) return;
+      handleOpenSettingsPanel(undefined, { initialSection: "summary" });
+    };
+    window.addEventListener(CHAT_SUMMARY_OPEN_REQUEST_EVENT, openSummary);
+    return () => window.removeEventListener(CHAT_SUMMARY_OPEN_REQUEST_EVENT, openSummary);
   }, [handleOpenSettingsPanel]);
 
   useEffect(() => {
@@ -919,6 +953,12 @@ const LocalChatArea = memo(function LocalChatArea() {
     setIllustratorPromptReview(null);
   }, [illustratorPromptReviewSubmitting]);
 
+  const handleIllustrateWithAgent = useCallback(
+    async (agentType: string) => {
+      if (activeChatId) await retryAgents(activeChatId, [agentType], { forceImageGeneration: true });
+    },
+    [activeChatId, retryAgents],
+  );
   const handleIllustrate = useCallback(
     (prompt?: string, messageRange?: [string, string]) => {
       if (!activeChatId) return;
@@ -2136,11 +2176,14 @@ const LocalChatArea = memo(function LocalChatArea() {
       ) {
         return;
       }
-      // The confirmation can outlive this chat. Never consume another chat's draft.
+      // The confirmation can outlive this chat. Never use another chat's draft as guidance.
       if (useChatStore.getState().activeChatId !== activeChatId) return;
       const composer = document.querySelector<HTMLTextAreaElement>("textarea[data-chat-composer]");
       const currentInput = composer?.dataset.chatId === activeChatId ? composer.value : getCurrentInputSnapshot();
       const isGuided = guideGenerations && currentInput.trim().length > 0;
+      // By default guidance stays in the composer so it can be adjusted for another regeneration (#7060).
+      // With the setting off it is consumed so it cannot go out later as a chat message (#6815).
+      const clearsGuidance = isGuided && !keepGuidanceAfterRegenerate;
       const replaceGuidanceDraft = (expected: string, text: string) => {
         const state = useChatStore.getState();
         const input = document.querySelector<HTMLTextAreaElement>("textarea[data-chat-composer]");
@@ -2154,7 +2197,7 @@ const LocalChatArea = memo(function LocalChatArea() {
         }
         state.setInputDraft(activeChatId, text);
       };
-      if (isGuided) replaceGuidanceDraft(currentInput, "");
+      if (clearsGuidance) replaceGuidanceDraft(currentInput, "");
       try {
         // Regenerate as a new swipe on the existing message
         const consumed = await generate(
@@ -2168,37 +2211,18 @@ const LocalChatArea = memo(function LocalChatArea() {
               }
             : { chatId: activeChatId, connectionId: null, regenerateMessageId: messageId },
         );
-        if (isGuided && !consumed) replaceGuidanceDraft("", currentInput);
+        if (clearsGuidance && !consumed) replaceGuidanceDraft("", currentInput);
       } catch {
-        if (isGuided) replaceGuidanceDraft("", currentInput);
+        if (clearsGuidance) replaceGuidanceDraft("", currentInput);
         // Error toast is shown by the generate hook
       }
     },
-    [activeChatId, isStreaming, generate, guideGenerations, localizeUi],
+    [activeChatId, isStreaming, generate, guideGenerations, keepGuidanceAfterRegenerate, localizeUi],
   );
-
-  const handleRetryAgents = useCallback(async () => {
-    if (!activeChatId || isStreaming || agentProcessing || failedAgentTypes.length === 0) return;
-    const failureState = useAgentStore.getState();
-    const failures =
-      failureState.failedAgentChatId && failureState.failedAgentChatId !== activeChatId
-        ? []
-        : failureState.failedAgentFailures;
-    const illustratorRetryTargets = illustratorRetryTargetsForFailures(failures);
-    await retryAgents(
-      activeChatId,
-      failedAgentTypes,
-      illustratorRetryTargets ? { illustratorRetryTargets } : undefined,
-    );
-  }, [activeChatId, isStreaming, agentProcessing, failedAgentTypes, retryAgents]);
 
   const handleRerunTrackers = useCallback(async () => {
     if (!activeChatId || isStreaming || agentProcessing) return;
-    const manualTypes = Array.from(manualTrackerTypes);
-    const types =
-      manualTypes.length > 0
-        ? manualTypes
-        : Array.from(enabledAgentTypes).filter((type) => isBuiltInTrackerAgentType(type) || !isBuiltInAgentType(type));
+    const types = resolveTrackerRerunTypes(enabledAgentTypes, manualTrackerTypes);
     if (types.length === 0) return;
     await retryAgents(activeChatId, types);
   }, [activeChatId, isStreaming, agentProcessing, enabledAgentTypes, manualTrackerTypes, retryAgents]);
@@ -2412,8 +2436,7 @@ const LocalChatArea = memo(function LocalChatArea() {
   }, [messages]);
 
   const intuitiveSwipeBlocked =
-    settingsOpen ||
-    galleryOpen ||
+    (settingsOpen && !settingsPinned) ||
     wizardOpen ||
     spriteArrangeMode ||
     multiSelectMode ||
@@ -3174,6 +3197,28 @@ const LocalChatArea = memo(function LocalChatArea() {
     </Suspense>
   ) : null;
   const resourceDropOverlay = chat ? <ChatResourceDropOverlay chat={chat} /> : null;
+  const chatWindowIntro = (
+    <ChatWindowWelcomeModal
+      presentationAllowed={
+        chatWindowIntroAllowed &&
+        chat?.id === activeChatId &&
+        !isLoading &&
+        !wizardOpen &&
+        !shouldOpenWizard &&
+        !pendingNewChatMode &&
+        !peekPromptData &&
+        !deleteDialogMessageId &&
+        !scheduleModalCharacterId &&
+        !agentInjectionReview &&
+        !illustratorPromptReview &&
+        conversationSelfieReviewItems.length === 0 &&
+        roleplayVideoReviewItems.length === 0 &&
+        (chatMode !== "game" ||
+          (!gameSetupActive && Boolean(chatMeta.gameId) && chatMeta.gameSessionStatus !== "setup"))
+      }
+      onOpenChange={onChatWindowIntroOpenChange}
+    />
+  );
   const chatHelpMode = readChatHelpMode(chatMode);
   const chatHelpOverlay =
     chat && chatHelpMode ? (
@@ -3182,9 +3227,9 @@ const LocalChatArea = memo(function LocalChatArea() {
         activeChatId={chat.id}
         isFirstChat={(allChats ?? []).filter((candidate) => candidate.mode === chatMode).length === 1}
         autoOpenBlocked={
+          !chatWindowIntroDismissed ||
           wizardOpen ||
           settingsOpen ||
-          galleryOpen ||
           !!pendingNewChatMode ||
           !!peekPromptData ||
           !!deleteDialogMessageId
@@ -3216,11 +3261,7 @@ const LocalChatArea = memo(function LocalChatArea() {
             personaInfo={personaInfo}
             chatBackground={chatBackground}
             connectedChatName={connectedChatName}
-            onOpenSettings={handleOpenSettingsPanel}
             onCloseSettings={handleCloseSettingsPanel}
-            externalGalleryOpen={galleryOpen}
-            externalGalleryAnchor={galleryAnchor}
-            onCloseExternalGallery={handleCloseGalleryPanel}
             onSwitchChat={chat.connectedChatId ? () => setActiveChatId(chat.connectedChatId!) : undefined}
             onDeleteMessage={handleDelete}
             onPeekPrompt={handlePeekPrompt}
@@ -3232,8 +3273,6 @@ const LocalChatArea = memo(function LocalChatArea() {
             chat={chat}
             settingsOpen={settingsOpen}
             settingsAnchor={settingsAnchor}
-            galleryOpen={false}
-            galleryAnchor={galleryAnchor}
             wizardOpen={wizardOpen}
             peekPromptData={peekPromptData}
             deleteDialogMessageId={deleteDialogMessageId}
@@ -3252,7 +3291,6 @@ const LocalChatArea = memo(function LocalChatArea() {
               onSpriteVisualSettingsChange: patchLocalSpriteVisualSettings,
             }}
             onCloseSettings={handleCloseSettingsPanel}
-            onCloseGallery={handleCloseGalleryPanel}
             onOpenScheduleEditor={handleOpenScheduleEditor}
             onWizardFinish={() => {
               setWizardOpen(false);
@@ -3271,6 +3309,7 @@ const LocalChatArea = memo(function LocalChatArea() {
             onSelectAllBelowSelection={handleSelectAllBelowSelection}
           />
           {chatHelpOverlay}
+          {chatWindowIntro}
         </>
       </Suspense>
     );
@@ -3306,8 +3345,6 @@ const LocalChatArea = memo(function LocalChatArea() {
             settingsOpen={settingsOpen}
             settingsAnchor={settingsAnchor}
             settingsInitialSection={settingsInitialSection}
-            galleryOpen={galleryOpen}
-            galleryAnchor={galleryAnchor}
             wizardOpen={wizardOpen}
             peekPromptData={peekPromptData}
             deleteDialogMessageId={deleteDialogMessageId}
@@ -3330,14 +3367,10 @@ const LocalChatArea = memo(function LocalChatArea() {
             onConcludeScene={chatMeta.sceneStatus === "active" ? () => concludeScene(activeChatId) : undefined}
             onAbandonScene={chatMeta.sceneStatus === "active" ? () => abandonScene(activeChatId) : undefined}
             onOpenSettings={handleOpenSettingsPanel}
-            onOpenGallery={handleOpenGalleryPanel}
             onOpenScheduleEditor={handleOpenScheduleEditor}
             onCloseSettings={handleCloseSettingsPanel}
-            onCloseGallery={handleCloseGalleryPanel}
             onIllustrate={handleIllustrate}
-            onIllustrateWithAgent={async (agentType) => {
-              await retryAgents(activeChatId, [agentType], { forceImageGeneration: true });
-            }}
+            onIllustrateWithAgent={handleIllustrateWithAgent}
             onGenerateSelfie={handleGenerateConversationSelfie}
             onWizardFinish={() => {
               setWizardOpen(false);
@@ -3359,6 +3392,7 @@ const LocalChatArea = memo(function LocalChatArea() {
             onSelectAllBelowSelection={handleSelectAllBelowSelection}
             lastAssistantMessageId={lastAssistantMessageId}
           />
+          {chatWindowIntro}
         </Suspense>
         {illustratorPromptReviewModal}
         <ImagePromptReviewModal
@@ -3442,8 +3476,6 @@ const LocalChatArea = memo(function LocalChatArea() {
           settingsOpen={settingsOpen}
           settingsAnchor={settingsAnchor}
           settingsInitialSection={settingsInitialSection}
-          galleryOpen={galleryOpen}
-          galleryAnchor={galleryAnchor}
           wizardOpen={wizardOpen}
           peekPromptData={peekPromptData}
           deleteDialogMessageId={deleteDialogMessageId}
@@ -3470,21 +3502,15 @@ const LocalChatArea = memo(function LocalChatArea() {
           onToggleSelectMessage={handleToggleSelectMessage}
           onRerunTrackers={handleRerunTrackers}
           onRerunSingleTracker={handleRerunSingleTracker}
-          onRetryFailedAgents={handleRetryAgents}
           onStartEncounter={() => startEncounter()}
           onConcludeScene={() => concludeScene(activeChatId)}
           onAbandonScene={() => abandonScene(activeChatId)}
           onForkScene={forkScene}
           isForkingScene={isForking || isStreaming}
-          onOpenSettings={handleOpenSettingsPanel}
-          onOpenGallery={handleOpenGalleryPanel}
           onCloseSettings={handleCloseSettingsPanel}
-          onCloseGallery={handleCloseGalleryPanel}
           onOpenScheduleEditor={handleOpenScheduleEditor}
           onIllustrate={handleIllustrate}
-          onIllustrateWithAgent={async (agentType) => {
-            await retryAgents(activeChatId, [agentType], { forceImageGeneration: true });
-          }}
+          onIllustrateWithAgent={handleIllustrateWithAgent}
           onGenerateBackground={handleGenerateRoleplayBackground}
           onGenerateVideo={() => handleGenerateRoleplaySceneVideo()}
           onAnimateImage={(image) => handleGenerateRoleplaySceneVideo({ galleryImageId: image.id })}
@@ -3514,6 +3540,7 @@ const LocalChatArea = memo(function LocalChatArea() {
           onSelectAllBelowSelection={handleSelectAllBelowSelection}
           isGrouped={isGrouped}
         />
+        {chatWindowIntro}
       </Suspense>
       {agentInjectionReview && (
         <AgentInjectionReviewModal

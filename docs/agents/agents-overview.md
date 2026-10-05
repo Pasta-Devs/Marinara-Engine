@@ -37,7 +37,7 @@ Automatic startup updates never install an unselected package. Desktop, Docker, 
 You turn agents on inside each chat, in the **Chat Settings** drawer.
 
 1. Open the chat you want.
-2. Open **Chat Settings** (the gear).
+2. Open **Chat Settings**.
 3. Find the **Agents** section.
 4. Turn on **Enable Agents**. This is the master switch. When it is off, no agent runs for this chat.
 5. Add the agents you want from the lists below the switch, or remove ones you do not want.

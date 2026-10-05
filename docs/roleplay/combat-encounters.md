@@ -9,7 +9,7 @@ Combat encounters are an optional Roleplay feature. They give your scene a struc
 An agent is a helper that runs automatically during message generation. The **Combat** agent adds the battle feature to a Roleplay chat. It is off by default, so you must turn it on per chat.
 
 1. Open the chat you want to add combat to.
-2. Open **Chat Settings** (the gear icon).
+2. Open **Chat Settings** (the **Chat Settings** button in the chat, at the top right unless you moved it).
 3. Open the **Agents** section.
 4. Turn on **Enable Agents** if it is not already on.
 5. Add the **Combat** agent to the chat.

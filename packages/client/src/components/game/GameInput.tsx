@@ -414,6 +414,7 @@ export function GameInput({
   return (
     <div
       data-chat-resource-drop-exclude
+      data-chat-input-container
       className={cn(inline ? "" : "px-3 pt-2 pb-3")}
       style={inline ? undefined : { minHeight: 61 }}
     >
@@ -639,6 +640,7 @@ export function GameInput({
         </div>
 
         <textarea
+          data-chat-composer
           ref={inputRef}
           value={text}
           onChange={(e) => {

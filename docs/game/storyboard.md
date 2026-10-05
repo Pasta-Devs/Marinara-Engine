@@ -109,7 +109,7 @@ Roleplay Storyboards group completed exchanges into a visual episode and render 
    - **Still images**: automatically makes an illustrated episode.
    - **Animations**: automatically makes keyframe images and a clip for each frame; a video connection is required.
 4. Set **Messages per episode** and **Keyframes per episode**.
-5. Finish a new assistant response, or open the Gallery and select **Create storyboard**.
+5. Finish a new assistant response, or open **Chat Settings > Gallery** and select **Create storyboard**.
 
 Use the arrows on a multi-keyframe Storyboard to move between frames. An animated frame shows its playable clip inline and falls back to its image while the clip is pending or unavailable.
 
@@ -149,7 +149,7 @@ Game Mode Storyboard uses exactly one completed GM narration turn as its story s
 3. Open **Chat Settings > Agents**, turn on **Enable Agents**, then turn on **Enable Storyboards**.
 4. Confirm that the Game has an image connection or that the global Storyboard setup supplies one.
 5. Finish a GM narration turn.
-6. Open the **Gallery** and select **Create storyboard**.
+6. Open **Chat Settings > Gallery** and select **Create storyboard**.
 
 Select **View storyboard** in the Gallery to reopen a dismissed Game viewer. Manual generation uses the current animation setting: when **Automatic Storyboard Animations** is on, the manual Storyboard also requests clips.
 
@@ -275,7 +275,7 @@ You can use the Storyboard Agent with either Standard or Storyboard Optimized pr
 
 **Floating viewer** is a draggable, resizable panel above the Game. It follows the reader's position in the GM narration and shows the corresponding frame. A video plays when ready and otherwise falls back to the frame image.
 
-**Game background** places the active frame behind the Game controls. This replaces the normal generated scene background while the mode is active, so the ordinary **Generate background** action is unavailable. Background clips play once and remain on their final frame; Game controls provide replay, play/pause, and mute actions.
+**Game background** places the active frame behind the rest of the Game screen. This replaces the normal generated scene background while the mode is active, so the ordinary **Generate background** action is unavailable. Background clips play once and remain on their final frame. For replay, play/pause and mute, click or tap **Game controls** (the circular-arrow button, which starts near the top right of the chat). It opens as a window on a computer or a panel on a phone. If you moved it into Chat Settings, open the **Game controls** section there instead.
 
 Closing the floating viewer hides it for the current turn. Use **Gallery > View storyboard** to reopen it.
 

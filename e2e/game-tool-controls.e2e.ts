@@ -53,8 +53,6 @@ for (const theme of ["dark", "light"] as const) {
         { id: chat.id, version },
       );
       const openTools = async () => {
-        if (testInfo.project.name.includes("mobile"))
-          await page.getByRole("button", { name: "Game actions", exact: true }).click();
         await page.getByRole("button", { name: "Chat Settings", exact: true }).filter({ visible: true }).click();
         const section = page.locator('[data-chat-settings-section="function-calling"]');
         await section.locator('[role="button"][aria-expanded]').click();

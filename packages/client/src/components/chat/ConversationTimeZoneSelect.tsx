@@ -15,9 +15,15 @@ import { useTranslation as useUiTranslation } from "react-i18next";
 type ConversationTimeZoneSelectProps = {
   className?: string;
   compact?: boolean;
+  /** Lay out by the surrounding container's width (the Chat Settings window) instead of the screen's. */
+  containerQueries?: boolean;
 };
 
-export function ConversationTimeZoneSelect({ className, compact = false }: ConversationTimeZoneSelectProps) {
+export function ConversationTimeZoneSelect({
+  className,
+  compact = false,
+  containerQueries = false,
+}: ConversationTimeZoneSelectProps) {
   const { t: localizeUi } = useUiTranslation();
   const selectId = useId();
   const queryClient = useQueryClient();
@@ -83,7 +89,11 @@ export function ConversationTimeZoneSelect({ className, compact = false }: Conve
       </div>
 
       <div
-        className={cn("grid gap-2", conversationTimeZone !== detectedTimeZone && "sm:grid-cols-[minmax(0,1fr)_auto]")}
+        className={cn(
+          "grid gap-2",
+          conversationTimeZone !== detectedTimeZone &&
+            (containerQueries ? "@lg:grid-cols-[minmax(0,1fr)_auto]" : "sm:grid-cols-[minmax(0,1fr)_auto]"),
+        )}
       >
         <select
           id={selectId}

@@ -28,10 +28,13 @@ import {
   type WeekScheduleDraftMode,
 } from "../services/conversation/schedule.service.js";
 import {
+  buildAutonomousDailyBudgetPatch,
   checkAutonomousMessaging,
   checkCharacterExchange,
   getActivityState,
+  getAutonomousDailyBudget,
   isAutonomousDailyBudgetExhausted,
+  sharesAutonomousDailyBudget,
   recordUserActivity,
   recordAssistantActivity,
   recordAutonomousClientPresence,
@@ -173,11 +176,16 @@ function resolveAutonomousIntentPayload(
   const msSinceUserLastSpoke = state?.lastUserMessageAt ? Date.now() - state.lastUserMessageAt : 0;
   const hadUnansweredUserMessage = state ? state.lastUserMessageAt > state.lastAssistantMessageAt : false;
   const intent = resolveIntent(schedule, msSinceUserLastSpoke, hadUnansweredUserMessage, now);
+  // A shared-limit group checks in after a long absence once, not once per character (#7055).
+  const cooldownIds =
+    intent === "long_absence_check_in" && sharesAutonomousDailyBudget(meta)
+      ? Object.keys((meta.intentCooldowns as object | undefined) ?? {})
+      : [characterId];
   return {
     autonomousIntent: getIntentHint(intent),
     autonomousIntentPrompt: `What prompted this message: ${getIntentHint(intent)}`,
     autonomousIntentKey: intent,
-    onCooldown: isIntentOnCooldown(meta, characterId, intent),
+    onCooldown: cooldownIds.some((id) => isIntentOnCooldown(meta, id, intent)),
   };
 }
 
@@ -403,6 +411,24 @@ export async function conversationRoutes(app: FastifyInstance) {
   const chats = createChatsStorage(app.db);
   const chars = createCharactersStorage(app.db);
   const connections = createConnectionsStorage(app.db);
+
+  /** Characters without a schedule (or with schedules off) are paced by their card talkativeness. */
+  async function withSchedulelessAutonomySchedules(
+    characterIds: string[],
+    schedules: CharacterSchedules,
+    userStatus: AutonomousUserStatus,
+  ): Promise<CharacterSchedules> {
+    const autonomySchedules: CharacterSchedules = { ...schedules };
+    for (const cid of characterIds) {
+      if (autonomySchedules[cid]) continue;
+      const charRow = await chars.getById(cid);
+      autonomySchedules[cid] = createSchedulelessAutonomySchedule(
+        getCharacterCardTalkativeness(charRow?.data),
+        userStatus,
+      );
+    }
+    return autonomySchedules;
+  }
 
   async function rememberConversationTimeZone(timeZone: string): Promise<number> {
     const allChats = await chats.list();
@@ -999,17 +1025,10 @@ export async function conversationRoutes(app: FastifyInstance) {
     const characterIds: string[] =
       typeof chat.characterIds === "string" ? JSON.parse(chat.characterIds) : chat.characterIds;
     const isGroup = characterIds.length > 1;
+    const sharedCadence = isGroup && sharesAutonomousDailyBudget(meta);
     const hasRoutineSchedules = hasSchedules(schedules);
 
-    const autonomySchedules: CharacterSchedules = { ...schedules };
-    const schedulelessCharacterIds = characterIds.filter((cid) => !autonomySchedules[cid]);
-    for (const cid of schedulelessCharacterIds) {
-      const charRow = await chars.getById(cid);
-      autonomySchedules[cid] = createSchedulelessAutonomySchedule(
-        getCharacterCardTalkativeness(charRow?.data),
-        userStatus,
-      );
-    }
+    const autonomySchedules = await withSchedulelessAutonomySchedules(characterIds, schedules, userStatus);
 
     // Shared-room eligibility must not mutate private character cards.
     for (const cid of meta.multiplayer ? [] : characterIds) {
@@ -1097,13 +1116,19 @@ export async function conversationRoutes(app: FastifyInstance) {
       statusOverrides,
       actualNow: nowInstant,
       scheduleNow: promptNow,
+      sharedCadence,
     });
     if (result.reason === "generation_in_progress") return reply.send(result);
 
     if (result.shouldTrigger) {
       if (await turnGameBlocks()) return turnGameActiveResponse();
       let blockedReason: "daily_budget_exhausted" | "intent_cooldown" | null = null;
-      for (const characterId of result.characterIds) {
+      // With a shared limit, whoever has checked in least today goes first.
+      const todayCounts = getAutonomousDailyBudget(meta).counts;
+      const candidateIds = sharedCadence
+        ? [...result.characterIds].sort((a, b) => (todayCounts[a] ?? 0) - (todayCounts[b] ?? 0))
+        : result.characterIds;
+      for (const characterId of candidateIds) {
         const evaluation = evaluateAutonomousCandidate(
           chatId,
           characterId,
@@ -1270,10 +1295,12 @@ export async function conversationRoutes(app: FastifyInstance) {
     }
 
     const { schedules, statusOverrides } = await chats.resolveConversationPresenceState(chatId);
+    // Exchanges only read status and talkativeness, so the user status here does not matter.
+    const autonomySchedules = await withSchedulelessAutonomySchedules(characterIds, schedules, "idle");
     const now = new Date();
     const scheduleNow = toZonedWallClockDate(now, resolveConversationTimeZone(meta));
     const sceneBusyCharIds = await resolveSceneBusyCharacterIds(chats, chatId, meta);
-    const filteredSchedules = { ...schedules };
+    const filteredSchedules = { ...autonomySchedules };
     for (const busyId of sceneBusyCharIds) {
       delete filteredSchedules[busyId];
     }
@@ -1292,8 +1319,17 @@ export async function conversationRoutes(app: FastifyInstance) {
       scheduleNow,
     );
     if (result.shouldTrigger) {
+      // With a shared limit, a reply never takes the day's last check-in, so a
+      // check-in and its exchanges cannot spend the whole day at once (#7055).
       const allowedCharacterId = result.characterIds.find(
-        (characterId) => !isAutonomousDailyBudgetExhausted(characterId, schedules[characterId], meta),
+        (characterId) =>
+          !isAutonomousDailyBudgetExhausted(
+            characterId,
+            autonomySchedules[characterId],
+            sharesAutonomousDailyBudget(meta)
+              ? { ...meta, ...buildAutonomousDailyBudgetPatch(meta, characterId) }
+              : meta,
+          ),
       );
       if (!allowedCharacterId) {
         return reply.send({

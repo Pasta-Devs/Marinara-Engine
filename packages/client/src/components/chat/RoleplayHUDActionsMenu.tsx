@@ -18,6 +18,15 @@ import { useAgentStore } from "../../stores/agent.store";
 import { ContinuityIssueChecklist } from "../agents/ContinuityIssueChecklist";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { showConfirmDialog } from "../../lib/app-dialogs";
+import { cn } from "../../lib/utils";
+import { EmptySection } from "../../features/tracker-panel/components/controls/SectionControls";
+import { TRACKER_TEXT_ROW } from "../../features/tracker-panel/lib/tracker-panel.constants";
+
+const TRACKER_ACTIVITY_OUTPUT_CLASS = cn(
+  TRACKER_TEXT_ROW,
+  "rounded-sm border-[var(--border)]/28 bg-[var(--tracker-panel-card-background)] p-1",
+);
+const TRACKER_ACTIVITY_ACTION_CLASS = cn(TRACKER_TEXT_ROW, "min-h-7 gap-1 px-1 py-1 font-medium");
 
 interface ThoughtBubble {
   agentId: string;
@@ -49,6 +58,7 @@ interface RoleplayHUDActionsMenuProps {
   failedAgentFailures?: AgentFailure[];
   onClose: () => void;
   showInjectionsTab?: boolean;
+  trackerPanel?: boolean;
 }
 
 export function RoleplayHUDActionsMenu({
@@ -72,6 +82,7 @@ export function RoleplayHUDActionsMenu({
   failedAgentFailures,
   onClose,
   showInjectionsTab,
+  trackerPanel = false,
 }: RoleplayHUDActionsMenuProps) {
   const { t: localizeUi } = useUiTranslation();
   const memoryAction = useAdvancedMemoryAction(chatId);
@@ -159,7 +170,10 @@ export function RoleplayHUDActionsMenu({
     <div
       key={`${bubble.agentId}-${bubble.timestamp}`}
       data-agent-output
-      className="relative rounded-lg border border-[var(--border)] bg-[var(--secondary)]/35 p-2 text-[0.625rem]"
+      className={cn(
+        "relative rounded-lg border border-[var(--border)] bg-[var(--secondary)]/35 p-2 text-[0.625rem]",
+        trackerPanel && TRACKER_ACTIVITY_OUTPUT_CLASS,
+      )}
     >
       <button
         onClick={() => dismissThoughtBubble(index)}
@@ -169,7 +183,7 @@ export function RoleplayHUDActionsMenu({
         <X size="0.625rem" />
       </button>
       <div className="pr-4">
-        <span className="font-semibold text-foreground/75">{bubble.agentName}</span>
+        <span className="font-semibold text-[var(--foreground)]/75">{bubble.agentName}</span>
         {bubble.agentId === "continuity" ? (
           <ContinuityIssueChecklist content={bubble.content} compact />
         ) : (
@@ -238,6 +252,7 @@ export function RoleplayHUDActionsMenu({
           )}
           <AgentTaskStatus
             chatId={chatId}
+            className={trackerPanel ? cn(TRACKER_TEXT_ROW, "space-y-1 px-1 py-1") : undefined}
             renderOutput={(agentType) => (
               <>
                 {thoughtBubbles.map((bubble, index) =>
@@ -250,7 +265,7 @@ export function RoleplayHUDActionsMenu({
                       <p className="text-[var(--muted-foreground)]">
                         {localizeUi("agents.activity.latestSavedOutput")}
                       </p>
-                      <CustomAgentRunItem run={run} />
+                      <CustomAgentRunItem run={run} trackerPanel={trackerPanel} />
                     </div>
                   ))}
               </>
@@ -264,13 +279,18 @@ export function RoleplayHUDActionsMenu({
               </span>
             </div>
           )}
-          {!hasAnyActivity && (
-            <div className="px-3 py-4 text-center text-[0.625rem] text-[var(--muted-foreground)]">
-              {localizeUi("ui.chat.roleplayhudactionsmenu.noAgentActivityYet")}
-            </div>
-          )}
+          {!hasAnyActivity &&
+            (trackerPanel ? (
+              <div className="p-1">
+                <EmptySection>{localizeUi("ui.chat.roleplayhudactionsmenu.noAgentActivityYet")}</EmptySection>
+              </div>
+            ) : (
+              <div className="px-3 py-4 text-center text-[0.625rem] text-[var(--muted-foreground)]">
+                {localizeUi("ui.chat.roleplayhudactionsmenu.noAgentActivityYet")}
+              </div>
+            ))}
           {thoughtBubbles.some((bubble) => !reportedAgentTypes.has(bubble.agentId)) && (
-            <div className="flex flex-col gap-1 p-2">
+            <div className={cn("flex flex-col gap-1 p-2", trackerPanel && "p-1")}>
               {thoughtBubbles.map((bubble, index) =>
                 !reportedAgentTypes.has(bubble.agentId) ? renderThoughtBubble(bubble, index) : null,
               )}
@@ -279,6 +299,7 @@ export function RoleplayHUDActionsMenu({
 
           {(unreportedCustomRuns.length > 0 || customAgentRunsLoading) && (
             <CustomAgentRunsSection
+              trackerPanel={trackerPanel}
               runs={unreportedCustomRuns}
               loading={customAgentRunsLoading}
               title={localizeUi("ui.chat.roleplayhudactionsmenu.customOutputs")}
@@ -306,6 +327,7 @@ export function RoleplayHUDActionsMenu({
           />
           {hasActiveCustomPromptAgent && (
             <CustomAgentRunsSection
+              trackerPanel={trackerPanel}
               runs={injectableCustomRuns}
               loading={customAgentRunsLoading}
               title={localizeUi("ui.chat.roleplayhudactionsmenu.customPromptSections")}
@@ -319,7 +341,12 @@ export function RoleplayHUDActionsMenu({
       )}
 
       {showFooterActions && (
-        <div className="divide-y divide-[var(--border)] border-t border-[var(--border)]">
+        <div
+          className={cn(
+            "divide-y divide-[var(--border)] border-t border-[var(--border)]",
+            trackerPanel && "mx-1 divide-[var(--border)]/28 border-[var(--border)]/30",
+          )}
+        >
           {showStopAgentsAction && (
             <button
               onClick={async () => {
@@ -332,7 +359,10 @@ export function RoleplayHUDActionsMenu({
                 }
               }}
               disabled={stoppingAgents}
-              className="flex w-full items-center gap-2 px-3 py-2 text-[0.625rem] font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)]/45 hover:text-[var(--foreground)] disabled:opacity-50"
+              className={cn(
+                "flex w-full items-center gap-2 px-3 py-2 text-[0.625rem] font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)]/45 hover:text-[var(--foreground)] disabled:opacity-50",
+                trackerPanel && TRACKER_ACTIVITY_ACTION_CLASS,
+              )}
             >
               <Square size="0.6875rem" fill="currentColor" />
               {stoppingAgents
@@ -376,7 +406,10 @@ export function RoleplayHUDActionsMenu({
                 clearGameState();
                 onClose();
               }}
-              className="flex w-full items-center gap-2 px-3 py-2 text-[0.625rem] text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)]/45 hover:text-[var(--foreground)]"
+              className={cn(
+                "flex w-full items-center gap-2 px-3 py-2 text-[0.625rem] text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)]/45 hover:text-[var(--foreground)]",
+                trackerPanel && TRACKER_ACTIVITY_ACTION_CLASS,
+              )}
             >
               <Trash2 size="0.75rem" className="text-current" />
               <span>{localizeUi("ui.chat.roleplayhudactionsmenu.clearTrackers")}</span>
@@ -389,7 +422,10 @@ export function RoleplayHUDActionsMenu({
                 onClose();
               }}
               disabled={isGenerationBusy}
-              className="flex w-full items-center gap-2 px-3 py-2 text-[0.625rem] font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)]/45 hover:text-[var(--foreground)] disabled:opacity-50"
+              className={cn(
+                "flex w-full items-center gap-2 px-3 py-2 text-[0.625rem] font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)]/45 hover:text-[var(--foreground)] disabled:opacity-50",
+                trackerPanel && TRACKER_ACTIVITY_ACTION_CLASS,
+              )}
             >
               <RefreshCw size="0.6875rem" className={isGenerationBusy ? "animate-spin" : ""} />
               {isGenerationBusy
@@ -406,7 +442,10 @@ export function RoleplayHUDActionsMenu({
                 onClose();
               }}
               disabled={isGenerationBusy}
-              className="flex w-full items-center gap-2 px-3 py-2 text-[0.625rem] font-medium text-amber-300 transition-colors hover:bg-amber-500/10 disabled:opacity-50"
+              className={cn(
+                "flex w-full items-center gap-2 px-3 py-2 text-[0.625rem] font-medium text-amber-300 transition-colors hover:bg-amber-500/10 disabled:opacity-50",
+                trackerPanel && TRACKER_ACTIVITY_ACTION_CLASS,
+              )}
             >
               <AlertTriangle size="0.6875rem" className={isGenerationBusy ? "animate-pulse" : ""} />
               {isGenerationBusy
@@ -428,6 +467,7 @@ function CustomAgentRunsSection({
   countMode,
   collapsible,
   latestNote,
+  trackerPanel = false,
 }: {
   runs: AgentRunRow[];
   loading: boolean;
@@ -436,13 +476,14 @@ function CustomAgentRunsSection({
   countMode: "all" | "latest";
   collapsible?: boolean;
   latestNote?: string;
+  trackerPanel?: boolean;
 }) {
   const [open, setOpen] = useState(!collapsible);
   const countLabel = loading ? "Loading..." : runs.length > 0 ? String(runs.length) : "";
   const heading = (
     <>
       <span className="flex items-center gap-1 text-[0.625rem] text-[var(--muted-foreground)]">
-        <Code2 size="0.6875rem" className="text-foreground/55" />
+        <Code2 size="0.6875rem" className="text-[var(--foreground)]/55" />
         {title}
       </span>
       <span className="ml-auto text-[0.5625rem] text-[var(--muted-foreground)]/70">{countLabel}</span>
@@ -465,18 +506,21 @@ function CustomAgentRunsSection({
         <button
           type="button"
           onClick={() => setOpen((value) => !value)}
-          className="flex min-h-7 w-full items-center gap-1.5 px-3 py-1.5 text-left transition-colors hover:bg-[var(--accent)]/45 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--ring)]"
+          className={cn(
+            "flex min-h-7 w-full items-center gap-1.5 px-3 py-1.5 text-left transition-colors hover:bg-[var(--accent)]/45 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--ring)]",
+            trackerPanel && "px-1 py-1",
+          )}
           aria-expanded={open}
         >
           {heading}
         </button>
       ) : (
-        <div className="flex items-center gap-1.5 px-3 py-1.5">{heading}</div>
+        <div className={cn("flex items-center gap-1.5 px-3 py-1.5", trackerPanel && "px-1 py-1")}>{heading}</div>
       )}
       {open && (
-        <div className="flex flex-col gap-1 p-2 pt-0">
+        <div className={cn("flex flex-col gap-1 p-2 pt-0", trackerPanel && "p-1 pt-0")}>
           {runs.map((run) => (
-            <CustomAgentRunItem key={run.id} run={run} />
+            <CustomAgentRunItem key={run.id} run={run} trackerPanel={trackerPanel} />
           ))}
           {!loading && runs.length === 0 && emptyText && (
             <div className="px-2 py-2 text-center text-[0.625rem] text-[var(--muted-foreground)]">{emptyText}</div>
@@ -623,15 +667,15 @@ function formatRunTime(value: string): string {
   return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
-function CustomAgentRunItem({ run }: { run: AgentRunRow }) {
+function CustomAgentRunItem({ run, trackerPanel }: { run: AgentRunRow; trackerPanel?: boolean }) {
   return (
     <AgentOutputSpoiler hidden={run.hideOutput}>
-      <CustomAgentRunContent run={run} />
+      <CustomAgentRunContent run={run} trackerPanel={trackerPanel} />
     </AgentOutputSpoiler>
   );
 }
 
-function CustomAgentRunContent({ run }: { run: AgentRunRow }) {
+function CustomAgentRunContent({ run, trackerPanel }: { run: AgentRunRow; trackerPanel?: boolean }) {
   const { t: localizeUi } = useUiTranslation();
   const updateRun = useUpdateAgentRunData();
   const data = run.resultData;
@@ -643,9 +687,14 @@ function CustomAgentRunContent({ run }: { run: AgentRunRow }) {
     await updateRun.mutateAsync({ id: run.id, chatId: run.chatId, resultData });
   };
   return (
-    <div className="space-y-2 rounded-lg border border-[var(--border)] bg-[var(--secondary)]/35 p-2 text-[0.625rem] text-[var(--foreground)]">
+    <div
+      className={cn(
+        "space-y-2 rounded-lg border border-[var(--border)] bg-[var(--secondary)]/35 p-2 text-[0.625rem] text-[var(--foreground)]",
+        trackerPanel && cn(TRACKER_ACTIVITY_OUTPUT_CLASS, "space-y-1"),
+      )}
+    >
       <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
-        <span className="font-semibold text-foreground/75">{run.agentName}</span>
+        <span className="font-semibold text-[var(--foreground)]/75">{run.agentName}</span>
         <span className="rounded bg-[var(--secondary)]/55 px-1 py-0.5 text-[0.5rem] uppercase tracking-wide text-[var(--muted-foreground)]">
           {run.resultType.replace(/_/g, " ")}
         </span>
@@ -782,7 +831,7 @@ function AgentRunField({
               type="button"
               onClick={save}
               disabled={pending}
-              className="inline-flex min-h-7 items-center gap-1 rounded-md border border-foreground/15 bg-foreground/10 px-2 py-1 text-[0.5625rem] font-medium text-foreground/70 transition-colors hover:bg-foreground/15 hover:text-foreground/85 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--ring)] disabled:opacity-50"
+              className="inline-flex min-h-7 items-center gap-1 rounded-md border border-[var(--foreground)]/15 bg-[var(--foreground)]/10 px-2 py-1 text-[0.5625rem] font-medium text-[var(--foreground)]/70 transition-colors hover:bg-[var(--foreground)]/15 hover:text-[var(--foreground)]/85 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--ring)] disabled:opacity-50"
             >
               <Check size="0.625rem" />
               {pending ? localizeUi("ui.noodle.stageprofileform.saving") : localizeUi("ui.noodle.noodlehome.save")}

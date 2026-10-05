@@ -69,7 +69,7 @@
 <p align="center">
   <img src="docs/screenshots/Browser_Tab.png" width="90%" alt="Card Browser" />
   <br/>
-  <em>Card Browser — Search and import character cards from Chub.ai, JannyAI, CharacterTavern, Pygmalion, Wyvern, and more</em>
+  <em>Card Browser — Search and import character cards from Chub.ai, JannyAI, Pygmalion, Wyvern, and more</em>
 </p>
 
 <p align="center">
@@ -146,7 +146,7 @@ Security defaults are intentionally local-first: loopback access works out of th
 
 ### Chat & Roleplay
 
-Three chat modes — **Conversation** (Discord-style DMs), **Roleplay** (immersive RPG with sprites and backgrounds), and **Game** (AI Game Master with party, quests, and combat). Characters can share memory across modes. Create or import characters, search the multi-site Card Browser (Chub.ai, JannyAI, CharacterTavern, Pygmalion, Wyvern, and more), organize chats into folders, branch conversations, swipe between alternate responses, and import from SillyTavern.
+Three chat modes — **Conversation** (Discord-style DMs), **Roleplay** (immersive RPG with sprites and backgrounds), and **Game** (AI Game Master with party, quests, and combat). Characters can share memory across modes. Create or import characters, search the multi-site Card Browser (Chub.ai, JannyAI, Pygmalion, Wyvern, and more), organize chats into folders, branch conversations, swipe between alternate responses, and import from SillyTavern.
 
 ### Visual & Immersive
 

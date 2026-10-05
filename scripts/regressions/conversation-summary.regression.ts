@@ -151,7 +151,7 @@ assert.match(
 );
 
 const summaryPopoverSource = await readFile(
-  new URL("../../packages/client/src/components/chat/SummaryPopover.tsx", import.meta.url),
+  new URL("../../packages/client/src/components/chat/ChatSummaryPanel.tsx", import.meta.url),
   "utf8",
 );
 assert.match(
@@ -206,7 +206,7 @@ assert.match(summaryPopoverSource, /chat\.summary\.source\.batchRanges/u);
 assert.match(summaryPopoverSource, /chat\.summary\.source\.batchMessages/u);
 assert.match(
   summaryPopoverSource,
-  /flex min-w-0 items-center gap-1 sm:gap-2[\s\S]*?<label className="mr-auto min-w-0/u,
+  /flex min-w-0 items-center gap-1 @sm:gap-2[\s\S]*?<label className="mr-auto min-w-0/u,
   "Range controls should sit in one row with the number on the left and the status and remove controls at the end",
 );
 assert.match(
@@ -231,8 +231,8 @@ assert.match(
 );
 assert.match(
   summaryPopoverSource,
-  /if \(batchRun !== null \|\| batchAbortControllerRef\.current\)[\s\S]*?batchAbortControllerRef\.current\?\.abort\(\)[\s\S]*?onClose\(\)/u,
-  "Closing during a batch should abort and discard active work",
+  /useEffect\(\s*\(\) => \(\) => \{\s*batchRunTokenRef\.current \+= 1;\s*batchAbortControllerRef\.current\?\.abort\(\);/u,
+  "Collapsing the drawer or closing Chat Settings during a batch should abort and discard active work",
 );
 assert.match(
   chatsRouteSource,

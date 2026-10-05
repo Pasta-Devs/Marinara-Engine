@@ -41,7 +41,7 @@ export function ImpersonateSection({ presets, connections }: ImpersonateSectionP
         <ImpersonatePromptTemplateField />
 
         <div className="border-t border-[var(--border)]/60 pt-2.5">
-          <div className="grid gap-3 pb-2.5 sm:grid-cols-2">
+          <div className="grid gap-3 pb-2.5 @lg:grid-cols-2">
             <label className="min-w-0 space-y-1">
               <div className="flex items-center gap-1.5">
                 <span className="text-[0.6875rem] font-semibold">{localizeUi("chat.toolbar.preset")}</span>

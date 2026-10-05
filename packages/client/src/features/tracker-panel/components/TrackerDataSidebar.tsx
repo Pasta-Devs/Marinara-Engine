@@ -13,6 +13,7 @@ import { createEmptyGameState, useGameStatePatcher } from "../../../hooks/use-ga
 import { getCssBackgroundStyle, getCssColorFallback, isCssGradient } from "../../../lib/css-colors";
 import { useRenderTimer } from "../../../lib/perf-diagnostics";
 import { cn } from "../../../lib/utils";
+import { closeTrackerPanel } from "../../../lib/tracker-panel-surface";
 import { useTrackerGameState } from "../hooks/use-tracker-game-state";
 import { useTrackerFieldLockUpdater } from "../hooks/use-tracker-field-lock-updater";
 import { useTrackerPanelModel } from "../hooks/use-tracker-panel-model";
@@ -25,6 +26,7 @@ import { TrackerSectionList } from "./TrackerSectionList";
 import { TrackerSkeleton } from "./TrackerSkeleton";
 import { TrackerSidebarHeader } from "./TrackerSidebarHeader";
 import { TrackerLockProvider } from "./TrackerLockContext";
+import { TrackerAgentActivitySection } from "./TrackerAgentActivitySection";
 import { Translation, useTranslation as useUiTranslation } from "react-i18next";
 import {
   partitionTrackerCapabilityPackages,
@@ -96,7 +98,6 @@ export function TrackerDataSidebar({
   const trackerPanelBackgroundColor = useUIStore((s) => s.trackerPanelBackgroundColor);
   const trackerTemperatureUnit = useUIStore((s) => s.trackerTemperatureUnit);
   const toggleTrackerPanelSectionCollapsed = useUIStore((s) => s.toggleTrackerPanelSectionCollapsed);
-  const setTrackerPanelOpen = useUIStore((s) => s.setTrackerPanelOpen);
   const setTrackerPanelSide = useUIStore((s) => s.setTrackerPanelSide);
   const setTrackerPanelSizeProfile = useUIStore((s) => s.setTrackerPanelSizeProfile);
   const setTrackerStatDisplayMode = useUIStore((s) => s.setTrackerStatDisplayMode);
@@ -249,7 +250,7 @@ export function TrackerDataSidebar({
           onSetSizeProfile={setTrackerPanelSizeProfile}
           onSetStatDisplayMode={setTrackerStatDisplayMode}
           onToggleDetached={onToggleDetached}
-          onClose={() => setTrackerPanelOpen(false, activeChatId)}
+          onClose={() => closeTrackerPanel(activeChatId)}
         />
 
         <div className={cn("relative z-10", fillHeight && "min-h-0 flex-1 overflow-y-auto")}>
@@ -328,6 +329,8 @@ export function TrackerDataSidebar({
           ) : !hasFixedTrackerPanel ? (
             <EmptySection>{localizeUi("ui.trackerPanel.trackerdatasidebar.noEnabledTrackerPanels")}</EmptySection>
           ) : null}
+
+          {activeChatId ? <TrackerAgentActivitySection chatId={activeChatId} /> : null}
         </div>
       </TrackerLockProvider>
     </section>

@@ -1,6 +1,6 @@
 # Game Mode: Sessions and Saves
 
-This guide explains how Marinara Engine tracks your Game Mode progress across play sessions. It covers ending and starting a session and reading past sessions in the **Session History** panel. It also covers the **Show Spoilers** view and how the game saves your data.
+This guide explains how Marinara Engine tracks your Game Mode progress across play sessions. It covers ending and starting a session and reading past sessions in **Session History**. It also covers the **Show Spoilers** view and how the game saves your data.
 
 ## What a session is
 
@@ -8,23 +8,23 @@ Game Mode splits your adventure into numbered sessions. A session is one continu
 
 Your first session is **Session 1**. Ending it and starting again creates **Session 2**, and so on.
 
-## Opening the Session panel
+## Opening Session
 
-The **Session** panel is where you end sessions, start new ones, and read your history.
+**Session** is where you end sessions, start new ones, and read your history.
 
 1. Start or open a Game Mode chat so the game surface is showing.
-2. In the top toolbar, click the **Session** button (the feather icon).
-3. The panel opens. The header shows **Session** with the current number and status.
-4. The panel has two tabs: **Session History** and **Journal**. Stay on **Session History** for session controls and setup sharing.
+2. Click or tap the **Session** button (the feather icon). It starts near the top right of the chat. You can drag it to another spot (see [Control windows and their buttons](../chats/chat-settings.md#control-windows-and-their-buttons)).
+3. **Session** opens as a window on a computer or a full-width panel on a phone. Its first line shows **Session** with the current number and status.
+4. It has two tabs: **Session History** and **Journal**. Stay on **Session History** for session controls and setup sharing.
 
-The panel header also has a **Game tutorial** button that reopens the guided tour.
+If you used **Put back in Chat Settings** to move this window, open the **Session** section in Chat Settings instead.
 
 ## Sharing the setup that created a game
 
 Game Mode keeps an immutable snapshot of the setup used to create each new campaign. This lets you play first, decide that the combination works well, and share it afterward without manually recording every field before starting.
 
 1. Open the Game Mode campaign you want to share.
-2. Click the **Session** button (the feather icon) in the top toolbar.
+2. Open **Session** (the feather icon button).
 3. Stay on **Session History**, then expand **Initial Game Setup**.
 4. Review the saved adventure, cast, model, prompt, effective generation parameters, visual, storyboard, and world-tool settings.
 5. Click **Copy setup** to put the text on your clipboard, or **Download .txt** to save a shareable text file.
@@ -37,7 +37,7 @@ Campaigns created before setup snapshots were added cannot recover preferences t
 
 End a session when you want to wrap up the current chapter and let the GM summarize it.
 
-1. Open the **Session** panel and stay on the **Session History** tab.
+1. Open **Session** and stay on the **Session History** tab.
 2. At the top you see the current session, labeled **Session N (Current)**.
 3. In that row, click the **End Session** button (the small square icon next to **Show Spoilers**).
 4. A dialog titled **End Session** opens and asks you to confirm.
@@ -51,7 +51,7 @@ After you confirm, the engine generates a summary. Wait on this screen until it 
 
 Once the current session is concluded, the same button changes to **New Session**.
 
-1. Open the **Session** panel and go to the **Session History** tab.
+1. Open **Session** and go to the **Session History** tab.
 2. In the current session row, click the **New Session** button (the play icon).
 3. The GM resumes the story. It uses the last session's summary and any next-session note you wrote when you ended it.
 
@@ -102,9 +102,9 @@ A **Regenerate Lorebook** button appears only on your latest concluded session, 
 
 **Show Spoilers** reveals the GM's hidden notes for the current session. These are normally kept secret from you during play. Reading them can spoil plot twists.
 
-1. Open the **Session** panel and go to the **Session History** tab.
+1. Open **Session** and go to the **Session History** tab.
 2. In the current session row, click **Show Spoilers** (the eye icon).
-3. The panel reveals the GM's private state.
+3. The GM's private state appears.
 
 The spoiler view can show these sections:
 

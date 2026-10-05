@@ -1,8 +1,10 @@
-import type { ComponentProps } from "react";
+import { useMemo, type ComponentProps } from "react";
 import type { Message, SpriteSide } from "@marinara-engine/shared";
-import { ConversationView } from "./ConversationView";
+import { ConversationPackageWindows, ConversationView } from "./ConversationView";
 import { ChatCommonOverlays } from "./ChatCommonOverlays";
+import { ChatConnectedChatWindow } from "./ChatControlWindow";
 import { useRenderTimer } from "../../lib/perf-diagnostics";
+import { useProvideChatGalleryActions } from "../../hooks/use-chat-gallery-actions";
 import type { CharacterMap, MessageSelectionToggle, PeekPromptData, PersonaInfo } from "./chat-area.types";
 
 type SceneInfo =
@@ -38,8 +40,6 @@ type ConversationSurfaceProps = {
   settingsOpen: boolean;
   settingsAnchor: ComponentProps<typeof ChatCommonOverlays>["settingsAnchor"];
   settingsInitialSection?: ComponentProps<typeof ChatCommonOverlays>["settingsInitialSection"];
-  galleryOpen: boolean;
-  galleryAnchor: ComponentProps<typeof ChatCommonOverlays>["galleryAnchor"];
   wizardOpen: boolean;
   peekPromptData: PeekPromptData | null;
   deleteDialogMessageId: string | null;
@@ -62,10 +62,8 @@ type ConversationSurfaceProps = {
   onConcludeScene?: () => void;
   onAbandonScene?: () => void;
   onOpenSettings: ComponentProps<typeof ConversationView>["onOpenSettings"];
-  onOpenGallery: ComponentProps<typeof ConversationView>["onOpenGallery"];
   onOpenScheduleEditor?: ComponentProps<typeof ConversationView>["onOpenScheduleEditor"];
-  onCloseSettings: () => void;
-  onCloseGallery: () => void;
+  onCloseSettings: (options?: { force?: boolean }) => void;
   onIllustrate?: (prompt?: string, messageRange?: [string, string]) => void;
   onIllustrateWithAgent?: (agentType: string) => void | Promise<void>;
   onGenerateSelfie?: (characterId?: string) => void | Promise<void>;
@@ -107,8 +105,6 @@ export function ChatConversationSurface({
   settingsOpen,
   settingsAnchor,
   settingsInitialSection,
-  galleryOpen,
-  galleryAnchor,
   wizardOpen,
   peekPromptData,
   deleteDialogMessageId,
@@ -131,10 +127,8 @@ export function ChatConversationSurface({
   onConcludeScene,
   onAbandonScene,
   onOpenSettings,
-  onOpenGallery,
   onOpenScheduleEditor,
   onCloseSettings,
-  onCloseGallery,
   onIllustrate,
   onIllustrateWithAgent,
   onGenerateSelfie,
@@ -156,6 +150,21 @@ export function ChatConversationSurface({
   lastAssistantMessageId,
 }: ConversationSurfaceProps) {
   useRenderTimer("convo-surface"); // [#3104 diagnostic]
+  const galleryActions = useMemo(
+    () => ({
+      onIllustrate,
+      onIllustrateWithAgent,
+      onGenerateSelfie,
+      selfieCharacters: chatCharIds
+        .map((id) => {
+          const character = characterMap.get(id);
+          return character ? { id, name: character.name } : null;
+        })
+        .filter((character): character is { id: string; name: string } => Boolean(character)),
+    }),
+    [characterMap, chatCharIds, onGenerateSelfie, onIllustrate, onIllustrateWithAgent],
+  );
+  useProvideChatGalleryActions(activeChatId, galleryActions);
   return (
     <div data-component="ChatArea.Conversation" className="flex flex-1 overflow-hidden">
       <div className="relative flex flex-1 flex-col overflow-hidden">
@@ -172,8 +181,6 @@ export function ChatConversationSurface({
           characterNames={characterNames}
           personaInfo={personaInfo}
           chatMeta={chatMeta}
-          chatName={chat?.name}
-          chatGroupId={chat?.groupId ?? null}
           chatCharIds={chatCharIds}
           onDelete={onDelete}
           onRegenerate={onRegenerate}
@@ -185,27 +192,32 @@ export function ChatConversationSurface({
           onGenerateSelfie={onGenerateSelfie}
           lastAssistantMessageId={lastAssistantMessageId}
           onOpenSettings={onOpenSettings}
-          onOpenGallery={onOpenGallery}
           onOpenScheduleEditor={onOpenScheduleEditor}
           onBranch={onBranch}
           multiSelectMode={multiSelectMode}
           selectedMessageIds={selectedMessageIds}
           onToggleSelectMessage={onToggleSelectMessage}
-          connectedChatName={connectedChatName}
-          onSwitchChat={onSwitchChat}
           sceneInfo={sceneInfo}
           onConcludeScene={onConcludeScene}
           onAbandonScene={onAbandonScene}
         />
       </div>
 
+      {/* The connected chat and package toolbars are windows that minimize to bubbles. */}
+      {onSwitchChat && <ChatConnectedChatWindow name={connectedChatName} onSwitch={onSwitchChat} />}
+      <ConversationPackageWindows
+        chatId={activeChatId}
+        chatMeta={chatMeta}
+        characterMap={characterMap}
+        chatCharIds={chatCharIds}
+        personaInfo={personaInfo}
+      />
+
       <ChatCommonOverlays
         chat={chat}
         settingsOpen={settingsOpen}
         settingsAnchor={settingsAnchor}
         settingsInitialSection={settingsInitialSection}
-        galleryOpen={galleryOpen}
-        galleryAnchor={galleryAnchor}
         wizardOpen={wizardOpen}
         peekPromptData={peekPromptData}
         deleteDialogMessageId={deleteDialogMessageId}
@@ -222,17 +234,7 @@ export function ChatConversationSurface({
           onSpriteSideChange,
         }}
         onCloseSettings={onCloseSettings}
-        onCloseGallery={onCloseGallery}
         onOpenScheduleEditor={onOpenScheduleEditor}
-        onIllustrate={onIllustrate}
-        onIllustrateWithAgent={onIllustrateWithAgent}
-        onGenerateSelfie={onGenerateSelfie}
-        selfieCharacters={chatCharIds
-          .map((id) => {
-            const character = characterMap.get(id);
-            return character ? { id, name: character.name } : null;
-          })
-          .filter((character): character is { id: string; name: string } => Boolean(character))}
         onWizardFinish={onWizardFinish}
         onClosePeekPrompt={onClosePeekPrompt}
         onDeleteConfirm={onDeleteConfirm}

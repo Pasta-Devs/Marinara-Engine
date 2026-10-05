@@ -1,6 +1,7 @@
 import { expect, test, type JSHandle } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { seedUIState } from "./ui-state-fixture.js";
+import { openChatMessageSearch } from "./chat-settings-tools.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 
@@ -83,10 +84,8 @@ for (const conflictsOnly of [false, true]) {
         await page.getByRole("button", { name: "Chats", exact: true }).click();
         if (testInfo.project.name.includes("mobile")) {
           await page.getByRole("button", { name: "Close chats" }).click();
-          await page.getByRole("button", { name: "More options", exact: true }).click();
         }
-        await page.getByRole("button", { name: "Search messages" }).click();
-        const panel = page.getByRole("dialog");
+        const panel = await openChatMessageSearch(page);
         await panel.getByRole("tab", { name: "Trash", exact: true }).click();
         // Avoid computing accessible names for every button in the 5,001-row mock.
         const restoreAll = panel.locator("button").filter({ hasText: /^Restore all$/ });

@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { readFileSync } from "node:fs";
 import { renderTranscriptHtml } from "../packages/server/src/services/chat-insights/transcript-document.js";
 import { seedUIState } from "./ui-state-fixture.js";
+import { openChatSettingsTool } from "./chat-settings-tools.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 
@@ -170,15 +171,7 @@ test("chat search, stats and story exports work with private content filtered", 
       await page.getByRole("button", { name: "Close chats", exact: true }).click();
     }
 
-    const openChatMenu = async () => {
-      if (
-        testInfo.project.name.includes("mobile") &&
-        !(await page.getByRole("button", { name: /^Switch branch/u }).isVisible())
-      ) {
-        await page.getByRole("button", { name: "More options", exact: true }).click();
-      }
-      await page.getByRole("button", { name: /^Switch branch/u }).click();
-    };
+    const openChatMenu = () => openChatSettingsTool(page, "chat-branches");
     await openChatMenu();
     await page.getByRole("button", { name: "Stats", exact: true }).click();
     await expect(page.getByRole("dialog")).toContainText(chatName);

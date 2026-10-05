@@ -43,9 +43,11 @@ From **Settings**:
 From a game:
 
 1. Open a Game Mode chat.
-2. Click the **Game Assets** button in the chat toolbar.
+2. Click or tap the **Game Assets** button (the folder icon). It starts near the top right of the chat. You can drag it to another spot on a computer or phone.
 
-The toolbar button only appears in chats that use Game Mode. Opening it there shows the **Asset Browser** as a panel inside the game.
+The button only appears in chats that use Game Mode. It opens **Game Assets** with the **Asset Browser** inside: a movable window on a computer, or a full-width panel on a phone.
+
+If you used **Put back in Chat Settings** to move this window, open the **Game Assets** section in Chat Settings instead.
 
 The toolbar at the top holds a breadcrumb that starts at **Game Assets**. Next to it are a **Grid view** and **List view** toggle, an **Upload** button, and a **New** button. It also has a **Rescan** button, an **Open in system folder** button, and a **Search in folder** box. A folder tree on the left lets you jump between categories on wider screens.
 
@@ -137,7 +139,7 @@ If you copy files into the game asset folder directly on your computer, outside 
 
 Each Game Mode chat can limit itself to only some of your asset folders. This is useful when you want a horror game to skip your cheerful music, for example.
 
-During setup, expand **Adjust Game Assets for this Game** on the **Features** step. For an existing game, open the game's **Asset Browser** panel from the chat toolbar.
+During setup, expand **Adjust Game Assets for this Game** on the **Features** step. For an existing game, open the game's **Game Assets** window.
 
 Then:
 

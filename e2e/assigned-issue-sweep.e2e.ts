@@ -207,7 +207,8 @@ test("single random choices can be overridden and greetings resolve choices with
     await page.locator(".mari-chat-settings-drawer").getByText("Prompt Preset", { exact: true }).click();
     const editVariables = page.getByRole("button", { name: "Edit preset variables", exact: true });
     await editVariables.click();
-    const modal = page.getByRole("dialog");
+    // Chat Settings is a dialog too (#7036), so pick the preset-variables one.
+    const modal = page.getByRole("dialog").filter({ hasText: "Choose the genre" });
     await expect(modal.getByText("Choose the genre", { exact: true })).toBeVisible();
     const initiallySelected = modal.getByRole("button", { pressed: true });
     await expect(initiallySelected).toHaveCount(1);

@@ -219,7 +219,6 @@ export function CharactersPanel() {
   const [exportingSelected, setExportingSelected] = useState(false);
   const [movingSelected, setMovingSelected] = useState(false);
   const [bulkTagsOpen, setBulkTagsOpen] = useState(false);
-  const setCharacterDuplicatesOpen = useUIStore((s) => s.setCharacterDuplicatesOpen);
 
   // Parse character data and filter by search
   const parsedCharacters = useMemo(() => {
@@ -888,15 +887,6 @@ export function CharactersPanel() {
 
       <div className="flex flex-col gap-0.5">
         <div className="flex items-center gap-1">
-          <button
-            type="button"
-            data-character-duplicates-trigger
-            onClick={() => setCharacterDuplicatesOpen(true)}
-            className="mari-chrome-control mari-chrome-control--small flex-1 justify-start text-[0.6875rem]"
-          >
-            <Search size="0.75rem" />
-            {localizeUi("characters.duplicates.title")}
-          </button>
           <button
             onClick={handleCreateFolder}
             className="mari-chrome-control mari-chrome-control--small flex-1 justify-start text-[0.6875rem]"

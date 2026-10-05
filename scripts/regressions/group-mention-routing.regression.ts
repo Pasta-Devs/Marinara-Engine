@@ -174,6 +174,24 @@ try {
         [alice!.id],
         "autonomous mentions respect the recipient's daily limit",
       );
+      await chats.patchMetadata(chat.id, { autonomousDailyCapOverride: 3, autonomousDailyBudget: null });
+      assert.deepEqual(
+        await turn(chat.id, ["Hi @Bob and @Charlie Brown!", "Hello."], { autonomous: true }),
+        [alice!.id, bob!.id],
+        "autonomous handoffs leave the Individual group's last shared check-in of the day (#7055)",
+      );
+      // Without a schedule, the limit comes from the card's talkativeness, as in /autonomous/check.
+      await characters.update(bob!.id, { extensions: { ...bobData.extensions, talkativeness: 0.2 } });
+      await chats.patchMetadata(chat.id, {
+        autonomousDailyCapOverride: null,
+        autonomousDailyBudget: { date: getAutonomousDailyBudget({}).date, counts: { [charlie!.id]: 2 } },
+      });
+      assert.deepEqual(
+        await turn(chat.id, ["Hello @Bob!"], { autonomous: true }),
+        [alice!.id],
+        "a quiet card's own daily limit stops the handoff (#7055)",
+      );
+      await characters.update(bob!.id, bobData);
       await chats.patchMetadata(chat.id, { autonomousDailyCapOverride: null, autonomousDailyBudget: null });
     }
     await chats.patchMetadata(chat.id, { inactiveCharacterIds: [bob!.id] });
