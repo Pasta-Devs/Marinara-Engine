@@ -1,6 +1,6 @@
 # Chat window guide catch-up (#7054)
 
-Status: in progress. This record tracks the translation work requested in [#7054](https://github.com/Pasta-Devs/Marinara-Engine/issues/7054); Polish, German and Russian have completed translation and local validation; review and the remaining groups are still in progress.
+This record tracks the translation work requested in [#7054](https://github.com/Pasta-Devs/Marinara-Engine/issues/7054). All ten packs contain the 37 guide updates and have completed local content validation. The linked pull requests record each group's review and delivery results; translation and pack checks do not replace native-reader sampling.
 
 ## English source and scope
 
@@ -9,7 +9,7 @@ Status: in progress. This record tracks the translation work requested in [#7054
 - Translation starting point: `e3c6a3744cb367de6fef3e707b8f6cbce08ed67c`. Existing work such as #7064 is retained. The later `docs-i18n` base `29f59ce8f0401ef736b299e3251ff8e85ae4e470` is integrated; its #7067 autonomous group-chat and scheduling paragraphs are preserved, not counted as new translation work here.
 - All 37 requested guides already exist in all ten packs. Edit the affected passages; preserve unrelated translations.
 - The original chat-window English delta contains 386 added and 112 removed lines, mainly navigation instructions, the Chat Settings guide, tracker guidance and the custom-theme reference.
-- UI review scope: 124 added keys, 4 changed values and 41 removed keys. Review the corresponding translations; missing translations may keep the English fallback. Do not copy English into packs merely to increase coverage.
+- UI review scope: 126 relevant new or changed chat-window strings, plus the 41 removed keys. The full English comparison has 124 added keys and 4 changed values; its two unrelated **Keep guidance after regenerating** strings are outside this translation scope and keep English fallback. The final source excludes the two discarded minimize-button labels. Missing translations may keep the English fallback; do not copy English into packs merely to increase coverage.
 
 ## Bounded review groups
 
@@ -17,10 +17,10 @@ Each group stays below the hosted review file limit and can be reviewed independ
 
 | Group | Packs | Status |
 | --- | --- | --- |
-| Europe | `pl`, `de`, `ru` | [#7065](https://github.com/Pasta-Devs/Marinara-Engine/pull/7065): all 37 guides and related UI entries per pack complete; local review complete, hosted review follow-up in progress |
-| Romance languages | `es`, `fr`, `pt-br` | [#7068](https://github.com/Pasta-Devs/Marinara-Engine/pull/7068): all three packs complete; local review pending |
-| East Asian languages | `ja`, `ko`, `zh-hans` | [#7070](https://github.com/Pasta-Devs/Marinara-Engine/pull/7070): all three packs complete; local review pending |
-| Hindi | `hi` | [#7069](https://github.com/Pasta-Devs/Marinara-Engine/pull/7069): content and validation complete; review in progress |
+| Europe | `pl`, `de`, `ru` | [#7065](https://github.com/Pasta-Devs/Marinara-Engine/pull/7065): all three packs complete; merged after local and hosted review as `e77b90b06ce6282775bab2d4ed6bf984a15cea13` on 2026-10-04 |
+| Romance languages | `es`, `fr`, `pt-br` | [#7068](https://github.com/Pasta-Devs/Marinara-Engine/pull/7068): all three packs complete; merged after local and hosted review as `3386e3518c81802abf2dd0bdf998bb3e3499800c` on 2026-10-04 |
+| East Asian languages | `ja`, `ko`, `zh-hans` | [#7070](https://github.com/Pasta-Devs/Marinara-Engine/pull/7070): all three packs and local validation complete; see the PR for review and delivery evidence |
+| Hindi | `hi` | [#7069](https://github.com/Pasta-Devs/Marinara-Engine/pull/7069): complete; merged after local and hosted review as `56fd8fbed59b99c394c150581fe775160abe9ab3` on 2026-10-05 |
 
 ## Affected guides
 
@@ -96,6 +96,14 @@ Europe group (`pl`, `de`, `ru`):
 - New English fenced examples, inline identifiers, relative links and linked fragments were checked against all 111 translated pages. Explicit anchors retain the new English fragment targets. No missing targets, changed code examples or unbalanced fences were found.
 - Changed paragraphs passed NFC and language-specific typography checks. Larger guides received a prose and terminology pass against each pack glossary.
 - Translated 126 relevant UI delta entries in each pack. The two unrelated guided-regeneration UI keys are outside this scope and retain English fallback; the separate guide changes from #7064 remain intact. Reviewed the 41 removed English keys and removed those present in these packs: 26 Polish, 12 German and 12 Russian entries. The final close-button correction also removes the two newly introduced minimize labels from each pack.
-- UI validation passed with no stale keys: 726 current Polish keys, 669 German and 280 Russian. Interpolation and rich-text tokens remain intact; the shared UI manifest is refreshed.
+- At the reviewed Europe candidate, UI validation passed with no stale keys: 726 current Polish keys, 669 German and 280 Russian. Interpolation and rich-text tokens remain intact; the shared UI manifest is refreshed.
 - Independent source/meaning review by the Romance-group agent found no substantive issues in the new layout, tracker or style instructions, or in introduced links and code. This is not native-reader certification.
-- `git diff --check` passed. Local CodeRabbit reviewed all 120 changed files at `f4f8a84eae899b694ef5ece6c328d414a9c9c011` with zero findings. The PR is ready for review. The hosted review then identified a Polish verb-agreement error and this outdated review-status entry; both have been corrected. Pack and UI validation were rerun for these small documentation corrections. Hosted re-review and final manual checks remain pending; no native-reader review is claimed.
+- `git diff --check` passed. Local CodeRabbit reviewed all 120 changed files at `f4f8a84eae899b694ef5ece6c328d414a9c9c011` with zero findings. The hosted review then identified a Polish verb-agreement error and this outdated review-status entry; both have been corrected. Pack and UI validation were rerun for these small documentation corrections. Hosted re-review approved exact head `8f0249a141ca1772060fb14f8f3bb49688a3295a` on 2026-10-04 at 23:30:31 UTC, with both threads resolved, before the merge recorded above. Manual and native-reader checks are not claimed.
+
+## Remaining group evidence
+
+- Romance: local CodeRabbit reviewed all 118 changed files at `01a3585f49f2892a63733fbbb19919bd8dd29ee1`, with zero findings. Hosted review approved that head on 2026-10-04 at 23:02:51 UTC before its merge.
+- Hindi: local CodeRabbit reviewed all 41 changed files at `bf7ce35b7192a1b3266121ec9e5c63b3dd121f12`, with zero findings and exit 0. A mechanical base merge preserved the newer CharacterTavern translations and regenerated manifests. Hosted review approved the resulting `49c491ddf832ca0b364c30f66869184fddcf44f3` on 2026-10-05 at 00:14:56 UTC, with no unresolved threads, before its merge.
+- East Asian packs: at `64e07130e413cf337e4ea5be1391cf49252e9bf0`, all three packs passed validation for 136 translated guides against all 136 English guides at `d1339485460a6ce82a4248b8459c45b67af910db`. UI validation against the integrated CharacterTavern catalog passed for Japanese (162 current keys, 0 stale), Korean (11,035 current, 28 pre-existing stale) and Simplified Chinese (8,671 current, 10 pre-existing stale). Existing stale keys outside this change remain separate. [PR #7070](https://github.com/Pasta-Devs/Marinara-Engine/pull/7070) records its exact final review, download proof and delivery results.
+
+The newer CharacterTavern translations from #7079 are preserved when integrating the groups. The #7054 source remains `d133948`; later Echo/tracker and chat-style/menu documentation is tracked separately in #7078 and #7085. These translation updates do not claim browser rendering, physical-device testing or native-reader certification.

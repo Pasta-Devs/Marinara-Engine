@@ -15,7 +15,7 @@
 बेस मान **Presets > Parameters** (प्रीसेट → पैरामीटर) में और कनेक्शन के मान **Connections > Default Parameters** (कनेक्शन → डिफ़ॉल्ट पैरामीटर) में बदलें। चैट के ओवरराइड **Chat Settings > Advanced Parameters** (चैट सेटिंग → एडवांस्ड पैरामीटर) में सेट करें।
 
 1. वह चैट खोलें जिसे बदलना है।
-2. **Chat Settings** (चैट सेटिंग्स) खोलें (चालू चैट के लिए गियर आइकन)।
+2. चैट के **Chat Settings** (चैट सेटिंग्स) बटन से सेटिंग्स खोलें। अगर आपने इसे खिसकाया नहीं है, तो यह ऊपर दाईं तरफ़ होगा।
 3. **Advanced Parameters** सेक्शन ढूँढें और उसे खोलने के लिए क्लिक करें।
 
 वहाँ एक मदद-नोट दिखता है: "Override generation parameters for this chat. Only change these if you know what you're doing." नीचे बताई गई हर सेटिंग **Advanced Parameters** के अंदर ही है।

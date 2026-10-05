@@ -152,7 +152,7 @@ TTS चालू होते ही हर कैरेक्टर या न�
 
 - Roleplay में **Roleplay messages** ऑटो-प्ले टॉगल और हर संदेश वाला **Speak** कंट्रोल चलता है। देखें [Roleplay मोड: शुरुआत](../roleplay/getting-started.md)।
 - Conversation मोड में **Conversation messages** टॉगल और वही **Speak** कंट्रोल चलते हैं। बोलकर की जाने वाली ऑडियो कॉल एक बड़ी सुविधा है, जिसके बारे में [Conversation में ऑडियो और वीडियो कॉल](../conversation/calls.md) में बताया गया है।
-- Game Mode में **Game narration** टॉगल चलता है। Game Mode का अपना ऑडियो मिक्सर भी है, जिसमें **Master**, **Music**, **Sound Effects** और **Ambient** के साथ एक **TTS** चैनल है। वह चैनल गेम की बोली गई आवाज़ का कुल वॉल्यूम तय करता है और 100 प्रतिशत से शुरू होता है। देखें [Game Mode: शुरुआत](../game/getting-started.md)।
+- Game Mode में **Game narration** टॉगल चलता है। Game Mode का अपना ऑडियो मिक्सर भी है, जिसमें **Master**, **Music**, **Sound Effects** और **Ambient** के साथ एक **TTS** चैनल है। वह चैनल गेम की बोली गई आवाज़ का कुल वॉल्यूम तय करता है और 100 प्रतिशत से शुरू होता है। देखें [गेम के कंट्रोल](../game/getting-started.md#the-games-controls)।
 
 ## Phonetic name (कॉल में उच्चारण)
 
