@@ -110,10 +110,14 @@ CharacterTavern 重建了网站，不再提供 Marinara 原先用来搜索和下
 2. 打开浏览器的开发者工具，大多数浏览器按 F12 键即可。开发者工具是浏览器内置的一个面板，面向进阶用户。
 3. 切换到 **Application** 选项卡，再进入 **Local Storage**。
 4. 找到名为 `authn` 的条目，复制它的值。
-5. 把这个值粘贴到 Marinara 的 **Auth Token** 输入框里。
+5. 把这个值粘贴到 Marinara 的 **Auth Token** 输入框里。输入框会隐藏粘贴进去的内容。
 6. 点击 **Save & Connect**。接着应该会看到一条提示，说明 NSFW 内容已启用。
 
-窗口里有一段帮助说明，把这些步骤重复了一遍，还有一个打开 pygmalion.chat 的 **Website** 链接。想退出登录，重新打开登录窗口并点击 **Log Out**。
+窗口里有一段帮助说明，把这些步骤重复了一遍，还有一个打开 pygmalion.chat 的 **Website** 链接。
+
+这是你的 Pygmalion 账号登录信息。Marinara 会把它保留在内存里，直到重启或点击 **Log Out** 为止。想退出登录，重新打开登录窗口并点击 **Log Out**。要彻底退出，还得在 pygmalion.chat 上也退出登录。
+
+Marinara 会先向 Pygmalion 核实这个 Token，确认有效才会保留。如果 Pygmalion 不接受，就什么都不会保存，并会有一条消息说明原因。如果之后 Pygmalion 不再接受这个 Token，Marinara 会自动退出登录，并提示你重新登录。
 
 重要提示：这个登录信息只保存在服务器的内存里，绝不会写进文件。重启 Marinara 服务器之后就会退出登录，必须重新粘贴一次 Token。发生这种情况时，Marinara 会提示重新登录。
 

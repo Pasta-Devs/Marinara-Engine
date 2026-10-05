@@ -1,6 +1,6 @@
 {
   "language": "pl",
-  "sourceCommit": "51b598bb19f221d5fbcec2ec340c7975a940d9e6",
+  "sourceCommit": "9d3d6154d251343179ec55f90d54d80f2d583870",
   "files": [
     {
       "path": "CONFIGURATION.md",
@@ -94,8 +94,8 @@
     },
     {
       "path": "characters/bot-browser.md",
-      "sha256": "7d0f9471e3cbf87647848db9096791e38409fe8307541272ee45c68ddb1ec976",
-      "bytes": 16195
+      "sha256": "aeead52d18f94c1c84f35d6f6f6dc3f90a863c6cad83ccf7ec3548c5b8f3daba",
+      "bytes": 16738
     },
     {
       "path": "characters/choosing-your-persona.md",

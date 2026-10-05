@@ -110,10 +110,14 @@ Dla źródła **Pygmalion** okno nosi tytuł **Pygmalion Authentication** i pros
 2. Otwórz narzędzia deweloperskie przeglądarki. W większości przeglądarek służy do tego klawisz F12. Narzędzia deweloperskie to wbudowany panel przeglądarki dla zaawansowanych użytkowników.
 3. Otwórz zakładkę **Application**, a w niej **Local Storage**.
 4. Znajdź wpis o nazwie `authn` i skopiuj jego wartość.
-5. Wklej wartość w pole **Auth Token** w aplikacji Marinara.
+5. Wklej wartość w pole **Auth Token** w aplikacji Marinara. Pole ukrywa wklejoną wartość.
 6. Kliknij przycisk **Save & Connect**. Powinien pojawić się komunikat o włączeniu treści NSFW.
 
-Okno ma sekcję pomocy, która powtarza powyższe kroki, oraz link **Website**, który otwiera stronę pygmalion.chat. Aby się wylogować, otwórz okno logowania ponownie i kliknij przycisk **Log Out**.
+Okno ma sekcję pomocy, która powtarza powyższe kroki, oraz link **Website**, który otwiera stronę pygmalion.chat.
+
+Ten token to dane logowania do twojego konta w serwisie Pygmalion. Marinara trzyma go w pamięci do restartu albo do kliknięcia przycisku **Log Out**. Aby się wylogować, otwórz okno logowania ponownie i kliknij przycisk **Log Out**. Aby wylogować się całkowicie, wyloguj się też na stronie pygmalion.chat.
+
+Zanim Marinara zachowa token, sprawdza go w serwisie Pygmalion. Jeśli serwis Pygmalion go nie przyjmie, nic nie zostaje zapisane, a komunikat wyjaśnia powód. Jeśli serwis Pygmalion później przestanie go przyjmować, Marinara wylogowuje cię i prosi o ponowne zalogowanie.
 
 Ważne: te dane logowania serwer trzyma tylko w pamięci. Nigdy nie trafiają do pliku. Po restarcie serwera Marinara logowanie przepada i trzeba wkleić token jeszcze raz. Marinara wyświetla wtedy komunikat z prośbą o ponowne zalogowanie.
 

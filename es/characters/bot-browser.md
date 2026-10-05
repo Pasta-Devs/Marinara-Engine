@@ -110,10 +110,14 @@ Para **Pygmalion**, la ventana se titula **Pygmalion Authentication** y pide un 
 2. Abre las herramientas de desarrollo de tu navegador. En la mayoría de los navegadores pulsas la tecla F12. Las herramientas de desarrollo son un panel integrado del navegador para usuarios avanzados.
 3. Abre la pestaña **Application**, luego **Local Storage**.
 4. Busca la entrada llamada `authn` y copia su valor.
-5. Pega el valor en el cuadro **Auth Token** de Marinara.
+5. Pega el valor en el cuadro **Auth Token** de Marinara. El cuadro oculta lo que pegas.
 6. Haz clic en **Save & Connect** (Guardar y conectar). Deberías ver un mensaje de que el contenido NSFW está activado.
 
-La ventana tiene una sección de ayuda que repite estos pasos y un enlace **Website** que abre pygmalion.chat. Para cerrar sesión, abre de nuevo la ventana de inicio de sesión y haz clic en **Log Out** (Cerrar sesión).
+La ventana tiene una sección de ayuda que repite estos pasos y un enlace **Website** que abre pygmalion.chat.
+
+Este es el inicio de sesión de tu cuenta de Pygmalion. Marinara lo mantiene en memoria hasta un reinicio o hasta que hagas clic en **Log Out** (Cerrar sesión). Para cerrar sesión, abre de nuevo la ventana de inicio de sesión y haz clic en **Log Out**. Para cerrar sesión por completo, cierra sesión también en pygmalion.chat.
+
+Marinara comprueba el token con Pygmalion antes de conservarlo. Si Pygmalion no lo acepta, no se guarda nada y un mensaje explica por qué. Si Pygmalion deja de aceptarlo más adelante, Marinara cierra tu sesión y te pide que inicies sesión otra vez.
 
 Importante: este inicio de sesión se mantiene solo en la memoria del servidor. Nunca se guarda en un archivo. Si reinicias el servidor de Marinara, se cierra tu sesión y debes pegar el token de nuevo. Marinara muestra un mensaje que te dice que inicies sesión otra vez cuando esto ocurre.
 
