@@ -190,6 +190,11 @@ type AutomaticBackupSettings = {
   lastOmittedEntries: string[];
 };
 
+/** Optional private boundary of the active Long-Term Memory package's runtime service. */
+type LongTermMemoryVaultRuntime = {
+  withVaultMutation?: <T>(operation: () => Promise<T>) => Promise<T>;
+};
+
 export function buildPreparedBackupDownloadUrl(jobId: string, token: string): string {
   return `/api/backup/download/file/${encodeURIComponent(jobId)}?token=${encodeURIComponent(token)}`;
 }
@@ -1251,6 +1256,11 @@ function buildProfileImportAssetInputs(
   });
 }
 
+/** True when the profile's declared asset inputs touch the active Long-Term Memory vault. */
+function profileImportTouchesLongTermMemory(assets: ReadonlyArray<{ path: string }>): boolean {
+  return assets.some((asset) => asset.path.startsWith("long-term-memory/"));
+}
+
 async function importProfileStorageSnapshot(
   app: FastifyInstance,
   snapshot: ProfileStorageSnapshot,
@@ -1259,12 +1269,25 @@ async function importProfileStorageSnapshot(
   readAsset?: ProfileAssetReader,
 ) {
   validateProfileStorageTableInputs(snapshot);
+  const assetInputs = buildProfileImportAssetInputs(snapshot, readAsset, warnings);
+
+  // An active package must coordinate vault publication through its own lock and cache reset.
+  // An inactive package has nothing to invalidate, so a disk-only restore is safe. Decide this
+  // from the declared inputs before staging, so a refused restore never stages vault bytes and
+  // cannot strand them if staging cleanup later fails.
+  const longTermMemoryRuntime = profileImportTouchesLongTermMemory(assetInputs)
+    ? getCapabilityService<LongTermMemoryVaultRuntime>("long-term-memory:runtime")
+    : null;
+  const longTermMemoryVaultMutation = longTermMemoryRuntime?.withVaultMutation;
+  if (longTermMemoryRuntime && !longTermMemoryVaultMutation) {
+    throw new ProfileImportRequestError(
+      "This profile includes long-term memory, but the active Long-Term Memory package is too old to coordinate a safe restore. Update the package or disable it before importing.",
+    );
+  }
+
   let stagedAssets: StagedProfileImportAssets;
   try {
-    stagedAssets = await stageProfileImportAssets(
-      getDataDir(),
-      buildProfileImportAssetInputs(snapshot, readAsset, warnings),
-    );
+    stagedAssets = await stageProfileImportAssets(getDataDir(), assetInputs);
   } catch (error) {
     if (error instanceof ProfileImportAssetValidationError) {
       throw new ProfileImportRequestError(error.message);
@@ -1289,7 +1312,7 @@ async function importProfileStorageSnapshot(
     });
   };
 
-  return withProfileImportLifecycleLock(async () => {
+  const runProfileImport = async () => {
     let files = 0;
     let committed = false;
     let rollbackFailed = false;
@@ -1388,7 +1411,10 @@ async function importProfileStorageSnapshot(
         }
       }
     }
-  });
+  };
+  return withProfileImportLifecycleLock(() =>
+    longTermMemoryVaultMutation ? longTermMemoryVaultMutation(runProfileImport) : runProfileImport(),
+  );
 }
 
 async function buildProfileExportEnvelope(

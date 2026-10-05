@@ -4,6 +4,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- Restoring a settings profile with **Long-Term Memory** while the Long-Term Memory package is active now waits for memory reads or rebuilds in progress, then reloads the restored memory instead of continuing to serve the pre-restore copy. If the installed package is too old to coordinate this, Marinara refuses the restore with a message to update or disable it rather than publishing memory the package cannot see (#7043).
+
 - Long-Term Memory recall now reads only the actual conversation history. Preset prompts, agent injections and other non-history text no longer fill the package's recent-message window. Normal generation prompts and other agents' inputs remain unchanged (#7044).
 
 - In the Card Browser, the **Pygmalion** **Auth Token** box now hides what you paste and turns away values with spaces or line breaks. Marinara checks the token with Pygmalion before keeping it, and a failed login says whether Pygmalion couldn't be reached, rejected the token or was busy. If Pygmalion stops accepting the token while you browse, you're asked to log in again instead of seeing a search error. Pygmalion requests and avatars now go only to Pygmalion's servers, and error messages and logs no longer include your token (#7074).
