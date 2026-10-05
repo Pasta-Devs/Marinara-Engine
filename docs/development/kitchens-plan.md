@@ -109,7 +109,8 @@ Everything is live: Kitchen settings apply to every Kitchen chat at resolve time
 
 ## Slices
 
-1. **Kitchen record + Kitchen lorebooks.** Shared type, table, CRUD routes, `kitchenId` on chats, storage bump, Kitchen lorebook scope (extend `LorebookScope` with Kitchen ids), sidebar scope picker + mode-tab filter, Kitchen page, chat-drawer section, create/rename/delete, move chat into Kitchen. Delete Kitchen = unset `kitchenId`, never delete chats.
+0. **Link chats (no shared behavior).** `kitchens` table shaped like `api_connection_folders` (id, name, color, sortOrder), CRUD via `registerFolderCrudRoutes`; nullable `kitchenId` on chats through the existing chat update; sidebar scope picker (create/rename/delete Kitchen) + mode-tab filter + badge; "Kitchen" select in the chat settings drawer. Delete Kitchen = unset `kitchenId`, never delete chats. No Kitchen page, no generation or prompt change. Likely no `STORAGE_VERSION` bump (folder tables were added without one); confirm. Regression: deleting a Kitchen keeps its chats with `kitchenId = null`. PR text: cross-mode grouping is useful alone (folders are per mode) and is the base for later slices.
+1. **Kitchen page + Kitchen lorebooks.** Kitchen page (open button in the scope row), Kitchen lorebook scope (extend `LorebookScope` with Kitchen ids), drag and drop from the sidebars into the Kitchen page.
 2. **Defaults and cast.** Kitchen persona, connection, and cast resolve live for Kitchen chats.
 3. **Agents and Kitchen agent memory.** Kitchen agents join the agent resolution; `kitchen_agent_memory` table, capability API access, debug logging.
 4. **Kitchen-scoped package storage.** `kitchenId` namespace on Noodle/Slurp tables and the document store API (Engine). Adoption in Noodle, Slurp, LTM (Marinara-Agents).
