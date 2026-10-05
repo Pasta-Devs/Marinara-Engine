@@ -112,7 +112,7 @@ Jeśli zapisana opcja przestanie pasować do modelu, na przykład po zmianie jeg
 
 ## Generowanie wideo w panelu Gallery
 
-Czaty w trybie **Roleplay** i **Game Mode** robią wideo sceny z poziomu panelu **Gallery**. Otwiera go ikona obrazu lub galerii w czacie. Czaty w trybie **Game Mode** mają jeszcze drugie miejsce do tego samego, czyli panel **Game Assets**, opisany dalej w tym przewodniku.
+Czaty w trybie **Roleplay** i **Game Mode** robią wideo sceny z poziomu **Gallery**. Otwórz **Chat Settings** i rozwiń sekcję **Gallery**. Czaty w trybie **Game Mode** mają jeszcze drugie miejsce do tego samego, czyli **Game Assets**, opisane dalej w tym przewodniku.
 
 Panel **Gallery** ma zakładkę **Images** i zakładkę **Videos**, każdą z licznikiem. Nieruchome obrazy znajdują się w zakładce **Images**. Gotowe klipy trafiają do zakładki **Videos**.
 
@@ -138,11 +138,11 @@ Przy próbie zrobienia wideo bez żadnego obrazu w czacie Marinara pokazuje komu
 
 ## Wideo sceny w trybie Game Mode
 
-Tryb **Game Mode** ma drugie miejsce do robienia wideo sceny: panel **Game Assets**. Otwiera go przycisk **Game Assets** wśród kontrolek gry.
+Tryb **Game Mode** ma drugie miejsce do robienia wideo sceny: **Game Assets**. Kliknij lub dotknij jego przycisk z folderem, domyślnie blisko prawego górnego rogu czatu. Otwiera się w oknie na komputerze lub panelu na całą szerokość ekranu na telefonie. Jeśli jest przeniesiony do Chat Settings, otwórz tam sekcję **Game Assets**.
 
-1. Otwórz panel **Game Assets**.
+1. Otwórz **Game Assets**.
 2. Kliknij przycisk **Generate video**. Jego podpowiedź brzmi "Generate a scene video from the latest illustration."
-3. Gotowy najnowszy klip odtwarza się w panelu.
+3. Gotowy najnowszy klip odtwarza się w tym miejscu.
 
 Przycisk **Generate video** pozostaje nieaktywny, dopóki gra nie ma zarówno połączenia wideo, jak i ilustracji sceny. Po zbyt wczesnym kliknięciu może pojawić się jeden z tych komunikatów:
 

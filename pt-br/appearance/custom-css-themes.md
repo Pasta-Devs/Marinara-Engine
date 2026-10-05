@@ -2,6 +2,25 @@
 
 Este guia explica como mudar toda a aparência do Marinara Engine com um tema de CSS personalizado. Aqui você vê como criar, importar, exportar e ativar temas. Também vê quais variáveis de CSS pode alterar e como os temas convivem com o Card CSS.
 
+## Estilos prontos para janelas de chat
+
+Para mudar o visual sem escrever CSS, abra **Settings > Appearance > App** e encontre **Chat widget style** no fim de **App Style**. **Dottore** dá aos controles molduras de instrumentos cianas e cantos recortados. **Mari** acrescenta molduras rosas e douradas com Gemas Essenciais nos títulos das janelas. Os botões usam o mesmo fundo das janelas. Cada preset tem sua própria fonte, funciona nos modos claro e escuro e muda juntos os botões, as janelas e as seções expansíveis.
+
+Os controles **Font** e **Shape** permitem mudar esses detalhes separadamente. **Preset font** e **Preset shape** seguem o estilo escolhido.
+
+Abaixo ficam três controles de cor. Cada um tem um seletor de cor sólida e uma opção de gradiente para misturar cores:
+
+- **Border & Buttons Color** muda os contornos e os ícones dos botões. Os ícones usam a primeira cor do gradiente.
+- **Background Color** preenche botões, janelas, seções expansíveis e campos editáveis.
+- **Text Color** muda o texto dos widgets. Os gradientes aparecem nos títulos e rótulos; o texto dos campos editáveis usa a primeira cor.
+
+Os controles de cor mantêm as cores originais dos ornamentos.
+
+Use **Reset color** ao lado de um controle para voltar às cores claras ou escuras do preset. Escolher um preset redefine **Font**, **Shape** e as três cores. **Default** restaura o visual original. As janelas ficam onde você as colocou.
+
+Os temas CSS personalizados ainda podem substituir esses presets. As variáveis públicas de janelas e gavetas abaixo têm prioridade sobre as cores do preset. Use `--mari-window-font-family` para as letras das janelas, `--mari-drawer-radius` para os cantos das seções e `--mari-window-ornament: none` para ocultar o ornamento do título. Para remover toda a decoração do preset, escolha **Default** primeiro.
+
+
 ## O que é um tema personalizado
 
 Um tema personalizado é um bloco de CSS que repinta Marinara. CSS, sigla de Cascading Style Sheets, é o código que define cores, bordas e espaçamentos no aplicativo inteiro. Um tema pode mudar o plano de fundo da página, a cor de destaque, os cards, as bordas, o texto e muito mais.
@@ -91,6 +110,100 @@ Essa lista não é um limite. Um tema pode definir qualquer variável de CSS que
 Alguns efeitos visuais têm variáveis próprias. Um tema pode pedir a animação de pulso do destaque, por exemplo, definindo `--marinara-theme-accent-pulse: enabled`.
 
 Por segurança, Marinara limpa o CSS do tema personalizado antes de executá-lo. Estilos que carregam um arquivo de outro site não funcionam. Para usar uma imagem ou uma fonte dentro de um tema, incorpore o conteúdo como URI `data:` em vez de um link da web. Uma URI `data:` guarda o conteúdo do arquivo direto dentro do CSS.
+
+## Estilizar janelas e gavetas do chat
+
+No computador, **Chat Settings** abre como uma janela móvel. Suas seções recolhíveis são chamadas de **drawers** (gavetas). Uma gaveta pode sair para uma janela própria e depois se minimizar em um pequeno botão móvel, chamado **bubble** (bolha).
+
+Outras ferramentas também usam essas janelas e botões, incluindo Game controls, Session, Volume, Game Assets, chats conectados e controles de pacotes. No celular, as janelas são painéis de largura total e Tracker Panel tem seu próprio botão móvel.
+
+As classes, os atributos de dados e as variáveis abaixo permitem estilizar essas partes juntas. As regras do tema substituem os padrões sem `!important`.
+
+### Classes
+
+| Parte | Classe |
+| --- | --- |
+| Janela | `.mari-window` |
+| Barra de título | `.mari-window__header` |
+| Título e seu ícone | `.mari-window__title-row` |
+| Título | `.mari-window__title` |
+| Botões da barra de título (Reset View, estrela de layout favorito, Tracker Panel, fixar, travar, fechar, Put back) | `.mari-window__controls` (cada botão é `.mari-window__control`) |
+| Conteúdo da janela | `.mari-window__body` |
+| Bordas e cantos de redimensionamento | `.mari-window__resize-handle` |
+| Marca no canto exibida quando o ponteiro ou o foco está na janela | `.mari-window__resize-grip` |
+| Gaveta | `.mari-drawer` |
+| Cabeçalho e título da gaveta | `.mari-drawer__header`, `.mari-drawer__title` |
+| Ícone, contador e **?** da gaveta | `.mari-drawer__icon`, `.mari-drawer__count`, `.mari-drawer__help` |
+| Prévia de uma gaveta recolhida (widget pequeno do tracker) | `.mari-drawer__summary` |
+| Botões ao lado da seta e botão para destacar a gaveta | `.mari-drawer__actions`, `.mari-drawer__popout` |
+| Seta e conteúdo da gaveta | `.mari-drawer__arrow`, `.mari-drawer__body` |
+| Prévia que segue o ponteiro ao arrastar uma gaveta para fora | `.mari-drawer-ghost` |
+| Botão de uma janela minimizada (bolha) | `.mari-window-bubble` |
+| Linha exibida quando uma bolha arrastada se alinha a outra | `.mari-window-snap-guide` |
+| Ponto exibido enquanto os agentes trabalham (botão Chat Settings, janela Trackers) | `.mari-agents-running-dot` |
+
+### Atributos de dados
+
+- `data-window` identifica uma janela e sua bolha: `chat-settings`, `trackers`, as janelas de controles `control:game`, `control:session`, `control:volume`, `control:assets`, `control:connected-chat`, `control:package:<package>` e `control:beholder:<package>`, e `drawer:<window>:<drawer>` para uma gaveta destacada, por exemplo `drawer:chat-settings:chat-name`.
+- `data-drawer` identifica uma gaveta, por exemplo `chat-name`. Alguns nomes começam com o modo do chat, como `roleplay-agents` ou `conversation-agents`. Os trackers usam `tracker-world`, `tracker-persona`, `tracker-characters`, `tracker-quests`, `tracker-inventory`, `tracker-custom` e `agent-activity`.
+- `data-presentation` vale `"window"` em uma janela de computador ou `"sheet"` em um painel de celular.
+- `data-pinned` e `data-locked` valem `"true"` enquanto a janela está fixada ou travada.
+- `data-window-control` identifica cada botão da barra de título: `"pin"`, `"lock"`, `"close"` ou `"put-back"`. Um botão de fixar ou travar ativado também tem `aria-pressed="true"`.
+- `data-chat-settings-control` identifica os botões extras da barra de título de Chat Settings: `"reset-view"`, `"favorite-layout"` e `"tracker-panel"`. A estrela favorita tem `aria-pressed="true"` e um ícone preenchido quando o layout atual corresponde ao favorito salvo.
+- `data-edge` vale `"n"`, `"s"`, `"e"`, `"w"`, `"ne"`, `"nw"`, `"se"` ou `"sw"` em cada alça de redimensionamento.
+- O botão de uma gaveta aberta dentro de `.mari-drawer__header` tem `aria-expanded="true"`.
+- `data-drawer-control="pop-out"` marca o botão para destacar uma gaveta.
+- `data-outside="true"` marca uma prévia de arraste longe o bastante da janela para se destacar ao soltar.
+- `data-axis` vale `"x"` em uma guia de alinhamento vertical e `"y"` em uma horizontal.
+- `data-detached` vale `"true"` quando uma gaveta aparece em sua própria janela, tanto na janela quanto na gaveta dentro dela. Essa janela é identificada por `data-window="drawer:<window>:<drawer>"`, por exemplo `data-window="drawer:chat-settings:chat-name"`, e `data-drawer-host` indica a janela de origem.
+- `data-dragging` vale `"true"` em uma gaveta enquanto seu título é arrastado, e `data-drop-target` vale `"true"` em uma janela quando uma gaveta destacada fica sobre ela, pronta para voltar.
+- Uma bolha tem o `data-window` da sua janela e `data-minimized="true"`, por exemplo `.mari-window-bubble[data-window="control:volume"]`. As janelas de controles se chamam `control:game`, `control:session`, `control:volume`, `control:assets`, `control:connected-chat`, `control:package:<package>` e `control:beholder:<package>`. `data-dragging` vale `"true"` em uma bolha durante o arraste.
+- Uma bolha travada tem `data-locked="true"`, inclusive o botão Chat Settings. Ela continua abrindo sua janela, mas não pode ser movida até a janela ser destravada. Use `.mari-window-bubble[data-locked="true"]` para dar uma aparência diferente a esses botões.
+- No celular, as janelas têm `data-presentation="sheet"`, assim como suas bolhas, que são um pouco maiores. A bolha de Tracker Panel é `.mari-window-bubble[data-tracker-panel-toggle="bubble"]`.
+- O botão Chat Settings também é uma bolha: `.mari-window-bubble[data-chat-settings-button]`, com `data-open="true"` enquanto Chat Settings está aberto.
+- Uma seção destacada se reduz a uma bolha com `data-drawer-host` (a janela de origem), e o botão **Put back** da sua janela é `[data-window-control="put-back"]`.
+
+### Variáveis
+
+Cada variável usa as cores compartilhadas dos controles do chat quando não é definida, então o tema só precisa das que você quer alterar.
+
+| Variável | O que controla |
+| --- | --- |
+| `--mari-window-bg` | Fundo da janela |
+| `--mari-window-text` | Texto da janela |
+| `--mari-window-border`, `--mari-window-border-width` | Borda da janela |
+| `--mari-window-radius` | Arredondamento dos cantos |
+| `--mari-window-shadow` | Sombra da janela |
+| `--mari-window-backdrop-filter` | Desfoque atrás da janela |
+| `--mari-window-header-bg`, `--mari-window-header-text`, `--mari-window-header-border` | Cores da barra de título |
+| `--mari-window-header-padding` | Espaçamento da barra de título |
+| `--mari-window-control-color`, `--mari-window-control-color-hover`, `--mari-window-control-bg-hover` | Botões de título, incluindo a estrela favorita |
+| `--mari-window-control-color-active`, `--mari-window-control-bg-active` | Botões de título ativados, incluindo fixar, travar e estrela favorita preenchida |
+| `--mari-window-control-radius`, `--mari-window-control-gap` | Arredondamento e espaçamento dos botões |
+| `--mari-window-focus-ring` | Contorno do foco do teclado e da janela para onde uma gaveta vai voltar |
+| `--mari-window-resize-handle-size` | Largura das bordas de redimensionamento |
+| `--mari-window-bubble-size`, `--mari-window-bubble-radius`, `--mari-window-bubble-shadow` | Tamanho, arredondamento e sombra das bolhas |
+| `--mari-window-bubble-bg`, `--mari-window-bubble-bg-hover`, `--mari-window-bubble-border` | Fundo e borda das bolhas |
+| `--mari-window-bubble-text`, `--mari-window-bubble-text-hover` | Cor do ícone da bolha |
+| `--mari-window-snap-guide` | Cor da guia de alinhamento |
+| `--mari-drawer-bg`, `--mari-drawer-border` | Fundo e separador da gaveta |
+| `--mari-drawer-header-bg`, `--mari-drawer-header-bg-hover` | Cores do cabeçalho da gaveta |
+| `--mari-drawer-header-padding`, `--mari-drawer-body-padding-inline`, `--mari-drawer-body-padding-bottom` | Espaçamento da gaveta |
+| `--mari-drawer-title-color`, `--mari-drawer-icon-color`, `--mari-drawer-arrow-color` | Texto e ícones do cabeçalho da gaveta |
+| `--mari-drawer-count-bg`, `--mari-drawer-count-text` | Contador da gaveta |
+
+Defina uma variável em `:root` para mudar todas as janelas, ou em um seletor para mudar uma:
+
+```css
+:root {
+  --mari-window-radius: 0.5rem;
+  --mari-window-bubble-bg: #3b0764;
+}
+
+[data-window="chat-settings"] .mari-drawer[data-drawer="chat-name"] {
+  --mari-drawer-border: transparent;
+}
+```
 
 ## Limites de tamanho e de nome
 

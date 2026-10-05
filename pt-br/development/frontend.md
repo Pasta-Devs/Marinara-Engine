@@ -513,7 +513,6 @@ As ferramentas de memória dos agentes usam `/api/agents/memory/:agentType/:chat
 | Prefixo                          | Descrição                  |
 | ------------------------------- | ---------------------------- |
 | `/api/bot-browser/chub/*`       | Busca de personagens no Chub        |
-| `/api/bot-browser/chartavern/*` | Busca no CharacterTavern           |
 | `/api/bot-browser/janny/*`      | Busca no JannyAI                  |
 | `/api/bot-browser/pygmalion/*`  | Busca no Pygmalion               |
 | `/api/bot-browser/wyvern/*`     | Busca no Wyvern                  |

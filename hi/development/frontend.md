@@ -513,7 +513,6 @@ Personal Extensions सर्वर पर सेव, हैश से हूब
 | प्रीफ़िक्स                       | विवरण                        |
 | ------------------------------- | ---------------------------- |
 | `/api/bot-browser/chub/*`       | Chub कैरेक्टर सर्च            |
-| `/api/bot-browser/chartavern/*` | CharacterTavern सर्च          |
 | `/api/bot-browser/janny/*`      | JannyAI सर्च                  |
 | `/api/bot-browser/pygmalion/*`  | Pygmalion सर्च                |
 | `/api/bot-browser/wyvern/*`     | Wyvern सर्च                   |

@@ -513,7 +513,6 @@ Personal Extensions(个人扩展) 是存在服务器上、按精确哈希审批�
 | 前缀 | 说明 |
 | ------------------------------- | ---------------------------- |
 | `/api/bot-browser/chub/*` | Chub 角色搜索 |
-| `/api/bot-browser/chartavern/*` | CharacterTavern 搜索 |
 | `/api/bot-browser/janny/*` | JannyAI 搜索 |
 | `/api/bot-browser/pygmalion/*` | Pygmalion 搜索 |
 | `/api/bot-browser/wyvern/*` | Wyvern 搜索 |

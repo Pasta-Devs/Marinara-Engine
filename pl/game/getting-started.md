@@ -141,6 +141,22 @@ Unikaj darmowych modeli i automatycznego doboru modelu przy generowaniu świata.
 
 Pełny opis parametrów znajdziesz w przewodniku [Parametry generowania](../prompts/generation-parameters.md).
 
+<a id="the-games-controls"></a>
+
+## Kontrolki gry
+
+Kontrolki gry otwierają się przyciskami blisko prawego górnego rogu czatu:
+
+- **Game controls** (okrągła strzałka): **Retry turn**, **Retry scene analysis**, **Retry Music DJ**, gdy Music DJ odtwarza muzykę gry, oraz **Retry assets image generation**. Gdy storyboard jest tłem gry, są tu też przyciski ponownego odtwarzania, odtwarzania/pauzy i wyciszenia.
+- **Session** (pióro): historia sesji, dziennik i kontrolki sesji. Zobacz [Game Mode: sesje i zapis gry](sessions-and-saves.md).
+- **Volume** (głośnik): głośność **Master**, **Music**, **Sound Effects**, **TTS** i **Ambient**.
+- **Game Assets** (folder): materiały sceny i Asset Browser. Zobacz [Zasoby gry](game-assets.md).
+- **Connected chat**, gdy gra jest połączona z czatem Conversation. Zobacz [Łączenie czatu Conversation z czatem Roleplay lub Game](../chats/connected-chats.md#switching-between-connected-chats).
+
+Kliknij lub dotknij przycisk, żeby otworzyć kontrolki w ruchomym oknie na komputerze lub panelu na całą szerokość ekranu na telefonie. Przeciągnij przycisk, żeby go przenieść. Zamknięcie okna lub panelu przywraca przycisk. Zobacz [Okna kontrolek i ich przyciski](../chats/chat-settings.md#control-windows-and-their-buttons).
+
+Możesz też trzymać te kontrolki wewnątrz **Chat Settings**. Otwórz okno kontrolki i wybierz **Put back in Chat Settings**; pojawi się tam jako rozwijana sekcja. Przycisk otwierania sekcji w osobnym oknie pozwala ponownie ją odłączyć. Każda gra zapisuje twój wybór, a **Reset View** przywraca początkowe przyciski.
+
 ## Gdzie szukać poszczególnych tematów
 
 Ten przewodnik wprowadza do gry. Każdy głębszy temat ma własny przewodnik:

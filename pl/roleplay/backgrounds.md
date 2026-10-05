@@ -15,7 +15,7 @@ Agent **Background** to opcjonalny pomocnik, który dobiera tło sceny. Uruchami
 Agent **Background** jest domyślnie wyłączony. Aby go włączyć:
 
 1. Otwórz czat w trybie Roleplay.
-2. Otwórz panel **Chat Settings** (ustawienia czatu) – ikona koła zębatego.
+2. Otwórz **Chat Settings** (ustawienia czatu) przyciskiem w czacie. Domyślnie jest w prawym górnym rogu.
 3. Przejdź do sekcji **Agents**.
 4. Włącz agenta **Background**.
 
@@ -25,7 +25,7 @@ Od tej pory tło sceny zmienia się samo, w miarę jak fabuła przenosi się mi�
 
 Nowe tło da się też stworzyć samodzielnie, bez udziału agenta. Marinara buduje prompt obrazu – czyli tekst wysyłany do AI – na podstawie sceny (gatunek, świat, aktualne miejsce, pogoda i pora dnia), a następnie tworzy nowe tło.
 
-1. Otwórz panel **Gallery** (galeria) – ikona obrazka na pasku narzędzi czatu.
+1. Otwórz **Chat Settings** i rozwiń sekcję **Gallery** (galeria).
 2. Kliknij przycisk **Background**.
 3. Zaczekaj, aż przycisk zakończy pracę. W trakcie widnieje na nim napis **Generating...**.
 

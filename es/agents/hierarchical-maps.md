@@ -77,7 +77,7 @@ La página de World Maps informa de la versión del paquete instalado y de si es
 ### Roleplay
 
 1. Abre el chat de Roleplay.
-2. Abre **Chat Settings** con el botón del engranaje.
+2. Abre **Chat Settings**.
 3. Activa **Enable Agents**.
 4. En **Tracker Agents**, activa **World Maps**.
 5. Abre **Edit world map** o la **World map library**. En las versiones compatibles de Engine, el globo terráqueo de la barra superior en computadora abre esa misma biblioteca; en el teléfono, usa el globo terráqueo del panel lateral Chats.

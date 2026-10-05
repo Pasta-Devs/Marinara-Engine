@@ -15,7 +15,7 @@ El agente **Background** es un ayudante opcional que elige un fondo de escena po
 El agente **Background** está desactivado de forma predeterminada. Para activarlo:
 
 1. Abre tu chat de Roleplay.
-2. Abre **Chat Settings** (Ajustes del chat) (el icono del engranaje).
+2. Abre **Chat Settings** (Ajustes del chat) con su botón en el chat. Está arriba a la derecha, salvo que lo hayas movido.
 3. Abre la sección **Agents** (Agentes).
 4. Activa el agente **Background**.
 
@@ -25,7 +25,7 @@ Después de eso, el fondo de escena se actualiza por sí solo a medida que tu hi
 
 También puedes crear un fondo nuevo tú mismo, sin el agente. Marinara construye un prompt de imagen a partir de la escena (su género, ambientación, ubicación actual, clima y hora) y crea un fondo nuevo.
 
-1. Abre la **Gallery** (Galería) (el icono de imagen en la barra de herramientas del chat).
+1. Abre **Chat Settings** y despliega **Gallery** (Galería).
 2. Haz clic en el botón **Background**.
 3. Espera a que el botón termine. Muestra **Generating...** (Generando...) mientras trabaja.
 

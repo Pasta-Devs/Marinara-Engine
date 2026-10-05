@@ -513,7 +513,6 @@ Die Gedächtnis-Werkzeuge der Agenten laufen über `/api/agents/memory/:agentTyp
 | Präfix                          | Beschreibung                 |
 | ------------------------------- | ---------------------------- |
 | `/api/bot-browser/chub/*`       | Charaktersuche auf Chub      |
-| `/api/bot-browser/chartavern/*` | Suche auf CharacterTavern    |
 | `/api/bot-browser/janny/*`      | Suche auf JannyAI            |
 | `/api/bot-browser/pygmalion/*`  | Suche auf Pygmalion          |
 | `/api/bot-browser/wyvern/*`     | Suche auf Wyvern             |

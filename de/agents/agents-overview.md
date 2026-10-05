@@ -39,7 +39,7 @@ Automatische Updates beim Start installieren nie ein Paket, das du nicht ausgew�
 Agenten schaltest du innerhalb jedes Chats ein, im Panel **Chat Settings** (Chat-Einstellungen).
 
 1. Öffne den gewünschten Chat.
-2. Öffne **Chat Settings** (Zahnrad).
+2. Öffne **Chat Settings** (Chat-Einstellungen).
 3. Geh zum Abschnitt **Agents**.
 4. Aktiviere **Enable Agents** (Agenten aktivieren). Das ist der Hauptschalter. Steht er aus, läuft in diesem Chat kein einziger Agent.
 5. Füge aus den Listen unter dem Schalter die gewünschten Agenten hinzu oder entferne die, die du nicht brauchst.

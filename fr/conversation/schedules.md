@@ -18,7 +18,7 @@ Les emplois du temps restent facultatifs. Avec les messages autonomes activés e
 Tout se règle depuis le chat, pas depuis la fiche de personnage. Ces commandes se trouvent toutes dans la section **Autonomous Messaging** (messagerie autonome) des **Chat Settings** (réglages du chat).
 
 1. Ouvre un chat en mode Conversation.
-2. Ouvre les **Chat Settings** (l'icône en forme d'engrenage).
+2. Ouvre **Chat Settings** (réglages du chat) avec son bouton dans le chat. Il se trouve en haut à droite, sauf si tu l'as déplacé.
 3. Repère la section **Autonomous Messaging**.
 4. Active l'interrupteur **Autonomous Messages**.
 

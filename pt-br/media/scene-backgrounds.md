@@ -1,6 +1,6 @@
 # Planos de fundo de cena e a galeria
 
-Este guia explica os planos de fundo de cena gerados por IA, as imagens que Marinara Engine cria para você a partir da **Gallery** (galeria), e o próprio painel da galeria. Existem dois guias relacionados: [Planos de fundo do chat](../appearance/chat-backgrounds.md) trata da biblioteca de imagens enviadas e escolhidas à mão, e [Planos de fundo do Roleplay](../roleplay/backgrounds.md) trata do agente que escolhe um plano de fundo sozinho a cada turno.
+Este guia explica os planos de fundo de cena gerados por IA, as imagens que Marinara Engine cria para você a partir da **Gallery** (galeria), e a própria galeria. Existem dois guias relacionados: [Planos de fundo do chat](../appearance/chat-backgrounds.md) trata da biblioteca de imagens enviadas e escolhidas à mão, e [Planos de fundo do Roleplay](../roleplay/backgrounds.md) trata do agente que escolhe um plano de fundo sozinho a cada turno.
 
 ## Onde os planos de fundo de cena funcionam
 
@@ -14,11 +14,11 @@ Para gerar um plano de fundo, é preciso ter uma conexão de **Image Generation*
 
 ## Gerar e aplicar um plano de fundo pela galeria
 
-A **Gallery** é o painel de imagens e vídeos de um chat. Abra pelo ícone de imagem na barra de ferramentas do chat. O botão **Background** (plano de fundo) gera a arte de fundo da cena atual.
+A **Gallery** guarda as imagens e os vídeos do chat. É uma seção de **Chat Settings**: abra Chat Settings e expanda Gallery. No computador, você pode destacá-la em uma janela própria; veja [Visão geral de Chat Settings](../chats/chat-settings.md#popping-a-section-out-into-its-own-window). O botão **Background** (plano de fundo) gera o fundo da cena atual.
 
 Para gerar um plano de fundo:
 
-1. Abra o painel **Gallery**.
+1. Abra a seção **Gallery** de **Chat Settings**.
 2. Clique no botão **Background**.
 3. O texto do botão muda para **Generating...** enquanto a imagem é criada.
 4. Você deve ver esta mensagem de status: "AI background generation is running. The new background will be applied when it finishes."
@@ -36,11 +36,11 @@ Choose an image generation connection for the Illustrator agent, or mark one as 
 
 Para resolver, abra o painel **Connections** (conexões), expanda a seção **Defaults** e escolha uma conexão de imagem em **Images**. Outra opção: definir uma conexão de imagem específica no agente **Illustrator**.
 
-## O painel da galeria
+## A seção Gallery
 
 A **Gallery** tem duas abas, **Images** e **Videos**. Cada aba mostra a quantidade de itens que guarda. A aba **Videos** só aparece quando os vídeos de cena estão ativados para o chat.
 
-No topo do painel, os botões de ação aparecem apenas quando o recurso correspondente se aplica ao chat:
+No topo da seção, os botões de ação aparecem apenas quando o recurso correspondente se aplica ao chat:
 
 - **Illustrate**: executa o agente Illustrator para uma imagem avulsa da cena. Veja [Agente Illustrator](illustrator-agent.md).
 - **Selfie**: gera uma selfie do personagem no Conversation Mode.

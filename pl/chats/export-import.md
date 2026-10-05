@@ -13,13 +13,12 @@ Import czatu przyjmuje wyłącznie plik `.jsonl`. Jeśli czat ma się dać póź
 
 ## Eksport pojedynczego czatu
 
-Do zapisania jednego czatu do pliku służy panel **Chat Branches** (gałęzie czatu). To najszybszy sposób na wyeksportowanie historii pojedynczej rozmowy.
+Do zapisania jednego czatu do pliku służy sekcja **Chat Branches** (gałęzie czatu) w **Chat Settings**. To najszybszy sposób na wyeksportowanie historii pojedynczej rozmowy.
 
 1. Otwórz czat przeznaczony do eksportu.
-2. Na pasku narzędzi czatu kliknij przycisk gałęzi (jego podpowiedź brzmi **Switch branch**).
-3. Otwiera się panel **Chat Branches**. Widnieje w nim opis "Switch, import, export, or clean up this chat's branches."
-4. Kliknij przycisk **JSONL**, żeby zapisać czat jako plik JSONL, albo przycisk **Text**, żeby zapisać go jako czytelny plik tekstowy.
-5. Przeglądarka pobiera plik.
+2. Otwórz **Chat Settings** i rozwiń sekcję **Chat Branches** pod **Chat Name**.
+3. Kliknij przycisk **JSONL**, żeby zapisać czat jako plik JSONL, albo przycisk **Text**, żeby zapisać go jako czytelny plik tekstowy.
+4. Przeglądarka pobiera plik.
 
 Pobrany plik zawiera aktualnie otwarty czat razem z jego wiadomościami.
 
@@ -54,8 +53,8 @@ Jeśli nowy czat ma działać w trybie Roleplay, otwórz zakładkę **RP** przed
 Plik `.jsonl` da się też wczytać do istniejącego czatu jako nową gałąź. Gałąź to osobna zapisana kopia czatu, którą można rozwijać niezależnie. Więcej o gałęziach znajdziesz w przewodniku [Gałęzie czatu](branches.md).
 
 1. Otwórz czat, do którego ma trafić nowa gałąź.
-2. Na pasku narzędzi czatu kliknij przycisk gałęzi (podpowiedź **Switch branch**), żeby otworzyć panel **Chat Branches**.
-3. Kliknij przycisk **Import** w tym panelu.
+2. Otwórz **Chat Settings** i rozwiń sekcję **Chat Branches**.
+3. W tej sekcji kliknij przycisk **Import**.
 4. Wskaż plik `.jsonl`.
 5. Powinien pojawić się komunikat "Imported N messages as a new branch".
 

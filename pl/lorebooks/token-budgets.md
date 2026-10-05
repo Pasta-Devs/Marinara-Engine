@@ -45,9 +45,11 @@ Kiedy pasujących wpisów jest więcej, niż mieści limit, Marinara zachowuje n
 
 Marinara przechodzi tę listę od góry i dodaje każdy wpis, który jeszcze się mieści. Jeśli wpis przekroczyłby limit, Marinara go pomija i przechodzi dalej. Sprawdza przy tym wszystkie wpisy poniżej pominiętego. Dzięki temu mniejszy wpis może się zmieścić nawet po odrzuceniu większego.
 
+<a id="seeing-skipped-entries-in-active-context"></a>
+
 ## Podgląd pominiętych wpisów w Active Context
 
-Nie musisz zgadywać, które wpisy zostały odrzucone. Przycisk **Active Context** (aktywny kontekst) na pasku narzędzi czatu otwiera panel. Pokazuje on aktualny wynik ostatniego skanowania lorebooków.
+Nie musisz zgadywać, które wpisy zostały odrzucone. Otwórz **Chat Settings** i rozwiń sekcję **Active Context** (aktywny kontekst). Pokazuje ona aktualny wynik ostatniego skanowania lorebooków.
 
 Jeśli pominięto jakieś pasujące wpisy, na górze pojawia się bursztynowy komunikat. Jego treść to "N matching lore entries were skipped by token budget." Rozwiń go, żeby zobaczyć każdy pominięty wpis.
 
@@ -57,7 +59,7 @@ Przy każdym pominiętym wpisie widać, z którego lorebooka pochodzi i co go za
 - **chat budget**: wpis nie zmieścił się we wspólnym dla czatu polu **Lorebook Token Budget**.
 - **lorebook and chat budgets**: oba limity były już wyczerpane.
 
-Rozwiń pominięty wpis, żeby poznać szczegóły. Zobaczysz dopasowane słowa kluczowe, szacowany rozmiar w tokenach oraz to, ile limitu było już zajęte. Jeśli duże lorebooki stale są pomijane, panel podpowiada agentów **Knowledge Retrieval** i **Knowledge Router**. Zwykle radzą sobie z obszernymi lorebookami lepiej niż podnoszenie limitów.
+Rozwiń pominięty wpis, żeby poznać szczegóły. Zobaczysz dopasowane słowa kluczowe, szacowany rozmiar w tokenach oraz to, ile limitu było już zajęte. Jeśli duże lorebooki stale są pomijane, **Active Context** podpowiada agentów **Knowledge Retrieval** i **Knowledge Router**. Zwykle radzą sobie z obszernymi lorebookami lepiej niż podnoszenie limitów.
 
 ## Skanowanie rekurencyjne
 

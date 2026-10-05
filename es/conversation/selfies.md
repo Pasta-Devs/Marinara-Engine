@@ -87,7 +87,7 @@ También funcionan `[selfie: "standing beside the river"]` y `[selfie: standing 
 
 También puedes solicitar un selfie tú mismo en lugar de esperar al personaje.
 
-1. Abre el panel **Gallery** (Galería) del chat.
+1. Abre **Chat Settings** y despliega **Gallery** (Galería).
 2. Haz clic en el botón **Selfie** (el icono de cámara).
 3. Si el chat tiene más de un personaje, elige quién debe tomar el selfie en la lista de personajes que hay junto al botón.
 4. Si **Expose media prompts before sending** (Mostrar los prompts de medios antes de enviar) está activado en **Settings** (Configuración), **Generations** (Generaciones), **Image Generation** (Generación de imágenes), revisa o edita el prompt final compilado del selfie y haz clic en **Generate** (Generar). Cancelar la revisión no envía ninguna solicitud de imagen.

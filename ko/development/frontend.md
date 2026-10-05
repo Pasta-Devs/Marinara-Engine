@@ -513,7 +513,6 @@ Personal Extensions는 서버에 저장하고 정확한 해시로 승인하는 �
 | 접두사 | 설명 |
 | ------------------------------- | ---------------------------- |
 | `/api/bot-browser/chub/*` | Chub 캐릭터 검색 |
-| `/api/bot-browser/chartavern/*` | CharacterTavern 검색 |
 | `/api/bot-browser/janny/*` | JannyAI 검색 |
 | `/api/bot-browser/pygmalion/*` | Pygmalion 검색 |
 | `/api/bot-browser/wyvern/*` | Wyvern 검색 |

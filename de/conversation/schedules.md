@@ -18,7 +18,7 @@ Zeitpläne sind optional. Sind autonome Nachrichten aktiv und Zeitpläne nicht, 
 Gesteuert wird das im Chat, nicht auf der Charakterkarte. Alle Bedienelemente dafür stehen im Bereich **Autonomous Messaging** der **Chat Settings** (Chat-Einstellungen).
 
 1. Öffne einen Conversation-Chat.
-2. Öffne die **Chat Settings** (Zahnradsymbol).
+2. Öffne **Chat Settings** über die Schaltfläche im Chat. Sie liegt oben rechts, solange du sie nicht verschoben hast.
 3. Suche den Bereich **Autonomous Messaging**.
 4. Aktiviere den Schalter **Autonomous Messages**.
 

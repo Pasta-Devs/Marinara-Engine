@@ -1,6 +1,6 @@
 # Les arrière-plans de scène et la galerie
 
-Ce guide explique les arrière-plans de scène générés par l'IA, ces images d'arrière-plan que Marinara Engine crée pour toi depuis la **Gallery** (la galerie), ainsi que le panneau Gallery lui-même. Deux guides voisins complètent celui-ci : [Arrière-plans de chat](../appearance/chat-backgrounds.md) présente la bibliothèque d'images téléversées que tu choisis à la main, et [Arrière-plans en Roleplay](../roleplay/backgrounds.md) présente l'agent qui choisit tout seul un arrière-plan à chaque tour.
+Ce guide explique les arrière-plans de scène générés par l'IA, ces images d'arrière-plan que Marinara Engine crée pour toi depuis la **Gallery** (la galerie), ainsi que la galerie elle-même. Deux guides voisins complètent celui-ci : [Arrière-plans de chat](../appearance/chat-backgrounds.md) présente la bibliothèque d'images téléversées que tu choisis à la main, et [Arrière-plans en Roleplay](../roleplay/backgrounds.md) présente l'agent qui choisit tout seul un arrière-plan à chaque tour.
 
 ## Où fonctionnent les arrière-plans de scène
 
@@ -14,11 +14,11 @@ Pour générer un arrière-plan, il te faut une connexion **Image Generation** (
 
 ## Générer et appliquer un arrière-plan depuis la galerie
 
-La **Gallery** est le panneau des images et des vidéos d'un chat. Ouvre-la avec l'icône d'image dans la barre d'outils du chat. Le bouton **Background** (arrière-plan) génère une image d'arrière-plan pour la scène en cours.
+La **Gallery** contient les images et vidéos du chat. C'est une section de **Chat Settings** : ouvre Chat Settings et déplie Gallery. Sur ordinateur, tu peux en faire une fenêtre séparée ; consulte [Présentation de Chat Settings](../chats/chat-settings.md#popping-a-section-out-into-its-own-window). Le bouton **Background** (arrière-plan) génère le décor de la scène actuelle.
 
 Pour générer un arrière-plan :
 
-1. Ouvre le panneau **Gallery**.
+1. Ouvre la section **Gallery** de **Chat Settings**.
 2. Clique sur le bouton **Background**.
 3. Le libellé du bouton devient **Generating...** pendant la génération de l'image.
 4. Un message d'état doit apparaître : "AI background generation is running. The new background will be applied when it finishes."
@@ -36,11 +36,11 @@ Choose an image generation connection for the Illustrator agent, or mark one as 
 
 Pour corriger cela, ouvre le panneau **Connections** (Connexions), déplie la section **Defaults** et choisis une connexion d'image sous **Images**. Autre option : définir une connexion d'image spécifique sur l'agent **Illustrator**.
 
-## Le panneau Gallery
+## La section Gallery
 
 La **Gallery** a deux onglets, **Images** et **Videos**. Chaque onglet affiche le nombre d'éléments qu'il contient. L'onglet **Videos** n'apparaît que si les vidéos de scène sont activées pour le chat.
 
-En haut du panneau, les boutons d'action ne s'affichent que si la fonctionnalité correspondante s'applique au chat :
+En haut de la section, les boutons d'action ne s'affichent que si la fonctionnalité correspondante s'applique au chat :
 
 - **Illustrate** : lance l'agent Illustrator pour une image de scène ponctuelle. Voir [Agent Illustrator](illustrator-agent.md).
 - **Selfie** : génère un selfie du personnage en mode Conversation.

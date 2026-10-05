@@ -123,7 +123,7 @@ package le rend disponible, mais ne l'active pas dans tous les chats.
 ### Roleplay
 
 1. Ouvre le chat Roleplay.
-2. Ouvre **Chat Settings** avec le bouton en forme d'engrenage.
+2. Ouvre **Chat Settings**.
 3. Active **Enable Agents** (activer les agents).
 4. Sous **Tracker Agents** (agents de suivi), active **World Maps**.
 5. Ouvre **Edit world map** (modifier la carte du monde) ou la

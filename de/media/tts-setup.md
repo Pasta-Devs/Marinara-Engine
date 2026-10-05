@@ -152,7 +152,7 @@ Dieselbe TTS-Einrichtung bedient alle Modi, mit ein paar Extras je Modus:
 
 - Roleplay nutzt den Auto-play-Schalter **Roleplay messages** und die **Speak**-Steuerung an jeder Nachricht. Siehe [Roleplay Mode: Erste Schritte](../roleplay/getting-started.md).
 - Conversation Mode nutzt den Schalter **Conversation messages** und dieselbe **Speak**-Steuerung. Gesprochene Anrufe sind eine größere Funktion und in [Audio- und Videoanrufe in Conversation](../conversation/calls.md) beschrieben.
-- Game Mode nutzt den Schalter **Game narration**. Der Game Mode hat zudem ein eigenes Mischpult mit dem Kanal **TTS** neben **Master**, **Music**, **Sound Effects** und **Ambient**. Dieser Kanal regelt die Gesamtlautstärke des gesprochenen Spiel-Audios und startet bei 100 Prozent. Siehe [Game Mode: Erste Schritte](../game/getting-started.md).
+- Game Mode nutzt den Schalter **Game narration**. Der Game Mode hat zudem ein eigenes Mischpult mit dem Kanal **TTS** neben **Master**, **Music**, **Sound Effects** und **Ambient**. Dieser Kanal regelt die Gesamtlautstärke des gesprochenen Spiel-Audios und startet bei 100 Prozent. Siehe [Game Mode: Erste Schritte](../game/getting-started.md#the-games-controls).
 
 ## Phonetic name (Aussprache in Anrufen)
 

@@ -43,9 +43,11 @@ Depuis la section **Settings** (Paramètres) :
 Depuis une partie :
 
 1. Ouvre un chat en Game Mode.
-2. Clique sur le bouton **Game Assets** dans la barre d'outils du chat.
+2. Clique ou appuie sur le bouton **Game Assets** (le dossier), qui commence en haut à droite du chat. Tu peux le déplacer sur ordinateur ou téléphone.
 
-Ce bouton n'apparaît que dans les chats qui utilisent Game Mode. Ouvert de cette façon, le panneau **Asset Browser** s'affiche à l'intérieur de la partie.
+Le bouton n'apparaît qu'en Game Mode. Il ouvre **Game Assets**, qui contient **Asset Browser** : une fenêtre déplaçable sur ordinateur ou un panneau sur toute la largeur sur téléphone.
+
+Si tu l'as rangé avec **Put back in Chat Settings**, ouvre plutôt la section **Game Assets** dans Chat Settings.
 
 La barre d'outils en haut contient un fil d'Ariane qui démarre à **Game Assets**. À côté, tu trouves un interrupteur entre **Grid view** (vue en grille) et **List view** (vue en liste), un bouton **Upload** (téléverser) et un bouton **New** (nouveau). Il y a aussi un bouton **Rescan** (réanalyser), un bouton **Open in system folder** (ouvrir dans le dossier système) et un champ **Search in folder** (chercher dans le dossier). Sur les écrans larges, une arborescence de dossiers à gauche permet de passer d'une catégorie à l'autre.
 
@@ -137,7 +139,7 @@ Si tu copies des fichiers directement dans le dossier des ressources de jeu sur 
 
 Chaque chat en Game Mode peut se limiter à une partie de tes dossiers de ressources. Pratique, par exemple, pour qu'une partie d'horreur ignore tes musiques joyeuses.
 
-Pendant la configuration, déplie **Adjust Game Assets for this Game** à l'étape **Features**. Pour une partie existante, ouvre le panneau **Asset Browser** de la partie depuis la barre d'outils du chat.
+Pendant la configuration, déplie **Adjust Game Assets for this Game** à l'étape **Features**. Pour une partie existante, ouvre la fenêtre **Game Assets** de la partie.
 
 Ensuite :
 

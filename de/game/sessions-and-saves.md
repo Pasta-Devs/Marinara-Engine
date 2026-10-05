@@ -1,6 +1,6 @@
 # Game Mode: Sitzungen und Spielstände
 
-In dieser Anleitung erfährst du, wie Marinara Engine deinen Fortschritt im Game Mode über mehrere Sitzungen hinweg mitführt. Es geht ums Beenden und Starten einer Sitzung und ums Nachlesen früherer Sitzungen im Panel **Session History** (Sitzungsverlauf). Außerdem lernst du die Ansicht **Show Spoilers** (Spoiler anzeigen) kennen und erfährst, wie das Spiel deine Daten speichert.
+In dieser Anleitung erfährst du, wie Marinara Engine deinen Fortschritt im Game Mode über mehrere Sitzungen hinweg mitführt. Es geht ums Beenden und Starten einer Sitzung und ums Nachlesen früherer Sitzungen in **Session History** (Sitzungsverlauf). Außerdem lernst du die Ansicht **Show Spoilers** (Spoiler anzeigen) kennen und erfährst, wie das Spiel deine Daten speichert.
 
 ## Was eine Sitzung ist
 
@@ -8,23 +8,25 @@ Game Mode teilt dein Abenteuer in nummerierte Sitzungen. Eine Sitzung ist ein zu
 
 Die erste Sitzung ist **Session 1**. Beendest du sie und startest neu, entsteht **Session 2** – und so weiter.
 
-## Das Session-Panel öffnen
+<a id="opening-session"></a>
 
-Im Panel **Session** (Sitzung) beendest du Sitzungen, startest neue und liest den Verlauf nach.
+## Session öffnen
+
+In **Session** (Sitzung) beendest du Sitzungen, startest neue und liest den Verlauf nach.
 
 1. Starte oder öffne einen Game-Mode-Chat, damit die Spieloberfläche sichtbar ist.
-2. Klick in der oberen Werkzeugleiste auf die Schaltfläche **Session** (das Feder-Symbol).
-3. Das Panel öffnet sich. Die Kopfzeile zeigt **Session** mit der aktuellen Nummer und dem Status.
-4. Das Panel hat zwei Tabs: **Session History** und **Journal**. Bleib auf **Session History** – dort liegen die Sitzungssteuerung und das Teilen des Setups.
+2. Klick oder tippe auf **Session** (das Feder-Symbol). Die Schaltfläche liegt anfangs nahe der oberen rechten Ecke des Chats. Du kannst sie an eine andere Stelle ziehen (siehe [Steuerungsfenster und ihre Schaltflächen](../chats/chat-settings.md#control-windows-and-their-buttons)).
+3. **Session** öffnet sich am Computer als Fenster und am Telefon als Panel über die ganze Breite. Die erste Zeile zeigt **Session** mit der aktuellen Nummer und dem Status.
+4. Es gibt zwei Tabs: **Session History** und **Journal**. Bleib auf **Session History** – dort liegen die Sitzungssteuerung und das Teilen des Setups.
 
-In der Kopfzeile des Panels sitzt außerdem eine Schaltfläche **Game tutorial** (Spiel-Tutorial), die die geführte Tour erneut startet.
+Hast du dieses Fenster mit **Put back in Chat Settings** verschoben, öffne stattdessen den Abschnitt **Session** in Chat Settings.
 
 ## Das Setup teilen, aus dem ein Spiel entstanden ist
 
 Game Mode legt für jede neue Kampagne eine unveränderliche Momentaufnahme des verwendeten Setups ab. So kannst du erst spielen, dann entscheiden, dass die Kombination gut funktioniert, und sie hinterher teilen – ohne vor dem Start jedes Feld von Hand zu notieren.
 
 1. Öffne die Game-Mode-Kampagne, die du teilen möchtest.
-2. Klick in der oberen Werkzeugleiste auf die Schaltfläche **Session** (das Feder-Symbol).
+2. Öffne **Session** (die Schaltfläche mit der Feder).
 3. Bleib auf **Session History** und klapp dann **Initial Game Setup** (ursprüngliches Spiel-Setup) auf.
 4. Sieh dir die gespeicherten Angaben an: Abenteuer, Besetzung, Modell, Prompt, tatsächlich wirksame Generierungs-Parameter sowie Optik-, Storyboard- und Weltwerkzeug-Einstellungen.
 5. Klick auf **Copy setup** (Setup kopieren), um den Text in die Zwischenablage zu legen, oder auf **Download .txt**, um eine teilbare Textdatei zu speichern.
@@ -37,7 +39,7 @@ Kampagnen aus der Zeit vor den Setup-Momentaufnahmen können Präferenzen nicht 
 
 Beende eine Sitzung, wenn du das aktuelle Kapitel abschließen und den GM zusammenfassen lassen willst.
 
-1. Öffne das Panel **Session** und bleib auf dem Tab **Session History**.
+1. Öffne **Session** und bleib auf dem Tab **Session History**.
 2. Ganz oben steht die aktuelle Sitzung, beschriftet mit **Session N (Current)**.
 3. Klick in dieser Zeile auf die Schaltfläche **End Session** (Sitzung beenden) – das kleine Quadrat-Symbol neben **Show Spoilers**.
 4. Ein Fenster mit dem Titel **End Session** öffnet sich und bittet um Bestätigung.
@@ -51,7 +53,7 @@ Nach der Bestätigung erzeugt die Engine eine Zusammenfassung. Bleib so lange au
 
 Sobald die aktuelle Sitzung abgeschlossen ist, heißt dieselbe Schaltfläche **New Session** (neue Sitzung).
 
-1. Öffne das Panel **Session** und wechsle zum Tab **Session History**.
+1. Öffne **Session** und wechsle zum Tab **Session History**.
 2. Klick in der Zeile der aktuellen Sitzung auf die Schaltfläche **New Session** (das Play-Symbol).
 3. Der GM nimmt die Geschichte wieder auf. Grundlage sind die Zusammenfassung der letzten Sitzung und die Notiz für die nächste Sitzung, die du beim Beenden hinterlassen hast.
 
@@ -102,9 +104,9 @@ Eine Schaltfläche **Regenerate Lorebook** erscheint nur bei der zuletzt abgesch
 
 **Show Spoilers** legt die geheimen Notizen des GM zur aktuellen Sitzung offen. Normalerweise bleiben sie dir während des Spiels verborgen. Wer sie liest, verdirbt sich womöglich die Wendungen der Geschichte.
 
-1. Öffne das Panel **Session** und wechsle zum Tab **Session History**.
+1. Öffne **Session** und wechsle zum Tab **Session History**.
 2. Klick in der Zeile der aktuellen Sitzung auf **Show Spoilers** (das Augen-Symbol).
-3. Das Panel zeigt daraufhin den privaten Zustand des GM.
+3. Der private Zustand des GM erscheint.
 
 Die Spoiler-Ansicht kann diese Abschnitte enthalten:
 

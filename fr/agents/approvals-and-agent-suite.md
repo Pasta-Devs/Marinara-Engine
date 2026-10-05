@@ -9,7 +9,7 @@ Certains agents veulent écrire de nouvelles données dans le chat. Un agent Lor
 Pour trouver cet interrupteur :
 
 1. Ouvre le chat que tu veux piloter.
-2. Ouvre la section **Chat Settings** (réglages du chat, l'icône en forme d'engrenage).
+2. Ouvre **Chat Settings** (réglages du chat).
 3. Descends jusqu'à la section **Agents**.
 4. Active **Review Agent Outputs**.
 
@@ -60,7 +60,7 @@ L'éditeur **Agent Suite** te montre tout ce que les agents de ce chat ont stock
 
 Pour l'ouvrir :
 
-1. Ouvre la section **Chat Settings** (l'icône en forme d'engrenage).
+1. Ouvre **Chat Settings**.
 2. Descends jusqu'à la section **Agents**.
 3. Clique sur **Agent Suite**.
 
@@ -90,7 +90,7 @@ Quelques précisions :
 
 ## Le panneau Cached prompt injections
 
-Avant la génération de ta réponse, certains agents rédacteurs ajoutent du texte au prompt (le texte que Marinara envoie à l'IA). C'est courant pour **Prose Guardian**, **Narrative Director** et les agents d'insertion personnalisés. Le panneau **Cached prompt injections** sert à inspecter ce texte ajouté quand quelque chose cloche. Tu le trouves dans le menu Agents d'un chat Roleplay. Il porte sur la réponse la plus récente.
+Avant la génération de ta réponse, certains agents rédacteurs ajoutent du texte au prompt (le texte que Marinara envoie à l'IA). C'est courant pour **Prose Guardian**, **Narrative Director** et les agents d'insertion personnalisés. Le panneau **Cached prompt injections** sert à inspecter ce texte ajouté quand quelque chose cloche. Tu le trouves dans l'onglet **Injections** de [Agent activity](../roleplay/getting-started.md#agent-activity) en Roleplay, quand **Debug mode** est activé. Il porte sur la réponse la plus récente.
 
 Pour chaque insertion en cache, tu peux :
 

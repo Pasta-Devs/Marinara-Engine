@@ -80,7 +80,7 @@ Pour te séparer d'un compagnon toi-même, utilise le bouton **X** de la barre d
 
 L'Adventure Journal tient le registre de ta campagne. Il se construit à partir des événements de jeu enregistrés, et non de textes écrits par l'IA : il reste donc factuel.
 
-Clique sur le bouton **Session** dans la barre d'outils du haut, puis choisis l'onglet **Journal**. Un panneau Journal s'ouvre, avec ces onglets :
+Ouvre **Session** (voir [Ouvrir Session](sessions-and-saves.md#opening-session)), puis choisis l'onglet **Journal**. Journal contient ces onglets :
 
 - **Timeline** (chronologie) : la liste de ce qui s'est passé, avec les lieux découverts, les rencontres avec des PNJ, les résultats de combat, les quêtes et les événements liés aux objets.
 - **NPCs** : les PNJ que tu as rencontrés, avec leur portrait et leur étiquette de réputation (voir plus bas).

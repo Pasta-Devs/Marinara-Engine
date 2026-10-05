@@ -45,7 +45,7 @@ Wszystkie sposoby importowania i eksportowania czatów, w tym import zbiorczy or
 Nazwę czatu widzisz tylko ty. Nie trafia ona do AI i nie zmienia przebiegu czatu.
 
 1. Otwórz czat.
-2. Otwórz panel **Chat Settings** przyciskiem koła zębatego na pasku narzędzi czatu.
+2. Otwórz **Chat Settings** przyciskiem w czacie.
 3. W sekcji **Chat Name** kliknij bieżącą nazwę, żeby zamieniła się w pole tekstowe.
 4. Wpisz nową nazwę, a potem naciśnij Enter albo kliknij przycisk z ptaszkiem.
 

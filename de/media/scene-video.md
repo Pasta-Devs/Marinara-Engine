@@ -112,7 +112,7 @@ Passt eine gespeicherte Option nicht mehr zum Modell, etwa weil Atlas Cloud dess
 
 ## Ein Video aus der Galerie generieren
 
-Sowohl **Roleplay**- als auch **Game-Mode**-Chats erzeugen Szenenvideos über das **Gallery**-Panel (Galerie). Öffne es über das Bild- oder Galeriesymbol im Chat. Game-Mode-Chats haben dafür noch eine zweite Stelle, das **Game Assets**-Panel – dazu weiter unten mehr.
+Sowohl **Roleplay**- als auch **Game-Mode**-Chats erzeugen Szenenvideos über die **Gallery** (Galerie). Öffne **Chat Settings** und klapp den Abschnitt **Gallery** auf. Game-Mode-Chats haben dafür noch eine zweite Stelle, **Game Assets** – dazu weiter unten mehr.
 
 Die Galerie hat einen Tab **Images** (Bilder) und einen Tab **Videos**, jeweils mit Anzahl. Standbilder liegen unter **Images**, fertige Clips unter **Videos**.
 
@@ -138,11 +138,11 @@ Versuchst du ein Video ohne Bild im Chat, meldet Marinara: „Add or generate a 
 
 ## Szenenvideos im Game Mode
 
-Im Game Mode gibt es eine zweite Stelle für Szenenvideos: das **Game Assets**-Panel. Du öffnest es über die Schaltfläche **Game Assets** in den Spielsteuerungen.
+Im Game Mode gibt es eine zweite Stelle für Szenenvideos: **Game Assets**. Klick oder tippe auf die Schaltfläche mit dem Ordnersymbol, die anfangs nahe der oberen rechten Ecke des Chats liegt. Am Computer öffnet sich ein Fenster, am Telefon ein Panel über die ganze Breite. Hast du es in Chat Settings verschoben, öffne dort den Abschnitt **Game Assets**.
 
-1. Öffne das **Game Assets**-Panel.
+1. Öffne **Game Assets**.
 2. Klick auf **Generate video** (Video generieren). Der Tooltip – der Kurzhinweis beim Draufzeigen – lautet „Generate a scene video from the latest illustration.“
-3. Sobald der neueste Clip fertig ist, läuft er im Panel.
+3. Sobald der neueste Clip fertig ist, läuft er dort.
 
 Die Schaltfläche **Generate video** bleibt inaktiv, solange dem Spiel eine Videoverbindung oder eine Szenen-Illustration fehlt. Klickst du zu früh, erscheint womöglich eine dieser Meldungen:
 

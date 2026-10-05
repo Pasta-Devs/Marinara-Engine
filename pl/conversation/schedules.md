@@ -18,7 +18,7 @@ Harmonogramy są opcjonalne. Przy włączonych wiadomościach autonomicznych i w
 Steruje się tym z poziomu czatu, a nie karty postaci. Wszystkie te ustawienia znajdują się w sekcji **Autonomous Messaging** panelu **Chat Settings** (ustawienia czatu).
 
 1. Otwórz czat w trybie Conversation.
-2. Otwórz panel **Chat Settings** (ikona koła zębatego).
+2. Otwórz **Chat Settings** przyciskiem w czacie. Domyślnie jest w prawym górnym rogu; możesz go przenieść.
 3. Znajdź sekcję **Autonomous Messaging**.
 4. Włącz przełącznik **Autonomous Messages**.
 

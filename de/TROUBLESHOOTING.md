@@ -205,7 +205,7 @@ Für eine Erinnerung braucht es mindestens 5 neue Nachrichten. Außerdem zeigt *
 
 Chat-Zusammenfassungen brauchen eine funktionierende Textverbindung, die sie schreibt.
 
-- Im Roleplay Mode öffnest du das Popover **Chat Summary** – ein kleines Einblendfenster – und prüfst, ob dort eine Verbindung eingetragen ist. Mit **Backfill Summary** holst du einen älteren Chat nach.
+- Im Roleplay Mode öffnest du **Chat Settings** > **Chat Summary** und prüfst, ob dort eine Verbindung eingetragen ist. Mit **Backfill Summary** holst du einen älteren Chat nach.
 - Im Conversation Mode öffnest du **Automatic Summarization** und wiederholst mit **Backfill** die Tage, die fehlgeschlagen sind.
 - Verlangt der Chat eine Freigabe für Agent-Schreibzugriffe, wartet eine KI-Zusammenfassung erst auf deine Prüfung, bevor sie greift.
 - Eine Zusammenfassung, die immer wieder scheitert (etwa wegen eines falschen API-Keys), wird mit Verzögerung erneut versucht. Reparier die Verbindung und nutze dann **Backfill**.
@@ -215,7 +215,8 @@ Chat-Zusammenfassungen brauchen eine funktionierende Textverbindung, die sie sch
 Mit dem **Card Browser** durchsuchst du öffentliche Charakterseiten und importierst Charaktere. Öffne ihn über das **Card Browser**-Symbol in der oberen Leiste und klick dann auf **Download Cards**.
 
 - Scheitert die Suche auf JannyAI oder eine Charakterseite an einer Cloudflare-Sperre, zeigt Marinara einen Hinweis. Er bittet dich, die JannyAI-Seite einmal im selben Browser zu besuchen, um die Prüfung zu bestehen, und es dann erneut zu versuchen.
-- Wenn dein Login bei CharacterTavern oder Pygmalion nach einem Serverneustart nicht mehr funktioniert, ist das normal. Diese Logins liegen nur im Arbeitsspeicher des Servers und verfallen beim Neustart. Öffne das Login-Fenster und füg Cookie oder Token erneut ein.
+- Wenn dein Login bei Pygmalion nach einem Serverneustart nicht mehr funktioniert, ist das normal. Dieser Login liegt nur im Arbeitsspeicher des Servers und verfällt beim Neustart. Öffne das Login-Fenster und füg dein Token erneut ein.
+- Wenn CharacterTavern statt Suchergebnissen einen Hinweis anzeigt, ist das ebenfalls normal. Seit dem Umbau der Website gibt es den Zugang, den Marinara genutzt hat, nicht mehr. Lade die Karte stattdessen von character-tavern.com herunter und importiere die Datei.
 
 ## Probleme bei der Medien-Generierung
 
@@ -238,9 +239,9 @@ Starte Marinara danach neu und klick im Fenster für die Sprite-Generierung auf 
 Game-Mode-Storyboards machen aus einer abgeschlossenen GM-Erzählung Keyframe-Bilder und optional kurze Clips. Roleplay-Storyboards fassen abgeschlossene Wortwechsel zusammen und zeigen das Ergebnis direkt hinter der Antwort im Chat.
 
 - Prüf, ob **Storyboard** über **Agents** > **Download Agents** installiert ist, und schalte dann **Enable Agents** (Agenten aktivieren) und **Enable Storyboards** (Storyboards aktivieren) für den Chat ein.
-- Für ein manuelles Szenenvideo generierst du zuerst ein Bild in der **Gallery** oder lädst eines hoch und nutzt dann dessen Aktion **Video** oder **Animate**. Die **Gallery** trennt **Images** und **Videos** in Tabs – sieh also im Tab **Videos** nach.
+- Für ein manuelles Szenenvideo öffnest du **Chat Settings** > **Gallery**, generierst ein Bild oder lädst eines hoch und nutzt dann dessen Aktion **Video** oder **Animate**. Die **Gallery** trennt **Images** und **Videos** in Tabs – sieh also im Tab **Videos** nach.
 - Für automatische Game-Mode-Storyboards öffnest du **Chat Settings** > **Agents** > **Storyboards** und prüfst, ob **Automatic Storyboard Illustrations** eingeschaltet ist. Willst du auch Clips, schalte zusätzlich **Automatic Storyboard Animations** ein.
-- Im Roleplay fügst du den Agenten **Storyboard** zum Chat hinzu. Wähl **Still images** oder **Animations**, leg **Messages per episode** fest und wähl die Bildverbindung für das Storyboard. **Manual only** startet stattdessen über **Create storyboard** in der Galerie.
+- Im Roleplay fügst du den Agenten **Storyboard** zum Chat hinzu. Wähl **Still images** oder **Animations**, leg **Messages per episode** fest und wähl die Bildverbindung für das Storyboard. **Manual only** startet stattdessen über **Create storyboard** im Abschnitt **Gallery** der **Chat Settings**.
 - Keyframe-Bilder brauchen eine Bildverbindung. Clips zusätzlich eine Videoverbindung.
 - Funktioniert ein eigener Prompt besser, wenn alle Charaktere zusammengefasst sind, schalte **Use NovelAI Character Prompts** aus.
 - Langsame Anbieter laufen leicht in ein Zeitlimit. Erhöh `IMAGE_GEN_TIMEOUT_MS` oder `VIDEO_GEN_TIMEOUT_MS` in der `.env` und starte Marinara neu. Der Server liest diese Werte nur beim Start.

@@ -152,7 +152,7 @@ Une fois actif, tu retrouves les mêmes choix **Spotify**, **YouTube** et **Cust
 
 Spotify fonctionne un peu différemment en Game Mode. Après chaque scène, le serveur dresse une courte liste de morceaux réels tirés de la source choisie. L'IA choisit ensuite un morceau dans cette liste. Elle ne peut donc pas inventer un titre qui n'existe pas. En Game Mode, un seul morceau tourne en boucle à la fois.
 
-Pendant un tour, le menu d'actions contient un bouton **Retry Music DJ** qui force un nouveau choix pour la scène en cours.
+Ouvre **Game controls** et choisis **Retry Music DJ** pour demander une nouvelle sélection pour la scène actuelle. Cela fonctionne sur ordinateur et téléphone. Consulte [Les contrôles du jeu](../game/getting-started.md#the-games-controls).
 
 ## La commande Music en Conversation
 

@@ -39,7 +39,7 @@ Les mises à jour automatiques au démarrage n'installent jamais un package non 
 Les agents s'activent dans chaque chat, depuis le panneau latéral **Chat Settings** (réglages du chat).
 
 1. Ouvre le chat voulu.
-2. Ouvre **Chat Settings** (l'engrenage).
+2. Ouvre **Chat Settings**.
 3. Va dans la section **Agents**.
 4. Active l'interrupteur **Enable Agents** (activer les agents). C'est l'interrupteur principal : quand il est sur off, aucun agent ne se déclenche dans ce chat.
 5. Ajoute les agents voulus depuis les listes situées sous l'interrupteur, ou retire ceux dont tu ne veux pas.

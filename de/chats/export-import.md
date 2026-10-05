@@ -13,13 +13,12 @@ Der Chat-Import akzeptiert ausschließlich `.jsonl`-Dateien. Wenn du einen Chat 
 
 ## Einen einzelnen Chat exportieren
 
-Für den Export eines einzelnen Chats nutzt du das Panel **Chat Branches** (Chat-Verzweigungen). Das ist der schnellste Weg, den Chatverlauf eines einzelnen Chats zu sichern.
+Für den Export eines einzelnen Chats nutzt du den Abschnitt **Chat Branches** (Chat-Verzweigungen) in **Chat Settings**. Das ist der schnellste Weg, den Chatverlauf eines einzelnen Chats zu sichern.
 
 1. Öffne den Chat, den du exportieren willst.
-2. Klick in der Chat-Werkzeugleiste auf die Verzweigungs-Schaltfläche (ihr Tooltip lautet **Switch branch** – ein Kurzhinweis, der beim Draufzeigen erscheint).
-3. Das Panel **Chat Branches** öffnet sich. Dort steht: "Switch, import, export, or clean up this chat's branches."
-4. Klick auf **JSONL**, um den Chat als JSONL-Datei zu speichern, oder auf **Text** für eine lesbare Textdatei.
-5. Der Browser lädt die Datei herunter.
+2. Öffne **Chat Settings** und klapp den Abschnitt **Chat Branches** unter **Chat Name** auf.
+3. Klick auf **JSONL**, um den Chat als JSONL-Datei zu speichern, oder auf **Text** für eine lesbare Textdatei.
+4. Der Browser lädt die Datei herunter.
 
 Gespeichert wird der gerade geöffnete Chat samt seiner Nachrichten.
 
@@ -54,8 +53,8 @@ Soll der neue Chat im Roleplay Mode landen, öffne vor dem Import den Tab **RP**
 Eine `.jsonl`-Datei lässt sich auch als neue Verzweigung in einen bestehenden Chat laden. Eine Verzweigung ist eine eigenständig gespeicherte Kopie eines Chats, die du getrennt weiterspielen kannst. Mehr dazu steht unter [Chat-Verzweigungen](branches.md).
 
 1. Öffne den Chat, dem du die Verzweigung hinzufügen willst.
-2. Klick in der Chat-Werkzeugleiste auf die Verzweigungs-Schaltfläche (Tooltip **Switch branch**), um das Panel **Chat Branches** zu öffnen.
-3. Klick in diesem Panel auf **Import**.
+2. Öffne **Chat Settings** und klapp den Abschnitt **Chat Branches** auf.
+3. Klick in diesem Abschnitt auf **Import**.
 4. Wähl die `.jsonl`-Datei aus.
 5. Es erscheint die Meldung "Imported N messages as a new branch".
 

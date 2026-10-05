@@ -141,6 +141,22 @@ Pour les tours de jeu courants, il est parfois possible de descendre vers un mod
 
 Pour la référence complète des paramètres, voir [Les paramètres de génération](../prompts/generation-parameters.md).
 
+<a id="the-games-controls"></a>
+
+## Les contrôles du jeu
+
+Les contrôles du jeu s'ouvrent avec les boutons près du coin supérieur droit du chat :
+
+- **Game controls** (la flèche circulaire) : **Retry turn**, **Retry scene analysis**, **Retry Music DJ** quand Music DJ joue la musique du jeu, et **Retry assets image generation**. Quand un storyboard joue en arrière-plan du jeu, il propose aussi relecture, lecture/pause et coupure du son.
+- **Session** (la plume) : historique des sessions, journal et contrôles de session. Consulte [Game Mode : sessions et sauvegardes](sessions-and-saves.md).
+- **Volume** (le haut-parleur) : volume de **Master**, **Music**, **Sound Effects**, **TTS** et **Ambient**.
+- **Game Assets** (le dossier) : médias de scène et Asset Browser. Consulte [Ressources du jeu](game-assets.md).
+- **Connected chat**, quand le jeu est lié à Conversation. Consulte [Chats connectés](../chats/connected-chats.md#switching-between-connected-chats).
+
+Clique ou appuie sur un bouton pour ouvrir ses contrôles dans une fenêtre déplaçable sur ordinateur ou un panneau sur toute la largeur sur téléphone. Fais glisser un bouton pour le déplacer. Fermer la fenêtre ou le panneau ramène le bouton. Consulte [Fenêtres de contrôles et leurs boutons](../chats/chat-settings.md#control-windows-and-their-buttons).
+
+Tu peux aussi garder ces contrôles dans **Chat Settings**. Ouvre la fenêtre d'un contrôle et choisis **Put back in Chat Settings** : il devient une section repliable. Son bouton de détachement lui redonne une fenêtre séparée. Chaque partie enregistre ton choix, et **Reset View** rétablit les boutons de départ.
+
 ## Où trouver chaque sujet de jeu
 
 Ce guide t'amène jusqu'au début de la partie. Chaque sujet plus poussé a son propre guide :

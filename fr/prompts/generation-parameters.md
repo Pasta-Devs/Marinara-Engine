@@ -15,7 +15,7 @@ Ne modifie ces réglages que pour corriger un problème précis. Vers la fin, ce
 Modifie les valeurs de base dans **Presets > Parameters** (presets > paramètres), et celles de la connexion dans **Connections > Default Parameters** (connexions > paramètres par défaut). Les valeurs propres au chat se règlent dans **Chat Settings > Advanced Parameters** (réglages du chat > paramètres avancés).
 
 1. Ouvre le chat à modifier.
-2. Ouvre **Chat Settings** (réglages du chat), l'icône d'engrenage du chat actif.
+2. Ouvre **Chat Settings** (réglages du chat) avec son bouton dans le chat. Il se trouve en haut à droite, sauf si tu l'as déplacé.
 3. Repère la section **Advanced Parameters** et clique dessus pour la déplier.
 
 Une note d'aide s'affiche : "Override generation parameters for this chat. Only change these if you know what you're doing." Tous les réglages décrits plus bas se trouvent dans **Advanced Parameters**.

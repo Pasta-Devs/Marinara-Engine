@@ -19,7 +19,7 @@ O **Memory Recall** encontra trechos relevantes do começo do chat e os insere n
 
 ### Ativar o Memory Recall
 
-1. Abra um chat e clique no botão **Chat Settings** (configurações do chat) no cabeçalho do chat.
+1. Abra um chat e clique no botão **Chat Settings** (configurações do chat). Ele começa no canto superior direito.
 2. Localize a seção **Memory Recall** (o ícone é um cérebro).
 3. Ative o botão liga/desliga **Enable Memory Recall**.
 
@@ -114,7 +114,7 @@ A inspeção do prompt continua somente para leitura e mostra a recuperação no
 
 ### Durante o chat
 
-A detecção de cenas acontece depois que a resposta principal de Roleplay é salva. **Standalone scene check interval (messages)** tem padrão **5**. O verificador recebe mensagens recentes numeradas, uma mensagem anterior para contexto, instruções e formato de saída. Ele aponta o número exato que encerra cada cena ou não retorna finais se ela continua. Contam mensagens de personas e personagens. A frequência independe dos horários dos agentes de acompanhamento; com o modo de decisão desativado, uma verificação programada compartilha uma chamada de um agente de acompanhamento após a geração quando visibilidade e orçamento permitem, ou usa o auxiliar separadamente. Cada intervalo começa depois do final anterior e inclui a nova mensagem final. Só um final detectado prepara em segundo plano o resumo e o índice da cena encerrada, inclusive quando ela termina na resposta mais recente. Transições incertas deixam a cena aberta. **Agents**, no canto superior esquerdo, mostra **Advanced Recall**, com progresso, erros e recuperação, mesmo com agentes comuns desativados. O progresso só é consultado durante uma tarefa de memória; arquivos prontos não são consultados em repouso. Com o modo de decisão ativado, a conexão de decisão escolhida faz essa verificação.
+A detecção de cenas acontece depois que a resposta principal de Roleplay é salva. **Standalone scene check interval (messages)** tem padrão **5**. O verificador recebe mensagens recentes numeradas, uma mensagem anterior para contexto, instruções e formato de saída. Ele aponta o número exato que encerra cada cena ou não retorna finais se ela continua. Contam mensagens de personas e personagens. A frequência independe dos horários dos agentes de acompanhamento; com o modo de decisão desativado, uma verificação programada compartilha uma chamada de um agente de acompanhamento após a geração quando visibilidade e orçamento permitem, ou usa o auxiliar separadamente. Cada intervalo começa depois do final anterior e inclui a nova mensagem final. Só um final detectado prepara em segundo plano o resumo e o índice da cena encerrada, inclusive quando ela termina na resposta mais recente. Transições incertas deixam a cena aberta. **Chat Settings → Agent activity** mostra **Advanced Recall**, com progresso, erros e recuperação, mesmo com agentes comuns desativados. O progresso só é consultado durante uma tarefa de memória; arquivos prontos não são consultados em repouso. Com o modo de decisão ativado, a conexão de decisão escolhida faz essa verificação.
 
 Com o modo de decisão desativado: A recuperação lê memória preparada. O embedding opcional da consulta tem prazo curto e recorre à correspondência textual se indisponível. A correspondência de texto dá mais peso aos termos distintos da última mensagem do usuário, para que um detalhe breve encontre um resumo de cena longo. As mensagens originais indexadas também permitem encontrar cenas quando a saída de trechos está desativada. Nenhum desses mecanismos acrescenta uma chamada ao modelo. Só funciona na geração principal de Roleplay: agentes, reexecuções manuais e gerações auxiliares de teste não a acionam nem recebem seus resumos ou trechos. A inspeção do prompt principal continua somente leitura.
 
@@ -156,7 +156,7 @@ A recuperação é seletiva e resumos podem perder nuances. Guarde correções i
 
 O **Chat Summary** comprime as mensagens antigas em recapitulações narrativas curtas, chamadas de entradas de resumo. Cada entrada pode ser escrita pela IA ou por você, e cada uma é ativada ou desativada separadamente. Esse recurso existe apenas nos chats de Roleplay. Salvar um interruptor mantém as outras entradas utilizáveis; Activate All e Deactivate All salvam a seleção em conjunto.
 
-Para abrir, clique no botão **Chat Summary** (o ícone é um pergaminho) no cabeçalho do chat de Roleplay. Isso abre a janela **Chat Summary**.
+Para abrir, abra **Chat Settings** e expanda **Chat Summary**, abaixo de **Lorebooks**. No computador, você pode abrir essa seção em uma janela própria; veja [Visão geral de Chat Settings](../chats/chat-settings.md#popping-a-section-out-into-its-own-window).
 
 ### Criar uma entrada de resumo
 
@@ -188,7 +188,7 @@ O campo **Maximum output size** define o tamanho máximo de um resumo gerado. O 
 
 ### Opções de exibição
 
-Os controles de **Display** na janela decidem como as mensagens resumidas aparecem na tela:
+Os controles de **Display** em **Chat Summary** decidem como as mensagens resumidas aparecem na tela:
 
 - **Hide summarised messages**: esconde as mensagens originais assim que um resumo passa a cobri-las. Desativado por padrão.
 - **Recent message tail**: mantém esta quantidade de mensagens mais recentes totalmente visível, mesmo com a ocultação ativada. O padrão é 10, e qualquer número inteiro não negativo é aceito. Com o valor 0, todo o lote resumido fica escondido. Valores mais altos aumentam o tamanho do prompt e o custo do modelo.

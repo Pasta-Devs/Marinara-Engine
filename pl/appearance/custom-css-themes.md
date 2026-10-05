@@ -2,6 +2,24 @@
 
 Z tego przewodnika dowiesz się, jak zmienić cały wygląd aplikacji Marinara Engine za pomocą własnego motywu CSS. Zobaczysz, jak tworzyć, importować, eksportować i włączać motywy. Poznasz też zmienne CSS, które da się nadpisać, oraz to, jak motywy współpracują z Card CSS.
 
+## Gotowe style okien czatu
+
+Aby zmienić wygląd bez pisania CSS, otwórz **Settings > Appearance > App** (ustawienia, wygląd, aplikacja) i znajdź **Chat widget style** (styl widgetów czatu) na dole sekcji **App Style** (styl aplikacji). **Dottore** nadaje przyciskom i oknom turkusowe obramowania z przyciętymi narożnikami. **Mari** dodaje różowo-złote ramki z Primogemami przy tytułach okien. Przyciski tego presetu mają takie samo tło jak okna. Każdy preset ma własną czcionkę, działa w jasnym i ciemnym trybie i obejmuje przyciski, okna oraz rozwijane sekcje.
+
+Opcje **Font** (czcionka) i **Shape** (kształt) pozwalają zmieniać te elementy osobno. **Preset font** (czcionka presetu) i **Preset shape** (kształt presetu) korzystają z wybranego stylu.
+
+Niżej są trzy ustawienia kolorów. Każde ma narzędzie wyboru jednolitego koloru oraz opcję gradientu, czyli płynnego przejścia między kolorami:
+
+- **Border & Buttons Color** (kolor obramowań i przycisków) zmienia obrysy oraz ikony przycisków. Ikony korzystają z pierwszego koloru gradientu.
+- **Background Color** (kolor tła) wypełnia przyciski, okna, rozwijane sekcje i pola edycji.
+- **Text Color** (kolor tekstu) zmienia tekst widgetów. Gradienty są widoczne w nagłówkach i etykietach; tekst w polach edycji korzysta z pierwszego koloru.
+
+Ozdobne emblematy zachowują swoje oryginalne kolory.
+
+Użyj **Reset color** (przywrócenie koloru) przy wybranej opcji, aby znów korzystać z jasnych lub ciemnych kolorów presetu. Wybranie presetu przywraca jego ustawienia **Font**, **Shape** i wszystkich trzech kolorów. **Default** (domyślny) przywraca pierwotny wygląd. Położenie okien pozostaje bez zmian.
+
+Własne motywy CSS nadal mogą nadpisywać te presety. Opisane niżej publiczne zmienne okien i sekcji mają pierwszeństwo przed kolorami presetu. Zmienna `--mari-window-font-family` ustawia czcionkę okien, `--mari-drawer-radius` zmienia narożniki sekcji, a `--mari-window-ornament: none` ukrywa ozdobę przy tytule. Aby usunąć wszystkie ozdoby presetu, najpierw wybierz **Default**.
+
 ## Czym jest własny motyw
 
 Własny motyw to blok kodu CSS, który przemalowuje aplikację Marinara Engine. CSS, czyli Cascading Style Sheets, to kod odpowiadający za kolory, obramowania i odstępy w całej aplikacji. Motyw może zmienić tło strony, kolor akcentu, karty, obramowania, tekst i sporo więcej.
@@ -91,6 +109,100 @@ Ta lista nie jest granicą. Motyw może ustawić dowolną zmienną CSS używaną
 Niektóre efekty wizualne mają swoje własne zmienne. Motyw może na przykład poprosić o animację pulsowania akcentu, ustawiając `--marinara-theme-accent-pulse: enabled`.
 
 Kod CSS własnego motywu przechodzi przez czyszczenie, zanim zacznie działać – dla bezpieczeństwa. Style, które wczytują plik z innej strony, nie działają. Aby użyć w motywie obrazka albo czcionki, osadź je jako URI `data:` zamiast odnośnika sieciowego. URI `data:` mieści treść pliku bezpośrednio w kodzie CSS.
+
+## Styl okien i rozwijanych sekcji czatu
+
+Na komputerze **Chat Settings** (ustawienia czatu) otwiera się jako przesuwane okno. Jego rozwijane sekcje nazywają się po angielsku **drawers**. Sekcję można wydzielić do osobnego okna, a potem zminimalizować do małego, przesuwanego przycisku, nazywanego **bubble**.
+
+Takie okna i przyciski służą też innym narzędziom czatu, w tym **Game controls** (sterowanie grą), **Session** (sesja), **Volume** (głośność), **Game Assets** (zasoby gry), powiązanym czatom i kontrolkom pakietów. Na telefonie okna otwierają się jako panele na całą szerokość, a **Tracker Panel** (panel trackerów) ma własny przesuwany przycisk.
+
+Poniższe klasy, atrybuty i zmienne pozwalają nadać tym elementom wspólny styl. Reguły własnego motywu nadpisują ustawienia domyślne bez `!important`.
+
+### Klasy
+
+| Element | Klasa |
+| --- | --- |
+| Okno | `.mari-window` |
+| Pasek tytułu | `.mari-window__header` |
+| Tytuł z ikoną | `.mari-window__title-row` |
+| Tytuł | `.mari-window__title` |
+| Przyciski paska tytułu (**Reset View**, gwiazdka ulubionego układu, **Tracker Panel**, przypięcie, blokada, zamknięcie, **Put back**) | `.mari-window__controls` (każdy przycisk ma klasę `.mari-window__control`) |
+| Zawartość okna | `.mari-window__body` |
+| Krawędzie i narożniki do zmiany rozmiaru | `.mari-window__resize-handle` |
+| Znacznik w narożniku widoczny, gdy wskaźnik lub fokus klawiatury znajduje się w oknie | `.mari-window__resize-grip` |
+| Rozwijana sekcja | `.mari-drawer` |
+| Nagłówek i tytuł sekcji | `.mari-drawer__header`, `.mari-drawer__title` |
+| Ikona sekcji, plakietka z liczbą i **?** | `.mari-drawer__icon`, `.mari-drawer__count`, `.mari-drawer__help` |
+| Podgląd zwiniętej sekcji (mały widget trackera) | `.mari-drawer__summary` |
+| Przyciski sekcji obok strzałki i przycisk wydzielenia do okna | `.mari-drawer__actions`, `.mari-drawer__popout` |
+| Strzałka i zawartość sekcji | `.mari-drawer__arrow`, `.mari-drawer__body` |
+| Podgląd, który podąża za wskaźnikiem podczas przeciągania sekcji poza okno | `.mari-drawer-ghost` |
+| Przycisk zminimalizowanego okna (bubble) | `.mari-window-bubble` |
+| Linia pomocnicza widoczna, gdy przeciągany przycisk wyrównuje się z innym | `.mari-window-snap-guide` |
+| Kropka widoczna podczas pracy agentów (przycisk **Chat Settings**, okno **Trackers**) | `.mari-agents-running-dot` |
+
+### Atrybuty danych
+
+- `data-window` określa okno i jego przycisk: `chat-settings`, `trackers`, okna kontrolek `control:game`, `control:session`, `control:volume`, `control:assets`, `control:connected-chat`, `control:package:<package>` i `control:beholder:<package>` oraz `drawer:<window>:<drawer>` dla wydzielonej sekcji, na przykład `drawer:chat-settings:chat-name`.
+- `data-drawer` określa sekcję, na przykład `chat-name`. Niektóre nazwy zaczynają się od trybu czatu, jak `roleplay-agents` lub `conversation-agents`. Trackery korzystają z nazw `tracker-world`, `tracker-persona`, `tracker-characters`, `tracker-quests`, `tracker-inventory`, `tracker-custom` i `agent-activity`.
+- `data-presentation` ma wartość `"window"` w oknie na komputerze albo `"sheet"` w panelu na telefonie.
+- `data-pinned` i `data-locked` mają wartość `"true"`, gdy okno jest przypięte lub zablokowane.
+- `data-window-control` określa przycisk paska tytułu: `"pin"`, `"lock"`, `"close"` lub `"put-back"`. Włączony przycisk przypięcia lub blokady ma też `aria-pressed="true"`.
+- `data-chat-settings-control` oznacza dodatkowe przyciski paska tytułu **Chat Settings**: `"reset-view"`, `"favorite-layout"` i `"tracker-panel"`. Gwiazdka ulubionego układu ma `aria-pressed="true"` i wypełnioną ikonę, gdy bieżący układ odpowiada zapisanemu ulubionemu.
+- `data-edge` ma wartość `"n"`, `"s"`, `"e"`, `"w"`, `"ne"`, `"nw"`, `"se"` lub `"sw"` na odpowiednim uchwycie zmiany rozmiaru.
+- Przycisk otwartej sekcji wewnątrz `.mari-drawer__header` ma `aria-expanded="true"`.
+- `data-drawer-control="pop-out"` oznacza przycisk wydzielenia sekcji do osobnego okna.
+- `data-outside="true"` oznacza podgląd przeciągania wystarczająco daleko poza oknem, aby po upuszczeniu powstało osobne okno.
+- `data-axis` ma wartość `"x"` dla pionowej linii wyrównania, a `"y"` dla poziomej.
+- `data-detached` ma wartość `"true"`, gdy sekcja jest pokazana w osobnym oknie; atrybut występuje na oknie i sekcji w jego wnętrzu. Okno wydzielonej sekcji ma nazwę `data-window="drawer:<window>:<drawer>"`, na przykład `data-window="drawer:chat-settings:chat-name"`, a `data-drawer-host` określa okno, z którego pochodzi sekcja.
+- `data-dragging` ma wartość `"true"` na sekcji podczas przeciągania jej tytułu, a `data-drop-target` ma wartość `"true"` na oknie, nad którym trzymasz wydzieloną sekcję gotową do włożenia z powrotem.
+- Przycisk zminimalizowanego okna ma jego `data-window` i `data-minimized="true"`, na przykład `.mari-window-bubble[data-window="control:volume"]`. Okna kontrolek mają nazwy `control:game`, `control:session`, `control:volume`, `control:assets`, `control:connected-chat`, `control:package:<package>` i `control:beholder:<package>`. Podczas przeciągania przycisku `data-dragging` ma na nim wartość `"true"`.
+- Zablokowany przycisk, także przycisk **Chat Settings**, ma `data-locked="true"`. Nadal otwiera swoje okno, ale nie da się go przesunąć, dopóki okno jest zablokowane. Użyj `.mari-window-bubble[data-locked="true"]`, aby wyróżnić takie przyciski.
+- Na telefonie okna mają `data-presentation="sheet"`. Ten sam atrybut mają ich nieco większe przyciski. Przycisk **Tracker Panel** to `.mari-window-bubble[data-tracker-panel-toggle="bubble"]`.
+- Przycisk **Chat Settings** także jest przyciskiem okna: `.mari-window-bubble[data-chat-settings-button]`. Ma `data-open="true"`, gdy **Chat Settings** jest otwarte.
+- Wydzielona sekcja zmniejsza się do przycisku z `data-drawer-host` (oknem, z którego pochodzi). Przycisk **Put back** (włożenie z powrotem) w jej oknie to `[data-window-control="put-back"]`.
+
+### Zmienne
+
+Każda zmienna domyślnie korzysta ze wspólnych kolorów interfejsu czatu, więc motyw potrzebuje tylko tych zmiennych, które ma zmienić.
+
+| Zmienna | Co ustawia |
+| --- | --- |
+| `--mari-window-bg` | Tło okna |
+| `--mari-window-text` | Tekst w oknie |
+| `--mari-window-border`, `--mari-window-border-width` | Obramowanie okna |
+| `--mari-window-radius` | Zaokrąglenie narożników okna |
+| `--mari-window-shadow` | Cień okna |
+| `--mari-window-backdrop-filter` | Rozmycie za oknem |
+| `--mari-window-header-bg`, `--mari-window-header-text`, `--mari-window-header-border` | Kolory paska tytułu |
+| `--mari-window-header-padding` | Odstępy na pasku tytułu |
+| `--mari-window-control-color`, `--mari-window-control-color-hover`, `--mari-window-control-bg-hover` | Przyciski paska tytułu, w tym gwiazdkę ulubionego układu |
+| `--mari-window-control-color-active`, `--mari-window-control-bg-active` | Włączone przyciski paska tytułu, w tym przypięcie, blokadę i wypełnioną gwiazdkę |
+| `--mari-window-control-radius`, `--mari-window-control-gap` | Zaokrąglenie i odstępy przycisków |
+| `--mari-window-focus-ring` | Obrys fokusu klawiatury i okna, do którego można włożyć sekcję z powrotem |
+| `--mari-window-resize-handle-size` | Szerokość krawędzi zmiany rozmiaru |
+| `--mari-window-bubble-size`, `--mari-window-bubble-radius`, `--mari-window-bubble-shadow` | Rozmiar, zaokrąglenie i cień przycisku okna |
+| `--mari-window-bubble-bg`, `--mari-window-bubble-bg-hover`, `--mari-window-bubble-border` | Tło i obramowanie przycisku okna |
+| `--mari-window-bubble-text`, `--mari-window-bubble-text-hover` | Kolor ikony przycisku okna |
+| `--mari-window-snap-guide` | Kolor linii wyrównania |
+| `--mari-drawer-bg`, `--mari-drawer-border` | Tło sekcji i linię podziału |
+| `--mari-drawer-header-bg`, `--mari-drawer-header-bg-hover` | Kolory nagłówka sekcji |
+| `--mari-drawer-header-padding`, `--mari-drawer-body-padding-inline`, `--mari-drawer-body-padding-bottom` | Odstępy w sekcji |
+| `--mari-drawer-title-color`, `--mari-drawer-icon-color`, `--mari-drawer-arrow-color` | Tekst i ikony nagłówka sekcji |
+| `--mari-drawer-count-bg`, `--mari-drawer-count-text` | Plakietkę z liczbą w sekcji |
+
+Ustaw zmienną w `:root`, aby zmienić wszystkie okna, albo na wybranym selektorze, aby zmienić jedno:
+
+```css
+:root {
+  --mari-window-radius: 0.5rem;
+  --mari-window-bubble-bg: #3b0764;
+}
+
+[data-window="chat-settings"] .mari-drawer[data-drawer="chat-name"] {
+  --mari-drawer-border: transparent;
+}
+```
 
 ## Limity rozmiaru i nazwy
 

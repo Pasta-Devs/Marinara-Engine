@@ -24,6 +24,8 @@ Ein Profil hält fest, wie der Chat mit der KI spricht:
 - Memory Recall
 - Advanced Parameters
 - Weitere wiederverwendbare Chat-Optionen
+- Fenster- und Schaltflächenanordnung: Positionen und Größen, Anheftungen und Sperren, eingebettete oder herausgelöste Tools, offene Steuerungsfenster und Schaltflächenpositionen am Computer und Telefon. Profile ohne gespeicherte Anordnung, etwa **Default**, lassen die Anordnung des Chats unverändert.
+- Ob die Hinweise zur Anordnung in Chat Settings verborgen sind. **Default** und ältere Profile ohne diese Auswahl zeigen die Hinweise wieder an.
 
 Chat-eigene Inhalte ersetzt ein Profil nicht: Charaktere, Persona, Lorebooks, Sprites, Zusammenfassung, Tags oder Szenen-Prompt bleiben unberührt. Auch der Chatverlauf steckt nicht darin.
 
@@ -62,6 +64,18 @@ Die Tooltips beschreiben den aktuellen Zustand:
 - **Mark this profile as default for new chats in this mode**
 - **This profile is the default for new chats in this mode**
 - **Select a profile to mark it as default**
+
+## Bevorzugte Fensteranordnungen
+
+Der Stern neben **Reset View** in der Titelleiste von Chat Settings speichert eine Lieblingsanordnung für neue Chats im aktuellen Modus. Er merkt sich auch, ob die Hinweise zur Anordnung ausgeblendet sind. Du kannst ihn in Conversation, Roleplay und Game nutzen. Der Stern neben dem Dropdown **Profile** legt weiterhin das Standard-Einstellungsprofil fest.
+
+Beim Update einer bestehenden Installation wird die vertraute Anordnung der Tool-Schaltflächen zum Favoriten für neue Chats in allen drei Modi. Das passiert einmal; bereits gespeicherte oder ausdrücklich entfernte Favoriten bleiben unberührt. Diese Anordnung bleibt der Standard, bis du sie selbst änderst. Eine neue Installation startet mit den Chat-Tools in Chat Settings und ohne ausgewählten Favoriten.
+
+Ordne deine Fenster und Schaltflächen an und klick auf den Stern in der Titelleiste, um sie zu speichern. Er ist ausgefüllt, solange die aktuelle Anordnung und die Hinweise zum Favoriten passen. Änderst du die Anordnung oder verschiebst ein Fenster, ersetzt ein weiterer Klick den Favoriten. Klick auf den ausgefüllten Stern, um ihn zu entfernen und für künftige Chats wieder die Standardanordnung zu nutzen. Bestehende Chats bleiben unverändert.
+
+Nutzt ein neuer Chat ein Standard-Einstellungsprofil, hat die darin gespeicherte Anordnung Vorrang vor dem Favoriten. Profile ohne gespeicherte Anordnung lassen den Chat unverändert, auch wenn seine Anordnung von einem Favoriten stammt. Ein Profil übernimmt weiterhin seine eigene Einstellung für die Hinweise; ältere Profile ohne diese Einstellung zeigen die Hinweise an.
+
+Die Schritte stehen unter [Eine Anordnung für neue Chats wählen](chat-settings.md#choosing-a-layout-for-new-chats).
 
 ## Profile importieren und exportieren
 

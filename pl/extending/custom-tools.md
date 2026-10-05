@@ -140,7 +140,7 @@ Po włączeniu webhook albo skrypt dostaje obok argumentów wartość `context`.
 
 Samo utworzenie narzędzia nie sprawia, że AI z niego korzysta. Trzeba jeszcze włączyć korzystanie z narzędzi w danym czacie.
 
-1. Otwórz czat i kliknij ikonę koła zębatego, żeby wejść w **Chat Settings** (ustawienia czatu).
+1. Otwórz czat i przejdź do **Chat Settings** (ustawienia czatu).
 2. Rozwiń sekcję **Function Calling** – jej ikoną jest klucz.
 3. Włącz przełącznik **Enable Tool Use** (zezwolenie na korzystanie z narzędzi). Jego opis brzmi **Allow AI to call functions (dice rolls, game state, etc.)**. W nowym czacie jest domyślnie wyłączony.
 

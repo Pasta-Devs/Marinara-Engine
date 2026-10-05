@@ -80,7 +80,7 @@ Para dispensar um companheiro por conta própria, use o botão **X** na barra da
 
 O Adventure Journal (o diário da aventura) é o registro contínuo da campanha. Marinara monta esse registro com os eventos salvos do jogo, e não com texto escrito pela IA, então ele se mantém factual.
 
-Clique no botão **Session** (sessão) na barra de ferramentas do topo e escolha a aba **Journal**. O painel Journal abre com estas abas:
+Abra **Session** (veja [Abrir Session](sessions-and-saves.md#opening-session)) e escolha a aba **Journal**. Journal tem estas abas:
 
 - **Timeline** (linha do tempo): a lista do que já aconteceu, como locais encontrados, encontros com NPCs, resultados de combate, missões e eventos de itens.
 - **NPCs**: os NPCs que você já conheceu, com retratos e etiquetas de reputação (veja abaixo).

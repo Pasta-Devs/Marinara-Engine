@@ -1,12 +1,12 @@
 # Card Browser: Charaktere finden und importieren
 
-In dieser Anleitung erfährst du, wie der **Card Browser** in Marinara Engine funktioniert – das eingebaute Werkzeug, mit dem du Charakterkarten auf öffentlichen Seiten findest und in die eigene Bibliothek holst. Beschrieben werden die sechs Quellen, Suche und Filter sowie der Umgang mit Erwachseneninhalten je Quelle. Außerdem geht es darum, wie du einen Charakter importierst oder als Datei speicherst. In älteren Versionen hieß dieser Tab **Bot Browser** oder **Browser**.
+In dieser Anleitung erfährst du, wie der **Card Browser** in Marinara Engine funktioniert – das eingebaute Werkzeug, mit dem du Charakterkarten auf öffentlichen Seiten findest und in die eigene Bibliothek holst. Beschrieben werden die Quellen, Suche und Filter sowie der Umgang mit Erwachseneninhalten je Quelle. Außerdem geht es darum, wie du einen Charakter importierst oder als Datei speicherst. In älteren Versionen hieß dieser Tab **Bot Browser** oder **Browser**.
 
 Eine Charakterkarte ist eine Datei mit Name, Persönlichkeit, Begrüßung und weiteren Angaben zu genau einem Charakter. Normalerweise lädst du so eine Karte von einer Website herunter und anschließend in Marinara hoch. Der **Card Browser** erledigt beide Schritte an einer Stelle.
 
 ## Was der Card Browser ist
 
-Der **Card Browser** durchsucht mehrere öffentliche Charakterkarten-Seiten direkt aus Marinara heraus. Unterstützt werden sechs Quellen: **ChubAI**, **JannyAI**, **CharacterTavern**, **Pygmalion**, **Wyvern** und **DataCat**. Du durchsuchst eine Quelle, filterst die Ergebnisse und siehst dir alle Details eines Charakters an. Danach importierst du den Charakter in die eigene Bibliothek oder speicherst ihn als PNG-Datei. Zum Stöbern und Importieren brauchst du mit den Standardeinstellungen weder ein Konto noch einen API-Key (ein geheimer Zugangscode, ähnlich einem Passwort).
+Der **Card Browser** durchsucht mehrere öffentliche Charakterkarten-Seiten direkt aus Marinara heraus. Unterstützt werden fünf Quellen: **ChubAI**, **JannyAI**, **Pygmalion**, **Wyvern** und **DataCat**. **CharacterTavern** steht weiterhin in der Liste, lässt sich vorerst aber nicht durchsuchen (siehe [CharacterTavern](#charactertavern)). Du durchsuchst eine Quelle, filterst die Ergebnisse und siehst dir alle Details eines Charakters an. Danach importierst du den Charakter in die eigene Bibliothek oder speicherst ihn als PNG-Datei. Zum Stöbern und Importieren brauchst du mit den Standardeinstellungen weder ein Konto noch einen API-Key (ein geheimer Zugangscode, ähnlich einem Passwort).
 
 ## Den Card Browser öffnen
 
@@ -23,11 +23,23 @@ Der **Card Browser** bleibt geladen, solange die App offen ist. Schließt du ihn
 
 ## Eine Quelle wählen
 
-Klick auf die Quellen-Schaltfläche im Kopfbereich. Sie zeigt den Namen der aktuellen Quelle und einen kleinen Pfeil. Es öffnet sich ein Menü mit allen sechs Quellen in dieser Reihenfolge: **ChubAI**, **JannyAI**, **CharacterTavern**, **Pygmalion**, **Wyvern** und **DataCat**.
+Klick auf die Quellen-Schaltfläche im Kopfbereich. Sie zeigt den Namen der aktuellen Quelle und einen kleinen Pfeil. Es öffnet sich ein Menü mit den Quellen in dieser Reihenfolge: **ChubAI**, **JannyAI**, **CharacterTavern**, **Pygmalion**, **Wyvern** und **DataCat**. **CharacterTavern** ist dort als **Unavailable** gekennzeichnet.
 
 Beim ersten Öffnen des **Card Browser** ist **ChubAI** ausgewählt. Beim Wechsel der Quelle werden Suchtext, Tags (Schlagwörter) und Filter zurückgesetzt. Jede Quelle merkt sich Login und Einstellung für Erwachseneninhalte getrennt; eine Änderung wirkt sich also nicht auf die anderen aus.
 
-Noch eine Anmerkung zu den Namen: Im Menü steht **ChubAI**, auf der Detailseite eines Charakters heißt der Link nach außen dagegen **View on Chub**. So nennt sich die Seite selbst. Bei den anderen fünf Quellen ist der Name an beiden Stellen gleich.
+Noch eine Anmerkung zu den Namen: Im Menü steht **ChubAI**, auf der Detailseite eines Charakters heißt der Link nach außen dagegen **View on Chub**. So nennt sich die Seite selbst. Bei den anderen Quellen ist der Name an beiden Stellen gleich.
+
+## CharacterTavern
+
+CharacterTavern hat seine Website neu aufgebaut und bietet den Zugang nicht mehr an, über den Marinara Karten gesucht und heruntergeladen hat. Wählst du **CharacterTavern**, zeigt der **Card Browser** statt Suchergebnissen einen kurzen Hinweis. Stellt CharacterTavern künftig einen API-Zugang bereit, ist das Stöbern dort vielleicht wieder möglich.
+
+Bis dahin kannst du Charaktere von CharacterTavern weiterhin von Hand in Marinara holen:
+
+1. Klick im Hinweis auf **Open CharacterTavern** (CharacterTavern öffnen). Die Seite öffnet sich in einem neuen Tab.
+2. Lade die Charakterkarte als Datei von character-tavern.com herunter.
+3. Klick im Hinweis auf **Import Character** (Charakter importieren) und wähle die heruntergeladene Datei aus. Siehe [Charakterkarten importieren und exportieren](import-export.md).
+
+Charaktere, die du bereits von CharacterTavern importiert hast, bleiben in deiner Bibliothek.
 
 ## Suchen, sortieren, blättern
 
@@ -35,14 +47,13 @@ Tipp in das Feld **Search characters...** (Charaktere suchen), um zu suchen. Ent
 
 Neben dem Suchfeld liegt ein Dropdown-Menü zum Sortieren. Die Optionen unterscheiden sich je Quelle, und jede Quelle startet mit ihrer eigenen Standardsortierung:
 
-| Quelle          | Standardsortierung |
-| --------------- | ------------------ |
-| ChubAI          | Most Downloaded    |
-| JannyAI         | Newest             |
-| CharacterTavern | Most Popular       |
-| Pygmalion       | Downloads          |
-| Wyvern          | Popular            |
-| DataCat         | Relevance          |
+| Quelle    | Standardsortierung |
+| --------- | ------------------ |
+| ChubAI    | Most Downloaded    |
+| JannyAI   | Newest             |
+| Pygmalion | Downloads          |
+| Wyvern    | Popular            |
+| DataCat   | Relevance          |
 
 Klick auf die Schaltfläche **Refresh** (Aktualisieren, das Symbol mit dem Kreispfeil), um die aktuelle Suche erneut auszuführen.
 
@@ -81,17 +92,17 @@ Hinweis zu **Wyvern**: Die Kontrollkästchen **Lorebook** und **Alt Greetings** 
 Erwachseneninhalte heißen in der App **NSFW** (Not Safe For Work, also nicht jugendfrei). In der Werkzeugleiste gibt es dafür ein einziges Kontrollkästchen **NSFW**, doch jede Quelle geht anders damit um. Das ist die häufigste Frage – lies den Abschnitt also genau.
 
 - **ChubAI** und **JannyAI**: Das Kontrollkästchen **NSFW** wirkt sofort, ganz ohne Login. Standardmäßig ist es aus.
-- **CharacterTavern** und **Pygmalion**: Das Kontrollkästchen **NSFW** ist ausgegraut, bis du dich anmeldest. Der Tooltip (Kurzhinweis beim Draufzeigen) verweist auf die Anmeldung. Nach dem Login richtet sich die App nach den Kontoeinstellungen auf der jeweiligen fremden Seite. Das Kästchen heißt dann **NSFW depends on your account settings**. Einen eigenen Ein- und Ausschalter gibt es nach dem Login nicht mehr.
+- **Pygmalion**: Das Kontrollkästchen **NSFW** ist ausgegraut, bis du dich anmeldest. Der Tooltip (Kurzhinweis beim Draufzeigen) verweist auf die Anmeldung. Nach dem Login richtet sich die App nach deinen Kontoeinstellungen bei Pygmalion. Das Kästchen heißt dann **NSFW depends on your account settings**. Einen eigenen Ein- und Ausschalter gibt es nach dem Login nicht mehr.
 - **Wyvern**: Das Kontrollkästchen **NSFW** ist immer ausgegraut. Ein Hinweis lautet **Use "🔞 Popular NSFW" sort for NSFW content**. Für Erwachseneninhalte auf **Wyvern** wählst du im Sortier-Dropdown die Option **🔞 Popular NSFW**.
 - **DataCat**: Dort ist jeder Charakter als Erwachseneninhalt markiert, das Kästchen bleibt also fest aktiviert. Beim ersten Aufruf von **DataCat** erscheint ein Dialogfenster mit dem Titel **DataCat is NSFW only**. Klick auf **Continue to DataCat**, um zu stöbern, oder auf **Don't continue to DataCat**, um zurückzugehen.
 
 Charaktere mit Erwachseneninhalten tragen ein kleines rotes **NSFW**-Badge in der Ecke ihres Vorschaubilds.
 
-## Anmelden bei CharacterTavern und Pygmalion
+## Anmelden bei Pygmalion
 
-**CharacterTavern** und **Pygmalion** verstecken ihre Erwachseneninhalte hinter einer Anmeldung. Für normale, öffentliche Charaktere brauchst du keinen Login. Er schaltet ausschließlich Erwachseneninhalte frei.
+**Pygmalion** versteckt Erwachseneninhalte hinter einer Anmeldung. Für normale, öffentliche Charaktere brauchst du keinen Login. Er schaltet ausschließlich Erwachseneninhalte frei.
 
-Zum Anmelden klickst du in der Werkzeugleiste auf die Schaltfläche **Log In** (Anmelden). Es öffnet sich ein Anmeldefenster. Dort fügst du einen Wert ein, den du zuvor in deinem Konto auf der fremden Seite kopiert hast. Nach dem Passwort fragt Marinara nicht.
+Zum Anmelden klickst du in der Werkzeugleiste auf die Schaltfläche **Log In** (Anmelden). Es öffnet sich ein Anmeldefenster. Dort fügst du einen Wert ein, den du zuvor in deinem Pygmalion-Konto kopiert hast. Nach dem Passwort fragt Marinara nicht.
 
 Bei **Pygmalion** heißt das Fenster **Pygmalion Authentication** und verlangt ein **Auth Token**:
 
@@ -102,18 +113,9 @@ Bei **Pygmalion** heißt das Fenster **Pygmalion Authentication** und verlangt e
 5. Füge den Wert in Marinara in das Feld **Auth Token** ein.
 6. Klick auf **Save & Connect**. Es sollte eine Meldung erscheinen, dass NSFW-Inhalte aktiviert sind.
 
-Bei **CharacterTavern** heißt das Fenster **CharacterTavern Session** und verlangt einen **Cookie String**:
+Das Fenster enthält einen Hilfebereich, der diese Schritte wiederholt, und einen Link **Website**, der pygmalion.chat öffnet. Zum Abmelden öffnest du das Anmeldefenster erneut und klickst auf **Log Out**.
 
-1. Geh auf character-tavern.com und melde dich bei deinem Konto an.
-2. Öffne die Entwicklerwerkzeuge mit der Taste F12.
-3. Öffne den Tab **Application**, dann **Cookies**.
-4. Such das Cookie `session` und kopiere seinen Wert.
-5. Füge den Wert in Marinara in das Feld **Cookie String** ein.
-6. Klick auf **Save & Connect**. Es sollte eine Meldung erscheinen, dass NSFW-Inhalte aktiviert sind.
-
-Beide Fenster enthalten einen Hilfebereich, der diese Schritte wiederholt. Außerdem führt aus jedem Fenster ein Link auf die Website der Quelle. Im Fenster von **Pygmalion** heißt dieser Link **Website**, im Fenster von **CharacterTavern** heißt er **CharacterTavern**. Zum Abmelden öffnest du das Anmeldefenster erneut und klickst auf **Log Out**.
-
-Wichtig: Diese Logins liegen ausschließlich im Arbeitsspeicher des Servers. In eine Datei schreibt Marinara sie nie. Startest du den Marinara-Server neu, bist du bei beiden Quellen abgemeldet und musst den Wert erneut einfügen. Marinara weist dich dann mit einer Meldung darauf hin.
+Wichtig: Dieser Login liegt ausschließlich im Arbeitsspeicher des Servers. In eine Datei schreibt Marinara ihn nie. Startest du den Marinara-Server neu, bist du abgemeldet und musst das Token erneut einfügen. Marinara weist dich dann mit einer Meldung darauf hin.
 
 ## Einen Charakter vor dem Import prüfen
 
@@ -172,7 +174,9 @@ Das **Card Browser**-Panel in der rechten Seitenleiste führt eine eigene Liste 
 
 **Suche oder Details bei JannyAI scheitern mit einem Cloudflare-Fehler.** Manche Seiten blockieren automatisierte Anfragen. Ruf jannyai.com einmal im selben Webbrowser auf, bestehe die dort angezeigte Prüfung und such danach in Marinara erneut.
 
-**Der Login bei CharacterTavern oder Pygmalion funktioniert nicht mehr.** Ein Neustart des Marinara-Servers löscht diese Logins. Öffne das Fenster **Log In** erneut und füge Token oder Cookie-Wert noch einmal ein.
+**Der Login bei Pygmalion funktioniert nicht mehr.** Ein Neustart des Marinara-Servers löscht diesen Login. Öffne das Fenster **Log In** erneut und füge das Token noch einmal ein.
+
+**CharacterTavern zeigt nur einen Hinweis.** Das ist normal. Wie du Karten von dort als Datei importierst, steht unter [CharacterTavern](#charactertavern).
 
 **Eine Suche schlägt fehl oder eine Quelle funktioniert nicht mehr.** Öffentliche Seiten ändern ihre Seiten oder sperren den Zugriff jederzeit. Versuch es später noch einmal. Scheitert eine Quelle dauerhaft, öffne den Charakter direkt auf der Seite und lade die Karte selbst herunter. Anschließend holst du sie über den normalen Import herein. Siehe [Charakterkarten importieren und exportieren](import-export.md).
 

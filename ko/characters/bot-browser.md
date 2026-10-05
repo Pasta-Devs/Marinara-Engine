@@ -1,12 +1,12 @@
 # Card Browser: 캐릭터 찾아서 가져오기
 
-이 가이드에서는 Marinara Engine의 **Card Browser**(카드 브라우저)를 설명합니다. 공개 사이트에서 캐릭터 카드를 찾아 라이브러리로 가져오는 기본 내장 도구입니다. 지원하는 소스 6곳, 검색과 필터 사용법, 소스별 성인 콘텐츠 처리 방식을 다룹니다. 캐릭터를 가져오거나 파일로 저장하는 방법도 함께 설명합니다. 예전 버전에서는 이 탭 이름이 **Bot Browser** 또는 **Browser**였습니다.
+이 가이드에서는 Marinara Engine의 **Card Browser**(카드 브라우저)를 설명합니다. 공개 사이트에서 캐릭터 카드를 찾아 라이브러리로 가져오는 기본 내장 도구입니다. 지원하는 소스, 검색과 필터 사용법, 소스별 성인 콘텐츠 처리 방식을 다룹니다. 캐릭터를 가져오거나 파일로 저장하는 방법도 함께 설명합니다. 예전 버전에서는 이 탭 이름이 **Bot Browser** 또는 **Browser**였습니다.
 
 캐릭터 카드는 캐릭터 한 명의 이름, 성격, 인사말을 비롯한 정보를 담은 파일입니다. 원래대로라면 웹사이트에서 카드를 다운로드한 다음 Marinara에 업로드해야 합니다. **Card Browser**는 이 두 단계를 한자리에서 대신 처리합니다.
 
 ## Card Browser란
 
-**Card Browser**는 Marinara 안에서 여러 공개 캐릭터 카드 사이트를 검색합니다. 지원하는 소스는 **ChubAI**, **JannyAI**, **CharacterTavern**, **Pygmalion**, **Wyvern**, **DataCat** 6곳입니다. 소스를 골라 검색하고, 결과를 필터링하고, 캐릭터의 상세 정보를 미리 볼 수 있습니다. 그런 다음 그 캐릭터를 라이브러리로 가져오거나 PNG 파일로 저장하면 됩니다. 기본값 그대로 두면 캐릭터 카드를 둘러보고 가져오는 데 계정도 API 키도 필요하지 않습니다.
+**Card Browser**는 Marinara 안에서 여러 공개 캐릭터 카드 사이트를 검색합니다. 지원하는 소스는 **ChubAI**, **JannyAI**, **Pygmalion**, **Wyvern**, **DataCat** 5곳입니다. **CharacterTavern**도 목록에는 그대로 있지만 지금은 둘러볼 수 없습니다([CharacterTavern](#charactertavern) 참고). 소스를 골라 검색하고, 결과를 필터링하고, 캐릭터의 상세 정보를 미리 볼 수 있습니다. 그런 다음 그 캐릭터를 라이브러리로 가져오거나 PNG 파일로 저장하면 됩니다. 기본값 그대로 두면 캐릭터 카드를 둘러보고 가져오는 데 계정도 API 키도 필요하지 않습니다.
 
 ## Card Browser 열기
 
@@ -23,11 +23,23 @@
 
 ## 소스 고르기
 
-헤더의 소스 버튼을 클릭하세요. 현재 소스 이름과 작은 화살표가 표시되어 있습니다. 클릭하면 6개 소스가 **ChubAI**, **JannyAI**, **CharacterTavern**, **Pygmalion**, **Wyvern**, **DataCat** 순서로 들어 있는 메뉴가 열립니다.
+헤더의 소스 버튼을 클릭하세요. 현재 소스 이름과 작은 화살표가 표시되어 있습니다. 클릭하면 소스가 **ChubAI**, **JannyAI**, **CharacterTavern**, **Pygmalion**, **Wyvern**, **DataCat** 순서로 들어 있는 메뉴가 열립니다. **CharacterTavern**에는 **Unavailable**(사용할 수 없음) 표시가 붙어 있습니다.
 
 **Card Browser**를 처음 열면 **ChubAI**가 선택되어 있습니다. 소스를 바꾸면 검색어, 태그, 필터가 모두 지워집니다. 성인 콘텐츠 설정과 로그인 상태는 소스마다 따로 기억하므로, 한 소스에서 바꾼 설정이 다른 소스에 영향을 주지 않습니다.
 
-이름과 관련해 한 가지만 짚어 둡니다. 메뉴에는 **ChubAI**로 적혀 있지만, 캐릭터 상세 화면의 외부 링크는 **View on Chub**으로 표시됩니다. 사이트가 스스로를 부르는 이름이 그렇기 때문입니다. 나머지 5개 소스는 두 곳의 이름이 같습니다.
+이름과 관련해 한 가지만 짚어 둡니다. 메뉴에는 **ChubAI**로 적혀 있지만, 캐릭터 상세 화면의 외부 링크는 **View on Chub**으로 표시됩니다. 사이트가 스스로를 부르는 이름이 그렇기 때문입니다. 나머지 소스는 두 곳의 이름이 같습니다.
+
+## CharacterTavern
+
+CharacterTavern이 웹사이트를 개편하면서 Marinara가 카드를 검색하고 다운로드할 때 쓰던 연결을 더 이상 제공하지 않습니다. **CharacterTavern**을 고르면 **Card Browser**에 검색 결과 대신 짧은 안내가 표시됩니다. CharacterTavern이 API 접근을 제공하게 되면 둘러보기 기능이 다시 돌아올 수 있습니다.
+
+그때까지는 다음과 같이 CharacterTavern 캐릭터를 직접 Marinara로 가져올 수 있습니다.
+
+1. 안내에서 **Open CharacterTavern**(CharacterTavern 열기)을 클릭하세요. 새 탭에서 사이트가 열립니다.
+2. character-tavern.com에서 캐릭터 카드 파일을 다운로드하세요.
+3. 안내에서 **Import Character**(캐릭터 가져오기)를 클릭하고 다운로드한 파일을 고르세요. [캐릭터 카드 가져오기와 내보내기](import-export.md)를 참고하세요.
+
+CharacterTavern에서 이미 가져온 캐릭터는 라이브러리에 그대로 남아 있습니다.
 
 ## 검색, 정렬, 페이지 이동
 
@@ -35,14 +47,13 @@
 
 검색 입력란 옆에는 정렬 드롭다운이 있습니다. 선택지는 소스마다 다르고, 기본 정렬 방식도 소스마다 다릅니다.
 
-| 소스            | 기본 정렬       |
-| --------------- | --------------- |
-| ChubAI          | Most Downloaded |
-| JannyAI         | Newest          |
-| CharacterTavern | Most Popular    |
-| Pygmalion       | Downloads       |
-| Wyvern          | Popular         |
-| DataCat         | Relevance       |
+| 소스      | 기본 정렬       |
+| --------- | --------------- |
+| ChubAI    | Most Downloaded |
+| JannyAI   | Newest          |
+| Pygmalion | Downloads       |
+| Wyvern    | Popular         |
+| DataCat   | Relevance       |
 
 현재 검색을 다시 실행하려면 **Refresh**(새로고침) 버튼(원형 화살표 아이콘)을 클릭하세요.
 
@@ -81,17 +92,17 @@
 앱에서 성인 콘텐츠는 **NSFW**로 표시됩니다. 툴바에는 **NSFW** 체크박스가 하나뿐이지만 소스마다 처리 방식이 다릅니다. 질문이 가장 많은 부분이니 꼼꼼히 읽어 주세요.
 
 - **ChubAI**와 **JannyAI**: **NSFW** 체크박스가 곧바로 작동합니다. 로그인이 필요 없습니다. 기본값은 꺼짐입니다.
-- **CharacterTavern**과 **Pygmalion**: 로그인하기 전까지 **NSFW** 체크박스가 비활성화되어 있습니다. 툴팁이 먼저 로그인하라고 안내합니다. 로그인한 뒤에는 앱이 해당 외부 사이트의 계정 설정을 그대로 따릅니다. 그때부터 체크박스에는 **NSFW depends on your account settings**라고 표시됩니다. 로그인 후에는 켜고 끄는 스위치가 따로 없습니다.
+- **Pygmalion**: 로그인하기 전까지 **NSFW** 체크박스가 비활성화되어 있습니다. 툴팁이 먼저 로그인하라고 안내합니다. 로그인한 뒤에는 앱이 Pygmalion 계정 설정을 그대로 따릅니다. 그때부터 체크박스에는 **NSFW depends on your account settings**라고 표시됩니다. 로그인 후에는 켜고 끄는 스위치가 따로 없습니다.
 - **Wyvern**: **NSFW** 체크박스가 항상 비활성화되어 있습니다. **Use "🔞 Popular NSFW" sort for NSFW content**라는 안내가 표시됩니다. **Wyvern**에서 성인 콘텐츠를 보려면 정렬 드롭다운에서 **🔞 Popular NSFW**를 고르세요.
 - **DataCat**: 모든 캐릭터에 성인 태그가 붙어 있어 체크박스가 켜진 상태로 고정됩니다. **DataCat**을 처음 고르면 **DataCat is NSFW only** 제목의 창이 뜹니다. 둘러보려면 **Continue to DataCat**을, 돌아가려면 **Don't continue to DataCat**을 클릭하세요.
 
 성인 캐릭터는 썸네일 모서리에 작고 빨간 **NSFW** 배지가 붙습니다.
 
-## CharacterTavern과 Pygmalion 로그인하기
+## Pygmalion 로그인하기
 
-**CharacterTavern**과 **Pygmalion**은 성인 콘텐츠를 로그인 뒤에 숨겨 둡니다. 일반 공개 캐릭터를 보는 데는 로그인이 필요 없습니다. 로그인은 성인 콘텐츠를 여는 용도뿐입니다.
+**Pygmalion**은 성인 콘텐츠를 로그인 뒤에 숨겨 둡니다. 일반 공개 캐릭터를 보는 데는 로그인이 필요 없습니다. 로그인은 성인 콘텐츠를 여는 용도뿐입니다.
 
-로그인하려면 툴바의 **Log In**(로그인) 버튼을 클릭하세요. 로그인 창이 열립니다. 해당 외부 사이트의 내 계정에서 복사해 온 값을 붙여넣는 방식입니다. Marinara는 비밀번호를 묻지 않습니다.
+로그인하려면 툴바의 **Log In**(로그인) 버튼을 클릭하세요. 로그인 창이 열립니다. 내 Pygmalion 계정에서 복사해 온 값을 붙여넣는 방식입니다. Marinara는 비밀번호를 묻지 않습니다.
 
 **Pygmalion**은 창 제목이 **Pygmalion Authentication**이고 **Auth Token**(인증 토큰)을 입력받습니다.
 
@@ -102,18 +113,9 @@
 5. 복사한 값을 Marinara의 **Auth Token** 입력란에 붙여넣으세요.
 6. **Save & Connect**(저장 & 접속)를 클릭하세요. NSFW 콘텐츠가 활성화되었다는 메시지가 표시됩니다.
 
-**CharacterTavern**은 창 제목이 **CharacterTavern Session**이고 **Cookie String**(쿠키 문자열)을 입력받습니다.
+창에는 이 단계를 다시 안내하는 도움말 영역과 pygmalion.chat을 여는 **Website** 링크가 있습니다. 로그아웃하려면 로그인 창을 다시 열고 **Log Out**(로그아웃)을 클릭하세요.
 
-1. character-tavern.com에 접속해 계정에 로그인하세요.
-2. F12 키로 개발자 도구를 여세요.
-3. **Application** 탭을 열고 **Cookies**로 이동하세요.
-4. `session`이라는 이름의 쿠키를 찾아 그 값을 복사하세요.
-5. 복사한 값을 Marinara의 **Cookie String** 입력란에 붙여넣으세요.
-6. **Save & Connect**를 클릭하세요. NSFW 콘텐츠가 활성화되었다는 메시지가 표시됩니다.
-
-두 창 모두 이 단계를 다시 안내하는 도움말 영역을 갖추고 있습니다. 해당 소스의 웹사이트를 여는 링크도 들어 있습니다. **Pygmalion** 창에서는 이 링크가 **Website**로, **CharacterTavern** 창에서는 **CharacterTavern**으로 표시됩니다. 로그아웃하려면 로그인 창을 다시 열고 **Log Out**(로그아웃)을 클릭하세요.
-
-중요한 점이 있습니다. 이 로그인 정보는 서버 메모리에만 들어 있습니다. 파일로 저장되는 일은 없습니다. Marinara 서버를 다시 시작하면 두 소스 모두 로그아웃되므로 값을 다시 붙여넣어야 합니다. 이때 Marinara가 다시 로그인하라는 메시지를 표시합니다.
+중요한 점이 있습니다. 이 로그인 정보는 서버 메모리에만 들어 있습니다. 파일로 저장되는 일은 없습니다. Marinara 서버를 다시 시작하면 로그아웃되므로 토큰을 다시 붙여넣어야 합니다. 이때 Marinara가 다시 로그인하라는 메시지를 표시합니다.
 
 ## 가져오기 전에 캐릭터 살펴보기
 
@@ -172,7 +174,9 @@ JSON과 PNG는 같은 캐릭터 데이터를 담는 대표적인 두 가지 형�
 
 **JannyAI 검색이나 상세 정보가 Cloudflare 오류로 실패합니다.** 자동화된 요청을 막는 사이트가 있습니다. 같은 브라우저에서 jannyai.com에 한 번 접속해 확인 절차를 통과한 다음, Marinara로 돌아와 다시 검색하세요.
 
-**CharacterTavern이나 Pygmalion 로그인이 갑자기 풀렸습니다.** Marinara 서버를 다시 시작하면 이 로그인 정보가 지워집니다. **Log In** 창을 다시 열고 토큰이나 쿠키 값을 한 번 더 붙여넣으세요.
+**Pygmalion 로그인이 갑자기 풀렸습니다.** Marinara 서버를 다시 시작하면 이 로그인 정보가 지워집니다. **Log In** 창을 다시 열고 토큰을 한 번 더 붙여넣으세요.
+
+**CharacterTavern에는 안내만 표시됩니다.** 정상입니다. CharacterTavern 카드를 파일로 가져오는 방법은 [CharacterTavern](#charactertavern)을 참고하세요.
 
 **검색이 실패하거나 소스가 아예 작동하지 않습니다.** 공개 사이트는 언제든 페이지 구조를 바꾸거나 접근을 막을 수 있습니다. 시간을 두고 다시 시도해 보세요. 특정 소스에서 계속 실패한다면 그 사이트에서 캐릭터를 직접 열어 카드를 다운로드한 뒤, 일반적인 가져오기 방법으로 넣으세요. [캐릭터 카드 가져오기와 내보내기](import-export.md)를 참고하세요.
 

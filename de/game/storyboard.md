@@ -109,7 +109,7 @@ Roleplay-Storyboards bündeln abgeschlossene Wortwechsel zu einer bebilderten Ep
    - **Still images**: erzeugt automatisch eine bebilderte Episode.
    - **Animations**: erzeugt automatisch Keyframe-Bilder und zu jedem Bild einen Clip; dafür ist eine Video-Verbindung nötig.
 4. Stell **Messages per episode** und **Keyframes per episode** ein.
-5. Lass eine neue KI-Antwort fertig laufen – oder öffne die Gallery und klick auf **Create storyboard**.
+5. Lass eine neue KI-Antwort fertig laufen – oder öffne **Chat Settings > Gallery** und klick auf **Create storyboard**.
 
 Umfasst ein Storyboard mehrere Keyframes, blätterst du mit den Pfeilen zwischen den Bildern. Ein animiertes Keyframe spielt seinen Clip direkt im Chat ab und zeigt so lange das Bild, wie der Clip noch aussteht oder fehlt.
 
@@ -149,7 +149,7 @@ Im Game Mode stützt sich ein Storyboard auf genau einen abgeschlossenen GM-Erz�
 3. Öffne **Chat Settings > Agents**, aktiviere **Enable Agents** und danach **Enable Storyboards**.
 4. Prüf, ob das Spiel eine Bild-Verbindung hat oder die globale Storyboard-Einrichtung eine liefert.
 5. Lass einen GM-Erzählzug fertig laufen.
-6. Öffne die **Gallery** und klick auf **Create storyboard**.
+6. Öffne **Chat Settings > Gallery** und klick auf **Create storyboard**.
 
 Hast du den Viewer im Spiel geschlossen, holst du ihn über **View storyboard** (Storyboard ansehen) in der Gallery zurück. Von Hand erzeugte Storyboards richten sich nach der aktuellen Animationseinstellung: Ist **Automatic Storyboard Animations** an, fordert auch das manuelle Storyboard Clips an.
 
@@ -275,7 +275,7 @@ Der Storyboard-Agent funktioniert mit der Präsentation Standard genauso wie mit
 
 **Floating viewer** ist ein verschiebbares, in der Größe veränderbares Panel über dem Spiel. Es folgt deiner Leseposition in der GM-Erzählung und zeigt das passende Bild. Ein Video läuft, sobald es fertig ist; sonst erscheint das Standbild des Keyframes.
 
-**Game background** legt das aktive Bild hinter die Spielbedienelemente. Solange dieser Modus läuft, ersetzt er den sonst erzeugten Szenen-Hintergrund; die gewohnte Aktion **Generate background** (Hintergrund erzeugen) ist dann nicht verfügbar. Hintergrund-Clips laufen einmal durch und bleiben auf dem letzten Bild stehen; über die Spielbedienelemente steuerst du Wiederholung, Wiedergabe/Pause und Stummschaltung.
+**Game background** legt das aktive Bild hinter den restlichen Spielbildschirm. Solange dieser Modus läuft, ersetzt er den sonst erzeugten Szenen-Hintergrund; die gewohnte Aktion **Generate background** (Hintergrund erzeugen) ist dann nicht verfügbar. Hintergrund-Clips laufen einmal durch und bleiben auf dem letzten Bild stehen. Für Wiederholung, Wiedergabe/Pause und Stummschaltung klick oder tippe auf **Game controls** (der kreisförmige Pfeil, anfangs nahe der oberen rechten Ecke des Chats). Am Computer öffnet sich ein Fenster, am Telefon ein Panel. Hast du die Steuerung in Chat Settings verschoben, öffne dort den Abschnitt **Game controls**.
 
 Schließt du den schwebenden Viewer, bleibt er nur für den aktuellen Zug verborgen. Über **Gallery > View storyboard** holst du ihn zurück.
 

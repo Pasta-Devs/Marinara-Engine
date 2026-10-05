@@ -40,9 +40,9 @@ Autre option : clique sur la ligne **Random** (aléatoire), signalée par l'éti
 
 ## Gérer les membres après la création
 
-Tu ajoutes, retires et réorganises les personnages depuis le panneau latéral **Chat Settings** (réglages du chat). Ouvre-le avec l'icône d'engrenage, dans l'en-tête du chat. L'infobulle de l'engrenage indique **Chat Settings**.
+Tu ajoutes, retires et réorganises les personnages dans **Chat Settings** (réglages du chat). Ouvre-le avec son bouton dans le chat.
 
-Dans le panneau latéral, repère la section **Characters**. Elle affiche le nombre de membres et le texte d'aide "Characters in this chat. Each character has their own personality that the AI roleplays as." Chaque ligne de membre comporte un avatar, le nom du personnage, une poignée de déplacement, une icône d'œil et une icône de corbeille.
+Dans Chat Settings, repère la section **Characters**. Elle affiche le nombre de membres et le texte d'aide "Characters in this chat. Each character has their own personality that the AI roleplays as." Chaque ligne de membre comporte un avatar, le nom du personnage, une poignée de déplacement, une icône d'œil et une icône de corbeille.
 
 - Pour ajouter un personnage de plus, clique sur le bouton **Add Character** (ajouter un personnage) et lance une recherche.
 - Pour ajouter un dossier entier, clique sur **Add from Folder** et choisis-en un.

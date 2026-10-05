@@ -31,7 +31,7 @@ En résumé : **Cross-Chat Awareness** relie automatiquement un personnage à tr
 Le lien se crée depuis le chat Conversation, ou depuis un chat Game. Voici la marche à suivre pour partir du côté Conversation :
 
 1. Ouvre le chat Conversation que tu veux relier.
-2. Ouvre **Chat Settings** (l'engrenage).
+2. Ouvre **Chat Settings** (réglages du chat) avec son bouton dans le chat. Il se trouve en haut à droite, sauf si tu l'as déplacé.
 3. Repère la section **Connected Chats**.
 4. Clique sur **Link to Roleplay or Game** (relier à un Roleplay ou un Game).
 5. Cherche le chat Roleplay ou Game dans le sélecteur, puis clique dessus.
@@ -70,11 +70,15 @@ Cette section liste toutes les notes enregistrées. Chaque note a son bouton de 
 
 Si aucun personnage n'a encore enregistré de note, la section explique que les notes encadrées par une balise `<note>` apparaîtront ici une fois enregistrées.
 
+<a id="switching-between-connected-chats"></a>
+
 ## Passer d'un chat connecté à l'autre
 
-Quand un chat a un chat lié, sa barre d'outils affiche un bouton de bascule, avec une icône à double flèche. Son infobulle indique "Switch to" suivi du nom de l'autre chat.
+Quand un chat a un chat lié, un bouton déplaçable **Connected chat**, avec une double flèche, apparaît en haut à droite. Tu peux le déplacer sur un ordinateur ou un téléphone. Clique ou appuie dessus pour ouvrir une petite fenêtre, puis choisis **Switch to** suivi du nom de l'autre chat.
 
-Clique dessus pour sauter directement au chat connecté. Plus besoin de chercher l'autre chat à la main dans la liste des chats. Le bouton apparaît des deux côtés du lien, côté Conversation comme côté Roleplay.
+Cette action ouvre directement le chat connecté, sans avoir à le chercher dans la liste. Le bouton apparaît des deux côtés du lien, en Conversation comme en Roleplay.
+
+Si tu préfères le garder dans Chat Settings, choisis **Put back in Chat Settings** dans la fenêtre. Il devient la section **Connected chat**. Le bouton de détachement de cette section lui redonne une fenêtre séparée.
 
 ## Les autres réglages de cette section
 

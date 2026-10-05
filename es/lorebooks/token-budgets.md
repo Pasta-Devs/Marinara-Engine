@@ -45,9 +45,11 @@ Cuando coinciden más entradas de las que permite un presupuesto, Marinara conse
 
 Marinara recorre esa lista y añade cada entrada que todavía cabe. Si una entrada haría que un presupuesto superara su límite, Marinara omite esa entrada y sigue adelante. Aun así revisa cada entrada por debajo de la que omitió. Esto significa que una entrada más pequeña puede entrar incluso después de que Marinara omita una más grande.
 
+<a id="seeing-skipped-entries-in-active-context"></a>
+
 ## Ver las entradas omitidas en Active Context
 
-No tienes que adivinar qué entradas se descartaron. El botón **Active Context** (Contexto activo) de la barra de herramientas del chat abre un panel. Muestra el resultado en vivo del escaneo de lorebook más reciente.
+No tienes que adivinar qué entradas se descartaron. Abre **Chat Settings** y despliega **Active Context** (Contexto activo). Muestra el resultado en vivo del escaneo de lorebook más reciente.
 
 Si se omitió alguna entrada coincidente, aparece un aviso ámbar en la parte superior. Dice "N matching lore entries were skipped by token budget" (Se omitieron N entradas de trasfondo coincidentes por el presupuesto de tokens). Expándelo para ver cada entrada omitida.
 
@@ -57,7 +59,7 @@ Cada entrada omitida indica de qué lorebook vino y por qué fue bloqueada. La r
 - **chat budget**: la entrada no cupo en el **Lorebook Token Budget** que abarca todo el chat.
 - **lorebook and chat budgets**: ambos límites ya estaban llenos.
 
-Expande una entrada omitida para ver más detalle. Muestra las palabras clave coincidentes, el tamaño estimado en tokens, y cuánto del presupuesto ya se había usado. Si lorebooks grandes se siguen omitiendo, el panel sugiere los agentes **Knowledge Retrieval** o **Knowledge Router**. Estos suelen manejar mejor los lorebooks grandes que subir tus límites.
+Expande una entrada omitida para ver más detalle. Muestra las palabras clave coincidentes, el tamaño estimado en tokens, y cuánto del presupuesto ya se había usado. Si lorebooks grandes se siguen omitiendo, **Active Context** sugiere los agentes **Knowledge Retrieval** o **Knowledge Router**. Estos suelen manejar mejor los lorebooks grandes que subir tus límites.
 
 ## Escaneo recursivo
 

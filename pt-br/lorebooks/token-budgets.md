@@ -45,9 +45,11 @@ Quando o número de entradas correspondentes passa do que o orçamento permite, 
 
 Marinara percorre essa lista e acrescenta cada entrada que ainda couber. Se uma entrada estourar um orçamento, Marinara pula essa entrada e segue em frente. Mesmo assim, todas as entradas abaixo da pulada continuam sendo verificadas. Ou seja, uma entrada menor ainda pode entrar depois que Marinara pulou uma maior.
 
+<a id="seeing-skipped-entries-in-active-context"></a>
+
 ## Ver as entradas puladas no Active Context
 
-Não é preciso adivinhar quais entradas ficaram de fora. O botão **Active Context** (contexto ativo), na barra de ferramentas do chat, abre um painel. Ele mostra o resultado ao vivo da varredura de lorebooks mais recente.
+Não é preciso adivinhar quais entradas ficaram de fora. Abra **Chat Settings** e expanda **Active Context** (contexto ativo). A seção mostra o resultado ao vivo da varredura de lorebooks mais recente.
 
 Quando alguma entrada correspondente é pulada, um aviso âmbar aparece no topo. Ele diz "N matching lore entries were skipped by token budget." Expanda o aviso para ver cada entrada pulada.
 
@@ -57,7 +59,7 @@ Cada entrada pulada informa de qual lorebook veio e por que foi barrada. O motiv
 - **chat budget**: a entrada não coube no campo **Lorebook Token Budget** do chat inteiro.
 - **lorebook and chat budgets**: os dois limites já estavam cheios.
 
-Expanda uma entrada pulada para ver mais detalhes. Ela mostra as palavras-chave correspondentes, o tamanho estimado em tokens e quanto do orçamento já tinha sido usado. Se lorebooks grandes forem pulados com frequência, o painel sugere os agentes **Knowledge Retrieval** ou **Knowledge Router**. Costumam lidar melhor com lorebooks grandes do que aumentar os limites.
+Expanda uma entrada pulada para ver mais detalhes. Ela mostra as palavras-chave correspondentes, o tamanho estimado em tokens e quanto do orçamento já tinha sido usado. Se lorebooks grandes forem pulados com frequência, **Active Context** sugere os agentes **Knowledge Retrieval** ou **Knowledge Router**. Costumam lidar melhor com lorebooks grandes do que aumentar os limites.
 
 ## Varredura recursiva
 

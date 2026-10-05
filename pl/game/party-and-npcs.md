@@ -79,7 +79,7 @@ O składzie drużyny decyduje postać Game Master w miarę rozwoju historii. Nie
 
 Panel **Adventure Journal** to bieżąca kronika kampanii. Powstaje z zapisanych zdarzeń gry, a nie z tekstu pisanego przez AI, więc trzyma się faktów.
 
-Kliknij przycisk **Session** (sesja) na górnym pasku narzędzi, a potem wybierz zakładkę **Journal**. Otworzy się panel dziennika z takimi zakładkami:
+Otwórz **Session** (sesja; zobacz [Otwieranie Session](sessions-and-saves.md#opening-session)), a potem wybierz zakładkę **Journal**. Dziennik ma następujące zakładki:
 
 - **Timeline** (oś czasu): lista tego, co się wydarzyło – odkryte lokacje, spotkania z postaciami NPC, wyniki walk, zadania i zdarzenia dotyczące przedmiotów.
 - **NPCs**: napotkane postacie NPC z portretami i etykietami reputacji (opis niżej).

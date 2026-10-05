@@ -9,7 +9,7 @@ Alguns agentes querem escrever dados novos no chat. Um agente de lorebook pode a
 Para achar essa opção:
 
 1. Abra o chat que você quer controlar.
-2. Abra **Chat Settings** (configurações do chat), no ícone de engrenagem.
+2. Abra **Chat Settings** (configurações do chat).
 3. Desça até a seção **Agents**.
 4. Ative **Review Agent Outputs**.
 
@@ -60,7 +60,7 @@ Com o **Agent Suite**, você vê e edita tudo o que os agentes deste chat salvar
 
 Para abrir:
 
-1. Abra **Chat Settings**, no ícone de engrenagem.
+1. Abra **Chat Settings**.
 2. Desça até a seção **Agents**.
 3. Clique em **Agent Suite**.
 
@@ -90,7 +90,7 @@ Algumas observações:
 
 ## Painel Cached prompt injections
 
-Antes de a resposta ser gerada, alguns agentes de escrita acrescentam texto ao prompt (o texto que Marinara envia para a IA). Isso é comum em **Prose Guardian**, **Narrative Director** e nos agentes de inserção personalizados. O painel **Cached prompt injections** é uma tela de diagnóstico desse texto acrescentado. Ele fica no menu Agents de um chat de Roleplay e cobre a resposta mais recente.
+Antes de a resposta ser gerada, alguns agentes de escrita acrescentam texto ao prompt (o texto que Marinara envia para a IA). Isso é comum em **Prose Guardian**, **Narrative Director** e nos agentes de inserção personalizados. O painel **Cached prompt injections** é uma tela de diagnóstico desse texto acrescentado. Ele fica na aba **Injections** de [Agent activity](../roleplay/getting-started.md#agent-activity) no Roleplay, quando **Debug mode** está ativado. Ele cobre a resposta mais recente.
 
 Em cada inserção em cache, você pode:
 

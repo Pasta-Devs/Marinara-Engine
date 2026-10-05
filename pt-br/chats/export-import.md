@@ -13,13 +13,12 @@ A importação de chat aceita apenas arquivos `.jsonl`. Se você pretende import
 
 ## Exportar um único chat
 
-Para exportar um chat para um arquivo, use o painel **Chat Branches** (ramificações do chat). Esse é o caminho mais rápido para exportar o histórico de uma conversa específica.
+Para exportar um chat para um arquivo, use a seção **Chat Branches** de **Chat Settings** (ramificações do chat). Esse é o caminho mais rápido para exportar o histórico de uma conversa específica.
 
 1. Abra o chat que você quer exportar.
-2. Na barra de ferramentas do chat, clique no botão de ramificação (a dica dele diz **Switch branch**).
-3. O painel **Chat Branches** abre. Ele diz "Switch, import, export, or clean up this chat's branches."
-4. Clique em **JSONL** para salvar o chat como arquivo JSONL, ou clique em **Text** para salvar como arquivo de texto legível.
-5. O navegador baixa o arquivo.
+2. Abra **Chat Settings** e expanda **Chat Branches**, abaixo de **Chat Name**.
+3. Clique em **JSONL** para salvar o chat como arquivo JSONL, ou clique em **Text** para salvar como arquivo de texto legível.
+4. O navegador baixa o arquivo.
 
 O download salva o chat que está aberto no momento, com as mensagens dele.
 
@@ -54,8 +53,8 @@ Se você quer o chat novo no Roleplay Mode, abra a aba **RP** antes de importar.
 Também é possível carregar um arquivo `.jsonl` dentro de um chat existente como uma nova ramificação. Uma ramificação é uma cópia separada e salva do chat, que você explora por conta própria. Veja [Ramificações de chat](branches.md) para saber mais sobre ramificações.
 
 1. Abra o chat em que você quer adicionar a ramificação.
-2. Na barra de ferramentas do chat, clique no botão de ramificação (dica **Switch branch**) para abrir o painel **Chat Branches**.
-3. Clique em **Import** nesse painel.
+2. Abra **Chat Settings** e expanda **Chat Branches**, abaixo de **Chat Name**.
+3. Clique em **Import** nessa seção.
 4. Escolha o arquivo `.jsonl`.
 5. Aparece uma mensagem dizendo "Imported N messages as a new branch".
 

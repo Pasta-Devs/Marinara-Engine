@@ -205,7 +205,7 @@ Wspomnienie powstaje dopiero po co najmniej 5 nowych wiadomościach. Funkcja pok
 
 Podsumowania czatu wymagają działającego połączenia tekstowego.
 
-- W trybie Roleplay otwórz panel podręczny **Chat Summary** i sprawdź, czy połączenie jest ustawione. Przycisk **Backfill Summary** uzupełnia starszy czat.
+- W trybie Roleplay otwórz **Chat Settings** > **Chat Summary** i sprawdź, czy połączenie jest ustawione. Przycisk **Backfill Summary** uzupełnia starszy czat.
 - W trybie Conversation otwórz **Automatic Summarization** i przyciskiem **Backfill** ponów nieudane dni.
 - Jeśli czat wymaga zatwierdzania zapisów agenta, podsumowanie od AI czeka na twoją akceptację.
 - Podsumowanie, które ciągle zawodzi (na przykład przez błędny klucz API), jest ponawiane z opóźnieniem. Napraw połączenie, a potem użyj przycisku **Backfill**.
@@ -215,7 +215,8 @@ Podsumowania czatu wymagają działającego połączenia tekstowego.
 **Card Browser** służy do przeszukiwania publicznych serwisów z postaciami i importowania postaci. Otwórz go ikoną **Card Browser** na górnym pasku, a potem kliknij przycisk **Download Cards**.
 
 - Jeśli wyszukiwanie w serwisie JannyAI albo strona postaci kończy się blokadą Cloudflare, Marinara pokazuje komunikat. Prosi o jednorazowe odwiedzenie strony JannyAI w tej samej przeglądarce, żeby przejść weryfikację, a potem o ponowną próbę.
-- Jeśli logowanie do serwisu CharacterTavern lub Pygmalion przestaje działać po restarcie serwera, tak ma być. Te dane logowania żyją wyłącznie w pamięci serwera i znikają przy restarcie. Otwórz okno logowania i wklej cookie albo token jeszcze raz.
+- Jeśli logowanie do serwisu Pygmalion przestaje działać po restarcie serwera, tak ma być. Te dane logowania żyją wyłącznie w pamięci serwera i znikają przy restarcie. Otwórz okno logowania i wklej token jeszcze raz.
+- Jeśli źródło CharacterTavern zamiast wyników wyszukiwania pokazuje komunikat, tak ma być. Przebudowana strona tego serwisu nie udostępnia już połączenia, z którego korzystała aplikacja Marinara. Zamiast tego pobierz kartę ze strony character-tavern.com i zaimportuj plik.
 
 ## Problemy z generowaniem multimediów
 
@@ -238,9 +239,9 @@ Potem uruchom aplikację Marinara Engine ponownie i kliknij przycisk **Reapply C
 Storyboardy w trybie Game Mode zamieniają zakończoną narrację postaci GM w obrazy klatek kluczowych i opcjonalne klipy. Storyboardy w trybie Roleplay łączą zakończone wymiany zdań i pokazują wynik bezpośrednio pod odpowiedzią asystenta.
 
 - Sprawdź, czy agent **Storyboard** jest zainstalowany z **Agents** > **Download Agents**, a potem włącz dla czatu przełączniki **Enable Agents** i **Enable Storyboards**.
-- Aby ręcznie zrobić wideo sceny, najpierw wygeneruj lub wgraj obraz w sekcji **Gallery** (Galeria), a potem użyj przy nim akcji **Video** albo **Animate**. Sekcja **Gallery** rozdziela **Images** i **Videos** na zakładki, więc zajrzyj do zakładki **Videos**.
+- Aby ręcznie zrobić wideo sceny, otwórz **Chat Settings** > **Gallery** (galeria), wygeneruj lub wgraj obraz, a potem użyj przy nim akcji **Video** albo **Animate**. Sekcja **Gallery** rozdziela **Images** i **Videos** na zakładki, więc zajrzyj do zakładki **Videos**.
 - Przy automatycznych storyboardach w trybie Game Mode otwórz **Chat Settings** > **Agents** > **Storyboards** i sprawdź, czy **Automatic Storyboard Illustrations** jest włączone. Jeśli mają powstawać także klipy, włącz również **Automatic Storyboard Animations**.
-- W trybie Roleplay dodaj do czatu agenta **Storyboard**. Wybierz **Still images** albo **Animations**, ustaw **Messages per episode** i wskaż połączenie do generowania obrazów dla storyboardu. Opcja **Manual only** uruchamia storyboard dopiero przyciskiem **Create storyboard** w sekcji **Gallery**.
+- W trybie Roleplay dodaj do czatu agenta **Storyboard**. Wybierz **Still images** albo **Animations**, ustaw **Messages per episode** i wskaż połączenie do generowania obrazów dla storyboardu. Opcja **Manual only** uruchamia storyboard dopiero przyciskiem **Create storyboard** w sekcji **Gallery** w **Chat Settings**.
 - Klatki kluczowe wymagają połączenia do generowania obrazów. Klipy potrzebują dodatkowo połączenia wideo.
 - Jeśli własny prompt działa lepiej ze wszystkimi postaciami naraz, wyłącz **Use NovelAI Character Prompts**.
 - U wolnych dostawców może zostać przekroczony limit czasu. Zwiększ `IMAGE_GEN_TIMEOUT_MS` lub `VIDEO_GEN_TIMEOUT_MS` w pliku `.env`, a potem uruchom aplikację Marinara Engine ponownie. Serwer odczytuje te wartości tylko przy starcie.

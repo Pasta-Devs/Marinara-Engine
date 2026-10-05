@@ -205,7 +205,7 @@ Un souvenir a besoin d'au moins 5 nouveaux messages pour être créé. Le rappel
 
 Les résumés de chat ont besoin d'une connexion texte fonctionnelle pour être rédigés.
 
-- En mode Roleplay, ouvre le panneau contextuel **Chat Summary** et vérifie qu'une connexion est définie. Utilise **Backfill Summary** pour rattraper le retard sur un chat ancien.
+- En mode Roleplay, ouvre **Chat Settings > Chat Summary** et vérifie qu'une connexion est définie. Utilise **Backfill Summary** pour rattraper le retard sur un chat ancien.
 - En mode Conversation, ouvre **Automatic Summarization** et utilise **Backfill** pour retenter les jours en échec.
 - Si ton chat exige une approbation d'écriture pour les agents, un résumé rédigé par l'IA attend ta relecture avant de prendre effet.
 - Un résumé qui échoue à répétition (à cause d'une clé API invalide, par exemple) est retenté après un délai. Corrige la connexion, puis utilise **Backfill**.
@@ -215,7 +215,8 @@ Les résumés de chat ont besoin d'une connexion texte fonctionnelle pour être 
 Le **Card Browser** te permet de chercher des personnages sur les sites publics et de les importer. Ouvre-le depuis l'icône **Card Browser** dans la barre du haut, puis clique sur **Download Cards**.
 
 - Si une recherche JannyAI ou une page de personnage échoue sur un blocage Cloudflare, Marinara affiche un message. Il te demande de visiter une fois le site JannyAI dans le même navigateur pour passer la vérification Cloudflare, puis de réessayer.
-- Si tes identifiants CharacterTavern ou Pygmalion cessent de fonctionner après un redémarrage du serveur, c'est normal. Ces identifiants ne vivent que dans la mémoire du serveur et disparaissent au redémarrage. Ouvre la fenêtre de connexion et recolle ton cookie ou ton token.
+- Si tes identifiants Pygmalion cessent de fonctionner après un redémarrage du serveur, c'est normal. Ces identifiants ne vivent que dans la mémoire du serveur et disparaissent au redémarrage. Ouvre la fenêtre de connexion et recolle ton token.
+- Si CharacterTavern affiche un avis au lieu des résultats de recherche, c'est normal. Son nouveau site web ne propose plus la connexion qu'utilisait Marinara. Télécharge plutôt la fiche depuis character-tavern.com, puis importe le fichier.
 
 ## Problèmes de génération de médias
 
@@ -238,9 +239,9 @@ Redémarre ensuite Marinara et clique sur **Reapply Cleanup** dans la fenêtre d
 Les storyboards de Game Mode transforment une narration du GM terminée en images-clés, avec des clips en option. Les storyboards de Roleplay réunissent les échanges terminés et affichent le résultat directement sous la réponse de l'IA.
 
 - Vérifie que **Storyboard** est installé depuis **Agents** > **Download Agents**, puis active **Enable Agents** et **Enable Storyboards** pour le chat.
-- Pour une vidéo de scène manuelle, génère ou téléverse d'abord une image dans la **Gallery**, puis utilise son action **Video** ou **Animate**. La **Gallery** répartit **Images** et **Videos** dans des onglets distincts : pense à regarder l'onglet **Videos**.
+- Pour une vidéo de scène manuelle, ouvre **Chat Settings > Gallery**, puis génère ou téléverse une image, puis utilise son action **Video** ou **Animate**. La **Gallery** répartit **Images** et **Videos** dans des onglets distincts : pense à regarder l'onglet **Videos**.
 - Pour les storyboards automatiques de Game Mode, ouvre **Chat Settings** > **Agents** > **Storyboards** et vérifie que **Automatic Storyboard Illustrations** est activé. Active aussi **Automatic Storyboard Animations** si tu veux également des clips.
-- En Roleplay, ajoute l'agent **Storyboard** au chat. Choisis **Still images** ou **Animations**, règle **Messages per episode**, puis sélectionne la connexion d'images du storyboard. Avec **Manual only**, la génération part plutôt de **Create storyboard** dans la **Gallery**.
+- En Roleplay, ajoute l'agent **Storyboard** au chat. Choisis **Still images** ou **Animations**, règle **Messages per episode**, puis sélectionne la connexion d'images du storyboard. Avec **Manual only**, la génération part plutôt de **Create storyboard** dans la section **Gallery** de **Chat Settings**.
 - Les images-clés ont besoin d'une connexion d'images. Les clips ont en plus besoin d'une connexion vidéo.
 - Si un prompt personnalisé donne de meilleurs résultats avec tous les personnages réunis, désactive **Use NovelAI Character Prompts**.
 - Les fournisseurs lents peuvent atteindre le délai d'expiration. Augmente `IMAGE_GEN_TIMEOUT_MS` ou `VIDEO_GEN_TIMEOUT_MS` dans le fichier `.env`, puis redémarre Marinara. Le serveur ne lit ces valeurs qu'au démarrage.

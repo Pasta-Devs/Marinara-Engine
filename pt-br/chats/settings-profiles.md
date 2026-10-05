@@ -23,6 +23,8 @@ O perfil salva a forma como o chat conversa com a IA:
 - Tradução
 - Memory Recall
 - Advanced Parameters
+- Layout de janelas e botões: posições e tamanhos das janelas, fixações e travas, ferramentas dentro ou fora de Chat Settings, janelas de controles abertas e posições dos botões no computador e no celular. Perfis sem layout salvo, como **Default**, mantêm o layout do chat.
+- Se as dicas de layout de Chat Settings estão ocultas. Aplicar **Default** ou um perfil antigo sem essa escolha mostra as dicas novamente.
 - Outras opções reutilizáveis do chat
 
 O perfil não substitui o conteúdo que pertence ao chat, como personagens, persona, lorebooks, sprites, resumo, tags ou prompt da cena. Ele também não salva o histórico da conversa.
@@ -62,6 +64,18 @@ As dicas da estrela descrevem o estado atual:
 - **Mark this profile as default for new chats in this mode**
 - **This profile is the default for new chats in this mode**
 - **Select a profile to mark it as default**
+
+## Layouts de janelas favoritos
+
+A estrela ao lado de **Reset View** na barra de título de Chat Settings salva um layout favorito para novos chats no modo atual. Ela também lembra se você ocultou as dicas de layout. Você pode usá-la em Conversation, Roleplay e Game. A estrela ao lado do menu **Profile** continua escolhendo o perfil de configurações padrão.
+
+Ao atualizar uma instalação existente, a disposição conhecida dos botões de ferramentas vira o favorito para novos chats nos três modos. Isso acontece uma vez e respeita qualquer favorito que você já tenha salvo ou limpado. O layout continua sendo o padrão até você mudá-lo. Uma instalação nova começa com as ferramentas dentro de Chat Settings e sem layout favorito.
+
+Organize as janelas e os botões e clique na estrela da barra de título para salvar. Ela fica preenchida quando a disposição e as dicas atuais correspondem ao favorito. Se você mover uma janela ou mudar a disposição, clique na estrela novamente para substituir o favorito. Clique na estrela preenchida para limpar e usar o layout padrão nos próximos chats. Essas mudanças não alteram os chats existentes.
+
+Quando um novo chat usa um perfil de configurações padrão, o layout salvo nesse perfil tem prioridade sobre o favorito. Perfis sem layout salvo mantêm a disposição do chat, inclusive a fornecida por um favorito. Um perfil ainda aplica sua própria configuração de dicas; perfis antigos sem essa configuração mostram as dicas.
+
+Veja os passos em [Escolher um layout para novos chats](chat-settings.md#choosing-a-layout-for-new-chats).
 
 ## Importação e exportação de perfis
 

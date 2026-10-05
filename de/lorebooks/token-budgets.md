@@ -45,9 +45,11 @@ Passen mehr Einträge, als ein Budget zulässt, behält Marinara die wichtigsten
 
 Marinara arbeitet diese Liste von oben nach unten ab und nimmt jeden Eintrag mit, der noch hineinpasst. Würde ein Eintrag ein Budget überschreiten, überspringt Marinara ihn und macht weiter. Alle Einträge darunter werden trotzdem geprüft. Ein kleinerer Eintrag kann es also noch schaffen, nachdem ein größerer herausgefallen ist.
 
+<a id="seeing-skipped-entries-in-active-context"></a>
+
 ## Übersprungene Einträge im Active Context sehen
 
-Du musst nicht raten, welche Einträge herausgefallen sind. Die Schaltfläche **Active Context** (aktiver Kontext) in der Chat-Werkzeugleiste öffnet ein Panel. Darin steht das aktuelle Ergebnis der letzten Lorebook-Suche.
+Du musst nicht raten, welche Einträge herausgefallen sind. Öffne **Chat Settings** und klapp den Abschnitt **Active Context** (aktiver Kontext) auf. Dort steht das aktuelle Ergebnis der letzten Lorebook-Suche.
 
 Wurden passende Einträge übersprungen, erscheint oben ein bernsteinfarbener Hinweis. Er lautet "N matching lore entries were skipped by token budget." Klapp ihn auf, um jeden übersprungenen Eintrag zu sehen.
 
@@ -57,7 +59,7 @@ Bei jedem übersprungenen Eintrag stehen das Lorebook, aus dem er stammt, und de
 - **chat budget**: Der Eintrag passte nicht ins chatweite **Lorebook Token Budget**.
 - **lorebook and chat budgets**: Beide Grenzen waren bereits ausgeschöpft.
 
-Klapp einen übersprungenen Eintrag auf, um Details zu sehen. Dort stehen die passenden Schlüsselwörter, die geschätzte Größe in Tokens und der bereits verbrauchte Anteil des Budgets. Fallen große Lorebooks immer wieder heraus, empfiehlt das Panel die Agenten **Knowledge Retrieval** und **Knowledge Router**. Damit lassen sich große Lorebooks meist besser bändigen als durch höhere Grenzwerte.
+Klapp einen übersprungenen Eintrag auf, um Details zu sehen. Dort stehen die passenden Schlüsselwörter, die geschätzte Größe in Tokens und der bereits verbrauchte Anteil des Budgets. Fallen große Lorebooks immer wieder heraus, empfiehlt **Active Context** die Agenten **Knowledge Retrieval** und **Knowledge Router**. Damit lassen sich große Lorebooks meist besser bändigen als durch höhere Grenzwerte.
 
 ## Rekursives Durchsuchen
 

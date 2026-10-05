@@ -206,7 +206,7 @@ Usa un turno de GM completado que contenga una acción visual obvia, como abrir 
 
 1. Para la comprobación de baja VRAM más rápida, ajusta temporalmente **Keyframes per Turn** a 1 mientras dejas **Animation Clip Duration** en 5 segundos. El perfil probado normal usa 3 fotogramas clave.
 2. Activa ambos ajustes automáticos de Storyboard después de que el turno de GM actual ya esté completo.
-3. Abre la Gallery y elige **Create storyboard** para ese turno de GM completado. Esto inicia manualmente la ruta completa de ilustración y animación sin esperar a otro turno.
+3. Abre **Chat Settings > Gallery** y elige **Create storyboard** para ese turno de GM completado. Esto inicia manualmente la ruta completa de ilustración y animación sin esperar a otro turno.
 4. Si la exposición de prompts está activada, revisa el prompt de primer fotograma antes de enviarlo.
 5. Confirma que el primer fotograma generado es una pose de partida físicamente útil.
 6. Espera a que termine el render de primer fotograma y luego el clip de ComfyUI.

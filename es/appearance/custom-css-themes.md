@@ -2,6 +2,25 @@
 
 Esta guía explica cómo cambiar el aspecto completo de Marinara Engine con un tema de CSS personalizado. Aprenderás a crear, importar, exportar y activar temas. También verás qué variables de CSS puedes cambiar y cómo funcionan los temas junto con Card CSS.
 
+## Estilos de ventanas de chat listos para usar
+
+Para cambiar el aspecto sin escribir CSS, abre **Settings > Appearance > App** y busca **Chat widget style** al final de **App Style**. **Dottore** da a los controles marcos de instrumentos cian y esquinas recortadas. **Mari** añade marcos rosas y dorados con Protogemas en los títulos de las ventanas. Sus botones usan el mismo fondo que sus ventanas. Cada preset tiene su propia fuente, funciona en modo claro y oscuro y cambia a la vez el aspecto de botones, ventanas y secciones desplegables.
+
+Los controles **Font** y **Shape** permiten cambiar esos detalles por separado. **Preset font** y **Preset shape** siguen el estilo elegido.
+
+Debajo hay tres controles de color. Cada uno tiene un selector de color sólido y una opción de degradado para mezclar colores:
+
+- **Border & Buttons Color** cambia los contornos y los iconos de los botones. Los iconos usan el primer color del degradado.
+- **Background Color** rellena los botones, las ventanas, las secciones desplegables y los campos editables.
+- **Text Color** cambia el texto de los widgets. Los degradados aparecen en títulos y etiquetas; el texto de los campos editables usa el primer color.
+
+Los controles de color conservan los colores originales de los adornos.
+
+Usa **Reset color** junto a un control para volver a los colores claros u oscuros del preset. Elegir un preset restablece **Font**, **Shape** y los tres colores. **Default** recupera el aspecto original. Las ventanas se quedan donde las colocaste.
+
+Los temas CSS personalizados pueden seguir anulando estos presets. Las variables públicas de ventanas y secciones que aparecen abajo tienen prioridad sobre los colores del preset. Usa `--mari-window-font-family` para las letras de las ventanas, `--mari-drawer-radius` para las esquinas de las secciones y `--mari-window-ornament: none` para ocultar el adorno del título. Para quitar toda la decoración del preset, elige primero **Default**.
+
+
 ## Qué es un tema personalizado
 
 Un tema personalizado es un bloque de CSS que vuelve a pintar Marinara. CSS, abreviatura de Cascading Style Sheets, es el código que define los colores, los bordes y el espaciado en toda la app. Un tema puede cambiar el fondo de la página, el color de acento, las tarjetas, los bordes, el texto y más.
@@ -91,6 +110,100 @@ No te limitas a esta lista. Un tema puede definir cualquier variable de CSS que 
 Algunos efectos visuales tienen sus propias variables. Por ejemplo, un tema puede solicitar la animación de pulso del acento definiendo `--marinara-theme-accent-pulse: enabled`.
 
 El CSS de un tema personalizado se limpia antes de ejecutarse, por seguridad. Los estilos que cargan un archivo desde otro sitio web no funcionan. Para usar una imagen o una fuente dentro de un tema, incrústala como una URI `data:` en lugar de un enlace web. Una URI `data:` contiene el contenido del archivo directamente dentro del CSS.
+
+## Dar estilo a ventanas y secciones del chat
+
+En una computadora, **Chat Settings** se abre como ventana móvil. Sus secciones plegables se llaman **drawers**. Una sección puede salir a su propia ventana y luego minimizarse a un botón pequeño que puedes mover, llamado **bubble**.
+
+Otras herramientas también usan estas ventanas y botones, como Game controls, Session, Volume, Game Assets, los chats conectados y los controles de paquetes. En un teléfono, las ventanas son paneles de ancho completo y Tracker Panel tiene su propio botón móvil.
+
+Las clases, los atributos de datos y las variables siguientes permiten dar estilo a estas partes juntas. Las reglas del tema reemplazan los valores predeterminados sin `!important`.
+
+### Clases
+
+| Parte | Clase |
+| --- | --- |
+| Ventana | `.mari-window` |
+| Barra de título | `.mari-window__header` |
+| Título y su icono | `.mari-window__title-row` |
+| Título | `.mari-window__title` |
+| Botones de la barra de título (Reset View, estrella de diseño favorito, Tracker Panel, fijar, bloquear, cerrar, Put back) | `.mari-window__controls` (cada botón es `.mari-window__control`) |
+| Contenido de la ventana | `.mari-window__body` |
+| Bordes y esquinas para redimensionar | `.mari-window__resize-handle` |
+| Marca de esquina visible al tener el puntero o el foco en una ventana | `.mari-window__resize-grip` |
+| Sección plegable | `.mari-drawer` |
+| Encabezado y título de la sección | `.mari-drawer__header`, `.mari-drawer__title` |
+| Icono, contador y **?** de la sección | `.mari-drawer__icon`, `.mari-drawer__count`, `.mari-drawer__help` |
+| Vista previa de una sección contraída (widget pequeño del tracker) | `.mari-drawer__summary` |
+| Botones junto a la flecha y botón para sacar la sección | `.mari-drawer__actions`, `.mari-drawer__popout` |
+| Flecha y contenido de la sección | `.mari-drawer__arrow`, `.mari-drawer__body` |
+| Vista previa que sigue al puntero al arrastrar una sección hacia fuera | `.mari-drawer-ghost` |
+| Botón de una ventana minimizada (burbuja) | `.mari-window-bubble` |
+| Línea que aparece al alinear una burbuja con otra al arrastrarla | `.mari-window-snap-guide` |
+| Punto que aparece mientras trabajan los agentes (botón Chat Settings, ventana Trackers) | `.mari-agents-running-dot` |
+
+### Atributos de datos
+
+- `data-window` identifica una ventana y su burbuja: `chat-settings`, `trackers`, las ventanas de controles `control:game`, `control:session`, `control:volume`, `control:assets`, `control:connected-chat`, `control:package:<package>` y `control:beholder:<package>`, y `drawer:<window>:<drawer>` para una sección separada, por ejemplo `drawer:chat-settings:chat-name`.
+- `data-drawer` identifica una sección, por ejemplo `chat-name`. Algunos nombres empiezan con el modo del chat, como `roleplay-agents` o `conversation-agents`. Los trackers usan `tracker-world`, `tracker-persona`, `tracker-characters`, `tracker-quests`, `tracker-inventory`, `tracker-custom` y `agent-activity`.
+- `data-presentation` es `"window"` en una ventana de computadora o `"sheet"` en un panel de teléfono.
+- `data-pinned` y `data-locked` valen `"true"` mientras la ventana está fijada o bloqueada.
+- `data-window-control` identifica cada botón de la barra de título: `"pin"`, `"lock"`, `"close"` o `"put-back"`. Un botón de fijar o bloquear pulsado también tiene `aria-pressed="true"`.
+- `data-chat-settings-control` identifica los botones adicionales de la barra de título de Chat Settings: `"reset-view"`, `"favorite-layout"` y `"tracker-panel"`. La estrella favorita tiene `aria-pressed="true"` y un icono relleno cuando el diseño actual coincide con el favorito guardado.
+- `data-edge` vale `"n"`, `"s"`, `"e"`, `"w"`, `"ne"`, `"nw"`, `"se"` o `"sw"` en cada tirador de redimensionado.
+- El botón de una sección abierta dentro de `.mari-drawer__header` tiene `aria-expanded="true"`.
+- `data-drawer-control="pop-out"` marca el botón para sacar una sección.
+- `data-outside="true"` marca una vista previa de arrastre lo bastante alejada de su ventana como para separarse al soltarla.
+- `data-axis` es `"x"` en una guía de alineación vertical y `"y"` en una horizontal.
+- `data-detached` vale `"true"` cuando una sección se muestra en su propia ventana, tanto en esa ventana como en la sección interior. Esa ventana se identifica con `data-window="drawer:<window>:<drawer>"`, por ejemplo `data-window="drawer:chat-settings:chat-name"`, y `data-drawer-host` indica la ventana de origen.
+- `data-dragging` vale `"true"` en una sección mientras se arrastra su título, y `data-drop-target` vale `"true"` en una ventana cuando se sostiene sobre ella una sección separada lista para volver.
+- Una burbuja tiene el `data-window` de su ventana y `data-minimized="true"`, por ejemplo `.mari-window-bubble[data-window="control:volume"]`. Las ventanas de controles se llaman `control:game`, `control:session`, `control:volume`, `control:assets`, `control:connected-chat`, `control:package:<package>` y `control:beholder:<package>`. `data-dragging` vale `"true"` en una burbuja mientras se arrastra.
+- Una burbuja bloqueada tiene `data-locked="true"`, incluido el botón Chat Settings. Sigue abriendo su ventana, pero no se puede mover hasta desbloquearla. Usa `.mari-window-bubble[data-locked="true"]` para dar a estos botones un aspecto distinto.
+- En un teléfono, las ventanas tienen `data-presentation="sheet"`, al igual que sus burbujas, que son algo mayores. La burbuja de Tracker Panel es `.mari-window-bubble[data-tracker-panel-toggle="bubble"]`.
+- El botón Chat Settings también es una burbuja: `.mari-window-bubble[data-chat-settings-button]`, con `data-open="true"` mientras Chat Settings está abierto.
+- Una sección separada se reduce a una burbuja con `data-drawer-host` (su ventana de origen), y el botón **Put back** de su ventana es `[data-window-control="put-back"]`.
+
+### Variables
+
+Cada variable usa los colores compartidos de los controles del chat si no la defines, así que el tema solo necesita las que quieras cambiar.
+
+| Variable | Qué controla |
+| --- | --- |
+| `--mari-window-bg` | Fondo de ventana |
+| `--mari-window-text` | Texto de ventana |
+| `--mari-window-border`, `--mari-window-border-width` | Borde de ventana |
+| `--mari-window-radius` | Redondeo de esquinas |
+| `--mari-window-shadow` | Sombra de ventana |
+| `--mari-window-backdrop-filter` | Desenfoque detrás de la ventana |
+| `--mari-window-header-bg`, `--mari-window-header-text`, `--mari-window-header-border` | Colores de la barra de título |
+| `--mari-window-header-padding` | Espaciado de la barra de título |
+| `--mari-window-control-color`, `--mari-window-control-color-hover`, `--mari-window-control-bg-hover` | Botones de título, incluida la estrella favorita |
+| `--mari-window-control-color-active`, `--mari-window-control-bg-active` | Botones de título activos, incluidos fijar, bloquear y estrella favorita rellena |
+| `--mari-window-control-radius`, `--mari-window-control-gap` | Redondeo y espaciado de botones |
+| `--mari-window-focus-ring` | Contorno del foco de teclado y de la ventana a la que volverá una sección |
+| `--mari-window-resize-handle-size` | Ancho de bordes de redimensionado |
+| `--mari-window-bubble-size`, `--mari-window-bubble-radius`, `--mari-window-bubble-shadow` | Tamaño, redondeo y sombra de burbujas |
+| `--mari-window-bubble-bg`, `--mari-window-bubble-bg-hover`, `--mari-window-bubble-border` | Fondo y borde de burbujas |
+| `--mari-window-bubble-text`, `--mari-window-bubble-text-hover` | Color del icono de burbuja |
+| `--mari-window-snap-guide` | Color de la guía de alineación |
+| `--mari-drawer-bg`, `--mari-drawer-border` | Fondo y separador de sección |
+| `--mari-drawer-header-bg`, `--mari-drawer-header-bg-hover` | Colores del encabezado de sección |
+| `--mari-drawer-header-padding`, `--mari-drawer-body-padding-inline`, `--mari-drawer-body-padding-bottom` | Espaciado de sección |
+| `--mari-drawer-title-color`, `--mari-drawer-icon-color`, `--mari-drawer-arrow-color` | Texto e iconos del encabezado |
+| `--mari-drawer-count-bg`, `--mari-drawer-count-text` | Contador de la sección |
+
+Define una variable en `:root` para cambiar todas las ventanas, o en un selector para cambiar una:
+
+```css
+:root {
+  --mari-window-radius: 0.5rem;
+  --mari-window-bubble-bg: #3b0764;
+}
+
+[data-window="chat-settings"] .mari-drawer[data-drawer="chat-name"] {
+  --mari-drawer-border: transparent;
+}
+```
 
 ## Límites de tamaño y nombre
 

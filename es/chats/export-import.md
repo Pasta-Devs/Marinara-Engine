@@ -13,13 +13,12 @@ La función de importación de chats acepta únicamente un archivo `.jsonl`. Si 
 
 ## Exportar un solo chat
 
-Para exportar un chat a un archivo, usa el panel **Chat Branches** (Ramas del chat). Esta es la forma más rápida de exportar el historial de chat de una sola conversación.
+Para exportar un chat a un archivo, usa la sección **Chat Branches** de **Chat Settings** (Ramas del chat). Esta es la forma más rápida de exportar el historial de chat de una sola conversación.
 
 1. Abre el chat que quieres exportar.
-2. En la barra de herramientas del chat, haz clic en el botón de rama (su tooltip dice **Switch branch**).
-3. Se abre el panel **Chat Branches**. Dice "Switch, import, export, or clean up this chat's branches."
-4. Haz clic en **JSONL** para guardar el chat como archivo JSONL, o haz clic en **Text** para guardarlo como archivo de texto legible.
-5. Tu navegador descarga el archivo.
+2. Abre **Chat Settings** y despliega **Chat Branches**, debajo de **Chat Name**.
+3. Haz clic en **JSONL** para guardar el chat como archivo JSONL, o haz clic en **Text** para guardarlo como archivo de texto legible.
+4. Tu navegador descarga el archivo.
 
 La descarga guarda el chat que está abierto en ese momento, incluidos sus mensajes.
 
@@ -54,8 +53,8 @@ Si quieres el chat nuevo en modo Roleplay, abre la pestaña **RP** antes de impo
 También puedes cargar un archivo `.jsonl` en un chat existente como una rama nueva. Una rama es una copia guardada aparte de un chat que puedes explorar por su cuenta. Consulta [Chat Branches](branches.md) para saber más sobre las ramas.
 
 1. Abre el chat al que quieres añadir la rama.
-2. En la barra de herramientas del chat, haz clic en el botón de rama (tooltip **Switch branch**) para abrir el panel **Chat Branches**.
-3. Haz clic en **Import** en ese panel.
+2. Abre **Chat Settings** y despliega **Chat Branches**, debajo de **Chat Name**.
+3. Haz clic en **Import** en esa sección.
 4. Elige tu archivo `.jsonl`.
 5. Deberías ver un mensaje que dice "Imported N messages as a new branch".
 

@@ -23,6 +23,8 @@ Un profil enregistre la façon dont le chat dialogue avec l'IA :
 - La traduction
 - La section **Memory Recall**
 - La section **Advanced Parameters**
+- Disposition des fenêtres et boutons : positions et tailles, épinglages et verrouillages, outils rangés dans Chat Settings ou détachés, fenêtres de contrôles ouvertes et positions des boutons sur ordinateur et téléphone. Les profils sans disposition enregistrée, comme **Default**, conservent celle du chat.
+- Masquage des conseils de disposition de Chat Settings. Appliquer **Default** ou un ancien profil sans ce choix affiche à nouveau les conseils.
 - Les autres options de chat réutilisables
 
 Un profil ne remplace pas le contenu qui appartient au chat : personnages, persona (le personnage que tu incarnes), lorebooks (recueils de faits sur ton univers), sprites, résumé, tags ou prompt de scène. Il ne contient pas non plus l'historique du chat.
@@ -62,6 +64,18 @@ Ses infobulles décrivent l'état en cours :
 - **Mark this profile as default for new chats in this mode**
 - **This profile is the default for new chats in this mode**
 - **Select a profile to mark it as default**
+
+## Dispositions de fenêtres favorites
+
+L'étoile près de **Reset View** dans la barre de titre de Chat Settings enregistre une disposition favorite pour les nouveaux chats du mode actuel. Elle mémorise aussi si tu as masqué les conseils de disposition. Tu peux l'utiliser en Conversation, Roleplay et Game. L'étoile à côté du menu **Profile** choisit toujours le profil de réglages par défaut.
+
+Lors de la mise à jour d'une installation existante, la disposition familière des boutons d'outils devient la favorite des nouveaux chats dans les trois modes. Cela ne se produit qu'une fois et respecte toute favorite déjà enregistrée ou effacée. Cette disposition reste le choix par défaut jusqu'à ce que tu la changes. Une installation neuve commence avec les outils dans Chat Settings et aucune favorite.
+
+Dispose les fenêtres et les boutons, puis clique sur l'étoile de la barre de titre pour les enregistrer. Elle se remplit quand la disposition et les conseils actuels correspondent à la favorite. Si tu déplaces une fenêtre ou changes la disposition, clique à nouveau sur l'étoile pour remplacer la favorite. Clique sur l'étoile remplie pour l'effacer et utiliser la disposition standard dans les futurs chats. Ces changements ne touchent pas les chats existants.
+
+Quand un nouveau chat utilise un profil de réglages par défaut, la disposition enregistrée dans ce profil prend le pas sur la favorite. Les profils sans disposition enregistrée conservent celle du chat, y compris celle d'une favorite. Un profil applique toujours son propre réglage de conseils ; les anciens profils sans ce réglage affichent les conseils.
+
+Consulte les étapes dans [Choisir une disposition pour les nouveaux chats](chat-settings.md#choosing-a-layout-for-new-chats).
 
 ## Importer et exporter des profils
 

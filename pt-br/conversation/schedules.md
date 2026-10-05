@@ -18,7 +18,7 @@ As agendas são opcionais. Com as mensagens autônomas ativadas e as agendas des
 Esse controle fica no chat, não no card de personagem. Todos esses controles ficam na seção **Autonomous Messaging** (mensagens autônomas) de **Chat Settings** (configurações do chat).
 
 1. Abra um chat no Conversation Mode.
-2. Abra **Chat Settings** (o ícone de engrenagem).
+2. Abra **Chat Settings** (configurações do chat) pelo botão no chat. Ele começa no canto superior direito, a menos que você o tenha movido.
 3. Localize a seção **Autonomous Messaging**.
 4. Ative o botão liga/desliga **Autonomous Messages**.
 

@@ -140,7 +140,7 @@ Ein Preset wirkt erst, wenn du es einem Chat zuweist. In einem **Roleplay**-Chat
 Über **Chat Settings**:
 
 1. Öffne den Chat.
-2. Öffne **Chat Settings** (Chat-Einstellungen, Zahnradsymbol).
+2. Öffne **Chat Settings** (Chat-Einstellungen).
 3. Such den Bereich **Prompt Preset**.
 4. Wähle im Dropdown-Menü ein Preset.
 

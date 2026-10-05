@@ -31,7 +31,7 @@ En resumen: **Cross-Chat Awareness** enlaza un personaje entre sus propios chats
 Empiezas el enlace desde el chat de Conversation, o desde un chat de Game. Sigue estos pasos para empezar desde el lado de Conversation.
 
 1. Abre el chat de Conversation que quieres enlazar.
-2. Abre **Chat Settings** (el engranaje).
+2. Abre **Chat Settings** (Ajustes del chat) con su botón en el chat. Está arriba a la derecha, salvo que lo hayas movido.
 3. Busca la sección **Connected Chats**.
 4. Haz clic en **Link to Roleplay or Game**.
 5. Busca el chat de Roleplay o de Game en el selector y haz clic en él.
@@ -70,11 +70,15 @@ Esta sección lista cada nota guardada. Cada nota tiene un botón de eliminar. P
 
 Si ningún personaje ha guardado aún una nota, la sección explica que las notas envueltas en una etiqueta `<note>` aparecerán aquí una vez guardadas.
 
+<a id="switching-between-connected-chats"></a>
+
 ## Cambiar entre chats conectados
 
-Cuando un chat tiene un chat enlazado, su barra de herramientas muestra un botón de cambio. Usa un icono de doble flecha. Su tooltip dice "Switch to" seguido del nombre del otro chat.
+Cuando un chat tiene otro enlazado, aparece un botón móvil **Connected chat** con un icono de doble flecha, inicialmente arriba a la derecha. Puedes arrastrarlo en la computadora o el teléfono. Haz clic o tócalo para abrir una ventana pequeña y elige **Switch to** seguido del nombre del otro chat.
 
-Haz clic en él para saltar directamente al chat conectado. Esto te ahorra tener que buscar el otro chat en la lista de chats a mano. El botón aparece tanto en el lado de Conversation como en el lado de Roleplay de un enlace.
+La acción te lleva directamente al chat conectado, sin tener que buscarlo en la lista. El botón aparece tanto en el lado de Conversation como en el de Roleplay de un enlace.
+
+Si prefieres tenerlo dentro de Chat Settings, elige **Put back in Chat Settings** en la ventana. Pasa a ser la sección **Connected chat**. Su botón para sacar la sección vuelve a darle una ventana propia.
 
 ## Otros controles en esta sección
 

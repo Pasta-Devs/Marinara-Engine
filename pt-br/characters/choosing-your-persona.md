@@ -16,7 +16,7 @@ Cada chat pode salvar sua própria persona. Você pode usar personas diferentes 
 
 ### Pelo Chat Settings
 
-1. Abra **Chat Settings** (configurações do chat), a engrenagem perto do chat.
+1. Abra **Chat Settings** (configurações do chat) pelo botão no chat. Ele começa no canto superior direito, a menos que você o tenha movido.
 2. Localize a seção **Persona**. O texto de ajuda começa com "Your persona defines who you are in this chat."
 3. Quando não há persona definida, aparece "No persona selected."
 4. Clique no botão **Choose Persona** (escolher a persona). Esse botão passa a mostrar **Change Persona** depois que uma persona é definida.

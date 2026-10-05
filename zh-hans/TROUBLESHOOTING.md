@@ -215,7 +215,8 @@ GitHub 自动生成的源码压缩包并不保证逐字节稳定，哪怕提交�
 **Card Browser**(角色卡浏览器) 可以搜索公开的角色卡站点并导入角色。从顶栏的 **Card Browser** 图标打开，然后点击 **Download Cards**。
 
 - 如果 JannyAI 搜索或某个角色页面被 Cloudflare 拦截，Marinara 会给出提示，让你用同一个浏览器访问一次 JannyAI 站点以通过验证，然后重试。
-- 如果重启服务器后 CharacterTavern 或 Pygmalion 的登录失效了，这是正常现象。这类登录信息只存在服务器内存里，重启就清空。打开登录窗口，重新粘贴 cookie 或 Token。
+- 如果重启服务器后 Pygmalion 的登录失效了，这是正常现象。这个登录信息只存在服务器内存里，重启就清空。打开登录窗口，重新粘贴 Token。
+- 如果 CharacterTavern 显示一条说明而不是搜索结果，这是正常现象。它重建后的网站不再提供 Marinara 原先使用的连接。改为从 character-tavern.com 下载角色卡，再导入这个文件。
 
 ## 媒体生成问题
 

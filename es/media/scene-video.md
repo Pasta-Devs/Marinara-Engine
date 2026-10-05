@@ -112,7 +112,7 @@ Si una opción guardada deja de encajar con el modelo, por ejemplo porque Atlas 
 
 ## Generar un video desde la Gallery
 
-Tanto los chats de **Roleplay** como los de **Game Mode** pueden hacer videos de escena desde el panel **Gallery**. Ábrelo con el icono de imagen o galería del chat. Los chats de Game Mode también tienen un segundo lugar para hacerlo, el panel **Game Assets** (Recursos del juego), que se cubre más adelante en esta guía.
+Tanto los chats de **Roleplay** como los de **Game Mode** crean videos de escena desde **Gallery** (Galería). Abre **Chat Settings** y despliega **Gallery**. En Game Mode también puedes hacerlo desde **Game Assets**, como se explica más adelante.
 
 La **Gallery** tiene una pestaña **Images** (Imágenes) y una pestaña **Videos** (Videos), cada una con un contador. Las imágenes fijas están en **Images**. Los clips terminados están en **Videos**.
 
@@ -138,11 +138,11 @@ Si intentas hacer un video sin ninguna imagen en el chat, Marinara muestra este 
 
 ## Video de escena en Game Mode
 
-Game Mode tiene un segundo lugar para hacer un video de escena: el panel **Game Assets**. Ábrelo con el botón **Game Assets** en los controles del juego.
+Game Mode ofrece otro lugar para crear videos de escena: **Game Assets**. Toca o haz clic en su botón de carpeta, que empieza arriba a la derecha. Se abre como ventana en computadora o panel de ancho completo en teléfono. Si lo guardaste con **Put back in Chat Settings**, abre la sección **Game Assets** de Chat Settings.
 
-1. Abre el panel **Game Assets**.
+1. Abre **Game Assets**.
 2. Haz clic en **Generate video** (Generar video). Su tooltip (texto de ayuda) dice **Generate a scene video from the latest illustration** (Generar un video de escena a partir de la última ilustración).
-3. El clip más reciente se reproduce en el panel cuando está listo.
+3. El clip más reciente se reproduce allí cuando está listo.
 
 El botón **Generate video** permanece inactivo hasta que el juego tenga tanto una conexión de video como una ilustración de escena. Si haces clic demasiado pronto, puedes ver uno de estos mensajes:
 

@@ -45,7 +45,7 @@ Para conocer todas las formas de importar y exportar chats, incluidos los format
 El nombre del chat solo lo ves tú. No se envía a la IA y no cambia la conversación.
 
 1. Abre el chat.
-2. Abre el panel **Chat Settings** con el botón de engranaje de la barra de herramientas del chat.
+2. Abre **Chat Settings** con su botón en el chat.
 3. En la sección **Chat Name** (Nombre del chat), haz clic en el nombre actual para convertirlo en un campo de texto.
 4. Escribe el nombre nuevo, luego pulsa Enter o haz clic en el botón de marca de verificación.
 

@@ -206,7 +206,7 @@ Weź zakończoną turę GM z jedną wyraźną akcją wizualną: otwarciem drzwi,
 
 1. Najszybciej sprawdzisz działanie przy małej pamięci VRAM, ustawiając tymczasowo **Keyframes per Turn** na 1 i zostawiając **Animation Clip Duration** na 5 sekundach. Normalny przetestowany profil ma 3 klatki kluczowe.
 2. Oba automatyczne ustawienia storyboardu włącz dopiero wtedy, gdy bieżąca tura GM jest już zakończona.
-3. Otwórz galerię i wybierz **Create storyboard** dla tej zakończonej tury GM. W ten sposób ręcznie uruchomisz pełną ścieżkę ilustracji i animacji, bez czekania na kolejną turę.
+3. Otwórz **Chat Settings > Gallery** i wybierz **Create storyboard** dla tej zakończonej tury GM. W ten sposób ręcznie uruchomisz pełną ścieżkę ilustracji i animacji, bez czekania na kolejną turę.
 4. Jeśli podgląd promptów jest włączony, przejrzyj prompt pierwszej klatki przed wysłaniem.
 5. Sprawdź, czy wygenerowana pierwsza klatka daje sensowną pozycję wyjściową dla ruchu.
 6. Poczekaj na renderowanie pierwszej klatki, a potem na gotowy klip z ComfyUI.

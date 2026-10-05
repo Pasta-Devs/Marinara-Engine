@@ -80,7 +80,7 @@ Para soltar a un compañero tú mismo, usa el botón **X** de la barra del grupo
 
 El Adventure Journal (Diario de aventura) es un registro continuo de tu campaña. Se construye a partir de eventos guardados del juego, no lo escribe la IA, así que se mantiene fiel a los hechos.
 
-Haz clic en el botón **Session** (Sesión) de la barra de herramientas superior y luego elige la pestaña **Journal** (Diario). Se abre un panel Journal con estas pestañas:
+Abre **Session** (consulta [Abrir Session](sessions-and-saves.md#opening-session)) y elige la pestaña **Journal** (Diario). Journal tiene estas pestañas:
 
 - **Timeline** (Cronología): una lista de lo que ha pasado, como lugares encontrados, encuentros con NPC, resultados de combate, misiones y eventos de objetos.
 - **NPCs**: los NPC que has conocido, con retratos y etiquetas de reputación (ver abajo).

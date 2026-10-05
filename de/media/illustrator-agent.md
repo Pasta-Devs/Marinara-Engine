@@ -26,7 +26,7 @@ Findet die App keine Bild-Verbindung, schlägt das Bild fehl und du wirst zur Au
 Der Illustrator ist standardmäßig aus. In einem **Roleplay**-Chat fügst du ihn so hinzu:
 
 1. Öffne den Chat, den du illustrieren möchtest.
-2. Öffne über das Zahnrad-Symbol die **Chat Settings** (Chat-Einstellungen).
+2. Öffne **Chat Settings** (Chat-Einstellungen) über die Schaltfläche im Chat; anfangs liegt sie oben rechts.
 3. Geh zum Abschnitt **Agents** und aktiviere **Enable Agents**.
 4. Such in der Gruppe **Misc Agents** den Eintrag **Illustrator** und füge ihn über die Plus-Schaltfläche hinzu.
 
@@ -85,7 +85,7 @@ Auf der Illustrator-Karte sitzt die Schaltfläche **Open Setup** (Einrichtung ö
 
 Setze **Run Interval** (Laufintervall) auf **0**, um ausschließlich manuell zu generieren. Damit stoppst du automatische Illustrator-Läufe einschließlich automatischer Szenenhintergründe. Der Agent bleibt installiert und für Galerieaktionen verfügbar. Der Standardwert bleibt **5**; ein positiver Wert aktiviert automatische Läufe wieder. Du kannst 0 auch wählen, wenn du Illustrator zu einem Chat hinzufügst.
 
-Ein Bild lässt sich auch jederzeit von Hand erzeugen, statt darauf zu warten. Öffne dazu die **Gallery** des Chats und klick auf die Schaltfläche **Illustrate** (Illustrieren). Der Illustrator läuft dann sofort einmal durch, währenddessen steht auf der Schaltfläche **Generating...**. Praktisch, wenn du ein Bild vom aktuellen Moment willst und der Agent noch keines gezeichnet hat.
+Ein Bild lässt sich auch jederzeit von Hand erzeugen, statt darauf zu warten. Öffne dazu den Abschnitt **Gallery** in **Chat Settings** und klick auf die Schaltfläche **Illustrate** (Illustrieren). Der Illustrator läuft dann sofort einmal durch, währenddessen steht auf der Schaltfläche **Generating...**. Praktisch, wenn du ein Bild vom aktuellen Moment willst und der Agent noch keines gezeichnet hat.
 
 ## Galeriespeicherung und Prompt-Ansicht
 

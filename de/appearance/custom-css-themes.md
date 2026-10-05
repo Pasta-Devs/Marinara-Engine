@@ -2,6 +2,25 @@
 
 In dieser Anleitung erfährst du, wie du das gesamte Erscheinungsbild von Marinara Engine mit einem eigenen CSS-Theme umgestaltest. Du lernst, Themes anzulegen, zu importieren, zu exportieren und zu aktivieren. Außerdem siehst du, welche CSS-Variablen sich ändern lassen und wie Themes mit Card CSS zusammenspielen.
 
+## Fertige Stile für Chat-Fenster
+
+Für eine schnelle Änderung ohne eigenen CSS-Code öffne **Settings > Appearance > App** (Einstellungen, Darstellung, App) und such **Chat widget style** unten in **App Style**. **Dottore** gibt den Bedienelementen cyanfarbene Instrumentenrahmen und abgeschrägte Ecken. **Mari** ergänzt Rahmen in Rosa und Gold mit Primogems an den Fenstertiteln. Seine Schaltflächen nutzen denselben Hintergrund wie die Fenster. Jedes Preset hat eine eigene Schrift, passt zum hellen und dunklen Modus und gestaltet Schaltflächen, Fenster und aufklappbare Abschnitte gemeinsam.
+
+Mit **Font** (Schrift) und **Shape** (Form) änderst du diese Details einzeln. **Preset font** (Preset-Schrift) und **Preset shape** (Preset-Form) folgen dem ausgewählten Stil.
+
+Darunter stehen drei Farbeinstellungen. Jede bietet einen Farbwähler für eine einheitliche Farbe und einen Farbverlauf, der mehrere Farben ineinander übergehen lässt:
+
+- **Border & Buttons Color** (Rahmen- und Schaltflächenfarbe) färbt Umrisse und Schaltflächensymbole. Symbole nutzen die erste Farbe eines Farbverlaufs.
+- **Background Color** (Hintergrundfarbe) füllt Schaltflächen, Fenster, aufklappbare Abschnitte und Eingabefelder.
+- **Text Color** (Textfarbe) färbt den Widget-Text. Farbverläufe erscheinen auf Überschriften und Beschriftungen; Text in Eingabefeldern nutzt die erste Farbe.
+
+Die dekorativen Embleme behalten ihre ursprünglichen Farben.
+
+Mit **Reset color** (Farbe zurücksetzen) neben einer Einstellung folgst du wieder den hellen oder dunklen Farben des Presets. Die Auswahl eines Presets setzt **Font**, **Shape** und alle drei Farben zurück. **Default** (Standard) stellt das ursprüngliche Aussehen wieder her. Deine Fensterpositionen bleiben erhalten.
+
+Eigene CSS-Themes können diese Presets weiterhin überschreiben. Die öffentlichen Variablen für Fenster und Abschnitte weiter unten haben Vorrang vor den Preset-Farben. Nutze `--mari-window-font-family` für die Fensterschrift, `--mari-drawer-radius` für die Ecken der Abschnitte und `--mari-window-ornament: none`, um die Verzierung am Titel auszublenden. Um alle Preset-Verzierungen zu entfernen, wähle zuerst **Default**.
+
+
 ## Was ein eigenes Theme ist
 
 Ein eigenes Theme ist ein Block CSS, der Marinara neu einfärbt. CSS steht für Cascading Style Sheets und ist der Code, der in der ganzen App Farben, Rahmen und Abstände festlegt. Ein Theme kann den Seitenhintergrund ändern, dazu die Akzentfarbe, Karten, Rahmen, Text und vieles mehr.
@@ -91,6 +110,100 @@ Auf diese Liste bist du nicht festgelegt. Ein Theme kann jede CSS-Variable setze
 Manche visuellen Effekte haben eigene Variablen. Die pulsierende Akzent-Animation etwa fordert ein Theme mit `--marinara-theme-accent-pulse: enabled` an.
 
 Aus Sicherheitsgründen bereinigt Marinara das CSS eigener Themes, bevor es wirkt. Stile, die eine Datei von einer fremden Website nachladen, funktionieren nicht. Bilder oder Schriften bindest du deshalb als `data:`-URI ein statt als Web-Link. Eine `data:`-URI trägt den Dateiinhalt direkt im CSS.
+
+## Chat-Fenster und aufklappbare Abschnitte gestalten
+
+Am Computer öffnet sich **Chat Settings** als verschiebbares Fenster. Seine aufklappbaren Abschnitte heißen **drawers**. Ein Abschnitt lässt sich in ein eigenes Fenster herauslösen und anschließend zu einer kleinen verschiebbaren Schaltfläche minimieren, einer **bubble**.
+
+Auch andere Chat-Tools nutzen diese Fenster und Schaltflächen: Game controls, Session, Volume, Game Assets, verknüpfte Chats und Paket-Bedienelemente. Am Telefon öffnen sich Fenster als Panels über die ganze Breite; das Tracker Panel hat eine eigene verschiebbare Schaltfläche.
+
+Mit den folgenden Klassen, Datenattributen und Variablen gestaltet ein Theme diese Teile gemeinsam. Deine Theme-Regeln überschreiben die Standardwerte ohne `!important`.
+
+### Klassen
+
+| Teil | Klasse |
+| --- | --- |
+| Fenster | `.mari-window` |
+| Titelleiste | `.mari-window__header` |
+| Titel und sein Symbol | `.mari-window__title-row` |
+| Titel | `.mari-window__title` |
+| Schaltflächen der Titelleiste (Reset View, Favoritenstern, Tracker Panel, Anheften, Sperren, Schließen, Put back) | `.mari-window__controls` (jede Schaltfläche hat `.mari-window__control`) |
+| Fensterinhalt | `.mari-window__body` |
+| Kanten und Ecken zur Größenänderung | `.mari-window__resize-handle` |
+| Eckmarkierung, wenn Mauszeiger oder Tastaturfokus im Fenster liegen | `.mari-window__resize-grip` |
+| Aufklappbarer Abschnitt | `.mari-drawer` |
+| Kopfzeile und Titel des Abschnitts | `.mari-drawer__header`, `.mari-drawer__title` |
+| Symbol, Anzahl und **?** des Abschnitts | `.mari-drawer__icon`, `.mari-drawer__count`, `.mari-drawer__help` |
+| Vorschau eines zugeklappten Abschnitts (das kleine Tracker-Widget) | `.mari-drawer__summary` |
+| Schaltflächen neben dem Pfeil und zum Herauslösen | `.mari-drawer__actions`, `.mari-drawer__popout` |
+| Pfeil und Inhalt des Abschnitts | `.mari-drawer__arrow`, `.mari-drawer__body` |
+| Vorschau, die beim Herausziehen eines Abschnitts dem Mauszeiger folgt | `.mari-drawer-ghost` |
+| Schaltfläche eines minimierten Fensters (bubble) | `.mari-window-bubble` |
+| Hilfslinie beim Ausrichten einer gezogenen Schaltfläche an einer anderen | `.mari-window-snap-guide` |
+| Punkt während der Arbeit von Agenten (Chat-Settings-Schaltfläche, Trackers-Fenster) | `.mari-agents-running-dot` |
+
+### Datenattribute
+
+- `data-window` benennt ein Fenster und seine Schaltfläche: `chat-settings`, `trackers`, die Steuerungsfenster `control:game`, `control:session`, `control:volume`, `control:assets`, `control:connected-chat`, `control:package:<package>` und `control:beholder:<package>` sowie `drawer:<window>:<drawer>` für einen herausgelösten Abschnitt, etwa `drawer:chat-settings:chat-name`.
+- `data-drawer` benennt einen Abschnitt, etwa `chat-name`. Einige Namen beginnen mit dem Chat-Modus, zum Beispiel `roleplay-agents` oder `conversation-agents`. Tracker nutzen `tracker-world`, `tracker-persona`, `tracker-characters`, `tracker-quests`, `tracker-inventory`, `tracker-custom` und `agent-activity`.
+- `data-presentation` ist bei einem Computerfenster `"window"` und bei einem Telefon-Panel `"sheet"`.
+- `data-pinned` und `data-locked` sind `"true"`, solange das Fenster angeheftet oder gesperrt ist.
+- `data-window-control` benennt jede Schaltfläche der Titelleiste: `"pin"`, `"lock"`, `"close"` oder `"put-back"`. Eine aktivierte Anheft- oder Sperrschaltfläche hat außerdem `aria-pressed="true"`.
+- `data-chat-settings-control` kennzeichnet die zusätzlichen Schaltflächen in der Titelleiste von Chat Settings: `"reset-view"`, `"favorite-layout"` und `"tracker-panel"`. Der Favoritenstern hat `aria-pressed="true"` und ein ausgefülltes Symbol, wenn die aktuelle Anordnung zum gespeicherten Favoriten passt.
+- `data-edge` ist an den jeweiligen Größenänderungsgriffen `"n"`, `"s"`, `"e"`, `"w"`, `"ne"`, `"nw"`, `"se"` oder `"sw"`.
+- Die Schaltfläche eines offenen Abschnitts innerhalb von `.mari-drawer__header` hat `aria-expanded="true"`.
+- `data-drawer-control="pop-out"` kennzeichnet die Schaltfläche zum Herauslösen eines Abschnitts.
+- `data-outside="true"` kennzeichnet eine Ziehvorschau, die weit genug außerhalb ihres Fensters liegt, um beim Loslassen herausgelöst zu werden.
+- `data-axis` ist `"x"` bei einer senkrechten Ausrichtungslinie und `"y"` bei einer waagerechten.
+- `data-detached` ist `"true"`, wenn ein Abschnitt in einem eigenen Fenster erscheint, sowohl am Fenster als auch am Abschnitt darin. Das Fenster eines herausgelösten Abschnitts heißt `data-window="drawer:<window>:<drawer>"`, etwa `data-window="drawer:chat-settings:chat-name"`; `data-drawer-host` benennt sein Ursprungsfenster.
+- `data-dragging` ist am Abschnitt `"true"`, während du seinen Titel ziehst. `data-drop-target` ist an einem Fenster `"true"`, während du einen herausgelösten Abschnitt darüber hältst, um ihn zurückzulegen.
+- Eine Fensterschaltfläche trägt das `data-window` ihres Fensters und `data-minimized="true"`, etwa `.mari-window-bubble[data-window="control:volume"]`. Steuerungsfenster heißen `control:game`, `control:session`, `control:volume`, `control:assets`, `control:connected-chat`, `control:package:<package>` und `control:beholder:<package>`. Während du die Schaltfläche ziehst, ist ihr `data-dragging` gleich `"true"`.
+- Eine gesperrte Fensterschaltfläche hat `data-locked="true"`, auch die Chat-Settings-Schaltfläche. Sie öffnet weiterhin das Fenster, lässt sich aber erst nach dem Entsperren bewegen. Mit `.mari-window-bubble[data-locked="true"]` kannst du diese Schaltflächen anders gestalten.
+- Am Telefon haben Fenster und ihre etwas größeren Schaltflächen `data-presentation="sheet"`. Die Schaltfläche des Tracker Panel ist `.mari-window-bubble[data-tracker-panel-toggle="bubble"]`.
+- Auch die Chat-Settings-Schaltfläche ist eine bubble: `.mari-window-bubble[data-chat-settings-button]`. Solange Chat Settings offen ist, hat sie `data-open="true"`.
+- Ein herausgelöster Abschnitt verkleinert sich zu einer Schaltfläche mit `data-drawer-host` (dem Ursprungsfenster). Die **Put back**-Schaltfläche seines Fensters ist `[data-window-control="put-back"]`.
+
+### Variablen
+
+Jede Variable fällt auf die gemeinsamen Farben der Chat-Bedienelemente zurück. Ein Theme muss deshalb nur die Werte festlegen, die es ändern soll.
+
+| Variable | Was sie steuert |
+| --- | --- |
+| `--mari-window-bg` | Fensterhintergrund |
+| `--mari-window-text` | Fenstertext |
+| `--mari-window-border`, `--mari-window-border-width` | Fensterrahmen |
+| `--mari-window-radius` | Rundung der Fensterecken |
+| `--mari-window-shadow` | Fensterschatten |
+| `--mari-window-backdrop-filter` | Unschärfe hinter dem Fenster |
+| `--mari-window-header-bg`, `--mari-window-header-text`, `--mari-window-header-border` | Farben der Titelleiste |
+| `--mari-window-header-padding` | Innenabstände der Titelleiste |
+| `--mari-window-control-color`, `--mari-window-control-color-hover`, `--mari-window-control-bg-hover` | Schaltflächen der Titelleiste, einschließlich Favoritenstern |
+| `--mari-window-control-color-active`, `--mari-window-control-bg-active` | Aktivierte Titelleisten-Schaltflächen, einschließlich Anheften, Sperren und ausgefülltem Favoritenstern |
+| `--mari-window-control-radius`, `--mari-window-control-gap` | Rundung und Abstand der Schaltflächen |
+| `--mari-window-focus-ring` | Umriss für den Tastaturfokus und für das Fenster, in das ein Abschnitt zurückgelegt wird |
+| `--mari-window-resize-handle-size` | Breite der Kanten zur Größenänderung |
+| `--mari-window-bubble-size`, `--mari-window-bubble-radius`, `--mari-window-bubble-shadow` | Größe, Rundung und Schatten der Fensterschaltfläche |
+| `--mari-window-bubble-bg`, `--mari-window-bubble-bg-hover`, `--mari-window-bubble-border` | Hintergrund und Rahmen der Fensterschaltfläche |
+| `--mari-window-bubble-text`, `--mari-window-bubble-text-hover` | Symbolfarbe der Fensterschaltfläche |
+| `--mari-window-snap-guide` | Farbe der Ausrichtungslinie |
+| `--mari-drawer-bg`, `--mari-drawer-border` | Hintergrund und Trennlinie des Abschnitts |
+| `--mari-drawer-header-bg`, `--mari-drawer-header-bg-hover` | Farben der Abschnittskopfzeile |
+| `--mari-drawer-header-padding`, `--mari-drawer-body-padding-inline`, `--mari-drawer-body-padding-bottom` | Abstände im Abschnitt |
+| `--mari-drawer-title-color`, `--mari-drawer-icon-color`, `--mari-drawer-arrow-color` | Text und Symbole der Abschnittskopfzeile |
+| `--mari-drawer-count-bg`, `--mari-drawer-count-text` | Anzahl-Markierung am Abschnitt |
+
+Setze eine Variable in `:root`, um alle Fenster zu ändern, oder an einem Selektor für ein einzelnes Fenster:
+
+```css
+:root {
+  --mari-window-radius: 0.5rem;
+  --mari-window-bubble-bg: #3b0764;
+}
+
+[data-window="chat-settings"] .mari-drawer[data-drawer="chat-name"] {
+  --mari-drawer-border: transparent;
+}
+```
 
 ## Grenzen für Größe und Name
 

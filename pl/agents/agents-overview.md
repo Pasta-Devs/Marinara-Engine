@@ -36,10 +36,10 @@ Automatyczne aktualizacje przy starcie nigdy nie instalują pakietu, który nie 
 
 ## Włączanie agentów w czacie
 
-Agentów włącza się w każdym czacie z osobna, w panelu bocznym **Chat Settings** (ustawienia czatu).
+Agentów włącza się w każdym czacie z osobna, w **Chat Settings** (ustawienia czatu).
 
 1. Otwórz wybrany czat.
-2. Otwórz panel **Chat Settings** (ikona koła zębatego).
+2. Otwórz **Chat Settings**.
 3. Znajdź sekcję **Agents**.
 4. Włącz przełącznik **Enable Agents** (włączenie agentów). To główny wyłącznik. Kiedy jest wyłączony, w tym czacie nie działa żaden agent.
 5. Dodaj wybranych agentów z list pod przełącznikiem albo usuń tych, których nie chcesz.

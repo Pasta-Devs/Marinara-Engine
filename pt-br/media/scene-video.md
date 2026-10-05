@@ -112,7 +112,7 @@ Se uma opção salva deixar de corresponder ao modelo, por exemplo após o Atlas
 
 ## Gerar um vídeo pela galeria
 
-Tanto os chats de **Roleplay** quanto os de **Game Mode** criam vídeos de cena pelo painel **Gallery** (galeria). Abra o painel pelo ícone de imagem ou de galeria do chat. Os chats de Game Mode têm ainda um segundo lugar para isso, o painel **Game Assets**, explicado mais adiante neste guia.
+Tanto os chats de **Roleplay** quanto os de **Game Mode** criam vídeos de cena pela **Gallery** (galeria). Abra **Chat Settings** e expanda **Gallery**. No Game Mode, **Game Assets** oferece outro lugar para isso, explicado adiante.
 
 A galeria tem a aba **Images** e a aba **Videos**, cada uma com um contador. As imagens estáticas ficam em **Images**. Os clipes prontos ficam em **Videos**.
 
@@ -138,11 +138,11 @@ Se você tentar criar um vídeo sem nenhuma imagem no chat, Marinara mostra esta
 
 ## Vídeo de cena no Game Mode
 
-O Game Mode tem um segundo lugar para criar um vídeo de cena: o painel **Game Assets**. Abra esse painel pelo botão **Game Assets**, nos controles do jogo.
+O Game Mode também oferece **Game Assets** para criar vídeos de cena. Clique ou toque no botão de pasta, que começa no canto superior direito. Ele abre uma janela no computador ou um painel de largura total no celular. Se você usou **Put back in Chat Settings**, abra a seção **Game Assets** dentro de Chat Settings.
 
-1. Abra o painel **Game Assets**.
+1. Abra **Game Assets**.
 2. Clique em **Generate video**. A dica desse botão diz "Generate a scene video from the latest illustration."
-3. O clipe mais recente toca no painel assim que fica pronto.
+3. O clipe mais recente toca ali assim que fica pronto.
 
 O botão **Generate video** fica inativo até o jogo ter uma conexão de vídeo e uma ilustração de cena. Se você clicar cedo demais, pode ver uma destas mensagens:
 
