@@ -328,9 +328,10 @@
     pointer-events: none;
   }
 
-  /* Phone panels and the tools menu sit near the viewport edge. Keep the crest inside the title bar and
-     beside the title, clear of the actions on the right. */
-  .mari-window:is([data-presentation="sheet"], [data-presentation="menu"]) .mari-window__header::after {
+  /* Phone panels, menus and compact mobile windows keep the crest inside the
+     title bar beside the title, clear of the actions on the right. */
+  .mari-window:is([data-presentation="sheet"], [data-presentation="menu"], [data-header-ornament="inline"])
+    .mari-window__header::after {
     left: 0.25rem;
     top: calc(50% - 1rem);
     width: 1.25rem;

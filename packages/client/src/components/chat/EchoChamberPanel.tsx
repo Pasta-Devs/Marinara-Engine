@@ -556,7 +556,10 @@ export function EchoChamberPanel({ hiddenOnMobile = false }: EchoChamberPanelPro
   if (!echoEnabled || (isMobile && hiddenOnMobile)) return null;
   const visibleMessages = echoMessages.slice(0, visibleCount);
   const title = localizeUi("ui.chat.echochamberpanel.title");
-  const rootAttributes = { "data-roleplay-agent-window": "echo" };
+  const rootAttributes = {
+    "data-roleplay-agent-window": "echo",
+    "data-header-ornament": isMobile ? "inline" : undefined,
+  };
   const status = (
     <span aria-hidden="true" className="relative flex h-1.5 w-1.5 shrink-0">
       <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-60" />

@@ -172,11 +172,22 @@ test("mobile Echo can move, resize, lock and restore its saved window", async ({
     );
     await expect.poll(async () => (await box(panel)).width).toBe(240);
     await expect.poll(async () => (await box(panel)).height).toBe(112);
-    for (const preset of ["default", "dottore", "mari"]) {
-      await page.evaluate(async (preset) => {
-        const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
-        useUIStore.getState().setChatWidgetPreset(preset);
-      }, preset);
+    const phoneViewport = page.viewportSize()!;
+    for (const [theme, preset] of [
+      ["dark", "default"],
+      ["dark", "dottore"],
+      ["dark", "mari"],
+      ["light", "dottore"],
+      ["light", "mari"],
+    ] as const) {
+      await page.evaluate(
+        async ({ theme, preset }) => {
+          const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+          useUIStore.getState().setChatWidgetPreset(preset);
+          useUIStore.setState({ theme });
+        },
+        { theme, preset },
+      );
       const frame = await box(panel);
       for (const control of await panel.locator(".mari-window__control").all()) {
         const rect = await box(control);
@@ -185,7 +196,40 @@ test("mobile Echo can move, resize, lock and restore its saved window", async ({
       }
       await panel.getByText("Reaction 20.", { exact: true }).scrollIntoViewIfNeeded();
       await expect(panel.getByText("Reaction 20.", { exact: true })).toBeInViewport();
-      await page.screenshot({ path: testInfo.outputPath(`mobile-echo-minimum-${preset}.png`) });
+      await page.screenshot({ path: testInfo.outputPath(`mobile-echo-minimum-${preset}-${theme}.png`) });
+      if (preset === "default") continue;
+      for (const mobile of [true, false]) {
+        await page.setViewportSize(mobile ? phoneViewport : { width: 1024, height: phoneViewport.height });
+        await expect(panel).toHaveAttribute("data-presentation", "window");
+        await page.screenshot({
+          path: testInfo.outputPath(`echo-crest-${preset}-${theme}-${mobile ? "phone" : "desktop"}.png`),
+        });
+        const crest = await header.evaluate((element) => {
+          const style = getComputedStyle(element, "::after");
+          const rect = element.getBoundingClientRect();
+          return {
+            left: parseFloat(style.left),
+            top: parseFloat(style.top),
+            width: parseFloat(style.width),
+            height: parseFloat(style.height),
+            headerWidth: element.clientWidth,
+            headerHeight: element.clientHeight,
+            titleLeft: element.querySelector(".mari-window__title")!.getBoundingClientRect().left - rect.left,
+            image: style.backgroundImage,
+          };
+        });
+        expect(crest.image).not.toBe("none");
+        if (mobile) {
+          expect(crest.top).toBeGreaterThanOrEqual(0);
+          expect(crest.top + crest.height).toBeLessThanOrEqual(crest.headerHeight);
+          expect(crest.left).toBeGreaterThanOrEqual(0);
+          expect(crest.left + crest.width).toBeLessThanOrEqual(crest.titleLeft);
+        } else {
+          expect(crest.top).toBeLessThan(0);
+          expect(crest.left + crest.width / 2).toBeCloseTo(crest.headerWidth / 2, 0);
+        }
+      }
+      await page.setViewportSize(phoneViewport);
     }
   } finally {
     await page.request.delete(`/api/chats/${chat.id}?force=true`);
