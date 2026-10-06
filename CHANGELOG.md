@@ -4,6 +4,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- Saving a connection change that affects **Long-Term Memory** now waits for the package's index refresh when supported, and reports refresh completion, failure or unavailability separately from the successful save. Unrelated connection and agent edits do not trigger LTM refreshes; older or inactive packages still allow configuration saves (#7042).
+
 - Restoring a settings profile with **Long-Term Memory** while the Long-Term Memory package is active now waits for memory reads or rebuilds in progress, then reloads the restored memory instead of continuing to serve the pre-restore copy. If the installed package is too old to coordinate this, Marinara refuses the restore with a message to update or disable it rather than publishing memory the package cannot see (#7043).
 
 - Long-Term Memory recall now reads only the actual conversation history. Preset prompts, agent injections and other non-history text no longer fill the package's recent-message window. Normal generation prompts and other agents' inputs remain unchanged (#7044).

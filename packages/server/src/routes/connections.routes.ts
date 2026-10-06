@@ -39,6 +39,7 @@ import {
   fetchLocalContextLimit,
 } from "../services/llm/local-context-limit.js";
 import { resetMemoryRecallVectorizerCache } from "../services/memory-recall-embedding.js";
+import { withLongTermMemoryEmbeddingChange } from "../services/generation/long-term-memory-runtime.js";
 import { createLLMProvider } from "../services/llm/provider-registry.js";
 import { resolveStoredChatOptions, resolveStoredMaxTokens } from "../services/generation/generation-parameters.js";
 import { describeEmptyModelResponse, sentOutputBudget } from "../services/generation/empty-response-reason.js";
@@ -507,9 +508,11 @@ export async function connectionsRoutes(app: FastifyInstance) {
     const input = createConnectionSchema.parse(req.body);
     const validationError = nanoGptVideoConnectionError(input);
     if (validationError) return reply.status(400).send({ error: validationError });
-    const created = await storage.create(input);
-    resetMemoryRecallVectorizerCache();
-    return maskConnection(created);
+    return withLongTermMemoryEmbeddingChange(app.db, reply, async () => {
+      const created = await storage.create(input);
+      resetMemoryRecallVectorizerCache();
+      return maskConnection(created);
+    });
   });
 
   app.patch<{ Params: { id: string } }>("/:id", async (req, reply) => {
@@ -518,9 +521,11 @@ export async function connectionsRoutes(app: FastifyInstance) {
     if (!current) return reply.status(404).send({ error: "Connection not found" });
     const validationError = nanoGptVideoConnectionError({ ...current, ...data });
     if (validationError) return reply.status(400).send({ error: validationError });
-    const updated = await storage.update(req.params.id, data);
-    resetMemoryRecallVectorizerCache();
-    return maskConnection(updated);
+    return withLongTermMemoryEmbeddingChange(app.db, reply, async () => {
+      const updated = await storage.update(req.params.id, data);
+      resetMemoryRecallVectorizerCache();
+      return maskConnection(updated);
+    });
   });
 
   app.post<{ Params: { id: string } }>("/:id/image", async (req, reply) => {
@@ -587,14 +592,18 @@ export async function connectionsRoutes(app: FastifyInstance) {
         params[VIDEO_DEFAULTS_STORAGE_KEY] = rawRecord[VIDEO_DEFAULTS_STORAGE_KEY];
       }
     }
-    await storage.updateDefaultParameters(req.params.id, params);
-    resetMemoryRecallVectorizerCache();
-    return { success: true };
+    return withLongTermMemoryEmbeddingChange(app.db, reply, async () => {
+      await storage.updateDefaultParameters(req.params.id, params);
+      resetMemoryRecallVectorizerCache();
+      return { success: true };
+    });
   });
 
   app.delete<{ Params: { id: string } }>("/:id", async (req, reply) => {
-    await storage.remove(req.params.id);
-    resetMemoryRecallVectorizerCache();
+    await withLongTermMemoryEmbeddingChange(app.db, reply, async () => {
+      await storage.remove(req.params.id);
+      resetMemoryRecallVectorizerCache();
+    });
     return reply.status(204).send();
   });
 

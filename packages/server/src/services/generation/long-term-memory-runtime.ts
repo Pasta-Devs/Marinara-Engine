@@ -1,8 +1,13 @@
 import type { ChatMode } from "@marinara-engine/shared";
+import type { FastifyReply } from "fastify";
+import type { DB } from "../../db/connection.js";
 import { getAgentCallTimeoutMs } from "../../config/runtime-config.js";
 import { logger } from "../../lib/logger.js";
 import { getCapabilityService } from "../capability-packages/capability-service-registry.service.js";
 import { withLlmRequestTimeout } from "../llm/base-provider.js";
+import { resolveMemoryRecallEmbeddingSource } from "../memory-recall-embedding.js";
+import { createAgentsStorage } from "../storage/agents.storage.js";
+import { createConnectionsStorage } from "../storage/connections.storage.js";
 
 const SERVICE_KEY = "long-term-memory:runtime";
 const MAX_RECALL_CHARACTERS = 100_000;
@@ -10,6 +15,8 @@ const MAX_RECALL_CHARACTERS = 100_000;
 export type LongTermMemoryRecallReceipt = unknown;
 
 export interface LongTermMemoryRuntimeService {
+  /** Optional for older packages. The package owns freshness checks, locking and rebuilding. */
+  refresh?(input: { signal: AbortSignal }): Promise<{ status: "refreshed" | "deferred" }>;
   recall(input: {
     chatId: string;
     chatMode: ChatMode;
@@ -27,6 +34,60 @@ export interface LongTermMemoryRuntimeService {
 
 function runtimeService() {
   return getCapabilityService<LongTermMemoryRuntimeService>(SERVICE_KEY);
+}
+
+async function embeddingConfiguration(db: DB): Promise<string | null> {
+  const config = await createAgentsStorage(db).getByType("long-term-memory");
+  if (!config && !runtimeService()) return null;
+  const connections = createConnectionsStorage(db);
+  const selected = config?.connectionId
+    ? await connections.getById(config.connectionId)
+    : await connections.getDefault();
+  const source = await resolveMemoryRecallEmbeddingSource(db, { connectionId: config?.connectionId });
+  // Selection changes matter even when space IDs coincide (including the sidecar).
+  // Request identity catches credential/header recovery without declaring vectors incompatible.
+  return JSON.stringify([
+    config?.connectionId ?? selected?.id ?? null,
+    selected?.embeddingConnectionId?.trim() || null,
+    source?.cacheIdentity ?? source?.spaceId ?? "built-in",
+  ]);
+}
+
+/** Keep configuration-save success independent of an optional package's refresh outcome. */
+export async function withLongTermMemoryEmbeddingChange<T>(
+  db: DB,
+  reply: Pick<FastifyReply, "header">,
+  save: () => Promise<T>,
+): Promise<T> {
+  let before: string | null | undefined;
+  try {
+    before = await embeddingConfiguration(db);
+  } catch (error) {
+    logger.warn(error, "Could not resolve the previous Long-term memory embedding configuration");
+  }
+  const saved = await save();
+  let refreshSignal: AbortSignal | undefined;
+  try {
+    const after = await embeddingConfiguration(db);
+    if (after === null || before === after) return saved;
+    const service = runtimeService();
+    if (typeof service?.refresh !== "function") {
+      reply.header("X-Marinara-LTM-Refresh", "unavailable");
+      return saved;
+    }
+    const result = await withLongTermMemoryRuntimeTimeout(getAgentCallTimeoutMs(), (signal) => {
+      refreshSignal = signal;
+      return service.refresh!({ signal });
+    });
+    if (result?.status !== "refreshed" && result?.status !== "deferred") {
+      throw new Error("Long-term memory refresh returned an invalid outcome");
+    }
+    reply.header("X-Marinara-LTM-Refresh", result.status);
+  } catch (error) {
+    logger.warn(error, "Configuration saved, but Long-term memory index refresh did not complete");
+    reply.header("X-Marinara-LTM-Refresh", refreshSignal?.aborted ? "timeout" : "failed");
+  }
+  return saved;
 }
 
 export async function withLongTermMemoryRuntimeTimeout<T>(

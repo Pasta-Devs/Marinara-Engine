@@ -32,6 +32,7 @@ import {
 import { createAgentsStorage } from "../services/storage/agents.storage.js";
 import { createChatsStorage } from "../services/storage/chats.storage.js";
 import { createConnectionsStorage } from "../services/storage/connections.storage.js";
+import { withLongTermMemoryEmbeddingChange } from "../services/generation/long-term-memory-runtime.js";
 import { createLLMProvider } from "../services/llm/provider-registry.js";
 import { normalizeBeholderState } from "../services/agents/beholder-state.js";
 import { DATA_DIR } from "../utils/data-dir.js";
@@ -500,11 +501,17 @@ export async function agentsRoutes(app: FastifyInstance) {
       return reply.status(404).send({ error: "Agent is not configured" });
     }
     const data = updateAgentConfigSchema.parse(req.body);
+    if (config.type === "long-term-memory" && data.connectionId !== undefined) {
+      return withLongTermMemoryEmbeddingChange(app.db, reply, () => storage.update(config.id, data));
+    }
     return storage.update(config.id, data);
   });
 
-  app.patch<{ Params: { id: string } }>("/:id", async (req) => {
+  app.patch<{ Params: { id: string } }>("/:id", async (req, reply) => {
     const data = updateAgentConfigSchema.parse(req.body);
+    if (data.connectionId !== undefined && (await storage.getById(req.params.id))?.type === "long-term-memory") {
+      return withLongTermMemoryEmbeddingChange(app.db, reply, () => storage.update(req.params.id, data));
+    }
     return storage.update(req.params.id, data);
   });
 

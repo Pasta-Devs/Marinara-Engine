@@ -3,6 +3,8 @@
 // ──────────────────────────────────────────────
 
 import { CSRF_HEADER, CSRF_HEADER_VALUE } from "@marinara-engine/shared";
+import { toast } from "sonner";
+import { i18n } from "../localization/i18n";
 import { showGenerationFallbackHeader, showGenerationFallbackToast } from "./generation-fallback-notice";
 
 const BASE = "/api";
@@ -265,6 +267,13 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   if (!res.ok) {
     const body = await res.json().catch(() => ({ error: res.statusText }));
     throw new ApiError(res.status, getApiErrorMessage(body.error, res.statusText), body);
+  }
+
+  const ltmRefresh = res.headers.get("X-Marinara-LTM-Refresh");
+  if (ltmRefresh === "refreshed") {
+    toast.success(i18n.t("agents.longTermMemory.embeddingRefresh.refreshed"));
+  } else if (ltmRefresh && ["deferred", "failed", "timeout", "unavailable"].includes(ltmRefresh)) {
+    toast.warning(i18n.t(`agents.longTermMemory.embeddingRefresh.${ltmRefresh}`));
   }
 
   // 204 No Content

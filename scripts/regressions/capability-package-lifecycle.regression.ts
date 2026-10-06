@@ -622,7 +622,7 @@ try {
   deactivateReactivatedRoutes();
   deactivateInitialRoutes();
 
-  const { withLongTermMemoryRuntimeTimeout } =
+  const { withLongTermMemoryEmbeddingChange, withLongTermMemoryRuntimeTimeout } =
     await import("../../packages/server/src/services/generation/long-term-memory-runtime.js");
   const timeoutStartedAt = Date.now();
   await assert.rejects(
@@ -1420,7 +1420,7 @@ try {
   );
   if (configuredDataDir === undefined) delete process.env.DATA_DIR;
   else process.env.DATA_DIR = configuredDataDir;
-  const { getCapabilityService } =
+  const { getCapabilityService, registerCapabilityService } =
     await import("../../packages/server/src/services/capability-packages/capability-service-registry.service.js");
   const { closeDB, getDB } = await import("../../packages/server/src/db/connection.js");
   closeDatabase = closeDB;
@@ -1466,6 +1466,41 @@ try {
     caseDistinctEmbeddingHost.spaceId,
     "opaque embedding model IDs must retain case distinctions",
   );
+  // Engine save/header contract only; reuse the existing connection fixture.
+  let refreshedModel: string | undefined;
+  const refreshHeaders: unknown[][] = [];
+  const refreshReply = {
+    header(name: string, value: unknown) {
+      refreshHeaders.push([name, value]);
+      return undefined!;
+    },
+  };
+  const releaseRefresh = registerCapabilityService("long-term-memory:runtime", {
+    async refresh({ signal }: { signal: AbortSignal }) {
+      signal.throwIfAborted();
+      refreshedModel = (await connections.getById(remoteEmbeddingConnection.id))?.embeddingModel;
+      if (refreshedModel === "failed-model") throw new Error("Refresh fixture failed");
+      return { status: "refreshed" };
+    },
+  });
+  try {
+    for (const embeddingModel of ["refreshed-model", "refreshed-model", "failed-model"]) {
+      const saved = await withLongTermMemoryEmbeddingChange(db, refreshReply, () =>
+        connections.update(remoteEmbeddingConnection.id, { embeddingModel }),
+      );
+      assert.equal(saved?.embeddingModel, embeddingModel);
+      assert.equal(refreshedModel, embeddingModel, "refresh must observe the persisted save before it returns");
+    }
+    assert.deepEqual(refreshHeaders, [
+      ["X-Marinara-LTM-Refresh", "refreshed"],
+      ["X-Marinara-LTM-Refresh", "failed"],
+    ]);
+  } finally {
+    releaseRefresh();
+    await connections.update(remoteEmbeddingConnection.id, {
+      embeddingModel: remoteEmbeddingConnection.embeddingModel,
+    });
+  }
   const { createCapabilityPersistenceHost } =
     await import("../../packages/server/src/services/capability-packages/capability-persistence.service.js");
   const { createCapabilityResourceHost } =
