@@ -23,7 +23,7 @@
     "@huggingface/transformers": "^4.3.0",
     "@img/sharp-wasm32": "0.35.5",
     "@marinara-engine/shared": "workspace:*",
-    "@modelcontextprotocol/sdk": "1.30.0",
+    "@modelcontextprotocol/sdk": "1.31.0",
     "adm-zip": "^0.6.1",
     "ajv": "^8.20.0",
     "ajv-formats": "^3.0.1",
