@@ -628,6 +628,11 @@ async function importPersona(data: unknown, db: DB) {
     ...(d.savedStatusOptions === undefined ? {} : { savedStatusOptions: d.savedStatusOptions }),
     ...(d.convoBehavior === undefined ? {} : { convoBehavior: d.convoBehavior }),
     ...(typeof d.versioningEnabled === "boolean" ? { versioningEnabled: d.versioningEnabled } : {}),
+    // #7053: the export writes the public boolean contract for the image-appearance
+    // toggle. Without these the exported override was silently dropped on import,
+    // so a persona round-trip lost the switch and the text.
+    ...(typeof d.imageAppearanceEnabled === "boolean" ? { imageAppearanceEnabled: d.imageAppearanceEnabled } : {}),
+    ...(typeof d.imageAppearance === "string" ? { imageAppearance: d.imageAppearance } : {}),
   };
   for (const field of [
     "comment",

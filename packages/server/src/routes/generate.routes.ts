@@ -293,8 +293,12 @@ import {
 import { persistGeneratedImageToEntityGalleries } from "../services/image/generated-image-entity-gallery.js";
 import { resolveImageConnectionFallback } from "../services/generation/media-connection-fallback.js";
 import {
+  buildIllustratorImageAppearanceOverrides,
   buildUncaptionedCharacterAppearanceBlock,
+  IMAGE_APPEARANCE_OVERRIDES_MEMORY_KEY,
+  personaEntityId,
   readCharacterPrompts,
+  readIllustratorImageAppearanceOverride,
   resolveNovelAiCharacterPromptLimit,
   supportsNovelAiCharacterPrompts,
 } from "../services/image/character-prompts.js";
@@ -2310,6 +2314,9 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           chatProvider: routingChatProvider,
           chatConnectionId: connId ?? conn.id,
           chatModel: conn.model,
+          chatConnectionProvider: conn.provider,
+          chatDefaultParameters: conn.defaultParameters,
+          managedParameterDefinitions,
           chatCustomParameters: storedParameters?.customParameters ?? {},
           chatTemperature: storedParameters?.temperature,
           chatEnabledParameters: storedParameters?.enabledParameters,
@@ -4141,6 +4148,9 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           chatProvider: agentChatProvider,
           chatConnectionId: connId ?? "",
           chatModel: conn.model,
+          chatConnectionProvider: conn.provider,
+          chatDefaultParameters: conn.defaultParameters,
+          managedParameterDefinitions,
           chatCustomParameters: connectionParams?.customParameters ?? {},
           chatTemperature: temperature,
           chatEnabledParameters: enabledParameters,
@@ -5317,6 +5327,12 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
 
         if (personaId) {
           agentContext.memory._personaId = personaId;
+          // #7053: the persona's image-prompt override, read once from the
+          // resolved identity so every image path keys it consistently. Set
+          // unconditionally: the retry path reads this key without a guard, so
+          // leaving it unset when the override is cleared would let a stale
+          // value survive on a reused memory object.
+          agentContext.memory._personaImageAppearanceOverride = identity?.imageAppearanceOverride ?? "";
         }
         if (userIdentityId) {
           agentContext.memory._userIdentityId = userIdentityId;
@@ -5402,6 +5418,16 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             messages: allChatMessages,
             countUpcomingAssistantMessage: createsAssistantMessage,
           }));
+
+        // Keep image-only appearances available to custom image agents and native
+        // caption fallbacks, even when no built-in Illustrator instruction exists.
+        const imageAppearanceOverrides = buildIllustratorImageAppearanceOverrides(charInfo, {
+          id: userIdentityId,
+          imageAppearanceOverride: identity?.imageAppearanceOverride || undefined,
+        });
+        if (imageAppearanceOverrides) {
+          agentContext.memory[IMAGE_APPEARANCE_OVERRIDES_MEMORY_KEY] = imageAppearanceOverrides;
+        }
 
         const illustratorPromptAgent = resolvedAgents.find((agent) => agent.type === "illustrator");
         if (illustratorPromptAgent) {
@@ -6407,16 +6433,8 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                     type: "agent_start",
                     data: { phase: "pre_generation", agentType: "knowledge-retrieval" },
                   });
-                  const krConfig = {
-                    id: knowledgeRetrievalAgent!.id,
-                    type: knowledgeRetrievalAgent!.type,
-                    name: knowledgeRetrievalAgent!.name,
-                    isCustomAgent: knowledgeRetrievalAgent!.isCustomAgent,
-                    phase: knowledgeRetrievalAgent!.phase,
-                    promptTemplate: knowledgeRetrievalAgent!.promptTemplate,
-                    connectionId: knowledgeRetrievalAgent!.connectionId,
-                    settings: knowledgeRetrievalAgent!.settings,
-                  };
+                  // The whole resolved agent, so its connection's saved parameters apply too (#7131).
+                  const krConfig = { ...knowledgeRetrievalAgent! };
                   const sourceMaterial = agentContext.memory._knowledgeRetrievalMaterial as string;
                   const krResult = await executeKnowledgeRetrieval(
                     krConfig,
@@ -6462,16 +6480,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                     type: "agent_start",
                     data: { phase: "pre_generation", agentType: "knowledge-router" },
                   });
-                  const routerConfig = {
-                    id: knowledgeRouterAgent!.id,
-                    type: knowledgeRouterAgent!.type,
-                    name: knowledgeRouterAgent!.name,
-                    isCustomAgent: knowledgeRouterAgent!.isCustomAgent,
-                    phase: knowledgeRouterAgent!.phase,
-                    promptTemplate: knowledgeRouterAgent!.promptTemplate,
-                    connectionId: knowledgeRouterAgent!.connectionId,
-                    settings: knowledgeRouterAgent!.settings,
-                  };
+                  const routerConfig = { ...knowledgeRouterAgent! };
                   const routerResult = await executeKnowledgeRouter(
                     routerConfig,
                     agentContext,
@@ -13157,6 +13166,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                             name: character.name,
                             avatarPath: character.avatarPath,
                             appearance: character.appearance,
+                            appearanceOverride: character.imageAppearanceOverride ?? null,
                           })),
                           ...(identity?.source === "character" &&
                           !charInfo.some((character) => character.id === identity.id)
@@ -13166,6 +13176,10 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                                   name: identity.name,
                                   avatarPath: identity.avatarPath,
                                   appearance: identity.appearance,
+                                  // #7053: mirror the charInfo entries above so a
+                                  // character used as the user identity keeps its
+                                  // image-prompt override.
+                                  appearanceOverride: identity.imageAppearanceOverride || null,
                                 },
                               ]
                             : []),
@@ -13177,6 +13191,9 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                                 name: personaName,
                                 avatarPath: persona.avatarPath as string | null,
                                 appearance: personaFields.appearance,
+                                // #7053: identity-source persona, so the override
+                                // is already resolved as a string.
+                                appearanceOverride: persona.imageAppearanceOverride || null,
                                 characterSheetImageId:
                                   typeof persona.characterSheetImageId === "string"
                                     ? persona.characterSheetImageId
@@ -13202,8 +13219,29 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                           illustratorCharacterPrompts.length > 0
                             ? buildUncaptionedCharacterAppearanceBlock(
                                 [
-                                  ...agentContext.characters,
-                                  ...(agentContext.persona ? [agentContext.persona] : []),
+                                  ...agentContext.characters.map((character) => ({
+                                    name: character.name,
+                                    // #7053: image-only override; the shared
+                                    // `appearance` stays untouched for lore.
+                                    appearance:
+                                      readIllustratorImageAppearanceOverride(agentContext.memory, character.id) ??
+                                      character.appearance ??
+                                      "",
+                                  })),
+                                  ...(agentContext.persona
+                                    ? [
+                                        {
+                                          name: agentContext.persona.name,
+                                          appearance:
+                                            readIllustratorImageAppearanceOverride(
+                                              agentContext.memory,
+                                              personaEntityId(agentContext.memory),
+                                            ) ??
+                                            agentContext.persona.appearance ??
+                                            "",
+                                        },
+                                      ]
+                                    : []),
                                   ...referenceResolution.appearanceSources,
                                 ],
                                 illCharacters.filter((name): name is string => typeof name === "string"),
@@ -13682,6 +13720,11 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                           name: personaName,
                           avatarPath: persona.avatarPath as string | null,
                           appearance: personaFields.appearance,
+                          // #7053: image prompts prefer the card override. The
+                          // resolved identity already exposes it as a ready
+                          // string (separate from `appearance`, which stays the
+                          // narrator's text).
+                          appearanceOverride: persona.imageAppearanceOverride || null,
                         }
                       : null,
                   promptConnection: conn,

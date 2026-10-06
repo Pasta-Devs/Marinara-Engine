@@ -4,7 +4,7 @@ import { connectionChatTarget, probeDecisionSlot } from "../services/decision/si
 // ──────────────────────────────────────────────
 // Routes: Connections
 // ──────────────────────────────────────────────
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyReply } from "fastify";
 import { existsSync } from "fs";
 import { mkdir, readFile, writeFile } from "fs/promises";
 import { extname, join } from "path";
@@ -18,7 +18,9 @@ import {
   MODEL_LISTS,
   VIDEO_DEFAULTS_STORAGE_KEY,
   connectionImageCaptioningDefaultsSchema,
+  connectionModelPinSchema,
   createConnectionSchema,
+  MAX_PINNED_MODELS,
   createDefaultVideoGenerationProfile,
   decisionTestTimeoutMs,
   generationParametersSchema,
@@ -32,7 +34,12 @@ import {
   normalizeVideoGenerationProfile,
   type AtlasCloudVideoModelSchemaResponse,
 } from "@marinara-engine/shared";
-import { createConnectionsStorage } from "../services/storage/connections.storage.js";
+import {
+  connectionSavesModelList,
+  createConnectionsStorage,
+  readSavedModelList,
+  withoutSavedModels,
+} from "../services/storage/connections.storage.js";
 import {
   allowsDefaultChatModel,
   canRefreshLocalContext,
@@ -451,10 +458,10 @@ export async function connectionsRoutes(app: FastifyInstance) {
   ): T =>
     conn
       ? ({
-          ...conn,
+          ...withoutSavedModels(conn),
           apiKeyEncrypted: conn.apiKeyEncrypted ? "••••••••" : "",
           managementTokenEncrypted: conn.managementTokenEncrypted ? "••••••••" : "",
-        } as T)
+        } as unknown as T)
       : conn;
 
   app.get("/", async () => {
@@ -962,15 +969,19 @@ export async function connectionsRoutes(app: FastifyInstance) {
     }
   });
 
-  app.get<{ Params: { id: string } }>("/:id/models", async (req, reply) => {
-    const conn = await storage.getWithKey(req.params.id);
-    if (!conn) return reply.status(404).send({ error: "Connection not found" });
-
+  /**
+   * Ask the provider for its model list. Returns the list, or the reply once an error has been sent.
+   * `builtIn` marks a list answered without asking the provider, which is never saved.
+   */
+  const discoverConnectionModels = async (
+    conn: NonNullable<Awaited<ReturnType<typeof storage.getWithKey>>>,
+    reply: FastifyReply,
+  ): Promise<{ models: Array<{ id: string; name: string }>; loras?: unknown[]; builtIn?: true } | FastifyReply> => {
     if (conn.provider === "decision") {
       // Jev is only the default of the System One sources; a chat server needs the
       // model name the user entered.
       const model = conn.model || (conn.decisionSource === "openai_compatible" ? "" : "jev-latest");
-      return { models: model ? [{ id: model, name: model }] : [] };
+      return { models: model ? [{ id: model, name: model }] : [], builtIn: true };
     }
     try {
       // Claude (Subscription) has no remote /models endpoint — return the
@@ -978,7 +989,7 @@ export async function connectionsRoutes(app: FastifyInstance) {
       if (conn.provider === "claude_subscription") {
         const { MODEL_LISTS } = await import("@marinara-engine/shared");
         const models = MODEL_LISTS.claude_subscription.map((m) => ({ id: m.id, name: m.name }));
-        return { models };
+        return { models, builtIn: true };
       }
 
       if (conn.provider === "openai_chatgpt") {
@@ -987,9 +998,10 @@ export async function connectionsRoutes(app: FastifyInstance) {
           if (models.length > 0) return { models };
         } catch {
           // Fall through to the curated list so the selector remains usable
-          // before the host has run `codex login`.
+          // before the host has run `codex login`. It is not saved, so a later
+          // look at the list asks Codex again.
         }
-        return { models: MODEL_LISTS.openai_chatgpt.map((m) => ({ id: m.id, name: m.name })) };
+        return { models: MODEL_LISTS.openai_chatgpt.map((m) => ({ id: m.id, name: m.name })), builtIn: true };
       }
 
       if (conn.provider === "grok_subscription") {
@@ -1430,6 +1442,40 @@ export async function connectionsRoutes(app: FastifyInstance) {
         error: `Failed to fetch models: ${detail}${code && /^[A-Z0-9_]+$/.test(code) ? ` (${code})` : ""}. The connection is made from the Marinara server; check that the provider is reachable there.`,
       });
     }
+  };
+
+  // A chat connection keeps the list it fetched, so later looks answer from it without asking the
+  // provider again. `refresh=true` (the Refresh and Fetch Models buttons) fetches and replaces it.
+  app.get<{ Params: { id: string }; Querystring: { refresh?: string } }>("/:id/models", async (req, reply) => {
+    const conn = await storage.getWithKey(req.params.id);
+    if (!conn) return reply.status(404).send({ error: "Connection not found" });
+    const savesList = connectionSavesModelList(conn.provider);
+    if (savesList && req.query.refresh !== "true") {
+      const saved = readSavedModelList(conn);
+      if (saved) return saved;
+    }
+    const discovered = await discoverConnectionModels(conn, reply);
+    if ((discovered as unknown) === reply) return reply;
+    const { builtIn, ...result } = discovered as Exclude<typeof discovered, FastifyReply>;
+    if (!savesList || builtIn) return result;
+    const saved = await storage.saveModelListIfUnchanged(conn, result.models);
+    // The provider, address or key changed while the list loaded, so it may belong to the old settings.
+    // Don't hand it out as current; the client asks again.
+    if (!saved) {
+      return reply.status(409).send({ error: "The connection changed while its models were loading." });
+    }
+    return saved;
+  });
+
+  app.post<{ Params: { id: string } }>("/:id/pinned-models", async (req, reply) => {
+    const parsed = connectionModelPinSchema.safeParse(req.body);
+    if (!parsed.success) return reply.status(400).send({ error: "Send a model ID and whether it is pinned." });
+    const result = await storage.setModelPinned(req.params.id, parsed.data.model, parsed.data.pinned);
+    if (result === "not_found") return reply.status(404).send({ error: "Connection not found" });
+    if (result === "limit") {
+      return reply.status(400).send({ error: `You can pin up to ${MAX_PINNED_MODELS} models per connection.` });
+    }
+    return result;
   });
 
   // ── Test image generation — uses a broadly supported 1K square canvas ──

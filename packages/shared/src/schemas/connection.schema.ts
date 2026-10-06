@@ -2,7 +2,12 @@
 // Connection Zod Schemas
 // ──────────────────────────────────────────────
 import { z } from "zod";
-import { DECISION_SOURCES, IMAGE_GENERATION_QUALITIES } from "../types/connection.js";
+import {
+  DECISION_SOURCES,
+  IMAGE_GENERATION_QUALITIES,
+  MAX_MODEL_ID_LENGTH,
+  MAX_PINNED_MODELS,
+} from "../types/connection.js";
 import { DECISION_CONNECTION_TIMEOUT_BOUNDS_MS } from "../types/decision.js";
 import { MAX_IMAGE_PROMPT_INSTRUCTIONS_LENGTH } from "../constants/defaults.js";
 
@@ -32,6 +37,15 @@ export const audioGenerationSourceSchema = z.enum(["openai", "elevenlabs", "pock
 
 export const imageGenerationQualitySchema = z.enum(IMAGE_GENERATION_QUALITIES);
 
+/** A model ID as the model picker sends it: trimmed, non-empty and bounded. */
+export const connectionModelIdSchema = z.string().trim().min(1).max(MAX_MODEL_ID_LENGTH);
+
+/** Pin or unpin one model on a connection. */
+export const connectionModelPinSchema = z.object({
+  model: connectionModelIdSchema,
+  pinned: z.boolean(),
+});
+
 export const connectionImageCaptioningDefaultsSchema = z.object({
   imageCaptioningEnabled: z.boolean().optional(),
   imageCaptioningConnectionId: z.string().trim().min(1).nullable().optional(),
@@ -58,6 +72,8 @@ export const createConnectionSchema = z.object({
   baseUrl: z.string().url().or(z.literal("")).default(""),
   apiKey: z.string().default(""),
   model: z.string().default(""),
+  /** Model IDs shown first in this connection's model picker. */
+  pinnedModels: z.array(connectionModelIdSchema).max(MAX_PINNED_MODELS).default([]),
   imagePath: z.string().nullable().default(null),
   maxContext: z.number().int().min(1).default(128000),
   isDefault: z.boolean().default(false),

@@ -1,3 +1,5 @@
+import { saveExportFile } from "./file-download";
+
 export type ZipFileInput = {
   path: string;
   content: string | Uint8Array;
@@ -105,13 +107,5 @@ export function downloadZipFile(files: ZipFileInput[], filename: string) {
   writeUint32(output, centralDirectoryOffset);
   writeUint16(output, 0);
 
-  const blob = new Blob([new Uint8Array(output)], { type: "application/zip" });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = filename;
-  document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
-  URL.revokeObjectURL(url);
+  return saveExportFile(new Blob([new Uint8Array(output)], { type: "application/zip" }), filename);
 }

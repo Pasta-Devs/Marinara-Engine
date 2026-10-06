@@ -16,6 +16,7 @@ import {
   shouldSuppressUnknownModelParameters,
   type APIProvider,
   type GenerationParameterSendMap,
+  type ManagedGenerationParameterDefinition,
 } from "@marinara-engine/shared";
 import type { BaseLLMProvider } from "../llm/base-provider.js";
 import { createLLMProvider } from "../llm/provider-registry.js";
@@ -33,7 +34,7 @@ import {
   resolveAgentConnectionId,
   type AgentConnectionWarning,
 } from "../../routes/generate/agent-connection-guards.js";
-import { parseStoredGenerationParameters } from "../../routes/generate/generate-route-utils.js";
+import { resolveAgentConnectionParameters, type AgentGenerationParameters } from "./agent-generation-parameters.js";
 import { applyTextRewriteAgentChatSettings, normalizeProseGuardianPromptTemplate } from "./prose-guardian-settings.js";
 import { applyKnowledgeAgentChatSettings } from "./knowledge-agent-settings.js";
 import { applyCustomAgentImageChatSettings } from "./custom-agent-image-settings.js";
@@ -57,6 +58,11 @@ type ResolveAgentPipelineAgentsArgs = {
   chatProvider: BaseLLMProvider;
   chatConnectionId: string;
   chatModel: string;
+  /** The chat connection's provider and saved parameters, for agents that answer on the chat's connection (#7131). */
+  chatConnectionProvider?: string;
+  chatDefaultParameters?: unknown;
+  /** Managed custom parameter definitions (Settings > Advanced) that connection values refer to. */
+  managedParameterDefinitions?: ManagedGenerationParameterDefinition[];
   chatCustomParameters: Record<string, unknown>;
   chatTemperature?: number;
   chatEnabledParameters?: GenerationParameterSendMap;
@@ -84,6 +90,7 @@ type AgentProviderCacheEntry = {
   enableCaching: boolean;
   anthropicExtendedCacheTtl: boolean;
   cachingAtDepth: number;
+  generation?: AgentGenerationParameters;
 };
 
 type AgentConnectionResolution = {
@@ -240,6 +247,9 @@ async function resolveAgentConnectionProvider(args: {
   connectionId: string | null;
   fallbackProvider: BaseLLMProvider;
   fallbackModel: string;
+  fallbackConnectionProvider?: string;
+  fallbackDefaultParameters?: unknown;
+  managedParameterDefinitions?: ManagedGenerationParameterDefinition[];
   fallbackCustomParameters: Record<string, unknown>;
   fallbackTemperature?: number;
   fallbackEnabledParameters?: GenerationParameterSendMap;
@@ -266,10 +276,20 @@ async function resolveAgentConnectionProvider(args: {
       category: "agents",
       onFallback: args.onFallback,
     });
+    // Agents on the chat's connection read that connection's saved parameters like any agent connection; the
+    // temperature and send switches the caller passes keep their existing precedence.
+    const chatConnectionParameters = args.fallbackConnectionProvider
+      ? resolveAgentConnectionParameters({
+          provider: args.fallbackConnectionProvider,
+          model: args.fallbackModel,
+          defaultParameters: args.fallbackDefaultParameters,
+          managedParameterDefinitions: args.managedParameterDefinitions,
+        })
+      : null;
     const resolved = {
       provider,
       model: args.fallbackModel,
-      customParameters: args.fallbackCustomParameters,
+      customParameters: chatConnectionParameters?.customParameters ?? args.fallbackCustomParameters,
       temperature: args.fallbackTemperature,
       enabledParameters: args.fallbackEnabledParameters,
       suppressModelParameters: args.fallbackSuppressModelParameters,
@@ -278,6 +298,7 @@ async function resolveAgentConnectionProvider(args: {
       enableCaching: args.fallbackEnableCaching,
       anthropicExtendedCacheTtl: args.fallbackAnthropicExtendedCacheTtl,
       cachingAtDepth: args.fallbackCachingAtDepth,
+      generation: chatConnectionParameters?.generation,
     };
     args.agentProviderCache.set(args.connectionId, resolved);
     return { entry: resolved };
@@ -317,7 +338,14 @@ async function resolveAgentConnectionProvider(args: {
     agentConn.treatAsLocalEndpoint === "true",
     agentConn.defaultParameters,
   );
-  const storedParameters = parseStoredGenerationParameters(agentConn.defaultParameters);
+  const connectionParameters = resolveAgentConnectionParameters({
+    provider: agentConn.provider,
+    model,
+    maxContext: agentConn.maxContext,
+    maxTokensOverride: agentConn.maxTokensOverride,
+    defaultParameters: agentConn.defaultParameters,
+    managedParameterDefinitions: args.managedParameterDefinitions,
+  });
   const resolved = {
     provider: withConnectionFallbackProvider({
       primary: primaryProvider,
@@ -328,9 +356,10 @@ async function resolveAgentConnectionProvider(args: {
       onFallback: args.onFallback,
     }),
     model,
-    customParameters: storedParameters?.customParameters ?? {},
-    temperature: storedParameters?.temperature,
-    enabledParameters: storedParameters?.enabledParameters,
+    customParameters: connectionParameters.customParameters,
+    temperature: connectionParameters.temperature,
+    enabledParameters: connectionParameters.enabledParameters,
+    generation: connectionParameters.generation,
     suppressModelParameters: shouldSuppressUnknownModelParameters(agentConn.provider, model),
     maxOutputTokens: resolveConnectionMaxOutputTokens({ provider: agentConn.provider, model }),
     maxParallelJobs: Number(agentConn.maxParallelJobs) || 1,
@@ -353,6 +382,9 @@ export async function resolveAgentPipelineAgents({
   chatProvider,
   chatConnectionId,
   chatModel,
+  chatConnectionProvider,
+  chatDefaultParameters,
+  managedParameterDefinitions,
   chatCustomParameters,
   chatTemperature,
   chatEnabledParameters,
@@ -477,6 +509,9 @@ export async function resolveAgentPipelineAgents({
       connectionId: effectiveConnectionId,
       fallbackProvider: chatProvider,
       fallbackModel: chatModel,
+      fallbackConnectionProvider: chatConnectionProvider,
+      fallbackDefaultParameters: chatDefaultParameters,
+      managedParameterDefinitions,
       fallbackCustomParameters: chatCustomParameters,
       fallbackTemperature: chatTemperature,
       fallbackEnabledParameters: chatEnabledParameters,
@@ -545,6 +580,7 @@ export async function resolveAgentPipelineAgents({
       enableCaching: resolvedProvider.entry.enableCaching,
       anthropicExtendedCacheTtl: resolvedProvider.entry.anthropicExtendedCacheTtl,
       cachingAtDepth: resolvedProvider.entry.cachingAtDepth,
+      generation: resolvedProvider.entry.generation,
     });
   }
 
@@ -586,6 +622,9 @@ export async function resolveAgentPipelineAgents({
       connectionId: builtInConnectionId,
       fallbackProvider: chatProvider,
       fallbackModel: chatModel,
+      fallbackConnectionProvider: chatConnectionProvider,
+      fallbackDefaultParameters: chatDefaultParameters,
+      managedParameterDefinitions,
       fallbackCustomParameters: chatCustomParameters,
       fallbackTemperature: chatTemperature,
       fallbackEnabledParameters: chatEnabledParameters,
@@ -655,6 +694,7 @@ export async function resolveAgentPipelineAgents({
       enableCaching: builtInConnection.entry.enableCaching,
       anthropicExtendedCacheTtl: builtInConnection.entry.anthropicExtendedCacheTtl,
       cachingAtDepth: builtInConnection.entry.cachingAtDepth,
+      generation: builtInConnection.entry.generation,
     });
   }
 

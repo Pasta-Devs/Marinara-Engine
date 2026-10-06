@@ -42,6 +42,14 @@ export const apiConnections = fileTable("api_connections", {
   /** Imported endpoints stay unavailable until the user reviews and saves them locally. */
   profileImportReviewRequired: text("profile_import_review_required").notNull().default("false"),
   model: text("model").notNull().default(""),
+  /** Model IDs pinned to the top of the model picker (JSON array). Travels with exports like other settings. */
+  pinnedModels: text("pinned_models").notNull().default("[]"),
+  /**
+   * The model list last fetched from the provider, as JSON `{ fetchedAt, models }`. A re-fetchable cache:
+   * never holds credentials, is left out of API responses and profile exports, and is cleared when the
+   * provider, base URL or API key changes.
+   */
+  savedModels: text("saved_models"),
   imagePath: text("image_path"),
   maxContext: integer("max_context").notNull().default(128000),
   isDefault: text("is_default").notNull().default("false"),

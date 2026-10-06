@@ -9,6 +9,7 @@ import { z } from "zod";
 import {
   findImageStyleProfile,
   LOCAL_SIDECAR_CONNECTION_ID,
+  readImageAppearanceOverride,
   resolveGameSetupArtStylePrompt,
   VIDEO_GENERATION_SETTINGS_KEY,
   normalizeVideoGenerationUserSettings,
@@ -361,6 +362,11 @@ function readStringArray(value: unknown): string[] {
 
 function getCharacterAppearance(data: Record<string, unknown>): string {
   const extensions = parseJsonRecord(data.extensions);
+  // #7053: gallery selfies are image prompts, so an enabled non-empty override
+  // replaces the card appearance here too. Read it before the fallback chain is
+  // resolved so the override wins over the normal appearance.
+  const override = readImageAppearanceOverride(extensions, null);
+  if (override) return override;
   const appearance =
     typeof extensions.appearance === "string"
       ? extensions.appearance
@@ -1363,6 +1369,10 @@ export async function galleryRoutes(app: FastifyInstance) {
             name: characterName,
             avatarPath: character.avatarPath ?? null,
             appearance,
+            // #7053: `appearance` above is already the override when one is
+            // enabled, but pass it explicitly so the reference resolver's own
+            // precedence cannot fall back to the raw card text.
+            appearanceOverride: readImageAppearanceOverride(parseJsonRecord(characterData.extensions), null),
           },
         ],
         persona: null,

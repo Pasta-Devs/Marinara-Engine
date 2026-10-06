@@ -320,6 +320,41 @@ try {
   });
   assert.equal(nonObjectNativeImport.success, false, "a non-object native Persona payload may still fail");
 
+  // #7053: export -> import must round-trip the image-appearance override. The
+  // native importer builds its payload from an explicit field allow-list, so a
+  // field missing from it is dropped silently even though the export carried it.
+  const overrideText = "1boy, caucasian, tall male, muscular, black hair, green eyes";
+  const nativeOverrideImport = await requestJson("POST", "/api/import/marinara", 200, {
+    type: "marinara_persona",
+    version: 1,
+    data: {
+      name: "Native override round-trip",
+      appearance: "Prose appearance that image models should not receive.",
+      imageAppearanceEnabled: true,
+      imageAppearance: overrideText,
+    },
+  });
+  assert.equal(nativeOverrideImport.success, true, "a Persona export carrying the override must import");
+  const nativeOverrideRow = await rawPersonaRow(nativeOverrideImport.id);
+  assert.equal(
+    nativeOverrideRow.imageAppearanceEnabled,
+    "true",
+    "the persona override toggle must survive export -> import",
+  );
+  assert.equal(nativeOverrideRow.imageAppearance, overrideText, "the persona override text must survive export -> import");
+  assert.equal(nativeOverrideRow.appearance, "Prose appearance that image models should not receive.");
+
+  // Exports from before this feature carry neither field; those must still import
+  // and land on the documented disabled/empty defaults.
+  const nativeNoOverrideImport = await requestJson("POST", "/api/import/marinara", 200, {
+    type: "marinara_persona",
+    version: 1,
+    data: { name: "Native without override", appearance: "Older export prose." },
+  });
+  const nativeNoOverrideRow = await rawPersonaRow(nativeNoOverrideImport.id);
+  assert.equal(nativeNoOverrideRow.imageAppearanceEnabled, "false", "an older export imports as override-disabled");
+  assert.equal(nativeNoOverrideRow.imageAppearance, "", "an older export imports with no override text");
+
   // ── F6: specialized tracker writes validate recognized fields through the shared contract. ──
 
   const rawBeforeRejectedTrackerWrites = await rawPersonaRow(decodedPersona.id);
@@ -438,6 +473,12 @@ try {
       ...baseRawPersona,
       id: legacyExportId,
       name: "Legacy Export Row",
+      // #7053: the image-appearance toggle is a TEXT column in storage but a
+      // BOOLEAN in the public export contract. The export path spreads the raw
+      // row, so this is the regression that catches "true"/"false" leaking into
+      // a payload the strict create schema then rejects.
+      imageAppearanceEnabled: "true",
+      imageAppearance: "1girl, silver hair, green eyes",
       personaStats: JSON.stringify({
         enabled: true,
         bars: [{ name: "Energy", value: 4, max: 10, color: "#0c0" }],
@@ -454,6 +495,12 @@ try {
 
   // Native export canonicalizes the row so re-import succeeds.
   const nativeExportLegacy = await requestJson("GET", `/api/characters/personas/${legacyExportId}/export`, 200);
+  assert.equal(
+    nativeExportLegacy.data.imageAppearanceEnabled,
+    true,
+    "the native export must publish the boolean contract, not the storage text flag",
+  );
+  assert.equal(nativeExportLegacy.data.imageAppearance, "1girl, silver hair, green eyes");
   const nativeReimportLegacy = await requestJson("POST", "/api/import/marinara", 200, {
     type: "marinara_persona",
     version: 1,
@@ -478,6 +525,12 @@ try {
     name: "Compatible reimport",
     ...compatibleExportLegacy,
   });
+  assert.equal(
+    compatibleReimportLegacy.imageAppearanceEnabled,
+    true,
+    "the compatible export must round-trip the enabled toggle as a boolean",
+  );
+  assert.equal(compatibleReimportLegacy.imageAppearance, "1girl, silver hair, green eyes");
   assert.deepEqual(
     compatibleReimportLegacy.personaStats.rpgStats.pools[0],
     { name: "HP", value: 100, max: 100, color: "#f00" },

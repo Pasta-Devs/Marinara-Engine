@@ -5,10 +5,12 @@ import { useCallback, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { api } from "../lib/api-client";
+import { returnToSceneOrigin } from "../lib/scene-generation";
 import { useChatStore } from "../stores/chat.store";
 import { chatKeys } from "./use-chats";
 import type {
   SceneCreateRequest,
+  SceneAbandonResponse,
   SceneCreateResponse,
   SceneConcludeRequest,
   SceneConcludeResponse,
@@ -96,10 +98,10 @@ export function useScene() {
         // Invalidate both chats
         qc.invalidateQueries({ queryKey: chatKeys.all });
         qc.invalidateQueries({ queryKey: chatKeys.messages(sceneChatId) });
-        qc.invalidateQueries({ queryKey: chatKeys.messages(res.originChatId) });
+        if (res.originChatId) qc.invalidateQueries({ queryKey: chatKeys.messages(res.originChatId) });
 
-        // Navigate back to the origin conversation
-        setActiveChatId(res.originChatId);
+        // Navigate back to the origin conversation or package thread
+        returnToSceneOrigin(res);
 
         toast.success("Scene concluded — summary added as a memory", { icon: "📖" });
       } catch (err) {
@@ -107,30 +109,31 @@ export function useScene() {
         toast.error(msg);
       }
     },
-    [qc, setActiveChatId],
+    [qc],
   );
 
   /** Abandon a scene — clean up and delete without generating a summary. */
   const abandonScene = useCallback(
     async (sceneChatId: string): Promise<void> => {
       try {
-        const res = await api.post<{ originChatId: string }>("/scene/abandon", { sceneChatId });
+        const res = await api.post<SceneAbandonResponse>("/scene/abandon", { sceneChatId });
 
         // Optimistically clear scene pointer from the cached origin chat
         // so the banner disappears immediately (invalidation refetches async).
-        qc.setQueryData(chatKeys.detail(res.originChatId), (old: any) => {
-          if (!old) return old;
-          const meta = typeof old.metadata === "string" ? JSON.parse(old.metadata) : { ...(old.metadata ?? {}) };
-          delete meta.activeSceneChatId;
-          delete meta.sceneBusyCharIds;
-          return { ...old, metadata: meta };
-        });
+        if (res.originChatId)
+          qc.setQueryData(chatKeys.detail(res.originChatId), (old: any) => {
+            if (!old) return old;
+            const meta = typeof old.metadata === "string" ? JSON.parse(old.metadata) : { ...(old.metadata ?? {}) };
+            delete meta.activeSceneChatId;
+            delete meta.sceneBusyCharIds;
+            return { ...old, metadata: meta };
+          });
 
         // Remove deleted scene chat from cache & invalidate list
         qc.removeQueries({ queryKey: chatKeys.detail(sceneChatId) });
         qc.invalidateQueries({ queryKey: chatKeys.all });
 
-        setActiveChatId(res.originChatId);
+        returnToSceneOrigin(res);
 
         toast.success("Scene discarded", { icon: "🗑️" });
       } catch (err) {
@@ -138,7 +141,7 @@ export function useScene() {
         toast.error(msg);
       }
     },
-    [qc, setActiveChatId],
+    [qc],
   );
 
   /**

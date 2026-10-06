@@ -772,11 +772,12 @@ export function CharacterScheduleEditorModal({
 
   const exportSchedule = () => {
     if (!validateDailyCap()) return;
-    downloadJsonFile(
+    void downloadJsonFile(
       createCharacterScheduleExport(currentSchedule, characterName),
       `${sanitizeExportFilenamePart(characterName, "character")}.marinara-schedule.json`,
-    );
-    toast.success(localizeUi("ui.chat.characterscheduleeditormodal.scheduleExported"));
+    ).then((saveStatus) => {
+      if (saveStatus === "saved") toast.success(localizeUi("ui.chat.characterscheduleeditormodal.scheduleExported"));
+    });
   };
 
   const importSchedule = async (file: File | undefined) => {

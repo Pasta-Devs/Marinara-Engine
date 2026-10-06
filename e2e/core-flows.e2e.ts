@@ -12,6 +12,7 @@ import AdmZip from "adm-zip";
 import { readFileSync } from "node:fs";
 import { createServer } from "node:http";
 import type { HomeCustomWidgetCatalog } from "@marinara-engine/shared";
+import { downloadExport } from "./export-save.js";
 import { forceColorValueEnablesColor } from "./playwright-color-environment.js";
 import { mockUILanguagePacks } from "./ui-language-fixtures.js";
 import { seedUIState } from "./ui-state-fixture.js";
@@ -3013,7 +3014,8 @@ test("connection model fetch errors inherit the configured editor accent", async
   let fetchCount = 0;
 
   try {
-    await page.route(`**/api/connections/${connection.id}/models`, async (route) => {
+    // Fetch Models asks for a fresh list (?refresh=true), so match the query string too.
+    await page.route(`**/api/connections/${connection.id}/models*`, async (route) => {
       const message = fetchCount === 0 ? networkError : internalServerError;
       fetchCount += 1;
       await route.fulfill({
@@ -5674,9 +5676,9 @@ test("character schedules export the live draft and import safely", async ({ pag
     expect((await storedSchedule())!.autonomousDailyCapOverride).toBeNull();
     await dialog.getByRole("spinbutton", { name: /^Daily safety limit/i }).fill("1000");
 
-    const downloadPromise = page.waitForEvent("download");
-    await dialog.getByRole("button", { name: "Export schedule", exact: true }).click();
-    const download = await downloadPromise;
+    const download = await downloadExport(page, () =>
+      dialog.getByRole("button", { name: "Export schedule", exact: true }).click(),
+    );
     expect(download.suggestedFilename()).toBe(`${characterName.replaceAll(" ", "_")}.marinara-schedule.json`);
     const downloadPath = await download.path();
     expect(downloadPath).not.toBeNull();
@@ -11364,7 +11366,7 @@ test("Game combat sheet helpers preserve ability types, card matches, and zero H
   expect(result.invalidEnemyHp).toBe(9);
 });
 
-test("Game character sheet Retry remains a draft until Save", async ({ page, request }, testInfo) => {
+test("Game character sheet Retry remains a draft until Save", async ({ page, request }) => {
   const suffix = Date.now().toString(36);
   const characterName = `Retry Sheet Character ${suffix}`;
   const personaName = `Retry Sheet Persona ${suffix}`;
@@ -11434,6 +11436,7 @@ test("Game character sheet Retry remains a draft until Save", async ({ page, req
   let characterId: string | undefined;
   let personaId: string | undefined;
   let chatId: string | undefined;
+  let releaseLayoutResponse = () => {};
 
   try {
     const providerAddress = providerServer.address();
@@ -11539,10 +11542,34 @@ test("Game character sheet Retry remains a draft until Save", async ({ page, req
       return (metadata.gameCharacterCards as Array<Record<string, unknown>>)[0];
     };
 
+    // Keep the launcher's real layout response in flight until a regenerated draft exists.
+    // An unrelated metadata refresh must not discard that in-progress sheet edit.
+    let layoutResponseHeld = false;
+    let layoutResponseReady = false;
+    const layoutResponseGate = new Promise<void>((resolve) => {
+      releaseLayoutResponse = resolve;
+    });
+    const metadataUrl = `/api/chats/${chat.id}/metadata`;
+    await page.route(`**${metadataUrl}`, async (route) => {
+      const body = route.request().postDataJSON() as Record<string, unknown> | null;
+      if (
+        !layoutResponseHeld &&
+        route.request().method() === "PATCH" &&
+        body &&
+        Object.keys(body).length === 1 &&
+        Object.hasOwn(body, "windowLayout")
+      ) {
+        layoutResponseHeld = true;
+        const response = await route.fetch();
+        layoutResponseReady = true;
+        await layoutResponseGate;
+        await route.fulfill({ response });
+      } else await route.continue();
+    });
     await page.goto("/");
-    if (testInfo.project.name.includes("mobile")) {
-      await page.getByTitle("Open party members").click();
-    }
+    await page.locator('.mari-window-bubble[data-window="control:character-profiles"]').click();
+    await page.locator('.mari-window[data-window="control:character-profiles"] [data-window-control="lock"]').click();
+    await expect.poll(() => layoutResponseReady).toBe(true);
     await page.getByTitle(`${characterName} - Click to open character sheet`).filter({ visible: true }).click();
     const sheet = page.locator('[data-component="GameCharacterSheet"]');
     await expect(sheet).toBeVisible();
@@ -11553,8 +11580,17 @@ test("Game character sheet Retry remains a draft until Save", async ({ page, req
     await sheet.getByRole("button", { name: "Retry", exact: true }).click();
     await expect(classInput).toHaveValue("Chronomancer");
     expect((await readStoredCard())?.class).toBe("Scout");
+    const layoutApplied = page.waitForResponse((response) => {
+      if (!response.url().endsWith(metadataUrl) || response.request().method() !== "PATCH") return false;
+      const body = response.request().postDataJSON() as Record<string, unknown> | null;
+      return body !== null && Object.keys(body).length === 1 && Object.hasOwn(body, "windowLayout");
+    });
+    releaseLayoutResponse();
+    expect((await layoutApplied).ok()).toBeTruthy();
     await page.mouse.move(0, 0);
     await expect(page.locator("[data-sonner-toast]")).toHaveCount(0);
+    await expect(classInput).toHaveValue("Chronomancer");
+    await expect(sheet.getByRole("button", { name: "Cancel", exact: true })).toBeVisible();
 
     await sheet.getByRole("button", { name: "Cancel", exact: true }).click();
     await sheet.getByRole("button", { name: "Edit sheet" }).click();
@@ -11568,6 +11604,12 @@ test("Game character sheet Retry remains a draft until Save", async ({ page, req
     await expect(page.getByRole("heading", { name: characterName })).toHaveCount(0);
     await expect.poll(async () => (await readStoredCard())?.class).toBe("Chronomancer");
     expect((await readStoredCard())?.rpgStats).toEqual(originalCard.rpgStats);
+    await page.locator('.mari-window-bubble[data-window="control:character-profiles"]').click();
+    await page.getByTitle(`${characterName} - Click to open character sheet`).filter({ visible: true }).click();
+    await sheet.getByRole("button", { name: "Edit sheet" }).click();
+    await expect(classInput).toHaveValue("Chronomancer");
+    await sheet.getByRole("button", { name: "Cancel", exact: true }).click();
+    await sheet.getByRole("button", { name: "Close character sheet", exact: true }).click();
 
     const personaRetryResponse = await request.post("/api/game/character-sheet/regenerate", {
       data: {
@@ -11599,6 +11641,7 @@ test("Game character sheet Retry remains a draft until Save", async ({ page, req
     expect(personaPrompt).toContain("A memory-weaver who maps the drowned city's forgotten roads.");
     expect(personaPrompt).toContain(`Regenerate only ${personaName}'s character sheet now.`);
   } finally {
+    releaseLayoutResponse();
     await Promise.all([
       chatId ? request.delete(`/api/chats/${chatId}`).catch(() => undefined) : Promise.resolve(),
       personaId ? request.delete(`/api/characters/personas/${personaId}`).catch(() => undefined) : Promise.resolve(),
@@ -23449,8 +23492,8 @@ test("mobile Game keeps CYOA usable above four HUD widgets", async ({ page, requ
 
     const viewport = { width: 390, height: 700 };
     await page.setViewportSize(viewport);
-    await expect(page.locator('.mari-window-bubble[data-window="control:game"]')).toBeVisible();
-    await expect(page.locator('[data-tour="game-map"]').getByRole("button", { name: "Open map" })).toBeVisible();
+    await expect(page.locator("[data-chat-tools-menu-button]")).toBeVisible();
+    await expect(page.locator('.mari-window-bubble[data-window="control:map"]')).toBeVisible();
 
     await expect
       .poll(async () => {

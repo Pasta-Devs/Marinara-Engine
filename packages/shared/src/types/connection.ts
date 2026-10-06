@@ -39,7 +39,12 @@ export const DECISION_SOURCE_BASE_URLS = {
   openai_compatible: "",
 } as const;
 
-/** Sources whose base URL the user enters, rather than a fixed hosted one. */
+/**
+ * Sources that run on a server the user names: the base URL is required, the key is
+ * optional and may be borrowed from a same-origin custom chat connection, and the state
+ * budget defaults to 3,500 tokens. TypeSafe may also be given a base URL (#7084) but keeps
+ * the hosted rules.
+ */
 export function decisionSourceTakesUrl(source: string | null | undefined): boolean {
   return source === "custom" || source === "openai_compatible";
 }
@@ -55,6 +60,28 @@ export type AudioGenerationSource = (typeof AUDIO_GENERATION_SOURCES)[number];
 export const IMAGE_GENERATION_QUALITIES = ["auto", "low", "medium", "high", "xhigh", "max"] as const;
 export type ImageGenerationQuality = (typeof IMAGE_GENERATION_QUALITIES)[number];
 
+/** Limits for model IDs pinned in a connection's model picker. */
+export const MAX_PINNED_MODELS = 100;
+export const MAX_MODEL_ID_LENGTH = 512;
+
+/** A connection's pinned model IDs, stored as a JSON array; anything malformed reads as none. */
+export function parsePinnedModels(value: unknown): string[] {
+  let parsed = value;
+  if (typeof parsed === "string") {
+    try {
+      parsed = JSON.parse(parsed);
+    } catch {
+      return [];
+    }
+  }
+  if (!Array.isArray(parsed)) return [];
+  const ids = parsed
+    .filter((id): id is string => typeof id === "string")
+    .map((id) => id.trim())
+    .filter((id) => id && id.length <= MAX_MODEL_ID_LENGTH);
+  return [...new Set(ids)].slice(0, MAX_PINNED_MODELS);
+}
+
 /** An API connection configuration. */
 export interface APIConnection {
   id: string;
@@ -64,6 +91,8 @@ export interface APIConnection {
   baseUrl: string;
   /** Model identifier (e.g. "gpt-4o", "claude-sonnet-4-20250514") */
   model: string;
+  /** Model IDs pinned to the top of this connection's model picker, as a JSON array (see `parsePinnedModels`). */
+  pinnedModels: string;
   /** Optional custom picture shown in the Connections panel */
   imagePath: string | null;
   /** Maximum context window size for this model */

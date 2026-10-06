@@ -38,6 +38,7 @@ export function ConversationMediaPickerPanel({
   return (
     <div
       data-conversation-media-picker
+      data-chat-input-popup="media"
       onPointerDown={(event) => {
         // This panel lives inside the composer shell. Empty-space and native
         // scrollbar presses must not bubble to the shell's focus handler,
@@ -45,7 +46,7 @@ export function ConversationMediaPickerPanel({
         event.stopPropagation();
       }}
       className={cn(
-        "flex h-[22rem] max-h-[60vh] flex-col overflow-hidden rounded-xl border border-foreground/10 bg-[var(--card)] shadow-xl",
+        "mari-chat-style-surface mari-chat-input-popup flex h-[22rem] max-h-[60vh] flex-col overflow-hidden rounded-xl border border-foreground/10 bg-[var(--card)] shadow-xl",
         className,
       )}
     >

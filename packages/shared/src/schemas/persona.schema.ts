@@ -280,6 +280,10 @@ const personaFields = {
   scenario: z.string().optional(),
   backstory: z.string().optional(),
   appearance: z.string().optional(),
+  /** Marinara Engine: use `imageAppearance` instead of `appearance` in image prompts. */
+  imageAppearanceEnabled: z.boolean().optional(),
+  /** Marinara Engine: appearance text used for image prompts when the override is enabled. */
+  imageAppearance: z.string().optional(),
   avatarCrop: avatarCropSchema.nullable().optional(),
   nameColor: personaLocalPaintSchema.optional(),
   dialogueColor: personaLocalPaintSchema.optional(),

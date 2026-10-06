@@ -1,12 +1,14 @@
 // ──────────────────────────────────────────────
 // Quick Switcher Mobile — single chevron opens
 // a tabbed menu with Connections + Personas
-// (with persona group support)
+// (with persona group support). Tapping a
+// connection opens its models as a second step.
 // ──────────────────────────────────────────────
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import {
   ChevronUp,
   ChevronDown,
+  ChevronLeft,
   ChevronRight,
   Link,
   CircleUser,
@@ -31,10 +33,11 @@ import { cn, getAvatarCropStyle } from "../../lib/utils";
 import { parseCharacterDisplayData } from "../../lib/character-display";
 import { buildCharacterIdentityGroups, type CharacterIdentityChoice } from "../../lib/character-identity-groups";
 import { useTranslation as useUiTranslation } from "react-i18next";
-import type { CharacterGroup, Persona } from "@marinara-engine/shared";
+import { LOCAL_SIDECAR_CONNECTION_ID, type CharacterGroup, type Persona } from "@marinara-engine/shared";
 import type { ProfessorMariContextBudget } from "../../lib/professor-mari-context-budget";
 import { ContextBudgetGauge, ContextBudgetIndicator } from "./ContextBudgetIndicator";
 import { NanoGptUsageWidget } from "../connections/NanoGptUsageWidget";
+import { ConnectionModelPicker } from "../connections/ConnectionModelPicker";
 
 interface PersonaGroupRow {
   id: string;
@@ -60,6 +63,8 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
   const [showCharacterGroups, setShowCharacterGroups] = useState(false);
   const [expandedCharacterGroups, setExpandedCharacterGroups] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState("");
+  /** The connection whose models are shown as the menu's second step; null shows the connection list. */
+  const [modelsStep, setModelsStep] = useState<string | null>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const activeChatId = useChatStore((s) => s.activeChatId);
@@ -95,6 +100,8 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
       id: string;
       name: string;
       provider?: string;
+      model?: string;
+      pinnedModels?: unknown;
       useForRandom?: string;
       showUsageWidget?: unknown;
     }>,
@@ -191,13 +198,24 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
   }, []);
 
   const handleSwitchConnection = useCallback(
-    (connId: string | null) => {
+    (connId: string) => {
       if (!activeChatId) return;
-      updateChat.mutate({ id: activeChatId, connectionId: connId });
-      setOpen(false);
+      if (connId !== activeConnectionId) updateChat.mutate({ id: activeChatId, connectionId: connId });
+      // The built-in Local Model has no model list, so it closes the menu as before.
+      if (connId === LOCAL_SIDECAR_CONNECTION_ID) setOpen(false);
+      else setModelsStep(connId);
     },
-    [activeChatId, updateChat],
+    [activeChatId, activeConnectionId, updateChat],
   );
+  useEffect(() => {
+    if (!open) setModelsStep(null);
+  }, [open]);
+  const modelsConnection =
+    tab === "connections" && modelsStep && !isRandom
+      ? sortedConnections.find(
+          (connection) => connection.id === modelsStep && !isLocalSidecarConnectionOption(connection),
+        )
+      : undefined;
 
   const handleToggleRandom = useCallback(() => {
     if (!activeChatId) return;
@@ -240,8 +258,19 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
         setOpen(false);
       }
     };
+    // Escape closes the menu wherever focus is: Safari does not focus a tapped or clicked button.
+    const onKeyDown = (event: KeyboardEvent) => {
+      // Escape while an input method is composing cancels the composition, not the menu.
+      if (event.key !== "Escape" || event.defaultPrevented || event.isComposing || event.keyCode === 229) return;
+      setOpen(false);
+      btnRef.current?.focus();
+    };
     document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handler);
+      document.removeEventListener("keydown", onKeyDown);
+    };
   }, [open]);
 
   useEffect(() => {
@@ -275,7 +304,8 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
       const openAbove = spaceAbove >= spaceBelow;
       const anchoredSpace = openAbove ? spaceAbove : spaceBelow;
       const useViewportFallback = anchoredSpace < 160;
-      const maxHeight = Math.min(400, useViewportFallback ? window.innerHeight - 16 : anchoredSpace);
+      // The models step has a search box and a list, so it may grow taller than the connection list.
+      const maxHeight = Math.min(modelsStep ? 560 : 400, useViewportFallback ? window.innerHeight - 16 : anchoredSpace);
       setPos({
         left,
         // Anchor by `bottom` when opening upwards so short content stays
@@ -300,7 +330,7 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
       window.visualViewport?.removeEventListener("resize", update);
       window.visualViewport?.removeEventListener("scroll", update);
     };
-  }, [open, tab, expandedGroups, expandedCharacterGroups, showCharacterGroups]);
+  }, [open, tab, expandedGroups, expandedCharacterGroups, showCharacterGroups, modelsStep]);
 
   if (!activeChatId) return null;
 
@@ -373,9 +403,12 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
           <div
             ref={menuRef}
             data-chat-floating-panel
+            data-quick-switcher-mobile-menu
             className={cn(
-              "fixed z-[9999] flex min-w-0 flex-col overflow-hidden rounded-xl border border-foreground/10 shadow-2xl",
-              chatMode === "roleplay" ? "bg-[var(--card)]" : "bg-[var(--background)]",
+              "mari-chat-style-surface fixed z-[9999] flex min-w-0 flex-col overflow-hidden rounded-xl border border-foreground/10 shadow-2xl",
+              chatMode === "roleplay"
+                ? "bg-[var(--card)] [--mari-chat-existing-bg:var(--card)]"
+                : "bg-[var(--background)] [--mari-chat-existing-bg:var(--background)]",
             )}
             style={
               pos
@@ -390,7 +423,10 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
           >
             <div className="flex border-b border-foreground/10">
               <button
-                onClick={() => setTab("connections")}
+                onClick={() => {
+                  setTab("connections");
+                  setModelsStep(null);
+                }}
                 className={cn(
                   "flex flex-1 items-center justify-center gap-1.5 px-3 py-2.5 text-[0.6875rem] font-semibold transition-colors",
                   tab === "connections"
@@ -427,7 +463,31 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
               </label>
             )}
 
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-1">
+            {modelsConnection && (
+              <ConnectionModelPicker
+                connection={modelsConnection}
+                chatId={activeChatId}
+                chatConnectionId={activeConnectionId}
+                showConnectionName
+                onPicked={() => {
+                  setOpen(false);
+                  btnRef.current?.focus();
+                }}
+                leading={
+                  <button
+                    type="button"
+                    data-model-back
+                    onClick={() => setModelsStep(null)}
+                    aria-label={localizeUi("connections.modelPicker.back")}
+                    title={localizeUi("connections.modelPicker.back")}
+                    className="-my-2 -ml-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-foreground/60 transition-colors hover:bg-foreground/10 hover:text-foreground/85"
+                  >
+                    <ChevronLeft size="1rem" />
+                  </button>
+                }
+              />
+            )}
+            <div className={cn("min-h-0 flex-1 overflow-y-auto overscroll-contain p-1", modelsConnection && "hidden")}>
               {tab === "connections" && (
                 <>
                   {contextBudget && (
@@ -491,17 +551,39 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
                         </button>
                       );
                     }
+                    const hasModels = !isLocalSidecarConnectionOption(conn);
                     return (
                       <button
                         key={conn.id}
+                        type="button"
+                        data-connection-option={conn.id}
+                        aria-current={isActive ? "true" : undefined}
                         onClick={() => handleSwitchConnection(conn.id)}
                         className={cn(
-                          "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs transition-colors hover:bg-foreground/10",
-                          isActive && "text-foreground font-semibold",
+                          "relative flex min-h-11 w-full items-center gap-2 rounded-lg px-3 py-1.5 text-left text-xs transition-colors hover:bg-foreground/10",
+                          isActive && "bg-foreground/[0.07] text-foreground font-semibold",
                         )}
                       >
-                        <span className="flex-1 truncate">{conn.name || conn.id}</span>
-                        {isActive && <span className="text-[0.6875rem]">✓</span>}
+                        {isActive && (
+                          <span
+                            aria-hidden
+                            className="pointer-events-none absolute inset-y-1.5 left-0 w-0.5 rounded-full bg-[var(--marinara-chat-chrome-accent)]"
+                          />
+                        )}
+                        <span className="flex min-w-0 flex-1 flex-col">
+                          <span className="truncate">{conn.name || conn.id}</span>
+                          {isActive && conn.model && (
+                            <span className="truncate text-[0.625rem] font-normal text-foreground/50">
+                              {conn.model}
+                            </span>
+                          )}
+                        </span>
+                        {isActive && (
+                          <Check size="0.75rem" className="shrink-0 text-[var(--marinara-chat-chrome-accent)]" />
+                        )}
+                        {hasModels && (
+                          <ChevronRight size="0.875rem" className="shrink-0 text-foreground/40" aria-hidden />
+                        )}
                       </button>
                     );
                   })}

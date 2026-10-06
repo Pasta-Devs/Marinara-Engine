@@ -30,6 +30,7 @@ import { CapabilityElement } from "../capabilities/CapabilityElement";
 import { TrackerPanelIcon } from "../ui/TrackerPanelIcon";
 import { AgentActivitySection } from "../agents/AgentActivitySection";
 import { TrackerLockProvider } from "../../features/tracker-panel/components/TrackerLockContext";
+import { TrackerWindowCharacters } from "../../features/tracker-panel/components/TrackerWindowCharacters";
 import {
   partitionTrackerCapabilityPackages,
   useInstalledCapabilityPackages,
@@ -45,7 +46,6 @@ import { readChatWindowArea, readCssPixels } from "./chat-settings-window";
 import { CHAT_CONTROL_WINDOW_IDS, ChatControlWindow } from "./ChatControlWindow";
 import { AgentsRunningDot } from "../agents/AgentsRunningDot";
 import {
-  CharactersPanel,
   CombinedWorldPanel,
   CustomTrackerPanel,
   PersonaStatsPanel,
@@ -125,7 +125,7 @@ export interface RoleplayTrackerWindowProps {
 }
 
 /**
- * Decides whether the Tracker window shows (never on phones or while the Tracker Panel shows), and gives
+ * Decides whether the Tracker window shows (never on phones or when the chat uses the Tracker Panel), and gives
  * each Beholder package its control window, with its bubble at `beholderSlot` (`beholderPhoneSlot`).
  */
 export function RoleplayTrackerWindow({
@@ -134,8 +134,8 @@ export function RoleplayTrackerWindow({
   ...props
 }: RoleplayTrackerWindowProps & { beholderSlot: number; beholderPhoneSlot: number }) {
   const phoneLayout = useMatchMedia("(max-width: 767px)");
-  // The Tracker Panel shows only while it is on (enabled) and open; otherwise this window holds the trackers.
-  const trackerPanelShown = useUIStore((s) => s.trackerPanelEnabled && s.trackerPanelOpen);
+  // Closing the selected panel keeps its launcher; switching it off restores this window.
+  const trackerPanelSelected = useUIStore((s) => s.trackerPanelEnabled && s.trackerPanelOpen);
   const { data: installedCapabilities = [] } = useInstalledCapabilityPackages();
   const isAgentProcessing = useAgentStore((s) => s.processingChatIds.includes(props.chatId));
   const gameStateRefreshing = useGameStateStore((s) => s.isRefreshing);
@@ -148,7 +148,7 @@ export function RoleplayTrackerWindow({
     BUILT_IN_TRACKER_TYPES.some((type) => props.enabledAgentTypes.has(type)) ||
     packages.memoryNag.length + packages.other.length > 0;
 
-  const showWindow = !phoneLayout && !trackerPanelShown && hasTrackers;
+  const showWindow = !phoneLayout && !trackerPanelSelected && hasTrackers;
   return (
     <>
       {packages.beholder.map((item, index) => (
@@ -278,6 +278,8 @@ function TrackerWindow({
   const { t } = useTranslation();
   const tracker = useRoleplayTrackerState(chatId, enabledAgentTypes, "tracker-window");
   const trackerTemperatureUnit = useUIStore((s) => s.trackerTemperatureUnit);
+  // Moving the chat changes the free gutter the default layout looks for.
+  const chatPosition = useUIStore((s) => s.roleplayChatPosition);
   const isAgentProcessing = useAgentStore((s) => s.processingChatIds.includes(chatId));
   const gameStateRefreshing = useGameStateStore((s) => s.isRefreshing);
   const busy = isAgentProcessing || isStreaming || gameStateRefreshing;
@@ -334,6 +336,7 @@ function TrackerWindow({
         label: t("chat.trackerWindow.title"),
       }}
       getDefaultLayout={getTrackerWindowDefaultLayout}
+      defaultLayoutKey={chatPosition}
       minWidth={260}
       minHeight={160}
       autoFocus={false}
@@ -414,10 +417,11 @@ function TrackerWindow({
               }
             >
               {() => (
-                <CharactersPanel
+                <TrackerWindowCharacters
                   characters={tracker.presentCharacters}
-                  onUpdate={(chars) => patchField("presentCharacters", chars)}
                   chatId={chatId}
+                  patchField={patchField}
+                  patchPlayerStats={patchPlayerStats}
                   onRerunSingleTracker={onRerunSingleTracker}
                   isTrackerRetryBusy={busy}
                 />

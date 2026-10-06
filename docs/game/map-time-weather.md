@@ -6,9 +6,9 @@ This guide covers the Game Mode map panel and the systems that track the world a
 
 Game Mode shows a small map panel on the game screen. The panel lists the current map name, the game day, and a time-of-day sky icon.
 
-On a computer, the map is an inline panel you can read at a glance. On a phone, tap the map icon in the top-left corner. The button label is **Open map**, and it opens the map in a popover.
+On a computer, the map is an inline panel you can read at a glance. You can drag the panel and lock it in place. For how draggable panels work, see the HUD widgets guide linked below.
 
-You can drag the panel and lock it in place. For how draggable panels work, see the HUD widgets guide linked below.
+On a phone, tap **Map** to open the map panel. Its button starts near the top left and can be dragged around the chat. Use the panel's **Lock window** button to keep the map button in place; **Close** returns to that button. The position is saved with the chat. The phone map uses your chat widget style from **Settings → Appearance → App**, and its button stays separate from the three-dot **Chat tools** menu.
 
 ## Grid view and node view
 

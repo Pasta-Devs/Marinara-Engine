@@ -1,6 +1,6 @@
 # Game Assets: Music, Sound, Sprites, and Backgrounds
 
-This guide explains the game asset library that Game Mode uses for music, sound, character art, and scene backgrounds. It covers the built-in starter set, the **Asset Browser** file manager, uploading your own files, and choosing which assets each game may use.
+This guide explains the game asset library that Game Mode uses for music, sound, character art, and scene backgrounds. It covers the built-in starter set, the **Asset Browser** file manager, uploading your own files, choosing which assets each game may use, and sound effects and music that Game Mode can generate for you.
 
 ## What game assets are
 
@@ -148,6 +148,32 @@ Then:
 
 A bar shows "All folders included" or how many folders are excluded, with a **Reset to all** button to include everything again. This choice is saved for that one chat only. It changes which folders Game Mode may pick from, but it does not delete or hide any files. It has no effect outside that Game Mode chat.
 
+## Generated sound effects and music
+
+Game Mode can also make new sound effects and music for your scenes with ElevenLabs, an AI audio service. You need an ElevenLabs API key. Each new sound or track is a request to ElevenLabs on your account.
+
+First, set up an audio connection:
+
+1. Open the **Connections** panel and create a connection with the **Audio** provider.
+2. Under **Audio Source**, pick **ElevenLabs**, then paste your ElevenLabs API key.
+3. Turn on **Game sound effects**, **Game music**, or both. These switches appear only for the **ElevenLabs** source.
+4. Save the connection.
+
+Then turn it on when you create a game:
+
+1. On the **Features** step of the setup wizard, find the **Game Audio** card.
+2. Under **Audio Connection**, pick your ElevenLabs connection, or keep **Use the default audio connection**.
+3. Leave **Sound effects** and **Music** on, or switch off the one you do not want.
+
+You cannot turn on **Sound effects** or **Music** until the chosen connection is an ElevenLabs connection with that switch on. The card tells you when this is the case.
+
+During play:
+
+- **Sound effects**: after GM turns, Marinara asks ElevenLabs for short sound effects that fit the scene.
+- **Music**: Marinara composes one instrumental track, about two minutes long, for each place the party visits and for each kind of fight, such as a boss fight. Each track is made only once and then reused. A new place's track starts at a later scene change, so the music does not cut in mid-scene. A fight's track fades in as soon as it is ready.
+
+Generated sounds and tracks are saved with your game assets, so the same sound is not made twice. If **Music DJ** plays music for the game, Game Mode does not generate music.
+
 ## Custom music folder for Music DJ
 
 **Music DJ** is a helper agent that can play music during a game. When it runs in its Custom mode, it plays tracks from a folder you choose. You can set that folder in two places.
@@ -168,5 +194,6 @@ The **Open in system folder** button opens the selected asset folder in your com
 ## Related guides
 
 - [Music DJ: Spotify, YouTube, and Local Music](../media/music.md)
+- [Supported AI Providers](../connections/providers-reference.md)
 - [Game Mode: Getting Started](getting-started.md)
 - [Remote Access: Basic Auth and IP Allowlist](../REMOTE_ACCESS.md)

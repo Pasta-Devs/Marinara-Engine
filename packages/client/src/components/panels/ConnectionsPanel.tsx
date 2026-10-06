@@ -1929,21 +1929,23 @@ export function ConnectionsPanel() {
       if (!confirmed) return;
 
       const envelope = createConnectionExportEnvelope(connectionsToExport as ConnectionTransferRow[]);
-      if (connectionsToExport.length > 1) {
-        downloadZipFile(
-          [{ path: "marinara-connections.json", content: JSON.stringify(envelope, null, 2) }],
-          "marinara-connections.zip",
+      const saveStatus =
+        connectionsToExport.length > 1
+          ? await downloadZipFile(
+              [{ path: "marinara-connections.json", content: JSON.stringify(envelope, null, 2) }],
+              "marinara-connections.zip",
+            )
+          : await downloadJsonFile(
+              envelope,
+              `${sanitizeExportFilenamePart(connectionsToExport[0]?.name, "connection")}.connection.json`,
+            );
+      if (saveStatus === "saved")
+        toast.success(
+          localizeUi("ui.panels.connectionspanel.exportedValue1ConnectionValue2", {
+            value1: connectionsToExport.length,
+            value2: connectionsToExport.length === 1 ? "" : localizeUi("ui.noodle.stageprofileview.s"),
+          }),
         );
-      } else {
-        const filename = `${sanitizeExportFilenamePart(connectionsToExport[0]?.name, "connection")}.connection.json`;
-        downloadJsonFile(envelope, filename);
-      }
-      toast.success(
-        localizeUi("ui.panels.connectionspanel.exportedValue1ConnectionValue2", {
-          value1: connectionsToExport.length,
-          value2: connectionsToExport.length === 1 ? "" : localizeUi("ui.noodle.stageprofileview.s"),
-        }),
-      );
     },
     [localizeUi],
   );

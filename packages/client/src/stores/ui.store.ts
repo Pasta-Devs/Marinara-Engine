@@ -13,6 +13,7 @@ import {
   type LorebookCategory,
   type QuoteFormat,
   type ScenePromptPreferences,
+  type ScenePackageOrigin,
 } from "@marinara-engine/shared";
 import type { LegacyNoodleNavigationState as NoodleNavigationState } from "../lib/legacy-noodle-navigation";
 import { isCssGradient, MARINARA_GRADIENT_PRESET, RAINBOW_GRADIENT_PRESET } from "../lib/css-colors";
@@ -79,6 +80,11 @@ export function normalizeChatWidgetShape(value: unknown): ChatWidgetShape {
   return value === "rounded" || value === "square" || value === "cut-corner" || value === "arched" ? value : "preset";
 }
 
+/** No override preserves the existing desktop, phone and custom-theme sizes. */
+export function normalizeChatWidgetButtonSize(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? Math.max(32, Math.min(96, Math.round(value))) : null;
+}
+
 export function normalizeChatWidgetColor(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
@@ -103,6 +109,12 @@ export interface EchoChamberSize {
 }
 export type UserStatus = "active" | "idle" | "dnd" | "invisible";
 export type RoleplayAvatarStyle = "none" | "circles" | "rectangles" | "panel";
+export type RoleplayChatPosition = "left" | "center" | "right";
+
+/** Stale or unknown synced values fall back to the centred layout. */
+export function normalizeRoleplayChatPosition(value: unknown): RoleplayChatPosition {
+  return value === "left" || value === "right" ? value : "center";
+}
 export type GameDialogueDisplayMode = "classic" | "stacked";
 /** How much of the chat list shows each chat's background as a row banner. */
 export type ChatListBackgroundMode = "hover" | "always" | "off";
@@ -621,6 +633,7 @@ interface UIState {
   rightPanelWidth: number;
   rightPanel: Panel;
   trackerPanelEnabled: boolean;
+  /** This chat uses the Tracker Panel; its runtime visibility lives in the floating-window store. */
   trackerPanelOpen: boolean;
   trackerPanelOpenByChatId: Record<string, boolean>;
   trackerPanelSide: TrackerPanelSide;
@@ -769,9 +782,13 @@ interface UIState {
   chatWidgetPreset: ChatWidgetPreset;
   chatWidgetFont: string;
   chatWidgetShape: ChatWidgetShape;
+  chatWidgetButtonSize: number | null;
   chatWidgetBorderColor: string;
   chatWidgetBackgroundColor: string;
   chatWidgetTextColor: string;
+  chatWidgetApplyFont: boolean;
+  chatWidgetApplyShape: boolean;
+  chatWidgetApplyColors: boolean;
   enableStreaming: boolean;
   debugMode: boolean;
   /** When true, warn when an agent uses the configured default connection. */
@@ -907,6 +924,8 @@ interface UIState {
   summaryPopoverSettings: SummaryPopoverSettings;
   /** Last-used preferences for generating character/user-initiated roleplay scenes. */
   scenePromptPreferences: ScenePromptPreferences;
+  /** A package thread the Home browser should open once: where a scene came from. Not persisted. */
+  sceneOriginFocus: ScenePackageOrigin | null;
 
   // ── Text Appearance ──
   /** Color for chat message text (empty = theme default) */
@@ -937,6 +956,8 @@ interface UIState {
   roleplaySpriteScale: number;
   /** Default presentation for Roleplay chats without a saved choice. */
   roleplayDisplayStyle: "classic" | "visual-novel";
+  /** Where the Roleplay messages and input sit on wide screens. Phones always use the full width. */
+  roleplayChatPosition: RoleplayChatPosition;
   roleplayVnAutoPlay: boolean;
   roleplayVnAutoPlayDelay: number;
   roleplayVnPortraitScale: number;
@@ -1172,9 +1193,13 @@ interface UIState {
   setChatWidgetPreset: (preset: ChatWidgetPreset) => void;
   setChatWidgetFont: (font: string) => void;
   setChatWidgetShape: (shape: ChatWidgetShape) => void;
+  setChatWidgetButtonSize: (size: number | null) => void;
   setChatWidgetBorderColor: (color: string) => void;
   setChatWidgetBackgroundColor: (color: string) => void;
   setChatWidgetTextColor: (color: string) => void;
+  setChatWidgetApplyFont: (enabled: boolean) => void;
+  setChatWidgetApplyShape: (enabled: boolean) => void;
+  setChatWidgetApplyColors: (enabled: boolean) => void;
   setEnableStreaming: (v: boolean) => void;
   setDebugMode: (v: boolean) => void;
   setShowPaidAgentConnectionWarning: (v: boolean) => void;
@@ -1248,6 +1273,7 @@ interface UIState {
   setEditMessageOnDoubleClick: (v: boolean) => void;
   setSummaryPopoverSettings: (settings: Partial<SummaryPopoverSettings>) => void;
   setScenePromptPreferences: (preferences: ScenePromptPreferences) => void;
+  setSceneOriginFocus: (origin: ScenePackageOrigin | null) => void;
   setChatFontColor: (v: string) => void;
   setDefaultDialogueColor: (v: string) => void;
   setChatChromeTextColor: (v: string) => void;
@@ -1262,6 +1288,7 @@ interface UIState {
   setRoleplayNarratorAvatarCycling: (v: boolean) => void;
   setRoleplaySpriteScale: (v: number) => void;
   setRoleplayDisplayStyle: (v: "classic" | "visual-novel") => void;
+  setRoleplayChatPosition: (v: RoleplayChatPosition) => void;
   setRoleplayVnAutoPlay: (v: boolean) => void;
   setRoleplayVnAutoPlayDelay: (v: number) => void;
   setRoleplayVnPortraitScale: (v: number) => void;
@@ -1415,9 +1442,13 @@ export function pickSyncedSettings(state: UIState) {
     chatWidgetPreset: state.chatWidgetPreset,
     chatWidgetFont: state.chatWidgetFont,
     chatWidgetShape: state.chatWidgetShape,
+    chatWidgetButtonSize: state.chatWidgetButtonSize,
     chatWidgetBorderColor: state.chatWidgetBorderColor,
     chatWidgetBackgroundColor: state.chatWidgetBackgroundColor,
     chatWidgetTextColor: state.chatWidgetTextColor,
+    chatWidgetApplyFont: state.chatWidgetApplyFont,
+    chatWidgetApplyShape: state.chatWidgetApplyShape,
+    chatWidgetApplyColors: state.chatWidgetApplyColors,
     enableStreaming: state.enableStreaming,
     streamingSpeed: state.streamingSpeed,
     showPaidAgentConnectionWarning: state.showPaidAgentConnectionWarning,
@@ -1507,6 +1538,7 @@ export function pickSyncedSettings(state: UIState) {
     roleplayNarratorAvatarCycling: state.roleplayNarratorAvatarCycling,
     roleplaySpriteScale: state.roleplaySpriteScale,
     roleplayDisplayStyle: state.roleplayDisplayStyle,
+    roleplayChatPosition: state.roleplayChatPosition,
     roleplayVnAutoPlay: state.roleplayVnAutoPlay,
     roleplayVnAutoPlayDelay: state.roleplayVnAutoPlayDelay,
     roleplayVnPortraitScale: state.roleplayVnPortraitScale,
@@ -1632,9 +1664,13 @@ export function pickPersistedUIState(state: UIState) {
     chatWidgetPreset: state.chatWidgetPreset,
     chatWidgetFont: state.chatWidgetFont,
     chatWidgetShape: state.chatWidgetShape,
+    chatWidgetButtonSize: state.chatWidgetButtonSize,
     chatWidgetBorderColor: state.chatWidgetBorderColor,
     chatWidgetBackgroundColor: state.chatWidgetBackgroundColor,
     chatWidgetTextColor: state.chatWidgetTextColor,
+    chatWidgetApplyFont: state.chatWidgetApplyFont,
+    chatWidgetApplyShape: state.chatWidgetApplyShape,
+    chatWidgetApplyColors: state.chatWidgetApplyColors,
     enableStreaming: state.enableStreaming,
     debugMode: state.debugMode,
     showPaidAgentConnectionWarning: state.showPaidAgentConnectionWarning,
@@ -1726,6 +1762,7 @@ export function pickPersistedUIState(state: UIState) {
     roleplayNarratorAvatarCycling: state.roleplayNarratorAvatarCycling,
     roleplaySpriteScale: state.roleplaySpriteScale,
     roleplayDisplayStyle: state.roleplayDisplayStyle,
+    roleplayChatPosition: state.roleplayChatPosition,
     roleplayVnAutoPlay: state.roleplayVnAutoPlay,
     roleplayVnAutoPlayDelay: state.roleplayVnAutoPlayDelay,
     roleplayVnPortraitScale: state.roleplayVnPortraitScale,
@@ -1892,9 +1929,13 @@ export const useUIStore = create<UIState>()(
         chatWidgetPreset: "default" as ChatWidgetPreset,
         chatWidgetFont: "",
         chatWidgetShape: "preset" as ChatWidgetShape,
+        chatWidgetButtonSize: null,
         chatWidgetBorderColor: "",
         chatWidgetBackgroundColor: "",
         chatWidgetTextColor: "",
+        chatWidgetApplyFont: false,
+        chatWidgetApplyShape: false,
+        chatWidgetApplyColors: false,
         enableStreaming: true,
         debugMode: false,
         showPaidAgentConnectionWarning: true,
@@ -1972,6 +2013,7 @@ export const useUIStore = create<UIState>()(
         editMessageOnDoubleClick: true,
         summaryPopoverSettings: DEFAULT_SUMMARY_POPOVER_SETTINGS,
         scenePromptPreferences: DEFAULT_SCENE_PROMPT_PREFERENCES,
+        sceneOriginFocus: null,
         chatFontColor: "",
         defaultDialogueColor: "",
         chatChromeTextColor: "",
@@ -1986,6 +2028,7 @@ export const useUIStore = create<UIState>()(
         roleplayNarratorAvatarCycling: true,
         roleplaySpriteScale: 1,
         roleplayDisplayStyle: "classic",
+        roleplayChatPosition: "center",
         roleplayVnAutoPlay: false,
         roleplayVnAutoPlayDelay: 3000,
         roleplayVnPortraitScale: 1,
@@ -2687,9 +2730,13 @@ export const useUIStore = create<UIState>()(
           }),
         setChatWidgetFont: (font) => set({ chatWidgetFont: normalizeChatWidgetFont(font) }),
         setChatWidgetShape: (shape) => set({ chatWidgetShape: normalizeChatWidgetShape(shape) }),
+        setChatWidgetButtonSize: (size) => set({ chatWidgetButtonSize: normalizeChatWidgetButtonSize(size) }),
         setChatWidgetBorderColor: (color) => set({ chatWidgetBorderColor: normalizeChatWidgetColor(color) }),
         setChatWidgetBackgroundColor: (color) => set({ chatWidgetBackgroundColor: normalizeChatWidgetColor(color) }),
         setChatWidgetTextColor: (color) => set({ chatWidgetTextColor: normalizeChatWidgetColor(color) }),
+        setChatWidgetApplyFont: (enabled) => set({ chatWidgetApplyFont: enabled }),
+        setChatWidgetApplyShape: (enabled) => set({ chatWidgetApplyShape: enabled }),
+        setChatWidgetApplyColors: (enabled) => set({ chatWidgetApplyColors: enabled }),
         setEnableStreaming: (v) => set({ enableStreaming: v }),
         setDebugMode: (v) => set({ debugMode: v }),
         setShowPaidAgentConnectionWarning: (v) => set({ showPaidAgentConnectionWarning: v }),
@@ -2840,6 +2887,7 @@ export const useUIStore = create<UIState>()(
           })),
         setScenePromptPreferences: (preferences) =>
           set({ scenePromptPreferences: normalizeScenePromptPreferences(preferences) }),
+        setSceneOriginFocus: (origin) => set({ sceneOriginFocus: origin }),
         setChatFontColor: (v) => set({ chatFontColor: v }),
         setDefaultDialogueColor: (v) => set({ defaultDialogueColor: v }),
         setChatChromeTextColor: (v) => set({ chatChromeTextColor: normalizeChatChromeTextColor(v) }),
@@ -2862,6 +2910,7 @@ export const useUIStore = create<UIState>()(
           set({ roleplaySpriteScale: Math.max(ROLEPLAY_SPRITE_SCALE_MIN, Math.min(ROLEPLAY_SPRITE_SCALE_MAX, v)) }),
         setGameAvatarScale: (v) => set({ gameAvatarScale: Math.max(0.75, Math.min(1.75, v)) }),
         setRoleplayDisplayStyle: (v) => set({ roleplayDisplayStyle: v }),
+        setRoleplayChatPosition: (v) => set({ roleplayChatPosition: normalizeRoleplayChatPosition(v) }),
         setRoleplayVnAutoPlay: (v) => set({ roleplayVnAutoPlay: v }),
         setRoleplayVnAutoPlayDelay: (v) =>
           set({ roleplayVnAutoPlayDelay: Math.max(200, Math.min(10000, Math.round(v))) }),
@@ -2917,9 +2966,13 @@ export const useUIStore = create<UIState>()(
             chatWidgetPreset: "default" as ChatWidgetPreset,
             chatWidgetFont: "",
             chatWidgetShape: "preset" as ChatWidgetShape,
+            chatWidgetButtonSize: null,
             chatWidgetBorderColor: "",
             chatWidgetBackgroundColor: "",
             chatWidgetTextColor: "",
+            chatWidgetApplyFont: false,
+            chatWidgetApplyShape: false,
+            chatWidgetApplyColors: false,
             conversationMessageStyle: "classic" as ConversationMessageStyle,
             conversationAvatarShape: "circle" as ConversationAvatarShape,
             chatFontColor: "",
@@ -2936,6 +2989,7 @@ export const useUIStore = create<UIState>()(
             roleplayNarratorAvatarCycling: true,
             roleplaySpriteScale: 1,
             roleplayDisplayStyle: "classic",
+            roleplayChatPosition: "center",
             roleplayVnAutoPlay: false,
             roleplayVnAutoPlayDelay: 3000,
             roleplayVnPortraitScale: 1,
@@ -3729,11 +3783,16 @@ export const useUIStore = create<UIState>()(
             persisted.conversationBackgroundImageOpacity,
           ),
           chatWidgetPreset: normalizeChatWidgetPreset(persisted.chatWidgetPreset),
+          roleplayChatPosition: normalizeRoleplayChatPosition(persisted.roleplayChatPosition),
           chatWidgetFont: normalizeChatWidgetFont(persisted.chatWidgetFont),
           chatWidgetShape: normalizeChatWidgetShape(persisted.chatWidgetShape),
+          chatWidgetButtonSize: normalizeChatWidgetButtonSize(persisted.chatWidgetButtonSize),
           chatWidgetBorderColor: normalizeChatWidgetColor(persisted.chatWidgetBorderColor),
           chatWidgetBackgroundColor: normalizeChatWidgetColor(persisted.chatWidgetBackgroundColor),
           chatWidgetTextColor: normalizeChatWidgetColor(persisted.chatWidgetTextColor),
+          chatWidgetApplyFont: persisted.chatWidgetApplyFont === true,
+          chatWidgetApplyShape: persisted.chatWidgetApplyShape === true,
+          chatWidgetApplyColors: persisted.chatWidgetApplyColors === true,
         };
       },
       partialize: pickPersistedUIState,

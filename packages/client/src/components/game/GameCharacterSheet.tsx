@@ -345,12 +345,17 @@ export function GameCharacterSheet({
   const [isAvatarUploading, setIsAvatarUploading] = useState(false);
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
   const [draft, setDraft] = useState<GameCardDraft>(() => createDraft(card.gameCard));
+  const savedGameCardRef = useRef(JSON.stringify(card.gameCard));
 
   useEffect(() => {
+    // Layout and other metadata saves rebuild the card without changing its saved sheet.
+    const savedGameCard = JSON.stringify(card.gameCard);
+    if (savedGameCardRef.current === savedGameCard) return;
+    savedGameCardRef.current = savedGameCard;
     setIsEditing(false);
     setIsSaving(false);
     setDraft(createDraft(card.gameCard));
-  }, [card]);
+  }, [card.gameCard]);
 
   const previewGameCard = isEditing ? normalizeDraft(draft) : normalizeDraft(createDraft(card.gameCard));
   const hasRpgAttributes =
@@ -508,7 +513,7 @@ export function GameCharacterSheet({
         data-component="GameCharacterSheet"
         className={cn(
           NEUTRAL_SURFACE_VARIABLES,
-          "marinara-chat-popover relative flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-[var(--marinara-chat-chrome-panel-border)] bg-[var(--marinara-chat-chrome-panel-bg)] shadow-2xl supports-[height:100dvh]:max-h-[85dvh]",
+          "mari-chat-style-surface mari-game-panel-surface marinara-chat-popover relative flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-[var(--marinara-chat-chrome-panel-border)] bg-[var(--marinara-chat-chrome-panel-bg)] shadow-2xl supports-[height:100dvh]:max-h-[85dvh]",
         )}
         onClick={(e) => e.stopPropagation()}
       >

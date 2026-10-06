@@ -134,7 +134,7 @@ const NEVER_SENT: Record<string, GenerationParameterKey[]> = {
     "assistantReasoningPrefill",
   ],
   anthropic: ["topP", "frequencyPenalty", "presencePenalty", "verbosity", "serviceTier", "assistantReasoningPrefill"],
-  // The ChatGPT Responses wrapper currently omits generation settings from the request body.
+  // The ChatGPT (Codex) Responses wrapper sends only the reasoning effort from the generation settings.
   openai_chatgpt: [
     "temperature",
     "maxTokens",
@@ -143,7 +143,6 @@ const NEVER_SENT: Record<string, GenerationParameterKey[]> = {
     "frequencyPenalty",
     "presencePenalty",
     "serviceTier",
-    "reasoningEffort",
     "verbosity",
     "assistantReasoningPrefill",
     "customParameters",
@@ -223,7 +222,7 @@ export function relevantGenerationParameters(context: GenerationParameterContext
 
   if (model) {
     // Providers with a built-in catalog send only max tokens and custom parameters for a model they do not know.
-    // OpenRouter still sends effort for unknown models; ChatGPT omits it from the request body.
+    // OpenRouter still sends effort for unknown models.
     if (shouldSuppressUnknownModelParameters(provider, model)) {
       hide(...SAMPLING);
       if (provider !== "openrouter") hide("reasoningEffort");
@@ -236,7 +235,10 @@ export function relevantGenerationParameters(context: GenerationParameterContext
       hide("topP", "topK", "frequencyPenalty", "presencePenalty");
     }
 
-    if (provider === "anthropic" && effortActive) hide("temperature");
+    // Claude thinking rejects temperature and top_k, so the request drops both (anthropic.provider.ts).
+    if (provider === "anthropic" && effortActive) hide("temperature", "topK");
+
+    if (provider === "openai_chatgpt" && !isOpenAIReasoningModel(model)) hide("reasoningEffort");
 
     if (provider === "google" || provider === "google_vertex") {
       if (!/gemini-3/.test(model) && !/gemini-2\.5|gemini-2\.0-flash-thinking/.test(model)) hide("reasoningEffort");
@@ -318,7 +320,18 @@ export function reasoningEffortChoices(
     .trim()
     .toLowerCase();
   const caps = context.capabilities ?? null;
-  const off: GenerationParameterChoice<null> = { value: null, label: null };
+  // ChatGPT (Codex) has no off level; sending nothing keeps the model's own default.
+  const off: GenerationParameterChoice<null> =
+    provider === "openai_chatgpt"
+      ? {
+          value: null,
+          label: null,
+          kind: "default",
+          ...(caps?.defaultEffort
+            ? { description: `Provider default: ${caps.defaultEffort}`, providerDefault: caps.defaultEffort }
+            : {}),
+        }
+      : { value: null, label: null };
 
   if (caps?.effortLevels && caps.effortLevels.length > 0) {
     const levels = caps.effortLevels.map((level) => ({
@@ -326,18 +339,7 @@ export function reasoningEffortChoices(
       label: caps.effortLabels?.[level] ?? level,
       ...(caps.effortDescriptions?.[level] ? { description: caps.effortDescriptions[level] } : {}),
     }));
-    if (provider === "openai_chatgpt") {
-      // ChatGPT has no off level; sending nothing keeps the model's own default.
-      const providerDefault: GenerationParameterChoice<null> = {
-        value: null,
-        label: null,
-        kind: "default",
-        ...(caps.defaultEffort
-          ? { description: `Provider default: ${caps.defaultEffort}`, providerDefault: caps.defaultEffort }
-          : {}),
-      };
-      return [providerDefault, ...levels];
-    }
+    if (provider === "openai_chatgpt") return [off, ...levels];
     // Adaptive-only Claude models keep thinking on; "off" only works where the model can disable it.
     const offWorks = !caps.adaptiveThinking || supportsClaudeThinkingDisable(model);
     return offWorks ? [off, ...levels] : levels;

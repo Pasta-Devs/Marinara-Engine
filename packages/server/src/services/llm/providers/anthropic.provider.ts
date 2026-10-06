@@ -24,6 +24,7 @@ import {
 } from "@marinara-engine/shared";
 import { logger, logDebugOverride } from "../../../lib/logger.js";
 import { isDebugAgentsEnabled } from "../../../config/runtime-config.js";
+import { resolveThinkingHeadroom } from "../../generation/output-token-limits.js";
 
 const DEFAULT_CACHING_AT_DEPTH = 5;
 
@@ -65,17 +66,7 @@ export function resolveAnthropicAdaptiveEffort(options: Pick<ChatOptions, "model
 }
 
 function resolveAdaptiveThinkingHeadroom(options: ChatOptions, visibleMaxTokens: number): number {
-  const effort = resolveAnthropicAdaptiveEffort(options);
-  const effortHeadroom: Record<string, number> = {
-    low: 1024,
-    medium: 4096,
-    high: 8192,
-    xhigh: 12288,
-    max: 16384,
-  };
-  const requested = effortHeadroom[effort] ?? 8192;
-  const boundedByVisibleBudget = Math.max(1024, Math.floor(visibleMaxTokens * 2));
-  return Math.min(requested, boundedByVisibleBudget);
+  return resolveThinkingHeadroom(resolveAnthropicAdaptiveEffort(options), visibleMaxTokens);
 }
 
 function applyAdaptiveThinkingConfig(
@@ -94,6 +85,29 @@ function applyAdaptiveThinkingConfig(
     const modelMaxOutput = findKnownModel("anthropic", options.model)?.maxOutput;
     body.max_tokens = modelMaxOutput ? Math.min(requestedMaxTokens, modelMaxOutput) : requestedMaxTokens;
   }
+}
+
+/**
+ * Manual extended thinking: budget_tokens counts inside max_tokens, and no model accepts max_tokens above its output
+ * limit. At the limit the thinking budget gives way first, down to Anthropic's 1024 minimum, so the answer keeps its
+ * room (#7131).
+ */
+function applyManualThinkingConfig(body: Record<string, unknown>, model: string, visibleMaxTokens: number): void {
+  const requestedBudget = Math.max(1024, Math.min(visibleMaxTokens, 16000));
+  const modelMaxOutput = findKnownModel("anthropic", model)?.maxOutput;
+  const maxTokens = Math.min(visibleMaxTokens + requestedBudget, modelMaxOutput || Infinity);
+  body.thinking = {
+    type: "enabled",
+    budget_tokens: Math.min(requestedBudget, Math.max(1024, maxTokens - visibleMaxTokens)),
+  };
+  body.max_tokens = maxTokens;
+  // Extended thinking rejects temperature and top_k
+  stripAnthropicSamplingParameters(body);
+}
+
+/** Thinking blocks a tool round returned; the next round must send them back before its tool_use blocks. */
+function isAnthropicThinkingBlock(block: AnthropicContentBlock): boolean {
+  return block.type === "thinking" || block.type === "redacted_thinking";
 }
 
 export function supportsAnthropicThinkingDisable(model: string): boolean {
@@ -336,7 +350,11 @@ function formatAnthropicPayloadMessages(messages: ChatMessage[]): AnthropicMessa
 
   for (const message of messages) {
     if (message.role === "assistant" && message.tool_calls?.length) {
-      const content: AnthropicContentBlock[] = [];
+      // With thinking on, the turn must start with the thinking blocks it returned, unchanged.
+      const thinking = message.providerMetadata?.anthropicThinking;
+      const content: AnthropicContentBlock[] = Array.isArray(thinking)
+        ? [...(thinking as AnthropicContentBlock[])]
+        : [];
       if (message.content?.trim()) content.push({ type: "text", text: message.content });
       for (const call of message.tool_calls) {
         content.push({
@@ -513,12 +531,9 @@ export class AnthropicProvider extends BaseLLMProvider {
         const supportsAdaptive = /claude-(opus|sonnet)-4-[56]/.test(modelLower);
         if (supportsAdaptive) {
           applyAdaptiveThinkingConfig(body, options, maxTokens);
-          delete body.temperature;
+          stripAnthropicSamplingParameters(body);
         } else {
-          const budgetTokens = Math.max(1024, Math.min(maxTokens, 16000));
-          body.thinking = { type: "enabled", budget_tokens: budgetTokens };
-          body.max_tokens = maxTokens + budgetTokens;
-          delete body.temperature;
+          applyManualThinkingConfig(body, options.model, maxTokens);
         }
       }
     }
@@ -589,9 +604,11 @@ export class AnthropicProvider extends BaseLLMProvider {
       const toolCalls = blocks
         .map((block) => anthropicToolCallFromBlock(block))
         .filter((call): call is LLMToolCall => call !== null);
+      const thinkingBlocks = blocks.filter(isAnthropicThinkingBlock);
       return {
         content: text || null,
         toolCalls,
+        ...(thinkingBlocks.length > 0 ? { providerMetadata: { anthropicThinking: thinkingBlocks } } : {}),
         finishReason: toolCalls.length > 0 ? "tool_calls" : normalizeAnthropicFinishReason(json.stop_reason),
         usage:
           typeof json.usage?.input_tokens === "number" && typeof json.usage.output_tokens === "number"
@@ -640,6 +657,8 @@ export class AnthropicProvider extends BaseLLMProvider {
     // so two blocks can be open at once and their input_json_delta frames interleave.
     const toolBlocks = new Map<number, { id: string; name: string; partialJson: string }>();
     let lastToolBlockIndex = -1;
+    // Thinking blocks are replayed before this round's tool_use blocks on the next round, signature included.
+    const thinkingBlocks = new Map<number, AnthropicContentBlock>();
 
     try {
       while (true) {
@@ -658,11 +677,12 @@ export class AnthropicProvider extends BaseLLMProvider {
             error?: unknown;
             index?: number;
             message?: { usage?: AnthropicUsage };
-            content_block?: { type: string; id?: string; name?: string };
+            content_block?: { type: string; id?: string; name?: string; data?: string };
             delta?: {
               type: string;
               text?: string;
               thinking?: string;
+              signature?: string;
               partial_json?: string;
               stop_reason?: string | null;
             };
@@ -700,9 +720,22 @@ export class AnthropicProvider extends BaseLLMProvider {
                 name: typeof event.content_block.name === "string" ? event.content_block.name : "",
                 partialJson: "",
               });
+            } else if (event.content_block.type === "thinking") {
+              thinkingBlocks.set(event.index ?? thinkingBlocks.size, { type: "thinking", thinking: "", signature: "" });
+            } else if (event.content_block.type === "redacted_thinking") {
+              thinkingBlocks.set(event.index ?? thinkingBlocks.size, {
+                type: "redacted_thinking",
+                data: event.content_block.data ?? "",
+              });
             }
           }
           if (event.type === "content_block_delta") {
+            const thinkingBlock = typeof event.index === "number" ? thinkingBlocks.get(event.index) : undefined;
+            if (thinkingBlock && event.delta?.type === "signature_delta") {
+              thinkingBlock.signature = event.delta.signature ?? "";
+            } else if (thinkingBlock && event.delta?.type === "thinking_delta") {
+              thinkingBlock.thinking = `${thinkingBlock.thinking ?? ""}${event.delta.thinking ?? ""}`;
+            }
             if (event.delta?.type === "input_json_delta") {
               const index = typeof event.index === "number" ? event.index : lastToolBlockIndex;
               const block = toolBlocks.get(index);
@@ -750,6 +783,13 @@ export class AnthropicProvider extends BaseLLMProvider {
     return {
       content: content || null,
       toolCalls,
+      ...(thinkingBlocks.size > 0
+        ? {
+            providerMetadata: {
+              anthropicThinking: [...thinkingBlocks.keys()].sort((a, b) => a - b).map((key) => thinkingBlocks.get(key)),
+            },
+          }
+        : {}),
       finishReason: options.signal?.aborted ? "abort" : toolCalls.length > 0 ? "tool_calls" : finishReason,
       usage:
         inputTokens || outputTokens || cachedTokens || cacheWriteTokens
@@ -873,15 +913,10 @@ export class AnthropicProvider extends BaseLLMProvider {
         const supportsAdaptive = /claude-(opus|sonnet)-4-[56]/.test(modelLower);
         if (supportsAdaptive) {
           applyAdaptiveThinkingConfig(body, options, outputMaxTokens);
-          // Cannot use temperature with extended thinking
-          delete body.temperature;
+          // Extended thinking rejects temperature and top_k
+          stripAnthropicSamplingParameters(body);
         } else {
-          const budgetTokens = Math.max(1024, Math.min(outputMaxTokens, 16000));
-          body.thinking = { type: "enabled", budget_tokens: budgetTokens };
-          // Anthropic requires max_tokens to be > budget_tokens
-          body.max_tokens = outputMaxTokens + budgetTokens;
-          // Cannot use temperature with extended thinking
-          delete body.temperature;
+          applyManualThinkingConfig(body, options.model, outputMaxTokens);
         }
       }
     }

@@ -286,12 +286,14 @@ test("a worn item counts on the in-game sheet, and one in the pack does not", as
     // The sheet's summary card: its label, then its number.
     const guard = () => page.getByText("Guard", { exact: true }).locator("xpath=following-sibling::span[1]");
     const closeSheet = page.getByRole("button", { name: "Close character sheet", exact: true });
-    // On a desktop Bram's portrait is in the party bar; on a phone it is in the party members menu.
+    // Both layouts open party portraits from the shared Character Profiles button.
     const openBramsSheet = async () => {
       const portrait = page
         .getByTitle("Bram - Click to open character sheet", { exact: true })
         .filter({ visible: true });
-      const members = page.getByRole("button", { name: "Open party members", exact: true }).filter({ visible: true });
+      const members = page
+        .locator('.mari-window-bubble[data-window="control:character-profiles"]')
+        .filter({ visible: true });
       await expect(portrait.or(members).first()).toBeVisible({ timeout: 30000 });
       if (await members.isVisible()) await members.click();
       await portrait.first().click();
@@ -377,7 +379,9 @@ test("an item that sets an ability changes the sheet, and an item's details say 
     expect(seeded.ok(), await seeded.text()).toBeTruthy();
     await openGame(page, roadId);
     const portrait = page.getByTitle("Bram - Click to open character sheet", { exact: true }).filter({ visible: true });
-    const members = page.getByRole("button", { name: "Open party members", exact: true }).filter({ visible: true });
+    const members = page
+      .locator('.mari-window-bubble[data-window="control:character-profiles"]')
+      .filter({ visible: true });
     await expect(portrait.or(members).first()).toBeVisible({ timeout: 30000 });
     if (await members.isVisible()) await members.click();
     await portrait.first().click();

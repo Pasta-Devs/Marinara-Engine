@@ -5873,7 +5873,7 @@ assert.equal(
 );
 assert.match(
   echoChamberPanelSource,
-  /const rootAttributes = \{ "data-roleplay-agent-window": "echo" \}/u,
+  /const rootAttributes = \{[^}]*"data-roleplay-agent-window": "echo"[^}]*\}/u,
   "Echo Chamber should retain its marker for mobile composer visibility",
 );
 assert.match(
@@ -9318,7 +9318,7 @@ assert.equal(
 );
 assert.match(
   appShellSource,
-  /handleTrackerPanelWindowClosed[\s\S]{0,500}trackerPanelWindowTargetRef\.current\?\.popup !== closedTarget\.popup[\s\S]{0,300}setTrackerPanelOpen\(false, activeChatId\)/u,
+  /handleTrackerPanelWindowClosed[\s\S]{0,500}trackerPanelWindowTargetRef\.current\?\.popup !== closedTarget\.popup[\s\S]{0,300}closeTrackerPanel\(\)/u,
   "Closing a detached Tracker window must close the Tracker instead of silently docking it",
 );
 const backgroundSeedRoot = mkdtempSync(join(tmpdir(), "marinara-default-background-"));

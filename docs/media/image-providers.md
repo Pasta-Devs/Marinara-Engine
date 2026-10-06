@@ -33,6 +33,7 @@ The table below shows each service at a glance. Details and quirks follow in the
 | ChatGPT (Codex login) | No, uses your `codex login` | Cloud |
 | Stability AI | Yes | Cloud |
 | Together AI | Yes | Cloud |
+| Arli AI | Yes | Cloud |
 | NovelAI | Yes | Cloud |
 | OpenRouter Images | Yes | Cloud |
 | xAI / Grok Imagine | Yes | Cloud |
@@ -47,6 +48,7 @@ The table below shows each service at a glance. Details and quirks follow in the
 | Stable Horde | Optional | Free cloud |
 | SD Web UI (AUTOMATIC1111 / Forge) | No | Local |
 | ComfyUI | No | Local |
+| SwarmUI | Optional | Local |
 | Draw Things | No | Local |
 
 ## OpenAI (DALL-E)
@@ -68,6 +70,12 @@ Cloud service with the default Base URL `https://api.stability.ai/v2beta`. It ne
 ## Together AI
 
 Cloud service with the default Base URL `https://api.together.xyz/v1`. It needs a Together AI API key. It offers FLUX and other open image models.
+
+## Arli AI
+
+Cloud service with the default Base URL `https://api.arliai.com/v1`. It needs an Arli AI API key. It runs hosted Stable Diffusion models. A **Model** is required, so type the name of the Arli AI image model you want. It uses the same **Local Image Defaults** fields as **SD Web UI (AUTOMATIC1111 / Forge)**, described below. When you send a reference image, Marinara uses the first one as a starting picture (image to image).
+
+The **Arli AI** service here is for images only. For Arli AI chat models, use the **Arli AI** chat provider instead; see [Supported AI Providers](../connections/providers-reference.md#arli-ai).
 
 ## NovelAI
 
@@ -127,6 +135,12 @@ Local service with the default Base URL `http://localhost:7860`. It talks to a S
 
 Local service with the default Base URL `http://127.0.0.1:8188`. It talks to a ComfyUI server running on your own computer. It supports a custom workflow, described below. No API key is needed.
 
+## SwarmUI
+
+Local service with the default Base URL `http://127.0.0.1:7801`. It talks to a SwarmUI server, which can spread ComfyUI work across its own queue. No API key is needed for a local server without accounts. If your SwarmUI server requires an account, paste a Swarm Auth Token into **API Key**. **Fetch Models from API** lists the models on your SwarmUI server.
+
+The **ComfyUI Workflow** field is optional for SwarmUI. Leave it empty to use SwarmUI's own image settings, or paste a workflow, described below. Turn on **Save images in SwarmUI** in **Local Image Defaults** to also keep each image in SwarmUI's output folder. Marinara keeps its own copy either way.
+
 ## Draw Things
 
 Local service with the default Base URL `http://localhost:7860`. It talks to the Draw Things app on macOS or iOS. Marinara treats it like an AUTOMATIC1111 server. No API key is needed.
@@ -141,7 +155,7 @@ When a provider returns a URL instead of image bytes, Marinara downloads public 
 
 ## ComfyUI workflow JSON and RunPod
 
-For **ComfyUI** and **RunPod Serverless (ComfyUI)**, a **ComfyUI Workflow** field appears. Paste a workflow JSON that you exported from ComfyUI with **Save (API Format)**, **Export (API)**, or **Export to API**, depending on the frontend version. The field is labeled Optional for **ComfyUI** and Required for **RunPod Serverless (ComfyUI)**.
+For **ComfyUI**, **SwarmUI**, and **RunPod Serverless (ComfyUI)**, a **ComfyUI Workflow** field appears. Paste a workflow JSON that you exported from ComfyUI with **Save (API Format)**, **Export (API)**, or **Export to API**, depending on the frontend version. The field is labeled Optional for **ComfyUI** and **SwarmUI**, and Required for **RunPod Serverless (ComfyUI)**.
 
 Marinara fills your workflow using placeholders. Put these text markers in your workflow where the value should go.
 
@@ -151,15 +165,15 @@ Marinara fills your workflow using placeholders. Put these text markers in your 
 - `%reference_image%` and `%reference_image_01%` through `%reference_image_04%` to inject reference image data.
 - `%reference_image_name%` and `%reference_image_name_01%` through `%reference_image_name_04%` to upload reference images and inject their filenames for a local ComfyUI LoadImage node.
 
-The `%prompt%` placeholder is the important one. The editor warns you if it is missing. For **ComfyUI**, leaving the field empty uses a built-in default workflow. For **RunPod Serverless (ComfyUI)**, the workflow is required because the endpoint has no default. Both accept up to 4 raw base64 reference images; filename-upload placeholders are available only for local ComfyUI.
+The `%prompt%` placeholder is the important one. The editor warns you if it is missing. For **ComfyUI**, leaving the field empty uses a built-in default workflow. For **SwarmUI**, leaving it empty uses SwarmUI's own image settings. For **RunPod Serverless (ComfyUI)**, the workflow is required because the endpoint has no default. All three accept up to 4 raw base64 reference images; filename-upload placeholders are available only for local ComfyUI.
 
 See [ComfyUI Workflow Setup](comfyui.md) for the complete export process, JSON examples, placeholder quoting rules, reference-image setup, character-specific workflows, LAN access, and troubleshooting.
 
 ## Local Image Defaults per connection
 
-When your service is **SD Web UI (AUTOMATIC1111 / Forge)**, **ComfyUI**, **NovelAI**, or **Draw Things**, a **Local Image Defaults** panel appears on the connection. For **Draw Things**, the panel shows the same fields and defaults as **SD Web UI (AUTOMATIC1111 / Forge)**. These settings only apply when this connection generates an image. A **Reset** button restores the built-in values.
+When your service is **SD Web UI (AUTOMATIC1111 / Forge)**, **ComfyUI**, **NovelAI**, **Draw Things**, **Arli AI**, **SwarmUI**, or **RunPod Serverless (ComfyUI)**, a **Local Image Defaults** panel appears on the connection. For **Draw Things** and **Arli AI**, the panel shows the same fields and defaults as **SD Web UI (AUTOMATIC1111 / Forge)**. For **SwarmUI** and **RunPod Serverless (ComfyUI)**, it shows the same fields and defaults as **ComfyUI**. These settings only apply when this connection generates an image. A **Reset** button restores the built-in values.
 
-Every one of these four services shows a **Seed** field. A value of -1 keeps each image random. Any other number reuses the exact same seed every time.
+Every one of these services shows a **Seed** field. A value of -1 keeps each image random. Any other number reuses the exact same seed every time.
 
 The other fields depend on the service.
 
@@ -196,8 +210,10 @@ A **reference image** is an existing picture you send along with your prompt. It
 | Atlas Cloud | First image for compatible image-to-image, edit, or Kontext model IDs |
 | NanoGPT | Up to 3 |
 | Stability AI | First image only, used as image to image |
+| Arli AI | First image only, used as image to image |
 | OpenRouter Images | Supported, no fixed limit |
 | ComfyUI and RunPod Serverless (ComfyUI) | Up to 4, through workflow placeholders |
+| SwarmUI | Up to 4 |
 | Together AI, Pollinations, Stable Horde | Not supported |
 
 NovelAI precise reference images only work on a V4.5 model, such as `nai-diffusion-4-5-full`. NovelAI has not yet released Precise Reference for V5. If references are requested on another model, Marinara renders the image without them and records a warning in the server log.

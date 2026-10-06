@@ -109,6 +109,13 @@ The same meter appears under the context indicator in a chat's connection picker
 
 **xAI / Grok** runs the Grok models. When you pick this provider in the **Create Connection** modal, Marinara prefills the model with Grok 4.5. You can change the model afterward. Grok 4.6 and 4.7 are available with a 500,000-token context window and reasoning up to **Maximum** (`xhigh`). They support the existing chat tools, including **Web Search**, so search results can feed the completed reply.
 
+## Arli AI
+
+- Where to get a key: `https://www.arliai.com/account`
+- Default base URL: `https://api.arliai.com/v1`
+
+**Arli AI** is a hosted chat service. It has no built-in model list, so the **Model** dropdown starts empty. After you paste your key, click **Fetch Models from API** to load its current models. For Arli AI images, use the **Image Generation** provider and its **Arli AI** service instead.
+
 ## Z.AI
 
 - Where to get a key: `https://z.ai/manage-apikey/apikey-list`
@@ -128,7 +135,7 @@ Install and login steps are in [Claude, ChatGPT, and Grok Subscription Connectio
 
 - API key: none. You sign in to a local tool instead.
 
-**OpenAI (ChatGPT)** uses your ChatGPT account through the Codex tool. The tool runs on the computer that hosts the Marinara server, and you sign in once. The **API Key** and **Base URL** fields are hidden for this provider. It does not offer embeddings (see the Embeddings section below).
+**OpenAI (ChatGPT)** uses your ChatGPT account through the Codex tool. The tool runs on the computer that hosts the Marinara server, and you sign in once. The **API Key** and **Base URL** fields are hidden for this provider. It does not offer embeddings (see the Embeddings section below). Its thinking level is the **Reasoning Effort** in the connection's or the chat's parameters; until you pick one, Codex uses its own default for the model.
 
 Install and login steps are in [Claude, ChatGPT, and Grok Subscription Connections](subscription-clis.md).
 
@@ -156,9 +163,30 @@ The full list of image services, their setup, and generation settings lives in [
 
 ## Video Generation
 
-**Video Generation** is also a special provider with its own **Video Service** picker. Game Mode uses it to make short MP4 scene videos. The services are **Google AI Studio**, **xAI Imagine**, **OpenRouter Video**, and **Seedance 2.0**. Each service needs an API key.
+**Video Generation** is also a special provider with its own **Video Service** picker. Marinara uses it to make short MP4 scene videos. The services are **Google AI Studio**, **xAI Imagine**, **OpenRouter Video**, **NanoGPT**, **Atlas Cloud**, **Seedance 2.0**, **ComfyUI**, and **SwarmUI**. The cloud services need an API key. **ComfyUI** and **SwarmUI** run on your own computer and normally do not.
 
 The full setup and limits for each video service live in [Scene Video Generation](../media/scene-video.md).
+
+## Decision
+
+- Default base URL: `https://api.typesafe.ai` for the **TypeSafe** source.
+
+**Decision** is an optional special provider for a model that answers yes-or-no questions about your chat. For example, it can decide whether a custom agent should run. Its answers steer Marinara and are not posted in the chat. After you pick it, choose a source: **TypeSafe**, **OpenRouter**, **Custom System One endpoint**, or **OpenAI-compatible chat model**. Hosted sources need an API key.
+
+What a decision model does, how to choose one, and the full setup live in [Decision Models](decision-models.md).
+
+## Audio
+
+**Audio** is a special provider for voices and generated sound. After you pick it, choose an **Audio Source**:
+
+- **ElevenLabs**: speech, sound effects, and music.
+- **OpenAI-compatible**: OpenAI, or any server that copies OpenAI's speech format.
+- **PocketTTS**: a free voice server you run on your own computer.
+- **xAI Voice**: xAI's voice service.
+
+Each source fills in a default base URL and model. **Default Voice** is the voice used when nothing more specific, such as a per-character voice, is set. To pick which audio connection Marinara uses by default, open the **Connections** panel, expand **Defaults**, and choose it under **Audio**.
+
+With the **ElevenLabs** source, two more switches appear: **Game sound effects** and **Game music**. They let Game Mode make sound effects and music with this connection. See [Generated sound effects and music](../game/game-assets.md#generated-sound-effects-and-music). For voices and reading messages aloud, see [Text to Speech (TTS) Setup](../media/tts-setup.md).
 
 ## Embeddings
 
@@ -173,3 +201,5 @@ Some providers cannot make embeddings. **Anthropic**, **Claude (Subscription)**,
 - [Connecting a Local or Self-Hosted Model](local-self-hosted.md)
 - [Image Generation Providers and Setup](../media/image-providers.md)
 - [Scene Video Generation](../media/scene-video.md)
+- [Decision Models](decision-models.md)
+- [Text to Speech (TTS) Setup](../media/tts-setup.md)

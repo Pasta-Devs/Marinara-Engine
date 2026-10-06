@@ -637,12 +637,13 @@ for (const mode of ["roleplay", "game", "conversation"] as const) {
             probe.remove();
             return color;
           });
-          for (const [trigger, name] of [
-            ["Quick Connection Switcher", "Connections"],
-            ["Quick Persona Switcher", "Personas"],
+          // The connection picker is a non-modal dialog: it holds a model search box and pin toggles.
+          for (const [trigger, name, role] of [
+            ["Quick Connection Switcher", "Connections", "dialog"],
+            ["Quick Persona Switcher", "Personas", "menu"],
           ] as const) {
             await page.getByTitle(trigger, { exact: true }).click();
-            const picker = page.getByRole("menu", { name, exact: true });
+            const picker = page.getByRole(role, { name, exact: true });
             await expect(picker).toHaveCSS("background-color", cardColor);
             await picker.screenshot({ path: testInfo.outputPath(`desktop-${name.toLowerCase()}-picker.png`) });
             await picker.press("Escape");

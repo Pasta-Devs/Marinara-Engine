@@ -61,9 +61,12 @@ export async function resolveDecisionConnection(
   }
   let endpoint: URL;
   try {
+    // TypeSafe may be sent to another address that serves its API (#7084). It keeps
+    // TypeSafe's key rules and defaults; a blank address is TypeSafe's own.
     const base = decisionSourceTakesUrl(source)
       ? row.baseUrl
-      : DECISION_SOURCE_BASE_URLS[source as "typesafe" | "openrouter"];
+      : (source === "typesafe" && row.baseUrl?.trim()) ||
+        DECISION_SOURCE_BASE_URLS[source as "typesafe" | "openrouter"];
     endpoint = new URL(
       source === "openai_compatible" ? decisionChatCompletionsUrl(base) : `${base.replace(/\/+$/, "")}/v1/systemone`,
     );

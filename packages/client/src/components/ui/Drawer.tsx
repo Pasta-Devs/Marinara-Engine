@@ -450,6 +450,7 @@ function DetachedDrawerWindow({
             minimizable={{
               icon: icon ?? <ExternalLink size="0.875rem" />,
               label: typeof title === "string" ? title : t("drawer.popOut.section"),
+              phoneMenu: host.id === "chat-settings",
             }}
             getDefaultLayout={getDetachedFallbackLayout}
             minWidth={DETACHED_LIMITS.minWidth}

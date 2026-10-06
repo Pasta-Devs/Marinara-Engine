@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import type { AdvancedMemoryJob, AdvancedMemorySettings, AdvancedMemoryStatus, Message } from "@marinara-engine/shared";
 import { api } from "../lib/api-client";
+import { EXPORT_FAILED_TOAST_ID } from "../lib/file-download";
 import { translate } from "../localization/i18n";
 import { useChatStore } from "../stores/chat.store";
 import { chatKeys } from "./use-chats";
@@ -157,6 +158,7 @@ export function useExportAdvancedMemory(chatId: string) {
   const { t } = useTranslation();
   return useMutation({
     mutationFn: () => api.download(`/chats/${chatId}/advanced-memory/export`, `advanced-memory-${chatId}.json`),
-    onError: (error) => toast.error(t("chat.advancedMemory.failed", { message: error.message })),
+    onError: (error) =>
+      toast.error(t("chat.advancedMemory.failed", { message: error.message }), { id: EXPORT_FAILED_TOAST_ID }),
   });
 }

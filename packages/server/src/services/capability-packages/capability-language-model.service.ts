@@ -1,7 +1,9 @@
 import {
+  CUSTOM_GENERATION_PARAMETERS_SETTINGS_KEY,
   LOCAL_SIDECAR_CONNECTION_ID,
   PROVIDERS,
   localAuthProviderBaseUrl,
+  parseManagedGenerationParameterDefinitions,
   type CapabilityLanguageModelCompletionOptions,
   type CapabilityLanguageModelHost,
   type CapabilityLanguageModelMessage,
@@ -19,15 +21,25 @@ import { getAgentCallTimeoutMs } from "../../config/runtime-config.js";
 import { withLlmRequestTimeout } from "../llm/base-provider.js";
 import { unwrapConnectionAdmissionProvider } from "../generation/connection-admission.js";
 import { createConnectionsStorage } from "../storage/connections.storage.js";
+import { createAppSettingsStorage } from "../storage/app-settings.storage.js";
+import { resolveCapabilityChatOptions } from "../generation/agent-generation-parameters.js";
+
+type SavedConnectionParameters = Omit<Parameters<typeof resolveCapabilityChatOptions>[0], "model">;
 
 export function createCapabilityLanguageModelHost(db: DB): CapabilityLanguageModelHost {
   const connections = createConnectionsStorage(db);
+  const appSettings = createAppSettingsStorage(db);
   const requireModel = (model: string | null | undefined) => {
     const resolved = model?.trim();
     if (!resolved) throw new Error("The selected language model connection has no model.");
     return resolved;
   };
-  const resolvedModel = (provider: BaseLLMProvider, connectionId: string, model: string) =>
+  const resolvedModel = (
+    provider: BaseLLMProvider,
+    connectionId: string,
+    model: string,
+    saved: SavedConnectionParameters | null = null,
+  ) =>
     Object.freeze({
       name: unwrapConnectionAdmissionProvider(provider).constructor.name,
       connectionId,
@@ -44,14 +56,21 @@ export function createCapabilityLanguageModelHost(db: DB): CapabilityLanguageMod
         // agentCallSignal). Preserve the caller's own cancellation signal via AbortSignal.any.
         const timeoutSignal = AbortSignal.timeout(timeoutMs);
         const signal = options.signal ? AbortSignal.any([options.signal, timeoutSignal]) : timeoutSignal;
+        const packageOptions = {
+          temperature: options.temperature,
+          maxTokens: options.maxTokens,
+          reasoningEffort: options.reasoningEffort,
+          verbosity: options.verbosity,
+        };
+        // The connection's saved parameters apply like on any agent call; what it leaves unset stays the package's.
+        const requestOptions = saved
+          ? resolveCapabilityChatOptions({ ...saved, model }, packageOptions)
+          : packageOptions;
         const result = await withLlmRequestTimeout(timeoutMs, async () =>
           provider.chatComplete(messages as ChatMessage[], {
             model,
-            temperature: options.temperature,
-            maxTokens: options.maxTokens,
+            ...requestOptions,
             debugMode: options.debugMode,
-            reasoningEffort: options.reasoningEffort,
-            verbosity: options.verbosity,
             signal,
             responseFormat: options.responseFormat ? { ...options.responseFormat } : undefined,
           }),
@@ -93,11 +112,21 @@ export function createCapabilityLanguageModelHost(db: DB): CapabilityLanguageMod
         connection.maxTokensOverride,
         connection.claudeFastMode === "true",
         connection.treatAsLocalEndpoint === "true",
-        undefined,
+        // Custom headers and custom parameters saved on the connection (#7131).
+        connection.defaultParameters,
         connection.id,
       ),
       connection.id,
       requireModel(model ?? connection.model),
+      {
+        provider: connection.provider,
+        maxContext: connection.maxContext,
+        maxTokensOverride: connection.maxTokensOverride,
+        defaultParameters: connection.defaultParameters,
+        managedParameterDefinitions: parseManagedGenerationParameterDefinitions(
+          await appSettings.get(CUSTOM_GENERATION_PARAMETERS_SETTINGS_KEY),
+        ),
+      },
     );
   };
   const defaultConnection = async (model?: string, preferAgentDefault = false) => {

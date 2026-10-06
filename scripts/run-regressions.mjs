@@ -28,6 +28,8 @@ export function regressionTimeoutMs(relativePath) {
     return 270_000;
   }
   if (relativePath === 'scripts/regressions/restart-supervisor.regression.ts') return 90_000;
+  // Two provider deadlines (8 s each): a silent getContext and a claim that answers late.
+  if (relativePath === 'scripts/regressions/scene-package-origin.regression.ts') return 60_000;
   return FILE_TIMEOUT_MS;
 }
 

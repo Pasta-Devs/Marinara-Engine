@@ -82,6 +82,7 @@ The **Card** tab is where you write the core persona fields. Each field is a lar
 - **Personality**: your temperament, behavior, speech habits, and emotional patterns.
 - **Backstory**: your history, origin, relationships, and formative events.
 - **Appearance**: physical description, clothing, and visual details the model should remember.
+- **Image Appearance Override**: an optional switch under **Appearance**, off by default. Turn it on to reveal a second box for an image-prompt-ready description of your persona. While it is on and the box is filled, image prompts use that text instead of **Appearance**. The narrator always sees the full **Appearance** text.
 - **Scenario**: your default situation or context for roleplays. Use it to establish where your persona starts.
 
 These text boxes support macros. Quote characters you type are auto-formatted to match your app quote style.

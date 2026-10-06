@@ -1033,9 +1033,10 @@ export function CharacterEditor() {
         open={avatarGeneratorOpen}
         title={localizeUi("ui.characters.charactereditor.generateCharacterAvatar")}
         entityName={formData.name}
-        defaultAppearance={
-          ((formData.extensions.appearance as string | undefined) || formData.description || formData.personality) ?? ""
-        }
+        defaultAppearance={imageAppearanceGeneratorSeed(
+          formData.extensions,
+          (formData.extensions.appearance as string | undefined) || formData.description || formData.personality,
+        )}
         defaultAvatarUrl={avatarPreview}
         onClose={() => setAvatarGeneratorOpen(false)}
         onUseAvatar={handleGeneratedAvatar}
@@ -1045,9 +1046,10 @@ export function CharacterEditor() {
         mode="character-sheet"
         title={localizeUi("ui.characters.charactersheet.createTitle")}
         entityName={formData.name || localizeUi("ui.characters.charactersheet.characterFallback")}
-        defaultAppearance={
-          ((formData.extensions.appearance as string | undefined) || formData.description || formData.personality) ?? ""
-        }
+        defaultAppearance={imageAppearanceGeneratorSeed(
+          formData.extensions,
+          (formData.extensions.appearance as string | undefined) || formData.description || formData.personality,
+        )}
         defaultAvatarUrl={avatarPreview}
         neutralFullBodyReferenceUrl={characterSheetSprites?.find((sprite) => sprite.expression === "full_neutral")?.url}
         onClose={() => setCharacterSheetGeneratorOpen(false)}
@@ -1209,7 +1211,10 @@ export function CharacterEditor() {
                 <SpritesTab
                   characterId={characterId}
                   characterName={formData.name}
-                  defaultAppearance={(formData.extensions.appearance as string) ?? formData.description}
+                  defaultAppearance={imageAppearanceGeneratorSeed(
+                    formData.extensions,
+                    (formData.extensions.appearance as string) ?? formData.description,
+                  )}
                   defaultAvatarUrl={avatarPreview}
                   characterSheetImageId={
                     typeof formData.extensions.characterSheetImageId === "string"
@@ -1349,6 +1354,32 @@ function CharacterCardTab({
             placeholder={localizeUi("ui.characters.charactercardtab.tallAndWillowyWithSilverStreakedDarkHairWears")}
             rows={8}
           />
+          <div className="mt-3">
+            <SettingsSwitch
+              label={
+                <span className="font-medium">
+                  {localizeUi("ui.characters.charactercardtab.imageAppearanceToggle")}
+                </span>
+              }
+              description={localizeUi("ui.characters.charactercardtab.imageAppearanceToggleHelp")}
+              checked={formData.extensions.imageAppearanceEnabled === true}
+              onChange={(enabled) => updateExtension("imageAppearanceEnabled", enabled)}
+              labelPosition="start"
+              className="justify-between rounded-xl border border-[var(--border)] bg-[var(--card)] p-4"
+            />
+          </div>
+          {formData.extensions.imageAppearanceEnabled === true && (
+            <div className="mt-3">
+              <TextareaTab
+                title={localizeUi("ui.characters.charactercardtab.imageAppearanceToggle")}
+                subtitle={localizeUi("ui.characters.charactercardtab.imageAppearanceSubtitle")}
+                value={(formData.extensions.imageAppearance as string) ?? ""}
+                onChange={(v) => updateExtension("imageAppearance", v)}
+                placeholder={localizeUi("ui.characters.charactercardtab.imageAppearancePlaceholder")}
+                rows={6}
+              />
+            </div>
+          )}
         </EditorSectionAnchor>
         <EditorSectionAnchor id="character-card-scenario">
           <TextareaTab
@@ -1933,15 +1964,35 @@ const VERSION_COMPARE_FIELDS: Array<{ key: string; label: string }> = [
   { key: "mes_example", label: "Example Dialogue" },
   { key: "extensions.backstory", label: "Backstory" },
   { key: "extensions.appearance", label: "Appearance" },
+  { key: "extensions.imageAppearance", label: "Image Appearance Override" },
+  { key: "extensions.imageAppearanceEnabled", label: "Use Image Appearance Override" },
   { key: "creator_notes", label: "Creator Notes" },
   { key: "system_prompt", label: "System Prompt" },
   { key: "post_history_instructions", label: "Post-History Instructions" },
 ];
 
+/**
+ * #7053: the avatar / character-sheet generator seeds its editable prompt with
+ * the card appearance. It must seed the image override instead when one is on
+ * and filled, or the generated portrait ignores the very tags the user wrote
+ * for image models. Mirrors `readImageAppearanceOverride` in shared, but the
+ * editor holds a draft `extensions` object rather than a stored card.
+ */
+function imageAppearanceGeneratorSeed(extensions: Record<string, unknown>, fallback: string | undefined): string {
+  const enabled = extensions.imageAppearanceEnabled === true;
+  const override = typeof extensions.imageAppearance === "string" ? extensions.imageAppearance.trim() : "";
+  if (enabled && override) return override;
+  return fallback ?? "";
+}
+
 function getVersionFieldValue(data: CharacterData, key: string): string {
-  if (key === "extensions.backstory" || key === "extensions.appearance") {
+  if (key.startsWith("extensions.")) {
     const extensionKey = key.split(".")[1] ?? "";
     const value = data.extensions?.[extensionKey];
+    // #7053: the image-appearance switch is a boolean. Render it as On/Off so a
+    // comparison shows the toggle change that decides which text image prompts
+    // use, instead of collapsing to "" and hiding it.
+    if (typeof value === "boolean") return value ? "On" : "Off";
     return typeof value === "string" ? value : "";
   }
   const value = data[key as keyof CharacterData];
@@ -4404,26 +4455,27 @@ function SpritesTab({
         const scopeLabel =
           modeLabel === "all" ? "sprites" : category === "full-body" ? "full-body-sprites" : "expressions";
         const folderName = sanitizeSpriteExportFolderName(`${characterName || "character"}-${scopeLabel}`, "sprites");
-        await exportSprites.mutateAsync({
+        const saveStatus = await exportSprites.mutateAsync({
           characterId,
           expressions: spritesToExport.map((sprite) => sprite.expression),
           folderName,
         });
-        toast.success(
-          modeLabel === "all"
-            ? localizeUi("ui.characters.spritestab.exportedValue1SpriteValue2AsAFolder", {
-                value1: spritesToExport.length,
-                value2: spritesToExport.length === 1 ? "" : localizeUi("ui.noodle.stageprofileview.s"),
-              })
-            : localizeUi("ui.characters.spritestab.exportedValue1Value2SpriteValue3AsAFolder", {
-                value1: spritesToExport.length,
-                value2:
-                  category === "full-body"
-                    ? localizeUi("ui.characters.spritestab.fullBody_0fbbc4a")
-                    : localizeUi("ui.characters.spritestab.expression"),
-                value3: spritesToExport.length === 1 ? "" : localizeUi("ui.noodle.stageprofileview.s"),
-              }),
-        );
+        if (saveStatus === "saved")
+          toast.success(
+            modeLabel === "all"
+              ? localizeUi("ui.characters.spritestab.exportedValue1SpriteValue2AsAFolder", {
+                  value1: spritesToExport.length,
+                  value2: spritesToExport.length === 1 ? "" : localizeUi("ui.noodle.stageprofileview.s"),
+                })
+              : localizeUi("ui.characters.spritestab.exportedValue1Value2SpriteValue3AsAFolder", {
+                  value1: spritesToExport.length,
+                  value2:
+                    category === "full-body"
+                      ? localizeUi("ui.characters.spritestab.fullBody_0fbbc4a")
+                      : localizeUi("ui.characters.spritestab.expression"),
+                  value3: spritesToExport.length === 1 ? "" : localizeUi("ui.noodle.stageprofileview.s"),
+                }),
+          );
       } catch (error) {
         toast.error(
           error instanceof Error

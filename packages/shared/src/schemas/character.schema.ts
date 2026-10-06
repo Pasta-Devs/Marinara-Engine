@@ -52,6 +52,10 @@ export const characterExtensionsSchema = z
     depth_prompt: depthPromptSchema.default({}),
     backstory: z.string().default(""),
     appearance: z.string().default(""),
+    /** Marinara Engine: use `imageAppearance` instead of `appearance` in image prompts. */
+    imageAppearanceEnabled: z.boolean().optional(),
+    /** Marinara Engine: appearance text used for image prompts when the override is enabled. */
+    imageAppearance: z.string().optional(),
     /** Marinara Engine: retain card revisions and advance the visible version on edits. */
     versioningEnabled: z.boolean().default(true),
     // Conversation-mode-only fields (optional — absent on non-convo cards).

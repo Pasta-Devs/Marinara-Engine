@@ -214,11 +214,195 @@ console.log("illustrator character prompts regression (manual + executor) passed
   assert.match(block, /verbatim/i, "fixed traits are to be copied verbatim into the caption");
   assert.match(block, /outfit|clothing/i, "clothing tags are a default the scene or tracker overrides");
   assert.equal(buildCharacterAppearanceReferenceBlock([]), "", "no appearance means no block");
+  const customReference = buildCharacterAppearanceReferenceBlock([{ name: "Blake", appearance: "silver hair" }], false);
+  assert.match(customReference, /\[Blake\] silver hair/);
+  assert.match(customReference, /instead of the normal card appearance/);
+  assert.doesNotMatch(customReference, /Danbooru|caption|Do not repeat/);
 
   const oversized = buildCharacterAppearanceReferenceBlock(
     Array.from({ length: 40 }, (_, index) => ({ name: `Colonist ${index + 1}`, appearance: "x".repeat(400) })),
   );
   assert.ok(oversized.length < 9000, "the reference block is capped so a huge ensemble cannot flood the prompt");
+}
+
+// #7053: an enabled, non-empty card override replaces the card appearance for
+// IMAGE prompts only, and falls back to the normal appearance otherwise.
+{
+  const { readIllustratorAppearance, normalizeIllustratorAppearance, resolveIllustratorCharacterReferences } =
+    await import("../../packages/server/src/services/image/illustrator-references.js");
+  const {
+    IMAGE_APPEARANCE_OVERRIDES_MEMORY_KEY,
+    buildIllustratorImageAppearanceOverrides,
+    readIllustratorImageAppearanceOverride,
+  } = await import("../../packages/server/src/services/image/character-prompts.js");
+
+  const override = "1girl, silver hair, green eyes, oversized hoodie";
+  const normalAppearance = "A tall woman with silver hair and green eyes.";
+
+  // Enabled + non-empty -> the override wins.
+  assert.equal(
+    readIllustratorAppearance({
+      appearance: normalAppearance,
+      extensions: { appearance: normalAppearance, imageAppearanceEnabled: true, imageAppearance: override },
+    }),
+    override,
+    "an enabled non-empty override replaces the card appearance",
+  );
+  // Disabled -> fall back, even though text is present.
+  assert.equal(
+    readIllustratorAppearance({
+      appearance: normalAppearance,
+      extensions: { appearance: normalAppearance, imageAppearanceEnabled: false, imageAppearance: override },
+    }),
+    normalizeIllustratorAppearance(normalAppearance),
+    "a disabled toggle falls back to the normal appearance",
+  );
+  // Enabled but blank -> fall back (blank must never blank the prompt).
+  assert.equal(
+    readIllustratorAppearance({
+      appearance: normalAppearance,
+      extensions: { appearance: normalAppearance, imageAppearanceEnabled: true, imageAppearance: "   " },
+    }),
+    normalizeIllustratorAppearance(normalAppearance),
+    "an enabled but empty override falls back to the normal appearance",
+  );
+  // The toggle alone must not enable anything without text.
+  assert.equal(
+    readIllustratorAppearance({ appearance: normalAppearance, extensions: { imageAppearanceEnabled: true } }),
+    normalizeIllustratorAppearance(normalAppearance),
+  );
+  // Normalization still applies to the override (macro comments stripped, clipped).
+  assert.equal(
+    readIllustratorAppearance({
+      appearance: normalAppearance,
+      extensions: {
+        imageAppearanceEnabled: true,
+        imageAppearance: "1girl, red hair{{// a stray macro comment}}",
+      },
+    }),
+    "1girl, red hair",
+    "the override is macro-stripped by the existing normalizer, not used raw",
+  );
+  assert.ok(
+    (
+      readIllustratorAppearance({
+        appearance: normalAppearance,
+        extensions: { imageAppearanceEnabled: true, imageAppearance: "y".repeat(9000) },
+      }) ?? ""
+    ).length < 9000,
+    "the override is clipped by the existing normalizer",
+  );
+
+  // Personas are keyed by their own id, so both halves stay symmetric.
+  const map = buildIllustratorImageAppearanceOverrides([{ id: "char-1", imageAppearanceOverride: override }], {
+    id: "persona-1",
+    imageAppearanceOverride: "1boy, black coat",
+  });
+  assert.deepEqual(map, { "char-1": override, "persona-1": "1boy, black coat" });
+  const memory = { [IMAGE_APPEARANCE_OVERRIDES_MEMORY_KEY]: map };
+  assert.equal(readIllustratorImageAppearanceOverride(memory, "persona-1"), "1boy, black coat");
+  assert.equal(readIllustratorImageAppearanceOverride(memory, "char-1"), override);
+  assert.equal(readIllustratorImageAppearanceOverride(memory, "absent"), null, "an unknown id falls back");
+  assert.equal(readIllustratorImageAppearanceOverride({}, "char-1"), null, "no map means no override");
+  assert.equal(
+    buildIllustratorImageAppearanceOverrides([{ id: "char-1" }], null),
+    null,
+    "no overrides anywhere means no map is stored",
+  );
+
+  // A caller-supplied appearance must NOT beat an explicit card override.
+  const resolved = await resolveIllustratorCharacterReferences({
+    charactersStore: { list: async () => [] },
+    chatCharacters: [{ id: "char-1", name: "Blake", appearance: normalAppearance, appearanceOverride: override }],
+    requestedNames: ["Blake"],
+    promptText: "Blake",
+  });
+  assert.equal(
+    resolved.appearanceSources.find((source) => source.name === "Blake")?.appearance,
+    override,
+    "the card override wins over the caller-supplied appearance",
+  );
+
+  // #7053 regression (selfie path): a caller that supplies the RAW card
+  // appearance but omits `appearanceOverride` must NOT have its text silently
+  // used when the store row carries an override — otherwise the system prompt
+  // and the appended appearance block disagree on the same request.
+  const rawCallerResolved = await resolveIllustratorCharacterReferences({
+    charactersStore: {
+      list: async () => [
+        {
+          id: "char-2",
+          // Store rows carry the card as a JSON `data` blob; the override lives
+          // in its `extensions` bag.
+          data: {
+            name: "Ada",
+            appearance: normalAppearance,
+            extensions: {
+              appearance: normalAppearance,
+              imageAppearanceEnabled: true,
+              imageAppearance: override,
+            },
+          },
+          avatarPath: null,
+        },
+      ],
+    },
+    chatCharacters: [{ id: "char-2", name: "Ada", appearance: normalAppearance }],
+    requestedNames: ["Ada"],
+    promptText: "Ada",
+  });
+  assert.equal(
+    rawCallerResolved.appearanceSources.find((source) => source.name === "Ada")?.appearance,
+    override,
+    "a store-row override still wins when the caller omits appearanceOverride",
+  );
+
+  // #7053 regression (Chroma / NanoGPT appearance block): personas take the SAME
+  // override-wins rule as characters. `appearanceBlock` is appended verbatim to
+  // the provider prompt by non-NovelAI providers, so a persona that kept sending
+  // raw prose shipped the very text this feature exists to keep away from image
+  // models — while characters in the same block sent clean tags.
+  const personaResolved = await resolveIllustratorCharacterReferences({
+    charactersStore: { list: async () => [] },
+    chatCharacters: [],
+    persona: {
+      id: "persona-1",
+      name: "Fel Lockheart",
+      appearance: normalAppearance,
+      appearanceOverride: override,
+    },
+    requestedNames: ["Fel Lockheart"],
+    promptText: "Fel Lockheart",
+  });
+  assert.equal(
+    personaResolved.appearanceSources.find((source) => source.name === "Fel Lockheart")?.appearance,
+    override,
+    "a persona override wins over the persona's own appearance in the appended block",
+  );
+  assert.match(
+    personaResolved.appearanceBlock ?? "",
+    /Fel Lockheart's Appearance: 1girl, silver hair, green eyes, oversized hoodie/,
+    "the appended persona line uses the override tags, not the Appearance prose",
+  );
+  assert.doesNotMatch(
+    personaResolved.appearanceBlock ?? "",
+    /A tall woman with silver hair/,
+    "the persona's raw Appearance prose must not reach the engine-appended block",
+  );
+
+  // Disabled/empty persona override falls back to the normal appearance.
+  const personaFallback = await resolveIllustratorCharacterReferences({
+    charactersStore: { list: async () => [] },
+    chatCharacters: [],
+    persona: { id: "persona-2", name: "Nadia", appearance: normalAppearance, appearanceOverride: null },
+    requestedNames: ["Nadia"],
+    promptText: "Nadia",
+  });
+  assert.equal(
+    personaFallback.appearanceSources.find((source) => source.name === "Nadia")?.appearance,
+    normalAppearance,
+    "a persona without an override keeps its normal appearance for image prompts",
+  );
 }
 
 // The executor composes the instruction and the appearance reference; both are host-resolved.
@@ -237,8 +421,8 @@ console.log("illustrator character prompts regression (manual + executor) passed
       undefined,
       "<character_appearance_reference>x</character_appearance_reference>",
     ),
-    "",
-    "no caption instruction means no reference block either",
+    "<character_appearance_reference>x</character_appearance_reference>",
+    "custom image agents keep appearance references without a native caption instruction",
   );
 }
 

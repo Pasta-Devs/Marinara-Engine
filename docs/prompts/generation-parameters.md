@@ -97,7 +97,7 @@ You write one wrapper per line, with a slot in the middle for the hidden text. C
 
 **Custom Parameters** lets you add raw settings that Marinara does not show as its own field. You type a JSON object, and Marinara merges it into the request sent to the provider.
 
-Custom Parameters saved as connection defaults are sent for every API-backed text generation that uses that connection, including Conversation, Roleplay, Game, Noodle, summaries, and agents. This also applies to custom endpoints running on your own machine. Per-chat Custom Parameters are added for that chat and override matching connection-level keys.
+Custom Parameters saved as connection defaults are sent for every API-backed text generation that uses that connection, including Conversation, Roleplay, Game, Noodle, summaries, agents, and installed agent packages. This also applies to custom endpoints running on your own machine. Per-chat Custom Parameters are added for that chat and override matching connection-level keys.
 
 This is an advanced field. A wrong key can make the provider reject the request. The object must use lowercase `true`, `false`, and `null`. Leave this empty unless a provider's guide tells you to add a specific key.
 
@@ -150,6 +150,18 @@ Parameters are resolved one field at a time, in this order:
 The **Effective** line beside a parameter shows the saved value and its winning layer, including mode rules and output caps. In the connection editor it uses the currently open chat with that connection, or a Roleplay baseline when no chat is open. Save edits to refresh it. A disabled Send switch is shown as **not sent**; providers can still impose required parameters or normalize unsupported values. Custom Parameters and context fitting may further change the final request.
 
 For example, a preset at `8192` and this chat at `16384` show **Effective: 16384 · this chat**. A connection output cap of `4096` changes that to **Effective: 4096 · output token cap**. Resetting chat parameters exposes the next applicable layer; it does not remove preset or mode rules.
+
+## Parameters for agents
+
+Agent calls use the **Default Parameters** saved on the connection they run on: the agent's own connection, or the chat's connection when the agent has none. Marinara applies them with the same rules as a chat reply, including the Send switches and the model limits below. Presets and a chat's **Advanced Parameters** do not change agent calls, apart from the temperature rule below.
+
+- **Sent to agents**: Temperature, Top P, Top K, Frequency, Presence, Reasoning Effort, Verbosity, OpenRouter Service Tier, Custom Parameters, custom headers, and the extra parameters you add under **Settings**, then **Advanced**, then **Parameters** (such as Top A or a seed). A parameter whose Send switch is off is not sent.
+- **Not sent to agents**: Max Output Tokens, stop sequences, prefills, Thinking Tags, and other prompt-format settings. Each agent keeps its own **Max Output Tokens**.
+- **Temperature**: an agent uses the connection's temperature, or `0.7` when none is saved. Beholder always uses `0`, and the Illustrator's prompt writer uses its own value. During a chat reply, agents on the chat's connection take the temperature and Send switches the chat resolved, as before, but a parameter switched off on the connection is still not sent. Retries use the connection's saved values and Send switches, not the chat's.
+- **Reasoning Effort**: a level you pick, or **Off**, applies to every agent on that connection whose model takes Reasoning Effort. Turning on **Use custom defaults for this connection** starts Reasoning Effort at **Maximum** on most connections (**Default** on Codex), so agents on it think at the model's highest level, which is slower and costs more. Pick a lower level, or turn its Send switch off, if agents should think less. With no level saved (custom defaults off, or **Default** on a Codex connection), agents that answer in JSON ask for thinking off and other agents leave the model's default.
+- **Room to think**: when the connection saves a Reasoning Effort for the model, Marinara adds room for thinking on top of the agent's **Max Output Tokens**, so the answer is not cut short. The room stays within the connection's output cap, the model's limit, and the context the prompt leaves free. A custom endpoint gets it even when it does not send the level, because a local model may think on its own.
+
+Installed agent packages follow the same connection values. A value the connection saves and sends replaces what the package asks for, and anything the connection leaves unset keeps the package's own setting. A **Reasoning Effort** or **Max Output Tokens** switched off on the connection is not sent, even when the package asks for it. Temperature and Verbosity start switched off, so for those the package's own value stays. Packages keep their own output budget, plus room to think when the connection's Reasoning Effort applies.
 
 ## Some models ignore some parameters
 

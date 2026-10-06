@@ -2037,7 +2037,10 @@ export function ConversationInput({
     <div className="mari-chat-input chat-input-container relative px-2 sm:px-3 pb-3">
       {/* Slash command autocomplete */}
       {completions.length > 0 && (
-        <div className="absolute bottom-full left-3 right-3 z-40 mb-1 max-h-[min(18rem,45dvh)] overflow-y-auto rounded-lg border border-foreground/10 bg-[var(--card)] shadow-lg [-webkit-overflow-scrolling:touch]">
+        <div
+          data-chat-input-popup="commands"
+          className="mari-chat-style-surface mari-chat-input-popup absolute bottom-full left-3 right-3 z-40 mb-1 max-h-[min(18rem,45dvh)] overflow-y-auto rounded-lg border border-foreground/10 bg-[var(--card)] shadow-lg [-webkit-overflow-scrolling:touch]"
+        >
           {completions.map((cmd, i) => (
             <button
               key={cmd.key}
@@ -2081,7 +2084,10 @@ export function ConversationInput({
 
       {/* @mention autocomplete */}
       {mentionCompletions.length > 0 && (
-        <div className="absolute bottom-full left-0 right-0 mb-1 overflow-hidden rounded-lg border border-foreground/10 bg-[var(--card)] shadow-lg">
+        <div
+          data-chat-input-popup="mentions"
+          className="mari-chat-style-surface mari-chat-input-popup absolute bottom-full left-0 right-0 mb-1 overflow-hidden rounded-lg border border-foreground/10 bg-[var(--card)] shadow-lg"
+        >
           {mentionCompletions.map((name, i) => (
             <button
               key={name}
@@ -2103,7 +2109,10 @@ export function ConversationInput({
 
       {/* :emoji: autocomplete */}
       {emojiCompletions.length > 0 && (
-        <div className="absolute bottom-full left-0 right-0 mb-1 max-h-56 overflow-y-auto rounded-lg border border-foreground/10 bg-[var(--card)] shadow-lg sm:left-[2%] sm:right-[2%]">
+        <div
+          data-chat-input-popup="emoji-completions"
+          className="mari-chat-style-surface mari-chat-input-popup absolute bottom-full left-0 right-0 mb-1 max-h-56 overflow-y-auto rounded-lg border border-foreground/10 bg-[var(--card)] shadow-lg sm:left-[2%] sm:right-[2%]"
+        >
           {emojiCompletions.map((em, i) => (
             <button
               key={em.name}

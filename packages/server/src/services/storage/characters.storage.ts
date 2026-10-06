@@ -170,6 +170,8 @@ export type PersonaStorageWriteFields = Pick<
   | "scenario"
   | "backstory"
   | "appearance"
+  | "imageAppearanceEnabled"
+  | "imageAppearance"
   | "characterSheetImageId"
   | "useCharacterSheetAsReference"
   | "avatarCrop"
@@ -295,6 +297,8 @@ function buildPersonaSnapshot(persona: PersonaStorageRow): PersonaCardSnapshot {
     scenario: persona.scenario ?? "",
     backstory: persona.backstory ?? "",
     appearance: persona.appearance ?? "",
+    imageAppearanceEnabled: persona.imageAppearanceEnabled ?? "false",
+    imageAppearance: persona.imageAppearance ?? "",
     characterSheetImageId: persona.characterSheetImageId ?? "",
     useCharacterSheetAsReference: persona.useCharacterSheetAsReference ?? "false",
     avatarCrop: persona.avatarCrop ?? "",
@@ -336,6 +340,8 @@ function normalizePersonaSnapshot(data: PersonaCardSnapshot): PersonaCardSnapsho
     scenario: data.scenario ?? "",
     backstory: data.backstory ?? "",
     appearance: data.appearance ?? "",
+    imageAppearanceEnabled: data.imageAppearanceEnabled ?? "false",
+    imageAppearance: data.imageAppearance ?? "",
     characterSheetImageId: data.characterSheetImageId ?? "",
     useCharacterSheetAsReference: data.useCharacterSheetAsReference ?? "false",
     avatarCrop: data.avatarCrop ?? "",
@@ -1003,6 +1009,8 @@ export function createCharactersStorage(db: DB) {
         scenario: extra?.scenario ?? "",
         backstory: extra?.backstory ?? "",
         appearance: extra?.appearance ?? "",
+        imageAppearanceEnabled: extra?.imageAppearanceEnabled ?? "false",
+        imageAppearance: extra?.imageAppearance ?? "",
         avatarPath: avatarPath ?? null,
         characterSheetImageId: extra?.characterSheetImageId ?? null,
         useCharacterSheetAsReference: extra?.useCharacterSheetAsReference ?? "false",
@@ -1064,6 +1072,8 @@ export function createCharactersStorage(db: DB) {
           scenario: source.scenario ?? "",
           backstory: source.backstory ?? "",
           appearance: source.appearance ?? "",
+          imageAppearanceEnabled: source.imageAppearanceEnabled ?? "false",
+          imageAppearance: source.imageAppearance ?? "",
           avatarPath: source.avatarPath,
           characterSheetImageId: null,
           useCharacterSheetAsReference: "false",
@@ -1115,6 +1125,8 @@ export function createCharactersStorage(db: DB) {
       if (updates.scenario !== undefined) sets.scenario = updates.scenario;
       if (updates.backstory !== undefined) sets.backstory = updates.backstory;
       if (updates.appearance !== undefined) sets.appearance = updates.appearance;
+      if (updates.imageAppearanceEnabled !== undefined) sets.imageAppearanceEnabled = updates.imageAppearanceEnabled;
+      if (updates.imageAppearance !== undefined) sets.imageAppearance = updates.imageAppearance;
       if (updates.avatarPath !== undefined) sets.avatarPath = updates.avatarPath;
       if (updates.characterSheetImageId !== undefined) sets.characterSheetImageId = updates.characterSheetImageId;
       if (updates.useCharacterSheetAsReference !== undefined) {
@@ -1148,6 +1160,10 @@ export function createCharactersStorage(db: DB) {
           ...(updates.scenario !== undefined && { scenario: updates.scenario }),
           ...(updates.backstory !== undefined && { backstory: updates.backstory }),
           ...(updates.appearance !== undefined && { appearance: updates.appearance }),
+          ...(updates.imageAppearanceEnabled !== undefined && {
+            imageAppearanceEnabled: updates.imageAppearanceEnabled,
+          }),
+          ...(updates.imageAppearance !== undefined && { imageAppearance: updates.imageAppearance }),
           ...(updates.characterSheetImageId !== undefined && {
             characterSheetImageId: updates.characterSheetImageId ?? "",
           }),
@@ -1240,6 +1256,8 @@ export function createCharactersStorage(db: DB) {
             scenario: data.scenario,
             backstory: data.backstory,
             appearance: data.appearance,
+            imageAppearanceEnabled: data.imageAppearanceEnabled ?? "false",
+            imageAppearance: data.imageAppearance ?? "",
             avatarPath: version.avatarPath ?? null,
             characterSheetImageId: data.characterSheetImageId || null,
             useCharacterSheetAsReference: data.useCharacterSheetAsReference,

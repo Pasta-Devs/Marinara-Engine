@@ -28,6 +28,7 @@
   --mari-widget-bubble-radius: initial;
   --mari-widget-drawer-radius: initial;
   --mari-widget-shell-bg: initial;
+  --mari-widget-shell-backdrop-filter: initial;
   --mari-widget-shell-border: initial;
   --mari-widget-frame-content: initial;
   --mari-widget-frame-clip: initial;
@@ -59,18 +60,18 @@
 }
 
 [data-chat-widget-preset="dottore"] {
-  --mari-widget-bg: oklch(0.965 0.012 220);
-  --mari-widget-text: oklch(0.3 0.052 227);
-  --mari-widget-accent: oklch(0.39 0.077 227);
-  --mari-widget-muted: oklch(0.47 0.04 220);
-  --mari-widget-field: oklch(0.935 0.017 216);
-  --mari-widget-border: oklch(0.7 0.048 218);
-  --mari-widget-gold: oklch(0.58 0.065 83);
-  --mari-widget-soft: oklch(0.87 0.037 210);
+  --mari-widget-bg: oklch(0.965 0.014 238);
+  --mari-widget-text: oklch(0.3 0.045 252);
+  --mari-widget-accent: oklch(0.415 0.075 230);
+  --mari-widget-muted: oklch(0.48 0.035 248);
+  --mari-widget-field: oklch(0.935 0.023 243);
+  --mari-widget-border: oklch(0.7 0.035 238);
+  --mari-widget-gold: oklch(0.59 0.035 83);
+  --mari-widget-soft: oklch(0.87 0.043 235);
   --mari-widget-font-preset: ui-monospace, "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace;
-  --mari-widget-header-bg: linear-gradient(110deg, transparent, oklch(0.85 0.04 197 / 0.22));
+  --mari-widget-header-bg: linear-gradient(110deg, transparent 35%, oklch(0.7 0.08 235 / 0.14));
   --mari-widget-header-padding: 0.75rem 1.75rem;
-  --mari-widget-crest-height: 3rem;
+  --mari-widget-crest-height: 2.5rem;
   --mari-widget-crest: url("/images/chat-widgets/dottore-crest.svg");
   --mari-widget-crest-content: "";
   --mari-widget-ornament-content: "";
@@ -78,7 +79,7 @@
   --mari-widget-drawer-margin: 0 0.625rem;
   --mari-widget-body-inset: 0 0.375rem 0.375rem;
   --mari-widget-drawer-border-width: 1px;
-  --mari-widget-drawer-radius: 0.25rem;
+  --mari-widget-drawer-radius: 0px;
   --mari-widget-frame-shadow:
     inset 0 0 0 3px var(--mari-widget-custom-background-solid, var(--mari-widget-bg)),
     inset 0 0 0 4px var(--mari-widget-custom-border-solid, var(--mari-widget-accent));
@@ -86,29 +87,34 @@
 
 [data-theme="dark"][data-chat-widget-preset="dottore"],
 [data-theme="dark"] [data-chat-widget-preset="dottore"] {
-  --mari-widget-bg: oklch(0.205 0.023 224);
-  --mari-widget-text: oklch(0.9 0.044 203);
-  --mari-widget-accent: oklch(0.86 0.083 202);
-  --mari-widget-muted: oklch(0.73 0.037 219);
-  --mari-widget-field: oklch(0.26 0.027 221);
-  --mari-widget-border: oklch(0.44 0.049 219);
-  --mari-widget-gold: oklch(0.73 0.067 86);
-  --mari-widget-soft: oklch(0.34 0.044 216);
+  --mari-widget-bg: oklch(0.235 0.03 252);
+  --mari-widget-text: oklch(0.915 0.025 245);
+  --mari-widget-accent: oklch(0.83 0.095 218);
+  --mari-widget-muted: oklch(0.73 0.035 244);
+  --mari-widget-field: oklch(0.275 0.035 250);
+  --mari-widget-border: oklch(0.46 0.045 244);
+  --mari-widget-gold: oklch(0.74 0.035 92);
+  --mari-widget-soft: oklch(0.34 0.05 245);
 }
 
 [data-chat-widget-preset="mari"] {
-  --mari-widget-bg: oklch(0.975 0.018 76);
-  --mari-widget-text: oklch(0.35 0.07 12);
-  --mari-widget-accent: oklch(0.46 0.125 9);
-  --mari-widget-muted: oklch(0.5 0.055 22);
-  --mari-widget-field: oklch(0.95 0.021 63);
-  --mari-widget-border: oklch(0.79 0.054 65);
-  --mari-widget-gold: oklch(0.59 0.102 69);
-  --mari-widget-soft: oklch(0.9 0.05 24);
+  --mari-widget-bg: oklch(0.975 0.012 80);
+  --mari-widget-text: oklch(0.32 0.04 273);
+  --mari-widget-accent: oklch(0.425 0.088 253);
+  --mari-widget-muted: oklch(0.51 0.035 271);
+  --mari-widget-field: oklch(0.95 0.018 268);
+  --mari-widget-border: oklch(0.76 0.035 85);
+  --mari-widget-gold: oklch(0.6 0.075 82);
+  --mari-widget-soft: oklch(0.91 0.03 265);
   --mari-widget-font-preset: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
-  --mari-widget-header-bg: linear-gradient(110deg, transparent, oklch(0.79 0.1 17 / 0.1));
+  --mari-widget-header-bg: linear-gradient(
+    110deg,
+    oklch(0.72 0.075 82 / 0.08),
+    transparent 45%,
+    oklch(0.7 0.08 275 / 0.1)
+  );
   --mari-widget-header-padding: 0.75rem 1.75rem;
-  --mari-widget-crest-height: 2rem;
+  --mari-widget-crest-height: 1.75rem;
   --mari-widget-crest: url("/images/chat-widgets/mari-primogem.svg");
   --mari-widget-crest-content: "";
   --mari-widget-ornament-content: "";
@@ -131,14 +137,14 @@
 
 [data-theme="dark"][data-chat-widget-preset="mari"],
 [data-theme="dark"] [data-chat-widget-preset="mari"] {
-  --mari-widget-bg: oklch(0.215 0.022 339);
-  --mari-widget-text: oklch(0.91 0.044 69);
-  --mari-widget-accent: oklch(0.81 0.087 13);
-  --mari-widget-muted: oklch(0.73 0.049 22);
-  --mari-widget-field: oklch(0.26 0.032 351);
-  --mari-widget-border: oklch(0.45 0.058 22);
-  --mari-widget-gold: oklch(0.76 0.096 75);
-  --mari-widget-soft: oklch(0.35 0.058 354);
+  --mari-widget-bg: oklch(0.235 0.035 275);
+  --mari-widget-text: oklch(0.93 0.028 80);
+  --mari-widget-accent: oklch(0.8 0.08 82);
+  --mari-widget-muted: oklch(0.74 0.025 275);
+  --mari-widget-field: oklch(0.27 0.035 275);
+  --mari-widget-border: oklch(0.475 0.04 265);
+  --mari-widget-gold: oklch(0.76 0.073 80);
+  --mari-widget-soft: oklch(0.335 0.045 273);
 }
 
 [data-chat-widget-shape="rounded"] {
@@ -165,6 +171,8 @@
   --mari-widget-radius: 0px;
   --mari-widget-bubble-radius: 0.25rem;
   --mari-widget-shell-bg: transparent;
+  /* Blur must use the same polygon as the paint, not the rectangular root. */
+  --mari-widget-shell-backdrop-filter: none;
   --mari-widget-header-shell-bg: transparent;
   /* A rectangular box shadow leaves bright wedges outside the cut corners. */
   --mari-widget-shadow: none;
@@ -276,6 +284,19 @@
     box-shadow: var(--mari-widget-frame-shadow, none);
   }
 
+  /* Resolve the public blur hook at the painted element so per-window themes
+     work too. Rounded frames keep their original single blur on the root. */
+  :root:is([data-chat-widget-shape="cut-corner"], [data-chat-widget-preset="dottore"][data-chat-widget-shape="preset"])
+    .mari-window:not([data-chat-widget-preview] *)::after,
+  [data-chat-widget-preview]:is(
+      [data-chat-widget-shape="cut-corner"],
+      [data-chat-widget-preset="dottore"][data-chat-widget-shape="preset"]
+    )
+    .mari-window::after {
+    -webkit-backdrop-filter: var(--mari-window-backdrop-filter, blur(12px));
+    backdrop-filter: var(--mari-window-backdrop-filter, blur(12px));
+  }
+
   .mari-window__header {
     position: relative;
     isolation: var(--mari-widget-custom-isolation, var(--mari-widget-isolation, auto));
@@ -307,9 +328,10 @@
     pointer-events: none;
   }
 
-  /* Phone panels clip their contents. Keep the crest inside the title bar and
-     beside the title, clear of the actions on the right. */
-  .mari-window[data-presentation="sheet"] .mari-window__header::after {
+  /* Phone panels, menus and compact mobile windows keep the crest inside the
+     title bar beside the title, clear of the actions on the right. */
+  .mari-window:is([data-presentation="sheet"], [data-presentation="menu"], [data-header-ornament="inline"])
+    .mari-window__header::after {
     left: 0.25rem;
     top: calc(50% - 1rem);
     width: 1.25rem;
@@ -580,7 +602,10 @@
   );
   --background: var(--mari-widget-custom-background-solid, var(--mari-widget-bg, var(--marinara-chat-chrome-panel-bg)));
   --popover: var(--background);
-  --muted: var(--mari-widget-custom-background-solid, var(--mari-widget-soft, var(--marinara-chat-chrome-highlight-bg)));
+  --muted: var(
+    --mari-widget-custom-background-solid,
+    var(--mari-widget-soft, var(--marinara-chat-chrome-highlight-bg))
+  );
   --accent: var(--muted);
 }
 

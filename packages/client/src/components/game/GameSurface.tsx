@@ -12426,29 +12426,6 @@ function GameSurfaceComponent({
                     experienceOwnsGame && "hidden",
                   )}
                 >
-                  {/* Mobile: map icon button that opens modal */}
-                  <div data-tour="game-map" className="md:hidden">
-                    <MobileMapButton
-                      chatId={activeChatId}
-                      map={viewedMap}
-                      maps={availableMaps}
-                      activeMapId={activeMapId}
-                      viewedMapId={effectiveViewedMapId}
-                      onViewedMapChange={handleViewedMapChange}
-                      onMove={handleMapMove}
-                      selectedPosition={viewedMapIsActive ? (pendingMapMove?.position ?? null) : null}
-                      onGenerateMap={handleGenerateMap}
-                      generateMapDisabled={isStreaming || !sessionInteractive}
-                      disabled={isStreaming || !narrationDone || !sessionInteractive}
-                      gameState={gameState}
-                      timeOfDay={gameSnapshot?.time ?? metaTime ?? null}
-                      day={currentGameDay}
-                      onDayChange={handleGameDayChange}
-                      onTimeChange={handleGameTimeChange}
-                      spatialContext={activeSpatialContext}
-                      spatialContextLoading={activeSpatialContextLoading}
-                    />
-                  </div>
                   {/* Desktop: inline minimap */}
                   <div className="hidden md:block">
                     <GameMapPanel
@@ -12473,18 +12450,6 @@ function GameSurfaceComponent({
                       constraintsRef={hudSurfaceRef}
                     />
                   </div>
-
-                  {/* Party portraits — right of map */}
-                  {partyMembers.length > 0 && (
-                    <div data-tour="game-party" className="min-w-0 flex-1 md:flex-none">
-                      <GamePartyBar
-                        partyMembers={partyMembers}
-                        partyCards={partyCards}
-                        onRemovePartyMember={handleRemovePartyMemberFromBar}
-                        removingPartyMemberId={removingPartyMemberId}
-                      />
-                    </div>
-                  )}
                 </div>
 
                 {/* Dynamic weather effects from tracked game state */}
@@ -13232,6 +13197,7 @@ function GameSurfaceComponent({
       {/* Character sheet modal */}
       {characterSheetOpen && characterSheetCharId && partyCards[characterSheetCharId] && (
         <GameCharacterSheet
+          key={`${activeChatId}:${characterSheetCharId}`}
           card={partyCards[characterSheetCharId]}
           onClose={closeCharacterSheet}
           onRegenerate={async () => {
@@ -13375,6 +13341,41 @@ function GameSurfaceComponent({
         onClose={() => setJsonRepairRequest(null)}
         onApplied={handleJsonRepairApplied}
       />
+
+      {!introCinematicActive && !replayActive && !experienceOwnsGame && (
+        <MobileMapButton
+          rowOffset={controlRowOffset}
+          chatId={activeChatId}
+          map={viewedMap}
+          maps={availableMaps}
+          activeMapId={activeMapId}
+          viewedMapId={effectiveViewedMapId}
+          onViewedMapChange={handleViewedMapChange}
+          onMove={handleMapMove}
+          selectedPosition={viewedMapIsActive ? (pendingMapMove?.position ?? null) : null}
+          onGenerateMap={handleGenerateMap}
+          generateMapDisabled={isStreaming || !sessionInteractive}
+          disabled={isStreaming || !narrationDone || !sessionInteractive}
+          gameState={gameState}
+          timeOfDay={gameSnapshot?.time ?? metaTime ?? null}
+          day={currentGameDay}
+          onDayChange={handleGameDayChange}
+          onTimeChange={handleGameTimeChange}
+          spatialContext={activeSpatialContext}
+          spatialContextLoading={activeSpatialContextLoading}
+        />
+      )}
+
+      {!introCinematicActive && !replayActive && !experienceOwnsGame && (
+        <GamePartyBar
+          key={activeChatId}
+          rowOffset={controlRowOffset}
+          partyMembers={partyMembers}
+          partyCards={partyCards}
+          onRemovePartyMember={handleRemovePartyMemberFromBar}
+          removingPartyMemberId={removingPartyMemberId}
+        />
+      )}
 
       {/* The top controls are windows that minimize to bubbles in a row at the top right (below the tactical
           combat bar while it shows, as the old buttons moved down). */}

@@ -1,15 +1,19 @@
 # Exporting and Importing Chats
 
-This guide shows how to save a chat to a file and load a chat back into Marinara Engine. You can export one chat or many chats at once. You can also import a chat file that came from Marinara or from SillyTavern (another roleplay chat app).
+This guide shows how to save a chat to a file and load a chat back into Marinara Engine. You can export one chat or many chats at once, and you can save a single chat as a readable story to share. You can also import a chat file that came from Marinara or from SillyTavern (another roleplay chat app).
 
 ## File formats you will see
 
-Marinara uses two chat file formats.
+Marinara can save a chat in four formats.
 
 - **JSONL**: JSONL means JSON Lines. It is a plain text file that saves one message per line. This is the default export format. You can import a JSONL file back into Marinara later.
 - **Text**: A plain, readable `.txt` transcript. It is easy to read and share, but Marinara cannot import it back in. Use **Text** only when you want a human to read the chat.
+- **Markdown**: A readable `.md` file. It starts with the chat name and the dates it covers, then gives each message under its speaker's name.
+- **Story**: A styled `.html` web page. It shows each message with the speaker's name and avatar. Open it in any web browser to read, share, or print it.
 
-The chat import feature accepts a `.jsonl` file only. If you want to re-import a chat later, export it as **JSONL**, not **Text**.
+**Markdown** and **Story** files leave out system messages and messages hidden from you.
+
+The chat import feature accepts a `.jsonl` file only. If you want to re-import a chat later, export it as **JSONL**, not **Text**, **Markdown**, or **Story**.
 
 ## Export a single chat
 
@@ -17,7 +21,7 @@ To export one chat to a file, use the **Chat Branches** section of **Chat Settin
 
 1. Open the chat you want to export.
 2. Open **Chat Settings** and expand the **Chat Branches** section, under **Chat Name**.
-3. Click **JSONL** to save the chat as a JSONL file, or click **Text** to save it as a readable text file.
+3. Click **JSONL** to save the chat as a JSONL file, **Text** for a readable text file, **Markdown** for a Markdown file, or **Story** for a styled web page.
 4. Your browser downloads the file.
 
 The download saves the chat that is currently open, including its messages.
@@ -66,8 +70,8 @@ Some models save hidden thinking or reasoning text with a reply. A setting decid
 
 The setting is **Include reasoning in exports**. You find it in **Settings**, on the **Advanced** tab, in the **Message Tools** section. It is a toggle, and it is **off** by default.
 
-- When it is **off**, Marinara leaves saved thinking and reasoning text out of both **JSONL** and **Text** chat exports.
-- When it is **on**, Marinara adds that hidden thinking and reasoning text to both formats.
+- When it is **off**, Marinara leaves saved thinking and reasoning text out of all chat exports.
+- When it is **on**, Marinara adds that hidden thinking and reasoning text to every format. In **Markdown** and **Story** files, it sits in a collapsible **Thinking** section under the message.
 
 This setting affects both single-chat exports and bulk `.zip` exports.
 

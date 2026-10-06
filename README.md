@@ -1,32 +1,35 @@
 # 🍝 Marinara Engine
 
-<h3 align="center"><b>Fun. Intuitive. Plug-And-Play.</b></h3>
+<h3><b>Fun. Intuitive. Plug-And-Play.</b></h3>
 
-<p align="center">
+<p>
   <b>A local, AI-powered chat, roleplay, and game engine</b> built around one idea: <b>you install it, you run it, and it just works. Oh, and don't forget about the part where you have fun! ALSO, HEY, LOOK, IT'S FREE.</b><br/>
   Created with agentic use in mind, allowing multiple requests at once. Everything is connected. Chat with your characters OOC about your roleplays. Have them create RP scenes for you. All designed with simplicity in mind: we don't want to spend hours on setup, we just want to play.<br/>
+  This is a full-on passion project; it started as a small personal playground, but over time it grew into something enormous. Thank you all for your support.<br/>
 </p>
 
 ---
 
-> **⚠️ Alpha Software** — Early release. Expect rough edges, missing features, and breaking changes. Bug reports and feedback are very welcome!
+> **⚠️ Beta Software** — Work in progress. Expect rough edges, missing features, and breaking changes. Bug reports and feedback are very welcome!
 
 ---
 
-> **Optional multiplayer:** Private shared sessions require two explicit opt-ins and a trusted client for every participant. See [multiplayer setup and limits](docs/CONFIGURATION.md#optional-multiplayer).
+> **Fully optional multiplayer:** Private shared sessions require two explicit opt-ins and a trusted client for every participant. See [multiplayer setup and limits](docs/CONFIGURATION.md#optional-multiplayer).
 
 ## Table of Contents
 
 - [🍝 Marinara Engine](#-marinara-engine)
   - [Table of Contents](#table-of-contents)
+  - [Screenshots](#screenshots)
   - [Latest Release](#latest-release)
-  - [Roadmap](#roadmap)
   - [Installation](#installation)
   - [Features](#features)
     - [Chat \& Roleplay](#chat--roleplay)
     - [Visual \& Immersive](#visual--immersive)
+    - [Appearance \& Themes](#appearance--themes)
     - [AI Agent System](#ai-agent-system)
     - [Prompt Engineering](#prompt-engineering)
+    - [Local Customization](#local-customization)
     - [Connections \& Providers](#connections--providers)
     - [Export \& Data](#export--data)
   - [Documentation](#documentation)
@@ -37,15 +40,18 @@
 
 ---
 
-<a id="screenshots"></a>
-
-<details>
-<summary><h2>Screenshots</h2></summary>
+## Screenshots
 
 <p align="center">
   <img src="docs/screenshots/Desktop_Roleplay_View.png" width="90%" alt="Roleplay Chat — Desktop" />
   <br/>
-  <em>Roleplay Mode — Character sprites, custom backgrounds, weather effects, and AI agents</em>
+  <em>Roleplay Mode — Full-body character sprites, custom backgrounds, live weather effects, and chat widget styles</em>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/Desktop_Tracker_Panel.png" width="90%" alt="Tracker Panel beside a Roleplay chat" />
+  <br/>
+  <em>Tracker Panel — world state, the cast's moods and stats, quests, and your persona, docked beside the chat</em>
 </p>
 
 <p align="center">
@@ -67,15 +73,33 @@
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/Browser_Tab.png" width="90%" alt="Card Browser" />
+  <img src="docs/screenshots/Desktop_Noodle_Timeline.png" width="90%" alt="Noodle timeline" />
   <br/>
-  <em>Card Browser — Search and import character cards from Chub.ai, JannyAI, Pygmalion, Wyvern, and more</em>
+  <em>Noodle — a social feed where your characters post, reply, and share photos</em>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/Desktop_Model_Picker.png" width="45%" alt="Model picker in the chat input" />
+  &nbsp;&nbsp;
+  <img src="docs/screenshots/Desktop_Chat_Settings_Window.png" width="45%" alt="Chat Settings window" />
+</p>
+<p align="center">
+  <em>Pick and pin models right from the chat input &nbsp;&nbsp;·&nbsp;&nbsp; Chat Settings in a movable window</em>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/Desktop_Appearance.png" width="45%" alt="Appearance settings with chat widget styles" />
+  &nbsp;&nbsp;
+  <img src="docs/screenshots/Desktop_Custom_Theme.png" width="45%" alt="Persona 5-inspired custom theme" />
+</p>
+<p align="center">
+  <em>Make it yours — fonts, colors, and chat widget styles &nbsp;&nbsp;·&nbsp;&nbsp; Fully custom theming: a Persona 5-inspired look by Umi, made with custom CSS and pop-out Chat Settings windows</em>
 </p>
 
 <p align="center">
   <img src="docs/screenshots/Browser_Game_Screen.png" width="90%" alt="Game Mode — Scene" />
   <br/>
-  <em>Game Mode — AI Game Master, party of characters, generated backgrounds, weather, and time of day</em>
+  <em>Game Mode — AI Game Master, party of characters, maps, HUD widgets, weather, and time of day</em>
 </p>
 
 <p align="center">
@@ -84,7 +108,7 @@
   <img src="docs/screenshots/Browser_Game_Party_Card.png" width="45%" alt="Party Card" />
 </p>
 <p align="center">
-  <em>NPC dialogue tracking &nbsp;&nbsp;·&nbsp;&nbsp; Party member card with stats, levels, and abilities</em>
+  <em>Dialogue history with party banter &nbsp;&nbsp;·&nbsp;&nbsp; Party member card with stats, abilities, strengths, and weaknesses</em>
 </p>
 
 <p align="center">
@@ -98,8 +122,6 @@
   <em>Fully responsive — Conversations, Roleplay, and Game Mode all work on phones and tablets via PWA</em>
 </p>
 
-</details>
-
 ---
 
 ## Latest Release
@@ -107,17 +129,6 @@
 Current stable release: **[v2.4.6](https://github.com/Pasta-Devs/Marinara-Engine/releases/tag/v2.4.6)**.
 
 See [CHANGELOG.md](CHANGELOG.md) for detailed release notes. Tagged releases use the `vX.Y.Z` format and are published on the [Releases](https://github.com/Pasta-Devs/Marinara-Engine/releases) page with a Windows installer, Android bootstrap APK, and named versioned source ZIP. Android APKs are Termux bootstrap + WebView shells: they can download Termux from F-Droid, launch Android's installer, start the Termux setup flow after required permission prompts, then open the local Marinara server on the same device. **[Download the latest Android APK directly](https://github.com/Pasta-Devs/Marinara-Engine/releases/latest/download/marinara-engine-android.apk).**
-
----
-
-## Roadmap
-
-- Free-to-download mobile apps for Android and iPhone
-- An engine feature for building and sharing full games with custom sprites, soundtracks, and scenarios
-- New game modes: tabletop-style, point-and-click, and classic text adventures
-- Ongoing improvements and bug fixes
-
-More detailed public [roadmap](https://github.com/orgs/Pasta-Devs/projects/1).
 
 ---
 
@@ -150,22 +161,37 @@ Three chat modes — **Conversation** (Discord-style DMs), **Roleplay** (immersi
 
 ### Visual & Immersive
 
-Character expression sprites with automatic emotion switching, custom scene backgrounds, dynamic weather overlays, gallery illustrations, short scene videos from generated illustrations, Game Mode storyboards, inline Roleplay storyboard episodes with selectable prompt layers, two visual themes (Y2K Marinara and SillyTavern classic), and light/dark mode.
+Character sprites for expressions and full-body poses, including animated expressions, custom scene backgrounds, dynamic weather effects, a Visual Novel display for Roleplay, chat galleries with generated illustrations, short scene videos made from your images, text-to-speech voices, and illustrated storyboards for Roleplay and Game Mode. Some of these come from downloadable agents: Expression Engine switches sprites to match each character's mood, World State drives the weather, Illustrator draws scenes, and Storyboard builds the storyboards.
+
+### Appearance & Themes
+
+Make Marinara look the way you want. Most of this lives in **Settings → Appearance**:
+
+- **Colors and style:** dark or light mode, the Marinara (retro Y2K) or SillyTavern-inspired look, background and accent colors (solid or gradient, with optional pulsing or rainbow accents), and a custom cursor.
+- **Fonts and sizes:** pick the app font, add your own font files or download any Google Font, and adjust the display size, chat text size and colors, text outlines, and desktop sidebar width.
+- **Chat widgets:** style the movable chat buttons, windows, and sections with the **Default**, **Dottore**, or **Mari** preset, then change their font, shape, colors (gradients too), and button size. Three switches let your messages and input box match.
+- **Each chat mode:** Conversation rows or bubbles with gradient backgrounds, Roleplay in classic or Visual Novel display with your choice of avatar style, and Game Mode portrait and sprite sizes.
+- **Themes:** write, import, and share custom CSS themes in the **Theme Library**, or give a character card its own look with Card CSS. Professor Mari can make themes for you.
+- **Your layout:** move the chat buttons where you like and, on a computer, resize Chat Settings or pop its sections out into their own windows. Save the arrangement for new chats or in a settings profile.
+
+See [Appearance Settings](docs/appearance/appearance-settings.md) and [Custom CSS Themes](docs/appearance/custom-css-themes.md).
 
 ### AI Agent System
 
-An optional one-click catalog of 36 first-party agents and feature packages. Fresh installs stay lightweight with no bundled agents. Open **Agents → Download Agents** to install only what you want or uninstall packages you no longer need. When a compatible update appears, Marinara asks before downloading it. Choosing **No** keeps the installed version and leaves **Update** available in Download Agents for later; installed packages also remain available while the server is offline. Existing installations retain their agents during Engine upgrades. Stable Engine builds use the released Agent catalog, while git installations on the Engine `staging` update channel automatically use the matching Marinara-Agents `staging` catalog and artifacts for testing. Package sources, artifacts, and the complete catalog are published in [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents). You can also create custom Agents. External Agent imports require the **Allow custom Agent imports** Danger Zone toggle and an explicit capability review; official downloads and Agents you create yourself are unaffected.
+Agents are optional AI helpers that work alongside your chats: they track the world, polish the prose, draw pictures, play music, and more. A fresh install comes with none, so Marinara stays light. Open **Agents → Download Agents** to install only the ones you want from the official [Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents) catalog, then turn them on for each chat in **Chat Settings**. Marinara asks before updating an installed agent, and you can uninstall anything you no longer need. Packages marked as previews are offered only on the Engine `staging` update channel.
 
-- **Writer Agents:** Prose Guardian, Continuity Checker, Narrative Director, Knowledge Retrieval, Knowledge Router, and Card Evolution Auditor.
-- **Tracker Agents:** World State, Expression Engine, Quest Tracker, Background, Character Tracker, Persona Stats, Custom Tracker, Inventory Tracker, World Maps, Beholder, and Memory Nag.
-- **Apps:** Noodle, Slurp, Gacha Forge, and Modern Life Sim, each in its own Home tab.
-- **Misc Agents:** Echo Chamber, Illustrator, Lorebook Keeper, Long-Term Memory, Combat, Immersive HTML, Music DJ, Haptic Feedback, CYOA Choices, Storyboard, Calls, UNO, Chess, Poker, 8-Ball Pool, Tic-Tac-Toe, and Rock-Paper-Scissors.
+- **Writer Agents** shape the story and clean up the prose: Prose Guardian, Continuity Checker, Narrative Director, Knowledge Retrieval, Knowledge Router, and Card Evolution Auditor.
+- **Tracker Agents** keep track of the world, the cast, and your persona: World State, Expression Engine, Quest Tracker, Background, Character Tracker, Persona Stats, Custom Tracker, Inventory Tracker, Beholder, Memory Nag, and World Maps. Quartermaster and Relationship Tracker are previews.
+- **Misc Agents** add pictures, music, memory, and extras: Illustrator, Storyboard, Music DJ, Long-Term Memory, Lorebook Keeper, Echo Chamber, Combat, CYOA Choices, Immersive HTML, Haptic Feedback, and Calls (audio and video calls in Conversation mode).
+- **Conversation games** let you play against your characters: UNO, Chess, Poker, 8-Ball Pool, Tic-Tac-Toe, and Rock-Paper-Scissors.
+- **Apps** are whole experiences built on your characters, each with its own Home tab: Noodle (a social feed where your characters post), Slurp (a private creator app for your characters), and Gacha Forge (a gacha game built from a world you describe). Modern Life Sim is a preview.
+- **Custom Agents:** build your own with your own prompt, timing, tools, and output type, or copy an official agent and change it. Importing agents made by other people is off by default: turn on **Allow custom Agent imports** in **Settings → Advanced → Danger Zone**, then review the permissions each one asks for.
 
-See the [Downloadable Agents Reference](docs/agents/built-in-agents.md) for modes, behavior, and setup guidance for every package, or browse the [official Agent repository](https://github.com/Pasta-Devs/Marinara-Agents) directly.
+See the [Downloadable Agents Reference](docs/agents/built-in-agents.md) and [Creating Custom Agents](docs/agents/custom-agents.md).
 
 ### Prompt Engineering
 
-Preset system with drag-and-drop prompt ordering, lorebooks with keyword triggers, an AI lorebook maker, world info inspector, regex scripts, and a macro/template system.
+Preset system with drag-and-drop prompt ordering, lorebooks with keyword triggers, an **Active Context** view of the lore each chat is using, regex scripts, and a macro/template system. Professor Mari can draft lorebooks for you.
 
 ### Local Customization
 
@@ -173,11 +199,19 @@ Personal Extensions are disabled-by-default drafts authored for you by Professor
 
 ### Connections & Providers
 
-OpenAI, OpenAI ChatGPT subscription login, Anthropic, Claude Subscription through the local Claude Agent SDK, Google Gemini, Google Vertex AI, OpenRouter, NanoGPT, Mistral, Cohere, xAI / Grok, the bundled downloadable Local Model sidecar, Pollinations, Stability AI, Together AI, NovelAI, Venice.ai, Z.AI image generation, ComfyUI image and local video workflows, SD Web UI, Draw Things (Apple Silicon, Metal + Apple Neural Engine), Google AI Studio video models (Gemini Omni and Veo), xAI Imagine video, OpenRouter video, Seedance 2.0 video, and custom OpenAI-compatible endpoints. API keys are encrypted at rest with AES-256. Per-chat connection overrides.
+- **Chat models:** OpenAI, Anthropic, Google Gemini, Google Vertex AI, OpenRouter, NanoGPT, Mistral, Cohere, xAI / Grok, Arli AI, Z.AI, and any OpenAI-compatible endpoint, including local servers such as Ollama, LM Studio, and KoboldCpp.
+- **Subscription logins:** use your Claude Pro or Max plan, your ChatGPT account (through Codex), or SuperGrok / X Premium+ (through the Grok CLI) instead of an API key. You sign in once on the computer that runs Marinara.
+- **Built-in Local Model:** a small model Marinara downloads and runs on your own machine for helper jobs such as trackers, lorebook search, and call transcription. No API key needed.
+- **Images:** cloud services such as OpenAI, NovelAI, Stability AI, OpenRouter, and fal.ai, your ChatGPT login, free Pollinations and Stable Horde, and local ComfyUI, SD Web UI, SwarmUI, and Draw Things.
+- **Video:** Google AI Studio (Gemini Omni and Veo), xAI Imagine, OpenRouter, NanoGPT, Atlas Cloud, Seedance 2.0, and local ComfyUI or SwarmUI workflows.
+- **Voice and audio:** text-to-speech through OpenAI-compatible servers, ElevenLabs, PocketTTS, or xAI Voice, plus optional ElevenLabs sound effects and music in Game Mode.
+- **Decision models:** an optional fast model that answers yes-or-no questions about the story, so agents, lorebook entries, and prompt sections switch on only when they should. Use a local model, a hosted TypeSafe or OpenRouter connection, or a server you run.
+
+Change a connection's model right from the **Connections** menu by the chat input: search the list or type a model ID, and star models to pin them to the top. Each chat can use its own connection or pick from a random pool, and API keys are encrypted at rest with AES-256. See [Supported AI Providers](docs/connections/providers-reference.md) and [Decision Models](docs/connections/decision-models.md).
 
 ### Export & Data
 
-Export individual chats or bulk transcript zips as JSONL or plain text. Fully local file-native storage — all data stays on your machine. No account required.
+Export a chat as JSONL, plain text, Markdown, or a styled HTML story, or download several chats at once as a zip of JSONL files. Fully local file-native storage — all data stays on your machine. No account required.
 
 ---
 
@@ -192,7 +226,7 @@ The full guide library is browsable inside the app: open **Documentation** from 
 | [docs/conversation/getting-started.md](docs/conversation/getting-started.md)         | Conversation Mode setup, DMs, groups, profiles (display name, about me, behavior), calls, selfies, and table games |
 | [docs/roleplay/getting-started.md](docs/roleplay/getting-started.md)                 | Roleplay Mode setup, sprites, HUD, agents, and connected chats                                                     |
 | [docs/game/getting-started.md](docs/game/getting-started.md)                         | Game Mode setup, world-gen, party play, storyboards, and troubleshooting                                           |
-| [docs/agents/built-in-agents.md](docs/agents/built-in-agents.md)                     | Complete reference for all 33 downloadable first-party agents and feature packages                                 |
+| [docs/agents/built-in-agents.md](docs/agents/built-in-agents.md)                     | Modes, behavior, and setup for the downloadable first-party agents and feature packages                            |
 | [docs/noodle/overview.md](docs/noodle/overview.md)                                   | Noodle social timeline: setup, posting, interactions, images, and chat carryover                                   |
 | [docs/prompts/generation-parameters.md](docs/prompts/generation-parameters.md)       | Sampler and output-parameter reference across providers                                                            |
 | [docs/REMOTE_ACCESS.md](docs/REMOTE_ACCESS.md)                                       | Remote access, Basic Auth, IP allowlists, and admin access                                                         |
@@ -204,7 +238,7 @@ The full guide library is browsable inside the app: open **Documentation** from 
 | [docs/media/scene-video.md](docs/media/scene-video.md)                               | Scene-video provider setup and the Gallery animation workflow                                                      |
 | [docs/game/storyboard.md](docs/game/storyboard.md)                                   | Storyboard Agent installation, global defaults, and Roleplay and Game Mode workflows                               |
 | [docs/game/ltx-2-3-storyboards.md](docs/game/ltx-2-3-storyboards.md)                   | Krea 2 first frames, local LTX 2.3 ComfyUI animation, and tested Game Mode settings                               |
-| [docs/agents/agents-overview.md](docs/agents/agents-overview.md)                     | Agent system overview: phases, per-chat enablement, built-in and custom agents                                     |
+| [docs/agents/agents-overview.md](docs/agents/agents-overview.md)                     | Agent system overview: downloading agents, phases, per-chat setup, and custom agents                               |
 | [docs/extending/custom-tools.md](docs/extending/custom-tools.md)                     | Function calling, custom tools, webhooks, scripts, and agent tool enablement                                       |
 | [docs/prompts/presets.md](docs/prompts/presets.md)                                   | Preset editor, prompt sections, groups, ordering, and variables                                                    |
 | [docs/extending/regex-scripts.md](docs/extending/regex-scripts.md)                   | Regex scripts, prompt/display scope, depth, order, and safety                                                      |

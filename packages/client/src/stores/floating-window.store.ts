@@ -9,19 +9,21 @@
 import { create } from "zustand";
 import {
   isHostDrawerWindowId,
+  mergePhoneMenuOrder,
   parseWindowLayoutSnapshot,
   toWindowLayoutSnapshot,
   type FloatingWindowId,
   type WindowLayout,
   type WindowLayoutSnapshot,
   type WindowPoint,
+  type PhoneMenuLayout,
 } from "../lib/floating-window-layout";
 
 export const CHAT_SETTINGS_WINDOW_ID = "chat-settings";
 /** The Chat Settings button in the chat, the way into Chat Settings (its place saves as a standalone bubble). */
 export const CHAT_SETTINGS_BUTTON_ID = "chat-settings-button";
 export const TRACKER_WINDOW_ID = "trackers";
-/** The phone Tracker Panel: its bubble's place, and its open state while it shows. */
+/** The Tracker Panel: its button's place, and runtime visibility independent of the chat's preference. */
 export const TRACKER_PANEL_BUBBLE_ID = "tracker-panel";
 /** Above the chat HUD (z-40/50), below menus (9000+), modals (10000) and the Help overlay (10050). */
 export const FLOATING_WINDOW_Z_BASE = 70;
@@ -37,6 +39,7 @@ interface FloatingWindowState {
   phoneBubbles: Record<FloatingWindowId, WindowPoint>;
   /** Where buttons with no window layout of their own (the Chat Settings button) sit on a computer. */
   bubbles: Record<FloatingWindowId, WindowPoint>;
+  phoneMenu: PhoneMenuLayout | undefined;
   open: Record<FloatingWindowId, true>;
   /** How many mounted surfaces can show each window (the topbar button needs one). */
   hosts: Record<FloatingWindowId, number>;
@@ -55,6 +58,8 @@ interface FloatingWindowState {
   saveLayout: (id: FloatingWindowId, layout: WindowLayout) => void;
   savePhoneBubble: (id: FloatingWindowId, point: WindowPoint) => void;
   saveBubble: (id: FloatingWindowId, point: WindowPoint) => void;
+  setPhoneMenuLocked: (locked: boolean) => void;
+  savePhoneMenuOrder: (order: FloatingWindowId[]) => void;
   /** Pops a drawer out into its own window at `layout`; `focus` moves focus into it. */
   detachDrawer: (id: FloatingWindowId, layout: WindowLayout, options?: { focus?: boolean }) => void;
   /** Puts a popped-out drawer back in its host and forgets its window. */
@@ -84,6 +89,7 @@ export const useFloatingWindowStore = create<FloatingWindowState>()((set, get) =
   detached: {},
   phoneBubbles: {},
   bubbles: {},
+  phoneMenu: undefined,
   open: {},
   hosts: {},
   stack: [],
@@ -142,6 +148,13 @@ export const useFloatingWindowStore = create<FloatingWindowState>()((set, get) =
   saveLayout: (id, layout) => set((state) => ({ layouts: { ...state.layouts, [id]: layout } })),
   savePhoneBubble: (id, point) => set((state) => ({ phoneBubbles: { ...state.phoneBubbles, [id]: point } })),
   saveBubble: (id, point) => set((state) => ({ bubbles: { ...state.bubbles, [id]: point } })),
+  setPhoneMenuLocked: (locked) => set((state) => ({ phoneMenu: { locked, order: state.phoneMenu?.order ?? [] } })),
+  savePhoneMenuOrder: (order) =>
+    set((state) =>
+      state.phoneMenu?.locked
+        ? state
+        : { phoneMenu: { locked: false, order: mergePhoneMenuOrder(order, state.phoneMenu?.order ?? []) } },
+    ),
   detachDrawer: (id, layout, options) => {
     if (options?.focus !== false && !get().open[id]) focusRequests.add(id);
     set((state) => ({
@@ -178,6 +191,7 @@ export const useFloatingWindowStore = create<FloatingWindowState>()((set, get) =
       detached: {},
       phoneBubbles: {},
       bubbles: {},
+      phoneMenu: undefined,
       resetRevision: state.resetRevision + 1,
     })),
   hydrate: (snapshot) => {
@@ -200,6 +214,7 @@ export const useFloatingWindowStore = create<FloatingWindowState>()((set, get) =
         detached: Object.fromEntries((parsed.detached ?? []).map((id) => [id, true as const])),
         phoneBubbles: parsed.phoneBubbles ?? {},
         bubbles: parsed.bubbles ?? {},
+        phoneMenu: parsed.phoneMenu,
         open,
         stack: [
           ...state.stack.filter((id) => open[id]),
@@ -212,9 +227,15 @@ export const useFloatingWindowStore = create<FloatingWindowState>()((set, get) =
 
 /** The layout to save with the chat: what `hydrate` loads back. */
 export function selectWindowLayoutSnapshot(
-  state: Pick<FloatingWindowState, "layouts" | "detached" | "phoneBubbles" | "bubbles">,
+  state: Pick<FloatingWindowState, "layouts" | "detached" | "phoneBubbles" | "bubbles" | "phoneMenu">,
 ): WindowLayoutSnapshot {
-  return toWindowLayoutSnapshot(state.layouts, Object.keys(state.detached), state.phoneBubbles, state.bubbles);
+  return toWindowLayoutSnapshot(
+    state.layouts,
+    Object.keys(state.detached),
+    state.phoneBubbles,
+    state.bubbles,
+    state.phoneMenu,
+  );
 }
 
 /** True while any drawer of `hostId` is popped out, so the host stays mounted (hidden) to render it. */

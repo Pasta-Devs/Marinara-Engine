@@ -72,7 +72,7 @@ If no character has saved a note yet, the section explains that notes wrapped in
 
 ## Switching between connected chats
 
-When a chat has a linked chat, a small **Connected chat** button with a double-arrow icon starts at the top right of the chat. You can drag it to another spot, on a computer or a phone. Click or tap it to open a small window, then click **Switch to** followed by the other chat's name.
+When a chat has a linked chat, a small **Connected chat** button with a double-arrow icon starts at the top right on a computer. You can drag it to another spot. On a phone, find **Connected chat** in the **Chat tools** three-dot menu. Open the control, then choose **Switch to** followed by the other chat's name.
 
 This takes you straight to the connected chat. The button appears on both sides of the link.
 

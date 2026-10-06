@@ -212,13 +212,13 @@ export function RoleplayHUD({
 
   const isAgentProcessing = useAgentStore((s) => s.processingChatIds.includes(chatId));
   const trackerPanelEnabled = useUIStore((s) => s.trackerPanelEnabled);
-  const trackerPanelHideHudWidgets = useUIStore((s) => s.trackerPanelHideHudWidgets);
+  const trackerPanelOpen = useUIStore((s) => s.trackerPanelOpen);
   const trackerTemperatureUnit = useUIStore((s) => s.trackerTemperatureUnit);
 
   const isTrackerBusy = isAgentProcessing || isStreaming || gameStateRefreshing;
   const phoneLayout = useMatchMedia("(max-width: 767px)");
   // Phones only: on a computer, trackers live in the Tracker Panel or the Tracker window.
-  const showHudTrackerWidgets = !(trackerPanelEnabled && trackerPanelHideHudWidgets);
+  const showHudTrackerWidgets = !(trackerPanelEnabled && trackerPanelOpen);
 
   useEffect(() => {
     if (!chatId) return;

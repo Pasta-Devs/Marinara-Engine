@@ -505,7 +505,7 @@ function HideFromAIAction({
             role="menu"
             aria-label={localizeUi("ui.chat.hidefromaiaction.chooseWhichCharactersCannotSeeThisMessage")}
             className={cn(
-              "marinara-chat-popover fixed z-[9999] flex max-h-36 w-max max-w-[min(22rem,calc(100vw-1rem))] flex-wrap items-center gap-1.5 overflow-x-hidden overflow-y-auto rounded-xl border border-[var(--marinara-chat-chrome-panel-border)] bg-[var(--marinara-chat-chrome-panel-bg)] p-2 shadow-xl",
+              "marinara-chat-popover mari-chat-style-surface mari-chat-action-panel fixed z-[9999] flex max-h-36 w-max max-w-[min(22rem,calc(100vw-1rem))] flex-wrap items-center gap-1.5 overflow-x-hidden overflow-y-auto rounded-xl border border-[var(--marinara-chat-chrome-panel-border)] bg-[var(--marinara-chat-chrome-panel-bg)] p-2 shadow-xl",
             )}
           >
             <button
@@ -620,7 +620,7 @@ function ConversationStartAction({
             role="menu"
             aria-label={localizeUi("ui.chat.conversationstartaction.chooseWhoStartsHere")}
             className={cn(
-              "marinara-chat-popover fixed z-[9999] flex max-h-36 w-max max-w-[min(22rem,calc(100vw-1rem))] flex-wrap items-center gap-1.5 overflow-x-hidden overflow-y-auto rounded-xl border border-[var(--marinara-chat-chrome-panel-border)] bg-[var(--marinara-chat-chrome-panel-bg)] p-2 shadow-xl",
+              "marinara-chat-popover mari-chat-style-surface mari-chat-action-panel fixed z-[9999] flex max-h-36 w-max max-w-[min(22rem,calc(100vw-1rem))] flex-wrap items-center gap-1.5 overflow-x-hidden overflow-y-auto rounded-xl border border-[var(--marinara-chat-chrome-panel-border)] bg-[var(--marinara-chat-chrome-panel-bg)] p-2 shadow-xl",
             )}
           >
             <button
@@ -1964,7 +1964,7 @@ export const ChatMessage = memo(function ChatMessage({
     () => ({
       fontSize: chatFontSize,
       lineHeight: 1.5,
-      ...(chatFontColor ? { color: chatFontColor } : {}),
+      ...(chatFontColor ? { color: `var(--mari-chat-resolved-text, ${chatFontColor})` } : {}),
       ...textStrokeStyle,
     }),
     [chatFontSize, chatFontColor, textStrokeStyle],
@@ -3673,7 +3673,7 @@ export const ChatMessage = memo(function ChatMessage({
                   </button>
                 </div>
               )}
-              <div className="mari-message-bubble relative flex-1 rounded-xl border border-amber-500/10 bg-black/40 px-5 py-4">
+              <div className="mari-message-bubble mari-chat-style-surface relative flex-1 rounded-xl border border-amber-500/10 bg-black/40 px-5 py-4">
                 {/* Delete button */}
                 {!multiSelectMode && onDelete && (
                   <button
@@ -3925,7 +3925,7 @@ export const ChatMessage = memo(function ChatMessage({
             <div
               data-roleplay-bubble-transparent={roleplayBubbleBg === "transparent" ? "true" : undefined}
               className={cn(
-                "mari-message-bubble mari-rp-bubble relative overflow-hidden rounded-2xl shadow-lg shadow-black/20",
+                "mari-message-bubble mari-rp-bubble mari-chat-style-surface relative overflow-hidden rounded-2xl shadow-lg shadow-black/20",
                 roleplayAvatarsScrollable && showRoleplayAvatarPanel && "mari-rp-bubble--scrollable-avatar-panel",
                 isUser
                   ? "rounded-tr-sm text-neutral-100 ring-1 ring-white/10"
@@ -4766,7 +4766,7 @@ function MessageAudioMenu({
             role="dialog"
             aria-label={label}
             className={cn(
-              "marinara-chat-popover fixed z-[9999] flex max-w-[calc(100vw-1.5rem)] flex-row flex-wrap items-center gap-1 rounded-lg border p-1.5 shadow-xl",
+              "marinara-chat-popover mari-chat-style-surface mari-chat-action-panel fixed z-[9999] flex max-w-[calc(100vw-1.5rem)] flex-row flex-wrap items-center gap-1 rounded-lg border p-1.5 shadow-xl",
               dark
                 ? "border-[var(--marinara-chat-chrome-panel-border)] bg-[var(--marinara-chat-chrome-panel-bg)] text-[var(--marinara-chat-chrome-panel-title)] shadow-black/30"
                 : "border-[var(--border)] bg-[var(--popover)] text-[var(--popover-foreground)] shadow-black/20",

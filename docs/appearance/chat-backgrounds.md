@@ -10,7 +10,7 @@ The **Backgrounds** section has three parts:
 
 1. The **Chat Background** picker, where you choose the image for the chat you are in.
 2. The **Background Blur** slider.
-3. The background library, where you import, organize, filter, tag, rename, and delete images.
+3. The background library, where you import, organize, filter, tag, rename, download, and delete images.
 
 A chat background only shows in Roleplay and Game mode chats. Conversation mode uses a gradient instead, which you set in the **Conversation Theme** section. See [Appearance Settings](appearance-settings.md) for that.
 
@@ -74,6 +74,10 @@ Tags help you group and search your uploads. You can only tag images with the **
 2. Type a tag in the **Add tag...** field. As you type, Marinara suggests tags you used before.
 3. Press Enter or click **Add**.
 4. To remove a tag, click the small X on that tag chip.
+
+### Download a background
+
+You can download any background, including the built-in ones. Hover over the image row and click the download icon (**Download background**). The image saves with its file name. On an iPhone or iPad, the share sheet opens so you can save it; if it does not open, tap **Save file** in the message that appears.
 
 ### Delete a background
 

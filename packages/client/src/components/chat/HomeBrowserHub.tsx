@@ -50,6 +50,7 @@ import {
   type AchievementEvent,
   type HomeCustomWidget,
   type HomeCustomWidgetCatalog,
+  type SceneFullPlan,
   homeAgentWidgetsSchema,
 } from "@marinara-engine/shared";
 import { useTranslation } from "react-i18next";
@@ -81,6 +82,7 @@ import {
 } from "../../lib/professor-mari-navigation";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
 import { useUIStore } from "../../stores/ui.store";
+import { startSceneWithPromptPreferences } from "../../lib/scene-generation";
 import { useChatStore } from "../../stores/chat.store";
 import { CapabilityElement } from "../capabilities/CapabilityElement";
 import { Modal } from "../ui/Modal";
@@ -1767,6 +1769,8 @@ export function HomeBrowserHub({
   const debugMode = useUIStore((state) => state.debugMode);
   const reviewImagePromptsBeforeSend = useUIStore((state) => state.reviewImagePromptsBeforeSend);
   const conversationTimeZone = useUIStore((state) => state.conversationTimeZone);
+  const sceneOriginFocus = useUIStore((state) => state.sceneOriginFocus);
+  const setSceneOriginFocus = useUIStore((state) => state.setSceneOriginFocus);
   const achievementsEnabled = useUIStore((state) => state.achievementsEnabled);
   const professorMariNavigationEnabled = useUIStore((state) => state.professorMariNavigationEnabled);
   const hasCompletedOnboarding = useUIStore((state) => state.hasCompletedOnboarding);
@@ -2050,6 +2054,13 @@ export function HomeBrowserHub({
     if (!browserPackages.some((item) => item.id === activeTab)) setActiveTab("home");
   }, [activeTab, browserPackages]);
 
+  // A scene that ended, or its Back button, asks for the package thread it started in.
+  useEffect(() => {
+    if (sceneOriginFocus && browserPackages.some((item) => item.id === sceneOriginFocus.packageId)) {
+      setActiveTab(sceneOriginFocus.packageId);
+    }
+  }, [browserPackages, sceneOriginFocus]);
+
   useEffect(() => {
     if (activeTab !== "noodle" || !latestNoodleRefreshMarker) return;
     setSeenNoodleRefreshMarker((current) => {
@@ -2125,6 +2136,7 @@ export function HomeBrowserHub({
   const selectTab = (tab: string) => {
     setMobileBookmarksOpen(false);
     setFocusedPackagePost((current) => (current?.packageId === tab ? current : null));
+    if (sceneOriginFocus && sceneOriginFocus.packageId !== tab) setSceneOriginFocus(null);
     const professorSelected = tab === "professor";
     if (professorSelected) {
       pendingProfessorExitTabRef.current = null;
@@ -2945,6 +2957,35 @@ export function HomeBrowserHub({
                 focusPostId: focusedPackagePost?.packageId === activeTab ? focusedPackagePost.postId : null,
                 onFocusPostHandled: () =>
                   setFocusedPackagePost((current) => (current === focusedPackagePost ? null : current)),
+                // Capability API 1.66: a package with the `scenes` permission starts scenes from its own
+                // threads and is shown the thread a scene came back to. The host binds the package id.
+                focusSceneOriginId: sceneOriginFocus?.packageId === activeTab ? sceneOriginFocus.originId : null,
+                onFocusSceneOriginHandled: () => {
+                  if (useUIStore.getState().sceneOriginFocus === sceneOriginFocus) setSceneOriginFocus(null);
+                },
+                startScene: (options: {
+                  originId: string;
+                  prompt?: string;
+                  planHint?: string | null;
+                  plan?: SceneFullPlan | null;
+                  data?: Record<string, unknown> | null;
+                  initiatorCharacterId?: string | null;
+                  initiatorName?: string | null;
+                }) =>
+                  startSceneWithPromptPreferences({
+                    packageOrigin: { packageId: activeTab, originId: String(options?.originId ?? "") },
+                    prompt: typeof options?.prompt === "string" ? options.prompt : "",
+                    planHint: typeof options?.planHint === "string" ? options.planHint : null,
+                    plan: options?.plan && typeof options.plan === "object" ? options.plan : null,
+                    packageData: options?.data && typeof options.data === "object" ? options.data : null,
+                    initiatorCharId:
+                      typeof options?.initiatorCharacterId === "string" ? options.initiatorCharacterId : null,
+                    initiatorCharName: typeof options?.initiatorName === "string" ? options.initiatorName : null,
+                  }).then((response) => (response ? { chatId: response.chatId } : null)),
+                // Go to a chat, such as the scene a package thread is waiting on.
+                openChat: (chatId: string) => {
+                  if (typeof chatId === "string" && chatId) useChatStore.getState().setActiveChatId(chatId);
+                },
               }}
             />
           ) : activeTab === "professor" ? (

@@ -26,6 +26,7 @@ import {
   isXaiAutoReasoningModel,
   isXaiConfigurableReasoningModel,
   resolveOpenAIGpt56ModelForRequest,
+  resolveProviderReasoningEffort,
   shouldSuppressUnknownModelParameters,
   supportsXhighReasoningEffort,
 } from "@marinara-engine/shared";
@@ -2183,8 +2184,19 @@ export class OpenAIProvider extends BaseLLMProvider {
       if (topP != null) body.top_p = topP;
     }
 
-    if (!isOpenAIChatGPT && !suppressModelParameters && this.shouldSendParameter(options, "reasoningEffort")) {
-      this.applyResponsesReasoning(body, options);
+    if (!suppressModelParameters && this.shouldSendParameter(options, "reasoningEffort")) {
+      if (!isOpenAIChatGPT) {
+        this.applyResponsesReasoning(body, options);
+      } else if (this.isReasoningModel(options.model)) {
+        // Codex takes the same thinking levels as its own client, so a level the model lacks (max on GPT-5.5) is
+        // stepped down. It has no "none" level, so sending nothing keeps the model's default level.
+        const effort = resolveProviderReasoningEffort({
+          provider: "openai_chatgpt",
+          model: options.model,
+          reasoningEffort: options.reasoningEffort,
+        });
+        if (effort) body.reasoning = { effort };
+      }
     }
 
     // GPT-5+ verbosity and Responses structured output / JSON mode.

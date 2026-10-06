@@ -126,6 +126,7 @@ import {
 } from "../../services/generation/model-access-policy.js";
 import {
   collectPastReasoningMetadata,
+  keepsCodexDefaultEffort,
   limitPastReasoningMetadata,
   normalizeChatTopP,
 } from "../../services/generation/generation-parameters.js";
@@ -2179,6 +2180,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
     // ── Parameter normalization (mirror /api/generate) ──
     const modelLower = (conn.model ?? "").toLowerCase();
     const providerLower = (conn.provider ?? "").toLowerCase();
+    if (keepsCodexDefaultEffort(providerLower, connectionParams, chatParams)) reasoningEffort = null;
 
     const resolvedEffort = resolveProviderReasoningEffort({
       provider: providerLower,
@@ -2197,7 +2199,9 @@ export async function registerDryRunRoute(app: FastifyInstance) {
       enabledParameters?.reasoningEffort === false
         ? undefined
         : reasoningEffort === null
-          ? "none"
+          ? providerLower === "openai_chatgpt"
+            ? undefined
+            : "none"
           : (resolvedEffort ?? undefined);
 
     // ── Claude 4.5+ sampling parameter restrictions ──

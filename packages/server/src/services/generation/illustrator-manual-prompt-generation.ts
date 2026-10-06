@@ -2,9 +2,11 @@ import { DEFAULT_GENERATION_PARAMS, type AgentContext } from "@marinara-engine/s
 import { NOVELAI_V5_MAX_CHARACTER_PROMPTS } from "../image/character-prompts.js";
 import { logger } from "../../lib/logger.js";
 import {
-  applyAgentMaxTokensCaps,
+  agentRequestOptions,
+  gateAgentTemperature,
   normalizeAgentContextSize,
   renderAgentPromptTemplate,
+  resolveAgentCallMaxTokens,
 } from "../agents/agent-executor.js";
 import type { ResolvedAgent } from "../agents/agent-pipeline.js";
 import { measureContextBudget, type ChatCompletionResult, type ChatMessage } from "../llm/base-provider.js";
@@ -219,14 +221,6 @@ export function buildManualIllustratorPromptMessages(args: {
   return messages;
 }
 
-function resolveManualIllustratorMaxTokens(agent: ResolvedAgent): number {
-  return applyAgentMaxTokensCaps(
-    agent.provider,
-    normalizeAgentMaxTokens(agent.settings.maxTokens, DEFAULT_MANUAL_ILLUSTRATION_MAX_TOKENS),
-    agent.maxOutputTokens,
-  );
-}
-
 export async function writeManualIllustratorPromptPlan(args: {
   illustratorAgent: ResolvedAgent;
   context: AgentContext;
@@ -257,10 +251,16 @@ export async function writeManualIllustratorPromptPlan(args: {
     messages.map((message) => `${message.role}:\n${message.content}`).join("\n\n"),
   );
 
-  const maxTokens = resolveManualIllustratorMaxTokens(args.illustratorAgent);
   const maxContext =
     normalizeMaxContext(args.illustratorAgent.provider.maxContextValue) ?? DEFAULT_GENERATION_PARAMS.maxContext;
   const callPromptWriter = async (requestMessages: ChatMessage[]): Promise<ChatCompletionResult> => {
+    // Thinking room only takes what the window leaves free; the writer's own budget must still fit (#7131).
+    const maxTokens = resolveAgentCallMaxTokens(
+      args.illustratorAgent.provider,
+      args.illustratorAgent,
+      normalizeAgentMaxTokens(args.illustratorAgent.settings.maxTokens, DEFAULT_MANUAL_ILLUSTRATION_MAX_TOKENS),
+      { messages: requestMessages, maxContext },
+    );
     if (!measureContextBudget(requestMessages, { maxContext, maxTokens }).fits) {
       throw new Error(
         "Manual Illustrator request exceeds the connection context limit. Shorten the selected prompt or reduce Illustrator context size, or increase the connection context limit.",
@@ -268,14 +268,15 @@ export async function writeManualIllustratorPromptPlan(args: {
     }
     return args.illustratorAgent.provider.chatComplete(requestMessages, {
       model: args.illustratorAgent.model,
-      temperature: 0.55,
+      // The prompt writer keeps its own temperature; the connection decides whether one is sent (#7131).
+      temperature: gateAgentTemperature(args.illustratorAgent, 0.55),
       maxTokens,
       maxContext,
       preserveContext: true,
       enableCaching: args.illustratorAgent.enableCaching,
       anthropicExtendedCacheTtl: args.illustratorAgent.anthropicExtendedCacheTtl,
       cachingAtDepth: args.illustratorAgent.cachingAtDepth,
-      customParameters: args.illustratorAgent.customParameters,
+      ...agentRequestOptions(args.illustratorAgent, false),
       signal: args.signal,
     });
   };

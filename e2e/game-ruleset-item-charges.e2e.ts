@@ -82,7 +82,9 @@ test("a rest on the sheet brings a bell's charges back", async ({ page, request 
       const portrait = page
         .getByTitle("Bram - Click to open character sheet", { exact: true })
         .filter({ visible: true });
-      const members = page.getByRole("button", { name: "Open party members", exact: true }).filter({ visible: true });
+      const members = page
+        .locator('.mari-window-bubble[data-window="control:character-profiles"]')
+        .filter({ visible: true });
       await expect(portrait.or(members).first()).toBeVisible({ timeout: 30_000 });
       if (await members.isVisible()) await members.click();
       await portrait.first().click();

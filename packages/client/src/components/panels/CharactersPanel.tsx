@@ -26,6 +26,7 @@ import {
   useDuplicateCharacter,
 } from "../../hooks/use-characters";
 import { api } from "../../lib/api-client";
+import { EXPORT_FAILED_TOAST_ID } from "../../lib/file-download";
 import { confirmNonEmptyFolderDelete, showChoiceDialog, showConfirmDialog } from "../../lib/app-dialogs";
 import {
   Plus,
@@ -682,20 +683,22 @@ export function CharactersPanel() {
     if (selectedCharacterIds.size === 0) return;
     setExportingSelected(true);
     try {
-      await api.downloadPost(
+      const saveStatus = await api.downloadPost(
         "/characters/export-bulk",
         { ids: [...selectedCharacterIds], format: "native" },
         "marinara-characters.zip",
       );
-      toast.success(
-        localizeUi("ui.panels.characterspanel.exportedValue1CharacterValue2", {
-          value1: selectedCharacterIds.size,
-          value2: selectedCharacterIds.size === 1 ? "" : localizeUi("ui.noodle.stageprofileview.s"),
-        }),
-      );
+      if (saveStatus === "saved")
+        toast.success(
+          localizeUi("ui.panels.characterspanel.exportedValue1CharacterValue2", {
+            value1: selectedCharacterIds.size,
+            value2: selectedCharacterIds.size === 1 ? "" : localizeUi("ui.noodle.stageprofileview.s"),
+          }),
+        );
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : localizeUi("ui.panels.characterspanel.failedToExportCharacters"),
+        { id: EXPORT_FAILED_TOAST_ID },
       );
     } finally {
       setExportingSelected(false);

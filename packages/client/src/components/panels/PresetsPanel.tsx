@@ -41,6 +41,7 @@ import {
 import { useChatStore } from "../../stores/chat.store";
 import { useUIStore, type ResourcePanelSort } from "../../stores/ui.store";
 import { api, ApiError } from "../../lib/api-client";
+import { EXPORT_FAILED_TOAST_ID } from "../../lib/file-download";
 import { confirmNonEmptyFolderDelete, showConfirmDialog } from "../../lib/app-dialogs";
 import { ChoiceSelectionModal } from "../presets/ChoiceSelectionModal";
 import { SelectionActionBar } from "../ui/SelectionActionBar";
@@ -510,15 +511,22 @@ export function PresetsPanel() {
     if (selectedPresetIds.size === 0) return;
     setExportingSelected(true);
     try {
-      await api.downloadPost("/prompts/export-bulk", { ids: [...selectedPresetIds] }, "marinara-presets.zip");
-      toast.success(
-        localizeUi("ui.panels.presetspanel.exportedValue1PresetValue2", {
-          value1: selectedPresetIds.size,
-          value2: selectedPresetIds.size === 1 ? "" : localizeUi("ui.noodle.stageprofileview.s"),
-        }),
+      const saveStatus = await api.downloadPost(
+        "/prompts/export-bulk",
+        { ids: [...selectedPresetIds] },
+        "marinara-presets.zip",
       );
+      if (saveStatus === "saved")
+        toast.success(
+          localizeUi("ui.panels.presetspanel.exportedValue1PresetValue2", {
+            value1: selectedPresetIds.size,
+            value2: selectedPresetIds.size === 1 ? "" : localizeUi("ui.noodle.stageprofileview.s"),
+          }),
+        );
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : localizeUi("ui.panels.presetspanel.failedToExportPresets"));
+      toast.error(error instanceof Error ? error.message : localizeUi("ui.panels.presetspanel.failedToExportPresets"), {
+        id: EXPORT_FAILED_TOAST_ID,
+      });
     } finally {
       setExportingSelected(false);
     }
@@ -539,7 +547,7 @@ export function PresetsPanel() {
         return;
       }
 
-      downloadJsonFile(
+      void downloadJsonFile(
         {
           kind: "marinara.regex-scripts",
           version: 1,
@@ -547,13 +555,15 @@ export function PresetsPanel() {
           regexScripts: scripts.map(serializeRegexScript),
         },
         "marinara-regexes.json",
-      );
-      toast.success(
-        localizeUi("ui.panels.presetspanel.exportedValue1RegexValue2", {
-          value1: scripts.length,
-          value2: scripts.length === 1 ? "" : localizeUi("ui.lorebooks.lorebookeditor.es"),
-        }),
-      );
+      ).then((saveStatus) => {
+        if (saveStatus === "saved")
+          toast.success(
+            localizeUi("ui.panels.presetspanel.exportedValue1RegexValue2", {
+              value1: scripts.length,
+              value2: scripts.length === 1 ? "" : localizeUi("ui.lorebooks.lorebookeditor.es"),
+            }),
+          );
+      });
     },
     [sortedRegexScripts, localizeUi],
   );
@@ -649,16 +659,18 @@ export function PresetsPanel() {
       return;
     }
 
-    downloadZipFile(
+    void downloadZipFile(
       createCustomToolFolderPackageFiles(customToolRows.map(serializeCustomToolForTransfer)),
       "marinara-functions.zip",
-    );
-    toast.success(
-      localizeUi("ui.panels.presetspanel.exportedValue1FunctionValue2", {
-        value1: customToolRows.length,
-        value2: customToolRows.length === 1 ? "" : localizeUi("ui.noodle.stageprofileview.s"),
-      }),
-    );
+    ).then((saveStatus) => {
+      if (saveStatus === "saved")
+        toast.success(
+          localizeUi("ui.panels.presetspanel.exportedValue1FunctionValue2", {
+            value1: customToolRows.length,
+            value2: customToolRows.length === 1 ? "" : localizeUi("ui.noodle.stageprofileview.s"),
+          }),
+        );
+    });
   }, [customToolRows, localizeUi]);
 
   const handleImportFunctions = useCallback(

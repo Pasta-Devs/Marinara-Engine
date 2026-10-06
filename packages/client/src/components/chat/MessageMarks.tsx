@@ -34,9 +34,9 @@ export type MessageNoteSharing = {
 };
 
 const POPOVER_CLASS =
-  "marinara-chat-popover fixed z-[9999] max-h-[calc(var(--mari-visual-viewport-height,100dvh)-1rem)] w-[min(18rem,calc(100vw-1rem))] overflow-y-auto overscroll-contain rounded-xl border border-[var(--marinara-chat-chrome-panel-border)] bg-[var(--marinara-chat-chrome-panel-bg)] p-2 text-[var(--marinara-chat-chrome-panel-text)] shadow-xl";
+  "marinara-chat-popover mari-chat-style-surface mari-chat-action-panel fixed z-[9999] max-h-[calc(var(--mari-visual-viewport-height,100dvh)-1rem)] w-[min(18rem,calc(100vw-1rem))] overflow-y-auto overscroll-contain rounded-xl border border-[var(--marinara-chat-chrome-panel-border)] bg-[var(--marinara-chat-chrome-panel-bg)] p-2 text-[var(--marinara-chat-chrome-panel-text)] shadow-xl";
 const MENU_ROW_CLASS =
-  "flex w-full items-start gap-2 rounded-lg px-2 py-1.5 text-left text-xs transition-colors hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)] disabled:pointer-events-none disabled:opacity-50";
+  "mari-chat-style-control flex w-full items-start gap-2 rounded-lg px-2 py-1.5 text-left text-xs transition-colors hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)] disabled:pointer-events-none disabled:opacity-50";
 const FIELD_CLASS =
   "w-full rounded-md border border-[var(--marinara-chat-chrome-input-border)] bg-[var(--marinara-chat-chrome-input-bg)] px-2 py-1 text-xs text-[var(--marinara-chat-chrome-panel-text)] outline-none placeholder:text-[var(--marinara-chat-chrome-panel-muted)] focus:border-[var(--marinara-chat-chrome-input-border-focus)] focus:ring-2 focus:ring-[var(--marinara-chat-chrome-focus-ring)]";
 const ACTIVE_ICON_CLASS =
@@ -262,7 +262,7 @@ export function MessageMarksAction({
                       setNote("");
                       save({ privateNote: null, privateNoteRecipientId: null });
                     }}
-                    className="mari-chrome-control mari-chrome-control--small px-2"
+                    className="mari-chat-style-control mari-chrome-control mari-chrome-control--small px-2"
                   >
                     {localizeUi("ui.chat.messagemarks.removeNote")}
                   </button>
@@ -271,7 +271,7 @@ export function MessageMarksAction({
                   type="button"
                   disabled={!noteChanged}
                   onClick={() => save({ privateNote: note.trim() || null })}
-                  className="mari-chrome-control mari-chrome-control--small px-2 disabled:opacity-50"
+                  className="mari-chat-style-control mari-chrome-control mari-chrome-control--small px-2 disabled:opacity-50"
                 >
                   {localizeUi("ui.chat.messagemarks.saveNote")}
                 </button>

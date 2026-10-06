@@ -186,6 +186,7 @@ import {
 import { useUpdateGameWidgets } from "../../hooks/use-game";
 import { useRegexScripts, useUpdateRegexScript, type RegexScriptRow } from "../../hooks/use-regex-scripts";
 import { api } from "../../lib/api-client";
+import { EXPORT_FAILED_TOAST_ID } from "../../lib/file-download";
 import { readCharacterGreetings, type CharacterGreeting } from "../../lib/character-greetings";
 import { trackChatMetadataSave, waitForPendingChatMetadataSaves } from "../../lib/chat-metadata-save-barrier";
 import { createSerializedMutationQueue } from "../../lib/serialized-mutation-queue";
@@ -1048,7 +1049,6 @@ export function ChatSettingsDrawer({
   const toggleTrackerPanel = () => {
     if (trackerPanelShown) {
       setTrackerPanelOpen(false, chat.id);
-      setTrackerPanelEnabled(false);
       return;
     }
     // Open needs the panel enabled first.
@@ -5630,7 +5630,7 @@ export function ChatSettingsDrawer({
                       if (character) {
                         return (
                           <>
-                            <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[var(--accent)] text-xs font-semibold">
+                            <div className="relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[var(--accent)] text-xs font-semibold">
                               {character.avatarPath ? (
                                 <img
                                   src={character.avatarPath}
@@ -5741,7 +5741,7 @@ export function ChatSettingsDrawer({
                       setShowPersonaPicker(false);
                     }}
                     className={cn(
-                      "flex items-center gap-2.5 rounded-lg px-3 py-2 text-left transition-all hover:bg-[var(--accent)]",
+                      "flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left transition-all hover:bg-[var(--accent)]",
                       !chat.personaId && !chat.personaCharacterId && "bg-[var(--primary)]/10",
                     )}
                   >
@@ -5767,7 +5767,7 @@ export function ChatSettingsDrawer({
                           setShowPersonaPicker(false);
                         }}
                         className={cn(
-                          "flex items-center gap-2.5 rounded-lg px-3 py-2 text-left transition-all hover:bg-[var(--accent)]",
+                          "flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left transition-all hover:bg-[var(--accent)]",
                           chat.personaId === p.id && "bg-[var(--primary)]/10",
                         )}
                       >
@@ -5854,11 +5854,11 @@ export function ChatSettingsDrawer({
                                   setShowPersonaPicker(false);
                                 }}
                                 className={cn(
-                                  "flex items-center gap-2.5 rounded-lg px-3 py-2 text-left transition-all hover:bg-[var(--accent)]",
+                                  "flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left transition-all hover:bg-[var(--accent)]",
                                   chat.personaCharacterId === character.id && "bg-[var(--primary)]/10",
                                 )}
                               >
-                                <div className="flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[var(--accent)] text-[0.625rem] font-semibold">
+                                <div className="relative flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[var(--accent)] text-[0.625rem] font-semibold">
                                   {character.avatarPath ? (
                                     <img
                                       src={character.avatarPath}
@@ -10408,13 +10408,14 @@ function MemoryRecallMemoriesModal({
     }
 
     try {
-      await exportMemories.mutateAsync();
-      toast.success(localizeUi("ui.chat.memoryrecallmemoriesmodal.memoryRecallExported"));
+      const saveStatus = await exportMemories.mutateAsync();
+      if (saveStatus === "saved") toast.success(localizeUi("ui.chat.memoryrecallmemoriesmodal.memoryRecallExported"));
     } catch (err) {
       toast.error(
         err instanceof Error
           ? localizeUi("ui.chat.memoryrecallmemoriesmodal.exportFailedValue1", { value1: err.message })
           : localizeUi("ui.chat.memoryrecallmemoriesmodal.exportFailed"),
+        { id: EXPORT_FAILED_TOAST_ID },
       );
     }
   };

@@ -2,6 +2,7 @@ import {
   formatRpgStatsForPrompt,
   nameToXmlTag,
   normalizeRpgStatPools,
+  readImageAppearanceOverride,
   resolveMacros,
   templateReferencesAnyMacro,
   type CharacterMacroProfile,
@@ -23,6 +24,13 @@ export type CharacterPromptInfo = {
   systemPrompt: string;
   backstory: string;
   appearance: string;
+  /**
+   * Image-prompt-only appearance override (#7053). Set when the card enables
+   * `extensions.imageAppearanceEnabled` with non-empty `extensions.imageAppearance`.
+   * Kept SEPARATE from `appearance` so narrator/roleplay lore, `{{appearance}}`
+   * macros and the card-evolution-auditor keep reading the normal appearance.
+   */
+  imageAppearanceOverride?: string;
   mesExample: string;
   firstMes: string;
   postHistoryInstructions: string;
@@ -149,6 +157,7 @@ export async function loadCharacterPromptInfo({
       systemPrompt: cardPromptText(charData.system_prompt),
       backstory: cardPromptText(charData.extensions?.backstory),
       appearance: cardPromptText(charData.extensions?.appearance),
+      imageAppearanceOverride: readImageAppearanceOverride(charData.extensions, null) ?? undefined,
       mesExample: cardPromptText(charData.mes_example),
       firstMes: cardPromptText(charData.first_mes),
       postHistoryInstructions: cardPromptText(charData.post_history_instructions),

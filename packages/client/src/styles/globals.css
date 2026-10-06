@@ -2,6 +2,7 @@
 @source "./capability-package-safelist.html";
 @import "./themes/sillytavern.css";
 @import "./themes/chat-widgets.css";
+@import "./themes/chat-widget-surfaces.css";
 
 /* World state & tracker widgets: equal flex sizing on mobile */
 @media (max-width: 767px) {
@@ -754,8 +755,8 @@
       --mari-window-shadow,
       var(--mari-widget-shadow, var(--mari-widget-frame-shadow, 0 25px 50px -12px rgb(0 0 0 / 0.4)))
     );
-    -webkit-backdrop-filter: var(--mari-window-backdrop-filter, blur(12px));
-    backdrop-filter: var(--mari-window-backdrop-filter, blur(12px));
+    -webkit-backdrop-filter: var(--mari-widget-shell-backdrop-filter, var(--mari-window-backdrop-filter, blur(12px)));
+    backdrop-filter: var(--mari-widget-shell-backdrop-filter, var(--mari-window-backdrop-filter, blur(12px)));
   }
 
   .mari-window__header {
@@ -905,6 +906,27 @@
     visibility: hidden;
   }
 
+  .mari-window-bubble__icon {
+    display: contents;
+  }
+
+  /* An explicit pixel size also grows SVG icons and character portraits, independent of Display Size. */
+  :root[data-chat-widget-button-size] .mari-window-bubble__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: calc(var(--mari-window-bubble-size) * 0.5);
+    height: calc(var(--mari-window-bubble-size) * 0.5);
+    font-size: calc(var(--mari-window-bubble-size) * 0.3125);
+    line-height: 1;
+  }
+
+  :root[data-chat-widget-button-size] .mari-window-bubble__icon > * {
+    width: 100% !important;
+    height: 100% !important;
+    font-size: inherit !important;
+  }
+
   /* Phones draw bubbles like their toolbar buttons, in pixels so their default row lines up. */
   .mari-window-bubble[data-presentation="sheet"] {
     width: var(--mari-window-bubble-size, 36px);
@@ -1012,10 +1034,11 @@
     height: 1.5rem;
     align-items: center;
     justify-content: center;
-    border: 1px solid var(--mari-widget-custom-border-solid, var(--marinara-chat-chrome-button-border));
+    border: 1px solid
+      var(--mari-widget-custom-border-solid, var(--mari-widget-border, var(--marinara-chat-chrome-button-border)));
     border-radius: calc(var(--radius) - 0.125rem);
-    background: var(--mari-widget-custom-background, var(--marinara-chat-chrome-button-bg));
-    color: var(--mari-widget-custom-border-solid, var(--marinara-chat-chrome-button-text));
+    background: var(--mari-widget-custom-background, var(--mari-widget-bg, var(--marinara-chat-chrome-button-bg)));
+    color: var(--mari-widget-custom-border-solid, var(--mari-widget-accent, var(--marinara-chat-chrome-button-text)));
     box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.2);
     opacity: 0;
     pointer-events: none;
@@ -1036,9 +1059,18 @@
   }
 
   .mari-window__resize-handle:is(:hover, :focus-visible) .mari-window__resize-grip {
-    border-color: var(--mari-widget-custom-border-solid, var(--marinara-chat-chrome-button-border-hover));
-    background: var(--mari-widget-custom-background, var(--marinara-chat-chrome-button-bg-hover));
-    color: var(--mari-widget-custom-border-solid, var(--marinara-chat-chrome-button-text-hover));
+    border-color: var(
+      --mari-widget-custom-border-solid,
+      var(--mari-widget-accent, var(--marinara-chat-chrome-button-border-hover))
+    );
+    background: var(
+      --mari-widget-custom-background,
+      var(--mari-widget-soft, var(--marinara-chat-chrome-button-bg-hover))
+    );
+    color: var(
+      --mari-widget-custom-border-solid,
+      var(--mari-widget-text, var(--marinara-chat-chrome-button-text-hover))
+    );
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -5101,7 +5133,8 @@ strong {
   }
 
   [data-chat-mode="roleplay"] .marinara-chat-input-shell {
-    background: linear-gradient(var(--card), var(--card)), var(--background) !important;
+    --mari-chat-existing-bg: linear-gradient(var(--card), var(--card)), var(--background);
+    background: var(--mari-chat-surface-paint, var(--mari-chat-existing-bg)) !important;
     contain: layout paint;
     isolation: isolate;
   }
@@ -6286,14 +6319,34 @@ strong {
 
 [data-chat-mode="roleplay"] {
   --mari-roleplay-message-column-width: 58rem;
+  --mari-roleplay-row-gutter: clamp(0.25rem, 1.5vw, 1.5rem);
+}
+
+/* The transcript's side padding on a wide chat pane (a narrow pane uses 0.75rem). */
+@media (min-width: 768px) {
+  [data-chat-mode="roleplay"] {
+    --mari-roleplay-transcript-gutter: 2rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  [data-chat-mode="roleplay"] {
+    --mari-roleplay-transcript-gutter: 2.5rem;
+  }
+}
+
+@media (min-width: 1280px) {
+  [data-chat-mode="roleplay"] {
+    --mari-roleplay-transcript-gutter: 3rem;
+  }
 }
 
 [data-chat-mode="roleplay"] .rpg-narrator-msg,
 [data-chat-mode="roleplay"] .mari-roleplay-message-row {
   justify-content: center;
   width: 100%;
-  padding-left: clamp(0.25rem, 1.5vw, 1.5rem);
-  padding-right: clamp(0.25rem, 1.5vw, 1.5rem);
+  padding-left: var(--mari-roleplay-row-gutter);
+  padding-right: var(--mari-roleplay-row-gutter);
 }
 
 [data-chat-mode="roleplay"] .rpg-narrator-msg {
@@ -6396,6 +6449,78 @@ strong {
 
   [data-chat-mode="roleplay"] .mari-roleplay-message-body--editing {
     width: 100%;
+  }
+}
+
+/* Chat position Left / Right (Center has no attribute and keeps the layout above). The transcript's
+   children share one box: the column plus, on each side, a row gutter and an avatar slot with its two
+   gaps, so every row type keeps its column exactly where the composer is. The box sits against the
+   chosen edge of the visible chat area, the composer follows its column, and both fall back to the
+   centred layout when the area has no width to spare. */
+@media (min-width: 768px) {
+  [data-chat-mode="roleplay"][data-chat-position] {
+    --mari-chat-position-avatar-space: calc(2.5rem * var(--roleplay-avatar-scale, 1) + 1.5rem);
+    --mari-chat-position-unit: calc(
+      var(--mari-roleplay-message-column-width) + 2 *
+        (var(--mari-roleplay-row-gutter) + var(--mari-chat-position-avatar-space))
+    );
+    --mari-chat-position-composer-width: min(
+      100% - var(--mari-chat-position-clearance, 0px),
+      var(--mari-roleplay-message-column-width)
+    );
+  }
+
+  [data-chat-mode="roleplay"][data-chat-position][data-roleplay-avatar-style="rectangles"] {
+    --mari-chat-position-avatar-space: calc(2.75rem * var(--roleplay-avatar-scale, 1) + 1.5rem);
+  }
+
+  [data-chat-mode="roleplay"][data-chat-position][data-roleplay-avatar-style="none"] {
+    --mari-chat-position-avatar-space: 0rem;
+  }
+
+  /* The box already keeps choices clear of the Tracker Panel. */
+  [data-chat-mode="roleplay"][data-roleplay-presentation="classic"][data-chat-position] [data-chat-scroll] {
+    --tracker-panel-overlay-clearance: 0px;
+  }
+
+  [data-chat-mode="roleplay"][data-roleplay-presentation="classic"][data-chat-position] [data-chat-scroll] > * {
+    width: min(var(--mari-chat-position-unit), 100% - var(--mari-chat-position-clearance, 0px));
+    margin-left: var(--mari-chat-position-clearance, 0px);
+    margin-right: auto;
+  }
+
+  /* 100cqw is the chat pane (CenterContent is a size container), so the right edge ignores the
+     transcript's scrollbar, as the composer does. */
+  [data-chat-mode="roleplay"][data-roleplay-presentation="classic"][data-chat-position="right"]
+    [data-chat-scroll]
+    > * {
+    margin-left: max(
+      0px,
+      100cqw - 2 * var(--mari-roleplay-transcript-gutter) - var(--mari-chat-position-clearance, 0px) -
+        var(--mari-chat-position-unit)
+    );
+  }
+
+  /* The composer, and the Visual Novel history above it. */
+  [data-chat-mode="roleplay"][data-chat-position] .mari-roleplay-input-column {
+    width: var(--mari-chat-position-composer-width);
+    margin-right: auto;
+  }
+
+  [data-chat-mode="roleplay"][data-chat-position="left"] .mari-roleplay-input-column {
+    margin-left: min(
+      (100% - var(--mari-chat-position-composer-width) + var(--mari-chat-position-clearance, 0px)) / 2,
+      var(--mari-roleplay-transcript-gutter) + var(--mari-chat-position-clearance, 0px) +
+        (var(--mari-chat-position-unit) - var(--mari-chat-position-composer-width)) / 2
+    );
+  }
+
+  [data-chat-mode="roleplay"][data-chat-position="right"] .mari-roleplay-input-column {
+    margin-left: max(
+      (100% - var(--mari-chat-position-composer-width) - var(--mari-chat-position-clearance, 0px)) / 2,
+      100% - var(--mari-roleplay-transcript-gutter) - var(--mari-chat-position-clearance, 0px) -
+        (var(--mari-chat-position-unit) + var(--mari-chat-position-composer-width)) / 2
+    );
   }
 }
 
@@ -7172,7 +7297,7 @@ strong {
     white-space: nowrap;
   }
 
-  .chat-input-container .marinara-chat-input-shell {
+  :root:not([data-chat-widget-apply-shape="true"]) .chat-input-container .marinara-chat-input-shell {
     border-radius: 1em !important;
   }
 }

@@ -217,6 +217,7 @@ export function ChatControlWindow({
           return { x: point.x, y: point.y + rowOffset };
         },
         bubbleBadge,
+        phoneMenu: true,
       }}
       getDefaultLayout={(bounds, bubbleSize) =>
         getChatControlDefaultLayout(bounds, slot, { width, height }, rowOffset, bubbleSize)

@@ -69,3 +69,19 @@ export async function closeChatSettings(page: Page) {
   await settings.locator('[data-window-control="close"]').click();
   await expect(settings).toHaveCount(0);
 }
+
+/** Opens a standalone control or detached drawer through the phone menu when present. */
+export async function openChatTool(page: Page, id: string): Promise<Locator> {
+  const menuButton = page.locator("[data-chat-tools-menu-button]");
+  if (await page.evaluate(() => matchMedia("(max-width: 767px)").matches)) {
+    await expect(menuButton).toBeVisible();
+    const menu = page.locator("[data-chat-tools-menu]");
+    if (!(await menu.isVisible())) await menuButton.click();
+    await menu.locator(`[data-chat-tools-menu-tool="${id}"]`).click();
+  } else {
+    await page.locator(`.mari-window-bubble[data-window="${id}"]`).click();
+  }
+  const window = page.locator(`.mari-window[data-window="${id}"]`);
+  await expect(window).toBeVisible();
+  return window;
+}

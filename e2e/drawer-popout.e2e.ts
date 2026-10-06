@@ -1,3 +1,4 @@
+import { openChatTool } from "./chat-settings-tools.js";
 // #7034 step 4: Chat Settings sections and Trackers window drawers pop out into their own windows (with their
 // button or by dragging them out), and each chat saves its window layout, which settings profiles carry too.
 import { expect, test, type APIRequestContext, type Locator, type Page } from "@playwright/test";
@@ -798,11 +799,11 @@ test.describe("Pop-out drawers on desktop", () => {
   });
 });
 
-test("a section popped out on a computer is a bubble on a phone, and its sheet puts it back", async ({
+test("a section popped out on a computer is in Chat tools on a phone, and its sheet puts it back", async ({
   page,
   request,
 }, testInfo) => {
-  test.skip(!testInfo.project.name.includes("mobile"), "Phones show popped-out sections as bubbles.");
+  test.skip(!testInfo.project.name.includes("mobile"), "Phones show popped-out sections in Chat tools.");
   const chat = await createChat(request, {
     windowLayout: {
       version: 1,
@@ -814,11 +815,12 @@ test("a section popped out on a computer is a bubble on a phone, and its sheet p
     await prepare(page, chat.id);
     await page.goto("/");
     await expect(page.locator('[data-chat-mode="roleplay"]')).toBeVisible({ timeout: 30_000 });
-    // The computer's window place is not used: a phone shows the section as a bubble, closed.
+    // The computer layout is retained; a phone lists the section in Chat tools, initially closed.
     const bubble = page.locator(`.mari-window-bubble[data-window="${CHAT_NAME_WINDOW}"]`);
-    await expect(bubble).toBeVisible();
+    await expect(bubble).toHaveCount(0);
+    await expect(page.locator("[data-chat-tools-menu-button]")).toBeVisible();
     await expect(page.locator(`.mari-window[data-window="${CHAT_NAME_WINDOW}"]`)).toHaveCount(0);
-    await bubble.click();
+    await openChatTool(page, CHAT_NAME_WINDOW);
     const drawerSheet = page.locator(`.mari-window[data-window="${CHAT_NAME_WINDOW}"]`);
     await expect(drawerSheet).toHaveAttribute("data-presentation", "sheet");
     await drawerSheet.getByRole("button", { name: "Put back in Chat Settings" }).click();

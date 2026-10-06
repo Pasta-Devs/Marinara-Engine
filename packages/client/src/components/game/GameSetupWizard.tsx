@@ -756,8 +756,13 @@ export function GameSetupWizard({
   );
   const gmModelCapabilities = useModelParameterCapabilities(customizeParameters ? selectedGmConnection : null);
   const gmParameterDefaults = useMemo(
-    () => getEditableGenerationParameters(ROLEPLAY_PARAMETER_DEFAULTS, selectedGmConnection?.defaultParameters),
-    [selectedGmConnection?.defaultParameters],
+    () =>
+      getEditableGenerationParameters(
+        ROLEPLAY_PARAMETER_DEFAULTS,
+        selectedGmConnection?.defaultParameters,
+        selectedGmConnection?.provider,
+      ),
+    [selectedGmConnection?.defaultParameters, selectedGmConnection?.provider],
   );
   const imageConnections = useMemo(() => connections.filter((c) => c.provider === "image_generation"), [connections]);
   const videoConnections = useMemo(() => connections.filter((c) => c.provider === "video_generation"), [connections]);
@@ -1193,6 +1198,7 @@ export function GameSetupWizard({
       const importedGmDefaults = getEditableGenerationParameters(
         ROLEPLAY_PARAMETER_DEFAULTS,
         importedGmConnection?.defaultParameters,
+        importedGmConnection?.provider,
       );
 
       setStep(0);

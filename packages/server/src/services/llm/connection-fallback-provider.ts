@@ -5,6 +5,7 @@ import { createLLMProvider } from "./provider-registry.js";
 import { RateLimitAwareProvider, withRateLimitAwareProvider } from "./rate-limit-aware-provider.js";
 import { mergeCustomParameters, parseStoredGenerationParameters } from "../../routes/generate/generate-route-utils.js";
 import { logger } from "../../lib/logger.js";
+import { keepsCodexDefaultEffort, minContextLimit } from "../generation/generation-parameters.js";
 import { notifyGenerationFallback, type GenerationFallbackNotifier } from "../generation/fallback-notification.js";
 import {
   isConnectionAdmissionFailure,
@@ -84,13 +85,15 @@ function fallbackOptions(options: ChatOptions, connection: FallbackConnection): 
         : undefined;
   const reasoningSendDisabled = stored?.enabledParameters?.reasoningEffort === false;
   const hasStoredReasoningEffort = stored?.reasoningEffort !== undefined;
-  const reasoningEffort = reasoningSendDisabled
-    ? undefined
-    : stored?.reasoningEffort === "maximum"
-      ? "max"
-      : stored?.reasoningEffort === null
-        ? "none"
-        : (stored?.reasoningEffort ?? options.reasoningEffort);
+  // A Codex fallback with no saved level keeps Codex's default rather than taking the main connection's level.
+  const reasoningEffort =
+    reasoningSendDisabled || keepsCodexDefaultEffort(connection.provider, stored)
+      ? undefined
+      : stored?.reasoningEffort === "maximum"
+        ? "max"
+        : stored?.reasoningEffort === null
+          ? "none"
+          : (stored?.reasoningEffort ?? options.reasoningEffort);
   const enableThinking = reasoningSendDisabled
     ? false
     : hasStoredReasoningEffort
@@ -140,7 +143,13 @@ export class ConnectionFallbackProvider extends BaseLLMProvider {
     private readonly primarySupportsAssistantReasoningPrefill = true,
     private readonly fallbackSupportsAssistantReasoningPrefill = true,
   ) {
-    super("", "", primary.maxContextValue ?? undefined, null, primary.maxTokensOverrideValue);
+    super(
+      "",
+      "",
+      minContextLimit(primary.maxContextValue ?? undefined, fallback.maxContextValue ?? undefined),
+      null,
+      primary.maxTokensOverrideValue,
+    );
   }
 
   private async logFallback(error: unknown): Promise<void> {

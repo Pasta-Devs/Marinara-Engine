@@ -48,6 +48,7 @@ import type { Lorebook, LorebookCategory, LorebookEntry, LorebookFolder } from "
 import { confirmNonEmptyFolderDelete, showConfirmDialog } from "../../lib/app-dialogs";
 import { cn } from "../../lib/utils";
 import { api } from "../../lib/api-client";
+import { EXPORT_FAILED_TOAST_ID } from "../../lib/file-download";
 import { getChatCharacterIds } from "../../lib/chat-macros";
 import { buildLorebookDuplicateInput } from "../../lib/lorebook-duplicate";
 import {
@@ -379,20 +380,22 @@ export function LorebooksPanel() {
     if (selectedLorebookIds.size === 0) return;
     setExportingSelected(true);
     try {
-      await api.downloadPost(
+      const saveStatus = await api.downloadPost(
         "/lorebooks/export-bulk",
         { ids: [...selectedLorebookIds], format: "native" },
         "marinara-lorebooks.zip",
       );
-      toast.success(
-        localizeUi("ui.panels.lorebookspanel.exportedValue1LorebookValue2", {
-          value1: selectedLorebookIds.size,
-          value2: selectedLorebookIds.size === 1 ? "" : localizeUi("ui.noodle.stageprofileview.s"),
-        }),
-      );
+      if (saveStatus === "saved")
+        toast.success(
+          localizeUi("ui.panels.lorebookspanel.exportedValue1LorebookValue2", {
+            value1: selectedLorebookIds.size,
+            value2: selectedLorebookIds.size === 1 ? "" : localizeUi("ui.noodle.stageprofileview.s"),
+          }),
+        );
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : localizeUi("ui.panels.lorebookspanel.failedToExportLorebooks"),
+        { id: EXPORT_FAILED_TOAST_ID },
       );
     } finally {
       setExportingSelected(false);

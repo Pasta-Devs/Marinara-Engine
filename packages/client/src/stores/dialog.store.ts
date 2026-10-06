@@ -8,6 +8,7 @@ type AppDialogCommon = {
   confirmLabel?: string;
   cancelLabel?: string;
   tone?: AppDialogTone;
+  chatStyle?: boolean;
 };
 
 export type AlertDialogState = AppDialogCommon & {

@@ -23,3 +23,21 @@ export function clampGenerationMaxOutputTokens(args: {
   }
   return capped;
 }
+
+const THINKING_HEADROOM_BY_EFFORT: Record<string, number> = {
+  low: 1024,
+  medium: 4096,
+  high: 8192,
+  xhigh: 12288,
+  max: 16384,
+};
+
+/**
+ * Extra output tokens to reserve for thinking on top of the visible answer budget, scaled by effort and never more
+ * than twice the visible budget (at least 1024). Anthropic's adaptive thinking and agent calls on providers that count
+ * reasoning inside max tokens both use this table.
+ */
+export function resolveThinkingHeadroom(effort: string | null | undefined, visibleMaxTokens: number): number {
+  const requested = (effort ? THINKING_HEADROOM_BY_EFFORT[effort] : undefined) ?? 8192;
+  return Math.min(requested, Math.max(1024, Math.floor(visibleMaxTokens * 2)));
+}

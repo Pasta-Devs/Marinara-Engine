@@ -7,7 +7,12 @@ import {
 } from "../services/multiplayer/generation-policy.js";
 import { rejectGenerationOutput, type GenerationOutput } from "./generate/sse.js";
 import { resolveStoredChatOptions, resolveStoredMaxTokens } from "../services/generation/generation-parameters.js";
-import { normalizeGameDifficulty, normalizeWeatherType, combatWeatherSchema } from "@marinara-engine/shared";
+import {
+  normalizeGameDifficulty,
+  normalizeWeatherType,
+  combatWeatherSchema,
+  readImageAppearanceOverride,
+} from "@marinara-engine/shared";
 import { resolveCombatWeather } from "../services/game/weather.service.js";
 import { resolveGameConnection } from "../services/game/connection.service.js";
 import { combatAiHintsSchema, combatTacticsSchema, combatInterruptFields } from "@marinara-engine/shared";
@@ -373,6 +378,7 @@ import {
 import { loadGameFightItems, loadGameInventoryItemBook } from "../services/game/game-inventory.service.js";
 import { rollGameFightItemGate } from "../services/game/game-item-use.service.js";
 import {
+  normalizeIllustratorAppearance,
   readIllustratorAppearance,
   readPreferredCharacterReferenceImage,
   readPreferredPersonaReferenceImage,
@@ -545,7 +551,7 @@ async function addCharacterRowsIllustrationAssets(
   await Promise.all(Array.from({ length: workerCount }, () => runWorker()));
 }
 
-async function addPersonaIllustrationAssets(
+export async function addPersonaIllustrationAssets(
   maps: IllustrationCharacterAssetMaps,
   persona:
     | {
@@ -553,6 +559,9 @@ async function addPersonaIllustrationAssets(
         name?: string | null;
         avatarPath?: string | null;
         appearance?: string | null;
+        /** Text-column override (#7053); "true"/"false" like its siblings. */
+        imageAppearanceEnabled?: string | null;
+        imageAppearance?: string | null;
         characterSheetImageId?: string | null;
         useCharacterSheetAsReference?: string;
       }
@@ -577,9 +586,44 @@ async function addPersonaIllustrationAssets(
   }
   if (persona.avatarPath) addNameLookupEntry(maps.charAvatarByName, name, persona.avatarPath);
 
-  const appearanceText = extractCharacterAppearanceText({ appearance: persona.appearance });
+  // #7053: the persona row carries the image-prompt override as TOP-LEVEL text
+  // columns (no extensions bag), so feed them through the shared helper. Without
+  // this the override reached conversation image prompts but not Game mode.
+  const appearanceText = readImageAppearanceOverride(
+    {
+      imageAppearanceEnabled: persona.imageAppearanceEnabled === "true",
+      imageAppearance: persona.imageAppearance,
+    },
+    normalizeIllustratorAppearance(persona.appearance),
+  );
   if (appearanceText) addNameLookupEntry(maps.charDescriptionByName, name, appearanceText);
   return name;
+}
+
+/**
+ * Loads the chat's selected persona into the illustration asset maps.
+ *
+ * #7053: the persona is a visible participant like any character, but both Game
+ * illustration routes built their lookups from character rows only, so the
+ * persona produced no appearance line at all — with or without an override.
+ * Shared so `/generate-assets` and `/generate-assets/preview` cannot drift apart.
+ */
+export async function addChatPersonaIllustrationAssets(args: {
+  maps: IllustrationCharacterAssetMaps;
+  characters: ReturnType<typeof createCharactersStorage>;
+  personaGallery: ReturnType<typeof createPersonaGalleryStorage>;
+  chat: { personaId?: string | null } | null | undefined;
+  setupConfig: Record<string, unknown> | null | undefined;
+}): Promise<string | null> {
+  const personaId = args.chat?.personaId || readTrimmedString(args.setupConfig?.personaId);
+  if (!personaId) return null;
+  try {
+    const persona = await args.characters.getPersona(personaId);
+    return await addPersonaIllustrationAssets(args.maps, persona, args.personaGallery);
+  } catch {
+    // An unresolvable persona must not break illustration generation.
+    return null;
+  }
 }
 
 function getStoryboardLibraryCharacterIds(
@@ -13980,6 +14024,16 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
         const allChars = await charStore.list();
         const illustrationCharacterAssets = emptyIllustrationCharacterAssetMaps();
         await addCharacterRowsIllustrationAssets(illustrationCharacterAssets, allChars, characterGallery);
+        // #7053: the preview route previews the same prompt the real route sends,
+        // so it must resolve the persona identically or the preview understates
+        // the appearance a frame will actually carry.
+        await addChatPersonaIllustrationAssets({
+          maps: illustrationCharacterAssets,
+          characters: charStore,
+          personaGallery,
+          chat,
+          setupConfig: setupCfg,
+        });
         const { charReferenceByName, charReferenceSourceByName, charAvatarByName, charDescriptionByName } =
           illustrationCharacterAssets;
 
@@ -14399,6 +14453,16 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
           const allChars = await charStore.list();
           const illustrationCharacterAssets = emptyIllustrationCharacterAssetMaps();
           await addCharacterRowsIllustrationAssets(illustrationCharacterAssets, allChars, characterGallery);
+          // #7053: the chat persona is a visible participant like any character,
+          // but only character rows were loaded here, so the persona never reached
+          // `charDescriptionByName` and produced no appearance line at all.
+          await addChatPersonaIllustrationAssets({
+            maps: illustrationCharacterAssets,
+            characters: charStore,
+            personaGallery,
+            chat,
+            setupConfig: setupCfg,
+          });
           const { charReferenceByName, charReferenceSourceByName, charAvatarByName, charDescriptionByName } =
             illustrationCharacterAssets;
 

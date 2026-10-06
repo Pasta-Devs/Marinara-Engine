@@ -43,6 +43,7 @@ import { handleFolderRenameKeyDown, useFolderRenameGesture } from "../../hooks/u
 import { useTouchFolderDrag } from "../../hooks/use-touch-folder-drag";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
 import { api } from "../../lib/api-client";
+import { EXPORT_FAILED_TOAST_ID } from "../../lib/file-download";
 import { SelectionActionBar } from "../ui/SelectionActionBar";
 import { SmoothFolderContent } from "../ui/SmoothFolderContent";
 import { TouchDragHandle } from "../ui/TouchDragHandle";
@@ -495,20 +496,22 @@ export function PersonasPanel() {
     if (selectedPersonaIds.size === 0) return;
     setExportingSelected(true);
     try {
-      await api.downloadPost(
+      const saveStatus = await api.downloadPost(
         "/characters/personas/export-bulk",
         { ids: [...selectedPersonaIds], format: "native" },
         "marinara-personas.zip",
       );
-      toast.success(
-        localizeUi("ui.panels.personaspanel.exportedValue1PersonaValue2", {
-          value1: selectedPersonaIds.size,
-          value2: selectedPersonaIds.size === 1 ? "" : localizeUi("ui.noodle.stageprofileview.s"),
-        }),
-      );
+      if (saveStatus === "saved")
+        toast.success(
+          localizeUi("ui.panels.personaspanel.exportedValue1PersonaValue2", {
+            value1: selectedPersonaIds.size,
+            value2: selectedPersonaIds.size === 1 ? "" : localizeUi("ui.noodle.stageprofileview.s"),
+          }),
+        );
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : localizeUi("ui.panels.personaspanel.failedToExportPersonas"),
+        { id: EXPORT_FAILED_TOAST_ID },
       );
     } finally {
       setExportingSelected(false);

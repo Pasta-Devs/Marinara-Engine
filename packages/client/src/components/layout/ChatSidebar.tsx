@@ -82,6 +82,7 @@ import {
 import { sortPanelFolders } from "../../lib/panel-sort";
 import { getCurrentGameGroupRepresentative } from "../../lib/game-session-resolution";
 import { api } from "../../lib/api-client";
+import { EXPORT_FAILED_TOAST_ID } from "../../lib/file-download";
 import { SelectionActionBar } from "../ui/SelectionActionBar";
 import { SmoothFolderContent } from "../ui/SmoothFolderContent";
 import { HelpTooltip } from "../ui/HelpTooltip";
@@ -894,6 +895,7 @@ export function ChatSidebar() {
         err instanceof Error
           ? localizeUi("ui.layout.chatsidebar.exportFailedValue1", { value1: err.message })
           : localizeUi("ui.layout.chatsidebar.exportFailed"),
+        { id: EXPORT_FAILED_TOAST_ID },
       );
     }
   }, [selectedChatIds, bulkExportChats, exitMultiSelect, localizeUi]);

@@ -86,7 +86,8 @@ export function PartyOverlayBox({
     <div
       className={cn(
         "experience-side-line isolate flex w-fit min-w-0 max-w-full transform-gpu items-start gap-2 rounded-xl border bg-clip-padding px-3 py-2 sm:max-w-[75%]",
-        (line.type === "side" || line.type === "extra") && "shadow-[0_16px_38px_rgba(0,0,0,0.45)]",
+        (line.type === "side" || line.type === "extra") &&
+          "mari-chat-style-surface mari-game-side-line shadow-[0_16px_38px_rgba(0,0,0,0.45)]",
         style.border,
         style.bg,
       )}

@@ -251,6 +251,7 @@ export function QuickReplyMenu({ actions, disabled = false }: QuickReplyMenuProp
           {open && (
             <div
               ref={menuRef}
+              data-chat-input-popup="quick-reply"
               className="fixed z-[9999]"
               style={{
                 top: menuPosition.top,
@@ -289,7 +290,7 @@ export function QuickReplyMenu({ actions, disabled = false }: QuickReplyMenuProp
                       value2: action.description,
                     })}
                     className={cn(
-                      "group relative flex h-11 w-11 items-center justify-center rounded-full border shadow-xl outline-none transition-colors focus-visible:ring-2 focus-visible:ring-foreground/20 sm:h-10 sm:w-10",
+                      "mari-chat-style-control mari-chat-quick-reply group relative flex h-11 w-11 items-center justify-center rounded-full border shadow-xl outline-none transition-colors focus-visible:ring-2 focus-visible:ring-foreground/20 sm:h-10 sm:w-10",
                       action.disabled
                         ? "cursor-not-allowed border-foreground/10 bg-[var(--card)]/75 opacity-45"
                         : "border-foreground/20 bg-[var(--card)] text-foreground/55 hover:bg-foreground/10 hover:text-foreground/80 active:scale-95",

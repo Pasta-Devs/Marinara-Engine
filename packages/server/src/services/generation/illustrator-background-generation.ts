@@ -7,7 +7,12 @@ import {
 import type { DB } from "../../db/connection.js";
 import { logger } from "../../lib/logger.js";
 import type { ResolvedAgent } from "../agents/agent-pipeline.js";
-import { normalizeAgentContextSize } from "../agents/agent-executor.js";
+import {
+  agentRequestOptions,
+  gateAgentTemperature,
+  normalizeAgentContextSize,
+  resolveAgentCallMaxTokens,
+} from "../agents/agent-executor.js";
 import {
   buildBackgroundProviderPrompt,
   generateChatBackground,
@@ -223,17 +228,20 @@ async function writeIllustratorBackgroundPlan(args: {
   const callPromptWriter = async (messages: Array<{ role: "system" | "user" | "assistant"; content: string }>) =>
     args.illustratorAgent.provider.chatComplete(messages, {
       model: args.illustratorAgent.model,
-      temperature: 0.35,
-      maxTokens: Math.min(
+      // The prompt writer keeps its own temperature; the connection decides whether one is sent (#7131).
+      temperature: gateAgentTemperature(args.illustratorAgent, 0.35),
+      maxTokens: resolveAgentCallMaxTokens(
+        args.illustratorAgent.provider,
+        args.illustratorAgent,
         BACKGROUND_PLAN_MAX_TOKENS,
-        args.illustratorAgent.maxOutputTokens && args.illustratorAgent.maxOutputTokens > 0
-          ? args.illustratorAgent.maxOutputTokens
-          : BACKGROUND_PLAN_MAX_TOKENS,
+        {
+          messages,
+        },
       ),
       enableCaching: args.illustratorAgent.enableCaching,
       anthropicExtendedCacheTtl: args.illustratorAgent.anthropicExtendedCacheTtl,
       cachingAtDepth: args.illustratorAgent.cachingAtDepth,
-      customParameters: args.illustratorAgent.customParameters,
+      ...agentRequestOptions(args.illustratorAgent, false),
       signal: args.signal,
     });
 

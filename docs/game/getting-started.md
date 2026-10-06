@@ -144,7 +144,7 @@ For the full parameter reference, see [Generation Parameters](../prompts/generat
 
 ## The Game's controls
 
-The Game's controls open from buttons near the top right of the chat:
+On a computer, the Game's controls open from buttons near the top right of the chat. On a phone, find them in the movable **Chat tools** three-dot menu:
 
 - **Game controls** (the circular arrow): **Retry turn**, **Retry scene analysis**, **Retry Music DJ** when Music DJ plays the Game's music, and **Retry assets image generation**. When a storyboard plays as the Game background, it also has replay, play/pause and mute.
 - **Session** (the feather): session history, the journal and session controls. See [Game Mode: Sessions and Saves](sessions-and-saves.md).
@@ -152,16 +152,18 @@ The Game's controls open from buttons near the top right of the chat:
 - **Game Assets** (the folder): scene media and the Asset Browser. See [Game Assets](game-assets.md).
 - **Connected chat**, when the Game is linked to a Conversation. See [Connected Chats](../chats/connected-chats.md#switching-between-connected-chats).
 
-Click or tap a button to open its controls in a movable window on a computer, or a full-width panel on a phone. Drag a button to move it. Closing the window or panel brings the button back. See [Control windows and their buttons](../chats/chat-settings.md#control-windows-and-their-buttons).
+Choose a tool to open its controls in a movable window on a computer, or a full-width panel on a phone. On a computer, drag its button to move it. On a phone, move the three-dot menu, or unlock it to reorder the tools inside. Closing the window or panel lets you open the tool again from the same place. See [Control windows and their buttons](../chats/chat-settings.md#control-windows-and-their-buttons).
 
-You can also keep these controls inside **Chat Settings**. Open a control's window and choose **Put back in Chat Settings**; it then appears as an expandable section there. Its pop-out button makes it a separate window again. Each game saves your choice, and **Reset View** restores the starting buttons.
+You can also keep these controls inside **Chat Settings**. Open a control's window and choose **Put back in Chat Settings**; it then appears as an expandable section there. Its pop-out button makes it a separate window again. Each game saves your choice, and **Reset View** restores the starting arrangement: buttons on a computer, or Chat tools entries on a phone.
+
+**Character Profiles** stays outside Chat tools on both computers and phones. Drag its portrait button wherever you want, then open it to choose a party member and view or edit their character sheet. On phones, **Map** also has its own movable button. Both follow your chat widget style, save their positions for this game, and can be locked from their open window. The desktop map keeps its existing map-panel controls.
 
 ## Where each gameplay topic lives
 
 This guide gets you into a game. Each deeper topic has its own guide:
 
 - [Game Mode: Combat](combat.md) covers encounters, the action menu, damage math, and quick-time events.
-- [Game Mode: Party and NPCs](party-and-npcs.md) covers the party bar, character sheets, and the Adventure Journal.
+- [Game Mode: Party and NPCs](party-and-npcs.md) covers Character Profiles, character sheets, and the Adventure Journal.
 - [Game Mode: Sessions and Saves](sessions-and-saves.md) covers ending and starting sessions and the session history.
 - [Game Mode: Map, Time, and Weather](map-time-weather.md) covers the map views and the automatic clock and weather.
 - [Game Mode: Dice and Skill Checks](dice-and-skill-checks.md) covers the dice menu and skill-check rules.

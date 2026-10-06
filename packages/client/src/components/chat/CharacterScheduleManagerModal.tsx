@@ -14,7 +14,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   getAdjacentScheduleBlocks,
   toConversationScheduleWallClockDate,
+  normalizeAvatarCrop,
   PROFESSOR_MARI_ID,
+  type AvatarCrop,
   type ConversationPresenceStatus,
   type WeekSchedule,
 } from "@marinara-engine/shared";
@@ -35,7 +37,7 @@ type ManagerCharacter = {
   id: string;
   name: string;
   avatarPath: string | null;
-  avatarCrop?: unknown;
+  avatarCrop: AvatarCrop | null;
   schedule?: WeekSchedule;
   conversationStatus: ConversationPresenceStatus;
   autoRenew: boolean;
@@ -63,7 +65,7 @@ function readCard(row: Record<string, unknown>): ManagerCharacter | null {
     id,
     name: typeof data.name === "string" ? data.name : id,
     avatarPath: typeof row.avatarPath === "string" ? row.avatarPath : null,
-    avatarCrop: row.avatarCrop,
+    avatarCrop: normalizeAvatarCrop(extensions.avatarCrop),
     schedule,
     conversationStatus:
       extensions.conversationStatus === "idle" ||
@@ -425,6 +427,7 @@ export function CharacterScheduleManagerModal({ open, onClose }: Props) {
           characterId={editingCharacter.id}
           characterName={editingCharacter.name}
           characterAvatarUrl={editingCharacter.avatarPath}
+          characterAvatarCrop={editingCharacter.avatarCrop}
           schedule={editingCharacter.schedule}
           onClose={() => setEditingCharacterId(null)}
           onSave={(characterId, schedule) =>
@@ -495,12 +498,14 @@ function CharacterScheduleGroup({
               )}
             </button>
             {character.avatarPath ? (
-              <img
-                src={character.avatarPath}
-                alt=""
-                className="h-8 w-8 shrink-0 rounded-full object-cover"
-                style={getAvatarCropStyle(character.avatarCrop as Parameters<typeof getAvatarCropStyle>[0])}
-              />
+              <span className="relative block h-8 w-8 shrink-0 overflow-hidden rounded-full">
+                <img
+                  src={character.avatarPath}
+                  alt=""
+                  className="h-full w-full object-cover"
+                  style={getAvatarCropStyle(character.avatarCrop)}
+                />
+              </span>
             ) : (
               <div className="mari-avatar-placeholder mari-avatar-placeholder--character flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold">
                 {character.name.trim().charAt(0).toUpperCase() || "?"}

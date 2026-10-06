@@ -1,8 +1,9 @@
 // #7034 step 6: on phones, Chat Settings opens from its button in the chat, and popped-out drawers, the chat's controls
-// and the Tracker Panel are bubbles the user places anywhere; each opens as a sheet. On a computer,
+// share a movable Chat tools menu; tracker buttons remain separate. Each tool opens as a sheet. On a computer,
 // package toolbars and Beholder become control windows, and a dot shows while agents run.
 import { expect, test, type APIRequestContext, type Locator, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
+import { openChatTool } from "./chat-settings-tools.js";
 import { seedUIState } from "./ui-state-fixture.js";
 
 const APP_VERSION = (
@@ -10,6 +11,7 @@ const APP_VERSION = (
 ).version;
 
 const CHAT_NAME_DRAWER = "drawer:chat-settings:chat-name";
+const TOOLS_MENU = "chat-tools-menu";
 const CONNECTED = "control:connected-chat";
 const GAME_CONTROLS = ["control:game", "control:session", "control:volume", "control:assets", CONNECTED];
 
@@ -17,6 +19,7 @@ type Box = { x: number; y: number; width: number; height: number };
 type SavedLayout = {
   windows: Record<string, unknown>;
   detached?: string[];
+  phoneMenu?: { locked: boolean; order: string[] };
   phoneBubbles?: Record<string, { x: number; y: number }>;
 } | null;
 
@@ -54,6 +57,7 @@ async function createChat(
   }
   return {
     id: chat.id,
+    partnerId: cleanup[1],
     remove: async () => {
       for (const id of cleanup) await request.delete(`/api/chats/${id}?force=true`);
     },
@@ -94,6 +98,24 @@ async function box(locator: Locator): Promise<Box> {
   const value = await locator.boundingBox();
   expect(value).not.toBeNull();
   return value!;
+}
+
+async function sharedBubbleShape(page: Page) {
+  return page.evaluate(() => {
+    // Resolve inherited shape tokens outside the menu so a menu-specific override
+    // cannot make the expected shape agree with the same broken declaration.
+    const probe = document.createElement("span");
+    probe.style.borderRadius =
+      "var(--mari-window-bubble-radius, var(--mari-widget-bubble-radius, calc(var(--radius) + 0.125rem)))";
+    probe.style.clipPath = "var(--mari-widget-button-clip, none)";
+    document.body.append(probe);
+    const radius = getComputedStyle(probe).borderRadius;
+    const clip = getComputedStyle(probe).clipPath;
+    probe.style.clipPath = "var(--mari-widget-button-inner-clip, none)";
+    const innerClip = getComputedStyle(probe).clipPath;
+    probe.remove();
+    return { radius, clip, innerClip };
+  });
 }
 
 async function openSettingsSheet(page: Page) {
@@ -148,102 +170,360 @@ test.describe("phone bubbles", () => {
     test.skip(!testInfo.project.name.includes("mobile"), "Phones only; computers keep windows.");
   });
 
-  test("a drawer pops out into a bubble that drags, snaps, opens, goes back and stays with the chat", async ({
+  test("phone Chat tools expands themed buttons that stay reachable, movable, reorderable and locked per chat", async ({
     page,
     request,
   }, testInfo) => {
-    const chat = await createChat(request, "roleplay", {}, { connected: true });
+    const oldPoint = { x: 24, y: 250 };
+    const chat = await createChat(
+      request,
+      "roleplay",
+      {
+        windowLayout: { version: 1, windows: {}, phoneBubbles: { [CONNECTED]: oldPoint } },
+      },
+      { connected: true },
+    );
     try {
       await prepare(page, chat.id);
       await page.goto("/");
       await expect(page.locator('[data-chat-mode="roleplay"]')).toBeVisible({ timeout: 30_000 });
-      // The old "More options" menu is gone; Chat Settings starts at the chat's top right.
-      await expect(page.getByRole("button", { name: "More options", exact: true })).toHaveCount(0);
-      const area = await box(page.locator('[data-component="CenterContent"]'));
-      const settingsButton = await box(chatSettingsButton(page));
-      expect(Math.abs(settingsButton.x + settingsButton.width - (area.x + area.width - 8))).toBeLessThanOrEqual(1);
-      await expect(chatSettingsButton(page)).toHaveAttribute("data-presentation", "sheet");
-      await expect(bubble(page, CONNECTED)).toBeVisible();
-      await expectComposerClearAndNoSideScroll(page);
-
-      // The pop-out button moves the drawer into a bubble and closes the sheet so the bubble shows.
+      const launcher = bubble(page, TOOLS_MENU);
+      await expect(launcher).toBeVisible();
+      await expect(launcher).toHaveAttribute("aria-expanded", "false");
+      await expect(page.locator("[data-chat-tools-menu]")).toHaveCount(0);
+      await expect(bubble(page, CONNECTED)).toHaveCount(0);
       const settings = await openSettingsSheet(page);
-      await expect(settings.getByRole("button", { name: "Help", exact: true })).toBeVisible();
-      await expect(settings.getByRole("button", { name: "Reset View", exact: true })).toBeVisible();
-      const popOut = settings.locator('[data-drawer$="chat-name"] [data-drawer-control="pop-out"]');
-      expect((await box(popOut)).height).toBeGreaterThanOrEqual(44);
-      await popOut.click();
-      // Chat Settings stays mounted, hidden, to keep the popped-out drawer's state.
+      // A menu launcher shares the chat stacking context, beneath the active Settings sheet.
+      const close = settings.locator('[data-window-control="close"]');
+      expect(
+        await close.evaluate((element) => {
+          const r = element.getBoundingClientRect();
+          const hit = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
+          return hit === element || element.contains(hit);
+        }),
+      ).toBe(true);
+      expect(
+        await launcher.evaluate((element) => {
+          const r = element.getBoundingClientRect();
+          const hit = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
+          return hit?.closest(".mari-window")?.getAttribute("data-window");
+        }),
+      ).toBe("chat-settings");
+      await settings.locator('[data-drawer$="chat-name"] [data-drawer-control="pop-out"]').click();
       await expect(settings).toBeHidden();
-      const drawerBubble = bubble(page, CHAT_NAME_DRAWER);
-      await expect(drawerBubble).toBeVisible();
-      await expect(sheet(page, CHAT_NAME_DRAWER)).toHaveCount(0);
-      await expect(drawerBubble).toHaveAccessibleName("Open Chat Name");
-      // It takes the next free spot in the row, left of the connected chat's bubble.
-      const connected = await box(bubble(page, CONNECTED));
-      let placed = await box(drawerBubble);
-      expect(placed.y).toBeCloseTo(connected.y, 0);
-      expect(placed.x).toBeCloseTo(connected.x - connected.width - 8, 0);
-      // A 36px bubble with a 44px tap area.
-      expect(placed.width).toBeCloseTo(36, 0);
-      const tapArea = await drawerBubble.evaluate((element) => {
-        const rect = element.getBoundingClientRect();
-        const hit = document.elementFromPoint(rect.left - 3, rect.top + rect.height / 2);
-        return hit === element || element.contains(hit);
+      await expect(bubble(page, CHAT_NAME_DRAWER)).toHaveCount(0);
+      await launcher.click();
+      const menu = page.locator("[data-chat-tools-menu]");
+      const rows = menu.locator("[data-chat-tools-menu-item]");
+      await expect(rows).toHaveCount(2);
+      await expect(menu).not.toHaveClass(/mari-window/);
+      await expect(menu).toHaveAttribute("role", "group");
+      await expect(menu.locator(".mari-drawer")).toHaveCount(0);
+      for (const button of await menu.locator("button").all()) {
+        const bounds = await box(button);
+        expect(bounds.width).toBe(bounds.height);
+        await expect(button).toHaveCSS("border-radius", (await sharedBubbleShape(page)).radius);
+        await expect(button).toHaveAccessibleName(/.+/);
+      }
+      await page.screenshot({ path: testInfo.outputPath("themed-tools-default.png"), animations: "disabled" });
+      const order = () =>
+        rows.evaluateAll((items) => items.map((item) => item.getAttribute("data-chat-tools-menu-item")!));
+      const initial = await order();
+      const secondHandle = menu.locator(`[data-chat-tools-menu-tool="${initial[1]}"]`);
+      await secondHandle.press("ArrowUp");
+      await expect.poll(order).toEqual([...initial].reverse());
+      await expect(rows.first()).toHaveAttribute("aria-posinset", "1");
+      // Drag the tool button itself; ending that gesture must not open its tool.
+      const dragHandle = menu.locator(`[data-chat-tools-menu-tool="${initial[1]}"]`);
+      // Framer animates the keyboard reorder; use actionability before measuring its new position.
+      await dragHandle.hover();
+      const handleBox = await box(dragHandle);
+      const lastBox = await box(rows.last());
+      const start = { x: handleBox.x + handleBox.width / 2, y: handleBox.y + handleBox.height / 2 };
+      const end = { x: lastBox.x + lastBox.width - 20, y: lastBox.y + lastBox.height - 4 };
+      if (testInfo.project.name.includes("chromium")) {
+        const cdp = await page.context().newCDPSession(page);
+        await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [start] });
+        for (let step = 1; step <= 12; step++) {
+          await cdp.send("Input.dispatchTouchEvent", {
+            type: "touchMove",
+            touchPoints: [
+              {
+                x: start.x + ((end.x - start.x) * step) / 12,
+                y: start.y + ((end.y - start.y) * step) / 12,
+              },
+            ],
+          });
+        }
+        await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+        await cdp.detach();
+      } else {
+        await page.mouse.move(start.x, start.y);
+        await page.mouse.down();
+        try {
+          await page.mouse.move(end.x, end.y, { steps: 12 });
+          // WebKit may deliver all moves within one frame; keep the real drag active
+          // until Framer has applied its pointer update, then verify the released order.
+          await expect.poll(order).toEqual(initial);
+        } finally {
+          await page.mouse.up();
+        }
+      }
+      await expect.poll(order).toEqual(initial);
+      await expect(menu).toBeVisible();
+      await expect(sheet(page, initial[1]!)).toHaveCount(0);
+      // The expanded stack follows its trigger; its own buttons are not snap targets.
+      const lastTool = menu.locator("[data-chat-tools-menu-tool]").last();
+      await lastTool.hover();
+      const lastToolBox = await box(lastTool);
+      const triggerBeforeDrag = await box(launcher);
+      // WebKit delivers pointer coordinates in whole CSS pixels, even when a
+      // Framer layout animation left the preceding tool at a fractional pixel.
+      const drop = { x: triggerBeforeDrag.x, y: Math.round(lastToolBox.y + lastToolBox.height + 12) };
+      await dragBubble(page, launcher, drop);
+      expect((await box(launcher)).y).toBeCloseTo(drop.y, 0);
+      await expect(menu).toBeVisible();
+      await launcher.focus();
+      await launcher.press("ArrowDown");
+      const placed = await box(launcher);
+      const movedMenu = await box(menu);
+      expect(movedMenu.y).toBeGreaterThanOrEqual(placed.y + placed.height);
+      const lock = menu.locator('[data-window-control="lock"]');
+      await lock.click();
+      await expect(lock).toHaveAttribute("aria-pressed", "true");
+      await expect(menu.locator("[data-chat-tools-menu-tool]").first()).toHaveAttribute("data-locked", "true");
+      await menu.locator("[data-chat-tools-menu-tool]").last().press("ArrowUp");
+      await expect.poll(order).toEqual(initial);
+      // A locked tool must not hand its reorder keys to the chat's edit-message shortcut.
+      await expect(page.locator("[data-chat-message-editor]")).toHaveCount(0);
+      await launcher.focus();
+      await launcher.press("ArrowDown");
+      expect(await box(launcher)).toEqual(placed);
+      await page.screenshot({ path: testInfo.outputPath("phone-tools-menu.png"), animations: "disabled" });
+      await testInfo.attach("Reordered locked phone Chat tools", {
+        path: testInfo.outputPath("phone-tools-menu.png"),
+        contentType: "image/png",
       });
-      expect(tapArea).toBe(true);
-
-      // Dragged under the connected chat's bubble it snaps into line with it, a steady gap below.
-      await dragBubble(
-        page,
-        drawerBubble,
-        { x: connected.x - 4, y: connected.y + connected.height + 11 },
-        { hold: true },
-      );
-      await expect(page.locator(".mari-window-snap-guide").first()).toBeVisible();
-      await page.mouse.up();
-      placed = await box(drawerBubble);
-      expect(placed.x).toBeCloseTo(connected.x, 0);
-      expect(placed.y).toBeCloseTo(connected.y + connected.height + 8, 0);
-      await expect(sheet(page, CHAT_NAME_DRAWER)).toHaveCount(0);
-
-      // A tap opens the drawer as a sheet; closing it goes back to the bubble.
-      await drawerBubble.click();
-      const drawerSheet = sheet(page, CHAT_NAME_DRAWER);
-      await expect(drawerSheet).toBeVisible();
+      await launcher.click();
+      const drawerSheet = await openChatTool(page, CHAT_NAME_DRAWER);
       await expect(drawerSheet).toHaveAttribute("data-presentation", "sheet");
-      await expect(drawerSheet.getByText("Chat ID", { exact: false })).toBeVisible();
-      const sheetBox = await box(drawerSheet);
-      const viewport = page.viewportSize()!;
-      expect(sheetBox.x).toBeGreaterThanOrEqual(0);
-      expect(sheetBox.x + sheetBox.width).toBeLessThanOrEqual(viewport.width);
-      await page.screenshot({ path: testInfo.outputPath("drawer-sheet.png"), animations: "disabled" });
+      await drawerSheet.getByRole("button", { name: "Phone roleplay", exact: true }).click();
+      await drawerSheet.getByRole("textbox").fill("Renamed through Chat tools");
+      await drawerSheet.getByRole("textbox").press("Enter");
       await drawerSheet.locator('[data-window-control="close"]').click();
-      await expect(drawerSheet).toHaveCount(0);
-      await expect(drawerBubble).toBeVisible();
-
-      // Its place saves with the chat, apart from the computer's places, and survives a reload.
+      await expect(launcher).toBeFocused();
       await expect
         .poll(async () => {
-          const layout = await readSavedLayout(request, chat.id);
-          return [layout?.detached ?? [], layout?.phoneBubbles?.[CHAT_NAME_DRAWER] ?? null];
+          const saved = await readSavedLayout(request, chat.id);
+          return {
+            menu: saved?.phoneMenu,
+            point: saved?.phoneBubbles?.[TOOLS_MENU],
+            old: saved?.phoneBubbles?.[CONNECTED],
+          };
         })
-        .toEqual([[CHAT_NAME_DRAWER], { x: placed.x, y: placed.y }]);
+        .toEqual({ menu: { locked: true, order: initial }, point: { x: placed.x, y: placed.y }, old: oldPoint });
       await page.reload();
-      await expect(page.locator('[data-chat-mode="roleplay"]')).toBeVisible({ timeout: 30_000 });
-      const reloaded = await box(bubble(page, CHAT_NAME_DRAWER));
-      expect(reloaded.x).toBeCloseTo(placed.x, 0);
-      expect(reloaded.y).toBeCloseTo(placed.y, 0);
-      await page.screenshot({ path: testInfo.outputPath("bubbles-after-reload.png"), animations: "disabled" });
-
-      // Put back returns the drawer to Chat Settings.
-      await bubble(page, CHAT_NAME_DRAWER).click();
-      await sheet(page, CHAT_NAME_DRAWER).getByRole("button", { name: "Put back in Chat Settings" }).click();
-      await expect(bubble(page, CHAT_NAME_DRAWER)).toHaveCount(0);
-      const reopened = await openSettingsSheet(page);
-      await expect(reopened.locator('[data-drawer$="chat-name"]').first()).toHaveAttribute("data-detached", "false");
+      await expect(launcher).toBeVisible();
+      await expect(menu).toHaveCount(0);
+      expect(await box(launcher)).toEqual(placed);
+      await launcher.click();
+      await expect(menu).toHaveAttribute("data-locked", "true");
+      await expect.poll(order).toEqual(initial);
+      await menu.locator(`[data-chat-tools-menu-tool="${CHAT_NAME_DRAWER}"]`).click();
+      await expect(drawerSheet.getByRole("button", { name: "Renamed through Chat tools", exact: true })).toBeVisible();
+      await drawerSheet.getByRole("button", { name: "Put back in Chat Settings" }).click();
       await expect.poll(async () => (await readSavedLayout(request, chat.id))?.detached ?? []).toEqual([]);
+      await launcher.click();
+      await expect(rows).toHaveCount(1);
+      await expect(rows.first()).toHaveAttribute("data-chat-tools-menu-item", CONNECTED);
+      await launcher.click();
+      await page.evaluate(async (id) => {
+        const { useChatStore } = await import("/src/stores/chat.store.ts" as string);
+        useChatStore.getState().setActiveChatId(id);
+      }, chat.partnerId!);
+      await expect(page.locator('[data-chat-mode="conversation"]')).toBeVisible();
+      await expect(launcher).toHaveAttribute("data-locked", "false");
+      await page.evaluate(async (id) => {
+        const { useChatStore } = await import("/src/stores/chat.store.ts" as string);
+        useChatStore.getState().setActiveChatId(id);
+      }, chat.id);
+      await expect(page.locator('[data-chat-mode="roleplay"]')).toBeVisible();
+      await expect(launcher).toHaveAttribute("data-locked", "true");
     } finally {
+      await chat.remove();
+    }
+  });
+
+  for (const theme of ["dark", "light"] as const) {
+    test(`phone Chat tools follows every preset and shape override with gradient paint in ${theme} mode`, async ({
+      page,
+      request,
+    }, testInfo) => {
+      const chat = await createChat(request, "game", {}, { connected: true });
+      try {
+        await prepare(page, chat.id, { theme, appAccentPulseMode: false });
+        await page.goto("/");
+        await expect(page.locator('[data-chat-mode="game"]')).toBeVisible({ timeout: 30_000 });
+        const launcher = bubble(page, TOOLS_MENU);
+        await launcher.click();
+        const menu = page.locator("[data-chat-tools-menu]");
+        await expect(menu.locator("[data-chat-tools-menu-tool]")).toHaveCount(GAME_CONTROLS.length);
+        const buttons = page.locator("[data-chat-tools-menu-button], [data-chat-tools-menu] button");
+        await expect(buttons).toHaveCount(GAME_CONTROLS.length + 2);
+        for (const [preset, shape] of [
+          ["default", "preset"],
+          ["dottore", "preset"],
+          ["mari", "preset"],
+          ["dottore", "rounded"],
+          ["mari", "square"],
+          ["mari", "cut-corner"],
+          ["dottore", "arched"],
+        ] as const) {
+          for (const gradient of [false, true]) {
+            await test.step(`${preset}/${shape}, ${gradient ? "custom gradients" : "preset colors"}`, async () => {
+              await page.evaluate(
+                async ({ preset, shape, gradient }) => {
+                  const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+                  useUIStore.setState({
+                    chatWidgetPreset: preset,
+                    chatWidgetShape: shape,
+                    chatWidgetBorderColor: gradient ? "linear-gradient(90deg, #cca077, #88ccdd)" : "",
+                    chatWidgetBackgroundColor: gradient ? "linear-gradient(135deg, #202838, #384050)" : "",
+                  });
+                },
+                { preset, shape, gradient },
+              );
+              const resolvedShape =
+                shape !== "preset" ? shape : preset === "dottore" ? "cut-corner" : preset === "mari" ? "arched" : null;
+              if (resolvedShape)
+                await expect(page.locator("html")).toHaveAttribute("data-chat-widget-shape", resolvedShape);
+              else await expect(page.locator("html")).not.toHaveAttribute("data-chat-widget-shape");
+              if (gradient) await expect(page.locator("html")).toHaveAttribute("data-chat-widget-colors", /border/);
+              else await expect(page.locator("html")).not.toHaveAttribute("data-chat-widget-colors");
+              const expected = await sharedBubbleShape(page);
+              if (resolvedShape === "cut-corner") expect(expected.clip).toContain("polygon(");
+              for (const button of await buttons.all()) {
+                await expect(button).toHaveCSS("border-radius", expected.radius);
+                const paint = await button.evaluate((element, gradient) => {
+                  const frame = gradient ? element.querySelector(".mari-window-bubble__paint")! : element;
+                  const outer = getComputedStyle(frame, gradient ? null : "::after");
+                  const inner = getComputedStyle(frame, "::after");
+                  return {
+                    clip: outer.clipPath,
+                    innerClip: inner.clipPath,
+                    border: outer.backgroundImage,
+                    background: inner.backgroundImage,
+                  };
+                }, gradient);
+                expect(paint.clip).toBe(expected.clip);
+                if (gradient) {
+                  expect(paint.innerClip).toBe(expected.innerClip);
+                  expect(paint.border).toContain("linear-gradient");
+                  expect(paint.background).toContain("linear-gradient");
+                }
+              }
+              await expectComposerClearAndNoSideScroll(page);
+              await page.screenshot({
+                path: testInfo.outputPath(`tools-${preset}-${shape}-${theme}-${gradient ? "gradient" : "preset"}.png`),
+                animations: "disabled",
+              });
+            });
+          }
+        }
+      } finally {
+        await chat.remove();
+      }
+    });
+  }
+
+  test("holding a phone tool reorders five tools, saves after reload and respects locking", async ({
+    page,
+    request,
+  }, testInfo) => {
+    const nativeTouch = testInfo.project.name.includes("chromium");
+    testInfo.annotations.push({
+      type: "input",
+      description: nativeTouch ? "Native Chromium CDP touch" : "WebKit real mouse fallback; not native iOS touch",
+    });
+    const chat = await createChat(request, "game", {}, { connected: true });
+    const cdp = nativeTouch ? await page.context().newCDPSession(page) : null;
+    try {
+      await prepare(page, chat.id, { chatWidgetPreset: "dottore" });
+      await page.goto("/");
+      await expect(page.locator('[data-chat-mode="game"]')).toBeVisible({ timeout: 30_000 });
+      const launcher = bubble(page, TOOLS_MENU);
+      await launcher.click();
+      const menu = page.locator("[data-chat-tools-menu]");
+      const rows = menu.locator("[data-chat-tools-menu-item]");
+      await expect(rows).toHaveCount(GAME_CONTROLS.length);
+      const order = () =>
+        rows.evaluateAll((items) => items.map((item) => item.getAttribute("data-chat-tools-menu-item")!));
+      const initial = await order();
+      const movedId = initial.at(-1)!;
+      const reordered = [movedId, ...initial.slice(0, -1)];
+      const movedTool = menu.locator(`[data-chat-tools-menu-tool="${movedId}"]`);
+      const heldDrag = async (target: Locator, destination: Locator, expected: string[]) => {
+        await target.hover();
+        const icon = await box(target.locator("svg").first());
+        const to = await box(destination);
+        const start = { x: icon.x + icon.width / 2, y: icon.y + icon.height / 2 };
+        const end = { x: to.x + to.width / 2, y: to.y + 8 };
+        if (cdp) await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [start] });
+        else {
+          await page.mouse.move(start.x, start.y);
+          await page.mouse.down();
+        }
+        try {
+          // Keep the pointer down before moving to exercise the reported held-drag path.
+          await page.waitForTimeout(600);
+          for (let step = 1; step <= 16; step++) {
+            const point = {
+              x: start.x + ((end.x - start.x) * step) / 16,
+              y: start.y + ((end.y - start.y) * step) / 16,
+            };
+            if (cdp) await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [point] });
+            else await page.mouse.move(point.x, point.y);
+            await page.waitForTimeout(16);
+          }
+          await expect.poll(order).toEqual(expected);
+        } finally {
+          if (cdp) await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+          else await page.mouse.up();
+        }
+      };
+      await heldDrag(movedTool, rows.first(), reordered);
+      await expect.poll(order).toEqual(reordered);
+      await expect(menu).toBeVisible();
+      await expect(sheet(page, movedId)).toHaveCount(0);
+      await expect.poll(async () => (await readSavedLayout(request, chat.id))?.phoneMenu?.order).toEqual(reordered);
+      await page.reload();
+      await expect(launcher).toBeVisible();
+      await launcher.click();
+      await expect.poll(order).toEqual(reordered);
+      const lock = menu.locator('[data-window-control="lock"]');
+      await lock.click();
+      await expect(lock).toHaveAttribute("aria-pressed", "true");
+      await heldDrag(menu.locator("[data-chat-tools-menu-tool]").last(), rows.first(), reordered);
+      await expect.poll(order).toEqual(reordered);
+      await expect(menu).toBeVisible();
+      await expect
+        .poll(async () => (await readSavedLayout(request, chat.id))?.phoneMenu)
+        .toEqual({ locked: true, order: reordered });
+      await page.screenshot({
+        path: testInfo.outputPath("held-tools-reordered-and-locked.png"),
+        animations: "disabled",
+      });
+      // A deliberate next tap must open immediately, even if the browser omitted the drag-release click.
+      if (cdp) {
+        const target = await box(movedTool.locator("svg").first());
+        const point = { x: target.x + target.width / 2, y: target.y + target.height / 2 };
+        await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [point] });
+        await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+      } else await movedTool.click();
+      await expect(sheet(page, movedId)).toBeVisible();
+      await expect(menu).toHaveCount(0);
+    } finally {
+      await cdp?.detach();
       await chat.remove();
     }
   });
@@ -258,7 +538,7 @@ test.describe("phone bubbles", () => {
       await prepare(page, chat.id);
       await page.goto("/");
       await expect(page.locator('[data-chat-mode="conversation"]')).toBeVisible({ timeout: 30_000 });
-      const target = bubble(page, CONNECTED);
+      const target = bubble(page, TOOLS_MENU);
       const start = await box(target);
       const cdp = await page.context().newCDPSession(page);
       const touch = async (type: "touchStart" | "touchMove" | "touchEnd", x: number, y: number) =>
@@ -269,8 +549,8 @@ test.describe("phone bubbles", () => {
       await touch("touchStart", cx, cy);
       await touch("touchMove", cx + 4, cy + 4);
       await touch("touchEnd", cx + 4, cy + 4);
-      await expect(sheet(page, CONNECTED)).toBeVisible();
-      await sheet(page, CONNECTED).locator('[data-window-control="close"]').click();
+      await expect(page.locator("[data-chat-tools-menu]")).toBeVisible();
+      await bubble(page, TOOLS_MENU).click();
       await expect(target).toBeVisible();
       const unchanged = await box(target);
       expect(unchanged.x).toBeCloseTo(start.x, 0);
@@ -295,7 +575,7 @@ test.describe("phone bubbles", () => {
       await touch("touchStart", cx, cy);
       for (let step = 1; step <= 6; step += 1) await touch("touchMove", cx - step * 20, cy + step * 30);
       await touch("touchEnd", cx - 120, cy + 180);
-      await expect(sheet(page, CONNECTED)).toHaveCount(0);
+      await expect(page.locator("[data-chat-tools-menu]")).toHaveCount(0);
       const moved = await box(target);
       expect(moved.x).toBeLessThan(start.x - 100);
       expect(moved.y).toBeGreaterThan(start.y + 150);
@@ -306,7 +586,7 @@ test.describe("phone bubbles", () => {
       const nextY = moved.y + moved.height / 2;
       await touch("touchStart", nextX, nextY);
       await touch("touchEnd", nextX, nextY);
-      await expect(sheet(page, CONNECTED)).toBeVisible();
+      await expect(page.locator("[data-chat-tools-menu]")).toBeVisible();
     } finally {
       await chat.remove();
     }
@@ -448,7 +728,7 @@ test.describe("phone bubbles", () => {
       await prepare(page, chat.id, {
         trackerPanelEnabled: false,
         trackerPanelOpen: false,
-        trackerPanelHideHudWidgets: true,
+        trackerPanelHideHudWidgets: false,
       });
       await page.goto("/");
       await expect(page.locator('[data-chat-mode="roleplay"]')).toBeVisible({ timeout: 30_000 });
@@ -468,12 +748,14 @@ test.describe("phone bubbles", () => {
       // Switching it on leaves the panel closed: it waits behind its bubble.
       await settings.locator('[data-window-control="close"]').click();
       await expect(trackerBubble).toBeVisible();
-      await expect(trackerBubble).toHaveAccessibleName("Open Tracker Panel");
+      await expect(trackerBubble).toHaveAccessibleName("Open Trackers");
       await expect(panel).toHaveCount(0);
       await expectComposerClearAndNoSideScroll(page);
 
       await trackerBubble.click();
       await expect(panel).toBeVisible();
+      await expect(panel.getByRole("button", { name: "Close Tracker Panel" })).toBeVisible();
+      await expect.poll(async () => Math.abs((await box(panel)).x)).toBeLessThan(1);
       await page.screenshot({ path: testInfo.outputPath("tracker-panel-open.png"), animations: "disabled" });
       // Closing the panel goes back to the bubble; the switch stays on.
       await panel.getByRole("button", { name: "Close Tracker Panel" }).click();
@@ -501,7 +783,74 @@ test.describe("phone bubbles", () => {
     }
   });
 
-  test("Game's controls are bubbles in a row that open their content as sheets", async ({
+  test("Game Map stays a separate themed movable button and keeps its lock and position", async ({
+    page,
+    request,
+  }, info) => {
+    const chat = await createChat(request, "game", { windowLayout: null, enableAgents: false });
+    const id = "control:map";
+    try {
+      await prepare(page, chat.id, {
+        theme: "dark",
+        chatWidgetPreset: "dottore",
+        chatWidgetBorderColor: "#ccaa77",
+        chatWidgetBackgroundColor: "#112233",
+        chatWidgetTextColor: "#e6efff",
+        chatWidgetApplyFont: false,
+        chatWidgetApplyShape: false,
+        chatWidgetApplyColors: false,
+      });
+      await page.goto("/");
+      const launcher = bubble(page, id);
+      await expect(launcher).toHaveCount(1);
+      await expect(launcher).toHaveAccessibleName("Open Map");
+      for (const role of ["font", "shape", "colors"])
+        await expect(page.locator("html")).not.toHaveAttribute(`data-chat-widget-apply-${role}`);
+      await expect(launcher.locator("svg")).toHaveCSS("color", "rgb(204, 170, 119)");
+      await bubble(page, TOOLS_MENU).click();
+      await expect(page.locator(`[data-chat-tools-menu-item="${id}"]`)).toHaveCount(0);
+      await bubble(page, TOOLS_MENU).click();
+      await dragBubble(page, launcher, { x: 90, y: 200 });
+      const placed = await box(launcher);
+      await expect
+        .poll(async () => (await readSavedLayout(request, chat.id))?.phoneBubbles?.[id])
+        .toEqual({ x: placed.x, y: placed.y });
+      await launcher.click();
+      const window = sheet(page, id);
+      await expect(window).toHaveAttribute("data-presentation", "sheet");
+      await expect(window.locator(".mari-window__title")).toHaveCSS("font-family", /monospace/);
+      await expect(window.getByText("No local map yet", { exact: true })).toBeVisible();
+      await expect(window.getByRole("button", { name: "Generate", exact: true })).toBeVisible();
+      await window.locator('[data-window-control="lock"]').click();
+      await expect(window.locator('[data-window-control="lock"]')).toHaveAttribute("aria-pressed", "true");
+      await page.screenshot({ path: info.outputPath("game-map-phone-sheet.png"), animations: "disabled" });
+      await window.locator('[data-window-control="close"]').click();
+      await expect(launcher).toBeFocused();
+      await launcher.press("Shift+ArrowDown");
+      expect(await box(launcher)).toEqual(placed);
+      await dragBubble(page, launcher, { x: 180, y: 320 });
+      expect(await box(launcher)).toEqual(placed);
+      // A locked click remains usable even though the drag gesture cannot move it.
+      if (await window.isVisible()) await window.locator('[data-window-control="close"]').click();
+      await expect
+        .poll(async () => (await readSavedLayout(request, chat.id))?.windows[id])
+        .toMatchObject({ locked: true });
+      await page.reload();
+      await expect(launcher).toHaveAttribute("data-locked", "true");
+      expect(await box(launcher)).toEqual(placed);
+      await launcher.click();
+      await expect(window.getByText("No local map yet", { exact: true })).toBeVisible();
+      await window.locator('[data-window-control="lock"]').click();
+      await window.locator('[data-window-control="close"]').click();
+      await launcher.focus();
+      await launcher.press("ArrowDown");
+      expect((await box(launcher)).y).toBeCloseTo(placed.y + 10, 0);
+    } finally {
+      await chat.remove();
+    }
+  });
+
+  test("Game's controls share a vertical Chat tools menu and open usable sheets", async ({
     page,
     request,
   }, testInfo) => {
@@ -509,40 +858,20 @@ test.describe("phone bubbles", () => {
     try {
       await prepare(page, chat.id);
       await page.goto("/");
-      const game = page.locator('[data-chat-mode="game"]');
-      await expect(game).toBeVisible({ timeout: 30_000 });
-      await expect(page.getByRole("button", { name: "Game actions", exact: true })).toHaveCount(0);
-
-      // Settings owns the first top-right slot; controls start to its left and wrap below it.
-      for (const id of GAME_CONTROLS) await expect(bubble(page, id)).toBeVisible();
-      const row = await Promise.all(GAME_CONTROLS.map((id) => box(bubble(page, id))));
-      const viewport = page.viewportSize()!;
-      const settingsButton = await box(chatSettingsButton(page));
-      const rects = [...row, settingsButton];
-      for (const [index, rect] of rects.entries()) {
-        expect(rect.x).toBeGreaterThanOrEqual(0);
-        expect(rect.x + rect.width).toBeLessThanOrEqual(viewport.width);
-        for (const other of rects.slice(index + 1)) {
-          const apart =
-            rect.x + rect.width <= other.x ||
-            other.x + other.width <= rect.x ||
-            rect.y + rect.height <= other.y ||
-            other.y + other.height <= rect.y;
-          expect(apart, "bubbles never overlap").toBe(true);
-        }
-      }
-      const connectedBox = row.at(-1)!;
-      expect(Math.abs(connectedBox.y - settingsButton.y)).toBeLessThanOrEqual(1);
-      expect(connectedBox.x + connectedBox.width).toBeLessThan(settingsButton.x);
-      for (const rect of row) expect([0, 44]).toContain(Math.round(rect.y - settingsButton.y));
-      // The map stays clear of the bubbles.
-      const map = await box(game.locator('[data-tour="game-map"]').first());
-      for (const rect of rects) expect(map.x + map.width <= rect.x || map.y + map.height <= rect.y).toBe(true);
+      await expect(page.locator('[data-chat-mode="game"]')).toBeVisible({ timeout: 30_000 });
+      const launcher = bubble(page, TOOLS_MENU);
+      await expect(launcher).toBeVisible();
+      for (const id of GAME_CONTROLS) await expect(bubble(page, id)).toHaveCount(0);
+      await launcher.click();
+      const menu = page.locator("[data-chat-tools-menu]");
+      const rows = menu.locator("[data-chat-tools-menu-item]");
+      await expect(rows).toHaveCount(GAME_CONTROLS.length);
+      const rects = await Promise.all((await rows.all()).map(box));
+      for (let i = 1; i < rects.length; i++)
+        expect(rects[i]!.y).toBeGreaterThanOrEqual(rects[i - 1]!.y + rects[i - 1]!.height - 1);
       await expectComposerClearAndNoSideScroll(page);
-      const input = await box(game.getByPlaceholder("What do you do?"));
-      for (const rect of rects) expect(rect.y + rect.height).toBeLessThan(input.y);
-      await page.screenshot({ path: testInfo.outputPath("game-bubbles.png"), animations: "disabled" });
-
+      await page.screenshot({ path: testInfo.outputPath("game-tools-menu.png"), animations: "disabled" });
+      const viewport = page.viewportSize()!;
       const opens: Array<[string, (window: Locator) => Locator]> = [
         ["control:game", (window) => window.getByRole("button", { name: "Retry Turn" })],
         ["control:session", (window) => window.getByRole("button", { name: /history/iu }).first()],
@@ -551,7 +880,7 @@ test.describe("phone bubbles", () => {
         [CONNECTED, (window) => window.getByRole("button", { name: /^Switch to/u })],
       ];
       for (const [id, content] of opens) {
-        await bubble(page, id).click();
+        await openChatTool(page, id);
         const window = sheet(page, id);
         await expect(window).toBeVisible();
         await expect(window).toHaveAttribute("data-presentation", "sheet");
@@ -565,7 +894,170 @@ test.describe("phone bubbles", () => {
         }
         await window.locator('[data-window-control="close"]').click();
         await expect(window).toHaveCount(0);
-        await expect(bubble(page, id)).toBeVisible();
+        await expect(launcher).toBeFocused();
+      }
+    } finally {
+      await chat.remove();
+    }
+  });
+
+  test("edge-docked phone Chat tools stay centered above and below their launcher", async ({
+    page,
+    request,
+  }, testInfo) => {
+    const chat = await createChat(request, "game", {}, { connected: true });
+    try {
+      await prepare(page, chat.id, { appAccentPulseMode: false });
+      await page.goto("/");
+      await expect(page.locator('[data-chat-mode="game"]')).toBeVisible({ timeout: 30_000 });
+      const launcher = bubble(page, TOOLS_MENU);
+      const menu = page.locator("[data-chat-tools-menu]");
+      const viewport = page.viewportSize()!;
+      for (const [preset, size] of [
+        ["dottore", null],
+        ["mari", 96],
+      ] as const) {
+        await page.evaluate(
+          async ({ preset, size }) => {
+            const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+            useUIStore.setState({ chatWidgetPreset: preset, chatWidgetButtonSize: size });
+          },
+          { preset, size },
+        );
+        await expect(launcher).toHaveCSS("width", `${size ?? 36}px`);
+        for (const edge of ["right", "left"] as const) {
+          for (const direction of ["below", "above"] as const) {
+            await dragBubble(page, launcher, {
+              x: edge === "left" ? -100 : viewport.width + 100,
+              y: direction === "below" ? 130 : viewport.height + 100,
+            });
+            await launcher.click();
+            await expect(menu.locator("[data-chat-tools-menu-tool]")).toHaveCount(GAME_CONTROLS.length);
+            const visibleGaps = await menu.evaluate((element) => {
+              const scroller = element.querySelector("ul")!.getBoundingClientRect();
+              const buttons = Array.from(element.querySelectorAll("button"), (button) => ({
+                rect: button.getBoundingClientRect(),
+                tool: button.hasAttribute("data-chat-tools-menu-tool"),
+              }));
+              const visible = ({ rect, tool }: (typeof buttons)[number]) =>
+                !tool || (rect.top >= scroller.top && rect.bottom <= scroller.bottom);
+              return buttons
+                .slice(1)
+                .flatMap((button, index) =>
+                  visible(buttons[index]!) && visible(button) ? [button.rect.top - buttons[index]!.rect.bottom] : [],
+                );
+            });
+            // Reach the full scroll endpoint, including padding after the last button.
+            await menu.locator("ul").evaluate((element) => {
+              element.scrollTop = element.scrollHeight;
+            });
+            await page.screenshot({
+              path: testInfo.outputPath(`edge-tools-${preset}-${edge}-${direction}.png`),
+              animations: "disabled",
+            });
+            const trigger = await box(launcher);
+            const center = trigger.x + trigger.width / 2;
+            for (const button of await menu.locator("button").all()) {
+              const rect = await box(button);
+              expect(Math.abs(rect.x + rect.width / 2 - center)).toBeLessThanOrEqual(1);
+              expect(rect.x).toBeGreaterThanOrEqual(0);
+              expect(rect.x + rect.width).toBeLessThanOrEqual(viewport.width);
+            }
+            // Match the 8px spacing of other snapped phone buttons, including the lock-to-first-tool gap.
+            expect(visibleGaps.length).toBeGreaterThanOrEqual(2);
+            for (const gap of visibleGaps) expect(Math.abs(gap - 8)).toBeLessThanOrEqual(1);
+            const expanded = await box(menu);
+            if (direction === "below") expect(expanded.y).toBeGreaterThanOrEqual(trigger.y + trigger.height);
+            else expect(expanded.y + expanded.height).toBeLessThanOrEqual(trigger.y);
+            const nearest = await box(
+              direction === "below"
+                ? menu.locator('[data-window-control="lock"]')
+                : menu.locator("[data-chat-tools-menu-tool]").last(),
+            );
+            const launcherGap =
+              direction === "below" ? nearest.y - trigger.y - trigger.height : trigger.y - nearest.y - nearest.height;
+            expect(Math.abs(launcherGap - 8)).toBeLessThanOrEqual(1);
+            await expectComposerClearAndNoSideScroll(page);
+            await launcher.click();
+            await expect(menu).toHaveCount(0);
+          }
+        }
+      }
+    } finally {
+      await chat.remove();
+    }
+  });
+
+  test("large themed tools scroll inside a short phone viewport without covering their trigger", async ({
+    page,
+    request,
+  }, testInfo) => {
+    const chat = await createChat(request, "game", {}, { connected: true });
+    try {
+      await page.setViewportSize({ width: 390, height: 520 });
+      await prepare(page, chat.id, { chatWidgetButtonSize: 96, appAccentPulseMode: false });
+      await page.goto("/");
+      await expect(page.locator('[data-chat-mode="game"]')).toBeVisible({ timeout: 30_000 });
+      const launcher = bubble(page, TOOLS_MENU);
+      await expect(launcher).toHaveCSS("width", "96px");
+      await dragBubble(page, launcher, { x: 20, y: 170 });
+      for (const [preset, theme] of [
+        ["dottore", "dark"],
+        ["mari", "light"],
+      ] as const) {
+        await page.evaluate(
+          async ({ preset, theme }) => {
+            const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+            useUIStore.setState({
+              chatWidgetPreset: preset,
+              theme,
+              chatWidgetBorderColor: "linear-gradient(90deg, #cca077, #88ccdd)",
+              chatWidgetBackgroundColor: "linear-gradient(135deg, #202838, #384050)",
+            });
+          },
+          { preset, theme },
+        );
+        await launcher.click();
+        const menu = page.locator("[data-chat-tools-menu]");
+        await expect(menu.locator("[data-chat-tools-menu-tool]")).toHaveCount(GAME_CONTROLS.length);
+        const menuBox = await box(menu);
+        const triggerBox = await box(launcher);
+        expect(menuBox.x).toBeGreaterThanOrEqual(0);
+        expect(menuBox.x + menuBox.width).toBeLessThanOrEqual(390);
+        expect(menuBox.y).toBeGreaterThanOrEqual(0);
+        expect(menuBox.y + menuBox.height).toBeLessThanOrEqual(520);
+        expect(
+          menuBox.x + menuBox.width <= triggerBox.x ||
+            menuBox.x >= triggerBox.x + triggerBox.width ||
+            menuBox.y + menuBox.height <= triggerBox.y ||
+            menuBox.y >= triggerBox.y + triggerBox.height,
+        ).toBe(true);
+        const scroller = menu.locator("ul");
+        expect(await scroller.evaluate((node) => node.scrollHeight > node.clientHeight)).toBe(true);
+        const last = menu.locator("[data-chat-tools-menu-tool]").last();
+        await last.scrollIntoViewIfNeeded();
+        await expect(last).toHaveCSS("width", "96px");
+        await expect(last).toHaveCSS("height", "96px");
+        await expect(last).toHaveCSS("border-radius", (await sharedBubbleShape(page)).radius);
+        expect(
+          await last.evaluate(
+            (node) => getComputedStyle(node.querySelector(".mari-window-bubble__paint")!).backgroundImage,
+          ),
+        ).toContain("linear-gradient");
+        await expectComposerClearAndNoSideScroll(page);
+        await page.screenshot({
+          path: testInfo.outputPath(`themed-tools-${preset}-${theme}.png`),
+          animations: "disabled",
+        });
+        const id = await last.getAttribute("data-chat-tools-menu-tool");
+        await last.click();
+        await expect(sheet(page, id!)).toBeVisible();
+        await expect(menu).toHaveCount(0);
+        await sheet(page, id!).locator('[data-window-control="close"]').click();
+        await launcher.click();
+        await menu.press("Escape");
+        await expect(menu).toHaveCount(0);
+        await expect(launcher).toBeFocused();
       }
     } finally {
       await chat.remove();
@@ -578,7 +1070,7 @@ test.describe("phone bubbles", () => {
       await prepare(page, chat.id);
       await page.goto("/");
       await expect(page.locator('[data-chat-mode="conversation"]')).toBeVisible({ timeout: 30_000 });
-      const target = bubble(page, CONNECTED);
+      const target = bubble(page, TOOLS_MENU);
       const composer = page.locator("[data-chat-mode] [data-chat-composer]").first();
       // Dragged as low as it goes, it stops above the message box.
       await dragBubble(page, target, { x: 24, y: 2000 });
@@ -612,18 +1104,24 @@ test.describe("phone bubbles", () => {
       await page.setViewportSize({ width: portrait.height, height: portrait.width });
       await page.goto("/");
       await expect(page.locator('[data-chat-mode="game"]')).toBeVisible({ timeout: 30_000 });
-      // Wide enough for the computer layout: the same controls are minimized windows on screen.
-      for (const id of GAME_CONTROLS) {
-        const rect = await box(bubble(page, id));
-        expect(rect.x).toBeGreaterThanOrEqual(0);
-        expect(rect.x + rect.width).toBeLessThanOrEqual(portrait.height);
-        expect(rect.y + rect.height).toBeLessThanOrEqual(portrait.width);
+      // Some phones remain narrower than the desktop breakpoint even sideways.
+      if (portrait.height >= 768) {
+        for (const id of GAME_CONTROLS) {
+          const rect = await box(bubble(page, id));
+          expect(rect.x).toBeGreaterThanOrEqual(0);
+          expect(rect.x + rect.width).toBeLessThanOrEqual(portrait.height);
+          expect(rect.y + rect.height).toBeLessThanOrEqual(portrait.width);
+        }
+      } else {
+        await expect(bubble(page, TOOLS_MENU)).toBeVisible();
+        for (const id of GAME_CONTROLS) await expect(bubble(page, id)).toHaveCount(0);
       }
       await expect(chatSettingsButton(page)).toBeVisible();
       await expectComposerClearAndNoSideScroll(page);
-      // Back upright, they are a phone's bubbles again.
+      // Back upright, the same controls return to their shared menu.
       await page.setViewportSize(portrait);
-      await expect(bubble(page, GAME_CONTROLS[0]!)).toHaveAttribute("data-presentation", "sheet");
+      await expect(bubble(page, TOOLS_MENU)).toBeVisible();
+      for (const id of GAME_CONTROLS) await expect(bubble(page, id)).toHaveCount(0);
       await expectComposerClearAndNoSideScroll(page);
     } finally {
       await chat.remove();

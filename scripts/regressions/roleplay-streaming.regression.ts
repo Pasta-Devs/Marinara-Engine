@@ -1104,8 +1104,8 @@ assert.match(
 );
 assert.match(
   firefoxSupportsSource,
-  /(?:^|\})\s*\[data-chat-mode="roleplay"\] \.marinara-chat-input-shell\s*\{[^{}]*background:\s*linear-gradient\(var\(--card\), var\(--card\)\),\s*var\(--background\) !important;[^{}]*\}/u,
-  "Firefox should use an opaque Roleplay composer surface after disabling backdrop blur",
+  /(?:^|\})\s*\[data-chat-mode="roleplay"\] \.marinara-chat-input-shell\s*\{[^{}]*--mari-chat-existing-bg:\s*linear-gradient\(var\(--card\), var\(--card\)\),\s*var\(--background\);[^{}]*background:\s*var\(--mari-chat-surface-paint,\s*var\(--mari-chat-existing-bg\)\) !important;[^{}]*\}/u,
+  "Firefox should retain the opaque Roleplay composer fallback while allowing the selected chat surface paint",
 );
 assert.doesNotMatch(
   chatInputSource,

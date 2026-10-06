@@ -209,7 +209,7 @@ When someone adds your agent to a chat, they see a **Prompt Mode** dropdown list
 
 Custom agents share some settings with built-in agents:
 
-- **Connection Override**: pick a different AI connection for this agent. For example, use a cheaper model for background work. Leave it empty to use the chat's connection.
+- **Connection Override**: pick a different AI connection for this agent. For example, use a cheaper model for background work. Leave it empty to use the chat's connection. The agent sends the generation parameters saved on that connection; see [Parameters for agents](../prompts/generation-parameters.md#parameters-for-agents).
 - **Agent Budget**: set **Context Size** (how many recent messages the agent reads, default 5). Also set **Max Output Tokens** (the output room reserved, default 4096, from 128 to 32768).
 - **Add as Prompt Section**: turn this on to expose the agent's latest output as a section you can inject in a prompt preset.
 

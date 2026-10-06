@@ -66,12 +66,7 @@ import {
   type MouseEvent as ReactMouseEvent,
 } from "react";
 import { useTranslation as useUiTranslation } from "react-i18next";
-import { useMatchMedia } from "../../hooks/use-match-media";
-import {
-  PHONE_LAYOUT_QUERY,
-  TRACKER_PANEL_BUBBLE_ID,
-  useFloatingWindowStore,
-} from "../../stores/floating-window.store";
+import { TRACKER_PANEL_BUBBLE_ID, useFloatingWindowStore } from "../../stores/floating-window.store";
 import { closeTrackerPanel } from "../../lib/tracker-panel-surface";
 
 const ChatArea = lazy(() => import("../chat/ChatArea").then((module) => ({ default: module.ChatArea })));
@@ -131,7 +126,7 @@ const TRACKER_PANEL_DESKTOP_MOTION_MS = 260;
 const TRACKER_PANEL_DESKTOP_EXIT_MS = 240;
 const TRACKER_PANEL_DESKTOP_EASE = [0.16, 1, 0.3, 1] as const;
 const TRACKER_PANEL_DESKTOP_EXIT_EASE = [0.4, 0, 1, 1] as const;
-const TRACKER_PANEL_TOGGLE_SELECTOR = '[data-tracker-panel-toggle="roleplay-hud"]';
+const TRACKER_PANEL_TOGGLE_SELECTOR = '[data-tracker-panel-toggle="bubble"]';
 const TRACKER_PANEL_ANCHOR_SELECTOR = '[data-tracker-panel-anchor="roleplay-hud"]';
 const ROLEPLAY_CHAT_COLUMN_SELECTOR = '[data-roleplay-chat-column="true"]';
 const TOP_BAR_SELECTOR = '[data-component="TopBar"]';
@@ -424,8 +419,7 @@ export function AppShell({
   const openAgentCatalog = useUIStore((s) => s.openAgentCatalog);
   const setTrackerPanelOpen = useUIStore((s) => s.setTrackerPanelOpen);
   const restoreTrackerPanelOpenForChat = useUIStore((s) => s.restoreTrackerPanelOpenForChat);
-  const phoneChatLayout = useMatchMedia(PHONE_LAYOUT_QUERY);
-  const phoneTrackerPanelOpen = useFloatingWindowStore((s) => s.open[TRACKER_PANEL_BUBBLE_ID] === true);
+  const trackerPanelSurfaceOpen = useFloatingWindowStore((s) => s.open[TRACKER_PANEL_BUBBLE_ID] === true);
   const refreshLorebooks = useCallback(
     () => queryClient.invalidateQueries({ queryKey: lorebookKeys.all }),
     [queryClient],
@@ -879,16 +873,12 @@ export function AppShell({
   const showAmbientDecor = isPageActive && !activeChatId && !detailView && !botBrowserOpen && !gameAssetsBrowserOpen;
   const hasDetailView = detailView != null;
   const trackerPanelModeAvailable = activeChat?.mode === "roleplay";
-  const trackerPanelActive = trackerPanelEnabled && trackerPanelOpen;
+  const trackerPanelActive = trackerPanelEnabled && trackerPanelOpen && trackerPanelSurfaceOpen;
   const trackerPanelDetached = trackerPanelWindowTarget !== null;
   const trackerPanelSurfaceAvailable =
     trackerPanelModeAvailable && !botBrowserOpen && !gameAssetsBrowserOpen && !hasDetailView;
-  // On a phone the switch shows the Tracker Panel's bubble; the panel shows while the bubble has it open.
-  const trackerPanelVisible =
-    trackerPanelActive &&
-    trackerPanelSurfaceAvailable &&
-    !trackerPanelDetached &&
-    (!phoneChatLayout || phoneTrackerPanelOpen);
+  // The chat preference chooses the surface; its Trackers button controls visibility.
+  const trackerPanelVisible = trackerPanelActive && trackerPanelSurfaceAvailable && !trackerPanelDetached;
   const chatSurfaceActive =
     !botBrowserOpen &&
     !gameAssetsBrowserOpen &&
@@ -929,19 +919,16 @@ export function AppShell({
     }
   }, [localizeUi, trackerPanelWidth]);
 
-  const handleTrackerPanelWindowClosed = useCallback(
-    (closedTarget: TrackerPanelWindowTarget) => {
-      if (trackerPanelDockingPopupRef.current === closedTarget.popup) {
-        trackerPanelDockingPopupRef.current = null;
-        return;
-      }
-      if (trackerPanelWindowTargetRef.current?.popup !== closedTarget.popup) return;
-      trackerPanelWindowTargetRef.current = null;
-      setTrackerPanelWindowTarget(null);
-      setTrackerPanelOpen(false, activeChatId);
-    },
-    [activeChatId, setTrackerPanelOpen],
-  );
+  const handleTrackerPanelWindowClosed = useCallback((closedTarget: TrackerPanelWindowTarget) => {
+    if (trackerPanelDockingPopupRef.current === closedTarget.popup) {
+      trackerPanelDockingPopupRef.current = null;
+      return;
+    }
+    if (trackerPanelWindowTargetRef.current?.popup !== closedTarget.popup) return;
+    trackerPanelWindowTargetRef.current = null;
+    setTrackerPanelWindowTarget(null);
+    closeTrackerPanel();
+  }, []);
 
   const professorMariFloatingActive =
     hasProfessorMariFloatingFollowup() &&
@@ -1213,6 +1200,9 @@ export function AppShell({
       ? trackerPanelResolvedWidth + TRACKER_PANEL_HUD_GAP
       : 0;
   const trackerPanelHudClearance = trackerPanelHideHudWidgets ? trackerPanelOverlayClearance : 0;
+  // Room a Roleplay column placed on the panel's side (Chat position) leaves for it. It uses the chosen
+  // width, not the width measured beside that column, so the two never resize each other.
+  const trackerPanelChatClearance = trackerPanelOverlayClearance > 0 ? trackerPanelWidth + TRACKER_PANEL_CHAT_GAP : 0;
   const trackerPanelContentScale = resolveTrackerPanelContentScale(trackerPanelWidth, trackerPanelResolvedWidth);
   const trackerPanelPortal =
     trackerPanelActive &&
@@ -1418,6 +1408,7 @@ export function AppShell({
                 "--tracker-panel-hud-clear-left": `${trackerPanelSide === "left" ? trackerPanelHudClearance : 0}px`,
                 "--tracker-panel-hud-clear-right": `${trackerPanelSide === "right" ? trackerPanelHudClearance : 0}px`,
                 "--tracker-panel-overlay-clearance": `${trackerPanelOverlayClearance}px`,
+                "--tracker-panel-chat-clearance": `${trackerPanelChatClearance}px`,
               } as CSSProperties
             }
           >
@@ -1487,7 +1478,7 @@ export function AppShell({
       {trackerPanelVisible && shellOverlayMode && (
         <div
           className={cn("fixed inset-x-0 bottom-0 z-[45] bg-black/50 backdrop-blur-sm", MOBILE_SHELL_PANEL_TOP_CLASS)}
-          onClick={() => closeTrackerPanel(activeChatId)}
+          onClick={closeTrackerPanel}
         />
       )}
 

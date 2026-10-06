@@ -727,6 +727,8 @@ interface EmojiPickerProps {
   };
   /** Render inline to fill a parent (no portal/positioning) — e.g. inside the mobile composer sheet. */
   embedded?: boolean;
+  /** Styling for the standalone popup; embedded pickers use their parent's surface. */
+  popupClassName?: string;
 }
 
 export function EmojiPicker({
@@ -737,6 +739,7 @@ export function EmojiPicker({
   containerRef,
   customTab,
   embedded,
+  popupClassName,
 }: EmojiPickerProps) {
   const { t: localizeUi } = useUiTranslation();
   const [search, setSearch] = useState("");
@@ -1003,7 +1006,11 @@ export function EmojiPicker({
   return createPortal(
     <div
       ref={panelRef}
-      className="fixed z-[9999] flex h-[22rem] w-[21rem] max-w-[calc(100vw-1rem)] flex-col overflow-hidden rounded-xl border border-foreground/10 bg-[var(--card)] shadow-xl"
+      data-emoji-picker
+      className={cn(
+        "fixed z-[9999] flex h-[22rem] w-[21rem] max-w-[calc(100vw-1rem)] flex-col overflow-hidden rounded-xl border border-foreground/10 bg-[var(--card)] shadow-xl",
+        popupClassName,
+      )}
       style={{
         ...(pos.top != null ? { top: pos.top } : {}),
         ...(pos.left != null ? { left: pos.left } : {}),

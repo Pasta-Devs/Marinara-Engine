@@ -190,7 +190,7 @@ export function ConversationMessageLine({ ctx }: { ctx: MessageRenderContext }) 
         ) : (
           <div
             className={cn(
-              "mari-message-content text-[0.9375rem] leading-relaxed break-words whitespace-pre-wrap",
+              "mari-message-content mari-chat-style-text text-[0.9375rem] leading-relaxed break-words whitespace-pre-wrap",
               isStreaming && !renderedContent && "py-1",
             )}
             style={messageTextStyle}

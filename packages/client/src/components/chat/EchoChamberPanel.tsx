@@ -18,7 +18,11 @@ import { api } from "../../lib/api-client";
 import { cn } from "../../lib/utils";
 import { FloatingWindow, readFloatingWindowBounds, usePhoneBubbleBounds } from "../ui/FloatingWindow";
 import { WindowBubble } from "../ui/WindowBubble";
-import { PHONE_BUBBLE_Z_INDEX, useFloatingWindowStore } from "../../stores/floating-window.store";
+import {
+  PHONE_BUBBLE_Z_INDEX,
+  TRACKER_PANEL_BUBBLE_ID,
+  useFloatingWindowStore,
+} from "../../stores/floating-window.store";
 import { PHONE_BUBBLE_SIZE_PX, type WindowBounds, type WindowLayout } from "../../lib/floating-window-layout";
 import {
   getEchoChamberMessageInterval,
@@ -60,6 +64,8 @@ const FLOATING_PANEL_STACK_GAP = 8;
 const TOP_BUTTON_GAP = 6; // Matches the tracker panel gap below the top controls.
 const DESKTOP_PANEL_WIDTH = 236;
 const DEFAULT_DESKTOP_PANEL_MAX_HEIGHT = 352;
+const DEFAULT_MOBILE_PANEL_HEIGHT = 112;
+const MIN_MOBILE_PANEL_WIDTH = 240;
 const MIN_PANEL_WIDTH = 176;
 const MIN_PANEL_HEIGHT = 96;
 const ECHO_WINDOW_ID = "echo-chamber";
@@ -200,7 +206,9 @@ export function EchoChamberPanel({ hiddenOnMobile = false }: EchoChamberPanelPro
   const savedPhoneBubble = useFloatingWindowStore((s) => s.phoneBubbles[ECHO_WINDOW_ID]);
   const saveLayout = useFloatingWindowStore((s) => s.saveLayout);
   const trackerPanelEnabled = useUIStore((s) => s.trackerPanelEnabled);
-  const trackerPanelOpen = useUIStore((s) => s.trackerPanelOpen);
+  const trackerPanelSelected = useUIStore((s) => s.trackerPanelOpen);
+  const trackerPanelSurfaceOpen = useFloatingWindowStore((s) => s.open[TRACKER_PANEL_BUBBLE_ID] === true);
+  const trackerPanelOpen = trackerPanelSelected && trackerPanelSurfaceOpen;
   const trackerPanelSide = useUIStore((s) => s.trackerPanelSide);
   const echoMessages = useAgentStore((s) => s.echoMessages);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -373,6 +381,17 @@ export function EchoChamberPanel({ hiddenOnMobile = false }: EchoChamberPanelPro
   const getDefaultLayout = useCallback(
     (bounds: WindowBounds): WindowLayout => {
       const area = getRoleplayAreaRect();
+      if (isMobile) {
+        return {
+          x: bounds.left + 8,
+          y: (area?.top ?? bounds.top) + Number(posStyle.top ?? WIDGET_BAR_H),
+          width: rememberedPanelSize?.width ?? bounds.right - bounds.left - 16,
+          height: rememberedPanelSize?.height ?? DEFAULT_MOBILE_PANEL_HEIGHT,
+          pinned: true,
+          locked: false,
+          minimized: !echoChamberOpen,
+        };
+      }
       const isTop = echoChamberSide.startsWith("top");
       const isLeft = echoChamberSide.endsWith("left");
       const position = getDesktopPanelPosition(
@@ -401,6 +420,8 @@ export function EchoChamberPanel({ hiddenOnMobile = false }: EchoChamberPanelPro
       defaultPanelHeight,
       echoChamberOpen,
       echoChamberSide,
+      isMobile,
+      posStyle.top,
       rememberedPanelSize,
       trackerPanelEnabled,
       trackerPanelOpen,
@@ -535,7 +556,10 @@ export function EchoChamberPanel({ hiddenOnMobile = false }: EchoChamberPanelPro
   if (!echoEnabled || (isMobile && hiddenOnMobile)) return null;
   const visibleMessages = echoMessages.slice(0, visibleCount);
   const title = localizeUi("ui.chat.echochamberpanel.title");
-  const rootAttributes = { "data-roleplay-agent-window": "echo" };
+  const rootAttributes = {
+    "data-roleplay-agent-window": "echo",
+    "data-header-ornament": isMobile ? "inline" : undefined,
+  };
   const status = (
     <span aria-hidden="true" className="relative flex h-1.5 w-1.5 shrink-0">
       <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-60" />
@@ -592,27 +616,26 @@ export function EchoChamberPanel({ hiddenOnMobile = false }: EchoChamberPanelPro
         rememberedPanelSize,
         defaultPanelHeight,
         echoChamberOpen,
+        isMobile,
       ])}
-      minWidth={MIN_PANEL_WIDTH}
-      minHeight={MIN_PANEL_HEIGHT}
-      presentation={isMobile ? "sheet" : "window"}
+      minWidth={isMobile ? MIN_MOBILE_PANEL_WIDTH : MIN_PANEL_WIDTH}
+      minHeight={isMobile ? DEFAULT_MOBILE_PANEL_HEIGHT : MIN_PANEL_HEIGHT}
       autoFocus={false}
       className="pointer-events-auto min-w-0"
-      sheetClassName="absolute z-[71] max-h-28"
-      sheetStyle={posStyle}
       headerClassName="flex-wrap"
       titleClassName="text-[0.625rem] font-semibold uppercase tracking-wider"
       bodyClassName="overflow-hidden"
       rootAttributes={rootAttributes}
       minimizable={isMobile ? undefined : { icon: <MessageCircle size="1rem" />, label: title }}
-      ignoreOutsidePointer={isMobile ? () => true : undefined}
-      onRequestClose={() => {
+      onRequestClose={(reason) => {
         saveLayout(ECHO_WINDOW_ID, {
           ...(savedLayout ?? getDefaultLayout(readFloatingWindowBounds())),
           minimized: true,
         });
         useFloatingWindowStore.getState().closeWindow(ECHO_WINDOW_ID);
-        requestAnimationFrame(() => phoneBubbleRef.current?.focus({ preventScroll: true }));
+        if (reason !== "outside-pointer") {
+          requestAnimationFrame(() => phoneBubbleRef.current?.focus({ preventScroll: true }));
+        }
       }}
       headerControls={
         <>

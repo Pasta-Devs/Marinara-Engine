@@ -3,7 +3,6 @@ import {
   DECISION_SOURCES,
   DECISION_SOURCE_BASE_URLS,
   DECISION_TIMEOUT_MS,
-  decisionSourceTakesUrl,
   defaultDecisionStateTokens,
   defaultDecisionTimeoutMs,
   resolveDecisionConnectionTimeoutMs,
@@ -74,10 +73,17 @@ import {
   createConnectionExportEnvelope,
   type ConnectionTransferRow,
 } from "../../lib/connection-transfer";
+import {
+  connectionFieldsForModelPick,
+  filterConnectionModelOptions,
+  mergeConnectionModelOptions,
+  normalizeGrokCliEditorModel,
+} from "../../lib/connection-model-selection";
 import { DraftNumberInput } from "../ui/DraftNumberInput";
 import { decisionConnectionTestMessage } from "../../lib/decision-test-message";
 import { AtlasCloudModelOptions } from "./AtlasCloudModelOptions";
 import { NanoGptUsageWidget } from "./NanoGptUsageWidget";
+import { SubscriptionCostPill } from "./SubscriptionCostPill";
 import { HelpTooltip } from "../ui/HelpTooltip";
 import { SettingsCheckbox, SettingsSwitch } from "../panels/settings/SettingControls";
 import {
@@ -160,7 +166,6 @@ const MAX_CACHING_AT_DEPTH = 100;
 const DEFAULT_MAX_PARALLEL_JOBS = 1;
 const MAX_PARALLEL_JOBS = 16;
 const GROK_CLI_DEFAULT_CONTEXT_TOKENS = 32_000;
-const STALE_GROK_CLI_MODEL_IDS = new Set(["grok-build-latest", "grok-build-0.1"]);
 const DEFAULT_VIDEO_MODELS: Record<VideoDefaultsService, string> = {
   gemini_omni: "gemini-omni-flash-preview",
   google_veo: "veo-3.1-generate-preview",
@@ -302,10 +307,6 @@ function providerSupportsDirectEmbeddingConfig(provider: APIProvider): boolean {
     provider !== "anthropic" &&
     !isLocalAuthConnectionProvider(provider)
   );
-}
-
-function normalizeGrokCliEditorModel(provider: APIProvider, model: string): string {
-  return provider === "grok_subscription" && STALE_GROK_CLI_MODEL_IDS.has(model.trim()) ? "" : model;
 }
 
 function normalizeConnectionMaxContext(provider: APIProvider, value: unknown): number {
@@ -547,7 +548,9 @@ export function ConnectionEditor() {
     setLocalDefaultParametersEnabled(
       !!parseEditableGenerationParameters(c.defaultParameters) || Object.keys(imageCaptioningDefaults).length > 0,
     );
-    setLocalDefaultParameters(getEditableGenerationParameters(CONNECTION_PARAMETER_DEFAULTS, c.defaultParameters));
+    setLocalDefaultParameters(
+      getEditableGenerationParameters(CONNECTION_PARAMETER_DEFAULTS, c.defaultParameters, c.provider as string),
+    );
     setLocalImageCaptioningEnabled(imageCaptioningDefaults.imageCaptioningEnabled === true);
     setLocalImageCaptioningConnectionId(imageCaptioningDefaults.imageCaptioningConnectionId ?? "");
     const nextImageDefaults = defaultsService
@@ -759,34 +762,12 @@ export function ConnectionEditor() {
   }, [localProvider, selectedVideoProvider, selectedImageService]);
 
   // Merge known models with remote models (remote first, deduped)
-  const allModels = useMemo(() => {
-    const remote = remoteModels.map((m) => ({
-      id: m.id,
-      name: m.name,
-      context: m.context ?? 0,
-      maxOutput: m.maxOutput ?? 0,
-      capabilities: m.capabilities,
-      subscriptionIncluded: m.subscriptionIncluded,
-      inputTokenMultiplier: m.inputTokenMultiplier,
-      isRemote: true as const,
-    }));
-    const remoteIds = new Set(remote.map((m) => m.id));
-    const known = providerModels
-      .filter((m) => !remoteIds.has(m.id))
-      .map((m) => ({
-        ...m,
-        subscriptionIncluded: undefined as boolean | undefined,
-        inputTokenMultiplier: undefined as number | undefined,
-        isRemote: false as const,
-      }));
-    return [...remote, ...known];
-  }, [providerModels, remoteModels]);
+  const allModels = useMemo(
+    () => mergeConnectionModelOptions(remoteModels, providerModels),
+    [providerModels, remoteModels],
+  );
 
-  const filteredModels = useMemo(() => {
-    if (!modelSearch.trim()) return allModels;
-    const q = modelSearch.toLowerCase();
-    return allModels.filter((m) => m.id.toLowerCase().includes(q) || m.name.toLowerCase().includes(q));
-  }, [allModels, modelSearch]);
+  const filteredModels = useMemo(() => filterConnectionModelOptions(allModels, modelSearch), [allModels, modelSearch]);
 
   const selectedModelInfo = useMemo(() => {
     return allModels.find((m) => m.id === localModel) ?? null;
@@ -1174,15 +1155,17 @@ export function ConnectionEditor() {
       claudeFastMode: localClaudeFastMode,
     };
 
-    downloadJsonFile(
+    void downloadJsonFile(
       createConnectionExportEnvelope([exportRow]),
       `${sanitizeExportFilenamePart(localName || String(currentConnection.name ?? ""), "connection")}.connection.json`,
-    );
-    toast.success(
-      localizeUi("ui.connections.connectioneditor.exportedValue1", {
-        value1: localName || localizeUi("ui.connections.connectioneditor.connection"),
-      }),
-    );
+    ).then((saveStatus) => {
+      if (saveStatus === "saved")
+        toast.success(
+          localizeUi("ui.connections.connectioneditor.exportedValue1", {
+            value1: localName || localizeUi("ui.connections.connectioneditor.connection"),
+          }),
+        );
+    });
   }, [
     conn,
     localProvider,
@@ -1443,7 +1426,9 @@ export function ConnectionEditor() {
 
   const selectModel = useCallback(
     (model: { id: string; context?: number; maxOutput?: number; isRemote?: boolean }) => {
-      setLocalModel(model.id);
+      // The quick model pickers save the same fields (see connectionFieldsForModelPick).
+      const fields = connectionFieldsForModelPick(localProvider, model);
+      setLocalModel(fields.model);
       if (localProvider === "video_generation") {
         const provider = videoSourceToProviderOption(
           localVideoGenerationSource || localVideoService || inferVideoSource(model.id, localBaseUrl),
@@ -1451,8 +1436,8 @@ export function ConnectionEditor() {
         setLocalVideoGenerationSource(provider);
         setLocalVideoService(videoProviderServiceForModel(provider, model.id, localBaseUrl));
       }
-      if (model.context) setLocalMaxContext(Number(model.context));
-      if (model.isRemote && model.maxOutput) setLocalMaxTokensOverride(Number(model.maxOutput));
+      if (fields.maxContext) setLocalMaxContext(fields.maxContext);
+      if (fields.maxTokensOverride) setLocalMaxTokensOverride(fields.maxTokensOverride);
       setShowModelDropdown(false);
       setModelSearch("");
       testScopeRef.current++;
@@ -1696,7 +1681,9 @@ export function ConnectionEditor() {
                     );
                     setLocalMaxTokensOverride(null);
                     setLocalDefaultParametersEnabled(false);
-                    setLocalDefaultParameters(CONNECTION_PARAMETER_DEFAULTS);
+                    setLocalDefaultParameters(
+                      getEditableGenerationParameters(CONNECTION_PARAMETER_DEFAULTS, null, key),
+                    );
                     if (key === "decision") {
                       setLocalDecisionSource("typesafe");
                       setLocalCredentialsFrom("");
@@ -1957,6 +1944,11 @@ export function ConnectionEditor() {
                       : "connections.decision.privacy",
                 )}
               </p>
+              {localDecisionSource === "typesafe" && (
+                <p className="text-xs text-[var(--muted-foreground)]">
+                  {t("connections.decision.typesafeAddressHelp")}
+                </p>
+              )}
               {localDecisionSource !== "typesafe" && (
                 <>
                   <label className="block text-xs" htmlFor="decision-credentials">
@@ -2169,7 +2161,7 @@ export function ConnectionEditor() {
                 help={localizeUi("ui.connections.connectioneditor.theApiEndpointUrlUsuallyAutoFilledForKnown")}
               >
                 <input
-                  disabled={isDecisionProvider && !decisionSourceTakesUrl(localDecisionSource)}
+                  disabled={isDecisionProvider && localDecisionSource === "openrouter"}
                   value={localBaseUrl}
                   onChange={(e) => {
                     setLocalBaseUrl(e.target.value);
@@ -2682,37 +2674,7 @@ export function ConnectionEditor() {
                                 {modelFetchSourceLabel}
                               </span>
                             )}
-                            {/* Subscription cost. Included models always show a
-                                multiplier (green at 1x), so "covered at normal
-                                cost" stays distinct from "no data at all". */}
-                            {m.subscriptionIncluded === true && (
-                              <span
-                                className={cn(
-                                  "rounded-md px-1.5 py-0.5 text-[0.5625rem] font-semibold",
-                                  (m.inputTokenMultiplier ?? 1) > 1
-                                    ? "bg-[var(--marinara-editor-accent)]/15 text-[var(--marinara-editor-accent)]"
-                                    : "bg-emerald-400/15 text-emerald-400",
-                                )}
-                                title={localizeUi(
-                                  (m.inputTokenMultiplier ?? 1) > 1
-                                    ? "ui.connections.connectioneditor.inputTokenMultiplierHint_boosted"
-                                    : "ui.connections.connectioneditor.inputTokenMultiplierHint",
-                                  { multiplier: String(m.inputTokenMultiplier ?? 1) },
-                                )}
-                              >
-                                {localizeUi("ui.connections.connectioneditor.multiplierBadge", {
-                                  multiplier: String(m.inputTokenMultiplier ?? 1),
-                                })}
-                              </span>
-                            )}
-                            {m.subscriptionIncluded === false && (
-                              <span
-                                className="rounded-md bg-[var(--secondary)] px-1.5 py-0.5 text-[0.5625rem] font-medium text-[var(--muted-foreground)]"
-                                title={localizeUi("ui.connections.connectioneditor.notInSubscriptionHint")}
-                              >
-                                {localizeUi("ui.connections.connectioneditor.paid")}
-                              </span>
-                            )}
+                            {localShowUsageWidget && <SubscriptionCostPill model={m} />}
                             {localModel === m.id && <Check size="0.75rem" className="text-sky-400" />}
                           </div>
                           <span className="text-[0.625rem] text-[var(--muted-foreground)]">{m.id}</span>
@@ -3189,9 +3151,7 @@ export function ConnectionEditor() {
             <FieldGroup
               label={localizeUi("ui.connections.connectioneditor.defaultChatParameters")}
               icon={<Zap size="0.875rem" className="mari-chrome-accent-icon mari-accent-animated" />}
-              help={localizeUi(
-                "ui.connections.connectioneditor.defaultGenerationSettingsForChatsThatUseThisConnection",
-              )}
+              help={localizeUi("ui.connections.connectioneditor.defaultGenerationSettingsForChatsAndAgents")}
             >
               <SettingsSwitch
                 label={localizeUi("ui.connections.connectioneditor.useCustomDefaultsForThisConnection")}

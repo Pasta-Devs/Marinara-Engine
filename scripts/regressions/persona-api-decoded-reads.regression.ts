@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { eq } from "../../packages/server/src/db/file-query.js";
 import { cleanTrackerCardColorConfig } from "../../packages/client/src/lib/tracker-card-colors.js";
 
 const legacyTrackerColors = {
@@ -134,6 +135,10 @@ try {
       value.convoBehavior == null || (typeof value.convoBehavior === "object" && !Array.isArray(value.convoBehavior)),
       true,
     );
+    // Image-prompt override: always projected as a real boolean + string, even
+    // for rows written before the columns existed (#7053).
+    assert.equal(typeof value.imageAppearanceEnabled, "boolean");
+    assert.equal(typeof value.imageAppearance, "string");
     assert.equal(
       value.trackerCardColors !== null &&
         typeof value.trackerCardColors === "object" &&
@@ -208,6 +213,21 @@ try {
   const page = await requestJson("GET", "/api/characters/personas/list?limit=100");
   const pageActive = (page.items as Array<Record<string, unknown>>).find((persona) => persona.id === activeId)!;
   assertDecodedPersona(pageActive, activeId);
+
+  // ── Back-compat: rows inserted WITHOUT the image-override columns (#7053) ──
+  // The fixtures above never set the image-override columns, so this models a
+  // persona row written before those columns existed. `normalizeRow` fills a
+  // missing key from the column's declared default, so such a row must READ as
+  // disabled + empty rather than throwing or surfacing undefined.
+  //
+  // Do not assert key absence on a `db.select()` result: the select path returns
+  // the normalized resident row, where the defaults have already been
+  // materialized. The absence is a property of the stored shard JSON, and the
+  // observable contract is the decoded value asserted below.
+  assert.equal(listedActive.imageAppearanceEnabled, false, "a legacy row must read as disabled, not throw");
+  assert.equal(listedActive.imageAppearance, "", "a legacy row must read as an empty override");
+  assert.equal(malformed.imageAppearanceEnabled, false);
+  assert.equal(malformed.imageAppearance, "");
 
   const detail = await requestJson("GET", `/api/characters/personas/${activeId}`);
   assertDecodedPersona(detail, activeId);
@@ -295,6 +315,65 @@ try {
   });
   assertDecodedPersona(updated, createdId);
   assert.deepEqual(updated.tags, ["updated"]);
+
+  // ── Round-trip: the persona image-prompt override must actually persist (#7053) ──
+  // This is the regression for the silent-data-loss bug: the editor sent both
+  // keys but the persona column allowlist dropped them, so the override
+  // vanished on save. Proven here through the real API + a fresh read.
+  const overrideText = "1girl, silver hair, green eyes, oversized hoodie";
+  const savedOverride = await requestJson("PATCH", `/api/characters/personas/${createdId}`, {
+    imageAppearanceEnabled: true,
+    imageAppearance: overrideText,
+  });
+  assertDecodedPersona(savedOverride, createdId);
+  assert.equal(savedOverride.imageAppearanceEnabled, true);
+  assert.equal(savedOverride.imageAppearance, overrideText);
+
+  const rereadOverride = await requestJson("GET", `/api/characters/personas/${createdId}`);
+  assert.equal(rereadOverride.imageAppearanceEnabled, true, "override must survive a save -> reopen cycle");
+  assert.equal(rereadOverride.imageAppearance, overrideText);
+
+  // The stored column is the text convention this table already uses.
+  const [storedOverrideRow] = await db.select().from(personas).where(eq(personas.id, createdId));
+  assert.equal(storedOverrideRow?.imageAppearanceEnabled, "true");
+  assert.equal(storedOverrideRow?.imageAppearance, overrideText);
+
+  // Disabling must not erase the authored text (the user can toggle back on).
+  const disabledOverride = await requestJson("PATCH", `/api/characters/personas/${createdId}`, {
+    imageAppearanceEnabled: false,
+  });
+  assert.equal(disabledOverride.imageAppearanceEnabled, false);
+  assert.equal(disabledOverride.imageAppearance, overrideText, "toggling off must keep the typed override");
+  await requestJson("PATCH", `/api/characters/personas/${createdId}`, { imageAppearanceEnabled: true });
+
+  // A create that sets both fields must persist them too (not just update).
+  const createdWithOverride = await requestJson("POST", "/api/characters/personas", {
+    name: "Override On Create",
+    imageAppearanceEnabled: true,
+    imageAppearance: "1boy, black coat",
+  });
+  assert.equal(createdWithOverride.imageAppearanceEnabled, true);
+  assert.equal(createdWithOverride.imageAppearance, "1boy, black coat");
+  assert.equal(
+    (await requestJson("GET", `/api/characters/personas/${createdWithOverride.id}`)).imageAppearance,
+    "1boy, black coat",
+  );
+
+  // resolveChatUserIdentity must keep the override SEPARATE from `appearance`.
+  // `appearance` stays the authored text because narrator/roleplay prompt text
+  // and `{{appearance}}` macros read it; the image path reads
+  // `imageAppearanceOverride` instead. Collapsing them here would leak the
+  // image-optimized tags into roleplay lore (#7053).
+  const identityWithOverride = await resolveChatUserIdentity(charactersStorage, {
+    mode: "conversation",
+    personaId: createdWithOverride.id as string,
+  });
+  assert.equal(identityWithOverride?.imageAppearanceOverride, "1boy, black coat");
+  assert.notEqual(
+    identityWithOverride?.appearance,
+    "1boy, black coat",
+    "the image override must not replace the authored appearance on the identity",
+  );
 
   const painted = await requestJson("PATCH", `/api/characters/personas/${createdId}/tracker-card-colors`, {
     paint: { mode: "custom", nameColor: "#c00" },

@@ -714,7 +714,10 @@ import {
   resolveLorebookTokenBudget,
 } from "../../packages/server/src/services/generation/lorebook-generation-runtime.js";
 import { createAgentLorebookTriggerResolver } from "../../packages/server/src/services/generation/agent-lorebook-triggers.js";
+import { readImageAppearanceOverride } from "../../packages/shared/src/utils/image-appearance.js";
 import {
+  addChatPersonaIllustrationAssets,
+  addPersonaIllustrationAssets,
   buildGameIllustratorAppearanceContextBlock,
   buildDynamicGameImagePromptMessages,
   buildIllustrationNarrationSummaryMessages,
@@ -5018,6 +5021,122 @@ const cases: RegressionCase[] = [
       assert.match(appearanceContextBlock, /^<character_appearance_context>/u);
       assert.match(appearanceContextBlock, new RegExp(appearance, "u"));
       assert.doesNotMatch(appearanceContextBlock, new RegExp(description, "u"));
+
+      // #7053: a persona with the image override enabled must contribute its
+      // override text to the Game illustration appearance context, exactly like a
+      // character. The /game/generate-assets illustration path previously loaded
+      // only character rows, so the persona produced no line at all — with or
+      // without an override.
+      const personaOverrideTags = "1boy, caucasian, tall male, muscular, black hair, green eyes";
+      const personaProse = "Lean-muscular build with a velvety voice and forest-toned wardrobe.";
+      const personaOverrideLine = readImageAppearanceOverride(
+        { imageAppearanceEnabled: true, imageAppearance: personaOverrideTags },
+        personaProse,
+      );
+      assert.equal(personaOverrideLine, personaOverrideTags, "the persona override wins for the game context");
+      const personaContextBlock = buildGameIllustratorAppearanceContextBlock([
+        `Fel Lockheart's Appearance: ${personaOverrideLine}`,
+        `Jessica's Appearance: ${appearance}`,
+      ]);
+      assert.match(personaContextBlock, /Fel Lockheart's Appearance: 1boy, caucasian/u);
+      assert.doesNotMatch(personaContextBlock, /velvety voice/u, "persona prose must not reach the game context");
+
+      // The helper call above would still pass if the route stopped loading the
+      // persona, which is the actual defect. Exercise the shared loader the Game
+      // illustration routes call, so removing that wiring fails this regression.
+      const gamePersonaGallery = { kind: "persona-gallery" } as never;
+      const gamePersonaMaps = () => ({
+        charReferenceByName: new Map<string, string>(),
+        charReferenceSourceByName: new Map<string, string>(),
+        charAvatarByName: new Map<string, string>(),
+        charDescriptionByName: new Map<string, string>(),
+      });
+      const enabledPersonaRow = {
+        id: "persona-fel",
+        name: "Fel Lockheart",
+        appearance: personaProse,
+        imageAppearanceEnabled: "true",
+        imageAppearance: personaOverrideTags,
+      };
+      const disabledPersonaRow = { ...enabledPersonaRow, imageAppearanceEnabled: "false" };
+
+      const enabledMaps = gamePersonaMaps();
+      const enabledName = await addChatPersonaIllustrationAssets({
+        maps: enabledMaps,
+        characters: { getPersona: async () => enabledPersonaRow } as never,
+        personaGallery: gamePersonaGallery,
+        chat: { personaId: "persona-fel" },
+        setupConfig: null,
+      });
+      assert.equal(enabledName, "Fel Lockheart", "the selected persona must resolve by name");
+      // `addNameLookupEntry` keys by normalized aliases (lowercase, per word), not
+      // by the display name, so assert on the stored text rather than the raw key.
+      assert.ok(
+        [...enabledMaps.charDescriptionByName.values()].includes(personaOverrideTags),
+        "the persona's enabled override must reach the Game illustration appearance maps",
+      );
+
+      const disabledMaps = gamePersonaMaps();
+      await addChatPersonaIllustrationAssets({
+        maps: disabledMaps,
+        characters: { getPersona: async () => disabledPersonaRow } as never,
+        personaGallery: gamePersonaGallery,
+        chat: { personaId: "persona-fel" },
+        setupConfig: null,
+      });
+      assert.ok(
+        [...disabledMaps.charDescriptionByName.values()].includes(personaProse),
+        "a disabled persona override must fall back to the persona appearance",
+      );
+      assert.ok(
+        ![...disabledMaps.charDescriptionByName.values()].includes(personaOverrideTags),
+        "a disabled persona override must not leak into the Game illustration maps",
+      );
+
+      // No persona selected -> nothing added, and no throw.
+      const nothingMaps = gamePersonaMaps();
+      assert.equal(
+        await addChatPersonaIllustrationAssets({
+          maps: nothingMaps,
+          characters: { getPersona: async () => enabledPersonaRow } as never,
+          personaGallery: gamePersonaGallery,
+          chat: { personaId: null },
+          setupConfig: null,
+        }),
+        null,
+      );
+      assert.equal(nothingMaps.charDescriptionByName.size, 0, "no persona means no appearance entry");
+
+      // Both Game illustration routes must share the loader, so a fix in one
+      // cannot leave the other behind.
+      const gameRoutesSource = readFileSync(
+        new URL("../../packages/server/src/routes/game.routes.ts", import.meta.url),
+        "utf8",
+      );
+      const listenerCalls = gameRoutesSource.match(/await addChatPersonaIllustrationAssets\(\{/gu) ?? [];
+      assert.equal(
+        listenerCalls.length,
+        2,
+        "both /generate-assets and /generate-assets/preview must load the chat persona",
+      );
+      assert.equal(
+        (gameRoutesSource.match(/addPersonaIllustrationAssets\(/gu) ?? []).length,
+        3,
+        "the persona asset helper should have exactly one definition and two shared-loader call sites",
+      );
+
+      // Disabled or empty persona override falls back to the persona prose.
+      assert.equal(
+        readImageAppearanceOverride(
+          { imageAppearanceEnabled: false, imageAppearance: personaOverrideTags },
+          personaProse,
+        ),
+        personaProse,
+      );
+      assert.equal(
+        readImageAppearanceOverride({ imageAppearanceEnabled: true, imageAppearance: "   " }, personaProse),
+        personaProse,
+      );
 
       assert.deepEqual(
         selectStoryboardAppearanceCharacterNames({

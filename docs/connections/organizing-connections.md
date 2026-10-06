@@ -56,17 +56,26 @@ To add a connection to the random pool, click the shuffle icon on its row. Its t
 
 To make a chat use the random pool, open **Chat Settings**, find the **Connection** section, and choose **🎲 Random** from the dropdown. In Game Mode this dropdown is labeled **GM / Party Model**. Each reply then picks a random connection from your pool.
 
-The **Quick Connection Switcher** is a faster way to change the connection for the chat you are in. Click the link icon in the chat input area to open it. It shows your connections in a small menu:
+The **Quick Connection Switcher** is a faster way to change the connection, and its model, for the chat you are in. Click the link icon in the chat input area to open it. It shows your connections on the left and the chosen connection's **Models** on the right:
 
-- Click a connection to use it for the current chat right away.
+- Click a connection to use it for the current chat right away. The menu stays open so you can pick one of its models next.
+- Click a model to use it. The model is saved to that connection, the connection is selected for the chat if it was not already, and the menu closes. A checkmark marks the model the connection uses now. As in the connection editor, picking a listed model also updates the connection's context size, and its output limit, when the provider reports them.
+- Type in the **Search or enter model ID…** box to filter the list. Pressing Enter picks the model whose ID or name you typed, or the only model left in the list. To use a model that is not listed, type its exact ID: press Enter when nothing in the list matches it, or click the **Use "…"** row.
+- Click the star next to a model to pin it. Pinned models stay at the top under **Pinned**, even ones you typed by hand. Click the star again to unpin it.
+- The first time you open a connection's models, Marinara loads the list from the provider and saves it with the connection, so later visits show it right away. Click the refresh button next to the search box to load the list again, for example after the provider adds new models. Changing the connection's API key, Base URL or provider also loads a fresh list.
+- If the provider has no model list or cannot be reached, the menu says so, and you can still type a model ID.
 - Click the dice button at the top of the menu to turn the random pool on or off for this chat.
-- While the random pool is on, clicking a connection instead adds it to or removes it from the pool. A checkmark shows which connections are in the pool.
+- While the random pool is on, clicking a connection instead adds it to or removes it from the pool. A checkmark shows which connections are in the pool. The **Models** column is hidden, because the pool has no single connection.
+
+On a phone, tap the chevron next to the message box and open the **Connections** tab. Tapping a connection selects it and shows its models in the same menu; tap the back arrow to return to the connection list.
+
+**A model change applies everywhere the connection is used.** The note at the bottom of the menu, "Model changes are saved to this connection.", means agents, helpers and other chats that use the same connection switch to the new model too. Other model settings on the connection, such as its embedding model or image-captioning connection, do not change. If you want a different model for one purpose only, duplicate the connection and change the copy.
 
 ## Exporting and importing connections
 
 You can export connections to a file to back them up or move them to another install, then import them later.
 
-**Your API keys are never included in an export.** After you import connections, you must open each one and enter its API key again.
+**Your API keys are never included in an export.** After you import connections, you must open each one and enter its API key again. Pinned models are included; the saved model list is not, so it loads again the first time you open the connection's models.
 
 To export a single connection, open it in the editor and click its **Export** button (the upload icon). To export several at once, use **Select** mode in the panel and click **Export** in the action bar. Before the download starts, Marinara shows an **Export Connection Data** dialog with this warning: This will export your connection data, WITHOUT your provided API Key. Remember to never share those with others! Click **Export** to continue.
 

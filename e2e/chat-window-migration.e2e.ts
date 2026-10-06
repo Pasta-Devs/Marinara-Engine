@@ -1,7 +1,7 @@
 import { expect, test, type APIRequestContext, type Locator, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { seedUIState } from "./ui-state-fixture.js";
-import { openChatSettings, resetChatView } from "./chat-settings-tools.js";
+import { openChatSettings, openChatTool, resetChatView } from "./chat-settings-tools.js";
 
 type Mode = "conversation" | "roleplay" | "game";
 type ChatRow = { id: string; updatedAt: string; metadata: Record<string, unknown> };
@@ -70,7 +70,11 @@ async function readChat(request: APIRequestContext, chatId: string): Promise<Cha
 }
 
 for (const mode of ["conversation", "roleplay", "game"] as const) {
-  test(`an older ${mode} chat keeps its tools as buttons and remembers putting one back`, async ({ page, request }) => {
+  test(`an older ${mode} chat keeps its tools as buttons and remembers putting one back`, async ({
+    page,
+    request,
+  }, testInfo) => {
+    const desktop = testInfo.project.name.includes("desktop");
     const chat = await createChat(request, mode);
     try {
       await prepare(page, chat.id);
@@ -96,8 +100,10 @@ for (const mode of ["conversation", "roleplay", "game"] as const) {
       if (mode !== "game") sections.push("message-search");
       if (mode === "roleplay") sections.push("chat-summary", "author-notes");
       const ids = sections.map((section) => windowId(mode, section));
+      if (!desktop) await page.locator("[data-chat-tools-menu-button]").click();
       for (const id of ids) {
-        await expect(bubble(page, id)).toBeVisible();
+        if (desktop) await expect(bubble(page, id)).toBeVisible();
+        else await expect(page.locator(`[data-chat-tools-menu-item="${id}"]`)).toBeVisible();
         await expect(page.locator(`.mari-window[data-window="${id}"]`)).toBeHidden();
       }
       await expect
@@ -111,7 +117,7 @@ for (const mode of ["conversation", "roleplay", "game"] as const) {
       expect(migratedChat.updatedAt, "migration does not reorder the chat list").toBe(chat.updatedAt);
 
       const branchesId = windowId(mode, "chat-branches");
-      await bubble(page, branchesId).click();
+      await openChatTool(page, branchesId);
       const branches = page.locator(`.mari-window[data-window="${branchesId}"]`);
       await expect(branches).toBeVisible();
       await branches.getByRole("button", { name: "Put back in Chat Settings", exact: true }).click();
@@ -124,7 +130,13 @@ for (const mode of ["conversation", "roleplay", "game"] as const) {
         )
         .toBe(false);
       await page.reload();
-      await expect(bubble(page, windowId(mode, "gallery"))).toBeVisible();
+      if (desktop) await expect(bubble(page, windowId(mode, "gallery"))).toBeVisible();
+      else {
+        await page.locator("[data-chat-tools-menu-button]").click();
+        await expect(page.locator(`[data-chat-tools-menu-item="${windowId(mode, "gallery")}"]`)).toBeVisible();
+        await expect(page.locator(`[data-chat-tools-menu-item="${branchesId}"]`)).toHaveCount(0);
+        await page.locator("[data-chat-tools-menu-button]").click();
+      }
       await expect(bubble(page, branchesId)).toHaveCount(0);
       const settings = await openChatSettings(page);
       await expect(settings.locator(`[data-drawer="${mode}-chat-branches"]`)).toBeVisible();
@@ -255,10 +267,7 @@ test("phone sheets can unlock buttons saved as locked on a computer", async ({ p
     ).toBeTruthy();
     await prepare(page, chat.id);
     await page.goto("/");
-    for (const [id, launcher] of [
-      ["chat-settings", page.locator("[data-chat-settings-button]")],
-      [drawerId, bubble(page, drawerId)],
-    ] as const) {
+    for (const [id, launcher] of [["chat-settings", page.locator("[data-chat-settings-button]")]] as const) {
       await expect(launcher).toBeVisible();
       await expect(launcher).toHaveAttribute("data-locked", "true");
       const before = (await launcher.boundingBox())!;
@@ -286,6 +295,20 @@ test("phone sheets can unlock buttons saved as locked on a computer", async ({ p
         })
         .toMatchObject({ ...savedGeometry, locked: false });
     }
+    await openChatTool(page, drawerId);
+    const detached = page.locator(`.mari-window[data-window="${drawerId}"]`);
+    const drawerLock = detached.locator('[data-window-control="lock"]');
+    await expect(drawerLock).toHaveAttribute("aria-pressed", "true");
+    await drawerLock.click();
+    await expect(drawerLock).toHaveAttribute("aria-pressed", "false");
+    await detached.locator('[data-window-control="close"]').click();
+    await expect(page.locator("[data-chat-tools-menu-button]")).toHaveAttribute("data-locked", "false");
+    await expect
+      .poll(async () => {
+        const layout = (await readChat(request, chat.id)).metadata.windowLayout as { windows: Record<string, unknown> };
+        return layout.windows[drawerId];
+      })
+      .toMatchObject({ ...savedGeometry, locked: false });
   } finally {
     await request.delete(`/api/chats/${chat.id}?force=true`);
   }

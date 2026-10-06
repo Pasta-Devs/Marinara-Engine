@@ -20,6 +20,7 @@ import {
 import { toast } from "sonner";
 import { BACKGROUND_THUMBNAIL_WIDTH } from "@marinara-engine/shared";
 import { api } from "../../../lib/api-client";
+import { saveExportUrl } from "../../../lib/file-download";
 import { cn } from "../../../lib/utils";
 import {
   filterAndSortBackgrounds,
@@ -921,6 +922,19 @@ export function BackgroundPicker({
                 {localizeUi("ui.panels.backgroundpicker.roleplayDefaultShort")}
               </button>
             )}
+            <button
+              type="button"
+              data-background-download
+              onClick={() => {
+                cancelPendingClose();
+                void saveExportUrl(background.url, background.filename);
+              }}
+              className={cn(CARD_ACTION_CLASS, isFloatingActions && FLOATING_CARD_ACTION_CLASS)}
+              title={localizeUi("ui.panels.backgroundpicker.downloadBackground")}
+              aria-label={localizeUi("ui.panels.backgroundpicker.downloadValue1", { value1: title })}
+            >
+              <Download size="0.875rem" />
+            </button>
             {background.deletable !== false && isEditable && (
               <button
                 type="button"

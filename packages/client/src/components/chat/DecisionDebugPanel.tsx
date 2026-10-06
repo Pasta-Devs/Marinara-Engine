@@ -32,7 +32,7 @@ export function DecisionDebugPanel({
       <button
         type="button"
         aria-expanded={open}
-        className="flex min-h-10 w-full items-center gap-2 text-left font-medium"
+        className="mari-chat-style-control flex min-h-10 w-full items-center gap-2 text-left font-medium"
         onClick={() => {
           setOpen(!open);
           if (!open && !test.data && !test.isPending) run("inspect");
@@ -48,7 +48,7 @@ export function DecisionDebugPanel({
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
-              className="mari-chrome-control min-h-10 px-3 disabled:opacity-50"
+              className="mari-chat-style-control mari-chrome-control min-h-10 px-3 disabled:opacity-50"
               disabled={test.isPending || !canRun}
               onClick={() => run("run")}
             >
@@ -56,14 +56,18 @@ export function DecisionDebugPanel({
             </button>
             <button
               type="button"
-              className="mari-chrome-control min-h-10 px-3 disabled:opacity-50"
+              className="mari-chat-style-control mari-chrome-control min-h-10 px-3 disabled:opacity-50"
               disabled={test.isPending}
               onClick={() => run("inspect")}
             >
               {t("decisionDebug.refresh")}
             </button>
             {test.isPending && (
-              <button type="button" className="mari-chrome-control min-h-10 px-3" onClick={test.cancel}>
+              <button
+                type="button"
+                className="mari-chat-style-control mari-chrome-control min-h-10 px-3"
+                onClick={test.cancel}
+              >
                 {t("decisionDebug.cancel")}
               </button>
             )}

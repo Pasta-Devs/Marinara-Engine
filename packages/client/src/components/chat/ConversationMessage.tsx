@@ -207,7 +207,10 @@ export const ConversationMessage = memo(function ConversationMessage({
     ? "text-[var(--primary)] bg-[var(--primary)]/15 ring-1 ring-[var(--primary)]/30 hover:text-[var(--primary)] hover:bg-[var(--primary)]/20"
     : undefined;
   const messageTextStyle = useMemo<CSSProperties>(
-    () => ({ fontSize: `${chatFontSize}px`, ...(chatFontColor ? { color: chatFontColor } : {}) }),
+    () => ({
+      fontSize: `${chatFontSize}px`,
+      ...(chatFontColor ? { color: `var(--mari-chat-resolved-text, ${chatFontColor})` } : {}),
+    }),
     [chatFontSize, chatFontColor],
   );
 

@@ -3,10 +3,11 @@ import { showConfirmDialog } from "../lib/app-dialogs";
 // ──────────────────────────────────────────────
 // React Query: Connection hooks
 // ──────────────────────────────────────────────
-import type { ModelParameterCapabilities } from "@marinara-engine/shared";
+import { MAX_PINNED_MODELS, parsePinnedModels, type ModelParameterCapabilities } from "@marinara-engine/shared";
+import type { RemoteConnectionModel } from "../lib/connection-model-selection";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
-import { api, isRequestTimeoutError, requestTimeoutSignal } from "../lib/api-client";
+import { ApiError, api, isRequestTimeoutError, requestTimeoutSignal } from "../lib/api-client";
 import { useUIStore } from "../stores/ui.store";
 import { useChatStore } from "../stores/chat.store";
 import { captureChatMetadataVersion, chatKeys, guardServerChatSnapshot } from "./use-chats";
@@ -22,6 +23,8 @@ export const connectionKeys = {
   all: ["connections"] as const,
   list: () => [...connectionKeys.all, "list"] as const,
   detail: (id: string) => [...connectionKeys.all, "detail", id] as const,
+  /** Invalidated with every connection save, so a new key or address reloads the list. */
+  models: (id: string) => [...connectionKeys.all, "models", id] as const,
 };
 
 /** Refresh once per page load, keeping startup and the saved connection usable if a backend is offline. */
@@ -68,6 +71,7 @@ export type CreateConnectionPayload = {
   apiKey: string;
   baseUrl?: string;
   model?: string;
+  pinnedModels?: string[];
   maxContext?: number;
   isDefault?: boolean;
   fallbackForMain?: boolean;
@@ -123,7 +127,7 @@ export function useUpdateConnection() {
       Promise.all([
         qc.invalidateQueries({ queryKey: connectionKeys.list() }),
         qc.invalidateQueries({ queryKey: connectionKeys.detail(variables.id) }),
-        qc.invalidateQueries({ queryKey: [...connectionKeys.all, "models", variables.id] }),
+        qc.invalidateQueries({ queryKey: connectionKeys.models(variables.id) }),
       ]),
   });
 }
@@ -248,25 +252,94 @@ export function useTestVideoGeneration() {
   });
 }
 
-export type RemoteConnectionModel = {
-  id: string;
-  name: string;
-  context?: number;
-  maxOutput?: number;
-  capabilities?: ModelParameterCapabilities;
-  /** NanoGPT: whether the model is covered by the subscription. */
-  subscriptionIncluded?: boolean;
-  /** NanoGPT: input tokens charged per token of subscription quota (2 = 2x). */
-  inputTokenMultiplier?: number;
+export type { RemoteConnectionModel };
+
+/** A connection's model list; `fetchedAt` is set when the list is the one saved on the connection. */
+export type ConnectionModelList = {
+  models: RemoteConnectionModel[];
+  loras?: RemoteConnectionModel[];
+  fetchedAt?: string;
 };
+
+const connectionModelsPath = (id: string, refresh = false) =>
+  `/connections/${encodeURIComponent(id)}/models${refresh ? "?refresh=true" : ""}`;
+
+/** 409: the connection's provider, address or key changed while its list loaded, so that list is not kept. */
+const isStaleModelList = (error: unknown) => error instanceof ApiError && error.status === 409;
+
+/**
+ * A connection's model list. The server answers from the list saved on the connection and asks the provider
+ * only when nothing is saved yet, so opening a picker again costs no provider call. A failed load is not
+ * retried each time a picker opens; Refresh asks again.
+ */
+export function useConnectionModels(id: string | null | undefined, enabled = true) {
+  return useQuery({
+    queryKey: connectionKeys.models(id ?? ""),
+    queryFn: () => api.get<ConnectionModelList>(connectionModelsPath(id ?? "")),
+    enabled: enabled && !!id && id !== "random",
+    staleTime: 6 * 60 * 60_000,
+    gcTime: 6 * 60 * 60_000,
+    // A list that went stale while loading is asked for again once; other failures wait for Refresh.
+    retry: (failureCount, error) => isStaleModelList(error) && failureCount < 1,
+    retryOnMount: false,
+  });
+}
+
+/** Fetch the provider's list again and replace the saved one. */
+export function useRefreshConnectionModels() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.get<ConnectionModelList>(connectionModelsPath(id, true)),
+    onSuccess: (data, id) => qc.setQueryData(connectionKeys.models(id), data),
+    // A refresh made with settings that have since changed is not cached; load the list for the new ones.
+    onError: (error, id) => {
+      if (isStaleModelList(error)) void qc.invalidateQueries({ queryKey: connectionKeys.models(id) });
+    },
+  });
+}
+
+/** Pin or unpin a model on a connection. The pin shows at once and is undone if saving fails. */
+export function useSetConnectionModelPinned() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, model, pinned }: { id: string; model: string; pinned: boolean }) =>
+      api.post<{ pinnedModels: string[] }>(`/connections/${encodeURIComponent(id)}/pinned-models`, { model, pinned }),
+    onMutate: async ({ id, model, pinned }) => {
+      await qc.cancelQueries({ queryKey: connectionKeys.list() });
+      const previous = qc.getQueryData<unknown[]>(connectionKeys.list());
+      qc.setQueryData<unknown[]>(connectionKeys.list(), (rows) =>
+        rows?.map((row) => {
+          const record = row as Record<string, unknown>;
+          if (record.id !== id) return row;
+          const current = parsePinnedModels(record.pinnedModels);
+          const next = pinned
+            ? current.includes(model)
+              ? current
+              : [...current, model].slice(0, MAX_PINNED_MODELS)
+            : current.filter((entry) => entry !== model);
+          return { ...record, pinnedModels: JSON.stringify(next) };
+        }),
+      );
+      return { previous };
+    },
+    onError: (_error, _variables, context) => {
+      if (context?.previous) qc.setQueryData(connectionKeys.list(), context.previous);
+    },
+    onSettled: (_data, _error, variables) =>
+      Promise.all([
+        qc.invalidateQueries({ queryKey: connectionKeys.list() }),
+        qc.invalidateQueries({ queryKey: connectionKeys.detail(variables.id) }),
+      ]),
+  });
+}
 
 /** Providers whose model list reports what each model accepts. Other providers get no background fetch. */
 const LIVE_CAPABILITY_PROVIDERS = new Set(["openrouter"]);
 
 /**
- * The selected model's live capabilities, for the parameter panel. Loads the connection's model list once (cached
- * for hours; the server caches too) and only for providers that report capabilities. Returns null while loading, on
- * failure, or when the provider reports nothing, and the panel then falls back to its built-in rules.
+ * The selected model's live capabilities, for the parameter panel. Reads the connection's model list (the one saved
+ * on the connection, fetched once when there is none) and only for providers that report capabilities. Returns null
+ * while loading, on failure, or when the provider reports nothing, and the panel then falls back to its built-in rules.
  */
 export function useModelParameterCapabilities(
   connection: { id?: string | null; provider?: string | null; model?: string | null } | null | undefined,
@@ -274,23 +347,14 @@ export function useModelParameterCapabilities(
   const id = connection?.id ?? "";
   const provider = connection?.provider ?? "";
   const enabled = !!id && id !== "random" && LIVE_CAPABILITY_PROVIDERS.has(provider);
-  const { data } = useQuery({
-    queryKey: [...connectionKeys.all, "models", id, provider],
-    queryFn: () => api.get<{ models: RemoteConnectionModel[] }>(`/connections/${id}/models`),
-    enabled,
-    staleTime: 6 * 60 * 60_000,
-    gcTime: 6 * 60 * 60_000,
-    retry: false,
-  });
+  const { data } = useConnectionModels(id, enabled);
   if (!enabled || !connection?.model) return null;
   return data?.models?.find((model) => model.id === connection.model)?.capabilities ?? null;
 }
 
+/** The editor's Fetch Models button: always asks the provider, and the result replaces the saved list. */
 export function useFetchModels() {
-  return useMutation({
-    mutationFn: (id: string) =>
-      api.get<{ models: RemoteConnectionModel[]; loras?: RemoteConnectionModel[] }>(`/connections/${id}/models`),
-  });
+  return useRefreshConnectionModels();
 }
 
 /** One NanoGPT quota window; counters are null when the lookup was unavailable. */

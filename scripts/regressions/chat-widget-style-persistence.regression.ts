@@ -11,9 +11,13 @@ const stored = new Map<string, string>([
         chatWidgetPreset: "unknown",
         chatWidgetFont: "custom:Bad\nFont",
         chatWidgetShape: {},
+        chatWidgetButtonSize: "64",
         chatWidgetBorderColor: 42,
         chatWidgetBackgroundColor: { color: "red" },
         chatWidgetTextColor: false,
+        chatWidgetApplyFont: "true",
+        chatWidgetApplyShape: 1,
+        chatWidgetApplyColors: {},
       },
       version: UI_PERSISTENCE.version,
     }),
@@ -37,32 +41,45 @@ try {
     normalizeChatWidgetPreset,
     normalizeChatWidgetShape,
     normalizeChatWidgetColor,
+    normalizeChatWidgetButtonSize,
   } = await import("../../packages/client/src/stores/ui.store.js");
   const selection = () => {
     const {
       chatWidgetPreset,
       chatWidgetFont,
       chatWidgetShape,
+      chatWidgetButtonSize,
       chatWidgetBorderColor,
       chatWidgetBackgroundColor,
       chatWidgetTextColor,
+      chatWidgetApplyFont,
+      chatWidgetApplyShape,
+      chatWidgetApplyColors,
     } = useUIStore.getState();
     return {
       chatWidgetPreset,
       chatWidgetFont,
       chatWidgetShape,
+      chatWidgetButtonSize,
       chatWidgetBorderColor,
       chatWidgetBackgroundColor,
       chatWidgetTextColor,
+      chatWidgetApplyFont,
+      chatWidgetApplyShape,
+      chatWidgetApplyColors,
     };
   };
   const defaults = {
     chatWidgetPreset: "default",
     chatWidgetFont: "",
     chatWidgetShape: "preset",
+    chatWidgetButtonSize: null,
     chatWidgetBorderColor: "",
     chatWidgetBackgroundColor: "",
     chatWidgetTextColor: "",
+    chatWidgetApplyFont: false,
+    chatWidgetApplyShape: false,
+    chatWidgetApplyColors: false,
   };
   assert.deepEqual(
     selection(),
@@ -71,6 +88,12 @@ try {
   );
   assert.equal(normalizeChatWidgetPreset(null), "default");
   assert.equal(normalizeChatWidgetShape("triangle"), "preset");
+  for (const invalidSize of [null, undefined, "64", NaN, Infinity, {}, false]) {
+    assert.equal(normalizeChatWidgetButtonSize(invalidSize), null);
+  }
+  assert.equal(normalizeChatWidgetButtonSize(12), 32);
+  assert.equal(normalizeChatWidgetButtonSize(1000), 96);
+  assert.equal(normalizeChatWidgetButtonSize(63.8), 64);
   for (const invalidColor of [null, undefined, false, 42, {}, ["red"]]) {
     assert.equal(normalizeChatWidgetColor(invalidColor), "");
   }
@@ -90,6 +113,16 @@ try {
     "quotes, backslashes and CSS punctuation remain inside one family name",
   );
 
+  useUIStore.getState().setChatWidgetApplyFont(true);
+  assert.deepEqual(
+    selection(),
+    { ...defaults, chatWidgetApplyFont: true },
+    "applying the widget font leaves shape and colors disabled",
+  );
+  useUIStore.getState().setChatWidgetApplyShape(true);
+  useUIStore.getState().setChatWidgetApplyColors(true);
+  const applied = { chatWidgetApplyFont: true, chatWidgetApplyShape: true, chatWidgetApplyColors: true };
+  useUIStore.getState().setChatWidgetButtonSize(64);
   useUIStore.getState().setChatWidgetPreset("dottore");
   useUIStore.getState().setChatWidgetFont("custom: Times New Roman ");
   useUIStore.getState().setChatWidgetShape("square");
@@ -100,9 +133,11 @@ try {
     chatWidgetPreset: "dottore",
     chatWidgetFont: "custom:Times New Roman",
     chatWidgetShape: "square",
+    chatWidgetButtonSize: 64,
     chatWidgetBorderColor: "#123456",
     chatWidgetBackgroundColor: "linear-gradient(135deg, #112233, #445566)",
     chatWidgetTextColor: "#ABCDEF",
+    ...applied,
   };
   assert.deepEqual(selection(), selected);
   for (const pick of [pickPersistedUIState, pickSyncedSettings]) {
@@ -116,14 +151,18 @@ try {
   useUIStore.getState().setChatWidgetPreset("mari");
   assert.deepEqual(
     selection(),
-    { ...defaults, chatWidgetPreset: "mari" },
-    "preset changes clear font, shape and color overrides",
+    { ...defaults, ...applied, chatWidgetButtonSize: 64, chatWidgetPreset: "mari" },
+    "preset changes clear overrides and retain the independent application switches",
   );
   stored.set(UI_PERSISTENCE.name, saved);
   await useUIStore.persist.rehydrate();
   assert.deepEqual(selection(), selected, "the selected preset and overrides survive hydration");
   useUIStore.getState().setChatWidgetPreset("default");
-  assert.deepEqual(selection(), defaults, "choosing Default restores the original appearance");
+  assert.deepEqual(
+    selection(),
+    { ...defaults, ...applied, chatWidgetButtonSize: 64 },
+    "choosing Default restores the preset without changing size or scope",
+  );
   useUIStore.getState().setChatWidgetPreset("mari");
   useUIStore.getState().setChatWidgetFont("@mono");
   useUIStore.getState().setChatWidgetShape("arched");

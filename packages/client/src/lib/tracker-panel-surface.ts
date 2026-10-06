@@ -1,15 +1,12 @@
 // ──────────────────────────────────────────────
-// The Tracker Panel on a phone
+// Tracker Panel visibility
 //
-// On a phone the Tracker Panel switch (top of Chat Settings) shows a bubble the user
-// places anywhere; tapping it opens the panel, and closing the panel goes back to
-// the bubble. Elsewhere the switch shows and hides the panel itself.
+// Chat Settings remembers which tracker surface a chat uses. Closing that surface
+// only hides it; the Trackers button opens it again without changing the choice.
 // ──────────────────────────────────────────────
-import { TRACKER_PANEL_BUBBLE_ID, isPhoneWindowLayout, useFloatingWindowStore } from "../stores/floating-window.store";
-import { useUIStore } from "../stores/ui.store";
+import { TRACKER_PANEL_BUBBLE_ID, useFloatingWindowStore } from "../stores/floating-window.store";
 
-/** Closes the Tracker Panel: on a phone back to its bubble (the switch stays on), elsewhere the switch turns off. */
-export function closeTrackerPanel(chatId?: string | null) {
-  if (isPhoneWindowLayout()) useFloatingWindowStore.getState().closeWindow(TRACKER_PANEL_BUBBLE_ID);
-  else useUIStore.getState().setTrackerPanelOpen(false, chatId);
+/** Close the panel while preserving the chat's Tracker Panel preference. */
+export function closeTrackerPanel() {
+  useFloatingWindowStore.getState().closeWindow(TRACKER_PANEL_BUBBLE_ID);
 }

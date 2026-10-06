@@ -1,4 +1,5 @@
 import type { DB } from "../../db/connection.js";
+import { readImageAppearanceOverride } from "@marinara-engine/shared";
 import { isDebugAgentsEnabled } from "../../config/runtime-config.js";
 import { logger, logDebugOverride } from "../../lib/logger.js";
 import {
@@ -50,6 +51,8 @@ type PromptCharacter = {
   name: string;
   avatarPath?: string | null;
   appearance?: string | null;
+  /** Image-prompt appearance override (#7053), when the card enables one. */
+  imageAppearanceOverride?: string | null;
 };
 
 type PersonaReference = {
@@ -57,6 +60,8 @@ type PersonaReference = {
   name: string;
   avatarPath?: string | null;
   appearance?: string | null;
+  /** Image-prompt appearance override (#7053); wins over `appearance`. */
+  appearanceOverride?: string | null;
 } | null;
 
 const GROUP_SELFIE_REQUEST_RE =
@@ -147,9 +152,12 @@ async function generateSelfie(
   if (!imgConnFull) throw new Error("Cannot decrypt image generation connection");
 
   const extensions = parseRecord(args.charData?.extensions);
-  const appearance =
+  const cardAppearance =
     (typeof extensions?.appearance === "string" && extensions.appearance) ||
     (typeof args.charData?.description === "string" ? args.charData.description : "");
+  // #7053: selfies are image prompts, so an enabled non-empty override replaces
+  // the card appearance here too.
+  const appearance = readImageAppearanceOverride(extensions, cardAppearance) ?? cardAppearance;
   const personality = typeof args.charData?.personality === "string" ? args.charData.personality : "";
   const characterImageInstructions =
     typeof extensions?.conversationImageInstructions === "string" ? extensions.conversationImageInstructions : "";
@@ -270,6 +278,11 @@ async function generateSelfie(
         name: character.name,
         avatarPath: character.avatarPath,
         appearance: character.appearance,
+        // #7053: pass the override explicitly. Without it the appended
+        // appearance-reference block would quote the RAW card appearance while
+        // the system prompt above already uses the override, so both texts
+        // would reach the image model on the same request.
+        appearanceOverride: character.imageAppearanceOverride ?? null,
       })),
       persona: null,
       requestedNames,

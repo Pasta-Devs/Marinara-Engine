@@ -67,6 +67,7 @@ The **Card** tab is the main writing workspace. It holds the fields the AI reads
 - **Personality**. A short summary of temperament, speech habits, and behavior patterns.
 - **Backstory**. History, origin, and important relationships.
 - **Appearance**. Physical description, clothing, and visual details. Marinara also uses this text to seed an AI avatar prompt.
+- **Image Appearance Override**. An optional switch under **Appearance**, off by default. Turn it on to reveal a second box for an image-prompt-ready description of the character. While it is on and the box is filled, image prompts use that text instead of **Appearance**, and an AI avatar prompt is seeded from it too. The narrator always sees the full **Appearance** text. Leave it off to keep the usual behavior.
 - **Scenario**. The default setting for new chats with this character.
 
 The **Dialogue & Greetings** section sets how a chat opens and how the character sounds:
@@ -103,7 +104,7 @@ The AI avatar option appears only when you have at least one image-generation co
 1. Hover the avatar tile and click the small **Generate avatar** wand button.
 2. The **Generate Character Avatar** window opens.
 3. Pick an **Image Generation Connection**.
-4. Review or edit the **Avatar Prompt**. It is pre-filled from your Appearance text. If Appearance is empty, it uses Description, then Personality.
+4. Review or edit the **Avatar Prompt**. If **Image Appearance Override** is on and filled, its text is used as the starting prompt. Otherwise, Marinara uses **Appearance**, then **Description**, then **Personality**, taking the first field that contains text.
 5. If the card already has an avatar, you can check **Use current avatar as a reference**.
 6. Click **Generate**. To try again, click **Regenerate**.
 7. When you like the result, click **Use Avatar**.

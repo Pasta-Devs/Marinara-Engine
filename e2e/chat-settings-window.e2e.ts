@@ -632,7 +632,7 @@ test.describe("Chat Settings window on desktop", () => {
       await expect(dice).toHaveAttribute("aria-pressed", "false");
       await expect(page.locator('[data-component="TrackerDataSidebar"]:visible')).toHaveCount(0);
       await expect(trackersBubble).toBeVisible();
-      expect(await ui()).toEqual([false, false, false]);
+      expect(await ui()).toEqual([true, false, false]);
       await expect.poll(async () => (await box(settings)).x).toBeCloseTo(defaultBox.x, 0);
 
       for (const chat of chats.slice(1)) {

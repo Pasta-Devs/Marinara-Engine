@@ -73,6 +73,8 @@ codex login
 
 Marinara reads your local Codex login file and refreshes the session when it can.
 
+To set how long Codex thinks before answering, open the connection, turn on **Use custom defaults for this connection** under **Default Chat Parameters**, and pick a **Reasoning Effort**; it starts at **Default**. A chat can pick its own level in **Advanced Parameters**. **Default** keeps the level Codex uses for the model. Codex uses that default until the connection or the chat picks a level; the level in your preset does not change it, and a Codex connection used as a fallback follows only its own level. Agents on the connection use the connection's level. The levels match the ones Codex offers for each model: GPT-5.5 goes up to **xhigh**, and GPT-5.6 and GPT-6 models go up to **max**.
+
 ## Grok CLI (Subscription)
 
 You need a SuperGrok or X Premium+ account.

@@ -1,6 +1,6 @@
 import { expect, test, type APIRequestContext, type BrowserContext, type Locator, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
-import { closeChatSettings, openChatSettings } from "./chat-settings-tools.js";
+import { closeChatSettings, openChatSettings, openChatTool } from "./chat-settings-tools.js";
 import { clickTopbarPanel } from "./topbar-navigation.js";
 import { seedUIState } from "./ui-state-fixture.js";
 
@@ -11,6 +11,7 @@ const UI_SETTINGS_PATH = "/api/app-settings/ui";
 const CHAT_NAME_WINDOW = "drawer:chat-settings:chat-name";
 type Preset = "default" | "dottore" | "mari";
 const EMPTY_COLORS = { border: "", background: "", text: "" };
+const APPLY_NONE = { font: false, shape: false, colors: false };
 const GRADIENT_COLORS = {
   border: "linear-gradient(90deg, #ff6b6b, #ffd93d)",
   background: "linear-gradient(135deg, #667eea, #764ba2)",
@@ -18,12 +19,16 @@ const GRADIENT_COLORS = {
 };
 const PALETTES = {
   dark: {
-    dottore: { background: "oklch(0.205 0.023 224)", accent: "oklch(0.86 0.083 202)", field: "oklch(0.26 0.027 221)" },
-    mari: { background: "oklch(0.215 0.022 339)", accent: "oklch(0.81 0.087 13)", field: "oklch(0.26 0.032 351)" },
+    dottore: { background: "oklch(0.235 0.03 252)", accent: "oklch(0.83 0.095 218)", field: "oklch(0.275 0.035 250)" },
+    mari: { background: "oklch(0.235 0.035 275)", accent: "oklch(0.8 0.08 82)", field: "oklch(0.27 0.035 275)" },
   },
   light: {
-    dottore: { background: "oklch(0.965 0.012 220)", accent: "oklch(0.39 0.077 227)", field: "oklch(0.935 0.017 216)" },
-    mari: { background: "oklch(0.975 0.018 76)", accent: "oklch(0.46 0.125 9)", field: "oklch(0.95 0.021 63)" },
+    dottore: {
+      background: "oklch(0.965 0.014 238)",
+      accent: "oklch(0.415 0.075 230)",
+      field: "oklch(0.935 0.023 243)",
+    },
+    mari: { background: "oklch(0.975 0.012 80)", accent: "oklch(0.425 0.088 253)", field: "oklch(0.95 0.018 268)" },
   },
 } as const;
 
@@ -86,6 +91,11 @@ async function readPreferences(page: Page) {
         border: state.chatWidgetBorderColor,
         background: state.chatWidgetBackgroundColor,
         text: state.chatWidgetTextColor,
+      },
+      apply: {
+        font: state.chatWidgetApplyFont,
+        shape: state.chatWidgetApplyShape,
+        colors: state.chatWidgetApplyColors,
       },
       ready: state.settingsSyncReady,
     };
@@ -152,14 +162,24 @@ async function openAppearance(page: Page) {
   return controls;
 }
 
+async function setChatStyleApplication(controls: Locator, role: keyof typeof APPLY_NONE, enabled: boolean) {
+  const label = `Apply preset ${role}`;
+  const checkbox = controls.getByRole("checkbox", { name: label, exact: true });
+  if ((await checkbox.isChecked()) !== enabled) await controls.getByText(label, { exact: true }).click();
+  await expect(checkbox).toBeChecked({ checked: enabled });
+  if (enabled) await expect(controls.page().locator("html")).toHaveAttribute(`data-chat-widget-apply-${role}`, "true");
+  else await expect(controls.page().locator("html")).not.toHaveAttribute(`data-chat-widget-apply-${role}`);
+}
+
 async function choosePreset(page: Page, preset: Preset) {
+  const apply = (await readPreferences(page)).apply;
   const controls = await openAppearance(page);
   const button = controls.locator(`[data-chat-widget-preset-option="${preset}"]`);
   await button.click();
   await expect(button).toHaveAttribute("aria-pressed", "true");
   await expect
     .poll(() => readPreferences(page))
-    .toEqual({ preset, font: "", shape: "preset", colors: EMPTY_COLORS, ready: true });
+    .toEqual({ preset, font: "", shape: "preset", colors: EMPTY_COLORS, apply, ready: true });
   if (preset === "default") await expect(page.locator("html")).not.toHaveAttribute("data-chat-widget-preset");
   else await expect(page.locator("html")).toHaveAttribute("data-chat-widget-preset", preset);
   if (preset !== "default") {
@@ -476,7 +496,7 @@ async function exerciseWindow(page: Page, desktop: boolean) {
     .click();
   if (!desktop) {
     await expect(settings).toBeHidden();
-    await page.locator(`.mari-window-bubble[data-window="${CHAT_NAME_WINDOW}"]`).click();
+    await openChatTool(page, CHAT_NAME_WINDOW);
   }
   const popped = page.locator(`.mari-window[data-window="${CHAT_NAME_WINDOW}"]`);
   await expect(popped).toBeVisible();
@@ -494,6 +514,14 @@ async function exerciseWindow(page: Page, desktop: boolean) {
 async function expectCompactFramedWidgets(page: Page, preset: "dottore" | "mari", theme: string) {
   const settings = await openChatSettings(page);
   const header = settings.locator(".mari-window__header");
+  const grip = settings.locator(".mari-window__resize-grip");
+  if (await grip.count()) {
+    await page.mouse.move(1, 1);
+    await expect(grip).toHaveCSS(
+      "color",
+      await resolvedStyle(page, "color", PALETTES[theme as "dark" | "light"][preset].accent),
+    );
+  }
   expect(await header.evaluate((element) => getComputedStyle(element, "::before").backgroundImage)).not.toContain(
     "url(",
   );
@@ -569,7 +597,14 @@ for (const theme of ["dark", "light"] as const) {
       await expectColorPaintValidation(page);
       await expect
         .poll(() => readPreferences(page))
-        .toEqual({ preset: "default", font: "", shape: "preset", colors: EMPTY_COLORS, ready: true });
+        .toEqual({
+          preset: "default",
+          font: "",
+          shape: "preset",
+          colors: EMPTY_COLORS,
+          apply: APPLY_NONE,
+          ready: true,
+        });
       const baseline = await measureWidgets(page);
       // Default keeps the existing theme hooks, including the transparent drawer/title-bar surfaces.
       expect(baseline.window.background).toBe(
@@ -649,11 +684,24 @@ test("widget font, shape and color choices survive reload and a fresh browser, a
     await page.goto("/");
     await expect
       .poll(() => readPreferences(page))
-      .toEqual({ preset: "default", font: "", shape: "preset", colors: EMPTY_COLORS, ready: true });
+      .toEqual({ preset: "default", font: "", shape: "preset", colors: EMPTY_COLORS, apply: APPLY_NONE, ready: true });
     const baseline = await measureWidgets(page);
     await choosePreset(page, "dottore");
     const preset = await measureWidgets(page);
     let controls = await openAppearance(page);
+    for (const role of ["font", "shape", "colors"] as const) {
+      await expect(controls.getByRole("checkbox", { name: `Apply preset ${role}`, exact: true })).not.toBeChecked();
+    }
+    await setChatStyleApplication(controls, "font", true);
+    await expect.poll(async () => (await readPreferences(page)).apply).toEqual({ ...APPLY_NONE, font: true });
+    await setChatStyleApplication(controls, "shape", true);
+    await setChatStyleApplication(controls, "colors", true);
+    const apply = { font: true, shape: true, colors: true };
+    // Changing the visual preset must not silently opt the chat back out of any selected scope.
+    await controls.locator('[data-chat-widget-preset-option="mari"]').click();
+    await expect.poll(async () => (await readPreferences(page)).apply).toEqual(apply);
+    await controls.locator('[data-chat-widget-preset-option="dottore"]').click();
+    await expect.poll(async () => (await readPreferences(page)).apply).toEqual(apply);
     await controls.locator("#chat-widget-font").selectOption("@serif");
     await controls.locator("#chat-widget-shape").selectOption("square");
     await setGradientColors(controls);
@@ -663,7 +711,14 @@ test("widget font, shape and color choices survive reload and a fresh browser, a
     expect(square.title.font).not.toBe(preset.title.font);
     expect(square.window.radius).toBe("0px");
     expect(square.bubble.radius).toBe("0px");
-    const expected = { preset: "dottore", font: "@serif", shape: "square", colors: GRADIENT_COLORS, ready: true };
+    const expected = {
+      preset: "dottore",
+      font: "@serif",
+      shape: "square",
+      colors: GRADIENT_COLORS,
+      apply,
+      ready: true,
+    };
     await expect.poll(() => readPreferences(page)).toEqual(expected);
     await expect
       .poll(async () => {
@@ -677,9 +732,14 @@ test("widget font, shape and color choices survive reload and a fresh browser, a
             background: saved.chatWidgetBackgroundColor,
             text: saved.chatWidgetTextColor,
           },
+          apply: {
+            font: saved.chatWidgetApplyFont,
+            shape: saved.chatWidgetApplyShape,
+            colors: saved.chatWidgetApplyColors,
+          },
         };
       })
-      .toEqual({ preset: "dottore", font: "@serif", shape: "square", colors: GRADIENT_COLORS });
+      .toEqual({ preset: "dottore", font: "@serif", shape: "square", colors: GRADIENT_COLORS, apply });
     await page.reload();
     await expect.poll(() => readPreferences(page)).toEqual(expected);
     expect(await measureWidgets(page)).toEqual(square);
@@ -710,7 +770,7 @@ test("widget font, shape and color choices survive reload and a fresh browser, a
     await page.getByRole("button", { name: "Reset Appearance", exact: true }).click();
     await expect
       .poll(() => readPreferences(page))
-      .toEqual({ preset: "default", font: "", shape: "preset", colors: EMPTY_COLORS, ready: true });
+      .toEqual({ preset: "default", font: "", shape: "preset", colors: EMPTY_COLORS, apply: APPLY_NONE, ready: true });
     await clickTopbarPanel(page, "settings");
     const reset = await measureWidgets(page);
     expect(reset.title.font).toBe(baseline.title.font);
@@ -726,14 +786,610 @@ test("widget font, shape and color choices survive reload and a fresh browser, a
           saved.chatWidgetBorderColor,
           saved.chatWidgetBackgroundColor,
           saved.chatWidgetTextColor,
+          saved.chatWidgetApplyFont,
+          saved.chatWidgetApplyShape,
+          saved.chatWidgetApplyColors,
         ];
       })
-      .toEqual(["default", "", "preset", "", "", ""]);
+      .toEqual(["default", "", "preset", "", "", "", false, false, false]);
   } finally {
     await freshContext.close();
     // Stop its debounced persistence before restoring the shared server fixture.
     await page.close();
     await request.put(UI_SETTINGS_PATH, { data: { value: original.value ?? "" } });
     await request.delete(`/api/chats/${chat.id}?force=true`);
+  }
+});
+
+const SCOPE_MESSAGE = "The lantern lights a quiet path.";
+type ChatStyleFixture = { id: string; mode: "roleplay" | "game" | "conversation"; view: string };
+
+async function createStyleScopes(request: APIRequestContext) {
+  const response = await request.post("/api/characters", { data: { data: { name: "Style guide" } } });
+  expect(response.ok()).toBeTruthy();
+  const character = (await response.json()) as { id: string };
+  const chats: ChatStyleFixture[] = [];
+  try {
+    for (const view of ["classic", "visual-novel", "game", "conversation"] as const) {
+      const mode = view === "classic" || view === "visual-novel" ? "roleplay" : view;
+      const created = await request.post("/api/chats", {
+        data: { name: `Style scope ${view}`, mode, characterIds: [character.id] },
+      });
+      expect(created.ok()).toBeTruthy();
+      const chat = (await created.json()) as { id: string };
+      chats.push({ id: chat.id, mode, view });
+      expect(
+        (
+          await request.patch(`/api/chats/${chat.id}/metadata`, {
+            data: {
+              windowLayout: null,
+              chatSettingsHintDismissed: true,
+              enableAgents: false,
+              ...(mode === "roleplay" ? { roleplayDisplayStyle: view, background: "Black.jpg" } : {}),
+              ...(mode === "game"
+                ? {
+                    gameId: "widget-style-scope",
+                    gameSessionStatus: "active",
+                    gameSessionNumber: 1,
+                    gameIntroPresented: true,
+                    gameActiveState: "dialogue",
+                    gameBlueprint: { campaignPlan: {}, hudWidgets: [], introSequence: [], visualTheme: {} },
+                  }
+                : {}),
+            },
+          })
+        ).ok(),
+      ).toBeTruthy();
+      if (mode === "game") {
+        expect(
+          (
+            await request.post(`/api/chats/${chat.id}/messages`, {
+              data: { role: "assistant", content: "A bell sounds in the courtyard." },
+            })
+          ).ok(),
+        ).toBeTruthy();
+      }
+      expect(
+        (
+          await request.post(`/api/chats/${chat.id}/messages`, {
+            data: { role: "assistant", characterId: character.id, content: SCOPE_MESSAGE },
+          })
+        ).ok(),
+      ).toBeTruthy();
+    }
+    return {
+      chats,
+      remove: async () => {
+        for (const chat of chats) await request.delete(`/api/chats/${chat.id}?force=true`);
+        await request.delete(`/api/characters/${character.id}`);
+      },
+    };
+  } catch (error) {
+    for (const chat of chats) await request.delete(`/api/chats/${chat.id}?force=true`);
+    await request.delete(`/api/characters/${character.id}`);
+    throw error;
+  }
+}
+
+async function showStyleScope(page: Page, chat: ChatStyleFixture) {
+  await page.evaluate(async (id) => {
+    const { useChatStore } = await import("/src/stores/chat.store.ts" as string);
+    useChatStore.getState().setActiveChatId(id);
+  }, chat.id);
+  const area = page.locator(`[data-chat-mode="${chat.mode}"]`);
+  await expect(area).toBeVisible();
+  const surface =
+    chat.view === "classic"
+      ? area.locator(".mari-rp-bubble.mari-chat-style-surface").first()
+      : chat.view === "visual-novel"
+        ? area.locator("[data-roleplay-vn] .mari-chat-style-surface").first()
+        : chat.mode === "game"
+          ? area.locator('[data-component="GameNarration.ActivePanel"]')
+          : area.locator(".mari-message-bubble.mari-chat-style-conversation").first();
+  await expect(surface).toBeVisible();
+  const text = surface.getByText(SCOPE_MESSAGE, { exact: true }).first();
+  await expect(text).toBeVisible();
+  const input = area.locator("textarea[data-chat-composer]").first();
+  await expect(input).toBeVisible();
+  const composer = area.locator(".mari-chat-input-box.mari-chat-style-surface").first();
+  await expect(composer).toBeVisible();
+  return { surface, text, composer, input };
+}
+
+async function surfaceAppearance(element: Locator) {
+  return element.evaluate(async (node) => {
+    // Flush and finish finite paint transitions before comparing independent axes.
+    getComputedStyle(node).backgroundColor;
+    await Promise.all(
+      node
+        .getAnimations()
+        .filter((animation) => animation.effect?.getComputedTiming().endTime !== Infinity)
+        .map((animation) => animation.finished.catch(() => undefined)),
+    );
+    const host = getComputedStyle(node);
+    const after = getComputedStyle(node, "::after");
+    const before = getComputedStyle(node, "::before");
+    const fill = after.content !== "none" && after.clipPath.includes("polygon") ? after : host;
+    return {
+      background: fill.backgroundColor,
+      image: fill.backgroundImage,
+      radius: host.borderRadius,
+      clip: after.clipPath,
+      borderImage: before.backgroundImage,
+    };
+  });
+}
+
+async function originalOutline(element: Locator, ring = false) {
+  return element.evaluate((node, useRing) => {
+    const style = getComputedStyle(node);
+    if (!useRing) return style.borderTopColor;
+    // RP paints a one-pixel box-shadow ring, not its border property.
+    const paintedRing = style.boxShadow.match(/((?:rgba?|oklch|oklab|color)\([^)]*\)) 0px 0px 0px 1px(?:,|$)/u);
+    if (!paintedRing) throw new Error(`Expected a painted RP ring: ${style.boxShadow}`);
+    return paintedRing[1]!;
+  }, ring);
+}
+
+for (const [preset, theme] of [
+  ["dottore", "dark"],
+  ["mari", "light"],
+] as const) {
+  test(`chat style switches independently extend ${preset} to each chat mode in ${theme} mode`, async ({
+    page,
+    request,
+  }, info) => {
+    test.setTimeout(180_000);
+    const fixture = await createStyleScopes(request);
+    try {
+      await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "" } }));
+      await prepare(page, fixture.chats[0]!.id, theme);
+
+      await page.goto("/");
+      await page.evaluate(async () => {
+        const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+        useUIStore.getState().setGameTextSpeed(100);
+        useUIStore.getState().setGameDialogueDisplayMode("stacked");
+        useUIStore.getState().setConversationMessageStyle("bubble");
+      });
+      const gameLog = page.locator(".mari-game-stacked-log");
+      let gameLogBaseline: Awaited<ReturnType<typeof surfaceAppearance>> | undefined;
+      let gameLogOutline = "";
+      const outlines = new Map<string, { surface: string; composer: string; focusedComposer: string }>();
+      const baseline = new Map<
+        string,
+        {
+          surface: Awaited<ReturnType<typeof surfaceAppearance>>;
+          composer: Awaited<ReturnType<typeof surfaceAppearance>>;
+          font: string;
+        }
+      >();
+      for (const chat of fixture.chats) {
+        const scope = await showStyleScope(page, chat);
+        if (chat.mode === "game") {
+          await expect(gameLog).toBeVisible();
+          gameLogBaseline = await surfaceAppearance(gameLog);
+          gameLogOutline = await originalOutline(gameLog);
+        }
+        baseline.set(chat.view, {
+          surface: await surfaceAppearance(scope.surface),
+          composer: await surfaceAppearance(scope.composer),
+          font: await scope.text.evaluate((node) => getComputedStyle(node).fontFamily),
+        });
+        if (chat.view === "classic" || chat.mode === "game") {
+          const surface = await originalOutline(scope.surface, chat.view === "classic");
+          const composer = await originalOutline(scope.composer);
+          await scope.input.focus();
+          await surfaceAppearance(scope.composer);
+          const focusedComposer = await originalOutline(scope.composer);
+          await scope.input.blur();
+          await surfaceAppearance(scope.composer);
+          outlines.set(chat.view, { surface, composer, focusedComposer });
+        }
+      }
+      await showStyleScope(page, fixture.chats[0]!);
+      const baselinePath = info.outputPath(`chat-style-${preset}-baseline.png`);
+      await page.screenshot({ path: baselinePath, animations: "disabled" });
+      await info.attach("Chat style before enabling", { path: baselinePath, contentType: "image/png" });
+      await choosePreset(page, preset);
+      let scope = await showStyleScope(page, fixture.chats[0]!);
+      const original = baseline.get("classic")!;
+      const swipes = page.locator('[data-chat-mode="roleplay"] .mari-message-swipes').first();
+      const swipeFrame = swipes.locator(".mari-swipe-input");
+      const swipeInput = swipeFrame.locator("input");
+      const swipeArrow = swipes.getByRole("button").first();
+      const originalSwipe = {
+        frame: await surfaceAppearance(swipeFrame),
+        arrow: await surfaceAppearance(swipeArrow),
+        font: await swipeInput.evaluate((node) => getComputedStyle(node).fontFamily),
+      };
+      const send = page.locator(".mari-chat-send-btn").first();
+      const sendFill = await send.evaluate((node) => getComputedStyle(node).backgroundColor);
+      expect(await surfaceAppearance(scope.surface)).toEqual(original.surface);
+      expect(await surfaceAppearance(scope.composer)).toEqual(original.composer);
+      await expect(scope.text).toHaveCSS("font-family", original.font);
+
+      let controls = await openAppearance(page);
+      await setChatStyleApplication(controls, "font", true);
+      await clickTopbarPanel(page, "settings");
+      const selectedFont = await scope.surface.evaluate((node) => getComputedStyle(node).fontFamily);
+      expect(selectedFont).not.toBe(original.font);
+      await expect(scope.text).toHaveCSS("font-family", selectedFont);
+      await expect(scope.input).toHaveCSS("font-family", selectedFont);
+      await expect(swipes).toHaveCSS("font-family", selectedFont);
+      await expect(swipeInput).toHaveCSS("font-family", selectedFont);
+      expect(await surfaceAppearance(swipeFrame)).toEqual(originalSwipe.frame);
+      expect(await surfaceAppearance(swipeArrow)).toEqual(originalSwipe.arrow);
+      expect(await surfaceAppearance(scope.surface)).toEqual(original.surface);
+      expect(await surfaceAppearance(scope.composer)).toEqual(original.composer);
+
+      controls = await openAppearance(page);
+      await setChatStyleApplication(controls, "font", false);
+      await setChatStyleApplication(controls, "shape", true);
+      await clickTopbarPanel(page, "settings");
+      for (const [target, old] of [
+        [scope.surface, original.surface],
+        [scope.composer, original.composer],
+      ] as const) {
+        const shaped = await surfaceAppearance(target);
+        expect(shaped.background).toBe(old.background);
+        expect(shaped.image).toBe(old.image);
+        if (preset === "dottore") expect(shaped.clip).toContain("polygon");
+        else expect(shaped.radius).not.toBe(old.radius);
+      }
+      await expect(scope.text).toHaveCSS("font-family", original.font);
+      await expect(swipeInput).toHaveCSS("font-family", originalSwipe.font);
+      for (const [target, old] of [
+        [swipeFrame, originalSwipe.frame],
+        [swipeArrow, originalSwipe.arrow],
+      ] as const) {
+        const shaped = await surfaceAppearance(target);
+        expect(shaped.background).toBe(old.background);
+        if (preset === "dottore") expect(shaped.clip).toContain("polygon");
+        else expect(shaped.radius).not.toBe(old.radius);
+      }
+      if (preset === "dottore") {
+        expect(await send.evaluate((node) => getComputedStyle(node, "::after").backgroundColor)).toBe(sendFill);
+        const frame = (element: Locator) =>
+          element.evaluate((node) => getComputedStyle(node, "::before").backgroundColor);
+        await expect.poll(() => frame(scope.surface)).toBe(outlines.get("classic")!.surface);
+        await expect.poll(() => frame(scope.composer)).toBe(outlines.get("classic")!.composer);
+        await scope.input.focus();
+        await expect.poll(() => frame(scope.composer)).toBe(outlines.get("classic")!.focusedComposer);
+        await scope.input.blur();
+      }
+
+      const gameScope = await showStyleScope(
+        page,
+        fixture.chats.find((chat) => chat.mode === "game")!,
+      );
+      if (preset === "dottore") {
+        for (const [element, color] of [
+          [gameScope.surface, outlines.get("game")!.surface],
+          [gameLog, gameLogOutline],
+        ] as const) {
+          await expect
+            .poll(() => element.evaluate((node) => getComputedStyle(node, "::before").backgroundColor))
+            .toBe(color);
+        }
+      }
+      const shapedLog = await surfaceAppearance(gameLog);
+      // Tailwind's oklab black/40 and the equivalent rgba paint serialize differently.
+      const logFillPixels = await page.evaluate(
+        (colors) =>
+          colors.map((color) => {
+            const canvas = document.createElement("canvas");
+            canvas.width = canvas.height = 1;
+            const context = canvas.getContext("2d")!;
+            context.fillStyle = color;
+            context.fillRect(0, 0, 1, 1);
+            return Array.from(context.getImageData(0, 0, 1, 1).data);
+          }),
+        [shapedLog.background, gameLogBaseline!.background],
+      );
+      expect(logFillPixels[0]).toEqual(logFillPixels[1]);
+      expect(shapedLog.image).toBe(gameLogBaseline!.image);
+
+      await showStyleScope(page, fixture.chats[0]!);
+
+      controls = await openAppearance(page);
+      await setChatStyleApplication(controls, "shape", false);
+      await setChatStyleApplication(controls, "colors", true);
+      await clickTopbarPanel(page, "settings");
+      const colored = await surfaceAppearance(scope.surface);
+      expect(colored.radius).toBe(original.surface.radius);
+      expect(colored.clip).toBe(original.surface.clip);
+      expect(colored.background).toBe(
+        await resolvedStyle(page, "background-color", PALETTES[theme][preset].background),
+      );
+      await expect(scope.text).toHaveCSS("font-family", original.font);
+
+      for (const [target, old] of [
+        [swipeFrame, originalSwipe.frame],
+        [swipeArrow, originalSwipe.arrow],
+      ] as const) {
+        const painted = await surfaceAppearance(target);
+        expect(painted.radius).toBe(old.radius);
+        expect(painted.clip).toBe(old.clip);
+        expect(painted.background).toBe(colored.background);
+      }
+
+      controls = await openAppearance(page);
+      await setChatStyleApplication(controls, "font", true);
+      await setChatStyleApplication(controls, "shape", true);
+      await page
+        .locator('[data-component="RightPanel"]')
+        .getByRole("button", { name: "Close panel", exact: true })
+        .click();
+      await expect(
+        page.locator('[data-component="RightPanelDesktopSlot"], [data-component="RightPanelMobile"]'),
+      ).toBeHidden();
+      for (const chat of fixture.chats) {
+        await showStyleScope(page, chat);
+        if (chat.view === "visual-novel" || (chat.mode === "game" && info.project.name === "desktop-chromium")) {
+          const control = page.locator(".mari-vn-history-control:visible, .mari-map-generate-control:visible");
+          await expect(control).toHaveCount(1);
+          await expect(control).toHaveCSS("font-family", selectedFont);
+          const painted = await surfaceAppearance(control);
+          expect(painted.background).toBe(colored.background);
+          if (preset === "dottore") expect(painted.clip).toContain("polygon");
+        }
+        const path = info.outputPath(`chat-style-${preset}-${chat.view}.png`);
+        await page.screenshot({ path, animations: "disabled" });
+        await info.attach(`${preset} ${chat.view} chat style`, { path, contentType: "image/png" });
+      }
+      controls = await openAppearance(page);
+      await controls.locator("#chat-widget-font").selectOption("@serif");
+      await controls.locator("#chat-widget-shape").selectOption("cut-corner");
+      await setGradientColors(controls);
+      await clickTopbarPanel(page, "settings");
+      const background = await resolvedStyle(page, "background-image", GRADIENT_COLORS.background);
+      const border = await resolvedStyle(page, "background-image", GRADIENT_COLORS.border);
+      const textGradient = await resolvedStyle(page, "background-image", GRADIENT_COLORS.text);
+      for (const chat of fixture.chats) {
+        await test.step(`${chat.view} paints custom colors/font and preserves its shape contract`, async () => {
+          scope = await showStyleScope(page, chat);
+          await expect(scope.text).toHaveCSS("font-family", /serif/);
+          await expect(scope.input).toHaveCSS("font-family", /serif/);
+          await expect(scope.input).toHaveCSS("-webkit-text-fill-color", "rgb(108, 92, 231)");
+          for (const target of [scope.surface, scope.composer]) {
+            const painted = await surfaceAppearance(target);
+            expect(painted.image).toBe(background);
+            expect(painted.borderImage).toBe(border);
+            if (chat.mode === "conversation" && target === scope.surface) {
+              expect(painted.radius).toBe(baseline.get(chat.view)!.surface.radius);
+              expect(painted.clip).toBe(baseline.get(chat.view)!.surface.clip);
+            } else expect(painted.clip).toContain("polygon");
+          }
+          // Read actual glyph paint, not only the inherited custom properties.
+          const glyph = scope.text.locator("p:not(:has(*)), span:not(:has(*))").filter({ hasText: /\S/ }).first();
+          const paintedText = (await glyph.count()) ? glyph : scope.text;
+          await expect(paintedText).toHaveCSS("background-image", textGradient);
+          await expect(paintedText).toHaveCSS("-webkit-text-fill-color", "rgba(0, 0, 0, 0)");
+
+          if (chat.view === "visual-novel" || (chat.mode === "game" && info.project.name === "desktop-chromium")) {
+            const control = page.locator(".mari-vn-history-control:visible, .mari-map-generate-control:visible");
+            await expect(control).toHaveCSS("font-family", /serif/);
+            const painted = await surfaceAppearance(control);
+            expect(painted.clip).toContain("polygon");
+            expect(painted.image).toContain(background);
+            await expect(control.locator("svg")).toHaveCSS("color", "rgb(255, 107, 107)");
+          }
+
+          if (chat.view === "classic" || chat.mode === "conversation") {
+            const pager = page.locator(`[data-chat-mode="${chat.mode}"] .mari-message-swipes`).first();
+            await expect(pager.locator("input")).toHaveCSS("font-family", /serif/);
+            await expect(pager.locator("input")).toHaveCSS("-webkit-text-fill-color", "rgb(108, 92, 231)");
+            await expect(pager.locator(":scope > span.tabular-nums")).toHaveCSS("background-image", textGradient);
+            for (const control of [pager.locator(".mari-swipe-input"), pager.getByRole("button").first()]) {
+              const painted = await surfaceAppearance(control);
+              expect(painted.clip).toContain("polygon");
+              expect(painted.image).toContain(background);
+            }
+          }
+
+          await scope.input.fill("A readable draft");
+          await expect(scope.input).toHaveValue("A readable draft");
+          await scope.input.fill("");
+        });
+      }
+      // The default unboxed Conversation layout receives font and glyph colors too.
+      await page.evaluate(async () => {
+        const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+        useUIStore.getState().setConversationMessageStyle("classic");
+      });
+      const unboxed = page
+        .locator('[data-chat-mode="conversation"] .mari-message-content')
+        .filter({ hasText: SCOPE_MESSAGE })
+        .first();
+      await expect(unboxed).toBeVisible();
+      await expect(unboxed).not.toHaveClass(/mari-message-bubble/);
+      await expect(unboxed).toHaveCSS("font-family", /serif/);
+      await expect(unboxed.getByText(SCOPE_MESSAGE, { exact: true }).first()).toHaveCSS(
+        "background-image",
+        textGradient,
+      );
+      await page.evaluate(async () => {
+        const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+        useUIStore.getState().setConversationMessageStyle("bubble");
+      });
+      scope = await showStyleScope(
+        page,
+        fixture.chats.find((chat) => chat.mode === "conversation")!,
+      );
+      // Public chat hooks override the preset without reshaping Conversation bubbles.
+      const custom = await page.addStyleTag({
+        content:
+          ":root { --mari-chat-bg: rgb(20, 30, 40); --mari-chat-text: rgb(230, 240, 250); --mari-chat-font-family: monospace; }",
+      });
+      await expect(scope.surface).toHaveCSS("background-color", "rgb(20, 30, 40)");
+      await expect(scope.text).toHaveCSS("font-family", "monospace");
+      await expect(scope.input).toHaveCSS("-webkit-text-fill-color", "rgb(230, 240, 250)");
+      await custom.evaluate((node) => node.parentNode?.removeChild(node));
+      controls = await openAppearance(page);
+      for (const role of ["font", "shape", "colors"] as const) await setChatStyleApplication(controls, role, false);
+      await clickTopbarPanel(page, "settings");
+      for (const chat of fixture.chats) {
+        const reset = await showStyleScope(page, chat);
+        expect(await surfaceAppearance(reset.surface)).toEqual(baseline.get(chat.view)!.surface);
+        expect(await surfaceAppearance(reset.composer)).toEqual(baseline.get(chat.view)!.composer);
+        await expect(reset.text).toHaveCSS("font-family", baseline.get(chat.view)!.font);
+        if (chat.view === "classic") {
+          expect(await surfaceAppearance(swipeFrame)).toEqual(originalSwipe.frame);
+          expect(await surfaceAppearance(swipeArrow)).toEqual(originalSwipe.arrow);
+          await expect(swipeInput).toHaveCSS("font-family", originalSwipe.font);
+        }
+      }
+    } finally {
+      await fixture.remove();
+    }
+  });
+}
+
+test("movable button pixel size is independent, stays reachable and restores the current default", async ({
+  page,
+  request,
+  browser,
+}, info) => {
+  test.setTimeout(180_000);
+  const original = (await (await request.get(UI_SETTINGS_PATH)).json()) as { value: string | null };
+  const fixture = await createStyleScopes(request);
+  const game = fixture.chats.find((chat) => chat.mode === "game")!;
+  const freshContext = await browser.newContext({ viewport: page.viewportSize()! });
+  const settingsButton = page.locator("[data-chat-settings-button]");
+  const readSize = async () => {
+    const saved = (await (await request.get(UI_SETTINGS_PATH)).json()) as { value: string | null };
+    return (JSON.parse(saved.value || "{}") as { chatWidgetButtonSize?: number | null }).chatWidgetButtonSize;
+  };
+  const closeAppearance = async () => {
+    await page.getByRole("button", { name: "Close panel", exact: true }).click();
+    await expect(
+      page.locator('[data-component="RightPanelDesktopSlot"], [data-component="RightPanelMobile"]'),
+    ).toBeHidden();
+  };
+  const assertReachable = async () => {
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const area = document.querySelector('[data-component="CenterContent"]')!.getBoundingClientRect();
+          const composer = document.querySelector("textarea[data-chat-composer]")!.getBoundingClientRect();
+          const boxes = [...document.querySelectorAll<HTMLElement>(".mari-window-bubble[data-window]")]
+            .filter((node) => node.getClientRects().length && getComputedStyle(node).visibility !== "hidden")
+            .map((node) => node.getBoundingClientRect());
+          return (
+            boxes.length >= 4 &&
+            boxes.every(
+              (box, index) =>
+                box.left >= area.left - 1 &&
+                box.right <= area.right + 1 &&
+                box.bottom <= composer.top + 1 &&
+                boxes
+                  .slice(index + 1)
+                  .every(
+                    (other) =>
+                      box.right <= other.left + 1 ||
+                      other.right <= box.left + 1 ||
+                      box.bottom <= other.top + 1 ||
+                      other.bottom <= box.top + 1,
+                  ),
+            )
+          );
+        }),
+      )
+      .toBe(true);
+  };
+  try {
+    expect((await request.put(UI_SETTINGS_PATH, { data: { value: "" } })).ok()).toBeTruthy();
+    await prepare(page, game.id, "dark");
+    await page.goto("/");
+    await expect.poll(async () => (await readPreferences(page)).ready).toBe(true);
+    await closeChatSettings(page);
+    await expect(settingsButton).toBeVisible();
+    await expect(page.locator("textarea[data-chat-composer]")).toBeVisible();
+    await assertReachable();
+    const baseline = await settingsButton.boundingBox();
+    expect(baseline).not.toBeNull();
+    const originalFont = await page.evaluate(async () => {
+      const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+      return useUIStore.getState().fontSize;
+    });
+    await page.screenshot({ path: info.outputPath("button-size-default.png"), animations: "disabled" });
+    let controls = await openAppearance(page);
+    const field = controls.getByLabel("Button size (px)", { exact: true });
+    await expect(field).toHaveValue("");
+    await expect(field).toHaveAttribute("placeholder", "Default");
+    await field.fill("64");
+    await field.press("Enter");
+    await expect(settingsButton).toHaveCSS("width", "64px");
+    await expect(settingsButton.locator("svg")).toHaveCSS("width", "32px");
+    expect(
+      await page.evaluate(async () => {
+        const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+        return useUIStore.getState().fontSize;
+      }),
+    ).toBe(originalFont);
+    for (const preset of ["dottore", "mari"] as const) {
+      await controls.locator(`[data-chat-widget-preset-option="${preset}"]`).click();
+      await expect(field).toHaveValue("64");
+      await expect(settingsButton).toHaveCSS("width", "64px");
+    }
+    await controls.locator('[data-chat-widget-preset-option="dottore"]').click();
+    await field.scrollIntoViewIfNeeded();
+    await page.screenshot({ path: info.outputPath("button-size-setting.png"), animations: "disabled" });
+    await closeAppearance();
+    const profile = page.locator('.mari-window-bubble[data-window="control:character-profiles"]');
+    await expect(profile).toHaveCSS("width", "64px");
+    await expect(profile.locator(".mari-window-bubble__icon > span")).toHaveCSS("width", "32px");
+    if (info.project.name.includes("mobile")) {
+      await expect(page.locator('.mari-window-bubble[data-window="control:map"]')).toHaveCSS("width", "64px");
+      await expect(page.locator("[data-chat-tools-menu-button]")).toHaveCSS("width", "64px");
+    }
+    await assertReachable();
+    await page.screenshot({ path: info.outputPath("button-size-64.png"), animations: "disabled" });
+    await expect.poll(readSize).toBe(64);
+    await page.evaluate(async () => {
+      const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+      useUIStore.getState().setFontSize(22);
+    });
+    await expect(settingsButton).toHaveCSS("width", "64px");
+    await expect(settingsButton.locator("svg")).toHaveCSS("width", "32px");
+    await page.reload();
+    await expect(settingsButton).toHaveCSS("width", "64px");
+    await prepare(freshContext, game.id, "dark");
+    const freshPage = await freshContext.newPage();
+    await freshPage.goto(new URL("/", page.url()).toString());
+    await expect(freshPage.locator("[data-chat-settings-button]")).toHaveCSS("width", "64px");
+    await freshContext.close();
+
+    controls = await openAppearance(page);
+    await controls.getByLabel("Button size (px)", { exact: true }).fill("999");
+    await controls.getByLabel("Button size (px)", { exact: true }).press("Enter");
+    await expect(controls.getByLabel("Button size (px)", { exact: true })).toHaveValue("96");
+    await closeAppearance();
+    await expect(settingsButton).toHaveCSS("width", "96px");
+    await assertReachable();
+    controls = await openAppearance(page);
+    await controls.getByLabel("Button size (px)", { exact: true }).fill("1");
+    await controls.getByLabel("Button size (px)", { exact: true }).press("Enter");
+    await expect(settingsButton).toHaveCSS("width", "32px");
+    await controls.getByLabel("Button size (px)", { exact: true }).fill("");
+    await controls.getByLabel("Button size (px)", { exact: true }).press("Enter");
+    await expect(page.locator("html")).not.toHaveAttribute("data-chat-widget-button-size");
+    await controls.getByLabel("Button size (px)", { exact: true }).fill("64");
+    await controls.getByLabel("Button size (px)", { exact: true }).press("Enter");
+    await controls.getByRole("button", { name: "Reset button size to default", exact: true }).click();
+    await expect(controls.getByLabel("Button size (px)", { exact: true })).toHaveValue("");
+    await expect.poll(readSize).toBeNull();
+    await page.evaluate(async (font) => {
+      const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+      useUIStore.getState().setFontSize(font);
+    }, originalFont);
+    await closeAppearance();
+    await expect.poll(async () => (await settingsButton.boundingBox())!.width).toBeCloseTo(baseline!.width, 0);
+  } finally {
+    await freshContext.close();
+    await page.close();
+    await request.put(UI_SETTINGS_PATH, { data: { value: original.value ?? "" } });
+    await fixture.remove();
   }
 });

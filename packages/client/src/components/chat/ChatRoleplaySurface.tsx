@@ -962,16 +962,15 @@ export function ChatRoleplaySurface({
     chatCharIds,
     personaInfo,
   };
-  // On a phone the Tracker Panel switch shows a bubble, first in the column of control bubbles.
+  // Panel-enabled chats use the Trackers button to reopen their selected surface.
   const phoneLayout = useMatchMedia("(max-width: 767px)");
   const trackerPanelEnabled = useUIStore((s) => s.trackerPanelEnabled);
   const trackerPanelOpen = useUIStore((s) => s.trackerPanelOpen);
   const showTrackerPanelBubble =
-    phoneLayout &&
     trackerPanelEnabled &&
     trackerPanelOpen &&
     (chatMeta.enableAgents === true || chatMeta.advancedMemory?.enabled === true);
-  const phoneSlotOffset = showTrackerPanelBubble ? 1 : 0;
+  const phoneSlotOffset = phoneLayout && showTrackerPanelBubble ? 1 : 0;
   useRenderTimer("rp-surface"); // [#3104 diagnostic]
   const isMobileToolbarViewport = useIsMobileToolbarViewport();
   const streamedMessageId = useChatStore((s) => s.streamedMessageIds.get(activeChatId) ?? null);
@@ -989,6 +988,12 @@ export function ChatRoleplaySurface({
   const vnAutoPlay = useUIStore((s) => s.roleplayVnAutoPlay);
   const vnAutoPlayDelay = useUIStore((s) => s.roleplayVnAutoPlayDelay);
   const visualNovel = isRoleplay && (chatMeta.roleplayDisplayStyle ?? defaultDisplayStyle) === "visual-novel";
+  const chatPosition = useUIStore((s) => s.roleplayChatPosition);
+  const roleplayAvatarStyle = useUIStore((s) => s.roleplayAvatarStyle);
+  const roleplayAvatarScale = useUIStore((s) => s.roleplayAvatarScale);
+  const trackerPanelSide = useUIStore((s) => s.trackerPanelSide);
+  // Left and Right apply on wide screens only (see globals.css); a narrow chat pane keeps the centred column.
+  const sideChatPosition = chatPosition === "left" || chatPosition === "right" ? chatPosition : undefined;
   const [vnHistoryOpen, setVnHistoryOpen] = useState(false);
   const [vnHistoryHasDraft, setVnHistoryHasDraft] = useState(false);
   const [vnMediaTarget, setVnMediaTarget] = useState<HTMLDivElement | null>(null);
@@ -1672,7 +1677,21 @@ export function ChatRoleplaySurface({
         )}
         data-chat-mode="roleplay"
         data-roleplay-presentation={visualNovel ? "visual-novel" : "classic"}
-        style={{ isolation: "isolate" }}
+        data-chat-position={sideChatPosition}
+        data-roleplay-avatar-style={sideChatPosition ? roleplayAvatarStyle : undefined}
+        style={
+          {
+            isolation: "isolate",
+            // The compact pane keeps the transcript's narrow padding (px-3) at every width.
+            ...(centerCompact && { "--mari-roleplay-transcript-gutter": "0.75rem" }),
+            ...(sideChatPosition && {
+              "--roleplay-avatar-scale": roleplayAvatarScale,
+              // A docked Tracker Panel on the same side narrows the chat area the column moves into.
+              "--mari-chat-position-clearance":
+                trackerPanelSide === sideChatPosition ? "var(--tracker-panel-chat-clearance, 0px)" : "0px",
+            }),
+          } as CSSProperties
+        }
       >
         <CrossfadeBackground url={chatBackground} blurPx={chatBackgroundBlur} />
         <div className="rpg-overlay absolute inset-0" />
@@ -1814,7 +1833,7 @@ export function ChatRoleplaySurface({
                 inert={visualNovel && !vnHistoryOpen ? true : undefined}
                 className={cn(
                   "rpg-chat-messages-mobile mari-messages-scroll relative h-full overflow-y-auto overflow-x-hidden",
-                  centerCompact ? "px-3" : "px-3 md:px-8 lg:px-10 xl:px-12",
+                  "px-3 md:px-[var(--mari-roleplay-transcript-gutter)]",
                   visualNovel && !vnHistoryOpen && "invisible pointer-events-none",
                   visualNovel &&
                     vnHistoryOpen &&
@@ -2003,7 +2022,7 @@ export function ChatRoleplaySurface({
                       <button
                         type="button"
                         className={cn(
-                          "relative flex h-6 w-10 items-center justify-center border border-[var(--border)] bg-[var(--marinara-chat-chrome-panel-bg)] text-[var(--marinara-chat-chrome-button-text)] before:absolute before:-inset-x-1 before:-inset-y-2.5 hover:text-[var(--marinara-chat-chrome-highlight-text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--primary)]",
+                          "mari-vn-history-control mari-chat-style-control relative flex h-6 w-10 items-center justify-center border border-[var(--border)] bg-[var(--marinara-chat-chrome-panel-bg)] text-[var(--marinara-chat-chrome-button-text)] before:absolute before:-inset-x-1 before:-inset-y-2.5 hover:text-[var(--marinara-chat-chrome-highlight-text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--primary)]",
                           vnHistoryOpen ? "-mt-px rounded-b-lg border-t-0" : "rounded-t-lg border-b-0",
                         )}
                         aria-expanded={vnHistoryOpen}
@@ -2029,7 +2048,7 @@ export function ChatRoleplaySurface({
                       </button>
                     </div>
                     {!vnHistoryOpen && (
-                      <div className="rounded-xl border border-[var(--border)] bg-[var(--marinara-chat-chrome-panel-bg)] shadow-lg">
+                      <div className="mari-chat-style-surface rounded-xl border border-[var(--border)] bg-[var(--marinara-chat-chrome-panel-bg)] shadow-lg">
                         {hasLiveStream ? (
                           inlineStreamingMessageId &&
                           messages?.find((message) => message.id === inlineStreamingMessageId) ? (
@@ -2134,6 +2153,7 @@ export function ChatRoleplaySurface({
                   <EndSceneBar
                     sceneChatId={activeChatId}
                     originChatId={chatMeta.sceneOriginChatId}
+                    packageOrigin={chatMeta.scenePackageOrigin}
                     onConclude={onConcludeScene}
                     onAbandon={onAbandonScene}
                     onFork={onForkScene}
@@ -2179,7 +2199,7 @@ export function ChatRoleplaySurface({
       </div>
 
       {/* Package toolbars, Beholder and the connected chat are windows that minimize to bubbles. */}
-      {showTrackerPanelBubble && <TrackerPanelBubble />}
+      {showTrackerPanelBubble && <TrackerPanelBubble chatId={activeChatId} />}
       {conversationToolbarPackages.map((item, index) => (
         <ChatControlWindow
           key={`${item.id}-toolbar-window`}

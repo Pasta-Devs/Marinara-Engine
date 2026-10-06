@@ -34,6 +34,7 @@ import {
 } from "../../stores/floating-window.store";
 import { useAgentStore } from "../../stores/agent.store";
 import { useUIStore } from "../../stores/ui.store";
+import { ChatToolsMenu } from "./ChatToolsMenu";
 
 const TIP_WIDTH_PX = 240;
 
@@ -69,6 +70,7 @@ export function ChatSettingsBubble({ chatId, mode }: { chatId: string; mode: Cha
 
   return (
     <>
+      {phone && <ChatToolsMenu key={chatId} />}
       <WindowBubble
         id={CHAT_SETTINGS_BUTTON_ID}
         point={saved ?? { ...getTopRightBubblePoint(bounds, size), automatic: true }}

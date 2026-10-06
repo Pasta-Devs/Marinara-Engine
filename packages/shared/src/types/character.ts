@@ -40,6 +40,10 @@ export interface CharacterExtensions {
   backstory: string;
   /** Marinara Engine extension: physical appearance description */
   appearance: string;
+  /** Marinara Engine: use `imageAppearance` instead of `appearance` in image prompts. */
+  imageAppearanceEnabled?: boolean;
+  /** Marinara Engine: appearance text used for image prompts when the override is enabled. */
+  imageAppearance?: string;
   /** Marinara Engine: Name display color/gradient (CSS value, e.g. "linear-gradient(90deg, #ff6b6b, #ffd93d)" or "#ff6b6b") */
   nameColor?: string;
   /** Marinara Engine: Dialogue highlight color — text in quotation marks is bold + colored with this */
@@ -229,6 +233,10 @@ export interface PersonaCardSnapshot {
   scenario: string;
   backstory: string;
   appearance: string;
+  /** Marinara Engine: image-prompt override flag, stored as a string like its siblings. */
+  imageAppearanceEnabled?: string;
+  /** Marinara Engine: appearance text used for image prompts while the override is on. */
+  imageAppearance?: string;
   characterSheetImageId: string;
   useCharacterSheetAsReference: string;
   avatarCrop: string;

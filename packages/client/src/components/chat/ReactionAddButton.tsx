@@ -106,6 +106,7 @@ function ReactionPickerPanel({
       onClose={onClose}
       onSelect={(emoji) => onPick(emoji, null)}
       anchorRef={anchorRef}
+      popupClassName="mari-chat-style-surface mari-chat-input-popup"
       customTab={{
         icon: "⭐",
         label: "Custom emojis",

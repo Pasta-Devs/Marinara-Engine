@@ -13,6 +13,7 @@ import {
   type InstalledCapabilityPackage,
   parseAgentSettingsRecord,
   type PackagedAchievementDefinition,
+  type SceneOriginProvider,
 } from "@marinara-engine/shared";
 import { isDebugAgentsEnabled } from "../../config/runtime-config.js";
 import { logger, logDebugOverride } from "../../lib/logger.js";
@@ -48,6 +49,7 @@ import {
   type CapabilityPromptContextContributor,
 } from "./capability-prompt-context.service.js";
 import { registerCapabilityTool, type CapabilityToolRegistration } from "./capability-tool-registry.service.js";
+import { registerCapabilitySceneOrigin } from "./capability-scene-origin.service.js";
 import { failInjectFastDuring } from "../../lib/fastify-inject-gate.js";
 
 /**
@@ -80,6 +82,8 @@ type CapabilityActivationContext = {
     /** Contribute badges to the Home achievements panel, shown under this package's own section.
      *  Requires the `achievements` permission. */
     registerAchievements(achievements: readonly PackagedAchievementDefinition[]): Cleanup;
+    /** Let this package's threads be the origin of a roleplay scene. Requires the `scenes` permission. */
+    registerSceneOrigin(provider: SceneOriginProvider): Cleanup;
     registerPrivilegedRoutes(
       routes: import("fastify").FastifyPluginAsync,
       options: { prefix: string },
@@ -310,6 +314,14 @@ class CapabilityModuleRuntime {
             const release = registerCapabilityTool(installed.id, registration);
             toolCleanups.push(release);
             return trackCleanup(release);
+          },
+          registerSceneOrigin: (provider) => {
+            if (!installed.manifest.permissions?.includes("scenes")) {
+              throw new Error(
+                `Capability package ${installed.id} must declare the "scenes" permission to be a scene origin`,
+              );
+            }
+            return trackCleanup(registerCapabilitySceneOrigin(installed.id, provider));
           },
           registerAchievements: (achievements) => {
             if (!installed.manifest.permissions?.includes("achievements")) {

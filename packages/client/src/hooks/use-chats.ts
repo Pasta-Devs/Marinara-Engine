@@ -12,6 +12,7 @@ import {
 } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { api, ApiError, isRequestTimeoutError, requestTimeoutSignal } from "../lib/api-client";
+import { EXPORT_FAILED_TOAST_ID } from "../lib/file-download";
 import { translate } from "../localization/i18n";
 import { useChatStore } from "../stores/chat.store";
 import { useAgentStore } from "../stores/agent.store";
@@ -1704,7 +1705,9 @@ export function useExportChat() {
       );
     },
     onError: (error) => {
-      toast.error(error instanceof Error ? `Export failed: ${error.message}` : "Export failed.");
+      toast.error(error instanceof Error ? `Export failed: ${error.message}` : "Export failed.", {
+        id: EXPORT_FAILED_TOAST_ID,
+      });
     },
   });
 }

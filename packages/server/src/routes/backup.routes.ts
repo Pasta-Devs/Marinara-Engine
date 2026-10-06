@@ -676,7 +676,9 @@ export function sanitizeProfileTableRows(tableName: string, rows: Array<Record<s
     });
   }
   if (tableName === "api_connections") {
-    return rows.map((row) => ({ ...row, apiKeyEncrypted: "", managementTokenEncrypted: "" }));
+    // The saved model list is a cache the provider can rebuild, like Noodle fan activity above, so
+    // it stays out of portable profiles. Pinned models are settings and travel with the row.
+    return rows.map((row) => ({ ...row, apiKeyEncrypted: "", managementTokenEncrypted: "", savedModels: null }));
   }
   if (tableName === "agent_configs") {
     return rows.map((row) => redactAgentSecrets(row));
@@ -793,6 +795,8 @@ export function quarantineProfileApiConnectionRow(
     ...row,
     apiKeyEncrypted: trustedIdentity ? existingCredential : "",
     managementTokenEncrypted: trustedIdentity ? existingManagementToken : "",
+    // Like the key: the local saved model list still applies only to the same endpoint.
+    savedModels: trustedIdentity ? (existing?.savedModels ?? null) : null,
     profileImportReviewRequired: trustedIdentity ? "false" : "true",
   };
   if (trustedIdentity) return { row: secured, trustedIdentity };

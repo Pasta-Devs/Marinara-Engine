@@ -5,6 +5,7 @@
 import { CSRF_HEADER, CSRF_HEADER_VALUE } from "@marinara-engine/shared";
 import { toast } from "sonner";
 import { i18n } from "../localization/i18n";
+import { saveExportFile, showExportError, type ExportSaveStatus } from "./file-download";
 import { showGenerationFallbackHeader, showGenerationFallbackToast } from "./generation-fallback-notice";
 
 const BASE = "/api";
@@ -311,67 +312,6 @@ async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
   });
 }
 
-type SaveFilePickerWindow = Window &
-  typeof globalThis & {
-    showSaveFilePicker?: (options?: {
-      suggestedName?: string;
-      types?: Array<{
-        description?: string;
-        accept: Record<string, string[]>;
-      }>;
-    }) => Promise<{
-      createWritable: () => Promise<{
-        write: (data: Blob) => Promise<void>;
-        close: () => Promise<void>;
-      }>;
-    }>;
-  };
-
-function triggerBrowserDownload(blob: Blob, filename: string) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.rel = "noopener";
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
-}
-
-function getSavePickerTypes(blob: Blob, filename: string) {
-  const extension = filename.includes(".") ? filename.slice(filename.lastIndexOf(".")).toLowerCase() : "";
-  if (!extension) return undefined;
-  const mimeType = blob.type || "application/octet-stream";
-  return [
-    {
-      description: extension ? `${extension.slice(1).toUpperCase()} file` : "Export file",
-      accept: { [mimeType]: [extension] },
-    },
-  ];
-}
-
-async function saveBlob(blob: Blob, filename: string) {
-  const pickerWindow = window as SaveFilePickerWindow;
-  if (!window.isSecureContext || typeof pickerWindow.showSaveFilePicker !== "function") {
-    triggerBrowserDownload(blob, filename);
-    return;
-  }
-
-  try {
-    const handle = await pickerWindow.showSaveFilePicker({
-      suggestedName: filename,
-      types: getSavePickerTypes(blob, filename),
-    });
-    const writable = await handle.createWritable();
-    await writable.write(blob);
-    await writable.close();
-  } catch (error) {
-    if (error instanceof DOMException && error.name === "AbortError") return;
-    triggerBrowserDownload(blob, filename);
-  }
-}
-
 async function readDownloadFilename(res: Response, fallbackFilename: string) {
   const disposition = res.headers.get("Content-Disposition");
   if (!disposition) return fallbackFilename;
@@ -381,6 +321,31 @@ async function readDownloadFilename(res: Response, fallbackFilename: string) {
 
   const match = disposition.match(/filename="?([^";\n]+)"?/);
   return match?.[1] ? decodeURIComponent(match[1]) : fallbackFilename;
+}
+
+/**
+ * Fetch and save an export. A failed request or body read shows one error toast and rejects; otherwise the
+ * save's status says whether the file was saved, offered for a later tap on iOS, cancelled or failed.
+ */
+async function saveDownload(
+  fetchResponse: () => Promise<Response>,
+  fallbackFilename: string,
+): Promise<ExportSaveStatus> {
+  let blob: Blob;
+  let filename: string;
+  try {
+    const res = await fetchResponse();
+    if (!res.ok) {
+      const payload = await res.json().catch(() => ({ error: res.statusText }));
+      throw new ApiError(res.status, payload.error ?? "Download failed", payload);
+    }
+    filename = await readDownloadFilename(res, fallbackFilename);
+    blob = await res.blob();
+  } catch (error) {
+    await showExportError(error);
+    throw error;
+  }
+  return saveExportFile(blob, filename, { savePicker: true });
 }
 
 export const api = {
@@ -412,32 +377,16 @@ export const api = {
   delete: <T>(path: string) => request<T>(path, { method: "DELETE" }),
 
   /** Download a JSON endpoint as a file (triggers browser save-as). */
-  download: async (path: string, fallbackFilename = "export.json", init?: RequestInit) => {
-    const res = await apiFetch(path, init);
-    if (!res.ok) {
-      const payload = await res.json().catch(() => ({ error: res.statusText }));
-      throw new ApiError(res.status, payload.error ?? "Download failed", payload);
-    }
-    const filename = await readDownloadFilename(res, fallbackFilename);
-    const blob = await res.blob();
-    await saveBlob(blob, filename);
-  },
+  download: (path: string, fallbackFilename = "export.json", init?: RequestInit) =>
+    saveDownload(() => apiFetch(path, init), fallbackFilename),
 
   /** Download a POST endpoint as a file (useful for bulk exports). */
-  downloadPost: async (path: string, body: unknown, fallbackFilename = "export.bin") => {
-    const res = await apiFetch(path, {
-      method: "POST",
-      body: JSON.stringify(body),
-    });
-    showGenerationFallbackHeader(res);
-    if (!res.ok) {
-      const payload = await res.json().catch(() => ({ error: res.statusText }));
-      throw new ApiError(res.status, payload.error ?? "Download failed", payload);
-    }
-    const filename = await readDownloadFilename(res, fallbackFilename);
-    const blob = await res.blob();
-    await saveBlob(blob, filename);
-  },
+  downloadPost: (path: string, body: unknown, fallbackFilename = "export.bin") =>
+    saveDownload(async () => {
+      const res = await apiFetch(path, { method: "POST", body: JSON.stringify(body) });
+      showGenerationFallbackHeader(res);
+      return res;
+    }, fallbackFilename),
 
   /**
    * Stream an SSE endpoint. Returns an async iterable of all typed events.

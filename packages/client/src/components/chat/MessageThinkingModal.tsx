@@ -23,7 +23,7 @@ export function MessageThinkingModal({
       onClose={onClose}
       title={title}
       width="max-w-xl"
-      panelClassName="max-h-[70vh]"
+      panelClassName="mari-chat-style-surface mari-chat-action-panel max-h-[70vh]"
       chatFloatingPanel
       restoreFocusRef={restoreFocusRef}
     >
@@ -50,7 +50,7 @@ export function MessageThinkingModal({
             aria-hidden="true"
             className="mt-0.5 shrink-0 text-[var(--marinara-chat-chrome-button-text-active)]"
           />
-          <pre className="min-w-0 flex-1 whitespace-pre-wrap break-words text-[0.8125rem] leading-relaxed text-[var(--marinara-chat-chrome-panel-text)]">
+          <pre className="mari-chat-style-text min-w-0 flex-1 whitespace-pre-wrap break-words text-[0.8125rem] leading-relaxed text-[var(--marinara-chat-chrome-panel-text)]">
             {thinking}
           </pre>
         </div>

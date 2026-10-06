@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import AdmZip from "adm-zip";
+import { downloadExport } from "./export-save.js";
 import { seedUIState } from "./ui-state-fixture.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
@@ -176,9 +177,10 @@ test("agent categories fit and built-in context selections survive save, export 
     await expect.poll(async () => (await saved()).contextSources?.characters).toBe(false);
     expect((await saved()).contextSources.chatHistory).toBe(true);
     expect((await saved()).contextSources.previousOutput).toBe(true);
-    const download = page.waitForEvent("download");
-    await page.getByRole("button", { name: "Export agent", exact: true }).click();
-    const exported = new AdmZip(readFileSync((await (await download).path())!));
+    const download = await downloadExport(page, () =>
+      page.getByRole("button", { name: "Export agent", exact: true }).click(),
+    );
+    const exported = new AdmZip(readFileSync((await download.path())!));
     const settings = exported.getEntries().find((entry) => entry.entryName.endsWith("/settings.json"))!;
     expect(JSON.parse(settings.getData().toString("utf8")).contextSources.characters).toBe(false);
     await page.reload();

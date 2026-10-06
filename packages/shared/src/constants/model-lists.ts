@@ -280,8 +280,8 @@ export const ANTHROPIC_MODELS: KnownModel[] = [
   { id: "claude-opus-4-1-20250805", name: "claude-opus-4-1-20250805", context: 200000, maxOutput: 32000 },
   { id: "claude-opus-4-0", name: "claude-opus-4-0", context: 200000, maxOutput: 32000 },
   { id: "claude-opus-4-20250514", name: "claude-opus-4-20250514", context: 200000, maxOutput: 32000 },
-  { id: "claude-sonnet-4-0", name: "claude-sonnet-4-0", context: 200000, maxOutput: 16000 },
-  { id: "claude-sonnet-4-20250514", name: "claude-sonnet-4-20250514", context: 200000, maxOutput: 16000 },
+  { id: "claude-sonnet-4-0", name: "claude-sonnet-4-0", context: 200000, maxOutput: 64000 },
+  { id: "claude-sonnet-4-20250514", name: "claude-sonnet-4-20250514", context: 200000, maxOutput: 64000 },
   { id: "claude-3-7-sonnet-latest", name: "claude-3-7-sonnet-latest", context: 200000, maxOutput: 128000 },
   { id: "claude-3-7-sonnet-20250219", name: "claude-3-7-sonnet-20250219", context: 200000, maxOutput: 128000 },
   { id: "claude-3-5-sonnet-latest", name: "claude-3-5-sonnet-latest", context: 200000, maxOutput: 8192 },
@@ -317,9 +317,18 @@ export const CLAUDE_SUBSCRIPTION_MODELS: KnownModel[] = [
 // ── OpenAI (ChatGPT login via Codex auth) ──
 // The ChatGPT-backed Codex endpoint can return an account-specific model
 // catalog when authenticated. This curated fallback keeps the selector useful
-// before the user has run `codex login`.
+// before the user has run `codex login`. GPT-6 and GPT-5.6 contexts are Codex's
+// default window from its model catalog (October 2026). GPT-5.5 stays first so
+// new connections keep it as their default model.
 export const OPENAI_CHATGPT_MODELS: KnownModel[] = [
   { id: "gpt-5.5", name: "GPT-5.5", context: 1050000, maxOutput: 128000 },
+  { id: "gpt-6.1-sol", name: "GPT-6.1-Sol", context: 272000, maxOutput: 128000 },
+  { id: "gpt-6-astra", name: "GPT-6-Astra", context: 272000, maxOutput: 128000 },
+  { id: "gpt-6-sol", name: "GPT-6-Sol", context: 272000, maxOutput: 128000 },
+  { id: "gpt-6-luna", name: "GPT-6-Luna", context: 272000, maxOutput: 128000 },
+  { id: "gpt-5.6-sol", name: "GPT-5.6-Sol", context: 272000, maxOutput: 128000 },
+  { id: "gpt-5.6-terra", name: "GPT-5.6-Terra", context: 272000, maxOutput: 128000 },
+  { id: "gpt-5.6-luna", name: "GPT-5.6-Luna", context: 272000, maxOutput: 128000 },
   { id: "gpt-5.4", name: "GPT-5.4", context: 1050000, maxOutput: 128000 },
   { id: "gpt-5.4-mini", name: "GPT-5.4 Mini", context: 400000, maxOutput: 128000 },
   { id: "gpt-5.3-codex-spark", name: "GPT-5.3 Codex Spark", context: 400000, maxOutput: 128000 },

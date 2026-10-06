@@ -1325,6 +1325,14 @@ export function buildPersonaCreateRow(data: Row, id: string, timestamp: string):
     scenario: firstString(data, ["scenario"]) ?? "",
     backstory: firstString(data, ["backstory"]) ?? "",
     appearance: firstString(data, ["appearance"]) ?? "",
+    imageAppearanceEnabled:
+      data.imageAppearanceEnabled === true ||
+      data.imageAppearanceEnabled === "true" ||
+      data.image_appearance_enabled === true ||
+      data.image_appearance_enabled === "true"
+        ? "true"
+        : "false",
+    imageAppearance: firstString(data, ["imageAppearance", "image_appearance"]) ?? "",
     useCharacterSheetAsReference: "false",
     isActive: "false",
     nameColor: "",
@@ -2991,6 +2999,10 @@ export class MariDbService {
             "scenario",
             "backstory",
             "appearance",
+            "imageAppearance",
+            "image_appearance",
+            "imageAppearanceEnabled",
+            "image_appearance_enabled",
             "comment",
             "creator",
             "creatorNotes",
@@ -3036,6 +3048,10 @@ export class MariDbService {
             "scenario",
             "backstory",
             "appearance",
+            "imageAppearance",
+            "image_appearance",
+            "imageAppearanceEnabled",
+            "image_appearance_enabled",
             "comment",
             "creator",
             "creatorNotes",
@@ -3058,6 +3074,11 @@ export class MariDbService {
         assignStringField(patch, data, ["scenario"], "scenario");
         assignStringField(patch, data, ["backstory"], "backstory");
         assignStringField(patch, data, ["appearance"], "appearance");
+        assignStringField(patch, data, ["imageAppearance", "image_appearance"], "imageAppearance");
+        if (data.imageAppearanceEnabled !== undefined || data.image_appearance_enabled !== undefined) {
+          const flag = data.imageAppearanceEnabled ?? data.image_appearance_enabled;
+          patch.imageAppearanceEnabled = flag === true || flag === "true" ? "true" : "false";
+        }
         assignStringField(patch, data, ["comment"], "comment");
         assignStringField(patch, data, ["creator"], "creator");
         assignStringField(patch, data, ["creatorNotes", "creator_notes", "creator-notes"], "creatorNotes");
@@ -3081,7 +3102,7 @@ export class MariDbService {
         assignListField(patch, data, ["tags"], "tags");
         if (Object.keys(patch).length <= 1) {
           throw new Error(
-            "persona.update needs a patch field such as name, description, personality, scenario, backstory, appearance, tags, comment, creator, or creatorNotes",
+            "persona.update needs a patch field such as name, description, personality, scenario, backstory, appearance, imageAppearance, imageAppearanceEnabled, tags, comment, creator, or creatorNotes",
           );
         }
         return this.executeMutation(

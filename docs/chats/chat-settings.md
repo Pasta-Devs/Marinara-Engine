@@ -14,7 +14,7 @@ The first time you enter a chat after this update, a short video shows how to ar
 
 Chat Settings opens automatically when you create a new chat. To close it, click its **X** or click the sliders button again.
 
-Chats from before this update keep their familiar tool icons as movable buttons. When you upgrade an existing installation, that familiar arrangement also becomes the favorite layout for new chats in each mode, unless you already chose a favorite. Open a tool with its button, then choose **Put back in Chat Settings** if you would rather keep it inside Chat Settings. Desktop Roleplay trackers are grouped in the **Trackers** window. Existing saved layouts stay as you left them.
+Chats from before this update keep their familiar tools outside Chat Settings: as movable buttons on a computer, or in the **Chat tools** three-dot menu on a phone. When you upgrade an existing installation, that familiar arrangement also becomes the favorite layout for new chats in each mode, unless you already chose a favorite. Open a tool, then choose **Put back in Chat Settings** if you would rather keep it inside Chat Settings. Desktop Roleplay trackers are grouped in the **Trackers** window. Existing saved window and button positions are preserved.
 
 You can drag the sliders button to a convenient spot. It lines up with nearby chat buttons as you drag; on a computer, hold Alt to place it freely. Each chat remembers its position. A small dot on the button means agents are working.
 
@@ -24,9 +24,13 @@ On a computer, click the **X** beside the layout tips (**Hide these tips for thi
 
 ## Changing how chat windows look
 
-Open **Settings > Appearance > App** and scroll to **Chat widget style** at the bottom of **App Style**. **Default** keeps the familiar Marinara look. **Dottore** adds cyan details, technical lettering and cut corners; **Mari** uses rose and gold, storybook lettering and arched frames. Both adapt to light and dark mode and style the movable buttons, windows and expandable sections in all three chat modes.
+Open **Settings > Appearance > App** and scroll to **Chat widget style** at the bottom of **App Style**. **Default** keeps the familiar Marinara look. **Dottore** combines icy blues and pale metal with technical lettering and cut corners; **Mari** pairs gemstone blues and warm gold with storybook lettering and arched frames. Both adapt to light and dark mode and style the movable buttons, windows and expandable sections in all three chat modes.
 
-Use **Font** or **Shape** below the presets to mix things up. Fonts you have installed in Marinara appear in the font list too. Choosing a preset again resets those two choices; choosing **Default** restores the usual appearance. These choices do not move your windows or change your saved chat layouts. They are saved with your app preferences and sync to browsers connected to the same server.
+Use **Font**, **Shape** and the three color pickers below the presets to mix things up. Fonts you have installed in Marinara appear in the font list too. Choosing a preset again resets the font, shape and custom colors. These choices do not move your windows or change your saved chat layouts. They are saved with your app preferences and sync to browsers connected to the same server.
+
+**Button size (px)** changes movable chat buttons and their icons without changing Display Size. Enter a size from 32 to 96 pixels. Leave the field empty, or use its reset button, to keep the current default. The size is saved with your appearance preferences and stays the same when you choose another preset.
+
+To make the rest of the chat match, turn on **Apply preset font**, **Apply preset shape** or **Apply preset colors**. Each switch works on its own and includes your custom choices above it. They apply to messages, input boxes and chat controls; Conversation messages use the optional font and colors but keep their own shape. All three start off. Turn one off to return that part of the chat to its usual styling. See [Custom CSS Themes](../appearance/custom-css-themes.md#ready-made-chat-window-styles) for more detail.
 
 ## Moving, pinning and locking the window
 
@@ -63,23 +67,31 @@ On a computer, you can also drag a section's title out of Chat Settings. The new
 - **Put back in Chat Settings** (the curved arrow beside **X**) returns the section to Chat Settings. You can also drag its window onto Chat Settings.
 - An unpinned section shrinks to its button when you click elsewhere or press Escape, unless you are typing in a text box or using an open menu.
 
-On a phone, popping out a section closes Chat Settings and adds a movable button to the chat. Tap the button to open the section as a panel. Close the panel to return to the button, or tap **Put back in Chat Settings** to return the section.
+On a phone, popping out a section closes Chat Settings and adds it to the **Chat tools** three-dot menu. Tap the dots, then the section's round icon button to open its panel. Close the panel to use the menu again, or tap **Put back in Chat Settings** to return the section.
 
 Trackers can pop out of the Trackers window in the same way. Their return button is called **Put back in Trackers**.
+
+## The phone's Chat tools menu
+
+The movable three-dot button keeps tools you have taken out of Chat Settings in one place. Tap it to roll out a column of round icon buttons, then tap a tool to open it. Tap the dots again to fold the buttons away. Tracker buttons, the Game Map button and Character Profiles stay separate, so you can reach them directly.
+
+Drag the three-dot button to move the whole menu. Open the menu and use the lock at the top to keep it in place. While unlocked, drag a tool button up or down to change its place in the column. With a keyboard, focus the button and use the up or down arrow key. Locking the menu prevents both moving and reordering; you can still open its tools.
+
+Each chat saves the menu's position, lock and order. Favorite layouts and settings profiles include them too. The menu follows your chat widget style, just like the windows it opens.
 
 ## Control windows and their buttons
 
 Some tools open their own small windows: a Game's **Game controls**, **Session**, **Volume** and **Game Assets**; **Connected chat**; and controls added by installed packages.
 
-These buttons start near the top right of the chat. Click or tap one to open its window. Closing the window brings the button back. On a phone, the window opens as a full-width panel.
+On a computer, these buttons start near the top right of the chat. Click one to open its window; closing the window brings its button back. On a phone, find these tools in the **Chat tools** three-dot menu. They open as full-width panels.
 
-To keep one of these tools inside Chat Settings, open its window and choose **Put back in Chat Settings**. It becomes an expandable section there. Use that section's pop-out button to give it its own window again, or drag its title out on a computer. **Reset View** returns these tools to their starting buttons.
+To keep one of these tools inside Chat Settings, open its window and choose **Put back in Chat Settings**. It becomes an expandable section there. Use that section's pop-out button to give it its own window again, or drag its title out on a computer. **Reset View** restores their starting arrangement: separate buttons on a computer, or entries in Chat tools on a phone.
 
-Drag a button to move it. Nearby buttons line up as you drag; on a computer, hold Alt to place it freely, or use the arrow keys while the button is focused. Conversation **Calls** remains a regular button.
+On a computer, drag a button to move it. Nearby buttons line up as you drag; hold Alt to place it freely, or use the arrow keys while the button is focused. Conversation **Calls** remains a regular button. In Game, **Character Profiles** has its own movable button on both computers and phones. The phone's **Map** button is also separate and movable. Open either control and use its lock to prevent moving its window and button; each game remembers where you put them.
 
 ## Each chat keeps its own window layout
 
-Each chat remembers window sizes and positions, pins and locks, popped-out sections, and button positions. Phone button positions are saved separately from desktop positions. Switching chats restores the layout for that chat.
+Each chat remembers window sizes and positions, pins and locks, popped-out sections, and button positions. Phone positions and the Chat tools menu's order and lock are saved separately from desktop positions. Switching chats restores the layout for that chat.
 
 A [settings profile](#settings-profiles) can save the layout for use in other chats. **Reset View** restores the starting layout for the current chat.
 
@@ -113,6 +125,8 @@ The **Chat Name** section holds the name shown in your chat list. This name is o
 The **Connection** section picks which AI provider and model answers in this chat. A connection is a saved link to an AI provider, including its API key and chosen model. An API key is a secret code that lets Marinara Engine use your account with that provider.
 
 Pick a saved connection from the dropdown. You can also pick **Random**. It chooses a different connection each time from the connections you marked for your random pool.
+
+Below the dropdown, the **Model** field shows the model the selected connection uses. Click it to open the same model list as the Quick Connection Switcher: search or type a model ID, pin models with the star, refresh the list, and click a model to use it. The model is saved to the connection, so every chat, agent and helper that uses this connection switches to it too. The field is hidden for **Random** and for the built-in Local Model. See [The random pool and Quick Connection Switcher](../connections/organizing-connections.md#the-random-pool-and-quick-connection-switcher) for details.
 
 To learn how to create a connection in the first place, see [Connecting to an AI Provider](../connections/connecting-to-a-provider.md).
 

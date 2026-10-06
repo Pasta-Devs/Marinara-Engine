@@ -13,6 +13,8 @@ The font setting lives in **Settings**, under the **Appearance** tab, in the **T
 
 The default choice is **Default (Inter)**. Inter is a clean font chosen for on-screen reading. Any custom fonts you add appear in the same **Font** dropdown, below the default option.
 
+Chat widgets have a separate **Font** choice under **Settings > Appearance > App > Chat widget style**. Turn on **Apply preset font** there to use that choice for messages, input boxes and chat controls too. Leave it off to keep their usual font. See [Ready-made chat window styles](custom-css-themes.md#ready-made-chat-window-styles).
+
 Your font choice syncs across devices. When you pick a font, every browser and device connected to the same Marinara server switches to it. To learn how this sync works, see the [Settings Overview](../settings/settings-overview.md) guide.
 
 ## Adding your own fonts

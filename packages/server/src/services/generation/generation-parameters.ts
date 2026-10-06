@@ -253,3 +253,15 @@ export function appendRoundGeminiParts(
 export function supportsAssistantReasoningPrefill(provider: string): boolean {
   return ["openai", "openrouter", "nanogpt", "xai", "mistral", "cohere", "arli", "zai", "custom"].includes(provider);
 }
+
+/**
+ * Codex (ChatGPT login) follows the reasoning effort only once the connection or the chat picks a level (Default is
+ * not one). Until then it sends none, so Codex chats keep the model's own level and plan usage instead of the preset's,
+ * the built-in Maximum or the one scenes force.
+ */
+export function keepsCodexDefaultEffort(
+  provider: string | null | undefined,
+  ...layers: Array<{ reasoningEffort?: unknown } | null | undefined>
+): boolean {
+  return provider?.toLowerCase() === "openai_chatgpt" && layers.every((layer) => layer?.reasoningEffort == null);
+}

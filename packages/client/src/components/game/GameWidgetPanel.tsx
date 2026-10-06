@@ -5,7 +5,7 @@
 // The model picks a type + config during setup;
 // the renderer handles all visual presentation.
 // ──────────────────────────────────────────────
-import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { motion } from "framer-motion";
 import { Pencil, Plus, Trash2 } from "lucide-react";
@@ -52,7 +52,7 @@ interface WidgetEditorDraft {
 const MAX_WIDGETS = 4;
 
 const GAME_WIDGET_SHELL_CLASS =
-  "marinara-chat-popover overflow-hidden rounded-lg border border-[var(--marinara-chat-chrome-panel-border)] bg-[var(--marinara-chat-chrome-panel-bg)] text-[var(--marinara-chat-chrome-panel-text)] shadow-[0_10px_28px_rgba(0,0,0,0.24)] backdrop-blur-md transition-colors";
+  "mari-chat-style-surface mari-game-panel-surface marinara-chat-popover overflow-hidden rounded-lg border border-[var(--marinara-chat-chrome-panel-border)] bg-[var(--marinara-chat-chrome-panel-bg)] text-[var(--marinara-chat-chrome-panel-text)] shadow-[0_10px_28px_rgba(0,0,0,0.24)] backdrop-blur-md transition-colors";
 const GAME_WIDGET_HEADER_CLASS =
   "flex w-full cursor-pointer items-center gap-1.5 px-2.5 py-1.5 text-left transition-colors hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)]";
 const GAME_WIDGET_TITLE_CLASS =
@@ -64,6 +64,11 @@ const GAME_WIDGET_ICON_BUTTON_CLASS =
 const GAME_WIDGET_TRACK_CLASS = "bg-[var(--marinara-chat-chrome-panel-divider)]";
 const GAME_WIDGET_TILE_CLASS =
   "border-[var(--marinara-chat-chrome-panel-divider)] bg-[var(--marinara-chat-chrome-highlight-bg)]";
+
+/** Widget values keep the game's accent when Apply preset colors recolors the widget's text. */
+function accentTextStyle(accent: string): CSSProperties {
+  return { color: accent, WebkitTextFillColor: accent };
+}
 
 const EMPTY_WIDGET_DRAFT: WidgetEditorDraft = {
   value: "",
@@ -375,7 +380,7 @@ export function MobileWidgetPanel({ widgets, position, chatId }: MobileWidgetPan
             <button
               key={w.id}
               onClick={() => setExpandedId(w.id)}
-              className="marinara-chat-toolbar-button flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--marinara-chat-chrome-button-border)] bg-[var(--marinara-chat-chrome-button-bg)] text-base text-[var(--marinara-chat-chrome-button-text)] backdrop-blur-md transition-all hover:border-[var(--marinara-chat-chrome-button-border-hover)] hover:bg-[var(--marinara-chat-chrome-button-bg-hover)] hover:text-[var(--marinara-chat-chrome-button-text-hover)] active:scale-95"
+              className="mari-chat-style-control marinara-chat-toolbar-button flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--marinara-chat-chrome-button-border)] bg-[var(--marinara-chat-chrome-button-bg)] text-base text-[var(--marinara-chat-chrome-button-text)] backdrop-blur-md transition-all hover:border-[var(--marinara-chat-chrome-button-border-hover)] hover:bg-[var(--marinara-chat-chrome-button-bg-hover)] hover:text-[var(--marinara-chat-chrome-button-text-hover)] active:scale-95"
               title={w.label}
             >
               {w.icon || "📊"}
@@ -423,7 +428,9 @@ function WidgetCard({
       className={cn(
         GAME_WIDGET_SHELL_CLASS,
         "w-full",
-        !locked && "cursor-grab ring-1 ring-[var(--marinara-chat-chrome-focus-ring)] active:cursor-grabbing",
+        // Cut corners drop the ring's box-shadow, so the frame carries the unlocked cue.
+        !locked &&
+          "cursor-grab ring-1 ring-[var(--marinara-chat-chrome-focus-ring)] [--mari-chat-border:var(--marinara-chat-chrome-focus-ring)] active:cursor-grabbing",
       )}
     >
       {/* Header */}
@@ -1075,7 +1082,7 @@ function RelationshipMeterWidget({ widget }: { widget: HudWidget }) {
   return (
     <div>
       {currentMilestone && (
-        <p className="mb-1.5 text-center text-[0.5625rem] font-medium" style={{ color: accent }}>
+        <p className="mb-1.5 text-center text-[0.5625rem] font-medium" style={accentTextStyle(accent)}>
           {currentMilestone.label}
         </p>
       )}
@@ -1111,7 +1118,7 @@ function CounterWidget({ widget }: { widget: HudWidget }) {
 
   return (
     <div className="flex items-center justify-center py-1">
-      <span className="text-2xl font-bold tabular-nums" style={{ color: accent }}>
+      <span className="text-2xl font-bold tabular-nums" style={accentTextStyle(accent)}>
         {count}
       </span>
     </div>
@@ -1128,7 +1135,7 @@ function StatBlockWidget({ widget }: { widget: HudWidget }) {
       {stats.map((s, i) => (
         <div key={s.name ?? i} className="flex items-center justify-between text-[0.5625rem]">
           <span className={GAME_WIDGET_MUTED_CLASS}>{s.name}</span>
-          <span className="font-mono font-bold" style={{ color: accent }}>
+          <span className="font-mono font-bold" style={accentTextStyle(accent)}>
             {s.value}
           </span>
         </div>
@@ -1222,7 +1229,7 @@ function InventoryGridWidget({ widget }: { widget: HudWidget }) {
                     {item.name}
                   </span>
                   {item.quantity && item.quantity > 1 && (
-                    <span className="text-[0.4375rem]" style={{ color: accent }}>
+                    <span className="text-[0.4375rem]" style={accentTextStyle(accent)}>
                       {localizeUi("ui.panels.imagedimensionrow.x")}
                       {item.quantity}
                     </span>
@@ -1292,7 +1299,10 @@ function TimerWidget({ widget }: { widget: HudWidget }) {
   return (
     <div className="flex items-center justify-center gap-1 py-1">
       {running && <span className="h-1.5 w-1.5 animate-pulse rounded-full" style={{ background: accent }} />}
-      <span className={cn("font-mono text-xl font-bold", running ? "animate-pulse" : "")} style={{ color: accent }}>
+      <span
+        className={cn("font-mono text-xl font-bold", running ? "animate-pulse" : "")}
+        style={accentTextStyle(accent)}
+      >
         {String(mins).padStart(2, "0")}:{String(secs).padStart(2, "0")}
       </span>
     </div>

@@ -183,6 +183,8 @@ test("the upgraded default stays starred until an automatically placed button is
   );
   const seeded = { windowLayout: { version: 1, windows: {}, detached }, chatSettingsHintDismissed: false };
   let chatId: string | undefined;
+  const desktop = testInfo.project.name.includes("desktop");
+  const movedId = desktop ? detached[0]! : "chat-tools-menu";
   const pointMap = testInfo.project.name.includes("desktop") ? "bubbles" : "phoneBubbles";
   const readSaved = async () =>
     JSON.parse((await readFavorite(request, mode)) ?? "null") as {
@@ -199,19 +201,20 @@ test("the upgraded default stays starred until an automatically placed button is
     chatId = ((await response.json()) as { id: string }).id;
     await prepare(page, chatId);
     await page.goto("/");
-    const launcher = page.locator(`.mari-window-bubble[data-window="${detached[0]}"]`);
+    const launcher = page.locator(`.mari-window-bubble[data-window="${movedId}"]`);
     await expect(launcher).toBeVisible();
     const settings = await openChatSettings(page);
     const star = settings.locator('[data-chat-settings-control="favorite-layout"]');
     await expect(star).toHaveAttribute("aria-pressed", "true");
     expect(await readSaved()).toEqual(seeded);
-    await expect
-      .poll(async () => {
-        const metadata = await readMetadata(request, chatId!);
-        const layout = metadata.windowLayout as Record<string, Record<string, { automatic?: boolean }>>;
-        return layout[pointMap]?.[detached[0]!]?.automatic;
-      })
-      .toBe(true);
+    if (desktop)
+      await expect
+        .poll(async () => {
+          const metadata = await readMetadata(request, chatId!);
+          const layout = metadata.windowLayout as Record<string, Record<string, { automatic?: boolean }>>;
+          return layout[pointMap]?.[movedId]?.automatic;
+        })
+        .toBe(true);
 
     await settings.locator('[data-window-control="close"]').click();
     const before = await launcher.boundingBox();
@@ -226,7 +229,7 @@ test("the upgraded default stays starred until an automatically placed button is
     await star.click();
     await expect(star).toHaveAttribute("aria-pressed", "true");
     await expect
-      .poll(async () => (await readSaved()).windowLayout[pointMap]?.[detached[0]!])
+      .poll(async () => (await readSaved()).windowLayout[pointMap]?.[movedId])
       .toEqual({
         x: moved!.x,
         y: moved!.y,

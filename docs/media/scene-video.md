@@ -17,25 +17,29 @@ To make scene videos, you first add a connection that can generate video. This u
 1. Open **Settings**, then open **Connections**.
 2. Click **Add Connection**.
 3. Set the provider type to **Video Generation**.
-4. Under **Video Service**, pick one of the six services below.
-5. Enter the API key for a cloud service. Local ComfyUI does not need one.
-6. For cloud services, pick a model or keep the provider default. For ComfyUI, leave the model unset unless the workflow uses `%model%`.
+4. Under **Video Service**, pick one of the eight services below.
+5. Enter the API key for a cloud service. Local ComfyUI does not need one. SwarmUI needs a Swarm Auth Token only if your SwarmUI server requires an account.
+6. For cloud services, pick a model or keep the provider default. NanoGPT has no default, so click **Fetch Models from API** and pick one. For ComfyUI, leave the model unset unless the workflow uses `%model%`. For SwarmUI, the model is optional.
 7. Save the connection.
 
-The **Video Service** picker offers six choices. Each one fills in a default web address and, where applicable, a default model:
+The **Video Service** picker offers eight choices. Each one fills in a default web address and, where applicable, a default model:
 
 | Video Service        | Default model                     | Notes                                                                        |
 | -------------------- | --------------------------------- | ---------------------------------------------------------------------------- |
 | **Google AI Studio** | `gemini-omni-flash-preview`       | Runs Gemini Omni and Veo video models through the Gemini API.                |
 | **xAI Imagine**      | `grok-imagine-video-1.5`          | Grok Imagine video through the xAI Videos API.                               |
 | **OpenRouter Video** | `google/veo-3.1`                  | Video models through OpenRouter. You can type any OpenRouter video model ID. |
+| **NanoGPT**          | None, pick one                    | Video models through NanoGPT. **Fetch Models from API** loads the list.      |
 | **Atlas Cloud**      | `google/veo3.1/text-to-video`     | Hosted text-to-video and image-to-video models through Atlas Cloud.          |
 | **Seedance 2.0**     | `seedance-2-0`                    | Text, first-frame, and first and last frame video modes.                     |
 | **ComfyUI**          | Workflow-defined                  | Local WAN and other video workflows exported in API format.                  |
+| **SwarmUI**          | Workflow-defined                  | ComfyUI video workflows run through your SwarmUI server.                     |
 
 **Google AI Studio** covers two model families. **Gemini Omni** uses `gemini-omni-flash-preview`. **Google Veo** uses `veo-3.1-generate-preview`. Which one runs depends on the model you pick in the connection.
 
 For **ComfyUI**, use the usual local address `http://127.0.0.1:8188` and paste an API-format video workflow into **ComfyUI Workflow**. The workflow is required. See [ComfyUI Workflow Setup](comfyui.md#comfyui-video-workflows) for placeholders and output-node requirements.
+
+For **SwarmUI**, Marinara fills in the local address `http://127.0.0.1:7801`. Paste an API-format video workflow into **ComfyUI Workflow**. The workflow is required. SwarmUI cannot use the `%reference_image_name%` placeholders, so use `%reference_image%` for the reference image instead. If your SwarmUI server requires an account, paste a Swarm Auth Token into **API Key**. **Fetch Models from API** lists the models on your SwarmUI server.
 
 ### Make it the default video connection
 
@@ -51,9 +55,11 @@ A Video Generation connection has its own **Video Generation Defaults** panel in
 | Google Veo       | 8s             | 4, 6, or 8s  | 16:9         | 720p             |
 | xAI Imagine      | 10s            | 1 to 15s     | 16:9         | 720p             |
 | OpenRouter Video | 10s            | 1 to 60s     | 16:9         | 720p             |
+| NanoGPT          | 10s            | 1 to 60s     | 16:9         | 720p             |
 | Atlas Cloud      | 8s             | 1 to 60s     | 16:9         | 720p             |
 | Seedance 2.0     | 5s             | 4 to 15s     | 16:9         | 720p             |
 | ComfyUI          | 5s             | 1 to 60s     | 16:9         | 720p             |
+| SwarmUI          | 5s             | 1 to 60s     | 16:9         | 720p             |
 
 Gemini Omni has no resolution field, and its length is written into the prompt text instead of a separate setting. Google Veo forces 8 seconds whenever it animates a reference image, because it needs 8 seconds to blend the first and last frames.
 
@@ -67,15 +73,17 @@ If your Marinara server already has a public web address, you can set an environ
 
 ## Choosing a provider
 
-All six services make short clips from your image. They differ in speed, clip length, and how they handle reference images.
+All eight services make short clips from your image. They differ in speed, clip length, and how they handle reference images.
 
 - **Google AI Studio (Gemini Omni)**: flexible length up to 60 seconds. Length is baked into the prompt, not a separate control.
 - **Google AI Studio (Veo)**: strong quality, but fixed to 4, 6, or 8 seconds. It uses 8 seconds when it animates an image.
 - **xAI Imagine**: 1 to 15 second clips. It uses a shorter prompt limit than the other services.
 - **OpenRouter Video**: 1 to 60 seconds, and lets you type any video model your OpenRouter account supports.
+- **NanoGPT**: 1 to 60 seconds. It has no default model, so load NanoGPT's video models with **Fetch Models from API** and pick one.
 - **Atlas Cloud**: **Fetch Models** loads Atlas Cloud's current video catalog, image-to-video models first, each with its starting price per second of output. If the catalog cannot be reached, Marinara shows Veo 3.1 and Seedance 2.0 starter models instead. You can also type an exact Atlas Cloud video model ID; model-specific duration, resolution, and reference-image limits still apply.
 - **Seedance 2.0**: 4 to 15 second clips with first-frame and first and last frame modes. It needs a public link to your reference image.
 - **ComfyUI**: local generation through your own API-format workflow. Marinara uploads the reference image directly to ComfyUI when the workflow uses `%reference_image_name%`.
+- **SwarmUI**: local generation through your own API-format workflow, sent through your SwarmUI server. The reference image goes into the workflow through `%reference_image%`.
 
 Expect video jobs to take a while. The provider starts the job, then Marinara waits and checks until the clip is ready. This can take several minutes per clip, longer than a still image. Large local WAN models may need more than the 30-minute default; raise `VIDEO_GEN_TIMEOUT_MS` and restart Marinara when necessary.
 
@@ -197,7 +205,7 @@ Scene video always animates an existing picture. Use **Illustrate**, upload a pi
 
 ### The video takes a long time
 
-This is normal. The provider starts the job, and Marinara waits and checks until the clip is ready. Veo, xAI, OpenRouter, Atlas Cloud, and Seedance all work this way, and a clip can take several minutes.
+This is normal. The provider starts the job, and Marinara waits and checks until the clip is ready. Veo, xAI, OpenRouter, NanoGPT, Atlas Cloud, and Seedance all work this way, and a clip can take several minutes.
 
 ### Seedance fails to read the reference image
 

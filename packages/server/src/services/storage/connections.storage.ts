@@ -6,7 +6,7 @@ import type { DB } from "../../db/connection.js";
 import { apiConnections } from "../../db/schema/index.js";
 import { newId, now } from "../../utils/id-generator.js";
 import { encryptApiKey, decryptApiKey } from "../../utils/crypto.js";
-import type { CreateConnectionInput } from "@marinara-engine/shared";
+import { MAX_PINNED_MODELS, parsePinnedModels, type CreateConnectionInput } from "@marinara-engine/shared";
 import { sweepDanglingConnectionReferences } from "./connection-reference-cleanup.js";
 import { clearConnectionRateLimit, setConnectionRateLimit } from "../llm/connection-rate-limit-registry.js";
 import { logger } from "../../lib/logger.js";
@@ -33,12 +33,71 @@ function defaultCategoryForProvider(provider: string): ConnectionDefaultCategory
   return "language";
 }
 
+/** One model in a saved provider list: display and limit fields only, never credentials. */
+export type SavedConnectionModel = { id: string; name: string } & Record<string, unknown>;
+export type SavedConnectionModelList = { fetchedAt: string; models: SavedConnectionModel[] };
+
+/** The only fields kept from a provider's model entry when its list is saved. */
+const SAVED_MODEL_EXTRA_FIELDS = [
+  "context",
+  "maxOutput",
+  "capabilities",
+  "subscriptionIncluded",
+  "inputTokenMultiplier",
+] as const;
+
+/** The fields that decide which list a provider returns; when one changes, the saved list is stale. */
+const MODEL_LIST_SOURCE_FIELDS = ["provider", "baseUrl", "apiKeyEncrypted"] as const;
+
+/** Whether a connection keeps its fetched model list. Claude (Subscription) answers from a built-in list. */
+export function connectionSavesModelList(provider: string): boolean {
+  return defaultCategoryForProvider(provider) === "language" && provider !== "claude_subscription";
+}
+
+/** Keep the known model fields, drop entries without an ID, and keep the first of any duplicate IDs. */
+function toSavedModels(models: readonly unknown[]): SavedConnectionModel[] {
+  const seen = new Set<string>();
+  const saved: SavedConnectionModel[] = [];
+  for (const entry of models) {
+    if (!entry || typeof entry !== "object") continue;
+    const record = entry as Record<string, unknown>;
+    const id = typeof record.id === "string" ? record.id.trim() : "";
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    const model: SavedConnectionModel = {
+      id,
+      name: typeof record.name === "string" && record.name.trim() ? record.name : id,
+    };
+    for (const key of SAVED_MODEL_EXTRA_FIELDS) if (record[key] !== undefined) model[key] = record[key];
+    saved.push(model);
+  }
+  return saved;
+}
+
+/** Read a connection's saved model list, or null when there is none or it is malformed. */
+export function readSavedModelList(row: { savedModels?: unknown } | null | undefined): SavedConnectionModelList | null {
+  if (typeof row?.savedModels !== "string" || !row.savedModels) return null;
+  try {
+    const parsed = JSON.parse(row.savedModels) as { fetchedAt?: unknown; models?: unknown };
+    if (typeof parsed.fetchedAt !== "string" || !Array.isArray(parsed.models)) return null;
+    return { fetchedAt: parsed.fetchedAt, models: toSavedModels(parsed.models) };
+  } catch {
+    return null;
+  }
+}
+
+/** API responses never carry the saved model list; `/connections/:id/models` serves it. */
+export function withoutSavedModels<T extends Record<string, unknown>>(row: T): Omit<T, "savedModels"> {
+  const { savedModels: _savedModels, ...rest } = row;
+  return rest;
+}
+
 export function createConnectionsStorage(db: DB) {
   return {
     async list() {
       const rows = await db.select().from(apiConnections).orderBy(desc(apiConnections.updatedAt));
       // Mask API keys and management tokens in list response
-      return rows.map((r: any) => ({
+      return rows.map(({ savedModels: _savedModels, ...r }: any) => ({
         ...r,
         apiKeyEncrypted: r.apiKeyEncrypted ? "••••••••" : "",
         managementTokenEncrypted: r.managementTokenEncrypted ? "••••••••" : "",
@@ -248,6 +307,8 @@ export function createConnectionsStorage(db: DB) {
         showUsageWidget: String(input.provider === "nanogpt" && (input.showUsageWidget ?? false)),
         profileImportReviewRequired: "false",
         model: input.model ?? "",
+        pinnedModels: JSON.stringify(parsePinnedModels(input.pinnedModels ?? [])),
+        savedModels: null,
         imagePath: input.imagePath ?? null,
         maxContext: input.maxContext ?? 128000,
         isDefault: String(input.provider !== "decision" && (input.isDefault ?? false)),
@@ -428,6 +489,17 @@ export function createConnectionsStorage(db: DB) {
         updateFields.showUsageWidget = "false";
       }
       if (data.model !== undefined) updateFields.model = data.model;
+      if (data.pinnedModels !== undefined)
+        updateFields.pinnedModels = JSON.stringify(parsePinnedModels(data.pinnedModels));
+      // A different provider, address or key can serve a different model list, so the saved one is dropped
+      // and the next look at the list fetches it again. The editor resends unchanged values, so compare them.
+      if (
+        (data.provider !== undefined && data.provider !== existing.provider) ||
+        (data.baseUrl !== undefined && data.baseUrl !== existing.baseUrl) ||
+        (data.apiKey !== undefined && data.apiKey !== decryptApiKey(existing.apiKeyEncrypted))
+      ) {
+        updateFields.savedModels = null;
+      }
       if (data.imagePath !== undefined) updateFields.imagePath = data.imagePath;
       if (data.maxContext !== undefined) updateFields.maxContext = data.maxContext;
       if (data.isDefault !== undefined) {
@@ -636,6 +708,9 @@ export function createConnectionsStorage(db: DB) {
         apiKeyEncrypted: source.apiKeyEncrypted,
         profileImportReviewRequired: source.profileImportReviewRequired,
         model: source.model,
+        pinnedModels: source.pinnedModels,
+        // The copy keeps the same provider, address and key, so the saved list still applies.
+        savedModels: source.savedModels,
         imagePath: source.imagePath,
         maxContext: source.maxContext,
         isDefault: "false",
@@ -719,6 +794,47 @@ export function createConnectionsStorage(db: DB) {
           cleanup.connectionsUpdated,
         );
       }
+    },
+
+    /**
+     * Save a freshly fetched model list, unless the provider, address or key changed while it was being
+     * fetched. It is a cache, so `updatedAt` stays as it is.
+     */
+    async saveModelListIfUnchanged(
+      expected: typeof apiConnections.$inferSelect,
+      models: readonly unknown[],
+    ): Promise<SavedConnectionModelList | null> {
+      return db.transaction(async (tx) => {
+        const [current] = await tx.select().from(apiConnections).where(eq(apiConnections.id, expected.id));
+        if (!current || MODEL_LIST_SOURCE_FIELDS.some((field) => current[field] !== expected[field])) return null;
+        const list: SavedConnectionModelList = { fetchedAt: now(), models: toSavedModels(models) };
+        await tx
+          .update(apiConnections)
+          .set({ savedModels: JSON.stringify(list) })
+          .where(eq(apiConnections.id, expected.id));
+        return list;
+      });
+    },
+
+    /** Pin or unpin one model. Pins stay in the order they were added. */
+    async setModelPinned(
+      id: string,
+      model: string,
+      pinned: boolean,
+    ): Promise<{ pinnedModels: string[] } | "not_found" | "limit"> {
+      return db.transaction(async (tx) => {
+        const [row] = await tx.select().from(apiConnections).where(eq(apiConnections.id, id));
+        if (!row) return "not_found" as const;
+        const current = parsePinnedModels(row.pinnedModels);
+        if (pinned && current.includes(model)) return { pinnedModels: current };
+        if (pinned && current.length >= MAX_PINNED_MODELS) return "limit" as const;
+        const pinnedModels = pinned ? [...current, model] : current.filter((entry) => entry !== model);
+        await tx
+          .update(apiConnections)
+          .set({ pinnedModels: JSON.stringify(pinnedModels), updatedAt: now() })
+          .where(eq(apiConnections.id, id));
+        return { pinnedModels };
+      });
     },
 
     async updateDefaultParameters(id: string, params: Record<string, unknown> | null) {

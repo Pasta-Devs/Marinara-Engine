@@ -243,7 +243,7 @@ export function CharacterRegexSection({
         .trim()
         .replace(/[^a-z0-9_-]+/gi, "-")
         .toLowerCase() || "character";
-    downloadJsonFile(
+    void downloadJsonFile(
       {
         kind: "marinara.regex-scripts",
         version: 1,
@@ -251,13 +251,15 @@ export function CharacterRegexSection({
         regexScripts: scopedScripts.map(serializeRegexScript),
       },
       `${safeName}-regexes.json`,
-    );
-    toast.success(
-      localizeUi("ui.characters.characterregexsection.exportedValue1RegexValue2", {
-        value1: scopedScripts.length,
-        value2: scopedScripts.length === 1 ? "" : localizeUi("ui.lorebooks.lorebookeditor.es"),
-      }),
-    );
+    ).then((saveStatus) => {
+      if (saveStatus === "saved")
+        toast.success(
+          localizeUi("ui.characters.characterregexsection.exportedValue1RegexValue2", {
+            value1: scopedScripts.length,
+            value2: scopedScripts.length === 1 ? "" : localizeUi("ui.lorebooks.lorebookeditor.es"),
+          }),
+        );
+    });
   }, [scopedScripts, characterName, localizeUi]);
 
   const handleImport = useCallback(

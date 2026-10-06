@@ -1,3 +1,4 @@
+import { openChatTool } from "./chat-settings-tools.js";
 // #7034: on a computer the chat's top controls (Game's Session, Volume, Assets and Game controls, the
 // connected chat, Roleplay's package toolbars) are windows that minimize to buttons ("bubbles") you can
 // place anywhere. Bubbles snap into line with each other, and their places save with the chat.
@@ -50,13 +51,14 @@ async function createGameWithConnectedChat(request: APIRequestContext) {
   return { gameId: game.id, partnerId: partner.id };
 }
 
-async function prepare(page: Page, chatId: string) {
+async function prepare(page: Page, chatId: string, ui: Record<string, unknown> = {}) {
   await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "" } }));
   await seedUIState(page, {
     hasCompletedOnboarding: true,
     sidebarOpen: false,
     rightPanelOpen: false,
     chatHelpSeenModes: ["conversation", "roleplay", "game"],
+    ...ui,
   });
   await page.addInitScript(
     ({ chatId, version }) => {
@@ -101,9 +103,10 @@ async function savedWindowLayout(request: APIRequestContext, chatId: string) {
   return ((metadata as Record<string, unknown> | undefined)?.windowLayout ?? null) as {
     windows: Record<
       string,
-      { pinned?: boolean; minimized?: boolean; docked?: boolean; bubble?: { x: number; y: number } }
+      { pinned?: boolean; minimized?: boolean; docked?: boolean; locked?: boolean; bubble?: { x: number; y: number } }
     >;
     bubbles?: Record<string, { x: number; y: number }>;
+    phoneBubbles?: Record<string, { x: number; y: number }>;
   } | null;
 }
 
@@ -377,7 +380,7 @@ test("Game controls dock as usable Settings sections, persist and pop out again"
     await page.goto("/");
     const settings = page.locator('[data-window="chat-settings"]');
     for (const id of ids) {
-      await bubble(page, id).click();
+      await openChatTool(page, id);
       await controlWindow(page, id).getByRole("button", { name: "Put back in Chat Settings", exact: true }).click();
       await expect(settings.locator(`[data-docked-chat-control="${id}"]`)).toBeVisible();
       await expect(controlWindow(page, id)).toHaveCount(0);
@@ -410,7 +413,7 @@ test("Game controls dock as usable Settings sections, persist and pop out again"
     await master.press("End");
     await expect(master).toHaveValue("100");
     await volumeSection.getByRole("button", { name: "Open Volume in its own window", exact: true }).click();
-    if (!desktop) await bubble(page, VOLUME).click();
+    if (!desktop) await openChatTool(page, VOLUME);
     const volume = controlWindow(page, VOLUME);
     await expect(volume.getByRole("slider").first()).toHaveValue("100");
     await expect(volumeSection).toHaveCount(0);
@@ -444,7 +447,12 @@ test("Game controls dock as usable Settings sections, persist and pop out again"
     await openChatSettings(page);
     await resetChatView(page);
     await settings.locator('[data-window-control="close"]').click();
-    for (const id of ids) await expect(bubble(page, id)).toBeVisible();
+    if (desktop) {
+      for (const id of ids) await expect(bubble(page, id)).toBeVisible();
+    } else {
+      await page.locator("[data-chat-tools-menu-button]").click();
+      for (const id of ids) await expect(page.locator(`[data-chat-tools-menu-item="${id}"]`)).toBeVisible();
+    }
     await page.screenshot({
       path: testInfo.outputPath("game-controls-docked-and-restored.png"),
       animations: "disabled",
@@ -472,21 +480,131 @@ test("phone docking and pop-out preserve a control's desktop geometry, pin and l
     ).toBeTruthy();
     await prepare(page, gameId);
     await page.goto("/");
-    await bubble(page, VOLUME).click();
+    await openChatTool(page, VOLUME);
     await controlWindow(page, VOLUME).getByRole("button", { name: "Put back in Chat Settings", exact: true }).click();
     const section = page.locator(`[data-docked-chat-control="${VOLUME}"]`);
     await section.getByRole("button", { name: "Open Volume in its own window", exact: true }).click();
-    await expect(bubble(page, VOLUME)).toBeVisible();
+    await expect(page.locator("[data-chat-tools-menu-button]")).toBeVisible();
     await expect
       .poll(async () => (await savedWindowLayout(request, gameId))?.windows[VOLUME])
       .toEqual({
         ...desktopLayout,
         docked: false,
       });
-    await bubble(page, VOLUME).click();
+    await openChatTool(page, VOLUME);
     await expect(controlWindow(page, VOLUME).getByRole("slider").first()).toBeVisible();
   } finally {
     await request.delete(`/api/chats/${gameId}?force=true`);
     await request.delete(`/api/chats/${partnerId}?force=true`);
+  }
+});
+
+test("Game Character Profiles stays separate, movable and locked across reload with its character content", async ({
+  page,
+  request,
+}, info) => {
+  const desktop = info.project.name.includes("desktop");
+  const { gameId, partnerId } = await createGameWithConnectedChat(request);
+  const response = await request.post("/api/characters", {
+    data: { data: { name: "Aster", description: "A patient scout." } },
+  });
+  expect(response.ok()).toBeTruthy();
+  const character = (await response.json()) as { id: string };
+  const id = "control:character-profiles";
+  try {
+    expect((await request.patch(`/api/chats/${gameId}`, { data: { characterIds: [character.id] } })).ok()).toBeTruthy();
+    expect(
+      (
+        await request.patch(`/api/chats/${gameId}/metadata`, {
+          data: {
+            windowLayout: null,
+            enableAgents: false,
+            gamePartyCharacterIds: [character.id],
+            gameCharacterCards: [
+              {
+                name: "Aster",
+                shortDescription: "A patient scout.",
+                class: "Scout",
+                abilities: [],
+                strengths: [],
+                weaknesses: [],
+                extra: {},
+              },
+            ],
+          },
+        })
+      ).ok(),
+    ).toBeTruthy();
+    await prepare(page, gameId, {
+      theme: "light",
+      chatWidgetPreset: "mari",
+      chatWidgetApplyFont: false,
+      chatWidgetApplyShape: false,
+      chatWidgetApplyColors: false,
+    });
+    await page.goto("/");
+    const launcher = bubble(page, id);
+    await expect(launcher).toHaveCount(1);
+    await expect(launcher).toBeVisible();
+    if (!desktop) {
+      await page.locator("[data-chat-tools-menu-button]").click();
+      await expect(page.locator(`[data-chat-tools-menu-item="${id}"]`)).toHaveCount(0);
+      await page.locator("[data-chat-tools-menu-button]").click();
+    }
+    await dragBubble(page, launcher, { x: 100, y: 200 });
+    const placed = await box(launcher);
+    const pointMap = desktop ? "bubbles" : "phoneBubbles";
+    await expect
+      .poll(async () => (await savedWindowLayout(request, gameId))?.[pointMap]?.[id])
+      .toEqual({ x: placed.x, y: placed.y });
+    await launcher.click();
+    const window = controlWindow(page, id);
+    await expect(window).toHaveAttribute("data-presentation", desktop ? "window" : "sheet");
+    await expect(window.locator(".mari-window__title")).toHaveCSS("font-family", /serif/);
+    const portrait = window.getByTitle("Aster - Click to open character sheet", { exact: true });
+    await expect(portrait).toBeVisible();
+    if (desktop) {
+      const original = await box(window);
+      const header = await box(window.locator(".mari-window__title"));
+      await page.mouse.move(header.x + 40, header.y + header.height / 2);
+      await page.mouse.down();
+      await page.mouse.move(header.x + 120, header.y + header.height / 2 + 40, { steps: 10 });
+      await page.mouse.up();
+      await expect.poll(async () => (await box(window)).x).toBeGreaterThan(original.x + 60);
+    }
+    await portrait.click();
+    const editor = page.locator('[data-component="GameCharacterSheet"]');
+    await expect(editor).toBeVisible();
+    await expect(editor.getByRole("heading", { name: "Aster", exact: true })).toBeVisible();
+    await expect(editor.getByText("Scout", { exact: true }).first()).toBeVisible();
+    await editor.getByRole("button", { name: "Close character sheet", exact: true }).click();
+    if (!(await window.isVisible())) await launcher.click();
+    await window.locator('[data-window-control="lock"]').click();
+    await expect(window.locator('[data-window-control="lock"]')).toHaveAttribute("aria-pressed", "true");
+    const path = info.outputPath("game-character-profiles-window.png");
+    await page.screenshot({ path, animations: "disabled" });
+    await info.attach("Movable Character Profiles", { path, contentType: "image/png" });
+    await window.locator('[data-window-control="close"]').click();
+    await expect(launcher).toHaveAttribute("data-locked", "true");
+    await launcher.focus();
+    await launcher.press("Shift+ArrowDown");
+    expect(await box(launcher)).toEqual(placed);
+    await expect
+      .poll(async () => (await savedWindowLayout(request, gameId))?.windows[id])
+      .toMatchObject({ locked: true });
+    await page.reload();
+    await expect(launcher).toHaveAttribute("data-locked", "true");
+    expect(await box(launcher)).toEqual(placed);
+    await launcher.click();
+    await expect(portrait).toBeVisible();
+    await window.locator('[data-window-control="lock"]').click();
+    await window.locator('[data-window-control="close"]').click();
+    await launcher.focus();
+    await launcher.press("ArrowDown");
+    expect((await box(launcher)).y).toBeCloseTo(placed.y + 10, 0);
+  } finally {
+    await request.delete(`/api/chats/${gameId}?force=true`);
+    await request.delete(`/api/chats/${partnerId}?force=true`);
+    await request.delete(`/api/characters/${character.id}`);
   }
 });

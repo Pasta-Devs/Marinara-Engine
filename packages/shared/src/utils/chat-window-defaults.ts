@@ -66,6 +66,7 @@ export function parseChatWindowDefault(value: string | null): ChatWindowDefault 
       }
       if ("bubbles" in layout && !isPlainRecord(layout.bubbles)) return null;
       if ("phoneBubbles" in layout && !isPlainRecord(layout.phoneBubbles)) return null;
+      if ("phoneMenu" in layout && !isPlainRecord(layout.phoneMenu)) return null;
     }
     return { windowLayout: layout, chatSettingsHintDismissed: parsed.chatSettingsHintDismissed };
   } catch {

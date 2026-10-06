@@ -250,7 +250,7 @@ export function TrackerDataSidebar({
           onSetSizeProfile={setTrackerPanelSizeProfile}
           onSetStatDisplayMode={setTrackerStatDisplayMode}
           onToggleDetached={onToggleDetached}
-          onClose={() => closeTrackerPanel(activeChatId)}
+          onClose={closeTrackerPanel}
         />
 
         <div className={cn("relative z-10", fillHeight && "min-h-0 flex-1 overflow-y-auto")}>

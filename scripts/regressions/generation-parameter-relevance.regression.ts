@@ -315,7 +315,7 @@ try {
     {
       provider: "openai_chatgpt",
       baseUrl: `${base}/v1`,
-      models: ["gpt-5.6-sol", "gpt-5.6-luna", "gpt-6-astra", "gpt-5.5"],
+      models: ["gpt-6.1-sol", "gpt-5.6-sol", "gpt-5.6-luna", "gpt-6-astra", "gpt-5.5", "gpt-4o", "some-future-model"],
       make: () => new OpenAIChatGPTProvider(`${base}/v1`, "test"),
     },
     {

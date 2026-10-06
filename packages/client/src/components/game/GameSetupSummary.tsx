@@ -118,11 +118,12 @@ export function GameSetupSummary({
   };
 
   const handleDownload = () => {
-    downloadJsonFile(
+    void downloadJsonFile(
       buildGameSetupShareFile(source),
       `${sanitizeExportFilenamePart(gameName, "game")}.marinara-game-setup.json`,
-    );
-    toast.success(localizeUi("ui.game.gamesetupsummary.reusableGameModeSetupDownloaded"));
+    ).then((saveStatus) => {
+      if (saveStatus === "saved") toast.success(localizeUi("ui.game.gamesetupsummary.reusableGameModeSetupDownloaded"));
+    });
   };
 
   return (

@@ -1,8 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
-interface DraftNumberInputProps {
-  value: number;
-  onCommit: (value: number) => void;
+interface DraftNumberInputOptions {
   className?: string;
   min?: number;
   max?: number;
@@ -17,9 +15,16 @@ interface DraftNumberInputProps {
   id?: string;
 }
 
+type DraftNumberInputProps = DraftNumberInputOptions &
+  (
+    | { allowEmpty: true; value: number | null; onCommit: (value: number | null) => void }
+    | { allowEmpty?: false; value: number; onCommit: (value: number) => void }
+  );
+
 export function DraftNumberInput({
   value,
   onCommit,
+  allowEmpty,
   className,
   min,
   max,
@@ -33,7 +38,7 @@ export function DraftNumberInput({
   title,
   id,
 }: DraftNumberInputProps) {
-  const [draft, setDraft] = useState(String(value));
+  const [draft, setDraft] = useState(value === null ? "" : String(value));
   const focusedRef = useRef(false);
 
   useLayoutEffect(() => {
@@ -44,7 +49,7 @@ export function DraftNumberInput({
     // dropped edit (#5636). External updates still sync any time the field
     // is not focused. Settle those echoes before focus/selection can start a new edit.
     if (focusedRef.current) return;
-    setDraft(String(value));
+    setDraft(value === null ? "" : String(value));
   }, [value]);
 
   const parseDraft = (raw: string) => {
@@ -68,6 +73,11 @@ export function DraftNumberInput({
   };
 
   const commit = () => {
+    if (allowEmpty && !draft.trim()) {
+      onCommit(null);
+      setDraft("");
+      return;
+    }
     const parsed = parseDraft(draft);
 
     if (parsed !== null) {
@@ -77,7 +87,7 @@ export function DraftNumberInput({
       return;
     }
 
-    setDraft(String(value));
+    setDraft(value === null ? "" : String(value));
   };
 
   const commitRef = useRef(commit);
@@ -100,7 +110,7 @@ export function DraftNumberInput({
     // rather than flashing back to the not-yet-echoed prop.
     if (!disabled || !focusedRef.current) return;
     focusedRef.current = false;
-    setDraft(String(value));
+    setDraft(value === null ? "" : String(value));
   }, [disabled, value]);
 
   useEffect(() => {

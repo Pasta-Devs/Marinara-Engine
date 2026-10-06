@@ -1086,6 +1086,79 @@ Use the existing startup-readiness declaration independently when the world must
 be prepared before the opening turn. Declare API 1.18 as the package minimum;
 older hosts cannot interpret this setup declaration.
 
+### Capability API 1.66: scenes from package threads
+
+A roleplay scene usually branches from a Conversation (`/scene`). A package holding the new `scenes`
+permission can let its own threads, such as a direct-message thread, be the origin instead. The scene
+is an ordinary scene chat: the same planner, prompt-preference dialog, scene instructions, End Scene,
+Discard and Convert controls, and the same character memory when it concludes. The package owns the
+thread side: what the planner reads, the lock while the scene runs, and what happens with the recap.
+
+```ts
+export async function activate({ api }) {
+  api.registerSceneOrigin({
+    // Planning context, or null when the thread no longer exists.
+    getContext: async (threadId) => ({
+      characterIds: [creatorCharacterId],
+      personaId,
+      connectionId: null, // the Engine's default connection
+      transcript: [{ speaker: "Mina", content: "Come to my shoot tonight?" }],
+      notes: "Stage persona, limits and anything else the scene writer must respect.",
+    }),
+    // Lock the thread. Return false when it already has an active scene.
+    claim: async (threadId, { sceneChatId, characterIds }) => lockThread(threadId, sceneChatId),
+    // Unlock and receive the outcome.
+    release: async (threadId, end) => {
+      if (!(await holdsLock(threadId, end.sceneChatId))) return;
+      if (end.kind === "concluded") await saveRecap(threadId, end.summary);
+      await unlockThread(threadId);
+    },
+  });
+}
+```
+
+The browser view (`home-browser-tab`) receives these props:
+
+- `startScene({ originId, prompt?, planHint?, plan?, data?, initiatorCharacterId?, initiatorName? })` opens the
+  scene prompt-preference dialog, plans and creates the scene, and opens its chat. Pass `plan` (a
+  `SceneFullPlan`: name, description, hidden scenario, first message, scene system prompt, rating,
+  relationship history, participation guide, background, cast) to write the scene yourself; the
+  dialog and the Engine planner are skipped and the scene is created exactly as planned. It resolves to
+  `{ chatId }`, or `null` when the user cancels or creating fails (the user sees why). The helper always
+  uses the package's own id. It is a convenience, not a boundary: the scene routes accept any package
+  id, so `getContext` must return only what the player may see in that thread anyway.
+- `openChat(chatId)` goes to a chat, for a "Go to scene" button on a locked thread.
+- `focusSceneOriginId` is the thread to show when the user comes back from a scene (Back, End Scene,
+  Discard). Call `onFocusSceneOriginHandled()` once you have shown it.
+
+Rules worth knowing:
+
+- `data` is this scene's own settings, a plain JSON object of at most 4,000 characters. The Engine
+  keeps it with the scene and passes it to `claim(originId, { sceneChatId, characterIds, data })` and
+  to `release` as `end.data`, so each scene can decide for itself: `claim` may admit a scene without
+  locking (return `true` and store nothing), and `release` may unlock without taking the recap, or
+  take it at the reach the scene asked for.
+- Only `getContext` is required. A package that just wants to start scenes leaves out `claim` and
+  `release`: nothing is locked, any number of scenes can run from the same origin, and nothing is
+  delivered when they end (**Back** still returns to the package). Leave out only `release` to lock
+  without hearing the outcome, or only `claim` to hear outcomes without a lock.
+- One provider per package; registering again replaces it, and deactivating removes it.
+- `characterIds` must be Engine characters; unknown IDs are dropped, and a context without one known
+  character is refused. An unknown `personaId` is treated as none. `notes` is cut at 8,000 characters
+  and is given to the planner and, with the transcript, to the scene writer as hidden context.
+- `claim` runs after the scene chat exists. `false` discards it with a 409; a throw discards it with
+  a 503. `getContext`, `claim` and `release` each have 8 seconds: a late `getContext` or `claim`
+  counts as a failure (503, the scene chat is removed), a late `release` is logged and dropped.
+- `release` gets `concluded` (with `summary`, `description`, `scenario`, `rating` and the cast),
+  `abandoned`, `deleted` or `converted`. It must be idempotent and must ignore a scene that does not
+  hold the lock. A release that throws, or that arrives while the package is inactive, is logged and
+  dropped: the scene chat stays ended either way, so reconcile a stale lock by reading the scene chat
+  with `chat-read`. Its metadata has `sceneStatus`, and a concluded scene also has `sceneSummary`.
+- The Engine writes nothing into a Conversation for a package origin. Character memory is stored on
+  conclude exactly as for a Conversation scene.
+
+`scenes` is refused on a manifest that declares a `capabilityApi` older than 1.66.
+
 ### Capability API 1.50: Professor Mari actions
 
 A package holding the new `mari-actions` permission can offer named actions to Professor Mari. It
