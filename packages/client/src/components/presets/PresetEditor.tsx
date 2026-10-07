@@ -2129,12 +2129,23 @@ function SectionsTab({
 
       {/* ── Preset Variables ── */}
       <PresetVariablesEditor
-        presetId={presetId}
         variables={choiceBlocks}
-        onCreateVariable={onCreateVariable}
-        onUpdateVariable={onUpdateVariable}
-        onDeleteVariable={onDeleteVariable}
-        onReorderVariables={onReorderVariables}
+        onCreate={() =>
+          onCreateVariable.mutate({
+            presetId,
+            variableName: `VAR_${Date.now()}`,
+            question: "Choose an option",
+            options: [
+              { id: `opt_${Date.now()}_a`, label: "Option A", value: "value_a" },
+              { id: `opt_${Date.now()}_b`, label: "Option B", value: "value_b" },
+            ],
+          })
+        }
+        onUpdate={(variableId, patch) => onUpdateVariable.mutate({ presetId, variableId, ...patch })}
+        onDelete={(variableId) => onDeleteVariable.mutate({ presetId, variableId })}
+        onReorder={(variableIds) => onReorderVariables.mutate({ presetId, variableIds })}
+        isSaving={onUpdateVariable.isPending}
+        isReordering={onReorderVariables.isPending}
         compact={compact}
       />
     </>

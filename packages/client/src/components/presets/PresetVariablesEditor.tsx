@@ -9,8 +9,10 @@ import { useTranslation as useUiTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import {
+  AlertTriangle,
   ArrowDown,
   ArrowUp,
+  PencilLine,
   Trash2,
   Plus,
   GripVertical,
@@ -141,24 +143,41 @@ function readChoiceOptionSort(value: unknown): ChoiceOptionSort {
 
 // ── Preset Variables Editor (preset-level, supports multiple) ──
 
+/**
+ * "preset": preset variables (random pick, single-option on/off switch, at
+ * least one option). "onboarding": a character card's onboarding questions —
+ * no options means a free-text answer, options may also accept the player's own
+ * answer, and there is no random pick.
+ */
+export type VariablesEditorVariant = "preset" | "onboarding";
+
 export function PresetVariablesEditor({
-  presetId,
   variables,
-  onCreateVariable,
-  onUpdateVariable,
-  onDeleteVariable,
-  onReorderVariables,
+  onCreate,
+  onUpdate,
+  onDelete,
+  onReorder,
+  isSaving = false,
+  isReordering = false,
+  variant = "preset",
+  issues,
   compact = false,
 }: {
-  presetId: string;
   variables: any[];
-  onCreateVariable: any;
-  onUpdateVariable: any;
-  onDeleteVariable: any;
-  onReorderVariables: any;
+  onCreate: () => void;
+  onUpdate: (variableId: string, patch: Record<string, unknown>) => void;
+  onDelete: (variableId: string) => void;
+  onReorder: (variableIds: string[]) => void;
+  /** While true, the card keeps its local option edits instead of the last saved ones. */
+  isSaving?: boolean;
+  isReordering?: boolean;
+  variant?: VariablesEditorVariant;
+  /** Localized problem per variable id, shown on its card. */
+  issues?: Record<string, string>;
   compact?: boolean;
 }) {
   const { t: localizeUi } = useUiTranslation();
+  const isOnboarding = variant === "onboarding";
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [draggingIdx, setDraggingIdx] = useState<number | null>(null);
   const [dropIdx, setDropIdx] = useState<number | null>(null);
@@ -192,9 +211,9 @@ export function PresetVariablesEditor({
     (sourceIdx: number, target: number) => {
       const ids = reorderIdsToGap(variables, sourceIdx, target);
       if (!ids) return;
-      onReorderVariables.mutate({ presetId, variableIds: ids });
+      onReorder(ids);
     },
-    [onReorderVariables, presetId, variables],
+    [onReorder, variables],
   );
 
   const commitDrop = (e: React.DragEvent) => {
@@ -215,7 +234,7 @@ export function PresetVariablesEditor({
   const moveVariableByOffset = (idx: number, offset: number) => {
     const variableIds = reorderIdsByOffset(variables, idx, offset);
     if (!variableIds) return;
-    onReorderVariables.mutate({ presetId, variableIds });
+    onReorder(variableIds);
   };
 
   const { startTouchDrag: startVariableTouchDrag } = useTouchFolderDrag({
@@ -259,7 +278,9 @@ export function PresetVariablesEditor({
         <div className="flex min-w-0 items-center gap-2">
           <Hash size="0.875rem" className="mari-chrome-accent-icon mari-accent-animated" />
           <span className="text-sm font-semibold">
-            {localizeUi("ui.presets.presetvariableseditor.presetVariables")}
+            {isOnboarding
+              ? localizeUi("ui.characters.onboarding.questions")
+              : localizeUi("ui.presets.presetvariableseditor.presetVariables")}
           </span>
           <span
             data-preset-variable-count
@@ -269,39 +290,38 @@ export function PresetVariablesEditor({
           </span>
         </div>
         <button
-          onClick={() =>
-            onCreateVariable.mutate({
-              presetId,
-              variableName: `VAR_${Date.now()}`,
-              question: "Choose an option",
-              options: [
-                { id: `opt_${Date.now()}_a`, label: "Option A", value: "value_a" },
-                { id: `opt_${Date.now()}_b`, label: "Option B", value: "value_b" },
-              ],
-            })
-          }
+          onClick={onCreate}
           className={cn(
             "mari-editor-action mari-editor-action--primary mari-editor-action--compact flex items-center gap-1.5 px-2.5 py-1.5 text-[0.6875rem]",
             compact && "max-sm:ml-auto",
           )}
         >
-          <Plus size="0.6875rem" /> {localizeUi("ui.presets.presetvariableseditor.addVariable")}
+          <Plus size="0.6875rem" />{" "}
+          {isOnboarding
+            ? localizeUi("ui.characters.onboarding.addQuestion")
+            : localizeUi("ui.presets.presetvariableseditor.addVariable")}
         </button>
       </div>
 
       <p className="text-[0.625rem] text-[var(--muted-foreground)]">
-        {localizeUi("ui.presets.presetvariableseditor.defineVariablesThatUsersSelectWhenAssigningThisPreset")}{" "}
+        {isOnboarding
+          ? localizeUi("ui.characters.onboarding.questionsIntro")
+          : localizeUi("ui.presets.presetvariableseditor.defineVariablesThatUsersSelectWhenAssigningThisPreset")}{" "}
         <code className="mari-editor-chip mari-editor-chip--accent rounded px-1 text-[0.625rem]">
           {"{{variable_name}}"}
         </code>{" "}
-        {localizeUi("ui.presets.presetvariableseditor.inAnySectionToInsertTheSelectedValue")}
+        {isOnboarding
+          ? localizeUi("ui.characters.onboarding.inThePersonaFieldsToInsertTheAnswer")
+          : localizeUi("ui.presets.presetvariableseditor.inAnySectionToInsertTheSelectedValue")}
       </p>
 
       {variables.length === 0 ? (
         <div className="mari-editor-empty flex flex-col items-center gap-2 py-6 text-center">
           <Hash size="1.25rem" className="text-[var(--muted-foreground)]" />
           <p className="text-[0.6875rem] text-[var(--muted-foreground)]">
-            {localizeUi("ui.presets.presetvariableseditor.noVariablesYetAddOneToLetUsersCustomize")}
+            {isOnboarding
+              ? localizeUi("ui.characters.onboarding.noQuestionsYet")
+              : localizeUi("ui.presets.presetvariableseditor.noVariablesYetAddOneToLetUsersCustomize")}
           </p>
         </div>
       ) : (
@@ -339,12 +359,14 @@ export function PresetVariablesEditor({
                   className={cn(draggingIdx === idx && "opacity-40")}
                 >
                   <VariableCard
-                    presetId={presetId}
                     variable={variable}
+                    variant={variant}
+                    issue={issues?.[variable.id]}
                     isExpanded={expandedId === variable.id}
                     onToggle={() => setExpandedId(expandedId === variable.id ? null : variable.id)}
-                    onUpdateVariable={onUpdateVariable}
-                    onDeleteVariable={onDeleteVariable}
+                    onUpdate={(patch) => onUpdate(variable.id, patch)}
+                    onDelete={() => onDelete(variable.id)}
+                    isSaving={isSaving}
                     onGripDown={() => setDragReady(idx)}
                     onGripUp={() => setDragReady(null)}
                     onGripTouchStart={(event) => {
@@ -360,7 +382,7 @@ export function PresetVariablesEditor({
                     onMoveDown={() => moveVariableByOffset(idx, 1)}
                     canMoveUp={idx > 0}
                     canMoveDown={idx < variables.length - 1}
-                    isReordering={onReorderVariables.isPending}
+                    isReordering={isReordering}
                   />
                 </div>
                 {showDropAfter && (
@@ -378,12 +400,14 @@ export function PresetVariablesEditor({
 // ── Single Variable Card ──
 
 function VariableCard({
-  presetId,
   variable,
+  variant,
+  issue,
   isExpanded,
   onToggle,
-  onUpdateVariable,
-  onDeleteVariable,
+  onUpdate,
+  onDelete,
+  isSaving,
   onGripDown,
   onGripUp,
   onGripTouchStart,
@@ -393,12 +417,14 @@ function VariableCard({
   canMoveDown,
   isReordering,
 }: {
-  presetId: string;
   variable: any;
+  variant: VariablesEditorVariant;
+  issue?: string;
   isExpanded: boolean;
   onToggle: () => void;
-  onUpdateVariable: any;
-  onDeleteVariable: any;
+  onUpdate: (patch: Record<string, unknown>) => void;
+  onDelete: () => void;
+  isSaving: boolean;
   onGripDown: () => void;
   onGripUp: () => void;
   onGripTouchStart: (event: React.TouchEvent<HTMLElement>) => void;
@@ -418,10 +444,16 @@ function VariableCard({
     }
   }, [variable.options]);
 
+  const isOnboarding = variant === "onboarding";
   const varName = variable.variableName ?? variable.variable_name ?? "";
   const question = variable.question ?? "";
   const isMultiSelect = variable.multiSelect === "true" || variable.multiSelect === true;
-  const isRandomPick = variable.randomPick === "true" || variable.randomPick === true;
+  const isRandomPick = !isOnboarding && (variable.randomPick === "true" || variable.randomPick === true);
+  const allowsCustom = isOnboarding && variable.allowCustom === true;
+  // A one-option preset variable works as an on/off switch; onboarding has no such
+  // mode, but an onboarding question with no options asks for free text.
+  const isBooleanToggle = !isOnboarding && opts.length === 1 && !isMultiSelect;
+  const isFreeText = isOnboarding && opts.length === 0;
   const separatorValue = variable.separator ?? ", ";
   const displayMode = readChoiceDisplayMode(variable.displayMode ?? variable.display_mode);
   const optionSort = readChoiceOptionSort(variable.optionSort ?? variable.option_sort);
@@ -436,11 +468,11 @@ function VariableCard({
   const expandedOpt = expandedOptId ? (opts.find((opt) => opt.id === expandedOptId) ?? null) : null;
 
   useEffect(() => {
-    if (!onUpdateVariable.isPending) optsRef.current = opts;
-  }, [onUpdateVariable.isPending, opts]);
+    if (!isSaving) optsRef.current = opts;
+  }, [isSaving, opts]);
 
   const update = (data: Record<string, unknown>) => {
-    onUpdateVariable.mutate({ presetId, variableId: variable.id, ...data });
+    onUpdate(data);
   };
 
   const updateOpts = (newOpts: VariableOptionDraft[]) => {
@@ -577,10 +609,21 @@ function VariableCard({
         >
           {varName}
         </span>
+        {issue && (
+          <AlertTriangle size="0.75rem" className="shrink-0 text-[var(--destructive)]" aria-label={issue} role="img">
+            <title>{issue}</title>
+          </AlertTriangle>
+        )}
         <span className="mari-editor-chip mari-editor-chip--accent shrink-0 px-1.5 py-0.5 text-[0.5625rem]">
-          {opts.length} {localizeUi("ui.presets.variablecard.options")}
+          {isOnboarding && opts.length === 0 ? (
+            localizeUi("ui.characters.onboarding.freeText")
+          ) : (
+            <>
+              {opts.length} {localizeUi("ui.presets.variablecard.options")}
+            </>
+          )}
         </span>
-        {opts.length === 1 && !isMultiSelect && (
+        {isBooleanToggle && (
           <span className="mari-chrome-accent-surface mari-accent-animated shrink-0 rounded px-1.5 py-0.5 text-[0.5625rem] font-medium">
             {localizeUi("ui.presets.variablecard.boolean")}
           </span>
@@ -601,7 +644,7 @@ function VariableCard({
                 tone: "destructive",
               })
             ) {
-              onDeleteVariable.mutate({ presetId, variableId: variable.id });
+              onDelete();
             }
           }}
           className="shrink-0 rounded-lg p-1 text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
@@ -620,10 +663,17 @@ function VariableCard({
               {localizeUi("ui.presets.variablecard.variableName")}
             </label>
             <VariableNameInput value={varName} onCommit={(v) => update({ variableName: v })} />
+            {issue && (
+              <p role="alert" className="flex items-center gap-1 text-[0.5625rem] text-[var(--destructive)]">
+                <AlertTriangle size="0.625rem" className="shrink-0" /> {issue}
+              </p>
+            )}
             <p className="text-[0.5625rem] text-[var(--muted-foreground)]">
               {localizeUi("ui.presets.variablecard.use")}{" "}
               <code className="mari-chrome-accent-text mari-accent-animated">{`{{${varName}}}`}</code>{" "}
-              {localizeUi("ui.presets.variablecard.inAnyPromptSectionToInsertTheSelectedValue")}
+              {isOnboarding
+                ? localizeUi("ui.characters.onboarding.inThePersonaFieldsToInsertTheAnswer")
+                : localizeUi("ui.presets.variablecard.inAnyPromptSectionToInsertTheSelectedValue")}
             </p>
           </div>
 
@@ -636,7 +686,19 @@ function VariableCard({
           </div>
 
           {/* Multi-Select & Random Pick (not shown for single-option/boolean variables) */}
-          {opts.length === 1 && !isMultiSelect ? (
+          {isFreeText ? (
+            <div className="mari-editor-panel mari-editor-panel--soft space-y-1.5 p-2.5">
+              <div className="flex items-center gap-1.5">
+                <PencilLine size="0.75rem" className="mari-chrome-accent-icon mari-accent-animated" />
+                <span className="mari-chrome-accent-text mari-accent-animated text-[0.625rem] font-medium">
+                  {localizeUi("ui.characters.onboarding.freeTextAnswer")}
+                </span>
+              </div>
+              <p className="text-[0.5625rem] text-[var(--muted-foreground)]">
+                {localizeUi("ui.characters.onboarding.freeTextAnswerHelp")}
+              </p>
+            </div>
+          ) : isBooleanToggle ? (
             <div className="mari-editor-panel mari-editor-panel--soft space-y-1.5 p-2.5">
               <div className="flex items-center gap-1.5">
                 <ListChecks size="0.75rem" className="mari-chrome-accent-icon mari-accent-animated" />
@@ -669,21 +731,44 @@ function VariableCard({
               </p>
 
               <div className="space-y-2 border-t border-[var(--border)] pt-2">
-                {/* Random Pick Toggle */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5">
-                    <Shuffle size="0.75rem" className="mari-chrome-accent-icon mari-accent-animated" />
-                    <span className="text-[0.625rem] font-medium text-[var(--foreground)]">
-                      {localizeUi("ui.presets.variablecard.randomPick")}
-                    </span>
+                {isOnboarding ? (
+                  <>
+                    {/* Allow own answer toggle */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <PencilLine size="0.75rem" className="mari-chrome-accent-icon mari-accent-animated" />
+                        <span className="text-[0.625rem] font-medium text-[var(--foreground)]">
+                          {localizeUi("ui.characters.onboarding.allowOwnAnswer")}
+                        </span>
+                      </div>
+                      <SettingsSwitch
+                        ariaLabel={localizeUi("ui.characters.onboarding.allowOwnAnswer")}
+                        checked={allowsCustom}
+                        onChange={(checked) => update({ allowCustom: checked })}
+                        className="p-0 hover:bg-transparent"
+                      />
+                    </div>
+                    <p className="text-[0.5625rem] text-[var(--muted-foreground)]">
+                      {localizeUi("ui.characters.onboarding.allowOwnAnswerHelp")}
+                    </p>
+                  </>
+                ) : (
+                  /* Random Pick Toggle */
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <Shuffle size="0.75rem" className="mari-chrome-accent-icon mari-accent-animated" />
+                      <span className="text-[0.625rem] font-medium text-[var(--foreground)]">
+                        {localizeUi("ui.presets.variablecard.randomPick")}
+                      </span>
+                    </div>
+                    <SettingsSwitch
+                      ariaLabel={localizeUi("ui.presets.variablecard.randomPick")}
+                      checked={isRandomPick}
+                      onChange={(checked) => update({ randomPick: checked })}
+                      className="p-0 hover:bg-transparent"
+                    />
                   </div>
-                  <SettingsSwitch
-                    ariaLabel={localizeUi("ui.presets.variablecard.randomPick")}
-                    checked={isRandomPick}
-                    onChange={(checked) => update({ randomPick: checked })}
-                    className="p-0 hover:bg-transparent"
-                  />
-                </div>
+                )}
                 <p className="text-[0.5625rem] text-[var(--muted-foreground)]">
                   {isMultiSelect
                     ? isRandomPick
@@ -716,7 +801,7 @@ function VariableCard({
           )}
 
           {/* Presentation */}
-          <div className="mari-editor-panel mari-editor-panel--soft space-y-2 p-2.5">
+          <div className={cn("mari-editor-panel mari-editor-panel--soft space-y-2 p-2.5", isFreeText && "hidden")}>
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-1.5">
                 <ListChecks size="0.75rem" className="mari-chrome-accent-icon mari-accent-animated" />
@@ -892,7 +977,8 @@ function VariableCard({
                     </button>
                     <button
                       onClick={() => {
-                        if (currentOpts().length <= 1)
+                        // Removing the last option turns an onboarding question into free text.
+                        if (!isOnboarding && currentOpts().length <= 1)
                           return toast.error(localizeUi("ui.presets.variablecard.aVariableNeedsAtLeast1Option"));
                         updateOpts(currentOpts().filter((option) => option.id !== opt.id));
                       }}
