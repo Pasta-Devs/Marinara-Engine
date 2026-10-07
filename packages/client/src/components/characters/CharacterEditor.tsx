@@ -119,7 +119,9 @@ import {
   Pencil,
   Check,
   Volume2,
+  Sparkles,
 } from "lucide-react";
+import { PresetVariablesEditor } from "../presets/PresetVariablesEditor";
 import { cn, copyToClipboard, generateClientId, getAvatarCropStyle } from "../../lib/utils";
 import { normalizeAvatarCrop, type WeekSchedule } from "@marinara-engine/shared";
 import { extractColorsFromImage } from "../../lib/avatar-color-extraction";
@@ -145,12 +147,23 @@ import { leaveWithoutSaving } from "../../lib/editor-leave";
 import { EditorSectionAnchor, EditorSectionJumps } from "../ui/EditorSectionJumps";
 import { SettingsSwitch } from "../panels/settings/SettingControls";
 import {
+  characterOnboardingSchema,
   createDefaultRpgStatPools,
+  getRelevantOnboardingVariables,
   normalizeSpriteExpressionLabel,
   normalizeRpgStatPools,
+  ONBOARDING_PERSONA_FIELDS,
+  ONBOARDING_PLAYER_VARIABLE,
+  resolveOnboardingPersona,
   syncRpgHpFromPools,
+  validateOnboarding,
   type CharacterCardVersion,
   type CharacterData,
+  type CharacterOnboarding,
+  type CharacterOnboardingVariable,
+  type OnboardingAnswers,
+  type OnboardingIssue,
+  type OnboardingPersonaField,
   type CharacterTrackerCustomFieldDefault,
   type ConversationCallCharacterVideoClipKind,
   type ConvoBehaviorConfig,
@@ -172,6 +185,7 @@ import { useTranslation, useTranslation as useUiTranslation } from "react-i18nex
 const TABS = [
   { id: "metadata", label: "Metadata", icon: User },
   { id: "card", label: "Card", icon: IdCard },
+  { id: "onboarding", label: "Onboarding", icon: UserPlus },
   { id: "convo", label: "Convo", icon: MessageCircle },
   { id: "lorebook", label: "Lorebook", icon: Library },
   { id: "sprites", label: "Sprites", icon: Image },
@@ -193,6 +207,64 @@ const CHARACTER_CARD_SECTIONS = [
   { id: "character-card-scenario", label: "Scenario" },
   { id: "character-card-dialogue", label: "Dialogue" },
 ] as const;
+
+const CHARACTER_ONBOARDING_SECTIONS = [
+  { id: "character-onboarding-description", label: "Description" },
+  { id: "character-onboarding-personality", label: "Personality" },
+  { id: "character-onboarding-backstory", label: "Backstory" },
+  { id: "character-onboarding-appearance", label: "Appearance" },
+  { id: "character-onboarding-scenario", label: "Scenario" },
+  { id: "character-onboarding-questions", label: "Onboarding Questions" },
+  { id: "character-onboarding-preview", label: "Rendered preview" },
+] as const;
+
+/**
+ * The onboarding fields reuse the persona editor's Card copy: what the author
+ * writes here becomes the player's persona, not part of this character.
+ */
+const ONBOARDING_FIELD_COPY: Record<
+  OnboardingPersonaField,
+  { title: string; subtitle: string; placeholder: string; rows: number }
+> = {
+  description: {
+    title: "chat.settings.inlineEditor.fields.description",
+    subtitle: "ui.personas.descriptiontab.yourGeneralDescriptionThisIsSentInEveryPrompt",
+    placeholder: "ui.personas.descriptiontab.describeWhoYouAreYourRoleInTheStory",
+    rows: 12,
+  },
+  personality: {
+    title: "chat.settings.inlineEditor.fields.personality",
+    subtitle: "ui.personas.personacardtab.yourPersonalityTraitsTemperamentAndBehavioralPatterns",
+    placeholder: "ui.personas.personacardtab.calmAndAnalyticalButQuickToActWhenSomeone",
+    rows: 8,
+  },
+  backstory: {
+    title: "chat.settings.inlineEditor.fields.backstory",
+    subtitle: "ui.personas.personacardtab.yourCharacterSHistoryOriginStoryAndFormativeLife",
+    placeholder: "ui.personas.personacardtab.grewUpInAFrontierTownApprenticedUnderA",
+    rows: 12,
+  },
+  appearance: {
+    title: "chat.settings.inlineEditor.fields.appearance",
+    subtitle: "ui.personas.personacardtab.physicalDescriptionHeightBuildHairEyesClothingDistinguishingFeatures",
+    placeholder: "ui.personas.personacardtab.averageHeightDarkHairWornLoosePrefersPracticalClothing",
+    rows: 8,
+  },
+  scenario: {
+    title: "chat.settings.inlineEditor.fields.scenario",
+    subtitle: "ui.personas.personacardtab.yourDefaultSituationOrContextWithinRoleplays",
+    placeholder: "ui.personas.personacardtab.aWanderingAdventurerSeekingAnswersAboutAMysteriousArtifact",
+    rows: 8,
+  },
+};
+
+const ONBOARDING_ISSUE_KEYS: Record<Exclude<OnboardingIssue["code"], "plainIf" | "unknownName">, string> = {
+  emptyName: "ui.characters.onboarding.issueEmptyName",
+  invalidName: "ui.characters.onboarding.issueInvalidName",
+  reservedName: "ui.characters.onboarding.issueReservedName",
+  duplicateName: "ui.characters.onboarding.issueDuplicateName",
+  unused: "ui.characters.onboarding.issueUnused",
+};
 
 const CHARACTER_METADATA_HELP =
   "Use metadata for identity, sharing, and library organization. The avatar identifies the character throughout Marinara, name is used as {{char}}, creator/version help track authorship and revisions, tags make the card searchable, talkativeness affects group chat response frequency, and creator notes stay private.";
@@ -1187,6 +1259,9 @@ export function CharacterEditor() {
             <section data-editor-section="card">
               <CharacterCardTab formData={formData} updateField={updateField} updateExtension={updateExtension} />
             </section>
+            <section data-editor-section="onboarding">
+              <OnboardingTab formData={formData} updateExtension={updateExtension} />
+            </section>
             <section data-editor-section="convo">
               <ConvoTab
                 formData={formData}
@@ -1398,6 +1473,210 @@ function CharacterCardTab({
           <DialogueTab formData={formData} updateField={updateField} />
         </EditorSectionAnchor>
       </div>
+    </div>
+  );
+}
+
+/** A new onboarding question: free text until the author adds options. */
+function createOnboardingVariable(existing: CharacterOnboardingVariable[]): CharacterOnboardingVariable {
+  const names = new Set(existing.map((variable) => variable.variableName));
+  let index = existing.length + 1;
+  while (names.has(`question_${index}`)) index++;
+  return {
+    id: generateClientId(),
+    variableName: `question_${index}`,
+    question: "",
+    options: [],
+    allowCustom: false,
+    multiSelect: false,
+    separator: ", ",
+    displayMode: "auto",
+    optionSort: "manual",
+  };
+}
+
+/**
+ * The card's skeleton persona: the persona Card fields, the questions players
+ * answer, and a preview resolved with example answers. Turning it off keeps
+ * everything written here; only `enabled` changes.
+ */
+function OnboardingTab({
+  formData,
+  updateExtension,
+}: {
+  formData: CharacterData;
+  updateExtension: (key: string, value: unknown) => void;
+}) {
+  const { t: localizeUi } = useUiTranslation();
+  const onboarding = useMemo(() => {
+    const parsed = characterOnboardingSchema.safeParse(formData.extensions.onboarding ?? {});
+    return (parsed.success ? parsed.data : characterOnboardingSchema.parse({})) as CharacterOnboarding;
+  }, [formData.extensions.onboarding]);
+  const update = (patch: Partial<CharacterOnboarding>) => updateExtension("onboarding", { ...onboarding, ...patch });
+  const setVariables = (variables: CharacterOnboardingVariable[]) => update({ variables });
+
+  const issues = useMemo(() => validateOnboarding(onboarding), [onboarding]);
+  const variableIssues: Record<string, string> = {};
+  const plainIfFields = new Set<OnboardingPersonaField>();
+  const unknownNames: Partial<Record<OnboardingPersonaField, string[]>> = {};
+  for (const issue of issues) {
+    if (issue.code === "plainIf") plainIfFields.add(issue.field);
+    else if (issue.code === "unknownName") (unknownNames[issue.field] ??= []).push(issue.name);
+    else variableIssues[issue.variableId] ??= localizeUi(ONBOARDING_ISSUE_KEYS[issue.code], { value1: issue.name });
+  }
+
+  // Example answers, like the prompt-override preview: the first option of a
+  // choice, the variable's own name for free text.
+  const preview = useMemo(() => {
+    const answers: OnboardingAnswers = { [ONBOARDING_PLAYER_VARIABLE]: { text: `‹${ONBOARDING_PLAYER_VARIABLE}›` } };
+    for (const variable of onboarding.variables) {
+      const first = variable.options[0];
+      answers[variable.variableName] = first ? { optionIds: [first.id] } : { text: `‹${variable.variableName}›` };
+    }
+    return {
+      persona: resolveOnboardingPersona(onboarding, answers),
+      asked: getRelevantOnboardingVariables(onboarding, answers),
+    };
+  }, [onboarding]);
+  const previewText = ONBOARDING_PERSONA_FIELDS.filter((field) => preview.persona[field])
+    .map((field) => `${localizeUi(ONBOARDING_FIELD_COPY[field].title)}:\n${preview.persona[field]}`)
+    .join("\n\n");
+  const codeClass = "mari-editor-chip mari-editor-chip--accent rounded px-1 font-mono text-[0.625rem]";
+
+  return (
+    <div>
+      <SectionHeader
+        title={localizeUi("editor.tabs.onboarding")}
+        subtitle={localizeUi("ui.characters.onboarding.subtitle")}
+      />
+      <SettingsSwitch
+        label={<span className="font-medium">{localizeUi("ui.characters.onboarding.enable")}</span>}
+        description={localizeUi("ui.characters.onboarding.enableHelp")}
+        checked={onboarding.enabled}
+        onChange={(enabled) => update({ enabled })}
+        labelPosition="start"
+        className="justify-between rounded-xl border border-[var(--border)] bg-[var(--card)] p-4"
+      />
+      {onboarding.enabled && (
+        <>
+          <div className="mari-editor-panel mt-4 space-y-2 p-3 text-xs">
+            <p className="flex items-center gap-1.5 font-semibold">
+              <Sparkles size="0.875rem" className="mari-chrome-accent-icon mari-accent-animated" />
+              {localizeUi("ui.characters.onboarding.tutorialTitle")}
+            </p>
+            <ol className="list-decimal space-y-1.5 pl-5 text-[var(--muted-foreground)]">
+              <li>{localizeUi("ui.characters.onboarding.tutorialFields")}</li>
+              <li>
+                {localizeUi("ui.characters.onboarding.tutorialInsertBefore")}{" "}
+                <code className={codeClass}>{"{{faction}}"}</code>{" "}
+                {localizeUi("ui.characters.onboarding.tutorialInsertAfter")}
+              </li>
+              <li>
+                {localizeUi("ui.characters.onboarding.tutorialPlayerBefore")}{" "}
+                <code className={codeClass}>{ONBOARDING_PLAYER_VARIABLE}</code>{" "}
+                {localizeUi("ui.characters.onboarding.tutorialPlayerAfter")}
+              </li>
+              <li>
+                {localizeUi("ui.characters.onboarding.tutorialIfBefore")}{" "}
+                <code className={codeClass}>{"{{#if class == custom}}…{{/if}}"}</code>{" "}
+                {localizeUi("ui.characters.onboarding.tutorialIfAfter")}
+              </li>
+            </ol>
+            <p className="text-[var(--muted-foreground)]">{localizeUi("ui.characters.onboarding.tutorialResult")}</p>
+          </div>
+          <div className="mt-4">
+            <EditorSectionJumps items={CHARACTER_ONBOARDING_SECTIONS} />
+          </div>
+          <div className="space-y-10">
+            {ONBOARDING_PERSONA_FIELDS.map((field) => {
+              const copy = ONBOARDING_FIELD_COPY[field];
+              return (
+                <EditorSectionAnchor key={field} id={`character-onboarding-${field}`}>
+                  <TextareaTab
+                    title={localizeUi(copy.title)}
+                    subtitle={localizeUi(copy.subtitle)}
+                    value={onboarding[field]}
+                    onChange={(value) => update({ [field]: value })}
+                    placeholder={localizeUi(copy.placeholder)}
+                    rows={copy.rows}
+                  />
+                  {plainIfFields.has(field) && (
+                    <p
+                      role="alert"
+                      className="mt-1.5 flex flex-wrap items-center gap-1 text-[0.625rem] text-[var(--destructive)]"
+                    >
+                      <AlertTriangle size="0.625rem" className="shrink-0" />
+                      {localizeUi("ui.characters.onboarding.plainIfBefore")}{" "}
+                      <code className={codeClass}>{"{{#if …}}"}</code>{" "}
+                      {localizeUi("ui.characters.onboarding.plainIfAfter")}
+                    </p>
+                  )}
+                  {unknownNames[field] && (
+                    <p
+                      role="alert"
+                      className="mt-1.5 flex flex-wrap items-center gap-1 text-[0.625rem] text-[var(--destructive)]"
+                    >
+                      <AlertTriangle size="0.625rem" className="shrink-0" />
+                      {localizeUi("ui.characters.onboarding.unknownNames", {
+                        value1: unknownNames[field].join(", "),
+                      })}
+                    </p>
+                  )}
+                </EditorSectionAnchor>
+              );
+            })}
+            <EditorSectionAnchor id="character-onboarding-questions">
+              <PresetVariablesEditor
+                variant="onboarding"
+                variables={onboarding.variables}
+                issues={variableIssues}
+                onCreate={() => setVariables([...onboarding.variables, createOnboardingVariable(onboarding.variables)])}
+                onUpdate={(variableId, patch) =>
+                  setVariables(
+                    onboarding.variables.map((variable) =>
+                      variable.id === variableId ? { ...variable, ...patch } : variable,
+                    ),
+                  )
+                }
+                onDelete={(variableId) =>
+                  setVariables(onboarding.variables.filter((variable) => variable.id !== variableId))
+                }
+                onReorder={(variableIds) =>
+                  setVariables(
+                    variableIds.flatMap((id) => onboarding.variables.filter((variable) => variable.id === id)),
+                  )
+                }
+              />
+            </EditorSectionAnchor>
+            <EditorSectionAnchor id="character-onboarding-preview">
+              <div className="mari-editor-panel space-y-2 p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-sm font-semibold">
+                    {localizeUi("ui.panels.promptoverrideseditorbody.renderedPreview")}
+                  </span>
+                  <span className="text-[0.625rem] text-[var(--muted-foreground)]">
+                    {localizeUi("ui.panels.promptoverrideseditorbody.exampleValues")}
+                  </span>
+                </div>
+                <div className="flex flex-wrap items-center gap-1.5 text-[0.625rem] text-[var(--muted-foreground)]">
+                  <span>{localizeUi("ui.characters.onboarding.questionsAsked")}</span>
+                  {preview.asked.map((variable) => (
+                    <span key={variable.id} className="mari-editor-chip px-1.5 py-0.5">
+                      {variable.question ||
+                        (variable.variableName === ONBOARDING_PLAYER_VARIABLE
+                          ? localizeUi("ui.characters.onboarding.nameQuestion")
+                          : variable.variableName)}
+                    </span>
+                  ))}
+                </div>
+                <pre className="max-h-80 overflow-auto whitespace-pre-wrap break-words rounded-md bg-[var(--secondary)]/70 p-2 font-mono text-[0.6875rem] leading-relaxed text-[var(--foreground)]">
+                  {previewText || localizeUi("ui.panels.promptoverrideseditorbody.nothingToPreview")}
+                </pre>
+              </div>
+            </EditorSectionAnchor>
+          </div>
+        </>
+      )}
     </div>
   );
 }
