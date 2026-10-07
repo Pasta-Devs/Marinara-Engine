@@ -207,4 +207,25 @@ assert.deepEqual(
   "validator flags empty, invalid, reserved, duplicate and unused names, and {{if}} without #",
 );
 
+// A name in the fields that is neither a question nor a macro reaches the
+// persona verbatim (or, in a condition, silently compares false) — the typo case.
+assert.deepEqual(
+  validateOnboarding(
+    onboarding({
+      description: "{{player}} of the {{facton}}, friend of {{char}}. {{class}} {{facton}}",
+      personality: "{{#if knowsHr == yes}}Knows her.{{else if class == mage}}A mage.{{/if}}",
+      variables: [
+        { id: "1", variableName: "faction" },
+        { id: "2", variableName: "class" },
+      ],
+    }),
+  ),
+  [
+    { code: "unused", variableId: "1", name: "faction" },
+    { code: "unknownName", field: "description", name: "facton" },
+    { code: "unknownName", field: "personality", name: "knowsHr" },
+  ],
+  "a misspelled name in text or in a condition is flagged once per field; questions, player and macros are not",
+);
+
 console.log("onboarding-s2: all assertions passed");

@@ -153,7 +153,25 @@ export type OnboardingIssue =
       variableId: string;
       name: string;
     }
-  | { code: "plainIf"; field: OnboardingPersonaField };
+  | { code: "plainIf"; field: OnboardingPersonaField }
+  | { code: "unknownName"; field: OnboardingPersonaField; name: string };
+
+/**
+ * Names a field reads that are neither questions nor macros: bare `{{name}}`
+ * tags and the left operand of each `{{#if}}` / `{{else if}}` clause.
+ * ponytail: right-hand operands are not checked — the engine resolves both
+ * sides, so a typo there is indistinguishable from a literal like `custom`.
+ */
+function readUnknownNames(text: string, known: Set<string>): string[] {
+  const names: string[] = [];
+  for (const match of text.matchAll(/\{\{([A-Za-z_]\w*)\}\}/g)) names.push(match[1]!);
+  for (const condition of text.matchAll(/\{\{\s*(?:#if|else\s+if)\s+([\s\S]*?)\}\}/gi)) {
+    for (const operand of condition[1]!.matchAll(/(?:^|&&|\|\||\(|!)\s*([A-Za-z_]\w*)(?![.:\w])/g)) {
+      names.push(operand[1]!);
+    }
+  }
+  return [...new Set(names)].filter((name) => !known.has(name) && !isReservedMacroName(name));
+}
 
 /**
  * Problems an author should fix. `unused` is a warning; the rest stop a
@@ -174,9 +192,13 @@ export function validateOnboarding(onboarding: CharacterOnboarding): OnboardingI
       issues.push({ code: "unused", variableId, name });
     if (name) seen.add(name);
   }
-  // `{{if}}` / `{{If}}` without `#` is not a conditional: it reaches the persona verbatim.
+  const known = new Set([ONBOARDING_PLAYER_VARIABLE, ...seen]);
   for (const field of ONBOARDING_PERSONA_FIELDS) {
-    if (/\{\{\s*(?:if|else\s+if)\b/i.test(onboarding[field] ?? "")) issues.push({ code: "plainIf", field });
+    const fieldText = onboarding[field] ?? "";
+    // `{{if}}` / `{{If}}` without `#` is not a conditional: it reaches the persona
+    // verbatim. (`{{else if}}` is correct as is — the engine's else-if has no `#`.)
+    if (/\{\{\s*if\b/i.test(fieldText)) issues.push({ code: "plainIf", field });
+    for (const name of readUnknownNames(fieldText, known)) issues.push({ code: "unknownName", field, name });
   }
   return issues;
 }
