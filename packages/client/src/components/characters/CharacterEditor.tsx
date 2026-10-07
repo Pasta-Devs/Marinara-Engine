@@ -209,12 +209,12 @@ const CHARACTER_CARD_SECTIONS = [
 ] as const;
 
 const CHARACTER_ONBOARDING_SECTIONS = [
+  { id: "character-onboarding-questions", label: "Onboarding Questions" },
   { id: "character-onboarding-description", label: "Description" },
   { id: "character-onboarding-personality", label: "Personality" },
   { id: "character-onboarding-backstory", label: "Backstory" },
   { id: "character-onboarding-appearance", label: "Appearance" },
   { id: "character-onboarding-scenario", label: "Scenario" },
-  { id: "character-onboarding-questions", label: "Onboarding Questions" },
   { id: "character-onboarding-preview", label: "Rendered preview" },
 ] as const;
 
@@ -1565,12 +1565,14 @@ function OnboardingTab({
               {localizeUi("ui.characters.onboarding.tutorialTitle")}
             </p>
             <ol className="list-decimal space-y-1.5 pl-5 text-[var(--muted-foreground)]">
-              <li>{localizeUi("ui.characters.onboarding.tutorialFields")}</li>
               <li>
-                {localizeUi("ui.characters.onboarding.tutorialInsertBefore")}{" "}
+                {localizeUi("ui.characters.onboarding.tutorialQuestionsBefore")}{" "}
+                <code className={codeClass}>faction</code>
+                {localizeUi("ui.characters.onboarding.tutorialQuestionsMiddle")}{" "}
                 <code className={codeClass}>{"{{faction}}"}</code>{" "}
-                {localizeUi("ui.characters.onboarding.tutorialInsertAfter")}
+                {localizeUi("ui.characters.onboarding.tutorialQuestionsAfter")}
               </li>
+              <li>{localizeUi("ui.characters.onboarding.tutorialFields")}</li>
               <li>
                 {localizeUi("ui.characters.onboarding.tutorialPlayerBefore")}{" "}
                 <code className={codeClass}>{ONBOARDING_PLAYER_VARIABLE}</code>{" "}
@@ -1578,7 +1580,7 @@ function OnboardingTab({
               </li>
               <li>
                 {localizeUi("ui.characters.onboarding.tutorialIfBefore")}{" "}
-                <code className={codeClass}>{"{{#if class == custom}}…{{/if}}"}</code>{" "}
+                <code className={codeClass}>{"{{#if met == yes}}…{{/if}}"}</code>{" "}
                 {localizeUi("ui.characters.onboarding.tutorialIfAfter")}
               </li>
             </ol>
@@ -1588,6 +1590,29 @@ function OnboardingTab({
             <EditorSectionJumps items={CHARACTER_ONBOARDING_SECTIONS} />
           </div>
           <div className="space-y-10">
+            <EditorSectionAnchor id="character-onboarding-questions">
+              <PresetVariablesEditor
+                variant="onboarding"
+                variables={onboarding.variables}
+                issues={variableIssues}
+                onCreate={() => setVariables([...onboarding.variables, createOnboardingVariable(onboarding.variables)])}
+                onUpdate={(variableId, patch) =>
+                  setVariables(
+                    onboarding.variables.map((variable) =>
+                      variable.id === variableId ? { ...variable, ...patch } : variable,
+                    ),
+                  )
+                }
+                onDelete={(variableId) =>
+                  setVariables(onboarding.variables.filter((variable) => variable.id !== variableId))
+                }
+                onReorder={(variableIds) =>
+                  setVariables(
+                    variableIds.flatMap((id) => onboarding.variables.filter((variable) => variable.id === id)),
+                  )
+                }
+              />
+            </EditorSectionAnchor>
             {ONBOARDING_PERSONA_FIELDS.map((field) => {
               const copy = ONBOARDING_FIELD_COPY[field];
               return (
@@ -1625,29 +1650,6 @@ function OnboardingTab({
                 </EditorSectionAnchor>
               );
             })}
-            <EditorSectionAnchor id="character-onboarding-questions">
-              <PresetVariablesEditor
-                variant="onboarding"
-                variables={onboarding.variables}
-                issues={variableIssues}
-                onCreate={() => setVariables([...onboarding.variables, createOnboardingVariable(onboarding.variables)])}
-                onUpdate={(variableId, patch) =>
-                  setVariables(
-                    onboarding.variables.map((variable) =>
-                      variable.id === variableId ? { ...variable, ...patch } : variable,
-                    ),
-                  )
-                }
-                onDelete={(variableId) =>
-                  setVariables(onboarding.variables.filter((variable) => variable.id !== variableId))
-                }
-                onReorder={(variableIds) =>
-                  setVariables(
-                    variableIds.flatMap((id) => onboarding.variables.filter((variable) => variable.id === id)),
-                  )
-                }
-              />
-            </EditorSectionAnchor>
             <EditorSectionAnchor id="character-onboarding-preview">
               <div className="mari-editor-panel space-y-2 p-3">
                 <div className="flex items-center justify-between gap-2">

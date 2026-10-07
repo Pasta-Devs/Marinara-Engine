@@ -39,13 +39,14 @@ export function CharacterOnboardingModal({
   open,
   characterName,
   onboarding,
-  onSkip,
+  onBack,
   onCreated,
 }: {
   open: boolean;
   characterName: string;
   onboarding: CharacterOnboarding;
-  onSkip: () => void;
+  /** Return to the persona picker without creating anything. */
+  onBack: () => void;
   onCreated: (personaId: string) => void;
 }) {
   const { t: localizeUi } = useUiTranslation();
@@ -75,7 +76,7 @@ export function CharacterOnboardingModal({
   return (
     <Modal
       open={open}
-      onClose={onSkip}
+      onClose={onBack}
       title={localizeUi("ui.characters.onboarding.modalTitle")}
       width="max-w-lg"
       closeDisabled={createPersona.isPending}
@@ -166,10 +167,10 @@ export function CharacterOnboardingModal({
         <div className="flex justify-end gap-2 pt-2">
           <button
             type="button"
-            onClick={onSkip}
+            onClick={onBack}
             className="rounded-xl px-4 py-2 text-xs font-medium text-[var(--muted-foreground)] hover:bg-[var(--accent)]"
           >
-            {localizeUi("onboarding.actions.skip")}
+            {localizeUi("navigation.common.back")}
           </button>
           <button
             type="button"
