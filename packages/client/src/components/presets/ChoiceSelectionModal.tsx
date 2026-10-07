@@ -8,10 +8,10 @@ import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import { Modal } from "../ui/Modal";
 import { usePresetFull, useUpdatePreset } from "../../hooks/use-presets";
 import { useUpdateChatMetadata } from "../../hooks/use-chats";
-import { CheckCircle2, Circle, CheckSquare2, Square, ListChecks, Shuffle, Save } from "lucide-react";
-import { cn } from "../../lib/utils";
+import { ListChecks, Shuffle, Save } from "lucide-react";
 import { arePresetChoiceSelectionsComplete } from "../../lib/preset-choice-selection";
 import { SettingsSwitch } from "../panels/settings/SettingControls";
+import { ChoiceOptionsField } from "./ChoiceOptionsField";
 import { useTranslation as useUiTranslation } from "react-i18next";
 
 interface ChoiceSelectionModalProps {
@@ -46,26 +46,12 @@ interface VariableData {
   optionSort: ChoiceOptionSort;
 }
 
-const CHOICE_LISTBOX_AUTO_THRESHOLD = 8;
-
 function readChoiceDisplayMode(value: unknown): ChoiceDisplayMode {
   return value === "buttons" || value === "listbox" ? value : "auto";
 }
 
 function readChoiceOptionSort(value: unknown): ChoiceOptionSort {
   return value === "alphabetical" ? "alphabetical" : "manual";
-}
-
-function getPresentedOptions(variable: VariableData) {
-  if (variable.optionSort !== "alphabetical") return variable.options;
-  return [...variable.options].sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: "base" }));
-}
-
-function shouldUseListbox(variable: VariableData) {
-  if (variable.options.length <= 1 && !variable.multiSelect) return false;
-  if (variable.displayMode === "buttons") return false;
-  if (variable.displayMode === "listbox") return true;
-  return variable.options.length >= CHOICE_LISTBOX_AUTO_THRESHOLD;
 }
 
 function sanitizeChoiceSelection(
@@ -213,22 +199,6 @@ function ChatChoiceSelectionModal({
     }
   }, [chatId, presetId, selections, saveAsDefault, updateMetadata, updatePreset, onClose, onConfirm]);
 
-  // Toggle a single option in a multi-select variable
-  const toggleMulti = useCallback(
-    (varName: string, value: string) => {
-      setOverrides((prev) => {
-        const current = Array.isArray(prev[varName])
-          ? (prev[varName] as string[])
-          : Array.isArray(baseSelections[varName])
-            ? (baseSelections[varName] as string[])
-            : [];
-        const next = current.includes(value) ? current.filter((v) => v !== value) : [...current, value];
-        return { ...prev, [varName]: next };
-      });
-    },
-    [baseSelections],
-  );
-
   return (
     <Modal
       open={open}
@@ -251,8 +221,6 @@ function ChatChoiceSelectionModal({
           </p>
 
           {variables.map((v) => {
-            const presentedOptions = getPresentedOptions(v);
-            const listboxMode = shouldUseListbox(v);
             return (
               <div key={v.id} className="rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-3">
                 <h4 className="mb-1 text-xs font-semibold text-[var(--foreground)]">{v.question}</h4>
@@ -280,152 +248,12 @@ function ChatChoiceSelectionModal({
                     </span>
                   )}
                 </div>
-                <div className="space-y-1.5">
-                  {listboxMode && v.multiSelect ? (
-                    <select
-                      multiple
-                      value={Array.isArray(selections[v.variableName]) ? (selections[v.variableName] as string[]) : []}
-                      onChange={(e) => {
-                        const next = Array.from(e.currentTarget.selectedOptions, (option) => option.value);
-                        setOverrides((prev) => ({ ...prev, [v.variableName]: next }));
-                      }}
-                      size={Math.min(8, Math.max(4, presentedOptions.length))}
-                      className="mari-preset-native-select min-h-28 w-full rounded-lg bg-[var(--background)] px-2 py-2 text-xs text-[var(--foreground)] ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
-                    >
-                      {presentedOptions.map((opt) => (
-                        <option key={opt.id} value={opt.value}>
-                          {opt.label}
-                        </option>
-                      ))}
-                    </select>
-                  ) : listboxMode ? (
-                    <select
-                      value={
-                        typeof selections[v.variableName] === "string" ? (selections[v.variableName] as string) : ""
-                      }
-                      onChange={(e) => setOverrides((prev) => ({ ...prev, [v.variableName]: e.target.value }))}
-                      className="mari-preset-native-select w-full rounded-lg bg-[var(--background)] px-3 py-2 text-xs text-[var(--foreground)] ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
-                    >
-                      {presentedOptions.map((opt) => (
-                        <option key={opt.id} value={opt.value}>
-                          {opt.label}
-                        </option>
-                      ))}
-                    </select>
-                  ) : v.multiSelect ? (
-                    // ── Multi-select: checkboxes ──
-                    presentedOptions.map((opt) => {
-                      const selected = Array.isArray(selections[v.variableName])
-                        ? (selections[v.variableName] as string[])
-                        : [];
-                      const isSelected = selected.includes(opt.value);
-                      return (
-                        <button
-                          key={opt.id}
-                          aria-pressed={isSelected}
-                          onClick={() => toggleMulti(v.variableName, opt.value)}
-                          className={cn(
-                            "flex w-full items-start gap-2.5 rounded-lg p-2.5 text-left transition-all",
-                            isSelected
-                              ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
-                              : "hover:bg-[var(--accent)]",
-                          )}
-                        >
-                          {isSelected ? (
-                            <CheckSquare2 size="0.875rem" className="mt-0.5 shrink-0 text-[var(--primary)]" />
-                          ) : (
-                            <Square size="0.875rem" className="mt-0.5 shrink-0 text-[var(--muted-foreground)]" />
-                          )}
-                          <div className="min-w-0 flex-1">
-                            <span className={cn("text-xs font-medium", isSelected && "text-[var(--primary)]")}>
-                              {opt.label}
-                            </span>
-                            {opt.value && (
-                              <p className="mt-0.5 line-clamp-2 text-[0.625rem] text-[var(--muted-foreground)]">
-                                {opt.value.slice(0, 150)}
-                                {opt.value.length > 150 ? "…" : ""}
-                              </p>
-                            )}
-                          </div>
-                        </button>
-                      );
-                    })
-                  ) : presentedOptions.length === 1 ? (
-                    // ── Boolean toggle: single option ──
-                    (() => {
-                      const opt = presentedOptions[0];
-                      if (!opt) return null;
-                      const isOn = selections[v.variableName] === opt.value;
-                      return (
-                        <SettingsSwitch
-                          checked={isOn}
-                          onChange={(checked) =>
-                            setOverrides((prev) => ({
-                              ...prev,
-                              [v.variableName]: checked ? opt.value : "",
-                            }))
-                          }
-                          label={
-                            <span className="min-w-0 flex-1">
-                              <span className={cn("text-xs font-medium", isOn && "text-[var(--primary)]")}>
-                                {opt.label}
-                              </span>
-                              {opt.value && (
-                                <span className="mt-0.5 block line-clamp-2 text-[0.625rem] text-[var(--muted-foreground)]">
-                                  {opt.value.slice(0, 150)}
-                                  {opt.value.length > 150 ? "…" : ""}
-                                </span>
-                              )}
-                            </span>
-                          }
-                          labelPosition="start"
-                          className={cn(
-                            "w-full justify-between gap-2.5 rounded-lg p-2.5 text-left transition-all",
-                            isOn
-                              ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
-                              : "hover:bg-[var(--accent)]",
-                          )}
-                          labelClassName="min-w-0 flex-1"
-                        />
-                      );
-                    })()
-                  ) : (
-                    // ── Single-select: radio-style ──
-                    presentedOptions.map((opt) => {
-                      const isSelected = selections[v.variableName] === opt.value;
-                      return (
-                        <button
-                          key={opt.id}
-                          aria-pressed={isSelected}
-                          onClick={() => setOverrides((prev) => ({ ...prev, [v.variableName]: opt.value }))}
-                          className={cn(
-                            "flex w-full items-start gap-2.5 rounded-lg p-2.5 text-left transition-all",
-                            isSelected
-                              ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
-                              : "hover:bg-[var(--accent)]",
-                          )}
-                        >
-                          {isSelected ? (
-                            <CheckCircle2 size="0.875rem" className="mt-0.5 shrink-0 text-[var(--primary)]" />
-                          ) : (
-                            <Circle size="0.875rem" className="mt-0.5 shrink-0 text-[var(--muted-foreground)]" />
-                          )}
-                          <div className="min-w-0 flex-1">
-                            <span className={cn("text-xs font-medium", isSelected && "text-[var(--primary)]")}>
-                              {opt.label}
-                            </span>
-                            {opt.value && (
-                              <p className="mt-0.5 line-clamp-2 text-[0.625rem] text-[var(--muted-foreground)]">
-                                {opt.value.slice(0, 150)}
-                                {opt.value.length > 150 ? "…" : ""}
-                              </p>
-                            )}
-                          </div>
-                        </button>
-                      );
-                    })
-                  )}
-                </div>
+                <ChoiceOptionsField
+                  variable={v}
+                  selection={selections[v.variableName]}
+                  optionKey={(opt) => opt.value}
+                  onChange={(next) => setOverrides((prev) => ({ ...prev, [v.variableName]: next }))}
+                />
               </div>
             );
           })}
