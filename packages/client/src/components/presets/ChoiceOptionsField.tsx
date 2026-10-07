@@ -12,6 +12,8 @@ export interface ChoiceFieldOption {
   id: string;
   label: string;
   value: string;
+  /** Optional help text under the label (onboarding options). */
+  description?: string;
 }
 
 export interface ChoiceFieldVariable {
@@ -33,6 +35,24 @@ function shouldUseListbox(variable: ChoiceFieldVariable) {
   if (variable.displayMode === "buttons") return false;
   if (variable.displayMode === "listbox") return true;
   return variable.options.length >= CHOICE_LISTBOX_AUTO_THRESHOLD;
+}
+
+/** The option's help text, then its value unless the value only repeats the label. */
+function OptionDetails({ option }: { option: ChoiceFieldOption }) {
+  const repeatsLabel = option.value.trim().toLowerCase() === option.label.trim().toLowerCase();
+  return (
+    <>
+      {option.description && (
+        <span className="mt-0.5 block text-[0.6875rem] text-[var(--foreground)]/80">{option.description}</span>
+      )}
+      {option.value && !repeatsLabel && (
+        <span className="mt-0.5 block line-clamp-2 text-[0.625rem] text-[var(--muted-foreground)]">
+          {option.value.slice(0, 150)}
+          {option.value.length > 150 ? "…" : ""}
+        </span>
+      )}
+    </>
+  );
 }
 
 /**
@@ -109,12 +129,7 @@ export function ChoiceOptionsField({
               )}
               <div className="min-w-0 flex-1">
                 <span className={cn("text-xs font-medium", isSelected && "text-[var(--primary)]")}>{opt.label}</span>
-                {opt.value && (
-                  <p className="mt-0.5 line-clamp-2 text-[0.625rem] text-[var(--muted-foreground)]">
-                    {opt.value.slice(0, 150)}
-                    {opt.value.length > 150 ? "…" : ""}
-                  </p>
-                )}
+                <OptionDetails option={opt} />
               </div>
             </button>
           );
@@ -132,12 +147,7 @@ export function ChoiceOptionsField({
               label={
                 <span className="min-w-0 flex-1">
                   <span className={cn("text-xs font-medium", isOn && "text-[var(--primary)]")}>{opt.label}</span>
-                  {opt.value && (
-                    <span className="mt-0.5 block line-clamp-2 text-[0.625rem] text-[var(--muted-foreground)]">
-                      {opt.value.slice(0, 150)}
-                      {opt.value.length > 150 ? "…" : ""}
-                    </span>
-                  )}
+                  <OptionDetails option={opt} />
                 </span>
               }
               labelPosition="start"
@@ -170,12 +180,7 @@ export function ChoiceOptionsField({
               )}
               <div className="min-w-0 flex-1">
                 <span className={cn("text-xs font-medium", isSelected && "text-[var(--primary)]")}>{opt.label}</span>
-                {opt.value && (
-                  <p className="mt-0.5 line-clamp-2 text-[0.625rem] text-[var(--muted-foreground)]">
-                    {opt.value.slice(0, 150)}
-                    {opt.value.length > 150 ? "…" : ""}
-                  </p>
-                )}
+                <OptionDetails option={opt} />
               </div>
             </button>
           );

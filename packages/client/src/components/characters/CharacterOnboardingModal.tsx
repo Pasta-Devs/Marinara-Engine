@@ -114,7 +114,11 @@ export function CharacterOnboardingModal({
 
           return (
             <div key={variable.id} className="rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-3">
-              <h4 className="mb-2 text-xs font-semibold text-[var(--foreground)]">{question}</h4>
+              <h4 className="mb-1 text-xs font-semibold text-[var(--foreground)]">{question}</h4>
+              <p className="mb-2 text-[0.625rem] text-[var(--muted-foreground)]">
+                {localizeUi("ui.presets.choiceselectionmodal.variable")}{" "}
+                <code className="text-[var(--foreground)]">{`{{${name}}}`}</code>
+              </p>
               {variable.options.length === 0 ? (
                 textInput(ownText ?? "")
               ) : (

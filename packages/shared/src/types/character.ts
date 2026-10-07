@@ -133,7 +133,8 @@ export interface CharacterOnboardingVariable {
   id: string;
   variableName: string;
   question: string;
-  options: ChoiceOption[];
+  /** `description` is optional help text shown to the player under the option label. */
+  options: Array<ChoiceOption & { description?: string }>;
   allowCustom: boolean;
   multiSelect: boolean;
   separator: string;

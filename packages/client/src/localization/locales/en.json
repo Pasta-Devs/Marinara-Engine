@@ -4536,6 +4536,7 @@
   "ui.characters.onboarding.modalTitle": "Create your persona",
   "ui.characters.onboarding.nameQuestion": "What is your name?",
   "ui.characters.onboarding.noQuestionsYet": "No questions yet. Add one to let players shape their persona.",
+  "ui.characters.onboarding.optionHelpText": "Help text for players (optional)",
   "ui.characters.onboarding.plainIfAfter": "Without it, this text shows up in the persona as typed.",
   "ui.characters.onboarding.plainIfBefore": "Conditions need a #, like",
   "ui.characters.onboarding.questions": "Onboarding Questions",

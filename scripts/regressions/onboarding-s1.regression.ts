@@ -45,7 +45,8 @@ const ONBOARDING = {
       variableName: "faction",
       question: "Which faction do you serve?",
       options: [
-        { id: "o1", label: "Crown", value: "Crown" },
+        // optional player-facing help text must survive the round-trips below
+        { id: "o1", label: "Crown", value: "Crown", description: "Sworn to the old throne." },
         { id: "o2", label: "Guild", value: "Guild" },
       ],
     },

@@ -131,7 +131,7 @@ function reorderItemsToGap<T>(items: T[], sourceIndex: number, targetGapIndex: n
 
 type ChoiceDisplayMode = "auto" | "buttons" | "listbox";
 type ChoiceOptionSort = "manual" | "alphabetical";
-type VariableOptionDraft = { id: string; label: string; value: string };
+type VariableOptionDraft = { id: string; label: string; value: string; description?: string };
 
 function readChoiceDisplayMode(value: unknown): ChoiceDisplayMode {
   return value === "buttons" || value === "listbox" ? value : "auto";
@@ -482,7 +482,7 @@ function VariableCard({
 
   const currentOpts = () => (optsRef.current.length > 0 ? optsRef.current : opts);
 
-  const updateOptionField = (optionId: string, field: "label" | "value", value: string) => {
+  const updateOptionField = (optionId: string, field: "label" | "value" | "description", value: string) => {
     updateOpts(currentOpts().map((opt) => (opt.id === optionId ? { ...opt, [field]: value } : opt)));
   };
 
@@ -988,6 +988,14 @@ function VariableCard({
                       <X size="0.625rem" className="text-[var(--destructive)]" />
                     </button>
                   </div>
+                  {isOnboarding && (
+                    <OptionFieldInput
+                      value={opt.description ?? ""}
+                      onCommit={(v) => updateOptionField(opt.id, "description", v)}
+                      className="mari-editor-field mt-1 ml-6 w-[calc(100%-1.5rem)] px-1.5 py-0.5 text-xs"
+                      placeholder={localizeUi("ui.characters.onboarding.optionHelpText")}
+                    />
+                  )}
                   {valueIsBlank && (
                     <p className="mt-1 pl-6 text-[0.5625rem] text-[var(--muted-foreground)]">
                       {localizeUi("ui.presets.variablecard.blankValueInsertsNothing")}

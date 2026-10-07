@@ -56,7 +56,8 @@ export const characterOnboardingVariableSchema = z.object({
   id: z.string(),
   variableName: z.string().max(100).default(""),
   question: z.string().max(500).default(""),
-  options: z.array(choiceOptionSchema).default([]),
+  // `description` is optional help text shown to the player under the option label.
+  options: z.array(choiceOptionSchema.extend({ description: z.string().max(500).optional() })).default([]),
   allowCustom: z.boolean().default(false),
   multiSelect: z.boolean().default(false),
   separator: z.string().max(20).default(", "),
