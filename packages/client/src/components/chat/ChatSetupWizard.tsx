@@ -52,8 +52,11 @@ import { characterMatchesSearch, getCharacterTitle, parseCharacterDisplayData } 
 import { buildCharacterIdentityGroups } from "../../lib/character-identity-groups";
 import { addSilentGreetingSwipes } from "../../lib/message-swipes";
 import { ChoiceSelectionModal } from "../presets/ChoiceSelectionModal";
+import { CharacterOnboardingModal } from "../characters/CharacterOnboardingModal";
 import { ActiveChatBackgroundPicker } from "../panels/settings/BackgroundPicker";
 import {
+  characterOnboardingSchema,
+  type CharacterOnboarding,
   CONVERSATION_COMMAND_AGENT_IDS,
   CONVERSATION_COMMAND_KEYS,
   DEFAULT_CONVERSATION_PROMPT,
@@ -2073,6 +2076,9 @@ function RoleplaySetupWizard({ chat, onFinish, defaultsApplied, defaultsAction }
   const currentStep = STEPS[step]!;
   const isLast = step === STEPS.length - 1;
   const [showChoiceModal, setShowChoiceModal] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  // Asked once per wizard, so going Back and Next again doesn't create a second persona.
+  const [onboardingDone, setOnboardingDone] = useState(false);
   // Open in shortcut mode if the chat store flag was set (e.g. via right-click "Quick Start").
   const [shortcutMode, setShortcutMode] = useState(() => {
     const flag = useChatStore.getState().shouldOpenWizardInShortcutMode;
@@ -2568,6 +2574,26 @@ function RoleplaySetupWizard({ chat, onFinish, defaultsApplied, defaultsAction }
   const isPresetStep = currentStep.key === "preset";
   const nextDisabled = isPresetStep && (updateChat.isPending || (!!chat.promptPresetId && presetFullLoading));
 
+  // The first chosen character whose card ships enabled onboarding.
+  // ponytail: one onboarding per chat; a group with several onboarding cards
+  // only asks the first one's questions.
+  const onboardingCharacter = useMemo(() => {
+    for (const id of chatCharIds) {
+      const character = characters.find((entry) => entry.id === id);
+      if (!character) continue;
+      try {
+        const data = typeof character.data === "string" ? JSON.parse(character.data) : character.data;
+        const parsed = characterOnboardingSchema.safeParse(data?.extensions?.onboarding);
+        if (parsed.success && parsed.data.enabled) {
+          return { name: String(data?.name ?? ""), onboarding: parsed.data as CharacterOnboarding };
+        }
+      } catch {
+        /* unreadable card data: no onboarding */
+      }
+    }
+    return null;
+  }, [characters, chatCharIds]);
+
   const next = useCallback(() => {
     if (isLast) {
       void finishWizard();
@@ -2577,13 +2603,40 @@ function RoleplaySetupWizard({ chat, onFinish, defaultsApplied, defaultsAction }
         setShowChoiceModal(true);
         return;
       }
+      // When leaving the participants step, let a character's onboarding create the persona.
+      if (currentStep.key === "participants" && onboardingCharacter && !onboardingDone) {
+        setShowOnboarding(true);
+        return;
+      }
       setStep((s) => s + 1);
       setCharSearch("");
       setLbSearch("");
       setAgentSearch("");
       setAgentAddPreview(null);
     }
-  }, [isLast, finishWizard, currentStep.key, chat.promptPresetId, presetFull?.choiceBlocks?.length]);
+  }, [
+    isLast,
+    finishWizard,
+    currentStep.key,
+    chat.promptPresetId,
+    presetFull?.choiceBlocks?.length,
+    onboardingCharacter,
+    onboardingDone,
+  ]);
+
+  const leaveOnboarding = useCallback(
+    (personaId?: string) => {
+      if (personaId) setPersona(personaId);
+      setOnboardingDone(true);
+      setShowOnboarding(false);
+      setStep((s) => s + 1);
+      setCharSearch("");
+      setLbSearch("");
+      setAgentSearch("");
+      setAgentAddPreview(null);
+    },
+    [setPersona],
+  );
 
   const previous = useCallback(() => {
     setStep((s) => Math.max(0, s - 1));
@@ -3544,7 +3597,18 @@ function RoleplaySetupWizard({ chat, onFinish, defaultsApplied, defaultsAction }
         chatId={chat.id}
       />
 
+      {onboardingCharacter && (
+        <CharacterOnboardingModal
+          open={showOnboarding}
+          characterName={onboardingCharacter.name}
+          onboarding={onboardingCharacter.onboarding}
+          onSkip={() => leaveOnboarding()}
+          onCreated={(personaId) => leaveOnboarding(personaId)}
+        />
+      )}
+
       {!showChoiceModal &&
+        !showOnboarding &&
         (shortcutMode ? (
           <SetupWizardShell
             title={localizeUi("ui.chat.roleplaysetupwizard.quickSetup")}
