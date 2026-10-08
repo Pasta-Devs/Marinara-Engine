@@ -1516,8 +1516,22 @@ function OnboardingTab({
     const parsed = characterOnboardingSchema.safeParse(formData.extensions.onboarding ?? {});
     return (parsed.success ? parsed.data : characterOnboardingSchema.parse({})) as CharacterOnboarding;
   }, [formData.extensions.onboarding]);
-  const update = (patch: Partial<CharacterOnboarding>) => updateExtension("onboarding", { ...onboarding, ...patch });
-  const setVariables = (variables: CharacterOnboardingVariable[]) => update({ variables });
+  // Edits can land in the same tick (e.g. two debounced option inputs), so each
+  // one merges onto the latest value instead of this render's snapshot.
+  const latestRef = useRef(onboarding);
+  useEffect(() => {
+    latestRef.current = onboarding;
+  }, [onboarding]);
+  const update = (
+    patch: Partial<CharacterOnboarding> | ((latest: CharacterOnboarding) => Partial<CharacterOnboarding>),
+  ) => {
+    const latest = latestRef.current;
+    const next = { ...latest, ...(typeof patch === "function" ? patch(latest) : patch) };
+    latestRef.current = next;
+    updateExtension("onboarding", next);
+  };
+  const setVariables = (change: (variables: CharacterOnboardingVariable[]) => CharacterOnboardingVariable[]) =>
+    update((latest) => ({ variables: change(latest.variables) }));
 
   const issues = useMemo(() => validateOnboarding(onboarding), [onboarding]);
   const variableIssues: Record<string, string> = {};
@@ -1562,7 +1576,7 @@ function OnboardingTab({
   const insertVariable = (field: OnboardingPersonaField, name: string) => {
     const token = "{{" + name + "}}";
     const textarea = fieldRefs.current[field];
-    const current = onboarding[field];
+    const current = latestRef.current[field];
     const start = textarea?.selectionStart ?? current.length;
     const end = textarea?.selectionEnd ?? current.length;
     update({ [field]: current.slice(0, start) + token + current.slice(end) });
@@ -1624,20 +1638,18 @@ function OnboardingTab({
                 variant="onboarding"
                 variables={onboarding.variables}
                 issues={variableIssues}
-                onCreate={() => setVariables([...onboarding.variables, createOnboardingVariable(onboarding.variables)])}
+                onCreate={() => setVariables((variables) => [...variables, createOnboardingVariable(variables)])}
                 onUpdate={(variableId, patch) =>
-                  setVariables(
-                    onboarding.variables.map((variable) =>
-                      variable.id === variableId ? { ...variable, ...patch } : variable,
-                    ),
+                  setVariables((variables) =>
+                    variables.map((variable) => (variable.id === variableId ? { ...variable, ...patch } : variable)),
                   )
                 }
                 onDelete={(variableId) =>
-                  setVariables(onboarding.variables.filter((variable) => variable.id !== variableId))
+                  setVariables((variables) => variables.filter((variable) => variable.id !== variableId))
                 }
                 onReorder={(variableIds) =>
-                  setVariables(
-                    variableIds.flatMap((id) => onboarding.variables.filter((variable) => variable.id === id)),
+                  setVariables((variables) =>
+                    variableIds.flatMap((id) => variables.filter((variable) => variable.id === id)),
                   )
                 }
               />

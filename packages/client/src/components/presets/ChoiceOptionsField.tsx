@@ -117,6 +117,7 @@ export function ChoiceOptionsField({
           const isSelected = selectedKeys.includes(optionKey(opt));
           return (
             <button
+              type="button"
               key={opt.id}
               aria-pressed={isSelected}
               onClick={() => toggle(optionKey(opt))}
@@ -168,6 +169,7 @@ export function ChoiceOptionsField({
           const isSelected = selection === optionKey(opt);
           return (
             <button
+              type="button"
               key={opt.id}
               aria-pressed={isSelected}
               onClick={() => onChange(optionKey(opt))}
