@@ -67,6 +67,8 @@ Open a character in the editor, then click **Export character** in the top toolb
 
 Choose **Marinara Native** when you want to keep everything. Choose one of the **Compatible** formats when the file is going to another tool. The two compatible formats drop Marinara-only extras like sprites and gallery images. They append non-empty **Backstory** and **Appearance** fields to the standard Description so other V2 readers retain that identity information. Those fields move out of the exported extensions to avoid duplication when reimported. Your saved card stays unchanged; **Marinara Native** keeps its separate fields.
 
+A card's [Interactive Onboarding](interactive-onboarding.md) is kept by **Marinara Native** and **Compatible PNG Card**, so the card still offers its questions when someone imports it into Marinara. **Compatible JSON** leaves it out.
+
 ## Exporting many characters at once
 
 You can export a batch of characters as a single zip file.

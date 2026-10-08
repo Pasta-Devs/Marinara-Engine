@@ -30,6 +30,8 @@ In Game Mode this section is framed as your in-game party, but it still uses the
 
 The New Chat setup wizard has a **Your Persona** field. It uses the same searchable picker and a **None** option. In the New Game Setup wizard, this field is labeled **Player's Persona** instead.
 
+In a Roleplay chat, a character card can offer **Create your persona** at the top of this picker. Pick it to answer the card's questions and get a new persona. See [Interactive Onboarding](interactive-onboarding.md).
+
 ## The Quick Persona Switcher
 
 Once a chat is open, a small round avatar button sits near the message box. This is the **Quick Persona Switcher**. Its tooltip shows this name when no persona is set.
@@ -53,4 +55,5 @@ Switching your persona in the middle of a chat does not rewrite earlier messages
 ## Related guides
 
 - [User Personas: Creating and Editing](personas.md)
+- [Interactive Onboarding](interactive-onboarding.md)
 - [Chat Settings Overview](../chats/chat-settings.md)
