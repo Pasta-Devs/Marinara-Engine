@@ -2967,7 +2967,12 @@ function RoleplaySetupWizard({ chat, onFinish, defaultsApplied, defaultsAction }
         }}
         templates={onboardingCharacters.map((entry) => entry.character)}
         templateValue={onboardingCharacter?.character.id ?? null}
-        onTemplateChange={setOnboardingCharacterId}
+        onTemplateChange={(characterId) => {
+          setOnboardingCharacterId(characterId);
+          // The chat's saved persona matches the picker, so skipping the wizard
+          // doesn't start the chat as the persona picked before.
+          if (chat.personaId || chat.personaCharacterId) setPersona(null);
+        }}
       />
     );
   }
