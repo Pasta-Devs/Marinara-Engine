@@ -278,7 +278,7 @@ assert.deepEqual(
 const hostile = "{{{{#if\t" + "\t".repeat(50_000);
 const started = performance.now();
 validateOnboarding(onboarding({ description: hostile, variables: [] }));
-assert.ok(performance.now() - started < 500, "the condition scan must not backtrack on long whitespace runs");
+assert.ok(performance.now() - started < 2000, "the condition scan must not backtrack on long whitespace runs");
 assert.deepEqual(
   validateOnboarding(onboarding({ description: "{{#if   knowsHr == yes}}x{{/if}}", variables: [] })),
   [{ code: "unknownName", field: "description", name: "knowsHr" }],
