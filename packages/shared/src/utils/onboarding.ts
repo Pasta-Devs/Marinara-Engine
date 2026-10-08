@@ -190,20 +190,20 @@ export type OnboardingIssue =
   | { code: "unknownName"; field: OnboardingPersonaField; name: string };
 
 /**
- * Names a field reads that are neither questions nor macros: bare `{{name}}`
- * tags and the left operand of each `{{#if}}` / `{{else if}}` clause.
- * ponytail: right-hand operands are not checked — the engine resolves both
- * sides, so a typo there is indistinguishable from a literal like `custom`.
+ * Names a text reads: bare `{{name}}` tags and the left operand of each
+ * `{{#if}}` / `{{else if}}` clause. Words in prose don't count.
+ * ponytail: right-hand operands are skipped — the engine resolves both sides,
+ * so a name there is indistinguishable from a literal like `custom`.
  */
-function readUnknownNames(text: string, known: Set<string>): string[] {
-  const names: string[] = [];
-  for (const match of text.matchAll(/\{\{([A-Za-z_]\w*)\}\}/g)) names.push(match[1]!);
+function readNames(text: string): Set<string> {
+  const names = new Set<string>();
+  for (const match of text.matchAll(/\{\{([A-Za-z_]\w*)\}\}/g)) names.add(match[1]!);
   for (const condition of text.matchAll(/\{\{\s*(?:#if|else\s+if)\s+([\s\S]*?)\}\}/gi)) {
     for (const operand of condition[1]!.matchAll(/(?:^|&&|\|\||\(|!)\s*([A-Za-z_]\w*)(?![.:\w])/g)) {
-      names.push(operand[1]!);
+      names.add(operand[1]!);
     }
   }
-  return [...new Set(names)].filter((name) => !known.has(name) && !isReservedMacroName(name));
+  return names;
 }
 
 /**
@@ -212,7 +212,14 @@ function readUnknownNames(text: string, known: Set<string>): string[] {
  */
 export function validateOnboarding(onboarding: CharacterOnboarding): OnboardingIssue[] {
   const issues: OnboardingIssue[] = [];
-  const text = ONBOARDING_PERSONA_FIELDS.map((field) => onboarding[field] ?? "").join("\n");
+  // A question is used when a field or another question's option value reads it
+  // (an option value like `{{customClass}}` asks that follow-up too).
+  const used = readNames(
+    [
+      ...ONBOARDING_PERSONA_FIELDS.map((field) => onboarding[field] ?? ""),
+      ...(onboarding.variables ?? []).flatMap((variable) => variable.options.map((option) => option.value)),
+    ].join("\n"),
+  );
   const seen = new Set<string>();
   for (const variable of onboarding.variables ?? []) {
     const { id: variableId, variableName: name } = variable;
@@ -221,8 +228,7 @@ export function validateOnboarding(onboarding: CharacterOnboarding): OnboardingI
     else if (seen.has(name)) issues.push({ code: "duplicateName", variableId, name });
     else if (name !== ONBOARDING_PLAYER_VARIABLE && isReservedMacroName(name))
       issues.push({ code: "reservedName", variableId, name });
-    else if (name !== ONBOARDING_PLAYER_VARIABLE && !new RegExp(`\\b${name}\\b`).test(text))
-      issues.push({ code: "unused", variableId, name });
+    else if (name !== ONBOARDING_PLAYER_VARIABLE && !used.has(name)) issues.push({ code: "unused", variableId, name });
     if (name) seen.add(name);
   }
   const known = new Set([ONBOARDING_PLAYER_VARIABLE, ...seen]);
@@ -231,7 +237,9 @@ export function validateOnboarding(onboarding: CharacterOnboarding): OnboardingI
     // `{{if}}` / `{{If}}` without `#` is not a conditional: it reaches the persona
     // verbatim. (`{{else if}}` is correct as is — the engine's else-if has no `#`.)
     if (/\{\{\s*if\b/i.test(fieldText)) issues.push({ code: "plainIf", field });
-    for (const name of readUnknownNames(fieldText, known)) issues.push({ code: "unknownName", field, name });
+    for (const name of readNames(fieldText)) {
+      if (!known.has(name) && !isReservedMacroName(name)) issues.push({ code: "unknownName", field, name });
+    }
   }
   return issues;
 }

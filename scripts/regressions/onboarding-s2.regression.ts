@@ -256,4 +256,21 @@ assert.deepEqual(
   "a misspelled name in text or in a condition is flagged once per field; questions, player and macros are not",
 );
 
+// "Used" means a real macro reference: a word in prose doesn't count, but a
+// follow-up read from another question's option value does.
+assert.deepEqual(
+  validateOnboarding(
+    onboarding({
+      description: "A first class ticket. {{kind}}",
+      variables: [
+        { id: "1", variableName: "class" },
+        { id: "2", variableName: "kind", options: [option("o", "{{customKind}}", "Other")] },
+        { id: "3", variableName: "customKind" },
+      ],
+    }),
+  ),
+  [{ code: "unused", variableId: "1", name: "class" }],
+  "prose words don't mark a question as used; option-value references do",
+);
+
 console.log("onboarding-s2: all assertions passed");
