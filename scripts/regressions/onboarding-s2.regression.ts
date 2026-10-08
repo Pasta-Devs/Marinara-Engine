@@ -10,6 +10,7 @@ import {
   getNextOnboardingVariable,
   getRelevantOnboardingVariables,
   resolveOnboardingPersona,
+  resolveOnboardingQuestion,
   validateOnboarding,
   type CharacterOnboarding,
   type OnboardingAnswers,
@@ -156,6 +157,33 @@ assert.equal(
   resolveOnboardingPersona(multi, { skills: { optionIds: ["a", "c"] } }).description,
   "Skills: archery / cooking.",
   "multi-select joins the chosen values with the separator in card order",
+);
+
+const blankValue = onboarding({
+  description: "Gender: {{gender}}.",
+  variables: [{ id: "g", variableName: "gender", options: [option("m", "", "Male"), option("f", "  ", "Female")] }],
+});
+assert.equal(
+  resolveOnboardingPersona(blankValue, { gender: { optionIds: ["m"] } }).description,
+  "Gender: Male.",
+  "a blank option value falls back to the option label",
+);
+assert.equal(
+  resolveOnboardingPersona(blankValue, { gender: { optionIds: ["f"] } }).description,
+  "Gender: Female.",
+  "a whitespace-only value counts as blank too",
+);
+
+// Questions shown to the player resolve the answers so far.
+assert.equal(
+  resolveOnboardingQuestion(blankValue, { player: { text: "Mari" } }, "What does {{player}} look like?", "Ana"),
+  "What does Mari look like?",
+  "a question can use an earlier answer",
+);
+assert.equal(
+  resolveOnboardingQuestion(blankValue, {}, "Have you met {{char}}, {{user}}? ({{gender}})", "Ana"),
+  "Have you met Ana, …? (…)",
+  "{{char}} is the card's name; unanswered names and {{user}} show as …",
 );
 
 const withPlayer = onboarding({

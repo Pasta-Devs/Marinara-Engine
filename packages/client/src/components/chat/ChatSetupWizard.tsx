@@ -2621,22 +2621,31 @@ function RoleplaySetupWizard({ chat, onFinish, defaultsApplied, defaultsAction }
   const isPresetStep = currentStep.key === "preset";
   const nextDisabled = isPresetStep && (updateChat.isPending || (!!chat.promptPresetId && presetFullLoading));
 
-  // Chosen characters whose card ships enabled onboarding; each one is offered as a persona to create.
+  // Every card that ships enabled onboarding: marked in the character list, and
+  // once chosen, offered as a persona to create.
+  const onboardingByCharacterId = useMemo(() => {
+    const byId = new Map<string, { name: string; onboarding: CharacterOnboarding }>();
+    for (const character of characters) {
+      try {
+        const data = typeof character.data === "string" ? JSON.parse(character.data) : character.data;
+        const parsed = characterOnboardingSchema.safeParse(data?.extensions?.onboarding);
+        if (parsed.success && parsed.data.enabled) {
+          byId.set(character.id, { name: String(data?.name ?? ""), onboarding: parsed.data as CharacterOnboarding });
+        }
+      } catch {
+        /* unreadable card data: no onboarding */
+      }
+    }
+    return byId;
+  }, [characters]);
   const onboardingCharacters = useMemo(
     () =>
       chatCharIds.flatMap((id) => {
         const character = characters.find((entry) => entry.id === id);
-        if (!character) return [];
-        try {
-          const data = typeof character.data === "string" ? JSON.parse(character.data) : character.data;
-          const parsed = characterOnboardingSchema.safeParse(data?.extensions?.onboarding);
-          if (!parsed.success || !parsed.data.enabled) return [];
-          return [{ character, name: String(data?.name ?? ""), onboarding: parsed.data as CharacterOnboarding }];
-        } catch {
-          return []; // unreadable card data: no onboarding
-        }
+        const entry = onboardingByCharacterId.get(id);
+        return character && entry ? [{ character, ...entry }] : [];
       }),
-    [characters, chatCharIds],
+    [characters, chatCharIds, onboardingByCharacterId],
   );
   // Removing the character from the chat drops its onboarding choice too.
   const onboardingCharacter = onboardingCharacters.find((entry) => entry.character.id === onboardingCharacterId);
@@ -2968,6 +2977,17 @@ function RoleplaySetupWizard({ chat, onFinish, defaultsApplied, defaultsAction }
       const character = pool[Math.floor(Math.random() * pool.length)];
       if (character) toggleCharacter(character.id);
     };
+    const onboardingMarker = (characterId: string) =>
+      onboardingByCharacterId.has(characterId) && (
+        <span
+          role="img"
+          aria-label={localizeUi("ui.characters.onboarding.hasOnboarding")}
+          title={localizeUi("ui.characters.onboarding.hasOnboarding")}
+          className="shrink-0 text-[var(--primary)]"
+        >
+          <UserPlus size="0.75rem" />
+        </span>
+      );
 
     return (
       <div className="space-y-2">
@@ -3004,6 +3024,7 @@ function RoleplaySetupWizard({ chat, onFinish, defaultsApplied, defaultsAction }
                       </span>
                     )}
                   </div>
+                  {onboardingMarker(cid)}
                   <button
                     onClick={() => toggleCharacter(cid)}
                     className="flex h-5 w-5 items-center justify-center rounded-md text-[var(--muted-foreground)] transition-colors hover:bg-[var(--destructive)]/15 hover:text-[var(--destructive)]"
@@ -3112,6 +3133,7 @@ function RoleplaySetupWizard({ chat, onFinish, defaultsApplied, defaultsAction }
                       </span>
                     )}
                   </div>
+                  {onboardingMarker(c.id)}
                   <Plus size="0.75rem" className="text-[var(--muted-foreground)]" />
                 </button>
               );

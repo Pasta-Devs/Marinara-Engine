@@ -861,7 +861,8 @@ function VariableCard({
               {localizeUi("ui.presets.variablecard.options_6bf5da9")}
             </label>
             {opts.map((opt, oi) => {
-              const valueIsBlank = !opt.value || !opt.value.trim();
+              // Onboarding uses the label when the value is blank, so only presets warn.
+              const valueIsBlank = !isOnboarding && (!opt.value || !opt.value.trim());
               const showDropBefore =
                 dropOptIdx === oi && draggingOptIdx !== null && draggingOptIdx !== oi && draggingOptIdx !== oi - 1;
               const showDropAfter =
@@ -966,7 +967,9 @@ function VariableCard({
                       value={opt.value}
                       onCommit={(v) => updateOptionField(opt.id, "value", v)}
                       className="mari-editor-field min-w-[7rem] flex-[1_1_7rem] rounded px-1.5 py-0.5 font-mono text-xs focus:outline-none focus:ring-1 sm:min-w-0 sm:flex-1"
-                      placeholder={localizeUi("ui.presets.variablecard.value")}
+                      placeholder={
+                        isOnboarding && opt.label.trim() ? opt.label : localizeUi("ui.presets.variablecard.value")
+                      }
                     />
                     <button
                       onClick={() => setExpandedOptId(opt.id)}

@@ -14,6 +14,7 @@ import {
   getRelevantOnboardingVariables,
   ONBOARDING_PLAYER_VARIABLE,
   resolveOnboardingPersona,
+  resolveOnboardingQuestion,
   type CharacterOnboarding,
   type CharacterOnboardingVariable,
   type OnboardingAnswer,
@@ -91,7 +92,11 @@ export function CharacterOnboardingModal({
           const answer = answers[name];
           const ownText = answer && "text" in answer ? answer.text : null;
           const isPlayer = name === ONBOARDING_PLAYER_VARIABLE;
-          const question = variable.question || (isPlayer ? localizeUi("ui.characters.onboarding.nameQuestion") : name);
+          const question = variable.question
+            ? resolveOnboardingQuestion(onboarding, answers, variable.question, characterName)
+            : isPlayer
+              ? localizeUi("ui.characters.onboarding.nameQuestion")
+              : name;
           const textInput = (value: string) =>
             isPlayer ? (
               <input

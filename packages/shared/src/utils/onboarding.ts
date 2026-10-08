@@ -61,16 +61,33 @@ function resolveFields(
   answers: OnboardingAnswers,
   read?: (name: string) => void,
 ): ResolvedOnboardingPersona {
-  const variables = getOnboardingVariables(onboarding);
-  const values: Record<string, string> = {};
   // `{{user}}`/`{{char}}` resolve to themselves, so the saved persona keeps them
   // live like any hand-written persona instead of baking in today's names.
-  const ctx = { user: "{{user}}", char: "{{char}}", characters: [], variables: values, localVariables: {} };
+  const ctx = answerContext(onboarding, answers, { user: "{{user}}", char: "{{char}}" }, read);
+
+  // The name goes through the same map, so a picked option, the player's own
+  // text, or macros inside an option value all work alike.
+  const out = { name: ctx.variables[ONBOARDING_PLAYER_VARIABLE] ?? "" } as ResolvedOnboardingPersona;
+  for (const field of ONBOARDING_PERSONA_FIELDS) {
+    out[field] = resolveMacros(onboarding[field] ?? "", ctx, { trimResult: false });
+  }
+  return out;
+}
+
+/** A macro context whose variables are the answers so far. */
+function answerContext(
+  onboarding: CharacterOnboarding,
+  answers: OnboardingAnswers,
+  names: { user: string; char: string },
+  read?: (name: string) => void,
+) {
+  const values: Record<string, string> = {};
+  const ctx = { ...names, characters: [], variables: values, localVariables: {} };
 
   // Getters on own properties: the engine reads variables via hasOwnProperty +
   // a string check, so an unanswered variable (getter returns undefined) stays
   // verbatim / false in conditions, exactly as with a missing variable.
-  for (const variable of variables) {
+  for (const variable of getOnboardingVariables(onboarding)) {
     const name = variable.variableName;
     if (!name || Object.prototype.hasOwnProperty.call(values, name)) continue;
     let cached: string | undefined;
@@ -88,19 +105,37 @@ function resolveFields(
         // (e.g. `custom` → `{{customClass}}`); the engine inserts variable values
         // without re-resolving them, so resolve the chosen values here.
         const chosen = variable.options.filter((option) => answer!.optionIds.includes(option.id));
-        const joined = chosen.map((option) => option.value).join(variable.multiSelect ? variable.separator : "");
+        // A blank value means "same as the label", so authors don't type `Male` twice.
+        const joined = chosen
+          .map((option) => (option.value.trim() ? option.value : option.label))
+          .join(variable.multiSelect ? variable.separator : "");
         return (cached = resolveMacros(joined, ctx, { trimResult: false }));
       },
     });
   }
+  return ctx;
+}
 
-  // The name goes through the same map, so a picked option, the player's own
-  // text, or macros inside an option value all work alike.
-  const out = { name: values[ONBOARDING_PLAYER_VARIABLE] ?? "" } as ResolvedOnboardingPersona;
-  for (const field of ONBOARDING_PERSONA_FIELDS) {
-    out[field] = resolveMacros(onboarding[field] ?? "", ctx, { trimResult: false });
-  }
-  return out;
+/** Replace any onboarding variable still left as `{{name}}` with `fill`. */
+function blankOnboardingNames(onboarding: CharacterOnboarding, text: string, fill = ""): string {
+  const names = new Set(getOnboardingVariables(onboarding).map((variable) => variable.variableName));
+  return text.replace(/\{\{(\w+)\}\}/g, (match, name: string) => (names.has(name) ? fill : match));
+}
+
+/**
+ * A question as the player sees it: answers so far fill its `{{variables}}`,
+ * `{{char}}` is the card's name, `{{user}}` the player's name, and anything
+ * not answered yet shows as "…".
+ */
+export function resolveOnboardingQuestion(
+  onboarding: CharacterOnboarding,
+  answers: OnboardingAnswers,
+  question: string,
+  characterName: string,
+): string {
+  const ctx = answerContext(onboarding, answers, { user: "{{user}}", char: characterName });
+  ctx.user = ctx.variables[ONBOARDING_PLAYER_VARIABLE] || "…";
+  return blankOnboardingNames(onboarding, resolveMacros(question, ctx, { trimResult: false }), "…").trim();
 }
 
 /**
@@ -139,9 +174,7 @@ export function resolveOnboardingPersona(
   answers: OnboardingAnswers,
 ): ResolvedOnboardingPersona {
   const fields = resolveFields(onboarding, answers);
-  const names = new Set(getOnboardingVariables(onboarding).map((variable) => variable.variableName));
-  const blank = (text: string) =>
-    text.replace(/\{\{(\w+)\}\}/g, (match, name: string) => (names.has(name) ? "" : match));
+  const blank = (text: string) => blankOnboardingNames(onboarding, text);
   const result = { name: blank(fields.name).trim() } as ResolvedOnboardingPersona;
   for (const field of ONBOARDING_PERSONA_FIELDS) result[field] = blank(fields[field]).trim();
   return result;

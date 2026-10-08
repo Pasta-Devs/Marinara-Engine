@@ -11,6 +11,7 @@ import {
   useMemo,
   type ChangeEvent,
   type ReactNode,
+  type Ref,
   type SyntheticEvent,
 } from "react";
 import { toast } from "sonner";
@@ -112,6 +113,7 @@ import {
   Eraser,
   Wand2,
   UserPlus,
+  Code2,
   History,
   RotateCcw,
   Scissors,
@@ -145,16 +147,18 @@ import { useEditorLeaveSave } from "../../hooks/use-editor-leave-save";
 import { LazyEditorSection } from "../ui/LazyEditorSection";
 import { leaveWithoutSaving } from "../../lib/editor-leave";
 import { EditorSectionAnchor, EditorSectionJumps } from "../ui/EditorSectionJumps";
-import { SettingsSwitch } from "../panels/settings/SettingControls";
+import { SETTINGS_BUTTON_CLASS, SettingsSwitch } from "../panels/settings/SettingControls";
 import {
   characterOnboardingSchema,
   createDefaultRpgStatPools,
+  getOnboardingVariables,
   getRelevantOnboardingVariables,
   normalizeSpriteExpressionLabel,
   normalizeRpgStatPools,
   ONBOARDING_PERSONA_FIELDS,
   ONBOARDING_PLAYER_VARIABLE,
   resolveOnboardingPersona,
+  resolveOnboardingQuestion,
   syncRpgHpFromPools,
   validateOnboarding,
   type CharacterCardVersion,
@@ -1534,6 +1538,7 @@ function OnboardingTab({
       answers[variable.variableName] = first ? { optionIds: [first.id] } : { text: `‹${variable.variableName}›` };
     }
     return {
+      answers,
       persona: resolveOnboardingPersona(onboarding, answers),
       asked: getRelevantOnboardingVariables(onboarding, answers),
     };
@@ -1542,6 +1547,30 @@ function OnboardingTab({
     .map((field) => `${localizeUi(ONBOARDING_FIELD_COPY[field].title)}:\n${preview.persona[field]}`)
     .join("\n\n");
   const codeClass = "mari-editor-chip mari-editor-chip--accent rounded px-1 font-mono text-[0.625rem]";
+
+  // Variable chips (like the prompt-override editor) show under the field last
+  // focused; clicking one inserts it at the caret.
+  const [activeField, setActiveField] = useState<OnboardingPersonaField | null>(null);
+  const fieldRefs = useRef<Partial<Record<OnboardingPersonaField, HTMLTextAreaElement | null>>>({});
+  const variableNames = [
+    ...new Set(
+      getOnboardingVariables(onboarding)
+        .map((variable) => variable.variableName.trim())
+        .filter(Boolean),
+    ),
+  ];
+  const insertVariable = (field: OnboardingPersonaField, name: string) => {
+    const token = "{{" + name + "}}";
+    const textarea = fieldRefs.current[field];
+    const current = onboarding[field];
+    const start = textarea?.selectionStart ?? current.length;
+    const end = textarea?.selectionEnd ?? current.length;
+    update({ [field]: current.slice(0, start) + token + current.slice(end) });
+    requestAnimationFrame(() => {
+      textarea?.focus();
+      textarea?.setSelectionRange(start + token.length, start + token.length);
+    });
+  };
 
   return (
     <div>
@@ -1624,6 +1653,35 @@ function OnboardingTab({
                     onChange={(value) => update({ [field]: value })}
                     placeholder={localizeUi(copy.placeholder)}
                     rows={copy.rows}
+                    textareaRef={(element) => {
+                      fieldRefs.current[field] = element;
+                    }}
+                    onFocus={() => setActiveField(field)}
+                    footer={
+                      activeField === field && variableNames.length > 0 ? (
+                        <div className="flex flex-col gap-1">
+                          <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">
+                            {localizeUi("ui.panels.promptoverrideseditorbody.availableVariables")}
+                          </span>
+                          <div className="flex flex-wrap gap-1.5">
+                            {variableNames.map((name) => (
+                              <button
+                                type="button"
+                                key={name}
+                                onClick={() => insertVariable(field, name)}
+                                className={cn(
+                                  SETTINGS_BUTTON_CLASS,
+                                  "mari-chrome-control--chip mari-chrome-control--regular-label font-mono text-[0.6rem]",
+                                )}
+                              >
+                                <Code2 size="0.625rem" />
+                                {"{{" + name + "}}"}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      ) : undefined
+                    }
                   />
                   {plainIfFields.has(field) && (
                     <p
@@ -1664,7 +1722,8 @@ function OnboardingTab({
                   <span>{localizeUi("ui.characters.onboarding.questionsAsked")}</span>
                   {preview.asked.map((variable) => (
                     <span key={variable.id} className="mari-editor-chip px-1.5 py-0.5">
-                      {variable.question ||
+                      {(variable.question &&
+                        resolveOnboardingQuestion(onboarding, preview.answers, variable.question, formData.name)) ||
                         (variable.variableName === ONBOARDING_PLAYER_VARIABLE
                           ? localizeUi("ui.characters.onboarding.nameQuestion")
                           : variable.variableName)}
@@ -1798,6 +1857,9 @@ function TextareaTab({
   placeholder,
   rows = 8,
   helpText,
+  textareaRef,
+  onFocus,
+  footer,
 }: {
   title: string;
   subtitle: string;
@@ -1806,12 +1868,18 @@ function TextareaTab({
   onChange: (v: string) => void;
   placeholder: string;
   rows?: number;
+  textareaRef?: Ref<HTMLTextAreaElement>;
+  onFocus?: () => void;
+  /** Shown under the textarea, inside the panel. */
+  footer?: ReactNode;
 }) {
   const selfCharacterId = useUIStore((s) => s.characterDetailId);
   return (
     <div className="mari-editor-panel space-y-3 p-3">
       <SectionHeader title={title} subtitle={subtitle} helpText={helpText} />
       <MacroTextarea
+        textareaRef={textareaRef}
+        onFocus={onFocus}
         showTokenCount
         value={value}
         onChange={onChange}
@@ -1822,6 +1890,7 @@ function TextareaTab({
         selfCharacterId={selfCharacterId}
         className="w-full resize-y rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-4 text-sm leading-relaxed outline-none transition-colors placeholder:text-[var(--muted-foreground)]/40 focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
       />
+      {footer}
     </div>
   );
 }
