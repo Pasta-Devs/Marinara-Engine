@@ -102,6 +102,9 @@ export function ChoiceOptionsField({
           onChange={(e) => onChange(e.target.value)}
           className="mari-preset-native-select w-full rounded-lg bg-[var(--background)] px-3 py-2 text-xs text-[var(--foreground)] ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
         >
+          {/* With nothing picked (e.g. "Write your own"), show a blank row instead of
+              letting the browser display the first option as the answer. */}
+          {!presentedOptions.some((opt) => optionKey(opt) === selection) && <option value="" disabled />}
           {presentedOptions.map((opt) => (
             <option key={opt.id} value={optionKey(opt)}>
               {opt.label}
