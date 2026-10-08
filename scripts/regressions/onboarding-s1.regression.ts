@@ -16,8 +16,10 @@ import {
   characterCardV2Schema,
   characterDataSchema,
   characterExtensionsSchema,
+  dropUnreadableOnboarding,
 } from "../../packages/shared/src/index.js";
 import { buildCompatibleCharacterExport } from "../../packages/server/src/routes/characters.routes.js";
+import { normalizeNativeCharacterData } from "../../packages/server/src/services/import/marinara.importer.js";
 
 const VARIABLE_DEFAULTS = {
   allowCustom: false,
@@ -178,6 +180,30 @@ assert.equal(
   (portable.data.extensions as Record<string, unknown>).useCharacterSheetAsReference,
   false,
   "the existing useCharacterSheetAsReference reset must be unchanged",
+);
+
+// ── 5. Imports never fail on unreadable onboarding ──
+// A hand-edited card can carry onboarding the schema refuses (here: a question
+// over 500 characters). The card still imports, just without its onboarding.
+const unreadable = { ...ONBOARDING, variables: [{ ...ONBOARDING.variables[0], question: "x".repeat(501) }] };
+const nativeKept = normalizeNativeCharacterData({ name: "Ana", extensions: { onboarding: ONBOARDING } });
+assert.deepEqual(nativeKept?.extensions.onboarding, ONBOARDING, "native import keeps readable onboarding");
+const nativeDropped = normalizeNativeCharacterData({
+  name: "Ana",
+  extensions: { backstory: "B.", onboarding: unreadable },
+});
+assert.ok(nativeDropped, "native import must not refuse a card over its onboarding");
+assert.equal("onboarding" in nativeDropped.extensions, false, "unreadable onboarding is dropped");
+assert.equal(nativeDropped.extensions.backstory, "B.", "the rest of the card is kept");
+assert.deepEqual(
+  dropUnreadableOnboarding({ fav: true, onboarding: unreadable }),
+  { extensions: { fav: true }, dropped: true },
+  "V2/PNG imports drop unreadable onboarding with the same helper",
+);
+assert.deepEqual(
+  dropUnreadableOnboarding({ fav: true }),
+  { extensions: { fav: true }, dropped: false },
+  "extensions without onboarding pass through",
 );
 
 console.log("onboarding-s1: all assertions passed");

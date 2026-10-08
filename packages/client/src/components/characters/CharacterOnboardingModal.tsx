@@ -4,7 +4,7 @@
 // onboarding: the player answers the card's questions and the answers become
 // a new persona. Questions appear and disappear as the answers change.
 // ──────────────────────────────────────────────
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { PencilLine, CheckCircle2, Circle } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation as useUiTranslation } from "react-i18next";
@@ -65,12 +65,19 @@ export function CharacterOnboardingModal({
   const complete = useMemo(() => getNextOnboardingVariable(onboarding, answers) === null, [onboarding, answers]);
   const setAnswer = (name: string, answer: OnboardingAnswer) => setOverrides((prev) => ({ ...prev, [name]: answer }));
 
+  // Set synchronously, so a double click can't create the persona twice before
+  // the button re-renders as disabled.
+  const creatingRef = useRef(false);
   const handleCreate = async () => {
+    if (creatingRef.current) return;
+    creatingRef.current = true;
     try {
       const persona = await createPersona.mutateAsync(resolveOnboardingPersona(onboarding, answers));
       onCreated(persona.id);
     } catch {
       toast.error(localizeUi("ui.characters.onboarding.createFailed"));
+    } finally {
+      creatingRef.current = false;
     }
   };
 

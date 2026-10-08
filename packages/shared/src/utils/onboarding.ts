@@ -7,9 +7,24 @@
 // parser: which questions are relevant is whatever the engine actually reads
 // while resolving the fields with the answers given so far.
 // ──────────────────────────────────────────────
+import { characterOnboardingSchema } from "../schemas/character.schema.js";
 import type { CharacterOnboarding, CharacterOnboardingVariable } from "../types/character.js";
 import { isReservedMacroName } from "./chat-variables.js";
 import { resolveMacros } from "./macro-engine.js";
+
+/**
+ * Imports drop an onboarding block that can't be read instead of refusing the
+ * card (native import) or storing data a later card save would reject (V2/PNG).
+ */
+export function dropUnreadableOnboarding<T extends Record<string, unknown>>(
+  extensions: T,
+): { extensions: T; dropped: boolean } {
+  if (!("onboarding" in extensions) || characterOnboardingSchema.safeParse(extensions.onboarding).success) {
+    return { extensions, dropped: false };
+  }
+  const { onboarding: _dropped, ...rest } = extensions;
+  return { extensions: rest as T, dropped: true };
+}
 
 /** A variable with this name supplies the created persona's name. */
 export const ONBOARDING_PLAYER_VARIABLE = "player";
@@ -198,7 +213,9 @@ export type OnboardingIssue =
 function readNames(text: string): Set<string> {
   const names = new Set<string>();
   for (const match of text.matchAll(/\{\{([A-Za-z_]\w*)\}\}/g)) names.add(match[1]!);
-  for (const condition of text.matchAll(/\{\{\s*(?:#if|else\s+if)\s+([\s\S]*?)\}\}/gi)) {
+  // One `\s`, then no `}`: no two parts can match the same whitespace, so card
+  // text can't make this backtrack (CodeQL js/polynomial-redos).
+  for (const condition of text.matchAll(/\{\{\s*(?:#if|else\s+if)\s([^}]*)\}\}/gi)) {
     for (const operand of condition[1]!.matchAll(/(?:^|&&|\|\||\(|!)\s*([A-Za-z_]\w*)(?![.:\w])/g)) {
       names.add(operand[1]!);
     }

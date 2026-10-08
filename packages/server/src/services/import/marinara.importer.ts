@@ -14,6 +14,7 @@ import {
   isJsonRecord,
   capImportedRulesetSheets,
   characterDataSchema,
+  dropUnreadableOnboarding,
   canonicalizeLegacyPersonaInput,
   normalizeAvatarCrop,
   normalizeConvoBehavior,
@@ -418,8 +419,17 @@ function unwrapFolderManifestEnvelope(value: unknown): ExportEnvelope | null {
 
 /** Validate and default a native character payload before it reaches storage. */
 export function normalizeNativeCharacterData(data: unknown): CharacterData | null {
-  const parsed = characterDataSchema.safeParse(withCappedRulesetSheets(data));
+  const parsed = characterDataSchema.safeParse(withReadableOnboarding(withCappedRulesetSheets(data)));
   return parsed.success ? parsed.data : null;
+}
+
+/** Onboarding the boundary would refuse costs the import its onboarding, never the whole card. */
+function withReadableOnboarding(data: unknown): unknown {
+  if (!isJsonRecord(data) || !isJsonRecord(data.extensions)) return data;
+  const { extensions, dropped } = dropUnreadableOnboarding(data.extensions);
+  if (!dropped) return data;
+  logger.warn("[import] Dropped unreadable interactive onboarding from an imported character");
+  return { ...data, extensions };
 }
 
 /** A ruleset sheet the boundary would refuse costs the import that sheet, never the whole card.

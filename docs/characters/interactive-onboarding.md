@@ -25,7 +25,7 @@ Under **Onboarding Questions**, click **Add Question**. Each question works like
 - **Variable Name** is the name you use in the fields, such as `faction`. Pick any name with letters, numbers, and underscores. Names are case-sensitive: `Gender` and `gender` are different.
 - **Question (shown to user)** is what the player reads. It can use earlier answers, such as `What does {{player}} look like?`. Here `{{char}}` is the card's name and `{{user}}` the player's name.
 - **Options** turn the question into a choice. The first option is selected by default. With no options, the player types a free-text answer.
-- **Value** is what goes into the persona. Leave it blank to use the option's label.
+- **Value** is what goes into the persona, exactly as typed. Leave it blank to use the option's label. Type a lowercase value, such as `ranger`, if the answer goes mid-sentence.
 - **Help text for players** is optional text shown under the option.
 - **Allow own answer** adds a **Write your own** choice next to your options.
 - **Multi-Select** lets the player pick several options. They are joined with the separator.
