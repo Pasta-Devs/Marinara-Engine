@@ -213,9 +213,10 @@ export type OnboardingIssue =
 function readNames(text: string): Set<string> {
   const names = new Set<string>();
   for (const match of text.matchAll(/\{\{([A-Za-z_]\w*)\}\}/g)) names.add(match[1]!);
-  // One `\s`, then no `}`: no two parts can match the same whitespace, so card
-  // text can't make this backtrack (CodeQL js/polynomial-redos).
-  for (const condition of text.matchAll(/\{\{\s*(?:#if|else\s+if)\s([^}]*)\}\}/gi)) {
+  // Card text is untrusted (CodeQL js/polynomial-redos): one `\s` so no two parts
+  // match the same whitespace, and no `{` or `}` inside, so a scan never runs
+  // past the next `{{` — linear even with thousands of `{{#if` starts.
+  for (const condition of text.matchAll(/\{\{\s*(?:#if|else\s+if)\s([^{}]*)\}\}/gi)) {
     for (const operand of condition[1]!.matchAll(/(?:^|&&|\|\||\(|!)\s*([A-Za-z_]\w*)(?![.:\w])/g)) {
       names.add(operand[1]!);
     }

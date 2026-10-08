@@ -273,12 +273,14 @@ assert.deepEqual(
   "prose words don't mark a question as used; option-value references do",
 );
 
-// Card text is untrusted: the condition scan must stay linear (CodeQL
-// js/polynomial-redos reported "{{{{#if\t" followed by many tabs).
-const hostile = "{{{{#if\t" + "\t".repeat(50_000);
-const started = performance.now();
-validateOnboarding(onboarding({ description: hostile, variables: [] }));
-assert.ok(performance.now() - started < 2000, "the condition scan must not backtrack on long whitespace runs");
+// Card text is untrusted: the condition scan must stay linear. CodeQL
+// js/polynomial-redos reported "{{{{#if\t" followed by many tabs, then
+// "{{{{#if\t" repeated (quadratic before the fix: ~3 s at 20,000 repeats).
+for (const hostile of ["{{{{#if\t" + "\t".repeat(50_000), "{{{{#if\t".repeat(20_000)]) {
+  const started = performance.now();
+  validateOnboarding(onboarding({ description: hostile, variables: [] }));
+  assert.ok(performance.now() - started < 2000, "the condition scan must not backtrack on hostile card text");
+}
 assert.deepEqual(
   validateOnboarding(onboarding({ description: "{{#if   knowsHr == yes}}x{{/if}}", variables: [] })),
   [{ code: "unknownName", field: "description", name: "knowsHr" }],
