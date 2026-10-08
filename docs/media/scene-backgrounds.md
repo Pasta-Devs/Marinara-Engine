@@ -16,6 +16,8 @@ To generate a background, you need an **Image Generation** connection. Set one u
 
 The **Gallery** holds a chat's images and videos. It is a section of **Chat Settings**: open Chat Settings and expand **Gallery**. On a computer, you can pop it out into its own window (see [Chat Settings Overview](../chats/chat-settings.md#popping-a-section-out-into-its-own-window)). The **Background** button lets you generate background art for the current scene.
 
+In Roleplay, the **Background** button shows as soon as the **Illustrator** agent is installed. You do not need to add it to the chat or turn on agents. Like **Illustrate**, it runs once and does not start automatic runs.
+
 To generate a background:
 
 1. Open the **Gallery** section in **Chat Settings**.

@@ -19,6 +19,12 @@ concurrency:
   group: playwright-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
+# onnxruntime-node's postinstall downloads the linux/x64 CUDA 12 add-on from
+# api.nuget.org, and a timeout there fails the whole install. Tests only need
+# the bundled CPU binding. The playwright-shard composite action inherits this.
+env:
+  ONNXRUNTIME_NODE_INSTALL: skip
+
 jobs:
   nightly:
     name: dispatch-nightly-staging

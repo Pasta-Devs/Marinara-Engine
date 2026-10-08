@@ -23,7 +23,7 @@ After that, the scene backdrop updates on its own as your story moves between pl
 
 ## Generate a background by hand
 
-You can also make a new backdrop yourself, without the agent. Marinara builds an image prompt from the scene (its genre, setting, current location, weather, and time) and creates a fresh backdrop.
+You can also make a new backdrop yourself, without the agent. Marinara builds an image prompt from the scene (its genre, setting, current location, weather, and time) and creates a fresh backdrop. The **Background** button needs the **Illustrator** agent installed, but you do not need to add it to the chat.
 
 1. Open **Chat Settings** and expand the **Gallery** section.
 2. Click the **Background** button.

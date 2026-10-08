@@ -158,8 +158,14 @@ export async function prepareAdvancedMemoryContext(
       }
       prepared.receipt.recalledMessageIds = [];
       prepared.receipt.recalledSceneIds = [];
-      if (prepared.receipt.decisionRecall)
+      // No scene is recalled now, so reasons about recalled scenes' excerpts no longer apply.
+      prepared.receipt.reasons = prepared.receipt.reasons.filter(
+        (reason) => !reason.startsWith("excerpt-") && reason !== "decision-excerpt-fallback",
+      );
+      if (prepared.receipt.decisionRecall) {
         for (const result of prepared.receipt.decisionRecall.results) result.selected = false;
+        delete prepared.receipt.decisionRecall.notes;
+      }
       prepared.recalledMessages = null;
       prepared.recalledScenes = null;
       prepared.recalledRecordIds = [];

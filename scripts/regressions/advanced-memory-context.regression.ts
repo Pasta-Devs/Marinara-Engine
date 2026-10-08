@@ -73,7 +73,21 @@ const service = {
         checkpointId: "checkpoint",
         recalledSceneIds: [],
         recalledMessageIds: recall ? ["older-promise"] : [],
-        reasons: [],
+        reasons: recall ? ["decision-recall", "decision-excerpt-fallback", "excerpt-no-room"] : [],
+        ...(recall
+          ? {
+              decisionRecall: {
+                createdAt: "2026-01-01T00:00:00.000Z",
+                model: "fixture",
+                sourceEndMessageId: null,
+                fallback: false,
+                threshold: 0.5,
+                omittedCount: 0,
+                results: [],
+                notes: ["excerpt-no-room"],
+              },
+            }
+          : {}),
       },
     };
   },
@@ -174,6 +188,11 @@ recall = "Optional old promise ".repeat(3000);
 const limited = await prepareAdvancedMemoryContext({ ...input, maxContext: 12_000 });
 assert.ok(limited.messages.length < roomy.messages.length);
 assert.equal(limited.receipt.recalledMessageIds.length, 0, "discard optional excerpts before further cutting history");
+assert.deepEqual(
+  [limited.receipt.reasons.slice(0, -1), limited.receipt.decisionRecall!.notes],
+  [["decision-recall"], undefined],
+  "once no scene is recalled, no reason about a recalled scene's excerpt is shown",
+);
 assert.deepEqual(
   limited.receipt.recordRevisions,
   { "continuity-variant": "continuity-revision", "temporary-variant": "temporary-revision" },

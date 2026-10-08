@@ -1696,6 +1696,8 @@ export function usePeekPrompt() {
         parameters: unknown;
         source?: "cached" | "live_preview" | "raw_messages";
         exact?: boolean;
+        /** The character whose saved prompt this is. */
+        characterId?: string | null;
         generationInfo: {
           model?: string;
           provider?: string;

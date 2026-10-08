@@ -38,7 +38,7 @@ import {
   type WrapFormat,
 } from "@marinara-engine/shared";
 import { wrapContent } from "../../services/prompt/format-engine.js";
-import { parseStoredRulesetLive } from "../../services/storage/game-state.storage.js";
+import { parseSceneManualOverrides, parseStoredRulesetLive } from "../../services/storage/game-state.storage.js";
 import {
   appendReadableAttachmentsToContent,
   extractFileAttachmentInputs,
@@ -1992,7 +1992,7 @@ export function parseJsonField<T>(value: unknown, fallback: T): T {
 }
 
 export function parseGameStateRow(row: Record<string, unknown>): GameState {
-  const manualOverrides = parseJsonField<Record<string, string> | null>(row.manualOverrides, null);
+  const manualOverrides = parseSceneManualOverrides(row.manualOverrides);
   const fieldLocks = parseTrackerFieldLocks(row.fieldLocks);
   const hiddenTrackerFields = parseTrackerHiddenFields(row.hiddenTrackerFields);
   return {

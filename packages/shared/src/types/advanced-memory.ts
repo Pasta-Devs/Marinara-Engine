@@ -59,6 +59,8 @@ export const advancedMemoryDecisionDiagnosticsSchema = z.object({
       }),
     )
     .max(128),
+  /** Receipt reason codes about excerpts, such as why a recalled scene has none. Never names or message text. */
+  notes: z.array(z.string().max(64)).max(8).optional(),
 });
 export type AdvancedMemoryDecisionDiagnostics = z.infer<typeof advancedMemoryDecisionDiagnosticsSchema>;
 

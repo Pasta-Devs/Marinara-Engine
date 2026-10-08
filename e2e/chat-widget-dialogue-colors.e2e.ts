@@ -11,6 +11,20 @@ const BRAM = { name: "Bram Holt", color: "#22c55e", rgb: "rgb(34, 197, 94)" };
 const CORA = { name: "Cora Lin" };
 const DAX = { name: "Dax Vale", color: "#8b5cf6", rgb: "rgb(139, 92, 246)" };
 const GRADIENT_TEXT = "linear-gradient(90deg, #6c5ce7, #00cec9)";
+// Immersive HTML output from #7296: a cream card that sets black text itself.
+const INK = "rgb(0, 0, 0)";
+const CHROME_TEXT = { color: "#6ab04c", rgb: "rgb(106, 176, 76)" };
+const IMMERSIVE_HTML = [
+  "<style>.rm-ink{color:#000000}</style>",
+  '<div style="background:#fdf6e3;color:#000000;padding:12px">',
+  "<h3>Ribbon Merchant</h3>",
+  '<p style="color:#000000">Inline ink</p>',
+  '<font color="#000000">Font ink</font>',
+  "</div>",
+  '<p class="rm-ink">Class ink</p>',
+  "<p>Plain narration.</p>",
+  `<p>${CORA.name} says "Fine silks" softly.</p>`,
+].join("\n");
 type Theme = "dark" | "light";
 const PRESETS = ["default", "mari", "dottore"] as const;
 
@@ -81,6 +95,8 @@ async function createFixture(request: APIRequestContext, mode: "roleplay" | "gam
               `<div class="note"><speaker="${BRAM.name}">"Bram *rides* the HTML path."</speaker></div>`,
             ),
             persona: await post(null, `${DAX.name} nods. "Lead *on*, then."`, "user"),
+            immersive: await post(cora, IMMERSIVE_HTML),
+            // Keep last: the visual-novel display shows the latest message.
             plain: await post(ada, `${ADA.name} leans in. "Keep *this* close," she whispers.`),
           }
         : {
@@ -139,6 +155,17 @@ async function setStore(page: Page, updates: Record<string, string | boolean>) {
     const state = useUIStore.getState() as unknown as Record<string, (value: string | boolean) => void>;
     for (const [setter, value] of Object.entries(values)) state[setter]!(value);
   }, updates);
+}
+
+async function readCssColor(page: Page, variable: string) {
+  return page.evaluate((name) => {
+    const probe = document.createElement("span");
+    probe.style.color = `var(${name})`;
+    document.body.append(probe);
+    const color = getComputedStyle(probe).color;
+    probe.remove();
+    return color;
+  }, variable);
 }
 
 async function paint(target: Locator) {
@@ -238,6 +265,76 @@ for (const theme of ["dark", "light"] as const) {
       await expectOwnColor(novelDialogue, ADA.rgb, "visual novel dialogue");
       await expectOwnColor(novelDialogue.locator("em"), ADA.rgb, "italics inside visual novel dialogue");
       await page.screenshot({ path: info.outputPath(`roleplay-vn-mari-${theme}.png`), animations: "disabled" });
+    } finally {
+      try {
+        await page.close();
+      } finally {
+        await fixture.remove();
+      }
+    }
+  });
+
+  test(`HTML messages keep their own text colors with a custom Chat Chrome Text Color (${theme})`, async ({
+    page,
+    request,
+  }, info) => {
+    test.setTimeout(120_000);
+    const fixture = await createFixture(request, "roleplay");
+    try {
+      await open(page, fixture.chatId, theme);
+      const message = page.locator(`[data-message-id="${fixture.messages.immersive}"]`);
+      const content = message.locator(".mari-message-content").first();
+      const bubble = message.locator(".mari-rp-bubble").first();
+      const inked = {
+        "inherited heading": content.locator("h3").filter({ hasText: "Ribbon Merchant" }),
+        "inline color": content.locator("p").filter({ hasText: "Inline ink" }),
+        "font color": content.locator("font").filter({ hasText: "Font ink" }),
+        "class from the message's own style": content.locator("p").filter({ hasText: "Class ink" }),
+      };
+      const narration = content.locator("p").filter({ hasText: "Plain narration." });
+      const dialogue = content.locator("strong").filter({ hasText: "Fine silks" });
+      await expect(inked["inline color"]).toBeVisible({ timeout: 30_000 });
+      await setStore(page, { setChatChromeTextColor: CHROME_TEXT.color });
+      await expect.poll(() => readCssColor(page, "--marinara-chat-chrome-text")).toBe(CHROME_TEXT.rgb);
+      const chromeText = await readCssColor(page, "--marinara-chat-chrome-panel-text");
+
+      const expectInk = async (label: string, skip?: keyof typeof inked) => {
+        for (const [name, target] of Object.entries(inked)) {
+          if (name !== skip) await expectOwnColor(target, INK, `${label}: ${name}`);
+        }
+      };
+
+      // Apply preset colors off: the chrome color never reaches messages.
+      await expectInk("switch off");
+      const baseline = await paint(narration);
+
+      for (const preset of PRESETS) {
+        await setPreset(page, preset, true);
+        await expectInk(preset);
+        // Text without a color of its own, and dialogue without a character color, follow the preset.
+        const surface = await paint(bubble);
+        if (preset === "default") expect(surface.fill, "default: messages use Chat Chrome Text Color").toBe(chromeText);
+        expect((await paint(narration)).fill, `${preset}: plain narration follows the preset`).toBe(surface.fill);
+        expect((await paint(dialogue)).fill, `${preset}: uncolored dialogue follows the preset`).toBe(surface.fill);
+        await bubble.scrollIntoViewIfNeeded();
+        await page.screenshot({ path: info.outputPath(`html-${preset}-${theme}.png`), animations: "disabled" });
+
+        await setStore(page, { setChatWidgetTextColor: GRADIENT_TEXT });
+        await expect(page.locator("html")).toHaveAttribute("data-chat-widget-colors", /\btext\b/);
+        // A color set only by a class still takes the gradient (ponytail note in chat-widget-surfaces.css).
+        await expectInk(`${preset} with gradient text`, "class from the message's own style");
+        expect((await paint(narration)).image, `${preset}: plain narration keeps the gradient`).toContain(
+          "linear-gradient",
+        );
+        expect((await paint(dialogue)).image, `${preset}: uncolored dialogue keeps the gradient`).toContain(
+          "linear-gradient",
+        );
+        await setStore(page, { setChatWidgetTextColor: "" });
+      }
+
+      await setPreset(page, "default", false);
+      await expectInk("switch off again");
+      expect(await paint(narration)).toEqual(baseline);
     } finally {
       try {
         await page.close();

@@ -11,7 +11,8 @@ To find the toggle:
 1. Open the chat you want to control.
 2. Open **Chat Settings**.
 3. Scroll to the **Agents** section.
-4. Turn on **Review Agent Outputs**.
+4. In a Roleplay chat, open **Trackers Control**. In a Game, skip this step.
+5. Turn on **Review Agent Outputs**.
 
 When **Review Agent Outputs** is on, lorebook updates, summary updates, and other reviewable writer-agent outputs wait for your approval before they are saved. When it is off, lorebook and summary updates can be saved automatically.
 

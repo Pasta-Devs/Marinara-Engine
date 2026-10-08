@@ -3,6 +3,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createFileNativeDB } from "../../../packages/server/src/db/file-backed-store.js";
+import { chats as chatsTable } from "../../../packages/server/src/db/schema/index.js";
 import { MariDbService } from "../../../packages/server/src/services/mari-db/mari-db.service.js";
 import { PROFESSOR_MARI_APP_DATA_ACTIONS } from "../../../packages/server/src/services/professor-mari/workspace-agent.service.js";
 import { createChatsStorage } from "../../../packages/server/src/services/storage/chats.storage.js";
@@ -74,6 +75,40 @@ try {
     const search = await mari.executeAction({ action: "chats.search", query: "App data chat" });
     assert.equal(search.ok, true, "plural chat action aliases should resolve");
     assert.equal((search.output as Array<{ id: string }>)[0]?.id, chat.id);
+
+    // nanoid chat ids start with "--" about 1 in 4096 (CI run 37618203499); they must stay ids, not flags.
+    const dashId = "--Ew_dash-chat-id";
+    const dashCharacterId = "--dash-character";
+    const source = await chats.getById(chat.id);
+    assert.ok(source);
+    await db.insert(chatsTable).values({ ...source, id: dashId, characterIds: JSON.stringify([dashCharacterId]) });
+    await chats.createMessage({ chatId: dashId, role: "user", content: "Dash first" });
+    await chats.createMessage({ chatId: dashId, role: "assistant", content: "Dash second" });
+
+    const dashGet = await mari.executeAction({ action: "chat.get", chatId: dashId });
+    assert.equal(dashGet.ok, true, JSON.stringify(dashGet));
+    assert.equal((dashGet.output as { id?: string; messageCount?: number }).id, dashId);
+    assert.equal((dashGet.output as { messageCount?: number }).messageCount, 2);
+
+    const dashMessages = await mari.executeAction({ action: "chat.messages", chatId: dashId, last: 1 });
+    assert.equal(dashMessages.ok, true, JSON.stringify(dashMessages));
+    assert.deepEqual(
+      (dashMessages.output as { messages: Array<{ content: string }> }).messages.map(({ content }) => content),
+      ["Dash second"],
+    );
+
+    const dashList = await mari.executeAction({ action: "chat.list", characterId: dashCharacterId });
+    assert.deepEqual(
+      (dashList.output as Array<{ id: string }>).map(({ id }) => id),
+      [dashId],
+      "a character id starting with -- must still filter the list",
+    );
+
+    const dashSearch = await mari.executeAction({ action: "chat.search", query: dashId });
+    assert.deepEqual(
+      (dashSearch.output as Array<{ id: string }>).map(({ id }) => id),
+      [dashId],
+    );
   } finally {
     await db._fileStore.close();
   }

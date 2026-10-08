@@ -798,7 +798,10 @@ import { loadPriorBeholderState } from "../services/agents/beholder-state.js";
 import { gameGmPromptDecisionTexts, injectGameGmPromptRuntime } from "../services/generation/game-gm-prompt-runtime.js";
 import { mergeConversationCharacterMemories } from "../services/generation/conversation-memory-context.js";
 import { injectMemoryRecallContext } from "../services/generation/memory-recall-context.js";
-import { shouldSkipAgentByMessageInterval } from "../services/generation/agent-cadence.js";
+import {
+  applyIllustratorChatRunInterval,
+  shouldSkipAgentByMessageInterval,
+} from "../services/generation/agent-cadence.js";
 import {
   appendTrackerLorebookBatchContextKey,
   applyTrackerLorebookContextPolicy,
@@ -5033,7 +5036,8 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
         // Get current game state (if any)
         // Prefer committed game state after a real user turn, but keep visible
         // uncommitted tracker edits authoritative for continue/impersonate flows.
-        // Regenerate uses the previous assistant's tracker snapshot as the prompt baseline.
+        // Regenerate uses the previous assistant's tracker snapshot as the prompt baseline,
+        // with the Tracker Panel edits made on the regenerated reply laid over it.
         const latestGameState = await selectedGameStateSnapshotPromise;
         const baseGameStateSnapshot = latestGameState;
         const allowLatestGameStateFallback = !input.regenerateMessageId;
@@ -5450,7 +5454,12 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             agentsStore,
             chatId: input.chatId,
             agentType: "illustrator",
-            settings: illustratorAgentForInterval.settings,
+            settings: applyIllustratorChatRunInterval(
+              "illustrator",
+              illustratorAgentForInterval.settings,
+              chatMeta,
+              requestChatMode,
+            ),
             fallbackInterval: (getDefaultBuiltInAgentSettings("illustrator").runInterval as number) ?? 5,
             messages: allChatMessages,
             countUpcomingAssistantMessage: createsAssistantMessage,
@@ -11834,9 +11843,14 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               : typeof (lastSavedMsg as { activeSwipeIndex?: unknown } | null)?.activeSwipeIndex === "number"
                 ? (lastSavedMsg as { activeSwipeIndex: number }).activeSwipeIndex
                 : 0;
-          const siblingSwipeSnapshot = projectGameSnapshotLocation(
+          const siblingSwipeRow =
             input.regenerateMessageId && messageId && targetSwipeIndex > 0
               ? await gameStateStore.getByChatAndMessage(input.chatId, messageId, targetSwipeIndex - 1)
+              : null;
+          // A value the trackers leave out keeps the user's edit, which the trackers were shown.
+          const siblingSwipeSnapshot = projectGameSnapshotLocation(
+            siblingSwipeRow
+              ? ((await gameStateStore.applyManualEdits(input.chatId, messageId, siblingSwipeRow)) ?? siblingSwipeRow)
               : null,
             ownerSpatialProjection,
           );
@@ -12020,10 +12034,11 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               try {
                 const gs = result.data as Record<string, unknown>;
 
-                // Manual overrides are one-shot: they live on the snapshot the user
-                // edited and are visible to the agent as the prevSnap values, but they
-                // are NOT carried forward to new snapshots.  The agent naturally reads
-                // the edited prevSnap values and produces its own output.
+                // Tracker Panel edits live on the snapshot the user edited. A new message
+                // starts from that snapshot and a regeneration lays the edits over its base
+                // (see getForGeneration), so the agent reads them as the prevSnap values.
+                // They are NOT copied into the new snapshot's edit record: the agent's
+                // output replaces them.
                 const prevSnap =
                   trackerBaseGameStateSnapshot ??
                   (allowLatestGameStateFallback ? await gameStateStore.getLatest(input.chatId) : null);
@@ -12149,7 +12164,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                     ),
                     hiddenTrackerFields: currentGameStateForLocks?.hiddenTrackerFields,
                   },
-                  null, // manual overrides are one-shot — never carry forward
+                  null, // never copy the base's edit record; a rewritten row keeps its own
                   // The stats above are the turn before's; this turn's inventory tags already wrote its own.
                   { keepReplacedInventory: true },
                 );
@@ -13686,6 +13701,40 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 rewriteApplied: false,
               },
             });
+          }
+        }
+
+        // No tracker may have written the regenerated swipe's row (manual trackers, a failed run).
+        // It then starts as the state this reply began from, so the user's Tracker Panel edits
+        // stay on screen and carry into the next message.
+        if (
+          input.regenerateMessageId &&
+          chatMode !== "game" &&
+          lastSavedMsg?.id === input.regenerateMessageId &&
+          typeof lastSavedSwipeIndex === "number" &&
+          !generationSignal.aborted
+        ) {
+          try {
+            const regeneratedSwipeRow = await gameStateStore.getByChatAndMessage(
+              input.chatId,
+              input.regenerateMessageId,
+              lastSavedSwipeIndex,
+            );
+            const editedBase = regeneratedSwipeRow
+              ? null
+              : await gameStateStore.applyManualEdits(input.chatId, input.regenerateMessageId, baseGameStateSnapshot);
+            if (editedBase) {
+              await gameStateStore.updateByMessage(
+                input.regenerateMessageId,
+                lastSavedSwipeIndex,
+                input.chatId,
+                {},
+                undefined,
+                { baseSnapshot: editedBase },
+              );
+            }
+          } catch (err) {
+            logger.warn(err, "[generate] Could not keep Tracker Panel edits on the regenerated swipe");
           }
         }
 

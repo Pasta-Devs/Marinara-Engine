@@ -62,7 +62,7 @@ At the bottom, **Agent activity** shows what the chat's agents did. From there y
 
 ## Editing tracker values
 
-On a phone, drag the **World State** and **Player & Tracker** buttons wherever you want in the chat. Tap a button to open its panel, and use **X** to close it. The buttons and panels follow your **Chat widget style** in **Settings → Appearance → App**. Your chat remembers where you put each button. On a computer, the same editors are inside the drawers of the Trackers window. Every field is editable, so you can correct a value the AI got wrong. Your edits save right away.
+On a phone, drag the **World State** and **Player & Tracker** buttons wherever you want in the chat. Tap a button to open its panel, and use **X** to close it. The buttons and panels follow your **Chat widget style** in **Settings → Appearance → App**. Your chat remembers where you put each button. On a computer, the same editors are inside the drawers of the Trackers window. Every field is editable, so you can correct a value the AI got wrong. Your edits save right away. The next reply starts from your corrected values, also when you regenerate or swipe the reply you corrected.
 
 Here is what each tracker lets you edit:
 
@@ -95,7 +95,7 @@ You can force a tracker to update instead of waiting for the next message.
 
 Inside each tracker there is a small refresh (circular arrow) button. Click it to re-run just that one tracker for the latest turn. The tooltips name the tracker, for example **Re-run world state tracker only** or **Re-run quest tracker only**.
 
-In **Chat Settings → Agents**, **Manual Trackers** moves every enabled tracker to manual control. You can instead leave that switch off and set only selected agents to manual under **Individual tracker schedule**. A refresh button appears whenever at least one tracker is manual: in the HUD row on a phone, and next to the title of the Trackers window on a computer. Click it to run the manual tracker set for the current turn. The refresh button inside each tracker still runs that individual tracker directly.
+In **Chat Settings → Agents**, open **Trackers Control** and turn a tracker on under **Individual tracker schedule** to make it manual. A manual tracker doesn't run after every reply. A chat that had the old **Manual Trackers** switch on shows every tracker turned on there. A refresh button appears whenever at least one tracker is manual: in the HUD row on a phone, and next to the title of the Trackers window on a computer. Click it to run the manual tracker set for the current turn. The refresh button inside each tracker still runs that individual tracker directly.
 
 **Agent activity** has its own section just below **Agents** in **Chat Settings**, at the bottom of the Tracker Panel, and on a computer at the bottom of the Trackers window. From there you can re-run all trackers, retry any agents that failed, and use **Clear Trackers** to wipe all tracked world state for the chat. **Clear Trackers** cannot be undone, so use it with care.
 

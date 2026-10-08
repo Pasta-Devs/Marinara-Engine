@@ -7005,20 +7005,23 @@ export class MariDbService {
     args: Row,
     context: { command: string; sessionId: string; cwd?: string },
   ): Promise<MariDbCommandResult> {
+    // #7289: nanoid ids start with "--" about 1 in 4096, so values must never read as flags:
+    // flag values ride `--flag=value` and positionals go after the `--` end-of-options marker.
     const argv = [sub];
+    const positionals: string[] = [];
     const fieldRead = Boolean(firstString(args, ["field"]));
     const addFlag = (flag: string, value: unknown) => {
       if (value === undefined || value === null || value === "") return;
-      argv.push(`--${flag}`, String(value));
+      argv.push(`--${flag}=${String(value)}`);
     };
 
     if (sub === "list") {
       addFlag("limit", firstNumber(args, ["limit"]));
       addFlag("character", firstString(args, ["characterId", "character_id"]));
     } else if (sub === "get") {
-      argv.push(requiredString(args, ["chatId", "chat_id", "id"], "chat id"));
+      positionals.push(requiredString(args, ["chatId", "chat_id", "id"], "chat id"));
     } else if (sub === "messages") {
-      argv.push(requiredString(args, ["chatId", "chat_id", "id"], "chat id"));
+      positionals.push(requiredString(args, ["chatId", "chat_id", "id"], "chat id"));
       addFlag("last", firstNumber(args, ["last"]));
       addFlag("after-post", firstNumber(args, ["afterPost", "after_post"]));
       const tail = firstBoolean(args, ["tail"]) === true;
@@ -7030,11 +7033,11 @@ export class MariDbService {
       }
       if (tail) argv.push("--tail");
     } else if (sub === "search") {
-      argv.push(requiredString(args, ["query"], "chat search query"));
+      positionals.push(requiredString(args, ["query"], "chat search query"));
       addFlag("limit", firstNumber(args, ["limit"]));
     }
 
-    const result = await this.executeChatsCommand(argv, context);
+    const result = await this.executeChatsCommand([...argv, "--", ...positionals], context);
     if (sub !== "messages" || !result.ok || !Array.isArray(result.output)) return result;
     return {
       ...result,

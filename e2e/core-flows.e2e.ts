@@ -11646,6 +11646,9 @@ test("Game character sheet Retry remains a draft until Save", async ({ page, req
     await expect(page.getByRole("heading", { name: characterName })).toHaveCount(0);
     await expect.poll(async () => (await readStoredCard())?.class).toBe("Chronomancer");
     expect((await readStoredCard())?.rpgStats).toEqual(originalCard.rpgStats);
+    // The "sheet updated." toast can cover the mobile top bar, and a pointer resting on it pauses auto-dismiss.
+    await page.mouse.move(0, 0);
+    await expect(page.locator("[data-sonner-toast]")).toHaveCount(0);
     await page.locator('.mari-window-bubble[data-window="control:character-profiles"]').click();
     await page.getByTitle(`${characterName} - Click to open character sheet`).filter({ visible: true }).click();
     await sheet.getByRole("button", { name: "Edit sheet" }).click();

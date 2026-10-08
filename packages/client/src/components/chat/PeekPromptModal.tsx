@@ -51,6 +51,7 @@ interface GenerationInfo {
 interface PeekPromptModalProps {
   data: {
     chatId?: string;
+    characterId?: string;
     messages: Array<{ role: string; content: string }>;
     chatMode?: string;
     parameters: unknown;
@@ -613,8 +614,9 @@ export function PeekPromptModal({ data: originalData, onClose }: PeekPromptModal
         <div className={cn(NEUTRAL_PANEL_SCROLL_AREA, "min-h-0 flex-1 overflow-y-auto p-4 space-y-2")}>
           {originalData.chatId && (
             <DecisionDebugPanel
-              key={originalData.chatId}
+              key={`${originalData.chatId}:${originalData.characterId ?? ""}`}
               chatId={originalData.chatId}
+              characterId={originalData.characterId}
               onPreview={(preview) => {
                 setTested(preview);
                 setShowTest(preview !== null);

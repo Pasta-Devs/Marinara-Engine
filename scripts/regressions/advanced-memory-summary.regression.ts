@@ -400,7 +400,13 @@ try {
     assert(!recalled.recalledScenes?.includes(hidden!));
     assert(recalled.chatSummary?.includes(own!));
     assert(!recalled.chatSummary?.includes(hidden!));
-    assert.deepEqual(recalled.receipt.recalledMessageIds, [], "raw excerpts cannot bypass a partial knowledge view");
+    // Mari's rule (#7269): excerpts quote the messages this reader saw, whatever the recap's private
+    // sections say. Nothing in this scene is hidden from either POV, so both see both messages.
+    assert.deepEqual(
+      recalled.receipt.recalledMessageIds,
+      povSource.slice(0, 2).map((message) => message.id),
+      "a partial knowledge view still recalls the messages its reader saw",
+    );
     await memory.validatePrepared(povChat.id, await chats.listMessages(povChat.id), recalled.receipt);
   }
   const allPovs = await memory.prepare({
@@ -426,8 +432,8 @@ try {
   assert(sameRecap.recalledScenes?.includes("MAUKIE_SECRET"));
   assert.deepEqual(
     sameRecap.receipt.recalledMessageIds,
-    [],
-    "matching the narrator's recap text does not grant a character access to raw private source messages",
+    povSource.slice(0, 2).map((message) => message.id),
+    "message visibility, not the recap's conditions, decides which raw messages a character recalls",
   );
 
   const partialChat = await createChat("One private conversation inside a shared scene");
@@ -529,6 +535,13 @@ try {
     // borrower still gets June 12, while the others get no bare "#1–#1" header from the borrower's entry (#7250).
     assert.equal(prepared.chatSummary!.includes("Messages #1–#1;"), id === borrower.id);
     if (id === borrower.id) assert(!prepared.receipt.recalledMessageIds.includes(partialSource[1]!.id));
+    // The recap's private section no longer withholds the excerpt (#7269): each reader quotes exactly
+    // the scene messages they saw, so the ledger message hidden from the borrower stays out of his.
+    assert.deepEqual(
+      prepared.receipt.recalledMessageIds,
+      partialSource.slice(0, id === borrower.id ? 1 : 2).map((message) => message.id),
+      "an excerpt from a recap with a private section holds only the messages its reader saw",
+    );
   }
   assert.equal(requests.length, beforePartialToggle, "recalling partial scenes adds no helper calls");
   await memory.updateRecord(partialChat.id, partialRecord.id, {

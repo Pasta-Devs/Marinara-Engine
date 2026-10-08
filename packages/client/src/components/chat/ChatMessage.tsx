@@ -112,7 +112,7 @@ import {
   sanitizeChatHtml,
 } from "../../lib/chat-html";
 import { resolveMessageReasoningDisplay } from "../../lib/message-reasoning";
-import { CHARACTER_COLOR_CLASS } from "../../lib/chat-widget-colors";
+import { CHARACTER_COLOR_CLASS, FALLBACK_DIALOGUE_CLASS } from "../../lib/chat-widget-colors";
 import type { CharacterMap, ExpressionAvatarResolver, MessageSelectionToggle, PersonaInfo } from "./chat-area.types";
 import {
   MESSAGE_SELECTION_CHECKBOX_CLASS,
@@ -1753,8 +1753,8 @@ function renderContent(
         if (lastFontClose < lastFontOpen) return match;
       }
       const highlightColor = safeColor(dialogueColor ?? "white");
-      const ownClass = ownDialogueColor ? ` class="${CHARACTER_COLOR_CLASS}"` : "";
-      return `<${dialogueTag}${ownClass} style="color:${highlightColor}">${match}</${dialogueTag}>`;
+      const colorClass = ownDialogueColor ? CHARACTER_COLOR_CLASS : FALLBACK_DIALOGUE_CLASS;
+      return `<${dialogueTag} class="${colorClass}" style="color:${highlightColor}">${match}</${dialogueTag}>`;
     });
   })();
 
@@ -1766,7 +1766,7 @@ function renderContent(
 
   return (
     <div
-      className={cn("relative !overflow-hidden !contain-paint", htmlScopeClass)}
+      className={cn("mari-html-content relative !overflow-hidden !contain-paint", htmlScopeClass)}
       dangerouslySetInnerHTML={{ __html: html }}
     />
   );

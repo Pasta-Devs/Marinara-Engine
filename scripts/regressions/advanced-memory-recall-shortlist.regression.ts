@@ -327,6 +327,28 @@ try {
   });
   assert(addressed.receipt.recalledSceneIds.includes(lighthouseScene), "the lighthouse key outranks the name Kaito");
 
+  // #7264: a character who joined at the conversation start knows no earlier scene, so the
+  // Decision model is never asked about memories for them. Kaito, who knows them, still is.
+  const joined = source.find((message) => message.content === "SCENE_CHANGE Mari comes home late.")!;
+  await chats.update(chat.id, { characterIds: ["kaito", "cyno"] });
+  await chats.patchMetadata(chat.id, { groupChatMode: "individual" });
+  await memory.updateSettings(chat.id, {
+    decisionEnabled: true,
+    knowledgeStarts: { kaito: null, cyno: joined.id },
+  });
+  const groupSource = await chats.listMessages(chat.id);
+  const veteran = await memory.prepare({ ...input, messages: groupSource });
+  assert.equal(recallRequests.splice(0).length, 2, "Kaito's turn still asks about scenes, then their messages");
+  assert.deepEqual(veteran.receipt.reasons, ["decision-recall"]);
+  const newcomer = await memory.prepare({ ...input, messages: groupSource, audienceCharacterIds: ["cyno"] });
+  assert.deepEqual(recallRequests, [], "no scene or message is offered to the Decision model for Cyno");
+  assert.deepEqual(newcomer.receipt.reasons, ["no-recall-candidates"]);
+  assert.equal(newcomer.receipt.decisionRecall, undefined, "Cyno's reply saves no recall report");
+  assert.deepEqual(
+    newcomer.messageIds,
+    groupSource.slice(-3).map(({ id }) => id),
+  );
+
   console.log("Advanced Memory recall shortlist, two Decision passes and the ordinary fallback passed.");
 } finally {
   provider.closeAllConnections();

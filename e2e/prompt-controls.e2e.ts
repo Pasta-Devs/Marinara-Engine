@@ -105,6 +105,8 @@ test("typed illustration prompts wait for review and send only the confirmed sub
     });
     await expect(dialog).not.toBeVisible();
     await input.fill("/illustrate range=1 cup of tea");
+    // WebKit once sent an empty composer here (37469221766). Fail on the composer, not on the missing review dialog.
+    await expect(input).toHaveValue("/illustrate range=1 cup of tea");
     await page.locator(".mari-chat-send-btn").click();
     await expect(dialog).toBeVisible();
     expect(calls).toHaveLength(1);

@@ -52,6 +52,8 @@ export function ChatGalleryPanel({ chat }: { chat: Chat }) {
         ? chatMetadata.enableSpriteGeneration === true
         : chatMetadata.enableAgents === true && chatMetadata.activeAgentIds?.includes("illustrator");
   const illustratorAvailable = illustratorInstalled && illustratorEnabledForChat;
+  // Roleplay Illustrate and Background are one-off runs: an installed Illustrator need not be added to the chat.
+  const manualIllustratorAvailable = illustratorInstalled && (chat.mode === "roleplay" || illustratorEnabledForChat);
   const customImageAgents = useMemo(() => {
     if (chatMetadata.enableAgents !== true || !onIllustrateWithAgent) return [];
     const activeAgentIds = new Set(chatMetadata.activeAgentIds ?? []);
@@ -75,9 +77,7 @@ export function ChatGalleryPanel({ chat }: { chat: Chat }) {
     <ChatGallery
       chatId={chat.id}
       mode={chat.mode}
-      onIllustrate={
-        illustratorInstalled && (chat.mode === "roleplay" || illustratorEnabledForChat) ? onIllustrate : undefined
-      }
+      onIllustrate={manualIllustratorAvailable ? onIllustrate : undefined}
       illustrateAgents={customImageAgents}
       onIllustrateWithAgent={onIllustrateWithAgent}
       onGenerateSelfie={illustratorAvailable ? onGenerateSelfie : undefined}
@@ -86,7 +86,7 @@ export function ChatGalleryPanel({ chat }: { chat: Chat }) {
       onViewStoryboard={onViewStoryboard}
       onGenerateVideo={illustratorAvailable ? onGenerateVideo : undefined}
       onAnimateImage={illustratorAvailable ? onAnimateImage : undefined}
-      onGenerateBackground={illustratorAvailable ? onGenerateBackground : undefined}
+      onGenerateBackground={manualIllustratorAvailable ? onGenerateBackground : undefined}
     />
   );
 }

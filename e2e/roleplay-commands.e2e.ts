@@ -620,7 +620,9 @@ for (const presentation of ["classic", "visual-novel"] as const) {
       await expect(secret).toContainText("The hidden key is beneath the blue vase.");
       await secret.getByRole("button", { name: "Edit whisper", exact: true }).click();
       await whisperText.fill("   ");
-      await expect(editor.getByRole("button", { name: "Save", exact: true })).toBeDisabled();
+      // #7196: an empty whisper can be saved, which removes it (checked on the only-secret message below).
+      await expect(whisperText).toHaveAttribute("placeholder", "Leave this empty and save to remove the whisper.");
+      await expect(editor.getByRole("button", { name: "Save", exact: true })).toBeEnabled();
       const corrected = "The corrected key is beneath the green vase.\nKeep it private.";
       await whisperText.fill(corrected);
       await page.route(
@@ -659,6 +661,14 @@ for (const presentation of ["classic", "visual-novel"] as const) {
       await expect(onlySecret).toBeVisible();
       await onlySecret.getByRole("button", { name: "Reveal a secret", exact: true }).click();
       await expect(onlySecret).toContainText("A secret without public narration.");
+      expect(await preview(bob.id)).toContain("A secret without public narration.");
+      await onlySecret.getByRole("button", { name: "Edit whisper", exact: true }).click();
+      await whisperText.fill("");
+      await editor.getByRole("button", { name: "Save", exact: true }).click();
+      await expect(editor).toHaveCount(0);
+      await expect(onlySecret).toHaveCount(0);
+      await expect(page.locator("body")).not.toContainText("A secret without public narration.");
+      expect(await preview(bob.id)).not.toContain("A secret without public narration.");
       if (presentation === "visual-novel") {
         output =
           'First paragraph.\n\n[whisper: character="Bob" text="A secret between paragraphs."]\n\nSecond paragraph.';
@@ -2150,6 +2160,20 @@ test("Roleplay commands require attached agents, enforce combat audience, and fo
     await generate(alice);
     expect(automaticIllustrations).toHaveLength(2);
     expect(imageRequests).toHaveLength(5);
+
+    // This chat's Run Interval wins over the agent's; clearing it goes back to the agent's.
+    await metadata({ illustratorRunInterval: 1 });
+    await generate(alice);
+    expect(automaticIllustrations).toHaveLength(3);
+    await expect.poll(() => imageRequests.length).toBe(6);
+    await interval(1);
+    await metadata({ illustratorRunInterval: 0 });
+    await generate(alice);
+    expect(automaticIllustrations).toHaveLength(3);
+    await metadata({ illustratorRunInterval: null });
+    await generate(alice);
+    expect(automaticIllustrations).toHaveLength(4);
+    await expect.poll(() => imageRequests.length).toBe(7);
 
     await page.route("**/api/capability-packages/agents", (route) =>
       route.fulfill({

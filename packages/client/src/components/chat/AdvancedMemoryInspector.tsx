@@ -21,11 +21,13 @@ import type { MemoryCharacterOption } from "./AdvancedMemorySettings";
 
 const buttonClass =
   "mari-chrome-control inline-flex min-h-9 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs disabled:opacity-50";
-const reasonKeys: Record<string, string> = {
+export const reasonKeys: Record<string, string> = {
   "decision-recall": "chat.advancedMemory.reason.decisionRecall",
   "decision-recall-fallback": "chat.advancedMemory.reason.decisionRecallFallback",
   "decision-recall-preview": "chat.advancedMemory.reason.decisionRecallPreview",
   "decision-excerpt-fallback": "chat.advancedMemory.reason.decisionExcerptFallback",
+  "excerpt-no-room": "chat.advancedMemory.reason.excerptNoRoom",
+  "excerpt-no-source": "chat.advancedMemory.reason.excerptNoSource",
   "preparation-needed": "chat.advancedMemory.reason.preparationNeeded",
   "unverified-summary-omitted": "chat.advancedMemory.reason.unverifiedSummaryOmitted",
   "scene-boundary-rollover": "chat.advancedMemory.reason.sceneBoundaryRollover",

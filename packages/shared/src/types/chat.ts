@@ -350,6 +350,11 @@ export interface ChatMetadata {
   illustratorImageConnectionId?: string | null;
   /** Number of image variants generated for each Illustrator request. */
   illustratorImagesPerGeneration?: number;
+  /**
+   * Messages between automatic Illustrator runs in this chat: a whole number from 0 to 100, where 0 means
+   * it only runs when the user asks (Gallery or slash command). Missing/null = the agent's Run Interval.
+   */
+  illustratorRunInterval?: number | null;
   /** Whether Roleplay Illustrator may generate and activate a reusable background after a scene-location change. */
   illustratorAutoBackgroundsEnabled?: boolean;
   /** Whether Conversation selfie commands should send the matching character avatar as a reference image. */

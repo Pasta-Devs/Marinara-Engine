@@ -223,7 +223,11 @@
 }
 
 /* Keep gradients on text-only leaves. A transparent fill on the whole message
-   would also make editable fields, icons and embedded content transparent. */
+   would also make editable fields, icons and embedded content transparent.
+   Inline and <font> colors in rich HTML messages skip the gradient (#7296).
+   ponytail: a color set only by a class from the message's own <style> still gets
+   the gradient, and text in a box with only a background color gets its solid first
+   stop. Upgrade: mark the elements the message colors itself while rendering it. */
 :root[data-chat-widget-apply-colors="true"][data-chat-widget-colors~="text"]
   :is(.mari-chat-style-surface, .mari-chat-style-conversation, .mari-chat-style-text)
   :is(div, p, span, label, small, strong, em, h1, h2, h3, h4):not(
@@ -232,7 +236,9 @@
     pre *,
     code *,
     .mari-character-color,
-    .mari-character-color *
+    .mari-character-color *,
+    .mari-html-content :is([style*="color" i], font[color]):not(.mari-fallback-dialogue),
+    .mari-html-content :is([style*="color" i], font[color]):not(.mari-fallback-dialogue) *
   ) {
   background-image: var(--mari-widget-custom-text-image);
   background-clip: text;
@@ -244,6 +250,18 @@
    Inline gradient name colors still win with their own transparent fill. */
 :root[data-chat-widget-apply-colors="true"] .mari-character-color {
   -webkit-text-fill-color: currentColor;
+}
+
+/* Rich HTML messages, such as Immersive HTML cards, keep the text colors they set
+   themselves (#7296). The wrapper still takes its color from the preset, so text
+   without a color of its own looks the same. Dialogue the Engine colors with the
+   fallback keeps following the preset text, as it does in plain messages. */
+:root[data-chat-widget-apply-colors="true"] .mari-html-content {
+  -webkit-text-fill-color: currentColor;
+}
+
+:root[data-chat-widget-apply-colors="true"] .mari-html-content .mari-fallback-dialogue {
+  -webkit-text-fill-color: var(--mari-chat-resolved-text);
 }
 
 /* Conversation message corners and grouping always keep their own shape. */

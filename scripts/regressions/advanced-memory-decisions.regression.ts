@@ -241,11 +241,156 @@ try {
   const beforeConditional = requests.length;
   const conditional = await memory.prepare(input);
   assert.match(conditional.recalledScenes!, /TARGET_SCENE/);
-  assert.deepEqual(conditional.receipt.recalledMessageIds, [], "private recap conditions withhold raw excerpts");
+  // Mari's rule (#7269): a private recap section no longer withholds the excerpt, because the
+  // reader saw these messages in the chat. Messages hidden from the reader still stay out.
+  assert.deepEqual(
+    conditional.receipt.recalledMessageIds,
+    [source[3]!.id],
+    "a recap with a private section still recalls the messages its reader saw",
+  );
+  assert.doesNotMatch(conditional.recalledScenes!, /CONDITION_SECRET|PRIVATE_SECRET/);
   for (const request of requests.slice(beforeConditional)) {
     assert.equal(request.kind, "decision");
-    assert.doesNotMatch(JSON.stringify(request.body), /CONDITION_SECRET|Cobalt refuge|PRIVATE_SECRET/);
+    assert.doesNotMatch(JSON.stringify(request.body), /CONDITION_SECRET|PRIVATE_SECRET/);
   }
+  assert(
+    !conditional.receipt.reasons.some((reason) => reason.startsWith("excerpt-")),
+    "a scene with an excerpt needs no reason for a missing one",
+  );
+  assert.equal(conditional.receipt.decisionRecall?.notes, undefined);
+
+  // The Decision model's picks size each excerpt within Minimum and Maximum, every recalled scene
+  // gets its minimum before any excerpt grows, and a scene left without one says why (#7269).
+  const sized = await chats.create({
+    name: "Decision excerpt sizes",
+    mode: "roleplay",
+    characterIds: ["reader"],
+    connectionId: helper.id,
+  });
+  assert(sized);
+  await chats.patchMetadata(sized.id, { summaryMaxTokens: 512 });
+  await memory.updateSettings(sized.id, {
+    enabled: true,
+    decisionEnabled: true,
+    decisionConnectionId: decision.id,
+    knowledgeStarts: { reader: null },
+    knowledgeConfirmed: true,
+    retrieveMinMessages: 1,
+    retrieveMaxMessages: 2,
+  });
+  const padding = " ember".repeat(560);
+  await chats.createMessagesBatch(sized.id, [
+    ...["dock", "bridge"].flatMap((place) => [
+      { role: "user" as const, content: `SCENE_CHANGE They reach the ${place}.` },
+      { role: "assistant" as const, characterId: "reader", content: `Gulls circle the ${place}.` },
+      { role: "user" as const, content: `TARGET_SCENE Cobalt refuge is sworn at the ${place}.${padding}` },
+      {
+        role: "assistant" as const,
+        characterId: "reader",
+        content: `Cobalt refuge, I repeat at the ${place}.${padding}`,
+      },
+      { role: "user" as const, content: `They leave the ${place}.` },
+    ]),
+    { role: "user", content: "SCENE_CHANGE You remember, don't you?", extra: { isConversationStart: true } },
+  ]);
+  await memory.initialize(sized.id);
+  const sizedSource = await chats.listMessages(sized.id);
+  const picked = sizedSource.filter((message) => message.content.includes("Cobalt refuge")).map(({ id }) => id);
+  const sizedInput = { chatId: sized.id, messages: sizedSource, audienceCharacterIds: ["reader"], budgetTokens: 50000 };
+  const roomy = await memory.prepare(sizedInput);
+  assert.equal(roomy.receipt.recalledSceneIds.length, 2);
+  assert.deepEqual(roomy.receipt.recalledMessageIds, picked, "both picked messages of each scene are recalled");
+  const messageRows = roomy.receipt.decisionRecall!.results.filter((row) => row.kind === "message");
+  assert.deepEqual(
+    messageRows
+      .filter((row) => row.selected)
+      .map((row) => row.id)
+      .sort(),
+    [...picked].sort(),
+    "Decision diagnostics mark exactly the picked messages as selected",
+  );
+  assert(!roomy.receipt.reasons.some((reason) => reason.startsWith("excerpt-")), "no excerpt is missing");
+  assert.equal(roomy.receipt.decisionRecall!.notes, undefined);
+
+  await memory.updateSettings(sized.id, { summaryBudgetTokens: 64 });
+  const tight = await memory.prepare(sizedInput);
+  assert.equal(tight.receipt.recalledSceneIds.length, 2);
+  assert.equal(
+    tight.receipt.recalledMessageIds.filter((id) => picked.includes(id)).length,
+    2,
+    "each scene keeps its one-message minimum before either excerpt grows",
+  );
+  assert.equal(tight.receipt.recalledMessageIds.length, 2);
+  assert(!tight.receipt.reasons.includes("excerpt-no-room"), "neither scene loses its excerpt");
+
+  for (const record of (await memory.status(sized.id)).records.filter(
+    (item) => item.kind === "scene" && item.status === "closed",
+  ))
+    await memory.updateRecord(sized.id, record.id, {
+      content: `TARGET_SCENE: The old oath concerned Cobalt refuge.${padding}`,
+    });
+  const full = await memory.prepare(sizedInput);
+  assert.equal(full.receipt.recalledSceneIds.length, 2, "summaries keep their room before excerpts");
+  assert.deepEqual(full.receipt.recalledMessageIds, [], "long summaries leave no room for an excerpt");
+  assert(full.receipt.reasons.includes("excerpt-no-room"), "the receipt says why the excerpts are missing");
+  assert.deepEqual(full.receipt.decisionRecall?.notes, ["excerpt-no-room"]);
+
+  // When not one shortlisted message fits the room the summaries leave, no excerpt can be recalled,
+  // so the Decision model is not asked to pick messages (#7269).
+  const crowded = await chats.create({
+    name: "Decision excerpts without room",
+    mode: "roleplay",
+    characterIds: ["reader"],
+    connectionId: helper.id,
+  });
+  assert(crowded);
+  await chats.patchMetadata(crowded.id, { summaryMaxTokens: 512 });
+  await memory.updateSettings(crowded.id, {
+    enabled: true,
+    decisionEnabled: true,
+    decisionConnectionId: decision.id,
+    knowledgeStarts: { reader: null },
+    knowledgeConfirmed: true,
+    retrieveMinMessages: 1,
+    retrieveMaxMessages: 2,
+  });
+  await chats.createMessagesBatch(crowded.id, [
+    ...["dock", "bridge"].flatMap((place) => [
+      { role: "user" as const, content: `SCENE_CHANGE TARGET_SCENE Cobalt refuge is sworn at the ${place}.${padding}` },
+      {
+        role: "assistant" as const,
+        characterId: "reader",
+        content: `Cobalt refuge, I repeat at the ${place}.${padding}`,
+      },
+    ]),
+    { role: "user", content: "SCENE_CHANGE You remember, don't you?", extra: { isConversationStart: true } },
+  ]);
+  await memory.initialize(crowded.id);
+  await memory.updateSettings(crowded.id, { summaryBudgetTokens: 64 });
+  for (const record of (await memory.status(crowded.id)).records.filter(
+    (item) => item.kind === "scene" && item.status === "closed",
+  ))
+    await memory.updateRecord(crowded.id, record.id, {
+      content: `TARGET_SCENE: The old oath concerned Cobalt refuge.${padding}`,
+    });
+  const crowdedSource = await chats.listMessages(crowded.id);
+  const crowdedIds = new Set(crowdedSource.map(({ id }) => id));
+  const beforeCrowded = requests.length;
+  const noRoom = await memory.prepare({
+    chatId: crowded.id,
+    messages: crowdedSource,
+    audienceCharacterIds: ["reader"],
+    budgetTokens: 50000,
+  });
+  assert.equal(noRoom.receipt.recalledSceneIds.length, 2, "the model still picks the scenes");
+  assert.deepEqual(noRoom.receipt.recalledMessageIds, []);
+  assert.deepEqual(noRoom.receipt.decisionRecall?.notes, ["excerpt-no-room"]);
+  assert(
+    !requests
+      .slice(beforeCrowded)
+      .some((request) => request.body.state.memories?.some((item: { id: string }) => crowdedIds.has(item.id))),
+    "the Decision model is not asked about messages that cannot fit",
+  );
 
   await chats.createMessage({
     chatId: chat.id,

@@ -653,6 +653,8 @@ try {
       budgetTokens: 12000,
       readOnly: true,
     });
+  const sharedSceneExcerpt =
+    /remembered the compass\. \[Known only to Maukie: MAUKIE_PRIVATE\]\n\nExcerpt:\nMessages #3–#4;[^\n]*\n#3 User: [^\n]*\n#4 Pantalone: Pantalone accepts the compass promise\.$/u;
   const marked = (prepared: { chatSummary: string | null; recalledScenes: string | null }) =>
     /known only to/iu.test(`${prepared.chatSummary}\n${prepared.recalledScenes}`);
   // Before anyone joins, a scene only Maukie saw is recalled and marked as his. Shared memories carry no mark.
@@ -668,7 +670,8 @@ try {
     /\n\nScene summary:\nMessages #3–#4;/u,
     "a scene everyone present saw has no mark",
   );
-  assert.match(beforeJoin.recalledScenes!, /remembered the compass\. \[Known only to Maukie: MAUKIE_PRIVATE\]$/u);
+  // A private recap section no longer withholds the excerpt (#7269): both readers saw #3–#4.
+  assert.match(beforeJoin.recalledScenes!, sharedSceneExcerpt);
   assert.match(
     beforeJoin.chatSummary!,
     /\nCONST_SHARED The compass promise holds\.\n/u,
@@ -696,12 +699,12 @@ try {
   assert(!afterJoin.receipt.recalledSceneIds.includes(narratorOnly), "a memory no present character has stays out");
   assert.deepEqual(
     new Set(afterJoin.receipt.recalledMessageIds),
-    new Set(groupSource.slice(0, 2).map((message) => message.id)),
-    "raw excerpts still come only from scenes without private sections",
+    new Set(groupSource.slice(0, 4).map((message) => message.id)),
+    "a scene with a private section recalls the messages its readers saw (#7269)",
   );
   assert.match(afterJoin.recalledScenes!, /Scene summary \(known only to Maukie\):\nMessages #1–#2;/u);
   assert.match(afterJoin.recalledScenes!, /Scene summary \(known only to Maukie, Pantalone\):\nMessages #3–#4;/u);
-  assert.match(afterJoin.recalledScenes!, /remembered the compass\. \[Known only to Maukie: MAUKIE_PRIVATE\]$/u);
+  assert.match(afterJoin.recalledScenes!, sharedSceneExcerpt);
   assert.match(
     afterJoin.chatSummary!,
     /\n\[Known only to Maukie, Pantalone: CONST_SHARED The compass promise holds\.\]\n/u,
@@ -740,13 +743,15 @@ try {
     (record) => record.sceneId === maukieOnly && record.kind === "excerpt",
   )!;
   assert.equal(excerptRow.messageIds, JSON.stringify(maukieOnlyIds));
+  // The shared scene's excerpt (#3–#4) is untouched by these exclusions of the Maukie-only scene (#7269).
+  const bothIds = groupSource.slice(2, 4).map((message) => message.id);
   for (const [reader, expected, message] of [
     [
       "pantalone",
-      maukieOnlyIds,
+      [...maukieOnlyIds, ...bothIds],
       "an exclusion for a character who doesn't remember the scene leaves its excerpt alone",
     ],
-    ["maukie", [], "a message excluded for the scene's own reader never shows in its excerpt"],
+    ["maukie", bothIds, "a message excluded for the scene's own reader never shows in its excerpt"],
   ] as const) {
     await db.insert(advancedMemoryRecords).values({
       ...excerptRow,
@@ -796,7 +801,8 @@ try {
   await memory.initialize(duo.id);
   const duoRecall = await groupRecall(["aa-narrator", "maukie"], duo.id);
   assert.match(duoRecall.chatSummary!, /\nDUO_PLAIN DUO_MAUKIE$/u, "the duo's summary is read as Maukie");
-  assert.match(duoRecall.recalledScenes!, /Maukie discussed the absent Pantalone\. MAUKIE_PRIVATE$/u);
+  // Maukie saw both messages, so the private section no longer withholds the excerpt (#7269).
+  assert.match(duoRecall.recalledScenes!, /Maukie discussed the absent Pantalone\. MAUKIE_PRIVATE\n\nExcerpt:\n/u);
   assert(!/DUO_NARRATOR/u.test(duoRecall.chatSummary!), "a narrator-only section stays out");
 
   // Individual group chats recall per responder exactly as before #7237.
@@ -810,6 +816,9 @@ try {
   const intro =
     "Included below are recalled memories of scenes from the past chat history, together with small message excerpts from them. Present message range in the context is: #7–#9, with the last user message being #9.";
   const sharedRecap = `Scene summary:\n${range("3–#4")}\nThe compass promise was recorded. The travelers remembered the compass.`;
+  // Both saw #3–#4, so each quotes it despite Maukie's private recap section (#7269). PRIVATE_MAUKIE is
+  // only the fixture's cue to write that section; the message itself was visible to Pantalone.
+  const sharedExcerpt = `\n\nExcerpt:\n${range("3–#4", false)}\n#3 User: SCENE_CHANGE BOTH_PRESENT PRIVATE_MAUKIE Maukie and Pantalone renew the compass promise.\n#4 Pantalone: Pantalone accepts the compass promise.`;
   const maukie = await groupRecall(["maukie"]);
   assert.equal(
     maukie.chatSummary,
@@ -817,14 +826,14 @@ try {
   );
   assert.equal(
     maukie.recalledScenes,
-    `${intro}\n\nScene summary:\n${range("1–#2")}\nThe compass promise was recorded. Maukie discussed the absent Pantalone.\n\nExcerpt:\n${range("1–#2", false)}\n#1 User: ONLY_MAUKIE Maukie buries the compass promise.\n#2 Maukie: Maukie hides the compass promise alone.\n\n${sharedRecap} MAUKIE_PRIVATE`,
+    `${intro}\n\nScene summary:\n${range("1–#2")}\nThe compass promise was recorded. Maukie discussed the absent Pantalone.\n\nExcerpt:\n${range("1–#2", false)}\n#1 User: ONLY_MAUKIE Maukie buries the compass promise.\n#2 Maukie: Maukie hides the compass promise alone.\n\n${sharedRecap} MAUKIE_PRIVATE${sharedExcerpt}`,
   );
   const pantalone = await groupRecall(["pantalone"]);
   assert.equal(
     pantalone.chatSummary,
     `${range("3–#4")}\nCONST_SHARED The compass promise holds.\n\n${range("1–#2")}\nCONST_PLAIN The compass promise.`,
   );
-  assert.equal(pantalone.recalledScenes, `${intro}\n\n${sharedRecap}`);
+  assert.equal(pantalone.recalledScenes, `${intro}\n\n${sharedRecap}${sharedExcerpt}`);
   const cara = await groupRecall(["aaa-newcomer"]);
   assert.equal(cara.recalledScenes, null, "an individual newcomer recalls nothing from before joining");
   assert(!/CONST_SHARED|CONST_MAUKIE|MIXED_SECRET/u.test(cara.chatSummary ?? ""));
@@ -909,6 +918,105 @@ try {
     ],
   });
   assert.deepEqual(promptOf(await groupRecall(["maukie"], solo.id)), soloWithout, "no header for an absent reader");
+
+  // A recap with a private section still gets excerpts, quoting only what each reader saw in the chat (#7269).
+  // Whispers live in message extra data and never reach an excerpt.
+  const lantern = await chats.create({
+    name: "Private-section excerpts",
+    mode: "roleplay",
+    characterIds: ["maukie", "pantalone", "narrator"],
+    connectionId: connection.id,
+  });
+  assert(lantern);
+  await chats.patchMetadata(lantern.id, { groupChatMode: "individual", advancedMemory: groupSettings });
+  const whisperToMaukie = (text: string) => ({
+    roleplayCommandActivity: [
+      {
+        command: { type: "whisper", character: "Maukie", text },
+        raw: `[whisper: character="Maukie" text="${text}"]`,
+        whisperRecipient: { id: "maukie", kind: "character" },
+      },
+    ],
+  });
+  await chats.createMessagesBatch(lantern.id, [
+    {
+      role: "user",
+      content:
+        'BOTH_PRESENT PRIVATE_MAUKIE Maukie and Pantalone light the lantern. [whisper: character="Maukie" text="USER_WHISPER_SECRET"]',
+      extra: whisperToMaukie("USER_WHISPER_SECRET"),
+    },
+    {
+      role: "assistant",
+      characterId: "maukie",
+      content: "HIDDEN_FROM_PANTALONE Maukie pockets the lantern key.",
+      extra: { hiddenFromAICharacterIds: ["pantalone"] },
+    },
+    {
+      role: "assistant",
+      characterId: "pantalone",
+      content: "Pantalone carries the lantern home.",
+      extra: whisperToMaukie("CHARACTER_WHISPER_SECRET"),
+    },
+    { role: "user", content: "SCENE_CHANGE What about the lantern?", extra: { isConversationStart: true } },
+  ]);
+  await memory.initialize(lantern.id);
+  const [lit, pocketed, carried] = (await chats.listMessages(lantern.id)).map((message) => message.id);
+  const whispers = /USER_WHISPER_SECRET|CHARACTER_WHISPER_SECRET|\[whisper/u;
+  for (const [reader, expected, label] of [
+    ["maukie", [lit, pocketed, carried], "Maukie quotes every message he saw"],
+    ["pantalone", [lit, carried], "a message hidden from Pantalone never appears in his excerpt"],
+    ["narrator", [lit, pocketed, carried], "the narrator still quotes the whole scene"],
+  ] as const) {
+    const recalled = await groupRecall([reader], lantern.id);
+    assert.deepEqual(recalled.receipt.recalledMessageIds, expected, `individual: ${label}`);
+    assert(!recalled.receipt.reasons.some((reason) => reason.startsWith("excerpt-")), `${reader}: nothing is missing`);
+    assert.equal(recalled.recalledScenes!.includes("HIDDEN_FROM_PANTALONE"), reader !== "pantalone");
+    if (reader !== "narrator") assert.equal(recalled.recalledScenes!.includes("MAUKIE_PRIVATE"), reader === "maukie");
+    if (reader === "pantalone")
+      assert.doesNotMatch(recalled.recalledScenes!, whispers, "no whisper for a non-recipient");
+  }
+  // A merged reply speaks for everyone who remembers the scene, so it quotes only what all of them saw.
+  await chats.patchMetadata(lantern.id, { groupChatMode: "merged" });
+  const mergedLantern = await groupRecall(["maukie", "pantalone", "narrator"], lantern.id);
+  assert.deepEqual(
+    mergedLantern.receipt.recalledMessageIds,
+    [lit, carried],
+    "merged: only messages every character who remembers the scene saw",
+  );
+  assert.match(mergedLantern.recalledScenes!, /\[Known only to Maukie: MAUKIE_PRIVATE\]\n\nExcerpt:\n/u);
+  assert.doesNotMatch(mergedLantern.recalledScenes!, /HIDDEN_FROM_PANTALONE/u);
+  assert.doesNotMatch(mergedLantern.recalledScenes!, whispers, "merged: no whisper for the non-recipients");
+  // A one-character chat follows the same rule for its only character.
+  const soloLantern = await chats.create({
+    name: "Solo private-section excerpt",
+    mode: "roleplay",
+    characterIds: ["maukie"],
+    connectionId: connection.id,
+  });
+  assert(soloLantern);
+  await chats.patchMetadata(soloLantern.id, {
+    advancedMemory: { ...groupSettings, narratorCharacterId: null, knowledgeStarts: { maukie: null } },
+  });
+  await chats.createMessagesBatch(soloLantern.id, [
+    { role: "user", content: "PRIVATE_MAUKIE Maukie lights the solo lantern." },
+    {
+      role: "user",
+      content: "SOLO_HIDDEN A note kept from Maukie.",
+      extra: { hiddenFromAICharacterIds: ["maukie"] },
+    },
+    { role: "user", content: "Maukie keeps the solo lantern lit." },
+    { role: "user", content: "SCENE_CHANGE What about the solo lantern?", extra: { isConversationStart: true } },
+  ]);
+  await memory.initialize(soloLantern.id);
+  const soloLanternIds = (await chats.listMessages(soloLantern.id)).map((message) => message.id);
+  const soloRecall = await groupRecall(["maukie"], soloLantern.id);
+  assert.match(soloRecall.recalledScenes!, /MAUKIE_PRIVATE\n\nExcerpt:\n/u);
+  assert.deepEqual(
+    soloRecall.receipt.recalledMessageIds,
+    [soloLanternIds[0], soloLanternIds[2]],
+    "one-character chat: only the messages Maukie saw",
+  );
+  assert.doesNotMatch(soloRecall.recalledScenes!, /SOLO_HIDDEN/u);
   console.log(
     "Advanced Memory unlisted-participant defaults, participant access, shared scenes, merged newcomers and legacy duplicate corrections passed.",
   );

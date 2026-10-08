@@ -15,6 +15,11 @@ jobs:
     permissions:
       contents: read
 
+    # Skip onnxruntime-node's CUDA 12 download from api.nuget.org: checks only
+    # need the bundled CPU binding, and a NuGet timeout fails the install.
+    env:
+      ONNXRUNTIME_NODE_INSTALL: skip
+
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

@@ -24,6 +24,9 @@ export const CHAT_WIDGET_COLOR_PROPERTIES = [
 /** Marks a character's or persona's own name or dialogue color so Apply preset colors keeps it
  *  (chat-widget-surfaces.css). Fallback colors leave it off and follow the preset text. */
 export const CHARACTER_COLOR_CLASS = "mari-character-color";
+/** Marks dialogue the Engine colors with the fallback inside rich HTML messages, so it still
+ *  follows the preset text there while the message's own colors are kept (#7296). */
+export const FALLBACK_DIALOGUE_CLASS = "mari-fallback-dialogue";
 
 type WidgetColorStyle = CSSProperties & Partial<Record<(typeof CHAT_WIDGET_COLOR_PROPERTIES)[number], string>>;
 

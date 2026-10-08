@@ -4697,8 +4697,11 @@ export async function registerRetryAgentsRoute(
       const { conn, enabledConfigs, resolvedAgents, warnings } = await runRetrySetupPhase(abortController.signal, () =>
         resolveRetryAgents({
           agentTypes,
+          // Gallery Illustrate and Background are one-off runs, so neither needs Illustrator added to the chat.
           manualIllustration:
-            isManualIllustratorImageRequest && agentTypes.length === 1 && agentTypes[0] === "illustrator",
+            (isManualIllustratorImageRequest || isManualIllustratorBackgroundRequest) &&
+            agentTypes.length === 1 &&
+            agentTypes[0] === "illustrator",
           chat,
           conns,
           agentsStore,

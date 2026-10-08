@@ -55,9 +55,13 @@ You should see the agents you added listed as active, each with a small remove b
 
 The **Agents** section has a few more controls:
 
-- **Attach chat summaries** (Roleplay chats only): off by default, including in existing chats without a saved choice. Turn it on to include saved chat summaries in agent requests, including post-processing and manual retries. This does not remove summaries from the main reply or stop summary generation. Agents explicitly granted full main-prompt access can still read summaries inside that prompt.
-- **Review Agent Outputs**: when on, lorebook, summary, and character card changes wait for your approval before they save. When off, lorebook and summary changes can save on their own, but character card edits still ask you first. See [Agent Approvals and the Agent Suite](approvals-and-agent-suite.md).
-- **Manual Trackers** (Roleplay chats only): when on, tracker agents do not run after every reply. You trigger them by hand from a button in the HUD. HUD means heads-up display, the on-screen status overlay in Roleplay.
+- **Agent Menus** (Roleplay chats only): sits right under **Enable Agents**. Click an agent's name to jump to its settings.
+- **Trackers Control** (Roleplay chats only): a card that starts closed. Click it to open these settings:
+  - **Attach chat summaries**: off by default, including in existing chats without a saved choice. Turn it on to include saved chat summaries in agent requests, including post-processing and manual retries. This does not remove summaries from the main reply or stop summary generation. Agents explicitly granted full main-prompt access can still read summaries inside that prompt.
+  - **Attach Lorebooks to Trackers**: when on, tracker agents also get the lorebook entries used for the main reply. It shows once the chat has a tracker agent.
+  - **Review Agent Outputs**: described in its own item after this list.
+  - **Individual tracker schedule**: turn a tracker on to stop it from running after every reply. You then run it by hand from a button in the HUD. HUD means heads-up display, the on-screen status overlay in Roleplay. It shows once the chat has a tracker agent.
+- **Review Agent Outputs**: when on, lorebook, summary, and character card changes wait for your approval before they save. When off, lorebook and summary changes can save on their own, but character card edits still ask you first. See [Agent Approvals and the Agent Suite](approvals-and-agent-suite.md). In Roleplay chats, it is inside **Trackers Control**.
 - **Agent Suite**: opens a viewer where you can read and edit everything the agents have stored for this chat.
 
 ### The cost warning

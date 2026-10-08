@@ -100,7 +100,7 @@ Panel elements use the same declarative vocabulary as constrained windows: `head
 
 The client independently validates every descriptor before adding it to the runtime store. Contribution kinds, surfaces, positions, controls, IDs, option lists, icon-name syntax, text lengths, total panel text, element count, and per-extension contribution count are validated and capped. React renders extension text as text. No extension-controlled HTML, CSS, URL, React component, or host callback is accepted. The host removes all contributions when the worker is stopped, its hash changes, or it disappears from the approved runtime response. Events are dispatched only to the worker registered for the same extension ID and content hash.
 
-There is no DOM helper, Marinara API fetch, parent event access, or arbitrary network capability. The iframe validates and rate-limits messages. A heartbeat watchdog terminates an unresponsive or busy-looping worker.
+There is no DOM helper, Marinara API fetch, parent event access, or arbitrary network capability. The iframe validates and rate-limits messages. A heartbeat watchdog terminates an unresponsive or busy-looping worker. It waits while the page is hidden or the browser is holding back its timers (background tab, sleep, suspended mobile app), so those pauses never stop a healthy worker. When the sandbox does stop a worker, the host removes its contributions and offers the user a restart.
 
 ## Full page compatibility runtime
 

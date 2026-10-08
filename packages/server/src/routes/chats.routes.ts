@@ -52,6 +52,7 @@ import {
   isMessagePinnedToContext,
   normalizeMessageMarkPatch,
   normalizeGroupChatMode,
+  normalizeIllustratorRunInterval,
   readMessagePrivateNote,
   stripPrivateMessageNote,
   MESSAGE_MARK_EXTRA_KEYS,
@@ -153,7 +154,7 @@ import {
 } from "../services/chat-insights/transcript-document.js";
 import { readSmallAvatarDataUri } from "../services/chat-insights/transcript-avatars.js";
 import { characters, gameStateSnapshots, memoryChunks } from "../db/schema/index.js";
-import { and, desc, eq, inArray } from "../db/file-query.js";
+import { and, desc, eq, inArray, isNotNull } from "../db/file-query.js";
 import { existsSync } from "fs";
 import { join } from "path";
 import { DATA_DIR } from "../utils/data-dir.js";
@@ -1439,6 +1440,10 @@ export async function chatsRoutes(app: FastifyInstance) {
     }
     if (Object.prototype.hasOwnProperty.call(incoming, "summaryMaxTokens")) {
       incoming.summaryMaxTokens = clampRoleplaySummaryMaxTokens(incoming.summaryMaxTokens);
+    }
+    if (Object.prototype.hasOwnProperty.call(incoming, "illustratorRunInterval")) {
+      // Numbers clamp to 0-100; anything else returns the chat to the agent's Run Interval.
+      incoming.illustratorRunInterval = normalizeIllustratorRunInterval(incoming.illustratorRunInterval);
     }
     if (
       Object.prototype.hasOwnProperty.call(incoming, "noodleTimelineContextEnabled") &&
@@ -3003,12 +3008,13 @@ export async function chatsRoutes(app: FastifyInstance) {
     if (!updated && !hasExplicitTarget) {
       updated = await gameStateStore.updateLatest(req.params.id, fields, manual);
     }
-    // Wipe all manual overrides when explicitly requested
+    // Wipe all manual overrides when explicitly requested. Every row's, because a regeneration
+    // starts from the edits on any swipe of the reply it replaces.
     if (clearOverrides && updated) {
       await app.db
         .update(gameStateSnapshots)
         .set({ manualOverrides: null })
-        .where(and(eq(gameStateSnapshots.chatId, req.params.id), eq(gameStateSnapshots.id, (updated as any).id)));
+        .where(and(eq(gameStateSnapshots.chatId, req.params.id), isNotNull(gameStateSnapshots.manualOverrides)));
       updated = { ...updated, manualOverrides: null };
     }
     // If no snapshot exists yet, create one so manual edits aren't lost
@@ -3195,6 +3201,8 @@ export async function chatsRoutes(app: FastifyInstance) {
           parameters: null,
           source: "cached",
           exact: true,
+          // Whose saved prompt this is, so Decision diagnostics can follow that character (#7264).
+          characterId: promptSourceMessage.characterId ?? null,
           generationInfo: cached.generationInfo ?? null,
           gameToolPlanning: cached.gameToolPlanning ?? null,
           agentNote: requestedMessage

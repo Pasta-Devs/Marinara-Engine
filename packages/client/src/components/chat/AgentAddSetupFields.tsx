@@ -388,7 +388,9 @@ export function buildAgentAddMetadataPatch(
   options?: {
     allowSecretPlot?: boolean;
     defaultPromptTemplateId?: string;
-    illustratorDefaults?: { includeCharacterAppearance: boolean; useAvatarReferences: boolean };
+    illustratorDefaults?: { includeCharacterAppearance: boolean; useAvatarReferences: boolean; runInterval?: number };
+    /** Run Interval chosen in the add window; Illustrator keeps it per chat instead of in the agent. */
+    runInterval?: number | null;
   },
 ): Record<string, unknown> {
   const patch: Record<string, unknown> = {};
@@ -455,9 +457,9 @@ export function buildAgentAddMetadataPatch(
   if (agentId === "illustrator") {
     const defaults = options?.illustratorDefaults;
     const applyIllustratorDefault = (
-      key: "illustratorIncludeCharacterAppearance" | "illustratorUseAvatarReferences",
-      value: boolean,
-      defaultValue: boolean | undefined,
+      key: "illustratorIncludeCharacterAppearance" | "illustratorUseAvatarReferences" | "illustratorRunInterval",
+      value: boolean | number,
+      defaultValue: boolean | number | undefined,
     ) => {
       if (defaultValue === undefined || value !== defaultValue) patch[key] = value;
       else if (hasOwn(metadata, key)) patch[key] = null;
@@ -468,6 +470,9 @@ export function buildAgentAddMetadataPatch(
       defaults?.includeCharacterAppearance,
     );
     applyIllustratorDefault("illustratorUseAvatarReferences", setup.useAvatarReferences, defaults?.useAvatarReferences);
+    if (options?.runInterval != null) {
+      applyIllustratorDefault("illustratorRunInterval", options.runInterval, defaults?.runInterval);
+    }
   }
   if (agentId === "haptic") {
     patch.enableHapticFeedback = setup.hapticFeedbackEnabled;

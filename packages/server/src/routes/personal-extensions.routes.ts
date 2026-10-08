@@ -797,9 +797,11 @@ export function sandboxDocument(extension: PersonalExtension, nonce: string) {
   "use strict";
   const extension = ${boot};
   const post = (message) => window.parent.postMessage({ channel: "marinara-personal-extension", ...message }, "*");
+  // Do not revoke this URL right after new Worker(): Safari/WebKit loads the
+  // worker script later, so the load fails and the extension never starts.
+  // The URL is released when this sandbox iframe is removed.
   const workerUrl = URL.createObjectURL(new Blob([extension.workerSource], { type: "text/javascript" }));
   const worker = new Worker(workerUrl);
-  URL.revokeObjectURL(workerUrl);
 
   // Host-rendered window layer. The worker only sends element descriptors;
   // everything below builds DOM with textContent (never parsed markup) inside
@@ -997,14 +999,21 @@ export function sandboxDocument(extension: PersonalExtension, nonce: string) {
   };
 
   let lastHeartbeat = Date.now();
+  let lastWatchdogTick = Date.now();
   let stopped = false;
   let messageWindowStartedAt = Date.now();
   let messageCount = 0;
+  const workerStartedAt = Date.now();
+  let heartbeatCount = 0;
   worker.addEventListener("message", (event) => {
     const message = event.data;
     if (message?.type === "heartbeat") {
       lastHeartbeat = Date.now();
-      return;
+      // The worker sends one heartbeat a second. A backlog that arrives at
+      // once after a pause stays within that rate; any heartbeat beyond it
+      // counts toward the message limit, so a flood cannot freeze the page.
+      heartbeatCount += 1;
+      if (heartbeatCount <= (Date.now() - workerStartedAt) / 1_000 + 10) return;
     }
     if (Date.now() - messageWindowStartedAt > 10_000) {
       messageWindowStartedAt = Date.now();
@@ -1015,7 +1024,7 @@ export function sandboxDocument(extension: PersonalExtension, nonce: string) {
       stopped = true;
       worker.terminate();
       window.clearInterval(watchdog);
-      post({ type: "error", contentHash: extension.contentHash, message: "Browser extension was stopped for exceeding the sandbox message limit" });
+      post({ type: "error", contentHash: extension.contentHash, stopped: true, message: "Browser extension was stopped for exceeding the sandbox message limit" });
       return;
     }
     if (message?.type === "storage") {
@@ -1070,11 +1079,19 @@ export function sandboxDocument(extension: PersonalExtension, nonce: string) {
     post({ type: "error", contentHash: extension.contentHash, message: event.message || "Browser extension worker failed" });
   });
   const watchdog = window.setInterval(() => {
-    if (stopped || Date.now() - lastHeartbeat <= 5_000) return;
+    const now = Date.now();
+    // Hidden tabs, system sleep and suspended mobile apps throttle or pause
+    // timers, so missed heartbeats there do not mean the worker hung. While
+    // the page is hidden, or when this tick itself arrives late, restart the
+    // silence window instead of stopping a healthy worker (#7260).
+    const throttled = document.hidden || now - lastWatchdogTick > 2_000;
+    lastWatchdogTick = now;
+    if (throttled) lastHeartbeat = now;
+    if (stopped || now - lastHeartbeat <= 5_000) return;
     stopped = true;
     worker.terminate();
     window.clearInterval(watchdog);
-    post({ type: "error", contentHash: extension.contentHash, message: "Browser extension was stopped because its sandbox became unresponsive" });
+    post({ type: "error", contentHash: extension.contentHash, stopped: true, message: "Browser extension was stopped because its sandbox became unresponsive" });
   }, 1_000);
   window.addEventListener("message", (event) => {
     if (event.source !== window.parent || event.data?.channel !== "marinara-personal-extension") return;

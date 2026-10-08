@@ -2388,7 +2388,15 @@ const LocalChatArea = memo(function LocalChatArea({
     (messageId?: string) => {
       if (!activeChatId) return;
       peekPrompt.mutate(messageId ? { chatId: activeChatId, messageId } : activeChatId, {
-        onSuccess: (data) => setPeekPromptData({ ...data, chatId: activeChatId }),
+        // Characters who reply one by one each have their own prompt, so diagnostics follow
+        // the character whose saved prompt is shown, also when {{prompt}} opens the latest one.
+        // Like the server, use the saved mode, which still applies after the group shrinks to one character.
+        onSuccess: ({ characterId, ...data }) =>
+          setPeekPromptData({
+            ...data,
+            chatId: activeChatId,
+            ...(normalizeGroupChatMode(chatMeta.groupChatMode) === "individual" && characterId ? { characterId } : {}),
+          }),
         onError: (error) => {
           const message =
             error instanceof ApiError
@@ -2400,7 +2408,7 @@ const LocalChatArea = memo(function LocalChatArea({
         },
       });
     },
-    [activeChatId, peekPrompt],
+    [activeChatId, chatMeta.groupChatMode, peekPrompt],
   );
 
   // Find the last assistant message for peek-prompt eligibility

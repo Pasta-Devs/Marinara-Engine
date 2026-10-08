@@ -42,6 +42,7 @@ replaceBuiltInAgentDefinitions([
 ]);
 const png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
 const textRequests: string[] = [];
+let backgroundPlanRequests = 0;
 let imageRequests = 0;
 const provider = createServer(async (request, response) => {
   const chunks: Buffer[] = [];
@@ -51,6 +52,16 @@ const provider = createServer(async (request, response) => {
   if (request.url?.endsWith("/images/generations")) {
     imageRequests++;
     response.end(JSON.stringify({ data: [{ b64_json: png }] }));
+  } else if (JSON.stringify(body.messages).includes("character-free scene background prompt")) {
+    // The Gallery Background prompt writer.
+    backgroundPlanRequests++;
+    const plan = { locationName: "old garden", prompt: "An overgrown garden at dusk", tags: ["garden"] };
+    response.end(
+      JSON.stringify({
+        choices: [{ message: { role: "assistant", content: JSON.stringify(plan) } }],
+        usage: { total_tokens: 20 },
+      }),
+    );
   } else {
     textRequests.push(JSON.stringify(body.messages));
     response.end(
@@ -153,6 +164,15 @@ try {
         ...overrides,
       },
     });
+  const backgroundRetry = (overrides: Record<string, unknown> = {}) =>
+    retry({
+      illustratorMessageRange: undefined,
+      illustratorRetryTargets: ["background"],
+      agentPromptTemplateIds: { illustrator: "background" },
+      ...overrides,
+    });
+  const readMetadata = (metadata: unknown): Record<string, unknown> =>
+    typeof metadata === "string" ? JSON.parse(metadata) : (metadata as Record<string, unknown>);
   const parseEvents = (body: string) =>
     body
       .split("\n")
@@ -247,6 +267,35 @@ try {
       inactiveRetry.body,
     );
     assert.equal(textRequests.length + imageRequests, beforeAutomatic, "ordinary retries retain the active-agent gate");
+
+    // The Gallery Background button is a one-off run too: it makes and applies a background without adding Illustrator.
+    const beforeBackground = { plans: backgroundPlanRequests, images: imageRequests };
+    const background = await backgroundRetry();
+    const backgroundChange = parseEvents(background.body).find(
+      (event) => event.type === "agent_result" && event.data?.resultType === "background_change",
+    );
+    assert.equal(backgroundChange?.data.data.generated, true, background.body);
+    assert.equal(backgroundPlanRequests, beforeBackground.plans + 1, "a background request writes one plan");
+    assert.equal(imageRequests, beforeBackground.images + 1, "a background request generates exactly one image");
+    const metadataAfterBackground = readMetadata((await chats.getById(chat.id))!.metadata);
+    assert.equal(
+      metadataAfterBackground.background,
+      backgroundChange.data.data.chosen,
+      "the new background is applied",
+    );
+    assert.equal(metadataAfterBackground.enableAgents, activation.enableAgents, "Background never enables agents");
+    assert.deepEqual(metadataAfterBackground.activeAgentIds, [], "Background never adds Illustrator to the chat");
+    const beforeMixed = textRequests.length + backgroundPlanRequests + imageRequests;
+    const mixed = await backgroundRetry({ illustratorRetryTargets: ["illustration", "background"] });
+    assert.ok(
+      parseEvents(mixed.body).some((event) => event.type === "error"),
+      mixed.body,
+    );
+    assert.equal(
+      textRequests.length + backgroundPlanRequests + imageRequests,
+      beforeMixed,
+      "only a background-only request skips the active-agent gate",
+    );
   }
   replaceBuiltInAgentDefinitions([]);
   const beforeUninstalled = textRequests.length + imageRequests;
@@ -260,8 +309,19 @@ try {
     beforeUninstalled,
     "manual requests cannot revive an uninstalled package",
   );
+  const beforeUninstalledBackground = textRequests.length + backgroundPlanRequests + imageRequests;
+  const uninstalledBackground = await backgroundRetry();
+  assert.ok(
+    parseEvents(uninstalledBackground.body).some((event) => event.type === "error"),
+    uninstalledBackground.body,
+  );
+  assert.equal(
+    textRequests.length + backgroundPlanRequests + imageRequests,
+    beforeUninstalledBackground,
+    "a background request cannot revive an uninstalled package",
+  );
   console.info(
-    "Historical Illustrator range, review, gallery settings and disabled-agent manual illustration regressions passed.",
+    "Historical Illustrator range, review, gallery settings and disabled-agent manual illustration and background regressions passed.",
   );
 } finally {
   provider.closeAllConnections();
