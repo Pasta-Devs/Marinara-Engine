@@ -14,10 +14,7 @@ import { readdir, readFile, realpath, stat } from "fs/promises";
 import { join, resolve } from "path";
 import { getMonorepoRoot } from "../config/runtime-config.js";
 import { assertInsideDir } from "../utils/security.js";
-import {
-  isExcludedDevelopmentDoc,
-  USER_DEVELOPMENT_DOCS,
-} from "../services/professor-mari/documentation-tools.js";
+import { isExcludedDevelopmentDoc, USER_DEVELOPMENT_DOCS } from "../services/professor-mari/documentation-tools.js";
 import { createAppSettingsStorage } from "../services/storage/app-settings.storage.js";
 import {
   DocsPackBusyError,
