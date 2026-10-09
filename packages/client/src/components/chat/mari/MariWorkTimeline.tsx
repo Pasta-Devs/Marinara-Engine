@@ -1,6 +1,7 @@
 // Mari's work timeline: the live headline and sprite, her steps by phase, and the done marks.
 import { useMariAppearancePack } from "../../../hooks/use-mari-appearance-pack";
 import { MariStorySprite } from "../MariStorySprite";
+import { MariHold } from "./MariHold";
 import { type CSSProperties, type ReactNode, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { AlertTriangle, ChevronRight, Pencil, Search, Terminal, type LucideIcon } from "lucide-react";
@@ -93,20 +94,23 @@ function MariSprite({
   pullTarget?: boolean;
 }) {
   const appearance = useMariAppearancePack();
+  // Slice 85: she can be held while she works; the run goes on and she lands back on this line.
   return (
-    <span
-      className="mari-live-work__sprite"
-      data-scene={scene.id}
-      data-role={role}
-      data-appearance-pack={appearance.id}
-      data-mari-pull-target={pullTarget ? "mari-current" : undefined}
-      aria-hidden="true"
-    >
+    <MariHold heldSrc={appearance.portraits.drag} hopOnTap>
       <span
-        key={`${appearance.id}:${scene.id}`}
-        style={{ "--mari-work-sprite": `url(${scene.src})` } as CSSProperties}
-      />
-    </span>
+        className="mari-live-work__sprite"
+        data-scene={scene.id}
+        data-role={role}
+        data-appearance-pack={appearance.id}
+        data-mari-pull-target={pullTarget ? "mari-current" : undefined}
+        aria-hidden="true"
+      >
+        <span
+          key={`${appearance.id}:${scene.id}`}
+          style={{ "--mari-work-sprite": `url(${scene.src})` } as CSSProperties}
+        />
+      </span>
+    </MariHold>
   );
 }
 

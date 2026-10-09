@@ -153,7 +153,8 @@ html[data-marinara-reduced-effects="true"] .mari-hold-figure__dizzy > span {
   animation: none;
 }
 
-/* The window sprite is pointer-events: none on its own; a hold needs it to take presses. */
-.mari-hold-slot > .mari-story-sprite {
+/* The window and live-line sprites are pointer-events: none on their own; a hold needs them to take presses. */
+.mari-hold-slot > .mari-story-sprite,
+.mari-hold-slot > .mari-live-work__sprite {
   pointer-events: auto;
 }
