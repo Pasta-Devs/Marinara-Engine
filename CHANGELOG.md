@@ -359,6 +359,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - Max output tokens and Memory Recall are in search and in the empty list for a chat. Choosing one opens Chat Settings at that section, like Summary does.
 - A message hit in search shows the words around its match, with the match about 24 characters in, so the matched word is on the visible line.
 - Quick answers cite only docs pages that really match your question. A page that matches one stray word is no longer a source.
+- Search for a question ranks the guides that match its content words. A page whose title holds more of your words comes first, and question words such as why or is no longer count. For a question, Ask Mari comes above the docs and message results.
 
 ## [2.5.0]
 

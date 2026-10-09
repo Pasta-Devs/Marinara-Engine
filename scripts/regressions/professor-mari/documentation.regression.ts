@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import {
   formatDocumentationRead,
   formatDocumentationSearch,
+  queryTerms,
   readCanonicalDocumentation,
   searchCanonicalDocumentation,
 } from "../../../packages/server/src/services/professor-mari/documentation-tools.js";
@@ -82,7 +83,11 @@ try {
     ].join("\n"),
     "utf8",
   );
-  await writeFile(join(workspaceRoot, "docs", "lang", "plain.md"), "Just a paragraph with no headings at all.\n", "utf8");
+  await writeFile(
+    join(workspaceRoot, "docs", "lang", "plain.md"),
+    "Just a paragraph with no headings at all.\n",
+    "utf8",
+  );
   await writeFile(
     join(workspaceRoot, "docs", "lang", "many.md"),
     Array.from({ length: 45 }, (_, index) => `## Section ${index + 1}\n\nBody ${index + 1}.`).join("\n\n"),
@@ -266,3 +271,7 @@ try {
 } finally {
   await rm(workspaceRoot, { recursive: true, force: true });
 }
+
+// UX-07: a plain question ranks on its content words, not on "why", "is" or "my".
+assert.deepEqual(queryTerms("why is my lorebook empty"), ["lorebook", "empty"], "question words are not search terms");
+assert.deepEqual(queryTerms("the and of"), [], "a query of only stop words has no terms to rank by");

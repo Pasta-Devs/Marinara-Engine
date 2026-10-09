@@ -229,6 +229,17 @@ interface DocSearchResult extends DocSummary {
   snippets: DocSearchSnippet[];
 }
 
+/**
+ * F8 and UX-07: a title hit outranks a body hit ("Lorebooks Overview" for "lorebooks work"), and a title
+ * that holds more of the query's words outranks one that holds fewer. Then the doc with more matches,
+ * then the path.
+ */
+export function rankDocSearchResults(results: DocSearchResult[], needles: string[]): DocSearchResult[] {
+  const titleWords = (doc: DocSearchResult) =>
+    needles.filter((needle) => doc.title.toLowerCase().includes(needle)).length;
+  return results.sort((a, b) => titleWords(b) - titleWords(a) || b.matches - a.matches || a.path.localeCompare(b.path));
+}
+
 /** Max snippet lines returned per document */
 const MAX_SNIPPETS_PER_DOC = 3;
 
@@ -619,13 +630,7 @@ export async function docsRoutes(app: FastifyInstance) {
         if (matches > 0) results.push({ ...doc, matches, snippets });
       }
 
-      // F8: a precise title hit ("Lorebooks Overview" for "lorebooks work") should outrank a long doc
-      // that merely mentions the words more times by accident.
-      const titleHit = (doc: DocSearchResult) => needles.some((needle) => doc.title.toLowerCase().includes(needle));
-      results.sort(
-        (a, b) => Number(titleHit(b)) - Number(titleHit(a)) || b.matches - a.matches || a.path.localeCompare(b.path),
-      );
-      return { query, language, results };
+      return { query, language, results: rankDocSearchResults(results, needles) };
     } catch (err) {
       logger.error(err, "Failed to search documentation files");
       return reply.status(500).send({ error: "Failed to search documentation files" });

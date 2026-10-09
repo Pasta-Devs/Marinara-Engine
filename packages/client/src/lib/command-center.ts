@@ -6,6 +6,7 @@ import {
   normalizeTextForMatch,
 } from "@marinara-engine/shared";
 import type { ProfessorMariNavigationTarget } from "./professor-mari-navigation";
+import { isQuestionShaped } from "./omnibar-scope";
 
 export type CommandKind = "navigation" | "chat" | "resource" | "settings" | "action";
 
@@ -193,6 +194,10 @@ export const COMMAND_CENTER_SEARCH_GROUP_ORDER: readonly CommandCenterResultGrou
   "docs",
   "professor-fallback",
 ];
+// UX-07: for a question, Ask Mari comes before the message and docs groups, which a question matches loosely.
+const COMMAND_CENTER_QUESTION_GROUP_ORDER = COMMAND_CENTER_SEARCH_GROUP_ORDER.flatMap((id) =>
+  id === "messages" ? ["professor-fallback", id] : id === "professor-fallback" ? [] : [id],
+) as readonly CommandCenterResultGroupId[];
 // Slice 78: what needs you, then the first-use examples, then where you left off, then this screen.
 const COMMAND_CENTER_EMPTY_GROUP_ORDER = [
   "now",
@@ -709,7 +714,10 @@ export function presentCommandCenterResults<T extends CommandCenterPresentableRe
   for (const result of results) {
     addToGroup(result === topHit ? "top-hit" : groupOf(result), result);
   }
-  const presentedGroups = COMMAND_CENTER_SEARCH_GROUP_ORDER.flatMap((id) => {
+  const groupOrder = isQuestionShaped(options.query)
+    ? COMMAND_CENTER_QUESTION_GROUP_ORDER
+    : COMMAND_CENTER_SEARCH_GROUP_ORDER;
+  const presentedGroups = groupOrder.flatMap((id) => {
     const groupResults = groups.get(id);
     return groupResults ? [{ id, results: groupResults }] : [];
   });

@@ -265,9 +265,39 @@ function readMarkdownHeading(path: string, content: string, requestedHeading: st
   return null;
 }
 
-function queryTerms(query: string) {
+// UX-07: question words match nearly every page, so they never rank a guide on their own.
+const QUERY_STOP_WORDS = new Set([
+  "a",
+  "an",
+  "and",
+  "are",
+  "be",
+  "can",
+  "do",
+  "does",
+  "for",
+  "how",
+  "i",
+  "in",
+  "is",
+  "it",
+  "me",
+  "my",
+  "of",
+  "on",
+  "or",
+  "so",
+  "the",
+  "this",
+  "to",
+  "what",
+  "why",
+  "with",
+]);
+
+export function queryTerms(query: string) {
   return [...new Set(query.toLocaleLowerCase().match(/[\p{L}\p{N}][\p{L}\p{N}_-]*/gu) ?? [])].filter(
-    (term) => term.length > 1,
+    (term) => term.length > 1 && !QUERY_STOP_WORDS.has(term),
   );
 }
 

@@ -318,6 +318,32 @@ assert.deepEqual(
   ],
 );
 assert.equal(contextualPresentation.results[0]?.id, contextualPresentation.groups[0]?.results[0]?.id);
+
+// UX-07: a question puts Ask Mari above the docs group; a bare search keeps Ask Mari last.
+const questionPresentation = presentCommandCenterResults(
+  [
+    { id: "docs:lorebooks", category: "docs", group: "docs" },
+    { id: "ask-professor-mari", category: "professor", group: "professor-fallback" },
+  ],
+  { query: "why is my lorebook empty" },
+);
+assert.deepEqual(
+  questionPresentation.groups.map((group) => group.id),
+  ["professor-fallback", "docs"],
+  "a question presents Ask Mari above docs",
+);
+const bareSearchPresentation = presentCommandCenterResults(
+  [
+    { id: "docs:lorebooks", category: "docs", group: "docs" },
+    { id: "ask-professor-mari", category: "professor", group: "professor-fallback" },
+  ],
+  { query: "lorebook" },
+);
+assert.deepEqual(
+  bareSearchPresentation.groups.map((group) => group.id),
+  ["docs", "professor-fallback"],
+  "a bare search keeps the docs group above Ask Mari",
+);
 assert.equal(
   reconcileActiveResultId(
     null,
