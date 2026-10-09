@@ -49,6 +49,8 @@ export function useMariHold({ wrapperRef, onTap, hopOnTap = false }: MariHoldOpt
   const [figureStart, setFigureStart] = useState<{ left: number; top: number; height: number } | null>(null);
   const [line, setLine] = useState<string | null>(null);
   const [dizzy, setDizzy] = useState(false);
+  /** Reduced motion: where her line shows, since no figure carries it. */
+  const [bounceAt, setBounceAt] = useState<{ left: number; top: number } | null>(null);
   const motionRef = useRef<MariHoldMotion>("idle");
   const pressRef = useRef<MariPress | null>(null);
   const timersRef = useRef<number[]>([]);
@@ -123,9 +125,13 @@ export function useMariHold({ wrapperRef, onTap, hopOnTap = false }: MariHoldOpt
     if (optionsRef.current.reduced) {
       // Reduced motion: no follow, no figure. A small bounce in place and her line.
       setMotion("bounce");
+      setBounceAt(slotRect());
       setLine(optionsRef.current.t("home.assistant.dragPrompt"));
       later(BOUNCE_MS, () => setMotion("idle"));
-      later(LINE_MS * 2, () => setLine(null));
+      later(LINE_MS * 2, () => {
+        setLine(null);
+        setBounceAt(null);
+      });
       return;
     }
     setFigureStart(slotRect() ?? { left: press.startX, top: press.startY, height: 56 });
@@ -247,8 +253,9 @@ export function useMariHold({ wrapperRef, onTap, hopOnTap = false }: MariHoldOpt
   };
 
   const onClickCapture = (event: ReactMouseEvent<HTMLElement>) => {
-    // The click that ends a lift is not a tap on the door; swallow it.
-    if (!suppressClickRef.current) return;
+    // The click that ends a lift is not a tap on the door; swallow it. A keyboard click (detail 0)
+    // always passes: a release away from her slot never clicks it, so the flag can still be set.
+    if (!suppressClickRef.current || event.detail === 0) return;
     suppressClickRef.current = false;
     event.preventDefault();
     event.stopPropagation();
@@ -276,6 +283,7 @@ export function useMariHold({ wrapperRef, onTap, hopOnTap = false }: MariHoldOpt
     figureStart,
     line,
     dizzy,
+    bounceAt,
     pointerRef,
     settle,
     slotRect,

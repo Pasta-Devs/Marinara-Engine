@@ -136,8 +136,10 @@
   position: absolute;
   left: 50%;
   bottom: calc(100% + 6px);
-  transform: translateX(-50%);
-  white-space: nowrap;
+  /* Centred on her, but never past the viewport's edges (--mari-x is her centre). */
+  transform: translateX(clamp(calc(0.5rem - var(--mari-x, 50vw)), -50%, calc(100vw - 0.5rem - var(--mari-x, 50vw) - 100%)));
+  width: max-content;
+  max-width: calc(100vw - 1rem);
   padding: 0.25rem 0.5rem;
   border-radius: 0.5rem;
   border: 1px solid var(--border);

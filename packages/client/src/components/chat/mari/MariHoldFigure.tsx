@@ -2,7 +2,7 @@ import { useEffect, useRef, type RefObject } from "react";
 import { stepMariPendulum, stepMariSpring, type MariPendulum } from "../../../lib/mari-hold";
 
 /** Height of the held sheet's frame in CSS px; the figure scales from her slot to full size. */
-const FIGURE_HEIGHT = 160;
+export const FIGURE_HEIGHT = 160;
 
 interface MariHoldFigureProps {
   src: string;
@@ -85,6 +85,8 @@ export function MariHoldFigure({
       scale = stepMariSpring(scale, targetScale, 320, 0.6, dt);
       body = stepMariPendulum(body, driveX, dt);
       const stretch = 1 + Math.max(-0.08, Math.min(0.08, y.v * 0.0006));
+      // Her line stays on screen: the CSS clamps it against this centre.
+      figure.style.setProperty("--mari-x", `${x.x}px`);
       figure.style.transform = `translate3d(${x.x - width / 2}px, ${y.x}px, 0) rotate(${body.angle}rad) scale(${scale.x}, ${scale.x * stretch})`;
 
       const settled =

@@ -1,7 +1,7 @@
-import { useRef, type ReactNode } from "react";
+import { useRef, type CSSProperties, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useMariHold } from "../../../hooks/use-mari-hold";
-import { MariHoldFigure } from "./MariHoldFigure";
+import { FIGURE_HEIGHT, MariHoldFigure } from "./MariHoldFigure";
 import "./mari-hold.css";
 
 /**
@@ -49,6 +49,24 @@ export function MariHold({
               line={hold.line}
               onSettled={hold.settle}
             />,
+            document.body,
+          )
+        : null}
+      {hold.bounceAt && hold.line
+        ? createPortal(
+            // Reduced motion: she only bounces in her slot, so her line stands alone above it.
+            <div
+              className="mari-hold-figure"
+              style={
+                {
+                  "--mari-x": `${hold.bounceAt.left}px`,
+                  transform: `translate3d(${hold.bounceAt.left - FIGURE_HEIGHT / 3}px, ${hold.bounceAt.top}px, 0)`,
+                } as CSSProperties
+              }
+              aria-hidden="true"
+            >
+              <span className="mari-hold-figure__line">{hold.line}</span>
+            </div>,
             document.body,
           )
         : null}

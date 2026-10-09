@@ -70,3 +70,36 @@ test("a tap on the omnibar door opens Mari and never lifts her", async ({ page, 
   await door.click();
   await expect(page.locator(".mari-hold-figure")).toHaveCount(0);
 });
+
+test("with reduced motion a hold only bounces her in place and shows her line", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/");
+  const art = page.locator("[data-home-professor-art]");
+  await expect(art).toBeVisible({ timeout: 30_000 });
+  const box = (await art.boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width / 2 + 40, box.y + box.height / 2 - 30, { steps: 6 });
+  await expect(page.locator(".mari-hold-figure__line")).toHaveText("W-What are you doing? Put me down! (˶>⩊<˶)");
+  await expect(page.locator(".mari-hold-figure__sprite")).toHaveCount(0);
+  await page.mouse.up();
+  await expect(page.locator('[data-component="GlobalOmnibar.Mari"]')).toBeHidden();
+});
+
+test("after a drag that ends away from her head, Enter on the door still opens Mari", async ({ page, isMobile }) => {
+  test.skip(isMobile, "desktop address row opens the omnibar");
+  await page.goto("/");
+  await page.locator('[data-component="HomeBrowserHub.Address"]').click();
+  const door = page.locator('[data-component="GlobalOmnibar.ProfessorMariButton"]');
+  await expect(door).toBeVisible({ timeout: 30_000 });
+  const box = (await door.boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(120, 600, { steps: 10 });
+  await expect(page.locator(".mari-hold-figure")).toBeVisible();
+  await page.mouse.up();
+  await expect(page.locator(".mari-hold-figure")).toBeHidden({ timeout: 3_000 });
+  await door.focus();
+  await page.keyboard.press("Enter");
+  await expect(page.locator('[data-component="GlobalOmnibar.Mari"]')).toBeVisible();
+});
