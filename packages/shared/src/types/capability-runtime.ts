@@ -380,6 +380,7 @@ export interface CapabilityDecisionQuestion {
 
 export interface CapabilityDecisionRequest {
   /** Caller-provided context, oldest first. The oldest messages are dropped to fit the model. */
+  /** `name` is at most 100 characters. */
   messages: Array<{ role: "system" | "user" | "assistant"; name?: string; content: string }>;
   questions: CapabilityDecisionQuestion[];
   signal?: AbortSignal;
@@ -399,7 +400,8 @@ export interface CapabilityDecisionResult {
 export interface CapabilityDecisionHost {
   /**
    * Ask the user's configured Decision model. Resolves null when no Decision model is
-   * configured or it cannot be reached; throws only for an invalid request.
+   * configured, or it gave no answer at all (unreachable, timed out or cancelled);
+   * throws only for an invalid request.
    */
   evaluate(request: CapabilityDecisionRequest): Promise<CapabilityDecisionResult | null>;
 }

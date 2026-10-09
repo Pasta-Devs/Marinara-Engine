@@ -608,16 +608,15 @@ const result = await api.runtime.decisions?.evaluate({
     { id: "danger", question: "Someone is about to be attacked." },
     { id: "mood", question: "The mood of the scene is", options: ["calm", "tense", "festive"] },
   ],
-  signal,
-  debugMode,
+  // Optional: pass `signal` to cancel and `debugMode: true` to log the Decision prompt.
 });
-// null: no Decision model is configured, or it cannot be reached.
+// null: no Decision model is configured, or it gave no answer (unreachable, timed out or cancelled).
 if (result && (result.answers.danger ?? 0) >= result.threshold) {
   // ...
 }
 ```
 
-- `messages` is the package's own context, oldest first (at most 200 messages and 200,000 characters). The oldest messages are dropped to fit the model.
+- `messages` is the package's own context, oldest first (at most 200 messages and 200,000 characters; a message `name` is at most 100 characters). The oldest messages are dropped to fit the model.
 - Each `question` is at most 500 characters; ids must be unique. A Choice question has at least two `options`, and its answer is one of them or `"none of these"`.
 - One request may ask for at most the user's **Decision statements per turn** limit of answers; each Choice option counts once, plus one. An invalid request throws a `TypeError`.
 - `answers` holds the probability of yes per yes/no question, and a question missing from it was not answered. Compare it with `threshold`, the model's own operating point: probabilities are not comparable across Decision models.

@@ -20,6 +20,7 @@ import { createConnectionsStorage } from "../storage/connections.storage.js";
 
 const MAX_DECISION_MESSAGES = 200;
 const MAX_DECISION_CONTEXT_CHARACTERS = 200_000;
+const MAX_DECISION_NAME_CHARACTERS = 100;
 
 type ResolveBackend = (request: CapabilityDecisionRequest) => Promise<DecisionBackend | null>;
 
@@ -34,6 +35,12 @@ function readQuestions(request: CapabilityDecisionRequest, limit: number): NoulQ
   let characters = 0;
   for (const message of request.messages) {
     if (typeof message?.content !== "string") invalid("every message needs string content");
+    // A name survives state trimming whole, so it must stay small enough to always fit.
+    if (
+      message.name !== undefined &&
+      (typeof message.name !== "string" || message.name.length > MAX_DECISION_NAME_CHARACTERS)
+    )
+      invalid(`message names must be strings of at most ${MAX_DECISION_NAME_CHARACTERS} characters`);
     characters += message.content.length;
   }
   if (characters > MAX_DECISION_CONTEXT_CHARACTERS)
@@ -90,6 +97,8 @@ export function createCapabilityDecisionHost(db: DB, resolveBackend?: ResolveBac
       if (!backend) return null;
       const state = buildDecisionState(request.messages, request.messages.length, backend.maxStateTokens);
       const result = await backend.askMixed(state, questions);
+      // The backends fail open with empty maps; no answer at all means the model was not reached.
+      if (result.answers.size === 0 && result.choices.size === 0) return null;
       return {
         model: backend.model ?? null,
         answers: Object.fromEntries(result.answers),

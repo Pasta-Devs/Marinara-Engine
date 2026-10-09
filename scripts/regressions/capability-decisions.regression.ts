@@ -48,6 +48,16 @@ try {
     null,
   );
 
+  // A backend that answered nothing (unreachable, timed out) reads as null too.
+  const silent = { ...backend, askMixed: async () => ({ answers: new Map(), choices: new Map(), error: "timeout" }) };
+  assert.equal(
+    await createCapabilityDecisionHost(db, async () => silent).evaluate({
+      messages: [],
+      questions: [{ id: "a", question: "Yes?" }],
+    }),
+    null,
+  );
+
   // Trust boundary: bad requests are refused before any model is asked.
   const calls = asked.length;
   const bad = [
@@ -63,6 +73,7 @@ try {
     { messages: [], questions: [{ id: "a", question: "x".repeat(501) }] },
     { messages: [], questions: [{ id: "a", question: "x", options: ["only"] }] },
     { messages: [{ role: "user", content: 1 }], questions: [{ id: "a", question: "x" }] },
+    { messages: [{ role: "user", name: "n".repeat(101), content: "" }], questions: [{ id: "a", question: "x" }] },
     { messages: [], questions: Array.from({ length: 33 }, (_, i) => ({ id: `q${i}`, question: "x" })) },
   ];
   for (const request of bad) await assert.rejects(host.evaluate(request as never), TypeError);
