@@ -746,8 +746,14 @@ const professorMariWorkspaceSource = readFileSync(
   join(REPOSITORY_ROOT, "packages/server/src/services/professor-mari/workspace-agent.service.ts"),
   "utf8",
 );
+// The character-card field guidance below lives in the app_data tool description,
+// which moved to tool-registry.ts in the PR 1 registry refactor.
+const professorMariToolRegistrySource = readFileSync(
+  join(REPOSITORY_ROOT, "packages/server/src/services/professor-mari/tool-registry.ts"),
+  "utf8",
+);
 assert.match(
-  professorMariWorkspaceSource,
+  professorMariToolRegistrySource,
   /description is a brief identity overview[\s\S]{0,220}backstory is[^\n]+history[\s\S]{0,180}appearance is physical features/u,
   "Professor Mari's workspace prompt must teach smaller models the distinct character-card field meanings",
 );

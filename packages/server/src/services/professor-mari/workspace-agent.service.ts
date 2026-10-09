@@ -11,7 +11,6 @@ import type {
   ChatCompletionResult,
   ChatMessage,
   ChatOptions,
-  LLMToolDefinition,
   LLMUsage,
 } from "../llm/base-provider.js";
 import { parseTextualToolCalls } from "../llm/textual-tool-call-parser.js";
@@ -98,6 +97,14 @@ import {
 } from "../capability-packages/capability-mari-actions.service.js";
 import { createAppSettingsStorage } from "../storage/app-settings.storage.js";
 import { getProfessorMariWorkspaceSkillsService } from "./workspace-skills.service.js";
+import {
+  WORKSPACE_TOOL_NAMES,
+  WORKSPACE_TOOL_DEFINITIONS,
+  WORKSPACE_TEXTUAL_TOOL_DEFINITIONS,
+  getTool,
+  isAppDataRead,
+} from "./tool-registry.js";
+export { PROFESSOR_MARI_APP_DATA_ACTIONS } from "./tool-registry.js";
 import { sidecarModelService } from "../sidecar/sidecar-model.service.js";
 import {
   detectUnreviewedSensitiveChanges,
@@ -155,12 +162,6 @@ export type WorkspaceCommandResult = {
   success: boolean;
 };
 
-type WorkspaceToolDefinition = {
-  name: MariWorkspaceToolName;
-  description: string;
-  parameters: Record<string, unknown>;
-};
-
 type JsonPayloadMatch = {
   payload: Record<string, unknown>;
   raw: string;
@@ -181,23 +182,6 @@ type AssistantWorkspaceAction = {
   assistantHistoryContent: string;
 };
 
-const WORKSPACE_TOOLS: MariWorkspaceToolName[] = [
-  "docs_search",
-  "docs_read",
-  "read",
-  "grep",
-  "find",
-  "ls",
-  "edit",
-  "write",
-  "copy",
-  "move",
-  "remove",
-  "bash",
-  "dependency",
-  "app_data",
-  "package_service",
-];
 const RUNTIME_API_KEY = "local-marinara-runtime";
 // Security reviews (sensitive files, dependency installs) are workspace-wide gates. Database
 // reviews are per chat: see runSessionId().
@@ -238,349 +222,6 @@ const SKIPPED_DIRS = new Set([
 export function professorMariWorkspaceResponseFormat(provider: string): ChatOptions["responseFormat"] | undefined {
   return ["openrouter", "google", "google_vertex"].includes(provider) ? { type: "json_object" } : undefined;
 }
-
-export const PROFESSOR_MARI_APP_DATA_ACTIONS = [
-  "decision.get",
-  "decision.record",
-  "chat.list",
-  "chat.get",
-  "chat.messages",
-  "chat.search",
-  "character.list",
-  "character.get",
-  "character.search",
-  "character.create",
-  "character.update",
-  "character.folder.list",
-  "character.moveToFolder",
-  "persona.list",
-  "persona.get",
-  "persona.search",
-  "persona.create",
-  "persona.update",
-  "lorebook.list",
-  "lorebook.get",
-  "lorebook.entries",
-  "lorebook.getEntry",
-  "lorebook.search",
-  "lorebook.create",
-  "lorebook.update",
-  "lorebook.addEntry",
-  "lorebook.updateEntry",
-  "lorebook.deleteEntry",
-  "lorebook.folder.list",
-  "lorebook.folder.create",
-  "lorebook.libraryFolder.list",
-  "lorebook.libraryFolder.create",
-  "theme.list",
-  "theme.active",
-  "theme.get",
-  "theme.create",
-  "theme.update",
-  "theme.setActive",
-  "personal_extension.list",
-  "personal_extension.get",
-  "personal_extension.search",
-  "personal_extension.create",
-  "personal_extension.update",
-  "agent.list",
-  "agent.get",
-  "agent.search",
-  "agent.create",
-  "agent.update",
-  "preset.list",
-  "preset.get",
-  "preset.search",
-  "preset.create",
-  "preset.update",
-  "preset.sections",
-  "preset.getSection",
-  "preset.groups",
-  "preset.getGroup",
-  "preset.choiceBlocks",
-  "preset.getChoiceBlock",
-  "preset.addSection",
-  "preset.updateSection",
-  "preset.deleteSection",
-  "preset.addGroup",
-  "preset.updateGroup",
-  "preset.deleteGroup",
-  "preset.addChoiceBlock",
-  "preset.updateChoiceBlock",
-  "preset.deleteChoiceBlock",
-  "home_widget.list",
-  "home_widget.get",
-  "home_widget.create",
-  "home_widget.update",
-  "home_widget.delete",
-  "instruction.list",
-  "instruction.get",
-  "instruction.remember",
-  "instruction.update",
-  "instruction.forget",
-] as const;
-
-const WORKSPACE_TOOL_DEFINITIONS: WorkspaceToolDefinition[] = [
-  {
-    name: "docs_search",
-    description:
-      "Search Marinara's canonical local README and English documentation. Use this first for user-facing feature, configuration, installation, and troubleshooting questions. Results include the source path, heading, line, and a bounded excerpt.",
-    parameters: {
-      type: "object",
-      properties: {
-        query: { type: "string", minLength: 2, maxLength: 200 },
-        limit: { type: "integer", minimum: 1, maximum: 8 },
-      },
-      required: ["query"],
-    },
-  },
-  {
-    name: "docs_read",
-    description:
-      "Read a canonical local documentation file or one exact heading with bounded output. Paths must be README.md or English Markdown files under docs/. Cite the returned path and heading in the answer.",
-    parameters: {
-      type: "object",
-      properties: {
-        path: { type: "string" },
-        heading: { type: "string" },
-        maxChars: { type: "integer", minimum: 1000, maximum: 16000 },
-      },
-      required: ["path"],
-    },
-  },
-  {
-    name: "read",
-    description: "Read a text file from the workspace with optional 1-indexed line offset and line limit.",
-    parameters: {
-      type: "object",
-      properties: {
-        path: { type: "string" },
-        offset: { type: "integer", minimum: 1 },
-        limit: { type: "integer", minimum: 1 },
-      },
-      required: ["path"],
-    },
-  },
-  {
-    name: "grep",
-    description: "Search workspace text files for a regex or literal pattern.",
-    parameters: {
-      type: "object",
-      properties: {
-        pattern: { type: "string" },
-        path: { type: "string" },
-        glob: { type: "string" },
-        ignoreCase: { type: "boolean" },
-        literal: { type: "boolean" },
-        context: { type: "integer", minimum: 0 },
-        limit: { type: "integer", minimum: 1 },
-      },
-      required: ["pattern"],
-    },
-  },
-  {
-    name: "find",
-    description: "Find workspace files by glob-style pattern.",
-    parameters: {
-      type: "object",
-      properties: {
-        pattern: { type: "string" },
-        path: { type: "string" },
-        limit: { type: "integer", minimum: 1 },
-      },
-      required: ["pattern"],
-    },
-  },
-  {
-    name: "ls",
-    description: "List a workspace directory.",
-    parameters: {
-      type: "object",
-      properties: {
-        path: { type: "string" },
-        limit: { type: "integer", minimum: 1 },
-      },
-    },
-  },
-  {
-    name: "edit",
-    description: "Edit a single text file using exact, unique oldText/newText replacements.",
-    parameters: {
-      type: "object",
-      properties: {
-        path: { type: "string" },
-        reason: { type: "string" },
-        edits: {
-          type: "array",
-          items: {
-            type: "object",
-            properties: { oldText: { type: "string" }, newText: { type: "string" } },
-            required: ["oldText", "newText"],
-          },
-        },
-      },
-      required: ["path", "edits"],
-    },
-  },
-  {
-    name: "write",
-    description: "Create or overwrite a workspace text file. Parent directories are created automatically.",
-    parameters: {
-      type: "object",
-      properties: { path: { type: "string" }, content: { type: "string" }, reason: { type: "string" } },
-      required: ["path", "content"],
-    },
-  },
-  {
-    name: "copy",
-    description: "Copy one ordinary workspace file without overwriting an existing destination.",
-    parameters: {
-      type: "object",
-      properties: { source: { type: "string" }, destination: { type: "string" } },
-      required: ["source", "destination"],
-    },
-  },
-  {
-    name: "move",
-    description: "Move one ordinary workspace file without overwriting an existing destination.",
-    parameters: {
-      type: "object",
-      properties: { source: { type: "string" }, destination: { type: "string" } },
-      required: ["source", "destination"],
-    },
-  },
-  {
-    name: "remove",
-    description: "Delete one ordinary workspace file or one empty directory.",
-    parameters: {
-      type: "object",
-      properties: { path: { type: "string" } },
-      required: ["path"],
-    },
-  },
-  {
-    name: "bash",
-    description:
-      "Run a simple shell command in an OS sandbox with network access denied and filesystem writes confined to the workspace. Prefer structured tools.",
-    parameters: {
-      type: "object",
-      properties: { command: { type: "string" }, timeout: { type: "integer", minimum: 1, maximum: 300 } },
-      required: ["command"],
-    },
-  },
-  {
-    name: "dependency",
-    description:
-      "Request an exact public npm dependency for Marinara. Nothing is installed until the user approves the resolved version and integrity.",
-    parameters: {
-      type: "object",
-      properties: {
-        packageName: { type: "string" },
-        version: { type: "string", description: "Exact semver, or latest to resolve an exact version." },
-        target: { type: "string", enum: ["root", "client", "server", "shared"] },
-        dev: { type: "boolean" },
-        reason: { type: "string" },
-      },
-      required: ["packageName", "target"],
-    },
-  },
-  {
-    name: "app_data",
-    description:
-      'Read or change live app data through structured actions, without shell commands. Use this for chats, characters, character folders, personas, lorebooks, lorebook entries, entry folders inside a lorebook, Lorebooks-panel library folders, themes, Personal Extension drafts, agents, prompt presets, and safe data-only Home widgets. lorebook.entries returns entry summaries; call lorebook.getEntry with entryId to read one complete entry body. Single-item reads (e.g. character.get) are size-bounded: oversized fields come back elided with a note naming each one — re-read any elided field in full by passing field="<path>" (e.g. field="data.alternate_greetings[0]"), optionally with offset to page through a long value.',
-    parameters: {
-      type: "object",
-      properties: {
-        action: {
-          type: "string",
-          enum: PROFESSOR_MARI_APP_DATA_ACTIONS,
-        },
-        id: { type: "string" },
-        chatId: { type: "string" },
-        characterId: { type: "string" },
-        folderId: { type: "string" },
-        folderName: { type: "string" },
-        parentFolderId: { type: "string" },
-        personaId: { type: "string" },
-        lorebookId: { type: "string" },
-        entryId: { type: "string" },
-        agentId: { type: "string" },
-        presetId: { type: "string" },
-        widgetId: { type: "string" },
-        extensionId: { type: "string" },
-        query: { type: "string" },
-        limit: { type: "integer", minimum: 1 },
-        last: { type: "integer", minimum: 1, maximum: 200 },
-        afterPost: { type: "integer", minimum: 0 },
-        tail: { type: "boolean" },
-        field: {
-          type: "string",
-          description:
-            'Dotted/indexed path of a single field to read in full from a get result, e.g. "data.alternate_greetings[0]". Use the paths named in an elision note.',
-        },
-        offset: {
-          type: "integer",
-          minimum: 0,
-          description: "Start item offset for chat.messages, or character offset when paging through a field= read.",
-        },
-        name: { type: "string" },
-        version: { type: "string" },
-        description: { type: "string" },
-        runtime: { type: "string", enum: ["client", "server"] },
-        capabilities: {
-          type: "array",
-          items: { type: "string", enum: ["read_active_characters", "read_active_persona"] },
-          description:
-            "Optional Browser Extension data permissions. Request only what the extension needs. Server Extensions cannot request these capabilities.",
-        },
-        css: { type: "string" },
-        js: { type: "string" },
-        serverJs: { type: "string" },
-        activate: { type: "boolean" },
-        apply: {
-          type: "boolean",
-          description:
-            "Set true for a requested change so it is saved or staged for review. False is an invisible preview: it saves nothing and creates no review card. Updates and deletes preview unless explicitly true.",
-        },
-        reason: { type: "string" },
-        data: {
-          type: "object",
-          description:
-            "Entity fields. For character/persona cards: description is a brief identity overview, personality is behavioral traits and mannerisms, backstory is the character's substantive history, and appearance is physical features/clothing. Keep those fields distinct. character.create accepts name, description, personality, scenario, firstMes/firstMessage, mesExample, creatorNotes, backstory, appearance, aboutMe, systemPrompt, postHistoryInstructions, tags, alternateGreetings, creator, and characterVersion. persona.create accepts aboutMe too. lorebook.create accepts name, description, category, tags, book tuning (scanDepth, tokenBudget, entryLimit, recursive, maxRecursionDepth), and an entries array whose items contain name, content, description, keys, secondaryKeys, tag, constant, selective, selectiveLogic, matchWholeWords, caseSensitive, useRegex, position, depth, order, role, group, decisionStatement (plain statement), decisionMode (off/require/trigger), sticky, and cooldown. agent.create/update accepts promptTemplate and a settings object with activationQuestion (plain statement, max 500 chars; empty clears), activationThreshold (0.05–0.95), activationScanDepth, activationMaxSkip (1–100), runInterval (positive integer), activationKeywords; all these activation fields belong inside settings. decision.record accepts data.category (authoring/setupReminder/cachePlacement), answer (pending/allow/decline/suppress), source (user/memory/skill), sourceId (for Memory/Skill), quote (exact source body text), scope (turn/chat; default turn, setupReminder always chat). suppress is only for setupReminder. See the lorebook authoring guidance for what each entry field does. home_widget.create accepts title, description, accent (cyan, orange, pink, or violet), and icon (sparkles, note, heart, star, book, or compass).",
-        },
-        patch: {
-          type: "object",
-          description:
-            "Partial update fields only. Omitted fields remain unchanged. For character/persona cards, never put requested backstory or appearance content into description: description is the brief identity overview, personality is behavioral traits and mannerisms, backstory is history, and appearance is physical features/clothing.",
-        },
-      },
-      required: ["action"],
-    },
-  },
-  {
-    name: "package_service",
-    description:
-      "List or run actions that installed Agent packages offer to Professor Mari. Call with no arguments to list every package's actions and their inputs, or with only package to list one package's actions. Add action and input to run one: the package validates input and may spend AI budget or change its data. Only run an action when the user asked for that change.",
-    parameters: {
-      type: "object",
-      properties: {
-        package: { type: "string", description: "Package id from the list." },
-        action: { type: "string", description: "Action name from the list. Omit to list." },
-        input: { type: "object", description: "The action's inputs as named in the list." },
-        reason: { type: "string" },
-      },
-    },
-  },
-];
-
-const WORKSPACE_TEXTUAL_TOOL_DEFINITIONS: LLMToolDefinition[] = WORKSPACE_TOOL_DEFINITIONS.map((tool) => ({
-  type: "function",
-  function: {
-    name: tool.name,
-    description: tool.description,
-    parameters: tool.parameters,
-  },
-}));
 
 function getPathEnvKey(env: NodeJS.ProcessEnv) {
   return Object.keys(env).find((key) => key.toLowerCase() === "path") ?? "PATH";
@@ -1161,7 +802,7 @@ function parseToolArgumentsValue(value: unknown): Record<string, unknown> {
 }
 
 function isWorkspaceToolName(value: string): value is MariWorkspaceToolName {
-  return (WORKSPACE_TOOLS as string[]).includes(value);
+  return (WORKSPACE_TOOL_NAMES as string[]).includes(value);
 }
 
 function newToolCallId(name: string, index: number) {
@@ -1698,19 +1339,12 @@ function isWithin(parent: string, child: string): boolean {
 }
 
 function isReadOnlyWorkspaceCommand(command: WorkspaceCommandCall): boolean {
-  if (
-    command.name === "docs_search" ||
-    command.name === "docs_read" ||
-    command.name === "read" ||
-    command.name === "grep" ||
-    command.name === "find" ||
-    command.name === "ls"
-  ) {
-    return true;
-  }
+  const tool = getTool(command.name);
+  if (!tool) return false;
+  if (tool.kind === "read") return true;
   if (command.name === "package_service") return !isPackageServiceRun(command);
   if (command.name !== "app_data") return false;
-  return appDataActionLooksReadOnly(command.arguments.action);
+  return isAppDataRead(command.arguments.action);
 }
 
 /** A package_service call with an action runs it; without one it only lists. */
@@ -1730,17 +1364,6 @@ function packageServiceInput(args: Record<string, unknown>): Record<string, unkn
     }
   }
   return isRecord(input) ? input : null;
-}
-
-function appDataActionLooksReadOnly(action: unknown): boolean {
-  if (typeof action !== "string") return false;
-  const normalized = action
-    .trim()
-    .toLowerCase()
-    .replace(/[-_\s]+/g, "");
-  return /\.(list|get|getentry|search|active|entries|messages|sections|getsection|groups|getgroup|choiceblocks|getchoiceblock)$/.test(
-    normalized,
-  );
 }
 
 // #5748: the STRICT ask detector that arms the run-scoped ask latch. It is
@@ -1826,25 +1449,27 @@ function isPreviewOnlyAppDataCommand(command: WorkspaceCommandCall): boolean {
 }
 
 export function isMutatingWorkspaceCommand(command: WorkspaceCommandCall): boolean {
-  if (
-    command.name === "edit" ||
-    command.name === "write" ||
-    command.name === "copy" ||
-    command.name === "move" ||
-    command.name === "remove" ||
-    command.name === "dependency"
-  )
-    return true;
+  const tool = getTool(command.name);
+  if (!tool) return false;
   // The Engine cannot preview or undo a package action, so every run counts as a change.
   if (command.name === "package_service") return isPackageServiceRun(command);
-  if (command.name === "app_data") {
-    // Conversation bookkeeping does not edit authored content or bypass Permissions Mode.
-    if (command.arguments.action === "decision.record") return false;
-    return !isReadOnlyWorkspaceCommand(command) && !isPreviewOnlyAppDataCommand(command);
+  switch (tool.kind) {
+    case "mutate":
+      return true;
+    case "data": {
+      // Conversation bookkeeping does not edit authored content or bypass Permissions Mode.
+      if (command.arguments.action === "decision.record") return false;
+      return !isAppDataRead(command.arguments.action) && !isPreviewOnlyAppDataCommand(command);
+    }
+    case "shell": {
+      const rawCommand = command.arguments.command;
+      return typeof rawCommand === "string" && bashLooksMutating(rawCommand);
+    }
+    case "meta":
+      return command.name === "dependency";
+    default:
+      return false;
   }
-  if (command.name !== "bash") return false;
-  const rawCommand = command.arguments.command;
-  return typeof rawCommand === "string" && bashLooksMutating(rawCommand);
 }
 
 /**
@@ -2579,7 +2204,7 @@ export class ProfessorMariWorkspaceService {
       piAvailable: false,
       workspace: this.workspaceRoot,
       dataDir: DATA_DIR,
-      tools: WORKSPACE_TOOLS,
+      tools: WORKSPACE_TOOL_NAMES,
       shellSandbox: getWorkspaceShellSandboxStatus(),
       dbAccess: "server-managed",
       connection: connectionSummary(connection),
