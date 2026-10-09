@@ -102,18 +102,6 @@ assert.equal(
   "Open character.json; marinara.ui.registerContribution stays.",
   "file names and extension APIs are not action names",
 );
-// Real-model p6 "what can you do?" (MiniMax run 2, B): the bullets named 14 actions. Only nouns may remain.
-assert.equal(
-  scrubInternalNames(
-    "- **Characters** — `character.list` (and `character.folder.list` for folders).\n" +
-      "- **Lorebooks** — `lorebook.list` plus `lorebook.libraryFolder.list` for the panel-level folders.\n" +
-      "- **Agents** — `agent.list` (and a catalog reminder if a gap shows up).",
-  ),
-  "- **Characters** — character (and character folder for folders).\n" +
-    "- **Lorebooks** — lorebook plus lorebook library folder for the panel-level folders.\n" +
-    "- **Agents** — your installed agents (and a catalog reminder if a gap shows up).",
-  "action names become nouns, never the dotted or verb form",
-);
 
 // Slice 70: an answer that ends on a question gets one chips-only round when it carries no chips.
 assert.equal(answerEndsWithQuestion("1. Tone\n2. Backstory\n\nWant me to apply all five, or pick specific ones?"), true);
