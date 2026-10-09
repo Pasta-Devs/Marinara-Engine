@@ -39,6 +39,7 @@ const PINCH: SpringSpec = [85, 19]; // at the threshold the sheet thins and lets
 const PINCH_FAST: SpringSpec = [260, 32]; // ... on a release before it let go
 const SNAP: SpringSpec = [80, 18]; // below the threshold everything slurps back up
 const REM: SpringSpec = [110, 19]; // the freed sheet draws back into the bar
+const RECOIL: SpringSpec = [150, 9]; // ... with one faint wobble, like surface tension
 const TAIL: SpringSpec = [150, 17]; // the circle pulls in its tail
 const OPEN: SpringSpec = [210, 21]; // the circle pops open into the view
 const DOCK: SpringSpec = [200, 27]; // the magnifier settles into the search field
@@ -56,7 +57,7 @@ const ARM_DIP = 140;
 const RUBBER = 0.55;
 /** Her head leans this many degrees at most, against the drag. */
 const TILT_MAX = 5;
-/** The pop starts this long after the release, when the dialog has had a moment to mount. */
+/** The pop starts at the circle's flex peak, at the latest this long after the release (the dialog mounts meanwhile). */
 const POP_DELAY_MS = 130;
 /** If the dialog never mounts, the overlay still leaves. */
 const HANDOFF_TIMEOUT_MS = 1500;
@@ -459,7 +460,7 @@ export function usePullToOpenOmnibar({
     g.remB = g.geom.base;
     // Surface tension: the sheet lets go and draws back into the bar; the circle pulls in a short tail.
     mv.rem.set(g.geom.waistY);
-    go(mv.rem, 0, REM, 0);
+    go(mv.rem, 0, g.calm ? REM : RECOIL, 0);
     mv.tail.set(Math.min(22, Math.max(0, g.geom.cy - g.geom.radius - g.geom.waistY) * 0.6));
     go(mv.tail, 0, TAIL, 0);
     mv.pinch.set(1);
@@ -589,10 +590,23 @@ export function usePullToOpenOmnibar({
         }
         Promise.all([opening, wait(420)]).then(finish);
       };
-      window.setTimeout(() => {
+      const reveal = () => {
         delayed = true;
         popOpen();
-      }, POP_DELAY_MS);
+      };
+      if (g.calm) window.setTimeout(reveal, POP_DELAY_MS);
+      else {
+        // The view opens as the flex peaks, so the release and the reveal read as one motion.
+        const started = performance.now();
+        let top = 0;
+        const peak = () => {
+          const pop = mv.pop.get();
+          if ((pop > 0 && pop < top) || performance.now() - started >= POP_DELAY_MS) return reveal();
+          top = Math.max(top, pop);
+          requestAnimationFrame(peak);
+        };
+        requestAnimationFrame(peak);
+      }
       if (pullBlocked()) {
         mounted = true;
         finish();
