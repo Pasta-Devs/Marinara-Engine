@@ -15,6 +15,8 @@ const requireServer = createRequire(new URL("../../packages/server/package.json"
 const Fastify = requireServer("fastify") as typeof import("fastify").default;
 const { getDB, closeDB } = await import("../../packages/server/src/db/connection.js");
 const { generateRoutes } = await import("../../packages/server/src/routes/generate.routes.js");
+const { playerTurnAwaitsExpression } =
+  await import("../../packages/server/src/routes/generate/expression-agent-utils.js");
 const { createChatsStorage } = await import("../../packages/server/src/services/storage/chats.storage.js");
 const { createCharactersStorage } = await import("../../packages/server/src/services/storage/characters.storage.js");
 const { createAgentsStorage } = await import("../../packages/server/src/services/storage/agents.storage.js");
@@ -237,6 +239,87 @@ try {
       assert.deepEqual(JSON.parse(user.extra).spriteExpressions, { [persona.id]: "happy" });
     }
   }
+  // Replies with no new message from the player leave the persona to the Expression Engine: a persona the model
+  // leaves out stays hidden under "Only show active sprites", although an older message of theirs is still in the
+  // recent context. The same holds when the Expression Engine is retried on such a reply.
+  expressionOutput = expressionOutput.filter((entry) => entry.characterId !== persona.id);
+  for (let reply = 0; reply < 2; reply++) {
+    const response = await app.inject({ method: "POST", url: "/api/generate/", payload: { chatId: chat.id } });
+    assert.equal(response.statusCode, 200, response.body);
+    assert(!response.body.includes('"type":"error"'), response.body);
+    const latest = (await chats.listMessages(chat.id)).at(-1)!;
+    assert.equal(latest.role, "assistant");
+    // The first reply still answers the message impersonation wrote for the player; the next one does not.
+    assert.equal(
+      JSON.parse(latest.extra).expressionSpriteIds.includes(persona.id),
+      reply === 0,
+      reply === 0
+        ? "the reply to the player's message keeps the persona"
+        : "a persona who did not write this turn is not added back",
+    );
+  }
+  const quiet = (await chats.listMessages(chat.id)).at(-1)!;
+  const quietRetry = await app.inject({
+    method: "POST",
+    url: "/api/generate/retry-agents",
+    payload: { chatId: chat.id, agentTypes: ["expression"], forMessageId: quiet.id },
+  });
+  assert.equal(quietRetry.statusCode, 200, quietRetry.body);
+  assert(!quietRetry.body.includes('"type":"error"'), quietRetry.body);
+  assert(
+    !JSON.parse((await chats.getMessage(quiet.id))!.extra).expressionSpriteIds.includes(persona.id),
+    "retrying the Expression Engine on such a reply does not add the persona either",
+  );
+  // A retry still finds the player's message when the agents read only one message of context.
+  const agentsStore = createAgentsStorage(db);
+  const expressionAgent = (await agentsStore.list()).find((agent) => agent.type === "expression")!;
+  // Selected sprites leave the persona out, so only the player's turn can offer it to the retry.
+  await agentsStore.update(expressionAgent.id, { settings: { contextSize: 1 } });
+  await chats.patchMetadata(chat.id, { spriteCharacterIds: [alice.id, bob.id] });
+  const answeredTurn = await app.inject({
+    method: "POST",
+    url: "/api/generate/",
+    payload: { chatId: chat.id, userMessage: "I wave from the doorway." },
+  });
+  assert.equal(answeredTurn.statusCode, 200, answeredTurn.body);
+  const answeredReply = (await chats.listMessages(chat.id)).at(-1)!;
+  const answeredRetry = await app.inject({
+    method: "POST",
+    url: "/api/generate/retry-agents",
+    payload: { chatId: chat.id, agentTypes: ["expression"], forMessageId: answeredReply.id },
+  });
+  assert.equal(answeredRetry.statusCode, 200, answeredRetry.body);
+  assert(!answeredRetry.body.includes('"type":"error"'), answeredRetry.body);
+  assert(
+    JSON.parse((await chats.getMessage(answeredReply.id))!.extra).expressionSpriteIds.includes(persona.id),
+    "a retried reply to the player's message keeps the persona, even with one message of agent context",
+  );
+  // A swipe of a reply to the player's message is still that turn, so the persona stays.
+  const swiped = await app.inject({
+    method: "POST",
+    url: "/api/generate/",
+    payload: { chatId: chat.id, regenerateMessageId: answeredReply.id },
+  });
+  assert.equal(swiped.statusCode, 200, swiped.body);
+  assert(!swiped.body.includes('"type":"error"'), swiped.body);
+  const swipedReply = (await chats.getMessage(answeredReply.id))!;
+  assert(
+    JSON.parse(swipedReply.extra).expressionSpriteIds.includes(persona.id),
+    "a swipe of a reply to the player's message keeps the persona",
+  );
+  await agentsStore.update(expressionAgent.id, { settings: {} });
+  await chats.patchMetadata(chat.id, { spriteCharacterIds: [] });
+  // The player's turn lasts until a reply after it has its own Expression Engine result (#7378).
+  const shown = JSON.stringify({ expressionSpriteIds: [alice.id] });
+  const player = { role: "user", content: "I wave." };
+  assert(playerTurnAwaitsExpression([player], 1), "the reply to the player's message");
+  assert(playerTurnAwaitsExpression([player, { role: "assistant", extra: "{}" }], 2), "a whole group turn");
+  assert(
+    !playerTurnAwaitsExpression([player, { role: "assistant", extra: shown }], 2),
+    "a later reply, after one that had its own expressions",
+  );
+  assert(playerTurnAwaitsExpression([player, { role: "assistant", extra: shown }], 1), "a swipe of that first reply");
+  assert(!playerTurnAwaitsExpression([{ role: "assistant", extra: "{}" }], 1), "no message from the player");
   for (const mode of ["conversation", "game"] as const) {
     await chats.update(chat.id, { mode, characterIds: [alice.id, bob.id] });
     const before = spritePrompts.length;
