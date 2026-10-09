@@ -5,7 +5,7 @@
 // One component for every surface (the Tracker window, the Tracker Panel and
 // Chat Settings). It needs only the chat id; the host draws the frame around it.
 // ──────────────────────────────────────────────
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import type { Message } from "@marinara-engine/shared";
 import { useAgentConfigs, useCustomAgentRuns } from "../../hooks/use-agents";
 import { useAdvancedMemoryStatus } from "../../hooks/use-advanced-memory";
@@ -15,7 +15,7 @@ import {
   useChatAgentRuns,
   useClearTrackers,
 } from "../../hooks/use-agent-activity";
-import { useAgentStore } from "../../stores/agent.store";
+import { selectUnseenAgentFailureCount, useAgentStore } from "../../stores/agent.store";
 import { useUIStore } from "../../stores/ui.store";
 import { cn } from "../../lib/utils";
 import { RoleplayHUDActionsMenu } from "../chat/RoleplayHUDActionsMenu";
@@ -51,9 +51,22 @@ export function AgentActivitySection({
   const clearTrackers = useClearTrackers(chatId);
   const memoryActive = advancedMemoryStatus?.settings.enabled && advancedMemoryStatus.job.id;
   const stopAgents = useMemo(() => () => stopChatAgents(chatId), [chatId]);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const unseenFailures = useAgentStore((s) => selectUnseenAgentFailureCount(s, chatId) > 0);
+
+  // Failures count as seen once this section is on screen, which clears the icon's dot (#7322).
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!unseenFailures || !root) return;
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) useAgentStore.getState().markFailedAgentsSeen(chatId);
+    });
+    observer.observe(root);
+    return () => observer.disconnect();
+  }, [chatId, unseenFailures]);
 
   return (
-    <div data-component="AgentActivitySection" className={cn("min-w-0", className)}>
+    <div ref={rootRef} data-component="AgentActivitySection" className={cn("min-w-0", className)}>
       <RoleplayHUDActionsMenu
         trackerPanel={trackerPanel}
         chatId={chatId}

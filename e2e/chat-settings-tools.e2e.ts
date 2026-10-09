@@ -5,6 +5,7 @@ import { readFileSync } from "node:fs";
 import { seedUIState } from "./ui-state-fixture.js";
 import {
   chatSettingsDrawer,
+  drawerToggle,
   openChatSettings,
   openChatSettingsTool,
   type ChatSettingsTool,
@@ -212,5 +213,85 @@ test("chat tools live in Chat Settings in every mode and their top buttons are g
     }
   } finally {
     await Promise.all(chats.map((chat) => request.delete(`/api/chats/${chat.id}?force=true`)));
+  }
+});
+
+// #7322: the Agent activity icon turns into a spinner while agents work, and a steady dot shows after one
+// fails until Agent activity is opened. The failures stay there for Retry.
+test("the Agent activity icon shows running and failed agents until it is opened", async ({ page, request }) => {
+  const chat = await createChat(request, "roleplay");
+  try {
+    await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "" } }));
+    await seedUIState(page, {
+      hasCompletedOnboarding: true,
+      sidebarOpen: false,
+      rightPanelOpen: false,
+      chatHelpSeenModes: ["roleplay"],
+    });
+    await page.addInitScript(
+      ({ chatId, version }) => {
+        localStorage.setItem("marinara:whats-new:seen-version", version);
+        localStorage.setItem("marinara-active-chat-id", chatId);
+      },
+      { chatId: chat.id, version: APP_VERSION },
+    );
+    await page.goto("/");
+    await expect(page.locator('[data-chat-mode="roleplay"]')).toBeVisible();
+    await openChatSettings(page);
+    const toggle = drawerToggle(chatSettingsDrawer(page, "agent-activity"));
+    await toggle.scrollIntoViewIfNeeded();
+    await expect(toggle).toHaveAttribute("aria-expanded", "false");
+    const icon = toggle.locator(".mari-agent-activity-icon");
+    const dot = icon.locator(".mari-agent-activity-icon__dot");
+    await expect(icon).toBeVisible();
+    await expect(icon).not.toHaveAttribute("data-running");
+    await expect(dot).toHaveCount(0);
+
+    const agents = (action: "run" | "stop" | "fail") =>
+      page.evaluate(
+        async ({ chatId, action }) => {
+          const module = (await import("/src/stores/agent.store.ts" as string)) as PageAgentStoreModule;
+          const store = module.useAgentStore.getState();
+          if (action === "fail") {
+            store.setFailedAgentFailures(
+              [
+                {
+                  agentType: "world-state",
+                  agentName: "World State",
+                  error: "Provider call failed",
+                  reasonLabel: null,
+                  retryTarget: null,
+                },
+              ],
+              chatId,
+            );
+          } else store.setProcessing(action === "run", chatId);
+        },
+        { chatId: chat.id, action },
+      );
+
+    await agents("run");
+    await expect(icon).toHaveAttribute("data-running", "true");
+    await expect(toggle).toHaveAccessibleName(/Agents are running/u);
+    await agents("fail");
+    await agents("stop");
+    await expect(icon).not.toHaveAttribute("data-running");
+    await expect(dot).toBeVisible();
+    await expect(toggle).toHaveAccessibleName(/1 agent failed/u);
+    // The theme's accent held steady, so Accent Pulse never makes it flash.
+    await expect(dot).toHaveCSS("animation-name", "none");
+
+    await toggle.click();
+    await expect(dot).toHaveCount(0);
+    await expect(icon).not.toHaveAttribute("data-failed");
+    const body = chatSettingsDrawer(page, "agent-activity").locator(":scope > .mari-drawer__body");
+    await expect(body.getByRole("button", { name: /Retry Failed Agents/u })).toBeVisible();
+
+    // A later failure shows the dot again while Agent activity is closed.
+    await toggle.click();
+    await agents("fail");
+    await expect(dot).toBeVisible();
+  } finally {
+    await request.delete(`/api/chats/${chat.id}?force=true`);
   }
 });

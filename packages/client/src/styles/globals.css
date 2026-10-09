@@ -933,6 +933,12 @@
     font-size: inherit !important;
   }
 
+  /* Agent activity's status wraps the drawer's own icon, which grows the same way. */
+  :root[data-chat-widget-button-size] .mari-window-bubble__icon > .mari-agent-activity-icon > svg {
+    width: 100% !important;
+    height: 100% !important;
+  }
+
   /* Phones draw bubbles like their toolbar buttons, in pixels so their default row lines up. */
   .mari-window-bubble[data-presentation="sheet"] {
     width: var(--mari-window-bubble-size, 36px);

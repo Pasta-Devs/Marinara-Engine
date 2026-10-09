@@ -45,6 +45,8 @@
   "agents.activation.thresholdHelp": "Lower thresholds run the agent more often.",
   "agents.activation.thresholdRecommended": "Use {{value}}, roughly where the selected decision model answers yes",
   "agents.activity.dismissOutput": "Dismiss output from {{agent}}",
+  "agents.activity.failed_one": "{{count}} agent failed",
+  "agents.activity.failed_other": "{{count}} agents failed",
   "agents.activity.latestSavedOutput": "Latest saved output",
   "agents.activity.title": "Agent activity",
   "agents.batching.alwaysAlone": "This agent always runs on its own.",

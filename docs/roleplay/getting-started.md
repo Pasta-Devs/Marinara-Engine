@@ -89,6 +89,8 @@ Author's Notes also works the same way in Game Mode and Conversation Mode. This 
 
 Its **Activity** tab lists agent outputs, called thought bubbles. You can dismiss each one or use **Clear all**. Custom agent outputs also appear here.
 
+While agents work, the **Agent activity** icon turns into a spinner. When an agent fails, a dot appears on the icon until you open **Agent activity**.
+
 If an agent failed on the last turn, a failed list appears with a retry button. You can also stop running agents, re-run all tracker agents, and use **Clear Trackers** from here. For a plain-language tour of the whole agent system, see [Agents: AI Helpers for Your Chats](../agents/agents-overview.md).
 
 An **Injections** tab appears only when **Debug mode** is on. Turn it on in **Settings**, under **Advanced**. This tab shows the prompt snippets that writer-style agents saved before the last reply. Writer-style agents include **Prose Guardian**, which rewrites replies to match your style rules, and the **Narrative Director**, which steers the plot.

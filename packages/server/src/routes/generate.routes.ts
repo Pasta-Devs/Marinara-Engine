@@ -10766,7 +10766,10 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             if (charInstruction) {
               messagesWithInstruction.push({ role: "system", content: charInstruction });
             }
-            if (routeCharacterMentions && groupTurnPromptEnabled) {
+            // @Name handoffs are a Conversation convention. Roleplay's turn
+            // instruction is only the reminder above, so replies don't end in
+            // @-pings (#7319); a mention a reply writes anyway still routes below.
+            if (routeCharacterMentions && groupTurnPromptEnabled && chatMode === "conversation") {
               messagesWithInstruction.push({
                 role: "system",
                 contextKind: "injection",

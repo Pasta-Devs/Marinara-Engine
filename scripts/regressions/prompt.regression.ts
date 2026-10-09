@@ -4738,6 +4738,54 @@ const cases: RegressionCase[] = [
     },
   },
   {
+    name: "Auto style guidance never reaches the final image prompt as text (#7318)",
+    async run() {
+      const styleProfiles = createDefaultImageStyleProfileSettings();
+      const autoInstruction = /Infer a consistent visual style/iu;
+      const prompt = "1girl, solo, silver hair, red eyes, black coat, rain, night city street";
+      for (const kind of ["avatar", "illustration", "background", "selfie"] as const) {
+        const compiled = compileImagePrompt({ kind, prompt, styleProfiles, styleProfileId: "auto" });
+        assert.doesNotMatch(compiled.prompt, autoInstruction, `${kind}: ${compiled.prompt}`);
+        assert.match(compiled.prompt, /silver hair/u, `${kind} kept the source prompt: ${compiled.prompt}`);
+      }
+
+      const background = await buildBackgroundProviderPrompt({
+        chatId: "auto-style-background",
+        locationSlug: "rainy-street",
+        sceneDescription: "Rain-soaked neon street at night",
+        imgModel: "unused",
+        imgBaseUrl: "",
+        imgApiKey: "",
+        styleProfiles,
+        styleProfileId: "auto",
+      });
+      assert.doesNotMatch(background.prompt, autoInstruction, background.prompt);
+
+      // A real style profile's Style text is still applied when no prompt writer handled it.
+      const anime = compileImagePrompt({ kind: "illustration", prompt, styleProfiles, styleProfileId: "anime" });
+      assert.match(anime.prompt, /Anime illustration with clean character design/u, anime.prompt);
+
+      // Style text the user wrote into a clone of Auto (Clone keeps the auto base style) still applies.
+      const autoProfile = styleProfiles.profiles.find((profile) => profile.id === "auto")!;
+      const autoClone = {
+        ...autoProfile,
+        id: "auto-custom",
+        builtIn: false,
+        styleText: "watercolor, soft pastel palette",
+      };
+      const cloneProfiles = { ...styleProfiles, profiles: [...styleProfiles.profiles, autoClone] };
+      for (const kind of ["avatar", "illustration"] as const) {
+        const custom = compileImagePrompt({
+          kind,
+          prompt,
+          styleProfiles: cloneProfiles,
+          styleProfileId: "auto-custom",
+        });
+        assert.match(custom.prompt, /watercolor, soft pastel palette/u, `${kind}: ${custom.prompt}`);
+      }
+    },
+  },
+  {
     name: "avatar portrait and sprite prompts honor a profile's natural-language grammar",
     run() {
       const styleProfiles = createDefaultImageStyleProfileSettings();

@@ -1,4 +1,4 @@
-import { findImageStyleProfile } from "../constants/image-style-profiles.js";
+import { DEFAULT_IMAGE_STYLE_PROFILES, findImageStyleProfile } from "../constants/image-style-profiles.js";
 import type { ImageGenerationDefaultsProfile } from "../types/image-generation-defaults.js";
 import type { ImagePromptKind, ImageStyleProfile, ImageStyleProfileSettings } from "../types/image-style-profile.js";
 
@@ -65,6 +65,13 @@ export function formatImageStylePromptGuidance(styleText: string): string {
   return `\n\nVisual style guidance: compose the image prompt so it naturally reflects this style: ${trimmed}. Weave the style into the description; do not copy this guidance verbatim into your output.`;
 }
 
+/**
+ * The built-in Auto profile's Style text asks a prompt writer to infer a style; it is never
+ * image-model prompt text. Style text a user writes into Auto, or a clone of it, still applies.
+ */
+const AUTO_STYLE_INSTRUCTION =
+  DEFAULT_IMAGE_STYLE_PROFILES.find((profile) => profile.id === "auto")?.styleText.trim() ?? "";
+
 export function compileImagePrompt(input: CompileImagePromptInput): CompiledImagePrompt {
   const initial = compileImagePromptPass(input, false, false);
   const generatedStyle = input.generatedStyle?.trim() ?? "";
@@ -117,13 +124,12 @@ function compileImagePromptPass(
     ? ""
     : reconcileProfileSubjectTags(profile.subjectTags[input.kind] ?? "", sourceCues);
   const profileStyleText =
-    input.omitProfileStyleText || compactPrompt || (profile.styleText && generatedStyle)
+    input.omitProfileStyleText ||
+    compactPrompt ||
+    generatedStyle ||
+    (profile.baseStyle === "auto" && profile.styleText.trim() === AUTO_STYLE_INSTRUCTION)
       ? ""
-      : profile.styleText && profile.baseStyle !== "auto"
-        ? profile.styleText
-        : generatedStyle
-          ? ""
-          : profile.styleText;
+      : profile.styleText;
 
   const positiveParts = compactPrompt
     ? [

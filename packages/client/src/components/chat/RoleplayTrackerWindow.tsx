@@ -29,6 +29,7 @@ import { NEUTRAL_PANEL_SCROLL_AREA, NEUTRAL_SURFACE_VARIABLES } from "../ui/neut
 import { CapabilityElement } from "../capabilities/CapabilityElement";
 import { TrackerPanelIcon } from "../ui/TrackerPanelIcon";
 import { AgentActivitySection } from "../agents/AgentActivitySection";
+import { withAgentActivityStatus } from "../agents/AgentActivityIcon";
 import { TrackerLockProvider } from "../../features/tracker-panel/components/TrackerLockContext";
 import { TrackerWindowCharacters } from "../../features/tracker-panel/components/TrackerWindowCharacters";
 import {
@@ -510,7 +511,7 @@ function TrackerWindow({
           <TrackerDrawer
             id="agent-activity"
             title={t("agents.activity.title")}
-            icon={<ListChecks size="0.75rem" />}
+            icon={withAgentActivityStatus(chatId, <ListChecks size="0.75rem" />)}
             defaultOpen={false}
           >
             {() => <AgentActivitySection chatId={chatId} messages={messages} />}

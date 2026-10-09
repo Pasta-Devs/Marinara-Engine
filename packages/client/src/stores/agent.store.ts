@@ -134,6 +134,8 @@ interface AgentState {
   failedAgentChatId: string | null;
   /** Rich failure details for the retry UI and troubleshooting copy */
   failedAgentFailures: AgentFailure[];
+  /** Agent activity was on screen since the last failure, so its icon drops the failure dot (#7322). */
+  failedAgentsSeen: boolean;
   thoughtBubbles: Array<{
     agentId: string;
     agentName: string;
@@ -183,6 +185,7 @@ interface AgentState {
   setFailedAgentTypes: (types: string[], chatId?: string | null) => void;
   setFailedAgentFailures: (failures: AgentFailure[], chatId?: string | null) => void;
   clearFailedAgentTypes: (chatId?: string | null) => void;
+  markFailedAgentsSeen: (chatId: string) => void;
   addThoughtBubble: (agentId: string, agentName: string, content: string) => void;
   dismissThoughtBubble: (index: number) => void;
   clearThoughtBubbles: () => void;
@@ -232,6 +235,7 @@ type AgentDataState = Pick<
   | "failedAgentTypes"
   | "failedAgentChatId"
   | "failedAgentFailures"
+  | "failedAgentsSeen"
   | "thoughtBubbles"
   | "echoMessages"
   | "echoVisibleCount"
@@ -266,6 +270,7 @@ function createInitialAgentDataState(): AgentDataState {
     failedAgentTypes: [],
     failedAgentChatId: null,
     failedAgentFailures: [],
+    failedAgentsSeen: false,
     thoughtBubbles: [],
     echoMessages: [],
     echoVisibleCount: 0,
@@ -407,18 +412,24 @@ export const useAgentStore = create<AgentState>((set, get) => ({
         reasonLabel: null,
         retryTarget: null,
       })),
+      failedAgentsSeen: false,
     }),
   setFailedAgentFailures: (failures, chatId = null) =>
     set({
       failedAgentTypes: Array.from(new Set(failures.map((failure) => failure.agentType))),
       failedAgentChatId: chatId,
       failedAgentFailures: failures,
+      failedAgentsSeen: false,
     }),
   clearFailedAgentTypes: (chatId = null) =>
     set((s) => {
       if (chatId && s.failedAgentChatId && s.failedAgentChatId !== chatId) return {};
       return { failedAgentTypes: [], failedAgentChatId: null, failedAgentFailures: [] };
     }),
+  markFailedAgentsSeen: (chatId) =>
+    set((s) =>
+      s.failedAgentsSeen || (s.failedAgentChatId && s.failedAgentChatId !== chatId) ? s : { failedAgentsSeen: true },
+    ),
 
   addThoughtBubble: (agentId, agentName, content) =>
     set((s) => ({
@@ -539,3 +550,9 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     })),
   reset: () => set(createInitialAgentDataState()),
 }));
+
+/** How many of the chat's failed agents Agent activity has not shown yet: its icon's failure dot (#7322). */
+export function selectUnseenAgentFailureCount(state: AgentState, chatId: string): number {
+  if (state.failedAgentsSeen || (state.failedAgentChatId && state.failedAgentChatId !== chatId)) return 0;
+  return state.failedAgentTypes.length;
+}
