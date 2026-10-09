@@ -25,6 +25,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - Professor Mari's and Search settings, including the quick-answer model, are now saved on the server and follow you across browsers.
 - Fixed the pull-down sheet's edge lines crossing into an X just before the sheet lets go, on a wide desktop window. The two sides now meet in the middle at every width.
 - The pull-down labels say **Ask Prof. Mari** and **Release to ask Prof. Mari**, not just Mari.
+- Once a pull-down is far enough to open, its label has two lines: **Release**, and under it, smaller, what happens ("to search", "to ask Prof. Mari" or the chat it will look at). The label keeps its size while it changes, and a long chat name is cut short.
 - The pull-down feels more alive, and stays subtle: the circle dips a little at the point where a release opens (so you feel it on an iPhone too), a pull past that point holds back, Prof. Mari's head leans with a sideways pull, the rim light wavers slowly, and when the sheet lets go it springs back into the top bar with one faint wobble while the view opens at the peak of the pop. With Reduce ambient effects on, the pull keeps none of these.
 - Long Professor Mari chats open and switch faster, and an open chat no longer keeps the browser busy, most of all with the animated (RGB or pulse) accent on. The accent no longer restarts a color fade on every copy, edit and delete button twice a second, and older turns off screen are not drawn until you scroll to them.
 

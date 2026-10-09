@@ -102,7 +102,7 @@ export function pullTarget(current: PullTarget | null, x: number, width: number,
 export const PULL_CIRCLE_MIN = 12;
 export const PULL_CIRCLE_MAX = 40;
 /** The small bar under the circle, and the gap between them. */
-export const PULL_TAG_HEIGHT = 30;
+export const PULL_TAG_HEIGHT = 32;
 export const PULL_TAG_GAP = 8;
 /** The small bar's bottom edge sits this far above the touch point; the thumb comes from below. */
 export const PULL_FINGER_GAP = 32;

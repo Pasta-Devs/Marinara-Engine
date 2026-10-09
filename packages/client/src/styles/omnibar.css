@@ -203,6 +203,13 @@ html.mari-pull-no-select * {
   backdrop-filter: blur(12px) saturate(160%);
 }
 
+/* Room for the armed label's two lines; idle and armed share one box, so it never changes size. */
+.mari-pull-tag {
+  max-width: min(calc(100vw - 12px), 320px);
+  height: 32px;
+  padding-block: 2px;
+}
+
 .mari-pull-tag-side,
 .mari-pull-tag-side > span {
   grid-area: 1 / 1;
@@ -232,6 +239,24 @@ html.mari-pull-no-select * {
 [data-armed="true"] .mari-pull-tag-side > [data-part="armed"] {
   opacity: 1;
   transform: none;
+}
+
+.mari-pull-tag-side > [data-part="armed"] {
+  display: flex;
+  max-width: 100%;
+  flex-direction: column;
+  align-items: center;
+  line-height: 15px;
+}
+
+.mari-pull-tag [data-line="soft"] {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 13px;
+  opacity: 0.72;
+  text-overflow: ellipsis;
 }
 
 /* Reduced motion: only the label above the finger, with a progress line. */

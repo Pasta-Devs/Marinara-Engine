@@ -1,6 +1,6 @@
 import { useEffect, useId, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
-import { useTranslation } from "react-i18next";
+import { Trans, useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
 import { Search } from "lucide-react";
 import { PULL_ICON_SIZE, type PullDropVisuals } from "../../hooks/use-pull-to-open-omnibar";
@@ -64,10 +64,24 @@ export function OmnibarPullDrop({ visuals, edgeGlow }: { visuals: PullDropVisual
     );
   }
 
+  // Armed, the label is one sentence on two lines: "Release", then what it does, smaller and softer.
+  const releaseLines = (key: "about" | "mari" | "search", defaults: string) => (
+    <Trans
+      i18nKey={`omnibar.pull.releaseLines.${key}`}
+      defaults={defaults}
+      values={{ about }}
+      components={{ soft: <span data-line="soft" /> }}
+    />
+  );
   const tagLabel = (side: "search" | "mari") =>
     side === "mari"
-      ? [t("omnibar.pull.askMari", "Ask Prof. Mari"), releaseToAskMari]
-      : [t("omnibar.pull.search", "Search"), t("omnibar.pull.releaseToSearch", "Release to search")];
+      ? [
+          t("omnibar.pull.askMari", "Ask Prof. Mari"),
+          about
+            ? releaseLines("about", "Release <soft>{{about}}</soft>")
+            : releaseLines("mari", "Release <soft>to ask Prof. Mari</soft>"),
+        ]
+      : [t("omnibar.pull.search", "Search"), releaseLines("search", "Release <soft>to search</soft>")];
 
   return createPortal(
     <div
