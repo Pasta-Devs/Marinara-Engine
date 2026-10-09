@@ -1641,7 +1641,9 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
       const chat = await api.post<{ id: string }>(
         `/chats/internal/professor-mari/restart?${new URLSearchParams({ name: asideState.query })}`,
       );
-      useChatStore.getState().setActiveChatId(chat.id);
+      // UX-20: her pane opens it. The app's active chat is the page behind her; a Mari id there 404'd on
+      // /touch and moved the page off the chat the question came from.
+      setMariOpenChatId(chat.id);
       queryClient.setQueryData(chatKeys.detail(chat.id), chat);
       await api.post("/professor-mari/workspace/reset", { clearHistory: true });
     } catch {
