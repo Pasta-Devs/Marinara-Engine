@@ -1482,7 +1482,7 @@ export function buildOmnibarContextResults({
   }
   if (isActiveChatSurface && activeChat) {
     const chatTool = (
-      tool: "summary" | "lorebook" | "search" | "regenerate",
+      tool: "summary" | "lorebook" | "search" | "regenerate" | "advanced-parameters" | "memory-recall",
       title: string,
       icon: OmnibarResult["icon"],
     ): OmnibarResult => ({
@@ -1504,6 +1504,13 @@ export function buildOmnibarContextResults({
     push(chatTool("lorebook", t("commandCenter.chatTools.lorebook", "Active lorebook entries"), "lorebook"));
     if (activeChat.mode === "roleplay") {
       push(chatTool("summary", t("commandCenter.chatTools.summary", "Summary"), "chats"));
+    }
+    // UX-13: settings that live inside Chat Settings are findable by their own names.
+    if (activeChat.mode !== "game") {
+      push(
+        chatTool("advanced-parameters", t("commandCenter.chatTools.maxOutputTokens", "Max output tokens"), "command"),
+      );
+      push(chatTool("memory-recall", t("commandCenter.chatTools.memoryRecall", "Memory Recall"), "command"));
     }
     if (activeChat.mode !== "game") {
       // The button under the reply already does this; the empty list does not repeat it (slice 78).

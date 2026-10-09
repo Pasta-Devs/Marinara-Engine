@@ -356,6 +356,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - For a returning user, the search opens on Continue: the chat you left, Professor Mari's last chat, or your last edit. Enter continues it. Try examples come below your work. A row that needs you, like a missing model, still comes first.
 - The top-bar buttons on a phone are 44 px tall, so Home, Chats and the menu are easier to tap.
 - Search results are a plain list. Each row's own buttons, such as Keep, Undo and Set default, are reached by keyboard and screen readers without an invalid option role.
+- Max output tokens and Memory Recall are in search and in the empty list for a chat. Choosing one opens Chat Settings at that section, like Summary does.
 
 ## [2.5.0]
 

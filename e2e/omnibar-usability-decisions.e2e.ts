@@ -164,7 +164,10 @@ test("UX-32: the search field has no filter syntax in its hint, and touch rows s
   await omnibar.screenshot({ path: shotPath("UX-32", width) });
 });
 
-test("UX-14: a returning user's Continue row is the top row, not a Try example", async ({ page, request }, testInfo) => {
+test("UX-14: a returning user's Continue row is the top row, not a Try example", async ({
+  page,
+  request,
+}, testInfo) => {
   const width = testInfo.project.name.includes("mobile") ? 390 : 1440;
   const name = `UX14 continue ${Date.now().toString(36)}`;
   // A connection clears the "No model connected yet" row, which is a `now` row and rightly leads.
@@ -228,4 +231,50 @@ test("UX-18: result rows are list items with buttons, not listbox options, so ne
   const mainButton = rows.first().locator("button").first();
   await expect(mainButton).toHaveAttribute("aria-label", /.+/u);
   await omnibar.screenshot({ path: shotPath("UX-18", width) });
+});
+
+test("UX-13: Max output tokens and Memory Recall are found in search and open Chat Settings there", async ({
+  page,
+  request,
+}, testInfo) => {
+  test.skip(!testInfo.project.name.includes("desktop"), "Chat Settings opens from the desktop search, like Summary.");
+  test.setTimeout(150_000);
+  const width = 1440;
+  const name = `UX13 chat ${Date.now().toString(36)}`;
+  const created = await request.post("/api/chats", { data: { name, mode: "roleplay", characterIds: [] } });
+  expect(created.ok()).toBeTruthy();
+  const chat = (await created.json()) as { id: string };
+  try {
+    await page.reload();
+    // Home's recent-chat card opens the chat, which makes it the active chat the chat-scoped rows need.
+    await page.locator("button", { hasText: name }).first().click();
+    // The chat is open once its chat-scoped search row exists.
+    await openOmnibar(page);
+    await expect(
+      page.locator('[data-component="GlobalOmnibar"] [data-result-id^="chat-tool:search:"]').first(),
+    ).toBeAttached();
+    await page.keyboard.press("Escape");
+
+    await openOmnibar(page);
+    const omnibar = page.locator('[data-component="GlobalOmnibar"]');
+    const input = omnibar.getByRole("searchbox", { name: "Search Marinara" });
+    await input.fill("memory recall");
+    const memoryRow = omnibar.locator('[data-result-id^="chat-tool:memory-recall:"]');
+    await expect(memoryRow).toBeAttached();
+    await memoryRow.locator("button").first().click();
+    await expect(omnibar).toHaveCount(0);
+    await expect(page.getByText("Enable Memory Recall").first()).toBeVisible();
+    await page.screenshot({ path: shotPath("UX-13-memory", width) });
+
+    await page.keyboard.press("Escape");
+    await openOmnibar(page);
+    await omnibar.getByRole("searchbox", { name: "Search Marinara" }).fill("max output tokens");
+    await expect(omnibar.locator('[data-result-id^="chat-tool:advanced-parameters:"]')).toBeAttached();
+    await omnibar.locator('[data-result-id^="chat-tool:advanced-parameters:"] button').first().click();
+    await expect(omnibar).toHaveCount(0);
+    await expect(page.getByText("Max output tokens").first()).toBeVisible();
+    await page.screenshot({ path: shotPath("UX-13-max-output", width) });
+  } finally {
+    await request.delete(`/api/chats/${chat.id}`);
+  }
 });

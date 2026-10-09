@@ -792,6 +792,8 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
               ...globalMessageResults,
               ...lorebookEntryResults,
               ...mariChatResults,
+              // UX-13: the chat's own tools (Summary, Max output tokens, Memory Recall) are findable by name.
+              ...contextResults.filter((result) => result.action?.kind === "open-chat-tool"),
               // An explicit "Add X to this chat" row replaces the plain entity row
               // for the same thing: showing both lists every character twice, and
               // the plain one reads like "open" while doing the same attach.

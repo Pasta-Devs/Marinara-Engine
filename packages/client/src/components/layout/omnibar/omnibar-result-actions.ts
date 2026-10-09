@@ -8,6 +8,7 @@ import type { useStartNewChatMode } from "../../../hooks/use-start-new-chat-mode
 import { dispatchCardAssetInsert } from "../../../lib/card-asset-links";
 import { parseChatMetadata } from "../../../lib/chat-display";
 import {
+  requestChatSettingsSectionOpen,
   requestChatSummaryOpen,
   requestChatLorebookEntriesOpen,
   requestChatSearchOpen,
@@ -313,6 +314,10 @@ export function createOmnibarResultActions({
               return;
             case "regenerate":
               requestChatRegenerate(action.chatId);
+              return;
+            case "advanced-parameters":
+            case "memory-recall":
+              requestChatSettingsSectionOpen(action.chatId, action.tool);
               return;
           }
         });

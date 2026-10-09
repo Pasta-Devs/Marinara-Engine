@@ -971,6 +971,8 @@
   "commandCenter.chat.lorebookCount_one": "{{count}} lorebook attached",
   "commandCenter.chat.lorebookCount_other": "{{count}} lorebooks attached",
   "commandCenter.chatTools.lorebook": "Active lorebook entries",
+  "commandCenter.chatTools.maxOutputTokens": "Max output tokens",
+  "commandCenter.chatTools.memoryRecall": "Memory Recall",
   "commandCenter.chatTools.regenerate": "Regenerate reply",
   "commandCenter.chatTools.search": "Search this chat",
   "commandCenter.chatTools.summary": "Summary",

@@ -126,6 +126,7 @@ import {
   CHAT_REPLY_CHECKUP_REQUEST_EVENT,
   CHAT_RETRY_WITH_CONNECTION_REQUEST_EVENT,
   CHAT_SEARCH_OPEN_REQUEST_EVENT,
+  CHAT_SETTINGS_SECTION_OPEN_REQUEST_EVENT,
   CHAT_SUMMARY_OPEN_REQUEST_EVENT,
 } from "../../lib/chat-floating-ui-events";
 import {
@@ -787,6 +788,18 @@ const LocalChatArea = memo(function LocalChatArea({
       return [eventName, listener] as const;
     });
     return () => listeners.forEach(([eventName, listener]) => window.removeEventListener(eventName, listener));
+  }, [handleOpenSettingsPanel]);
+
+  // UX-13: an omnibar row that names a setting inside Chat Settings opens the drawer at that section.
+  useEffect(() => {
+    const openSection = (event: Event) => {
+      const detail = (event as CustomEvent<{ chatId?: string; section?: "advanced-parameters" | "memory-recall" }>)
+        .detail;
+      if (detail?.chatId !== useChatStore.getState().activeChatId || !detail.section) return;
+      handleOpenSettingsPanel(undefined, { initialSection: detail.section });
+    };
+    window.addEventListener(CHAT_SETTINGS_SECTION_OPEN_REQUEST_EVENT, openSection);
+    return () => window.removeEventListener(CHAT_SETTINGS_SECTION_OPEN_REQUEST_EVENT, openSection);
   }, [handleOpenSettingsPanel]);
 
   useEffect(() => {
