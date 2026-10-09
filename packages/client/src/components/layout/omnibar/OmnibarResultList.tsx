@@ -161,6 +161,8 @@ export function OmnibarResultList({
                       key={result.id}
                       className={cn(
                         "motion-safe:animate-omnibar-row-in",
+                        // A hit line under its chat row: indented, one line tall on desktop.
+                        result.parentId && "ml-7 min-h-11 sm:h-9",
                         result.now && `omnibar-now-row omnibar-now-row--${result.now}`,
                         group.id === "continue" &&
                           "sm:h-auto sm:min-h-16 sm:border sm:border-[var(--border)] sm:py-1.5",
@@ -177,6 +179,7 @@ export function OmnibarResultList({
                       metadataHighlight={!result.contextLabel && !preview?.subtitle ? row.descriptionMatch : null}
                       tertiaryMetadata={
                         <>
+                          {result.meta ? <span className="shrink-0">{result.meta}</span> : null}
                           {preview?.lorebookCount ? (
                             // Q6: a chat's attached lorebooks, as the lorebook icon and a count.
                             <span

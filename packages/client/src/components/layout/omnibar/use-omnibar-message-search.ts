@@ -13,7 +13,7 @@ import { isMessageHiddenFromUser } from "../../../lib/chat-message-visibility";
 import { type useLorebooks, useLorebookEntrySearch } from "../../../hooks/use-lorebooks";
 import { useDebouncedValue } from "../../../hooks/use-debounced-value";
 import { useChatMessageSearchSource } from "../../../hooks/use-chats";
-import { useGlobalChatSearch } from "../../../hooks/use-chat-insights";
+import { GLOBAL_MESSAGE_HITS_PER_CHAT, useGlobalChatSearch } from "../../../hooks/use-chat-insights";
 
 /** Message and lorebook-entry hits: the open chat from the client cache, other chats and entries from the server. */
 export function useOmnibarMessageSearch({
@@ -57,7 +57,8 @@ export function useOmnibarMessageSearch({
   // with the same delay as the Search All Chats modal.
   const globalMessageQuery = useDebouncedValue(messageSearchQuery, 300);
   const globalMessageSearch = useGlobalChatSearch(
-    { query: globalMessageQuery },
+    // Two hits per chat, so the rows cover every chat that matches, not only the newest.
+    { query: globalMessageQuery, perChat: GLOBAL_MESSAGE_HITS_PER_CHAT },
     globalMessageQuery.length >= MIN_MESSAGE_SEARCH_LENGTH && globalMessageScoped,
   );
   const globalMessageResults = useMemo<OmnibarResult[]>(
@@ -66,11 +67,14 @@ export function useOmnibarMessageSearch({
         activeChatId,
         // The query keeps the previous page while the next one loads; hits for
         // an older query are not answers to this one.
+        chats:
+          globalMessageSearch.data?.pages[0]?.query === messageSearchQuery
+            ? globalMessageSearch.data.pages[0].chats
+            : [],
         hits:
           globalMessageSearch.data?.pages[0]?.query === messageSearchQuery
             ? globalMessageSearch.data.pages[0].results
             : [],
-        hasMore: globalMessageSearch.data?.pages[0]?.hasMore ?? false,
         messageSearchQuery,
         t,
       }),

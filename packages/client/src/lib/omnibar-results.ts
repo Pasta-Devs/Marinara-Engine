@@ -10,6 +10,7 @@ import {
   normalizeTextForMatch,
   type Chat,
   type ChatMode,
+  type GlobalChatSearchChat,
   type GlobalChatSearchResult,
   type Lorebook,
   type LorebookEntry,
@@ -56,7 +57,8 @@ import { inferProfessorMariCommandCenterCapability } from "./professor-mari-comm
 /** Below this a message search matches most of the transcript. */
 export const MIN_MESSAGE_SEARCH_LENGTH = 3;
 const MAX_MESSAGE_SEARCH_RESULTS = 6;
-const MAX_GLOBAL_MESSAGE_SEARCH_RESULTS = 6;
+const MAX_GLOBAL_MESSAGE_CHATS = 8;
+const MAX_GLOBAL_MESSAGE_HITS_PER_CHAT = 2;
 /**
  * The context group answers "what am I on?", not "what is in this chat?" — past
  * this many rows it buries recents and create actions. Applied by the idle list
@@ -228,9 +230,9 @@ export type OmnibarMessageResultsInput = {
 
 export type OmnibarGlobalMessageResultsInput = {
   activeChatId: string | null;
+  /** Chats with matches (`perChat` search), newest activity first. */
+  chats: readonly GlobalChatSearchChat[];
   hits: readonly GlobalChatSearchResult[];
-  /** The server has more hits than this page. */
-  hasMore: boolean;
   messageSearchQuery: string;
   t: OmnibarTranslate;
 };
@@ -882,44 +884,84 @@ export function buildOmnibarMessageResults({
 }
 
 /**
- * The same rows as {@link buildOmnibarMessageResults}, but for every other chat.
- * Ids match the active-chat shape on purpose: when both lists cover the same
- * message the omnibar's id de-duplication keeps one row.
+ * Other chats' hits, grouped under their chat: a chat row with its match count and cast, then
+ * up to two hit lines (speaker and excerpt), then "N more" when the chat has more. Ids of the
+ * hit lines match the active-chat shape, so the omnibar's id de-duplication keeps one row.
  */
 export function buildOmnibarGlobalMessageResults({
   activeChatId,
+  chats,
   hits,
-  hasMore,
   messageSearchQuery,
   t,
 }: OmnibarGlobalMessageResultsInput): OmnibarResult[] {
   const query = messageSearchQuery.trim();
   if (query.length < MIN_MESSAGE_SEARCH_LENGTH) return [];
-  const otherChats = hits.filter((hit) => hit.chatId !== activeChatId);
-  const rows: OmnibarResult[] = otherChats.slice(0, MAX_GLOBAL_MESSAGE_SEARCH_RESULTS).map((hit, index) => ({
-    id: `message:${hit.chatId}:${hit.messageNumber}`,
-    action: { kind: "goto-message" as const, chatId: hit.chatId, messageNumber: hit.messageNumber },
-    title: hit.snippet,
-    description: t("commandCenter.messages.inChat", "{{chat}} · message {{number}}", {
-      chat: hit.chatName,
-      number: hit.messageNumber,
-    }),
-    category: "chat" as const,
-    group: "messages" as const,
-    score: 280 - index,
-    kind: "action" as const,
-    icon: "chats" as const,
-  }));
+  const groups = chats.filter((chat) => chat.chatId !== activeChatId).slice(0, MAX_GLOBAL_MESSAGE_CHATS);
+  const rows: OmnibarResult[] = [];
+  let shownHits = 0;
+  let totalMatches = 0;
+  for (const chat of chats) if (chat.chatId !== activeChatId) totalMatches += chat.matches;
+  for (const chat of groups) {
+    const chatRowId = `message-chat:${chat.chatId}`;
+    const chatHits = hits.filter((hit) => hit.chatId === chat.chatId).slice(0, MAX_GLOBAL_MESSAGE_HITS_PER_CHAT);
+    rows.push({
+      id: chatRowId,
+      title: chat.chatName,
+      description: chat.cast.length
+        ? t("commandCenter.messages.withCast", "with {{cast}}", { cast: chat.cast.join(", ") })
+        : undefined,
+      category: "chat",
+      group: "messages",
+      score: 300 - rows.length,
+      kind: "chat",
+      icon: "chats",
+      target: { kind: "chat", chatId: chat.chatId },
+      meta: t("commandCenter.messages.chatMatches", "{{count}} matches", { count: chat.matches }),
+    });
+    for (const hit of chatHits) {
+      shownHits += 1;
+      rows.push({
+        id: `message:${hit.chatId}:${hit.messageNumber}`,
+        parentId: chatRowId,
+        action: { kind: "goto-message", chatId: hit.chatId, messageNumber: hit.messageNumber },
+        title: hit.speaker ?? t("home.recentChats.you", "You"),
+        description: hit.snippet,
+        category: "chat",
+        group: "messages",
+        score: 300 - rows.length,
+        kind: "action",
+        icon: "chats",
+      });
+    }
+    const moreInChat = chat.matches - chatHits.length;
+    if (moreInChat > 0) {
+      rows.push({
+        id: `message-more:${chat.chatId}`,
+        parentId: chatRowId,
+        action: { kind: "open-global-search", query },
+        title: t("commandCenter.messages.moreInChat", "{{count}} more in {{chat}}", {
+          count: moreInChat,
+          chat: chat.chatName,
+        }),
+        category: "chat",
+        group: "messages",
+        score: 300 - rows.length,
+        kind: "action",
+        icon: "chats",
+      });
+    }
+  }
   // The rows above are a sample; the full list, with filters, is Search All Chats.
-  if (rows.length > 0 && (hasMore || otherChats.length > rows.length)) {
+  if (totalMatches > shownHits) {
     rows.push({
       id: "global-search:see-all",
       action: { kind: "open-global-search", query },
-      title: t("commandCenter.messages.seeAll", "See all results for “{{query}}”", { query }),
-      description: t("commandCenter.messages.seeAllDescription", "Opens Search all chats with filters."),
+      title: t("commandCenter.messages.seeAllCount", "See all {{count}} matches", { count: totalMatches }),
+      description: t("commandCenter.messages.seeAllDescription", "Opens the Search all chats window, with filters."),
       category: "chat",
       group: "messages",
-      score: 280 - rows.length,
+      score: 300 - rows.length,
       kind: "action",
       icon: "chats",
     });

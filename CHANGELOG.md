@@ -4,6 +4,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- Message search results group by chat. Each chat row shows its match count and who is in it, with up to two matching lines under it and **N more** for the rest. Before, the newest chat filled every row and other chats did not appear.
 - Press and hold Professor Mari to pick her up. Hold her head in the omnibar, her sprite beside a reply or on the live line while she works, or her card on Home. She follows your pointer, swings as you move, and springs back when you let go. A tap still does what it did. Shake her and she gets dizzy. The first time you lift her unlocks **Please Handle With Care**.
 - Circle the pointer while holding Professor Mari and she swings all the way over, upside down, like a real pendulum. She settles hanging straight down when you hold still. Reduced motion keeps her still.
 - Every Mari appearance pack has its own held pose now. Before, Dottore, Golden and Safari reused their idle pose.

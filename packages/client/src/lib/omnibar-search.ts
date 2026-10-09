@@ -82,6 +82,10 @@ export type OmnibarResult = {
   path?: string;
   line?: number | null;
   contextLabel?: string;
+  /** Short fact shown at the row's end: a match count, a time. Never the line-2 text. */
+  meta?: string;
+  /** The row this one belongs to: a hit line under its chat row. */
+  parentId?: string;
   /** Internal search tier used to discard fuzzy rows once a literal match exists. */
   matchKind?: "literal" | "fuzzy";
   /** Where the query hit `title`/`description`, for highlighting. Null when no cheap literal span exists. */
