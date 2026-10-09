@@ -307,6 +307,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - When Professor Mari's run ends while her window is open after a reload, her answer appears in the window. Before, it stayed hidden until you closed and reopened her, and opening her during a run put an arrival panel under the live thread. The arrival panel now waits for the run to end.
 - Typing **mari**, **professor**, **ask mari** or **open mari** in the omnibar puts **Open Mari** first. Enter opens her, as Ctrl+J does. Before, those words found settings and presets, and Enter opened a preset.
 - The first-run tour tells phone users to pull down from the top bar to search, instead of "type what you are looking for here". The last step names both doors: Ctrl/⌘+K on a computer and the pull-down on a phone.
+- With no model connected, the **How do I connect a model?** quick-start row keeps **No model connected yet · Set up** first. Before, the docs search put the Decision Models guide on top and Enter opened it.
 
 ## [2.5.0]
 

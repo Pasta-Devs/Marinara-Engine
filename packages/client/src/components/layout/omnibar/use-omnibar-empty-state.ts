@@ -169,17 +169,9 @@ export function useOmnibarEmptyState({
     tryKinds,
   ]);
   // Slice 78: the one row that needs you now, from rows the omnibar already builds.
-  const nowResult = useMemo<OmnibarResult | null>(() => {
-    if (deferredQuery.trim() || queryScope) return null;
-    const lastFixRowId = mariFixRowId(lastAppError);
-    return pickOmnibarNowResult({
-      mariRow: continueResult,
-      pendingApprovals: mariEnabled ? countBlockingReviews(mariWorkspaceStatus?.pendingApprovals ?? []) : 0,
-      mariActive: mariWorkspaceStatus?.active === true,
-      mariFinished,
-      fixRow: (lastFixRowId && contextResults.find((row) => row.id === lastFixRowId)) || null,
-      checkupRow: contextResults.find((row) => row.id.startsWith("chat-tool:reply-checkup:")) ?? null,
-      setupRow: mariHasModel
+  const setupRow = useMemo<OmnibarResult | null>(
+    () =>
+      mariHasModel
         ? null
         : {
             id: "now:setup-connection",
@@ -191,6 +183,26 @@ export function useOmnibarEmptyState({
             kind: "navigation",
             icon: "connection",
           },
+    [mariHasModel, t],
+  );
+  // UX-05: the no-model Try text ("How do I connect a model?") searches the docs, and the top doc is not the
+  // connection guide. Keep the Set up row first while that text is in the field.
+  const setupTryRow =
+    !mariHasModel &&
+    deferredQuery.trim().toLowerCase() === t("commandCenter.try.mariSetup", "How do I connect a model?").toLowerCase()
+      ? setupRow
+      : null;
+  const nowResult = useMemo<OmnibarResult | null>(() => {
+    if (deferredQuery.trim() || queryScope) return null;
+    const lastFixRowId = mariFixRowId(lastAppError);
+    return pickOmnibarNowResult({
+      mariRow: continueResult,
+      pendingApprovals: mariEnabled ? countBlockingReviews(mariWorkspaceStatus?.pendingApprovals ?? []) : 0,
+      mariActive: mariWorkspaceStatus?.active === true,
+      mariFinished,
+      fixRow: (lastFixRowId && contextResults.find((row) => row.id === lastFixRowId)) || null,
+      checkupRow: contextResults.find((row) => row.id.startsWith("chat-tool:reply-checkup:")) ?? null,
+      setupRow,
     });
   }, [
     contextResults,
@@ -199,10 +211,9 @@ export function useOmnibarEmptyState({
     lastAppError,
     mariEnabled,
     mariFinished,
-    mariHasModel,
     mariWorkspaceStatus,
     queryScope,
-    t,
+    setupRow,
   ]);
   // Slice 78: where you left off - the last chat, Mari's last conversation, the record edited last.
   const continueResults = useMemo<OmnibarResult[]>(() => {
@@ -248,5 +259,5 @@ export function useOmnibarEmptyState({
     recentChatResults,
     t,
   ]);
-  return { recentChatResults, frecentIdleResults, tryResults, nowResult, continueResults, markTry };
+  return { recentChatResults, frecentIdleResults, tryResults, nowResult, setupTryRow, continueResults, markTry };
 }

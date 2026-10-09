@@ -720,7 +720,7 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
     () => buildOmnibarContinueResult({ mariEnabled, t, workspaceStatus: mariWorkspaceStatus.data, mariFinished }),
     [mariEnabled, mariWorkspaceStatus.data, t, mariFinished],
   );
-  const { recentChatResults, frecentIdleResults, tryResults, nowResult, continueResults, markTry } =
+  const { recentChatResults, frecentIdleResults, tryResults, nowResult, setupTryRow, continueResults, markTry } =
     useOmnibarEmptyState({
       activeChat,
       activeChatId,
@@ -772,6 +772,7 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
         ? allLocalResults.filter((result) => matchesOmnibarScope(result, queryScope))
         : deferredQuery.trim()
           ? [
+              ...(setupTryRow ? [setupTryRow] : []),
               ...intentShortcuts,
               ...newChatCommands,
               ...slashResults,
@@ -822,6 +823,7 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
       approvalResults,
       continueResults,
       nowResult,
+      setupTryRow,
       tryResults,
       deferredQuery,
       globalMessageResults,
