@@ -54,7 +54,7 @@ export class OmnibarAsideAnswerCache {
     // Re-insert to mark it most-recently-used; Map iteration order is insertion order.
     this.entries.delete(key);
     this.entries.set(key, entry);
-    return { answer: entry.answer, tier: entry.tier, sources: entry.sources };
+    return { answer: entry.answer, tier: entry.tier, ...(entry.sources ? { sources: entry.sources } : {}) };
   }
 
   set(connectionId: string | null | undefined, query: string, value: OmnibarAsideCacheEntry): void {
