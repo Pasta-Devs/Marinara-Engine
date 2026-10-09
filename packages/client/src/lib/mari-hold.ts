@@ -57,23 +57,31 @@ export function stepMariSpring(spring: MariSpring, target: number, stiffness: nu
 }
 
 export interface MariPendulum {
-  /** Radians from hanging straight down, limited to ±0.85. */
+  /** Radians from hanging straight down, wrapped to [-π, π]. Past ±π/2 she is upside down. */
   angle: number;
   omega: number;
 }
 
-const MARI_PENDULUM_LIMIT = 0.85;
+/** A pivot acceleration in px/s², on each axis. */
+export interface MariPivotAccel {
+  x: number;
+  y: number;
+}
 
 /**
- * The body hangs from the grab point (g/L 34, damping 3.2). `drive` is the grab point's horizontal
- * acceleration in px/s², so a sudden move swings her the other way.
+ * The body hangs from the grab point (g/L 34, damping 3.2) and is a real pendulum: a sin restoring
+ * torque, no limit, so a circular drag carries her over the top. The grab point's acceleration on
+ * both axes drives it; 90 px/s² of pivot acceleration is one rad/s² of torque. Tuned by a simulated
+ * 110 px circle at 1–1.5 Hz: it turns her fully over, and a still hand never does.
  */
-export function stepMariPendulum(pendulum: MariPendulum, drive: number, dt: number): MariPendulum {
-  const alpha = -34 * pendulum.angle - 3.2 * pendulum.omega - drive / 900;
-  const omega = pendulum.omega + alpha * dt;
-  const angle = pendulum.angle + omega * dt;
-  if (Math.abs(angle) >= MARI_PENDULUM_LIMIT) {
-    return { angle: Math.sign(angle) * MARI_PENDULUM_LIMIT, omega: 0 };
-  }
-  return { angle, omega };
+export function stepMariPendulum(pendulum: MariPendulum, accel: MariPivotAccel, dt: number): MariPendulum {
+  const { angle, omega } = pendulum;
+  const drive = (accel.x * Math.cos(angle) - accel.y * Math.sin(angle)) / 90;
+  const nextOmega = omega + (-34 * Math.sin(angle) - 3.2 * omega - drive) * dt;
+  return { angle: wrapMariAngle(angle + nextOmega * dt), omega: nextOmega };
+}
+
+/** Keeps an angle in [-π, π]; the figure only needs its orientation, so wrapping loses nothing. */
+export function wrapMariAngle(angle: number): number {
+  return ((((angle + Math.PI) % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI)) - Math.PI;
 }

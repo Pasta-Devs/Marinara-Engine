@@ -103,3 +103,31 @@ test("after a drag that ends away from her head, Enter on the door still opens M
   await page.keyboard.press("Enter");
   await expect(page.locator('[data-component="GlobalOmnibar.Mari"]')).toBeVisible();
 });
+
+// Slice 85 full spin: circling the pointer while holding her swings her over the top; still, she settles.
+async function figureAngle(figure: ReturnType<Page["locator"]>) {
+  return figure.evaluate((el) => {
+    const matrix = new DOMMatrixReadOnly(getComputedStyle(el).transform);
+    return Math.atan2(matrix.b, matrix.a);
+  });
+}
+
+test("circling the pointer while holding her turns her upside down, and she settles when still", async ({ page }) => {
+  await page.goto("/");
+  const { figure, startX, startY } = await holdWidgetAndDrag(page);
+  const radius = 90;
+  const centreX = startX + 40 - radius;
+  const centreY = startY - 30;
+  let peak = 0;
+  const started = Date.now();
+  while (Date.now() - started < 3_000) {
+    const turn = ((Date.now() - started) / 1_000) * 2 * Math.PI;
+    await page.mouse.move(centreX + radius * Math.cos(turn), centreY + radius * Math.sin(turn));
+    peak = Math.max(peak, Math.abs(await figureAngle(figure)));
+  }
+  expect(peak, "circular drag takes her past upside down").toBeGreaterThan(Math.PI / 2);
+  // Still: she swings out and hangs straight down again.
+  await expect.poll(async () => Math.abs(await figureAngle(figure)), { timeout: 8_000 }).toBeLessThan(0.05);
+  await page.mouse.up();
+  await expect(figure).toBeHidden({ timeout: 3_000 });
+});

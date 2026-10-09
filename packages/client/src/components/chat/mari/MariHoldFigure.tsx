@@ -79,11 +79,17 @@ export function MariHoldFigure({
       }
       const nextX = stepMariSpring(x, targetX, stiffness, zeta, dt);
       const nextY = stepMariSpring(y, targetY, stiffness, zeta, dt);
-      const driveX = (nextX.v - x.v) / dt;
+      const accel = { x: (nextX.v - x.v) / dt, y: (nextY.v - y.v) / dt };
       x = nextX;
       y = nextY;
       scale = stepMariSpring(scale, targetScale, 320, 0.6, dt);
-      body = stepMariPendulum(body, driveX, dt);
+      if (releasingRef.current) {
+        // Released: she swings upright on the release spring, so she never lands upside down.
+        const upright = stepMariSpring({ x: body.angle, v: body.omega }, 0, 240, 0.72, dt);
+        body = { angle: upright.x, omega: upright.v };
+      } else {
+        body = stepMariPendulum(body, accel, dt);
+      }
       const stretch = 1 + Math.max(-0.08, Math.min(0.08, y.v * 0.0006));
       // Her line stays on screen: the CSS clamps it against this centre.
       figure.style.setProperty("--mari-x", `${x.x}px`);
@@ -94,6 +100,7 @@ export function MariHoldFigure({
         Math.abs(x.x - targetX) < 1 &&
         Math.abs(y.x - targetY) < 1 &&
         Math.abs(scale.x - targetScale) < 0.02 &&
+        Math.abs(body.angle) < 0.02 &&
         Math.abs(x.v) + Math.abs(y.v) < 8;
       if (settled) {
         onSettledRef.current();

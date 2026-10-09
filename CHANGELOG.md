@@ -5,6 +5,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 ## [Unreleased]
 
 - Press and hold Professor Mari to pick her up. Hold her head in the omnibar, her sprite beside a reply or on the live line while she works, or her card on Home. She follows your pointer, swings as you move, and springs back when you let go. A tap still does what it did. Shake her and she gets dizzy. The first time you lift her unlocks **Please Handle With Care**.
+- Circle the pointer while holding Professor Mari and she swings all the way over, upside down, like a real pendulum. She settles hanging straight down when you hold still. Reduced motion keeps her still.
 - Every Mari appearance pack has its own held pose now. Before, Dottore, Golden and Safari reused their idle pose.
 - The Home Mari card shows her standing portrait with a blink, and its text says Ctrl+K finds any page.
 - The Home navigator (the floating Mari that found pages by keyword) is removed. Its page links are in the omnibar now: Discord, Credits, Tutorial, Home widgets and the Home tab of each installed app package, such as Noodle. Its setting is removed too. Onboarding points at the address bar.
