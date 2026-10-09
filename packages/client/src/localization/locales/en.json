@@ -3007,6 +3007,7 @@
   "omnibar.aside.error.network": "No quick answer this time: the connection did not answer.",
   "omnibar.aside.error.provider": "No quick answer this time: {{model}} did not reply.",
   "omnibar.aside.escalate": "Continue with Mari",
+  "omnibar.aside.escalateBusy": "Mari is still working. Continue when she finishes.",
   "omnibar.aside.escalateFailed": "Professor Mari could not start a new chat. Try again.",
   "omnibar.aside.followUp.label": "Follow-up question",
   "omnibar.aside.followUp.placeholder": "Ask Mari more…",

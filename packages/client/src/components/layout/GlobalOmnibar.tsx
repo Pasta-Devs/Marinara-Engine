@@ -1602,6 +1602,11 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
     // A failed answer still hands its question over: "Continue with Mari" is the way forward from an error.
     // A streaming answer is not handed over: it would send only the words so far.
     if (!asideState.query || asideState.status === "streaming" || asideState.status === "thinking") return;
+    // Starting a new chat resets her workspace, which would stop a run in progress; her own "+" waits too.
+    if (mariWorkspaceStatus.data?.active) {
+      toast.info(t("omnibar.aside.escalateBusy", "Mari is still working. Continue when she finishes."));
+      return;
+    }
     const draft = question ?? asideState.query;
     if (draft) useChatStore.getState().setInputDraft(PROFESSOR_MARI_DRAFT_KEY, draft);
     markTry("mari");
