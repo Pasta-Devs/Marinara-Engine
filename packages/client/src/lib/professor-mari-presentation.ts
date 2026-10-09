@@ -123,7 +123,9 @@ export function professorMariContextFacets(
 ): ProfessorMariContextFacet[] {
   if (!context) return [];
   const facets: ProfessorMariContextFacet[] = [];
-  if (context.resource?.label)
+  // UX-24: the open chat picked as the resource ("Current chat: X") is already the chat facet.
+  const resourceIsActiveChat = context.resource?.kind === "chat" && context.resource.id === context.activeChat?.id;
+  if (context.resource?.label && !resourceIsActiveChat)
     facets.push({ kind: "resource", text: context.resource.label, type: resourceResultType(context.resource.kind) });
   if (context.activeChat?.label)
     facets.push({ kind: "chat", text: context.activeChat.label, type: chatResultType(context.activeChat.mode) });

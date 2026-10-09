@@ -1059,6 +1059,15 @@ assert.deepEqual(
   ],
 );
 assert.deepEqual(professorMariContextFacets(null), []);
+// UX-24: the open chat picked as the resource is not shown twice.
+assert.deepEqual(
+  professorMariContextFacets({
+    source: "command-center",
+    resource: { kind: "chat", id: "chat-one", label: "Current chat: Moonlit room" },
+    activeChat: { id: "chat-one", label: "Moonlit room", mode: "roleplay" },
+  }).map((facet) => facet.text),
+  ["Moonlit room"],
+);
 // Q6: one type per kind; an unknown chat mode falls back to the plain chat, entries map to their own type.
 assert.equal(chatResultType("game"), "game");
 assert.equal(chatResultType(undefined), "chat");
