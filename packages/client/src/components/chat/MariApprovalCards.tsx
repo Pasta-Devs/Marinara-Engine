@@ -1,6 +1,18 @@
 import { type ReactNode, useCallback, useRef, useState } from "react";
 import { Trans, useTranslation as useUiTranslation } from "react-i18next";
-import { Check, ChevronDown, ChevronRight, Clock, FileText, Loader2, Minus, PackagePlus, Pencil, Plus, Trash2 } from "lucide-react";
+import {
+  Check,
+  ChevronDown,
+  ChevronRight,
+  Clock,
+  FileText,
+  Loader2,
+  Minus,
+  PackagePlus,
+  Pencil,
+  Plus,
+  Trash2,
+} from "lucide-react";
 import type {
   MariDbPendingApproval,
   MariDependencyInstallApproval,
@@ -364,7 +376,10 @@ export function MariHeldChangeCard({
           : localizeUi("mari.needsYou.held.generic");
   const labels = fields.map(({ key }) => fieldLabel(key));
   // Folded: one key field. A new record's name is already the title, so its first other field shows.
-  const peek = Math.max(0, fields.findIndex(({ key }) => key !== "name"));
+  const peek = Math.max(
+    0,
+    fields.findIndex(({ key }) => key !== "name"),
+  );
   const fact =
     kind === "many" ? name : labels.map((label, index) => (index === 0 ? label : label.toLowerCase())).join(", ");
   const Icon = kind === "delete" ? Trash2 : kind === "create" ? Plus : Pencil;
