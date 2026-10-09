@@ -57,6 +57,7 @@ import { gameRulesetsRoutes } from "./game-rulesets.routes.js";
 import { turnGamesRoutes } from "./turn-games.routes.js";
 import { sidecarRoutes } from "./sidecar.routes.js";
 import { ttsRoutes } from "./tts.routes.js";
+import { speechToTextRoutes } from "./speech-to-text.routes.js";
 import { promptOverridesRoutes } from "./prompt-overrides.routes.js";
 import { csrfDiagnosticsRoutes } from "./csrf-diagnostics.routes.js";
 import { professorMariWorkspaceRoutes } from "./professor-mari-workspace.routes.js";
@@ -153,6 +154,7 @@ export async function registerRoutes(app: FastifyInstance) {
   await app.register(gameRulesetsRoutes, { prefix: "/api/game-rulesets" });
   await app.register(turnGamesRoutes, { prefix: "/api/turn-games" });
   await app.register(ttsRoutes, { prefix: "/api/tts" });
+  await app.register(speechToTextRoutes, { prefix: "/api/speech-to-text" });
   await app.register(promptOverridesRoutes, { prefix: "/api/prompt-overrides" });
   await app.register(csrfDiagnosticsRoutes, { prefix: "/api/csrf" });
   await app.register(professorMariWorkspaceRoutes, { prefix: "/api/professor-mari/workspace" });

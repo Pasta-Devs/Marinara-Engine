@@ -294,6 +294,7 @@ Turn on only the switch you need for a self-hosted service on another private-ne
 | `PROVIDER_LOCAL_URLS_ENABLED` | `false` | Allows AI provider URLs to reach private or LAN addresses. On by default on Android.                                                                       |
 | `IMAGE_LOCAL_URLS_ENABLED`    | `false` | Allows image provider URLs to reach private or LAN addresses. Private generated-image result URLs must still match the configured provider's exact origin. |
 | `TTS_LOCAL_URLS_ENABLED`      | `false` | Allows text-to-speech URLs to reach private or LAN addresses.                                                                                              |
+| `STT_LOCAL_URLS_ENABLED`      | `false` | Allows the Speech to Text server URL to reach private or LAN addresses. A server on the same machine works without it.                                     |
 | `DEEPLX_LOCAL_URLS_ENABLED`   | `false` | Allows DeepLX translation URLs to reach private or LAN addresses.                                                                                          |
 | `WEBHOOK_LOCAL_URLS_ENABLED`  | `false` | Allows custom tool webhooks to reach private or LAN addresses.                                                                                             |
 

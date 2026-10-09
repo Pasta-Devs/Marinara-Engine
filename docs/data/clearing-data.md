@@ -35,7 +35,7 @@ The **Danger Zone** shows a checklist of eight categories. Each one is a separat
 | **Automation & Addons** | Agents, tools, regex scripts, synced themes, and automation state. |
 | **Media & Assets** | Backgrounds, avatars, sprites, gallery items, fonts, and knowledge-source files. |
 
-A few categories remove more than database records. **Chats & Messages** also deletes the entire on-disk gallery folder and all scene-video files. This includes character and persona gallery images, even if you did not check **Characters** or **Personas**. **Media & Assets** deletes the on-disk folders for backgrounds, avatars, sprites, galleries, scene-video files, fonts, and knowledge-source files. **Connections** also clears your saved text-to-speech (TTS) settings, because those are tied to a connection.
+A few categories remove more than database records. **Chats & Messages** also deletes the entire on-disk gallery folder and all scene-video files. This includes character and persona gallery images, even if you did not check **Characters** or **Personas**. **Media & Assets** deletes the on-disk folders for backgrounds, avatars, sprites, galleries, scene-video files, fonts, and knowledge-source files. **Connections** also clears your saved text-to-speech (TTS) and Speech to Text settings, because those are tied to a connection.
 
 ## Clearing selected categories
 

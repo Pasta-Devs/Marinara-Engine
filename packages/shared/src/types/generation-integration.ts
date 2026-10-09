@@ -467,4 +467,20 @@ export interface CapabilityIntegrationHost {
         | undefined,
     ): VideoReferencePublicUploadOptions | null;
   };
+  /**
+   * The speech-to-text server set in Connections. Optional so a package feature-detects it and keeps
+   * its own transcription on an older Engine. Requires the `network` permission.
+   */
+  speech?: {
+    /** Transcribe recorded audio. Resolves null while no server is turned on, so the caller keeps its own path. */
+    transcribe(audio: Uint8Array, options?: CapabilitySpeechTranscribeOptions): Promise<string | null>;
+  };
+}
+
+export interface CapabilitySpeechTranscribeOptions {
+  /** Upload name, such as "call-audio.wav". */
+  filename?: string;
+  /** Audio media type, such as "audio/wav". */
+  mimeType?: string;
+  signal?: AbortSignal;
 }
