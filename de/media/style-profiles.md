@@ -58,7 +58,7 @@ Ein mitgeliefertes Profil lässt sich direkt bearbeiten. Mit der Schaltfläche *
 2. Klick auf **Clone**. Marinara erstellt eine Kopie, öffnet sie zur Bearbeitung und macht sie sofort zum app-weiten Standardstil.
 3. Ändere das Feld **Name** in etwas, das du wiedererkennst.
 4. Wähle eine **Prompt grammar** (Prompt-Grammatik, siehe nächster Abschnitt).
-5. Beschreibe unter **Style text** (Stiltext) den gewünschten Look in einfachen Worten.
+5. Beschreibe unter **Style text** (Stiltext) den gewünschten Look in einfachen Worten. Schreibt eine KI den Bild-Prompt, wie beim Illustrator, bei Selfies und in Noodle, richtet sie sich nach deinem Stiltext, statt ihn zu kopieren. Andere Bilder, etwa Avatare, bekommen den Stiltext unter Umständen unverändert angehängt.
 6. Ergänze **Positive tags** (einzuschließende Wörter) und **Negative tags** (zu vermeidende Wörter).
 7. Öffne den Abschnitt **Per-image tags** (Tags pro Bildart), um für jede Bildart zusätzliche Tags zu hinterlegen (Avatar, Porträt, Selfie, Hintergrund, Illustration, Sprite).
 8. Dein Klon ist seit Schritt 2 der app-weite Standard. Willst du diese Rolle wieder an ein anderes Profil abgeben, öffne **Default style** und wähle das gewünschte Profil.

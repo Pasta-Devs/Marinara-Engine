@@ -740,5 +740,6 @@ Engine은 패키지 클라이언트 요소를 `view="widget"`으로 마운트합
 - `llm.withFallback(...)`는 같은 패키지 호스트가 만든 제공자를 감싸며 Engine의 요청 수용, 대체 알림, 제공자 선택 동작을 유지합니다.
 - `images.generate(...)`와 `videos.generate(...)`는 취소, 요청 로그, 네트워크 검사, 미디어 큐를 포함한 현재 Engine 구현을 사용합니다. 호출자의 `signal`과 UI `debugMode`가 있으면 전달하세요.
 - `images.save`, `images.remove`, `images.stage`, `images.sweepStaged`는 갤러리의 안전한 쓰기와 임시 파일 수명 주기를 재사용합니다. `videos.save`와 `videos.remove`는 영상 저장 경로를 재사용합니다. `images.resolveNovelAiRequestSize`는 호스트의 NovelAI 크기 정규화를 재사용합니다. 영상 길이와 공개 참조 업로드 정규화도 `videos.resolveDuration`, `videos.resolveReferenceUpload`로 사용할 수 있습니다.
+- `speech.transcribe(audio, { filename, mimeType, signal })`는 녹음한 오디오를 사용자가 **Connections → Speech to Text**(연결 → 음성 인식)에서 설정한 음성 인식 서버로 보내고, 변환된 텍스트를 반환합니다. 그 서버가 꺼져 있으면 `null`을 반환하므로 패키지는 자체 음성 변환을 그대로 사용합니다. 호스트의 URL 정책(`STT_LOCAL_URLS_ENABLED`)과 크기, 시간 제한을 적용하며 저장된 키는 절대 노출하지 않습니다. `speech`는 선택적이며 더 새로운 Capability API를 요구하지 않습니다. `typeof api.runtime.integrations?.speech?.transcribe === "function"`을 확인하고, 오래된 Engine에서는 대체 경로를 사용하세요.
 
 공유 요청·결과 타입은 `@marinara-engine/shared`에서 내보냅니다. 패키지별 프롬프트 구성과 작업 조정은 패키지에 두고, 제공자 입출력은 Engine 서비스 구현을 복사하지 말고 이 호스트 진입점을 호출하세요. 순수 헬퍼와 타입은 여전히 번들에 포함할 수 있습니다.

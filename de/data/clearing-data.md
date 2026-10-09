@@ -35,7 +35,7 @@ Die **Danger Zone** zeigt eine Liste mit acht Kategorien zum Ankreuzen. Jede dav
 | **Automation & Addons** | Agenten, Tools, Regex-Skripte, synchronisierte Themes und den Automatisierungszustand. |
 | **Media & Assets** | Hintergründe, Avatare, Sprites, Galerie-Objekte, Schriften und Dateien von Wissensquellen. |
 
-Einige Kategorien löschen mehr als nur Datenbankeinträge. **Chats & Messages** entfernt zusätzlich den kompletten Galerie-Ordner auf der Festplatte samt allen Szenen-Videodateien. Betroffen sind auch die Galeriebilder von Charakteren und Personas, selbst wenn du **Characters** oder **Personas** gar nicht angekreuzt hast. **Media & Assets** löscht die Ordner auf der Festplatte für Hintergründe, Avatare, Sprites, Galerien, Szenen-Videodateien, Schriften und Dateien von Wissensquellen. **Connections** leert außerdem die gespeicherten Einstellungen für Text to Speech (TTS, Sprachausgabe), denn die hängen an einer Verbindung.
+Einige Kategorien löschen mehr als nur Datenbankeinträge. **Chats & Messages** entfernt zusätzlich den kompletten Galerie-Ordner auf der Festplatte samt allen Szenen-Videodateien. Betroffen sind auch die Galeriebilder von Charakteren und Personas, selbst wenn du **Characters** oder **Personas** gar nicht angekreuzt hast. **Media & Assets** löscht die Ordner auf der Festplatte für Hintergründe, Avatare, Sprites, Galerien, Szenen-Videodateien, Schriften und Dateien von Wissensquellen. **Connections** leert außerdem die gespeicherten Einstellungen für Text to Speech (TTS, Sprachausgabe) und Speech to Text (Spracherkennung), denn die hängen an einer Verbindung.
 
 ## Ausgewählte Kategorien löschen
 

@@ -292,6 +292,7 @@ Aktiviere nur den Schalter, den du für einen selbst gehosteten Dienst auf einem
 | `PROVIDER_LOCAL_URLS_ENABLED` | `false` | Erlaubt KI-Anbieter-URLs den Zugriff auf private oder LAN-Adressen. Unter Android standardmäßig an. |
 | `IMAGE_LOCAL_URLS_ENABLED`    | `false` | Erlaubt Bildanbieter-URLs den Zugriff auf private oder LAN-Adressen. Private Ergebnis-URLs generierter Bilder müssen weiterhin exakt dem Ursprung des eingestellten Anbieters entsprechen. |
 | `TTS_LOCAL_URLS_ENABLED`      | `false` | Erlaubt Text-to-Speech-URLs den Zugriff auf private oder LAN-Adressen.                |
+| `STT_LOCAL_URLS_ENABLED`      | `false` | Erlaubt der Server-URL für Speech to Text den Zugriff auf private oder LAN-Adressen. Ein Server auf demselben Rechner funktioniert auch ohne diese Einstellung. |
 | `DEEPLX_LOCAL_URLS_ENABLED`   | `false` | Erlaubt DeepLX-Übersetzungs-URLs den Zugriff auf private oder LAN-Adressen.           |
 | `WEBHOOK_LOCAL_URLS_ENABLED`  | `false` | Erlaubt Webhooks eigener Tools den Zugriff auf private oder LAN-Adressen.             |
 
@@ -382,18 +383,19 @@ Alle Einstellungen hier sind standardmäßig aus und behalten damit das bisherig
 
 ### Integrationen und Extras
 
-| Variable                          | Standard                                   | Wirkung                                                                           |
-| --------------------------------- | ------------------------------------------ | --------------------------------------------------------------------------------- |
-| `DOCS_I18N_BASE_URL`              | offizieller `docs-i18n`-Branch             | Quelle für die Sprachpakete der Dokumentation und der Oberfläche. Oberflächenpakete liegen im Unterverzeichnis `ui/`. Erfordert einen öffentlichen `https://`-Host; Forks und Spiegel können auf ihre eigene Kopie des Branches `docs-i18n` verweisen. |
-| `GIPHY_API_KEY`                   | leer                                       | Giphy-Key für die GIF-Suche im Conversation Mode. Ohne Wert bleibt die Suche aus. |
-| `INTIFACE_URL`                    | `ws://127.0.0.1:12345`                     | Standardadresse der Intiface-Haptik-App.                                           |
-| `SPOTIFY_REDIRECT_URI`            | aus der Anfrage abgeleitet                 | Abweichende Callback-URL für die Spotify-Anmeldung. Nötig, wenn TLS vorgelagert endet. |
-| `MARI_WIKI_CONTENT_MAX_BYTES`     | `50000`                                    | Größter Wiki-Seiteninhalt, den Professor Mari ungekürzt liest.                     |
-| `MARI_WIKI_REQUEST_TIMEOUT_MS`    | `30000`                                    | Zeit für eine Wiki-Anfrage von Professor Mari.                                     |
-| `MARI_WIKI_CACHE_TTL_MS`          | `300000`                                   | Wie lange Professor Mari einen Wiki-Abruf zwischenspeichert.                       |
-| `SIDECAR_RUNTIME_INSTALL_ENABLED` | `false` (der Windows-Launcher setzt `true`) | Erlaubt die Installation der lokalen Modell-Laufzeit über Loopback ohne Admin-Header. |
-| `SSL_CERT`                        | leer                                       | Pfad zu einem TLS-Zertifikat. Siehe Zugriffskontrolle weiter oben.                 |
-| `SSL_KEY`                         | leer                                       | Pfad zu einem privaten TLS-Schlüssel. Siehe Zugriffskontrolle weiter oben.         |
+| Variable                                | Standard                                   | Wirkung                                                                           |
+| --------------------------------------- | ------------------------------------------ | --------------------------------------------------------------------------------- |
+| `CLAUDE_SUBSCRIPTION_USE_INSTALLED_CLI` | `true`                                     | Ob Verbindungen vom Typ **Claude (Subscription)** das auf diesem Rechner installierte Claude Code verwenden, sofern es mindestens so neu ist wie die mit Marinara mitgelieferte Kopie. Mit `false` kommt immer die mitgelieferte Kopie zum Einsatz. Greift innerhalb von fünf Minuten, ohne Neustart. |
+| `DOCS_I18N_BASE_URL`                    | offizieller `docs-i18n`-Branch             | Quelle für die Sprachpakete der Dokumentation und der Oberfläche. Oberflächenpakete liegen im Unterverzeichnis `ui/`. Erfordert einen öffentlichen `https://`-Host; Forks und Spiegel können auf ihre eigene Kopie des Branches `docs-i18n` verweisen. |
+| `GIPHY_API_KEY`                         | leer                                       | Giphy-Key für die GIF-Suche im Conversation Mode. Ohne Wert bleibt die Suche aus. |
+| `INTIFACE_URL`                          | `ws://127.0.0.1:12345`                     | Standardadresse der Intiface-Haptik-App.                                           |
+| `SPOTIFY_REDIRECT_URI`                  | aus der Anfrage abgeleitet                 | Abweichende Callback-URL für die Spotify-Anmeldung. Nötig, wenn TLS vorgelagert endet. |
+| `MARI_WIKI_CONTENT_MAX_BYTES`           | `50000`                                    | Größter Wiki-Seiteninhalt, den Professor Mari ungekürzt liest.                     |
+| `MARI_WIKI_REQUEST_TIMEOUT_MS`          | `30000`                                    | Zeit für eine Wiki-Anfrage von Professor Mari.                                     |
+| `MARI_WIKI_CACHE_TTL_MS`                | `300000`                                   | Wie lange Professor Mari einen Wiki-Abruf zwischenspeichert.                       |
+| `SIDECAR_RUNTIME_INSTALL_ENABLED`       | `false` (der Windows-Launcher setzt `true`) | Erlaubt die Installation der lokalen Modell-Laufzeit über Loopback ohne Admin-Header. |
+| `SSL_CERT`                              | leer                                       | Pfad zu einem TLS-Zertifikat. Siehe Zugriffskontrolle weiter oben.                 |
+| `SSL_KEY`                               | leer                                       | Pfad zu einem privaten TLS-Schlüssel. Siehe Zugriffskontrolle weiter oben.         |
 
 Zum Giphy-Key: Die GIF-Suche bleibt so lange nicht verfügbar, bis du `GIPHY_API_KEY` gesetzt und neu gestartet hast. Zum eingebauten lokalen Modell siehe [Lokales Modell einrichten](connections/local-model.md).
 

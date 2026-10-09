@@ -82,7 +82,8 @@ Der Abschnitt **Image Generation** (Bildgenerierung) erlaubt Noodle, an manche P
   - **Image generation connection**: ein Dropdown-Menü, standardmäßig **Default image generation connection**. Auf Default nutzt Noodle die Verbindung, die im Panel **Connections** als Standard für die Bildgenerierung markiert ist.
   - **Prompt instructions**: ein Textfeld mit vorbelegtem Text, maximal 4000 Zeichen. Diese Zusatzhinweise fließen in den Bild-Prompt ein.
   - **Use avatar references**: ein Schalter, standardmäßig **on**. Schickt den Avatar oder die Referenzbilder des Charakters an das Bildmodell.
-  - **Include descriptions**: ein Schalter, standardmäßig **on**. Nimmt die geschriebenen Aussehensnotizen des Charakters in den Bild-Prompt auf.
+  - **Interpret image prompts**: ein Schalter, standardmäßig **on**. Ein Textmodell schreibt jeden Bild-Prompt neu und folgt dabei den **Image Prompting Instructions** (Anweisungen für Bild-Prompts) deiner Bild-Verbindung und dem Stiltext deines Stilprofils. Ist er aus, bleiben die Image Prompting Instructions unberücksichtigt, und der Stiltext wird unverändert angehängt.
+  - **Include descriptions**: ein Schalter, standardmäßig **on**. Nimmt die geschriebenen Aussehensnotizen des Charakters in den Bild-Prompt auf. Ist **Interpret image prompts** an, arbeitet das Textmodell sie ein, statt sie einfach einzufügen.
   - **Images/refresh**: eine Zahl von 0 bis 50, standardmäßig **3**. Das begrenzt die generierten Post-Bilder für jeden manuellen und automatischen Refresh getrennt.
 - **Attach gallery images**: ein eigener Schalter, standardmäßig **off**. Er bleibt sichtbar, auch wenn **Image generation** aus ist. Statt ein neues Bild zu erzeugen, darf ein Post damit ein Bild aus der Galerie des Charakters oder aus einem Chat wiederverwenden, in dem er vorkommt.
 
@@ -176,6 +177,7 @@ Diese Tabelle listet jede Noodle-Einstellung mit Standardwert und Bereich.
 | **Image generation connection** | Default | jede Bildgenerierungs-Verbindung |
 | **Prompt instructions** | vorbelegter Text | bis zu 4000 Zeichen |
 | **Use avatar references** | on | on oder off |
+| **Interpret image prompts** | on | on oder off |
 | **Include descriptions** | on | on oder off |
 | **Images/refresh** | 3 | 0 bis 50 |
 | **Attach gallery images** | off | on oder off |

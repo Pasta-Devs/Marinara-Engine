@@ -316,7 +316,7 @@ Misc 에이전트는 이미지, 음악, 관객 반응, 카드 업데이트 같�
 
 - **단계**: Post-Processing.
 - **사용 가능한 곳**: Roleplay.
-- **주요 설정**: 선택지를 고쳐 쓰는 **Edit**(편집)와 새로 만드는 **Re-roll**(리롤).
+- **주요 설정**: 선택지를 고쳐 쓰는 **Edit**(편집)와 새로 만드는 **Re-roll**(리롤). 클릭한 선택지를 메시지 입력란에 넣으려면 **Settings**(설정) > **General**(일반) > **Input & Editing**(입력 및 편집)에서 **Add CYOA choices to the message box instead of sending them**(CYOA 선택지를 보내는 대신 메시지 입력창에 추가)을 켜세요.
 
 ### Storyboard
 

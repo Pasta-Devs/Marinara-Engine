@@ -30,7 +30,7 @@ Calls는 선택 설치하는 에이전트 패키지입니다. 아래 설정을 �
 3. 그 채팅에서 켜 둔 **Audio/Video Calls**(아래 "채팅에서 통화 켜기" 절 참고).
 4. 켜 둔 **Call Audio Pipeline**(통화 오디오 파이프라인). 글만 입력하거나 듣기만 하는 통화라도 이 설정이 있어야 통화를 시작할 수 있습니다. 마이크 입력도 이 설정으로 켜집니다.
 5. 캐릭터가 말할 수 있도록 설정한 Text to Speech. 설정하지 않으면 모든 캐릭터가 글로만 참여합니다.
-6. 선택 사항: 브라우저의 음성 인식이 불안정하다면 Calls를 설치한 뒤 **Connections**(연결)에서 다운로드하는 Local Whisper가 필요합니다(Firefox가 여기에 해당합니다).
+6. 선택 사항: 브라우저의 음성 인식이 불안정하다면 Calls를 설치한 뒤 **Connections**(연결)에서 다운로드하는 Local Whisper가 필요합니다(Firefox가 여기에 해당합니다). Local Whisper 대신 원하는 음성 인식 서버를 써도 됩니다.
 7. 선택 사항: **Character Video Presence**(캐릭터 동영상 표시)를 쓰려면 동영상 연결과 미리 만들어 둔 클립이 필요합니다.
 8. 선택 사항: 통화 중에 캐릭터가 셀카를 보내게 하려면 채팅의 **Selfie Connection**(셀카 연결)으로 지정한 이미지 연결이 필요합니다.
 
@@ -74,6 +74,26 @@ Local Whisper는 Calls 패키지에 딸린 기능이며, Firefox처럼 음성 �
 다운로드가 끝나면 모델을 지울 수 있도록 **Delete Local Whisper**(로컬 Whisper 삭제) 버튼(휴지통 아이콘)이 나타납니다.
 
 Calls를 제거하면 다운로드한 Whisper 모델과 저장해 둔 선택 값도 함께 삭제됩니다. 모델이 쓰던 디스크 공간은 이때 회수됩니다. Calls를 다시 설치하면 다운로드 버튼이 돌아오지만, 모델을 다시 고르기 전까지 자동으로 다운로드하지는 않습니다.
+
+<a id="use-your-own-speech-to-text-server"></a>
+
+### 원하는 음성 인식 서버 사용하기
+
+Local Whisper가 내 언어나 억양을 잘 알아듣지 못한다면, 녹음한 음성을 다른 음성 인식 모델로 보낼 수 있습니다. OpenAI 방식의 `/audio/transcriptions` 엔드포인트를 제공하는 서버라면 어디든 쓸 수 있습니다. Speaches, faster-whisper 서버, LocalAI, whisper.cpp 서버(`--inference-path /v1/audio/transcriptions`로 시작한 경우) 같은 자체 호스팅 서버와 OpenAI, Groq 같은 제공자가 여기에 해당합니다.
+
+1. Calls를 설치한 다음 **Connections**를 열고 **Speech to Text**(음성 인식) 카드를 찾으세요. Calls를 설치하지 않으면 이 카드는 보이지 않습니다.
+2. 카드를 펼치고 **Server URL**(서버 URL)을 입력하세요. 예를 들어 내 컴퓨터에서 실행하는 서버라면 `http://localhost:8000/v1`처럼 입력합니다.
+3. 서버나 제공자가 키를 요구하면 **API key**(API 키)를 입력하세요. 키는 암호화되어 저장되고, 카드에는 가려진 형태로만 표시됩니다.
+4. 서버가 사용하는 **Model**(모델) 이름을 입력하세요. 비워 두면 `whisper-1`을 보냅니다.
+5. 선택 사항: `pl`이나 `de` 같은 **Language**(언어) 코드를 입력하세요. 모델에 언어를 알려 주면 대개 정확도가 올라갑니다. 비워 두면 서버가 언어를 자동으로 감지합니다.
+6. **Test**(테스트)를 클릭하세요. Marinara가 1초 길이의 무음 클립을 보내고, 서버가 응답했는지 알려 줍니다.
+7. 카드의 스위치를 켜세요.
+
+스위치가 켜져 있는 동안에는 **Mic recording + Local Whisper**가 말한 내용을 Local Whisper 대신 이 서버로 보냅니다. 이때는 Local Whisper를 다운로드하지 않아도 됩니다. 스위치를 끄면 다시 Local Whisper를 사용합니다. 음성은 입력한 서버로 전송되므로 신뢰할 수 있는 서버를 쓰세요.
+
+Marinara와 같은 컴퓨터에 있는 서버는 그대로 동작합니다. 집 네트워크의 다른 컴퓨터에 있는 서버는 서버 `.env` 파일에 `STT_LOCAL_URLS_ENABLED=true`를 설정하지 않으면 거부됩니다. [서버 설정 참고 문서](../CONFIGURATION.md)를 참고하세요.
+
+이 기능을 지원하는 Calls 버전이 필요합니다. 스위치를 켠 뒤에도 통화가 계속 Local Whisper를 쓴다면 **Agents → Download Agents**에서 Calls를 업데이트하세요.
 
 ## 채팅에서 통화 켜기
 
@@ -252,7 +272,11 @@ Text to Speech 설정과 음성 지정을 확인하세요. 캐릭터에게는 �
 
 ### 모델이 말을 잘못 알아들을 때
 
-정확도를 높이려면 Whisper Tiny 대신 **Whisper Base (Multilingual)**을 써 보세요. 주변 소음과 음악도 줄이세요. 모델이 지원한다면 **Audio input mode**를 **Provider-native audio/video**로 바꿔 모델이 음성을 직접 듣게 하세요.
+정확도를 높이려면 Whisper Tiny 대신 **Whisper Base (Multilingual)**을 써 보세요. 주변 소음과 음악도 줄이세요. 모델이 지원한다면 **Audio input mode**를 **Provider-native audio/video**로 바꿔 모델이 음성을 직접 듣게 하세요. Whisper가 잘 처리하지 못하는 언어라면 그 언어를 아는 모델로 [원하는 음성 인식 서버를 사용](#use-your-own-speech-to-text-server)하고, 그 서버의 **Language** 코드를 설정하세요.
+
+### Speech to Text 테스트가 실패할 때
+
+**Test** 버튼 아래의 메시지를 읽어 보세요. "Could not reach the speech-to-text server"는 주소가 틀렸거나 서버가 실행 중이 아니라는 뜻입니다. `STT_LOCAL_URLS_ENABLED`를 언급하는 메시지는 서버가 네트워크의 다른 컴퓨터에 있다는 뜻이므로, `.env`에서 이 변수를 `true`로 설정하세요. 401이나 404 같은 숫자는 서버가 보낸 것입니다. 401은 대개 API 키가 틀렸다는 뜻이고, 404는 주소나 모델 이름이 틀렸다는 뜻입니다.
 
 ### 카메라 버튼이나 화면 공유 버튼이 비활성 상태일 때
 

@@ -141,7 +141,7 @@ Narrative Director 在输入框上方有一个 **Push Story** 按钮，按下后
 
 ## CYOA 选项
 
-**CYOA** 是 Choose Your Own Adventure(自选冒险) 的缩写。**CYOA Choices** 智能体默认关闭，开启后会在回复末尾加上可点击的选项按钮。点一个选项，它就作为你的下一条消息发出去。这个功能只在 Roleplay 模式里有效。
+**CYOA** 是 Choose Your Own Adventure(自选冒险) 的缩写。**CYOA Choices** 智能体默认关闭，开启后会在回复末尾加上可点击的选项按钮。点一个选项，它就作为你的下一条消息发出去。想合并几个选项，或者发送前先改一改，就在 **Settings** > **General**(常规) > **Input & Editing**(输入与编辑) 中开启 **Add CYOA choices to the message box instead of sending them**(把 CYOA 选项放进消息框，而不是直接发送)：之后点击选项只会把它的文字加进消息框，不会发送。这个功能只在 Roleplay 模式里有效。
 
 ## 遭遇战
 

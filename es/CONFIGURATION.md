@@ -292,6 +292,7 @@ Activa solo el interruptor que necesites para un servicio autoalojado en otra m�
 | `PROVIDER_LOCAL_URLS_ENABLED` | `false` | Permite que las URLs de proveedor de IA lleguen a direcciones privadas o de LAN. Activado de forma predeterminada en Android. |
 | `IMAGE_LOCAL_URLS_ENABLED`    | `false` | Permite que las URLs de proveedor de imagen lleguen a direcciones privadas o de LAN. Las URLs privadas del resultado de imagen generada aún deben coincidir con el origen exacto del proveedor configurado. |
 | `TTS_LOCAL_URLS_ENABLED`      | `false` | Permite que las URLs de texto a voz lleguen a direcciones privadas o de LAN.                    |
+| `STT_LOCAL_URLS_ENABLED`      | `false` | Permite que la URL del servidor de Speech to Text (voz a texto) llegue a direcciones privadas o de LAN. Un servidor en la misma máquina funciona sin esta variable. |
 | `DEEPLX_LOCAL_URLS_ENABLED`   | `false` | Permite que las URLs de traducción de DeepLX lleguen a direcciones privadas o de LAN.                    |
 | `WEBHOOK_LOCAL_URLS_ENABLED`  | `false` | Permite que los webhooks de herramientas personalizadas lleguen a direcciones privadas o de LAN.                       |
 
@@ -384,6 +385,7 @@ Todos estos ajustes están desactivados de forma predeterminada, preservando el 
 
 | Variable                          | Predeterminado                                    | Qué hace                                                                      |
 | --------------------------------- | ------------------------------------------ | --------------------------------------------------------------------------------- |
+| `CLAUDE_SUBSCRIPTION_USE_INSTALLED_CLI` | `true`                                     | Indica si las conexiones **Claude (Subscription)** usan el Claude Code instalado en esta computadora cuando es al menos tan reciente como la copia incluida en Marinara. Establécela en `false` para usar siempre la copia incluida. Surte efecto en un máximo de cinco minutos, sin necesidad de reiniciar. |
 | `DOCS_I18N_BASE_URL`              | rama `docs-i18n` oficial                  | Origen de las descargas de los paquetes de idioma de la documentación y la interfaz. Los paquetes de interfaz están en el subárbol `ui/`. Debe ser un host público `https://`; las bifurcaciones y los espejos pueden apuntar a su propia copia de la rama `docs-i18n`. |
 | `GIPHY_API_KEY`                   | vacío                                      | Clave de Giphy para la búsqueda de GIFs en el modo Conversation. La búsqueda está desactivada cuando no se configura.          |
 | `INTIFACE_URL`                    | `ws://127.0.0.1:12345`                     | Dirección predeterminada para la app háptica Intiface.                                      |

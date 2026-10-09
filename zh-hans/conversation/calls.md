@@ -30,7 +30,7 @@ Calls 是一个可选的智能体包。按下面的步骤配置之前，先从 *
 3. 为该聊天开启 **Audio/Video Calls**(音视频通话)（见下文“为聊天开启通话”一节）。
 4. 开启 **Call Audio Pipeline**(通话音频管线)。任何通话都需要它，哪怕你只打字或只听。它同时也负责麦克风输入。
 5. 配置 Text to Speech，角色才能说话。没配的话，所有角色都只能发文字。
-6. 可选：浏览器的语音识别不够可靠时（Firefox 就是这样），装好 Calls 之后从 Connections 下载 Local Whisper。
+6. 可选：浏览器的语音识别不够可靠时（Firefox 就是这样），装好 Calls 之后从 Connections 下载 Local Whisper。也可以不用 Local Whisper，改用你自己的语音识别服务器。
 7. 可选：想用 **Character Video Presence**(角色视频形象)，还需要一个视频连接和生成好的片段。
 8. 可选：想让角色在通话里发自拍，需要为聊天的 Selfie Connection(自拍连接) 设置一个图像连接。
 
@@ -74,6 +74,26 @@ Local Whisper 属于 Calls 包。对于语音支持较弱的浏览器（包括 F
 下载完成后会出现 **Delete Local Whisper**(垃圾桶图标)，需要时可以用它删掉模型。
 
 卸载 Calls 会连带删掉所有下载过的 Whisper 模型和保存的选择，模型占用的磁盘空间也会释放。重新安装 Calls 会恢复下载按钮，但在你重新选择之前不会自动下载模型。
+
+<a id="use-your-own-speech-to-text-server"></a>
+
+### 使用自己的语音识别服务器
+
+如果 Local Whisper 对你的语言或口音识别得不好，可以把录下的语音改发给另一个语音识别模型。任何提供 OpenAI 风格 `/audio/transcriptions` 端点的服务器都可以，包括 Speaches、faster-whisper 服务器、LocalAI 和 whisper.cpp 服务器（启动时要加上 `--inference-path /v1/audio/transcriptions`）这类自建服务器，以及 OpenAI、Groq 这类服务商。
+
+1. 安装 Calls，然后打开 **Connections**，找到 **Speech to Text**(语音识别) 卡片。没装 Calls 时这张卡片不会显示。
+2. 展开卡片，填入 **Server URL**(服务器地址)，比如服务器就在本机时填 `http://localhost:8000/v1`。
+3. 服务器或服务商需要密钥的话，填入 **API key**(API 密钥)。密钥会加密保存，卡片上只显示打码后的密钥。
+4. 在 **Model**(模型) 里填入服务器使用的模型名称。留空则发送 `whisper-1`。
+5. 可选：填入 **Language**(语言) 代码，比如 `pl` 或 `de`。告诉模型你说的是哪种语言，通常能提高准确率。留空则由服务器自动识别。
+6. 点击 **Test**(测试)。Marinara 会发送一段一秒钟的静音片段，并告诉你服务器有没有响应。
+7. 打开卡片上的开关。
+
+开关打开期间，**Mic recording + Local Whisper** 会把你的语音发给这个服务器，而不是交给 Local Whisper。这时不需要下载 Local Whisper。关掉开关就回到 Local Whisper。你的音频会发到你填写的服务器上，所以要用自己信得过的服务器。
+
+和 Marinara 在同一台机器上的服务器可以直接使用。家庭网络里另一台机器上的服务器会被拒绝，除非在 Marinara 的 `.env` 文件里设置 `STT_LOCAL_URLS_ENABLED=true`。见[服务器配置参考](../CONFIGURATION.md)。
+
+这需要支持该功能的 Calls 版本。如果打开开关后通话仍在使用 Local Whisper，就从 **Agents → Download Agents** 更新 Calls。
 
 ## 为聊天开启通话
 
@@ -252,7 +272,11 @@ Local Whisper 需要对应平台的原生 ONNX 运行时。ONNX 就是跑本地�
 
 ### 模型听错了我说的话
 
-把 Whisper Tiny 换成 **Whisper Base (Multilingual)**，准确率更高。减少背景噪音和音乐。模型支持的话，把 **Audio input mode** 切换到 **Provider-native audio/video**，让模型直接听你的声音。
+把 Whisper Tiny 换成 **Whisper Base (Multilingual)**，准确率更高。减少背景噪音和音乐。模型支持的话，把 **Audio input mode** 切换到 **Provider-native audio/video**，让模型直接听你的声音。如果 Whisper 不擅长你的语言，就[使用自己的语音识别服务器](#use-your-own-speech-to-text-server)，换一个懂这种语言的模型，并设置它的 **Language** 代码。
+
+### Speech to Text 测试失败
+
+看 **Test** 按钮下方的提示。“Could not reach the speech-to-text server”表示地址不对，或者服务器没在运行。提示里提到 `STT_LOCAL_URLS_ENABLED`，说明服务器在你网络里的另一台机器上；在 `.env` 里把这个变量设为 `true`。401 或 404 这类数字来自你的服务器：401 通常是 API 密钥不对，404 则是地址或模型名称不对。
 
 ### 摄像头或屏幕按钮是禁用的
 

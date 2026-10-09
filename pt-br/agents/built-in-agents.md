@@ -316,7 +316,7 @@ Acrescenta botões de escolha clicáveis, no estilo "What will you do?", depois 
 
 - **Fase**: Post-Processing.
 - **Onde funciona**: Roleplay.
-- **Configurações principais**: **Edit** para reescrever as opções e **Re-roll** para gerar opções novas.
+- **Configurações principais**: **Edit** para reescrever as opções e **Re-roll** para gerar opções novas. Ative **Add CYOA choices to the message box instead of sending them** (adicionar as escolhas CYOA à caixa de mensagem em vez de enviá-las) em **Settings** (Configurações) > **General** > **Input & Editing** para que as escolhas clicadas vão para a sua caixa de mensagem.
 
 ### Storyboard
 

@@ -316,7 +316,7 @@ Ajoute après chaque réponse des boutons de choix cliquables "What will you do?
 
 - **Phase** : **Post-Processing**.
 - **Où ça marche** : Roleplay.
-- **Réglages clés** : **Edit** pour réécrire les choix et **Re-roll** pour en générer de nouveaux.
+- **Réglages clés** : **Edit** pour réécrire les choix et **Re-roll** pour en générer de nouveaux. Active **Add CYOA choices to the message box instead of sending them** (ajouter les choix CYOA à la zone de saisie au lieu de les envoyer) dans **Settings** > **General** > **Input & Editing** (Paramètres > Général > Saisie et édition) pour que les choix cliqués aillent dans ta zone de saisie.
 
 ### Storyboard
 

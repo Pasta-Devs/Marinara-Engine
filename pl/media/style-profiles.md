@@ -58,7 +58,7 @@ Profil wbudowany da się edytować na miejscu, ale przycisk **Clone** pozwala za
 2. Kliknij przycisk **Clone**. Marinara tworzy kopię, otwiera ją do edycji i od razu ustawia ją jako domyślny styl całej aplikacji.
 3. W polu **Name** wpisz nazwę, którą łatwo rozpoznasz.
 4. Wybierz opcję w polu **Prompt grammar** (opisujemy je w następnej sekcji).
-5. Wypełnij pole **Style text** zwykłym opisem wyglądu, o który ci chodzi.
+5. Wypełnij pole **Style text** zwykłym opisem wyglądu, o który ci chodzi. Gdy AI pisze prompt obrazu, jak w przypadku agenta Illustrator, selfie i Noodle, kieruje się treścią pola Style text, zamiast ją kopiować. Do innych obrazów, na przykład awatarów, treść pola Style text może zostać dodana dosłownie.
 6. Dodaj **Positive tags** (tagi do uwzględnienia) i **Negative tags** (tagi do uniknięcia).
 7. Rozwiń sekcję **Per-image tags**, żeby dodać osobne tagi dla każdego rodzaju obrazu (awatar, portret, selfie, tło, ilustracja, sprite).
 8. W kroku 2 kopia stała się profilem domyślnym całej aplikacji. Żeby oddać tę rolę innemu profilowi, rozwiń listę **Default style** i wskaż właściwy profil.

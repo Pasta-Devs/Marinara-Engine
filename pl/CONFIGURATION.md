@@ -292,6 +292,7 @@ Włącz tylko ten przełącznik, którego naprawdę potrzebujesz dla własnej us
 | `PROVIDER_LOCAL_URLS_ENABLED` | `false` | Pozwala adresom URL dostawców AI sięgać adresów prywatnych i sieci lokalnej. W systemie Android domyślnie włączone. |
 | `IMAGE_LOCAL_URLS_ENABLED` | `false` | Pozwala adresom URL dostawców obrazów sięgać adresów prywatnych i sieci lokalnej. Prywatne adresy URL z wygenerowanymi obrazami i tak muszą zgadzać się dokładnie ze źródłem skonfigurowanego dostawcy. |
 | `TTS_LOCAL_URLS_ENABLED` | `false` | Pozwala adresom URL syntezy mowy sięgać adresów prywatnych i sieci lokalnej. |
+| `STT_LOCAL_URLS_ENABLED` | `false` | Pozwala adresowi URL serwera Speech to Text (zamiana mowy na tekst) sięgać adresów prywatnych i sieci lokalnej. Serwer na tym samym komputerze działa bez tego ustawienia. |
 | `DEEPLX_LOCAL_URLS_ENABLED` | `false` | Pozwala adresom URL tłumaczenia DeepLX sięgać adresów prywatnych i sieci lokalnej. |
 | `WEBHOOK_LOCAL_URLS_ENABLED` | `false` | Pozwala webhookom własnych narzędzi sięgać adresów prywatnych i sieci lokalnej. |
 
@@ -384,6 +385,7 @@ Wszystkie ustawienia są domyślnie wyłączone, zachowując wcześniejsze dzia�
 
 | Zmienna | Domyślnie | Do czego służy |
 | --- | --- | --- |
+| `CLAUDE_SUBSCRIPTION_USE_INSTALLED_CLI` | `true` | Czy połączenia **Claude (Subscription)** korzystają z narzędzia Claude Code zainstalowanego na tym komputerze, jeśli jest ono co najmniej tak nowe jak kopia dołączona do aplikacji Marinara. Ustaw `false`, żeby zawsze używać dołączonej kopii. Zmiana zaczyna działać w ciągu pięciu minut, bez restartu. |
 | `DOCS_I18N_BASE_URL` | oficjalna gałąź `docs-i18n` | Miejsce pobierania pakietów językowych dokumentacji i interfejsu. Pakiety interfejsu znajdują się w poddrzewie `ui/`. Musi to być publiczny host `https://`; forki i kopie mogą wskazać własną wersję gałęzi `docs-i18n`. |
 | `GIPHY_API_KEY` | pusta | Klucz Giphy do wyszukiwania plików GIF w trybie Conversation. Bez niego wyszukiwanie jest wyłączone. |
 | `INTIFACE_URL` | `ws://127.0.0.1:12345` | Domyślny adres aplikacji haptycznej Intiface. |

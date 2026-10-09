@@ -82,7 +82,8 @@ Noodle 先选定活跃账号，然后才去准备首次的资料。只有还没�
   - **Image generation connection**(图像生成连接)：下拉菜单，默认 **Default image generation connection**。保持默认时，用的是 Connections(连接) 面板里标记为图像生成默认项的那个连接。
   - **Prompt instructions**(提示词补充说明)：文本框，自带一段默认文字，最多 4000 个字符。这些额外说明会并进图像提示词里。
   - **Use avatar references**(使用头像参考图)：开关，默认 **on**。会把角色的头像或参考图发给图像模型。
-  - **Include descriptions**(附带外观描述)：开关，默认 **on**。会把角色写好的外观描述加进图像提示词。
+  - **Interpret image prompts**(解读图像提示词)：开关，默认 **on**。由一个文本模型改写每段图像提示词，改写时遵循图像连接的 **Image Prompting Instructions**(图像提示词指令) 和风格方案的 Style text(风格描述)。关闭时不使用 Image Prompting Instructions，Style text 按原样加入。
+  - **Include descriptions**(附带外观描述)：开关，默认 **on**。会把角色写好的外观描述加进图像提示词。开启 **Interpret image prompts** 时，文本模型会把这些描述融进提示词，而不是直接粘贴。
   - **Images/refresh**(每次刷新的图像数)：数值，0 到 50，默认 **3**。这个上限只管生成的帖子配图，对每一次手动刷新和自动刷新分别计算。
 - **Attach gallery images**(附带图库图像)：一个独立的开关，默认 **off**。即使 **Image generation** 关着，它也一直显示。它不生成新图，而是让帖子复用该角色图库里的图，或者复用该角色出现过的聊天里的图。
 
@@ -176,6 +177,7 @@ Noodle 和聊天可以双向共享上下文。这是两个各自独立的功能�
 | **Image generation connection** | Default | 任意图像生成连接 |
 | **Prompt instructions** | 内置文字 | 最多 4000 个字符 |
 | **Use avatar references** | on | on 或 off |
+| **Interpret image prompts** | on | on 或 off |
 | **Include descriptions** | on | on 或 off |
 | **Images/refresh** | 3 | 0 到 50 |
 | **Attach gallery images** | off | on 或 off |

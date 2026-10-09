@@ -30,7 +30,7 @@ Callsは任意で追加するエージェントパッケージです。以下の
 3. そのチャットで**Audio/Video Calls**(音声通話とビデオ通話)をオンにすること(後述の「チャットで通話をオンにする」を参照)。
 4. **Call Audio Pipeline**(通話の音声パイプライン)をオンにすること。どんな通話にもこれが必要で、文字入力だけの通話や聞くだけの通話でも必要です。マイク入力もこの設定で有効になります。
 5. キャラクターが話せるようにText to Speechを設定すること。設定がないと、すべてのキャラクターが文字だけで参加します。
-6. Optional: ブラウザーの音声認識が安定しない場合(Firefoxがこれに当たります)、Callsのインストール後にConnectionsからLocal Whisperをダウンロードします。
+6. Optional: ブラウザーの音声認識が安定しない場合(Firefoxがこれに当たります)、Callsのインストール後にConnectionsからLocal Whisperをダウンロードします。または、Local Whisperの代わりに自分の音声認識サーバーを使います。
 7. Optional: **Character Video Presence**を使いたい場合は、動画の接続と生成済みのクリップ。
 8. Optional: 通話中にキャラクターが自撮り写真を送れるようにしたい場合は、チャットのSelfie Connectionに指定した画像の接続。
 
@@ -74,6 +74,26 @@ Local WhisperはCallsパッケージに含まれる機能で、Firefoxのよう�
 ダウンロードが終わると、モデルを削除するための**Delete Local Whisper**(ゴミ箱のアイコン)が表示されます。
 
 Callsをアンインストールすると、ダウンロード済みのWhisperモデルと選択内容もすべて削除されます。モデルが使っていたディスク容量は、これで解放されます。Callsを再インストールするとダウンロードの操作は戻りますが、モデルを選び直すまで再ダウンロードは始まりません。
+
+<a id="use-your-own-speech-to-text-server"></a>
+
+### 自分の音声認識サーバーを使う
+
+話す言語やなまりをLocal Whisperがうまく聞き取れない場合は、録音した声を別の音声認識モデルへ送ることもできます。OpenAI形式の`/audio/transcriptions`エンドポイントを提供するサーバーであれば、どれでも使えます。Speaches、faster-whisperのサーバー、LocalAI、whisper.cpp server(`--inference-path /v1/audio/transcriptions`を付けて起動したもの)などのセルフホストのサーバーや、OpenAI、Groqなどのプロバイダーが当てはまります。
+
+1. Callsをインストールしてから**Connections**を開き、**Speech to Text**(音声認識)カードを探します。Callsがインストールされていないあいだ、このカードは表示されません。
+2. カードを展開し、**Server URL**(サーバーのURL)を入力します。たとえば自分のコンピューター上のサーバーなら`http://localhost:8000/v1`です。
+3. サーバーやプロバイダーが必要とする場合は、**API key**(APIキー)を入力します。キーは暗号化して保存され、カードには伏せ字でしか表示されません。
+4. サーバーで使う**Model**(モデル)の名前を入力します。空欄のままにすると`whisper-1`を送ります。
+5. Optional: `pl`や`de`のような**Language**(言語)コードを入力します。話す言語をモデルに伝えると、たいてい精度が上がります。空欄のままにすると、サーバーが言語を検出します。
+6. **Test**(テスト)をクリックします。Marinaraは1秒間の無音のクリップを送り、サーバーが応答したかどうかを表示します。
+7. カードのスイッチをオンにします。
+
+スイッチがオンのあいだ、**Mic recording + Local Whisper**は話した内容をLocal Whisperではなくこのサーバーへ送ります。この場合、Local Whisperをダウンロードする必要はありません。Local Whisperに戻すには、スイッチをオフにします。音声は入力したサーバーへ送られるので、信頼できるサーバーを使ってください。
+
+Marinaraと同じコンピューター上のサーバーは、そのまま使えます。自宅のネットワーク内にある別のコンピューターのサーバーは、サーバーの`.env`ファイルで`STT_LOCAL_URLS_ENABLED=true`を設定しない限り拒否されます。[サーバー設定リファレンス](../CONFIGURATION.md)を参照してください。
+
+この機能には、対応したバージョンのCallsが必要です。スイッチをオンにしても通話がLocal Whisperを使い続ける場合は、**Agents → Download Agents**からCallsをアップデートしてください。
 
 ## チャットで通話をオンにする
 
@@ -252,7 +272,11 @@ Text to Speechの設定と音声の割り当てを確認してください。キ
 
 ### 話した内容をモデルが取り違える
 
-精度を上げるには、Whisper Tinyの代わりに**Whisper Base (Multilingual)**を試してください。周囲の雑音や音楽を減らすのも効果があります。モデルが対応していれば、**Audio input mode**を**Provider-native audio/video**に切り替えると、モデルが音声を直接聞き取ります。
+精度を上げるには、Whisper Tinyの代わりに**Whisper Base (Multilingual)**を試してください。周囲の雑音や音楽を減らすのも効果があります。モデルが対応していれば、**Audio input mode**を**Provider-native audio/video**に切り替えると、モデルが音声を直接聞き取ります。Whisperが苦手な言語では、その言語を扱えるモデルで[自分の音声認識サーバーを使う](#use-your-own-speech-to-text-server)ようにし、**Language**コードを設定してください。
+
+### Speech to Textのテストが失敗する
+
+**Test**ボタンの下に表示されるメッセージを読んでください。「Could not reach the speech-to-text server」は、アドレスが間違っているか、サーバーが動いていないことを示します。`STT_LOCAL_URLS_ENABLED`という名前が出てくるメッセージは、サーバーがネットワーク内の別のコンピューターにあることを示します。`.env`でその変数を`true`に設定してください。401や404のような数値は、サーバーから返されたものです。401はたいていAPIキーの誤り、404はアドレスかモデル名の誤りを示します。
 
 ### カメラや画面共有のボタンが無効になっている
 

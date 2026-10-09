@@ -292,6 +292,7 @@ ADMIN_SECRET=replace-this-with-a-long-random-secret
 | `PROVIDER_LOCAL_URLS_ENABLED` | `false` | AIプロバイダーのURLが、プライベートアドレスやLANのアドレスに接続できるようにします。Androidではデフォルトでオンです。 |
 | `IMAGE_LOCAL_URLS_ENABLED` | `false` | 画像プロバイダーのURLが、プライベートアドレスやLANのアドレスに接続できるようにします。生成された画像の結果URLがプライベートアドレスの場合も、設定したプロバイダーのオリジンと完全に一致する必要があります。 |
 | `TTS_LOCAL_URLS_ENABLED` | `false` | 音声合成のURLが、プライベートアドレスやLANのアドレスに接続できるようにします。 |
+| `STT_LOCAL_URLS_ENABLED` | `false` | 音声認識(Speech to Text)サーバーのURLが、プライベートアドレスやLANのアドレスに接続できるようにします。同じコンピューター上のサーバーは、この設定がなくても使えます。 |
 | `DEEPLX_LOCAL_URLS_ENABLED` | `false` | DeepLXの翻訳URLが、プライベートアドレスやLANのアドレスに接続できるようにします。 |
 | `WEBHOOK_LOCAL_URLS_ENABLED` | `false` | 独自ツールのWebhookが、プライベートアドレスやLANのアドレスに接続できるようにします。 |
 
@@ -384,6 +385,7 @@ Conversationのスケジュールの設定は、デフォルトではブラウ�
 
 | 変数 | デフォルト | 説明 |
 | --- | --- | --- |
+| `CLAUDE_SUBSCRIPTION_USE_INSTALLED_CLI` | `true` | **Claude (Subscription)**の接続で、このコンピューターにインストールされているClaude Codeが、Marinaraに同梱されているものと同じかそれより新しい場合に、そちらを使うかどうか。常に同梱版を使うには`false`にします。再起動は不要で、5分以内に反映されます。 |
 | `DOCS_I18N_BASE_URL` | 公式の`docs-i18n`ブランチ | ドキュメントとUIの言語パックのダウンロード元です。UIパックは`ui/`配下に置かれます。公開された`https://`ホストが必要です。フォークやミラーでは、独自の`docs-i18n`ブランチのコピーを指定できます。 |
 | `GIPHY_API_KEY` | 空 | ConversationモードのGIF検索に使うGiphyのキー。設定しないあいだ、検索は無効です。 |
 | `INTIFACE_URL` | `ws://127.0.0.1:12345` | Intifaceの触覚アプリのデフォルトのアドレス。 |

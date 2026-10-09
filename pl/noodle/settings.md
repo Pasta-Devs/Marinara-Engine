@@ -82,7 +82,8 @@ Sekcja **Image Generation** (generowanie obrazów) pozwala Noodle dołączać do
   - **Image generation connection**: lista rozwijana, domyślnie **Default image generation connection**. Pozostawienie wartości Default oznacza użycie tego połączenia, które w panelu Connections jest oznaczone jako domyślne do generowania obrazów.
   - **Prompt instructions**: pole tekstowe z wbudowanym tekstem domyślnym, do 4000 znaków. Te dodatkowe uwagi trafiają do promptu obrazu.
   - **Use avatar references**: przełącznik, domyślnie **on**. Wysyła awatar postaci albo jej obrazy referencyjne do modelu obrazów.
-  - **Include descriptions**: przełącznik, domyślnie **on**. Dodaje do promptu obrazu opisowe notatki o wyglądzie postaci.
+  - **Interpret image prompts** (interpretowanie promptów obrazów): przełącznik, domyślnie **on**. Model tekstowy przepisuje każdy prompt obrazu zgodnie z treścią pola **Image Prompting Instructions** (instrukcje promptowania obrazów) w twoim połączeniu do obrazów oraz pola Style text w twoim profilu stylu. Po wyłączeniu przełącznika pole Image Prompting Instructions nie jest używane, a treść pola Style text zostaje dodana dosłownie.
+  - **Include descriptions**: przełącznik, domyślnie **on**. Dodaje do promptu obrazu opisowe notatki o wyglądzie postaci. Przy włączonym przełączniku **Interpret image prompts** model tekstowy wplata je w prompt, zamiast je wklejać.
   - **Images/refresh**: liczba od 0 do 50, domyślnie **3**. Ogranicza liczbę generowanych obrazów osobno dla każdego ręcznego i automatycznego odświeżenia.
 - **Attach gallery images**: osobny przełącznik, domyślnie **off**. Pozostaje widoczny nawet przy wyłączonym **Image generation**. Zamiast tworzyć nowy obraz, pozwala wpisowi wykorzystać obraz z galerii danej postaci albo z czatu, w którym ta postać występuje.
 
@@ -176,6 +177,7 @@ Ta tabela wypisuje każde ustawienie Noodle razem z wartością domyślną i zak
 | **Image generation connection** | Default | dowolne połączenie do generowania obrazów |
 | **Prompt instructions** | tekst wbudowany | do 4000 znaków |
 | **Use avatar references** | on | on lub off |
+| **Interpret image prompts** | on | on lub off |
 | **Include descriptions** | on | on lub off |
 | **Images/refresh** | 3 | 0 do 50 |
 | **Attach gallery images** | off | on lub off |

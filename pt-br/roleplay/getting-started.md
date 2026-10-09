@@ -141,7 +141,7 @@ Abra as informações de comandos da resposta e escolha **Restore original messa
 
 ## Escolhas CYOA
 
-**CYOA** quer dizer Choose Your Own Adventure, ou "escolha sua própria aventura". O agente **CYOA Choices** vem desativado por padrão. Quando ativado, ele acrescenta botões de escolha clicáveis depois de uma resposta. Ao clicar em uma opção, ela vira sua próxima mensagem. Funciona apenas no Roleplay Mode.
+**CYOA** quer dizer Choose Your Own Adventure, ou "escolha sua própria aventura". O agente **CYOA Choices** vem desativado por padrão. Quando ativado, ele acrescenta botões de escolha clicáveis depois de uma resposta. Ao clicar em uma opção, ela vira sua próxima mensagem. Para combinar escolhas ou editar uma antes de enviar, ative **Add CYOA choices to the message box instead of sending them** (adicionar as escolhas CYOA à caixa de mensagem em vez de enviá-las) em **Settings** > **General** > **Input & Editing**: clicar em uma escolha passa a acrescentar o texto dela à sua caixa de mensagem, sem enviar. Funciona apenas no Roleplay Mode.
 
 ## Encontros de combate
 

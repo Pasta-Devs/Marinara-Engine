@@ -318,7 +318,7 @@ Dodaje po każdej odpowiedzi klikalne przyciski wyboru w stylu "What will you do
 
 - **Faza**: Post-Processing.
 - **Gdzie działa**: Roleplay.
-- **Najważniejsze ustawienia**: przycisk **Edit** przepisuje wybory, a **Re-roll** generuje nowe.
+- **Najważniejsze ustawienia**: przycisk **Edit** przepisuje wybory, a **Re-roll** generuje nowe. Włącz **Add CYOA choices to the message box instead of sending them** (dodawanie wyborów CYOA do pola wiadomości zamiast ich wysyłania) w **Settings → General → Input & Editing** (ustawienia → ogólne → wprowadzanie i edycja), żeby kliknięte wybory trafiały do pola wiadomości.
 
 ### Storyboard
 

@@ -318,7 +318,7 @@ Roleplayチャットごとに、短く編集可能な記憶保管庫を維持し
 
 - **フェーズ**: Post-Processing。
 - **使える場所**: Roleplay。
-- **主な設定**: **Edit**で選択肢を書き換え、**Re-roll**で新しい選択肢を作り直せます。
+- **主な設定**: **Edit**で選択肢を書き換え、**Re-roll**で新しい選択肢を作り直せます。クリックした選択肢をメッセージ入力欄に入れるには、**Settings** > **General** > **Input & Editing**で**Add CYOA choices to the message box instead of sending them**(CYOAの選択肢を送信せずメッセージ入力欄に追加する)をオンにします。
 
 ### Storyboard
 
