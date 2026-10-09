@@ -2164,7 +2164,7 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
                             and standing on the card's bottom border. */}
                         <MariHold heldSrc={mariPortraits.drag} onTap={openProfessor}>
                           <div
-                            className="relative z-[1] -mb-(--mari-home-professor-pad) h-[192px] w-[128px] self-end"
+                            className="group/home-mari relative z-[1] -mb-(--mari-home-professor-pad) h-[192px] w-[128px] self-end"
                             data-home-professor-art
                             aria-hidden="true"
                           >
@@ -2186,6 +2186,16 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
                               alt=""
                               draggable={false}
                               className="mari-home-professor-blink absolute inset-0 block h-[192px] w-[128px] max-w-none select-none"
+                            />
+                            {/* Slice 85 hover: mouse only, over the idle and blink layers; the same box, so nothing moves. */}
+                            <img
+                              src={mariPortraits.hover}
+                              {...mariImgLoading(MARI_ASSET_TIER.portraits.hover)}
+                              width={128}
+                              height={192}
+                              alt=""
+                              draggable={false}
+                              className="absolute inset-0 block h-[192px] w-[128px] max-w-none select-none opacity-0 [@media(hover:hover)]:group-hover/home-mari:opacity-100"
                             />
                           </div>
                         </MariHold>

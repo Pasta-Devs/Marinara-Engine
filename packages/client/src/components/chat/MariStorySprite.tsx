@@ -41,6 +41,8 @@ export function MariStorySprite({
           style={{ "--mari-work-sprite": `url(${pack.stories[shown].src})` } as CSSProperties}
           onAnimationEnd={settleTo ? () => setSettled(true) : undefined}
         />
+        {/* Slice 85 hover: the pointer rests on her, so her portrait takes the same 2:3 box (mouse only). */}
+        <img className="mari-story-sprite__hover" src={pack.portraits.hover} alt="" draggable={false} />
       </span>
     </MariHold>
   );

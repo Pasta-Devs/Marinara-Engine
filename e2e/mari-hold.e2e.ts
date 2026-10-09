@@ -157,3 +157,49 @@ test("two fast hits on opposite edges make her dizzy", async ({ page }) => {
   expect(box!.x + box!.width).toBeLessThanOrEqual(width + 1);
   await page.mouse.up();
 });
+
+// Slice 85 hover: a mouse resting on Mari swaps to her hover pose with nothing moving. Touch has no hover.
+test("hovering the Home Mari card swaps to her hover pose without moving her", async ({ page, isMobile }) => {
+  await page.goto("/");
+  const art = page.locator("[data-home-professor-art]");
+  await expect(art).toBeVisible({ timeout: 30_000 });
+  const hoverPose = art.locator('img[src*="portrait-hover"]');
+  const before = await art.boundingBox();
+  await art.hover();
+  if (isMobile) {
+    await expect(hoverPose).toHaveCSS("opacity", "0");
+    return;
+  }
+  await expect(hoverPose).toHaveCSS("opacity", "1");
+  expect(await art.boundingBox()).toEqual(before);
+  await page.mouse.move(0, 0);
+  await expect(hoverPose).toHaveCSS("opacity", "0");
+});
+
+test("hovering the omnibar door swaps to her hover pose", async ({ page, isMobile }) => {
+  test.skip(isMobile, "desktop address row opens the omnibar");
+  await page.goto("/");
+  await page.locator('[data-component="HomeBrowserHub.Address"]').click();
+  const door = page.locator('[data-component="GlobalOmnibar.ProfessorMariButton"]');
+  await expect(door).toBeVisible({ timeout: 30_000 });
+  const hoverPose = door.locator('img[src*="portrait-hover"]');
+  const before = await door.boundingBox();
+  await door.hover();
+  await expect(hoverPose).toHaveCSS("opacity", "1");
+  expect(await door.boundingBox()).toEqual(before);
+});
+
+test("hovering her window sprite swaps to her hover pose", async ({ page, isMobile }) => {
+  test.skip(isMobile, "desktop address row opens the omnibar");
+  await page.goto("/");
+  await page.locator('[data-component="HomeBrowserHub.Address"]').click();
+  const door = page.locator('[data-component="GlobalOmnibar.ProfessorMariButton"]');
+  await expect(door).toBeVisible({ timeout: 30_000 });
+  await door.click();
+  const sprite = page.locator('[data-component="GlobalOmnibar.Mari"] .mari-story-sprite').first();
+  await expect(sprite).toBeVisible({ timeout: 30_000 });
+  const hoverPose = sprite.locator("img.mari-story-sprite__hover");
+  await expect(hoverPose).toBeHidden();
+  await sprite.hover();
+  await expect(hoverPose).toBeVisible();
+});

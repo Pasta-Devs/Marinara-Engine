@@ -41,6 +41,8 @@ export interface MariAppearancePack {
     blink: string;
     shrug: string;
     drag: string;
+    /** Slice 85 hover: the pointer rests on her (mouse only). Same frame as idle. */
+    hover: string;
     /** 45b: six 96 px heads for the pull circle: neutral, down, down-left, down-right, peering, delighted. */
     pullHeads: string;
   };
@@ -55,7 +57,7 @@ export interface MariAppearancePack {
  * Sprites keep their file names when art is replaced, and the service worker serves them CacheFirst
  * (`mari-sprites` in vite.config.ts). Bump this whenever any Mari art changes.
  */
-export const MARI_SPRITE_VERSION = "39c1";
+export const MARI_SPRITE_VERSION = "39c2";
 
 /** Every Mari URL is loaded by URL from its own pack folder, never imported into the bundle. */
 const sprite = (path: string) => `/sprites/mari/${path}?v=${MARI_SPRITE_VERSION}`;
@@ -80,6 +82,7 @@ export const MARI_APPEARANCE_PACKS: readonly MariAppearancePack[] = [
       blink: sprite("basic/portrait-blink.webp"),
       shrug: sprite("basic/portrait-shrug.webp"),
       drag: sprite("basic/portrait-drag.webp"),
+      hover: sprite("basic/portrait-hover.webp"),
       pullHeads: sprite("basic/pull-heads.webp"),
     },
     stories: packStories("basic"),
@@ -94,6 +97,7 @@ export const MARI_APPEARANCE_PACKS: readonly MariAppearancePack[] = [
       blink: sprite("dottore/portrait-blink.webp"),
       shrug: sprite("dottore/portrait-shrug.webp"),
       drag: sprite("dottore/portrait-drag.webp"),
+      hover: sprite("dottore/portrait-hover.webp"),
       pullHeads: sprite("dottore/pull-heads.webp"),
     },
     stories: packStories("dottore"),
@@ -108,6 +112,7 @@ export const MARI_APPEARANCE_PACKS: readonly MariAppearancePack[] = [
       blink: sprite("golden/portrait-blink.webp"),
       shrug: sprite("golden/portrait-shrug.webp"),
       drag: sprite("golden/portrait-drag.webp"),
+      hover: sprite("golden/portrait-hover.webp"),
       pullHeads: sprite("golden/pull-heads.webp"),
     },
     stories: packStories("golden"),
@@ -123,6 +128,7 @@ export const MARI_APPEARANCE_PACKS: readonly MariAppearancePack[] = [
       blink: sprite("safari/portrait-blink.webp"),
       shrug: sprite("safari/portrait-shrug.webp"),
       drag: sprite("safari/portrait-drag.webp"),
+      hover: sprite("safari/portrait-hover.webp"),
       pullHeads: sprite("safari/pull-heads.webp"),
     },
     stories: packStories("safari"),
@@ -145,7 +151,7 @@ export const MARI_ASSET_TIER: {
   stories: Record<MariStoryState, 1 | 2 | 3>;
   poses: Record<MariPose, 1 | 2 | 3>;
 } = {
-  portraits: { idle: 2, blink: 2, shrug: 2, pullHeads: 2, drag: 3 },
+  portraits: { idle: 2, blink: 2, shrug: 2, pullHeads: 2, drag: 3, hover: 2 },
   stories: { ...(Object.fromEntries(MARI_STORY_STATES.map((id) => [id, 3])) as Record<MariStoryState, 3>), idle: 2 },
   poses: {
     profile: 1,

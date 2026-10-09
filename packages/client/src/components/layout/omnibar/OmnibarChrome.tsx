@@ -27,11 +27,13 @@ export function OmnibarMariDoor({
   onClick,
   working,
   portrait,
+  hover,
   held,
 }: {
   onClick: () => void;
   working: boolean;
   portrait: string;
+  hover: string;
   held: string;
 }) {
   const { t } = useTranslation();
@@ -58,6 +60,13 @@ export function OmnibarMariDoor({
             alt=""
             draggable={false}
             className="absolute left-1/2 top-0 h-[6.5rem] w-auto max-w-none -translate-x-1/2 object-contain object-top transition-transform duration-200 ease-out group-hover:-translate-y-1 group-focus-visible:-translate-y-1 group-active:translate-y-0 motion-reduce:transition-none max-[30rem]:h-20"
+          />
+          {/* Slice 85 hover: the same box, so the swap moves nothing. Mouse only; touch has no hover. */}
+          <img
+            src={hover}
+            alt=""
+            draggable={false}
+            className="absolute left-1/2 top-0 h-[6.5rem] w-auto max-w-none -translate-x-1/2 object-contain object-top opacity-0 transition-transform duration-200 ease-out [@media(hover:hover)]:group-hover:opacity-100 group-hover:-translate-y-1 group-focus-visible:-translate-y-1 group-active:translate-y-0 motion-reduce:transition-none max-[30rem]:h-20"
           />
         </span>
       </button>

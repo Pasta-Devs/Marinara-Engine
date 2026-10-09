@@ -2136,6 +2136,7 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
                 onClick={() => askMariAbout(null)}
                 working={mariWorkingInBackground}
                 portrait={appearance.portraits.idle}
+                hover={appearance.portraits.hover}
                 held={appearance.portraits.drag}
               />
             ) : null}

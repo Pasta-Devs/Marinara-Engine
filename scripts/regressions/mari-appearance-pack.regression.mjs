@@ -88,6 +88,11 @@ for (const appearance of MARI_APPEARANCE_PACKS) {
   );
   const held = await sharp(publicFile(appearance.portraits.drag).pathname).metadata();
   assert.deepEqual([held.format, held.width, held.height, held.hasAlpha], ["webp", 1200, 450, true]);
+  // Slice 85 hover: the approved hover portrait is the idle portrait's size, so the swap moves nothing.
+  const idle = await sharp(publicFile(appearance.portraits.idle).pathname).metadata();
+  const hover = await sharp(publicFile(appearance.portraits.hover).pathname).metadata();
+  assert.deepEqual([hover.format, hover.width, hover.height], [idle.format, idle.width, idle.height], `${appearance.id} hover matches idle`);
+
   for (const state of MARI_STORY_STATES) {
     const chosen = selectMariWorkAnimation({
       activity: "error image write",
