@@ -60,8 +60,11 @@ function keptShare(before: string, after: string) {
 const OLD_NOISE = /^(?:id|.+Id|.+_id|(?:created|updated)(?:At|_at)|embedding)$/u;
 const oldFields = (result: MariWorkspaceActionResult) => result.changedFields.filter((field) => !OLD_NOISE.test(field));
 
+/** A lorebook's list of entries (its items), not a tag or greeting list. */
+const isEntryList = (change: MariChangeExcerpt) => change.kind === "list" && change.items !== undefined;
+
 /** "New character · 13 fields", or "Changed description, personality, scenario and 6 more". */
-function receiptSummary(result: MariWorkspaceActionResult, t: Localize, lang: string): string {
+export function receiptSummary(result: MariWorkspaceActionResult, t: Localize, lang: string): string {
   const list = (items: string[]) => new Intl.ListFormat(lang, { type: "conjunction" }).format(items);
   if (!result.changes) {
     const fields = oldFields(result).map((field) => label(field).toLocaleLowerCase(lang));
@@ -72,7 +75,15 @@ function receiptSummary(result: MariWorkspaceActionResult, t: Localize, lang: st
   const count = result.changes.length + (result.moreChanges ?? 0);
   if (result.status === "created") {
     const thing = t(`ui.chat.marichangereceipt.kind.${result.resource.kind}`);
-    return `${t("ui.chat.marichangereceipt.newRecord", { thing })} · ${t("ui.chat.marichangereceipt.fieldCount", { count })}`;
+    // A lorebook's entries count apart from its fields: "New lorebook · 3 fields · 3 entries".
+    const entries = result.changes.filter(isEntryList);
+    const entryCount = entries.reduce((total, { count: n }) => total + n.added + n.edited + n.removed, 0);
+    const fieldCount = result.changes.length - entries.length + (result.moreChanges ?? 0);
+    return [
+      t("ui.chat.marichangereceipt.newRecord", { thing }),
+      t("ui.chat.marichangereceipt.fieldCount", { count: fieldCount }),
+      ...(entryCount > 0 ? [t("ui.chat.marichangereceipt.entryCount", { count: entryCount })] : []),
+    ].join(" · ");
   }
   // A nested setting names its parent once: "Parameters" for max tokens and temperature together.
   const parts = [...new Set(result.changes.map((change) => change.field.split(".")[0]!))];

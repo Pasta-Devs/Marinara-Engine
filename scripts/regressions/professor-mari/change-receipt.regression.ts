@@ -24,6 +24,7 @@ import {
 } from "../../../packages/server/src/services/professor-mari/workspace-agent.service.js";
 import { recordMariReceiptOutcome } from "../../../packages/server/src/routes/professor-mari-workspace.routes.js";
 import { createChatsStorage } from "../../../packages/server/src/services/storage/chats.storage.js";
+import { receiptSummary } from "../../../packages/client/src/components/chat/MariChangeReceipt.js";
 
 function applied(preview: MariDbRowChange[], approvalId?: string): MariDbCommandResult {
   return {
@@ -376,5 +377,31 @@ const card = readFileSync(
 assert.doesNotMatch(card, /mariappliededit\.keep|marichangereceipt\.keepAll|, true\)/u, "a change card has no Keep");
 assert.match(card, /marichangereceipt\.showAll/u, "every changed field is reachable from the card");
 assert.match(card, /marichangereceipt\.createdMany/u, "three new characters read as Created 3 characters");
+
+// A new lorebook's head line counts its fields and its entries apart: "3 fields · 3 entries", not "6 fields".
+{
+  const t = (key: string, options?: Record<string, unknown>) => `${key}${options ? JSON.stringify(options) : ""}`;
+  const lorebook = {
+    status: "created",
+    resource: { kind: "lorebook", id: "lb1" },
+    changes: [
+      { field: "name", kind: "value", before: "", after: "Harbour" },
+      { field: "description", kind: "text", before: "", after: "The harbour book." },
+      {
+        field: "entries",
+        kind: "list",
+        added: ["Gull", "Pier", "Tide"],
+        edited: [],
+        removed: [],
+        count: { added: 3, edited: 0, removed: 0 },
+        items: [{ name: "Gull" }, { name: "Pier" }, { name: "Tide" }],
+      },
+    ],
+    moreChanges: 0,
+  } as unknown as MariWorkspaceActionResult;
+  const summary = receiptSummary(lorebook, t, "en");
+  assert.match(summary, /marichangereceipt\.fieldCount\{"count":2\}/u, "fields exclude the entry list");
+  assert.match(summary, /marichangereceipt\.entryCount\{"count":3\}/u, "entries are counted on their own");
+}
 
 console.log("change-receipt regression passed");

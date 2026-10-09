@@ -3654,6 +3654,14 @@ details[open] > .mari-disclosure .mari-disclosure__chevron {
   line-height: 1.5;
 }
 
+/* Folded: an entry's text is one line; opening the card shows the whole entry list. */
+.mari-receipt__folded .mari-receipt__entry-text {
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 .mari-receipt__chips {
   display: flex;
   flex-wrap: wrap;
@@ -3826,6 +3834,11 @@ details[open] > .mari-disclosure .mari-disclosure__chevron {
   color: var(--muted-foreground);
 }
 
+/* A held change waits for the user: the primary tint, not a warning. */
+.mari-receipt__state[data-tone="wait"] {
+  color: var(--primary);
+}
+
 .mari-receipt__actions .mari-btn,
 .mari-receipt__actions .mari-link {
   min-height: 2.75rem;
@@ -3834,11 +3847,6 @@ details[open] > .mari-disclosure .mari-disclosure__chevron {
 .mari-receipt__actions .mari-btn svg {
   margin-inline-end: 0.3rem;
 }
-/* A held change waits for the user: the primary tint, not a warning. */
-.mari-receipt__state[data-tone="wait"] {
-  color: var(--primary);
-}
-
 
 .mari-receipt[data-state="undone"] .mari-receipt__folded,
 .mari-receipt[data-state="undone"] .mari-receipt__what {

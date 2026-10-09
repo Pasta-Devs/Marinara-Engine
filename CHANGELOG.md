@@ -15,6 +15,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - Every change Professor Mari applies can be undone in every permissions mode. Accept edits and Bypass permissions still skip her question, but they no longer skip the undo copy. Before, a change in those modes could not be undone from her chat.
 - **Turn on** for a memory on Professor Mari's change card switches the memory on and keeps the undo. Before, it closed the undo, so the memory could no longer be taken back.
 - The held change Professor Mari waits on reads like her other change cards: each field has its label, one field shows folded with **Show all** for the rest, and the buttons are **Apply** and **Don't apply**. Before, it listed raw field names such as "first mes" and hid the new text behind a link.
+- A lorebook's change card counts its fields and its entries apart, such as "3 fields · 3 entries", and each entry's text stays on one line until you open the card. Before, the head said "21 fields" and each entry showed two lines of text.
 - Professor Mari swings the right way when you drag her: she trails behind your hand instead of leaning into the move.
 - When two chats match a search by the same name, the one you used more recently is listed first.
 - Search rows show less and read faster. The type word sits after the name only in a mixed list, and a chat shows its mode. The Enter hint shows only on the selected row. A phone drops the right column and shows a short fact at the end of the name line.
