@@ -264,6 +264,14 @@ assert.deepEqual(
   unique,
   "unique ids stay as they are, so re-reading a card is stable",
 );
+assert.deepEqual(
+  normalizeNativeCharacterData({
+    name: "Ana",
+    extensions: { onboarding: twins },
+  })?.extensions.onboarding?.variables.map((variable) => variable.id),
+  ["same", "same_2", "question_2"],
+  "native import stores the unique ids too, not only V2/PNG",
+);
 const parsedDemo = characterExtensionsSchema.parse({ onboarding: ONBOARDING }).onboarding!;
 assert.equal(
   withUniqueOnboardingIds(parsedDemo),
@@ -291,5 +299,10 @@ assert.match(
 );
 assert.match(editorSource, /withUniqueOnboardingIds\(parsedOnboarding\.data/, "the editor reads unique ids");
 assert.match(editorSource, /pool\.delete\(id\);/, "a reorder takes each question once, so it can't grow the list");
+const wizardSource = readFileSync(
+  new URL("../../packages/client/src/components/chat/ChatSetupWizard.tsx", import.meta.url),
+  "utf8",
+);
+assert.match(wizardSource, /withUniqueOnboardingIds\(parsed\.data/, "the wizard reads unique ids too");
 
 console.log("onboarding-s1: all assertions passed");

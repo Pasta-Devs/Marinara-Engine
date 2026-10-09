@@ -1581,7 +1581,9 @@ function OnboardingTab({
   const variableIssues: Record<string, string> = {};
   const plainIfFields = new Set<OnboardingPersonaField>();
   const unknownNames: Partial<Record<OnboardingPersonaField, string[]>> = {};
-  for (const issue of issues) {
+  // One message per question, and a real problem wins over the "unused" warning.
+  const byPriority = [...issues].sort((a, b) => Number(a.code === "unused") - Number(b.code === "unused"));
+  for (const issue of byPriority) {
     if (issue.code === "plainIf") plainIfFields.add(issue.field);
     else if (issue.code === "unknownName") (unknownNames[issue.field] ??= []).push(issue.name);
     else variableIssues[issue.variableId] ??= localizeUi(ONBOARDING_ISSUE_KEYS[issue.code], { value1: issue.name });

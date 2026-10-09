@@ -431,7 +431,8 @@ function withReadableOnboarding(data: unknown): unknown {
   if (dropped) logger.warn("[import] Dropped unreadable interactive onboarding from an imported character");
   if (truncated)
     logger.warn("[import] Kept the first %d onboarding questions of an imported character", ONBOARDING_MAX_QUESTIONS);
-  return dropped || truncated ? { ...data, extensions } : data;
+  // Also when only ids were made unique (neither flag set).
+  return extensions === data.extensions ? data : { ...data, extensions };
 }
 
 /** A ruleset sheet the boundary would refuse costs the import that sheet, never the whole card.

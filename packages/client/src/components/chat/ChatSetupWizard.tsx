@@ -58,6 +58,7 @@ import { ActiveChatBackgroundPicker } from "../panels/settings/BackgroundPicker"
 import {
   characterOnboardingSchema,
   type CharacterOnboarding,
+  withUniqueOnboardingIds,
   CONVERSATION_COMMAND_AGENT_IDS,
   CONVERSATION_COMMAND_KEYS,
   DEFAULT_CONVERSATION_PROMPT,
@@ -2633,7 +2634,9 @@ function RoleplaySetupWizard({ chat, onFinish, defaultsApplied, defaultsAction }
         const data = typeof character.data === "string" ? JSON.parse(character.data) : character.data;
         const parsed = characterOnboardingSchema.safeParse(data?.extensions?.onboarding);
         if (parsed.success && parsed.data.enabled) {
-          byId.set(character.id, { name: String(data?.name ?? ""), onboarding: parsed.data as CharacterOnboarding });
+          // Cards saved before ids were made unique, or via the API, may still repeat one.
+          const onboarding = withUniqueOnboardingIds(parsed.data as CharacterOnboarding);
+          byId.set(character.id, { name: String(data?.name ?? ""), onboarding });
         }
       } catch {
         /* unreadable card data: no onboarding */
