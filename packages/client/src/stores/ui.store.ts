@@ -810,6 +810,7 @@ interface UIState {
   connectionPanelSort: ConnectionPanelSort;
   /** Sort order for the compact Agents panel */
   agentPanelSort: ResourcePanelSort;
+  libraryManualOrders: Record<string, { active: boolean; ids: string[] }>;
   /** True when any open detail editor has unsaved changes */
   editorDirty: boolean;
   /** Mobile-only return target for detail editors opened from a right panel */
@@ -1105,6 +1106,8 @@ interface UIState {
   activeImpersonatePromptTemplateId: string | null;
   /** When true, CYOA choices generate impersonate requests instead of normal user messages. Persisted. */
   impersonateCyoaChoices: boolean;
+  /** When true, clicking a CYOA choice adds its text to the message box instead of sending it. Persisted. */
+  addCyoaChoicesToMessage: boolean;
   /** Override preset used when impersonating (null = use chat default). Persisted. */
   impersonatePresetId: string | null;
   /** Override connection used when impersonating (null = use chat default). Persisted. */
@@ -1202,6 +1205,7 @@ interface UIState {
   setPresetPanelSort: (sort: ResourcePanelSort) => void;
   setConnectionPanelSort: (sort: ConnectionPanelSort) => void;
   setAgentPanelSort: (sort: ResourcePanelSort) => void;
+  setLibraryManualOrder: (kind: string, order: { active: boolean; ids: string[] }) => void;
   openCharacterDetail: (id: string, options?: { preserveCharacterLibrary?: boolean; initialTab?: string }) => void;
   closeCharacterDetail: () => void;
   openLorebookDetail: (id: string, options?: { initialTab?: string; entryId?: string; field?: string }) => void;
@@ -1401,6 +1405,7 @@ interface UIState {
   selectImpersonatePromptTemplate: (template: { id: string; prompt: string } | null) => void;
   clearActiveImpersonatePromptTemplate: () => void;
   setImpersonateCyoaChoices: (v: boolean) => void;
+  setAddCyoaChoicesToMessage: (v: boolean) => void;
   setImpersonatePresetId: (id: string | null) => void;
   setImpersonateConnectionId: (id: string | null) => void;
   setImpersonateBlockAgents: (v: boolean) => void;
@@ -1482,6 +1487,7 @@ function normalizePersistedMainSurface(persisted: Record<string, unknown>) {
  */
 export function pickSyncedSettings(state: UIState) {
   return {
+    libraryManualOrders: state.libraryManualOrders,
     showHomeBrowserAddressBar: state.showHomeBrowserAddressBar,
     showHomeBrowserDesktopBookmarksOnOtherTabs: state.showHomeBrowserDesktopBookmarksOnOtherTabs,
     showHomeBrowserMobileBookmarksOnOtherTabs: state.showHomeBrowserMobileBookmarksOnOtherTabs,
@@ -1660,6 +1666,7 @@ export function pickSyncedSettings(state: UIState) {
     scheduleGenerationPreferences: state.scheduleGenerationPreferences,
     conversationTimeZone: state.conversationTimeZone,
     impersonateCyoaChoices: state.impersonateCyoaChoices,
+    addCyoaChoicesToMessage: state.addCyoaChoicesToMessage,
     impersonatePresetId: state.impersonatePresetId,
     impersonateConnectionId: state.impersonateConnectionId,
     impersonateBlockAgents: state.impersonateBlockAgents,
@@ -1711,6 +1718,7 @@ export function pickPersistedUIState(state: UIState) {
     presetPanelSort: state.presetPanelSort,
     connectionPanelSort: state.connectionPanelSort,
     agentPanelSort: state.agentPanelSort,
+    libraryManualOrders: state.libraryManualOrders,
     trackerPanelEnabled: state.trackerPanelEnabled,
     trackerPanelOpen: state.trackerPanelOpen,
     trackerPanelOpenByChatId: state.trackerPanelOpenByChatId,
@@ -1900,6 +1908,7 @@ export function pickPersistedUIState(state: UIState) {
     impersonatePromptTemplate: state.impersonatePromptTemplate,
     activeImpersonatePromptTemplateId: state.activeImpersonatePromptTemplateId,
     impersonateCyoaChoices: state.impersonateCyoaChoices,
+    addCyoaChoicesToMessage: state.addCyoaChoicesToMessage,
     impersonatePresetId: state.impersonatePresetId,
     impersonateConnectionId: state.impersonateConnectionId,
     impersonateBlockAgents: state.impersonateBlockAgents,
@@ -2020,6 +2029,7 @@ export const useUIStore = create<UIState>()(
         presetPanelSort: "name-asc" as ResourcePanelSort,
         connectionPanelSort: "name-asc" as ConnectionPanelSort,
         agentPanelSort: "name-asc" as ResourcePanelSort,
+        libraryManualOrders: {},
         editorDirty: false,
         detailReturnRightPanel: null,
 
@@ -2192,6 +2202,7 @@ export const useUIStore = create<UIState>()(
         impersonatePromptTemplate: "",
         activeImpersonatePromptTemplateId: null,
         impersonateCyoaChoices: false,
+        addCyoaChoicesToMessage: false,
         impersonatePresetId: null,
         impersonateConnectionId: null,
         impersonateBlockAgents: false,
@@ -2363,6 +2374,8 @@ export const useUIStore = create<UIState>()(
         setPresetPanelSort: (sort) => set({ presetPanelSort: normalizeBasicPanelSort(sort) }),
         setConnectionPanelSort: (sort) => set({ connectionPanelSort: normalizeConnectionPanelSort(sort) }),
         setAgentPanelSort: (sort) => set({ agentPanelSort: normalizeBasicPanelSort(sort) }),
+        setLibraryManualOrder: (kind, order) =>
+          set((state) => ({ libraryManualOrders: { ...state.libraryManualOrders, [kind]: order } })),
         openCharacterDetail: (id, options) =>
           set((s) => {
             const preserveCharacterLibrary =
@@ -3212,6 +3225,7 @@ export const useUIStore = create<UIState>()(
           }),
         clearActiveImpersonatePromptTemplate: () => set({ activeImpersonatePromptTemplateId: null }),
         setImpersonateCyoaChoices: (v) => set({ impersonateCyoaChoices: v }),
+        setAddCyoaChoicesToMessage: (v) => set({ addCyoaChoicesToMessage: v }),
         setImpersonatePresetId: (id) => set({ impersonatePresetId: id }),
         setImpersonateConnectionId: (id) => set({ impersonateConnectionId: id }),
         setImpersonateBlockAgents: (v) => set({ impersonateBlockAgents: v }),

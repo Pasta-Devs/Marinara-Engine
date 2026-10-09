@@ -16,7 +16,7 @@ Marinara groups its agents in the **Agents** panel into **Apps**, **Writer Agent
 
 A run interval means the agent runs once every few user and assistant messages instead of after every message. You can change a run interval in the agent's setup, up to 100.
 
-Illustrator also accepts **0** for manual-only generation: it stays available for Gallery actions but never runs automatically. Other agents keep their existing positive intervals.
+In Roleplay, Illustrator's run interval is set per chat, in its card in **Chat Settings**. The value in its setup is the default for chats that don't set their own. Illustrator also accepts **0** for manual-only generation: it stays available for Gallery actions but never runs automatically. Other agents keep their existing positive intervals.
 
 ## Apps
 
@@ -268,7 +268,7 @@ Responsible for image and video generations. It writes visual prompts for import
 
 - **Phase**: Post-Processing.
 - **Where it works**: Roleplay.
-- **Key settings**: it runs once every 5 user and assistant messages by default. Settings include **Prompt Model**, **Image Style**, **Attach Card Appearance**, and **Send Avatar References**. For the full setup, see [Illustrator agent](../media/illustrator-agent.md).
+- **Key settings**: it runs once every 5 user and assistant messages by default, and each Roleplay chat can change that with **Run Interval** on its card. Settings include **Prompt Model**, **Image Style**, **Attach Card Appearance**, and **Send Avatar References**. For the full setup, see [Illustrator agent](../media/illustrator-agent.md).
 
 ### Lorebook Keeper
 
@@ -316,7 +316,7 @@ Adds clickable "What will you do?" choice buttons after each reply, for a choose
 
 - **Phase**: Post-Processing.
 - **Where it works**: Roleplay.
-- **Key settings**: **Edit** to rewrite the choices and **Re-roll** to generate new ones.
+- **Key settings**: **Edit** to rewrite the choices and **Re-roll** to generate new ones. Turn on **Add CYOA choices to the message box instead of sending them** in **Settings** > **General** > **Input & Editing** to have clicked choices go into your message box.
 
 ### Storyboard
 

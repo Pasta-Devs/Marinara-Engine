@@ -2270,6 +2270,8 @@ function GeneralSettings() {
   const setEnterToSendGame = useUIStore((s) => s.setEnterToSendGame);
   const keepGuidanceAfterRegenerate = useUIStore((s) => s.keepGuidanceAfterRegenerate);
   const setKeepGuidanceAfterRegenerate = useUIStore((s) => s.setKeepGuidanceAfterRegenerate);
+  const addCyoaChoicesToMessage = useUIStore((s) => s.addCyoaChoicesToMessage);
+  const setAddCyoaChoicesToMessage = useUIStore((s) => s.setAddCyoaChoicesToMessage);
   const confirmBeforeDelete = useUIStore((s) => s.confirmBeforeDelete);
   const setConfirmBeforeDelete = useUIStore((s) => s.setConfirmBeforeDelete);
   const chatHelpButtonHidden = useUIStore((s) => s.chatHelpButtonHidden ?? false);
@@ -2530,6 +2532,13 @@ function GeneralSettings() {
             checked={keepGuidanceAfterRegenerate}
             onChange={setKeepGuidanceAfterRegenerate}
             help={localizeUi("settings.controls.keepGuidanceAfterRegenerate.help")}
+          />
+
+          <ToggleSetting
+            anchorId={getSettingsControlAnchorId("add-cyoa-choices-to-message")}
+            label={localizeUi("settings.controls.addCyoaChoicesToMessage.label")}
+            checked={addCyoaChoicesToMessage}
+            onChange={setAddCyoaChoicesToMessage}
           />
 
           <QuickRepliesSetting />

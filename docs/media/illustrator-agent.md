@@ -6,7 +6,7 @@ This guide covers the **Illustrator**, a built-in helper that draws pictures of 
 
 An agent is a small AI helper that runs automatically for one chat. The **Illustrator** is a post-processing agent, which means it runs after the AI finishes each reply. It reads the latest reply and decides if the moment is worth a picture. When it is, the Illustrator writes an image prompt and sends it to your image provider. A prompt is the text description that tells an image model what to draw.
 
-The Illustrator does not draw every message. By default, after it makes an image it waits for 5 accepted user and assistant messages before it can make another one. Swiping or regenerating the same reply does not advance that interval. If it decides a moment is not worth illustrating, it skips it and makes no image. Every image it creates is saved to the chat **Gallery**.
+The Illustrator does not draw every message. By default, after it makes an image it waits for 5 accepted user and assistant messages before it can make another one. Each Roleplay chat can change that number. Swiping or regenerating the same reply does not advance that interval. If it decides a moment is not worth illustrating, it skips it and makes no image. Every image it creates is saved to the chat **Gallery**.
 
 You can use the Illustrator in **Roleplay** and **Game Mode** chats, and installing it also unlocks Conversation selfies. Its short description in the app reads: "Responsible for image and video generations." The setup steps and settings in this guide are for Roleplay chats. Game Mode uses one simple switch instead, covered in the Game Mode section below.
 
@@ -83,9 +83,11 @@ No setting is needed. The captions appear only for a NovelAI connection on its o
 
 ## More settings and running it by hand
 
-The Illustrator card has an **Open Setup** button. It opens the agent's full setup screen, where you can set how often the agent runs and give it its own image connection.
+The Illustrator card has an **Open Setup** button. It opens the agent's full setup screen, where you can set the default for how often the agent runs and give it its own image connection.
 
-Set **Run Interval** to **0** for manual-only generation. This stops automatic Illustrator runs, including its automatic scene backgrounds, while keeping the agent installed and available for Gallery actions. The default remains **5**; set a positive interval to resume automatic runs. You can also choose 0 when adding Illustrator to a chat.
+Each Roleplay chat has its own **Run Interval** on the Illustrator card in **Chat Settings**. Its help text reads: "Messages between automatic images in this chat. 0 means only when you ask." A chat that hasn't set one uses the **Run Interval** from the setup screen, which is **5** unless you change it. The card shows **Using agent default** or **Chat override**. Press **Use agent default** to go back to the setup screen's value. When you add the Illustrator to a chat, the add window shows the same field and saves your choice to that chat only.
+
+Set **Run Interval** to **0** for manual-only generation. This stops automatic Illustrator runs, including its automatic scene backgrounds, while keeping the agent installed and available for Gallery actions. Set a positive interval to resume automatic runs.
 
 You can also make a picture on demand instead of waiting. Open **Chat Settings**, expand the **Gallery** section, and use the **Illustrate** button. The Illustrator runs once right away and the button shows **Generating...** while it works. This is useful when you want a picture of the current moment and the agent has not drawn one yet.
 

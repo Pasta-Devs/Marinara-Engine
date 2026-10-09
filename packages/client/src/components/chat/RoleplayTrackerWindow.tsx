@@ -5,7 +5,8 @@
 // a drawer: collapsed it shows the tracker's miniature display, expanded its full
 // box. Agent activity sits at the bottom. Closing the window minimizes it to a button.
 // The Chat Settings dice switches between this window and the Tracker Panel. Each drawer
-// can pop out into its own window, which stays while the Trackers window is closed.
+// can pop out into its own window, which stays while the Trackers window is closed. Minimized,
+// World State's window keeps its date, time and weather in view as a banner.
 // Beholder's launcher gets a control window of its own (a bubble), Tracker Panel or not.
 // ──────────────────────────────────────────────
 import { useCallback, useEffect, type ReactNode } from "react";
@@ -29,6 +30,7 @@ import { NEUTRAL_PANEL_SCROLL_AREA, NEUTRAL_SURFACE_VARIABLES } from "../ui/neut
 import { CapabilityElement } from "../capabilities/CapabilityElement";
 import { TrackerPanelIcon } from "../ui/TrackerPanelIcon";
 import { AgentActivitySection } from "../agents/AgentActivitySection";
+import { withAgentActivityStatus } from "../agents/AgentActivityIcon";
 import { TrackerLockProvider } from "../../features/tracker-panel/components/TrackerLockContext";
 import { TrackerWindowCharacters } from "../../features/tracker-panel/components/TrackerWindowCharacters";
 import {
@@ -60,6 +62,7 @@ import {
   QuestsMiniature,
   RoleplayTrackerCapability,
   TRACKER_MINIATURE_TILE,
+  WorldStateBanner,
   WorldStateMiniature,
   getWorldMiniatureTileClass,
   getWorldTrackerDisplay,
@@ -191,6 +194,7 @@ function TrackerDrawer({
   title,
   icon,
   summary,
+  banner,
   defaultOpen = true,
   children,
 }: {
@@ -198,6 +202,7 @@ function TrackerDrawer({
   title: string;
   icon: ReactNode;
   summary?: ReactNode;
+  banner?: ReactNode;
   defaultOpen?: boolean;
   children: (collapse: () => void) => ReactNode;
 }) {
@@ -208,6 +213,7 @@ function TrackerDrawer({
       title={title}
       icon={icon}
       summary={summary}
+      banner={banner}
       open={open}
       onOpenChange={setOpen}
       bodyClassName="px-0 pb-1 pt-0"
@@ -357,6 +363,7 @@ function TrackerWindow({
                   <WorldStateMiniature display={worldDisplay} />
                 </span>
               }
+              banner={worldDisplay.hasWorldState && <WorldStateBanner world={world} display={worldDisplay} />}
             >
               {(collapse) => (
                 <CombinedWorldPanel
@@ -510,7 +517,7 @@ function TrackerWindow({
           <TrackerDrawer
             id="agent-activity"
             title={t("agents.activity.title")}
-            icon={<ListChecks size="0.75rem" />}
+            icon={withAgentActivityStatus(chatId, <ListChecks size="0.75rem" />)}
             defaultOpen={false}
           >
             {() => <AgentActivitySection chatId={chatId} messages={messages} />}

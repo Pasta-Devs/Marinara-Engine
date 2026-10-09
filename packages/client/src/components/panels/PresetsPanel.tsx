@@ -1,3 +1,5 @@
+import { useLibraryFolderDrag } from "../../hooks/use-library-folder-drag";
+import { useLibraryOrder } from "../../hooks/use-library-order";
 // ──────────────────────────────────────────────
 // Panel: Presets (overhauled — search, assign, edit, duplicate)
 // ──────────────────────────────────────────────
@@ -93,7 +95,6 @@ import {
 import { handleFolderRenameKeyDown, useFolderRenameGesture } from "../../hooks/use-folder-rename-gesture";
 import { useTouchFolderDrag } from "../../hooks/use-touch-folder-drag";
 import { SmoothFolderContent } from "../ui/SmoothFolderContent";
-import { TouchDragHandle } from "../ui/TouchDragHandle";
 import { getTouchReorderDropIndex } from "../../lib/touch-reorder";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { useTranslation as useUiTranslation } from "react-i18next";
@@ -278,6 +279,9 @@ function normalizeRegexImportEntry(entry: unknown, fallbackOrder: number) {
 }
 
 export function PresetsPanel() {
+  const manualOrder = useLibraryOrder("preset");
+  const { active: manualOrderActive, orderItems: orderLibraryItems } = manualOrder;
+  const folderDrag = useLibraryFolderDrag("preset");
   const { t: localizeUi } = useUiTranslation();
   const localize = useLocalizedUiText();
   const { data: presets, isLoading } = usePresets();
@@ -351,13 +355,15 @@ export function PresetsPanel() {
   }, [presets, search]);
   const sortedPresets = useMemo(
     () =>
-      sortBasicPanelItems(
-        filteredPresets,
-        sort,
-        (preset) => preset.name,
-        (preset) => preset.createdAt || preset.updatedAt,
+      orderLibraryItems(
+        sortBasicPanelItems(
+          filteredPresets,
+          sort,
+          (preset) => preset.name,
+          (preset) => preset.createdAt || preset.updatedAt,
+        ),
       ),
-    [filteredPresets, sort],
+    [filteredPresets, sort, orderLibraryItems],
   );
   const presetSearchActive = search.trim().length > 0;
 
@@ -873,14 +879,14 @@ export function PresetsPanel() {
   );
 
   const finishPresetTouchDrag = useCallback(
-    (presetId: string, x: number, y: number) => {
+    (presetId: string, x: number, y: number, dragIds?: string[]) => {
       const target = document.elementFromPoint(x, y);
       const folderElement = target?.closest("[data-preset-folder-id]") as HTMLElement | null;
       const rootElement = target?.closest("[data-preset-folder-root]") as HTMLElement | null;
       if (folderElement?.dataset.presetFolderId) {
-        movePresetsToFolder(getDraggedPresetIds(presetId), folderElement.dataset.presetFolderId);
-      } else if (rootElement) {
-        movePresetsToFolder(getDraggedPresetIds(presetId), null);
+        movePresetsToFolder(dragIds ?? getDraggedPresetIds(presetId), folderElement.dataset.presetFolderId);
+      } else if (rootElement || target?.closest('[data-drag-kind="preset"]')) {
+        movePresetsToFolder(dragIds ?? getDraggedPresetIds(presetId), null);
       }
       setDraggedPresetId(null);
       window.setTimeout(() => {
@@ -902,6 +908,8 @@ export function PresetsPanel() {
   }, []);
 
   const { startTouchDrag: startPresetTouchDrag } = useTouchFolderDrag({
+    getDragIds: getDraggedPresetIds,
+    onReorder: manualOrder.reorder,
     onActivate: (presetId) => {
       suppressPresetClickRef.current = true;
       setDraggedPresetId(presetId);
@@ -934,8 +942,24 @@ export function PresetsPanel() {
         <div
           key={preset.id}
           data-touch-drag-card="preset"
+          data-drag-id={preset.id}
+          aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"
+          data-drag-kind="preset"
+          data-drag-payload={JSON.stringify({ version: 1, kind: "preset", ids: [preset.id], label: preset.name })}
+          onMouseDown={(event) => {
+            startPresetTouchDrag(event, preset.id, {
+              chatResourcePayload: { version: 1, kind: "preset", ids: [preset.id], label: preset.name },
+              sourceElement: event.currentTarget.closest<HTMLElement>('[data-touch-drag-card="preset"]'),
+            });
+          }}
+          onTouchStart={(event) => {
+            startPresetTouchDrag(event, preset.id, {
+              chatResourcePayload: { version: 1, kind: "preset", ids: [preset.id], label: preset.name },
+              sourceElement: event.currentTarget.closest<HTMLElement>('[data-touch-drag-card="preset"]'),
+            });
+          }}
           className={cn(
-            "group relative flex touch-pan-y cursor-pointer items-center gap-3 rounded-xl p-2.5 transition-all hover:bg-[var(--sidebar-accent)]",
+            "group relative flex touch-pan-y cursor-grab active:cursor-grabbing items-center gap-3 rounded-xl p-2.5 transition-all hover:bg-[var(--sidebar-accent)]",
             selectionMode &&
               isBulkSelected &&
               "bg-[var(--marinara-chat-chrome-highlight-bg)] ring-1 ring-[var(--marinara-chat-chrome-button-border-active)]",
@@ -962,16 +986,6 @@ export function PresetsPanel() {
             clearActiveChatResourceDrag();
           }}
         >
-          <TouchDragHandle
-            label={localizeUi("ui.panels.presetspanel.dragPreset")}
-            onTouchStart={(event) => {
-              startPresetTouchDrag(event, preset.id, {
-                allowInteractiveTarget: true,
-                chatResourcePayload: { version: 1, kind: "preset", ids: [preset.id], label: preset.name },
-                sourceElement: event.currentTarget.closest<HTMLElement>('[data-touch-drag-card="preset"]'),
-              });
-            }}
-          />
           <div
             className="flex min-w-0 flex-1 items-center gap-3"
             onClick={() => {
@@ -1244,12 +1258,19 @@ export function PresetsPanel() {
         </div>
         <div className="relative">
           <select
-            value={sort}
-            onChange={(e) => setSort(e.target.value as ResourcePanelSort)}
+            value={manualOrderActive || folderDrag.active ? "custom" : sort}
+            onChange={(e) => {
+              manualOrder.setActive(e.target.value === "custom");
+              folderDrag.setActive(e.target.value === "custom");
+              if (e.target.value !== "custom") setSort(e.target.value as ResourcePanelSort);
+            }}
             className="mari-chrome-field mari-chrome-sort-field mari-accent-animated h-10 appearance-none py-0 pl-2.5 pr-7 text-[0.6875rem] md:h-9"
             title={localizeUi("ui.panels.agentspanel.sortOrder")}
             aria-label={localizeUi("ui.panels.presetspanel.sortPresets")}
           >
+            <option value="custom" title={localizeUi("dragDrop.manualOrderHelp")}>
+              {localizeUi("dragDrop.manualOrder")}
+            </option>
             <option value="name-asc">{localizeUi("ui.panels.backgroundpicker.aZ")}</option>
             <option value="name-desc">{localizeUi("ui.panels.backgroundpicker.zA")}</option>
             <option value="newest">{localizeUi("ui.panels.backgroundpicker.newest")}</option>
@@ -1281,19 +1302,22 @@ export function PresetsPanel() {
 
       <PanelSection title={localizeUi("ui.panels.presetspanel.prompts")} icon={<FileText size="0.8125rem" />}>
         <div className="flex flex-col gap-0.5">
-          {sortPanelFolders(presetFolders, sort).map((folder) => {
+          {folderDrag.orderItems(sortPanelFolders(presetFolders, sort)).map((folder) => {
             const isEditing = editingFolderId === folder.id;
-            const folderItems = sortBasicPanelItems(
-              folder.itemIds.map((id) => presetById.get(id)).filter((item): item is PresetRow => Boolean(item)),
-              sort,
-              (preset) => preset.name,
-              (preset) => preset.createdAt || preset.updatedAt,
+            const folderItems = orderLibraryItems(
+              sortBasicPanelItems(
+                folder.itemIds.map((id) => presetById.get(id)).filter((item): item is PresetRow => Boolean(item)),
+                sort,
+                (preset) => preset.name,
+                (preset) => preset.createdAt || preset.updatedAt,
+              ),
             );
             if (presetSearchActive && folderItems.length === 0) return null;
             const isExpanded = (presetSearchActive && folderItems.length > 0) || expandedFolderId === folder.id;
             return (
               <div
                 key={folder.id}
+                {...folderDrag.bind(folder.id)}
                 data-preset-folder-id={folder.id}
                 onDragOver={(event) => {
                   if (draggedPresetId) {
@@ -1310,6 +1334,7 @@ export function PresetsPanel() {
                 className="flex flex-col rounded-lg transition-colors"
               >
                 <div
+                  data-drag-surface
                   role="button"
                   tabIndex={0}
                   aria-expanded={isExpanded}

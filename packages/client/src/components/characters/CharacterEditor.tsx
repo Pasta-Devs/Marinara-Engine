@@ -30,6 +30,7 @@ import {
   useCharacterGalleryImages,
   useCharacterGalleryClips,
   useUploadCharacterGalleryImage,
+  useBakeCharacterGalleryImages,
   useDeleteCharacterGalleryImage,
   useSetCharacterGalleryImageAsAvatar,
   useDeleteCharacterGalleryClip,
@@ -124,7 +125,14 @@ import {
 import { requestProfessorMariOpen } from "../../lib/professor-mari-open";
 import { MariContextChip } from "../chat/MariContextChip";
 import { cn, copyToClipboard, generateClientId, getAvatarCropStyle } from "../../lib/utils";
-import { normalizeAvatarCrop, type WeekSchedule } from "@marinara-engine/shared";
+import {
+  applyBakedGreetingImages,
+  findGreetingImageUrls,
+  normalizeAvatarCrop,
+  readBakedGreetingImages,
+  restoreBakedGreetingImages,
+  type WeekSchedule,
+} from "@marinara-engine/shared";
 import { extractColorsFromImage } from "../../lib/avatar-color-extraction";
 import { buildCardAssetMarkdown } from "../../lib/card-asset-links";
 import { HelpTooltip } from "../ui/HelpTooltip";
@@ -431,6 +439,15 @@ export function CharacterEditor() {
       markDirty();
     },
     [formatQuotes, markDirty],
+  );
+
+  // Applies an edit to the latest form state, e.g. once greeting images finish downloading.
+  const updateFormData = useCallback(
+    (update: (data: CharacterData) => CharacterData) => {
+      setFormData((prev) => (prev ? update(prev) : prev));
+      markDirty();
+    },
+    [markDirty],
   );
 
   const updateCharacterComment = useCallback(
@@ -1256,7 +1273,12 @@ export function CharacterEditor() {
               />
             </section>
             <section data-editor-section="card">
-              <CharacterCardTab formData={formData} updateField={updateField} updateExtension={updateExtension} />
+              <CharacterCardTab
+                formData={formData}
+                updateField={updateField}
+                updateExtension={updateExtension}
+                updateFormData={updateFormData}
+              />
             </section>
             <section data-editor-section="convo">
               <ConvoTab
@@ -1368,10 +1390,12 @@ function CharacterCardTab({
   formData,
   updateField,
   updateExtension,
+  updateFormData,
 }: {
   formData: CharacterData;
   updateField: <K extends keyof CharacterData>(key: K, value: CharacterData[K]) => void;
   updateExtension: (key: string, value: unknown) => void;
+  updateFormData: (update: (data: CharacterData) => CharacterData) => void;
 }) {
   const { t: localizeUi } = useUiTranslation();
   return (
@@ -1466,7 +1490,7 @@ function CharacterCardTab({
           />
         </EditorSectionAnchor>
         <EditorSectionAnchor id="character-card-dialogue">
-          <DialogueTab formData={formData} updateField={updateField} />
+          <DialogueTab formData={formData} updateField={updateField} updateFormData={updateFormData} />
         </EditorSectionAnchor>
       </div>
     </div>
@@ -2414,13 +2438,47 @@ function CharacterVersionHistoryPanel({
 function DialogueTab({
   formData,
   updateField,
+  updateFormData,
 }: {
   formData: CharacterData;
   updateField: <K extends keyof CharacterData>(key: K, value: CharacterData[K]) => void;
+  updateFormData: (update: (data: CharacterData) => CharacterData) => void;
 }) {
   const { t: localizeUi } = useUiTranslation();
   const selfCharacterId = useUIStore((s) => s.characterDetailId);
   const greetingKeysRef = useRef<string[]>([]);
+  const bakeImages = useBakeCharacterGalleryImages(selfCharacterId ?? "");
+  const greetingImageUrls = findGreetingImageUrls(formData);
+  const hasBakedImages = readBakedGreetingImages(formData.extensions).length > 0;
+
+  // Only on this explicit click: download the greetings' web images into the
+  // gallery, then point the greetings at the saved copies (#7221).
+  const saveGreetingImages = async () => {
+    const characterId = selfCharacterId;
+    if (!characterId || greetingImageUrls.length === 0 || bakeImages.isPending) return;
+    const results = await bakeImages.mutateAsync(greetingImageUrls);
+    if (useUIStore.getState().characterDetailId !== characterId) return;
+    const saved = results.flatMap((result) => (result.file ? [{ file: result.file, url: result.url }] : []));
+    const failed = results.filter((result) => !result.file);
+    if (saved.length > 0) {
+      updateFormData((data) => applyBakedGreetingImages(data, saved));
+      toast.success(localizeUi("ui.characters.dialoguetab.greetingImagesSaved", { count: saved.length }));
+    }
+    if (failed.length > 0) {
+      console.warn("[CharacterEditor] Some greeting images could not be saved:", failed);
+      toast.error(
+        localizeUi("ui.characters.dialoguetab.greetingImagesFailed", {
+          count: failed.length,
+          reason: failed[0]?.error ?? "",
+        }),
+      );
+    }
+  };
+
+  const restoreGreetingImages = () => {
+    updateFormData(restoreBakedGreetingImages);
+    toast.success(localizeUi("ui.characters.dialoguetab.greetingImagesRestored"));
+  };
 
   while (greetingKeysRef.current.length < formData.alternate_greetings.length) {
     greetingKeysRef.current.push(generateClientId());
@@ -2474,6 +2532,45 @@ function DialogueTab({
         subtitle={localizeUi("ui.characters.dialoguetab.firstMessageExampleDialogueAndAlternateGreetings")}
         helpText={CHARACTER_DIALOGUE_HELP}
       />
+
+      {(greetingImageUrls.length > 0 || hasBakedImages) && (
+        <div className="flex flex-wrap items-center gap-2">
+          {greetingImageUrls.length > 0 && (
+            <span className="inline-flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => void saveGreetingImages()}
+                disabled={bakeImages.isPending}
+                className="mari-editor-action mari-editor-action--compact inline-flex items-center gap-1.5 rounded-lg px-3 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {bakeImages.isPending ? (
+                  <Loader2 size="0.75rem" className="animate-spin" />
+                ) : (
+                  <ImageDown size="0.75rem" />
+                )}
+                {bakeImages.isPending
+                  ? localizeUi("ui.characters.dialoguetab.savingGreetingImages")
+                  : localizeUi("ui.characters.dialoguetab.saveGreetingImages")}
+              </button>
+              <HelpTooltip text={localizeUi("ui.characters.dialoguetab.saveGreetingImagesHelp")} />
+            </span>
+          )}
+          {hasBakedImages && (
+            <span className="inline-flex items-center gap-1">
+              <button
+                type="button"
+                onClick={restoreGreetingImages}
+                disabled={bakeImages.isPending}
+                className="mari-editor-action mari-editor-action--compact inline-flex items-center gap-1.5 rounded-lg px-3 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <RotateCcw size="0.75rem" />
+                {localizeUi("ui.characters.dialoguetab.restoreGreetingImages")}
+              </button>
+              <HelpTooltip text={localizeUi("ui.characters.dialoguetab.restoreGreetingImagesHelp")} />
+            </span>
+          )}
+        </div>
+      )}
 
       {/* First Message */}
       <div className="block space-y-1.5">

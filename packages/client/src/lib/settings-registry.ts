@@ -394,6 +394,14 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
     kind: "Toggle",
   },
   {
+    id: "add-cyoa-choices-to-message",
+    sectionId: "input-editing",
+    label: "Add CYOA choices to the message box",
+    description: "Clicking a CYOA choice adds it to the message box instead of sending it.",
+    aliases: ["cyoa", "choices", "draft", "combine"],
+    kind: "Toggle",
+  },
+  {
     id: "speech-to-text",
     sectionId: "input-editing",
     label: "Speech-to-text microphone",

@@ -38,7 +38,7 @@ for (const kind of ["chat", "character", "persona"] as const) {
     try {
       const chat = await create("/api/chats", { name: `Active ${suffix}`, mode: "conversation" });
       const folder = await create(folders, { name: `Destination ${suffix}`, mode: "conversation" });
-      const entries = [];
+      const entries: { id: string; name: string }[] = [];
       for (let index = 0; index < 26; index++) {
         const name = `${suffix} ${String(index).padStart(2, "0")}`;
         const entry = await create(
@@ -88,14 +88,97 @@ for (const kind of ["chat", "character", "persona"] as const) {
       });
       const scrollTop = () => scroller.evaluate((element) => element.scrollTop);
       let startScroll = await scrollTop();
-      const handle = source.getByTitle(kind === "chat" ? "Drag chat" : `Drag ${kind}`, { exact: true });
+      await expect(source.locator("[data-folder-drag-handle]")).toHaveCount(0);
+      const handle = source;
+
       const box = await handle.boundingBox();
       expect(box).not.toBeNull();
-      let primary: Finger = { identifier: 11, clientX: box!.x + box!.width / 2, clientY: box!.y + box!.height / 2 };
+      let primary: Finger = { identifier: 11, clientX: box!.x + box!.width * 0.45, clientY: box!.y + box!.height / 2 };
       const preview = page.locator(
         `body > [${kind === "chat" ? "data-chat-id" : "data-touch-drag-card"}][aria-hidden="true"]`,
       );
+      if (testInfo.project.name === "mobile-chromium") {
+        // Real browser input proves that scroll gestures are not stolen before pickup.
+        const cdp = await page.context().newCDPSession(page);
+        const point = { id: 0, x: primary.clientX, y: primary.clientY };
+        const beforeSwipe = await scrollTop();
+        await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [point] });
+        for (let step = 1; step <= 5; step++) {
+          await cdp.send("Input.dispatchTouchEvent", {
+            type: "touchMove",
+            touchPoints: [{ ...point, y: point.y - step * 20 }],
+          });
+          await page.waitForTimeout(20);
+        }
+        await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+        await expect.poll(scrollTop).toBeGreaterThan(beforeSwipe + 30);
+        await expect(preview).toHaveCount(0);
+        await scroller.evaluate((element, value) => {
+          element.scrollTop = value;
+        }, beforeSwipe);
+        const holdBox = await source.boundingBox();
+        expect(holdBox).not.toBeNull();
+        const heldPoint = { id: 0, x: holdBox!.x + holdBox!.width * 0.45, y: holdBox!.y + holdBox!.height / 2 };
+        await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [heldPoint] });
+        await expect(preview).toBeVisible();
+        await cdp.send("Input.dispatchTouchEvent", {
+          type: "touchMove",
+          touchPoints: [{ ...heldPoint, x: heldPoint.x + 25 }],
+        });
+        await expect(preview).toBeVisible();
+        const realStackRow = panel
+          .locator(kind === "chat" ? `[data-chat-id="${entries[13]!.id}"]` : `[data-touch-drag-card="${kind}"]`)
+          .filter({ hasText: entries[13]!.name });
+        const realStackBox = await realStackRow.boundingBox();
+        expect(realStackBox).not.toBeNull();
+        const secondPoint = {
+          id: 1,
+          x: realStackBox!.x + realStackBox!.width * 0.45,
+          y: realStackBox!.y + realStackBox!.height / 2,
+        };
+        const movedHeldPoint = { ...heldPoint, x: heldPoint.x + 25 };
+        await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [movedHeldPoint, secondPoint] });
+        // CDP cannot release one finger independently; finish the native second-finger
+        // start with a DOM release while retaining the native holding finger.
+        await touch(
+          realStackRow,
+          "touchend",
+          [
+            {
+              identifier: movedHeldPoint.id,
+              clientX: movedHeldPoint.x,
+              clientY: movedHeldPoint.y,
+            },
+          ],
+          [
+            {
+              identifier: secondPoint.id,
+              clientX: secondPoint.x,
+              clientY: secondPoint.y,
+            },
+          ],
+        );
+        await expect(preview.locator("[data-drag-stack-count]")).toHaveText("2");
+        await cdp.send("Input.dispatchTouchEvent", { type: "touchCancel", touchPoints: [] });
+        await expect(preview).toHaveCount(0);
+        await cdp.detach();
+        const restart = await source.boundingBox();
+        expect(restart).not.toBeNull();
+        primary = {
+          ...primary,
+          clientX: restart!.x + restart!.width * 0.45,
+          clientY: restart!.y + restart!.height / 2,
+        };
+      }
       if (mobile) {
+        // A swipe before the hold expires must stay a scroll gesture, with no pickup.
+        const pendingDraggable = await source.getAttribute("draggable");
+        await touch(source, "touchstart", [primary]);
+        await touch(source, "touchmove", [{ ...primary, clientY: primary.clientY - 60 }]);
+        await touch(source, "touchend", [], [{ ...primary, clientY: primary.clientY - 60 }]);
+        await page.waitForTimeout(500);
+        await expect(preview).toHaveCount(0);
+        await expect.poll(() => source.getAttribute("draggable")).toBe(pendingDraggable);
         // Canceling a scrolling finger must keep the held item; canceling its owner must restore the row.
         const originalDraggable = await source.getAttribute("draggable");
         const canceledFinger = { ...primary, identifier: 22, clientX: primary.clientX + 100 };
@@ -104,13 +187,31 @@ for (const kind of ["chat", "character", "persona"] as const) {
         await touch(panel, "touchstart", [canceledFinger, primary], [canceledFinger]);
         await touch(panel, "touchcancel", [primary], [canceledFinger]);
         await expect(preview).toBeVisible();
+        const cancelStackRow = panel
+          .locator(kind === "chat" ? `[data-chat-id="${entries[13]!.id}"]` : `[data-touch-drag-card="${kind}"]`)
+          .filter({ hasText: entries[13]!.name });
+        const cancelStackBox = await cancelStackRow.boundingBox();
+        expect(cancelStackBox).not.toBeNull();
+        const tapFinger = {
+          identifier: 33,
+          clientX: cancelStackBox!.x + cancelStackBox!.width * 0.45,
+          clientY: cancelStackBox!.y + cancelStackBox!.height / 2,
+        };
+        await touch(cancelStackRow, "touchstart", [primary, tapFinger], [tapFinger]);
+        await touch(cancelStackRow, "touchend", [primary], [tapFinger]);
+        await expect(preview.locator("[data-drag-stack-count]")).toHaveText("2");
         await touch(panel, "touchcancel", [], [primary]);
         await expect(preview).toHaveCount(0);
+        await expect(panel.locator("[data-drag-stacked]")).toHaveCount(0);
         await expect.poll(() => source.getAttribute("draggable")).toBe(originalDraggable);
         // Canceling removes the root drop zone; anchoring can move the row on mobile too.
         const restart = await handle.boundingBox();
         expect(restart).not.toBeNull();
-        primary = { ...primary, clientX: restart!.x + restart!.width / 2, clientY: restart!.y + restart!.height / 2 };
+        primary = {
+          ...primary,
+          clientX: restart!.x + restart!.width * 0.45,
+          clientY: restart!.y + restart!.height / 2,
+        };
         await touch(handle, "touchstart", [primary]);
         await expect(preview).toBeVisible();
         startScroll = await scrollTop();
@@ -145,6 +246,8 @@ for (const kind of ["chat", "character", "persona"] as const) {
             scrollDown,
           ),
         };
+        // Pause from empty chrome: a stationary second finger on a row is now a gather tap.
+        secondary = { ...secondary, clientX: 0, clientY: 0 };
         await touch(panel, "touchstart", [primary, secondary], [secondary]);
         await touch(panel, "touchmove", [edgeFinger, secondary], [edgeFinger]);
         const pausedScroll = await scrollTop();
@@ -176,7 +279,11 @@ for (const kind of ["chat", "character", "persona"] as const) {
         await handle.hover();
         const restart = await handle.boundingBox();
         expect(restart).not.toBeNull();
-        primary = { ...primary, clientX: restart!.x + restart!.width / 2, clientY: restart!.y + restart!.height / 2 };
+        primary = {
+          ...primary,
+          clientX: restart!.x + restart!.width * 0.45,
+          clientY: restart!.y + restart!.height / 2,
+        };
         startScroll = await scrollTop();
         await page.mouse.move(primary.clientX, primary.clientY);
         await page.mouse.down();
@@ -188,6 +295,30 @@ for (const kind of ["chat", "character", "persona"] as const) {
         await expect.poll(scrollTop).toBeGreaterThan(startScroll + 100);
         await page.mouse.wheel(0, -5000);
         await expect.poll(scrollTop).toBe(0);
+      }
+      if (mobile) {
+        const stackRow = panel
+          .locator(kind === "chat" ? `[data-chat-id="${entries[0]!.id}"]` : `[data-touch-drag-card="${kind}"]`)
+          .filter({ hasText: entries[0]!.name });
+        await stackRow.scrollIntoViewIfNeeded();
+        const stackBox = await stackRow.boundingBox();
+        expect(stackBox).not.toBeNull();
+        const secondary = {
+          identifier: 22,
+          clientX: stackBox!.x + stackBox!.width * 0.45,
+          clientY: stackBox!.y + stackBox!.height / 2,
+        };
+        for (let tap = 0; tap < 2; tap++) {
+          await touch(stackRow, "touchstart", [primary, secondary], [secondary]);
+          await touch(stackRow, "touchend", [primary], [secondary]);
+        }
+        // A repeated tap cannot add the same item twice; neither tap opens its editor.
+        await expect(preview.locator("[data-drag-stack-count]")).toHaveText("2");
+        await expect(stackRow).toHaveAttribute("data-drag-stacked", "true");
+        await expect(page.locator(".mari-editor-shell")).toHaveCount(0);
+        await scroller.evaluate((element) => {
+          element.scrollTop = 0;
+        });
       }
       const destination = panel.locator(`[data-${kind}-folder-id="${folder.id}"]`);
       const target = await destination.boundingBox();
@@ -213,9 +344,169 @@ for (const kind of ["chat", "character", "persona"] as const) {
           return (typeof members === "string" ? JSON.parse(members) : members).includes(item.id);
         })
         .toBe(true);
+      if (mobile) {
+        await expect(panel.locator("[data-drag-stacked]")).toHaveCount(0);
+        await expect
+          .poll(async () => {
+            if (kind === "chat")
+              return (await (await request.get(`${endpoint}/${entries[0]!.id}`)).json()).folderId === folder.id;
+            const groups = await (await request.get(`${folders}/list`)).json();
+            const members = groups.find((group: { id: string }) => group.id === folder.id)[`${kind}Ids`];
+            return (typeof members === "string" ? JSON.parse(members) : members).includes(entries[0]!.id);
+          })
+          .toBe(true);
+      }
+      await page.screenshot({ path: testInfo.outputPath(`${kind}-handleless-list.png`) });
+      if (!mobile) {
+        await page.setViewportSize({ width: 768, height: 1024 });
+        await page.screenshot({ path: testInfo.outputPath(`${kind}-handleless-tablet.png`) });
+      }
     } finally {
       await page.mouse.up();
       for (const url of cleanup.reverse()) await request.delete(url);
     }
   });
 }
+
+test("reordering accepts a drop in the opened insertion gap", async ({ page, request }, testInfo) => {
+  const ids: string[] = [];
+  const mobile = testInfo.project.name.includes("mobile");
+  try {
+    for (const name of ["A", "B", "C"]) {
+      const response = await request.post("/api/characters", { data: { data: { name: `Gap ${name} ${Date.now()}` } } });
+      expect(response.ok()).toBeTruthy();
+      ids.push((await response.json()).id);
+    }
+    await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "" } }));
+    await seedUIState(
+      page,
+      {
+        hasCompletedOnboarding: true,
+        chatHelpSeenModes: ["conversation", "roleplay", "game"],
+        sidebarOpen: false,
+        rightPanelOpen: false,
+        libraryManualOrders: { character: { active: true, ids } },
+      },
+      "if-missing",
+    );
+    await page.addInitScript((version) => localStorage.setItem("marinara:whats-new:seen-version", version), version);
+    await page.goto("/");
+    await clickTopbarPanel(page, "characters");
+    const panel = page.locator(`[data-component="RightPanel${mobile ? "Mobile" : "Desktop"}"]`);
+    const source = panel.locator(`[data-drag-id="${ids[2]}"]`);
+    const target = panel.locator(`[data-drag-id="${ids[1]}"]`);
+    const box = await source.boundingBox();
+    expect(box).not.toBeNull();
+    const finger: Finger = { identifier: 61, clientX: box!.x + box!.width / 2, clientY: box!.y + box!.height / 2 };
+    if (mobile) {
+      await touch(source, "touchstart", [finger]);
+      await expect(page.locator('body > [data-drag-kind="character"][aria-hidden="true"]')).toBeVisible();
+    } else {
+      await page.mouse.move(finger.clientX, finger.clientY);
+      await page.mouse.down();
+      await page.mouse.move(finger.clientX + 15, finger.clientY);
+    }
+    const destination = await target.boundingBox();
+    finger.clientX = destination!.x + destination!.width / 2;
+    finger.clientY = destination!.y + 2;
+    if (mobile) await touch(source, "touchmove", [finger]);
+    else await page.mouse.move(finger.clientX, finger.clientY);
+    await expect(target).toHaveAttribute("data-drag-insert", "before");
+    await page.waitForTimeout(200);
+    const opened = await target.boundingBox();
+    finger.clientY = opened!.y - 12;
+    if (mobile) await touch(source, "touchmove", [finger]);
+    else await page.mouse.move(finger.clientX, finger.clientY);
+    await expect(target).toHaveAttribute("data-drag-insert", "before");
+    await expect(target).toHaveCSS("margin-block-start", "24px");
+    await page.screenshot({ path: testInfo.outputPath("expanded-insertion-gap.png") });
+    if (mobile) await touch(source, "touchend", [], [finger]);
+    else await page.mouse.up();
+    await expect
+      .poll(async () =>
+        panel
+          .locator('[data-drag-kind="character"]')
+          .evaluateAll(
+            (rows, ids) => rows.map((row) => (row as HTMLElement).dataset.dragId).filter((id) => ids.includes(id!)),
+            ids,
+          ),
+      )
+      .toEqual([ids[0], ids[2], ids[1]]);
+    if (!mobile) {
+      await page.setViewportSize({ width: 768, height: 900 });
+      await page.screenshot({ path: testInfo.outputPath("reordered-tablet.png") });
+      await page.setViewportSize({ width: 1440, height: 900 });
+    }
+    await page.reload();
+    if (mobile) {
+      await expect(page.locator("[data-topbar-more]")).toBeVisible();
+      if (!(await panel.isVisible())) await clickTopbarPanel(page, "characters");
+    }
+    await expect(panel).toBeVisible();
+    await expect
+      .poll(async () =>
+        page
+          .locator('[data-drag-kind="character"]:visible')
+          .evaluateAll(
+            (rows, ids) => rows.map((row) => (row as HTMLElement).dataset.dragId).filter((id) => ids.includes(id!)),
+            ids,
+          ),
+      )
+      .toEqual([ids[0], ids[2], ids[1]]);
+  } finally {
+    for (const id of ids) await request.delete(`/api/characters/${id}`);
+  }
+});
+
+test("connection folder row dragging saves the server order and sort mode", async ({ page, request }, testInfo) => {
+  const ids: string[] = [];
+  try {
+    for (const label of ["A", "B", "C"]) {
+      const response = await request.post("/api/connection-folders", {
+        data: { name: `Folder ${label} ${Date.now()}` },
+      });
+      expect(response.ok()).toBeTruthy();
+      ids.push((await response.json()).id);
+    }
+    await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: null } }));
+    await seedUIState(page, { hasCompletedOnboarding: true, sidebarOpen: false, rightPanelOpen: false });
+    await page.addInitScript((value) => localStorage.setItem("marinara:whats-new:seen-version", value), version);
+    await page.goto("/");
+    await clickTopbarPanel(page, "connections");
+    const mobile = testInfo.project.name.includes("mobile");
+    const panel = page.locator(`[data-component="RightPanel${mobile ? "Mobile" : "Desktop"}"]`);
+    const source = panel.locator(`[data-drag-id="${ids[2]}"]`);
+    const target = panel.locator(`[data-drag-id="${ids[1]}"]`);
+    const box = (await source.boundingBox())!;
+    const finger: Finger = { identifier: 81, clientX: box.x + box.width / 2, clientY: box.y + box.height / 2 };
+    if (mobile) {
+      await touch(source, "touchstart", [finger]);
+      await expect(page.locator('body > [data-drag-kind="connection-folder"][aria-hidden="true"]')).toBeVisible();
+    } else {
+      await page.mouse.move(finger.clientX, finger.clientY);
+      await page.mouse.down();
+      await page.mouse.move(finger.clientX + 15, finger.clientY);
+    }
+    const destination = (await target.boundingBox())!;
+    finger.clientX = destination.x + destination.width / 2;
+    finger.clientY = destination.y + 2;
+    if (mobile) await touch(source, "touchmove", [finger]);
+    else await page.mouse.move(finger.clientX, finger.clientY);
+    await expect(target).toHaveAttribute("data-drag-insert", "before");
+    if (mobile) await touch(source, "touchend", [], [finger]);
+    else await page.mouse.up();
+    await expect(panel.getByRole("combobox").last()).toHaveValue("custom");
+    await expect
+      .poll(async () => {
+        const folders = await (await request.get("/api/connection-folders")).json();
+        return folders
+          .filter((folder: { id: string }) => ids.includes(folder.id))
+          .sort((a: { sortOrder: number }, b: { sortOrder: number }) => a.sortOrder - b.sortOrder)
+          .map((folder: { id: string }) => folder.id);
+      })
+      .toEqual([ids[0], ids[2], ids[1]]);
+  } finally {
+    await page.mouse.up();
+    for (const id of ids) await request.delete(`/api/connection-folders/${id}`);
+  }
+});

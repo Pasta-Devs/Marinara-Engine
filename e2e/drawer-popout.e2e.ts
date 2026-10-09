@@ -486,6 +486,75 @@ test.describe("Pop-out drawers on desktop", () => {
     }
   });
 
+  test("a minimized World State window stays in view as a movable banner (#7320)", async ({
+    page,
+    request,
+  }, testInfo) => {
+    const chat = await createChat(request, { enableAgents: true, activeAgentIds: ["world-state"] });
+    try {
+      const state = await request.patch(`/api/chats/${chat.id}/game-state`, {
+        data: { manual: true, location: "Harbor market", date: "Day 12", time: "21:30", weather: "Light rain" },
+      });
+      expect(state.ok()).toBeTruthy();
+      await prepare(page, chat.id, { trackerPanelEnabled: false, trackerPanelOpen: false });
+      await page.goto("/");
+      const trackerWindow = page.locator('.mari-window[data-window="trackers"]');
+      const trackerBubble = page.locator('.mari-window-bubble[data-window="trackers"]');
+      await expect(trackerBubble).toBeVisible({ timeout: 30_000 });
+      await trackerBubble.click();
+      await trackerWindow
+        .locator('[data-drawer="tracker-world"]')
+        .getByRole("button", { name: "Open World State in its own window", exact: true })
+        .click();
+      const popped = page.locator(`.mari-window[data-window="${WORLD_WINDOW}"]`);
+      await settle(popped);
+      await popped.locator('[data-window-control="close"]').click();
+      await expect(popped).toBeHidden();
+
+      // Minimized, it shows the old World State banner (pin, calendar, clock, weather) instead of a bare icon.
+      const banner = page.locator(`.mari-window-bubble[data-window="${WORLD_WINDOW}"]`);
+      await expect(banner).toHaveAttribute("data-banner", "true");
+      await expect(banner).toHaveAccessibleName("Open World State");
+      await expect(banner).toHaveAccessibleDescription("Harbor market, Day 12, 21:30, Light rain");
+      await expect(banner.locator(".mari-window-bubble__banner svg")).toHaveCount(4);
+      await expect(banner.locator(".mari-window-bubble__banner")).toContainText("12");
+      const shown = await box(banner);
+      expect(shown.width).toBeGreaterThan(shown.height * 2);
+      for (const other of await page
+        .locator(`.mari-window-bubble:visible:not([data-window="${WORLD_WINDOW}"])`)
+        .all()) {
+        const rect = await box(other);
+        expect(
+          shown.x + shown.width <= rect.x ||
+            shown.x >= rect.x + rect.width ||
+            shown.y + shown.height <= rect.y ||
+            shown.y >= rect.y + rect.height,
+          "the banner does not cover another button",
+        ).toBe(true);
+      }
+
+      // It moves like any other button, and the chat remembers where.
+      await drag(page, centre(shown), { x: 640, y: 160 });
+      await page.screenshot({ path: testInfo.outputPath("world-state-banner.png"), animations: "disabled" });
+      const moved = await box(banner);
+      expect(Math.abs(moved.x + moved.width / 2 - 640)).toBeLessThanOrEqual(12);
+      await expect
+        .poll(async () => (await readSavedLayout(request, chat.id))?.bubbles?.[WORLD_WINDOW] ?? null)
+        .toEqual({ x: moved.x, y: moved.y });
+      await page.reload();
+      await expect(banner).toBeVisible({ timeout: 30_000 });
+      expectSameBox(await box(banner), moved, "banner after reload");
+
+      // Clicking it brings the window back.
+      await banner.click();
+      await expect(popped).toBeVisible();
+      await expect(popped.getByText("Harbor market", { exact: true })).toBeVisible();
+      await expect(banner).toHaveCount(0);
+    } finally {
+      await request.delete(`/api/chats/${chat.id}?force=true`);
+    }
+  });
+
   test("each chat keeps its own layout, after a reload too", async ({ page, request }) => {
     const first = await createChat(request);
     const second = await createChat(request);

@@ -3572,7 +3572,7 @@ test("mobile connection drag previews preserve configured Chroma text", async ({
     const expectedColor = await readScopedCssVariableColor(source, "--muted-foreground");
     await expect(sourceMetadata).toHaveCSS("color", expectedColor);
 
-    const dragHandle = source.getByTitle("Drag connection", { exact: true });
+    const dragHandle = source;
     const handleBounds = await dragHandle.boundingBox();
     expect(handleBounds).not.toBeNull();
     const point = {
@@ -6901,6 +6901,58 @@ test("goto keeps stale CYOA choices out of the chat tail", async ({ page, reques
     await page.locator("button.mari-chat-send-btn").click();
     await expect(page.getByText("Imported assistant message 1", { exact: true })).toBeVisible();
     await expect(staleChoice).toHaveCount(0);
+  } finally {
+    await request.delete(`/api/chats/${imported.chatId}?force=true`).catch(() => undefined);
+  }
+});
+
+test("CYOA choices go to the message box when the add-to-message setting is on", async ({ page, request }) => {
+  const firstChoice = `Take the bridge ${Date.now()}`;
+  const secondChoice = `Wave at the guard ${Date.now()}`;
+  const transcript = [
+    JSON.stringify({ user_name: "You", character_name: "Guide", chat_metadata: {} }),
+    JSON.stringify({
+      name: "Guide",
+      is_user: false,
+      mes: "The road splits at the river.",
+      extra: {
+        cyoaChoices: [
+          { label: "Bridge", text: firstChoice },
+          { label: "Guard", text: secondChoice },
+        ],
+      },
+    }),
+  ].join("\n");
+  const importResponse = await request.post("/api/import/st-chat", {
+    multipart: {
+      file: { name: `cyoa-add-${Date.now()}.jsonl`, mimeType: "application/jsonl", buffer: Buffer.from(transcript) },
+      mode: "roleplay",
+    },
+  });
+  expect(importResponse.ok(), await importResponse.text()).toBeTruthy();
+  const imported = (await importResponse.json()) as { chatId: string };
+
+  try {
+    await seedUIState(page, {
+      hasCompletedOnboarding: true,
+      sidebarOpen: false,
+      rightPanelOpen: false,
+      addCyoaChoicesToMessage: true,
+    });
+    await page.addInitScript((chatId) => {
+      localStorage.setItem("marinara-active-chat-id", chatId);
+    }, imported.chatId);
+    await page.goto("/");
+
+    const composer = page.locator("textarea.mari-chat-input-textarea");
+    await page.getByText(firstChoice, { exact: true }).click();
+    await page.getByText(secondChoice, { exact: true }).click();
+
+    await expect(composer).toHaveValue(`${firstChoice}\n\n${secondChoice}`);
+    await expect(composer).toBeFocused();
+    await expect(page.getByText(firstChoice, { exact: true })).toBeVisible();
+    const messages = await (await request.get(`/api/chats/${imported.chatId}/messages`)).json();
+    expect(Array.isArray(messages) ? messages : messages.messages).toHaveLength(1);
   } finally {
     await request.delete(`/api/chats/${imported.chatId}?force=true`).catch(() => undefined);
   }
@@ -23926,7 +23978,7 @@ test("Background library organization works with desktop drag and touch drag", a
     const folder = page.locator(`[data-background-folder-id="${folderId}"]`);
     await expect(folder).toBeVisible();
     if (testInfo.project.name.includes("mobile")) {
-      const dragHandle = backgroundRow.getByTitle(/^Drag /);
+      const dragHandle = backgroundRow.locator("[data-drag-surface]");
       const startRect = await dragHandle.boundingBox();
       expect(startRect).not.toBeNull();
       const start = {

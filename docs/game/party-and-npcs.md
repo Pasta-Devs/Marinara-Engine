@@ -125,6 +125,8 @@ A ruleset can also have markets, so what you can buy depends on where you are. T
 
 The Game Master controls who is in your party as the story unfolds. There is no manual "add companion" button. Instead, the GM adds or removes party members through the narration, based on what happens in the scene.
 
+When the GM adds an NPC who has exactly the same name as one of your character cards, or a name several of your cards share, a window asks which one joins. It shows each card's name, title and avatar. Pick a card, or choose **Keep the game's own** and the NPC's name, such as **Keep the game's own Emma**, to bring in the character the game made. Closing the window does the same. A card with only a similar name, such as **Samantha** for an NPC named Sam, is never added.
+
 To drop a companion yourself, use the **X** beside their portrait in **Character Profiles**, as described above. You cannot remove your own persona this way.
 
 ## The Adventure Journal

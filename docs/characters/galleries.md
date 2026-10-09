@@ -98,6 +98,14 @@ A full link contains the character's internal id (`card://characters/<id>/galler
 
 One honest caveat: **PNG card exports do not include the gallery**, so no gallery reference of any kind can work after a PNG-only share. Ship the native `.json` export when your character uses gallery images.
 
+### Save web images from greetings
+
+Many cards show images from other websites in their greetings, and those links can break or change. When the **First Message** or **Alternate Greetings** show web images, **Dialogue & Greetings** has a **Save images locally** button. It downloads those images into the character's Gallery and swaps each link for a `card://self/gallery/...` reference, so the images still show if the website removes them or you are offline. Save the character afterwards to keep the new links.
+
+Nothing is downloaded until you press the button. Only PNG, JPEG, GIF, and WebP images up to 10 MB and 40 megapixels are saved. Links to your own computer or home network are refused. An image that can't be saved keeps its web link, and a notice says why.
+
+**Restore web links** puts the original links back in the greetings. The saved copies stay in the Gallery until you delete them. Compatible JSON and PNG exports use the original web links, since those cards carry no gallery. Lorebook images are not covered.
+
 ## Related guides
 
 - [Creating and Editing Characters](creating-and-editing-characters.md)

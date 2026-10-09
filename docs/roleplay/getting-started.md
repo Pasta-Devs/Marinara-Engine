@@ -89,6 +89,8 @@ Author's Notes also works the same way in Game Mode and Conversation Mode. This 
 
 Its **Activity** tab lists agent outputs, called thought bubbles. You can dismiss each one or use **Clear all**. Custom agent outputs also appear here.
 
+While agents work, the **Agent activity** icon turns into a spinner. When an agent fails, a dot appears on the icon until you open **Agent activity**.
+
 If an agent failed on the last turn, a failed list appears with a retry button. You can also stop running agents, re-run all tracker agents, and use **Clear Trackers** from here. For a plain-language tour of the whole agent system, see [Agents: AI Helpers for Your Chats](../agents/agents-overview.md).
 
 An **Injections** tab appears only when **Debug mode** is on. Turn it on in **Settings**, under **Advanced**. This tab shows the prompt snippets that writer-style agents saved before the last reply. Writer-style agents include **Prose Guardian**, which rewrites replies to match your style rules, and the **Narrative Director**, which steers the plot.
@@ -135,7 +137,7 @@ Open the reply's command information and choose **Restore original message** to 
 
 ## CYOA choices
 
-**CYOA** stands for Choose Your Own Adventure. The **CYOA Choices** agent is off by default. When on, it adds clickable choice buttons after a reply. Clicking a choice sends it as your next message. It works only in Roleplay Mode.
+**CYOA** stands for Choose Your Own Adventure. The **CYOA Choices** agent is off by default. When on, it adds clickable choice buttons after a reply. Clicking a choice sends it as your next message. To combine choices or edit one before sending, turn on **Add CYOA choices to the message box instead of sending them** in **Settings** > **General** > **Input & Editing**: clicking a choice then adds its text to your message box without sending. It works only in Roleplay Mode.
 
 ## Combat encounters
 

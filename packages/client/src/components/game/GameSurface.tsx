@@ -120,7 +120,7 @@ import { lorebookKeys } from "../../hooks/use-lorebooks";
 import { api, ApiError, getJsonRepairRequest, type JsonRepairRequest } from "../../lib/api-client";
 import { useRenderTimer } from "../../lib/perf-diagnostics";
 import { isGenerationSendBlocked } from "../../lib/generation-stream-policy";
-import { showConfirmDialog } from "../../lib/app-dialogs";
+import { showChoiceDialog, showConfirmDialog } from "../../lib/app-dialogs";
 import { CHAT_FLOATING_UI_DISMISS_EVENT } from "../../lib/chat-floating-ui-events";
 import { cn, generateClientId } from "../../lib/utils";
 import {
@@ -2951,6 +2951,8 @@ function GameSurfaceComponent({
   const startGameGuardRef = useRef(false);
   const startSessionGuardRef = useRef(false);
   const processedPartyChangeCommandsRef = useRef<Set<string>>(new Set());
+  // One party card choice at a time: opening a second app dialog would close the first unanswered.
+  const partyCardChoiceQueueRef = useRef<Promise<unknown>>(Promise.resolve());
   const appliedCombatStatusMessageIdsRef = useRef<Set<string>>(new Set());
   const appliedCombatElementMessageIdsRef = useRef<Set<string>>(new Set());
   const interruptedInteractiveCommandKeysRef = useRef<Set<string>>(new Set());
@@ -3007,18 +3009,41 @@ function GameSurfaceComponent({
         const commandKey = `${messageId}:${partyChange.change}:${normalizeTextForMatch(characterName)}`;
         if (processedPartyChangeCommandsRef.current.has(commandKey)) continue;
         processedPartyChangeCommandsRef.current.add(commandKey);
-        const mutation = partyChange.change === "add" ? recruitPartyMember : removePartyMember;
-        mutation.mutate(
-          { chatId: activeChatId, characterName },
-          {
-            onError: () => {
-              processedPartyChangeCommandsRef.current.delete(commandKey);
-            },
-          },
-        );
+        const variables = { chatId: activeChatId, characterName };
+        const forgetCommand = () => processedPartyChangeCommandsRef.current.delete(commandKey);
+        if (partyChange.change !== "add") {
+          removePartyMember.mutate(variables, { onError: forgetCommand });
+          continue;
+        }
+        // mutateAsync: the callbacks passed to mutate() only fire for the last of several calls.
+        recruitPartyMember
+          .mutateAsync(variables)
+          .then(({ characterName: displayName, cardChoices }) => {
+            if (!cardChoices?.length) return;
+            // Several characters share this name (#7324). The player picks a card or keeps the game's
+            // own character, which is also what closing the window does, so the party is never stuck.
+            // Only the windows wait for each other. The next one opens as soon as this one is answered,
+            // not after this pick's party card is written, while the player is still looking at this chat.
+            const choice = partyCardChoiceQueueRef.current.then(() =>
+              showChoiceDialog({
+                title: localizeUi("game.partyCardChoice.title", { name: displayName }),
+                message: localizeUi("game.partyCardChoice.message", { name: displayName }),
+                cancelLabel: localizeUi("game.partyCardChoice.keepGameCharacter", { name: displayName }),
+                choices: cardChoices.map((card) => ({
+                  key: card.id,
+                  label: card.name,
+                  description: card.title ?? card.summary,
+                  avatar: { url: card.avatarPath, crop: normalizeAvatarCrop(card.avatarCrop) },
+                })),
+              }),
+            );
+            partyCardChoiceQueueRef.current = choice.catch(() => {});
+            return choice.then((characterId) => recruitPartyMember.mutateAsync({ ...variables, characterId }));
+          })
+          .catch(forgetCommand);
       }
     },
-    [activeChatId, recruitPartyMember, removePartyMember],
+    [activeChatId, localizeUi, recruitPartyMember, removePartyMember],
   );
 
   const upsertReadableJournalEntry = useCallback(

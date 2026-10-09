@@ -1,5 +1,7 @@
 # yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
 language: "en-US"
+tone_instructions: "Be concise and plain. Lead with the concrete failure scenario and the fix. Skip praise, filler and style nits that ESLint or Prettier already catch. Many contributors are non-native English speakers or AI agents."
+early_access: true
 reviews:
   profile: "assertive"
   request_changes_workflow: false
@@ -14,5 +16,122 @@ reviews:
     base_branches:
       - "staging"
       - "main"
+  path_instructions:
+    - path: "packages/client/src/**"
+      instructions: |
+        Client rules (packages/client/.instructions.md is the full reference):
+        - Colours come only from theme tokens and CSS variables (var(--primary), text-[var(--foreground)], mari-* classes). Values inside CSS custom-property definitions that define those tokens are fine. Flag hard-coded palette colours in new or changed UI: Tailwind palette utilities such as text-red-500 or bg-amber-100, hex, rgb() or hsl() literals. Black or white overlays with opacity, as neighbouring code uses, are fine.
+        - Warning and error states use the theme accent held steady. Flag warning colours that pulse with Accent Pulse; --destructive maps to --primary, which Accent Pulse animates.
+        - New or changed user-facing text (labels, tooltips, placeholders, toasts, confirmations, aria labels) must use semantic localization keys added to src/localization/locales/en.json. Flag hard-coded English in JSX. Model prompts and user-authored content are exempt.
+        - UI copy is one short, plain sentence a newcomer understands. Flag jargon and internals in user-facing text (inject, pipeline, payload, durable, diegetic, post-process, by ID).
+        - Flag rewording of existing UI or command copy that the linked issue did not ask for.
+        - Floating windows and drawers use the shared themeable components and classes (mari-window*, mari-drawer*, mari-window-bubble). Flag one-off window implementations.
+        - Check mobile: touch targets, no hover-only controls, phone-width layouts.
+        - Browser code uses console.*, not the server logger.
+    - path: "packages/client/src/localization/locales/*.json"
+      instructions: |
+        Only en.json is canonical. Other locale files are community-maintained and intentionally partial; missing keys fall back to English. Flag PRs that copy English text into other locales or add every new key to every locale. Real translations are welcome.
+    - path: "packages/server/src/**"
+      instructions: |
+        - Server code logs through the shared Pino logger (import { logger } from lib/logger.js). Flag console.* calls. Multi-argument calls use format specifiers ("Resolved %d agents"), and errors are logged with the error object first: logger.error(err, "Import failed").
+        - New agents, model or image generation routes, and prompt-building helpers must wire debug prompt logging (UI debugMode, DEBUG_AGENTS, logDebugOverride or an equivalent debugLog) so the final prompt sent to the provider is visible in debug mode.
+        - Routes that change data keep the same admin-secret and remote-access protection as neighbouring routes.
+        - Any fetch of a user- or card-supplied URL needs SSRF protection: http/https only, private, loopback and link-local addresses blocked, every redirect re-checked, size and time limits.
+        - A change to the on-disk storage layout must bump STORAGE_VERSION in packages/server/src/db/file-backed-store.ts and the root storage-format.json together.
+    - path: "packages/server/src/{services/prompt/**,routes/generate/**,routes/generate.routes.ts}"
+      instructions: |
+        Prompt assembly is core. Ask for a regression in scripts/regressions/ for behaviour changes, and check every chat mode (Conversation, Roleplay, Game) and group mode (merged and individual responders). {{char}} inside earlier history messages intentionally resolves to that message's author.
+    - path: "scripts/regressions/**"
+      instructions: |
+        Regressions are the repo's test suite; the repo keeps no .test.ts files. Existing assertions encode maintainer decisions: flag deleted, skipped or loosened pre-existing assertions unless the PR says the maintainer asked for the behaviour change. CodeQL scans this folder: fake servers must never take timeouts, sizes or delays from request input (js/resource-exhaustion).
+    - path: "e2e/**"
+      instructions: |
+        Existing expectations encode maintainer decisions. Flag removed, skipped or loosened pre-existing assertions and changed expected values unless the PR explains that the maintainer asked for it.
+    - path: "docs/**"
+      instructions: |
+        User guides are for newcomers: plain English, short sentences, no internals. When a PR adds, renames or edits a guide here, it must update the translated packs on the docs-i18n branch or link a "[docs-i18n] <paths>" follow-up issue.
+    - path: "CHANGELOG.md"
+      instructions: |
+        New entries go under the right heading of ## [Unreleased], are user-focused and concise, and appear once. Flag duplicated entries; they often appear after CHANGELOG merge conflicts.
+    - path: "{package.json,packages/*/package.json,packages/shared/src/constants/defaults.ts,win/installer/**,android/app/build.gradle}"
+      instructions: |
+        The root package.json version is canonical. Version-bearing files must stay in sync (pnpm version:sync), and Android versionCode increments for every shipped APK. Flag a version change in one file without the others.
+  pre_merge_checks:
+    docstrings:
+      mode: "off"
+    title:
+      mode: "warning"
+      requirements: "Conventional Commits style: type(scope): summary, for example fix(chat): keep the draft when switching chats. Lowercase type, plain imperative summary, under 80 characters."
+    description:
+      mode: "warning"
+    issue_assessment:
+      mode: "warning"
+    custom_checks:
+      - name: "Theme colours only"
+        mode: "warning"
+        instructions: |
+          Pass if the PR changes no client UI files (packages/client/src/**/*.tsx, *.ts, *.css).
+          Fail if added or changed client UI code uses hard-coded palette colours: Tailwind colour utilities with a named palette (for example text-red-500, bg-amber-100, border-emerald-400, from-yellow-300), hex colours, or rgb()/hsl() literals. Black or white with opacity (bg-black/50, border-white/10) is allowed.
+          Values inside CSS custom-property definitions (for example --primary: #e11d48; in a theme or globals stylesheet) define the tokens themselves and are allowed.
+          Otherwise pass: colours come from theme CSS variables or token classes such as var(--primary), text-[var(--foreground)] or mari-* classes.
+      - name: "Localized UI text"
+        mode: "warning"
+        instructions: |
+          Pass if the PR adds or changes no user-facing client text.
+          Fail if new or changed user-facing text in packages/client/src (labels, tooltips, placeholders, toasts, confirmations, aria labels) is hard-coded instead of using a localization key, or if a new key used in code is missing from packages/client/src/localization/locales/en.json, or if the PR copies English values into non-English locale files.
+          Model prompts and user-authored content are exempt.
+      - name: "Server logs via Pino"
+        mode: "warning"
+        instructions: |
+          Fail if the diff adds console.log, console.warn, console.error, console.info or console.debug in packages/server/src. Pass otherwise.
+      - name: "Changelog entry"
+        mode: "warning"
+        instructions: |
+          Pass for purely mechanical or internal changes: refactors without behaviour change, CI-only, tests-only, dependency bumps without user impact, translation-only PRs.
+          Fail if the PR fixes a bug, changes behaviour or adds a feature for users or contributors and adds no entry under ## [Unreleased] in CHANGELOG.md.
+      - name: "Existing tests not weakened"
+        mode: "warning"
+        instructions: |
+          Pass if the PR only adds tests or tightens assertions, or changes no files under scripts/regressions/ or e2e/.
+          Fail if it deletes, skips or loosens a pre-existing assertion there (removed expect/assert lines, widened tolerances, changed expected values) and the PR description does not say the maintainer asked for that behaviour change.
+  finishing_touches:
+    docstrings:
+      enabled: false
+    unit_tests:
+      enabled: false
+    simplify:
+      enabled: true
+    autofix:
+      enabled: true
+    fix_ci:
+      enabled: true
+    resolve_merge_conflict:
+      enabled: true
+    custom:
+      - name: "changelog"
+        instructions: |
+          Add one concise, user-focused entry for this PR under the right heading of ## [Unreleased] in CHANGELOG.md, matching the style of neighbouring entries. Do not change other entries.
+      - name: "localize"
+        instructions: |
+          Move hard-coded user-facing English strings added by this PR in packages/client/src into semantic localization keys in packages/client/src/localization/locales/en.json, following neighbouring key names, and use them through the existing translation helpers. Do not edit other locale files and do not change the wording.
+      - name: "theme colours"
+        instructions: |
+          Replace hard-coded palette colours added by this PR in client UI with the theme tokens and CSS variables neighbouring code uses. Warning and error states use the theme accent held steady, never a colour that pulses with Accent Pulse.
 chat:
   auto_reply: true
+knowledge_base:
+  code_guidelines:
+    enabled: true
+    filePatterns:
+      - "AGENTS.md"
+      - "CONTRIBUTING.md"
+      - "packages/client/.instructions.md"
+      - ".github/agents/chai-workflow.md"
+  linked_repositories:
+    - repository: "Pasta-Devs/Marinara-Agents"
+      instructions: "Downloadable agent packages (Illustrator, Noodle, Quartermaster, Long-Term Memory, Slurp, Relationship Tracker and others) built against the Engine's package loading, capability APIs and shared contracts. Engine changes to those can break packages; package-owned fixes belong in that repository."
+issue_enrichment:
+  auto_enrich:
+    enabled: true
+  planning:
+    enabled: true

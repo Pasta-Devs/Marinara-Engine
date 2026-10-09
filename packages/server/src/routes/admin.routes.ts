@@ -5,7 +5,12 @@ import type { FastifyInstance, FastifyReply } from "fastify";
 import { eq, like, ne } from "../db/file-query.js";
 import { existsSync, readdirSync, rmSync } from "fs";
 import { join } from "path";
-import { MARINARA_UNIVERSAL_PRESET_SYSTEM_KEY, PROFESSOR_MARI_ID, TTS_SETTINGS_KEY } from "@marinara-engine/shared";
+import {
+  MARINARA_UNIVERSAL_PRESET_SYSTEM_KEY,
+  PROFESSOR_MARI_ID,
+  SPEECH_TO_TEXT_SETTINGS_KEY,
+  TTS_SETTINGS_KEY,
+} from "@marinara-engine/shared";
 import { DATA_DIR } from "../utils/data-dir.js";
 import * as schema from "../db/schema/index.js";
 import { requirePrivilegedAccess } from "../middleware/privileged-gate.js";
@@ -283,6 +288,9 @@ export async function adminRoutes(app: FastifyInstance) {
       await runDelete("api_connections", () => db.delete(schema.apiConnections).run());
       await runDelete("app_settings", () =>
         db.delete(schema.appSettings).where(eq(schema.appSettings.key, TTS_SETTINGS_KEY)).run(),
+      );
+      await runDelete("app_settings", () =>
+        db.delete(schema.appSettings).where(eq(schema.appSettings.key, SPEECH_TO_TEXT_SETTINGS_KEY)).run(),
       );
     }
 

@@ -111,6 +111,8 @@ This is an advanced field. A wrong key can make the provider reject the request.
 
 When you enable it, the count starts at 50. You can set any number from 1 to 9999. A smaller number sends less history, which can lower cost and speed things up. It also means the AI remembers less of the older conversation. This setting is off by default.
 
+In a Roleplay chat with **Advanced Memory Recall** on, this limit is not used. Advanced Memory decides how much history to send with its **Maximum allowed context before compression (tokens)** setting, and older scenes come back as summaries and excerpts. To send less history there, lower that setting in **Chat Settings → Memory Recall**. A note under **Limit Context Messages** says so while both are on. See [Advanced Memory Recall](../agents/memory.md#advanced-memory-recall-roleplay).
+
 ## Exclude Past Reasoning
 
 **Exclude Past Reasoning** is on by default. It keeps saved thinking and reasoning from earlier turns out of new prompts. That reasoning is not sent to the model again.

@@ -1,3 +1,5 @@
+import { useLibraryFolderDrag } from "../../../hooks/use-library-folder-drag";
+import { useLibraryOrder } from "../../../hooks/use-library-order";
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -41,7 +43,6 @@ import { useGameAssetStore } from "../../../stores/game-asset.store";
 import { gameAssetFileUrl } from "../../../lib/game-asset-urls";
 import { useTouchFolderDrag } from "../../../hooks/use-touch-folder-drag";
 import { ImageUploadDropzone } from "../../ui/ImageUploadDropzone";
-import { TouchDragHandle } from "../../ui/TouchDragHandle";
 import { Modal } from "../../ui/Modal";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { clearActiveChatResourceDrag, writeChatResourceDragPayload } from "../../../lib/chat-resource-drag";
@@ -234,6 +235,9 @@ export function BackgroundPicker({
   defaultRoleplayBackground,
   onDefaultChange,
 }: BackgroundPickerProps) {
+  const manualOrder = useLibraryOrder("background");
+  const { active: manualOrderActive, orderItems: orderLibraryItems } = manualOrder;
+  const folderDrag = useLibraryFolderDrag("background");
   const { t: localizeUi } = useUiTranslation();
   const [open, setOpen] = useState(false);
   const [pendingSelection, setPendingSelection] = useState<string | null>(null);
@@ -384,14 +388,16 @@ export function BackgroundPicker({
 
   const visibleBackgrounds = useMemo(() => {
     const filtered = filterAndSortBackgrounds(backgrounds, { search: searchQuery, includedTags, sort });
-    return filtered.filter((background) => {
-      if (sourceFilter !== "all" && background.source !== sourceFilter) return false;
-      if (folderFilter === "favorites") return Boolean(background.favorite);
-      if (folderFilter === "unfiled") return !background.folderId;
-      if (folderFilter !== "all") return background.folderId === folderFilter;
-      return true;
-    });
-  }, [backgrounds, folderFilter, includedTags, searchQuery, sort, sourceFilter]);
+    return orderLibraryItems(
+      filtered.filter((background) => {
+        if (sourceFilter !== "all" && background.source !== sourceFilter) return false;
+        if (folderFilter === "favorites") return Boolean(background.favorite);
+        if (folderFilter === "unfiled") return !background.folderId;
+        if (folderFilter !== "all") return background.folderId === folderFilter;
+        return true;
+      }),
+    );
+  }, [backgrounds, folderFilter, includedTags, searchQuery, sort, sourceFilter, orderLibraryItems]);
   const activeFolder = folders.find((folder) => folder.id === folderFilter) ?? null;
   const previewUrl =
     selected ?? (sceneBackgroundTag ? gameAssetFileUrl(assetManifest?.assets[sceneBackgroundTag]?.path) : null);
@@ -632,14 +638,14 @@ export function BackgroundPicker({
   }, []);
 
   const finishBackgroundTouchDrag = useCallback(
-    (backgroundId: string, x: number, y: number) => {
+    (backgroundId: string, x: number, y: number, dragIds: string[] = [backgroundId]) => {
       const target = document.elementFromPoint(x, y);
       const folderElement = target?.closest<HTMLElement>("[data-background-folder-id]");
       const rootElement = target?.closest<HTMLElement>("[data-background-folder-root]");
       if (folderElement?.dataset.backgroundFolderId) {
-        assignBackground(backgroundId, folderElement.dataset.backgroundFolderId);
+        dragIds.forEach((id) => assignBackground(id, folderElement.dataset.backgroundFolderId!));
       } else if (rootElement) {
-        assignBackground(backgroundId, null);
+        dragIds.forEach((id) => assignBackground(id, null));
       } else {
         setDraggedBackgroundId(null);
         draggedBackgroundIdRef.current = null;
@@ -649,6 +655,9 @@ export function BackgroundPicker({
   );
 
   const { startTouchDrag: startBackgroundTouchDrag } = useTouchFolderDrag({
+    getDragIds: (id) => [id],
+    onReorder: manualOrder.reorder,
+    reorderHandlesDrop: true,
     onActivate: (backgroundId) => {
       draggedBackgroundIdRef.current = backgroundId;
       setDraggedBackgroundId(backgroundId);
@@ -703,6 +712,27 @@ export function BackgroundPicker({
         data-background-id={background.id}
         data-background-selected={isSelected ? "true" : "false"}
         data-touch-drag-card="background"
+        data-drag-id={background.id}
+        aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"
+        data-drag-kind="background"
+        data-drag-folder={background.folderId ?? ""}
+        data-drag-payload={JSON.stringify({ version: 1, kind: "background", ids: [background.url], label: title })}
+        onMouseDown={(event) => {
+          if (isRenaming || isEditingTags) return;
+          cancelPendingClose();
+          startBackgroundTouchDrag(event, background.id, {
+            chatResourcePayload: { version: 1, kind: "background", ids: [background.url], label: title },
+            sourceElement: event.currentTarget.closest<HTMLElement>('[data-touch-drag-card="background"]'),
+          });
+        }}
+        onTouchStart={(event) => {
+          if (isRenaming || isEditingTags) return;
+          cancelPendingClose();
+          startBackgroundTouchDrag(event, background.id, {
+            chatResourcePayload: { version: 1, kind: "background", ids: [background.url], label: title },
+            sourceElement: event.currentTarget.closest<HTMLElement>('[data-touch-drag-card="background"]'),
+          });
+        }}
         draggable={!isRenaming}
         onDragStart={(event) => {
           draggedBackgroundIdRef.current = background.id;
@@ -735,8 +765,9 @@ export function BackgroundPicker({
         <div className="relative">
           <button
             type="button"
+            data-drag-surface
             onClick={() => selectBackground(background, isSelected)}
-            className="relative block aspect-[16/10] w-full overflow-hidden rounded-t-xl bg-[var(--background)] text-left"
+            className="relative block aspect-[16/10] w-full cursor-grab overflow-hidden rounded-t-xl bg-[var(--background)] text-left active:cursor-grabbing"
             aria-label={
               isSelected
                 ? localizeUi("ui.panels.backgroundpicker.removeValue1FromThisChat", { value1: title })
@@ -810,20 +841,6 @@ export function BackgroundPicker({
           >
             <Star size="0.875rem" fill={background.favorite ? "currentColor" : "none"} />
           </button>
-
-          <TouchDragHandle
-            label={localizeUi("ui.panels.backgroundpicker.dragValue1ToAFolder", { value1: title })}
-            size="0.875rem"
-            className="absolute right-2 top-2 rounded-full bg-black/55 text-white/80 backdrop-blur-sm max-md:h-11 max-md:w-11"
-            onTouchStart={(event) => {
-              cancelPendingClose();
-              startBackgroundTouchDrag(event, background.id, {
-                allowInteractiveTarget: true,
-                chatResourcePayload: { version: 1, kind: "background", ids: [background.url], label: title },
-                sourceElement: event.currentTarget.closest<HTMLElement>('[data-touch-drag-card="background"]'),
-              });
-            }}
-          />
 
           {/* Static row under the thumbnail on touch (always visible, so it must not cover the name
               or the tags), floating scrim over the image on hover from md up. While an inline
@@ -1089,12 +1106,19 @@ export function BackgroundPicker({
             </div>
             <div className="relative shrink-0">
               <select
-                value={sort}
-                onChange={(event) => setSort(event.target.value as BackgroundLibrarySort)}
+                value={manualOrderActive || folderDrag.active ? "custom" : sort}
+                onChange={(event) => {
+                  manualOrder.setActive(event.target.value === "custom");
+                  folderDrag.setActive(event.target.value === "custom");
+                  if (event.target.value !== "custom") setSort(event.target.value as BackgroundLibrarySort);
+                }}
                 className="mari-chrome-field mari-chrome-sort-field mari-accent-animated h-10 appearance-none py-0 pl-2.5 pr-7 text-[0.6875rem] max-md:!w-10 max-md:!px-0 max-md:!text-transparent [&>option]:text-[var(--foreground)] md:h-9"
                 title={localizeUi("ui.panels.backgroundpicker.sortBackgrounds")}
                 aria-label={localizeUi("ui.panels.backgroundpicker.sortBackgrounds")}
               >
+                <option value="custom" title={localizeUi("dragDrop.manualOrderHelp")}>
+                  {localizeUi("dragDrop.manualOrder")}
+                </option>
                 <option value="name-asc">{localizeUi("ui.panels.backgroundpicker.aZ")}</option>
                 <option value="name-desc">{localizeUi("ui.panels.backgroundpicker.zA")}</option>
                 <option value="newest">{localizeUi("ui.panels.backgroundpicker.newest")}</option>
@@ -1187,11 +1211,12 @@ export function BackgroundPicker({
                 <span className="tabular-nums opacity-60">{count}</span>
               </button>
             ))}
-            {folders.map((folder) => (
+            {folderDrag.orderItems(folders).map((folder) => (
               <button
                 key={folder.id}
                 type="button"
                 onClick={() => setFolderFilter(folder.id)}
+                {...folderDrag.bind(folder.id)}
                 data-background-folder-filter-id={folder.id}
                 data-background-folder-id={folder.id}
                 onDragOver={allowFolderDrop}

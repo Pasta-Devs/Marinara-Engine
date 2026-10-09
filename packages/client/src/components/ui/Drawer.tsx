@@ -45,6 +45,8 @@ export interface DrawerProps {
   help?: string;
   /** Shown beside the title while the drawer is closed (a tracker's miniature display). */
   summary?: ReactNode;
+  /** Shown on the bubble of its popped-out window, instead of its icon, while that window is minimized. */
+  banner?: ReactNode;
   /** Extra controls between the help tip and the arrow, before the pop-out button. */
   actions?: ReactNode;
   open: boolean;
@@ -101,6 +103,7 @@ export function Drawer({
   count,
   help,
   summary,
+  banner,
   actions,
   open,
   onOpenChange,
@@ -132,6 +135,7 @@ export function Drawer({
         drawerId={id}
         title={title}
         icon={icon}
+        banner={banner}
         help={help}
         className={className}
         bodyClassName={bodyClassName}
@@ -350,6 +354,7 @@ interface DetachedDrawerWindowProps {
   drawerId: string;
   title: ReactNode;
   icon?: ReactNode;
+  banner?: ReactNode;
   help?: string;
   className?: string;
   bodyClassName?: string;
@@ -370,7 +375,7 @@ function readDockTarget(hostId: FloatingWindowId) {
 /**
  * A popped-out drawer: its body in its own window, rendered from where the drawer was (so it keeps its
  * state and context) into the host window's container (so it keeps the chat's theme). Closing it, Escape
- * or (unpinned) a press elsewhere shrinks it to a bubble showing the drawer's icon, which reopens it
+ * or (unpinned) a press elsewhere shrinks it to a bubble showing the drawer's icon (or banner), which reopens it
  * where it was left. Only Put back (beside its X), dropping it on the host window and Reset View return
  * it to its host. On a phone the window is a sheet and the bubble keeps a phone place of its own.
  */
@@ -380,6 +385,7 @@ function DetachedDrawerWindow({
   drawerId,
   title,
   icon,
+  banner,
   help,
   className,
   bodyClassName,
@@ -446,9 +452,10 @@ function DetachedDrawerWindow({
             }
             presentation={phone ? "sheet" : "window"}
             sheetClassName={PHONE_SHEET_CLASS}
-            // The bubble shows the drawer's own icon and is named after it.
+            // The bubble shows the drawer's own icon (or banner) and is named after it.
             minimizable={{
               icon: icon ?? <ExternalLink size="0.875rem" />,
+              banner,
               label: typeof title === "string" ? title : t("drawer.popOut.section"),
               phoneMenu: host.id === "chat-settings",
             }}

@@ -80,10 +80,7 @@ assert.deepEqual(
 );
 
 assert.deepEqual(
-  resolveChatResourceDropAction(
-    { version: 1, kind: "lorebook", ids: ["lorebook-2"], label: "New lorebook" },
-    baseChat,
-  ),
+  resolveChatResourceDropAction({ version: 1, kind: "lorebook", ids: ["lorebook-2"], label: "New lorebook" }, baseChat),
   { type: "add-lorebooks", ids: ["lorebook-2"], label: "New lorebook", inheritedFrom: [] },
 );
 
@@ -193,10 +190,7 @@ assert.deepEqual(
 );
 
 assert.deepEqual(
-  resolveChatResourceDropAction(
-    { version: 1, kind: "agent", ids: ["agent-1"], label: "Existing agent" },
-    baseChat,
-  ),
+  resolveChatResourceDropAction({ version: 1, kind: "agent", ids: ["agent-1"], label: "Existing agent" }, baseChat),
   { type: "blocked", reason: "already-active", label: "Existing agent" },
 );
 
@@ -221,16 +215,10 @@ assert.equal(
   }),
   null,
 );
-assert.equal(
-  parseChatResourceDragPayload({ version: 1, kind: "character", ids: ["character-1"], label: "   " }),
-  null,
-);
+assert.equal(parseChatResourceDragPayload({ version: 1, kind: "character", ids: ["character-1"], label: "   " }), null);
 
 assert.deepEqual(
-  resolveChatResourceDropAction(
-    { version: 1, kind: "persona", ids: ["persona-2"], label: "New persona" },
-    baseChat,
-  ),
+  resolveChatResourceDropAction({ version: 1, kind: "persona", ids: ["persona-2"], label: "New persona" }, baseChat),
   { type: "set-persona", id: "persona-2", label: "New persona", replacesId: "persona-1" },
 );
 assert.deepEqual(
@@ -241,10 +229,7 @@ assert.deepEqual(
   { type: "blocked", reason: "already-active", label: "Current persona" },
 );
 assert.deepEqual(
-  resolveChatResourceDropAction(
-    { version: 1, kind: "preset", ids: ["preset-2"], label: "New preset" },
-    baseChat,
-  ),
+  resolveChatResourceDropAction({ version: 1, kind: "preset", ids: ["preset-2"], label: "New preset" }, baseChat),
   { type: "set-preset", id: "preset-2", label: "New preset", replacesId: "preset-1" },
 );
 assert.deepEqual(
@@ -308,6 +293,23 @@ assert.deepEqual(
   }),
   { version: 1, kind: "connection", ids: ["connection-1"], label: "Text connection" },
 );
+
+// A stack may move to a folder, but a single-value chat setting must never silently take its first item.
+for (const kind of ["persona", "preset", "connection", "background"] as const) {
+  assert.deepEqual(resolveChatResourceDropAction({ version: 1, kind, ids: ["one", "two"], label: "Stack" }, baseChat), {
+    type: "blocked",
+    reason: "multiple-items",
+    label: "Stack",
+  });
+  assert.deepEqual(
+    resolveChatResourceDropAction(
+      { version: 1, kind, ids: ["one", "two"], label: "Stack" },
+      baseChat,
+      new Set(["one"]),
+    ),
+    { type: "blocked", reason: "multiple-items", label: "Stack" },
+  );
+}
 
 // Character drop follow-up: greetings offered after a character lands in the chat.
 assert.deepEqual(

@@ -52,6 +52,7 @@ import {
   isMessagePinnedToContext,
   normalizeMessageMarkPatch,
   normalizeGroupChatMode,
+  normalizeIllustratorRunInterval,
   readMessagePrivateNote,
   stripPrivateMessageNote,
   MESSAGE_MARK_EXTRA_KEYS,
@@ -1486,6 +1487,10 @@ export async function chatsRoutes(app: FastifyInstance) {
     if (Object.prototype.hasOwnProperty.call(incoming, "summaryMaxTokens")) {
       incoming.summaryMaxTokens = clampRoleplaySummaryMaxTokens(incoming.summaryMaxTokens);
     }
+    if (Object.prototype.hasOwnProperty.call(incoming, "illustratorRunInterval")) {
+      // Numbers clamp to 0-100; anything else returns the chat to the agent's Run Interval.
+      incoming.illustratorRunInterval = normalizeIllustratorRunInterval(incoming.illustratorRunInterval);
+    }
     if (
       Object.prototype.hasOwnProperty.call(incoming, "noodleTimelineContextEnabled") &&
       typeof incoming.noodleTimelineContextEnabled !== "boolean"
@@ -2458,9 +2463,18 @@ export async function chatsRoutes(app: FastifyInstance) {
     if (created?.id && input.role === "user") {
       const chat = await storage.getById(req.params.id);
       const personaSnapshot = await buildPersonaSnapshotForChat(app, chat);
-      if (personaSnapshot) {
-        return (await storage.updateMessageExtra(created.id, { personaSnapshot })) ?? created;
+      const saved = personaSnapshot
+        ? ((await storage.updateMessageExtra(created.id, { personaSnapshot })) ?? created)
+        : created;
+      const memory = normalizeAdvancedMemorySettings(parseExtra(chat?.metadata).advancedMemory);
+      if (chat?.mode !== "roleplay" || !memory.enabled || !memory.autoMessageVisibility) return saved;
+      // Your message is decided once, when you post it, even if no reply follows (#7349).
+      try {
+        await createAdvancedMemoryService(app.db).settleMessageVisibility(chat.id);
+      } catch (error) {
+        logger.warn(error, "[advanced-memory] Message visibility failed for chat %s; hiding nothing", chat.id);
       }
+      return (await storage.getMessage(created.id)) ?? saved;
     }
     return created;
   });

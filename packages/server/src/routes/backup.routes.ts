@@ -52,6 +52,7 @@ import {
   normalizePersonalExtensionCapabilities,
   type ExportEnvelope,
   parseLorebookDecisionActivation,
+  restoreBakedGreetingImages,
 } from "@marinara-engine/shared";
 import { getDataDir } from "../utils/data-dir.js";
 import { uniqueExportName } from "../utils/export-stream.js";
@@ -537,10 +538,12 @@ async function buildCompatibleProfileZip(app: FastifyInstance) {
   const exportBudget = { remainingBytes: LOREBOOK_EXPORT_IMAGE_MAX_BYTES };
 
   for (const [index, character] of (Array.isArray(data.characters) ? data.characters : []).entries()) {
-    const charData = await embedCharacterBookImages(
+    const embedded = await embedCharacterBookImages(
       typeof character.data === "string" ? JSON.parse(character.data) : character.data,
       exportBudget,
     );
+    // Compatible cards carry no gallery, so baked greeting images go back to their web links (#7221).
+    const charData = embedded ? restoreBakedGreetingImages(embedded) : embedded;
     zip.addFile(
       uniqueExportName(
         usedNames,

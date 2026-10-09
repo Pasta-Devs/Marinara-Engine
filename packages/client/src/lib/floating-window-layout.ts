@@ -56,15 +56,32 @@ export const PHONE_BUBBLE_SIZE_PX = 36;
 /** Room between phone bubbles in their default row, the gap snapping leaves (their 44px tap areas meet). */
 export const PHONE_BUBBLE_GAP_PX = 8;
 
+/** A bubble's footprint: a square's side, or the width and height of a banner (a bubble showing a live summary). */
+export type BubbleSize = number | { width: number; height: number };
+
+function readBubbleSize(size: BubbleSize) {
+  return typeof size === "number" ? { width: size, height: size } : size;
+}
+
+/**
+ * Where a banner sits when its place was picked automatically, for a square button: it grows left from that
+ * slot, so it stays in its row (rows fill from the right) instead of dropping below it. A place the user chose
+ * stays its left edge.
+ */
+export function getBannerPoint(point: WindowPoint, size: { width: number; height: number }): WindowPoint {
+  return point.automatic ? { ...point, x: point.x + size.height - size.width } : point;
+}
+
 /** Keeps a bubble inside `bounds`, so it can never be lost off-screen. */
 export function clampWindowBubble(
   point: WindowPoint,
   bounds: WindowBounds,
-  size: number = WINDOW_BUBBLE_SIZE_PX,
+  size: BubbleSize = WINDOW_BUBBLE_SIZE_PX,
 ): WindowPoint {
+  const { width, height } = readBubbleSize(size);
   return {
-    x: clamp(finiteOr(point.x, bounds.left), bounds.left, bounds.right - size),
-    y: clamp(finiteOr(point.y, bounds.top), bounds.top, bounds.bottom - size),
+    x: clamp(finiteOr(point.x, bounds.left), bounds.left, bounds.right - width),
+    y: clamp(finiteOr(point.y, bounds.top), bounds.top, bounds.bottom - height),
   };
 }
 
@@ -77,26 +94,27 @@ function findFreeBubblePoint(
   point: WindowPoint,
   occupied: readonly BubbleRect[],
   bounds: WindowBounds,
-  size: number,
+  size: BubbleSize,
   near: WindowPoint = point,
 ): WindowPoint {
+  const { width, height } = readBubbleSize(size);
   const free = (candidate: WindowPoint) =>
     occupied.every(
       (other) =>
-        candidate.x + size <= other.x ||
+        candidate.x + width <= other.x ||
         candidate.x >= other.x + other.width ||
-        candidate.y + size <= other.y ||
+        candidate.y + height <= other.y ||
         candidate.y >= other.y + other.height,
     );
   if (free(point)) return point;
   // Keep the snapping gap when possible; a tight space should not hide a button just to keep the gap.
   for (const gap of [BUBBLE_SNAP_GAP_PX, 0]) {
-    const xs = new Set([point.x, bounds.left, bounds.right - size]);
-    const ys = new Set([point.y, bounds.top, bounds.bottom - size]);
+    const xs = new Set([point.x, bounds.left, bounds.right - width]);
+    const ys = new Set([point.y, bounds.top, bounds.bottom - height]);
     for (const other of occupied) {
-      xs.add(other.x - size - gap);
+      xs.add(other.x - width - gap);
       xs.add(other.x + other.width + gap);
-      ys.add(other.y - size - gap);
+      ys.add(other.y - height - gap);
       ys.add(other.y + other.height + gap);
     }
     const candidates = [...xs].flatMap((x) => [...ys].map((y) => ({ x, y })));
@@ -105,9 +123,9 @@ function findFreeBubblePoint(
     const available = candidates.find(
       (candidate) =>
         candidate.x >= bounds.left &&
-        candidate.x + size <= bounds.right &&
+        candidate.x + width <= bounds.right &&
         candidate.y >= bounds.top &&
-        candidate.y + size <= bounds.bottom &&
+        candidate.y + height <= bounds.bottom &&
         free(candidate),
     );
     if (available) return available;
@@ -123,20 +141,20 @@ export function dropWindowBubble(
   raw: WindowPoint,
   others: readonly BubbleRect[],
   bounds: WindowBounds,
-  size: number,
+  size: BubbleSize,
 ): { point: WindowPoint; guides: SnapGuide[] } {
-  const snapped = snapBubble({ ...raw, width: size, height: size }, others);
+  const snapped = snapBubble({ ...raw, ...readBubbleSize(size) }, others);
   const point = clampWindowBubble(snapped, bounds, size);
   const free = findFreeBubblePoint(point, others, bounds, size, raw);
   if (free === point) return { point, guides: snapped.guides };
   // Moved aside: show the lines it keeps with its neighbours there.
-  const aside = snapBubble({ ...free, width: size, height: size }, others);
+  const aside = snapBubble({ ...free, ...readBubbleSize(size) }, others);
   return { point: free, guides: aside.x === free.x && aside.y === free.y ? aside.guides : [] };
 }
 
 /** Temporary visible positions: a closing sidebar restores the saved points, even for locked buttons. */
 export function placeWindowBubbles(
-  bubbles: ReadonlyMap<string, { point: WindowPoint; bounds: WindowBounds; size: number }>,
+  bubbles: ReadonlyMap<string, { point: WindowPoint; bounds: WindowBounds; size: BubbleSize }>,
 ): Map<string, WindowPoint> {
   const placed = new Map<string, WindowPoint>();
   const occupied: BubbleRect[] = [];
@@ -154,7 +172,7 @@ export function placeWindowBubbles(
   for (const { id, clamped, bounds, size, movable } of entries) {
     const next = movable ? findFreeBubblePoint(clamped, occupied, bounds, size) : clamped;
     placed.set(id, next);
-    occupied.push({ ...next, width: size, height: size });
+    occupied.push({ ...next, ...readBubbleSize(size) });
   }
   return placed;
 }

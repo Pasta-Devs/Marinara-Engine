@@ -2765,7 +2765,7 @@ export function buildIllustratorImageStyleInstructionBlock(styleInstruction: unk
     `If the style instruction contains generic framing or composition defaults that conflict with the selected prompt template, ignore those conflicting defaults and preserve the selected format.`,
     `Never replace Comic Page or manga panels and lettering with a single illustration, and never replace Background, Illustration, or Selfie framing with another format.`,
     `Visual style instruction for the image prompt you write: ${escapeXml(instruction)}`,
-    `Carry the resulting visual treatment into both the JSON "style" field and the generated "prompt". Do not copy this meta-instruction verbatim.`,
+    `Carry the resulting visual treatment into both the JSON "style" field and the generated "prompt", written as words for the image model. Never copy the style instruction's sentences into either field.`,
     `</illustrator_image_style>`,
   ].join("\n");
 }

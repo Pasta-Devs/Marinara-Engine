@@ -1,4 +1,4 @@
-import { findImageStyleProfile } from "../constants/image-style-profiles.js";
+import { DEFAULT_IMAGE_STYLE_PROFILES, findImageStyleProfile } from "../constants/image-style-profiles.js";
 import type { ImageGenerationDefaultsProfile } from "../types/image-generation-defaults.js";
 import type { ImagePromptKind, ImageStyleProfile, ImageStyleProfileSettings } from "../types/image-style-profile.js";
 
@@ -42,16 +42,79 @@ export interface CompileImagePromptInput {
 }
 
 /**
- * The active profile's style text when it should steer generation (a real base
- * style, not "auto"). Empty when there is no explicit style to apply.
+ * The active profile's Style text for a prompt writer to follow. Empty when the profile has
+ * none, or for the built-in Auto sentence, which only asks to infer a style. Style text a user
+ * writes into Auto or a clone of it is guidance like any other (#7357).
  */
 export function resolveImageStyleGuidanceText(
   styleProfiles: ImageStyleProfileSettings,
   styleProfileId?: string | null,
 ): string {
   const profile = findImageStyleProfile(styleProfiles, styleProfileId || styleProfiles.defaultProfileId);
-  const styleText = profile.styleText?.trim() ?? "";
-  return styleText && profile.baseStyle !== "auto" ? styleText : "";
+  return isBuiltInAutoStyleInstruction(profile) ? "" : (profile.styleText?.trim() ?? "");
+}
+
+/**
+ * Remove each sentence of `guidance` that a prompt writer copied word for word into `text`
+ * (#7357), ignoring case and punctuation. Run it on the writer's own output only, before
+ * configured text such as positive tags or appearance notes is added. Only guidance written as
+ * a sentence counts: it ends with . ! or ? and has at least four words between commas, so tag
+ * lists and tag phrases such as "masterpiece, best quality" are never removed. If the writer's
+ * text was nothing but copied guidance, it comes back unchanged rather than leaving no subject;
+ * pass `allowEmpty` for an optional field such as the JSON "style", which may come back empty.
+ * ponytail: shorter or unpunctuated instructions are kept even when copied; telling them from
+ * tags would need a grammar check.
+ */
+export function removeCopiedPromptGuidance(
+  text: string,
+  guidance: ReadonlyArray<string | null | undefined>,
+  { allowEmpty = false }: { allowEmpty?: boolean } = {},
+): string {
+  const tokens = Array.from(text.matchAll(/[\p{L}\p{N}]+/gu), (match) => ({
+    word: match[0].toLowerCase(),
+    start: match.index,
+    end: match.index + match[0].length,
+  }));
+  const spans: Array<[number, number]> = [];
+  // Only sentence ends split guidance; a line break inside a sentence is just a space.
+  for (const piece of guidance.flatMap((value) => (value ?? "").split(/(?<=[.!?])\s+/u))) {
+    const sentence = piece.trim();
+    const isProse =
+      /[.!?]$/u.test(sentence) &&
+      sentence.split(/[,;:]/u).some((part) => (part.match(/[\p{L}\p{N}]+/gu)?.length ?? 0) >= 4);
+    if (!isProse) continue;
+    const words = (sentence.match(/[\p{L}\p{N}]+/gu) ?? []).map((word) => word.toLowerCase());
+    for (let index = 0; index + words.length <= tokens.length; index += 1) {
+      if (!words.every((word, offset) => tokens[index + offset]!.word === word)) continue;
+      const last = tokens[index + words.length - 1]!;
+      spans.push([tokens[index]!.start, /[.!?]/u.test(text[last.end] ?? "") ? last.end + 1 : last.end]);
+      index += words.length - 1;
+    }
+  }
+  if (spans.length === 0) return text;
+  let result = "";
+  let cursor = 0;
+  for (const [start, end] of spans.sort((a, b) => a[0] - b[0])) {
+    if (start < cursor) continue;
+    result += text.slice(cursor, start);
+    cursor = end;
+  }
+  result += text.slice(cursor);
+  // Drop the empty list items and stray spaces the removal left; split instead of a regex so long
+  // runs of whitespace can't make it slow.
+  const tidy = result
+    .split("\n")
+    .map((line) =>
+      line
+        .split(",")
+        .map((part) => part.trim().replace(/ {2,}/gu, " "))
+        .filter(Boolean)
+        .join(", "),
+    )
+    .join("\n")
+    .replace(/\n{3,}/gu, "\n\n")
+    .trim();
+  return tidy || (allowEmpty ? "" : text);
 }
 
 /**
@@ -63,6 +126,17 @@ export function formatImageStylePromptGuidance(styleText: string): string {
   const trimmed = styleText.trim();
   if (!trimmed) return "";
   return `\n\nVisual style guidance: compose the image prompt so it naturally reflects this style: ${trimmed}. Weave the style into the description; do not copy this guidance verbatim into your output.`;
+}
+
+/**
+ * The built-in Auto profile's Style text asks a prompt writer to infer a style; it is never
+ * image-model prompt text. Style text a user writes into Auto, or a clone of it, still applies.
+ */
+const AUTO_STYLE_INSTRUCTION =
+  DEFAULT_IMAGE_STYLE_PROFILES.find((profile) => profile.id === "auto")?.styleText.trim() ?? "";
+
+function isBuiltInAutoStyleInstruction(profile: ImageStyleProfile): boolean {
+  return profile.baseStyle === "auto" && profile.styleText.trim() === AUTO_STYLE_INSTRUCTION;
 }
 
 export function compileImagePrompt(input: CompileImagePromptInput): CompiledImagePrompt {
@@ -117,13 +191,9 @@ function compileImagePromptPass(
     ? ""
     : reconcileProfileSubjectTags(profile.subjectTags[input.kind] ?? "", sourceCues);
   const profileStyleText =
-    input.omitProfileStyleText || compactPrompt || (profile.styleText && generatedStyle)
+    input.omitProfileStyleText || compactPrompt || generatedStyle || isBuiltInAutoStyleInstruction(profile)
       ? ""
-      : profile.styleText && profile.baseStyle !== "auto"
-        ? profile.styleText
-        : generatedStyle
-          ? ""
-          : profile.styleText;
+      : profile.styleText;
 
   const positiveParts = compactPrompt
     ? [

@@ -2161,6 +2161,20 @@ test("Roleplay commands require attached agents, enforce combat audience, and fo
     expect(automaticIllustrations).toHaveLength(2);
     expect(imageRequests).toHaveLength(5);
 
+    // This chat's Run Interval wins over the agent's; clearing it goes back to the agent's.
+    await metadata({ illustratorRunInterval: 1 });
+    await generate(alice);
+    expect(automaticIllustrations).toHaveLength(3);
+    await expect.poll(() => imageRequests.length).toBe(6);
+    await interval(1);
+    await metadata({ illustratorRunInterval: 0 });
+    await generate(alice);
+    expect(automaticIllustrations).toHaveLength(3);
+    await metadata({ illustratorRunInterval: null });
+    await generate(alice);
+    expect(automaticIllustrations).toHaveLength(4);
+    await expect.poll(() => imageRequests.length).toBe(7);
+
     await page.route("**/api/capability-packages/agents", (route) =>
       route.fulfill({
         json: ["combat", "illustrator"].map((id) => ({

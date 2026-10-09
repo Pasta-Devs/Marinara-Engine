@@ -135,6 +135,7 @@ import {
   estimateTextTokens,
   diffChatVariables,
   mergeChatVariableChanges,
+  removeCopiedPromptGuidance,
   undoChatVariableChanges,
   type APIProvider,
   type MacroContext,
@@ -798,7 +799,10 @@ import { loadPriorBeholderState } from "../services/agents/beholder-state.js";
 import { gameGmPromptDecisionTexts, injectGameGmPromptRuntime } from "../services/generation/game-gm-prompt-runtime.js";
 import { mergeConversationCharacterMemories } from "../services/generation/conversation-memory-context.js";
 import { injectMemoryRecallContext } from "../services/generation/memory-recall-context.js";
-import { shouldSkipAgentByMessageInterval } from "../services/generation/agent-cadence.js";
+import {
+  applyIllustratorChatRunInterval,
+  shouldSkipAgentByMessageInterval,
+} from "../services/generation/agent-cadence.js";
 import {
   appendTrackerLorebookBatchContextKey,
   applyTrackerLorebookContextPolicy,
@@ -1733,11 +1737,15 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
         advancedMemorySettings.autoMessageVisibility &&
         groupGenerationMode === "individual" &&
         parseJsonField<string[]>(chat.characterIds, []).length > 1;
-      if (decidesMessageVisibility)
+      if (decidesMessageVisibility) {
         await advancedMemory.settleMessageVisibility(input.chatId, {
           signal: generationSignal,
           debugMode: requestDebug,
         });
+        // Show the decision on your new message now, not after every character has replied (#7349).
+        const decided = currentTurnUserMessageId ? await chats.getMessage(currentTurnUserMessageId) : null;
+        if (decided) sendSseEvent(reply, { type: "message_saved", data: decided });
+      }
       const allChatMessages = (await chats.listMessages(input.chatId)).map((message) =>
         chatMode === "roleplay" && message.role === "user"
           ? { ...message, content: parseRoleplayUserCommands(message.content).content }
@@ -5451,7 +5459,12 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             agentsStore,
             chatId: input.chatId,
             agentType: "illustrator",
-            settings: illustratorAgentForInterval.settings,
+            settings: applyIllustratorChatRunInterval(
+              "illustrator",
+              illustratorAgentForInterval.settings,
+              chatMeta,
+              requestChatMode,
+            ),
             fallbackInterval: (getDefaultBuiltInAgentSettings("illustrator").runInterval as number) ?? 5,
             messages: allChatMessages,
             countUpcomingAssistantMessage: createsAssistantMessage,
@@ -10761,7 +10774,10 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             if (charInstruction) {
               messagesWithInstruction.push({ role: "system", content: charInstruction });
             }
-            if (routeCharacterMentions && groupTurnPromptEnabled) {
+            // @Name handoffs are a Conversation convention. Roleplay's turn
+            // instruction is only the reminder above, so replies don't end in
+            // @-pings (#7319); a mention a reply writes anyway still routes below.
+            if (routeCharacterMentions && groupTurnPromptEnabled && chatMode === "conversation") {
               messagesWithInstruction.push({
                 role: "system",
                 contextKind: "injection",
@@ -13203,8 +13219,19 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                       const imgWidth = illustrationSize.width;
                       const imgHeight = illustrationSize.height;
 
+                      // The writer follows the Style text and the connection's instructions; a sentence
+                      // of them it copied word for word is not image-model text (#7357).
+                      const writerGuidance = [
+                        typeof agentContext.memory._illustratorImageStyleInstruction === "string"
+                          ? agentContext.memory._illustratorImageStyleInstruction
+                          : null,
+                        imgConnFull.imagePromptInstructions,
+                      ];
+                      // A style that was only the copied Style text is dropped; the prompt keeps the subject.
+                      const writerStyle = removeCopiedPromptGuidance(style, writerGuidance, { allowEmpty: true });
+                      const writerPrompt = removeCopiedPromptGuidance(imagePrompt, writerGuidance);
                       // Prepend style to the prompt for better results
-                      let fullPrompt = style ? `${style}, ${imagePrompt}` : imagePrompt;
+                      let fullPrompt = writerStyle ? `${writerStyle}, ${writerPrompt}` : writerPrompt;
                       if (imagePositivePrompt) {
                         fullPrompt = `${fullPrompt}, ${imagePositivePrompt}`;
                       }
@@ -13357,7 +13384,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                         styleProfiles: imageSettings.styleProfiles,
                         styleProfileId,
                         imageDefaults,
-                        generatedStyle: style,
+                        generatedStyle: writerStyle,
                         omitProfileStyleText: typeof agentContext.memory._illustratorImageStyleInstruction === "string",
                         omitProfileSubjectTags: illustratorPromptTemplateOwnsComposition(
                           imagePromptAgent?.promptTemplate ?? "",
@@ -13377,7 +13404,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                             styleProfiles: imageSettings.styleProfiles,
                             styleProfileId,
                             imageDefaults: imageFallback.imageDefaults,
-                            generatedStyle: style,
+                            generatedStyle: writerStyle,
                             omitProfileStyleText:
                               typeof agentContext.memory._illustratorImageStyleInstruction === "string",
                             omitProfileSubjectTags: illustratorPromptTemplateOwnsComposition(
@@ -14075,6 +14102,17 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                     sendSseEvent(reply, { type: "advanced_memory_status", data: { chatId: input.chatId, job } }),
                 })
                 .catch((error) => logger.error(error, "[advanced-memory] Background scene check failed"));
+            } else if (input.impersonate && decidesMessageVisibility && !generationSignal.aborted) {
+              // A message written for you is decided once, when it is posted, like one you send (#7349).
+              const impersonatedId = typeof lastSavedMsg?.id === "string" ? lastSavedMsg.id : null;
+              pendingAdvancedMemory = advancedMemory
+                .settleMessageVisibility(input.chatId, { debugMode: requestDebug, signal: agentSignal })
+                .then(async () => {
+                  // Show the decision now, not when this request's other background work ends.
+                  const decided = impersonatedId ? await chats.getMessage(impersonatedId) : null;
+                  if (decided) sendSseEvent(reply, { type: "message_saved", data: decided });
+                })
+                .catch((error) => logger.error(error, "[advanced-memory] Message visibility failed"));
             }
           } else if (memoryRecallVectorizerAvailable) {
             chunkAndEmbedMessages(

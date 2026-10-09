@@ -2015,6 +2015,8 @@ const jsonRepairApplySchema = z.object({
 const recruitPartyMemberSchema = z.object({
   chatId: z.string().min(1),
   characterName: z.string().min(1).max(200),
+  /** The player's pick when several characters share the name: a library card id, or null for the game's own. */
+  characterId: z.string().min(1).max(500).nullable().optional(),
   connectionId: z.string().optional(),
 });
 
@@ -2443,11 +2445,9 @@ export function removeMemberFromGameMetadata(input: RemoveMemberInput): RemoveMe
 function findGameNpcByName(npcs: GameNpc[], requestedName: string): GameNpc | null {
   const requestedLookup = normalizeCharacterLookupName(requestedName);
   let matches = npcs.filter((npc) => normalizeCharacterLookupName(npc.name) === requestedLookup);
-  if (matches.length === 0 && requestedLookup.length >= 3) {
-    matches = npcs.filter((npc) => {
-      const lookup = normalizeCharacterLookupName(npc.name);
-      return lookup.includes(requestedLookup) || (lookup.length >= 3 && requestedLookup.includes(lookup));
-    });
+  if (matches.length === 0) {
+    // Whole words only: an NPC named Sam is not the game's Samantha (#7324).
+    matches = npcs.filter((npc) => characterNamesLikelyMatch(npc.name, requestedName));
   }
   return matches.length === 1 ? matches[0]! : null;
 }
@@ -9099,20 +9099,75 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
       }
     });
 
-    let matches = parsedCharacters.filter((candidate) => candidate.lookup === requestedLookup);
-    if (matches.length === 0 && requestedLookup.length >= 3) {
-      matches = parsedCharacters.filter(
-        (candidate) =>
-          candidate.lookup.includes(requestedLookup) ||
-          (candidate.lookup.length >= 3 && requestedLookup.includes(candidate.lookup)),
-      );
+    let chatCharacterIds: string[] = [];
+    try {
+      chatCharacterIds =
+        typeof chat.characterIds === "string"
+          ? ((JSON.parse(chat.characterIds) as string[]) ?? [])
+          : ((chat.characterIds as string[]) ?? []);
+    } catch {
+      chatCharacterIds = [];
     }
-    if (matches.length > 1) {
-      throw new Error(`Character "${requestedName}" is ambiguous. Use the exact character name.`);
+    const currentPartyIds = getStoredPartyCharacterIds(meta, setupConfig, chatCharacterIds);
+    const gameNpcs = (meta.gameNpcs as GameNpc[]) ?? [];
+    const trackedNpc = findGameNpcByName(gameNpcs, requestedName);
+    // An NPC met this session may not be tracked yet, but the journal's NPC log already has them.
+    const journalNpcLog = (meta.gameJournal as Journal | null)?.npcLog;
+    const gameHasOwnCharacter =
+      trackedNpc !== null ||
+      (Array.isArray(journalNpcLog) &&
+        journalNpcLog.some(
+          (entry) =>
+            typeof entry?.npcName === "string" && normalizeCharacterLookupName(entry.npcName) === requestedLookup,
+        ));
+
+    // A library card is matched by its exact name only. A partial match imported unrelated cards,
+    // like a "Samantha" card for an NPC named Sam (#7324).
+    const sameNameCards = parsedCharacters.filter((candidate) => candidate.lookup === requestedLookup);
+    const partyCards = parsedCharacters.filter((candidate) => currentPartyIds.includes(candidate.row.id));
+    const cardInParty = partyCards.find((candidate) => candidate.lookup === requestedLookup);
+    let matches: typeof sameNameCards;
+    // Someone of this name already in the party stays the only one, even when a stale choice is answered.
+    if (cardInParty) {
+      matches = [cardInParty];
+    } else if (trackedNpc && currentPartyIds.includes(buildPartyNpcId(trackedNpc.name))) {
+      matches = [];
+    } else if (input.characterId !== undefined) {
+      // The player's answer to the card choice below; null keeps the game's own character.
+      matches = sameNameCards.filter((candidate) => candidate.row.id === input.characterId);
+      if (input.characterId !== null && matches.length === 0) {
+        throw new Error(`No character card named "${requestedName}" matches that choice.`);
+      }
+    } else if (sameNameCards.length > 1 || (sameNameCards.length === 1 && gameHasOwnCharacter)) {
+      // More than one character has this name, so the player picks. Nothing changes until they do.
+      return {
+        sessionChat: chat,
+        added: false,
+        characterName: trackedNpc?.name ?? requestedName,
+        cardCreated: false,
+        cardChoices: sameNameCards.map(({ row, data, name }) => ({
+          id: row.id,
+          name,
+          title: row.comment?.trim() || null,
+          avatarPath: row.avatarPath ?? null,
+          avatarCrop: data.extensions?.avatarCrop ?? null,
+          // The character library's preview text, so cards without a title or avatar can still be told apart.
+          summary:
+            [data.summary, data.creator_notes, data.description, data.personality]
+              .map((value) => (typeof value === "string" ? value.replace(/\s+/g, " ").trim() : ""))
+              .find(Boolean)
+              ?.slice(0, 200) ?? null,
+        })),
+      };
+    } else if (sameNameCards.length > 0 || trackedNpc) {
+      matches = sameNameCards;
+    } else {
+      // A shortened name for someone already in the party ("Kael" for "Kael Stormborn") is that member.
+      const partyMembers = partyCards.filter((candidate) => characterNamesLikelyMatch(candidate.name, requestedName));
+      matches = partyMembers.length === 1 ? partyMembers : [];
     }
 
-    const gameNpcs = (meta.gameNpcs as GameNpc[]) ?? [];
-    let npcRecruit = matches.length === 0 ? findGameNpcByName(gameNpcs, requestedName) : null;
+    let npcRecruit = matches.length === 0 ? trackedNpc : null;
     const fallbackTrackedNpc = matches.length === 0 && !npcRecruit ? buildFallbackTrackedGameNpc(requestedName) : null;
     if (fallbackTrackedNpc) {
       npcRecruit = fallbackTrackedNpc;
@@ -9125,17 +9180,6 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
 
     const recruit = matches[0] ?? null;
     const characterById = new Map(parsedCharacters.map((candidate) => [candidate.row.id, candidate.name] as const));
-    let chatCharacterIds: string[] = [];
-    try {
-      chatCharacterIds =
-        typeof chat.characterIds === "string"
-          ? ((JSON.parse(chat.characterIds) as string[]) ?? [])
-          : ((chat.characterIds as string[]) ?? []);
-    } catch {
-      chatCharacterIds = [];
-    }
-
-    const currentPartyIds = getStoredPartyCharacterIds(meta, setupConfig, chatCharacterIds);
     const currentCards = (meta.gameCharacterCards as Array<Record<string, unknown>>) ?? [];
     const recruitId = recruit ? recruit.row.id : buildPartyNpcId(npcRecruit!.name);
     const recruitName = recruit ? recruit.name : npcRecruit!.name;

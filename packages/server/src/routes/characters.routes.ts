@@ -26,6 +26,8 @@ import {
   applyCharacterTagEdit,
   normalizeCharacterTagEdit,
   isEmptyCharacterTagEdit,
+  GREETING_IMAGE_BAKE_MAX_PER_REQUEST,
+  restoreBakedGreetingImages,
 } from "@marinara-engine/shared";
 import type { CharacterData, ConversationCallCharacterVideoClipKind, ExportEnvelope } from "@marinara-engine/shared";
 import { createCharactersStorage, type PersonaStorageRow } from "../services/storage/characters.storage.js";
@@ -50,6 +52,8 @@ import { compileImagePrompt } from "../services/image/image-prompt-compiler.js";
 import { resolveImagePromptReviewSize } from "../services/image/image-prompt-review.js";
 import { resolveImageConnectionFallback } from "../services/generation/media-connection-fallback.js";
 import { buildAvatarPortraitLeadPrompt } from "../services/image/avatar-generation-prompt.js";
+import { downloadGreetingImage } from "../services/image/greeting-image-bake.js";
+import { GREETING_IMAGE_BAKE_RATE_LIMIT } from "../middleware/rate-limit.js";
 import {
   ConversationCallVideoClipAvatarMismatchError,
   ConversationCallVideoClipNotFoundError,
@@ -141,6 +145,9 @@ const CALL_VIDEO_CLIP_LABELS = {
 const CALL_VIDEO_CLIP_UPLOAD_MAX_BYTES = 250 * 1024 * 1024;
 const ALLOWED_CALL_VIDEO_CLIP_UPLOAD_EXTS = new Set([".mp4"]);
 const renameCardVersionSchema = z.object({ version: z.string().trim().min(1).max(100) });
+const bakeGreetingImagesSchema = z.object({
+  urls: z.array(z.string()).min(1).max(GREETING_IMAGE_BAKE_MAX_PER_REQUEST),
+});
 type UploadedMultipartFile = NonNullable<Awaited<ReturnType<FastifyRequest["file"]>>>;
 
 function applyTrackerCardPaint(currentValue: unknown, paint: Record<string, unknown>, preserveStatIcons = true) {
@@ -762,7 +769,10 @@ async function buildNativeCharacterExport(
 }
 
 export function buildCompatibleCharacterExport(data: any, sprites: Array<{ filename: string; data: string }> = []) {
+  // Compatible cards carry no gallery, so baked greeting images go back to their web links.
+  data = data ? restoreBakedGreetingImages(data) : data;
   const extensions = { ...parseCharacterDataRecord(data?.extensions) };
+  delete extensions.bakedGreetingImages;
   const description = [typeof data?.description === "string" ? data.description : ""];
   for (const [key, label] of [
     ["backstory", "Backstory"],
@@ -2028,6 +2038,53 @@ export async function charactersRoutes(app: FastifyInstance) {
       url: `/api/characters/${id}/gallery/file/${encodeURIComponent(filename)}`,
     };
   });
+
+  // Saves web images from the greetings into the gallery, only when the user
+  // asks (#7221). The editor then points the greetings at the saved copies.
+  app.post<{ Params: { id: string } }>(
+    "/:id/gallery/bake",
+    { config: { rateLimit: GREETING_IMAGE_BAKE_RATE_LIMIT } },
+    async (req, reply) => {
+      const { urls } = bakeGreetingImagesSchema.parse(req.body ?? {});
+      const char = await storage.getById(req.params.id);
+      if (!char) return reply.status(404).send({ error: "Character not found" });
+      // Paths use the stored id, never the raw route parameter.
+      const id = char.id;
+
+      const dir = await ensureCharacterGalleryDir(id);
+      const results: Array<{ url: string; file?: string; error?: string }> = [];
+      for (const url of new Set(urls)) {
+        let image: Awaited<ReturnType<typeof downloadGreetingImage>>;
+        try {
+          image = await downloadGreetingImage(url);
+        } catch (error) {
+          logger.warn(error, "Could not download a greeting image from %s for character %s", URL.parse(url)?.host, id);
+          results.push({ url, error: error instanceof Error ? error.message : "Download failed" });
+          continue;
+        }
+        // App-generated name; nothing from the URL reaches the file system.
+        const file = `${newId()}.${image.ext}`;
+        let written = false;
+        try {
+          await writeFile(join(dir, file), image.buffer, { flag: "wx" });
+          written = true;
+          await characterGallery.create({
+            characterId: id,
+            filePath: `characters/${id}/${file}`,
+            width: image.width,
+            height: image.height,
+          });
+          results.push({ url, file });
+        } catch (error) {
+          if (written) await unlink(join(dir, file)).catch(() => undefined);
+          // Storage errors can name server paths, so the client gets a plain message.
+          logger.error(error, "Could not store a greeting image for character %s", id);
+          results.push({ url, error: "The image could not be stored" });
+        }
+      }
+      return { results };
+    },
+  );
 
   app.get<{ Params: { id: string; filename: string } }>("/:id/gallery/file/:filename", async (req, reply) => {
     const { id, filename } = req.params;

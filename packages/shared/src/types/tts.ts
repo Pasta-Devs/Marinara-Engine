@@ -318,3 +318,38 @@ export interface TTSModelsResponse {
   fromProvider: boolean;
   source: TTSSource;
 }
+
+// ── Speech to text ──────────────────────────────
+
+/** App-settings key for the speech-to-text server that Calls can use instead of Local Whisper. */
+export const SPEECH_TO_TEXT_SETTINGS_KEY = "speech-to-text";
+/** Sent when no model is set: the name the OpenAI transcription API and most compatible servers accept. */
+export const SPEECH_TO_TEXT_DEFAULT_MODEL = "whisper-1";
+
+/**
+ * An OpenAI-compatible speech-to-text server (POST `<baseUrl>/audio/transcriptions`), such as a
+ * self-hosted faster-whisper, Speaches, whisper.cpp or LocalAI server. While it is off or has no
+ * address, Calls keep using Local Whisper.
+ */
+export const speechToTextConfigSchema = z.object({
+  enabled: z.boolean().default(false),
+  baseUrl: z.string().trim().max(2_000).default(""),
+  /**
+   * Encrypted at rest. Responses carry TTS_API_KEY_MASK instead; sending the mask back keeps the saved key.
+   * A line break or NUL is refused: fetch would reject that header with the whole key in its error.
+   */
+  apiKey: z
+    .string()
+    .max(4_000)
+    .regex(/^[^\0\r\n]*$/u)
+    .default(""),
+  model: z.string().trim().max(200).default(""),
+  /** Optional language code such as "pl"; blank lets the server detect the language. */
+  language: z
+    .string()
+    .trim()
+    .max(16)
+    .regex(/^[A-Za-z-]*$/u)
+    .default(""),
+});
+export type SpeechToTextConfig = z.infer<typeof speechToTextConfigSchema>;

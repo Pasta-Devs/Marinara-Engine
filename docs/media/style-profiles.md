@@ -58,7 +58,7 @@ You can edit a built-in profile in place, but the **Clone** button lets you keep
 2. Click **Clone**. Marinara makes a copy, selects it for editing, and immediately makes the copy your app-wide default style.
 3. Change the **Name** field to something you will recognize.
 4. Pick a **Prompt grammar** (explained in the next section).
-5. Fill in **Style text** with a plain description of the look you want.
+5. Fill in **Style text** with a plain description of the look you want. When an AI writes the image prompt, as the Illustrator, selfies and Noodle do, it follows your Style text instead of copying it. Other images, such as avatars, may get the Style text added as written.
 6. Add **Positive tags** (words to include) and **Negative tags** (words to avoid).
 7. Open the **Per-image tags** section to add extra tags for each image kind (avatar, portrait, selfie, background, illustration, sprite).
 8. Your clone became the app-wide default in step 2. To hand that role back to another profile, open **Default style** and pick the profile you want.

@@ -377,6 +377,12 @@
     isolation: var(--mari-widget-custom-isolation, var(--mari-widget-isolation, auto));
   }
 
+  /* Round bubbles: a banner (a bubble as wide as its summary) becomes a pill, not an oval. */
+  :is([data-chat-widget-shape="arched"], [data-chat-widget-preset="mari"][data-chat-widget-shape="preset"])
+    .mari-window-bubble[data-banner="true"] {
+    border-radius: var(--mari-window-bubble-radius, 9999px);
+  }
+
   .mari-window-bubble::after {
     content: var(--mari-widget-ornament-content, none);
     position: absolute;

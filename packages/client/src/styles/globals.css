@@ -671,7 +671,9 @@
                 .mari-drawer__popout, .mari-drawer__arrow, .mari-drawer__body;
                 .mari-drawer-ghost (the preview while a drawer is dragged out);
                 .mari-window-bubble (a minimized window's button, and every
-                phone bubble: [data-presentation="sheet"]) and
+                phone bubble: [data-presentation="sheet"]), .mari-window-bubble__banner
+                (a bubble's live summary, World State's date and time, on
+                [data-banner="true"]) and
                 .mari-window-snap-guide (the line shown while a bubble snaps)
    Attributes:  [data-window="<id>"], [data-drawer="<id>"], [data-pinned],
                 [data-locked], [data-detached], [data-presentation="window|sheet"],
@@ -936,10 +938,30 @@
     font-size: inherit !important;
   }
 
+  /* Agent activity's status wraps the drawer's own icon, which grows the same way. */
+  :root[data-chat-widget-button-size] .mari-window-bubble__icon > .mari-agent-activity-icon > svg {
+    width: 100% !important;
+    height: 100% !important;
+  }
+
   /* Phones draw bubbles like their toolbar buttons, in pixels so their default row lines up. */
   .mari-window-bubble[data-presentation="sheet"] {
     width: var(--mari-window-bubble-size, 36px);
     height: var(--mari-window-bubble-size, 36px);
+  }
+
+  /* A bubble showing a live summary (World State's date, time and weather) is as wide as the summary. */
+  .mari-window-bubble[data-banner="true"] {
+    width: auto;
+    padding-inline: 0.5rem;
+  }
+
+  .mari-window-bubble__banner {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 0.25rem;
+    white-space: nowrap;
   }
 
   /* Touch gets a 44px tap area around every bubble, centred on it, without changing its look. */
@@ -8394,4 +8416,74 @@ html[data-marinara-reduced-effects="true"] .mari-window {
     min-height: 12rem;
     overflow-y: visible;
   }
+}
+
+/* Items gathered by a second-finger tap remain visible in their list. */
+[data-drag-stacked="true"] {
+  opacity: 0.5;
+  outline: 2px solid var(--ring);
+  outline-offset: -2px;
+}
+
+/* Make before/after insertion different from dropping into a folder. */
+[data-drag-insert] {
+  position: relative;
+  overflow: visible;
+  transition: margin 150ms ease;
+}
+[data-drag-insert="before"] {
+  margin-block-start: 24px;
+}
+[data-drag-insert="after"] {
+  margin-block-end: 24px;
+}
+[data-drag-insert]::after {
+  content: "";
+  position: absolute;
+  inset-inline: 6px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--primary);
+  pointer-events: none;
+}
+[data-drag-insert="before"]::after {
+  top: -14px;
+}
+[data-drag-insert="after"]::after {
+  bottom: -14px;
+}
+[data-drag-target="inside"] {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+  background-color: var(--sidebar-accent);
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-drag-insert] {
+    transition: none;
+  }
+}
+[data-drag-insert-axis="x"] {
+  margin-block: 0;
+}
+[data-drag-insert-axis="x"][data-drag-insert="before"] {
+  margin-inline-start: 24px;
+}
+[data-drag-insert-axis="x"][data-drag-insert="after"] {
+  margin-inline-end: 24px;
+}
+[data-drag-insert-axis="x"]::after {
+  inset-block: 6px;
+  width: 4px;
+  height: auto;
+}
+[data-drag-insert-axis="x"][data-drag-insert="before"]::after {
+  left: -14px;
+  right: auto;
+}
+[data-drag-insert-axis="x"][data-drag-insert="after"]::after {
+  right: -14px;
+  left: auto;
+}
+[data-drag-source="true"] {
+  opacity: 0.5;
 }

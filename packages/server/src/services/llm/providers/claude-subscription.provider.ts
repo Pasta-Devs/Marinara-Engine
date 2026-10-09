@@ -40,6 +40,7 @@ import {
   type SdkUserMessageForPrompt,
 } from "./claude-subscription/jsonl-entries.js";
 import { ResumeSessionStore, resumeScratchCwd } from "./claude-subscription/session-store.js";
+import { claudeCodeExecutableOption } from "./claude-subscription/installed-cli.js";
 
 /**
  * Standard API cost equivalents, not subscription billing. Claude chooses its
@@ -469,6 +470,9 @@ export class ClaudeSubscriptionProvider extends BaseLLMProvider {
       ENABLE_CLAUDEAI_MCP_SERVERS: "false",
       ...(this.apiKey ? { ANTHROPIC_API_KEY: this.apiKey } : {}),
     };
+    // Run the host's self-updating Claude Code when it is at least as new as the
+    // SDK's bundled build, so new models work without an SDK bump.
+    Object.assign(sdkOptions, await claudeCodeExecutableOption());
 
     const sdkOptionRecord = sdkOptions as Record<string, unknown>;
     const customGenerationOptions: Record<string, unknown> = {};

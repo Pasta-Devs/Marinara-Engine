@@ -6,6 +6,8 @@ This guide explains the Roleplay trackers: the movable buttons and panels on pho
 
 On a phone, the HUD (heads-up display) gives you **World State** and **Player & Tracker** buttons. You can move them around the chat. Tap one to see live story details, such as the time, your stats, or who is present. Marinara keeps these values up to date as the story moves.
 
+Once World State has details to show, its button becomes a small banner that shows them at a glance: a location pin, a calendar with the day, a clock, the weather and the temperature.
+
 These tracker buttons stay separate from the **Chat tools** three-dot menu, which holds sections you have moved out of Chat Settings.
 
 On a computer, the trackers are not in the HUD row. They appear in the **Tracker Panel** while it is shown, and otherwise in the **Trackers** window described below.
@@ -56,7 +58,7 @@ While agents are working on the chat, a small dot shows beside the window's titl
 
 Each tracker has its own collapsible section, called a drawer. Click a drawer's header to collapse it to the tracker's small widget preview, and click it again to see the whole tracker. Marinara remembers which drawers you collapsed.
 
-A tracker can also get its own window: click the pop-out button beside its arrow, or drag its title out of the Trackers window. The new window starts unpinned. Pin it to keep it open when you click elsewhere or close the Trackers window. Its **X** shrinks it to a small button with the tracker's icon, which reopens it where you left it. Click **Put back in Trackers** (the curved arrow just left of **X**), or drag it back onto the Trackers window, to return it. Each chat remembers which trackers are out and where.
+A tracker can also get its own window: click the pop-out button beside its arrow, or drag its title out of the Trackers window. The new window starts unpinned. Pin it to keep it open when you click elsewhere or close the Trackers window. Its **X** shrinks it to a small button with the tracker's icon, which reopens it where you left it. **World State** shrinks to a banner instead, with the same pin, calendar, clock, weather and temperature as the phone button, so the story's date and time stay in view. Drag it anywhere, such as the top middle of the chat. Click **Put back in Trackers** (the curved arrow just left of **X**), or drag it back onto the Trackers window, to return it. Each chat remembers which trackers are out and where.
 
 At the bottom, **Agent activity** shows what the chat's agents did. From there you can re-run the trackers, retry agents that failed, stop running agents, and **Clear Trackers**. The Tracker Panel has the same section at its bottom.
 
@@ -95,7 +97,7 @@ You can force a tracker to update instead of waiting for the next message.
 
 Inside each tracker there is a small refresh (circular arrow) button. Click it to re-run just that one tracker for the latest turn. The tooltips name the tracker, for example **Re-run world state tracker only** or **Re-run quest tracker only**.
 
-In **Chat Settings → Agents**, **Manual Trackers** moves every enabled tracker to manual control. You can instead leave that switch off and set only selected agents to manual under **Individual tracker schedule**. A refresh button appears whenever at least one tracker is manual: in the HUD row on a phone, and next to the title of the Trackers window on a computer. Click it to run the manual tracker set for the current turn. The refresh button inside each tracker still runs that individual tracker directly.
+In **Chat Settings → Agents**, open **Trackers Control** and turn a tracker on under **Individual tracker schedule** to make it manual. A manual tracker doesn't run after every reply. A chat that had the old **Manual Trackers** switch on shows every tracker turned on there. A refresh button appears whenever at least one tracker is manual: in the HUD row on a phone, and next to the title of the Trackers window on a computer. Click it to run the manual tracker set for the current turn. The refresh button inside each tracker still runs that individual tracker directly.
 
 **Agent activity** has its own section just below **Agents** in **Chat Settings**, at the bottom of the Tracker Panel, and on a computer at the bottom of the Trackers window. From there you can re-run all trackers, retry any agents that failed, and use **Clear Trackers** to wipe all tracked world state for the chat. **Clear Trackers** cannot be undone, so use it with care.
 

@@ -3,7 +3,7 @@ import { createHash, timingSafeEqual } from "node:crypto";
 import { basename, extname, relative, resolve, sep, win32 } from "node:path";
 import { brotliDecompressSync, gunzipSync, zstdDecompressSync } from "node:zlib";
 import { Agent } from "undici";
-import { isLoopbackIp, isPrivateNetworkIp } from "../middleware/ip-allowlist.js";
+import { isLoopbackIp, isNonRoutableNetworkIp, isPrivateNetworkIp } from "../middleware/ip-allowlist.js";
 import { logger } from "../lib/logger.js";
 import { CSRF_HEADER, CSRF_HEADER_VALUE } from "@marinara-engine/shared";
 import { requestHeadersWithOpenRouterAttribution } from "./openrouter-attribution.js";
@@ -25,7 +25,8 @@ const RESERVED_IPV4_CIDRS = [
   "224.0.0.0/4",
   "240.0.0.0/4",
 ];
-const RESERVED_IPV6_CIDRS = ["::/128", "::1/128", "64:ff9b::/96", "100::/64", "2001:db8::/32"];
+// ::/96 also covers deprecated IPv4-compatible forms such as ::7f00:1; ff00::/8 is multicast.
+const RESERVED_IPV6_CIDRS = ["::/96", "::/128", "::1/128", "64:ff9b::/96", "100::/64", "2001:db8::/32", "ff00::/8"];
 
 type CidrEntry = { bytes: number[]; prefixLen: number };
 type AgentOptions = ConstructorParameters<typeof Agent>[0];
@@ -211,7 +212,9 @@ const RESERVED_CIDRS = [...RESERVED_IPV4_CIDRS, ...RESERVED_IPV6_CIDRS]
   .filter((entry): entry is CidrEntry => Boolean(entry));
 
 function isReservedIp(ip: string): boolean {
-  if (isLoopbackIp(ip) || isPrivateNetworkIp(ip)) return true;
+  // The built-in private ranges stay blocked even when TRUSTED_PRIVATE_NETWORKS
+  // narrows the login trust list; that setting is about who may sign in.
+  if (isLoopbackIp(ip) || isPrivateNetworkIp(ip) || isNonRoutableNetworkIp(ip)) return true;
   const bytes = ipToBytes(ip);
   if (!bytes) return true;
   return RESERVED_CIDRS.some((cidr) => matchesCidr(bytes, cidr));

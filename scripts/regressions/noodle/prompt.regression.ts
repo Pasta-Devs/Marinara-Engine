@@ -321,8 +321,16 @@ assert.doesNotMatch(
   defaultNoodleImagePrompt,
   /Character personality and traits:|Character-specific image instructions:|Let these traits naturally influence/u,
 );
-assert.match(defaultNoodleImagePrompt, /precise, arrogant, impatient/u);
-assert.match(defaultNoodleImagePrompt, /stark lab photography/u);
+// The poster's personality and image habits guide the Noodle package's image-prompt rewrite, not the
+// image model, so the default no longer pastes them (Noodle 1.5.2, Pasta-Devs/Marinara-Agents#1278).
+// This mirrors the package-owned default; keep the two in step.
+assert.doesNotMatch(defaultNoodleImagePrompt, /precise, arrogant, impatient/u);
+assert.doesNotMatch(defaultNoodleImagePrompt, /stark lab photography/u);
+assert.equal(
+  defaultNoodleImagePrompt,
+  `cel-shaded laboratory selfie\n\n${noodleImageReferences.appearanceBlock}`,
+  "the default sends the visual idea and appearance notes only",
+);
 
 // ...and the timeline model must receive those instructions, marked as direction rather than text
 // to copy into imagePrompt.

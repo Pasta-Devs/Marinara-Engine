@@ -70,6 +70,7 @@ import {
   isRetiredBuiltInAgentId,
   mergeBuiltInAgentSettings,
   normalizeAgentPhaseForType,
+  normalizeIllustratorRunInterval,
   type AgentPhase,
   type Chat,
   type ChatMode,
@@ -2603,14 +2604,19 @@ function RoleplaySetupWizard({ chat, onFinish, defaultsApplied, defaultsAction }
         config,
         contextSize: normalizePositiveInteger(mergedSettings.contextSize, DEFAULT_AGENT_CONTEXT_SIZE, 200),
         maxTokens: normalizeAgentMaxTokens(mergedSettings.maxTokens),
-        runInterval: intervalMeta
-          ? normalizePositiveInteger(
-              mergedSettings.runInterval,
-              intervalMeta.defaultValue,
-              intervalMeta.max,
-              intervalMeta.min,
-            )
-          : null,
+        runInterval: !intervalMeta
+          ? null
+          : agent.id === "illustrator"
+            ? // Illustrator's Run Interval belongs to this chat; the agent's value (maybe saved as text) is only its default.
+              (normalizeIllustratorRunInterval(metadata.illustratorRunInterval) ??
+              normalizeIllustratorRunInterval(mergedSettings.runInterval) ??
+              intervalMeta.defaultValue)
+            : normalizePositiveInteger(
+                mergedSettings.runInterval,
+                intervalMeta.defaultValue,
+                intervalMeta.max,
+                intervalMeta.min,
+              ),
         setup: buildInitialAgentAddSetupState({
           agentId: agent.id,
           settings: mergedSettings,
@@ -2646,7 +2652,8 @@ function RoleplaySetupWizard({ chat, onFinish, defaultsApplied, defaultsAction }
       maxTokens: normalizeAgentMaxTokens(maxTokens),
     };
     const intervalMeta = getAgentRunIntervalMeta(agent.id, !!builtInMeta);
-    if (intervalMeta && runInterval != null) nextSettings.runInterval = runInterval;
+    // Illustrator saves its Run Interval to this chat, so the agent's value stays the default for other chats.
+    if (intervalMeta && runInterval != null && agent.id !== "illustrator") nextSettings.runInterval = runInterval;
     nextSettings = applyAgentAddSetupToAgentSettings(agent.id, setup, nextSettings, {
       allowSecretPlot: supportsNarrativeDirectorSecretPlot,
     });
@@ -2684,9 +2691,13 @@ function RoleplaySetupWizard({ chat, onFinish, defaultsApplied, defaultsAction }
         ...buildAgentAddMetadataPatch(agent.id, setup, metadata, {
           allowSecretPlot: supportsNarrativeDirectorSecretPlot,
           defaultPromptTemplateId: resolveDefaultAgentPromptTemplateId(nextSettings),
+          runInterval,
           illustratorDefaults: {
             includeCharacterAppearance: nextSettings.includeCharacterAppearance === true,
             useAvatarReferences: nextSettings.useAvatarReferences === true,
+            runInterval: intervalMeta
+              ? (normalizeIllustratorRunInterval(nextSettings.runInterval) ?? intervalMeta.defaultValue)
+              : undefined,
           },
         }),
       });
@@ -3341,13 +3352,10 @@ function RoleplaySetupWizard({ chat, onFinish, defaultsApplied, defaultsAction }
                       className={WIZARD_NUMBER_INPUT_CLASS}
                     />
                     <span className="block text-[0.5625rem] text-[var(--muted-foreground)]">
-                      {agentAddIntervalMeta.help}
+                      {agentAddPreview.agent.id === "illustrator"
+                        ? localizeUi("agents.illustrator.chatRunIntervalHelp")
+                        : agentAddIntervalMeta.help}
                     </span>
-                    {agentAddPreview.agent.id === "illustrator" && (
-                      <span className="block text-[0.5625rem] text-[var(--muted-foreground)]">
-                        {localizeUi("agents.illustrator.manualOnlyIntervalHelp")}
-                      </span>
-                    )}
                   </label>
                 )}
 

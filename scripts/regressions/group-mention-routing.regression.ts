@@ -146,6 +146,24 @@ try {
     );
     assert.match(prompts[1]!, /@Bob, your turn/, "the invited speaker sees the handoff");
     assert.match(prompts[2]!, /Ask @Charlie Brown/, "later invitations see preceding replies");
+    const handoffInvite = /with @Name to invite their next reply/;
+    if (mode === "roleplay") {
+      assert.match(prompts[0]!, /Respond ONLY as Alice\./, "Roleplay keeps the reply-as reminder");
+      assert(
+        prompts.every((prompt) => !handoffInvite.test(prompt)),
+        "Roleplay never asks for @-pings (#7319)",
+      );
+      // Prompt peek shows the prompt saved with the latest reply.
+      const peeked = (await chats.listMessages(chat.id)).at(-1)!;
+      const cachedPrompt = JSON.stringify(JSON.parse(peeked.extra as string).cachedPrompt);
+      assert.match(cachedPrompt, /Respond ONLY as Charlie Brown\./, "prompt peek keeps the reminder");
+      assert.doesNotMatch(cachedPrompt, handoffInvite, "prompt peek has no @-ping instruction (#7319)");
+    } else {
+      assert(
+        prompts.every((prompt) => handoffInvite.test(prompt)),
+        "Conversation still invites @Name handoffs",
+      );
+    }
     if (mode === "conversation") {
       assert.deepEqual(
         await turn(chat.id, ["Hello @Bobby!", "Hello."]),

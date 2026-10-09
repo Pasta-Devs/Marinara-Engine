@@ -146,6 +146,7 @@ The classes, data attributes and variables below let a theme style these parts t
 | Drawer arrow and content | `.mari-drawer__arrow`, `.mari-drawer__body` |
 | The preview that follows the pointer while a drawer is dragged out | `.mari-drawer-ghost` |
 | A minimized window's button (bubble) | `.mari-window-bubble` |
+| The live summary a bubble shows instead of its icon (World State's banner) | `.mari-window-bubble__banner` |
 | The line shown while a dragged bubble lines up with another | `.mari-window-snap-guide` |
 | The dot shown while agents run (Chat Settings button, Trackers window) | `.mari-agents-running-dot` |
 
@@ -164,7 +165,7 @@ The classes, data attributes and variables below let a theme style these parts t
 - `data-axis` is `"x"` on a snap guide that runs up and down, and `"y"` on one that runs across.
 - `data-detached` is `"true"` when a drawer is shown in its own window, on both that window and the drawer inside it. A popped-out drawer's window is named `data-window="drawer:<window>:<drawer>"`, for example `data-window="drawer:chat-settings:chat-name"`, and `data-drawer-host` names the window it came from.
 - `data-dragging` is `"true"` on a drawer while its title is dragged, and `data-drop-target` is `"true"` on a window while a popped-out drawer is held over it, ready to go back.
-- A bubble has the `data-window` of its window and `data-minimized="true"`, for example `.mari-window-bubble[data-window="control:volume"]`. Control windows are named `control:game`, `control:session`, `control:volume`, `control:assets`, `control:connected-chat`, `control:package:<package>` and `control:beholder:<package>`. `data-dragging` is `"true"` on a bubble while it is dragged.
+- A bubble has the `data-window` of its window and `data-minimized="true"`, for example `.mari-window-bubble[data-window="control:volume"]`. Control windows are named `control:game`, `control:session`, `control:volume`, `control:assets`, `control:connected-chat`, `control:package:<package>` and `control:beholder:<package>`. `data-dragging` is `"true"` on a bubble while it is dragged. A bubble that shows a live summary instead of its icon, such as a minimized World State tracker, has `data-banner="true"` and grows as wide as the summary.
 - A locked bubble has `data-locked="true"`, including the Chat Settings button. It still opens its window, but cannot be moved until the window is unlocked. Use `.mari-window-bubble[data-locked="true"]` to give these buttons a distinct appearance.
 - On a phone, windows have `data-presentation="sheet"`, and so do their bubbles, which are slightly larger. The Tracker Panel's bubble is `.mari-window-bubble[data-tracker-panel-toggle="bubble"]`.
 - The Chat Settings button is a bubble too: `.mari-window-bubble[data-chat-settings-button]`, with `data-open="true"` while Chat Settings is open.

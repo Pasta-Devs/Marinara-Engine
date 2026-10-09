@@ -4,11 +4,12 @@
 // A minimized window shows as one on a computer; on a phone every control window,
 // popped-out drawer and the Tracker Panel do. It drags with the pointer (a short
 // press opens it instead), snaps into line with the other bubbles but never onto
-// one, moves with the arrow keys and stays inside its bounds. Themes style
-// `.mari-window-bubble`.
+// one, moves with the arrow keys and stays inside its bounds. A bubble with a banner (a
+// tracker's live summary) is as wide as that summary. Themes style `.mari-window-bubble`.
 // ──────────────────────────────────────────────
 import {
   useEffect,
+  useId,
   useLayoutEffect,
   useRef,
   useState,
@@ -27,7 +28,9 @@ import {
   WINDOW_KEYBOARD_STEP_PX,
   clampWindowBubble,
   dropWindowBubble,
+  getBannerPoint,
   placeWindowBubbles,
+  type BubbleSize,
   type FloatingWindowId,
   type WindowBounds,
   type WindowPoint,
@@ -38,7 +41,7 @@ import type { SnapGuide } from "../../lib/window-bubble-snap";
 const DRAG_START_PX = { mouse: 4, touch: 10 } as const;
 
 // Mounted bubbles share only their temporary screen positions. Saved chat layouts stay untouched.
-const mountedBubbles = new Map<string, { point: WindowPoint; bounds: WindowBounds; size: number }>();
+const mountedBubbles = new Map<string, { point: WindowPoint; bounds: WindowBounds; size: BubbleSize }>();
 const placementListeners = new Set<() => void>();
 let bubblePlacements = new Map<string, WindowPoint>();
 const readBubblePlacements = () => bubblePlacements;
@@ -84,6 +87,8 @@ export interface WindowBubbleProps {
   /** An attached menu follows the temporary on-screen position, including clamping and dragging. */
   onPositionChange?: (point: WindowPoint) => void;
   icon: ReactNode;
+  /** A live summary shown instead of the icon, on a bubble as wide as it needs (World State's date and time, say). */
+  banner?: ReactNode;
   /** Names the window it opens. */
   label: string;
   /** Replaces the "Open {label}" name and its drag hint (a button that toggles its window, say). */
@@ -113,6 +118,7 @@ export function WindowBubble({
   onSizeChange,
   onPositionChange,
   icon,
+  banner,
   label,
   ariaLabel,
   tooltip,
@@ -135,9 +141,15 @@ export function WindowBubble({
   /** A touch press already settled on release; its click, if one still comes, must not repeat it. */
   const touchHandledRef = useRef(false);
   const [live, setLive] = useState<{ point: WindowPoint; guides: SnapGuide[] } | null>(null);
-  const [renderedSize, setRenderedSize] = useState(size);
+  const [renderedWidth, setRenderedWidth] = useState(size);
+  const [renderedHeight, setRenderedHeight] = useState(size);
+  const renderedSize = { width: renderedWidth, height: renderedHeight };
+  const hasBanner = Boolean(banner);
+  // A banner's text (what it shows, for screen readers) describes the button; its name stays "Open …".
+  const bannerId = `mari-window-bubble-banner-${useId().replace(/:/gu, "")}`;
+  const origin = hasBanner ? getBannerPoint(point, renderedSize) : point;
   const placements = useSyncExternalStore(subscribeBubblePlacements, readBubblePlacements, readBubblePlacements);
-  const placed = clampWindowBubble(live?.point ?? placements.get(id) ?? point, bounds, renderedSize);
+  const placed = clampWindowBubble(live?.point ?? placements.get(id) ?? origin, bounds, renderedSize);
 
   useLayoutEffect(() => {
     onPositionChange?.({ x: placed.x, y: placed.y });
@@ -145,12 +157,25 @@ export function WindowBubble({
 
   useLayoutEffect(() => {
     mountedBubbles.set(id, {
-      point: { x: point.x, y: point.y, automatic: point.automatic },
+      // A banner grows with its summary, so it is the one to give way when it grows into a neighbour.
+      point: { x: origin.x, y: origin.y, automatic: hasBanner || point.automatic ? true : undefined },
       bounds: { left: bounds.left, top: bounds.top, right: bounds.right, bottom: bounds.bottom },
-      size: renderedSize,
+      size: { width: renderedWidth, height: renderedHeight },
     });
     updateBubblePlacements();
-  }, [id, point.x, point.y, point.automatic, bounds.left, bounds.top, bounds.right, bounds.bottom, renderedSize]);
+  }, [
+    id,
+    origin.x,
+    origin.y,
+    point.automatic,
+    hasBanner,
+    bounds.left,
+    bounds.top,
+    bounds.right,
+    bounds.bottom,
+    renderedWidth,
+    renderedHeight,
+  ]);
   useLayoutEffect(
     () => () => {
       mountedBubbles.delete(id);
@@ -164,15 +189,18 @@ export function WindowBubble({
     if (!element) return;
     const measure = () => {
       const rect = element.getBoundingClientRect();
-      const next = Math.max(rect.width, rect.height) || size;
-      setRenderedSize(next);
-      onSizeChange?.(next);
+      const side = Math.max(rect.width, rect.height) || size;
+      // A banner keeps its own width; every other bubble counts as the square it is drawn as. Rows of
+      // bubbles are laid out by their height, so that is the size a banner reports.
+      setRenderedWidth(hasBanner ? rect.width || side : side);
+      setRenderedHeight(hasBanner ? rect.height || side : side);
+      onSizeChange?.(hasBanner ? rect.height || size : side);
     };
     measure();
     const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(measure);
     observer?.observe(element);
     return () => observer?.disconnect();
-  }, [bubbleRef, onSizeChange, size]);
+  }, [bubbleRef, hasBanner, onSizeChange, size]);
 
   useEffect(() => () => cancelAnimationFrame(frameRef.current), []);
 
@@ -299,13 +327,14 @@ export function WindowBubble({
         data-window={id}
         data-minimized="true"
         data-dragging={live ? "true" : undefined}
+        data-banner={hasBanner ? "true" : undefined}
         {...attributes}
         data-locked={locked ? "true" : "false"}
         className="mari-window-bubble fixed"
         style={{ left: placed.x, top: placed.y, zIndex }}
         aria-label={ariaLabel ?? t("window.bubble.label", { title: label })}
         aria-expanded={expanded}
-        aria-describedby={describedBy}
+        aria-describedby={describedBy ?? (hasBanner ? bannerId : undefined)}
         title={
           locked
             ? t("window.bubble.lockedHint", { title: label })
@@ -320,7 +349,13 @@ export function WindowBubble({
         onKeyDown={handleKeyDown}
       >
         <span className="mari-window-bubble__paint pointer-events-none" aria-hidden="true" />
-        <span className="mari-window-bubble__icon">{icon}</span>
+        {hasBanner ? (
+          <span id={bannerId} className="mari-window-bubble__banner">
+            {banner}
+          </span>
+        ) : (
+          <span className="mari-window-bubble__icon">{icon}</span>
+        )}
         {children}
       </button>
       {live?.guides.map((guide) => (

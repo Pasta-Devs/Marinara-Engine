@@ -24,7 +24,7 @@ import { EmptySection, TRACKER_SECTION_SHELL_CLASS } from "./controls/SectionCon
 import { TrackerReadabilityVeil } from "./controls/TrackerProfileChrome";
 import { TrackerSectionList } from "./TrackerSectionList";
 import { TrackerSkeleton } from "./TrackerSkeleton";
-import { TrackerSidebarHeader } from "./TrackerSidebarHeader";
+import { TRACKER_HEADER_PACKAGE_BUTTON_CLASS, TrackerSidebarHeader } from "./TrackerSidebarHeader";
 import { TrackerLockProvider } from "./TrackerLockContext";
 import { TrackerAgentActivitySection } from "./TrackerAgentActivitySection";
 import { Translation, useTranslation as useUiTranslation } from "react-i18next";
@@ -33,6 +33,7 @@ import {
   useInstalledCapabilityPackages,
 } from "../../../hooks/use-capability-packages";
 import { CapabilityElement } from "../../../components/capabilities/CapabilityElement";
+import { RoleplayTrackerCapability, selectRoleplayTrackerPackages } from "../../../components/chat/RoleplayHUD";
 
 const TRACKER_PANEL_NEUTRAL_VARS =
   "[--accent:rgb(39_39_42)] [--accent-foreground:rgb(244_244_245)] [--background:rgb(18_18_21)] [--border:rgb(63_63_70)] [--card:rgb(24_24_27)] [--foreground:rgb(244_244_245)] [--input:rgb(63_63_70)] [--muted:rgb(39_39_42)] [--muted-foreground:rgb(161_161_170)] [--popover:rgb(24_24_27)] [--popover-foreground:rgb(244_244_245)] [--primary:rgb(212_212_216)] [--primary-foreground:rgb(18_18_21)] [--ring:rgb(161_161_170)] [--secondary:rgb(39_39_42)] [--tracker-panel-card-background:color-mix(in_srgb,var(--background)_22%,transparent)] [--tracker-panel-section-background:color-mix(in_srgb,var(--card)_6%,transparent)]";
@@ -153,6 +154,11 @@ export function TrackerDataSidebar({
       </div>
     </div>
   );
+  // The package buttons the phone tracker strip shows, such as the one that opens Quartermaster's dock (#7280).
+  // Beholder has its own window and Memory Nag its own section.
+  const launcherPackages = partitionTrackerCapabilityPackages(
+    selectRoleplayTrackerPackages(installedCapabilities, enabledAgentTypes),
+  ).other;
   const resolveStatIcon = useStatIcons({
     activeChatId,
     trackerStatIconOverrides,
@@ -251,6 +257,18 @@ export function TrackerDataSidebar({
           onSetStatDisplayMode={setTrackerStatDisplayMode}
           onToggleDetached={onToggleDetached}
           onClose={closeTrackerPanel}
+          launchers={
+            activeChatId && launcherPackages.length > 0
+              ? launcherPackages.map((item) => (
+                  <RoleplayTrackerCapability
+                    key={item.id}
+                    packageId={item.id}
+                    chatId={activeChatId}
+                    buttonClassName={TRACKER_HEADER_PACKAGE_BUTTON_CLASS}
+                  />
+                ))
+              : null
+          }
         />
 
         <div className={cn("relative z-10", fillHeight && "min-h-0 flex-1 overflow-y-auto")}>

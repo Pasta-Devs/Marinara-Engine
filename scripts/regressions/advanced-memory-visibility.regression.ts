@@ -591,6 +591,105 @@ try {
     [ids.pantalone],
     "the post-reply check decides the turn's last reply",
   );
+
+  // Your own message is decided once, when you send it (#7349).
+  const events = (body: string) =>
+    body
+      .split("\n\n")
+      .filter((block) => block.startsWith("data: "))
+      .map((block) => JSON.parse(block.slice(6)) as { type: string; data: any });
+  const timesDecided = async (chatId: string, messageId: string) => {
+    const number = (await chats.listMessages(chatId)).findIndex((message) => message.id === messageId) + 1;
+    return calls
+      .filter((call) => call.kind === "visibility")
+      .flatMap((call) => JSON.parse(JSON.parse(call.prompt)[1].content).decide)
+      .filter((entry: { messageNumber: number }) => entry.messageNumber === number).length;
+  };
+  const sendChat = await createChat();
+  await memory.initialize(sendChat);
+  calls.length = 0;
+  mainReplies = ["MAUKIE_ANSWERS", "PANTALONE_ANSWERS", "NARRATOR_ANSWERS"];
+  const sent = await app.inject({
+    method: "POST",
+    url: "/api/generate/",
+    payload: { chatId: sendChat, userMessage: "SENT_PERSONA_LINE" },
+  });
+  assert.equal(sent.statusCode, 200, sent.body);
+  const sentEvents = events(sent.body);
+  const sentLine = (await chats.listMessages(sendChat)).find((message) => message.content === "SENT_PERSONA_LINE")!;
+  assert.deepEqual((await extraOf(sentLine.id)).hiddenFromAICharacterIds, [ids.pantalone]);
+  const firstReply = sentEvents.findIndex((event) => event.type === "message_saved" && event.data.role === "assistant");
+  const shownDecided = sentEvents.findIndex(
+    (event) =>
+      event.type === "message_saved" &&
+      event.data.id === sentLine.id &&
+      JSON.parse(event.data.extra).hiddenFromAICharacterIds?.includes(ids.pantalone),
+  );
+  assert(
+    shownDecided >= 0 && shownDecided < firstReply,
+    "the crossed-eye marker reaches your message before the first character replies",
+  );
+  assert.equal(await timesDecided(sendChat, sentLine.id), 1, "a sent message is decided once");
+
+  // Posted without a reply (manual order, Post only, /send): decided right away, and never again.
+  calls.length = 0;
+  const posted = await app.inject({
+    method: "POST",
+    url: `/api/chats/${sendChat}/messages`,
+    payload: { role: "user", content: "POSTED_PERSONA_LINE", characterId: null },
+  });
+  assert.equal(posted.statusCode, 200, posted.body);
+  assert.deepEqual(
+    JSON.parse(posted.json().extra).hiddenFromAICharacterIds,
+    [ids.pantalone],
+    "a message posted without a reply is decided when you post it",
+  );
+  assert.deepEqual(
+    calls.map((call) => call.kind),
+    ["visibility"],
+  );
+  await memory.settleMessageVisibility(sendChat);
+  assert.deepEqual(
+    calls.map((call) => call.kind),
+    ["visibility"],
+    "a posted message is not asked about again",
+  );
+  const asCharacter = await app.inject({
+    method: "POST",
+    url: `/api/chats/${sendChat}/messages`,
+    payload: { role: "assistant", content: "Maukie, by hand.", characterId: ids.maukie },
+  });
+  assert.equal(asCharacter.statusCode, 200, asCharacter.body);
+  assert.equal(calls.length, 1, "a character message written by hand is left for the next reply, as before");
+  const offPosted = await app.inject({
+    method: "POST",
+    url: `/api/chats/${offChat}/messages`,
+    payload: { role: "user", content: "P waves again.", characterId: null },
+  });
+  assert.equal(offPosted.statusCode, 200, offPosted.body);
+  assert.equal(calls.length, 1, "no call when the toggle is off");
+
+  // A message written for you by Impersonate is yours too.
+  calls.length = 0;
+  mainReplies = ["IMPERSONATED_PERSONA_LINE"];
+  const impersonated = await app.inject({
+    method: "POST",
+    url: "/api/generate/",
+    payload: { chatId: sendChat, impersonate: true },
+  });
+  assert.equal(impersonated.statusCode, 200, impersonated.body);
+  const impersonatedLine = (await chats.listMessages(sendChat)).at(-1)!;
+  assert.equal(impersonatedLine.role, "user", impersonated.body);
+  assert.deepEqual((await extraOf(impersonatedLine.id)).hiddenFromAICharacterIds, [ids.pantalone]);
+  assert(
+    events(impersonated.body).some(
+      (event) =>
+        event.type === "message_saved" &&
+        event.data.id === impersonatedLine.id &&
+        JSON.parse(event.data.extra).hiddenFromAICharacterIds?.includes(ids.pantalone),
+    ),
+    "the crossed-eye marker reaches the written message without waiting for a refresh",
+  );
 } finally {
   await app.close();
   provider.close();

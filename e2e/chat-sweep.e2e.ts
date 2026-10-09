@@ -37,7 +37,13 @@ test("Roleplay agents can omit chat summaries without changing other modes", asy
       trackerPanelEnabled: false,
       chibiProfessorMariEnabled: false,
       appAccentPulseMode: false,
-      chatSettingsExpandedSections: { "roleplay-agents": true, "game-agents": true, "conversation-agents": true },
+      chatSettingsExpandedSections: {
+        "roleplay-agents": true,
+        "game-agents": true,
+        "conversation-agents": true,
+        // Attach chat summaries sits in Roleplay's Trackers Control card.
+        [`${chat.id}:trackers-control`]: true,
+      },
       gameInstantTextReveal: true,
       theme: info.project.name === "desktop-chromium" ? "light" : "dark",
     });

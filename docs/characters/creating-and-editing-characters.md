@@ -78,6 +78,8 @@ The **Dialogue & Greetings** section sets how a chat opens and how the character
 
 Greetings and example messages can also display images from the character's Gallery; see [Character galleries → Reuse a gallery image in messages and greetings](galleries.md#reuse-a-gallery-image-in-messages-and-greetings).
 
+When the greetings show images from other websites, **Save images locally** keeps a copy of them in the character's Gallery; see [Character galleries → Save web images from greetings](galleries.md#save-web-images-from-greetings).
+
 A short Example Dialogue entry looks like this:
 
 ```

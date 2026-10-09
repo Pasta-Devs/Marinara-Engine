@@ -188,6 +188,7 @@ export * from "./utils/rpg-stats.js";
 export * from "./utils/lorebook-folder-tree.js";
 export * from "./utils/character-duplicates.js";
 export * from "./utils/character-tag-edits.js";
+export * from "./utils/greeting-image-bake.js";
 export * from "./utils/text-matching.js";
 export * from "./utils/chat-search-query.js";
 export * from "./utils/chat-stats.js";

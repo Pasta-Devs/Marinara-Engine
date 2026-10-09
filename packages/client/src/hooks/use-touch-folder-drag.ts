@@ -5,17 +5,25 @@ import {
   type MouseEvent as ReactMouseEvent,
   type TouchEvent as ReactTouchEvent,
 } from "react";
+import { useTranslation } from "react-i18next";
+import { getLibraryDragRows, type InsertEdge } from "../lib/library-order";
 import {
   beginChatResourceMouseDrag,
   beginChatResourceTouchDrag,
   clearActiveChatResourceDrag,
+  parseChatResourceDragPayload,
   type ChatResourceDragPayload,
 } from "../lib/chat-resource-drag";
 
 type TouchFolderDragState = {
   id: string;
+  ids: string[];
+  stackedElements: HTMLElement[];
+  feedbackElement: HTMLElement | null;
+  insertEdge: InsertEdge | null;
   timer: number | null;
   active: boolean;
+  holdToActivate: boolean;
   sourceElement: HTMLElement;
   previousDraggable: string | null;
   previousTouchCallout: string;
@@ -30,7 +38,15 @@ type TouchFolderDragState = {
   lastX: number;
   lastY: number;
   touchIdentifier: number | null;
-  scrollTouch: { identifier: number; lastY: number } | null;
+  scrollTouch: {
+    identifier: number;
+    lastY: number;
+    startX: number;
+    startY: number;
+    startedAt: number;
+    moved: boolean;
+    candidate: { id: string; element: HTMLElement; payload: ChatResourceDragPayload | null } | null;
+  } | null;
   scrollTargets: AutoScrollTarget[];
   autoScrollFrame: number | null;
   chatResourcePayload: ChatResourceDragPayload | null;
@@ -42,8 +58,13 @@ type TouchFolderDragOptions = {
   /** Set to zero to keep the surrounding panel still while dragging. */
   autoScrollEdgePx?: number;
   autoScrollMaxSpeedPx?: number;
+  /** Enables second-finger gathering and preserves any existing bulk selection. */
+  getDragIds?: (id: string) => string[];
+  /** Set when reordering also commits the destination folder. */
+  reorderHandlesDrop?: boolean;
+  onReorder?: (ids: string[], target: string, edge: InsertEdge, visibleIds: string[]) => void;
   onActivate: (id: string) => void;
-  onDrop: (id: string, x: number, y: number) => void;
+  onDrop: (id: string, x: number, y: number, ids: string[]) => void;
   onCancel?: (id: string, active: boolean) => void;
 };
 
@@ -89,22 +110,33 @@ function updatePreviewPosition(drag: TouchFolderDragState) {
 function createPreviewElement(drag: TouchFolderDragState) {
   const rect = drag.sourceElement.getBoundingClientRect();
   const clone = drag.sourceElement.cloneNode(true) as HTMLElement;
+  if (drag.sourceElement.dataset.dragKind?.endsWith("-folder") && clone.tagName !== "BUTTON") {
+    Array.from(clone.children)
+      .slice(1)
+      .forEach((child) => child.remove());
+  }
   const computedStyle = window.getComputedStyle(drag.sourceElement);
 
   drag.previewOffsetX = drag.startX - rect.left;
   drag.previewOffsetY = drag.startY - rect.top;
 
   clone.setAttribute("aria-hidden", "true");
+  clone.inert = true;
   clone.classList.add("mari-chrome-token-scope");
   clone.style.position = "fixed";
   clone.style.left = "0";
   clone.style.top = "0";
   clone.style.width = `${rect.width}px`;
-  clone.style.height = `${rect.height}px`;
+  const headerHeight =
+    drag.sourceElement.dataset.dragKind?.endsWith("-folder") && clone.tagName !== "BUTTON"
+      ? drag.sourceElement.firstElementChild?.getBoundingClientRect().height
+      : undefined;
+  clone.style.height = `${headerHeight ?? rect.height}px`;
   clone.style.margin = "0";
   clone.style.pointerEvents = "none";
   clone.style.zIndex = TOUCH_DRAG_PREVIEW_Z_INDEX;
   clone.style.opacity = "0.96";
+  clone.style.backgroundColor = "var(--sidebar)";
   clone.style.borderRadius = computedStyle.borderRadius;
   clone.style.boxShadow = "0 18px 44px rgba(0, 0, 0, 0.34)";
   clone.style.transformOrigin = "top left";
@@ -115,6 +147,106 @@ function createPreviewElement(drag: TouchFolderDragState) {
   document.body.appendChild(clone);
   drag.previewElement = clone;
   updatePreviewPosition(drag);
+}
+
+function updateStackPreview(drag: TouchFolderDragState) {
+  if (!drag.previewElement || drag.ids.length < 2) return;
+  let badge = drag.previewElement.querySelector<HTMLElement>("[data-drag-stack-count]");
+  if (!badge) {
+    badge = document.createElement("span");
+    badge.setAttribute("data-drag-stack-count", "");
+    badge.className =
+      "absolute right-1 top-1 rounded-full bg-[var(--primary)] px-2 py-0.5 text-xs font-semibold text-[var(--primary-foreground)] shadow-sm";
+    drag.previewElement.appendChild(badge);
+    drag.previewElement.style.boxShadow =
+      "0 4px 0 -1px var(--sidebar), 0 4px 0 var(--border), 0 8px 0 -1px var(--sidebar), 0 8px 0 var(--border), 0 18px 44px rgba(0, 0, 0, 0.34)";
+  }
+  badge.textContent = String(drag.ids.length);
+}
+
+function clearDropFeedback(drag: TouchFolderDragState) {
+  drag.feedbackElement?.removeAttribute("data-drag-insert");
+  drag.feedbackElement?.removeAttribute("data-drag-insert-axis");
+  drag.feedbackElement?.removeAttribute("data-drag-target");
+  drag.feedbackElement = null;
+  drag.insertEdge = null;
+}
+
+function updateDropFeedback(drag: TouchFolderDragState, reorderEnabled: boolean) {
+  const kind = drag.sourceElement.dataset.dragKind;
+  if (!kind) return null;
+  const hit = document.elementFromPoint(drag.lastX, drag.lastY);
+  let row = hit?.closest<HTMLElement>(`[data-drag-kind="${kind}"]`);
+  const folder = hit?.closest<HTMLElement>(`[data-${kind}-folder-id]`);
+  // Margins belong to the list, so the opened insertion gap has no row under the pointer.
+  // Snap nearby empty space to a row without stealing folder-header drops or leaving the list.
+  if (reorderEnabled && !row && hit) {
+    const candidates = Array.from(hit.querySelectorAll<HTMLElement>(`[data-drag-kind="${kind}"]`));
+    if (drag.feedbackElement && candidates.includes(drag.feedbackElement)) {
+      candidates.unshift(drag.feedbackElement);
+    }
+    let nearestDistance = 25;
+    for (const candidate of candidates) {
+      if (
+        !candidate.getClientRects().length ||
+        candidate.closest('[aria-hidden="true"]') ||
+        drag.ids.includes(candidate.dataset.dragId ?? "")
+      )
+        continue;
+      const rect = candidate.getBoundingClientRect();
+      const distance = Math.hypot(
+        Math.max(rect.left - drag.lastX, 0, drag.lastX - rect.right),
+        Math.max(rect.top - drag.lastY, 0, drag.lastY - rect.bottom),
+      );
+      if (distance <= 24 && distance < nearestDistance) {
+        nearestDistance = distance;
+        row = candidate;
+      }
+    }
+  }
+  if (row && row.dataset.dragKind === kind && drag.ids.includes(row.dataset.dragId ?? "")) {
+    clearDropFeedback(drag);
+    return null;
+  }
+  if (reorderEnabled && row?.dataset.dragKind === kind && row.dataset.dragId) {
+    // Installed agents keep their categories; only cross-folder moves change a container.
+    if (
+      kind === "agent" &&
+      !folder &&
+      !drag.sourceElement.closest("[data-agent-folder-id]") &&
+      row.parentElement !== drag.sourceElement.parentElement
+    ) {
+      clearDropFeedback(drag);
+      return null;
+    }
+    const rect = row.getBoundingClientRect();
+    const layout = row.parentElement ? getComputedStyle(row.parentElement) : null;
+    const horizontal = layout?.display === "grid" || (layout?.display === "flex" && layout.flexDirection === "row");
+    const offset = horizontal ? drag.lastX - (rect.left + rect.width / 2) : drag.lastY - (rect.top + rect.height / 2);
+    const edge: InsertEdge =
+      drag.feedbackElement === row && Math.abs(offset) < 12 && drag.insertEdge
+        ? drag.insertEdge
+        : offset < 0
+          ? "before"
+          : "after";
+    if (drag.feedbackElement !== row || drag.insertEdge !== edge) {
+      clearDropFeedback(drag);
+      row.setAttribute("data-drag-insert", edge);
+      row.setAttribute("data-drag-insert-axis", horizontal ? "x" : "y");
+      drag.feedbackElement = row;
+      drag.insertEdge = edge;
+    }
+    const visibleIds = getLibraryDragRows(drag.sourceElement, kind)
+      .map((element) => element.dataset.dragId!)
+      .filter(Boolean);
+    return { target: row.dataset.dragId, edge, visibleIds: Array.from(new Set(visibleIds)) };
+  }
+  clearDropFeedback(drag);
+  if (folder) {
+    folder.setAttribute("data-drag-target", "inside");
+    drag.feedbackElement = folder;
+  }
+  return null;
 }
 
 function removePreviewElement(drag: TouchFolderDragState) {
@@ -191,10 +323,14 @@ export function useTouchFolderDrag({
   moveActivateThresholdPx,
   autoScrollEdgePx = DEFAULT_AUTO_SCROLL_EDGE_PX,
   autoScrollMaxSpeedPx = DEFAULT_AUTO_SCROLL_MAX_SPEED_PX,
+  getDragIds,
+  onReorder,
+  reorderHandlesDrop,
   onActivate,
   onDrop,
   onCancel,
 }: TouchFolderDragOptions) {
+  const { t } = useTranslation();
   const resolvedMoveActivateThresholdPx = moveActivateThresholdPx ?? DEFAULT_TOUCH_DRAG_ACTIVATE_THRESHOLD_PX;
   const dragRef = useRef<TouchFolderDragState | null>(null);
   const optionsRef = useRef({
@@ -202,17 +338,24 @@ export function useTouchFolderDrag({
     moveActivateThresholdPx: resolvedMoveActivateThresholdPx,
     autoScrollEdgePx,
     autoScrollMaxSpeedPx,
+    getDragIds,
+    onReorder,
+    reorderHandlesDrop,
     onActivate,
     onDrop,
     onCancel,
   });
   const removeListenersRef = useRef<(() => void) | null>(null);
+  const releaseClickCleanupRef = useRef<(() => void) | null>(null);
 
   optionsRef.current = {
     delayMs,
     moveActivateThresholdPx: resolvedMoveActivateThresholdPx,
     autoScrollEdgePx,
     autoScrollMaxSpeedPx,
+    getDragIds,
+    onReorder,
+    reorderHandlesDrop,
     onActivate,
     onDrop,
     onCancel,
@@ -267,6 +410,7 @@ export function useTouchFolderDrag({
 
     scroll.target.scrollBy(scroll.deltaY);
     updatePreviewPosition(drag);
+    updateDropFeedback(drag, !!optionsRef.current.onReorder);
     drag.autoScrollFrame = window.requestAnimationFrame(runAutoScroll);
   }, [getAutoScrollDelta]);
 
@@ -286,6 +430,8 @@ export function useTouchFolderDrag({
       drag.active = true;
       drag.sourceElement.style.touchAction = TOUCH_DRAG_ACTIVE_TOUCH_ACTION;
       createPreviewElement(drag);
+      drag.sourceElement.setAttribute("data-drag-source", "true");
+      updateStackPreview(drag);
       if (drag.chatResourcePayload) {
         if (drag.touchIdentifier === null) beginChatResourceMouseDrag(drag.chatResourcePayload);
         else beginChatResourceTouchDrag(drag.chatResourcePayload, drag.touchIdentifier);
@@ -298,6 +444,9 @@ export function useTouchFolderDrag({
 
   const restoreSourceElement = useCallback((drag: TouchFolderDragState) => {
     removePreviewElement(drag);
+    drag.sourceElement.removeAttribute("data-drag-source");
+    clearDropFeedback(drag);
+    drag.stackedElements.forEach((element) => element.removeAttribute("data-drag-stacked"));
     if (drag.previousDraggable === null) {
       drag.sourceElement.removeAttribute("draggable");
     } else {
@@ -318,16 +467,50 @@ export function useTouchFolderDrag({
     (drop = false) => {
       const drag = dragRef.current;
       if (!drag) return;
+      const insertion = drop && drag.active ? updateDropFeedback(drag, !!optionsRef.current.onReorder) : null;
       clearDragTimer(drag);
       stopAutoScroll(drag);
+      const insertionElement = insertion ? drag.feedbackElement : null;
       restoreSourceElement(drag);
+      if (drag.active && drag.touchIdentifier === null) {
+        // Escape can cancel before mouseup. Suppress that gesture's eventual release click,
+        // while allowing a fresh pointer press or keyboard activation immediately.
+        releaseClickCleanupRef.current?.();
+        const suppressClick = (event: MouseEvent) => {
+          if (event.detail === 0) return;
+          event.preventDefault();
+          event.stopPropagation();
+        };
+        const clear = () => {
+          window.removeEventListener("click", suppressClick, { capture: true });
+          window.removeEventListener("mousedown", clear, { capture: true });
+          window.removeEventListener("mouseup", afterRelease, { capture: true });
+          releaseClickCleanupRef.current = null;
+        };
+        const afterRelease = () => window.setTimeout(clear, 0);
+        window.addEventListener("click", suppressClick, { capture: true });
+        window.addEventListener("mousedown", clear, { capture: true, once: true });
+        if (drop) afterRelease();
+        else window.addEventListener("mouseup", afterRelease, { capture: true, once: true });
+        releaseClickCleanupRef.current = clear;
+      }
       dragRef.current = null;
       removeListeners();
       // The dock reads the payload in the capture phase, so it is safe to drop it here.
       if (drag.chatResourcePayload) clearActiveChatResourceDrag();
 
       if (drop && drag.active) {
-        optionsRef.current.onDrop(drag.id, drag.lastX, drag.lastY);
+        const options = optionsRef.current;
+        const rect = insertionElement?.getBoundingClientRect();
+        const x = rect ? rect.left + rect.width / 2 : drag.lastX;
+        const y = rect ? rect.top + rect.height / 2 : drag.lastY;
+        if (insertion && options.reorderHandlesDrop) {
+          options.onReorder?.(drag.ids, insertion.target, insertion.edge, insertion.visibleIds);
+          options.onCancel?.(drag.id, true);
+        } else {
+          options.onDrop(drag.id, x, y, drag.ids);
+          if (insertion) options.onReorder?.(drag.ids, insertion.target, insertion.edge, insertion.visibleIds);
+        }
       } else {
         optionsRef.current.onCancel?.(drag.id, drag.active);
       }
@@ -341,10 +524,44 @@ export function useTouchFolderDrag({
       if (!drag || drag.touchIdentifier === null || drag.scrollTouch) return;
       const touch = Array.from(event.touches).find((touch) => touch.identifier !== drag.touchIdentifier);
       if (!touch) return;
-      drag.scrollTouch = { identifier: touch.identifier, lastY: touch.clientY };
+      if (!drag.active) {
+        cancelTouchDrag(false);
+        return;
+      }
+      const target = document.elementFromPoint(touch.clientX, touch.clientY);
+      const row = target?.closest<HTMLElement>("[data-drag-id]");
+      const control = target?.closest(
+        "button,a,input,textarea,select,[role='button'],[role='switch'],[contenteditable]:not([contenteditable='false'])",
+      );
+      let candidate: NonNullable<TouchFolderDragState["scrollTouch"]>["candidate"] = null;
+      if (
+        optionsRef.current.getDragIds &&
+        row?.dataset.dragId &&
+        row.dataset.dragKind === drag.sourceElement.dataset.dragKind &&
+        (!control || control === row || control.hasAttribute("data-drag-surface"))
+      ) {
+        let payload: ChatResourceDragPayload | null = null;
+        try {
+          payload = parseChatResourceDragPayload(JSON.parse(row.dataset.dragPayload ?? "null"));
+        } catch {
+          /* Ignore malformed row metadata. */
+        }
+        if (!drag.chatResourcePayload || payload?.kind === drag.chatResourcePayload.kind) {
+          candidate = { id: row.dataset.dragId, element: row, payload };
+        }
+      }
+      drag.scrollTouch = {
+        identifier: touch.identifier,
+        lastY: touch.clientY,
+        startX: touch.clientX,
+        startY: touch.clientY,
+        startedAt: performance.now(),
+        moved: false,
+        candidate,
+      };
       stopAutoScroll(drag);
     },
-    [stopAutoScroll],
+    [cancelTouchDrag, stopAutoScroll],
   );
 
   const handleTouchMove = useCallback(
@@ -353,8 +570,11 @@ export function useTouchFolderDrag({
       if (!drag) return;
       const touch = Array.from(event.touches).find((touch) => touch.identifier === drag.touchIdentifier);
       if (!touch) return;
-
-      if (event.cancelable) event.preventDefault();
+      if (!drag.active && drag.holdToActivate && !event.cancelable) {
+        // The browser has already taken this gesture for native scrolling.
+        cancelTouchDrag(false);
+        return;
+      }
 
       drag.lastX = touch.clientX;
       drag.lastY = touch.clientY;
@@ -364,25 +584,36 @@ export function useTouchFolderDrag({
       const moved = Math.hypot(movedX, movedY);
 
       if (!drag.active && moved > optionsRef.current.moveActivateThresholdPx) {
+        if (drag.holdToActivate) {
+          // A swipe before pickup belongs to the browser's normal scrolling gesture.
+          cancelTouchDrag(false);
+          return;
+        }
         activateTouchDrag(drag);
       }
 
       if (drag.active) {
+        if (event.cancelable) event.preventDefault();
         const scrollTouch = Array.from(event.touches).find(
           (touch) => touch.identifier === drag.scrollTouch?.identifier,
         );
         if (scrollTouch && drag.scrollTouch) {
-          const deltaY = drag.scrollTouch.lastY - scrollTouch.clientY;
-          drag.scrollTouch.lastY = scrollTouch.clientY;
-          if (deltaY !== 0) {
+          const finger = drag.scrollTouch;
+          finger.moved ||=
+            Math.hypot(scrollTouch.clientX - finger.startX, scrollTouch.clientY - finger.startY) >
+            optionsRef.current.moveActivateThresholdPx;
+          const deltaY = finger.lastY - scrollTouch.clientY;
+          if (finger.moved) finger.lastY = scrollTouch.clientY;
+          if (finger.moved && deltaY !== 0) {
             drag.scrollTargets.find((target) => target.canScroll(deltaY < 0 ? -1 : 1))?.scrollBy(deltaY);
           }
         }
         updatePreviewPosition(drag);
+        updateDropFeedback(drag, !!optionsRef.current.onReorder);
         scheduleAutoScroll(drag);
       }
     },
-    [activateTouchDrag, scheduleAutoScroll],
+    [activateTouchDrag, cancelTouchDrag, scheduleAutoScroll],
   );
 
   const handleTouchEnd = useCallback(
@@ -395,6 +626,34 @@ export function useTouchFolderDrag({
       const touch = Array.from(event.changedTouches).find((touch) => touch.identifier === drag.touchIdentifier);
       if (!touch) {
         if (Array.from(event.changedTouches).some((touch) => touch.identifier === drag.scrollTouch?.identifier)) {
+          const finger = drag.scrollTouch;
+          const lifted = Array.from(event.changedTouches).find((touch) => touch.identifier === finger?.identifier);
+          const candidate = finger?.candidate;
+          if (
+            finger &&
+            lifted &&
+            candidate &&
+            !finger.moved &&
+            performance.now() - finger.startedAt < 350 &&
+            Math.hypot(lifted.clientX - finger.startX, lifted.clientY - finger.startY) <=
+              optionsRef.current.moveActivateThresholdPx &&
+            !drag.ids.includes(candidate.id) &&
+            drag.ids.length < 100
+          ) {
+            drag.ids.push(candidate.id);
+            candidate.element.setAttribute("data-drag-stacked", "true");
+            drag.stackedElements.push(candidate.element);
+            updateStackPreview(drag);
+            if (drag.chatResourcePayload && candidate.payload?.kind === drag.chatResourcePayload.kind) {
+              drag.chatResourcePayload = {
+                ...drag.chatResourcePayload,
+                ids: Array.from(new Set([...drag.chatResourcePayload.ids, ...candidate.payload.ids])),
+                label: t("dragDrop.stackCount", { count: drag.ids.length }),
+                ...(candidate.payload.unsupported ? { unsupported: candidate.payload.unsupported } : {}),
+              };
+              beginChatResourceTouchDrag(drag.chatResourcePayload, drag.touchIdentifier!);
+            }
+          }
           drag.scrollTouch = null;
           if (drag.active) scheduleAutoScroll(drag);
         }
@@ -404,7 +663,7 @@ export function useTouchFolderDrag({
       drag.lastY = touch.clientY;
       cancelTouchDrag(true);
     },
-    [cancelTouchDrag, scheduleAutoScroll],
+    [cancelTouchDrag, scheduleAutoScroll, t],
   );
 
   const handleTouchCancel = useCallback(
@@ -423,15 +682,11 @@ export function useTouchFolderDrag({
     },
     [cancelTouchDrag, scheduleAutoScroll],
   );
-  const handleContextMenu = useCallback(
-    (event: Event) => {
-      const drag = dragRef.current;
-      if (!drag) return;
-      event.preventDefault();
-      cancelTouchDrag(false);
-    },
-    [cancelTouchDrag],
-  );
+  const handleContextMenu = useCallback((event: Event) => {
+    const drag = dragRef.current;
+    if (!drag) return;
+    event.preventDefault();
+  }, []);
   const handleInterruptedTouchDrag = useCallback(() => cancelTouchDrag(false), [cancelTouchDrag]);
 
   const handleMouseMove = useCallback(
@@ -452,6 +707,7 @@ export function useTouchFolderDrag({
       }
       if (drag.active) {
         updatePreviewPosition(drag);
+        updateDropFeedback(drag, !!optionsRef.current.onReorder);
         scheduleAutoScroll(drag);
       }
     },
@@ -523,17 +779,24 @@ export function useTouchFolderDrag({
       options?: StartTouchDragOptions,
     ) => {
       const touch = "touches" in event ? event.touches[0] : null;
-      if ("touches" in event ? event.touches.length !== 1 : event.button !== 0) return;
+      if (!("touches" in event) && event.button !== 0) return;
       const interactiveTarget =
-        event.target instanceof Element ? event.target.closest("button,a,input,textarea,select,[role='button']") : null;
+        event.target instanceof Element
+          ? event.target.closest(
+              "button,a,input,textarea,select,[role='button'],[role='switch'],[contenteditable]:not([contenteditable='false'])",
+            )
+          : null;
       if (
         !options?.allowInteractiveTarget &&
         interactiveTarget &&
         interactiveTarget !== event.currentTarget &&
-        !interactiveTarget.hasAttribute("data-folder-drag-handle")
+        !interactiveTarget.hasAttribute("data-folder-drag-handle") &&
+        !interactiveTarget.hasAttribute("data-drag-surface")
       ) {
         return;
       }
+      if ("touches" in event && dragRef.current?.active) return;
+      if ("touches" in event && event.touches.length !== 1) return;
       // Native HTML dragging suppresses wheel events. Keep mouse drags in the same
       // preview/drop flow as touch so the list remains normally scrollable.
       if (!touch) event.preventDefault();
@@ -551,13 +814,18 @@ export function useTouchFolderDrag({
       sourceElement.setAttribute("draggable", "false");
       sourceElement.style.setProperty(WEBKIT_TOUCH_CALLOUT_PROPERTY, "none");
       sourceElement.style.setProperty(WEBKIT_USER_DRAG_PROPERTY, "none");
-      sourceElement.style.touchAction = TOUCH_DRAG_ACTIVE_TOUCH_ACTION;
+      if (!touch || options?.allowInteractiveTarget) sourceElement.style.touchAction = TOUCH_DRAG_ACTIVE_TOUCH_ACTION;
       sourceElement.style.userSelect = "none";
 
       const drag: TouchFolderDragState = {
         id,
+        ids: Array.from(new Set(optionsRef.current.getDragIds?.(id) ?? [id])),
+        stackedElements: [],
+        feedbackElement: null,
+        insertEdge: null,
         timer: null,
         active: false,
+        holdToActivate: !!touch && !options?.allowInteractiveTarget,
         sourceElement,
         previousDraggable,
         previousTouchCallout,
@@ -591,6 +859,7 @@ export function useTouchFolderDrag({
 
   useEffect(
     () => () => {
+      releaseClickCleanupRef.current?.();
       removeListeners();
       const drag = dragRef.current;
       if (drag) {

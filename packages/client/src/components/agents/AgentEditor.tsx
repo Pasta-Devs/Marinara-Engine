@@ -3342,6 +3342,9 @@ export function AgentEditor() {
                 </span>
               </div>
               <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
+                {localizeUi("agents.illustrator.runIntervalChatDefaultHelp")}
+              </p>
+              <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
                 {localizeUi("ui.agents.agenteditor.theIllustratorCanOnlyCreateANewImageOnce")}
               </p>
               <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">

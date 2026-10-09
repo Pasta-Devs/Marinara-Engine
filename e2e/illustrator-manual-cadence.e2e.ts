@@ -259,6 +259,62 @@ test("Illustrator manual-only interval saves and survives reopening and chat set
     await add.getByRole("button", { name: "Add", exact: true }).click();
     await expect(add).toBeHidden();
     await expect.poll(async () => (await readSettings()).runInterval).toBe(0);
+
+    // Run Interval belongs to the chat: the Illustrator card and the add window save it there, never to the agent.
+    const readChatMetadata = async () => {
+      const stored = (await (await request.get(`/api/chats/${chat.id}`)).json()) as { metadata: unknown };
+      return (typeof stored.metadata === "string" ? JSON.parse(stored.metadata) : stored.metadata) as Record<
+        string,
+        unknown
+      >;
+    };
+    expect(await readChatMetadata()).not.toHaveProperty("illustratorRunInterval");
+    const card = drawer.locator(`#chat-settings-agent-menu-${chat.id}-illustrator`);
+    const intervalControl = card.locator("label").filter({ hasText: "Run Interval" }).locator("..");
+    const chatInterval = intervalControl.getByRole("textbox");
+    await expect(chatInterval).toHaveValue("0");
+    await expect(intervalControl.getByText("Using agent default", { exact: true })).toBeVisible();
+    await chatInterval.fill("7");
+    await chatInterval.blur();
+    await expect.poll(async () => (await readChatMetadata()).illustratorRunInterval).toBe(7);
+    await expect(intervalControl.getByText("Chat override", { exact: true })).toBeVisible();
+    expect((await readSettings()).runInterval).toBe(0);
+    await testInfo.attach("illustrator-chat-run-interval", {
+      body: await intervalControl.screenshot({ path: testInfo.outputPath("illustrator-chat-run-interval.png") }),
+      contentType: "image/png",
+    });
+
+    await card.getByRole("button", { name: "Remove Illustrator from chat" }).click();
+    await page
+      .getByRole("dialog", { name: "Remove Illustrator?" })
+      .getByRole("button", { name: "Remove Agent", exact: true })
+      .click();
+    await expect(card).toHaveCount(0);
+    await drawer.getByRole("button").filter({ hasText: "Illustrator" }).last().click();
+    await expect(add).toBeVisible();
+    await expect(addInterval).toHaveValue("7");
+    await addInterval.fill("2");
+    await add.getByRole("button", { name: "Add", exact: true }).click();
+    await expect(add).toBeHidden();
+    await expect.poll(async () => (await readChatMetadata()).illustratorRunInterval).toBe(2);
+    expect((await readSettings()).runInterval).toBe(0);
+    await expect(chatInterval).toHaveValue("2");
+
+    await intervalControl.getByRole("button", { name: "Use agent default", exact: true }).click();
+    await expect.poll(async () => (await readChatMetadata()).illustratorRunInterval ?? null).toBeNull();
+    await expect(chatInterval).toHaveValue("0");
+    await expect(intervalControl.getByText("Using agent default", { exact: true })).toBeVisible();
+    expect((await readSettings()).runInterval).toBe(0);
+
+    // An agent value saved as text (older or imported settings) is read the way the server reads it.
+    const textSettings = { ...(await readSettings()), runInterval: "3" };
+    expect((await request.patch(`/api/agents/${agent.id}`, { data: { settings: textSettings } })).ok()).toBeTruthy();
+    await page.reload();
+    const chatSettingsButton = page.getByRole("button", { name: "Chat Settings", exact: true });
+    await expect(chatSettingsButton).toBeVisible();
+    if (!(await drawer.isVisible())) await chatSettingsButton.click();
+    if ((await agents.getAttribute("aria-expanded")) !== "true") await agents.click();
+    await expect(chatInterval).toHaveValue("3");
   } finally {
     await request.delete(`/api/chats/${chat.id}`);
     await request.delete(`/api/agents/${agent.id}`);
