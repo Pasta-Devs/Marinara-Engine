@@ -1768,6 +1768,12 @@ html[data-marinara-effects-paused="true"] .mari-pull-overlay[data-mari-edge] .ma
   line-height: 1.45;
 }
 
+/* Her retry pose stands beside the error card; the card takes the rest of the row. */
+.mari-run-error-row > .mari-run-error {
+  min-width: 0;
+  flex: 1;
+}
+
 .mari-run-error__text {
   display: flex;
   min-width: 0;

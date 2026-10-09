@@ -154,9 +154,12 @@ export const MARI_ASSET_TIER: {
   portraits: { idle: 2, blink: 2, shrug: 2, pullHeads: 2, drag: 2, hover: 2 },
   stories: {
     ...(Object.fromEntries(MARI_STORY_STATES.map((id) => [id, 3])) as Record<MariStoryState, 3>),
-    // The live line starts on thinking and rests on idle, so both are warm before she is shown.
+    // The live line starts on thinking and rests on idle, so both are warm before she is shown. A failed run
+    // puts her in retry beside the error card, and a finished run shows success, so both are warm too.
     idle: 2,
     thinking: 2,
+    retry: 2,
+    success: 2,
   },
   poses: {
     profile: 1,

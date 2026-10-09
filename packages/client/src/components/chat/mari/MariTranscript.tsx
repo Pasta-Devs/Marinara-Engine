@@ -164,6 +164,11 @@ export function MariTranscript({
 }: MariTranscriptProps) {
   const { t: localizeUi } = useTranslation();
   const { t } = useTranslation();
+  const runErrorCard = activeRunError
+    ? renderRunErrorCard(activeRunError, true)
+    : workspaceStatus?.error && !isBusy
+      ? renderRunErrorCard({ detail: workspaceStatus.error }, false)
+      : null;
   return (
     <div
       ref={setTranscriptScrollNode}
@@ -294,7 +299,7 @@ export function MariTranscript({
                                     A failed send is its red line under your message, not also a line of hers.
                                     Held back while the live timeline is still mounted (M4): the reload that
                                     clears it also brings the trace whose timeline then shows her. */}
-              {restingStory && !latestTurnHasTrace && !activeRunError && !workspaceTimelineVisible ? (
+              {restingStory && !latestTurnHasTrace && !runErrorCard && !workspaceTimelineVisible ? (
                 <div
                   className="mari-work-timeline__live"
                   data-past={latestMessage?.role === "assistant" ? "true" : undefined}
@@ -312,11 +317,13 @@ export function MariTranscript({
                   ) : null}
                 </div>
               ) : null}
-              {activeRunError
-                ? renderRunErrorCard(activeRunError, true)
-                : workspaceStatus?.error && !isBusy
-                  ? renderRunErrorCard({ detail: workspaceStatus.error }, false)
-                  : null}
+              {/* A failed run keeps her beside the error card, in her retry pose, so the hand-over has no gap. */}
+              {runErrorCard ? (
+                <div className="mari-work-timeline__live mari-run-error-row">
+                  <MariStorySprite state="retry" pullTarget={!appendedArrival} />
+                  {runErrorCard}
+                </div>
+              ) : null}
               {reviewsByTurn.unassigned.length > 0 || (heldCardNode && !lastAssistantId) ? (
                 <div className="space-y-3">
                   {lastAssistantId ? null : heldCardNode}
