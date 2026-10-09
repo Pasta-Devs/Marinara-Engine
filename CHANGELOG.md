@@ -311,6 +311,21 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - The omnibar's live count says **1 result** for one match, not "1 results".
 - The phone top bar's Home and Chats buttons have names for screen readers.
 - An applied Mari change in the omnibar offers **Undo**, not **Restore**. **Restore** stays for a held change.
+- Typing **mari**, **ask mari** or **professor** in the omnibar makes **Open Mari** the Top hit. Before, a settings row or an applied-change row took the top.
+- After **Continue with Mari**, **Accept**, **Don't apply**, **Undo** or **Keep**, keyboard focus stays in Mari's window, so Escape and Tab keep working. **Use this connection** returns focus to the search field.
+- The held Mari figure sits above the omnibar and Mari's dialogs on the shared layer scale, below toasts.
+- The quick answer's **Continue with Mari** button is solid, so it no longer looks disabled.
+- A tap on **Continue with Mari** while a quick answer streams now runs when the answer ends, and the button no longer jumps. The one-time note no longer says that no results matched.
+- After a Mari run, her composer stays at the bottom of the window instead of floating above an empty band.
+- Quick answers no longer cite contributor notes from `docs/contrib` as sources.
+- Accepting a held change no longer shows "I accept the proposed change." as your message and as the goal.
+- On a phone, the omnibar chips, the settings button and the copy, edit and delete icons under Mari's messages have 44 px touch targets.
+- Mari's chat check step reads **Checked the last reply**, not "Read chat diagnose".
+- **Continue with Mari** from a chat no longer moves the page behind her to Home or logs 404 errors.
+- A message to Mari shows the open chat once in its context chips.
+- A Mari turn that waits for your choice no longer ends on **Done**.
+- Shortcut hints show **Ctrl** or **⌘** for your device instead of "Ctrl/⌘", and the hold line uses a kaomoji every font can draw.
+- Mari's header says **Needs a connection** until a model connection exists.
 
 ## [2.5.0]
 
