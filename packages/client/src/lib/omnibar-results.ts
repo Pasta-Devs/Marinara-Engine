@@ -718,6 +718,8 @@ export function buildOmnibarSearchResults({
             id: "open-professor-mari",
             title: t("commandCenter.openMari", "Open Mari"),
             category: "professor",
+            // The presenter otherwise picks a Top hit by title prefix ("Mari changed…", "Ask Mari from Search").
+            group: "top-hit",
             score: 1000,
             kind: "action",
             icon: "professor",

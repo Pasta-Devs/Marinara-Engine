@@ -1633,6 +1633,16 @@ assert.ok(!("mariDetailId" in mariSession));
       `UX-01: "${word}" opens Mari first`,
     );
   }
+  // The presenter must not pick a title-prefix Top hit over her ("Mari changed Shrek", "Ask Mari from Search").
+  const presented = presentCommandCenterResults(
+    [
+      { id: "approval:1", title: "Mari changed Shrek", category: "professor", score: 900 },
+      ...buildOmnibarSearchResults(searchInput("mari")),
+    ],
+    { query: "mari" },
+  );
+  assert.equal(presented.groups[0]?.id, "top-hit");
+  assert.equal(presented.results[0]?.id, "open-professor-mari", "UX-01: Open Mari is the Top hit");
   assert.equal(
     buildOmnibarSearchResults(searchInput("mari", false)).some((result) => result.id === "open-professor-mari"),
     false,

@@ -609,6 +609,9 @@ function findTopHit<T extends CommandCenterPresentableResult>(
   const eligible = ranked.filter(
     (result) => !NEVER_TOP_HIT.has(groupOf(result)) && (result.score ?? 0) >= TOP_HIT_MIN_SCORE,
   );
+  // A row that names itself the Top hit (Open Mari for "mari") wins over a title-prefix guess.
+  const pinned = ranked.find((result) => groupOf(result) === "top-hit");
+  if (pinned) return pinned;
   const name = (result: T) => normalizeTextForMatch(result.title);
   // A title that starts with the text beats one where only a later word does:
   // "persona" leads with Persona library, not Show Characters in Persona Pickers.
