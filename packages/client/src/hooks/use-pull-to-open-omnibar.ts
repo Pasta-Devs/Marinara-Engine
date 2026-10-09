@@ -44,7 +44,7 @@ const TAIL: SpringSpec = [150, 17]; // the circle pulls in its tail
 const OPEN: SpringSpec = [210, 21]; // the circle pops open into the view
 const DOCK: SpringSpec = [200, 27]; // the magnifier settles into the search field
 const DIP: SpringSpec = [300, 18]; // the arm dip: down about 4 px, a hair back up, still
-const TILT: SpringSpec = [160, 11]; // her head leans with a sideways drag and rocks back once
+const TILT: SpringSpec = [160, 14]; // her head leans with a sideways drag and rocks back once
 const MORPH: SpringSpec = [190, 24]; // M17: the circle becomes the present Mari (~0.4 s, a hint of overshoot)
 /** Soft light from within; a very faint accent around the circle once armed. */
 const GLOW_REST = 0.02;
@@ -382,11 +382,11 @@ export function usePullToOpenOmnibar({
       portrait.style.filter = blur;
       // She leans a little against a sideways drag and rocks back when it stops.
       const lean = landing || g.calm ? 0 : clamp(-mv.x.getVelocity() / 90, -TILT_MAX, TILT_MAX);
-      if (Math.abs(lean - g.lean) > 0.05) {
+      if (Math.abs(lean - g.lean) > 0.3) {
         g.lean = lean;
         go(mv.tilt, lean, TILT);
       }
-      portrait.style.transform = `translate3d(${px(cx)}px, ${px(y)}px, 0) translate(-50%, -50%) scale(${px((Math.max(0, 2 * radius - 8) / 72) * 1000) / 1000}) rotate(${px(mv.tilt.get())}deg)`;
+      portrait.style.transform = `translate3d(${px(cx)}px, ${px(y)}px, 0) translate(-50%, -50%) scale(${px((Math.max(0, 2 * radius - 8) / 72) * 1000) / 1000}) rotate(${px(clamp(mv.tilt.get(), -TILT_MAX, TILT_MAX))}deg)`;
     }
     // 45b: she looks down at the screen's middle, where the chat or the editor is, from where she is pulled.
     if (els.head && g.mode === "pull" && !g.calm) {
