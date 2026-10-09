@@ -59,6 +59,9 @@ export function MariHoldFigure({
     // Squash on each axis: a smash on a vertical wall squashes her vertically, and the reverse.
     let squashX: MariSpring = { x: 0, v: 0 };
     let squashY: MariSpring = { x: 0, v: 0 };
+    // A wall pinning the grab point takes the hand's push, so the push does not swing her.
+    let pinnedX = false;
+    let pinnedY = false;
     let bonkTimer = 0;
     let anchor: ReturnType<typeof slotRect> = null;
     let last = performance.now();
@@ -103,7 +106,7 @@ export function MariHoldFigure({
         const upright = stepMariSpring({ x: body.angle, v: body.omega }, 0, 240, 0.72, dt);
         body = { angle: upright.x, omega: upright.v };
       } else {
-        body = stepMariPendulum(body, accel, dt);
+        body = stepMariPendulum(body, { x: pinnedX ? 0 : accel.x, y: pinnedY ? 0 : accel.y }, dt);
       }
       squashX = stepMariSpring(squashX, 0, 700, 0.3, dt);
       squashY = stepMariSpring(squashY, 0, 700, 0.3, dt);
@@ -116,6 +119,8 @@ export function MariHoldFigure({
         const extent = mariFigureExtent(body.angle, width, FIGURE_HEIGHT, sx, sy);
         const wallX = stepMariWall(x, extent.left, extent.right, window.innerWidth);
         const wallY = stepMariWall(y, extent.top, extent.bottom, window.innerHeight);
+        pinnedX = wallX.spring.x !== x.x;
+        pinnedY = wallY.spring.x !== y.x;
         x = wallX.spring;
         y = wallY.spring;
         if (wallX.smash) squashX = { x: 0.22, v: 0 };

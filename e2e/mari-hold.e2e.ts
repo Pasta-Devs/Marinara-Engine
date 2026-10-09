@@ -115,9 +115,11 @@ async function figureAngle(figure: ReturnType<Page["locator"]>) {
 test("circling the pointer while holding her turns her upside down, and she settles when still", async ({ page }) => {
   await page.goto("/");
   const { figure, startX, startY } = await holdWidgetAndDrag(page);
+  // Circle in the middle of the screen: a 390 px phone has no room for a circle around her corner, and a
+  // pointer past the edge would hold her against the wall.
   const radius = 90;
-  const centreX = startX + 40 - radius;
-  const centreY = startY - 30;
+  const centreX = (page.viewportSize()?.width ?? 1440) / 2;
+  const centreY = startY;
   let peak = 0;
   const started = Date.now();
   while (Date.now() - started < 3_000) {
