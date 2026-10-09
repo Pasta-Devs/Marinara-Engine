@@ -4,6 +4,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- Professor Mari acts on a clear request such as "set up a lorebook for my world" in one go again. She fills in details you left out with her best guess and shows the change on a Keep/Restore card, instead of asking first or stopping after a reply with no action.
 - **Continue with Mari** from a quick answer no longer stops a task Mari is working on. While she works, it says so and waits; continue when she finishes.
 - When a chat character forgets things, Professor Mari now reads the character card too. If the card makes him forgetful or confused on purpose, she says that nothing is broken and explains what is going on, instead of always blaming a missing lorebook.
 - Quick answers and Professor Mari read only the user docs. They no longer find or name the developer working plans under `docs/development/` (the docs viewer already hid them).
