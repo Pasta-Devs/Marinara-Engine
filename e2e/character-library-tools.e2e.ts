@@ -41,7 +41,6 @@ test("character library restores New Folder and bulk tags persist across reload"
       hasCompletedOnboarding: true,
       sidebarOpen: false,
       rightPanelOpen: false,
-      professorMariNavigationEnabled: false,
     });
     await page.addInitScript((appVersion) => {
       localStorage.setItem("marinara:whats-new:seen-version", appVersion);

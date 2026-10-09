@@ -19,7 +19,6 @@ async function openMariWithSlowLoad(page: Page, theme: "dark" | "light", width: 
     hasCompletedOnboarding: true,
     rightPanelOpen: false,
     sidebarOpen: false,
-    professorMariNavigationEnabled: false,
     theme,
   });
   await page.route("**/api/chats/internal/professor-mari**", async (route) => {
@@ -29,7 +28,10 @@ async function openMariWithSlowLoad(page: Page, theme: "dark" | "light", width: 
   await page.goto("/");
   // The shortcut is ignored until the app has booted; wait for Home before pressing it.
   await expect(page.getByRole("heading", { name: "What shall we cook tonight?" })).toBeVisible({ timeout: 30_000 });
-  await page.locator("main").first().click({ position: { x: 5, y: 5 } });
+  await page
+    .locator("main")
+    .first()
+    .click({ position: { x: 5, y: 5 } });
   await page.keyboard.press("Control+j");
 }
 
@@ -59,6 +61,11 @@ test("the loading state stays still under reduced motion", async ({ page }) => {
   const loading = page.locator(".mari-loading");
   await expect(loading).toBeVisible({ timeout: 5_000 });
   expect(await loading.evaluate((element) => getComputedStyle(element).animationName)).toBe("mari-loading-visibility");
-  expect(await loading.locator(".mari-loading__row").first().evaluate((element) => getComputedStyle(element).animationName)).toBe("none");
+  expect(
+    await loading
+      .locator(".mari-loading__row")
+      .first()
+      .evaluate((element) => getComputedStyle(element).animationName),
+  ).toBe("none");
   await page.screenshot({ path: `${PROOF_DIR}loading-reduced-motion-390.png` });
 });

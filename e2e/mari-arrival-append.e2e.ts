@@ -44,7 +44,6 @@ async function prepareClient(page: Page, width: number) {
     hasCompletedOnboarding: true,
     rightPanelOpen: false,
     sidebarOpen: false,
-    professorMariNavigationEnabled: false,
   });
 }
 
@@ -277,7 +276,6 @@ for (const theme of ["dark", "light"] as const) {
         hasCompletedOnboarding: true,
         rightPanelOpen: false,
         sidebarOpen: false,
-        professorMariNavigationEnabled: false,
       });
       await page.goto("/");
       await page.evaluate(
@@ -461,7 +459,6 @@ test("an arrival during a run waits until the finished run has been shown", asyn
       rightPanelOpen: false,
       sidebarOpen: false,
       reduceAmbientEffects: true,
-      professorMariNavigationEnabled: false,
     });
     await page.goto("/");
     await page

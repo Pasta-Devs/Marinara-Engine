@@ -103,7 +103,6 @@ test("done marks show on each step while Mari is still working", async ({ page, 
       rightPanelOpen: false,
       sidebarOpen: false,
       reduceAmbientEffects: true,
-      professorMariNavigationEnabled: false,
     });
     await page.goto("/");
     await page

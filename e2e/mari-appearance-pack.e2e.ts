@@ -11,7 +11,6 @@ test("Golden (once unlocked) and Safari Mari are selectable and survive reload",
     page,
     {
       hasCompletedOnboarding: true,
-      professorMariNavigationEnabled: false,
       rightPanelOpen: false,
       sidebarOpen: false,
       // R12: Golden needs 100 h of play time; this test is about selection, so it starts unlocked.

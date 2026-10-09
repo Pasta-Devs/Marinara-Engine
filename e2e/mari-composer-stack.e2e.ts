@@ -47,7 +47,6 @@ async function openMariFixture(page: Page, request: APIRequestContext, baseUrl =
     hasCompletedOnboarding: true,
     rightPanelOpen: false,
     sidebarOpen: false,
-    professorMariNavigationEnabled: false,
   });
   return { connectionId, chatId: mariChat.id };
 }
@@ -97,7 +96,10 @@ test("the last answer ends above the composer, and stays so while the composer g
   try {
     await seedAnswers(request, chatId, 2);
     await page.goto("/");
-    await page.locator("main").first().click({ position: { x: 5, y: 5 } });
+    await page
+      .locator("main")
+      .first()
+      .click({ position: { x: 5, y: 5 } });
     await page.keyboard.press("Control+j");
     const pane = page.locator('[data-component="GlobalOmnibar.Mari"]:not([aria-hidden="true"])');
     const composer = pane.locator("textarea:visible");
@@ -117,7 +119,10 @@ test("the empty state ends above the composer after Mari, Search, Mari", async (
   const { connectionId } = await openMariFixture(page, request);
   try {
     await page.goto("/");
-    await page.locator("main").first().click({ position: { x: 5, y: 5 } });
+    await page
+      .locator("main")
+      .first()
+      .click({ position: { x: 5, y: 5 } });
     await page.keyboard.press("Control+k");
     await page.locator('[data-component="GlobalOmnibar.ProfessorMariButton"]').click();
     const pane = page.locator('[data-component="GlobalOmnibar.Mari"]:not([aria-hidden="true"])');
@@ -138,7 +143,10 @@ test("answers end above the composer after Mari, Search, Mari", async ({ page, r
   try {
     await seedAnswers(request, chatId, 2);
     await page.goto("/");
-    await page.locator("main").first().click({ position: { x: 5, y: 5 } });
+    await page
+      .locator("main")
+      .first()
+      .click({ position: { x: 5, y: 5 } });
     await page.keyboard.press("Control+j");
     const pane = page.locator('[data-component="GlobalOmnibar.Mari"]:not([aria-hidden="true"])');
     await expect(pane.locator("textarea:visible")).toBeVisible();
@@ -146,20 +154,28 @@ test("answers end above the composer after Mari, Search, Mari", async ({ page, r
     await expect(pane).toHaveCount(0);
     await page.keyboard.press("Control+j");
     await expect(pane.locator("textarea:visible")).toBeVisible();
-    await expect.poll(() => contentUnderStack(page), { message: "answers after Mari, Search, Mari" }).toBeLessThanOrEqual(1);
+    await expect
+      .poll(() => contentUnderStack(page), { message: "answers after Mari, Search, Mari" })
+      .toBeLessThanOrEqual(1);
   } finally {
     await cleanup(request, connectionId);
   }
 });
 
-test("mobile: answers end above the composer when the keyboard opens and closes", async ({ page, request }, testInfo) => {
+test("mobile: answers end above the composer when the keyboard opens and closes", async ({
+  page,
+  request,
+}, testInfo) => {
   test.skip(!testInfo.project.name.includes("mobile"), "The software keyboard is a phone concern.");
   const { connectionId, chatId } = await openMariFixture(page, request);
   try {
     await page.setViewportSize({ width: 390, height: 844 });
     await seedAnswers(request, chatId, 2);
     await page.goto("/");
-    await page.locator("main").first().click({ position: { x: 5, y: 5 } });
+    await page
+      .locator("main")
+      .first()
+      .click({ position: { x: 5, y: 5 } });
     await page.keyboard.press("Control+j");
     const pane = page.locator('[data-component="GlobalOmnibar.Mari"]:not([aria-hidden="true"])');
     const composer = pane.locator("textarea:visible");
@@ -219,7 +235,10 @@ async function startFixtureModel(rounds: FixtureRound[]) {
 async function openWindowAndSend(page: Page, text: string) {
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "What shall we cook tonight?" })).toBeVisible({ timeout: 30_000 });
-  await page.locator("main").first().click({ position: { x: 5, y: 5 } });
+  await page
+    .locator("main")
+    .first()
+    .click({ position: { x: 5, y: 5 } });
   await page.keyboard.press("Control+j");
   const pane = page.locator('[data-component="GlobalOmnibar.Mari"]:not([aria-hidden="true"])');
   const composer = pane.locator("textarea:visible");
@@ -270,7 +289,10 @@ test("suggestion chips end above the composer", async ({ page, request }) => {
 });
 
 test("a change card ends above the composer", async ({ page, request }) => {
-  const tool = (action: string, extra: Record<string, unknown>) => ({ name: "app_data", arguments: { action, ...extra } });
+  const tool = (action: string, extra: Record<string, unknown>) => ({
+    name: "app_data",
+    arguments: { action, ...extra },
+  });
   const model = await startFixtureModel([
     {
       delayMs: 0,
@@ -298,7 +320,11 @@ test("the live run line ends above the composer while Mari works", async ({ page
   const model = await startFixtureModel([
     {
       delayMs: 6_000,
-      action: { say: "Finished.", commands: [{ name: "app_data", arguments: { action: "character.list" } }], stop: true },
+      action: {
+        say: "Finished.",
+        commands: [{ name: "app_data", arguments: { action: "character.list" } }],
+        stop: true,
+      },
     },
   ]);
   const { connectionId, chatId } = await openMariFixture(page, request, model.baseUrl);

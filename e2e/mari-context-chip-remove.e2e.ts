@@ -91,7 +91,6 @@ test("the Context chip's X sends the next message without the chat", async ({ pa
       rightPanelOpen: false,
       sidebarOpen: false,
       reduceAmbientEffects: true,
-      professorMariNavigationEnabled: false,
     });
     await page.goto("/");
     await page.evaluate(async (id) => {

@@ -254,14 +254,6 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
     kind: "Toggle",
   },
   {
-    id: "professor-mari-navigation",
-    sectionId: "omnibar",
-    label: "Home navigator",
-    description: "Mari's box on Home finds pages by keyword. What you type never goes to AI.",
-    aliases: ["professor mari navigation", "home", "helper", "navigation", "where is", "find"],
-    kind: "Toggle",
-  },
-  {
     id: "mini-mari",
     sectionId: "omnibar",
     label: "Mini Mari visits",

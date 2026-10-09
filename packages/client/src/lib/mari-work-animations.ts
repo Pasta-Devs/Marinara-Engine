@@ -39,8 +39,6 @@ export interface MariAppearancePack {
   portraits: {
     idle: string;
     blink: string;
-    arrival: string;
-    map: string;
     shrug: string;
     drag: string;
     /** 45b: six 96 px heads for the pull circle: neutral, down, down-left, down-right, peering, delighted. */
@@ -80,8 +78,6 @@ export const MARI_APPEARANCE_PACKS: readonly MariAppearancePack[] = [
     portraits: {
       idle: sprite("basic/portrait-idle.webp"),
       blink: sprite("basic/portrait-blink.webp"),
-      arrival: sprite("basic/portrait-arrival.webp"),
-      map: sprite("basic/portrait-map.webp"),
       shrug: sprite("basic/portrait-shrug.webp"),
       drag: sprite("basic/portrait-drag.webp"),
       pullHeads: sprite("basic/pull-heads.webp"),
@@ -96,8 +92,6 @@ export const MARI_APPEARANCE_PACKS: readonly MariAppearancePack[] = [
     portraits: {
       idle: sprite("dottore/portrait-idle.webp"),
       blink: sprite("dottore/portrait-blink.webp"),
-      arrival: sprite("dottore/idle.webp"),
-      map: sprite("dottore/portrait-map.webp"),
       shrug: sprite("dottore/portrait-shrug.webp"),
       drag: sprite("dottore/portrait-drag.webp"),
       pullHeads: sprite("dottore/pull-heads.webp"),
@@ -112,8 +106,6 @@ export const MARI_APPEARANCE_PACKS: readonly MariAppearancePack[] = [
     portraits: {
       idle: sprite("golden/portrait-idle.webp"),
       blink: sprite("golden/portrait-blink.webp"),
-      arrival: sprite("golden/idle.webp"),
-      map: sprite("golden/portrait-map.webp"),
       shrug: sprite("golden/portrait-shrug.webp"),
       drag: sprite("golden/portrait-drag.webp"),
       pullHeads: sprite("golden/pull-heads.webp"),
@@ -129,8 +121,6 @@ export const MARI_APPEARANCE_PACKS: readonly MariAppearancePack[] = [
     portraits: {
       idle: sprite("safari/portrait-idle.webp"),
       blink: sprite("safari/portrait-blink.webp"),
-      arrival: sprite("safari/idle.webp"),
-      map: sprite("safari/portrait-map.webp"),
       shrug: sprite("safari/portrait-shrug.webp"),
       drag: sprite("safari/portrait-drag.webp"),
       pullHeads: sprite("safari/pull-heads.webp"),
@@ -155,7 +145,7 @@ export const MARI_ASSET_TIER: {
   stories: Record<MariStoryState, 1 | 2 | 3>;
   poses: Record<MariPose, 1 | 2 | 3>;
 } = {
-  portraits: { idle: 2, blink: 2, shrug: 2, pullHeads: 2, arrival: 3, map: 3, drag: 3 },
+  portraits: { idle: 2, blink: 2, shrug: 2, pullHeads: 2, drag: 3 },
   stories: { ...(Object.fromEntries(MARI_STORY_STATES.map((id) => [id, 3])) as Record<MariStoryState, 3>), idle: 2 },
   poses: {
     profile: 1,

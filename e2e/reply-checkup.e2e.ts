@@ -50,7 +50,6 @@ async function open(page: Page, chatId: string) {
     sidebarOpen: false,
     rightPanelOpen: false,
     reduceAmbientEffects: true,
-    professorMariNavigationEnabled: false,
   });
   await page.addInitScript(
     ({ version, chatId }) => {

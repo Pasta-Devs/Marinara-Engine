@@ -10,8 +10,7 @@ const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.u
  */
 
 const selection = (page: Page) => page.evaluate(() => window.getSelection()?.toString() ?? "");
-const blocked = (page: Page) =>
-  page.evaluate(() => document.documentElement.classList.contains("mari-pull-no-select"));
+const blocked = (page: Page) => page.evaluate(() => document.documentElement.classList.contains("mari-pull-no-select"));
 
 /** A point on the bar's own surface, not on one of its controls (a mouse pull starts only there). */
 async function emptyBarPoint(page: Page) {
@@ -79,7 +78,6 @@ test("a mouse pull on the top bar selects no text, and the block ends with the d
       sidebarOpen: false,
       rightPanelOpen: false,
       chatHelpSeenModes: ["conversation", "roleplay", "game"],
-      professorMariNavigationEnabled: false,
     });
     await page.addInitScript(
       ({ id, version }) => {

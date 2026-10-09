@@ -11,7 +11,6 @@ test("library portraits keep their proportions in compact and full layouts", asy
     hasCompletedOnboarding: true,
     sidebarOpen: false,
     rightPanelOpen: false,
-    professorMariNavigationEnabled: false,
   });
   await page.addInitScript(
     (version: string) => {

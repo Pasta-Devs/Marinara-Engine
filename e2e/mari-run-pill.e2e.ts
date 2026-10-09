@@ -86,7 +86,6 @@ async function openMari(page: Page, request: APIRequestContext, url: string) {
     rightPanelOpen: false,
     sidebarOpen: false,
     reduceAmbientEffects: true,
-    professorMariNavigationEnabled: false,
   });
   return connectionId;
 }
@@ -95,7 +94,10 @@ async function bootAndOpenMari(page: Page) {
   await page.goto("/");
   // The shortcut is ignored until the app has booted; wait for Home before pressing it.
   await expect(page.getByRole("heading", { name: "What shall we cook tonight?" })).toBeVisible({ timeout: 30_000 });
-  await page.locator("main").first().click({ position: { x: 5, y: 5 } });
+  await page
+    .locator("main")
+    .first()
+    .click({ position: { x: 5, y: 5 } });
   await page.keyboard.press("Control+j");
   await expect(page.locator('[data-component="GlobalOmnibar.Mari"]').locator("textarea:visible")).toBeVisible();
 }

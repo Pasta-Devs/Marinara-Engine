@@ -2496,7 +2496,6 @@ assert.ok(!("mariDetailId" in mariSession));
   assert.ok(SETTINGS_SECTIONS.some((section) => section.id === OMNIBAR_SETTINGS_SECTION_ID));
   for (const id of [
     "mini-mari",
-    "professor-mari-navigation",
     "professor-mari-suggestions",
     "mari-permissions-mode",
     "mari-send-on-enter",

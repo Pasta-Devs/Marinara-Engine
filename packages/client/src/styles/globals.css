@@ -4021,147 +4021,6 @@ html.mari-home-widget-drag-active * {
   transform: translate3d(-50%, -50%, 0) rotate(45deg) scale(0.6);
 }
 
-.mari-home-professor-popup {
-  transform-origin: bottom right;
-}
-
-.mari-home-professor-popup__sprite {
-  animation: mari-home-professor-arrive 900ms cubic-bezier(0.16, 1, 0.3, 1) both;
-  transform-origin: bottom center;
-}
-
-.mari-home-professor-popup__bubble {
-  animation: mari-home-professor-bubble-arrive 650ms 280ms cubic-bezier(0.16, 1, 0.3, 1) both;
-  transition: opacity 120ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.mari-home-professor-popup__bubble::before,
-.mari-home-professor-popup__bubble::after {
-  content: none;
-  display: none;
-}
-
-.mari-home-professor-popup__bubble-tail {
-  display: block;
-  position: absolute;
-  left: -0.82rem;
-  bottom: 1.1rem;
-  width: 0.9rem;
-  height: 1.25rem;
-  z-index: -1;
-  transform-origin: center;
-}
-
-.mari-home-professor-popup__bubble-tail::before,
-.mari-home-professor-popup__bubble-tail::after {
-  content: "";
-  position: absolute;
-  clip-path: polygon(0 50%, 100% 0, 100% 100%);
-}
-
-.mari-home-professor-popup__bubble-tail::before {
-  inset: 0;
-  background: color-mix(in srgb, var(--marinara-chat-chrome-accent) 48%, var(--border));
-}
-
-.mari-home-professor-popup__bubble-tail::after {
-  left: 0.2rem;
-  bottom: 0.09rem;
-  width: 0.72rem;
-  height: 1.05rem;
-  background: color-mix(in srgb, var(--marinara-chat-chrome-accent) 8%, var(--card));
-}
-
-.mari-home-professor-popup__bubble[data-tail-side="right"] .mari-home-professor-popup__bubble-tail {
-  right: -0.82rem;
-  left: auto;
-  transform: scaleX(-1);
-}
-
-.mari-home-professor-popup__arrival-frame {
-  background-position: 0% 0;
-  animation: mari-home-professor-frame-cycle 1.45s steps(3, end) 80ms both;
-  will-change: background-position;
-}
-
-.mari-home-professor-popup__drag-frame {
-  left: 45%;
-  top: 9%;
-  width: 120%;
-  height: 114%;
-  background-position: 3.1% 0;
-  animation:
-    mari-home-professor-drag-frame-cycle 680ms steps(1, end) infinite,
-    mari-home-professor-dangle-sway 680ms cubic-bezier(0.45, 0, 0.55, 1) infinite;
-  animation-play-state: paused;
-  backface-visibility: hidden;
-  contain: paint;
-  filter: brightness(0.97) saturate(0.66) hue-rotate(1deg) contrast(1.1);
-  image-rendering: pixelated;
-  opacity: 0;
-  transform-origin: 45% 12.2%;
-  transform: translate3d(-45%, -12.2%, 0);
-  visibility: hidden;
-  will-change: background-position, transform;
-}
-
-.mari-home-professor-popup[data-dragging="true"] .mari-home-professor-popup__drag-frame {
-  animation-play-state: running;
-  opacity: 1;
-  visibility: visible;
-}
-
-.mari-home-professor-popup[data-dragging="true"] .mari-home-professor-popup__rest-frame {
-  visibility: hidden;
-}
-
-.mari-home-professor-popup[data-dragging="true"] .mari-home-professor-popup__bubble {
-  pointer-events: none;
-}
-
-html.mari-home-professor-drag-active,
-html.mari-home-professor-drag-active * {
-  cursor: grabbing !important;
-  user-select: none !important;
-}
-
-.mari-home-professor-popup__idle-stage {
-  animation: mari-home-professor-idle 5.6s ease-in-out infinite;
-  animation-play-state: paused;
-  transform-origin: bottom center;
-}
-
-.mari-home-professor-popup__idle-stage--active {
-  animation-play-state: running;
-}
-
-.mari-home-professor-popup__idle {
-  opacity: 1;
-}
-
-.mari-home-professor-popup__blink {
-  opacity: 0;
-  animation: mari-home-professor-blink 5.6s steps(1, end) infinite;
-  animation-play-state: paused;
-}
-
-.mari-home-professor-popup__idle-stage--active .mari-home-professor-popup__blink {
-  animation-play-state: running;
-}
-
-.mari-home-professor-popup__state-image {
-  transform-origin: bottom center;
-  will-change: transform, opacity;
-}
-
-.mari-home-professor-popup__state-image--map {
-  animation: mari-home-professor-map 520ms cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-.mari-home-professor-popup__state-image--shrug {
-  animation: mari-home-professor-shrug 480ms cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
 .mari-home-discovery-card {
   animation: mari-home-discovery-swap 320ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
@@ -4179,119 +4038,6 @@ html.mari-home-professor-drag-active * {
   62% {
     opacity: 0.3;
     transform: translate3d(-50%, -50%, 0) scale(0.86);
-  }
-}
-
-@keyframes mari-home-professor-drag-frame-cycle {
-  0%,
-  24.99% {
-    background-position: 3.1% 0;
-  }
-  25%,
-  49.99% {
-    background-position: 34.48% 0;
-  }
-  50%,
-  74.99% {
-    background-position: 66.12% 0;
-  }
-  75%,
-  100% {
-    background-position: 98.15% 0;
-  }
-}
-
-@keyframes mari-home-professor-dangle-sway {
-  0%,
-  100% {
-    transform: translate3d(-45%, -12.2%, 0) rotate(-0.7deg);
-  }
-  50% {
-    transform: translate3d(-45%, -12.2%, 0) rotate(0.7deg);
-  }
-}
-
-@keyframes mari-home-professor-arrive {
-  from {
-    opacity: 0;
-    transform: translate3d(0, 4.5rem, 0) scale(0.94);
-  }
-  to {
-    opacity: 1;
-    transform: translate3d(0, 0, 0) scale(1);
-  }
-}
-
-@keyframes mari-home-professor-bubble-arrive {
-  from {
-    opacity: 0;
-    transform: translate3d(0.75rem, 0.5rem, 0) scale(0.96);
-  }
-  to {
-    opacity: 1;
-    transform: translate3d(0, 0, 0) scale(1);
-  }
-}
-
-@keyframes mari-home-professor-frame-cycle {
-  from {
-    background-position: 0% 0;
-  }
-  to {
-    background-position: 100% 0;
-  }
-}
-
-@keyframes mari-home-professor-idle {
-  0%,
-  100% {
-    transform: translate3d(0, 0, 0) scaleY(1);
-  }
-  50% {
-    transform: translate3d(0, -0.12rem, 0) scaleY(1.006);
-  }
-}
-
-@keyframes mari-home-professor-blink {
-  0%,
-  72%,
-  76%,
-  100% {
-    opacity: 0;
-  }
-  73%,
-  75% {
-    opacity: 1;
-  }
-}
-
-@keyframes mari-home-professor-map {
-  0% {
-    opacity: 1;
-    transform: translate3d(0, 0.5rem, 0) scale(0.9, 0.96);
-  }
-  72% {
-    opacity: 1;
-    transform: translate3d(0, -0.12rem, 0) scale(1.018, 1.01);
-  }
-  100% {
-    opacity: 1;
-    transform: translate3d(0, 0, 0) scale(1);
-  }
-}
-
-@keyframes mari-home-professor-shrug {
-  0% {
-    opacity: 1;
-    transform: translate3d(0, 0.4rem, 0) scale(0.94);
-  }
-  62% {
-    opacity: 1;
-    transform: translate3d(0, -0.16rem, 0) scale(1.015);
-  }
-  100% {
-    opacity: 1;
-    transform: translate3d(0, 0, 0) scale(1);
   }
 }
 
@@ -4324,23 +4070,8 @@ html.mari-home-professor-drag-active * {
     opacity: 0.24;
   }
 
-  .mari-home-professor-popup {
-    animation: none;
-  }
-
-  .mari-home-professor-popup__sprite,
-  .mari-home-professor-popup__bubble,
-  .mari-home-professor-popup__arrival-frame,
-  .mari-home-professor-popup__drag-frame,
-  .mari-home-professor-popup__idle-stage,
-  .mari-home-professor-popup__blink,
-  .mari-home-professor-popup__state-image,
   .mari-home-discovery-card {
     animation: none;
-  }
-
-  .mari-home-professor-popup__arrival-frame {
-    background-position: 100% 0;
   }
 }
 
@@ -4364,34 +4095,12 @@ html[data-marinara-effects-paused="true"] .mari-home-widget > :not(.mari-home-wi
   transition: none;
 }
 
-html[data-marinara-reduced-effects="true"] .mari-home-professor-popup {
-  animation: none;
-}
-
-html[data-marinara-reduced-effects="true"] .mari-home-professor-popup__sprite,
-html[data-marinara-reduced-effects="true"] .mari-home-professor-popup__bubble,
-html[data-marinara-reduced-effects="true"] .mari-home-professor-popup__arrival-frame,
-html[data-marinara-reduced-effects="true"] .mari-home-professor-popup__drag-frame,
-html[data-marinara-reduced-effects="true"] .mari-home-professor-popup__idle-stage,
-html[data-marinara-reduced-effects="true"] .mari-home-professor-popup__blink,
-html[data-marinara-reduced-effects="true"] .mari-home-professor-popup__state-image,
 html[data-marinara-reduced-effects="true"] .mari-home-discovery-card {
   animation: none;
 }
 
-html[data-marinara-reduced-effects="true"] .mari-home-professor-popup__arrival-frame {
-  background-position: 100% 0;
-}
-
 /* Preserve the current Mari frame while the browser tab/window is inactive.
    App.tsx owns the single visibility/focus listener; Home only consumes it. */
-html[data-marinara-effects-paused="true"] .mari-home-professor-popup__sprite,
-html[data-marinara-effects-paused="true"] .mari-home-professor-popup__bubble,
-html[data-marinara-effects-paused="true"] .mari-home-professor-popup__arrival-frame,
-html[data-marinara-effects-paused="true"] .mari-home-professor-popup__drag-frame,
-html[data-marinara-effects-paused="true"] .mari-home-professor-popup__idle-stage,
-html[data-marinara-effects-paused="true"] .mari-home-professor-popup__blink,
-html[data-marinara-effects-paused="true"] .mari-home-professor-popup__state-image,
 html[data-marinara-effects-paused="true"] .mari-professor-pixel-scene [data-part="sprite"],
 html[data-marinara-effects-paused="true"] .mari-professor-pixel-scene [data-part="screen"] span,
 html[data-marinara-effects-paused="true"] .mari-professor-pixel-scene [data-part="base"] i {

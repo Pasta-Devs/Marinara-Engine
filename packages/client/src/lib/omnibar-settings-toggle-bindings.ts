@@ -59,10 +59,6 @@ export const OMNIBAR_SETTINGS_TOGGLE_BINDINGS: Readonly<Record<string, OmnibarSe
     get: (state) => state.chibiProfessorMariEnabled,
     set: (value) => useUIStore.getState().setChibiProfessorMariEnabled(value),
   },
-  "professor-mari-navigation": {
-    get: (state) => state.professorMariNavigationEnabled,
-    set: (value) => useUIStore.getState().setProfessorMariNavigationEnabled(value),
-  },
   "notification-conversation-sound": {
     get: (state) => state.convoNotificationSound,
     set: (value) => useUIStore.getState().setConvoNotificationSound(value),

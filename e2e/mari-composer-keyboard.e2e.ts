@@ -52,7 +52,6 @@ test("mobile: Mari's composer sits on the bottom edge right after the keyboard c
       hasCompletedOnboarding: true,
       rightPanelOpen: false,
       sidebarOpen: false,
-      professorMariNavigationEnabled: false,
     });
     await page.goto("/");
     await page
@@ -123,7 +122,6 @@ test("Mari's empty state stays above the composer after Mari, Search, Mari", asy
       hasCompletedOnboarding: true,
       rightPanelOpen: false,
       sidebarOpen: false,
-      professorMariNavigationEnabled: false,
     });
     await page.goto("/");
     await page

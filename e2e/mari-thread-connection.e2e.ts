@@ -66,7 +66,6 @@ test("a new Mari thread from a chat keeps Mari's connection", async ({ page, req
       hasCompletedOnboarding: true,
       rightPanelOpen: false,
       sidebarOpen: false,
-      professorMariNavigationEnabled: false,
     });
     const restart = page.waitForRequest((r) => r.url().includes("/internal/professor-mari/restart"));
     await page.goto("/");

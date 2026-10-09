@@ -50,18 +50,15 @@ import {
 } from "@marinara-engine/shared";
 import { useTranslation } from "react-i18next";
 import { useAgentConfigs } from "../../hooks/use-agents";
-import { useChats } from "../../hooks/use-chats";
 import { useMariAppearancePack } from "../../hooks/use-mari-appearance-pack";
 import { MARI_ASSET_TIER, mariImgLoading } from "../../lib/mari-work-animations";
-import { useAllCharacterCatalog, usePersonas } from "../../hooks/use-characters";
+import { useAllCharacterCatalog } from "../../hooks/use-characters";
 import {
   selectHomeBrowserPackages,
   selectHomeWidgetPackages,
   useCapabilityCatalog,
   useInstalledCapabilityPackages,
 } from "../../hooks/use-capability-packages";
-import { useLorebooks } from "../../hooks/use-lorebooks";
-import { usePresets } from "../../hooks/use-presets";
 import { useReducedAmbientEffects } from "../../hooks/use-reduced-ambient-effects";
 import { achievementKeys, trackAchievementEvent } from "../../hooks/use-achievements";
 import { api, ApiError } from "../../lib/api-client";
@@ -71,12 +68,6 @@ import { resolveCapabilityPackageDisplay } from "../../lib/capability-package-lo
 import { isApplePlatform } from "../../lib/command-center";
 import { formatShortcutKey } from "../../lib/keyboard-shortcuts";
 import { executeStateNavigation } from "../../lib/state-navigation";
-import {
-  resolveProfessorMariNavigation,
-  type ProfessorMariBrowserTab,
-  type ProfessorMariNavigationResource,
-  type ProfessorMariNavigationTarget,
-} from "../../lib/professor-mari-navigation";
 import { requestProfessorMariOpen } from "../../lib/professor-mari-open";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
 import { useUIStore } from "../../stores/ui.store";
@@ -90,7 +81,6 @@ import { ChatModeIcon } from "./ChatModeIcon";
 import { HomeClockCalendar } from "./HomeClockCalendar";
 import { HomeFaq } from "./HomeFaq";
 import { HomeNewChatLauncher } from "./HomeNewChatLauncher";
-import { ProfessorMariNavigator } from "./ProfessorMariNavigator";
 import { RecentChats } from "./RecentChats";
 import { HomeCharacterLibrary } from "./HomeCharacterLibrary";
 
@@ -939,11 +929,7 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
   const installed = useInstalledCapabilityPackages();
   const catalog = useCapabilityCatalog();
   const characterCatalog = useAllCharacterCatalog();
-  const personas = usePersonas();
-  const presets = usePresets();
-  const lorebooks = useLorebooks(undefined, { includeHidden: true });
   const agents = useAgentConfigs();
-  const chats = useChats();
   const reduceMotion = useReducedAmbientEffects();
   const debugMode = useUIStore((state) => state.debugMode);
   const reviewImagePromptsBeforeSend = useUIStore((state) => state.reviewImagePromptsBeforeSend);
@@ -951,9 +937,6 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
   const sceneOriginFocus = useUIStore((state) => state.sceneOriginFocus);
   const setSceneOriginFocus = useUIStore((state) => state.setSceneOriginFocus);
   const achievementsEnabled = useUIStore((state) => state.achievementsEnabled);
-  const professorMariNavigationEnabled = useUIStore((state) => state.professorMariNavigationEnabled);
-  const omnibarOpen = useUIStore((state) => state.omnibarOpen);
-  const hasCompletedOnboarding = useUIStore((state) => state.hasCompletedOnboarding);
   const showHomeBrowserAddressBar = useUIStore((state) => state.showHomeBrowserAddressBar);
   const showHomeBrowserDesktopBookmarksOnOtherTabs = useUIStore(
     (state) => state.showHomeBrowserDesktopBookmarksOnOtherTabs,
@@ -1308,16 +1291,19 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
   }, [characterCatalog.data]);
 
   const address = `marinara/${activeTab}`;
-  const selectTab = (tab: string) => {
-    setMobileBookmarksOpen(false);
-    setFocusedPackagePost((current) => (current?.packageId === tab ? current : null));
-    if (sceneOriginFocus && sceneOriginFocus.packageId !== tab) setSceneOriginFocus(null);
-    if (tab === "professor") {
-      requestProfessorMariOpen();
-      return;
-    }
-    setActiveTab(tab);
-  };
+  const selectTab = useCallback(
+    (tab: string) => {
+      setMobileBookmarksOpen(false);
+      setFocusedPackagePost((current) => (current?.packageId === tab ? current : null));
+      if (sceneOriginFocus && sceneOriginFocus.packageId !== tab) setSceneOriginFocus(null);
+      if (tab === "professor") {
+        requestProfessorMariOpen();
+        return;
+      }
+      setActiveTab(tab);
+    },
+    [sceneOriginFocus, setSceneOriginFocus],
+  );
   const openProfessor = () => requestProfessorMariOpen();
   // The omnibar and Command Center ask Home for a surface through `requestHome`; Home opens it here.
   const homeRequest = useUIStore((state) => state.homeRequest);
@@ -1328,7 +1314,7 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
     else if (homeRequest.kind === "faq") setFaqOpen(true);
     else if (homeRequest.kind === "widgets") setWidgetManagerOpen(true);
     else onOpenCredits();
-  });
+  }, [homeRequest, onOpenCredits, selectTab]);
   const moveDraggedWidget = useCallback(
     (target: { kind: "widget"; id: HomeWidgetId } | { kind: "empty"; index: number }) => {
       const source = draggedWidgetIdRef.current;
@@ -1612,99 +1598,6 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
       .catch(() => undefined)
       .finally(() => void queryClient.invalidateQueries({ queryKey: achievementKeys.all }));
   };
-  const professorMariBrowserTabs = useMemo<ProfessorMariBrowserTab[]>(
-    () =>
-      localizedBrowserPackages.map(({ item, display }) => ({
-        id: item.id,
-        label: display.homeBrowserTab?.label ?? display.name,
-        aliases: [item.manifest.name, display.name],
-      })),
-    [localizedBrowserPackages],
-  );
-  const professorMariResources = useMemo<ProfessorMariNavigationResource[]>(() => {
-    const characterResources = (characterCatalog.data ?? []).flatMap((row) =>
-      row.name.trim()
-        ? [
-            {
-              kind: "character" as const,
-              id: row.id,
-              name: row.name,
-              searchText: [
-                row.summary,
-                row.comment,
-                row.explicitSummary,
-                row.creatorNotes,
-                row.description,
-                row.personality,
-                row.scenario,
-                row.firstMessage,
-                row.creator,
-                ...row.tags,
-              ],
-            },
-          ]
-        : [],
-    );
-    return [
-      ...characterResources,
-      ...(personas.data ?? []).map((persona) => ({ kind: "persona" as const, id: persona.id, name: persona.name })),
-      ...(presets.data ?? []).map((preset) => ({ kind: "preset" as const, id: preset.id, name: preset.name })),
-      ...(lorebooks.data ?? []).map((lorebook) => ({
-        kind: "lorebook" as const,
-        id: lorebook.id,
-        name: lorebook.name,
-      })),
-      ...(agents.data ?? []).map((agent) => ({
-        kind: "agent" as const,
-        id: agent.type,
-        name: agent.name,
-        aliases: [agent.type],
-      })),
-    ];
-  }, [agents.data, characterCatalog.data, lorebooks.data, personas.data, presets.data]);
-  const openProfessorMariTarget = (target: ProfessorMariNavigationTarget) => {
-    const ui = useUIStore.getState();
-    if (target.kind === "home") {
-      selectTab("home");
-      return;
-    }
-    if (target.kind === "professor") {
-      openProfessor();
-      return;
-    }
-    if (target.kind === "chats") {
-      ui.closeRightPanel();
-      ui.setSidebarOpen(true);
-      return;
-    }
-    if (target.kind === "chat") {
-      ui.closeRightPanel();
-      ui.setSidebarOpen(true);
-      useChatStore.getState().setActiveChatId(target.chatId);
-      return;
-    }
-    if (target.kind === "window") {
-      if (target.window === "discord") {
-        trackHomeAction("discord_clicked");
-        window.open("https://discord.com/invite/KdAkTg94ME", "_blank", "noopener,noreferrer");
-      } else if (target.window === "support") {
-        trackHomeAction("kofi_clicked");
-        window.open("https://ko-fi.com/marinara_spaghetti", "_blank", "noopener,noreferrer");
-      } else if (target.window === "faq") setFaqOpen(true);
-      else if (target.window === "widgets") setWidgetManagerOpen(true);
-      else if (target.window === "credits") {
-        trackHomeAction("credits_viewed");
-        onOpenCredits();
-      } else executeStateNavigation(target);
-    } else if (target.kind === "package") {
-      selectTab(target.packageId);
-    } else {
-      executeStateNavigation(target);
-    }
-  };
-  const resolveWithProfessorMari = (query: string) =>
-    resolveProfessorMariNavigation(query, professorMariBrowserTabs, professorMariResources, chats.data ?? []);
-
   return (
     <div
       className="mari-chrome-token-scope relative flex h-full min-h-0 w-full flex-col overflow-hidden bg-[var(--background)]"
@@ -1888,6 +1781,7 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
                 aria-label={t("home.browser.searchLabel")}
                 title={t("home.browser.addressLabel", { address })}
                 data-component="HomeBrowserHub.Address"
+                data-tour="home-address"
               >
                 <img
                   src="/favicon.png"
@@ -2295,7 +2189,7 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
                         art="/home/story-comet.png"
                         artClassName={HOME_CARD_ART_CLASS}
                         className="h-full"
-                        onOpen={() => openProfessorMariTarget({ kind: "chats" })}
+                        onOpen={() => executeStateNavigation({ kind: "chats" })}
                         openLabel={t("home.recentChats.open")}
                       >
                         <RecentChats />
@@ -2703,18 +2597,6 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
           )}
         </main>
       </div>
-      {!omnibarOpen && activeTab === "home" ? (
-        <ProfessorMariNavigator
-          pageActive={pageActive}
-          enabled={professorMariNavigationEnabled || !hasCompletedOnboarding}
-          boundaryRef={contentRef}
-          onResolve={resolveWithProfessorMari}
-          onNavigate={openProfessorMariTarget}
-          onOpenProfessor={openProfessor}
-          onOpenDocumentation={() => useUIStore.getState().openModal("docs-viewer")}
-          onMeaningfulDrag={() => trackHomeAction("prof_mari_dragged")}
-        />
-      ) : null}
       {achievementsEnabled ? (
         <HomeAchievements open={achievementsOpen} onOpenChange={setAchievementsOpen} showLauncher={false} />
       ) : null}

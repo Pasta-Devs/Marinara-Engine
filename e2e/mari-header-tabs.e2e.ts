@@ -16,10 +16,12 @@ test("Mari's destinations are a tablist with roving tab stops and arrow-key sele
     hasCompletedOnboarding: true,
     rightPanelOpen: false,
     sidebarOpen: false,
-    professorMariNavigationEnabled: false,
   });
   await page.goto("/");
-  await page.locator("main").first().click({ position: { x: 5, y: 5 } });
+  await page
+    .locator("main")
+    .first()
+    .click({ position: { x: 5, y: 5 } });
   await page.keyboard.press("Control+j");
 
   const tablist = page.locator('[data-component="GlobalOmnibar"]').getByRole("tablist");

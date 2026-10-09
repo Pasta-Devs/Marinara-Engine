@@ -15,7 +15,6 @@ async function prepareFreshClient(page: Page) {
     hasCompletedOnboarding: true,
     rightPanelOpen: false,
     sidebarOpen: false,
-    professorMariNavigationEnabled: false,
   });
 }
 

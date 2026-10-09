@@ -341,8 +341,6 @@ export function OmnibarSettingsSheet({
   const setMariSuggestionsEnabled = useUIStore((state) => state.setProfessorMariSuggestionsEnabled);
   const enterToSendMari = useUIStore((state) => state.enterToSendProfessorMari);
   const setEnterToSendMari = useUIStore((state) => state.setEnterToSendProfessorMari);
-  const navigatorEnabled = useUIStore((state) => state.professorMariNavigationEnabled);
-  const setNavigatorEnabled = useUIStore((state) => state.setProfessorMariNavigationEnabled);
   const miniMariEnabled = useUIStore((state) => state.chibiProfessorMariEnabled);
   const setMiniMariEnabled = useUIStore((state) => state.setChibiProfessorMariEnabled);
   const localModelDownloaded = useSidecarStore((state) => state.modelDownloaded);
@@ -575,13 +573,6 @@ export function OmnibarSettingsSheet({
         </Section>
 
         <Section title={t("omnibar.settings.around.heading", "Around the app")}>
-          <SettingRow
-            controlId="professor-mari-navigation"
-            label={t("settings.controls.professorMariNavigation.label")}
-            description={t("settings.controls.professorMariNavigation.help")}
-            checked={navigatorEnabled}
-            onChange={setNavigatorEnabled}
-          />
           <SettingRow
             controlId="mini-mari"
             label={t("settings.controls.miniMari.label")}

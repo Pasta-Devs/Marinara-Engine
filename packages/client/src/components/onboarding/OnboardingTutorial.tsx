@@ -160,12 +160,12 @@ const STEPS: TourStep[] = [
     sprite: { pose: "explaining" },
   },
   {
-    target: "home-navigation",
+    target: "home-address",
     titleKey: "onboarding.homeNavigation.title",
     bodyKey: "onboarding.homeNavigation.body",
+    side: "bottom",
     openHome: true,
-    centerCard: true,
-    sprite: { pose: "point-middle" },
+    sprite: { pose: "point-up" },
   },
   {
     target: "home-documentation",

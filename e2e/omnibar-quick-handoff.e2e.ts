@@ -43,7 +43,6 @@ async function prepareClient(page: Page, connectionId: string) {
     hasCompletedOnboarding: true,
     rightPanelOpen: false,
     sidebarOpen: false,
-    professorMariNavigationEnabled: false,
     omnibarAsideEnabled: true,
     omnibarAsideConnectionId: connectionId,
     omnibarAsideDelayMs: 1_000,
