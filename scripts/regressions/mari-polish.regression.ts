@@ -129,7 +129,11 @@ assert.ok(
 // Q1 (slice 56): every destination fits the bar at every width, so the header has no ⋮ menu that would
 // only repeat them, and New chat sits right after Chats as one group.
 assert.doesNotMatch(mariChatAll, /mari-omnibar-header-menu__destinations|moreMariActions/u);
-assert.ok(mariHeaderChromeFlat.includes('{id === "chats" ? ( <button type="button" onClick={() => void runRestart()}'));
+// Slice 83: the tabs are a tablist, so New chat follows it as its own button rather than inside the tab map.
+const headerNewChat = mariHeaderChromeFlat.indexOf(
+  '<button type="button" onClick={() => void runRestart()} disabled={isBusy} className="mari-omnibar-header-new-chat"',
+);
+assert.ok(headerNewChat > mariHeaderChromeFlat.indexOf("{headerDestinations.map("), "New chat closes the row after Chats");
 // Q5 (slice 57b): the "Chats · +" group closes the row, at the right under settings and Close, so Chats is
 // the last destination (DOM order is the tab order).
 const headerDestinationIds = [

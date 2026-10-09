@@ -20055,7 +20055,7 @@ test("home browser hub scales cleanly and opens FAQ as a bookmark window", async
   await expect(faqWindow).toBeHidden();
   // "Ask Mari about this" hands off to the omnibar (there is no "Professor" Home tab).
   await expect(page.locator('[data-component="HomeProfessorMariChat.Window"]')).toBeVisible();
-  await expect(page.locator('textarea[placeholder="Ask Professor Mari"]:visible')).toContainText(
+  await expect(page.locator('textarea[placeholder="Ask Mari to check or change something"]:visible')).toContainText(
     "How do I connect Marinara to a model?",
   );
   // Mari's omnibar pane covers the bookmark bar, so close it first.
