@@ -1,4 +1,4 @@
-import { Component, Suspense, lazy, useEffect, type ErrorInfo, type ReactNode } from "react";
+import { Component, Suspense, useEffect, type ErrorInfo, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
 import {
@@ -21,12 +21,13 @@ import { useMariAppearancePack, useMariPackUnlocks } from "../../hooks/use-mari-
 import { useMariPresence } from "../../hooks/use-mari-presence";
 import { warmMariSprite } from "../../lib/mari-sprite-ready";
 import { mariAssetUrls } from "../../lib/mari-work-animations";
+import { preloadedLazy } from "../../lib/preloaded-lazy";
 import { useUIStore } from "../../stores/ui.store";
 
 // The dialog carries the whole Command Center (search, browse, Mari panes), so it
 // stays out of the eager app shell chunk until the user actually opens it.
-const loadGlobalOmnibar = () => import("./GlobalOmnibar");
-const GlobalOmnibarDialog = lazy(() => loadGlobalOmnibar().then((module) => ({ default: module.GlobalOmnibarDialog })));
+// Preloaded at idle below; rendered directly once loaded, so the first open skips React's Suspense throttle.
+const GlobalOmnibarDialog = preloadedLazy(() => import("./GlobalOmnibar").then((module) => module.GlobalOmnibarDialog));
 
 /**
  * The Command Center session (pane, selected result, query) is persisted, so a
@@ -98,7 +99,12 @@ export function GlobalOmnibar() {
   // Fetch the dialog's code once the app is idle, so the first ⌘K opens without
   // waiting on the network. A failed preload is retried by the real open.
   useEffect(() => {
-    const preload = () => void loadGlobalOmnibar().catch(() => undefined);
+    const preload = () =>
+      void GlobalOmnibarDialog.preload()
+        .then(() => import("./GlobalOmnibar"))
+        // Her pane's code too, so the first ⌘J does not fetch and run it before her chat can load.
+        .then((module) => (useUIStore.getState().commandCenterMariEnabled ? module.OmnibarMariPane.preload() : null))
+        .catch(() => undefined);
     if (typeof window.requestIdleCallback === "function") {
       const id = window.requestIdleCallback(preload, { timeout: 5_000 });
       return () => window.cancelIdleCallback(id);

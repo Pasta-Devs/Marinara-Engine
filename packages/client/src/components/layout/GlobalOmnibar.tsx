@@ -168,12 +168,14 @@ import { useOmnibarScreenContext } from "./omnibar/use-omnibar-screen-context";
 import { createOmnibarResultActions } from "./omnibar/omnibar-result-actions";
 import { useOmnibarLocalResults } from "./omnibar/use-omnibar-local-results";
 import { formatShortcutKey } from "../../lib/keyboard-shortcuts";
+import { preloadedLazy } from "../../lib/preloaded-lazy";
 // Each pane only renders once the user opens it, so they stay out of the
 // initial AppShell chunk.
 const OmnibarDetailPane = lazy(() =>
   import("./omnibar/OmnibarDetailPane").then((m) => ({ default: m.OmnibarDetailPane })),
 );
-const OmnibarMariPane = lazy(() => import("./omnibar/OmnibarMariPane").then((m) => ({ default: m.OmnibarMariPane })));
+// Preloaded at idle by GlobalOmnibarHost (preloadedLazy: no Suspense throttle on the first ⌘J).
+export const OmnibarMariPane = preloadedLazy(() => import("./omnibar/OmnibarMariPane").then((m) => m.OmnibarMariPane));
 const OmnibarAside = lazy(() => import("./omnibar/OmnibarAside").then((m) => ({ default: m.OmnibarAside })));
 
 const PROFESSOR_MARI_DRAFT_KEY = "__home_professor_mari__";

@@ -1,5 +1,4 @@
-import { lazy, Suspense, useEffect } from "react";
-import { Loader2 } from "lucide-react";
+import { useEffect } from "react";
 import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import type { ProfessorMariAskContext } from "@marinara-engine/shared";
@@ -7,10 +6,9 @@ import type { ProfessorMariAskContext } from "@marinara-engine/shared";
 import type { MariArrival, MariArrivalAction, MariThreadContext } from "../../../lib/mari-arrival";
 import type { OmnibarCompletionAction } from "../../../lib/omnibar-completion-actions";
 import { useUIStore } from "../../../stores/ui.store";
-
-const OmnibarProfessorMariChat = lazy(() =>
-  import("../../chat/HomeProfessorMariChat").then((module) => ({ default: module.HomeProfessorMariChat })),
-);
+// Static: this pane is its own lazy chunk already, and a second lazy level here meant a second Suspense
+// reveal throttle (300 ms) before her chat could start loading.
+import { HomeProfessorMariChat as OmnibarProfessorMariChat } from "../../chat/HomeProfessorMariChat";
 
 export interface OmnibarMariPaneProps {
   /** False while the pane stays mounted but parked behind another pane. */
@@ -83,36 +81,27 @@ export function OmnibarMariPane({
       aria-hidden={!active}
       inert={!active}
     >
-      <Suspense
-        fallback={
-          <div className="flex min-h-24 items-center justify-center text-sm text-[var(--muted-foreground)]">
-            <Loader2 className="mr-2 animate-spin" size={16} />
-            {t("omnibar.loading", "Loading results")}
-          </div>
-        }
-      >
-        <OmnibarProfessorMariChat
-          pageActive
-          embeddedTab
-          omnibarMode
-          launchHidden
-          initialAskContext={mariContext}
-          submitDraftRequest={submitDraftRequest}
-          openChatId={mariOpenChatId}
-          pendingReviewRequest={mariPendingReviewRequest}
-          pendingReviewId={mariPendingReviewId}
-          chatWindowOpen={mariChatOpen}
-          omnibarHeaderSlot={omnibarHeaderSlot}
-          omnibarStatusSlot={omnibarStatusSlot}
-          omnibarMenuSlot={omnibarMenuSlot}
-          arrival={arrival}
-          arrivalAppendRequest={arrivalAppendRequest}
-          arrivalThread={arrivalThread}
-          onArrivalAction={onArrivalAction}
-          arrivalFixContext={arrivalFixContext}
-          onChatWindowOpenChange={onChatWindowOpenChange}
-        />
-      </Suspense>
+      <OmnibarProfessorMariChat
+        pageActive
+        embeddedTab
+        omnibarMode
+        launchHidden
+        initialAskContext={mariContext}
+        submitDraftRequest={submitDraftRequest}
+        openChatId={mariOpenChatId}
+        pendingReviewRequest={mariPendingReviewRequest}
+        pendingReviewId={mariPendingReviewId}
+        chatWindowOpen={mariChatOpen}
+        omnibarHeaderSlot={omnibarHeaderSlot}
+        omnibarStatusSlot={omnibarStatusSlot}
+        omnibarMenuSlot={omnibarMenuSlot}
+        arrival={arrival}
+        arrivalAppendRequest={arrivalAppendRequest}
+        arrivalThread={arrivalThread}
+        onArrivalAction={onArrivalAction}
+        arrivalFixContext={arrivalFixContext}
+        onChatWindowOpenChange={onChatWindowOpenChange}
+      />
       {/* Review and return live on the receipt cards and the header's back arrow, so this bar only opens things. */}
       {openActions.length > 0 ? (
         <div
