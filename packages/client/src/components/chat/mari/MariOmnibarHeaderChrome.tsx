@@ -24,6 +24,8 @@ type MariOmnibarHeaderChromeProps = {
   headerMenuRef: RefObject<HTMLDivElement | null>;
   heldChangeCard: boolean;
   isBusy: boolean;
+  /** UX-30: no model connection yet, so she is not ready to help. */
+  noConnection?: boolean;
   mariPresentationState: ProfessorMariPresentationState;
   omnibarHeaderSlot: HTMLElement | null;
   omnibarMenuSlot: HTMLElement | null;
@@ -48,6 +50,7 @@ export function MariOmnibarHeaderChrome({
   headerMenuRef,
   heldChangeCard,
   isBusy,
+  noConnection = false,
   mariPresentationState,
   omnibarHeaderSlot,
   omnibarMenuSlot,
@@ -281,7 +284,7 @@ export function MariOmnibarHeaderChrome({
                 {localizeUi("mari.needsYou.headerStatus", { count: needsYouCount })}
               </button>
             ) : (
-              localizeUi("ui.chat.homeprofessormarichat.readyToHelp")
+              localizeUi(noConnection ? "ui.chat.homeprofessormarichat.needsConnection" : "ui.chat.homeprofessormarichat.readyToHelp")
             )}
           </span>,
           omnibarStatusSlot,

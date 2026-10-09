@@ -642,6 +642,7 @@ export function HomeProfessorMariChat({
     connectionOptions[0] ??
     null;
   const effectiveConnectionId = effectiveConnection?.id ?? null;
+  const noConnection = !connectionsLoading && !effectiveConnection;
   const oneShotContext = handoffContext && !isPersistentProfessorMariContext(handoffContext) ? handoffContext : null;
   const oneShotContextFacets = useMemo(() => professorMariContextFacets(oneShotContext), [oneShotContext]);
   // R14: the composer's context row shows everything she is using - the one-shot facets and her lasting
@@ -2746,11 +2747,11 @@ export function HomeProfessorMariChat({
         : null;
     // Slice 72: a goal line without her words ("No request phrase reported") told you nothing; no line then.
     if (!understoodRequest?.text?.trim()) return null;
-    const expanded = expandedUnderstoodRequestMessageId === message.id;
     // UX-15: a goal that only repeats the Accept / Don't apply card action says nothing new.
     const goalText = understoodRequest.text.trim();
     if (goalText === MARI_AUTHORIZATION_ACCEPT_CHIP.prompt || goalText === MARI_AUTHORIZATION_DECLINE_CHIP.prompt)
       return null;
+    const expanded = expandedUnderstoodRequestMessageId === message.id;
     const outcomeLabel = localizeUi(
       understoodRequest.outcome === "held"
         ? "ui.chat.homeprofessormarichat.heldForYourApproval"
@@ -2864,6 +2865,7 @@ export function HomeProfessorMariChat({
         headerMenuRef={headerMenuRef}
         heldChangeCard={heldChangeCard}
         isBusy={isBusy}
+        noConnection={noConnection}
         mariPresentationState={mariPresentationState}
         omnibarHeaderSlot={omnibarHeaderSlot}
         omnibarMenuSlot={omnibarMenuSlot}
@@ -2909,7 +2911,7 @@ export function HomeProfessorMariChat({
                 <div className="truncate text-[0.6875rem] text-[var(--muted-foreground)]">
                   {isBusy
                     ? localizeUi("ui.chat.homeprofessormarichat.workingOnIt")
-                    : localizeUi("ui.chat.homeprofessormarichat.readyToHelp")}
+                    : localizeUi(noConnection ? "ui.chat.homeprofessormarichat.needsConnection" : "ui.chat.homeprofessormarichat.readyToHelp")}
                 </div>
               </div>
             </div>
@@ -3026,6 +3028,7 @@ export function HomeProfessorMariChat({
                         handleOpenContextViewer={handleOpenContextViewer}
                         handoffContext={handoffContext}
                         isBusy={isBusy}
+                        noConnection={noConnection}
                         memories={memories}
                         memoriesMenuOpen={memoriesMenuOpen}
                         omnibarMode={omnibarMode}

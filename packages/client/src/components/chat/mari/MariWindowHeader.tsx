@@ -28,6 +28,8 @@ type MariWindowHeaderProps = {
   handleOpenContextViewer: () => Promise<void>;
   handoffContext: ProfessorMariAskContext | null;
   isBusy: boolean;
+  /** UX-30: no model connection yet, so she is not ready to help. */
+  noConnection?: boolean;
   memories: MariInstructionDetail[];
   memoriesMenuOpen: boolean;
   omnibarMode: boolean;
@@ -56,6 +58,7 @@ export function MariWindowHeader({
   handleOpenContextViewer,
   handoffContext,
   isBusy,
+  noConnection = false,
   memories,
   memoriesMenuOpen,
   omnibarMode,
@@ -108,7 +111,7 @@ export function MariWindowHeader({
             <span className="block truncate text-[0.625rem] text-[var(--muted-foreground)]">
               {isBusy
                 ? localizeUi("ui.chat.homeprofessormarichat.workingOnIt")
-                : localizeUi("ui.chat.homeprofessormarichat.readyToHelp")}
+                : localizeUi(noConnection ? "ui.chat.homeprofessormarichat.needsConnection" : "ui.chat.homeprofessormarichat.readyToHelp")}
             </span>
           </span>
         </div>
