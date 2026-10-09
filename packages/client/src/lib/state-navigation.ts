@@ -1,3 +1,5 @@
+import type { AchievementEvent } from "@marinara-engine/shared";
+import { trackAchievementEvent } from "../hooks/use-achievements";
 import { useChatStore } from "../stores/chat.store";
 import { isMobileShellViewport, useUIStore, type HomeRequest } from "../stores/ui.store";
 import { requestProfessorMariOpen } from "./professor-mari-open";
@@ -6,6 +8,11 @@ import { isOmnibarSettingsTarget } from "./settings-registry";
 
 const DISCORD_INVITE_URL = "https://discord.com/invite/KdAkTg94ME";
 const SUPPORT_URL = "https://ko-fi.com/marinara_spaghetti";
+
+/** The same achievement events Home's own Discord, Ko-fi and Credits links fire. */
+function trackWindow(event: AchievementEvent) {
+  void trackAchievementEvent(event, { keepalive: true }).catch(() => undefined);
+}
 
 /** Leave the current chat or editor, show Home, then let Home open the surface. */
 function openHomeWith(request: HomeRequest) {
@@ -67,10 +74,16 @@ export function executeStateNavigation(target: ProfessorMariNavigationTarget): b
   } else if (target.kind === "window") {
     if (target.window === "documentation") ui.openModal("docs-viewer");
     else if (target.window === "tutorial") ui.setHasCompletedOnboarding(false);
-    else if (target.window === "discord") window.open(DISCORD_INVITE_URL, "_blank", "noopener,noreferrer");
-    else if (target.window === "support") window.open(SUPPORT_URL, "_blank", "noopener,noreferrer");
-    else if (target.window === "faq" || target.window === "widgets" || target.window === "credits")
-      openHomeWith({ kind: target.window });
+    else if (target.window === "discord") {
+      trackWindow("discord_clicked");
+      window.open(DISCORD_INVITE_URL, "_blank", "noopener,noreferrer");
+    } else if (target.window === "support") {
+      trackWindow("kofi_clicked");
+      window.open(SUPPORT_URL, "_blank", "noopener,noreferrer");
+    } else if (target.window === "credits") {
+      trackWindow("credits_viewed");
+      openHomeWith({ kind: "credits" });
+    } else if (target.window === "faq" || target.window === "widgets") openHomeWith({ kind: target.window });
   } else openHomeWith({ kind: "tab", tab: target.packageId });
   ui.setOmnibarOpen(false);
   return true;
