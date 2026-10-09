@@ -48,6 +48,7 @@ export function MariHold({
               dizzy={hold.dizzy}
               line={hold.line}
               onSettled={hold.settle}
+              onSmash={hold.smash}
             />,
             document.body,
           )

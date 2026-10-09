@@ -133,6 +133,61 @@
   }
 }
 
+/* Smash: four stars burst from her head on a hard hit, then fade. */
+.mari-hold-figure__stars {
+  position: absolute;
+  left: 50%;
+  top: 28%;
+  width: 0;
+  height: 0;
+}
+
+.mari-hold-figure__stars > span {
+  position: absolute;
+  left: -6px;
+  top: -6px;
+  width: 12px;
+  height: 12px;
+  clip-path: polygon(50% 0, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+  background: var(--marinara-app-accent-solid, #f5c542);
+  opacity: 0;
+}
+
+.mari-hold-figure__stars > span:nth-child(1) {
+  --mari-star-x: -30px;
+  --mari-star-y: -22px;
+}
+
+.mari-hold-figure__stars > span:nth-child(2) {
+  --mari-star-x: 30px;
+  --mari-star-y: -18px;
+}
+
+.mari-hold-figure__stars > span:nth-child(3) {
+  --mari-star-x: -22px;
+  --mari-star-y: 8px;
+}
+
+.mari-hold-figure__stars > span:nth-child(4) {
+  --mari-star-x: 24px;
+  --mari-star-y: 10px;
+}
+
+.mari-hold-figure[data-bonk] .mari-hold-figure__stars > span {
+  animation: mari-hold-star 480ms ease-out;
+}
+
+@keyframes mari-hold-star {
+  from {
+    transform: translate(0, 0) scale(0.3);
+    opacity: 1;
+  }
+  to {
+    transform: translate(var(--mari-star-x), var(--mari-star-y)) scale(1.1);
+    opacity: 0;
+  }
+}
+
 .mari-hold-figure__line {
   position: absolute;
   left: 50%;
@@ -152,7 +207,8 @@
 }
 
 html[data-marinara-reduced-effects="true"] .mari-hold-figure__sprite,
-html[data-marinara-reduced-effects="true"] .mari-hold-figure__dizzy > span {
+html[data-marinara-reduced-effects="true"] .mari-hold-figure__dizzy > span,
+html[data-marinara-reduced-effects="true"] .mari-hold-figure__stars > span {
   animation: none;
 }
 

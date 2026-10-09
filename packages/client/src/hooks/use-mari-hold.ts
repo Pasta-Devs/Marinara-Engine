@@ -252,6 +252,22 @@ export function useMariHold({ wrapperRef, onTap, hopOnTap = false }: MariHoldOpt
     setMotion("pending");
   };
 
+  /** A hard hit on a viewport edge: two direction flips toward dizzy, and her bonk line. */
+  const smash = () => {
+    const now = performance.now();
+    const shake = shakeRef.current;
+    shake.flips = [...shake.flips, now, now].filter((at) => now - at <= 900);
+    if (isMariShaken(shake.flips, now)) {
+      becomeDizzy();
+      return;
+    }
+    const bonk = optionsRef.current.t("mari.hold.bonk", "Ow! The walls are not soft.");
+    setLine(bonk);
+    later(LINE_MS, () =>
+      setLine((current) => (current === bonk ? optionsRef.current.t("home.assistant.dragPrompt") : current)),
+    );
+  };
+
   const onClickCapture = (event: ReactMouseEvent<HTMLElement>) => {
     // The click that ends a lift is not a tap on the door; swallow it. A keyboard click (detail 0)
     // always passes: a release away from her slot never clicks it, so the flag can still be set.
@@ -286,6 +302,7 @@ export function useMariHold({ wrapperRef, onTap, hopOnTap = false }: MariHoldOpt
     bounceAt,
     pointerRef,
     settle,
+    smash,
     slotRect,
     handlers: { onPointerDown, onClickCapture },
   };

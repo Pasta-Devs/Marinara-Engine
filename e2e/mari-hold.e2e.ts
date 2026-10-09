@@ -131,3 +131,29 @@ test("circling the pointer while holding her turns her upside down, and she sett
   await page.mouse.up();
   await expect(figure).toBeHidden({ timeout: 3_000 });
 });
+
+// Slice 85 smash: the viewport edges are walls. A fast hit bonks her and she stays on screen; two
+// hits in a row count as shaking her, so she gets dizzy.
+test("a fast flick into the left edge bonks her, and she stays on screen", async ({ page }) => {
+  await page.goto("/");
+  const { figure, startY } = await holdWidgetAndDrag(page);
+  await page.mouse.move(2, startY, { steps: 2 });
+  await expect(figure.locator(".mari-hold-figure__line")).toHaveText("Ow! The walls are not soft.");
+  const box = await figure.boundingBox();
+  expect(box).not.toBeNull();
+  expect(box!.x).toBeGreaterThanOrEqual(-1);
+  await page.mouse.up();
+  await expect(figure).toBeHidden({ timeout: 3_000 });
+});
+
+test("two fast hits on opposite edges make her dizzy", async ({ page }) => {
+  await page.goto("/");
+  const { figure, startY } = await holdWidgetAndDrag(page);
+  const width = page.viewportSize()!.width;
+  await page.mouse.move(2, startY, { steps: 2 });
+  await page.mouse.move(width - 2, startY, { steps: 2 });
+  await expect(figure).toHaveAttribute("data-dizzy", "true");
+  const box = await figure.boundingBox();
+  expect(box!.x + box!.width).toBeLessThanOrEqual(width + 1);
+  await page.mouse.up();
+});

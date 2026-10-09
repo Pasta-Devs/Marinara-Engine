@@ -85,3 +85,52 @@ export function stepMariPendulum(pendulum: MariPendulum, accel: MariPivotAccel, 
 export function wrapMariAngle(angle: number): number {
   return ((((angle + Math.PI) % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI)) - Math.PI;
 }
+
+/** A wall hit this fast squashes her and bonks her; slower hits only stop her. */
+export const MARI_SMASH_SPEED_PX_S = 900;
+/** A smash bounces her back at this share of her speed. */
+export const MARI_WALL_BOUNCE = 0.5;
+
+/**
+ * The figure's box relative to its grab point (the top centre), for the angle and scale it is at now:
+ * scaled first, then turned, the same order as her transform.
+ */
+export function mariFigureExtent(angle: number, width: number, height: number, scaleX = 1, scaleY = 1) {
+  const cos = Math.cos(angle);
+  const sin = Math.sin(angle);
+  const corners = [
+    [-width / 2, 0],
+    [width / 2, 0],
+    [-width / 2, height],
+    [width / 2, height],
+  ].map(([x, y]) => ({ x: x * scaleX * cos - y * scaleY * sin, y: x * scaleX * sin + y * scaleY * cos }));
+  return {
+    left: Math.min(...corners.map((c) => c.x)),
+    right: Math.max(...corners.map((c) => c.x)),
+    top: Math.min(...corners.map((c) => c.y)),
+    bottom: Math.max(...corners.map((c) => c.y)),
+  };
+}
+
+/**
+ * One axis of the viewport as a wall. The grab point is `position`; the figure spans `min`..`max`
+ * from it, and the screen is `size` px long. A figure past a wall bounces off it, or stops if the
+ * hit is light. A hit at smash speed also reports that it smashed.
+ */
+export function stepMariWall(
+  spring: MariSpring,
+  min: number,
+  max: number,
+  size: number,
+): { spring: MariSpring; smash: boolean } {
+  // Positive: the figure must move right or down to fit. Negative: left or up.
+  const push = spring.x + min < 0 ? -(spring.x + min) : spring.x + max > size ? size - (spring.x + max) : 0;
+  if (push === 0) return { spring, smash: false };
+  // Moving into the wall: its speed is the impact. A push and a velocity with opposite signs mean that.
+  // Moving back inside already: nothing to stop.
+  const hitting = Math.sign(push) !== Math.sign(spring.v);
+  const impact = hitting ? Math.abs(spring.v) : 0;
+  const smash = impact >= MARI_SMASH_SPEED_PX_S;
+  const v = !hitting ? spring.v : smash ? -spring.v * MARI_WALL_BOUNCE : 0;
+  return { spring: { x: spring.x + push, v }, smash };
+}
