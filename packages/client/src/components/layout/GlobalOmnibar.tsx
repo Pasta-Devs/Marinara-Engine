@@ -947,8 +947,6 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
     source: asideSource,
     resourceLabel: asideResourceLabel,
   });
-  // Only these two states carry an answer worth escalating (R25); "thinking"
-  // has no text yet and "error" offers retry/choose-model instead.
   // Settled means the answer will not grow: a finished answer, or a failed one whose question still hands over.
   const asideSettled = asideState.status === "complete" || asideState.status === "error";
   // The idle countdown is silent; every later state grows inside the promoted Ask row (R9).
@@ -2218,6 +2216,7 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
             pane={pane}
             activeResult={activeResult}
             mariSends={mariSends}
+            asideSettled={asideSettled}
             expandedPreviewId={expandedPreviewId}
             idle={idle}
             settingsOpen={settingsOpen}

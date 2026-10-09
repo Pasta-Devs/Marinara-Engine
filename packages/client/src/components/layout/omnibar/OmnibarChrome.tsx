@@ -166,6 +166,7 @@ export function OmnibarFooter({
   pane,
   activeResult,
   mariSends,
+  asideSettled,
   expandedPreviewId,
   idle,
   settingsOpen,
@@ -176,6 +177,8 @@ export function OmnibarFooter({
   pane: OmnibarPane;
   activeResult: RankedOmnibarResult | undefined;
   mariSends: (result: OmnibarResult | null) => boolean;
+  /** A finished quick answer is on the Ask row: ⌘↵ continues it into her window. */
+  asideSettled: boolean;
   expandedPreviewId: string | null;
   idle: boolean;
   settingsOpen: boolean;
@@ -191,9 +194,9 @@ export function OmnibarFooter({
         {inlineSuffix ? (
           <span>{t("commandCenter.keyboard.complete", "⇥ Complete")}</span>
         ) : mariEnabled && pane === "results" && activeResult ? (
-          // Says whether ⌘↵ sends: "Ask" sends what you typed, "Continue" only opens her.
+          // Says whether ⌘↵ sends: "Ask" sends what you typed, "Continue" opens her or carries the quick answer.
           <span>
-            {mariSends(activeResult)
+            {mariSends(activeResult) && !(asideSettled && activeResult.id === "ask-professor-mari")
               ? t("commandCenter.keyboard.askMari", "Ctrl/⌘+Enter Ask Mari")
               : t("commandCenter.keyboard.continueMari", "Ctrl/⌘+Enter Continue with Mari")}
           </span>
