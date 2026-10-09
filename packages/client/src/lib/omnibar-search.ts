@@ -86,6 +86,8 @@ export type OmnibarResult = {
   meta?: string;
   /** The row this one belongs to: a hit line under its chat row. */
   parentId?: string;
+  /** A chat's last activity (ms), so equal matches list the newer chat first. */
+  recency?: number;
   /** Line 2 of a Continue or Recent chat row, which otherwise shows its cast. */
   recentLine?: string;
   /** Line 3: the text that proves a match (a lorebook entry's content). */
@@ -139,6 +141,8 @@ export type OmnibarSearchData = {
   chats: readonly (ProfessorMariNavigationChat & {
     mode?: string;
     description?: string;
+    /** Last activity, ms since epoch: breaks ties between chats with the same name match. */
+    lastActive?: number;
     /** Where the chat left off ("Speaker: last line"), shown in the Continue and Recent rows. */
     recentLine?: string;
     preview?: () => CommandCenterPreviewData;
@@ -686,6 +690,7 @@ export function searchOmnibar(query: string, data: OmnibarSearchData): OmnibarRe
             matchKind: score < 100 ? "fuzzy" : "literal",
             description: chat.description,
             recentLine: chat.recentLine,
+            recency: chat.lastActive,
             preview: chat.preview,
             kind: "chat",
             icon: "chats",
@@ -755,7 +760,13 @@ export function searchOmnibar(query: string, data: OmnibarSearchData): OmnibarRe
   }
   return (intent?.objectCategory ? results.filter((item) => item.category === intent.objectCategory) : results)
     .map((item) => withMatchRanges(item, [searchQuery, fullQuery]))
-    .sort((a, b) => b.score - a.score || a.title.localeCompare(b.title) || a.id.localeCompare(b.id))
+    .sort(
+      (a, b) =>
+        b.score - a.score ||
+        (b.recency ?? 0) - (a.recency ?? 0) ||
+        a.title.localeCompare(b.title) ||
+        a.id.localeCompare(b.id),
+    )
     .concat({
       id: "ask-professor-mari",
       title: data.askProfessorTitle ?? "Ask Professor Mari",

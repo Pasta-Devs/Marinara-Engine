@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { PROVIDERS } from "../../packages/shared/src/constants/providers.ts";
 import { buildOmnibarChatRows, buildOmnibarConnectionRows } from "../../packages/client/src/lib/omnibar-entity-rows.js";
 import { buildOmnibarLorebookEntryResults } from "../../packages/client/src/lib/omnibar-results.js";
+import { searchOmnibar } from "../../packages/client/src/lib/omnibar-search.js";
 
 const t = (_key: string, fallback: string, options?: Record<string, unknown>) =>
   fallback.replace(/\{\{(\w+)\}\}/gu, (_match, name: string) => String(options?.[name] ?? ""));
@@ -73,5 +74,21 @@ assert.equal(threeCast.preview().subtitle, "with Ayla, Bo +1", "search line 2: t
 assert.equal(threeCast.description, "with Ayla, Bo +1", "the search row carries the same cast line");
 assert.equal(threeCast.recentLine, "Ayla: We ride out.", "Continue and Recent keep where the chat left off");
 assert.equal(chatRow([]).preview().subtitle, undefined, "a chat with no cast has no line 2 in search");
+
+// Equal name matches: the chat active more recently lists first. The older chat's id sorts first, so only recency puts the newer one ahead.
+const chatHits = searchOmnibar("harbor", {
+  commands: [],
+  chats: [
+    { id: "a-old", name: "Harbor", lastActive: Date.parse("2026-03-01T00:00:00Z") },
+    { id: "b-new", name: "Harbor", lastActive: Date.parse("2026-10-09T10:00:00Z") },
+  ],
+  resources: [],
+  connections: [],
+} as never).filter((result) => result.id.startsWith("chat:"));
+assert.deepEqual(
+  chatHits.map((result) => result.id),
+  ["chat:b-new", "chat:a-old"],
+  "the more recent chat leads an equal name match",
+);
 
 process.stdout.write("omnibar-row-lines regression passed\n");

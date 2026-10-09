@@ -132,6 +132,7 @@ export function buildOmnibarChatRows({
       mode: chat.mode,
       description: castLine,
       recentLine: contextLine,
+      lastActive: Date.parse(chat.lastMessageAt ?? chat.updatedAt) || 0,
       preview: () => ({
         kind: "chat" as const,
         title: chat.name,
