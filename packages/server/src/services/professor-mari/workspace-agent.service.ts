@@ -1532,6 +1532,8 @@ export function scrubInternalNames(text: string): string {
             (name) =>
               INTERNAL_NAME_WORDS[name.toLowerCase()] ??
               name
+                // A plain CRUD verb is no noun: "character.folder.list" -> "character folder". Other actions keep their words.
+                .replace(/\.(list|get|search|create|update)$/, "")
                 .replace(/[._]/g, " ")
                 .replace(/([a-z])([A-Z])/g, "$1 $2")
                 .toLowerCase(),
