@@ -1,4 +1,4 @@
-import { useMemo, useState, type KeyboardEvent } from "react";
+import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
 import { Check, Copy, RefreshCw, type LucideIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -100,6 +100,8 @@ export function OmnibarAside({
   // Keyed to the answer, so a new answer never shows the last one's "Copied".
   const [copiedAnswer, setCopiedAnswer] = useState<string | null>(null);
   const [followUp, setFollowUp] = useState("");
+  // UX-09: a Continue tap while the answer streams is kept and runs once the last word is in.
+  const [continueQueued, setContinueQueued] = useState(false);
   const failed = state.status === "error";
   const complete = state.status === "complete";
   const errorKind = state.errorKind ?? "provider";
@@ -113,6 +115,12 @@ export function OmnibarAside({
 
   const copyLabel = copiedAnswer === state.answer ? t("omnibar.aside.copied", "Copied") : t("markdown.copy", "Copy");
   const announcement = complete ? stripStrayMarkdown(state.answer) : failed ? (state.error ?? "") : "";
+
+  useEffect(() => {
+    if (!continueQueued || state.status === "streaming") return;
+    setContinueQueued(false);
+    if (state.status === "complete") onEscalate();
+  }, [continueQueued, onEscalate, state.status]);
 
   const focusSearch = () =>
     document.querySelector<HTMLInputElement>('[data-component="GlobalOmnibar.Panel"] input')?.focus();
@@ -302,16 +310,18 @@ export function OmnibarAside({
           ) : (
             <>
               <span>{tierLabel}</span>
-              {complete ? (
+              {/* UX-09: the icons hold their place while streaming, so Continue does not move under the thumb. */}
+              {complete || state.status === "streaming" ? (
                 <>
                   <button
                     type="button"
+                    disabled={!complete}
                     onClick={() =>
                       void copyToClipboard(state.answer).then((ok) =>
                         ok ? setCopiedAnswer(state.answer) : toast.error(t("markdown.copyFailed", "Copy failed")),
                       )
                     }
-                    className={iconAction}
+                    className={`${iconAction} ${complete ? "" : "invisible"}`}
                     aria-label={copyLabel}
                     title={copyLabel}
                   >
@@ -319,8 +329,9 @@ export function OmnibarAside({
                   </button>
                   <button
                     type="button"
+                    disabled={!complete}
                     onClick={onAnswerAgain}
-                    className={iconAction}
+                    className={`${iconAction} ${complete ? "" : "invisible"}`}
                     aria-label={t("omnibar.aside.answerAgain", "Answer again")}
                     title={t("omnibar.aside.answerAgain", "Answer again")}
                   >
@@ -328,11 +339,11 @@ export function OmnibarAside({
                   </button>
                 </>
               ) : null}
-              {/* Handing over mid-stream would send half an answer, so it waits for the last word. */}
+              {/* Handing over mid-stream would send half an answer, so a tap then waits for the last word. */}
               <button
                 type="button"
-                onClick={onEscalate}
-                disabled={state.status === "streaming"}
+                onClick={state.status === "streaming" ? () => setContinueQueued(true) : onEscalate}
+                aria-busy={continueQueued || undefined}
                 className={continueAction}
                 title={t("commandCenter.keyboard.continueMari", "Ctrl/⌘+Enter Continue with Mari")}
               >
@@ -344,7 +355,7 @@ export function OmnibarAside({
       )}
       {!disclosed && complete ? (
         <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.6875rem] text-[var(--muted-foreground)]">
-          <span>{t("omnibar.aside.disclosure", "No results matched, so Professor Mari answered.")}</span>
+          <span>{t("omnibar.aside.disclosure", "Professor Mari answered your question.")}</span>
           <button type="button" onClick={onDisable} className={textAction}>
             {t("omnibar.aside.turnOff", "Turn this off")}
           </button>

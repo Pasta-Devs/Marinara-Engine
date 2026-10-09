@@ -2996,7 +2996,7 @@
   "omnibar.aside.chooseModel": "Choose a model",
   "omnibar.aside.copied": "Copied",
   "omnibar.aside.details": "Details",
-  "omnibar.aside.disclosure": "No results matched, so Professor Mari answered.",
+  "omnibar.aside.disclosure": "Professor Mari answered your question.",
   "omnibar.aside.downloadAgents": "Download Agents",
   "omnibar.aside.error.auth": "{{model}} did not accept this connection's key.",
   "omnibar.aside.error.empty": "No quick answer this time: {{model}} sent no words.",
