@@ -202,8 +202,6 @@ type MariAppDataActionEnvelope = Row & {
   action?: unknown;
   cwd?: string;
   sessionId?: string;
-  /** #5725 Permissions Mode: "auto-keep" applies without a pending Keep/Restore card. */
-  reviewPolicy?: "standard" | "auto-keep";
 };
 
 type CodeCommandContext = {
@@ -1052,8 +1050,8 @@ function presetDataFromFlags(flags: Map<string, string | boolean>): Row {
   return data;
 }
 
-// Exported so callers outside this module (workspace-agent.service.ts's autoKeep gate) can compare
-// against the same normalized action name the dispatch table itself uses.
+// Exported so callers outside this module can compare against the same normalized action name the
+// dispatch table itself uses.
 export function normalizeAppDataActionName(action: string): string {
   let key = action
     .trim()
@@ -1948,7 +1946,7 @@ function stripPromptPresetChildPayload(row: Row): Row {
 function actionCommandPayload(envelope: MariAppDataActionEnvelope): Row {
   const out: Row = {};
   for (const [key, value] of Object.entries(envelope)) {
-    if (key === "cwd" || key === "sessionId" || key === "reviewPolicy") continue;
+    if (key === "cwd" || key === "sessionId") continue;
     out[key] = typeof value === "string" && value.length > 600 ? truncateStr(value, 600) : value;
   }
   return out;
@@ -2720,11 +2718,6 @@ export class MariDbService {
   // requests for the SAME review id would both read the same record and clobber each other on write.
   // Keyed by id so unrelated reviews stay concurrent; entries self-evict once the queue drains.
   private reviewLocks = new Map<string, Promise<unknown>>();
-  // #5725 Permissions Mode: review policy of the executeAction call currently in
-  // flight. Mutating workspace commands are serialized upstream (the workspace
-  // agent's serializeWorkspaceMutation), so at most one mutating executeAction
-  // is active at a time; reset to "standard" at every executeAction entry.
-  private activeReviewPolicy: "standard" | "auto-keep" = "standard";
 
   constructor(private readonly db: DB) {}
 
@@ -2732,9 +2725,6 @@ export class MariDbService {
     const argv = envelope.argv ?? [];
     const command = formatCommand(argv, envelope.command);
     const sessionId = envelope.sessionId || "mari-cli";
-    // #5725: the CLI path never carries a review policy - a stale "auto-keep"
-    // left by a prior executeAction must not strip cards from CLI mutations.
-    this.activeReviewPolicy = "standard";
     try {
       const group = argv[0];
       if (!group || group === "help" || group === "--help" || group === "-h") {
@@ -2788,10 +2778,6 @@ export class MariDbService {
 
   async executeAction(envelope: MariAppDataActionEnvelope): Promise<MariDbCommandResult> {
     let command = "app_data";
-    // #5725: the Permissions Mode review policy rides the envelope. Mutating
-    // workspace commands are serialized upstream, so a transient field is a
-    // safe way to reach executeMutation without threading every call site.
-    this.activeReviewPolicy = envelope.reviewPolicy === "auto-keep" ? "auto-keep" : "standard";
     try {
       const action = requiredString(envelope, ["action", "type"], "app_data action");
       command = formatAppDataActionCommand(action, envelope);
@@ -2840,9 +2826,6 @@ export class MariDbService {
       logger.warn(err, "[mari-db] structured app_data action failed");
       return { ok: false, mode: "read", command, error: err instanceof Error ? err.message : String(err) };
     } finally {
-      // Reset on exit: the transient policy must never outlive the call that
-      // set it (the CLI entry also resets defensively on entry).
-      this.activeReviewPolicy = "standard";
     }
   }
 
@@ -7396,9 +7379,7 @@ export class MariDbService {
    * storage's addSwipe (messages.ts / message_swipes.ts stay untouched as rows; addSwipe only
    * inserts a new swipe row and, when not silent, flips the message's activeSwipeIndex to it —
    * see chats.storage.ts `addSwipe`), so the old reply is always still there as another swipe.
-   * Always produces a Keep/Restore card: the caller (workspace-agent.service.ts commandAppData)
-   * is told to never set reviewPolicy "auto-keep" for this action, and this method does not
-   * consult activeReviewPolicy at all, so a caller mistake upstream can't silently skip review.
+   * Always produces a change card with Undo (slice 87: every mode keeps a restore copy).
    */
   private async executeChatUpdateMessage(
     args: Row,
@@ -8060,22 +8041,6 @@ export class MariDbService {
         status: "approved",
         journalPath,
       });
-      // #5725 Accept edits / Bypass: apply without staging a pending
-      // Keep/Restore card. The caller only sets auto-keep for non-delete
-      // actions, so deletions always keep their review; history and the
-      // journal are recorded above either way.
-      if (this.activeReviewPolicy === "auto-keep") {
-        return {
-          ok: true,
-          mode: "apply",
-          command,
-          summary: plan.summary,
-          readBack,
-          validation: plan.validation,
-          approval: { status: "not_required", operationHash: plan.operationHash },
-          journalPath,
-        };
-      }
       const review = await this.createAppliedReview(plan, storedCommand, sessionId, journalPath, history.id);
       return {
         ok: true,

@@ -28,7 +28,7 @@ export const MARI_PERMISSIONS_MODE_LABELS: Record<MariPermissionsMode, { label: 
   },
   "accept-edits": {
     label: "Accept edits",
-    description: "Record edits apply without the Keep/Restore card. Deletions and sensitive changes still get review.",
+    description: "Record edits apply without asking first. Every change can be undone in her chat.",
   },
   plan: {
     label: "Plan",
@@ -37,6 +37,6 @@ export const MARI_PERMISSIONS_MODE_LABELS: Record<MariPermissionsMode, { label: 
   bypass: {
     label: "Bypass permissions",
     description:
-      "Mari applies changes without asking or showing review cards. Deletions and sensitive changes keep their review.",
+      "Mari applies changes without asking first. Every change can be undone in her chat. Sensitive file changes and dependency installs still ask first.",
   },
 };

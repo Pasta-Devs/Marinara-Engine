@@ -4,6 +4,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- Every change Professor Mari applies can be undone in every permissions mode. Accept edits and Bypass permissions still skip her question, but they no longer skip the undo copy. Before, a change in those modes could not be undone from her chat.
 - Professor Mari swings the right way when you drag her: she trails behind your hand instead of leaning into the move.
 - When two chats match a search by the same name, the one you used more recently is listed first.
 - Search rows show less and read faster. The type word sits after the name only in a mixed list, and a chat shows its mode. The Enter hint shows only on the selected row. A phone drops the right column and shows a short fact at the end of the name line.
@@ -28,6 +29,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - The pull-down labels say **Ask Prof. Mari** and **Release to ask Prof. Mari**, not just Mari.
 - Once a pull-down is far enough to open, its label has two lines: **Release**, and under it, smaller, what happens ("to search", "to ask Prof. Mari" or the chat it will look at). The label keeps its size while it changes, and a long chat name is cut short.
 - The pull-down feels more alive, and stays subtle: the circle dips a little at the point where a release opens (so you feel it on an iPhone too), a pull past that point holds back, Prof. Mari's head leans with a sideways pull, the rim light wavers slowly, and when the sheet lets go it springs back into the top bar with one faint wobble while the view opens at the peak of the pop. With Reduce ambient effects on, the pull keeps none of these.
+- Professor Mari's message box and the text you type in it are smaller on a computer, so her window feels less crowded.
 - Long Professor Mari chats open and switch faster, and an open chat no longer keeps the browser busy, most of all with the animated (RGB or pulse) accent on. The accent no longer restarts a color fade on every copy, edit and delete button twice a second, and older turns off screen are not drawn until you scroll to them.
 
 - A quick answer offers a setting or record only when it names that whole thing. It no longer shows chips for parts of longer names, like **Advanced** and **Parameters** for "Advanced Parameters".

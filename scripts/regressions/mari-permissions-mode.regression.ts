@@ -54,7 +54,7 @@ for (const mode of ["manual", "plan", "accept-edits", "bypass"] as const) {
   assert.match(block, /may further RESTRICT but never loosen/u, `${mode}: memory precedence rule`);
 }
 assert.match(mariPermissionsModePrompt("plan") ?? "", /refused by the server/u);
-assert.match(mariPermissionsModePrompt("accept-edits") ?? "", /does NOT show a Keep\/Restore review card/u);
+assert.match(mariPermissionsModePrompt("accept-edits") ?? "", /Every applied change shows the user a change card with Undo/u);
 assert.match(
   mariPermissionsModePrompt("bypass") ?? "",
   /Sensitive file changes and dependency installs still require/u,
@@ -110,24 +110,10 @@ assert.ok(
 );
 assert.match(workspaceAgent, /runEndedWithDeferral = true;/u);
 assert.match(workspaceAgent, /activeRoundManualSilentMutationBlocked && isMutatingWorkspaceCommand\(command\)/u);
-// Accept edits / Bypass ride the envelope, with the delete carve-out AND the
-// Personal Extension carve-out (their drafts keep the promised review card).
-assert.match(workspaceAgent, /"accept-edits" \|\| this\.activeRunPermissionsMode === "bypass"/u);
-assert.match(workspaceAgent, /!action\.startsWith\("personal_extension\."\) &&/u);
-// Byte-exact: an editing-tooling incident once replaced the boundary escape
-// with a literal U+0008 (valid JS, silently broken carve-out); pin the two
-// characters explicitly and ban control characters from these sources.
-assert.ok(
-  workspaceAgent.includes(String.raw`!/\b(?:delete|forget|remove|uninstall)/iu.test(action)`),
-  "the deletion carve-out must use a real " + String.raw`\b` + " word boundary",
-);
-// L5: chat.updateMessage joins the always-reviewed set too - it never deletes, but the reply it
-// swipes away as "active" has no other undo surface, same reasoning as the delete carve-out above.
-// #L7 review: the comparison normalizes with the same helper the app_data dispatch table uses
-// (normalizeAppDataActionName), so "chat.update_message"/"Chat.UpdateMessage" etc. still match.
-assert.match(workspaceAgent, /normalizeAppDataActionName\(action\) !== "chat\.updatemessage"/u);
+// Slice 87: every applied change keeps a restore copy in every mode, so no review-policy gate
+// remains (the old auto-keep carve-outs for deletes, extensions and chat.updateMessage are gone).
+assert.doesNotMatch(workspaceAgent, /autoKeep|reviewPolicy|auto-keep/u);
 
-assert.match(workspaceAgent, /reviewPolicy: autoKeep \? "auto-keep" : "standard"/u);
 // Per-chat override (#5725 maintainer call): the run resolves chat override
 // ?? global default; status is chat-aware; the override is read from chat
 // metadata with junk tolerated.
@@ -147,28 +133,8 @@ const modeBlockIdx = workspaceAgent.indexOf(
 assert.ok(instructionsIdx > 0 && modeBlockIdx > instructionsIdx, "mode guidance must come after saved memories");
 
 const mariDb = readSource("packages/server/src/services/mari-db/mari-db.service.ts");
-// auto-keep skips ONLY the pending review; history + journal still recorded.
-assert.match(mariDb, /if \(this\.activeReviewPolicy === "auto-keep"\) \{/u);
-const autoKeepIdx = mariDb.indexOf('if (this.activeReviewPolicy === "auto-keep") {');
-const historyIdx = mariDb.lastIndexOf("await this.recordHistory({", autoKeepIdx);
-assert.ok(historyIdx > 0, "history is recorded before the auto-keep branch");
-// The policy is stripped from the stored command payload.
-assert.match(mariDb, /key === "reviewPolicy"/u);
-// The transient policy can NEVER leak: set from the envelope at executeAction
-// entry, reset in its finally, and reset defensively at executeCli entry so a
-// stale auto-keep can't strip cards from CLI mutations (adversarial-review
-// finding: the CLI path bypassed the deletion carve-out entirely).
-assert.match(mariDb, /this\.activeReviewPolicy = envelope\.reviewPolicy === "auto-keep" \? "auto-keep" : "standard";/u);
-const cliEntryIdx = mariDb.indexOf("async executeCli(");
-const actionEntryIdx = mariDb.indexOf("async executeAction(");
-const cliBody = mariDb.slice(cliEntryIdx, cliEntryIdx + 800);
-assert.match(cliBody, /this\.activeReviewPolicy = "standard";/u, "executeCli must reset the review policy on entry");
-const actionBody = mariDb.slice(actionEntryIdx, mariDb.indexOf("private async executeCharacterAction"));
-assert.match(
-  actionBody,
-  /\} finally \{[\s\S]{0,300}this\.activeReviewPolicy = "standard";/u,
-  "executeAction must reset the review policy on exit",
-);
+// Slice 87: the executor has no review policy; every applied change gets its undo record.
+assert.doesNotMatch(mariDb, /activeReviewPolicy|reviewPolicy|auto-keep/u);
 // Mari can never rewrite her own mode row - a change-level planMutation floor
 // blocks every raw-db path (insert/patch/replace/delete/transform).
 assert.match(mariDb, /change\.table === "app_settings" && change\.id === MARI_PERMISSIONS_MODE_SETTINGS_KEY/u);
