@@ -237,6 +237,33 @@ try {
       assert.deepEqual(JSON.parse(user.extra).spriteExpressions, { [persona.id]: "happy" });
     }
   }
+  // Replies with no new message from the player leave the persona to the Expression Engine: a persona the model
+  // leaves out stays hidden under "Only show active sprites", although an older message of theirs is still in the
+  // recent context. The same holds when the Expression Engine is retried on such a reply.
+  expressionOutput = expressionOutput.filter((entry) => entry.characterId !== persona.id);
+  for (let reply = 0; reply < 2; reply++) {
+    const response = await app.inject({ method: "POST", url: "/api/generate/", payload: { chatId: chat.id } });
+    assert.equal(response.statusCode, 200, response.body);
+    assert(!response.body.includes('"type":"error"'), response.body);
+    const latest = (await chats.listMessages(chat.id)).at(-1)!;
+    assert.equal(latest.role, "assistant");
+    assert(
+      !JSON.parse(latest.extra).expressionSpriteIds.includes(persona.id),
+      "a persona who did not write this turn is not added back",
+    );
+  }
+  const quiet = (await chats.listMessages(chat.id)).at(-1)!;
+  const quietRetry = await app.inject({
+    method: "POST",
+    url: "/api/generate/retry-agents",
+    payload: { chatId: chat.id, agentTypes: ["expression"], forMessageId: quiet.id },
+  });
+  assert.equal(quietRetry.statusCode, 200, quietRetry.body);
+  assert(!quietRetry.body.includes('"type":"error"'), quietRetry.body);
+  assert(
+    !JSON.parse((await chats.getMessage(quiet.id))!.extra).expressionSpriteIds.includes(persona.id),
+    "retrying the Expression Engine on such a reply does not add the persona either",
+  );
   for (const mode of ["conversation", "game"] as const) {
     await chats.update(chat.id, { mode, characterIds: [alice.id, bob.id] });
     const before = spritePrompts.length;

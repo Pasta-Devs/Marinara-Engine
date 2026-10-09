@@ -1407,10 +1407,11 @@ async function buildRetryAgentContext(args: {
       } else if (lastAssistant?.role === "user" && personaContext.identityId) {
         expressionTargetIds.add(personaContext.identityId);
       }
-      if (
-        personaContext.identityId &&
-        agentContext.recentMessages.some((message) => message.role === "user" && message.content.trim())
-      ) {
+      // As on generation, the persona needs an expression only when the retried reply answered a message
+      // the player wrote, not whenever one is still in the recent context.
+      const retriedIndex = agentContext.recentMessages.findIndex((message) => message.id === lastAssistant?.id);
+      const answered = retriedIndex > 0 ? agentContext.recentMessages[retriedIndex - 1] : undefined;
+      if (personaContext.identityId && answered?.role === "user" && answered.content.trim()) {
         expressionTargetIds.add(personaContext.identityId);
       }
       const mergedRoleplayResponse =

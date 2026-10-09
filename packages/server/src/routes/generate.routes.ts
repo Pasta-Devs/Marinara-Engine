@@ -11401,8 +11401,12 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               },
             ]);
           }
+          // The persona needs an expression only on a turn the player wrote. Any other reply leaves it to the
+          // Expression Engine, so a persona who has left the scene is not shown again by "Only show active
+          // sprites" because an older message of theirs is still in the recent context.
           if (
             userIdentityId &&
+            currentTurnUserMessageId &&
             getLatestUserExpressionSource() &&
             Array.isArray(agentContext.memory._availableSprites)
           ) {
