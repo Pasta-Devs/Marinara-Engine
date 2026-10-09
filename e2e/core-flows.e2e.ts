@@ -20021,7 +20021,7 @@ test("home browser hub scales cleanly and opens FAQ as a bookmark window", async
   await expect(page.getByRole("heading", { name: "Character of the Day", exact: true })).toBeVisible();
   await expect(
     page.getByText(
-      "Feeling a little lost? It's not a skill issue yet, I am here to help! Ask me about the app, your setup, or what to do next. I can also create characters, lorebooks, agents, and extensions for you!",
+      "Feeling a little lost? It's not a skill issue yet, I am here to help! Ask me about the app, your setup, or what to do next. I can also create characters, lorebooks, agents, and extensions for you! Looking for a page? Press Ctrl+K and type it.",
       { exact: true },
     ),
   ).toBeVisible();
@@ -20195,22 +20195,19 @@ test("home browser hub scales cleanly and opens FAQ as a bookmark window", async
   }
 
   if (!mobile) {
-    // P5: her pixel-art pose stands inside the card at exactly 1x, unrotated, so no pixel is resampled.
+    // Slice 85: her idle portrait stands inside the card at 192 px tall (the navigator's art, approved), unrotated.
     const professorSprite = page.locator('.mari-home-widget--professor [data-part="sprite"]');
     const professorSpriteFit = () =>
       professorSprite.evaluate((sprite: HTMLImageElement) => {
         const box = sprite.getBoundingClientRect();
         const card = sprite.closest(".mari-home-widget--professor")!.getBoundingClientRect();
         return {
-          scale: [box.width / sprite.naturalWidth, box.height / sprite.naturalHeight],
+          height: Math.round(box.height),
           transform: getComputedStyle(sprite).transform,
-          rendering: getComputedStyle(sprite).imageRendering,
           inside: box.top >= card.top && box.bottom <= card.bottom && box.right <= card.right,
         };
       });
-    await expect
-      .poll(professorSpriteFit)
-      .toEqual({ scale: [1, 1], transform: "none", rendering: "pixelated", inside: true });
+    await expect.poll(professorSpriteFit).toEqual({ height: 192, transform: "none", inside: true });
 
     await page.setViewportSize({ width: 2560, height: 1440 });
     await page.evaluate(async () => {

@@ -3827,6 +3827,25 @@ body {
   }
 }
 
+/* Slice 85: the Home Mari widget blinks on a 5.6 s loop. The blink frame sits on top of the idle frame. */
+.mari-home-professor-blink {
+  opacity: 0;
+  animation: mari-home-professor-blink 5.6s steps(1, end) infinite;
+}
+
+@keyframes mari-home-professor-blink {
+  0%,
+  72%,
+  76%,
+  100% {
+    opacity: 0;
+  }
+  73%,
+  75% {
+    opacity: 1;
+  }
+}
+
 @media (max-height: 52rem) {
   .mari-home-widget--learn .mari-home-widget-shortcut,
   .mari-home-widget--community .mari-home-widget-shortcut {

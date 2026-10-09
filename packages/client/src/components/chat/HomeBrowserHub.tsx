@@ -864,7 +864,7 @@ function ShortcutIcon({ tone, children }: { tone: string; children: ReactNode })
 }
 
 export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProps) {
-  const { poses: mariPoses } = useMariAppearancePack();
+  const { poses: mariPoses, portraits: mariPortraits } = useMariAppearancePack();
   const { t, i18n } = useTranslation();
   const installedChannel = useQuery<{ channel: "stable" | "staging" }>({
     queryKey: ["update-channel"],
@@ -2159,23 +2159,31 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
                             {t("home.professorMari.ask")}
                           </button>
                         </div>
-                        {/* The greet pose at exactly 1x (every pack's is 106x192 pixel art, and the card is at
-                            least 208px tall), standing on the card's bottom border: no scale, rotation or
-                            animation, so no pixel is ever resampled (P5). */}
+                        {/* Slice 85: the navigator's idle portrait with its blink on top, scaled to 192 px tall
+                            and standing on the card's bottom border. */}
                         <div
-                          className="pointer-events-none relative z-[1] -mb-(--mari-home-professor-pad) self-end"
+                          className="pointer-events-none relative z-[1] -mb-(--mari-home-professor-pad) h-[192px] w-[128px] self-end"
                           data-home-professor-art
                           aria-hidden="true"
                         >
                           <img
-                            src={mariPoses.greet}
-                            {...mariImgLoading(MARI_ASSET_TIER.poses.greet)}
-                            width={106}
+                            src={mariPortraits.idle}
+                            {...mariImgLoading(MARI_ASSET_TIER.portraits.idle)}
+                            width={128}
                             height={192}
                             alt=""
                             data-part="sprite"
                             draggable={false}
-                            className="block h-[192px] w-[106px] max-w-none select-none [image-rendering:pixelated]"
+                            className="block h-[192px] w-[128px] max-w-none select-none"
+                          />
+                          <img
+                            src={mariPortraits.blink}
+                            {...mariImgLoading(MARI_ASSET_TIER.portraits.blink)}
+                            width={128}
+                            height={192}
+                            alt=""
+                            draggable={false}
+                            className="mari-home-professor-blink absolute inset-0 block h-[192px] w-[128px] max-w-none select-none"
                           />
                         </div>
                       </section>
