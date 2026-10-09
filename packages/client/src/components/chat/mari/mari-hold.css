@@ -64,7 +64,8 @@
   position: fixed;
   left: 0;
   top: 0;
-  z-index: 2147483000;
+  /* Above the omnibar, Mari's dialogs (layer + 1/+2) and modals; below the toaster. */
+  z-index: calc(var(--mari-layer-omnibar) + 10);
   width: calc(160px * 2 / 3);
   height: 160px;
   transform-origin: 50% 0;
