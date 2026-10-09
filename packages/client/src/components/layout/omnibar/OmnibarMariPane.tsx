@@ -67,6 +67,9 @@ export function OmnibarMariPane({
     setMariPaneVisible(active);
     return () => setMariPaneVisible(false);
   }, [active, setMariPaneVisible]);
+  const openActions = completionActions.filter(
+    (action) => action.kind === "open-resource" || action.kind === "open-field",
+  );
   return (
     <motion.div
       key="omnibar-mari-pane"
@@ -110,12 +113,13 @@ export function OmnibarMariPane({
           onChatWindowOpenChange={onChatWindowOpenChange}
         />
       </Suspense>
-      {completionActions.length > 0 ? (
+      {/* Review and return live on the receipt cards and the header's back arrow, so this bar only opens things. */}
+      {openActions.length > 0 ? (
         <div
           data-component="GlobalOmnibar.CompletionActions"
           className="flex shrink-0 flex-wrap items-center gap-2 border-t border-[var(--border)] bg-[var(--card)] px-3 py-2"
         >
-          {completionActions.map((action) => (
+          {openActions.map((action) => (
             <button
               key={action.kind}
               type="button"
@@ -126,11 +130,7 @@ export function OmnibarMariPane({
                 ? t("commandCenter.completion.openResource", "Open {{label}}", {
                     label: action.resource?.label ?? "",
                   })
-                : action.kind === "open-field"
-                  ? t("commandCenter.completion.openField", "Open {{field}}", { field: action.field ?? "" })
-                  : action.kind === "review"
-                    ? t("commandCenter.completion.review", "Review changes")
-                    : t("commandCenter.completion.return", "Return to results")}
+                : t("commandCenter.completion.openField", "Open {{field}}", { field: action.field ?? "" })}
             </button>
           ))}
         </div>

@@ -68,3 +68,19 @@ test("UX-35: a question handed to Professor Mari does not come back when the omn
   await expect(input).toHaveValue("");
   await omnibar.screenshot({ path: shotPath("UX-35", width) });
 });
+
+test("UX-11: the bar under Professor Mari has no Review or Return button", async ({ page }, testInfo) => {
+  test.skip(!testInfo.project.name.includes("desktop"), "Professor Mari hand-off is covered on desktop.");
+  const width = 1440;
+  await openOmnibar(page);
+
+  const omnibar = page.locator('[data-component="GlobalOmnibar"]');
+  await omnibar.getByRole("searchbox", { name: "Search Marinara" }).fill("why is my lorebook empty");
+  await omnibar.locator('[data-result-id="ask-professor-mari"]').click();
+  await expect(omnibar.locator('[data-component="GlobalOmnibar.Mari"]')).toHaveAttribute("aria-hidden", "false");
+
+  // The receipt cards and the header's back arrow cover review and return, so the bar is gone.
+  await expect(omnibar.locator('[data-component="GlobalOmnibar.CompletionActions"]')).toHaveCount(0);
+  await expect(omnibar.getByRole("button", { name: "Return to results", exact: true })).toHaveCount(0);
+  await omnibar.screenshot({ path: shotPath("UX-11", width) });
+});

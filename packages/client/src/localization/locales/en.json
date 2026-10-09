@@ -977,8 +977,6 @@
   "commandCenter.clearSearch": "Clear search",
   "commandCenter.completion.openField": "Open {{field}}",
   "commandCenter.completion.openResource": "Open {{label}}",
-  "commandCenter.completion.return": "Return to results",
-  "commandCenter.completion.review": "Review changes",
   "commandCenter.context.activeChat": "Used by this chat",
   "commandCenter.context.checkReply": "Fix: Check the last reply",
   "commandCenter.context.currentChat": "Current chat: {{name}}",
