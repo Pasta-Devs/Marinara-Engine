@@ -1,6 +1,6 @@
 import { type ReactNode, useCallback, useRef, useState } from "react";
 import { Trans, useTranslation as useUiTranslation } from "react-i18next";
-import { Check, ChevronRight, FileText, Loader2, Minus, PackagePlus, Pencil, Plus, Trash2 } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, Clock, FileText, Loader2, Minus, PackagePlus, Pencil, Plus, Trash2 } from "lucide-react";
 import type {
   MariDbPendingApproval,
   MariDependencyInstallApproval,
@@ -17,6 +17,7 @@ import { MariEditEasyViewer, rowTitle } from "./MariEditEasyViewer";
 import { MariCard, MariRow } from "./mari-primitives";
 import { MariPromptPreviewModal, type MariPromptRenderSide } from "./MariPromptPreviewModal";
 import { TranscriptRow } from "./MariTranscriptRow";
+import { Field } from "./MariChangeReceipt";
 
 /**
  * Professor Mari's approval gates and the summaries they are built from.
@@ -350,6 +351,7 @@ export function MariHeldChangeCard({
   onDecline: () => void;
 }) {
   const { t: localizeUi } = useUiTranslation();
+  const [open, setOpen] = useState(false);
   const { kind, name, count, fields } = describeMariHeldChanges(held, nameOf);
   const named = name || localizeUi("mari.needsYou.held.thisRecord");
   const title =
@@ -365,31 +367,53 @@ export function MariHeldChangeCard({
     kind === "many" ? name : labels.map((label, index) => (index === 0 ? label : label.toLowerCase())).join(", ");
   const Icon = kind === "delete" ? Trash2 : kind === "create" ? Plus : Pencil;
   return (
-    <MariCard
-      needsYou
-      variant={kind === "delete" ? "danger" : "default"}
-      media={<Icon size="1rem" aria-hidden="true" />}
-      title={title}
-      meta={fact || undefined}
-      then={<Trans i18nKey="mari.needsYou.then.held" components={{ b: <b /> }} />}
-      actions={
-        <>
+    <div className="mari-list mari-receipt">
+      <div className="mari-receipt__record" data-open={open}>
+        <div className="mari-receipt__head">
+          <span className="mari-receipt__face">
+            <Icon size="1rem" aria-hidden="true" />
+          </span>
+          <span className="mari-receipt__text">
+            <span className="mari-receipt__name">
+              <span>{title}</span>
+            </span>
+            {fact ? <span className="mari-receipt__what">{fact}</span> : null}
+          </span>
+        </div>
+        {fields.length > 0 ? (
+          <div className={open ? "mari-receipt__body" : "mari-receipt__folded"}>
+            {(open ? fields : fields.slice(0, 1)).map(({ key, value }, index) => (
+              <Field key={key} label={labels[index]!}>
+                <div className="mari-receipt__box">{value}</div>
+              </Field>
+            ))}
+          </div>
+        ) : null}
+        {fields.length > 1 ? (
+          <button type="button" className="mari-receipt__more" aria-expanded={open} onClick={() => setOpen(!open)}>
+            {open
+              ? localizeUi("ui.chat.marichangereceipt.showLess")
+              : localizeUi("ui.chat.marichangereceipt.showAll", { count: fields.length })}
+            <ChevronDown className="mari-receipt__chev" aria-hidden="true" />
+          </button>
+        ) : null}
+      </div>
+      <p className="mari-receipt__muted">{localizeUi("mari.needsYou.then.held")}</p>
+      <div className="mari-receipt__foot">
+        <span className="mari-receipt__state" data-tone="wait">
+          <Clock aria-hidden="true" />
+          {localizeUi("ui.chat.marichangereceipt.notAppliedYet")}
+        </span>
+        <span className="mari-receipt__actions">
           <button type="button" onClick={onDecline} disabled={disabled} className="mari-link">
             {localizeUi("mari.needsYou.decline")}
           </button>
           <button type="button" onClick={onAccept} disabled={disabled} className="mari-btn mari-btn--solid">
             {localizeUi("mari.needsYou.accept")}
           </button>
-        </>
-      }
-    >
-      {fields.length > 0 ? (
-        <TechnicalDetails
-          label={localizeUi("mari.needsYou.held.showNewText")}
-          rows={fields.map(({ value }, index) => [labels[index]!, value])}
-        />
-      ) : null}
-    </MariCard>
+        </span>
+      </div>
+    </div>
   );
 }
 

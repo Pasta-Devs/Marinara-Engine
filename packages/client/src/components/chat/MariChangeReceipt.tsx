@@ -95,7 +95,7 @@ function undoLabel(iso: string | undefined, t: Localize, lang: string): string |
 }
 
 /** Field label over a box. Box text: old words struck, new words marked; both marks, not colour only. */
-function Field({ label: name, children, folded }: { label: string; children: ReactNode; folded?: boolean }) {
+export function Field({ label: name, children, folded }: { label: string; children: ReactNode; folded?: boolean }) {
   return (
     <div className={cn("mari-receipt__field", folded && "mari-receipt__field--folded")}>
       <span className="mari-receipt__label">{name}</span>

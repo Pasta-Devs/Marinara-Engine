@@ -3834,6 +3834,11 @@ details[open] > .mari-disclosure .mari-disclosure__chevron {
 .mari-receipt__actions .mari-btn svg {
   margin-inline-end: 0.3rem;
 }
+/* A held change waits for the user: the primary tint, not a warning. */
+.mari-receipt__state[data-tone="wait"] {
+  color: var(--primary);
+}
+
 
 .mari-receipt[data-state="undone"] .mari-receipt__folded,
 .mari-receipt[data-state="undone"] .mari-receipt__what {

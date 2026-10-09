@@ -226,7 +226,9 @@ const FIELD_ORDER: Record<string, number> = {
 
 /** Slice 71: a saved field key ("first_mes") as its label ("First message"), cards first, then the plain key. */
 export function fieldLabel(key: string): string {
-  return LABEL_OVERRIDES[`data.${key}`] ?? humanizeLabel(key);
+  // A key typed with spaces ("first mes") still finds its label ("First message").
+  const id = key.trim().replace(/\s+/gu, "_");
+  return LABEL_OVERRIDES[`data.${id}`] ?? humanizeLabel(id);
 }
 
 /** "Lorebook entry" -> "lorebook entries": the table's thing, plural and lower case, for a count. */
