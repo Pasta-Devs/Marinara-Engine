@@ -72,7 +72,15 @@ const provider = createServer(async (request, response) => {
   requests.push({ kind: classify ? "classify" : "summary", body });
   const result = classify
     ? system.content.includes('"ends"')
-      ? { ends: [] }
+      ? {
+          // A helper that ends the scene just before a message that opens a new one.
+          ends: JSON.parse(user.content).flatMap(
+            (message: { messageNumber: number; content: string; alreadyChecked?: boolean }, index: number) =>
+              index > 0 && !message.alreadyChecked && message.content.startsWith("SCENE_CHANGE")
+                ? [{ messageNumber: message.messageNumber - 1 }]
+                : [],
+          ),
+        }
       : {
           starts: JSON.parse(user.content)
             .filter((message: { content: string }) => message.content.startsWith("SCENE_CHANGE"))
@@ -619,6 +627,57 @@ try {
     rankDecisionMemories(backend, "Remember?", [], [{ id: "one", text: "Promise" }], cancelled.signal),
     /late answer/,
   );
+  // Without a Decision model, the Helper checks every message since the last check, after the one that check
+  // ended on, so a turn that adds several messages, or a scene change right between two checks, is not missed.
+  const helperChat = await chats.create({
+    name: "Helper scene check",
+    mode: "roleplay",
+    characterIds: ["reader"],
+    connectionId: helper.id,
+  });
+  assert(helperChat);
+  await memory.updateSettings(helperChat.id, {
+    enabled: true,
+    knowledgeStarts: { reader: null },
+    knowledgeConfirmed: true,
+    sceneCheckInterval: 2,
+  });
+  await chats.createMessagesBatch(helperChat.id, [
+    { role: "user", content: "Hello." },
+    { role: "assistant", characterId: "reader", content: "Hi there." },
+  ]);
+  await memory.initialize(helperChat.id);
+  await chats.createMessagesBatch(helperChat.id, [
+    { role: "user", content: "SCENE_CHANGE Later, at the harbor." },
+    { role: "assistant", characterId: "reader", content: "The gulls cry." },
+    { role: "user", content: "We wait for the boat." },
+  ]);
+  const beforeHelperCheck = requests.length;
+  await memory.checkScenesAfterGeneration(helperChat.id);
+  const helperSource = await chats.listMessages(helperChat.id);
+  const helperCheck = requests
+    .slice(beforeHelperCheck)
+    .find((request) => request.kind === "classify" && request.body.messages[0].content.includes('"ends"'));
+  assert(helperCheck, "the Helper checks the scene");
+  const helperTranscript: Array<{ messageNumber: number; alreadyChecked?: boolean }> = JSON.parse(
+    helperCheck.body.messages[1].content,
+  );
+  assert.deepEqual(
+    helperTranscript.filter((message) => !message.alreadyChecked).map((message) => message.messageNumber),
+    [3, 4, 5],
+    "all three new messages are checked, although the interval is two",
+  );
+  assert.deepEqual(
+    helperTranscript.filter((message) => message.alreadyChecked).map((message) => message.messageNumber),
+    [2],
+  );
+  const helperScenes = (await memory.status(helperChat.id)).records.filter((record) => record.kind === "scene");
+  assert(
+    helperScenes.some((record) => record.status === "closed" && record.endMessageId === helperSource[1]!.id),
+    "the scene ends on the message the last check ended on",
+  );
+  assert(helperScenes.some((record) => record.status === "open" && record.startMessageId === helperSource[2]!.id));
+
   console.log("Advanced Memory Decision routing, visibility, fallback, boundaries, reuse and bounded requests passed.");
 } finally {
   provider.closeAllConnections();
