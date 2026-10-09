@@ -7104,7 +7104,8 @@ strong {
   .mari-topbar-action {
     flex: 0 0 auto;
     width: 3.5rem !important;
-    height: 2.25rem !important;
+    /* UX-16: 2.6rem is 44 px at the 17 px root, the minimum touch target. */
+    height: 2.6rem !important;
     padding: 0 !important;
   }
 }

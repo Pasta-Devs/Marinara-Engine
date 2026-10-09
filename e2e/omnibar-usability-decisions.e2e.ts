@@ -196,3 +196,19 @@ test("UX-14: a returning user's Continue row is the top row, not a Try example",
     await request.delete(`/api/connections/${connectionId}`);
   }
 });
+
+test("UX-16: top-bar buttons are 44 px on a touch screen and the top bar still fits", async ({ page }, testInfo) => {
+  test.skip(!testInfo.project.name.includes("mobile"), "The 44 px touch target is a phone concern.");
+  const width = 390;
+  const topBar = page.locator('[data-component="TopBar"]');
+  await expect(topBar).toBeVisible();
+  const chats = topBar.getByRole("button", { name: "Chats", exact: true });
+  await expect(chats).toBeVisible();
+  const box = await chats.boundingBox();
+  expect(box?.width ?? 0).toBeGreaterThanOrEqual(43.5);
+  expect(box?.height ?? 0).toBeGreaterThanOrEqual(43.5);
+  // Nothing in the bar is pushed off the phone width.
+  const overflow = await topBar.evaluate((element) => element.scrollWidth - element.clientWidth);
+  expect(overflow).toBeLessThanOrEqual(1);
+  await topBar.screenshot({ path: shotPath("UX-16", width) });
+});

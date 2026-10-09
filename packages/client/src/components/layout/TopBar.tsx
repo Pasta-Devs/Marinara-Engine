@@ -111,7 +111,8 @@ const SPOTIFY_TOPBAR_MIN_WIDTH_WITH_VOLUME = 416;
 const SPOTIFY_TOPBAR_LAYOUT_BUFFER = 32;
 const PHONE_TOPBAR_QUERY = "(max-width: 639px)";
 const PHONE_OVERFLOW_HIDDEN_CLASS = "max-sm:hidden";
-const TOPBAR_COARSE_TARGET_CLASS = "[@media(pointer:coarse)]:h-9 [@media(pointer:coarse)]:w-9";
+// UX-16: a touch screen gets 44 px top-bar buttons, the minimum touch target.
+const TOPBAR_COARSE_TARGET_CLASS = "[@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:w-11";
 const TOPBAR_BUTTON_CLASS = `mari-topbar-action relative flex h-8 w-8 items-center justify-center rounded-lg p-0 transition-all hover:bg-[var(--accent)] active:scale-95 ${TOPBAR_COARSE_TARGET_CLASS}`;
 const TOPBAR_PANEL_BUTTON_CLASS = `mari-topbar-action relative flex h-8 w-8 items-center justify-center rounded-lg p-0 transition-all duration-200 ${TOPBAR_COARSE_TARGET_CLASS}`;
 const TOPBAR_ACTIVE_BUTTON_CLASS = "bg-[var(--accent)] shadow-sm";
