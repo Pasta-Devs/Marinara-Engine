@@ -161,8 +161,14 @@ export function CommandCenterResultRow({
             >
               {highlightSpan(title, titleHighlight)}
             </span>
-            {typeLabel ? <span className="shrink-0 text-[0.6875rem] text-[var(--muted-foreground)]">{typeLabel}</span> : null}
-            {meta ? <span className="ml-auto shrink-0 text-[0.6875rem] tabular-nums text-[var(--muted-foreground)] sm:hidden">{meta}</span> : null}
+            {typeLabel ? (
+              <span className="shrink-0 text-[0.6875rem] text-[var(--muted-foreground)]">{typeLabel}</span>
+            ) : null}
+            {meta ? (
+              <span className="ml-auto shrink-0 text-[0.6875rem] tabular-nums text-[var(--muted-foreground)] sm:hidden">
+                {meta}
+              </span>
+            ) : null}
           </span>
           {metadata ? (
             <span

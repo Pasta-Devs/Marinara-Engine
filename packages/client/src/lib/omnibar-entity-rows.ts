@@ -119,7 +119,8 @@ export function buildOmnibarChatRows({
     // Search rows say who is in the chat; the Continue and Recent rows say where you left off.
     const castNames = cast.map((id) => {
       const linked = characterById.get(id) as Record<string, unknown>;
-      return parseCharacterDisplayData({ data: linked.data, comment: linked.comment as string | null | undefined }).name;
+      return parseCharacterDisplayData({ data: linked.data, comment: linked.comment as string | null | undefined })
+        .name;
     });
     // Two names, then "+N": "with Eliza, Elias +2".
     const castText = [castNames.slice(0, 2).join(", "), castNames.length > 2 ? `+${castNames.length - 2}` : ""]
