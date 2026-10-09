@@ -3756,6 +3756,28 @@ details[open] > .mari-disclosure .mari-disclosure__chevron {
   font-weight: 600;
 }
 
+/* A change that did not save: the reason in plain words under the name, Not saved and Try again at the foot. */
+.mari-receipt[data-state="failed"] {
+  border-color: color-mix(in srgb, var(--destructive) 35%, var(--mari-hairline));
+}
+
+.mari-receipt__error {
+  display: flex;
+  gap: 0.4rem;
+  margin: 0.1rem var(--mari-card-pad-inline) 0.3rem var(--mari-receipt-edge);
+  color: color-mix(in srgb, var(--destructive) 75%, var(--foreground));
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
+.mari-receipt__error svg {
+  margin-top: 0.1rem;
+}
+
+.mari-receipt__state[data-tone="bad"] {
+  color: color-mix(in srgb, var(--destructive) 80%, var(--foreground));
+}
+
 /* ---- foot: Why, then the state in words and at most one main action ---- */
 .mari-receipt__foot {
   display: flex;

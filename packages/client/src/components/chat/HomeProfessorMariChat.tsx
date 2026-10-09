@@ -2522,6 +2522,7 @@ export function HomeProfessorMariChat({
         keep,
       ),
     // Only a database review has a raw view; an install approval has none.
+    onRetry: () => void handleSubmit("try again"),
     renderRaw: (approval) =>
       "diffPreview" in approval ? <RawDetails approval={approval} open onToggle={() => undefined} /> : null,
   };

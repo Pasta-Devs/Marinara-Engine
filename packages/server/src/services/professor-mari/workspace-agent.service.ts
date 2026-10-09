@@ -274,6 +274,29 @@ export function buildMariWorkspaceActionResult(
   };
 }
 
+// Slice 87: a failed apply on one of these records leaves a "Not saved" card with the reason and Try again.
+const FAILED_ACTION_KINDS = { character: "character", persona: "persona", lorebook: "lorebook", preset: "preset" } as const;
+
+export function buildMariFailedActionResult(
+  action: string,
+  args: Record<string, unknown>,
+  reason: string,
+): MariWorkspaceActionResult | null {
+  const kind = FAILED_ACTION_KINDS[action.split(".")[0] as keyof typeof FAILED_ACTION_KINDS];
+  if (!kind || args.apply !== true) return null;
+  const data = isRecord(args.data) ? args.data : {};
+  const id = [args.id, args[`${kind}Id`]].find((value): value is string => typeof value === "string" && value.trim() !== "");
+  const label = [data.name, args.name].find((value): value is string => typeof value === "string" && value.trim() !== "");
+  const error = reason.replace(/\s+/gu, " ").trim().slice(0, 300);
+  return {
+    status: "failed",
+    resource: { kind, id: id ?? "new", ...(label ? { label: label.trim().slice(0, 200) } : {}) },
+    changedFields: [],
+    error: error || "Unknown error",
+    summary: `Not saved ${label ? `${kind} “${label.trim()}”` : kind}.`,
+  };
+}
+
 type WorkspaceToolDefinition = {
   name: MariWorkspaceToolName;
   description: string;
@@ -4465,6 +4488,12 @@ export class ProfessorMariWorkspaceService {
     } catch (err) {
       const output = err instanceof Error ? err.message : String(err);
       const endedAt = Date.now();
+      // Slice 87: an apply that did not save leaves its "Not saved" card on the message.
+      const failed = err instanceof Error ? (err as { actionResult?: MariWorkspaceActionResult }).actionResult : undefined;
+      if (failed) {
+        actionResults.push(failed);
+        onEvent({ type: "metadata", data: { actionResult: failed } });
+      }
       upsertTraceTool(trace, {
         id: command.id,
         name: command.name,
@@ -5235,7 +5264,12 @@ export class ProfessorMariWorkspaceService {
         ...(truncationNote ? ["", truncationNote] : []),
       ].join("\n"),
     );
-    if (result.ok === false) throw new Error(output);
+    if (result.ok === false) {
+      const failure = new Error(output) as Error & { actionResult?: MariWorkspaceActionResult };
+      const reason = typeof (result as { error?: unknown }).error === "string" ? (result as { error: string }).error : output;
+      failure.actionResult = buildMariFailedActionResult(action, args, reason) ?? undefined;
+      throw failure;
+    }
     return { output, actionResult: buildMariWorkspaceActionResult(action, result, args.reason) ?? undefined };
   }
 

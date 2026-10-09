@@ -5,7 +5,7 @@
 
 import { useState, type ReactNode } from "react";
 import { useTranslation as useUiTranslation } from "react-i18next";
-import { Check, ChevronDown, ExternalLink, Undo2 } from "lucide-react";
+import { AlertTriangle, Check, ChevronDown, ExternalLink, Undo2 } from "lucide-react";
 import {
   mariReceiptReviewIds,
   mariReceiptState,
@@ -33,6 +33,8 @@ export interface MariReceiptControls {
   onAnswer: (approvals: MariWorkspacePendingApproval[], keep: boolean) => void;
   /** The raw command and row counts behind "Technical details". */
   renderRaw?: (approval: MariWorkspacePendingApproval) => ReactNode;
+  /** Try again on a change that did not save: sends "try again" in her chat. */
+  onRetry?: () => void;
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -295,6 +297,52 @@ function StateMark({ state }: { state: MariReceiptState }) {
   );
 }
 
+/** A change that did not save: "Not saved", her error in plain words, and Try again. */
+function FailedReceipt({
+  result,
+  faceOf,
+  name,
+  busy,
+  onRetry,
+}: {
+  result: MariWorkspaceActionResult;
+  faceOf: (result: MariWorkspaceActionResult) => ReactNode;
+  name: string;
+  busy: boolean;
+  onRetry?: () => void;
+}) {
+  const { t } = useUiTranslation();
+  return (
+    <section className="mari-list mari-receipt" data-state="failed" aria-label={t("ui.chat.marichangereceipt.label", { name })}>
+      <div className="mari-receipt__head">
+        <span className="mari-receipt__face">{faceOf(result)}</span>
+        <span className="mari-receipt__text">
+          <span className="mari-receipt__name">
+            <span>{name}</span>
+          </span>
+        </span>
+      </div>
+      <p className="mari-receipt__error">
+        <AlertTriangle aria-hidden="true" />
+        <span>{result.error}</span>
+      </p>
+      <div className="mari-receipt__foot">
+        <span className="mari-receipt__actions">
+          <span className="mari-receipt__state" data-tone="bad">
+            <AlertTriangle aria-hidden="true" />
+            {t("ui.chat.marichangereceipt.notSaved")}
+          </span>
+          {onRetry ? (
+            <button type="button" className="mari-btn" disabled={busy} onClick={onRetry}>
+              {t("ui.chat.marichangereceipt.tryAgain")}
+            </button>
+          ) : null}
+        </span>
+      </div>
+    </section>
+  );
+}
+
 export function MariChangeReceipt({
   results,
   faceOf,
@@ -331,6 +379,17 @@ export function MariChangeReceipt({
         ? "undone"
         : "kept";
   const multi = results.length > 1;
+  if (!multi && results[0]!.status === "failed") {
+    return (
+      <FailedReceipt
+        result={results[0]!}
+        faceOf={faceOf}
+        name={nameOf(results[0]!)}
+        busy={controls?.busy ?? false}
+        onRetry={controls?.onRetry}
+      />
+    );
+  }
   const why = (multi ? results.find((result) => result.reason)?.reason : results[0]?.reason) ?? fallbackWhy;
   const undoUntil = results
     .map((result) => result.undoUntil)

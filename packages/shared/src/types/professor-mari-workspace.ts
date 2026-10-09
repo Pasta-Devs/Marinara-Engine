@@ -241,7 +241,8 @@ export type MariWorkspaceActionResourceKind = Extract<
 >;
 
 export interface MariWorkspaceActionResult {
-  status: "created" | "updated";
+  /** "failed": an apply that did not save; the card says Not saved, with `error` and Try again (slice 87). */
+  status: "created" | "updated" | "failed";
   resource: {
     kind: MariWorkspaceActionResourceKind;
     id: string;
@@ -258,6 +259,8 @@ export interface MariWorkspaceActionResult {
   reviewIds?: string[];
   /** Her one-line why for the change. */
   reason?: string;
+  /** Slice 87: why a failed apply did not save, in plain words (status "failed"). */
+  error?: string;
   /** Per field, short before/after excerpts or list names, in editor order. */
   changes?: MariChangeExcerpt[];
   /** Changed fields the excerpts leave out. */
