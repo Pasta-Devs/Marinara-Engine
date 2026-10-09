@@ -303,6 +303,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - Fixed a search crash bringing back its broken saved state on the next open.
 - Fixed the docs: the Personal Extension command example now targets the panel it registers, and the memory card button is named **Keep and enable**.
 - Professor Mari's applied changes no longer raise **Needs you**. The top-bar pill, the omnibar's Now row and its Current work row only ask for an answer when a change is held or a real approval waits. An applied change still offers **Keep or undo**.
+- Pressing Escape after Mari's card actions (Accept, Undo) closes her window again. Before, focus fell to the page and Escape did nothing until a second press.
 
 ## [2.5.0]
 

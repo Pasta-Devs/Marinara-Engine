@@ -1185,7 +1185,9 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
     // screen's context, exactly like ⌘K's own Ask Mari with an empty query. A left-over query is not sent along.
     // The top-bar pill resumes her current thread like the omnibar's continue row: no routing, reviews in view.
     if (request.resume) {
-      openProfessorMari(null, { reviewPending: countBlockingReviews(mariWorkspaceStatus.data?.pendingApprovals ?? []) > 0 });
+      openProfessorMari(null, {
+        reviewPending: countBlockingReviews(mariWorkspaceStatus.data?.pendingApprovals ?? []) > 0,
+      });
       return;
     }
     if (!request.context && !request.draft) {
@@ -1517,6 +1519,19 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
       event.preventDefault();
       toggleMariPane();
     };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+  // UX-02: a card action (Accept, Undo) removes the button that had focus, so focus falls to the page and
+  // the dialog never hears Escape. From the page, Escape still goes back from her window.
+  const escapeFromPage = useEffectEvent((event: globalThis.KeyboardEvent) => {
+    if (event.key !== "Escape" || event.defaultPrevented || event.isComposing) return;
+    if (document.activeElement !== document.body || pane !== "mari") return;
+    event.preventDefault();
+    leaveDetail();
+  });
+  useEffect(() => {
+    const onKeyDown = (event: globalThis.KeyboardEvent) => escapeFromPage(event);
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
