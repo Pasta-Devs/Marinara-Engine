@@ -137,6 +137,21 @@ function getMessageSearchSnippet(content: string, query: string): string {
   return `${start > 0 ? "…" : ""}${text.slice(start, end).trim()}${end < text.length ? "…" : ""}`;
 }
 
+/**
+ * Re-cuts a server snippet so the first match sits about `before` characters in, cut at a word boundary
+ * with a leading "…" (slice 86). A snippet whose match is already that close stays as it is.
+ */
+export function omnibarExcerptAroundMatch(snippet: string, query: string, before = 24): string {
+  const text = snippet.replace(/\s+/gu, " ").trim();
+  const needle = query.trim().toLowerCase();
+  const index = needle ? text.toLowerCase().indexOf(needle) : -1;
+  if (index <= before) return text;
+  let start = index - before;
+  const space = text.indexOf(" ", start);
+  if (space !== -1 && space < index) start = space + 1;
+  return `…${text.slice(start)}`;
+}
+
 export type OmnibarUserStatus = "active" | "idle" | "dnd" | "invisible";
 
 /** The UI-store setters the settings rows drive, passed in rather than imported. */
@@ -936,7 +951,7 @@ export function buildOmnibarGlobalMessageResults({
         parentId: chatRowId,
         action: { kind: "goto-message", chatId: hit.chatId, messageNumber: hit.messageNumber },
         title: hit.speaker ?? t("home.recentChats.you", "You"),
-        description: hit.snippet,
+        description: omnibarExcerptAroundMatch(hit.snippet, query),
         meta: formatRelativeContact(hit.createdAt) ?? undefined,
         category: "chat",
         group: "messages",

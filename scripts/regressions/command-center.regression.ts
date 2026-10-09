@@ -2526,8 +2526,15 @@ assert.ok(!("mariDetailId" in mariSession));
   });
   assert.deepEqual(
     toolIds(roleplayOnChatSurface),
-    ["chat-tool:search:chat-1", "chat-tool:lorebook:chat-1", "chat-tool:summary:chat-1", "chat-tool:regenerate:chat-1"],
-    "roleplay on the chat surface gets all four tool rows, Summary included",
+    [
+      "chat-tool:search:chat-1",
+      "chat-tool:lorebook:chat-1",
+      "chat-tool:summary:chat-1",
+      "chat-tool:advanced-parameters:chat-1",
+      "chat-tool:memory-recall:chat-1",
+      "chat-tool:regenerate:chat-1",
+    ],
+    "roleplay on the chat surface gets all six tool rows, Summary and the two settings rows included",
   );
   const summaryRow = roleplayOnChatSurface.find((row) => row.id === "chat-tool:summary:chat-1");
   assert.deepEqual(summaryRow?.action, { kind: "open-chat-tool", chatId: "chat-1", tool: "summary" });
@@ -2539,7 +2546,13 @@ assert.ok(!("mariDetailId" in mariSession));
   });
   assert.deepEqual(
     toolIds(conversationOnChatSurface),
-    ["chat-tool:search:chat-1", "chat-tool:lorebook:chat-1", "chat-tool:regenerate:chat-1"],
+    [
+      "chat-tool:search:chat-1",
+      "chat-tool:lorebook:chat-1",
+      "chat-tool:advanced-parameters:chat-1",
+      "chat-tool:memory-recall:chat-1",
+      "chat-tool:regenerate:chat-1",
+    ],
     "conversation mode has no Summary feature, so no Summary row",
   );
 
