@@ -51,6 +51,7 @@ import {
 import { registerSequentialGameTasks } from "../services/game/sequential-tasks.js";
 import {
   createAdvancedMemoryService,
+  sceneCheckTranscript,
   selectAdvancedMemoryMessages,
   type AdvancedMemorySceneCheck,
 } from "../services/advanced-memory.js";
@@ -11384,7 +11385,8 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 pendingSceneCheck = request;
                 agentContext.sceneCheck = {
                   trackerAgentIds: sceneCheckTrackers.map((agent) => agent.id),
-                  prompt: `${request.prompt}\nTranscript:\n${JSON.stringify(request.messages)}`,
+                  // The previous message joins only when this tracker could already see it.
+                  prompt: `${request.prompt}\nTranscript:\n${sceneCheckTranscript(request, !!request.previous && allowedIds.has(request.previous.messageId))}`,
                   claimed: false,
                 };
               }
