@@ -321,7 +321,7 @@
   "chat.advancedMemory.reviewMemory": "Review {{scene}}: Messages {{start}}–{{end}} · {{audience}}",
   "chat.advancedMemory.save": "Save correction",
   "chat.advancedMemory.sceneCheckInterval": "Standalone scene check interval (messages)",
-  "chat.advancedMemory.sceneCheckIntervalHelp": "After the main reply, check this many recent messages at this interval. Only a detected scene ending triggers archive preparation. Progress appears as Advanced Recall in Agent activity.",
+  "chat.advancedMemory.sceneCheckIntervalHelp": "After the main reply, check the new messages once this many have arrived. Only a detected scene ending triggers archive preparation. Progress appears as Advanced Recall in Agent activity.",
   "chat.advancedMemory.sceneClosed": "Closed",
   "chat.advancedMemory.sceneNumber": "Scene #{{number}}",
   "chat.advancedMemory.sceneOpen": "Ongoing",

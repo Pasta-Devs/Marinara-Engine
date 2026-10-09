@@ -45,7 +45,7 @@ const provider = createServer(async (request, response) => {
           ? /Shiro/.test(memory.text) && !(rejectMessages && messageIds.has(id))
             ? 0.95
             : 0.05
-          : (value as { instructions: string }).instructions.includes("clearly START") &&
+          : (value as { instructions: string }).instructions.includes("cut to a new scene") &&
               message?.content.startsWith("SCENE_CHANGE")
             ? 0.99
             : 0.01;
