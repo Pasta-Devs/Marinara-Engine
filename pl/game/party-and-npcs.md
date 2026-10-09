@@ -73,6 +73,8 @@ Stan należy do wiadomości: zmiana wariantu odpowiedzi lub regeneracja cofa ark
 
 O składzie drużyny decyduje postać Game Master w miarę rozwoju historii. Nie ma osobnego przycisku dodawania towarzysza. Zamiast tego postać GM dodaje i usuwa członków drużyny przez samą narrację, zgodnie z tym, co dzieje się w scenie.
 
+Gdy postać GM dodaje postać NPC, która ma dokładnie takie samo imię jak jedna z twoich kart postaci albo imię wspólne dla kilku twoich kart, okno pyta, która z nich ma dołączyć. Pokazuje imię, tytuł i awatar każdej karty. Wybierz kartę albo opcję **Keep the game's own** (zachowaj postać z gry) z imieniem postaci NPC, na przykład **Keep the game's own Emma**, żeby wprowadzić postać utworzoną przez grę. Zamknięcie okna działa tak samo. Karta, której imię jest tylko podobne, na przykład **Samantha** przy postaci NPC o imieniu Sam, nigdy nie zostaje dodana.
+
 Żeby pożegnać towarzysza samodzielnie, użyj przycisku **X** na pasku drużyny, jak opisano wyżej. Własnej persony w ten sposób nie usuniesz.
 
 ## Panel Adventure Journal

@@ -148,6 +148,7 @@ Game controls、Session、Volume、Game Assets、接続したチャット、パ�
 | ドロワーの矢印と内容 | `.mari-drawer__arrow`、`.mari-drawer__body` |
 | ドロワーを外へドラッグする間、ポインターに追従するプレビュー | `.mari-drawer-ghost` |
 | 最小化したウィンドウのボタン(バブル) | `.mari-window-bubble` |
+| アイコンの代わりにバブルが表示するリアルタイムの概要(World Stateのバナー) | `.mari-window-bubble__banner` |
 | ドラッグ中のバブルがほかのバブルとそろうときに表示される線 | `.mari-window-snap-guide` |
 | エージェントの実行中に表示される点(Chat Settingsボタン、Trackersウィンドウ) | `.mari-agents-running-dot` |
 
@@ -166,7 +167,7 @@ Game controls、Session、Volume、Game Assets、接続したチャット、パ�
 - `data-axis`は、縦に伸びる位置合わせガイドでは`"x"`、横に伸びるガイドでは`"y"`です。
 - ドロワーを独立したウィンドウに表示しているとき、ウィンドウとその中のドロワーの両方で`data-detached`が`"true"`になります。切り離したドロワーのウィンドウの名前は`data-window="drawer:<window>:<drawer>"`で、例は`data-window="drawer:chat-settings:chat-name"`です。`data-drawer-host`は元のウィンドウの名前です。
 - タイトルをドラッグしているドロワーの`data-dragging`は`"true"`になります。切り離したドロワーを元に戻せる状態でウィンドウの上に重ねている間、そのウィンドウの`data-drop-target`は`"true"`になります。
-- バブルには、対応するウィンドウの`data-window`と`data-minimized="true"`が付きます。例は`.mari-window-bubble[data-window="control:volume"]`です。操作ウィンドウの名前は`control:game`、`control:session`、`control:volume`、`control:assets`、`control:connected-chat`、`control:package:<package>`、`control:beholder:<package>`です。ドラッグ中のバブルでは`data-dragging`が`"true"`になります。
+- バブルには、対応するウィンドウの`data-window`と`data-minimized="true"`が付きます。例は`.mari-window-bubble[data-window="control:volume"]`です。操作ウィンドウの名前は`control:game`、`control:session`、`control:volume`、`control:assets`、`control:connected-chat`、`control:package:<package>`、`control:beholder:<package>`です。ドラッグ中のバブルでは`data-dragging`が`"true"`になります。最小化したWorld Stateトラッカーのように、アイコンの代わりにリアルタイムの概要を表示するバブルには`data-banner="true"`が付き、概要に合わせて横幅が広がります。
 - ロックされたバブルには、Chat Settingsボタンを含め、`data-locked="true"`が付きます。ウィンドウを開くことはできますが、そのウィンドウのロックを解除するまで移動はできません。`.mari-window-bubble[data-locked="true"]`で、これらのボタンに別の外観を付けられます。
 - スマートフォンでは、ウィンドウと、その少し大きなバブルの両方に`data-presentation="sheet"`が付きます。Tracker Panelのバブルは`.mari-window-bubble[data-tracker-panel-toggle="bubble"]`です。
 - Chat Settingsボタンもバブルです。`.mari-window-bubble[data-chat-settings-button]`で指定でき、Chat Settingsが開いている間は`data-open="true"`が付きます。

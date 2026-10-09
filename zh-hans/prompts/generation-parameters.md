@@ -111,6 +111,8 @@
 
 开启时计数从 50 起步，可以填 1 到 9999 之间的任意数字。数字越小，发送的历史越少，能省钱也能加快速度，但 AI 对更早内容的记忆也随之变少。这项设置默认关闭。
 
+在开启了 **Advanced Memory Recall**(高级记忆功能) 的 Roleplay 聊天里，这个限制不起作用。Advanced Memory 用自己的 **Maximum allowed context before compression (tokens)**(压缩前允许的最大上下文 Token 数) 设置来决定发送多少历史，较早的场景会以摘要和摘录的形式回到上下文里。想在那里少发一些历史，就到 **Chat Settings → Memory Recall**(聊天设置 → 记忆功能) 里调低那项设置。两者同时开启时，**Limit Context Messages** 下方会有一条提示说明这一点。参见 [Advanced Memory Recall](../agents/memory.md#advanced-memory-recall-roleplay)。
+
 ## Exclude Past Reasoning
 
 **Exclude Past Reasoning**(排除历史推理) 默认开启。它会把此前几轮保存下来的思考和推理挡在新提示词之外，那些推理不会再发给模型。

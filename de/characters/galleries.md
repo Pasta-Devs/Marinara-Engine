@@ -90,6 +90,16 @@ Ein vollständiger Link enthält die interne Figuren-ID (`card://characters/<id>
 
 Eine Einschränkung: **PNG-Kartenexporte enthalten die Galerie nicht**. Teile den nativen `.json`-Export, wenn eine Figur Galerie-Verweise verwendet.
 
+<a id="save-web-images-from-greetings"></a>
+
+### Webbilder aus Begrüßungen speichern
+
+Viele Karten zeigen in ihren Begrüßungen Bilder von anderen Websites, und solche Links können ins Leere laufen oder sich ändern. Zeigen **First Message** oder **Alternate Greetings** Webbilder, bietet der Abschnitt **Dialogue & Greetings** die Schaltfläche **Save images locally** (Bilder lokal speichern). Sie lädt diese Bilder in die Galerie des Charakters herunter und ersetzt jeden Link durch einen Verweis `card://self/gallery/...`. So erscheinen die Bilder weiterhin, auch wenn die Website sie entfernt oder du offline bist. Speichere den Charakter danach, damit die neuen Links erhalten bleiben.
+
+Heruntergeladen wird erst, wenn du auf die Schaltfläche klickst. Gespeichert werden nur PNG-, JPEG-, GIF- und WebP-Bilder bis 10 MB und 40 Megapixel. Links auf deinen eigenen Rechner oder dein Heimnetz werden abgelehnt. Ein Bild, das sich nicht speichern lässt, behält seinen Weblink, und ein Hinweis nennt den Grund.
+
+**Restore web links** (Weblinks wiederherstellen) setzt die ursprünglichen Links wieder in die Begrüßungen ein. Die gespeicherten Kopien bleiben in der Galerie, bis du sie löschst. Kompatible JSON- und PNG-Exporte verwenden die ursprünglichen Weblinks, da diese Karten keine Galerie mitführen. Bilder aus Lorebooks sind davon nicht erfasst.
+
 ## Verwandte Anleitungen
 
 - [Charaktere anlegen und bearbeiten](creating-and-editing-characters.md)

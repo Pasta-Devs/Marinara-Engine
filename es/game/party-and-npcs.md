@@ -74,6 +74,8 @@ El estado pertenece al mensaje. Cambiar la variante de respuesta o regenerarla r
 
 El Game Master controla quién está en tu grupo a medida que se desarrolla la historia. No hay un botón manual de "añadir compañero". En su lugar, el GM agrega o quita miembros del grupo mediante la narración, según lo que ocurre en la escena.
 
+Cuando el GM agrega un NPC que tiene exactamente el mismo nombre que una de tus tarjetas de personaje, o un nombre que comparten varias de tus tarjetas, una ventana pregunta cuál se une. Muestra el nombre, el título y el avatar de cada tarjeta. Elige una tarjeta, o elige **Keep the game's own** (Conservar el del juego) seguido del nombre del NPC, como **Keep the game's own Emma**, para traer al personaje que creó el juego. Cerrar la ventana hace lo mismo. Una tarjeta que solo tiene un nombre parecido, como **Samantha** para un NPC llamado Sam, nunca se agrega.
+
 Para soltar a un compañero tú mismo, usa el botón **X** de la barra del grupo, como se describió arriba. No puedes quitar tu propia persona de esta manera.
 
 ## El Adventure Journal

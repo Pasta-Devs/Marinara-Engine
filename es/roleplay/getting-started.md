@@ -91,6 +91,8 @@ Author's Notes también funciona de la misma forma en el Modo Game y el Modo Con
 
 Su pestaña **Activity** lista las salidas de los agentes, llamadas globos de pensamiento. Puedes descartar cada una o usar **Clear all**. Las salidas de agentes personalizados también aparecen aquí.
 
+Mientras los agentes trabajan, el icono de **Agent activity** se convierte en un indicador de carga. Cuando un agente falla, aparece un punto en el icono hasta que abras **Agent activity**.
+
 Si un agente falló en el último turno, aparece una lista de fallos con un botón para reintentar. Desde aquí también puedes detener agentes en ejecución, volver a ejecutar todos los trackers y usar **Clear Trackers**. Para un recorrido sencillo por todo el sistema, consulta [Agentes: ayudantes de IA para tus chats](../agents/agents-overview.md).
 
 Una pestaña **Injections** aparece solo cuando **Debug mode** (Modo de depuración) está activado. Actívalo en **Settings** (Configuración), en **Advanced**. Esta pestaña muestra los fragmentos de prompt que los agentes tipo escritor guardaron antes de la última respuesta. Los agentes tipo escritor incluyen **Prose Guardian**, que reescribe las respuestas para que coincidan con tus reglas de estilo, y el **Narrative Director**, que dirige la trama.

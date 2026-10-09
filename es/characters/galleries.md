@@ -90,6 +90,16 @@ Un enlace completo contiene el id interno del personaje (`card://characters/<id>
 
 Una limitación: **las exportaciones de tarjetas PNG no incluyen la galería**. Comparte la exportación `.json` nativa cuando el personaje use referencias de galería.
 
+<a id="save-web-images-from-greetings"></a>
+
+### Guardar imágenes web de los saludos
+
+Muchas tarjetas muestran en sus saludos imágenes de otros sitios web, y esos enlaces pueden romperse o cambiar. Cuando el **First Message** o los **Alternate Greetings** muestran imágenes web, la sección **Dialogue & Greetings** (Diálogo y saludos iniciales) tiene un botón **Save images locally** (Guardar imágenes localmente). Descarga esas imágenes en la galería del personaje y cambia cada enlace por una referencia `card://self/gallery/...`, para que las imágenes se sigan mostrando aunque el sitio web las elimine o no tengas conexión. Después, guarda el personaje para conservar los enlaces nuevos.
+
+No se descarga nada hasta que pulses el botón. Solo se guardan imágenes PNG, JPEG, GIF y WebP de hasta 10 MB y 40 megapíxeles. Se rechazan los enlaces a tu propia computadora o a tu red doméstica. Una imagen que no se puede guardar conserva su enlace web, y un aviso explica por qué.
+
+**Restore web links** (Restaurar enlaces web) vuelve a poner los enlaces originales en los saludos. Las copias guardadas permanecen en la galería hasta que las borres. Las exportaciones compatibles en JSON y PNG usan los enlaces web originales, ya que esas tarjetas no llevan galería. Las imágenes de los lorebooks quedan fuera de esta función.
+
 ## Guías relacionadas
 
 - [Crear y editar personajes](creating-and-editing-characters.md)

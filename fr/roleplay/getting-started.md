@@ -91,6 +91,8 @@ Sous la note se trouve le champ numérique **Injection Depth** (profondeur d'ins
 
 Son onglet **Activity** liste les sorties des agents, appelées bulles de pensée. Tu peux les écarter une par une ou utiliser **Clear all**. Les sorties des agents personnalisés apparaissent ici aussi.
 
+Pendant que les agents travaillent, l'icône **Agent activity** se change en roue de chargement. Quand un agent échoue, un point apparaît sur l'icône jusqu'à ce que tu ouvres **Agent activity**.
+
 Si un agent a échoué au dernier tour, une liste d'échecs apparaît avec un bouton pour réessayer. Tu peux aussi arrêter les agents en cours, relancer tous les trackers et utiliser **Clear Trackers**. Pour une visite en langage clair du système, consulte [Agents : des aides IA pour tes chats](../agents/agents-overview.md).
 
 Un onglet **Injections** n'apparaît que si le **Debug mode** (mode débogage) est activé. Active-le dans la section **Settings** (Paramètres), sous **Advanced**. Cet onglet montre les fragments de prompt que les agents de type rédacteur ont enregistrés avant la dernière réponse. Parmi ces agents figurent **Prose Guardian**, qui réécrit les réponses selon tes règles de style, et **Narrative Director**, qui oriente l'intrigue.

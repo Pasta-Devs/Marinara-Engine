@@ -78,6 +78,8 @@ Sekcja **Dialogue & Greetings** ustala, jak zaczyna się czat i jak brzmi posta�
 
 Powitania i przykładowe wiadomości mogą też pokazywać obrazy z galerii postaci; zobacz [Galerie postaci → Ponowne używanie obrazu z galerii w wiadomościach i powitaniach](galleries.md#reuse-a-gallery-image-in-messages-and-greetings).
 
+Gdy powitania pokazują obrazy z innych stron internetowych, przycisk **Save images locally** (zapisanie obrazów lokalnie) zachowuje ich kopie w galerii postaci; zobacz [Galerie postaci → Zapisywanie obrazów z sieci w powitaniach](galleries.md#save-web-images-from-greetings).
+
 Krótki wpis w polu **Example Dialogue** wygląda tak:
 
 ```

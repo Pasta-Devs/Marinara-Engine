@@ -78,6 +78,8 @@ A seção **Dialogue & Greetings** define como o chat começa e como o personage
 
 As saudações e mensagens de exemplo também podem mostrar imagens da Gallery do personagem; veja [Galerias de personagens → Reutilizar uma imagem da galeria em mensagens e saudações](galleries.md#reuse-a-gallery-image-in-messages-and-greetings).
 
+Quando as saudações mostram imagens de outros sites, **Save images locally** (salvar imagens localmente) guarda uma cópia delas na Gallery do personagem; veja [Galerias de personagens → Salvar imagens da web das saudações](galleries.md#save-web-images-from-greetings).
+
 Uma entrada curta de Example Dialogue fica assim:
 
 ```

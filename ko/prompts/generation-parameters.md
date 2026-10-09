@@ -111,6 +111,8 @@ Kimi K3처럼 별도의 추론 프리필을 지원하는 모델에만 쓰세요.
 
 켜면 개수가 50에서 시작합니다. 1에서 9999까지 원하는 숫자로 지정할 수 있습니다. 숫자가 작을수록 보내는 기록이 줄어들어 비용이 낮아지고 속도가 빨라질 수 있습니다. 대신 AI가 예전 내용을 그만큼 덜 기억합니다. 이 설정은 기본적으로 꺼져 있습니다.
 
+**Advanced Memory Recall**(고급 기억 회상)을 켠 Roleplay 채팅에서는 이 제한을 사용하지 않습니다. Advanced Memory는 **Maximum allowed context before compression (tokens)**(압축 전 최대 허용 컨텍스트) 설정으로 보낼 기록의 양을 정하고, 오래된 장면은 요약과 발췌로 다시 불러옵니다. 이런 채팅에서 보내는 기록을 줄이려면 **Chat Settings → Memory Recall**(채팅 설정 → 기억 회상)에서 그 설정을 낮추세요. 둘 다 켜져 있는 동안에는 **Limit Context Messages** 아래에 이 내용을 알리는 안내가 표시됩니다. [Advanced Memory Recall](../agents/memory.md#advanced-memory-recall-roleplay)을 참고하세요.
+
 ## Exclude Past Reasoning
 
 **Exclude Past Reasoning**(과거 추론 제외)은 기본적으로 켜져 있습니다. 이전 턴에 저장된 사고와 추론 내용을 새 프롬프트에서 빼 줍니다. 그 추론은 모델에 다시 보내지 않습니다.

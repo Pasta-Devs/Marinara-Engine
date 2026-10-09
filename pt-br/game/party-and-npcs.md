@@ -74,6 +74,8 @@ O estado pertence à mensagem. Trocar a variante da resposta ou regenerar restau
 
 O Game Master controla quem está na equipe conforme a história avança. Não existe um botão manual de "adicionar companheiro". Em vez disso, o GM inclui ou remove integrantes pela narração, de acordo com o que acontece na cena.
 
+Quando o GM adiciona um NPC que tem exatamente o mesmo nome de um dos seus cards de personagem, ou um nome que vários dos seus cards compartilham, uma janela pergunta qual deles entra na equipe. Ela mostra o nome, o título e o avatar de cada card. Escolha um card ou a opção **Keep the game's own** (manter o do próprio jogo) com o nome do NPC, como **Keep the game's own Emma**, para trazer o personagem que o jogo criou. Fechar a janela tem o mesmo efeito. Um card com um nome apenas parecido, como **Samantha** para um NPC chamado Sam, nunca é adicionado.
+
 Para dispensar um companheiro por conta própria, use o botão **X** na barra da equipe, como descrito acima. A sua própria persona não pode ser removida desse jeito.
 
 ## O Adventure Journal

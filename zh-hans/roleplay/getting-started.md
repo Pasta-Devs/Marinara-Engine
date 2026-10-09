@@ -91,6 +91,8 @@ Author's Notes 在 Game Mode 和 Conversation 模式里的用法完全一样，�
 
 **Activity**(动态) 选项卡列出智能体输出，也就是思维气泡。可以逐条关闭，或用 **Clear all** 一次清空。自定义智能体的输出也在这里。
 
+智能体工作时，**Agent activity** 图标会变成转圈的加载动画。某个智能体失败时，图标上会出现一个圆点，直到你打开 **Agent activity** 为止。
+
 某个智能体在上一轮失败时，会出现失败列表和重试按钮。这里还能停止正在运行的智能体、重跑全部追踪器，以及使用 **Clear Trackers**。整套系统的通俗介绍见[智能体：聊天里的 AI 帮手](../agents/agents-overview.md)。
 
 只有开启 **Debug mode**(调试模式) 之后才会出现 **Injections**(注入) 选项卡。开关在 **Settings**(设置) 的 **Advanced**(高级) 里。这个选项卡显示上一条回复生成之前，写作类智能体保存下来的提示词片段。写作类智能体包括按你的风格规则重写回复的 **Prose Guardian**，以及负责推动剧情的 **Narrative Director**。

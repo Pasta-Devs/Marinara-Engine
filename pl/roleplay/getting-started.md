@@ -93,6 +93,8 @@ Pod notatką jest pole liczbowe **Injection Depth**. Decyduje ono, jak wysoko w 
 
 Zakładka **Activity** wymienia wyniki pracy agentów, zwane dymkami myśli. Każdy z nich da się odrzucić albo skorzystać z przycisku **Clear all**. Pojawiają się tu również wyniki własnych agentów.
 
+Gdy agenci pracują, ikona **Agent activity** zmienia się w kręcący się kołowrotek. Kiedy agent zawiedzie, na ikonie pojawia się kropka, która zostaje do czasu otwarcia **Agent activity**.
+
 Jeśli agent zawiódł w ostatniej turze, pokazuje się lista błędów z przyciskiem ponowienia. Możesz też zatrzymać działających agentów, ponownie uruchomić wszystkie trackery i użyć **Clear Trackers**. Cały system agentów opisuje prostym językiem przewodnik [Agenci: pomocnicy AI w czatach](../agents/agents-overview.md).
 
 Zakładka **Injections** pojawia się tylko wtedy, gdy włączony jest **Debug mode** (tryb diagnostyczny). Włącz go w panelu **Settings** (Ustawienia), w sekcji **Advanced**. Zakładka pokazuje fragmenty promptu, które agenci piszący zapisali przed ostatnią odpowiedzią. Do agentów piszących należą **Prose Guardian**, który przepisuje odpowiedzi zgodnie z twoimi zasadami stylu, oraz **Narrative Director**, który steruje fabułą.

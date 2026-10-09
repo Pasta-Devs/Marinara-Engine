@@ -51,13 +51,16 @@ Marinara parcourt cette liste et ajoute chaque entrée qui tient encore. Si une 
 
 Pas besoin de deviner quelles entrées ont été écartées. Ouvre **Chat Settings** et déplie **Active Context** (contexte actif). Cette section affiche le résultat en direct de la dernière analyse des lorebooks.
 
-Si des entrées correspondantes ont été écartées, un avertissement ambre s'affiche en haut. Il indique "N matching lore entries were skipped by token budget." Déplie-le pour voir chaque entrée écartée.
+Si des entrées correspondantes ont été écartées, un avertissement dans la couleur d'accentuation de ton thème s'affiche en haut. Il indique "N matching lore entries were skipped by token budget." En dessous, il nomme chaque budget qui a écarté des entrées et indique où le modifier. Déplie-le pour voir chaque entrée écartée.
 
 Chaque entrée écartée indique de quel lorebook elle provient et pourquoi elle a été bloquée. Le motif est l'un des suivants :
 
 - **lorebook budget** : l'entrée ne tenait pas dans le **Token Budget** de ce seul lorebook.
 - **chat budget** : l'entrée ne tenait pas dans le **Lorebook Token Budget** commun au chat.
 - **lorebook and chat budgets** : les deux plafonds étaient déjà pleins.
+- **current-location context cap** : l'entrée est du lore rattaché au lieu actuel, qui a sa propre limite de 2 048 tokens. Aucun réglage ne la modifie, mais l'entrée peut quand même s'activer par ses propres mots-clés.
+
+Une entrée dont le texte est vide, ou que les macros réduisent à rien, n'est pas listée. Elle n'a rien à ajouter, donc aucun budget ne l'a écartée. Ses macros s'exécutent quand même : un `{{setvar}}` qu'elle contient définit toujours la variable. Avec les deux budgets de tokens à **0**, seule la limite du lieu actuel peut faire apparaître des entrées écartées ici.
 
 Déplie une entrée écartée pour en savoir plus. Tu y trouves les mots-clés correspondants, la taille estimée en tokens et la part du budget déjà consommée. Si de gros lorebooks sont écartés en permanence, **Active Context** suggère les agents **Knowledge Retrieval** ou **Knowledge Router**. Ils gèrent souvent mieux les gros lorebooks qu'une augmentation des plafonds.
 

@@ -6,6 +6,8 @@ Ten przewodnik opisuje trackery w trybie Roleplay: ruchome przyciski i panele na
 
 Na telefonie HUD (heads-up display) ma przyciski **World State** i **Player & Tracker**. Możesz przesuwać je w obrębie czatu. Dotknij przycisku, żeby zobaczyć aktualne szczegóły opowieści, takie jak godzina, statystyki czy obecne postacie. Marinara dba o aktualność tych wartości w miarę rozwoju fabuły.
 
+Gdy World State ma już szczegóły do pokazania, jego przycisk zmienia się w mały baner, na którym widać je od razu: pinezkę lokalizacji, kalendarz z dniem, zegar, pogodę i temperaturę.
+
 Te przyciski trackerów pozostają osobno, poza menu **Chat tools** (narzędzia czatu) z trzema kropkami, w którym znajdują się sekcje wydzielone z Chat Settings.
 
 Na komputerze trackery nie znajdują się w rzędzie HUD. Są w **Tracker Panel**, gdy jest widoczny, a w przeciwnym razie w opisanym poniżej oknie **Trackers**.
@@ -58,7 +60,7 @@ Gdy agenci pracują nad czatem, obok tytułu okna i na przycisku **Chat Settings
 
 Każdy tracker ma własną rozwijaną sekcję, nazywaną po angielsku drawer. Kliknij jej nagłówek, żeby zwinąć ją do małego podglądu widgetu, i kliknij ponownie, żeby zobaczyć cały tracker. Marinara zapamiętuje, które sekcje są zwinięte.
 
-Tracker może też mieć własne okno: kliknij przycisk otwierania w osobnym oknie obok strzałki albo przeciągnij tytuł poza okno Trackers. Nowe okno nie jest początkowo przypięte. Przypnij je, aby pozostało otwarte po kliknięciu poza nim lub zamknięciu okna Trackers. Jego **X** zwija je do małego przycisku z ikoną trackera; przycisk otwiera okno w poprzednim miejscu. Żeby przywrócić tracker, kliknij **Put back in Trackers** (zakrzywiona strzałka tuż po lewej od **X**) albo przeciągnij go na okno Trackers. Każdy czat zapamiętuje, które trackery są odłączone i gdzie leżą.
+Tracker może też mieć własne okno: kliknij przycisk otwierania w osobnym oknie obok strzałki albo przeciągnij tytuł poza okno Trackers. Nowe okno nie jest początkowo przypięte. Przypnij je, aby pozostało otwarte po kliknięciu poza nim lub zamknięciu okna Trackers. Jego **X** zwija je do małego przycisku z ikoną trackera; przycisk otwiera okno w poprzednim miejscu. **World State** zwija się natomiast do banera z tą samą pinezką, kalendarzem, zegarem, pogodą i temperaturą co przycisk na telefonie, dzięki czemu data i godzina w opowieści pozostają na widoku. Przeciągnij go w dowolne miejsce, na przykład na środek górnej krawędzi czatu. Żeby przywrócić tracker, kliknij **Put back in Trackers** (zakrzywiona strzałka tuż po lewej od **X**) albo przeciągnij go na okno Trackers. Każdy czat zapamiętuje, które trackery są odłączone i gdzie leżą.
 
 Na dole **Agent activity** pokazuje, co zrobili agenci czatu. Możesz tu ponownie uruchomić trackery, ponowić działania agentów po błędzie, zatrzymać działających agentów i użyć **Clear Trackers**. Tracker Panel ma tę samą sekcję na dole.
 

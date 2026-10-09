@@ -91,6 +91,8 @@ As **Author's Notes** funcionam do mesmo jeito no Game Mode e no Conversation Mo
 
 A aba **Activity** lista as saídas dos agentes, chamadas de balões de pensamento. Você pode dispensar cada uma ou usar **Clear all**. As saídas de agentes personalizados também aparecem aqui.
 
+Enquanto os agentes trabalham, o ícone de **Agent activity** vira um indicador de carregamento giratório. Quando um agente falha, um pontinho aparece no ícone até você abrir **Agent activity**.
+
 Se um agente falhou no último turno, aparece uma lista de falhas com um botão para tentar novamente. Por aqui você também pode parar agentes em execução, executar todos os trackers novamente e usar **Clear Trackers**. Para conhecer o sistema em linguagem simples, veja [Agentes: ajudantes de IA para os seus chats](../agents/agents-overview.md).
 
 A aba **Injections** só aparece quando o **Debug mode** (modo de depuração) está ativado. Ative na seção **Settings** (Configurações), em **Advanced**. Essa aba mostra os trechos de prompt que os agentes do tipo escritor salvaram antes da última resposta. Entre esses agentes estão o **Prose Guardian**, que reescreve as respostas para seguir as suas regras de estilo, e o **Narrative Director**, que conduz o enredo.

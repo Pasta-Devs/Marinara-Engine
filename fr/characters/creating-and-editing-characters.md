@@ -78,6 +78,8 @@ La section **Dialogue & Greetings** définit l'ouverture du chat et le ton du pe
 
 Les salutations et les messages d'exemple peuvent aussi afficher des images de la Gallery du personnage ; consulte [Galeries de personnages → Réutiliser une image de galerie dans les messages et les salutations](galleries.md#reuse-a-gallery-image-in-messages-and-greetings).
 
+Quand les salutations affichent des images venues d'autres sites web, **Save images locally** (enregistrer les images localement) en garde une copie dans la Gallery du personnage ; consulte [Galeries de personnages → Enregistrer les images web des salutations](galleries.md#save-web-images-from-greetings).
+
 Une courte entrée Example Dialogue ressemble à ceci :
 
 ```

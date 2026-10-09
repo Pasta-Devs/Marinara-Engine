@@ -6,6 +6,8 @@ Este guia explica os trackers do Roleplay: os botões e painéis que você pode 
 
 No celular, o HUD (heads-up display) traz os botões **World State** e **Player & Tracker**. Você pode movê-los pelo chat. Toque em um deles para ver detalhes atuais da história, como a hora, seus atributos ou quem está presente. Marinara atualiza esses valores conforme a história avança.
 
+Assim que World State tem detalhes para mostrar, o botão dele vira um pequeno banner que os exibe de relance: um marcador de local, um calendário com o dia, um relógio, o clima e a temperatura.
+
 Esses botões dos trackers continuam separados do menu de três pontos **Chat tools** (ferramentas do chat), que reúne as seções que você retirou de Chat Settings.
 
 No computador, os trackers não ficam na fileira do HUD. Eles aparecem em **Tracker Panel** enquanto o painel está visível, ou na janela **Trackers** descrita abaixo.
@@ -58,7 +60,7 @@ Enquanto os agentes trabalham, um pontinho aparece ao lado do título da janela 
 
 Cada tracker tem uma seção recolhível, chamada gaveta. Clique no cabeçalho para recolher até a prévia do widget pequeno e clique novamente para ver o tracker completo. Marinara lembra quais gavetas você recolheu.
 
-Um tracker também pode ter uma janela própria: clique no botão para destacar ao lado da seta ou arraste o título para fora de Trackers. A nova janela começa sem fixação. Fixe a janela para mantê-la aberta quando clicar fora ou fechar Trackers. O **X** a reduz a um botão com o ícone do tracker, que reabre a janela onde você a deixou. Clique em **Put back in Trackers** (a seta curva à esquerda do **X**) ou arraste de volta sobre Trackers para guardar. Cada chat lembra quais trackers estão fora e onde.
+Um tracker também pode ter uma janela própria: clique no botão para destacar ao lado da seta ou arraste o título para fora de Trackers. A nova janela começa sem fixação. Fixe a janela para mantê-la aberta quando clicar fora ou fechar Trackers. O **X** a reduz a um botão com o ícone do tracker, que reabre a janela onde você a deixou. Já **World State** vira um banner, com o mesmo marcador, calendário, relógio, clima e temperatura do botão do celular, para que a data e a hora da história fiquem sempre à vista. Arraste o banner para qualquer lugar, como o centro do topo do chat. Clique em **Put back in Trackers** (a seta curva à esquerda do **X**) ou arraste de volta sobre Trackers para guardar. Cada chat lembra quais trackers estão fora e onde.
 
 No fim, **Agent activity** mostra o que os agentes fizeram. Por ali você pode executar trackers novamente, tentar de novo os agentes que falharam, parar os que estão rodando e usar **Clear Trackers**. Tracker Panel tem a mesma seção no fim.
 

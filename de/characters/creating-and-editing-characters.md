@@ -78,6 +78,8 @@ Der Abschnitt **Dialogue & Greetings** legt fest, wie ein Chat beginnt und wie d
 
 Begrüßungen und Beispielnachrichten können auch Bilder aus der Galerie des Charakters anzeigen; siehe [Charaktergalerien → Ein Galeriebild in Nachrichten und Begrüßungen wiederverwenden](galleries.md#reuse-a-gallery-image-in-messages-and-greetings).
 
+Zeigen die Begrüßungen Bilder von anderen Websites, legt **Save images locally** (Bilder lokal speichern) eine Kopie davon in der Galerie des Charakters ab; siehe [Charaktergalerien → Webbilder aus Begrüßungen speichern](galleries.md#save-web-images-from-greetings).
+
 Ein kurzer Eintrag unter Example Dialogue sieht so aus:
 
 ```
