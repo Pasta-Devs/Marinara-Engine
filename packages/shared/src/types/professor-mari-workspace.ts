@@ -278,7 +278,15 @@ export type MariChangeExcerpt =
       edited: string[];
       removed: string[];
       count: { added: number; edited: number; removed: number };
+      /** Slice 87: the added and edited entries with their keys and text, for a lorebook. */
+      items?: MariChangeListItem[];
     };
+
+export interface MariChangeListItem {
+  name: string;
+  keys?: string[];
+  text?: string;
+}
 
 export type MariWorkspaceToolName =
   | "docs_search"

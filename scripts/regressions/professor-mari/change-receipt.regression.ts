@@ -83,10 +83,16 @@ assert.equal(shrek.undoUntil, "2026-10-22T08:00:00.000Z", "the undo deadline com
 assert.equal(shrek.reason, "Every example line was about the swamp.");
 assert.deepEqual(
   shrek.changes?.map((change) => `${change.kind}:${change.field}`),
-  ["text:description", "text:scenario", "list:alternate_greetings", "list:character_book"],
-  "editor order; nested settings without a list are counted, not dumped",
+  [
+    "text:description",
+    "text:scenario",
+    "list:alternate_greetings",
+    "list:character_book",
+    "text:extensions.talkativeness",
+  ],
+  "editor order; a nested setting shows its changed key, not the whole object",
 );
-assert.equal(shrek.moreChanges, 1, "extensions is left to the field count");
+assert.equal(shrek.moreChanges, undefined, "one level of nesting is shown, nothing is left to count");
 const greetings = shrek.changes?.find((change) => change.field === "alternate_greetings");
 assert.deepEqual(greetings?.kind === "list" && greetings.added, ["*He is mid-onion when you knock.*"]);
 const book = shrek.changes?.find((change) => change.field === "character_book");
@@ -95,15 +101,108 @@ assert.deepEqual(book.added, ["Onion field"], "a lorebook entry is named, never 
 assert.deepEqual(book.edited, ["Swamp"]);
 assert.ok(!JSON.stringify(shrek.changes).includes('"content"'), "no row JSON in the record");
 
-// Accept edits mode: no review, the record is still saved, with no undo.
-const autoKept = buildMariWorkspaceActionResult(
+// A change with no restore copy (no review on the result) is saved and has no undo.
+const unreviewed = buildMariWorkspaceActionResult(
   "character.update",
   applied([{ table: "characters", id: "shrek", action: "update", before: shrekBefore, after: shrekAfter }]),
 );
-assert.ok(autoKept?.changes?.length, "Accept edits keeps the receipt too");
-assert.equal(autoKept?.reviewIds, undefined);
-assert.equal(autoKept?.undoUntil, undefined);
-assert.equal(mariReceiptState(autoKept!, new Set()), "saved");
+assert.ok(unreviewed?.changes?.length, "the receipt is kept without a review too");
+assert.equal(unreviewed?.reviewIds, undefined);
+assert.equal(unreviewed?.undoUntil, undefined);
+assert.equal(mariReceiptState(unreviewed!, new Set()), "saved");
+
+// Slice 87: a created character keeps all 14 fields, text and lists first, and no Keep / expiry is shown.
+const fourteen = Object.fromEntries(
+  Array.from({ length: 14 }, (_, index) => [`field${index}`, index % 2 ? `Value ${index}` : index]),
+);
+const created = buildMariWorkspaceActionResult(
+  "character.create",
+  applied(
+    [
+      {
+        table: "characters",
+        id: "mira",
+        action: "insert",
+        before: null,
+        after: { id: "mira", data: { name: "Mira", ...fourteen } },
+      },
+    ],
+    "rev-mira",
+  ),
+);
+assert.equal(created?.status, "created");
+assert.equal(created?.changes?.length, 15, "every created field and the name are kept, none counted");
+assert.equal(created?.moreChanges, undefined);
+assert.equal(created?.changes?.[0]?.field, "name", "text leads a created record");
+assert.ok(
+  created?.changes?.findIndex((change) => change.kind === "value") >
+    created?.changes?.findIndex((change) => change.kind === "text"),
+  "switches and numbers come after text on a created record",
+);
+
+// Slice 87: a new lorebook shows its entries with keys and text; its switches come last.
+const lorebook = buildMariWorkspaceActionResult(
+  "lorebook.create",
+  applied(
+    [
+      {
+        table: "lorebooks",
+        id: "lore",
+        action: "insert",
+        before: null,
+        after: { id: "lore", name: "Swamp rules", isGlobal: false, enabled: true, scanDepth: 2 },
+      },
+      {
+        table: "lorebook_entries",
+        id: "e3",
+        action: "insert",
+        before: null,
+        after: {
+          id: "e3",
+          lorebookId: "lore",
+          name: "Onions",
+          keys: ["onion", "onions"],
+          content: "Onions grow in the field.",
+        },
+      },
+    ],
+    "rev-lore",
+  ),
+);
+const entriesOfLore = lorebook?.changes?.find((change) => change.field === "entries");
+assert.ok(entriesOfLore?.kind === "list");
+assert.deepEqual(entriesOfLore.items, [
+  { name: "Onions", keys: ["onion", "onions"], text: "Onions grow in the field." },
+]);
+assert.ok(
+  (lorebook?.changes?.findIndex((change) => change.field === "entries") ?? -1) <
+    (lorebook?.changes?.findIndex((change) => change.kind === "value") ?? -1),
+  "the entries come before the switches",
+);
+assert.ok(
+  lorebook?.changes?.some((change) => change.field === "scanDepth"),
+  "a switch is still shown",
+);
+
+// Slice 87: a preset's changed setting (parameters.maxTokens) is shown, not hidden in the field count.
+const preset = buildMariWorkspaceActionResult(
+  "preset.update",
+  applied([
+    {
+      table: "prompt_presets",
+      id: "preset",
+      action: "update",
+      before: { id: "preset", data: { description: "Old", parameters: { maxTokens: 512, temperature: 1 } } },
+      after: { id: "preset", data: { description: "Old", parameters: { maxTokens: 1024, temperature: 1 } } },
+    },
+  ]),
+);
+assert.deepEqual(
+  preset?.changes?.map((change) => change.field),
+  ["parameters.maxTokens"],
+  "only the setting that changed",
+);
+assert.equal(preset?.changes?.[0]?.kind === "value" && preset.changes[0].after, "1024");
 
 // Boilerplate reasons say nothing and are dropped.
 assert.equal(mariReceiptReason("User asked to make Shrek less repetitive"), undefined);
@@ -122,7 +221,7 @@ assert.ok(longAfter.includes(` ${window.after.slice(1, 15)}`), "the window start
 const huge = "word ".repeat(4000);
 const manyBefore: Record<string, unknown> = { id: "big", data: {} };
 const manyAfter: Record<string, unknown> = { id: "big", data: {} };
-for (let index = 0; index < 20; index += 1) {
+for (let index = 0; index < 45; index += 1) {
   (manyBefore.data as Record<string, unknown>)[`field_${index}`] = `${huge}a`;
   (manyAfter.data as Record<string, unknown>)[`field_${index}`] = `b${huge}`;
 }
@@ -133,8 +232,8 @@ const big = buildMariWorkspaceActionResult(
   huge,
 );
 assert.ok(big?.changes);
-assert.equal(big.changes.length, MARI_RECEIPT_LIMITS.changes, "at most 8 fields");
-assert.ok((big.moreChanges ?? 0) >= 13, "the rest are counted");
+assert.equal(big.changes.length, MARI_RECEIPT_LIMITS.changes, "at most 40 fields");
+assert.ok((big.moreChanges ?? 0) >= 6, "the rest are counted");
 for (const change of big.changes) {
   if (change.kind === "list") {
     assert.ok(change.added.length <= MARI_RECEIPT_LIMITS.names);
@@ -147,7 +246,7 @@ for (const change of big.changes) {
 }
 assert.ok((big.reason ?? "").length <= MARI_RECEIPT_LIMITS.reason);
 const bigBytes = Buffer.byteLength(JSON.stringify(big));
-assert.ok(bigBytes < 5000, `a worst-case record stays small (${bigBytes} bytes)`);
+assert.ok(bigBytes < 70000, `a worst-case record stays bounded (${bigBytes} bytes)`);
 
 // ── One run, one record: two entry edits of a lorebook merge, with both reviews ──────────────────
 const entry = (id: string, name: string, action: MariDbRowChange["action"]): MariDbRowChange => ({

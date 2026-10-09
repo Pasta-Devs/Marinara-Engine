@@ -6,21 +6,25 @@
  */
 import type {
   MariChangeExcerpt,
+  MariChangeListItem,
   MariDbRowChange,
   MariWorkspaceActionResult,
 } from "../types/professor-mari-workspace.js";
 
 export const MARI_RECEIPT_LIMITS = {
+  // ponytail: per-record caps keep a message extra under ~60 KB per record; raise if users hit them.
   /** Fields per record. */
-  changes: 8,
+  changes: 40,
   /** Characters per side of a text excerpt. */
-  text: 200,
+  text: 600,
   /** Characters of a switch, enum or number. */
   value: 40,
-  /** Names per list group (added / edited / removed). */
-  names: 5,
+  /** Names per list group (added / edited / removed), and entries per list's items. */
+  names: 25,
   /** Characters per list name. */
   name: 60,
+  /** Characters of a lorebook entry's text, shown under its name. */
+  entryText: 300,
   /** Records per message. */
   records: 12,
   /** Characters of her reason. */
@@ -123,6 +127,7 @@ function listExcerpt(
   added: string[],
   edited: string[],
   removed: string[],
+  items: MariChangeListItem[] = [],
 ): Extract<MariChangeExcerpt, { kind: "list" }> | null {
   if (added.length + edited.length + removed.length === 0) return null;
   const names = (values: string[]) => [...new Set(values)].slice(0, MARI_RECEIPT_LIMITS.names);
@@ -133,7 +138,21 @@ function listExcerpt(
     edited: names(edited),
     removed: names(removed),
     count: { added: added.length, edited: edited.length, removed: removed.length },
+    ...(items.length ? { items: items.slice(0, MARI_RECEIPT_LIMITS.names) } : {}),
   };
+}
+
+/** A lorebook entry's keys and text, so the card shows what the entry does, not only its name. */
+function itemDetail(item: unknown): MariChangeListItem {
+  const name = itemName(item);
+  if (!isRecord(item)) return { name };
+  const rawKeys = Array.isArray(item.keys) ? item.keys : Array.isArray(item.key) ? item.key : [];
+  const keys = rawKeys
+    .filter((key): key is string => typeof key === "string" && key.trim() !== "")
+    .slice(0, MARI_RECEIPT_LIMITS.names)
+    .map((key) => clip(key, MARI_RECEIPT_LIMITS.name));
+  const text = typeof item.content === "string" ? clip(item.content, MARI_RECEIPT_LIMITS.entryText) : "";
+  return { name, ...(keys.length ? { keys } : {}), ...(text ? { text } : {}) };
 }
 
 function diffList(field: string, before: unknown[], after: unknown[]) {
@@ -142,12 +161,15 @@ function diffList(field: string, before: unknown[], after: unknown[]) {
   const added: string[] = [];
   const edited: string[] = [];
   const removed: string[] = [];
+  const items: MariChangeListItem[] = [];
   for (const [key, item] of now) {
     if (!old.has(key)) added.push(itemName(item));
     else if (JSON.stringify(old.get(key)) !== JSON.stringify(item)) edited.push(itemName(item));
+    else continue;
+    items.push(itemDetail(item));
   }
   for (const [key, item] of old) if (!now.has(key)) removed.push(itemName(item));
-  return listExcerpt(field, added, edited, removed);
+  return listExcerpt(field, added, edited, removed, items);
 }
 
 /** A list held in an object (a character's lorebook: `{ entries: [...] }`). */
@@ -155,24 +177,71 @@ function entriesOf(value: unknown): unknown[] | null {
   return isRecord(value) && Array.isArray(value.entries) ? value.entries : null;
 }
 
-function fieldExcerpt(field: string, before: unknown, after: unknown): MariChangeExcerpt | null {
-  if (Array.isArray(before) || Array.isArray(after)) {
-    return diffList(field, Array.isArray(before) ? before : [], Array.isArray(after) ? after : []);
-  }
-  if (isRecord(before) || isRecord(after)) {
-    const oldEntries = entriesOf(before);
-    const newEntries = entriesOf(after);
-    if (!oldEntries && !newEntries) return null; // other nested settings stay in the field count
-    return diffList(field, oldEntries ?? [], newEntries ?? []);
-  }
+/** JSON text (an extensions blob) reads as the object it holds; other text stays text. */
+function parsedJson(value: unknown): unknown {
+  if (typeof value !== "string" || !isJsonText(value)) return value;
+  return JSON.parse(value);
+}
+
+function primitiveExcerpt(field: string, before: unknown, after: unknown): MariChangeExcerpt {
   if (typeof before === "string" || typeof after === "string") {
     const oldText = typeof before === "string" ? before : before == null ? "" : String(before);
     const newText = typeof after === "string" ? after : after == null ? "" : String(after);
-    if (isJsonText(oldText) || isJsonText(newText)) return null;
     return { field, kind: "text", ...excerptTextPair(oldText, newText) };
   }
   const show = (value: unknown) => clip(value == null ? "" : String(value), MARI_RECEIPT_LIMITS.value);
   return { field, kind: "value", before: show(before), after: show(after) };
+}
+
+/**
+ * The excerpts of one changed field. A nested object (a preset's `parameters`, an extension's settings)
+ * is read one level: each changed setting becomes its own `field.key` excerpt. Anything deeper is only
+ * counted in `hidden`.
+ */
+function fieldExcerpts(
+  field: string,
+  rawBefore: unknown,
+  rawAfter: unknown,
+): { excerpts: MariChangeExcerpt[]; hidden: number } {
+  const before = parsedJson(rawBefore);
+  const after = parsedJson(rawAfter);
+  // JSON text swapped for plain text is a rewrite of the text, not a change of its keys.
+  if (typeof before !== typeof after && (typeof before === "string" || typeof after === "string")) {
+    return { excerpts: [primitiveExcerpt(field, before, after)], hidden: 0 };
+  }
+  if (Array.isArray(before) || Array.isArray(after)) {
+    const list = diffList(field, Array.isArray(before) ? before : [], Array.isArray(after) ? after : []);
+    return { excerpts: list ? [list] : [], hidden: 0 };
+  }
+  if (isRecord(before) || isRecord(after)) {
+    const oldEntries = entriesOf(before);
+    const newEntries = entriesOf(after);
+    if (oldEntries || newEntries) {
+      const list = diffList(field, oldEntries ?? [], newEntries ?? []);
+      return { excerpts: list ? [list] : [], hidden: 0 };
+    }
+    const oldObject = isRecord(before) ? before : {};
+    const newObject = isRecord(after) ? after : {};
+    const excerpts: MariChangeExcerpt[] = [];
+    let hidden = 0;
+    for (const key of new Set([...Object.keys(oldObject), ...Object.keys(newObject)])) {
+      const nestedBefore = oldObject[key];
+      const nestedAfter = newObject[key];
+      if (JSON.stringify(nestedBefore) === JSON.stringify(nestedAfter)) continue;
+      if (
+        isRecord(nestedBefore) ||
+        isRecord(nestedAfter) ||
+        Array.isArray(nestedBefore) ||
+        Array.isArray(nestedAfter)
+      ) {
+        hidden += 1;
+      } else {
+        excerpts.push(primitiveExcerpt(`${field}.${key}`, nestedBefore, nestedAfter));
+      }
+    }
+    return { excerpts, hidden };
+  }
+  return { excerpts: [primitiveExcerpt(field, before, after)], hidden: 0 };
 }
 
 function rowFields(row: Record<string, unknown> | null | undefined, nested: boolean) {
@@ -203,24 +272,31 @@ export function buildMariChangeExcerpts(input: {
     const rank = (key: string) => (FIELD_ORDER.includes(key) ? FIELD_ORDER.indexOf(key) : FIELD_ORDER.length);
     keys.sort((a, b) => rank(a) - rank(b));
     for (const key of keys) {
-      const excerpt = fieldExcerpt(key, before?.[key], after[key]);
-      if (excerpt) changes.push(excerpt);
-      else moreChanges += 1;
+      const shown = fieldExcerpts(key, before?.[key], after[key]);
+      changes.push(...shown.excerpts);
+      moreChanges += shown.hidden;
     }
   }
-  const lists = new Map<string, { added: string[]; edited: string[]; removed: string[] }>();
+  const lists = new Map<
+    string,
+    { added: string[]; edited: string[]; removed: string[]; items: MariChangeListItem[] }
+  >();
   for (const { field, change } of input.children ?? []) {
-    const list = lists.get(field) ?? { added: [], edited: [], removed: [] };
+    const list = lists.get(field) ?? { added: [], edited: [], removed: [], items: [] };
     lists.set(field, list);
-    const name = itemName(change.after ?? change.before);
+    const row = change.after ?? change.before;
+    const name = itemName(row);
     if (change.action === "insert") list.added.push(name);
     else if (change.action === "delete") list.removed.push(name);
     else list.edited.push(name);
+    if (change.action !== "delete") list.items.push(itemDetail(row));
   }
   for (const [field, list] of lists) {
-    const excerpt = listExcerpt(field, list.added, list.edited, list.removed);
+    const excerpt = listExcerpt(field, list.added, list.edited, list.removed, list.items);
     if (excerpt) changes.push(excerpt);
   }
+  // A created record leads with its text and lists (what it is), then its switches and numbers.
+  if (!direct?.before) changes.sort((a, b) => Number(a.kind === "value") - Number(b.kind === "value"));
   return capChanges(changes, moreChanges);
 }
 
@@ -247,6 +323,7 @@ function mergeExcerpts(older: MariChangeExcerpt[], newer: MariChangeExcerpt[]): 
         added,
         [...prev.edited, ...next.edited].filter((name) => !added.includes(name)),
         [...prev.removed, ...next.removed],
+        [...(prev.items ?? []), ...(next.items ?? [])],
       );
       if (listed) {
         merged[index] = {
