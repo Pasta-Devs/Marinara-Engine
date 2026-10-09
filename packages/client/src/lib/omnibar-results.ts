@@ -22,6 +22,7 @@ import { CHOICE_SCORE_PENALTY, buildChoiceOptionResults, readChoiceOptionId } fr
 import { frecencyBoost, type OmnibarFrecencyEntry } from "./omnibar-frecency";
 import { readNamedRow } from "./omnibar-row-readers";
 import { parseChatMetadata } from "./chat-display";
+import { countBlockingReviews, isMariReviewWaiting } from "./professor-mari-presentation";
 import { deriveActiveLorebookViews, getChatActiveLorebookIds, getChatExcludedLorebookIds } from "./chat-lorebooks";
 import { getChatCharacterIds } from "./chat-macros";
 import { isLanguageGenerationConnection, type ConnectionProviderLike } from "./connection-filters";
@@ -298,7 +299,7 @@ export type OmnibarRemovalSuggestionsInput = {
 export type OmnibarContinueResultInput = {
   mariEnabled: boolean;
   t: OmnibarTranslate;
-  workspaceStatus: { active?: boolean; pendingApprovals: readonly unknown[] } | undefined;
+  workspaceStatus: { active?: boolean; pendingApprovals: readonly Parameters<typeof isMariReviewWaiting>[0][] } | undefined;
   /** A task the user handed to Mari that she has since finished. */
   mariFinished?: boolean;
 };
@@ -1784,7 +1785,9 @@ export function buildOmnibarApprovalResults({
         : {
             control: {
               type: "choice" as const,
-              label: t("commandCenter.approval.decide", "Mari needs your answer"),
+              label: isMariReviewWaiting(approval)
+                ? t("commandCenter.approval.decide", "Mari needs your answer")
+                : t("commandCenter.approval.keepOrUndo", "Keep or undo"),
               // No option is selected yet: the row is the question, not a setting.
               value: pendingId === approval.id ? "pending" : "",
               options: [
@@ -1827,7 +1830,7 @@ export function buildOmnibarContinueResult({
 }: OmnibarContinueResultInput): OmnibarResult | null {
   if (!mariEnabled) return null;
   const status = workspaceStatus;
-  const hasPendingApprovals = (status?.pendingApprovals.length ?? 0) > 0;
+  const hasPendingApprovals = countBlockingReviews(status?.pendingApprovals ?? []) > 0;
   if (!hasPendingApprovals && !status?.active && !mariFinished) return null;
   const title = status?.active
     ? t("commandCenter.continueMariActive", "Mari is working")

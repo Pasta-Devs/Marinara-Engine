@@ -20,6 +20,7 @@ import {
   lastEditedRecordId,
 } from "../../../lib/omnibar-empty-state";
 import { mariFixRowId } from "../../../lib/mari-arrival";
+import { countBlockingReviews } from "../../../lib/professor-mari-presentation";
 import { getChatCharacterIds } from "../../../lib/chat-macros";
 import type { useProfessorMariWorkspaceStatus } from "../../../hooks/use-professor-mari-workspace-status";
 import type { useLorebooks } from "../../../hooks/use-lorebooks";
@@ -173,7 +174,7 @@ export function useOmnibarEmptyState({
     const lastFixRowId = mariFixRowId(lastAppError);
     return pickOmnibarNowResult({
       mariRow: continueResult,
-      pendingApprovals: mariEnabled ? (mariWorkspaceStatus?.pendingApprovals.length ?? 0) : 0,
+      pendingApprovals: mariEnabled ? countBlockingReviews(mariWorkspaceStatus?.pendingApprovals ?? []) : 0,
       mariActive: mariWorkspaceStatus?.active === true,
       mariFinished,
       fixRow: (lastFixRowId && contextResults.find((row) => row.id === lastFixRowId)) || null,

@@ -31,6 +31,7 @@ import { ChevronLeft, Search, X } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import { checkReply } from "../../lib/reply-checkup";
+import { countBlockingReviews } from "../../lib/professor-mari-presentation";
 import { useAgentConfigs } from "../../hooks/use-agents";
 import { useCharacters, usePersonas } from "../../hooks/use-characters";
 import { chatKeys, useChats, useProfessorMariChats, useUpdateChat, useUpdateChatMetadata } from "../../hooks/use-chats";
@@ -1184,7 +1185,7 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
     // screen's context, exactly like ⌘K's own Ask Mari with an empty query. A left-over query is not sent along.
     // The top-bar pill resumes her current thread like the omnibar's continue row: no routing, reviews in view.
     if (request.resume) {
-      openProfessorMari(null, { reviewPending: (mariWorkspaceStatus.data?.pendingApprovals.length ?? 0) > 0 });
+      openProfessorMari(null, { reviewPending: countBlockingReviews(mariWorkspaceStatus.data?.pendingApprovals ?? []) > 0 });
       return;
     }
     if (!request.context && !request.draft) {
@@ -1319,7 +1320,7 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
       if (result.group === "continue") {
         // The continue row resumes existing work, so there is nothing to submit.
         openProfessorMari(null, {
-          reviewPending: (mariWorkspaceStatus.data?.pendingApprovals.length ?? 0) > 0,
+          reviewPending: countBlockingReviews(mariWorkspaceStatus.data?.pendingApprovals ?? []) > 0,
         });
       } else if (asideSettled) {
         // The answer grew inside this row, so continuing carries it along (G3). A streaming answer is not carried.

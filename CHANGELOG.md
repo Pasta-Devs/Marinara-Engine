@@ -302,6 +302,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - Fixed a run finishing while Professor Mari's chat sat behind the search list being marked as seen, so its **Done** pill never showed.
 - Fixed a search crash bringing back its broken saved state on the next open.
 - Fixed the docs: the Personal Extension command example now targets the panel it registers, and the memory card button is named **Keep and enable**.
+- Professor Mari's applied changes no longer raise **Needs you**. The top-bar pill, the omnibar's Now row and its Current work row only ask for an answer when a change is held or a real approval waits. An applied change still offers **Keep or undo**.
 
 ## [2.5.0]
 

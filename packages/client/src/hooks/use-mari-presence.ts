@@ -7,6 +7,7 @@ import {
 } from "@marinara-engine/shared";
 import { api } from "../lib/api-client";
 import { resolveMariEdgeGlow, type MariEdgeGlow } from "../lib/mari-presence-seen";
+import { countBlockingReviews } from "../lib/professor-mari-presentation";
 import { useChatStore } from "../stores/chat.store";
 import { useUIStore } from "../stores/ui.store";
 import { useProfessorMariWorkspaceStatus } from "./use-professor-mari-workspace-status";
@@ -37,7 +38,7 @@ export function useMariPresence(): MariPresence {
   const clientRunFailed = useChatStore((state) => state.mariClientRunFailed);
   return {
     working: status.data?.active === true,
-    pendingCount: status.data?.pendingApprovals.length ?? 0,
+    pendingCount: countBlockingReviews(status.data?.pendingApprovals ?? []),
     latestRun: status.data?.latestRun ?? null,
     clientRunFailed,
   };

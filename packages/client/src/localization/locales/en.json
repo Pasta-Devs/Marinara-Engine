@@ -952,6 +952,7 @@
   "commandCenter.approval.fileTitle": "Mari wants to write {{path}}",
   "commandCenter.approval.install": "Install",
   "commandCenter.approval.keep": "Keep",
+  "commandCenter.approval.keepOrUndo": "Keep or undo",
   "commandCenter.approval.notNow": "Not now",
   "commandCenter.approval.package": "Package",
   "commandCenter.approval.path": "Path",

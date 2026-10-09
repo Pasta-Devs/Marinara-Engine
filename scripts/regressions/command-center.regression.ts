@@ -3903,6 +3903,35 @@ assert.ok(!("mariDetailId" in mariSession));
     /const needsYouCount =[\s\S]*?isMariReviewWaiting\(approval\)[\s\S]*?\(heldChangeCard \? 1 : 0\);/u,
     "the omnibar header asks for an answer only for a real approval or a held change",
   );
+  // UX-04: the top-bar pill, the Now row, the empty state and the open-with-review flags count only waiting reviews.
+  // An applied change (Keep/Undo) is not a question, so it never raises "Needs you".
+  const appliedOnly = {
+    active: false,
+    pendingApprovals: [
+      { id: "a1", kind: "applied_review", affectedRows: 1, diffPreview: [{ table: "characters", action: "update" }] },
+    ],
+  } as never;
+  assert.equal(
+    buildOmnibarContinueResult({
+      mariEnabled: true,
+      t: ((_key: string, fallback: string) => fallback) as never,
+      workspaceStatus: appliedOnly,
+    }),
+    null,
+    "UX-04: an applied change adds no Now row",
+  );
+  for (const file of [
+    "packages/client/src/hooks/use-mari-presence.ts",
+    "packages/client/src/components/layout/omnibar/use-omnibar-empty-state.ts",
+    "packages/client/src/components/layout/GlobalOmnibar.tsx",
+    "packages/client/src/lib/omnibar-results.ts",
+  ]) {
+    assert.match(
+      readFileSync(new URL(`../../${file}`, import.meta.url), "utf8"),
+      /countBlockingReviews\(/u,
+      `UX-04: ${file} counts only the reviews that wait on the user`,
+    );
+  }
 }
 
 {
