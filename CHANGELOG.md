@@ -4,6 +4,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- When a chat character forgets things, Professor Mari now reads the character card too. If the card makes him forgetful or confused on purpose, she says that nothing is broken and explains what is going on, instead of always blaming a missing lorebook.
 - Quick answers and Professor Mari read only the user docs. They no longer find or name the developer working plans under `docs/development/` (the docs viewer already hid them).
 - When you continue a quick answer in Professor Mari's window, her first message shows the quick answer under your question: "From Search · Quick answer", three lines with **Show all**, and the docs pages it used. **Continue with Mari** waits until the answer has finished, so Mari never gets half of it.
 - **Answer with** in the quick answer settings has **Same as Mari**, which follows the connection Mari uses. Choosing it does not need a downloaded local model, and it changes when Mari's connection changes.
