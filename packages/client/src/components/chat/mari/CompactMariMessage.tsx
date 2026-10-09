@@ -433,7 +433,8 @@ export function MariWorkTimelineOutcome({
           ) : null
         }
       />
-      <MariWhyDisclosure points={receiptWhy ? whyPoints.slice(1) : whyPoints} />
+      {/* UX-26: one Why per turn. A change card carries it, so the fold only shows without a card. */}
+      {receiptResults.length > 0 ? null : <MariWhyDisclosure points={whyPoints} />}
       <MariReplyActions
         content={stripProfessorMariSpeakerPrefix(content)}
         onRegenerate={onRegenerate}
