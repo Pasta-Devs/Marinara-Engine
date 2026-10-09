@@ -40,6 +40,10 @@ export type CommandCenterTitleKey =
   | "createPreset"
   | "documentation"
   | "help"
+  | "discord"
+  | "credits"
+  | "tutorial"
+  | "widgets"
   | "keyboardShortcuts"
   | "searchAllChats"
   | "activityOverview"
@@ -73,6 +77,10 @@ export const DEFAULT_COMMAND_CENTER_LABELS: CommandCenterLabels = {
   createPreset: "Create preset",
   documentation: "Documentation",
   help: "Help",
+  discord: "Discord community",
+  credits: "Credits",
+  tutorial: "Tutorial",
+  widgets: "Home widgets",
   keyboardShortcuts: "Keyboard shortcuts",
   searchAllChats: "Search all chats",
   activityOverview: "Activity overview",

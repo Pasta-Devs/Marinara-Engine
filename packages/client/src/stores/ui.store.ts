@@ -43,6 +43,9 @@ export type Panel =
   | "bot-browser"
   | "extensions";
 export type ChatModeShortcut = "conversation" | "roleplay" | "game";
+
+/** Not saved: a Home surface the omnibar or a Command Center row asks Home to open. */
+export type HomeRequest = { kind: "faq" | "widgets" | "credits" } | { kind: "tab"; tab: string };
 export const CHARACTER_LIBRARY_SORT_OPTIONS = ["name-asc", "name-desc", "newest", "oldest", "favorites"] as const;
 export type CharacterLibrarySort = (typeof CHARACTER_LIBRARY_SORT_OPTIONS)[number];
 export type CardLibraryKind = "characters" | "personas";
@@ -656,6 +659,8 @@ interface UIState {
   settingsTargetControlId: string | null;
   /** A settings section to scroll to, when the jump names a section rather than one control. */
   settingsTargetSectionId: string | null;
+  /** Not saved: a Home surface to open once Home mounts (see `requestHome`). */
+  homeRequest: HomeRequest | null;
   modal: { type: string; props?: Record<string, unknown> } | null;
   /** Not saved: an Advanced Memory scene to open, or a Fix to start, once its Chat Settings section shows. */
   advancedMemoryRequest: { chatId: string; sceneId?: string; fix?: boolean } | null;
@@ -1151,6 +1156,8 @@ interface UIState {
   setActiveEditorField: (field: { id: string; label: string } | null) => void;
   setLastAppError: (error: UIState["lastAppError"]) => void;
   setSettingsTargetControlId: (controlId: string | null) => void;
+  requestHome: (request: HomeRequest) => void;
+  consumeHomeRequest: () => void;
   setSettingsTargetSectionId: (sectionId: string | null) => void;
   openModal: (type: string, props?: Record<string, unknown>) => void;
   closeModal: () => void;
@@ -1931,6 +1938,7 @@ export const useUIStore = create<UIState>()(
         activeEditorField: null,
         lastAppError: null,
         settingsTargetControlId: null,
+        homeRequest: null,
         settingsTargetSectionId: null,
         modal: null,
         advancedMemoryRequest: null,
@@ -2292,6 +2300,8 @@ export const useUIStore = create<UIState>()(
         setActiveEditorField: (field) => set({ activeEditorField: field }),
         setLastAppError: (error) => set({ lastAppError: error }),
         setSettingsTargetControlId: (controlId) => set({ settingsTargetControlId: controlId }),
+        requestHome: (homeRequest) => set({ homeRequest }),
+        consumeHomeRequest: () => set({ homeRequest: null }),
         setSettingsTargetSectionId: (sectionId) => set({ settingsTargetSectionId: sectionId }),
         openModal: (type, props) => set({ modal: { type, props } }),
         closeModal: () => set({ modal: null }),

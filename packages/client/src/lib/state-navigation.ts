@@ -1,36 +1,32 @@
 import { useChatStore } from "../stores/chat.store";
-import { isMobileShellViewport, useUIStore } from "../stores/ui.store";
+import { isMobileShellViewport, useUIStore, type HomeRequest } from "../stores/ui.store";
 import { requestProfessorMariOpen } from "./professor-mari-open";
 import type { ProfessorMariNavigationTarget } from "./professor-mari-navigation";
 import { isOmnibarSettingsTarget } from "./settings-registry";
 
-export interface StateNavigationHandlers {
-  home?: () => void;
-  professor?: () => void;
-  window?: (target: Extract<ProfessorMariNavigationTarget, { kind: "window" }>["window"]) => void;
-  package?: (packageId: string) => void;
+const DISCORD_INVITE_URL = "https://discord.com/invite/KdAkTg94ME";
+const SUPPORT_URL = "https://ko-fi.com/marinara_spaghetti";
+
+/** Leave the current chat or editor, show Home, then let Home open the surface. */
+function openHomeWith(request: HomeRequest) {
+  const ui = useUIStore.getState();
+  useChatStore.getState().setActiveChatId(null);
+  ui.closeAllDetails();
+  ui.closeRightPanel();
+  ui.requestHome(request);
 }
 
-export function executeStateNavigation(
-  target: ProfessorMariNavigationTarget,
-  handlers: StateNavigationHandlers = {},
-): boolean {
+export function executeStateNavigation(target: ProfessorMariNavigationTarget): boolean {
   const ui = useUIStore.getState();
   if (target.kind === "home") {
-    if (handlers.home) handlers.home();
-    else {
-      useChatStore.getState().setActiveChatId(null);
-      ui.closeAllDetails();
-      ui.closeRightPanel();
-    }
+    useChatStore.getState().setActiveChatId(null);
+    ui.closeAllDetails();
+    ui.closeRightPanel();
   } else if (target.kind === "professor") {
-    if (handlers.professor) handlers.professor();
-    else {
-      useChatStore.getState().setActiveChatId(null);
-      ui.closeAllDetails();
-      ui.closeRightPanel();
-      requestProfessorMariOpen();
-    }
+    useChatStore.getState().setActiveChatId(null);
+    ui.closeAllDetails();
+    ui.closeRightPanel();
+    requestProfessorMariOpen();
   } else if (target.kind === "chats") {
     ui.setSidebarOpen(true);
     ui.closeRightPanel();
@@ -71,13 +67,11 @@ export function executeStateNavigation(
   } else if (target.kind === "window") {
     if (target.window === "documentation") ui.openModal("docs-viewer");
     else if (target.window === "tutorial") ui.setHasCompletedOnboarding(false);
-    else if (handlers.window) handlers.window(target.window);
-    else return false;
-  } else if (handlers.package) handlers.package(target.packageId);
-  else return false;
-  // Close only after a handler accepts the target. Package and host-specific
-  // targets may be unhandled; hiding the omnibar in that case loses the query
-  // without taking the user anywhere.
+    else if (target.window === "discord") window.open(DISCORD_INVITE_URL, "_blank", "noopener,noreferrer");
+    else if (target.window === "support") window.open(SUPPORT_URL, "_blank", "noopener,noreferrer");
+    else if (target.window === "faq" || target.window === "widgets" || target.window === "credits")
+      openHomeWith({ kind: target.window });
+  } else openHomeWith({ kind: "tab", tab: target.packageId });
   ui.setOmnibarOpen(false);
   return true;
 }

@@ -1319,6 +1319,16 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
     setActiveTab(tab);
   };
   const openProfessor = () => requestProfessorMariOpen();
+  // The omnibar and Command Center ask Home for a surface through `requestHome`; Home opens it here.
+  const homeRequest = useUIStore((state) => state.homeRequest);
+  useEffect(() => {
+    if (!homeRequest) return;
+    useUIStore.getState().consumeHomeRequest();
+    if (homeRequest.kind === "tab") selectTab(homeRequest.tab);
+    else if (homeRequest.kind === "faq") setFaqOpen(true);
+    else if (homeRequest.kind === "widgets") setWidgetManagerOpen(true);
+    else onOpenCredits();
+  });
   const moveDraggedWidget = useCallback(
     (target: { kind: "widget"; id: HomeWidgetId } | { kind: "empty"; index: number }) => {
       const source = draggedWidgetIdRef.current;
