@@ -2519,9 +2519,11 @@ export function HomeProfessorMariChat({
   const turnOnMemory = async (memoryId: string) => {
     try {
       await api.put(`/professor-mari/workspace/instructions/${memoryId}`, { enabled: true });
+      return true;
     } catch (error) {
       console.error("[Professor Mari] Failed to turn on memory", error);
       toast.error(localizeUi("ui.chat.homeprofessormarichat.professorMariCouldNotUpdateThatMemory"));
+      return false;
     }
   };
 
@@ -2566,7 +2568,7 @@ export function HomeProfessorMariChat({
         disabled={approvalBusyId !== null}
         highlighted={highlightedReviewId === approval.id}
         onKeep={() => void answerApproval(approval, true)}
-        onTurnOn={(memoryId) => void turnOnMemory(memoryId)}
+        onTurnOn={turnOnMemory}
         onRestore={() => void answerApproval(approval, false)}
         onRejectRows={(id, rows) => rejectWorkspaceRows(id, rows)}
         onRenderPrompt={renderWorkspacePrompt}

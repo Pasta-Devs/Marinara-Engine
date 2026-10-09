@@ -4,6 +4,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- Professor Mari's held card for a new record shows one short line ("12 fields") instead of every field name, and an edit names up to three fields. **Turn on** on a saved memory goes away once the memory is on.
 - A Professor Mari change that could not save names the record, or "Change to a character" when the record was not found, instead of the title "Not saved character.".
 - Every label that named Professor Mari now says **Professor Mari** in titles, settings and sentences, and **Prof. Mari** on buttons, chips, tabs and tight labels, so no screen shows a bare **Mari**. Her window, Search rows, toasts, pull-down labels and the composer placeholder follow the same rule.
 - Throwing Professor Mari against the screen edge now works on phones.

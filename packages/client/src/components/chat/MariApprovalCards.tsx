@@ -102,7 +102,7 @@ function DatabaseWorkspaceApprovalCard({
   busy: boolean;
   disabled: boolean;
   onKeep: (id: string) => void;
-  onTurnOn?: (memoryId: string) => void;
+  onTurnOn?: (memoryId: string) => Promise<boolean>;
   onRestore: (id: string) => void;
   onRejectRows?: (
     id: string,
@@ -168,6 +168,8 @@ function DatabaseWorkspaceApprovalCard({
       const after = change.after as { enabled?: unknown; persistent?: unknown } | null;
       return Number(after?.enabled) !== 1 && Number(after?.persistent) !== 1;
     })?.id ?? null;
+  // The diff keeps the memory's old "off" state, so the card itself remembers that Turn on worked.
+  const [turnedOn, setTurnedOn] = useState(false);
 
   const promptPreviewModal = promptPreview ? (
     <MariPromptPreviewModal
@@ -224,10 +226,10 @@ function DatabaseWorkspaceApprovalCard({
                   : "ui.chat.mariappliededit.undo",
               )}
             </button>
-            {enableableMemoryId && onTurnOn ? (
+            {enableableMemoryId && onTurnOn && !turnedOn ? (
               <button
                 type="button"
-                onClick={() => onTurnOn(enableableMemoryId)}
+                onClick={() => void onTurnOn(enableableMemoryId).then((done) => done && setTurnedOn(true))}
                 disabled={busy || disabled}
                 className="mari-btn"
               >
@@ -380,8 +382,19 @@ export function MariHeldChangeCard({
     0,
     fields.findIndex(({ key }) => key !== "name"),
   );
+  // One short head line: a new record counts its fields; an edit names up to three, then "+N".
+  const named3 = labels
+    .slice(0, 3)
+    .map((label, index) => (index === 0 ? label : label.toLowerCase()))
+    .join(", ");
   const fact =
-    kind === "many" ? name : labels.map((label, index) => (index === 0 ? label : label.toLowerCase())).join(", ");
+    kind === "many"
+      ? name
+      : kind === "create" && fields.length > 0
+        ? localizeUi("ui.chat.marichangereceipt.fieldCount", { count: fields.length })
+        : labels.length > 3
+          ? `${named3} ${localizeUi("ui.chat.marichangereceipt.more", { count: labels.length - 3 })}`
+          : named3;
   const Icon = kind === "delete" ? Trash2 : kind === "create" ? Plus : Pencil;
   return (
     <div className="mari-list mari-receipt">
@@ -694,7 +707,7 @@ export function WorkspaceApprovalCard({
   /** R9: a brief highlight when the omnibar jumped straight to this review. */
   highlighted?: boolean;
   onKeep: (id: string) => void;
-  onTurnOn?: (memoryId: string) => void;
+  onTurnOn?: (memoryId: string) => Promise<boolean>;
   onRestore: (id: string) => void;
   onRejectRows?: (
     id: string,
