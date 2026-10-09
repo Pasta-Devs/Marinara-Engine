@@ -2047,6 +2047,20 @@ html[data-marinara-effects-paused="true"] .mari-pull-overlay[data-mari-edge] .ma
   container: mari-transcript / inline-size;
 }
 
+/* A long chat's older turns skip style and layout while off screen, so opening it (and every accent
+   tick) pays only for what is visible. The clip margin keeps their focus rings and 44px touch targets. */
+.mari-transcript-past-turn {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 8rem;
+  overflow-clip-margin: 0.75rem;
+}
+
+/* Their done marks stand drawn: skipped off screen, they would draw their check as you scroll to them. */
+.mari-transcript-past-turn .mari-work-timeline__done-mark :is(circle, path) {
+  animation: none;
+  stroke-dashoffset: 0;
+}
+
 /* Her chat loading (slice 83): her sprite and soft rows, held back 150 ms so a fast load never flashes it.
    Real content fades in once the stack reports it loaded. Reduced motion: visibility only, no fades or shimmer. */
 .mari-loading {

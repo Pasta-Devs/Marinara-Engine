@@ -194,7 +194,12 @@ export function MariTranscript({
                 <span className="mari-note__detail">{workspaceToolsIssue}</span>
               </MariNote>
             ) : null}
-            {transcriptHeadMessages.map(renderDisplayMessage)}
+            {transcriptHeadMessages.map((message) => (
+              // Older turns skip style and layout while off screen (mari.css).
+              <div key={message.id} className="mari-transcript-past-turn">
+                {renderDisplayMessage(message)}
+              </div>
+            ))}
             {/* Not before her chat has loaded: null === null would show the empty state, then the
                                   history loader, then the empty state again. */}
             {emptyStateReady && arrival ? (
