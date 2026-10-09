@@ -330,9 +330,14 @@ export function usePullToOpenOmnibar({
       `linear-gradient(to bottom, var(--marinara-topbar-surface) ${px(solidTo)}px, color-mix(in srgb, var(--card) 42%, transparent) ${px(height)}px),` +
       `linear-gradient(to bottom, var(--background) ${px(solidTo)}px, color-mix(in srgb, var(--background) 0%, transparent) ${px(clearAt)}px)`;
 
-    // Rim: soft, brightest along the upper left of the circle, travelling with it.
-    rimGrad?.setAttribute("x1", String(px(ex - rx * 1.4)));
-    rimGrad?.setAttribute("y1", String(px(ey - ry * 2.2)));
+    // Rim: soft, brightest along the upper left of the circle, travelling with it. Its light wavers
+    // slowly and runs down the sheet to the circle as the pull grows.
+    const waver = g.mode !== "idle" && !g.calm;
+    const now = performance.now();
+    const drift = waver ? Math.sin(now / 900) * 0.35 + Math.sin(now / 2300) * 0.2 : 0;
+    const run = waver ? (1 - clamp01(g.follow?.pull ?? 0)) * 1.2 : 0;
+    rimGrad?.setAttribute("x1", String(px(ex - rx * (1.4 + drift))));
+    rimGrad?.setAttribute("y1", String(px(ey - ry * (2.2 + run))));
     rimGrad?.setAttribute("x2", String(px(ex + rx)));
     rimGrad?.setAttribute("y2", String(px(ey + ry)));
     edgeGrad?.setAttribute("y1", String(px(barY + 1)));
@@ -425,6 +430,8 @@ export function usePullToOpenOmnibar({
 
     // The sheet lets go once the pinch has closed its waist.
     if (!g.detached && mv.pinch.get() > 0.97 && (g.mode === "pull" || landing)) detach();
+    // The wavering rim needs frames while the finger holds still.
+    if (waver) frame.render(paint);
   }, [els, g, mv]); // eslint-disable-line react-hooks/exhaustive-deps -- detach is hoisted and stable
 
   const schedulePaint = useCallback(() => {
@@ -628,6 +635,7 @@ export function usePullToOpenOmnibar({
       g.fingerX = x;
       g.calm = useUIStore.getState().reduceAmbientEffects;
       g.kick = 0;
+      g.follow = null;
       g.mariEnabled = useUIStore.getState().commandCenterMariEnabled;
       if (reduceMotion) {
         setLabelOnly(true);
