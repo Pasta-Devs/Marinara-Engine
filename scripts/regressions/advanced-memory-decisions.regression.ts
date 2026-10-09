@@ -17,6 +17,7 @@ let partial = false;
 let rejectAll = false;
 let stallNextDecision = false;
 let cutProbability = 0.3;
+let failSummaries = false;
 let beforeAnswer: (() => void) | undefined;
 const provider = createServer(async (request, response) => {
   const chunks: Buffer[] = [];
@@ -63,6 +64,11 @@ const provider = createServer(async (request, response) => {
   }
   const [system, user] = body.messages;
   const classify = system.content.startsWith("Identify scene transitions");
+  if (failSummaries && !classify) {
+    response.statusCode = 500;
+    response.end(JSON.stringify({ error: { message: "summary helper is down" } }));
+    return;
+  }
   requests.push({ kind: classify ? "classify" : "summary", body });
   const result = classify
     ? system.content.includes('"ends"')
@@ -457,7 +463,24 @@ try {
     memory.initialize(chat.id, { range: { start: unsureIndex, end: cutSource.length } }),
     new RegExp(`Choose messages between #1 and #${cutSource.length}`),
   );
-  await memory.initialize(chat.id, { range: { start: unsureIndex - 1, end: harbor - 1 } });
+  // A summary the user edited (the TARGET_SCENE correction above) stops a re-scan before any paid call.
+  const beforeProtected = requests.length;
+  await assert.rejects(
+    memory.initialize(chat.id, { range: { start: 2, end: 6 } }),
+    /Messages #4–#6 have a summary you edited/,
+  );
+  assert.equal(requests.length, beforeProtected, "a refused re-scan asks no model");
+  // A re-scan stopped during its summaries keeps its new scenes, and Resume finishes them.
+  failSummaries = true;
+  await assert.rejects(memory.initialize(chat.id, { range: { start: unsureIndex - 1, end: harbor - 1 } }));
+  failSummaries = false;
+  assert(
+    (await memory.status(chat.id)).unpreparedScenes.some(
+      (scene) => scene.startIndex === unsureIndex + 1 && scene.endIndex === harbor,
+    ),
+    "the re-scanned layout is saved before its summaries",
+  );
+  await memory.initialize(chat.id);
   const rescanned = await memory.status(chat.id);
   assert.equal(rescanned.job.status, "ready");
   for (const [id, content] of outside)
@@ -554,9 +577,38 @@ try {
   backend.askMixed = async () => ({ answers: new Map(), choices: new Map() });
   assert.equal(await rankDecisionMemories(backend, "Remember it?", [], candidates), null);
   assert.equal(
-    await detectDecisionSceneStarts(backend, [{ messageId: "one", speaker: "Reader", content: "Quiet." }], ["one"]),
+    await detectDecisionSceneStarts(
+      backend,
+      [
+        { messageId: "zero", speaker: "Reader", content: "Loud." },
+        { messageId: "one", speaker: "Reader", content: "Quiet." },
+      ],
+      ["one"],
+    ),
     null,
   );
+  assert.deepEqual(
+    await detectDecisionSceneStarts(backend, [{ messageId: "zero", speaker: "Reader", content: "Loud." }], ["zero"]),
+    [],
+    "a message with nothing before it is not asked whether it cuts away",
+  );
+  // A small Decision model drops earlier messages and shortens long ones instead of falling back (#7371).
+  backend.askMixed = async (state: unknown, questions: Array<{ id: string }>) => {
+    assert(estimateChatSummaryTokens(JSON.stringify(state)) <= 1000);
+    return { answers: new Map(questions.map((question) => [question.id, 0.9])), choices: new Map() };
+  };
+  const long = Array.from({ length: 8 }, (_, index) => ({
+    messageId: `long-${index}`,
+    speaker: "Reader",
+    content: `Opening ${index}. ${"The road goes on. ".repeat(120)}Closing ${index}.`,
+  }));
+  assert.deepEqual(await detectDecisionSceneStarts(backend, long, ["long-3", "long-4", "long-5", "long-6", "long-7"]), [
+    "long-3",
+    "long-4",
+    "long-5",
+    "long-6",
+    "long-7",
+  ]);
   assert.equal(await rankDecisionMemories(backend, "Remember?", [], [{ id: "large", text: "x ".repeat(10000) }]), null);
   const cancelled = new AbortController();
   backend.askMixed = async () => {

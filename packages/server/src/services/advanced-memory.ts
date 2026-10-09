@@ -76,6 +76,7 @@ import {
   MEMORY_DECISION_BATCH_SIZE,
   MEMORY_DECISION_MESSAGES_PER_SCENE,
   MEMORY_DECISION_SCENE_CONTEXT,
+  messageEnds,
 } from "./advanced-memory-decisions.js";
 import { cosineSimilarity } from "./lorebook/embeddings.js";
 import { contextWindowForInputBudget, measureContextBudget, withLlmRequestTimeout } from "./llm/base-provider.js";
@@ -607,14 +608,6 @@ function logMessages(ctx: Context, messages: readonly AdvancedMemoryMessage[], i
 
 function tokenSize(content: string): number {
   return estimateChatSummaryTokens(content);
-}
-
-/** A long message within tokens: its start and its end, where arrivals and departures usually are. */
-function messageEnds(content: string, tokens: number): string {
-  if (tokenSize(content) <= tokens) return content;
-  const marker = "\n[interior of this same message omitted]\n";
-  const endTokens = Math.max(0, Math.floor((tokens - tokenSize(marker)) / 2));
-  return `${sliceTextToTokenBudget(content, endTokens)}${marker}${sliceTextToTokenBudget(content, endTokens, true)}`;
 }
 
 /** Hidden, user-set or already decided messages stay exactly as they are (#7192). */
@@ -2107,10 +2100,19 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
       : undefined;
     if (options.sceneId && !repair) return; // A completed retry must not turn a healthy archive into an error.
     const range = repair ? undefined : options.range;
-    if (range && state.historyClassified !== true)
-      throw new Error("Prepare existing history before re-scanning scenes");
     if (range && !(range.start >= 0 && range.start <= range.end && range.end < ctx.messages.length))
       throw new Error(`Choose messages between #1 and #${ctx.messages.length} to re-scan`);
+    // A re-scan never moves a summary the user edited, deleted or turned off, and refuses before any paid call.
+    for (const record of range ? existing : []) {
+      if (record.kind !== "scene" || record.id === record.sceneId || (record.enabled && !record.manualOverride))
+        continue;
+      const start = ctx.messages.findIndex((message) => message.id === record.startMessageId);
+      const end = ctx.messages.findIndex((message) => message.id === record.endMessageId);
+      if (start >= 0 && end >= 0 && start <= range!.end && end >= range!.start)
+        throw new Error(
+          `Messages #${start + 1}–#${end + 1} have a summary you edited, deleted or turned off. Re-scan messages before or after them.`,
+        );
+    }
     const fixAll = options.fixAll === true && !repair;
     // Fix reports the scenes that were flagged before it ran and are healthy afterwards.
     const before = fixAll ? advancedMemoryProblems(await status(chatId)) : null;
@@ -2212,6 +2214,21 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
         for (const item of scenes)
           if (item.id === record.sceneId || ctx.messages.slice(item.start, item.end + 1).some((m) => ids.has(m.id)))
             skipped.add(item.id);
+      }
+    }
+    if (range) {
+      // Save the re-scanned layout before any paid summary, so a stopped re-scan never mixes old and new scenes.
+      const sceneIds = new Set(scenes.map((scene) => scene.id));
+      for (const scene of scenes)
+        await put(
+          ctx,
+          buildRecord(ctx, scene, "scene", [], ctx.messages.slice(scene.start, scene.end + 1), ""),
+          options,
+        );
+      for (const record of structural) {
+        if (sceneIds.has(record.id)) continue;
+        await db.delete(advancedMemoryRecords).where(eq(advancedMemoryRecords.id, record.id));
+        ctx.recordCache = ctx.recordCache!.filter((item) => item.id !== record.id);
       }
     }
     const embeddingSource = await resolveMemoryRecallEmbeddingSource(db, {
@@ -2668,12 +2685,15 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
           try {
             await updateConstantSummariesAfterGeneration(chatId, {}, operationOptions);
           } catch (error) {
-            // Fix still repairs the scenes; the next reply retries the continuity update.
-            if (!options.fixAll || operationOptions.signal?.aborted) throw error;
-            logger.warn(error, "[advanced-memory] Continuity update failed before Fix; repairing scenes anyway");
+            // Fix and a re-scan still do their work; the next reply retries the continuity update.
+            if (!(options.fixAll || options.range) || operationOptions.signal?.aborted) throw error;
+            logger.warn(
+              error,
+              "[advanced-memory] Continuity update failed before Fix or re-scan; continuing with scenes",
+            );
           }
-        // Fix finishes a stopped continuity update first, then repairs every scene.
-        if (!resumeCompaction || options.fixAll)
+        // Fix and a re-scan finish a stopped continuity update first, then do their own work.
+        if (!resumeCompaction || options.fixAll || options.range)
           await initializeImpl(chatId, {
             ...operationOptions,
             detectScenes: options.detectScenes,
@@ -2774,9 +2794,11 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
     )
       return false;
     const choices = object(decision).ends;
-    // A scene can end on any checked message, or on the one just before them when the first checked one cuts (#7371).
-    const validEnd = (value: unknown) =>
-      Number.isInteger(value) && Number(value) >= windowStart && Number(value) <= end + 1;
+    // A scene can end on a checked message, or just before one that starts a new scene (#7371).
+    const allowedEnds = new Set(
+      request.messages.flatMap((message) => [message.messageNumber, message.messageNumber - 1]),
+    );
+    const validEnd = (value: unknown) => Number.isInteger(value) && allowedEnds.has(Number(value));
     if (!Array.isArray(choices) || choices.some((choice) => !validEnd(object(choice).messageNumber)))
       throw new Error("The scene helper returned an invalid scene decision; retry the post-generation check");
     const existing = await operationRecords(ctx);

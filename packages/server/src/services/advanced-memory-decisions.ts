@@ -170,6 +170,14 @@ export async function askDecisionPresence(
   return result;
 }
 
+/** A long message within tokens: its start and its end, where arrivals and departures usually are. */
+export function messageEnds(content: string, tokens: number): string {
+  if (estimateChatSummaryTokens(content) <= tokens) return content;
+  const marker = "\n[interior of this same message omitted]\n";
+  const endTokens = Math.max(0, Math.floor((tokens - estimateChatSummaryTokens(marker)) / 2));
+  return `${sliceTextToTokenBudget(content, endTokens)}${marker}${sliceTextToTokenBudget(content, endTokens, true)}`;
+}
+
 /** One transcript entry of a scene question; the speaker makes a switch to characters elsewhere visible. */
 export interface SceneTranscriptEntry {
   messageId: string;
@@ -200,14 +208,23 @@ export async function detectDecisionSceneStarts(
     diagnostics.threshold = threshold;
   }
   const indexes = new Map(transcript.map((entry, index) => [entry.messageId, index]));
-  const candidates = candidateIds.filter((id) => indexes.has(id));
+  // A message with nothing before it has nothing to cut away from.
+  const candidates = candidateIds.filter((id) => (indexes.get(id) ?? 0) > 0);
   const selected: string[] = [];
   for (let offset = 0; offset < candidates.length; offset += MEMORY_DECISION_SCENE_GROUP) {
     const ids = candidates.slice(offset, offset + MEMORY_DECISION_SCENE_GROUP);
-    const local = transcript.slice(
+    // A small Decision model drops the oldest earlier messages first, then gets every message shortened.
+    let local = transcript.slice(
       Math.max(0, indexes.get(ids[0]!)! - MEMORY_DECISION_SCENE_CONTEXT),
       indexes.get(ids.at(-1)!)! + 1,
     );
+    const fits = (entries: readonly SceneTranscriptEntry[]) =>
+      estimateChatSummaryTokens(JSON.stringify({ transcript: entries })) <= backend.maxStateTokens;
+    while (local.length > ids.length + 1 && !fits(local)) local = local.slice(1);
+    if (!fits(local)) {
+      const tokens = Math.max(32, Math.floor((backend.maxStateTokens - 256) / local.length) - 32);
+      local = local.map((entry) => ({ ...entry, content: messageEnds(entry.content, tokens) }));
+    }
     // Presence rides along only when the whole set fits this first request; otherwise the caller asks separately.
     const shared =
       offset === 0 &&

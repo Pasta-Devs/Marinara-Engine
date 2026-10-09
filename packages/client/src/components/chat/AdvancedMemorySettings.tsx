@@ -67,7 +67,7 @@ export function AdvancedMemorySettings({
   const [knowledgeCharacterIds, setKnowledgeCharacterIds] = useState<string[]>([]);
   const [knowledgeChoices, setKnowledgeChoices] = useState<Record<string, string>>({});
   const [knowledgeCursors, setKnowledgeCursors] = useState<Array<string | undefined>>([undefined]);
-  const [rescanRange, setRescanRange] = useState<{ start?: number; end?: number }>({});
+  const [rescanDraft, setRescanDraft] = useState<{ chatId: string; start?: number; end?: number }>({ chatId });
   const knowledgePanelRef = useRef<HTMLElement>(null);
   useEffect(() => {
     if (!settings.enabled) setConfirmKnowledge(false);
@@ -133,12 +133,18 @@ export function AdvancedMemorySettings({
   const canFix = fixIds.length > 0 && !knowledgeBlocked && !running && !action.isPending;
   const fixPending = action.isPending && action.variables?.action === "initialize" && !!action.variables.fixAll;
   const fix = () => action.mutate({ action: "initialize", fixAll: true, debugMode: useUIStore.getState().debugMode });
-  // Re-scan starts on the ongoing scene, the one that waits for its first summary.
+  // Re-scan starts on the ongoing scene, or the latest one when every scene has ended, never on the whole chat.
   const sceneRecords = (status.data?.records ?? []).filter((record) => record.kind === "scene");
-  const ongoing = sceneRecords.find((record) => record.status === "open");
+  const openScenes = sceneRecords.filter((record) => record.status === "open");
+  const latestStart = Math.max(
+    1,
+    ...(openScenes.length ? openScenes : sceneRecords).map((record) => record.startIndex),
+  );
+  // A range typed for another chat does not carry over.
+  const rescanRange = rescanDraft.chatId === chatId ? rescanDraft : { chatId };
   const messageCount = useChatMessageCount(settings.enabled && variant === "drawer" ? chatId : null);
-  const lastMessage = Math.max(1, messageCount.data?.count ?? 0, ...sceneRecords.map((record) => record.endIndex));
-  const rescanStart = Math.min(rescanRange.start ?? ongoing?.startIndex ?? 1, lastMessage);
+  const lastMessage = Math.max(1, messageCount.data?.count ?? 0);
+  const rescanStart = Math.min(rescanRange.start ?? latestStart, lastMessage);
   const rescanEnd = Math.max(rescanStart, Math.min(rescanRange.end ?? lastMessage, lastMessage));
   const showRescan =
     variant === "drawer" &&
@@ -574,7 +580,7 @@ export function AdvancedMemorySettings({
                     min={1}
                     max={lastMessage}
                     disabled={numberInputsDisabled}
-                    onCommit={(start) => setRescanRange((current) => ({ ...current, start }))}
+                    onCommit={(start) => setRescanDraft({ ...rescanRange, chatId, start })}
                     ariaLabel={t("chat.advancedMemory.rescan.from")}
                     className={fieldClass}
                   />
@@ -586,13 +592,18 @@ export function AdvancedMemorySettings({
                     min={1}
                     max={lastMessage}
                     disabled={numberInputsDisabled}
-                    onCommit={(end) => setRescanRange((current) => ({ ...current, end }))}
+                    onCommit={(end) => setRescanDraft({ ...rescanRange, chatId, end })}
                     ariaLabel={t("chat.advancedMemory.rescan.to")}
                     className={fieldClass}
                   />
                 </label>
               </div>
-              <button type="button" className={`${actionClass} w-full`} disabled={disabled} onClick={rescan}>
+              <button
+                type="button"
+                className={`${actionClass} w-full`}
+                disabled={disabled || !messageCount.data}
+                onClick={rescan}
+              >
                 {t("chat.advancedMemory.rescan.action")}
               </button>
             </section>
