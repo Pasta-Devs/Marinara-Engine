@@ -4,6 +4,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- Search rows for chats say who is in them, such as "with Ayla, Bo +1". Continue and Recent rows still say where you left off. A bare command word such as "new" shows message hits from one chat, not from every chat.
 - A message hit fits on one line: who said it, the matched words, then the time.
 - A lorebook entry in search shows its keys on line 2 and its book at the end. Its text appears only when the text is what matched.
 - A docs page in search shows the passage that matched, so you can see why it came up.

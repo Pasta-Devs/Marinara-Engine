@@ -91,7 +91,7 @@ export function useOmnibarEmptyState({
         .sort((a, b) => lastActive(b).localeCompare(lastActive(a)))
         .flatMap((chat) => {
           const row = rowById.get(`chat:${chat.id}`);
-          return row ? [{ ...row, group: "recent" as const }] : [];
+          return row ? [{ ...row, group: "recent" as const, contextLabel: row.recentLine ?? row.contextLabel }] : [];
         })
         // One more than shown: the newest leads the Continue strip and is dropped here as a duplicate.
         .slice(0, IDLE_RECENT_CHATS + 1)

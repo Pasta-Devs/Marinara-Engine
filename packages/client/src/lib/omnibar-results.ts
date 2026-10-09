@@ -905,7 +905,9 @@ export function buildOmnibarGlobalMessageResults({
 }: OmnibarGlobalMessageResultsInput): OmnibarResult[] {
   const query = messageSearchQuery.trim();
   if (query.length < MIN_MESSAGE_SEARCH_LENGTH) return [];
-  const groups = chats.filter((chat) => chat.chatId !== activeChatId).slice(0, MAX_GLOBAL_MESSAGE_CHATS);
+  // A bare command word ("new", "remove") matches most chats in passing, so it keeps one chat's two lines.
+  const chatLimit = isOmnibarRefinableVerb(query) ? 1 : MAX_GLOBAL_MESSAGE_CHATS;
+  const groups = chats.filter((chat) => chat.chatId !== activeChatId).slice(0, chatLimit);
   const rows: OmnibarResult[] = [];
   let shownHits = 0;
   let totalMatches = 0;

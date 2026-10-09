@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { PROVIDERS } from "../../packages/shared/src/constants/providers.ts";
-import { buildOmnibarConnectionRows } from "../../packages/client/src/lib/omnibar-entity-rows.js";
+import { buildOmnibarChatRows, buildOmnibarConnectionRows } from "../../packages/client/src/lib/omnibar-entity-rows.js";
 import { buildOmnibarLorebookEntryResults } from "../../packages/client/src/lib/omnibar-results.js";
 
 const t = (_key: string, fallback: string, options?: Record<string, unknown>) =>
@@ -42,5 +42,36 @@ const [connection] = buildOmnibarConnectionRows({
 const subtitle = connection!.preview().subtitle;
 assert.equal(subtitle, `gpt-x · ${PROVIDERS.custom.name}`, "model, then the provider's display name");
 assert.ok(!String(subtitle).includes("custom"), "the raw provider id is not shown");
+
+// Chats: line 2 in search is the cast (two names, then +N); the Continue and Recent rows keep the last line.
+const chatRow = (characterIds: string[]) =>
+  buildOmnibarChatRows({
+    chats: [
+      {
+        id: "chat-1",
+        name: "Moon Road",
+        mode: "roleplay",
+        characterIds,
+        lastMessageAt: "2026-01-10T12:00:00.000Z",
+        updatedAt: "2026-01-10T12:00:00.000Z",
+      },
+    ] as never,
+    characterById: new Map([
+      ["ayla", { data: { name: "Ayla" } }],
+      ["bo", { data: { name: "Bo" } }],
+      ["cy", { data: { name: "Cy" } }],
+    ]),
+    connectionById: new Map(),
+    personaById: new Map(),
+    chatModeLabels: { roleplay: "Roleplay", conversation: "Conversation", game: "Game" } as never,
+    latestMessageByChatId: new Map([["chat-1", { role: "assistant", content: "We ride out.", characterId: "ayla" }]]) as never,
+    t,
+    now: Date.parse("2026-01-10T12:05:00.000Z"),
+  })[0]!;
+const threeCast = chatRow(["ayla", "bo", "cy"]);
+assert.equal(threeCast.preview().subtitle, "with Ayla, Bo +1", "search line 2: two names, then +N");
+assert.equal(threeCast.description, "with Ayla, Bo +1", "the search row carries the same cast line");
+assert.equal(threeCast.recentLine, "Ayla: We ride out.", "Continue and Recent keep where the chat left off");
+assert.equal(chatRow([]).preview().subtitle, undefined, "a chat with no cast has no line 2 in search");
 
 process.stdout.write("omnibar-row-lines regression passed\n");

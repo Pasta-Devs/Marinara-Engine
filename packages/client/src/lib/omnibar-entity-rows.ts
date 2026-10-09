@@ -116,15 +116,27 @@ export function buildOmnibarChatRows({
       castNames: linkedCharacters.slice(0, 2).map((item) => item.display.name),
     });
     const lorebookCount = getChatActiveLorebookIds(chat).length;
+    // Search rows say who is in the chat; the Continue and Recent rows say where you left off.
+    const castNames = cast.map((id) => {
+      const linked = characterById.get(id) as Record<string, unknown>;
+      return parseCharacterDisplayData({ data: linked.data, comment: linked.comment as string | null | undefined }).name;
+    });
+    // Two names, then "+N": "with Eliza, Elias +2".
+    const castText = [castNames.slice(0, 2).join(", "), castNames.length > 2 ? `+${castNames.length - 2}` : ""]
+      .filter(Boolean)
+      .join(" ");
+    const castLine = castText ? t("commandCenter.messages.withCast", "with {{cast}}", { cast: castText }) : undefined;
     return {
       id: chat.id,
       name: chat.name,
       mode: chat.mode,
+      description: castLine,
+      recentLine: contextLine,
       preview: () => ({
         kind: "chat" as const,
         title: chat.name,
         categoryLabel: chatModeLabels[chat.mode],
-        subtitle: contextLine,
+        subtitle: castLine,
         metadataLine: updated,
         participants:
           cast.length > 1

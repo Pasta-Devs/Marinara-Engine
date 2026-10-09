@@ -99,6 +99,13 @@ assert.deepEqual(
   "the open chat is skipped, and see-all is left out when every other match is shown",
 );
 
+// A bare command word keeps one chat's lines, so "new" does not fill the list with messages.
+assert.deepEqual(
+  build({ messageSearchQuery: "new" }).map((row) => row.id),
+  ["message-chat:chat-rp", "message:chat-rp:4", "message:chat-rp:2", "message-more:chat-rp", "global-search:see-all"],
+  "a bare command word shows one chat only",
+);
+
 // No group without a chat row, and nothing for a query too short to search.
 assert.deepEqual(build({ chats: [] as never, hits: [] as never }), []);
 assert.deepEqual(build({ messageSearchQuery: "mo" }), []);

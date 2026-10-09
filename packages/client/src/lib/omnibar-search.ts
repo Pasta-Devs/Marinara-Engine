@@ -86,6 +86,8 @@ export type OmnibarResult = {
   meta?: string;
   /** The row this one belongs to: a hit line under its chat row. */
   parentId?: string;
+  /** Line 2 of a Continue or Recent chat row, which otherwise shows its cast. */
+  recentLine?: string;
   /** Line 3: the text that proves a match (a lorebook entry's content). */
   excerpt?: string;
   excerptMatch?: OmnibarMatchRange | null;
@@ -137,6 +139,8 @@ export type OmnibarSearchData = {
   chats: readonly (ProfessorMariNavigationChat & {
     mode?: string;
     description?: string;
+    /** Where the chat left off ("Speaker: last line"), shown in the Continue and Recent rows. */
+    recentLine?: string;
     preview?: () => CommandCenterPreviewData;
   })[];
   resources: readonly (ProfessorMariNavigationResource & {
@@ -681,6 +685,7 @@ export function searchOmnibar(query: string, data: OmnibarSearchData): OmnibarRe
             score,
             matchKind: score < 100 ? "fuzzy" : "literal",
             description: chat.description,
+            recentLine: chat.recentLine,
             preview: chat.preview,
             kind: "chat",
             icon: "chats",
