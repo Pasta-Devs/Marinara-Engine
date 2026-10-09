@@ -123,6 +123,11 @@ try {
     () => readCanonicalDocumentation(workspaceRoot, "docs/development/omnibar-ux-plan.md"),
     /canonical user documentation set/u,
   );
+  // UX-12: contributor notes under docs/contrib are not user docs either.
+  await mkdir(join(workspaceRoot, "docs", "contrib"), { recursive: true });
+  await writeFile(join(workspaceRoot, "docs", "contrib", "series.md"), "# A4c. Quokka shutdown\n", "utf8");
+  const contribSearch = await searchCanonicalDocumentation(workspaceRoot, "quokka", 3);
+  assert.ok(!contribSearch.results.some((result) => result.path.startsWith("docs/contrib/")));
 
   const section = await readCanonicalDocumentation(workspaceRoot, "docs/connections/proxy.md", "Proxy timeout", 1_000);
   assert.match(section.content, /Increase the proxy timeout/u);

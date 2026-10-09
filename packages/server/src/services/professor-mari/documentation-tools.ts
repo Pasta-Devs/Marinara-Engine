@@ -2,7 +2,8 @@ import type { Dirent } from "node:fs";
 import { lstat, readdir, readFile, realpath } from "node:fs/promises";
 import { join, relative, resolve, sep } from "node:path";
 
-const EXCLUDED_DOC_DIRS = new Set(["evidence", "pr-evidence", "screenshots", "examples", "i18n"]);
+// UX-12: docs/contrib maps contributor PR series; quick answers cited its headings ("A4c. Shutdown") to users.
+const EXCLUDED_DOC_DIRS = new Set(["evidence", "pr-evidence", "screenshots", "examples", "i18n", "contrib"]);
 /** The only docs/development files that are user docs; the docs viewer lists the same set, in this order. */
 export const USER_DEVELOPMENT_DOCS = [
   "architecture-map.md",
