@@ -102,12 +102,13 @@
 }
 
 /* A wide, low band (an ellipse, so the middle stands higher than the ends) spanning the whole window;
-   the canvas clips it at the sides. Anchored at the bottom, so shrinking sinks it out of view. */
+   the canvas clips it at the sides. Anchored at the bottom, so shrinking sinks it out of view. Its
+   visible rise is about 40 px at every window height (UX-31), so a tall window does not get a tall band. */
 .mari-workspace-glow-band::before,
 .mari-workspace-glow-band::after {
   position: absolute;
   left: 50%;
-  bottom: -55%;
+  bottom: -2.5rem;
   width: max(100vw, 48rem);
   border-radius: 50%;
   content: "";
@@ -120,7 +121,7 @@
 }
 
 .mari-workspace-glow-band::before {
-  height: 130%;
+  height: 5rem;
   background: linear-gradient(
     90deg,
     var(--mari-glow-a),
@@ -134,7 +135,7 @@
 
 /* Brighter spots that drift along the band, so the light moves instead of sitting still. */
 .mari-workspace-glow-band::after {
-  height: 110%;
+  height: 4.5rem;
   background:
     radial-gradient(closest-side at 20% 60%, color-mix(in srgb, var(--mari-glow-c) 75%, transparent), transparent),
     radial-gradient(closest-side at 50% 70%, color-mix(in srgb, var(--mari-glow-a) 70%, transparent), transparent),
@@ -143,12 +144,12 @@
 }
 
 .mari-workspace-glow-band[data-working="true"]::before {
-  opacity: 0.65;
+  opacity: 0.4;
   animation: mari-glow-waver 4.2s ease-in-out infinite alternate;
 }
 
 .mari-workspace-glow-band[data-working="true"]::after {
-  opacity: 0.55;
+  opacity: 0.3;
   animation: mari-glow-drift 5.5s ease-in-out infinite alternate;
 }
 
@@ -234,11 +235,11 @@ html[data-marinara-effects-paused="true"] .mari-workspace-glow-band::after {
 
 @keyframes mari-glow-alert {
   0% {
-    opacity: 0.5;
+    opacity: 0.35;
     scale: 1 0.7;
   }
   100% {
-    opacity: 0.3;
+    opacity: 0.2;
     scale: 1 0.45;
   }
 }

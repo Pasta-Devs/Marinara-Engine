@@ -114,3 +114,33 @@ test("UX-22: Ctrl+J carries a question into Professor Mari, and opens her empty 
   await expect(composer).toHaveValue("why is my lorebook empty");
   await omnibar.screenshot({ path: shotPath("UX-22-question", width) });
 });
+
+test("UX-31: the working glow is a low band about 40 px tall and faint", async ({ page }, testInfo) => {
+  const width = testInfo.project.name.includes("mobile") ? 390 : 1440;
+  // A stand-in window with the working glow, so the proof measures the shipped stylesheet at this width.
+  await page.evaluate(() => {
+    const box = document.createElement("div");
+    box.id = "ux31-glow";
+    box.style.cssText = "position:fixed;inset:0;overflow:hidden;background:#15121a;z-index:2147483647";
+    const band = document.createElement("div");
+    band.className = "mari-workspace-glow-band";
+    band.dataset.working = "true";
+    band.style.cssText = "position:absolute;inset:0";
+    box.append(band);
+    document.body.append(box);
+  });
+  const band = page.locator("#ux31-glow .mari-workspace-glow-band");
+  const measure = () =>
+    band.evaluate((element) => {
+      const style = getComputedStyle(element, "::before");
+      return {
+        riseAboveBottom: parseFloat(style.height) + parseFloat(style.bottom),
+        opacity: parseFloat(style.opacity),
+      };
+    });
+  // The colour fade takes 0.6 s; wait for the working opacity to settle before measuring.
+  await expect.poll(async () => (await measure()).opacity).toBeCloseTo(0.4, 1);
+  const metrics = await measure();
+  expect(metrics.riseAboveBottom).toBeLessThanOrEqual(44);
+  await page.locator("#ux31-glow").screenshot({ path: shotPath("UX-31", width) });
+});
