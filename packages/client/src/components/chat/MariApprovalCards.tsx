@@ -80,7 +80,7 @@ function DatabaseWorkspaceApprovalCard({
   busy,
   disabled,
   onKeep,
-  onKeepEnable,
+  onTurnOn,
   onRestore,
   onRejectRows,
   onRenderPrompt,
@@ -89,7 +89,7 @@ function DatabaseWorkspaceApprovalCard({
   busy: boolean;
   disabled: boolean;
   onKeep: (id: string) => void;
-  onKeepEnable?: (id: string) => void;
+  onTurnOn?: (memoryId: string) => void;
   onRestore: (id: string) => void;
   onRejectRows?: (
     id: string,
@@ -145,15 +145,16 @@ function DatabaseWorkspaceApprovalCard({
     <RawDetails approval={approval} open={rawOpen} onToggle={(open) => setDefaultViewMode(open ? "raw" : "easy")} />
   );
   const deleteReview = summarizeDeleteReview(approval);
-  // #4851: a saved memory lands disabled; offer "Keep & Enable" to keep AND switch it on.
-  // Gated to mari_instructions inserts (matches the server-side guard), and only for
-  // NON-persistent ones, because enabling a Persistent memory injects its full body every turn, a
-  // heavier commitment, so route that through the Memories panel where Persistent is visible.
-  const enableableMemoryInsert = approval.diffPreview.some((change) => {
-    if (change.action !== "insert" || change.table !== "mari_instructions") return false;
-    const after = change.after as { enabled?: unknown; persistent?: unknown } | null;
-    return Number(after?.enabled) !== 1 && Number(after?.persistent) !== 1;
-  });
+  // #4851: a saved memory lands disabled; offer "Turn on" to switch it on. The review stays open, so
+  // Undo still works. Gated to mari_instructions inserts, and only for NON-persistent ones, because
+  // enabling a Persistent memory injects its full body every turn, a heavier commitment, so route that
+  // through the Memories panel where Persistent is visible.
+  const enableableMemoryId =
+    approval.diffPreview.find((change) => {
+      if (change.action !== "insert" || change.table !== "mari_instructions") return false;
+      const after = change.after as { enabled?: unknown; persistent?: unknown } | null;
+      return Number(after?.enabled) !== 1 && Number(after?.persistent) !== 1;
+    })?.id ?? null;
 
   const promptPreviewModal = promptPreview ? (
     <MariPromptPreviewModal
@@ -210,10 +211,10 @@ function DatabaseWorkspaceApprovalCard({
                   : "ui.chat.mariappliededit.undo",
               )}
             </button>
-            {enableableMemoryInsert && onKeepEnable ? (
+            {enableableMemoryId && onTurnOn ? (
               <button
                 type="button"
-                onClick={() => onKeepEnable(approval.id)}
+                onClick={() => onTurnOn(enableableMemoryId)}
                 disabled={busy || disabled}
                 className="mari-btn"
               >
@@ -636,7 +637,7 @@ export function WorkspaceApprovalCard({
   disabled,
   highlighted = false,
   onKeep,
-  onKeepEnable,
+  onTurnOn,
   onRestore,
   onRejectRows,
   onRenderPrompt,
@@ -647,7 +648,7 @@ export function WorkspaceApprovalCard({
   /** R9: a brief highlight when the omnibar jumped straight to this review. */
   highlighted?: boolean;
   onKeep: (id: string) => void;
-  onKeepEnable?: (id: string) => void;
+  onTurnOn?: (memoryId: string) => void;
   onRestore: (id: string) => void;
   onRejectRows?: (
     id: string,
@@ -687,7 +688,7 @@ export function WorkspaceApprovalCard({
         busy={busy}
         disabled={disabled}
         onKeep={onKeep}
-        onKeepEnable={onKeepEnable}
+        onTurnOn={onTurnOn}
         onRestore={onRestore}
         onRejectRows={onRejectRows}
         onRenderPrompt={onRenderPrompt}

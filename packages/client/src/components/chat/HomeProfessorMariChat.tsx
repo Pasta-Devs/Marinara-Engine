@@ -2441,6 +2441,16 @@ export function HomeProfessorMariChat({
     openPendingApprovals(pendingReviewId);
   }, [chatWindowOpen, openPendingApprovals, pendingReviewId, pendingReviewRequest]);
 
+  // "Turn on" for a memory switches only the memory. The applied review stays open, so Undo still works.
+  const turnOnMemory = async (memoryId: string) => {
+    try {
+      await api.put(`/professor-mari/workspace/instructions/${memoryId}`, { enabled: true });
+    } catch (error) {
+      console.error("[Professor Mari] Failed to turn on memory", error);
+      toast.error(localizeUi("ui.chat.homeprofessormarichat.professorMariCouldNotUpdateThatMemory"));
+    }
+  };
+
   const answerApproval = async (approval: MariWorkspacePendingApproval, keep: boolean) => {
     // R10: the answered row stays where it was. It is listed before the call and shows as soon as the
     // review leaves the pending list (the same render), so the row never blinks out; a failure drops it.
@@ -2482,7 +2492,7 @@ export function HomeProfessorMariChat({
         disabled={approvalBusyId !== null}
         highlighted={highlightedReviewId === approval.id}
         onKeep={() => void answerApproval(approval, true)}
-        onKeepEnable={(id) => void keepWorkspaceChange(id, { enable: true })}
+        onTurnOn={(memoryId) => void turnOnMemory(memoryId)}
         onRestore={() => void answerApproval(approval, false)}
         onRejectRows={(id, rows) => rejectWorkspaceRows(id, rows)}
         onRenderPrompt={renderWorkspacePrompt}

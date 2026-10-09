@@ -239,6 +239,26 @@ try {
     const enabledNow = (await listMemories()).find((m) => m.name === "Enable me now");
     assert.ok(enabledNow?.enabled === true, "Keep & Enable turns the memory on");
 
+    // (6b) TURN ON: the memory card's "Turn on" writes only enabled:true (the same store update the
+    // PUT route runs). It must leave the applied review open, so Undo still removes the memory.
+    const beforeTurnOn = new Set(mari.getPendingApprovals().map((a) => a.id));
+    await mari.executeAction({
+      action: "instruction.remember",
+      data: { name: "Turn me on", content: "Keep replies brief." },
+      apply: true,
+    });
+    const turnOnReview = mari.getPendingApprovals().find((a) => !beforeTurnOn.has(a.id));
+    const turnOnMemoryId = turnOnReview?.diffPreview.find((c) => c.table === "mari_instructions")?.id;
+    assert.ok(turnOnReview && turnOnMemoryId, "the memory is reviewable");
+    await store.update(turnOnMemoryId, { enabled: true });
+    assert.ok(
+      mari.getPendingApprovals().some((a) => a.id === turnOnReview.id),
+      "Turn on leaves the applied review open (no Keep deletes the undo copy)",
+    );
+    assert.equal((await listMemories()).find((m) => m.id === turnOnMemoryId)?.enabled, true, "Turn on switches the memory on");
+    await mari.restoreAppliedReview(turnOnReview.id);
+    assert.equal((await listMemories()).some((m) => m.id === turnOnMemoryId), false, "Undo after Turn on still removes the memory");
+
     // (7) Render over LIVE rows: only ENABLED memories inject. Enable the two originals
     // (persistent one inlines its body; non-persistent shows in the index only).
     for (const m of await listMemories()) {
