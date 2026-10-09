@@ -8,6 +8,7 @@ import {
   scrubInternalNames,
 } from "../../../packages/server/src/services/professor-mari/workspace-agent.service.js";
 import { normalizeCommandCenterSessionState } from "../../../packages/client/src/lib/command-center.js";
+import { getMessageWorkspaceActionResults } from "../../../packages/client/src/components/chat/mari/mari-tool-presentation.js";
 
 function result(table: string, action: "insert" | "update" | "replace"): MariDbCommandResult {
   return {
@@ -124,5 +125,18 @@ const session = normalizeCommandCenterSessionState({
 assert.equal(session.query, "find Luna", "the Mari return keeps the search query");
 assert.equal(session.activeResultId, "character:luna", "the selected result remains selected");
 assert.equal(session.mariReturnResultId, "character:luna", "the return result is persisted in the session contract");
+
+// A failed change is stored on her message as status "failed". The client must keep it, or the "Not saved"
+// card vanishes on reload (the reader used to accept only created and updated).
+{
+  const stored = [
+    { status: "failed", resource: { kind: "character", id: "missing" }, changedFields: [], error: "Character missing not found", summary: "Not saved character." },
+  ];
+  const message = { id: "m1", role: "assistant", content: "", extra: { mariWorkspaceActionResults: stored } } as unknown as Parameters<typeof getMessageWorkspaceActionResults>[0];
+  const kept = getMessageWorkspaceActionResults(message);
+  assert.equal(kept.length, 1, "a failed change survives the stored-message reader");
+  assert.equal(kept[0]?.status, "failed");
+  assert.equal(kept[0]?.error, "Character missing not found", "the reason is kept for the card");
+}
 
 console.log("Professor Mari action-result regression checks passed.");

@@ -117,7 +117,10 @@ export function isMariWorkspaceActionResult(value: unknown): value is MariWorksp
   const result = asRecord(value);
   const resource = asRecord(result?.resource);
   return (
-    (result?.status === "created" || result?.status === "updated") &&
+    // A failed change ("Not saved") is kept too, so its card survives a reload.
+    (result?.status === "created" ||
+      result?.status === "updated" ||
+      (result?.status === "failed" && typeof result.error === "string")) &&
     typeof result.summary === "string" &&
     !!resource &&
     ["character", "persona", "lorebook", "preset"].includes(String(resource.kind)) &&

@@ -14,6 +14,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - Professor Mari's quick answers and the bulk skip of agent updates have their own request limits, so a runaway script cannot flood the model or the package catalog.
 - Every change Professor Mari applies can be undone in every permissions mode. Accept edits and Bypass permissions still skip her question, but they no longer skip the undo copy. Before, a change in those modes could not be undone from her chat.
 - **Turn on** for a memory on Professor Mari's change card switches the memory on and keeps the undo. Before, it closed the undo, so the memory could no longer be taken back.
+- A change Professor Mari could not save keeps its **Not saved** card after a reload, with the reason and **Try again**. Before, the card vanished when the chat reloaded.
 - The held change Professor Mari waits on reads like her other change cards: each field has its label, one field shows folded with **Show all** for the rest, and the buttons are **Apply** and **Don't apply**. Before, it listed raw field names such as "first mes" and hid the new text behind a link.
 - A lorebook's change card counts its fields and its entries apart, such as "3 fields · 3 entries", and each entry's text stays on one line until you open the card. Before, the head said "21 fields" and each entry showed two lines of text.
 - Professor Mari swings the right way when you drag her: she trails behind your hand instead of leaning into the move.
