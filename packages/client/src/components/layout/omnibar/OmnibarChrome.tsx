@@ -1,10 +1,10 @@
 // The search dialog's chrome around the result list: Mari's head door, the scope and filter strips,
-import { MariHold } from "../../chat/mari/MariHold";
 // the bare empty state and the footer.
 import { Search } from "lucide-react";
 import { motion } from "framer-motion";
 import type { RefObject } from "react";
 import { useTranslation } from "react-i18next";
+import { MariHold } from "../../chat/mari/MariHold";
 import { OmnibarSettingsButton } from "./OmnibarSettingsMenu";
 import {
   OMNIBAR_SCOPE_CHIP_FILTERS,
