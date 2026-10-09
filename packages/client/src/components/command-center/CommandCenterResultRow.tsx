@@ -115,6 +115,8 @@ export function CommandCenterResultRow({
   className,
   style,
 }: CommandCenterResultRowProps) {
+  // A hit line under its chat: speaker, excerpt and time share one line.
+  const inlineLine = Boolean(inline && metadata && !expanded);
   return (
     <li
       data-result-id={dataResultId}
@@ -151,20 +153,13 @@ export function CommandCenterResultRow({
           faces={faces}
           faceCount={faceCount}
         />
-        <span className={cn("min-w-0 leading-tight", inline && metadata && !expanded && "flex items-baseline gap-2")}>
-          <span className="flex min-w-0 items-baseline gap-1.5">
-            <span
-              className={cn(
-                "block truncate text-sm font-semibold",
-                inline && metadata && !expanded && "shrink-0 max-w-[40%]",
-              )}
-            >
-              {highlightSpan(title, titleHighlight)}
-            </span>
+        <span className={cn("min-w-0 leading-tight", inlineLine && "flex items-baseline gap-2")}>
+          <span className={cn("flex min-w-0 items-baseline gap-1.5", inlineLine && "max-w-[40%] shrink-0")}>
+            <span className="block min-w-0 truncate text-sm font-semibold">{highlightSpan(title, titleHighlight)}</span>
             {typeLabel ? (
               <span className="shrink-0 text-[0.6875rem] text-[var(--muted-foreground)]">{typeLabel}</span>
             ) : null}
-            {meta ? (
+            {meta && !inlineLine ? (
               <span className="ml-auto shrink-0 text-[0.6875rem] tabular-nums text-[var(--muted-foreground)] sm:hidden">
                 {meta}
               </span>
@@ -175,13 +170,18 @@ export function CommandCenterResultRow({
               id={id ? `${id}-metadata` : undefined}
               className={cn(
                 "block text-xs text-[var(--muted-foreground)]",
-                inline && !expanded ? "min-w-0 flex-1 truncate" : "mt-0.5",
+                inlineLine ? "min-w-0 flex-1 truncate" : "mt-0.5",
                 // Expanded, the line carries the description (max two lines) so the
                 // body below never repeats it.
                 expanded ? "line-clamp-2 break-words" : "truncate",
               )}
             >
               {highlightSpan(metadata, metadataHighlight)}
+            </span>
+          ) : null}
+          {meta && inlineLine ? (
+            <span className="shrink-0 text-[0.6875rem] tabular-nums text-[var(--muted-foreground)] sm:hidden">
+              {meta}
             </span>
           ) : null}
           {excerpt && !expanded ? (
