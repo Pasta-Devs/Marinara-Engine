@@ -1780,7 +1780,10 @@ export function buildOmnibarApprovalResults({
           : []),
       ];
       keepLabel = t("commandCenter.approval.keep", "Keep");
-      restoreLabel = t("commandCenter.approval.restore", "Restore");
+      // UX-23: an applied change is undone, not restored; "Restore" is for a held change.
+      restoreLabel = isMariReviewWaiting(approval)
+        ? t("commandCenter.approval.restore", "Restore")
+        : t("commandCenter.approval.undo", "Undo");
       terms = [
         ...Object.keys(approval.affectedTables),
         ...(recordName ? [recordName] : []),

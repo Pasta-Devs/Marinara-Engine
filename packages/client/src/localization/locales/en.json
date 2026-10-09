@@ -961,6 +961,7 @@
   "commandCenter.approval.rows": "Rows",
   "commandCenter.approval.tables": "Tables",
   "commandCenter.approval.target": "Target",
+  "commandCenter.approval.undo": "Undo",
   "commandCenter.approval.workPane": "Mari's chat",
   "commandCenter.askMariDoor": "Ask Mari",
   "commandCenter.askMariDoorTooltip": "Ask Mari ({{shortcut}})",

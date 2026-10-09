@@ -310,6 +310,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - With no model connected, the **How do I connect a model?** quick-start row keeps **No model connected yet · Set up** first. Before, the docs search put the Decision Models guide on top and Enter opened it.
 - The omnibar's live count says **1 result** for one match, not "1 results".
 - The phone top bar's Home and Chats buttons have names for screen readers.
+- An applied Mari change in the omnibar offers **Undo**, not **Restore**. **Restore** stays for a held change.
 
 ## [2.5.0]
 

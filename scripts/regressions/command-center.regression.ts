@@ -1570,6 +1570,31 @@ assert.ok(!("mariDetailId" in mariSession));
   assert.match(en["onboarding.finish.body"], /On a phone, pull down from the top bar\./u);
 }
 
+// UX-23: an applied change offers Undo, not Restore; a held change keeps Restore.
+{
+  const t = ((_key: string, fallback?: string) => fallback ?? _key) as never;
+  const rowFor = (approval: Record<string, unknown>) =>
+    buildOmnibarApprovalResults({
+      approvals: [{ id: "a1", affectedRows: 1, affectedTables: { characters: 1 }, ...approval }] as never,
+      t,
+      pendingId: null,
+      onDecide: () => undefined,
+      query: "",
+    })[0]?.control;
+  const applied = rowFor({ kind: "applied_review", diffPreview: [{ table: "characters", action: "update" }] });
+  assert.deepEqual(
+    applied?.options?.map((option: { label: string }) => option.label),
+    ["Keep", "Undo"],
+    "UX-23: an applied change offers Undo",
+  );
+  const held = rowFor({ kind: "approval", diffPreview: [] });
+  assert.deepEqual(
+    held?.options?.map((option: { label: string }) => option.label),
+    ["Keep", "Restore"],
+    "UX-23: a held change keeps Restore",
+  );
+}
+
 // UX-28: the live count has a singular form, so one result reads "1 result".
 {
   const en = JSON.parse(
