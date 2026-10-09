@@ -53,7 +53,7 @@ When you type a question in Search and no result matches, Professor Mari can wri
 - A quick answer waits until you stop typing. **Wait after typing** sets how long Search waits.
 - Choose who answers under **Settings** > **General** > **Search and Professor Mari settings** > **Quick answers** > **Answer with**: a local model you have downloaded, **Same as Mari** (the connection she uses), or another connection. Each answer is one short request. A paid connection can cost money.
 - If an answer fails, the card says why, for example that the model did not reply. **Try again** and **Continue with Mari** are always there. **Choose a model** appears only when a key or model is missing. The provider's own message is under **Details**.
-- Turn quick answers off with **Quick answers in Search** in the same group.
+- Quick answers are off until you turn them on with **Quick answers in Search** in the same group.
 
 ## Guided suggestion chips
 

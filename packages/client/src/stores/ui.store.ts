@@ -1966,7 +1966,8 @@ export const useUIStore = create<UIState>()(
         customCursorEnabled: true,
         reduceAmbientEffects: false,
         mariPanelSortMode: "az",
-        omnibarAsideEnabled: true,
+        // Quick answers send a model request from Search, so they are opt-in.
+        omnibarAsideEnabled: false,
         omnibarAsideConnectionId: LOCAL_SIDECAR_CONNECTION_ID,
         omnibarAsideDisclosed: false,
         omnibarAsideDelayMs: OMNIBAR_ASIDE_DELAY_MS,
