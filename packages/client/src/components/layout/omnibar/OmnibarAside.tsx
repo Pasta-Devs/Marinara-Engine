@@ -43,7 +43,7 @@ export interface OmnibarAsideProps {
 // Small text actions (direction A); a full 44px target on touch.
 const textAction = "font-semibold underline-offset-2 hover:underline [@media(pointer:coarse)]:min-h-11";
 // On a phone the way forward is a full-width 44 px button on its own line at the foot of the card.
-const continueAction = `${textAction} [@media(pointer:coarse)]:order-last [@media(pointer:coarse)]:flex [@media(pointer:coarse)]:basis-full [@media(pointer:coarse)]:justify-center [@media(pointer:coarse)]:rounded-md [@media(pointer:coarse)]:border [@media(pointer:coarse)]:border-[var(--border)] [@media(pointer:coarse)]:py-2`;
+const continueAction = `${textAction} [@media(pointer:coarse)]:order-last [@media(pointer:coarse)]:flex [@media(pointer:coarse)]:basis-full [@media(pointer:coarse)]:items-center [@media(pointer:coarse)]:justify-center [@media(pointer:coarse)]:rounded-md [@media(pointer:coarse)]:border [@media(pointer:coarse)]:border-[var(--border)] [@media(pointer:coarse)]:py-2`;
 
 /** Bold, lists and inline code through the app's message renderer; nothing heavier is asked for. */
 function AnswerText({ text, muted }: { text: string; muted?: boolean }) {
