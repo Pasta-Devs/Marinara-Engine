@@ -9,6 +9,7 @@ import {
 import {
   compileImagePrompt,
   formatImageStylePromptGuidance,
+  removeCopiedPromptGuidance,
   resolveImageStyleGuidanceText,
 } from "../image/image-prompt-compiler.js";
 import { persistGeneratedImageToEntityGalleries } from "../image/generated-image-entity-gallery.js";
@@ -224,7 +225,12 @@ async function generateSelfie(
     : `Generate a casual selfie of ${args.charName} based on the current conversation context.`;
   const debugOverrideEnabled = args.debugMode === true || isDebugAgentsEnabled();
   if (debugOverrideEnabled || logger.isLevelEnabled("debug")) {
-    logDebugOverride(debugOverrideEnabled, "[debug/commands/selfie] prompt-builder system:\n%s", selfieSystemPrompt);
+    // Log the system prompt as sent, with the image connection's instructions (#7357).
+    logDebugOverride(
+      debugOverrideEnabled,
+      "[debug/commands/selfie] prompt-builder system:\n%s",
+      selfieSystemPromptWithImageInstructions,
+    );
     logDebugOverride(debugOverrideEnabled, "[debug/commands/selfie] prompt-builder user:\n%s", userPrompt);
   }
   const promptResult = await promptRuntime.provider.chatComplete(
@@ -249,7 +255,13 @@ async function generateSelfie(
     },
   );
 
-  const imagePrompt = (promptResult.content ?? "").trim();
+  // The writer follows the style, the connection's instructions and the card's image habits; a
+  // sentence of them it copied word for word is not image-model text (#7357).
+  const imagePrompt = removeCopiedPromptGuidance((promptResult.content ?? "").trim(), [
+    styleGuidance,
+    imgConnFull.imagePromptInstructions,
+    characterImageInstructions,
+  ]);
   if (!imagePrompt) return;
 
   const imageFallback = await resolveImageConnectionFallback(args.connections, imgConnFull.id);
@@ -330,6 +342,11 @@ async function generateSelfie(
     omitProfileStyleText: true,
     omitProfileSubjectTags: true,
   });
+  logDebugOverride(
+    debugOverrideEnabled,
+    "[debug/commands/selfie] final image prompt:\n%s",
+    compiledSelfiePrompt.prompt,
+  );
   const imageResults = await generateIllustratorImageVariants({
     count: args.chatMeta.illustratorImagesPerGeneration,
     generate: () =>

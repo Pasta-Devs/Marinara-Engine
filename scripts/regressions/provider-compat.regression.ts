@@ -1308,7 +1308,8 @@ assert.equal(
     assert.equal(subscriptionOptions.maxTurns, 1);
     assert.equal("allowedTools" in subscriptionOptions, false);
     assert.equal("mcpServers" in subscriptionOptions, false);
-    assert.equal("pathToClaudeCodeExecutable" in subscriptionOptions, false);
+    // A caller-supplied path is dropped; a host Claude Code install may still be chosen by the engine.
+    assert.notEqual(subscriptionOptions.pathToClaudeCodeExecutable, "/bin/false");
     assert.equal("extraArgs" in subscriptionOptions, false);
     assert.equal(subscriptionOptions.permissionMode, "bypassPermissions");
     assert.deepEqual(subscriptionOptions.settingSources, []);

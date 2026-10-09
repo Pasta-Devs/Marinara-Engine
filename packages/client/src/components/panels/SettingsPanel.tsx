@@ -807,6 +807,14 @@ const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMeta[] = [
     kind: "Toggle",
   },
   {
+    id: "add-cyoa-choices-to-message",
+    sectionId: "input-editing",
+    label: "Add CYOA choices to the message box",
+    description: "Clicking a CYOA choice adds it to the message box instead of sending it.",
+    aliases: ["cyoa", "choices", "draft", "combine"],
+    kind: "Toggle",
+  },
+  {
     id: "speech-to-text",
     sectionId: "input-editing",
     label: "Speech-to-text microphone",
@@ -3638,6 +3646,8 @@ function GeneralSettings() {
   const setEnterToSendProfessorMari = useUIStore((s) => s.setEnterToSendProfessorMari);
   const keepGuidanceAfterRegenerate = useUIStore((s) => s.keepGuidanceAfterRegenerate);
   const setKeepGuidanceAfterRegenerate = useUIStore((s) => s.setKeepGuidanceAfterRegenerate);
+  const addCyoaChoicesToMessage = useUIStore((s) => s.addCyoaChoicesToMessage);
+  const setAddCyoaChoicesToMessage = useUIStore((s) => s.setAddCyoaChoicesToMessage);
   const confirmBeforeDelete = useUIStore((s) => s.confirmBeforeDelete);
   const setConfirmBeforeDelete = useUIStore((s) => s.setConfirmBeforeDelete);
   const chatHelpButtonHidden = useUIStore((s) => s.chatHelpButtonHidden ?? false);
@@ -3912,6 +3922,13 @@ function GeneralSettings() {
             checked={keepGuidanceAfterRegenerate}
             onChange={setKeepGuidanceAfterRegenerate}
             help={localizeUi("settings.controls.keepGuidanceAfterRegenerate.help")}
+          />
+
+          <ToggleSetting
+            anchorId={getSettingsControlAnchorId("add-cyoa-choices-to-message")}
+            label={localizeUi("settings.controls.addCyoaChoicesToMessage.label")}
+            checked={addCyoaChoicesToMessage}
+            onChange={setAddCyoaChoicesToMessage}
           />
 
           <QuickRepliesSetting />

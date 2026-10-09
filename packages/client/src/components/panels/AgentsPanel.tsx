@@ -1,3 +1,5 @@
+import { useLibraryFolderDrag } from "../../hooks/use-library-folder-drag";
+import { useLibraryOrder } from "../../hooks/use-library-order";
 // ──────────────────────────────────────────────
 // Panel: Agents
 // ──────────────────────────────────────────────
@@ -68,7 +70,6 @@ import { rulesetRepositoryLabel } from "../../lib/ruleset-source";
 import { sortBasicPanelItems, sortPanelFolders } from "../../lib/panel-sort";
 import { downloadZipFile } from "../../lib/download-zip";
 import { useTouchFolderDrag } from "../../hooks/use-touch-folder-drag";
-import { TouchDragHandle } from "../ui/TouchDragHandle";
 import {
   countSkippedAgentImportFunctions,
   createAgentFolderPackageFilename,
@@ -235,6 +236,8 @@ function createDuplicateAgentInput(agent: AgentConfigRow) {
 }
 
 export function AgentsPanel() {
+  const manualOrder = useLibraryOrder("agent");
+  const folderDrag = useLibraryFolderDrag("agent");
   const { t: localizeUi } = useUiTranslation();
   const localize = useLocalizedUiText();
   const { data: agentConfigs, isLoading } = useAgentConfigs();
@@ -474,20 +477,22 @@ export function AgentsPanel() {
       icon: <Puzzle size="0.8125rem" />,
     },
   ];
-  const visibleCustomAgents = sortBasicPanelItems(
-    customAgents.filter(
-      (agent) =>
-        !folderedAgentIds.has(agent.id) &&
-        matchesAgentFilters({
-          type: agent.type,
-          name: agent.name,
-          description: agent.description,
-          category: "custom",
-        }),
+  const visibleCustomAgents = manualOrder.orderItems(
+    sortBasicPanelItems(
+      customAgents.filter(
+        (agent) =>
+          !folderedAgentIds.has(agent.id) &&
+          matchesAgentFilters({
+            type: agent.type,
+            name: agent.name,
+            description: agent.description,
+            category: "custom",
+          }),
+      ),
+      sort,
+      (agent) => agent.name,
+      (agent) => agent.createdAt || agent.updatedAt,
     ),
-    sort,
-    (agent) => agent.name,
-    (agent) => agent.createdAt || agent.updatedAt,
   );
   const hasVisibleFolderAgents = agentFolders.some((folder) =>
     folder.itemIds.some((id) => {
@@ -650,14 +655,14 @@ export function AgentsPanel() {
   );
 
   const finishAgentTouchDrag = useCallback(
-    (agentId: string, x: number, y: number) => {
+    (agentId: string, x: number, y: number, dragIds?: string[]) => {
       const target = document.elementFromPoint(x, y);
       const folderElement = target?.closest("[data-agent-folder-id]") as HTMLElement | null;
       const rootElement = target?.closest("[data-agent-folder-root]") as HTMLElement | null;
       if (folderElement?.dataset.agentFolderId) {
-        handleAgentDrop(folderElement.dataset.agentFolderId, getDraggedAgentIds(agentId));
-      } else if (rootElement) {
-        handleAgentDrop(null, getDraggedAgentIds(agentId));
+        handleAgentDrop(folderElement.dataset.agentFolderId, dragIds ?? getDraggedAgentIds(agentId));
+      } else if (rootElement || target?.closest('[data-drag-kind="agent"]')) {
+        handleAgentDrop(null, dragIds ?? getDraggedAgentIds(agentId));
       }
       setDraggedAgentId(null);
       window.setTimeout(() => {
@@ -679,6 +684,8 @@ export function AgentsPanel() {
   }, []);
 
   const { startTouchDrag: startAgentTouchDrag } = useTouchFolderDrag({
+    getDragIds: getDraggedAgentIds,
+    onReorder: manualOrder.reorder,
     onActivate: (agentId) => {
       suppressAgentClickRef.current = true;
       setDraggedAgentId(agentId);
@@ -1125,7 +1132,6 @@ export function AgentsPanel() {
         },
         onTouchStart: (event) =>
           startAgentTouchDrag(event, agent.id, {
-            allowInteractiveTarget: true,
             sourceElement: event.currentTarget.closest<HTMLElement>('[data-touch-drag-card="agent"]'),
             chatResourcePayload: {
               version: 1,
@@ -1324,12 +1330,19 @@ export function AgentsPanel() {
           </div>
           <div className="relative">
             <select
-              value={sort}
-              onChange={(event) => setSort(event.target.value as ResourcePanelSort)}
+              value={manualOrder.active || folderDrag.active ? "custom" : sort}
+              onChange={(event) => {
+                manualOrder.setActive(event.target.value === "custom");
+                folderDrag.setActive(event.target.value === "custom");
+                if (event.target.value !== "custom") setSort(event.target.value as ResourcePanelSort);
+              }}
               className="mari-chrome-field mari-chrome-sort-field mari-accent-animated h-10 appearance-none py-0 pl-2.5 pr-7 text-[0.6875rem] md:h-9"
               title={localizeUi("ui.panels.agentspanel.sortOrder")}
               aria-label={localizeUi("ui.panels.agentspanel.sortAgents")}
             >
+              <option value="custom" title={localizeUi("dragDrop.manualOrderHelp")}>
+                {localizeUi("dragDrop.manualOrder")}
+              </option>
               <option value="name-asc">{localizeUi("ui.panels.backgroundpicker.aZ")}</option>
               <option value="name-desc">{localizeUi("ui.panels.backgroundpicker.zA")}</option>
               <option value="newest">{localizeUi("ui.panels.backgroundpicker.newest")}</option>
@@ -1389,22 +1402,25 @@ export function AgentsPanel() {
               {localizeUi("ui.panels.agentspanel.dropHereToMoveOutOfFolder")}
             </div>
           )}
-          {sortPanelFolders(agentFolders, sort).map((folder) => {
+          {folderDrag.orderItems(sortPanelFolders(agentFolders, sort)).map((folder) => {
             const isEditing = editingFolderId === folder.id;
-            const folderAgents = sortBasicPanelItems(
-              folder.itemIds
-                .map((id) => selectableAgentById.get(id))
-                .filter((agent): agent is AgentConfigRow => Boolean(agent))
-                .filter((agent) => matchesAgentFilters(getAgentFilterData(agent))),
-              sort,
-              (agent) => agent.name,
-              (agent) => agent.createdAt || agent.updatedAt,
+            const folderAgents = manualOrder.orderItems(
+              sortBasicPanelItems(
+                folder.itemIds
+                  .map((id) => selectableAgentById.get(id))
+                  .filter((agent): agent is AgentConfigRow => Boolean(agent))
+                  .filter((agent) => matchesAgentFilters(getAgentFilterData(agent))),
+                sort,
+                (agent) => agent.name,
+                (agent) => agent.createdAt || agent.updatedAt,
+              ),
             );
             if (agentFilterActive && folderAgents.length === 0) return null;
             const isExpanded = (agentFilterActive && folderAgents.length > 0) || expandedFolderId === folder.id;
             return (
               <div
                 key={folder.id}
+                {...folderDrag.bind(folder.id)}
                 data-agent-folder-id={folder.id}
                 onDragOver={(event) => {
                   if (draggedAgentId) {
@@ -1421,6 +1437,7 @@ export function AgentsPanel() {
                 className="flex flex-col rounded-lg transition-colors"
               >
                 <div
+                  data-drag-surface
                   role="button"
                   tabIndex={0}
                   aria-expanded={isExpanded}
@@ -1545,16 +1562,18 @@ export function AgentsPanel() {
 
       {hasInstalledAgents &&
         agentCategorySections.map((section) => {
-          const visibleAgents = sortBasicPanelItems(
-            visibleBuiltInDisplayAgents.filter(
-              (agent) =>
-                !folderedAgentIds.has(agent.id) &&
-                agent.category === section.category &&
-                matchesAgentFilters({ ...agent, type: agent.id }),
+          const visibleAgents = manualOrder.orderItems(
+            sortBasicPanelItems(
+              visibleBuiltInDisplayAgents.filter(
+                (agent) =>
+                  !folderedAgentIds.has(agent.id) &&
+                  agent.category === section.category &&
+                  matchesAgentFilters({ ...agent, type: agent.id }),
+              ),
+              sort,
+              (agent) => agent.name,
+              (agent) => agent.createdAt || agent.updatedAt,
             ),
-            sort,
-            (agent) => agent.name,
-            (agent) => agent.createdAt || agent.updatedAt,
           );
           if (visibleAgents.length === 0 && agentFilterActive) return null;
           return (
@@ -1603,7 +1622,6 @@ export function AgentsPanel() {
                     },
                     onTouchStart: (event) =>
                       startAgentTouchDrag(event, agent.id, {
-                        allowInteractiveTarget: true,
                         sourceElement: event.currentTarget.closest<HTMLElement>('[data-touch-drag-card="agent"]'),
                         chatResourcePayload: {
                           version: 1,
@@ -1675,7 +1693,6 @@ export function AgentsPanel() {
                 },
                 onTouchStart: (event) =>
                   startAgentTouchDrag(event, agent.id, {
-                    allowInteractiveTarget: true,
                     sourceElement: event.currentTarget.closest<HTMLElement>('[data-touch-drag-card="agent"]'),
                     chatResourcePayload: {
                       version: 1,
@@ -1943,7 +1960,7 @@ function renderAgentCard({
   isDragging?: boolean;
   onDragStart?: (event: React.DragEvent<HTMLDivElement>) => void;
   onDragEnd?: () => void;
-  onTouchStart?: (event: React.TouchEvent<HTMLButtonElement>) => void;
+  onTouchStart?: (event: React.TouchEvent<HTMLDivElement> | React.MouseEvent<HTMLDivElement>) => void;
   nativeDragEnabled?: boolean;
   touchSafeDragMode?: boolean;
   suppressClickRef?: { current: boolean };
@@ -1958,6 +1975,12 @@ function renderAgentCard({
       key={id}
       data-agent-card
       data-touch-drag-card="agent"
+      data-drag-id={id}
+      aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"
+      data-drag-kind="agent"
+      data-drag-payload={JSON.stringify({ version: 1, kind: "agent", ids: [type], label: name })}
+      onMouseDown={onTouchStart}
+      onTouchStart={onTouchStart}
       data-agent-name={name}
       draggable={nativeDragEnabled}
       onContextMenu={(event) => {
@@ -1977,7 +2000,7 @@ function renderAgentCard({
         if (selectionMode && onToggleSelected) onToggleSelected();
       }}
       className={cn(
-        "group relative flex touch-pan-y cursor-pointer items-center gap-2.5 rounded-xl p-2 transition-all hover:bg-[var(--sidebar-accent)]",
+        "group relative flex touch-pan-y cursor-grab active:cursor-grabbing items-center gap-2.5 rounded-xl p-2 transition-all hover:bg-[var(--sidebar-accent)]",
         selectionMode &&
           selected &&
           "bg-[var(--marinara-chat-chrome-highlight-bg)] ring-1 ring-[var(--marinara-chat-chrome-button-border-active)]",
@@ -1985,9 +2008,6 @@ function renderAgentCard({
         touchSafeDragMode && "select-none",
       )}
     >
-      {onTouchStart && (
-        <TouchDragHandle label={localizeUi("ui.panels.agentcard.dragAgent")} onTouchStart={onTouchStart} />
-      )}
       {selectionMode && (
         <div
           className={cn(
@@ -2038,8 +2058,9 @@ function renderAgentCard({
         )}
       </button>
       <button
+        data-drag-surface
         className={cn(
-          "min-w-0 flex-1 text-left",
+          "min-w-0 flex-1 cursor-grab text-left active:cursor-grabbing",
           !selectionMode &&
             (onDelete
               ? "pr-0 max-md:pr-24 [@media(pointer:coarse)]:pr-24"

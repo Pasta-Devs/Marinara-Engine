@@ -11,6 +11,7 @@ import {
 import type { ResolvedAgent } from "../agents/agent-pipeline.js";
 import { measureContextBudget, type ChatCompletionResult, type ChatMessage } from "../llm/base-provider.js";
 import { normalizeAgentMaxTokens, normalizeMaxContext } from "./generation-parameters.js";
+import { appendImagePromptInstructions } from "./image-prompt-instructions.js";
 
 const DEFAULT_MANUAL_ILLUSTRATION_MAX_TOKENS = 1_800;
 const MANUAL_ILLUSTRATION_SYSTEM_PROMPT = [
@@ -187,12 +188,9 @@ export function buildManualIllustratorPromptMessages(args: {
       : "No selected Illustrator prompt mode supplied; use one coherent scene illustration.",
     MANUAL_ILLUSTRATION_SYSTEM_PROMPT,
     args.styleInstruction
-      ? `Additional Image Style instruction for the image prompt you write: ${args.styleInstruction}\nCombine it with the selected Illustrator prompt mode. It may refine rendering and visual treatment, but it must not replace or weaken the selected format, layout, framing, or text requirements.`
+      ? `Additional Image Style instruction for the image prompt you write: ${args.styleInstruction}\nCombine it with the selected Illustrator prompt mode. It may refine rendering and visual treatment, but it must not replace or weaken the selected format, layout, framing, or text requirements. Express it as words for the image model; never copy its sentences into the JSON fields.`
       : "No visual style profile is selected. Infer only the visual treatment supported by the scene context.",
     args.characterPromptInstruction?.trim() ?? "",
-    args.imagePromptInstructions
-      ? `<image_prompting_instructions>\nApply these image-backend instructions when writing the provider-ready prompt. They are instructions, not text to copy into the prompt:\n${args.imagePromptInstructions}\n</image_prompting_instructions>`
-      : "",
     buildCharacterPersonaContext(args.context),
   ].join("\n\n");
   const messages: ChatMessage[] = [
@@ -206,12 +204,17 @@ export function buildManualIllustratorPromptMessages(args: {
   for (const message of recentMessages) {
     appendConversationMessage(messages, message.role === "assistant" ? "assistant" : "user", message.content);
   }
-  const instruction = [
-    "<manual_gallery_illustration_request>",
-    "Write the image-model prompt now for the current scene. The Illustration button has already selected the output type.",
-    ...(args.request ? [`Depict this explicit request: ${args.request}`] : []),
-    "</manual_gallery_illustration_request>",
-  ].join("\n");
+  // The image connection's instructions sit next to the request, as in the automatic
+  // Illustrator call, so the writer follows them instead of losing them above the chat (#7357).
+  const instruction = appendImagePromptInstructions(
+    [
+      "<manual_gallery_illustration_request>",
+      "Write the image-model prompt now for the current scene. The Illustration button has already selected the output type.",
+      ...(args.request ? [`Depict this explicit request: ${args.request}`] : []),
+      "</manual_gallery_illustration_request>",
+    ].join("\n"),
+    args.imagePromptInstructions,
+  );
   const last = messages.at(-1);
   if (last?.role === "user") {
     last.content = `${last.content}\n\n${instruction}`;

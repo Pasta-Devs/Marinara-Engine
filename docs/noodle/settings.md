@@ -82,7 +82,8 @@ The **Image Generation** section lets Noodle attach AI-made images to some posts
   - **Image generation connection**: a dropdown, default **Default image generation connection**. Leaving it on Default uses whichever connection is marked default for image generation in the Connections panel.
   - **Prompt instructions**: a text box with built-in default text, up to 4000 characters. These extra notes are merged into the image prompt.
   - **Use avatar references**: a toggle, default **on**. Sends the character's avatar or reference images to the image model.
-  - **Include descriptions**: a toggle, default **on**. Adds the character's written appearance notes to the image prompt.
+  - **Interpret image prompts**: a toggle, default **on**. A text model rewrites each image prompt, following your image connection's **Image Prompting Instructions** and your style profile's Style text. When it is off, the Image Prompting Instructions aren't used and the Style text is added as written.
+  - **Include descriptions**: a toggle, default **on**. Adds the character's written appearance notes to the image prompt. With **Interpret image prompts** on, the text model works them in instead of pasting them.
   - **Images/refresh**: a number, 0 to 50, default **3**. This caps generated post images separately for every manual or automatic refresh.
 - **Attach gallery images**: a separate toggle, default **off**. It stays visible even when **Image generation** is off. Instead of making a new image, it lets a post reuse an image from that character's gallery or from a chat they appear in.
 
@@ -176,6 +177,7 @@ This table lists every Noodle setting with its default and range.
 | **Image generation connection** | Default | any image-generation connection |
 | **Prompt instructions** | built-in text | up to 4000 characters |
 | **Use avatar references** | on | on or off |
+| **Interpret image prompts** | on | on or off |
 | **Include descriptions** | on | on or off |
 | **Images/refresh** | 3 | 0 to 50 |
 | **Attach gallery images** | off | on or off |

@@ -1,3 +1,6 @@
+import { insertLibraryItems } from "../../lib/library-order";
+import { useLibraryFolderDrag } from "../../hooks/use-library-folder-drag";
+import { useLibraryOrder } from "../../hooks/use-library-order";
 // ──────────────────────────────────────────────
 // Layout: Chat Sidebar (polished with rich buttons)
 // ──────────────────────────────────────────────
@@ -19,7 +22,6 @@ import {
   ChevronDown,
   ChevronRight,
   ChevronUp,
-  GripVertical,
   CheckSquare,
   Square as SquareIcon,
   ArrowUpDown,
@@ -53,7 +55,6 @@ import { formatRelativeContact } from "../../lib/relative-time";
 import { ChatRowPeek } from "./ChatRowPeek";
 import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { useTouchFolderDrag } from "../../hooks/use-touch-folder-drag";
-import { TouchDragHandle } from "../ui/TouchDragHandle";
 import { usePresenceClock } from "../../hooks/use-presence-clock";
 import { usePanelKeyboardFocus } from "./use-panel-keyboard-focus";
 import { PanelErrorState, PanelListSkeleton } from "../ui/PanelStates";
@@ -71,7 +72,7 @@ import {
 } from "@marinara-engine/shared";
 import { resolveLiveConversationStatus } from "../../lib/conversation-presence-status";
 import { Modal } from "../ui/Modal";
-import { Reorder, useDragControls } from "framer-motion";
+import { Reorder } from "framer-motion";
 import { parseChatMetadata } from "../../lib/chat-display";
 import {
   compareChatsByActivityDesc,
@@ -289,6 +290,8 @@ export function ChatSidebar() {
   const moveChatMut = useMoveChat();
 
   const [searchQuery, setSearchQuery] = useState("");
+  const manualOrder = useLibraryOrder("chat");
+  const { active: manualOrderActive, orderItems: orderLibraryItems } = manualOrder;
   const [sort, setSort] = useState<ChatSortOption>("recent");
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [tagsExpanded, setTagsExpanded] = useState(false);
@@ -465,8 +468,8 @@ export function ChatSidebar() {
       }
     }
 
-    return result;
-  }, [chats, filtered, sort]);
+    return orderLibraryItems(result, (entry) => entry.chat.groupId ?? entry.chat.id);
+  }, [chats, filtered, sort, orderLibraryItems]);
 
   // Detect if active chat belongs to a group so its group row highlights and stays mounted.
   const activeChat = chats?.find((c) => c.id === activeChatId);
@@ -813,6 +816,9 @@ export function ChatSidebar() {
     },
     [reorderFoldersMut],
   );
+  const folderDrag = useLibraryFolderDrag("chat", (ids, target, edge) => {
+    handleFolderReorder(insertLibraryItems(folderOrder, ids, target, edge));
+  });
 
   const getDragChatIds = useCallback(
     (chatId: string) => (multiSelectMode && selectedChatIds.has(chatId) ? Array.from(selectedChatIds) : [chatId]),
@@ -823,12 +829,13 @@ export function ChatSidebar() {
     (chatIds: string[], folderId: string | null) => {
       const uniqueIds = Array.from(new Set(chatIds.filter(Boolean)));
       for (const chatId of uniqueIds) {
+        if ((chats?.find((chat) => chat.id === chatId)?.folderId ?? null) === folderId) continue;
         moveChatMut.mutate({ chatId, folderId });
       }
       setDraggedChatId(null);
       setIsRootDropTarget(false);
     },
-    [moveChatMut],
+    [chats, moveChatMut],
   );
 
   const resetTouchDrag = () => {
@@ -840,18 +847,25 @@ export function ChatSidebar() {
   };
 
   const { startTouchDrag, startMouseDrag } = useTouchFolderDrag({
-    delayMs: 420,
+    getDragIds: getDragChatIds,
+    onReorder: (ids, target, edge, visibleIds) => {
+      const key = (id: string) => chats?.find((chat) => chat.id === id)?.groupId ?? id;
+      manualOrder.reorder(ids.map(key), key(target), edge, visibleIds.map(key));
+    },
     onActivate: (chatId) => {
       setDraggedChatId(chatId);
       suppressTouchDragClickRef.current = true;
     },
-    onDrop: (chatId, x, y) => {
+    onDrop: (_chatId, x, y, dragIds) => {
       const target = document.elementFromPoint(x, y);
       const folderId = target?.closest<HTMLElement>("[data-chat-folder-id]")?.dataset.chatFolderId;
       if (folderId) {
-        handleDropChatsToFolder(getDragChatIds(chatId), folderId);
+        handleDropChatsToFolder(dragIds, folderId);
+      } else if (target?.closest('[data-drag-kind="chat"]')) {
+        const row = target.closest<HTMLElement>('[data-drag-kind="chat"]')!;
+        handleDropChatsToFolder(dragIds, row.dataset.dragFolder || null);
       } else if (target?.closest("[data-chat-root-drop-zone]")) {
-        handleDropChatsToFolder(getDragChatIds(chatId), null);
+        handleDropChatsToFolder(dragIds, null);
       }
       resetTouchDrag();
     },
@@ -972,6 +986,16 @@ export function ChatSidebar() {
         tabIndex={0}
         key={chat.groupId ?? chat.id}
         data-chat-id={chat.id}
+        data-drag-id={chat.id}
+        aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"
+        data-drag-kind="chat"
+        data-drag-order-id={chat.groupId ?? chat.id}
+        data-drag-folder={chat.folderId ?? ""}
+        onTouchStart={(event) => {
+          startTouchDrag(event, chat.id, {
+            sourceElement: event.currentTarget.closest<HTMLElement>("[data-chat-id]"),
+          });
+        }}
         onMouseDown={(event) => startMouseDrag(event, chat.id)}
         draggable
         onDragStart={(event) => {
@@ -1015,7 +1039,7 @@ export function ChatSidebar() {
           if (isMobileShellViewport()) setSidebarOpen(false);
         }}
         className={cn(
-          "group relative isolate flex w-full touch-pan-y items-center gap-2.5 overflow-hidden rounded-lg px-3 py-2.5 text-left transition-all duration-150",
+          "group relative isolate flex w-full touch-pan-y cursor-grab active:cursor-grabbing items-center gap-2.5 overflow-hidden rounded-lg px-3 py-2.5 text-left transition-all duration-150",
           multiSelectMode && isSelected
             ? "mari-chrome-accent-surface mari-accent-animated"
             : isActive
@@ -1034,15 +1058,6 @@ export function ChatSidebar() {
             )}
           </div>
         )}
-        <TouchDragHandle
-          label={localizeUi("ui.layout.chatsidebar.dragChat")}
-          onTouchStart={(event) => {
-            startTouchDrag(event, chat.id, {
-              allowInteractiveTarget: true,
-              sourceElement: event.currentTarget.closest<HTMLElement>("[data-chat-id]"),
-            });
-          }}
-        />
 
         {/* Chat background banner — active/hovered only, behind everything */}
         {bannerUrl && (
@@ -1430,12 +1445,18 @@ export function ChatSidebar() {
           </div>
           <div className="relative">
             <select
-              value={sort}
-              onChange={(e) => setSort(e.target.value as ChatSortOption)}
+              value={manualOrderActive ? "manual" : sort}
+              onChange={(e) => {
+                manualOrder.setActive(e.target.value === "manual");
+                if (e.target.value !== "manual") setSort(e.target.value as ChatSortOption);
+              }}
               className="mari-chrome-field mari-chrome-sort-field mari-accent-animated h-10 appearance-none py-0 pl-2.5 pr-7 text-[0.6875rem] md:h-9"
               title={localize("Sort chats")}
             >
               <option value="custom">{localizeUi("ui.layout.chatsidebar.customOrder")}</option>
+              <option value="manual" title={localizeUi("dragDrop.manualOrderHelp")}>
+                {localizeUi("dragDrop.manualOrder")}
+              </option>
               <option value="recent">{localizeUi("ui.layout.chatsidebar.recent")}</option>
               <option value="newest">{localize("Newest")}</option>
               <option value="oldest">{localize("Oldest")}</option>
@@ -1616,33 +1637,36 @@ export function ChatSidebar() {
           {folderOrder.length > 0 && (
             <Reorder.Group
               axis="y"
-              values={folderOrder}
+              values={folderDrag.orderItems(folderOrder, (id) => id)}
               onReorder={handleFolderReorder}
               as="div"
               className="flex flex-col gap-0.5 mt-1"
             >
-              {folderOrder.map((folderId) => {
-                const folder = modeFolders.find((f) => f.id === folderId);
-                if (!folder) return null;
-                const folderEntries = folderChatsMap.get(folderId) ?? [];
-                const folderChatCount = folderChatCounts.get(folderId) ?? folderEntries.length;
-                if (chatListFilterActive && folderEntries.length === 0) return null;
-                return (
-                  <FolderRow
-                    key={folderId}
-                    folder={folder}
-                    entries={folderEntries}
-                    chatCount={folderChatCount}
-                    forceExpanded={chatListFilterActive && folderEntries.length > 0}
-                    renderChatRow={renderChatRow}
-                    onToggleCollapse={handleToggleCollapse}
-                    onRename={handleRenameFolder}
-                    onDelete={handleDeleteFolder}
-                    draggedChatId={draggedChatId}
-                    onDropChat={handleDropChatsToFolder}
-                  />
-                );
-              })}
+              {folderDrag
+                .orderItems(folderOrder, (id) => id)
+                .map((folderId) => {
+                  const folder = modeFolders.find((f) => f.id === folderId);
+                  if (!folder) return null;
+                  const folderEntries = folderChatsMap.get(folderId) ?? [];
+                  const folderChatCount = folderChatCounts.get(folderId) ?? folderEntries.length;
+                  if (chatListFilterActive && folderEntries.length === 0) return null;
+                  return (
+                    <FolderRow
+                      folderDragBindings={folderDrag.bind(folderId)}
+                      key={folderId}
+                      folder={folder}
+                      entries={folderEntries}
+                      chatCount={folderChatCount}
+                      forceExpanded={chatListFilterActive && folderEntries.length > 0}
+                      renderChatRow={renderChatRow}
+                      onToggleCollapse={handleToggleCollapse}
+                      onRename={handleRenameFolder}
+                      onDelete={handleDeleteFolder}
+                      draggedChatId={draggedChatId}
+                      onDropChat={handleDropChatsToFolder}
+                    />
+                  );
+                })}
             </Reorder.Group>
           )}
 
@@ -1743,6 +1767,7 @@ export function ChatSidebar() {
 
 // ── FolderRow (self-contained state for menu/rename) ──
 function FolderRow({
+  folderDragBindings,
   folder,
   entries,
   chatCount,
@@ -1754,6 +1779,7 @@ function FolderRow({
   draggedChatId,
   onDropChat,
 }: {
+  folderDragBindings: ReturnType<ReturnType<typeof useLibraryFolderDrag>["bind"]>;
   folder: ChatFolder;
   entries: { chat: any; branchCount: number }[];
   chatCount: number;
@@ -1766,7 +1792,6 @@ function FolderRow({
   onDropChat: (chatIds: string[], folderId: string | null) => void;
 }) {
   const { t: localizeUi } = useUiTranslation();
-  const dragControls = useDragControls();
   const [renaming, setRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState(folder.name);
   const [isDropTarget, setIsDropTarget] = useState(false);
@@ -1785,11 +1810,11 @@ function FolderRow({
 
   return (
     <Reorder.Item
+      {...folderDragBindings}
       value={folder.id}
       layout="position"
       data-chat-folder-id={folder.id}
       dragListener={false}
-      dragControls={dragControls}
       as="div"
       onDragEnter={(event) => {
         if (!draggedChatId) return;
@@ -1828,15 +1853,7 @@ function FolderRow({
       {/* Folder header */}
       <div className="group relative flex items-center gap-1.5 rounded-lg px-2 py-1.5 hover:bg-[var(--sidebar-accent)]/40">
         <div
-          onPointerDown={(e) => {
-            e.preventDefault();
-            dragControls.start(e);
-          }}
-          className="cursor-grab touch-none opacity-0 transition-opacity active:cursor-grabbing group-hover:opacity-100 max-md:opacity-100"
-        >
-          <GripVertical size="0.625rem" className="mari-chrome-accent-icon mari-accent-animated" />
-        </div>
-        <div
+          data-drag-surface
           role="button"
           tabIndex={0}
           aria-expanded={isExpanded}

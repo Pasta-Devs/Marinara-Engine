@@ -51,7 +51,11 @@ import {
   shouldSuppressAssistantSpatialMutation,
   validateSpatialGenerationRequest,
 } from "../../packages/server/src/routes/generate/spatial-transition-request.js";
-import { buildCyoaChoiceSubmissionPayload } from "../../packages/client/src/components/chat/cyoa-choice-submission.js";
+import {
+  appendCyoaChoiceToDraft,
+  buildCyoaChoiceSubmissionPayload,
+  resolveCyoaChoiceAction,
+} from "../../packages/client/src/components/chat/cyoa-choice-submission.js";
 import {
   shouldKeepPendingSpatialTransition,
   spatialOwnerTurnRecoveryPath,
@@ -186,6 +190,16 @@ assert.equal(standardChoiceSubmission.pendingSpatialTransition, impersonatedMove
 assert.equal(impersonatedChoiceSubmission.pendingSpatialTransition, impersonatedMove);
 assert.equal(impersonatedChoiceSubmission.impersonate, true);
 assert.equal(impersonatedChoiceSubmission.impersonatePromptTemplate, "Stay in character.");
+assert.equal(appendCyoaChoiceToDraft("", "Take the bridge"), "Take the bridge");
+assert.equal(appendCyoaChoiceToDraft("  \n", "Take the bridge"), "Take the bridge");
+assert.equal(
+  appendCyoaChoiceToDraft(appendCyoaChoiceToDraft("I hesitate.\n", "Take the bridge"), "Wave"),
+  "I hesitate.\n\nTake the bridge\n\nWave",
+);
+assert.equal(resolveCyoaChoiceAction({ addToMessage: false, impersonate: false }), "send");
+assert.equal(resolveCyoaChoiceAction({ addToMessage: false, impersonate: true }), "impersonate");
+assert.equal(resolveCyoaChoiceAction({ addToMessage: true, impersonate: false }), "add");
+assert.equal(resolveCyoaChoiceAction({ addToMessage: true, impersonate: true }), "add");
 assert.deepEqual(
   resolveVisibleGameStateAnchor([
     { id: "assistant-anchor", role: "assistant", activeSwipeIndex: 2 },

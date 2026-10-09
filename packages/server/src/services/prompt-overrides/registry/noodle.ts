@@ -40,7 +40,8 @@ export const NOODLE_IMAGE_POST: PromptOverrideKeyDef<NoodleImagePostCtx> = {
     },
     {
       name: "characterDescription",
-      description: "Optional character appearance or description notes included by Noodle Settings.",
+      description:
+        "Character appearance notes from Include descriptions in Noodle Settings. Empty in the prompt an agent text model rewrites, because that model gets them as character context instead.",
       example: "Character appearance notes:\nDottore's Appearance: tall, slim build, blue hair, red eyes, mask.",
     },
     {

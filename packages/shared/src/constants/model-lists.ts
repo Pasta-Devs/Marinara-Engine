@@ -321,14 +321,17 @@ export const ANTHROPIC_MODELS: KnownModel[] = [
 // ── Claude (Subscription via Claude Agent SDK) ──
 // Models reachable through the local `claude` CLI auth (Pro / Max). Anthropic
 // gates which model IDs are available per plan tier; the SDK surfaces a clear
-// error if the signed-in plan can't run the requested model. We keep this list
-// to the current tool-eligible families to avoid offering retired aliases that
-// the subscription path no longer accepts.
+// error if the signed-in plan can't run the requested model. The model picker
+// shows Claude Code's cached catalog for the account; this curated list is the
+// fallback before Claude Code has cached one. We keep it to the current tool-eligible
+// families to avoid offering retired aliases the subscription path rejects.
 export const CLAUDE_SUBSCRIPTION_MODELS: KnownModel[] = [
   { id: "claude-opus-5-5", name: "Claude Opus 5.5", context: 1000000, maxOutput: 128000 },
   { id: "claude-opus-5", name: "Claude Opus 5", context: 1000000, maxOutput: 128000 },
   { id: "claude-sonnet-5-5", name: "Claude Sonnet 5.5", context: 1000000, maxOutput: 128000 },
   { id: "claude-sonnet-5", name: "Claude Sonnet 5", context: 1000000, maxOutput: 128000 },
+  { id: "claude-haiku-5-5", name: "Claude Haiku 5.5", context: 1000000, maxOutput: 128000 },
+  { id: "claude-fable-5-1", name: "Claude Fable 5.1", context: 1000000, maxOutput: 128000 },
   { id: "claude-fable-5", name: "Claude Fable 5", context: 1000000, maxOutput: 128000 },
   { id: "claude-opus-4-8", name: "Claude Opus 4.8", context: 1000000, maxOutput: 128000 },
   { id: "claude-opus-4-7", name: "Claude Opus 4.7", context: 1000000, maxOutput: 128000 },

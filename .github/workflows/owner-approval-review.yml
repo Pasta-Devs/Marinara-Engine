@@ -36,6 +36,18 @@ jobs:
               );
               pullRequests = response.data;
             }
+            // Fork commits are in neither list: match the reviewed commit against open PR heads.
+            if (pullRequests.length === 0) {
+              const openPullRequests = await github.paginate(github.rest.pulls.list, {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                state: 'open',
+                per_page: 100,
+              });
+              pullRequests = openPullRequests.filter(
+                (pullRequest) => pullRequest.head.sha === context.payload.workflow_run.head_sha,
+              );
+            }
 
             const pullNumbers = [...new Set(pullRequests.map((pullRequest) => pullRequest.number))];
             if (pullNumbers.length === 0) {

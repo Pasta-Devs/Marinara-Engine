@@ -1,3 +1,5 @@
+import { useLibraryFolderDrag } from "../../hooks/use-library-folder-drag";
+import { useLibraryOrder } from "../../hooks/use-library-order";
 // ──────────────────────────────────────────────
 // Panel: User Personas
 // ──────────────────────────────────────────────
@@ -46,7 +48,6 @@ import { api } from "../../lib/api-client";
 import { EXPORT_FAILED_TOAST_ID } from "../../lib/file-download";
 import { SelectionActionBar } from "../ui/SelectionActionBar";
 import { SmoothFolderContent } from "../ui/SmoothFolderContent";
-import { TouchDragHandle } from "../ui/TouchDragHandle";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { PanelLoadMoreBar } from "./PanelLoadMoreBar";
@@ -124,6 +125,9 @@ function useTouchSafePersonaDragMode() {
 }
 
 export function PersonasPanel() {
+  const manualOrder = useLibraryOrder("persona");
+  const { active: manualOrderActive, orderItems: orderLibraryItems } = manualOrder;
+  const folderDrag = useLibraryFolderDrag("persona");
   const { t: localizeUi } = useUiTranslation();
   const localize = useLocalizedUiText();
   const deletePersona = useDeletePersona();
@@ -376,14 +380,14 @@ export function PersonasPanel() {
   );
 
   const finishPersonaTouchDrag = useCallback(
-    (personaId: string, x: number, y: number) => {
+    (personaId: string, x: number, y: number, dragIds?: string[]) => {
       const target = document.elementFromPoint(x, y);
       const folderElement = target?.closest("[data-persona-folder-id]") as HTMLElement | null;
       const rootElement = target?.closest("[data-persona-folder-root]") as HTMLElement | null;
       if (folderElement?.dataset.personaFolderId) {
-        void movePersonasToFolder(getDraggedPersonaIds(personaId), folderElement.dataset.personaFolderId);
-      } else if (rootElement) {
-        void movePersonasToFolder(getDraggedPersonaIds(personaId), null);
+        void movePersonasToFolder(dragIds ?? getDraggedPersonaIds(personaId), folderElement.dataset.personaFolderId);
+      } else if (rootElement || target?.closest('[data-drag-kind="persona"]')) {
+        void movePersonasToFolder(dragIds ?? getDraggedPersonaIds(personaId), null);
       }
       setDraggedPersonaId(null);
       window.setTimeout(() => {
@@ -405,6 +409,8 @@ export function PersonasPanel() {
   }, []);
 
   const { startTouchDrag: startPersonaTouchDrag, startMouseDrag: startPersonaMouseDrag } = useTouchFolderDrag({
+    getDragIds: getDraggedPersonaIds,
+    onReorder: manualOrder.reorder,
     onActivate: (personaId) => {
       suppressPersonaClickRef.current = true;
       setDraggedPersonaId(personaId);
@@ -443,7 +449,7 @@ export function PersonasPanel() {
     return arr;
   }, [personas, search, activeTag]);
 
-  const list = useMemo(() => {
+  const listBySort = useMemo(() => {
     const arr = [...filteredList];
     switch (sort) {
       case "name-asc":
@@ -460,6 +466,7 @@ export function PersonasPanel() {
         return arr;
     }
   }, [filteredList, sort]);
+  const list = useMemo(() => orderLibraryItems(listBySort), [orderLibraryItems, listBySort]);
 
   const sortedGroups = useMemo(() => {
     const folders = sortPanelFolders(parsedGroups, sort === "tokens" ? "name-asc" : sort);
@@ -642,11 +649,18 @@ export function PersonasPanel() {
         </div>
         <div className="relative">
           <select
-            value={sort}
-            onChange={(e) => setSort(e.target.value as SortOption)}
+            value={manualOrderActive || folderDrag.active ? "custom" : sort}
+            onChange={(e) => {
+              manualOrder.setActive(e.target.value === "custom");
+              folderDrag.setActive(e.target.value === "custom");
+              if (e.target.value !== "custom") setSort(e.target.value as SortOption);
+            }}
             className="mari-chrome-field mari-chrome-sort-field mari-accent-animated h-10 appearance-none py-0 pl-2.5 pr-7 text-[0.6875rem] md:h-9"
             title={localizeUi("ui.panels.agentspanel.sortOrder")}
           >
+            <option value="custom" title={localizeUi("dragDrop.manualOrderHelp")}>
+              {localizeUi("dragDrop.manualOrder")}
+            </option>
             <option value="name-asc">{localizeUi("ui.panels.backgroundpicker.aZ")}</option>
             <option value="name-desc">{localizeUi("ui.panels.backgroundpicker.zA")}</option>
             <option value="newest">{localizeUi("ui.panels.backgroundpicker.newest")}</option>
@@ -743,7 +757,7 @@ export function PersonasPanel() {
 
       <div className="flex flex-col gap-0.5">
         {/* Folder rows */}
-        {sortedGroups.map((group) => {
+        {folderDrag.orderItems(sortedGroups).map((group) => {
           const folderMemberIds = (
             folderFilterActive
               ? group.memberIds.filter((personaId) => personaOrder.has(personaId))
@@ -755,6 +769,7 @@ export function PersonasPanel() {
           return (
             <div
               key={group.id}
+              {...folderDrag.bind(group.id)}
               data-persona-folder-id={group.id}
               onDragOver={(event) => {
                 if (draggedPersonaId) {
@@ -772,6 +787,7 @@ export function PersonasPanel() {
             >
               {/* Folder header */}
               <div
+                data-drag-surface
                 role="button"
                 tabIndex={0}
                 aria-expanded={isExpanded}
@@ -889,6 +905,18 @@ export function PersonasPanel() {
                         <div
                           key={pid}
                           data-touch-drag-card="persona"
+                          data-drag-id={pid}
+                          aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"
+                          data-drag-kind="persona"
+                          data-drag-payload={JSON.stringify({ version: 1, kind: "persona", ids: [pid], label: p.name })}
+                          onTouchStart={(event) => {
+                            startPersonaTouchDrag(event, pid, {
+                              chatResourcePayload: { version: 1, kind: "persona", ids: [pid], label: p.name },
+                              sourceElement: event.currentTarget.closest<HTMLElement>(
+                                '[data-touch-drag-card="persona"]',
+                              ),
+                            });
+                          }}
                           onMouseDown={(event) =>
                             startPersonaMouseDrag(event, pid, {
                               chatResourcePayload: { version: 1, kind: "persona", ids: [pid], label: p.name },
@@ -941,7 +969,7 @@ export function PersonasPanel() {
                           role="button"
                           tabIndex={0}
                           className={cn(
-                            "group group/member relative flex touch-pan-y cursor-pointer items-center gap-2 rounded-lg p-1.5 text-xs transition-all hover:bg-[var(--sidebar-accent)]",
+                            "group group/member relative flex min-h-11 touch-pan-y cursor-grab active:cursor-grabbing items-center gap-2 rounded-lg p-1.5 text-xs transition-all hover:bg-[var(--sidebar-accent)]",
                             touchSafePersonaDragMode && "select-none",
                             selectionMode &&
                               isBulkSelected &&
@@ -971,19 +999,7 @@ export function PersonasPanel() {
                               {isBulkSelected && <Check size="0.75rem" />}
                             </button>
                           )}
-                          <TouchDragHandle
-                            label={localizeUi("ui.panels.personaspanel.dragPersona")}
-                            size="0.75rem"
-                            onTouchStart={(event) => {
-                              startPersonaTouchDrag(event, pid, {
-                                allowInteractiveTarget: true,
-                                chatResourcePayload: { version: 1, kind: "persona", ids: [pid], label: p.name },
-                                sourceElement: event.currentTarget.closest<HTMLElement>(
-                                  '[data-touch-drag-card="persona"]',
-                                ),
-                              });
-                            }}
-                          />
+
                           <div className="mari-avatar-placeholder mari-avatar-placeholder--persona relative flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-lg">
                             {p.avatarPath ? (
                               <AvatarImage
@@ -1093,13 +1109,33 @@ export function PersonasPanel() {
             <div
               key={persona.id}
               data-touch-drag-card="persona"
+              data-drag-id={persona.id}
+              aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"
+              data-drag-kind="persona"
+              data-drag-payload={JSON.stringify({
+                version: 1,
+                kind: "persona",
+                ids: [persona.id],
+                label: persona.name,
+              })}
+              onTouchStart={(event) => {
+                startPersonaTouchDrag(event, persona.id, {
+                  chatResourcePayload: {
+                    version: 1,
+                    kind: "persona",
+                    ids: [persona.id],
+                    label: persona.name,
+                  },
+                  sourceElement: event.currentTarget.closest<HTMLElement>('[data-touch-drag-card="persona"]'),
+                });
+              }}
               onMouseDown={(event) =>
                 startPersonaMouseDrag(event, persona.id, {
                   chatResourcePayload: { version: 1, kind: "persona", ids: [persona.id], label: persona.name },
                 })
               }
               className={cn(
-                "group relative flex touch-pan-y cursor-pointer items-center gap-3 rounded-xl p-2.5 transition-all hover:bg-[var(--sidebar-accent)]",
+                "group relative flex touch-pan-y cursor-grab active:cursor-grabbing items-center gap-3 rounded-xl p-2.5 transition-all hover:bg-[var(--sidebar-accent)]",
                 selectionMode &&
                   isBulkSelected &&
                   "bg-[var(--marinara-chat-chrome-highlight-bg)] ring-1 ring-[var(--marinara-chat-chrome-button-border-active)]",
@@ -1162,21 +1198,7 @@ export function PersonasPanel() {
                   {isBulkSelected && <Check size="0.75rem" />}
                 </button>
               )}
-              <TouchDragHandle
-                label={localizeUi("ui.panels.personaspanel.dragPersona")}
-                onTouchStart={(event) => {
-                  startPersonaTouchDrag(event, persona.id, {
-                    allowInteractiveTarget: true,
-                    chatResourcePayload: {
-                      version: 1,
-                      kind: "persona",
-                      ids: [persona.id],
-                      label: persona.name,
-                    },
-                    sourceElement: event.currentTarget.closest<HTMLElement>('[data-touch-drag-card="persona"]'),
-                  });
-                }}
-              />
+
               {/* Avatar */}
               <button
                 onClick={(e) => handleAvatarClick(e, persona.id)}

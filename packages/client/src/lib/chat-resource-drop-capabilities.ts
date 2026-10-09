@@ -22,7 +22,8 @@ export type ChatResourceDropAction =
 /** Why a drop cannot happen, so the surface can explain instead of silently ignoring it. */
 export type ChatResourceDropBlock = {
   type: "blocked";
-  reason: "already-active" | "preset-unsupported-mode" | "agent-unsupported-mode" | "connection-kind";
+  reason:
+    "already-active" | "preset-unsupported-mode" | "agent-unsupported-mode" | "connection-kind" | "multiple-items";
   label: string;
 };
 
@@ -100,6 +101,10 @@ export function resolveChatResourceDropAction(
           mustEnableAgents: metadata.enableAgents !== true,
         }
       : alreadyActive;
+  }
+
+  if (new Set(payload.ids).size > 1) {
+    return { type: "blocked", reason: "multiple-items", label: payload.label };
   }
 
   const id = payloadIds[0];

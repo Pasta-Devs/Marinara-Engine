@@ -6578,9 +6578,7 @@ strong {
 
   /* 100cqw is the chat pane (CenterContent is a size container), so the right edge ignores the
      transcript's scrollbar, as the composer does. */
-  [data-chat-mode="roleplay"][data-roleplay-presentation="classic"][data-chat-position="right"]
-    [data-chat-scroll]
-    > * {
+  [data-chat-mode="roleplay"][data-roleplay-presentation="classic"][data-chat-position="right"] [data-chat-scroll] > * {
     margin-left: max(
       0px,
       100cqw - 2 * var(--mari-roleplay-transcript-gutter) - var(--mari-chat-position-clearance, 0px) -
@@ -8688,4 +8686,74 @@ html[data-marinara-reduced-effects="true"] .mari-window {
     min-height: 12rem;
     overflow-y: visible;
   }
+}
+
+/* Items gathered by a second-finger tap remain visible in their list. */
+[data-drag-stacked="true"] {
+  opacity: 0.5;
+  outline: 2px solid var(--ring);
+  outline-offset: -2px;
+}
+
+/* Make before/after insertion different from dropping into a folder. */
+[data-drag-insert] {
+  position: relative;
+  overflow: visible;
+  transition: margin 150ms ease;
+}
+[data-drag-insert="before"] {
+  margin-block-start: 24px;
+}
+[data-drag-insert="after"] {
+  margin-block-end: 24px;
+}
+[data-drag-insert]::after {
+  content: "";
+  position: absolute;
+  inset-inline: 6px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--primary);
+  pointer-events: none;
+}
+[data-drag-insert="before"]::after {
+  top: -14px;
+}
+[data-drag-insert="after"]::after {
+  bottom: -14px;
+}
+[data-drag-target="inside"] {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+  background-color: var(--sidebar-accent);
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-drag-insert] {
+    transition: none;
+  }
+}
+[data-drag-insert-axis="x"] {
+  margin-block: 0;
+}
+[data-drag-insert-axis="x"][data-drag-insert="before"] {
+  margin-inline-start: 24px;
+}
+[data-drag-insert-axis="x"][data-drag-insert="after"] {
+  margin-inline-end: 24px;
+}
+[data-drag-insert-axis="x"]::after {
+  inset-block: 6px;
+  width: 4px;
+  height: auto;
+}
+[data-drag-insert-axis="x"][data-drag-insert="before"]::after {
+  left: -14px;
+  right: auto;
+}
+[data-drag-insert-axis="x"][data-drag-insert="after"]::after {
+  right: -14px;
+  left: auto;
+}
+[data-drag-source="true"] {
+  opacity: 0.5;
 }

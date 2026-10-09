@@ -1,3 +1,5 @@
+import { useLibraryFolderDrag } from "../../hooks/use-library-folder-drag";
+import { useLibraryOrder } from "../../hooks/use-library-order";
 // ──────────────────────────────────────────────
 // Panel: Characters (overhauled — search, folders, avatars)
 // ──────────────────────────────────────────────
@@ -67,7 +69,6 @@ import { cn, getAvatarCropStyle } from "../../lib/utils";
 import { formatEstimatedTokens } from "../../lib/character-token-count";
 import { SelectionActionBar } from "../ui/SelectionActionBar";
 import { SmoothFolderContent } from "../ui/SmoothFolderContent";
-import { TouchDragHandle } from "../ui/TouchDragHandle";
 import { PanelLoadMoreBar } from "./PanelLoadMoreBar";
 import { clearActiveChatResourceDrag, writeChatResourceDragPayload } from "../../lib/chat-resource-drag";
 import { ChatResourceActionButton } from "../chat/ChatResourceActionButton";
@@ -170,6 +171,9 @@ function usePanelMobileOverlay() {
 }
 
 export function CharactersPanel() {
+  const manualOrder = useLibraryOrder("character");
+  const { active: manualOrderActive, orderItems: orderLibraryItems } = manualOrder;
+  const folderDrag = useLibraryFolderDrag("character");
   const { t: localizeUi } = useUiTranslation();
   const { t } = useTranslation();
   const { data: groups } = useCharacterGroups();
@@ -383,7 +387,7 @@ export function CharactersPanel() {
     setCharacterPanelExcludedTags([]);
   }, [setCharacterPanelExcludedTags, setCharacterPanelIncludedTags]);
 
-  const sortedCharacters = useMemo(() => {
+  const sortedCharactersBySort = useMemo(() => {
     const list = [...filteredCharacters];
     const hasIncludedTags = includedTags.size > 0;
     const matchCounts = hasIncludedTags
@@ -449,6 +453,10 @@ export function CharactersPanel() {
         return list;
     }
   }, [filteredCharacters, sort, includedTags]);
+  const sortedCharacters = useMemo(
+    () => orderLibraryItems(sortedCharactersBySort),
+    [orderLibraryItems, sortedCharactersBySort],
+  );
 
   const parsedGroups = useMemo<ParsedGroupRow[]>(() => {
     if (!groups) return [];
@@ -588,7 +596,9 @@ export function CharactersPanel() {
 
   const moveCharactersToFolder = useCallback(
     async (charIds: string[], folderId: string | null) => {
-      const ids = Array.from(new Set(charIds.filter(Boolean)));
+      const ids = Array.from(new Set(charIds.filter(Boolean))).filter(
+        (id) => (parsedGroups.find((folder) => folder.memberIds.includes(id))?.id ?? null) !== folderId,
+      );
       if (ids.length === 0) return;
       const idSet = new Set(ids);
       const targetFolder = folderId ? parsedGroups.find((folder) => folder.id === folderId) : null;
@@ -628,14 +638,17 @@ export function CharactersPanel() {
   );
 
   const finishCharacterTouchDrag = useCallback(
-    (characterId: string, x: number, y: number) => {
+    (characterId: string, x: number, y: number, dragIds?: string[]) => {
       const target = document.elementFromPoint(x, y);
       const folderElement = target?.closest("[data-character-folder-id]") as HTMLElement | null;
       const rootElement = target?.closest("[data-character-folder-root]") as HTMLElement | null;
       if (folderElement?.dataset.characterFolderId) {
-        void moveCharactersToFolder(getDraggedCharacterIds(characterId), folderElement.dataset.characterFolderId);
-      } else if (rootElement) {
-        void moveCharactersToFolder(getDraggedCharacterIds(characterId), null);
+        void moveCharactersToFolder(
+          dragIds ?? getDraggedCharacterIds(characterId),
+          folderElement.dataset.characterFolderId,
+        );
+      } else if (rootElement || target?.closest('[data-drag-kind="character"]')) {
+        void moveCharactersToFolder(dragIds ?? getDraggedCharacterIds(characterId), null);
       }
       setDraggedCharacterId(null);
       window.setTimeout(() => {
@@ -657,6 +670,8 @@ export function CharactersPanel() {
   }, []);
 
   const { startTouchDrag: startCharacterTouchDrag, startMouseDrag: startCharacterMouseDrag } = useTouchFolderDrag({
+    getDragIds: getDraggedCharacterIds,
+    onReorder: manualOrder.reorder,
     onActivate: (characterId) => {
       suppressCharacterClickRef.current = true;
       setDraggedCharacterId(characterId);
@@ -870,11 +885,18 @@ export function CharactersPanel() {
         </div>
         <div className="relative">
           <select
-            value={sort}
-            onChange={(e) => setCharacterLibrarySort(e.target.value as CharacterLibrarySort)}
+            value={manualOrderActive || folderDrag.active ? "custom" : sort}
+            onChange={(e) => {
+              manualOrder.setActive(e.target.value === "custom");
+              folderDrag.setActive(e.target.value === "custom");
+              if (e.target.value !== "custom") setCharacterLibrarySort(e.target.value as CharacterLibrarySort);
+            }}
             className="mari-chrome-field mari-chrome-sort-field mari-accent-animated h-10 appearance-none py-0 pl-2.5 pr-7 text-[0.6875rem] md:h-9"
             title={localizeUi("ui.panels.agentspanel.sortOrder")}
           >
+            <option value="custom" title={localizeUi("dragDrop.manualOrderHelp")}>
+              {localizeUi("dragDrop.manualOrder")}
+            </option>
             <option value="name-asc">{localizeUi("ui.panels.backgroundpicker.aZ")}</option>
             <option value="name-desc">{localizeUi("ui.panels.backgroundpicker.zA")}</option>
             <option value="newest">{localizeUi("ui.panels.backgroundpicker.newest")}</option>
@@ -987,7 +1009,7 @@ export function CharactersPanel() {
       )}
 
       <div className="flex flex-col gap-0.5">
-        {sortedGroups.map((group) => {
+        {folderDrag.orderItems(sortedGroups).map((group) => {
           const folderMemberIds = (
             folderFilterActive
               ? group.memberIds.filter((memberId) => characterOrder.has(memberId))
@@ -1003,6 +1025,7 @@ export function CharactersPanel() {
           return (
             <div
               key={group.id}
+              {...folderDrag.bind(group.id)}
               data-character-folder-id={group.id}
               onDragOver={(event) => {
                 if (draggedCharacterId) {
@@ -1020,6 +1043,7 @@ export function CharactersPanel() {
             >
               {/* Folder header */}
               <div
+                data-drag-surface
                 role="button"
                 tabIndex={0}
                 aria-expanded={isExpanded}
@@ -1144,6 +1168,31 @@ export function CharactersPanel() {
                     <div
                       key={memberId}
                       data-touch-drag-card="character"
+                      data-drag-id={memberId}
+                      aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"
+                      data-drag-kind="character"
+                      data-drag-payload={JSON.stringify({
+                        version: 1,
+                        kind: "character",
+                        ids: [memberId],
+                        label: memberName,
+                      })}
+                      onTouchStart={(event) => {
+                        startCharacterTouchDrag(event, memberId, {
+                          chatResourcePayload: {
+                            version: 1,
+                            kind: "character",
+                            ids: getDraggedCharacterIds(memberId),
+                            label:
+                              getDraggedCharacterIds(memberId).length === 1
+                                ? memberName
+                                : localizeUi("ui.chat.chatresourcedropoverlay.characterCount", {
+                                    count: getDraggedCharacterIds(memberId).length,
+                                  }),
+                          },
+                          sourceElement: event.currentTarget.closest<HTMLElement>('[data-touch-drag-card="character"]'),
+                        });
+                      }}
                       onMouseDown={(event) => {
                         const ids = getDraggedCharacterIds(memberId);
                         startCharacterMouseDrag(event, memberId, {
@@ -1202,7 +1251,7 @@ export function CharactersPanel() {
                       role="button"
                       tabIndex={0}
                       className={cn(
-                        "group group/member relative flex touch-pan-y cursor-pointer items-center gap-2 rounded-lg p-1.5 transition-all hover:bg-[var(--sidebar-accent)]",
+                        "group group/member relative flex min-h-11 touch-pan-y cursor-grab active:cursor-grabbing items-center gap-2 rounded-lg p-1.5 transition-all hover:bg-[var(--sidebar-accent)]",
                         selectionMode &&
                           isBulkSelected &&
                           "bg-[var(--marinara-chat-chrome-highlight-bg)] ring-1 ring-[var(--marinara-chat-chrome-button-border-active)]",
@@ -1231,29 +1280,7 @@ export function CharactersPanel() {
                           {isBulkSelected && <Check size="0.75rem" />}
                         </button>
                       )}
-                      <TouchDragHandle
-                        label={localizeUi("ui.panels.characterspanel.dragCharacter")}
-                        size="0.75rem"
-                        onTouchStart={(event) => {
-                          startCharacterTouchDrag(event, memberId, {
-                            allowInteractiveTarget: true,
-                            chatResourcePayload: {
-                              version: 1,
-                              kind: "character",
-                              ids: getDraggedCharacterIds(memberId),
-                              label:
-                                getDraggedCharacterIds(memberId).length === 1
-                                  ? memberName
-                                  : localizeUi("ui.chat.chatresourcedropoverlay.characterCount", {
-                                      count: getDraggedCharacterIds(memberId).length,
-                                    }),
-                            },
-                            sourceElement: event.currentTarget.closest<HTMLElement>(
-                              '[data-touch-drag-card="character"]',
-                            ),
-                          });
-                        }}
-                      />
+
                       <div className="mari-avatar-placeholder mari-avatar-placeholder--character relative flex h-7 w-7 shrink-0 items-center justify-center rounded-lg">
                         <div className="absolute inset-0 overflow-hidden rounded-lg">
                           {member.avatarPath ? (
@@ -1511,6 +1538,26 @@ export function CharactersPanel() {
               key={char.id}
               data-character-id={char.id}
               data-touch-drag-card="character"
+              data-drag-id={char.id}
+              aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"
+              data-drag-kind="character"
+              data-drag-payload={JSON.stringify({ version: 1, kind: "character", ids: [char.id], label: charName })}
+              onTouchStart={(event) => {
+                startCharacterTouchDrag(event, char.id, {
+                  chatResourcePayload: {
+                    version: 1,
+                    kind: "character",
+                    ids: getDraggedCharacterIds(char.id),
+                    label:
+                      getDraggedCharacterIds(char.id).length === 1
+                        ? charName
+                        : localizeUi("ui.chat.chatresourcedropoverlay.characterCount", {
+                            count: getDraggedCharacterIds(char.id).length,
+                          }),
+                  },
+                  sourceElement: event.currentTarget.closest<HTMLElement>('[data-touch-drag-card="character"]'),
+                });
+              }}
               onMouseDown={(event) => {
                 const ids = getDraggedCharacterIds(char.id);
                 startCharacterMouseDrag(event, char.id, {
@@ -1557,7 +1604,7 @@ export function CharactersPanel() {
                 clearActiveChatResourceDrag();
               }}
               className={cn(
-                "group relative flex min-h-[4.5rem] shrink-0 touch-pan-y cursor-pointer items-center gap-2.5 rounded-xl p-2 transition-all hover:bg-[var(--sidebar-accent)] max-md:min-h-16",
+                "group relative flex min-h-[4.5rem] shrink-0 touch-pan-y cursor-grab active:cursor-grabbing items-center gap-2.5 rounded-xl p-2 transition-all hover:bg-[var(--sidebar-accent)] max-md:min-h-16",
                 selectionMode &&
                   isBulkSelected &&
                   "bg-[var(--marinara-chat-chrome-highlight-bg)] ring-1 ring-[var(--marinara-chat-chrome-button-border-active)]",
@@ -1586,26 +1633,7 @@ export function CharactersPanel() {
                   {isBulkSelected && <Check size="0.75rem" />}
                 </button>
               )}
-              <TouchDragHandle
-                label={localizeUi("ui.panels.characterspanel.dragCharacter")}
-                onTouchStart={(event) => {
-                  startCharacterTouchDrag(event, char.id, {
-                    allowInteractiveTarget: true,
-                    chatResourcePayload: {
-                      version: 1,
-                      kind: "character",
-                      ids: getDraggedCharacterIds(char.id),
-                      label:
-                        getDraggedCharacterIds(char.id).length === 1
-                          ? charName
-                          : localizeUi("ui.chat.chatresourcedropoverlay.characterCount", {
-                              count: getDraggedCharacterIds(char.id).length,
-                            }),
-                    },
-                    sourceElement: event.currentTarget.closest<HTMLElement>('[data-touch-drag-card="character"]'),
-                  });
-                }}
-              />
+
               {/* Avatar */}
               <div className="mari-avatar-placeholder mari-avatar-placeholder--character relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl shadow-sm">
                 {avatarUrl ? (

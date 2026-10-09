@@ -113,6 +113,7 @@ export function formatInheritedSources(reasons: string[]) {
 }
 
 export function chatResourceBlockedKey(action: ChatResourceDropBlock) {
+  if (action.reason === "multiple-items") return "dragDrop.singleItemChat";
   if (action.reason === "preset-unsupported-mode") return "ui.chat.chatresourcedropoverlay.presetUnsupportedMode";
   if (action.reason === "agent-unsupported-mode") return "ui.chat.chatresourcedropoverlay.agentUnsupportedMode";
   if (action.reason === "connection-kind") return "ui.chat.chatresourcedropoverlay.connectionUnsupportedKind";

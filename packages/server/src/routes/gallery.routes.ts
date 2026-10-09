@@ -45,6 +45,7 @@ import { loadImageGenerationUserSettings } from "../services/image/image-generat
 import {
   compileImagePrompt,
   formatImageStylePromptGuidance,
+  removeCopiedPromptGuidance,
   resolveImageStyleGuidanceText,
 } from "../services/image/image-prompt-compiler.js";
 import {
@@ -1347,7 +1348,12 @@ export async function galleryRoutes(app: FastifyInstance) {
             anthropicExtendedCacheTtl: promptRuntime.anthropicExtendedCacheTtl,
           },
         );
-        imagePrompt = (promptResult.content ?? "").trim();
+        // A sentence of the guidance the writer copied word for word is not image-model text (#7357).
+        imagePrompt = removeCopiedPromptGuidance((promptResult.content ?? "").trim(), [
+          styleGuidance,
+          imageConn.imagePromptInstructions,
+          characterImageInstructions,
+        ]);
       } catch (err) {
         logger.warn(err, "[gallery/selfie] Failed to build selfie image prompt for chat %s", chatId);
         const message = err instanceof Error ? err.message : "Failed to build selfie prompt";
