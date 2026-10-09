@@ -626,6 +626,7 @@ export const CompactMariMessage = memo(function CompactMariMessage({
           lorebookPreviews={lorebookPreviews}
           actionResults={actionResults}
           onOpenResource={onOpenResource}
+          held={typeof message.extra === "object" && message.extra?.mariDeferredMutations === true}
         >
           <MariWorkTimelineOutcome
             content={content}

@@ -263,6 +263,7 @@ export function MariTranscript({
                   actionResults={latestActionResults}
                   onOpenResource={openReferencedResource}
                   goal={!workspaceTimelineActive && latestMessage ? renderGoal(latestMessage) : null}
+                  held={typeof latestMessage?.extra === "object" && latestMessage.extra?.mariDeferredMutations === true}
                 >
                   {!workspaceTimelineActive && latestMessage?.role === "assistant" ? (
                     <MariWorkTimelineOutcome

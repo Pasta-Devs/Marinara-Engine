@@ -299,6 +299,7 @@ export function MariWorkTimeline({
   lorebookPreviews,
   actionResults = [],
   onOpenResource,
+  held = false,
   children,
 }: {
   items: WorkspaceTimelineItem[];
@@ -324,6 +325,8 @@ export function MariWorkTimeline({
   goal?: ReactNode;
   /** On the newest finished turn, Mari stands on the "Worked for" line in this story. */
   restStory?: MariStoryState | null;
+  /** UX-25: the turn holds a change for you, so it does not end on "Done". */
+  held?: boolean;
   /** What she made (tiles, references), between her answer and the "Worked for" line. */
   children?: ReactNode;
 }) {
@@ -707,7 +710,7 @@ export function MariWorkTimeline({
             ) : null}
             {restStoryText ? (
               <span className="text-xs text-[var(--muted-foreground)]">{restStoryText}</span>
-            ) : toolItems.length === 0 && answerBlocks.length > 0 ? (
+            ) : toolItems.length === 0 && answerBlocks.length > 0 && !held ? (
               <span className="mari-work-timeline__done">
                 <MariDoneMark />
                 {t("mari.workCard.done")}
