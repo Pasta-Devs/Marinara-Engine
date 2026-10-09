@@ -1,5 +1,6 @@
 import { useState, type CSSProperties } from "react";
 import { useMariAppearancePack } from "../../hooks/use-mari-appearance-pack";
+import { MariHold } from "./mari/MariHold";
 import type { MariStoryState } from "../../lib/mari-work-animations";
 import "./mari-appearance.css";
 
@@ -27,18 +28,20 @@ export function MariStorySprite({
   const [settled, setSettled] = useState(false);
   const shown = settled && settleTo ? settleTo : state;
   return (
-    <span
-      className="mari-story-sprite"
-      data-state={shown}
-      data-appearance-pack={pack.id}
-      data-mari-pull-target={pullTarget ? "mari-current" : undefined}
-      aria-hidden="true"
-    >
+    <MariHold heldSrc={pack.portraits.drag} hopOnTap>
       <span
-        key={`${pack.id}:${shown}`}
-        style={{ "--mari-work-sprite": `url(${pack.stories[shown].src})` } as CSSProperties}
-        onAnimationEnd={settleTo ? () => setSettled(true) : undefined}
-      />
-    </span>
+        className="mari-story-sprite"
+        data-state={shown}
+        data-appearance-pack={pack.id}
+        data-mari-pull-target={pullTarget ? "mari-current" : undefined}
+        aria-hidden="true"
+      >
+        <span
+          key={`${pack.id}:${shown}`}
+          style={{ "--mari-work-sprite": `url(${pack.stories[shown].src})` } as CSSProperties}
+          onAnimationEnd={settleTo ? () => setSettled(true) : undefined}
+        />
+      </span>
+    </MariHold>
   );
 }

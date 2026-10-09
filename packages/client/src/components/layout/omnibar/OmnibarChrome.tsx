@@ -1,4 +1,5 @@
 // The search dialog's chrome around the result list: Mari's head door, the scope and filter strips,
+import { MariHold } from "../../chat/mari/MariHold";
 // the bare empty state and the footer.
 import { Search } from "lucide-react";
 import { motion } from "framer-motion";
@@ -21,36 +22,41 @@ export function OmnibarMariDoor({
   onClick,
   working,
   portrait,
+  held,
 }: {
   onClick: () => void;
   working: boolean;
   portrait: string;
+  held: string;
 }) {
   const { t } = useTranslation();
+  // Slice 85: press and hold her head to lift her; a tap still opens Mari.
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      // Slice 79b: her head is the door to her (the footer pill is gone), so it says so.
-      aria-label={t("commandCenter.askMariDoor", "Ask Mari")}
-      aria-keyshortcuts={isApplePlatform() ? "Meta+J" : "Control+J"}
-      title={t("commandCenter.askMariDoorTooltip", "Ask Mari ({{shortcut}})", {
-        shortcut: isApplePlatform() ? "⌘J" : "Ctrl+J",
-      })}
-      data-component="GlobalOmnibar.ProfessorMariButton"
-      data-mari-glow={working ? "true" : "false"}
-      className="group relative -mb-px flex h-14 w-[4.25rem] shrink-0 self-end items-end justify-end rounded-t-lg pb-2 pl-8 transition-colors [--mari-glow-size:3.4rem] [--mari-glow-top:0.05rem] hover:bg-[color-mix(in_srgb,var(--primary)_8%,transparent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--primary)] active:bg-[color-mix(in_srgb,var(--primary)_14%,transparent)] max-[30rem]:w-11 max-[30rem]:pl-0"
-    >
-      {/* P1: only the tall portrait is cropped, so her working glow on the button fades out freely. */}
-      <span aria-hidden="true" className="absolute inset-0 overflow-hidden">
-        <img
-          src={portrait}
-          alt=""
-          draggable={false}
-          className="absolute left-1/2 top-0 h-[6.5rem] w-auto max-w-none -translate-x-1/2 object-contain object-top transition-transform duration-200 ease-out group-hover:-translate-y-1 group-focus-visible:-translate-y-1 group-active:translate-y-0 motion-reduce:transition-none max-[30rem]:h-20"
-        />
-      </span>
-    </button>
+    <MariHold heldSrc={held}>
+      <button
+        type="button"
+        onClick={onClick}
+        // Slice 79b: her head is the door to her (the footer pill is gone), so it says so.
+        aria-label={t("commandCenter.askMariDoor", "Ask Mari")}
+        aria-keyshortcuts={isApplePlatform() ? "Meta+J" : "Control+J"}
+        title={t("commandCenter.askMariDoorTooltip", "Ask Mari ({{shortcut}})", {
+          shortcut: isApplePlatform() ? "⌘J" : "Ctrl+J",
+        })}
+        data-component="GlobalOmnibar.ProfessorMariButton"
+        data-mari-glow={working ? "true" : "false"}
+        className="group relative -mb-px flex h-14 w-[4.25rem] shrink-0 self-end items-end justify-end rounded-t-lg pb-2 pl-8 transition-colors [--mari-glow-size:3.4rem] [--mari-glow-top:0.05rem] hover:bg-[color-mix(in_srgb,var(--primary)_8%,transparent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--primary)] active:bg-[color-mix(in_srgb,var(--primary)_14%,transparent)] max-[30rem]:w-11 max-[30rem]:pl-0"
+      >
+        {/* P1: only the tall portrait is cropped, so her working glow on the button fades out freely. */}
+        <span aria-hidden="true" className="absolute inset-0 overflow-hidden">
+          <img
+            src={portrait}
+            alt=""
+            draggable={false}
+            className="absolute left-1/2 top-0 h-[6.5rem] w-auto max-w-none -translate-x-1/2 object-contain object-top transition-transform duration-200 ease-out group-hover:-translate-y-1 group-focus-visible:-translate-y-1 group-active:translate-y-0 motion-reduce:transition-none max-[30rem]:h-20"
+          />
+        </span>
+      </button>
+    </MariHold>
   );
 }
 

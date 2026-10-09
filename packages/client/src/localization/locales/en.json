@@ -2655,6 +2655,8 @@
   "mari.handoff.showAll": "Show all",
   "mari.handoff.showLess": "Show less",
   "mari.handoff.sources": "From the docs",
+  "mari.hold.dizzy": "Whoa… the room is spinning.",
+  "mari.hold.fling": "Wheee!",
   "mari.needsYou.accept": "Accept",
   "mari.needsYou.decline": "Don't apply",
   "mari.needsYou.deleteCount": "Delete {{count}}",

@@ -52,6 +52,7 @@ import { useTranslation } from "react-i18next";
 import { useAgentConfigs } from "../../hooks/use-agents";
 import { useMariAppearancePack } from "../../hooks/use-mari-appearance-pack";
 import { MARI_ASSET_TIER, mariImgLoading } from "../../lib/mari-work-animations";
+import { MariHold } from "./mari/MariHold";
 import { useAllCharacterCatalog } from "../../hooks/use-characters";
 import {
   selectHomeBrowserPackages,
@@ -2161,31 +2162,33 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
                         </div>
                         {/* Slice 85: the navigator's idle portrait with its blink on top, scaled to 192 px tall
                             and standing on the card's bottom border. */}
-                        <div
-                          className="pointer-events-none relative z-[1] -mb-(--mari-home-professor-pad) h-[192px] w-[128px] self-end"
-                          data-home-professor-art
-                          aria-hidden="true"
-                        >
-                          <img
-                            src={mariPortraits.idle}
-                            {...mariImgLoading(MARI_ASSET_TIER.portraits.idle)}
-                            width={128}
-                            height={192}
-                            alt=""
-                            data-part="sprite"
-                            draggable={false}
-                            className="block h-[192px] w-[128px] max-w-none select-none"
-                          />
-                          <img
-                            src={mariPortraits.blink}
-                            {...mariImgLoading(MARI_ASSET_TIER.portraits.blink)}
-                            width={128}
-                            height={192}
-                            alt=""
-                            draggable={false}
-                            className="mari-home-professor-blink absolute inset-0 block h-[192px] w-[128px] max-w-none select-none"
-                          />
-                        </div>
+                        <MariHold heldSrc={mariPortraits.drag} onTap={openProfessor}>
+                          <div
+                            className="relative z-[1] -mb-(--mari-home-professor-pad) h-[192px] w-[128px] self-end"
+                            data-home-professor-art
+                            aria-hidden="true"
+                          >
+                            <img
+                              src={mariPortraits.idle}
+                              {...mariImgLoading(MARI_ASSET_TIER.portraits.idle)}
+                              width={128}
+                              height={192}
+                              alt=""
+                              data-part="sprite"
+                              draggable={false}
+                              className="block h-[192px] w-[128px] max-w-none select-none"
+                            />
+                            <img
+                              src={mariPortraits.blink}
+                              {...mariImgLoading(MARI_ASSET_TIER.portraits.blink)}
+                              width={128}
+                              height={192}
+                              alt=""
+                              draggable={false}
+                              className="mari-home-professor-blink absolute inset-0 block h-[192px] w-[128px] max-w-none select-none"
+                            />
+                          </div>
+                        </MariHold>
                       </section>
                     </HomeWidgetFrame>
 

@@ -2104,6 +2104,7 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
                 onClick={() => askMariAbout(null)}
                 working={mariWorkingInBackground}
                 portrait={appearance.portraits.idle}
+                held={appearance.portraits.drag}
               />
             ) : null}
             {/* R11: while a phone keyboard is open her destinations fold into a menu here (one-line header). */}
