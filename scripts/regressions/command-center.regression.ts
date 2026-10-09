@@ -1446,7 +1446,7 @@ assert.ok(!("mariDetailId" in mariSession));
   // small and bounded rather than growing into a full-document dump.
   const longExcerpt = `First line of the section.\n${"word ".repeat(100)}`.trim();
   const flattened = formatDocumentationGroundingExcerpts([
-    { path: "docs/FAQ.md", heading: "Long section", excerpt: longExcerpt, startLine: 1, score: 1 },
+    { path: "docs/FAQ.md", heading: "Long section", excerpt: longExcerpt, startLine: 1, score: 60 },
   ]);
   assert.equal(flattened.split("\n").length, 1, "one docs result is always rendered as exactly one line");
   assert.ok(flattened.length < longExcerpt.length, "an oversized excerpt is truncated, not passed through whole");
@@ -1456,6 +1456,14 @@ assert.ok(!("mariDetailId" in mariSession));
     formatDocumentationGroundingExcerpts([]),
     "",
     "no matches renders an empty block, not a placeholder line",
+  );
+  // UX-12: a weak match (one stray word) is not a source for a quick answer.
+  assert.deepEqual(
+    formatDocumentationGroundingExcerpts([
+      { path: "docs/Writing.md", heading: "Rulesets", excerpt: "A stray word.", startLine: 1, score: 5 },
+    ]),
+    "",
+    "a weak docs match is not grounding",
   );
 }
 

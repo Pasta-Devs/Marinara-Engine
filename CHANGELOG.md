@@ -358,6 +358,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - Search results are a plain list. Each row's own buttons, such as Keep, Undo and Set default, are reached by keyboard and screen readers without an invalid option role.
 - Max output tokens and Memory Recall are in search and in the empty list for a chat. Choosing one opens Chat Settings at that section, like Summary does.
 - A message hit in search shows the words around its match, with the match about 24 characters in, so the matched word is on the visible line.
+- Quick answers cite only docs pages that really match your question. A page that matches one stray word is no longer a source.
 
 ## [2.5.0]
 
