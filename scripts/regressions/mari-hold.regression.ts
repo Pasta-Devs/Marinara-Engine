@@ -68,6 +68,17 @@ assert.equal(rest.omega, 0, "vertical pivot motion does not swing a body hanging
 const aside = stepMariPendulum({ angle: Math.PI / 2, omega: 0 }, { x: 0, y: 900 }, 1 / 60);
 assert.notEqual(aside.omega, 0, "vertical pivot motion swings a body held off its rest");
 
+// She lags behind the hand: moving the grab point left swings her body right (negative CSS angle), and
+// right swings it left. Inertia, not a puppet following the pointer.
+const draggedLeft = stepMariPendulum({ angle: 0, omega: 0 }, { x: -3_000, y: 0 }, 1 / 60);
+assert.ok(draggedLeft.omega < 0, `a left drag swings her right, got omega ${draggedLeft.omega}`);
+const draggedRight = stepMariPendulum({ angle: 0, omega: 0 }, { x: 3_000, y: 0 }, 1 / 60);
+assert.ok(draggedRight.omega > 0, `a right drag swings her left, got omega ${draggedRight.omega}`);
+// A downward jerk of the grab point lightens her (less restoring pull), an upward one weighs her down.
+const lighter = stepMariPendulum({ angle: 0.5, omega: 0 }, { x: 0, y: 900 }, 1 / 60);
+const heavier = stepMariPendulum({ angle: 0.5, omega: 0 }, { x: 0, y: -900 }, 1 / 60);
+assert.ok(Math.abs(lighter.omega) < Math.abs(heavier.omega), "a falling grab point lightens her swing");
+
 // Walls: a hit at 900 px/s or more smashes and bounces at half speed; a light hit only stops her.
 const hard = stepMariWall({ x: 10, v: -1_200 }, -53, 53, 390);
 assert.equal(hard.smash, true, "a fast hit on the left wall smashes");
@@ -107,7 +118,7 @@ let turn: MariPendulum = { angle: 0, omega: 0 };
 let smashes = 0;
 for (let frame = 0; frame < 20 * 60; frame += 1) {
   const t = frame / 60;
-  const targetX = 195 + 230 * Math.sin(t * 3.1);
+  const targetX = 195 + 230 * Math.sin(t * 4.2);
   const targetY = 300 + 260 * Math.cos(t * 2.3);
   const nextX = stepMariSpring(pivotX, targetX, 520, 0.62, 1 / 60);
   const nextY = stepMariSpring(pivotY, targetY, 520, 0.62, 1 / 60);

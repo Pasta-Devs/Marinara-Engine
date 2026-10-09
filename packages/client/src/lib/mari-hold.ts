@@ -76,8 +76,10 @@ export interface MariPivotAccel {
  */
 export function stepMariPendulum(pendulum: MariPendulum, accel: MariPivotAccel, dt: number): MariPendulum {
   const { angle, omega } = pendulum;
-  const drive = (accel.x * Math.cos(angle) - accel.y * Math.sin(angle)) / 90;
-  const nextOmega = omega + (-34 * Math.sin(angle) - 3.2 * omega - drive) * dt;
+  // The figure rotates with CSS `rotate()` about its top centre (clockwise = +angle), so the body sits at
+  // (-sin, cos) from the grab point: the pivot's pseudo-force makes her lag behind the hand.
+  const drive = (accel.x * Math.cos(angle) + accel.y * Math.sin(angle)) / 90;
+  const nextOmega = omega + (-34 * Math.sin(angle) - 3.2 * omega + drive) * dt;
   return { angle: wrapMariAngle(angle + nextOmega * dt), omega: nextOmega };
 }
 
