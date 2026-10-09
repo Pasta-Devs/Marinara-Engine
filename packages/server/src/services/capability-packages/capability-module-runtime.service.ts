@@ -28,6 +28,7 @@ import {
 import { registerCapabilityService } from "./capability-service-registry.service.js";
 import { assertCapabilityAgentRuntimeServiceRegistration } from "./capability-agent-runtime.service.js";
 import { assertCapabilityMariActionsServiceRegistration } from "./capability-mari-actions.service.js";
+import { createCapabilityDecisionHost } from "./capability-decision.service.js";
 import { createCapabilityIntegrationHost } from "./capability-integrations.service.js";
 import { createCapabilityLanguageModelHost } from "./capability-language-model.service.js";
 import { linkCapabilityNativeDependencies } from "./capability-native-dependencies.service.js";
@@ -132,6 +133,7 @@ async function createCapabilityRuntimeHost(
         logDebugOverride(overrideEnabled, message, ...args),
     }),
     achievements: createCapabilityAchievementHost(app.db, packageId, permissions),
+    decisions: createCapabilityDecisionHost(app.db),
     persistence: createCapabilityPersistenceHost(app.db, permissions),
     resources: createCapabilityResourceHost(app.db),
   });
