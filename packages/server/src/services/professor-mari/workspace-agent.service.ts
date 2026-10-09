@@ -275,7 +275,12 @@ export function buildMariWorkspaceActionResult(
 }
 
 // Slice 87: a failed apply on one of these records leaves a "Not saved" card with the reason and Try again.
-const FAILED_ACTION_KINDS = { character: "character", persona: "persona", lorebook: "lorebook", preset: "preset" } as const;
+const FAILED_ACTION_KINDS = {
+  character: "character",
+  persona: "persona",
+  lorebook: "lorebook",
+  preset: "preset",
+} as const;
 
 export function buildMariFailedActionResult(
   action: string,
@@ -285,8 +290,12 @@ export function buildMariFailedActionResult(
   const kind = FAILED_ACTION_KINDS[action.split(".")[0] as keyof typeof FAILED_ACTION_KINDS];
   if (!kind || args.apply !== true) return null;
   const data = isRecord(args.data) ? args.data : {};
-  const id = [args.id, args[`${kind}Id`]].find((value): value is string => typeof value === "string" && value.trim() !== "");
-  const label = [data.name, args.name].find((value): value is string => typeof value === "string" && value.trim() !== "");
+  const id = [args.id, args[`${kind}Id`]].find(
+    (value): value is string => typeof value === "string" && value.trim() !== "",
+  );
+  const label = [data.name, args.name].find(
+    (value): value is string => typeof value === "string" && value.trim() !== "",
+  );
   const error = reason.replace(/\s+/gu, " ").trim().slice(0, 300);
   return {
     status: "failed",
@@ -1161,8 +1170,7 @@ export function compactMutationResult(result: MariDbCommandResult): MariDbComman
   // silent-persistence-failure alarm and must be surfaced, never smoothed.
   const readBackStatus =
     saved && isRecord(result.readBack) && typeof result.readBack.status === "string" ? result.readBack.status : null;
-  const cardSentence =
-    result.approval?.status === "pending" ? "Marinara is showing the user a change card. " : "";
+  const cardSentence = result.approval?.status === "pending" ? "Marinara is showing the user a change card. " : "";
   return {
     ok: result.ok,
     mode: result.mode,
@@ -4489,7 +4497,8 @@ export class ProfessorMariWorkspaceService {
       const output = err instanceof Error ? err.message : String(err);
       const endedAt = Date.now();
       // Slice 87: an apply that did not save leaves its "Not saved" card on the message.
-      const failed = err instanceof Error ? (err as { actionResult?: MariWorkspaceActionResult }).actionResult : undefined;
+      const failed =
+        err instanceof Error ? (err as { actionResult?: MariWorkspaceActionResult }).actionResult : undefined;
       if (failed) {
         actionResults.push(failed);
         onEvent({ type: "metadata", data: { actionResult: failed } });
@@ -5266,7 +5275,8 @@ export class ProfessorMariWorkspaceService {
     );
     if (result.ok === false) {
       const failure = new Error(output) as Error & { actionResult?: MariWorkspaceActionResult };
-      const reason = typeof (result as { error?: unknown }).error === "string" ? (result as { error: string }).error : output;
+      const reason =
+        typeof (result as { error?: unknown }).error === "string" ? (result as { error: string }).error : output;
       failure.actionResult = buildMariFailedActionResult(action, args, reason) ?? undefined;
       throw failure;
     }

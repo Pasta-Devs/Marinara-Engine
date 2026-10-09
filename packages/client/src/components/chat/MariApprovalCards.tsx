@@ -223,7 +223,12 @@ function DatabaseWorkspaceApprovalCard({
             {/* Slice 87: an applied change is already saved, so it has no Keep; Undo is the only answer. A
                 change still waiting for the user is a real question, so Apply is its one solid button. */}
             {approval.kind === "applied_review" ? null : (
-              <button type="button" onClick={() => onKeep(approval.id)} disabled={busy || disabled} className="mari-btn mari-btn--solid">
+              <button
+                type="button"
+                onClick={() => onKeep(approval.id)}
+                disabled={busy || disabled}
+                className="mari-btn mari-btn--solid"
+              >
                 {busy ? <Loader2 size="0.8rem" className="animate-spin" aria-hidden="true" /> : null}
                 {localizeUi("ui.chat.mariappliededit.apply")}
               </button>

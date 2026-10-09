@@ -1852,15 +1852,23 @@ export function buildOmnibarApprovalResults({
       const subject = recordName || Object.keys(approval.affectedTables).map(describeTable).join(", ");
       const replyChat = approval.diffPreview.length === 1 ? replyFixChat(approval.diffPreview[0]!) : null;
       title = replyChat?.name
-        ? t("commandCenter.approval.replyFixTitle", "Professor Mari fixed a reply in {{chat}}", { chat: replyChat.name })
+        ? t("commandCenter.approval.replyFixTitle", "Professor Mari fixed a reply in {{chat}}", {
+            chat: replyChat.name,
+          })
         : subject
           ? t("commandCenter.approval.databaseTitle", "Professor Mari wants to change {{tables}}", { tables: subject })
           : t("commandCenter.approval.databaseTitleGeneric", "Professor Mari wants to change your app data");
       description =
         reason ??
         (applied
-          ? t("commandCenter.approval.deleteDescription", "Professor Mari already removed this. Delete it for good, or put it back.")
-          : t("commandCenter.approval.databaseDescription", "Professor Mari has not saved this yet. Apply it, or don't."));
+          ? t(
+              "commandCenter.approval.deleteDescription",
+              "Professor Mari already removed this. Delete it for good, or put it back.",
+            )
+          : t(
+              "commandCenter.approval.databaseDescription",
+              "Professor Mari has not saved this yet. Apply it, or don't.",
+            ));
       facts = [
         ...(tables ? [{ label: t("commandCenter.approval.tables", "Tables"), value: tables }] : []),
         { label: t("commandCenter.approval.rows", "Rows"), value: String(approval.affectedRows) },

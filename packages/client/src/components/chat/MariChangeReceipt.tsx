@@ -104,7 +104,11 @@ function Field({ label: name, children, folded }: { label: string; children: Rea
 
 function TextBody({ change }: { change: Extract<MariChangeExcerpt, { kind: "text" }> }) {
   if (!change.before || !change.after) {
-    return <div className={cn("mari-receipt__box", !change.after && "mari-receipt__box--old")}>{change.after || change.before}</div>;
+    return (
+      <div className={cn("mari-receipt__box", !change.after && "mari-receipt__box--old")}>
+        {change.after || change.before}
+      </div>
+    );
   }
   if (keptShare(change.before, change.after) >= 0.4) {
     return (
@@ -137,7 +141,9 @@ function TextBody({ change }: { change: Extract<MariChangeExcerpt, { kind: "text
 function ListBody({ change }: { change: Extract<MariChangeExcerpt, { kind: "list" }> }) {
   const { t } = useUiTranslation();
   const hidden =
-    change.count.added + change.count.edited + change.count.removed -
+    change.count.added +
+    change.count.edited +
+    change.count.removed -
     (change.added.length + change.edited.length + change.removed.length);
   if (change.items?.length) {
     return (
@@ -162,7 +168,9 @@ function ListBody({ change }: { change: Extract<MariChangeExcerpt, { kind: "list
             {item.text ? <span className="mari-receipt__entry-text">{item.text}</span> : null}
           </div>
         ))}
-        {hidden > 0 ? <span className="mari-receipt__muted">{t("ui.chat.marichangereceipt.more", { count: hidden })}</span> : null}
+        {hidden > 0 ? (
+          <span className="mari-receipt__muted">{t("ui.chat.marichangereceipt.more", { count: hidden })}</span>
+        ) : null}
       </div>
     );
   }
@@ -183,7 +191,9 @@ function ListBody({ change }: { change: Extract<MariChangeExcerpt, { kind: "list
           {name}
         </span>
       ))}
-      {hidden > 0 ? <span className="mari-receipt__muted">{t("ui.chat.marichangereceipt.more", { count: hidden })}</span> : null}
+      {hidden > 0 ? (
+        <span className="mari-receipt__muted">{t("ui.chat.marichangereceipt.more", { count: hidden })}</span>
+      ) : null}
     </div>
   );
 }
@@ -239,7 +249,9 @@ function Fields({ result }: { result: MariWorkspaceActionResult }) {
   }
   const created = result.status === "created";
   const settings = created
-    ? result.changes.filter((change): change is Extract<MariChangeExcerpt, { kind: "value" }> => change.kind === "value")
+    ? result.changes.filter(
+        (change): change is Extract<MariChangeExcerpt, { kind: "value" }> => change.kind === "value",
+      )
     : [];
   return (
     <>
@@ -260,7 +272,9 @@ function Fields({ result }: { result: MariWorkspaceActionResult }) {
         </Field>
       ) : null}
       {result.moreChanges ? (
-        <p className="mari-receipt__muted">{t("ui.chat.marichangereceipt.moreFields", { count: result.moreChanges })}</p>
+        <p className="mari-receipt__muted">
+          {t("ui.chat.marichangereceipt.moreFields", { count: result.moreChanges })}
+        </p>
       ) : null}
     </>
   );
@@ -270,7 +284,9 @@ function Fields({ result }: { result: MariWorkspaceActionResult }) {
 function keyChange(result: MariWorkspaceActionResult): MariChangeExcerpt | undefined {
   const changes = result.changes ?? [];
   return (
-    changes.find((change) => change.kind === "list" && !!change.items?.some((item) => item.keys?.length || item.text)) ??
+    changes.find(
+      (change) => change.kind === "list" && !!change.items?.some((item) => item.keys?.length || item.text),
+    ) ??
     changes.find((change) => change.kind === "text" && !!change.before && !!change.after) ??
     changes.find((change) => change.kind === "text" && change.field !== "name" && change.field !== "title") ??
     changes.find((change) => change.kind === "text") ??
@@ -313,7 +329,11 @@ function FailedReceipt({
 }) {
   const { t } = useUiTranslation();
   return (
-    <section className="mari-list mari-receipt" data-state="failed" aria-label={t("ui.chat.marichangereceipt.label", { name })}>
+    <section
+      className="mari-list mari-receipt"
+      data-state="failed"
+      aria-label={t("ui.chat.marichangereceipt.label", { name })}
+    >
       <div className="mari-receipt__head">
         <span className="mari-receipt__face">{faceOf(result)}</span>
         <span className="mari-receipt__text">
@@ -494,12 +514,7 @@ export function MariChangeReceipt({
                     <ExternalLink aria-hidden="true" />
                   </button>
                   {multi && recordPending.length > 0 ? (
-                    <button
-                      type="button"
-                      className="mari-link"
-                      disabled={busy}
-                      onClick={() => undoAll(recordPending)}
-                    >
+                    <button type="button" className="mari-link" disabled={busy} onClick={() => undoAll(recordPending)}>
                       <Undo2 aria-hidden="true" />
                       {t("ui.chat.marichangereceipt.undoOnly", { name: name(result) })}
                     </button>
@@ -516,12 +531,7 @@ export function MariChangeReceipt({
               </div>
             ) : null}
             {(multi ? total > 0 : total > 1) ? (
-              <button
-                type="button"
-                className="mari-receipt__more"
-                aria-expanded={open}
-                onClick={() => toggle(index)}
-              >
+              <button type="button" className="mari-receipt__more" aria-expanded={open} onClick={() => toggle(index)}>
                 {open
                   ? t("ui.chat.marichangereceipt.showLess")
                   : t("ui.chat.marichangereceipt.showAll", { count: total })}
@@ -564,7 +574,9 @@ export function MariChangeReceipt({
                     : t("ui.chat.marichangereceipt.undoClosed")}
                 </span>
               ) : null}
-              {state === "saved" ? <span className="mari-receipt__muted">{t("ui.chat.marichangereceipt.noUndo")}</span> : null}
+              {state === "saved" ? (
+                <span className="mari-receipt__muted">{t("ui.chat.marichangereceipt.noUndo")}</span>
+              ) : null}
               {deadline ? <span className="mari-receipt__muted">{deadline}</span> : null}
               {state === "open" ? (
                 <button type="button" className="mari-btn" disabled={busy} onClick={() => undoAll()}>
