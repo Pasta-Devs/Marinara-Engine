@@ -43,6 +43,7 @@ const RECOIL: SpringSpec = [150, 9]; // ... with one faint wobble, like surface 
 const TAIL: SpringSpec = [150, 17]; // the circle pulls in its tail
 const OPEN: SpringSpec = [210, 21]; // the circle pops open into the view
 const DOCK: SpringSpec = [200, 27]; // the magnifier settles into the search field
+const DIP: SpringSpec = [300, 18]; // the arm dip: down about 4 px, a hair back up, still
 const TILT: SpringSpec = [160, 11]; // her head leans with a sideways drag and rocks back once
 const MORPH: SpringSpec = [190, 24]; // M17: the circle becomes the present Mari (~0.4 s, a hint of overshoot)
 /** Soft light from within; a very faint accent around the circle once armed. */
@@ -223,6 +224,8 @@ export function usePullToOpenOmnibar({
     open: motionValue(0),
     morph: motionValue(0),
     tilt: motionValue(0),
+    /** px added to the circle's y: the arm dip. */
+    dip: motionValue(0),
   }).current;
 
   // Gesture state lives in refs: a move never renders.
@@ -255,8 +258,6 @@ export function usePullToOpenOmnibar({
     gaze: null as null | { frame: PullGazeFrame; since: number },
     /** Reduce ambient effects: her gaze holds still and the pull keeps none of its extra motion. */
     calm: false,
-    /** A velocity the next follow adds to the circle's fall (the arm dip). */
-    kick: 0,
     /** The lean her head is heading for. */
     lean: 0,
   }).current;
@@ -273,7 +274,7 @@ export function usePullToOpenOmnibar({
     const ry = radius * (1 - 0.05 * pop);
     // The circle follows the finger right up to the screen's side and stays whole on it.
     const cx = landing ? mv.x.get() : pullOnScreenX(mv.x.get(), rx, g.width);
-    const cy = mv.y.get();
+    const cy = mv.y.get() + mv.dip.get();
     // Full width at the screen's sides too: the sheet runs off the edge rather than narrowing.
     const base = Math.max(mv.base.get(), rx + 4);
     const tagHalf = (tag?.offsetWidth ?? 0) / 2;
@@ -648,7 +649,6 @@ export function usePullToOpenOmnibar({
       g.gaze = null;
       g.fingerX = x;
       g.calm = useUIStore.getState().reduceAmbientEffects;
-      g.kick = 0;
       g.follow = null;
       g.mariEnabled = useUIStore.getState().commandCenterMariEnabled;
       if (reduceMotion) {
@@ -657,7 +657,7 @@ export function usePullToOpenOmnibar({
         return;
       }
       g.lean = 0;
-      for (const key of ["show", "tag", "pop", "pinch", "rem", "tail", "open", "tint", "morph", "tilt"] as const)
+      for (const key of ["show", "tag", "pop", "pinch", "rem", "tail", "open", "tint", "morph", "tilt", "dip"] as const)
         mv[key].set(0);
       // jump, not set: a set reads as a velocity to the first follow spring and flings the circle away.
       mv.radius.jump(PULL_CIRCLE_MIN * 0.6);
@@ -781,8 +781,7 @@ export function usePullToOpenOmnibar({
           go(mv.radius, circle.radius, GROW);
           go(mv.tag, circle.tag, SHOW);
           // The circle grows out of the bar edge and never rises above it.
-          go(mv.y, circle.centerY, FOLLOW, mv.y.getVelocity() + g.kick);
-          g.kick = 0;
+          go(mv.y, circle.centerY, FOLLOW);
           go(mv.x, f.x, FOLLOW);
           go(mv.show, clamp01((circle.radius - 16) / 10) * clamp01((f.pull - PULL_SIDE_FROM) / 0.2), SHOW);
           go(mv.base, pullSheetBase(circle.radius, f.pull, g.width), BASE);
@@ -796,7 +795,7 @@ export function usePullToOpenOmnibar({
         go(mv.glow, GLOW_ARMED, GLOW, mv.glow.getVelocity() + GLOW_FLARE);
         go(mv.tint, TINT_ARMED, GLOW);
         if (!g.detached) go(mv.pinch, 1, PINCH);
-        if (!g.calm) g.kick = ARM_DIP;
+        if (!g.calm) go(mv.dip, 0, DIP, ARM_DIP);
       }
     },
     [els, g, hide, lock, mv, onOpen, onPullStart, reduceMotion, snapBack],
