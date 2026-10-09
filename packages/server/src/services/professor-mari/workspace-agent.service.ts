@@ -39,7 +39,6 @@ import {
   type PromptAttachment,
 } from "../generation/prompt-attachments.js";
 import { resolveBaseUrl } from "../generation/connection-base-url.js";
-import { MARI_GUIDED_SEQUENCES } from "./guided-sequences.js";
 import {
   getFileStorageDir,
   getMonorepoRoot,
@@ -83,6 +82,7 @@ import type {
   MariSuggestionChip,
   MariWorkspaceConnectionSummary,
   MariWorkspacePromptEvent,
+  MariWorkspaceSkillDetail,
   MariUnderstoodRequest,
   MariWorkspaceStatus,
   MariWorkspaceToolName,
@@ -98,12 +98,14 @@ import {
 import { createAppSettingsStorage } from "../storage/app-settings.storage.js";
 import { getProfessorMariWorkspaceSkillsService } from "./workspace-skills.service.js";
 import {
+  TOOLS,
   WORKSPACE_TOOL_NAMES,
   WORKSPACE_TOOL_DEFINITIONS,
   WORKSPACE_TEXTUAL_TOOL_DEFINITIONS,
   getTool,
   isAppDataRead,
 } from "./tool-registry.js";
+import { getBuiltinSkill, renderSkillLibraryIndex } from "./builtin-skills.js";
 export { PROFESSOR_MARI_APP_DATA_ACTIONS } from "./tool-registry.js";
 import { sidecarModelService } from "../sidecar/sidecar-model.service.js";
 import {
@@ -269,6 +271,19 @@ function windowsShellCompatibilityIssue(command: string): string | null {
   ].join(" ");
 }
 
+/** Compact always-in-context tool inventory, derived from the registry TOOLS.
+ *  Full JSON argument schemas stay in the command protocol; task-specific
+ *  how-tos live in the on-demand skill library (see <skill_library>). */
+function renderToolInventory(): string {
+  const lines = TOOLS.map((tool) => `- ${tool.name}: ${tool.summary}`);
+  return [
+    "<tool_inventory>",
+    "Available workspace tools (one-line summaries; full JSON argument schemas are in the command protocol):",
+    ...lines,
+    "</tool_inventory>",
+  ].join("\n");
+}
+
 const MARI_SYSTEM_PROMPT = `You are Professor Mari, Marinara Engine's Home-screen local workspace helper.
 
 Voice:
@@ -302,23 +317,7 @@ Workspace defaults:
 - For every character or persona edit, inspect the existing entity first and keep its card fields semantically separate: \`description\` is a brief identity overview; \`personality\` is behavioral traits, temperament, voice, and mannerisms; \`backstory\` is substantive history and formative events; \`appearance\` is physical features, build, hair, eyes, clothing, and distinguishing details. When the user requests backstory or appearance, write substantive content directly to that exact field—never substitute a one-line description or move it into \`description\`.
 - Character/persona updates are patches. Include only fields the user asked to change and leave every unrelated field out of the patch so it stays untouched. After writing, read the entity back and compare each requested field with the requested value; for an explicit clear, confirm the field is empty. Claim completion only when every requested value or clear operation matches; otherwise correct it before replying.
 
-Command families:
-- \`app_data\`: no-shell structured actions for chat reads, characters, character folders, personas, lorebooks, lorebook entries, themes, Personal Extension drafts, agents, prompt presets, and safe data-only Home widgets. Prefer this before shell commands for those objects.
-- \`package_service\`: actions that installed Agent packages offer you. Call it with no arguments to see which packages offer which actions and inputs; never guess an action name. Running one (\`package\`, \`action\`, \`input\`) acts inside that package and may spend its AI budget, so run it only for a change the user asked for. The package validates the input; on an error, fix the input or tell the user.
-- \`mari db\`: generic live app data and storage-backed rows, including customization tables such as \`agent_configs\` and \`custom_tools\` when no narrower helper exists.
-- \`mari themes\`: synced custom themes and active theme state.
-- \`mari images\`: image-generation connections, HITL image prompt previews, generated/edited preview assets, and assignment/deletion for avatars, personas, lorebooks, sprites, backgrounds, and galleries.
-- \`mari wiki\`: read-only Fandom and Wikipedia/MediaWiki discovery and page reads. Use it for trusted Wikipedia links instead of raw shell networking.
-- \`mari characters\`: list, get, search, create, update, delete. Prefer this helper for character edits, including backstory, appearance, and About Me changes. Use \`app_data\` \`character.folder.list\` and \`character.moveToFolder\` for character folders.
-- \`mari personas\`: list, get, search, create, update, delete. Prefer this helper for persona edits.
-- \`mari lorebooks\`: list, get, entries <lorebook-id>, get-entry <entry-id>, search, create, update <lorebook-id>, add-entry <lorebook-id>, update-entry <entry-id>, delete-entry <entry-id>, link-character, unlink-character, delete.
-- \`mari presets\`: shell mirror of the \`preset.*\` app_data actions — \`list|get|sections|get-section|groups|get-group|choice-blocks|get-choice-block|add-section|update-section|delete-section|add-group|update-group|delete-group|add-choice-block|update-choice-block|delete-choice-block\`, plus \`create\`/\`update\` via \`--json\` (writes need \`--apply\`). For your own edits prefer the \`app_data\` \`preset.*\` actions: \`preset.create\`/\`preset.update\` handle a WHOLE preset (\`groups\`, \`sections\`, \`choiceBlocks\`), and to see or edit ONE part in place use \`preset.sections\`/\`getSection\`/\`updateSection\`/\`addSection\`/\`deleteSection\` and the parallel \`group\` and \`choiceBlock\` actions. Use \`mari db\` only for advanced raw-table repairs after inspecting schemas.
-- \`mari chats\`: read-only list/get/messages/search.
-- When the user limits chat evidence, preserve that boundary in every retrieval call. For "the last N messages", use \`mari chats messages <chat-id> --last N\`. For "after post #N", use \`mari chats messages <chat-id> --after-post N\`; post numbers are 1-indexed and match the numbers shown in chat. For a large requested range, page only inside it with \`--limit <page-size> --offset <already-read>\`. Never replace a requested recent/post-number range with an unbounded chat read.
-- \`mari agents\`: no dedicated shell helper — use \`app_data\` \`agent.*\` for agent configs.
-- \`mari tools\`: customization helper; if unavailable, use \`mari db\` with the related table.
-- \`mari code\`: workspace status, diffs, checks, health, reload, and continuation.
-- \`dependency\`: request an exact public npm package for root, client, server, or shared. The package is not installed until the user approves the resolved version and registry integrity.
+${renderToolInventory()}
 
 Built-in help:
 Use \`mari --help\`, \`mari <group> --help\`, or \`mari <group> <command> --help\` for exact syntax. If a command family is missing, do not invent it; check \`mari db tables\`, \`mari db schema <table>\`, and current rows.
@@ -348,7 +347,7 @@ Required schema:
   "awaitingAuthorization": false,
   "understoodRequest": "the exact words you are treating as the request or permission, when any command mutates data",
   "commands": [
-    { "name": "docs_search|docs_read|read|grep|find|ls|edit|write|copy|move|remove|bash|dependency|app_data|package_service", "arguments": {} }
+    { "name": "docs_search|docs_read|read|grep|find|ls|edit|write|copy|move|remove|bash|dependency|app_data|package_service|skill", "arguments": {} }
   ],
   "suggestions": [
     { "label": "short button text", "prompt": "exact message to send if tapped", "entity": "characters|lorebooks|personas|presets|connections|agents|settings|chat", "tone": "danger|caution|success" }
@@ -373,7 +372,14 @@ Field rules:
 - Do not mention tapping, clicking, choosing chips, quick replies, buttons, or examples unless \`suggestions\` or \`plan\` is present in the same JSON object. If you want the user to answer in plain chat, ask directly without referring to UI controls.
 - For vague create/edit requests, prefer one \`plan\` instead of interrogating the user turn by turn. Use \`suggestions\` only for simple quick replies or follow-up next steps, not as a hidden substitute for a guided plan.
 
-${MARI_GUIDED_SEQUENCES}
+<pacing>
+Work in small verified steps. Plan only the next immediate action, not the entire remaining workflow.
+- Issue 1-3 commands per response.
+- After a mutating command, verify the result (read-back, list, or read) in the same or next response before claiming success.
+- Complete one verified step before planning the next.
+- Use the round budget for execution, not for restating plans.
+- If a task requires more than 3 steps, execute the first step, verify it, then continue.
+</pacing>
 
 \`app_data\` quick reference:
 - Reads: \`chat.list|get|messages|search\`, \`character.list|get|search|folder.list\`, \`persona.list|get|search\`, \`lorebook.list|get|entries|getEntry|search|folder.list|libraryFolder.list\`, \`theme.list|active|get\`, \`personal_extension.list|get|search\`, \`agent.list|get|search\`, \`preset.list|get|search|sections|getSection|groups|getGroup|choiceBlocks|getChoiceBlock\`, \`home_widget.list|get\`, \`instruction.list|get\`.
@@ -386,23 +392,9 @@ ${MARI_GUIDED_SEQUENCES}
 - New creates: use \`apply:true\` immediately for \`character.create\`, \`persona.create\`, \`lorebook.create\`, \`lorebook.addEntry\`, \`agent.create\`, \`preset.create\`, and non-activating \`theme.create\` when the user asked you to create it. The result's \`readBack\` confirms persistence; read back only when you need the created ids or content for the next step.
 - Character generation: put the full card in \`data\`; do not create a name-only placeholder. \`firstMes\` and \`firstMessage\` both map to the opening message.
 - About Me writing: read the target character or persona first, write the bio in their own voice, then put it in \`patch.aboutMe\` on the matching update action with \`apply:true\`.
-- Lorebook authoring: plan the entries first (premise, places, people, factions, rules), then create the whole book in one \`lorebook.create\` (Marinara saves the book and entries together, so never make an empty book to fill later). Set each entry deliberately:
-  - Always-true world premise (the setting's ground rules) -> \`constant: true\`, no keys. Everything else is keyword-triggered.
-  - Topical lore -> \`keys\` (3-8 specific trigger words). Tighten a too-broad key with \`matchWholeWords: true\`; reach for \`caseSensitive\`/\`useRegex\` only when truly needed.
-  - A shared or ambiguous word that mis-fires -> \`selective: true\` + \`secondaryKeys\` + \`selectiveLogic\` ("and" = any secondary present, "and_all" = all present, "not" = blocked if any present, "not_all" = blocked if all present). Secondary keys do nothing unless \`selective: true\`.
-  - Alternate versions of one thing where only one should load -> give them the same \`group\`.
-  - Fill \`description\` on every entry: it feeds the entry's semantic embedding and is what the Knowledge Router agent (when enabled) reads to route the entry, so an empty description weakens both.
-  - Placement (\`position\`/\`depth\`/\`order\`/\`role\`): leave at defaults unless the user asks for specific placement; \`docs_read\` the "Position, Depth, and Order" section of \`docs/lorebooks/entries.md\` for exact values.
-  - Semantic recall needs an embedding model. If \`embeddingModelConfigured: false\` (see workspace_context) there is no matching by meaning, so rely on \`keys\` and \`constant\`. If true, important but rarely-named lore may also be recalled by meaning once vectorized, so it need not be forced \`constant\`.
-  - You can also set these (leave at defaults unless the user asks): activation chance \`probability\` (0-100), timing \`sticky\`/\`cooldown\`/\`delay\`/\`ephemeral\` (turn counts), inclusion-group weight \`groupWeight\`, per-entry \`scanDepth\`, \`locked\`, folder placement \`folderId\` (must be an existing folder in the SAME lorebook), matching filters \`characterFilterMode\`/\`characterFilterIds\`, \`characterTagFilterMode\`/\`characterTagFilters\`, \`generationTriggerFilterMode\`/\`generationTriggerFilters\` (each mode is \`any\`, \`include\`, or \`exclude\`), and extra scan text via \`additionalMatchingSources\` (any of: character_name, character_description, character_personality, character_scenario, character_tags, persona_description, persona_tags). Pass a numeric field as \`null\` to clear it back to default. \`docs_read docs/lorebooks/entries.md\` covers probability, timing, folders, and filters; \`groupWeight\` and per-entry \`scanDepth\` are only lightly documented there, so leave them unless the user gives a specific value.
-  - Recursion flags are inverted and subtle — set them only on an explicit request: \`preventRecursion\` defaults to TRUE (this entry does NOT trigger other entries; set it \`false\` to let its content trigger others — that is the doc/UI "Recursion (per-entry)" toggle, inverted), \`excludeRecursion: true\` stops this entry from being activated BY recursion (first-pass matches only), and \`delayUntilRecursion: true\` makes it activate ONLY on a recursion pass.
-  - Vectorization gate: an entry joins semantic/vector recall only when it is NOT excluded AND an embedding model exists. Set \`excludeFromVectorization: false\` (include the entry) ONLY when \`embeddingModelConfigured: true\`; with no embedding model it has no effect, so never promise vector recall then. Setting \`excludeFromVectorization: true\` (exclude) is always fine.
-  - Unsure what a field does? \`docs_read docs/lorebooks/entries.md\` at the heading "Entry types: Normal, Constant, Selective" or "Keyword matching rules".
 - Lorebook fidelity pass: after creating a lorebook, OFFER the user a second-pass review (do not run it unprompted). If they accept, read the entries back (\`lorebook.entries\` then \`lorebook.getEntry\`) and fix weak spots with \`lorebook.updateEntry\`: narrow an over-broad key or add \`matchWholeWords\`, mark always-relevant lore \`constant\`, group alternates, or fill a missing \`description\`.
 - Lorebook reading: \`lorebook.entries\` is a compact index with entry IDs and content previews. Call \`lorebook.getEntry\` with each relevant \`entryId\` before reviewing or rewriting its full content.
 - Deleting a lorebook entry: use \`lorebook.deleteEntry\` with the entry's \`entryId\` and \`apply:true\` — it removes that one entry and shows a Keep/Restore card. NEVER delete a lorebook entry with a raw \`mari db delete\`: its \`--where\` selector can match and permanently remove far more rows than you intend. If a raw \`mari db delete\` is ever unavoidable, dry-run it first (\`apply:false\`) and confirm the exact affected-row count before applying.
-- For \`preset.create\`, put prompt sections in \`data.sections\` and preset variables in \`data.choiceBlocks\`. Each choice block needs \`variableName\`, \`question\`, and \`options\` with \`label\`/\`value\` pairs. A choice block does nothing on its own: its picked value only reaches the model where a section's \`content\` references it with the \`{{variableName}}\` macro. So whenever you define a variable you MUST also drop its \`{{variableName}}\` into at least one section's content (see the tone example below), or the user gets a picker in the preset UI that changes nothing. When you add a variable to an EXISTING preset with \`addChoiceBlock\`, also \`updateSection\` to weave \`{{variableName}}\` into a section's content for the same reason.
-- Editing part of a preset: \`preset.sections\` is a compact index (section IDs, names, content previews); call \`preset.getSection\` before rewriting one. To add a line at a specific spot, read the section's full content with \`preset.getSection\`, splice your change into it, then \`preset.updateSection\` with the whole new content — the section is the finest editable unit (there is no line/offset addressing). \`preset.addSection\`/\`addGroup\` place the new item and wire it into the preset's order; \`preset.deleteGroup\` keeps the group's member sections (they just lose the grouping).
 - Custom image agents are supported by the live runtime. Use \`data.resultType: "image_prompt"\`, enable \`settings.customCapabilities.trigger_image_generation\`, and have the agent return \`shouldGenerate\` plus \`prompt\`. Marker-triggered agents should also set \`settings.activationKeywords\`. Do not claim that only Illustrator can generate image prompts.
 - Custom Home widgets are constrained text cards, never executable code. Before creating one, show its exact title, description, accent, and icon in \`say\`, include the \`home_widget.create\` command with \`apply:true\` in the SAME response, and set \`awaitingAuthorization\` to \`true\` so Marinara holds it for the user's Accept - one response, no preview round. Use \`home_widget.update\` or \`home_widget.delete\` only when the user explicitly asks for that change.
 - Agent Home widgets belong to their agent. You may recommend an offered widget and guide the user to Home's Widget Manager → Agents to add it. Never use \`home_widget.create|update|delete\` to impersonate or change an agent-owned widget, and never claim you can grant its permissions or place it on Home for the user.
@@ -3019,25 +3011,40 @@ export class ProfessorMariWorkspaceService {
 
   private async buildSkillsPrompt(): Promise<string | null> {
     const response = await getProfessorMariWorkspaceSkillsService().list();
-    const enabled = response.skills.filter((skill) => skill.enabled && skill.content.trim());
-    const sections = enabled.map(
-      (skill) => `<skill name="${skill.name}" id="${skill.id}">
+    // Two layers: a compact always-in-context index of the built-in skill
+    // library (full docs fetched on demand via the `skill` tool), plus the full
+    // content of any user-defined skills.
+    const enabledBuiltinIds = new Set(
+      response.skills.filter((skill) => skill.builtin && skill.enabled).map((skill) => skill.id),
+    );
+    const userSkills = response.skills.filter((skill) => !skill.builtin && skill.enabled && skill.content.trim());
+    const sections: string[] = [];
+    if (enabledBuiltinIds.size > 0) {
+      sections.push(renderSkillLibraryIndex(enabledBuiltinIds));
+    }
+    if (userSkills.length > 0) {
+      sections.push(
+        `<user_skills>
+Use these user-defined skills when relevant.
+
+${userSkills
+  .map(
+    (skill) => `<skill name="${skill.name}" id="${skill.id}">
 Description: ${skill.description}
 
 ${skill.content.trim()}
 </skill>`,
-    );
+  )
+  .join("\n\n")}`,
+      );
+    }
     if (response.diagnostics.length > 0) {
       sections.push(`<skill_diagnostics>
 ${response.diagnostics.join("\n")}
 </skill_diagnostics>`);
     }
     if (sections.length === 0) return null;
-    return `<professor_mari_custom_skills>
-Use these user-defined skills when relevant.
-
-${sections.join("\n\n")}
-</professor_mari_custom_skills>`;
+    return sections.join("\n\n");
   }
 
   // #4851: the user's saved memories (persistent standing instructions). Injected
@@ -3305,6 +3312,8 @@ ${sections.join("\n\n")}
         return this.commandAppData(command.arguments);
       case "package_service":
         return this.commandPackageService(command.arguments, signal);
+      case "skill":
+        return this.commandSkill(command.arguments);
       case "bash":
         return this.commandBash(command.arguments, signal);
       default:
@@ -3964,6 +3973,38 @@ ${sections.join("\n\n")}
     }
     const value = await runCapabilityMariAction(packageId, action, packageServiceInput(args), signal);
     return `${packageId} ${action} succeeded.\n${elideDataUrls(stringifyOutput(value ?? null))}`;
+  }
+
+  private async commandSkill(args: Record<string, unknown>): Promise<string> {
+    const id = stringArg(args, "id").trim();
+    if (!id) return "Skill id is required.";
+    // Service-first: the merged list() serves built-ins (shipped default for
+    // untouched ids, the user-edited file otherwise), so getById returns the
+    // current content. Fall back to the shipped constant if the service
+    // lookup fails, then a miss.
+    let detail: MariWorkspaceSkillDetail | null = null;
+    try {
+      detail = await getProfessorMariWorkspaceSkillsService().getById(id);
+    } catch {
+      detail = null;
+    }
+    let name = id;
+    let content = "";
+    let builtin = false;
+    if (detail) {
+      name = detail.name;
+      content = detail.content;
+      builtin = detail.builtin === true;
+    } else {
+      const shipped = getBuiltinSkill(id);
+      if (shipped) {
+        name = shipped.name;
+        content = shipped.content;
+        builtin = true;
+      }
+    }
+    if (!content.trim()) return `Skill "${id}" not found.`;
+    return `<skill id="${id}" name="${name}" builtin="${builtin}">\n${content}\n</skill>`;
   }
 
   private async commandAppData(args: Record<string, unknown>): Promise<string> {

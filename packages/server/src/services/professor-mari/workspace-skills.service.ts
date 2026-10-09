@@ -9,6 +9,13 @@ import type {
 import { DATA_DIR } from "../../utils/data-dir.js";
 import { now } from "../../utils/id-generator.js";
 import { logger } from "../../lib/logger.js";
+import {
+  BUILTIN_SKILLS,
+  BUILTIN_SKILL_IDS,
+  BUILTIN_SKILL_TIMESTAMP,
+  getBuiltinSkill,
+  type BuiltinSkillDef,
+} from "./builtin-skills.js";
 
 type SkillRecord = {
   id: string;
@@ -148,7 +155,7 @@ Add focused instructions for when Professor Mari should use this skill.`;
   ].join("\n");
 }
 
-function summarizeRecord(record: SkillRecord, content: string): MariWorkspaceSkillSummary {
+function summarizeRecord(record: SkillRecord, content: string, builtin = false): MariWorkspaceSkillSummary {
   return {
     id: record.id,
     name: record.name,
@@ -158,6 +165,9 @@ function summarizeRecord(record: SkillRecord, content: string): MariWorkspaceSki
     updatedAt: record.updatedAt,
     size: Buffer.byteLength(content, "utf8"),
     filePath: skillFilePath(record.id),
+    // Only present on built-ins; user-skill payloads stay byte-identical to
+    // pre-PR-2 so existing clients and the storage layout are untouched.
+    ...(builtin ? { builtin: true } : {}),
   };
 }
 
@@ -167,8 +177,31 @@ export class ProfessorMariWorkspaceSkillsService {
     const records = await this.readRecords();
     const diagnostics: string[] = [];
     const skills: MariWorkspaceSkillDetail[] = [];
+    const recordById = new Map(records.map((record) => [record.id, record]));
 
+    // Built-ins first, in shipped order. A materialized file (written on the
+    // user's first edit) wins with builtin:true; untouched ids synthesize the
+    // shipped constant so the library is always complete.
+    for (const def of BUILTIN_SKILLS) {
+      const record = recordById.get(def.id);
+      if (record) {
+        try {
+          const content = await readFile(skillFilePath(record.id), "utf8");
+          skills.push({ ...summarizeRecord(record, content, true), content: skillInstructions(content) });
+          continue;
+        } catch (err) {
+          diagnostics.push(
+            `Skill ${record.name} could not be read: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        }
+      }
+      skills.push(this.synthesizeBuiltinDetail(def));
+    }
+
+    // User skills after, skipping ids owned by a built-in (their file is
+    // already surfaced above as a builtin).
     for (const record of records) {
+      if (BUILTIN_SKILL_IDS.has(record.id)) continue;
       try {
         const content = await readFile(skillFilePath(record.id), "utf8");
         skills.push({ ...summarizeRecord(record, content), content: skillInstructions(content) });
@@ -178,6 +211,49 @@ export class ProfessorMariWorkspaceSkillsService {
     }
 
     return { skills, diagnostics };
+  }
+
+  /**
+   * Return one skill's full detail. Built-in ids resolve to the current
+   * content: the user-edited file if it exists, otherwise the shipped
+   * constant. User ids resolve from their file. Throws when unknown.
+   */
+  async getById(id: string): Promise<MariWorkspaceSkillDetail> {
+    await this.ensureStorage();
+    const safeId = assertSafeSkillId(id);
+    const records = await this.readRecords();
+    const record = records.find((entry) => entry.id === safeId);
+    if (record) {
+      const content = await readFile(skillFilePath(record.id), "utf8");
+      return {
+        ...summarizeRecord(record, content, BUILTIN_SKILL_IDS.has(record.id)),
+        content: skillInstructions(content),
+      };
+    }
+    const builtin = getBuiltinSkill(safeId);
+    if (builtin) return this.synthesizeBuiltinDetail(builtin);
+    throw new Error("Skill not found");
+  }
+
+  /**
+   * Build a full skill detail from a shipped built-in constant, using the
+   * fixed shipped timestamp so clients can tell an untouched built-in from
+   * one the user has edited (updatedAt > createdAt).
+   */
+  private synthesizeBuiltinDetail(def: BuiltinSkillDef): MariWorkspaceSkillDetail {
+    const content = def.content.trim();
+    return {
+      id: def.id,
+      name: def.name,
+      description: def.summary,
+      enabled: true,
+      createdAt: BUILTIN_SKILL_TIMESTAMP,
+      updatedAt: BUILTIN_SKILL_TIMESTAMP,
+      size: Buffer.byteLength(content, "utf8"),
+      filePath: skillFilePath(def.id),
+      builtin: true,
+      content,
+    };
   }
 
   async listSummaries(): Promise<MariWorkspaceSkillSummary[]> {
@@ -215,9 +291,32 @@ export class ProfessorMariWorkspaceSkillsService {
   async update(id: string, input: SkillUpdate): Promise<MariWorkspaceSkillDetail> {
     await this.ensureStorage();
     const safeId = assertSafeSkillId(id);
-    const records = await this.readRecords();
-    const index = records.findIndex((record) => record.id === safeId);
-    if (index < 0) throw new Error("Skill not found");
+    let records = await this.readRecords();
+    let index = records.findIndex((record) => record.id === safeId);
+
+    // First edit of a built-in: materialize the shipped constant to a file so
+    // the existing update flow can apply the change. createdAt stays pinned to
+    // the shipped timestamp; updatedAt becomes now(), so the client can show
+    // "Restore Default".
+    if (index < 0) {
+      const builtin = getBuiltinSkill(safeId);
+      if (!builtin) throw new Error("Skill not found");
+      const content = buildSkillContent({ name: builtin.name, description: builtin.summary, content: builtin.content });
+      await mkdir(skillDir(safeId), { recursive: true });
+      await writeFile(skillFilePath(safeId), content, "utf8");
+      const record: SkillRecord = {
+        id: safeId,
+        name: builtin.name,
+        description: builtin.summary,
+        enabled: true,
+        createdAt: BUILTIN_SKILL_TIMESTAMP,
+        updatedAt: BUILTIN_SKILL_TIMESTAMP,
+      };
+      records = [...records, record];
+      index = records.length - 1;
+      await this.writeRecords(records);
+    }
+
     const current = records[index]!;
 
     const previousContent = await readFile(skillFilePath(current.id), "utf8");
@@ -240,7 +339,10 @@ export class ProfessorMariWorkspaceSkillsService {
     const nextRecords = [...records];
     nextRecords[index] = nextRecord;
     await this.writeRecords(nextRecords);
-    return { ...summarizeRecord(nextRecord, nextContent), content: skillInstructions(nextContent) };
+    return {
+      ...summarizeRecord(nextRecord, nextContent, BUILTIN_SKILL_IDS.has(nextRecord.id)),
+      content: skillInstructions(nextContent),
+    };
   }
 
   async delete(id: string): Promise<void> {
@@ -248,7 +350,13 @@ export class ProfessorMariWorkspaceSkillsService {
     const safeId = assertSafeSkillId(id);
     const records = await this.readRecords();
     const record = records.find((entry) => entry.id === safeId);
-    if (!record) throw new Error("Skill not found");
+    // "Restore Default": deleting a built-in's materialized file makes the
+    // shipped constant reappear on the next list(). A built-in with no file is
+    // already at its default, so a delete is a silent no-op.
+    if (!record) {
+      if (BUILTIN_SKILL_IDS.has(safeId)) return;
+      throw new Error("Skill not found");
+    }
     await rm(skillDir(record.id), { recursive: true, force: true });
     await this.writeRecords(records.filter((entry) => entry.id !== record.id));
   }

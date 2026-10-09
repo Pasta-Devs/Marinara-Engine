@@ -3,23 +3,35 @@
 // where a section's content references it with the `{{variableName}}` macro; if Mari defines a
 // variable and never references it, the user sees a picker in the preset UI that changes nothing.
 //
-// Pins two things in the workspace command-protocol prompt:
-//   1) the guidance names the `{{variableName}}` macro and states the variable is inert until a
-//      section references it, and
-//   2) every `preset.create` worked example that defines choiceBlocks references each variable as
-//      `{{variableName}}` in at least one section's content — i.e. the example follows the rule it
-//      teaches (the old `tone` example defined `{{tone}}` but its section was a bare
-//      `"You are {{char}}."`, demonstrating the anti-pattern this issue fixes).
+// Pins two things about the `{{variableName}}` macro (the anti-pattern it fixes: Mari defines a
+// choice-block variable but never references it, so the preset UI shows a picker that changes
+// nothing):
+//   1) the create-preset / edit-preset built-in skills name the `{{variableName}}` macro and state
+//      the variable is inert until a section references it (the authoring guidance lives in the
+//      skill docs, not the always-in-context command-protocol prompt), and
+//   2) every `preset.create` worked example in the command-protocol prompt that defines
+//      choiceBlocks references each variable as `{{variableName}}` in at least one section's
+//      content — i.e. the example follows the rule it teaches (the old `tone` example defined
+//      `{{tone}}` but its section was a bare `"You are {{char}}."`).
 import assert from "node:assert/strict";
 import { workspaceCommandProtocolPrompt } from "../../packages/server/src/services/professor-mari/workspace-agent.service.js";
+import { getBuiltinSkill } from "../../packages/server/src/services/professor-mari/builtin-skills.js";
 
 const prompt = workspaceCommandProtocolPrompt();
 
-// 1) Guidance names the macro and the "inert until referenced" rule.
-assert.ok(prompt.includes("{{variableName}}"), "guidance must name the {{variableName}} macro so Mari references her variables");
+// 1) The create-preset / edit-preset built-in skills name the macro and the "inert until
+//    referenced" rule. (The guidance now lives in the skill docs, not the always-in-context
+//    command-protocol prompt.)
+const presetSkillDocs = ["create-preset", "edit-preset"]
+  .map((id) => getBuiltinSkill(id)?.content ?? "")
+  .join("\n");
 assert.ok(
-  /does nothing on its own|only takes effect|changes nothing/i.test(prompt),
-  "guidance must state a choice block is inert until a section references it",
+  presetSkillDocs.includes("{{variableName}}"),
+  "preset skills must name the {{variableName}} macro so Mari references her variables",
+);
+assert.ok(
+  /does nothing on its own|only takes effect|changes nothing/i.test(presetSkillDocs),
+  "preset skills must state a choice block is inert until a section references it",
 );
 
 // 2) Every preset.create worked example that defines choiceBlocks must reference each variable in a

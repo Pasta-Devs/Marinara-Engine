@@ -18,7 +18,8 @@ export type MariWorkspaceToolName =
   | "bash"
   | "dependency"
   | "app_data"
-  | "package_service";
+  | "package_service"
+  | "skill";
 
 export type MariChipEntity =
   "characters" | "lorebooks" | "personas" | "presets" | "connections" | "agents" | "settings" | "chat";
@@ -292,6 +293,8 @@ export interface MariWorkspaceSkillSummary {
   updatedAt: string;
   size: number;
   filePath: string;
+  /** Set when this skill is a code-shipped built-in (as opposed to user-created). */
+  builtin?: boolean;
 }
 
 export interface MariWorkspaceSkillDetail extends MariWorkspaceSkillSummary {

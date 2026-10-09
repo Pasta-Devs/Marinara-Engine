@@ -36,6 +36,7 @@ import {
   Plus,
   Quote,
   RefreshCw,
+  RotateCcw,
   Save,
   Search,
   Send,
@@ -2661,8 +2662,13 @@ function ProfessorMariSkillsMenu({
                         )}
                       />
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate text-[0.75rem] font-semibold text-[var(--foreground)]">
-                          {skill.name}
+                        <span className="flex min-w-0 items-center gap-1.5 text-[0.75rem] font-semibold text-[var(--foreground)]">
+                          <span className="truncate">{skill.name}</span>
+                          {skill.builtin && (
+                            <span className="shrink-0 rounded bg-[var(--muted)]/40 px-1 py-0.5 text-[0.55rem] font-medium uppercase tracking-wide text-[var(--muted-foreground)]">
+                              {localizeUi("ui.chat.professormariskillsmenu.builtinBadge")}
+                            </span>
+                          )}
                         </span>
                         {skill.description && (
                           <span className="mt-0.5 hidden truncate text-[0.65rem] text-[var(--muted-foreground)] md:block">
@@ -2727,11 +2733,13 @@ function ProfessorMariSkillsMenu({
                         <button
                           type="button"
                           onClick={() => onDelete(skill.id)}
-                          disabled={saving}
+                          disabled={saving || (skill.builtin ? skill.updatedAt <= skill.createdAt : false)}
                           className="inline-flex h-8 items-center gap-1.5 rounded-md px-2 text-[0.6875rem] font-semibold text-[var(--destructive)] transition-colors hover:bg-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-45"
                         >
-                          <Trash2 size="0.75rem" />
-                          {localizeUi("lorebook.editor.batch.delete")}
+                          {skill.builtin ? <RotateCcw size="0.75rem" /> : <Trash2 size="0.75rem" />}
+                          {skill.builtin
+                            ? localizeUi("ui.chat.professormariskillsmenu.restoreDefault")
+                            : localizeUi("lorebook.editor.batch.delete")}
                         </button>
                         <button
                           type="button"

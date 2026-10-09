@@ -887,7 +887,7 @@ export const APP_DATA_ACTIONS: Record<string, AppDataActionDef> = {
 
 export const PROFESSOR_MARI_APP_DATA_ACTIONS: readonly string[] = Object.freeze(Object.keys(APP_DATA_ACTIONS));
 
-// ── tool definitions (15 tools; descriptions verbatim) ──────────
+// ── tool definitions (16 tools; descriptions verbatim) ──────────
 
 export const TOOLS: ToolDef[] = [
   {
@@ -1247,6 +1247,27 @@ export const TOOLS: ToolDef[] = [
     idempotent: false,
     prerequisites: [],
     notes: ["No action = list (read); action present = run (a change the Engine cannot preview/undo)."],
+  },
+  {
+    name: "skill",
+    summary: "Fetch the full content of a built-in or user-defined skill by ID.",
+    description:
+      "Retrieve the full instructions for a named skill from the skill library. Use the ID shown in the skill index. Returns the skill's title, description, and complete instructions as text.",
+    kind: "meta",
+    parameters: {
+      type: "object",
+      properties: {
+        id: { type: "string", description: "Skill ID from the skill index (e.g. 'create-character')." },
+      },
+      required: ["id"],
+    },
+    selfVerifying: false,
+    verifyWith: null,
+    idempotent: true,
+    prerequisites: [],
+    notes: [
+      "Returns the current (possibly user-edited) content. Built-in skills that have not been customized return the shipped default.",
+    ],
   },
 ];
 
