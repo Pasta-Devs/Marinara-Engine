@@ -2466,6 +2466,8 @@ function RoleplaySetupWizard({ chat, onFinish, defaultsApplied, defaultsAction }
       if (idx >= 0) {
         current.splice(idx, 1);
         setChatCharIds(current);
+        // Re-adding the card later must not silently restore "Create your persona".
+        if (onboardingCharacterId === charId) setOnboardingCharacterId(null);
         // Auto-rename the chat if the user hasn't manually edited the name
         const updateData: { id: string; characterIds: string[]; name?: string } = {
           id: chat.id,
@@ -2484,7 +2486,7 @@ function RoleplaySetupWizard({ chat, onFinish, defaultsApplied, defaultsAction }
         updateChat.mutate(updateData);
       }
     },
-    [buildAutoName, chat.id, chatCharIds, updateChat, userEditedName],
+    [buildAutoName, chat.id, chatCharIds, onboardingCharacterId, updateChat, userEditedName],
   );
 
   const addCharactersFromFolder = useCallback(
