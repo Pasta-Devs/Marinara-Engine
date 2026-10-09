@@ -2911,7 +2911,11 @@ export function HomeProfessorMariChat({
                 <div className="truncate text-[0.6875rem] text-[var(--muted-foreground)]">
                   {isBusy
                     ? localizeUi("ui.chat.homeprofessormarichat.workingOnIt")
-                    : localizeUi(noConnection ? "ui.chat.homeprofessormarichat.needsConnection" : "ui.chat.homeprofessormarichat.readyToHelp")}
+                    : localizeUi(
+                        noConnection
+                          ? "ui.chat.homeprofessormarichat.needsConnection"
+                          : "ui.chat.homeprofessormarichat.readyToHelp",
+                      )}
                 </div>
               </div>
             </div>

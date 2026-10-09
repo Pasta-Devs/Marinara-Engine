@@ -111,7 +111,11 @@ export function MariWindowHeader({
             <span className="block truncate text-[0.625rem] text-[var(--muted-foreground)]">
               {isBusy
                 ? localizeUi("ui.chat.homeprofessormarichat.workingOnIt")
-                : localizeUi(noConnection ? "ui.chat.homeprofessormarichat.needsConnection" : "ui.chat.homeprofessormarichat.readyToHelp")}
+                : localizeUi(
+                    noConnection
+                      ? "ui.chat.homeprofessormarichat.needsConnection"
+                      : "ui.chat.homeprofessormarichat.readyToHelp",
+                  )}
             </span>
           </span>
         </div>

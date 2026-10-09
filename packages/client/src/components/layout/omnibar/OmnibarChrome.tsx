@@ -19,7 +19,8 @@ import { isApplePlatform, type CommandCenterCategoryFilter } from "../../../lib/
 import { formatShortcutKey } from "../../../lib/keyboard-shortcuts";
 
 // UX-16: chips are drawn at 34px; on touch the hit area grows into the strip's padding to 44px.
-const CHIP_TOUCH_HIT = "relative [@media(pointer:coarse)]:after:absolute [@media(pointer:coarse)]:after:inset-x-0 [@media(pointer:coarse)]:after:-inset-y-[0.3125rem] [@media(pointer:coarse)]:after:content-['']";
+const CHIP_TOUCH_HIT =
+  "relative [@media(pointer:coarse)]:after:absolute [@media(pointer:coarse)]:after:inset-x-0 [@media(pointer:coarse)]:after:-inset-y-[0.3125rem] [@media(pointer:coarse)]:after:content-['']";
 
 /** Slice 79b: Mari's head in the search header is the door to her. */
 export function OmnibarMariDoor({
@@ -208,7 +209,9 @@ export function OmnibarFooter({
           <span>
             {mariSends(activeResult) && !(asideSettled && activeResult.id === "ask-professor-mari")
               ? t("commandCenter.keyboard.askMari", "{{mod}}+Enter Ask Mari", { mod: formatShortcutKey("Mod") })
-              : t("commandCenter.keyboard.continueMari", "{{mod}}+Enter Continue with Mari", { mod: formatShortcutKey("Mod") })}
+              : t("commandCenter.keyboard.continueMari", "{{mod}}+Enter Continue with Mari", {
+                  mod: formatShortcutKey("Mod"),
+                })}
           </span>
         ) : null}
         {pane === "results" && activeResult && isRichResult(activeResult) ? (
@@ -221,7 +224,9 @@ export function OmnibarFooter({
       </span>
       <span className="flex min-w-0 items-center gap-3">
         {mariEnabled ? (
-          <span className="hidden sm:inline">{t("commandCenter.keyboard.askMariShortcut", "{{mod}}+J Open Mari", { mod: formatShortcutKey("Mod") })}</span>
+          <span className="hidden sm:inline">
+            {t("commandCenter.keyboard.askMariShortcut", "{{mod}}+J Open Mari", { mod: formatShortcutKey("Mod") })}
+          </span>
         ) : null}
         {!idle ? <span className="hidden sm:inline">{t("commandCenter.keyboard.escape", "Esc close")}</span> : null}
         <OmnibarSettingsButton open={settingsOpen} onOpen={() => openSettings()} />

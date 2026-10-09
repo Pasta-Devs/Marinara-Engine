@@ -284,7 +284,11 @@ export function MariOmnibarHeaderChrome({
                 {localizeUi("mari.needsYou.headerStatus", { count: needsYouCount })}
               </button>
             ) : (
-              localizeUi(noConnection ? "ui.chat.homeprofessormarichat.needsConnection" : "ui.chat.homeprofessormarichat.readyToHelp")
+              localizeUi(
+                noConnection
+                  ? "ui.chat.homeprofessormarichat.needsConnection"
+                  : "ui.chat.homeprofessormarichat.readyToHelp",
+              )
             )}
           </span>,
           omnibarStatusSlot,

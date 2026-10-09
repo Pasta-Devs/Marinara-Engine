@@ -346,7 +346,9 @@ export function OmnibarAside({
                 onClick={state.status === "streaming" ? () => setContinueQueued(true) : onEscalate}
                 aria-busy={continueQueued || undefined}
                 className={continueAction}
-                title={t("commandCenter.keyboard.continueMari", "{{mod}}+Enter Continue with Mari", { mod: formatShortcutKey("Mod") })}
+                title={t("commandCenter.keyboard.continueMari", "{{mod}}+Enter Continue with Mari", {
+                  mod: formatShortcutKey("Mod"),
+                })}
               >
                 {t("omnibar.aside.escalate", "Continue with Mari")}
               </button>
