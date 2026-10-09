@@ -218,9 +218,9 @@ export function CommandCenterResultRow({
             <span
               className={cn(
                 "items-center gap-1 text-xs text-[var(--muted-foreground)]",
-                // Only the selected row says what Enter does; a touch user taps, so
-                // the expansion keeps its hint for them.
-                expanded ? "inline-flex" : selected ? "hidden sm:inline-flex" : "hidden",
+                // Only the selected row says what Enter does, and only where a fine pointer
+                // and keyboard are there to press it. A touch user taps, so no row shows the hint.
+                selected || expanded ? "hidden [@media(pointer:fine)]:inline-flex" : "hidden",
               )}
             >
               <span className="truncate">{enterHint}</span>

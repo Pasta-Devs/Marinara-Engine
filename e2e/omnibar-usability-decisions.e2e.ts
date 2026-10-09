@@ -144,3 +144,22 @@ test("UX-31: the working glow is a low band about 40 px tall and faint", async (
   expect(metrics.riseAboveBottom).toBeLessThanOrEqual(44);
   await page.locator("#ux31-glow").screenshot({ path: shotPath("UX-31", width) });
 });
+
+test("UX-32: the search field has no filter syntax in its hint, and touch rows show no Enter hint", async ({
+  page,
+}, testInfo) => {
+  const width = testInfo.project.name.includes("mobile") ? 390 : 1440;
+  const touch = await page.evaluate(() => matchMedia("(pointer: coarse)").matches);
+  await openOmnibar(page);
+  const omnibar = page.locator('[data-component="GlobalOmnibar"]');
+  const input = omnibar.getByRole("searchbox", { name: "Search Marinara" });
+  await expect(input).not.toHaveAttribute("placeholder", /faq:|msg:|char:/u);
+  await input.fill("lorebook");
+  await expect(omnibar.locator("[data-command-center-result-row]").first()).toBeVisible();
+
+  // The Enter hint is a keyboard cue: visible with a fine pointer, hidden for a touch user.
+  const enterHints = omnibar.locator("svg.lucide-corner-down-left:visible");
+  if (touch) await expect(enterHints).toHaveCount(0);
+  else await expect.poll(() => enterHints.count()).toBeGreaterThan(0);
+  await omnibar.screenshot({ path: shotPath("UX-32", width) });
+});
