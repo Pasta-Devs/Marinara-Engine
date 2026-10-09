@@ -144,7 +144,6 @@ import {
   ProfessorMariAttachment,
   resolveContextCharacter,
   resolveContextLorebook,
-  readStoredConnectionId,
   ProfessorMariChatSummary,
   ProfessorMariRecovery,
   PROFESSOR_MARI_PANE_TRANSITION,
@@ -153,7 +152,6 @@ import {
   getProfessorMariMessageContext,
   persistentResourceContext,
   continuedThereByContext,
-  rememberConnectionId,
   classifyProfessorMariFailure,
   PROFESSOR_MARI_ATTACHMENT_MAX_BYTES,
   isSupportedProfessorMariAttachment,
@@ -330,7 +328,9 @@ export function HomeProfessorMariChat({
   const lorebookFallbackName = t("omnibar.categories.lorebook", "Lorebook");
   const focusedLorebook = resolveContextLorebook(handoffContext, lorebookPreviewById, lorebookFallbackName);
   const [isReadingAttachments, setIsReadingAttachments] = useState(false);
-  const [selectedConnectionId, setSelectedConnectionId] = useState<string | null>(() => readStoredConnectionId());
+  const [selectedConnectionId, setSelectedConnectionId] = useState<string | null>(
+    () => useUIStore.getState().mariConnectionId,
+  );
   const [workspaceStatus, setWorkspaceStatus] = useState<MariWorkspaceStatus | null>(null);
   /** R14 (item 7): when this client's newest run started and ended; the live timer and "Worked for" read it. */
   const [workspaceRunClock, setWorkspaceRunClock] = useState<{ startedAt: number; endedAt: number | null } | null>(
@@ -1116,7 +1116,7 @@ export function HomeProfessorMariChat({
         if (restoredConnectionId) {
           setSelectedConnectionId(restoredConnectionId);
           latestConnectionSelectionRef.current = restoredConnectionId;
-          rememberConnectionId(restoredConnectionId);
+          useUIStore.getState().setMariConnectionId(restoredConnectionId);
         }
         const targetId = await routeArrivalThread(chat.id);
         return loadMessages(targetId, { restoreFocus: () => !initialAskContextRef.current });
@@ -1778,7 +1778,7 @@ export function HomeProfessorMariChat({
     setSelectedConnectionId(id);
     latestConnectionSelectionRef.current = id;
     pendingConnectionPersistRef.current = id;
-    rememberConnectionId(id);
+    useUIStore.getState().setMariConnectionId(id);
     setConnectionMenuOpen(false);
     persistLatestConnectionSelection();
   };

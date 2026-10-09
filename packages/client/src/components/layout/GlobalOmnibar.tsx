@@ -26,7 +26,7 @@ import {
   matchOmnibarCapabilityAgentPackageIds,
 } from "@marinara-engine/shared";
 import { api } from "../../lib/api-client";
-import { MARI_QUICK_CONNECTION, marisConnectionFor, readStoredMariConnectionId } from "../../lib/omnibar-aside-text";
+import { MARI_QUICK_CONNECTION, marisConnectionFor } from "../../lib/omnibar-aside-text";
 import { ChevronLeft, Search, X } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useTranslation } from "react-i18next";
@@ -362,6 +362,7 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
   const mariWorkingInBackground = mariWorkspaceStatus.data?.active === true;
   const asideDisclosed = useUIStore((state) => state.omnibarAsideDisclosed);
   const asideConnectionId = useUIStore((state) => state.omnibarAsideConnectionId);
+  const mariConnectionId = useUIStore((state) => state.mariConnectionId);
   const asideDelayMs = useUIStore((state) => state.omnibarAsideDelayMs);
   const setAsideDisclosed = useUIStore((state) => state.setOmnibarAsideDisclosed);
   const setAsideEnabled = useUIStore((state) => state.setOmnibarAsideEnabled);
@@ -915,7 +916,7 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
     globalMessageResults.length === 0 &&
     lorebookEntryResults.length === 0;
   // "Same as Mari" is the connection her window uses, so a change there is followed here.
-  const asideConnectionOffer = marisConnectionFor(languageConnections, readStoredMariConnectionId());
+  const asideConnectionOffer = marisConnectionFor(languageConnections, mariConnectionId);
   // "Same as Mari" follows her connection at the time of the question; no local model is needed for it.
   const asideAnswerConnectionId =
     asideConnectionId === MARI_QUICK_CONNECTION

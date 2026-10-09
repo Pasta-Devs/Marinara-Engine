@@ -85,12 +85,12 @@ export function stripStrayMarkdown(text: string): string {
     .replace(/^\s*\d+\.\s+/gm, "");
 }
 
-/** Where Mari's window remembers the connection she uses (read by "Same as Mari"). */
-export const MARI_CONNECTION_STORAGE_KEY = "marinara:home-professor-mari-connection-id";
+/** Browser key Mari's connection was saved under before it moved into the UI store. Read once, by the v103 migration. */
+const LEGACY_MARI_CONNECTION_STORAGE_KEY = "marinara:home-professor-mari-connection-id";
 
-export function readStoredMariConnectionId(): string | null {
+export function readLegacyMariConnectionId(): string | null {
   try {
-    return window.localStorage.getItem(MARI_CONNECTION_STORAGE_KEY);
+    return localStorage.getItem(LEGACY_MARI_CONNECTION_STORAGE_KEY);
   } catch {
     return null;
   }

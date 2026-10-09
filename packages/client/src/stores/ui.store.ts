@@ -24,7 +24,7 @@ import { detectConversationTimeZone, normalizeConversationTimeZone } from "../li
 import { BASIC_PANEL_SORT_OPTIONS, normalizeBasicPanelSort, type BasicPanelSort } from "../lib/panel-sort";
 import { DEFAULT_APP_LANGUAGE, type AppLanguage } from "../localization/locale-types";
 import { deferEditorLeave } from "../lib/editor-leave";
-import { OMNIBAR_ASIDE_DELAY_MS } from "../lib/omnibar-aside-text";
+import { OMNIBAR_ASIDE_DELAY_MS, readLegacyMariConnectionId } from "../lib/omnibar-aside-text";
 import { markOmnibarOpenStart } from "../lib/omnibar-open-timing";
 import { UI_PERSISTENCE } from "../lib/ui-persistence";
 import { normalizeChatWidgetFont } from "../lib/font-family";
@@ -684,6 +684,8 @@ interface UIState {
   mariAppearancePackId: string;
   /** R12: packs whose play-time rule was met once; the one-time "unlocked" toast has been shown for them. */
   mariUnlockedPackIds: string[];
+  /** Connection Professor Mari's window answers with. Null until she is first given one. */
+  mariConnectionId: string | null;
   chatBackground: string | null;
   /** Default background applied when a Roleplay chat has no saved background yet. */
   defaultRoleplayBackground: string;
@@ -1169,6 +1171,7 @@ interface UIState {
   setMariPanelSortMode: (mode: MariPanelSortMode) => void;
   setOmnibarAsideEnabled: (enabled: boolean) => void;
   setOmnibarAsideConnectionId: (id: string) => void;
+  setMariConnectionId: (id: string | null) => void;
   setOmnibarAsideDisclosed: (disclosed: boolean) => void;
   setOmnibarAsideDelayMs: (delayMs: number) => void;
   setMariEditViewMode: (mode: MariEditViewMode) => void;
@@ -1579,6 +1582,15 @@ export function pickSyncedSettings(state: UIState) {
     professorMariSuggestionsEnabled: state.professorMariSuggestionsEnabled,
     commandCenterMariEnabled: state.commandCenterMariEnabled,
     omnibarSuggestionsEnabled: state.omnibarSuggestionsEnabled,
+    mariPanelSortMode: state.mariPanelSortMode,
+    omnibarAsideEnabled: state.omnibarAsideEnabled,
+    omnibarAsideConnectionId: state.omnibarAsideConnectionId,
+    omnibarAsideDisclosed: state.omnibarAsideDisclosed,
+    omnibarAsideDelayMs: state.omnibarAsideDelayMs,
+    mariEditViewMode: state.mariEditViewMode,
+    mariAppearancePackId: getMariAppearancePack(state.mariAppearancePackId).id,
+    mariUnlockedPackIds: state.mariUnlockedPackIds,
+    mariConnectionId: state.mariConnectionId,
     achievementsEnabled: state.achievementsEnabled,
     musicPlayerEnabled: state.musicPlayerEnabled,
     musicPlayerSource: state.musicPlayerSource,
@@ -1728,6 +1740,7 @@ export function pickPersistedUIState(state: UIState) {
     mariEditViewMode: state.mariEditViewMode,
     mariAppearancePackId: getMariAppearancePack(state.mariAppearancePackId).id,
     mariUnlockedPackIds: state.mariUnlockedPackIds,
+    mariConnectionId: state.mariConnectionId,
     chatBackground: state.chatBackground,
     defaultRoleplayBackground: state.defaultRoleplayBackground,
     chatBackgroundBlur: state.chatBackgroundBlur,
@@ -1951,6 +1964,7 @@ export const useUIStore = create<UIState>()(
         mariEditViewMode: "easy",
         mariAppearancePackId: "basic",
         mariUnlockedPackIds: [],
+        mariConnectionId: null,
         chatBackground: null,
         defaultRoleplayBackground: DEFAULT_ROLEPLAY_BACKGROUND_URL,
         chatBackgroundBlur: 0,
@@ -2311,6 +2325,7 @@ export const useUIStore = create<UIState>()(
         setOmnibarAsideConnectionId: (id) => set({ omnibarAsideConnectionId: id }),
         setOmnibarAsideDisclosed: (disclosed) => set({ omnibarAsideDisclosed: disclosed }),
         setOmnibarAsideDelayMs: (delayMs) => set({ omnibarAsideDelayMs: delayMs }),
+        setMariConnectionId: (id) => set({ mariConnectionId: id }),
         setMariEditViewMode: (mode) => set({ mariEditViewMode: mode }),
         setMariAppearancePack: (packId) => set({ mariAppearancePackId: getMariAppearancePack(packId).id }),
         markMariPackUnlocked: (packId) =>
@@ -3894,6 +3909,10 @@ export const useUIStore = create<UIState>()(
         persisted.chatChromeTextColor = normalizeChatChromeTextColor(persisted.chatChromeTextColor);
         persisted.defaultRoleplayBackground = normalizeDefaultRoleplayBackground(persisted.defaultRoleplayBackground);
         delete persisted.trackerPanelWidth;
+        // v102 -> v103: Mari's window connection moved from its own browser key into the store, so it syncs.
+        if (version <= 102 && persisted.mariConnectionId === undefined) {
+          persisted.mariConnectionId = readLegacyMariConnectionId();
+        }
         return persisted;
       },
       merge: (persistedState: unknown, currentState) => {

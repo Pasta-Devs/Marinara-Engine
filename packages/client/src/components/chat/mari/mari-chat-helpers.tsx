@@ -13,7 +13,6 @@ import { type CharacterPreviewModel } from "../../../lib/character-preview";
 import { type LorebookPreviewModel } from "../../../lib/lorebook-preview";
 import { api, ApiError, getPrivilegedActionErrorMessage } from "../../../lib/api-client";
 import { isPersistentProfessorMariContext } from "../../../lib/professor-mari-presentation";
-import { MARI_CONNECTION_STORAGE_KEY, readStoredMariConnectionId } from "../../../lib/omnibar-aside-text";
 import { type MariPermissionsMode } from "@marinara-engine/shared";
 
 export const PROFESSOR_MARI_DRAFT_KEY = "__home_professor_mari__";
@@ -163,16 +162,6 @@ export type ProfessorMariChatSummary = Chat & {
 // R7: "Continue here" picks per context, so the same door does not ask again.
 // ponytail: page-session memory only; a reload asks once more. Persist it on the thread if that annoys.
 export const continuedThereByContext = new Map<string, string>();
-
-export const readStoredConnectionId = readStoredMariConnectionId;
-
-export function rememberConnectionId(id: string) {
-  try {
-    window.localStorage.setItem(MARI_CONNECTION_STORAGE_KEY, id);
-  } catch {
-    /* ignore */
-  }
-}
 
 function isProfessorMariDesktopViewport() {
   return typeof window !== "undefined" && window.matchMedia("(min-width: 640px)").matches;
