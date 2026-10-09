@@ -163,3 +163,36 @@ test("UX-32: the search field has no filter syntax in its hint, and touch rows s
   else await expect.poll(() => enterHints.count()).toBeGreaterThan(0);
   await omnibar.screenshot({ path: shotPath("UX-32", width) });
 });
+
+test("UX-14: a returning user's Continue row is the top row, not a Try example", async ({ page, request }, testInfo) => {
+  const width = testInfo.project.name.includes("mobile") ? 390 : 1440;
+  const name = `UX14 continue ${Date.now().toString(36)}`;
+  // A connection clears the "No model connected yet" row, which is a `now` row and rightly leads.
+  const connection = await request.post("/api/connections", {
+    data: {
+      name: `UX14 fixture ${Date.now().toString(36)}`,
+      provider: "custom",
+      baseUrl: "http://127.0.0.1:9/v1",
+      apiKey: "fixture",
+      model: "fixture",
+      maxContext: 65536,
+    },
+  });
+  expect(connection.ok(), await connection.text()).toBeTruthy();
+  const connectionId = ((await connection.json()) as { id: string }).id;
+  const created = await request.post("/api/chats", { data: { name, mode: "roleplay", characterIds: [] } });
+  expect(created.ok()).toBeTruthy();
+  const chat = (await created.json()) as { id: string };
+  try {
+    await page.reload();
+    await openOmnibar(page);
+    const omnibar = page.locator('[data-component="GlobalOmnibar"]');
+    // Enter opens the top row, so the first row in the list is the one a returning user lands on.
+    const topRow = omnibar.locator("[data-command-center-result-row]").first();
+    await expect(topRow).toContainText(name);
+    await omnibar.screenshot({ path: shotPath("UX-14", width) });
+  } finally {
+    await request.delete(`/api/chats/${chat.id}`);
+    await request.delete(`/api/connections/${connectionId}`);
+  }
+});

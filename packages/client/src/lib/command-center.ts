@@ -205,6 +205,18 @@ const COMMAND_CENTER_EMPTY_GROUP_ORDER = [
   "quick-controls",
   "create-navigation",
 ] as const satisfies readonly CommandCenterResultGroupId[];
+// UX-14: a returning user (with a Continue row) resumes first; Try examples sit below the work. A row
+// that needs you (`now`) still leads.
+const COMMAND_CENTER_RETURNING_GROUP_ORDER = [
+  "now",
+  "continue",
+  "current-work",
+  "try",
+  "frecent",
+  "recent",
+  "quick-controls",
+  "create-navigation",
+] as const satisfies readonly CommandCenterResultGroupId[];
 const MAX_RECENT_COMMANDS = 100;
 const MAX_COMMAND_ID_LENGTH = 256;
 const MAX_USE_COUNT = 10_000;
@@ -672,7 +684,8 @@ export function presentCommandCenterResults<T extends CommandCenterPresentableRe
       else if (result.control) addToGroup("quick-controls", result);
       else addToGroup("create-navigation", result);
     }
-    const presentedGroups = COMMAND_CENTER_EMPTY_GROUP_ORDER.flatMap((id) => {
+    const groupOrder = groups.has("continue") ? COMMAND_CENTER_RETURNING_GROUP_ORDER : COMMAND_CENTER_EMPTY_GROUP_ORDER;
+    const presentedGroups = groupOrder.flatMap((id) => {
       const groupResults = groups.get(id);
       return groupResults ? [{ id, results: groupResults }] : [];
     });

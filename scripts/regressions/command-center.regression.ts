@@ -310,9 +310,9 @@ assert.deepEqual(
   contextualPresentation.groups.map((group) => [group.id, group.results.map((result) => result.id)]),
   [
     ["now", ["ask-professor-mari"]],
-    ["try", ["try:search"]],
     ["continue", ["chat:last"]],
     ["current-work", ["context:chat:one"]],
+    ["try", ["try:search"]],
     ["recent", ["chat:recent"]],
     ["create-navigation", ["create-character"]],
   ],
@@ -4328,6 +4328,7 @@ console.info("Command Center regression checks passed.");
     ...buildOmnibarIntentShortcuts({ query: "new character Bob", characters: [], t }),
     ...buildOmnibarGlobalMessageResults({
       activeChatId: null,
+      chats: [{ chatId: "tavern", chatName: "Tavern Night", chatMode: "roleplay", matches: 1, cast: [] } as never],
       hits: [
         {
           chatId: "tavern",
@@ -4336,7 +4337,6 @@ console.info("Command Center regression checks passed.");
           snippet: "The elderberry crates came.",
         } as never,
       ],
-      hasMore: true,
       messageSearchQuery: "elderberry",
       t,
     }),
