@@ -644,7 +644,11 @@ try {
   });
   await chats.createMessagesBatch(helperChat.id, [
     { role: "user", content: "Hello." },
-    { role: "assistant", characterId: "reader", content: "Hi there." },
+    {
+      role: "assistant",
+      characterId: "reader",
+      content: `Hi there. ${"We talk for a long while. ".repeat(400)}Goodbye.`,
+    },
   ]);
   await memory.initialize(helperChat.id);
   await chats.createMessagesBatch(helperChat.id, [
@@ -667,9 +671,14 @@ try {
     [3, 4, 5],
     "all three new messages are checked, although the interval is two",
   );
+  const shown = helperTranscript.filter((message) => message.alreadyChecked);
   assert.deepEqual(
-    helperTranscript.filter((message) => message.alreadyChecked).map((message) => message.messageNumber),
+    shown.map((message) => message.messageNumber),
     [2],
+  );
+  assert(
+    estimateChatSummaryTokens((shown[0] as unknown as { content: string }).content) <= 520,
+    "a long earlier message is shortened to its ends",
   );
   const helperScenes = (await memory.status(helperChat.id)).records.filter((record) => record.kind === "scene");
   assert(

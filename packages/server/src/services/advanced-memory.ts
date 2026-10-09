@@ -2766,7 +2766,8 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
       sourceFingerprint: advancedMemorySourceFingerprint(ctx.messages),
       policyRevision: preparationPolicyRevision(ctx),
       messages: window.map(entry),
-      ...(previous ? { previous: entry(previous) } : {}),
+      // Only its ends matter for comparing scenes, so a long one cannot crowd out the new messages.
+      ...(previous ? { previous: { ...entry(previous), content: messageEnds(previous.content, 512) } } : {}),
       prompt: SCENE_CHECK_PROMPT,
     };
   }
