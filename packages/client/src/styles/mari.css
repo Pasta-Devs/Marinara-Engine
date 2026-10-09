@@ -4360,6 +4360,13 @@ details[open] > .mari-disclosure .mari-disclosure__chevron {
   color: var(--foreground);
 }
 
+/* Her icons follow the accent, so each 2 Hz accent tick restarted the color fades of every copy /
+   edit / delete button in the transcript: a long chat ran ~600 transitions (and their events) per
+   tick, which made opening it slow. Only the hover background fades while the accent animates. */
+html[data-marinara-accent-animation] .mari-message-action {
+  transition-property: background-color;
+}
+
 @media (pointer: coarse) {
   /* 44x44 touch target: grows mostly into the chip's own padding (left), only 0.125rem
      (half the 0.25rem chip gap) to the right, so it never reaches the next chip's hit area. */
