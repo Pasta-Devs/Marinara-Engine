@@ -148,6 +148,7 @@ Poniższe klasy, atrybuty i zmienne pozwalają nadać tym elementom wspólny sty
 | Strzałka i zawartość sekcji | `.mari-drawer__arrow`, `.mari-drawer__body` |
 | Podgląd, który podąża za wskaźnikiem podczas przeciągania sekcji poza okno | `.mari-drawer-ghost` |
 | Przycisk zminimalizowanego okna (bubble) | `.mari-window-bubble` |
+| Aktualne podsumowanie, które przycisk pokazuje zamiast ikony (baner World State) | `.mari-window-bubble__banner` |
 | Linia pomocnicza widoczna, gdy przeciągany przycisk wyrównuje się z innym | `.mari-window-snap-guide` |
 | Kropka widoczna podczas pracy agentów (przycisk **Chat Settings**, okno **Trackers**) | `.mari-agents-running-dot` |
 
@@ -166,7 +167,7 @@ Poniższe klasy, atrybuty i zmienne pozwalają nadać tym elementom wspólny sty
 - `data-axis` ma wartość `"x"` dla pionowej linii wyrównania, a `"y"` dla poziomej.
 - `data-detached` ma wartość `"true"`, gdy sekcja jest pokazana w osobnym oknie; atrybut występuje na oknie i sekcji w jego wnętrzu. Okno wydzielonej sekcji ma nazwę `data-window="drawer:<window>:<drawer>"`, na przykład `data-window="drawer:chat-settings:chat-name"`, a `data-drawer-host` określa okno, z którego pochodzi sekcja.
 - `data-dragging` ma wartość `"true"` na sekcji podczas przeciągania jej tytułu, a `data-drop-target` ma wartość `"true"` na oknie, nad którym trzymasz wydzieloną sekcję gotową do włożenia z powrotem.
-- Przycisk zminimalizowanego okna ma jego `data-window` i `data-minimized="true"`, na przykład `.mari-window-bubble[data-window="control:volume"]`. Okna kontrolek mają nazwy `control:game`, `control:session`, `control:volume`, `control:assets`, `control:connected-chat`, `control:package:<package>` i `control:beholder:<package>`. Podczas przeciągania przycisku `data-dragging` ma na nim wartość `"true"`.
+- Przycisk zminimalizowanego okna ma jego `data-window` i `data-minimized="true"`, na przykład `.mari-window-bubble[data-window="control:volume"]`. Okna kontrolek mają nazwy `control:game`, `control:session`, `control:volume`, `control:assets`, `control:connected-chat`, `control:package:<package>` i `control:beholder:<package>`. Podczas przeciągania przycisku `data-dragging` ma na nim wartość `"true"`. Przycisk, który zamiast ikony pokazuje aktualne podsumowanie, na przykład zminimalizowany tracker World State, ma `data-banner="true"` i rozszerza się do szerokości tego podsumowania.
 - Zablokowany przycisk, także przycisk **Chat Settings**, ma `data-locked="true"`. Nadal otwiera swoje okno, ale nie da się go przesunąć, dopóki okno jest zablokowane. Użyj `.mari-window-bubble[data-locked="true"]`, aby wyróżnić takie przyciski.
 - Na telefonie okna mają `data-presentation="sheet"`. Ten sam atrybut mają ich nieco większe przyciski. Przycisk **Tracker Panel** to `.mari-window-bubble[data-tracker-panel-toggle="bubble"]`.
 - Przycisk **Chat Settings** także jest przyciskiem okna: `.mari-window-bubble[data-chat-settings-button]`. Ma `data-open="true"`, gdy **Chat Settings** jest otwarte.

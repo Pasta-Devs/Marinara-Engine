@@ -149,6 +149,7 @@ As classes, os atributos de dados e as variáveis abaixo permitem estilizar essa
 | Seta e conteúdo da gaveta | `.mari-drawer__arrow`, `.mari-drawer__body` |
 | Prévia que segue o ponteiro ao arrastar uma gaveta para fora | `.mari-drawer-ghost` |
 | Botão de uma janela minimizada (bolha) | `.mari-window-bubble` |
+| Resumo ao vivo que uma bolha mostra no lugar do ícone (o banner de World State) | `.mari-window-bubble__banner` |
 | Linha exibida quando uma bolha arrastada se alinha a outra | `.mari-window-snap-guide` |
 | Ponto exibido enquanto os agentes trabalham (botão Chat Settings, janela Trackers) | `.mari-agents-running-dot` |
 
@@ -167,7 +168,7 @@ As classes, os atributos de dados e as variáveis abaixo permitem estilizar essa
 - `data-axis` vale `"x"` em uma guia de alinhamento vertical e `"y"` em uma horizontal.
 - `data-detached` vale `"true"` quando uma gaveta aparece em sua própria janela, tanto na janela quanto na gaveta dentro dela. Essa janela é identificada por `data-window="drawer:<window>:<drawer>"`, por exemplo `data-window="drawer:chat-settings:chat-name"`, e `data-drawer-host` indica a janela de origem.
 - `data-dragging` vale `"true"` em uma gaveta enquanto seu título é arrastado, e `data-drop-target` vale `"true"` em uma janela quando uma gaveta destacada fica sobre ela, pronta para voltar.
-- Uma bolha tem o `data-window` da sua janela e `data-minimized="true"`, por exemplo `.mari-window-bubble[data-window="control:volume"]`. As janelas de controles se chamam `control:game`, `control:session`, `control:volume`, `control:assets`, `control:connected-chat`, `control:package:<package>` e `control:beholder:<package>`. `data-dragging` vale `"true"` em uma bolha durante o arraste.
+- Uma bolha tem o `data-window` da sua janela e `data-minimized="true"`, por exemplo `.mari-window-bubble[data-window="control:volume"]`. As janelas de controles se chamam `control:game`, `control:session`, `control:volume`, `control:assets`, `control:connected-chat`, `control:package:<package>` e `control:beholder:<package>`. `data-dragging` vale `"true"` em uma bolha durante o arraste. Uma bolha que mostra um resumo ao vivo no lugar do ícone, como um tracker World State minimizado, tem `data-banner="true"` e fica tão larga quanto o resumo.
 - Uma bolha travada tem `data-locked="true"`, inclusive o botão Chat Settings. Ela continua abrindo sua janela, mas não pode ser movida até a janela ser destravada. Use `.mari-window-bubble[data-locked="true"]` para dar uma aparência diferente a esses botões.
 - No celular, as janelas têm `data-presentation="sheet"`, assim como suas bolhas, que são um pouco maiores. A bolha de Tracker Panel é `.mari-window-bubble[data-tracker-panel-toggle="bubble"]`.
 - O botão Chat Settings também é uma bolha: `.mari-window-bubble[data-chat-settings-button]`, com `data-open="true"` enquanto Chat Settings está aberto.

@@ -77,6 +77,8 @@ Memory Recall 需要一个嵌入来源来生成这些含义指纹。它配置在
 
 Marinara 的部分容器构建版本叫 Marinara Lite，它把 Memory Recall 完全关闭了。这些版本里根本不会出现 **Memory Recall** 一节。
 
+<a id="advanced-memory-recall-roleplay"></a>
+
 ## Advanced Memory Recall（Roleplay）
 
 打开 **Chat Settings → Memory Recall**，启用 **Advanced Memory Recall**。也可以在 Roleplay 设置向导的 Agents 下方启用 **Automatic context and memory handling**(自动管理上下文和记忆)。这个可选模式会一起管理保留原文的近期历史窗口、维持剧情连贯的摘要，以及相关的旧片段。桌面端和移动端都可以在向导和 Chat Settings 抽屉中查看设置与准备进度。存档查看器仍位于 Chat Settings 抽屉内。
@@ -119,7 +121,7 @@ Fix 完成后，会显示 **Fixed N scenes**(已修复 N 个场景)，并用场�
 
 ### 可选的 Decision 模型
 
-在Advanced Memory中启用**Use Decision model**(使用决策模型)，然后选择已保存的**Memory Decision connection**(记忆决策连接)。在**Connections**中使用TypeSafe、OpenRouter或兼容的决策来源创建连接，参见[决策模型](../connections/decision-models.md)。此选项默认关闭，按Roleplay聊天保存。所选连接独立于全局默认决策模型。
+在 Advanced Memory 中启用 **Use Decision model**(使用决策模型)，然后在 **Memory Decision connection**(记忆决策连接) 中选择一个模型。**Local models**(本地模型) 下列出的本地模型与全局 **Decision model**(判定模型) 中的相同，例如在 **Local Model**(本地模型) 中运行的 **Primary local model**(主本地模型)。暂时无法回答的模型会以灰色显示并说明原因；已停止的模型会在 Advanced Memory 向它发出询问时启动。**Connections** 下列出你已保存的决策连接。在 **Connections** 中使用 TypeSafe、OpenRouter 或兼容的决策来源创建连接，参见[决策模型](../connections/decision-models.md)。此选项默认关闭，按 Roleplay 聊天保存。这里的选择独立于全局默认决策模型。
 
 所选模型在历史准备和聊天期间的检查中识别场景边界。新回复前，它分两轮选择记忆。普通回忆先通过文本匹配（有已保存的向量时也用嵌入）筛选出最多 24 个场景摘要；如果 **Maximum recalled scenes** 更高，就以它为上限。模型从这份候选名单中挑出相关场景，再从每个选中场景的原始消息里取文本匹配度最高的至多 12 条逐一判断，以选定该场景的摘录。评价最高的那条作为中心，其余被选中的消息会把摘录加长，最多到 **Maximum messages per excerpt**(每段摘录最多消息数) 为止。如果某个场景的消息一条都没被采纳，就由文本匹配确定摘录中心，回忆记录也会注明这一点。如果某个场景的这些消息中没有任何一条能单独放进摘要剩下的空间，该场景就无法获得摘录，因此模型不会判断它的消息；如果所有选中的场景都是这种情况，就不会发出第二轮请求。边界不确定时，场景会保持开放。所有摘要和连续性更新仍由**Helper model**撰写。场景数量、摘录长度、角色访问权限和词元预算仍遵循现有限制。有效的决策也可以不选择任何记忆。
 
@@ -135,7 +137,7 @@ Fix 完成后，会显示 **Fixed N scenes**(已修复 N 个场景)，并用场�
 
 在角色逐个回复的 Roleplay 群聊里，Advanced Memory 可以决定每条新消息由哪些角色看到，这样就不必为离开场景的角色一条条手动隐藏消息。在 Advanced Memory 中开启 **Decide who sees new messages**(决定谁能看到新消息)。它默认关闭，只在角色逐个回复的群聊里出现；合并回复的群聊和单角色聊天没有这个选项。
 
-开启后，每条新消息（无论是你的还是角色的）都会对不在该场景中的角色隐藏。隐藏方式和消息自身的按钮相同，都是按角色设置的 **Hide from AI**，所以划掉的眼睛图标会显示谁看不到这条消息。下一个角色回复之前，前面的消息都已经决定好了，因此这个角色绝不会读到不该看到的内容。
+开启后，每条新消息（无论是你的还是角色的）都会对不在该场景中的角色隐藏。隐藏方式和消息自身的按钮相同，都是按角色设置的 **Hide from AI**，所以划掉的眼睛图标会显示谁看不到这条消息。你自己的消息一发出就会立即决定，即使没有角色回复也是如此。下一个角色回复之前，前面的消息都已经决定好了，因此这个角色绝不会读到不该看到的内容。
 
 - 这里选定的 **Narrator**，以及在 **Roleplay Commands**(Roleplay 命令) 下选定的 **Narrator character**(旁白角色)，始终能看到每条消息。消息的作者始终能看到自己的消息。不在场景中的耳语收件人收不到消息的其余部分，但仍会收到耳语。
 - 开启 **Use Decision model** 时，会让 Decision 模型针对每个角色判断其是否明显看不到也听不到这条消息，例如该角色身在别处或已经离开。故事从未让其出现在场景中的角色，算作身在别处。人在场、只是没被包括在耳语中的角色，仍能看到消息的其余部分。否则由 **Helper model** 决定。无论哪种方式，只有模型确定时才会隐藏消息；模型不确定时，该角色仍能继续看到。如果回复后正好到了场景检查的时间，同一个请求也会回答谁在场，因此这些消息不会产生额外调用。

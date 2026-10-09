@@ -51,13 +51,16 @@ Marinara percorre essa lista e acrescenta cada entrada que ainda couber. Se uma 
 
 Não é preciso adivinhar quais entradas ficaram de fora. Abra **Chat Settings** e expanda **Active Context** (contexto ativo). A seção mostra o resultado ao vivo da varredura de lorebooks mais recente.
 
-Quando alguma entrada correspondente é pulada, um aviso âmbar aparece no topo. Ele diz "N matching lore entries were skipped by token budget." Expanda o aviso para ver cada entrada pulada.
+Quando alguma entrada correspondente é pulada, um aviso na cor de destaque do seu tema aparece no topo. Ele diz "N matching lore entries were skipped by token budget." Logo abaixo, o aviso indica cada orçamento que pulou entradas e onde alterá-lo. Expanda o aviso para ver cada entrada pulada.
 
 Cada entrada pulada informa de qual lorebook veio e por que foi barrada. O motivo é um destes:
 
 - **lorebook budget**: a entrada não coube no campo **Token Budget** daquele lorebook.
 - **chat budget**: a entrada não coube no campo **Lorebook Token Budget** do chat inteiro.
 - **lorebook and chat budgets**: os dois limites já estavam cheios.
+- **current-location context cap**: a entrada é lore vinculada ao local atual, que tem um limite próprio de 2.048 tokens. Nenhuma configuração altera esse limite, mas a entrada ainda pode entrar pelas próprias palavras-chave.
+
+Uma entrada com texto vazio, ou que as macros transformam em nada, não aparece na lista. Ela não tem nada a acrescentar, então nenhum orçamento a pulou. As macros dela continuam rodando; assim, um `{{setvar}}` nela ainda define a variável. Com os dois orçamentos de tokens em **0**, só o limite do local atual pode listar entradas puladas aqui.
 
 Expanda uma entrada pulada para ver mais detalhes. Ela mostra as palavras-chave correspondentes, o tamanho estimado em tokens e quanto do orçamento já tinha sido usado. Se lorebooks grandes forem pulados com frequência, **Active Context** sugere os agentes **Knowledge Retrieval** ou **Knowledge Router**. Costumam lidar melhor com lorebooks grandes do que aumentar os limites.
 

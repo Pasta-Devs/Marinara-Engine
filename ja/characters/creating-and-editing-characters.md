@@ -78,6 +78,8 @@ Character Editorは、チャット領域を全画面の作業スペースに置�
 
 挨拶と会話例には、キャラクターのGalleryの画像も表示できます。[キャラクターギャラリー → メッセージや挨拶でギャラリー画像を再利用](galleries.md#reuse-a-gallery-image-in-messages-and-greetings)を参照してください。
 
+挨拶メッセージにほかのWebサイトの画像がある場合は、**Save images locally**(画像をローカルに保存)でそのコピーをキャラクターのGalleryに保存できます。[キャラクターギャラリー → 挨拶メッセージのWeb画像を保存する](galleries.md#save-web-images-from-greetings)を参照してください。
+
 短い**Example Dialogue**は、たとえば次のように書きます。
 
 ```

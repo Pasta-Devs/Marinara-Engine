@@ -148,6 +148,7 @@ Game controls, Session, Volume, Game Assets, 연결된 채팅과 패키지 컨�
 | 드로어 화살표와 내용 | `.mari-drawer__arrow`, `.mari-drawer__body` |
 | 드로어를 밖으로 끌 때 포인터를 따라가는 미리보기 | `.mari-drawer-ghost` |
 | 최소화한 창의 버튼(버블) | `.mari-window-bubble` |
+| 아이콘 대신 버블에 표시되는 실시간 요약(World State의 배너) | `.mari-window-bubble__banner` |
 | 끌고 있는 버블이 다른 버블과 나란히 맞춰질 때 보이는 선 | `.mari-window-snap-guide` |
 | 에이전트 실행 중에 보이는 점(Chat Settings 버튼, Trackers 창) | `.mari-agents-running-dot` |
 
@@ -166,7 +167,7 @@ Game controls, Session, Volume, Game Assets, 연결된 채팅과 패키지 컨�
 - `data-axis`는 세로로 뻗은 정렬 안내선에서 `"x"`, 가로로 뻗은 안내선에서 `"y"`입니다.
 - 드로어가 별도 창에 표시되면 창과 그 안의 드로어에 모두 `data-detached`가 `"true"`로 설정됩니다. 꺼낸 드로어의 창 이름은 `data-window="drawer:<window>:<drawer>"`이며, 예를 들면 `data-window="drawer:chat-settings:chat-name"`입니다. `data-drawer-host`는 원래 들어 있던 창의 이름입니다.
 - 드로어 제목을 끌고 있는 동안 드로어의 `data-dragging`은 `"true"`입니다. 꺼낸 드로어를 되돌릴 창 위에 올려 두면 그 창의 `data-drop-target`이 `"true"`가 됩니다.
-- 버블에는 해당 창의 `data-window`와 `data-minimized="true"`가 있습니다. 예를 들면 `.mari-window-bubble[data-window="control:volume"]`입니다. 컨트롤 창의 이름은 `control:game`, `control:session`, `control:volume`, `control:assets`, `control:connected-chat`, `control:package:<package>`, `control:beholder:<package>`입니다. 버블을 끌고 있는 동안 `data-dragging`은 `"true"`입니다.
+- 버블에는 해당 창의 `data-window`와 `data-minimized="true"`가 있습니다. 예를 들면 `.mari-window-bubble[data-window="control:volume"]`입니다. 컨트롤 창의 이름은 `control:game`, `control:session`, `control:volume`, `control:assets`, `control:connected-chat`, `control:package:<package>`, `control:beholder:<package>`입니다. 버블을 끌고 있는 동안 `data-dragging`은 `"true"`입니다. 최소화한 World State 트래커처럼 아이콘 대신 실시간 요약을 보여 주는 버블에는 `data-banner="true"`가 있으며, 요약 너비만큼 넓어집니다.
 - 잠긴 버블에는 `data-locked="true"`가 있으며 Chat Settings 버튼도 마찬가지입니다. 창을 열 수는 있지만, 창의 잠금을 풀기 전까지 옮길 수 없습니다. `.mari-window-bubble[data-locked="true"]`로 이 버튼의 모양을 구분할 수 있습니다.
 - 휴대폰에서는 창과 조금 더 큰 버블에 모두 `data-presentation="sheet"`가 있습니다. Tracker Panel의 버블은 `.mari-window-bubble[data-tracker-panel-toggle="bubble"]`입니다.
 - Chat Settings 버튼도 버블입니다. `.mari-window-bubble[data-chat-settings-button]`이며 Chat Settings가 열려 있으면 `data-open="true"`가 있습니다.

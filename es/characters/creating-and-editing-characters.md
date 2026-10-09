@@ -78,6 +78,8 @@ La sección **Dialogue & Greetings** (Diálogo y saludos iniciales) define cómo
 
 Los saludos y mensajes de ejemplo también pueden mostrar imágenes de la Gallery del personaje; consulta [Galerías de personajes → Reutilizar una imagen de galería en mensajes y saludos](galleries.md#reuse-a-gallery-image-in-messages-and-greetings).
 
+Cuando los saludos muestran imágenes de otros sitios web, **Save images locally** (Guardar imágenes localmente) conserva una copia de ellas en la Gallery del personaje; consulta [Galerías de personajes → Guardar imágenes web de los saludos](galleries.md#save-web-images-from-greetings).
+
 Una entrada corta de Example Dialogue tiene este aspecto:
 
 ```

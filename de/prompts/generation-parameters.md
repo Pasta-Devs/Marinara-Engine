@@ -111,6 +111,8 @@ Das Feld ist etwas für Fortgeschrittene. Ein falscher Schlüssel kann dazu füh
 
 Beim Aktivieren steht die Anzahl auf 50. Möglich ist jeder Wert von 1 bis 9999. Eine kleinere Zahl schickt weniger Verlauf mit, was Kosten senken und das Tempo erhöhen kann. Dafür erinnert sich die KI schlechter an ältere Teile des Chats. Standardmäßig ist die Einstellung aus.
 
+In einem Roleplay-Chat mit aktiviertem **Advanced Memory Recall** (erweiterter Erinnerungsabruf) gilt diese Grenze nicht. Wie viel Verlauf mitgeht, bestimmt Advanced Memory dann über seine Einstellung **Maximum allowed context before compression (tokens)**, und ältere Szenen kommen als Zusammenfassungen und Auszüge zurück. Willst du dort weniger Verlauf schicken, senk diesen Wert unter **Chat Settings → Memory Recall**. Solange beides aktiv ist, weist ein Hinweis unter **Limit Context Messages** darauf hin. Siehe [Advanced Memory Recall](../agents/memory.md#advanced-memory-recall-roleplay).
+
 ## Exclude Past Reasoning
 
 **Exclude Past Reasoning** (früheres Reasoning ausschließen) ist standardmäßig an. Gespeicherte Denk- und Reasoning-Texte aus früheren Zügen bleiben damit aus neuen Prompts heraus. Dieses Reasoning geht also kein zweites Mal ans Modell.

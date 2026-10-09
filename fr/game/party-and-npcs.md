@@ -4,13 +4,13 @@ Ce guide explique qui peuple ta campagne Game Mode : les membres de l'équipe et
 
 Game Mode est l'un des modes de chat de Marinara Engine. Il fait tourner un RPG (jeu de rôle) solo mené par un Game Master piloté par l'IA, souvent abrégé en GM. Pour la configuration et les bases, voir [Game Mode : premiers pas](getting-started.md).
 
-## La barre d'équipe
+## Character Profiles
 
-La barre d'équipe montre les personnages qui voyagent avec toi. Elle se trouve près du haut de l'écran de jeu.
+Clique ou touche le bouton avatar **Character Profiles** (profils des personnages) pour voir les personnages qui voyagent avec toi. Quand l'équipe compte plusieurs membres, le bouton fait défiler leurs portraits et affiche un badge avec leur nombre.
 
-Sur un écran d'ordinateur, c'est une rangée horizontale de petits portraits de personnages. Sur un téléphone, la barre se réduit à un seul avatar. Dès que l'équipe compte plus d'un membre, cet avatar affiche un badge avec le nombre. Touche-le pour ouvrir la liste des membres de l'équipe. S'il n'y a qu'un membre, toucher l'avatar ouvre directement sa feuille de personnage.
+Tu peux faire glisser ce bouton où tu veux dans le chat, sur ordinateur comme sur téléphone. Ouvre-le et utilise **Lock window** (verrouiller la fenêtre) pour le garder en place. Sur ordinateur, tu peux aussi déplacer et redimensionner la fenêtre. **Close** (fermer) la réduit de nouveau à son bouton. La position du bouton est enregistrée avec le chat, et il suit le style des widgets du chat choisi dans **Settings → Appearance → App** (Paramètres → Apparence → Application). Sur téléphone, il reste séparé du menu à trois points **Chat tools** (outils du chat).
 
-Voici ce que tu peux faire depuis la barre d'équipe :
+Voici ce que tu peux faire dans **Character Profiles** :
 
 1. Clique ou touche un portrait pour ouvrir la feuille de personnage correspondante.
 2. Survole un portrait (sur ordinateur) pour faire apparaître un petit bouton **X**.
@@ -22,7 +22,7 @@ Tu peux retirer n'importe quel compagnon recruté par le Game Master, qu'il ait 
 
 La feuille de personnage est un résumé, propre au jeu, d'un membre de l'équipe. Elle est distincte de la fiche de personnage. Le Game Master la rédige à partir du personnage et de l'histoire en cours.
 
-Pour ouvrir une feuille, clique sur le portrait du personnage dans la barre d'équipe. La feuille affiche celles de ces sections qui contiennent quelque chose :
+Ouvre **Character Profiles**, puis clique ou touche le portrait de ce personnage. La feuille affiche celles de ces sections qui contiennent quelque chose :
 
 - **Attributes** (attributs) : des scores à la manière du jeu de rôle sur table, comme STR, DEX et CON, chacun avec son modificateur.
 - **Stats** (caractéristiques) : des barres de ressources comme HP ou MP.
@@ -74,7 +74,9 @@ L'état appartient au message. Changer de variante de réponse ou régénérer r
 
 Le Game Master décide qui compose l'équipe au fil de l'histoire. Il n'existe pas de bouton "ajouter un compagnon". Le GM fait entrer ou sortir les membres de l'équipe par la narration, selon ce qui se passe dans la scène.
 
-Pour te séparer d'un compagnon toi-même, utilise le bouton **X** de la barre d'équipe, comme décrit plus haut. Ton propre persona ne peut pas être retiré de cette façon.
+Quand le GM ajoute un PNJ qui porte exactement le même nom que l'une de tes fiches de personnage, ou un nom que plusieurs de tes fiches partagent, une fenêtre te demande laquelle rejoint l'équipe. Elle affiche le nom, le titre et l'avatar de chaque fiche. Sélectionne une fiche, ou choisis **Keep the game's own** (garder le personnage du jeu) suivi du nom du PNJ, par exemple **Keep the game's own Emma**, pour faire entrer le personnage créé par le jeu. Fermer la fenêtre revient au même. Une fiche dont le nom est seulement proche, comme **Samantha** pour un PNJ nommé Sam, n'est jamais ajoutée.
+
+Pour te séparer d'un compagnon toi-même, utilise le bouton **X** à côté de son portrait dans **Character Profiles**, comme décrit plus haut. Ton propre persona ne peut pas être retiré de cette façon.
 
 ## L'Adventure Journal
 

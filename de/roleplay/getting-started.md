@@ -93,6 +93,8 @@ Darunter liegt das Zahlenfeld **Injection Depth**. Es legt fest, wie weit oben i
 
 Der Tab **Activity** listet die Ausgaben der Agenten auf, die sogenannten Gedankenblasen. Einzelne Blasen lassen sich ausblenden, **Clear all** räumt alle auf einmal weg. Auch die Ausgaben eigener Agenten erscheinen hier.
 
+Während Agenten arbeiten, wird das Symbol von **Agent activity** zu einem drehenden Ladesymbol. Scheitert ein Agent, erscheint ein Punkt auf dem Symbol, bis du **Agent activity** öffnest.
+
 Ist ein Agent im letzten Zug gescheitert, erscheint eine Fehlerliste samt Schaltfläche zum erneuten Versuch. Du kannst auch laufende Agenten stoppen, alle Tracker neu ausführen und **Clear Trackers** nutzen. Eine leicht verständliche Tour durch das gesamte Agenten-System bietet [Agenten: KI-Helfer für deine Chats](../agents/agents-overview.md).
 
 Ein Tab **Injections** erscheint nur bei aktiviertem **Debug mode** (Debug-Modus). Aktivieren kannst du ihn unter **Settings** (Einstellungen) im Bereich **Advanced**. Der Tab zeigt die Prompt-Schnipsel, die schreibende Agenten vor der letzten Antwort gespeichert haben. Zu diesen Agenten zählen **Prose Guardian**, der Antworten an deine Stilregeln anpasst, und der **Narrative Director**, der die Handlung lenkt.

@@ -149,6 +149,7 @@ Mit den folgenden Klassen, Datenattributen und Variablen gestaltet ein Theme die
 | Pfeil und Inhalt des Abschnitts | `.mari-drawer__arrow`, `.mari-drawer__body` |
 | Vorschau, die beim Herausziehen eines Abschnitts dem Mauszeiger folgt | `.mari-drawer-ghost` |
 | Schaltfläche eines minimierten Fensters (bubble) | `.mari-window-bubble` |
+| Aktuelle Übersicht, die eine Fensterschaltfläche statt ihres Symbols zeigt (das Banner von World State) | `.mari-window-bubble__banner` |
 | Hilfslinie beim Ausrichten einer gezogenen Schaltfläche an einer anderen | `.mari-window-snap-guide` |
 | Punkt während der Arbeit von Agenten (Chat-Settings-Schaltfläche, Trackers-Fenster) | `.mari-agents-running-dot` |
 
@@ -167,7 +168,7 @@ Mit den folgenden Klassen, Datenattributen und Variablen gestaltet ein Theme die
 - `data-axis` ist `"x"` bei einer senkrechten Ausrichtungslinie und `"y"` bei einer waagerechten.
 - `data-detached` ist `"true"`, wenn ein Abschnitt in einem eigenen Fenster erscheint, sowohl am Fenster als auch am Abschnitt darin. Das Fenster eines herausgelösten Abschnitts heißt `data-window="drawer:<window>:<drawer>"`, etwa `data-window="drawer:chat-settings:chat-name"`; `data-drawer-host` benennt sein Ursprungsfenster.
 - `data-dragging` ist am Abschnitt `"true"`, während du seinen Titel ziehst. `data-drop-target` ist an einem Fenster `"true"`, während du einen herausgelösten Abschnitt darüber hältst, um ihn zurückzulegen.
-- Eine Fensterschaltfläche trägt das `data-window` ihres Fensters und `data-minimized="true"`, etwa `.mari-window-bubble[data-window="control:volume"]`. Steuerungsfenster heißen `control:game`, `control:session`, `control:volume`, `control:assets`, `control:connected-chat`, `control:package:<package>` und `control:beholder:<package>`. Während du die Schaltfläche ziehst, ist ihr `data-dragging` gleich `"true"`.
+- Eine Fensterschaltfläche trägt das `data-window` ihres Fensters und `data-minimized="true"`, etwa `.mari-window-bubble[data-window="control:volume"]`. Steuerungsfenster heißen `control:game`, `control:session`, `control:volume`, `control:assets`, `control:connected-chat`, `control:package:<package>` und `control:beholder:<package>`. Während du die Schaltfläche ziehst, ist ihr `data-dragging` gleich `"true"`. Eine Fensterschaltfläche, die statt ihres Symbols eine aktuelle Übersicht zeigt, etwa ein minimierter World-State-Tracker, hat `data-banner="true"` und wird so breit wie die Übersicht.
 - Eine gesperrte Fensterschaltfläche hat `data-locked="true"`, auch die Chat-Settings-Schaltfläche. Sie öffnet weiterhin das Fenster, lässt sich aber erst nach dem Entsperren bewegen. Mit `.mari-window-bubble[data-locked="true"]` kannst du diese Schaltflächen anders gestalten.
 - Am Telefon haben Fenster und ihre etwas größeren Schaltflächen `data-presentation="sheet"`. Die Schaltfläche des Tracker Panel ist `.mari-window-bubble[data-tracker-panel-toggle="bubble"]`.
 - Auch die Chat-Settings-Schaltfläche ist eine bubble: `.mari-window-bubble[data-chat-settings-button]`. Solange Chat Settings offen ist, hat sie `data-open="true"`.

@@ -149,6 +149,7 @@ Las clases, los atributos de datos y las variables siguientes permiten dar estil
 | Flecha y contenido de la sección | `.mari-drawer__arrow`, `.mari-drawer__body` |
 | Vista previa que sigue al puntero al arrastrar una sección hacia fuera | `.mari-drawer-ghost` |
 | Botón de una ventana minimizada (burbuja) | `.mari-window-bubble` |
+| Resumen en vivo que muestra una burbuja en lugar de su icono (el banner de World State) | `.mari-window-bubble__banner` |
 | Línea que aparece al alinear una burbuja con otra al arrastrarla | `.mari-window-snap-guide` |
 | Punto que aparece mientras trabajan los agentes (botón Chat Settings, ventana Trackers) | `.mari-agents-running-dot` |
 
@@ -167,7 +168,7 @@ Las clases, los atributos de datos y las variables siguientes permiten dar estil
 - `data-axis` es `"x"` en una guía de alineación vertical y `"y"` en una horizontal.
 - `data-detached` vale `"true"` cuando una sección se muestra en su propia ventana, tanto en esa ventana como en la sección interior. Esa ventana se identifica con `data-window="drawer:<window>:<drawer>"`, por ejemplo `data-window="drawer:chat-settings:chat-name"`, y `data-drawer-host` indica la ventana de origen.
 - `data-dragging` vale `"true"` en una sección mientras se arrastra su título, y `data-drop-target` vale `"true"` en una ventana cuando se sostiene sobre ella una sección separada lista para volver.
-- Una burbuja tiene el `data-window` de su ventana y `data-minimized="true"`, por ejemplo `.mari-window-bubble[data-window="control:volume"]`. Las ventanas de controles se llaman `control:game`, `control:session`, `control:volume`, `control:assets`, `control:connected-chat`, `control:package:<package>` y `control:beholder:<package>`. `data-dragging` vale `"true"` en una burbuja mientras se arrastra.
+- Una burbuja tiene el `data-window` de su ventana y `data-minimized="true"`, por ejemplo `.mari-window-bubble[data-window="control:volume"]`. Las ventanas de controles se llaman `control:game`, `control:session`, `control:volume`, `control:assets`, `control:connected-chat`, `control:package:<package>` y `control:beholder:<package>`. `data-dragging` vale `"true"` en una burbuja mientras se arrastra. Una burbuja que muestra un resumen en vivo en lugar de su icono, como un tracker World State minimizado, tiene `data-banner="true"` y se ensancha hasta el ancho del resumen.
 - Una burbuja bloqueada tiene `data-locked="true"`, incluido el botón Chat Settings. Sigue abriendo su ventana, pero no se puede mover hasta desbloquearla. Usa `.mari-window-bubble[data-locked="true"]` para dar a estos botones un aspecto distinto.
 - En un teléfono, las ventanas tienen `data-presentation="sheet"`, al igual que sus burbujas, que son algo mayores. La burbuja de Tracker Panel es `.mari-window-bubble[data-tracker-panel-toggle="bubble"]`.
 - El botón Chat Settings también es una burbuja: `.mari-window-bubble[data-chat-settings-button]`, con `data-open="true"` mientras Chat Settings está abierto.

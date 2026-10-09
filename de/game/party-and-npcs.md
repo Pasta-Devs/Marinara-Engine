@@ -74,6 +74,8 @@ Der Zustand gehört zur Nachricht. Beim Wechsel der Antwortvariante oder Neugene
 
 Wer zur Party gehört, entscheidet der Game Master im Lauf der Geschichte. Eine Schaltfläche zum manuellen Hinzufügen von Gefährten gibt es nicht. Stattdessen nimmt der GM Partymitglieder über die Erzählung auf oder schickt sie weg – je nachdem, was in der Szene passiert.
 
+Fügt der GM einen NPC hinzu, der genau so heißt wie eine deiner Charakterkarten oder wie mehrere deiner Karten zugleich, fragt ein Fenster, welche davon der Party beitritt. Es zeigt Name, Titel und Avatar jeder Karte. Wähl eine Karte aus oder nimm **Keep the game's own** (den Charakter des Spiels behalten) mit dem Namen des NPCs, etwa **Keep the game's own Emma**, um den Charakter zu holen, den das Spiel angelegt hat. Schließt du das Fenster, passiert dasselbe. Eine Karte mit nur ähnlichem Namen, etwa **Samantha** für einen NPC namens Sam, wird nie hinzugefügt.
+
 Willst du selbst einen Gefährten ziehen lassen, nutz das **X** in der Party-Leiste wie oben beschrieben. Die eigene Persona lässt sich so nicht entfernen.
 
 ## Das Adventure Journal

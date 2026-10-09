@@ -149,6 +149,7 @@ CSS собственной темы оформления проходит очи
 | Стрелка и содержимое раздела | `.mari-drawer__arrow`, `.mari-drawer__body` |
 | Предпросмотр, следующий за указателем при перетаскивании раздела наружу | `.mari-drawer-ghost` |
 | Кнопка свернутого окна (bubble) | `.mari-window-bubble` |
+| Обновляемая сводка, которую кнопка показывает вместо значка (баннер World State) | `.mari-window-bubble__banner` |
 | Линия выравнивания перемещаемой кнопки с другой | `.mari-window-snap-guide` |
 | Точка во время работы агентов (кнопка Chat Settings, окно Trackers) | `.mari-agents-running-dot` |
 
@@ -167,7 +168,7 @@ CSS собственной темы оформления проходит очи
 - `data-axis` имеет значение `"x"` у вертикальной линии выравнивания и `"y"` у горизонтальной.
 - `data-detached` имеет значение `"true"`, когда раздел показан в своем окне, и у окна, и у раздела внутри него. Окно вынесенного раздела получает имя `data-window="drawer:<window>:<drawer>"`, например `data-window="drawer:chat-settings:chat-name"`, а `data-drawer-host` задает имя исходного окна.
 - `data-dragging` имеет значение `"true"` у раздела, пока вы перетаскиваете его заголовок, а `data-drop-target` имеет значение `"true"` у окна, над которым вы держите вынесенный раздел для возврата.
-- У кнопки окна есть `data-window` этого окна и `data-minimized="true"`, например `.mari-window-bubble[data-window="control:volume"]`. Окна управления называются `control:game`, `control:session`, `control:volume`, `control:assets`, `control:connected-chat`, `control:package:<package>` и `control:beholder:<package>`. Во время перетаскивания кнопки ее `data-dragging` имеет значение `"true"`.
+- У кнопки окна есть `data-window` этого окна и `data-minimized="true"`, например `.mari-window-bubble[data-window="control:volume"]`. Окна управления называются `control:game`, `control:session`, `control:volume`, `control:assets`, `control:connected-chat`, `control:package:<package>` и `control:beholder:<package>`. Во время перетаскивания кнопки ее `data-dragging` имеет значение `"true"`. Кнопка, которая вместо значка показывает обновляемую сводку, например свернутый трекер World State, имеет `data-banner="true"` и растягивается по ширине сводки.
 - У заблокированной кнопки есть `data-locked="true"`, в том числе у кнопки Chat Settings. Она по-прежнему открывает окно, но не перемещается, пока окно не разблокировано. Селектор `.mari-window-bubble[data-locked="true"]` позволяет оформить такие кнопки иначе.
 - На телефоне окна и их немного увеличенные кнопки имеют `data-presentation="sheet"`. Кнопка Tracker Panel – `.mari-window-bubble[data-tracker-panel-toggle="bubble"]`.
 - Кнопка Chat Settings тоже относится к bubble: `.mari-window-bubble[data-chat-settings-button]`. Пока Chat Settings открыто, у нее есть `data-open="true"`.

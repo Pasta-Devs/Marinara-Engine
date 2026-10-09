@@ -51,13 +51,16 @@ Marinara recorre esa lista y añade cada entrada que todavía cabe. Si una entra
 
 No tienes que adivinar qué entradas se descartaron. Abre **Chat Settings** y despliega **Active Context** (Contexto activo). Muestra el resultado en vivo del escaneo de lorebook más reciente.
 
-Si se omitió alguna entrada coincidente, aparece un aviso ámbar en la parte superior. Dice "N matching lore entries were skipped by token budget" (Se omitieron N entradas de trasfondo coincidentes por el presupuesto de tokens). Expándelo para ver cada entrada omitida.
+Si se omitió alguna entrada coincidente, aparece en la parte superior un aviso con el color de acento de tu tema. Dice "N matching lore entries were skipped by token budget" (Se omitieron N entradas de trasfondo coincidentes por el presupuesto de tokens). Debajo, nombra cada presupuesto que omitió entradas y dónde cambiarlo. Expándelo para ver cada entrada omitida.
 
 Cada entrada omitida indica de qué lorebook vino y por qué fue bloqueada. La razón es una de estas:
 
 - **lorebook budget**: la entrada no cupo en el **Token Budget** de ese único lorebook.
 - **chat budget**: la entrada no cupo en el **Lorebook Token Budget** que abarca todo el chat.
 - **lorebook and chat budgets**: ambos límites ya estaban llenos.
+- **current-location context cap**: la entrada es trasfondo adjunto a la ubicación actual, que tiene su propio límite de 2.048 tokens. Ningún ajuste lo cambia, pero la entrada todavía puede entrar mediante sus propias palabras clave.
+
+Una entrada cuyo texto está en blanco, o que las macros convierten en nada, no aparece en la lista. No tiene nada que añadir, así que ningún presupuesto la omitió. Sus macros se siguen ejecutando, así que un `{{setvar}}` dentro de ella sigue estableciendo la variable. Con ambos presupuestos de tokens en **0**, solo el límite de la ubicación actual puede listar aquí entradas omitidas.
 
 Expande una entrada omitida para ver más detalle. Muestra las palabras clave coincidentes, el tamaño estimado en tokens, y cuánto del presupuesto ya se había usado. Si lorebooks grandes se siguen omitiendo, **Active Context** sugiere los agentes **Knowledge Retrieval** o **Knowledge Router**. Estos suelen manejar mejor los lorebooks grandes que subir tus límites.
 

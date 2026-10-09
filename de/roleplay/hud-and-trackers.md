@@ -6,6 +6,8 @@ Diese Anleitung erklärt die Roleplay-Tracker: die verschiebbaren Schaltflächen
 
 Am Telefon bietet dir das HUD (heads-up display) die Schaltflächen **World State** und **Player & Tracker**. Du kannst sie im Chat verschieben. Tippe auf eine davon, um aktuelle Angaben zur Geschichte zu sehen, etwa die Uhrzeit, deine Werte oder die anwesenden Charaktere. Marinara hält diese Angaben aktuell, während die Geschichte weiterläuft.
 
+Sobald World State Angaben anzeigen kann, wird seine Schaltfläche zu einem kleinen Banner, das sie auf einen Blick zeigt: eine Ortsmarkierung, ein Kalender mit dem Tag, eine Uhr, das Wetter und die Temperatur.
+
 Diese Tracker-Schaltflächen bleiben getrennt vom Drei-Punkte-Menü **Chat tools** (Chat-Tools), das die Abschnitte enthält, die du aus Chat Settings herausgelöst hast.
 
 Am Computer liegen die Tracker nicht in der HUD-Zeile. Sie erscheinen im **Tracker Panel**, solange es sichtbar ist, und sonst im unten beschriebenen Fenster **Trackers**.
@@ -58,7 +60,7 @@ Während Agenten für den Chat arbeiten, erscheint ein kleiner Punkt neben dem F
 
 Jeder Tracker hat einen aufklappbaren Abschnitt, einen sogenannten Drawer. Klick auf die Überschrift, um ihn zur kleinen Widget-Vorschau zuzuklappen. Ein weiterer Klick zeigt den gesamten Tracker. Marinara merkt sich, welche Abschnitte zugeklappt sind.
 
-Ein Tracker kann auch ein eigenes Fenster bekommen: Klick auf die Schaltfläche zum Herauslösen neben dem Pfeil oder zieh seinen Titel aus dem Trackers-Fenster. Das neue Fenster ist zunächst nicht angeheftet. Hefte es an, damit es offen bleibt, wenn du außerhalb klickst oder das Trackers-Fenster schließt. Sein **X** verkleinert es zu einer kleinen Schaltfläche mit dem Tracker-Symbol; sie öffnet es wieder an der letzten Position. Mit **Put back in Trackers** (dem gebogenen Pfeil direkt links von **X**) oder durch Ziehen auf das Trackers-Fenster legst du es zurück. Jeder Chat merkt sich, welche Tracker herausgelöst sind und wo sie liegen.
+Ein Tracker kann auch ein eigenes Fenster bekommen: Klick auf die Schaltfläche zum Herauslösen neben dem Pfeil oder zieh seinen Titel aus dem Trackers-Fenster. Das neue Fenster ist zunächst nicht angeheftet. Hefte es an, damit es offen bleibt, wenn du außerhalb klickst oder das Trackers-Fenster schließt. Sein **X** verkleinert es zu einer kleinen Schaltfläche mit dem Tracker-Symbol; sie öffnet es wieder an der letzten Position. **World State** schrumpft stattdessen zu einem Banner mit denselben Angaben wie die Schaltfläche am Telefon – Ortsmarkierung, Kalender, Uhr, Wetter und Temperatur –, sodass Datum und Uhrzeit der Geschichte im Blick bleiben. Zieh es an eine beliebige Stelle, etwa oben in die Mitte des Chats. Mit **Put back in Trackers** (dem gebogenen Pfeil direkt links von **X**) oder durch Ziehen auf das Trackers-Fenster legst du es zurück. Jeder Chat merkt sich, welche Tracker herausgelöst sind und wo sie liegen.
 
 Unten zeigt **Agent activity**, was die Agenten des Chats getan haben. Hier kannst du Tracker neu ausführen, fehlgeschlagene Agenten erneut starten, laufende Agenten stoppen und **Clear Trackers** nutzen. Derselbe Abschnitt steht unten im Tracker Panel.
 

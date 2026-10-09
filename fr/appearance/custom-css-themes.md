@@ -149,6 +149,7 @@ Les classes, attributs de données et variables ci-dessous permettent d'habiller
 | Flèche et contenu du tiroir | `.mari-drawer__arrow`, `.mari-drawer__body` |
 | Aperçu qui suit le pointeur pendant le détachement d'un tiroir | `.mari-drawer-ghost` |
 | Bouton d'une fenêtre réduite (bulle) | `.mari-window-bubble` |
+| Résumé en direct qu'une bulle affiche à la place de son icône (bannière de World State) | `.mari-window-bubble__banner` |
 | Ligne visible quand une bulle déplacée s'aligne sur une autre | `.mari-window-snap-guide` |
 | Point visible pendant le travail des agents (bouton Chat Settings, fenêtre Trackers) | `.mari-agents-running-dot` |
 
@@ -167,7 +168,7 @@ Les classes, attributs de données et variables ci-dessous permettent d'habiller
 - `data-axis` vaut `"x"` pour un guide d'alignement vertical et `"y"` pour un guide horizontal.
 - `data-detached` vaut `"true"` quand un tiroir apparaît dans sa propre fenêtre, sur la fenêtre et sur le tiroir qu'elle contient. Cette fenêtre est identifiée par `data-window="drawer:<window>:<drawer>"`, par exemple `data-window="drawer:chat-settings:chat-name"`, et `data-drawer-host` indique sa fenêtre d'origine.
 - `data-dragging` vaut `"true"` sur un tiroir pendant le déplacement de son titre, et `data-drop-target` vaut `"true"` sur une fenêtre quand un tiroir détaché est maintenu au-dessus, prêt à y revenir.
-- Une bulle possède le `data-window` de sa fenêtre et `data-minimized="true"`, par exemple `.mari-window-bubble[data-window="control:volume"]`. Les fenêtres de contrôles sont nommées `control:game`, `control:session`, `control:volume`, `control:assets`, `control:connected-chat`, `control:package:<package>` et `control:beholder:<package>`. `data-dragging` vaut `"true"` sur une bulle pendant son déplacement.
+- Une bulle possède le `data-window` de sa fenêtre et `data-minimized="true"`, par exemple `.mari-window-bubble[data-window="control:volume"]`. Les fenêtres de contrôles sont nommées `control:game`, `control:session`, `control:volume`, `control:assets`, `control:connected-chat`, `control:package:<package>` et `control:beholder:<package>`. `data-dragging` vaut `"true"` sur une bulle pendant son déplacement. Une bulle qui affiche un résumé en direct à la place de son icône, comme un tracker World State réduit, possède `data-banner="true"` et s'élargit à la taille du résumé.
 - Une bulle verrouillée possède `data-locked="true"`, y compris le bouton Chat Settings. Elle ouvre toujours sa fenêtre, mais ne peut plus bouger tant que la fenêtre reste verrouillée. Utilise `.mari-window-bubble[data-locked="true"]` pour donner un aspect distinct à ces boutons.
 - Sur téléphone, les fenêtres possèdent `data-presentation="sheet"`, comme leurs bulles, qui sont un peu plus grandes. La bulle de Tracker Panel est `.mari-window-bubble[data-tracker-panel-toggle="bubble"]`.
 - Le bouton Chat Settings est aussi une bulle : `.mari-window-bubble[data-chat-settings-button]`, avec `data-open="true"` quand Chat Settings est ouvert.

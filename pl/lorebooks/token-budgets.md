@@ -51,13 +51,16 @@ Marinara przechodzi tę listę od góry i dodaje każdy wpis, który jeszcze si�
 
 Nie musisz zgadywać, które wpisy zostały odrzucone. Otwórz **Chat Settings** i rozwiń sekcję **Active Context** (aktywny kontekst). Pokazuje ona aktualny wynik ostatniego skanowania lorebooków.
 
-Jeśli pominięto jakieś pasujące wpisy, na górze pojawia się bursztynowy komunikat. Jego treść to "N matching lore entries were skipped by token budget." Rozwiń go, żeby zobaczyć każdy pominięty wpis.
+Jeśli pominięto jakieś pasujące wpisy, na górze pojawia się komunikat w kolorze akcentu twojego motywu. Jego treść to "N matching lore entries were skipped by token budget." Pod tym tekstem komunikat wymienia każdy limit, przez który pominięto wpisy, i podaje, gdzie go zmienić. Rozwiń komunikat, żeby zobaczyć każdy pominięty wpis.
 
-Przy każdym pominiętym wpisie widać, z którego lorebooka pochodzi i co go zablokowało. Powód jest jeden z trzech:
+Przy każdym pominiętym wpisie widać, z którego lorebooka pochodzi i co go zablokowało. Powód jest jeden z poniższych:
 
 - **lorebook budget**: wpis nie zmieścił się w polu **Token Budget** tego jednego lorebooka.
 - **chat budget**: wpis nie zmieścił się we wspólnym dla czatu polu **Lorebook Token Budget**.
 - **lorebook and chat budgets**: oba limity były już wyczerpane.
+- **current-location context cap**: wpis należy do wiedzy przypiętej do bieżącej lokalizacji, która ma własny limit 2 048 tokenów. Żadne ustawienie go nie zmienia, ale wpis nadal może trafić do promptu dzięki własnym słowom kluczowym.
+
+Wpis z pustą treścią albo taki, który po rozwinięciu makr staje się pusty, nie trafia na tę listę. Nie ma nic do dodania, więc żaden limit go nie pominął. Jego makra nadal się wykonują, więc `{{setvar}}` w takim wpisie wciąż ustawia zmienną. Gdy oba limity tokenów mają wartość **0**, pominięte wpisy mogą się tu pojawić tylko z powodu limitu bieżącej lokalizacji.
 
 Rozwiń pominięty wpis, żeby poznać szczegóły. Zobaczysz dopasowane słowa kluczowe, szacowany rozmiar w tokenach oraz to, ile limitu było już zajęte. Jeśli duże lorebooki stale są pomijane, **Active Context** podpowiada agentów **Knowledge Retrieval** i **Knowledge Router**. Zwykle radzą sobie z obszernymi lorebookami lepiej niż podnoszenie limitów.
 

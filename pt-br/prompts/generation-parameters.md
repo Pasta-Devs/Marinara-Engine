@@ -111,6 +111,8 @@ A opção **Limit Context Messages** controla quanto do histórico do chat é en
 
 Ao ativar, a contagem começa em 50. Você pode escolher qualquer número de 1 a 9999. Um número menor envia menos histórico, o que pode reduzir o custo e acelerar as respostas. Também significa que a IA lembra menos da parte antiga da conversa. Essa configuração vem desativada por padrão.
 
+Em um chat de Roleplay com **Advanced Memory Recall** (recuperação avançada de memória) ativado, esse limite não é usado. Advanced Memory decide quanto histórico enviar pela configuração **Maximum allowed context before compression (tokens)** (contexto máximo permitido antes da compressão, em tokens), e as cenas mais antigas voltam como resumos e trechos. Para enviar menos histórico nesse caso, diminua essa configuração em **Chat Settings → Memory Recall**. Enquanto as duas opções estão ativadas, uma observação abaixo de **Limit Context Messages** avisa isso. Veja [Advanced Memory Recall](../agents/memory.md#advanced-memory-recall-roleplay).
+
 ## Exclude Past Reasoning
 
 A opção **Exclude Past Reasoning** vem ativada por padrão. Ela mantém fora dos novos prompts o raciocínio salvo de turnos anteriores. Esse raciocínio não é enviado ao modelo de novo.

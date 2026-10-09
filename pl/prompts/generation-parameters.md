@@ -111,6 +111,8 @@ Ustawienie **Limit Context Messages** decyduje o tym, ile historii czatu trafia 
 
 Po włączeniu licznik startuje z wartości 50. Da się wpisać dowolną liczbę od 1 do 9999. Mniejsza liczba wysyła mniej historii, co potrafi obniżyć koszt i przyspieszyć działanie. Oznacza też, że AI pamięta mniej ze starszej części czatu. To ustawienie jest domyślnie wyłączone.
 
+W czacie Roleplay z włączoną funkcją **Advanced Memory Recall** (zaawansowane przywoływanie pamięci) ten limit nie jest używany. Advanced Memory decyduje, ile historii wysłać, na podstawie swojego ustawienia **Maximum allowed context before compression (tokens)** (maksymalny kontekst przed kompresją), a starsze sceny wracają jako podsumowania i fragmenty. Żeby wysyłać tam mniej historii, zmniejsz to ustawienie w **Chat Settings → Memory Recall**. Gdy obie opcje są włączone, pod ustawieniem **Limit Context Messages** pojawia się informacja o tym. Zobacz [Advanced Memory Recall](../agents/memory.md#advanced-memory-recall-roleplay).
+
 ## Exclude Past Reasoning
 
 Ustawienie **Exclude Past Reasoning** jest domyślnie włączone. Trzyma zapisane myślenie i rozumowanie z wcześniejszych tur z dala od nowych promptów. Marinara nie wysyła tego rozumowania do modelu po raz drugi.

@@ -78,6 +78,8 @@ Character Editor는 채팅 영역을 전체 화면 작업 공간으로 바꿉니
 
 첫 인사와 예시 메시지는 캐릭터의 Gallery 이미지도 표시할 수 있습니다. [캐릭터 갤러리 → 메시지와 첫 인사에서 갤러리 이미지 재사용](galleries.md#reuse-a-gallery-image-in-messages-and-greetings)을 참고하세요.
 
+첫 인사에 다른 웹사이트의 이미지가 표시되면 **Save images locally**(이미지 로컬 저장)로 캐릭터의 Gallery에 그 사본을 보관할 수 있습니다. [캐릭터 갤러리 → 인사말의 웹 이미지 저장하기](galleries.md#save-web-images-from-greetings)를 참고하세요.
+
 짧은 Example Dialogue 예시는 다음과 같습니다.
 
 ```

@@ -148,6 +148,7 @@ CSS लिखे बिना जल्दी रूप बदलने के �
 | ड्रॉअर का तीर और कंटेंट | `.mari-drawer__arrow`, `.mari-drawer__body` |
 | ड्रॉअर बाहर खींचते समय पॉइंटर के साथ चलने वाला प्रीव्यू | `.mari-drawer-ghost` |
 | छोटी की गई विंडो का बटन (बबल) | `.mari-window-bubble` |
+| आइकन की जगह बबल पर दिखने वाला लाइव सारांश (World State का बैनर) | `.mari-window-bubble__banner` |
 | खींचा जा रहा बबल दूसरे के साथ सीध में होने पर दिखने वाली रेखा | `.mari-window-snap-guide` |
 | एजेंट चलने पर दिखने वाला बिंदु (Chat Settings बटन, Trackers विंडो) | `.mari-agents-running-dot` |
 
@@ -166,7 +167,7 @@ CSS लिखे बिना जल्दी रूप बदलने के �
 - ऊपर से नीचे जाने वाली सीध की गाइड पर `data-axis` की वैल्यू `"x"` होती है और आड़ी गाइड पर `"y"`।
 - अपनी विंडो में दिखने वाले ड्रॉअर पर `data-detached` की वैल्यू `"true"` होती है, विंडो पर भी और उसके अंदर के ड्रॉअर पर भी। बाहर निकले ड्रॉअर की विंडो का नाम `data-window="drawer:<window>:<drawer>"` होता है, जैसे `data-window="drawer:chat-settings:chat-name"`, और `data-drawer-host` उस विंडो का नाम बताता है जिससे वह निकला था।
 - शीर्षक खींचते समय ड्रॉअर पर `data-dragging` की वैल्यू `"true"` होती है। बाहर निकला ड्रॉअर वापस रखने के लिए किसी विंडो के ऊपर पकड़ा हो, तो उस विंडो पर `data-drop-target` की वैल्यू `"true"` होती है।
-- बबल पर उसकी विंडो का `data-window` और `data-minimized="true"` होता है, जैसे `.mari-window-bubble[data-window="control:volume"]`। कंट्रोल विंडो के नाम `control:game`, `control:session`, `control:volume`, `control:assets`, `control:connected-chat`, `control:package:<package>` और `control:beholder:<package>` हैं। बबल खींचते समय उस पर `data-dragging` की वैल्यू `"true"` होती है।
+- बबल पर उसकी विंडो का `data-window` और `data-minimized="true"` होता है, जैसे `.mari-window-bubble[data-window="control:volume"]`। कंट्रोल विंडो के नाम `control:game`, `control:session`, `control:volume`, `control:assets`, `control:connected-chat`, `control:package:<package>` और `control:beholder:<package>` हैं। बबल खींचते समय उस पर `data-dragging` की वैल्यू `"true"` होती है। जो बबल अपने आइकन की जगह लाइव सारांश दिखाता है, जैसे छोटा किया गया World State ट्रैकर, उस पर `data-banner="true"` होता है और वह सारांश जितना चौड़ा हो जाता है।
 - लॉक किए गए बबल पर `data-locked="true"` होता है, Chat Settings बटन पर भी। वह अपनी विंडो अब भी खोलता है, लेकिन विंडो अनलॉक होने तक खिसक नहीं सकता। ऐसे बटन को अलग रूप देने के लिए `.mari-window-bubble[data-locked="true"]` इस्तेमाल करें।
 - फ़ोन पर विंडो और उनके थोड़े बड़े बबल, दोनों पर `data-presentation="sheet"` होता है। Tracker Panel का बबल `.mari-window-bubble[data-tracker-panel-toggle="bubble"]` है।
 - Chat Settings बटन भी बबल है: `.mari-window-bubble[data-chat-settings-button]`; Chat Settings खुला हो, तो उस पर `data-open="true"` होता है।

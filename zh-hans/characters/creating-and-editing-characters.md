@@ -78,6 +78,8 @@ Character Editor 会把聊天区域换成一整页的工作区，顶部横贯的
 
 问候语和示例消息也可以展示角色 Gallery 中的图片，参见[角色图库 → 在消息和问候语中复用图库图片](galleries.md#reuse-a-gallery-image-in-messages-and-greetings)。
 
+开场白里显示的是其他网站的图片时，**Save images locally**(保存图片到本地) 可以把这些图片的副本存进角色 Gallery，参见[角色图库 → 保存开场白中的网络图片](galleries.md#save-web-images-from-greetings)。
+
 一段简短的 Example Dialogue 长这样：
 
 ```

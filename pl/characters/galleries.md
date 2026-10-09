@@ -90,6 +90,16 @@ Pełne łącze zawiera wewnętrzny identyfikator postaci (`card://characters/<id
 
 Jest jedno ograniczenie: **eksport karty PNG nie zawiera galerii**. Jeśli postać używa odwołań do galerii, udostępniaj natywny plik `.json`.
 
+<a id="save-web-images-from-greetings"></a>
+
+### Zapisywanie obrazów z sieci w powitaniach
+
+Wiele kart pokazuje w powitaniach obrazy z innych stron internetowych, a takie łącza mogą przestać działać albo się zmienić. Gdy pola **First Message** lub **Alternate Greetings** pokazują obrazy z sieci, sekcja **Dialogue & Greetings** ma przycisk **Save images locally** (zapisanie obrazów lokalnie). Pobiera on te obrazy do galerii postaci i zamienia każde łącze na odwołanie `card://self/gallery/...`, dzięki czemu obrazy nadal się wyświetlają, nawet gdy strona je usunie albo nie masz dostępu do internetu. Potem zapisz postać, żeby zachować nowe łącza.
+
+Nic nie jest pobierane, dopóki nie naciśniesz przycisku. Zapisywane są tylko obrazy PNG, JPEG, GIF i WebP o rozmiarze do 10 MB i do 40 megapikseli. Łącza do twojego komputera lub sieci domowej są odrzucane. Obraz, którego nie da się zapisać, zachowuje łącze internetowe, a powiadomienie wyjaśnia przyczynę.
+
+**Restore web links** (przywrócenie łączy internetowych) wstawia z powrotem do powitań oryginalne łącza. Zapisane kopie zostają w galerii, dopóki ich nie usuniesz. Eksporty w zgodnych formatach JSON i PNG używają oryginalnych łączy internetowych, bo takie karty nie zawierają galerii. Obrazy z lorebooków nie są objęte tą funkcją.
+
 ## Powiązane przewodniki
 
 - [Tworzenie i edycja postaci](creating-and-editing-characters.md)

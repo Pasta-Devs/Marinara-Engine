@@ -111,6 +111,8 @@ Kimi K3のように、推論用の別個のプレフィルに対応したモデ�
 
 オンにすると、件数は50から始まります。1から9999までの任意の数を設定できます。数を小さくすると送る履歴が減るので、費用を抑えて処理を速くできます。その代わり、AIが覚えている過去のチャットの内容も少なくなります。この設定はデフォルトでオフです。
 
+**Advanced Memory Recall**(高度な記憶の呼び出し)がオンのRoleplayチャットでは、この上限は使われません。Advanced Memoryは**Maximum allowed context before compression (tokens)**(圧縮前に許容する最大コンテキスト、トークン単位)の設定で送る履歴の量を決め、古いシーンは要約と抜粋として戻ってきます。その場合に送る履歴を減らすには、**Chat Settings → Memory Recall**(チャット設定 → 記憶の呼び出し)でその設定を下げてください。両方がオンの間は、**Limit Context Messages**の下にその旨の注記が表示されます。[Advanced Memory Recall](../agents/memory.md#advanced-memory-recall-roleplay)を参照してください。
+
 ## Exclude Past Reasoning
 
 **Exclude Past Reasoning**(過去の推論を除外)は、デフォルトでオンです。前のターンで保存された思考や推論を、新しいプロンプトに入れないようにします。その推論がモデルに再び送られることはありません。

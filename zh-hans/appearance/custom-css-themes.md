@@ -149,6 +149,7 @@
 | 抽屉箭头和内容 | `.mari-drawer__arrow`, `.mari-drawer__body` |
 | 抽屉向外拖动时跟随鼠标的预览 | `.mari-drawer-ghost` |
 | 最小化窗口的按钮（气泡） | `.mari-window-bubble` |
+| 气泡代替图标显示的实时摘要（World State 的横幅） | `.mari-window-bubble__banner` |
 | 拖动气泡与另一个气泡对齐时出现的线 | `.mari-window-snap-guide` |
 | 智能体运行时的小圆点（Chat Settings 按钮、Trackers 窗口） | `.mari-agents-running-dot` |
 
@@ -167,7 +168,7 @@
 - 竖直对齐辅助线的 `data-axis` 为 `"x"`，水平辅助线为 `"y"`。
 - 抽屉在独立窗口中显示时，窗口和内部抽屉的 `data-detached` 都为 `"true"`。弹出窗口用 `data-window="drawer:<window>:<drawer>"` 命名，比如 `data-window="drawer:chat-settings:chat-name"`，`data-drawer-host` 则标识它原来的窗口。
 - 拖动抽屉标题时，抽屉的 `data-dragging` 为 `"true"`；把弹出抽屉悬停在可放回的窗口上时，那个窗口的 `data-drop-target` 为 `"true"`。
-- 气泡带有其窗口的 `data-window` 和 `data-minimized="true"`，比如 `.mari-window-bubble[data-window="control:volume"]`。控制窗口名称为 `control:game`、`control:session`、`control:volume`、`control:assets`、`control:connected-chat`、`control:package:<package>` 和 `control:beholder:<package>`。拖动气泡时，它的 `data-dragging` 为 `"true"`。
+- 气泡带有其窗口的 `data-window` 和 `data-minimized="true"`，比如 `.mari-window-bubble[data-window="control:volume"]`。控制窗口名称为 `control:game`、`control:session`、`control:volume`、`control:assets`、`control:connected-chat`、`control:package:<package>` 和 `control:beholder:<package>`。拖动气泡时，它的 `data-dragging` 为 `"true"`。显示实时摘要而不是图标的气泡（比如最小化的 World State 追踪器）带有 `data-banner="true"`，并会随摘要内容变宽。
 - 锁定的气泡带有 `data-locked="true"`，Chat Settings 按钮也一样。它仍能打开窗口，但在窗口解锁前不能移动。用 `.mari-window-bubble[data-locked="true"]` 可以为这类按钮设置不同外观。
 - 手机上的窗口及其稍大的气泡都带有 `data-presentation="sheet"`。Tracker Panel 的气泡是 `.mari-window-bubble[data-tracker-panel-toggle="bubble"]`。
 - Chat Settings 按钮也是气泡：`.mari-window-bubble[data-chat-settings-button]`，Chat Settings 打开时带有 `data-open="true"`。

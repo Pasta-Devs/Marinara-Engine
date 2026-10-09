@@ -90,6 +90,16 @@ Un lien complet contient l'id interne du personnage (`card://characters/<id>/gal
 
 Une limite demeure : **les exports de fiche PNG n'incluent pas la galerie**. Partagez l'export `.json` natif lorsqu'un personnage utilise des références de galerie.
 
+<a id="save-web-images-from-greetings"></a>
+
+### Enregistrer les images web des salutations
+
+Beaucoup de fiches affichent dans leurs salutations des images venues d'autres sites web, et ces liens peuvent cesser de fonctionner ou changer. Quand **First Message** ou **Alternate Greetings** affichent des images web, la section **Dialogue & Greetings** propose un bouton **Save images locally** (enregistrer les images localement). Il télécharge ces images dans la galerie du personnage et remplace chaque lien par une référence `card://self/gallery/...` : les images s'affichent ainsi même si le site les retire ou si tu es hors ligne. Enregistre ensuite le personnage pour conserver les nouveaux liens.
+
+Rien n'est téléchargé tant que tu n'appuies pas sur le bouton. Seules les images PNG, JPEG, GIF et WebP d'au plus 10 Mo et 40 mégapixels sont enregistrées. Les liens vers ton propre ordinateur ou ton réseau domestique sont refusés. Une image qui ne peut pas être enregistrée garde son lien web, et un avertissement en indique la raison.
+
+**Restore web links** (restaurer les liens web) remet les liens d'origine dans les salutations. Les copies enregistrées restent dans la galerie jusqu'à ce que tu les supprimes. Les exports compatibles JSON et PNG utilisent les liens web d'origine, puisque ces fiches n'emportent aucune galerie. Les images des lorebooks ne sont pas concernées.
+
 ## Guides associés
 
 - [Créer et modifier des personnages](creating-and-editing-characters.md)

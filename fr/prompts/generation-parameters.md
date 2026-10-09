@@ -111,6 +111,8 @@ Ce champ s'adresse aux utilisateurs avancés. Une clé erronée suffit à faire 
 
 À l'activation, le compteur démarre à 50. Tu peux saisir n'importe quel nombre entre 1 et 9999. Un nombre plus petit envoie moins d'historique, ce qui réduit le coût et accélère les échanges. En contrepartie, l'IA se souvient moins bien de la conversation ancienne. Ce réglage est désactivé par défaut.
 
+Dans un chat Roleplay où **Advanced Memory Recall** (rappel de mémoire avancé) est activé, cette limite n'est pas utilisée. Advanced Memory décide de la quantité d'historique à envoyer avec son réglage **Maximum allowed context before compression (tokens)** (contexte maximal autorisé avant compression, en tokens), et les scènes plus anciennes reviennent sous forme de résumés et d'extraits. Dans ce cas, pour envoyer moins d'historique, baisse ce réglage dans **Chat Settings → Memory Recall**. Une note sous **Limit Context Messages** le signale tant que les deux sont activés. Voir [Advanced Memory Recall](../agents/memory.md#advanced-memory-recall-roleplay).
+
 ## Exclude Past Reasoning
 
 **Exclude Past Reasoning** (exclure le raisonnement passé) est activé par défaut. Ce réglage écarte des nouveaux prompts la réflexion et le raisonnement enregistrés lors des tours précédents. Ce raisonnement n'est donc pas renvoyé au modèle.
