@@ -35,6 +35,8 @@ function readQuestions(request: CapabilityDecisionRequest, limit: number): NoulQ
   let characters = 0;
   for (const message of request.messages) {
     if (typeof message?.content !== "string") invalid("every message needs string content");
+    if (message.role !== "system" && message.role !== "user" && message.role !== "assistant")
+      invalid("message roles must be system, user or assistant");
     // A name survives state trimming whole, so it must stay small enough to always fit.
     if (
       message.name !== undefined &&

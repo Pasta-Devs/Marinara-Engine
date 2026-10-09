@@ -74,6 +74,7 @@ try {
     { messages: [], questions: [{ id: "a", question: "x", options: ["only"] }] },
     { messages: [{ role: "user", content: 1 }], questions: [{ id: "a", question: "x" }] },
     { messages: [{ role: "user", name: "n".repeat(101), content: "" }], questions: [{ id: "a", question: "x" }] },
+    { messages: [{ role: "tool", content: "" }], questions: [{ id: "a", question: "x" }] },
     { messages: [], questions: Array.from({ length: 33 }, (_, i) => ({ id: `q${i}`, question: "x" })) },
   ];
   for (const request of bad) await assert.rejects(host.evaluate(request as never), TypeError);
