@@ -22,7 +22,7 @@ You can open Mari from the place where you need help. These entry points create 
 
 - **Character**, **Persona**, **Lorebook**, and **Preset** editors: ask about the open resource or a selected field.
 - **FAQ** answers: use **Ask Professor Mari** to include the matched question and its written answer as the starting point.
-- **Search**: press `Cmd/Ctrl+K`, select a result, then use **Ask Professor Mari** to include the selected result in the draft. Search does not send a model request by itself.
+- **Search**: press `Cmd/Ctrl+K`, select a result, then use **Ask Mari** to include the selected result in the draft. Search does not send a model request by itself, unless a quick answer is on (see **Quick answers in Search** below).
 - **Recent Chats** and other error states: use **Ask Professor Mari** beside **Retry** to send the error description and the requested repair action.
 - Normal Professor Mari character chat and Home workspace chat use the same handoff format.
 
@@ -42,6 +42,18 @@ Ask her for help with any of these:
 - Following quick-reply suggestion chips above the chat input, color-coded by entity type, through a multi-step creation or edit.
 
 She reads an item before she edits it, and she asks for missing details when your request is vague. For image tasks you need a working image generation connection set up first. She does not create one for you.
+
+## Quick answers in Search
+
+When you type a question in Search and no result matches, Professor Mari can write a short answer. It appears as a **Quick answer · Read-only** card under the **Ask Mari** row.
+
+- A quick answer has up to three sentences from the Marinara docs. She sees only what you typed, and it changes nothing.
+- The card names the docs pages it used. A repeat of the same question uses a saved copy for five minutes.
+- Under the answer are **Copy**, **Answer again** and **Continue with Mari**. **Continue with Mari** opens her window in a new chat named after your question, with the quick answer attached. Use **Ask Mari more…** to ask a follow-up in her window. Quick answers have no follow-up of their own.
+- A quick answer waits until you stop typing. **Wait after typing** sets how long Search waits.
+- Choose who answers under **Settings** > **General** > **Search and Professor Mari settings** > **Quick answers** > **Answer with**: a local model you have downloaded, **Same as Mari** (the connection she uses), or another connection. Each answer is one short request. A paid connection can cost money.
+- If an answer fails, the card says why, for example that the model did not reply. **Try again** and **Continue with Mari** are always there. **Choose a model** appears only when a key or model is missing. The provider's own message is under **Details**.
+- Turn quick answers off with **Quick answers in Search** in the same group.
 
 ## Guided suggestion chips
 
