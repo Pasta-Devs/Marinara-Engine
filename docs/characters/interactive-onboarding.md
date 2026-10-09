@@ -20,7 +20,7 @@ Turning the switch off hides the onboarding fields but keeps what you wrote.
 
 ### Add questions
 
-Under **Onboarding Questions**, click **Add Question**. Each question works like a preset variable. See [Presets](../prompts/presets.md).
+Under **Onboarding Questions**, click **Add Question**. Each question works like a preset variable. See [Presets](../prompts/presets.md). A card can have up to 100 questions.
 
 - **Variable Name** is the name you use in the fields, such as `faction`. Pick any name with letters, numbers, and underscores. Names are case-sensitive: `Gender` and `gender` are different.
 - **Question (shown to user)** is what the player reads. It can use earlier answers, such as `What does {{player}} look like?`. Here `{{char}}` is the card's name and `{{user}}` the player's name.
@@ -72,7 +72,7 @@ Onboarding is offered in the Roleplay new chat wizard. Quick Start, the Conversa
 
 ## Sharing cards with onboarding
 
-Onboarding is stored with the card. **Marinara Native** and **Compatible PNG Card** exports keep it, so a player who imports the card gets the questions too. **Compatible JSON** export leaves it out. See [Importing and Exporting Character Cards](import-export.md).
+Onboarding is stored with the card. **Marinara Native** and **Compatible PNG Card** exports keep it, so a player who imports the card gets the questions too. **Compatible JSON** export leaves it out. A card imported with more than 100 questions keeps the first 100. See [Importing and Exporting Character Cards](import-export.md).
 
 ## Related guides
 

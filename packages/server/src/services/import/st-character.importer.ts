@@ -14,6 +14,7 @@ import {
   containsDecisionStatements,
   dropUnreadableOnboarding,
   isPatternSafe,
+  ONBOARDING_MAX_QUESTIONS,
 } from "@marinara-engine/shared";
 import type {
   CharacterBookEntryPosition,
@@ -704,8 +705,13 @@ function normalizeV2(raw: Record<string, unknown>): CharacterData {
   // Ruleset sheets travel dormant under their key; only one the boundary would refuse is dropped.
   // The raw key is taken out of the spread below, so a value that is not a sheet map leaves nothing.
   const { rulesetSheets: rawRulesetSheets, ...extensionsWithOnboarding } = optionalRecord(raw.extensions);
-  const { extensions: rawExtensions, dropped: droppedOnboarding } = dropUnreadableOnboarding(extensionsWithOnboarding);
-  if (droppedOnboarding) logger.warn("[import] Dropped unreadable interactive onboarding from an imported character");
+  const onboardingImport = dropUnreadableOnboarding(extensionsWithOnboarding);
+  const rawExtensions = onboardingImport.extensions;
+  if (onboardingImport.dropped)
+    logger.warn("[import] Dropped unreadable interactive onboarding from an imported character");
+  if (onboardingImport.truncated) {
+    logger.warn("[import] Kept the first %d onboarding questions of an imported character", ONBOARDING_MAX_QUESTIONS);
+  }
   const importedSheets = capImportedRulesetSheets(rawRulesetSheets);
   if (importedSheets.dropped.length > 0) {
     logger.warn(

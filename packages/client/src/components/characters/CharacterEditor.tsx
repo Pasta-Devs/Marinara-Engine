@@ -163,10 +163,11 @@ import {
   getRelevantOnboardingVariables,
   normalizeSpriteExpressionLabel,
   normalizeRpgStatPools,
+  ONBOARDING_MAX_QUESTIONS,
   ONBOARDING_PERSONA_FIELDS,
   ONBOARDING_PLAYER_VARIABLE,
   resolveOnboardingPersona,
-  resolveOnboardingQuestion,
+  resolveOnboardingQuestions,
   syncRpgHpFromPools,
   validateOnboarding,
   type CharacterCardVersion,
@@ -1591,6 +1592,10 @@ function OnboardingTab({
       asked: getRelevantOnboardingVariables(onboarding, answers),
     };
   }, [onboarding]);
+  const previewQuestions = useMemo(
+    () => resolveOnboardingQuestions(onboarding, preview.answers, formData.name),
+    [onboarding, preview.answers, formData.name],
+  );
   const previewText = ONBOARDING_PERSONA_FIELDS.filter((field) => preview.persona[field])
     .map((field) => `${localizeUi(ONBOARDING_FIELD_COPY[field].title)}:\n${preview.persona[field]}`)
     .join("\n\n");
@@ -1689,7 +1694,14 @@ function OnboardingTab({
                 variant="onboarding"
                 variables={onboarding.variables}
                 issues={variableIssues}
-                onCreate={() => setVariables((variables) => [...variables, createOnboardingVariable(variables)])}
+                maxCount={ONBOARDING_MAX_QUESTIONS}
+                onCreate={() =>
+                  setVariables((variables) =>
+                    variables.length >= ONBOARDING_MAX_QUESTIONS
+                      ? variables
+                      : [...variables, createOnboardingVariable(variables)],
+                  )
+                }
                 onUpdate={(variableId, patch) =>
                   setVariables((variables) =>
                     variables.map((variable) => (variable.id === variableId ? { ...variable, ...patch } : variable)),
@@ -1793,8 +1805,7 @@ function OnboardingTab({
                   <span>{localizeUi("ui.characters.onboarding.questionsAsked")}</span>
                   {preview.asked.map((variable) => (
                     <span key={variable.id} className="mari-editor-chip px-1.5 py-0.5">
-                      {(variable.question &&
-                        resolveOnboardingQuestion(onboarding, preview.answers, variable.question, formData.name)) ||
+                      {previewQuestions.get(variable.id) ||
                         (variable.variableName === ONBOARDING_PLAYER_VARIABLE
                           ? localizeUi("ui.characters.onboarding.nameQuestion")
                           : variable.variableName)}

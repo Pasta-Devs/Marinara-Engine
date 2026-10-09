@@ -162,6 +162,7 @@ export function PresetVariablesEditor({
   variant = "preset",
   issues,
   compact = false,
+  maxCount,
 }: {
   variables: any[];
   onCreate: () => void;
@@ -175,9 +176,12 @@ export function PresetVariablesEditor({
   /** Localized problem per variable id, shown on its card. */
   issues?: Record<string, string>;
   compact?: boolean;
+  /** Adding stops at this many (onboarding questions). */
+  maxCount?: number;
 }) {
   const { t: localizeUi } = useUiTranslation();
   const isOnboarding = variant === "onboarding";
+  const atLimit = maxCount !== undefined && variables.length >= maxCount;
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [draggingIdx, setDraggingIdx] = useState<number | null>(null);
   const [dropIdx, setDropIdx] = useState<number | null>(null);
@@ -290,9 +294,11 @@ export function PresetVariablesEditor({
           </span>
         </div>
         <button
+          type="button"
           onClick={onCreate}
+          disabled={atLimit}
           className={cn(
-            "mari-editor-action mari-editor-action--primary mari-editor-action--compact flex items-center gap-1.5 px-2.5 py-1.5 text-[0.6875rem]",
+            "mari-editor-action mari-editor-action--primary mari-editor-action--compact flex items-center gap-1.5 px-2.5 py-1.5 text-[0.6875rem] disabled:cursor-not-allowed disabled:opacity-50",
             compact && "max-sm:ml-auto",
           )}
         >
@@ -314,6 +320,11 @@ export function PresetVariablesEditor({
           ? localizeUi("ui.characters.onboarding.inThePersonaFieldsToInsertTheAnswer")
           : localizeUi("ui.presets.presetvariableseditor.inAnySectionToInsertTheSelectedValue")}
       </p>
+      {atLimit && (
+        <p role="status" className="text-[0.625rem] text-[var(--muted-foreground)]">
+          {localizeUi("ui.characters.onboarding.questionLimit", { value1: maxCount })}
+        </p>
+      )}
 
       {variables.length === 0 ? (
         <div className="mari-editor-empty flex flex-col items-center gap-2 py-6 text-center">

@@ -10,7 +10,7 @@ import {
   getNextOnboardingVariable,
   getRelevantOnboardingVariables,
   resolveOnboardingPersona,
-  resolveOnboardingQuestion,
+  resolveOnboardingQuestions,
   validateOnboarding,
   type CharacterOnboarding,
   type OnboardingAnswers,
@@ -179,16 +179,43 @@ assert.equal(
 );
 
 // Questions shown to the player resolve the answers so far.
+const asked = onboarding({
+  ...blankValue,
+  variables: [
+    ...blankValue.variables,
+    { id: "looks", variableName: "looks", question: "What does {{player}} look like?" },
+    { id: "met", variableName: "met", question: "Have you met {{char}}, {{user}}? ({{gender}})" },
+  ],
+});
 assert.equal(
-  resolveOnboardingQuestion(blankValue, { player: { text: "Mari" } }, "What does {{player}} look like?", "Ana"),
+  resolveOnboardingQuestions(asked, { player: { text: "Mari" } }, "Ana").get("looks"),
   "What does Mari look like?",
   "a question can use an earlier answer",
 );
 assert.equal(
-  resolveOnboardingQuestion(blankValue, {}, "Have you met {{char}}, {{user}}? ({{gender}})", "Ana"),
+  resolveOnboardingQuestions(asked, {}, "Ana").get("met"),
   "Have you met Ana, …? (…)",
   "{{char}} is the card's name; unanswered names and {{user}} show as …",
 );
+assert.equal(resolveOnboardingQuestions(asked, {}, "Ana").has("g"), false, "a question without text is left out");
+
+// Thousands of questions stay linear: one shared context, not one per question
+// (#7308 review: 10,000 questions froze the editor for ~36 s per keystroke).
+const many = onboarding({
+  description: "{{q0}}",
+  variables: Array.from({ length: 10_000 }, (_, i) => ({
+    id: `q${i}`,
+    variableName: `q${i}`,
+    question: `After {{q${Math.max(0, i - 1)}}}, what about {{player}}?`,
+  })),
+});
+const manyAnswers: OnboardingAnswers = { player: { text: "Kestrel" }, q0: { text: "dawn" } };
+const manyStarted = performance.now();
+const manyQuestions = resolveOnboardingQuestions(many, manyAnswers, "Ana");
+assert.ok(performance.now() - manyStarted < 2000, "10,000 questions must resolve in one linear pass");
+assert.equal(manyQuestions.size, 10_000);
+assert.equal(manyQuestions.get("q1"), "After dawn, what about Kestrel?");
+assert.equal(manyQuestions.get("q2"), "After …, what about Kestrel?");
 
 const withPlayer = onboarding({
   description: "{{player}} of the north.",

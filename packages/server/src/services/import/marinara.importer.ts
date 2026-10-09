@@ -15,6 +15,7 @@ import {
   capImportedRulesetSheets,
   characterDataSchema,
   dropUnreadableOnboarding,
+  ONBOARDING_MAX_QUESTIONS,
   canonicalizeLegacyPersonaInput,
   normalizeAvatarCrop,
   normalizeConvoBehavior,
@@ -426,10 +427,11 @@ export function normalizeNativeCharacterData(data: unknown): CharacterData | nul
 /** Onboarding the boundary would refuse costs the import its onboarding, never the whole card. */
 function withReadableOnboarding(data: unknown): unknown {
   if (!isJsonRecord(data) || !isJsonRecord(data.extensions)) return data;
-  const { extensions, dropped } = dropUnreadableOnboarding(data.extensions);
-  if (!dropped) return data;
-  logger.warn("[import] Dropped unreadable interactive onboarding from an imported character");
-  return { ...data, extensions };
+  const { extensions, dropped, truncated } = dropUnreadableOnboarding(data.extensions);
+  if (dropped) logger.warn("[import] Dropped unreadable interactive onboarding from an imported character");
+  if (truncated)
+    logger.warn("[import] Kept the first %d onboarding questions of an imported character", ONBOARDING_MAX_QUESTIONS);
+  return dropped || truncated ? { ...data, extensions } : data;
 }
 
 /** A ruleset sheet the boundary would refuse costs the import that sheet, never the whole card.

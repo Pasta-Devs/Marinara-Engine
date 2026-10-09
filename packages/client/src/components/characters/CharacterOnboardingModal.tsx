@@ -14,7 +14,7 @@ import {
   getRelevantOnboardingVariables,
   ONBOARDING_PLAYER_VARIABLE,
   resolveOnboardingPersona,
-  resolveOnboardingQuestion,
+  resolveOnboardingQuestions,
   type CharacterOnboarding,
   type CharacterOnboardingVariable,
   type OnboardingAnswer,
@@ -63,6 +63,10 @@ export function CharacterOnboardingModal({
   }, [onboarding, overrides]);
   const questions = useMemo(() => getRelevantOnboardingVariables(onboarding, answers), [onboarding, answers]);
   const complete = useMemo(() => getNextOnboardingVariable(onboarding, answers) === null, [onboarding, answers]);
+  const questionTexts = useMemo(
+    () => resolveOnboardingQuestions(onboarding, answers, characterName),
+    [onboarding, answers, characterName],
+  );
   const setAnswer = (name: string, answer: OnboardingAnswer) => setOverrides((prev) => ({ ...prev, [name]: answer }));
 
   // Set synchronously, so a double click can't create the persona twice before
@@ -100,7 +104,7 @@ export function CharacterOnboardingModal({
           const ownText = answer && "text" in answer ? answer.text : null;
           const isPlayer = name === ONBOARDING_PLAYER_VARIABLE;
           const question = variable.question
-            ? resolveOnboardingQuestion(onboarding, answers, variable.question, characterName)
+            ? (questionTexts.get(variable.id) ?? "")
             : isPlayer
               ? localizeUi("ui.characters.onboarding.nameQuestion")
               : name;

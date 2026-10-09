@@ -4588,6 +4588,7 @@
   "ui.characters.onboarding.optionHelpText": "Help text for players (optional)",
   "ui.characters.onboarding.plainIfAfter": "Without it, this text shows up in the persona as typed.",
   "ui.characters.onboarding.plainIfBefore": "Conditions need a #, like",
+  "ui.characters.onboarding.questionLimit": "A card can have up to {{value1}} questions.",
   "ui.characters.onboarding.questions": "Onboarding Questions",
   "ui.characters.onboarding.questionsAsked": "Asked, in this order:",
   "ui.characters.onboarding.questionsIntro": "Questions players answer when they create their persona in the Roleplay setup wizard. Use",

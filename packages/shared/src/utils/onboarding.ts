@@ -13,17 +13,30 @@ import { isReservedMacroName } from "./chat-variables.js";
 import { resolveMacros } from "./macro-engine.js";
 
 /**
+ * Questions a card may carry. The editor stops adding at this count and imports
+ * keep only the first ones: every question is an editor card, so thousands of
+ * them freeze the Character Editor (#7308 review).
+ */
+export const ONBOARDING_MAX_QUESTIONS = 100;
+
+/**
  * Imports drop an onboarding block that can't be read instead of refusing the
- * card (native import) or storing data a later card save would reject (V2/PNG).
+ * card (native import) or storing data a later card save would reject (V2/PNG),
+ * and keep only the first {@link ONBOARDING_MAX_QUESTIONS} questions.
  */
 export function dropUnreadableOnboarding<T extends Record<string, unknown>>(
   extensions: T,
-): { extensions: T; dropped: boolean } {
-  if (!("onboarding" in extensions) || characterOnboardingSchema.safeParse(extensions.onboarding).success) {
-    return { extensions, dropped: false };
+): { extensions: T; dropped: boolean; truncated: boolean } {
+  if (!("onboarding" in extensions)) return { extensions, dropped: false, truncated: false };
+  const parsed = characterOnboardingSchema.safeParse(extensions.onboarding);
+  if (!parsed.success) {
+    const { onboarding: _dropped, ...rest } = extensions;
+    return { extensions: rest as T, dropped: true, truncated: false };
   }
-  const { onboarding: _dropped, ...rest } = extensions;
-  return { extensions: rest as T, dropped: true };
+  const raw = extensions.onboarding as { variables?: unknown[] };
+  if (parsed.data.variables.length <= ONBOARDING_MAX_QUESTIONS) return { extensions, dropped: false, truncated: false };
+  const onboarding = { ...raw, variables: raw.variables!.slice(0, ONBOARDING_MAX_QUESTIONS) };
+  return { extensions: { ...extensions, onboarding }, dropped: false, truncated: true };
 }
 
 /** A variable with this name supplies the created persona's name. */
@@ -135,25 +148,35 @@ function answerContext(
 }
 
 /** Replace any onboarding variable still left as `{{name}}` with `fill`. */
-function blankOnboardingNames(onboarding: CharacterOnboarding, text: string, fill = ""): string {
-  const names = new Set(getOnboardingVariables(onboarding).map((variable) => variable.variableName));
+function blankOnboardingNames(names: Set<string>, text: string, fill = ""): string {
   return text.replace(/\{\{(\w+)\}\}/g, (match, name: string) => (names.has(name) ? fill : match));
 }
 
+function onboardingNames(onboarding: CharacterOnboarding): Set<string> {
+  return new Set(getOnboardingVariables(onboarding).map((variable) => variable.variableName));
+}
+
 /**
- * A question as the player sees it: answers so far fill its `{{variables}}`,
- * `{{char}}` is the card's name, `{{user}}` the player's name, and anything
- * not answered yet shows as "…".
+ * Every question as the player sees it, by variable id: answers so far fill its
+ * `{{variables}}`, `{{char}}` is the card's name, `{{user}}` the player's name,
+ * and anything not answered yet shows as "…". Questions without text are left
+ * out. One shared context for all of them, so a card with thousands of
+ * questions stays linear (#7308 review).
  */
-export function resolveOnboardingQuestion(
+export function resolveOnboardingQuestions(
   onboarding: CharacterOnboarding,
   answers: OnboardingAnswers,
-  question: string,
   characterName: string,
-): string {
+): Map<string, string> {
   const ctx = answerContext(onboarding, answers, { user: "{{user}}", char: characterName });
   ctx.user = ctx.variables[ONBOARDING_PLAYER_VARIABLE] || "…";
-  return blankOnboardingNames(onboarding, resolveMacros(question, ctx, { trimResult: false }), "…").trim();
+  const names = onboardingNames(onboarding);
+  const questions = new Map<string, string>();
+  for (const { id, question } of getOnboardingVariables(onboarding)) {
+    if (!question) continue;
+    questions.set(id, blankOnboardingNames(names, resolveMacros(question, ctx, { trimResult: false }), "…").trim());
+  }
+  return questions;
 }
 
 /**
@@ -192,7 +215,8 @@ export function resolveOnboardingPersona(
   answers: OnboardingAnswers,
 ): ResolvedOnboardingPersona {
   const fields = resolveFields(onboarding, answers);
-  const blank = (text: string) => blankOnboardingNames(onboarding, text);
+  const names = onboardingNames(onboarding);
+  const blank = (text: string) => blankOnboardingNames(names, text);
   const result = { name: blank(fields.name).trim() } as ResolvedOnboardingPersona;
   for (const field of ONBOARDING_PERSONA_FIELDS) result[field] = blank(fields[field]).trim();
   return result;

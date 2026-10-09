@@ -18,6 +18,7 @@ import {
   characterDataSchema,
   characterExtensionsSchema,
   dropUnreadableOnboarding,
+  ONBOARDING_MAX_QUESTIONS,
 } from "../../packages/shared/src/index.js";
 import { buildCompatibleCharacterExport } from "../../packages/server/src/routes/characters.routes.js";
 import { normalizeNativeCharacterData } from "../../packages/server/src/services/import/marinara.importer.js";
@@ -187,7 +188,7 @@ assert.equal(
 // Onboarding is saved with the whole card, so a schema limit the editor doesn't
 // enforce would let one long question wipe the onboarding or block every save
 // (#7308 review). Long questions, help text, separators and 100+ questions
-// must all parse.
+// must all parse. The question cap lives in the editor and in imports (§6, §7).
 const long = "x".repeat(5000);
 const unlimited = {
   ...ONBOARDING,
@@ -221,14 +222,19 @@ assert.equal("onboarding" in nativeDropped.extensions, false, "unreadable onboar
 assert.equal(nativeDropped.extensions.backstory, "B.", "the rest of the card is kept");
 assert.deepEqual(
   dropUnreadableOnboarding({ fav: true, onboarding: unreadable }),
-  { extensions: { fav: true }, dropped: true },
+  { extensions: { fav: true }, dropped: true, truncated: false },
   "V2/PNG imports drop unreadable onboarding with the same helper",
 );
 assert.deepEqual(
   dropUnreadableOnboarding({ fav: true }),
-  { extensions: { fav: true }, dropped: false },
+  { extensions: { fav: true }, dropped: false, truncated: false },
   "extensions without onboarding pass through",
 );
+// Thousands of questions freeze the editor (#7308 review): imports keep the first ones.
+const nativeCapped = normalizeNativeCharacterData({ name: "Ana", extensions: { onboarding: unlimited } });
+assert.equal(nativeCapped?.extensions.onboarding?.variables.length, ONBOARDING_MAX_QUESTIONS, "imports cap questions");
+assert.equal(nativeCapped?.extensions.onboarding?.variables[0]?.id, "v0", "and keep the first ones, in order");
+assert.equal(dropUnreadableOnboarding({ onboarding: unlimited }).truncated, true, "V2/PNG imports cap them too");
 
 // ── 7. The editor never shows unreadable onboarding as empty defaults ──
 // If it did, the next edit would replace the author's data (#7308 review).
@@ -242,5 +248,6 @@ assert.match(
   /\) => \{\s*if \(unreadable\) return;/,
   "edits must be ignored while the stored onboarding can't be read",
 );
+assert.match(editorSource, /maxCount=\{ONBOARDING_MAX_QUESTIONS\}/, "the editor stops adding questions at the cap");
 
 console.log("onboarding-s1: all assertions passed");
