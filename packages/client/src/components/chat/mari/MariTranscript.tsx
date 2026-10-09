@@ -7,7 +7,7 @@ import {
 } from "@marinara-engine/shared";
 import { Sparkles } from "lucide-react";
 import type { MariWorkspacePendingApproval, Message } from "@marinara-engine/shared";
-import { RefObject, ReactElement, ReactNode, Dispatch, SetStateAction } from "react";
+import { RefObject, ReactElement, ReactNode, Dispatch, SetStateAction, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { CharacterPreviewModel } from "../../../lib/character-preview";
 import { LorebookPreviewModel } from "../../../lib/lorebook-preview";
@@ -164,6 +164,9 @@ export function MariTranscript({
 }: MariTranscriptProps) {
   const { t: localizeUi } = useTranslation();
   const { t } = useTranslation();
+  // The fade-in follows the loading skeleton only; a thread drawn at once (a cached reopen) shows as it is.
+  const [showedSkeleton, setShowedSkeleton] = useState(loadingHistory);
+  if (loadingHistory && !showedSkeleton) setShowedSkeleton(true);
   const runErrorCard = activeRunError
     ? renderRunErrorCard(activeRunError, true)
     : workspaceStatus?.error && !isBusy
@@ -188,6 +191,7 @@ export function MariTranscript({
         ref={setTranscriptStackNode}
         className="mari-transcript-stack space-y-3"
         data-history={loadingHistory ? "loading" : "loaded"}
+        data-arrive={showedSkeleton ? "" : undefined}
       >
         {loadingHistory ? (
           <LoadingHistoryState />

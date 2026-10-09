@@ -123,6 +123,12 @@ import {
 } from "../../lib/professor-mari-transcript-scroll";
 import { resolveProfessorMariContextBudget } from "../../lib/professor-mari-context-budget";
 import { rafThrottle } from "../../lib/raf-throttle";
+import {
+  cachedMariThread,
+  keepUnchangedMessages,
+  rememberMariThread,
+  rememberMariThreads,
+} from "../../lib/mari-thread-cache";
 import { prepareImageAttachment } from "../../lib/chat-attachment-images";
 import { cn } from "../../lib/utils";
 import { executeStateNavigation } from "../../lib/state-navigation";
@@ -240,6 +246,11 @@ type HomeProfessorMariChatProps = {
 /** A turn with nothing to review shares this value, so its memoized row skips the window's re-renders. */
 const NO_TURN_REVIEWS: MariTurnReviews = { changed: [], needsOk: [], records: new Set() };
 
+/** The newest page of her thread. The first load starts it beside the arrival routing, not after it. */
+function fetchMariThreadMessages(id: string, signal?: AbortSignal) {
+  return api.get<Message[]>(`/chats/${id}/messages?limit=80`, { signal });
+}
+
 export function HomeProfessorMariChat({
   pageActive = true,
   attachedFooter = false,
@@ -273,9 +284,18 @@ export function HomeProfessorMariChat({
   const sidecarNativeToolCalls = useSidecarStore((state) => state.config.enableNativeToolCalls);
   const fetchSidecarStatus = useSidecarStore((state) => state.fetchStatus);
   const trackAchievement = useTrackAchievement();
-  const [chatId, setChatId] = useState<string | null>(null);
+  // A reopen draws the thread she showed last in its first frame (when the arrival routing would land there
+  // too); the first load below only refreshes it, or moves to the thread it picks.
+  const [cachedThread] = useState(() =>
+    cachedMariThread(
+      omnibarMode && arrivalThread && arrivalAppendRequest > 0
+        ? { context: arrivalThread, continuedThereId: continuedThereByContext.get(arrivalThread.key) }
+        : null,
+    ),
+  );
+  const [chatId, setChatId] = useState<string | null>(cachedThread?.chatId ?? null);
   const { data: attachedContext } = useMariWorkspaceContext(chatId);
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<Message[]>(cachedThread?.messages ?? []);
   const draft = useChatStore((state) => state.inputDrafts.get(PROFESSOR_MARI_DRAFT_KEY) ?? "");
   const setInputDraft = useChatStore((state) => state.setInputDraft);
   const enterToSend = useUIStore((state) => state.enterToSendProfessorMari);
@@ -393,8 +413,9 @@ export function HomeProfessorMariChat({
   const [memoriesQuery, setMemoriesQuery] = useState("");
   const [selectedMemoryId, setSelectedMemoryId] = useState<string | null>(null);
   const [memoryDraft, setMemoryDraft] = useState<MemoryDraftState>({ name: "", description: "", content: "" });
-  const [loadingHistory, setLoadingHistory] = useState(false);
-  const [loadedMessagesChatId, setLoadedMessagesChatId] = useState<string | null>(null);
+  // True from the first frame behind a cached thread, so nothing routes an arrival before the first load does.
+  const [loadingHistory, setLoadingHistory] = useState(cachedThread !== null);
+  const [loadedMessagesChatId, setLoadedMessagesChatId] = useState<string | null>(cachedThread?.chatId ?? null);
   const [sending, setSending] = useState(false);
   const [cancelledChatId, setCancelledChatId] = useState<string | null>(null);
   const [recovery, setRecoveryState] = useState<ProfessorMariRecovery | null>(null);
@@ -433,7 +454,7 @@ export function HomeProfessorMariChat({
   const hasLoadedRef = useRef(false);
   const notifiedApprovalIdsRef = useRef<Set<string>>(new Set());
   const lastAutoOpenedApprovalKeyRef = useRef("");
-  const activeChatIdRef = useRef<string | null>(null);
+  const activeChatIdRef = useRef<string | null>(cachedThread?.chatId ?? null);
   const messagesRef = useRef<Message[]>(messages);
   const messageLoadAbortRef = useRef<AbortController | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -500,6 +521,11 @@ export function HomeProfessorMariChat({
     messagesRef.current = messages;
   }, [messages]);
 
+  // The thread on screen outlives her pane (it unmounts with the omnibar), so the next open draws it at once.
+  useEffect(() => {
+    if (chatId && loadedMessagesChatId === chatId) rememberMariThread(chatId, messages);
+  }, [chatId, loadedMessagesChatId, messages]);
+
   const setActiveChatId = useCallback((id: string) => {
     activeChatIdRef.current = id;
     setChatId(id);
@@ -508,25 +534,48 @@ export function HomeProfessorMariChat({
   // This ref callback is recreated (and so re-invoked by React on the SAME node) whenever any of its
   // deps change, not only when a chat is freshly opened - e.g. once more when the initial load of a
   // brand-new chat catches up to a chatId that handleSubmit's own send already moved past. Landing on
-  // the bottom must happen once per chat, not every time those deps happen to realign.
-  const scrolledToBottomForChatRef = useRef<string | null>(null);
+  // the bottom must happen once per chat, not every time those deps happen to realign. A new node does
+  // land again: a cached thread is on screen from the first render, and the node it landed in can be
+  // replaced right after mount.
+  const landedTranscriptRef = useRef<{ node: HTMLDivElement; chatId: string } | null>(null);
   const setTranscriptScrollNode = useCallback(
     (node: HTMLDivElement | null) => {
-      if (transcriptScrollFrameRef.current !== null) {
+      scrollRef.current = node;
+      const cancelLanding = () => {
+        if (transcriptScrollFrameRef.current === null) return;
         window.cancelAnimationFrame(transcriptScrollFrameRef.current);
         transcriptScrollFrameRef.current = null;
+      };
+      if (!node) {
+        // A landing cut off before it finished (a detach, StrictMode's double attach) lands again.
+        if (transcriptScrollFrameRef.current !== null) landedTranscriptRef.current = null;
+        return cancelLanding();
       }
-      scrollRef.current = node;
-      if (!node || loadingHistory || !chatId || loadedMessagesChatId !== chatId) return;
-      if (scrolledToBottomForChatRef.current === chatId) return;
-      scrolledToBottomForChatRef.current = chatId;
-      transcriptFollowOutputRef.current = true;
-      transcriptScrollFrameRef.current = window.requestAnimationFrame(() => {
+      if (!chatId || loadedMessagesChatId !== chatId) return;
+      if (landedTranscriptRef.current?.node === node && landedTranscriptRef.current.chatId === chatId) return;
+      cancelLanding();
+      landedTranscriptRef.current = { node, chatId };
+      // Older turns off screen have only an estimated height (content-visibility, mari.css). The ones the
+      // bottom brings into view take their real height a frame later and push the newest turn down, so pin
+      // again each frame until the height holds. While her window is still hidden (a cached thread is
+      // there from its first render) the transcript has no height yet, so it waits for one.
+      let pinnedHeight = -1;
+      let frames = 0;
+      const land = () => {
         transcriptScrollFrameRef.current = null;
-        if (scrollRef.current === node) scrollProfessorMariTranscriptToBottom(node);
-      });
+        if (scrollRef.current !== node || frames++ > 60) return;
+        if (node.clientHeight > 0) {
+          if (node.scrollHeight === pinnedHeight) return;
+          pinnedHeight = node.scrollHeight;
+          transcriptFollowOutputRef.current = true;
+          scrollProfessorMariTranscriptToBottom(node);
+        }
+        transcriptScrollFrameRef.current = window.requestAnimationFrame(land);
+      };
+      transcriptFollowOutputRef.current = true;
+      transcriptScrollFrameRef.current = window.requestAnimationFrame(land);
     },
-    [chatId, loadedMessagesChatId, loadingHistory],
+    [chatId, loadedMessagesChatId],
   );
 
   // The composer floats over the transcript (M1); the transcript's bottom padding and fade both
@@ -789,14 +838,20 @@ export function HomeProfessorMariChat({
   }, [initialAskContext]);
 
   const loadMessages = useCallback(
-    async (id: string, options: { restoreFocus?: boolean | (() => boolean); shouldApply?: () => boolean } = {}) => {
+    async (
+      id: string,
+      options: {
+        restoreFocus?: boolean | (() => boolean);
+        shouldApply?: () => boolean;
+        /** The same request, already started (the first load's, beside the arrival routing). */
+        prefetched?: Promise<Message[]>;
+      } = {},
+    ) => {
       messageLoadAbortRef.current?.abort();
       const controller = new AbortController();
       messageLoadAbortRef.current = controller;
       try {
-        const items = await api.get<Message[]>(`/chats/${id}/messages?limit=80`, {
-          signal: controller.signal,
-        });
+        const items = await (options.prefetched ?? fetchMariThreadMessages(id, controller.signal));
         if (
           controller.signal.aborted ||
           messageLoadAbortRef.current !== controller ||
@@ -805,7 +860,12 @@ export function HomeProfessorMariChat({
         ) {
           return;
         }
-        const normalizedMessages = items.map((message) => ({ ...message, extra: toMessageExtra(message) }));
+        // Unchanged messages keep their objects, so a reload (or the refresh behind a cached thread) only
+        // renders the rows that changed.
+        const normalizedMessages = keepUnchangedMessages(
+          messagesRef.current,
+          items.map((message) => ({ ...message, extra: toMessageExtra(message) })),
+        );
         setMessages(normalizedMessages);
         let restoredContext: ProfessorMariAskContext | null = null;
         for (let index = normalizedMessages.length - 1; index >= 0; index -= 1) {
@@ -833,6 +893,7 @@ export function HomeProfessorMariChat({
     setChatHistoryLoading(true);
     try {
       const items = await api.get<ProfessorMariChatSummary[]>("/chats/internal/professor-mari/chats");
+      rememberMariThreads(items);
       setChatHistory(items);
       setSelectedChatHistoryIds((current) => {
         const availableIds = new Set(items.map((item) => item.id));
@@ -936,6 +997,7 @@ export function HomeProfessorMariChat({
       handledArrivalRouteRef.current = request;
       try {
         const threads = await api.get<ProfessorMariChatSummary[]>("/chats/internal/professor-mari/chats");
+        rememberMariThreads(threads);
         const choice = chooseMariThread({
           threads: threads.map(readMariThread),
           contextKey: context.key,
@@ -1116,10 +1178,18 @@ export function HomeProfessorMariChat({
     if (hasLoadedRef.current || connectionsLoading) return;
     hasLoadedRef.current = true;
     setLoadingHistory(true);
+    const prefetchMessages = (id: string) => {
+      const items = fetchMariThreadMessages(id);
+      items.catch(() => undefined);
+      return { id, items };
+    };
+    let prefetched = cachedThread ? prefetchMessages(cachedThread.chatId) : null;
     const storedConnectionExists =
       !!selectedConnectionId && connectionOptions.some((connection) => connection.id === selectedConnectionId);
     ensureProfessorMariChat(storedConnectionExists ? selectedConnectionId : null)
       .then(async (chat) => {
+        // Her messages load beside the routing; it usually keeps the thread she is already in.
+        if (prefetched?.id !== chat.id) prefetched = prefetchMessages(chat.id);
         const restoredConnectionId =
           typeof chat.connectionId === "string" && chat.connectionId ? chat.connectionId : null;
         if (restoredConnectionId) {
@@ -1128,7 +1198,10 @@ export function HomeProfessorMariChat({
           useUIStore.getState().setMariConnectionId(restoredConnectionId);
         }
         const targetId = await routeArrivalThread(chat.id);
-        return loadMessages(targetId, { restoreFocus: () => !initialAskContextRef.current });
+        return loadMessages(targetId, {
+          restoreFocus: () => !initialAskContextRef.current,
+          prefetched: prefetched.id === targetId ? prefetched.items : undefined,
+        });
       })
       .catch((error) => {
         console.error("[Professor Mari] Failed to load home assistant", error);
@@ -1145,6 +1218,7 @@ export function HomeProfessorMariChat({
     loadMessages,
     routeArrivalThread,
     selectedConnectionId,
+    cachedThread,
     localizeUi,
   ]);
 
@@ -3114,7 +3188,10 @@ export function HomeProfessorMariChat({
                           latestTurnHasTrace={latestTurnHasTrace}
                           latestTurnRestStory={latestTurnRestStory}
                           // Also while her chat is not known yet (connections still loading), so the skeleton, not a blank.
-                          loadingHistory={loadingHistory || loadedMessagesChatId !== chatId}
+                          // A cached thread (mari-thread-cache) stays on screen while the first load refreshes it.
+                          loadingHistory={
+                            loadedMessagesChatId !== chatId || (loadingHistory && loadedMessagesChatId === null)
+                          }
                           lorebookPreviewById={lorebookPreviewById}
                           mariPresentationState={mariPresentationState}
                           messages={messages}

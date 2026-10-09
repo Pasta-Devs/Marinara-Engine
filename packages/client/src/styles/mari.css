@@ -2110,7 +2110,7 @@ html[data-marinara-effects-paused="true"] .mari-pull-overlay[data-mari-edge] .ma
   animation-delay: 0.2s;
 }
 
-.mari-transcript-stack[data-history="loaded"] {
+.mari-transcript-stack[data-history="loaded"][data-arrive] {
   animation: mari-transcript-arrive 220ms ease-out both;
 }
 
@@ -2155,7 +2155,7 @@ html[data-marinara-effects-paused="true"] .mari-pull-overlay[data-mari-edge] .ma
     animation: none;
   }
 
-  .mari-transcript-stack[data-history="loaded"] {
+  .mari-transcript-stack[data-history="loaded"][data-arrive] {
     animation: none;
   }
 }
