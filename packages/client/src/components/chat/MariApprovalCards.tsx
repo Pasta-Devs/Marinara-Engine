@@ -363,6 +363,8 @@ export function MariHeldChangeCard({
           ? localizeUi(`mari.needsYou.held.${kind}`, { name })
           : localizeUi("mari.needsYou.held.generic");
   const labels = fields.map(({ key }) => fieldLabel(key));
+  // Folded: one key field. A new record's name is already the title, so its first other field shows.
+  const peek = Math.max(0, fields.findIndex(({ key }) => key !== "name"));
   const fact =
     kind === "many" ? name : labels.map((label, index) => (index === 0 ? label : label.toLowerCase())).join(", ");
   const Icon = kind === "delete" ? Trash2 : kind === "create" ? Plus : Pencil;
@@ -382,11 +384,14 @@ export function MariHeldChangeCard({
         </div>
         {fields.length > 0 ? (
           <div className={open ? "mari-receipt__body" : "mari-receipt__folded"}>
-            {(open ? fields : fields.slice(0, 1)).map(({ key, value }, index) => (
-              <Field key={key} label={labels[index]!}>
-                <div className="mari-receipt__box">{value}</div>
-              </Field>
-            ))}
+            {fields.map(
+              (field, index) =>
+                (open || index === peek) && (
+                  <Field key={field.key} label={labels[index]!}>
+                    <div className="mari-receipt__box">{field.value}</div>
+                  </Field>
+                ),
+            )}
           </div>
         ) : null}
         {fields.length > 1 ? (
@@ -398,7 +403,9 @@ export function MariHeldChangeCard({
           </button>
         ) : null}
       </div>
-      <p className="mari-receipt__muted">{localizeUi("mari.needsYou.then.held")}</p>
+      <p className="mari-receipt__why">
+        <Trans i18nKey="mari.needsYou.then.held" components={{ b: <b /> }} />
+      </p>
       <div className="mari-receipt__foot">
         <span className="mari-receipt__state" data-tone="wait">
           <Clock aria-hidden="true" />
