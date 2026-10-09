@@ -236,9 +236,19 @@ export function pullSheetPath(sheet: PullSheet, origin: Point = [0, 0]) {
   const left = sideCurve(-1, sheet);
   const r = halves(right);
   const l = halves(left);
-  for (const h of [r, l]) {
-    const dx = (sheet.cx - h[2][0]) * clamp01(sheet.pinch);
-    for (const i of [1, 2, 3]) h[i] = [h[i][0] + dx, h[i][1]];
+  for (const [h, sign] of [
+    [r, 1],
+    [l, -1],
+  ] as const) {
+    const waist = h[2][0] + (sheet.cx - h[2][0]) * clamp01(sheet.pinch);
+    // The waist's handles move with it, but never past the middle: on a wide sheet the handle
+    // towards the circle reached across and the two sides crossed. Narrowing them in x only keeps
+    // them in line, so the waist stays smooth, and each side's control points stay on its own side.
+    const room = sign * (waist - sheet.cx);
+    const inward = Math.max(0, -sign * (h[1][0] - h[2][0]), -sign * (h[3][0] - h[2][0]));
+    const s = inward > room ? room / inward : 1;
+    for (const i of [1, 3]) h[i] = [waist + (h[i][0] - h[2][0]) * s, h[i][1]];
+    h[2] = [waist, h[2][1]];
   }
   const { cx, base, rx, ry } = sheet;
   const d =
