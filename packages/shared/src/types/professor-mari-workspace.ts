@@ -217,13 +217,23 @@ export interface ProfessorMariQuickEditApplyResponse {
   actionResult?: MariWorkspaceActionResult;
 }
 
+/** Why a quick answer failed, so the omnibar can say what to do. Classified on the server. */
+export type ProfessorMariQuickErrorKind = "auth" | "missing-model" | "provider" | "empty" | "network";
+
+/** A docs page the quick answer was grounded on. */
+export interface ProfessorMariQuickSource {
+  path: string;
+  heading: string;
+}
+
 export type ProfessorMariQuickPromptEvent =
   | { type: "status"; data: { phase: "starting" | "thinking" } }
+  | { type: "sources"; data: ProfessorMariQuickSource[] }
   | { type: "token"; data: string }
   | { type: "edit_proposal"; data: ProfessorMariQuickEditProposal }
   | { type: "metadata"; data: ProfessorMariQuickMetadata }
   | { type: "complete"; data: { ok: true } }
-  | { type: "error"; data: string };
+  | { type: "error"; data: { kind: ProfessorMariQuickErrorKind; message: string } };
 
 export type MariWorkspaceActionResourceKind = Extract<
   ProfessorMariContextResourceKind,

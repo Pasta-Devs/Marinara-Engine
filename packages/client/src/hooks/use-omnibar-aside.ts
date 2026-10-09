@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { LOCAL_SIDECAR_CONNECTION_ID, type ProfessorMariQuickPromptRequest } from "@marinara-engine/shared";
+import {
+  LOCAL_SIDECAR_CONNECTION_ID,
+  type ProfessorMariQuickErrorKind,
+  type ProfessorMariQuickPromptRequest,
+  type ProfessorMariQuickSource,
+} from "@marinara-engine/shared";
 
 import { api } from "../lib/api-client";
 import { omnibarAsideAnswerCache } from "../lib/omnibar-aside-text";
@@ -26,6 +31,20 @@ export interface OmnibarAsideState {
   query: string;
   /** What answered: the local sidecar, or a connection name. */
   tier: "local" | "remote";
+  /** Present only when status is "error": what kind of failure, so the copy can say what to do. */
+  errorKind?: ProfessorMariQuickErrorKind | null;
+  /** The docs pages the answer was grounded on. Sent before the words. */
+  sources?: readonly ProfessorMariQuickSource[];
+}
+
+/** A failed answer, carrying the server's kind (or "empty" when the stream ended with no words). */
+class QuickAnswerFailure extends Error {
+  constructor(
+    readonly kind: ProfessorMariQuickErrorKind,
+    message: string,
+  ) {
+    super(message);
+  }
 }
 
 const IDLE: OmnibarAsideState = { status: "idle", answer: "", error: null, query: "", tier: "local" };
@@ -98,6 +117,9 @@ export function useOmnibarAside(params: {
                   ? { ...current, status: "thinking" }
                   : current,
               );
+            } else if (event.type === "sources" && Array.isArray(event.data)) {
+              const sources = event.data as ProfessorMariQuickSource[];
+              setState((current) => ({ ...current, sources }));
             } else if (event.type === "token" && typeof event.data === "string") {
               answer += event.data;
               setState({ status: "streaming", answer, error: null, query: trimmed, tier });
@@ -105,14 +127,20 @@ export function useOmnibarAside(params: {
               if (answer) omnibarAsideAnswerCache.set(connectionId, trimmed, { answer, tier });
               setState({ status: "complete", answer, error: null, query: trimmed, tier });
             } else if (event.type === "error") {
-              throw new Error(typeof event.data === "string" ? event.data : "Professor Mari could not answer.");
+              const failure = event.data as { kind?: ProfessorMariQuickErrorKind; message?: string } | string;
+              throw typeof failure === "string"
+                ? new QuickAnswerFailure("provider", failure)
+                : new QuickAnswerFailure(
+                    failure.kind ?? "provider",
+                    failure.message ?? "Professor Mari could not answer.",
+                  );
             }
           }
           // A cleanly closed stream is still a completed response even if an
           // intermediary omitted the optional terminal event.
           if (!controller.signal.aborted) {
             // No words at all is a failed answer, not a finished one: never leave it "thinking" or cache it.
-            if (!answer) throw new Error("Professor Mari could not answer.");
+            if (!answer) throw new QuickAnswerFailure("empty", "Professor Mari could not answer.");
             omnibarAsideAnswerCache.set(connectionId, trimmed, { answer, tier });
             setState((current) =>
               current.query === trimmed && current.status === "streaming"
@@ -126,6 +154,7 @@ export function useOmnibarAside(params: {
             status: "error",
             answer: "",
             error: error instanceof Error ? error.message : String(error),
+            errorKind: error instanceof QuickAnswerFailure ? error.kind : "network",
             query: trimmed,
             tier,
           });

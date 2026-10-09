@@ -5,7 +5,10 @@ import { getProfessorMariWorkspaceService } from "../services/professor-mari/wor
 import { isSseReplyWritable, sendSseEvent, startSseKeepalive, startSseReply } from "./generate/sse.js";
 import { logger } from "../lib/logger.js";
 import { QuickEditConflictError } from "../services/professor-mari/quick-edit-proposal.js";
-import { isCapabilityAllowedFrom } from "@marinara-engine/shared";
+import { classifyQuickAnswerError } from "../services/professor-mari/quick-answer-error.js";
+import { searchCanonicalDocumentation } from "../services/professor-mari/documentation-tools.js";
+import { getMonorepoRoot } from "../config/runtime-config.js";
+import { isCapabilityAllowedFrom, type ProfessorMariQuickPromptEvent } from "@marinara-engine/shared";
 
 const quickContextSchema = z
   .object({
@@ -60,6 +63,24 @@ export const professorMariQuickPromptSchema = z
   })
   .strict();
 
+/**
+ * The docs a quick answer is grounded on, named under the answer. The service searches the same corpus for
+ * its own grounding.
+ * ponytail: this second search costs one more docs read per quick answer; sharing one search needs the service
+ * to return its results, which is left for when its prompt work is merged.
+ */
+async function sendDocsSources(message: string, send: (event: ProfessorMariQuickPromptEvent) => void) {
+  const query = message.trim();
+  if (query.length < 2) return;
+  try {
+    const docs = await searchCanonicalDocumentation(getMonorepoRoot(), query, 3);
+    const sources = docs.results.slice(0, 3).map((result) => ({ path: result.path, heading: result.heading }));
+    if (sources.length > 0) send({ type: "sources", data: sources });
+  } catch {
+    // Sources are a hint; a failed search must not stop the answer.
+  }
+}
+
 export async function professorMariQuickRoutes(app: FastifyInstance) {
   app.post<{ Params: { id: string } }>("/proposals/:id/apply", async (request, reply) => {
     if (!requirePrivilegedAccess(request, reply, { feature: "Professor Mari Quick" })) return;
@@ -85,17 +106,27 @@ export async function professorMariQuickRoutes(app: FastifyInstance) {
       if (isSseReplyWritable(reply)) sendSseEvent(reply, event);
     };
 
+    let words = 0;
     try {
       send({ type: "status", data: { phase: "starting" } });
+      if (body.unasked) await sendDocsSources(body.message, send);
       await getProfessorMariWorkspaceService(app).quickPrompt({
         ...body,
         signal: controller.signal,
-        onEvent: send,
+        onEvent: (event: ProfessorMariQuickPromptEvent) => {
+          if (event.type === "token") words += 1;
+          send(event);
+        },
       });
+      // A quick answer with no words is a failed answer, never a finished one.
+      if (body.unasked && words === 0 && !controller.signal.aborted)
+        throw new Error("Professor Mari sent no words for this quick answer.");
       send({ type: "complete", data: { ok: true } });
     } catch (error) {
-      if (!controller.signal.aborted)
-        send({ type: "error", data: error instanceof Error ? error.message : String(error) });
+      if (!controller.signal.aborted) {
+        const message = error instanceof Error ? error.message : String(error);
+        send({ type: "error", data: { kind: classifyQuickAnswerError(message), message } });
+      }
     } finally {
       stopKeepalive();
       reply.raw.off("close", onClose);
