@@ -49,6 +49,8 @@ const GLOW_PULL = 0.07;
 const GLOW_ARMED = 0.12;
 const GLOW_FLARE = 4;
 const TINT_ARMED = 8;
+/** px/s: at the arm point the circle dips about 4 px and settles once, a felt click without vibration (iOS). */
+const ARM_DIP = 140;
 /** The pop starts this long after the release, when the dialog has had a moment to mount. */
 const POP_DELAY_MS = 130;
 /** If the dialog never mounts, the overlay still leaves. */
@@ -241,10 +243,13 @@ export function usePullToOpenOmnibar({
     /** M17: the circle turning into this sprite; `from` is the circle's head when it started. */
     morph: null as null | { target: HTMLElement; rect: DOMRect; from: { x: number; y: number; r: number } },
     gesture: 0,
-    /** 45b: the finger's x, the gaze shown and since when; frozen under Reduce ambient effects. */
+    /** 45b: the finger's x, the gaze shown and since when. */
     fingerX: 0,
     gaze: null as null | { frame: PullGazeFrame; since: number },
-    gazeFrozen: false,
+    /** Reduce ambient effects: her gaze holds still and the pull keeps none of its extra motion. */
+    calm: false,
+    /** A velocity the next follow adds to the circle's fall (the arm dip). */
+    kick: 0,
   }).current;
   const swallowClickRef = useRef(false);
 
@@ -363,7 +368,7 @@ export function usePullToOpenOmnibar({
       portrait.style.transform = `translate3d(${px(cx)}px, ${px(y)}px, 0) translate(-50%, -50%) scale(${px((Math.max(0, 2 * radius - 8) / 72) * 1000) / 1000})`;
     }
     // 45b: she looks down at the screen's middle, where the chat or the editor is, from where she is pulled.
-    if (els.head && g.mode === "pull" && !g.gazeFrozen) {
+    if (els.head && g.mode === "pull" && !g.calm) {
       g.gaze = holdPullGaze(g.gaze, pullGazeFrame(g.fingerX, g.width), performance.now());
       if (els.head.dataset.gaze !== g.gaze.frame) els.head.dataset.gaze = g.gaze.frame;
     }
@@ -607,7 +612,8 @@ export function usePullToOpenOmnibar({
       g.morph = null;
       g.gaze = null;
       g.fingerX = x;
-      g.gazeFrozen = useUIStore.getState().reduceAmbientEffects;
+      g.calm = useUIStore.getState().reduceAmbientEffects;
+      g.kick = 0;
       g.mariEnabled = useUIStore.getState().commandCenterMariEnabled;
       if (reduceMotion) {
         setLabelOnly(true);
@@ -737,7 +743,8 @@ export function usePullToOpenOmnibar({
           go(mv.radius, circle.radius, GROW);
           go(mv.tag, circle.tag, SHOW);
           // The circle grows out of the bar edge and never rises above it.
-          go(mv.y, circle.centerY, FOLLOW);
+          go(mv.y, circle.centerY, FOLLOW, mv.y.getVelocity() + g.kick);
+          g.kick = 0;
           go(mv.x, f.x, FOLLOW);
           go(mv.show, clamp01((circle.radius - 16) / 10) * clamp01((f.pull - PULL_SIDE_FROM) / 0.2), SHOW);
           go(mv.base, pullSheetBase(circle.radius, f.pull, g.width), BASE);
@@ -751,6 +758,7 @@ export function usePullToOpenOmnibar({
         go(mv.glow, GLOW_ARMED, GLOW, mv.glow.getVelocity() + GLOW_FLARE);
         go(mv.tint, TINT_ARMED, GLOW);
         if (!g.detached) go(mv.pinch, 1, PINCH);
+        if (!g.calm) g.kick = ARM_DIP;
       }
     },
     [els, g, hide, lock, mv, onOpen, onPullStart, reduceMotion, snapBack],
