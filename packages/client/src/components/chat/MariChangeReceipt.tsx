@@ -355,17 +355,24 @@ function FailedReceipt({
   onRetry?: () => void;
 }) {
   const { t } = useUiTranslation();
+  // A record that was never found has no name: the server summary ("Not saved character.") is no title.
+  const title =
+    name && name !== result.summary
+      ? name
+      : t("ui.chat.marichangereceipt.failedTitle", {
+          thing: t(`ui.chat.marichangereceipt.kind.${result.resource.kind}`),
+        });
   return (
     <section
       className="mari-list mari-receipt"
       data-state="failed"
-      aria-label={t("ui.chat.marichangereceipt.label", { name })}
+      aria-label={t("ui.chat.marichangereceipt.failedLabel", { name: title })}
     >
       <div className="mari-receipt__head">
         <span className="mari-receipt__face">{faceOf(result)}</span>
         <span className="mari-receipt__text">
           <span className="mari-receipt__name">
-            <span>{name}</span>
+            <span>{title}</span>
           </span>
         </span>
       </div>

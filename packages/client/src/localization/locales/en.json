@@ -6826,6 +6826,8 @@
   "ui.chat.marichangereceipt.createdMany": "Created {{count}} {{things}}",
   "ui.chat.marichangereceipt.entryCount_one": "{{count}} entry",
   "ui.chat.marichangereceipt.entryCount_other": "{{count}} entries",
+  "ui.chat.marichangereceipt.failedLabel": "Not saved: {{name}}",
+  "ui.chat.marichangereceipt.failedTitle": "Change to a {{thing}}",
   "ui.chat.marichangereceipt.fieldCount_one": "{{count}} field",
   "ui.chat.marichangereceipt.fieldCount_other": "{{count}} fields",
   "ui.chat.marichangereceipt.kind.character": "character",
