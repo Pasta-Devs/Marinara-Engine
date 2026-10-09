@@ -1245,7 +1245,7 @@ html[data-marinara-effects-paused="true"] .mari-pull-overlay[data-mari-edge] .ma
   --mari-composer-pad: 0.5rem;
   --mari-composer-inner-radius: calc(var(--mari-composer-radius) - var(--mari-composer-pad));
   --mari-composer-control: 2rem;
-  --mari-composer-text: 0.875rem;
+  --mari-composer-text: 0.8125rem;
   --mari-composer-lines: 8;
 }
 
