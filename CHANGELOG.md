@@ -4,6 +4,10 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- The quick answer in Search says what it is doing while it works: a thin line fills during the pause, and "Reading …" names the docs pages it is reading. The answer lists the docs pages it used under it, and each named app row shows its picture or icon.
+- A failed quick answer says what went wrong in plain words: the model did not reply, sent no words, the connection did not answer, or its key was refused. **Try again** and **Continue with Mari** are always there. Only a missing key or model offers **Choose a model**. The provider's own message is under **Details**.
+- On a phone, **Continue with Mari** is a full-width button at the foot of the quick answer.
+- The Ask Mari row says **Open Mari to check or change this.** for change requests, because Mari's window is where changes happen.
 - The quick-answer switch is now **Quick answers in Search**, and its line says what Mari does: up to three sentences from the docs, sees only what you typed, changes nothing. Search still finds it by its old name. **Wait after typing** says that Search waits before Mari writes the answer.
 - Without a downloaded local model, a quick answer in Search offers Professor Mari's own connection in one tap ("Use NanoGPT · MiniMax M3 for quick answers"), instead of only "Choose a model" on every question. Nothing is sent to it until you tap **Use this connection**.
 - A quick answer in Search says **Quick answer · Read-only** above its words, so it is clear that it is a short answer that changes nothing, not Professor Mari's window.

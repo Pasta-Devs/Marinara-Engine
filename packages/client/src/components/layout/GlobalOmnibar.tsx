@@ -65,7 +65,7 @@ import {
   type CommandRankingState,
 } from "../../lib/command-center";
 import { createSystemCommandDefinitions } from "../../lib/command-center-system-commands";
-import { type OmnibarRowVisualContext } from "../../lib/omnibar-row-visual";
+import { type OmnibarRowVisualContext, resolveOmnibarRowVisual } from "../../lib/omnibar-row-visual";
 import { OmnibarUnderstoodLine } from "./omnibar/OmnibarUnderstoodLine";
 import {
   filterOmnibarFuzzyFallback,
@@ -349,6 +349,7 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
   const mariWorkingInBackground = mariWorkspaceStatus.data?.active === true;
   const asideDisclosed = useUIStore((state) => state.omnibarAsideDisclosed);
   const asideConnectionId = useUIStore((state) => state.omnibarAsideConnectionId);
+  const asideDelayMs = useUIStore((state) => state.omnibarAsideDelayMs);
   const setAsideDisclosed = useUIStore((state) => state.setOmnibarAsideDisclosed);
   const setAsideEnabled = useUIStore((state) => state.setOmnibarAsideEnabled);
   const setAsideConnectionId = useUIStore((state) => state.setOmnibarAsideConnectionId);
@@ -934,7 +935,7 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
   // has no text yet and "error" offers retry/choose-model instead.
   const asideLive = asideState.status === "streaming" || asideState.status === "complete";
   // The idle countdown is silent; every later state grows inside the promoted Ask row (R9).
-  const asideShown = asideState.status !== "idle" && asideState.status !== "waiting";
+  const asideShown = asideState.status !== "idle";
   // The things a finished answer names, offered as one-click destinations under it.
   const asideLinks = useMemo(
     () => (asideState.status === "complete" ? findMentionedResults(asideState.answer, allLocalResults) : []),
@@ -1583,7 +1584,8 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
    * From the follow-up line, the question typed there is what Mari is asked.
    */
   const escalateAside = async (question?: string) => {
-    if (!asideLive) return;
+    // A failed answer still hands its question over: "Continue with Mari" is the way forward from an error.
+    if (!asideState.query) return;
     const draft = question ?? asideState.query;
     if (draft) useChatStore.getState().setInputDraft(PROFESSOR_MARI_DRAFT_KEY, draft);
     markTry("mari");
@@ -1834,7 +1836,11 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
         onAnswerAgain={asideState.answerAgain}
         // One quick follow-up; the question after it goes to full Mari (G4).
         onFollowUp={(question) => escalateAside(question)}
-        links={asideLinks.map((row) => ({ id: row.id, title: row.title }))}
+        links={asideLinks.map((row) => {
+          const visual = resolveOmnibarRowVisual(row, rowVisualContext);
+          return { id: row.id, title: row.title, src: visual.src, icon: visual.icon };
+        })}
+        delayMs={asideDelayMs}
         onOpenLink={(id) => {
           const row = asideLinks.find((item) => item.id === id);
           if (row) choose(row);

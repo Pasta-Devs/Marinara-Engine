@@ -364,3 +364,21 @@ html[data-marinara-reduced-effects="true"] .omnibar-row-expansion {
     min-height: 2.75rem;
   }
 }
+
+/* Quick answer wait: a hairline fills over the idle delay, then the call starts. Reduced motion shows no fill. */
+.omnibar-aside-wait {
+  width: 0;
+  animation: omnibar-aside-wait linear forwards;
+}
+
+@keyframes omnibar-aside-wait {
+  to {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .omnibar-aside-wait {
+    animation: none;
+  }
+}

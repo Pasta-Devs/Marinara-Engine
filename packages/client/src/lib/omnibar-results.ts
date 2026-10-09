@@ -672,7 +672,7 @@ export function buildOmnibarSearchResults({
     repair: t("omnibar.askMari.peek.repair", "Mari finds the problem and helps you fix it."),
     recommend: t("omnibar.askMari.peek.recommend", "Mari compares the options and recommends one."),
     create: t("omnibar.askMari.peek.create", "Mari helps you create this."),
-    edit: t("omnibar.askMari.peek.change", "Mari helps you change this."),
+    edit: t("omnibar.askMari.peek.change", "Open Mari to check or change this."),
   };
   // The row names what it will send (R8); the line under it says what she will do.
   const askTitle = trimmedQuery

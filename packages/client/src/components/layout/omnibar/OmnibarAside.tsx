@@ -1,4 +1,5 @@
 import { useMemo, useState, type KeyboardEvent } from "react";
+import type { LucideIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
@@ -29,8 +30,10 @@ export interface OmnibarAsideProps {
   onAnswerAgain: () => void;
   /** The follow-up line. Every follow-up goes to Mari's window with this answer attached. */
   onFollowUp: (question: string) => void;
-  /** Things the answer names, which a click opens like their own rows. */
-  links: readonly { id: string; title: string }[];
+  /** Things the answer names, which a click opens like their own rows. `src` is the row's face, when it has one. */
+  links: readonly { id: string; title: string; src?: string | null; icon?: LucideIcon }[];
+  /** The aside's idle delay, so the wait line fills over exactly the time the call waits. */
+  delayMs: number;
   onOpenLink: (id: string) => void;
   /** The query named a capability a real official Agent covers (K4). */
   showDownloadAgents: boolean;
@@ -39,6 +42,8 @@ export interface OmnibarAsideProps {
 
 // Small text actions (direction A); a full 44px target on touch.
 const textAction = "font-semibold underline-offset-2 hover:underline [@media(pointer:coarse)]:min-h-11";
+// On a phone the way forward is a full-width 44 px button on its own line at the foot of the card.
+const continueAction = `${textAction} [@media(pointer:coarse)]:order-last [@media(pointer:coarse)]:flex [@media(pointer:coarse)]:basis-full [@media(pointer:coarse)]:justify-center [@media(pointer:coarse)]:rounded-md [@media(pointer:coarse)]:border [@media(pointer:coarse)]:border-[var(--border)] [@media(pointer:coarse)]:py-2`;
 
 /** Bold, lists and inline code through the app's message renderer; nothing heavier is asked for. */
 function AnswerText({ text, muted }: { text: string; muted?: boolean }) {
@@ -80,6 +85,7 @@ export function OmnibarAside({
   onAnswerAgain,
   onFollowUp,
   links,
+  delayMs,
   onOpenLink,
   showDownloadAgents,
   onOpenDownloadAgents,
@@ -91,6 +97,10 @@ export function OmnibarAside({
   const [followUp, setFollowUp] = useState("");
   const failed = state.status === "error";
   const complete = state.status === "complete";
+  const errorKind = state.errorKind ?? "provider";
+  // Only a missing key or a missing model can be fixed by choosing a model; any other failure is retried.
+  const needsChoice = errorKind === "auth" || errorKind === "missing-model";
+  const readingNames = (state.sources ?? []).map((source) => source.heading).join(" · ");
   const tierLabel =
     state.tier === "local"
       ? t("omnibar.aside.tierLocal", "Local")
@@ -112,6 +122,25 @@ export function OmnibarAside({
     onFollowUp(followUp.trim());
     setFollowUp("");
   };
+
+  if (state.status === "waiting") {
+    return (
+      <section data-component="GlobalOmnibar.Aside" aria-label={t("omnibar.aside.label", "Quick answer · Read-only")}>
+        <p className="mb-1 text-[0.6875rem] font-semibold text-[var(--muted-foreground)]">
+          {t("omnibar.aside.label", "Quick answer · Read-only")}
+        </p>
+        <span aria-hidden="true" className="block h-0.5 overflow-hidden rounded-full bg-[var(--border)]">
+          <span
+            className="omnibar-aside-wait block h-full bg-[var(--muted-foreground)]"
+            style={{ animationDuration: `${delayMs}ms` }}
+          />
+        </span>
+        <p className="mt-1 text-[0.6875rem] text-[var(--muted-foreground)]">
+          {t("omnibar.aside.waiting", "Quick answer when you pause")}
+        </p>
+      </section>
+    );
+  }
 
   if (state.status === "unavailable" && connectionOffer) {
     return (
@@ -161,20 +190,54 @@ export function OmnibarAside({
         {t("omnibar.aside.label", "Quick answer · Read-only")}
       </p>
       {state.status === "thinking" ? (
-        <div className="flex items-center gap-2 text-xs text-[var(--muted-foreground)]">
-          <MariStorySprite state="thinking" />
-          <span>{t("omnibar.aside.thinking", "Professor Mari is thinking…")}</span>
+        // Two lines tall from the start, so the answer that follows does not push the list.
+        <div className="flex min-h-[2.4rem] items-center gap-2 text-xs text-[var(--muted-foreground)]">
+          <span className="flex h-7 w-5 shrink-0 items-center justify-center [&>.mari-story-sprite]:h-7 [&>.mari-story-sprite]:w-[1.1rem]">
+            <MariStorySprite state="thinking" pullTarget={false} />
+          </span>
+          <span className="min-w-0">
+            {readingNames
+              ? t("omnibar.aside.reading", "Reading {{sources}}…", { sources: readingNames })
+              : t("omnibar.aside.thinking", "Professor Mari is thinking…")}
+          </span>
         </div>
       ) : failed ? (
         <div className="flex items-start gap-2">
           <span className="mari-workspace-portrait" data-state="shrug" aria-hidden="true">
             <img src={appearance.portraits.shrug} alt="" draggable={false} data-part="idle" />
           </span>
-          <p className="min-w-0 text-xs text-[var(--muted-foreground)]">{state.error}</p>
+          <div className="min-w-0 text-xs text-[var(--muted-foreground)]">
+            <p>
+              {errorKind === "auth"
+                ? t("omnibar.aside.error.auth", "{{model}} did not accept this connection's key.", {
+                    model: tierLabel,
+                  })
+                : errorKind === "missing-model"
+                  ? t("omnibar.aside.needsModel", "Choose a model so Professor Mari can answer searches like this.")
+                  : errorKind === "empty"
+                    ? t("omnibar.aside.error.empty", "No quick answer this time: {{model}} sent no words.", {
+                        model: tierLabel,
+                      })
+                    : errorKind === "network"
+                      ? t("omnibar.aside.error.network", "No quick answer this time: the connection did not answer.")
+                      : t("omnibar.aside.error.provider", "No quick answer this time: {{model}} did not reply.", {
+                          model: tierLabel,
+                        })}
+            </p>
+            <details className="mt-1 text-[0.6875rem]">
+              <summary className="cursor-pointer">{t("omnibar.aside.details", "Details")}</summary>
+              <p className="mt-1 break-words">{state.error}</p>
+            </details>
+          </div>
         </div>
       ) : (
         <AnswerText text={state.answer} />
       )}
+      {complete && state.sources?.length ? (
+        <p className="mt-1.5 truncate text-[0.6875rem] text-[var(--muted-foreground)]">
+          {t("omnibar.aside.sources", "From the docs")} · {readingNames}
+        </p>
+      ) : null}
       {complete && (links.length > 0 || showDownloadAgents) ? (
         <div className="mt-1.5 flex flex-wrap gap-1.5" aria-label={t("omnibar.aside.links", "Open from this answer")}>
           {links.map((link) => (
@@ -184,6 +247,11 @@ export function OmnibarAside({
               onClick={() => onOpenLink(link.id)}
               className="mari-chrome-control mari-chrome-control--compact"
             >
+              {link.src ? (
+                <img src={link.src} alt="" draggable={false} className="h-4 w-4 rounded-full object-cover" />
+              ) : link.icon ? (
+                <link.icon size={13} aria-hidden="true" />
+              ) : null}
               {link.title}
             </button>
           ))}
@@ -205,8 +273,13 @@ export function OmnibarAside({
               <button type="button" onClick={onRetry} className={textAction}>
                 {t("omnibar.aside.retry", "Try again")}
               </button>
-              <button type="button" onClick={onChooseModel} className={textAction}>
-                {t("omnibar.aside.chooseModel", "Choose a model")}
+              {needsChoice ? (
+                <button type="button" onClick={onChooseModel} className={textAction}>
+                  {t("omnibar.aside.chooseModel", "Choose a model")}
+                </button>
+              ) : null}
+              <button type="button" onClick={onEscalate} className={continueAction}>
+                {t("omnibar.aside.escalate", "Continue with Mari")}
               </button>
             </>
           ) : (
@@ -233,7 +306,7 @@ export function OmnibarAside({
               <button
                 type="button"
                 onClick={onEscalate}
-                className={textAction}
+                className={continueAction}
                 title={t("commandCenter.keyboard.continueMari", "Ctrl/⌘+Enter Continue with Mari")}
               >
                 {t("omnibar.aside.escalate", "Continue with Mari")}

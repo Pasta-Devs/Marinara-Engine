@@ -76,6 +76,8 @@ export function useOmnibarAside(params: {
   const delayMs = useUIStore((state) => state.omnibarAsideDelayMs);
   const [state, setState] = useState<OmnibarAsideState>(IDLE);
   const abortRef = useRef<AbortController | null>(null);
+  // The docs the current answer is grounded on; kept while the words stream in.
+  const sourcesRef = useRef<readonly ProfessorMariQuickSource[] | undefined>(undefined);
 
   const { query, deadEnd, source, resourceLabel } = params;
   const trimmed = query.trim();
@@ -91,12 +93,20 @@ export function useOmnibarAside(params: {
       abortRef.current?.abort();
       const cached = options.bypassCache ? undefined : omnibarAsideAnswerCache.get(connectionId, trimmed);
       if (cached) {
-        setState({ status: "complete", answer: cached.answer, error: null, query: trimmed, tier: cached.tier });
+        setState({
+          status: "complete",
+          answer: cached.answer,
+          error: null,
+          query: trimmed,
+          tier: cached.tier,
+          sources: cached.sources,
+        });
         abortRef.current = null;
         return;
       }
       const controller = new AbortController();
       abortRef.current = controller;
+      sourcesRef.current = undefined;
       setState({ status: "thinking", answer: "", error: null, query: trimmed, tier });
       const body: ProfessorMariQuickPromptRequest = {
         message: trimmed,
@@ -118,14 +128,15 @@ export function useOmnibarAside(params: {
                   : current,
               );
             } else if (event.type === "sources" && Array.isArray(event.data)) {
-              const sources = event.data as ProfessorMariQuickSource[];
-              setState((current) => ({ ...current, sources }));
+              sourcesRef.current = event.data as ProfessorMariQuickSource[];
+              setState((current) => ({ ...current, sources: sourcesRef.current }));
             } else if (event.type === "token" && typeof event.data === "string") {
               answer += event.data;
-              setState({ status: "streaming", answer, error: null, query: trimmed, tier });
+              setState({ status: "streaming", answer, error: null, query: trimmed, tier, sources: sourcesRef.current });
             } else if (event.type === "complete") {
-              if (answer) omnibarAsideAnswerCache.set(connectionId, trimmed, { answer, tier });
-              setState({ status: "complete", answer, error: null, query: trimmed, tier });
+              if (answer)
+                omnibarAsideAnswerCache.set(connectionId, trimmed, { answer, tier, sources: sourcesRef.current });
+              setState({ status: "complete", answer, error: null, query: trimmed, tier, sources: sourcesRef.current });
             } else if (event.type === "error") {
               const failure = event.data as { kind?: ProfessorMariQuickErrorKind; message?: string } | string;
               throw typeof failure === "string"
@@ -141,10 +152,10 @@ export function useOmnibarAside(params: {
           if (!controller.signal.aborted) {
             // No words at all is a failed answer, not a finished one: never leave it "thinking" or cache it.
             if (!answer) throw new QuickAnswerFailure("empty", "Professor Mari could not answer.");
-            omnibarAsideAnswerCache.set(connectionId, trimmed, { answer, tier });
+            omnibarAsideAnswerCache.set(connectionId, trimmed, { answer, tier, sources: sourcesRef.current });
             setState((current) =>
               current.query === trimmed && current.status === "streaming"
-                ? { status: "complete", answer, error: null, query: trimmed, tier }
+                ? { status: "complete", answer, error: null, query: trimmed, tier, sources: sourcesRef.current }
                 : current,
             );
           }

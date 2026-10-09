@@ -18,6 +18,8 @@ export const OMNIBAR_ASIDE_DELAY_CHOICES_MS = [1_000, 2_000, 3_000, 5_000] as co
 export interface OmnibarAsideCacheEntry {
   answer: string;
   tier: "local" | "remote";
+  /** The docs pages the answer was grounded on, so a repeat question still names them. */
+  sources?: readonly { path: string; heading: string }[];
 }
 
 const DEFAULT_MAX_ENTRIES = 20;
@@ -50,7 +52,7 @@ export class OmnibarAsideAnswerCache {
     // Re-insert to mark it most-recently-used; Map iteration order is insertion order.
     this.entries.delete(key);
     this.entries.set(key, entry);
-    return { answer: entry.answer, tier: entry.tier };
+    return { answer: entry.answer, tier: entry.tier, sources: entry.sources };
   }
 
   set(connectionId: string | null | undefined, query: string, value: OmnibarAsideCacheEntry): void {
