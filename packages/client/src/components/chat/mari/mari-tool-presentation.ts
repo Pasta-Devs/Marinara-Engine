@@ -803,6 +803,8 @@ export function inferToolPresentation(tool: WorkspaceToolCall): ToolPresentation
   if (appDataAction && /app[ _-]?data/i.test(name)) {
     const actionTitles: Record<string, string> = {
       "chat.get": "Reading chat",
+      // UX-17: was the raw action, "Read chat diagnose".
+      "chat.diagnose": "Checking the last reply",
       "chat.messages": "Reading recent messages",
       "chat.updateMessage": "Fixing a reply",
       "character.get": "Reading character",
