@@ -37,27 +37,32 @@ test("desktop: opening Mari focuses her window, and Escape from the page goes ba
   });
   expect(connection.ok(), await connection.text()).toBeTruthy();
   const connectionId = ((await connection.json()) as { id: string }).id;
-  const mariChat = await request.get(`/api/chats/internal/professor-mari?connectionId=${connectionId}`);
-  expect(mariChat.ok()).toBeTruthy();
+  // The connection is removed again: a later spec on the same server (omnibar-no-model-try) needs none.
+  try {
+    const mariChat = await request.get(`/api/chats/internal/professor-mari?connectionId=${connectionId}`);
+    expect(mariChat.ok()).toBeTruthy();
 
-  await page.setViewportSize({ width: 1440, height: 900 });
-  await page.addInitScript((v) => localStorage.setItem("marinara:whats-new:seen-version", v), APP_VERSION);
-  await seedUIState(page, { hasCompletedOnboarding: true });
-  await page.goto("/");
-  await page
-    .locator("main")
-    .first()
-    .click({ position: { x: 5, y: 5 } });
-  await page.keyboard.press("Control+j");
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.addInitScript((v) => localStorage.setItem("marinara:whats-new:seen-version", v), APP_VERSION);
+    await seedUIState(page, { hasCompletedOnboarding: true });
+    await page.goto("/");
+    await page
+      .locator("main")
+      .first()
+      .click({ position: { x: 5, y: 5 } });
+    await page.keyboard.press("Control+j");
 
-  const mariPane = page.locator('[data-component="GlobalOmnibar.Mari"]');
-  await expect(mariPane).toHaveAttribute("aria-hidden", "false");
-  const focusInMari = () =>
-    page.evaluate(() => !!document.activeElement?.closest('[data-component="GlobalOmnibar.Mari"]'));
-  await expect.poll(focusInMari).toBe(true);
+    const mariPane = page.locator('[data-component="GlobalOmnibar.Mari"]');
+    await expect(mariPane).toHaveAttribute("aria-hidden", "false");
+    const focusInMari = () =>
+      page.evaluate(() => !!document.activeElement?.closest('[data-component="GlobalOmnibar.Mari"]'));
+    await expect.poll(focusInMari).toBe(true);
 
-  // Focus lost to the page (as after a card action removes its button): Escape still leaves her window.
-  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
-  await page.keyboard.press("Escape");
-  await expect(mariPane).toHaveAttribute("aria-hidden", "true");
+    // Focus lost to the page (as after a card action removes its button): Escape still leaves her window.
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+    await page.keyboard.press("Escape");
+    await expect(mariPane).toHaveAttribute("aria-hidden", "true");
+  } finally {
+    await request.delete(`/api/connections/${connectionId}`);
+  }
 });
