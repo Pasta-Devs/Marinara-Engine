@@ -51,6 +51,8 @@ const GLOW_FLARE = 4;
 const TINT_ARMED = 8;
 /** px/s: at the arm point the circle dips about 4 px and settles once, a felt click without vibration (iOS). */
 const ARM_DIP = 140;
+/** Past the threshold the sheet holds back: the circle loses this share of the finger's extra travel. */
+const RUBBER = 0.55;
 /** The pop starts this long after the release, when the dialog has had a moment to mount. */
 const POP_DELAY_MS = 130;
 /** If the dialog never mounts, the overlay still leaves. */
@@ -739,7 +741,8 @@ export function usePullToOpenOmnibar({
           g.followQueued = false;
           const f = g.follow;
           if (g.mode !== "pull" || !f) return;
-          const circle = pullCircleTarget(f.fingerY, f.pull);
+          const over = g.calm ? 0 : Math.max(0, f.pull - 1) * g.threshold * RUBBER;
+          const circle = pullCircleTarget(f.fingerY - over, f.pull);
           go(mv.radius, circle.radius, GROW);
           go(mv.tag, circle.tag, SHOW);
           // The circle grows out of the bar edge and never rises above it.
