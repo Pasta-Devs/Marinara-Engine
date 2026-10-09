@@ -96,6 +96,14 @@ export function findMentionedResults<T extends Pick<OmnibarResult, "id" | "title
     if (row.control || name.length < MIN_MENTIONED_NAME_LENGTH || seenNames.has(key)) continue;
     const match = new RegExp(`(?:^|[^\\p{L}\\p{N}])${escapeRegExp(name)}(?![\\p{L}\\p{N}])`, "iu").exec(text);
     if (!match) continue;
+    // Part of a longer Title Case name ("Advanced" in "Advanced Parameters", "Settings" in "Chat Settings") is a
+    // different thing, so it does not count. A capital that only starts a sentence ("Ask Eliza") joins nothing.
+    const nameStart = match.index + match[0].length - name.length;
+    const joinsNext = /^\**\s\**\p{Lu}/u.test(text.slice(nameStart + name.length));
+    const head = text.slice(0, nameStart);
+    const previousWord = /\p{Lu}[\p{L}\p{N}]*\**\s\**$/u.exec(head);
+    const joinsPrevious = previousWord !== null && !/(^|[.!?:\n])[\s*]*$/u.test(head.slice(0, previousWord.index));
+    if (joinsNext || joinsPrevious) continue;
     seenNames.add(key);
     found.push({ row, at: match.index });
   }

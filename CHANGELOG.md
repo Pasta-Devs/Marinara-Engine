@@ -4,6 +4,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- A quick answer offers a setting or record only when it names that whole thing. It no longer shows chips for parts of longer names, like **Advanced** and **Parameters** for "Advanced Parameters".
 - **Same as Mari** for quick answers now uses the connection Mari's window uses, and otherwise the connection set as the agents default. Before, it always took the first connection in the list.
 - Professor Mari no longer shows internal names in her answers. She says "an embedding model is configured" instead of `embeddingModelConfigured: true`, and "your installed agents" instead of an agent list tool name.
 - Professor Mari acts on a clear request such as "set up a lorebook for my world" in one go again. She fills in details you left out with her best guess and shows the change on a Keep/Restore card, instead of asking first or stopping after a reply with no action.

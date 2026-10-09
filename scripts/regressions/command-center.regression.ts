@@ -1268,6 +1268,22 @@ assert.ok(!("mariDetailId" in mariSession));
     [],
     "a name inside a longer word does not count",
   );
+  // Slice 84 rule 3: no word-fragment chips. A name inside a longer Title Case name is a different thing.
+  const sections = [
+    { id: "settings-section:advanced", title: "Advanced" },
+    { id: "settings-section:parameters", title: "Parameters" },
+    { id: "settings-tab:settings", title: "Settings" },
+  ];
+  assert.deepEqual(
+    findMentionedResults("Raise **Max tokens** in Chat Settings → **Advanced Parameters**.", sections),
+    [],
+    "fragments of longer names do not count",
+  );
+  assert.deepEqual(
+    findMentionedResults("Settings has it. Open Advanced, then Parameters.", sections).map((row) => row.id),
+    ["settings-tab:settings", "settings-section:advanced", "settings-section:parameters"],
+    "a capital that starts a sentence joins nothing",
+  );
 }
 
 {
