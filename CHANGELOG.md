@@ -375,7 +375,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - The bar under Professor Mari no longer shows **Review changes** and **Return to results**. The receipt cards and the header's back arrow already do both. Only Open actions show there.
 - Ctrl/⌘+J carries only a question into Professor Mari's box, such as "why is my lorebook empty" or "…?". Other typed text, like a half-typed search, opens her with an empty box.
 - The working glow behind Professor Mari is a low, faint band about 40 px tall at every window size, not a tall bright wall. The failed glow is fainter too.
-- The search field no longer lists filter syntax (faq:, msg:, char:). Its hint reads **Search everything, or ask Prof. Mari**. The Enter hint on a result row shows only with a mouse or keyboard, not on a touch screen. The Professor Mari permission mode **Bypass permissions** is now **Never ask**.
+- The search field no longer lists filter syntax (faq:, msg:, char:). Its hint reads **Search everything, or ask Prof. Mari**. The Enter hint on a result row shows only with a mouse or keyboard, not on a touch screen.
 - For a returning user, the search opens on Continue: the chat you left, Professor Mari's last chat, or your last edit. Enter continues it. Try examples come below your work. A row that needs you, like a missing model, still comes first.
 - The top-bar buttons on a phone are 44 px tall, so Home, Chats and the menu are easier to tap.
 - Max output tokens and Memory Recall are in search and in the empty list for a chat. Choosing one opens Chat Settings at that section, like Summary does.
