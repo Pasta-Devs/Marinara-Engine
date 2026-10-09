@@ -53,14 +53,18 @@ const workspaceSource = readFileSync(
   new URL("../../../packages/server/src/services/professor-mari/workspace-agent.service.ts", import.meta.url),
   "utf8",
 );
+const registrySource = readFileSync(
+  new URL("../../../packages/server/src/services/professor-mari/tool-registry.ts", import.meta.url),
+  "utf8",
+);
 assert.match(sandboxSource, /\(deny network\*\)/u);
 assert.match(sandboxSource, /--unshare-all/u);
 assert.match(sandboxSource, /throw new Error\(\s*`\$\{status\.reason\}/u);
 assert.match(workspaceSource, /spawnWorkspaceSandboxedShell/u);
 assert.match(workspaceSource, /Use the dependency tool/u);
-assert.match(workspaceSource, /name: "copy"/u);
-assert.match(workspaceSource, /name: "move"/u);
-assert.match(workspaceSource, /name: "remove"/u);
+assert.match(registrySource, /name: "copy"/u);
+assert.match(registrySource, /name: "move"/u);
+assert.match(registrySource, /name: "remove"/u);
 assert.match(workspaceSource, /write\|copy\|move\|remove\|bash/u);
 assert.match(workspaceSource, /Final prompt messages/u);
 assert.match(sandboxSource, /copy, move, remove/u);
