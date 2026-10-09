@@ -378,12 +378,22 @@ function normalizeMariHandoff(value: unknown): CommandCenterMariHandoff | null {
     rawAsideAnswer?.tier === "local" || rawAsideAnswer?.tier === "remote"
       ? (rawAsideAnswer.tier as "local" | "remote")
       : null;
+  // The docs pages the quick answer used, kept only when well formed; they are shown under the hand-off card.
+  const asideSources = Array.isArray(rawAsideAnswer?.sources)
+    ? rawAsideAnswer.sources.flatMap((item: unknown) => {
+        const source = item as Record<string, unknown> | null;
+        return source && typeof source.path === "string" && typeof source.heading === "string"
+          ? [{ path: source.path.slice(0, 300), heading: source.heading.slice(0, 300) }]
+          : [];
+      })
+    : [];
   const asideAnswer =
     asideAnswerTier && typeof rawAsideAnswer?.query === "string" && typeof rawAsideAnswer?.answer === "string"
       ? {
           query: rawAsideAnswer.query.slice(0, 500),
           answer: rawAsideAnswer.answer.slice(0, 4_000),
           tier: asideAnswerTier,
+          ...(asideSources.length ? { sources: asideSources.slice(0, 3) } : {}),
         }
       : undefined;
   const context: CommandCenterMariHandoff["context"] = capability

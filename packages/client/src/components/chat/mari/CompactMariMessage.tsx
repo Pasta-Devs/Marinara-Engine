@@ -1,6 +1,7 @@
 // One message in Mari's transcript, with its reply actions, referenced records and the outcome of her run.
 import { type ReactNode, memo, useEffect, useState } from "react";
 import { Check, Copy, ChevronRight, Pencil, RefreshCw, Trash2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
   BUILT_IN_AGENTS,
@@ -53,6 +54,45 @@ import {
   MariReasoningPanel,
 } from "./MariReplyContent";
 import { MariWorkTimeline, MariResourceSubject, MariAnswer } from "./MariWorkTimeline";
+
+/**
+ * The quick answer her question came from, under the user's question: "From Search · Quick answer",
+ * three lines unless it is opened, and the docs pages it used. Read-only; it changes nothing.
+ */
+function QuickAnswerHandoff({
+  handoff,
+}: {
+  handoff: NonNullable<NonNullable<ProfessorMariAskContext>["asideAnswer"]>;
+}) {
+  const { t } = useTranslation();
+  const [expanded, setExpanded] = useState(false);
+  const long = handoff.answer.length > 160;
+  return (
+    <div
+      data-component="HomeProfessorMariChat.QuickAnswerHandoff"
+      className="mt-1 flex flex-col gap-1 self-end rounded-md border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-xs text-[var(--muted-foreground)]"
+    >
+      <span className="font-semibold">{t("mari.handoff.quickAnswer", "From Search · Quick answer")}</span>
+      <div className={cn("text-[var(--foreground)]", !expanded && long && "max-h-[4.5em] overflow-hidden")}>
+        <CompactMarkdown content={handoff.answer} />
+      </div>
+      {long ? (
+        <button
+          type="button"
+          onClick={() => setExpanded((value) => !value)}
+          className="self-start font-semibold underline-offset-2 hover:underline"
+        >
+          {expanded ? t("mari.handoff.showLess", "Show less") : t("mari.handoff.showAll", "Show all")}
+        </button>
+      ) : null}
+      {handoff.sources?.length ? (
+        <span className="truncate">
+          {t("mari.handoff.sources", "From the docs")} · {handoff.sources.map((source) => source.heading).join(" · ")}
+        </span>
+      ) : null}
+    </div>
+  );
+}
 
 const MARI_MESSAGE_ACTIONS_CLASS =
   "mt-1 flex gap-1.5 opacity-100 transition-opacity [@media(pointer:fine)]:opacity-0 [@media(pointer:fine)]:group-focus-within:opacity-100 [@media(pointer:fine)]:group-hover:opacity-100";
@@ -518,7 +558,11 @@ export const CompactMariMessage = memo(function CompactMariMessage({
             <CompactMarkdown content={content} />
           </div>
         )}
-        <MariContextFacetChips facets={professorMariContextFacets(messageContext)} className="mt-1 justify-end" />
+        {messageContext?.asideAnswer?.answer ? <QuickAnswerHandoff handoff={messageContext.asideAnswer} /> : null}
+        <MariContextFacetChips
+          facets={professorMariContextFacets(messageContext).filter((facet) => facet.kind !== "asideAnswer")}
+          className="mt-1 justify-end"
+        />
         <ProfessorMariAttachedFiles
           attachments={attachments}
           onRemove={onRemoveAttachment ? (index) => onRemoveAttachment(message.id, index) : undefined}

@@ -303,9 +303,11 @@ export function OmnibarAside({
                   </button>
                 </>
               ) : null}
+              {/* Handing over mid-stream would send half an answer, so it waits for the last word. */}
               <button
                 type="button"
                 onClick={onEscalate}
+                disabled={state.status === "streaming"}
                 className={continueAction}
                 title={t("commandCenter.keyboard.continueMari", "Ctrl/⌘+Enter Continue with Mari")}
               >

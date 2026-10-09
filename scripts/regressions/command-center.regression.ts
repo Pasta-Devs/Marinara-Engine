@@ -1024,6 +1024,18 @@ assert.deepEqual(
   }).asideAnswer,
   { query: "what does temperature do", answer: "It controls randomness.", tier: "local" },
 );
+// C1b: the docs pages the quick answer used travel with it, so Mari's card can name them.
+assert.deepEqual(
+  buildProfessorMariCommandCenterContext("what does temperature do", undefined, [], undefined, {
+    asideAnswer: {
+      query: "what does temperature do",
+      answer: "It controls randomness.",
+      tier: "local",
+      sources: [{ path: "docs/a.md", heading: "Temperature" }],
+    },
+  }).asideAnswer?.sources,
+  [{ path: "docs/a.md", heading: "Temperature" }],
+);
 // C2: the chip lists every facet a context carries, not just the first one found.
 assert.deepEqual(
   professorMariContextFacets({

@@ -2,6 +2,7 @@ import type {
   ProfessorMariAskContext,
   ProfessorMariCapability,
   ProfessorMariContextResource,
+  ProfessorMariQuickSource,
 } from "@marinara-engine/shared";
 import type { OmnibarCategory, OmnibarResult } from "./omnibar-search";
 
@@ -62,7 +63,7 @@ export function buildProfessorMariCommandCenterContext(
     field?: string;
     fieldId?: string;
     error?: { message: string; code?: string };
-    asideAnswer?: { query: string; answer: string; tier: "local" | "remote" };
+    asideAnswer?: { query: string; answer: string; tier: "local" | "remote"; sources?: ProfessorMariQuickSource[] };
     /** R22/K1: a failed-reply "fix this" row hands off through the chat-error door, not command-center. */
     /** L8: opened over the game setup wizard, the handoff comes from game-setup (the step rides in `field`). */
     source?: "command-center" | "chat-error" | "game-setup";

@@ -105,7 +105,7 @@ export interface ProfessorMariAskContext {
   activeChat?: { id: string; label?: string; mode?: string };
   settingsLocation?: { tab?: string; controlId?: string };
   /** The omnibar aside's answer, carried along when `⌘↵` escalates it into Mari (R25). */
-  asideAnswer?: { query: string; answer: string; tier: "local" | "remote" };
+  asideAnswer?: { query: string; answer: string; tier: "local" | "remote"; sources?: ProfessorMariQuickSource[] };
 }
 
 // "floating-assistant" is gone: the floating window was replaced by a presence

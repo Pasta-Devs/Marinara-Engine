@@ -13,7 +13,13 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
-import type { ChatMode, Message, ProfessorMariAskContext, ProfessorMariEntryPoint } from "@marinara-engine/shared";
+import type {
+  ChatMode,
+  Message,
+  ProfessorMariAskContext,
+  ProfessorMariEntryPoint,
+  ProfessorMariQuickSource,
+} from "@marinara-engine/shared";
 import {
   chatIdForMariSession,
   LOCAL_SIDECAR_CONNECTION_ID,
@@ -943,7 +949,8 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
   });
   // Only these two states carry an answer worth escalating (R25); "thinking"
   // has no text yet and "error" offers retry/choose-model instead.
-  const asideLive = asideState.status === "streaming" || asideState.status === "complete";
+  // Settled means the answer will not grow: a finished answer, or a failed one whose question still hands over.
+  const asideSettled = asideState.status === "complete" || asideState.status === "error";
   // The idle countdown is silent; every later state grows inside the promoted Ask row (R9).
   const asideShown = asideState.status !== "idle";
   // The things a finished answer names, offered as one-click destinations under it.
@@ -1314,8 +1321,8 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
         openProfessorMari(null, {
           reviewPending: (mariWorkspaceStatus.data?.pendingApprovals.length ?? 0) > 0,
         });
-      } else if (asideLive) {
-        // The answer grew inside this row, so continuing carries it along (G3).
+      } else if (asideSettled) {
+        // The answer grew inside this row, so continuing carries it along (G3). A streaming answer is not carried.
         escalateAside();
       } else {
         // The row reads "Ask Mari: <your query>", so it sends. Enter always did;
@@ -1519,7 +1526,7 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
   const buildAskContext = (
     message: string,
     focusResult: OmnibarAskFocus,
-    asideAnswer?: { query: string; answer: string; tier: "local" | "remote" },
+    asideAnswer?: { query: string; answer: string; tier: "local" | "remote"; sources?: ProfessorMariQuickSource[] },
     options: { fix?: boolean } = {},
   ) => {
     // The "fix this" door only opens on a deliberate pick of the Fix row (⌘↵/Enter on it, or the
@@ -1595,7 +1602,8 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
    */
   const escalateAside = async (question?: string) => {
     // A failed answer still hands its question over: "Continue with Mari" is the way forward from an error.
-    if (!asideState.query) return;
+    // A streaming answer is not handed over: it would send only the words so far.
+    if (!asideState.query || asideState.status === "streaming" || asideState.status === "thinking") return;
     const draft = question ?? asideState.query;
     if (draft) useChatStore.getState().setInputDraft(PROFESSOR_MARI_DRAFT_KEY, draft);
     markTry("mari");
@@ -1620,6 +1628,7 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
         query: asideState.query.slice(0, 500),
         answer: asideState.answer.slice(0, 4_000),
         tier: asideState.tier,
+        sources: asideState.sources?.length ? [...asideState.sources] : undefined,
       }),
       true,
     );
@@ -1903,7 +1912,7 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
     expandedPreviewId,
     expandedChoiceId,
     mariEnabled,
-    asideLive,
+    asideSettled,
     setQuery,
     setPane,
     setActiveResultId,

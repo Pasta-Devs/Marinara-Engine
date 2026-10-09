@@ -19,7 +19,7 @@ type OmnibarKeyHandlerInput = {
   expandedPreviewId: string | null;
   expandedChoiceId: string | null;
   mariEnabled: boolean;
-  asideLive: boolean;
+  asideSettled: boolean;
   setQuery: (query: string) => void;
   setPane: (pane: OmnibarPane) => void;
   setActiveResultId: (id: string | null) => void;
@@ -54,7 +54,7 @@ export function createOmnibarKeyHandlers({
   expandedPreviewId,
   expandedChoiceId,
   mariEnabled,
-  asideLive,
+  asideSettled,
   setQuery,
   setPane,
   setActiveResultId,
@@ -126,7 +126,7 @@ export function createOmnibarKeyHandlers({
       pane === "results" &&
       event.key === "Enter" &&
       (event.metaKey || event.ctrlKey) &&
-      asideLive &&
+      asideSettled &&
       (!activeResult || activeResult.id === "ask-professor-mari")
     ) {
       // No real row selected (the generic Ask-Mari row doesn't count), and the
@@ -174,7 +174,7 @@ export function createOmnibarKeyHandlers({
         setExpandedChoiceId((current) => (current === activeResult.id ? null : activeResult.id));
       else if (mariEnabled && activeResult.id === "ask-professor-mari") {
         // An answer grown inside the promoted row goes along with the question (G3).
-        if (asideLive && activeResult.group !== "continue") escalateAside();
+        if (asideSettled && activeResult.group !== "continue") escalateAside();
         else openProfessorMari(null, { submitDraft: true });
       } else choose(activeResult);
     } else if (pane === "results" && event.key === "ArrowLeft" && activeResult && expandedPreviewId) {

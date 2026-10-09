@@ -105,6 +105,10 @@ export const professorMariPromptSchema = z.object({
           query: z.string().max(500),
           answer: z.string().max(4_000),
           tier: z.enum(["local", "remote"]),
+          sources: z
+            .array(z.object({ path: z.string().max(300), heading: z.string().max(300) }))
+            .max(3)
+            .optional(),
         })
         .optional(),
     })
