@@ -169,6 +169,7 @@ import {
   resolveOnboardingPersona,
   resolveOnboardingQuestions,
   syncRpgHpFromPools,
+  withUniqueOnboardingIds,
   validateOnboarding,
   type CharacterCardVersion,
   type CharacterData,
@@ -277,6 +278,7 @@ const ONBOARDING_ISSUE_KEYS: Record<Exclude<OnboardingIssue["code"], "plainIf" |
   reservedName: "ui.characters.onboarding.issueReservedName",
   duplicateName: "ui.characters.onboarding.issueDuplicateName",
   unused: "ui.characters.onboarding.issueUnused",
+  unknownOptionName: "ui.characters.onboarding.issueUnknownOptionName",
 };
 
 const CHARACTER_METADATA_HELP =
@@ -1538,7 +1540,11 @@ function OnboardingTab({
 }) {
   const { t: localizeUi } = useUiTranslation();
   const parsedOnboarding = useMemo(
-    () => characterOnboardingSchema.safeParse(formData.extensions.onboarding ?? {}),
+    // Only a missing block means "empty"; a stored `null` is unreadable like any other bad value.
+    () =>
+      characterOnboardingSchema.safeParse(
+        formData.extensions.onboarding === undefined ? {} : formData.extensions.onboarding,
+      ),
     [formData.extensions.onboarding],
   );
   // A block the schema can't read is never shown as empty defaults: any edit
@@ -1547,7 +1553,10 @@ function OnboardingTab({
   const unreadable = !parsedOnboarding.success;
   const onboarding = useMemo(
     () =>
-      (parsedOnboarding.success ? parsedOnboarding.data : characterOnboardingSchema.parse({})) as CharacterOnboarding,
+      // Unique ids: edits, deletes and reorders go by id (a hand-edited card may repeat one).
+      (parsedOnboarding.success
+        ? withUniqueOnboardingIds(parsedOnboarding.data as CharacterOnboarding)
+        : characterOnboardingSchema.parse({})) as CharacterOnboarding,
     [parsedOnboarding],
   );
   // Edits can land in the same tick (e.g. two debounced option inputs), so each
@@ -1581,7 +1590,9 @@ function OnboardingTab({
   // Example answers, like the prompt-override preview: the first option of a
   // choice, the variable's own name for free text.
   const preview = useMemo(() => {
-    const answers: OnboardingAnswers = { [ONBOARDING_PLAYER_VARIABLE]: { text: `‹${ONBOARDING_PLAYER_VARIABLE}›` } };
+    // No prototype, so a question named `__proto__` or `toString` is just a key.
+    const answers: OnboardingAnswers = Object.create(null);
+    answers[ONBOARDING_PLAYER_VARIABLE] = { text: `‹${ONBOARDING_PLAYER_VARIABLE}›` };
     for (const variable of onboarding.variables) {
       const first = variable.options[0];
       answers[variable.variableName] = first ? { optionIds: [first.id] } : { text: `‹${variable.variableName}›` };
@@ -1711,9 +1722,16 @@ function OnboardingTab({
                   setVariables((variables) => variables.filter((variable) => variable.id !== variableId))
                 }
                 onReorder={(variableIds) =>
-                  setVariables((variables) =>
-                    variableIds.flatMap((id) => variables.filter((variable) => variable.id === id)),
-                  )
+                  // Each question is taken once, so a reorder can never grow the list.
+                  setVariables((variables) => {
+                    const pool = new Map(variables.map((variable) => [variable.id, variable]));
+                    const ordered = variableIds.flatMap((id) => {
+                      const variable = pool.get(id);
+                      pool.delete(id);
+                      return variable ? [variable] : [];
+                    });
+                    return [...ordered, ...pool.values()];
+                  })
                 }
               />
             </EditorSectionAnchor>

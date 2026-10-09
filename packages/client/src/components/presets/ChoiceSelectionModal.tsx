@@ -253,6 +253,7 @@ function ChatChoiceSelectionModal({
                   selection={selections[v.variableName]}
                   optionKey={(opt) => opt.value}
                   onChange={(next) => setOverrides((prev) => ({ ...prev, [v.variableName]: next }))}
+                  ariaLabel={v.question}
                 />
               </div>
             );

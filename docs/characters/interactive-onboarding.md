@@ -22,7 +22,7 @@ Turning the switch off hides the onboarding fields but keeps what you wrote.
 
 Under **Onboarding Questions**, click **Add Question**. Each question works like a preset variable. See [Presets](../prompts/presets.md). A card can have up to 100 questions.
 
-- **Variable Name** is the name you use in the fields, such as `faction`. Pick any name with letters, numbers, and underscores. Names are case-sensitive: `Gender` and `gender` are different.
+- **Variable Name** is the name you use in the fields, such as `faction`. Pick any name with letters, numbers, and underscores that starts with a letter or underscore. Names are case-sensitive: `Gender` and `gender` are different.
 - **Question (shown to user)** is what the player reads. It can use earlier answers, such as `What does {{player}} look like?`. Here `{{char}}` is the card's name and `{{user}}` the player's name.
 - **Options** turn the question into a choice. The first option is selected by default. With no options, the player types a free-text answer.
 - **Value** is what goes into the persona. Upper and lower case are kept as you type them; macros in it are filled in like the rest of the fields. Leave it blank to use the option's label. Type a lowercase value, such as `ranger`, if the answer goes mid-sentence.

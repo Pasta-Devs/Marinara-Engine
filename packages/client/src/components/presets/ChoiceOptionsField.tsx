@@ -75,6 +75,7 @@ export function ChoiceOptionsField({
   optionKey,
   onChange,
   allowBooleanToggle = true,
+  ariaLabel,
 }: {
   variable: ChoiceFieldVariable;
   selection: string | string[] | undefined;
@@ -82,6 +83,8 @@ export function ChoiceOptionsField({
   onChange: (next: string | string[]) => void;
   /** A single non-multi option renders as an on/off switch (preset variables only). */
   allowBooleanToggle?: boolean;
+  /** Accessible name for the dropdown/list, usually the question. */
+  ariaLabel?: string;
 }) {
   const presentedOptions = getPresentedOptions(variable);
   const listboxMode = shouldUseListbox(variable);
@@ -94,6 +97,7 @@ export function ChoiceOptionsField({
       {listboxMode && variable.multiSelect ? (
         <select
           multiple
+          aria-label={ariaLabel}
           value={selectedKeys}
           onChange={(e) => onChange(Array.from(e.currentTarget.selectedOptions, (option) => option.value))}
           size={Math.min(8, Math.max(4, presentedOptions.length))}
@@ -107,6 +111,7 @@ export function ChoiceOptionsField({
         </select>
       ) : listboxMode ? (
         <select
+          aria-label={ariaLabel}
           value={typeof selection === "string" ? selection : ""}
           onChange={(e) => onChange(e.target.value)}
           className="mari-preset-native-select w-full rounded-lg bg-[var(--background)] px-3 py-2 text-xs text-[var(--foreground)] ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"

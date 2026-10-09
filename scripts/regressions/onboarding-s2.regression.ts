@@ -318,4 +318,50 @@ assert.deepEqual(
   "conditions with extra spaces after #if are still read",
 );
 
+// ── #7308 review, round 3 ──
+// Names must start like chat variables, so the field scan can see them.
+assert.deepEqual(
+  validateOnboarding(
+    onboarding({ description: "{{2nd_language}}", variables: [{ id: "1", variableName: "2nd_language" }] }),
+  ).filter((issue) => issue.code !== "unknownName"),
+  [{ code: "invalidName", variableId: "1", name: "2nd_language" }],
+  "a name starting with a digit is invalid, not falsely unused",
+);
+// An option value naming no question would reach the persona raw.
+assert.deepEqual(
+  validateOnboarding(
+    onboarding({
+      description: "{{origin}}",
+      variables: [{ id: "1", variableName: "origin", options: [option("o", "From {{hometown}}", "Elsewhere")] }],
+    }),
+  ),
+  [{ code: "unknownOptionName", variableId: "1", name: "hometown" }],
+  "unknown names in option values are flagged like those in the fields",
+);
+// Questions named after Object.prototype members must not read its methods.
+const protoNames = onboarding({
+  description: "{{toString}} {{constructor}} {{__proto__}}",
+  variables: ["toString", "constructor", "__proto__"].map((name) => ({
+    id: name,
+    variableName: name,
+    options: [option("a", `${name}-a`)],
+  })),
+});
+assert.equal(
+  getNextOnboardingVariable(protoNames, { player: { text: "Kestrel" } })?.variableName,
+  "toString",
+  "an unanswered toString question is unanswered, not Object.prototype.toString",
+);
+const protoAnswers: OnboardingAnswers = Object.create(null);
+protoAnswers.player = { text: "Kestrel" };
+for (const name of ["toString", "constructor", "__proto__"]) protoAnswers[name] = { optionIds: ["a"] };
+assert.equal(getNextOnboardingVariable(protoNames, protoAnswers), null);
+assert.equal(resolveOnboardingPersona(protoNames, protoAnswers).description, "toString-a constructor-a __proto__-a");
+// A persona needs a name: a `player` choice that resolves to nothing keeps Create disabled.
+const pickedName = onboarding({
+  variables: [{ id: "p", variableName: "player", multiSelect: true, options: [option("a", "Ash")] }],
+});
+assert.equal(getNextOnboardingVariable(pickedName, { player: { optionIds: [] } })?.variableName, "player");
+assert.equal(getNextOnboardingVariable(pickedName, { player: { optionIds: ["a"] } }), null);
+
 console.log("onboarding-s2: all assertions passed");

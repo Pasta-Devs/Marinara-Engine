@@ -19,6 +19,7 @@ import {
   characterExtensionsSchema,
   dropUnreadableOnboarding,
   ONBOARDING_MAX_QUESTIONS,
+  withUniqueOnboardingIds,
 } from "../../packages/shared/src/index.js";
 import { buildCompatibleCharacterExport } from "../../packages/server/src/routes/characters.routes.js";
 import { normalizeNativeCharacterData } from "../../packages/server/src/services/import/marinara.importer.js";
@@ -235,6 +236,40 @@ const nativeCapped = normalizeNativeCharacterData({ name: "Ana", extensions: { o
 assert.equal(nativeCapped?.extensions.onboarding?.variables.length, ONBOARDING_MAX_QUESTIONS, "imports cap questions");
 assert.equal(nativeCapped?.extensions.onboarding?.variables[0]?.id, "v0", "and keep the first ones, in order");
 assert.equal(dropUnreadableOnboarding({ onboarding: unlimited }).truncated, true, "V2/PNG imports cap them too");
+assert.equal(dropUnreadableOnboarding({ onboarding: null }).dropped, true, "a null block is unreadable, not empty");
+// Repeated or empty ids: the editor edits, deletes and reorders by id, so twins
+// would change together or multiply on reorder past the cap (#7308 review).
+const twins = {
+  ...ONBOARDING,
+  variables: Array.from({ length: 3 }, (_, index) => ({
+    ...ONBOARDING.variables[1],
+    id: index === 2 ? "" : "same",
+    variableName: `twin${index}`,
+    options: [
+      { id: "o", label: "A", value: "a" },
+      { id: "o", label: "B", value: "b" },
+    ],
+  })),
+};
+const unique = dropUnreadableOnboarding({ onboarding: twins }).extensions.onboarding as typeof twins;
+const questionIds = unique.variables.map((variable) => variable.id);
+assert.deepEqual(questionIds, ["same", "same_2", "question_2"], "repeated and empty question ids are made unique");
+assert.deepEqual(
+  unique.variables[0]!.options.map((option) => option.id),
+  ["o", "o_2"],
+  "repeated option ids within a question are made unique",
+);
+assert.deepEqual(
+  dropUnreadableOnboarding({ onboarding: unique }).extensions.onboarding,
+  unique,
+  "unique ids stay as they are, so re-reading a card is stable",
+);
+const parsedDemo = characterExtensionsSchema.parse({ onboarding: ONBOARDING }).onboarding!;
+assert.equal(
+  withUniqueOnboardingIds(parsedDemo),
+  parsedDemo,
+  "nothing to fix returns the same object (no editor churn)",
+);
 
 // ── 7. The editor never shows unreadable onboarding as empty defaults ──
 // If it did, the next edit would replace the author's data (#7308 review).
@@ -249,5 +284,12 @@ assert.match(
   "edits must be ignored while the stored onboarding can't be read",
 );
 assert.match(editorSource, /maxCount=\{ONBOARDING_MAX_QUESTIONS\}/, "the editor stops adding questions at the cap");
+assert.match(
+  editorSource,
+  /onboarding === undefined \? \{\} :/,
+  "only a missing block reads as empty; null is unreadable",
+);
+assert.match(editorSource, /withUniqueOnboardingIds\(parsedOnboarding\.data/, "the editor reads unique ids");
+assert.match(editorSource, /pool\.delete\(id\);/, "a reorder takes each question once, so it can't grow the list");
 
 console.log("onboarding-s1: all assertions passed");

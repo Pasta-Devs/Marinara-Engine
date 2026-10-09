@@ -33,10 +33,55 @@ export function dropUnreadableOnboarding<T extends Record<string, unknown>>(
     const { onboarding: _dropped, ...rest } = extensions;
     return { extensions: rest as T, dropped: true, truncated: false };
   }
-  const raw = extensions.onboarding as { variables?: unknown[] };
-  if (parsed.data.variables.length <= ONBOARDING_MAX_QUESTIONS) return { extensions, dropped: false, truncated: false };
-  const onboarding = { ...raw, variables: raw.variables!.slice(0, ONBOARDING_MAX_QUESTIONS) };
-  return { extensions: { ...extensions, onboarding }, dropped: false, truncated: true };
+  const truncated = parsed.data.variables.length > ONBOARDING_MAX_QUESTIONS;
+  const capped = truncated
+    ? { ...parsed.data, variables: parsed.data.variables.slice(0, ONBOARDING_MAX_QUESTIONS) }
+    : parsed.data;
+  const onboarding = withUniqueOnboardingIds(capped);
+  if (onboarding === parsed.data) return { extensions, dropped: false, truncated: false };
+  return { extensions: { ...extensions, onboarding }, dropped: false, truncated };
+}
+
+/**
+ * Gives every question, and every option within a question, its own non-empty
+ * id. The editor edits, deletes and reorders by id, so a hand-edited card with
+ * repeated ids would change both twins at once, or let a reorder multiply them
+ * past the cap (#7308 review). Deterministic, so re-reading a card yields the
+ * same ids; returns the same object when nothing needed fixing.
+ */
+export function withUniqueOnboardingIds<T extends CharacterOnboarding>(onboarding: T): T {
+  /** Keeps the first use of each id; a repeat or empty one gets `<id>_2`, `_3`… unused anywhere in the list. */
+  const uniquer = (ids: string[], fallback: string) => {
+    const all = new Set(ids);
+    const taken = new Set<string>();
+    return (id: string) => {
+      let next = id;
+      for (let n = 2; !next || taken.has(next) || (next !== id && all.has(next)); n++) next = `${id || fallback}_${n}`;
+      taken.add(next);
+      return next;
+    };
+  };
+  const variables = onboarding.variables ?? [];
+  const questionId = uniquer(
+    variables.map((variable) => variable.id),
+    "question",
+  );
+  const fixed = variables.map((variable) => {
+    const optionId = uniquer(
+      variable.options.map((option) => option.id),
+      "option",
+    );
+    const options = variable.options.map((option) => {
+      const id = optionId(option.id);
+      return id === option.id ? option : { ...option, id };
+    });
+    const id = questionId(variable.id);
+    const same = id === variable.id && options.every((option, index) => option === variable.options[index]);
+    return same ? variable : { ...variable, id, options };
+  });
+  return fixed.some((variable, index) => variable !== variables[index])
+    ? { ...onboarding, variables: fixed }
+    : onboarding;
 }
 
 /** A variable with this name supplies the created persona's name. */
@@ -73,6 +118,14 @@ export function getOnboardingVariables(onboarding: CharacterOnboarding): Charact
     },
     ...variables,
   ];
+}
+
+/**
+ * The answer stored under `name`, own properties only: a question named
+ * `toString` or `constructor` must not find `Object.prototype`'s (#7308 review).
+ */
+function ownAnswer(answers: OnboardingAnswers, name: string): OnboardingAnswer | undefined {
+  return Object.prototype.hasOwnProperty.call(answers, name) ? answers[name] : undefined;
 }
 
 /** Own text must be non-blank; any choice counts, so "none of these" (an empty multi-select) is an answer. */
@@ -129,7 +182,7 @@ function answerContext(
         read?.(name);
         if (computed) return cached;
         computed = true;
-        const answer = answers[name];
+        const answer = ownAnswer(answers, name);
         if (!isAnswered(answer)) return (cached = undefined);
         if ("text" in answer!) return (cached = answer.text.trim());
         // Option values are author content and may hold macros of their own
@@ -194,16 +247,20 @@ export function getRelevantOnboardingVariables(
   return getOnboardingVariables(onboarding).filter((variable) => used.has(variable.variableName));
 }
 
-/** The next relevant question without an answer, or null when onboarding is complete. */
+/**
+ * The next relevant question without an answer, or null when onboarding is
+ * complete. A persona needs a name, so `player` also counts as unanswered while
+ * it resolves to nothing (e.g. a multi-select with nothing ticked).
+ */
 export function getNextOnboardingVariable(
   onboarding: CharacterOnboarding,
   answers: OnboardingAnswers,
 ): CharacterOnboardingVariable | null {
-  return (
-    getRelevantOnboardingVariables(onboarding, answers).find(
-      (variable) => !isAnswered(answers[variable.variableName]),
-    ) ?? null
-  );
+  const relevant = getRelevantOnboardingVariables(onboarding, answers);
+  const next = relevant.find((variable) => !isAnswered(ownAnswer(answers, variable.variableName)));
+  if (next) return next;
+  if (resolveOnboardingPersona(onboarding, answers).name) return null;
+  return relevant.find((variable) => variable.variableName === ONBOARDING_PLAYER_VARIABLE) ?? null;
 }
 
 /**
@@ -224,7 +281,7 @@ export function resolveOnboardingPersona(
 
 export type OnboardingIssue =
   | {
-      code: "emptyName" | "invalidName" | "reservedName" | "duplicateName" | "unused";
+      code: "emptyName" | "invalidName" | "reservedName" | "duplicateName" | "unused" | "unknownOptionName";
       variableId: string;
       name: string;
     }
@@ -253,7 +310,8 @@ function readNames(text: string): Set<string> {
 
 /**
  * Problems an author should fix. `unused` is a warning; the rest stop a
- * question from working. Names follow preset variables (letters, digits, _).
+ * question from working. Names follow chat variables: a letter or `_`, then
+ * letters, digits or `_` (the field scan only reads names shaped like that).
  */
 export function validateOnboarding(onboarding: CharacterOnboarding): OnboardingIssue[] {
   const issues: OnboardingIssue[] = [];
@@ -269,7 +327,7 @@ export function validateOnboarding(onboarding: CharacterOnboarding): OnboardingI
   for (const variable of onboarding.variables ?? []) {
     const { id: variableId, variableName: name } = variable;
     if (!name) issues.push({ code: "emptyName", variableId, name });
-    else if (!/^\w+$/.test(name)) issues.push({ code: "invalidName", variableId, name });
+    else if (!/^[A-Za-z_]\w*$/.test(name)) issues.push({ code: "invalidName", variableId, name });
     else if (seen.has(name)) issues.push({ code: "duplicateName", variableId, name });
     else if (name !== ONBOARDING_PLAYER_VARIABLE && isReservedMacroName(name))
       issues.push({ code: "reservedName", variableId, name });
@@ -277,13 +335,20 @@ export function validateOnboarding(onboarding: CharacterOnboarding): OnboardingI
     if (name) seen.add(name);
   }
   const known = new Set([ONBOARDING_PLAYER_VARIABLE, ...seen]);
+  const isUnknown = (name: string) => !known.has(name) && !isReservedMacroName(name);
+  // An option value like `{{hometown}}` with no such question would reach the persona raw.
+  for (const { id: variableId, options } of onboarding.variables ?? []) {
+    for (const name of readNames(options.map((option) => option.value).join("\n"))) {
+      if (isUnknown(name)) issues.push({ code: "unknownOptionName", variableId, name });
+    }
+  }
   for (const field of ONBOARDING_PERSONA_FIELDS) {
     const fieldText = onboarding[field] ?? "";
     // `{{if}}` / `{{If}}` without `#` is not a conditional: it reaches the persona
     // verbatim. (`{{else if}}` is correct as is — the engine's else-if has no `#`.)
     if (/\{\{\s*if\b/i.test(fieldText)) issues.push({ code: "plainIf", field });
     for (const name of readNames(fieldText)) {
-      if (!known.has(name) && !isReservedMacroName(name)) issues.push({ code: "unknownName", field, name });
+      if (isUnknown(name)) issues.push({ code: "unknownName", field, name });
     }
   }
   return issues;

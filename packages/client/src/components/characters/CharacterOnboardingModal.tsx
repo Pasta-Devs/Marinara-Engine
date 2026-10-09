@@ -55,9 +55,12 @@ export function CharacterOnboardingModal({
   const [overrides, setOverrides] = useState<OnboardingAnswers>({});
 
   const answers = useMemo<OnboardingAnswers>(() => {
-    const merged: OnboardingAnswers = {};
+    // Own properties only, on an object without a prototype: a question named
+    // `toString` or `__proto__` must not read or replace Object.prototype.
+    const merged: OnboardingAnswers = Object.create(null);
     for (const variable of getOnboardingVariables(onboarding)) {
-      merged[variable.variableName] = overrides[variable.variableName] ?? defaultAnswer(variable);
+      const name = variable.variableName;
+      merged[name] = Object.prototype.hasOwnProperty.call(overrides, name) ? overrides[name]! : defaultAnswer(variable);
     }
     return merged;
   }, [onboarding, overrides]);
@@ -151,6 +154,7 @@ export function CharacterOnboardingModal({
                     optionKey={(option) => option.id}
                     onChange={(next) => setAnswer(name, { optionIds: Array.isArray(next) ? next : next ? [next] : [] })}
                     allowBooleanToggle={false}
+                    ariaLabel={question}
                   />
                   {variable.allowCustom && (
                     <>
