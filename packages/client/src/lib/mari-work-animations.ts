@@ -57,7 +57,7 @@ export interface MariAppearancePack {
  * Sprites keep their file names when art is replaced, and the service worker serves them CacheFirst
  * (`mari-sprites` in vite.config.ts). Bump this whenever any Mari art changes.
  */
-export const MARI_SPRITE_VERSION = "38c1";
+export const MARI_SPRITE_VERSION = "39c1";
 
 /** Every Mari URL is loaded by URL from its own pack folder, never imported into the bundle. */
 const sprite = (path: string) => `/sprites/mari/${path}?v=${MARI_SPRITE_VERSION}`;
@@ -99,7 +99,7 @@ export const MARI_APPEARANCE_PACKS: readonly MariAppearancePack[] = [
       arrival: sprite("dottore/idle.webp"),
       map: sprite("dottore/portrait-map.webp"),
       shrug: sprite("dottore/portrait-shrug.webp"),
-      drag: sprite("dottore/idle.webp"),
+      drag: sprite("dottore/portrait-drag.webp"),
       pullHeads: sprite("dottore/pull-heads.webp"),
     },
     stories: packStories("dottore"),
@@ -115,7 +115,7 @@ export const MARI_APPEARANCE_PACKS: readonly MariAppearancePack[] = [
       arrival: sprite("golden/idle.webp"),
       map: sprite("golden/portrait-map.webp"),
       shrug: sprite("golden/portrait-shrug.webp"),
-      drag: sprite("golden/idle.webp"),
+      drag: sprite("golden/portrait-drag.webp"),
       pullHeads: sprite("golden/pull-heads.webp"),
     },
     stories: packStories("golden"),
@@ -132,7 +132,7 @@ export const MARI_APPEARANCE_PACKS: readonly MariAppearancePack[] = [
       arrival: sprite("safari/idle.webp"),
       map: sprite("safari/portrait-map.webp"),
       shrug: sprite("safari/portrait-shrug.webp"),
-      drag: sprite("safari/idle.webp"),
+      drag: sprite("safari/portrait-drag.webp"),
       pullHeads: sprite("safari/pull-heads.webp"),
     },
     stories: packStories("safari"),

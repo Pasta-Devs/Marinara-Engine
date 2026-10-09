@@ -80,6 +80,14 @@ for (const appearance of MARI_APPEARANCE_PACKS) {
   const heads = await sharp(publicFile(appearance.portraits.pullHeads).pathname).metadata();
   assert.deepEqual([heads.format, heads.width, heads.height, heads.hasAlpha], ["webp", 576, 96, true]);
   assert.ok(mariAssetUrls(appearance, 2).includes(appearance.portraits.pullHeads), "the pull heads are prefetched");
+  // Slice 85: every pack holds its own four-frame dangle sheet (4 cells of 300x450), never a shared idle story.
+  assert.equal(
+    appearance.portraits.drag,
+    `/sprites/mari/${appearance.id}/portrait-drag.webp?v=${MARI_SPRITE_VERSION}`,
+    "held sheet is per pack",
+  );
+  const held = await sharp(publicFile(appearance.portraits.drag).pathname).metadata();
+  assert.deepEqual([held.format, held.width, held.height, held.hasAlpha], ["webp", 1200, 450, true]);
   for (const state of MARI_STORY_STATES) {
     const chosen = selectMariWorkAnimation({
       activity: "error image write",
