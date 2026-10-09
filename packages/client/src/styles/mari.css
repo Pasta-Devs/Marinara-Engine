@@ -4369,6 +4369,18 @@ details[open] > .mari-disclosure .mari-disclosure__chevron {
     content: "";
   }
 
+  /* UX-16: the 22px copy / edit / delete icons under a message, hit 44px high; across, only half the
+     0.375rem gap, so neighbours never overlap. */
+  .mari-message-action {
+    position: relative;
+  }
+
+  .mari-message-action::after {
+    position: absolute;
+    inset: -0.6875rem -0.1875rem;
+    content: "";
+  }
+
   /* Drawn at 34px, hit at 44px: the controls grow past their edge, not in size. */
   .mari-composer-icon::after,
   .mari-composer-menu__trigger::after,

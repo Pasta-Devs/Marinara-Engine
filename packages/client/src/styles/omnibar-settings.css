@@ -17,6 +17,19 @@
     color 0.15s ease;
 }
 
+/* UX-16: drawn at 28px, hit at 44px on touch. */
+@media (pointer: coarse) {
+  .omnibar-settings-menu__trigger {
+    position: relative;
+  }
+
+  .omnibar-settings-menu__trigger::after {
+    position: absolute;
+    inset: -0.5rem;
+    content: "";
+  }
+}
+
 .omnibar-settings-menu__trigger:hover,
 .omnibar-settings-menu__trigger--open {
   background: var(--accent);

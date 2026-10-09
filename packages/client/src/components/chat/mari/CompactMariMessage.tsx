@@ -98,8 +98,9 @@ function QuickAnswerHandoff({
 
 const MARI_MESSAGE_ACTIONS_CLASS =
   "mt-1 flex gap-1.5 opacity-100 transition-opacity [@media(pointer:fine)]:opacity-0 [@media(pointer:fine)]:group-focus-within:opacity-100 [@media(pointer:fine)]:group-hover:opacity-100";
+// UX-16: mari-message-action gives the 22px icon a 44px-high hit area on touch (mari.css).
 const MARI_MESSAGE_ACTION_BUTTON_CLASS =
-  "rounded p-1 text-[var(--marinara-chat-chrome-panel-muted)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--primary)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--primary)] focus-visible:text-[var(--primary)]";
+  "mari-message-action rounded p-1 text-[var(--marinara-chat-chrome-panel-muted)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--primary)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--primary)] focus-visible:text-[var(--primary)]";
 
 /** Copy, regenerate and delete under one of her replies: shown on hover with a mouse, always on touch. */
 function MariReplyActions({

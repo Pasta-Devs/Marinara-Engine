@@ -18,6 +18,9 @@ import { omnibarScopePrefix } from "../../../lib/omnibar-scope";
 import { isApplePlatform, type CommandCenterCategoryFilter } from "../../../lib/command-center";
 import { formatShortcutKey } from "../../../lib/keyboard-shortcuts";
 
+// UX-16: chips are drawn at 34px; on touch the hit area grows into the strip's padding to 44px.
+const CHIP_TOUCH_HIT = "relative [@media(pointer:coarse)]:after:absolute [@media(pointer:coarse)]:after:inset-x-0 [@media(pointer:coarse)]:after:-inset-y-[0.3125rem] [@media(pointer:coarse)]:after:content-['']";
+
 /** Slice 79b: Mari's head in the search header is the door to her. */
 export function OmnibarMariDoor({
   onClick,
@@ -95,7 +98,7 @@ export function OmnibarScopeChips({
             setFilter("all");
             requestAnimationFrame(() => inputRef.current?.focus());
           }}
-          className="min-h-8 shrink-0 rounded-md px-2.5 text-xs font-semibold text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+          className={`${CHIP_TOUCH_HIT} min-h-8 shrink-0 rounded-md px-2.5 text-xs font-semibold text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]`}
         >
           {filterLabels[chip]}
         </button>
@@ -135,7 +138,7 @@ export function OmnibarFilterStrip({
           type="button"
           aria-pressed={filter === item}
           onClick={() => setCategoryFilter(item)}
-          className={`min-h-8 shrink-0 rounded-md px-2.5 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] ${filter === item ? "bg-[var(--primary)] text-[var(--primary-foreground)]" : "text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]"}`}
+          className={`${CHIP_TOUCH_HIT} min-h-8 shrink-0 rounded-md px-2.5 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] ${filter === item ? "bg-[var(--primary)] text-[var(--primary-foreground)]" : "text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]"}`}
         >
           {filterLabels[item]}
         </button>
