@@ -3,6 +3,7 @@
 // ──────────────────────────────────────────────
 import { useState, useEffect, useCallback, useMemo, useRef, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { APP_VERSION } from "@marinara-engine/shared";
 import { useUIStore, type ChatModeShortcut } from "../../stores/ui.store";
 import { useChatStore } from "../../stores/chat.store";
 import { useTrackAchievement } from "../../hooks/use-achievements";
@@ -17,6 +18,7 @@ import { useDialogFocusScope } from "../../hooks/use-dialog-focus-scope";
 import { useMariAppearancePack } from "../../hooks/use-mari-appearance-pack";
 import { MARI_ASSET_TIER, mariImgLoading, type MariPose } from "../../lib/mari-work-animations";
 import { formatShortcutKey } from "../../lib/keyboard-shortcuts";
+import { WHATS_NEW_SEEN_VERSION_KEY } from "../modals/WhatsNewModal";
 
 // ─── Step definitions ─────────────────────────
 
@@ -700,6 +702,12 @@ function OnboardingTutorialInner() {
   }, [updateRect]);
 
   const finish = useCallback(() => {
+    // A new user has just met this release in the tour, so What's New must not open right after it.
+    try {
+      window.localStorage.setItem(WHATS_NEW_SEEN_VERSION_KEY, APP_VERSION);
+    } catch {
+      // Storage may be unavailable in private or restricted browser contexts.
+    }
     setCompleted(true);
     trackAchievement.mutate("tutorial_completed");
   }, [setCompleted, trackAchievement]);
