@@ -63,7 +63,7 @@ const server = createServer(async (request, response) => {
     const memory = state.memories?.find((item: { id: string }) => item.id === id);
     const answer = memory
       ? /TARGET_SCENE|Cobalt refuge/.test(memory.text)
-      : question.includes("clearly START") && !!message?.content.startsWith("SCENE_CHANGE");
+      : question.includes("cut to a new scene") && !!message?.content.startsWith("SCENE_CHANGE");
     response.end(JSON.stringify(yes(answer ? 0.95 : 0.05)));
     return;
   }
