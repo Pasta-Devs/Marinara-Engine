@@ -688,6 +688,9 @@ test.describe("phone bubbles", () => {
           Math.abs(worldStart.x - playerStart.x) >= worldStart.width ||
             Math.abs(worldStart.y - playerStart.y) >= worldStart.height,
         ).toBe(true);
+        // #7320: World State's banner grows left from its slot, so it stays in the top row beside the others.
+        await expect(world).toHaveAttribute("data-banner", "true");
+        expect(Math.abs(worldStart.y - playerStart.y), "the banner shares the top row").toBeLessThanOrEqual(1);
         await dragBubble(page, world, { x: 40, y: 240 });
         const placed = await box(world);
         await expect

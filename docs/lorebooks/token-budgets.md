@@ -49,13 +49,16 @@ Marinara goes down that list and adds each entry that still fits. If an entry wo
 
 You do not have to guess which entries were dropped. Open **Chat Settings** and expand the **Active Context** section. It shows the live result of the most recent lorebook scan.
 
-If any matching entries were skipped, an amber notice appears at the top. It reads "N matching lore entries were skipped by token budget." Expand it to see each skipped entry.
+If any matching entries were skipped, a notice in your theme's accent color appears at the top. It reads "N matching lore entries were skipped by token budget." Under that, it names each budget that skipped entries and where to change it. Expand it to see each skipped entry.
 
 Each skipped entry names the lorebook it came from and why it was blocked. The reason is one of these:
 
 - **lorebook budget**: the entry did not fit that single lorebook's **Token Budget**.
 - **chat budget**: the entry did not fit the chat-wide **Lorebook Token Budget**.
 - **lorebook and chat budgets**: both caps were already full.
+- **current-location context cap**: the entry is lore attached to the current location, which has its own limit of 2,048 tokens. No setting changes it, but the entry can still come in through its own keywords.
+
+An entry whose text is blank, or that macros turn into nothing, is not listed. It has nothing to add, so no budget skipped it. Its macros still run, so a `{{setvar}}` in it still sets the variable. With both token budgets at **0**, only the current-location limit can list skipped entries here.
 
 Expand a skipped entry to see more detail. It shows the matched keywords, the estimated token size, and how much of the budget was already used. If large lorebooks keep getting skipped, **Active Context** suggests the **Knowledge Retrieval** or **Knowledge Router** agents. These often fit big lorebooks better than raising your caps.
 

@@ -48,6 +48,8 @@ interface AdvancedParametersSectionProps {
   connectionId: string | null;
   connections: AdvancedConnection[];
   contextMessageLimit: number | null | undefined;
+  /** Roleplay Advanced Memory sizes the history by its token cap and does not use the message limit. */
+  advancedMemoryManagesHistory: boolean;
   excludePastReasoning: boolean | undefined;
   imageCaptioningEnabled: boolean | undefined;
   imageCaptioningConnectionId: string | null | undefined;
@@ -68,6 +70,7 @@ export function AdvancedParametersSection({
   connectionId,
   connections,
   contextMessageLimit,
+  advancedMemoryManagesHistory,
   excludePastReasoning,
   imageCaptioningEnabled,
   imageCaptioningConnectionId,
@@ -252,6 +255,11 @@ export function AdvancedParametersSection({
               {localizeUi("ui.agents.agenteditor.messages")}
             </span>
           </div>
+        )}
+        {contextMessageLimit && advancedMemoryManagesHistory && (
+          <p className="px-1 text-[0.625rem] text-[var(--muted-foreground)]">
+            {localizeUi("ui.chatSettings.advancedparameterssection.contextMessageLimitAdvancedMemory")}
+          </p>
         )}
         <SettingsSwitch
           label={localizeUi("ui.chatSettings.advancedparameterssection.excludePastReasoning")}

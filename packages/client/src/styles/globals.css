@@ -668,7 +668,9 @@
                 .mari-drawer__popout, .mari-drawer__arrow, .mari-drawer__body;
                 .mari-drawer-ghost (the preview while a drawer is dragged out);
                 .mari-window-bubble (a minimized window's button, and every
-                phone bubble: [data-presentation="sheet"]) and
+                phone bubble: [data-presentation="sheet"]), .mari-window-bubble__banner
+                (a bubble's live summary, World State's date and time, on
+                [data-banner="true"]) and
                 .mari-window-snap-guide (the line shown while a bubble snaps)
    Attributes:  [data-window="<id>"], [data-drawer="<id>"], [data-pinned],
                 [data-locked], [data-detached], [data-presentation="window|sheet"],
@@ -943,6 +945,20 @@
   .mari-window-bubble[data-presentation="sheet"] {
     width: var(--mari-window-bubble-size, 36px);
     height: var(--mari-window-bubble-size, 36px);
+  }
+
+  /* A bubble showing a live summary (World State's date, time and weather) is as wide as the summary. */
+  .mari-window-bubble[data-banner="true"] {
+    width: auto;
+    padding-inline: 0.5rem;
+  }
+
+  .mari-window-bubble__banner {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 0.25rem;
+    white-space: nowrap;
   }
 
   /* Touch gets a 44px tap area around every bubble, centred on it, without changing its look. */

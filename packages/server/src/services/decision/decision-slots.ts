@@ -184,6 +184,21 @@ function slotFailure(
 }
 
 /**
+ * Settles with null once the caller gives up, so a slot start is raced against it.
+ *
+ * A cold load can take minutes. A cancelled generation, or a caller with its own time
+ * limit such as Advanced Memory recall, must not sit behind it; the start carries on
+ * in the background so the next request finds the model ready.
+ */
+function whenAborted(signal: AbortSignal | undefined): Promise<null> {
+  return new Promise<null>((resolve) => {
+    if (!signal) return;
+    if (signal.aborted) resolve(null);
+    else signal.addEventListener("abort", () => resolve(null), { once: true });
+  });
+}
+
+/**
  * Bring a slot up and hand back what a decision request needs, or say why not.
  *
  * Returns a failure rather than throwing: a gate that cannot reach its slot must run
@@ -198,16 +213,19 @@ export async function resolveDecisionSlot(
   if (!description.available) return slotFailure({ slot, ...description });
 
   if (slot === "primary") {
-    let baseUrl: string;
+    let baseUrl: string | null;
     try {
       // forceStart, like the local sidecar provider does: choosing this slot as the
       // decision model is an explicit request for it to serve. Without it a user who
       // runs a local model but has trackers and game-scene analysis both off would
       // have their chosen decision model never start, and every gate fail open.
-      baseUrl = inspectOnly ? "" : await sidecarProcessService.ensureReady({ forceStart: true });
+      baseUrl = inspectOnly
+        ? ""
+        : await Promise.race([sidecarProcessService.ensureReady({ forceStart: true }), whenAborted(signal)]);
     } catch (error) {
       return slotFailure({ slot, reason: "stopped" }, { error });
     }
+    if (baseUrl === null) return slotFailure({ slot, reason: "stopped" }, { aborted: true });
     const status = sidecarModelService.getStatus();
     return {
       resolved: {
@@ -227,19 +245,10 @@ export async function resolveDecisionSlot(
   if (slot === "decision_sidecar") {
     const model = installedDecisionModel(decisionSidecarSettings());
     if (!model) return slotFailure({ slot, reason: "not_installed" });
-    // Raced against the caller's abort. A cold load takes up to three minutes, and a
-    // generation the user already cancelled must not sit behind it; the process keeps
-    // starting in the background so the next turn finds it ready.
+    // Raced against the caller's abort: a cold load takes up to three minutes.
     const baseUrl = inspectOnly
       ? ""
-      : await Promise.race([
-          decisionProcessService.ensureRunning(model),
-          new Promise<null>((resolve) => {
-            if (!signal) return;
-            if (signal.aborted) resolve(null);
-            else signal.addEventListener("abort", () => resolve(null), { once: true });
-          }),
-        ]);
+      : await Promise.race([decisionProcessService.ensureRunning(model), whenAborted(signal)]);
     // A cancelled request is not a failure: the start carries on in the background.
     if (!inspectOnly && !baseUrl)
       return slotFailure(
@@ -270,11 +279,14 @@ export async function resolveDecisionSlot(
   // its blob id is the identity rather than a guess from the configured name.
   let status = utilitySidecarService.getStatus();
   if (!inspectOnly && !status.ready) {
+    let started: typeof status | null;
     try {
-      status = await utilitySidecarService.ensureRunning();
+      started = await Promise.race([utilitySidecarService.ensureRunning(), whenAborted(signal)]);
     } catch (error) {
       return slotFailure({ slot, reason: "stopped" }, { error });
     }
+    if (!started) return slotFailure({ slot, reason: "stopped" }, { aborted: true });
+    status = started;
   }
   if (!inspectOnly && (!status.ready || !status.baseUrl))
     return slotFailure({ slot, reason: "stopped" }, { detail: status.error });

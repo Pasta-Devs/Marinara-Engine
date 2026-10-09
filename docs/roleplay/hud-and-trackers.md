@@ -6,6 +6,8 @@ This guide explains the Roleplay trackers: the movable buttons and panels on pho
 
 On a phone, the HUD (heads-up display) gives you **World State** and **Player & Tracker** buttons. You can move them around the chat. Tap one to see live story details, such as the time, your stats, or who is present. Marinara keeps these values up to date as the story moves.
 
+Once World State has details to show, its button becomes a small banner that shows them at a glance: a location pin, a calendar with the day, a clock, the weather and the temperature.
+
 These tracker buttons stay separate from the **Chat tools** three-dot menu, which holds sections you have moved out of Chat Settings.
 
 On a computer, the trackers are not in the HUD row. They appear in the **Tracker Panel** while it is shown, and otherwise in the **Trackers** window described below.
@@ -56,7 +58,7 @@ While agents are working on the chat, a small dot shows beside the window's titl
 
 Each tracker has its own collapsible section, called a drawer. Click a drawer's header to collapse it to the tracker's small widget preview, and click it again to see the whole tracker. Marinara remembers which drawers you collapsed.
 
-A tracker can also get its own window: click the pop-out button beside its arrow, or drag its title out of the Trackers window. The new window starts unpinned. Pin it to keep it open when you click elsewhere or close the Trackers window. Its **X** shrinks it to a small button with the tracker's icon, which reopens it where you left it. Click **Put back in Trackers** (the curved arrow just left of **X**), or drag it back onto the Trackers window, to return it. Each chat remembers which trackers are out and where.
+A tracker can also get its own window: click the pop-out button beside its arrow, or drag its title out of the Trackers window. The new window starts unpinned. Pin it to keep it open when you click elsewhere or close the Trackers window. Its **X** shrinks it to a small button with the tracker's icon, which reopens it where you left it. **World State** shrinks to a banner instead, with the same pin, calendar, clock, weather and temperature as the phone button, so the story's date and time stay in view. Drag it anywhere, such as the top middle of the chat. Click **Put back in Trackers** (the curved arrow just left of **X**), or drag it back onto the Trackers window, to return it. Each chat remembers which trackers are out and where.
 
 At the bottom, **Agent activity** shows what the chat's agents did. From there you can re-run the trackers, retry agents that failed, stop running agents, and **Clear Trackers**. The Tracker Panel has the same section at its bottom.
 

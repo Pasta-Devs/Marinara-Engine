@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { AlertTriangle } from "lucide-react";
+import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import type { DecisionLocalSlot, DecisionModelOption, DecisionThinkingMode } from "@marinara-engine/shared";
 import { DECISION_THINKING_MODES } from "@marinara-engine/shared";
@@ -18,6 +19,36 @@ import {
 import { useTestConnection } from "../../hooks/use-connections";
 import { decisionConnectionTestMessage } from "../../lib/decision-test-message";
 import { useUIStore } from "../../stores/ui.store";
+
+/** Why an entry cannot serve, in the user's language, with the detail the server gave. */
+function decisionUnavailableReason(t: TFunction, entry: DecisionModelOption) {
+  return entry.unavailable
+    ? t(`connections.decision.unavailable.${entry.unavailable}`, {
+        defaultValue: t("connections.decision.unavailableSuffix"),
+        detail: entry.detail ?? "",
+      })
+    : "";
+}
+
+/**
+ * One row of a Decision model dropdown, also used by Advanced Memory's own choice.
+ *
+ * A native <option> cannot be styled, so an unavailable entry carries its reason in
+ * the label text. Composed here rather than in JSX so the separator is not a stray
+ * untranslated string in the markup.
+ */
+export function decisionModelOption(t: TFunction, entry: DecisionModelOption) {
+  return (
+    <option key={entry.id} value={entry.id} disabled={!!entry.unavailable}>
+      {entry.unavailable
+        ? t("connections.decision.unavailableOption", {
+            label: entry.label,
+            reason: decisionUnavailableReason(t, entry),
+          })
+        : entry.label}
+    </option>
+  );
+}
 
 /**
  * The one place the decision model is chosen.
@@ -66,14 +97,7 @@ export function DecisionDefaultControl() {
   const connections = entries.filter((entry) => entry.group === "connection");
   const busy = select.isPending || testSlot.isPending || testConnection.isPending;
 
-  /** Why an entry cannot serve, in the user's language, with the detail the server gave. */
-  const reasonFor = (entry: DecisionModelOption) =>
-    entry.unavailable
-      ? t(`connections.decision.unavailable.${entry.unavailable}`, {
-          defaultValue: t("connections.decision.unavailableSuffix"),
-          detail: entry.detail ?? "",
-        })
-      : "";
+  const reasonFor = (entry: DecisionModelOption) => decisionUnavailableReason(t, entry);
 
   const change = async (id: string) => {
     setFeedback("");
@@ -123,16 +147,7 @@ export function DecisionDefaultControl() {
     });
   };
 
-  // A native <option> cannot be styled, so an unavailable entry carries its reason in
-  // the label text. Composed here rather than in JSX so the separator is not a stray
-  // untranslated string in the markup.
-  const option = (entry: DecisionModelOption) => (
-    <option key={entry.id} value={entry.id} disabled={!!entry.unavailable}>
-      {entry.unavailable
-        ? t("connections.decision.unavailableOption", { label: entry.label, reason: reasonFor(entry) })
-        : entry.label}
-    </option>
-  );
+  const option = (entry: DecisionModelOption) => decisionModelOption(t, entry);
 
   return (
     <div className="space-y-2 py-3">

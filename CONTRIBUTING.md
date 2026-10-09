@@ -244,6 +244,7 @@ The overlay is not a substitute for this guide. When instructions conflict, foll
 
 - Target the `staging` branch. The GitHub UI defaults to `main`; change the base before submitting. See [Branches](#branches).
 - Wait for every required check and the CodeRabbit review to complete. Outside and first-time contributors must also obtain an approving review from `SpicyMarinara`.
+- CodeRabbit can fix common review findings on your PR when you comment `@coderabbitai run changelog` (adds the `CHANGELOG.md` entry), `@coderabbitai run localize` (moves new UI text into `en.json`), `@coderabbitai run theme colours` (swaps hard-coded colours for theme tokens) or `@coderabbitai resolve merge conflict`. Check what it pushes before you ask for review.
 - Link the issue or feature request your PR addresses. If there isn't one yet, open one first (see [Before You Open a Pull Request](#before-you-open-a-pull-request)).
 - Keep PRs focused. Separate unrelated refactors from user-facing fixes or documentation work.
 - Explain the why clearly in the PR description. Reviewers should understand the user problem, regression, or tradeoff being addressed, not just the implementation summary.

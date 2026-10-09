@@ -5,7 +5,8 @@
 // a drawer: collapsed it shows the tracker's miniature display, expanded its full
 // box. Agent activity sits at the bottom. Closing the window minimizes it to a button.
 // The Chat Settings dice switches between this window and the Tracker Panel. Each drawer
-// can pop out into its own window, which stays while the Trackers window is closed.
+// can pop out into its own window, which stays while the Trackers window is closed. Minimized,
+// World State's window keeps its date, time and weather in view as a banner.
 // Beholder's launcher gets a control window of its own (a bubble), Tracker Panel or not.
 // ──────────────────────────────────────────────
 import { useCallback, useEffect, type ReactNode } from "react";
@@ -61,6 +62,7 @@ import {
   QuestsMiniature,
   RoleplayTrackerCapability,
   TRACKER_MINIATURE_TILE,
+  WorldStateBanner,
   WorldStateMiniature,
   getWorldMiniatureTileClass,
   getWorldTrackerDisplay,
@@ -192,6 +194,7 @@ function TrackerDrawer({
   title,
   icon,
   summary,
+  banner,
   defaultOpen = true,
   children,
 }: {
@@ -199,6 +202,7 @@ function TrackerDrawer({
   title: string;
   icon: ReactNode;
   summary?: ReactNode;
+  banner?: ReactNode;
   defaultOpen?: boolean;
   children: (collapse: () => void) => ReactNode;
 }) {
@@ -209,6 +213,7 @@ function TrackerDrawer({
       title={title}
       icon={icon}
       summary={summary}
+      banner={banner}
       open={open}
       onOpenChange={setOpen}
       bodyClassName="px-0 pb-1 pt-0"
@@ -358,6 +363,7 @@ function TrackerWindow({
                   <WorldStateMiniature display={worldDisplay} />
                 </span>
               }
+              banner={worldDisplay.hasWorldState && <WorldStateBanner world={world} display={worldDisplay} />}
             >
               {(collapse) => (
                 <CombinedWorldPanel

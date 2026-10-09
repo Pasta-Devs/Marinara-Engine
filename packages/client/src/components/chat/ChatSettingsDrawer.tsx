@@ -10016,6 +10016,7 @@ export function ChatSettingsDrawer({
               connectionId={chat.connectionId ?? null}
               connections={chatGenerationConnectionsList}
               contextMessageLimit={metadata.contextMessageLimit as number | null | undefined}
+              advancedMemoryManagesHistory={advancedMemoryEnabled}
               excludePastReasoning={metadata.excludePastReasoning as boolean | undefined}
               imageCaptioningEnabled={metadata.imageCaptioningEnabled as boolean | undefined}
               imageCaptioningConnectionId={

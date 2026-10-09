@@ -103,6 +103,8 @@ export interface FloatingWindowProps {
    */
   minimizable?: {
     icon: ReactNode;
+    /** A live summary the bubble shows instead of `icon`, as wide as it needs (World State's date and time). */
+    banner?: ReactNode;
     label: string;
     getPhoneBubble?: (bounds: WindowBounds, bubbleSize: number) => WindowPoint;
     bubbleBadge?: ReactNode;
@@ -158,7 +160,7 @@ export function findFreeBubble(
       const saved = placements[element.dataset.window ?? ""];
       if (!saved) return rect;
       // Earlier siblings may have reserved a slot in this layout effect before React paints it.
-      const point = clampWindowBubble(saved, bounds, Math.max(rect.width, rect.height));
+      const point = clampWindowBubble(saved, bounds, { width: rect.width, height: rect.height });
       return { left: point.x, top: point.y, right: point.x + rect.width, bottom: point.y + rect.height };
     });
   const free = (x: number, y: number) =>
@@ -753,6 +755,7 @@ export function FloatingWindow({
           size={PHONE_BUBBLE_SIZE_PX}
           onSizeChange={setBubbleSize}
           icon={minimizable.icon}
+          banner={minimizable.banner}
           label={minimizable.label}
           locked={layout.locked}
           zIndex={PHONE_BUBBLE_Z_INDEX}
@@ -770,6 +773,7 @@ export function FloatingWindow({
           bounds={bounds}
           onSizeChange={setBubbleSize}
           icon={minimizable.icon}
+          banner={minimizable.banner}
           label={minimizable.label}
           locked={layout.locked}
           zIndex={FLOATING_WINDOW_Z_BASE}

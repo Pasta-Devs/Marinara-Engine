@@ -117,3 +117,86 @@ test("library portraits keep their proportions in compact and full layouts", asy
     await request.delete(`/api/characters/${character.id}`);
   }
 });
+
+test("avatar crop handles stay whole and draggable on a square image", async ({ page, request }, testInfo) => {
+  await page.route("**/api/app-settings/ui", (route) =>
+    route.fulfill({ json: route.request().method() === "GET" ? { value: null } : { success: true } }),
+  );
+  await seedUIState(page, {
+    hasCompletedOnboarding: true,
+    sidebarOpen: false,
+    rightPanelOpen: false,
+    professorMariNavigationEnabled: false,
+  });
+  await page.addInitScript(
+    (version: string) => localStorage.setItem("marinara:whats-new:seen-version", version),
+    JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version,
+  );
+  const avatarPath = "/api/avatars/file/square-crop-handles.png";
+  await page.route(`**${avatarPath}`, (route) =>
+    route.fulfill({
+      contentType: "image/svg+xml",
+      body: '<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024"><rect width="1024" height="1024" fill="#526679"/><circle cx="512" cy="420" r="260" fill="#e2b78b"/></svg>',
+    }),
+  );
+  const response = await request.post("/api/characters", {
+    data: { avatarPath, data: { name: "Square crop handles" } },
+  });
+  expect(response.ok(), await response.text()).toBeTruthy();
+  const character = (await response.json()) as { id: string };
+  try {
+    await page.goto("/");
+    await page.evaluate(async (id) => {
+      const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+      useUIStore.getState().openCharacterDetail(id);
+    }, character.id);
+    const frame = page.locator("[data-avatar-crop-frame]");
+    await expect(frame).toBeVisible();
+    await frame.evaluate((element) => element.scrollIntoView({ block: "center" }));
+
+    // A square image starts with the crop on every image edge, where the handles were cut to a sliver (#7323).
+    for (const pos of ["tl", "tr", "bl", "br"] as const) {
+      const handle = page.locator(`[data-avatar-crop-handle="${pos}"]`);
+      const visible = await handle.evaluate((element) => {
+        const bounds = element.getBoundingClientRect();
+        const corners: [number, number][] = [
+          [bounds.left + 1, bounds.top + 1],
+          [bounds.right - 1, bounds.top + 1],
+          [bounds.left + 1, bounds.bottom - 1],
+          [bounds.right - 1, bounds.bottom - 1],
+        ];
+        return {
+          size: Math.min(bounds.width, bounds.height),
+          cornersOnTop: corners.map(([x, y]) => document.elementFromPoint(x, y) === element),
+        };
+      });
+      expect(visible.size, `${pos} handle size`).toBeGreaterThanOrEqual(16);
+      expect(visible.cornersOnTop, `${pos} handle must be whole and on top`).toEqual([true, true, true, true]);
+    }
+
+    // The handles' touch targets reach past the image; on a phone they must not make the editor scroll sideways.
+    const sidewaysScroller = await frame.evaluate((element) => {
+      for (let node = element.parentElement; node; node = node.parentElement) {
+        const scrolls = /auto|scroll/.test(getComputedStyle(node).overflowX);
+        if (scrolls && node.scrollWidth > node.clientWidth) {
+          return `${node.className} ${node.scrollWidth}>${node.clientWidth}`;
+        }
+      }
+      return null;
+    });
+    expect(sidewaysScroller, "the crop widget must not make the editor scroll sideways").toBeNull();
+
+    // Grab the outer edge of the bottom-right handle, the part that used to be clipped, and shrink the crop.
+    const before = await frame.boundingBox();
+    const grip = await page.locator('[data-avatar-crop-handle="br"]').boundingBox();
+    expect(before && grip).toBeTruthy();
+    await page.mouse.move(grip!.x + grip!.width - 2, grip!.y + grip!.height - 2);
+    await page.mouse.down();
+    await page.mouse.move(grip!.x - 80, grip!.y - 80, { steps: 8 });
+    await page.mouse.up();
+    await expect.poll(async () => (await frame.boundingBox())?.width ?? 0).toBeLessThan(before!.width - 60);
+    await page.screenshot({ path: testInfo.outputPath("square-crop-handles.png"), animations: "disabled" });
+  } finally {
+    await request.delete(`/api/characters/${character.id}`);
+  }
+});

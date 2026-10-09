@@ -26,6 +26,7 @@ const validationErrors = new Set([
   "The continuity summary budget must be smaller than the total context limit",
   "Select a narrator from this chat's characters",
   "Select a saved Decision connection for Advanced Memory",
+  "That local model cannot answer decisions right now",
   "A character knowledge range points to a message that no longer exists",
   "Memory text must contain between 1 and 500000 characters",
   "Memory update must include content, timeframe, enabled or audience",

@@ -5,6 +5,8 @@ import {
   normalizeAdvancedMemorySettings,
   type AdvancedMemorySettings as MemorySettings,
 } from "@marinara-engine/shared";
+import { useDecisionOptions } from "../../hooks/use-decision-model";
+import { decisionModelOption } from "../connections/DecisionDefaultControl";
 import {
   advancedMemorySceneNumbers,
   markAdvancedMemoryNotified,
@@ -57,6 +59,9 @@ export function AdvancedMemorySettings({
     (savedConnections.data ?? []) as Array<{ id: string; name: string; provider: string; model?: string }>
   ).filter((connection) => connection.provider === "decision");
   const settings = status.data?.settings ?? normalizeAdvancedMemorySettings(metadataSettings);
+  // The local models the global Decision model offers, greyed out with the reason when one can't answer (#7326).
+  const decisionOptions = useDecisionOptions(settings.enabled && settings.decisionEnabled);
+  const localDecisionModels = (decisionOptions.data?.options ?? []).filter((entry) => entry.group === "local");
   const [confirmKnowledge, setConfirmKnowledge] = useState(false);
   const [knowledgeCharacterIds, setKnowledgeCharacterIds] = useState<string[]>([]);
   const [knowledgeChoices, setKnowledgeChoices] = useState<Record<string, string>>({});
@@ -332,29 +337,56 @@ export function AdvancedMemorySettings({
                 <span>{t("chat.advancedMemory.decisionConnection")}</span>
                 <select
                   value={settings.decisionConnectionId ?? ""}
-                  disabled={disabled || savedConnections.isLoading || savedConnections.isError}
+                  disabled={
+                    disabled ||
+                    savedConnections.isLoading ||
+                    savedConnections.isError ||
+                    decisionOptions.isLoading ||
+                    decisionOptions.isError
+                  }
                   className={fieldClass}
                   onChange={(event) => save({ decisionConnectionId: event.target.value || null })}
                 >
                   <option value="">{t("chat.advancedMemory.chooseDecisionConnection")}</option>
                   {settings.decisionConnectionId &&
-                    !decisionConnections.some((connection) => connection.id === settings.decisionConnectionId) && (
+                    ![...localDecisionModels, ...decisionConnections].some(
+                      (choice) => choice.id === settings.decisionConnectionId,
+                    ) && (
                       <option value={settings.decisionConnectionId}>
                         {t("chat.advancedMemory.missingConnection")}
                       </option>
                     )}
-                  {decisionConnections.map((connection) => (
-                    <option key={connection.id} value={connection.id}>
-                      {connection.name}
-                      {connection.model ? <> · {connection.model}</> : null}
-                    </option>
-                  ))}
+                  {localDecisionModels.length > 0 && (
+                    <optgroup label={t("connections.decision.localGroup")}>
+                      {localDecisionModels.map((entry) => decisionModelOption(t, entry))}
+                    </optgroup>
+                  )}
+                  {decisionConnections.length > 0 && (
+                    <optgroup label={t("connections.decision.connectionGroup")}>
+                      {decisionConnections.map((connection) => (
+                        <option key={connection.id} value={connection.id}>
+                          {connection.name}
+                          {connection.model ? <> · {connection.model}</> : null}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
                 </select>
               </label>
-              {savedConnections.isError && (
-                <p role="alert" className="text-xs text-[var(--destructive)]">
-                  {t("chat.advancedMemory.failed", { message: savedConnections.error.message })}{" "}
-                  <button type="button" className="underline" onClick={() => void savedConnections.refetch()}>
+              {/* Either list failing leaves the choice incomplete; the steady accent does not pulse. */}
+              {(savedConnections.isError || decisionOptions.isError) && (
+                <p role="alert" className="text-xs text-[var(--marinara-app-accent-static)]">
+                  {t("chat.advancedMemory.failed", {
+                    message: (savedConnections.error ?? decisionOptions.error)?.message,
+                  })}{" "}
+                  <button
+                    type="button"
+                    className="underline"
+                    onClick={() => {
+                      if (savedConnections.isError) void savedConnections.refetch();
+                      if (decisionOptions.isError) void decisionOptions.refetch();
+                    }}
+                  >
                     {t("chat.advancedMemory.retry")}
                   </button>
                 </p>

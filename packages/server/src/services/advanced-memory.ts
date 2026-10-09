@@ -7,6 +7,7 @@ import {
   CHAT_SUMMARY_PROMPT_SETTINGS_KEY,
   DEFAULT_CHAT_SUMMARY_PROMPT,
   DEFAULT_DECISION_CALIBRATION,
+  decisionLocalSlotForId,
   estimateChatSummaryTokens,
   sliceTextToTokenBudget,
   normalizeAdvancedMemorySettings,
@@ -62,6 +63,7 @@ import { resolveMemoryRecallEmbeddingSource } from "./memory-recall-embedding.js
 import { recallNames, recallTerms, scoreRecallTerms } from "./advanced-memory-ranking.js";
 import { resolveDecisionBackend } from "./decision/decision-default.js";
 import { resolveDecisionConnection } from "./decision/decision-connection.js";
+import { describeDecisionSlot } from "./decision/decision-slots.js";
 import {
   askDecisionPresence,
   detectDecisionSceneBoundaries,
@@ -1108,7 +1110,9 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
     const id = ctx.settings.decisionConnectionId;
     return resolveDecisionBackend(
       {
-        getLocalDefault: async () => null,
+        // A local model's id resolves as that local model, exactly as the global Decision
+        // model does; any other id is a connection row (#7326).
+        getLocalDefault: async () => id,
         getThinkingPreGeneration: async () => false,
         getDefaultConnection: () => connections.getWithKey(id),
         getConnectionWithKey: (connectionId) => connections.getWithKey(connectionId),
@@ -4327,10 +4331,15 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
     const helper = await connection(ctx);
     const warnings: string[] = [];
     if (ctx.settings.decisionEnabled) {
-      const row = ctx.settings.decisionConnectionId
-        ? await connections.getWithKey(ctx.settings.decisionConnectionId)
-        : null;
-      if (!row || !(await resolveDecisionConnection(row, (id) => connections.getWithKey(id))).connection)
+      const id = ctx.settings.decisionConnectionId;
+      const slot = decisionLocalSlotForId(id);
+      const row = id && !slot ? await connections.getWithKey(id) : null;
+      // A stopped local model still counts: it starts when asked, as for the global Decision model.
+      if (
+        slot
+          ? !describeDecisionSlot(slot).available
+          : !row || !(await resolveDecisionConnection(row, (other) => connections.getWithKey(other))).connection
+      )
         warnings.push("decision-connection-unavailable");
     }
     if (ctx.metadata.enableAgents === true && strings(ctx.metadata.activeAgentIds).includes("long-term-memory"))
@@ -4422,7 +4431,12 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
 
   async function updateSettings(chatId: string, patch: unknown): Promise<AdvancedMemoryStatus> {
     const incoming = advancedMemorySettingsSchema.partial().parse(patch);
-    if (incoming.decisionConnectionId) {
+    const localSlot = decisionLocalSlotForId(incoming.decisionConnectionId);
+    if (localSlot) {
+      // The same rule as choosing the global Decision model: a local model that cannot answer is refused.
+      if (!describeDecisionSlot(localSlot).available)
+        throw new Error("That local model cannot answer decisions right now");
+    } else if (incoming.decisionConnectionId) {
       const selected = await connections.getById(incoming.decisionConnectionId);
       if (!selected || selected.provider !== "decision")
         throw new Error("Select a saved Decision connection for Advanced Memory");
