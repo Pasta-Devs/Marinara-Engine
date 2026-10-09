@@ -278,3 +278,84 @@ test("UX-13: Max output tokens and Memory Recall are found in search and open Ch
     await request.delete(`/api/chats/${chat.id}`);
   }
 });
+
+test("Search lists none of Professor Mari's changes; the pill and the way into her window stay", async ({
+  page,
+}, testInfo) => {
+  const width = testInfo.project.name.includes("mobile") ? 390 : 1440;
+  const now = Date.now();
+  const expiry = { requestedAt: new Date(now).toISOString(), expiresAt: new Date(now + 600_000).toISOString() };
+  // Every kind Search used to list as a row: an install, a file write, an applied delete and a held change.
+  await page.route("**/api/professor-mari/workspace/status", async (route) => {
+    const status = await (await route.fetch()).json();
+    await route.fulfill({
+      json: {
+        ...status,
+        pendingApprovals: [
+          {
+            kind: "dependency_install",
+            id: "dep-e2e",
+            sessionId: "e2e",
+            packageName: "nanoid",
+            version: "5.1.11",
+            target: "server",
+            dependencyType: "dependency",
+            integrity: "sha512-e2e",
+            tarballUrl: "https://registry.npmjs.org/nanoid/-/nanoid-5.1.11.tgz",
+            directDependencies: [],
+            reason: "Generate stable local IDs.",
+            ...expiry,
+          },
+          {
+            kind: "sensitive_file",
+            id: "file-e2e",
+            sessionId: "e2e",
+            path: "package.json",
+            changeType: "update",
+            beforeHash: "sha256:a",
+            afterHash: "sha256:b",
+            preview: "Before\n\nAfter",
+            previewTruncated: false,
+            reason: "Add a launcher command.",
+            ...expiry,
+          },
+          {
+            kind: "applied_review",
+            id: "delete-e2e",
+            sessionId: "e2e",
+            affectedRows: 1,
+            affectedTables: { characters: 1 },
+            diffPreview: [{ table: "characters", id: "c1", action: "delete", before: { name: "Jennifer" } }],
+            ...expiry,
+          },
+          {
+            kind: "approval",
+            id: "held-e2e",
+            sessionId: "e2e",
+            affectedRows: 1,
+            affectedTables: { prompts: 1 },
+            diffPreview: [{ table: "prompts", id: "p1", action: "update", before: { name: "Story preset" } }],
+            ...expiry,
+          },
+        ],
+      },
+    });
+  });
+  await page.reload();
+  await expect(page.locator('[data-component="TopBar.MariStatus"]')).toBeVisible();
+  await openOmnibar(page);
+  const omnibar = page.locator('[data-component="GlobalOmnibar"]');
+  const input = omnibar.getByRole("searchbox", { name: "Search Marinara" });
+  const changeRows = omnibar.locator(
+    '[data-result-id^="mari-approval:"], [data-command-center-result-row]:has-text("wants to"), [data-command-center-result-row]:has-text("Put back"), [data-command-center-result-row]:has-text("Don\'t apply")',
+  );
+  await expect(omnibar.locator('[data-result-id="ask-professor-mari"]').first()).toBeVisible();
+  await expect(changeRows).toHaveCount(0);
+  for (const query of ["nanoid", "package.json", "jennifer", "story preset", "pending approval"]) {
+    await input.fill(query);
+    await expect(omnibar.locator("[data-command-center-result-row]").first()).toBeVisible();
+    await expect(changeRows).toHaveCount(0);
+  }
+  await input.fill("");
+  await omnibar.screenshot({ path: shotPath("no-change-rows", width) });
+});
