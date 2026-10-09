@@ -90,8 +90,9 @@
   from {
     background-position: 0% 0;
   }
+  /* Four steps of a third each land on the frame edges 0, 33.3, 66.7 and 100 %. */
   to {
-    background-position: 100% 0;
+    background-position: 133.333333% 0;
   }
 }
 
