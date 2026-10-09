@@ -1033,15 +1033,24 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
   // effect can flush it on close without losing the final edit.
   const sessionRef = useRef(session);
   sessionRef.current = session;
+  // Set when the typed text went to Mari; the next typed character clears it.
+  const handedOffQueryRef = useRef(false);
   useEffect(() => {
     const timer = window.setTimeout(() => writeCommandCenterSessionState(session), 250);
     return () => window.clearTimeout(timer);
   }, [session]);
   // Closing always persists the list. Mari is a place you go, not a place you
   // are returned to, and the pane is the one field that must not survive.
+  // A question handed to Mari is hers now, so closing after a hand-off clears it.
   useEffect(
     () => () => {
-      writeCommandCenterSessionState({ ...sessionRef.current, pane: "results" });
+      const { pane: closedPane, query: closedQuery } = sessionRef.current;
+      const handedOff = closedPane === "mari" || handedOffQueryRef.current;
+      writeCommandCenterSessionState({
+        ...sessionRef.current,
+        pane: "results",
+        query: handedOff ? "" : closedQuery,
+      });
     },
     [],
   );
@@ -1167,6 +1176,7 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
   /** Every route into the Work pane goes through here, so none forgets a flag. */
   const enterMariPane = (context?: ProfessorMariAskContext, submitDraft = false, draftOverride?: string) => {
     startFieldFlight();
+    handedOffQueryRef.current = true;
     // Set here, not in buildAskContext: that also runs while rendering, and would clear the mark first.
     chatPendingForMariRef.current = context && !context.activeChat && activeChatId ? activeChatId : null;
     if (context) {
@@ -2081,6 +2091,7 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
                     ref={inputRef}
                     value={query}
                     onChange={(event) => {
+                      handedOffQueryRef.current = false;
                       setQuery(event.target.value);
                       setFilter("all");
                       setPane("results");
