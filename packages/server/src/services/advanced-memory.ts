@@ -2794,10 +2794,9 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
     )
       return false;
     const choices = object(decision).ends;
-    // A scene can end on a checked message, or just before one that starts a new scene (#7371).
-    const allowedEnds = new Set(
-      request.messages.flatMap((message) => [message.messageNumber, message.messageNumber - 1]),
-    );
+    // A scene can end on a checked message, or on the message just before them when the first one starts a
+    // new scene (#7371). Never on one left out of the request, such as a message a tracker's character can't see.
+    const allowedEnds = new Set([windowStart, ...request.messages.map((message) => message.messageNumber)]);
     const validEnd = (value: unknown) => Number.isInteger(value) && allowedEnds.has(Number(value));
     if (!Array.isArray(choices) || choices.some((choice) => !validEnd(object(choice).messageNumber)))
       throw new Error("The scene helper returned an invalid scene decision; retry the post-generation check");
@@ -2963,11 +2962,15 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
             }
           }
           if (decisionStarts !== null) {
-            // A scene that starts at message index N ends at message number N, the message before it.
+            // A scene that starts on a checked message ends on the checked message before it, or, for the
+            // first one, on the message just before the check.
             const starts = new Set(decisionStarts);
+            const checked = request.messages;
             decision = {
-              ends: ctx.messages.flatMap((message, index) =>
-                index > 0 && starts.has(message.id) ? [{ messageNumber: index }] : [],
+              ends: checked.flatMap((message, position) =>
+                starts.has(message.messageId)
+                  ? [{ messageNumber: position > 0 ? checked[position - 1]!.messageNumber : message.messageNumber - 1 }]
+                  : [],
               ),
             };
           } else if (

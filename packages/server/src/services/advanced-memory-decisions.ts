@@ -208,8 +208,7 @@ export async function detectDecisionSceneStarts(
     diagnostics.threshold = threshold;
   }
   const indexes = new Map(transcript.map((entry, index) => [entry.messageId, index]));
-  // A message with nothing before it has nothing to cut away from.
-  const candidates = candidateIds.filter((id) => (indexes.get(id) ?? 0) > 0);
+  const candidates = candidateIds.filter((id) => indexes.has(id));
   const selected: string[] = [];
   for (let offset = 0; offset < candidates.length; offset += MEMORY_DECISION_SCENE_GROUP) {
     const ids = candidates.slice(offset, offset + MEMORY_DECISION_SCENE_GROUP);
