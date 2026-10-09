@@ -539,6 +539,7 @@ import {
   buildAvailableSpriteCharacter,
   completeRequiredSpriteExpressionEntries,
   normalizeRequiredSpriteExpressionIds,
+  playerTurnAwaitsExpression,
   normalizeSpriteDisplayModes,
   validateSpriteExpressionEntries,
 } from "./generate/expression-agent-utils.js";
@@ -11401,12 +11402,16 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               },
             ]);
           }
-          // The persona needs an expression only on a turn the player wrote. Any other reply leaves it to the
-          // Expression Engine, so a persona who has left the scene is not shown again by "Only show active
-          // sprites" because an older message of theirs is still in the recent context.
+          // The persona needs an expression on the turn the player wrote, including its swipes and
+          // continuations. Later replies leave it to the Expression Engine, so a persona who has left the scene
+          // is not shown again by "Only show active sprites" while an older message of theirs is in context.
+          const replyIndex = allChatMessages.findIndex(
+            (message) => message.id === (input.regenerateMessageId ?? input.continueMessageId),
+          );
           if (
             userIdentityId &&
-            currentTurnUserMessageId &&
+            (currentTurnUserMessageId ||
+              playerTurnAwaitsExpression(allChatMessages, replyIndex >= 0 ? replyIndex : allChatMessages.length)) &&
             getLatestUserExpressionSource() &&
             Array.isArray(agentContext.memory._availableSprites)
           ) {

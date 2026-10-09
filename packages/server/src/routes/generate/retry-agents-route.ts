@@ -232,6 +232,7 @@ import {
   buildAvailableSpriteCharacter,
   completeRequiredSpriteExpressionEntries,
   normalizeRequiredSpriteExpressionIds,
+  playerTurnAwaitsExpression,
   normalizeSpriteDisplayModes,
   validateSpriteExpressionEntries,
 } from "./expression-agent-utils.js";
@@ -1407,11 +1408,10 @@ async function buildRetryAgentContext(args: {
       } else if (lastAssistant?.role === "user" && personaContext.identityId) {
         expressionTargetIds.add(personaContext.identityId);
       }
-      // As on generation, the persona needs an expression only when the retried reply answered a message
-      // the player wrote, not whenever one is still in the recent context.
-      const retriedIndex = agentContext.recentMessages.findIndex((message) => message.id === lastAssistant?.id);
-      const answered = retriedIndex > 0 ? agentContext.recentMessages[retriedIndex - 1] : undefined;
-      if (personaContext.identityId && answered?.role === "user" && answered.content.trim()) {
+      // As on generation, the persona needs an expression only while the retried reply belongs to the turn the
+      // player wrote. Read the history up to that reply, not the agents' trimmed context.
+      const retriedIndex = recentMessages.findIndex((message: any) => message.id === lastAssistant?.id);
+      if (personaContext.identityId && retriedIndex > 0 && playerTurnAwaitsExpression(recentMessages, retriedIndex)) {
         expressionTargetIds.add(personaContext.identityId);
       }
       const mergedRoleplayResponse =
