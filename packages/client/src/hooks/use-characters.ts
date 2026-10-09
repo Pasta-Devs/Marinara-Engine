@@ -25,6 +25,7 @@ import { achievementKeys, trackAchievementEvent } from "./use-achievements";
 import { cleanTrackerCardColorConfig } from "../lib/tracker-card-colors";
 import { personaCacheKeys, syncCachedPersona } from "../lib/persona-cache";
 import {
+  GREETING_IMAGE_BAKE_MAX_PER_REQUEST,
   PROFESSOR_MARI_ID,
   type CharacterData,
   type CharacterCatalogEntry,
@@ -916,6 +917,35 @@ export function useUploadCharacterGalleryImage(characterId: string) {
       }
 
       return successfulUploads.map((result) => result.value);
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: characterKeys.gallery(characterId) });
+    },
+  });
+}
+
+export type GreetingImageBakeResult = { url: string; file?: string; error?: string };
+
+/** Downloads web images into the character gallery, a few per request; a failed request fails only its own images. */
+export function useBakeCharacterGalleryImages(characterId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (urls: string[]) => {
+      const results: GreetingImageBakeResult[] = [];
+      for (let start = 0; start < urls.length; start += GREETING_IMAGE_BAKE_MAX_PER_REQUEST) {
+        const batch = urls.slice(start, start + GREETING_IMAGE_BAKE_MAX_PER_REQUEST);
+        try {
+          const response = await api.post<{ results: GreetingImageBakeResult[] }>(
+            `/characters/${characterId}/gallery/bake`,
+            { urls: batch },
+          );
+          results.push(...response.results);
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          results.push(...batch.map((url) => ({ url, error: message })));
+        }
+      }
+      return results;
     },
     onSettled: () => {
       qc.invalidateQueries({ queryKey: characterKeys.gallery(characterId) });

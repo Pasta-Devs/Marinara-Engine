@@ -197,6 +197,19 @@ export function resolveCardAssetUrl(rawUrl: string): string {
   return rawUrl;
 }
 
+// <img src="card://..."> written as HTML, such as a greeting image saved to the
+// gallery (#7221). The tag stops at the next bracket so hostile text can't backtrack for long.
+const HTML_IMG_CARD_SRC_RE = /(<img\b[^<>]*?\ssrc\s*=\s*)(["'])(card:\/\/[^"'\s>]+)\2/gi;
+
+/** Resolve card:// image sources in HTML before sanitizing, which drops the unknown card: scheme. */
+export function resolveCardAssetImageSources(html: string): string {
+  // Resolved URLs are built from encoded segments, and unresolved ones match no quote, so the attribute stays intact.
+  return html.replace(
+    HTML_IMG_CARD_SRC_RE,
+    (_match, prefix: string, quote: string, url: string) => `${prefix}${quote}${resolveCardAssetUrl(url)}${quote}`,
+  );
+}
+
 export function buildCardAssetMarkdown(label: string, cardUrl: string): string {
   const alt = label.replace(/[\]\r\n]/g, " ").trim() || "image";
   return `![${alt}](${cardUrl})`;

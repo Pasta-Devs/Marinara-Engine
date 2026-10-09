@@ -26,6 +26,7 @@ import {
 } from "../../lib/roleplay-vn-tts";
 import {
   normalizeCardAssetImageSyntax,
+  resolveCardAssetImageSources,
   resolveCardAssetUrl,
   resolveSelfCardAssets,
   type ChatGalleryIndex,
@@ -1706,13 +1707,12 @@ function renderContent(
   // Convert markdown images to <img> before sanitization so DOMPurify validates them.
   // Keep tags minimal (no class, only loading/decoding attrs) — styling is via .mari-message-content img in CSS
   // to avoid the dialogue-bolding regex mangling attribute quotes.
-  const withImages = normalizeCardAssetImageSyntax(withBreaks).replace(
-    MD_IMAGE_HTML_RE,
-    (_m, alt: string, url: string) => {
+  const withImages = resolveCardAssetImageSources(
+    normalizeCardAssetImageSyntax(withBreaks).replace(MD_IMAGE_HTML_RE, (_m, alt: string, url: string) => {
       const src = escapeHtmlAttr(resolveCardAssetUrl(url));
       const safeAlt = escapeHtmlAttr(alt || "image");
       return `<img src="${src}" alt="${safeAlt}" loading="lazy" decoding="async">`;
-    },
+    }),
   );
 
   const clean = sanitizeChatHtml(withImages, { allowStyle: true });

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Modal } from "./Modal";
 import { dismissActiveDialog, resolveActiveDialog } from "../../lib/app-dialogs";
 import { useDialogStore } from "../../stores/dialog.store";
+import { getAvatarCropStyle } from "../../lib/utils";
 import { useTranslation as useUiTranslation } from "react-i18next";
 
 function getDialogTitle(kind: "alert" | "confirm" | "prompt" | "choice", title?: string) {
@@ -140,22 +141,58 @@ export function AppDialogRenderer() {
         {dialog.kind === "choice" && (
           <div className="space-y-2">
             <div className="max-h-[50vh] space-y-2 overflow-y-auto">
-              {dialog.choices.map((choice, i) => (
-                <button
-                  key={choice.key}
-                  type="button"
-                  onClick={() => resolveActiveDialog(choice.key)}
-                  className={`w-full rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                    choice.tone === "destructive" || choice.tone === "accent"
-                      ? "mari-chrome-control mari-chrome-control--primary"
-                      : i === 0
-                        ? "bg-[var(--primary)] text-white hover:bg-[var(--primary)]/85"
-                        : "ring-1 ring-[var(--border)] text-[var(--foreground)] hover:bg-[var(--accent)]"
-                  }`}
-                >
-                  {choice.label}
-                </button>
-              ))}
+              {dialog.choices.map((choice, i) =>
+                choice.avatar ? (
+                  <button
+                    key={choice.key}
+                    type="button"
+                    onClick={() => resolveActiveDialog(choice.key)}
+                    className="flex w-full items-center gap-3 rounded-lg border border-[var(--border)] px-3 py-2 text-left text-[var(--foreground)] transition-colors hover:bg-[var(--accent)]"
+                  >
+                    {choice.avatar.url ? (
+                      <span className="relative block h-9 w-9 shrink-0 overflow-hidden rounded-full">
+                        <img
+                          src={choice.avatar.url}
+                          alt=""
+                          loading="lazy"
+                          className="h-full w-full object-cover"
+                          style={getAvatarCropStyle(choice.avatar.crop)}
+                        />
+                      </span>
+                    ) : (
+                      <span
+                        aria-hidden="true"
+                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--accent)] text-xs font-bold"
+                      >
+                        {choice.label[0]}
+                      </span>
+                    )}
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-medium">{choice.label}</span>
+                      {choice.description && (
+                        <span className="block truncate text-xs italic text-[var(--muted-foreground)]">
+                          {choice.description}
+                        </span>
+                      )}
+                    </span>
+                  </button>
+                ) : (
+                  <button
+                    key={choice.key}
+                    type="button"
+                    onClick={() => resolveActiveDialog(choice.key)}
+                    className={`w-full rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                      choice.tone === "destructive" || choice.tone === "accent"
+                        ? "mari-chrome-control mari-chrome-control--primary"
+                        : i === 0
+                          ? "bg-[var(--primary)] text-white hover:bg-[var(--primary)]/85"
+                          : "ring-1 ring-[var(--border)] text-[var(--foreground)] hover:bg-[var(--accent)]"
+                    }`}
+                  >
+                    {choice.label}
+                  </button>
+                ),
+              )}
             </div>
             <button
               type="button"

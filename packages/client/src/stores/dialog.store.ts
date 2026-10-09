@@ -1,3 +1,4 @@
+import type { AvatarCrop } from "@marinara-engine/shared";
 import { create } from "zustand";
 
 export type AppDialogTone = "default" | "destructive" | "accent";
@@ -29,8 +30,17 @@ export type PromptDialogState = AppDialogCommon & {
 
 export type ChoiceDialogState = AppDialogCommon & {
   kind: "choice";
-  /** Buttons shown stacked; resolves the chosen key. The first is styled as the primary action. */
-  choices: Array<{ key: string; label: string; tone?: AppDialogTone }>;
+  /** Buttons shown stacked; resolves the chosen key. The first is styled as the primary action,
+   *  unless the choices carry an avatar: those are equal picks, shown as rows. */
+  choices: Array<{
+    key: string;
+    label: string;
+    tone?: AppDialogTone;
+    /** Smaller line under the label. */
+    description?: string | null;
+    /** Shows the choice as a row with this image, or the label's first letter when `url` is null. */
+    avatar?: { url: string | null; crop?: AvatarCrop | null };
+  }>;
 };
 
 export type AppDialogState = AlertDialogState | ConfirmDialogState | PromptDialogState | ChoiceDialogState;

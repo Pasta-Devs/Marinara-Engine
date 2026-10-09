@@ -102,11 +102,23 @@ interface UpdateCampaignProgressionResponse {
   };
 }
 
+export interface PartyCardChoice {
+  id: string;
+  name: string;
+  title: string | null;
+  avatarPath: string | null;
+  avatarCrop: unknown;
+  /** The card's library preview text, shown when it has no title. */
+  summary: string | null;
+}
+
 interface RecruitPartyMemberResponse {
   sessionChat: Chat;
   added: boolean;
   characterName: string;
   cardCreated: boolean;
+  /** Set when several characters share the name: nothing changed, and the player picks one. */
+  cardChoices?: PartyCardChoice[];
 }
 
 interface RegenerateCharacterSheetResponse {
@@ -520,7 +532,7 @@ export function useRecruitPartyMember() {
   const qc = useQueryClient();
 
   return useMutation({
-    mutationFn: (data: { chatId: string; characterName: string; connectionId?: string }) =>
+    mutationFn: (data: { chatId: string; characterName: string; characterId?: string | null; connectionId?: string }) =>
       api.post<RecruitPartyMemberResponse>("/game/party/recruit", data),
     onMutate: (variables) => ({ metadataVersion: captureChatMetadataVersion(variables.chatId) }),
     onSuccess: (res, variables, context) => {
