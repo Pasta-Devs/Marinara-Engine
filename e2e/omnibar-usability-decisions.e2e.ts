@@ -212,3 +212,20 @@ test("UX-16: top-bar buttons are 44 px on a touch screen and the top bar still f
   expect(overflow).toBeLessThanOrEqual(1);
   await topBar.screenshot({ path: shotPath("UX-16", width) });
 });
+
+test("UX-18: result rows are list items with buttons, not listbox options, so nested controls stay valid", async ({
+  page,
+}, testInfo) => {
+  const width = testInfo.project.name.includes("mobile") ? 390 : 1440;
+  await openOmnibar(page);
+  const omnibar = page.locator('[data-component="GlobalOmnibar"]');
+  await omnibar.getByRole("searchbox", { name: "Search Marinara" }).fill("lorebook");
+  const rows = omnibar.locator('[data-component="GlobalOmnibar.Results"] ul > [data-command-center-result-row]');
+  await expect(rows.first()).toBeVisible();
+  // No option or listbox roles: a row holds its own Keep, Undo or Set default buttons.
+  await expect(omnibar.locator('[role="option"], [role="listbox"]')).toHaveCount(0);
+  // The row's main button names the row, and its subtitle describes it.
+  const mainButton = rows.first().locator("button").first();
+  await expect(mainButton).toHaveAttribute("aria-label", /.+/u);
+  await omnibar.screenshot({ path: shotPath("UX-18", width) });
+});

@@ -355,6 +355,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - The search field no longer lists filter syntax (faq:, msg:, char:). Its hint reads **Search everything, or ask Prof. Mari**. The Enter hint on a result row shows only with a mouse or keyboard, not on a touch screen. The Professor Mari permission mode **Bypass permissions** is now **Never ask**.
 - For a returning user, the search opens on Continue: the chat you left, Professor Mari's last chat, or your last edit. Enter continues it. Try examples come below your work. A row that needs you, like a missing model, still comes first.
 - The top-bar buttons on a phone are 44 px tall, so Home, Chats and the menu are easier to tap.
+- Search results are a plain list. Each row's own buttons, such as Keep, Undo and Set default, are reached by keyboard and screen readers without an invalid option role.
 
 ## [2.5.0]
 
