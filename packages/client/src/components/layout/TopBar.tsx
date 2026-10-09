@@ -398,6 +398,7 @@ export function TopBar({ mobileTopbarNavigation }: { mobileTopbarNavigation: boo
             ),
       )}
       title={localize("Chats")}
+      aria-label={localize("Chats")}
     >
       <MessageSquareText size={15} className={TOPBAR_ACCENT_ICON_CLASS}>
         <defs>
@@ -435,6 +436,7 @@ export function TopBar({ mobileTopbarNavigation }: { mobileTopbarNavigation: boo
             ),
       )}
       title={localize("Home")}
+      aria-label={localize("Home")}
     >
       <Home size={15} className={TOPBAR_ACCENT_ICON_CLASS} />
       {isHomeActive && (
