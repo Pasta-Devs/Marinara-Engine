@@ -43,8 +43,9 @@ export interface OmnibarAsideProps {
 // Small text actions (direction A); a full 44px target on touch.
 const textAction = "font-semibold underline-offset-2 hover:underline [@media(pointer:coarse)]:min-h-11";
 // The one way forward is the card's only button (rule 4); on a phone it is full width on its own line at the foot.
+// UX-08: solid like Keep, so it never reads as disabled (the chrome control's text is 64% alpha).
 const continueAction =
-  "mari-chrome-control mari-chrome-control--small ml-auto [@media(pointer:coarse)]:order-last [@media(pointer:coarse)]:ml-0 [@media(pointer:coarse)]:basis-full";
+  "mari-btn mari-btn--solid ml-auto [@media(pointer:coarse)]:order-last [@media(pointer:coarse)]:ml-0 [@media(pointer:coarse)]:basis-full";
 // Copy and Answer again are icons, so they never read as the next step.
 const iconAction =
   "inline-flex h-6 w-6 items-center justify-center rounded hover:text-[var(--foreground)] [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:w-11";
