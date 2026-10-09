@@ -1169,7 +1169,11 @@ runs one when the user asks for it.
 export async function activate({ api }) {
   api.registerService("mari-actions:my-package", {
     list: () => [
-      { name: "add-idea", summary: "Give a Creator an idea for a post.", inputs: { accountId: "The Creator.", text: "The idea." } },
+      {
+        name: "add-idea",
+        summary: "Give a Creator an idea for a post.",
+        inputs: { accountId: "The Creator.", text: "The idea." },
+      },
     ],
     run: async (name, input, { signal }) => {
       const parsed = schemas[name]?.safeParse(input);
@@ -1385,6 +1389,31 @@ It needs `strikes` beside it and is refused without one, because a list that buy
 already holds every row to one. Not a soft seam, for the same reason as 1.20 through 1.31: an Engine
 that cannot read the key refuses the whole ruleset file, so a package that ships it declares 1.32.
 No permission.
+
+### Decision questions from a package
+
+Server packages can ask the user's configured Decision model bounded yes/no and Choice questions about context the package supplies, through `api.runtime.decisions.evaluate(...)`. It uses the same Decision model as agent activation questions and prompt conditionals (a managed local model or a Decision connection) and never exposes keys or Engine internals. `decisions` is optional and needs no newer capability API or permission: check `typeof api.runtime.decisions?.evaluate === "function"` and fall back on older Engines.
+
+```ts
+const result = await api.runtime.decisions?.evaluate({
+  messages: [{ role: "user", content: "The tavern falls silent as the stranger draws a blade." }],
+  questions: [
+    { id: "danger", question: "Someone is about to be attacked." },
+    { id: "mood", question: "The mood of the scene is", options: ["calm", "tense", "festive"] },
+  ],
+  signal,
+  debugMode,
+});
+// null: no Decision model is configured, or it cannot be reached.
+if (result && (result.answers.danger ?? 0) >= result.threshold) {
+  // ...
+}
+```
+
+- `messages` is the package's own context, oldest first (at most 200 messages and 200,000 characters). The oldest messages are dropped to fit the model.
+- Each `question` is at most 500 characters; ids must be unique. A Choice question has at least two `options`, and its answer is one of them or `"none of these"`.
+- One request may ask for at most the user's **Decision statements per turn** limit of answers; each Choice option counts once, plus one. An invalid request throws a `TypeError`.
+- `answers` holds the probability of yes per yes/no question, and a question missing from it was not answered. Compare it with `threshold`, the model's own operating point: probabilities are not comparable across Decision models.
 
 ### Capability API 1.31: host generation integrations
 
