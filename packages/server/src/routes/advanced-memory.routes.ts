@@ -10,6 +10,11 @@ const operationSchema = z.object({
   sceneId: z.string().min(1).optional(),
   /** Repair every flagged scene in one run instead of stopping at the first one that needs review. */
   fixAll: z.boolean().optional(),
+  /** Find scenes again between these message numbers (1-based, inclusive). */
+  range: z
+    .object({ start: z.number().int().min(1), end: z.number().int().min(1) })
+    .refine((range) => range.start <= range.end, "The first message must come before the last one")
+    .optional(),
 });
 const recordPatchSchema = z
   .object({
@@ -83,6 +88,10 @@ export async function advancedMemoryRoutes(app: FastifyInstance) {
           debugMode: options.debugMode,
           sceneId: options.sceneId,
           fixAll: options.sceneId ? undefined : options.fixAll,
+          range:
+            options.range && !options.sceneId
+              ? { start: options.range.start - 1, end: options.range.end - 1 }
+              : undefined,
           blocking: true,
           onProgress: acknowledgeStart,
         })

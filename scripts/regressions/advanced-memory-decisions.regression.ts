@@ -16,7 +16,7 @@ const requests: Array<{ kind: string; body: any }> = [];
 let partial = false;
 let rejectAll = false;
 let stallNextDecision = false;
-let endProbability = 0.6;
+let cutProbability = 0.3;
 let beforeAnswer: (() => void) | undefined;
 const provider = createServer(async (request, response) => {
   const chunks: Buffer[] = [];
@@ -38,13 +38,13 @@ const provider = createServer(async (request, response) => {
           ? !rejectAll && /TARGET_SCENE|Cobalt refuge/.test(memory.text)
             ? 0.99
             : 0.01
-          : question.instructions.includes("clearly START")
+          : question.instructions.includes("cut to a new scene")
             ? message?.content.startsWith("SCENE_CHANGE")
               ? 0.99
-              : 0.01
-            : message?.content.includes("EXPLICIT_END")
-              ? endProbability
-              : 0.01;
+              : message?.content.startsWith("UNSURE_CUT")
+                ? cutProbability
+                : 0.01
+            : 0.01;
         return [id, { type: "noul", noul: probability }];
       }),
     );
@@ -91,7 +91,7 @@ const { createFileNativeDB } = await import("../../packages/server/src/db/file-b
 const { createChatsStorage } = await import("../../packages/server/src/services/storage/chats.storage.js");
 const { createConnectionsStorage } = await import("../../packages/server/src/services/storage/connections.storage.js");
 const { createAdvancedMemoryService } = await import("../../packages/server/src/services/advanced-memory.js");
-const { rankDecisionMemories, detectDecisionSceneBoundaries, finishMemoryDecisionDiagnostics } =
+const { rankDecisionMemories, detectDecisionSceneStarts, finishMemoryDecisionDiagnostics } =
   await import("../../packages/server/src/services/advanced-memory-decisions.js");
 const { prepareAdvancedMemoryContext } =
   await import("../../packages/server/src/services/generation/advanced-memory-context.js");
@@ -392,38 +392,98 @@ try {
     "the Decision model is not asked about messages that cannot fit",
   );
 
-  await chats.createMessage({
-    chatId: chat.id,
-    role: "assistant",
-    characterId: "reader",
-    content: "EXPLICIT_END The episode ends.",
-  });
-  await memory.updateSettings(chat.id, { sceneCheckInterval: 1 });
+  // A scene change counts at the Decision connection's own threshold (0.5 for System One), not a fixed 0.8,
+  // and each new message is compared with the three before it, with who wrote them (#7371).
+  const sceneCheckpoint = async () => {
+    const metadata = (await chats.getById(chat.id))!.metadata;
+    return (typeof metadata === "string" ? JSON.parse(metadata) : metadata).advancedMemoryState.sceneCheckMessageId;
+  };
+  await memory.updateSettings(chat.id, { sceneCheckInterval: 2 });
+  await chats.createMessagesBatch(chat.id, [
+    { role: "assistant", characterId: "reader", content: "UNSURE_CUT Maybe somewhere else." },
+    { role: "user", content: "They keep walking." },
+  ]);
   await memory.checkScenesAfterGeneration(chat.id);
-  const uncertainCheck = (await memory.status(chat.id)).job.decisionSceneCheck!;
-  assert.equal(uncertainCheck.threshold, 0.8);
-  assert(uncertainCheck.results.some((row) => row.score === 0.6 && !row.selected));
+  const unsure = (await memory.status(chat.id)).job.decisionSceneCheck!;
+  assert.equal(unsure.threshold, 0.5, "scene changes use the connection's own threshold");
+  assert(unsure.results.some((row) => row.kind === "scene_start" && row.score === 0.3 && !row.selected));
   assert(
     (await memory.status(chat.id)).records.some((record) => record.kind === "scene" && record.status === "open"),
-    "uncertainty leaves the scene open",
+    "an unlikely cut leaves the scene open",
   );
-  endProbability = 0.99;
-  await chats.createMessage({
-    chatId: chat.id,
-    role: "assistant",
-    characterId: "reader",
-    content: "EXPLICIT_END They part for the night.",
-  });
+  cutProbability = 0.6;
+  await chats.createMessagesBatch(chat.id, [
+    { role: "assistant", characterId: "reader", content: "UNSURE_CUT Later, at the harbor." },
+    { role: "user", content: "The gulls cry." },
+  ]);
+  const beforeCut = requests.length;
   await memory.checkScenesAfterGeneration(chat.id);
-  const last = (await chats.listMessages(chat.id)).at(-1)!;
-  const endedCheck = (await memory.status(chat.id)).job.decisionSceneCheck!;
-  assert.equal(endedCheck.sourceEndMessageId, last.id);
-  assert(endedCheck.results.some((row) => row.id === last.id && row.score === 0.99 && row.selected));
+  const cutSource = await chats.listMessages(chat.id);
+  const harbor = cutSource.findIndex((message) => message.content.startsWith("UNSURE_CUT Later"));
+  const cutRequest = requests
+    .slice(beforeCut)
+    .find((request) => request.kind === "decision" && request.body.questions[cutSource[harbor]!.id]);
+  assert(cutRequest, "the new messages are asked about");
+  assert.deepEqual(
+    cutRequest.body.state.transcript.map((entry: { messageId: string }) => entry.messageId),
+    cutSource.slice(harbor - 3, harbor + 2).map((message) => message.id),
+    "the three messages before the check come with it",
+  );
+  assert(cutRequest.body.state.transcript.every((entry: { speaker?: string }) => entry.speaker));
+  const cut = (await memory.status(chat.id)).job.decisionSceneCheck!;
+  assert(cut.results.some((row) => row.id === cutSource[harbor]!.id && row.score === 0.6 && row.selected));
+  const afterCut = await memory.status(chat.id);
   assert(
-    (await memory.status(chat.id)).records.some(
-      (record) => record.kind === "scene" && record.status === "closed" && record.endMessageId === last.id,
+    afterCut.records.some(
+      (record) =>
+        record.kind === "scene" && record.status === "closed" && record.endMessageId === cutSource[harbor - 1]!.id,
+    ),
+    "a cut at the first new message ends the scene on the last message the previous check saw",
+  );
+  assert(
+    afterCut.records.some(
+      (record) =>
+        record.kind === "scene" && record.status === "open" && record.startMessageId === cutSource[harbor]!.id,
     ),
   );
+
+  // Re-scan finds the cut the earlier check scored too low, and keeps every scene outside the range (#7371).
+  const unsureIndex = cutSource.findIndex((message) => message.content.startsWith("UNSURE_CUT Maybe"));
+  const outside = afterCut.records
+    .filter((record) => record.kind === "scene" && record.content && record.endMessageId !== cutSource[harbor - 1]!.id)
+    .map((record) => [record.id, record.content]);
+  const checkpointBeforeRescan = await sceneCheckpoint();
+  await assert.rejects(
+    memory.initialize(chat.id, { range: { start: unsureIndex, end: cutSource.length } }),
+    new RegExp(`Choose messages between #1 and #${cutSource.length}`),
+  );
+  await memory.initialize(chat.id, { range: { start: unsureIndex - 1, end: harbor - 1 } });
+  const rescanned = await memory.status(chat.id);
+  assert.equal(rescanned.job.status, "ready");
+  for (const [id, content] of outside)
+    assert(
+      rescanned.records.some((record) => record.id === id && record.content === content),
+      "scenes outside the range keep their summaries",
+    );
+  assert(
+    rescanned.records.some(
+      (record) =>
+        record.kind === "scene" &&
+        record.status === "closed" &&
+        record.content &&
+        record.startMessageId === cutSource[unsureIndex]!.id &&
+        record.endMessageId === cutSource[harbor - 1]!.id,
+    ),
+    "the re-scanned cut becomes its own summarized scene",
+  );
+  assert(
+    rescanned.records.some(
+      (record) =>
+        record.kind === "scene" && record.status === "open" && record.startMessageId === cutSource[harbor]!.id,
+    ),
+    "the boundary after the range stays",
+  );
+  assert.equal(await sceneCheckpoint(), checkpointBeforeRescan, "a re-scan leaves the reply cadence alone");
   assert(!requests.some((request) => request.kind === "classify"), "healthy ongoing checks also use Jev");
 
   await memory.updateSettings(chat.id, { decisionEnabled: false });
@@ -480,6 +540,7 @@ try {
   let batches = 0;
   const backend = {
     maxStateTokens: 1000,
+    calibration: { defaultThreshold: 0.5, questionShape: "text" },
     askMixed: async (state: unknown, questions: Array<{ id: string }>) => {
       batches++;
       assert(estimateChatSummaryTokens(JSON.stringify(state)) <= 1000);
@@ -493,7 +554,7 @@ try {
   backend.askMixed = async () => ({ answers: new Map(), choices: new Map() });
   assert.equal(await rankDecisionMemories(backend, "Remember it?", [], candidates), null);
   assert.equal(
-    await detectDecisionSceneBoundaries(backend, [{ messageId: "one", content: "Quiet." }], ["one"], "end"),
+    await detectDecisionSceneStarts(backend, [{ messageId: "one", speaker: "Reader", content: "Quiet." }], ["one"]),
     null,
   );
   assert.equal(await rankDecisionMemories(backend, "Remember?", [], [{ id: "large", text: "x ".repeat(10000) }]), null);

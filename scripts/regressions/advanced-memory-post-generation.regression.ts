@@ -723,14 +723,10 @@ try {
   );
   assert(
     decisionRequests.some((request) => request.state.transcript),
-    "scene endings get a separate Jev request",
+    "scene changes get a separate Jev request",
   );
   for (const request of decisionRequests.filter((request) => request.state.transcript)) {
-    assert(
-      Object.values(request.questions).every((question) =>
-        question.instructions.includes("clearly finish a roleplay scene"),
-      ),
-    );
+    assert(Object.values(request.questions).every((question) => question.instructions.includes("cut to a new scene")));
     assert.doesNotMatch(JSON.stringify(request), /TRACKER_SCENE_FIXTURE/u);
   }
   assert.doesNotMatch(JSON.stringify(calls.find((call) => call.kind === "tracker")!.messages), /__scene_check/u);

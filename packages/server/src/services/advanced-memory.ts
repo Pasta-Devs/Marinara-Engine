@@ -66,16 +66,16 @@ import { resolveDecisionConnection } from "./decision/decision-connection.js";
 import { describeDecisionSlot } from "./decision/decision-slots.js";
 import {
   askDecisionPresence,
-  detectDecisionSceneBoundaries,
+  detectDecisionSceneStarts,
   presenceQuestion,
   presenceQuestionId,
   rankDecisionMemories,
   type PresenceAsk,
   finishMemoryDecisionDiagnostics,
-  MEMORY_DECISION_SCENE_THRESHOLD,
   MEMORY_DECISION_RECALL_TIMEOUT_MS,
   MEMORY_DECISION_BATCH_SIZE,
   MEMORY_DECISION_MESSAGES_PER_SCENE,
+  MEMORY_DECISION_SCENE_CONTEXT,
 } from "./advanced-memory-decisions.js";
 import { cosineSimilarity } from "./lorebook/embeddings.js";
 import { contextWindowForInputBudget, measureContextBudget, withLlmRequestTimeout } from "./llm/base-provider.js";
@@ -122,6 +122,8 @@ type InitializationOptions = AdvancedMemoryOperationOptions & {
   sceneId?: string;
   /** Fix: repair every flagged scene, list hand-edited ones for review instead of stopping, never widen access. */
   fixAll?: boolean;
+  /** Find scene boundaries again between these message indexes (inclusive), keeping every boundary outside them. */
+  range?: { start: number; end: number };
 };
 type SceneCheckOptions = AdvancedMemoryOperationOptions & {
   asOfMessageId?: string;
@@ -556,6 +558,11 @@ function missingKnowledge(ctx: Context): string[] {
       ) &&
       !ctx.messages.some((message) => strings(object(message.extra).conversationStartForCharacterIds).includes(id)),
   );
+}
+
+/** A story message scene checks read: a turn, not a command or system note. */
+function isSceneCheckMessage(message: AdvancedMemoryMessage): boolean {
+  return ["user", "assistant", "narrator"].includes(message.role) && object(message.extra).commandOnly !== true;
 }
 
 function speakerName(ctx: Context, message: AdvancedMemoryMessage): string {
@@ -1875,6 +1882,8 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
     fromIndex: number,
     options: AdvancedMemoryOperationOptions,
     initial: boolean,
+    /** A re-scanned range ends here. Nothing is saved per batch: preparation rebuilds every scene afterwards. */
+    toIndex?: number,
   ): Promise<number[]> {
     if (ctx.messages.length <= 1) return [];
     let decisionBackend = await memoryDecisionBackend(ctx, options);
@@ -1905,7 +1914,10 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
     const candidates = ctx.messages
       .map((message, index) => ({ message, index }))
       .filter(
-        ({ message, index }) => index >= Math.max(0, fromIndex - 4) && object(message.extra).commandOnly !== true,
+        ({ message, index }) =>
+          index >= Math.max(0, fromIndex - 4) &&
+          (toIndex === undefined || index <= toIndex) &&
+          object(message.extra).commandOnly !== true,
       );
     const trackerSnapshots = await gameStates.getCommittedForMessages(
       ctx.chatId,
@@ -1941,6 +1953,7 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
         const tokens = Math.max(16, perMessageTokens - tokenSize(JSON.stringify(tracker) ?? "") - 32);
         return {
           messageId: message.id,
+          speaker: speakerName(ctx, message),
           content: messageEnds(message.content, tokens),
           ...(tracker ? { tracker } : {}),
         };
@@ -1955,11 +1968,10 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
       let startIds: string[] | null = null;
       if (decisionBackend) {
         try {
-          startIds = await detectDecisionSceneBoundaries(
+          startIds = await detectDecisionSceneStarts(
             decisionBackend,
             transcript,
             batch.filter(({ index }, position) => position > 0 && index >= fromIndex).map(({ message }) => message.id),
-            "start",
             options.signal,
           );
         } catch (error) {
@@ -2010,50 +2022,58 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
         const match = batch.find(({ message }) => message.id === id);
         if (match && match.index > 0 && match.index >= fromIndex) boundaries.add(match.index);
       }
-      // Commit classification independently of summarization so cancellation never repeats completed paid batches.
-      const through = batch.at(-1)!.index;
-      const knownStarts = new Set([0, ...boundaries]);
-      for (const record of await operationRecords(ctx)) {
-        if (record.id === record.sceneId && record.kind === "scene" && recordValid(ctx, record)) {
-          const start = ctx.messages.findIndex((message) => message.id === record.startMessageId);
-          if (start >= 0 && start <= Math.min(fromIndex, through)) knownStarts.add(start);
-          const end = ctx.messages.findIndex((message) => message.id === record.endMessageId);
-          if (
-            record.status === "closed" &&
-            end >= 0 &&
-            end <= through &&
-            (end < fromIndex || end === ctx.messages.length - 1)
-          )
-            knownStarts.add(end + 1);
+      // A re-scan saves nothing per batch: its preparation run rebuilds every scene.
+      if (toIndex === undefined) {
+        // Commit classification independently of summarization so cancellation never repeats completed paid batches.
+        const through = batch.at(-1)!.index;
+        const knownStarts = new Set([0, ...boundaries]);
+        for (const record of await operationRecords(ctx)) {
+          if (record.id === record.sceneId && record.kind === "scene" && recordValid(ctx, record)) {
+            const start = ctx.messages.findIndex((message) => message.id === record.startMessageId);
+            if (start >= 0 && start <= Math.min(fromIndex, through)) knownStarts.add(start);
+            const end = ctx.messages.findIndex((message) => message.id === record.endMessageId);
+            if (
+              record.status === "closed" &&
+              end >= 0 &&
+              end <= through &&
+              (end < fromIndex || end === ctx.messages.length - 1)
+            )
+              knownStarts.add(end + 1);
+          }
         }
+        const orderedStarts = [...knownStarts].filter((start) => start <= through + 1).sort((a, b) => a - b);
+        for (let index = 0; index < orderedStarts.length && orderedStarts[index]! <= through; index++) {
+          const start = orderedStarts[index]!;
+          const end = (orderedStarts[index + 1] ?? through + 1) - 1;
+          const scene = {
+            id: `scene-${ctx.messages[start]!.id}`,
+            start,
+            end,
+            closed: index < orderedStarts.length - 1,
+          };
+          await put(ctx, buildRecord(ctx, scene, "scene", [], ctx.messages.slice(start, end + 1), ""), options);
+        }
+        // Retire obsolete boundaries only after their replacement batch is committed,
+        // so a cancelled scan cannot restore them from an older scaffold on resume.
+        for (const record of [...(await operationRecords(ctx))]) {
+          if (record.kind !== "scene" || record.id !== record.sceneId) continue;
+          const start = ctx.messages.findIndex((message) => message.id === record.startMessageId);
+          if (start <= fromIndex || start > through || knownStarts.has(start)) continue;
+          await db.delete(advancedMemoryRecords).where(eq(advancedMemoryRecords.id, record.id));
+          ctx.recordCache = ctx.recordCache!.filter((item) => item.id !== record.id);
+        }
+        await chats.patchMetadata(
+          ctx.chatId,
+          (fresh) => ({
+            advancedMemoryState: {
+              ...object(fresh.advancedMemoryState),
+              classifiedMessageId: ctx.messages[through]!.id,
+              classifiedSourceFingerprint: fingerprint(ctx, ctx.messages.slice(0, through + 1), []),
+            },
+          }),
+          { touchUpdatedAt: false },
+        );
       }
-      const orderedStarts = [...knownStarts].filter((start) => start <= through + 1).sort((a, b) => a - b);
-      for (let index = 0; index < orderedStarts.length && orderedStarts[index]! <= through; index++) {
-        const start = orderedStarts[index]!;
-        const end = (orderedStarts[index + 1] ?? through + 1) - 1;
-        const scene = { id: `scene-${ctx.messages[start]!.id}`, start, end, closed: index < orderedStarts.length - 1 };
-        await put(ctx, buildRecord(ctx, scene, "scene", [], ctx.messages.slice(start, end + 1), ""), options);
-      }
-      // Retire obsolete boundaries only after their replacement batch is committed,
-      // so a cancelled scan cannot restore them from an older scaffold on resume.
-      for (const record of [...(await operationRecords(ctx))]) {
-        if (record.kind !== "scene" || record.id !== record.sceneId) continue;
-        const start = ctx.messages.findIndex((message) => message.id === record.startMessageId);
-        if (start <= fromIndex || start > through || knownStarts.has(start)) continue;
-        await db.delete(advancedMemoryRecords).where(eq(advancedMemoryRecords.id, record.id));
-        ctx.recordCache = ctx.recordCache!.filter((item) => item.id !== record.id);
-      }
-      await chats.patchMetadata(
-        ctx.chatId,
-        (fresh) => ({
-          advancedMemoryState: {
-            ...object(fresh.advancedMemoryState),
-            classifiedMessageId: ctx.messages[through]!.id,
-            classifiedSourceFingerprint: fingerprint(ctx, ctx.messages.slice(0, through + 1), []),
-          },
-        }),
-        { touchUpdatedAt: false },
-      );
       await progress(
         ctx,
         { stage: "classifying", completed: batch.at(-1)!.index + 1, total: ctx.messages.length },
@@ -2086,6 +2106,11 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
       ? unpreparedScenes(ctx, existing, true).find((scene) => scene.id === options.sceneId)
       : undefined;
     if (options.sceneId && !repair) return; // A completed retry must not turn a healthy archive into an error.
+    const range = repair ? undefined : options.range;
+    if (range && state.historyClassified !== true)
+      throw new Error("Prepare existing history before re-scanning scenes");
+    if (range && !(range.start >= 0 && range.start <= range.end && range.end < ctx.messages.length))
+      throw new Error(`Choose messages between #1 and #${ctx.messages.length} to re-scan`);
     const fixAll = options.fixAll === true && !repair;
     // Fix reports the scenes that were flagged before it ran and are healthy afterwards.
     const before = fixAll ? advancedMemoryProblems(await status(chatId)) : null;
@@ -2129,6 +2154,7 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
       state.classifiedSourceFingerprint === fingerprint(ctx, ctx.messages.slice(0, classifiedIndex + 1), [])
     )
       from = Math.max(from, classifiedIndex + 1);
+    if (range) from = range.start;
     const needsClassification = !repair && options.detectScenes !== false && from < ctx.messages.length;
     await progress(
       ctx,
@@ -2146,8 +2172,9 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
       options,
     );
     if (needsClassification) {
-      for (const start of starts) if (start > from && start < ctx.messages.length) starts.delete(start);
-      for (const start of await classify(ctx, from, options, processedIndex < 0)) starts.add(start);
+      const last = range ? range.end : ctx.messages.length - 1;
+      for (const start of starts) if (start > from && start <= last) starts.delete(start);
+      for (const start of await classify(ctx, from, options, processedIndex < 0, range?.end)) starts.add(start);
     }
     const ordered = [...starts].filter((index) => index <= ctx.messages.length).sort((a, b) => a - b);
     const scenes: Scene[] = repair
@@ -2521,7 +2548,8 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
           sourceFingerprint: fingerprint(ctx, ctx.messages, []),
           activeSceneId: scenes.at(-1)?.id ?? null,
           ...(state.historyClassified === true && canReuseClassifiedScenes ? { hiddenHistoryClassified: true } : {}),
-          ...(options.detectScenes !== false
+          // A re-scanned range says nothing about the messages after it.
+          ...(options.detectScenes !== false && !range
             ? {
                 classifiedMessageId: ctx.messages.at(-1)?.id ?? null,
                 classifiedSourceFingerprint: fingerprint(ctx, ctx.messages, []),
@@ -2529,7 +2557,8 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
                 hiddenHistoryClassified: true,
               }
             : {}),
-          ...(options.detectScenes !== false || !Object.prototype.hasOwnProperty.call(state, "sceneCheckMessageId")
+          ...((options.detectScenes !== false && !range) ||
+          !Object.prototype.hasOwnProperty.call(state, "sceneCheckMessageId")
             ? {
                 sceneCheckMessageId: ctx.messages.at(-1)?.id ?? null,
                 sceneCheckSourceFingerprint: advancedMemorySourceFingerprint(ctx.messages),
@@ -2650,10 +2679,11 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
             detectScenes: options.detectScenes,
             sceneId: options.sceneId,
             fixAll: options.fixAll,
+            range: options.range,
           });
       },
-      // Fix waits for running work and then runs, instead of joining it.
-      !options.sceneId && !options.fixAll,
+      // Fix and a re-scan wait for running work and then run, instead of joining it.
+      !options.sceneId && !options.fixAll && !options.range,
     );
   }
 
@@ -2677,10 +2707,7 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
       : full.messages.length - 1;
     if (end < 0) return null;
     const ctx = { ...full, messages: full.messages.slice(0, end + 1) };
-    const actual = ctx.messages.filter(
-      (message) =>
-        ["user", "assistant", "narrator"].includes(message.role) && object(message.extra).commandOnly !== true,
-    );
+    const actual = ctx.messages.filter(isSceneCheckMessage);
     if (!actual.length) return null;
     const state = object(ctx.metadata.advancedMemoryState);
     const checkpoint = Object.prototype.hasOwnProperty.call(state, "sceneCheckMessageId")
@@ -2747,14 +2774,10 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
     )
       return false;
     const choices = object(decision).ends;
-    const sentNumbers = new Set(request.messages.map((message) => message.messageNumber));
-    if (
-      !Array.isArray(choices) ||
-      choices.some(
-        (choice) =>
-          !Number.isInteger(object(choice).messageNumber) || !sentNumbers.has(Number(object(choice).messageNumber)),
-      )
-    )
+    // A scene can end on any checked message, or on the one just before them when the first checked one cuts (#7371).
+    const validEnd = (value: unknown) =>
+      Number.isInteger(value) && Number(value) >= windowStart && Number(value) <= end + 1;
+    if (!Array.isArray(choices) || choices.some((choice) => !validEnd(object(choice).messageNumber)))
       throw new Error("The scene helper returned an invalid scene decision; retry the post-generation check");
     const existing = await operationRecords(ctx);
     const starts = new Set<number>([0]);
@@ -2870,30 +2893,39 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
           );
           const batched = options.batchedCheck;
           let decision: unknown;
-          let decisionEnds: string[] | null = null;
+          let decisionStarts: string[] | null = null;
           const diagnostics: AdvancedMemoryDecisionDiagnostics | undefined = ctx.settings.decisionEnabled
             ? {
                 createdAt: now(),
                 model: null,
                 sourceEndMessageId: request.asOfMessageId,
                 fallback: false,
-                threshold: MEMORY_DECISION_SCENE_THRESHOLD,
+                threshold: DEFAULT_DECISION_CALIBRATION.defaultThreshold,
                 omittedCount: 0,
                 results: [],
               }
             : undefined;
           const backend = await memoryDecisionBackend(ctx, operationOptions);
           if (backend) {
-            // Who perceives the new messages shares this scene-end request when it fits (#7192).
+            // Who perceives the new messages shares this scene request when it fits (#7192).
             const presence = plan?.ctx.settings.decisionEnabled ? presenceAsk(plan, backend.maxStateTokens) : undefined;
             try {
-              const preceding =
-                ctx.messages[ctx.messages.findIndex((message) => message.id === request!.windowStartMessageId) - 1];
-              decisionEnds = await detectDecisionSceneBoundaries(
+              // Each new message is compared with the ones before it, so a scene can also end on the last
+              // message the previous check saw (#7371).
+              const windowStart = ctx.messages.findIndex((message) => message.id === request!.windowStartMessageId);
+              const sent = new Set(request.messages.map((message) => message.messageId));
+              const earlier = ctx.messages
+                .slice(0, Math.max(0, windowStart))
+                .filter(isSceneCheckMessage)
+                .slice(-MEMORY_DECISION_SCENE_CONTEXT);
+              decisionStarts = await detectDecisionSceneStarts(
                 backend,
-                [...(preceding ? [{ messageId: preceding.id, content: preceding.content }] : []), ...request.messages],
+                [...earlier, ...ctx.messages.filter((message) => sent.has(message.id))].map((message) => ({
+                  messageId: message.id,
+                  speaker: speakerName(ctx, message),
+                  content: message.content,
+                })),
                 request.messages.map((message) => message.messageId),
-                "end",
                 operationOptions.signal,
                 diagnostics,
                 presence,
@@ -2908,12 +2940,13 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
                 presence.answers && hiddenFromScores(plan, presence.answers, backend.calibration.defaultThreshold);
             }
           }
-          if (decisionEnds !== null) {
-            const selected = new Set(decisionEnds);
+          if (decisionStarts !== null) {
+            // A scene that starts at message index N ends at message number N, the message before it.
+            const starts = new Set(decisionStarts);
             decision = {
-              ends: request.messages
-                .filter((message) => selected.has(message.messageId))
-                .map((message) => ({ messageNumber: message.messageNumber })),
+              ends: ctx.messages.flatMap((message, index) =>
+                index > 0 && starts.has(message.id) ? [{ messageNumber: index }] : [],
+              ),
             };
           } else if (
             batched &&
@@ -2984,8 +3017,8 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
               {
                 decisionSceneCheck: finishMemoryDecisionDiagnostics(
                   diagnostics,
-                  new Set(decisionEnds ?? []),
-                  decisionEnds === null,
+                  new Set(decisionStarts ?? []),
+                  decisionStarts === null,
                 ),
               },
               operationOptions,
