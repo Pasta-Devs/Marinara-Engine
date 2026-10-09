@@ -61,7 +61,8 @@ const OLD_NOISE = /^(?:id|.+Id|.+_id|(?:created|updated)(?:At|_at)|embedding)$/u
 const oldFields = (result: MariWorkspaceActionResult) => result.changedFields.filter((field) => !OLD_NOISE.test(field));
 
 /** A lorebook's list of entries (its items), not a tag or greeting list. */
-const isEntryList = (change: MariChangeExcerpt) => change.kind === "list" && change.items !== undefined;
+const isEntryList = (change: MariChangeExcerpt): change is Extract<MariChangeExcerpt, { kind: "list" }> =>
+  change.kind === "list" && change.items !== undefined;
 
 /** "New character · 13 fields", or "Changed description, personality, scenario and 6 more". */
 export function receiptSummary(result: MariWorkspaceActionResult, t: Localize, lang: string): string {
