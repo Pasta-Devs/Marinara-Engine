@@ -2715,7 +2715,12 @@ export function HomeProfessorMariChat({
         return;
       }
       setRequestedReviewId(null);
-      review.scrollIntoView({ block: "start" });
+      // UX-10: scroll the transcript only. scrollIntoView also scrolls clipped (overflow: hidden) wrappers
+      // around it, which lifted the composer dock off the window's bottom.
+      const transcript = scrollRef.current;
+      if (transcript?.contains(review))
+        transcript.scrollTop += review.getBoundingClientRect().top - transcript.getBoundingClientRect().top;
+      else review.scrollIntoView({ block: "start" });
       review.querySelector<HTMLElement>("button")?.focus({ preventScroll: true });
       if (!reduceMotion) {
         setHighlightedReviewId(targetId);

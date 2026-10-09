@@ -74,7 +74,9 @@ export function OmnibarMariPane({
       initial={active ? { opacity: 0, y: -14, scale: 0.985 } : false}
       animate={active ? { opacity: 1, y: 0, scale: 1 } : { opacity: 0, y: -12, scale: 0.995 }}
       transition={reduceMotion ? { duration: 0 } : { type: "spring", stiffness: 360, damping: 30, mass: 0.75 }}
-      className={`mari-workspace-canvas min-h-0 overflow-hidden ${active ? "relative flex-1" : "pointer-events-none absolute inset-0"}`}
+      // UX-10: a column, so her window shrinks for the completion bar instead of overflowing the clipped pane
+      // (a card's scrollIntoView then scrolled the pane and lifted the composer off the bottom).
+      className={`mari-workspace-canvas flex min-h-0 flex-col overflow-hidden ${active ? "relative flex-1" : "pointer-events-none absolute inset-0"}`}
       aria-hidden={!active}
       inert={!active}
     >
