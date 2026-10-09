@@ -1570,6 +1570,15 @@ assert.ok(!("mariDetailId" in mariSession));
   assert.match(en["onboarding.finish.body"], /On a phone, pull down from the top bar\./u);
 }
 
+// UX-28: the live count has a singular form, so one result reads "1 result".
+{
+  const en = JSON.parse(
+    readFileSync(new URL("../../packages/client/src/localization/locales/en.json", import.meta.url), "utf8"),
+  );
+  assert.equal(en["commandCenter.live.resultCount_one"], "{{count}} result");
+  assert.equal(en["commandCenter.live.resultCount_other"], "{{count}} results");
+}
+
 // UX-01: typing her name first opens her; the row is the same door as Ctrl+J.
 {
   const searchInput = (deferredQuery: string, mariOn = true) => ({
