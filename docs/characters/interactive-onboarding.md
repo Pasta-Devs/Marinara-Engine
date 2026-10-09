@@ -25,7 +25,7 @@ Under **Onboarding Questions**, click **Add Question**. Each question works like
 - **Variable Name** is the name you use in the fields, such as `faction`. Pick any name with letters, numbers, and underscores. Names are case-sensitive: `Gender` and `gender` are different.
 - **Question (shown to user)** is what the player reads. It can use earlier answers, such as `What does {{player}} look like?`. Here `{{char}}` is the card's name and `{{user}}` the player's name.
 - **Options** turn the question into a choice. The first option is selected by default. With no options, the player types a free-text answer.
-- **Value** is what goes into the persona, exactly as typed. Leave it blank to use the option's label. Type a lowercase value, such as `ranger`, if the answer goes mid-sentence.
+- **Value** is what goes into the persona. Upper and lower case are kept as you type them; macros in it are filled in like the rest of the fields. Leave it blank to use the option's label. Type a lowercase value, such as `ranger`, if the answer goes mid-sentence.
 - **Help text for players** is optional text shown under the option.
 - **Allow own answer** adds a **Write your own** choice next to your options.
 - **Multi-Select** lets the player pick several options. They are joined with the separator.
@@ -54,7 +54,7 @@ Use `{{#if}}` to show text only for some answers:
 
 A question that only appears inside an `{{#if}}` is asked only when that condition is true. In the example, `relationToAna` is a follow-up question that appears once the player answers **yes**. Comparisons ignore upper and lower case.
 
-`{{user}}` and `{{char}}` stay as macros in the created persona, so they keep working like in any persona.
+`{{user}}` and `{{char}}` stay as macros in the created persona, so they keep working like in any persona. Other macros, such as `{{random}}`, `{{time}}` or `{{getvar}}`, are filled in once when the persona is created, or left empty if they have no value then.
 
 The **Rendered preview** at the bottom shows the persona built from example answers, and lists the questions asked, in order.
 
@@ -66,7 +66,7 @@ The **Rendered preview** at the bottom shows the persona built from example answ
 4. A **Create your persona** window shows the card's questions. Follow-up questions appear as soon as your answers make them relevant.
 5. Click **Create persona**. The new persona is saved and selected for the chat, and the wizard continues.
 
-If you choose any other persona or **None**, no questions are asked. **Back** in the questions window returns to the persona picker. Each card with onboarding in the chat gets its own **Create your persona** row.
+If you choose any other persona or **None** (Stay anonymous), no questions are asked. **Back** in the questions window returns to the persona picker. Each card with onboarding in the chat gets its own **Create your persona** row.
 
 Onboarding is offered in the Roleplay new chat wizard. Quick Start, the Conversation setup, and starting a chat straight from a character card do not offer it yet.
 

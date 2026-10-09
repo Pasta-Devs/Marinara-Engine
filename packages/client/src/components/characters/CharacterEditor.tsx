@@ -1512,10 +1512,19 @@ function OnboardingTab({
   updateExtension: (key: string, value: unknown) => void;
 }) {
   const { t: localizeUi } = useUiTranslation();
-  const onboarding = useMemo(() => {
-    const parsed = characterOnboardingSchema.safeParse(formData.extensions.onboarding ?? {});
-    return (parsed.success ? parsed.data : characterOnboardingSchema.parse({})) as CharacterOnboarding;
-  }, [formData.extensions.onboarding]);
+  const parsedOnboarding = useMemo(
+    () => characterOnboardingSchema.safeParse(formData.extensions.onboarding ?? {}),
+    [formData.extensions.onboarding],
+  );
+  // A block the schema can't read is never shown as empty defaults: any edit
+  // would then replace the author's data. It stays untouched until the author
+  // explicitly starts over.
+  const unreadable = !parsedOnboarding.success;
+  const onboarding = useMemo(
+    () =>
+      (parsedOnboarding.success ? parsedOnboarding.data : characterOnboardingSchema.parse({})) as CharacterOnboarding,
+    [parsedOnboarding],
+  );
   // Edits can land in the same tick (e.g. two debounced option inputs), so each
   // one merges onto the latest value instead of this render's snapshot.
   const latestRef = useRef(onboarding);
@@ -1525,6 +1534,7 @@ function OnboardingTab({
   const update = (
     patch: Partial<CharacterOnboarding> | ((latest: CharacterOnboarding) => Partial<CharacterOnboarding>),
   ) => {
+    if (unreadable) return;
     const latest = latestRef.current;
     const next = { ...latest, ...(typeof patch === "function" ? patch(latest) : patch) };
     latestRef.current = next;
@@ -1592,10 +1602,27 @@ function OnboardingTab({
         title={localizeUi("editor.tabs.onboarding")}
         subtitle={localizeUi("ui.characters.onboarding.subtitle")}
       />
+      {unreadable && (
+        <div
+          role="status"
+          className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--card)] p-3 text-xs"
+        >
+          <AlertTriangle size="0.875rem" className="shrink-0 text-[var(--marinara-app-accent-static)]" aria-hidden />
+          <span className="min-w-0 flex-1">{localizeUi("ui.characters.onboarding.unreadable")}</span>
+          <button
+            type="button"
+            onClick={() => updateExtension("onboarding", characterOnboardingSchema.parse({}))}
+            className="mari-editor-action mari-editor-action--compact px-2 py-1 text-[0.625rem]"
+          >
+            {localizeUi("ui.characters.onboarding.startOver")}
+          </button>
+        </div>
+      )}
       <SettingsSwitch
         label={<span className="font-medium">{localizeUi("ui.characters.onboarding.enable")}</span>}
         description={localizeUi("ui.characters.onboarding.enableHelp")}
         checked={onboarding.enabled}
+        disabled={unreadable}
         onChange={(enabled) => update({ enabled })}
         labelPosition="start"
         className="justify-between rounded-xl border border-[var(--border)] bg-[var(--card)] p-4"
@@ -1697,10 +1724,14 @@ function OnboardingTab({
                   />
                   {plainIfFields.has(field) && (
                     <p
-                      role="alert"
-                      className="mt-1.5 flex flex-wrap items-center gap-1 text-[0.625rem] text-[var(--destructive)]"
+                      role="status"
+                      className="mt-1.5 flex flex-wrap items-center gap-1 text-[0.625rem] text-[var(--foreground)]"
                     >
-                      <AlertTriangle size="0.625rem" className="shrink-0" />
+                      <AlertTriangle
+                        size="0.625rem"
+                        className="shrink-0 text-[var(--marinara-app-accent-static)]"
+                        aria-hidden
+                      />
                       {localizeUi("ui.characters.onboarding.plainIfBefore")}{" "}
                       <code className={codeClass}>{"{{#if …}}"}</code>{" "}
                       {localizeUi("ui.characters.onboarding.plainIfAfter")}
@@ -1708,10 +1739,14 @@ function OnboardingTab({
                   )}
                   {unknownNames[field] && (
                     <p
-                      role="alert"
-                      className="mt-1.5 flex flex-wrap items-center gap-1 text-[0.625rem] text-[var(--destructive)]"
+                      role="status"
+                      className="mt-1.5 flex flex-wrap items-center gap-1 text-[0.625rem] text-[var(--foreground)]"
                     >
-                      <AlertTriangle size="0.625rem" className="shrink-0" />
+                      <AlertTriangle
+                        size="0.625rem"
+                        className="shrink-0 text-[var(--marinara-app-accent-static)]"
+                        aria-hidden
+                      />
                       {localizeUi("ui.characters.onboarding.unknownNames", {
                         value1: unknownNames[field].join(", "),
                       })}

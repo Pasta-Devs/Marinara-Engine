@@ -12,6 +12,7 @@
 //      author's card still onboards when someone else imports it); the
 //      Compatible JSON export drops it and stays a clean V2 card.
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import {
   characterCardV2Schema,
   characterDataSchema,
@@ -182,10 +183,33 @@ assert.equal(
   "the existing useCharacterSheetAsReference reset must be unchanged",
 );
 
-// ── 5. Imports never fail on unreadable onboarding ──
+// ── 5. No length limits: the editor doesn't cap its inputs ──
+// Onboarding is saved with the whole card, so a schema limit the editor doesn't
+// enforce would let one long question wipe the onboarding or block every save
+// (#7308 review). Long questions, help text, separators and 100+ questions
+// must all parse.
+const long = "x".repeat(5000);
+const unlimited = {
+  ...ONBOARDING,
+  variables: Array.from({ length: 150 }, (_, index) => ({
+    ...ONBOARDING.variables[1],
+    id: `v${index}`,
+    variableName: `q${index}_${long.slice(0, 200)}`,
+    question: long,
+    separator: long,
+    options: [{ id: "o", label: "A", value: "a", description: long }],
+  })),
+};
+assert.deepEqual(
+  characterExtensionsSchema.parse({ onboarding: unlimited }).onboarding,
+  unlimited,
+  "onboarding must have no length limits the editor doesn't enforce",
+);
+
+// ── 6. Imports never fail on unreadable onboarding ──
 // A hand-edited card can carry onboarding the schema refuses (here: a question
-// over 500 characters). The card still imports, just without its onboarding.
-const unreadable = { ...ONBOARDING, variables: [{ ...ONBOARDING.variables[0], question: "x".repeat(501) }] };
+// that isn't text). The card still imports, just without its onboarding.
+const unreadable = { ...ONBOARDING, variables: [{ ...ONBOARDING.variables[0], question: 42 }] };
 const nativeKept = normalizeNativeCharacterData({ name: "Ana", extensions: { onboarding: ONBOARDING } });
 assert.deepEqual(nativeKept?.extensions.onboarding, ONBOARDING, "native import keeps readable onboarding");
 const nativeDropped = normalizeNativeCharacterData({
@@ -204,6 +228,19 @@ assert.deepEqual(
   dropUnreadableOnboarding({ fav: true }),
   { extensions: { fav: true }, dropped: false },
   "extensions without onboarding pass through",
+);
+
+// ── 7. The editor never shows unreadable onboarding as empty defaults ──
+// If it did, the next edit would replace the author's data (#7308 review).
+const editorSource = readFileSync(
+  new URL("../../packages/client/src/components/characters/CharacterEditor.tsx", import.meta.url),
+  "utf8",
+);
+assert.match(editorSource, /const unreadable = !parsedOnboarding\.success;/, "the tab must know when it can't read");
+assert.match(
+  editorSource,
+  /\) => \{\s*if \(unreadable\) return;/,
+  "edits must be ignored while the stored onboarding can't be read",
 );
 
 console.log("onboarding-s1: all assertions passed");

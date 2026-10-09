@@ -610,7 +610,12 @@ function VariableCard({
           {varName}
         </span>
         {issue && (
-          <AlertTriangle size="0.75rem" className="shrink-0 text-[var(--destructive)]" aria-label={issue} role="img">
+          <AlertTriangle
+            size="0.75rem"
+            className="shrink-0 text-[var(--marinara-app-accent-static)]"
+            aria-label={issue}
+            role="img"
+          >
             <title>{issue}</title>
           </AlertTriangle>
         )}
@@ -664,8 +669,13 @@ function VariableCard({
             </label>
             <VariableNameInput value={varName} onCommit={(v) => update({ variableName: v })} />
             {issue && (
-              <p role="alert" className="flex items-center gap-1 text-[0.5625rem] text-[var(--destructive)]">
-                <AlertTriangle size="0.625rem" className="shrink-0" /> {issue}
+              <p role="status" className="flex items-center gap-1 text-[0.5625rem] text-[var(--foreground)]">
+                <AlertTriangle
+                  size="0.625rem"
+                  className="shrink-0 text-[var(--marinara-app-accent-static)]"
+                  aria-hidden
+                />{" "}
+                {issue}
               </p>
             )}
             <p className="text-[0.5625rem] text-[var(--muted-foreground)]">

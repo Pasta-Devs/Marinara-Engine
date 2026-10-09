@@ -39,16 +39,22 @@ function shouldUseListbox(variable: ChoiceFieldVariable) {
 
 /** The option's help text, then its value unless the value only repeats the label. */
 function OptionDetails({ option }: { option: ChoiceFieldOption }) {
-  const repeatsLabel = option.value.trim().toLowerCase() === option.label.trim().toLowerCase();
+  // A hand-edited imported preset option can lack a value or label.
+  const value = String(option.value ?? "");
+  const repeatsLabel =
+    value.trim().toLowerCase() ===
+    String(option.label ?? "")
+      .trim()
+      .toLowerCase();
   return (
     <>
       {option.description && (
         <span className="mt-0.5 block text-[0.6875rem] text-[var(--foreground)]/80">{option.description}</span>
       )}
-      {option.value && !repeatsLabel && (
+      {value && !repeatsLabel && (
         <span className="mt-0.5 block line-clamp-2 text-[0.625rem] text-[var(--muted-foreground)]">
-          {option.value.slice(0, 150)}
-          {option.value.length > 150 ? "…" : ""}
+          {value.slice(0, 150)}
+          {value.length > 150 ? "…" : ""}
         </span>
       )}
     </>

@@ -50,17 +50,19 @@ export const convoBehaviorConfigSchema = z.object({
  * text answer; options = a choice (the first is the default); options plus
  * `allowCustom` = a choice with a "write your own" answer. Content is not
  * checked here so an unfinished variable never blocks importing the card —
- * naming rules belong to the onboarding validator.
+ * naming rules belong to the onboarding validator. No length limits either:
+ * onboarding is saved with the whole card, so one over-long question would
+ * make the card unsavable (the five persona fields have no limit).
  */
 export const characterOnboardingVariableSchema = z.object({
   id: z.string(),
-  variableName: z.string().max(100).default(""),
-  question: z.string().max(500).default(""),
+  variableName: z.string().default(""),
+  question: z.string().default(""),
   // `description` is optional help text shown to the player under the option label.
-  options: z.array(choiceOptionSchema.extend({ description: z.string().max(500).optional() })).default([]),
+  options: z.array(choiceOptionSchema.extend({ description: z.string().optional() })).default([]),
   allowCustom: z.boolean().default(false),
   multiSelect: z.boolean().default(false),
-  separator: z.string().max(20).default(", "),
+  separator: z.string().default(", "),
   displayMode: choiceDisplayModeSchema.default("auto"),
   optionSort: choiceOptionSortSchema.default("manual"),
 });
@@ -78,7 +80,7 @@ export const characterOnboardingSchema = z.object({
   backstory: z.string().default(""),
   appearance: z.string().default(""),
   scenario: z.string().default(""),
-  variables: z.array(characterOnboardingVariableSchema).max(100).default([]),
+  variables: z.array(characterOnboardingVariableSchema).default([]),
 });
 
 export const characterExtensionsSchema = z
