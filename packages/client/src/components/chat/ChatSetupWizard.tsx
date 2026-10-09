@@ -2686,18 +2686,26 @@ function RoleplaySetupWizard({ chat, onFinish, defaultsApplied, defaultsAction }
   ]);
 
   // The new persona replaces the onboarding choice, so going Back and Next again doesn't ask twice.
+  // If the chat can't be updated, the wizard stays on this step: the persona
+  // already exists and is in the list, so asking the questions again would
+  // create a second one.
   const finishOnboarding = useCallback(
-    (personaId: string) => {
-      setPersona(personaId);
+    async (personaId: string) => {
       setOnboardingCharacterId(null);
       setShowOnboarding(false);
+      try {
+        await updateChat.mutateAsync({ id: chat.id, personaId, personaCharacterId: null });
+      } catch {
+        toast.error(localizeUi("ui.characters.onboarding.selectFailed"));
+        return;
+      }
       setStep((s) => s + 1);
       setCharSearch("");
       setLbSearch("");
       setAgentSearch("");
       setAgentAddPreview(null);
     },
-    [setPersona],
+    [chat.id, localizeUi, updateChat],
   );
 
   const previous = useCallback(() => {
