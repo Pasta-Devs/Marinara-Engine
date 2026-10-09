@@ -12,6 +12,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - A docs page in search shows the passage that matched, so you can see why it came up.
 - A setting whose description repeats its name shows only its location, such as Appearance › Theme, instead of "Theme / Theme".
 - A connection in search shows its model and provider name, such as "Custom (OAI-Compatible)", not the raw id `custom`.
+- Message search results group by chat. Each chat row shows its match count and who is in it, with up to two matching lines under it and **N more** for the rest. Before, the newest chat filled every row and other chats did not appear.
 - Press and hold Professor Mari to pick her up. Hold her head in the omnibar, her sprite beside a reply or on the live line while she works, or her card on Home. She follows your pointer, swings as you move, and springs back when you let go. A tap still does what it did. Shake her and she gets dizzy. The first time you lift her unlocks **Please Handle With Care**.
 - Circle the pointer while holding Professor Mari and she swings all the way over, upside down, like a real pendulum. She settles hanging straight down when you hold still. Reduced motion keeps her still.
 - The screen edges are walls while you hold Professor Mari. A hard flick into an edge squashes her, bounces her back and bonks her with a line and stars. Two hits in a row make her dizzy. She never leaves the screen.
