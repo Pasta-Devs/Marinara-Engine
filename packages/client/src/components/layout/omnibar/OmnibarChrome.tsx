@@ -16,6 +16,7 @@ import {
 import type { OmnibarResult } from "../../../lib/omnibar-search";
 import { omnibarScopePrefix } from "../../../lib/omnibar-scope";
 import { isApplePlatform, type CommandCenterCategoryFilter } from "../../../lib/command-center";
+import { formatShortcutKey } from "../../../lib/keyboard-shortcuts";
 
 /** Slice 79b: Mari's head in the search header is the door to her. */
 export function OmnibarMariDoor({
@@ -203,8 +204,8 @@ export function OmnibarFooter({
           // Says whether ⌘↵ sends: "Ask" sends what you typed, "Continue" opens her or carries the quick answer.
           <span>
             {mariSends(activeResult) && !(asideSettled && activeResult.id === "ask-professor-mari")
-              ? t("commandCenter.keyboard.askMari", "Ctrl/⌘+Enter Ask Mari")
-              : t("commandCenter.keyboard.continueMari", "Ctrl/⌘+Enter Continue with Mari")}
+              ? t("commandCenter.keyboard.askMari", "{{mod}}+Enter Ask Mari", { mod: formatShortcutKey("Mod") })
+              : t("commandCenter.keyboard.continueMari", "{{mod}}+Enter Continue with Mari", { mod: formatShortcutKey("Mod") })}
           </span>
         ) : null}
         {pane === "results" && activeResult && isRichResult(activeResult) ? (
@@ -217,7 +218,7 @@ export function OmnibarFooter({
       </span>
       <span className="flex min-w-0 items-center gap-3">
         {mariEnabled ? (
-          <span className="hidden sm:inline">{t("commandCenter.keyboard.askMariShortcut", "Ctrl/⌘+J Ask Mari")}</span>
+          <span className="hidden sm:inline">{t("commandCenter.keyboard.askMariShortcut", "{{mod}}+J Open Mari", { mod: formatShortcutKey("Mod") })}</span>
         ) : null}
         {!idle ? <span className="hidden sm:inline">{t("commandCenter.keyboard.escape", "Esc close")}</span> : null}
         <OmnibarSettingsButton open={settingsOpen} onOpen={() => openSettings()} />

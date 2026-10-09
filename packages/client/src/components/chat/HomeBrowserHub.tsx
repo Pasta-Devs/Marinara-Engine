@@ -1779,7 +1779,7 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
                 type="button"
                 onClick={() => useUIStore.getState().setOmnibarOpen(true)}
                 className="mari-home-browser-address flex h-7 min-w-0 flex-1 items-center gap-2 rounded-full border border-[color-mix(in_srgb,var(--marinara-app-accent-solid)_44%,var(--border))] px-2.5 text-left shadow-[inset_0_1px_0_color-mix(in_srgb,var(--foreground)_8%,transparent),0_0_18px_-14px_var(--marinara-app-accent-solid)] sm:h-9 sm:px-3"
-                aria-label={t("home.browser.searchLabel")}
+                aria-label={t("home.browser.searchLabel", { mod: formatShortcutKey("Mod") })}
                 title={t("home.browser.addressLabel", { address })}
                 data-component="HomeBrowserHub.Address"
                 data-tour="home-address"

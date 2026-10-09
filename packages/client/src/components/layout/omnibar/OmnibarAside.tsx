@@ -9,6 +9,7 @@ import type { OmnibarAsideState } from "../../../hooks/use-omnibar-aside";
 import { renderCompactInline, renderMarkdownBlocks } from "../../../lib/markdown";
 import { stripStrayMarkdown } from "../../../lib/omnibar-aside-text";
 import { copyToClipboard } from "../../../lib/utils";
+import { formatShortcutKey } from "../../../lib/keyboard-shortcuts";
 
 export interface OmnibarAsideProps {
   state: OmnibarAsideState;
@@ -345,7 +346,7 @@ export function OmnibarAside({
                 onClick={state.status === "streaming" ? () => setContinueQueued(true) : onEscalate}
                 aria-busy={continueQueued || undefined}
                 className={continueAction}
-                title={t("commandCenter.keyboard.continueMari", "Ctrl/⌘+Enter Continue with Mari")}
+                title={t("commandCenter.keyboard.continueMari", "{{mod}}+Enter Continue with Mari", { mod: formatShortcutKey("Mod") })}
               >
                 {t("omnibar.aside.escalate", "Continue with Mari")}
               </button>

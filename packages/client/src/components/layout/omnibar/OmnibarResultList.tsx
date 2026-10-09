@@ -23,6 +23,7 @@ import type { OmnibarResult } from "../../../lib/omnibar-search";
 import { type OmnibarRowVisualContext, resolveOmnibarRowVisual } from "../../../lib/omnibar-row-visual";
 import { readChoiceOptionId } from "../../../lib/omnibar-choice-rows";
 import type { CommandCenterPresentation, CommandCenterResultGroupId } from "../../../lib/command-center";
+import { formatShortcutKey } from "../../../lib/keyboard-shortcuts";
 
 type OmnibarResultListProps = {
   listRef: RefObject<HTMLDivElement | null>;
@@ -303,7 +304,8 @@ export function OmnibarResultList({
                 ? mariEnabled
                   ? t(
                       "commandCenter.empty.hintDesktop",
-                      "Type a name, a setting or a question. Enter opens the top row; Ctrl/⌘+Enter asks Mari.",
+                      "Type a name, a setting or a question. Enter opens the top row; {{mod}}+Enter asks Mari.",
+                      { mod: formatShortcutKey("Mod") },
                     )
                   : t("commandCenter.empty.hintDesktopNoMari", "Type a name or a setting. Enter opens the top row.")
                 : mariEnabled

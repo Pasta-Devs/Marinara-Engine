@@ -361,7 +361,7 @@ test("expanded results stay reachable and expose concise accessible names", asyn
       })
       .toBe(true);
 
-    await expect(omnibar.getByText("Ctrl/⌘+Enter Continue with Mari", { exact: true })).toBeVisible();
+    await expect(omnibar.getByText("Ctrl+Enter Continue with Mari", { exact: true })).toBeVisible();
     await expect(omnibar.getByText("Esc close", { exact: true })).toBeVisible();
     await omnibar.locator('[data-component="GlobalOmnibar.ProfessorMariButton"]').click();
     await expect(omnibar.locator('[data-component="GlobalOmnibar.Mari"]')).toBeVisible();

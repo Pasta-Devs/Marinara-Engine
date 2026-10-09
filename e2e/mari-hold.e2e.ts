@@ -31,7 +31,7 @@ async function holdWidgetAndDrag(page: Page) {
   await page.mouse.move(startX + 40, startY - 30, { steps: 6 });
   const figure = page.locator(".mari-hold-figure");
   await expect(figure).toBeVisible();
-  await expect(figure.locator(".mari-hold-figure__line")).toHaveText("W-What are you doing? Put me down! (˶>⩊<˶)");
+  await expect(figure.locator(".mari-hold-figure__line")).toHaveText("W-What are you doing? Put me down! (>_<)");
   await expect(art).toHaveCSS("opacity", "0");
   return { figure, art, startX, startY };
 }
@@ -80,7 +80,7 @@ test("with reduced motion a hold only bounces her in place and shows her line", 
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   await page.mouse.down();
   await page.mouse.move(box.x + box.width / 2 + 40, box.y + box.height / 2 - 30, { steps: 6 });
-  await expect(page.locator(".mari-hold-figure__line")).toHaveText("W-What are you doing? Put me down! (˶>⩊<˶)");
+  await expect(page.locator(".mari-hold-figure__line")).toHaveText("W-What are you doing? Put me down! (>_<)");
   await expect(page.locator(".mari-hold-figure__sprite")).toHaveCount(0);
   await page.mouse.up();
   await expect(page.locator('[data-component="GlobalOmnibar.Mari"]')).toBeHidden();

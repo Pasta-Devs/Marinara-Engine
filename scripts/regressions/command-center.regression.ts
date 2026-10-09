@@ -1564,7 +1564,7 @@ assert.ok(!("mariDetailId" in mariSession));
 }
 
 // UX-06: the tour's search step tells a phone user about the pull-down, and the last step uses the keyed copy
-// that already names both doors (Ctrl/⌘+K and the phone pull).
+// that already names both doors ({{mod}}+K and the phone pull).
 {
   const tourSource = readFileSync(
     new URL("../../packages/client/src/components/onboarding/OnboardingTutorial.tsx", import.meta.url),

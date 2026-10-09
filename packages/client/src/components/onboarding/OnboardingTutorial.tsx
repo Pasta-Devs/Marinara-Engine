@@ -16,6 +16,7 @@ import { useTranslation as useUiTranslation } from "react-i18next";
 import { useDialogFocusScope } from "../../hooks/use-dialog-focus-scope";
 import { useMariAppearancePack } from "../../hooks/use-mari-appearance-pack";
 import { MARI_ASSET_TIER, mariImgLoading, type MariPose } from "../../lib/mari-work-animations";
+import { formatShortcutKey } from "../../lib/keyboard-shortcuts";
 
 // ─── Step definitions ─────────────────────────
 
@@ -462,7 +463,9 @@ function TourCardContent({
   // UX-06: on a phone there is no search field to point at; the same step tells the user about the pull-down.
   const bodyKey =
     currentStep.phoneBodyKey && getViewportWidth() < MOBILE_BREAKPOINT ? currentStep.phoneBodyKey : currentStep.bodyKey;
-  const localizedBody = bodyKey ? localizeUi(bodyKey) : localize(currentStep.body ?? "");
+  const localizedBody = bodyKey
+    ? localizeUi(bodyKey, { mod: formatShortcutKey("Mod") })
+    : localize(currentStep.body ?? "");
   const localizedTitle = resolveTourStepTitle(currentStep, localizeUi, localize);
   return (
     <>

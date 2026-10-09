@@ -161,6 +161,7 @@ import { useOmnibarMessageSearch } from "./omnibar/use-omnibar-message-search";
 import { useOmnibarScreenContext } from "./omnibar/use-omnibar-screen-context";
 import { createOmnibarResultActions } from "./omnibar/omnibar-result-actions";
 import { useOmnibarLocalResults } from "./omnibar/use-omnibar-local-results";
+import { formatShortcutKey } from "../../lib/keyboard-shortcuts";
 // Each pane only renders once the user opens it, so they stay out of the
 // initial AppShell chunk.
 const OmnibarDetailPane = lazy(() =>
@@ -2021,7 +2022,7 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
                     : t("commandCenter.backToResults", "Back to results")
                 }
                 // M18: ⌘J goes back to the search from Mari, so the button says so.
-                title={mariSurface ? t("commandCenter.keyboard.backToSearch", "Back to search (Ctrl/⌘+J)") : undefined}
+                title={mariSurface ? t("commandCenter.keyboard.backToSearch", "Back to search ({{mod}}+J)", { mod: formatShortcutKey("Mod") }) : undefined}
                 aria-keyshortcuts={mariSurface ? (isApplePlatform() ? "Meta+J" : "Control+J") : undefined}
                 className="inline-flex size-11 shrink-0 items-center justify-center rounded-md text-[var(--muted-foreground)] hover:bg-[var(--accent)] sm:size-9"
               >
