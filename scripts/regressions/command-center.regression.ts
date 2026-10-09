@@ -1554,6 +1554,22 @@ assert.ok(!("mariDetailId" in mariSession));
   );
 }
 
+// UX-06: the tour's search step tells a phone user about the pull-down, and the last step uses the keyed copy
+// that already names both doors (Ctrl/⌘+K and the phone pull).
+{
+  const tourSource = readFileSync(
+    new URL("../../packages/client/src/components/onboarding/OnboardingTutorial.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.match(tourSource, /phoneBodyKey: "onboarding\.homeNavigation\.phoneBody"/u);
+  assert.match(tourSource, /titleKey: "onboarding\.finish\.title",\s*bodyKey: "onboarding\.finish\.body"/u);
+  const en = JSON.parse(
+    readFileSync(new URL("../../packages/client/src/localization/locales/en.json", import.meta.url), "utf8"),
+  );
+  assert.match(en["onboarding.homeNavigation.phoneBody"], /pull down from the top bar/iu);
+  assert.match(en["onboarding.finish.body"], /On a phone, pull down from the top bar\./u);
+}
+
 // UX-01: typing her name first opens her; the row is the same door as Ctrl+J.
 {
   const searchInput = (deferredQuery: string, mariOn = true) => ({

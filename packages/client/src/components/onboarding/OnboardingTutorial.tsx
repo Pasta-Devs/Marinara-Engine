@@ -49,6 +49,8 @@ interface TourStep {
   docsLanguagePicker?: boolean;
   /** Professor Mari sprite to display */
   sprite?: { pose: MariPose; flip?: boolean };
+  /** Body used instead of bodyKey on a phone-width screen, where this step's control is not on screen */
+  phoneBodyKey?: string;
 }
 
 function resolveTourStepTitle(step: TourStep, localizeUi: (key: string) => string, localize: (text: string) => string) {
@@ -163,6 +165,7 @@ const STEPS: TourStep[] = [
     target: "home-address",
     titleKey: "onboarding.homeNavigation.title",
     bodyKey: "onboarding.homeNavigation.body",
+    phoneBodyKey: "onboarding.homeNavigation.phoneBody",
     side: "bottom",
     openHome: true,
     sprite: { pose: "point-up" },
@@ -187,8 +190,8 @@ const STEPS: TourStep[] = [
   },
   {
     target: "panel-connections",
-    title: "You're All Set!",
-    body: "I'm available from the Home page whenever you need help, and my starter chips can guide you through common first steps without making you type everything. For your first real step, set up a Connection. After that, try creating a new chat. Don't worry, I will be there to guide you. Thank you for trying Marinara Engine. Have fun, and please report bugs or rough edges through our Discord or GitHub so we can keep improving it.",
+    titleKey: "onboarding.finish.title",
+    bodyKey: "onboarding.finish.body",
     side: "bottom",
     openPanel: "connections",
     sprite: { pose: "greet" },
@@ -456,7 +459,10 @@ function TourCardContent({
   const { t: localizeUi } = useUiTranslation();
   const localize = useLocalizedUiText();
   const { poses } = useMariAppearancePack();
-  const localizedBody = currentStep.bodyKey ? localizeUi(currentStep.bodyKey) : localize(currentStep.body ?? "");
+  // UX-06: on a phone there is no search field to point at; the same step tells the user about the pull-down.
+  const bodyKey =
+    currentStep.phoneBodyKey && getViewportWidth() < MOBILE_BREAKPOINT ? currentStep.phoneBodyKey : currentStep.bodyKey;
+  const localizedBody = bodyKey ? localizeUi(bodyKey) : localize(currentStep.body ?? "");
   const localizedTitle = resolveTourStepTitle(currentStep, localizeUi, localize);
   return (
     <>
