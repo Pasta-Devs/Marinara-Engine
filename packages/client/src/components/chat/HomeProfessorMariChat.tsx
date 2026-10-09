@@ -1316,6 +1316,17 @@ export function HomeProfessorMariChat({
     const timer = window.setTimeout(() => setComposerHaloEnding(false), 5_000);
     return () => window.clearTimeout(timer);
   }, [composerHaloEnding]);
+  // UX-03: a run that was still going when the window (re)opened (a reload, another device) ends with its
+  // answer saved on the server only. Reload the thread once it ends, or the answer waits for a reopen.
+  const timelineRunActiveRef = useRef(workspaceTimelineActive);
+  useEffect(() => {
+    const ended = timelineRunActiveRef.current && !workspaceTimelineActive;
+    timelineRunActiveRef.current = workspaceTimelineActive;
+    if (!ended || !chatId) return;
+    void loadMessages(chatId, { restoreFocus: false, shouldApply: () => activeChatIdRef.current === chatId }).catch(
+      () => undefined,
+    );
+  }, [workspaceTimelineActive, chatId, loadMessages]);
   const emptyStateReady =
     omnibarMode && messages.length === 0 && !isBusy && chatId !== null && loadedMessagesChatId === chatId;
   // D1: an arrival door (⌘J, the pull, the drag, Home's "Ask Professor Mari") opened into a chat that
@@ -1357,10 +1368,17 @@ export function HomeProfessorMariChat({
     if (arrivalAppendRequest <= handledArrivalAppendRequestRef.current) return;
     // R7: wait for the arrival's thread, so it is not appended to the one being left.
     if (arrivalThread && routedArrivalRequest < arrivalAppendRequest) return;
-    if (!appendedArrivalReady || !arrival) return;
+    if (!appendedArrivalReady || !arrival || workspaceTimelineActive) return;
     handledArrivalAppendRequestRef.current = arrivalAppendRequest;
     setAppendedArrival(arrival);
-  }, [arrivalAppendRequest, appendedArrivalReady, arrival, arrivalThread, routedArrivalRequest]);
+  }, [
+    arrivalAppendRequest,
+    appendedArrivalReady,
+    arrival,
+    arrivalThread,
+    routedArrivalRequest,
+    workspaceTimelineActive,
+  ]);
   // R7: "New about <context>" from the arrival's choice: a fresh thread for this screen, the open one kept.
   const handleNewAboutContext = useCallback(async () => {
     const context = arrivalThreadRef.current;

@@ -3892,6 +3892,18 @@ assert.ok(!("mariDetailId" in mariSession));
     "utf8",
   );
   assert.match(mariSource, /pendingReviewCount: countBlockingReviews\(visiblePendingChangeReviews\)/u);
+  // UX-03: a run that ends while her window is open reloads the thread (an answer saved after a reload shows
+  // without a reopen), and an arrival door waits for the run instead of landing under the live thread.
+  assert.match(
+    mariSource,
+    /if \(!ended \|\| !chatId\) return;\s*void loadMessages\(chatId,/u,
+    "UX-03: the thread reloads when a run ends",
+  );
+  assert.match(
+    mariSource,
+    /if \(!appendedArrivalReady \|\| !arrival \|\| workspaceTimelineActive\) return;/u,
+    "UX-03: an arrival waits for the run to end",
+  );
   // Slice 71: the header counts the "Needs you" cards (waiting reviews, a turn's deletes as one, a held change).
   // Slice 82: the header's Mari parts live in their own component.
   const headerChromeSource = readFileSync(
