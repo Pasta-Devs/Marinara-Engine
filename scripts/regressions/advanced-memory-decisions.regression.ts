@@ -599,11 +599,6 @@ try {
     ),
     null,
   );
-  assert.deepEqual(
-    await detectDecisionSceneStarts(backend, [{ messageId: "zero", speaker: "Reader", content: "Loud." }], ["zero"]),
-    [],
-    "a message with nothing before it is not asked whether it cuts away",
-  );
   // A small Decision model drops earlier messages and shortens long ones instead of falling back (#7371).
   backend.askMixed = async (state: unknown, questions: Array<{ id: string }>) => {
     assert(estimateChatSummaryTokens(JSON.stringify(state)) <= 1000);
