@@ -273,7 +273,9 @@ try {
   // A retry still finds the player's message when the agents read only one message of context.
   const agentsStore = createAgentsStorage(db);
   const expressionAgent = (await agentsStore.list()).find((agent) => agent.type === "expression")!;
+  // Selected sprites leave the persona out, so only the player's turn can offer it to the retry.
   await agentsStore.update(expressionAgent.id, { settings: { contextSize: 1 } });
+  await chats.patchMetadata(chat.id, { spriteCharacterIds: [alice.id, bob.id] });
   const answeredTurn = await app.inject({
     method: "POST",
     url: "/api/generate/",
@@ -306,6 +308,7 @@ try {
     "a swipe of a reply to the player's message keeps the persona",
   );
   await agentsStore.update(expressionAgent.id, { settings: {} });
+  await chats.patchMetadata(chat.id, { spriteCharacterIds: [] });
   // The player's turn lasts until a reply after it has its own Expression Engine result (#7378).
   const shown = JSON.stringify({ expressionSpriteIds: [alice.id] });
   const player = { role: "user", content: "I wave." };
