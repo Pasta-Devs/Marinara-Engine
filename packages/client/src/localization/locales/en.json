@@ -4572,7 +4572,7 @@
   "ui.characters.onboarding.questionsAsked": "Asked, in this order:",
   "ui.characters.onboarding.questionsIntro": "Questions players answer when they create their persona in the Roleplay setup wizard. Use",
   "ui.characters.onboarding.startOver": "Start over",
-  "ui.characters.onboarding.subtitle": "Let players build their persona from your questions when they start a Roleplay chat with this character.",
+  "ui.characters.onboarding.subtitle": "Let players build their persona from your questions in the Roleplay setup wizard.",
   "ui.characters.onboarding.templateSource": "Answer {{value1}}'s questions",
   "ui.characters.onboarding.tutorialFields": "The rest of your text goes into the persona as written. The user and char macros keep working there; other macros, such as random or time, are filled in once when the persona is created, or left empty.",
   "ui.characters.onboarding.tutorialIfAfter": "to show it, or to ask a follow-up question, only for some answers.",
