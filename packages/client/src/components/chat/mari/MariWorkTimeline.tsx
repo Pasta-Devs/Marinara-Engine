@@ -1,5 +1,6 @@
 // Mari's work timeline: the live headline and sprite, her steps by phase, and the done marks.
 import { useMariAppearancePack } from "../../../hooks/use-mari-appearance-pack";
+import { useMariSpriteSource } from "../../../lib/mari-sprite-ready";
 import { MariStorySprite } from "../MariStorySprite";
 import { MariHold } from "./MariHold";
 import { type CSSProperties, type ReactNode, useEffect, useRef, useState } from "react";
@@ -94,6 +95,7 @@ function MariSprite({
   pullTarget?: boolean;
 }) {
   const appearance = useMariAppearancePack();
+  const sheet = useMariSpriteSource(scene.src);
   // Slice 85: she can be held while she works; the run goes on and she lands back on this line.
   return (
     <MariHold heldSrc={appearance.portraits.drag} hopOnTap>
@@ -103,11 +105,12 @@ function MariSprite({
         data-role={role}
         data-appearance-pack={appearance.id}
         data-mari-pull-target={pullTarget ? "mari-current" : undefined}
+        data-mari-sheet={sheet.ready ? "ready" : "pending"}
         aria-hidden="true"
       >
         <span
           key={`${appearance.id}:${scene.id}`}
-          style={{ "--mari-work-sprite": `url(${scene.src})` } as CSSProperties}
+          style={{ "--mari-work-sprite": `url(${sheet.src})` } as CSSProperties}
         />
       </span>
     </MariHold>

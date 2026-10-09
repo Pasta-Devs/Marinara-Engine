@@ -1,5 +1,6 @@
 import { useState, type CSSProperties } from "react";
 import { useMariAppearancePack } from "../../hooks/use-mari-appearance-pack";
+import { useMariSpriteSource } from "../../lib/mari-sprite-ready";
 import { MariHold } from "./mari/MariHold";
 import type { MariStoryState } from "../../lib/mari-work-animations";
 import "./mari-appearance.css";
@@ -27,6 +28,7 @@ export function MariStorySprite({
   const pack = useMariAppearancePack();
   const [settled, setSettled] = useState(false);
   const shown = settled && settleTo ? settleTo : state;
+  const sheet = useMariSpriteSource(pack.stories[shown].src);
   return (
     <MariHold heldSrc={pack.portraits.drag} hopOnTap>
       <span
@@ -34,11 +36,12 @@ export function MariStorySprite({
         data-state={shown}
         data-appearance-pack={pack.id}
         data-mari-pull-target={pullTarget ? "mari-current" : undefined}
+        data-mari-sheet={sheet.ready ? "ready" : "pending"}
         aria-hidden="true"
       >
         <span
           key={`${pack.id}:${shown}`}
-          style={{ "--mari-work-sprite": `url(${pack.stories[shown].src})` } as CSSProperties}
+          style={{ "--mari-work-sprite": `url(${sheet.src})` } as CSSProperties}
           onAnimationEnd={settleTo ? () => setSettled(true) : undefined}
         />
         {/* Slice 85 hover: the pointer rests on her, so her portrait takes the same 2:3 box (mouse only). */}

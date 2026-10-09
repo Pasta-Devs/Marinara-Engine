@@ -242,6 +242,12 @@ export function MariTranscript({
                     !(message.id === latestMessage?.id && workspaceTimelineVisible && message.role === "assistant"),
                 )
                 .map(renderDisplayMessage)}
+              {/* Sending, before the run is confirmed: she stays on screen until the live line takes over. */}
+              {isBusy && !workspaceTimelineVisible ? (
+                <div className="mari-work-timeline__live">
+                  <MariStorySprite state="thinking" pullTarget={false} />
+                </div>
+              ) : null}
               {workspaceTimelineVisible ? (
                 <MariWorkTimeline
                   items={workspaceTimeline}

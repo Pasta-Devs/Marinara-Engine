@@ -19,6 +19,7 @@ import {
 } from "../../lib/professor-mari-open";
 import { useMariAppearancePack, useMariPackUnlocks } from "../../hooks/use-mari-appearance-pack";
 import { useMariPresence } from "../../hooks/use-mari-presence";
+import { warmMariSprite } from "../../lib/mari-sprite-ready";
 import { mariAssetUrls } from "../../lib/mari-work-animations";
 import { useUIStore } from "../../stores/ui.store";
 
@@ -115,12 +116,9 @@ export function GlobalOmnibar() {
     let idleId: number | undefined;
     let timer: number | undefined;
     // Decoded, not just fetched: the first frame she draws is already a bitmap, not a late pop-in.
+    // Decoded, not just fetched: a sheet counts as drawn only once it is decoded (mari-sprite-ready).
     const prefetch = () => {
-      for (const url of mariAssetUrls(pack, 2)) {
-        const image = new Image();
-        image.src = url;
-        void image.decode().catch(() => undefined);
-      }
+      for (const url of mariAssetUrls(pack, 2)) void warmMariSprite(url);
     };
     const schedule = () => {
       if (typeof window.requestIdleCallback === "function")
