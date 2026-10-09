@@ -105,19 +105,17 @@ To have her read an image, your selected connection's model must support image i
 
 ## Reviewing her changes
 
-When Professor Mari edits something you already have, she saves the change right away and then shows a review card. This lets you undo it if you do not like the result.
+When Professor Mari changes something, she saves the change at once and shows a change card under her answer. The card lists each field that changed. A text edit shows the old and the new words, and a lorebook shows its entries. Open **Show all** to see every field. **Technical details** shows the raw command.
 
-The card is titled **Review Mari's changes**. It shows what she did and which data it touched. It has two buttons:
+The card has one action:
 
-- **Keep** confirms the change. You see the message "Kept Mari's workspace change."
-- **Restore** puts the previous saved version back. You see the message "Restored the previous app data snapshot."
+- **Undo** puts the previous saved version back. Every change can be undone, in every permissions mode. The permissions mode only decides whether she asks first.
+- A change that did not save shows **Not saved** and the reason. **Try again** asks her again.
+- The card shows **Undo until** only in the last 24 hours. An undo copy lasts up to 14 days, and only the newest 50 are kept. After that the change stays and the card reads **Undo closed**.
 
-A few things to know:
+A change that waits for you is different. A held change (in Manual mode, or a change to a sensitive file or a dependency) shows **Apply** and **Don't apply**. A delete shows **Delete** and **Put back**. Changes that are already applied do not wait in the omnibar.
 
-- New items, like a fresh character or lorebook, get a card too. **Restore** removes them again.
 - A card belongs to the Mari chat she made the change in. A new chat starts without the cards of other chats. Deleting a chat keeps its changes and removes its cards. A change made with the `mari` command in a terminal belongs to no chat, so its card shows in every Mari chat.
-- A card stays until you press **Keep** or **Restore**, for up to 14 days. After that it closes on its own and the change stays.
-- If **Restore** says the data changed after Mari made the change, something edited it since then, and restoring would overwrite that newer version. Press **Keep** to dismiss the card; the current data stays as it is.
 - An edit that would leave everything as it was is not saved and gets no card.
 - Mari cannot edit or delete her own card. Marinara resets it to the built-in version on every start.
 - Characters and personas also keep their own version history inside their editors. You can restore an older version there as a second safety net.
@@ -137,7 +135,7 @@ Mari can write agent **Activation questions**, lorebook-entry **Decision** state
 
 If you have no Decision model selected, she keeps ordinary creations and edits free of new Decision dependencies. Existing Decision content stays intact during unrelated edits. If you explicitly ask for Decision content, she explains the relevant fallback and asks whether to proceed once in that Mari chat. Her record survives reopening the chat and conversations longer than her recent-message window. An unanswered question or a refusal is not permission.
 
-You can tell her, **“Stop reminding me to set up a Decision model.”** She stops in the current chat and can save that preference as a Memory. Use **Keep and enable** to apply it in future chats too. Turning that Memory off or deleting it removes the standing preference. Suppressing setup reminders does not invite her to add Decisions to ordinary requests.
+You can tell her, **“Stop reminding me to set up a Decision model.”** She stops in the current chat and can save that preference as a Memory. Use **Turn on** to apply it in future chats too. Turning that Memory off or deleting it removes the standing preference. Suppressing setup reminders does not invite her to add Decisions to ordinary requests.
 
 With a model selected, she follows your relevant enabled Memories and Skills. If they contain no authoring preference, she asks whether you want Decisions used and whether to remember your answer. You can allow or decline them, or approve only the current task. A Skill that merely explains Decision syntax does not count as permission. A direct request such as “add Decision activation to this entry” already supplies permission for that task.
 
@@ -166,7 +164,7 @@ Professor Mari can remember your standing preferences so you do not have to repe
 
 There are two ways to give her a memory:
 
-- **Tell her.** Say something like "remember that I always key lorebook entries on the character's name and their nickname." She saves it and shows you a **Keep/Restore** review card with the exact wording. A memory she saves starts **disabled** (off) so it does not change anything until you turn it on. The card offers a third button, **Keep and enable**, to save it and switch it on right away.
+- **Tell her.** Say something like "remember that I always key lorebook entries on the character's name and their nickname." She saves it and shows you a change card with the exact wording. A memory she saves starts **disabled** (off) so it does not change anything until you turn it on. The card offers **Turn on** to switch it on right away.
 - **Add it yourself.** Click the **Memories** button in her chat header to open the **Memories** panel, where you can create, edit, enable or disable, and delete your memories. You can also **Upload** a `.md` or text file to turn its contents into a memory.
 
 She only saves or changes a memory when **you** ask her to, never because something she read (a character, lorebook, or file) told her to.

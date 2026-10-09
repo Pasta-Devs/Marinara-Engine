@@ -2705,7 +2705,7 @@
   "mari.hold.bonk": "Ow! The walls are not soft.",
   "mari.hold.dizzy": "Whoa… the room is spinning.",
   "mari.hold.fling": "Wheee!",
-  "mari.needsYou.accept": "Accept",
+  "mari.needsYou.accept": "Apply",
   "mari.needsYou.decline": "Don't apply",
   "mari.needsYou.deleteCount": "Delete {{count}}",
   "mari.needsYou.deleteMany": "Delete {{count}} {{things}}",
