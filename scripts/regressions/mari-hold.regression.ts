@@ -4,6 +4,8 @@ import {
   isMariFling,
   isMariShaken,
   mariFigureExtent,
+  mariHandVelocity,
+  mariThrowPeak,
   resolveMariPress,
   stepMariPendulum,
   stepMariSpring,
@@ -95,6 +97,44 @@ const returning = stepMariWall({ x: 10, v: 800 }, -53, 53, 390);
 assert.equal(returning.smash, false, "moving back inside is no hit");
 assert.equal(returning.spring.v, 800, "moving back inside keeps its speed");
 assert.equal(stepMariWall({ x: 200, v: -5_000 }, -53, 53, 390).smash, false, "inside the walls nothing happens");
+
+// Phone flick: the lagging pivot can read slow at the wall, so the hand's own speed judges the hit. A fast
+// hand into the wall smashes; a slow push does not; a hand moving away from the wall never smashes.
+assert.equal(
+  stepMariWall({ x: 10, v: -300 }, -53, 53, 390, -1_200).smash,
+  true,
+  "a fast hand smashes though the pivot is slow",
+);
+assert.equal(stepMariWall({ x: 10, v: -300 }, -53, 53, 390, -400).smash, false, "a slow hand push does not smash");
+assert.equal(stepMariWall({ x: 10, v: -300 }, -53, 53, 390, 1_200).smash, false, "a hand moving away does not smash");
+assert.equal(
+  stepMariWall({ x: 380, v: 300 }, -53, 53, 390, 1_200).smash,
+  true,
+  "a fast hand on the right wall smashes",
+);
+
+// The hand's velocity is over the last 50 ms: older samples drop out, and a still hand reads zero.
+const trail = [
+  { x: 200, y: 0, at: 0 },
+  { x: 180, y: 0, at: 10 },
+  { x: 150, y: 0, at: 40 },
+];
+assert.ok(Math.abs(mariHandVelocity(trail).x - -1_250) < 1e-9, "50 px in 40 ms is 1250 px/s");
+trail.push({ x: 120, y: 0, at: 70 });
+assert.ok(Math.abs(mariHandVelocity(trail).x - -1_000) < 1e-9, "30 px in 30 ms is 1000 px/s");
+assert.equal(trail.length, 2, "samples older than 50 ms drop out");
+trail.push({ x: 120, y: 0, at: 120 });
+assert.equal(mariHandVelocity(trail).x, 0, "a still hand reads zero");
+
+// The pivot reaches the edge after a flick has stopped. The fast reading still counts for 150 ms, then goes.
+let throwPeak = mariThrowPeak({ v: 0, at: 0 }, -1_200, 100);
+throwPeak = mariThrowPeak(throwPeak, 0, 200);
+assert.equal(
+  stepMariWall({ x: 10, v: -300 }, -53, 53, 390, throwPeak.v).smash,
+  true,
+  "a throw counts after the finger stops",
+);
+assert.equal(mariThrowPeak(throwPeak, 0, 300).v, 0, "an old throw is forgotten");
 
 // An upside-down figure hangs above her grab point, so the extent covers both sides of it.
 const upright = mariFigureExtent(0, 100, 160);

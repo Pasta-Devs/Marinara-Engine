@@ -4,6 +4,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- Throwing Professor Mari against the screen edge now works on phones.
 - The held Professor Mari change that waited for your OK now has **Apply** instead of **Accept**, so it reads like the other choices on the card.
 - A change Professor Mari could not save now says **Not saved**, with the reason in plain words and a **Try again** button that asks her again. Before, a failed change left no card at all.
 - The omnibar lists only what waits for you: a held change, a delete, an install or a file write. A change Professor Mari has already applied is saved and stays on her card, with **Undo**, so it no longer shows as a to-do in the omnibar. A held change reads **Apply** or **Don't apply**, and a delete reads **Delete** or **Put back**.

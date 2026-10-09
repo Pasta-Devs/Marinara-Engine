@@ -92,6 +92,43 @@ export function wrapMariAngle(angle: number): number {
 export const MARI_SMASH_SPEED_PX_S = 900;
 /** A smash bounces her back at this share of her speed. */
 export const MARI_WALL_BOUNCE = 0.5;
+/** The hand's speed is read over this many ms. */
+export const MARI_HAND_WINDOW_MS = 50;
+/**
+ * A fast hand still counts for a wall hit this long after it was fast. The pivot trails the hand by about
+ * 55 ms, so on a phone it reaches the edge after the finger has stopped on it.
+ */
+export const MARI_THROW_MEMORY_MS = 150;
+
+/** One sample of the hand: where the pointer was, and when (ms). */
+export interface MariHandSample {
+  x: number;
+  y: number;
+  at: number;
+}
+
+/**
+ * The hand's velocity (px/s) over the last `MARI_HAND_WINDOW_MS`. `samples` are oldest first; the older
+ * ones past the window are dropped in place. A still hand reads zero once the window holds only its spot.
+ */
+export function mariHandVelocity(samples: MariHandSample[]): { x: number; y: number } {
+  const last = samples[samples.length - 1];
+  while (samples.length > 1 && last.at - samples[0].at > MARI_HAND_WINDOW_MS) samples.shift();
+  const first = samples[0];
+  const dt = (last.at - first.at) / 1000;
+  return dt > 0 ? { x: (last.x - first.x) / dt, y: (last.y - first.y) / dt } : { x: 0, y: 0 };
+}
+
+/** One axis of the hand's fastest recent velocity: `at` is when (ms) it was read. */
+export interface MariThrow {
+  v: number;
+  at: number;
+}
+
+/** Keeps the faster of the held peak and a new reading, and lets a peak go once it is `MARI_THROW_MEMORY_MS` old. */
+export function mariThrowPeak(peak: MariThrow, v: number, now: number): MariThrow {
+  return Math.abs(v) >= Math.abs(peak.v) || now - peak.at > MARI_THROW_MEMORY_MS ? { v, at: now } : peak;
+}
 
 /**
  * The figure's box relative to its grab point (the top centre), for the angle and scale it is at now:
@@ -117,13 +154,15 @@ export function mariFigureExtent(angle: number, width: number, height: number, s
 /**
  * One axis of the viewport as a wall. The grab point is `position`; the figure spans `min`..`max`
  * from it, and the screen is `size` px long. A figure past a wall bounces off it, or stops if the
- * hit is light. A hit at smash speed also reports that it smashed.
+ * hit is light. A hit at smash speed also reports that it smashed. The impact is the faster of the
+ * pivot moving into the wall and the hand (`handV`, signed px/s on this axis) moving into it.
  */
 export function stepMariWall(
   spring: MariSpring,
   min: number,
   max: number,
   size: number,
+  handV = 0,
 ): { spring: MariSpring; smash: boolean } {
   // Positive: the figure must move right or down to fit. Negative: left or up.
   const push = spring.x + min < 0 ? -(spring.x + min) : spring.x + max > size ? size - (spring.x + max) : 0;
@@ -131,7 +170,8 @@ export function stepMariWall(
   // Moving into the wall: its speed is the impact. A push and a velocity with opposite signs mean that.
   // Moving back inside already: nothing to stop.
   const hitting = Math.sign(push) !== Math.sign(spring.v);
-  const impact = hitting ? Math.abs(spring.v) : 0;
+  const handHitting = Math.sign(handV) === -Math.sign(push);
+  const impact = Math.max(hitting ? Math.abs(spring.v) : 0, handHitting ? Math.abs(handV) : 0);
   const smash = impact >= MARI_SMASH_SPEED_PX_S;
   const v = !hitting ? spring.v : smash ? -spring.v * MARI_WALL_BOUNCE : 0;
   return { spring: { x: spring.x + push, v }, smash };

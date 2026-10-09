@@ -1,11 +1,15 @@
 import { useEffect, useRef, type RefObject } from "react";
 import {
   mariFigureExtent,
+  mariHandVelocity,
+  mariThrowPeak,
   stepMariPendulum,
   stepMariSpring,
   stepMariWall,
+  type MariHandSample,
   type MariPendulum,
   type MariSpring,
+  type MariThrow,
 } from "../../../lib/mari-hold";
 
 /** Height of the held sheet's frame in CSS px; the figure scales from her slot to full size. */
@@ -63,6 +67,9 @@ export function MariHoldFigure({
     let pinnedX = false;
     let pinnedY = false;
     let bonkTimer = 0;
+    const hand: MariHandSample[] = [];
+    let throwX: MariThrow = { v: 0, at: 0 };
+    let throwY: MariThrow = { v: 0, at: 0 };
     let anchor: ReturnType<typeof slotRect> = null;
     let last = performance.now();
     let frame = 0;
@@ -117,8 +124,14 @@ export function MariHoldFigure({
       if (!releasingRef.current) {
         // The viewport edges are walls for her whole figure: rotation, scale and squash included.
         const extent = mariFigureExtent(body.angle, width, FIGURE_HEIGHT, sx, sy);
-        const wallX = stepMariWall(x, extent.left, extent.right, window.innerWidth);
-        const wallY = stepMariWall(y, extent.top, extent.bottom, window.innerHeight);
+        // A hit is judged by the hand's fastest recent speed: the pivot trails a flick and reaches the edge
+        // after the finger has stopped on it, so its own speed reads slow.
+        hand.push({ x: targetX, y: targetY, at: now });
+        const handV = mariHandVelocity(hand);
+        throwX = mariThrowPeak(throwX, handV.x, now);
+        throwY = mariThrowPeak(throwY, handV.y, now);
+        const wallX = stepMariWall(x, extent.left, extent.right, window.innerWidth, throwX.v);
+        const wallY = stepMariWall(y, extent.top, extent.bottom, window.innerHeight, throwY.v);
         pinnedX = wallX.spring.x !== x.x;
         pinnedY = wallY.spring.x !== y.x;
         x = wallX.spring;

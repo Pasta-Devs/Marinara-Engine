@@ -148,6 +148,87 @@ test("a fast flick into the left edge bonks her, and she stays on screen", async
   await expect(figure).toBeHidden({ timeout: 3_000 });
 });
 
+// Slice 85 phone flick: the page sends touch-type pointer events on a real clock, so the hand's speed is
+// exactly what `durMs` says. A CDP touch round trip is too slow to pace a flick. Returns whether she bonked
+// and how far her figure went past the screen during the flick.
+async function phoneFlick(page: Page, toX: number, durMs: number) {
+  return page.evaluate(
+    async ({ toX, durMs }) => {
+      const art = document.querySelector<HTMLElement>("[data-home-professor-art]")!;
+      const box = art.getBoundingClientRect();
+      const startX = box.left + box.width / 2;
+      const y = box.top + box.height / 2;
+      const pointer = (type: string, x: number) =>
+        new PointerEvent(type, {
+          bubbles: true,
+          cancelable: true,
+          pointerId: 7,
+          pointerType: "touch",
+          isPrimary: true,
+          button: 0,
+          buttons: type === "pointerup" ? 0 : 1,
+          clientX: x,
+          clientY: y,
+        });
+      const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+      let bonked = false;
+      let watching = true;
+      let outside = 0;
+      const watch = () => {
+        const figure = document.querySelector<HTMLElement>(".mari-hold-figure");
+        if (figure) {
+          if (figure.dataset.bonk === "true") bonked = true;
+          const rect = figure.getBoundingClientRect();
+          outside = Math.max(outside, -rect.left, rect.right - window.innerWidth);
+        }
+        if (watching) requestAnimationFrame(watch);
+      };
+      requestAnimationFrame(watch);
+      art.dispatchEvent(pointer("pointerdown", startX));
+      await sleep(380);
+      const mid = window.innerWidth / 2;
+      for (let i = 1; i <= 8; i++) {
+        window.dispatchEvent(pointer("pointermove", startX + ((mid - startX) * i) / 8));
+        await sleep(16);
+      }
+      await sleep(200);
+      const steps = Math.max(2, Math.round(durMs / 16));
+      for (let i = 1; i <= steps; i++) {
+        window.dispatchEvent(pointer("pointermove", mid + ((toX - mid) * i) / steps));
+        await sleep(durMs / steps);
+      }
+      await sleep(100);
+      watching = false;
+      window.dispatchEvent(pointer("pointerup", toX));
+      return { bonked, outside };
+    },
+    { toX, durMs },
+  );
+}
+
+test("a fast phone flick into either edge bonks her, and she stays on screen", async ({ page, isMobile }) => {
+  test.skip(!isMobile, "phone flick: touch pointers");
+  const width = (page.viewportSize() ?? { width: 390 }).width;
+  for (const toX of [2, width - 2]) {
+    await page.goto("/");
+    await expect(page.locator("[data-home-professor-art]")).toBeVisible({ timeout: 30_000 });
+    const flick = await phoneFlick(page, toX, 150);
+    expect(flick.bonked, `a 150 ms flick to x=${toX} bonks her`).toBe(true);
+    expect(flick.outside, "she stays on screen").toBeLessThanOrEqual(1);
+  }
+});
+
+test("a slow phone push into an edge does not bonk her", async ({ page, isMobile }) => {
+  test.skip(!isMobile, "phone flick: touch pointers");
+  const width = (page.viewportSize() ?? { width: 390 }).width;
+  for (const toX of [2, width - 2]) {
+    await page.goto("/");
+    await expect(page.locator("[data-home-professor-art]")).toBeVisible({ timeout: 30_000 });
+    const push = await phoneFlick(page, toX, 900);
+    expect(push.bonked, `a slow push to x=${toX} does not bonk her`).toBe(false);
+  }
+});
+
 test("two fast hits on opposite edges make her dizzy", async ({ page }) => {
   await page.goto("/");
   const { figure, startY } = await holdWidgetAndDrag(page);
