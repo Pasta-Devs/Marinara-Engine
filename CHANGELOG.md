@@ -20,6 +20,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - The Home navigator (the floating Mari that found pages by keyword) is removed. Its page links are in the omnibar now: Discord, Credits, Tutorial, Home widgets and the Home tab of each installed app package, such as Noodle. Its setting is removed too. Onboarding points at the address bar.
 - Professor Mari's and Search settings, including the quick-answer model, are now saved on the server and follow you across browsers.
 - Fixed the pull-down sheet's edge lines crossing into an X just before the sheet lets go, on a wide desktop window. The two sides now meet in the middle at every width.
+- The pull-down labels say **Ask Prof. Mari** and **Release to ask Prof. Mari**, not just Mari.
 
 - A quick answer offers a setting or record only when it names that whole thing. It no longer shows chips for parts of longer names, like **Advanced** and **Parameters** for "Advanced Parameters".
 - **Same as Mari** for quick answers now uses the connection Mari's window uses, and otherwise the connection set as the agents default. Before, it always took the first connection in the list.
