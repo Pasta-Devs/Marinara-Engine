@@ -697,6 +697,10 @@ export function isTtsLocalUrlsEnabled() {
   return isEnabledFlag(process.env.TTS_LOCAL_URLS_ENABLED);
 }
 
+export function isSttLocalUrlsEnabled() {
+  return isEnabledFlag(process.env.STT_LOCAL_URLS_ENABLED);
+}
+
 export function isDeeplxLocalUrlsEnabled() {
   return isEnabledFlag(process.env.DEEPLX_LOCAL_URLS_ENABLED);
 }

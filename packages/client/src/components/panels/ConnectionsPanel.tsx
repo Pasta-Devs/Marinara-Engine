@@ -97,6 +97,7 @@ import {
 } from "../../lib/connection-transfer";
 import { toast } from "sonner";
 import { TTSConfigCard } from "./settings/TTSConfigCard";
+import { SpeechToTextCard } from "./settings/SpeechToTextCard";
 import { SettingsSwitch, ToggleSetting } from "./settings/SettingControls";
 import { SelectionActionBar } from "../ui/SelectionActionBar";
 import { SmoothFolderContent } from "../ui/SmoothFolderContent";
@@ -2173,6 +2174,9 @@ export function ConnectionsPanel() {
 
       {/* ── Text to Speech ── */}
       <TTSConfigCard />
+
+      {/* ── Speech to Text (Calls only) ── */}
+      <SpeechToTextCard />
 
       {isLoading && (
         <div className="flex flex-col gap-2 py-2">

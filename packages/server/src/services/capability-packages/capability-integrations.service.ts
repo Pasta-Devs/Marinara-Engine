@@ -1,4 +1,9 @@
-import type { CapabilityIntegrationHost, CapabilityIntegrationProvider } from "@marinara-engine/shared";
+import type {
+  CapabilityIntegrationHost,
+  CapabilityIntegrationProvider,
+  CapabilitySpeechTranscribeOptions,
+} from "@marinara-engine/shared";
+import type { DB } from "../../db/connection.js";
 import type { BaseLLMProvider } from "../llm/base-provider.js";
 import { getLocalSidecarProvider } from "../llm/local-sidecar.js";
 import { createLLMProvider } from "../llm/provider-registry.js";
@@ -18,9 +23,13 @@ import {
   resolveVideoRequestDuration,
   resolveVideoReferencePublicUploadOptions,
 } from "../video/video-generation.js";
+import { transcribeWithSavedSpeechToTextServer } from "../speech-to-text.service.js";
 
 /** Bind each package to the live host services, including their queues, security checks and logging. */
-export function createCapabilityIntegrationHost(permissions: readonly string[]): CapabilityIntegrationHost {
+export function createCapabilityIntegrationHost(
+  permissions: readonly string[],
+  db?: DB | null,
+): CapabilityIntegrationHost {
   const granted = new Set(permissions);
   const guarded =
     <Args extends unknown[], Result>(permission: "network" | "storage", operation: (...args: Args) => Result) =>
@@ -82,6 +91,11 @@ export function createCapabilityIntegrationHost(permissions: readonly string[]):
       remove: guarded("storage", removeSavedVideoFromDisk),
       resolveDuration: resolveVideoRequestDuration,
       resolveReferenceUpload: resolveVideoReferencePublicUploadOptions,
+    }),
+    speech: Object.freeze({
+      transcribe: guarded("network", async (audio: Uint8Array, options?: CapabilitySpeechTranscribeOptions) =>
+        db ? transcribeWithSavedSpeechToTextServer(db, audio, options) : null,
+      ),
     }),
   });
 }
