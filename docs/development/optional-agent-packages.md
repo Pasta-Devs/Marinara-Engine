@@ -599,7 +599,28 @@ The user's **Decision model** answers yes/no and choice statements about the rec
 
 An agent prompt template shipped by a package can use decision statements exactly as a user's custom agent does: `{{#if decision:"..."}}` and `{{#if decision_choice:"..." == "..."}}`. The Engine finds them in the template, asks them before the agent runs (after the reply, for a post-processing agent), and resolves the template with the answers. No capability API version is involved. See [Conditional Prompts](../prompts/conditional-prompts.md#asking-the-decision-model) for the syntax and the wording advice, and [Creating Custom Agents](../agents/custom-agents.md#decision-statements-in-the-agents-prompt) for how agent phases read them.
 
-Package runtime code has no way to ask the Decision model directly yet. That needs a capability API method and a version bump of its own.
+Package server code can also ask the user's configured Decision model bounded yes/no and Choice questions about context the package supplies, through `api.runtime.decisions.evaluate(...)`. It uses the same Decision model as agent activation questions and prompt conditionals (a managed local model or a Decision connection) and never exposes keys or Engine internals. `decisions` is optional and needs no newer capability API or permission: check `typeof api.runtime.decisions?.evaluate === "function"` and fall back on older Engines.
+
+```ts
+const result = await api.runtime.decisions?.evaluate({
+  messages: [{ role: "user", content: "The tavern falls silent as the stranger draws a blade." }],
+  questions: [
+    { id: "danger", question: "Someone is about to be attacked." },
+    { id: "mood", question: "The mood of the scene is", options: ["calm", "tense", "festive"] },
+  ],
+  signal,
+  debugMode,
+});
+// null: no Decision model is configured, or it cannot be reached.
+if (result && (result.answers.danger ?? 0) >= result.threshold) {
+  // ...
+}
+```
+
+- `messages` is the package's own context, oldest first (at most 200 messages and 200,000 characters). The oldest messages are dropped to fit the model.
+- Each `question` is at most 500 characters; ids must be unique. A Choice question has at least two `options`, and its answer is one of them or `"none of these"`.
+- One request may ask for at most the user's **Decision statements per turn** limit of answers; each Choice option counts once, plus one. An invalid request throws a `TypeError`.
+- `answers` holds the probability of yes per yes/no question, and a question missing from it was not answered. Compare it with `threshold`, the model's own operating point: probabilities are not comparable across Decision models.
 
 Design every use for a user with no Decision model. A statement with no answer reads as no, so the `{{else}}` branch, or nothing, must be a sensible default. Write for "a Decision model", rather than requiring Jev: local chat models and other supported backends use the same syntax, but can give different answers. See [Thresholds](../connections/decision-models.md#thresholds) and [Limits and cost](../prompts/conditional-prompts.md#limits-and-cost) before relying on a particular score, request count or cached answer.
 
@@ -1389,31 +1410,6 @@ It needs `strikes` beside it and is refused without one, because a list that buy
 already holds every row to one. Not a soft seam, for the same reason as 1.20 through 1.31: an Engine
 that cannot read the key refuses the whole ruleset file, so a package that ships it declares 1.32.
 No permission.
-
-### Decision questions from a package
-
-Server packages can ask the user's configured Decision model bounded yes/no and Choice questions about context the package supplies, through `api.runtime.decisions.evaluate(...)`. It uses the same Decision model as agent activation questions and prompt conditionals (a managed local model or a Decision connection) and never exposes keys or Engine internals. `decisions` is optional and needs no newer capability API or permission: check `typeof api.runtime.decisions?.evaluate === "function"` and fall back on older Engines.
-
-```ts
-const result = await api.runtime.decisions?.evaluate({
-  messages: [{ role: "user", content: "The tavern falls silent as the stranger draws a blade." }],
-  questions: [
-    { id: "danger", question: "Someone is about to be attacked." },
-    { id: "mood", question: "The mood of the scene is", options: ["calm", "tense", "festive"] },
-  ],
-  signal,
-  debugMode,
-});
-// null: no Decision model is configured, or it cannot be reached.
-if (result && (result.answers.danger ?? 0) >= result.threshold) {
-  // ...
-}
-```
-
-- `messages` is the package's own context, oldest first (at most 200 messages and 200,000 characters). The oldest messages are dropped to fit the model.
-- Each `question` is at most 500 characters; ids must be unique. A Choice question has at least two `options`, and its answer is one of them or `"none of these"`.
-- One request may ask for at most the user's **Decision statements per turn** limit of answers; each Choice option counts once, plus one. An invalid request throws a `TypeError`.
-- `answers` holds the probability of yes per yes/no question, and a question missing from it was not answered. Compare it with `threshold`, the model's own operating point: probabilities are not comparable across Decision models.
 
 ### Capability API 1.31: host generation integrations
 
