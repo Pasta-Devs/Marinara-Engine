@@ -20,6 +20,8 @@ import { getCharacterDisplayIdentity } from "../../../lib/character-display";
 import type { usePresets, useSetDefaultPreset } from "../../../hooks/use-presets";
 import type { useLorebooks } from "../../../hooks/use-lorebooks";
 import { useHomeFeed } from "../../../hooks/use-home-feed";
+import { selectHomeBrowserPackages, useInstalledCapabilityPackages } from "../../../hooks/use-capability-packages";
+import { resolveCapabilityPackageDisplay } from "../../../lib/capability-package-localization";
 import type { useConnections } from "../../../hooks/use-connections";
 import type { useChats } from "../../../hooks/use-chats";
 import type { useCharacters, usePersonas } from "../../../hooks/use-characters";
@@ -51,7 +53,24 @@ export function useOmnibarEntityRows({
   chatModeLabels,
   setDefaultPresetMutate,
 }: OmnibarEntityRowsInput) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const installedPackages = useInstalledCapabilityPackages();
+  // Slice 85: every Home package tab (Noodle, …) is a row too, as the Home navigator found them.
+  const packageTabCommands = useMemo(
+    () =>
+      selectHomeBrowserPackages(installedPackages.data).map((item) => {
+        const display = resolveCapabilityPackageDisplay(item.manifest, i18n.resolvedLanguage ?? i18n.language);
+        return {
+          id: `home-tab:${item.id}`,
+          title: display.homeBrowserTab?.label ?? display.name,
+          kind: "navigation" as const,
+          icon: "package" as const,
+          target: { kind: "package", packageId: item.id } as const,
+          aliases: [item.manifest.name, display.name],
+        };
+      }),
+    [installedPackages.data, i18n.language, i18n.resolvedLanguage],
+  );
   // Q6: the Home feed's last message per recent chat (bounded, cached), for the chat rows' second line.
   const homeFeed = useHomeFeed();
   const latestMessageByChatId = useMemo(
@@ -148,6 +167,7 @@ export function useOmnibarEntityRows({
           availability: command.availability,
         }),
       ),
+      ...packageTabCommands,
       ...extensionCommands.map((command) => ({
         ...command,
         action: { kind: "personal-extension", commandId: command.id } as const,
@@ -211,6 +231,7 @@ export function useOmnibarEntityRows({
     connectionById,
     extensionCommands,
     latestMessageByChatId,
+    packageTabCommands,
     lorebooks,
     lorebookLinks,
     personaById,
