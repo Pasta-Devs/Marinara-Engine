@@ -113,13 +113,16 @@ export function OmnibarAside({
   const copyLabel = copiedAnswer === state.answer ? t("omnibar.aside.copied", "Copied") : t("markdown.copy", "Copy");
   const announcement = complete ? stripStrayMarkdown(state.answer) : failed ? (state.error ?? "") : "";
 
+  const focusSearch = () =>
+    document.querySelector<HTMLInputElement>('[data-component="GlobalOmnibar.Panel"] input')?.focus();
+
   const onFollowUpKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.nativeEvent.isComposing) return;
     if (event.key === "Escape") {
       // Handled here, so the omnibar's Escape (close) does not run from inside the row.
       event.preventDefault();
       event.currentTarget.blur();
-      document.querySelector<HTMLInputElement>('[data-component="GlobalOmnibar.Panel"] input')?.focus();
+      focusSearch();
       return;
     }
     if (event.key !== "Enter" || !followUp.trim()) return;
@@ -158,7 +161,15 @@ export function OmnibarAside({
             name: connectionOffer.name,
           })}
         </span>
-        <button type="button" onClick={() => onUseConnectionOffer(connectionOffer.id)} className={textAction}>
+        <button
+          type="button"
+          onClick={() => {
+            onUseConnectionOffer(connectionOffer.id);
+            // UX-02: the offer row unmounts with this button; keep the keyboard in the search field.
+            focusSearch();
+          }}
+          className={textAction}
+        >
           {t("omnibar.aside.offerUse", "Use this connection")}
         </button>
         <button type="button" onClick={onChooseModel} className={textAction}>

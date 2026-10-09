@@ -569,9 +569,17 @@ export function HomeProfessorMariChat({
     suggestionFocusFrameRef.current = window.requestAnimationFrame(() => {
       suggestionFocusFrameRef.current = null;
       const textarea = floatingTextareaRef.current ?? embeddedTextareaRef.current;
-      textarea?.focus();
+      // UX-02: the field is disabled during a run; hold focus on its shell until the run ends (below).
+      if (textarea?.disabled) textarea.closest<HTMLElement>(".mari-workspace-composer")?.focus({ preventScroll: true });
+      else textarea?.focus();
     });
   }, []);
+
+  // UX-02: an action that removes its own button (a handoff, Accept, Undo, Keep) would drop focus to the
+  // page, where Escape and Tab no longer reach her window. Not on touch: focusing the field raises the keyboard.
+  const keepKeyboardInWindow = useCallback(() => {
+    if (!window.matchMedia("(pointer: coarse)").matches) focusComposer();
+  }, [focusComposer]);
 
   useEffect(() => {
     if (controlledChatWindowOpen) focusComposer();
@@ -649,6 +657,11 @@ export function HomeProfessorMariChat({
     [messages, workspaceStatus?.connection?.maxContext],
   );
   const isBusy = sending || hasActiveGeneration || workspaceActive;
+  // A run ended while focus waited on the composer shell: hand it to the field (not on touch, see above).
+  useEffect(() => {
+    if (isBusy || !document.activeElement?.classList.contains("mari-workspace-composer")) return;
+    if (!window.matchMedia("(pointer: coarse)").matches) focusComposer();
+  }, [focusComposer, isBusy]);
   useEffect(() => {
     messageMutationBusyRef.current = isBusy;
   }, [isBusy]);
@@ -2291,7 +2304,8 @@ export function HomeProfessorMariChat({
     if (!draft.trim() || isBusy || connectionsLoading) return;
     handledSubmitRequestRef.current = submitDraftRequest;
     submitHandoffDraft(initialAskContext);
-  }, [connectionsLoading, draft, initialAskContext, isBusy, omnibarMode, submitDraftRequest]);
+    keepKeyboardInWindow();
+  }, [connectionsLoading, draft, initialAskContext, isBusy, keepKeyboardInWindow, omnibarMode, submitDraftRequest]);
 
   // M5b: an action card runs the same deterministic navigation as the omnibar rows, with no Mari round-trip.
   const runSuggestionAction = (action: MariSuggestionAction) => {
@@ -2319,6 +2333,7 @@ export function HomeProfessorMariChat({
   const handleSuggestionSelect = (chip: MariSuggestionChip, draft = false, context?: ProfessorMariAskContext) => {
     if (chip.id === MARI_AUTHORIZATION_ACCEPT_CHIP.id || chip.id === MARI_AUTHORIZATION_DECLINE_CHIP.id) {
       void handleSubmit(chip.prompt);
+      keepKeyboardInWindow();
       return;
     }
     if (guidedPlanStep) {
@@ -2421,6 +2436,7 @@ export function HomeProfessorMariChat({
     // review leaves the pending list (the same render), so the row never blinks out; a failure drops it.
     const entry = { chatId, approval, outcome: keep ? ("applied" as const) : ("discarded" as const) };
     setResolvedPrompts((current) => [...current, entry]);
+    keepKeyboardInWindow();
     const result = await (keep ? keepWorkspaceChange(approval.id) : restoreWorkspaceChange(approval.id));
     const done = keep
       ? result?.outcome === "applied" || result?.history?.status === "kept"

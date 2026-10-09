@@ -298,7 +298,8 @@ export function MariComposer({
       {/* R11 (composer v5): Mari's own shell, not the regular chat input's: neutral at rest, a primary
                               ring only on focus, quiet controls and one neutral filled Send. */}
       <div
-        className="mari-workspace-composer"
+        className="mari-workspace-composer outline-none"
+        tabIndex={-1}
         data-busy={isBusy ? "true" : undefined}
         data-collapsed={workspaceTimelineActive ? "true" : undefined}
       >
