@@ -110,6 +110,20 @@ try {
   const secretSearch = await searchCanonicalDocumentation(workspaceRoot, "internal secret", 3);
   assert.equal(secretSearch.results.length, 0);
 
+  // Slice 84: docs/development working plans are not user docs, so quick answers and Mari never cite them.
+  await mkdir(join(workspaceRoot, "docs", "development"), { recursive: true });
+  await writeFile(join(workspaceRoot, "docs", "development", "omnibar-ux-plan.md"), "# Quokka plan\n", "utf8");
+  await writeFile(join(workspaceRoot, "docs", "development", "architecture-map.md"), "# Quokka map\n", "utf8");
+  const developmentSearch = await searchCanonicalDocumentation(workspaceRoot, "quokka", 3);
+  assert.deepEqual(
+    developmentSearch.results.map((result) => result.path),
+    ["docs/development/architecture-map.md"],
+  );
+  await assert.rejects(
+    () => readCanonicalDocumentation(workspaceRoot, "docs/development/omnibar-ux-plan.md"),
+    /canonical user documentation set/u,
+  );
+
   const section = await readCanonicalDocumentation(workspaceRoot, "docs/connections/proxy.md", "Proxy timeout", 1_000);
   assert.match(section.content, /Increase the proxy timeout/u);
   assert.match(section.content, /packaged launcher/u);

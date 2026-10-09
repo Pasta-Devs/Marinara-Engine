@@ -3,6 +3,24 @@ import { lstat, readdir, readFile, realpath } from "node:fs/promises";
 import { join, relative, resolve, sep } from "node:path";
 
 const EXCLUDED_DOC_DIRS = new Set(["evidence", "pr-evidence", "screenshots", "examples", "i18n"]);
+/** The only docs/development files that are user docs; the docs viewer lists the same set, in this order. */
+export const USER_DEVELOPMENT_DOCS = [
+  "architecture-map.md",
+  "frontend.md",
+  "file-storage.md",
+  "noodle-internals.md",
+  "ios-pwa-safe-area.md",
+];
+
+/**
+ * docs/development is developer reference: only USER_DEVELOPMENT_DOCS at its top level are user docs.
+ * Internal plans, value tables and mockup notes there (omnibar-*.md) are never searched, read or served.
+ * `relativeDir` is relative to docs/, forward slashes.
+ */
+export function isExcludedDevelopmentDoc(relativeDir: string, fileName: string): boolean {
+  const isDevelopmentDoc = relativeDir === "development" || relativeDir.startsWith("development/");
+  return isDevelopmentDoc && !(relativeDir === "development" && USER_DEVELOPMENT_DOCS.includes(fileName));
+}
 const MAX_DOC_FILE_BYTES = 1024 * 1024;
 const MAX_DOC_CANDIDATES = 500;
 const MAX_DOC_DIRECTORIES = 250;
@@ -97,6 +115,8 @@ async function collectMarkdownFiles(
       continue;
     }
     if (!entry.isFile() || !entry.name.toLowerCase().endsWith(".md")) continue;
+    const relativeDir = relative(docsRoot, dir).split(sep).join("/");
+    if (isExcludedDevelopmentDoc(relativeDir.toLowerCase(), entry.name)) continue;
     const absolutePath = join(dir, entry.name);
     const path = `docs/${relative(docsRoot, absolutePath).split(sep).join("/")}`;
     await addDocumentationCandidate(absolutePath, path, discovery);
@@ -381,6 +401,9 @@ async function resolveCanonicalDocPath(workspaceRoot: string, requestedPath: str
     throw new Error("docs_read path is invalid");
   }
   if (segments.slice(1).some((segment) => EXCLUDED_DOC_DIRS.has(segment.toLowerCase()))) {
+    throw new Error("docs_read path is outside the canonical user documentation set");
+  }
+  if (isExcludedDevelopmentDoc(segments.slice(1, -1).join("/").toLowerCase(), segments.at(-1) ?? "")) {
     throw new Error("docs_read path is outside the canonical user documentation set");
   }
   const workspace = await realpath(resolve(workspaceRoot));

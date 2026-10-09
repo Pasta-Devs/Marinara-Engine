@@ -14,6 +14,10 @@ import { readdir, readFile, realpath, stat } from "fs/promises";
 import { join, resolve } from "path";
 import { getMonorepoRoot } from "../config/runtime-config.js";
 import { assertInsideDir } from "../utils/security.js";
+import {
+  isExcludedDevelopmentDoc,
+  USER_DEVELOPMENT_DOCS,
+} from "../services/professor-mari/documentation-tools.js";
 import { createAppSettingsStorage } from "../services/storage/app-settings.storage.js";
 import {
   DocsPackBusyError,
@@ -202,7 +206,7 @@ const DOC_ORDER: Record<string, string[]> = {
     "writing-rulesets.md",
   ],
   integrations: ["home-assistant.md", "discord-mirror.md", "message-translation.md", "haptic-feedback.md"],
-  development: ["architecture-map.md", "frontend.md", "file-storage.md", "noodle-internals.md", "ios-pwa-safe-area.md"],
+  development: USER_DEVELOPMENT_DOCS,
 };
 
 interface DocSummary {
@@ -272,17 +276,6 @@ async function extractTitle(filePath: string, fallback: string): Promise<string>
   } catch {
     return fallback;
   }
-}
-
-// docs/development is developer reference, not a user doc dump: only the
-// curated top-level files in DOC_ORDER.development are user-facing. Everything
-// else there (internal plans, value tables, mockup notes, and anything nested
-// a level deeper) must never show up as a "user doc", in the viewer, in
-// search, or in `/api/docs/language`'s counts (O4/F11: this is how
-// docs/development/omnibar-*.md working files would otherwise leak in).
-function isExcludedDevelopmentDoc(relativeDir: string, fileName: string): boolean {
-  const isDevelopmentDoc = relativeDir === "development" || relativeDir.startsWith("development/");
-  return isDevelopmentDoc && !(relativeDir === "development" && DOC_ORDER.development?.includes(fileName));
 }
 
 async function collectDocs(dir: string, relativeDir: string): Promise<DocSummary[]> {

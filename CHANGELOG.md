@@ -4,6 +4,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- Quick answers and Professor Mari read only the user docs. They no longer find or name the developer working plans under `docs/development/` (the docs viewer already hid them).
 - When you continue a quick answer in Professor Mari's window, her first message shows the quick answer under your question: "From Search · Quick answer", three lines with **Show all**, and the docs pages it used. **Continue with Mari** waits until the answer has finished, so Mari never gets half of it.
 - **Answer with** in the quick answer settings has **Same as Mari**, which follows the connection Mari uses. Choosing it does not need a downloaded local model, and it changes when Mari's connection changes.
 - Names for Professor Mari in Search follow one rule: the group is **Mari**, the continue row is **Continue with Mari**, Ctrl/⌘+J **Open Mari** only opens her, Ctrl/⌘+Enter **Ask Mari** sends the text, the Try example is **Get a quick answer**, and her window's box says **Ask Mari to check or change something**.
