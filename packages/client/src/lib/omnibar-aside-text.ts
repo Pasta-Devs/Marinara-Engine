@@ -85,12 +85,30 @@ export function stripStrayMarkdown(text: string): string {
     .replace(/^\s*\d+\.\s+/gm, "");
 }
 
+/** Where Mari's window remembers the connection she uses (read by "Same as Mari"). */
+export const MARI_CONNECTION_STORAGE_KEY = "marinara:home-professor-mari-connection-id";
+
+export function readStoredMariConnectionId(): string | null {
+  try {
+    return window.localStorage.getItem(MARI_CONNECTION_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
 /**
- * The connection Mari answers with when nothing else is named: the agents default, then the default, then
- * the first. The same order the server uses, so a quick answer offered from here is the one she would use.
+ * The connection Mari answers with: the one her window uses (`chosenId`, when it still exists), else the
+ * agents default, then the default, then the first, the order the server uses for a new Mari chat.
  */
-export function marisConnectionFor<T extends { isDefault: boolean; defaultForAgents: boolean }>(
+export function marisConnectionFor<T extends { id: string; isDefault: boolean; defaultForAgents: boolean }>(
   connections: readonly T[],
+  chosenId?: string | null,
 ): T | null {
-  return connections.find((c) => c.defaultForAgents) ?? connections.find((c) => c.isDefault) ?? connections[0] ?? null;
+  return (
+    connections.find((c) => chosenId && c.id === chosenId) ??
+    connections.find((c) => c.defaultForAgents) ??
+    connections.find((c) => c.isDefault) ??
+    connections[0] ??
+    null
+  );
 }

@@ -26,7 +26,7 @@ import {
   matchOmnibarCapabilityAgentPackageIds,
 } from "@marinara-engine/shared";
 import { api } from "../../lib/api-client";
-import { MARI_QUICK_CONNECTION, marisConnectionFor } from "../../lib/omnibar-aside-text";
+import { MARI_QUICK_CONNECTION, marisConnectionFor, readStoredMariConnectionId } from "../../lib/omnibar-aside-text";
 import { ChevronLeft, Search, X } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useTranslation } from "react-i18next";
@@ -333,8 +333,9 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
             id: row.id,
             name: row.name,
             model: typeof record.model === "string" ? record.model : "",
-            isDefault: record.isDefault === true,
-            defaultForAgents: record.defaultForAgents === true,
+            // `/connections` sends these as "true"/"false" strings.
+            isDefault: String(record.isDefault) === "true",
+            defaultForAgents: String(record.defaultForAgents) === "true",
           },
         ];
       }),
@@ -909,7 +910,8 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
     messageResults.length === 0 &&
     globalMessageResults.length === 0 &&
     lorebookEntryResults.length === 0;
-  const asideConnectionOffer = marisConnectionFor(languageConnections);
+  // "Same as Mari" is the connection her window uses, so a change there is followed here.
+  const asideConnectionOffer = marisConnectionFor(languageConnections, readStoredMariConnectionId());
   // "Same as Mari" follows her connection at the time of the question; no local model is needed for it.
   const asideAnswerConnectionId =
     asideConnectionId === MARI_QUICK_CONNECTION

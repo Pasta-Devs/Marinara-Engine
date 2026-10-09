@@ -1359,6 +1359,12 @@ assert.ok(!("mariDetailId" in mariSession));
     "b",
     "the agents default wins over the default",
   );
+  const both = [
+    { id: "a", ...plain },
+    { id: "b", ...plain, defaultForAgents: true },
+  ];
+  assert.equal(marisConnectionFor(both, "a")?.id, "a", "the connection her window uses wins");
+  assert.equal(marisConnectionFor(both, "gone")?.id, "b", "a deleted choice falls back to the agents default");
   // G5: the idle delay is a user-facing knob (R23) whose default is one of its choices.
   assert.equal(OMNIBAR_ASIDE_DELAY_MS, 3_000);
   assert.ok((OMNIBAR_ASIDE_DELAY_CHOICES_MS as readonly number[]).includes(OMNIBAR_ASIDE_DELAY_MS));

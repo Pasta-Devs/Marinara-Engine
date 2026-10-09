@@ -13,10 +13,10 @@ import { type CharacterPreviewModel } from "../../../lib/character-preview";
 import { type LorebookPreviewModel } from "../../../lib/lorebook-preview";
 import { api, ApiError, getPrivilegedActionErrorMessage } from "../../../lib/api-client";
 import { isPersistentProfessorMariContext } from "../../../lib/professor-mari-presentation";
+import { MARI_CONNECTION_STORAGE_KEY, readStoredMariConnectionId } from "../../../lib/omnibar-aside-text";
 import { type MariPermissionsMode } from "@marinara-engine/shared";
 
 export const PROFESSOR_MARI_DRAFT_KEY = "__home_professor_mari__";
-const MARI_CONNECTION_STORAGE_KEY = "marinara:home-professor-mari-connection-id";
 export const PROFESSOR_MARI_ERROR_TOAST_DURATION_MS = 120_000;
 const WORKSPACE_SETTLE_POLL_MS = 1_500;
 const WORKSPACE_SETTLE_MAX_WAIT_MS = 30 * 60_000;
@@ -164,13 +164,7 @@ export type ProfessorMariChatSummary = Chat & {
 // ponytail: page-session memory only; a reload asks once more. Persist it on the thread if that annoys.
 export const continuedThereByContext = new Map<string, string>();
 
-export function readStoredConnectionId() {
-  try {
-    return window.localStorage.getItem(MARI_CONNECTION_STORAGE_KEY);
-  } catch {
-    return null;
-  }
-}
+export const readStoredConnectionId = readStoredMariConnectionId;
 
 export function rememberConnectionId(id: string) {
   try {
