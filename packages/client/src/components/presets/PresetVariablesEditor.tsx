@@ -24,7 +24,7 @@ import {
   ListChecks,
   Shuffle,
 } from "lucide-react";
-import { cn } from "../../lib/utils";
+import { cn, generateClientId } from "../../lib/utils";
 import { useQuoteFormatter } from "../../hooks/use-quote-formatter";
 import { useTouchFolderDrag } from "../../hooks/use-touch-folder-drag";
 import { getTouchReorderDropIndex } from "../../lib/touch-reorder";
@@ -1023,7 +1023,7 @@ function VariableCard({
             <button
               onClick={() => {
                 const newOpt = {
-                  id: `opt_${Date.now()}`,
+                  id: `opt_${generateClientId()}`,
                   label: `Option ${String.fromCharCode(65 + currentOpts().length)}`,
                   value: "",
                 };

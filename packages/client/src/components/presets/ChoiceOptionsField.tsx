@@ -27,7 +27,10 @@ const CHOICE_LISTBOX_AUTO_THRESHOLD = 8;
 
 function getPresentedOptions(variable: ChoiceFieldVariable) {
   if (variable.optionSort !== "alphabetical") return variable.options;
-  return [...variable.options].sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: "base" }));
+  // A hand-edited imported option can lack a label.
+  return [...variable.options].sort((a, b) =>
+    String(a.label ?? "").localeCompare(String(b.label ?? ""), undefined, { sensitivity: "base" }),
+  );
 }
 
 function shouldUseListbox(variable: ChoiceFieldVariable) {
