@@ -4,10 +4,10 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
-- Press and hold Professor Mari to pick her up. Hold her head in the omnibar, her sprite beside a reply, or her card on Home. She follows your pointer, swings as you move, and springs back when you let go. A tap still does what it did. Shake her and she gets dizzy. The first time you lift her unlocks **Please Handle With Care**.
+- Press and hold Professor Mari to pick her up. Hold her head in the omnibar, her sprite beside a reply or on the live line while she works, or her card on Home. She follows your pointer, swings as you move, and springs back when you let go. A tap still does what it did. Shake her and she gets dizzy. The first time you lift her unlocks **Please Handle With Care**.
 - Every Mari appearance pack has its own held pose now. Before, Dottore, Golden and Safari reused their idle pose.
 - The Home Mari card shows her standing portrait with a blink, and its text says Ctrl+K finds any page.
-- The Home navigator (the floating Mari that found pages by keyword) is removed. Its page links are in the omnibar now: Discord, Credits, Tutorial and Home widgets. Its setting is removed too. Onboarding points at the address bar.
+- The Home navigator (the floating Mari that found pages by keyword) is removed. Its page links are in the omnibar now: Discord, Credits, Tutorial, Home widgets and the Home tab of each installed app package, such as Noodle. Its setting is removed too. Onboarding points at the address bar.
 
 - A quick answer offers a setting or record only when it names that whole thing. It no longer shows chips for parts of longer names, like **Advanced** and **Parameters** for "Advanced Parameters".
 - **Same as Mari** for quick answers now uses the connection Mari's window uses, and otherwise the connection set as the agents default. Before, it always took the first connection in the list.

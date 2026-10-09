@@ -428,7 +428,7 @@ scores below a label/alias hit (section 4). Every system command
   not in the Settings panel: Search (context suggestions, clear search
   history), Quick answers (on/off, model, wait), Professor Mari (Ask Mari from
   Search, permissions mode, suggestion chips, edit review view, Enter sends to
-  Mari, Home navigator, Mini Mari visits) and Appearance (the pack grid). Their
+  Mari, Mini Mari visits) and Appearance (the pack grid). Their
   registry entries use `sectionId: "omnibar"`; `isOmnibarSettingsTarget` sends
   any jump to that section or its controls (an omnibar row, the Settings
   panel's own search and Quick Access, Mari's setting links,
