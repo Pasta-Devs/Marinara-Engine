@@ -62,9 +62,10 @@ export function getOnboardingVariables(onboarding: CharacterOnboarding): Charact
   ];
 }
 
+/** Own text must be non-blank; any choice counts, so "none of these" (an empty multi-select) is an answer. */
 function isAnswered(answer: OnboardingAnswer | undefined): boolean {
   if (!answer) return false;
-  return "text" in answer ? answer.text.trim() !== "" : answer.optionIds.length > 0;
+  return "text" in answer ? answer.text.trim() !== "" : true;
 }
 
 /**
@@ -100,8 +101,10 @@ function answerContext(
   const ctx = { ...names, characters: [], variables: values, localVariables: {} };
 
   // Getters on own properties: the engine reads variables via hasOwnProperty +
-  // a string check, so an unanswered variable (getter returns undefined) stays
-  // verbatim / false in conditions, exactly as with a missing variable.
+  // a string check, so an unanswered variable (getter returns undefined) acts
+  // exactly like a missing one: verbatim in text, and in a bare `{{#if name}}`
+  // the engine reads the leftover name as a truthy literal. That only shows a
+  // follow-up early; Create stays disabled until it is answered anyway.
   for (const variable of getOnboardingVariables(onboarding)) {
     const name = variable.variableName;
     if (!name || Object.prototype.hasOwnProperty.call(values, name)) continue;

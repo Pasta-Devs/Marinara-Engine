@@ -158,6 +158,10 @@ assert.equal(
   "Skills: archery / cooking.",
   "multi-select joins the chosen values with the separator in card order",
 );
+const noneTicked = { player: { text: "Kestrel" }, skills: { optionIds: [] } };
+const multiIf = onboarding({ ...multi, description: "{{#if skills}}Skills: {{skills}}.{{else}}No skills.{{/if}}" });
+assert.equal(getNextOnboardingVariable(multiIf, noneTicked), null, "ticking nothing in a multi-select is an answer");
+assert.equal(resolveOnboardingPersona(multiIf, noneTicked).description, "No skills.", "and it reads as false");
 
 const blankValue = onboarding({
   description: "Gender: {{gender}}.",
