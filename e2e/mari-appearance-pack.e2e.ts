@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { seedUIState } from "./ui-state-fixture.js";
 
-test("Golden (once unlocked) and Safari Mari are selectable and survive reload", async ({ page }, testInfo) => {
+test("Golden (once unlocked) and Safari Prof. Mari are selectable and survive reload", async ({ page }, testInfo) => {
   const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
   await page.addInitScript((appVersion) => {
     localStorage.setItem("marinara:whats-new:seen-version", appVersion);
@@ -33,13 +33,13 @@ test("Golden (once unlocked) and Safari Mari are selectable and survive reload",
   await page.keyboard.press("Control+k");
   const omnibar = page.locator('[data-component="GlobalOmnibar"]');
   await omnibar.getByRole("button", { name: "Search and Professor Mari settings", exact: true }).click();
-  const packs = omnibar.getByRole("radiogroup", { name: "Mari appearance" });
+  const packs = omnibar.getByRole("radiogroup", { name: "Professor Mari appearance" });
   await expect(packs.getByRole("radio")).toHaveCount(4);
-  const golden = packs.getByRole("radio", { name: /^Golden Mari/ });
+  const golden = packs.getByRole("radio", { name: /^Golden Prof\. Mari/ });
   await expect(golden).toBeEnabled();
   await packs.locator('label[data-pack="golden"]').click();
   await expect(golden).toBeChecked();
-  const safari = packs.getByRole("radio", { name: /^Safari Mari/ });
+  const safari = packs.getByRole("radio", { name: /^Safari Prof\. Mari/ });
   await expect(safari).toBeEnabled();
   await packs.locator('label[data-pack="safari"]').click();
   await expect(safari).toBeChecked();

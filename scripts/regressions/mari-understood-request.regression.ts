@@ -213,7 +213,7 @@ assert.match(
 
 // ── Diagnostics: the triage line distinguishes unreachable / none / recorded ─
 const diagnostics = readSource("packages/client/src/lib/support-diagnostics.ts");
-assert.match(diagnostics, /Mari last acted on:/u);
+assert.match(diagnostics, /Professor Mari last acted on:/u);
 assert.match(diagnostics, /Unavailable \(workspace status not reachable\)/u);
 assert.match(diagnostics, /none recorded this session/u);
 // The phrase is flattened and capped for the line-oriented report (a

@@ -75,7 +75,7 @@ async function isActiveRecord(context: AuthoringContext, record: DecisionRecord)
 
 async function readState(context: AuthoringContext) {
   const chat = await createChatsStorage(context.db).getById(context.chatId);
-  if (!chat) throw new Error("The active Mari chat no longer exists.");
+  if (!chat) throw new Error("The active Professor Mari chat no longer exists.");
   return stateFromMetadata(chat.metadata);
 }
 
@@ -145,13 +145,13 @@ export async function recordMariDecisionInteraction(context: AuthoringContext, i
     },
     { touchUpdatedAt: false },
   );
-  if (!result) throw new Error("The active Mari chat no longer exists.");
+  if (!result) throw new Error("The active Professor Mari chat no longer exists.");
   return saved;
 }
 
 export async function executeMariDecisionAction(action: string, data: unknown) {
   const context = contextStorage.getStore();
-  if (!context) throw new Error("Decision interactions require an active Mari chat.");
+  if (!context) throw new Error("Decision interactions require an active Professor Mari chat.");
   if (action === "decision.get") return mariDecisionContext(context);
   if (action === "decision.record") return recordMariDecisionInteraction(context, data);
   throw new Error("Unsupported Decision interaction action.");

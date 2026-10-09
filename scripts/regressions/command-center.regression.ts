@@ -1679,7 +1679,7 @@ assert.ok(!("mariDetailId" in mariSession));
       `UX-01: "${word}" opens Mari first`,
     );
   }
-  // The presenter must not pick a title-prefix Top hit over her ("Mari changed Shrek", "Ask Mari from Search").
+  // The presenter must not pick a title-prefix Top hit over her ("Mari changed Shrek", "Ask Professor Mari from Search").
   const presented = presentCommandCenterResults(
     [
       { id: "approval:1", title: "Mari changed Shrek", category: "professor", score: 900 },
@@ -1740,7 +1740,7 @@ assert.ok(!("mariDetailId" in mariSession));
   );
 }
 
-// Slice 65 (R6): with no model, a question no longer lifts "Ask Mari" above docs/FAQ rows; a dead end still does.
+// Slice 65 (R6): with no model, a question no longer lifts "Ask Prof. Mari" above docs/FAQ rows; a dead end still does.
 {
   const identity = (text: string) => text;
   const input = {
@@ -2766,7 +2766,7 @@ assert.ok(!("mariDetailId" in mariSession));
     assert.ok(!(id in OMNIBAR_SETTINGS_TOGGLE_BINDINGS), `"${id}" must not be bound (risky per K5)`);
   }
 
-  // F6: "Ask Mari from Search" and "Context suggestions" must show up as exactly one row (the
+  // F6: "Ask Professor Mari from Search" and "Context suggestions" must show up as exactly one row (the
   // registry row, flipped in place), not also as the old hand-built duplicate.
   assert.ok("ask-mari" in OMNIBAR_SETTINGS_TOGGLE_BINDINGS, "ask-mari should be bound so its row flips in place");
   assert.ok(
@@ -2927,7 +2927,7 @@ assert.ok(!("mariDetailId" in mariSession));
     "the open custom agent leads, then the focused-field row",
   );
   assert.equal(customRows[0]?.title, "Editing Scene Critic");
-  assert.equal(customRows[1]?.title, "Improve Prompt Template with Mari");
+  assert.equal(customRows[1]?.title, "Improve Prompt Template with Prof. Mari");
   const builtInRows = buildOmnibarContextResults({ ...input, openAgentId: "illustrator" });
   assert.equal(builtInRows[0]?.id, "agent:illustrator", "a built-in opened by type gets its Editing row");
 
@@ -4442,7 +4442,7 @@ console.info("Command Center regression checks passed.");
   // Highlights: rows the search never built are matched too; a quoted query and an existing range are kept as is.
   assert.deepEqual(visualOf(find("docs:faq.md"), "import").titleMatch, [0, 6], "docs rows are highlighted");
   assert.deepEqual(visualOf(find("action:add-to-chat:character:eliza"), "eliza").titleMatch, [4, 9]);
-  assert.equal(visualOf({ ...find("ask-professor-mari"), title: "Ask Mari: “eliza”" }, "eliza").titleMatch, null);
+  assert.equal(visualOf({ ...find("ask-professor-mari"), title: "Ask Prof. Mari: “eliza”" }, "eliza").titleMatch, null);
   assert.equal(visualOf(find("shortcut:create-character"), "bob").titleMatch, null, "a quoted name is not bolded");
   assert.equal(visualOf({ ...records[0]!, titleMatch: null }, "eliza").titleMatch, null, "the search's null stays");
 }

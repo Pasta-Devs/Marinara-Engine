@@ -433,9 +433,9 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
   // F1: an exact message/entry hit should win over the Mari fallback promotion
   // even when nothing else scored well (slice 41). Docs hits are the same
   // kind of late-arriving direct answer (search results that land after their
-  // own debounce), so they count too — "Ask Mari" must not outrank a direct
+  // own debounce), so they count too — "Ask Prof. Mari" must not outrank a direct
   // hit from any of these late sources (O4 item 2b / tasks 6 and 13).
-  // R6: a fresh install (no language connection, no local model) gets docs first, not "Ask Mari".
+  // R6: a fresh install (no language connection, no local model) gets docs first, not "Ask Prof. Mari".
   // While connections load, keep the old behavior rather than reorder the list when they land.
   const localModelDownloaded = useSidecarStore((state) => state.modelDownloaded);
   const mariHasModel = !connections.data || languageConnections.length > 0 || localModelDownloaded;
@@ -1093,7 +1093,7 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
     reconciledQueryRef.current = deferredQuery;
     if (queryChanged) autoSelectionRef.current = true;
     // F1: late-arriving message/entry/docs hits reorder the list after their own
-    // debounce, demoting the promoted "Ask Mari" row below the real hit. If the
+    // debounce, demoting the promoted "Ask Prof. Mari" row below the real hit. If the
     // user has not moved the selection since this query started, the selection
     // must follow that new top row too, not just on the keystroke that changed
     // the query - otherwise Enter still lands on the no-longer-first Mari row.
@@ -1650,12 +1650,12 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
    * From the follow-up line, the question typed there is what Mari is asked.
    */
   const escalateAside = async (question?: string) => {
-    // A failed answer still hands its question over: "Continue with Mari" is the way forward from an error.
+    // A failed answer still hands its question over: "Continue with Prof. Mari" is the way forward from an error.
     // A streaming answer is not handed over: it would send only the words so far.
     if (!asideState.query || asideState.status === "streaming" || asideState.status === "thinking") return;
     // Starting a new chat resets her workspace, which would stop a run in progress; her own "+" waits too.
     if (mariWorkspaceStatus.data?.active) {
-      toast.info(t("omnibar.aside.escalateBusy", "Mari is still working. Continue when she finishes."));
+      toast.info(t("omnibar.aside.escalateBusy", "Professor Mari is still working. Continue when she finishes."));
       return;
     }
     const draft = question ?? asideState.query;
@@ -2129,7 +2129,7 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
                         ? // Slice 78: the greeting is cut off at 390 px ("Type to search,"), so a phone gets the short form.
                           window.matchMedia("(min-width: 640px)").matches
                           ? idleGreeting
-                          : t("commandCenter.placeholderIdleShort", "Search or ask Mari")
+                          : t("commandCenter.placeholderIdleShort", "Search or ask Prof. Mari")
                         : // ponytail: read once per open (the dialog remounts each time); a resize
                           // while open keeps the old text. Use a shared media hook if one lands.
                           window.matchMedia("(min-width: 640px)").matches

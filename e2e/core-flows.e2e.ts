@@ -17858,7 +17858,7 @@ test("Professor Mari chat fills the mobile home viewport and keeps its composer 
 
   const topBar = page.locator('[data-component="TopBar"]');
   const window = page.locator('[data-component="HomeProfessorMariChat.Window"]');
-  const composer = window.getByPlaceholder("Ask Mari to check or change something");
+  const composer = window.getByPlaceholder("Ask Professor Mari to check or change something");
   await expect(window).toBeVisible();
   await expect(composer).toBeVisible();
   await expect
@@ -20103,13 +20103,13 @@ test("home browser hub scales cleanly and opens FAQ as a bookmark window", async
   await expect(faqWindow).toBeVisible();
   await expect(faqWindow.getByRole("searchbox", { name: "Search FAQ" })).toBeVisible();
   await faqWindow.getByRole("button", { name: /How do I connect Marinara to a model/ }).click();
-  await faqWindow.getByRole("button", { name: "Ask Mari about this" }).click();
+  await faqWindow.getByRole("button", { name: "Ask Prof. Mari about this" }).click();
   await expect(faqWindow).toBeHidden();
-  // "Ask Mari about this" hands off to the omnibar (there is no "Professor" Home tab).
+  // "Ask Prof. Mari about this" hands off to the omnibar (there is no "Professor" Home tab).
   await expect(page.locator('[data-component="HomeProfessorMariChat.Window"]')).toBeVisible();
-  await expect(page.locator('textarea[placeholder="Ask Mari to check or change something"]:visible')).toContainText(
-    "How do I connect Marinara to a model?",
-  );
+  await expect(
+    page.locator('textarea[placeholder="Ask Professor Mari to check or change something"]:visible'),
+  ).toContainText("How do I connect Marinara to a model?");
   // Mari's omnibar pane covers the bookmark bar, so close it first.
   const omnibar = page.locator('[data-component="GlobalOmnibar"]');
   await omnibar

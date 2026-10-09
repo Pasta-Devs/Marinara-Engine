@@ -71,7 +71,7 @@ function AnswerText({ text, muted }: { text: string; muted?: boolean }) {
 }
 
 /**
- * The cheap answer, grown inside the promoted "Ask Mari" row (R9).
+ * The cheap answer, grown inside the promoted "Ask Prof. Mari" row (R9).
  *
  * It renders as that row's expansion, so it only ever pushes rows below the
  * selection: nothing above the Ask row moves while it streams. It is not a row
@@ -305,7 +305,7 @@ export function OmnibarAside({
                 </button>
               ) : null}
               <button type="button" onClick={onEscalate} className={continueAction}>
-                {t("omnibar.aside.escalate", "Continue with Mari")}
+                {t("omnibar.aside.escalate", "Continue with Prof. Mari")}
               </button>
             </>
           ) : (
@@ -346,11 +346,11 @@ export function OmnibarAside({
                 onClick={state.status === "streaming" ? () => setContinueQueued(true) : onEscalate}
                 aria-busy={continueQueued || undefined}
                 className={continueAction}
-                title={t("commandCenter.keyboard.continueMari", "{{mod}}+Enter Continue with Mari", {
+                title={t("commandCenter.keyboard.continueMari", "{{mod}}+Enter Continue with Prof. Mari", {
                   mod: formatShortcutKey("Mod"),
                 })}
               >
-                {t("omnibar.aside.escalate", "Continue with Mari")}
+                {t("omnibar.aside.escalate", "Continue with Prof. Mari")}
               </button>
             </>
           )}
@@ -375,7 +375,7 @@ export function OmnibarAside({
           onKeyDown={onFollowUpKeyDown}
           maxLength={500}
           aria-label={t("omnibar.aside.followUp.label", "Follow-up question")}
-          placeholder={t("omnibar.aside.followUp.placeholder", "Ask Mari more…")}
+          placeholder={t("omnibar.aside.followUp.placeholder", "Ask Prof. Mari more…")}
           className="mt-2 h-11 w-full min-w-0 border-0 border-t border-[var(--border)] bg-transparent px-0 text-base text-[var(--foreground)] outline-none placeholder:text-[var(--muted-foreground)] focus-visible:border-[var(--ring)] sm:h-8 sm:text-xs"
         />
       ) : null}

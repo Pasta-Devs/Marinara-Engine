@@ -711,17 +711,17 @@ export function buildOmnibarSearchResults({
   const capability = inferProfessorMariCommandCenterCapability(trimmedQuery);
   const intent = parseOmnibarIntent(trimmedQuery);
   const askPeeks: Partial<Record<typeof capability, string>> = {
-    repair: t("omnibar.askMari.peek.repair", "Mari finds the problem and helps you fix it."),
-    recommend: t("omnibar.askMari.peek.recommend", "Mari compares the options and recommends one."),
-    create: t("omnibar.askMari.peek.create", "Mari helps you create this."),
-    edit: t("omnibar.askMari.peek.change", "Open Mari to check or change this."),
+    repair: t("omnibar.askMari.peek.repair", "Professor Mari finds the problem and helps you fix it."),
+    recommend: t("omnibar.askMari.peek.recommend", "Professor Mari compares the options and recommends one."),
+    create: t("omnibar.askMari.peek.create", "Professor Mari helps you create this."),
+    edit: t("omnibar.askMari.peek.change", "Open Professor Mari to check or change this."),
   };
   // The row names what it will send (R8); the line under it says what she will do.
   const askTitle = trimmedQuery
-    ? t("omnibar.askMari.withQuery", "Ask Mari: “{{query}}”", { query: trimmedQuery })
+    ? t("omnibar.askMari.withQuery", "Ask Prof. Mari: “{{query}}”", { query: trimmedQuery })
     : t("omnibar.askProfessorMari", "Ask Professor Mari");
   const askPeek =
-    askPeeks[capability] ?? t("omnibar.askMari.peek.explain", "Mari explains this and suggests a next step.");
+    askPeeks[capability] ?? t("omnibar.askMari.peek.explain", "Professor Mari explains this and suggests a next step.");
   // R40: with a query typed, a choice control's options join the searchable set,
   // so "gpt" reaches "Use GPT-4 for this chat" without finding the Model row and
   // drilling into it. They stay out of the idle deck, which would otherwise gain
@@ -739,9 +739,9 @@ export function buildOmnibarSearchResults({
       ? [
           {
             id: "open-professor-mari",
-            title: t("commandCenter.openMari", "Open Mari"),
+            title: t("commandCenter.openMari", "Open Prof. Mari"),
             category: "professor",
-            // The presenter otherwise picks a Top hit by title prefix ("Mari changed…", "Ask Mari from Search").
+            // The presenter otherwise picks a Top hit by title prefix ("Mari changed…", "Ask Professor Mari from Search").
             group: "top-hit",
             score: 1000,
             kind: "action",
@@ -1380,12 +1380,12 @@ export function buildOmnibarContextResults({
     if (omnibarSuggestionsEnabled && mariEnabled && activeEditorField) {
       push({
         id: "suggestion:edit-focused-field",
-        title: t("commandCenter.suggestions.editFocusedField", "Improve {{field}} with Mari", {
+        title: t("commandCenter.suggestions.editFocusedField", "Improve {{field}} with Prof. Mari", {
           field: activeEditorField.label,
         }),
         description: t(
           "commandCenter.suggestions.editFocusedFieldDescription",
-          "Mari suggests a change to the selected field.",
+          "Professor Mari suggests a change to the selected field.",
         ),
         category: "professor",
         score: 460,
@@ -1816,7 +1816,7 @@ export function buildOmnibarApprovalResults({
 
     if (approval.kind === "dependency_install") {
       const packageLabel = `${approval.packageName}@${approval.version}`;
-      title = t("commandCenter.approval.dependencyTitle", "Mari wants to install {{package}}", {
+      title = t("commandCenter.approval.dependencyTitle", "Professor Mari wants to install {{package}}", {
         package: packageLabel,
       });
       description =
@@ -1834,7 +1834,7 @@ export function buildOmnibarApprovalResults({
       restoreLabel = t("commandCenter.approval.notNow", "Not now");
       terms = [approval.packageName, packageLabel, approval.target];
     } else if (approval.kind === "sensitive_file") {
-      title = t("commandCenter.approval.fileTitle", "Mari wants to write {{path}}", { path: approval.path });
+      title = t("commandCenter.approval.fileTitle", "Professor Mari wants to write {{path}}", { path: approval.path });
       description = reason ?? approval.preview.slice(0, 160);
       facts = [
         { label: t("commandCenter.approval.path", "Path"), value: approval.path },
@@ -1900,7 +1900,7 @@ export function buildOmnibarApprovalResults({
         ...terms,
       ],
       category: "professor" as const,
-      // Above the "Mari is working" row: a decision she is blocked on outranks a
+      // Above the "Professor Mari is working" row: a decision she is blocked on outranks a
       // report of what she is doing.
       score: 480,
       group: "continue" as const,
@@ -1933,7 +1933,7 @@ export function buildOmnibarApprovalResults({
               ...facts,
               {
                 label: t("commandCenter.approval.decideIn", "Decide in"),
-                value: t("commandCenter.approval.workPane", "Mari's chat"),
+                value: t("commandCenter.approval.workPane", "Professor Mari's chat"),
               },
             ]
           : facts,
@@ -1957,19 +1957,19 @@ export function buildOmnibarContinueResult({
   const hasPendingApprovals = countBlockingReviews(status?.pendingApprovals ?? []) > 0;
   if (!hasPendingApprovals && !status?.active && !mariFinished) return null;
   const title = status?.active
-    ? t("commandCenter.continueMariActive", "Mari is working")
+    ? t("commandCenter.continueMariActive", "Professor Mari is working")
     : mariFinished
-      ? t("commandCenter.continueMariFinished", "Mari finished your task")
+      ? t("commandCenter.continueMariFinished", "Professor Mari finished your task")
       : hasPendingApprovals
-        ? t("commandCenter.continueMariReview", "Review Mari's pending work")
+        ? t("commandCenter.continueMariReview", "Review Professor Mari's pending work")
         : t("commandCenter.continueMari", "Continue with Professor Mari");
   const description = status?.active
-    ? t("commandCenter.continueMariActiveDescription", "Go back to what Mari is doing.")
+    ? t("commandCenter.continueMariActiveDescription", "Go back to what Professor Mari is doing.")
     : mariFinished
-      ? t("commandCenter.continueMariFinishedDescription", "Open Mari to see what she did.")
+      ? t("commandCenter.continueMariFinishedDescription", "Open Professor Mari to see what she did.")
       : hasPendingApprovals
-        ? t("commandCenter.continueMariReviewDescription", "Mari is waiting for your review.")
-        : t("commandCenter.continueMariDescription", "Open Mari with the current work attached.");
+        ? t("commandCenter.continueMariReviewDescription", "Professor Mari is waiting for your review.")
+        : t("commandCenter.continueMariDescription", "Open Professor Mari with the current work attached.");
   return {
     id: "ask-professor-mari",
     title,

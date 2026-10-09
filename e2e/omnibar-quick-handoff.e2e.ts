@@ -9,7 +9,7 @@ const APP_VERSION = (
 ).version;
 
 /**
- * Slice 84: "Continue with Mari" on a quick answer starts a new Mari chat named after the question,
+ * Slice 84: "Continue with Prof. Mari" on a quick answer starts a new Mari chat named after the question,
  * and the open Mari chat is left as it was.
  */
 
@@ -98,7 +98,7 @@ test("Continue with Mari on a quick answer opens a new Mari chat named after the
     await omnibar.getByRole("searchbox", { name: "Search Marinara" }).fill(QUESTION);
     const aside = omnibar.locator('[data-component="GlobalOmnibar.Aside"]');
     await expect(aside).toContainText("Raise", { timeout: 15_000 });
-    await aside.getByRole("button", { name: "Continue with Mari" }).click();
+    await aside.getByRole("button", { name: "Continue with Prof. Mari" }).click();
 
     await expect(page.locator('[data-component="GlobalOmnibar.Mari"]')).toBeVisible();
     const chats = (await (await request.get("/api/chats/internal/professor-mari/chats")).json()) as Array<{

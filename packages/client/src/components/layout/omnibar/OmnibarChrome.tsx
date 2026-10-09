@@ -44,9 +44,9 @@ export function OmnibarMariDoor({
         type="button"
         onClick={onClick}
         // Slice 79b: her head is the door to her (the footer pill is gone), so it says so.
-        aria-label={t("commandCenter.askMariDoor", "Ask Mari")}
+        aria-label={t("commandCenter.askMariDoor", "Ask Prof. Mari")}
         aria-keyshortcuts={isApplePlatform() ? "Meta+J" : "Control+J"}
-        title={t("commandCenter.askMariDoorTooltip", "Ask Mari ({{shortcut}})", {
+        title={t("commandCenter.askMariDoorTooltip", "Ask Prof. Mari ({{shortcut}})", {
           shortcut: isApplePlatform() ? "⌘J" : "Ctrl+J",
         })}
         data-component="GlobalOmnibar.ProfessorMariButton"
@@ -217,8 +217,8 @@ export function OmnibarFooter({
           // Says whether ⌘↵ sends: "Ask" sends what you typed, "Continue" opens her or carries the quick answer.
           <span>
             {mariSends(activeResult) && !(asideSettled && activeResult.id === "ask-professor-mari")
-              ? t("commandCenter.keyboard.askMari", "{{mod}}+Enter Ask Mari", { mod: formatShortcutKey("Mod") })
-              : t("commandCenter.keyboard.continueMari", "{{mod}}+Enter Continue with Mari", {
+              ? t("commandCenter.keyboard.askMari", "{{mod}}+Enter Ask Prof. Mari", { mod: formatShortcutKey("Mod") })
+              : t("commandCenter.keyboard.continueMari", "{{mod}}+Enter Continue with Prof. Mari", {
                   mod: formatShortcutKey("Mod"),
                 })}
           </span>
@@ -234,7 +234,9 @@ export function OmnibarFooter({
       <span className="flex min-w-0 items-center gap-3">
         {mariEnabled ? (
           <span className="hidden sm:inline">
-            {t("commandCenter.keyboard.askMariShortcut", "{{mod}}+J Open Mari", { mod: formatShortcutKey("Mod") })}
+            {t("commandCenter.keyboard.askMariShortcut", "{{mod}}+J Open Prof. Mari", {
+              mod: formatShortcutKey("Mod"),
+            })}
           </span>
         ) : null}
         {!idle ? <span className="hidden sm:inline">{t("commandCenter.keyboard.escape", "Esc close")}</span> : null}

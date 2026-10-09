@@ -48,11 +48,11 @@ test("desktop shortcut opens a focused command palette with useful initial optio
   await expect(input).toBeFocused();
   await expect(input).toHaveValue("");
   // Slice 78: a fresh client gets the first-use examples and the what-to-type line. Slice 79b: Mari's head
-  // in the search bar is her one door (the footer pill is gone), so exactly one "Ask Mari" button.
+  // in the search bar is her one door (the footer pill is gone), so exactly one "Ask Prof. Mari" button.
   await expect(omnibar.locator('[data-result-id="try:search"]')).toBeVisible();
   await expect(omnibar.getByText(/^Type a name, a setting/)).toBeVisible();
   await expect(omnibar.locator('[data-component="GlobalOmnibar.ProfessorMariButton"]')).toBeVisible();
-  await expect(omnibar.getByRole("button", { name: "Ask Mari", exact: true })).toHaveCount(1);
+  await expect(omnibar.getByRole("button", { name: "Ask Prof. Mari", exact: true })).toHaveCount(1);
   await expect(omnibar.getByRole("toolbar", { name: "Result categories" })).toBeHidden();
   await expect(omnibar.locator("[data-omnibar-scope-chip='characters']")).toBeVisible();
 });
@@ -361,7 +361,7 @@ test("expanded results stay reachable and expose concise accessible names", asyn
       })
       .toBe(true);
 
-    await expect(omnibar.getByText("Ctrl+Enter Continue with Mari", { exact: true })).toBeVisible();
+    await expect(omnibar.getByText("Ctrl+Enter Continue with Prof. Mari", { exact: true })).toBeVisible();
     await expect(omnibar.getByText("Esc close", { exact: true })).toBeVisible();
     await omnibar.locator('[data-component="GlobalOmnibar.ProfessorMariButton"]').click();
     await expect(omnibar.locator('[data-component="GlobalOmnibar.Mari"]')).toBeVisible();
@@ -393,7 +393,7 @@ test("mobile preserves search and composer space when handing context to Mari", 
     await input.fill(name);
     const row = omnibar.locator("[data-command-center-result-row]").filter({ hasText: name }).first();
     await expect(row).toBeVisible();
-    // A character row opens its record on tap, so Ctrl+Enter ("Continue with Mari") is the handoff on both projects.
+    // A character row opens its record on tap, so Ctrl+Enter ("Continue with Prof. Mari") is the handoff on both projects.
     await page.keyboard.press("Control+Enter");
 
     const textarea = omnibar.locator(".mari-workspace-composer textarea");

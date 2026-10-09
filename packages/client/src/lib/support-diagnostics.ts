@@ -317,7 +317,7 @@ export function formatSupportDiagnostics(diagnostics: SupportDiagnostics): strin
     `LLM model: ${available(diagnostics.model)}`,
     // #5740 triage line: what Mari last reported acting on. undefined = the
     // status fetch failed (say so); null = no mutating round recorded yet.
-    `Mari last acted on: ${
+    `Professor Mari last acted on: ${
       diagnostics.mariActingOn === undefined
         ? "Unavailable (workspace status not reachable)"
         : diagnostics.mariActingOn === null

@@ -756,7 +756,7 @@ export function isOmnibarShortcut(event: OmnibarShortcutEvent, apple = isApplePl
   return isModLetterShortcut(event, "k", apple);
 }
 
-/** M18: Cmd+J / Ctrl+J, "Ask Mari about this". Same rules as {@link isOmnibarShortcut}. */
+/** M18: Cmd+J / Ctrl+J, "Ask Prof. Mari about this". Same rules as {@link isOmnibarShortcut}. */
 export function isAskMariShortcut(event: OmnibarShortcutEvent, apple = isApplePlatform()): boolean {
   return isModLetterShortcut(event, "j", apple);
 }

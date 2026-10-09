@@ -11,7 +11,7 @@ import type {
 export function useOmnibarLabels(activeChat: Chat | null, activeChatId: string | null) {
   const { t } = useTranslation();
   const idleGreeting = useMemo(() => {
-    if (!activeChat) return t("omnibar.hello", "Hi, I'm Mari. Type to search, or ask me anything.");
+    if (!activeChat) return t("omnibar.hello", "Hi, I'm Professor Mari. Type to search, or ask me anything.");
 
     const greetings =
       activeChat.mode === "roleplay"

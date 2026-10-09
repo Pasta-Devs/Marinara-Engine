@@ -47,7 +47,7 @@ You can only use one of these at a time. Turning on **RGB Mode** turns off **Acc
 
 ## Chat widget style
 
-At the bottom of **App Style**, choose **Default**, **Dottore** or **Mari** for movable chat buttons, windows and sections. You can change the font, frame shape and three main colors separately. Color pickers also support gradients.
+At the bottom of **App Style**, choose **Default**, **Dottore** or **Prof. Mari** for movable chat buttons, windows and sections. You can change the font, frame shape and three main colors separately. Color pickers also support gradients.
 
 **Button size (px)** changes movable chat buttons and their icons without changing Display Size. Enter a size from 32 to 96 pixels. Leave the field empty, or use its reset button, to keep the current default. The size is saved with your appearance preferences and stays the same when you choose another preset.
 

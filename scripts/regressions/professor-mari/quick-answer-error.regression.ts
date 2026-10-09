@@ -4,7 +4,7 @@ import { classifyQuickAnswerError } from "../../../packages/server/src/services/
 
 // Slice 84: a failed quick answer names its kind, so the omnibar says what to do. Only auth and a missing
 // model get "Choose a model"; a provider 500 is not an auth problem.
-assert.equal(classifyQuickAnswerError("Set up a language connection before using Quick Mari."), "missing-model");
+assert.equal(classifyQuickAnswerError("Set up a language connection before using Quick Prof. Mari."), "missing-model");
 assert.equal(classifyQuickAnswerError("Custom OpenAI-compatible endpoint error 401: invalid api key"), "auth");
 assert.equal(
   classifyQuickAnswerError("Custom OpenAI-compatible endpoint error 500: Provider returned 500"),

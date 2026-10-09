@@ -391,7 +391,7 @@ export function OmnibarSettingsSheet({
             label={t("omnibar.settings.suggestions.label", "Offer to improve a field")}
             description={t(
               "omnibar.settings.suggestions.description",
-              "While you edit a field, Search offers to have Mari improve it.",
+              "While you edit a field, Search offers to have Professor Mari improve it.",
             )}
             checked={suggestionsEnabled}
             onChange={setSuggestionsEnabled}
@@ -421,7 +421,7 @@ export function OmnibarSettingsSheet({
             label={t("omnibar.settings.aside.label", "Quick answers in Search")}
             description={t(
               "omnibar.settings.aside.description",
-              "When you type a question, Mari answers in up to three sentences from the docs. She sees only what you typed and changes nothing.",
+              "When you type a question, Professor Mari answers in up to three sentences from the docs. She sees only what you typed and changes nothing.",
             )}
             checked={asideEnabled}
             onChange={setAsideEnabled}
@@ -450,7 +450,7 @@ export function OmnibarSettingsSheet({
             >
               {marisConnectionName ? (
                 <option value={MARI_QUICK_CONNECTION}>
-                  {t("omnibar.settings.aside.connection.mari", "Same as Mari ({{name}})", {
+                  {t("omnibar.settings.aside.connection.mari", "Same as Prof. Mari ({{name}})", {
                     name: marisConnectionName,
                   })}
                 </option>
@@ -502,7 +502,7 @@ export function OmnibarSettingsSheet({
               label={t("omnibar.settings.aside.delay.label", "Wait after typing")}
               description={t(
                 "omnibar.settings.aside.delay.description",
-                "How long Search waits before Mari writes a quick answer.",
+                "How long Search waits before Professor Mari writes a quick answer.",
               )}
             />
             <span className="omnibar-settings-menu__segmented">
@@ -524,7 +524,7 @@ export function OmnibarSettingsSheet({
         <Section title={t("omnibar.settings.mari.heading", "Professor Mari")}>
           <SettingRow
             controlId="ask-mari"
-            label={t("omnibar.settings.mari.label", "Ask Mari from Search")}
+            label={t("omnibar.settings.mari.label", "Ask Professor Mari from Search")}
             description={t(
               "omnibar.settings.mari.description",
               "Open her from the Search field, the pull-down or Ctrl/Command+J.",
@@ -562,7 +562,7 @@ export function OmnibarSettingsSheet({
           </div>
           <SettingRow
             controlId="mari-send-on-enter"
-            label={t("omnibar.settings.sendOnEnter.label", "Enter sends to Mari")}
+            label={t("omnibar.settings.sendOnEnter.label", "Enter sends to Professor Mari")}
             description={t(
               "omnibar.settings.sendOnEnter.description",
               "When off, Enter adds a new line and Ctrl/Command+Enter sends.",
@@ -587,7 +587,7 @@ export function OmnibarSettingsSheet({
           title={t("omnibar.settings.appearance.heading", "Appearance")}
           description={t(
             "omnibar.settings.appearance.description",
-            "How Mari looks in her chat, Search, Home and the top bar.",
+            "How Professor Mari looks in her chat, Search, Home and the top bar.",
           )}
         >
           <AppearancePacks />

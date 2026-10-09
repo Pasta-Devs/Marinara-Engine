@@ -3028,11 +3028,11 @@ export class ProfessorMariWorkspaceService {
       });
       const validation = target ? validateQuickEditProposal(proposal, target.currentValue) : "stale";
       if (validation === "expired") {
-        throw new QuickEditConflictError("Quick edit proposal expired. Ask Quick Mari again to refresh it.");
+        throw new QuickEditConflictError("Quick edit proposal expired. Ask Quick Prof. Mari again to refresh it.");
       }
       if (!target || validation === "stale") {
         throw new QuickEditConflictError(
-          "The field changed after Quick Mari prepared this proposal. Nothing was applied.",
+          "The field changed after Quick Prof. Mari prepared this proposal. Nothing was applied.",
         );
       }
       return getMariDbService(this.app.db).executeAction({
@@ -3040,7 +3040,7 @@ export class ProfessorMariWorkspaceService {
         id: proposal.resource.id,
         patch: { [target.fieldKey]: proposal.after },
         apply: true,
-        reason: `Quick Mari edit proposal for ${proposal.fieldLabel}`,
+        reason: `Quick Prof. Mari edit proposal for ${proposal.fieldLabel}`,
         sessionId: "professor-mari-quick",
       });
     });
@@ -3065,7 +3065,7 @@ export class ProfessorMariWorkspaceService {
   ) {
     if (!this.enabled) throw new Error("Professor Mari workspace mode is disabled.");
     const connection = await this.resolveConnection(args.connectionId);
-    if (!connection) throw new Error("Set up a language connection before using Quick Mari.");
+    if (!connection) throw new Error("Set up a language connection before using Quick Prof. Mari.");
 
     // The omnibar aside fires without being asked, so its payload is built from
     // scratch rather than trimmed: no persistent memories, no field contents, no
@@ -3855,7 +3855,8 @@ export class ProfessorMariWorkspaceService {
               ],
             });
           }
-          const content = "Mari hit the model output limit. Ask her to continue and she can pick up from here.";
+          const content =
+            "Professor Mari hit the model output limit. Ask her to continue and she can pick up from here.";
           assistantText = appendVisibleText(assistantText, content);
           appendTraceStatus(workspaceTrace, content);
           args.onEvent({ type: "status", data: { content, kind: "output_limit", level: "warning" } });

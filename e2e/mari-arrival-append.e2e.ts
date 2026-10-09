@@ -9,7 +9,7 @@ const APP_VERSION = (
 ).version;
 
 /**
- * D1: ⌘J / Ctrl+J ("Ask Mari about this") should still show the arrival when Mari's own chat
+ * D1: ⌘J / Ctrl+J ("Ask Prof. Mari about this") should still show the arrival when Mari's own chat
  * already has history, appended at the bottom of the transcript, not only on an empty chat —
  * otherwise a returning user just sees old history and the door's whole promise goes unmet.
  */

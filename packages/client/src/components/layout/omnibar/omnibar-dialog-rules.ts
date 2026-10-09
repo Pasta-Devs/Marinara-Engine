@@ -16,7 +16,7 @@ export const EDITOR_CATEGORIES = new Set<OmnibarCategory>([
   "connection",
   "agent",
 ]);
-/** What Professor Mari can change, and so what a "Continue with Mari" action is offered on. */
+/** What Professor Mari can change, and so what a "Continue with Prof. Mari" action is offered on. */
 /** Chats the empty omnibar offers to switch back to. */
 export const IDLE_RECENT_CHATS = 4;
 // F3 (O5): the idle frecent group only offers rows that *navigate* somewhere

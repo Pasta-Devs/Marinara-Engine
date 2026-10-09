@@ -111,7 +111,7 @@ export function buildOmnibarTryResults(
   const titles: Record<OmnibarTryKind, string> = {
     search: t("commandCenter.try.search", "Search by name"),
     command: t("commandCenter.try.command", "Change a setting"),
-    mari: t("commandCenter.try.mari", "Ask Mari a question"),
+    mari: t("commandCenter.try.mari", "Ask Prof. Mari a question"),
   };
   return kinds.map((kind) => ({
     id: `try:${kind}`,
