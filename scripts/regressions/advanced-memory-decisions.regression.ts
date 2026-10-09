@@ -73,11 +73,15 @@ const provider = createServer(async (request, response) => {
   const result = classify
     ? system.content.includes('"ends"')
       ? {
-          // A helper that ends the scene just before a message that opens a new one.
+          // A helper that ends the scene on the entry just before a message that opens a new one.
           ends: JSON.parse(user.content).flatMap(
-            (message: { messageNumber: number; content: string; alreadyChecked?: boolean }, index: number) =>
+            (
+              message: { messageNumber: number; content: string; alreadyChecked?: boolean },
+              index: number,
+              transcript: Array<{ messageNumber: number }>,
+            ) =>
               index > 0 && !message.alreadyChecked && message.content.startsWith("SCENE_CHANGE")
-                ? [{ messageNumber: message.messageNumber - 1 }]
+                ? [{ messageNumber: transcript[index - 1]!.messageNumber }]
                 : [],
           ),
         }
@@ -652,6 +656,8 @@ try {
   ]);
   await memory.initialize(helperChat.id);
   await chats.createMessagesBatch(helperChat.id, [
+    // A command between the two checks leaves a gap in the numbers.
+    { role: "user", content: "/roll 1d20", extra: { commandOnly: true } },
     { role: "user", content: "SCENE_CHANGE Later, at the harbor." },
     { role: "assistant", characterId: "reader", content: "The gulls cry." },
     { role: "user", content: "We wait for the boat." },
@@ -663,13 +669,17 @@ try {
     .slice(beforeHelperCheck)
     .find((request) => request.kind === "classify" && request.body.messages[0].content.includes('"ends"'));
   assert(helperCheck, "the Helper checks the scene");
-  const helperTranscript: Array<{ messageNumber: number; alreadyChecked?: boolean }> = JSON.parse(
+  const helperTranscript: Array<{ messageNumber: number; alreadyChecked?: boolean; speaker?: string }> = JSON.parse(
     helperCheck.body.messages[1].content,
   );
   assert.deepEqual(
     helperTranscript.filter((message) => !message.alreadyChecked).map((message) => message.messageNumber),
-    [3, 4, 5],
+    [4, 5, 6],
     "all three new messages are checked, although the interval is two",
+  );
+  assert(
+    helperTranscript.every((message) => message.speaker),
+    "the Helper sees who wrote each message",
   );
   const shown = helperTranscript.filter((message) => message.alreadyChecked);
   assert.deepEqual(

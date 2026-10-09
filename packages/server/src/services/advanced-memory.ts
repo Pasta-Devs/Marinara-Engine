@@ -107,15 +107,24 @@ export interface AdvancedMemoryOperationOptions {
   agentProgress?: Parameters<typeof completeAgentCall>[0]["agentProgress"];
 }
 
+/** Who wrote it makes a switch to characters elsewhere visible to the model. */
+export type AdvancedMemorySceneCheckMessage = {
+  messageId: string;
+  messageNumber: number;
+  role: string;
+  speaker?: string;
+  content: string;
+};
+
 export interface AdvancedMemorySceneCheck {
   readonly chatId: string;
   readonly asOfMessageId: string;
   readonly windowStartMessageId: string;
   readonly sourceFingerprint: string;
   readonly policyRevision: string;
-  readonly messages: readonly { messageId: string; messageNumber: number; role: string; content: string }[];
+  readonly messages: readonly AdvancedMemorySceneCheckMessage[];
   /** The last message an earlier check saw, shown so a scene can end right where that check stopped. */
-  readonly previous?: { messageId: string; messageNumber: number; role: string; content: string };
+  readonly previous?: AdvancedMemorySceneCheckMessage;
   readonly prompt: string;
 }
 
@@ -2757,6 +2766,7 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
       messageId: message.id,
       messageNumber: ctx.messages.indexOf(message) + 1,
       role: message.role,
+      speaker: speakerName(ctx, message),
       content: message.content,
     });
     return {
