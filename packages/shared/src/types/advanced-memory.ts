@@ -51,7 +51,7 @@ export const advancedMemoryDecisionDiagnosticsSchema = z.object({
     .array(
       z.object({
         id: z.string(),
-        kind: z.enum(["scene", "excerpt", "message", "scene_end"]),
+        kind: z.enum(["scene", "excerpt", "message", "scene_end", "scene_start"]),
         text: z.string().max(160),
         score: z.number().min(0).max(1).optional(),
         binary: z.boolean().optional(),
