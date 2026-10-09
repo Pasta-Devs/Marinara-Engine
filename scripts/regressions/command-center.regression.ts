@@ -1613,7 +1613,8 @@ assert.ok(!("mariDetailId" in mariSession));
   assert.match(en["onboarding.finish.body"], /On a phone, pull down from the top bar\./u);
 }
 
-// UX-23: an applied change offers Undo, not Restore; a held change keeps Restore.
+// Slice 87: an applied change is not a waiting row; an applied delete waits (Delete / Put back); a held change
+// reads Apply / Don't apply. No row says Keep.
 {
   const t = ((_key: string, fallback?: string) => fallback ?? _key) as never;
   const rowFor = (approval: Record<string, unknown>) =>
@@ -1625,16 +1626,18 @@ assert.ok(!("mariDetailId" in mariSession));
       query: "",
     })[0]?.control;
   const applied = rowFor({ kind: "applied_review", diffPreview: [{ table: "characters", action: "update" }] });
+  assert.equal(applied, undefined, "an applied change is saved and not listed as waiting");
+  const deleted = rowFor({ kind: "applied_review", affectedRows: 1, diffPreview: [{ table: "characters", action: "delete" }] });
   assert.deepEqual(
-    applied?.options?.map((option: { label: string }) => option.label),
-    ["Keep", "Undo"],
-    "UX-23: an applied change offers Undo",
+    deleted?.options?.map((option: { label: string }) => option.label),
+    ["Delete", "Put back"],
+    "an applied delete waits for Delete or Put back",
   );
   const held = rowFor({ kind: "approval", diffPreview: [] });
   assert.deepEqual(
     held?.options?.map((option: { label: string }) => option.label),
-    ["Keep", "Restore"],
-    "UX-23: a held change keeps Restore",
+    ["Apply", "Don't apply"],
+    "a held change reads Apply or Don't apply",
   );
 }
 
@@ -2964,10 +2967,10 @@ assert.ok(!("mariDetailId" in mariSession));
       pendingId: null,
       onDecide: () => undefined,
     })[0]?.title;
-  assert.equal(approvalRow([agentChange], { agent_configs: 1 }), "Mari changed Scene Critic");
+  assert.equal(approvalRow([agentChange], { agent_configs: 1 }), "Professor Mari wants to change Scene Critic");
   assert.equal(
     approvalRow([agentChange, { ...agentChange, id: "cfg-2" }], { agent_configs: 2 }),
-    "Mari changed Agent",
+    "Professor Mari wants to change Agent",
     "several records read by their kind",
   );
 
@@ -2994,7 +2997,7 @@ assert.ok(!("mariDetailId" in mariSession));
     pendingId: null,
     onDecide: () => undefined,
   })[0];
-  assert.equal(replyRow?.title, "Mari fixed a reply in Harbor Night");
+  assert.equal(replyRow?.title, "Professor Mari fixed a reply in Harbor Night");
 }
 
 // L5: `chat.updateMessage` must classify as a write (never read-only), and a raw `mari db` write

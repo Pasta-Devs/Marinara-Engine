@@ -1801,9 +1801,11 @@ export function buildOmnibarApprovalResults({
   onDecide,
   query,
 }: OmnibarApprovalResultsInput): OmnibarResult[] {
-  if (!approvals?.length) return [];
+  // Slice 87: a change she applied is saved and has its own card; the omnibar lists only what waits for you.
+  const waiting = (approvals ?? []).filter((approval) => isMariReviewWaiting(approval));
+  if (!waiting.length) return [];
   const needle = normalizeTextForMatch(query ?? "");
-  const rows = approvals.map((approval) => {
+  const rows = waiting.map((approval) => {
     const reason = approval.reason?.trim() || undefined;
     let title: string;
     let description: string | undefined;
@@ -1843,21 +1845,22 @@ export function buildOmnibarApprovalResults({
       terms = [approval.path, approval.changeType];
     } else {
       const tables = Object.keys(approval.affectedTables).join(", ");
+      // An applied review waiting here is a delete: its rows stay hidden until Delete or Put back.
+      const applied = approval.kind === "applied_review";
       // One record reads by its name ("Mari changed Scene Critic"), several by their kinds.
       const recordName = approval.diffPreview.length === 1 ? changeRecordName(approval.diffPreview[0]!) : "";
       const subject = recordName || Object.keys(approval.affectedTables).map(describeTable).join(", ");
       const replyChat = approval.diffPreview.length === 1 ? replyFixChat(approval.diffPreview[0]!) : null;
       title = replyChat?.name
-        ? t("commandCenter.approval.replyFixTitle", "Mari fixed a reply in {{chat}}", { chat: replyChat.name })
+        ? t("commandCenter.approval.replyFixTitle", "Professor Mari fixed a reply in {{chat}}", { chat: replyChat.name })
         : subject
-          ? t("commandCenter.approval.databaseTitle", "Mari changed {{tables}}", { tables: subject })
-          : t("commandCenter.approval.databaseTitleGeneric", "Mari changed your app data");
+          ? t("commandCenter.approval.databaseTitle", "Professor Mari wants to change {{tables}}", { tables: subject })
+          : t("commandCenter.approval.databaseTitleGeneric", "Professor Mari wants to change your app data");
       description =
         reason ??
-        t(
-          "commandCenter.approval.databaseDescription",
-          "Mari already applied this. Keep it, or restore the previous snapshot.",
-        );
+        (applied
+          ? t("commandCenter.approval.deleteDescription", "Professor Mari already removed this. Delete it for good, or put it back.")
+          : t("commandCenter.approval.databaseDescription", "Professor Mari has not saved this yet. Apply it, or don't."));
       facts = [
         ...(tables ? [{ label: t("commandCenter.approval.tables", "Tables"), value: tables }] : []),
         { label: t("commandCenter.approval.rows", "Rows"), value: String(approval.affectedRows) },
@@ -1865,11 +1868,10 @@ export function buildOmnibarApprovalResults({
           ? [{ label: t("commandCenter.approval.command", "Command"), value: approval.command }]
           : []),
       ];
-      keepLabel = t("commandCenter.approval.keep", "Keep");
-      // UX-23: an applied change is undone, not restored; "Restore" is for a held change.
-      restoreLabel = isMariReviewWaiting(approval)
-        ? t("commandCenter.approval.restore", "Restore")
-        : t("commandCenter.approval.undo", "Undo");
+      keepLabel = applied ? t("commandCenter.approval.delete", "Delete") : t("commandCenter.approval.apply", "Apply");
+      restoreLabel = applied
+        ? t("commandCenter.approval.putBack", "Put back")
+        : t("commandCenter.approval.decline", "Don't apply");
       terms = [
         ...Object.keys(approval.affectedTables),
         ...(recordName ? [recordName] : []),
@@ -1901,9 +1903,7 @@ export function buildOmnibarApprovalResults({
         : {
             control: {
               type: "choice" as const,
-              label: isMariReviewWaiting(approval)
-                ? t("commandCenter.approval.decide", "Mari needs your answer")
-                : t("commandCenter.approval.keepOrUndo", "Keep or undo"),
+              label: t("commandCenter.approval.decide", "Professor Mari needs your answer"),
               // No option is selected yet: the row is the question, not a setting.
               value: pendingId === approval.id ? "pending" : "",
               options: [
