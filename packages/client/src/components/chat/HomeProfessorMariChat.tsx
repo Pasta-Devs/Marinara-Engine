@@ -2747,6 +2747,10 @@ export function HomeProfessorMariChat({
     // Slice 72: a goal line without her words ("No request phrase reported") told you nothing; no line then.
     if (!understoodRequest?.text?.trim()) return null;
     const expanded = expandedUnderstoodRequestMessageId === message.id;
+    // UX-15: a goal that only repeats the Accept / Don't apply card action says nothing new.
+    const goalText = understoodRequest.text.trim();
+    if (goalText === MARI_AUTHORIZATION_ACCEPT_CHIP.prompt || goalText === MARI_AUTHORIZATION_DECLINE_CHIP.prompt)
+      return null;
     const outcomeLabel = localizeUi(
       understoodRequest.outcome === "held"
         ? "ui.chat.homeprofessormarichat.heldForYourApproval"

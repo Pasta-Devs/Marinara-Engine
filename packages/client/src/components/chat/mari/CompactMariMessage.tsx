@@ -8,6 +8,7 @@ import {
   type MariWorkspaceActionResult,
   type Message,
   type ProfessorMariAskContext,
+  MARI_AUTHORIZATION_ACCEPT_CHIP,
 } from "@marinara-engine/shared";
 import { useChats } from "../../../hooks/use-chats";
 import { type CharacterPreviewModel } from "../../../lib/character-preview";
@@ -499,6 +500,8 @@ export const CompactMariMessage = memo(function CompactMariMessage({
   const [editContent, setEditContent] = useState(content);
   const messageTime = formatMariMessageTime(message.createdAt);
 
+  // UX-15: Accept is a card action, not something you said; the receipt card that follows is its record.
+  if (message.role === "user" && content.trim() === MARI_AUTHORIZATION_ACCEPT_CHIP.prompt) return null;
   if (message.role === "user") {
     // Your side is a plain bubble on the right, like Claude and Gemini: no avatar and no name label.
     return (
