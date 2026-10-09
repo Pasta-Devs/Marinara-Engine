@@ -752,7 +752,7 @@ assert.match(
 );
 assert.match(
   professorMariWorkspaceSource,
-  /updates are patches[\s\S]{0,400}read the entity back[\s\S]{0,300}requested value[\s\S]{0,220}Claim completion only/u,
+  /updates are patches[\s\S]{0,400}read the entity back[\s\S]{0,300}Claim completion only when every requested value matches/u,
   "Professor Mari must preserve unrelated fields and verify requested character edits before claiming completion",
 );
 const professorMariSeedSource = readFileSync(join(REPOSITORY_ROOT, "packages/server/src/db/seed-mari.ts"), "utf8");
@@ -6216,17 +6216,10 @@ assert.equal(
   "Home effect pausing must keep one central visibility listener",
 );
 assert.match(appSource, /dispatchEvent\(new CustomEvent\("marinara:effects-paused"/u);
-// The Home Mari sprite moved into the omnibar navigator (9b2aabf18); it still listens for the pause event.
-assert.match(
-  readFileSync(
-    new URL("../../packages/client/src/components/chat/ProfessorMariNavigator.tsx", import.meta.url),
-    "utf8",
-  ),
-  /window\.removeEventListener\(MARINARA_EFFECTS_PAUSED_EVENT, sync\)/u,
-);
+// Slice 85: the navigator is gone; the Home widget's blink is the Mari frame that pauses with the page.
 assert.match(
   globalStylesSource,
-  /data-marinara-effects-paused="true"[^}]+mari-home-professor-popup__sprite[\s\S]+animation-play-state: paused !important;/u,
+  /data-marinara-effects-paused="true"\] \.mari-home-professor-blink,[^}]+animation-play-state: paused !important;/u,
 );
 const agentEditorSource = readFileSync(
   new URL("../../packages/client/src/components/agents/AgentEditor.tsx", import.meta.url),

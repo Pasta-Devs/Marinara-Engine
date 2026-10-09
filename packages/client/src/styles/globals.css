@@ -4120,6 +4120,7 @@ html[data-marinara-reduced-effects="true"] .mari-home-discovery-card {
 
 /* Preserve the current Mari frame while the browser tab/window is inactive.
    App.tsx owns the single visibility/focus listener; Home only consumes it. */
+html[data-marinara-effects-paused="true"] .mari-home-professor-blink,
 html[data-marinara-effects-paused="true"] .mari-professor-pixel-scene [data-part="sprite"],
 html[data-marinara-effects-paused="true"] .mari-professor-pixel-scene [data-part="screen"] span,
 html[data-marinara-effects-paused="true"] .mari-professor-pixel-scene [data-part="base"] i {
@@ -4156,6 +4157,7 @@ html[data-marinara-reduced-effects="true"] .game-expression-reaction__bubble,
 html[data-marinara-reduced-effects="true"] .game-expression-reaction__drop,
 html[data-marinara-reduced-effects="true"] [class^="anim-text-"],
 html[data-marinara-reduced-effects="true"] [class*=" anim-text-"],
+html[data-marinara-reduced-effects="true"] .mari-home-professor-blink,
 html[data-marinara-reduced-effects="true"] .mari-professor-pixel-scene [data-part="sprite"],
 html[data-marinara-reduced-effects="true"] .mari-professor-pixel-scene [data-part="screen"] span,
 html[data-marinara-reduced-effects="true"] .mari-professor-pixel-scene [data-part="base"] i,
