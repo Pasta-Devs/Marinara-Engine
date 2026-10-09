@@ -76,3 +76,15 @@ export function isMariInstruction(rawQuery: string, rowTitle: string | null | un
   if (!typed) return false;
   return !rowTitle || !normalizeTextForMatch(rowTitle).includes(typed);
 }
+
+const QUESTION_WORD =
+  /^(why|how|what|when|where|who|whom|whose|which|can|could|should|would|will|is|are|am|was|were|do|does|did|has|have|had)\b/iu;
+
+/**
+ * Whether typed text reads as a question. Ctrl/⌘+J carries only a question into Mari's composer; any other
+ * text leaves her window empty, so a half-typed search never lands there as a request.
+ */
+export function isQuestionShaped(rawQuery: string): boolean {
+  const typed = parseOmnibarScope(rawQuery).query.trim();
+  return typed.endsWith("?") || QUESTION_WORD.test(typed);
+}

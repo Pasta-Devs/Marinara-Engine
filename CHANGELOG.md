@@ -349,6 +349,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - After you ask Professor Mari from search and close the search, the question is cleared. The next search starts empty instead of showing the question again.
 - Finishing the first-run tour no longer opens What's New straight after it. You have just seen this release in the tour.
 - The bar under Professor Mari no longer shows **Review changes** and **Return to results**. The receipt cards and the header's back arrow already do both. Only Open actions show there.
+- Ctrl/⌘+J carries only a question into Professor Mari's box, such as "why is my lorebook empty" or "…?". Other typed text, like a half-typed search, opens her with an empty box.
 
 ## [2.5.0]
 

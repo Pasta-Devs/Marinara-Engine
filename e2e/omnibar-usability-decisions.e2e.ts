@@ -30,6 +30,16 @@ async function openOmnibar(page: Page) {
   await page.keyboard.press("Control+k");
 }
 
+/** Escape steps out of her window, then closes the omnibar; repeat until it is gone. */
+async function closeOmnibar(page: Page, omnibar: ReturnType<Page["locator"]>) {
+  await expect
+    .poll(async () => {
+      await page.keyboard.press("Escape");
+      return omnibar.count();
+    })
+    .toBe(0);
+}
+
 function shotPath(id: string, width: number) {
   mkdirSync(SHOT_DIR, { recursive: true });
   return new URL(`${id}-${width}.png`, SHOT_DIR).pathname;
@@ -57,12 +67,7 @@ test("UX-35: a question handed to Professor Mari does not come back when the omn
   await expect(omnibar.locator('[data-component="GlobalOmnibar.Mari"]')).toHaveAttribute("aria-hidden", "false");
 
   // Leave her window, then close the omnibar. The handed-off question must not survive the close.
-  await expect
-    .poll(async () => {
-      await page.keyboard.press("Escape");
-      return omnibar.count();
-    })
-    .toBe(0);
+  await closeOmnibar(page, omnibar);
 
   await openOmnibar(page);
   await expect(input).toHaveValue("");
@@ -83,4 +88,29 @@ test("UX-11: the bar under Professor Mari has no Review or Return button", async
   await expect(omnibar.locator('[data-component="GlobalOmnibar.CompletionActions"]')).toHaveCount(0);
   await expect(omnibar.getByRole("button", { name: "Return to results", exact: true })).toHaveCount(0);
   await omnibar.screenshot({ path: shotPath("UX-11", width) });
+});
+
+test("UX-22: Ctrl+J carries a question into Professor Mari, and opens her empty for other text", async ({
+  page,
+}, testInfo) => {
+  test.skip(!testInfo.project.name.includes("desktop"), "Professor Mari hand-off is covered on desktop.");
+  const width = 1440;
+  const omnibar = page.locator('[data-component="GlobalOmnibar"]');
+  const composer = omnibar.locator('[data-component="GlobalOmnibar.Mari"] textarea:visible');
+
+  await openOmnibar(page);
+  await omnibar.getByRole("searchbox", { name: "Search Marinara" }).fill("lorebook");
+  await page.keyboard.press("Control+j");
+  await expect(omnibar.locator('[data-component="GlobalOmnibar.Mari"]')).toHaveAttribute("aria-hidden", "false");
+  await expect(composer).toHaveValue("");
+  await omnibar.screenshot({ path: shotPath("UX-22-empty", width) });
+
+  await closeOmnibar(page, omnibar);
+
+  await openOmnibar(page);
+  await omnibar.getByRole("searchbox", { name: "Search Marinara" }).fill("why is my lorebook empty");
+  await page.keyboard.press("Control+j");
+  await expect(omnibar.locator('[data-component="GlobalOmnibar.Mari"]')).toHaveAttribute("aria-hidden", "false");
+  await expect(composer).toHaveValue("why is my lorebook empty");
+  await omnibar.screenshot({ path: shotPath("UX-22-question", width) });
 });

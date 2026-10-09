@@ -101,7 +101,13 @@ import {
   buildOmnibarSearchResults,
   buildOmnibarSlashResults,
 } from "../../lib/omnibar-results";
-import { isMariInstruction, matchesOmnibarScope, omnibarScopePrefix, parseOmnibarScope } from "../../lib/omnibar-scope";
+import {
+  isMariInstruction,
+  isQuestionShaped,
+  matchesOmnibarScope,
+  omnibarScopePrefix,
+  parseOmnibarScope,
+} from "../../lib/omnibar-scope";
 import { reconcileActiveResultId } from "../../lib/omnibar-row-state";
 import { omnibarCompletionActions, type OmnibarCompletionAction } from "../../lib/omnibar-completion-actions";
 import { buildProfessorMariCommandCenterContext } from "../../lib/professor-mari-command-center-context";
@@ -1525,7 +1531,7 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
   // opens the omnibar for it while it is shut; from here on this listener owns the shortcut.
   const toggleMariPane = useEffectEvent(() => {
     if (pane === "mari") leaveDetail();
-    else openProfessorMari(null, { arrival: !query.trim() });
+    else openProfessorMari(null, { arrival: !isQuestionShaped(query) });
   });
   useEffect(() => {
     const onKeyDown = (event: globalThis.KeyboardEvent) => {
