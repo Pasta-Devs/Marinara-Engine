@@ -13,6 +13,8 @@
  * offer these choices.
  */
 export const OMNIBAR_ASIDE_DELAY_MS = 3_000;
+/** The aside setting that follows Mari's connection, so a change there is picked up without touching the setting. */
+export const MARI_QUICK_CONNECTION = "mari";
 export const OMNIBAR_ASIDE_DELAY_CHOICES_MS = [1_000, 2_000, 3_000, 5_000] as const;
 
 export interface OmnibarAsideCacheEntry {

@@ -14,9 +14,13 @@ import {
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import type { ChatMode, Message, ProfessorMariAskContext, ProfessorMariEntryPoint } from "@marinara-engine/shared";
-import { chatIdForMariSession, matchOmnibarCapabilityAgentPackageIds } from "@marinara-engine/shared";
+import {
+  chatIdForMariSession,
+  LOCAL_SIDECAR_CONNECTION_ID,
+  matchOmnibarCapabilityAgentPackageIds,
+} from "@marinara-engine/shared";
 import { api } from "../../lib/api-client";
-import { marisConnectionFor } from "../../lib/omnibar-aside-text";
+import { MARI_QUICK_CONNECTION, marisConnectionFor } from "../../lib/omnibar-aside-text";
 import { ChevronLeft, Search, X } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useTranslation } from "react-i18next";
@@ -899,10 +903,15 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
     messageResults.length === 0 &&
     globalMessageResults.length === 0 &&
     lorebookEntryResults.length === 0;
-  const asideConnectionName =
-    languageConnections.find((connection) => connection.id === asideConnectionId)?.name ?? null;
-  // No local model: the aside offers Mari's own connection in one tap instead of failing on every question.
   const asideConnectionOffer = marisConnectionFor(languageConnections);
+  // "Same as Mari" follows her connection at the time of the question; no local model is needed for it.
+  const asideAnswerConnectionId =
+    asideConnectionId === MARI_QUICK_CONNECTION
+      ? (asideConnectionOffer?.id ?? LOCAL_SIDECAR_CONNECTION_ID)
+      : asideConnectionId;
+  const asideConnectionName =
+    languageConnections.find((connection) => connection.id === asideAnswerConnectionId)?.name ?? null;
+  // No local model: the aside offers Mari's own connection in one tap instead of failing on every question.
   // The real surface the user is on, not always "command-center": an open
   // editor or the active chat is a more honest (and more useful) context for
   // the aside's unasked call than the omnibar shell it happens to appear in.
@@ -926,6 +935,7 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
           ? t("omnibar.aside.downloadAgents", "Download Agents")
           : null;
   const asideState = useOmnibarAside({
+    connectionId: asideAnswerConnectionId,
     query: deferredQuery,
     deadEnd: asideDeadEnd && pane === "results",
     source: asideSource,
@@ -2210,6 +2220,7 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
             focusControlId={settingsTarget.controlId}
             onClose={closeSettings}
             connections={languageConnections}
+            marisConnectionName={asideConnectionOffer?.name ?? null}
             onClearSearchHistory={() => {
               clearOmnibarFrecencyHistory();
               setFrecencyEntries([]);

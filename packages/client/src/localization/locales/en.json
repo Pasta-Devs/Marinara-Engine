@@ -3073,6 +3073,7 @@
   "omnibar.settings.aside.connection.label": "Answer with",
   "omnibar.settings.aside.connection.local": "Local model (free)",
   "omnibar.settings.aside.connection.localMissing": "Local model (not set up)",
+  "omnibar.settings.aside.connection.mari": "Same as Mari ({{name}})",
   "omnibar.settings.aside.connection.missing": "Deleted connection",
   "omnibar.settings.aside.delay.description": "How long Search waits before Mari writes a quick answer.",
   "omnibar.settings.aside.delay.label": "Wait after typing",

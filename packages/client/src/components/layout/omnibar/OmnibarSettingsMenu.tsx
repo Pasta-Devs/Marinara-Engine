@@ -33,7 +33,7 @@ import {
   resolveMariAppearancePack,
 } from "../../../lib/mari-work-animations";
 import { useActivityOverview } from "../../../hooks/use-chat-insights";
-import { OMNIBAR_ASIDE_DELAY_CHOICES_MS } from "../../../lib/omnibar-aside-text";
+import { MARI_QUICK_CONNECTION, OMNIBAR_ASIDE_DELAY_CHOICES_MS } from "../../../lib/omnibar-aside-text";
 import { useLocalizedUiText } from "../../../localization/use-localized-ui-text";
 import { cn } from "../../../lib/utils";
 
@@ -305,6 +305,7 @@ export function OmnibarSettingsSheet({
   onClose,
   focusControlId,
   connections,
+  marisConnectionName,
   onClearSearchHistory,
   onSetUpLocalModel,
 }: {
@@ -313,6 +314,8 @@ export function OmnibarSettingsSheet({
   focusControlId: string | null;
   /** Language connections that can answer a quick question. */
   connections: readonly { id: string; name: string }[];
+  /** The connection Mari uses, which "Same as Mari" follows. Absent when she has none. */
+  marisConnectionName?: string | null;
   /** O2: forgets the local frecency history (which results you run most, per surface). */
   onClearSearchHistory: () => void;
   /** Opens the local model setup. Absent where no local model can run. */
@@ -345,7 +348,9 @@ export function OmnibarSettingsSheet({
   const localModelDownloaded = useSidecarStore((state) => state.modelDownloaded);
 
   const usesLocalModel = asideConnectionId === LOCAL_SIDECAR_CONNECTION_ID;
-  const knownConnection = usesLocalModel || connections.some((connection) => connection.id === asideConnectionId);
+  const followsMari = asideConnectionId === MARI_QUICK_CONNECTION && Boolean(marisConnectionName);
+  const knownConnection =
+    usesLocalModel || followsMari || connections.some((connection) => connection.id === asideConnectionId);
 
   // Focus moves in on open and back to whatever opened the sheet on close; Escape and Tab stay here.
   const onKeyDown = useInDialogFocusScope(cardRef, onClose);
@@ -445,6 +450,13 @@ export function OmnibarSettingsSheet({
               disabled={!asideEnabled}
               onChange={(event) => setAsideConnectionId(event.target.value)}
             >
+              {marisConnectionName ? (
+                <option value={MARI_QUICK_CONNECTION}>
+                  {t("omnibar.settings.aside.connection.mari", "Same as Mari ({{name}})", {
+                    name: marisConnectionName,
+                  })}
+                </option>
+              ) : null}
               <option value={LOCAL_SIDECAR_CONNECTION_ID}>
                 {localModelDownloaded
                   ? t("omnibar.settings.aside.connection.local", "Local model (free)")

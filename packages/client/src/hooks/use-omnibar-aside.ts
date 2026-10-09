@@ -58,6 +58,8 @@ const IDLE: OmnibarAsideState = { status: "idle", answer: "", error: null, query
  * on it and never degraded by its failure (R2, R24).
  */
 export function useOmnibarAside(params: {
+  /** The connection that answers, already resolved (never the "same as Mari" sentinel). */
+  connectionId: string;
   /** The typed query, after any scope prefix is stripped. */
   query: string;
   /** True when nothing deterministic matched well enough to answer. */
@@ -72,14 +74,13 @@ export function useOmnibarAside(params: {
   answerAgain: () => void;
 } {
   const enabled = useUIStore((state) => state.omnibarAsideEnabled);
-  const connectionId = useUIStore((state) => state.omnibarAsideConnectionId);
   const delayMs = useUIStore((state) => state.omnibarAsideDelayMs);
   const [state, setState] = useState<OmnibarAsideState>(IDLE);
   const abortRef = useRef<AbortController | null>(null);
   // The docs the current answer is grounded on; kept while the words stream in.
   const sourcesRef = useRef<readonly ProfessorMariQuickSource[] | undefined>(undefined);
 
-  const { query, deadEnd, source, resourceLabel } = params;
+  const { connectionId, query, deadEnd, source, resourceLabel } = params;
   const trimmed = query.trim();
   const localModelDownloaded = useSidecarStore((state) => state.modelDownloaded);
   const tier: OmnibarAsideState["tier"] = connectionId === LOCAL_SIDECAR_CONNECTION_ID ? "local" : "remote";
