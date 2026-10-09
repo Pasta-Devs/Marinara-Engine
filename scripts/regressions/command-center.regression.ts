@@ -42,7 +42,6 @@ import { getOmnibarSettingsDestinations } from "../../packages/client/src/lib/om
 import { isMariInstruction, parseOmnibarScope } from "../../packages/client/src/lib/omnibar-scope.js";
 import {
   buildOmnibarAddSuggestions,
-  buildOmnibarApprovalResults,
   buildOmnibarContinueResult,
   buildOmnibarGlobalMessageResults,
   buildOmnibarLorebookEntryResults,
@@ -1613,32 +1612,28 @@ assert.ok(!("mariDetailId" in mariSession));
   assert.match(en["onboarding.finish.body"], /On a phone, pull down from the top bar\./u);
 }
 
-// Slice 87: an applied change is not a waiting row; an applied delete waits (Delete / Put back); a held change
-// reads Apply / Don't apply. No row says Keep.
+// Search lists none of Professor Mari's changes (applied, held, delete, install or file write) in any mode;
+// her window shows and undoes them. The Continue row stays the way in, and it still names a waiting review.
 {
   const t = ((_key: string, fallback?: string) => fallback ?? _key) as never;
-  const rowFor = (approval: Record<string, unknown>) =>
-    buildOmnibarApprovalResults({
-      approvals: [{ id: "a1", affectedRows: 1, affectedTables: { characters: 1 }, ...approval }] as never,
-      t,
-      pendingId: null,
-      onDecide: () => undefined,
-      query: "",
-    })[0]?.control;
-  const applied = rowFor({ kind: "applied_review", diffPreview: [{ table: "characters", action: "update" }] });
-  assert.equal(applied, undefined, "an applied change is saved and not listed as waiting");
-  const deleted = rowFor({ kind: "applied_review", affectedRows: 1, diffPreview: [{ table: "characters", action: "delete" }] });
-  assert.deepEqual(
-    deleted?.options?.map((option: { label: string }) => option.label),
-    ["Delete", "Put back"],
-    "an applied delete waits for Delete or Put back",
+  const omnibarDir = new URL("../../packages/client/src/components/layout/", import.meta.url);
+  for (const file of ["GlobalOmnibar.tsx", "omnibar/omnibar-keyboard.ts", "omnibar/omnibar-dialog-rules.ts"]) {
+    const source = readFileSync(new URL(file, omnibarDir), "utf8");
+    assert.doesNotMatch(source, /mari-approval:|ApprovalResults|useMariApprovals/u, `${file} builds no change rows`);
+  }
+  const resultsSource = readFileSync(
+    new URL("../../packages/client/src/lib/omnibar-results.ts", import.meta.url),
+    "utf8",
   );
-  const held = rowFor({ kind: "approval", diffPreview: [] });
-  assert.deepEqual(
-    held?.options?.map((option: { label: string }) => option.label),
-    ["Apply", "Don't apply"],
-    "a held change reads Apply or Don't apply",
-  );
+  assert.doesNotMatch(resultsSource, /commandCenter\.approval\./u, "no change-row copy is left in the builders");
+  const held = { id: "h1", kind: "approval", diffPreview: [], affectedTables: { characters: 1 }, affectedRows: 1 };
+  const row = buildOmnibarContinueResult({
+    mariEnabled: true,
+    t,
+    workspaceStatus: { active: false, pendingApprovals: [held] as never },
+  });
+  assert.equal(row?.id, "ask-professor-mari", "a held change still leaves the way into her window");
+  assert.equal(row?.control, undefined, "the way in decides nothing in place");
 }
 
 // UX-28: the live count has a singular form, so one result reads "1 result".
@@ -2952,28 +2947,6 @@ assert.ok(!("mariDetailId" in mariSession));
   );
   assert.equal(fieldChangeStyle(agentFields[0]!), "text", "a one-word prompt is prose, not an enum chip");
 
-  // The omnibar's waiting row names the agent, never the raw table.
-  const agentChange = {
-    table: "agent_configs",
-    id: "cfg-1",
-    action: "update" as const,
-    before: { name: "Scene Critic", promptTemplate: "Critique" },
-    after: { name: "Scene Critic", promptTemplate: "Praise" },
-  };
-  const approvalRow = (diffPreview: unknown[], affectedTables: Record<string, number>) =>
-    buildOmnibarApprovalResults({
-      approvals: [{ id: "r1", kind: "db", diffPreview, affectedTables, affectedRows: diffPreview.length } as never],
-      t,
-      pendingId: null,
-      onDecide: () => undefined,
-    })[0]?.title;
-  assert.equal(approvalRow([agentChange], { agent_configs: 1 }), "Professor Mari wants to change Scene Critic");
-  assert.equal(
-    approvalRow([agentChange, { ...agentChange, id: "cfg-2" }], { agent_configs: 2 }),
-    "Professor Mari wants to change Agent",
-    "several records read by their kind",
-  );
-
   // L6: a reply fix names its chat and shows only the content as a change.
   const replyChange = {
     table: "messages",
@@ -2983,21 +2956,12 @@ assert.ok(!("mariDetailId" in mariSession));
     after: { chatId: "chat-1", chatName: "Harbor Night", content: "The door creaked open and she said nothing." },
   };
   assert.deepEqual(replyFixChat(replyChange), { id: "chat-1", name: "Harbor Night" });
-  assert.equal(replyFixChat(agentChange), null, "only a messages change is a reply fix");
+  assert.equal(replyFixChat({ ...replyChange, table: "agent_configs" }), null, "only a messages change is a reply fix");
   assert.deepEqual(
     computeFieldChanges(replyChange).map((field) => [field.path, fieldChangeStyle(field)]),
     [["content", "text"]],
     "the chat label never reads as a changed field",
   );
-  const replyRow = buildOmnibarApprovalResults({
-    approvals: [
-      { id: "r2", kind: "db", diffPreview: [replyChange], affectedTables: { messages: 1 }, affectedRows: 1 } as never,
-    ],
-    t,
-    pendingId: null,
-    onDecide: () => undefined,
-  })[0];
-  assert.equal(replyRow?.title, "Professor Mari fixed a reply in Harbor Night");
 }
 
 // L5: `chat.updateMessage` must classify as a write (never read-only), and a raw `mari db` write

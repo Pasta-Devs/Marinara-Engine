@@ -43,11 +43,6 @@ export const MARI_EDITABLE_CATEGORIES = new Set<OmnibarCategory>([
   "lorebook",
   "preset",
 ]);
-export const MARI_APPROVAL_PREFIX = "mari-approval:";
-// R9: this row carries a choice control (Keep/Restore) for quick action, but the row body
-// itself must still navigate to that specific review on click/Enter instead of expanding a
-// choice accordion like an ordinary settings picker does.
-export const isMariApprovalRow = (result: Pick<OmnibarResult, "id">) => result.id.startsWith(MARI_APPROVAL_PREFIX);
 
 /**
  * Categories that can be attached to (or detached from) the open chat, mapped to

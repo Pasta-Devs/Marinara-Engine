@@ -113,7 +113,7 @@ The card has one action:
 - A change that did not save shows **Not saved** and the reason. **Try again** asks her again.
 - The card shows **Undo until** only in the last 24 hours. An undo copy lasts up to 14 days, and only the newest 50 are kept. After that the change stays and the card reads **Undo closed**.
 
-A change that waits for you is different. A held change (in Manual mode, or a change to a sensitive file or a dependency) shows **Apply** and **Don't apply**. A delete shows **Delete** and **Put back**. Changes that are already applied do not wait in the omnibar.
+A change that waits for you is different. A held change (in Manual mode, or a change to a sensitive file or a dependency) shows **Apply** and **Don't apply**. A delete shows **Delete** and **Put back**. Search does not list her changes: open Professor Mari to see, apply or undo them.
 
 - A card belongs to the Professor Mari chat she made the change in. A new chat starts without the cards of other chats. Deleting a chat keeps its changes and removes its cards. A change made with the `mari` command in a terminal belongs to no chat, so its card shows in every Professor Mari chat.
 - An edit that would leave everything as it was is not saved and gets no card.

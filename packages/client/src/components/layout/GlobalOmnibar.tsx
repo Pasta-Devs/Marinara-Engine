@@ -20,11 +20,7 @@ import type {
   ProfessorMariEntryPoint,
   ProfessorMariQuickSource,
 } from "@marinara-engine/shared";
-import {
-  chatIdForMariSession,
-  LOCAL_SIDECAR_CONNECTION_ID,
-  matchOmnibarCapabilityAgentPackageIds,
-} from "@marinara-engine/shared";
+import { LOCAL_SIDECAR_CONNECTION_ID, matchOmnibarCapabilityAgentPackageIds } from "@marinara-engine/shared";
 import { api } from "../../lib/api-client";
 import { MARI_QUICK_CONNECTION, marisConnectionFor } from "../../lib/omnibar-aside-text";
 import { ChevronLeft, Search, X } from "lucide-react";
@@ -56,7 +52,6 @@ import {
   type OmnibarFrecencyEntry,
 } from "../../lib/omnibar-frecency";
 import { isOmnibarCommandPick } from "../../lib/omnibar-empty-state";
-import { useMariApprovals } from "../../hooks/use-mari-approvals";
 import { completeInline } from "../../lib/inline-completion";
 import { isLanguageGenerationConnection } from "../../lib/connection-filters";
 import {
@@ -89,7 +84,6 @@ import {
   buildOmnibarContextResults,
   idleOmnibarContextResults,
   resolveOmnibarUnderstoodLine,
-  buildOmnibarApprovalResults,
   buildOmnibarContinueResult,
   findMentionedResults,
   buildOmnibarMariChatResults,
@@ -143,8 +137,6 @@ import {
 import {
   CHAT_RESOURCE_KIND,
   createModalPrefillName,
-  isMariApprovalRow,
-  MARI_APPROVAL_PREFIX,
   CHAT_SCOPED_CHOICE_CONTROL_IDS,
   EDITOR_CATEGORIES,
 } from "./omnibar/omnibar-dialog-rules";
@@ -704,28 +696,6 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
     () => new Set(removalSuggestions.map((item) => item.id.replace("action:detach-from-chat:", ""))),
     [removalSuggestions],
   );
-  // The same hook the Work pane uses, so an approval decided from a row behaves
-  // and reads exactly as it does there.
-  const { keepApproval, restoreApproval, pendingId: approvalPendingId } = useMariApprovals();
-  const approvalResults = useMemo<OmnibarResult[]>(
-    () =>
-      buildOmnibarApprovalResults({
-        approvals: mariEnabled ? mariWorkspaceStatus.data?.pendingApprovals : undefined,
-        t,
-        pendingId: approvalPendingId,
-        onDecide: (id, decision) => void (decision === "keep" ? keepApproval(id) : restoreApproval(id)),
-        query: deferredQuery,
-      }),
-    [
-      approvalPendingId,
-      deferredQuery,
-      keepApproval,
-      mariEnabled,
-      mariWorkspaceStatus.data?.pendingApprovals,
-      restoreApproval,
-      t,
-    ],
-  );
   const continueResult = useMemo<OmnibarResult | null>(
     () => buildOmnibarContinueResult({ mariEnabled, t, workspaceStatus: mariWorkspaceStatus.data, mariFinished }),
     [mariEnabled, mariWorkspaceStatus.data, t, mariFinished],
@@ -789,7 +759,6 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
               ...verbSuggestions,
               ...addSuggestions,
               ...removalSuggestions,
-              ...approvalResults,
               ...messageResults,
               ...globalMessageResults,
               ...lorebookEntryResults,
@@ -818,8 +787,6 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
                 activeChat?.id === activeChatId ? (activeChat ?? null) : null,
                 lastAppError?.retry?.kind === "open-connection" ? `connection:${lastAppError.retry.id}` : null,
               ),
-              // A pending review's own Keep/Restore rows sit with the screen's work, not in Continue.
-              ...approvalResults.map((row) => ({ ...row, group: "current-work" as const })),
               ...frecentIdleResults,
               ...recentChatResults,
             ],
@@ -837,7 +804,6 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
       lastAppError,
       newChatCommands,
       recentChatResults,
-      approvalResults,
       continueResults,
       nowResult,
       setupTryRow,
@@ -1321,26 +1287,11 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
       }
       return;
     }
-    // R9: the choice control (Keep/Restore) on an approval row is a quick action, not the
-    // row's whole purpose — the row body below still navigates to that specific review.
-    if (result.control && !isMariApprovalRow(result)) return;
+    if (result.control) return;
     if (runDirectChatAction(result)) return;
     if (runSystemAction(result)) {
       recordUse(result.id);
       onClose();
-      return;
-    }
-    // A dependency install or a sensitive file write executes on approval, so the
-    // row opens the card that shows what will run instead of deciding in place; a
-    // db-change review's inline Keep/Restore stays available too. Either way the
-    // row targets THIS approval, in the Mari chat that made it if different from
-    // whatever is currently open (R9).
-    if (isMariApprovalRow(result)) {
-      const approvalId = result.id.slice(MARI_APPROVAL_PREFIX.length);
-      const approval = mariWorkspaceStatus.data?.pendingApprovals.find((item) => item.id === approvalId);
-      const ownerChatId = approval ? chatIdForMariSession(approval.sessionId) : null;
-      if (ownerChatId) setMariOpenChatId(ownerChatId);
-      openProfessorMari(null, { reviewPending: approvalId });
       return;
     }
     if (result.id === "suggestion:edit-focused-field") {
@@ -1489,10 +1440,7 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
     }
     autoSelectionRef.current = false;
     setActiveResultId(result.id);
-    // R9: the row body navigates to the review, not the generic expand/collapse a
-    // settings-picker choice control gets — Keep/Restore stay reachable inline.
-    if (isMariApprovalRow(result)) choose(result);
-    else if (result.control?.type === "toggle") flipToggleControl(result, result.control.value !== true);
+    if (result.control?.type === "toggle") flipToggleControl(result, result.control.value !== true);
     else if (result.control?.type === "choice")
       setExpandedChoiceId((current) => (current === result.id ? null : result.id));
     else choose(result);
@@ -1773,7 +1721,6 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
     if (result.id === "ask-professor-mari") {
       return result.group === "continue" ? t("commandCenter.open", "Open") : t("commandCenter.enter.ask", "Ask");
     }
-    if (result.id.startsWith("mari-approval:")) return t("commandCenter.enter.review", "Review");
     if (result.chooseValue) return t("commandCenter.enter.choose", "Choose");
     switch (result.action?.kind) {
       case "add-to-chat":

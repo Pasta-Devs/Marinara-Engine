@@ -1,6 +1,5 @@
 import type { Dispatch, KeyboardEvent, RefObject, SetStateAction } from "react";
 import { type OmnibarPane, type RankedOmnibarResult, isRichResult } from "./omnibar-result-view";
-import { isMariApprovalRow } from "./omnibar-dialog-rules";
 import type { ProfessorMariNavigationTarget } from "../../../lib/professor-mari-navigation";
 import type { OmnibarResult } from "../../../lib/omnibar-search";
 import { readChoiceOptionId } from "../../../lib/omnibar-choice-rows";
@@ -167,9 +166,7 @@ export function createOmnibarKeyHandlers({
     } else if (pane === "results" && event.key === "Enter" && activeResult) {
       event.preventDefault();
       if (chooseChoiceOption(activeResult)) return;
-      if (isMariApprovalRow(activeResult)) choose(activeResult);
-      else if (activeResult.control?.type === "toggle")
-        flipToggleControl(activeResult, activeResult.control.value !== true);
+      if (activeResult.control?.type === "toggle") flipToggleControl(activeResult, activeResult.control.value !== true);
       else if (activeResult.control?.type === "choice")
         setExpandedChoiceId((current) => (current === activeResult.id ? null : activeResult.id));
       else if (mariEnabled && activeResult.id === "ask-professor-mari") {

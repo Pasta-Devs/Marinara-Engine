@@ -9,7 +9,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - Professor Mari feels heavier when you swing her: she swings slower and only goes over the top when you really whirl her.
 - The held Professor Mari change that waited for your OK now has **Apply** instead of **Accept**, so it reads like the other choices on the card.
 - A change Professor Mari could not save now says **Not saved**, with the reason in plain words and a **Try again** button that asks her again. Before, a failed change left no card at all.
-- The omnibar lists only what waits for you: a held change, a delete, an install or a file write. A change Professor Mari has already applied is saved and stays on her card, with **Undo**, so it no longer shows as a to-do in the omnibar. A held change reads **Apply** or **Don't apply**, and a delete reads **Delete** or **Put back**.
+- Search no longer lists Professor Mari's changes; open Professor Mari to see and undo them.
+- A change Professor Mari has already applied is saved and stays on her card, with **Undo**. A held change reads **Apply** or **Don't apply**, and a delete reads **Delete** or **Put back**.
 - Professor Mari's change card lists every field it changed, not a count. Each field has its label and its value: a text edit shows the old and new words, a lorebook shows its entries with their keys and text, and a new character's settings sit together at the end. Open a field to see the rest, and **Technical details** shows the raw command. The card has one action, **Undo**, and no **Keep**: an applied change is already saved. The undo deadline appears only in the last 24 hours.
 - Quick answers in Search are off by default. Turn them on in Search and Professor Mari settings › Quick answers.
 - Professor Mari's quick answers and the bulk skip of agent updates have their own request limits, so a runaway script cannot flood the model or the package catalog.
