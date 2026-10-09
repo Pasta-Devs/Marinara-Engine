@@ -1,3 +1,4 @@
+import { IncomingMessage } from "node:http";
 import { promisify } from "node:util";
 import { brotliCompress, constants, gzip } from "node:zlib";
 import type { FastifyReply, FastifyRequest } from "fastify";
@@ -24,10 +25,12 @@ function acceptedEncoding(header: string | string[] | undefined): "br" | "gzip" 
 /**
  * Compress finished API JSON bodies. A long chat's messages are hundreds of KB of JSON, which over a LAN
  * or a phone connection is most of the wait. Streams never get here as a string or Buffer: SSE writes to
- * `reply.raw`, and file sends pass a stream, so both go out untouched.
+ * `reply.raw`, and file sends pass a stream, so both go out untouched. Replies to `app.inject()` stay plain:
+ * the server reads those itself (prompt preview forwards the browser's own Accept-Encoding).
  */
 export async function compressJsonHook(req: FastifyRequest, reply: FastifyReply, payload: unknown) {
   if (typeof payload !== "string" && !Buffer.isBuffer(payload)) return payload;
+  if (!(req.raw instanceof IncomingMessage)) return payload;
   if (!req.url.startsWith("/api/") || reply.hasHeader("content-encoding")) return payload;
   if (!String(reply.getHeader("content-type") ?? "").includes("application/json")) return payload;
   if (Buffer.byteLength(payload) < MIN_BYTES) return payload;
