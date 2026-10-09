@@ -17,6 +17,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - Circle the pointer while holding Professor Mari and she swings all the way over, upside down, like a real pendulum. She settles hanging straight down when you hold still. Reduced motion keeps her still.
 - The screen edges are walls while you hold Professor Mari. A hard flick into an edge squashes her, bounces her back and bonks her with a line and stars. Two hits in a row make her dizzy. She never leaves the screen.
 - Rest the mouse on Professor Mari and she looks up at you: a hover pose in every pack, on her omnibar head, her Home card and her window sprite. The swap moves nothing, and touch screens never show it.
+- Professor Mari's held pose and her live-line thinking sprite are ready before you need them. Picking her up on a fresh load no longer shows a blank figure for about a third of a second on a slow link, and the sprites decode while the page is idle.
 - Every Mari appearance pack has its own held pose now. Before, Dottore, Golden and Safari reused their idle pose.
 - The Home Mari card shows her standing portrait with a blink, and its text says Ctrl+K finds any page.
 - The Home navigator (the floating Mari that found pages by keyword) is removed. Its page links are in the omnibar now: Discord, Credits, Tutorial, Home widgets and the Home tab of each installed app package, such as Noodle. Its setting is removed too. Onboarding points at the address bar.

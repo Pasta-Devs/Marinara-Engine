@@ -114,8 +114,13 @@ export function GlobalOmnibar() {
   useEffect(() => {
     let idleId: number | undefined;
     let timer: number | undefined;
+    // Decoded, not just fetched: the first frame she draws is already a bitmap, not a late pop-in.
     const prefetch = () => {
-      for (const url of mariAssetUrls(pack, 2)) new Image().src = url;
+      for (const url of mariAssetUrls(pack, 2)) {
+        const image = new Image();
+        image.src = url;
+        void image.decode().catch(() => undefined);
+      }
     };
     const schedule = () => {
       if (typeof window.requestIdleCallback === "function")

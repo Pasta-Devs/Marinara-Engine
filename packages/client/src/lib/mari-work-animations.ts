@@ -151,8 +151,13 @@ export const MARI_ASSET_TIER: {
   stories: Record<MariStoryState, 1 | 2 | 3>;
   poses: Record<MariPose, 1 | 2 | 3>;
 } = {
-  portraits: { idle: 2, blink: 2, shrug: 2, pullHeads: 2, drag: 3, hover: 2 },
-  stories: { ...(Object.fromEntries(MARI_STORY_STATES.map((id) => [id, 3])) as Record<MariStoryState, 3>), idle: 2 },
+  portraits: { idle: 2, blink: 2, shrug: 2, pullHeads: 2, drag: 2, hover: 2 },
+  stories: {
+    ...(Object.fromEntries(MARI_STORY_STATES.map((id) => [id, 3])) as Record<MariStoryState, 3>),
+    // The live line starts on thinking and rests on idle, so both are warm before she is shown.
+    idle: 2,
+    thinking: 2,
+  },
   poses: {
     profile: 1,
     chibi: 3,

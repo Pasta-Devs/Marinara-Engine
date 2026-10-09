@@ -176,7 +176,8 @@ export default defineConfig({
                 handler: "CacheFirst",
                 options: {
                   cacheName: "mari-sprites",
-                  expiration: { maxEntries: 120, maxAgeSeconds: 2_592_000 },
+                  // Every pack's sheets plus the old versions left after a sprite version bump.
+                  expiration: { maxEntries: 200, maxAgeSeconds: 2_592_000 },
                 },
               },
             ],

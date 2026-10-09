@@ -91,8 +91,15 @@ for (const appearance of MARI_APPEARANCE_PACKS) {
   // Slice 85 hover: the approved hover portrait is the idle portrait's size, so the swap moves nothing.
   const idle = await sharp(publicFile(appearance.portraits.idle).pathname).metadata();
   const hover = await sharp(publicFile(appearance.portraits.hover).pathname).metadata();
-  assert.deepEqual([hover.format, hover.width, hover.height], [idle.format, idle.width, idle.height], `${appearance.id} hover matches idle`);
-
+  assert.deepEqual(
+    [hover.format, hover.width, hover.height],
+    [idle.format, idle.width, idle.height],
+    `${appearance.id} hover matches idle`,
+  );
+  // The held sheet, the hover and the live line's thinking sheet are fetched before first use.
+  const warm = mariAssetUrls(appearance, 2);
+  for (const url of [appearance.portraits.hover, appearance.portraits.drag, appearance.stories.thinking.src])
+    assert.ok(warm.includes(url), `${appearance.id} prefetches ${url}`);
   for (const state of MARI_STORY_STATES) {
     const chosen = selectMariWorkAnimation({
       activity: "error image write",
