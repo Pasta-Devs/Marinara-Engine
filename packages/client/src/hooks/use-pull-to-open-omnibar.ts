@@ -42,6 +42,7 @@ const REM: SpringSpec = [110, 19]; // the freed sheet draws back into the bar
 const TAIL: SpringSpec = [150, 17]; // the circle pulls in its tail
 const OPEN: SpringSpec = [210, 21]; // the circle pops open into the view
 const DOCK: SpringSpec = [200, 27]; // the magnifier settles into the search field
+const TILT: SpringSpec = [160, 11]; // her head leans with a sideways drag and rocks back once
 const MORPH: SpringSpec = [190, 24]; // M17: the circle becomes the present Mari (~0.4 s, a hint of overshoot)
 /** Soft light from within; a very faint accent around the circle once armed. */
 const GLOW_REST = 0.02;
@@ -53,6 +54,8 @@ const TINT_ARMED = 8;
 const ARM_DIP = 140;
 /** Past the threshold the sheet holds back: the circle loses this share of the finger's extra travel. */
 const RUBBER = 0.55;
+/** Her head leans this many degrees at most, against the drag. */
+const TILT_MAX = 5;
 /** The pop starts this long after the release, when the dialog has had a moment to mount. */
 const POP_DELAY_MS = 130;
 /** If the dialog never mounts, the overlay still leaves. */
@@ -218,6 +221,7 @@ export function usePullToOpenOmnibar({
     tail: motionValue(0),
     open: motionValue(0),
     morph: motionValue(0),
+    tilt: motionValue(0),
   }).current;
 
   // Gesture state lives in refs: a move never renders.
@@ -252,6 +256,8 @@ export function usePullToOpenOmnibar({
     calm: false,
     /** A velocity the next follow adds to the circle's fall (the arm dip). */
     kick: 0,
+    /** The lean her head is heading for. */
+    lean: 0,
   }).current;
   const swallowClickRef = useRef(false);
 
@@ -367,7 +373,13 @@ export function usePullToOpenOmnibar({
       // While she morphs, the morph element carries her head instead.
       portrait.style.opacity = g.morph ? "0" : String(px(show * clamp01(t * 1.6 - 0.6) * 100) / 100);
       portrait.style.filter = blur;
-      portrait.style.transform = `translate3d(${px(cx)}px, ${px(y)}px, 0) translate(-50%, -50%) scale(${px((Math.max(0, 2 * radius - 8) / 72) * 1000) / 1000})`;
+      // She leans a little against a sideways drag and rocks back when it stops.
+      const lean = landing || g.calm ? 0 : clamp(-mv.x.getVelocity() / 90, -TILT_MAX, TILT_MAX);
+      if (Math.abs(lean - g.lean) > 0.05) {
+        g.lean = lean;
+        go(mv.tilt, lean, TILT);
+      }
+      portrait.style.transform = `translate3d(${px(cx)}px, ${px(y)}px, 0) translate(-50%, -50%) scale(${px((Math.max(0, 2 * radius - 8) / 72) * 1000) / 1000}) rotate(${px(mv.tilt.get())}deg)`;
     }
     // 45b: she looks down at the screen's middle, where the chat or the editor is, from where she is pulled.
     if (els.head && g.mode === "pull" && !g.calm) {
@@ -622,7 +634,8 @@ export function usePullToOpenOmnibar({
         setShown(true);
         return;
       }
-      for (const key of ["show", "tag", "pop", "pinch", "rem", "tail", "open", "tint", "morph"] as const)
+      g.lean = 0;
+      for (const key of ["show", "tag", "pop", "pinch", "rem", "tail", "open", "tint", "morph", "tilt"] as const)
         mv[key].set(0);
       // jump, not set: a set reads as a velocity to the first follow spring and flings the circle away.
       mv.radius.jump(PULL_CIRCLE_MIN * 0.6);
