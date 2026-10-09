@@ -70,7 +70,8 @@ function QuickAnswerHandoff({
   return (
     <div
       data-component="HomeProfessorMariChat.QuickAnswerHandoff"
-      className="mt-1 flex flex-col gap-1 self-end rounded-md border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-xs text-[var(--muted-foreground)]"
+      // Capped like the question bubble: the one-line sources would otherwise widen it past the left edge.
+      className="mt-1 flex max-w-[min(85%,36rem)] flex-col gap-1 self-end rounded-md border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-xs text-[var(--muted-foreground)]"
     >
       <span className="font-semibold">{t("mari.handoff.quickAnswer", "From Search · Quick answer")}</span>
       <div className={cn("text-[var(--foreground)]", !expanded && long && "max-h-[4.5em] overflow-hidden")}>
