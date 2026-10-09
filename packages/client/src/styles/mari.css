@@ -3063,6 +3063,16 @@ details[open] > .mari-disclosure .mari-disclosure__chevron {
   .mari-answer .mari-run-outcome {
     clear: both;
   }
+
+  /* Only the first plain text block sits beside her. Plain text is a span (inline by default, so clear would not apply).
+     A list, code block, table or card, and every later block, starts below her. */
+  .mari-answer .mari-message-content > span:not(.mari-stream-caret) {
+    display: block;
+  }
+
+  .mari-answer .mari-message-content > :not(span:first-child) {
+    clear: inline-start;
+  }
 }
 
 /* Under her answer: reference rows, the outcome groups, "Why", then the reply actions. */
