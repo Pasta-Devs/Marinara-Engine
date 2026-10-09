@@ -1,5 +1,5 @@
 import { useMemo, useState, type KeyboardEvent } from "react";
-import type { LucideIcon } from "lucide-react";
+import { Check, Copy, RefreshCw, type LucideIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
@@ -42,8 +42,12 @@ export interface OmnibarAsideProps {
 
 // Small text actions (direction A); a full 44px target on touch.
 const textAction = "font-semibold underline-offset-2 hover:underline [@media(pointer:coarse)]:min-h-11";
-// On a phone the way forward is a full-width 44 px button on its own line at the foot of the card.
-const continueAction = `${textAction} [@media(pointer:coarse)]:order-last [@media(pointer:coarse)]:flex [@media(pointer:coarse)]:basis-full [@media(pointer:coarse)]:items-center [@media(pointer:coarse)]:justify-center [@media(pointer:coarse)]:rounded-md [@media(pointer:coarse)]:border [@media(pointer:coarse)]:border-[var(--border)] [@media(pointer:coarse)]:py-2`;
+// The one way forward is the card's only button (rule 4); on a phone it is full width on its own line at the foot.
+const continueAction =
+  "mari-chrome-control mari-chrome-control--small ml-auto [@media(pointer:coarse)]:order-last [@media(pointer:coarse)]:ml-0 [@media(pointer:coarse)]:basis-full";
+// Copy and Answer again are icons, so they never read as the next step.
+const iconAction =
+  "inline-flex h-6 w-6 items-center justify-center rounded hover:text-[var(--foreground)] [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:w-11";
 
 /** Bold, lists and inline code through the app's message renderer; nothing heavier is asked for. */
 function AnswerText({ text, muted }: { text: string; muted?: boolean }) {
@@ -106,6 +110,7 @@ export function OmnibarAside({
       ? t("omnibar.aside.tierLocal", "Local")
       : (connectionName ?? t("omnibar.aside.tierRemote", "Your connection"));
 
+  const copyLabel = copiedAnswer === state.answer ? t("omnibar.aside.copied", "Copied") : t("markdown.copy", "Copy");
   const announcement = complete ? stripStrayMarkdown(state.answer) : failed ? (state.error ?? "") : "";
 
   const onFollowUpKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
@@ -294,12 +299,20 @@ export function OmnibarAside({
                         ok ? setCopiedAnswer(state.answer) : toast.error(t("markdown.copyFailed", "Copy failed")),
                       )
                     }
-                    className={textAction}
+                    className={iconAction}
+                    aria-label={copyLabel}
+                    title={copyLabel}
                   >
-                    {copiedAnswer === state.answer ? t("omnibar.aside.copied", "Copied") : t("markdown.copy", "Copy")}
+                    {copiedAnswer === state.answer ? <Check size={13} /> : <Copy size={13} />}
                   </button>
-                  <button type="button" onClick={onAnswerAgain} className={textAction}>
-                    {t("omnibar.aside.answerAgain", "Answer again")}
+                  <button
+                    type="button"
+                    onClick={onAnswerAgain}
+                    className={iconAction}
+                    aria-label={t("omnibar.aside.answerAgain", "Answer again")}
+                    title={t("omnibar.aside.answerAgain", "Answer again")}
+                  >
+                    <RefreshCw size={13} />
                   </button>
                 </>
               ) : null}
