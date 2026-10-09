@@ -231,6 +231,9 @@ type HomeProfessorMariChatProps = {
   onChatWindowExitComplete?: () => void;
 };
 
+/** A turn with nothing to review shares this value, so its memoized row skips the window's re-renders. */
+const NO_TURN_REVIEWS: MariTurnReviews = { changed: [], needsOk: [], records: new Set() };
+
 export function HomeProfessorMariChat({
   pageActive = true,
   attachedFooter = false,
@@ -2516,11 +2519,15 @@ export function HomeProfessorMariChat({
   };
   const renderTurnReviews = (messageId: string): MariTurnReviews => {
     const message = displayMessages.find((item) => item.id === messageId);
-    const covered = new Set(message ? getMessageWorkspaceActionResults(message).flatMap(mariReceiptReviewIds) : []);
+    const actionResults = message ? getMessageWorkspaceActionResults(message) : [];
+    const covered = new Set(actionResults.flatMap(mariReceiptReviewIds));
     const entries = (reviewsByTurn.byMessageId.get(messageId) ?? []).filter(
       ({ approval }) =>
         !(approval.kind === "applied_review" && covered.has(approval.id) && !isMariReviewWaiting(approval)),
     );
+    if (entries.length === 0 && actionResults.length === 0 && !(messageId === lastAssistantId && heldCardNode)) {
+      return NO_TURN_REVIEWS;
+    }
     const waiting = entries.filter(({ approval, outcome }) => !outcome && isMariReviewWaiting(approval));
     const deletes = waiting.filter(
       (entry): entry is typeof entry & { approval: MariDbPendingApproval } => entry.approval.kind === "applied_review",

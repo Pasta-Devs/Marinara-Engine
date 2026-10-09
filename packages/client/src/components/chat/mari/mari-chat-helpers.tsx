@@ -331,10 +331,13 @@ export function getProfessorMariMessageContext(message: Message): ProfessorMariA
   return extra.professorMariContext ?? null;
 }
 
+// One formatter for every row: building it per message per render cost ~1 ms each on a long chat.
+const mariMessageTimeFormat = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" });
+
 export function formatMariMessageTime(value: string): string | null {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return null;
-  return new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" }).format(date);
+  return mariMessageTimeFormat.format(date);
 }
 
 export function resolveContextCharacter(
