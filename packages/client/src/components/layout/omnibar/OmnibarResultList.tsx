@@ -120,6 +120,8 @@ export function OmnibarResultList({
                       : group.id === "quick-controls"
                         ? SlidersHorizontal
                         : LayoutGrid;
+          // A group that mixes kinds names each row's type on line 1.
+          const mixedGroup = new Set(group.results.map((item) => item.category)).size > 1;
           return (
             <section
               key={group.id}
@@ -226,6 +228,11 @@ export function OmnibarResultList({
                       avatarCropStyle={row.avatarCropStyle}
                       groupClassName={visual.groupClassName}
                       inline={Boolean(result.parentId)}
+                      typeLabel={
+                        // Line 1 names the type only where the list mixes types, and always for a chat's mode.
+                        result.category === "chat" || mixedGroup ? preview?.categoryLabel : undefined
+                      }
+                      meta={result.meta}
                       accent={row.accent}
                       setupStatus={setupStatus}
                       enterHint={

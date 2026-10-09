@@ -4,6 +4,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- Search rows show less and read faster. The type word sits after the name only in a mixed list, and a chat shows its mode. The Enter hint shows only on the selected row. A phone drops the right column and shows a short fact at the end of the name line.
 - Search rows for chats say who is in them, such as "with Ayla, Bo +1". Continue and Recent rows still say where you left off. A bare command word such as "new" shows message hits from one chat, not from every chat.
 - A message hit fits on one line: who said it, the matched words, then the time.
 - A lorebook entry in search shows its keys on line 2 and its book at the end. Its text appears only when the text is what matched.

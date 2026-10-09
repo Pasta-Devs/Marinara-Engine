@@ -19,6 +19,10 @@ export interface CommandCenterResultRowProps {
   metadata: string | null;
   /** The span of `metadata` that matched the search, if any. */
   metadataHighlight?: CommandCenterResultHighlight | null;
+  /** Words after the title on line 1: the type, in a mixed list or for a chat's mode. */
+  typeLabel?: string;
+  /** One short fact at the end of line 1 (a time, a count). On a phone the right column is gone, so it moves here. */
+  meta?: string;
   /** Line 3: the text that proves the match, shown only when there is one. */
   excerpt?: string;
   excerptHighlight?: CommandCenterResultHighlight | null;
@@ -83,6 +87,8 @@ export function CommandCenterResultRow({
   titleHighlight,
   metadata,
   metadataHighlight,
+  typeLabel,
+  meta,
   excerpt,
   excerptHighlight,
   tertiaryMetadata,
@@ -146,10 +152,17 @@ export function CommandCenterResultRow({
           faceCount={faceCount}
         />
         <span className={cn("min-w-0 leading-tight", inline && metadata && !expanded && "flex items-baseline gap-2")}>
-          <span
-            className={cn("block truncate text-sm font-semibold", inline && metadata && !expanded && "shrink-0 max-w-[40%]")}
-          >
-            {highlightSpan(title, titleHighlight)}
+          <span className="flex min-w-0 items-baseline gap-1.5">
+            <span
+              className={cn(
+                "block truncate text-sm font-semibold",
+                inline && metadata && !expanded && "shrink-0 max-w-[40%]",
+              )}
+            >
+              {highlightSpan(title, titleHighlight)}
+            </span>
+            {typeLabel ? <span className="shrink-0 text-[0.6875rem] text-[var(--muted-foreground)]">{typeLabel}</span> : null}
+            {meta ? <span className="ml-auto shrink-0 text-[0.6875rem] tabular-nums text-[var(--muted-foreground)] sm:hidden">{meta}</span> : null}
           </span>
           {metadata ? (
             <span
@@ -179,7 +192,7 @@ export function CommandCenterResultRow({
         <span
           className={cn(
             "min-w-0 items-center justify-end gap-2 truncate text-xs text-[var(--muted-foreground)] sm:flex sm:max-w-48",
-            control ? "hidden" : "flex max-w-36",
+            control ? "hidden" : "hidden sm:flex sm:max-w-48",
           )}
         >
           {tertiaryMetadata}
@@ -199,9 +212,9 @@ export function CommandCenterResultRow({
             <span
               className={cn(
                 "items-center gap-1 text-xs text-[var(--muted-foreground)]",
-                // The expansion drops the action Enter already runs, so a touch user
-                // needs to see what tapping the row again does.
-                expanded ? "inline-flex" : "hidden sm:inline-flex",
+                // Only the selected row says what Enter does; a touch user taps, so
+                // the expansion keeps its hint for them.
+                expanded ? "inline-flex" : selected ? "hidden sm:inline-flex" : "hidden",
               )}
             >
               <span className="truncate">{enterHint}</span>
