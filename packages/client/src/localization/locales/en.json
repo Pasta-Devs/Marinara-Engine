@@ -4605,7 +4605,7 @@
   "ui.characters.onboarding.questions": "Onboarding Questions",
   "ui.characters.onboarding.questionsAsked": "Asked, in this order:",
   "ui.characters.onboarding.questionsIntro": "Questions players answer when they create their persona in the Roleplay setup wizard. Use",
-  "ui.characters.onboarding.selectFailed": "Your persona was created, but the chat couldn't switch to it. Pick it under Your Persona and try again.",
+  "ui.characters.onboarding.selectFailed": "Your persona was created. Pick it under Your Persona to use it in this chat.",
   "ui.characters.onboarding.startOver": "Start over",
   "ui.characters.onboarding.subtitle": "Let players build their persona from your questions in the Roleplay setup wizard.",
   "ui.characters.onboarding.templateSource": "Answer {{value1}}'s questions",

@@ -48,7 +48,8 @@ export function CharacterOnboardingModal({
   onboarding: CharacterOnboarding;
   /** Return to the persona picker without creating anything. */
   onBack: () => void;
-  onCreated: (personaId: string) => void;
+  /** The window stays open and locked until this settles. */
+  onCreated: (personaId: string) => void | Promise<void>;
 }) {
   const { t: localizeUi } = useUiTranslation();
   const createPersona = useCreatePersona();
@@ -75,16 +76,25 @@ export function CharacterOnboardingModal({
   // Set synchronously, so a double click can't create the persona twice before
   // the button re-renders as disabled.
   const creatingRef = useRef(false);
+  // Locked from Create until the wizard has switched the chat to the new
+  // persona, so Back or a second Create can't interleave with that update.
+  const [busy, setBusy] = useState(false);
   const handleCreate = async () => {
     if (creatingRef.current) return;
     creatingRef.current = true;
+    setBusy(true);
     try {
-      const persona = await createPersona.mutateAsync(resolveOnboardingPersona(onboarding, answers));
-      onCreated(persona.id);
-    } catch {
-      toast.error(localizeUi("ui.characters.onboarding.createFailed"));
+      let personaId: string;
+      try {
+        personaId = (await createPersona.mutateAsync(resolveOnboardingPersona(onboarding, answers))).id;
+      } catch {
+        toast.error(localizeUi("ui.characters.onboarding.createFailed"));
+        return;
+      }
+      await onCreated(personaId);
     } finally {
       creatingRef.current = false;
+      setBusy(false);
     }
   };
 
@@ -94,9 +104,9 @@ export function CharacterOnboardingModal({
       onClose={onBack}
       title={localizeUi("ui.characters.onboarding.modalTitle")}
       width="max-w-lg"
-      closeDisabled={createPersona.isPending}
+      closeDisabled={busy}
     >
-      <fieldset disabled={createPersona.isPending} className="min-w-0 space-y-4 p-4">
+      <fieldset disabled={busy} className="min-w-0 space-y-4 p-4">
         <p className="text-xs text-[var(--muted-foreground)]">
           {localizeUi("ui.characters.onboarding.modalIntro", { value1: characterName })}
         </p>
@@ -199,10 +209,10 @@ export function CharacterOnboardingModal({
           <button
             type="button"
             onClick={() => void handleCreate()}
-            disabled={!complete || createPersona.isPending}
+            disabled={!complete || busy}
             className="rounded-xl bg-[var(--primary)] px-4 py-2 text-xs font-medium text-[var(--primary-foreground)] shadow-md transition-all hover:opacity-90 active:scale-[0.98] disabled:opacity-50"
           >
-            {createPersona.isPending
+            {busy
               ? localizeUi("chat.settings.inlineEditor.saving")
               : localizeUi("ui.characters.onboarding.createPersona")}
           </button>
