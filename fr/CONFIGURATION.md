@@ -292,6 +292,7 @@ Active uniquement l'interrupteur dont tu as besoin pour un service auto-héberg�
 | `PROVIDER_LOCAL_URLS_ENABLED` | `false`    | Autorise les URL de fournisseur d'IA à atteindre des adresses privées ou du réseau local. Activé par défaut sur Android. |
 | `IMAGE_LOCAL_URLS_ENABLED`    | `false`    | Autorise les URL de fournisseur d'images à atteindre des adresses privées ou du réseau local. L'URL de résultat d'une image générée privée doit malgré tout correspondre exactement à l'origine du fournisseur configuré. |
 | `TTS_LOCAL_URLS_ENABLED`      | `false`    | Autorise les URL de Text to Speech (synthèse vocale) à atteindre des adresses privées ou du réseau local. |
+| `STT_LOCAL_URLS_ENABLED`      | `false`    | Autorise l'URL du serveur Speech to Text (reconnaissance vocale) à atteindre des adresses privées ou du réseau local. Un serveur situé sur la même machine fonctionne sans cette variable. |
 | `DEEPLX_LOCAL_URLS_ENABLED`   | `false`    | Autorise les URL de traduction DeepLX à atteindre des adresses privées ou du réseau local. |
 | `WEBHOOK_LOCAL_URLS_ENABLED`  | `false`    | Autorise les webhooks d'outils personnalisés à atteindre des adresses privées ou du réseau local. |
 
@@ -384,6 +385,7 @@ Tous ces réglages sont désactivés par défaut, conservant le comportement ant
 
 | Variable                          | Par défaut                                   | Ce que ça fait                                                                     |
 | --------------------------------- | -------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `CLAUDE_SUBSCRIPTION_USE_INSTALLED_CLI` | `true`                                       | Indique si les connexions **Claude (Subscription)** utilisent le Claude Code installé sur cet ordinateur lorsqu'il est au moins aussi récent que la copie fournie avec Marinara. Mets-le à `false` pour toujours utiliser la copie fournie. La modification s'applique en moins de cinq minutes, sans redémarrage. |
 | `DOCS_I18N_BASE_URL`              | branche `docs-i18n` officielle               | Source de téléchargement des packs de langue de la documentation et de l'interface. Les packs de l'interface se trouvent dans le sous-arbre `ui/`. Il faut un hôte public `https://` ; les forks et les miroirs peuvent pointer vers leur propre copie de la branche `docs-i18n`. |
 | `GIPHY_API_KEY`                   | vide                                         | Clé Giphy pour la recherche de GIF en mode Conversation. La recherche est inactive tant qu'elle n'est pas définie. |
 | `INTIFACE_URL`                    | `ws://127.0.0.1:12345`                       | Adresse par défaut de l'application haptique Intiface.                              |

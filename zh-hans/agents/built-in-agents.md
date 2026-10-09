@@ -318,7 +318,7 @@ Knowledge Retrieval 的省钱替代方案。它不做摘要，而是读取世界
 
 - **阶段**：Post-Processing。
 - **适用范围**：Roleplay。
-- **主要设置**：**Edit**(编辑) 用来改写选项，**Re-roll**(重掷) 用来生成一批新的。
+- **主要设置**：**Edit**(编辑) 用来改写选项，**Re-roll**(重掷) 用来生成一批新的。在 **Settings**(设置) > **General**(常规) > **Input & Editing**(输入与编辑) 中开启 **Add CYOA choices to the message box instead of sending them**(把 CYOA 选项放进消息框，而不是直接发送)，点击的选项就会进入你的消息框。
 
 ### Storyboard
 

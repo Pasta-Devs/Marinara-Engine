@@ -292,6 +292,7 @@ ADMIN_SECRET=replace-this-with-a-long-random-secret
 | `PROVIDER_LOCAL_URLS_ENABLED` | `false` | 允许 AI 服务商 URL 访问私有或局域网地址。Android 上默认开启。 |
 | `IMAGE_LOCAL_URLS_ENABLED` | `false` | 允许图像服务商 URL 访问私有或局域网地址。私有的生成图像结果 URL 仍然必须与所配置服务商的源完全一致。 |
 | `TTS_LOCAL_URLS_ENABLED` | `false` | 允许语音合成 URL 访问私有或局域网地址。 |
+| `STT_LOCAL_URLS_ENABLED` | `false` | 允许语音识别（Speech to Text）服务器 URL 访问私有或局域网地址。与 Marinara 在同一台机器上的服务器不开这个开关也能用。 |
 | `DEEPLX_LOCAL_URLS_ENABLED` | `false` | 允许 DeepLX 翻译 URL 访问私有或局域网地址。 |
 | `WEBHOOK_LOCAL_URLS_ENABLED` | `false` | 允许自定义工具的 webhook 访问私有或局域网地址。 |
 
@@ -384,6 +385,7 @@ Conversation 的日程控件默认使用浏览器或应用所在设备报告的�
 
 | 变量 | 默认值 | 作用 |
 | --- | --- | --- |
+| `CLAUDE_SUBSCRIPTION_USE_INSTALLED_CLI` | `true` | **Claude (Subscription)** 连接是否改用这台电脑上安装的 Claude Code，前提是它的版本不低于 Marinara 自带的那份。设为 `false` 则始终使用自带的版本。5 分钟内生效，无需重启。 |
 | `DOCS_I18N_BASE_URL` | 官方 `docs-i18n` 分支 | 文档和界面语言包的下载来源。界面语言包位于 `ui/` 子树中。必须使用公开的 `https://` 主机；fork 和镜像可以指向自己的 `docs-i18n` 分支副本。 |
 | `GIPHY_API_KEY` | 空 | 用于 Conversation 模式里 GIF 搜索的 Giphy 密钥。未设置时搜索功能关闭。 |
 | `INTIFACE_URL` | `ws://127.0.0.1:12345` | Intiface 触感应用的默认地址。 |

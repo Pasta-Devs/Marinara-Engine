@@ -316,7 +316,7 @@ Hängt nach jeder Antwort anklickbare „Was tust du?“-Schaltflächen an – S
 
 - **Phase**: Post-Processing.
 - **Wo er funktioniert**: Roleplay.
-- **Wichtige Einstellungen**: **Edit** schreibt die Auswahlmöglichkeiten um, **Re-roll** erzeugt neue.
+- **Wichtige Einstellungen**: **Edit** schreibt die Auswahlmöglichkeiten um, **Re-roll** erzeugt neue. Sollen angeklickte Auswahlmöglichkeiten in deinem Nachrichtenfeld landen, schalte unter **Settings** (Einstellungen) > **General** > **Input & Editing** die Einstellung **Add CYOA choices to the message box instead of sending them** (CYOA-Auswahlmöglichkeiten ins Nachrichtenfeld einfügen, statt sie abzuschicken) ein.
 
 ### Storyboard
 

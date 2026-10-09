@@ -292,6 +292,7 @@ Ative só a opção de que você precisa para um serviço próprio hospedado em 
 | `PROVIDER_LOCAL_URLS_ENABLED` | `false` | Permite que URLs de provedor de IA alcancem endereços privados ou da rede local. Vem ativado no Android. |
 | `IMAGE_LOCAL_URLS_ENABLED` | `false` | Permite que URLs de provedor de imagem alcancem endereços privados ou da rede local. As URLs privadas de resultado das imagens geradas ainda precisam bater com a origem exata do provedor configurado. |
 | `TTS_LOCAL_URLS_ENABLED` | `false` | Permite que URLs de conversão de texto em voz alcancem endereços privados ou da rede local. |
+| `STT_LOCAL_URLS_ENABLED` | `false` | Permite que a URL do servidor de Speech to Text alcance endereços privados ou da rede local. Um servidor na mesma máquina funciona sem isso. |
 | `DEEPLX_LOCAL_URLS_ENABLED` | `false` | Permite que URLs de tradução DeepLX alcancem endereços privados ou da rede local. |
 | `WEBHOOK_LOCAL_URLS_ENABLED` | `false` | Permite que webhooks de ferramentas personalizadas alcancem endereços privados ou da rede local. |
 
@@ -384,6 +385,7 @@ Todos estes ajustes vêm desligados para preservar o comportamento anterior, e c
 
 | Variável | Padrão | O que faz |
 | --- | --- | --- |
+| `CLAUDE_SUBSCRIPTION_USE_INSTALLED_CLI` | `true` | Define se as conexões **Claude (Subscription)** usam o Claude Code instalado neste computador quando ele é pelo menos tão novo quanto a cópia incluída no Marinara. Defina como `false` para usar sempre a cópia incluída. Passa a valer em até cinco minutos, sem precisar reiniciar. |
 | `DOCS_I18N_BASE_URL` | a branch `docs-i18n` oficial | Origem dos downloads dos pacotes de idioma da documentação e da interface. Os pacotes da interface ficam na subárvore `ui/`. Precisa ser um host público `https://`; forks e espelhos podem apontar para sua própria cópia da branch `docs-i18n`. |
 | `GIPHY_API_KEY` | vazio | Chave do Giphy para a busca de GIFs no Conversation Mode. Sem ela, a busca fica desligada. |
 | `INTIFACE_URL` | `ws://127.0.0.1:12345` | Endereço padrão do aplicativo háptico Intiface. |

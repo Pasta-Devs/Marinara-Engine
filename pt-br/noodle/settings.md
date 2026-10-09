@@ -82,7 +82,8 @@ A seção **Image Generation** deixa Noodle anexar imagens feitas por IA a algun
   - **Image generation connection**: um menu suspenso, padrão **Default image generation connection**. Deixando em Default, Noodle usa a conexão marcada como padrão para geração de imagens no painel **Connections** (Conexões).
   - **Prompt instructions**: uma caixa de texto com um conteúdo padrão embutido, de até 4000 caracteres. Essas observações extras entram no prompt de imagem, o texto que Marinara envia para a IA.
   - **Use avatar references**: um botão liga/desliga, padrão **on**. Envia o avatar ou as imagens de referência do personagem para o modelo de imagem.
-  - **Include descriptions**: um botão liga/desliga, padrão **on**. Acrescenta ao prompt de imagem as anotações escritas sobre a aparência do personagem.
+  - **Interpret image prompts** (interpretar prompts de imagem): um botão liga/desliga, padrão **on**. Um modelo de texto reescreve cada prompt de imagem, seguindo as **Image Prompting Instructions** (instruções de prompt de imagem) da sua conexão de imagem e o Style text do seu perfil de estilo. Com ele desligado, as Image Prompting Instructions não são usadas e o Style text é acrescentado tal como foi escrito.
+  - **Include descriptions**: um botão liga/desliga, padrão **on**. Acrescenta ao prompt de imagem as anotações escritas sobre a aparência do personagem. Com **Interpret image prompts** ligado, o modelo de texto incorpora essas anotações em vez de colá-las.
   - **Images/refresh**: um número de 0 a 50, padrão **3**. Ele limita as imagens de post geradas em cada atualização, manual ou automática.
 - **Attach gallery images**: um botão liga/desliga separado, padrão **off**. Ele continua visível mesmo com **Image generation** desativado. Em vez de criar uma imagem nova, ele permite que um post reaproveite uma imagem da galeria daquele personagem ou de um chat em que ele aparece.
 
@@ -176,6 +177,7 @@ Esta tabela lista todas as configurações do Noodle com o valor padrão e a fai
 | **Image generation connection** | Default | qualquer conexão de geração de imagens |
 | **Prompt instructions** | texto embutido | até 4000 caracteres |
 | **Use avatar references** | on | on ou off |
+| **Interpret image prompts** | on | on ou off |
 | **Include descriptions** | on | on ou off |
 | **Images/refresh** | 3 | 0 a 50 |
 | **Attach gallery images** | off | on ou off |

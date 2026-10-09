@@ -30,7 +30,7 @@ Pour obtenir un appel vocal fonctionnel, mets en place ces éléments dans l'ord
 3. L'option **Audio/Video Calls** (appels audio et vidéo) activée pour ce chat (voir la section "Activer les appels pour un chat" plus bas).
 4. L'option **Call Audio Pipeline** (chaîne audio de l'appel) activée. Elle est obligatoire pour démarrer le moindre appel, même un appel où tu ne fais qu'écrire ou qu'écouter. Elle active aussi l'entrée micro.
 5. Text to Speech configuré pour que les personnages puissent parler. Sans cela, chaque personnage rejoint l'appel en texte uniquement.
-6. Optionnel : Local Whisper téléchargé depuis **Connections** (connexions) une fois Calls installé, si le navigateur ne fait pas de reconnaissance vocale fiable (indispensable sur Firefox).
+6. Optionnel : Local Whisper téléchargé depuis **Connections** (connexions) une fois Calls installé, si le navigateur ne fait pas de reconnaissance vocale fiable (indispensable sur Firefox). Ou bien ton propre serveur de reconnaissance vocale à la place de Local Whisper.
 7. Optionnel : une connexion vidéo et des clips générés si tu veux **Character Video Presence** (présence vidéo du personnage).
 8. Optionnel : une connexion d'images définie comme Selfie Connection du chat si tu veux que les personnages envoient des selfies pendant l'appel.
 
@@ -74,6 +74,26 @@ Local Whisper appartient au package Calls, et c'est la voie micro la plus fiable
 Après le téléchargement, un contrôle **Delete Local Whisper** (icône de corbeille) apparaît si tu veux supprimer le modèle.
 
 Désinstaller Calls supprime aussi tous les modèles Whisper téléchargés et la sélection enregistrée. Tu récupères ainsi l'espace disque occupé par le modèle. Réinstaller Calls fait revenir les contrôles de téléchargement, mais aucun modèle n'est retéléchargé tant que tu n'en choisis pas un.
+
+<a id="use-your-own-speech-to-text-server"></a>
+
+### Utiliser ton propre serveur de reconnaissance vocale
+
+Si Local Whisper a du mal avec ta langue ou ton accent, tu peux plutôt envoyer ta voix enregistrée à un autre modèle de reconnaissance vocale. Cela fonctionne avec tout serveur qui propose le point de terminaison `/audio/transcriptions` au format OpenAI. Cela comprend des serveurs auto-hébergés comme Speaches, les serveurs faster-whisper, LocalAI et le serveur whisper.cpp (lancé avec `--inference-path /v1/audio/transcriptions`), ainsi que des fournisseurs comme OpenAI ou Groq.
+
+1. Installe Calls, puis ouvre **Connections** et repère la fiche **Speech to Text** (reconnaissance vocale). Cette fiche est masquée tant que Calls n'est pas installé.
+2. Déplie la fiche et renseigne le champ **Server URL** (URL du serveur), par exemple `http://localhost:8000/v1` pour un serveur sur ta propre machine.
+3. Si ton serveur ou ton fournisseur demande une clé, saisis-la dans le champ **API key** (clé API). Elle est enregistrée chiffrée, et la fiche ne l'affiche que masquée.
+4. Saisis dans le champ **Model** (modèle) le nom du modèle qu'utilise ton serveur. Laisse-le vide pour envoyer `whisper-1`.
+5. Optionnel : saisis un code de langue dans le champ **Language** (langue), par exemple `pl` ou `de`. Indiquer ta langue au modèle améliore généralement la précision. Laisse-le vide pour que le serveur la détecte.
+6. Clique sur **Test** (tester). Marinara envoie un clip silencieux d'une seconde et t'indique si le serveur a répondu.
+7. Active l'interrupteur de la fiche.
+
+Tant que l'interrupteur est activé, **Mic recording + Local Whisper** envoie ta parole à ce serveur au lieu de Local Whisper. Tu n'as pas besoin de télécharger Local Whisper pour cela. Désactive l'interrupteur pour revenir à Local Whisper. Ton audio part vers le serveur que tu as indiqué : utilise donc un serveur de confiance.
+
+Un serveur situé sur la même machine que Marinara fonctionne tel quel. Un serveur situé sur une autre machine de ton réseau domestique est refusé, sauf si tu définis `STT_LOCAL_URLS_ENABLED=true` dans le fichier `.env` du serveur. Voir [Référence de configuration du serveur](../CONFIGURATION.md).
+
+Cette fonction nécessite une version de Calls qui la prend en charge. Si les appels utilisent toujours Local Whisper une fois l'interrupteur activé, mets à jour Calls depuis **Agents → Download Agents**.
 
 ## Activer les appels pour un chat
 
@@ -252,7 +272,11 @@ Vérifie les réglages Text to Speech et l'attribution des voix. Le personnage a
 
 ### Le modèle comprend mal ce que je dis
 
-Essaie **Whisper Base (Multilingual)** plutôt que Whisper Tiny, il est plus précis. Réduis le bruit de fond et la musique. Si ton modèle le permet, bascule **Audio input mode** sur **Provider-native audio/video** pour qu'il entende ton audio directement.
+Essaie **Whisper Base (Multilingual)** plutôt que Whisper Tiny, il est plus précis. Réduis le bruit de fond et la musique. Si ton modèle le permet, bascule **Audio input mode** sur **Provider-native audio/video** pour qu'il entende ton audio directement. Pour une langue que Whisper gère mal, [utilise ton propre serveur de reconnaissance vocale](#use-your-own-speech-to-text-server) avec un modèle qui la connaît, et indique le code de cette langue dans le champ **Language**.
+
+### Le test Speech to Text échoue
+
+Lis le message sous le bouton **Test**. "Could not reach the speech-to-text server" signifie que l'adresse est erronée ou que le serveur ne tourne pas. Un message qui mentionne `STT_LOCAL_URLS_ENABLED` signifie que le serveur se trouve sur une autre machine de ton réseau ; définis cette variable à `true` dans `.env`. Un nombre comme 401 ou 404 vient de ton serveur : 401 indique généralement une clé API erronée, et 404 une adresse ou un nom de modèle erroné.
 
 ### Le bouton caméra ou écran est désactivé
 

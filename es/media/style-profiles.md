@@ -58,7 +58,7 @@ Puedes editar un perfil integrado en el sitio, pero el botón **Clone** te permi
 2. Haz clic en **Clone**. Marinara hace una copia, la selecciona para editar e inmediatamente convierte la copia en tu estilo predeterminado de toda la app.
 3. Cambia el campo **Name** por algo que reconozcas.
 4. Elige una **Prompt grammar** (se explica en la siguiente sección).
-5. Rellena **Style text** con una descripción simple del aspecto que quieres.
+5. Rellena **Style text** con una descripción simple del aspecto que quieres. Cuando una IA escribe el prompt de imagen, como hacen el Illustrator, los selfies y Noodle, sigue tu Style text en lugar de copiarlo. A otras imágenes, como los avatares, se les puede añadir el Style text tal como está escrito.
 6. Añade **Positive tags** (palabras que incluir) y **Negative tags** (palabras que evitar).
 7. Abre la sección **Per-image tags** para añadir etiquetas extra para cada tipo de imagen (avatar, retrato, selfie, fondo, ilustración, sprite).
 8. Tu clon se convirtió en el predeterminado de toda la app en el paso 2. Para devolver ese papel a otro perfil, abre **Default style** y elige el perfil que quieras.

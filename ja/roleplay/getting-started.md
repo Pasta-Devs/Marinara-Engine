@@ -143,7 +143,7 @@ Narrative Directorには、チャット入力欄の上に**Push Story**ボタン
 
 ## CYOAの選択肢
 
-**CYOA**はChoose Your Own Adventureの略です。**CYOA Choices**エージェントはデフォルトでオフです。オンにすると、返信の後にクリックできる選択肢のボタンが追加されます。選択肢をクリックすると、それが次のメッセージとして送信されます。この機能はRoleplayモードでのみ動作します。
+**CYOA**はChoose Your Own Adventureの略です。**CYOA Choices**エージェントはデフォルトでオフです。オンにすると、返信の後にクリックできる選択肢のボタンが追加されます。選択肢をクリックすると、それが次のメッセージとして送信されます。選択肢を組み合わせたり、送信前に編集したりするには、**Settings** > **General** > **Input & Editing**で**Add CYOA choices to the message box instead of sending them**(CYOAの選択肢を送信せずメッセージ入力欄に追加する)をオンにします。こうすると、選択肢をクリックしたときに、その文章が送信されずにメッセージ入力欄に追加されます。この機能はRoleplayモードでのみ動作します。
 
 ## 戦闘エンカウント
 

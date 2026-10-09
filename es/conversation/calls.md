@@ -30,7 +30,7 @@ Para tener una llamada de voz que funcione, configura estas piezas en orden. Pue
 3. **Audio/Video Calls** (Llamadas de audio/video) activado para ese chat (mira la sección "Activar las llamadas en un chat" más abajo).
 4. **Call Audio Pipeline** (Canal de audio de la llamada) activado. Esto es necesario para iniciar cualquier llamada, incluso una en la que solo escribes o solo escuchas. También habilita la entrada del micrófono.
 5. Text to Speech configurado para que los personajes puedan hablar. Sin él, cada personaje entra solo como texto.
-6. Opcional: Local Whisper descargado desde **Connections** (Conexiones) después de instalar Calls, si tu navegador no puede hacer un reconocimiento de voz fiable (Firefox necesita esto).
+6. Opcional: Local Whisper descargado desde **Connections** (Conexiones) después de instalar Calls, si tu navegador no puede hacer un reconocimiento de voz fiable (Firefox necesita esto). O tu propio servidor de voz a texto en lugar de Local Whisper.
 7. Opcional: una conexión de video y clips generados si quieres **Character Video Presence** (Presencia en video del personaje).
 8. Opcional: una conexión de imagen configurada como la Selfie Connection del chat si quieres que los personajes envíen selfies en la llamada.
 
@@ -74,6 +74,26 @@ Local Whisper pertenece al paquete Calls y es la ruta de micrófono más fiable 
 Después de la descarga, aparece un control **Delete Local Whisper** (icono de papelera) por si quieres eliminar el modelo.
 
 Desinstalar Calls también elimina todos los modelos de Whisper descargados y su selección guardada. Esto libera el espacio en disco del modelo. Reinstalar Calls restaura los controles de descarga, pero no vuelve a descargar un modelo hasta que elijas uno.
+
+<a id="use-your-own-speech-to-text-server"></a>
+
+### Usar tu propio servidor de voz a texto
+
+Si Local Whisper tiene dificultades con tu idioma o tu acento, puedes enviar tu voz grabada a otro modelo de voz a texto en su lugar. Esto funciona con cualquier servidor que ofrezca el endpoint `/audio/transcriptions` al estilo de OpenAI. Eso incluye servidores autoalojados como Speaches, servidores de faster-whisper, LocalAI y el servidor de whisper.cpp (iniciado con `--inference-path /v1/audio/transcriptions`), y proveedores como OpenAI o Groq.
+
+1. Instala Calls, luego abre **Connections** y busca la tarjeta **Speech to Text** (Voz a texto). La tarjeta está oculta mientras Calls no está instalado.
+2. Expande la tarjeta e introduce la **Server URL** (URL del servidor), por ejemplo `http://localhost:8000/v1` para un servidor en tu propia máquina.
+3. Introduce una **API key** (clave de API) si tu servidor o proveedor la necesita. Se guarda cifrada, y la tarjeta solo la muestra enmascarada.
+4. Introduce el nombre del **Model** (Modelo) que usa tu servidor. Déjalo vacío para enviar `whisper-1`.
+5. Opcional: introduce un código de **Language** (Idioma), como `pl` o `de`. Indicarle al modelo tu idioma suele mejorar la precisión. Déjalo vacío para que el servidor lo detecte.
+6. Haz clic en **Test** (Probar). Marinara envía un clip silencioso de un segundo y te dice si el servidor respondió.
+7. Activa el interruptor de la tarjeta.
+
+Mientras el interruptor está activado, **Mic recording + Local Whisper** envía tu voz a este servidor en lugar de a Local Whisper. No necesitas descargar Local Whisper para ello. Desactiva el interruptor para volver a Local Whisper. Tu audio va al servidor que introdujiste, así que usa un servidor de confianza.
+
+Un servidor en la misma máquina que Marinara funciona tal cual. Un servidor en otra máquina de tu red doméstica se rechaza a menos que establezcas `STT_LOCAL_URLS_ENABLED=true` en el archivo `.env` del servidor. Consulta [Referencia de configuración del servidor](../CONFIGURATION.md).
+
+Esto requiere una versión de Calls que lo admita. Si las llamadas siguen usando Local Whisper después de activar el interruptor, actualiza Calls desde **Agents → Download Agents**.
 
 ## Activar las llamadas en un chat
 
@@ -252,7 +272,11 @@ Revisa tus ajustes de Text to Speech y las asignaciones de voz. El personaje nec
 
 ### El modelo malinterpreta lo que digo
 
-Prueba **Whisper Base (Multilingual)** en lugar de Whisper Tiny para mayor precisión. Reduce el ruido de fondo y la música. Si tu modelo lo admite, cambia **Audio input mode** a **Provider-native audio/video** para que el modelo oiga tu audio directamente.
+Prueba **Whisper Base (Multilingual)** en lugar de Whisper Tiny para mayor precisión. Reduce el ruido de fondo y la música. Si tu modelo lo admite, cambia **Audio input mode** a **Provider-native audio/video** para que el modelo oiga tu audio directamente. Para un idioma que Whisper maneja mal, [usa tu propio servidor de voz a texto](#use-your-own-speech-to-text-server) con un modelo que lo conozca, y configura su código de **Language**.
+
+### La prueba de Speech to Text falla
+
+Lee el mensaje que aparece bajo el botón **Test**. "Could not reach the speech-to-text server" significa que la dirección es incorrecta o que el servidor no se está ejecutando. Un mensaje que menciona `STT_LOCAL_URLS_ENABLED` significa que el servidor está en otra máquina de tu red; establece esa variable en `true` en `.env`. Un número como 401 o 404 viene de tu servidor: 401 suele indicar una API key incorrecta, y 404, una dirección o un nombre de modelo incorrectos.
 
 ### El botón de cámara o de pantalla está desactivado
 

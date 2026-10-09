@@ -292,6 +292,7 @@ ADMIN_SECRET=replace-this-with-a-long-random-secret
 | `PROVIDER_LOCAL_URLS_ENABLED` | `false` | AI 제공자 URL이 사설 주소나 LAN 주소에 접근하도록 허용합니다. Android에서는 기본적으로 켜져 있습니다. |
 | `IMAGE_LOCAL_URLS_ENABLED` | `false` | 이미지 제공자 URL이 사설 주소나 LAN 주소에 접근하도록 허용합니다. 다만 사설 주소에서 생성된 이미지 결과 URL은 설정된 제공자의 출처와 정확히 일치해야 합니다. |
 | `TTS_LOCAL_URLS_ENABLED` | `false` | 음성 합성 URL이 사설 주소나 LAN 주소에 접근하도록 허용합니다. |
+| `STT_LOCAL_URLS_ENABLED` | `false` | Speech to Text(음성 인식) 서버 URL이 사설 주소나 LAN 주소에 접근하도록 허용합니다. 같은 컴퓨터에 있는 서버는 이 설정 없이도 동작합니다. |
 | `DEEPLX_LOCAL_URLS_ENABLED` | `false` | DeepLX 번역 URL이 사설 주소나 LAN 주소에 접근하도록 허용합니다. |
 | `WEBHOOK_LOCAL_URLS_ENABLED` | `false` | 사용자 지정 도구 웹훅이 사설 주소나 LAN 주소에 접근하도록 허용합니다. |
 
@@ -384,6 +385,7 @@ Conversation 스케줄 컨트롤은 브라우저나 앱 기기가 알려 준 시
 
 | 변수 | 기본값 | 설명 |
 | --- | --- | --- |
+| `CLAUDE_SUBSCRIPTION_USE_INSTALLED_CLI` | `true` | **Claude (Subscription)** 연결이 이 컴퓨터에 설치된 Claude Code를 쓸지 정합니다. 설치된 버전이 Marinara에 포함된 사본과 같거나 더 새로울 때 사용합니다. 항상 포함된 사본을 쓰려면 `false`로 설정하세요. 재시작하지 않아도 5분 안에 반영됩니다. |
 | `DOCS_I18N_BASE_URL` | 공식 `docs-i18n` 브랜치 | 문서와 UI 언어 팩의 다운로드 위치입니다. UI 팩은 `ui/` 하위 트리에 있습니다. 공개 `https://` 호스트여야 하며, 포크와 미러는 자체 `docs-i18n` 브랜치 사본을 지정할 수 있습니다. |
 | `GIPHY_API_KEY` | 비어 있음 | Conversation 모드에서 GIF를 검색할 때 쓰는 Giphy 키입니다. 설정하지 않으면 검색이 꺼집니다. |
 | `INTIFACE_URL` | `ws://127.0.0.1:12345` | Intiface 햅틱 앱의 기본 주소입니다. |

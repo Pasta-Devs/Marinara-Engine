@@ -82,7 +82,8 @@ La sección **Image Generation** (Generación de imágenes) permite a Noodle adj
   - **Image generation connection** (Conexión de generación de imágenes): un menú desplegable, predeterminado **Default image generation connection** (Conexión de generación de imágenes predeterminada). Dejarlo en Default usa la conexión marcada como predeterminada para generación de imágenes en el panel de Connections.
   - **Prompt instructions** (Instrucciones de prompt): un cuadro de texto con texto predeterminado incorporado, hasta 4000 caracteres. Estas notas extra se fusionan en el prompt de imagen.
   - **Use avatar references** (Usar referencias de avatar): un interruptor, predeterminado **on**. Envía el avatar del personaje o sus imágenes de referencia al modelo de imagen.
-  - **Include descriptions** (Incluir descripciones): un interruptor, predeterminado **on**. Añade las notas escritas de apariencia del personaje al prompt de imagen.
+  - **Interpret image prompts** (Interpretar prompts de imagen): un interruptor, predeterminado **on**. Un modelo de texto reescribe cada prompt de imagen siguiendo las **Image Prompting Instructions** (Instrucciones para prompts de imagen) de tu conexión de imagen y el Style text de tu perfil de estilo. Cuando está apagado, las Image Prompting Instructions no se usan y el Style text se añade tal como está escrito.
+  - **Include descriptions** (Incluir descripciones): un interruptor, predeterminado **on**. Añade las notas escritas de apariencia del personaje al prompt de imagen. Con **Interpret image prompts** activado, el modelo de texto las integra en lugar de pegarlas.
   - **Images/refresh** (Imágenes/refresco): un número, 0 a 50, predeterminado **3**. Esto limita las imágenes de publicación generadas por separado para cada refresco manual o automático.
 - **Attach gallery images** (Adjuntar imágenes de la galería): un interruptor aparte, predeterminado **off**. Sigue visible incluso cuando **Image generation** está apagado. En lugar de hacer una imagen nueva, permite que una publicación reutilice una imagen de la galería de ese personaje o de un chat en el que aparece.
 
@@ -176,6 +177,7 @@ Esta tabla lista cada ajuste de Noodle con su valor predeterminado y su rango.
 | **Image generation connection** | Default | cualquier conexión de generación de imágenes |
 | **Prompt instructions** | texto incorporado | hasta 4000 caracteres |
 | **Use avatar references** | on | on u off |
+| **Interpret image prompts** | on | on u off |
 | **Include descriptions** | on | on u off |
 | **Images/refresh** | 3 | 0 a 50 |
 | **Attach gallery images** | off | on u off |

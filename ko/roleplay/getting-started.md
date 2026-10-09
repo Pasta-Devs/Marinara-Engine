@@ -143,7 +143,7 @@ Narrative Director는 채팅 입력란 위에 **Push Story**(스토리 전개) �
 
 ## CYOA 선택지
 
-**CYOA**는 Choose Your Own Adventure의 약자입니다. **CYOA Choices** 에이전트는 기본적으로 꺼져 있습니다. 켜면 답변 뒤에 클릭할 수 있는 선택지 버튼이 붙습니다. 선택지를 클릭하면 그 내용이 다음 메시지로 전송됩니다. 이 기능은 Roleplay Mode에서만 작동합니다.
+**CYOA**는 Choose Your Own Adventure의 약자입니다. **CYOA Choices** 에이전트는 기본적으로 꺼져 있습니다. 켜면 답변 뒤에 클릭할 수 있는 선택지 버튼이 붙습니다. 선택지를 클릭하면 그 내용이 다음 메시지로 전송됩니다. 선택지를 여러 개 합치거나 보내기 전에 고치려면 **Settings** > **General**(일반) > **Input & Editing**(입력 및 편집)에서 **Add CYOA choices to the message box instead of sending them**(CYOA 선택지를 보내는 대신 메시지 입력창에 추가)을 켜세요. 그러면 선택지를 클릭했을 때 전송되지 않고 그 텍스트가 메시지 입력란에 추가됩니다. 이 기능은 Roleplay Mode에서만 작동합니다.
 
 ## 전투 인카운터
 

@@ -82,7 +82,8 @@ La section **Image Generation** (génération d'images) permet à Noodle de join
   - **Image generation connection** (connexion de génération d'images) : un menu déroulant, réglé sur **Default image generation connection** par défaut. Laissé sur **Default**, il utilise la connexion marquée comme connexion par défaut pour la génération d'images dans le panneau **Connections**.
   - **Prompt instructions** (instructions de prompt) : une zone de texte avec un contenu par défaut intégré, jusqu'à 4000 caractères. Ces notes supplémentaires sont fusionnées dans le prompt d'image.
   - **Use avatar references** (utiliser les images de référence de l'avatar) : un interrupteur, activé (**on**) par défaut. Envoie l'avatar ou les images de référence du personnage au modèle d'image.
-  - **Include descriptions** (inclure les descriptions) : un interrupteur, activé (**on**) par défaut. Ajoute les notes d'apparence écrites du personnage au prompt d'image.
+  - **Interpret image prompts** (interpréter les prompts d'image) : un interrupteur, activé (**on**) par défaut. Un modèle de texte réécrit chaque prompt d'image en suivant les **Image Prompting Instructions** (instructions de prompt d'image) de ta connexion d'images et le Style text (texte de style) de ton profil de style. Quand il est désactivé, les Image Prompting Instructions ne sont pas utilisées et le Style text est ajouté tel quel.
+  - **Include descriptions** (inclure les descriptions) : un interrupteur, activé (**on**) par défaut. Ajoute les notes d'apparence écrites du personnage au prompt d'image. Avec **Interpret image prompts** activé, le modèle de texte les intègre au lieu de les coller telles quelles.
   - **Images/refresh** (images par rafraîchissement) : un nombre, de 0 à 50, **3** par défaut. Il plafonne les images de post générées, séparément pour chaque rafraîchissement manuel ou automatique.
 - **Attach gallery images** (joindre des images de la galerie) : un interrupteur distinct, désactivé (**off**) par défaut. Il reste visible même quand **Image generation** est sur **off**. Au lieu de créer une image, il autorise un post à réutiliser une image de la galerie du personnage ou d'un chat où il apparaît.
 
@@ -176,6 +177,7 @@ Ce tableau liste chaque réglage de Noodle avec sa valeur par défaut et sa plag
 | **Image generation connection** | Default | toute connexion de génération d'images |
 | **Prompt instructions** | texte intégré | jusqu'à 4000 caractères |
 | **Use avatar references** | on | on ou off |
+| **Interpret image prompts** | on | on ou off |
 | **Include descriptions** | on | on ou off |
 | **Images/refresh** | 3 | 0 à 50 |
 | **Attach gallery images** | off | on ou off |

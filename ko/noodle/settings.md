@@ -82,7 +82,8 @@ Noodle은 첫 프로필을 준비하기 전에 활성 계정을 먼저 정합니
   - **Image generation connection**(이미지 생성 연결): 드롭다운이고 기본값은 **Default image generation connection**입니다. Default로 두면 **Connections**(연결) 패널에서 이미지 생성 기본값으로 지정한 연결을 사용합니다.
   - **Prompt instructions**(프롬프트 지침): 기본 문구가 들어 있는 텍스트 상자이고 4000자까지 쓸 수 있습니다. 여기에 적은 추가 메모는 이미지 프롬프트에 합쳐집니다.
   - **Use avatar references**(아바타 참조 사용): 토글이고 기본값은 **on**입니다. 캐릭터의 아바타나 참조 이미지를 이미지 모델에 보냅니다.
-  - **Include descriptions**(설명 포함): 토글이고 기본값은 **on**입니다. 캐릭터의 외모 설명 글을 이미지 프롬프트에 추가합니다.
+  - **Interpret image prompts**(이미지 프롬프트 해석): 토글이고 기본값은 **on**입니다. 텍스트 모델이 이미지 연결의 **Image Prompting Instructions**(이미지 프롬프트 지시문)와 스타일 프로필의 Style text(스타일 텍스트)를 따라 각 이미지 프롬프트를 다시 씁니다. 끄면 Image Prompting Instructions는 쓰이지 않고 Style text가 적힌 그대로 추가됩니다.
+  - **Include descriptions**(설명 포함): 토글이고 기본값은 **on**입니다. 캐릭터의 외모 설명 글을 이미지 프롬프트에 추가합니다. **Interpret image prompts**가 켜져 있으면 텍스트 모델이 설명을 그대로 붙여 넣지 않고 프롬프트에 자연스럽게 녹여 넣습니다.
   - **Images/refresh**(새로고침당 이미지 수): 0에서 50까지의 숫자이고 기본값은 **3**입니다. 수동이든 자동이든 새로고침마다 생성하는 게시물 이미지 수를 따로 제한합니다.
 - **Attach gallery images**(갤러리 이미지 첨부): 별개의 토글이고 기본값은 **off**입니다. **Image generation**이 꺼져 있어도 계속 보입니다. 새 이미지를 만드는 대신, 그 캐릭터의 갤러리나 그 캐릭터가 등장하는 채팅에 있는 이미지를 게시물에 다시 쓸 수 있게 합니다.
 
@@ -176,6 +177,7 @@ Noodle 활동을 채팅에 나타나게 하려면 해당하는 **Carryover to ch
 | **Image generation connection** | Default | 이미지 생성 연결 전체 |
 | **Prompt instructions** | 내장 문구 | 4000자까지 |
 | **Use avatar references** | on | on 또는 off |
+| **Interpret image prompts** | on | on 또는 off |
 | **Include descriptions** | on | on 또는 off |
 | **Images/refresh** | 3 | 0에서 50 |
 | **Attach gallery images** | off | on 또는 off |

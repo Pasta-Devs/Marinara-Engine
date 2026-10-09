@@ -143,7 +143,7 @@ Otwórz informacje o poleceniach użytych w odpowiedzi i wybierz **Restore origi
 
 ## Wybory CYOA
 
-**CYOA** to skrót od Choose Your Own Adventure, czyli "wybierz własną przygodę". Agent **CYOA Choices** jest domyślnie wyłączony. Po włączeniu dodaje pod odpowiedzią klikalne przyciski wyboru. Kliknięty wybór staje się twoją kolejną wiadomością. Działa tylko w trybie Roleplay.
+**CYOA** to skrót od Choose Your Own Adventure, czyli "wybierz własną przygodę". Agent **CYOA Choices** jest domyślnie wyłączony. Po włączeniu dodaje pod odpowiedzią klikalne przyciski wyboru. Kliknięty wybór staje się twoją kolejną wiadomością. Żeby połączyć kilka wyborów albo poprawić wybór przed wysłaniem, włącz **Add CYOA choices to the message box instead of sending them** (dodawanie wyborów CYOA do pola wiadomości zamiast ich wysyłania) w **Settings → General → Input & Editing** (ustawienia → ogólne → wprowadzanie i edycja): kliknięcie wyboru dodaje wtedy jego tekst do pola wiadomości bez wysyłania. Działa tylko w trybie Roleplay.
 
 ## Starcia
 

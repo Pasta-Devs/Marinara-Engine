@@ -143,7 +143,7 @@ Das Modell verwendet `[interrupt: part="a verbatim phrase of at least three word
 
 ## CYOA-Auswahlmöglichkeiten
 
-**CYOA** steht für Choose Your Own Adventure, also „Wähle dein eigenes Abenteuer“. Der Agent **CYOA Choices** ist standardmäßig aus. Aktiviert ergänzt er nach einer Antwort anklickbare Auswahl-Schaltflächen. Ein Klick darauf schickt die Auswahl als deine nächste Nachricht ab. Das funktioniert ausschließlich in Roleplay Mode.
+**CYOA** steht für Choose Your Own Adventure, also „Wähle dein eigenes Abenteuer“. Der Agent **CYOA Choices** ist standardmäßig aus. Aktiviert ergänzt er nach einer Antwort anklickbare Auswahl-Schaltflächen. Ein Klick darauf schickt die Auswahl als deine nächste Nachricht ab. Willst du mehrere Auswahlmöglichkeiten kombinieren oder eine vor dem Senden bearbeiten, schalte unter **Settings** > **General** > **Input & Editing** die Einstellung **Add CYOA choices to the message box instead of sending them** (CYOA-Auswahlmöglichkeiten ins Nachrichtenfeld einfügen, statt sie abzuschicken) ein: Ein Klick auf eine Auswahl fügt ihren Text dann in dein Nachrichtenfeld ein, ohne ihn zu senden. Das funktioniert ausschließlich in Roleplay Mode.
 
 ## Kampfbegegnungen
 

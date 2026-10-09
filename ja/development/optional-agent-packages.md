@@ -740,5 +740,6 @@ Engineはパッケージのクライアント要素を`view="widget"`でマウ�
 - `llm.withFallback(...)`は同じパッケージホストで作ったプロバイダーを包み、Engineの受付制御、フォールバック通知、プロバイダー選択動作を維持します。
 - `images.generate(...)`と`videos.generate(...)`はキャンセル、要求ログ、ネットワーク検査、メディアキューを含むEngineの実装を使います。呼び出し元の`signal`とUIの`debugMode`があれば転送してください。
 - `images.save`、`images.remove`、`images.stage`、`images.sweepStaged`はギャラリーの安全な書き込みと一時ファイルのライフサイクルを再利用します。`videos.save`と`videos.remove`は動画の保存経路を再利用します。`images.resolveNovelAiRequestSize`はホストのNovelAIサイズ正規化を使います。動画時間と公開参照アップロードの正規化も、`videos.resolveDuration`と`videos.resolveReferenceUpload`で利用できます。
+- `speech.transcribe(audio, { filename, mimeType, signal })`は、録音した音声をユーザーが**Connections → Speech to Text**(接続 → 音声認識)で設定した音声認識サーバーへ送り、文字起こしの結果を返します。そのサーバーがオフのあいだは`null`を返すので、パッケージは自前の文字起こしを使い続けます。ホストのURLポリシー(`STT_LOCAL_URLS_ENABLED`)とサイズ・時間の制限を適用し、保存されたキーは公開しません。`speech`は任意で、新しいCapability APIを宣言する必要はありません。`typeof api.runtime.integrations?.speech?.transcribe === "function"`を確認し、古いEngineではフォールバックしてください。
 
 共有の要求・結果型は`@marinara-engine/shared`からエクスポートされます。パッケージ固有のプロンプト構築と処理の調整はパッケージに置き、プロバイダーI/OにはEngineのサービス実装をコピーせず、これらのホスト入口を呼んでください。純粋なヘルパーや型は引き続きバンドルできます。

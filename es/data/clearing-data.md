@@ -35,7 +35,7 @@ La **Danger Zone** muestra una lista de ocho categorías. Cada una es un ámbito
 | **Automation & Addons** | Agentes, herramientas, scripts de regex, temas sincronizados y estado de automatización. |
 | **Media & Assets** | Fondos, avatares, sprites, elementos de la galería, fuentes y archivos de fuentes de conocimiento. |
 
-Algunas categorías eliminan más que registros de la base de datos. **Chats & Messages** también elimina toda la carpeta de la galería en disco y todos los archivos de video de escena. Esto incluye las imágenes de galería de personajes y personas, aunque no hayas marcado **Characters** ni **Personas**. **Media & Assets** elimina las carpetas en disco de fondos, avatares, sprites, galerías, archivos de video de escena, fuentes y archivos de fuentes de conocimiento. **Connections** también borra tus ajustes guardados de Text to Speech (TTS, texto a voz), porque están vinculados a una conexión.
+Algunas categorías eliminan más que registros de la base de datos. **Chats & Messages** también elimina toda la carpeta de la galería en disco y todos los archivos de video de escena. Esto incluye las imágenes de galería de personajes y personas, aunque no hayas marcado **Characters** ni **Personas**. **Media & Assets** elimina las carpetas en disco de fondos, avatares, sprites, galerías, archivos de video de escena, fuentes y archivos de fuentes de conocimiento. **Connections** también borra tus ajustes guardados de Text to Speech (TTS, texto a voz) y de Speech to Text (voz a texto), porque están vinculados a una conexión.
 
 ## Borrar categorías seleccionadas
 

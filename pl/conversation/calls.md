@@ -30,7 +30,7 @@ Po zakończeniu rozmowy Marinara zapisuje w zwykłym czacie w trybie Conversatio
 3. Włączony przełącznik **Audio/Video Calls** (rozmowy audio i wideo) dla tego czatu – patrz sekcja "Włączanie rozmów dla czatu" poniżej.
 4. Włączony przełącznik **Call Audio Pipeline** (obsługa dźwięku rozmów). Bez niego nie ruszy żadna rozmowa, nawet taka, w której tylko piszesz albo tylko słuchasz. On też odpowiada za wejście mikrofonowe.
 5. Skonfigurowany Text to Speech, dzięki czemu postacie mogą mówić. Bez tego każda postać dołącza wyłącznie w formie tekstowej.
-6. Opcjonalnie: model Local Whisper pobrany z sekcji **Connections** (Połączenia) po instalacji pakietu Calls, jeśli przeglądarka nie rozpoznaje mowy wystarczająco pewnie – w przeglądarce Firefox jest to konieczne.
+6. Opcjonalnie: model Local Whisper pobrany z sekcji **Connections** (Połączenia) po instalacji pakietu Calls, jeśli przeglądarka nie rozpoznaje mowy wystarczająco pewnie – w przeglądarce Firefox jest to konieczne. Zamiast modelu Local Whisper możesz też użyć własnego serwera zamiany mowy na tekst.
 7. Opcjonalnie: połączenie wideo i wygenerowane klipy, jeśli chcesz korzystać z funkcji **Character Video Presence** (obecność wideo postaci).
 8. Opcjonalnie: połączenie do generowania obrazów ustawione dla czatu jako Selfie Connection, jeśli postacie mają wysyłać selfie w rozmowie.
 
@@ -74,6 +74,26 @@ Local Whisper należy do pakietu Calls i jest najpewniejszą drogą dla mikrofon
 Po pobraniu pojawia się kontrolka **Delete Local Whisper** (ikona kosza), którą można usunąć model.
 
 Odinstalowanie pakietu Calls usuwa też każdy pobrany model Whisper wraz z zapisanym wyborem. W ten sposób odzyskujesz zajęte miejsce na dysku. Ponowna instalacja pakietu Calls przywraca kontrolki pobierania, ale model pobiera się dopiero po jego wybraniu.
+
+<a id="use-your-own-speech-to-text-server"></a>
+
+### Korzystanie z własnego serwera zamiany mowy na tekst
+
+Jeśli Local Whisper słabo radzi sobie z twoim językiem albo akcentem, możesz zamiast tego wysyłać nagrany głos do innego modelu zamiany mowy na tekst. Działa to z każdym serwerem, który udostępnia punkt końcowy `/audio/transcriptions` w stylu OpenAI. Należą do nich samodzielnie hostowane serwery, takie jak Speaches, serwery faster-whisper, LocalAI i serwer whisper.cpp (uruchomiony z opcją `--inference-path /v1/audio/transcriptions`), a także dostawcy tacy jak OpenAI czy Groq.
+
+1. Zainstaluj pakiet Calls, a potem otwórz sekcję **Connections** i znajdź kafelek **Speech to Text** (zamiana mowy na tekst). Dopóki pakiet Calls nie jest zainstalowany, ten kafelek jest ukryty.
+2. Rozwiń kafelek i wpisz adres w polu **Server URL** (adres serwera), na przykład `http://localhost:8000/v1` dla serwera na twoim komputerze.
+3. Wpisz klucz w polu **API key** (klucz API), jeśli wymaga go twój serwer lub dostawca. Klucz jest zapisywany w postaci zaszyfrowanej, a kafelek pokazuje go tylko w formie zamaskowanej.
+4. W polu **Model** wpisz nazwę modelu, której używa twój serwer. Jeśli zostawisz to pole puste, wysyłana jest nazwa `whisper-1`.
+5. Opcjonalnie: w polu **Language** (język) wpisz kod języka, na przykład `pl` albo `de`. Podanie modelowi języka zwykle poprawia dokładność. Zostaw pole puste, żeby serwer sam rozpoznał język.
+6. Kliknij przycisk **Test** (test). Marinara wysyła jednosekundowe nagranie ciszy i informuje, czy serwer odpowiedział.
+7. Włącz przełącznik na kafelku.
+
+Dopóki przełącznik jest włączony, tryb **Mic recording + Local Whisper** wysyła twoją mowę do tego serwera zamiast do modelu Local Whisper. Nie trzeba do tego pobierać modelu Local Whisper. Wyłącz przełącznik, żeby wrócić do modelu Local Whisper. Dźwięk trafia na wpisany przez ciebie serwer, więc używaj tylko takiego, któremu ufasz.
+
+Serwer na tym samym komputerze, na którym działa Marinara, nie wymaga dodatkowych ustawień. Serwer na innym komputerze w sieci domowej zostaje odrzucony, chyba że ustawisz `STT_LOCAL_URLS_ENABLED=true` w pliku `.env` serwera. Zobacz [Konfiguracja serwera](../CONFIGURATION.md).
+
+Wymaga to wersji pakietu Calls, która obsługuje tę funkcję. Jeśli po włączeniu przełącznika rozmowy nadal korzystają z modelu Local Whisper, zaktualizuj pakiet Calls w sekcji **Agents → Download Agents**.
 
 ## Włączanie rozmów dla czatu
 
@@ -252,7 +272,11 @@ Sprawdź ustawienia Text to Speech i przypisanie głosów. Postać potrzebuje al
 
 ### Model źle rozumie moją mowę
 
-Zamiast modelu Whisper Tiny wypróbuj **Whisper Base (Multilingual)** dla większej dokładności. Ogranicz hałas i muzykę w tle. Jeśli model to obsługuje, przełącz **Audio input mode** na **Provider-native audio/video**, żeby model słyszał dźwięk bezpośrednio.
+Zamiast modelu Whisper Tiny wypróbuj **Whisper Base (Multilingual)** dla większej dokładności. Ogranicz hałas i muzykę w tle. Jeśli model to obsługuje, przełącz **Audio input mode** na **Provider-native audio/video**, żeby model słyszał dźwięk bezpośrednio. W przypadku języka, z którym Whisper słabo sobie radzi, [skorzystaj z własnego serwera zamiany mowy na tekst](#use-your-own-speech-to-text-server) z modelem, który zna ten język, i wpisz kod tego języka w polu **Language**.
+
+### Test Speech to Text kończy się błędem
+
+Przeczytaj komunikat pod przyciskiem **Test**. "Could not reach the speech-to-text server" oznacza, że adres jest błędny albo serwer nie działa. Komunikat, w którym pada nazwa `STT_LOCAL_URLS_ENABLED`, oznacza, że serwer działa na innym komputerze w twojej sieci; ustaw tę zmienną na `true` w pliku `.env`. Kod liczbowy, taki jak 401 albo 404, pochodzi od twojego serwera: 401 zwykle oznacza błędny klucz API, a 404 – błędny adres albo błędną nazwę modelu.
 
 ### Przycisk kamery albo ekranu jest nieaktywny
 

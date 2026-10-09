@@ -316,7 +316,7 @@ Añade botones de elección "What will you do?" (¿qué harás?) en los que pued
 
 - **Fase**: Post-Processing.
 - **Dónde funciona**: Roleplay.
-- **Ajustes clave**: **Edit** (editar) para reescribir las elecciones y **Re-roll** (volver a generar) para generar unas nuevas.
+- **Ajustes clave**: **Edit** (editar) para reescribir las elecciones y **Re-roll** (volver a generar) para generar unas nuevas. Activa **Add CYOA choices to the message box instead of sending them** (Añadir las opciones CYOA al cuadro de mensaje en lugar de enviarlas) en **Settings** (Configuración) > **General** > **Input & Editing** para que las elecciones en las que hagas clic vayan a tu cuadro de mensaje.
 
 ### Storyboard
 

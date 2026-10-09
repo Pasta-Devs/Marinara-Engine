@@ -82,7 +82,8 @@ Noodleは、初回のプロフィールを用意する前にアクティブな�
   - **Image generation connection**(画像生成用の接続): ドロップダウン、デフォルトは**Default image generation connection**です。Defaultのままにすると、**Connections**パネルで画像生成のデフォルトに指定した接続を使います。
   - **Prompt instructions**(プロンプトへの指示): あらかじめ文章が入ったテキストボックスで、4000文字までです。ここに書いた補足は画像プロンプトに統合します。
   - **Use avatar references**(アバターを参照に使う): トグル、デフォルトは**on**です。キャラクターのアバターや参照用の画像を画像モデルに送ります。
-  - **Include descriptions**(説明を含める): トグル、デフォルトは**on**です。キャラクターの外見について書かれた内容を画像プロンプトに追加します。
+  - **Interpret image prompts**(画像プロンプトを解釈する): トグル、デフォルトは**on**です。テキストモデルが、画像用の接続の**Image Prompting Instructions**(画像プロンプトの作成指示)とスタイルプロファイルのStyle textに従って、画像プロンプトを1つずつ書き直します。オフにすると、Image Prompting Instructionsは使われず、Style textは書かれたとおりに追加されます。
+  - **Include descriptions**(説明を含める): トグル、デフォルトは**on**です。キャラクターの外見について書かれた内容を画像プロンプトに追加します。**Interpret image prompts**がオンのときは、テキストモデルがその内容をそのまま貼り付けずに、プロンプトへ組み込みます。
   - **Images/refresh**(更新1回あたりの画像数): 0から50までの数値、デフォルトは**3**です。手動と自動のどちらの更新でも、それぞれ生成する投稿画像の枚数をこの数で制限します。
 - **Attach gallery images**(ギャラリーの画像を添付): 独立したトグルで、デフォルトは**off**です。**Image generation**がオフのときも表示します。新しい画像を作る代わりに、そのキャラクターのギャラリーや、そのキャラクターが登場するチャットにある画像を投稿で使い回せます。
 
@@ -176,6 +177,7 @@ Noodleのアクティビティーをチャットに出すには、対応する**
 | **Image generation connection** | Default | 画像生成用の接続すべて |
 | **Prompt instructions** | 組み込みの文章 | 4000文字まで |
 | **Use avatar references** | on | onまたはoff |
+| **Interpret image prompts** | on | onまたはoff |
 | **Include descriptions** | on | onまたはoff |
 | **Images/refresh** | 3 | 0から50 |
 | **Attach gallery images** | off | onまたはoff |

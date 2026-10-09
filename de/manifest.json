@@ -1,11 +1,11 @@
 {
   "language": "de",
-  "sourceCommit": "12752bb2a2c530354aad685cd6fb7ac4bf793113",
+  "sourceCommit": "f018feac5dfafd71ac8c387661d41d5a7266dcf3",
   "files": [
     {
       "path": "CONFIGURATION.md",
-      "sha256": "d9fb8acedcb3cfcca0981cc6e4519ddeb3933be8570054ba08ca524e866582ab",
-      "bytes": 60319
+      "sha256": "1d1e56d294eb788ed460c02b7da639f303074c57c3d6607f914aa3813fb60f46",
+      "bytes": 60984
     },
     {
       "path": "FAQ.md",
@@ -44,8 +44,8 @@
     },
     {
       "path": "agents/built-in-agents.md",
-      "sha256": "5d6eac2147df01cf4dcce9cd607f7c32946ad30558ac1537826c8dae97bbbabe",
-      "bytes": 37413
+      "sha256": "95eefe819a4ee30269529fad3d3d2ec8e3ada5084a2d3086e409bf52e6999aca",
+      "bytes": 37735
     },
     {
       "path": "agents/custom-agents.md",
@@ -244,8 +244,8 @@
     },
     {
       "path": "conversation/calls.md",
-      "sha256": "2a661b840105abf0e81988db7d38c6a6f26fad52dd41f2be950d485dabc70462",
-      "bytes": 23575
+      "sha256": "8f7886cf1e31034c99d5206af42e35e929d2232a07412455c5306477c3446c99",
+      "bytes": 26813
     },
     {
       "path": "conversation/emoji-stickers-gifs.md",
@@ -284,8 +284,8 @@
     },
     {
       "path": "data/clearing-data.md",
-      "sha256": "53f0677a1be658eb1c9f35361d1dd63eafb6d691b8249a9deb5694ac4f4194a0",
-      "bytes": 4757
+      "sha256": "03046b6a2b2ba095632a3a5a2a179fa9eeb83ebcf70c0db6457b221e10922f6f",
+      "bytes": 4794
     },
     {
       "path": "data/importing-from-sillytavern.md",
@@ -384,8 +384,8 @@
     },
     {
       "path": "development/optional-agent-packages.md",
-      "sha256": "29fab8c444c83ac38243ae249cf7416317e012e731f5b6cb4a0fced3c6880401",
-      "bytes": 87868
+      "sha256": "1064515f58dfecc3eb44cfc195f5e3da42869de9147bb0f5a3081e38166304f2",
+      "bytes": 88579
     },
     {
       "path": "development/personal-extensions.md",
@@ -599,8 +599,8 @@
     },
     {
       "path": "media/style-profiles.md",
-      "sha256": "6b5495ad4fd5ef3a3f9446402f01ff8a20685d8bad7f7500bcfac317df95cb72",
-      "bytes": 9605
+      "sha256": "011b7caccd29d39ff330e650eeff9e8c22b8408f493c1ece033aaff22e937af7",
+      "bytes": 9843
     },
     {
       "path": "media/tts-setup.md",
@@ -614,8 +614,8 @@
     },
     {
       "path": "noodle/settings.md",
-      "sha256": "5a82d1278d7e2cc63f412e378fdf33e6bd54a6a0d784bc6144cc65579a5de4d8",
-      "bytes": 20575
+      "sha256": "e40013185bd92f28ea30954500f529e35485c93099cd1d790cc5a463e7f2298a",
+      "bytes": 21107
     },
     {
       "path": "prompts/conditional-prompts.md",
@@ -659,8 +659,8 @@
     },
     {
       "path": "roleplay/getting-started.md",
-      "sha256": "62599558b4d5f07c512d7ef28712c679dde903c11c8d4299b738f00bb866ed0a",
-      "bytes": 21408
+      "sha256": "5a0f35967f78299967557a9b29cc23e1f5afd3d203e2a76de5d93ea226025efe",
+      "bytes": 21826
     },
     {
       "path": "roleplay/hud-and-trackers.md",
