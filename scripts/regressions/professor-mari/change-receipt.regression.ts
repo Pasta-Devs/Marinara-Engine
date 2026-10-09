@@ -342,19 +342,39 @@ function gandalfResult(): MariWorkspaceActionResult {
 }
 
 // Slice 87: an apply that did not save leaves a "Not saved" result with the reason; a dry run leaves none.
-const failed = buildMariFailedActionResult("character.update", { apply: true, id: "shrek", data: { name: "Shrek" } }, "x ".repeat(400));
+const failed = buildMariFailedActionResult(
+  "character.update",
+  { apply: true, id: "shrek", data: { name: "Shrek" } },
+  "x ".repeat(400),
+);
 assert.equal(failed?.status, "failed");
 assert.equal(failed?.resource.id, "shrek");
 assert.equal(failed?.resource.label, "Shrek");
 assert.ok((failed?.error ?? "").length <= 300, "the reason is clipped");
-assert.equal(buildMariFailedActionResult("character.update", { apply: false, id: "shrek" }, "no"), null, "a dry run leaves no card");
-assert.equal(buildMariFailedActionResult("chat.updateMessage", { apply: true }, "no"), null, "a message fix has no card here");
-assert.equal(buildMariFailedActionResult("character.create", { apply: true, data: { name: "Mira" } }, "bad")?.resource.id, "new", "a create that failed has no id yet");
+assert.equal(
+  buildMariFailedActionResult("character.update", { apply: false, id: "shrek" }, "no"),
+  null,
+  "a dry run leaves no card",
+);
+assert.equal(
+  buildMariFailedActionResult("chat.updateMessage", { apply: true }, "no"),
+  null,
+  "a message fix has no card here",
+);
+assert.equal(
+  buildMariFailedActionResult("character.create", { apply: true, data: { name: "Mira" } }, "bad")?.resource.id,
+  "new",
+  "a create that failed has no id yet",
+);
 
 // Slice 87: the card has no Keep (an applied change is saved; Undo is the only answer), and every changed
 // field stays reachable behind "Show all".
-const card = readFileSync(new URL("../../../packages/client/src/components/chat/MariChangeReceipt.tsx", import.meta.url), "utf8");
+const card = readFileSync(
+  new URL("../../../packages/client/src/components/chat/MariChangeReceipt.tsx", import.meta.url),
+  "utf8",
+);
 assert.doesNotMatch(card, /mariappliededit\.keep|marichangereceipt\.keepAll|, true\)/u, "a change card has no Keep");
 assert.match(card, /marichangereceipt\.showAll/u, "every changed field is reachable from the card");
+assert.match(card, /marichangereceipt\.createdMany/u, "three new characters read as Created 3 characters");
 
 console.log("change-receipt regression passed");

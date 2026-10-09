@@ -74,7 +74,9 @@ function receiptSummary(result: MariWorkspaceActionResult, t: Localize, lang: st
     const thing = t(`ui.chat.marichangereceipt.kind.${result.resource.kind}`);
     return `${t("ui.chat.marichangereceipt.newRecord", { thing })} · ${t("ui.chat.marichangereceipt.fieldCount", { count })}`;
   }
-  const shown = result.changes.slice(0, 3).map((change) => label(change.field).toLocaleLowerCase(lang));
+  // A nested setting names its parent once: "Parameters" for max tokens and temperature together.
+  const parts = [...new Set(result.changes.map((change) => change.field.split(".")[0]!))];
+  const shown = parts.slice(0, 3).map((field) => fieldLabel(field).toLocaleLowerCase(lang));
   return count > shown.length
     ? t("ui.chat.marichangereceipt.changedMore", { fields: shown.join(", "), count: count - shown.length })
     : t("ui.chat.marichangereceipt.changed", { fields: list(shown) });
@@ -313,6 +315,19 @@ function StateMark({ state }: { state: MariReceiptState }) {
   );
 }
 
+/** "Created 3 characters" when every record is new and of one kind; "Changed 3 things" otherwise. */
+function groupLabel(results: readonly MariWorkspaceActionResult[], t: Localize) {
+  const kinds = new Set(results.map((result) => result.resource.kind));
+  if (results.every((result) => result.status === "created") && kinds.size === 1) {
+    const kind = [...kinds][0]!;
+    return t("ui.chat.marichangereceipt.createdMany", {
+      count: results.length,
+      things: t(`ui.chat.marichangereceipt.kindPlural.${kind}`, { count: results.length }),
+    });
+  }
+  return t("ui.chat.marichangereceipt.labelMany", { count: results.length });
+}
+
 /** A change that did not save: "Not saved", her error in plain words, and Try again. */
 function FailedReceipt({
   result,
@@ -460,7 +475,7 @@ export function MariChangeReceipt({
               <span key={`${result.resource.kind}:${result.resource.id}`}>{faceOf(result)}</span>
             ))}
           </span>
-          <span>{t("ui.chat.marichangereceipt.labelMany", { count: results.length })}</span>
+          <span>{groupLabel(results, t)}</span>
         </div>
       ) : null}
       {results.map((result, index) => {
