@@ -1,11 +1,11 @@
-// Slice 74: what Professor Mari changed, as a receipt under her answer. Built only from the record on her
-// message (`mariWorkspaceActionResults`), so the card reads the same live, after Keep / Undo and after a
-// reload: face and name, what changed in words, one before/after pair, her reason, and Keep / Undo while
-// the undo record lasts. Opened, it lists every field. Calm on purpose: what needs you is slice 71's card.
+// Slice 74 / 87: what Professor Mari changed, as a card under her answer. Built only from the record on her
+// message (`mariWorkspaceActionResults`), so it reads the same live, after Undo and after a reload: face and
+// name, what changed in words, the changed fields (folded: one key field; opened: every field), her reason,
+// and Undo while the undo copy lasts. No Keep: an applied change is already saved, and Undo is the way back.
 
 import { useState, type ReactNode } from "react";
 import { useTranslation as useUiTranslation } from "react-i18next";
-import { Check, ChevronRight, Undo2 } from "lucide-react";
+import { Check, ChevronDown, ExternalLink, Undo2 } from "lucide-react";
 import {
   mariReceiptReviewIds,
   mariReceiptState,
@@ -15,14 +15,15 @@ import {
   type MariWorkspacePendingApproval,
 } from "@marinara-engine/shared";
 
+import { diffWords } from "../../lib/word-diff";
 import { fieldLabel } from "../../lib/mari-edit-diff";
 import { cn } from "../../lib/utils";
 
 type Localize = (key: string, options?: Record<string, unknown>) => string;
 
-/** The turn's Keep / Undo wiring. Absent where the transcript cannot answer reviews. */
+/** The turn's Undo wiring. Absent where the transcript cannot answer reviews. */
 export interface MariReceiptControls {
-  /** Reviews of this chat still waiting for Keep / Undo, by id. */
+  /** Reviews of this chat still waiting for Undo, by id. */
   pending: ReadonlyMap<string, MariWorkspacePendingApproval>;
   /** Reviews answered in this session before the message caught up. */
   answered: ReadonlyMap<string, "kept" | "undone">;
@@ -30,51 +31,34 @@ export interface MariReceiptControls {
   /** The omnibar just jumped to this review. */
   isHighlighted?: (reviewId: string) => boolean;
   onAnswer: (approvals: MariWorkspacePendingApproval[], keep: boolean) => void;
-  /** The full review (exact diff, prompt preview, raw) behind "Technical details". */
-  renderDetails?: (approval: MariWorkspacePendingApproval) => ReactNode;
+  /** The raw command and row counts behind "Technical details". */
+  renderRaw?: (approval: MariWorkspacePendingApproval) => ReactNode;
 }
 
-const LIST_NOUNS: Record<string, string> = {
-  entries: "nounEntries",
-  character_book: "nounEntries",
-  sections: "nounSections",
-  groups: "nounGroups",
-  choices: "nounChoices",
-  alternate_greetings: "nounGreetings",
-  tags: "nounTags",
-};
+const DAY_MS = 24 * 60 * 60 * 1000;
 
-const label = (field: string) => fieldLabel(field);
+/** "parameters.maxTokens" reads as "Parameters · Max tokens". */
+function label(field: string) {
+  const [parent, child] = field.split(".");
+  return child ? `${fieldLabel(parent!)} · ${fieldLabel(child)}` : fieldLabel(field);
+}
 
 function words(text: string) {
   return text.split(/\s+/u).filter(Boolean);
 }
 
-/** The trackProseChange rule: most old words kept is an edit, else a rewrite. */
-function textVerb(change: Extract<MariChangeExcerpt, { kind: "text" | "value" }>) {
-  if (!change.before) return "verbAdded";
-  if (!change.after) return "verbCleared";
-  if (change.kind === "value") return "verbChanged";
-  const kept = words(change.before).filter((word) => change.after.includes(word)).length;
-  return kept >= 0.4 * words(change.before).length ? "verbEdited" : "verbRewrote";
-}
-
-function listParts(change: Extract<MariChangeExcerpt, { kind: "list" }>, t: Localize) {
-  const nounKey = LIST_NOUNS[change.field] ?? "nounItems";
-  return (["added", "edited", "removed"] as const)
-    .filter((part) => change.count[part] > 0)
-    .map((part) => {
-      const count = change.count[part];
-      const noun = t(`ui.chat.marichangereceipt.${nounKey}`, { count });
-      return t(`ui.chat.marichangereceipt.list${part[0]!.toUpperCase()}${part.slice(1)}`, { count, noun });
-    });
+/** The share of old words still in the new text, as whole words. Most kept is an edit, else a rewrite. */
+function keptShare(before: string, after: string) {
+  const now = new Set(words(after));
+  const old = words(before);
+  return old.length ? old.filter((word) => now.has(word)).length / old.length : 0;
 }
 
 // An old message saved every column a row write touched, ids and timestamps too; they say nothing.
 const OLD_NOISE = /^(?:id|.+Id|.+_id|(?:created|updated)(?:At|_at)|embedding)$/u;
 const oldFields = (result: MariWorkspaceActionResult) => result.changedFields.filter((field) => !OLD_NOISE.test(field));
 
-/** "Rewrote description and personality · Added scenario · Added 2 entries", at most two parts and "+N". */
+/** "New character · 13 fields", or "Changed description, personality, scenario and 6 more". */
 function receiptSummary(result: MariWorkspaceActionResult, t: Localize, lang: string): string {
   const list = (items: string[]) => new Intl.ListFormat(lang, { type: "conjunction" }).format(items);
   if (!result.changes) {
@@ -83,102 +67,167 @@ function receiptSummary(result: MariWorkspaceActionResult, t: Localize, lang: st
       ? t("ui.chat.marichangereceipt.oldFieldsMore", { fields: list(fields.slice(0, 3)), count: fields.length - 3 })
       : t("ui.chat.homeprofessormarichat.changedFields", { fields: list(fields) });
   }
-  const groups = new Map<string, string[]>();
-  const parts: string[] = [];
-  for (const change of result.changes) {
-    if (change.kind === "list") {
-      parts.push(...listParts(change, t));
-      continue;
-    }
-    const verb = textVerb(change);
-    groups.set(verb, [...(groups.get(verb) ?? []), label(change.field).toLocaleLowerCase(lang)]);
+  const count = result.changes.length + (result.moreChanges ?? 0);
+  if (result.status === "created") {
+    const thing = t(`ui.chat.marichangereceipt.kind.${result.resource.kind}`);
+    return `${t("ui.chat.marichangereceipt.newRecord", { thing })} · ${t("ui.chat.marichangereceipt.fieldCount", { count })}`;
   }
-  const all = [
-    ...[...groups].map(([verb, fields]) => t(`ui.chat.marichangereceipt.${verb}`, { fields: list(fields) })),
-    ...parts,
-  ];
-  const extra = all.length - 2 + (result.moreChanges ?? 0);
-  return [...all.slice(0, 2), ...(extra > 0 ? [t("ui.chat.marichangereceipt.more", { count: extra })] : [])].join(
-    " · ",
-  );
+  const shown = result.changes.slice(0, 3).map((change) => label(change.field).toLocaleLowerCase(lang));
+  return count > shown.length
+    ? t("ui.chat.marichangereceipt.changedMore", { fields: shown.join(", "), count: count - shown.length })
+    : t("ui.chat.marichangereceipt.changed", { fields: list(shown) });
 }
 
-function ListChips({ change }: { change: Extract<MariChangeExcerpt, { kind: "list" }> }) {
-  const { t } = useUiTranslation();
-  const hidden =
-    change.count.added +
-    change.count.edited +
-    change.count.removed -
-    (change.added.length + change.edited.length + change.removed.length);
+/** "Undo until 19:05" when it ends today, "Undo until tomorrow, 19:05" next day, nothing while it is more than a day away. */
+function undoLabel(iso: string | undefined, t: Localize, lang: string): string | null {
+  const until = iso ? Date.parse(iso) : NaN;
+  const now = Date.now();
+  if (!Number.isFinite(until) || until <= now || until - now >= DAY_MS) return null;
+  const time = new Intl.DateTimeFormat(lang, { hour: "numeric", minute: "2-digit" }).format(until);
+  const sameDay = new Date(until).toDateString() === new Date(now).toDateString();
+  return t(sameDay ? "ui.chat.marichangereceipt.undoUntilToday" : "ui.chat.marichangereceipt.undoUntilTomorrow", {
+    time,
+  });
+}
+
+/** Field label over a box. Box text: old words struck, new words marked; both marks, not colour only. */
+function Field({ label: name, children, folded }: { label: string; children: ReactNode; folded?: boolean }) {
   return (
-    <div className="mari-tags">
-      {change.added.map((name) => (
-        <span key={`+${name}`} className="mari-tag mari-tag--ins">
-          {name}
-        </span>
-      ))}
-      {change.edited.map((name) => (
-        <span key={`~${name}`} className="mari-tag mari-receipt__tag--edit">
-          {name}
-        </span>
-      ))}
-      {change.removed.map((name) => (
-        <span key={`-${name}`} className="mari-tag mari-tag--del">
-          {name}
-        </span>
-      ))}
-      {hidden > 0 ? (
-        <span className="mari-receipt__muted">{t("ui.chat.marichangereceipt.more", { count: hidden })}</span>
-      ) : null}
+    <div className={cn("mari-receipt__field", folded && "mari-receipt__field--folded")}>
+      <span className="mari-receipt__label">{name}</span>
+      {children}
     </div>
   );
 }
 
-/** Folded: the first rewritten field as − / + lines, else the first list as chips. */
-function Preview({ result }: { result: MariWorkspaceActionResult }) {
-  const change =
-    result.changes?.find((item) => item.kind === "text" && item.before && item.after) ?? result.changes?.[0];
-  if (!change) return null;
-  if (change.kind === "list") {
+function TextBody({ change }: { change: Extract<MariChangeExcerpt, { kind: "text" }> }) {
+  if (!change.before || !change.after) {
+    return <div className={cn("mari-receipt__box", !change.after && "mari-receipt__box--old")}>{change.after || change.before}</div>;
+  }
+  if (keptShare(change.before, change.after) >= 0.4) {
     return (
-      <div className="mari-receipt__preview">
-        <ListChips change={change} />
+      <div className="mari-receipt__box">
+        {diffWords(change.before, change.after).map((part, index) =>
+          part.type === "removed" ? (
+            <del key={index}>{part.value}</del>
+          ) : part.type === "added" ? (
+            <ins key={index}>{part.value}</ins>
+          ) : (
+            <span key={index}>{part.value}</span>
+          ),
+        )}
+      </div>
+    );
+  }
+  // A rewrite: the old text struck in its own quiet box, the new text in a marked box under it.
+  return (
+    <>
+      <div className="mari-receipt__box mari-receipt__box--old">
+        <del>{change.before}</del>
+      </div>
+      <div className="mari-receipt__box mari-receipt__box--new">
+        <ins>{change.after}</ins>
+      </div>
+    </>
+  );
+}
+
+function ListBody({ change }: { change: Extract<MariChangeExcerpt, { kind: "list" }> }) {
+  const { t } = useUiTranslation();
+  const hidden =
+    change.count.added + change.count.edited + change.count.removed -
+    (change.added.length + change.edited.length + change.removed.length);
+  if (change.items?.length) {
+    return (
+      <div className="mari-receipt__entries">
+        {change.items.map((item) => (
+          <div key={item.name} className="mari-receipt__entry">
+            <span className="mari-receipt__entry-name">
+              {item.name}
+              {change.added.includes(item.name) ? (
+                <span className="mari-new-badge">{t("ui.chat.mariediteasyviewer.actionNew")}</span>
+              ) : null}
+            </span>
+            {item.keys?.length ? (
+              <span className="mari-receipt__chips">
+                {item.keys.map((key) => (
+                  <span key={key} className="mari-receipt__chip">
+                    {key}
+                  </span>
+                ))}
+              </span>
+            ) : null}
+            {item.text ? <span className="mari-receipt__entry-text">{item.text}</span> : null}
+          </div>
+        ))}
+        {hidden > 0 ? <span className="mari-receipt__muted">{t("ui.chat.marichangereceipt.more", { count: hidden })}</span> : null}
       </div>
     );
   }
   return (
-    <div className="mari-receipt__preview">
-      <span className="mari-receipt__label">{label(change.field)}</span>
-      {change.before ? (
-        <span className="mari-receipt__line mari-receipt__line--del">
-          <span className="mari-receipt__sign" aria-hidden="true">
-            −
-          </span>
-          <del>{change.before}</del>
+    <div className="mari-receipt__chips">
+      {change.added.map((name) => (
+        <span key={`+${name}`} className="mari-receipt__chip mari-receipt__chip--ins">
+          {name}
         </span>
-      ) : null}
-      {change.after ? (
-        <span className="mari-receipt__line mari-receipt__line--ins">
-          <span className="mari-receipt__sign" aria-hidden="true">
-            +
-          </span>
-          <ins>{change.after}</ins>
+      ))}
+      {change.edited.map((name) => (
+        <span key={`~${name}`} className="mari-receipt__chip">
+          {name}
         </span>
-      ) : null}
+      ))}
+      {change.removed.map((name) => (
+        <span key={`-${name}`} className="mari-receipt__chip mari-receipt__chip--del">
+          {name}
+        </span>
+      ))}
+      {hidden > 0 ? <span className="mari-receipt__muted">{t("ui.chat.marichangereceipt.more", { count: hidden })}</span> : null}
     </div>
   );
 }
 
-/** Opened: every field. */
+/** One changed field. A created record's switches are grouped by the caller, not shown here. */
+function FieldView({ change, folded }: { change: MariChangeExcerpt; folded?: boolean }) {
+  const name = label(change.field);
+  if (change.kind === "list") {
+    return (
+      <Field label={name} folded={folded}>
+        <ListBody change={change} />
+      </Field>
+    );
+  }
+  if (change.kind === "value") {
+    return (
+      <Field label={name} folded={folded}>
+        <div className="mari-receipt__value">
+          {change.before ? <del>{change.before}</del> : null}
+          {change.before && change.after ? (
+            <span className="mari-receipt__arrow" aria-hidden="true">
+              →
+            </span>
+          ) : null}
+          {change.after ? <ins>{change.after}</ins> : null}
+        </div>
+      </Field>
+    );
+  }
+  return (
+    <Field label={name} folded={folded}>
+      <TextBody change={change} />
+    </Field>
+  );
+}
+
+/** Opened: every changed field. A created record's switches and numbers go to one Settings field of chips. */
 function Fields({ result }: { result: MariWorkspaceActionResult }) {
   const { t } = useUiTranslation();
   if (!result.changes) {
     return (
       <>
         <p className="mari-receipt__muted">{t("ui.chat.marichangereceipt.oldNote")}</p>
-        <div className="mari-tags">
+        <div className="mari-receipt__chips">
           {oldFields(result).map((field) => (
-            <span key={field} className="mari-tag">
+            <span key={field} className="mari-receipt__chip">
               {label(field)}
             </span>
           ))}
@@ -186,33 +235,44 @@ function Fields({ result }: { result: MariWorkspaceActionResult }) {
       </>
     );
   }
+  const created = result.status === "created";
+  const settings = created
+    ? result.changes.filter((change): change is Extract<MariChangeExcerpt, { kind: "value" }> => change.kind === "value")
+    : [];
   return (
     <>
-      {result.changes.map((change) => (
-        <div key={`${change.kind}:${change.field}`} className="mari-field">
-          <span className="mari-field__label">{label(change.field)}</span>
-          {change.kind === "list" ? (
-            <ListChips change={change} />
-          ) : change.kind === "value" ? (
-            <div className="mari-tags">
-              {change.before ? <span className="mari-tag mari-tag--del">{change.before}</span> : null}
-              {change.after ? <span className="mari-tag mari-tag--ins">{change.after}</span> : null}
-            </div>
-          ) : (
-            <p className="mari-field__text">
-              {change.before ? <del>{change.before}</del> : null}
-              {change.before && change.after ? <span> </span> : null}
-              {change.after ? <ins>{change.after}</ins> : null}
-            </p>
-          )}
-        </div>
-      ))}
+      {result.changes
+        .filter((change) => !created || change.kind !== "value")
+        .map((change) => (
+          <FieldView key={`${change.kind}:${change.field}`} change={change} />
+        ))}
+      {settings.length ? (
+        <Field label={t("ui.chat.marichangereceipt.settings")}>
+          <span className="mari-receipt__chips">
+            {settings.map((change) => (
+              <span key={change.field} className="mari-receipt__chip">
+                {label(change.field)} {change.after}
+              </span>
+            ))}
+          </span>
+        </Field>
+      ) : null}
       {result.moreChanges ? (
-        <p className="mari-receipt__muted">
-          {t("ui.chat.marichangereceipt.moreFields", { count: result.moreChanges })}
-        </p>
+        <p className="mari-receipt__muted">{t("ui.chat.marichangereceipt.moreFields", { count: result.moreChanges })}</p>
       ) : null}
     </>
+  );
+}
+
+/** Folded: one key field - a lorebook's entries, else the first rewritten text, else the first field. */
+function keyChange(result: MariWorkspaceActionResult): MariChangeExcerpt | undefined {
+  const changes = result.changes ?? [];
+  return (
+    changes.find((change) => change.kind === "list" && !!change.items?.some((item) => item.keys?.length || item.text)) ??
+    changes.find((change) => change.kind === "text" && !!change.before && !!change.after) ??
+    changes.find((change) => change.kind === "text" && change.field !== "name" && change.field !== "title") ??
+    changes.find((change) => change.kind === "text") ??
+    changes[0]
   );
 }
 
@@ -221,16 +281,16 @@ function StateMark({ state }: { state: MariReceiptState }) {
   if (state === "old") return null;
   if (state === "undone") {
     return (
-      <span className="mari-receipt__state" data-state="undone">
+      <span className="mari-receipt__state" data-tone="muted">
         <Undo2 aria-hidden="true" />
         {t("ui.chat.mariappliededit.undone")}
       </span>
     );
   }
   return (
-    <span className="mari-receipt__state">
+    <span className="mari-receipt__state" data-tone="ok">
       <Check aria-hidden="true" />
-      {t(state === "kept" ? "ui.chat.mariappliededit.kept" : "ui.chat.marichangereceipt.saved")}
+      {t("ui.chat.marichangereceipt.applied")}
     </span>
   );
 }
@@ -254,7 +314,7 @@ export function MariChangeReceipt({
 }) {
   const { t, i18n } = useUiTranslation();
   const lang = i18n.resolvedLanguage ?? "en";
-  const [openIndex, setOpenIndex] = useState<number | null>(null);
+  const [openRecords, setOpenRecords] = useState<ReadonlySet<number>>(() => new Set());
   const pendingIds = new Set(controls?.pending.keys() ?? []);
   const states = results.map((result) => mariReceiptState(result, pendingIds, controls?.answered));
   const ids = results.flatMap(mariReceiptReviewIds);
@@ -262,6 +322,7 @@ export function MariChangeReceipt({
     const approval = controls?.pending.get(id);
     return approval ? [approval] : [];
   });
+  // A "kept" answer is an applied change with its undo copy gone: it reads as applied, with no action.
   const state = states.includes("open")
     ? "open"
     : states.every((value) => value === states[0])
@@ -271,23 +332,27 @@ export function MariChangeReceipt({
         : "kept";
   const multi = results.length > 1;
   const why = (multi ? results.find((result) => result.reason)?.reason : results[0]?.reason) ?? fallbackWhy;
-  const date = (iso?: string) =>
-    iso && Number.isFinite(Date.parse(iso))
-      ? new Intl.DateTimeFormat(lang, { month: "short", day: "numeric" }).format(new Date(iso))
-      : null;
   const undoUntil = results
     .map((result) => result.undoUntil)
     .filter(Boolean)
     .sort()[0];
-  const answer = (keep: boolean, approvals = pending) =>
-    controls?.onAnswer(
-      // Undo newest first, so each restore finds the rows as the next-newer change left them.
-      keep ? approvals : [...approvals].sort((a, b) => Date.parse(b.requestedAt) - Date.parse(a.requestedAt)),
-      keep,
-    );
+  const deadline = state === "open" ? undoLabel(undoUntil, t, lang) : null;
   const busy = controls?.busy ?? false;
   const name = nameOf;
   const [firstId, ...otherIds] = pending.map((approval) => approval.id);
+  const undoAll = (approvals = pending) =>
+    // Undo newest first, so each restore finds the rows as the next-newer change left them.
+    controls?.onAnswer(
+      [...approvals].sort((a, b) => Date.parse(b.requestedAt) - Date.parse(a.requestedAt)),
+      false,
+    );
+  const toggle = (index: number) =>
+    setOpenRecords((current) => {
+      const next = new Set(current);
+      if (next.has(index)) next.delete(index);
+      else next.add(index);
+      return next;
+    });
 
   return (
     <section
@@ -309,20 +374,28 @@ export function MariChangeReceipt({
       {otherIds.map((id) => (
         <span key={id} id={`mari-workspace-review-${id}`} data-review-id={id} hidden />
       ))}
+      {multi ? (
+        <div className="mari-receipt__group">
+          <span className="mari-receipt__faces">
+            {results.slice(0, 3).map((result) => (
+              <span key={`${result.resource.kind}:${result.resource.id}`}>{faceOf(result)}</span>
+            ))}
+          </span>
+          <span>{t("ui.chat.marichangereceipt.labelMany", { count: results.length })}</span>
+        </div>
+      ) : null}
       {results.map((result, index) => {
-        const open = openIndex === index;
+        const open = openRecords.has(index);
+        const changes = result.changes ?? [];
+        const total = changes.length + (result.moreChanges ?? 0);
         const recordPending = mariReceiptReviewIds(result).flatMap((id) => {
           const approval = controls?.pending.get(id);
           return approval ? [approval] : [];
         });
+        const key = multi ? undefined : keyChange(result);
         return (
           <div key={`${result.resource.kind}:${result.resource.id}`} className="mari-receipt__record" data-open={open}>
-            <button
-              type="button"
-              className="mari-receipt__head"
-              aria-expanded={open}
-              onClick={() => setOpenIndex(open ? null : index)}
-            >
+            <div className="mari-receipt__head">
               <span className="mari-receipt__face">{faceOf(result)}</span>
               <span className="mari-receipt__text">
                 <span className="mari-receipt__name">
@@ -333,9 +406,21 @@ export function MariChangeReceipt({
                 </span>
                 <span className="mari-receipt__what">{receiptSummary(result, t, lang)}</span>
               </span>
-              {index === 0 ? <StateMark state={state} /> : null}
-              <ChevronRight className="mari-receipt__chevron" aria-hidden="true" />
-            </button>
+              <button
+                type="button"
+                className="mari-receipt__open"
+                aria-label={t("ui.chat.marichangereceipt.open", { name: name(result) })}
+                title={t("ui.chat.marichangereceipt.open", { name: name(result) })}
+                onClick={() => onOpen(result)}
+              >
+                <ExternalLink aria-hidden="true" />
+              </button>
+            </div>
+            {!open && key ? (
+              <div className="mari-receipt__folded">
+                <FieldView change={key} folded />
+              </div>
+            ) : null}
             {open ? (
               <div className="mari-receipt__body">
                 <Fields result={result} />
@@ -347,32 +432,43 @@ export function MariChangeReceipt({
                 <div className="mari-receipt__links">
                   <button type="button" className="mari-link" onClick={() => onOpen(result)}>
                     {t("ui.chat.marichangereceipt.open", { name: name(result) })}
-                    <ChevronRight aria-hidden="true" />
+                    <ExternalLink aria-hidden="true" />
                   </button>
                   {multi && recordPending.length > 0 ? (
                     <button
                       type="button"
                       className="mari-link"
                       disabled={busy}
-                      onClick={() => answer(false, recordPending)}
+                      onClick={() => undoAll(recordPending)}
                     >
                       <Undo2 aria-hidden="true" />
                       {t("ui.chat.marichangereceipt.undoOnly", { name: name(result) })}
                     </button>
                   ) : null}
-                  {controls?.renderDetails && recordPending.length > 0 ? (
+                  {controls?.renderRaw && recordPending.length > 0 ? (
                     <details className="mari-receipt__details">
                       <summary className="mari-link">{t("ui.chat.mariapprovalcard.technicalDetails")}</summary>
                       {recordPending.map((approval) => (
-                        <div key={approval.id}>{controls.renderDetails?.(approval)}</div>
+                        <div key={approval.id}>{controls.renderRaw?.(approval)}</div>
                       ))}
                     </details>
                   ) : null}
                 </div>
               </div>
-            ) : multi ? null : (
-              <Preview result={result} />
-            )}
+            ) : null}
+            {(multi ? total > 0 : total > 1) ? (
+              <button
+                type="button"
+                className="mari-receipt__more"
+                aria-expanded={open}
+                onClick={() => toggle(index)}
+              >
+                {open
+                  ? t("ui.chat.marichangereceipt.showLess")
+                  : t("ui.chat.marichangereceipt.showAll", { count: total })}
+                <ChevronDown className="mari-receipt__chev" aria-hidden="true" />
+              </button>
+            ) : null}
           </div>
         );
       })}
@@ -383,35 +479,42 @@ export function MariChangeReceipt({
           </p>
         ) : null}
         <span className="mari-receipt__actions">
-          {state === "open" ? (
+          {state === "undone" ? (
             <>
-              {date(undoUntil) ? (
+              <StateMark state="undone" />
+              <span className="mari-receipt__muted">{t("ui.chat.marichangereceipt.restored")}</span>
+            </>
+          ) : state === "old" ? (
+            multi ? null : (
+              <button type="button" className="mari-link" onClick={() => onOpen(results[0]!)}>
+                {t("ui.chat.marichangereceipt.open", { name: name(results[0]!) })}
+                <ExternalLink aria-hidden="true" />
+              </button>
+            )
+          ) : (
+            <>
+              <StateMark state={state === "open" || state === "kept" || state === "saved" ? "kept" : state} />
+              {state === "closed" ? (
                 <span className="mari-receipt__muted">
-                  {t("ui.chat.marichangereceipt.undoUntil", { date: date(undoUntil) })}
+                  {undoUntil && Date.parse(undoUntil) < Date.now()
+                    ? t("ui.chat.marichangereceipt.undoClosedOn", {
+                        date: new Intl.DateTimeFormat(lang, { month: "short", day: "numeric" }).format(
+                          new Date(undoUntil),
+                        ),
+                      })
+                    : t("ui.chat.marichangereceipt.undoClosed")}
                 </span>
               ) : null}
-              <button type="button" className="mari-link" disabled={busy} onClick={() => answer(false)}>
-                <Undo2 aria-hidden="true" />
-                {t(multi ? "ui.chat.marichangereceipt.undoAll" : "ui.chat.mariappliededit.undo")}
-              </button>
-              <button type="button" className="mari-btn" disabled={busy} onClick={() => answer(true)}>
-                {t(multi ? "ui.chat.marichangereceipt.keepAll" : "ui.chat.mariappliededit.keep")}
-              </button>
+              {state === "saved" ? <span className="mari-receipt__muted">{t("ui.chat.marichangereceipt.noUndo")}</span> : null}
+              {deadline ? <span className="mari-receipt__muted">{deadline}</span> : null}
+              {state === "open" ? (
+                <button type="button" className="mari-btn" disabled={busy} onClick={() => undoAll()}>
+                  <Undo2 aria-hidden="true" />
+                  {t(multi ? "ui.chat.marichangereceipt.undoAll" : "ui.chat.mariappliededit.undo")}
+                </button>
+              ) : null}
             </>
-          ) : state === "closed" ? (
-            <span className="mari-receipt__muted">
-              {undoUntil && Date.parse(undoUntil) < Date.now()
-                ? t("ui.chat.marichangereceipt.undoClosedOn", { date: date(undoUntil) })
-                : t("ui.chat.marichangereceipt.undoClosed")}
-            </span>
-          ) : state === "undone" ? (
-            <span className="mari-receipt__muted">{t("ui.chat.marichangereceipt.restored")}</span>
-          ) : state === "old" && !multi ? (
-            <button type="button" className="mari-link" onClick={() => onOpen(results[0]!)}>
-              {t("ui.chat.marichangereceipt.open", { name: name(results[0]!) })}
-              <ChevronRight aria-hidden="true" />
-            </button>
-          ) : null}
+          )}
         </span>
       </div>
     </section>

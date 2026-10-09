@@ -94,7 +94,13 @@ import { useChatStore } from "../../stores/chat.store";
 import { useAgentStore } from "../../stores/agent.store";
 import { useSidecarStore } from "../../stores/sidecar.store";
 import { useUIStore } from "../../stores/ui.store";
-import { DeleteReviewCard, MariHeldChangeCard, ResolvedPromptLine, WorkspaceApprovalCard } from "./MariApprovalCards";
+import {
+  DeleteReviewCard,
+  MariHeldChangeCard,
+  RawDetails,
+  ResolvedPromptLine,
+  WorkspaceApprovalCard,
+} from "./MariApprovalCards";
 import { type MariReceiptControls } from "./MariChangeReceipt";
 import { compareMariPanelItems, type MemoryDraftState, type SkillDraftState } from "./MariPanelControls";
 
@@ -2515,7 +2521,9 @@ export function HomeProfessorMariChat({
         approvals.map((approval) => ({ approval })),
         keep,
       ),
-    renderDetails: (approval) => renderTurnPrompt({ requestedAt: approval.requestedAt, approval, outcome: null }),
+    // Only a database review has a raw view; an install approval has none.
+    renderRaw: (approval) =>
+      "diffPreview" in approval ? <RawDetails approval={approval} open onToggle={() => undefined} /> : null,
   };
   const renderTurnReviews = (messageId: string): MariTurnReviews => {
     const message = displayMessages.find((item) => item.id === messageId);

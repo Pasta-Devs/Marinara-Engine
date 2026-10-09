@@ -3365,15 +3365,19 @@ details[open] > .mari-disclosure .mari-disclosure__chevron {
   display: none;
 }
 
-/* Slice 74: what she changed, as a receipt - face, name, what changed in words, one before/after pair, her
-   reason, Keep / Undo. Calm: a hairline with a little of the "kept" green, one soft ring on arrival; the
-   "Needs you" accent stays with what waits for you. */
+/* Slice 74 / 87: what she changed, as a card - face, name, what changed in words, the changed fields in boxes
+   (a label, then the value as text: old words struck, new words marked), her reason, and one action while the
+   undo copy lasts. Calm: a hairline, a little "applied" green, one soft ring on arrival. Theme tokens only. */
 .mari-receipt {
   --mari-receipt-edge: calc(var(--mari-card-pad-inline) + 2rem + 0.65rem);
+  display: grid;
+  overflow: hidden;
   border-color: color-mix(in srgb, var(--mari-ok) 22%, var(--mari-hairline));
+  color: var(--foreground);
+  font-size: 0.8125rem;
 }
 
-.mari-receipt:is([data-state="undone"], [data-state="old"], [data-state="closed"]) {
+.mari-receipt:is([data-state="undone"], [data-state="old"], [data-state="closed"], [data-state="saved"]) {
   border-color: var(--mari-hairline);
 }
 
@@ -3402,39 +3406,18 @@ details[open] > .mari-disclosure .mari-disclosure__chevron {
   flex: none;
 }
 
-.mari-receipt__record + .mari-receipt__record {
+.mari-receipt__record + .mari-receipt__record,
+.mari-receipt__group + .mari-receipt__record {
   border-top: 1px solid var(--mari-divider);
 }
 
+/* ---- head: face, name, what changed in words, and the quiet open icon (44 px target) ---- */
 .mari-receipt__head {
   display: flex;
-  width: 100%;
   min-width: 0;
-  min-height: 3.25rem;
   align-items: center;
   gap: 0.65rem;
-  padding: 0.65rem var(--mari-card-pad-inline) 0.45rem;
-  color: var(--foreground);
-  text-align: start;
-  transition: background-color 0.12s ease-out;
-}
-
-.mari-receipt[data-multi] .mari-receipt__head {
-  padding-block: 0.55rem;
-}
-
-.mari-receipt__head:hover {
-  background: var(--mari-hover);
-}
-
-.mari-receipt__head:focus-visible {
-  outline: 2px solid var(--ring);
-  outline-offset: -2px;
-}
-
-.mari-receipt__face {
-  display: inline-flex;
-  flex: none;
+  padding: 0.7rem var(--mari-card-pad-inline) 0.4rem;
 }
 
 .mari-receipt__face .mari-face {
@@ -3465,7 +3448,6 @@ details[open] > .mari-disclosure .mari-disclosure__chevron {
   min-width: 0;
   align-items: center;
   gap: 0.4rem;
-  font-size: 0.8125rem;
   font-weight: 600;
 }
 
@@ -3476,203 +3458,363 @@ details[open] > .mari-disclosure .mari-disclosure__chevron {
 }
 
 .mari-receipt__what {
-  color: color-mix(in srgb, var(--foreground) 78%, transparent);
-  font-size: var(--mari-card-fact);
+  display: block;
+  color: color-mix(in srgb, var(--foreground) 72%, transparent);
+  font-size: var(--mari-card-fact, 0.75rem);
   line-height: 1.35;
 }
 
-.mari-receipt[data-state="undone"] :is(.mari-receipt__what, .mari-receipt__preview) {
-  opacity: 0.55;
-}
-
-.mari-receipt__state {
+.mari-receipt__open {
   display: inline-flex;
+  width: 2.75rem;
+  height: 2.75rem;
+  margin: -0.5rem -0.6rem -0.5rem 0;
   flex: none;
   align-items: center;
-  gap: 0.25rem;
-  color: var(--mari-ok);
+  justify-content: center;
+  border-radius: 0.6rem;
+  color: var(--muted-foreground);
+}
+
+.mari-receipt__open:hover {
+  background: var(--mari-hover);
+  color: var(--foreground);
+}
+
+.mari-receipt__open:focus-visible,
+.mari-receipt__more:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: -2px;
+}
+
+/* several records: one group line, then a row per record */
+.mari-receipt__group {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.7rem var(--mari-card-pad-inline) 0.55rem;
+  border-bottom: 1px solid var(--mari-divider);
+  font-weight: 600;
+}
+
+.mari-receipt__faces {
+  display: inline-flex;
+  flex: none;
+}
+
+.mari-receipt__faces .mari-face {
+  width: 1.6rem;
+  height: 1.6rem;
+  margin: 0;
   font-size: 0.75rem;
-  font-weight: 500;
+  box-shadow: 0 0 0 2px var(--mari-card-bg, var(--card));
 }
 
-.mari-receipt__state[data-state="undone"] {
-  color: var(--muted-foreground);
+.mari-receipt__faces > span + span {
+  margin-inline-start: -0.45rem;
 }
 
-.mari-receipt__chevron {
-  color: var(--muted-foreground);
-  transition: transform 0.15s ease-out;
+.mari-receipt[data-multi] .mari-receipt__head {
+  padding-block: 0.55rem 0.3rem;
 }
 
-.mari-receipt__record[data-open="true"] .mari-receipt__chevron {
-  transform: rotate(90deg);
+/* ---- folded: one key field, two lines ---- */
+.mari-receipt__folded {
+  margin: 0.15rem var(--mari-card-pad-inline) 0.2rem var(--mari-receipt-edge);
 }
 
-/* Folded: one field as − / + lines with a gutter sign (both marks, not just colour). */
-.mari-receipt__preview {
+/* ---- fields: a label, then the value in a box ---- */
+.mari-receipt__body {
+  display: grid;
+  gap: 0.7rem;
+  margin: 0.15rem var(--mari-card-pad-inline) 0.2rem var(--mari-receipt-edge);
+}
+
+.mari-receipt__field {
   display: grid;
   min-width: 0;
-  gap: 0.15rem;
-  margin: 0 var(--mari-card-pad-inline) 0 var(--mari-receipt-edge);
-  padding-block: 0.1rem 0.35rem;
-  font-size: 0.8125rem;
+  gap: 0.3rem;
 }
 
 .mari-receipt__label {
   color: var(--muted-foreground);
-  font-size: 0.6875rem;
-  font-weight: 500;
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 
-.mari-receipt__line {
-  display: flex;
-  min-width: 0;
-  gap: 0.4rem;
-  border-radius: 0.35rem;
-  padding: 0.12rem 0.45rem 0.12rem 0.35rem;
-  line-height: 1.45;
-}
-
-.mari-receipt__line > :last-child {
-  min-width: 0;
+.mari-receipt__field--folded .mari-receipt__box,
+.mari-receipt__field--folded .mari-receipt__entries {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
-.mari-receipt__line--del {
-  background: color-mix(in srgb, var(--destructive) 7%, transparent);
+.mari-receipt__box {
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--foreground) 5%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--foreground) 6%, transparent);
+  padding: 0.45rem 0.6rem;
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.mari-receipt__box + .mari-receipt__box {
+  margin-top: 0.3rem;
+}
+
+/* Old words struck and muted on a faint red; new words underlined on a faint green: two marks, not colour only. */
+.mari-receipt del {
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--destructive) 12%, transparent);
   color: var(--muted-foreground);
-}
-
-.mari-receipt__line--del del {
   text-decoration: line-through 1px;
 }
 
-.mari-receipt__line--ins {
-  background: color-mix(in srgb, var(--mari-ins-line) 12%, transparent);
+.mari-receipt ins {
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--mari-ins-line) 18%, transparent);
+  text-decoration: underline 1px var(--mari-ins-line);
+  text-underline-offset: 3px;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
 }
 
-.mari-receipt__line--ins ins {
-  text-decoration: none;
+/* A rewrite: the old text struck in its own quiet box, the new text in a marked box under it. */
+.mari-receipt__box--old {
+  color: var(--muted-foreground);
+  background: color-mix(in srgb, var(--destructive) 5%, transparent);
+  box-shadow: inset 2px 0 0 color-mix(in srgb, var(--destructive) 45%, transparent);
 }
 
-.mari-receipt[data-state="undone"] .mari-receipt__line--ins ins {
-  text-decoration: line-through 1px;
+.mari-receipt__box--old del {
+  background: none;
 }
 
-.mari-receipt__sign {
-  flex: none;
-  width: 0.6rem;
-  font-weight: 600;
-  text-align: center;
+.mari-receipt__box--new {
+  background: color-mix(in srgb, var(--mari-ins-line) 9%, transparent);
+  box-shadow: inset 2px 0 0 var(--mari-ins-line);
 }
 
-.mari-receipt__line--del .mari-receipt__sign {
-  color: color-mix(in srgb, var(--destructive) 75%, var(--foreground));
+.mari-receipt__box--old + .mari-receipt__box--new {
+  margin-top: 0.25rem;
 }
 
-.mari-receipt__line--ins .mari-receipt__sign {
-  color: var(--mari-ok);
-}
-
-.mari-receipt__tag--edit::before {
-  margin-inline-end: 3px;
-  color: var(--mari-ok);
-  content: "~";
-  font-weight: 600;
-}
-
-/* Opened: every field. */
-.mari-receipt__body {
-  display: grid;
-  min-width: 0;
-  gap: 0.7rem;
-  margin: 0.15rem var(--mari-card-pad-inline) 0.5rem var(--mari-receipt-edge);
-}
-
-/* The links' own padding hangs into the margin, so their words line up with the fields above. */
-.mari-receipt__links {
+.mari-receipt__value {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.25rem 0.25rem;
-  margin-inline-start: -0.5rem;
+  gap: 0.4rem;
+  font-variant-numeric: tabular-nums;
 }
 
-.mari-receipt .mari-link {
-  display: inline-flex;
+.mari-receipt__value > * {
+  border-radius: 0.4rem;
+  padding: 0.1rem 0.45rem;
+  background: color-mix(in srgb, var(--foreground) 5%, transparent);
+}
+
+.mari-receipt__arrow {
+  color: var(--muted-foreground);
+}
+
+.mari-receipt__entries {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.mari-receipt__entry {
+  display: grid;
+  gap: 0.3rem;
+  border-radius: 0.55rem;
+  background: color-mix(in srgb, var(--foreground) 4%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--foreground) 6%, transparent);
+  padding: 0.5rem 0.6rem;
+}
+
+.mari-receipt__entry-name {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 600;
+}
+
+.mari-receipt__entry-text {
+  color: color-mix(in srgb, var(--foreground) 88%, transparent);
+  line-height: 1.5;
+}
+
+.mari-receipt__chips {
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.3rem;
 }
 
-.mari-receipt__details {
-  flex-basis: 100%;
+.mari-receipt__chip {
+  display: inline-flex;
+  min-height: 1.375rem;
+  align-items: center;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--foreground) 8%, var(--background));
+  padding-inline: 0.5rem;
+  font-size: 0.6875rem;
+  font-weight: 500;
+}
+
+.mari-receipt__chip--ins {
+  background: color-mix(in srgb, var(--mari-ins-line) 18%, transparent);
+}
+
+.mari-receipt__chip--ins::before {
+  content: "+";
+  margin-inline-end: 3px;
+  color: var(--mari-ok);
+  font-weight: 600;
+}
+
+.mari-receipt__chip--del {
+  background: none;
+  color: var(--muted-foreground);
+  text-decoration: line-through 1px;
+  box-shadow: inset 0 0 0 1px var(--mari-hairline);
+}
+
+.mari-receipt__muted {
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
 }
 
 .mari-receipt__details > summary {
-  width: fit-content;
-  list-style: none;
   cursor: pointer;
+  list-style: none;
 }
 
 .mari-receipt__details > summary::-webkit-details-marker {
   display: none;
 }
 
-/* Foot: her reason, then the undo window and Keep / Undo. */
-.mari-receipt__foot {
+.mari-receipt__links {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.25rem 0.75rem;
-  margin-inline: var(--mari-receipt-edge) var(--mari-card-pad-inline);
-  padding-block: 0.3rem 0.55rem;
+  gap: 0.25rem 0.9rem;
+  font-size: 0.75rem;
 }
 
-.mari-receipt[data-multi] .mari-receipt__foot {
-  border-top: 1px solid var(--mari-divider);
-  padding-top: 0.5rem;
+.mari-receipt .mari-link {
+  min-height: 2.25rem;
+  padding-inline: 0;
 }
 
-.mari-receipt__foot:not(:has(.mari-receipt__why, .mari-receipt__actions > *)) {
-  display: none;
+.mari-receipt .mari-link svg {
+  width: 0.75rem;
+  height: 0.75rem;
+}
+
+/* "Show all 14 fields": a real button, the whole width, never a dead "N more" line. */
+.mari-receipt__more {
+  display: flex;
+  width: 100%;
+  min-height: 2.75rem;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0 var(--mari-card-pad-inline) 0 var(--mari-receipt-edge);
+  color: color-mix(in srgb, var(--foreground) 80%, transparent);
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-align: start;
+}
+
+.mari-receipt__more:hover {
+  background: var(--mari-hover);
+  color: var(--foreground);
+}
+
+.mari-receipt__chev {
+  transition: transform 0.15s ease-out;
+}
+
+.mari-receipt__record[data-open="true"] .mari-receipt__chev {
+  transform: rotate(180deg);
 }
 
 .mari-receipt__why {
-  min-width: 0;
-  flex: 1 1 16rem;
-  margin: 0;
-  color: color-mix(in srgb, var(--foreground) 72%, transparent);
-  font-size: 0.75rem;
-  line-height: 1.4;
+  margin: 0.35rem var(--mari-card-pad-inline) 0 var(--mari-receipt-edge);
+  color: var(--muted-foreground);
+  font-size: var(--mari-card-fact, 0.75rem);
+  line-height: 1.45;
 }
 
 .mari-receipt__why > b {
-  margin-inline-end: 0.2rem;
-  color: var(--muted-foreground);
+  margin-inline-end: 0.3rem;
+  color: var(--foreground);
   font-weight: 600;
+}
+
+/* ---- foot: Why, then the state in words and at most one main action ---- */
+.mari-receipt__foot {
+  display: flex;
+  min-height: 3rem;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem 0.75rem;
+  margin-top: 0.35rem;
+  border-top: 1px solid var(--mari-divider);
+  padding: 0.35rem var(--mari-card-pad-inline) 0.35rem var(--mari-receipt-edge);
+}
+
+.mari-receipt__foot .mari-receipt__why {
+  margin: 0;
 }
 
 .mari-receipt__actions {
   display: inline-flex;
-  flex: none;
+  min-width: 0;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem;
   margin-inline-start: auto;
 }
 
-.mari-receipt__muted {
-  margin: 0;
-  color: var(--muted-foreground);
+.mari-receipt__state {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
   font-size: 0.75rem;
+  font-weight: 500;
 }
 
-/* A narrow card: the folded lines, the body and the foot use the whole width under the face. */
+.mari-receipt__state[data-tone="ok"] {
+  color: var(--mari-ok);
+}
+
+.mari-receipt__state[data-tone="muted"] {
+  color: var(--muted-foreground);
+}
+
+.mari-receipt__actions .mari-btn,
+.mari-receipt__actions .mari-link {
+  min-height: 2.75rem;
+}
+
+.mari-receipt__actions .mari-btn svg {
+  margin-inline-end: 0.3rem;
+}
+
+.mari-receipt[data-state="undone"] .mari-receipt__folded,
+.mari-receipt[data-state="undone"] .mari-receipt__what {
+  opacity: 0.55;
+}
+
 @container (width < 26rem) {
-  .mari-receipt__preview,
   .mari-receipt__body,
+  .mari-receipt__folded,
   .mari-receipt__foot {
     margin-inline-start: var(--mari-card-pad-inline);
   }

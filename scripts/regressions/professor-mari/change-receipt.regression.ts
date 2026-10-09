@@ -3,6 +3,7 @@
 // pins record building, the size cap, the merge of one run's commands, the old-message fallback state and
 // the Keep / Undo outcome write-back.
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import type { FastifyInstance } from "fastify";
 
 import {
@@ -336,5 +337,11 @@ function gandalfResult(): MariWorkspaceActionResult {
     summary: "Updated character “Gandalf”.",
   };
 }
+
+// Slice 87: the card has no Keep (an applied change is saved; Undo is the only answer), and every changed
+// field stays reachable behind "Show all".
+const card = readFileSync(new URL("../../../packages/client/src/components/chat/MariChangeReceipt.tsx", import.meta.url), "utf8");
+assert.doesNotMatch(card, /mariappliededit\.keep|marichangereceipt\.keepAll|, true\)/u, "a change card has no Keep");
+assert.match(card, /marichangereceipt\.showAll/u, "every changed field is reachable from the card");
 
 console.log("change-receipt regression passed");

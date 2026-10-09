@@ -44,7 +44,7 @@ function formatRowPreview(row: Record<string, unknown> | null | undefined) {
 }
 
 /** Raw is one disclosure: the command Mari ran, then the snapshot of every row she created or removed. */
-function RawDetails({
+export function RawDetails({
   approval,
   open,
   onToggle,
@@ -217,20 +217,17 @@ function DatabaseWorkspaceApprovalCard({
                 disabled={busy || disabled}
                 className="mari-btn"
               >
-                {localizeUi("ui.chat.databaseworkspaceapprovalcard.keepAndEnable")}
+                {localizeUi("ui.chat.databaseworkspaceapprovalcard.turnOn")}
               </button>
             ) : null}
-            {/* R10: Keep is the one solid capsule where it is a real question; an applied change only
-                closes its undo window with it, so there it stays quiet. */}
-            <button
-              type="button"
-              onClick={() => onKeep(approval.id)}
-              disabled={busy || disabled}
-              className={cn("mari-btn", approval.kind !== "applied_review" && "mari-btn--solid")}
-            >
-              {busy ? <Loader2 size="0.8rem" className="animate-spin" aria-hidden="true" /> : null}
-              {localizeUi("ui.chat.mariappliededit.keep")}
-            </button>
+            {/* Slice 87: an applied change is already saved, so it has no Keep; Undo is the only answer. A
+                change still waiting for the user is a real question, so Apply is its one solid button. */}
+            {approval.kind === "applied_review" ? null : (
+              <button type="button" onClick={() => onKeep(approval.id)} disabled={busy || disabled} className="mari-btn mari-btn--solid">
+                {busy ? <Loader2 size="0.8rem" className="animate-spin" aria-hidden="true" /> : null}
+                {localizeUi("ui.chat.mariappliededit.apply")}
+              </button>
+            )}
           </>
         }
       />

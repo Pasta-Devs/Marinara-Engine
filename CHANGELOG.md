@@ -4,6 +4,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- Professor Mari's change card lists every field it changed, not a count. Each field has its label and its value: a text edit shows the old and new words, a lorebook shows its entries with their keys and text, and a new character's settings sit together at the end. Open a field to see the rest, and **Technical details** shows the raw command. The card has one action, **Undo**, and no **Keep**: an applied change is already saved. The undo deadline appears only in the last 24 hours.
 - Quick answers in Search are off by default. Turn them on in Search and Professor Mari settings › Quick answers.
 - Professor Mari's quick answers and the bulk skip of agent updates have their own request limits, so a runaway script cannot flood the model or the package catalog.
 - Every change Professor Mari applies can be undone in every permissions mode. Accept edits and Bypass permissions still skip her question, but they no longer skip the undo copy. Before, a change in those modes could not be undone from her chat.
