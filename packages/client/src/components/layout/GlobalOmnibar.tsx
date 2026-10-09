@@ -1318,6 +1318,10 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
       openProfessorMari(result, { submitDraft: mariSends(result) });
       return;
     }
+    if (result.id === "open-professor-mari") {
+      openProfessorMari(null, { arrival: true });
+      return;
+    }
     if (result.id === "ask-professor-mari") {
       if (result.group === "continue") {
         // The continue row resumes existing work, so there is nothing to submit.

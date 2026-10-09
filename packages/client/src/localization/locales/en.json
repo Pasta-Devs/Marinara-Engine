@@ -1096,6 +1096,7 @@
   "commandCenter.now.setupDescription": "Replies need a model connection. Add one to start.",
   "commandCenter.now.setupTitle": "No model connected yet",
   "commandCenter.open": "Open",
+  "commandCenter.openMari": "Open Mari",
   "commandCenter.placeholder": "Search everything, or narrow with faq:, docs:, msg:, char:",
   "commandCenter.placeholderIdleShort": "Search or ask Mari",
   "commandCenter.placeholderShort": "Search everything",

@@ -65,6 +65,15 @@ const MAX_GLOBAL_MESSAGE_SEARCH_RESULTS = 6;
  */
 const CHAT_CONTEXT_MAX_RESULTS = 8;
 const MAX_SLASH_RESULTS = 8;
+/** UX-01: the words that mean "open Professor Mari" on their own. */
+const OPEN_MARI_QUERIES: ReadonlySet<string> = new Set([
+  "mari",
+  "professor",
+  "professor mari",
+  "ask mari",
+  "open mari",
+  "assistant",
+]);
 function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -299,7 +308,8 @@ export type OmnibarRemovalSuggestionsInput = {
 export type OmnibarContinueResultInput = {
   mariEnabled: boolean;
   t: OmnibarTranslate;
-  workspaceStatus: { active?: boolean; pendingApprovals: readonly Parameters<typeof isMariReviewWaiting>[0][] } | undefined;
+  workspaceStatus:
+    { active?: boolean; pendingApprovals: readonly Parameters<typeof isMariReviewWaiting>[0][] } | undefined;
   /** A task the user handed to Mari that she has since finished. */
   mariFinished?: boolean;
 };
@@ -700,12 +710,29 @@ export function buildOmnibarSearchResults({
   // frecency boost - "never moves Mari's row" means never decides it either.
   // bestMatchScore/directResult/clearDirect are computed from the pre-boost
   // scores below; the boost is applied only afterwards, to final ordering.
-  const preBoostResults = searchOmnibar(query, {
-    ...data,
-    controls: [...controls, ...chatControls, ...controlChoices],
-    context: omnibarContext,
-    contextLabels,
-  })
+  // UX-01: typing her name opens her, as Ctrl+J does. Without this row "mari" only found settings rows.
+  const openMariRows: OmnibarResult[] =
+    mariEnabled && OPEN_MARI_QUERIES.has(normalizeTextForMatch(trimmedQuery))
+      ? [
+          {
+            id: "open-professor-mari",
+            title: t("commandCenter.openMari", "Open Mari"),
+            category: "professor",
+            score: 1000,
+            kind: "action",
+            icon: "professor",
+          },
+        ]
+      : [];
+  const preBoostResults = [
+    ...openMariRows,
+    ...searchOmnibar(query, {
+      ...data,
+      controls: [...controls, ...chatControls, ...controlChoices],
+      context: omnibarContext,
+      contextLabels,
+    }),
+  ]
     .filter((result) => mariEnabled || result.id !== "ask-professor-mari")
     // A control's values were never part of the set this ranking was tuned on.
     // Damp them so they surface on a deliberate "gpt" and never crowd a real hit.

@@ -1554,6 +1554,47 @@ assert.ok(!("mariDetailId" in mariSession));
   );
 }
 
+// UX-01: typing her name first opens her; the row is the same door as Ctrl+J.
+{
+  const searchInput = (deferredQuery: string, mariOn = true) => ({
+    chatControls: [],
+    contextLabels: {},
+    controls: [],
+    data: { commands: [], chats: [], resources: [], connections: [], askProfessorTitle: "Ask" },
+    deferredQuery,
+    docsResults: [],
+    faqItems: [],
+    getFaqSearchText: () => "",
+    localize: (text: string) => text,
+    mariEnabled: mariOn,
+    omnibarContext: {
+      surface: "home",
+      surfaceResultIds: [],
+      editorDirty: false,
+      recentResultIds: [],
+      setupResultIds: [],
+    } as never,
+    t: ((_key: string, fallback?: string) => fallback ?? _key) as never,
+  });
+  for (const word of ["mari", "Professor", "ask mari", "open mari"]) {
+    assert.equal(
+      buildOmnibarSearchResults(searchInput(word))[0]?.id,
+      "open-professor-mari",
+      `UX-01: "${word}" opens Mari first`,
+    );
+  }
+  assert.equal(
+    buildOmnibarSearchResults(searchInput("mari", false)).some((result) => result.id === "open-professor-mari"),
+    false,
+    "UX-01: no Open Mari row while Mari is off",
+  );
+  assert.notEqual(
+    buildOmnibarSearchResults(searchInput("mari appearance"))[0]?.id,
+    "open-professor-mari",
+    "UX-01: a longer query keeps its own first row",
+  );
+}
+
 // Slice 41 (F1): a direct message/entry hit must outrank the Mari fallback promotion.
 {
   const identity = (text: string) => text;
