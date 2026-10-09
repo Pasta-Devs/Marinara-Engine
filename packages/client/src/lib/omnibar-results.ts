@@ -26,12 +26,14 @@ import { parseChatMetadata } from "./chat-display";
 import { countBlockingReviews, isMariReviewWaiting } from "./professor-mari-presentation";
 import { deriveActiveLorebookViews, getChatActiveLorebookIds, getChatExcludedLorebookIds } from "./chat-lorebooks";
 import { getChatCharacterIds } from "./chat-macros";
+import { formatRelativeContact } from "./relative-time";
 import { isLanguageGenerationConnection, type ConnectionProviderLike } from "./connection-filters";
 import type { DocsCommandSearchPassage } from "./docs-command-search";
 import type { OmnibarNamedRow, OmnibarTranslate } from "./omnibar-entity-rows";
 import { replyCheckupLabel, replyLineFindings } from "./reply-checkup";
 import type { ReplyCheckupFinding } from "@marinara-engine/shared";
 import {
+  findOmnibarMatchRange,
   getUnambiguousOmnibarResult,
   isOmnibarAddIntent,
   isOmnibarRefinableVerb,
@@ -413,10 +415,14 @@ export function buildOmnibarControlResults({
       // title. A section row's title already names the section, so it keeps the
       // one-level "sectionLabel" the registry gives it (the parent tab) instead of
       // repeating itself; same for a bare tab row.
-      description: `${
-        (setting.controlId && setting.sectionId ? settingsLocationPath(setting.sectionId, localize) : null) ??
-        localize(setting.sectionLabel)
-      } · ${localize(setting.description)}`,
+      // A description that only repeats the title ("Theme" under Theme) is left out.
+      description: (() => {
+        const path =
+          (setting.controlId && setting.sectionId ? settingsLocationPath(setting.sectionId, localize) : null) ??
+          localize(setting.sectionLabel);
+        const explanation = localize(setting.description);
+        return explanation === title ? path : `${path} · ${explanation}`;
+      })(),
       kind: "settings" as const,
       icon: "settings" as const,
       // Bound toggles flip in place instead of only navigating to the tab (K5).
@@ -812,6 +818,8 @@ export function buildOmnibarSearchResults({
       )
       .map((result) => ({
         ...result,
+        // The matched passage is the reason this page is listed, so it is the row's line 2.
+        description: result.snippet,
         category: "docs" as const,
         action: { kind: "open-docs", path: result.path } as const,
         preview: () => ({
@@ -927,6 +935,7 @@ export function buildOmnibarGlobalMessageResults({
         action: { kind: "goto-message", chatId: hit.chatId, messageNumber: hit.messageNumber },
         title: hit.speaker ?? t("home.recentChats.you", "You"),
         description: hit.snippet,
+        meta: formatRelativeContact(hit.createdAt) ?? undefined,
         category: "chat",
         group: "messages",
         score: 300 - rows.length,
@@ -987,11 +996,20 @@ export function buildOmnibarLorebookEntryResults({
   if (query.trim().length < MIN_MESSAGE_SEARCH_LENGTH) return [];
   return entries.map((entry, index) => {
     const book = lorebookNameById.get(entry.lorebookId) ?? t("commandCenter.entries.unknownBook", "Lorebook");
+    // Line 3 only when the entry's text is what matched, not its name or keys.
+    const excerpt = normalizeTextForMatch(entry.content).includes(normalizeTextForMatch(query))
+      ? getMessageSearchSnippet(entry.content, query)
+      : undefined;
     return {
       id: `lorebook-entry:${entry.lorebookId}:${entry.id}`,
       action: { kind: "open-lorebook-entry" as const, lorebookId: entry.lorebookId, entryId: entry.id },
       title: entry.name.trim() || entry.keys.join(", ") || t("commandCenter.entries.untitled", "Untitled entry"),
-      description: `${book} · ${getMessageSearchSnippet(entry.content, query) || entry.keys.join(", ")}`,
+      description: entry.keys.length
+        ? t("commandCenter.entries.keys", "Keys: {{keys}}", { keys: entry.keys.join(", ") })
+        : undefined,
+      meta: book,
+      excerpt,
+      excerptMatch: excerpt ? findOmnibarMatchRange(query, excerpt) : null,
       category: "lorebook" as const,
       group: "lorebook-entries" as const,
       score: 270 - index,

@@ -1033,6 +1033,7 @@
   "commandCenter.enter.search": "Search",
   "commandCenter.enter.start": "Start",
   "commandCenter.enter.try": "Try",
+  "commandCenter.entries.keys": "Keys: {{keys}}",
   "commandCenter.entries.unknownBook": "Lorebook",
   "commandCenter.entries.untitled": "Untitled entry",
   "commandCenter.error.close": "Close",

@@ -6,7 +6,15 @@
  * `preview` stays a thunk: preview data is only built for the focused row, so
  * building it here for every entity would undo that.
  */
-import type { Chat, HomeRecentMessagePreview, Lorebook, Persona, PromptPreset } from "@marinara-engine/shared";
+import {
+  PROVIDERS,
+  type APIProvider,
+  type Chat,
+  type HomeRecentMessagePreview,
+  type Lorebook,
+  type Persona,
+  type PromptPreset,
+} from "@marinara-engine/shared";
 import type { AgentConfigRow } from "../hooks/use-agents";
 import type {
   CommandCenterCategoryLabels,
@@ -448,6 +456,8 @@ export function buildOmnibarConnectionRows({ connections, categoryLabels, t }: O
     const record = item as Record<string, unknown>;
     const provider = typeof record.provider === "string" ? record.provider : undefined;
     const model = typeof record.model === "string" ? record.model : undefined;
+    // The raw id ("custom") is never shown; the provider's display name is.
+    const providerLabel = provider ? (PROVIDERS[provider as APIProvider]?.name ?? provider) : undefined;
     const imagePath = typeof record.imagePath === "string" ? record.imagePath : undefined;
     return [
       {
@@ -460,7 +470,7 @@ export function buildOmnibarConnectionRows({ connections, categoryLabels, t }: O
           kind: "connection" as const,
           title: row.name,
           categoryLabel: categoryLabels.connection,
-          subtitle: provider,
+          subtitle: [model, providerLabel].filter(Boolean).join(" · ") || undefined,
           media: imagePath ? { src: imagePath, alt: row.name, kind: "artwork" as const } : undefined,
           status:
             record.isDefault === true

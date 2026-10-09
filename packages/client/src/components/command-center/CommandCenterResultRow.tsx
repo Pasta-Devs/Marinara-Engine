@@ -19,6 +19,9 @@ export interface CommandCenterResultRowProps {
   metadata: string | null;
   /** The span of `metadata` that matched the search, if any. */
   metadataHighlight?: CommandCenterResultHighlight | null;
+  /** Line 3: the text that proves the match, shown only when there is one. */
+  excerpt?: string;
+  excerptHighlight?: CommandCenterResultHighlight | null;
   tertiaryMetadata?: ReactNode;
   icon: LucideIcon;
   /** What the row is (Q6): badges a portrait, and names the row's kind for anything without one. */
@@ -32,6 +35,8 @@ export interface CommandCenterResultRowProps {
   mediaKind?: CommandCenterMediaKind;
   avatarCropStyle?: CSSProperties;
   groupClassName?: string;
+  /** Title and metadata share one line (a hit under its chat): the title keeps its width, the metadata takes the rest. */
+  inline?: boolean;
   accent?: string | null;
   control?: ReactNode;
   /**
@@ -78,6 +83,8 @@ export function CommandCenterResultRow({
   titleHighlight,
   metadata,
   metadataHighlight,
+  excerpt,
+  excerptHighlight,
   tertiaryMetadata,
   icon,
   type,
@@ -89,6 +96,7 @@ export function CommandCenterResultRow({
   mediaKind,
   avatarCropStyle,
   groupClassName,
+  inline,
   accent,
   control,
   expanded,
@@ -137,19 +145,29 @@ export function CommandCenterResultRow({
           faces={faces}
           faceCount={faceCount}
         />
-        <span className="min-w-0 leading-tight">
-          <span className="block truncate text-sm font-semibold">{highlightSpan(title, titleHighlight)}</span>
+        <span className={cn("min-w-0 leading-tight", inline && metadata && !expanded && "flex items-baseline gap-2")}>
+          <span
+            className={cn("block truncate text-sm font-semibold", inline && metadata && !expanded && "shrink-0 max-w-[40%]")}
+          >
+            {highlightSpan(title, titleHighlight)}
+          </span>
           {metadata ? (
             <span
               id={id ? `${id}-metadata` : undefined}
               className={cn(
-                "mt-0.5 block text-xs text-[var(--muted-foreground)]",
+                "block text-xs text-[var(--muted-foreground)]",
+                inline && !expanded ? "min-w-0 flex-1 truncate" : "mt-0.5",
                 // Expanded, the line carries the description (max two lines) so the
                 // body below never repeats it.
                 expanded ? "line-clamp-2 break-words" : "truncate",
               )}
             >
               {highlightSpan(metadata, metadataHighlight)}
+            </span>
+          ) : null}
+          {excerpt && !expanded ? (
+            <span className="block truncate text-xs text-[var(--foreground)]/80">
+              {highlightSpan(excerpt, excerptHighlight)}
             </span>
           ) : null}
         </span>

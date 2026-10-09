@@ -177,6 +177,8 @@ export function OmnibarResultList({
                       // contextLabel or preview subtitle shown in its place is
                       // different text, so it gets no highlight rather than a wrong one.
                       metadataHighlight={!result.contextLabel && !preview?.subtitle ? row.descriptionMatch : null}
+                      excerpt={result.excerpt}
+                      excerptHighlight={result.excerptMatch}
                       tertiaryMetadata={
                         <>
                           {result.meta ? <span className="shrink-0">{result.meta}</span> : null}
@@ -223,6 +225,7 @@ export function OmnibarResultList({
                       mediaKind={row.kind}
                       avatarCropStyle={row.avatarCropStyle}
                       groupClassName={visual.groupClassName}
+                      inline={Boolean(result.parentId)}
                       accent={row.accent}
                       setupStatus={setupStatus}
                       enterHint={

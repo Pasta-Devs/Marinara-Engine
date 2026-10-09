@@ -86,6 +86,9 @@ export type OmnibarResult = {
   meta?: string;
   /** The row this one belongs to: a hit line under its chat row. */
   parentId?: string;
+  /** Line 3: the text that proves a match (a lorebook entry's content). */
+  excerpt?: string;
+  excerptMatch?: OmnibarMatchRange | null;
   /** Internal search tier used to discard fuzzy rows once a literal match exists. */
   matchKind?: "literal" | "fuzzy";
   /** Where the query hit `title`/`description`, for highlighting. Null when no cheap literal span exists. */
