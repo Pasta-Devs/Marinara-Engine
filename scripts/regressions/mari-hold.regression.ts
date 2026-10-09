@@ -41,12 +41,12 @@ assert.ok(Math.abs(spring.x - 200) < 0.5, `spring settles on the pointer, got ${
 assert.ok(Math.abs(wrapMariAngle(3.5) - (3.5 - 2 * Math.PI)) < 1e-9, "angles past π wrap");
 assert.ok(Math.abs(wrapMariAngle(-3.5) - (2 * Math.PI - 3.5)) < 1e-9, "angles past -π wrap");
 
-// A circular drag (110 px circle, 1 Hz, on a pivot that moves with it) turns her fully over: she
+// A vigorous circular drag (160 px circle, 1.5 Hz, on a pivot that moves with it) turns her fully over: she
 // reaches π, past upside down, and one full turn is counted by the wraps.
 const circle = (frame: number) => {
   const t = frame / 60;
-  const w = 2 * Math.PI;
-  return { x: -110 * w * w * Math.cos(w * t), y: -110 * w * w * Math.sin(w * t) };
+  const w = 2 * Math.PI * 1.5;
+  return { x: -160 * w * w * Math.cos(w * t), y: -160 * w * w * Math.sin(w * t) };
 };
 let body = { angle: 0, omega: 0 };
 let peak = 0;
@@ -135,6 +135,23 @@ assert.equal(
   "a throw counts after the finger stops",
 );
 assert.equal(mariThrowPeak(throwPeak, 0, 300).v, 0, "an old throw is forgotten");
+
+// A 120 px sideways shake at 1.5 Hz, with the pivot on the app's spring as in the figure, wobbles her
+// but never spins her past 1.3 rad.
+let shakePivot = { x: 0, v: 0 };
+let shakeBody: MariPendulum = { angle: 0, omega: 0 };
+let shakePeak = 0;
+for (let frame = 0; frame < 6 * 60; frame += 1) {
+  const next = stepMariSpring(shakePivot, 120 * Math.sin((2 * Math.PI * 1.5 * frame) / 60), 520, 0.62, 1 / 60);
+  shakeBody = stepMariPendulum(shakeBody, { x: (next.v - shakePivot.v) * 60, y: 0 }, 1 / 60);
+  shakePivot = next;
+  shakePeak = Math.max(shakePeak, Math.abs(shakeBody.angle));
+}
+assert.ok(shakePeak < 1.3, `a 120 px shake at 1.5 Hz stays under 1.3 rad, got ${shakePeak}`);
+
+// After a bounce the pivot can still overlap the wall while it moves back inside: a retained throw must
+// not smash her a second time.
+assert.equal(stepMariWall({ x: 10, v: 300 }, -53, 53, 390, -1_200).smash, false, "a retained throw does not re-smash");
 
 // An upside-down figure hangs above her grab point, so the extent covers both sides of it.
 const upright = mariFigureExtent(0, 100, 160);

@@ -117,13 +117,13 @@ test("circling the pointer while holding her turns her upside down, and she sett
   const { figure, startX, startY } = await holdWidgetAndDrag(page);
   // Circle in the middle of the screen: a 390 px phone has no room for a circle around her corner, and a
   // pointer past the edge would hold her against the wall.
-  const radius = 90;
+  const radius = 160;
   const centreX = (page.viewportSize()?.width ?? 1440) / 2;
   const centreY = startY;
   let peak = 0;
   const started = Date.now();
   while (Date.now() - started < 3_000) {
-    const turn = ((Date.now() - started) / 1_000) * 2 * Math.PI;
+    const turn = ((Date.now() - started) / 1_000) * 1.5 * 2 * Math.PI;
     await page.mouse.move(centreX + radius * Math.cos(turn), centreY + radius * Math.sin(turn));
     peak = Math.max(peak, Math.abs(await figureAngle(figure)));
   }

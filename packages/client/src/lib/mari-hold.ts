@@ -69,17 +69,18 @@ export interface MariPivotAccel {
 }
 
 /**
- * The body hangs from the grab point (g/L 34, damping 3.2) and is a real pendulum: a sin restoring
- * torque, no limit, so a circular drag carries her over the top. The grab point's acceleration on
- * both axes drives it; 90 px/s² of pivot acceleration is one rad/s² of torque. Tuned by a simulated
- * 110 px circle at 1–1.5 Hz: it turns her fully over, and a still hand never does.
+ * The body hangs from the grab point (g/L 18, a 1.5 s period, damping 4.5) and is a real pendulum: a
+ * sin restoring torque, no limit, so a vigorous circular drag carries her over the top. The grab point's
+ * acceleration on both axes drives it; 160 px/s² of pivot acceleration is one rad/s² of torque. Tuned
+ * so a 120 px sideways shake at 1.5 Hz peaks near 1 rad, a gentle 110 px circle never flips her, and a
+ * 160 px circle at 1.5 Hz turns her fully over. A still hand never does.
  */
 export function stepMariPendulum(pendulum: MariPendulum, accel: MariPivotAccel, dt: number): MariPendulum {
   const { angle, omega } = pendulum;
   // The figure rotates with CSS `rotate()` about its top centre (clockwise = +angle), so the body sits at
   // (-sin, cos) from the grab point: the pivot's pseudo-force makes her lag behind the hand.
-  const drive = (accel.x * Math.cos(angle) + accel.y * Math.sin(angle)) / 90;
-  const nextOmega = omega + (-34 * Math.sin(angle) - 3.2 * omega + drive) * dt;
+  const drive = (accel.x * Math.cos(angle) + accel.y * Math.sin(angle)) / 160;
+  const nextOmega = omega + (-18 * Math.sin(angle) - 4.5 * omega + drive) * dt;
   return { angle: wrapMariAngle(angle + nextOmega * dt), omega: nextOmega };
 }
 
@@ -170,8 +171,9 @@ export function stepMariWall(
   // Moving into the wall: its speed is the impact. A push and a velocity with opposite signs mean that.
   // Moving back inside already: nothing to stop.
   const hitting = Math.sign(push) !== Math.sign(spring.v);
+  // The hand adds to a hit only while the pivot is hitting too: a bounce that still overlaps must not re-smash.
   const handHitting = Math.sign(handV) === -Math.sign(push);
-  const impact = Math.max(hitting ? Math.abs(spring.v) : 0, handHitting ? Math.abs(handV) : 0);
+  const impact = hitting ? Math.max(Math.abs(spring.v), handHitting ? Math.abs(handV) : 0) : 0;
   const smash = impact >= MARI_SMASH_SPEED_PX_S;
   const v = !hitting ? spring.v : smash ? -spring.v * MARI_WALL_BOUNCE : 0;
   return { spring: { x: spring.x + push, v }, smash };
