@@ -493,7 +493,7 @@ function send() {
   input.value = "";
   const sent = sees.filter((s) => !s.later);
   const turn = document.createElement("section"); turn.className = "turn";
-  turn.innerHTML = `<div class="user"><div class="bubble">${text}</div>${sent.length ? `<div class="facets">${sent.map((s) => `<span>${ico(s.icon, 11)} ${s.label}</span>`).join("")}</div>` : ""}</div>`;
+  turn.innerHTML = `<div class="user"><div class="bubble">${text.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`)}</div>${sent.length ? `<div class="facets">${sent.map((s) => `<span>${ico(s.icon, 11)} ${s.label}</span>`).join("")}</div>` : ""}</div>`;
   stack.querySelector(".arrive")?.remove(); stack.querySelector(".arrive-next")?.remove();
   stack.append(turn);
   placeQuestionAtTop(turn);

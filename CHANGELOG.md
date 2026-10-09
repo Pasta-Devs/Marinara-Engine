@@ -4,6 +4,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- Professor Mari's quick answers and the bulk skip of agent updates have their own request limits, so a runaway script cannot flood the model or the package catalog.
 - Every change Professor Mari applies can be undone in every permissions mode. Accept edits and Bypass permissions still skip her question, but they no longer skip the undo copy. Before, a change in those modes could not be undone from her chat.
 - Professor Mari swings the right way when you drag her: she trails behind your hand instead of leaning into the move.
 - When two chats match a search by the same name, the one you used more recently is listed first.

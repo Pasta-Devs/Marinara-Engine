@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { requirePrivilegedAccess } from "../middleware/privileged-gate.js";
+import { PROFESSOR_MARI_QUICK_RATE_LIMIT } from "../middleware/rate-limit.js";
 import { getProfessorMariWorkspaceService } from "../services/professor-mari/workspace-agent.service.js";
 import { isSseReplyWritable, sendSseEvent, startSseKeepalive, startSseReply } from "./generate/sse.js";
 import { logger } from "../lib/logger.js";
@@ -82,18 +83,22 @@ async function sendDocsSources(message: string, send: (event: ProfessorMariQuick
 }
 
 export async function professorMariQuickRoutes(app: FastifyInstance) {
-  app.post<{ Params: { id: string } }>("/proposals/:id/apply", async (request, reply) => {
-    if (!requirePrivilegedAccess(request, reply, { feature: "Professor Mari Quick" })) return;
-    try {
-      return await getProfessorMariWorkspaceService(app).applyQuickEditProposal(request.params.id);
-    } catch (error) {
-      if (error instanceof QuickEditConflictError) return reply.status(409).send({ error: error.message });
-      logger.error(error, "Quick edit proposal apply failed");
-      return reply.status(500).send({ error: "Quick edit could not be applied." });
-    }
-  });
+  app.post<{ Params: { id: string } }>(
+    "/proposals/:id/apply",
+    { config: { rateLimit: PROFESSOR_MARI_QUICK_RATE_LIMIT } },
+    async (request, reply) => {
+      if (!requirePrivilegedAccess(request, reply, { feature: "Professor Mari Quick" })) return;
+      try {
+        return await getProfessorMariWorkspaceService(app).applyQuickEditProposal(request.params.id);
+      } catch (error) {
+        if (error instanceof QuickEditConflictError) return reply.status(409).send({ error: error.message });
+        logger.error(error, "Quick edit proposal apply failed");
+        return reply.status(500).send({ error: "Quick edit could not be applied." });
+      }
+    },
+  );
 
-  app.post("/prompt", async (request, reply) => {
+  app.post("/prompt", { config: { rateLimit: PROFESSOR_MARI_QUICK_RATE_LIMIT } }, async (request, reply) => {
     if (!requirePrivilegedAccess(request, reply, { feature: "Professor Mari Quick" })) return;
     const body = professorMariQuickPromptSchema.parse(request.body);
     const controller = new AbortController();

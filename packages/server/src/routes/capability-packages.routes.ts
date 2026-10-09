@@ -10,6 +10,7 @@ import {
   type RulesetDefinition,
 } from "@marinara-engine/shared";
 import { requirePrivilegedAccess } from "../middleware/privileged-gate.js";
+import { PACKAGE_UPDATE_DECLINE_RATE_LIMIT } from "../middleware/rate-limit.js";
 import { openRulesetCatalog } from "../services/game/ruleset-catalog.service.js";
 import { readRulesetRegistry } from "../services/game/ruleset-registry.service.js";
 import {
@@ -207,7 +208,7 @@ export async function capabilityPackagesRoutes(app: FastifyInstance) {
     const { id } = packageParams.parse(request.params);
     return capabilityPackageManager.releaseNotes(id);
   });
-  app.post("/updates/decline", async (request, reply) => {
+  app.post("/updates/decline", { config: { rateLimit: PACKAGE_UPDATE_DECLINE_RATE_LIMIT } }, async (request, reply) => {
     if (!requirePrivilegedAccess(request, reply, { feature: "Agent update decline" })) return;
     const { updates } = declineUpdatesBody.parse(request.body);
     return { declined: await capabilityPackageManager.declineUpdates(updates) };
