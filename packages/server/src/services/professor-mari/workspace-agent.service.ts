@@ -4005,7 +4005,10 @@ ${response.diagnostics.join("\n")}
         builtin = true;
       }
     }
-    if (!content.trim()) return `Skill "${id}" not found.`;
+    // A miss is usually a guessed id; a bare "not found" is a dead end, so
+    // point the model at the in-context index for the exact ids.
+    if (!content.trim())
+      return `Skill "${id}" not found. Use the exact id shown in your skill index (<skill_library> for built-ins, <user_skills> for your own skills).`;
     return `<skill id="${id}" name="${name}" builtin="${builtin}">\n${content}\n</skill>`;
   }
 

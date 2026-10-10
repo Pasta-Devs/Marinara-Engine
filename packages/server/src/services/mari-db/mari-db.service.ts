@@ -2701,6 +2701,18 @@ export class MariDbService {
         // namespace stays instruction_/mari_); those are the entries in the tool catalog enum.
         if (key.startsWith("instruction."))
           return this.executeInstructionAction(key.slice("instruction.".length), envelope, context);
+        // Skills live in the `skill` tool, not app_data. Models sometimes route
+        // a skill fetch here; a generic unsupported-action error is a dead end,
+        // so point at the tool and the in-context index instead.
+        if (key.startsWith("skill")) {
+          return {
+            ok: false,
+            mode: "read",
+            command,
+            error:
+              'Skills are not an app_data action. The available skills are already listed in the <skill_library> block in your context; to load one skill\'s full instructions, call the `skill` tool with its exact id (e.g. {"id": "create-lorebook"}).',
+          };
+        }
         return {
           ok: false,
           mode: "read",
