@@ -331,6 +331,16 @@ assert.match(
 );
 assert.match(editorSource, /withUniqueOnboardingIds\(parsedOnboarding\.data/, "the editor reads unique ids");
 assert.match(editorSource, /pool\.delete\(id\);/, "a reorder takes each question once, so it can't grow the list");
+assert.match(
+  editorSource,
+  /saveDisabled = !dirty \|\| unreadableOnboarding/,
+  "Save is disabled while onboarding is unreadable",
+);
+assert.match(
+  editorSource,
+  /if \(unreadableOnboarding\) \{\s*toast\.error\(localizeUi\("ui\.characters\.onboarding\.unreadable"\)\);\s*return false;/,
+  "a save (including the leave-page save) explains why instead of sending a card the server rejects",
+);
 const wizardSource = readFileSync(
   new URL("../../packages/client/src/components/chat/ChatSetupWizard.tsx", import.meta.url),
   "utf8",

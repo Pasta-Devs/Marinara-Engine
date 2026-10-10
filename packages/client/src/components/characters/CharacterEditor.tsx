@@ -412,6 +412,13 @@ export function CharacterEditor() {
     () => (useUIStore.getState().characterDetailInitialTab as TabId | null) ?? "metadata",
   );
   const [formData, setFormData] = useState<CharacterData | null>(null);
+  // Same rule as the Onboarding tab: only a missing block is empty, so a block
+  // the schema can't read blocks saving until the author starts over.
+  const storedOnboarding = formData?.extensions?.onboarding;
+  const unreadableOnboarding = useMemo(
+    () => storedOnboarding !== undefined && !characterOnboardingSchema.safeParse(storedOnboarding).success,
+    [storedOnboarding],
+  );
   const { contentRef, scrollToSection } = useEditorSections(
     characterId,
     !!formData,
@@ -644,6 +651,12 @@ export function CharacterEditor() {
 
   const handleSave = async () => {
     if (!characterId || !formData) return false;
+    // The server would reject the whole card; say why instead (the Onboarding
+    // tab offers Start over). Also covers the leave-page save, which stays put.
+    if (unreadableOnboarding) {
+      toast.error(localizeUi("ui.characters.onboarding.unreadable"));
+      return false;
+    }
     if (avatarUploadInFlightRef.current) {
       toast.error(localizeUi("ui.characters.charactereditor.waitForTheCurrentAvatarUploadToFinishBefore"));
       return false;
@@ -1038,7 +1051,7 @@ export function CharacterEditor() {
         : null;
 
   const headerActionButtonClass = "mari-editor-action inline-flex";
-  const saveDisabled = !dirty || saving || avatarUploading || lorebookEmbedding;
+  const saveDisabled = !dirty || unreadableOnboarding || saving || avatarUploading || lorebookEmbedding;
   const saveLabel = avatarUploading
     ? localizeUi("editor.save.uploading")
     : lorebookEmbedding
