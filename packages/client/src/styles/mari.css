@@ -3765,9 +3765,13 @@ details[open] > .mari-disclosure .mari-disclosure__chevron {
 }
 
 .mari-receipt__why > b {
-  margin-inline-end: 0.3rem;
   color: var(--foreground);
   font-weight: 600;
+}
+
+/* Only the leading "Why" label keeps a gap; bold words inside a sentence (the held card) do not. */
+.mari-receipt__why > b:first-child {
+  margin-inline-end: 0.3rem;
 }
 
 /* A change that did not save: the reason in plain words under the name, Not saved and Try again at the foot. */
