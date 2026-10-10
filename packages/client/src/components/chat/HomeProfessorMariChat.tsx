@@ -1063,6 +1063,31 @@ function getSkillReadPresentation(tool: WorkspaceToolCall): ToolPresentation | n
   };
 }
 
+// Active-skill chip for PR 2's on-demand `skill` tool: its tool_end.output is
+// the `<skill id="…" name="…" builtin="…">` wrapper.
+// shortcut: name/builtin are parsed from that server-defined wrapper string;
+// degrades to a humanized id if the format changes. Upgrade: structured fields on the event.
+function getSkillToolPresentation(tool: WorkspaceToolCall): ToolPresentation | null {
+  const input = asRecord(tool.input);
+  const id = typeof input?.id === "string" && input.id.trim() ? input.id.trim() : null;
+  if (!id) return null;
+  let name: string | null = null;
+  let builtin: boolean | null = null;
+  const m = (tool.output ?? "").trim().match(/^<skill id="[^"]+" name="([^"]+)" builtin="(true|false)">/);
+  if (m) {
+    name = m[1];
+    builtin = m[2] === "true";
+  }
+  const displayName = name ?? humanizeIdentifier(id);
+  const tag = builtin !== null ? (builtin ? " · Built-in" : " · Custom") : "";
+  return {
+    eyebrow: "Mari skill",
+    title: "Skill active",
+    detail: `${displayName}${tag}`,
+    tone: "skill",
+  };
+}
+
 function summarizeShellCommand(command: string) {
   const compact = compactCommand(command, 120);
   const words = splitShellWords(command);
@@ -1150,6 +1175,11 @@ function inferToolPresentation(tool: WorkspaceToolCall): ToolPresentation {
 
   const skillPresentation = getSkillReadPresentation(tool);
   if (skillPresentation) return skillPresentation;
+
+  if (formatToolName(tool.name) === "skill") {
+    const skillToolPresentation = getSkillToolPresentation(tool);
+    if (skillToolPresentation) return skillToolPresentation;
+  }
 
   const input = asRecord(tool.input);
   const detail = previewValue(

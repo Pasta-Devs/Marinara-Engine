@@ -4,7 +4,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
-- Professor Mari: Added 16 built-in skills with on-demand retrieval, pacing rules, and a leaner system prompt. Built-in skills are editable and restorable from the Skills panel.
+- Professor Mari: Added 16 built-in skills with on-demand retrieval, pacing rules, and a leaner system prompt. Built-in skills are editable and restorable from the Skills panel. When Mari loads a skill to guide a task, the chat timeline now shows a "Skill active" chip naming the skill and whether it is built-in or custom.
 - Images whose prompt no AI model writes, such as generated character avatars and character sheets, no longer get the **Auto** style profile's note "Infer a consistent visual style from the character, game, scene, and selected image model" pasted into the image prompt. That note is meant for the model that writes image prompts. In tag prompts sent to ComfyUI and similar services it ended up as stray words. **Style text** from the other style profiles, and Style text you write into **Auto** or a copy of it, still applies as before (#7318).
 - In Roleplay chats, the **Agent activity** icon now shows what your agents are doing. It turns into a spinner while they work, and a dot appears on it when an agent fails, until you open **Agent activity**. This works in **Chat Settings**, the **Trackers** window, the **Tracker Panel** and on a popped-out Agent activity button, on computers and phones (#7322).
 - The corner handles in **Avatar Crop** are now whole, a little larger and easy to grab when the crop reaches the edge of the picture, as it does by default for square avatars. Before, they were cut down to tiny slivers in the picture's corners (#7323).
