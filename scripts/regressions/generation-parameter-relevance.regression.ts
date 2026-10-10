@@ -58,7 +58,7 @@ try {
     await import("../../packages/server/src/services/llm/providers/openai-chatgpt.provider.js");
   const { __setSdkForTesting, ClaudeSubscriptionProvider } =
     await import("../../packages/server/src/services/llm/providers/claude-subscription.provider.js");
-  const { isClaudeAdaptiveOnlyNoSamplingModel, resolveProviderReasoningEffort } =
+  const { isClaudeAdaptiveOnlyNoSamplingModel, resolveProviderReasoningEffort, shouldSuppressUnknownModelParameters } =
     await import("../../packages/shared/src/constants/model-lists.js");
   const { relevantGenerationParameters, reasoningEffortChoices, verbosityChoices } =
     await import("../../packages/shared/src/constants/generation-parameter-relevance.js");
@@ -494,6 +494,70 @@ try {
       "assistantReasoningPrefill",
     ),
     "Mistral has no reasoning prefill field",
+  );
+
+  // DeepSeek's own levels: it takes low/high/max, treats medium as high, and never takes xhigh.
+  assert.deepEqual(
+    reasoningEffortChoices({ provider: "deepseek", model: "deepseek-flash" }).map((choice) => choice.label),
+    [null, "low", "high", "max"],
+    "DeepSeek offers Off, low, high and max, with no Medium",
+  );
+  for (const model of ["deepseek-flash", "deepseek-v4-pro", "deepseek-v4-flash", "some-unknown-deepseek-model"]) {
+    assert.equal(
+      resolveProviderReasoningEffort({ provider: "deepseek", model, reasoningEffort: "maximum" }),
+      "max",
+      `${model} maps maximum to max`,
+    );
+    assert.equal(
+      resolveProviderReasoningEffort({ provider: "deepseek", model, reasoningEffort: "medium" }),
+      "high",
+      `${model} maps medium to high, the level DeepSeek actually serves`,
+    );
+    assert.equal(
+      resolveProviderReasoningEffort({ provider: "deepseek", model, reasoningEffort: "xhigh" }),
+      "high",
+      `${model} has no xhigh level`,
+    );
+    assert.equal(
+      resolveProviderReasoningEffort({ provider: "deepseek", model, reasoningEffort: "none" }),
+      null,
+      `${model} can turn thinking off`,
+    );
+  }
+
+  // DeepSeek ignores topK, verbosity and both penalties, and the live sampler swaps with the mode.
+  for (const model of ["deepseek-flash", "deepseek-v4-pro", "deepseek-v4-flash"]) {
+    for (const reasoningEffort of ["high", null] as const) {
+      const set = relevantGenerationParameters({ provider: "deepseek", model, reasoningEffort });
+      for (const key of ["topK", "verbosity", "frequencyPenalty", "presencePenalty"] as const) {
+        assert.ok(!set.has(key), `${model} hides ${key} with effort ${reasoningEffort ?? "off"}`);
+      }
+      assert.equal(set.has("topP"), reasoningEffort === "high", `${model} shows topP only while thinking`);
+      assert.equal(
+        set.has("temperature"),
+        reasoningEffort === null,
+        `${model} shows temperature only while not thinking`,
+      );
+    }
+  }
+
+  // A DeepSeek model name this build does not know falls back to the unknown-model rule, which is the same rule that
+  // made the reported "my controls disappeared" case: the panel then offers only max tokens. Pinned here so the
+  // fallback stays deliberate, and so a model-list change that silently widens or narrows it is caught.
+  assert.ok(
+    shouldSuppressUnknownModelParameters("deepseek", "some-unknown-deepseek-model"),
+    "an unrecognized DeepSeek model id suppresses the sampled controls",
+  );
+  assert.deepEqual(
+    [...relevantGenerationParameters({
+      provider: "deepseek",
+      model: "some-unknown-deepseek-model",
+      reasoningEffort: "high",
+    })]
+      .filter((key) => PROBED.includes(key))
+      .sort(),
+    ["maxTokens"],
+    "an unrecognized DeepSeek model id keeps only max tokens",
   );
   const chatGptChoices = reasoningEffortChoices({
     provider: "openai_chatgpt",

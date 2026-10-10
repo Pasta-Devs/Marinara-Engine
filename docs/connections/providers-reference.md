@@ -130,9 +130,9 @@ The same meter appears under the context indicator in a chat's connection picker
 
 **DeepSeek** serves its own chat models, `deepseek-flash` and `deepseek-v4-pro`. After you paste your key, the **Model** dropdown lists them, and **Fetch Models from API** refreshes the list from your account.
 
-DeepSeek thinks by default, and its **Reasoning Effort** is mapped onto the levels it accepts: **Low**, **High**, and **Maximum** (sent as `max`). Choosing **Off** turns thinking off for that request. DeepSeek has no **Medium**: it treats a medium request as High, so Marinara sends High and does not offer Medium as a separate choice. Its thinking appears in the reply under the usual thought display.
+DeepSeek thinks by default. Its **Reasoning Effort** uses DeepSeek's own levels — **Low**, **High** and **Maximum** — and **Off** turns thinking off for that request. There is no **Medium**: DeepSeek serves a medium request as High, so Marinara offers High instead of a second button that would do the same thing. Its thinking appears in the reply with the usual thought display.
 
-The parameter panel hides what DeepSeek does not use: **Verbosity**, **Top K**, and **Frequency**/**Presence Penalty**, which DeepSeek lists as deprecated and ignores. **Temperature** and **Top P** swap places instead: DeepSeek ignores Temperature while it is thinking, and fixes Top P at 1.0 while thinking is off, so only the one that applies to those settings is shown.
+Some settings in the parameter panel do not apply to DeepSeek, so the panel leaves them out rather than pretending they work. **Verbosity**, **Top K** and the penalties are among them: DeepSeek has retired these and ignores them. **Temperature** and **Top P** are a pair — DeepSeek only uses one at a time, depending on whether it is thinking — so you see **Temperature** when thinking is off and **Top P** when it is on.
 
 Connect DeepSeek here rather than pointing the **OpenAI** provider at DeepSeek's URL. The OpenAI provider expects OpenAI's own models, so with a DeepSeek model it hides the generation controls and sends almost none of your settings.
 
