@@ -3168,10 +3168,14 @@ export function useGenerate() {
             }
 
             case "offline": {
-              // Character is offline — message was saved but no generation
               const names = (event as any).characters as string[] | undefined;
-              const label = names?.length === 1 ? names[0] : "Characters";
-              toast(`${label} is offline. They'll respond when they're back online.`, { icon: "💤" });
+              const sceneBusy = (event as any).reason === "scene_busy";
+              toast(
+                translate(sceneBusy ? "chat.presence.sceneBusyNotice" : "chat.presence.offlineNotice", {
+                  names: names?.length ? names.join(", ") : translate("chat.presence.characters"),
+                }),
+                { icon: sceneBusy ? "🎭" : "💤" },
+              );
               setProcessingRun(agentProcessingRunId, false, params.chatId);
               break;
             }
