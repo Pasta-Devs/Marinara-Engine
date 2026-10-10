@@ -519,6 +519,24 @@ try {
   // One message she could not perceive, such as Pantalone stepping out, does not make her away.
   const steppedOut = await stairTranscript(swampOpening, (step) => step === 13);
   assert(!steppedOut.includes("MAUKIE_IN_THE_SWAMP"), "one hidden message is not a scene away");
+  // A scene that opens with a short cutaway hidden from her does not make her away either.
+  const cutawayChat = await createChat({ decisionEnabled: true, decisionConnectionId: decisionConnection.id });
+  await say(cutawayChat, "user", swampOpening[0]!);
+  await say(cutawayChat, "assistant", swampOpening[1]!, ids.maukie);
+  await say(cutawayChat, "user", "P carries Maukie into the tower study; she curls up, silent.");
+  for (let line = 1; line <= 6; line++)
+    await say(cutawayChat, "assistant", `Pantalone reads ledger ${line}.`, ids.pantalone);
+  await memory.settleMessageVisibility(cutawayChat);
+  const towerEnd = await memory.getSceneCheck(cutawayChat, { force: true });
+  assert(towerEnd && (await memory.commitSceneCheck(cutawayChat, towerEnd, { ends: [{ messageNumber: 9 }] })));
+  const hiddenFromMaukie = { hiddenFromAICharacterIds: [ids.maukie], visibilityManual: true };
+  await say(cutawayChat, "user", "Meanwhile, far away in the forest, P waits.", null, hiddenFromMaukie);
+  await say(cutawayChat, "user", "The forest stays quiet.", null, hiddenFromMaukie);
+  await say(cutawayChat, "assistant", "Back in the tower study, Pantalone turns a page.", ids.pantalone);
+  decisionRequests.length = 0;
+  await memory.settleMessageVisibility(cutawayChat);
+  const cutaway = decisionRequests[0]!.state.presence.transcript.map((entry: { content: string }) => entry.content);
+  assert(!cutaway.includes("MAUKIE_IN_THE_SWAMP"), "a short cutaway opening the scene is not a scene away");
 
   // A small Decision state limit shortens long messages instead of dropping the earlier ones (#7263).
   const smallJev = await connections.create({
