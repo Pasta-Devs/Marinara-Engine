@@ -4,6 +4,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- In Roleplay chats, a whisper stays where the model wrote it after you edit the reply. Before, it moved to the bottom of the message whenever the edit changed the text right before it, and saving any edit with **Typographic** quotes did the same to every whisper in that message. Whispers in replies you already edited return to their place when only the quote style changed (#7386).
 - Conversation notices now explain when a character cannot reply because they are participating in an active Scene, instead of incorrectly saying they are offline (#7383).
 
 - In Roleplay chats with Advanced Memory on, a message that is only a whisper, with no other text, now reaches the character it whispers to and the narrator. Before, Advanced Memory left such a message out of the prompt because it had no visible text, so the whisper never arrived. This also applies to a reply that is only a whisper. Regenerating a reply that missed such a whisper now includes it (#7380).
