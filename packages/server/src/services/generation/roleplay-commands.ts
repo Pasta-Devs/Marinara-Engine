@@ -358,6 +358,28 @@ export function roleplayHiddenWhisperMessageIds(
   return ids;
 }
 
+/**
+ * Messages that hold only a whisper. Advanced Memory keeps no empty messages, so its prompt keeps these
+ * by position inside its retained window instead of by ID (see filterPromptHistoryByMessageIds).
+ */
+export function roleplayWhisperOnlyMessageIds(history: readonly HistoryMessage[]): Set<string> {
+  const ids = new Set<string>();
+  for (const message of history) {
+    const extra = parseExtra(message.extra);
+    const content = typeof message.content === "string" ? message.content : "";
+    if (
+      typeof message.id === "string" &&
+      (message.role === "assistant" || message.role === "user") &&
+      extra.hiddenFromAI !== true &&
+      extra.commandOnly !== true &&
+      !(message.role === "user" ? parseRoleplayUserCommands(content).content : content).trim() &&
+      getRoleplayWhispers(extra).length > 0
+    )
+      ids.add(message.id);
+  }
+  return ids;
+}
+
 /** Insert secrets at their saved positions in the final viewer's retained history, after copying shared prompts. */
 export function appendRoleplayWhispers(
   prompt: Array<{ id?: string | null; whisperSourceId?: string; contextKind?: string; content: string }>,

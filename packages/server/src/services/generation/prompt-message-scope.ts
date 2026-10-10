@@ -296,9 +296,17 @@ export function filterPromptHistoryByMessageIds(
   messages: readonly GenerationPromptMessage[],
   allowedIds: ReadonlySet<string>,
   sourceIds: ReadonlySet<string>,
+  /** Messages that hold only a whisper (see roleplayWhisperOnlyMessageIds). */
+  whisperOnlyIds: ReadonlySet<string> = new Set(),
 ): GenerationPromptMessage[] {
+  const whisperOnly = (message: GenerationPromptMessage) =>
+    !!message.whisperSourceId || (!!message.id && whisperOnlyIds.has(message.id));
   const isDropped = (message: GenerationPromptMessage) =>
-    message.contextKind === "history" && !!message.id && sourceIds.has(message.id) && !allowedIds.has(message.id);
+    !whisperOnly(message) &&
+    message.contextKind === "history" &&
+    !!message.id &&
+    sourceIds.has(message.id) &&
+    !allowedIds.has(message.id);
   // A whisper-only entry stays only inside the kept window.
   const windowStart = keptWindowStart(
     messages,
@@ -306,7 +314,7 @@ export function filterPromptHistoryByMessageIds(
     isDropped,
   );
   const filtered = messages.filter((message, index) =>
-    message.whisperSourceId ? windowStart >= 0 && index >= windowStart : !isDropped(message),
+    whisperOnly(message) ? windowStart >= 0 && index >= windowStart : !isDropped(message),
   );
   if (filtered.length !== messages.length) {
     reassignHistoryLastMessageWrapper(filtered, messages);

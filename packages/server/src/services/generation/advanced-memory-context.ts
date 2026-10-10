@@ -21,6 +21,7 @@ import {
   type AdvancedMemoryPlacement,
 } from "../prompt/advanced-memory-prompt.js";
 import { filterPromptHistoryByMessageIds, type GenerationPromptMessage } from "./prompt-message-scope.js";
+import { roleplayWhisperOnlyMessageIds } from "./roleplay-commands.js";
 
 // Swipe extras can also come from imports or edits. Validate their shape before reuse.
 const memorySnapshotSchema = z.object({
@@ -82,6 +83,7 @@ export async function prepareAdvancedMemoryContext(
     input.maxContext ?? Infinity,
   );
   const sourceIds = new Set(input.sourceMessages.map((message) => message.id));
+  const whisperOnlyIds = roleplayWhisperOnlyMessageIds(input.sourceMessages);
   const fixed = input.toProviderMessages(
     resolveAdvancedMemoryPrompt(
       filterPromptHistoryByMessageIds(input.messages, new Set(), sourceIds),
@@ -140,7 +142,7 @@ export async function prepareAdvancedMemoryContext(
       blocking: input.blocking,
     });
     const selectedIds = new Set(prepared.messageIds);
-    const selected = filterPromptHistoryByMessageIds(input.messages, selectedIds, sourceIds);
+    const selected = filterPromptHistoryByMessageIds(input.messages, selectedIds, sourceIds, whisperOnlyIds);
     const parts = prepared;
     let messages = resolveAdvancedMemoryPrompt(selected, input.placements, parts);
     let providerMessages = input.toProviderMessages(messages);

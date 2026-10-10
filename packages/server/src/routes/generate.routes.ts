@@ -223,6 +223,7 @@ import {
   parseRoleplayUserCommands,
   roleplayCommandKey,
   roleplayHiddenWhisperMessageIds,
+  roleplayWhisperOnlyMessageIds,
   resolveRoleplayWhisperRecipient,
   RoleplayCommandStreamFilter,
   type RoleplayCommand,
@@ -2786,6 +2787,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 resolveAdvancedMemoryPrompt(messages, advancedMemoryPlacements, {}),
                 advancedAgentSourceIds,
                 new Set(advancedSourceMessages.map((message) => message.id)),
+                roleplayWhisperOnlyMessageIds(advancedSourceMessages),
               )
             : messages;
         const deferConversationLorebookScanToResponder =

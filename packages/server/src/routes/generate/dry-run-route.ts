@@ -35,6 +35,7 @@ import {
   parseRoleplayUserCommands,
   prepareUserRoleplayCommands,
   roleplayHiddenWhisperMessageIds,
+  roleplayWhisperOnlyMessageIds,
 } from "../../services/generation/roleplay-commands.js";
 import { randomUUID } from "crypto";
 import { createChatsStorage } from "../../services/storage/chats.storage.js";
@@ -927,6 +928,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
       // A hidden message keeps its whisper inside the same window as in the live prompt,
       // where only messages shown before memory selection can end it.
       const globallyHidden = new Set(chatMessages.filter(isMessageHiddenFromAI).map((message) => message.id));
+      const whisperOnlyIds = roleplayWhisperOnlyMessageIds(advancedMemorySourceMessages);
       const windowStart = keptWindowStart(
         mappedMessages,
         (message) => !!message.id && allowedIds.has(message.id),
@@ -934,6 +936,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
           !!message.id &&
           message.id !== "__dryrun_user__" &&
           !allowedIds.has(message.id) &&
+          !whisperOnlyIds.has(message.id) &&
           !globallyHidden.has(message.id) &&
           !message.hiddenFromAICharacterIds?.some((id) => audienceCharacterIds.includes(id)),
       );
@@ -942,7 +945,9 @@ export async function registerDryRunRoute(app: FastifyInstance) {
           message.id === "__dryrun_user__" ||
           (message.id &&
             (allowedIds.has(message.id) ||
-              (hiddenWhisperIds.has(message.id) && windowStart >= 0 && index >= windowStart))),
+              ((hiddenWhisperIds.has(message.id) || whisperOnlyIds.has(message.id)) &&
+                windowStart >= 0 &&
+                index >= windowStart))),
       );
     }
     if (audienceCharacterIds.length > 0) {

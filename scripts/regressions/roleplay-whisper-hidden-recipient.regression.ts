@@ -277,6 +277,25 @@ try {
     assert(content.includes("MEMORY_VISIBLE_LINE"));
   }
 
+  // A message that holds only a whisper has no text to remember. Advanced Memory still delivers it.
+  const whisperOnly = await app.inject({
+    method: "POST",
+    url: `/api/chats/${memoryChat.id}/messages`,
+    payload: { role: "user", content: '[whisper: character="Narrator" text="USER_WHISPER_ONLY_SECRET"]' },
+  });
+  assert.equal(whisperOnly.statusCode, 200, whisperOnly.body);
+  assert.equal(whisperOnly.json().content, "");
+  for (const content of [
+    await generate('[whisper: character="Maukie" text="NARRATOR_WHISPER_ONLY_SECRET"]', narrator.id, {
+      chatId: memoryChat.id,
+    }),
+    await preview(narrator.id, { chatId: memoryChat.id }),
+  ])
+    assert(content.includes("USER_WHISPER_ONLY_SECRET"), "the narrator receives a whisper-only user message");
+  const maukieView = await preview(maukie.id, { chatId: memoryChat.id });
+  assert(maukieView.includes("NARRATOR_WHISPER_ONLY_SECRET"), "Maukie receives a whisper-only narrator reply");
+  assert(!maukieView.includes("USER_WHISPER_ONLY_SECRET"), "Maukie never receives the narrator's whisper");
+
   // Advanced Memory keeps a stand-in only inside the retained window, which opens with the hidden
   // messages right before its first kept message.
   const history = (content: string, id?: string, whisperSourceId?: string) => ({
@@ -300,6 +319,21 @@ try {
     ["OPENING_STAND_IN", "KEPT", "LATE_STAND_IN"],
   );
   assert.deepEqual(filterPromptHistoryByMessageIds(windowMessages, new Set(), windowSources), []);
+  // Whisper-only messages follow the same window.
+  const whisperOnlyIds = new Set(["early", "opening", "late"]);
+  assert.deepEqual(
+    filterPromptHistoryByMessageIds(
+      windowMessages.map((message) => ({
+        ...message,
+        id: message.id ?? message.whisperSourceId,
+        whisperSourceId: undefined,
+      })),
+      new Set(["kept"]),
+      windowSources,
+      whisperOnlyIds,
+    ).map((message) => message.content),
+    ["OPENING_STAND_IN", "KEPT", "LATE_STAND_IN"],
+  );
   console.log(
     "Hidden whisper recipient passed: recipient-only stand-in, position, other characters, narrator, persona, trimming, global hide, emptied whispers and memory window.",
   );
