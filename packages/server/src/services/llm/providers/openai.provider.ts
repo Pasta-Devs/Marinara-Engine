@@ -776,7 +776,12 @@ export class OpenAIProvider extends BaseLLMProvider {
       // DeepSeek's two samplers belong to different modes, so only one of them is live at a time: temperature has no
       // effect while thinking runs, and top_p is fixed at 1.0 whenever thinking is off. Strip the ignored one and let
       // the working sampler reach the API. Unlike the GPT-5 case below, this is not "no sampling at all".
-      const thinkingOff = this.hasExplicitReasoningDisable(options.reasoningEffort);
+      // Read the mode from the body, because customParameters are applied before this runs and can override
+      // reasoning_effort: picking the sampler from options alone would strip temperature while the request ships
+      // reasoning_effort "none", leaving a non-thinking request with the sampler that only works while thinking.
+      const reasoningEffort =
+        typeof body.reasoning_effort === "string" ? body.reasoning_effort : options.reasoningEffort;
+      const thinkingOff = this.hasExplicitReasoningDisable(reasoningEffort);
       const dropped = thinkingOff ? "top_p" : "temperature";
       const explicit = options.customParameters;
       if (!explicit || !Object.prototype.hasOwnProperty.call(explicit, dropped)) delete body[dropped];

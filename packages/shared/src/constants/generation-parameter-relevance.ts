@@ -177,7 +177,11 @@ const NEVER_SENT: Record<string, GenerationParameterKey[]> = {
   // DeepSeek documents no verbosity and no top_k/min_p, and marks both penalties
   // deprecated ("will not take effect"). Temperature is listed, but has no effect
   // in thinking mode, which is why it is hidden while an effort level is active.
-  deepseek: ["verbosity", "topK", "frequencyPenalty", "presencePenalty", "serviceTier"],
+  // Its reasoning prefill is hidden too: that needs chat prefix completion, which
+  // requires DeepSeek's /beta endpoint and a `prefix: true` flag (see
+  // supportsAssistantReasoningPrefill). A visible prefill control here would build
+  // a request the default /v1 endpoint rejects.
+  deepseek: ["verbosity", "topK", "frequencyPenalty", "presencePenalty", "serviceTier", "assistantReasoningPrefill"],
   custom: ["serviceTier"],
 };
 

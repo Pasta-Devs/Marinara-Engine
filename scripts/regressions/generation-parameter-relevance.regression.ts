@@ -63,6 +63,9 @@ try {
   const { relevantGenerationParameters, reasoningEffortChoices, verbosityChoices } =
     await import("../../packages/shared/src/constants/generation-parameter-relevance.js");
   const { readOpenRouterModelCapabilities } = await import("../../packages/server/src/routes/connections.routes.js");
+  const { supportsAssistantReasoningPrefill } = await import(
+    "../../packages/server/src/services/generation/generation-parameters.js"
+  );
 
   assert.deepEqual(
     readOpenRouterModelCapabilities({
@@ -558,6 +561,63 @@ try {
       .sort(),
     ["maxTokens"],
     "an unrecognized DeepSeek model id keeps only max tokens",
+  );
+
+  // customParameters are applied before the sampler strip, so they can flip the reasoning mode after the built-in
+  // reasoning branch has run. The strip must follow whatever the body actually ships: picking from options alone
+  // left a non-thinking request carrying top_p and no temperature, the exact opposite of DeepSeek's rules.
+  {
+    const deepseek = registry("deepseek", `${base}/v1`);
+    const withOverride = async (custom: Record<string, unknown>, reasoningEffort: "high" | "none") => {
+      firstBody = null;
+      const instance = deepseek();
+      const request = instance.chat([{ role: "user", content: "hi" }], {
+        ...chatOptions("deepseek", "deepseek-flash", {
+          temperature: 0.7,
+          maxTokens: 64,
+          topP: 0.9,
+          topK: 0,
+          frequencyPenalty: 0,
+          presencePenalty: 0,
+          reasoningEffort: "high",
+          verbosity: "medium",
+          serviceTier: "auto",
+        }),
+        reasoningEffort: reasoningEffort === "none" ? "none" : "high",
+        customParameters: custom,
+      });
+      await request.next().catch(() => undefined);
+      const body = JSON.parse(requireRequestCapture(firstBody, "deepseek", "deepseek-flash")) as Record<string, unknown>;
+      return { temperature: "temperature" in body, topP: "top_p" in body, effort: body.reasoning_effort };
+    };
+
+    const forcedOff = await withOverride({ reasoning_effort: "none" }, "high");
+    assert.equal(forcedOff.effort, "none", "the override reaches the request body");
+    assert.equal(forcedOff.temperature, true, "a non-thinking override keeps temperature");
+    assert.equal(forcedOff.topP, false, "a non-thinking override drops top_p");
+
+    const forcedOn = await withOverride({ reasoning_effort: "high" }, "none");
+    assert.equal(forcedOn.effort, "high", "the override reaches the request body");
+    assert.equal(forcedOn.temperature, false, "a thinking override drops temperature");
+    assert.equal(forcedOn.topP, true, "a thinking override keeps top_p");
+  }
+
+  // DeepSeek's reasoning prefill needs chat prefix completion: the /beta endpoint plus a `prefix: true` flag on the
+  // final assistant message. The shipped /v1 endpoint has neither, so the panel must not offer the control and the
+  // request must not carry a prefill. Pinned on both sides so the pair cannot drift apart.
+  assert.ok(
+    !relevantGenerationParameters({ provider: "deepseek", model: "deepseek-flash" }).has("assistantReasoningPrefill"),
+    "the panel does not offer a reasoning prefill for DeepSeek",
+  );
+  assert.equal(
+    supportsAssistantReasoningPrefill("deepseek"),
+    false,
+    "the request builder refuses a DeepSeek reasoning prefill",
+  );
+  assert.equal(
+    supportsAssistantReasoningPrefill("zai"),
+    true,
+    "the sibling OpenAI-shaped provider still takes a reasoning prefill",
   );
   const chatGptChoices = reasoningEffortChoices({
     provider: "openai_chatgpt",
