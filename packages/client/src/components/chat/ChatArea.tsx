@@ -648,6 +648,7 @@ const LocalChatArea = memo(function LocalChatArea({
   const centerCompact = useUIStore((s) => s.centerCompact);
   const guideGenerations = useUIStore((s) => s.guideGenerations);
   const keepGuidanceAfterRegenerate = useUIStore((s) => s.keepGuidanceAfterRegenerate);
+  const showHistoryTrimNotice = useUIStore((s) => s.showHistoryTrimNotice);
   const intuitiveSwipeNavigation = useUIStore((s) => s.intuitiveSwipeNavigation);
   const intuitiveSwipeRerollLatest = useUIStore((s) => s.intuitiveSwipeRerollLatest);
   const editLastMessageOnArrowUp = useUIStore((s) => s.editLastMessageOnArrowUp);
@@ -2505,6 +2506,7 @@ const LocalChatArea = memo(function LocalChatArea({
     const last = messages?.[messages.length - 1];
     if (!last || isStreaming || (last.role !== "assistant" && last.role !== "narrator")) return null;
     const findings = checkMessage(last);
+    // Kept even when the trim note is hidden, so the omnibar's Check row still has a checkup to open.
     return replyLineFindings(findings).length > 0 ? { messageId: last.id, findings } : null;
   }, [checkMessage, isStreaming, messages]);
   const [openReplyCheckupId, setOpenReplyCheckupId] = useState<string | null>(null);
@@ -2518,9 +2520,10 @@ const LocalChatArea = memo(function LocalChatArea({
           onOpenChange={(open) => setOpenReplyCheckupId(open ? replyCheckup.messageId : null)}
           onLink={handleReplyCheckupLink}
           onPeek={() => handlePeekPrompt(replyCheckup.messageId)}
+          showHistoryTrimNotice={showHistoryTrimNotice}
         />
       ) : null,
-    [handlePeekPrompt, handleReplyCheckupLink, openReplyCheckupId, replyCheckup],
+    [handlePeekPrompt, handleReplyCheckupLink, openReplyCheckupId, replyCheckup, showHistoryTrimNotice],
   );
   // The omnibar's "Check the last reply" row opens the line's checkup in place.
   useEffect(() => {

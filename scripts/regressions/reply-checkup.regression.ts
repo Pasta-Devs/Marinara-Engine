@@ -6,6 +6,7 @@ import {
   REPLY_CHECKUP_LINE_CODES,
   type ReplyCheckupInput,
 } from "../../packages/shared/src/utils/diagnose-reply.js";
+import { replyLineFindings, replyLineLead } from "../../packages/client/src/lib/reply-checkup.js";
 
 const info = (patch: Record<string, unknown> = {}) => ({
   model: "m",
@@ -175,5 +176,39 @@ assert.deepEqual([...REPLY_CHECKUP_LINE_CODES].sort(), [
   "history_trimmed",
   "reply_budget_cut",
 ]);
+
+// The "older messages not sent" note is the loudest part of the line in a chat that trims on every
+// generation, so it can be turned off. Off drops only that note: a cut-off reply still gets its line.
+const lineFindings = replyLineFindings(trimmed, { showHistoryTrimNotice: true });
+assert.deepEqual(
+  lineFindings.map((finding) => finding.code),
+  ["history_trimmed"],
+);
+assert.deepEqual(replyLineFindings(trimmed, { showHistoryTrimNotice: false }), []);
+// An omitted option keeps the note, so every existing caller is unaffected.
+assert.deepEqual(
+  replyLineFindings(trimmed).map((finding) => finding.code),
+  ["history_trimmed"],
+);
+const cutAndTrimmed = diagnoseReply({
+  ...reply({
+    generationInfo: info({
+      finishReason: "length",
+      contextFit: fit({ trimmed: true, droppedHistory: 42 }),
+    }),
+  }),
+  connectionId: "conn-1",
+});
+assert.deepEqual(
+  replyLineFindings(cutAndTrimmed, { showHistoryTrimNotice: false }).map((finding) => finding.code),
+  ["cut_off"],
+);
+
+// The line's lead: with the note hidden, a trim-only reply shows nothing under it, but the omnibar's
+// Check row still opens the checkup (open: true), led by the trim, so that row is never a dead button.
+assert.equal(replyLineLead(trimmed, { showHistoryTrimNotice: false }), undefined);
+assert.equal(replyLineLead(trimmed, { showHistoryTrimNotice: false, open: true })?.code, "history_trimmed");
+assert.equal(replyLineLead(trimmed, { showHistoryTrimNotice: true })?.code, "history_trimmed");
+assert.equal(replyLineLead(cutAndTrimmed, { showHistoryTrimNotice: false })?.code, "cut_off");
 
 console.log("reply-checkup regression passed");

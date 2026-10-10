@@ -9,7 +9,7 @@ import {
   replyCheckupLabel,
   replyCheckupLinkLabel,
   replyCheckupRow,
-  replyLineFindings,
+  replyLineLead,
 } from "../../lib/reply-checkup";
 import { MariList, MariRow } from "./mari-primitives";
 
@@ -20,12 +20,22 @@ interface ReplyCheckupProps {
   onOpenChange: (open: boolean) => void;
   onLink: (link: ReplyCheckupLink) => void;
   onPeek: () => void;
+  /** False hides an "older messages not sent" line until the checkup is opened (from the omnibar). */
+  showHistoryTrimNotice?: boolean;
 }
 
-export function ReplyCheckup({ messageId, findings, open, onOpenChange, onLink, onPeek }: ReplyCheckupProps) {
+export function ReplyCheckup({
+  messageId,
+  findings,
+  open,
+  onOpenChange,
+  onLink,
+  onPeek,
+  showHistoryTrimNotice,
+}: ReplyCheckupProps) {
   const { t } = useTranslation();
   const panelId = `reply-checkup-${useId().replace(/:/gu, "")}`;
-  const lead = replyLineFindings(findings)[0];
+  const lead = replyLineLead(findings, { showHistoryTrimNotice, open });
   const panelRef = useRef<HTMLDivElement | null>(null);
   // F6: nothing scrolled the opened panel into view, so its rows could land under the composer.
   useEffect(() => {

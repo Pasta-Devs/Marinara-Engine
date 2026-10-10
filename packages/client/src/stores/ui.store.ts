@@ -894,6 +894,8 @@ interface UIState {
   showTokenUsage: boolean;
   showContextUsage: boolean;
   showMessageNumbers: boolean;
+  /** When false, the "older messages not sent" note is left out of the reply line (the checkup still lists it). */
+  showHistoryTrimNotice: boolean;
   /** When true, character cards are available in Persona pickers. */
   showCharactersInPersonaPickers: boolean;
   guideGenerations: boolean;
@@ -1301,6 +1303,7 @@ interface UIState {
   setShowTokenUsage: (v: boolean) => void;
   setShowContextUsage: (v: boolean) => void;
   setShowMessageNumbers: (v: boolean) => void;
+  setShowHistoryTrimNotice: (v: boolean) => void;
   setShowCharactersInPersonaPickers: (v: boolean) => void;
   setGuideGenerations: (v: boolean) => void;
   setKeepGuidanceAfterRegenerate: (v: boolean) => void;
@@ -1562,6 +1565,7 @@ export function pickSyncedSettings(state: UIState) {
     showTokenUsage: state.showTokenUsage,
     showContextUsage: state.showContextUsage,
     showMessageNumbers: state.showMessageNumbers,
+    showHistoryTrimNotice: state.showHistoryTrimNotice,
     showCharactersInPersonaPickers: state.showCharactersInPersonaPickers,
     guideGenerations: state.guideGenerations,
     keepGuidanceAfterRegenerate: state.keepGuidanceAfterRegenerate,
@@ -1804,6 +1808,7 @@ export function pickPersistedUIState(state: UIState) {
     showTokenUsage: state.showTokenUsage,
     showContextUsage: state.showContextUsage,
     showMessageNumbers: state.showMessageNumbers,
+    showHistoryTrimNotice: state.showHistoryTrimNotice,
     showCharactersInPersonaPickers: state.showCharactersInPersonaPickers,
     guideGenerations: state.guideGenerations,
     keepGuidanceAfterRegenerate: state.keepGuidanceAfterRegenerate,
@@ -2086,6 +2091,7 @@ export const useUIStore = create<UIState>()(
         showTokenUsage: false,
         showContextUsage: true,
         showMessageNumbers: false,
+        showHistoryTrimNotice: true,
         showCharactersInPersonaPickers: false,
         guideGenerations: false,
         keepGuidanceAfterRegenerate: true,
@@ -2943,6 +2949,7 @@ export const useUIStore = create<UIState>()(
         setShowTokenUsage: (v) => set({ showTokenUsage: v }),
         setShowContextUsage: (v) => set({ showContextUsage: v }),
         setShowMessageNumbers: (v) => set({ showMessageNumbers: v }),
+        setShowHistoryTrimNotice: (v) => set({ showHistoryTrimNotice: v }),
         setShowCharactersInPersonaPickers: (v) => set({ showCharactersInPersonaPickers: v }),
         setGuideGenerations: (v) => set({ guideGenerations: v }),
         setKeepGuidanceAfterRegenerate: (v) => set({ keepGuidanceAfterRegenerate: v }),

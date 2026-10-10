@@ -104,7 +104,7 @@ Read more in [Message Actions](../chats/messages.md).
 
 ## Message Tools
 
-The **Message Tools** section is at **Settings** > **Advanced** > **Message Tools**. It is a hub of display and repair toggles. Each toggle below is off by default. The table shows what each one does and where to read more.
+The **Message Tools** section is at **Settings** > **Advanced** > **Message Tools**. It is a hub of display and repair toggles. Each toggle below is off by default, except **Show "older messages not sent" note**, which is on. The table shows what each one does and where to read more.
 
 | Toggle | What it does | Full guide |
 | --- | --- | --- |
@@ -112,6 +112,7 @@ The **Message Tools** section is at **Settings** > **Advanced** > **Message Tool
 | **Show model name on messages** | Shows which AI model wrote each reply. | [Message Actions](../chats/messages.md) |
 | **Show token usage on messages** | Shows prompt and completion token counts per message. | [Message Actions](../chats/messages.md) |
 | **Show message numbers** | Shows a number on each message in the chat. | [Message Actions](../chats/messages.md) |
+| **Show "older messages not sent" note** | Shows a note under the newest reply when older messages did not fit the prompt. Turn it off to hide that note in long chats. A cut-off or empty reply still shows its own note. | [Peek Prompt](../chats/peek-prompt.md) |
 | **Guide swipes/regens with chat input** | Uses your current draft as direction when you regenerate. | [Guided Generation and Impersonate](../chats/guided-and-impersonate.md) |
 | **Quick replies** | Adds alternate draft actions beside the Send button. | [Guided Generation and Impersonate](../chats/guided-and-impersonate.md) |
 | **Include reasoning in exports** | Adds hidden thinking to chat exports. | [Exporting and Importing Chats](../chats/export-import.md) |

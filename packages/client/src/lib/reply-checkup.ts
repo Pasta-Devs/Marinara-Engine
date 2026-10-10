@@ -27,9 +27,34 @@ export function checkReply(
   });
 }
 
-/** Findings about the reply itself: only these earn the quiet line and the Fix row. */
-export function replyLineFindings(findings: readonly ReplyCheckupFinding[]): ReplyCheckupFinding[] {
-  return findings.filter((finding) => REPLY_CHECKUP_LINE_CODES.includes(finding.code));
+/**
+ * Findings about the reply itself: only these earn the quiet line and the Fix row.
+ *
+ * `showHistoryTrimNotice: false` drops the "older messages not sent" note. A chat past the model's
+ * context window trims history on nearly every generation, so that note becomes steady company; the
+ * checkup panel still lists it. The other codes stay, since a cut-off or empty reply is real news.
+ */
+export function replyLineFindings(
+  findings: readonly ReplyCheckupFinding[],
+  options: { showHistoryTrimNotice?: boolean } = {},
+): ReplyCheckupFinding[] {
+  return findings.filter(
+    (finding) =>
+      REPLY_CHECKUP_LINE_CODES.includes(finding.code) &&
+      !(finding.code === "history_trimmed" && options.showHistoryTrimNotice === false),
+  );
+}
+
+/**
+ * The finding the quiet line leads with, or none to show nothing under the reply. A hidden trim note
+ * still leads once the checkup is opened on request (the omnibar's Check row), so that request has
+ * something to open and a Check button to close it again.
+ */
+export function replyLineLead(
+  findings: readonly ReplyCheckupFinding[],
+  options: { showHistoryTrimNotice?: boolean; open?: boolean } = {},
+): ReplyCheckupFinding | undefined {
+  return replyLineFindings(findings, options)[0] ?? (options.open ? replyLineFindings(findings)[0] : undefined);
 }
 
 const num = (value: string | number | undefined) => (typeof value === "number" ? value.toLocaleString() : value);
