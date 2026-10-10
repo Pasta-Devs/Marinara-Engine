@@ -4,6 +4,7 @@
 import type { FastifyInstance } from "fastify";
 import {
   CHAT_SUMMARY_PROMPT_SETTINGS_KEY,
+  isProfessorMariSeenRunSettingsKey,
   TRANSLATOR_DEFAULTS_SETTINGS_KEY,
   CUSTOM_GENERATION_PARAMETERS_SETTINGS_KEY,
   EMPTY_IMPERSONATE_PROMPT_TEMPLATE_CATALOG,
@@ -41,6 +42,8 @@ const ALLOWED_KEYS = new Set([
   getChatWindowDefaultSettingsKey("roleplay"),
   getChatWindowDefaultSettingsKey("game"),
 ]);
+
+const isAllowedSettingsKey = (key: string) => ALLOWED_KEYS.has(key) || isProfessorMariSeenRunSettingsKey(key);
 
 export async function appSettingsRoutes(app: FastifyInstance) {
   await initializeChatWindowDefaults(app.db);
@@ -90,7 +93,7 @@ export async function appSettingsRoutes(app: FastifyInstance) {
   });
 
   app.get<{ Params: { key: string } }>("/:key", async (req, reply) => {
-    if (!ALLOWED_KEYS.has(req.params.key)) {
+    if (!isAllowedSettingsKey(req.params.key)) {
       return reply.status(404).send({ error: "Unknown settings key" });
     }
     const value = await storage.get(req.params.key);
@@ -98,7 +101,7 @@ export async function appSettingsRoutes(app: FastifyInstance) {
   });
 
   app.put<{ Params: { key: string } }>("/:key", async (req, reply) => {
-    if (!ALLOWED_KEYS.has(req.params.key)) {
+    if (!isAllowedSettingsKey(req.params.key)) {
       return reply.status(404).send({ error: "Unknown settings key" });
     }
     const input = appSettingsUpdateSchema.parse(req.body);

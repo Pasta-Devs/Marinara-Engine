@@ -3,8 +3,9 @@ import { X } from "lucide-react";
 import { toast } from "sonner";
 import { useUIStore } from "../../stores/ui.store";
 import { translate } from "../../localization/i18n";
+import { useMariAppearancePack } from "../../hooks/use-mari-appearance-pack";
+import { MARI_ASSET_TIER, mariImgLoading } from "../../lib/mari-work-animations";
 
-const CHIBI_PROFESSOR_MARI_IMAGE = "/sprites/mari/chibi-professor-mari.png";
 const CHIBI_PROFESSOR_MARI_SEEN_KEY = "marinara:chibi-professor-mari-toast-seen";
 const CHIBI_PROFESSOR_MARI_ROLL_CHANCE = 0.001;
 const CHIBI_PROFESSOR_MARI_ROLL_COOLDOWN_MS = 3_000;
@@ -26,6 +27,24 @@ function rememberChibiProfessorMari() {
   }
 }
 
+/** Native 94x128 at 1x, so the pixel grid stays crisp. A hook, so a pack switch reaches an open toast. */
+function ChibiProfessorMariImage() {
+  const { poses } = useMariAppearancePack();
+  return (
+    <img
+      src={poses.chibi}
+      {...mariImgLoading(MARI_ASSET_TIER.poses.chibi)}
+      width={94}
+      height={128}
+      alt={translate("ui.chibiProfessorMari.alt")}
+      className="h-32 w-24 shrink-0 self-center object-contain drop-shadow-[0_4px_10px_rgb(0_0_0/0.25)] [image-rendering:pixelated]"
+      onError={(event) => {
+        event.currentTarget.hidden = true;
+      }}
+    />
+  );
+}
+
 function showChibiProfessorMariToast() {
   rememberChibiProfessorMari();
   toast.custom(
@@ -39,14 +58,7 @@ function showChibiProfessorMariToast() {
         >
           <X className="h-3.5 w-3.5" aria-hidden="true" />
         </button>
-        <img
-          src={CHIBI_PROFESSOR_MARI_IMAGE}
-          alt={translate("ui.chibiProfessorMari.alt")}
-          className="h-24 w-20 shrink-0 self-center object-contain drop-shadow-[0_4px_10px_rgb(0_0_0/0.25)]"
-          onError={(event) => {
-            event.currentTarget.hidden = true;
-          }}
-        />
+        <ChibiProfessorMariImage />
         <div className="space-y-2 text-sm leading-relaxed">
           <p>{translate("ui.chibiProfessorMari.visit")}</p>
           <p>{translate("ui.chibiProfessorMari.fortune")}</p>

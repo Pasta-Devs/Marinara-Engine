@@ -565,7 +565,7 @@ export function createAgentsStorage(db: DB) {
      * a run that errored is the most interesting row on the list, and dropping it would
      * make a broken agent look idle instead of broken.
      */
-    async listRunsByTypeForChat(agentType: string, chatId: string, limit = 5) {
+    async listRunsByTypeForChat(agentType: string, chatId?: string, limit = 5) {
       const finiteLimit = Number.isFinite(limit) ? limit : 5;
       // 51, not 50. Callers that diff consecutive runs ask for one more than they intend
       // to show, so the oldest row still has a predecessor to be compared against; a cap
@@ -576,7 +576,7 @@ export function createAgentsStorage(db: DB) {
         .select()
         .from(agentRuns)
         .innerJoin(agentConfigs, eq(agentRuns.agentConfigId, agentConfigs.id))
-        .where(and(eq(agentRuns.chatId, chatId), eq(agentConfigs.type, agentType)))
+        .where(and(chatId ? eq(agentRuns.chatId, chatId) : undefined, eq(agentConfigs.type, agentType)))
         .orderBy(desc(agentRuns.createdAt))
         .limit(normalizedLimit);
 

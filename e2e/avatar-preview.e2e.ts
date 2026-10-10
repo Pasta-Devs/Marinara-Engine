@@ -11,7 +11,6 @@ test("library portraits keep their proportions in compact and full layouts", asy
     hasCompletedOnboarding: true,
     sidebarOpen: false,
     rightPanelOpen: false,
-    professorMariNavigationEnabled: false,
   });
   await page.addInitScript(
     (version: string) => {
@@ -126,7 +125,6 @@ test("avatar crop handles stay whole and draggable on a square image", async ({ 
     hasCompletedOnboarding: true,
     sidebarOpen: false,
     rightPanelOpen: false,
-    professorMariNavigationEnabled: false,
   });
   await page.addInitScript(
     (version: string) => localStorage.setItem("marinara:whats-new:seen-version", version),

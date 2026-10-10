@@ -2,7 +2,7 @@
 // Plan / Bypass). Functional checks on the pure pieces plus source pins on the
 // enforcement seams.
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -54,7 +54,7 @@ for (const mode of ["manual", "plan", "accept-edits", "bypass"] as const) {
   assert.match(block, /may further RESTRICT but never loosen/u, `${mode}: memory precedence rule`);
 }
 assert.match(mariPermissionsModePrompt("plan") ?? "", /refused by the server/u);
-assert.match(mariPermissionsModePrompt("accept-edits") ?? "", /does NOT show a Keep\/Restore review card/u);
+assert.match(mariPermissionsModePrompt("accept-edits") ?? "", /Every applied change shows the user a change card with Undo/u);
 assert.match(
   mariPermissionsModePrompt("bypass") ?? "",
   /Sensitive file changes and dependency installs still require/u,
@@ -110,19 +110,10 @@ assert.ok(
 );
 assert.match(workspaceAgent, /runEndedWithDeferral = true;/u);
 assert.match(workspaceAgent, /activeRoundManualSilentMutationBlocked && isMutatingWorkspaceCommand\(command\)/u);
-// Accept edits / Bypass ride the envelope, with the delete carve-out AND the
-// Personal Extension carve-out (their drafts keep the promised review card).
-assert.match(workspaceAgent, /"accept-edits" \|\| this\.activeRunPermissionsMode === "bypass"/u);
-assert.match(workspaceAgent, /!action\.startsWith\("personal_extension\."\) &&/u);
-// Byte-exact: an editing-tooling incident once replaced the boundary escape
-// with a literal U+0008 (valid JS, silently broken carve-out); pin the two
-// characters explicitly and ban control characters from these sources.
-assert.ok(
-  workspaceAgent.includes(String.raw`!/\b(?:delete|forget|remove|uninstall)/iu.test(action)`),
-  "the deletion carve-out must use a real " + String.raw`\b` + " word boundary",
-);
+// Slice 87: every applied change keeps a restore copy in every mode, so no review-policy gate
+// remains (the old auto-keep carve-outs for deletes, extensions and chat.updateMessage are gone).
+assert.doesNotMatch(workspaceAgent, /autoKeep|reviewPolicy|auto-keep/u);
 
-assert.match(workspaceAgent, /reviewPolicy: autoKeep \? "auto-keep" : "standard"/u);
 // Per-chat override (#5725 maintainer call): the run resolves chat override
 // ?? global default; status is chat-aware; the override is read from chat
 // metadata with junk tolerated.
@@ -142,28 +133,8 @@ const modeBlockIdx = workspaceAgent.indexOf(
 assert.ok(instructionsIdx > 0 && modeBlockIdx > instructionsIdx, "mode guidance must come after saved memories");
 
 const mariDb = readSource("packages/server/src/services/mari-db/mari-db.service.ts");
-// auto-keep skips ONLY the pending review; history + journal still recorded.
-assert.match(mariDb, /if \(this\.activeReviewPolicy === "auto-keep"\) \{/u);
-const autoKeepIdx = mariDb.indexOf('if (this.activeReviewPolicy === "auto-keep") {');
-const historyIdx = mariDb.lastIndexOf("await this.recordHistory({", autoKeepIdx);
-assert.ok(historyIdx > 0, "history is recorded before the auto-keep branch");
-// The policy is stripped from the stored command payload.
-assert.match(mariDb, /key === "reviewPolicy"/u);
-// The transient policy can NEVER leak: set from the envelope at executeAction
-// entry, reset in its finally, and reset defensively at executeCli entry so a
-// stale auto-keep can't strip cards from CLI mutations (adversarial-review
-// finding: the CLI path bypassed the deletion carve-out entirely).
-assert.match(mariDb, /this\.activeReviewPolicy = envelope\.reviewPolicy === "auto-keep" \? "auto-keep" : "standard";/u);
-const cliEntryIdx = mariDb.indexOf("async executeCli(");
-const actionEntryIdx = mariDb.indexOf("async executeAction(");
-const cliBody = mariDb.slice(cliEntryIdx, cliEntryIdx + 800);
-assert.match(cliBody, /this\.activeReviewPolicy = "standard";/u, "executeCli must reset the review policy on entry");
-const actionBody = mariDb.slice(actionEntryIdx, mariDb.indexOf("private async executeCharacterAction"));
-assert.match(
-  actionBody,
-  /\} finally \{[\s\S]{0,300}this\.activeReviewPolicy = "standard";/u,
-  "executeAction must reset the review policy on exit",
-);
+// Slice 87: the executor has no review policy; every applied change gets its undo record.
+assert.doesNotMatch(mariDb, /activeReviewPolicy|reviewPolicy|auto-keep/u);
 // Mari can never rewrite her own mode row - a change-level planMutation floor
 // blocks every raw-db path (insert/patch/replace/delete/transform).
 assert.match(mariDb, /change\.table === "app_settings" && change\.id === MARI_PERMISSIONS_MODE_SETTINGS_KEY/u);
@@ -213,6 +184,14 @@ for (const mode of MARI_PERMISSIONS_MODES) {
 
 // ── Client surfaces exist ───────────────────────────────────────────────────
 const mariChat = readSource("packages/client/src/components/chat/HomeProfessorMariChat.tsx");
+// Slice 82: the mode menu lives in the composer, the run's write barrier in the run hook.
+const mariChatDir = "packages/client/src/components/chat/mari";
+const mariChatAll = [
+  mariChat,
+  ...readdirSync(join(repositoryRoot, mariChatDir)).map((name) => readSource(`${mariChatDir}/${name}`)),
+].join("\n");
+const mariComposer = readSource(`${mariChatDir}/MariComposer.tsx`);
+const mariRun = readSource(`${mariChatDir}/use-mari-workspace-run.ts`);
 assert.match(mariChat, /changePermissionsMode/u);
 assert.match(mariChat, /workspaceStatus\?\.permissionsMode \?\? DEFAULT_MARI_PERMISSIONS_MODE/u);
 // The picker is per-chat: status polls carry the chat id, the menu has a
@@ -223,11 +202,11 @@ assert.match(mariChat, /params\.set\("chatId", chatIdAtStart\)/u);
 // never short-circuited on possibly-stale check state.
 assert.match(mariChat, /\}, \[chatId, refreshWorkspaceStatus\]\);/u);
 assert.match(mariChat, /No same-value short-circuits/u);
-assert.doesNotMatch(mariChat, /mode === null && !permissionsModeOverridden\) return;/u);
-assert.match(mariChat, /changePermissionsMode\(null\)/u);
+assert.doesNotMatch(mariChatAll, /mode === null && !permissionsModeOverridden\) return;/u);
+assert.match(mariComposer, /changePermissionsMode\(null\)/u);
 assert.match(mariChat, /\{ mode, chatId: chatIdForMode \}/u);
 assert.match(mariChat, /permissionsModeSource === "chat"/u);
-assert.match(mariChat, /localize\(MARI_PERMISSIONS_MODE_LABELS\[permissionsMode\]\.label\)/u);
+assert.match(mariComposer, /localize\(MARI_PERMISSIONS_MODE_LABELS\[permissionsMode\]\.label\)/u);
 // After a successful PUT the panel refetches - an in-flight poll must not
 // clobber the optimistic patch permanently.
 assert.match(
@@ -244,7 +223,7 @@ assert.match(mariChat, /permissionsModeWritePendingChatRef\.current === chatIdAt
 // order) covering BOTH surfaces, and runs await the whole chain - a Settings
 // default change can never race a prompt on an un-overridden chat.
 assert.match(mariChat, /const write = enqueueMariPermissionsModeWrite\(/u);
-assert.match(mariChat, /await awaitMariPermissionsModeWrites\(\);/u);
+assert.match(mariRun, /await awaitMariPermissionsModeWrites\(\);/u);
 const writeChainLib = readSource("packages/client/src/lib/mari-permissions-write-chain.ts");
 assert.match(writeChainLib, /export function enqueueMariPermissionsModeWrite/u);
 assert.match(writeChainLib, /export function awaitMariPermissionsModeWrites/u);
@@ -300,26 +279,22 @@ assert.match(writeChainLib, /chain = link\.then\(\s*\(\) => undefined,\s*\(\) =>
 }
 // The latest failed write refetches authoritative status - it never restores
 // a rendered snapshot (which can be optimistic or another chat's).
-assert.doesNotMatch(mariChat, /previous \? previous : current/u);
+assert.doesNotMatch(mariChatAll, /previous \? previous : current/u);
 assert.match(mariChat, /if \(permissionsModeWriteSeqRef\.current !== writeSeq\) return;/u);
 assert.match(mariChat, /permissionsModeWriteSeqRef\.current !== writeSeqAtStart/u);
 assert.match(
   mariChat,
   /activeChatIdRef\.current === chatIdForMode && permissionsModeWriteSeqRef\.current === writeSeq/u,
 );
-const settingControlsSeq = readSource("packages/client/src/components/panels/settings/SettingControls.tsx");
+// Slice 57 moved the Settings select into the omnibar settings view (PermissionsModeRow). That view
+// mounts fresh on every open, so one read on mount replaces the old visibilitychange refetch.
+const settingControlsSeq = readSource("packages/client/src/components/layout/omnibar/OmnibarSettingsMenu.tsx");
 assert.match(settingControlsSeq, /await enqueueMariPermissionsModeWrite\(\(\) =>/u);
 assert.match(settingControlsSeq, /const writeSeq = \+\+writeSeqRef\.current;/u);
 assert.match(settingControlsSeq, /writeSeqRef\.current === seqAtStart/u);
 assert.match(settingControlsSeq, /<label htmlFor=\{selectId\}/u);
-const settingControls = readSource("packages/client/src/components/panels/settings/SettingControls.tsx");
-assert.match(settingControls, /export function MariPermissionsModeSetting/u);
-assert.match(settingControls, /localize\(MARI_PERMISSIONS_MODE_LABELS\[value\]\.label\)/u);
-assert.match(
-  settingControls,
-  /addEventListener\("visibilitychange", reload\)/u,
-  "the Settings select must refetch on focus to track header changes",
-);
+assert.match(settingControlsSeq, /function PermissionsModeRow\(/u);
+assert.match(settingControlsSeq, /localize\(MARI_PERMISSIONS_MODE_LABELS\[value\]\.label\)/u);
 
 // An editing-tooling incident once wrote a literal U+0008 into a regex in
 // these sources (valid JS, silently broken behavior) - ban the class.

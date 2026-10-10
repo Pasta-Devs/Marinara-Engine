@@ -21,6 +21,7 @@ const { createChatsStorage } = await import("../../packages/server/src/services/
 const { createConnectionsStorage } = await import("../../packages/server/src/services/storage/connections.storage.js");
 const { createCharactersStorage } = await import("../../packages/server/src/services/storage/characters.storage.js");
 const { createPromptsStorage } = await import("../../packages/server/src/services/storage/prompts.storage.js");
+const { selectAdvancedMemoryWhisperOnlyIds } = await import("../../packages/server/src/services/advanced-memory.js");
 const { filterPromptHistoryByMessageIds } =
   await import("../../packages/server/src/services/generation/prompt-message-scope.js");
 const { characterDataSchema, getRoleplayCommandActivity, getRoleplayWhispers, DEFAULT_ADVANCED_MEMORY_SETTINGS } =
@@ -243,7 +244,7 @@ try {
     promptPresetId: preset.id,
   });
   assert(memoryChat);
-  await chats.patchMetadata(memoryChat.id, {
+  const memoryMetadata = {
     enableAgents: false,
     enableTools: false,
     enableMemoryRecall: false,
@@ -259,7 +260,8 @@ try {
       knowledgeStarts: { [maukie.id]: null, [narrator.id]: null },
       knowledgeConfirmed: true,
     },
-  });
+  };
+  await chats.patchMetadata(memoryChat.id, memoryMetadata);
   await chats.createMessage({
     chatId: memoryChat.id,
     role: "assistant",
@@ -276,6 +278,214 @@ try {
     assert(!content.includes("MEMORY_OPENER_NARRATION") && !content.includes("PERSONA_SECRET"));
     assert(content.includes("MEMORY_VISIBLE_LINE"));
   }
+
+  // A message that holds only a whisper has no text to remember. Advanced Memory still delivers it.
+  const whisperOnly = await app.inject({
+    method: "POST",
+    url: `/api/chats/${memoryChat.id}/messages`,
+    payload: { role: "user", content: '[whisper: character="Narrator" text="USER_WHISPER_ONLY_SECRET"]' },
+  });
+  assert.equal(whisperOnly.statusCode, 200, whisperOnly.body);
+  assert.equal(whisperOnly.json().content, "");
+  for (const content of [
+    await generate('[whisper: character="Maukie" text="NARRATOR_WHISPER_ONLY_SECRET"]', narrator.id, {
+      chatId: memoryChat.id,
+    }),
+    await preview(narrator.id, { chatId: memoryChat.id }),
+  ])
+    assert(content.includes("USER_WHISPER_ONLY_SECRET"), "the narrator receives a whisper-only user message");
+  const maukieView = await preview(maukie.id, { chatId: memoryChat.id });
+  assert(maukieView.includes("NARRATOR_WHISPER_ONLY_SECRET"), "Maukie receives a whisper-only narrator reply");
+  assert(!maukieView.includes("USER_WHISPER_ONLY_SECRET"), "Maukie never receives the narrator's whisper");
+  // Its whisper stays inside the last message's wrapper, even when memory leaves out an earlier message.
+  for (const content of [maukieView, await generate("Maukie reacts.", maukie.id, { chatId: memoryChat.id })]) {
+    assert.equal(content.split("</last_message>").length, 2, "one closing tag");
+    const secretAt = content.indexOf("NARRATOR_WHISPER_ONLY_SECRET");
+    assert(content.lastIndexOf("<last_message>", secretAt) >= 0 && secretAt < content.indexOf("</last_message>"));
+  }
+  // A new conversation leaves earlier whisper-only messages behind, in Peek Prompt too.
+  await chats.createMessage({
+    chatId: memoryChat.id,
+    role: "user",
+    content: '[whisper: character="Narrator" text="OLD_WHISPER_ONLY_SECRET"]',
+  });
+  await chats.createMessage({
+    chatId: memoryChat.id,
+    role: "user",
+    content: "NEW_CONVERSATION_LINE",
+    extra: { isConversationStart: true },
+  });
+  for (const content of [
+    await preview(narrator.id, { chatId: memoryChat.id }),
+    await preview(maukie.id, { chatId: memoryChat.id }),
+    await generate("A new day.", narrator.id, { chatId: memoryChat.id }),
+  ]) {
+    assert(content.includes("NEW_CONVERSATION_LINE"));
+    assert(!content.includes("WHISPER_ONLY_SECRET") && !content.includes("[Private whisper"), "no earlier whisper");
+  }
+
+  // A chat can open with a message that is only a whisper. Memory then keeps no message to anchor it.
+  const whisperFirstChat = await chats.create({
+    name: "Whisper first",
+    mode: "roleplay",
+    characterIds: [maukie.id, narrator.id],
+    personaId: persona.id,
+    connectionId: connection.id,
+    promptPresetId: preset.id,
+  });
+  assert(whisperFirstChat);
+  await chats.patchMetadata(whisperFirstChat.id, memoryMetadata);
+  await chats.createMessage({
+    chatId: whisperFirstChat.id,
+    role: "user",
+    content: '[whisper: character="Narrator" text="FIRST_WHISPER_SECRET"]',
+  });
+  for (const content of [
+    await generate("The story begins.", narrator.id, { chatId: whisperFirstChat.id }),
+    await preview(narrator.id, { chatId: whisperFirstChat.id }),
+  ])
+    assert(content.includes("FIRST_WHISPER_SECRET"), "a chat's first whisper-only message reaches the narrator");
+  // Whispers separated only by a space leave a blank body. They follow the placeholder, never split it.
+  await chats.createMessage({
+    chatId: whisperFirstChat.id,
+    role: "user",
+    content:
+      '[whisper: character="Narrator" text="SPACED_NARRATOR_SECRET"] [whisper: character="Maukie" text="SPACED_MAUKIE_SECRET"]',
+  });
+  for (const [id, name] of [
+    [narrator.id, "Narrator"],
+    [maukie.id, "Maukie"],
+  ] as const) {
+    const content = await preview(id, { chatId: whisperFirstChat.id });
+    assert(
+      content.includes(`[Private whisper]\\n\\n[Private whisper to ${name} `),
+      "the whisper follows a whole placeholder",
+    );
+  }
+  // A whisper-only message can open a character's own conversation. Live and Peek Prompt both deliver it.
+  await chats.createMessage({ chatId: whisperFirstChat.id, role: "user", content: "PERSONAL_EARLY_LINE" });
+  await chats.createMessage({
+    chatId: whisperFirstChat.id,
+    role: "user",
+    content: '[whisper: character="Maukie" text="PERSONAL_START_SECRET"]',
+    extra: { conversationStartForCharacterIds: [maukie.id] },
+  });
+  for (const content of [
+    await preview(maukie.id, { chatId: whisperFirstChat.id }),
+    await generate("Maukie starts over.", maukie.id, { chatId: whisperFirstChat.id }),
+  ]) {
+    assert(content.includes("PERSONAL_START_SECRET"), "a whisper that opens Maukie's conversation reaches him");
+    assert(!content.includes("PERSONAL_EARLY_LINE"));
+  }
+  // A notice memory never keeps, between a whisper-only message and later text, does not cut the whisper off.
+  const noticeChat = await chats.create({
+    name: "Whisper notice",
+    mode: "roleplay",
+    characterIds: [maukie.id, narrator.id],
+    personaId: persona.id,
+    connectionId: connection.id,
+    promptPresetId: preset.id,
+  });
+  assert(noticeChat);
+  await chats.patchMetadata(noticeChat.id, memoryMetadata);
+  await chats.createMessage({
+    chatId: noticeChat.id,
+    role: "user",
+    content: '[whisper: character="Narrator" text="BEFORE_NOTICE_SECRET"]',
+  });
+  await chats.createMessage({ chatId: noticeChat.id, role: "system", content: "You are now playing as Mari." });
+  await chats.createMessage({ chatId: noticeChat.id, role: "user", content: "AFTER_NOTICE_LINE" });
+  for (const content of [
+    await preview(narrator.id, { chatId: noticeChat.id }),
+    await generate("The narrator notices.", narrator.id, { chatId: noticeChat.id }),
+  ])
+    assert(content.includes("BEFORE_NOTICE_SECRET") && content.includes("AFTER_NOTICE_LINE"), "notice in between");
+
+  // A one-character chat with Advanced Memory delivers a whisper-only message too.
+  const soloChat = await chats.create({
+    name: "Whisper solo",
+    mode: "roleplay",
+    characterIds: [narrator.id],
+    personaId: persona.id,
+    connectionId: connection.id,
+    promptPresetId: preset.id,
+  });
+  assert(soloChat);
+  await chats.patchMetadata(soloChat.id, {
+    ...memoryMetadata,
+    groupChatMode: undefined,
+    advancedMemory: { ...memoryMetadata.advancedMemory, knowledgeStarts: { [narrator.id]: null } },
+  });
+  await chats.createMessage({
+    chatId: soloChat.id,
+    role: "assistant",
+    characterId: narrator.id,
+    content: "SOLO_GREETING",
+  });
+  await chats.createMessage({
+    chatId: soloChat.id,
+    role: "user",
+    content: '[whisper: character="Narrator" text="SOLO_SECRET"]',
+  });
+  for (const content of [
+    await preview(narrator.id, { chatId: soloChat.id }),
+    await generate("Solo reply.", narrator.id, { chatId: soloChat.id }),
+  ])
+    assert(content.includes("SOLO_SECRET"), "one-character chat");
+
+  // A whisper-only message follows a character's knowledge start like any other message.
+  const knowledgeChat = await chats.create({
+    name: "Whisper knowledge",
+    mode: "roleplay",
+    characterIds: [maukie.id, narrator.id],
+    personaId: persona.id,
+    connectionId: connection.id,
+    promptPresetId: preset.id,
+  });
+  assert(knowledgeChat);
+  await chats.patchMetadata(knowledgeChat.id, memoryMetadata);
+  await chats.createMessage({ chatId: knowledgeChat.id, role: "user", content: "KNOWLEDGE_EARLY_LINE" });
+  const knowledgeWhisper = await chats.createMessage({
+    chatId: knowledgeChat.id,
+    role: "user",
+    content: '[whisper: character="Maukie" text="KNOWLEDGE_SECRET"]',
+  });
+  const oldReply = await chats.createMessage({
+    chatId: knowledgeChat.id,
+    role: "assistant",
+    characterId: maukie.id,
+    content: "KNOWLEDGE_OLD_REPLY",
+  });
+  const anchor = await chats.createMessage({ chatId: knowledgeChat.id, role: "user", content: "KNOWLEDGE_ANCHOR" });
+  assert(knowledgeWhisper && oldReply && anchor);
+  const knowledgeFrom = (id: string) =>
+    chats.patchMetadata(knowledgeChat.id, {
+      advancedMemory: {
+        ...memoryMetadata.advancedMemory,
+        knowledgeStarts: { [maukie.id]: id, [narrator.id]: null },
+      },
+    });
+  await knowledgeFrom(knowledgeWhisper.id);
+  for (const content of [
+    await preview(maukie.id, { chatId: knowledgeChat.id }),
+    await generate("Maukie knows.", maukie.id, { chatId: knowledgeChat.id }),
+  ]) {
+    assert(content.includes("KNOWLEDGE_SECRET"), "Maukie's knowledge opens on the whisper");
+    assert(!content.includes("KNOWLEDGE_EARLY_LINE"));
+  }
+  // Regenerating a reply from before Maukie's knowledge start gives him nothing from then.
+  await knowledgeFrom(anchor.id);
+  assert(
+    !(
+      await generate("Maukie again.", maukie.id, { chatId: knowledgeChat.id, regenerateMessageId: oldReply.id })
+    ).includes("KNOWLEDGE_SECRET"),
+    "regenerating before the knowledge start",
+  );
+  // Impersonating reads memory as its owner, without Maukie's knowledge range, in Peek Prompt as in the live route.
+  assert(
+    (await preview(maukie.id, { chatId: knowledgeChat.id, impersonate: true })).includes("KNOWLEDGE_EARLY_LINE"),
+    "owner view",
+  );
 
   // Advanced Memory keeps a stand-in only inside the retained window, which opens with the hidden
   // messages right before its first kept message.
@@ -300,6 +510,49 @@ try {
     ["OPENING_STAND_IN", "KEPT", "LATE_STAND_IN"],
   );
   assert.deepEqual(filterPromptHistoryByMessageIds(windowMessages, new Set(), windowSources), []);
+  // Whisper-only messages follow memory's reader rules: knowledge and conversation starts and hiding.
+  const whisperExtra = (extra: Record<string, unknown> = {}) => ({
+    ...extra,
+    roleplayCommandActivity: [
+      {
+        command: { type: "whisper", character: "Maukie", text: "UNIT_SECRET" },
+        raw: "",
+        whisperRecipient: { id: maukie.id, kind: "character" },
+      },
+    ],
+  });
+  const line = (id: string, extra: Record<string, unknown> = {}) => ({ id, role: "user", content: id, extra });
+  const whisper = (id: string, extra: Record<string, unknown> = {}) => ({
+    id,
+    role: "user",
+    content: "",
+    extra: whisperExtra(extra),
+  });
+  const whisperOnlyFor = (
+    messages: Array<{ id: string; role: string; content: string; extra: Record<string, unknown> }>,
+    knowledgeStarts: Record<string, string | null> = { [maukie.id]: null },
+  ) => [
+    ...selectAdvancedMemoryWhisperOnlyIds(
+      messages,
+      { ...DEFAULT_ADVANCED_MEMORY_SETTINGS, enabled: true, knowledgeStarts },
+      [maukie.id],
+      true,
+    ),
+  ];
+  assert.deepEqual(whisperOnlyFor([line("a"), whisper("w")]), ["w"]);
+  assert.deepEqual(whisperOnlyFor([line("a"), whisper("w")], { [maukie.id]: "w" }), ["w"], "knowledge opens on it");
+  assert.deepEqual(whisperOnlyFor([whisper("w"), line("a")], { [maukie.id]: "later" }), [], "regenerating before it");
+  assert.deepEqual(
+    whisperOnlyFor([whisper("w"), line("a", { isConversationStart: true })]),
+    [],
+    "earlier conversation",
+  );
+  assert.deepEqual(
+    whisperOnlyFor([line("a"), whisper("w", { conversationStartForCharacterIds: [maukie.id] })]),
+    ["w"],
+    "personal conversation start",
+  );
+  assert.deepEqual(whisperOnlyFor([whisper("w", { hiddenFromAICharacterIds: [maukie.id] })]), [], "hidden");
   console.log(
     "Hidden whisper recipient passed: recipient-only stand-in, position, other characters, narrator, persona, trimming, global hide, emptied whispers and memory window.",
   );

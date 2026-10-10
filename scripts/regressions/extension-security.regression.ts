@@ -552,6 +552,7 @@ try {
   assert.match(worker, /"ui-contribution-event"/u, "Worker must receive host-rendered control events");
   assert.match(worker, /contributionSurfaces/u, "Worker must validate safe contribution surfaces");
   assert.match(worker, /contributionPositions/u, "Worker must validate safe contribution positions");
+  assert.match(worker, /command contributions cannot register callbacks/u);
   assert.doesNotMatch(worker, /\bdocument\b/u, "Worker source must never touch the DOM");
 
   const surfaceMessages: Array<{ type?: string; contribution?: Record<string, unknown> }> = [];
@@ -1028,8 +1029,15 @@ try {
 }
 
 {
-  const { normalizePersonalExtensionContribution } =
-    await import("../../packages/client/src/lib/personal-extension-contributions.js");
+  const {
+    activatePersonalExtensionCommand,
+    collectPersonalExtensionCommands,
+    normalizePersonalExtensionContribution,
+    registerPersonalExtensionContribution,
+    removePersonalExtensionContributions,
+    resolvePersonalExtensionCommand,
+    setPersonalExtensionContributionDispatcher,
+  } = await import("../../packages/client/src/lib/personal-extension-contributions.js");
   const normalized = normalizePersonalExtensionContribution({
     id: "weather.panel",
     kind: "panel",
@@ -1113,6 +1121,99 @@ try {
     }),
     null,
   );
+  assert.deepEqual(
+    normalizePersonalExtensionContribution({
+      id: "weather-command",
+      kind: "command",
+      label: "Open weather controls",
+      description: "Opens the extension panel",
+      icon: "cloud-sun",
+      targetContributionId: "weather.panel",
+    }),
+    {
+      id: "weather-command",
+      kind: "command",
+      label: "Open weather controls",
+      description: "Opens the extension panel",
+      icon: "cloud-sun",
+      targetContributionId: "weather.panel",
+    },
+  );
+  assert.equal(
+    normalizePersonalExtensionContribution({
+      id: "unsafe-command",
+      kind: "command",
+      label: "Unsafe command",
+      targetContributionId: "weather.panel",
+      url: "https://example.invalid",
+    }),
+    null,
+  );
+  assert.equal(
+    normalizePersonalExtensionContribution({
+      id: "self-command",
+      kind: "command",
+      label: "Invalid",
+      targetContributionId: "self-command",
+    }),
+    null,
+  );
+
+  const runtime = {
+    id: "command-extension",
+    name: "Command Extension",
+    description: "",
+    capabilities: [],
+    contentHash: "sha256:command-extension",
+    executionMode: "sandboxed" as const,
+    runtimeUrl: "",
+    styleUrl: null,
+  };
+  assert.equal(
+    registerPersonalExtensionContribution(runtime, {
+      id: "weather.panel",
+      kind: "menu-item",
+      label: "Weather controls",
+    }),
+    true,
+  );
+  assert.equal(
+    registerPersonalExtensionContribution(runtime, {
+      id: "weather-command",
+      kind: "command",
+      label: "Open weather controls",
+      targetContributionId: "weather.panel",
+    }),
+    true,
+  );
+  const commandTarget = resolvePersonalExtensionCommand("command-extension:weather-command");
+  assert.equal(commandTarget?.key, "command-extension:weather.panel");
+  assert.equal(commandTarget?.kind, "menu-item");
+  assert.equal(resolvePersonalExtensionCommand("command-extension:weather.panel"), null);
+  assert.deepEqual(collectPersonalExtensionCommands(), [
+    {
+      id: "personal-extension:command-extension:weather-command",
+      title: "Open weather controls",
+      kind: "action",
+      icon: "extensions",
+      aliases: ["Command Extension"],
+    },
+  ]);
+  const commandMessages: Record<string, unknown>[] = [];
+  setPersonalExtensionContributionDispatcher(runtime, (message) => commandMessages.push(message));
+  assert.equal(activatePersonalExtensionCommand("personal-extension:command-extension:weather-command"), true);
+  assert.deepEqual(commandMessages, [{ type: "ui-contribution-activate", contributionId: "weather.panel" }]);
+  assert.equal(activatePersonalExtensionCommand("personal-extension:other-extension:weather-command"), false);
+  assert.equal(
+    registerPersonalExtensionContribution(
+      { ...runtime, contentHash: "sha256:changed-extension" },
+      { id: "weather.panel", kind: "menu-item", label: "Changed weather controls" },
+    ),
+    true,
+  );
+  assert.deepEqual(collectPersonalExtensionCommands(), []);
+  assert.equal(activatePersonalExtensionCommand("personal-extension:command-extension:weather-command"), false);
+  removePersonalExtensionContributions(runtime.id);
 }
 
 console.log("Personal Extension sandbox and policy regression passed.");

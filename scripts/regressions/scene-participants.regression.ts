@@ -153,7 +153,60 @@ try {
     resolveHistoryMessageMacros: (messages: any[]) => messages,
   };
   assert.deepEqual((await resolveConversationPresenceRuntime(presenceArgs)).respondingCharacterIds, [ids[2]]);
-  assert.equal((await resolveConversationPresenceRuntime({ ...presenceArgs, forCharacterId: ids[0] })).ended, true);
+  const blockedEvents: unknown[] = [];
+  assert.equal(
+    (
+      await resolveConversationPresenceRuntime({
+        ...presenceArgs,
+        forCharacterId: ids[0],
+        writeSse: (event) => blockedEvents.push(event),
+      })
+    ).ended,
+    true,
+  );
+  assert.deepEqual(blockedEvents[0], { type: "offline", reason: "scene_busy", characters: ["Al"] });
+  const sourceReply = await app.inject({
+    method: "POST",
+    url: "/api/generate/",
+    payload: {
+      chatId: origin.id,
+      connectionId: conn.id,
+      forCharacterId: ids[0],
+      streaming: false,
+      skipPresenceDelay: true,
+    },
+  });
+  assert.ok(sourceReply.body.includes('"reason":"scene_busy"'), sourceReply.body);
+  const mixedEvents: unknown[] = [];
+  await resolveConversationPresenceRuntime({
+    ...presenceArgs,
+    chats: {
+      getById: (id) => store.getById(id),
+      patchMetadata: (...args) => store.patchMetadata(...args),
+      listMessages: (id) => store.listMessages(id),
+      resolveConversationPresenceState: async () => ({
+        schedules: {},
+        statusOverrides: {
+          [ids[2]]: {
+            status: "offline" as const,
+            activity: "Away",
+            createdAt: new Date().toISOString(),
+            expiresAt: null,
+          },
+        },
+      }),
+    },
+    writeSse: (event) => mixedEvents.push(event),
+  });
+  assert.deepEqual(
+    mixedEvents,
+    [
+      { type: "offline", reason: "scene_busy", characters: ["Al", "Charlie"] },
+      { type: "offline", characters: ["Charlie"] },
+      { type: "done" },
+    ],
+    "Scene participation and actual offline presence have separate notices even with colliding names",
+  );
   providerContent = "I stayed in the Conversation.";
   const mergedReply = await app.inject({
     method: "POST",
@@ -186,13 +239,50 @@ try {
       url: "/api/generate/",
       payload: { chatId: origin.id, connectionId: conn.id, streaming: false, skipPresenceDelay: true },
     });
-    assert.ok(blocked.body.includes('"type":"offline"'), "A rejected reply explains which participants are away");
+    assert.ok(blocked.body.includes('"type":"offline"'), "A rejected reply emits an unavailable event");
+    assert.ok(blocked.body.includes('"reason":"scene_busy"'), "A rejected reply explains Scene participation");
     assert.equal(
       (await store.listMessages(origin.id)).filter((message) => message.role === "assistant").length,
       1,
       "A recognized busy speaker cannot be saved even when the model ignores the instruction",
     );
   }
+  // A merged response can name two unavailable characters through one display name.
+  await store.update(scene.id, { characterIds: [ids[1]] });
+  await chars.update(
+    ids[2],
+    {
+      extensions: {
+        conversationStatusOverride: {
+          status: "offline",
+          activity: "Away",
+          createdAt: new Date().toISOString(),
+          expiresAt: null,
+        },
+      },
+    } as never,
+    undefined,
+    { skipVersionSnapshot: true },
+  );
+  providerContent = "Charlie: I cannot reply.";
+  const collisionReply = await app.inject({
+    method: "POST",
+    url: "/api/generate/",
+    payload: { chatId: origin.id, connectionId: conn.id, streaming: false, skipPresenceDelay: true },
+  });
+  const collisionNotices = collisionReply.body
+    .split("\n")
+    .filter((line) => line.startsWith("data: "))
+    .map((line) => JSON.parse(line.slice(6)))
+    .filter((event) => event.type === "offline");
+  assert.deepEqual(collisionNotices, [
+    { type: "offline", reason: "scene_busy", characters: ["Charlie"] },
+    { type: "offline", characters: ["Charlie"] },
+  ]);
+  await store.update(scene.id, { characterIds: selected.participantCharacterIds });
+  await chars.update(ids[2], { extensions: { conversationStatusOverride: null } } as never, undefined, {
+    skipVersionSnapshot: true,
+  });
   providerContent = JSON.stringify(plan);
   const before = requests.length;
   for (const invalid of [

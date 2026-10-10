@@ -10,6 +10,8 @@ import {
   gameStateSnapshots,
   chats,
   messages,
+  lorebooks,
+  lorebookEntries,
 } from "../../../packages/server/src/db/schema/index.js";
 import { MariDbService } from "../../../packages/server/src/services/mari-db/mari-db.service.js";
 
@@ -23,6 +25,15 @@ try {
     await db.insert(chats).values({ id, name: id, mode: "conversation", createdAt: stamp, updatedAt: stamp });
     await db.insert(messages).values({ id: `${id}-message`, chatId: id, role: "user", content: id, createdAt: stamp });
   }
+  await db.insert(lorebooks).values({ id: "book", name: "Validation Scope Book", createdAt: stamp, updatedAt: stamp });
+  await db.insert(lorebookEntries).values({
+    id: "active-entry",
+    lorebookId: "book",
+    name: "Entry",
+    content: "active",
+    createdAt: stamp,
+    updatedAt: stamp,
+  });
   await db.insert(agentConfigs).values({
     id: "agent",
     type: "custom",
@@ -68,20 +79,31 @@ try {
   await mari.restoreAppliedReview(created.approval!.id);
   assertScoped();
 
+  // #L7 review: this used to patch the messages table, but slice 27's guardRawMessageTableWrite
+  // now refuses any raw write there outright (use chat.updateMessage instead) - swapped to a
+  // lorebook entry, which exercises the same JSON-column and dangling-FK validation generically.
   const patch = (data: Record<string, unknown>) =>
-    mari.executeCli({ argv: ["db", "patch", "messages", "active-message", "--apply", "--json", JSON.stringify(data)] });
+    mari.executeCli({
+      argv: ["db", "patch", "lorebook_entries", "active-entry", "--apply", "--json", JSON.stringify(data)],
+    });
   const invalidJson = await patch({ extra: "invalid JSON" });
   assert.equal(invalidJson.ok, false, "actual JSON columns remain validated");
-  const dangling = await patch({ chatId: "missing-chat" });
+  const dangling = await patch({ lorebookId: "missing-lorebook" });
   assert.equal(dangling.ok, false, "edits cannot introduce dangling references");
   assertScoped();
   const changed = await patch({ content: "edited" });
   assert.equal(changed.ok, true, JSON.stringify(changed));
   assertScoped();
-  assert.equal((await db.select().from(messages).where(eq(messages.id, "active-message")))[0]?.content, "edited");
+  assert.equal(
+    (await db.select().from(lorebookEntries).where(eq(lorebookEntries.id, "active-entry")))[0]?.content,
+    "edited",
+  );
   await mari.restoreAppliedReview(changed.approval!.id);
   assertScoped();
-  assert.equal((await db.select().from(messages).where(eq(messages.id, "active-message")))[0]?.content, "active");
+  assert.equal(
+    (await db.select().from(lorebookEntries).where(eq(lorebookEntries.id, "active-entry")))[0]?.content,
+    "active",
+  );
 
   // Package/import paths historically accepted arbitrary settings. Unrelated edits and undo
   // must preserve that data, while changed activation fields still need to be valid.

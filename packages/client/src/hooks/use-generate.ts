@@ -106,14 +106,51 @@ function withIllustratorFailureTargets(
 }
 
 /** Show a persistent, copyable error toast and log to console */
-function showError(msg: string, options?: Pick<ExternalToast, "action" | "id">) {
+function showError(msg: string, options?: Pick<ExternalToast, "action" | "id" | "duration">) {
   const formatted = formatGenerationParameterError(msg);
   console.error("[Generation]", msg);
   toast.error(formatted, { duration: 15000, ...options });
+  return formatted;
+}
+
+/**
+ * So the omnibar's "fix this" context row can answer for a failed reply too
+ * (today it only hears about failed connection tests). Scoped to the two
+ * main-generation error sites — tool failures and agent-retry failures route
+ * through `showError`/`showAgentFailuresError` too, but aren't "Generate
+ * reply" failures and shouldn't overwrite that row with the wrong message.
+ */
+function setGenerateReplyError(formattedMessage: string, chatId: string, qc: QueryClient) {
+  const connectionId = qc.getQueryData<Chat>(chatKeys.detail(chatId))?.connectionId ?? null;
+  useUIStore.getState().setLastAppError({
+    message: formattedMessage,
+    action: "Generate reply",
+    chatId,
+    ...(connectionId && connectionId !== "random"
+      ? { retry: { kind: "open-connection" as const, id: connectionId } }
+      : {}),
+  });
+}
+
+/**
+ * L2: a failed agent run feeds the omnibar's "fix this" row too, pointing at the
+ * agent editor instead of a connection. Never steps on a live "Generate reply"
+ * error (K1) — that failure is the more actionable one to show first.
+ */
+function setAgentFailureError(failures: AgentFailure[], force = false) {
+  if (failures.length === 0) return;
+  if (!force && useUIStore.getState().lastAppError?.action === "Generate reply") return;
+  const failure = failures[0]!;
+  useUIStore.getState().setLastAppError({
+    message: formatAgentFailuresToast(failures),
+    action: `Run ${failure.agentName}`,
+    retry: { kind: "open-agent", id: failure.agentType },
+  });
 }
 
 function showAgentFailuresError(failures: AgentFailure[], onRetry?: () => void) {
   const hasIllustratorFailure = failures.some((failure) => failure.agentType === "illustrator");
+  setAgentFailureError(failures);
   showError(
     formatAgentFailuresToast(failures),
     hasIllustratorFailure && onRetry
@@ -1492,6 +1529,10 @@ export function useGenerate() {
       let receivedThinking = false; // Whether provider-native thinking chunks were received
       let gameTurnLoadedSoundPlayed = false;
       let sawDoneEvent = false;
+      // Split from a single flag (L2 review finding): a reply failure and an agent failure are
+      // tracked separately so a successful reply doesn't get masked by - or mask - an agent error.
+      let replyErrorSeen = false;
+      let agentFailuresThisRun: AgentFailure[] = [];
       let illustrationQueued = false;
       let illustrationSettled = false;
       let passiveStreamRecovered = false;
@@ -2942,6 +2983,11 @@ export function useGenerate() {
                   ? []
                   : failureState.failedAgentFailures;
               setFailedAgentFailures(mergeAgentFailures(existingFailures, [failure]), params.chatId);
+              // An agent failure can still end in a "done" event (the main reply
+              // succeeded), so this stream's completion must not wipe the "fix
+              // this" error it just set (L2) — tracked apart from replyErrorSeen so a
+              // successful completion can replace a stale "Generate reply" row with this.
+              agentFailuresThisRun = mergeAgentFailures(agentFailuresThisRun, [failure]);
               showAgentFailuresError([failure], () => {
                 void retryAgentsRef.current?.(
                   params.chatId,
@@ -3122,10 +3168,14 @@ export function useGenerate() {
             }
 
             case "offline": {
-              // Character is offline — message was saved but no generation
               const names = (event as any).characters as string[] | undefined;
-              const label = names?.length === 1 ? names[0] : "Characters";
-              toast(`${label} is offline. They'll respond when they're back online.`, { icon: "💤" });
+              const sceneBusy = (event as any).reason === "scene_busy";
+              toast(
+                translate(sceneBusy ? "chat.presence.sceneBusyNotice" : "chat.presence.offlineNotice", {
+                  names: names?.length ? names.join(", ") : translate("chat.presence.characters"),
+                }),
+                { icon: sceneBusy ? "🎭" : "💤" },
+              );
               setProcessingRun(agentProcessingRunId, false, params.chatId);
               break;
             }
@@ -3150,7 +3200,18 @@ export function useGenerate() {
               flushTypewriterBuffer();
               setProcessingRun(agentProcessingRunId, false, params.chatId);
               clearMariPhaseForThisChat();
-              showError((event.data as string) || "Generation failed");
+              replyErrorSeen = true;
+              setGenerateReplyError(
+                // N1: conversation/roleplay now carry the failure as a persistent "Failed · Retry"
+                // line under the message, so the toast can be brief there. Game mode has no such
+                // line (its own retry UI), so it keeps the long-lived toast.
+                showError(
+                  (event.data as string) || "Generation failed",
+                  chatModeForGeneration === "game" ? undefined : { duration: 6000 },
+                ),
+                params.chatId,
+                qc,
+              );
               window.dispatchEvent(new CustomEvent("marinara:generation-error", { detail: { chatId: params.chatId } }));
               break;
             }
@@ -3163,6 +3224,7 @@ export function useGenerate() {
               }>;
               const failures = failedList.map(toAgentFailure);
               setFailedAgentFailures(failures, params.chatId);
+              agentFailuresThisRun = mergeAgentFailures(agentFailuresThisRun, failures);
               showAgentFailuresError(failures, () => {
                 void retryAgentsRef.current?.(
                   params.chatId,
@@ -3294,7 +3356,12 @@ export function useGenerate() {
           }
         }
         const msg = error instanceof Error ? error.message : "Generation failed";
-        showError(msg);
+        replyErrorSeen = true;
+        setGenerateReplyError(
+          showError(msg, chatModeForGeneration === "game" ? undefined : { duration: 6000 }),
+          params.chatId,
+          qc,
+        );
         window.dispatchEvent(new CustomEvent("marinara:generation-error", { detail: { chatId: params.chatId } }));
         return await confirmDurableSubmittedUserTurn();
       } finally {
@@ -3337,6 +3404,13 @@ export function useGenerate() {
             exact: true,
             refetchType: "active",
           });
+        }
+        if (sawDoneEvent && !replyErrorSeen) {
+          // The reply itself succeeded. Replace a stale "Generate reply failed" row with this
+          // run's real agent error if one happened, otherwise clear it (review finding: a prior
+          // run's reply-error row must not survive to mask this run's own outcome).
+          if (agentFailuresThisRun.length > 0) setAgentFailureError(agentFailuresThisRun, true);
+          else useUIStore.getState().setLastAppError(null);
         }
         if (stillOwnerAtCleanupStart) {
           if (sawDoneEvent || passiveStreamSettled) publishVnReply(latestAssistantMessage(persistedMessages.values()));
@@ -4012,6 +4086,15 @@ export function useGenerate() {
               }
               break;
             }
+          }
+        }
+        if (!hasError) {
+          // Only clear an "open-agent" error for one of the agent types THIS retry just
+          // succeeded on - a live "Generate reply" or connection-test error from somewhere
+          // else must survive a successful agent retry (L2/review finding).
+          const current = useUIStore.getState().lastAppError;
+          if (current?.retry?.kind === "open-agent" && agentTypes.includes(current.retry.id)) {
+            useUIStore.getState().setLastAppError(null);
           }
         }
         if (!hasError && !imagePromptReviewRequested) {

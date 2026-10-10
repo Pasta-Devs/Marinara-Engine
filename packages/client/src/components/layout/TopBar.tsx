@@ -36,6 +36,13 @@ import { SpotifyMiniPlayer } from "../spotify/SpotifyMiniPlayer";
 import { YouTubePlayer } from "../chat/YouTubePlayer";
 import { LocalMusicPlayer } from "../chat/LocalMusicPlayer";
 import { useInstalledCapabilityPackages } from "../../hooks/use-capability-packages";
+import { usePullToOpenOmnibar } from "../../hooks/use-pull-to-open-omnibar";
+import { useMariEdgeGlow } from "../../hooks/use-mari-presence";
+import type { MariEdgeGlow } from "../../lib/mari-presence-seen";
+import type { PullTarget } from "../../lib/pull-to-open";
+import { requestProfessorMariOpen } from "../../lib/professor-mari-open";
+import { OmnibarPullDrop } from "./OmnibarPullDrop";
+import { MariTopbarStatus } from "./MariTopbarStatus";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import {
   activatePersonalExtensionContribution,
@@ -46,6 +53,14 @@ import {
   PersonalExtensionContributionsMenu,
   PersonalExtensionTopbarButtons,
 } from "./PersonalExtensionContributionsMenu";
+
+// English source text for `localize()` - the lookup matches on the literal string, not the key.
+const MARI_EDGE_GLOW_LABEL: Record<Exclude<MariEdgeGlow, null>, string> = {
+  working: "Professor Mari is working",
+  finished: "Professor Mari finished",
+  approval: "Professor Mari needs your answer",
+  error: "Professor Mari's last run failed",
+};
 
 type RightPanelButtonPanel = "lorebooks" | "presets" | "connections" | "agents" | "personas";
 
@@ -96,19 +111,23 @@ const SPOTIFY_TOPBAR_MIN_WIDTH_WITH_VOLUME = 416;
 const SPOTIFY_TOPBAR_LAYOUT_BUFFER = 32;
 const PHONE_TOPBAR_QUERY = "(max-width: 639px)";
 const PHONE_OVERFLOW_HIDDEN_CLASS = "max-sm:hidden";
-const TOPBAR_COARSE_TARGET_CLASS = "[@media(pointer:coarse)]:h-9 [@media(pointer:coarse)]:w-9";
+// UX-16: a touch screen gets 44 px top-bar buttons, the minimum touch target.
+const TOPBAR_COARSE_TARGET_CLASS = "[@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:w-11";
 const TOPBAR_BUTTON_CLASS = `mari-topbar-action relative flex h-8 w-8 items-center justify-center rounded-lg p-0 transition-all hover:bg-[var(--accent)] active:scale-95 ${TOPBAR_COARSE_TARGET_CLASS}`;
 const TOPBAR_PANEL_BUTTON_CLASS = `mari-topbar-action relative flex h-8 w-8 items-center justify-center rounded-lg p-0 transition-all duration-200 ${TOPBAR_COARSE_TARGET_CLASS}`;
 const TOPBAR_ACTIVE_BUTTON_CLASS = "bg-[var(--accent)] shadow-sm";
 const TOPBAR_FORCE_HOVER_CLASS = "bg-[var(--accent)]";
 const TOPBAR_ACCENT_ICON_CLASS = "mari-topbar-accent-icon mari-accent-animated";
 const CHAT_TOPBAR_GRADIENT_ID = "mari-topbar-chats-gradient";
+const HOME_LONG_PRESS_MS = 550;
 
 export function TopBar({ mobileTopbarNavigation }: { mobileTopbarNavigation: boolean }) {
   const localize = useLocalizedUiText();
+  const mariEdgeGlow = useMariEdgeGlow();
   const { contributions } = usePersonalExtensionContributions();
   const sidebarOpen = useUIStore((s) => s.sidebarOpen);
   const toggleSidebar = useUIStore((s) => s.toggleSidebar);
+  const setOmnibarOpen = useUIStore((s) => s.setOmnibarOpen);
   const setSidebarOpen = useUIStore((s) => s.setSidebarOpen);
   const toggleRightPanel = useUIStore((s) => s.toggleRightPanel);
   const closeRightPanel = useUIStore((s) => s.closeRightPanel);
@@ -132,6 +151,8 @@ export function TopBar({ mobileTopbarNavigation }: { mobileTopbarNavigation: boo
   const headerRef = useRef<HTMLElement | null>(null);
   const leftControlsRef = useRef<HTMLDivElement | null>(null);
   const rightNavRef = useRef<HTMLElement | null>(null);
+  const homeLongPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const suppressHomeClickRef = useRef(false);
   const [spotifyDesktopViewport, setSpotifyDesktopViewport] = useState(false);
   const [spotifyUseFloatingFallback, setSpotifyUseFloatingFallback] = useState(false);
   const [hoveredTopbarKey, setHoveredTopbarKey] = useState<string | null>(null);
@@ -187,6 +208,40 @@ export function TopBar({ mobileTopbarNavigation }: { mobileTopbarNavigation: boo
     toggleSidebar();
   }, [prepareMobileTopbarNavigation, toggleSidebar]);
 
+  const handleOmnibarClick = useCallback(() => {
+    prepareMobileTopbarNavigation();
+    setOmnibarOpen(true);
+  }, [prepareMobileTopbarNavigation, setOmnibarOpen]);
+
+  const clearHomeLongPress = useCallback(() => {
+    if (homeLongPressTimerRef.current !== null) {
+      clearTimeout(homeLongPressTimerRef.current);
+      homeLongPressTimerRef.current = null;
+    }
+  }, []);
+
+  const handleHomePointerDown = useCallback(() => {
+    clearHomeLongPress();
+    suppressHomeClickRef.current = false;
+    homeLongPressTimerRef.current = setTimeout(() => {
+      homeLongPressTimerRef.current = null;
+      suppressHomeClickRef.current = true;
+      handleOmnibarClick();
+    }, HOME_LONG_PRESS_MS);
+  }, [clearHomeLongPress, handleOmnibarClick]);
+
+  const handlePullOpen = useCallback(
+    (target: PullTarget) => {
+      if (target === "search") return handleOmnibarClick();
+      // The same door as Home's "Ask Professor Mari": the omnibar, straight in Mari's pane. The open editor
+      // stays open, because she arrives with what is on screen (M9).
+      requestProfessorMariOpen();
+    },
+    [handleOmnibarClick],
+  );
+
+  const pull = usePullToOpenOmnibar({ onPullStart: clearHomeLongPress, onOpen: handlePullOpen });
+
   const handleRightPanelClick = useCallback(
     (panel: Parameters<typeof toggleRightPanel>[0]) => {
       prepareMobileTopbarNavigation();
@@ -196,6 +251,11 @@ export function TopBar({ mobileTopbarNavigation }: { mobileTopbarNavigation: boo
   );
 
   const handleHomeClick = useCallback(() => {
+    if (suppressHomeClickRef.current) {
+      suppressHomeClickRef.current = false;
+      return;
+    }
+
     window.dispatchEvent(new Event("marinara:home-professor-mari-close"));
     setActiveChatId(null);
     closeAllDetails();
@@ -301,6 +361,10 @@ export function TopBar({ mobileTopbarNavigation }: { mobileTopbarNavigation: boo
   }, []);
 
   useEffect(() => {
+    return clearHomeLongPress;
+  }, [clearHomeLongPress]);
+
+  useEffect(() => {
     const clearWhenHidden = () => {
       if (document.visibilityState !== "visible") clearTopbarHover();
     };
@@ -335,6 +399,7 @@ export function TopBar({ mobileTopbarNavigation }: { mobileTopbarNavigation: boo
             ),
       )}
       title={localize("Chats")}
+      aria-label={localize("Chats")}
     >
       <MessageSquareText size={15} className={TOPBAR_ACCENT_ICON_CLASS}>
         <defs>
@@ -355,6 +420,10 @@ export function TopBar({ mobileTopbarNavigation }: { mobileTopbarNavigation: boo
     <button
       key="home"
       onClick={handleHomeClick}
+      onPointerDown={handleHomePointerDown}
+      onPointerUp={clearHomeLongPress}
+      onPointerCancel={clearHomeLongPress}
+      onPointerLeave={clearHomeLongPress}
       aria-pressed={isHomeActive}
       data-topbar-hover-key="home"
       className={cn(
@@ -368,6 +437,7 @@ export function TopBar({ mobileTopbarNavigation }: { mobileTopbarNavigation: boo
             ),
       )}
       title={localize("Home")}
+      aria-label={localize("Home")}
     >
       <Home size={15} className={TOPBAR_ACCENT_ICON_CLASS} />
       {isHomeActive && (
@@ -376,16 +446,33 @@ export function TopBar({ mobileTopbarNavigation }: { mobileTopbarNavigation: boo
     </button>
   );
 
-  return (
+  const header = (
     <header
       ref={headerRef}
       data-component="TopBar"
+      {...pull.handlers}
       onPointerLeave={clearTopbarHover}
       onPointerOver={handleTopbarPointerOver}
-      className="mari-topbar relative z-10 flex h-12 flex-shrink-0 items-center justify-between bg-[var(--marinara-topbar-surface)] px-3 backdrop-blur-sm"
+      className={cn(
+        "mari-topbar relative z-10 flex h-12 flex-shrink-0 items-center justify-between bg-[var(--marinara-topbar-surface)] px-3 backdrop-blur-sm",
+        mobileTopbarNavigation ? "touch-none" : "select-none",
+      )}
     >
       {/* Subtle bottom border only */}
       <div className="absolute inset-x-0 bottom-0 h-px bg-[var(--marinara-topbar-border)]" />
+      {/* Mari is busy or has a result you have not seen: a thin line in her state colour (P2). */}
+      {mariEdgeGlow ? (
+        <span
+          aria-hidden="true"
+          data-component="TopBar.MariEdgeGlow"
+          data-state={mariEdgeGlow}
+          className="mari-topbar-edge-glow"
+        />
+      ) : null}
+      {/* The line above is decorative - this is the only signal screen readers get for her state. */}
+      <span aria-live="polite" className="sr-only">
+        {mariEdgeGlow ? localize(MARI_EDGE_GLOW_LABEL[mariEdgeGlow]) : ""}
+      </span>
 
       {/* Left section: window controls + chat info */}
       <div className="mari-topbar-left flex min-w-0 flex-1 items-center gap-2">
@@ -402,6 +489,7 @@ export function TopBar({ mobileTopbarNavigation }: { mobileTopbarNavigation: boo
             <LocalMusicPlayer />
           </>
         ) : null}
+        <MariTopbarStatus state={mariEdgeGlow} />
       </div>
 
       {/* Right section - Panel toggles */}
@@ -500,6 +588,22 @@ export function TopBar({ mobileTopbarNavigation }: { mobileTopbarNavigation: boo
         <TopbarMoreMenu items={overflowItems} headerRef={headerRef} phoneTopbar={phoneTopbar} />
       </nav>
     </header>
+  );
+
+  return (
+    <>
+      {/* iOS safe area spacer — pushes TopBar below status bar on the opaque page backing; part of the pull area. */}
+      <div
+        {...pull.handlers}
+        className={cn(
+          "flex-shrink-0 md:hidden h-[env(safe-area-inset-top)] bg-[var(--marinara-page-backing,var(--background))]",
+          mobileTopbarNavigation && "touch-none",
+        )}
+      />
+      {header}
+      {/* Phones pull with a finger, desktop drags with the mouse from empty bar space (M18). */}
+      <OmnibarPullDrop visuals={pull.visuals} edgeGlow={mariEdgeGlow} />
+    </>
   );
 }
 

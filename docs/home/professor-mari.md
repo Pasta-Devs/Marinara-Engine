@@ -6,15 +6,27 @@ Professor Mari is Marinara Engine's built-in assistant on the Home screen. This 
 
 Professor Mari lives on the Home screen. The Home screen is what you see when no chat is open.
 
-Look for the card with her pixel art and the heading **Professor Mari**. A status line reads **Ready to help** when she is idle, or **Working on it...** while she is busy. Click the **Ask Professor Mari** button to open her full chat window.
+Look for the card with her pixel art and the heading **Professor Mari**. A status line reads **Ready to help** when she is idle, or **Working on it...** while she is busy. Click the **Ask Prof. Mari** button to open her full chat window.
 
 You talk to her in plain language. Type a message in the box, then press Enter to send. Press Shift and Enter together to add a new line instead.
 
 Sending your very first message to her unlocks the **Hello World** achievement.
 
-## What she can do
+A thin line along the bottom of the app's top bar also shows her state from any screen: it wavers while she works, turns green when she finishes, gold while an approval waits, or red if the last run failed. It clears once you open her chat. (It is off while **Ask Professor Mari from Search** is turned off.) All of her settings are in the Search and Professor Mari settings: the gear in Search, or **Settings** > **General** > **Search and Professor Mari settings** > **Open**.
+
+## Ask Professor Mari from your current work
 
 Professor Mari is more than a question box. She can explain the app, help you get set up, and make things for you when you ask.
+
+You can open Professor Mari from the place where you need help. These entry points create an editable draft and attach a small, typed context summary. The attached context is removable before you send the message.
+
+- **Character**, **Persona**, **Lorebook**, and **Preset** editors: ask about the open resource or a selected field.
+- **FAQ** answers: use **Ask Prof. Mari** to include the matched question and its written answer as the starting point.
+- **Search**: press `Cmd/Ctrl+K`, select a result, then use **Ask Prof. Mari** to include the selected result in the draft. Search does not send a model request by itself, unless a quick answer is on (see **Quick answers in Search** below).
+- **Recent Chats** and other error states: use **Ask Prof. Mari** beside **Retry** to send the error description and the requested repair action.
+- Normal Professor Mari character chat and Home workspace chat use the same handoff format.
+
+The attached items show as **Aware of** chips above her message box. Remove a context item when it is not relevant. Professor Mari resolves larger resource content on the server under the context budget after you send the message. She does not receive a full resource just because you opened an editor.
 
 Ask her for help with any of these:
 
@@ -31,11 +43,27 @@ Ask her for help with any of these:
 
 She reads an item before she edits it, and she asks for missing details when your request is vague. For image tasks you need a working image generation connection set up first. She does not create one for you.
 
+## Quick answers in Search
+
+When you type a question in Search and no result matches, Professor Mari can write a short answer. It appears as a **Quick answer · Read-only** card under the **Ask Prof. Mari** row.
+
+- A quick answer has up to three sentences from the Marinara docs. She sees only what you typed, and it changes nothing.
+- The card names the docs pages it used. A repeat of the same question uses a saved copy for five minutes.
+- Under the answer are **Copy**, **Answer again** and **Continue with Prof. Mari**. **Continue with Prof. Mari** opens her window in a new chat named after your question, with the quick answer attached. Use **Ask Prof. Mari more…** to ask a follow-up in her window. Quick answers have no follow-up of their own.
+- A quick answer waits until you stop typing. **Wait after typing** sets how long Search waits.
+- Choose who answers under **Settings** > **General** > **Search and Professor Mari settings** > **Quick answers** > **Answer with**: a local model you have downloaded, **Same as Prof. Mari** (the connection she uses), or another connection. Each answer is one short request. A paid connection can cost money.
+- If an answer fails, the card says why, for example that the model did not reply. **Try again** and **Continue with Prof. Mari** are always there. **Choose a model** appears only when a key or model is missing. The provider's own message is under **Details**.
+- Quick answers are off until you turn them on with **Quick answers in Search** in the same group.
+
 ## Guided suggestion chips
 
 On an empty Professor Mari chat, starter chips such as **Create a Character**, **Create a Lorebook**, and **Create a Persona** help begin common tasks. During a guided creation or edit, the chips change to match the next step. Clicking a chip fills the input draft; you can edit that draft before sending it.
 
 Guided flows ask one focused question at a time instead of presenting a long form all at once.
+
+For a complete create or edit request, Professor Mari can return a bounded guided plan. Each step has a small set of suggestions. Selecting one fills the current draft and advances the plan locally. Your text remains in the draft when you change a suggestion. The plan belongs to the current Professor Mari chat, so switching chats, restarting, stopping a run, or completing the plan clears stale steps. Malformed or excessive suggestions are discarded, and the chips are disabled while Professor Mari is working.
+
+Suggestions are available only in Professor Mari chats. Other characters do not receive Professor Mari's chips.
 
 ## She can also read and edit the app's own files
 
@@ -77,22 +105,22 @@ To have her read an image, your selected connection's model must support image i
 
 ## Reviewing her changes
 
-When Professor Mari edits something you already have, she saves the change right away and then shows a review card. This lets you undo it if you do not like the result.
+When Professor Mari changes something, she saves the change at once and shows a change card under her answer. The card lists each field that changed. A text edit shows the old and the new words, and a lorebook shows its entries. Open **Show all** to see every field. **Technical details** shows the raw command.
 
-The card is titled **Review Mari's changes**. It shows what she did and which data it touched. It has two buttons:
+The card has one action:
 
-- **Keep** confirms the change. You see the message "Kept Mari's workspace change."
-- **Restore** puts the previous saved version back. You see the message "Restored the previous app data snapshot."
+- **Undo** puts the previous saved version back. Every change can be undone, in every permissions mode. The permissions mode only decides whether she asks first.
+- A change that did not save shows **Not saved** and the reason. **Try again** asks her again.
+- The card shows **Undo until** only in the last 24 hours. An undo copy lasts up to 14 days, and only the newest 50 are kept. After that the change stays and the card reads **Undo closed**.
 
-A few things to know:
+A change that waits for you is different. A held change (in Manual mode, or a change to a sensitive file or a dependency) shows **Apply** and **Don't apply**. A delete shows **Delete** and **Put back**. Search does not list her changes: open Professor Mari to see, apply or undo them.
 
-- New items, like a fresh character or lorebook, get a card too. **Restore** removes them again.
-- A card belongs to the Mari chat she made the change in. A new chat starts without the cards of other chats. Deleting a chat keeps its changes and removes its cards. A change made with the `mari` command in a terminal belongs to no chat, so its card shows in every Mari chat.
-- A card stays until you press **Keep** or **Restore**, for up to 14 days. After that it closes on its own and the change stays.
-- If **Restore** says the data changed after Mari made the change, something edited it since then, and restoring would overwrite that newer version. Press **Keep** to dismiss the card; the current data stays as it is.
+- A card belongs to the Professor Mari chat she made the change in. A new chat starts without the cards of other chats. Deleting a chat keeps its changes and removes its cards. A change made with the `mari` command in a terminal belongs to no chat, so its card shows in every Professor Mari chat.
 - An edit that would leave everything as it was is not saved and gets no card.
-- Mari cannot edit or delete her own card. Marinara resets it to the built-in version on every start.
+- Professor Mari cannot edit or delete her own card. Marinara resets it to the built-in version on every start.
 - Characters and personas also keep their own version history inside their editors. You can restore an older version there as a second safety net.
+
+When Professor Mari creates or updates a character, persona, lorebook, or preset, the result can show **Open**. Use it to open the exact resource after the app refreshes its data. An updated result can also show **Review** when a review is pending. **Review** opens the pending change controls. New items usually have no review because no existing item was overwritten.
 
 Two higher-risk changes wait instead of being applied first:
 
@@ -103,25 +131,25 @@ Approving a library means trusting its code when Marinara later imports or runs 
 
 ## Creating content with Decisions
 
-Mari can write agent **Activation questions**, lorebook-entry **Decision** statements, and conditional prompts in presets, cards, lorebooks, and agent prompts. She checks which Decision model is selected before introducing those features. A selected model is configuration information, not proof that a provider is reachable or a local model will load successfully.
+Professor Mari can write agent **Activation questions**, lorebook-entry **Decision** statements, and conditional prompts in presets, cards, lorebooks, and agent prompts. She checks which Decision model is selected before introducing those features. A selected model is configuration information, not proof that a provider is reachable or a local model will load successfully.
 
-If you have no Decision model selected, she keeps ordinary creations and edits free of new Decision dependencies. Existing Decision content stays intact during unrelated edits. If you explicitly ask for Decision content, she explains the relevant fallback and asks whether to proceed once in that Mari chat. Her record survives reopening the chat and conversations longer than her recent-message window. An unanswered question or a refusal is not permission.
+If you have no Decision model selected, she keeps ordinary creations and edits free of new Decision dependencies. Existing Decision content stays intact during unrelated edits. If you explicitly ask for Decision content, she explains the relevant fallback and asks whether to proceed once in that Professor Mari chat. Her record survives reopening the chat and conversations longer than her recent-message window. An unanswered question or a refusal is not permission.
 
-You can tell her, **“Stop reminding me to set up a Decision model.”** She stops in the current chat and can save that preference as a Memory. Use **Keep & Enable** to apply it in future chats too. Turning that Memory off or deleting it removes the standing preference. Suppressing setup reminders does not invite her to add Decisions to ordinary requests.
+You can tell her, **“Stop reminding me to set up a Decision model.”** She stops in the current chat and can save that preference as a Memory. Use **Turn on** to apply it in future chats too. Turning that Memory off or deleting it removes the standing preference. Suppressing setup reminders does not invite her to add Decisions to ordinary requests.
 
 With a model selected, she follows your relevant enabled Memories and Skills. If they contain no authoring preference, she asks whether you want Decisions used and whether to remember your answer. You can allow or decline them, or approve only the current task. A Skill that merely explains Decision syntax does not count as permission. A direct request such as “add Decision activation to this entry” already supplies permission for that task.
 
 Her default is sparse use with a suitable timing control: **Sticky** or **Cooldown** for lorebook entries, **Trigger Cadence** for agent activation, and `sticky`, `cooldown`, or `every` in prompt conditions. Sticky and Cooldown reduce repeated checks after a positive activation; they do not prevent repeated checks while a statement keeps answering no. `every` skips checks between scheduled turns and reads as no then, so it is not always suitable for fleeting events.
 
-Mari also aims to keep the early assembled prompt stable. She asks before adding changing content early in a prompt or inserting context inside chat history unless your instruction or enabled preference already permits that placement. There is no universal “safe after 1,000 tokens” rule: cache reuse depends on the provider, model, and matching rendered prefix. Approving Decision use does not automatically approve these placements.
+Professor Mari also aims to keep the early assembled prompt stable. She asks before adding changing content early in a prompt or inserting context inside chat history unless your instruction or enabled preference already permits that placement. There is no universal “safe after 1,000 tokens” rule: cache reuse depends on the provider, model, and matching rendered prefix. Approving Decision use does not automatically approve these placements.
 
-The usual Permissions Mode and review controls still apply to her edits. Memories she saves start disabled until you enable them. For what each Decision feature sees, its fallbacks, and examples, see [Decision Models](../connections/decision-models.md), [Conditional Prompts](../prompts/conditional-prompts.md), [Custom Agents](../agents/custom-agents.md#activation-questions), and [Lorebook Entries](../lorebooks/entries.md#decision-activation).
+The usual permissions mode and review controls still apply to her edits. Memories she saves start disabled until you enable them. For what each Decision feature sees, its fallbacks, and examples, see [Decision Models](../connections/decision-models.md), [Conditional Prompts](../prompts/conditional-prompts.md), [Custom Agents](../agents/custom-agents.md#activation-questions), and [Lorebook Entries](../lorebooks/entries.md#decision-activation).
 
 ## Custom Skills
 
 A Skill is a short instruction document you write to change how Professor Mari handles a certain kind of request.
 
-Click the **Skills** button in her chat header to open the **Professor Mari Skills** panel. From there you can:
+Click the **Skills** button in her chat header to open the **Professor Mari skills** panel. From there you can:
 
 - Click **New** to start a Skill from a template.
 - Click **Upload** to add a Skill from a `.md` or `.txt` file.
@@ -136,7 +164,7 @@ Professor Mari can remember your standing preferences so you do not have to repe
 
 There are two ways to give her a memory:
 
-- **Tell her.** Say something like "remember that I always key lorebook entries on the character's name and their nickname." She saves it and shows you a **Keep/Restore** review card with the exact wording. A memory she saves starts **disabled** (off) so it does not change anything until you turn it on. The card offers a third button, **Keep & Enable**, to save it and switch it on right away.
+- **Tell her.** Say something like "remember that I always key lorebook entries on the character's name and their nickname." She saves it and shows you a change card with the exact wording. A memory she saves starts **disabled** (off) so it does not change anything until you turn it on. The card offers **Turn on** to switch it on right away.
 - **Add it yourself.** Click the **Memories** button in her chat header to open the **Memories** panel, where you can create, edit, enable or disable, and delete your memories. You can also **Upload** a `.md` or text file to turn its contents into a memory.
 
 She only saves or changes a memory when **you** ask her to, never because something she read (a character, lorebook, or file) told her to.
@@ -163,7 +191,15 @@ While she is working, a **Stop** button appears in the header. Click it to cance
 
 If you leave her chat window open and then move to another page, Professor Mari can follow you as a small floating bubble.
 
-On a phone or a narrow screen, she becomes a small round avatar you can drag around. Tap it to reopen the full chat. On a wide screen, a small draggable **Ask Professor Mari** window appears. Each version has a control to dismiss the bubble for the rest of your session.
+On a phone or a narrow screen, she becomes a small round avatar you can drag around. Tap it to reopen the full chat. On a wide screen, a small draggable **Ask Prof. Mari** window appears. Each version has a control to dismiss the bubble for the rest of your session.
+
+## Trust and recovery status
+
+Open **Aware of** in the Professor Mari header to see what goes with your next message, what stays in this Professor Mari chat, and how she works: the model she answers with, the context budget, and whether her shell commands run in a sandbox. The header also shows pending approvals, Skills, and Memories. Check these before a request when you need to know what Professor Mari can read.
+
+Professor Mari keeps consequential workspace changes behind the existing server approval and review rules. **Aware of** does not grant extra access. Sensitive file changes, dependency changes, shell limits, and app-data validation remain server enforced.
+
+When a request fails, the transcript keeps the failure reason and shows **Retry** when the request can be sent again. Fix the shown connection, sandbox, capability, or remote-access problem first, then retry. A retry does not silently start from a search, FAQ, or error state. It remains a user action.
 
 ## Her FAQ is separate from the chat
 
@@ -187,7 +223,10 @@ Professor Mari is a helper, not the full documentation. Keep these limits in min
 
 ## Troubleshooting
 
-- No reply at all: check that a connection is selected using the link icon. If none is set up, open the **Connections** panel and add one.
+- No reply at all: check the connection shown in **Aware of** or select one using the link icon. If none is set up, open the **Connections** panel and add one.
+- A handoff has the wrong item: remove the context item, restart or switch to the correct Professor Mari chat, and open the handoff again from the source surface. Context is scoped to the handoff and current Professor Mari chat.
+- A result does not appear in an editor: use **Open** on the result card. Professor Mari may have completed the command while the resource list was stale.
+- A request fails: read the failure status, correct the named setup problem, and use **Retry**. Ask Professor Mari again from the original source only when the context itself is no longer correct.
 - "You haven't set up a connection yet" pop-up message: pick a connection from the link icon dropdown, or add one first.
 - She cannot read your attached image: your model must support image input. Switch to a connection whose model can see images.
 - Fandom lookups fail: these need an internet connection, since Fandom is an outside website.

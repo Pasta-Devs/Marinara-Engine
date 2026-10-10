@@ -358,6 +358,34 @@ export function roleplayHiddenWhisperMessageIds(
   return ids;
 }
 
+/** A message's visible text, without private tags the user may have typed into it. */
+function visibleBody(message: HistoryMessage): string {
+  const content = typeof message.content === "string" ? message.content : "";
+  return message.role === "user" ? parseRoleplayUserCommands(content).content : content;
+}
+
+/**
+ * Messages that hold only a whisper, with no text or attachment. Advanced Memory keeps no empty message,
+ * so it adds these to its window separately (see selectAdvancedMemoryWhisperOnlyIds).
+ */
+export function roleplayWhisperOnlyMessageIds(history: readonly HistoryMessage[]): Set<string> {
+  const ids = new Set<string>();
+  for (const message of history) {
+    const extra = parseExtra(message.extra);
+    if (
+      typeof message.id === "string" &&
+      (message.role === "assistant" || message.role === "user") &&
+      extra.hiddenFromAI !== true &&
+      extra.commandOnly !== true &&
+      !visibleBody(message).trim() &&
+      !(Array.isArray(extra.attachments) && extra.attachments.length > 0) &&
+      getRoleplayWhispers(extra).length > 0
+    )
+      ids.add(message.id);
+  }
+  return ids;
+}
+
 /** Insert secrets at their saved positions in the final viewer's retained history, after copying shared prompts. */
 export function appendRoleplayWhispers(
   prompt: Array<{ id?: string | null; whisperSourceId?: string; contextKind?: string; content: string }>,
@@ -390,8 +418,10 @@ export function appendRoleplayWhispers(
     );
     if (!whispers.length) continue;
     // History wrappers shift saved offsets. Prefer the unchanged source body, then fall back to edit anchors.
-    // A stand-in's body is its placeholder, so its whispers follow it.
-    const sourceText = message.whisperSourceId
+    // A stand-in's body, like a whisper-only message's, is its placeholder. Its whispers follow the placeholder,
+    // since their saved offsets point into text the prompt does not show.
+    const placeholder = !!message.whisperSourceId || !visibleBody(source).trim();
+    const sourceText = placeholder
       ? WHISPER_ONLY_PLACEHOLDER
       : typeof source.content === "string"
         ? source.content
@@ -401,9 +431,12 @@ export function appendRoleplayWhispers(
     const positioned = whispers
       .map((whisper) => ({
         ...whisper,
-        offset:
-          (hasSource ? sourceStart : 0) +
-          getRoleplayCommandContentOffset(hasSource ? sourceText : message.content, whisper.activity),
+        offset: placeholder
+          ? hasSource
+            ? sourceStart + sourceText.length
+            : message.content.length
+          : (hasSource ? sourceStart : 0) +
+            getRoleplayCommandContentOffset(hasSource ? sourceText : message.content, whisper.activity),
       }))
       .sort((a, b) => a.offset - b.offset || a.index - b.index);
     for (const { command, offset } of positioned.reverse()) {

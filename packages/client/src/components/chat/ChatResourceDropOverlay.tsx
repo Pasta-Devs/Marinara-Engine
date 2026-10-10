@@ -19,6 +19,7 @@ import {
   getActiveChatResourceDrag,
   getActiveChatResourceMouseDrag,
   readChatResourceDragPayload,
+  takePendingChatResourceAssign,
   takePendingChatResourcePanelRestore,
   type ChatResourceDragPayload,
 } from "../../lib/chat-resource-drag";
@@ -669,6 +670,14 @@ export function ChatResourceDropOverlay({ chat }: { chat: Chat }) {
     window.addEventListener(CHAT_RESOURCE_ASSIGN_EVENT, assign);
     return () => window.removeEventListener(CHAT_RESOURCE_ASSIGN_EVENT, assign);
   }, [runAssignment]);
+
+  // "Add Eliza to Tavern Night" from a different chat (or none open): the omnibar
+  // queues the payload and navigates here, this picks it up once the chat it was
+  // meant for is the one actually mounted — same handoff as agent setup's.
+  useEffect(() => {
+    const payload = takePendingChatResourceAssign(chat.id);
+    if (payload) runAssignment(payload);
+  }, [chat.id, runAssignment]);
 
   // A mobile dock drop closes the library panel to show the result; once the drop is fully done and
   // its follow-up modals are gone, put the user back in the panel they were dragging from.

@@ -7,8 +7,8 @@ import { createPortal } from "react-dom";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { Loader2, X } from "lucide-react";
 import { cn } from "../../lib/utils";
+import { UnifiedLineDiff } from "./MariUnifiedDiff";
 import { useBackdropDismiss } from "../../hooks/use-backdrop-dismiss";
-import { diffWords } from "../../lib/word-diff";
 import {
   NEUTRAL_PANEL_CLOSE_BUTTON,
   NEUTRAL_PANEL_CLOSE_ICON_SIZE,
@@ -43,8 +43,9 @@ export function MariPromptPreviewModal({
   const backdropDismiss = useBackdropDismiss(onClose);
   // The word-diff is an O(m*n) LCS pass over the whole assembled prompt; memoize so it is not
   // recomputed on unrelated re-renders (e.g. while loading).
-  const segments = useMemo(() => diffWords(sideToText(before), sideToText(after)), [before, after]);
-  const empty = !loading && !error && segments.every((segment) => !segment.value.trim());
+  const beforeText = useMemo(() => sideToText(before), [before]);
+  const afterText = useMemo(() => sideToText(after), [after]);
+  const empty = !loading && !error && !beforeText.trim() && !afterText.trim();
   const panelRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const previouslyFocused = document.activeElement as HTMLElement | null;
@@ -88,7 +89,7 @@ export function MariPromptPreviewModal({
   // (otherwise the bookmarks bar clips the top of the modal).
   return createPortal(
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 max-md:pt-[env(safe-area-inset-top)]"
+      className="fixed inset-0 z-[calc(var(--mari-layer-omnibar)+1)] flex items-center justify-center bg-black/50 max-md:pt-[env(safe-area-inset-top)]"
       {...backdropDismiss}
     >
       <div
@@ -135,26 +136,7 @@ export function MariPromptPreviewModal({
               {localizeUi("ui.chat.maripromptpreviewmodal.noPreview")}
             </p>
           ) : (
-            <pre className="whitespace-pre-wrap break-words rounded-lg bg-[var(--background)]/70 p-3 font-mono text-[0.6875rem] leading-relaxed text-[var(--foreground)]">
-              {segments.map((segment, index) => {
-                if (segment.type === "equal") return <span key={index}>{segment.value}</span>;
-                if (segment.type === "added") {
-                  return (
-                    <span key={index} className="rounded bg-emerald-500/25 text-[var(--foreground)]">
-                      {segment.value}
-                    </span>
-                  );
-                }
-                return (
-                  <span
-                    key={index}
-                    className="rounded bg-[var(--destructive)]/25 text-[var(--foreground)] line-through"
-                  >
-                    {segment.value}
-                  </span>
-                );
-              })}
-            </pre>
+            <UnifiedLineDiff before={beforeText} after={afterText} className="max-h-none p-1" />
           )}
         </div>
       </div>

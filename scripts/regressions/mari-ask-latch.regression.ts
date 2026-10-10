@@ -96,6 +96,9 @@ assert.equal(
 // can never break them; behavior changes still do.
 const workspaceAgent = readSource("packages/server/src/services/professor-mari/workspace-agent.service.ts");
 const flat = workspaceAgent.replace(/\s+/gu, " ");
+// Line comments can themselves contain semicolons (prose), so adjacency
+// checks across a comment use this copy instead of `flat`.
+const flatNoLineComments = workspaceAgent.replace(/\/\/[^\n]*/gu, "").replace(/\s+/gu, " ");
 
 // Run-LOCAL latch declared BEFORE the round loop - run scope is the entire
 // property the fix rests on. A declaration moved into the loop body (fresh
@@ -123,10 +126,10 @@ assert.equal((flat.match(/runAskedForApproval = true/gu) ?? []).length, 1, "one 
 // user - lexically adjacent to the append, so a discarded repair round (whose
 // prose the user never sees) can never bind the run.
 assert.ok(
-  flat.includes(
-    "if (parsedAction.awaitingAuthorization || visibleTextAsksApplyPermission(action.visibleText)) { runAskedForApproval = true; } assistantText = appendVisibleText(assistantText, action.visibleText);",
+  flatNoLineComments.includes(
+    "if (parsedAction.awaitingAuthorization || visibleTextAsksApplyPermission(action.visibleText)) { runAskedForApproval = true; } assistantText = action.visibleText.trim();",
   ),
-  "arming must sit immediately before the visible-text append - only streamed asks bind the run",
+  "arming must sit immediately before the visible-text assignment - only streamed asks bind the run",
 );
 assert.ok(
   !flat.includes("visibleTextRequestsUserApproval(action.visibleText)) { runAskedForApproval"),

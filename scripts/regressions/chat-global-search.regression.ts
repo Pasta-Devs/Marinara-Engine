@@ -184,6 +184,33 @@ try {
   assert.equal(timedOut.partial, true, "an exhausted time budget reports a partial scan");
   assert.equal(timedOut.results.length, 0);
 
+  // perChat: every chat is counted, each chat keeps its newest hits, and `limit` caps the page.
+  assert.deepEqual(all.chats, [], "chat counts are only returned when perChat is asked");
+  const grouped = await searchAllChats(db, { query: "moon", perChat: 2 });
+  assert.deepEqual(grouped.chats, [
+    { chatId: "chat-rp", chatName: "Moon Road", chatMode: "roleplay", matches: 3, cast: ["Ayla"] },
+    { chatId: "chat-convo", chatName: "Idle talk", chatMode: "conversation", matches: 1, cast: [] },
+  ]);
+  assert.deepEqual(
+    grouped.results.map((result) => result.messageId),
+    ["rp-4", "rp-2", "cv-2"],
+    "at most two hits per chat, newest first, the 3rd Moon Road match is counted but not listed",
+  );
+  assert.equal(grouped.results[1]!.characterId, "char-ayla", "character turns carry the speaker id");
+  assert.equal(grouped.results[0]!.characterId, null, "narrator turns carry no speaker id");
+  assert.equal(grouped.hasMore, false);
+  const capped = await searchAllChats(db, { query: "moon", perChat: 1, limit: 1 });
+  assert.deepEqual(
+    capped.results.map((result) => result.messageId),
+    ["rp-4"],
+    "limit caps the listed hits",
+  );
+  assert.deepEqual(
+    capped.chats.map((chat) => chat.matches),
+    [3, 1],
+    "counts still cover every chat past the limit",
+  );
+
   const app = Fastify();
   app.decorate("db", db);
   await app.register(chatInsightsRoutes, { prefix: "/api/chat-insights" });
@@ -195,6 +222,12 @@ try {
     ["cv-2"],
   );
   assert.equal((await app.inject({ method: "GET", url: "/api/chat-insights/search?q=%20" })).statusCode, 400);
+  const perChatResponse = await app.inject({ method: "GET", url: "/api/chat-insights/search?q=moon&perChat=1&limit=5" });
+  assert.deepEqual(
+    perChatResponse.json().chats.map((chat: { matches: number }) => chat.matches),
+    [3, 1],
+    "the route passes perChat through",
+  );
   for (const field of ["characterId", "from", "to"]) {
     const repeated = await app.inject({
       method: "GET",

@@ -1128,6 +1128,15 @@ export function LorebookEditor() {
     initialEntryIdRef.current = null;
     jumpToEntry(entryId);
   }, [entries, isLoading, jumpToEntry]);
+  // F7: a deep link (e.g. the reply checkup's "lorebook budget" row) asked for a specific Overview field.
+  const initialFieldRef = useRef(useUIStore.getState().lorebookDetailInitialField);
+  useEffect(() => {
+    const field = initialFieldRef.current;
+    if (!field || isLoading || activeTab !== "overview") return;
+    initialFieldRef.current = null;
+    const target = contentRef.current?.querySelector<HTMLElement>(`[data-lorebook-field="${CSS.escape(field)}"]`);
+    if (target) scrollToElement(target);
+  }, [activeTab, isLoading, contentRef, scrollToElement]);
   const entryNameById = useMemo(() => new Map(entries.map((entry) => [entry.id, entry.name])), [entries]);
   const activeChatForTest = useMemo(
     () =>
@@ -2503,7 +2512,7 @@ export function LorebookEditor() {
                       className="mari-editor-field h-10 w-full px-3 py-2.5 text-sm"
                     />
                   </div>
-                  <div>
+                  <div data-lorebook-field="token-budget">
                     <label className="mb-1.5 flex items-center gap-1 text-xs font-medium">
                       {localizeUi("ui.lorebooks.lorebookeditor.tokenBudget")}{" "}
                       <HelpTooltip

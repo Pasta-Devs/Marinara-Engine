@@ -1,7 +1,12 @@
 // ──────────────────────────────────────────────
 // Routes: Professor Mari Workspace Agent
 // ──────────────────────────────────────────────
-import { MARI_PERMISSIONS_MODES, MARI_PERMISSIONS_MODE_SETTINGS_KEY } from "@marinara-engine/shared";
+import {
+  chatIdForMariSession,
+  MARI_PERMISSIONS_MODES,
+  MARI_PERMISSIONS_MODE_SETTINGS_KEY,
+  withMariReceiptOutcome,
+} from "@marinara-engine/shared";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
 import { requirePrivilegedAccess } from "../middleware/privileged-gate.js";
@@ -27,12 +32,87 @@ import {
   MAX_CONTEXT_LABEL_LENGTH,
 } from "../services/storage/mari-workspace-context.storage.js";
 
-const promptSchema = z.object({
+export const professorMariPromptSchema = z.object({
   chatId: z.string().min(1),
   message: z.string().min(1),
   connectionId: z.string().optional().nullable(),
   debugMode: z.boolean().optional().default(false),
   existingUserMessageId: z.string().min(1).optional(),
+  context: z
+    .object({
+      source: z.enum([
+        "home",
+        "floating-assistant",
+        "command-center",
+        "faq",
+        "character-chat",
+        "character-editor",
+        "persona-editor",
+        "lorebook-editor",
+        "preset-editor",
+        "connection-editor",
+        "agent-editor",
+        "settings",
+        "game-setup",
+        "chat-error",
+      ]),
+      capability: z.enum(["explain", "recommend", "create", "edit", "repair", "navigate"]),
+      query: z.string().max(500).optional(),
+      resource: z
+        .object({
+          kind: z.enum([
+            "character",
+            "persona",
+            "lorebook",
+            "preset",
+            "connection",
+            "agent",
+            "setting",
+            "chat",
+            "game",
+          ]),
+          id: z.string().min(1).max(200),
+          label: z.string().max(200).optional(),
+        })
+        .optional(),
+      relatedResources: z
+        .array(
+          z.object({
+            kind: z.enum(["character", "persona", "lorebook", "preset", "connection", "agent"]),
+            id: z.string().min(1).max(200),
+            label: z.string().max(200).optional(),
+          }),
+        )
+        .max(4)
+        .optional(),
+      field: z.string().min(1).max(200).optional(),
+      fieldId: z.string().min(1).max(200).optional(),
+      error: z.object({ message: z.string().min(1).max(2_000), code: z.string().max(200).optional() }).optional(),
+      action: z.string().max(500).optional(),
+      commandCenterResultId: z.string().min(1).max(256).optional(),
+      activeChat: z
+        .object({
+          id: z.string().min(1).max(256),
+          label: z.string().max(200).optional(),
+          mode: z.string().max(32).optional(),
+        })
+        .optional(),
+      settingsLocation: z
+        .object({ tab: z.string().max(64).optional(), controlId: z.string().max(128).optional() })
+        .optional(),
+      asideAnswer: z
+        .object({
+          query: z.string().max(500),
+          answer: z.string().max(4_000),
+          tier: z.enum(["local", "remote"]),
+          sources: z
+            .array(z.object({ path: z.string().max(300), heading: z.string().max(300) }))
+            .max(3)
+            .optional(),
+        })
+        .optional(),
+    })
+    .optional(),
   attachments: z
     .array(
       z.object({
@@ -48,6 +128,9 @@ const promptSchema = z.object({
 
 const resetSchema = z.object({
   clearHistory: z.boolean().optional(),
+  // F12: Dismiss only needs the last-error flag cleared; a stale client error (poll lag, another
+  // tab) must not abort a run that is genuinely in flight.
+  keepRun: z.boolean().optional(),
 });
 
 // #5073: attached workspace context (chat-history slices). content is the already-serialized JSON;
@@ -151,6 +234,38 @@ export function reviewActionFailure(err: unknown, action: "keep" | "restore"): s
   return `The ${action === "keep" ? "Keep" : "Restore"} did not finish, so the card stays.${detail}`;
 }
 
+/**
+ * Slice 74: Keep / Undo writes its outcome onto the receipt of the Mari message that made the change, so
+ * the card says "Kept" / "Undone" after a reload. Newest message first; never fails the answer.
+ */
+export async function recordMariReceiptOutcome(
+  app: FastifyInstance,
+  sessionId: string,
+  reviewId: string,
+  outcome: "kept" | "undone",
+) {
+  const chatId = chatIdForMariSession(sessionId);
+  if (!chatId) return;
+  try {
+    const chats = createChatsStorage(app.db);
+    for (const message of (await chats.listMessages(chatId)).reverse()) {
+      if (message.role !== "assistant") continue;
+      let extra: { mariWorkspaceActionResults?: unknown } | null;
+      try {
+        extra = typeof message.extra === "string" ? JSON.parse(message.extra || "{}") : (message.extra ?? null);
+      } catch {
+        continue;
+      }
+      const next = withMariReceiptOutcome(extra?.mariWorkspaceActionResults, reviewId, outcome);
+      if (!next) continue;
+      await chats.updateMessageExtra(message.id, { mariWorkspaceActionResults: next });
+      return;
+    }
+  } catch (err) {
+    logger.warn(err, "[professor-mari] could not record the receipt outcome for review %s", reviewId);
+  }
+}
+
 function privileged(request: FastifyRequest, reply: FastifyReply, loopbackOnly = false) {
   return requirePrivilegedAccess(request, reply, {
     loopbackOnly,
@@ -173,7 +288,10 @@ export async function professorMariWorkspaceRoutes(app: FastifyInstance) {
   app.post("/reset", async (req, reply) => {
     if (!privileged(req, reply)) return;
     const input = resetSchema.parse(req.body ?? {});
-    await getProfessorMariWorkspaceService(app).reset({ clearHistory: input.clearHistory === true });
+    await getProfessorMariWorkspaceService(app).reset({
+      clearHistory: input.clearHistory === true,
+      keepRun: input.keepRun === true,
+    });
     return { ok: true };
   });
 
@@ -291,7 +409,7 @@ export async function professorMariWorkspaceRoutes(app: FastifyInstance) {
 
   app.post("/prompt", async (req, reply) => {
     if (!privileged(req, reply)) return;
-    const body = promptSchema.parse(req.body);
+    const body = professorMariPromptSchema.parse(req.body);
     const service = getProfessorMariWorkspaceService(app);
     startSseReply(reply, { "X-Accel-Buffering": "no" });
     reply.raw.flushHeaders?.();
@@ -321,6 +439,7 @@ export async function professorMariWorkspaceRoutes(app: FastifyInstance) {
         debugMode: body.debugMode,
         attachments: body.attachments,
         existingUserMessageId: body.existingUserMessageId,
+        context: body.context,
         onEvent: send,
       });
       send({ type: "done", data: { ok: true } });
@@ -361,6 +480,7 @@ export async function professorMariWorkspaceRoutes(app: FastifyInstance) {
     }
     if (!result) return reply.status(404).send({ error: "Applied change review not found" });
     if (result.approval.affectedTables.installed_extensions) await personalServerExtensionRuntime.reloadAll();
+    await recordMariReceiptOutcome(app, result.approval.sessionId, result.approval.id, "kept");
     return { ok: true, ...result };
   });
 
@@ -387,6 +507,7 @@ export async function professorMariWorkspaceRoutes(app: FastifyInstance) {
       return { ok: false, completed: true, ...result };
     }
     if (result.approval.affectedTables.installed_extensions) await personalServerExtensionRuntime.reloadAll();
+    await recordMariReceiptOutcome(app, result.approval.sessionId, result.approval.id, "undone");
     return { ok: true, ...result, completed: true };
   });
 

@@ -721,6 +721,34 @@ function resolveEntryStateOverrides(value: unknown): EntryStateOverrides | undef
   return overrides;
 }
 
+/** Slice 70: Mari's continuity snapshot is prompt-only (her run reads it from storage; the client never does). It was
+ *  ~30 % of a long Mari thread's bytes on every load, so the message list leaves it out. Storage is unchanged. */
+export function withoutPromptOnlyExtra<T extends { extra?: unknown }>(rows: T[]): T[] {
+  return rows.map((row) => {
+    const raw = row.extra;
+    if (typeof raw === "string" && !raw.includes('"mariWorkspaceContinuity"')) return row;
+    let extra: unknown = raw;
+    if (typeof raw === "string") {
+      try {
+        extra = JSON.parse(raw);
+      } catch {
+        return row;
+      }
+    }
+    if (!extra || typeof extra !== "object" || !("mariWorkspaceContinuity" in extra)) return row;
+    const { mariWorkspaceContinuity: _promptOnly, ...rest } = extra as Record<string, unknown>;
+    return { ...row, extra: typeof raw === "string" ? JSON.stringify(rest) : rest };
+  });
+}
+
+type ProfessorMariRestartQuery = {
+  connectionId?: string;
+  personaId?: string;
+  contextKey?: string;
+  contextLabel?: string;
+  name?: string;
+};
+
 export async function chatsRoutes(app: FastifyInstance) {
   const storage = createChatsStorage(app.db);
   const messageTrashStore = createMessageTrashStorage(app.db);
@@ -939,71 +967,89 @@ export async function chatsRoutes(app: FastifyInstance) {
     return normalizeChatForResponse(updated ?? created);
   });
 
-  app.post<{ Querystring: { connectionId?: string; personaId?: string } }>(
-    "/internal/professor-mari/restart",
-    async (req) => {
-      const professorChats = sortProfessorMariChats((await storage.list()).filter(isHomeProfessorMariChat));
-      const active = professorChats.find(isActiveHomeProfessorMariChat) ?? professorChats[0] ?? null;
-      const connectionId =
-        typeof req.query.connectionId === "string" && req.query.connectionId
-          ? req.query.connectionId
-          : (active?.connectionId ?? null);
-      const personaId =
-        typeof req.query.personaId === "string" && req.query.personaId
-          ? req.query.personaId
-          : (active?.personaId ?? null);
+  app.post<{ Querystring: ProfessorMariRestartQuery }>("/internal/professor-mari/restart", async (req) => {
+    // R7: the screen the new thread is about, so the next door from there continues it.
+    const contextKey = typeof req.query.contextKey === "string" ? req.query.contextKey.trim().slice(0, 300) : "";
+    // Quick answer hand-off: the new thread is named after the question it starts with.
+    const name = typeof req.query.name === "string" ? req.query.name.trim().slice(0, 120) : "";
+    const contextLabel = typeof req.query.contextLabel === "string" ? req.query.contextLabel.trim().slice(0, 120) : "";
+    const professorChats = sortProfessorMariChats((await storage.list()).filter(isHomeProfessorMariChat));
+    const active = professorChats.find(isActiveHomeProfessorMariChat) ?? professorChats[0] ?? null;
+    const connectionId =
+      typeof req.query.connectionId === "string" && req.query.connectionId
+        ? req.query.connectionId
+        : (active?.connectionId ?? null);
+    const personaId =
+      typeof req.query.personaId === "string" && req.query.personaId
+        ? req.query.personaId
+        : (active?.personaId ?? null);
 
-      if (active && (await storage.countMessages(active.id)) > 0) {
-        const metadata = parseChatMetadata(active.metadata);
-        const currentName = typeof active.name === "string" && active.name.trim() ? active.name.trim() : "";
-        const shouldRename = currentName === "Professor Mari";
-        await storage.update(active.id, {
-          name: shouldRename ? formatProfessorMariStashName() : active.name,
-          characterIds: [PROFESSOR_MARI_ID],
-          connectionId: active.connectionId ?? null,
-          personaId: active.personaId ?? null,
-          promptPresetId: null,
-        });
-        await storage.patchMetadata(active.id, {
-          ...metadata,
-          internalAssistant: PROFESSOR_MARI_INTERNAL_CHAT_MARKER,
-          professorMariActive: false,
-          professorMariArchived: true,
-          enableAgents: false,
-          autonomousMessages: false,
-          characterExchanges: false,
-          tags: ["internal"],
-        });
-      } else if (active) {
-        await storage.patchMetadata(active.id, {
-          internalAssistant: PROFESSOR_MARI_INTERNAL_CHAT_MARKER,
-          professorMariActive: false,
-          professorMariArchived: true,
-        });
-      }
-
-      const created = await storage.create({
-        name: "Professor Mari",
-        mode: "conversation",
-        characterIds: [PROFESSOR_MARI_ID],
-        groupId: null,
-        personaId,
-        promptPresetId: null,
-        connectionId,
-      });
-      if (!created) return created;
-      const updated = await storage.patchMetadata(created.id, {
+    const activeMessageCount = active ? await storage.countMessages(active.id) : 0;
+    // R7: an empty thread about nothing yet (the one opening her made) becomes the new one,
+    // instead of leaving an empty "general" thread behind in her Chats list.
+    if (active && activeMessageCount === 0 && !parseChatMetadata(active.metadata).mariContextKey) {
+      await storage.update(active.id, { connectionId, personaId, ...(name ? { name } : {}) });
+      const reused = await storage.patchMetadata(active.id, {
         internalAssistant: PROFESSOR_MARI_INTERNAL_CHAT_MARKER,
         professorMariActive: true,
         professorMariArchived: false,
+        mariContextKey: contextKey || null,
+        mariContextLabel: contextKey ? contextLabel || null : null,
+      });
+      return normalizeChatForResponse(reused ?? active);
+    }
+    if (active && activeMessageCount > 0) {
+      const metadata = parseChatMetadata(active.metadata);
+      const currentName = typeof active.name === "string" && active.name.trim() ? active.name.trim() : "";
+      const shouldRename = currentName === "Professor Mari";
+      await storage.update(active.id, {
+        name: shouldRename ? formatProfessorMariStashName() : active.name,
+        characterIds: [PROFESSOR_MARI_ID],
+        connectionId: active.connectionId ?? null,
+        personaId: active.personaId ?? null,
+        promptPresetId: null,
+      });
+      await storage.patchMetadata(active.id, {
+        ...metadata,
+        internalAssistant: PROFESSOR_MARI_INTERNAL_CHAT_MARKER,
+        professorMariActive: false,
+        professorMariArchived: true,
         enableAgents: false,
         autonomousMessages: false,
         characterExchanges: false,
         tags: ["internal"],
       });
-      return normalizeChatForResponse(updated ?? created);
-    },
-  );
+    } else if (active) {
+      await storage.patchMetadata(active.id, {
+        internalAssistant: PROFESSOR_MARI_INTERNAL_CHAT_MARKER,
+        professorMariActive: false,
+        professorMariArchived: true,
+      });
+    }
+
+    const created = await storage.create({
+      name: name || "Professor Mari",
+      mode: "conversation",
+      characterIds: [PROFESSOR_MARI_ID],
+      groupId: null,
+      personaId,
+      promptPresetId: null,
+      connectionId,
+    });
+    if (!created) return created;
+    const updated = await storage.patchMetadata(created.id, {
+      internalAssistant: PROFESSOR_MARI_INTERNAL_CHAT_MARKER,
+      professorMariActive: true,
+      professorMariArchived: false,
+      enableAgents: false,
+      autonomousMessages: false,
+      characterExchanges: false,
+      tags: ["internal"],
+      mariContextKey: contextKey || null,
+      mariContextLabel: contextKey ? contextLabel || null : null,
+    });
+    return normalizeChatForResponse(updated ?? created);
+  });
 
   app.post<{ Params: { id: string } }>("/internal/professor-mari/chats/:id/activate", async (req, reply) => {
     const professorChats = (await storage.list()).filter(isHomeProfessorMariChat);
@@ -2142,7 +2188,9 @@ export async function chatsRoutes(app: FastifyInstance) {
           return reply.status(400).send({ error: "Invalid message cursor" });
         }
         try {
-          return await storage.listMessagesPaginated(req.params.id, limit, req.query.before || undefined);
+          return withoutPromptOnlyExtra(
+            await storage.listMessagesPaginated(req.params.id, limit, req.query.before || undefined),
+          );
         } catch (error) {
           if (error instanceof InvalidMessageCursorError) {
             return reply.status(400).send({ error: error.message });
@@ -2150,7 +2198,7 @@ export async function chatsRoutes(app: FastifyInstance) {
           throw error;
         }
       }
-      return storage.listMessages(req.params.id);
+      return withoutPromptOnlyExtra(await storage.listMessages(req.params.id));
     },
   );
 

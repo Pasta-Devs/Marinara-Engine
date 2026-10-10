@@ -53,6 +53,7 @@ import {
   createAdvancedMemoryService,
   sceneCheckTranscript,
   selectAdvancedMemoryMessages,
+  selectAdvancedMemoryWhisperOnlyIds,
   type AdvancedMemorySceneCheck,
 } from "../services/advanced-memory.js";
 import {
@@ -2780,11 +2781,19 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               ).map((message) => message.id),
             )
           : null;
+        const advancedAgentWhisperOnlyIds = advancedMemoryEnabled
+          ? selectAdvancedMemoryWhisperOnlyIds(
+              advancedSourceMessages,
+              advancedMemorySettings,
+              promptCharacterIds,
+              promptGroupChatMode === "individual",
+            )
+          : undefined;
         const sharedPromptForAgents = (messages: GenerationPromptMessage[]) =>
           advancedAgentSourceIds
             ? filterPromptHistoryByMessageIds(
                 resolveAdvancedMemoryPrompt(messages, advancedMemoryPlacements, {}),
-                advancedAgentSourceIds,
+                new Set([...advancedAgentSourceIds, ...advancedAgentWhisperOnlyIds!]),
                 new Set(advancedSourceMessages.map((message) => message.id)),
               )
             : messages;
@@ -7511,7 +7520,11 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             !input.impersonate &&
             (await resolveSceneBusyCharacterIds(chats, input.chatId)).includes(targetCharId)
           ) {
-            sendSseEvent(reply, { type: "offline", characters: [groupResponderName(targetCharId)] });
+            sendSseEvent(reply, {
+              type: "offline",
+              reason: "scene_busy",
+              characters: [groupResponderName(targetCharId)],
+            });
             return null;
           }
           generationProviderOrigin = { model: conn.model, provider: conn.provider };
@@ -7997,6 +8010,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             agentContext.memory._mainPromptPreview = promptPreviewForAgents(publicRoleplayPrompt ?? messages);
           };
           let effectiveMaxTokensForSend: number | undefined = maxTokens;
+          let lastContextFit: ReturnType<typeof fitMessagesForModelAccess>["contextFit"] | undefined;
           const fitPromptForSend = async (candidateMessages: ChatMessage[]): Promise<ChatMessage[]> => {
             if (advancedMemoryEnabled) {
               if (advancedMemoryReceipt)
@@ -8023,6 +8037,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             });
             finalPromptSent = fit.messages;
             effectiveMaxTokensForSend = fit.maxTokensForSend;
+            lastContextFit = fit.contextFit;
             return fit.messages;
           };
 
@@ -8942,7 +8957,22 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             if (blockedSpeakers.length) {
               fullResponse = "";
               if (!holdForTextRewrite) sendSseEvent(reply, { type: "content_replace", data: "" });
-              sendSseEvent(reply, { type: "offline", characters: [...new Set(blockedSpeakers)] });
+              const sceneBusyIds = new Set(await resolveSceneBusyCharacterIds(chats, input.chatId));
+              const sceneBusyNames = new Set(
+                charInfo.filter((character) => sceneBusyIds.has(character.id)).flatMap(speakerNames),
+              );
+              const offlineSpeakerNames = new Set(
+                charInfo
+                  .filter((character) => !isAvailableGroupResponder(character.id) && !sceneBusyIds.has(character.id))
+                  .flatMap(speakerNames),
+              );
+              const names = [...new Set(blockedSpeakers)];
+              const sceneNames = names.filter((name) => sceneBusyNames.has(normalizeTextForMatch(name)));
+              const offlineNames = names.filter((name) => offlineSpeakerNames.has(normalizeTextForMatch(name)));
+              if (sceneNames.length) {
+                sendSseEvent(reply, { type: "offline", reason: "scene_busy", characters: sceneNames });
+              }
+              if (offlineNames.length) sendSseEvent(reply, { type: "offline", characters: offlineNames });
               return null;
             }
           }
@@ -10321,6 +10351,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 durationMs,
                 reasoningDurationMs,
                 finishReason: finishReason ?? null,
+                contextFit: lastContextFit ?? null,
               },
             };
             if (fullThinking) extraUpdate.thinking = fullThinking;

@@ -12974,6 +12974,7 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
         "Updated.",
         "Edit applied.",
         "Done!",
+        "Before you ask: I created the entry.",
       ]) {
         assert.equal(workspaceTextClaimsMutationCompletion(claim), true, claim);
       }
@@ -12986,6 +12987,9 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
         "Set its type to Constant",
         "Added fields appear",
         "Removed entries cannot be restored",
+        // Slice 68: feature descriptions from a docs answer are not completion claims.
+        "A chunk needs at least 5 new messages before it's created.",
+        "It is enabled by default in Conversation chats.",
       ]) {
         assert.equal(workspaceTextClaimsMutationCompletion(text), false, text);
       }

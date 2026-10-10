@@ -24,6 +24,7 @@ interface Props {
   characterId?: string | null;
   personaId?: string | null;
   defaultScope?: LorebookScope | null;
+  defaultName?: string;
 }
 
 export function CreateLorebookModal({
@@ -33,10 +34,16 @@ export function CreateLorebookModal({
   characterId = null,
   personaId = null,
   defaultScope = null,
+  defaultName = "",
 }: Props) {
   const { t: localizeUi } = useUiTranslation();
   const qc = useQueryClient();
-  const [form, setForm] = useState({ name: "", description: "", category: defaultCategory });
+  const [form, setForm] = useState({ name: defaultName, description: "", category: defaultCategory });
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) setForm((current) => ({ ...current, name: defaultName, category: defaultCategory }));
+  }
 
   const createLorebook = useMutation({
     mutationFn: (data: { name: string; description: string; category: LorebookCategory }) =>

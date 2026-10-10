@@ -14,6 +14,7 @@ import { readdir, readFile, realpath, stat } from "fs/promises";
 import { join, resolve } from "path";
 import { getMonorepoRoot } from "../config/runtime-config.js";
 import { assertInsideDir } from "../utils/security.js";
+import { isExcludedDevelopmentDoc, USER_DEVELOPMENT_DOCS } from "../services/professor-mari/documentation-tools.js";
 import { createAppSettingsStorage } from "../services/storage/app-settings.storage.js";
 import {
   DocsPackBusyError,
@@ -202,7 +203,7 @@ const DOC_ORDER: Record<string, string[]> = {
     "writing-rulesets.md",
   ],
   integrations: ["home-assistant.md", "discord-mirror.md", "message-translation.md", "haptic-feedback.md"],
-  development: ["architecture-map.md", "frontend.md", "file-storage.md", "noodle-internals.md", "ios-pwa-safe-area.md"],
+  development: USER_DEVELOPMENT_DOCS,
 };
 
 interface DocSummary {
@@ -226,6 +227,17 @@ interface DocSearchSnippet {
 interface DocSearchResult extends DocSummary {
   matches: number;
   snippets: DocSearchSnippet[];
+}
+
+/**
+ * F8 and UX-07: a title hit outranks a body hit ("Lorebooks Overview" for "lorebooks work"), and a title
+ * that holds more of the query's words outranks one that holds fewer. Then the doc with more matches,
+ * then the path.
+ */
+export function rankDocSearchResults(results: DocSearchResult[], needles: string[]): DocSearchResult[] {
+  const titleWords = (doc: DocSearchResult) =>
+    needles.filter((needle) => doc.title.toLowerCase().includes(needle)).length;
+  return results.sort((a, b) => titleWords(b) - titleWords(a) || b.matches - a.matches || a.path.localeCompare(b.path));
 }
 
 /** Max snippet lines returned per document */
@@ -286,6 +298,7 @@ async function collectDocs(dir: string, relativeDir: string): Promise<DocSummary
       continue;
     }
     if (!entry.isFile() || !entry.name.toLowerCase().endsWith(".md")) continue;
+    if (isExcludedDevelopmentDoc(relativeDir, entry.name)) continue;
     const relativePath = relativeDir ? `${relativeDir}/${entry.name}` : entry.name;
     const filePath = join(dir, entry.name);
     try {
@@ -463,6 +476,7 @@ async function collectDocPaths(dir: string, relativeDir: string): Promise<string
       const childRelative = relativeDir ? `${relativeDir}/${entry.name}` : entry.name;
       paths.push(...(await collectDocPaths(join(dir, entry.name), childRelative)));
     } else if (entry.isFile() && entry.name.toLowerCase().endsWith(".md")) {
+      if (isExcludedDevelopmentDoc(relativeDir, entry.name)) continue;
       paths.push(relativeDir ? `${relativeDir}/${entry.name}` : entry.name);
     }
   }
@@ -574,7 +588,14 @@ export async function docsRoutes(app: FastifyInstance) {
 
     try {
       const language = await resolveRequestLanguage(lang, storage);
-      const needle = query.toLowerCase();
+      // F4 (O5): a question-phrased search ("how do lorebooks work?") arrives
+      // here as its content words ("lorebooks work") — the whole phrase almost
+      // never occurs verbatim in prose. Each word must occur somewhere in the
+      // doc (AND across words); a single-word query behaves exactly as before.
+      const needles = query
+        .toLowerCase()
+        .split(/\s+/)
+        .filter((word) => word.length > 0);
       const results: DocSearchResult[] = [];
 
       for (const doc of await collectLocalizedDocs(language)) {
@@ -586,27 +607,30 @@ export async function docsRoutes(app: FastifyInstance) {
         } catch {
           continue;
         }
+        const lowerContent = content.toLowerCase();
+        if (!needles.every((needle) => lowerContent.includes(needle))) continue;
+
         const snippets: DocSearchSnippet[] = [];
         let matches = 0;
 
         content.split(/\r?\n/).forEach((line, index) => {
-          const matchIndex = line.toLowerCase().indexOf(needle);
-          if (matchIndex === -1) return;
+          const lowerLine = line.toLowerCase();
+          const hitNeedle = needles.find((needle) => lowerLine.includes(needle));
+          if (!hitNeedle) return;
           matches++;
           if (snippets.length < MAX_SNIPPETS_PER_DOC) {
-            snippets.push({ line: index + 1, text: toSnippet(line, matchIndex) });
+            snippets.push({ line: index + 1, text: toSnippet(line, lowerLine.indexOf(hitNeedle)) });
           }
         });
 
         // Count a title hit only when no content line matched (the H1 the title
         // came from is already counted by the line scan).
-        if (matches === 0 && doc.title.toLowerCase().includes(needle)) matches = 1;
+        if (matches === 0 && needles.some((needle) => doc.title.toLowerCase().includes(needle))) matches = 1;
 
         if (matches > 0) results.push({ ...doc, matches, snippets });
       }
 
-      results.sort((a, b) => b.matches - a.matches || a.path.localeCompare(b.path));
-      return { query, language, results };
+      return { query, language, results: rankDocSearchResults(results, needles) };
     } catch (err) {
       logger.error(err, "Failed to search documentation files");
       return reply.status(500).send({ error: "Failed to search documentation files" });
@@ -627,6 +651,10 @@ export async function docsRoutes(app: FastifyInstance) {
     }
     // Lowercase so the exclusion can't be bypassed on case-insensitive filesystems
     if (segments[0] && EXCLUDED_DIRS.has(segments[0].toLowerCase())) {
+      return reply.status(400).send({ error: "Invalid path" });
+    }
+    // Same rule as the listing: non-curated docs/development files are never served.
+    if (isExcludedDevelopmentDoc(segments.slice(0, -1).join("/").toLowerCase(), filename)) {
       return reply.status(400).send({ error: "Invalid path" });
     }
 

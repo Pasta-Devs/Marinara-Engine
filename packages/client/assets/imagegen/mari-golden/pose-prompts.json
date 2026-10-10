@@ -1,0 +1,16 @@
+{
+  "tool": "Built-in image_gen",
+  "pack": "golden",
+  "notes": "Pixel-art replacement for all Home Mari poses. Legacy pose composition was preserved; Golden omnibar story/portrait sprites locked the reflective gold palette and exaggerated Gigachad face. Native sprites use hard alpha and a reduced palette; @4x files are exact nearest-neighbour enlargements.",
+  "prompts": [
+    {"asset":"wave","prompt":"Re-create the high-wave pose exactly as Golden omnibar pixel art. Entire Mari is reflective metallic gold with black glasses and a massive square-jawed, carved-cheek, stern Gigachad face. Crisp low-resolution grid and transparent background."},
+    {"asset":"greet","prompt":"Re-create the shoulder-height greeting pose exactly as Golden omnibar pixel art; preserve the deadpan square-jawed Gigachad face and reflective gold clusters. Transparent background."},
+    {"asset":"point-up","prompt":"Re-create the crossed-leg LEFT-AND-UP pointing pose exactly as Golden omnibar pixel art, with stern Gigachad face and metallic gold palette. Transparent background."},
+    {"asset":"point-middle","prompt":"Re-create the crossed-leg horizontal LEFT pointing pose exactly as Golden omnibar pixel art, with stern Gigachad face and metallic gold palette. Transparent background."},
+    {"asset":"point-down","prompt":"Re-create the crossed-leg LEFT-AND-DOWN pointing pose exactly as Golden omnibar pixel art, with stern Gigachad face and metallic gold palette. Transparent background."},
+    {"asset":"explaining","prompt":"Re-create the raised-finger explaining pose exactly as Golden omnibar pixel art; keep the wide jaw, broad chin, heavy brow and pursed lips. Transparent background."},
+    {"asset":"thinking","prompt":"Re-create the hand-at-chin thinking pose exactly as Golden omnibar pixel art; keep the wide jaw, carved cheeks and deadpan expression. Transparent background."},
+    {"asset":"profile","prompt":"Create a tight 128x128 Golden omnibar pixel-art avatar dominated by the massive square jaw, broad chin, carved cheeks, narrow stern eyes, black glasses and metallic highlights. Transparent corners."},
+    {"asset":"chibi","prompt":"Re-create the cat-eared chibi pose at 128 px tall in Golden omnibar pixel art; metallic-gold ears/tail and a readable stern square-jawed Gigachad face. Transparent background."}
+  ]
+}

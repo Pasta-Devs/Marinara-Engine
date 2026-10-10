@@ -31,6 +31,7 @@ import {
   getDefaultAppAccentColor,
   getDefaultAppBackgroundColor,
   getDefaultChatChromeTextColor,
+  isMobileShellViewport,
   MOBILE_SHELL_MEDIA_QUERY,
   useUIStore,
 } from "./stores/ui.store";
@@ -476,6 +477,8 @@ export function App() {
   useRefreshLocalContext();
   const theme = useUIStore((s) => s.theme);
   const notificationPosition = useUIStore((s) => s.notificationPosition);
+  const omnibarOpen = useUIStore((s) => s.omnibarOpen);
+  const [isMobileShell, setIsMobileShell] = useState(isMobileShellViewport);
   const isLite = import.meta.env.VITE_MARINARA_LITE === "true";
   const fontSize = useUIStore((s) => s.fontSize);
   const language = useUIStore((s) => s.language);
@@ -536,6 +539,20 @@ export function App() {
   // [#3104 diagnostic] warn on long main-thread tasks (see lib/perf-diagnostics.ts)
   useEffect(() => {
     installLongTaskWarner();
+  }, []);
+
+  // While the omnibar is open the toast moves to bottom-right on desktop and to the top, under the
+  // omnibar header, on the mobile shell (N3, slice 46), so it covers neither the search field nor Mari's
+  // composer; same viewport check AppShell uses for layout decisions.
+  useEffect(() => {
+    const mq = window.matchMedia(MOBILE_SHELL_MEDIA_QUERY);
+    const handler = () => setIsMobileShell(isMobileShellViewport());
+    mq.addEventListener("change", handler);
+    window.addEventListener("resize", handler);
+    return () => {
+      mq.removeEventListener("change", handler);
+      window.removeEventListener("resize", handler);
+    };
   }, []);
 
   // Hardware / gesture back dismisses the topmost overlay instead of exiting.
@@ -1226,9 +1243,28 @@ export function App() {
         }}
       >
         <Toaster
-          position={notificationPosition === "bottom" ? "bottom-center" : "top-center"}
-          swipeDirections={["left", "right", notificationPosition === "bottom" ? "bottom" : "top"]}
+          position={
+            omnibarOpen
+              ? isMobileShell
+                ? "top-center"
+                : "bottom-right"
+              : notificationPosition === "bottom"
+                ? "bottom-center"
+                : "top-center"
+          }
+          swipeDirections={[
+            "left",
+            "right",
+            omnibarOpen ? (isMobileShell ? "top" : "bottom") : notificationPosition === "bottom" ? "bottom" : "top",
+          ]}
           offset="4rem"
+          mobileOffset={{
+            // On the mobile omnibar the toast sits under the omnibar's own header
+            // (search field + status row) instead of the app's top bar, so it
+            // needs more clearance than the app-shell top offset below.
+            top: omnibarOpen ? "calc(env(safe-area-inset-top) + 5rem)" : "calc(env(safe-area-inset-top) + 3.5rem)",
+            bottom: "1rem",
+          }}
           theme={theme}
           closeButton
           duration={TOAST_DURATION_MS}

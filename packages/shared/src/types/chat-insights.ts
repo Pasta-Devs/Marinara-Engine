@@ -18,14 +18,29 @@ export interface GlobalChatSearchResult {
   role: ChatSearchRole;
   /** Character name for character turns; null for user, narrator and system turns. */
   speaker: string | null;
+  /** The speaking character's id, for its portrait; null when `speaker` is null. */
+  characterId: string | null;
   createdAt: string;
   snippet: string;
   highlights: ChatSearchHighlight[];
 }
 
+/** One chat with matches, for grouping hits under it. Only filled when the search asks `perChat`. */
+export interface GlobalChatSearchChat {
+  chatId: string;
+  chatName: string;
+  chatMode: ChatMode;
+  /** Every matching message in this chat, not only the ones in `results`. */
+  matches: number;
+  /** Display names of the chat's characters that still exist, in chat order. */
+  cast: string[];
+}
+
 export interface GlobalChatSearchResponse {
   query: string;
   results: GlobalChatSearchResult[];
+  /** Chats with matches, newest activity first. Empty unless the search asked `perChat`. */
+  chats: GlobalChatSearchChat[];
   offset: number;
   limit: number;
   /** True when at least one more match exists after this page. */

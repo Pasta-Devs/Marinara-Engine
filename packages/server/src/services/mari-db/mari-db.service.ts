@@ -21,6 +21,14 @@ import { getFileStorageDir, getMonorepoRoot, isCustomToolScriptEnabled } from ".
 import { logger } from "../../lib/logger.js";
 import { chatIdForMariSession } from "../professor-mari/mari-session.js";
 import { createCharactersStorage } from "../storage/characters.storage.js";
+import { createChatsStorage } from "../storage/chats.storage.js";
+import { createConnectionsStorage } from "../storage/connections.storage.js";
+import { createPromptsStorage } from "../storage/prompts.storage.js";
+import { createLorebooksStorage } from "../storage/lorebooks.storage.js";
+import { runLorebookTestScan, type LorebookTestBlockReason } from "../lorebook/test-scan.js";
+import { loadLorebookIncludes } from "../lorebook/index.js";
+import { buildGenerationPromptPresetCandidates } from "../../routes/generate/prompt-preset-selection.js";
+import { createAgentsStorage } from "../storage/agents.storage.js";
 import {
   clearCharacterEmbeddedLorebook,
   embedLorebookIntoCharacter,
@@ -65,6 +73,16 @@ import {
   createLorebookEntrySchema,
   lorebookDecisionModeSchema,
   parseLorebookDecisionActivation,
+  BUILT_IN_AGENT_MANIFESTS,
+  type BuiltInAgentManifest,
+  type Lorebook,
+  type LorebookEntry,
+  type LorebookFolder,
+  diagnoseReply,
+  GENERATION_PARAMETER_SEND_KEYS,
+  type CharacterData,
+  type ReplyCheckupCode,
+  type ReplyCheckupInput,
 } from "@marinara-engine/shared";
 import { guardMariDecisionWrites, MARI_DECISION_STATE_KEY } from "../professor-mari/decision-authoring.js";
 import { computePersonalExtensionHash } from "../extensions/personal-extension-hash.js";
@@ -74,6 +92,7 @@ import { runMariTransformSandbox } from "./mari-transform-sandbox.js";
 import { reloadFeatureSettingsIfTouched } from "../features/feature-settings.js";
 import { createAppSettingsStorage } from "../storage/app-settings.storage.js";
 import { encryptCustomToolWebhookUrl, ENCRYPTED_WEBHOOK_PREFIX } from "../../utils/custom-tool-webhook.js";
+import { getProfessorMariWorkspaceSkillsService } from "../professor-mari/workspace-skills.service.js";
 
 type Row = Record<string, unknown>;
 type Table = AnyFileTable;
@@ -106,6 +125,13 @@ type Plan = {
   operationHash: string;
   reason: string | null;
   request: ParsedMutationRequest;
+  /**
+   * L5 (#chat.updateMessage): set when this plan's apply went through chat storage's
+   * addSwipe rather than the generic row engine. Restore must undo it the same way —
+   * setActiveSwipe back to the old swipe, then removeSwipe the fixed one — never the
+   * generic restorePlan() raw-row write-back, which never ran for this change.
+   */
+  chatSwipeFix?: { messageId: string; previousIndex: number; newIndex: number };
 };
 type ParsedMutationRequest = {
   kind:
@@ -176,8 +202,6 @@ type MariAppDataActionEnvelope = Row & {
   action?: unknown;
   cwd?: string;
   sessionId?: string;
-  /** #5725 Permissions Mode: "auto-keep" applies without a pending Keep/Restore card. */
-  reviewPolicy?: "standard" | "auto-keep";
 };
 
 type CodeCommandContext = {
@@ -250,6 +274,50 @@ const BOOLEAN_FLAGS = new Set([
 ]);
 const DB_VALUE_FLAGS = new Set(["table", "limit", "offset", "where", "json", "json-file", "file", "reason"]);
 const DB_BOOLEAN_FLAGS = new Set(["apply", "cascade", "dry-run", "help", "parsed"]);
+
+/** `lorebook.testScan`: why a matched entry was held back, and the setting that changes it. */
+const LOREBOOK_TEST_SCAN_FIXES: Record<LorebookTestBlockReason, string> = {
+  secondary_keys: "Its secondary keys did not match: loosen `secondaryKeys`/`selectiveLogic` or turn off `selective`.",
+  filters: "Its character, tag, or trigger filters exclude this chat.",
+  conditions: "One of its activation conditions failed: say which.",
+  group: "Another entry in its `group` won.",
+  probability: "Its `probability` is 0, so it never fires.",
+  recursion_only: "`delayUntilRecursion` is on and nothing recursive matched.",
+  folder_disabled: "Its folder is turned off.",
+  budget:
+    "It matched, but the last reply's token budget left it out: raise the lorebook's Token Budget or move the entry earlier in `order`.",
+};
+
+/** `chat.diagnose`: the one fix Mari offers for a finding, so her every-round prompt need not map them. */
+const REPLY_CHECKUP_FIXES: Partial<Record<ReplyCheckupCode, string>> = {
+  cut_off: "Offer to raise Max Output Tokens: a reviewed `preset.update` of `parameters.maxTokens`.",
+  card_large: "Offer to shorten the card: a reviewed `character.update`.",
+  lore_budget_skipped: "Offer to move the entry earlier: a reviewed `lorebook.updateEntry` of its `order`.",
+};
+const DEFAULT_CHECKUP_FIX = "Point to Chat Settings -> Advanced Parameters.";
+/**
+ * `chat.diagnose`: each sampler's on-screen label (GenerationParametersEditor), so Mari names the setting the
+ * user sees; she repeated raw keys such as `maxTokens` when the result carried them.
+ */
+const GENERATION_PARAMETER_LABELS: Record<(typeof GENERATION_PARAMETER_SEND_KEYS)[number], string> = {
+  temperature: "Temperature",
+  maxTokens: "Max Output Tokens",
+  topP: "Top P",
+  topK: "Top K",
+  frequencyPenalty: "Frequency",
+  presencePenalty: "Presence",
+  reasoningEffort: "Reasoning Effort",
+  verbosity: "Verbosity",
+};
+
+/** `chat.diagnose`: how a reply ended, in words Mari can repeat. Unknown provider values pass through. */
+function describeReplyEnd(finishReason: string | null | undefined): string | null {
+  const reason = String(finishReason ?? "").toLowerCase();
+  if (!reason) return null;
+  if (["length", "max_tokens", "max_output_tokens"].includes(reason)) return "It was cut off at the output limit.";
+  if (["stop", "end_turn", "stop_sequence"].includes(reason)) return "It ended on its own; nothing cut it.";
+  return reason;
+}
 
 function truncateOutput(value: string, limit = COMMAND_OUTPUT_LIMIT): { text: string; truncated: boolean } {
   if (value.length <= limit) return { text: value, truncated: false };
@@ -662,6 +730,30 @@ function serializeRow(table: string, row: Row): Row {
   return out;
 }
 
+// L5: exported for the regression lane (raw mari db writes to messages/message_swipes must be
+// refused, pointing the caller at chat.updateMessage instead).
+export function guardRawMessageTableWrite(table: string | undefined): void {
+  if (table === "messages" || table === "message_swipes") {
+    throw new Error(
+      `Raw mari db writes to "${table}" are refused. Use chat.updateMessage to fix an assistant or narrator reply as a new swipe instead of editing message rows directly.`,
+    );
+  }
+}
+
+/**
+ * L5/L7: the tables a transform runs over. parseMutation only guards positionals[0], which for
+ * `transform all <script>` is the literal "all", so "all" expands here and skips the message tables:
+ * raw writes there are refused, and the untrusted script only ever gets the tables it may change.
+ * A named message table still throws.
+ */
+export function resolveTransformTables(table: string): string[] {
+  if (table !== "all") {
+    guardRawMessageTableWrite(table);
+    return [table];
+  }
+  return FILE_BACKED_TABLES.filter((name) => name !== "messages" && name !== "message_swipes");
+}
+
 function protectPromptPresetSystemKeys(changes: PlanChange[]): void {
   for (const change of changes) {
     if (change.table !== "prompt_presets" || !change.afterRaw) continue;
@@ -746,6 +838,9 @@ function restoreRowSuperseded(meta: TableMeta, current: Row | null, afterRaw: Ro
   if (current == null) return true; // a newer write deleted the row this review left in place
   const expected = knownColumnPatch(meta, afterRaw);
   for (const key of Object.keys(expected)) {
+    // A memory's on/off switch ("Turn on") and the updatedAt it bumps are the user's own toggle, not a
+    // newer edit Undo must protect, and restoreChanges keeps the live switch.
+    if (meta.name === "mari_instructions" && (key === "enabled" || key === "updatedAt")) continue;
     if ((current[key] ?? null) !== (expected[key] ?? null)) return true;
   }
   return false;
@@ -958,7 +1053,9 @@ function presetDataFromFlags(flags: Map<string, string | boolean>): Row {
   return data;
 }
 
-function normalizeAppDataActionName(action: string): string {
+// Exported so callers outside this module can compare against the same normalized action name the
+// dispatch table itself uses.
+export function normalizeAppDataActionName(action: string): string {
   let key = action
     .trim()
     .toLowerCase()
@@ -1852,7 +1949,7 @@ function stripPromptPresetChildPayload(row: Row): Row {
 function actionCommandPayload(envelope: MariAppDataActionEnvelope): Row {
   const out: Row = {};
   for (const [key, value] of Object.entries(envelope)) {
-    if (key === "cwd" || key === "sessionId" || key === "reviewPolicy") continue;
+    if (key === "cwd" || key === "sessionId") continue;
     out[key] = typeof value === "string" && value.length > 600 ? truncateStr(value, 600) : value;
   }
   return out;
@@ -2392,6 +2489,33 @@ function summarizeAgentConfigRow(row: Row): Row {
   };
 }
 
+/** L1: one merged row per agent type, combining the installed registry (built-in plus installed
+ *  package agents, the same source `GET /capability-packages/agents` reads) with the user's
+ *  `agent_configs` row for that type, if any. A type present only in the registry (never
+ *  configured) and a type present only in `agent_configs` (a custom agent) both surface here. */
+// Exported for the regression lane (L1: a registry-only type must still surface in `agent.list`).
+export function summarizeMergedAgentRow(manifest: BuiltInAgentManifest | undefined, configRow: Row | undefined): Row {
+  const configSettings = parseJsonRecordValue(configRow?.settings);
+  const settingKeys = Object.keys(
+    Object.keys(configSettings).length > 0 ? configSettings : (manifest?.defaultSettings ?? {}),
+  );
+  const configPrompt = typeof configRow?.promptTemplate === "string" ? configRow.promptTemplate : "";
+  return {
+    id: configRow?.id ?? null,
+    type: manifest?.id ?? String(configRow?.type ?? ""),
+    name: (typeof configRow?.name === "string" && configRow.name) || manifest?.name || "",
+    description: typeof configRow?.description === "string" ? truncateStr(configRow.description, 120) : "",
+    packageId: manifest?.packageId ?? null,
+    phase: typeof configRow?.phase === "string" ? configRow.phase : (manifest?.phase ?? null),
+    category: manifest?.category ?? null,
+    modes: manifest?.modeAllowlist ? [...manifest.modeAllowlist] : null,
+    enabled: configRow ? configRow.enabled !== "false" : manifest?.enabledByDefault === true,
+    custom: !manifest,
+    promptOverridden: configPrompt.length > 0 && configPrompt !== (manifest?.defaultPromptTemplate ?? ""),
+    settingKeys,
+  };
+}
+
 function summarizeChatRow(row: Row): Row {
   const charIds = tryParseJsonColumn(row, "characterIds");
   return {
@@ -2597,11 +2721,6 @@ export class MariDbService {
   // requests for the SAME review id would both read the same record and clobber each other on write.
   // Keyed by id so unrelated reviews stay concurrent; entries self-evict once the queue drains.
   private reviewLocks = new Map<string, Promise<unknown>>();
-  // #5725 Permissions Mode: review policy of the executeAction call currently in
-  // flight. Mutating workspace commands are serialized upstream (the workspace
-  // agent's serializeWorkspaceMutation), so at most one mutating executeAction
-  // is active at a time; reset to "standard" at every executeAction entry.
-  private activeReviewPolicy: "standard" | "auto-keep" = "standard";
 
   constructor(private readonly db: DB) {}
 
@@ -2609,9 +2728,6 @@ export class MariDbService {
     const argv = envelope.argv ?? [];
     const command = formatCommand(argv, envelope.command);
     const sessionId = envelope.sessionId || "mari-cli";
-    // #5725: the CLI path never carries a review policy - a stale "auto-keep"
-    // left by a prior executeAction must not strip cards from CLI mutations.
-    this.activeReviewPolicy = "standard";
     try {
       const group = argv[0];
       if (!group || group === "help" || group === "--help" || group === "-h") {
@@ -2665,10 +2781,6 @@ export class MariDbService {
 
   async executeAction(envelope: MariAppDataActionEnvelope): Promise<MariDbCommandResult> {
     let command = "app_data";
-    // #5725: the Permissions Mode review policy rides the envelope. Mutating
-    // workspace commands are serialized upstream, so a transient field is a
-    // safe way to reach executeMutation without threading every call site.
-    this.activeReviewPolicy = envelope.reviewPolicy === "auto-keep" ? "auto-keep" : "standard";
     try {
       const action = requiredString(envelope, ["action", "type"], "app_data action");
       command = formatAppDataActionCommand(action, envelope);
@@ -2699,6 +2811,7 @@ export class MariDbService {
           return this.executeHomeWidgetAction(key.slice("homewidget.".length), envelope, context);
         // #4851: the user's saved memories. Canonical surface is `instruction.*` (the code
         // namespace stays instruction_/mari_); those are the entries in the tool catalog enum.
+        if (key.startsWith("skill.")) return this.executeSkillAction(key.slice("skill.".length), envelope, context);
         if (key.startsWith("instruction."))
           return this.executeInstructionAction(key.slice("instruction.".length), envelope, context);
         return {
@@ -2706,7 +2819,7 @@ export class MariDbService {
           mode: "read",
           command,
           error:
-            "Unsupported app_data action. Use character.*, persona.*, lorebook.*, theme.*, personal_extension.*, agent.*, chat.*, preset.*, home_widget.*, or instruction.* actions for structured no-shell app-data work.",
+            "Unsupported app_data action. Use character.*, persona.*, lorebook.*, theme.*, personal_extension.*, agent.*, chat.*, preset.*, home_widget.*, skill.*, or instruction.* actions for structured no-shell app-data work.",
         };
       };
       // Field-aware bounding keeps a single read response within the workspace
@@ -2716,9 +2829,6 @@ export class MariDbService {
       logger.warn(err, "[mari-db] structured app_data action failed");
       return { ok: false, mode: "read", command, error: err instanceof Error ? err.message : String(err) };
     } finally {
-      // Reset on exit: the transient policy must never outlive the call that
-      // set it (the CLI entry also resets defensively on entry).
-      this.activeReviewPolicy = "standard";
     }
   }
 
@@ -3381,6 +3491,38 @@ export class MariDbService {
   // #4851: Professor Mari's persistent standing instructions ("memories").
   // Reads (list/get) back the index-and-fetch injection; writes (remember/update/
   // forget) run through executeMutation so each surfaces a Keep/Restore card.
+  // Custom skills are injected index-and-fetch, so Mari reads a full skill body here.
+  // Read-only: skills are managed from the Skills panel, never by Mari.
+  private async executeSkillAction(
+    sub: string,
+    args: Row,
+    context: { command: string; sessionId: string; cwd?: string },
+  ): Promise<MariDbCommandResult> {
+    const { skills } = await getProfessorMariWorkspaceSkillsService().list();
+    switch (sub) {
+      case "list": {
+        // Paged and description-truncated for the same read-budget reason as instruction.list.
+        const offset = normalizeOffset(firstNumber(args, ["offset"]));
+        const limit = normalizeLimit(firstNumber(args, ["limit"]), 40, 50);
+        const total = skills.length;
+        const items = skills.slice(offset, offset + limit).map(({ content: _content, ...summary }) => ({
+          ...summary,
+          description:
+            typeof summary.description === "string" ? truncateStr(summary.description, 120) : summary.description,
+        }));
+        const nextOffset = offset + items.length < total ? offset + items.length : null;
+        return { ok: true, mode: "read", command: context.command, output: { items, total, offset, nextOffset } };
+      }
+      case "get": {
+        const id = requiredString(args, ["id", "skillId"], "skill id");
+        const row = skills.find((skill) => skill.id === id) ?? null;
+        return { ok: Boolean(row), mode: "read", command: context.command, output: row };
+      }
+      default:
+        return { ok: false, mode: "read", command: context.command, error: `Unsupported skill action: ${sub}` };
+    }
+  }
+
   private async executeInstructionAction(
     sub: string,
     args: Row,
@@ -3603,6 +3745,159 @@ export class MariDbService {
           .slice(0, limit)
           .map(summarizeLorebookRow);
         return { ok: true, mode: "read", command: context.command, output: rows };
+      }
+      // L4: why an entry did or did not fire. Wraps the same scanner the editor's
+      // test tool and real generations use (`runLorebookTestScan`), so Mari's
+      // answer cannot drift from what actually happens. Only keys and gate
+      // reasons leave this call - never the scanned message text.
+      case "testscan": {
+        const lorebookId = requiredString(args, ["lorebookId", "id"], "lorebook id");
+        const chatId = firstString(args, ["chatId"]);
+        const entryId = firstString(args, ["entryId"]);
+        const lorebooksStorage = createLorebooksStorage(this.db);
+        const lorebook = (await lorebooksStorage.getById(lorebookId)) as unknown as Lorebook | null;
+        if (!lorebook) {
+          return { ok: false, mode: "read", command: context.command, error: `Lorebook ${lorebookId} not found` };
+        }
+        let messages: Array<{ role: string; content: string }> = [];
+        let activeCharacterIds: string[] = [];
+        let activeCharacterTags: string[] = [];
+        let generationTriggers = ["chat"];
+        // F2: the newest reply's lorebook scan, so entries the last real generation's token budget
+        // skipped are not reported here as "activated" just because the scanner alone would fire them.
+        let lastBudgetSkippedEntries: Array<{
+          id?: unknown;
+          lorebookId?: unknown;
+          estimatedTokens?: unknown;
+          lorebookBudget?: unknown;
+          lorebookUsedTokens?: unknown;
+        }> = [];
+        if (chatId) {
+          const chatsStorage = createChatsStorage(this.db);
+          const chat = await chatsStorage.getById(chatId);
+          if (!chat) return { ok: false, mode: "read", command: context.command, error: `Chat ${chatId} not found` };
+          const rawMessages = await chatsStorage.listMessages(chatId);
+          messages = rawMessages.map((message) => ({
+            role: message.role === "narrator" ? "system" : String(message.role),
+            content: typeof message.content === "string" ? message.content : "",
+          }));
+          for (let i = rawMessages.length - 1; i >= 0; i--) {
+            const candidate = rawMessages[i]!;
+            if (candidate.role !== "assistant" && candidate.role !== "narrator") continue;
+            const extra = parseJsonMaybe(candidate.extra) as {
+              lorebookScan?: { budgetSkippedEntries?: typeof lastBudgetSkippedEntries };
+            } | null;
+            lastBudgetSkippedEntries = extra?.lorebookScan?.budgetSkippedEntries ?? [];
+            break;
+          }
+          // chats.character_ids is a JSON text column, so the row carries a string here.
+          const storedCharacterIds = parseJsonMaybe(chat.characterIds);
+          activeCharacterIds = Array.isArray(storedCharacterIds) ? storedCharacterIds.map(String) : [];
+          const characterRows = await createCharactersStorage(this.db).getByIds(activeCharacterIds);
+          activeCharacterTags = characterRows.flatMap((row) => {
+            let data: Record<string, unknown> = {};
+            if (typeof row.data === "string") {
+              try {
+                data = JSON.parse(row.data) as Record<string, unknown>;
+              } catch {
+                data = {};
+              }
+            } else if (row.data && typeof row.data === "object") {
+              data = row.data as Record<string, unknown>;
+            }
+            return Array.isArray(data.tags) ? data.tags.filter((tag): tag is string => typeof tag === "string") : [];
+          });
+          const modeTrigger =
+            chat.mode === "game"
+              ? "game"
+              : typeof chat.mode === "string" && chat.mode.trim()
+                ? chat.mode.trim()
+                : "roleplay";
+          generationTriggers = [...new Set([modeTrigger, "chat"])];
+        }
+        const [entries, folders] = await Promise.all([
+          lorebooksStorage.listEntries(lorebookId),
+          lorebooksStorage.listFolders(lorebookId),
+        ]);
+        const result = runLorebookTestScan({
+          lorebook,
+          entries: entries as unknown as LorebookEntry[],
+          folders: folders as unknown as LorebookFolder[],
+          messages,
+          activeCharacterIds,
+          activeCharacterTags,
+          generationTriggers,
+        });
+        const budgetSkippedForThisBook = lastBudgetSkippedEntries.filter((entry) => entry.lorebookId === lorebookId);
+        if (budgetSkippedForThisBook.length > 0) {
+          const stillActivated: typeof result.activated = [];
+          for (const entry of result.activated) {
+            const skip = budgetSkippedForThisBook.find((skipped) => skipped.id === entry.entryId);
+            if (!skip) {
+              stillActivated.push(entry);
+              continue;
+            }
+            result.blocked.push({
+              entryId: entry.entryId,
+              name: entry.name,
+              matchedKeys: entry.matchedKeys,
+              reason: "budget",
+              estimatedTokens: typeof skip.estimatedTokens === "number" ? skip.estimatedTokens : undefined,
+              lorebookBudget: typeof skip.lorebookBudget === "number" ? skip.lorebookBudget : undefined,
+              lorebookUsedTokens: typeof skip.lorebookUsedTokens === "number" ? skip.lorebookUsedTokens : undefined,
+            });
+          }
+          result.activated = stillActivated;
+        }
+        // Each reason carries its fix, so Mari's every-round prompt does not have to list them.
+        const blockedWithFix = result.blocked.map((entry) => ({
+          ...entry,
+          fix: LOREBOOK_TEST_SCAN_FIXES[entry.reason],
+        }));
+        if (entryId) {
+          const entryName = (entries as unknown as LorebookEntry[]).find((entry) => entry.id === entryId)?.name;
+          const activated = result.activated.find((entry) => entry.entryId === entryId);
+          if (activated) {
+            return {
+              ok: true,
+              mode: "read",
+              command: context.command,
+              output: { status: "activated", ...activated },
+            };
+          }
+          const blocked = blockedWithFix.find((entry) => entry.entryId === entryId);
+          if (blocked) {
+            return {
+              ok: true,
+              mode: "read",
+              command: context.command,
+              output: { status: "blocked", ...blocked },
+            };
+          }
+          return {
+            ok: true,
+            mode: "read",
+            command: context.command,
+            output: {
+              entryId,
+              name: entryName ?? null,
+              status: "no_match",
+              reason: "no key matched in the scanned messages",
+              scannedMessages: result.scannedMessages,
+            },
+          };
+        }
+        return {
+          ok: true,
+          mode: "read",
+          command: context.command,
+          output: {
+            activated: result.activated,
+            blocked: blockedWithFix,
+            recursive: result.recursive,
+            scannedMessages: result.scannedMessages,
+          },
+        };
       }
       case "folder.list": {
         const lorebookId = requiredString(args, ["lorebookId", "id"], "lorebook id");
@@ -4404,23 +4699,51 @@ export class MariDbService {
       case "list": {
         const limit = normalizeLimit(firstNumber(args, ["limit"]), 50, 1000);
         const search = firstString(args, ["search", "query"])?.toLowerCase();
-        const rows = (await this.rawRows("agent_configs")).sort((a, b) =>
-          String(b.updatedAt ?? "").localeCompare(String(a.updatedAt ?? "")),
-        );
-        const summaries = rows
-          .map(summarizeAgentConfigRow)
-          .filter((summary) => !search || JSON.stringify(summary).toLowerCase().includes(search));
+        const configByType = new Map<string, Row>();
+        for (const row of await this.rawRows("agent_configs")) {
+          const type = String(row.type ?? "");
+          const existing = configByType.get(type);
+          if (!existing || String(row.updatedAt ?? "") > String(existing.updatedAt ?? "")) configByType.set(type, row);
+        }
+        const types = new Set([...BUILT_IN_AGENT_MANIFESTS.map((agent) => agent.id), ...configByType.keys()]);
+        const summaries = [...types]
+          .map((type) =>
+            summarizeMergedAgentRow(
+              BUILT_IN_AGENT_MANIFESTS.find((agent) => agent.id === type),
+              configByType.get(type),
+            ),
+          )
+          .filter((summary) => !search || JSON.stringify(summary).toLowerCase().includes(search))
+          .sort((a, b) => String(a.name ?? "").localeCompare(String(b.name ?? "")));
         return { ok: true, mode: "read", command: context.command, output: summaries.slice(0, limit) };
       }
       case "get": {
-        const id = requiredString(args, ["id", "agentId", "agentConfigId"], "agent id");
-        const row = await this.getRawById(getMeta("agent_configs"), id);
+        const id = firstString(args, ["id", "agentId", "agentConfigId"]);
+        const type = firstString(args, ["type", "agentType"]);
+        if (!id && !type) {
+          return { ok: false, mode: "read", command: context.command, error: "Provide an agent id or type." };
+        }
+        const agentsStorage = createAgentsStorage(this.db);
+        const row = (id ? await agentsStorage.getById(id) : null) ?? (await agentsStorage.getByType(type ?? id!));
         return {
           ok: Boolean(row),
           mode: "read",
           command: context.command,
-          output: row ? parseRow("agent_configs", row) : null,
+          output: row ? parseRow("agent_configs", row as unknown as Row) : null,
         };
+      }
+      case "runs": {
+        const type = requiredString(args, ["type", "agentType"], "agent type");
+        const chatId = firstString(args, ["chatId"]);
+        const limit = normalizeLimit(firstNumber(args, ["limit"]), 10, 10);
+        const runs = await createAgentsStorage(this.db).listRunsByTypeForChat(type, chatId, limit);
+        const summaries = runs.map((run) => ({
+          success: run.success,
+          error: run.error,
+          durationMs: run.durationMs,
+          createdAt: run.createdAt,
+        }));
+        return { ok: true, mode: "read", command: context.command, output: summaries };
       }
       case "search": {
         const query = requiredString(args, ["query", "search"], "agent search query").toLowerCase();
@@ -7005,6 +7328,11 @@ export class MariDbService {
     args: Row,
     context: { command: string; sessionId: string; cwd?: string },
   ): Promise<MariDbCommandResult> {
+    // L5: a repair write, not a read — handled on its own path (chat storage's addSwipe +
+    // a bespoke Keep/Restore review), never through the read-only CLI commands below.
+    if (sub === "updatemessage") return this.executeChatUpdateMessage(args, context);
+    // R3: the reply checkup for Professor Mari — numbers and names only, never message text.
+    if (sub === "diagnose") return this.executeChatDiagnose(args, context);
     // #7289: nanoid ids start with "--" about 1 in 4096, so values must never read as flags:
     // flag values ride `--flag=value` and positionals go after the `--` end-of-options marker.
     const argv = [sub];
@@ -7045,6 +7373,259 @@ export class MariDbService {
         messages: result.output,
         returned: result.output.length,
         offset: fieldRead ? 0 : normalizeOffset(firstNumber(args, ["offset"])),
+      },
+    };
+  }
+
+  /**
+   * L5: repair an assistant/narrator reply without destroying the original. Reuses chat
+   * storage's addSwipe (messages.ts / message_swipes.ts stay untouched as rows; addSwipe only
+   * inserts a new swipe row and, when not silent, flips the message's activeSwipeIndex to it —
+   * see chats.storage.ts `addSwipe`), so the old reply is always still there as another swipe.
+   * Always produces a change card with Undo (slice 87: every mode keeps a restore copy).
+   */
+  private async executeChatUpdateMessage(
+    args: Row,
+    context: { command: string; sessionId: string; cwd?: string },
+  ): Promise<MariDbCommandResult> {
+    const chatId = requiredString(args, ["chatId", "chat_id"], "chat id");
+    const requestedMessageId = requiredString(args, ["messageId", "message_id", "id"], "message id");
+    // Validate against the trimmed form, but store the reply as given — unlike requiredString's
+    // trim-before-return, a fixed reply's own leading/trailing whitespace is content, not noise.
+    const rawContent = typeof args.content === "string" ? args.content : "";
+    if (!rawContent.trim()) throw new Error("chat.updateMessage needs non-empty content for the fixed reply.");
+    const content = rawContent;
+    const reason = firstString(args, ["reason"]) ?? null;
+    const apply = firstBoolean(args, ["apply"]) === true;
+
+    const chatsStorage = createChatsStorage(this.db);
+    const chat = await chatsStorage.getById(chatId);
+    if (!chat) throw new Error(`Chat ${chatId} not found.`);
+    if (chat.mode === "game") {
+      throw new Error("chat.updateMessage only fixes replies in non-game chats; a game chat's turns are out of scope.");
+    }
+    // A message-search row id `message:<chatId>:<n>` holds a post number (the `chats messages`
+    // numbering), not a message id; resolve it here instead of teaching Mari a lookup.
+    let messageId = requestedMessageId;
+    const post = /^message:(.+):(\d+)$/u.exec(requestedMessageId);
+    if (post && post[1] === chatId) {
+      const rows = (await this.rawRows("messages")).filter((m) => m.chatId === chatId);
+      rows.sort((a, b) => String(a.createdAt ?? "").localeCompare(String(b.createdAt ?? "")));
+      const row = rows[Number(post[2]) - 1];
+      if (row?.id) messageId = String(row.id);
+    }
+    const message = await chatsStorage.getMessage(messageId);
+    if (!message || message.chatId !== chatId) {
+      throw new Error(`Message ${requestedMessageId} was not found in chat ${chatId}.`);
+    }
+    if (message.role !== "assistant" && message.role !== "narrator") {
+      throw new Error("chat.updateMessage can only fix an assistant or narrator reply, not a user message.");
+    }
+
+    const previousIndex = message.activeSwipeIndex ?? 0;
+    const previousContent = message.content;
+
+    // L6: chatId/chatName ride along unchanged on both sides (so they never show as a field change)
+    // for the review card's "Reply · <chat name>" title and the open chat's messages refresh on Keep.
+    const label = { chatId, chatName: chat.name };
+    const change: PlanChange = {
+      table: "messages",
+      id: messageId,
+      action: "update",
+      before: { ...label, content: previousContent },
+      after: { ...label, content },
+      apply,
+    };
+    const plan: Plan = {
+      changes: [change],
+      validation: { status: "passed", errors: [], notices: [], infos: [] },
+      summary: {
+        matchedRows: 1,
+        affectedRows: 1,
+        insertedRows: 0,
+        updatedRows: 1,
+        replacedRows: 0,
+        deletedRows: 0,
+        affectedTables: { messages: 1 },
+        preview: [change],
+        truncated: false,
+      },
+      operationHash: newId(),
+      reason,
+      request: {
+        kind: "patch",
+        table: "messages",
+        id: messageId,
+        apply,
+        cascade: false,
+        reason,
+        cwd: context.cwd,
+      },
+    };
+
+    if (!apply) {
+      // Mirrors executeMutation's dry-run branch: no addSwipe, no review, no history beyond the preview.
+      await this.recordHistory({
+        plan,
+        command: context.command,
+        sessionId: context.sessionId,
+        status: "dry-run",
+        journalPath: null,
+      });
+      return {
+        ok: true,
+        mode: "dry-run",
+        command: context.command,
+        summary: plan.summary,
+        validation: plan.validation,
+        approval: { status: "not_required", operationHash: plan.operationHash },
+      };
+    }
+
+    const createdSwipe = await chatsStorage.addSwipe(messageId, content, false);
+    plan.chatSwipeFix = { messageId, previousIndex, newIndex: createdSwipe.index };
+
+    const history = await this.recordHistory({
+      plan,
+      command: context.command,
+      sessionId: context.sessionId,
+      status: "approved",
+      journalPath: null,
+    });
+    const review = await this.createAppliedReview(plan, context.command, context.sessionId, null, history.id);
+    return {
+      ok: true,
+      mode: "apply",
+      command: context.command,
+      summary: plan.summary,
+      validation: plan.validation,
+      approval: { status: "pending", id: review.id, operationHash: plan.operationHash, expiresAt: review.expiresAt },
+    };
+  }
+
+  /**
+   * R3: Professor Mari's read on the reply checkup (R2's `diagnoseReply`). Returns findings,
+   * the generation's raw numbers, attached lorebook budgets and the active preset's name and
+   * sampler keys — never the message's own text, per R22. `messageId` omitted means the chat's
+   * newest assistant/narrator reply (same lookup `ChatArea.tsx` uses for the quiet checkup line).
+   */
+  private async executeChatDiagnose(
+    args: Row,
+    context: { command: string; sessionId: string; cwd?: string },
+  ): Promise<MariDbCommandResult> {
+    const chatId = requiredString(args, ["chatId", "chat_id"], "chat id");
+    const chatsStorage = createChatsStorage(this.db);
+    const chat = await chatsStorage.getById(chatId);
+    if (!chat) return { ok: false, mode: "read", command: context.command, error: `Chat ${chatId} not found` };
+
+    const messageArg = firstString(args, ["messageId", "message_id"]);
+    // Models write "last" for "the newest reply"; that is the default anyway.
+    const requestedMessageId = messageArg && !/^(last|latest|newest)$/iu.test(messageArg) ? messageArg : undefined;
+    let message = requestedMessageId ? await chatsStorage.getMessage(requestedMessageId) : null;
+    if (requestedMessageId && (!message || message.chatId !== chatId)) {
+      return {
+        ok: false,
+        mode: "read",
+        command: context.command,
+        error: `Message ${requestedMessageId} was not found in chat ${chatId}.`,
+      };
+    }
+    if (!message) {
+      const messages = await chatsStorage.listMessages(chatId);
+      for (let i = messages.length - 1; i >= 0; i--) {
+        if (messages[i]!.role === "assistant" || messages[i]!.role === "narrator") {
+          message = messages[i]!;
+          break;
+        }
+      }
+    }
+    if (!message) {
+      return { ok: true, mode: "read", command: context.command, output: { chatId, messageId: null, findings: [] } };
+    }
+
+    const extra = parseJsonMaybe(message.extra) as ReplyCheckupInput["message"]["extra"];
+
+    let character: { id: string; data: Partial<CharacterData> } | null = null;
+    if (message.characterId) {
+      const row = await createCharactersStorage(this.db).getById(message.characterId);
+      if (row) character = { id: message.characterId, data: parseJsonMaybe(row.data) as Partial<CharacterData> };
+    }
+
+    const findings = diagnoseReply({
+      message: { content: message.content ?? "", extra },
+      connectionId: chat.connectionId ?? null,
+      character,
+    });
+
+    const info = extra?.generationInfo ?? null;
+    const fit = info?.contextFit ?? null;
+
+    const { currentBookIds } = await loadLorebookIncludes(this.db, chatId);
+    const lorebooksStorage = createLorebooksStorage(this.db);
+    const lorebookRows = await Promise.all(currentBookIds.map((id) => lorebooksStorage.getById(id)));
+    const lorebooks = lorebookRows
+      .filter((row): row is NonNullable<typeof row> => Boolean(row))
+      .map((row) => ({
+        name: (row as unknown as Lorebook).name,
+        "Token Budget": (row as unknown as Lorebook).tokenBudget,
+      }));
+
+    const connection = chat.connectionId ? await createConnectionsStorage(this.db).getById(chat.connectionId) : null;
+    const presetCandidates = buildGenerationPromptPresetCandidates({
+      chatMode: chat.mode,
+      chatPromptPresetId: chat.promptPresetId,
+      connectionPromptPresetId: connection?.promptPresetId ?? null,
+    });
+    const promptsStorage = createPromptsStorage(this.db);
+    let preset: { name: string; sends: string[] } | null = null;
+    for (const candidate of presetCandidates) {
+      const row = await promptsStorage.getById(candidate.id);
+      if (!row) continue;
+      const parameters = parseJsonMaybe(row.parameters);
+      const enabledParameters =
+        parameters && typeof parameters === "object" && !Array.isArray(parameters)
+          ? ((parameters as Row).enabledParameters as Record<string, boolean> | undefined)
+          : undefined;
+      const sends = GENERATION_PARAMETER_SEND_KEYS.filter((key) => enabledParameters?.[key] !== false).map(
+        (key) => GENERATION_PARAMETER_LABELS[key],
+      );
+      preset = { name: row.name, sends };
+      break;
+    }
+
+    return {
+      ok: true,
+      mode: "read",
+      command: context.command,
+      output: {
+        chatId,
+        messageId: message.id,
+        // No `values`/`link`: their numbers are in `text`, and their keys and section ids are not words to repeat.
+        findings: findings.map((finding) => ({
+          code: finding.code,
+          text: finding.text,
+          fix: REPLY_CHECKUP_FIXES[finding.code] ?? DEFAULT_CHECKUP_FIX,
+        })),
+        // Keys are the on-screen words (labels where a setting exists), never internal field names: Mari repeats
+        // what she reads, and users saw `maxTokens`/`finishReason` in her answers.
+        reply: {
+          "Prompt tokens": info?.tokensContext ?? null,
+          "Max Context Window": info?.maxContext ?? null,
+          ended: describeReplyEnd(info?.finishReason),
+          "Reply tokens": info?.tokensCompletion ?? null,
+          ...(fit
+            ? {
+                "Older messages not sent": fit.droppedHistory,
+                "Prompt budget": fit.inputBudget,
+                "Max Output Tokens": fit.replyBudgetTo,
+                ...(fit.replyBudgetTo < fit.replyBudgetFrom
+                  ? { "Max Output Tokens before the cut": fit.replyBudgetFrom }
+                  : {}),
+              }
+            : {}),
+        },
+        lorebooks,
+        preset,
       },
     };
   }
@@ -7308,6 +7889,11 @@ export class MariDbService {
     const apply = hasFlag(flags, "apply");
     const cascade = hasFlag(flags, "cascade");
     const reason = flagString(flags, "reason") ?? null;
+    // L5: a raw mari db write can insert/patch/replace/delete a messages or message_swipes row
+    // directly, which skips chat storage's addSwipe/setActiveSwipe entirely (no new swipe, no
+    // memory-chunk invalidation, no inventory-telling bookkeeping) and can destroy the row chat.
+    // updateMessage exists to repair non-destructively. Refuse it here, before any plan is built.
+    guardRawMessageTableWrite(positionals[0]);
     if (kind === "insert") {
       const table = positionals[0];
       if (!table) throw new Error("Usage: mari db insert <table> (--json '<row-json>' | --json-file <path>) [--apply]");
@@ -7458,22 +8044,6 @@ export class MariDbService {
         status: "approved",
         journalPath,
       });
-      // #5725 Accept edits / Bypass: apply without staging a pending
-      // Keep/Restore card. The caller only sets auto-keep for non-delete
-      // actions, so deletions always keep their review; history and the
-      // journal are recorded above either way.
-      if (this.activeReviewPolicy === "auto-keep") {
-        return {
-          ok: true,
-          mode: "apply",
-          command,
-          summary: plan.summary,
-          readBack,
-          validation: plan.validation,
-          approval: { status: "not_required", operationHash: plan.operationHash },
-          journalPath,
-        };
-      }
       const review = await this.createAppliedReview(plan, storedCommand, sessionId, journalPath, history.id);
       return {
         ok: true,
@@ -7482,7 +8052,7 @@ export class MariDbService {
         summary: plan.summary,
         readBack,
         validation: plan.validation,
-        approval: { status: "pending", id: review.id, operationHash: plan.operationHash },
+        approval: { status: "pending", id: review.id, operationHash: plan.operationHash, expiresAt: review.expiresAt },
         journalPath,
       };
     } catch (err) {
@@ -8149,7 +8719,7 @@ export class MariDbService {
   ): Promise<PlanChange[]> {
     const cwd = request.cwd ? resolve(request.cwd) : process.cwd();
     const scriptPath = resolve(cwd, String(request.scriptPath));
-    const tables = request.table === "all" ? [...FILE_BACKED_TABLES] : [String(request.table)];
+    const tables = resolveTransformTables(String(request.table));
     const allParsed = new Map<string, Row[]>();
     const allRaw = new Map<string, Row[]>();
     for (const table of tables) {
@@ -8568,6 +9138,25 @@ export class MariDbService {
   }
 
   private async restorePlan(plan: Plan): Promise<void> {
+    if (plan.chatSwipeFix) {
+      // Never a raw row restore: the apply never touched messages/message_swipes through the
+      // generic engine, so undo goes back through the same chat-storage swipe path it used to
+      // apply (setActiveSwipe to the old swipe, then removeSwipe the fixed one).
+      const { messageId, previousIndex, newIndex } = plan.chatSwipeFix;
+      const chatsStorage = createChatsStorage(this.db);
+      const message = await chatsStorage.getMessage(messageId);
+      if (!message) {
+        throw new RestoreStateChangedError(`Message ${messageId} no longer exists.`);
+      }
+      if (message.activeSwipeIndex !== newIndex) {
+        // Something else switched the active swipe since this review applied; restoring here
+        // would silently discard whatever the user has since chosen.
+        throw new RestoreStateChangedError(`Message ${messageId}'s active swipe changed since this review applied.`);
+      }
+      await chatsStorage.setActiveSwipe(messageId, previousIndex);
+      await chatsStorage.removeSwipe(messageId, newIndex);
+      return;
+    }
     const homeWidgetChange = singleHomeWidgetCatalogChange(plan);
     if (homeWidgetChange) {
       const before = homeWidgetCatalogFromPlanRow(homeWidgetChange.beforeRaw);
@@ -8617,9 +9206,12 @@ export class MariDbService {
         if (!change.beforeRaw) continue;
         const meta = getMeta(change.table);
         const pk = getPrimary(meta);
+        const patch = knownColumnPatch(meta, change.beforeRaw);
+        // Only the user switches a memory on or off; Undo of her edit must not turn back on one they turned off.
+        if (meta.name === "mari_instructions") delete patch.enabled;
         await tx
           .update(meta.table as any)
-          .set(knownColumnPatch(meta, change.beforeRaw))
+          .set(patch)
           .where(eq(meta.byKey.get(pk)!.column as any, change.id));
       }
 

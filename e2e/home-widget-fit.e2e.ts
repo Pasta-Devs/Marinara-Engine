@@ -23,7 +23,6 @@ test.beforeEach(async ({ page }) => {
     hasCompletedOnboarding: true,
     sidebarOpen: false,
     rightPanelOpen: false,
-    professorMariNavigationEnabled: false,
   });
 });
 

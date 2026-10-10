@@ -5,10 +5,12 @@ import { tmpdir } from "node:os";
 import {
   formatDocumentationRead,
   formatDocumentationSearch,
+  queryTerms,
   readCanonicalDocumentation,
   searchCanonicalDocumentation,
 } from "../../../packages/server/src/services/professor-mari/documentation-tools.js";
 import { parseAssistantWorkspaceAction } from "../../../packages/server/src/services/professor-mari/workspace-agent.service.js";
+import { professorMariPromptSchema } from "../../../packages/server/src/routes/professor-mari-workspace.routes.js";
 
 const workspaceRoot = await mkdtemp(join(tmpdir(), "marinara-doc-tools-"));
 
@@ -81,7 +83,11 @@ try {
     ].join("\n"),
     "utf8",
   );
-  await writeFile(join(workspaceRoot, "docs", "lang", "plain.md"), "Just a paragraph with no headings at all.\n", "utf8");
+  await writeFile(
+    join(workspaceRoot, "docs", "lang", "plain.md"),
+    "Just a paragraph with no headings at all.\n",
+    "utf8",
+  );
   await writeFile(
     join(workspaceRoot, "docs", "lang", "many.md"),
     Array.from({ length: 45 }, (_, index) => `## Section ${index + 1}\n\nBody ${index + 1}.`).join("\n\n"),
@@ -108,6 +114,25 @@ try {
 
   const secretSearch = await searchCanonicalDocumentation(workspaceRoot, "internal secret", 3);
   assert.equal(secretSearch.results.length, 0);
+
+  // Slice 84: docs/development working plans are not user docs, so quick answers and Mari never cite them.
+  await mkdir(join(workspaceRoot, "docs", "development"), { recursive: true });
+  await writeFile(join(workspaceRoot, "docs", "development", "omnibar-ux-plan.md"), "# Quokka plan\n", "utf8");
+  await writeFile(join(workspaceRoot, "docs", "development", "architecture-map.md"), "# Quokka map\n", "utf8");
+  const developmentSearch = await searchCanonicalDocumentation(workspaceRoot, "quokka", 3);
+  assert.deepEqual(
+    developmentSearch.results.map((result) => result.path),
+    ["docs/development/architecture-map.md"],
+  );
+  await assert.rejects(
+    () => readCanonicalDocumentation(workspaceRoot, "docs/development/omnibar-ux-plan.md"),
+    /canonical user documentation set/u,
+  );
+  // UX-12: contributor notes under docs/contrib are not user docs either.
+  await mkdir(join(workspaceRoot, "docs", "contrib"), { recursive: true });
+  await writeFile(join(workspaceRoot, "docs", "contrib", "series.md"), "# A4c. Quokka shutdown\n", "utf8");
+  const contribSearch = await searchCanonicalDocumentation(workspaceRoot, "quokka", 3);
+  assert.ok(!contribSearch.results.some((result) => result.path.startsWith("docs/contrib/")));
 
   const section = await readCanonicalDocumentation(workspaceRoot, "docs/connections/proxy.md", "Proxy timeout", 1_000);
   assert.match(section.content, /Increase the proxy timeout/u);
@@ -200,6 +225,30 @@ try {
   assert.equal(textualAction.commands[0]?.name, "docs_read");
   assert.equal(textualAction.commands[0]?.arguments.heading, "Proxy timeout");
 
+  const handoff = professorMariPromptSchema.safeParse({
+    chatId: "mari-workspace",
+    message: "Explain this character's greeting.",
+    context: {
+      source: "character-editor",
+      capability: "explain",
+      resource: { kind: "character", id: "character-1", label: "Luna" },
+      field: "firstMessage",
+      action: "Explain the selected greeting",
+    },
+  });
+  assert.equal(handoff.success, true, "valid contextual handoffs pass the server schema");
+
+  const invalidHandoff = professorMariPromptSchema.safeParse({
+    chatId: "mari-workspace",
+    message: "Explain this.",
+    context: {
+      source: "character-editor",
+      capability: "explain",
+      resource: { kind: "character", id: "" },
+    },
+  });
+  assert.equal(invalidHandoff.success, false, "empty resource IDs are rejected at the handoff boundary");
+
   const linkedWorkspaceRoot = await mkdtemp(join(tmpdir(), "marinara-doc-tools-linked-workspace-"));
   const externalDocsRoot = await mkdtemp(join(tmpdir(), "marinara-doc-tools-external-docs-"));
   try {
@@ -222,3 +271,7 @@ try {
 } finally {
   await rm(workspaceRoot, { recursive: true, force: true });
 }
+
+// UX-07: a plain question ranks on its content words, not on "why", "is" or "my".
+assert.deepEqual(queryTerms("why is my lorebook empty"), ["lorebook", "empty"], "question words are not search terms");
+assert.deepEqual(queryTerms("the and of"), [], "a query of only stop words has no terms to rank by");

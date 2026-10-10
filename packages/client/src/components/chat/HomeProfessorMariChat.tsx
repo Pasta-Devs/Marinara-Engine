@@ -1,53 +1,23 @@
+import { useReducedAmbientEffects } from "../../hooks/use-reduced-ambient-effects";
+import { MariStorySprite } from "./MariStorySprite";
 import {
-  type ChangeEvent,
-  type CSSProperties,
-  type MouseEvent as ReactMouseEvent,
-  type PointerEvent as ReactPointerEvent,
   type ReactNode,
   type RefObject,
-  memo,
+  lazy,
+  Suspense,
   useCallback,
   useEffect,
+  useEffectEvent,
   useLayoutEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { createPortal } from "react-dom";
-import { AnimatePresence, motion } from "framer-motion";
-import {
-  AlertTriangle,
-  ArrowDown,
-  BookOpen,
-  Brain,
-  Check,
-  ChevronRight,
-  Database,
-  FileUp,
-  FileText,
-  ImageIcon,
-  Link,
-  Loader2,
-  MessageCircle,
-  PackagePlus,
-  Palette,
-  Pencil,
-  Plus,
-  Quote,
-  RefreshCw,
-  Save,
-  Search,
-  Send,
-  ShieldAlert,
-  Sparkles,
-  Square,
-  Star,
-  Terminal,
-  Trash2,
-  Wrench,
-  X,
-} from "lucide-react";
+import { professorMariWorkspaceStatusKeys } from "../../hooks/use-professor-mari-workspace-status";
+import { useMariPresence, useMarkMariRunSeen } from "../../hooks/use-mari-presence";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { AlertTriangle, MessageCircle } from "lucide-react";
 import { toast } from "sonner";
 import {
   LOCAL_SIDECAR_CONNECTION_ID,
@@ -56,3062 +26,253 @@ import {
   isMariHeldChangeApprovalChip,
   withHeldChangeDeclineChip,
   MARI_STARTER_CHIPS,
-  PROFESSOR_MARI_ID,
+  mariReceiptReviewIds,
+  sanitizeMariSuggestionChips,
   type APIConnection,
   type Chat,
-  type MariDbHistoryEntry,
   type MariDbPendingApproval,
-  type MariDependencyInstallApproval,
-  type MariGuidedPlanStep,
+  type MariSuggestionAction,
   type MariSuggestionChip,
   type MariWorkspaceSkillDetail,
+  type MariWorkspaceActionResult,
   type MariWorkspaceSkillsResponse,
   type MariInstructionDetail,
   type MariInstructionsResponse,
-  type MariInstructionMutationResponse,
   type MariWorkspaceStatus,
-  type MariWorkspacePendingApproval,
-  type MariSensitiveFileApproval,
-  type MariWorkspaceTraceItem,
   type Message,
+  type ProfessorMariAskContext,
+  type ProfessorMariHandoff,
 } from "@marinara-engine/shared";
 import { useConnections } from "../../hooks/use-connections";
 import { useTrackAchievement } from "../../hooks/use-achievements";
 import { chatKeys } from "../../hooks/use-chats";
+import { characterKeys, useCharacters, usePersonas } from "../../hooks/use-characters";
+import { getCharacterDisplayIdentity } from "../../lib/character-display";
+import { buildCharacterPreviewModel, type CharacterPreviewModel } from "../../lib/character-preview";
+import { buildLorebookPreviewModel } from "../../lib/lorebook-preview";
+import { completeInline } from "../../lib/inline-completion";
+import { resolveMariRestStory, type MariStoryState } from "../../lib/mari-work-animations";
+import { lorebookKeys, useLorebooks } from "../../hooks/use-lorebooks";
+import { presetKeys, usePresets } from "../../hooks/use-presets";
 import { useMariWorkspaceContext } from "../../hooks/use-mari-workspace-context";
-import { MariAttachButton } from "./MariAttachButton";
+import { useDialogFocusScope } from "../../hooks/use-dialog-focus-scope";
+import { useInDialogFocusScope } from "../../hooks/use-in-dialog-focus-scope";
+import { useChatKeyboardOpen } from "../../hooks/use-visual-viewport-chat-bottom";
 import { MariChatHistoryPicker } from "./MariChatHistoryPicker";
 import { MariContextViewer } from "./MariContextViewer";
-import { homeFeedKeys } from "../../hooks/use-home-feed";
 import { filterLanguageGenerationConnections } from "../../lib/connection-filters";
-import { api, getPrivilegedActionErrorMessage, isPassiveStreamDisconnect } from "../../lib/api-client";
-import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
+import { api, ApiError } from "../../lib/api-client";
+import { describeProfessorMariError } from "../../lib/professor-mari-errors";
 import {
-  awaitMariPermissionsModeWrites,
-  enqueueMariPermissionsModeWrite,
-} from "../../lib/mari-permissions-write-chain";
+  assignReviewsToTurns,
+  countBlockingReviews,
+  isMariReviewWaiting,
+  isPersistentProfessorMariContext,
+  professorMariContextFacets,
+  resolveProfessorMariPresentationState,
+  reviewRecordKeys,
+  shouldAppendMariArrival,
+  shouldOfferProfessorMariStarterSuggestions,
+  shouldShowProfessorMariConnectionHint,
+  withoutProfessorMariContextFacet,
+  type ProfessorMariContextFacet,
+} from "../../lib/professor-mari-presentation";
+import {
+  resolveProfessorMariWorkspaceBackAction,
+  type ProfessorMariWorkspaceDestination,
+} from "../../lib/professor-mari-workspace-navigation";
+import { useMariApprovals } from "../../hooks/use-mari-approvals";
+import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
+import { enqueueMariPermissionsModeWrite } from "../../lib/mari-permissions-write-chain";
 import {
   DEFAULT_MARI_PERMISSIONS_MODE,
   MARI_PERMISSIONS_MODE_LABELS,
-  MARI_PERMISSIONS_MODES,
   type MariPermissionsMode,
+  type MariWorkspacePendingApproval,
 } from "@marinara-engine/shared";
-import { formatGenerationParameterError } from "../../lib/generation-parameter-errors";
-import { showConfirmDialog } from "../../lib/app-dialogs";
 import { useChatStore } from "../../stores/chat.store";
 import { useAgentStore } from "../../stores/agent.store";
 import { useSidecarStore } from "../../stores/sidecar.store";
-import { useUIStore, type MariEditViewMode, type MariPanelSortMode } from "../../stores/ui.store";
-import { MariEditEasyViewer } from "./MariEditEasyViewer";
-import { MariPromptPreviewModal, type MariPromptRenderSide } from "./MariPromptPreviewModal";
+import { useUIStore } from "../../stores/ui.store";
+import {
+  DeleteReviewCard,
+  MariHeldChangeCard,
+  RawDetails,
+  ResolvedPromptLine,
+  WorkspaceApprovalCard,
+} from "./MariApprovalCards";
+import { type MariReceiptControls } from "./MariChangeReceipt";
+import { compareMariPanelItems, type MemoryDraftState, type SkillDraftState } from "./MariPanelControls";
+
+// The Skills and Memories panels are a management surface most sessions never
+// open. Keeping them out of the eager chunk leaves room under the hard bundle
+// budget for the work surface itself.
+const ProfessorMariSkillsMenu = lazy(() =>
+  import("./MariSkillsMenu").then((module) => ({ default: module.ProfessorMariSkillsMenu })),
+);
+const ProfessorMariMemoriesMenu = lazy(() =>
+  import("./MariMemoriesMenu").then((module) => ({ default: module.ProfessorMariMemoriesMenu })),
+);
+import type { MariPromptRenderSide } from "./MariPromptPreviewModal";
 import { showLocalMessageNotification, showNativeMessageNotification } from "../../lib/local-notifications";
 import {
+  followTranscriptGrowth,
   isProfessorMariTranscriptNearBottom,
   scrollProfessorMariTranscriptToBottom,
+  transcriptScrollAction,
 } from "../../lib/professor-mari-transcript-scroll";
 import { resolveProfessorMariContextBudget } from "../../lib/professor-mari-context-budget";
-import { applyInlineMarkdown, renderMarkdownBlocks } from "../../lib/markdown";
-import { useCodeBlockCopy } from "../../hooks/use-code-block-copy";
 import { rafThrottle } from "../../lib/raf-throttle";
+import {
+  cachedMariThread,
+  keepUnchangedMessages,
+  rememberMariThread,
+  rememberMariThreads,
+} from "../../lib/mari-thread-cache";
 import { prepareImageAttachment } from "../../lib/chat-attachment-images";
 import { cn } from "../../lib/utils";
-import { ContextBudgetGauge, ContextBudgetIndicator } from "./ContextBudgetIndicator";
-import { ProfessorMariWorkingWindow } from "../ui/ProfessorMariWorkingWindow";
-import { MacroTextarea } from "../ui/MacroTextarea";
-import { SettingsSwitch } from "../panels/settings/SettingControls";
+import { executeStateNavigation } from "../../lib/state-navigation";
 import {
-  PROFESSOR_MARI_FLOATING_HIDE_EVENT,
-  PROFESSOR_MARI_FLOATING_SHOW_EVENT,
-  dispatchProfessorMariFloatingEvent,
-  rememberProfessorMariFloatingEnabled,
-} from "./professor-mari-floating-events";
-import { MariSuggestionChips } from "./MariSuggestionChips";
+  chooseMariThread,
+  readMariThread,
+  type MariArrival,
+  type MariArrivalAction,
+  type MariThreadContext,
+} from "../../lib/mari-arrival";
+import { mariReferenceTarget, type MariReferencedResource } from "../../lib/mari-referenced-resources";
+import { getOmnibarSettingsDestinations } from "../../lib/omnibar-settings";
+import { MariNextStepCards } from "./MariSuggestionChips";
+import { requestChatPeekPrompt } from "../../lib/chat-floating-ui-events";
+import { MariList } from "./mari-primitives";
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
-
-const MARI_AVATAR_URL = "/sprites/mari/Mari_profile.png";
-const MARI_CHIBI_URL = "/sprites/mari/chibi-professor-mari.png";
-const PROFESSOR_MARI_WELCOME_MESSAGE_ID = "__professor_mari_home_welcome__";
-const PROFESSOR_MARI_DRAFT_KEY = "__home_professor_mari__";
-const MARI_CONNECTION_STORAGE_KEY = "marinara:home-professor-mari-connection-id";
-const PROFESSOR_MARI_ERROR_TOAST_DURATION_MS = 120_000;
-const WORKSPACE_SETTLE_POLL_MS = 1_500;
-const WORKSPACE_SETTLE_MAX_WAIT_MS = 30 * 60_000;
-const WORKSPACE_SETTLE_REQUEST_TIMEOUT_MS = 10_000;
-
-// After the SSE stream detaches on tab resume, the run keeps going server-side.
-// Poll the workspace status until it is no longer active so the caller reloads
-// the fully persisted reply and approvals rather than a half-written state.
-class MariWorkspaceRunError extends Error {}
-
-async function waitForWorkspaceRunToSettle(connectionId: string | null, signal: AbortSignal): Promise<boolean> {
-  const query = connectionId ? `?connectionId=${encodeURIComponent(connectionId)}` : "";
-  const startedAt = Date.now();
-  let sawActiveRun = false;
-  let inactiveReadings = 0;
-  while (!signal.aborted && Date.now() - startedAt < WORKSPACE_SETTLE_MAX_WAIT_MS) {
-    const pollController = new AbortController();
-    const abortPoll = () => pollController.abort();
-    const pollTimeout = window.setTimeout(abortPoll, WORKSPACE_SETTLE_REQUEST_TIMEOUT_MS);
-    signal.addEventListener("abort", abortPoll, { once: true });
-    try {
-      const status = await api.get<MariWorkspaceStatus>(`/professor-mari/workspace/status${query}`, {
-        signal: pollController.signal,
-      });
-      if (status.active) {
-        sawActiveRun = true;
-      } else if (sawActiveRun) {
-        return true;
-      } else {
-        // The prompt route does storage work (connection resolution, message
-        // persistence, history listing) BEFORE the run flips active, so one
-        // early inactive reading is not proof the run never started — require
-        // two, a poll apart, before concluding that.
-        inactiveReadings += 1;
-        if (inactiveReadings >= 2) return false;
-      }
-    } catch {
-      // The resumed tab may still be restoring network access; keep polling.
-    } finally {
-      window.clearTimeout(pollTimeout);
-      signal.removeEventListener("abort", abortPoll);
-    }
-    if (signal.aborted) return sawActiveRun;
-    await new Promise<void>((resolve) => {
-      const timer = window.setTimeout(resolve, WORKSPACE_SETTLE_POLL_MS);
-      signal.addEventListener(
-        "abort",
-        () => {
-          window.clearTimeout(timer);
-          resolve();
-        },
-        { once: true },
-      );
-    });
-  }
-  return sawActiveRun;
-}
-const PROFESSOR_MARI_NO_CONNECTION_TOAST =
-  "You haven't set up a connection yet! Click the link icon beside the paperclip to select one.";
-const MARI_WELCOME =
-  "Howdy, welcome to Marinara Engine!\n\nFeeling a little lost? It is not a skill issue yet, I am here to help! Ask me about the app, your setup, or what to do next.\n\nNeed something made or changed? I can create character cards, personas, lorebooks, chats, and presets, and I can make reversible local workspace changes with a Keep/Restore review. Select a connection via the link icon beside the paperclip first and then ask away!";
-const NEW_SKILL_CONTENT = `# Custom Professor Mari Skill
-
-Use this skill when the request matches a workflow you want Professor Mari to follow.
-
-## Workflow
-
-- Add the trigger conditions.
-- Add the steps Professor Mari should follow.
-- Add any checks or evidence she should collect before saying the work is done.
-`;
-
-type ProfessorMariAttachment = {
-  type: string;
-  data: string;
-  name: string;
-  filename?: string;
-  resized?: boolean;
-};
-const PROFESSOR_MARI_ATTACHMENT_ACCEPT =
-  "image/*,application/pdf,.pdf,.txt,.md,.markdown,.json,.jsonl,.csv,.log,.xml,.yaml,.yml";
-const PROFESSOR_MARI_ATTACHMENT_MAX_BYTES = 20 * 1024 * 1024;
-const PROFESSOR_MARI_TEXT_ATTACHMENT_EXTENSIONS = new Set([
-  "csv",
-  "json",
-  "jsonl",
-  "log",
-  "markdown",
-  "md",
-  "txt",
-  "xml",
-  "yaml",
-  "yml",
-]);
-const PROFESSOR_MARI_PDF_ATTACHMENT_MIME_TYPE = "application/pdf";
-const PROFESSOR_MARI_PANE_TRANSITION = { duration: 0.24, ease: [0.16, 1, 0.3, 1] } as const;
-const PROFESSOR_MARI_FLOATING_EDGE_GAP = 12;
-const PROFESSOR_MARI_FLOATING_MOBILE_TOP_GAP = 64;
-
-type WorkspaceApprovalResponse = {
-  ok: boolean;
-  approval?: MariWorkspacePendingApproval;
-  history?: MariDbHistoryEntry | null;
-  completed?: boolean;
-  outcome?: "applied" | "discarded" | "state_changed" | "failed";
-  error?: string | null;
-};
-
-type WorkspaceSkillMutationResponse = {
-  ok: boolean;
-  skill: MariWorkspaceSkillDetail;
-};
-
-type SkillDraftState = {
-  name: string;
-  description: string;
-  content: string;
-};
-
-// #4851: draft for the Memories panel. `enabled` and `persistent` are toggled directly
-// on the row/editor (not staged in the draft); name/description/content save together.
-type MemoryDraftState = {
-  name: string;
-  description: string;
-  content: string;
-};
-
-type ProfessorMariConnectionOption = {
-  id: string;
-  name: string;
-  model?: string | null;
-  provider?: string;
-  isDefault?: boolean;
-};
-
-type ProfessorMariChatSummary = Chat & {
-  messageCount?: number;
-};
-
-type FloatingDragState = {
-  pointerId: number;
-  startX: number;
-  startY: number;
-  offsetX: number;
-  offsetY: number;
-  width: number;
-  height: number;
-};
-
-function readStoredConnectionId() {
-  try {
-    return window.localStorage.getItem(MARI_CONNECTION_STORAGE_KEY);
-  } catch {
-    return null;
-  }
-}
-
-function rememberConnectionId(id: string) {
-  try {
-    window.localStorage.setItem(MARI_CONNECTION_STORAGE_KEY, id);
-  } catch {
-    /* ignore */
-  }
-}
-
-function isProfessorMariDesktopViewport() {
-  return typeof window !== "undefined" && window.matchMedia("(min-width: 640px)").matches;
-}
-
-function ProfessorMariMobilePortal({ children, disabled = false }: { children: ReactNode; disabled?: boolean }) {
-  const [mobile, setMobile] = useState(() => !isProfessorMariDesktopViewport());
-
-  useEffect(() => {
-    const query = window.matchMedia("(max-width: 639px)");
-    const sync = () => setMobile(query.matches);
-    sync();
-    query.addEventListener("change", sync);
-    return () => query.removeEventListener("change", sync);
-  }, []);
-
-  if (disabled) return children;
-  return mobile ? createPortal(children, document.body) : children;
-}
-
-function getProfessorMariFileExtension(fileName: string): string {
-  const match = fileName.toLowerCase().match(/\.([a-z0-9]+)$/);
-  return match?.[1] ?? "";
-}
-
-function inferProfessorMariAttachmentType(file: File): string {
-  const extension = getProfessorMariFileExtension(file.name);
-  if (extension === "pdf") return PROFESSOR_MARI_PDF_ATTACHMENT_MIME_TYPE;
-  if (file.type) return file.type;
-  if (extension === "json" || extension === "jsonl") return "application/json";
-  if (extension === "csv") return "text/csv";
-  if (extension === "md" || extension === "markdown") return "text/markdown";
-  if (extension === "xml") return "application/xml";
-  if (extension === "yaml" || extension === "yml") return "application/yaml";
-  if (extension === "txt" || extension === "log") return "text/plain";
-  return "application/octet-stream";
-}
-
-function isSupportedProfessorMariAttachment(file: File): boolean {
-  if (file.type.startsWith("image/")) return true;
-  if (file.type.startsWith("text/")) return true;
-  const type = inferProfessorMariAttachmentType(file);
-  if (type === PROFESSOR_MARI_PDF_ATTACHMENT_MIME_TYPE) return true;
-  if (
-    type === "application/json" ||
-    type === "application/xml" ||
-    type === "application/yaml" ||
-    type === "application/x-yaml"
-  ) {
-    return true;
-  }
-  return PROFESSOR_MARI_TEXT_ATTACHMENT_EXTENSIONS.has(getProfessorMariFileExtension(file.name));
-}
-
-function readProfessorMariFileAsDataUrl(file: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = () => reject(reader.error ?? new Error("Failed to read file"));
-    reader.readAsDataURL(file);
-  });
-}
-
-function isProfessorMariImageAttachment(attachment: ProfessorMariAttachment): boolean {
-  return attachment.type.startsWith("image/") && attachment.data.startsWith("data:image/");
-}
-
-function describeProfessorMariError(error: unknown) {
-  const message = getPrivilegedActionErrorMessage(error, "").trim();
-  if (message) {
-    return `${formatGenerationParameterError(message)} This message will stay visible long enough to screenshot for troubleshooting.`;
-  }
-  return "The request failed before Professor Mari could answer. This message will stay visible long enough to screenshot for troubleshooting.";
-}
-
-function isProfessorMariAbortError(error: unknown) {
-  return typeof error === "object" && error !== null && "name" in error && error.name === "AbortError";
-}
-
-function toMessageExtra(message: Message): Message["extra"] {
-  if (typeof message.extra === "string") {
-    try {
-      return JSON.parse(message.extra) as Message["extra"];
-    } catch {
-      return {
-        displayText: null,
-        isGenerated: message.role === "assistant",
-        tokenCount: null,
-        generationInfo: null,
-      };
-    }
-  }
-  return message.extra;
-}
-
-function getProfessorMariAttachments(message: Message): ProfessorMariAttachment[] {
-  const extra = toMessageExtra(message);
-  const rawAttachments =
-    extra && typeof extra === "object" && "attachments" in extra
-      ? (extra as { attachments?: unknown }).attachments
-      : undefined;
-  if (!Array.isArray(rawAttachments)) return [];
-  return rawAttachments.flatMap((attachment): ProfessorMariAttachment[] => {
-    if (!attachment || typeof attachment !== "object") return [];
-    const candidate = attachment as Partial<ProfessorMariAttachment>;
-    if (typeof candidate.type !== "string" || typeof candidate.data !== "string") return [];
-    if (!candidate.data.startsWith("data:")) return [];
-    const filename =
-      typeof candidate.filename === "string" && candidate.filename.trim() ? candidate.filename.trim() : undefined;
-    const name =
-      typeof candidate.name === "string" && candidate.name.trim() ? candidate.name.trim() : (filename ?? "attachment");
-    const normalized: ProfessorMariAttachment = { type: candidate.type, data: candidate.data, name };
-    if (filename) normalized.filename = filename;
-    if (typeof candidate.resized === "boolean") normalized.resized = candidate.resized;
-    return [normalized];
-  });
-}
-
-function isProfessorMariChatActive(chat: ProfessorMariChatSummary) {
-  const raw = chat.metadata;
-  try {
-    const metadata =
-      typeof raw === "string" ? (JSON.parse(raw) as Record<string, unknown>) : (raw as Record<string, unknown> | null);
-    if (!metadata) return false;
-    return metadata.professorMariActive === true && metadata.professorMariArchived !== true;
-  } catch {
-    return false;
-  }
-}
-
-function createWelcomeMessage(chatId: string | null): Message {
-  return {
-    id: PROFESSOR_MARI_WELCOME_MESSAGE_ID,
-    chatId: chatId ?? "__professor_mari_home__",
-    role: "assistant",
-    characterId: PROFESSOR_MARI_ID,
-    content: MARI_WELCOME,
-    activeSwipeIndex: 0,
-    createdAt: new Date(0).toISOString(),
-    extra: {
-      displayText: null,
-      isGenerated: false,
-      tokenCount: null,
-      generationInfo: null,
-    },
-  };
-}
-
-function createLocalUserMessage(chatId: string, content: string, attachments: ProfessorMariAttachment[] = []): Message {
-  return {
-    id: `__professor_mari_local_${Date.now()}`,
-    chatId,
-    role: "user",
-    characterId: null,
-    content,
-    activeSwipeIndex: 0,
-    createdAt: new Date().toISOString(),
-    extra: {
-      displayText: null,
-      isGenerated: false,
-      tokenCount: null,
-      generationInfo: null,
-      ...(attachments.length > 0 ? { attachments } : {}),
-    },
-  };
-}
-
-function getMessageThinking(message: Message): string | null {
-  const extra = toMessageExtra(message);
-  const thinking = extra?.thinking;
-  return typeof thinking === "string" && thinking.trim().length > 0 ? thinking : null;
-}
-
-type WorkspaceToolCall = {
-  id: string;
-  name: string;
-  status: "running" | "done" | "error";
-  input?: unknown;
-  detail: string | null;
-  output: string | null;
-  updatedAt: number;
-};
-
-type ToolTone = "db" | "shell" | "file" | "search" | "write" | "theme" | "image" | "wiki" | "skill" | "generic";
-
-type ToolPresentation = {
-  eyebrow: string;
-  title: string;
-  detail: string | null;
-  tone: ToolTone;
-};
-
-function asRecord(value: unknown): Record<string, unknown> | null {
-  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
-}
-
-function previewValue(value: unknown, limit = 180): string | null {
-  if (value == null) return null;
-  let text: string;
-  if (typeof value === "string") text = value;
-  else {
-    const record = asRecord(value);
-    if (record) {
-      const primary = record.command ?? record.path ?? record.pattern ?? record.query ?? record.url ?? record.reason;
-      if (typeof primary === "string") text = primary;
-      else {
-        try {
-          text = JSON.stringify(record);
-        } catch {
-          text = String(value);
-        }
-      }
-    } else text = String(value);
-  }
-
-  const compact = text.replace(/\s+/g, " ").trim();
-  if (!compact) return null;
-  return compact.length > limit ? `${compact.slice(0, limit - 1)}…` : compact;
-}
-
-function outputValue(value: unknown, limit = 8000): string | null {
-  if (value == null) return null;
-  let text: string;
-  if (typeof value === "string") text = value;
-  else {
-    try {
-      text = JSON.stringify(value, null, 2);
-    } catch {
-      text = String(value);
-    }
-  }
-  const trimmed = text.trimEnd();
-  if (!trimmed) return null;
-  return trimmed.length > limit ? `${trimmed.slice(0, limit - 1)}…` : trimmed;
-}
-
-function getToolCallId(data: Record<string, unknown> | null, name: string) {
-  const id = data?.id;
-  return typeof id === "string" && id.trim() ? id : `${name}-${Date.now()}`;
-}
-
-function formatToolName(name: string) {
-  return name
-    .replace(/^functions\./, "")
-    .replace(/^multi_tool_use\./, "")
-    .replace(/_/g, " ");
-}
-
-function isWorkspaceTraceItem(value: unknown): value is MariWorkspaceTraceItem {
-  const record = asRecord(value);
-  if (!record || typeof record.type !== "string") return false;
-  if (["text", "thinking", "status"].includes(record.type)) return typeof record.content === "string";
-  if (record.type !== "tool") return false;
-  const tool = asRecord(record.tool);
-  return (
-    !!tool &&
-    typeof tool.id === "string" &&
-    typeof tool.name === "string" &&
-    ["running", "done", "error"].includes(String(tool.status))
-  );
-}
-
-function getMessageWorkspaceTrace(message: Message): MariWorkspaceTraceItem[] | null {
-  const extra = toMessageExtra(message);
-  const trace = extra?.mariWorkspaceTimeline;
-  if (!Array.isArray(trace)) return null;
-  const items = trace.filter(isWorkspaceTraceItem);
-  return items.length > 0 ? items : null;
-}
-
-type WorkspaceTimelineItem =
-  | { id: string; type: "text"; content: string }
-  | { id: string; type: "thinking"; content: string }
-  | { id: string; type: "tool"; tool: WorkspaceToolCall }
-  | { id: string; type: "status"; content: string };
-
-function timelineId(prefix: string) {
-  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-}
-
-function timelineItemsFromTrace(trace: MariWorkspaceTraceItem[], message: Message): WorkspaceTimelineItem[] {
-  const items = trace.map((item, index): WorkspaceTimelineItem => {
-    if (item.type === "tool") {
-      return {
-        id: `${message.id}-tool-${item.tool.id || index}`,
-        type: "tool",
-        tool: {
-          id: item.tool.id || `${message.id}-${index}`,
-          name: item.tool.name || "tool",
-          status: item.tool.status === "running" ? "done" : item.tool.status,
-          input: item.tool.input,
-          detail: previewValue(item.tool.input),
-          output: item.tool.output ?? null,
-          updatedAt: item.tool.updatedAt ?? 0,
-        },
-      };
-    }
-    return { id: `${message.id}-${item.type}-${index}`, type: item.type, content: item.content };
-  });
-
-  if (!items.some((item) => item.type === "text") && message.content.trim()) {
-    items.push({ id: `${message.id}-text-fallback`, type: "text", content: message.content });
-  }
-  return items;
-}
-
-function appendTextTimeline(current: WorkspaceTimelineItem[], delta: string): WorkspaceTimelineItem[] {
-  if (!delta) return current;
-  const last = current[current.length - 1];
-  if (last?.type === "text") return [...current.slice(0, -1), { ...last, content: `${last.content}${delta}` }];
-  return [...current, { id: timelineId("text"), type: "text", content: delta }];
-}
-
-function appendThinkingTimeline(current: WorkspaceTimelineItem[], delta: string): WorkspaceTimelineItem[] {
-  if (!delta) return current;
-  const last = current[current.length - 1];
-  if (last?.type === "thinking") return [...current.slice(0, -1), { ...last, content: `${last.content}${delta}` }];
-  return [...current, { id: timelineId("thinking"), type: "thinking", content: delta }];
-}
-
-function appendStatusTimeline(current: WorkspaceTimelineItem[], content: string): WorkspaceTimelineItem[] {
-  const trimmed = content.trim();
-  if (!trimmed) return current;
-  const last = current[current.length - 1];
-  if (last?.type === "status" && last.content === trimmed) return current;
-  return [...current, { id: timelineId("status"), type: "status", content: trimmed }];
-}
-
-function upsertToolTimeline(current: WorkspaceTimelineItem[], update: WorkspaceToolCall): WorkspaceTimelineItem[] {
-  const existingIndex = current.findIndex((item) => item.type === "tool" && item.tool.id === update.id);
-  if (existingIndex < 0) {
-    const toolItem: WorkspaceTimelineItem = { id: `tool-${update.id}`, type: "tool", tool: update };
-    return [...current, toolItem];
-  }
-  return current.map((item, index) => {
-    if (index !== existingIndex || item.type !== "tool") return item;
-    return {
-      ...item,
-      tool: {
-        ...item.tool,
-        ...update,
-        name: update.name === "tool" && item.tool.name !== "tool" ? item.tool.name : update.name,
-        input: update.input ?? item.tool.input,
-        detail: update.detail ?? item.tool.detail,
-        output: update.output ?? item.tool.output,
-      },
-    };
-  });
-}
-
-const MARI_DB_MUTATIONS = new Set(["insert", "patch", "replace", "delete", "transform"]);
-
-function splitShellWords(command: string): string[] {
-  const words: string[] = [];
-  let current = "";
-  let quote: '"' | "'" | null = null;
-  let escaped = false;
-  for (const char of command) {
-    if (escaped) {
-      current += char;
-      escaped = false;
-      continue;
-    }
-    if (char === "\\" && quote !== "'") {
-      escaped = true;
-      continue;
-    }
-    if ((char === '"' || char === "'") && (!quote || quote === char)) {
-      quote = quote ? null : char;
-      continue;
-    }
-    if (!quote && /\s/.test(char)) {
-      if (current) words.push(current);
-      current = "";
-      continue;
-    }
-    current += char;
-  }
-  if (current) words.push(current);
-  return words;
-}
-
-function humanizeIdentifier(value: string | null | undefined) {
-  if (!value) return "data";
-  return value
-    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
-    .replace(/[-_]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-    .toLowerCase();
-}
-
-function compactCommand(command: string, limit = 220) {
-  const compact = command.replace(/\s+/g, " ").trim();
-  return compact.length > limit ? `${compact.slice(0, limit - 1)}…` : compact;
-}
-
-function getBashCommand(tool: WorkspaceToolCall) {
-  const input = asRecord(tool.input);
-  const command = input?.command;
-  if (typeof command === "string" && command.trim()) return command.trim();
-  return null;
-}
-
-function shellTokenBasename(token: string) {
-  const clean = token.trim().replace(/^["']|["']$/g, "");
-  const parts = clean.split(/[\\/]/);
-  return parts[parts.length - 1]?.toLowerCase() ?? "";
-}
-
-function isMariExecutableToken(token: string) {
-  return /^(?:mari|mari\.(?:cmd|ps1|exe))$/i.test(shellTokenBasename(token));
-}
-
-function getMariTokens(command: string): string[] | null {
-  const tokens = splitShellWords(command);
-  const start = tokens.findIndex(isMariExecutableToken);
-  return start >= 0 ? tokens.slice(start) : null;
-}
-
-function firstCommandValue(tokens: string[], start = 0) {
-  for (let index = start; index < tokens.length; index += 1) {
-    const token = tokens[index];
-    if (!token || token === "--" || token.startsWith("-") || token.includes("=")) continue;
-    return token;
-  }
-  return null;
-}
-
-function looksLikeHelpToken(token: string | null | undefined) {
-  return !token || token === "help" || token === "--help" || token === "-h";
-}
-
-function extractMariDbCommand(command: string) {
-  const tokens = getMariTokens(command);
-  if (!tokens) return null;
-  if (!isMariExecutableToken(tokens[0] ?? "") || tokens[1] !== "db") return null;
-  const action = looksLikeHelpToken(tokens[2]) ? "help" : (tokens[2] ?? "status");
-  const target = tokens.slice(3).find((token) => token && !token.startsWith("-") && !token.includes("=")) ?? null;
-  return {
-    action,
-    target,
-    apply: tokens.includes("--apply"),
-    dryRun: tokens.includes("--dry-run") || (MARI_DB_MUTATIONS.has(action) && !tokens.includes("--apply")),
-  };
-}
-
-function mariDbTitle(info: NonNullable<ReturnType<typeof extractMariDbCommand>>) {
-  const target = humanizeIdentifier(info.target);
-  switch (info.action) {
-    case "status":
-      return "Checking database status";
-    case "help":
-      return "Opening database command help";
-    case "tables":
-      return "Listing database tables";
-    case "counts":
-      return "Counting database rows";
-    case "schema":
-      return `Reading ${target} schema`;
-    case "list":
-      return `Listing ${target}`;
-    case "get":
-      return `Reading ${target} row`;
-    case "search":
-      return `Searching ${info.target === "all" ? "all tables" : target}`;
-    case "select":
-      return `Querying ${target}`;
-    case "validate":
-      return "Validating workspace data";
-    case "insert":
-      return info.apply ? `Creating ${target}` : `Previewing new ${target}`;
-    case "patch":
-      return info.apply ? `Applying ${target} update` : `Previewing ${target} update`;
-    case "replace":
-      return info.apply ? `Replacing ${target}` : `Previewing ${target} replacement`;
-    case "delete":
-      return info.apply ? `Deleting ${target}` : `Previewing ${target} deletion`;
-    case "transform":
-      return info.apply ? `Applying ${target} transform` : `Previewing ${target} transform`;
-    default:
-      return `Running mari db ${info.action}`;
-  }
-}
-
-function mariDbDetail(info: NonNullable<ReturnType<typeof extractMariDbCommand>>) {
-  if (!info.target || ["status", "tables", "counts", "validate", "data-dir", "now", "new-id"].includes(info.action))
-    return null;
-  return info.target === "all" ? "all tables" : humanizeIdentifier(info.target);
-}
-
-function tokenFlagValue(tokens: string[], flag: string) {
-  const prefixed = `${flag}=`;
-  const inline = tokens.find((token) => token.startsWith(prefixed));
-  if (inline) return inline.slice(prefixed.length);
-  const index = tokens.indexOf(flag);
-  return index >= 0 ? (tokens[index + 1] ?? null) : null;
-}
-
-function extractMariCodeCommand(command: string) {
-  const tokens = getMariTokens(command);
-  if (!tokens) return null;
-  if (!isMariExecutableToken(tokens[0] ?? "") || tokens[1] !== "code") return null;
-  const action = looksLikeHelpToken(tokens[2]) ? "help" : (tokens[2] ?? "status");
-  return {
-    action,
-    subaction: action === "reload" ? (tokens[3] ?? null) : null,
-    kind: tokenFlagValue(tokens, "--kind"),
-    changed: tokens.includes("--changed"),
-    patch: tokens.includes("--patch") || tokens.includes("--full"),
-  };
-}
-
-function mariCodeTitle(info: NonNullable<ReturnType<typeof extractMariCodeCommand>>) {
-  switch (info.action) {
-    case "status":
-      return "Checking workspace status";
-    case "help":
-      return "Opening workspace command help";
-    case "diff":
-      return info.patch ? "Inspecting workspace diff" : "Summarizing workspace diff";
-    case "check":
-      return info.changed ? "Checking changed workspace files" : "Running workspace checks";
-    case "health":
-      return "Checking workspace health";
-    case "reload":
-      return info.subaction === "request"
-        ? `Requesting ${info.kind ?? "workspace"} reload`
-        : "Managing workspace reload";
-    case "continue":
-      return "Continuing workspace run";
-    default:
-      return `Running mari code ${info.action}`;
-  }
-}
-
-function mariCodeDetail(info: NonNullable<ReturnType<typeof extractMariCodeCommand>>) {
-  if (info.action === "reload" && info.kind) return info.kind;
-  if (info.action === "diff" && info.patch) return "patch included";
-  if (info.action === "check" && info.changed) return "changed scope requested";
-  return null;
-}
-
-const MARI_THEME_MUTATIONS = new Set(["create", "update", "set-active"]);
-
-function extractMariThemesCommand(command: string) {
-  const tokens = getMariTokens(command);
-  if (!tokens) return null;
-  if (!isMariExecutableToken(tokens[0] ?? "") || (tokens[1] !== "themes" && tokens[1] !== "theme")) return null;
-  const action = looksLikeHelpToken(tokens[2]) ? "help" : (tokens[2] ?? "list");
-  const name = tokenFlagValue(tokens, "--name");
-  return {
-    action,
-    name,
-    apply: tokens.includes("--apply"),
-    activate: tokens.includes("--activate") || tokens.includes("--active") || action === "set-active",
-    dryRun: MARI_THEME_MUTATIONS.has(action) && !tokens.includes("--apply"),
-  };
-}
-
-function mariThemesTitle(info: NonNullable<ReturnType<typeof extractMariThemesCommand>>) {
-  const suffix = info.name ? `: ${info.name}` : "";
-  switch (info.action) {
-    case "list":
-      return "Listing themes";
-    case "help":
-      return "Opening theme command help";
-    case "active":
-      return "Checking active theme";
-    case "get":
-      return "Reading theme";
-    case "create":
-      return info.apply ? `Creating theme${suffix}` : `Previewing theme${suffix}`;
-    case "update":
-      return info.apply ? "Updating theme" : "Previewing theme update";
-    case "set-active":
-      return info.apply ? "Activating theme" : "Previewing theme activation";
-    default:
-      return `Running mari themes ${info.action}`;
-  }
-}
-
-function mariThemesDetail(info: NonNullable<ReturnType<typeof extractMariThemesCommand>>) {
-  if (info.dryRun) return "dry run, not saved";
-  if (info.activate) return "activate";
-  return null;
-}
-
-const MARI_IMAGE_WRITES = new Set(["assign", "add", "replace", "delete", "remove", "clear"]);
-
-function extractMariImagesCommand(command: string) {
-  const tokens = getMariTokens(command);
-  if (!tokens) return null;
-  if (!isMariExecutableToken(tokens[0] ?? "") || !["image", "images", "media"].includes(tokens[1] ?? "")) return null;
-  const action = looksLikeHelpToken(tokens[2]) ? "help" : (tokens[2] ?? "help");
-  return {
-    action,
-    target: tokenFlagValue(tokens, "--target") ?? firstCommandValue(tokens, 3),
-    asset: tokenFlagValue(tokens, "--asset") ?? tokenFlagValue(tokens, "--id"),
-    prompt: tokenFlagValue(tokens, "--prompt"),
-    source: tokenFlagValue(tokens, "--source"),
-    connection: tokenFlagValue(tokens, "--connection"),
-    edit: tokens.includes("--edit"),
-    mutating: MARI_IMAGE_WRITES.has(action),
-  };
-}
-
-function mariImagesTitle(info: NonNullable<ReturnType<typeof extractMariImagesCommand>>) {
-  switch (info.action) {
-    case "connections":
-      return info.edit ? "Finding edit-capable image connections" : "Checking image connections";
-    case "capabilities":
-      return info.edit ? "Checking image edit capabilities" : "Checking image capabilities";
-    case "preview":
-      return "Preparing image preview";
-    case "generate":
-      return "Generating review image";
-    case "edit":
-      return "Editing review image";
-    case "assign":
-    case "add":
-    case "replace":
-      return "Assigning image asset";
-    case "delete":
-    case "remove":
-    case "clear":
-      return "Removing image asset";
-    case "list":
-      return `Listing ${humanizeIdentifier(info.target)}`;
-    case "get":
-      return "Reading image asset";
-    case "help":
-      return "Opening image command help";
-    default:
-      return `Running mari images ${info.action}`;
-  }
-}
-
-function mariImagesDetail(info: NonNullable<ReturnType<typeof extractMariImagesCommand>>) {
-  if (info.target && !["list", "get"].includes(info.action)) return humanizeIdentifier(info.target);
-  if (info.asset) return compactCommand(info.asset, 70);
-  if (info.source) return compactCommand(info.source, 70);
-  if (info.prompt) return compactCommand(info.prompt, 70);
-  if (info.connection) return compactCommand(info.connection, 70);
-  return null;
-}
-
-function extractMariWikiCommand(command: string) {
-  const tokens = getMariTokens(command);
-  if (!tokens) return null;
-  if (!isMariExecutableToken(tokens[0] ?? "") || !["wiki", "fandom"].includes(tokens[1] ?? "")) return null;
-  const action = looksLikeHelpToken(tokens[2]) ? "help" : (tokens[2] ?? "help");
-  const wiki =
-    tokenFlagValue(tokens, "--wiki") ??
-    (["search", "search-wiki", "pages", "category", "category-members", "site-info"].includes(action)
-      ? tokens[3]
-      : null);
-  return {
-    action,
-    wiki,
-    title: tokenFlagValue(tokens, "--title"),
-    pageUrl: tokenFlagValue(tokens, "--page-url") ?? tokenFlagValue(tokens, "--pageUrl"),
-    query: tokenFlagValue(tokens, "--query") ?? firstCommandValue(tokens, action === "search-in-page" ? 5 : 3),
-    category:
-      tokenFlagValue(tokens, "--category") ??
-      (["category", "category-members"].includes(action)
-        ? tokens.slice(4).find((token) => token && !token.startsWith("-"))
-        : null),
-    content: tokenFlagValue(tokens, "--content"),
-  };
-}
-
-function mariWikiTitle(info: NonNullable<ReturnType<typeof extractMariWikiCommand>>) {
-  switch (info.action) {
-    case "find":
-    case "find-wikis":
-      return "Finding Fandom wikis";
-    case "search-all":
-      return "Searching Fandom pages";
-    case "search":
-    case "search-wiki":
-      return "Searching wiki";
-    case "get":
-    case "get-page":
-      return "Reading wiki page";
-    case "pages":
-      return "Reading wiki pages";
-    case "sections":
-      return "Reading wiki sections";
-    case "category":
-    case "category-members":
-      return "Listing wiki category";
-    case "site-info":
-      return "Checking wiki site info";
-    case "search-in-page":
-      return "Searching inside wiki page";
-    case "help":
-      return "Opening wiki command help";
-    default:
-      return `Running mari wiki ${info.action}`;
-  }
-}
-
-function mariWikiDetail(info: NonNullable<ReturnType<typeof extractMariWikiCommand>>) {
-  const detail = info.title ?? info.category ?? info.pageUrl ?? info.wiki ?? info.query ?? info.content;
-  return detail ? compactCommand(detail, 70) : null;
-}
-
-function extractMariStorageCommand(command: string) {
-  const tokens = getMariTokens(command);
-  if (!tokens) return null;
-  if (!isMariExecutableToken(tokens[0] ?? "") || tokens[1] !== "storage") return null;
-  return {
-    action: looksLikeHelpToken(tokens[2]) ? "help" : (tokens[2] ?? "help"),
-  };
-}
-
-function extractMariGenericCommand(command: string) {
-  const tokens = getMariTokens(command);
-  if (!tokens) return null;
-  const group = looksLikeHelpToken(tokens[1]) ? "help" : (tokens[1] ?? "help");
-  const action = looksLikeHelpToken(tokens[2]) ? "help" : (tokens[2] ?? "help");
-  return { group, action };
-}
-
-function mariGenericTitle(info: NonNullable<ReturnType<typeof extractMariGenericCommand>>) {
-  if (info.group === "help") return "Opening Mari CLI help";
-  if (info.group === "storage") return "Checking reserved storage command";
-  if (info.action === "help") return `Opening mari ${info.group} help`;
-  return `Running mari ${info.group} ${info.action}`;
-}
-
-function mariGenericDetail(info: NonNullable<ReturnType<typeof extractMariGenericCommand>>) {
-  if (info.group === "help") return null;
-  return info.action === "help" ? info.group : `${info.group} ${info.action}`;
-}
-
-function toolInputPath(tool: WorkspaceToolCall) {
-  const input = asRecord(tool.input);
-  const candidate = input?.path ?? input?.file ?? input?.filePath ?? input?.file_path ?? input?.uri ?? tool.detail;
-  return typeof candidate === "string" && candidate.trim() ? candidate.trim() : null;
-}
-
-function skillNameFromPath(path: string) {
-  const parts = path.replace(/\\/g, "/").split("/").filter(Boolean);
-  const file = parts[parts.length - 1]?.toLowerCase();
-  const parent = file === "skill.md" ? parts[parts.length - 2] : parts[parts.length - 1];
-  return humanizeIdentifier(parent ?? "skill");
-}
-
-function getSkillReadPresentation(tool: WorkspaceToolCall): ToolPresentation | null {
-  const path = toolInputPath(tool);
-  if (!path) return null;
-  const normalized = path.replace(/\\/g, "/").toLowerCase();
-  if (!normalized.endsWith("/skill.md") && normalized !== "skill.md") return null;
-  const professorMariSkill = normalized.includes("/.mari-workspace/skills/");
-  const skillName = skillNameFromPath(path);
-  return {
-    eyebrow: professorMariSkill ? "Mari skill" : "Skill",
-    title: professorMariSkill ? "Loading Professor Mari skill" : `Loading ${skillName}`,
-    detail: professorMariSkill ? skillName : null,
-    tone: "skill",
-  };
-}
-
-function summarizeShellCommand(command: string) {
-  const compact = compactCommand(command, 120);
-  const words = splitShellWords(command);
-  if (words[0] === "pnpm" && words[1]) return `Running pnpm ${words[1]}`;
-  if (words[0] === "git" && words[1]) return `Running git ${words[1]}`;
-  if (words[0] === "node") return "Running node script";
-  return compact ? `$ ${compact}` : "Running shell command";
-}
-
-function inferToolPresentation(tool: WorkspaceToolCall): ToolPresentation {
-  const name = formatToolName(tool.name);
-  const command = getBashCommand(tool);
-  const mariDb = command ? extractMariDbCommand(command) : null;
-  const mariCode = command ? extractMariCodeCommand(command) : null;
-  const mariThemes = command ? extractMariThemesCommand(command) : null;
-  const mariImages = command ? extractMariImagesCommand(command) : null;
-  const mariWiki = command ? extractMariWikiCommand(command) : null;
-  const mariStorage = command ? extractMariStorageCommand(command) : null;
-  const mariGeneric = command ? extractMariGenericCommand(command) : null;
-  if (command && mariDb) {
-    return {
-      eyebrow: mariDb.dryRun ? "DB preview" : "Database",
-      title: mariDbTitle(mariDb),
-      detail: mariDbDetail(mariDb),
-      tone: "db",
-    };
-  }
-  if (command && mariCode) {
-    return {
-      eyebrow: "Workspace",
-      title: mariCodeTitle(mariCode),
-      detail: mariCodeDetail(mariCode),
-      tone: "shell",
-    };
-  }
-  if (command && mariThemes) {
-    return {
-      eyebrow: mariThemes.dryRun ? "Theme preview" : "Theme",
-      title: mariThemesTitle(mariThemes),
-      detail: mariThemesDetail(mariThemes),
-      tone: "theme",
-    };
-  }
-  if (command && mariImages) {
-    return {
-      eyebrow: mariImages.mutating ? "Image change" : "Images",
-      title: mariImagesTitle(mariImages),
-      detail: mariImagesDetail(mariImages),
-      tone: mariImages.mutating ? "write" : "image",
-    };
-  }
-  if (command && mariWiki) {
-    return {
-      eyebrow: "Wiki",
-      title: mariWikiTitle(mariWiki),
-      detail: mariWikiDetail(mariWiki),
-      tone: "wiki",
-    };
-  }
-  if (command && mariStorage) {
-    return {
-      eyebrow: "Storage",
-      title: "Checking reserved storage command",
-      detail: mariStorage.action === "help" ? null : mariStorage.action,
-      tone: "shell",
-    };
-  }
-  if (command && mariGeneric) {
-    return {
-      eyebrow: "Mari CLI",
-      title: mariGenericTitle(mariGeneric),
-      detail: mariGenericDetail(mariGeneric),
-      tone: "shell",
-    };
-  }
-
-  if (command) {
-    return {
-      eyebrow: "Shell",
-      title: summarizeShellCommand(command),
-      detail: compactCommand(command, 90),
-      tone: "shell",
-    };
-  }
-
-  const skillPresentation = getSkillReadPresentation(tool);
-  if (skillPresentation) return skillPresentation;
-
-  const input = asRecord(tool.input);
-  const detail = previewValue(
-    input?.path ?? input?.pattern ?? input?.query ?? input?.url ?? input?.command ?? tool.detail,
-    90,
-  );
-  if (/grep|find|search/i.test(name)) {
-    return { eyebrow: "Search", title: name === "grep" ? "Searching text" : "Finding files", detail, tone: "search" };
-  }
-  if (/read|file/i.test(name)) {
-    return { eyebrow: "File", title: "Reading file", detail, tone: "file" };
-  }
-  if (/write|edit/i.test(name)) {
-    return {
-      eyebrow: "File change",
-      title: name.includes("edit") ? "Editing file" : "Writing file",
-      detail,
-      tone: "write",
-    };
-  }
-  if (name === "ls") {
-    return { eyebrow: "Files", title: "Listing folder", detail, tone: "file" };
-  }
-  return { eyebrow: "Tool", title: name, detail, tone: "generic" };
-}
-
-function toolToneClasses(tone: ToolTone) {
-  switch (tone) {
-    case "db":
-    case "skill":
-      return "border-[var(--primary)]/20 bg-[var(--primary)]/10";
-    case "theme":
-      return "border-[var(--marinara-chat-chrome-button-border)] bg-[var(--marinara-chat-chrome-highlight-bg)]";
-    case "image":
-      return "border-sky-400/20 bg-sky-400/10";
-    case "wiki":
-      return "border-emerald-400/20 bg-emerald-400/10";
-    case "write":
-      return "border-amber-400/20 bg-amber-400/10";
-    case "search":
-      return "border-cyan-400/20 bg-cyan-400/10";
-    default:
-      return "border-[var(--border)]/70 bg-[var(--card)]/70";
-  }
-}
-
-function ToolGlyph({ tool, tone }: { tool: WorkspaceToolCall; tone: ToolTone }) {
-  if (tool.status === "running") return <Loader2 size="0.72rem" className="animate-spin" />;
-  if (tool.status === "error") return <AlertTriangle size="0.72rem" />;
-  if (tone === "db") return <Database size="0.72rem" />;
-  if (tone === "theme") return <Palette size="0.72rem" />;
-  if (tone === "image") return <ImageIcon size="0.72rem" />;
-  if (tone === "wiki" || tone === "skill") return <BookOpen size="0.72rem" />;
-  if (tone === "search") return <Search size="0.72rem" />;
-  if (tone === "shell") return <Terminal size="0.72rem" />;
-  if (tone === "file" || tone === "write") return <FileText size="0.72rem" />;
-  return <Wrench size="0.72rem" />;
-}
-
-function renderCompactInline(text: string, keyPrefix: string): ReactNode[] {
-  return text.split("\n").flatMap((line, index) => {
-    const nodes = applyInlineMarkdown(line, `${keyPrefix}-${index}`);
-    return index === 0 ? nodes : [<br key={`${keyPrefix}-br-${index}`} />, ...nodes];
-  });
-}
-
-const CompactMarkdown = memo(function CompactMarkdown({
-  content,
-  streaming,
-}: {
-  content: string;
-  streaming?: boolean;
-}) {
-  const trimmed = content.trim();
-  const [container, setContainer] = useState<HTMLDivElement | null>(null);
-  const rendered = useMemo(
-    () => (trimmed ? renderMarkdownBlocks(trimmed, renderCompactInline, "home-mari") : null),
-    [trimmed],
-  );
-  useCodeBlockCopy(container, rendered);
-  if (!trimmed) return null;
-  return (
-    <div
-      ref={setContainer}
-      className="mari-message-content text-[0.8125rem] leading-[1.42] text-[var(--foreground)] [&_.mari-md-codeblock]:my-1.5 [&_.mari-md-codeblock]:max-h-44 [&_.mari-md-codeblock]:pb-12! [&_.mari-md-heading]:mb-0.5 [&_.mari-md-heading]:mt-1 [&_.mari-md-ol]:my-1 [&_.mari-md-ul]:my-1"
-    >
-      {rendered}
-      {streaming && (
-        <span className="ml-1 inline-block h-3 w-1 translate-y-0.5 rounded-full bg-[var(--primary)] opacity-80 animate-pulse" />
-      )}
-    </div>
-  );
-});
-
-function ProfessorMariAttachedFiles({
-  attachments,
-  onRemove,
-}: {
-  attachments: ProfessorMariAttachment[];
-  onRemove?: (index: number) => void;
-}) {
-  const { t: localizeUi } = useUiTranslation();
-  if (attachments.length === 0) return null;
-  return (
-    <div className="mt-2 flex flex-wrap gap-2">
-      {attachments.map((attachment, index) =>
-        isProfessorMariImageAttachment(attachment) ? (
-          <div key={`${attachment.name}-${index}`} className="relative">
-            <a
-              href={attachment.data}
-              target="_blank"
-              rel="noreferrer"
-              className="block overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--background)]/70"
-              title={attachment.name}
-            >
-              <img
-                src={attachment.data}
-                alt={attachment.name || "Attached image"}
-                className="h-24 w-24 object-cover sm:h-28 sm:w-28"
-                draggable={false}
-              />
-            </a>
-            {onRemove && (
-              <button
-                type="button"
-                onClick={() => onRemove(index)}
-                className="absolute right-1 top-1 rounded bg-[var(--background)]/80 p-0.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--primary)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--primary)] focus-visible:text-[var(--primary)]"
-                aria-label={localizeUi("ui.chat.homeprofessormarichat.removeAttachment")}
-                title={localizeUi("ui.chat.homeprofessormarichat.removeAttachment")}
-              >
-                <X size="0.75rem" />
-              </button>
-            )}
-          </div>
-        ) : (
-          <div key={`${attachment.name}-${index}`} className="relative max-w-[14rem]">
-            <a
-              href={attachment.data}
-              target="_blank"
-              rel="noreferrer"
-              download={attachment.name}
-              className={cn(
-                "flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--background)]/70 px-2.5 py-2 text-xs text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
-                onRemove && "pr-8",
-              )}
-              title={attachment.name}
-            >
-              <FileText size="0.875rem" className="shrink-0 text-[var(--primary)]" />
-              <span className="min-w-0 truncate">{attachment.name}</span>
-            </a>
-            {onRemove && (
-              <button
-                type="button"
-                onClick={() => onRemove(index)}
-                className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--primary)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--primary)] focus-visible:text-[var(--primary)]"
-                aria-label={localizeUi("ui.chat.homeprofessormarichat.removeAttachment")}
-                title={localizeUi("ui.chat.homeprofessormarichat.removeAttachment")}
-              >
-                <X size="0.75rem" />
-              </button>
-            )}
-          </div>
-        ),
-      )}
-    </div>
-  );
-}
-
-function ProfessorMariAttachmentPreviews({
-  attachments,
-  isReading,
-  onRemove,
-}: {
-  attachments: ProfessorMariAttachment[];
-  isReading: boolean;
-  onRemove: (index: number) => void;
-}) {
-  const { t: localizeUi } = useUiTranslation();
-  if (attachments.length === 0 && !isReading) return null;
-  return (
-    <div className="mb-2 flex flex-wrap gap-2">
-      {attachments.map((attachment, index) => (
-        <div
-          key={`${attachment.name}-${index}`}
-          className="group relative flex max-w-[9rem] items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--background)]/70 p-1.5 pr-7"
-        >
-          {isProfessorMariImageAttachment(attachment) ? (
-            <img
-              src={attachment.data}
-              alt={attachment.name}
-              className="h-9 w-9 shrink-0 rounded-md object-cover"
-              draggable={false}
-            />
-          ) : (
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-foreground/10 text-[var(--primary)]">
-              <FileText size="1rem" />
-            </span>
-          )}
-          <span className="min-w-0 flex-1 truncate text-[0.6875rem] text-[var(--muted-foreground)]">
-            {attachment.name}
-          </span>
-          <button
-            type="button"
-            onClick={() => onRemove(index)}
-            className="absolute right-1.5 top-1.5 rounded-md p-0.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
-            aria-label={localizeUi("ui.chat.professormariattachmentpreviews.removeValue1", { value1: attachment.name })}
-            title={localizeUi("ui.chat.professormariattachmentpreviews.removeFile")}
-          >
-            <X size="0.7rem" />
-          </button>
-        </div>
-      ))}
-      {isReading && (
-        <div className="flex min-h-12 items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--background)]/70 px-2 text-[0.6875rem] text-[var(--muted-foreground)]">
-          <Loader2 size="0.8rem" className="animate-spin" />
-          {localizeUi("ui.chat.chatinput.readingFile")}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function MariAvatar({ active }: { active?: boolean }) {
-  return (
-    <span
-      className={cn(
-        "mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-full border bg-[var(--secondary)] shadow-sm",
-        active ? "mari-chrome-accent-soft-tile mari-accent-animated" : "border-[var(--border)]/70",
-      )}
-    >
-      <img src={MARI_AVATAR_URL} alt="" className="h-full w-full object-cover" draggable={false} />
-    </span>
-  );
-}
-
-function MariReasoningPanel({ thinking, live, forceOpen }: { thinking: string; live?: boolean; forceOpen?: boolean }) {
-  const { t: localizeUi } = useUiTranslation();
-  const lineCount = Math.max(1, thinking.trim().split(/\n+/).length);
-  return (
-    <details
-      open={forceOpen || live || undefined}
-      className="group overflow-hidden rounded-lg border border-[var(--border)]/70 bg-[var(--muted)]/20 text-xs text-[var(--muted-foreground)]"
-    >
-      <summary className="flex min-h-7 cursor-pointer list-none items-center gap-1.5 px-2 py-1.5 font-semibold marker:hidden [&::-webkit-details-marker]:hidden">
-        <Brain
-          size="0.72rem"
-          className={cn("shrink-0", live ? "text-[var(--primary)]" : "text-[var(--muted-foreground)]")}
-        />
-        <span className="text-[var(--foreground)]">{localizeUi("ui.chat.marireasoningpanel.reasoning")}</span>
-        <span className="rounded-full bg-[var(--background)]/70 px-1.5 py-0.5 text-[0.58rem] font-medium uppercase tracking-[0.12em] opacity-75">
-          {live
-            ? localizeUi("ui.chat.marireasoningpanel.live")
-            : localizeUi("ui.chat.marireasoningpanel.value1LineValue2", {
-                value1: lineCount,
-                value2: lineCount === 1 ? "" : localizeUi("ui.noodle.stageprofileview.s"),
-              })}
-        </span>
-        <span className="ml-auto text-[0.65rem] opacity-60 transition-transform group-open:rotate-90">›</span>
-      </summary>
-      <pre className="max-h-36 overflow-y-auto whitespace-pre-wrap break-words border-t border-[var(--border)]/50 px-2 py-2 text-[0.6875rem] leading-relaxed text-[var(--muted-foreground)]">
-        {thinking.trimEnd()}
-      </pre>
-    </details>
-  );
-}
-
-function TranscriptRow({
-  marker,
-  children,
-  className,
-}: {
-  marker: ReactNode;
-  children: ReactNode;
-  className?: string;
-}) {
-  return (
-    <div className={cn("grid grid-cols-[2.25rem_minmax(0,1fr)] gap-2", className)}>
-      <div className="flex min-w-0 justify-start pt-0.5">{marker}</div>
-      <div className="min-w-0">{children}</div>
-    </div>
-  );
-}
-
-function WorkspaceToolEvent({ tool }: { tool: WorkspaceToolCall }) {
-  const { t: localizeUi } = useUiTranslation();
-  const presentation = inferToolPresentation(tool);
-  const isError = tool.status === "error";
-
-  return (
-    <TranscriptRow
-      marker={
-        <span
-          className={cn(
-            "mt-0.5 flex h-5 w-5 items-center justify-center rounded-md border bg-[var(--card)] shadow-sm",
-            isError
-              ? "border-[var(--destructive)]/40 text-[var(--destructive)]"
-              : "border-[var(--border)]/70 text-[var(--muted-foreground)]",
-          )}
-        >
-          <ToolGlyph tool={tool} tone={presentation.tone} />
-        </span>
-      }
-    >
-      <div className="min-w-0 space-y-1.5">
-        <div
-          className={cn(
-            "inline-flex max-w-full items-center gap-1.5 rounded-lg border px-2 py-1 text-[0.7rem] leading-5 shadow-sm",
-            toolToneClasses(presentation.tone),
-            isError && "border-[var(--destructive)]/35 bg-[var(--destructive)]/10",
-          )}
-          title={presentation.detail ?? presentation.title}
-        >
-          <span className="shrink-0 rounded-full bg-[var(--background)]/70 px-1.5 py-0.5 text-[0.56rem] font-semibold uppercase tracking-[0.12em] text-[var(--muted-foreground)]">
-            {presentation.eyebrow}
-          </span>
-          <span className="min-w-0 truncate font-semibold text-[var(--foreground)]">{presentation.title}</span>
-          {presentation.detail && (
-            <span className="min-w-0 truncate text-[var(--muted-foreground)]">· {presentation.detail}</span>
-          )}
-          {isError && (
-            <span className="shrink-0 text-[0.65rem] font-semibold text-[var(--destructive)]">
-              {localizeUi("ui.chat.workspacetoolevent.needsAttention")}
-            </span>
-          )}
-        </div>
-        {isError && tool.output?.trim() && (
-          <pre className="max-h-36 overflow-y-auto whitespace-pre-wrap break-words rounded-lg border border-[var(--destructive)]/30 bg-[var(--destructive)]/8 px-2.5 py-2 text-[0.6875rem] leading-relaxed text-[var(--destructive)]">
-            {tool.output.trim()}
-          </pre>
-        )}
-      </div>
-    </TranscriptRow>
-  );
-}
-
-function WorkspaceStatusEvent({ content, active }: { content: string; active?: boolean }) {
-  const lower = content.toLowerCase();
-  const warning = /\b(failed|cancelled|limit|error|attention)\b/.test(lower);
-  const complete = /\b(compacted|completed|done)\b/.test(lower) && !/\b(compacting|retrying|working)\b/.test(lower);
-  const working = active && !warning && !complete;
-  const Icon = warning ? AlertTriangle : complete ? Check : working ? Loader2 : RefreshCw;
-  return (
-    <TranscriptRow
-      marker={
-        <span
-          className={cn(
-            "mt-0.5 flex h-5 w-5 items-center justify-center rounded-md border bg-[var(--card)] shadow-sm",
-            warning
-              ? "border-amber-400/35 text-amber-300"
-              : complete
-                ? "border-emerald-400/25 text-emerald-300"
-                : "border-[var(--primary)]/25 text-[var(--primary)]",
-          )}
-        >
-          <Icon size="0.72rem" className={working ? "animate-spin" : undefined} />
-        </span>
-      }
-      className="text-[0.7rem] text-[var(--muted-foreground)]"
-    >
-      <span
-        className={cn(
-          "inline-flex max-w-full rounded-lg border px-2 py-1 leading-5 shadow-sm",
-          warning
-            ? "border-amber-400/20 bg-amber-400/10 text-amber-100"
-            : complete
-              ? "border-emerald-400/20 bg-emerald-400/10 text-[var(--foreground)]"
-              : "border-[var(--primary)]/20 bg-[var(--primary)]/10 text-[var(--foreground)]",
-        )}
-      >
-        {content}
-      </span>
-    </TranscriptRow>
-  );
-}
-
-const WorkspaceTimelineEvent = memo(function WorkspaceTimelineEvent({
-  item,
-  active,
-  forceOpenThinking,
-}: {
-  item: WorkspaceTimelineItem;
-  active: boolean;
-  forceOpenThinking?: boolean;
-}) {
-  if (item.type === "text") {
-    return (
-      <TranscriptRow marker={<MariAvatar active={active} />}>
-        <CompactMarkdown content={item.content} streaming={active} />
-      </TranscriptRow>
-    );
-  }
-  if (item.type === "thinking") {
-    return (
-      <TranscriptRow marker={<Brain size="0.78rem" className="mt-1 text-[var(--primary)]" />}>
-        <MariReasoningPanel thinking={item.content} live={active} forceOpen={forceOpenThinking} />
-      </TranscriptRow>
-    );
-  }
-  if (item.type === "tool") return <WorkspaceToolEvent tool={item.tool} />;
-  return <WorkspaceStatusEvent content={item.content} active={active} />;
-});
-
-function getActiveTimelineIndex(items: WorkspaceTimelineItem[], active: boolean) {
-  if (!active) return -1;
-  for (let index = items.length - 1; index >= 0; index -= 1) {
-    const item = items[index];
-    if (item.type === "tool" && item.tool.status === "running") return index;
-    if ((item.type === "text" || item.type === "thinking") && item.content.trim()) return index;
-    if (item.type === "status" && item.content.trim()) return index;
-  }
-  return -1;
-}
-
-function WorkspaceTimelineList({
-  items,
-  active,
-  openReasoning = true,
-}: {
-  items: WorkspaceTimelineItem[];
-  active: boolean;
-  openReasoning?: boolean;
-}) {
-  const activeIndex = getActiveTimelineIndex(items, active);
-  return (
-    <>
-      {items.map((item, index) => (
-        <WorkspaceTimelineEvent
-          key={item.id}
-          item={item}
-          active={index === activeIndex}
-          forceOpenThinking={item.type === "thinking" && openReasoning}
-        />
-      ))}
-    </>
-  );
-}
-
-const MARI_MESSAGE_ACTIONS_CLASS =
-  "mt-1 flex gap-1.5 opacity-100 transition-opacity [@media(pointer:fine)]:opacity-0 [@media(pointer:fine)]:group-focus-within:opacity-100 [@media(pointer:fine)]:group-hover:opacity-100";
-const MARI_MESSAGE_ACTION_BUTTON_CLASS =
-  "rounded p-1 text-[var(--marinara-chat-chrome-panel-muted)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--primary)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--primary)] focus-visible:text-[var(--primary)]";
-
-const CompactMariMessage = memo(function CompactMariMessage({
-  message,
-  thinking,
-  onDelete,
-  onEdit,
-  onRegenerate,
-  canRegenerate = false,
-  onRemoveAttachment,
-}: {
-  message: Message;
-  thinking?: string | null;
-  onDelete?: (messageId: string) => void;
-  onEdit?: (messageId: string, content: string) => void;
-  onRegenerate?: (messageId: string) => void;
-  canRegenerate?: boolean;
-  onRemoveAttachment?: (messageId: string, attachmentIndex: number) => void;
-}) {
-  const { t: localizeUi } = useUiTranslation();
-  const content = message.content ?? "";
-  const attachments = getProfessorMariAttachments(message);
-  const [isEditing, setIsEditing] = useState(false);
-  const [editContent, setEditContent] = useState(content);
-
-  if (message.role === "user") {
-    return (
-      <TranscriptRow
-        className="group border-y border-[var(--border)]/60 py-2.5"
-        marker={
-          <span className="pt-0.5 text-[0.6875rem] font-semibold text-[var(--marinara-chat-chrome-panel-muted)]">
-            {localizeUi("ui.chat.compactmarimessage.you")}
-          </span>
-        }
-      >
-        {isEditing ? (
-          <div className="mt-1">
-            <MacroTextarea
-              value={editContent}
-              onChange={setEditContent}
-              rows={8}
-              title={localizeUi("ui.chat.homeprofessormarichat.editMessage")}
-              ariaLabel={localizeUi("ui.chat.homeprofessormarichat.editMessage")}
-              showMacroReference={false}
-              showMarkdownPreview={false}
-              className="w-full"
-            />
-            <div className="mt-1 flex gap-2">
-              <button
-                type="button"
-                disabled={!editContent.trim()}
-                onClick={() => {
-                  onEdit?.(message.id, editContent);
-                  setIsEditing(false);
-                }}
-                className="rounded bg-[var(--primary)] px-2 py-1 text-xs text-[var(--primary-foreground)] disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {localizeUi("ui.noodle.noodlehome.save")}
-              </button>
-              <button
-                type="button"
-                onClick={() => setIsEditing(false)}
-                className="rounded px-2 py-1 text-xs text-[var(--muted-foreground)] hover:bg-[var(--accent)]"
-              >
-                {localizeUi("ui.chat.homeprofessormarichat.cancelSelection")}
-              </button>
-            </div>
-          </div>
-        ) : (
-          <CompactMarkdown content={content} />
-        )}
-        <ProfessorMariAttachedFiles
-          attachments={attachments}
-          onRemove={onRemoveAttachment ? (index) => onRemoveAttachment(message.id, index) : undefined}
-        />
-        {(onDelete || onEdit) && (
-          <div className={MARI_MESSAGE_ACTIONS_CLASS}>
-            {onEdit && (
-              <button
-                type="button"
-                onClick={() => {
-                  setEditContent(content);
-                  setIsEditing(true);
-                }}
-                className={MARI_MESSAGE_ACTION_BUTTON_CLASS}
-                aria-label={localizeUi("ui.chat.homeprofessormarichat.editMessage")}
-                title={localizeUi("ui.chat.homeprofessormarichat.editMessage")}
-              >
-                <Pencil size="0.8rem" />
-              </button>
-            )}
-            {onDelete && (
-              <button
-                type="button"
-                onClick={() => onDelete(message.id)}
-                className={MARI_MESSAGE_ACTION_BUTTON_CLASS}
-                aria-label={localizeUi("ui.chat.homeprofessormarichat.deleteMessage")}
-                title={localizeUi("ui.chat.homeprofessormarichat.deleteMessage")}
-              >
-                <Trash2 size="0.8rem" />
-              </button>
-            )}
-          </div>
-        )}
-      </TranscriptRow>
-    );
-  }
-
-  const workspaceTrace = getMessageWorkspaceTrace(message);
-  if (workspaceTrace) {
-    return (
-      <div className="group">
-        <WorkspaceTimelineList items={timelineItemsFromTrace(workspaceTrace, message)} active={false} openReasoning />
-        {(onDelete || (onRegenerate && canRegenerate)) && (
-          <div className={MARI_MESSAGE_ACTIONS_CLASS}>
-            {onRegenerate && canRegenerate && (
-              <button
-                type="button"
-                onClick={() => onRegenerate(message.id)}
-                className={MARI_MESSAGE_ACTION_BUTTON_CLASS}
-                aria-label={localizeUi("ui.chat.chatmessage.regenerate")}
-                title={localizeUi("ui.chat.chatmessage.regenerate")}
-              >
-                <RefreshCw size="0.8rem" />
-              </button>
-            )}
-            {onDelete && (
-              <button
-                type="button"
-                onClick={() => onDelete(message.id)}
-                className={MARI_MESSAGE_ACTION_BUTTON_CLASS}
-                aria-label={localizeUi("lorebook.editor.batch.delete")}
-                title={localizeUi("lorebook.editor.batch.delete")}
-              >
-                <Trash2 size="0.8rem" />
-              </button>
-            )}
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  return (
-    <>
-      <TranscriptRow className="group" marker={<MariAvatar />}>
-        <CompactMarkdown content={content} />
-        {(onDelete || (onRegenerate && canRegenerate)) && (
-          <div className={MARI_MESSAGE_ACTIONS_CLASS}>
-            {onRegenerate && canRegenerate && (
-              <button
-                type="button"
-                onClick={() => onRegenerate(message.id)}
-                className={MARI_MESSAGE_ACTION_BUTTON_CLASS}
-                aria-label={localizeUi("ui.chat.chatmessage.regenerate")}
-                title={localizeUi("ui.chat.chatmessage.regenerate")}
-              >
-                <RefreshCw size="0.8rem" />
-              </button>
-            )}
-            {onDelete && (
-              <button
-                type="button"
-                onClick={() => onDelete(message.id)}
-                className={MARI_MESSAGE_ACTION_BUTTON_CLASS}
-                aria-label={localizeUi("lorebook.editor.batch.delete")}
-                title={localizeUi("lorebook.editor.batch.delete")}
-              >
-                <Trash2 size="0.8rem" />
-              </button>
-            )}
-          </div>
-        )}
-      </TranscriptRow>
-      {thinking && (
-        <TranscriptRow marker={<Brain size="0.78rem" className="mt-1 text-[var(--muted-foreground)]" />}>
-          <MariReasoningPanel thinking={thinking} />
-        </TranscriptRow>
-      )}
-    </>
-  );
-});
-
-function LoadingHistoryState() {
-  return (
-    <div className="flex h-full flex-col justify-end gap-2 px-1 pb-2" aria-live="polite">
-      <TranscriptRow marker={<MariAvatar active />}>
-        <div className="space-y-1.5 py-1">
-          <div className="h-2 w-24 rounded-full bg-[var(--muted)]/45 animate-pulse" />
-          <div className="h-2 w-full rounded-full bg-[var(--muted)]/35 animate-pulse" />
-          <div className="h-2 w-3/4 rounded-full bg-[var(--muted)]/30 animate-pulse" />
-        </div>
-      </TranscriptRow>
-    </div>
-  );
-}
-
-export function ProfessorMariPixelScene({ active }: { active: boolean }) {
-  return (
-    <div className="mari-professor-pixel-scene" data-state={active ? "active" : "idle"} aria-hidden="true">
-      <div data-part="glow" />
-      <div data-part="desk" />
-      <img src={MARI_CHIBI_URL} alt="" data-part="sprite" draggable={false} />
-      <div data-part="laptop">
-        <div data-part="screen">
-          <span />
-          <span />
-          <span />
-        </div>
-        <div data-part="base">
-          <i />
-          <i />
-          <i />
-          <i />
-          <i />
-          <i />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function summarizeTables(tables: Record<string, number>) {
-  const entries = Object.entries(tables);
-  if (entries.length === 0) return "No rows";
-  return entries
-    .slice(0, 3)
-    .map(([table, count]) => `${count} ${table}`)
-    .join(", ");
-}
-
-function summarizeDeletedRow(change: MariDbPendingApproval["diffPreview"][number]) {
-  const name =
-    typeof change.before?.name === "string"
-      ? change.before.name
-      : typeof change.before?.title === "string"
-        ? change.before.title
-        : null;
-  return name ? `${change.table}: ${name}` : `${change.table}: ${change.id}`;
-}
-
-function summarizeCreatedRow(change: MariDbPendingApproval["diffPreview"][number]) {
-  const data = change.after?.data;
-  const dataName = data && typeof data === "object" ? (data as Record<string, unknown>).name : undefined;
-  const name =
-    typeof change.after?.name === "string"
-      ? change.after.name
-      : typeof change.after?.title === "string"
-        ? change.after.title
-        : typeof dataName === "string"
-          ? dataName
-          : null;
-  return name ? `${change.table}: ${name}` : `${change.table}: ${change.id}`;
-}
-
-function formatRowPreview(row: Record<string, unknown> | null | undefined) {
-  if (!row) return "No row snapshot available.";
-  try {
-    const text = JSON.stringify(row, null, 2);
-    return text.length > 700 ? `${text.slice(0, 700)}\n...` : text;
-  } catch {
-    return "Row snapshot could not be displayed.";
-  }
-}
-
-function WorkspaceErrorEvent({ message }: { message: string }) {
-  return (
-    <TranscriptRow marker={<AlertTriangle size="0.8rem" className="mt-1 text-[var(--destructive)]" />}>
-      <div className="py-0.5 text-xs text-[var(--destructive)]">{message}</div>
-    </TranscriptRow>
-  );
-}
-
-function getScrollableAncestor(el: HTMLElement | null): HTMLElement | null {
-  let node = el?.parentElement ?? null;
-  while (node) {
-    const style = getComputedStyle(node);
-    if (/(auto|scroll)/.test(style.overflowY) && node.scrollHeight > node.clientHeight) return node;
-    node = node.parentElement;
-  }
-  return null;
-}
-
-function DatabaseWorkspaceApprovalCard({
-  approval,
-  busy,
-  disabled,
-  onKeep,
-  onKeepEnable,
-  onRestore,
-  onRejectRows,
-  onRenderPrompt,
-}: {
-  approval: MariDbPendingApproval;
-  busy: boolean;
-  disabled: boolean;
-  onKeep: (id: string) => void;
-  onKeepEnable?: (id: string) => void;
-  onRestore: (id: string) => void;
-  onRejectRows?: (
-    id: string,
-    rows: Array<{ index: number; table: string; id: string; action: string }>,
-  ) => Promise<boolean>;
-  onRenderPrompt?: (
-    id: string,
-    row: { index: number; table: string; id: string; action: string },
-  ) => Promise<{ before: MariPromptRenderSide; after: MariPromptRenderSide } | null>;
-}) {
-  const { t: localizeUi } = useUiTranslation();
-  // #4931: synthetic prompt-preview modal state for a character/preset row.
-  const [promptPreview, setPromptPreview] = useState<{
-    loading: boolean;
-    error: boolean;
-    before: MariPromptRenderSide;
-    after: MariPromptRenderSide;
-  } | null>(null);
-  // Each open/close bumps the token so a late render resolve can't re-open a modal the user closed.
-  const renderTokenRef = useRef(0);
-  const closePromptPreview = useCallback(() => {
-    renderTokenRef.current += 1;
-    setPromptPreview(null);
-  }, []);
-  const handleRenderRow = useCallback(
-    async (change: MariDbPendingApproval["diffPreview"][number], index: number) => {
-      if (!onRenderPrompt) return;
-      const token = (renderTokenRef.current += 1);
-      setPromptPreview({ loading: true, error: false, before: null, after: null });
-      try {
-        const result = await onRenderPrompt(approval.id, {
-          index,
-          table: change.table,
-          id: change.id,
-          action: change.action,
-        });
-        if (renderTokenRef.current !== token) return; // closed or superseded while assembling
-        if (result) setPromptPreview({ loading: false, error: false, before: result.before, after: result.after });
-        else setPromptPreview({ loading: false, error: true, before: null, after: null });
-      } catch {
-        if (renderTokenRef.current !== token) return;
-        setPromptPreview({ loading: false, error: true, before: null, after: null });
-      }
-    },
-    [onRenderPrompt, approval.id],
-  );
-  // Easy/Raw is toggled PER CARD (seeded from the saved default), so flipping one card no longer
-  // flips the rest.
-  const defaultViewMode = useUIStore((s) => s.mariEditViewMode);
-  const setDefaultViewMode = useUIStore((s) => s.setMariEditViewMode);
-  const [viewMode, setViewMode] = useState<MariEditViewMode>(defaultViewMode);
-  // #4931: which rows are collapsed (folded to their name + status summary). Reversible — unlike the
-  // old one-way Dismiss.
-  const [collapsedRows, setCollapsedRows] = useState<Set<string>>(() => new Set());
-  const cardRef = useRef<HTMLDivElement>(null);
-  const toggleAnchorRef = useRef<number | null>(null);
-  // Keep this card anchored in the scroll viewport across a height change so the toggle doesn't
-  // shove what the user is reading off-screen.
-  const changeViewMode = useCallback(
-    (mode: MariEditViewMode) => {
-      toggleAnchorRef.current = cardRef.current?.getBoundingClientRect().top ?? null;
-      setViewMode(mode);
-      // Persist as the saved default so the choice survives this card remounting and new cards open
-      // the same way. Already-mounted cards keep their own local state, so one card's toggle still
-      // does not flip the others.
-      setDefaultViewMode(mode);
-    },
-    [setDefaultViewMode],
-  );
-  useLayoutEffect(() => {
-    const anchor = toggleAnchorRef.current;
-    toggleAnchorRef.current = null;
-    if (anchor === null || !cardRef.current) return;
-    const delta = cardRef.current.getBoundingClientRect().top - anchor;
-    if (Math.abs(delta) < 1) return;
-    const scroller = getScrollableAncestor(cardRef.current);
-    if (scroller) scroller.scrollTop += delta;
-  }, [viewMode]);
-  const deletedRows = approval.diffPreview.filter((change) => change.action === "delete");
-  const insertedRows = approval.diffPreview.filter((change) => change.action === "insert");
-  // #4851: a saved memory lands disabled; offer "Keep & Enable" to keep AND switch it on.
-  // Gated to mari_instructions inserts (matches the server-side guard), and only for
-  // NON-persistent ones, because enabling a Persistent memory injects its full body every turn, a
-  // heavier commitment, so route that through the Memories panel where Persistent is visible.
-  const enableableMemoryInsert = insertedRows.some((change) => {
-    if (change.table !== "mari_instructions") return false;
-    const after = change.after as { enabled?: unknown; persistent?: unknown } | null;
-    return Number(after?.enabled) !== 1 && Number(after?.persistent) !== 1;
-  });
-
-  return (
-    <TranscriptRow marker={<ShieldAlert size="0.85rem" className="mt-1 text-[var(--primary)]" />}>
-      <div
-        ref={cardRef}
-        className="rounded-xl border border-[var(--primary)]/30 bg-[var(--primary)]/5 p-3 text-xs text-[var(--foreground)]"
-      >
-        <div className="flex min-w-0 items-center gap-2">
-          <span className="font-semibold">
-            {localizeUi("ui.chat.databaseworkspaceapprovalcard.reviewMariSChanges")}
-          </span>
-          <span className="rounded-full bg-[var(--primary)]/10 px-1.5 py-0.5 text-[0.625rem] text-[var(--primary)]">
-            {localizeUi("ui.chat.databaseworkspaceapprovalcard.saved")}
-          </span>
-          <div className="ml-auto flex shrink-0 items-center gap-0.5 rounded-md bg-[var(--background)]/60 p-0.5">
-            <button
-              type="button"
-              onClick={() => changeViewMode("easy")}
-              aria-pressed={viewMode === "easy"}
-              className={cn(
-                "rounded px-1.5 py-0.5 text-[0.625rem] font-medium transition-colors",
-                viewMode === "easy"
-                  ? "bg-[var(--primary)]/15 text-[var(--primary)]"
-                  : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]",
-              )}
-            >
-              {localizeUi("ui.chat.databaseworkspaceapprovalcard.easyView")}
-            </button>
-            <button
-              type="button"
-              onClick={() => changeViewMode("raw")}
-              aria-pressed={viewMode === "raw"}
-              className={cn(
-                "rounded px-1.5 py-0.5 text-[0.625rem] font-medium transition-colors",
-                viewMode === "raw"
-                  ? "bg-[var(--primary)]/15 text-[var(--primary)]"
-                  : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]",
-              )}
-            >
-              {localizeUi("ui.chat.databaseworkspaceapprovalcard.rawView")}
-            </button>
-          </div>
-        </div>
-        <p className="mt-1 text-[0.6875rem] text-[var(--muted-foreground)]">
-          {localizeUi("ui.chat.databaseworkspaceapprovalcard.mariAlreadyAppliedThisKeepItOrRestoreThe")}
-        </p>
-        {viewMode === "raw" && (
-          <pre className="mt-2 max-h-24 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-[var(--background)]/80 p-2 font-mono text-[0.6875rem] text-[var(--muted-foreground)]">
-            {approval.command}
-          </pre>
-        )}
-        <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.6875rem] text-[var(--muted-foreground)]">
-          <span className="inline-flex items-center gap-1">
-            <Database size="0.7rem" /> {summarizeTables(approval.affectedTables)}
-          </span>
-          <span>
-            {approval.affectedRows} {localizeUi("ui.chat.databaseworkspaceapprovalcard.row")}
-            {approval.affectedRows === 1 ? "" : localizeUi("ui.noodle.stageprofileview.s")}
-          </span>
-        </div>
-        {viewMode === "raw" && approval.diffTruncated && (
-          <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
-            {localizeUi("ui.chat.databaseworkspaceapprovalcard.thisPreviewMayNotShowEveryAffectedRow")}
-          </p>
-        )}
-        {viewMode === "easy" && (
-          <MariEditEasyViewer
-            approval={approval}
-            collapsed={collapsedRows}
-            onToggleCollapse={(key) =>
-              setCollapsedRows((prev) => {
-                const next = new Set(prev);
-                if (next.has(key)) next.delete(key);
-                else next.add(key);
-                return next;
-              })
-            }
-            onRejectRow={
-              onRejectRows
-                ? (change, index) => {
-                    void (async () => {
-                      const reverted = await onRejectRows(approval.id, [
-                        { index, table: change.table, id: change.id, action: change.action },
-                      ]);
-                      // A successful reject prunes the row, shifting every later index, so the
-                      // positional collapse keys go stale — reset them then. On a no-op (state_changed
-                      // / invalid_selection) diffPreview is unchanged, so keep the collapse state.
-                      if (reverted) setCollapsedRows(new Set());
-                    })();
-                  }
-                : undefined
-            }
-            onRenderRow={onRenderPrompt ? handleRenderRow : undefined}
-            busy={busy || disabled}
-          />
-        )}
-        {viewMode === "raw" && deletedRows.length > 0 && (
-          <div className="mt-2 rounded-lg border border-[var(--destructive)]/30 bg-[var(--destructive)]/10 p-2 text-[0.6875rem] text-[var(--foreground)]">
-            <div className="flex items-center gap-1.5 font-semibold text-[var(--destructive)]">
-              <Trash2 size="0.75rem" />
-              {localizeUi("ui.chat.databaseworkspaceapprovalcard.mariDeleted")} {deletedRows.length}{" "}
-              {localizeUi("ui.chat.databaseworkspaceapprovalcard.item")}
-              {deletedRows.length === 1 ? "" : localizeUi("ui.noodle.stageprofileview.s")}.
-            </div>
-            <p className="mt-1 text-[var(--muted-foreground)]">
-              {localizeUi("ui.chat.databaseworkspaceapprovalcard.restoreWillPutTheSavedRowSnapshotBack")}
-            </p>
-            <div className="mt-2 space-y-2">
-              {deletedRows.slice(0, 3).map((change) => (
-                <details key={`${change.table}:${change.id}`} className="rounded-md bg-[var(--background)]/80 p-2">
-                  <summary className="cursor-pointer font-medium text-[var(--foreground)]">
-                    {summarizeDeletedRow(change)}
-                  </summary>
-                  <pre className="mt-2 max-h-32 overflow-auto whitespace-pre-wrap break-words text-[0.625rem] text-[var(--muted-foreground)]">
-                    {formatRowPreview(change.before)}
-                  </pre>
-                </details>
-              ))}
-              {deletedRows.length > 3 && (
-                <p className="text-[0.625rem] text-[var(--muted-foreground)]">
-                  {deletedRows.length - 3} {localizeUi("ui.chat.databaseworkspaceapprovalcard.moreDelete")}
-                  {deletedRows.length - 3 === 1 ? "" : localizeUi("ui.noodle.stageprofileview.s")}{" "}
-                  {localizeUi("ui.chat.databaseworkspaceapprovalcard.hiddenInThisPreview")}
-                </p>
-              )}
-            </div>
-          </div>
-        )}
-        {viewMode === "raw" && insertedRows.length > 0 && (
-          <div className="mt-2 rounded-lg border border-[var(--primary)]/30 bg-[var(--primary)]/10 p-2 text-[0.6875rem] text-[var(--foreground)]">
-            <div className="flex items-center gap-1.5 font-semibold text-[var(--primary)]">
-              <Sparkles size="0.75rem" />
-              {localizeUi("ui.chat.databaseworkspaceapprovalcard.mariCreatedNewItems")}
-            </div>
-            <p className="mt-1 text-[var(--muted-foreground)]">
-              {localizeUi("ui.chat.databaseworkspaceapprovalcard.keepSavesThemToYourLibraryRestoreRemovesEverything")}
-            </p>
-            <div className="mt-2 space-y-2">
-              {insertedRows.slice(0, 3).map((change) => (
-                <details key={`${change.table}:${change.id}`} className="rounded-md bg-[var(--background)]/80 p-2">
-                  <summary className="cursor-pointer font-medium text-[var(--foreground)]">
-                    {summarizeCreatedRow(change)}
-                  </summary>
-                  <pre className="mt-2 max-h-32 overflow-auto whitespace-pre-wrap break-words text-[0.625rem] text-[var(--muted-foreground)]">
-                    {formatRowPreview(change.after)}
-                  </pre>
-                </details>
-              ))}
-              {insertedRows.length > 3 && (
-                <p className="text-[0.625rem] text-[var(--muted-foreground)]">
-                  {localizeUi("ui.chat.databaseworkspaceapprovalcard.moreNewItemsAreHiddenInThisPreview")}
-                </p>
-              )}
-            </div>
-          </div>
-        )}
-        <div className="mt-2 flex justify-end gap-1.5">
-          <button
-            type="button"
-            onClick={() => onRestore(approval.id)}
-            disabled={busy || disabled}
-            className="rounded-md border border-[var(--border)] px-2.5 py-1 text-[0.6875rem] font-semibold text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-45"
-          >
-            <span className="inline-flex items-center gap-1">
-              <RefreshCw size="0.7rem" />
-              {localizeUi("ui.chat.databaseworkspaceapprovalcard.restore")}
-            </span>
-          </button>
-          {enableableMemoryInsert && onKeepEnable && (
-            <button
-              type="button"
-              onClick={() => onKeepEnable(approval.id)}
-              disabled={busy || disabled}
-              className="rounded-md border border-[var(--primary)]/50 bg-[var(--primary)]/10 px-2.5 py-1 text-[0.6875rem] font-semibold text-[var(--primary)] transition-colors hover:bg-[var(--primary)]/20 disabled:cursor-not-allowed disabled:opacity-45"
-            >
-              <span className="inline-flex items-center gap-1">
-                <Check size="0.7rem" />
-                {localizeUi("ui.chat.databaseworkspaceapprovalcard.keepAndEnable")}
-              </span>
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={() => onKeep(approval.id)}
-            disabled={busy || disabled}
-            className="rounded-md bg-[var(--primary)] px-2.5 py-1 text-[0.6875rem] font-semibold text-[var(--primary-foreground)] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-45"
-          >
-            <span className="inline-flex items-center gap-1">
-              {busy ? <Loader2 size="0.7rem" className="animate-spin" /> : <Check size="0.7rem" />}
-              {busy
-                ? localizeUi("ui.noodle.stageprofileform.saving")
-                : localizeUi("ui.chat.databaseworkspaceapprovalcard.keep")}
-            </span>
-          </button>
-        </div>
-      </div>
-      {promptPreview && (
-        <MariPromptPreviewModal
-          title={localizeUi("ui.chat.maripromptpreviewmodal.title")}
-          loading={promptPreview.loading}
-          error={promptPreview.error}
-          before={promptPreview.before}
-          after={promptPreview.after}
-          onClose={closePromptPreview}
-        />
-      )}
-    </TranscriptRow>
-  );
-}
-
-function DependencyWorkspaceApprovalCard({
-  approval,
-  busy,
-  disabled,
-  onApprove,
-  onDiscard,
-}: {
-  approval: MariDependencyInstallApproval;
-  busy: boolean;
-  disabled: boolean;
-  onApprove: (id: string) => void;
-  onDiscard: (id: string) => void;
-}) {
-  const { t: localizeUi } = useUiTranslation();
-  return (
-    <TranscriptRow marker={<PackagePlus size="0.85rem" className="mt-1 text-[var(--primary)]" />}>
-      <div className="rounded-xl border border-[var(--primary)]/30 bg-[var(--primary)]/5 p-3 text-xs text-[var(--foreground)]">
-        <div className="flex min-w-0 flex-wrap items-center gap-2">
-          <span className="font-semibold">
-            {localizeUi("ui.chat.dependencyworkspaceapprovalcard.installThisDependency")}
-          </span>
-          <span className="rounded-full bg-[var(--primary)]/10 px-1.5 py-0.5 text-[0.625rem] text-[var(--primary)]">
-            {localizeUi("ui.chat.dependencyworkspaceapprovalcard.notInstalled")}
-          </span>
-        </div>
-        <p className="mt-1 max-w-[70ch] text-[0.6875rem] text-[var(--muted-foreground)]">
-          {localizeUi("ui.chat.dependencyworkspaceapprovalcard.professorMariRequestedAnExactPublicNpmPackageMarinara")}
-        </p>
-        <div className="mt-2 rounded-lg bg-[var(--background)]/80 p-2">
-          <div className="break-all font-mono text-[0.75rem] font-semibold text-[var(--foreground)]">
-            {approval.packageName}@{approval.version}
-          </div>
-          <div className="mt-1 text-[0.6875rem] text-[var(--muted-foreground)]">
-            {approval.target} · {approval.dependencyType}
-          </div>
-          <div className="mt-2 break-all font-mono text-[0.625rem] text-[var(--muted-foreground)]">
-            {approval.integrity}
-          </div>
-          <div className="mt-2 break-words text-[0.6875rem] text-[var(--muted-foreground)]">
-            {approval.directDependencies.length === 0
-              ? localizeUi("ui.chat.dependencyworkspaceapprovalcard.noDirectDependenciesDeclared")
-              : localizeUi("ui.chat.dependencyworkspaceapprovalcard.value1DirectValue2Value3Value4", {
-                  value1: approval.directDependencies.length,
-                  value2:
-                    approval.directDependencies.length === 1
-                      ? localizeUi("ui.chat.dependencyworkspaceapprovalcard.dependency")
-                      : localizeUi("ui.chat.dependencyworkspaceapprovalcard.dependencies"),
-                  value3: approval.directDependencies
-                    .slice(0, 6)
-                    .map((dependency) => `${dependency.name} ${dependency.range}`)
-                    .join(", "),
-                  value4:
-                    approval.directDependencies.length > 6
-                      ? localizeUi("ui.chat.dependencyworkspaceapprovalcard.andMore")
-                      : "",
-                })}
-          </div>
-        </div>
-        {approval.reason && <p className="mt-2 text-[0.6875rem] text-[var(--muted-foreground)]">{approval.reason}</p>}
-        <div className="mt-3 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-          <button
-            type="button"
-            onClick={() => onDiscard(approval.id)}
-            disabled={busy || disabled}
-            className="min-h-9 rounded-md border border-[var(--border)] px-3 py-1.5 text-[0.6875rem] font-semibold text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-45"
-          >
-            {localizeUi("ui.chat.dependencyworkspaceapprovalcard.notNow")}
-          </button>
-          <button
-            type="button"
-            onClick={() => onApprove(approval.id)}
-            disabled={busy || disabled}
-            className="min-h-9 rounded-md bg-[var(--primary)] px-3 py-1.5 text-[0.6875rem] font-semibold text-[var(--primary-foreground)] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-45"
-          >
-            <span className="inline-flex items-center justify-center gap-1">
-              {busy ? <Loader2 size="0.75rem" className="animate-spin" /> : <PackagePlus size="0.75rem" />}
-              {busy
-                ? localizeUi("ui.chat.dependencyworkspaceapprovalcard.installing")
-                : localizeUi("ui.agents.agentcatalogview.install")}
-            </span>
-          </button>
-        </div>
-      </div>
-    </TranscriptRow>
-  );
-}
-
-function SensitiveFileWorkspaceApprovalCard({
-  approval,
-  busy,
-  disabled,
-  onApprove,
-  onDiscard,
-}: {
-  approval: MariSensitiveFileApproval;
-  busy: boolean;
-  disabled: boolean;
-  onApprove: (id: string) => void;
-  onDiscard: (id: string) => void;
-}) {
-  const { t: localizeUi } = useUiTranslation();
-  return (
-    <TranscriptRow marker={<ShieldAlert size="0.85rem" className="mt-1 text-[var(--primary)]" />}>
-      <div className="rounded-xl border border-[var(--primary)]/30 bg-[var(--primary)]/5 p-3 text-xs text-[var(--foreground)]">
-        <div className="flex min-w-0 flex-wrap items-center gap-2">
-          <span className="font-semibold">
-            {localizeUi("ui.chat.sensitivefileworkspaceapprovalcard.applySensitiveFileChange")}
-          </span>
-          <span className="rounded-full bg-[var(--primary)]/10 px-1.5 py-0.5 text-[0.625rem] text-[var(--primary)]">
-            {localizeUi("ui.chat.sensitivefileworkspaceapprovalcard.staged")}
-          </span>
-        </div>
-        <p className="mt-1 max-w-[70ch] text-[0.6875rem] text-[var(--muted-foreground)]">
-          {localizeUi(
-            "ui.chat.sensitivefileworkspaceapprovalcard.thisFileCanAffectDependenciesStartupInstallationOrAutomation",
-          )}
-        </p>
-        <div className="mt-2 break-all rounded-lg bg-[var(--background)]/80 p-2 font-mono text-[0.75rem] font-semibold">
-          {approval.path}
-        </div>
-        <p className="mt-1 text-[0.6875rem] text-[var(--muted-foreground)]">
-          {approval.changeType === "create"
-            ? localizeUi("ui.chat.sensitivefileworkspaceapprovalcard.thisFileDoesNotExistYetApprovingCreatesIt")
-            : localizeUi("ui.chat.sensitivefileworkspaceapprovalcard.thisWillOverwriteTheExistingFile")}
-        </p>
-        <details className="mt-2 rounded-lg border border-[var(--border)] bg-[var(--background)]/60 p-2">
-          <summary className="cursor-pointer text-[0.6875rem] font-semibold">
-            {localizeUi("ui.chat.sensitivefileworkspaceapprovalcard.reviewProposedContent")}
-          </summary>
-          <pre className="mt-2 max-h-56 overflow-auto whitespace-pre-wrap break-words font-mono text-[0.625rem] text-[var(--muted-foreground)]">
-            {approval.preview}
-            {approval.previewTruncated ? "\n\nPreview truncated." : ""}
-          </pre>
-        </details>
-        {approval.reason && <p className="mt-2 text-[0.6875rem] text-[var(--muted-foreground)]">{approval.reason}</p>}
-        <div className="mt-3 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-          <button
-            type="button"
-            onClick={() => onDiscard(approval.id)}
-            disabled={busy || disabled}
-            className="min-h-9 rounded-md border border-[var(--border)] px-3 py-1.5 text-[0.6875rem] font-semibold text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-45"
-          >
-            {localizeUi("ui.agents.agenteditor.discard")}
-          </button>
-          <button
-            type="button"
-            onClick={() => onApprove(approval.id)}
-            disabled={busy || disabled}
-            className="min-h-9 rounded-md bg-[var(--primary)] px-3 py-1.5 text-[0.6875rem] font-semibold text-[var(--primary-foreground)] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-45"
-          >
-            <span className="inline-flex items-center justify-center gap-1">
-              {busy ? <Loader2 size="0.75rem" className="animate-spin" /> : <Check size="0.75rem" />}
-              {busy
-                ? localizeUi("ui.chat.sensitivefileworkspaceapprovalcard.applying")
-                : localizeUi("ui.chat.sensitivefileworkspaceapprovalcard.applyChange")}
-            </span>
-          </button>
-        </div>
-      </div>
-    </TranscriptRow>
-  );
-}
-
-function WorkspaceApprovalCard({
-  approval,
-  busy,
-  disabled,
-  onKeep,
-  onKeepEnable,
-  onRestore,
-  onRejectRows,
-  onRenderPrompt,
-}: {
-  approval: MariWorkspacePendingApproval;
-  busy: boolean;
-  disabled: boolean;
-  onKeep: (id: string) => void;
-  onKeepEnable?: (id: string) => void;
-  onRestore: (id: string) => void;
-  onRejectRows?: (
-    id: string,
-    rows: Array<{ index: number; table: string; id: string; action: string }>,
-  ) => Promise<boolean>;
-  onRenderPrompt?: (
-    id: string,
-    row: { index: number; table: string; id: string; action: string },
-  ) => Promise<{ before: MariPromptRenderSide; after: MariPromptRenderSide } | null>;
-}) {
-  if (approval.kind === "dependency_install") {
-    return (
-      <DependencyWorkspaceApprovalCard
-        approval={approval}
-        busy={busy}
-        disabled={disabled}
-        onApprove={onKeep}
-        onDiscard={onRestore}
-      />
-    );
-  }
-  if (approval.kind === "sensitive_file") {
-    return (
-      <SensitiveFileWorkspaceApprovalCard
-        approval={approval}
-        busy={busy}
-        disabled={disabled}
-        onApprove={onKeep}
-        onDiscard={onRestore}
-      />
-    );
-  }
-  return (
-    <DatabaseWorkspaceApprovalCard
-      approval={approval}
-      busy={busy}
-      disabled={disabled}
-      onKeep={onKeep}
-      onKeepEnable={onKeepEnable}
-      onRestore={onRestore}
-      onRejectRows={onRejectRows}
-      onRenderPrompt={onRenderPrompt}
-    />
-  );
-}
-
-// #4868: client-side sort for the Skills/Memories panels. Deliberately keyed on name or
-// createdAt, never updatedAt, so saving or toggling a row does NOT reorder it (which used to
-// snap the open editor out of view). Persistent memories are pinned above the rest by the caller.
-function compareMariPanelItems(
-  a: { name: string; createdAt: string },
-  b: { name: string; createdAt: string },
-  mode: MariPanelSortMode,
-): number {
-  switch (mode) {
-    case "za":
-      return b.name.localeCompare(a.name);
-    case "newest":
-      return String(b.createdAt).localeCompare(String(a.createdAt));
-    case "oldest":
-      return String(a.createdAt).localeCompare(String(b.createdAt));
-    default:
-      return a.name.localeCompare(b.name);
-  }
-}
-
-const MARI_PANEL_SORT_OPTIONS: MariPanelSortMode[] = ["az", "za", "newest", "oldest"];
-
-function MariPanelSortSelect({
-  value,
-  onChange,
-}: {
-  value: MariPanelSortMode;
-  onChange: (mode: MariPanelSortMode) => void;
-}) {
-  const { t: localizeUi } = useUiTranslation();
-  const labels: Record<MariPanelSortMode, string> = {
-    az: localizeUi("ui.chat.homeprofessormarichat.sortAToZ"),
-    za: localizeUi("ui.chat.homeprofessormarichat.sortZToA"),
-    newest: localizeUi("ui.chat.homeprofessormarichat.sortNewest"),
-    oldest: localizeUi("ui.chat.homeprofessormarichat.sortOldest"),
-  };
-  return (
-    <select
-      value={value}
-      onChange={(event) => onChange(event.target.value as MariPanelSortMode)}
-      aria-label={localizeUi("ui.chat.homeprofessormarichat.sortLabel")}
-      title={localizeUi("ui.chat.homeprofessormarichat.sortLabel")}
-      className="h-8 shrink-0 rounded-md border border-[var(--border)] bg-[var(--card)] px-1.5 text-[0.6875rem] text-[var(--foreground)] outline-none transition-colors focus:border-[var(--primary)]/55"
-    >
-      {MARI_PANEL_SORT_OPTIONS.map((mode) => (
-        <option key={mode} value={mode}>
-          {labels[mode]}
-        </option>
-      ))}
-    </select>
-  );
-}
-
-function ProfessorMariSkillsMenu({
-  skills,
-  selectedSkill,
-  draft,
-  loading,
-  saving,
-  diagnostics,
-  fileInputRef,
-  onClose,
-  onNew,
-  onUploadClick,
-  onFileChange,
-  onSelect,
-  onDraftChange,
-  onSave,
-  onDelete,
-  onToggle,
-  className,
-}: {
-  skills: MariWorkspaceSkillDetail[];
-  selectedSkill: MariWorkspaceSkillDetail | null;
-  draft: SkillDraftState;
-  loading: boolean;
-  saving: boolean;
-  diagnostics: string[];
-  fileInputRef: RefObject<HTMLInputElement | null>;
-  onClose: () => void;
-  onNew: () => void;
-  onUploadClick: () => void;
-  onFileChange: (event: ChangeEvent<HTMLInputElement>) => void;
-  onSelect: (id: string | null) => void;
-  onDraftChange: (draft: SkillDraftState) => void;
-  onSave: () => void;
-  onDelete: (id: string) => void;
-  onToggle: (skill: MariWorkspaceSkillDetail) => void;
-  className?: string;
-}) {
-  const { t: localizeUi } = useUiTranslation();
-  const { t } = useTranslation();
-  const [query, setQuery] = useState("");
-  const enabledCount = skills.filter((skill) => skill.enabled).length;
-  const hasSkills = skills.length > 0;
-  const normalizedQuery = query.trim().toLowerCase();
-  // Pure textual match: drives the noMatches message. The open (selected) row is re-added in
-  // `displayed` below so its editor stays visible even when the search excludes it.
-  const filtered = useMemo(
-    () =>
-      normalizedQuery
-        ? skills.filter((skill) => `${skill.name} ${skill.description}`.toLowerCase().includes(normalizedQuery))
-        : skills,
-    [skills, normalizedQuery],
-  );
-  const sortMode = useUIStore((s) => s.mariPanelSortMode);
-  const setSortMode = useUIStore((s) => s.setMariPanelSortMode);
-  const displayed = useMemo(() => {
-    // Re-add the open (selected) row BEFORE sorting so it lands in its correct sorted position,
-    // not appended out of order at the end.
-    const candidates =
-      selectedSkill && !filtered.some((skill) => skill.id === selectedSkill.id)
-        ? [...filtered, selectedSkill]
-        : filtered;
-    return [...candidates].sort((a, b) => compareMariPanelItems(a, b, sortMode));
-  }, [filtered, sortMode, selectedSkill]);
-  // Keep the open editor in view when its row moves (selection change, or a rename that re-sorts it).
-  const activeEditorRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    activeEditorRef.current?.scrollIntoView({ block: "nearest" });
-  }, [selectedSkill?.id, selectedSkill?.updatedAt, sortMode, normalizedQuery]);
-
-  return (
-    <section
-      className={cn(
-        "flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-lg border border-[var(--border)]/70 bg-[var(--background)]/70",
-        className,
-      )}
-    >
-      <div className="flex items-center justify-between gap-2 border-b border-[var(--border)]/60 px-3 py-2">
-        <div className="min-w-0">
-          <div className="flex min-w-0 items-center gap-2">
-            <ArrowDown size="0.9rem" className="shrink-0 text-[var(--marinara-chat-chrome-button-text-active)]" />
-            <span className="truncate text-xs font-semibold text-[var(--foreground)]">
-              {localizeUi("ui.chat.professormariskillsmenu.professorMariSkills")}
-            </span>
-          </div>
-          {hasSkills && (
-            <div className="mt-0.5 truncate text-[0.6875rem] text-[var(--muted-foreground)]">
-              {enabledCount} {localizeUi("ui.chat.professormariskillsmenu.active")} {skills.length}{" "}
-              {localizeUi("ui.chat.professormariskillsmenu.total")}
-            </div>
-          )}
-        </div>
-        <button
-          type="button"
-          onClick={onClose}
-          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
-          aria-label={t("home.professorMari.skills.close")}
-          title={t("home.professorMari.skills.close")}
-        >
-          <X size="0.95rem" />
-        </button>
-      </div>
-
-      <div className="flex shrink-0 flex-wrap items-center gap-1.5 border-b border-[var(--border)]/50 px-2.5 py-2">
-        <button
-          type="button"
-          onClick={() => {
-            setQuery("");
-            onNew();
-          }}
-          disabled={saving}
-          className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--border)] bg-[var(--card)] px-2 text-[0.6875rem] font-semibold text-[var(--foreground)] transition-colors hover:bg-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          <Plus size="0.78rem" />
-          {localizeUi("ui.lorebooks.lorebookassignmentsection.new")}
-        </button>
-        <button
-          type="button"
-          onClick={onUploadClick}
-          disabled={saving}
-          className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--border)] bg-[var(--card)] px-2 text-[0.6875rem] font-semibold text-[var(--foreground)] transition-colors hover:bg-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          <FileUp size="0.78rem" />
-          {localizeUi("ui.characters.characterclipcard.upload")}
-        </button>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".md,.txt,text/markdown,text/plain"
-          className="hidden"
-          onChange={onFileChange}
-        />
-      </div>
-
-      {hasSkills && (
-        <div className="shrink-0 border-b border-[var(--border)]/50 px-2.5 py-2">
-          <div className="flex items-center gap-1.5">
-            <div className="relative flex-1">
-              <Search
-                size="0.8rem"
-                className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]"
-              />
-              <input
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder={localizeUi("ui.chat.professormariskillsmenu.searchPlaceholder")}
-                aria-label={localizeUi("ui.chat.professormariskillsmenu.searchPlaceholder")}
-                className="h-8 w-full rounded-md border border-[var(--border)] bg-[var(--card)] pl-7 pr-2 text-xs text-[var(--foreground)] outline-none transition-colors focus:border-[var(--primary)]/55"
-              />
-            </div>
-            <MariPanelSortSelect value={sortMode} onChange={setSortMode} />
-          </div>
-        </div>
-      )}
-
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="space-y-1 p-2">
-          {!loading && hasSkills && filtered.length === 0 && (
-            <div className="rounded-lg border border-dashed border-[var(--border)] px-3 py-6 text-center text-xs text-[var(--muted-foreground)]">
-              {localizeUi("ui.chat.professormariskillsmenu.noMatches")}
-            </div>
-          )}
-          {loading ? (
-            <div className="space-y-1.5">
-              <div className="h-10 animate-pulse rounded-lg bg-[var(--muted)]/30" />
-              <div className="h-10 animate-pulse rounded-lg bg-[var(--muted)]/20" />
-            </div>
-          ) : !hasSkills ? (
-            <div className="rounded-lg border border-dashed border-[var(--border)] px-3 py-6 text-center text-xs text-[var(--muted-foreground)]">
-              {localizeUi("ui.chat.professormariskillsmenu.noCustomSkillsYet")}
-            </div>
-          ) : (
-            displayed.map((skill) => {
-              const active = selectedSkill?.id === skill.id;
-              return (
-                <div
-                  key={skill.id}
-                  className={cn(
-                    "group w-full min-w-0 overflow-hidden rounded-lg border transition-colors",
-                    active
-                      ? "border-[var(--primary)]/45 bg-[var(--primary)]/10"
-                      : "border-[var(--border)]/70 bg-[var(--card)]/70 hover:bg-[var(--accent)]/70",
-                  )}
-                >
-                  <div className="flex w-full min-w-0 items-stretch gap-1">
-                    <button
-                      type="button"
-                      onClick={() => onSelect(active ? null : skill.id)}
-                      aria-expanded={active}
-                      className="flex min-w-0 flex-1 items-center gap-1.5 px-2 py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--ring)]"
-                    >
-                      <ChevronRight
-                        size="0.8rem"
-                        className={cn(
-                          "shrink-0 text-[var(--muted-foreground)] transition-transform",
-                          active && "rotate-90",
-                        )}
-                      />
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-[0.75rem] font-semibold text-[var(--foreground)]">
-                          {skill.name}
-                        </span>
-                        {skill.description && (
-                          <span className="mt-0.5 hidden truncate text-[0.65rem] text-[var(--muted-foreground)] md:block">
-                            {skill.description}
-                          </span>
-                        )}
-                      </span>
-                    </button>
-                    <span className="flex shrink-0 items-center pr-1">
-                      <SettingsSwitch
-                        ariaLabel={
-                          skill.enabled
-                            ? localizeUi("ui.chat.professormariskillsmenu.disableSkill")
-                            : localizeUi("ui.chat.professormariskillsmenu.enableSkill")
-                        }
-                        title={
-                          skill.enabled
-                            ? localizeUi("ui.noodle.noodlehome.enabled")
-                            : localizeUi("ui.agents.agenteditor.disabled")
-                        }
-                        checked={skill.enabled}
-                        onChange={() => onToggle(skill)}
-                        disabled={saving}
-                        className="p-0 hover:bg-transparent"
-                      />
-                    </span>
-                  </div>
-                  {active && (
-                    <div
-                      ref={active ? activeEditorRef : undefined}
-                      className="space-y-2 border-t border-[var(--border)]/50 px-2.5 py-2.5"
-                    >
-                      <label className="block text-[0.6875rem] font-semibold text-[var(--muted-foreground)]">
-                        {localizeUi("ui.characters.metadatatab.name")}
-                        <input
-                          value={draft.name}
-                          onChange={(event) => onDraftChange({ ...draft, name: event.target.value })}
-                          disabled={saving}
-                          className="mt-1 h-8 w-full rounded-md border border-[var(--border)] bg-[var(--card)] px-2 text-xs text-[var(--foreground)] outline-none transition-colors focus:border-[var(--primary)]/55 disabled:cursor-not-allowed disabled:opacity-70"
-                        />
-                      </label>
-                      <label className="block text-[0.6875rem] font-semibold text-[var(--muted-foreground)]">
-                        {localizeUi("chat.settings.inlineEditor.fields.description")}
-                        <input
-                          value={draft.description}
-                          onChange={(event) => onDraftChange({ ...draft, description: event.target.value })}
-                          disabled={saving}
-                          className="mt-1 h-8 w-full rounded-md border border-[var(--border)] bg-[var(--card)] px-2 text-xs text-[var(--foreground)] outline-none transition-colors focus:border-[var(--primary)]/55 disabled:cursor-not-allowed disabled:opacity-70"
-                        />
-                      </label>
-                      <label className="block text-[0.6875rem] font-semibold text-[var(--muted-foreground)]">
-                        {localizeUi("ui.chat.professormariskillsmenu.instructions")}
-                        <textarea
-                          value={draft.content}
-                          onChange={(event) => onDraftChange({ ...draft, content: event.target.value })}
-                          disabled={saving}
-                          rows={9}
-                          className="mt-1 min-h-40 w-full resize-y rounded-md border border-[var(--border)] bg-[var(--card)] px-2 py-2 font-mono text-[0.6875rem] leading-relaxed text-[var(--foreground)] outline-none transition-colors focus:border-[var(--primary)]/55 disabled:cursor-not-allowed disabled:opacity-70"
-                        />
-                      </label>
-                      <div className="flex items-center justify-between gap-2">
-                        <button
-                          type="button"
-                          onClick={() => onDelete(skill.id)}
-                          disabled={saving}
-                          className="inline-flex h-8 items-center gap-1.5 rounded-md px-2 text-[0.6875rem] font-semibold text-[var(--destructive)] transition-colors hover:bg-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-45"
-                        >
-                          <Trash2 size="0.75rem" />
-                          {localizeUi("lorebook.editor.batch.delete")}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={onSave}
-                          disabled={saving}
-                          className="inline-flex h-8 items-center gap-1.5 rounded-md bg-[var(--primary)] px-2.5 text-[0.6875rem] font-semibold text-[var(--primary-foreground)] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-45"
-                        >
-                          {saving ? <Loader2 size="0.75rem" className="animate-spin" /> : <Save size="0.75rem" />}
-                          {localizeUi("ui.noodle.noodlehome.save")}
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })
-          )}
-        </div>
-
-        {diagnostics.length > 0 && (
-          <div className="mx-2 mb-2 rounded-lg border border-amber-400/25 bg-amber-400/10 px-2.5 py-2 text-[0.6875rem] text-amber-200">
-            {diagnostics[0]}
-          </div>
-        )}
-      </div>
-    </section>
-  );
-}
-
-// #4851: the Memories management panel, next to Skills. Mirrors ProfessorMariSkillsMenu;
-// adds a Persistent toggle (with a "keep it small" tooltip) and drops file diagnostics
-// (memories are DB-backed). Enable + Persistent are direct toggles; name/description/
-// content save together.
-function ProfessorMariMemoriesMenu({
-  memories,
-  selectedMemory,
-  draft,
-  loading,
-  saving,
-  fileInputRef,
-  onClose,
-  onNew,
-  onUploadClick,
-  onFileChange,
-  onSelect,
-  onDraftChange,
-  onSave,
-  onDelete,
-  onToggleEnabled,
-  onTogglePersistent,
-  className,
-}: {
-  memories: MariInstructionDetail[];
-  selectedMemory: MariInstructionDetail | null;
-  draft: MemoryDraftState;
-  loading: boolean;
-  saving: boolean;
-  fileInputRef: RefObject<HTMLInputElement | null>;
-  onClose: () => void;
-  onNew: () => void;
-  onUploadClick: () => void;
-  onFileChange: (event: ChangeEvent<HTMLInputElement>) => void;
-  onSelect: (id: string | null) => void;
-  onDraftChange: (draft: MemoryDraftState) => void;
-  onSave: () => void;
-  onDelete: (id: string) => void;
-  onToggleEnabled: (memory: MariInstructionDetail) => void;
-  onTogglePersistent: (memory: MariInstructionDetail) => void;
-  className?: string;
-}) {
-  const { t: localizeUi } = useUiTranslation();
-  const [query, setQuery] = useState("");
-  const enabledCount = memories.filter((memory) => memory.enabled).length;
-  const hasMemories = memories.length > 0;
-  const normalizedQuery = query.trim().toLowerCase();
-  // Pure textual match: drives the noMatches message. The open (selected) row is re-added in
-  // `displayed` below so its editor stays visible even when the search excludes it.
-  const filtered = useMemo(
-    () =>
-      normalizedQuery
-        ? memories.filter((memory) => `${memory.name} ${memory.description}`.toLowerCase().includes(normalizedQuery))
-        : memories,
-    [memories, normalizedQuery],
-  );
-  const sortMode = useUIStore((s) => s.mariPanelSortMode);
-  const setSortMode = useUIStore((s) => s.setMariPanelSortMode);
-  const displayed = useMemo(() => {
-    // Re-add the open (selected) row BEFORE sorting/partitioning so it lands in its correct group
-    // and sorted position, not appended out of order at the end.
-    const candidates =
-      selectedMemory && !filtered.some((memory) => memory.id === selectedMemory.id)
-        ? [...filtered, selectedMemory]
-        : filtered;
-    const sorted = [...candidates].sort((a, b) => compareMariPanelItems(a, b, sortMode));
-    // Persistent memories are pinned above the rest; each group keeps the chosen sort order.
-    return [...sorted.filter((memory) => memory.persistent), ...sorted.filter((memory) => !memory.persistent)];
-  }, [filtered, sortMode, selectedMemory]);
-  // Keep the open editor in view when its row moves (selection change, persistent toggle, or a rename).
-  const activeEditorRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    activeEditorRef.current?.scrollIntoView({ block: "nearest" });
-  }, [selectedMemory?.id, selectedMemory?.persistent, selectedMemory?.updatedAt, sortMode, normalizedQuery]);
-
-  return (
-    <section
-      className={cn(
-        "flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-lg border border-[var(--border)]/70 bg-[var(--background)]/70",
-        className,
-      )}
-    >
-      <div className="flex items-center justify-between gap-2 border-b border-[var(--border)]/60 px-3 py-2">
-        <div className="min-w-0">
-          <div className="flex min-w-0 items-center gap-2">
-            <Brain size="0.9rem" className="shrink-0 text-[var(--marinara-chat-chrome-button-text-active)]" />
-            <span className="truncate text-xs font-semibold text-[var(--foreground)]">
-              {localizeUi("ui.chat.professormarimemoriesmenu.professorMariMemories")}
-            </span>
-          </div>
-          {hasMemories && (
-            <div className="mt-0.5 truncate text-[0.6875rem] text-[var(--muted-foreground)]">
-              {enabledCount} {localizeUi("ui.chat.professormariskillsmenu.active")} {memories.length}{" "}
-              {localizeUi("ui.chat.professormariskillsmenu.total")}
-            </div>
-          )}
-        </div>
-        <button
-          type="button"
-          onClick={onClose}
-          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
-          aria-label={localizeUi("ui.chat.professormarimemoriesmenu.close")}
-          title={localizeUi("ui.chat.professormarimemoriesmenu.close")}
-        >
-          <X size="0.95rem" />
-        </button>
-      </div>
-
-      <div className="flex shrink-0 flex-wrap items-center gap-1.5 border-b border-[var(--border)]/50 px-2.5 py-2">
-        <button
-          type="button"
-          onClick={() => {
-            setQuery("");
-            onNew();
-          }}
-          disabled={saving}
-          className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--border)] bg-[var(--card)] px-2 text-[0.6875rem] font-semibold text-[var(--foreground)] transition-colors hover:bg-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          <Plus size="0.78rem" />
-          {localizeUi("ui.lorebooks.lorebookassignmentsection.new")}
-        </button>
-        <button
-          type="button"
-          onClick={onUploadClick}
-          disabled={saving}
-          className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--border)] bg-[var(--card)] px-2 text-[0.6875rem] font-semibold text-[var(--foreground)] transition-colors hover:bg-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          <FileUp size="0.78rem" />
-          {localizeUi("ui.characters.characterclipcard.upload")}
-        </button>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".md,.txt,text/markdown,text/plain"
-          className="hidden"
-          onChange={onFileChange}
-        />
-      </div>
-
-      {hasMemories && (
-        <div className="shrink-0 border-b border-[var(--border)]/50 px-2.5 py-2">
-          <div className="flex items-center gap-1.5">
-            <div className="relative flex-1">
-              <Search
-                size="0.8rem"
-                className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]"
-              />
-              <input
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder={localizeUi("ui.chat.professormarimemoriesmenu.searchPlaceholder")}
-                aria-label={localizeUi("ui.chat.professormarimemoriesmenu.searchPlaceholder")}
-                className="h-8 w-full rounded-md border border-[var(--border)] bg-[var(--card)] pl-7 pr-2 text-xs text-[var(--foreground)] outline-none transition-colors focus:border-[var(--primary)]/55"
-              />
-            </div>
-            <MariPanelSortSelect value={sortMode} onChange={setSortMode} />
-          </div>
-        </div>
-      )}
-
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="space-y-1 p-2">
-          {!loading && hasMemories && filtered.length === 0 && (
-            <div className="rounded-lg border border-dashed border-[var(--border)] px-3 py-6 text-center text-xs text-[var(--muted-foreground)]">
-              {localizeUi("ui.chat.professormarimemoriesmenu.noMatches")}
-            </div>
-          )}
-          {loading ? (
-            <div className="space-y-1.5">
-              <div className="h-10 animate-pulse rounded-lg bg-[var(--muted)]/30" />
-              <div className="h-10 animate-pulse rounded-lg bg-[var(--muted)]/20" />
-            </div>
-          ) : !hasMemories ? (
-            <div className="rounded-lg border border-dashed border-[var(--border)] px-3 py-6 text-center text-xs text-[var(--muted-foreground)]">
-              {localizeUi("ui.chat.professormarimemoriesmenu.noMemoriesYet")}
-            </div>
-          ) : (
-            displayed.map((memory) => {
-              const active = selectedMemory?.id === memory.id;
-              return (
-                <div
-                  key={memory.id}
-                  className={cn(
-                    "group w-full min-w-0 overflow-hidden rounded-lg border transition-colors",
-                    active
-                      ? "border-[var(--primary)]/45 bg-[var(--primary)]/10"
-                      : "border-[var(--border)]/70 bg-[var(--card)]/70 hover:bg-[var(--accent)]/70",
-                  )}
-                >
-                  <div className="flex w-full min-w-0 items-stretch gap-1">
-                    <button
-                      type="button"
-                      onClick={() => onSelect(active ? null : memory.id)}
-                      aria-expanded={active}
-                      className="flex min-w-0 flex-1 items-center gap-1.5 px-2 py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--ring)]"
-                    >
-                      {memory.persistent && (
-                        <Star
-                          size="0.72rem"
-                          aria-label={localizeUi("ui.chat.professormarimemoriesmenu.persistent")}
-                          className="shrink-0 fill-[var(--primary)] text-[var(--primary)]"
-                        />
-                      )}
-                      <ChevronRight
-                        size="0.8rem"
-                        className={cn(
-                          "shrink-0 text-[var(--muted-foreground)] transition-transform",
-                          active && "rotate-90",
-                        )}
-                      />
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-[0.75rem] font-semibold text-[var(--foreground)]">
-                          {memory.name}
-                        </span>
-                        {memory.description && (
-                          <span className="mt-0.5 hidden truncate text-[0.65rem] text-[var(--muted-foreground)] md:block">
-                            {memory.description}
-                          </span>
-                        )}
-                      </span>
-                    </button>
-                    <span className="flex shrink-0 items-center pr-1">
-                      <SettingsSwitch
-                        ariaLabel={
-                          memory.enabled
-                            ? localizeUi("ui.chat.professormarimemoriesmenu.disableMemory")
-                            : localizeUi("ui.chat.professormarimemoriesmenu.enableMemory")
-                        }
-                        title={
-                          memory.enabled
-                            ? localizeUi("ui.noodle.noodlehome.enabled")
-                            : localizeUi("ui.agents.agenteditor.disabled")
-                        }
-                        checked={memory.enabled}
-                        onChange={() => onToggleEnabled(memory)}
-                        disabled={saving}
-                        className="p-0 hover:bg-transparent"
-                      />
-                    </span>
-                  </div>
-                  {active && (
-                    <div
-                      ref={active ? activeEditorRef : undefined}
-                      className="space-y-2 border-t border-[var(--border)]/50 px-2.5 py-2.5"
-                    >
-                      {!memory.enabled && (
-                        <div className="rounded-md border border-amber-400/30 bg-amber-400/10 px-2.5 py-1.5 text-[0.65rem] text-amber-200">
-                          {localizeUi("ui.chat.professormarimemoriesmenu.disabledHint")}
-                        </div>
-                      )}
-                      <label className="block text-[0.6875rem] font-semibold text-[var(--muted-foreground)]">
-                        {localizeUi("ui.characters.metadatatab.name")}
-                        <input
-                          value={draft.name}
-                          onChange={(event) => onDraftChange({ ...draft, name: event.target.value })}
-                          disabled={saving}
-                          className="mt-1 h-8 w-full rounded-md border border-[var(--border)] bg-[var(--card)] px-2 text-xs text-[var(--foreground)] outline-none transition-colors focus:border-[var(--primary)]/55 disabled:cursor-not-allowed disabled:opacity-70"
-                        />
-                      </label>
-                      <label className="block text-[0.6875rem] font-semibold text-[var(--muted-foreground)]">
-                        {localizeUi("chat.settings.inlineEditor.fields.description")}
-                        <input
-                          value={draft.description}
-                          onChange={(event) => onDraftChange({ ...draft, description: event.target.value })}
-                          disabled={saving}
-                          className="mt-1 h-8 w-full rounded-md border border-[var(--border)] bg-[var(--card)] px-2 text-xs text-[var(--foreground)] outline-none transition-colors focus:border-[var(--primary)]/55 disabled:cursor-not-allowed disabled:opacity-70"
-                        />
-                      </label>
-                      <label className="block text-[0.6875rem] font-semibold text-[var(--muted-foreground)]">
-                        {localizeUi("ui.chat.professormarimemoriesmenu.memory")}
-                        <textarea
-                          value={draft.content}
-                          onChange={(event) => onDraftChange({ ...draft, content: event.target.value })}
-                          disabled={saving}
-                          rows={9}
-                          className="mt-1 min-h-40 w-full resize-y rounded-md border border-[var(--border)] bg-[var(--card)] px-2 py-2 font-mono text-[0.6875rem] leading-relaxed text-[var(--foreground)] outline-none transition-colors focus:border-[var(--primary)]/55 disabled:cursor-not-allowed disabled:opacity-70"
-                        />
-                      </label>
-                      <div
-                        className="flex items-center justify-between gap-2 rounded-md border border-[var(--border)]/60 bg-[var(--card)]/60 px-2.5 py-1.5"
-                        title={localizeUi("ui.chat.professormarimemoriesmenu.persistentHint")}
-                      >
-                        <span className="min-w-0">
-                          <span className="block text-[0.6875rem] font-semibold text-[var(--foreground)]">
-                            {localizeUi("ui.chat.professormarimemoriesmenu.persistent")}
-                          </span>
-                          <span className="mt-0.5 block text-[0.6rem] leading-snug text-[var(--muted-foreground)]">
-                            {localizeUi("ui.chat.professormarimemoriesmenu.persistentHint")}
-                          </span>
-                        </span>
-                        <SettingsSwitch
-                          ariaLabel={localizeUi("ui.chat.professormarimemoriesmenu.persistent")}
-                          checked={memory.persistent}
-                          onChange={() => onTogglePersistent(memory)}
-                          disabled={saving}
-                          className="shrink-0 p-0 hover:bg-transparent"
-                        />
-                      </div>
-                      <div className="flex items-center justify-between gap-2">
-                        <button
-                          type="button"
-                          onClick={() => onDelete(memory.id)}
-                          disabled={saving}
-                          className="inline-flex h-8 items-center gap-1.5 rounded-md px-2 text-[0.6875rem] font-semibold text-[var(--destructive)] transition-colors hover:bg-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-45"
-                        >
-                          <Trash2 size="0.75rem" />
-                          {localizeUi("lorebook.editor.batch.delete")}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={onSave}
-                          disabled={saving}
-                          className="inline-flex h-8 items-center gap-1.5 rounded-md bg-[var(--primary)] px-2.5 text-[0.6875rem] font-semibold text-[var(--primary-foreground)] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-45"
-                        >
-                          {saving ? <Loader2 size="0.75rem" className="animate-spin" /> : <Save size="0.75rem" />}
-                          {localizeUi("ui.noodle.noodlehome.save")}
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })
-          )}
-        </div>
-      </div>
-    </section>
-  );
-}
+import {
+  consumeProfessorMariOpenRequest,
+  PROFESSOR_MARI_OPEN_EVENT,
+  type ProfessorMariOpenDetail,
+} from "../../lib/professor-mari-open";
+import { MariTurnReviews, MariReferencedResources, CompactMariMessage } from "./mari/CompactMariMessage";
+import {
+  PROFESSOR_MARI_DRAFT_KEY,
+  ProfessorMariAttachment,
+  resolveContextCharacter,
+  resolveContextLorebook,
+  ProfessorMariChatSummary,
+  ProfessorMariRecovery,
+  PROFESSOR_MARI_PANE_TRANSITION,
+  ProfessorMariConnectionOption,
+  toMessageExtra,
+  getProfessorMariMessageContext,
+  persistentResourceContext,
+  continuedThereByContext,
+  classifyProfessorMariFailure,
+  PROFESSOR_MARI_ATTACHMENT_MAX_BYTES,
+  isSupportedProfessorMariAttachment,
+  inferProfessorMariAttachmentType,
+  readProfessorMariFileAsDataUrl,
+  PROFESSOR_MARI_ERROR_TOAST_DURATION_MS,
+  isProfessorMariAbortError,
+  createLocalUserMessage,
+  PROFESSOR_MARI_DEFAULT_CHAT_NAME,
+  buildProfessorMariAutoTitle,
+  getMessageThinking,
+  MARI_WELCOME,
+  ProfessorMariMobilePortal,
+  MARI_PANEL_SLOT_CLASS,
+  retryOf,
+} from "./mari/mari-chat-helpers";
+import {
+  WorkspaceTimelineItem,
+  appendTextTimeline,
+  getMessageRunError,
+  getMessageRunTime,
+  getMessageWorkspaceActionResults,
+  getMessageWorkspaceTrace,
+  timelineItemsFromTrace,
+} from "./mari/mari-tool-presentation";
+import { ProfessorMariPixelScene } from "./mari/MariChatStates";
+import { isHardStepFailure } from "./mari/MariWorkTimeline";
+import { MariSeesPanel } from "./mari/MariSeesPanel";
+import { MariChatsPanel } from "./mari/MariChatsPanel";
+import { MariComposer } from "./mari/MariComposer";
+import { MariTranscript } from "./mari/MariTranscript";
+import { MariWindowHeader } from "./mari/MariWindowHeader";
+import { useMariSkillMemoryActions } from "./mari/use-mari-skill-memory-actions";
+import { useMariChatHistoryActions } from "./mari/use-mari-chat-history-actions";
+import { useMariMessageActions } from "./mari/use-mari-message-actions";
+import { useMariWorkspaceRun } from "./mari/use-mari-workspace-run";
+import { MariOmnibarHeaderChrome } from "./mari/MariOmnibarHeaderChrome";
 
 type HomeProfessorMariChatProps = {
   pageActive?: boolean;
   attachedFooter?: boolean;
   chatWindowOpen?: boolean;
   embeddedTab?: boolean;
-  floatingMode?: boolean;
+  omnibarMode?: boolean;
   launchHidden?: boolean;
+  initialAskContext?: ProfessorMariAskContext | null;
+  /** Increments on every omnibar handoff that should send its query at once. */
+  submitDraftRequest?: number;
+  /** A past Mari conversation to open, handed in from the omnibar. */
+  openChatId?: string | null;
+  pendingReviewRequest?: number;
+  /** The specific review `pendingReviewRequest` should jump to, or null for the first one (R9). */
+  pendingReviewId?: string | null;
+  omnibarHeaderSlot?: HTMLElement | null;
+  /** Her status line under "Professor Mari" in the omnibar header's first row. */
+  omnibarStatusSlot?: HTMLElement | null;
+  /** R11: the first header row's spot for the destinations menu while a phone keyboard is open. */
+  omnibarMenuSlot?: HTMLElement | null;
+  /** M9: what the empty pane says about the screen she was opened from; null keeps the generic welcome. */
+  arrival?: MariArrival | null;
+  /**
+   * D1: increments on every arrival-door open (⌘J, the pull, the drag, Home's "Ask Professor
+   * Mari"). When her chat already has messages, this appends the same arrival content at the
+   * bottom of the transcript instead of only showing it on an empty chat.
+   */
+  arrivalAppendRequest?: number;
+  /**
+   * R7: the context of the screen an arrival door opened her from. With it, each arrival continues
+   * the newest thread for that context, starts one, or asks when another thread was just in use.
+   */
+  arrivalThread?: MariThreadContext | null;
+  /** Runs the arrival cards only the omnibar can (back to its settings search, K5's Undo). */
+  onArrivalAction?: (action: MariArrivalAction) => void;
+  /** N6 (R22): the handoff an arrival Fix card sends with; the only arrival path that carries the error text. */
+  arrivalFixContext?: ProfessorMariAskContext | null;
   onChatWindowOpenChange?: (open: boolean) => void;
   onChatWindowExitComplete?: () => void;
-  onFloatingDismiss?: () => void;
 };
+
+/** A turn with nothing to review shares this value, so its memoized row skips the window's re-renders. */
+const NO_TURN_REVIEWS: MariTurnReviews = { changed: [], needsOk: [], records: new Set() };
+
+/** The newest page of her thread. The first load starts it beside the arrival routing, not after it. */
+function fetchMariThreadMessages(id: string, signal?: AbortSignal) {
+  return api.get<Message[]>(`/chats/${id}/messages?limit=80`, { signal });
+}
 
 export function HomeProfessorMariChat({
   pageActive = true,
   attachedFooter = false,
   chatWindowOpen: controlledChatWindowOpen,
   embeddedTab = false,
-  floatingMode = false,
+  omnibarMode = false,
   launchHidden = false,
+  initialAskContext = null,
+  submitDraftRequest = 0,
+  openChatId = null,
+  pendingReviewRequest = 0,
+  pendingReviewId = null,
+  omnibarHeaderSlot = null,
+  omnibarStatusSlot = null,
+  omnibarMenuSlot = null,
+  arrival = null,
+  arrivalAppendRequest = 0,
+  arrivalThread = null,
+  onArrivalAction,
+  arrivalFixContext = null,
   onChatWindowOpenChange,
   onChatWindowExitComplete,
-  onFloatingDismiss,
 }: HomeProfessorMariChatProps) {
   const { t: localizeUi } = useUiTranslation();
   const localize = useLocalizedUiText();
@@ -3123,9 +284,18 @@ export function HomeProfessorMariChat({
   const sidecarNativeToolCalls = useSidecarStore((state) => state.config.enableNativeToolCalls);
   const fetchSidecarStatus = useSidecarStore((state) => state.fetchStatus);
   const trackAchievement = useTrackAchievement();
-  const [chatId, setChatId] = useState<string | null>(null);
+  // A reopen draws the thread she showed last in its first frame (when the arrival routing would land there
+  // too); the first load below only refreshes it, or moves to the thread it picks.
+  const [cachedThread] = useState(() =>
+    cachedMariThread(
+      omnibarMode && arrivalThread && arrivalAppendRequest > 0
+        ? { context: arrivalThread, continuedThereId: continuedThereByContext.get(arrivalThread.key) }
+        : null,
+    ),
+  );
+  const [chatId, setChatId] = useState<string | null>(cachedThread?.chatId ?? null);
   const { data: attachedContext } = useMariWorkspaceContext(chatId);
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<Message[]>(cachedThread?.messages ?? []);
   const draft = useChatStore((state) => state.inputDrafts.get(PROFESSOR_MARI_DRAFT_KEY) ?? "");
   const setInputDraft = useChatStore((state) => state.setInputDraft);
   const enterToSend = useUIStore((state) => state.enterToSendProfessorMari);
@@ -3136,37 +306,133 @@ export function HomeProfessorMariChat({
     },
     [setInputDraft],
   );
+  // Ghost-text completion for the composer: the user's own names first, because
+  // "tell me about cel|" almost always means one of their characters.
+  const completionCharacters = useCharacters();
+  const completionPersonas = usePersonas();
+  const completionLorebooks = useLorebooks();
+  const completionPresets = usePresets();
+  const completionCandidates = useMemo(
+    () => [
+      // A character's display name lives inside its card data, not on the row —
+      // reading `.name` here returned nothing, which is why characters never
+      // completed.
+      ...(completionCharacters.data ?? []).map((item) => {
+        const record = item as Record<string, unknown>;
+        return getCharacterDisplayIdentity({ data: record.data, comment: record.comment as string | null | undefined });
+      }),
+      ...[completionPersonas.data, completionLorebooks.data, completionPresets.data].flatMap((list) =>
+        (list ?? []).map((item) => (item as { name?: string }).name ?? ""),
+      ),
+    ],
+    [completionCharacters.data, completionLorebooks.data, completionPersonas.data, completionPresets.data],
+  );
+  const characterPreviewById = useMemo(() => {
+    const previews = new Map<string, CharacterPreviewModel>();
+    for (const item of completionCharacters.data ?? []) {
+      const preview = buildCharacterPreviewModel(item);
+      if (preview) previews.set(preview.id, preview);
+    }
+    return previews;
+  }, [completionCharacters.data]);
+  const lorebookPreviewById = useMemo(
+    () =>
+      new Map(
+        (completionLorebooks.data ?? []).map((item) => {
+          const preview = buildLorebookPreviewModel(item);
+          return [preview.id, preview] as const;
+        }),
+      ),
+    [completionLorebooks.data],
+  );
+  const draftSuffix = useMemo(() => completeInline(draft, completionCandidates), [completionCandidates, draft]);
+  const acceptDraftCompletion = useCallback(() => {
+    if (draftSuffix) setDraft((current) => current + draftSuffix);
+  }, [draftSuffix, setDraft]);
   const [attachments, setAttachments] = useState<ProfessorMariAttachment[]>([]);
+  const [composerScroll, setComposerScroll] = useState({ left: 0, top: 0 });
+  const [handoffContext, setHandoffContext] = useState<ProfessorMariAskContext | null>(() => initialAskContext ?? null);
+  const characterFallbackName = t("omnibar.categories.character", "Character");
+  const focusedCharacter = resolveContextCharacter(handoffContext, characterPreviewById, characterFallbackName);
+  const lorebookFallbackName = t("omnibar.categories.lorebook", "Lorebook");
+  const focusedLorebook = resolveContextLorebook(handoffContext, lorebookPreviewById, lorebookFallbackName);
   const [isReadingAttachments, setIsReadingAttachments] = useState(false);
-  const [selectedConnectionId, setSelectedConnectionId] = useState<string | null>(() => readStoredConnectionId());
+  const [selectedConnectionId, setSelectedConnectionId] = useState<string | null>(
+    () => useUIStore.getState().mariConnectionId,
+  );
   const [workspaceStatus, setWorkspaceStatus] = useState<MariWorkspaceStatus | null>(null);
+  /** R14 (item 7): when this client's newest run started and ended; the live timer and "Worked for" read it. */
+  const [workspaceRunClock, setWorkspaceRunClock] = useState<{ startedAt: number; endedAt: number | null } | null>(
+    null,
+  );
   const [workspaceActive, setWorkspaceActive] = useState(false);
-  const [workspaceActivity, setWorkspaceActivity] = useState<string | null>(null);
+  // The newest run, from the server: its clock survives a reload, and showing it marks it seen (the top-bar pill clears).
+  const mariPresence = useMariPresence();
+  const serverRun = mariPresence.latestRun;
+  // A run that started before a reload (or in another tab) is still live here: show its timeline and clock.
+  const serverRunningHere = serverRun?.outcome === "running" && serverRun.chatId === chatId;
+  useMarkMariRunSeen(chatId, serverRun, mariPresence.working);
+  useEffect(() => {
+    if (!serverRun || serverRun.chatId !== chatId) return;
+    setWorkspaceRunClock({ startedAt: serverRun.startedAt, endedAt: serverRun.finishedAt });
+  }, [chatId, serverRun?.id, serverRun?.chatId, serverRun?.startedAt, serverRun?.finishedAt]);
   const [workspaceTimeline, setWorkspaceTimeline] = useState<WorkspaceTimelineItem[]>([]);
   const [workspaceReviewActionId, setWorkspaceReviewActionId] = useState<string | null>(null);
-  const [chatHistoryOpen, setChatHistoryOpen] = useState(false);
+  const [workspaceDestination, setWorkspaceDestination] = useState<ProfessorMariWorkspaceDestination>("chat");
+  const [chatRowMenuId, setChatRowMenuId] = useState<string | null>(null);
+  const chatRowMenuRef = useRef<HTMLDivElement>(null);
+  const chatRowPopoverRef = useRef<HTMLDivElement>(null);
+  // R11: while a phone keyboard is open the header is one line and the destinations sit in a menu. An open
+  // menu keeps it compact (moving focus into the menu closes the keyboard); closing the menu restores it.
+  const keyboardOpen = useChatKeyboardOpen();
+  const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
+  const headerMenuRef = useRef<HTMLDivElement>(null);
+  const headerCompact = keyboardOpen || headerMenuOpen;
+  const chatHistoryOpen = workspaceDestination === "chats";
+  // R52: the slot is empty by default. A user who never opens a panel sees a
+  // stream and a composer, and nothing else exists for them.
   const [chatHistory, setChatHistory] = useState<ProfessorMariChatSummary[]>([]);
+  const [chatHistoryQuery, setChatHistoryQuery] = useState("");
   const [chatHistoryLoading, setChatHistoryLoading] = useState(false);
   const [chatHistorySelectionMode, setChatHistorySelectionMode] = useState(false);
   const [selectedChatHistoryIds, setSelectedChatHistoryIds] = useState<Set<string>>(new Set());
   const [renamingChatId, setRenamingChatId] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
-  const [skillsMenuOpen, setSkillsMenuOpen] = useState(false);
+  const skillsMenuOpen = workspaceDestination === "skills";
   const [skills, setSkills] = useState<MariWorkspaceSkillDetail[]>([]);
   const [skillsDiagnostics, setSkillsDiagnostics] = useState<string[]>([]);
   const [skillsLoading, setSkillsLoading] = useState(false);
   const [skillsSaving, setSkillsSaving] = useState(false);
+  const [skillsQuery, setSkillsQuery] = useState("");
   const [selectedSkillId, setSelectedSkillId] = useState<string | null>(null);
   const [skillDraft, setSkillDraft] = useState<SkillDraftState>({ name: "", description: "", content: "" });
-  const [memoriesMenuOpen, setMemoriesMenuOpen] = useState(false);
+  const memoriesMenuOpen = workspaceDestination === "memories";
   const [memories, setMemories] = useState<MariInstructionDetail[]>([]);
   const [memoriesLoading, setMemoriesLoading] = useState(false);
   const [memoriesSaving, setMemoriesSaving] = useState(false);
+  const [memoriesQuery, setMemoriesQuery] = useState("");
   const [selectedMemoryId, setSelectedMemoryId] = useState<string | null>(null);
   const [memoryDraft, setMemoryDraft] = useState<MemoryDraftState>({ name: "", description: "", content: "" });
-  const [loadingHistory, setLoadingHistory] = useState(false);
-  const [loadedMessagesChatId, setLoadedMessagesChatId] = useState<string | null>(null);
+  // True from the first frame behind a cached thread, so nothing routes an arrival before the first load does.
+  const [loadingHistory, setLoadingHistory] = useState(cachedThread !== null);
+  const [loadedMessagesChatId, setLoadedMessagesChatId] = useState<string | null>(cachedThread?.chatId ?? null);
   const [sending, setSending] = useState(false);
+  const [cancelledChatId, setCancelledChatId] = useState<string | null>(null);
+  const [recovery, setRecoveryState] = useState<ProfessorMariRecovery | null>(null);
+  // F10: the top-bar edge reads this too, so a client-side failure (404/network before the server
+  // ever saw the run) turns it red the same as a server-recorded one.
+  const setRecovery = useCallback((value: ProfessorMariRecovery | null) => {
+    setRecoveryState(value);
+    useChatStore.getState().setMariClientRunFailed(value !== null);
+  }, []);
+  // Direction A / R10: an answered prompt or review folds to one row ("✓ Kept") until the next send.
+  const [resolvedPrompts, setResolvedPrompts] = useState<
+    Array<{
+      chatId: string | null;
+      approval: MariWorkspacePendingApproval;
+      outcome: "applied" | "discarded";
+    }>
+  >([]);
   const [connectionMenuOpen, setConnectionMenuOpen] = useState(false);
   const [permissionsMenuOpen, setPermissionsMenuOpen] = useState(false);
   // #5740: keyed by messageId so expansion never carries over when a new
@@ -3180,33 +446,26 @@ export function HomeProfessorMariChat({
 
   const permissionsButtonRef = useRef<HTMLButtonElement | null>(null);
   const permissionsMenuRef = useRef<HTMLDivElement | null>(null);
-  // #5741: Skills and Memories share one header button (the row overflowed
-  // into the avatar at phone widths); this anchors its two-row menu.
-  const libraryButtonRef = useRef<HTMLButtonElement | null>(null);
-  const libraryMenuRef = useRef<HTMLDivElement | null>(null);
-  const [libraryMenuOpen, setLibraryMenuOpen] = useState(false);
   const [historyPickerOpen, setHistoryPickerOpen] = useState(false);
   const [contextViewerOpen, setContextViewerOpen] = useState(false);
-  const [internalChatWindowOpen, setInternalChatWindowOpen] = useState(
-    () => floatingMode && isProfessorMariDesktopViewport(),
-  );
+  const [selectedContextId, setSelectedContextId] = useState<string | null>(null);
+  const [internalChatWindowOpen, setInternalChatWindowOpen] = useState(false);
   const [mobileFocusMode, setMobileFocusMode] = useState(false);
-  const [floatingSmallViewport, setFloatingSmallViewport] = useState(() => !isProfessorMariDesktopViewport());
-  const [floatingPosition, setFloatingPosition] = useState<{ x: number; y: number } | null>(null);
   const hasLoadedRef = useRef(false);
   const notifiedApprovalIdsRef = useRef<Set<string>>(new Set());
-  const activeChatIdRef = useRef<string | null>(null);
+  const lastAutoOpenedApprovalKeyRef = useRef("");
+  const activeChatIdRef = useRef<string | null>(cachedThread?.chatId ?? null);
   const messagesRef = useRef<Message[]>(messages);
   const messageLoadAbortRef = useRef<AbortController | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const transcriptScrollFrameRef = useRef<number | null>(null);
   const suggestionFocusFrameRef = useRef<number | null>(null);
   const transcriptFollowOutputRef = useRef(true);
-  const floatingSurfaceRef = useRef<HTMLDivElement>(null);
-  const floatingButtonRef = useRef<HTMLDivElement>(null);
-  const floatingDragRef = useRef<FloatingDragState | null>(null);
-  const floatingDragMovedRef = useRef(false);
-  const floatingFollowupEligibleRef = useRef(false);
+  // M4: right after reserving the turn's height, "top of the question" and "bottom of the page" can be
+  // only a few px apart (the reservation IS the viewport height), so the native "scroll" event OUR OWN
+  // placement scroll fires would otherwise read as the reader already being near the bottom and re-arm
+  // following before a single token has streamed. Swallow exactly that one event.
+  const suppressNextScrollEventRef = useRef(false);
   const connectionButtonRef = useRef<HTMLButtonElement>(null);
   const connectionMenuRef = useRef<HTMLDivElement>(null);
   const skillFileInputRef = useRef<HTMLInputElement>(null);
@@ -3214,16 +473,15 @@ export function HomeProfessorMariChat({
   const lastSyncedMemoryIdRef = useRef<string | null>(null);
   const lastSyncedSkillIdRef = useRef<string | null>(null);
   const hasLoadedSkillsRef = useRef(false);
-  const hasLoadedMemoriesRef = useRef(false);
   const memoriesLoadSeqRef = useRef(0);
   const attachmentInputRef = useRef<HTMLInputElement>(null);
   const embeddedTextareaRef = useRef<HTMLTextAreaElement>(null);
   const floatingTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const mobileDialogRef = useRef<HTMLDivElement>(null);
   const workspaceAbortRef = useRef<AbortController | null>(null);
   const workspaceRunIdRef = useRef(0);
   const pendingWorkspaceTextRef = useRef("");
-  const handledWorkspaceRefreshIdsRef = useRef<Set<string>>(new Set());
-  const workspaceStatusErrorToastShownRef = useRef(false);
+  const handledWorkspaceRefreshIdsRef = useRef<Set<string> | null>(null);
   const latestConnectionSelectionRef = useRef<string | null>(selectedConnectionId);
   const pendingConnectionPersistRef = useRef<string | null>(null);
   const connectionPersistInFlightRef = useRef(false);
@@ -3263,32 +521,103 @@ export function HomeProfessorMariChat({
     messagesRef.current = messages;
   }, [messages]);
 
+  // The thread on screen outlives her pane (it unmounts with the omnibar), so the next open draws it at once.
+  useEffect(() => {
+    if (chatId && loadedMessagesChatId === chatId) rememberMariThread(chatId, messages);
+  }, [chatId, loadedMessagesChatId, messages]);
+
   const setActiveChatId = useCallback((id: string) => {
     activeChatIdRef.current = id;
     setChatId(id);
   }, []);
 
+  // This ref callback is recreated (and so re-invoked by React on the SAME node) whenever any of its
+  // deps change, not only when a chat is freshly opened - e.g. once more when the initial load of a
+  // brand-new chat catches up to a chatId that handleSubmit's own send already moved past. Landing on
+  // the bottom must happen once per chat, not every time those deps happen to realign. A new node does
+  // land again: a cached thread is on screen from the first render, and the node it landed in can be
+  // replaced right after mount.
+  const landedTranscriptRef = useRef<{ node: HTMLDivElement; chatId: string } | null>(null);
   const setTranscriptScrollNode = useCallback(
     (node: HTMLDivElement | null) => {
-      if (transcriptScrollFrameRef.current !== null) {
+      scrollRef.current = node;
+      const cancelLanding = () => {
+        if (transcriptScrollFrameRef.current === null) return;
         window.cancelAnimationFrame(transcriptScrollFrameRef.current);
         transcriptScrollFrameRef.current = null;
+      };
+      if (!node) {
+        // A landing cut off before it finished (a detach, StrictMode's double attach) lands again.
+        if (transcriptScrollFrameRef.current !== null) landedTranscriptRef.current = null;
+        return cancelLanding();
       }
-      scrollRef.current = node;
-      if (!node || loadingHistory || !chatId || loadedMessagesChatId !== chatId) return;
-      transcriptFollowOutputRef.current = true;
-      transcriptScrollFrameRef.current = window.requestAnimationFrame(() => {
+      if (!chatId || loadedMessagesChatId !== chatId) return;
+      if (landedTranscriptRef.current?.node === node && landedTranscriptRef.current.chatId === chatId) return;
+      cancelLanding();
+      landedTranscriptRef.current = { node, chatId };
+      // Older turns off screen have only an estimated height (content-visibility, mari.css). The ones the
+      // bottom brings into view take their real height a frame later and push the newest turn down, so pin
+      // again each frame until the height holds. While her window is still hidden (a cached thread is
+      // there from its first render) the transcript has no height yet, so it waits for one.
+      let pinnedHeight = -1;
+      let frames = 0;
+      const land = () => {
         transcriptScrollFrameRef.current = null;
-        if (scrollRef.current === node) scrollProfessorMariTranscriptToBottom(node);
-      });
+        if (scrollRef.current !== node || frames++ > 60) return;
+        if (node.clientHeight > 0) {
+          if (node.scrollHeight === pinnedHeight) return;
+          pinnedHeight = node.scrollHeight;
+          transcriptFollowOutputRef.current = true;
+          scrollProfessorMariTranscriptToBottom(node);
+        }
+        transcriptScrollFrameRef.current = window.requestAnimationFrame(land);
+      };
+      transcriptFollowOutputRef.current = true;
+      transcriptScrollFrameRef.current = window.requestAnimationFrame(land);
     },
-    [chatId, loadedMessagesChatId, loadingHistory],
+    [chatId, loadedMessagesChatId],
   );
 
+  // The composer floats over the transcript (M1); the transcript's bottom padding and fade both
+  // need the dock's live height, kept on the shared pane as a CSS var so both can read it in CSS.
+  // A ref callback, not a mount effect: leaving her pane for Search unmounts the dock while this
+  // component stays mounted, and the new dock on return must be measured again, or the transcript
+  // loses its bottom padding and her empty state slides under the composer.
+  const composerDockRef = useRef<HTMLFormElement | null>(null);
+  const attachComposerDock = useCallback((dock: HTMLFormElement | null) => {
+    composerDockRef.current = dock;
+    const pane = dock?.parentElement;
+    if (!dock || !pane) return;
+    const sync = () => pane.style.setProperty("--mari-dock-h", `${dock.offsetHeight}px`);
+    sync();
+    const observer = new ResizeObserver(sync);
+    observer.observe(dock);
+    return () => {
+      observer.disconnect();
+      composerDockRef.current = null;
+    };
+  }, []);
+
+  // M4: the newest turn (the local user message plus everything that follows it) reserves the
+  // transcript's visible height so her reply grows into empty space instead of changing the
+  // scrollable height, and the question is placed under the header exactly once, on send.
+  const activeTurnRef = useRef<HTMLDivElement>(null);
+  const [turnStartMessageId, setTurnStartMessageId] = useState<string | null>(null);
+
+  // R11: grow without a jump. Measure at `auto`, put the old height back and set the new one, so the CSS
+  // height transition runs; the cap is the field's max-height (8 lines, 6 on touch, in globals.css).
   const resizeComposer = useCallback((textarea: HTMLTextAreaElement | null) => {
     if (!textarea) return;
+    const from = textarea.offsetHeight;
+    const scrollTop = textarea.scrollTop;
     textarea.style.height = "auto";
-    textarea.style.height = `${Math.min(textarea.scrollHeight, 128)}px`;
+    const cap = Number.parseFloat(getComputedStyle(textarea).maxHeight);
+    const to = Number.isFinite(cap) ? Math.min(textarea.scrollHeight, cap) : textarea.scrollHeight;
+    textarea.style.height = `${from}px`;
+    void textarea.offsetHeight;
+    textarea.style.height = `${to}px`;
+    textarea.scrollTop = scrollTop;
+    textarea.toggleAttribute("data-scrolled", textarea.scrollTop > 0);
   }, []);
 
   const focusComposer = useCallback(() => {
@@ -3298,9 +627,21 @@ export function HomeProfessorMariChat({
     suggestionFocusFrameRef.current = window.requestAnimationFrame(() => {
       suggestionFocusFrameRef.current = null;
       const textarea = floatingTextareaRef.current ?? embeddedTextareaRef.current;
-      textarea?.focus();
+      // UX-02: the field is disabled during a run; hold focus on its shell until the run ends (below).
+      if (textarea?.disabled) textarea.closest<HTMLElement>(".mari-workspace-composer")?.focus({ preventScroll: true });
+      else textarea?.focus();
     });
   }, []);
+
+  // UX-02: an action that removes its own button (a handoff, Accept, Undo, Keep) would drop focus to the
+  // page, where Escape and Tab no longer reach her window. Not on touch: focusing the field raises the keyboard.
+  const keepKeyboardInWindow = useCallback(() => {
+    if (!window.matchMedia("(pointer: coarse)").matches) focusComposer();
+  }, [focusComposer]);
+
+  useEffect(() => {
+    if (controlledChatWindowOpen) focusComposer();
+  }, [controlledChatWindowOpen, focusComposer]);
 
   useLayoutEffect(() => {
     resizeComposer(embeddedTextareaRef.current);
@@ -3308,6 +649,15 @@ export function HomeProfessorMariChat({
   }, [draft, resizeComposer]);
 
   const hasActiveGeneration = useChatStore((state) => (chatId ? state.abortControllers.has(chatId) : false));
+  const reduceMotion = useReducedMotion();
+  const reduceAmbientEffects = useReducedAmbientEffects();
+  // The omnibar already has a fixed shell. Destination animation makes its
+  // contents appear to reload and moves the composer while switching tabs.
+  const paneTransition = omnibarMode
+    ? { duration: 0 }
+    : reduceMotion
+      ? { duration: 0 }
+      : PROFESSOR_MARI_PANE_TRANSITION;
   const mariPhase = useChatStore((state) => (chatId ? (state.mariPhaseByChatId.get(chatId) ?? null) : null));
   const mariChips = useAgentStore((state) => state.mariChips);
   const mariChipsChatId = useAgentStore((state) => state.mariChipsChatId);
@@ -3344,25 +694,45 @@ export function HomeProfessorMariChat({
     [connectionOptions, selectedConnectionId],
   );
   const effectiveConnection =
-    selectedConnection ?? connectionOptions.find((connection) => connection.isDefault) ?? connectionOptions[0] ?? null;
+    selectedConnection ??
+    // `/connections` sends isDefault as "true"/"false"; a bare truthy check took "false" too.
+    connectionOptions.find((connection) => String(connection.isDefault) === "true") ??
+    connectionOptions[0] ??
+    null;
   const effectiveConnectionId = effectiveConnection?.id ?? null;
+  const noConnection = !connectionsLoading && !effectiveConnection;
+  const oneShotContext = handoffContext && !isPersistentProfessorMariContext(handoffContext) ? handoffContext : null;
+  const oneShotContextFacets = useMemo(() => professorMariContextFacets(oneShotContext), [oneShotContext]);
+  // R14: the composer's context row shows everything she is using - the one-shot facets and her lasting
+  // focus (a character or lorebook) - so it stays after the first send instead of vanishing.
+  const composerContextFacets = useMemo(() => professorMariContextFacets(handoffContext), [handoffContext]);
+  const removeOneShotFacet = useCallback(
+    (facet: ProfessorMariContextFacet) =>
+      setHandoffContext((current) => withoutProfessorMariContextFacet(current, facet.kind)),
+    [],
+  );
   const contextBudget = useMemo(
     () => resolveProfessorMariContextBudget(messages, workspaceStatus?.connection?.maxContext),
     [messages, workspaceStatus?.connection?.maxContext],
   );
   const isBusy = sending || hasActiveGeneration || workspaceActive;
+  // A run ended while focus waited on the composer shell: hand it to the field (not on touch, see above).
+  useEffect(() => {
+    if (isBusy || !document.activeElement?.classList.contains("mari-workspace-composer")) return;
+    if (!window.matchMedia("(pointer: coarse)").matches) focusComposer();
+  }, [focusComposer, isBusy]);
   useEffect(() => {
     messageMutationBusyRef.current = isBusy;
   }, [isBusy]);
   const canSubmitMessage = (draft.trim().length > 0 || attachments.length > 0) && !isReadingAttachments;
-  // #5748: the Accept affordance must be as durable as the deferral it
-  // answers. The chips slot is app-wide, ephemeral state that unrelated paths
-  // clear (a regular chat starting a generation, the suggestions-disabled
-  // mount sweeps) and a reload never restores - but the deferral itself is
-  // persisted on the assistant message's extra (mariDeferredMutations, the
-  // same flag the server arms the next run from). Re-derive the chip from
-  // that persisted truth: it shows while the deferral is still the chat's
-  // last word, and disappears the moment the user answers or a run starts.
+  const starterSuggestionsAvailable = shouldOfferProfessorMariStarterSuggestions({
+    chatId,
+    loadedMessagesChatId,
+    messageCount: messages.length,
+    busy: isBusy,
+  });
+  // #5748: re-derive the Accept chip from the persisted deferral flag, because the
+  // shared chips slot is ephemeral and a reload or unrelated run clears it.
   const lastLoadedMessage = messages.length > 0 ? messages[messages.length - 1] : undefined;
   const lastLoadedMessageExtra =
     lastLoadedMessage && typeof lastLoadedMessage.extra === "object" ? lastLoadedMessage.extra : null;
@@ -3372,7 +742,12 @@ export function HomeProfessorMariChat({
     !isBusy &&
     lastLoadedMessage?.role === "assistant" &&
     lastLoadedMessageExtra?.mariDeferredMutations === true;
-  const storeChipsForChat = mariChipsChatId === chatId ? mariChips : [];
+  // Slice 70: the chips her last answer offered are saved on it, so a reload keeps them.
+  const savedChips =
+    chatId !== null && loadedMessagesChatId === chatId && !isBusy && lastLoadedMessage?.role === "assistant"
+      ? sanitizeMariSuggestionChips(lastLoadedMessageExtra?.mariSuggestions, { maxChips: 6 })
+      : [];
+  const storeChipsForChat = mariChipsChatId === chatId && mariChips.length > 0 ? mariChips : savedChips;
   const visibleSuggestionChips =
     pendingDeferredMutations && !storeChipsForChat.some((chip) => chip.id === MARI_AUTHORIZATION_ACCEPT_CHIP.id)
       ? withHeldChangeDeclineChip([
@@ -3385,7 +760,7 @@ export function HomeProfessorMariChat({
           )
         : professorMariSuggestionsEnabled && storeChipsForChat.length > 0
           ? storeChipsForChat
-          : professorMariSuggestionsEnabled && chatId !== null && loadedMessagesChatId === chatId && !isBusy
+          : professorMariSuggestionsEnabled && starterSuggestionsAvailable
             ? MARI_STARTER_CHIPS
             : [];
   const selectedSkill = useMemo(
@@ -3398,6 +773,24 @@ export function HomeProfessorMariChat({
     [selectedMemoryId, memories],
   );
   const activeMemoryCount = memories.filter((memory) => memory.enabled).length;
+  const chatHistorySortMode = useUIStore((state) => state.mariPanelSortMode);
+  const setChatHistorySortMode = useUIStore((state) => state.setMariPanelSortMode);
+  const displayedChatHistory = useMemo(() => {
+    const normalizedQuery = chatHistoryQuery.trim().toLowerCase();
+    const filtered = normalizedQuery
+      ? chatHistory.filter((item) =>
+          // R7: a thread is also found by what it is about.
+          `${item.name ?? ""} ${readMariThread(item).contextLabel ?? ""}`.toLowerCase().includes(normalizedQuery),
+        )
+      : chatHistory;
+    return [...filtered].sort((left, right) =>
+      compareMariPanelItems(
+        { name: left.name ?? "", createdAt: left.createdAt },
+        { name: right.name ?? "", createdAt: right.createdAt },
+        chatHistorySortMode,
+      ),
+    );
+  }, [chatHistory, chatHistoryQuery, chatHistorySortMode]);
   const desktopChatWindowOpen = controlledChatWindowOpen ?? internalChatWindowOpen;
   const chatWindowOpen = desktopChatWindowOpen || mobileFocusMode;
   const setChatWindowOpen = useCallback(
@@ -3408,67 +801,99 @@ export function HomeProfessorMariChat({
     [onChatWindowOpenChange],
   );
 
+  const applyHandoff = useCallback(
+    (handoff: ProfessorMariHandoff) => {
+      if (handoff.draft !== undefined) setDraft(handoff.draft);
+      setHandoffContext(handoff.context ?? null);
+      if (handoff.completion?.kind === "return-to-source") {
+        setRecovery(null);
+      }
+      setChatWindowOpen(true);
+      focusComposer();
+    },
+    [focusComposer, setChatWindowOpen, setDraft, setRecovery],
+  );
+
   useEffect(() => {
-    if (!floatingMode) return;
-    const mediaQuery = window.matchMedia("(max-width: 639px)");
-    const syncFloatingViewport = () => {
-      setFloatingSmallViewport(mediaQuery.matches);
-      setChatWindowOpen(!mediaQuery.matches);
-      if (!mediaQuery.matches) setMobileFocusMode(false);
+    const destination = omnibarMode ? "omnibar" : "home";
+    const pending = consumeProfessorMariOpenRequest(destination);
+    if (pending) applyHandoff(pending);
+    const handleOpen = (event: Event) => {
+      const handoff = (event as CustomEvent<ProfessorMariOpenDetail>).detail;
+      if ((handoff.destination ?? "home") !== destination) return;
+      applyHandoff(consumeProfessorMariOpenRequest(destination) ?? handoff);
     };
-    syncFloatingViewport();
-    mediaQuery.addEventListener("change", syncFloatingViewport);
-    return () => mediaQuery.removeEventListener("change", syncFloatingViewport);
-  }, [floatingMode, setChatWindowOpen]);
+    window.addEventListener(PROFESSOR_MARI_OPEN_EVENT, handleOpen);
+    return () => window.removeEventListener(PROFESSOR_MARI_OPEN_EVENT, handleOpen);
+  }, [applyHandoff, omnibarMode]);
 
-  useLayoutEffect(() => {
-    if (floatingMode) return;
-    rememberProfessorMariFloatingEnabled(false);
-    dispatchProfessorMariFloatingEvent(PROFESSOR_MARI_FLOATING_HIDE_EVENT);
-    return () => {
-      if (floatingFollowupEligibleRef.current) {
-        rememberProfessorMariFloatingEnabled(true);
-        dispatchProfessorMariFloatingEvent(PROFESSOR_MARI_FLOATING_SHOW_EVENT);
+  // Direct prop channel (e.g. the omnibar Mari pane) — avoids the global open
+  // event so a co-mounted Home instance never steals the handoff context.
+  // Read when the history load lands, not when it starts: M9's arrival context can come in a commit
+  // after this pane mounted, and the load must not then restore an older focus over it.
+  const initialAskContextRef = useRef(initialAskContext);
+  useEffect(() => {
+    initialAskContextRef.current = initialAskContext;
+    if (initialAskContext) setHandoffContext(initialAskContext);
+  }, [initialAskContext]);
+
+  const loadMessages = useCallback(
+    async (
+      id: string,
+      options: {
+        restoreFocus?: boolean | (() => boolean);
+        shouldApply?: () => boolean;
+        /** The same request, already started (the first load's, beside the arrival routing). */
+        prefetched?: Promise<Message[]>;
+      } = {},
+    ) => {
+      messageLoadAbortRef.current?.abort();
+      const controller = new AbortController();
+      messageLoadAbortRef.current = controller;
+      try {
+        const items = await (options.prefetched ?? fetchMariThreadMessages(id, controller.signal));
+        if (
+          controller.signal.aborted ||
+          messageLoadAbortRef.current !== controller ||
+          activeChatIdRef.current !== id ||
+          options.shouldApply?.() === false
+        ) {
+          return;
+        }
+        // Unchanged messages keep their objects, so a reload (or the refresh behind a cached thread) only
+        // renders the rows that changed.
+        const normalizedMessages = keepUnchangedMessages(
+          messagesRef.current,
+          items.map((message) => ({ ...message, extra: toMessageExtra(message) })),
+        );
+        setMessages(normalizedMessages);
+        let restoredContext: ProfessorMariAskContext | null = null;
+        for (let index = normalizedMessages.length - 1; index >= 0; index -= 1) {
+          const messageContext = getProfessorMariMessageContext(normalizedMessages[index]!);
+          if (messageContext === undefined) continue;
+          restoredContext = messageContext;
+          break;
+        }
+        const restoreFocus =
+          typeof options.restoreFocus === "function" ? options.restoreFocus() : options.restoreFocus !== false;
+        if (restoreFocus) setHandoffContext(persistentResourceContext(restoredContext));
+        setLoadedMessagesChatId(id);
+        return normalizedMessages;
+      } catch (error) {
+        if (controller.signal.aborted) return;
+        throw error;
+      } finally {
+        if (messageLoadAbortRef.current === controller) messageLoadAbortRef.current = null;
       }
-    };
-  }, [floatingMode]);
-
-  useLayoutEffect(() => {
-    if (floatingMode || controlledChatWindowOpen === undefined) return;
-    floatingFollowupEligibleRef.current = controlledChatWindowOpen;
-    rememberProfessorMariFloatingEnabled(controlledChatWindowOpen);
-  }, [controlledChatWindowOpen, floatingMode]);
-
-  const loadMessages = useCallback(async (id: string, options: { shouldApply?: () => boolean } = {}) => {
-    messageLoadAbortRef.current?.abort();
-    const controller = new AbortController();
-    messageLoadAbortRef.current = controller;
-    try {
-      const items = await api.get<Message[]>(`/chats/${id}/messages?limit=80`, {
-        signal: controller.signal,
-      });
-      if (
-        controller.signal.aborted ||
-        messageLoadAbortRef.current !== controller ||
-        activeChatIdRef.current !== id ||
-        options.shouldApply?.() === false
-      ) {
-        return;
-      }
-      setMessages(items.map((message) => ({ ...message, extra: toMessageExtra(message) })));
-      setLoadedMessagesChatId(id);
-    } catch (error) {
-      if (controller.signal.aborted) return;
-      throw error;
-    } finally {
-      if (messageLoadAbortRef.current === controller) messageLoadAbortRef.current = null;
-    }
-  }, []);
+    },
+    [],
+  );
 
   const loadChatHistory = useCallback(async () => {
     setChatHistoryLoading(true);
     try {
       const items = await api.get<ProfessorMariChatSummary[]>("/chats/internal/professor-mari/chats");
+      rememberMariThreads(items);
       setChatHistory(items);
       setSelectedChatHistoryIds((current) => {
         const availableIds = new Set(items.map((item) => item.id));
@@ -3508,14 +933,10 @@ export function HomeProfessorMariChat({
       // so an older list can't overwrite the newer one or reset the selection.
       if (seq !== memoriesLoadSeqRef.current) return;
       setMemories(response.instructions);
-      const isInitialMemoriesLoad = !hasLoadedMemoriesRef.current;
-      hasLoadedMemoriesRef.current = true;
-      setSelectedMemoryId((current) => {
-        if (current && response.instructions.some((memory) => memory.id === current)) return current;
-        // Only auto-expand the first row on the very first load; a later refresh preserves a null
-        // (collapsed) selection and falls back to null (not the first row) if the selection was removed.
-        return isInitialMemoriesLoad ? (response.instructions[0]?.id ?? null) : null;
-      });
+      // Memories open collapsed; only a row the user opened stays open across refreshes.
+      setSelectedMemoryId((current) =>
+        current && response.instructions.some((memory) => memory.id === current) ? current : null,
+      );
     } finally {
       if (seq === memoriesLoadSeqRef.current) setMemoriesLoading(false);
     }
@@ -3536,6 +957,70 @@ export function HomeProfessorMariChat({
       return chat;
     },
     [qc, setActiveChatId],
+  );
+
+  /** A fresh thread about `context` ("+", or an arrival with no thread for its screen yet). The open one is kept. */
+  const startMariThread = useCallback(
+    async (context: MariThreadContext | null) => {
+      const params = new URLSearchParams();
+      // The ref, not the render's effectiveConnectionId: the first-load arrival starts a thread right
+      // after restoring her connection, before a re-render, and the stale fallback (the default
+      // connection, often a chat's small one) would move her thread onto it.
+      const latest = latestConnectionSelectionRef.current;
+      const connectionId =
+        latest && connectionOptions.some((connection) => connection.id === latest) ? latest : effectiveConnectionId;
+      if (connectionId) params.set("connectionId", connectionId);
+      if (context) params.set("contextKey", context.key);
+      if (context?.label) params.set("contextLabel", context.label);
+      const chat = await api.post<Chat>(`/chats/internal/professor-mari/restart?${params.toString()}`);
+      setActiveChatId(chat.id);
+      qc.setQueryData(chatKeys.detail(chat.id), chat);
+      return chat;
+    },
+    [connectionOptions, effectiveConnectionId, qc, setActiveChatId],
+  );
+
+  // R7: route an arrival to its context's thread before that thread's messages load, so the old one never flashes.
+  const arrivalThreadRef = useRef(arrivalThread);
+  arrivalThreadRef.current = arrivalThread;
+  const arrivalAppendRequestRef = useRef(arrivalAppendRequest);
+  arrivalAppendRequestRef.current = arrivalAppendRequest;
+  const handledArrivalRouteRef = useRef(0);
+  const [routedArrivalRequest, setRoutedArrivalRequest] = useState(0);
+  /** The thread an arrival offered "Continue here / New about ..." in, while that choice is open. */
+  const [arrivalChoiceChatId, setArrivalChoiceChatId] = useState<string | null>(null);
+  const routeArrivalThread = useCallback(
+    async (currentId: string): Promise<string> => {
+      const request = arrivalAppendRequestRef.current;
+      const context = arrivalThreadRef.current;
+      if (!context || request <= handledArrivalRouteRef.current) return currentId;
+      handledArrivalRouteRef.current = request;
+      try {
+        const threads = await api.get<ProfessorMariChatSummary[]>("/chats/internal/professor-mari/chats");
+        rememberMariThreads(threads);
+        const choice = chooseMariThread({
+          threads: threads.map(readMariThread),
+          contextKey: context.key,
+          continuedThereId: continuedThereByContext.get(context.key),
+        });
+        if (choice.kind === "new") return (await startMariThread(context)).id;
+        const targetId = choice.kind === "continue" ? choice.chatId : choice.recentChatId;
+        setArrivalChoiceChatId(choice.kind === "ask" ? targetId : null);
+        if (targetId !== currentId) {
+          const chat = await api.post<Chat>(`/chats/internal/professor-mari/chats/${targetId}/activate`);
+          setActiveChatId(chat.id);
+          qc.setQueryData(chatKeys.detail(chat.id), chat);
+        }
+        return targetId;
+      } catch (error) {
+        // The open thread is still a fine place to land.
+        console.error("[Professor Mari] Failed to pick the thread for this screen", error);
+        return currentId;
+      } finally {
+        setRoutedArrivalRequest(request);
+      }
+    },
+    [qc, setActiveChatId, startMariThread],
   );
 
   // #5073: attaching chat history needs a Mari workspace chat to attach TO; create one if the user
@@ -3594,11 +1079,18 @@ export function HomeProfessorMariChat({
             }
           : status,
       );
-      workspaceStatusErrorToastShownRef.current = false;
       return status;
     },
     [effectiveConnectionId],
   );
+
+  const refreshApprovalSurfaces = useCallback(async () => {
+    await refreshWorkspaceStatus().catch(() => undefined);
+    // Refresh the Memories panel after a keep or restore: a kept memory has to show
+    // up, and reverting a memory insert deletes the row, so the panel would keep
+    // rendering a stale client-side entry.
+    await loadMemories().catch(() => undefined);
+  }, [loadMemories, refreshWorkspaceStatus]);
 
   // #5725: the status payload is CHAT-SCOPED (effective mode for the active
   // chat), so a chat switch must refetch it immediately - the 15s interval
@@ -3619,24 +1111,55 @@ export function HomeProfessorMariChat({
     await qc.invalidateQueries();
   }, [qc]);
 
+  const invalidateActionResult = useCallback(
+    async (result: MariWorkspaceActionResult) => {
+      if (result.resource.kind === "character") {
+        await Promise.all([
+          qc.invalidateQueries({ queryKey: characterKeys.all }),
+          qc.invalidateQueries({ queryKey: characterKeys.detail(result.resource.id) }),
+        ]);
+      } else if (result.resource.kind === "persona") {
+        await Promise.all([
+          qc.invalidateQueries({ queryKey: characterKeys.personas }),
+          qc.invalidateQueries({ queryKey: characterKeys.personaDetail(result.resource.id) }),
+        ]);
+      } else if (result.resource.kind === "lorebook") {
+        await qc.invalidateQueries({ queryKey: lorebookKeys.all });
+      } else {
+        await qc.invalidateQueries({ queryKey: presetKeys.all });
+      }
+    },
+    [qc],
+  );
+
   useEffect(() => {
     void fetchSidecarStatus();
   }, [fetchSidecarStatus]);
 
   useEffect(() => {
-    const workspaceHistory = workspaceStatus?.history ?? [];
+    if (!workspaceStatus) return;
+    const workspaceHistory = workspaceStatus.history ?? [];
+    // Slice 70: changes approved before the panel opened were refreshed when they were approved. Treating them
+    // as new on every open re-fetched every app query (~35 requests) in front of the thread's messages.
+    if (!handledWorkspaceRefreshIdsRef.current) {
+      handledWorkspaceRefreshIdsRef.current = new Set(
+        workspaceHistory.filter((entry) => entry.status === "approved").map((entry) => entry.id),
+      );
+      return;
+    }
+    const handled = handledWorkspaceRefreshIdsRef.current;
     const visibleHistoryIds = new Set(workspaceHistory.map((entry) => entry.id));
-    for (const id of handledWorkspaceRefreshIdsRef.current) {
-      if (!visibleHistoryIds.has(id)) handledWorkspaceRefreshIdsRef.current.delete(id);
+    for (const id of handled) {
+      if (!visibleHistoryIds.has(id)) handled.delete(id);
     }
 
     const appliedChanges = workspaceHistory.filter((entry) => {
       if (entry.status !== "approved") return false;
-      return !handledWorkspaceRefreshIdsRef.current.has(entry.id);
+      return !handled.has(entry.id);
     });
     if (appliedChanges.length === 0) return;
     for (const entry of appliedChanges) {
-      handledWorkspaceRefreshIdsRef.current.add(entry.id);
+      handled.add(entry.id);
     }
     void invalidateWorkspaceData().catch((error) => {
       console.error("[Professor Mari] Failed to refresh app data after workspace change", error);
@@ -3645,7 +1168,7 @@ export function HomeProfessorMariChat({
         duration: 12_000,
       });
     });
-  }, [invalidateWorkspaceData, workspaceStatus?.history, localizeUi]);
+  }, [invalidateWorkspaceData, workspaceStatus, localizeUi]);
 
   useEffect(() => {
     latestConnectionSelectionRef.current = selectedConnectionId;
@@ -3655,17 +1178,30 @@ export function HomeProfessorMariChat({
     if (hasLoadedRef.current || connectionsLoading) return;
     hasLoadedRef.current = true;
     setLoadingHistory(true);
+    const prefetchMessages = (id: string) => {
+      const items = fetchMariThreadMessages(id);
+      items.catch(() => undefined);
+      return { id, items };
+    };
+    let prefetched = cachedThread ? prefetchMessages(cachedThread.chatId) : null;
     const storedConnectionExists =
       !!selectedConnectionId && connectionOptions.some((connection) => connection.id === selectedConnectionId);
     ensureProfessorMariChat(storedConnectionExists ? selectedConnectionId : null)
-      .then((chat) => {
+      .then(async (chat) => {
+        // Her messages load beside the routing; it usually keeps the thread she is already in.
+        if (prefetched?.id !== chat.id) prefetched = prefetchMessages(chat.id);
         const restoredConnectionId =
           typeof chat.connectionId === "string" && chat.connectionId ? chat.connectionId : null;
         if (restoredConnectionId) {
           setSelectedConnectionId(restoredConnectionId);
-          rememberConnectionId(restoredConnectionId);
+          latestConnectionSelectionRef.current = restoredConnectionId;
+          useUIStore.getState().setMariConnectionId(restoredConnectionId);
         }
-        return loadMessages(chat.id);
+        const targetId = await routeArrivalThread(chat.id);
+        return loadMessages(targetId, {
+          restoreFocus: () => !initialAskContextRef.current,
+          prefetched: prefetched.id === targetId ? prefetched.items : undefined,
+        });
       })
       .catch((error) => {
         console.error("[Professor Mari] Failed to load home assistant", error);
@@ -3675,19 +1211,39 @@ export function HomeProfessorMariChat({
         });
       })
       .finally(() => setLoadingHistory(false));
-  }, [connectionOptions, connectionsLoading, ensureProfessorMariChat, loadMessages, selectedConnectionId, localizeUi]);
+  }, [
+    connectionOptions,
+    connectionsLoading,
+    ensureProfessorMariChat,
+    loadMessages,
+    routeArrivalThread,
+    selectedConnectionId,
+    cachedThread,
+    localizeUi,
+  ]);
 
+  // Missing workspace tools (often just no admin secret) are a calm note in the transcript, not a toast
+  // that covers her header every time she opens. Status, skills and memories all report here once.
+  const [workspaceToolsIssue, setWorkspaceToolsIssue] = useState<string | null>(null);
+  const reportWorkspaceToolsIssue = useCallback(
+    (error: unknown, fallback?: string) =>
+      setWorkspaceToolsIssue(
+        (current) =>
+          current ??
+          (error instanceof ApiError && (error.status === 401 || error.status === 403)
+            ? localizeUi("ui.chat.homeprofessormarichat.professorMariWorkspaceToolsNeedAdminAccess")
+            : (fallback ?? describeProfessorMariError(error))),
+      ),
+    [localizeUi],
+  );
   useEffect(() => {
     if (!pageActive) return;
-    void refreshWorkspaceStatus().catch(() => {
+    void refreshWorkspaceStatus().catch((error) => {
       setWorkspaceStatus((current) => current && { ...current, error: "Workspace status unavailable" });
-      if (!workspaceStatusErrorToastShownRef.current) {
-        workspaceStatusErrorToastShownRef.current = true;
-        toast.error(localizeUi("ui.chat.homeprofessormarichat.professorMariWorkspaceStatusIsUnavailable"), {
-          description: localizeUi("ui.chat.homeprofessormarichat.workspaceImportsAndChangesMayNotShowLiveProgress"),
-          duration: 12_000,
-        });
-      }
+      reportWorkspaceToolsIssue(
+        error,
+        localizeUi("ui.chat.homeprofessormarichat.workspaceImportsAndChangesMayNotShowLiveProgress"),
+      );
     });
     const refreshVisibleWorkspaceStatus = () => {
       if (document.hidden) return;
@@ -3699,7 +1255,7 @@ export function HomeProfessorMariChat({
       window.clearInterval(timer);
       document.removeEventListener("visibilitychange", refreshVisibleWorkspaceStatus);
     };
-  }, [pageActive, refreshWorkspaceStatus, localizeUi]);
+  }, [pageActive, refreshWorkspaceStatus, localizeUi, reportWorkspaceToolsIssue]);
 
   // Recovery for runs this client is no longer attached to (#5719): if the
   // status poll watches a server-side run finish while no local send closure
@@ -3752,12 +1308,9 @@ export function HomeProfessorMariChat({
     void loadSkills().catch((error) => {
       console.error("[Professor Mari] Failed to load skills", error);
       setSkillsDiagnostics(["Professor Mari skills unavailable"]);
-      toast.error(localizeUi("ui.chat.homeprofessormarichat.professorMariSkillsAreUnavailable"), {
-        description: describeProfessorMariError(error),
-        duration: 12_000,
-      });
+      reportWorkspaceToolsIssue(error);
     });
-  }, [loadSkills, localizeUi]);
+  }, [loadSkills, reportWorkspaceToolsIssue]);
 
   useEffect(() => {
     if (!chatHistoryOpen) return;
@@ -3797,12 +1350,9 @@ export function HomeProfessorMariChat({
   useEffect(() => {
     void loadMemories().catch((error) => {
       console.error("[Professor Mari] Failed to load memories", error);
-      toast.error(localizeUi("ui.chat.homeprofessormarichat.professorMariMemoriesAreUnavailable"), {
-        description: describeProfessorMariError(error),
-        duration: 12_000,
-      });
+      reportWorkspaceToolsIssue(error);
     });
-  }, [loadMemories, localizeUi]);
+  }, [loadMemories, reportWorkspaceToolsIssue]);
 
   useEffect(() => {
     const id = selectedMemory?.id ?? null;
@@ -3847,29 +1397,291 @@ export function HomeProfessorMariChat({
     showNativeMessageNotification({ ...notification, enabled: uiState.generationMobileNotifications });
   }, [pendingChangeReviews]);
 
-  const workspaceTimelineActive = workspaceActive || hasActiveGeneration;
-  const workspaceHasResponseText = workspaceTimeline.some((item) => item.type === "text" && item.content.trim());
-  const showDottoreSupport = workspaceTimelineActive && !workspaceHasResponseText;
-  const visiblePendingChangeReviews = !sending && !workspaceTimelineActive ? pendingChangeReviews : [];
+  const workspaceTimelineActive = workspaceActive || hasActiveGeneration || serverRunningHere;
+  // When a run ends, the composer halo flashes once and lets go instead of vanishing mid-turn. Set while
+  // rendering (not in an effect), so the arrival routing below never sees the end of a run without it.
+  const [composerHaloEnding, setComposerHaloEnding] = useState(false);
+  const [haloSeenActive, setHaloSeenActive] = useState(workspaceTimelineActive);
+  if (haloSeenActive !== workspaceTimelineActive) {
+    setHaloSeenActive(workspaceTimelineActive);
+    setComposerHaloEnding(!workspaceTimelineActive);
+  }
+  useEffect(() => {
+    if (!composerHaloEnding) return;
+    // Long enough for the faint green glow to sink out of view (mari-glow-settle) and her success story
+    // to finish on the "Worked for" line before she rests.
+    const timer = window.setTimeout(() => setComposerHaloEnding(false), 5_000);
+    return () => window.clearTimeout(timer);
+  }, [composerHaloEnding]);
+  // UX-03: a run that was still going when the window (re)opened (a reload, another device) ends with its
+  // answer saved on the server only. Reload the thread once it ends, or the answer waits for a reopen.
+  const timelineRunActiveRef = useRef(workspaceTimelineActive);
+  useEffect(() => {
+    const ended = timelineRunActiveRef.current && !workspaceTimelineActive;
+    timelineRunActiveRef.current = workspaceTimelineActive;
+    if (!ended || !chatId) return;
+    void loadMessages(chatId, { restoreFocus: false, shouldApply: () => activeChatIdRef.current === chatId }).catch(
+      () => undefined,
+    );
+  }, [workspaceTimelineActive, chatId, loadMessages]);
+  const emptyStateReady =
+    omnibarMode && messages.length === 0 && !isBusy && chatId !== null && loadedMessagesChatId === chatId;
+  // D1: an arrival door (⌘J, the pull, the drag, Home's "Ask Professor Mari") opened into a chat that
+  // already has history. Append the same arrival content (`buildMariArrival`'s output, unchanged) at
+  // the bottom of the transcript instead of only showing it on an empty chat, so the door's "ask Mari
+  // about this" promise still holds on a return visit. Local UI only: never persisted, no model call.
+  const appendedArrivalReady = shouldAppendMariArrival({
+    omnibarMode,
+    messageCount: messages.length,
+    chatId,
+    loadedMessagesChatId,
+  });
+  const [appendedArrival, setAppendedArrival] = useState<MariArrival | null>(null);
+  const handledArrivalAppendRequestRef = useRef(0);
+  // R7: an arrival after the first load (the pane was already open) routes here.
+  useEffect(() => {
+    if (!arrivalThread || arrivalAppendRequest <= handledArrivalRouteRef.current) return;
+    // R13: an arrival during a run waits until the finished run (its done marks, "Worked for") has been on
+    // screen for the halo's settle time; rerouting the moment isBusy cleared wiped it unseen.
+    if (loadingHistory || isBusy || composerHaloEnding || !chatId || loadedMessagesChatId !== chatId) return;
+    void routeArrivalThread(chatId).then((targetId) => {
+      if (targetId === chatId) return;
+      setWorkspaceTimeline([]);
+      setWorkspaceRunClock(null);
+      return loadMessages(targetId);
+    });
+  }, [
+    arrivalAppendRequest,
+    arrivalThread,
+    chatId,
+    composerHaloEnding,
+    isBusy,
+    loadMessages,
+    loadedMessagesChatId,
+    loadingHistory,
+    routeArrivalThread,
+  ]);
+  useEffect(() => {
+    if (arrivalAppendRequest <= handledArrivalAppendRequestRef.current) return;
+    // R7: wait for the arrival's thread, so it is not appended to the one being left.
+    if (arrivalThread && routedArrivalRequest < arrivalAppendRequest) return;
+    if (!appendedArrivalReady || !arrival || workspaceTimelineActive) return;
+    handledArrivalAppendRequestRef.current = arrivalAppendRequest;
+    setAppendedArrival(arrival);
+  }, [
+    arrivalAppendRequest,
+    appendedArrivalReady,
+    arrival,
+    arrivalThread,
+    routedArrivalRequest,
+    workspaceTimelineActive,
+  ]);
+  // R7: "New about <context>" from the arrival's choice: a fresh thread for this screen, the open one kept.
+  const handleNewAboutContext = useCallback(async () => {
+    const context = arrivalThreadRef.current;
+    if (!context || isBusy) return;
+    try {
+      const chat = await startMariThread(context);
+      setArrivalChoiceChatId(null);
+      setAppendedArrival(null);
+      setMessages([]);
+      setLoadedMessagesChatId(chat.id);
+      setWorkspaceTimeline([]);
+      setWorkspaceRunClock(null);
+      if (chatHistoryOpen) await loadChatHistory();
+    } catch (error) {
+      console.error("[Professor Mari] Failed to start a thread for this screen", error);
+      toast.error(localizeUi("ui.chat.homeprofessormarichat.professorMariCouldNotOpenThatChat"), {
+        description: describeProfessorMariError(error),
+      });
+    }
+  }, [chatHistoryOpen, isBusy, loadChatHistory, localizeUi, startMariThread]);
+  const appendedArrivalNodeRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (appendedArrival) appendedArrivalNodeRef.current?.scrollIntoView({ block: "nearest" });
+  }, [appendedArrival]);
+  // M4/M3: the timeline stays mounted (and keeps the transcript's height) through the reload that
+  // applies the reply, and keeps showing workspaceTimeline (now with active=false) as the turn's
+  // permanent record afterward - it is only cleared when the next send or chat switch starts a new run.
+  const workspaceTimelineVisible = workspaceTimelineActive || workspaceTimeline.length > 0;
+  const visiblePendingChangeReviews = useMemo(
+    () => (!sending && !workspaceTimelineActive ? pendingChangeReviews : []),
+    [pendingChangeReviews, sending, workspaceTimelineActive],
+  );
   const visiblePendingChangeReviewKey = visiblePendingChangeReviews.map((approval) => approval.id).join("|");
+  const latestMessage = messages[messages.length - 1];
+  const lastUserMessage = messages.findLast((message) => message.role === "user");
+  // R14: the one unresolved failure - this session's, or the one saved on the newest turn (after a reload,
+  // or when the stream died before it could say so). She stays red until Retry, another model, a new
+  // message or Dismiss; there is no timer.
+  const savedRunError = latestMessage ? getMessageRunError(latestMessage) : null;
+  const activeRunError = isBusy
+    ? null
+    : recovery
+      ? { kind: recovery.kind, detail: recovery.detail }
+      : savedRunError
+        ? { kind: classifyProfessorMariFailure(new Error(savedRunError.message)), detail: savedRunError.message }
+        : null;
+  const latestActionResults = useMemo(
+    () => (latestMessage ? getMessageWorkspaceActionResults(latestMessage) : []),
+    [latestMessage],
+  );
+  const mariPresentationState = resolveProfessorMariPresentationState({
+    hasRecovery: Boolean(activeRunError),
+    hasWorkspaceError: Boolean(workspaceStatus?.error),
+    pendingReviewCount: countBlockingReviews(visiblePendingChangeReviews),
+    working: workspaceTimelineActive,
+    hasDraft: Boolean(draft.trim()),
+    attachmentCount: attachments.length,
+    hasActionResult: latestActionResults.length > 0,
+    messageCount: messages.length,
+  });
+  // Outcomes come from runtime state, never from words in the assistant's reply.
+  // Slice 72: a read she worked around is not a failure (no retry pose for a missing record she skipped).
+  const latestTrace = latestMessage ? getMessageWorkspaceTrace(latestMessage) : null;
+  const latestTraceFailed =
+    latestMessage && latestTrace
+      ? timelineItemsFromTrace(latestTrace, latestMessage).some(
+          (item) => item.type === "tool" && isHardStepFailure(item.tool),
+        )
+      : false;
+  // A reply with a stored run shows Mari on its own timeline line; one without needs her line below it.
+  const latestTurnHasTrace = Boolean(latestMessage && getMessageWorkspaceTrace(latestMessage));
+  const restingStory = resolveMariRestStory({
+    working: workspaceTimelineActive,
+    failed: Boolean(activeRunError || workspaceStatus?.error) || latestTraceFailed,
+    cancelled: Boolean(chatId && cancelledChatId === chatId),
+    needsApproval: visiblePendingChangeReviews.length > 0 || Boolean(pendingDeferredMutations),
+    hasAppliedChanges: latestActionResults.length > 0,
+  });
+  // I4: on the newest finished turn Mari stands on the "Worked for" line: her story (success just after
+  // the run, then idle), or the retry / stopped / approval story while that is her state.
+  const latestTurnRestStory: MariStoryState | null = workspaceTimelineActive
+    ? null
+    : restingStory && restingStory !== "success"
+      ? restingStory
+      : composerHaloEnding
+        ? "success"
+        : "idle";
+  // The glow behind the composer takes her state's color: cyan while she thinks, pink while she writes,
+  // her full logo while a tool runs, gold when she waits for you, red when something broke.
+  const lastWorkItemType = workspaceTimeline.at(-1)?.type;
+  const composerGlowTone =
+    mariPresentationState !== "working"
+      ? mariPresentationState
+      : lastWorkItemType === "text"
+        ? "writing"
+        : lastWorkItemType === "tool"
+          ? "working"
+          : "thinking";
+  const composerWorkingState = workspaceTimelineActive
+    ? "true"
+    : composerHaloEnding && composerGlowTone !== "broken"
+      ? "ending"
+      : undefined;
 
   useEffect(() => {
     const node = scrollRef.current;
-    if (!node || !transcriptFollowOutputRef.current) return;
-    scrollProfessorMariTranscriptToBottom(node);
-  }, [messages, workspaceTimeline, workspaceActivity, visiblePendingChangeReviewKey, workspaceStatus?.error]);
+    if (!node) return;
+    const decision = transcriptScrollAction({
+      event: "grow",
+      nearBottom: isProfessorMariTranscriptNearBottom(node),
+      following: transcriptFollowOutputRef.current,
+    });
+    if (decision.scrollTo === "bottom") scrollProfessorMariTranscriptToBottom(node);
+  }, [messages, workspaceTimeline, visiblePendingChangeReviewKey, workspaceStatus?.error, activeRunError?.detail]);
+
+  // Scrolled up to read: a small round arrow above the composer brings you back to the newest line.
+  // Same-value state updates bail out, so this re-renders only when the pill appears or leaves.
+  const [showJumpToLatest, setShowJumpToLatest] = useState(false);
+  const transcriptGlideCleanupRef = useRef<(() => void) | null>(null);
+  const setTranscriptStackNode = useCallback((node: HTMLDivElement | null) => {
+    transcriptGlideCleanupRef.current?.();
+    transcriptGlideCleanupRef.current = node?.parentElement
+      ? followTranscriptGrowth(
+          node.parentElement,
+          node,
+          () => transcriptFollowOutputRef.current,
+          (newerBelow) => {
+            if (newerBelow) setShowJumpToLatest(true);
+          },
+        )
+      : null;
+  }, []);
 
   const handleTranscriptScroll = useCallback(() => {
     const node = scrollRef.current;
-    if (node) transcriptFollowOutputRef.current = isProfessorMariTranscriptNearBottom(node);
+    if (!node) return;
+    if (suppressNextScrollEventRef.current) {
+      suppressNextScrollEventRef.current = false;
+      return;
+    }
+    const decision = transcriptScrollAction({
+      event: "user-scroll",
+      nearBottom: isProfessorMariTranscriptNearBottom(node),
+      following: transcriptFollowOutputRef.current,
+    });
+    transcriptFollowOutputRef.current = decision.following;
+    setShowJumpToLatest(!transcriptFollowOutputRef.current);
   }, []);
+  const jumpToLatest = useCallback(() => {
+    const node = scrollRef.current;
+    if (!node) return;
+    transcriptFollowOutputRef.current = true;
+    node.scrollTo({ top: node.scrollHeight, behavior: reduceMotion ? "auto" : "smooth" });
+    setShowJumpToLatest(false);
+  }, [reduceMotion]);
 
-  const displayMessages = useMemo(() => [createWelcomeMessage(chatId), ...messages], [chatId, messages]);
-  const showConnectionFirstHint =
-    chatId !== null &&
-    loadedMessagesChatId === chatId &&
-    !sending &&
-    !messages.some((message) => message.role === "user");
+  // M4: the instant the local user message commits, put its top under the header once and reserve the
+  // turn's height so her reply grows into empty space - following starts false, the opposite of "stay
+  // pinned to the bottom", until the reader scrolls there themselves.
+  useLayoutEffect(() => {
+    if (!turnStartMessageId) return;
+    const node = scrollRef.current;
+    const turn = activeTurnRef.current;
+    if (!node || !turn) return;
+    const dockHeight = composerDockRef.current?.offsetHeight ?? 0;
+    turn.style.minHeight = `${Math.max(0, node.clientHeight - dockHeight)}px`;
+    const decision = transcriptScrollAction({
+      event: "send",
+      nearBottom: isProfessorMariTranscriptNearBottom(node),
+      following: transcriptFollowOutputRef.current,
+    });
+    transcriptFollowOutputRef.current = decision.following;
+    setShowJumpToLatest(false);
+    if (decision.scrollTo === "top") {
+      // Instant, not smooth: a multi-frame animation would fire more than the one "scroll" event the
+      // suppress guard below swallows. The guard self-clears next frame too, in case the target position
+      // equals the current one and the browser never fires a "scroll" event to consume it.
+      suppressNextScrollEventRef.current = true;
+      node.scrollTo({ top: turn.offsetTop - 16, behavior: "auto" });
+      window.requestAnimationFrame(() => {
+        suppressNextScrollEventRef.current = false;
+      });
+    }
+  }, [turnStartMessageId]);
+
+  // Opening a different chat is not a send: drop the reservation and land on its history as before.
+  useLayoutEffect(() => {
+    setTurnStartMessageId(null);
+    activeTurnRef.current?.style.removeProperty("min-height");
+  }, [chatId]);
+
+  const displayMessages = messages;
+  const lastUserMessageId = messages.findLast((message) => message.role === "user")?.id;
+  // M4: everything from the newest user message onward is "the active turn" - it reserves height and
+  // never re-mounts mid-run (unlike the rest of the history, which renders plainly above it).
+  const activeTurnStartIndex = lastUserMessageId
+    ? displayMessages.findIndex((message) => message.id === lastUserMessageId)
+    : displayMessages.length;
+  const transcriptHeadMessages = displayMessages.slice(0, activeTurnStartIndex);
+  const activeTurnMessages = displayMessages.slice(activeTurnStartIndex);
+  const showConnectionFirstHint = shouldShowProfessorMariConnectionHint({
+    chatId,
+    loadedMessagesChatId,
+    sending,
+    effectiveConnectionId,
+  });
 
   useEffect(() => {
     if (!mobileFocusMode) return;
@@ -3913,16 +1725,43 @@ export function HomeProfessorMariChat({
     return () => document.removeEventListener("mousedown", handlePointerDown);
   }, [permissionsMenuOpen]);
 
+  // The composer's mode and connection menus sit inside the omnibar dialog:
+  // Escape closes the menu first, and only a second Escape reaches the dialog.
+  const onPermissionsMenuKeyDown = useInDialogFocusScope(
+    permissionsMenuRef,
+    () => setPermissionsMenuOpen(false),
+    permissionsMenuOpen,
+  );
+  const onConnectionMenuKeyDown = useInDialogFocusScope(
+    connectionMenuRef,
+    () => setConnectionMenuOpen(false),
+    connectionMenuOpen,
+  );
+  // M6: a Chats row's Rename/Delete live in its own ⋮ menu.
+  const onChatRowMenuKeyDown = useInDialogFocusScope(
+    chatRowPopoverRef,
+    () => setChatRowMenuId(null),
+    chatRowMenuId !== null,
+  );
+  const onHeaderMenuKeyDown = useInDialogFocusScope(headerMenuRef, () => setHeaderMenuOpen(false), headerMenuOpen);
   useEffect(() => {
-    if (!libraryMenuOpen) return;
+    if (!headerMenuOpen) return;
     const handlePointerDown = (event: MouseEvent) => {
-      const target = event.target as Node;
-      if (libraryButtonRef.current?.contains(target) || libraryMenuRef.current?.contains(target)) return;
-      setLibraryMenuOpen(false);
+      if (event.target instanceof Node && !headerMenuRef.current?.parentElement?.contains(event.target)) {
+        setHeaderMenuOpen(false);
+      }
     };
     document.addEventListener("mousedown", handlePointerDown);
     return () => document.removeEventListener("mousedown", handlePointerDown);
-  }, [libraryMenuOpen]);
+  }, [headerMenuOpen]);
+  useEffect(() => {
+    if (!chatRowMenuId) return;
+    const handlePointerDown = (event: MouseEvent) => {
+      if (event.target instanceof Node && !chatRowMenuRef.current?.contains(event.target)) setChatRowMenuId(null);
+    };
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => document.removeEventListener("mousedown", handlePointerDown);
+  }, [chatRowMenuId]);
 
   // #5725: the server-authoritative Permissions Mode. Display rides the status
   // payload; writes go through the dedicated validated PUT. The change applies
@@ -4022,35 +1861,23 @@ export function HomeProfessorMariChat({
     setSelectedConnectionId(id);
     latestConnectionSelectionRef.current = id;
     pendingConnectionPersistRef.current = id;
-    rememberConnectionId(id);
+    useUIStore.getState().setMariConnectionId(id);
     setConnectionMenuOpen(false);
     persistLatestConnectionSelection();
   };
 
   const closeChatWindow = useCallback(() => {
-    if (!floatingMode) {
-      floatingFollowupEligibleRef.current = false;
-      rememberProfessorMariFloatingEnabled(false);
-    }
     setConnectionMenuOpen(false);
-    setLibraryMenuOpen(false);
-    setSkillsMenuOpen(false);
-    setMemoriesMenuOpen(false);
-    setChatHistoryOpen(false);
+    setWorkspaceDestination("chat");
     setMobileFocusMode(false);
     setChatWindowOpen(false);
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
-  }, [floatingMode, setChatWindowOpen]);
+  }, [setChatWindowOpen]);
+
+  useDialogFocusScope(chatWindowOpen && mobileFocusMode && !embeddedTab, mobileDialogRef, floatingTextareaRef);
 
   const openChatWindow = useCallback(() => {
-    if (!floatingMode) {
-      floatingFollowupEligibleRef.current = true;
-      rememberProfessorMariFloatingEnabled(true);
-    }
-    setLibraryMenuOpen(false);
-    setSkillsMenuOpen(false);
-    setMemoriesMenuOpen(false);
-    setChatHistoryOpen(false);
+    setWorkspaceDestination("chat");
     setConnectionMenuOpen(false);
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
     if (window.matchMedia("(max-width: 639px)").matches) {
@@ -4058,30 +1885,24 @@ export function HomeProfessorMariChat({
       return;
     }
     setChatWindowOpen(true);
-  }, [floatingMode, setChatWindowOpen]);
+  }, [setChatWindowOpen]);
 
   const toggleSkillsMenu = useCallback(() => {
     const next = !skillsMenuOpen;
     if (next) {
       setConnectionMenuOpen(false);
-      setChatHistoryOpen(false);
-      setLibraryMenuOpen(false);
-      setMemoriesMenuOpen(false);
       if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
     }
-    setSkillsMenuOpen(next);
+    setWorkspaceDestination(next ? "skills" : "chat");
   }, [skillsMenuOpen]);
 
   const toggleMemoriesMenu = useCallback(() => {
     const next = !memoriesMenuOpen;
     if (next) {
       setConnectionMenuOpen(false);
-      setChatHistoryOpen(false);
-      setLibraryMenuOpen(false);
-      setSkillsMenuOpen(false);
       if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
     }
-    setMemoriesMenuOpen(next);
+    setWorkspaceDestination(next ? "memories" : "chat");
   }, [memoriesMenuOpen]);
 
   const toggleChatHistory = useCallback(() => {
@@ -4092,14 +1913,9 @@ export function HomeProfessorMariChat({
     const next = !chatHistoryOpen;
     if (next) {
       setConnectionMenuOpen(false);
-      // Keyboard activation never fires the outside-click mousedown handler,
-      // so competing surfaces must close the Library dropdown themselves.
-      setLibraryMenuOpen(false);
-      setSkillsMenuOpen(false);
-      setMemoriesMenuOpen(false);
       if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
     }
-    setChatHistoryOpen(next);
+    setWorkspaceDestination(next ? "chats" : "chat");
   }, [chatHistoryOpen, isBusy, localizeUi]);
 
   useEffect(() => {
@@ -4107,117 +1923,29 @@ export function HomeProfessorMariChat({
     return () => window.removeEventListener("marinara:home-professor-mari-close", closeChatWindow);
   }, [closeChatWindow]);
 
-  const clampFloatingPosition = useCallback(
-    (x: number, y: number, width: number, height: number) => {
-      if (typeof window === "undefined") return { x, y };
-      const minX = PROFESSOR_MARI_FLOATING_EDGE_GAP;
-      const minY = floatingSmallViewport ? PROFESSOR_MARI_FLOATING_MOBILE_TOP_GAP : PROFESSOR_MARI_FLOATING_EDGE_GAP;
-      const maxX = Math.max(minX, window.innerWidth - width - PROFESSOR_MARI_FLOATING_EDGE_GAP);
-      const maxY = Math.max(minY, window.innerHeight - height - PROFESSOR_MARI_FLOATING_EDGE_GAP);
-      return {
-        x: Math.min(Math.max(x, minX), maxX),
-        y: Math.min(Math.max(y, minY), maxY),
-      };
-    },
-    [floatingSmallViewport],
-  );
+  // The omnibar can hand us a past conversation to open. The effect lives after
+  // handleSelectProfessorChat so it can call it directly.
+  const requestedChatIdRef = useRef<string | null>(null);
 
-  const beginFloatingDrag = useCallback(
-    (event: ReactPointerEvent<HTMLElement>) => {
-      if (event.button !== 0) return;
-      const target = event.target as HTMLElement | null;
-      if (target?.closest("[data-professor-mari-floating-action]")) return;
-      const surface = floatingSurfaceRef.current ?? floatingButtonRef.current ?? event.currentTarget;
-      const rect = surface.getBoundingClientRect();
-      floatingDragRef.current = {
-        pointerId: event.pointerId,
-        startX: event.clientX,
-        startY: event.clientY,
-        offsetX: event.clientX - rect.left,
-        offsetY: event.clientY - rect.top,
-        width: rect.width,
-        height: rect.height,
-      };
-      floatingDragMovedRef.current = false;
-      setFloatingPosition(clampFloatingPosition(rect.left, rect.top, rect.width, rect.height));
-      event.currentTarget.setPointerCapture(event.pointerId);
-    },
-    [clampFloatingPosition],
-  );
-
-  const moveFloatingDrag = useCallback(
-    (event: ReactPointerEvent<HTMLElement>) => {
-      const drag = floatingDragRef.current;
-      if (!drag || drag.pointerId !== event.pointerId) return;
-      if (Math.abs(event.clientX - drag.startX) > 4 || Math.abs(event.clientY - drag.startY) > 4) {
-        floatingDragMovedRef.current = true;
-      }
-      setFloatingPosition(
-        clampFloatingPosition(event.clientX - drag.offsetX, event.clientY - drag.offsetY, drag.width, drag.height),
-      );
-    },
-    [clampFloatingPosition],
-  );
-
-  const endFloatingDrag = useCallback((event: ReactPointerEvent<HTMLElement>) => {
-    const drag = floatingDragRef.current;
-    if (!drag || drag.pointerId !== event.pointerId) return;
-    floatingDragRef.current = null;
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId);
-    }
-  }, []);
-
-  const floatingPositionStyle = useMemo<CSSProperties | undefined>(() => {
-    if (!floatingPosition) return undefined;
-    return { left: floatingPosition.x, top: floatingPosition.y };
-  }, [floatingPosition]);
-
-  const handleFloatingButtonClick = useCallback(
-    (event: ReactMouseEvent<HTMLButtonElement>) => {
-      if (floatingDragMovedRef.current) {
-        floatingDragMovedRef.current = false;
-        event.preventDefault();
-        event.stopPropagation();
-        return;
-      }
-      openChatWindow();
-    },
-    [openChatWindow],
-  );
-
+  // R7: "+" always starts fresh, about the screen she was opened from.
   const handleRestart = useCallback(async () => {
-    const params = new URLSearchParams();
-    if (effectiveConnectionId) params.set("connectionId", effectiveConnectionId);
-    const query = params.toString();
-    const chat = await api.post<Chat>(`/chats/internal/professor-mari/restart${query ? `?${query}` : ""}`);
-    setActiveChatId(chat.id);
-    qc.setQueryData(chatKeys.detail(chat.id), chat);
+    const chat = await startMariThread(arrivalThreadRef.current ?? null);
     await api.post("/professor-mari/workspace/reset", { clearHistory: true });
     setMessages([]);
     setLoadedMessagesChatId(chat.id);
     setDraft("");
     clearMariChips();
     setWorkspaceActive(false);
-    setWorkspaceActivity(null);
     useChatStore.getState().clearStreamBuffer(chat.id);
     useChatStore.getState().clearThinkingBuffer(chat.id);
     useChatStore.getState().setAbortController(chat.id, null);
     useChatStore.getState().setMariPhase(chat.id, "idle");
     setWorkspaceTimeline([]);
+    setWorkspaceRunClock(null);
     if (chatHistoryOpen) await loadChatHistory();
     await qc.invalidateQueries({ queryKey: chatKeys.messages(chat.id) });
     toast.success(localizeUi("ui.chat.homeprofessormarichat.professorMariSPreviousChatWasSaved"));
-  }, [
-    chatHistoryOpen,
-    clearMariChips,
-    effectiveConnectionId,
-    loadChatHistory,
-    qc,
-    setActiveChatId,
-    setDraft,
-    localizeUi,
-  ]);
+  }, [chatHistoryOpen, clearMariChips, loadChatHistory, qc, setDraft, startMariThread, localizeUi]);
 
   const guidedPlan = professorMariSuggestionsEnabled && mariPlanChatId === chatId ? mariPlan : null;
   const guidedPlanStep = guidedPlan ? (guidedPlan[mariPlanCursor] ?? null) : null;
@@ -4228,44 +1956,26 @@ export function HomeProfessorMariChat({
   // silently done nothing - the visible half of the defer-and-approve
   // mechanism read as a failure of it.
   const chipRowAwaitsApproval = chipRowChips.some(isMariHeldChangeApprovalChip);
-  const chipRowHint = guidedPlanStep
-    ? `${guidedPlanStep.question} Suggestions only; you can type your own answer.`
-    : chipRowAwaitsApproval
-      ? localizeUi("ui.chat.homeprofessormarichat.awaitingApprovalHint")
-      : chipRowChips.length > 0
-        ? "Suggestions only. Pick one, or type your own."
-        : null;
-  const showSuggestionLoading =
-    professorMariSuggestionsEnabled &&
-    chipRowChips.length === 0 &&
-    workspaceActivity?.toLocaleLowerCase().includes("suggestion") === true;
-
-  function handleSuggestionSelect(chip: MariSuggestionChip) {
-    if (chip.id === MARI_AUTHORIZATION_ACCEPT_CHIP.id || chip.id === MARI_AUTHORIZATION_DECLINE_CHIP.id) {
-      void handleSubmit(chip.prompt);
-      return;
-    }
-    if (guidedPlanStep) {
-      const result = recordMariPlanAnswer(guidedPlanStep.fieldKey, chip.prompt);
-      if (result === "complete") {
-        const answers = useAgentStore.getState().mariPlanAnswers;
-        const summary = Object.entries(answers)
-          .map(([key, value]) => `${key}: ${value}`)
-          .join("; ");
-        clearMariPlan();
-        setDraft(`Create it - ${summary}`);
-        focusComposer();
-      }
-      return;
-    }
-    setDraft((current) => (current.trim() ? `${current.trimEnd()} ${chip.prompt}` : chip.prompt));
-    focusComposer();
-  }
+  // Slice 71 (N7): a held change is a "Needs you" card under her answer that says what Accept does and
+  // carries Accept / Don't apply itself, so its chip row, hint line and status words go.
+  const heldChangeCard = chipRowAwaitsApproval && !guidedPlanStep;
+  const suggestionQuestion = guidedPlanStep
+    ? guidedPlanStep.question
+    : chipRowChips.length > 0
+      ? messages.length === 0
+        ? localizeUi("ui.chat.homeprofessormarichat.suggestions.start")
+        : latestActionResults.length > 0
+          ? localizeUi("ui.chat.homeprofessormarichat.suggestions.afterChange")
+          : localizeUi("ui.chat.homeprofessormarichat.suggestions.next")
+      : null;
+  const suggestionsSuppressed = !["empty", "history", "completed"].includes(mariPresentationState);
+  const showSuggestionPrompt =
+    !heldChangeCard && !suggestionsSuppressed && Boolean(suggestionQuestion) && chipRowChips.length > 0;
+  // M5b: plain next steps are cards under the turn; a plan step or a held change keeps its answer chips by the composer.
+  const showNextStepCards = showSuggestionPrompt && messages.length > 0 && !guidedPlanStep && !chipRowAwaitsApproval;
 
   const runRestart = useCallback(async () => {
     if (isBusy) return;
-    // Before the awaits: a failed restart must not strand the dropdown open.
-    setLibraryMenuOpen(false);
     setSending(true);
     try {
       await handleRestart();
@@ -4278,94 +1988,23 @@ export function HomeProfessorMariChat({
     }
   }, [clearMariPlan, handleRestart, isBusy, localizeUi]);
 
-  const keepWorkspaceChange = useCallback(
-    async (id: string, opts?: { enable?: boolean }) => {
-      if (workspaceReviewActionId) return;
-      setWorkspaceReviewActionId(id);
-      try {
-        // #4851 "Keep & Enable": pass { enable: true } so a kept memory insert is switched on.
-        const result = await api.post<WorkspaceApprovalResponse>(
-          `/professor-mari/workspace/approvals/${id}/approve`,
-          opts?.enable ? { enable: true } : undefined,
-        );
-        await refreshWorkspaceStatus().catch(() => undefined);
-        // Refresh the Memories panel after any keep so a kept memory (enabled or not) shows up.
-        await loadMemories().catch(() => undefined);
-        if (result.outcome === "applied") {
-          await invalidateWorkspaceData();
-          toast.success(
-            result.approval?.kind === "dependency_install"
-              ? localizeUi("ui.chat.homeprofessormarichat.installedValue1Value2", {
-                  value1: result.approval.packageName,
-                  value2: result.approval.version,
-                })
-              : localizeUi("ui.chat.homeprofessormarichat.appliedProfessorMariSSensitiveFileChange"),
-          );
-        } else if (result.history?.status === "kept") {
-          toast.success(localizeUi("ui.chat.homeprofessormarichat.keptMariSWorkspaceChange"));
-        } else {
-          toast.error(
-            result.outcome === "state_changed"
-              ? localizeUi("ui.chat.homeprofessormarichat.theWorkspaceChangedAfterProfessorMariStagedThisProposal")
-              : localizeUi("ui.chat.homeprofessormarichat.professorMariCouldNotApplyThatWorkspaceChange"),
-            { description: result.error ?? undefined, duration: 12_000 },
-          );
-        }
-      } catch (error) {
-        console.error("[Professor Mari] Failed to keep workspace change", error);
-        toast.error(localizeUi("ui.chat.homeprofessormarichat.professorMariCouldNotKeepThatWorkspaceChange"), {
-          description: describeProfessorMariError(error),
-          duration: 12_000,
-        });
-      } finally {
-        setWorkspaceReviewActionId((current) => (current === id ? null : current));
-      }
-    },
-    [invalidateWorkspaceData, loadMemories, refreshWorkspaceStatus, workspaceReviewActionId, localizeUi],
-  );
-
-  const restoreWorkspaceChange = useCallback(
-    async (id: string) => {
-      if (workspaceReviewActionId) return;
-      setWorkspaceReviewActionId(id);
-      try {
-        const result = await api.post<WorkspaceApprovalResponse>(`/professor-mari/workspace/approvals/${id}/reject`);
-        await refreshWorkspaceStatus().catch(() => undefined);
-        // Refresh the Memories panel after a restore: reverting a Mari memory insert deletes the
-        // row, so the panel would otherwise keep rendering a stale client-side entry.
-        await loadMemories().catch(() => undefined);
-        if (result.outcome === "discarded") {
-          toast.success(localizeUi("ui.chat.homeprofessormarichat.discardedProfessorMariSProposedChange"));
-        } else if (result.history?.status === "restored") {
-          await invalidateWorkspaceData();
-          toast.success(localizeUi("ui.chat.homeprofessormarichat.restoredThePreviousAppDataSnapshot"));
-        } else {
-          toast.error(
-            result.outcome === "state_changed"
-              ? localizeUi("ui.chat.homeprofessormarichat.theWorkspaceChangedAfterProfessorMariStagedThisProposal")
-              : localizeUi("ui.chat.homeprofessormarichat.professorMariCouldNotRestoreThatWorkspaceChange"),
-            { description: result.error ?? undefined, duration: 12_000 },
-          );
-        }
-      } catch (error) {
-        console.error("[Professor Mari] Failed to restore workspace change", error);
-        toast.error(localizeUi("ui.chat.homeprofessormarichat.professorMariCouldNotRestoreThatWorkspaceChange"), {
-          description: describeProfessorMariError(error),
-          duration: 12_000,
-        });
-      } finally {
-        setWorkspaceReviewActionId((current) => (current === id ? null : current));
-      }
-    },
-    [invalidateWorkspaceData, loadMemories, refreshWorkspaceStatus, workspaceReviewActionId, localizeUi],
-  );
+  // Keep and restore live in a shared hook so the omnibar's approval rows do the
+  // same thing, with the same toasts, as this pane.
+  const {
+    keepApproval: keepWorkspaceChange,
+    restoreApproval: restoreWorkspaceChange,
+    pendingId: sharedApprovalPendingId,
+  } = useMariApprovals({ onRefresh: refreshApprovalSurfaces });
+  // Single-row reject still runs from this component, so the busy state is the
+  // union of both in-flight ids.
+  const approvalBusyId = sharedApprovalPendingId ?? workspaceReviewActionId;
 
   // #4931: reject a single reviewed row (revert just that lorebook entry). Mirrors
   // restoreWorkspaceChange but posts the row's diffPreview index + identity tuple; the server reverts
   // only that row and either shrinks the pending card or resolves it.
   const rejectWorkspaceRows = useCallback(
     async (id: string, rows: Array<{ index: number; table: string; id: string; action: string }>): Promise<boolean> => {
-      if (workspaceReviewActionId) return false;
+      if (approvalBusyId) return false;
       setWorkspaceReviewActionId(id);
       try {
         const result = await api.post<{
@@ -4407,7 +2046,7 @@ export function HomeProfessorMariChat({
         setWorkspaceReviewActionId((current) => (current === id ? null : current));
       }
     },
-    [invalidateWorkspaceData, loadMemories, refreshWorkspaceStatus, workspaceReviewActionId, localizeUi],
+    [approvalBusyId, invalidateWorkspaceData, loadMemories, refreshWorkspaceStatus, localizeUi],
   );
 
   // #4931: fetch the synthetic Peek-Prompt render of one reviewed character/preset row. Read-only,
@@ -4431,457 +2070,84 @@ export function HomeProfessorMariChat({
   );
 
   const stopWorkspace = useCallback(async () => {
+    setCancelledChatId(chatId);
     workspaceAbortRef.current?.abort();
+    clearMariChips();
+    clearMariPlan();
     try {
       await api.post("/professor-mari/workspace/abort");
     } catch (error) {
+      setCancelledChatId(null);
       console.error("[Professor Mari] Failed to stop workspace task", error);
       toast.error(localizeUi("ui.chat.homeprofessormarichat.professorMariCouldNotStopTheWorkspaceTask"), {
         description: describeProfessorMariError(error),
         duration: 12_000,
       });
     }
-  }, [localizeUi]);
+  }, [chatId, clearMariChips, clearMariPlan, localizeUi]);
 
-  const createSkillFromContent = useCallback(
-    async (input: { content: string; fileName?: string; name?: string; description?: string }) => {
-      setSkillsSaving(true);
-      try {
-        const result = await api.post<WorkspaceSkillMutationResponse>("/professor-mari/workspace/skills", {
-          ...input,
-          enabled: true,
-        });
-        await loadSkills();
-        setSelectedSkillId(result.skill.id);
-        setSkillsMenuOpen(true);
-        await refreshWorkspaceStatus().catch(() => undefined);
-        toast.success(localizeUi("ui.chat.homeprofessormarichat.professorMariSkillAdded"));
-      } finally {
-        setSkillsSaving(false);
-      }
-    },
-    [loadSkills, refreshWorkspaceStatus, localizeUi],
-  );
+  const {
+    handleNewSkill,
+    handleSkillUploadClick,
+    handleSkillFileChange,
+    handleSaveSkill,
+    handleToggleSkill,
+    handleDeleteSkill,
+    handleNewMemory,
+    handleMemoryUploadClick,
+    handleMemoryFileChange,
+    handleSaveMemory,
+    handleToggleMemoryEnabled,
+    handleToggleMemoryPersistent,
+    handleDeleteMemory,
+  } = useMariSkillMemoryActions({
+    loadMemories,
+    loadSkills,
+    memories,
+    memoryDraft,
+    memoryFileInputRef,
+    refreshWorkspaceStatus,
+    selectedMemory,
+    selectedSkill,
+    setMemoriesSaving,
+    setSelectedMemoryId,
+    setSelectedSkillId,
+    setSkillsSaving,
+    setWorkspaceDestination,
+    skillDraft,
+    skillFileInputRef,
+    skills,
+  });
 
-  const handleNewSkill = useCallback(() => {
-    void createSkillFromContent({
-      name: "custom-skill",
-      description: "User-defined Professor Mari skill.",
-      content: NEW_SKILL_CONTENT,
-    }).catch((error) => {
-      console.error("[Professor Mari] Failed to create skill", error);
-      toast.error(localizeUi("ui.chat.homeprofessormarichat.professorMariCouldNotAddThatSkill"));
-    });
-  }, [createSkillFromContent, localizeUi]);
-
-  const handleSkillUploadClick = useCallback(() => {
-    skillFileInputRef.current?.click();
-  }, []);
-
-  const handleSkillFileChange = useCallback(
-    (event: ChangeEvent<HTMLInputElement>) => {
-      const file = event.currentTarget.files?.[0] ?? null;
-      event.currentTarget.value = "";
-      if (!file) return;
-      void file
-        .text()
-        .then((content) => createSkillFromContent({ content, fileName: file.name }))
-        .catch((error) => {
-          console.error("[Professor Mari] Failed to upload skill", error);
-          toast.error(localizeUi("ui.chat.homeprofessormarichat.professorMariCouldNotUploadThatSkill"));
-        });
-    },
-    [createSkillFromContent, localizeUi],
-  );
-
-  const handleSaveSkill = useCallback(async () => {
-    if (!selectedSkill) return;
-    setSkillsSaving(true);
-    try {
-      const result = await api.put<WorkspaceSkillMutationResponse>(
-        `/professor-mari/workspace/skills/${selectedSkill.id}`,
-        {
-          name: skillDraft.name,
-          description: skillDraft.description,
-          content: skillDraft.content,
-        },
-      );
-      await loadSkills();
-      setSelectedSkillId(result.skill.id);
-      await refreshWorkspaceStatus().catch(() => undefined);
-      toast.success(localizeUi("ui.chat.homeprofessormarichat.professorMariSkillSaved"));
-    } catch (error) {
-      console.error("[Professor Mari] Failed to save skill", error);
-      toast.error(localizeUi("ui.chat.homeprofessormarichat.professorMariCouldNotSaveThatSkill"));
-    } finally {
-      setSkillsSaving(false);
-    }
-  }, [loadSkills, refreshWorkspaceStatus, selectedSkill, skillDraft, localizeUi]);
-
-  const handleToggleSkill = useCallback(
-    async (skill: MariWorkspaceSkillDetail) => {
-      setSkillsSaving(true);
-      try {
-        await api.put<WorkspaceSkillMutationResponse>(`/professor-mari/workspace/skills/${skill.id}`, {
-          enabled: !skill.enabled,
-        });
-        await loadSkills();
-        await refreshWorkspaceStatus().catch(() => undefined);
-      } catch (error) {
-        console.error("[Professor Mari] Failed to toggle skill", error);
-        toast.error(localizeUi("ui.chat.homeprofessormarichat.professorMariCouldNotUpdateThatSkill"));
-      } finally {
-        setSkillsSaving(false);
-      }
-    },
-    [loadSkills, refreshWorkspaceStatus, localizeUi],
-  );
-
-  const handleDeleteSkill = useCallback(
-    async (id: string) => {
-      const skill = skills.find((entry) => entry.id === id);
-      if (!skill) return;
-      if (!window.confirm(localizeUi("ui.chat.homeprofessormarichat.deleteValue1", { value1: skill.name }))) return;
-      setSkillsSaving(true);
-      try {
-        await api.delete(`/professor-mari/workspace/skills/${id}`);
-        setSelectedSkillId((current) => (current === id ? null : current));
-        await loadSkills();
-        await refreshWorkspaceStatus().catch(() => undefined);
-        toast.success(localizeUi("ui.chat.homeprofessormarichat.professorMariSkillDeleted"));
-      } catch (error) {
-        console.error("[Professor Mari] Failed to delete skill", error);
-        toast.error(localizeUi("ui.chat.homeprofessormarichat.professorMariCouldNotDeleteThatSkill"));
-      } finally {
-        setSkillsSaving(false);
-      }
-    },
-    [loadSkills, refreshWorkspaceStatus, skills, localizeUi],
-  );
-
-  // #4851: Memories panel handlers. Direct writes to /instructions (reset-free); new
-  // memories default disabled (the user enables them from the row switch).
-  const createMemory = useCallback(
-    async (input: { content: string; name?: string; description?: string }) => {
-      setMemoriesSaving(true);
-      try {
-        const result = await api.post<MariInstructionMutationResponse>("/professor-mari/workspace/instructions", {
-          name: input.name?.trim() || "New memory",
-          description: input.description ?? "",
-          content: input.content,
-        });
-        await loadMemories();
-        setSelectedMemoryId(result.instruction.id);
-        setMemoriesMenuOpen(true);
-        toast.success(localizeUi("ui.chat.homeprofessormarichat.professorMariMemoryAdded"));
-      } finally {
-        setMemoriesSaving(false);
-      }
-    },
-    [loadMemories, localizeUi],
-  );
-
-  const handleNewMemory = useCallback(() => {
-    void createMemory({
-      name: "New memory",
-      content: "Describe a preference or instruction for Professor Mari.",
-    }).catch((error) => {
-      console.error("[Professor Mari] Failed to create memory", error);
-      toast.error(localizeUi("ui.chat.homeprofessormarichat.professorMariCouldNotAddThatMemory"));
-    });
-  }, [createMemory, localizeUi]);
-
-  const handleMemoryUploadClick = useCallback(() => {
-    memoryFileInputRef.current?.click();
-  }, []);
-
-  const handleMemoryFileChange = useCallback(
-    (event: ChangeEvent<HTMLInputElement>) => {
-      const file = event.currentTarget.files?.[0] ?? null;
-      event.currentTarget.value = "";
-      if (!file) return;
-      // A memory's content is capped server-side at 20k CHARS. UTF-8 chars are up to 4 bytes, so use a
-      // generous byte ceiling just to avoid reading a huge file, then validate the exact character
-      // length after reading (so a valid multibyte memory, e.g. emoji, is not wrongly rejected).
-      const MEMORY_CONTENT_CHAR_CAP = 20_000;
-      if (file.size > 4 * MEMORY_CONTENT_CHAR_CAP) {
-        toast.error(localizeUi("ui.chat.homeprofessormarichat.thatMemoryFileIsTooLarge"));
-        return;
-      }
-      const baseName = file.name
-        .replace(/\.[^.]+$/, "")
-        .replace(/[-_]+/g, " ")
-        .trim();
-      void file
-        .text()
-        .then((content) => {
-          if (content.trim().length > MEMORY_CONTENT_CHAR_CAP) {
-            toast.error(localizeUi("ui.chat.homeprofessormarichat.thatMemoryFileIsTooLarge"));
-            return undefined;
-          }
-          return createMemory({ content, name: baseName || undefined });
-        })
-        .catch((error) => {
-          console.error("[Professor Mari] Failed to upload memory", error);
-          toast.error(localizeUi("ui.chat.homeprofessormarichat.professorMariCouldNotUploadThatMemory"));
-        });
-    },
-    [createMemory, localizeUi],
-  );
-
-  const handleSaveMemory = useCallback(async () => {
-    if (!selectedMemory) return;
-    setMemoriesSaving(true);
-    try {
-      const result = await api.put<MariInstructionMutationResponse>(
-        `/professor-mari/workspace/instructions/${selectedMemory.id}`,
-        { name: memoryDraft.name, description: memoryDraft.description, content: memoryDraft.content },
-      );
-      await loadMemories();
-      setSelectedMemoryId(result.instruction.id);
-      toast.success(localizeUi("ui.chat.homeprofessormarichat.professorMariMemorySaved"));
-    } catch (error) {
-      console.error("[Professor Mari] Failed to save memory", error);
-      toast.error(localizeUi("ui.chat.homeprofessormarichat.professorMariCouldNotSaveThatMemory"));
-    } finally {
-      setMemoriesSaving(false);
-    }
-  }, [loadMemories, selectedMemory, memoryDraft, localizeUi]);
-
-  const patchMemoryFlag = useCallback(
-    async (memory: MariInstructionDetail, patch: { enabled?: boolean; persistent?: boolean }) => {
-      setMemoriesSaving(true);
-      try {
-        await api.put<MariInstructionMutationResponse>(`/professor-mari/workspace/instructions/${memory.id}`, patch);
-        await loadMemories();
-      } catch (error) {
-        console.error("[Professor Mari] Failed to update memory", error);
-        toast.error(localizeUi("ui.chat.homeprofessormarichat.professorMariCouldNotUpdateThatMemory"));
-      } finally {
-        setMemoriesSaving(false);
-      }
-    },
-    [loadMemories, localizeUi],
-  );
-
-  const handleToggleMemoryEnabled = useCallback(
-    (memory: MariInstructionDetail) => void patchMemoryFlag(memory, { enabled: !memory.enabled }),
-    [patchMemoryFlag],
-  );
-
-  const handleToggleMemoryPersistent = useCallback(
-    (memory: MariInstructionDetail) => void patchMemoryFlag(memory, { persistent: !memory.persistent }),
-    [patchMemoryFlag],
-  );
-
-  const handleDeleteMemory = useCallback(
-    async (id: string) => {
-      const memory = memories.find((entry) => entry.id === id);
-      if (!memory) return;
-      if (!window.confirm(localizeUi("ui.chat.homeprofessormarichat.deleteValue1", { value1: memory.name }))) return;
-      setMemoriesSaving(true);
-      try {
-        await api.delete(`/professor-mari/workspace/instructions/${id}`);
-        setSelectedMemoryId((current) => (current === id ? null : current));
-        await loadMemories();
-        toast.success(localizeUi("ui.chat.homeprofessormarichat.professorMariMemoryDeleted"));
-      } catch (error) {
-        console.error("[Professor Mari] Failed to delete memory", error);
-        toast.error(localizeUi("ui.chat.homeprofessormarichat.professorMariCouldNotDeleteThatMemory"));
-      } finally {
-        setMemoriesSaving(false);
-      }
-    },
-    [loadMemories, memories, localizeUi],
-  );
-
-  const handleSelectProfessorChat = useCallback(
-    async (id: string) => {
-      if (isBusy) {
-        toast.info(localizeUi("ui.chat.homeprofessormarichat.waitForProfessorMariToFinishBeforeSwitchingChats"));
-        return;
-      }
-      try {
-        const chat = await api.post<Chat>(`/chats/internal/professor-mari/chats/${id}/activate`);
-        setActiveChatId(chat.id);
-        qc.setQueryData(chatKeys.detail(chat.id), chat);
-        setLibraryMenuOpen(false);
-        setSkillsMenuOpen(false);
-        setMemoriesMenuOpen(false);
-        setChatHistoryOpen(false);
-        setWorkspaceTimeline([]);
-        useChatStore.getState().clearStreamBuffer(chat.id);
-        useChatStore.getState().clearThinkingBuffer(chat.id);
-        await loadMessages(chat.id);
-        await loadChatHistory();
-      } catch (error) {
-        console.error("[Professor Mari] Failed to open previous chat", error);
-        toast.error(localizeUi("ui.chat.homeprofessormarichat.professorMariCouldNotOpenThatChat"), {
-          description: describeProfessorMariError(error),
-          duration: 12_000,
-        });
-      }
-    },
-    [isBusy, loadChatHistory, loadMessages, qc, setActiveChatId, localizeUi],
-  );
-
-  const handleRenameProfessorChat = useCallback(
-    async (id: string) => {
-      const name = renameDraft.trim();
-      if (!name) return;
-      try {
-        await api.patch(`/chats/internal/professor-mari/chats/${id}`, { name });
-        setRenamingChatId(null);
-        setRenameDraft("");
-        await Promise.all([
-          loadChatHistory(),
-          qc.invalidateQueries({ queryKey: chatKeys.detail(id) }),
-          qc.invalidateQueries({ queryKey: chatKeys.list() }),
-          qc.invalidateQueries({ queryKey: homeFeedKeys.all }),
-        ]);
-      } catch (error) {
-        console.error("[Professor Mari] Failed to rename chat", error);
-        toast.error(localizeUi("ui.chat.homeprofessormarichat.professorMariCouldNotRenameThatChat"), {
-          description: describeProfessorMariError(error),
-          duration: 12_000,
-        });
-      }
-    },
-    [loadChatHistory, qc, renameDraft, localizeUi],
-  );
-
-  const handleTitleCommand = useCallback(
-    async (messageText: string) => {
-      const match = /^\/title(?:\s+(.*))?$/iu.exec(messageText);
-      if (!match) return false;
-      const name = match[1]?.trim() ?? "";
-      if (!name) {
-        toast.info(localizeUi("ui.chat.homeprofessormarichat.titleCommandUsage"));
-        return true;
-      }
-      if (!chatId) {
-        toast.error(localizeUi("ui.chat.homeprofessormarichat.titleCommandNoActiveChat"));
-        return true;
-      }
-      try {
-        await api.patch(`/chats/internal/professor-mari/chats/${chatId}`, { name });
-        setDraft("");
-        await Promise.all([
-          loadChatHistory(),
-          qc.invalidateQueries({ queryKey: chatKeys.detail(chatId) }),
-          qc.invalidateQueries({ queryKey: chatKeys.list() }),
-          qc.invalidateQueries({ queryKey: homeFeedKeys.all }),
-        ]);
-        toast.success(localizeUi("ui.chat.homeprofessormarichat.titleCommandRenamed", { name }));
-      } catch (error) {
-        console.error("[Professor Mari] Failed to rename chat with /title", error);
-        toast.error(localizeUi("ui.chat.homeprofessormarichat.professorMariCouldNotRenameThatChat"), {
-          description: describeProfessorMariError(error),
-          duration: 12_000,
-        });
-      }
-      return true;
-    },
-    [chatId, loadChatHistory, qc, setDraft, localizeUi],
-  );
-
-  const handleDeleteProfessorChat = useCallback(
-    async (id: string) => {
-      const item = chatHistory.find((chat) => chat.id === id);
-      if (!item) return;
-      const confirmed = await showConfirmDialog({
-        title: localizeUi("ui.chat.homeprofessormarichat.deleteValue1", {
-          value1: item.name || localizeUi("ui.chat.homeprofessormarichat.thisProfessorMariChat"),
-        }),
-        message: localizeUi("ui.chat.homeprofessormarichat.deleteSelectedChatsConfirmation", { count: 1 }),
-        confirmLabel: localizeUi("lorebook.editor.batch.delete"),
-        tone: "destructive",
-      });
-      if (!confirmed) return;
-      try {
-        await api.delete(`/chats/internal/professor-mari/chats/${id}`);
-        if (id === chatId) {
-          const chat = await ensureProfessorMariChat(effectiveConnectionId);
-          setActiveChatId(chat.id);
-          await loadMessages(chat.id);
-        }
-        await loadChatHistory();
-      } catch (error) {
-        console.error("[Professor Mari] Failed to delete chat", error);
-        toast.error(localizeUi("ui.chat.homeprofessormarichat.professorMariCouldNotDeleteThatChat"), {
-          description: describeProfessorMariError(error),
-          duration: 12_000,
-        });
-      }
-    },
-    [
-      chatHistory,
-      chatId,
-      effectiveConnectionId,
-      ensureProfessorMariChat,
-      loadChatHistory,
-      loadMessages,
-      setActiveChatId,
-      localizeUi,
-    ],
-  );
-
-  const toggleProfessorChatSelection = useCallback((id: string) => {
-    setSelectedChatHistoryIds((current) => {
-      const next = new Set(current);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }, []);
-
-  const handleBulkDeleteProfessorChats = useCallback(async () => {
-    if (selectedChatHistoryIds.size === 0) return;
-    const confirmed = await showConfirmDialog({
-      title: localizeUi("ui.chat.homeprofessormarichat.deleteSelectedChats"),
-      message: localizeUi("ui.chat.homeprofessormarichat.deleteSelectedChatsConfirmation", {
-        count: selectedChatHistoryIds.size,
-      }),
-      confirmLabel: localizeUi("lorebook.editor.batch.delete"),
-      tone: "destructive",
-    });
-    if (!confirmed) return;
-
-    const selectedIds = [...selectedChatHistoryIds];
-    try {
-      const results = await Promise.allSettled(
-        selectedIds.map((id) => api.delete(`/chats/internal/professor-mari/chats/${id}`)),
-      );
-      const deletedIds = new Set(selectedIds.filter((_, index) => results[index]?.status === "fulfilled"));
-      const failedDeletion = results.find((result) => result.status === "rejected");
-      setChatHistorySelectionMode(false);
-      setSelectedChatHistoryIds(new Set());
-      if (chatId && deletedIds.has(chatId)) {
-        const chat = await ensureProfessorMariChat(effectiveConnectionId);
-        setActiveChatId(chat.id);
-        await loadMessages(chat.id);
-      }
-      await loadChatHistory();
-      if (failedDeletion?.status === "rejected") throw failedDeletion.reason;
-    } catch (error) {
-      console.error("[Professor Mari] Failed to delete selected chats", error);
-      await loadChatHistory().catch(() => undefined);
-      toast.error(localizeUi("ui.chat.homeprofessormarichat.professorMariCouldNotDeleteSelectedChats"), {
-        description: describeProfessorMariError(error),
-        duration: 12_000,
-      });
-    }
-  }, [
+  const {
+    handleSelectProfessorChat,
+    handleRenameProfessorChat,
+    handleTitleCommand,
+    handleDeleteProfessorChat,
+    toggleProfessorChatSelection,
+    handleBulkDeleteProfessorChats,
+  } = useMariChatHistoryActions({
+    chatHistory,
     chatId,
     effectiveConnectionId,
     ensureProfessorMariChat,
+    isBusy,
     loadChatHistory,
     loadMessages,
-    setActiveChatId,
-    localizeUi,
+    openChatId,
+    renameDraft,
+    requestedChatIdRef,
     selectedChatHistoryIds,
-  ]);
-
+    setActiveChatId,
+    setChatHistorySelectionMode,
+    setDraft,
+    setRenameDraft,
+    setRenamingChatId,
+    setSelectedChatHistoryIds,
+    setWorkspaceDestination,
+    setWorkspaceRunClock,
+    setWorkspaceTimeline,
+  });
   const handleAttachmentUpload = useCallback(
     async (files: FileList | null) => {
       const acceptedFiles = Array.from(files ?? []).filter((file) => {
@@ -4942,367 +2208,70 @@ export function HomeProfessorMariChat({
     [localizeUi],
   );
 
-  const sendWorkspaceMessage = useCallback(
-    async (
-      chat: Pick<Chat, "id">,
-      text: string,
-      attachments: ProfessorMariAttachment[] = [],
-      existingUserMessageId?: string,
-    ) => {
-      // A mode change immediately before send must not race its PUTs: the run
-      // resolves the mode server-side, so the WHOLE shared write chain - the
-      // per-chat picker AND Settings' global default - lands first.
-      await awaitMariPermissionsModeWrites();
-      const runId = ++workspaceRunIdRef.current;
-      const controller = new AbortController();
-      workspaceAbortRef.current = controller;
-      workspaceTextThrottle.cancel();
-      pendingWorkspaceTextRef.current = "";
-      setWorkspaceActive(true);
-      setWorkspaceActivity("Thinking...");
-      setWorkspaceTimeline([]);
-      setMariChips(chat.id, []);
-      useChatStore.getState().setAbortController(chat.id, controller);
-      useChatStore.getState().clearStreamBuffer(chat.id);
-      useChatStore.getState().clearThinkingBuffer(chat.id);
-      useChatStore.getState().setMariPhase(chat.id, "thinking");
-      let received = false;
-      // Mirror use-generate's backgrounding bookkeeping: Android browsers tear
-      // down a hidden tab's connection with a plain TypeError, and the shared
-      // classifier needs to know the page was hidden to call that passive.
-      let pageWasHiddenDuringStream = typeof document !== "undefined" && document.visibilityState !== "visible";
-      const markPageHidden = () => {
-        pageWasHiddenDuringStream = true;
-      };
-      const recordBackgroundedStream = () => {
-        if (document.visibilityState !== "visible") markPageHidden();
-      };
-      const canTrackVisibility = typeof document !== "undefined" && typeof window !== "undefined";
-      if (canTrackVisibility) {
-        document.addEventListener("visibilitychange", recordBackgroundedStream);
-        window.addEventListener("pagehide", markPageHidden);
-      }
-      try {
-        for await (const event of api.streamEvents(
-          "/professor-mari/workspace/prompt",
-          {
-            chatId: chat.id,
-            message: text,
-            connectionId: effectiveConnectionId,
-            debugMode: useUIStore.getState().debugMode,
-            attachments,
-            existingUserMessageId,
-          },
-          controller.signal,
-          // Backgrounding leaves the socket half-open; detach on resume. The
-          // server keeps the run going and persists it, so we reload the result
-          // (and pending approvals) on return instead of hanging.
-          { disconnectOnResume: true },
-        )) {
-          if (event.type === "token" && typeof event.data === "string") {
-            received = true;
-            setWorkspaceActivity(null);
-            pendingWorkspaceTextRef.current += event.data;
-            workspaceTextThrottle.call(undefined);
-            useChatStore.getState().appendStreamBuffer(event.data, chat.id);
-            continue;
-          }
-          workspaceTextThrottle.flush();
-          if (event.type === "thinking" && typeof event.data === "string") {
-            setWorkspaceTimeline((current) => appendThinkingTimeline(current, event.data as string));
-            useChatStore.getState().appendThinkingBuffer(event.data, chat.id);
-          } else if (event.type === "status") {
-            const data = asRecord(event.data);
-            const content =
-              typeof event.data === "string"
-                ? event.data
-                : typeof data?.content === "string"
-                  ? data.content
-                  : "Working...";
-            setWorkspaceTimeline((current) => appendStatusTimeline(current, content));
-            setWorkspaceActivity(content);
-          } else if (event.type === "tool_start") {
-            const data = asRecord(event.data);
-            const name = typeof data?.name === "string" ? data.name : "tool";
-            const toolCall: WorkspaceToolCall = {
-              id: getToolCallId(data, name),
-              name,
-              status: "running",
-              input: data?.input,
-              detail: previewValue(data?.input),
-              output: null,
-              updatedAt: Date.now(),
-            };
-            setWorkspaceTimeline((current) => upsertToolTimeline(current, toolCall));
-            setWorkspaceActivity(`Using ${formatToolName(name)}...`);
-            useChatStore.getState().setMariPhase(chat.id, "updating");
-          } else if (event.type === "tool_update") {
-            const data = asRecord(event.data);
-            const name = typeof data?.name === "string" ? data.name : "tool";
-            const toolCall: WorkspaceToolCall = {
-              id: getToolCallId(data, name),
-              name,
-              status: "running",
-              detail: null,
-              output: outputValue(data?.output),
-              updatedAt: Date.now(),
-            };
-            setWorkspaceTimeline((current) => upsertToolTimeline(current, toolCall));
-          } else if (event.type === "tool_end") {
-            const data = asRecord(event.data);
-            const name = typeof data?.name === "string" ? data.name : "tool";
-            const isError = data?.isError === true;
-            const toolCall: WorkspaceToolCall = {
-              id: getToolCallId(data, name),
-              name,
-              status: isError ? "error" : "done",
-              detail: null,
-              output: outputValue(data?.output),
-              updatedAt: Date.now(),
-            };
-            setWorkspaceTimeline((current) => upsertToolTimeline(current, toolCall));
-            setWorkspaceActivity(isError ? "Tool needs attention" : "Thinking...");
-          } else if (event.type === "suggestions") {
-            const chips = Array.isArray(event.data) ? (event.data as MariSuggestionChip[]) : [];
-            if (
-              useUIStore.getState().professorMariSuggestionsEnabled ||
-              chips.some((chip) => chip.id === "authorization-accept")
-            ) {
-              setMariChips(chat.id, chips);
-            }
-          } else if (event.type === "plan") {
-            if (useUIStore.getState().professorMariSuggestionsEnabled) {
-              const steps = Array.isArray(event.data) ? (event.data as MariGuidedPlanStep[]) : [];
-              if (steps.length > 0) setMariPlan(chat.id, steps);
-              else clearMariPlan();
-            }
-          } else if (event.type === "done") {
-            received = true;
-          } else if (event.type === "error") {
-            // The SERVER reported this over a live stream — the run itself
-            // failed. It must never be mistaken for a transport death below.
-            throw new MariWorkspaceRunError(
-              typeof event.data === "string" ? event.data : "Workspace generation failed",
-            );
-          }
-        }
-        if (!received && !controller.signal.aborted) {
-          // The stream closed CLEANLY before any reply event — mobile browsers
-          // can shut a backgrounded socket down without an error while the
-          // server keeps running (#5719). If the status endpoint confirms a
-          // live run, this was a passive disconnect: wait it out and let the
-          // caller reload the persisted reply instead of toasting "no reply".
-          setWorkspaceActivity("Finishing in the background…");
-          received = await waitForWorkspaceRunToSettle(effectiveConnectionId, controller.signal);
-        }
-      } catch (error) {
-        if (error instanceof MariWorkspaceRunError) throw error;
-        if (!isPassiveStreamDisconnect(error, pageWasHiddenDuringStream, controller.signal)) throw error;
-        // Detached by backgrounding (the resume watchdog, or the browser
-        // killing the hidden tab's socket outright), not a failure — the run
-        // continues and persists server-side. Wait for it to actually settle
-        // before reporting success, so handleSubmit reloads the finished
-        // reply and approvals rather than a half-written state.
-        setWorkspaceActivity("Finishing in the background…");
-        await waitForWorkspaceRunToSettle(effectiveConnectionId, controller.signal);
-        received = true;
-      } finally {
-        if (canTrackVisibility) {
-          document.removeEventListener("visibilitychange", recordBackgroundedStream);
-          window.removeEventListener("pagehide", markPageHidden);
-        }
-        workspaceTextThrottle.flush();
-        workspaceAbortRef.current = null;
-        setWorkspaceActive(false);
-        setWorkspaceActivity(null);
-        useChatStore.getState().setAbortController(chat.id, null);
-        useChatStore.getState().setMariPhase(chat.id, "idle");
-      }
-      // hiddenDuringStream lets callers suppress the "no reply" toast when the
-      // page's visibility history makes a false negative likely (the run may
-      // have finished before the settle poll could observe it active) — the
-      // authoritative reload either shows the persisted reply or the user
-      // retries; a red toast beside a visible reply is worse than silence.
-      return { received, runId, hiddenDuringStream: pageWasHiddenDuringStream };
+  // R14: every way a run can fail (an HTTP error from the provider, a timeout, no answer, a dropped
+  // stream, a failed regenerate or edited resend) ends here, so each one turns her red with the same
+  // card, Retry and "Retry with another model". Your own Stop is not a failure.
+  const { failRun, sendWorkspaceMessage, refreshAfterWorkspaceRun } = useMariWorkspaceRun({
+    activeChatIdRef,
+    chatId,
+    clearMariPlan,
+    effectiveConnectionId,
+    handoffContext,
+    invalidateActionResult,
+    invalidateWorkspaceData,
+    loadMessages,
+    pendingWorkspaceTextRef,
+    refreshWorkspaceStatus,
+    setCancelledChatId,
+    setMariChips,
+    setMariPlan,
+    setRecovery,
+    setWorkspaceActive,
+    setWorkspaceRunClock,
+    setWorkspaceTimeline,
+    workspaceAbortRef,
+    workspaceRunIdRef,
+    workspaceTextThrottle,
+  });
+  const {
+    handleDeleteMessage,
+    handleEditMessage,
+    handleRegenerateMessage,
+    handleEditAndResend,
+    handleRemoveAttachment,
+  } = useMariMessageActions({
+    activeChatIdRef,
+    attachmentRemovalInFlightRef,
+    chatId,
+    effectiveConnectionId,
+    failRun,
+    isBusy,
+    loadMessages,
+    messageLoadAbortRef,
+    messageMutationBusyRef,
+    messagesRef,
+    refreshAfterWorkspaceRun,
+    regenerationInFlightRef,
+    sendWorkspaceMessage,
+    setConnectionMenuOpen,
+    setMessages,
+    setSending,
+  });
+  const handleSubmit = async (
+    overrideText?: string,
+    overrideRecovery?: Pick<ProfessorMariRecovery, "attachments" | "context" | "localMessageId"> & {
+      /** A retry: reuse your message when the server already saved it, instead of sending it twice. */
+      reuseSavedMessage?: boolean;
     },
-    [clearMariPlan, effectiveConnectionId, setMariChips, setMariPlan, workspaceTextThrottle],
-  );
-
-  const refreshAfterWorkspaceRun = useCallback(
-    async (completedChatId: string, runId: number) => {
-      let messagesReloaded = false;
-      try {
-        if (workspaceRunIdRef.current !== runId || activeChatIdRef.current !== completedChatId) return;
-        await loadMessages(completedChatId, {
-          shouldApply: () => workspaceRunIdRef.current === runId && activeChatIdRef.current === completedChatId,
-        });
-        messagesReloaded = true;
-      } catch (error) {
-        console.error("[Professor Mari] Failed to reload messages after completed workspace run", error);
-      }
-      if (workspaceRunIdRef.current !== runId || activeChatIdRef.current !== completedChatId) return;
-      if (messagesReloaded) {
-        useChatStore.getState().clearStreamBuffer(completedChatId);
-        useChatStore.getState().clearThinkingBuffer(completedChatId);
-        setWorkspaceTimeline([]);
-      }
-      await Promise.allSettled([
-        refreshWorkspaceStatus(
-          () => workspaceRunIdRef.current === runId && activeChatIdRef.current === completedChatId,
-        ),
-        invalidateWorkspaceData(),
-      ]);
-    },
-    [invalidateWorkspaceData, loadMessages, refreshWorkspaceStatus],
-  );
-
-  const handleDeleteMessage = useCallback(
-    async (messageId: string) => {
-      if (!chatId || isBusy) return;
-      const confirmed = await showConfirmDialog({
-        title: localizeUi("ui.chat.homeprofessormarichat.deleteMessage"),
-        message: localizeUi("ui.chat.homeprofessormarichat.deleteMessageConfirmation"),
-        confirmLabel: localizeUi("lorebook.editor.batch.delete"),
-        tone: "destructive",
-      });
-      if (!confirmed || messageMutationBusyRef.current) return;
-      messageLoadAbortRef.current?.abort();
-      // Optimistic update from local state
-      setMessages((current) => current.filter((m) => m.id !== messageId));
-      try {
-        await api.delete(`/chats/${chatId}/messages/${messageId}?trash=false`);
-      } catch (error) {
-        console.error("[Professor Mari] Failed to delete message", error);
-        await loadMessages(chatId).catch(() => undefined);
-        toast.error(localizeUi("ui.chat.homeprofessormarichat.professorMariCouldNotDeleteThatMessage"), {
-          description: describeProfessorMariError(error),
-        });
-      }
-    },
-    [chatId, isBusy, loadMessages, localizeUi],
-  );
-
-  const handleEditMessage = useCallback(
-    async (messageId: string, content: string) => {
-      if (!chatId || isBusy) return;
-      messageLoadAbortRef.current?.abort();
-      setMessages((current) => current.map((m) => (m.id === messageId ? { ...m, content } : m)));
-      try {
-        await api.patch(`/chats/${chatId}/messages/${messageId}`, { content });
-      } catch (error) {
-        console.error("[Professor Mari] Failed to edit message", error);
-        await loadMessages(chatId).catch(() => undefined);
-        toast.error(localizeUi("ui.chat.homeprofessormarichat.professorMariCouldNotSaveThatEdit"), {
-          description: describeProfessorMariError(error),
-        });
-      }
-    },
-    [chatId, isBusy, loadMessages, localizeUi],
-  );
-
-  const handleRegenerateMessage = useCallback(
-    async (messageId: string) => {
-      if (isBusy || regenerationInFlightRef.current || !chatId) return;
-      if (!effectiveConnectionId) {
-        toast.error(PROFESSOR_MARI_NO_CONNECTION_TOAST);
-        setConnectionMenuOpen(true);
-        useUIStore.getState().openRightPanel("connections");
-        return;
-      }
-      const initialMessages = messagesRef.current;
-      const initialIndex = initialMessages.findIndex((message) => message.id === messageId);
-      if (
-        initialIndex <= 0 ||
-        initialIndex !== initialMessages.length - 1 ||
-        initialMessages[initialIndex]?.role !== "assistant" ||
-        initialMessages[initialIndex - 1]?.role !== "user"
-      )
-        return;
-
-      regenerationInFlightRef.current = true;
-      setSending(true);
-      try {
-        const confirmed = await showConfirmDialog({
-          title: localizeUi("ui.chat.homeprofessormarichat.regenerateResponse"),
-          message: localizeUi("ui.chat.homeprofessormarichat.regenerateResponseConfirmation"),
-          confirmLabel: localizeUi("ui.chat.chatmessage.regenerate"),
-          tone: "destructive",
-        });
-        if (!confirmed || activeChatIdRef.current !== chatId) return;
-
-        const currentMessages = messagesRef.current;
-        const index = currentMessages.findIndex((message) => message.id === messageId);
-        if (index <= 0 || index !== currentMessages.length - 1 || currentMessages[index]?.role !== "assistant") return;
-        const userMessage = currentMessages[index - 1];
-        if (userMessage.role !== "user") return;
-
-        messageLoadAbortRef.current?.abort();
-        setMessages((current) => current.filter((message) => message.id !== messageId));
-        await api.delete(`/chats/${chatId}/messages/${messageId}?trash=false`);
-        const { received, runId, hiddenDuringStream } = await sendWorkspaceMessage(
-          { id: chatId },
-          userMessage.content,
-          getProfessorMariAttachments(userMessage),
-          userMessage.id,
-        );
-        if (!received && !hiddenDuringStream) throw new Error("Professor Mari did not return a regenerated response");
-        void refreshAfterWorkspaceRun(chatId, runId);
-      } catch (error) {
-        console.error("[Professor Mari] Failed to regenerate response", error);
-        void loadMessages(chatId).catch(() => undefined);
-        toast.error(localizeUi("ui.chat.homeprofessormarichat.professorMariCouldNotRegenerateThatResponse"), {
-          description: describeProfessorMariError(error),
-        });
-      } finally {
-        regenerationInFlightRef.current = false;
-        setSending(false);
-      }
-    },
-    [chatId, effectiveConnectionId, isBusy, loadMessages, localizeUi, refreshAfterWorkspaceRun, sendWorkspaceMessage],
-  );
-
-  const handleRemoveAttachment = useCallback(
-    async (messageId: string, attachmentIndex: number) => {
-      if (!chatId || isBusy || attachmentRemovalInFlightRef.current.has(messageId)) return;
-      attachmentRemovalInFlightRef.current.add(messageId);
-      try {
-        const confirmed = await showConfirmDialog({
-          title: localizeUi("ui.chat.homeprofessormarichat.removeAttachment"),
-          message: localizeUi("ui.chat.homeprofessormarichat.removeAttachmentConfirmation"),
-          confirmLabel: localizeUi("ui.panels.agentspanel.remove"),
-          tone: "destructive",
-        });
-        if (!confirmed || messageMutationBusyRef.current) return;
-        const message = messagesRef.current.find((item) => item.id === messageId);
-        if (!message) return;
-        const currentAttachments = getProfessorMariAttachments(message);
-        const updated = currentAttachments.filter((_, index) => index !== attachmentIndex);
-        if (updated.length === currentAttachments.length) return;
-        messageLoadAbortRef.current?.abort();
-        setMessages((current) =>
-          current.map((item) => {
-            if (item.id !== messageId) return item;
-            const extra = toMessageExtra(item);
-            return { ...item, extra: { ...extra, attachments: updated } };
-          }),
-        );
-        await api.patch(`/chats/${chatId}/messages/${messageId}/extra`, { attachments: updated });
-      } catch (error) {
-        console.error("[Professor Mari] Failed to remove attachment", error);
-        await loadMessages(chatId).catch(() => undefined);
-        toast.error(localizeUi("ui.chat.homeprofessormarichat.professorMariCouldNotRemoveThatAttachment"), {
-          description: describeProfessorMariError(error),
-        });
-      } finally {
-        attachmentRemovalInFlightRef.current.delete(messageId);
-      }
-    },
-    [chatId, isBusy, loadMessages, localizeUi],
-  );
-
-  async function handleSubmit(overrideText?: string) {
+    overrideContext?: ProfessorMariAskContext | null,
+  ) => {
     const text = (overrideText ?? draft).trim();
-    const submittedAttachments = attachments;
+    const submittedAttachments = overrideRecovery?.attachments ?? attachments;
+    const submittedContext = overrideRecovery
+      ? overrideRecovery.context
+      : overrideContext !== undefined
+        ? overrideContext
+        : handoffContext;
     const messageText = text || (submittedAttachments.length > 0 ? "Please inspect the attached file." : "");
     if (!messageText || isBusy || regenerationInFlightRef.current || isReadingAttachments) return;
 
@@ -5314,73 +2283,629 @@ export function HomeProfessorMariChat({
     if (await handleTitleCommand(messageText)) return;
 
     if (!effectiveConnectionId) {
-      toast.error(PROFESSOR_MARI_NO_CONNECTION_TOAST);
       setConnectionMenuOpen(true);
-      useUIStore.getState().openRightPanel("connections");
       return;
     }
 
     setSending(true);
+    // R14: a new message or a retry answers the failure at once: no red while she starts again.
+    setRecovery(null);
+    // D1: the appended arrival is local UI only — it never lingers once the user is really sending.
+    setAppendedArrival(null);
+    // F1: in a brand-new thread the arrival shows as the empty-state block, so the append effect never
+    // ran yet and the request stayed unhandled. Mark it handled here too, or the effect appends it again
+    // under her answer once the thread has a message.
+    handledArrivalAppendRequestRef.current = arrivalAppendRequestRef.current;
+    let localMessageId: string | undefined;
     try {
       const chat = await ensureProfessorMariChat(effectiveConnectionId);
-      setDraft("");
+      // A retry or a chip sends its own text: leave whatever you have typed since in the composer.
+      if (overrideText === undefined) setDraft("");
       setMariChips(chat.id, []);
+      setResolvedPrompts([]);
       clearMariPlan();
-      setAttachments([]);
-      setMessages((current) => [...current, createLocalUserMessage(chat.id, messageText, submittedAttachments)]);
+      if (!overrideRecovery) setAttachments([]);
+      setHandoffContext(persistentResourceContext(submittedContext));
+      let existingUserMessageId: string | undefined;
+      if (overrideRecovery?.reuseSavedMessage) {
+        const loaded = await loadMessages(chat.id, { restoreFocus: false }).catch(() => undefined);
+        // F3: when a later round failed, the newest message is her partial reply (mariRunError set), not
+        // your question — look past it for the user message it answers, or Retry sends a duplicate.
+        const newest = loaded?.at(-1);
+        const saved =
+          newest && getMessageRunError(newest, { includeDismissed: true })
+            ? loaded?.findLast((message) => message.role === "user")
+            : newest;
+        if (saved?.role === "user" && saved.content === messageText) existingUserMessageId = saved.id;
+      }
+      if (existingUserMessageId) {
+        setTurnStartMessageId(existingUserMessageId);
+      } else {
+        const localMessage = createLocalUserMessage(chat.id, messageText, submittedAttachments, submittedContext);
+        localMessageId = localMessage.id;
+        setMessages((current) => [
+          ...current.filter((message) => message.id !== overrideRecovery?.localMessageId),
+          localMessage,
+        ]);
+        // M4: place the question at the top once, in the same commit the message lands in.
+        setTurnStartMessageId(localMessage.id);
+      }
+      if (messagesRef.current.length === 0 && (chat.name ?? "") === PROFESSOR_MARI_DEFAULT_CHAT_NAME) {
+        const autoTitle = buildProfessorMariAutoTitle(messageText);
+        if (autoTitle) {
+          // Best effort: a failed rename must never block the message.
+          void api
+            .patch(`/chats/internal/professor-mari/chats/${chat.id}`, { name: autoTitle })
+            .then(() => loadChatHistory())
+            .catch((error) => console.error("[Professor Mari] Failed to auto-title chat", error));
+        }
+      }
       trackAchievement.mutate("prof_mari_message_sent");
       const { received, runId, hiddenDuringStream } = await sendWorkspaceMessage(
         chat,
         messageText,
         submittedAttachments,
+        existingUserMessageId,
+        submittedContext,
       );
+      // No answer at all is a failure like any other: the same red state and card, not a toast that leaves.
+      if (!received && !hiddenDuringStream)
+        throw new Error(localizeUi("ui.chat.homeprofessormarichat.professorMariDidNotReceiveAReplyFromThe"));
       void refreshAfterWorkspaceRun(chat.id, runId);
-      if (!received && !hiddenDuringStream) {
-        toast.error(localizeUi("ui.chat.homeprofessormarichat.professorMariDidNotReceiveAReplyFromThe"), {
-          description: localizeUi("ui.chat.homeprofessormarichat.theModelOrServerMayStillBeBusyThis"),
-          duration: PROFESSOR_MARI_ERROR_TOAST_DURATION_MS,
-        });
-      }
     } catch (error) {
-      if (isProfessorMariAbortError(error)) return;
-      setDraft(text);
-      setAttachments(submittedAttachments);
-      console.error("[Professor Mari] Failed to send", error);
-      toast.error(localizeUi("ui.chat.homeprofessormarichat.professorMariCouldNotAnswerRightNow"), {
-        description: describeProfessorMariError(error),
-        duration: PROFESSOR_MARI_ERROR_TOAST_DURATION_MS,
+      // Like Claude: your message stays where you sent it and one error card with Retry sits under the turn.
+      // No toast over her header, and the text is not pushed back into the composer as a duplicate.
+      if (!isProfessorMariAbortError(error)) setHandoffContext(submittedContext);
+      failRun(error, {
+        text: messageText,
+        attachments: submittedAttachments,
+        context: submittedContext,
+        localMessageId,
       });
     } finally {
       setSending(false);
     }
-  }
+  };
 
-  const renderDisplayMessage = (message: Message) => {
-    const canManageMessage = message.id !== PROFESSOR_MARI_WELCOME_MESSAGE_ID;
-    // #5740: under the reply the latest mutating round produced, show the
-    // phrase Mari reported acting on - user-visible by default so people can
-    // self-correct ("that wasn't a request!") before filing reports. One
-    // record only (latest round). The server also reads the record back to
-    // Mari as context, so asking her "why did you treat that as permission?"
-    // gets an answer grounded in this same record - never a gate either way.
+  // Each handoff is one request id, sent once. The effect also depends on `draft`,
+  // so a flag that stayed true would re-fire on every keystroke and send whatever
+  // the user had typed so far; a flag that was already true would deliver no change
+  // at all on the next handoff, and that query would silently never send.
+  const handledSubmitRequestRef = useRef(0);
+  // An effect event, so the effect runs when the request or draft changes, not on
+  // every render because handleSubmit is a new function each time. The context comes
+  // in as a parameter rather than read from `handoffContext` state: the effect that
+  // seeds `handoffContext` from `initialAskContext` can run in the same commit as
+  // this one, and a state update scheduled by that effect is not visible here yet.
+  const submitHandoffDraft = useEffectEvent(
+    (context: ProfessorMariAskContext | null) => void handleSubmit(undefined, undefined, context),
+  );
+  useEffect(() => {
+    if (!omnibarMode || !submitDraftRequest || handledSubmitRequestRef.current === submitDraftRequest) return;
+    // Not marked handled yet: an empty, still-busy, or still-loading-connections
+    // moment must retry, not drop it — connections load asynchronously, so
+    // `effectiveConnectionId` can still be null here even once `draft` is set.
+    if (!draft.trim() || isBusy || connectionsLoading) return;
+    handledSubmitRequestRef.current = submitDraftRequest;
+    submitHandoffDraft(initialAskContext);
+    keepKeyboardInWindow();
+  }, [connectionsLoading, draft, initialAskContext, isBusy, keepKeyboardInWindow, omnibarMode, submitDraftRequest]);
+
+  // M5b: an action card runs the same deterministic navigation as the omnibar rows, with no Mari round-trip.
+  const runSuggestionAction = (action: MariSuggestionAction) => {
+    if (action.kind === "start-chat") {
+      useUIStore.getState().openModal("start-character-chat", {
+        characterId: action.characterId,
+        characterName: characterPreviewById.get(action.characterId)?.name ?? "",
+      });
+      useUIStore.getState().setOmnibarOpen(false);
+    } else if (action.kind === "peek-prompt") {
+      executeStateNavigation({ kind: "chat", chatId: action.chatId });
+      // ponytail: two frames for the chat view to take the new active chat before it hears the request;
+      // a chat that mounts slower misses the peek and only opens. Add a pending-request store if that shows up.
+      requestAnimationFrame(() => requestAnimationFrame(() => requestChatPeekPrompt(action.chatId)));
+    } else {
+      executeStateNavigation(action);
+    }
+    if (omnibarMode) closeChatWindow();
+  };
+
+  /**
+   * N4: a Mari card sends at once; `draft` (Shift, or a long press on touch) puts it in the composer
+   * instead. `context` replaces the handoff for that one card (N6: an arrival Fix card's error).
+   */
+  const handleSuggestionSelect = (chip: MariSuggestionChip, draft = false, context?: ProfessorMariAskContext) => {
+    if (chip.id === MARI_AUTHORIZATION_ACCEPT_CHIP.id || chip.id === MARI_AUTHORIZATION_DECLINE_CHIP.id) {
+      void handleSubmit(chip.prompt);
+      keepKeyboardInWindow();
+      return;
+    }
+    if (guidedPlanStep) {
+      const result = recordMariPlanAnswer(guidedPlanStep.fieldKey, chip.prompt);
+      if (result === "complete") {
+        const answers = useAgentStore.getState().mariPlanAnswers;
+        const summary = Object.entries(answers)
+          .map(([key, value]) => `${key}: ${value}`)
+          .join("; ");
+        clearMariPlan();
+        setDraft((current) =>
+          current.trim() ? `${current.trimEnd()} Create it - ${summary}` : `Create it - ${summary}`,
+        );
+        focusComposer();
+      }
+      return;
+    }
+    if (chip.action) {
+      runSuggestionAction(chip.action);
+      return;
+    }
+    if (!draft) {
+      void handleSubmit(chip.prompt, undefined, context);
+      return;
+    }
+    if (context) setHandoffContext(context);
+    setDraft((current) => (current.trim() ? `${current.trimEnd()} ${chip.prompt}` : chip.prompt));
+    focusComposer();
+  };
+
+  // R14: Retry sends the failed turn's message again - from this session, or from the saved turn after a
+  // reload - reusing your message when the server already saved it.
+  const retryRun = () => {
+    const target = recovery ?? (savedRunError ? retryOf(lastUserMessage) : null);
+    if (!target?.text) return;
+    setHandoffContext(target.context);
+    void handleSubmit(target.text, { ...target, reuseSavedMessage: true });
+  };
+  const retryRunEvent = useEffectEvent(retryRun);
+  // "Retry with another model" opens the composer's own connection menu; picking a different one retries.
+  const [retryAfterPickFrom, setRetryAfterPickFrom] = useState<string | null>(null);
+  const retryWithAnotherModel = () => {
+    setRetryAfterPickFrom(effectiveConnectionId ?? "");
+    setPermissionsMenuOpen(false);
+    setConnectionMenuOpen(true);
+  };
+  useEffect(() => {
+    if (retryAfterPickFrom === null) return;
+    if (effectiveConnectionId && effectiveConnectionId !== retryAfterPickFrom) {
+      setRetryAfterPickFrom(null);
+      retryRunEvent();
+    } else if (!connectionMenuOpen) setRetryAfterPickFrom(null);
+  }, [connectionMenuOpen, effectiveConnectionId, retryAfterPickFrom]);
+  // Dismiss answers the failure without a retry: the card folds to its quiet line and the red goes.
+  const dismissRunError = async () => {
+    setRecovery(null);
+    const id = chatId;
+    if (!id) return;
+    try {
+      const saved = (await loadMessages(id, { restoreFocus: false }))?.at(-1);
+      const error = saved ? getMessageRunError(saved) : null;
+      if (saved && error) {
+        await api.patch(`/chats/${id}/messages/${saved.id}/extra`, { mariRunError: { ...error, dismissed: true } });
+        await loadMessages(id, { restoreFocus: false });
+      }
+      // The server keeps the failure for the top-bar line until a run or a reset clears it.
+      // F12: keepRun so Dismiss never aborts a run that may genuinely be in flight.
+      if (workspaceStatus?.error) {
+        await api.post("/professor-mari/workspace/reset", { keepRun: true });
+        setWorkspaceStatus((current) => current && { ...current, error: null });
+      }
+    } catch (error) {
+      console.error("[Professor Mari] Failed to dismiss the error", error);
+    } finally {
+      void qc.invalidateQueries({ queryKey: professorMariWorkspaceStatusKeys.all });
+    }
+  };
+
+  const [requestedReviewId, setRequestedReviewId] = useState<string | null>(null);
+  // R9: a specific target (the per-approval omnibar row) wins; otherwise fall back to the
+  // first visible review, as every other door into this pane already did.
+  const openPendingApprovals = useCallback(
+    (reviewId?: string | null) => {
+      setRequestedReviewId(reviewId ?? visiblePendingChangeReviews[0]?.id ?? null);
+      setWorkspaceDestination("chat");
+      void refreshWorkspaceStatus();
+    },
+    [refreshWorkspaceStatus, visiblePendingChangeReviews],
+  );
+
+  const handledPendingReviewRequestRef = useRef(0);
+  useEffect(() => {
+    if (!chatWindowOpen || pendingReviewRequest <= handledPendingReviewRequestRef.current) return;
+    handledPendingReviewRequestRef.current = pendingReviewRequest;
+    openPendingApprovals(pendingReviewId);
+  }, [chatWindowOpen, openPendingApprovals, pendingReviewId, pendingReviewRequest]);
+
+  // "Turn on" for a memory switches only the memory. The applied review stays open, so Undo still works.
+  const turnOnMemory = async (memoryId: string) => {
+    try {
+      await api.put(`/professor-mari/workspace/instructions/${memoryId}`, { enabled: true });
+      return true;
+    } catch (error) {
+      console.error("[Professor Mari] Failed to turn on memory", error);
+      toast.error(localizeUi("ui.chat.homeprofessormarichat.professorMariCouldNotUpdateThatMemory"));
+      return false;
+    }
+  };
+
+  const answerApproval = async (approval: MariWorkspacePendingApproval, keep: boolean) => {
+    // R10: the answered row stays where it was. It is listed before the call and shows as soon as the
+    // review leaves the pending list (the same render), so the row never blinks out; a failure drops it.
+    const entry = { chatId, approval, outcome: keep ? ("applied" as const) : ("discarded" as const) };
+    setResolvedPrompts((current) => [...current, entry]);
+    keepKeyboardInWindow();
+    const result = await (keep ? keepWorkspaceChange(approval.id) : restoreWorkspaceChange(approval.id));
+    const done = keep
+      ? result?.outcome === "applied" || result?.history?.status === "kept"
+      : result?.outcome === "discarded" || result?.history?.status === "restored";
+    if (!done) setResolvedPrompts((current) => current.filter((item) => item !== entry));
+  };
+  // Slice 13: a review renders inside the turn that asked for it, not after the whole transcript, and
+  // an answered install / file prompt folds to its line in the same place.
+  const reviewsByTurn = assignReviewsToTurns(
+    displayMessages,
+    [
+      ...visiblePendingChangeReviews.map((approval) => ({
+        requestedAt: approval.requestedAt,
+        approval,
+        outcome: null,
+      })),
+      ...(sending || workspaceTimelineActive ? [] : resolvedPrompts)
+        .filter(
+          (prompt) =>
+            prompt.chatId === chatId && !visiblePendingChangeReviews.some(({ id }) => id === prompt.approval.id),
+        )
+        .map(({ approval, outcome }) => ({ requestedAt: approval.requestedAt, approval, outcome })),
+    ].sort((a, b) => Date.parse(a.requestedAt) - Date.parse(b.requestedAt)),
+  );
+  const renderTurnPrompt = ({ approval, outcome }: (typeof reviewsByTurn.unassigned)[number]) =>
+    outcome ? (
+      <ResolvedPromptLine key={`resolved:${approval.id}`} approval={approval} outcome={outcome} />
+    ) : (
+      <WorkspaceApprovalCard
+        key={approval.id}
+        approval={approval}
+        busy={approvalBusyId === approval.id}
+        disabled={approvalBusyId !== null}
+        highlighted={highlightedReviewId === approval.id}
+        onKeep={() => void answerApproval(approval, true)}
+        onTurnOn={turnOnMemory}
+        onRestore={() => void answerApproval(approval, false)}
+        onRejectRows={(id, rows) => rejectWorkspaceRows(id, rows)}
+        onRenderPrompt={renderWorkspacePrompt}
+      />
+    );
+  const lastAssistantId = displayMessages.findLast((message) => message.role === "assistant")?.id ?? null;
+  const heldCardNode = heldChangeCard ? (
+    <MariHeldChangeCard
+      key="held-change"
+      held={lastLoadedMessage?.role === "assistant" ? lastLoadedMessageExtra?.mariHeldChanges : null}
+      nameOf={(id) => characterPreviewById.get(id)?.name ?? lorebookPreviewById.get(id)?.name}
+      disabled={isBusy}
+      onAccept={() => handleSuggestionSelect(MARI_AUTHORIZATION_ACCEPT_CHIP)}
+      onDecline={() => handleSuggestionSelect(MARI_AUTHORIZATION_DECLINE_CHIP)}
+    />
+  ) : null;
+  const answerAll = async (entries: ReadonlyArray<{ approval: MariWorkspacePendingApproval }>, keep: boolean) => {
+    for (const { approval } of entries) await answerApproval(approval, keep);
+  };
+  // M5a / slice 71 (F1): applied changes and answered prompts are "what changed"; everything still waiting
+  // - a delete too, whose rows stay hidden until you choose - needs you. The deletes of one turn are one card.
+  // Slice 74: a change her message has a receipt for shows as that receipt, which answers its reviews.
+  const receiptControls: MariReceiptControls = {
+    // All of them, also while a run is busy: a receipt must not read "Undo closed" mid-run.
+    pending: new Map(pendingChangeReviews.map((approval) => [approval.id, approval])),
+    answered: new Map(
+      resolvedPrompts
+        .filter((prompt) => prompt.chatId === chatId)
+        .map(({ approval, outcome }) => [approval.id, outcome === "applied" ? "kept" : "undone"]),
+    ),
+    busy: approvalBusyId !== null,
+    // Read when the receipt renders: the highlight state is declared further down this component.
+    isHighlighted: (id) => highlightedReviewId === id,
+    onAnswer: (approvals, keep) =>
+      void answerAll(
+        approvals.map((approval) => ({ approval })),
+        keep,
+      ),
+    // Only a database review has a raw view; an install approval has none.
+    onRetry: () => void handleSubmit("try again"),
+    renderRaw: (approval) =>
+      "diffPreview" in approval ? <RawDetails approval={approval} open onToggle={() => undefined} /> : null,
+  };
+  const renderTurnReviews = (messageId: string): MariTurnReviews => {
+    const message = displayMessages.find((item) => item.id === messageId);
+    const actionResults = message ? getMessageWorkspaceActionResults(message) : [];
+    const covered = new Set(actionResults.flatMap(mariReceiptReviewIds));
+    const entries = (reviewsByTurn.byMessageId.get(messageId) ?? []).filter(
+      ({ approval }) =>
+        !(approval.kind === "applied_review" && covered.has(approval.id) && !isMariReviewWaiting(approval)),
+    );
+    if (entries.length === 0 && actionResults.length === 0 && !(messageId === lastAssistantId && heldCardNode)) {
+      return NO_TURN_REVIEWS;
+    }
+    const waiting = entries.filter(({ approval, outcome }) => !outcome && isMariReviewWaiting(approval));
+    const deletes = waiting.filter(
+      (entry): entry is typeof entry & { approval: MariDbPendingApproval } => entry.approval.kind === "applied_review",
+    );
+    const first = deletes[0]?.approval;
+    const deleteGroup =
+      first && deletes.length > 1 ? (
+        <div
+          key={`delete-group:${first.id}`}
+          id={`mari-workspace-review-${first.id}`}
+          data-review-id={first.id}
+          className={cn("mari-inline-review", highlightedReviewId === first.id && "mari-inline-review--jump")}
+        >
+          <DeleteReviewCard
+            approvals={deletes.map(({ approval }) => approval)}
+            busy={deletes.some(({ approval }) => approvalBusyId === approval.id)}
+            disabled={approvalBusyId !== null}
+            onDelete={() => void answerAll(deletes, true)}
+            onPutBack={() => void answerAll(deletes, false)}
+          />
+        </div>
+      ) : null;
+    return {
+      changed: entries.filter((entry) => !waiting.includes(entry)).map(renderTurnPrompt),
+      needsOk: [
+        ...(messageId === lastAssistantId && heldCardNode ? [heldCardNode] : []),
+        ...(deleteGroup ? [deleteGroup] : []),
+        ...waiting.filter((entry) => !deleteGroup || !deletes.includes(entry as never)).map(renderTurnPrompt),
+      ],
+      records: reviewRecordKeys(entries.map(({ approval }) => approval)),
+      receipt: receiptControls,
+    };
+  };
+  // M9 / R10: she arrives knowing the screen she was opened from: her sprite and one line with its facts,
+  // then ONE group - the things on that screen, then what to do. Nothing is sent until a row is picked
+  // or you type (R22); the composer's chips say what would go.
+  const renderArrival = (
+    data: MariArrival,
+    component: string,
+    ref?: RefObject<HTMLDivElement | null>,
+    choice?: ReactNode,
+  ) => {
+    const strongAt = data.strong ? data.line.indexOf(data.strong) : -1;
+    return (
+      <div ref={ref} className="mari-arrival" data-component={component}>
+        <MariStorySprite state="idle" />
+        <div className="mari-arrival__copy mari-arrival-content">
+          <p className="mari-arrival__line">
+            {data.strong && strongAt >= 0 ? (
+              <>
+                {data.line.slice(0, strongAt)}
+                <b>{data.strong}</b>
+                {data.line.slice(strongAt + data.strong.length)}
+              </>
+            ) : (
+              data.line
+            )}
+          </p>
+          {data.meta.length > 0 ? <p className="mari-arrival__meta">{data.meta.join(" · ")}</p> : null}
+          {choice}
+        </div>
+        <MariList className="mari-arrival__group mari-arrival-content" data-cards="arrival">
+          <MariReferencedResources
+            bare
+            resources={data.refs}
+            characterPreviews={characterPreviewById}
+            lorebookPreviews={lorebookPreviewById}
+            onOpen={openReferencedResource}
+            skipName={data.strong}
+          />
+          <MariNextStepCards
+            bare
+            chips={data.cards}
+            onSelect={(card, draft) =>
+              card.action?.kind === "find-setting" || card.action?.kind === "undo-setting"
+                ? onArrivalAction?.(card.action)
+                : handleSuggestionSelect(
+                    card as MariSuggestionChip,
+                    draft,
+                    (card.fix && arrivalFixContext) || undefined,
+                  )
+            }
+            disabled={isBusy}
+          />
+        </MariList>
+      </div>
+    );
+  };
+
+  useEffect(() => {
+    if (visiblePendingChangeReviewKey && visiblePendingChangeReviewKey !== lastAutoOpenedApprovalKeyRef.current) {
+      lastAutoOpenedApprovalKeyRef.current = visiblePendingChangeReviewKey;
+      setRequestedReviewId(visiblePendingChangeReviews[0]?.id ?? null);
+      setWorkspaceDestination("chat");
+    }
+  }, [visiblePendingChangeReviewKey, visiblePendingChangeReviews]);
+
+  // R14: the newest unresolved failure is one card at the end of the turn: what broke, Retry, Retry with
+  // another model, and Dismiss. Older failures are one quiet "Failed · reason" line (runFailedLine).
+  const renderRunErrorCard = (error: { kind?: ProfessorMariRecovery["kind"]; detail?: string }, retry: boolean) => (
+    <div className="mari-run-error" role="alert" data-component="HomeProfessorMariChat.RunError">
+      <p className="mari-run-error__text">
+        <AlertTriangle size="0.8rem" aria-hidden="true" />
+        <span>
+          {error.kind ? (
+            <span className="mari-run-error__label">
+              {localizeUi(`ui.chat.homeprofessormarichat.recovery.${error.kind}`)}
+            </span>
+          ) : null}
+          {error.detail ? <span className="mari-note__detail"> {error.detail}</span> : null}
+        </span>
+      </p>
+      <div className="mari-run-error__actions">
+        {retry ? (
+          <>
+            <button type="button" onClick={retryRun} className="mari-btn">
+              {localizeUi("ui.chat.homeprofessormarichat.retry")}
+            </button>
+            <button type="button" onClick={retryWithAnotherModel} className="mari-btn">
+              {localizeUi("ui.chat.homeprofessormarichat.retryWithAnotherModel")}
+            </button>
+          </>
+        ) : null}
+        <button type="button" onClick={() => void dismissRunError()} className="mari-btn mari-run-error__dismiss">
+          {localizeUi("ui.chat.homeprofessormarichat.dismissError")}
+        </button>
+      </div>
+    </div>
+  );
+  const runFailedLine = (message: Message) => {
+    const error = getMessageRunError(message, { includeDismissed: true });
+    // The newest turn's failure is the card while it is unresolved, and nothing while she retries it.
+    if (!error || (message.id === latestMessage?.id && (activeRunError || isBusy))) return null;
+    return (
+      <p className="mari-run-failed-line" title={error.message}>
+        <AlertTriangle size="0.75rem" aria-hidden="true" />
+        <span className="min-w-0 truncate">
+          {localizeUi("ui.chat.homeprofessormarichat.runFailedLine", { reason: error.message })}
+        </span>
+      </p>
+    );
+  };
+
+  const openActionResult = useCallback(
+    async (result: MariWorkspaceActionResult) => {
+      await invalidateActionResult(result).catch((error) => {
+        console.error("[Professor Mari] Failed to refresh action result before opening", error);
+        toast.error(localizeUi("ui.chat.homeprofessormarichat.professorMariAppliedAWorkspaceChangeButAppData"), {
+          description: describeProfessorMariError(error),
+          duration: 12_000,
+        });
+      });
+      executeStateNavigation({
+        kind: "resource",
+        resource: result.resource.kind,
+        id: result.resource.id,
+      });
+      if (omnibarMode) closeChatWindow();
+    },
+    [closeChatWindow, invalidateActionResult, localizeUi, omnibarMode],
+  );
+
+  const openReferencedResource = useCallback(
+    (resource: MariReferencedResource) => {
+      const target = mariReferenceTarget(resource, getOmnibarSettingsDestinations());
+      if (!target) return;
+      executeStateNavigation(target);
+      if (omnibarMode) closeChatWindow();
+    },
+    [closeChatWindow, omnibarMode],
+  );
+
+  // R9: a brief highlight so a review that was already on screen (not just-mounted, which
+  // already gets the mari-review-rise entrance) still visibly answers the click. Driven by
+  // state rather than a direct DOM class mutation, so a React re-render (the refresh below
+  // triggers one) cannot silently wipe it before the user sees it.
+  const [highlightedReviewId, setHighlightedReviewId] = useState<string | null>(null);
+  useEffect(() => {
+    if (workspaceDestination !== "chat" || !requestedReviewId) return;
+    const targetId = requestedReviewId;
+    // A cold open (the omnibar jumping here before this pane's own transcript has ever
+    // rendered) can still be mounting the review's card a few frames after `chatWindowOpen`
+    // and `workspaceDestination` already settled; retry on a wall-clock budget instead of a
+    // single frame, same pattern as the chat's own /goto message jump (ChatArea.tsx).
+    let cancelled = false;
+    let rafId = 0;
+    const deadline = Date.now() + 3000;
+    const tryFocus = () => {
+      if (cancelled) return;
+      const review = document.getElementById(`mari-workspace-review-${targetId}`);
+      if (!review) {
+        if (Date.now() < deadline) rafId = window.requestAnimationFrame(tryFocus);
+        return;
+      }
+      setRequestedReviewId(null);
+      // UX-10: scroll the transcript only. scrollIntoView also scrolls clipped (overflow: hidden) wrappers
+      // around it, which lifted the composer dock off the window's bottom.
+      const transcript = scrollRef.current;
+      if (transcript?.contains(review))
+        transcript.scrollTop += review.getBoundingClientRect().top - transcript.getBoundingClientRect().top;
+      else review.scrollIntoView({ block: "start" });
+      review.querySelector<HTMLElement>("button")?.focus({ preventScroll: true });
+      if (!reduceMotion) {
+        setHighlightedReviewId(targetId);
+        window.setTimeout(() => setHighlightedReviewId((current) => (current === targetId ? null : current)), 1200);
+      }
+    };
+    rafId = window.requestAnimationFrame(tryFocus);
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(rafId);
+    };
+  }, [reduceMotion, requestedReviewId, visiblePendingChangeReviewKey, workspaceDestination]);
+
+  // #5740 / M5a: on the turn the latest mutating round produced, its first line is the goal Mari
+  // reported acting on - user-visible by default so people can self-correct ("that wasn't a request!")
+  // before filing reports. One record only (latest round), read from status, never a model call. The
+  // server also reads the record back to Mari as context, so asking her "why did you treat that as
+  // permission?" gets an answer grounded in this same record - never a gate either way.
+  const renderGoal = (message: Message) => {
     const understoodRequest =
-      message.role === "assistant" &&
-      workspaceStatus?.latestUnderstoodRequest &&
-      workspaceStatus.latestUnderstoodRequest.messageId === message.id
+      message.role === "assistant" && workspaceStatus?.latestUnderstoodRequest?.messageId === message.id
         ? workspaceStatus.latestUnderstoodRequest
         : null;
-    const understoodRequestExpanded = understoodRequest !== null && expandedUnderstoodRequestMessageId === message.id;
-    const understoodRequestOutcomeLabel = understoodRequest
-      ? localizeUi(
-          understoodRequest.outcome === "held"
-            ? "ui.chat.homeprofessormarichat.heldForYourApproval"
-            : understoodRequest.outcome === "applied"
-              ? "ui.chat.homeprofessormarichat.actingOnOutcomeApplied"
-              : understoodRequest.outcome === "failed"
-                ? "ui.chat.homeprofessormarichat.actingOnOutcomeFailed"
-                : "ui.chat.homeprofessormarichat.actingOnOutcomeInterrupted",
-        )
-      : null;
+    // Slice 72: a goal line without her words ("No request phrase reported") told you nothing; no line then.
+    if (!understoodRequest?.text?.trim()) return null;
+    // UX-15: a goal that only repeats the Accept / Don't apply card action says nothing new.
+    const goalText = understoodRequest.text.trim();
+    if (goalText === MARI_AUTHORIZATION_ACCEPT_CHIP.prompt || goalText === MARI_AUTHORIZATION_DECLINE_CHIP.prompt)
+      return null;
+    const expanded = expandedUnderstoodRequestMessageId === message.id;
+    const outcomeLabel = localizeUi(
+      understoodRequest.outcome === "held"
+        ? "ui.chat.homeprofessormarichat.heldForYourApproval"
+        : understoodRequest.outcome === "applied"
+          ? "ui.chat.homeprofessormarichat.actingOnOutcomeApplied"
+          : understoodRequest.outcome === "failed"
+            ? "ui.chat.homeprofessormarichat.actingOnOutcomeFailed"
+            : "ui.chat.homeprofessormarichat.actingOnOutcomeInterrupted",
+    );
+    return (
+      <button
+        type="button"
+        onClick={() => setExpandedUnderstoodRequestMessageId((current) => (current === message.id ? null : message.id))}
+        aria-expanded={expanded}
+        title={localizeUi(
+          expanded ? "ui.chat.homeprofessormarichat.actingOnCollapse" : "ui.chat.homeprofessormarichat.actingOnExpand",
+        )}
+        className="mari-goal"
+      >
+        <span className="mari-goal__kicker">{localizeUi("ui.chat.homeprofessormarichat.goal")}</span>
+        {/* break-words: the phrase is model-authored and routinely carries unbreakable tokens (paths, URLs)
+            that would otherwise force a horizontal scrollbar onto the whole transcript. */}
+        <span className={expanded ? "min-w-0 whitespace-pre-wrap break-words" : "min-w-0 truncate"}>
+          {localizeUi("ui.chat.homeprofessormarichat.goalQuote", { text: understoodRequest.text })}
+          {expanded && (
+            <span className="mt-0.5 block text-[0.625rem] opacity-80">
+              {understoodRequest.commands.join(", ")}
+              <span className="block">
+                {localizeUi("ui.chat.homeprofessormarichat.actingOnModeOutcomeValue1Value2", {
+                  value1: localize(MARI_PERMISSIONS_MODE_LABELS[understoodRequest.permissionsMode].label),
+                  value2: outcomeLabel,
+                })}
+              </span>
+            </span>
+          )}
+        </span>
+      </button>
+    );
+  };
+
+  // R14 (item 7): a reply's run counts from your message before it.
+  const sentAtBefore = (message: Message) => {
+    const index = messages.findIndex((item) => item.id === message.id);
+    const sent = messages.slice(0, Math.max(0, index)).findLast((item) => item.role === "user");
+    return sent ? getMessageRunTime(sent, "mariRunStartedAt") || Date.parse(sent.createdAt) || null : null;
+  };
+
+  const renderDisplayMessage = (message: Message) => {
+    const canManageMessage = true;
+    const messageContext = getProfessorMariMessageContext(message);
+    const messageCharacter = resolveContextCharacter(messageContext, characterPreviewById, characterFallbackName);
+    const messageLorebook = resolveContextLorebook(messageContext, lorebookPreviewById, lorebookFallbackName);
     return (
       <div key={message.id}>
         <CompactMariMessage
@@ -5388,48 +2913,26 @@ export function HomeProfessorMariChat({
           thinking={message.role === "assistant" ? getMessageThinking(message) : null}
           onDelete={canManageMessage && !isBusy ? handleDeleteMessage : undefined}
           onEdit={canManageMessage && !isBusy ? handleEditMessage : undefined}
+          onEditAndResend={
+            canManageMessage && !isBusy && message.id === lastUserMessageId ? handleEditAndResend : undefined
+          }
           onRegenerate={canManageMessage ? handleRegenerateMessage : undefined}
           canRegenerate={canManageMessage && !isBusy && message.id === messages[messages.length - 1]?.id}
           onRemoveAttachment={canManageMessage && !isBusy ? handleRemoveAttachment : undefined}
+          onOpenActionResult={openActionResult}
+          onOpenResource={openReferencedResource}
+          characterSubject={messageCharacter}
+          lorebookSubject={messageLorebook}
+          characterPreviews={characterPreviewById}
+          lorebookPreviews={lorebookPreviewById}
+          messageContext={messageContext}
+          restStory={message.id === latestMessage?.id ? latestTurnRestStory : null}
+          pullTarget={!appendedArrival}
+          reviews={renderTurnReviews(message.id)}
+          goal={renderGoal(message)}
+          runStartedAtMs={sentAtBefore(message)}
         />
-        {understoodRequest && (
-          <button
-            type="button"
-            onClick={() =>
-              setExpandedUnderstoodRequestMessageId((current) => (current === message.id ? null : message.id))
-            }
-            aria-expanded={understoodRequestExpanded}
-            title={localizeUi(
-              understoodRequestExpanded
-                ? "ui.chat.homeprofessormarichat.actingOnCollapse"
-                : "ui.chat.homeprofessormarichat.actingOnExpand",
-            )}
-            className="mt-1 flex w-full items-start gap-1.5 rounded-md px-2 py-1 text-left text-[0.6875rem] text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)]"
-          >
-            <Quote size="0.6875rem" className="mt-0.5 shrink-0 opacity-70" />
-            {/* break-words: the phrase is model-authored and routinely carries
-                unbreakable tokens (paths, URLs) that would otherwise force a
-                horizontal scrollbar onto the whole transcript. */}
-            <span
-              className={understoodRequestExpanded ? "min-w-0 whitespace-pre-wrap break-words" : "min-w-0 truncate"}
-            >
-              {understoodRequest.text
-                ? localizeUi("ui.chat.homeprofessormarichat.actingOnValue1", { value1: understoodRequest.text })
-                : localizeUi("ui.chat.homeprofessormarichat.actingOnNothingReported")}
-              {understoodRequestExpanded && (
-                <span className="mt-0.5 block text-[0.625rem] opacity-80">
-                  {understoodRequest.commands.join(", ")}
-                  <span className="block">
-                    {localizeUi("ui.chat.homeprofessormarichat.actingOnModeOutcomeValue1Value2", {
-                      value1: localize(MARI_PERMISSIONS_MODE_LABELS[understoodRequest.permissionsMode].label),
-                      value2: understoodRequestOutcomeLabel ?? "",
-                    })}
-                  </span>
-                </span>
-              )}
-            </span>
-          </button>
-        )}
+        {runFailedLine(message)}
       </div>
     );
   };
@@ -5451,327 +2954,33 @@ export function HomeProfessorMariChat({
     </>
   ) : null;
 
-  const renderFloatingChatBody = () => (
-    <>
-      {attachModals}
-      <div
-        ref={setTranscriptScrollNode}
-        onScroll={handleTranscriptScroll}
-        data-component="HomeProfessorMariChat.Transcript"
-        className="min-h-0 flex-1 space-y-2.5 overflow-y-auto px-3 py-3 pb-4 text-left"
-      >
-        {loadingHistory ? (
-          <LoadingHistoryState />
-        ) : (
-          <>
-            {displayMessages.map(renderDisplayMessage)}
-            {showConnectionFirstHint && (
-              <p className="px-3 py-1 text-center text-xs text-[var(--muted-foreground)]">
-                {localizeUi("ui.chat.homeprofessormarichat.selectAConnectionFirst")}
-              </p>
-            )}
-            {workspaceTimeline.length === 0 && workspaceTimelineActive && !showDottoreSupport && (
-              <WorkspaceStatusEvent content={workspaceActivity ?? "Thinking..."} />
-            )}
-            {showDottoreSupport && (
-              <TranscriptRow marker={<MariAvatar active />}>
-                <ProfessorMariWorkingWindow visible className="max-w-[18rem]" />
-              </TranscriptRow>
-            )}
-            <WorkspaceTimelineList items={workspaceTimeline} active={workspaceTimelineActive} openReasoning />
-            {workspaceStatus?.error && <WorkspaceErrorEvent message={workspaceStatus.error} />}
-            {visiblePendingChangeReviews.map((approval) => (
-              <WorkspaceApprovalCard
-                key={approval.id}
-                approval={approval}
-                busy={workspaceReviewActionId === approval.id}
-                disabled={workspaceReviewActionId !== null}
-                onKeep={(id) => void keepWorkspaceChange(id)}
-                onKeepEnable={(id) => void keepWorkspaceChange(id, { enable: true })}
-                onRestore={(id) => void restoreWorkspaceChange(id)}
-                onRejectRows={(id, rows) => rejectWorkspaceRows(id, rows)}
-                onRenderPrompt={renderWorkspacePrompt}
-              />
-            ))}
-          </>
-        )}
-      </div>
-
-      <form
-        className="border-t border-[var(--border)]/60 px-2.5 py-2.5"
-        onSubmit={(event) => {
-          event.preventDefault();
-          void handleSubmit();
-        }}
-      >
-        <input
-          ref={attachmentInputRef}
-          type="file"
-          accept={PROFESSOR_MARI_ATTACHMENT_ACCEPT}
-          multiple
-          className="hidden"
-          onChange={(event: ChangeEvent<HTMLInputElement>) => {
-            void handleAttachmentUpload(event.target.files);
-            event.target.value = "";
-          }}
-        />
-        <ProfessorMariAttachmentPreviews
-          attachments={attachments}
-          isReading={isReadingAttachments}
-          onRemove={(index) => setAttachments((current) => current.filter((_, itemIndex) => itemIndex !== index))}
-        />
-        {chipRowHint && (
-          <p className="mb-1 flex items-center gap-1.5 px-0.5 text-xs text-[var(--marinara-chat-chrome-panel-muted)]">
-            <Sparkles size="0.75rem" className="shrink-0 text-[var(--primary)]" />
-            <span>{chipRowHint}</span>
-          </p>
-        )}
-        {showSuggestionLoading && (
-          <div className="mb-1 flex items-center gap-1.5 px-0.5 text-xs text-[var(--muted-foreground)]">
-            <Sparkles size="0.75rem" className="shrink-0 animate-pulse text-[var(--primary)]" />
-            {localizeUi("ui.chat.homeprofessormarichat.thinkingUpSuggestions")}
-          </div>
-        )}
-        <MariSuggestionChips chips={chipRowChips} onSelect={handleSuggestionSelect} disabled={isBusy} />
-        <div className="relative flex items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--card)] px-2 py-1.5 shadow-inner shadow-black/10 focus-within:border-[var(--primary)]/50">
-          <MariAttachButton
-            onAttachFiles={() => attachmentInputRef.current?.click()}
-            onAddChatHistory={() => void handleOpenHistoryPicker()}
-            onViewContext={() => void handleOpenContextViewer()}
-            attachedFileCount={attachments.length}
-            attachedContextCount={attachedContext?.length ?? 0}
-            disabled={isBusy || isReadingAttachments}
-            isReading={isReadingAttachments}
-          />
-
-          <button
-            ref={connectionButtonRef}
-            type="button"
-            onClick={() => {
-              setLibraryMenuOpen(false);
-              setConnectionMenuOpen((current) => !current);
-            }}
-            className={cn(
-              "flex h-8 w-8 shrink-0 items-center justify-center rounded-xl transition-all",
-              connectionMenuOpen
-                ? "bg-foreground/10 text-foreground/75"
-                : "text-foreground/40 hover:bg-foreground/10 hover:text-foreground/70",
-            )}
-            title={
-              effectiveConnection?.name
-                ? localizeUi("ui.chat.homeprofessormarichat.connectionValue1", { value1: effectiveConnection.name })
-                : localizeUi("ui.chat.homeprofessormarichat.selectConnection")
-            }
-          >
-            <span className="relative flex h-[1.875rem] w-[1.875rem] items-center justify-center">
-              {showContextUsage && contextBudget && <ContextBudgetGauge percentage={contextBudget.percentage} />}
-              <Link size="1rem" />
-            </span>
-          </button>
-
-          {connectionMenuOpen && (
-            <div
-              ref={connectionMenuRef}
-              className="absolute bottom-full left-12 z-20 mb-2 flex max-h-72 min-w-[15rem] max-w-[20rem] flex-col overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card)] text-left shadow-2xl"
-            >
-              <div className="border-b border-[var(--border)] px-3 py-2 text-[0.6875rem] font-semibold text-[var(--foreground)]">
-                {localizeUi("navigation.topbar.connections")}
-              </div>
-              {showContextUsage && contextBudget && (
-                <div className="border-b border-[var(--border)] px-3 pt-2">
-                  <ContextBudgetIndicator budget={contextBudget} />
-                </div>
-              )}
-              <div className="overflow-y-auto p-1">
-                {connectionOptions.length > 0 ? (
-                  connectionOptions.map((connection) => {
-                    const isActive = effectiveConnectionId === connection.id;
-                    return (
-                      <button
-                        key={connection.id}
-                        type="button"
-                        onClick={() => handleConnectionChange(connection.id)}
-                        className={cn(
-                          "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs transition-colors hover:bg-[var(--accent)]",
-                          isActive && "font-semibold text-[var(--foreground)]",
-                        )}
-                      >
-                        <span className="min-w-0 flex-1 truncate">
-                          {connection.name || connection.id}
-                          {connection.id === LOCAL_SIDECAR_CONNECTION_ID && (
-                            <span className="ml-1 text-[0.625rem] font-normal text-[var(--muted-foreground)]">
-                              {sidecarNativeToolCalls
-                                ? localizeUi("ui.chat.homeprofessormarichat.nativeTools")
-                                : localizeUi("ui.chat.homeprofessormarichat.toolsOff")}
-                            </span>
-                          )}
-                        </span>
-                        {isActive && <Check size="0.75rem" className="shrink-0 text-[var(--primary)]" />}
-                      </button>
-                    );
-                  })
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setConnectionMenuOpen(false);
-                      useUIStore.getState().openRightPanel("connections");
-                    }}
-                    className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
-                  >
-                    <Link size="0.875rem" />
-                    {localizeUi("ui.chat.homeprofessormarichat.addAConnection")}
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
-
-          <textarea
-            ref={embeddedTextareaRef}
-            value={draft}
-            onChange={(event) => {
-              setDraft(event.target.value);
-              if (mobileFocusMode) event.currentTarget.scrollIntoView({ block: "end" });
-            }}
-            onKeyDown={(event) => {
-              const shouldSend =
-                event.key === "Enter" && !event.shiftKey && (enterToSend || event.metaKey || event.ctrlKey);
-              if (shouldSend) {
-                event.preventDefault();
-                void handleSubmit();
-              }
-            }}
-            rows={1}
-            placeholder={t("home.professorMari.placeholder")}
-            className="mari-chat-input-textarea min-h-8 max-h-32 flex-1 resize-none overflow-y-auto bg-transparent px-1 py-1.5 text-sm leading-normal text-foreground/90 outline-hidden placeholder:text-foreground/30 disabled:cursor-not-allowed disabled:opacity-40"
-            disabled={isBusy}
-          />
-          <button
-            type="submit"
-            disabled={!canSubmitMessage || isBusy}
-            className={cn(
-              "mari-chat-send-btn inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-white transition-all duration-200",
-              canSubmitMessage && !isBusy ? "hover:text-white active:scale-90" : "cursor-not-allowed opacity-40",
-            )}
-            aria-label={t("home.professorMari.send")}
-            title={t("home.professorMari.send")}
-          >
-            <Send size="0.9375rem" className={cn(canSubmitMessage && "translate-x-[1px]")} />
-          </button>
-        </div>
-      </form>
-    </>
-  );
-
-  if (floatingMode) {
-    if (!chatWindowOpen) {
-      if (!floatingSmallViewport) return null;
-      return (
-        <div
-          ref={floatingButtonRef}
-          className={cn(
-            "mari-chrome-token-scope fixed z-[95] touch-none sm:hidden",
-            floatingPosition ? "" : "bottom-4 left-4",
-          )}
-          style={floatingPositionStyle}
-          onPointerDown={beginFloatingDrag}
-          onPointerMove={moveFloatingDrag}
-          onPointerUp={endFloatingDrag}
-          onPointerCancel={endFloatingDrag}
-        >
-          <button
-            type="button"
-            onClick={handleFloatingButtonClick}
-            className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full border border-[var(--primary)]/40 bg-[var(--background)] shadow-lg shadow-black/35 ring-1 ring-black/20"
-            aria-label={t("home.professorMari.open")}
-          >
-            <img
-              src={MARI_AVATAR_URL}
-              alt=""
-              className="h-full w-full object-cover"
-              draggable={false}
-              aria-hidden="true"
-            />
-          </button>
-          <button
-            data-professor-mari-floating-action
-            type="button"
-            onClick={onFloatingDismiss}
-            className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] shadow-lg"
-            aria-label={t("home.professorMari.dismiss")}
-            title={t("home.professorMari.dismiss")}
-          >
-            <X size="0.65rem" />
-          </button>
-        </div>
-      );
-    }
-
-    if (floatingSmallViewport) {
-      return (
-        <motion.div
-          key="professor-mari-floating-mobile"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={PROFESSOR_MARI_PANE_TRANSITION}
-          className="mari-chrome-token-scope fixed inset-x-0 top-[calc(3rem_+_env(safe-area-inset-top))] z-[95] flex h-[calc(100vh_-_3rem_-_env(safe-area-inset-top))] max-h-[calc(100vh_-_3rem_-_env(safe-area-inset-top))] flex-col bg-[var(--background)] supports-[height:100dvh]:h-[calc(100dvh_-_3rem_-_env(safe-area-inset-top))] supports-[height:100dvh]:max-h-[calc(100dvh_-_3rem_-_env(safe-area-inset-top))] sm:hidden"
-        >
-          <div className="flex h-12 shrink-0 items-center justify-end border-b border-[var(--border)]/60 bg-[var(--card)]/80 px-2">
-            <button
-              type="button"
-              onClick={closeChatWindow}
-              className="mari-chrome-control mari-chrome-control--small mari-accent-animated inline-flex h-8 w-8 items-center justify-center rounded-md p-0"
-              aria-label={t("home.professorMari.close")}
-              title={t("home.professorMari.close")}
-            >
-              <X size="0.9rem" />
-            </button>
-          </div>
-          {renderFloatingChatBody()}
-        </motion.div>
-      );
-    }
-
-    return (
-      <div
-        ref={floatingSurfaceRef}
-        className={cn(
-          "mari-chrome-token-scope fixed z-[95] flex h-[min(32rem,calc(100vh-5rem))] w-[min(25rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-xl border border-[var(--marinara-chat-chrome-accent)] bg-[var(--background)] shadow-2xl shadow-black/40 ring-1 ring-black/15",
-          floatingPosition ? "" : "bottom-3 left-3",
-        )}
-        style={floatingPositionStyle}
-      >
-        <div
-          className="flex h-9 shrink-0 touch-none cursor-move items-center justify-between border-b border-[var(--border)]/60 bg-[var(--card)]/85 px-2"
-          onPointerDown={beginFloatingDrag}
-          onPointerMove={moveFloatingDrag}
-          onPointerUp={endFloatingDrag}
-          onPointerCancel={endFloatingDrag}
-        >
-          <div className="min-w-0 truncate text-xs font-semibold text-[var(--marinara-chat-chrome-accent)]">
-            {t("home.professorMari.ask")}
-          </div>
-          <button
-            data-professor-mari-floating-action
-            type="button"
-            onClick={onFloatingDismiss}
-            className="mari-chrome-control mari-chrome-control--small mari-accent-animated h-7 w-7 shrink-0 p-0"
-            aria-label={t("home.professorMari.dismiss")}
-            title={t("home.professorMari.dismiss")}
-          >
-            <X size="0.875rem" />
-          </button>
-        </div>
-        {renderFloatingChatBody()}
-      </div>
-    );
-  }
-
   return (
     <>
       {attachModals}
+      <MariOmnibarHeaderChrome
+        activeMemoryCount={activeMemoryCount}
+        activeSkillCount={activeSkillCount}
+        attachedContext={attachedContext}
+        composerContextFacets={composerContextFacets}
+        headerCompact={headerCompact}
+        headerMenuOpen={headerMenuOpen}
+        headerMenuRef={headerMenuRef}
+        heldChangeCard={heldChangeCard}
+        isBusy={isBusy}
+        noConnection={noConnection}
+        mariPresentationState={mariPresentationState}
+        omnibarHeaderSlot={omnibarHeaderSlot}
+        omnibarMenuSlot={omnibarMenuSlot}
+        omnibarMode={omnibarMode}
+        omnibarStatusSlot={omnibarStatusSlot}
+        onHeaderMenuKeyDown={onHeaderMenuKeyDown}
+        oneShotContext={oneShotContext}
+        reviewsByTurn={reviewsByTurn}
+        runRestart={runRestart}
+        setHeaderMenuOpen={setHeaderMenuOpen}
+        setWorkspaceDestination={setWorkspaceDestination}
+        workspaceDestination={workspaceDestination}
+      />
       {!launchHidden && (
         <div
           className={cn(
@@ -5804,7 +3013,11 @@ export function HomeProfessorMariChat({
                 <div className="truncate text-[0.6875rem] text-[var(--muted-foreground)]">
                   {isBusy
                     ? localizeUi("ui.chat.homeprofessormarichat.workingOnIt")
-                    : localizeUi("ui.chat.homeprofessormarichat.readyToHelp")}
+                    : localizeUi(
+                        noConnection
+                          ? "ui.chat.homeprofessormarichat.needsConnection"
+                          : "ui.chat.homeprofessormarichat.readyToHelp",
+                      )}
                 </div>
               </div>
             </div>
@@ -5836,12 +3049,17 @@ export function HomeProfessorMariChat({
         {chatWindowOpen && (
           <ProfessorMariMobilePortal disabled={embeddedTab}>
             <motion.div
+              ref={mobileDialogRef}
               key="professor-mari-window"
               data-component="HomeProfessorMariChat.Window"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              transition={PROFESSOR_MARI_PANE_TRANSITION}
+              transition={paneTransition}
+              role={mobileFocusMode && !embeddedTab ? "dialog" : undefined}
+              aria-modal={mobileFocusMode && !embeddedTab ? true : undefined}
+              aria-label={mobileFocusMode && !embeddedTab ? localizeUi("ui.chat.homefaq.professorMari") : undefined}
+              tabIndex={mobileFocusMode && !embeddedTab ? -1 : undefined}
               className={cn(
                 "flex min-h-0 items-stretch justify-center",
                 embeddedTab
@@ -5849,739 +3067,370 @@ export function HomeProfessorMariChat({
                   : "fixed inset-x-0 bottom-0 top-[calc(env(safe-area-inset-top)_+_3rem)] z-[80] bg-[var(--background)] pb-[var(--mari-safe-area-inset-bottom,env(safe-area-inset-bottom))] sm:static sm:z-auto sm:h-full sm:max-h-none sm:w-full sm:flex-1 sm:bg-transparent sm:p-0",
               )}
             >
-              <div className={cn("h-full min-h-0 w-full", embeddedTab ? "max-w-none" : "max-w-none sm:max-w-5xl")}>
-                <AnimatePresence mode="wait" initial={false}>
-                  {chatHistoryOpen ? (
-                    <motion.div
-                      key="professor-mari-chats"
-                      initial={{ opacity: 0, y: -14, rotateX: -10, transformOrigin: "top center" }}
-                      animate={{ opacity: 1, y: 0, rotateX: 0, transformOrigin: "top center" }}
-                      exit={{ opacity: 0, y: 12, rotateX: 8, transformOrigin: "bottom center" }}
-                      transition={PROFESSOR_MARI_PANE_TRANSITION}
-                      className="h-full min-w-0"
-                    >
-                      <section className="flex h-full min-h-0 min-w-0 flex-col rounded-none border-0 bg-[var(--background)] sm:rounded-xl sm:border sm:border-[var(--border)]/70 sm:bg-[var(--background)] sm:shadow-2xl">
-                        <div className="flex items-center justify-between gap-2 border-b border-[var(--border)]/60 px-3 py-2">
-                          <div className="min-w-0">
-                            <div className="truncate text-xs font-semibold text-[var(--foreground)]">
-                              {t("home.professorMari.chats")}
-                            </div>
-                            <div className="truncate text-[0.625rem] text-[var(--muted-foreground)]">
-                              {localizeUi("ui.chat.homeprofessormarichat.newChatSavesTheCurrentChatHere")}
-                            </div>
-                          </div>
-                          <div className="flex shrink-0 items-center gap-1">
-                            {/* #5752: the affordance people hunt for lives where they look for it. */}
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setChatHistoryOpen(false);
-                                void runRestart();
-                              }}
-                              disabled={isBusy}
-                              className="mari-chrome-control mari-chrome-control--small h-8 px-2 text-[0.625rem]"
-                              title={t("home.professorMari.newChat")}
-                            >
-                              <Plus size="0.75rem" />
-                              {localizeUi("ui.chat.homeprofessormarichat.newChat")}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (chatHistorySelectionMode) {
-                                  setChatHistorySelectionMode(false);
-                                  setSelectedChatHistoryIds(new Set());
-                                } else {
-                                  setChatHistorySelectionMode(true);
-                                }
-                              }}
-                              disabled={chatHistory.length === 0 || chatHistoryLoading}
-                              className="mari-chrome-control mari-chrome-control--small h-8 px-2 text-[0.625rem]"
-                              aria-pressed={chatHistorySelectionMode}
-                            >
-                              <Check size="0.75rem" />
-                              {localizeUi(
-                                chatHistorySelectionMode
-                                  ? "ui.chat.homeprofessormarichat.cancelSelection"
-                                  : "ui.chat.homeprofessormarichat.selectChats",
-                              )}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setChatHistoryOpen(false)}
-                              className="mari-chrome-control mari-chrome-control--small h-8 w-8 p-0"
-                              aria-label={t("home.professorMari.closeChats")}
-                              title={t("home.professorMari.closeChats")}
-                            >
-                              <X size="0.85rem" />
-                            </button>
-                          </div>
-                        </div>
-                        <div className="min-h-0 flex-1 overflow-y-auto p-2">
-                          {chatHistoryLoading ? (
-                            <div className="flex h-full items-center justify-center text-xs text-[var(--muted-foreground)]">
-                              <Loader2 size="0.875rem" className="mr-2 animate-spin" />
-                              {localizeUi("ui.chat.homeprofessormarichat.loadingChats")}
-                            </div>
-                          ) : chatHistory.length === 0 ? (
-                            <div className="rounded-lg border border-dashed border-[var(--border)] px-3 py-6 text-center text-xs text-[var(--muted-foreground)]">
-                              {t("home.professorMari.noPreviousChats")}
-                            </div>
-                          ) : (
-                            <div className="space-y-1.5">
-                              {chatHistory.map((item) => {
-                                const active = item.id === chatId || isProfessorMariChatActive(item);
-                                const renaming = renamingChatId === item.id;
-                                const selected = selectedChatHistoryIds.has(item.id);
-                                return (
-                                  <div
-                                    key={item.id}
-                                    data-professor-mari-chat-id={item.id}
-                                    className={cn(
-                                      "rounded-lg border border-[var(--border)] bg-[var(--card)]/70 p-2",
-                                      active && "border-[var(--primary)]/50 bg-[var(--primary)]/5",
-                                      selected && "ring-1 ring-[var(--primary)]",
-                                    )}
-                                  >
-                                    {renaming ? (
-                                      <form
-                                        className="flex items-center gap-1.5"
-                                        onSubmit={(event) => {
-                                          event.preventDefault();
-                                          void handleRenameProfessorChat(item.id);
-                                        }}
-                                      >
-                                        <input
-                                          value={renameDraft}
-                                          onChange={(event) => setRenameDraft(event.target.value)}
-                                          aria-label={localizeUi("ui.chat.homeprofessormarichat.renameChatInput")}
-                                          className="min-w-0 flex-1 rounded-md bg-[var(--background)] px-2 py-1.5 text-xs outline-none ring-1 ring-[var(--border)] focus:ring-[var(--primary)]"
-                                          autoFocus
-                                        />
-                                        <button
-                                          type="submit"
-                                          className="mari-chrome-control mari-chrome-control--primary mari-chrome-control--small h-8 px-2 text-[0.625rem]"
-                                        >
-                                          {localizeUi("ui.noodle.noodlehome.save")}
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={() => {
-                                            setRenamingChatId(null);
-                                            setRenameDraft("");
-                                          }}
-                                          className="mari-chrome-control mari-chrome-control--small h-8 px-2 text-[0.625rem]"
-                                        >
-                                          {localizeUi("chat.delete.dialog.cancel")}
-                                        </button>
-                                      </form>
-                                    ) : (
-                                      <div className="flex items-start gap-2">
-                                        {chatHistorySelectionMode && (
-                                          <span className="mt-1 shrink-0 text-[var(--primary)]" aria-hidden="true">
-                                            {selected ? <Check size="0.875rem" /> : <Square size="0.875rem" />}
-                                          </span>
-                                        )}
-                                        <button
-                                          type="button"
-                                          onClick={() =>
-                                            chatHistorySelectionMode
-                                              ? toggleProfessorChatSelection(item.id)
-                                              : void handleSelectProfessorChat(item.id)
-                                          }
-                                          disabled={isBusy}
-                                          aria-pressed={chatHistorySelectionMode ? selected : undefined}
-                                          className="min-w-0 flex-1 text-left disabled:cursor-not-allowed disabled:opacity-60"
-                                        >
-                                          <div className="truncate text-xs font-semibold text-[var(--foreground)]">
-                                            {item.name || localizeUi("ui.chat.homeprofessormarichat.unnamedChat")}
-                                          </div>
-                                          <div className="mt-0.5 flex flex-wrap gap-x-2 gap-y-0.5 text-[0.625rem] text-[var(--muted-foreground)]">
-                                            <span>
-                                              {item.messageCount ?? 0} {localizeUi("ui.agents.agenteditor.messages")}
-                                            </span>
-                                            {active && <span>{localizeUi("ui.characters.lorebooktab.active")}</span>}
-                                          </div>
-                                        </button>
-                                        {!chatHistorySelectionMode && (
-                                          <>
-                                            <button
-                                              type="button"
-                                              onClick={() => {
-                                                setRenamingChatId(item.id);
-                                                setRenameDraft(item.name || "");
-                                              }}
-                                              className="mari-chrome-control mari-chrome-control--small h-8 px-2 text-[0.625rem]"
-                                            >
-                                              {localizeUi("ui.chat.homeprofessormarichat.renameChat")}
-                                            </button>
-                                            <button
-                                              type="button"
-                                              onClick={() => void handleDeleteProfessorChat(item.id)}
-                                              className="mari-chrome-control mari-chrome-control--danger mari-chrome-control--small h-8 px-2 text-[0.625rem]"
-                                            >
-                                              {localizeUi("lorebook.editor.batch.delete")}
-                                            </button>
-                                          </>
-                                        )}
-                                      </div>
-                                    )}
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          )}
-                        </div>
-                        {chatHistorySelectionMode && (
-                          <div className="flex items-center gap-2 border-t border-[var(--border)]/60 px-3 py-2">
-                            <span className="min-w-0 flex-1 text-xs text-[var(--muted-foreground)]">
-                              {localizeUi("ui.chat.homeprofessormarichat.selectedChats", {
-                                count: selectedChatHistoryIds.size,
-                              })}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => void handleBulkDeleteProfessorChats()}
-                              disabled={selectedChatHistoryIds.size === 0}
-                              className="mari-chrome-control mari-chrome-control--primary mari-chrome-control--small h-8 px-3 text-[0.625rem]"
-                            >
-                              <Trash2 size="0.75rem" />
-                              {localizeUi("ui.chat.homeprofessormarichat.deleteSelectedChats")}
-                            </button>
-                          </div>
-                        )}
-                      </section>
-                    </motion.div>
-                  ) : memoriesMenuOpen ? (
-                    <motion.div
-                      key="professor-mari-memories"
-                      initial={{ opacity: 0, y: -14, rotateX: -10, transformOrigin: "top center" }}
-                      animate={{ opacity: 1, y: 0, rotateX: 0, transformOrigin: "top center" }}
-                      exit={{ opacity: 0, y: 12, rotateX: 8, transformOrigin: "bottom center" }}
-                      transition={PROFESSOR_MARI_PANE_TRANSITION}
-                      className="h-full min-w-0"
-                    >
-                      <ProfessorMariMemoriesMenu
-                        memories={memories}
-                        selectedMemory={selectedMemory}
-                        draft={memoryDraft}
-                        loading={memoriesLoading}
-                        saving={memoriesSaving}
-                        fileInputRef={memoryFileInputRef}
-                        onClose={() => setMemoriesMenuOpen(false)}
-                        onNew={handleNewMemory}
-                        onUploadClick={handleMemoryUploadClick}
-                        onFileChange={handleMemoryFileChange}
-                        onSelect={setSelectedMemoryId}
-                        onDraftChange={setMemoryDraft}
-                        onSave={() => void handleSaveMemory()}
-                        onDelete={(id) => void handleDeleteMemory(id)}
-                        onToggleEnabled={handleToggleMemoryEnabled}
-                        onTogglePersistent={handleToggleMemoryPersistent}
-                        className="h-full rounded-none border-0 bg-[var(--background)] sm:rounded-xl sm:border sm:bg-[var(--background)] sm:shadow-2xl"
-                      />
-                    </motion.div>
-                  ) : skillsMenuOpen ? (
-                    <motion.div
-                      key="professor-mari-skills"
-                      initial={{ opacity: 0, y: -14, rotateX: -10, transformOrigin: "top center" }}
-                      animate={{ opacity: 1, y: 0, rotateX: 0, transformOrigin: "top center" }}
-                      exit={{ opacity: 0, y: 12, rotateX: 8, transformOrigin: "bottom center" }}
-                      transition={PROFESSOR_MARI_PANE_TRANSITION}
-                      className="h-full min-w-0"
-                    >
-                      <ProfessorMariSkillsMenu
-                        skills={skills}
-                        selectedSkill={selectedSkill}
-                        draft={skillDraft}
-                        loading={skillsLoading}
-                        saving={skillsSaving}
-                        diagnostics={skillsDiagnostics}
-                        fileInputRef={skillFileInputRef}
-                        onClose={() => setSkillsMenuOpen(false)}
-                        onNew={handleNewSkill}
-                        onUploadClick={handleSkillUploadClick}
-                        onFileChange={handleSkillFileChange}
-                        onSelect={setSelectedSkillId}
-                        onDraftChange={setSkillDraft}
-                        onSave={() => void handleSaveSkill()}
-                        onDelete={(id) => void handleDeleteSkill(id)}
-                        onToggle={(skill) => void handleToggleSkill(skill)}
-                        className="h-full rounded-none border-0 bg-[var(--background)] sm:rounded-xl sm:border sm:bg-[var(--background)] sm:shadow-2xl"
-                      />
-                    </motion.div>
-                  ) : (
-                    <motion.div
-                      key="professor-mari-chat"
-                      initial={{ opacity: 0, y: 14, rotateX: 8, transformOrigin: "bottom center" }}
-                      animate={{ opacity: 1, y: 0, rotateX: 0, transformOrigin: "bottom center" }}
-                      exit={{ opacity: 0, y: -12, rotateX: -10, transformOrigin: "top center" }}
-                      transition={PROFESSOR_MARI_PANE_TRANSITION}
-                      className="h-full min-w-0"
-                    >
-                      <div
-                        className={cn(
-                          "flex h-full min-h-0 min-w-0 flex-col overflow-hidden border bg-[var(--background)]",
-                          embeddedTab
-                            ? "mari-chrome-accent-frame mari-accent-animated rounded-2xl"
+              <div
+                className={cn(
+                  "flex h-full min-h-0 w-full flex-col",
+                  embeddedTab ? "max-w-none" : "max-w-none sm:max-w-5xl",
+                )}
+                onKeyDown={(event) => {
+                  if (event.key !== "Escape") return;
+                  const hasDetail =
+                    (workspaceDestination === "context" && Boolean(selectedContextId)) ||
+                    (workspaceDestination === "skills" && Boolean(selectedSkillId)) ||
+                    (workspaceDestination === "memories" && Boolean(selectedMemoryId));
+                  const action = resolveProfessorMariWorkspaceBackAction(workspaceDestination, hasDetail);
+                  if (action === "workspace") {
+                    if (mobileFocusMode && !embeddedTab) {
+                      event.stopPropagation();
+                      closeChatWindow();
+                    }
+                    return;
+                  }
+                  event.stopPropagation();
+                  if (action === "detail" && workspaceDestination === "context") {
+                    setSelectedContextId(null);
+                    return;
+                  }
+                  if (action === "detail" && workspaceDestination === "skills") {
+                    setSelectedSkillId(null);
+                    return;
+                  }
+                  if (action === "detail" && workspaceDestination === "memories") {
+                    setSelectedMemoryId(null);
+                    return;
+                  }
+                  setWorkspaceDestination("chat");
+                }}
+              >
+                <div
+                  data-mari-panel="open"
+                  data-mari-state={mariPresentationState}
+                  className="relative flex min-h-0 flex-1 flex-col sm:flex-row"
+                >
+                  <motion.div
+                    key="professor-mari-chat"
+                    transition={paneTransition}
+                    className="h-full min-h-0 min-w-0 flex-1"
+                  >
+                    <div
+                      className={cn(
+                        "flex h-full min-h-0 min-w-0 flex-col overflow-hidden border bg-[var(--background)]",
+                        omnibarMode
+                          ? "rounded-none border-0 bg-transparent shadow-none"
+                          : embeddedTab
+                            ? "rounded-2xl border-[color-mix(in_srgb,oklch(0.73_0.21_345)_28%,var(--border))] shadow-[0_24px_70px_-42px_oklch(0.73_0.21_345/0.8)]"
                             : "rounded-none border-0 sm:rounded-xl sm:border sm:border-[var(--border)]/70 sm:shadow-2xl",
-                        )}
-                      >
-                        <div className="flex min-h-12 items-center justify-between gap-2 border-b border-[var(--border)]/60 bg-[var(--card)]/80 px-2 pt-2 sm:px-3 sm:py-2">
-                          <div className="flex min-w-0 items-center gap-2">
-                            <span className="mari-chrome-accent-soft-tile mari-accent-animated h-8 w-8 shrink-0 overflow-hidden rounded-md border">
-                              <img src={MARI_AVATAR_URL} alt="" className="h-full w-full object-cover" />
-                            </span>
-                            {/* At phone widths the header buttons crush this into "P. / R…" -
-                                the avatar carries the identity VISUALLY there, so hide the
-                                text but keep a screen-reader label (the avatar's alt is empty). */}
-                            <span className="sr-only sm:hidden">{localizeUi("ui.chat.homefaq.professorMari")}</span>
-                            <span className="hidden min-w-0 sm:block">
-                              <span className="block truncate text-xs font-bold text-[var(--foreground)]">
-                                {localizeUi("ui.chat.homefaq.professorMari")}
-                              </span>
-                              <span className="block truncate text-[0.625rem] text-[var(--muted-foreground)]">
-                                {isBusy
-                                  ? localizeUi("ui.chat.homeprofessormarichat.workingOnIt")
-                                  : localizeUi("ui.chat.homeprofessormarichat.readyToHelp")}
-                              </span>
-                            </span>
-                          </div>
-                          <div className="flex shrink-0 items-center gap-1">
-                            <button
-                              type="button"
-                              onClick={toggleChatHistory}
-                              disabled={isBusy && !chatHistoryOpen}
-                              className={cn(
-                                "inline-flex h-8 items-center gap-1 rounded-md px-2 text-[0.6875rem] font-semibold transition-colors hover:bg-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-50",
-                                "mari-chrome-accent-text-muted mari-accent-animated hover:text-[var(--marinara-chat-chrome-button-text-hover)]",
-                              )}
-                              title={t("home.professorMari.openPreviousChats")}
-                              aria-expanded={chatHistoryOpen}
-                            >
-                              <BookOpen size="0.75rem" />
-                              <span className="max-[360px]:hidden">{localizeUi("navigation.common.chats")}</span>
-                            </button>
-                            {/* #5741: one button for Skills and Memories - two buttons
-                                overflowed the row into the avatar at phone widths. */}
-                            <div className="relative">
-                              <button
-                                ref={libraryButtonRef}
-                                type="button"
-                                onClick={() => {
-                                  setConnectionMenuOpen(false);
-                                  setPermissionsMenuOpen(false);
-                                  setLibraryMenuOpen((current) => !current);
-                                }}
-                                className={cn(
-                                  "inline-flex h-8 items-center gap-1 rounded-md px-2 text-[0.6875rem] font-semibold transition-colors hover:bg-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-50",
-                                  "mari-chrome-accent-text-muted mari-accent-animated hover:text-[var(--marinara-chat-chrome-button-text-hover)]",
-                                )}
-                                title={localizeUi("ui.chat.homeprofessormarichat.openSkillsAndMemories")}
-                                aria-label={localizeUi("ui.chat.homeprofessormarichat.skillsAndMemories")}
-                                aria-expanded={libraryMenuOpen}
-                              >
-                                <Brain size="0.75rem" />
-                                <span className="max-[430px]:hidden">
-                                  {localizeUi("ui.chat.homeprofessormarichat.skillsAndMemories")}
-                                </span>
-                                {skills.length + memories.length > 0 && (
-                                  <span className="mari-chrome-muted-badge px-1.5 py-0.5 text-[0.56rem]">
-                                    {activeSkillCount + activeMemoryCount}
-                                  </span>
-                                )}
-                              </button>
-                              {libraryMenuOpen && (
-                                <div
-                                  ref={libraryMenuRef}
-                                  className="absolute right-0 top-full z-20 mt-2 flex w-48 flex-col overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card)] text-left shadow-2xl"
-                                >
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setLibraryMenuOpen(false);
-                                      toggleSkillsMenu();
-                                    }}
-                                    className="flex items-center justify-between gap-2 px-3 py-2 text-[0.6875rem] font-semibold text-[var(--foreground)] transition-colors hover:bg-[var(--accent)]"
-                                    title={localizeUi("ui.chat.homeprofessormarichat.openSkills")}
-                                    aria-expanded={skillsMenuOpen}
-                                  >
-                                    <span className="inline-flex items-center gap-1.5">
-                                      <ArrowDown size="0.75rem" />
-                                      {localizeUi("ui.chat.homeprofessormarichat.skills")}
-                                    </span>
-                                    {skills.length > 0 && (
-                                      <span className="mari-chrome-muted-badge px-1.5 py-0.5 text-[0.56rem]">
-                                        {activeSkillCount}
-                                      </span>
-                                    )}
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setLibraryMenuOpen(false);
-                                      toggleMemoriesMenu();
-                                    }}
-                                    className="flex items-center justify-between gap-2 px-3 py-2 text-[0.6875rem] font-semibold text-[var(--foreground)] transition-colors hover:bg-[var(--accent)]"
-                                    title={localizeUi("ui.chat.homeprofessormarichat.openMemories")}
-                                    aria-expanded={memoriesMenuOpen}
-                                  >
-                                    <span className="inline-flex items-center gap-1.5">
-                                      <Brain size="0.75rem" />
-                                      {localizeUi("ui.chat.homeprofessormarichat.memories")}
-                                    </span>
-                                    {memories.length > 0 && (
-                                      <span className="mari-chrome-muted-badge px-1.5 py-0.5 text-[0.56rem]">
-                                        {activeMemoryCount}
-                                      </span>
-                                    )}
-                                  </button>
-                                </div>
-                              )}
-                            </div>
-                            <div className="relative">
-                              <button
-                                ref={permissionsButtonRef}
-                                type="button"
-                                onClick={() => {
-                                  setLibraryMenuOpen(false);
-                                  setPermissionsMenuOpen((current) => !current);
-                                }}
-                                className={cn(
-                                  "inline-flex h-8 items-center gap-1 rounded-md px-2 text-[0.6875rem] font-semibold transition-colors hover:bg-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-50",
-                                  "mari-chrome-accent-text-muted mari-accent-animated hover:text-[var(--marinara-chat-chrome-button-text-hover)]",
-                                )}
-                                title={localizeUi("ui.chat.homeprofessormarichat.permissionsMode")}
-                                aria-expanded={permissionsMenuOpen}
-                              >
-                                <ShieldAlert size="0.75rem" />
-                                <span className="max-[420px]:hidden">
-                                  {localize(MARI_PERMISSIONS_MODE_LABELS[permissionsMode].label)}
-                                </span>
-                              </button>
-                              {permissionsMenuOpen && (
-                                <div
-                                  ref={permissionsMenuRef}
-                                  className="absolute right-0 top-full z-20 mt-2 flex w-[19rem] flex-col overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card)] text-left shadow-2xl"
-                                >
-                                  <div className="border-b border-[var(--border)] px-3 py-2 text-[0.6875rem] font-semibold text-[var(--foreground)]">
-                                    {localizeUi("ui.chat.homeprofessormarichat.permissionsModeForThisChat")}
-                                  </div>
-                                  <button
-                                    type="button"
-                                    onClick={() => void changePermissionsMode(null)}
-                                    className="flex items-start gap-2 border-b border-[var(--border)] px-3 py-2 text-left transition-colors hover:bg-[var(--accent)]"
-                                  >
-                                    <span className="mt-0.5 w-3.5 shrink-0">
-                                      {!permissionsModeOverridden && <Check size="0.8rem" />}
-                                    </span>
-                                    <span className="flex flex-col">
-                                      <span className="text-[0.6875rem] font-semibold text-[var(--foreground)]">
-                                        {localizeUi("ui.chat.homeprofessormarichat.useDefaultMode", {
-                                          value1: localize(MARI_PERMISSIONS_MODE_LABELS[permissionsModeDefault].label),
-                                        })}
-                                      </span>
-                                      <span className="text-[0.625rem] text-[var(--muted-foreground)]">
-                                        {localizeUi(
-                                          "ui.chat.homeprofessormarichat.followsTheGlobalDefaultFromSettings",
-                                        )}
-                                      </span>
-                                    </span>
-                                  </button>
-                                  {MARI_PERMISSIONS_MODES.map((mode) => (
-                                    <button
-                                      key={mode}
-                                      type="button"
-                                      onClick={() => void changePermissionsMode(mode)}
-                                      className="flex items-start gap-2 px-3 py-2 text-left transition-colors hover:bg-[var(--accent)]"
-                                    >
-                                      <span className="mt-0.5 w-3.5 shrink-0">
-                                        {permissionsModeOverridden && mode === permissionsMode && (
-                                          <Check size="0.8rem" />
-                                        )}
-                                      </span>
-                                      <span className="flex flex-col">
-                                        <span className="text-[0.6875rem] font-semibold text-[var(--foreground)]">
-                                          {localize(MARI_PERMISSIONS_MODE_LABELS[mode].label)}
-                                        </span>
-                                        <span className="text-[0.625rem] text-[var(--muted-foreground)]">
-                                          {localize(MARI_PERMISSIONS_MODE_LABELS[mode].description)}
-                                        </span>
-                                      </span>
-                                    </button>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                            {(workspaceActive || hasActiveGeneration) && (
-                              <button
-                                type="button"
-                                onClick={() => void stopWorkspace()}
-                                className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[0.6875rem] text-[var(--destructive)] transition-colors hover:bg-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-50"
-                                title={localizeUi("ui.chat.homeprofessormarichat.stopProfessorMariWorkspaceAgent")}
-                              >
-                                <Square size="0.7rem" /> {localizeUi("ui.chat.summarypopover.stop")}
-                              </button>
-                            )}
-                            <button
-                              type="button"
-                              onClick={() => void runRestart()}
-                              disabled={isBusy}
-                              className="mari-chrome-accent-text-muted mari-accent-animated inline-flex items-center gap-1 rounded-md px-2 py-1 text-[0.6875rem] transition-colors hover:bg-[var(--marinara-chat-chrome-highlight-bg)] hover:text-[var(--marinara-chat-chrome-button-text-hover)] disabled:cursor-not-allowed disabled:opacity-50"
-                              aria-label={localizeUi("ui.chat.homeprofessormarichat.newChat")}
-                              title={t("home.professorMari.newChat")}
-                            >
-                              <Plus size="0.75rem" />
-                              <span className="max-[380px]:hidden">
-                                {localizeUi("ui.chat.homeprofessormarichat.newChat")}
-                              </span>
-                            </button>
-                            {!embeddedTab && (
-                              <button
-                                type="button"
-                                onClick={closeChatWindow}
-                                className="mari-editor-action mari-accent-animated inline-flex shrink-0"
-                                aria-label={t("home.professorMari.close")}
-                                title={t("home.professorMari.close")}
-                              >
-                                <X size="1.125rem" />
-                              </button>
-                            )}
-                          </div>
-                        </div>
+                      )}
+                    >
+                      <MariWindowHeader
+                        activeMemoryCount={activeMemoryCount}
+                        activeSkillCount={activeSkillCount}
+                        attachedContext={attachedContext}
+                        chatHistoryOpen={chatHistoryOpen}
+                        closeChatWindow={closeChatWindow}
+                        embeddedTab={embeddedTab}
+                        focusedCharacter={focusedCharacter}
+                        focusedLorebook={focusedLorebook}
+                        handleOpenContextViewer={handleOpenContextViewer}
+                        handoffContext={handoffContext}
+                        isBusy={isBusy}
+                        noConnection={noConnection}
+                        memories={memories}
+                        memoriesMenuOpen={memoriesMenuOpen}
+                        omnibarMode={omnibarMode}
+                        openPendingApprovals={openPendingApprovals}
+                        runRestart={runRestart}
+                        setConnectionMenuOpen={setConnectionMenuOpen}
+                        setHandoffContext={setHandoffContext}
+                        skills={skills}
+                        skillsMenuOpen={skillsMenuOpen}
+                        toggleChatHistory={toggleChatHistory}
+                        toggleMemoriesMenu={toggleMemoriesMenu}
+                        toggleSkillsMenu={toggleSkillsMenu}
+                        visiblePendingChangeReviews={visiblePendingChangeReviews}
+                        workspaceTimelineActive={workspaceTimelineActive}
+                      />
 
-                        <div
-                          ref={setTranscriptScrollNode}
-                          onScroll={handleTranscriptScroll}
-                          data-component="HomeProfessorMariChat.Transcript"
-                          className="min-h-0 flex-1 space-y-2.5 overflow-y-auto bg-[radial-gradient(circle_at_12%_8%,oklch(0.79_0.16_205/0.06),transparent_26%),radial-gradient(circle_at_88%_12%,color-mix(in_srgb,var(--marinara-app-accent-solid)_7%,transparent),transparent_28%)] px-3 py-3 pb-4 text-left"
-                        >
-                          {loadingHistory ? (
-                            <LoadingHistoryState />
-                          ) : (
-                            <>
-                              {displayMessages.map(renderDisplayMessage)}
-                              {showConnectionFirstHint && (
-                                <p className="px-3 py-1 text-center text-xs text-[var(--muted-foreground)]">
-                                  {localizeUi("ui.chat.homeprofessormarichat.selectAConnectionFirst")}
-                                </p>
-                              )}
-                              {workspaceTimeline.length === 0 && workspaceTimelineActive && !showDottoreSupport && (
-                                <WorkspaceStatusEvent content={workspaceActivity ?? "Thinking..."} />
-                              )}
-                              {showDottoreSupport && (
-                                <TranscriptRow marker={<MariAvatar active />}>
-                                  <ProfessorMariWorkingWindow visible className="max-w-[18rem]" />
-                                </TranscriptRow>
-                              )}
-                              <WorkspaceTimelineList
-                                items={workspaceTimeline}
-                                active={workspaceTimelineActive}
-                                openReasoning
-                              />
-                              {workspaceStatus?.error && <WorkspaceErrorEvent message={workspaceStatus.error} />}
-                              {visiblePendingChangeReviews.map((approval) => (
-                                <WorkspaceApprovalCard
-                                  key={approval.id}
-                                  approval={approval}
-                                  busy={workspaceReviewActionId === approval.id}
-                                  disabled={workspaceReviewActionId !== null}
-                                  onKeep={(id) => void keepWorkspaceChange(id)}
-                                  onKeepEnable={(id) => void keepWorkspaceChange(id, { enable: true })}
-                                  onRestore={(id) => void restoreWorkspaceChange(id)}
-                                  onRejectRows={(id, rows) => rejectWorkspaceRows(id, rows)}
-                                  onRenderPrompt={renderWorkspacePrompt}
-                                />
-                              ))}
-                            </>
-                          )}
-                        </div>
-
-                        <form
-                          className="border-t border-[var(--border)]/60 px-2.5 py-2.5"
-                          onSubmit={(event) => {
-                            event.preventDefault();
-                            void handleSubmit();
-                          }}
-                        >
-                          <input
-                            ref={attachmentInputRef}
-                            type="file"
-                            accept={PROFESSOR_MARI_ATTACHMENT_ACCEPT}
-                            multiple
-                            className="hidden"
-                            onChange={(event: ChangeEvent<HTMLInputElement>) => {
-                              void handleAttachmentUpload(event.target.files);
-                              event.target.value = "";
-                            }}
+                      <div className="relative flex min-h-0 flex-1 flex-col">
+                        {omnibarMode && !reduceAmbientEffects ? (
+                          <div
+                            aria-hidden="true"
+                            className="mari-workspace-glow-band"
+                            data-working={composerWorkingState}
+                            data-glow={composerGlowTone}
                           />
-                          <ProfessorMariAttachmentPreviews
-                            attachments={attachments}
-                            isReading={isReadingAttachments}
-                            onRemove={(index) =>
-                              setAttachments((current) => current.filter((_, itemIndex) => itemIndex !== index))
-                            }
-                          />
-                          {chipRowHint && (
-                            <p className="mb-1 flex items-center gap-1.5 px-0.5 text-[0.6875rem] text-[var(--marinara-chat-chrome-panel-muted)]">
-                              <Sparkles size="0.6875rem" className="shrink-0 text-[var(--primary)]" />
-                              <span>{chipRowHint}</span>
-                            </p>
-                          )}
-                          {showSuggestionLoading && (
-                            <div className="mb-1 flex items-center gap-1.5 px-0.5 text-[0.6875rem] text-[var(--muted-foreground)]">
-                              <Sparkles size="0.6875rem" className="shrink-0 animate-pulse text-[var(--primary)]" />
-                              {localizeUi("ui.chat.homeprofessormarichat.thinkingUpSuggestions")}
-                            </div>
-                          )}
-                          <MariSuggestionChips
-                            chips={chipRowChips}
-                            onSelect={handleSuggestionSelect}
-                            disabled={isBusy}
-                            compact
-                          />
-                          <div className="relative flex items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--card)] px-2 py-1.5 shadow-inner shadow-black/10 focus-within:border-[var(--primary)]/50">
-                            <MariAttachButton
-                              onAttachFiles={() => attachmentInputRef.current?.click()}
-                              onAddChatHistory={() => void handleOpenHistoryPicker()}
-                              onViewContext={() => void handleOpenContextViewer()}
-                              attachedFileCount={attachments.length}
-                              attachedContextCount={attachedContext?.length ?? 0}
-                              disabled={isBusy || isReadingAttachments}
-                              isReading={isReadingAttachments}
-                            />
+                        ) : null}
+                        <MariTranscript
+                          activeRunError={activeRunError}
+                          activeTurnMessages={activeTurnMessages}
+                          activeTurnRef={activeTurnRef}
+                          appendedArrival={appendedArrival}
+                          appendedArrivalNodeRef={appendedArrivalNodeRef}
+                          arrival={arrival}
+                          arrivalChoiceChatId={arrivalChoiceChatId}
+                          arrivalThread={arrivalThread}
+                          characterPreviewById={characterPreviewById}
+                          chatId={chatId}
+                          chipRowChips={chipRowChips}
+                          emptyStateReady={emptyStateReady}
+                          focusedCharacter={focusedCharacter}
+                          focusedLorebook={focusedLorebook}
+                          guidedPlanStep={guidedPlanStep}
+                          handleDeleteMessage={handleDeleteMessage}
+                          handleNewAboutContext={handleNewAboutContext}
+                          handleRegenerateMessage={handleRegenerateMessage}
+                          handleSuggestionSelect={handleSuggestionSelect}
+                          handleTranscriptScroll={handleTranscriptScroll}
+                          heldCardNode={heldCardNode}
+                          isBusy={isBusy}
+                          lastAssistantId={lastAssistantId}
+                          lastUserMessage={lastUserMessage}
+                          latestActionResults={latestActionResults}
+                          latestMessage={latestMessage}
+                          latestTurnHasTrace={latestTurnHasTrace}
+                          latestTurnRestStory={latestTurnRestStory}
+                          // Also while her chat is not known yet (connections still loading), so the skeleton, not a blank.
+                          // A cached thread (mari-thread-cache) stays on screen while the first load refreshes it.
+                          loadingHistory={
+                            loadedMessagesChatId !== chatId || (loadingHistory && loadedMessagesChatId === null)
+                          }
+                          lorebookPreviewById={lorebookPreviewById}
+                          mariPresentationState={mariPresentationState}
+                          messages={messages}
+                          omnibarMode={omnibarMode}
+                          openActionResult={openActionResult}
+                          openReferencedResource={openReferencedResource}
+                          renderArrival={renderArrival}
+                          renderDisplayMessage={renderDisplayMessage}
+                          renderGoal={renderGoal}
+                          renderRunErrorCard={renderRunErrorCard}
+                          renderTurnPrompt={renderTurnPrompt}
+                          renderTurnReviews={renderTurnReviews}
+                          restingStory={restingStory}
+                          reviewsByTurn={reviewsByTurn}
+                          setArrivalChoiceChatId={setArrivalChoiceChatId}
+                          setTranscriptScrollNode={setTranscriptScrollNode}
+                          setTranscriptStackNode={setTranscriptStackNode}
+                          showConnectionFirstHint={showConnectionFirstHint}
+                          showJumpToLatest={showJumpToLatest}
+                          showNextStepCards={showNextStepCards}
+                          showSuggestionPrompt={showSuggestionPrompt}
+                          suggestionQuestion={suggestionQuestion}
+                          transcriptHeadMessages={transcriptHeadMessages}
+                          workspaceRunClock={workspaceRunClock}
+                          workspaceStatus={workspaceStatus}
+                          workspaceTimeline={workspaceTimeline}
+                          workspaceTimelineActive={workspaceTimelineActive}
+                          workspaceTimelineVisible={workspaceTimelineVisible}
+                          workspaceToolsIssue={workspaceToolsIssue}
+                        />
 
-                            <button
-                              ref={connectionButtonRef}
-                              type="button"
-                              onClick={() => {
-                                setLibraryMenuOpen(false);
-                                setConnectionMenuOpen((current) => !current);
-                              }}
-                              className={cn(
-                                "flex h-8 w-8 shrink-0 items-center justify-center rounded-xl transition-all",
-                                connectionMenuOpen
-                                  ? "bg-foreground/10 text-foreground/75"
-                                  : "text-foreground/40 hover:bg-foreground/10 hover:text-foreground/70",
-                              )}
-                              title={
-                                effectiveConnection?.name
-                                  ? localizeUi("ui.chat.homeprofessormarichat.connectionValue1", {
-                                      value1: effectiveConnection.name,
-                                    })
-                                  : localizeUi("ui.chat.homeprofessormarichat.selectConnection")
-                              }
-                            >
-                              <span className="relative flex h-[1.875rem] w-[1.875rem] items-center justify-center">
-                                {showContextUsage && contextBudget && (
-                                  <ContextBudgetGauge percentage={contextBudget.percentage} />
-                                )}
-                                <Link size="1rem" />
-                              </span>
-                            </button>
-
-                            {connectionMenuOpen && (
-                              <div
-                                ref={connectionMenuRef}
-                                className="absolute bottom-full left-12 z-20 mb-2 flex max-h-72 min-w-[15rem] max-w-[20rem] flex-col overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card)] text-left shadow-2xl"
-                              >
-                                <div className="border-b border-[var(--border)] px-3 py-2 text-[0.6875rem] font-semibold text-[var(--foreground)]">
-                                  {localizeUi("navigation.topbar.connections")}
-                                </div>
-                                {showContextUsage && contextBudget && (
-                                  <div className="border-b border-[var(--border)] px-3 pt-2">
-                                    <ContextBudgetIndicator budget={contextBudget} />
-                                  </div>
-                                )}
-                                <div className="overflow-y-auto p-1">
-                                  {connectionOptions.length > 0 ? (
-                                    connectionOptions.map((connection) => {
-                                      const isActive = effectiveConnectionId === connection.id;
-                                      return (
-                                        <button
-                                          key={connection.id}
-                                          type="button"
-                                          onClick={() => handleConnectionChange(connection.id)}
-                                          className={cn(
-                                            "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs transition-colors hover:bg-[var(--accent)]",
-                                            isActive && "font-semibold text-[var(--foreground)]",
-                                          )}
-                                        >
-                                          <span className="min-w-0 flex-1 truncate">
-                                            {connection.name || connection.id}
-                                            {connection.id === LOCAL_SIDECAR_CONNECTION_ID && (
-                                              <span className="ml-1 text-[0.625rem] font-normal text-[var(--muted-foreground)]">
-                                                {sidecarNativeToolCalls
-                                                  ? localizeUi("ui.chat.homeprofessormarichat.nativeTools")
-                                                  : localizeUi("ui.chat.homeprofessormarichat.toolsOff")}
-                                              </span>
-                                            )}
-                                          </span>
-                                          {isActive && (
-                                            <Check size="0.75rem" className="shrink-0 text-[var(--primary)]" />
-                                          )}
-                                        </button>
-                                      );
-                                    })
-                                  ) : (
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setConnectionMenuOpen(false);
-                                        useUIStore.getState().openRightPanel("connections");
-                                      }}
-                                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
-                                    >
-                                      <Link size="0.875rem" />
-                                      {localizeUi("ui.chat.homeprofessormarichat.addAConnection")}
-                                    </button>
-                                  )}
-                                </div>
-                              </div>
-                            )}
-
-                            <textarea
-                              ref={floatingTextareaRef}
-                              value={draft}
-                              onChange={(event) => {
-                                setDraft(event.target.value);
-                                if (mobileFocusMode) event.currentTarget.scrollIntoView({ block: "end" });
-                              }}
-                              onKeyDown={(event) => {
-                                const shouldSend =
-                                  event.key === "Enter" &&
-                                  !event.shiftKey &&
-                                  (enterToSend || event.metaKey || event.ctrlKey);
-                                if (shouldSend) {
-                                  event.preventDefault();
-                                  void handleSubmit();
-                                }
-                              }}
-                              rows={1}
-                              placeholder={t("home.professorMari.placeholder")}
-                              className="mari-chat-input-textarea min-h-8 max-h-32 flex-1 resize-none overflow-y-auto bg-transparent px-1 py-1.5 text-sm leading-normal text-foreground/90 outline-hidden placeholder:text-foreground/30 disabled:cursor-not-allowed disabled:opacity-40"
-                              disabled={isBusy}
-                            />
-                            <button
-                              type="submit"
-                              disabled={!canSubmitMessage || isBusy}
-                              className={cn(
-                                "mari-chat-send-btn inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-white transition-all duration-200",
-                                canSubmitMessage && !isBusy
-                                  ? "hover:text-white active:scale-90"
-                                  : "cursor-not-allowed opacity-40",
-                              )}
-                              aria-label={t("home.professorMari.send")}
-                              title={t("home.professorMari.send")}
-                            >
-                              <Send size="0.9375rem" className={cn(canSubmitMessage && "translate-x-[1px]")} />
-                            </button>
-                          </div>
-                        </form>
+                        <MariComposer
+                          acceptDraftCompletion={acceptDraftCompletion}
+                          attachComposerDock={attachComposerDock}
+                          attachedContext={attachedContext}
+                          attachmentInputRef={attachmentInputRef}
+                          attachments={attachments}
+                          canSubmitMessage={canSubmitMessage}
+                          chipRowChips={chipRowChips}
+                          composerContextFacets={composerContextFacets}
+                          composerScroll={composerScroll}
+                          connectionButtonRef={connectionButtonRef}
+                          connectionMenuOpen={connectionMenuOpen}
+                          connectionMenuRef={connectionMenuRef}
+                          connectionOptions={connectionOptions}
+                          draft={draft}
+                          draftSuffix={draftSuffix}
+                          effectiveConnection={effectiveConnection}
+                          effectiveConnectionId={effectiveConnectionId}
+                          enterToSend={enterToSend}
+                          floatingTextareaRef={floatingTextareaRef}
+                          handleAttachmentUpload={handleAttachmentUpload}
+                          handleConnectionChange={handleConnectionChange}
+                          handleOpenContextViewer={handleOpenContextViewer}
+                          handleOpenHistoryPicker={handleOpenHistoryPicker}
+                          handleSubmit={handleSubmit}
+                          handleSuggestionSelect={handleSuggestionSelect}
+                          isBusy={isBusy}
+                          isReadingAttachments={isReadingAttachments}
+                          jumpToLatest={jumpToLatest}
+                          messages={messages}
+                          mobileFocusMode={mobileFocusMode}
+                          omnibarMode={omnibarMode}
+                          onConnectionMenuKeyDown={onConnectionMenuKeyDown}
+                          onPermissionsMenuKeyDown={onPermissionsMenuKeyDown}
+                          oneShotContext={oneShotContext}
+                          permissionsButtonRef={permissionsButtonRef}
+                          permissionsMenuOpen={permissionsMenuOpen}
+                          permissionsMenuRef={permissionsMenuRef}
+                          permissionsMode={permissionsMode}
+                          permissionsModeDefault={permissionsModeDefault}
+                          permissionsModeOverridden={permissionsModeOverridden}
+                          changePermissionsMode={changePermissionsMode}
+                          reduceMotion={reduceMotion}
+                          removeOneShotFacet={removeOneShotFacet}
+                          setAttachments={setAttachments}
+                          setComposerScroll={setComposerScroll}
+                          setConnectionMenuOpen={setConnectionMenuOpen}
+                          setDraft={setDraft}
+                          setHandoffContext={setHandoffContext}
+                          setPermissionsMenuOpen={setPermissionsMenuOpen}
+                          showJumpToLatest={showJumpToLatest}
+                          showNextStepCards={showNextStepCards}
+                          showSuggestionPrompt={showSuggestionPrompt}
+                          sidecarNativeToolCalls={sidecarNativeToolCalls}
+                          stopWorkspace={stopWorkspace}
+                          suggestionQuestion={suggestionQuestion}
+                          workspaceTimelineActive={workspaceTimelineActive}
+                        />
                       </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                    </div>
+                  </motion.div>
+                  {/* The destination's panel: the one tab-panel for the selected tab (omnibar header). */}
+                  <div
+                    className="contents"
+                    role={omnibarMode && workspaceDestination !== "chat" ? "tabpanel" : undefined}
+                    aria-labelledby={
+                      omnibarMode && workspaceDestination !== "chat" ? `mari-tab-${workspaceDestination}` : undefined
+                    }
+                  >
+                    <AnimatePresence initial={false}>
+                      {chatHistoryOpen ? (
+                        <motion.div
+                          key="professor-mari-chats"
+                          initial={{ opacity: 0, x: 8 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0, x: 8 }}
+                          transition={paneTransition}
+                          className={MARI_PANEL_SLOT_CLASS}
+                        >
+                          <MariChatsPanel
+                            chatHistory={chatHistory}
+                            chatHistoryLoading={chatHistoryLoading}
+                            chatHistoryQuery={chatHistoryQuery}
+                            chatHistorySelectionMode={chatHistorySelectionMode}
+                            chatHistorySortMode={chatHistorySortMode}
+                            chatId={chatId}
+                            chatRowMenuId={chatRowMenuId}
+                            chatRowMenuRef={chatRowMenuRef}
+                            chatRowPopoverRef={chatRowPopoverRef}
+                            displayedChatHistory={displayedChatHistory}
+                            handleBulkDeleteProfessorChats={handleBulkDeleteProfessorChats}
+                            handleDeleteProfessorChat={handleDeleteProfessorChat}
+                            handleRenameProfessorChat={handleRenameProfessorChat}
+                            handleSelectProfessorChat={handleSelectProfessorChat}
+                            isBusy={isBusy}
+                            onChatRowMenuKeyDown={onChatRowMenuKeyDown}
+                            renameDraft={renameDraft}
+                            renamingChatId={renamingChatId}
+                            runRestart={runRestart}
+                            selectedChatHistoryIds={selectedChatHistoryIds}
+                            setChatHistoryQuery={setChatHistoryQuery}
+                            setChatHistorySelectionMode={setChatHistorySelectionMode}
+                            setChatHistorySortMode={setChatHistorySortMode}
+                            setChatRowMenuId={setChatRowMenuId}
+                            setRenameDraft={setRenameDraft}
+                            setRenamingChatId={setRenamingChatId}
+                            setSelectedChatHistoryIds={setSelectedChatHistoryIds}
+                            setWorkspaceDestination={setWorkspaceDestination}
+                            toggleProfessorChatSelection={toggleProfessorChatSelection}
+                          />
+                        </motion.div>
+                      ) : memoriesMenuOpen ? (
+                        <motion.div
+                          key="professor-mari-memories"
+                          initial={{ opacity: 0, x: 8 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0, x: 8 }}
+                          transition={paneTransition}
+                          className={MARI_PANEL_SLOT_CLASS}
+                        >
+                          <Suspense fallback={null}>
+                            <ProfessorMariMemoriesMenu
+                              memories={memories}
+                              query={memoriesQuery}
+                              selectedMemory={selectedMemory}
+                              draft={memoryDraft}
+                              loading={memoriesLoading}
+                              saving={memoriesSaving}
+                              fileInputRef={memoryFileInputRef}
+                              onClose={() => setWorkspaceDestination("chat")}
+                              onNew={handleNewMemory}
+                              onUploadClick={handleMemoryUploadClick}
+                              onFileChange={handleMemoryFileChange}
+                              onSelect={setSelectedMemoryId}
+                              onDraftChange={setMemoryDraft}
+                              onSave={() => void handleSaveMemory()}
+                              onDelete={(id) => void handleDeleteMemory(id)}
+                              onToggleEnabled={handleToggleMemoryEnabled}
+                              onTogglePersistent={handleToggleMemoryPersistent}
+                              onQueryChange={setMemoriesQuery}
+                            />
+                          </Suspense>
+                        </motion.div>
+                      ) : skillsMenuOpen ? (
+                        <motion.div
+                          key="professor-mari-skills"
+                          initial={{ opacity: 0, x: 8 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0, x: 8 }}
+                          transition={paneTransition}
+                          className={MARI_PANEL_SLOT_CLASS}
+                        >
+                          <Suspense fallback={null}>
+                            <ProfessorMariSkillsMenu
+                              skills={skills}
+                              query={skillsQuery}
+                              selectedSkill={selectedSkill}
+                              draft={skillDraft}
+                              loading={skillsLoading}
+                              saving={skillsSaving}
+                              diagnostics={skillsDiagnostics}
+                              fileInputRef={skillFileInputRef}
+                              onClose={() => setWorkspaceDestination("chat")}
+                              onNew={handleNewSkill}
+                              onUploadClick={handleSkillUploadClick}
+                              onFileChange={handleSkillFileChange}
+                              onSelect={setSelectedSkillId}
+                              onDraftChange={setSkillDraft}
+                              onSave={() => void handleSaveSkill()}
+                              onDelete={(id) => void handleDeleteSkill(id)}
+                              onToggle={(skill) => void handleToggleSkill(skill)}
+                              onQueryChange={setSkillsQuery}
+                            />
+                          </Suspense>
+                        </motion.div>
+                      ) : workspaceDestination === "context" ? (
+                        <motion.section
+                          key="professor-mari-context"
+                          initial={{ opacity: 0, y: -10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: 10 }}
+                          transition={paneTransition}
+                          className={MARI_PANEL_SLOT_CLASS}
+                        >
+                          <MariSeesPanel
+                            attachedContext={attachedContext}
+                            contextBudget={contextBudget}
+                            effectiveConnection={effectiveConnection}
+                            handleOpenHistoryPicker={handleOpenHistoryPicker}
+                            handoffContext={handoffContext}
+                            oneShotContext={oneShotContext}
+                            oneShotContextFacets={oneShotContextFacets}
+                            removeOneShotFacet={removeOneShotFacet}
+                            selectedContextId={selectedContextId}
+                            setConnectionMenuOpen={setConnectionMenuOpen}
+                            setHandoffContext={setHandoffContext}
+                            setSelectedContextId={setSelectedContextId}
+                            setWorkspaceDestination={setWorkspaceDestination}
+                            showContextUsage={showContextUsage}
+                            workspaceStatus={workspaceStatus}
+                          />
+                        </motion.section>
+                      ) : null}
+                    </AnimatePresence>
+                  </div>
+                </div>
               </div>
             </motion.div>
           </ProfessorMariMobilePortal>
@@ -6589,8 +3438,4 @@ export function HomeProfessorMariChat({
       </AnimatePresence>
     </>
   );
-}
-
-export function ProfessorMariFloatingAssistant({ onDismiss }: { onDismiss: () => void }) {
-  return <HomeProfessorMariChat pageActive floatingMode onFloatingDismiss={onDismiss} />;
 }

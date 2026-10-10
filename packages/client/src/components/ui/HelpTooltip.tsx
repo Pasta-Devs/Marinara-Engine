@@ -219,7 +219,7 @@ export function HelpTooltip({
           <div
             ref={tipRef}
             className={cn(
-              "pointer-events-none fixed z-[9999] rounded-lg bg-[var(--popover)] px-3 py-2 text-left text-[0.6875rem] leading-relaxed text-[var(--popover-foreground)] shadow-xl ring-1 ring-[var(--border)]",
+              "pointer-events-none fixed z-[calc(var(--mari-layer-omnibar)+1)] rounded-lg bg-[var(--popover)] px-3 py-2 text-left text-[0.6875rem] leading-relaxed text-[var(--popover-foreground)] shadow-xl ring-1 ring-[var(--border)]",
               wide ? "w-[min(22rem,calc(100vw-1.5rem))] max-w-[22rem]" : "w-56",
             )}
             style={{ top: pos.top, left: pos.left, visibility: pos.ready ? "visible" : "hidden" }}

@@ -94,3 +94,7 @@ export function parseCharacterDisplayData(raw: { data: unknown; comment?: string
       : undefined;
   return { name, summary, comment, description, tags, creator, avatarCrop: normalizeAvatarCrop(rawAvatarCrop) };
 }
+
+export function getCharacterDisplayIdentity(raw: { data: unknown; comment?: string | null }): string {
+  return parseCharacterDisplayData(raw).name;
+}

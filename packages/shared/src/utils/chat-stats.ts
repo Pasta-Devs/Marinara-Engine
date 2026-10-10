@@ -11,7 +11,14 @@ import type {
   ChatTokenTotals,
 } from "../types/chat-insights.js";
 
-/** A gap longer than this between two messages ends one sitting and starts the next. */
+/**
+ * A gap longer than this between two messages ends one sitting and starts the next. The one rule
+ * behind every "play time" figure, including the Golden Mari unlock (R12).
+ * ponytail: an estimate from message timestamps, not wall-clock time. Reading before the first
+ * message of a sitting and after its last adds nothing, a long-thinking model or a slow reader past
+ * 30 minutes splits a sitting, and an idle tab between messages under 30 minutes counts. Exact time
+ * would need client focus/visibility heartbeats stored per chat.
+ */
 export const CHAT_SITTING_GAP_MS = 30 * 60 * 1000;
 
 export interface ChatStatsMessage {

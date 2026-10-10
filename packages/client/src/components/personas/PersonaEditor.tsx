@@ -66,6 +66,7 @@ import {
   MessageCircle,
   Pencil,
   Check,
+  MessageCircleQuestion,
 } from "lucide-react";
 import type { AvatarCrop } from "@marinara-engine/shared";
 import { normalizeAvatarCrop } from "@marinara-engine/shared";
@@ -116,6 +117,7 @@ import { SpriteFrameEditor } from "../ui/SpriteFrameEditor";
 import { SpriteWandCleanupEditor } from "../ui/SpriteWandCleanupEditor";
 import { ExportFormatDialog, type ExportFormatChoice } from "../ui/ExportFormatDialog";
 import { Modal } from "../ui/Modal";
+import { requestProfessorMariOpen } from "../../lib/professor-mari-open";
 import { EditorTabNavigation } from "../ui/EditorTabNavigation";
 import { useEditorSections } from "../../hooks/use-editor-sections";
 import { useEditorLeaveSave } from "../../hooks/use-editor-leave-save";
@@ -1893,6 +1895,27 @@ export function PersonaEditor() {
   );
   const headerActions = (
     <>
+      <button
+        type="button"
+        onClick={() => {
+          if (!personaId) return;
+          requestProfessorMariOpen({
+            destination: "omnibar",
+            draft: localizeUi("professorMari.handoff.explainResourceDraft"),
+            context: {
+              source: "persona-editor",
+              capability: "explain",
+              resource: { kind: "persona", id: personaId, label: formData.name },
+            },
+          });
+        }}
+        className={headerActionButtonClass}
+        title={localizeUi("professorMari.handoff.ask")}
+        aria-label={localizeUi("professorMari.handoff.ask")}
+      >
+        <MessageCircleQuestion size="1rem" />
+      </button>
+
       <button
         type="button"
         onClick={() => setExportDialogOpen(true)}

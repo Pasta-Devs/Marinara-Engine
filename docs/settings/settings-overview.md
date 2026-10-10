@@ -50,7 +50,7 @@ This section is at **Settings** > **General** > **App Behavior**. It controls da
 - **Confirm before deleting**: on by default. When on, Marinara asks before it permanently deletes a chat, a character, or another item. Keep it on to avoid accidental deletes.
 - **Achievements**: on by default. When on, the Home screen shows the achievements button and unlock notices. When off, tracking stays silent. See [Achievements](../home/achievements.md).
 - **Music Player**: on by default. When on, the compact Music Player is shown. See [Music](../media/music.md).
-- **Mini Mari surprise visits**: on by default. When on, a rare Chibi Professor Mari message can appear while you scroll. Turn it off if it gets in the way.
+- **Search and Professor Mari settings**: select **Open** to go to their settings page. Every Search and Professor Mari setting lives there, in five groups: **Search** (offer to improve a field, search history), **Quick answers** (**Quick answers in Search**, **Answer with**, **Wait after typing**), **Professor Mari** (Ask Professor Mari from Search, permissions mode, reply chips, how change cards open, Enter sends to Professor Mari), **Around the app** (Mini Professor Mari visits) and **Appearance** (her look: each pack shows her portrait, the one in use says **In use**, and a locked pack shows your play time toward unlocking it). The gear in Search opens the same page, and searching for any of these settings, by its new or old name, takes you straight to it.
 
 ## Text Rules
 

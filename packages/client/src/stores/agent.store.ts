@@ -217,7 +217,7 @@ interface AgentState {
   enqueuePendingAgentWriteApproval: (entry: PendingAgentWriteApproval) => void;
   dismissPendingAgentWriteApproval: (id: string) => void;
   clearPendingAgentWriteApprovals: () => void;
-  /** Clear chat-runtime Agent state while retaining Professor Mari's chat-scoped continuation UI. */
+  /** Clear chat-scoped Agent state, including Professor Mari's suggestions and guided plan, so they cannot leak into another chat. */
   resetForChatChange: () => void;
   reset: () => void;
 }
@@ -538,16 +538,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     })),
   clearPendingAgentWriteApprovals: () => set({ pendingAgentWriteApprovals: [] }),
 
-  resetForChatChange: () =>
-    set((state) => ({
-      ...createInitialAgentDataState(),
-      mariChips: state.mariChips,
-      mariChipsChatId: state.mariChipsChatId,
-      mariPlan: state.mariPlan,
-      mariPlanChatId: state.mariPlanChatId,
-      mariPlanCursor: state.mariPlanCursor,
-      mariPlanAnswers: state.mariPlanAnswers,
-    })),
+  resetForChatChange: () => set(createInitialAgentDataState()),
   reset: () => set(createInitialAgentDataState()),
 }));
 

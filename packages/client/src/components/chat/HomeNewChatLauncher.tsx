@@ -1,16 +1,14 @@
 import { useState, type CSSProperties, type ReactNode } from "react";
 import { Plus } from "lucide-react";
 import { useTranslation as useUiTranslation } from "react-i18next";
-import { useApplyChatPreset, useChatPresets } from "../../hooks/use-chat-presets";
-import { useCreateChat } from "../../hooks/use-chats";
 import { useMultiplayerMutation } from "../../hooks/use-multiplayer";
-import { useConnections } from "../../hooks/use-connections";
+import { useCreateChat } from "../../hooks/use-chats";
+import { useStartNewChatMode } from "../../hooks/use-start-new-chat-mode";
 import { useChatStore } from "../../stores/chat.store";
-import { useUIStore } from "../../stores/ui.store";
 import { cn } from "../../lib/utils";
 import { HOME_CHAT_MODE_ACCENTS } from "../../lib/home-chat-mode-style";
 import { showAlertDialog } from "../../lib/app-dialogs";
-import { CHAT_MODE_OPTIONS, ChatModeSelectorModal, type ChatLaunchMode } from "./ChatModeSelectorModal";
+import { ChatModeSelectorModal, type ChatLaunchMode } from "./ChatModeSelectorModal";
 
 type HomeNewChatLauncherProps = {
   mode?: ChatLaunchMode;
@@ -22,10 +20,8 @@ type HomeNewChatLauncherProps = {
 export function HomeNewChatLauncher({ mode, className, children, ariaLabel }: HomeNewChatLauncherProps = {}) {
   const { t: localizeUi } = useUiTranslation();
   const [selectorOpen, setSelectorOpen] = useState(false);
-  const { data: connections } = useConnections();
-  const { data: chatPresetsData } = useChatPresets();
   const createChat = useCreateChat();
-  const applyChatPreset = useApplyChatPreset();
+  const startNewChatMode = useStartNewChatMode();
   const createShared = useMultiplayerMutation<{ chatId: string }, { name: string; mode: ChatLaunchMode }>(
     "/multiplayer/prepare",
   );
@@ -42,41 +38,9 @@ export function HomeNewChatLauncher({ mode, className, children, ariaLabel }: Ho
       );
       return;
     }
-    const connectionRows = ((connections ?? []) as Array<{ id: string }>).filter((connection) => !!connection.id);
-    const store = useChatStore.getState();
-    if (connectionRows.length === 0) {
-      store.setPendingNewChatMode(mode, "home");
-      return;
-    }
-
-    const presets = chatPresetsData ?? [];
-    const presetMode = mode === "conversation" || mode === "roleplay" ? mode : null;
-    const starred = presetMode
-      ? (presets.find((preset) => preset.mode === presetMode && preset.isActive && !preset.isDefault) ?? null)
-      : null;
-    const modeLabel = localizeUi(CHAT_MODE_OPTIONS.find((option) => option.mode === mode)?.labelKey ?? mode);
-    createChat.mutate(
-      {
-        name: localizeUi("home.newChat.defaultName", { mode: modeLabel }),
-        mode,
-        characterIds: [],
-        connectionId: starred?.settings.connectionId ?? undefined,
-        promptPresetId: starred?.settings.promptPresetId ?? undefined,
-      },
-      {
-        onSuccess: (chat) => {
-          useUIStore.getState().setSidebarOpen(true);
-          store.setActiveChatId(chat.id);
-          store.setShouldOpenSettings(true);
-          store.setShouldOpenWizard(true);
-          if (starred) {
-            void applyChatPreset.mutateAsync({ presetId: starred.id, chatId: chat.id }).catch(() => {
-              /* Non-fatal: the setup wizard still opens with system defaults. */
-            });
-          }
-        },
-      },
-    );
+    void startNewChatMode(mode).catch(() => {
+      /* The create mutation's own onError already surfaces a toast. */
+    });
   };
 
   return (
