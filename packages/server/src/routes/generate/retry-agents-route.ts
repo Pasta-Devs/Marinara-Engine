@@ -232,6 +232,7 @@ import {
   buildAvailableSpriteCharacter,
   completeRequiredSpriteExpressionEntries,
   normalizeRequiredSpriteExpressionIds,
+  playerTurnAwaitsExpression,
   normalizeSpriteDisplayModes,
   validateSpriteExpressionEntries,
 } from "./expression-agent-utils.js";
@@ -1366,6 +1367,11 @@ async function buildRetryAgentContext(args: {
       const hasPersonaExpressionSource = agentContext.recentMessages.some(
         (message) => message.role === "user" && message.content.trim(),
       );
+      // As on generation, the persona needs an expression only while the retried reply belongs to the turn the
+      // player wrote. Read the history up to that reply, not the agents' trimmed context.
+      const retriedIndex = recentMessages.findIndex((message: any) => message.id === lastAssistant?.id);
+      const personaTurn =
+        !!personaContext.identityId && retriedIndex > 0 && playerTurnAwaitsExpression(recentMessages, retriedIndex);
       const perChar: Array<{
         characterId: string;
         characterName: string;
@@ -1382,6 +1388,7 @@ async function buildRetryAgentContext(args: {
       const includePersonaSprite =
         !!personaContext.identityId &&
         (hasPersonaExpressionSource ||
+          personaTurn ||
           !restrictToSelectedSprites ||
           selectedSpriteIds.has(personaContext.identityId) ||
           chatMeta.expressionAvatarsEnabled === true);
@@ -1407,12 +1414,7 @@ async function buildRetryAgentContext(args: {
       } else if (lastAssistant?.role === "user" && personaContext.identityId) {
         expressionTargetIds.add(personaContext.identityId);
       }
-      if (
-        personaContext.identityId &&
-        agentContext.recentMessages.some((message) => message.role === "user" && message.content.trim())
-      ) {
-        expressionTargetIds.add(personaContext.identityId);
-      }
+      if (personaTurn) expressionTargetIds.add(personaContext.identityId!);
       const mergedRoleplayResponse =
         lastAssistant?.role === "assistant" &&
         chatMode === "roleplay" &&
@@ -5453,10 +5455,18 @@ export async function registerRetryAgentsRoute(
               agentContext.memory._expressionTargetIds,
             );
             if (requiredExpressionTargetIds.length > 0) {
+              // A short agent context can leave out the player's message, so fall back to the full history.
               const latestUserExpressionSource =
                 [...agentContext.recentMessages]
                   .reverse()
-                  .find((message) => message.role === "user" && message.content.trim())?.content ?? "";
+                  .find((message) => message.role === "user" && message.content.trim())?.content ??
+                [...recentMessages]
+                  .reverse()
+                  .find(
+                    (message: any) =>
+                      message.role === "user" && typeof message.content === "string" && message.content.trim(),
+                  )?.content ??
+                "";
               const userIdentityId =
                 typeof agentContext.memory._userIdentityId === "string" ? agentContext.memory._userIdentityId : "";
               const sourceTextByCharacterId = new Map<string, string>();

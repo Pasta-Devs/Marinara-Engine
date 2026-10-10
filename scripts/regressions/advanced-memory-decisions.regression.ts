@@ -16,7 +16,8 @@ const requests: Array<{ kind: string; body: any }> = [];
 let partial = false;
 let rejectAll = false;
 let stallNextDecision = false;
-let endProbability = 0.6;
+let cutProbability = 0.3;
+let failSummaries = false;
 let beforeAnswer: (() => void) | undefined;
 const provider = createServer(async (request, response) => {
   const chunks: Buffer[] = [];
@@ -38,13 +39,13 @@ const provider = createServer(async (request, response) => {
           ? !rejectAll && /TARGET_SCENE|Cobalt refuge/.test(memory.text)
             ? 0.99
             : 0.01
-          : question.instructions.includes("clearly START")
+          : question.instructions.includes("cut to a new scene")
             ? message?.content.startsWith("SCENE_CHANGE")
               ? 0.99
-              : 0.01
-            : message?.content.includes("EXPLICIT_END")
-              ? endProbability
-              : 0.01;
+              : message?.content.startsWith("UNSURE_CUT")
+                ? cutProbability
+                : 0.01
+            : 0.01;
         return [id, { type: "noul", noul: probability }];
       }),
     );
@@ -63,10 +64,27 @@ const provider = createServer(async (request, response) => {
   }
   const [system, user] = body.messages;
   const classify = system.content.startsWith("Identify scene transitions");
+  if (failSummaries && !classify) {
+    response.statusCode = 500;
+    response.end(JSON.stringify({ error: { message: "summary helper is down" } }));
+    return;
+  }
   requests.push({ kind: classify ? "classify" : "summary", body });
   const result = classify
     ? system.content.includes('"ends"')
-      ? { ends: [] }
+      ? {
+          // A helper that ends the scene on the entry just before a message that opens a new one.
+          ends: JSON.parse(user.content).flatMap(
+            (
+              message: { messageNumber: number; content: string; alreadyChecked?: boolean },
+              index: number,
+              transcript: Array<{ messageNumber: number }>,
+            ) =>
+              index > 0 && !message.alreadyChecked && message.content.startsWith("SCENE_CHANGE")
+                ? [{ messageNumber: transcript[index - 1]!.messageNumber }]
+                : [],
+          ),
+        }
       : {
           starts: JSON.parse(user.content)
             .filter((message: { content: string }) => message.content.startsWith("SCENE_CHANGE"))
@@ -91,7 +109,7 @@ const { createFileNativeDB } = await import("../../packages/server/src/db/file-b
 const { createChatsStorage } = await import("../../packages/server/src/services/storage/chats.storage.js");
 const { createConnectionsStorage } = await import("../../packages/server/src/services/storage/connections.storage.js");
 const { createAdvancedMemoryService } = await import("../../packages/server/src/services/advanced-memory.js");
-const { rankDecisionMemories, detectDecisionSceneBoundaries, finishMemoryDecisionDiagnostics } =
+const { rankDecisionMemories, detectDecisionSceneStarts, finishMemoryDecisionDiagnostics } =
   await import("../../packages/server/src/services/advanced-memory-decisions.js");
 const { prepareAdvancedMemoryContext } =
   await import("../../packages/server/src/services/generation/advanced-memory-context.js");
@@ -392,38 +410,115 @@ try {
     "the Decision model is not asked about messages that cannot fit",
   );
 
-  await chats.createMessage({
-    chatId: chat.id,
-    role: "assistant",
-    characterId: "reader",
-    content: "EXPLICIT_END The episode ends.",
-  });
-  await memory.updateSettings(chat.id, { sceneCheckInterval: 1 });
+  // A scene change counts at the Decision connection's own threshold (0.5 for System One), not a fixed 0.8,
+  // and each new message is compared with the three before it, with who wrote them (#7371).
+  const sceneCheckpoint = async () => {
+    const metadata = (await chats.getById(chat.id))!.metadata;
+    return (typeof metadata === "string" ? JSON.parse(metadata) : metadata).advancedMemoryState.sceneCheckMessageId;
+  };
+  await memory.updateSettings(chat.id, { sceneCheckInterval: 2 });
+  await chats.createMessagesBatch(chat.id, [
+    { role: "assistant", characterId: "reader", content: "UNSURE_CUT Maybe somewhere else." },
+    { role: "user", content: "They keep walking." },
+  ]);
   await memory.checkScenesAfterGeneration(chat.id);
-  const uncertainCheck = (await memory.status(chat.id)).job.decisionSceneCheck!;
-  assert.equal(uncertainCheck.threshold, 0.8);
-  assert(uncertainCheck.results.some((row) => row.score === 0.6 && !row.selected));
+  const unsure = (await memory.status(chat.id)).job.decisionSceneCheck!;
+  assert.equal(unsure.threshold, 0.5, "scene changes use the connection's own threshold");
+  assert(unsure.results.some((row) => row.kind === "scene_start" && row.score === 0.3 && !row.selected));
   assert(
     (await memory.status(chat.id)).records.some((record) => record.kind === "scene" && record.status === "open"),
-    "uncertainty leaves the scene open",
+    "an unlikely cut leaves the scene open",
   );
-  endProbability = 0.99;
-  await chats.createMessage({
-    chatId: chat.id,
-    role: "assistant",
-    characterId: "reader",
-    content: "EXPLICIT_END They part for the night.",
-  });
+  cutProbability = 0.6;
+  await chats.createMessagesBatch(chat.id, [
+    { role: "assistant", characterId: "reader", content: "UNSURE_CUT Later, at the harbor." },
+    { role: "user", content: "The gulls cry." },
+  ]);
+  const beforeCut = requests.length;
   await memory.checkScenesAfterGeneration(chat.id);
-  const last = (await chats.listMessages(chat.id)).at(-1)!;
-  const endedCheck = (await memory.status(chat.id)).job.decisionSceneCheck!;
-  assert.equal(endedCheck.sourceEndMessageId, last.id);
-  assert(endedCheck.results.some((row) => row.id === last.id && row.score === 0.99 && row.selected));
+  const cutSource = await chats.listMessages(chat.id);
+  const harbor = cutSource.findIndex((message) => message.content.startsWith("UNSURE_CUT Later"));
+  const cutRequest = requests
+    .slice(beforeCut)
+    .find((request) => request.kind === "decision" && request.body.questions[cutSource[harbor]!.id]);
+  assert(cutRequest, "the new messages are asked about");
+  assert.deepEqual(
+    cutRequest.body.state.transcript.map((entry: { messageId: string }) => entry.messageId),
+    cutSource.slice(harbor - 3, harbor + 2).map((message) => message.id),
+    "the three messages before the check come with it",
+  );
+  assert(cutRequest.body.state.transcript.every((entry: { speaker?: string }) => entry.speaker));
+  const cut = (await memory.status(chat.id)).job.decisionSceneCheck!;
+  assert(cut.results.some((row) => row.id === cutSource[harbor]!.id && row.score === 0.6 && row.selected));
+  const afterCut = await memory.status(chat.id);
   assert(
-    (await memory.status(chat.id)).records.some(
-      (record) => record.kind === "scene" && record.status === "closed" && record.endMessageId === last.id,
+    afterCut.records.some(
+      (record) =>
+        record.kind === "scene" && record.status === "closed" && record.endMessageId === cutSource[harbor - 1]!.id,
+    ),
+    "a cut at the first new message ends the scene on the last message the previous check saw",
+  );
+  assert(
+    afterCut.records.some(
+      (record) =>
+        record.kind === "scene" && record.status === "open" && record.startMessageId === cutSource[harbor]!.id,
     ),
   );
+
+  // Re-scan finds the cut the earlier check scored too low, and keeps every scene outside the range (#7371).
+  const unsureIndex = cutSource.findIndex((message) => message.content.startsWith("UNSURE_CUT Maybe"));
+  const outside = afterCut.records
+    .filter((record) => record.kind === "scene" && record.content && record.endMessageId !== cutSource[harbor - 1]!.id)
+    .map((record) => [record.id, record.content]);
+  const checkpointBeforeRescan = await sceneCheckpoint();
+  await assert.rejects(
+    memory.initialize(chat.id, { range: { start: unsureIndex, end: cutSource.length } }),
+    new RegExp(`Choose messages between #1 and #${cutSource.length}`),
+  );
+  // A summary the user edited (the TARGET_SCENE correction above) stops a re-scan before any paid call.
+  const beforeProtected = requests.length;
+  await assert.rejects(
+    memory.initialize(chat.id, { range: { start: 2, end: 6 } }),
+    /Messages #4–#6 have a summary you edited/,
+  );
+  assert.equal(requests.length, beforeProtected, "a refused re-scan asks no model");
+  // A re-scan stopped during its summaries keeps its new scenes, and Resume finishes them.
+  failSummaries = true;
+  await assert.rejects(memory.initialize(chat.id, { range: { start: unsureIndex - 1, end: harbor - 1 } }));
+  failSummaries = false;
+  assert(
+    (await memory.status(chat.id)).unpreparedScenes.some(
+      (scene) => scene.startIndex === unsureIndex + 1 && scene.endIndex === harbor,
+    ),
+    "the re-scanned layout is saved before its summaries",
+  );
+  await memory.initialize(chat.id);
+  const rescanned = await memory.status(chat.id);
+  assert.equal(rescanned.job.status, "ready");
+  for (const [id, content] of outside)
+    assert(
+      rescanned.records.some((record) => record.id === id && record.content === content),
+      "scenes outside the range keep their summaries",
+    );
+  assert(
+    rescanned.records.some(
+      (record) =>
+        record.kind === "scene" &&
+        record.status === "closed" &&
+        record.content &&
+        record.startMessageId === cutSource[unsureIndex]!.id &&
+        record.endMessageId === cutSource[harbor - 1]!.id,
+    ),
+    "the re-scanned cut becomes its own summarized scene",
+  );
+  assert(
+    rescanned.records.some(
+      (record) =>
+        record.kind === "scene" && record.status === "open" && record.startMessageId === cutSource[harbor]!.id,
+    ),
+    "the boundary after the range stays",
+  );
+  assert.equal(await sceneCheckpoint(), checkpointBeforeRescan, "a re-scan leaves the reply cadence alone");
   assert(!requests.some((request) => request.kind === "classify"), "healthy ongoing checks also use Jev");
 
   await memory.updateSettings(chat.id, { decisionEnabled: false });
@@ -480,6 +575,7 @@ try {
   let batches = 0;
   const backend = {
     maxStateTokens: 1000,
+    calibration: { defaultThreshold: 0.5, questionShape: "text" },
     askMixed: async (state: unknown, questions: Array<{ id: string }>) => {
       batches++;
       assert(estimateChatSummaryTokens(JSON.stringify(state)) <= 1000);
@@ -493,9 +589,33 @@ try {
   backend.askMixed = async () => ({ answers: new Map(), choices: new Map() });
   assert.equal(await rankDecisionMemories(backend, "Remember it?", [], candidates), null);
   assert.equal(
-    await detectDecisionSceneBoundaries(backend, [{ messageId: "one", content: "Quiet." }], ["one"], "end"),
+    await detectDecisionSceneStarts(
+      backend,
+      [
+        { messageId: "zero", speaker: "Reader", content: "Loud." },
+        { messageId: "one", speaker: "Reader", content: "Quiet." },
+      ],
+      ["one"],
+    ),
     null,
   );
+  // A small Decision model drops earlier messages and shortens long ones instead of falling back (#7371).
+  backend.askMixed = async (state: unknown, questions: Array<{ id: string }>) => {
+    assert(estimateChatSummaryTokens(JSON.stringify(state)) <= 1000);
+    return { answers: new Map(questions.map((question) => [question.id, 0.9])), choices: new Map() };
+  };
+  const long = Array.from({ length: 8 }, (_, index) => ({
+    messageId: `long-${index}`,
+    speaker: "Reader",
+    content: `Opening ${index}. ${"The road goes on. ".repeat(120)}Closing ${index}.`,
+  }));
+  assert.deepEqual(await detectDecisionSceneStarts(backend, long, ["long-3", "long-4", "long-5", "long-6", "long-7"]), [
+    "long-3",
+    "long-4",
+    "long-5",
+    "long-6",
+    "long-7",
+  ]);
   assert.equal(await rankDecisionMemories(backend, "Remember?", [], [{ id: "large", text: "x ".repeat(10000) }]), null);
   const cancelled = new AbortController();
   backend.askMixed = async () => {
@@ -506,6 +626,72 @@ try {
     rankDecisionMemories(backend, "Remember?", [], [{ id: "one", text: "Promise" }], cancelled.signal),
     /late answer/,
   );
+  // Without a Decision model, the Helper checks every message since the last check, after the one that check
+  // ended on, so a turn that adds several messages, or a scene change right between two checks, is not missed.
+  const helperChat = await chats.create({
+    name: "Helper scene check",
+    mode: "roleplay",
+    characterIds: ["reader"],
+    connectionId: helper.id,
+  });
+  assert(helperChat);
+  await memory.updateSettings(helperChat.id, {
+    enabled: true,
+    knowledgeStarts: { reader: null },
+    knowledgeConfirmed: true,
+    sceneCheckInterval: 2,
+  });
+  await chats.createMessagesBatch(helperChat.id, [
+    { role: "user", content: "Hello." },
+    {
+      role: "assistant",
+      characterId: "reader",
+      content: `Hi there. ${"We talk for a long while. ".repeat(400)}Goodbye.`,
+    },
+  ]);
+  await memory.initialize(helperChat.id);
+  await chats.createMessagesBatch(helperChat.id, [
+    // A command between the two checks leaves a gap in the numbers.
+    { role: "user", content: "/roll 1d20", extra: { commandOnly: true } },
+    { role: "user", content: "SCENE_CHANGE Later, at the harbor." },
+    { role: "assistant", characterId: "reader", content: "The gulls cry." },
+    { role: "user", content: "We wait for the boat." },
+  ]);
+  const beforeHelperCheck = requests.length;
+  await memory.checkScenesAfterGeneration(helperChat.id);
+  const helperSource = await chats.listMessages(helperChat.id);
+  const helperCheck = requests
+    .slice(beforeHelperCheck)
+    .find((request) => request.kind === "classify" && request.body.messages[0].content.includes('"ends"'));
+  assert(helperCheck, "the Helper checks the scene");
+  const helperTranscript: Array<{ messageNumber: number; alreadyChecked?: boolean; speaker?: string }> = JSON.parse(
+    helperCheck.body.messages[1].content,
+  );
+  assert.deepEqual(
+    helperTranscript.filter((message) => !message.alreadyChecked).map((message) => message.messageNumber),
+    [4, 5, 6],
+    "all three new messages are checked, although the interval is two",
+  );
+  assert(
+    helperTranscript.every((message) => message.speaker),
+    "the Helper sees who wrote each message",
+  );
+  const shown = helperTranscript.filter((message) => message.alreadyChecked);
+  assert.deepEqual(
+    shown.map((message) => message.messageNumber),
+    [2],
+  );
+  assert(
+    estimateChatSummaryTokens((shown[0] as unknown as { content: string }).content) <= 520,
+    "a long earlier message is shortened to its ends",
+  );
+  const helperScenes = (await memory.status(helperChat.id)).records.filter((record) => record.kind === "scene");
+  assert(
+    helperScenes.some((record) => record.status === "closed" && record.endMessageId === helperSource[1]!.id),
+    "the scene ends on the message the last check ended on",
+  );
+  assert(helperScenes.some((record) => record.status === "open" && record.startMessageId === helperSource[2]!.id));
+
   console.log("Advanced Memory Decision routing, visibility, fallback, boundaries, reuse and bounded requests passed.");
 } finally {
   provider.closeAllConnections();

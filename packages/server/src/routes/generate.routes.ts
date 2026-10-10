@@ -51,6 +51,7 @@ import {
 import { registerSequentialGameTasks } from "../services/game/sequential-tasks.js";
 import {
   createAdvancedMemoryService,
+  sceneCheckTranscript,
   selectAdvancedMemoryMessages,
   type AdvancedMemorySceneCheck,
 } from "../services/advanced-memory.js";
@@ -539,6 +540,7 @@ import {
   buildAvailableSpriteCharacter,
   completeRequiredSpriteExpressionEntries,
   normalizeRequiredSpriteExpressionIds,
+  playerTurnAwaitsExpression,
   normalizeSpriteDisplayModes,
   validateSpriteExpressionEntries,
 } from "./generate/expression-agent-utils.js";
@@ -11386,7 +11388,8 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 pendingSceneCheck = request;
                 agentContext.sceneCheck = {
                   trackerAgentIds: sceneCheckTrackers.map((agent) => agent.id),
-                  prompt: `${request.prompt}\nTranscript:\n${JSON.stringify(request.messages)}`,
+                  // The previous message joins only when this tracker could already see it.
+                  prompt: `${request.prompt}\nTranscript:\n${sceneCheckTranscript(request, !!request.previous && allowedIds.has(request.previous.messageId))}`,
                   claimed: false,
                 };
               }
@@ -11404,8 +11407,16 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               },
             ]);
           }
+          // The persona needs an expression on the turn the player wrote, including its swipes and
+          // continuations. Later replies leave it to the Expression Engine, so a persona who has left the scene
+          // is not shown again by "Only show active sprites" while an older message of theirs is in context.
+          const replyIndex = allChatMessages.findIndex(
+            (message) => message.id === (input.regenerateMessageId ?? input.continueMessageId),
+          );
           if (
             userIdentityId &&
+            (currentTurnUserMessageId ||
+              playerTurnAwaitsExpression(allChatMessages, replyIndex >= 0 ? replyIndex : allChatMessages.length)) &&
             getLatestUserExpressionSource() &&
             Array.isArray(agentContext.memory._availableSprites)
           ) {

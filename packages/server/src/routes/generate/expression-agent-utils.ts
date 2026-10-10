@@ -3,6 +3,24 @@ import {
   normalizeSpriteLookupToken,
 } from "@marinara-engine/shared";
 import { buildSpriteExpressionChoices } from "../../services/game/sprite.service.js";
+import { parseExtra } from "../../services/generation/prompt-attachments.js";
+
+/**
+ * Whether the player's latest message still needs the persona's expression: no reply after it has had its own
+ * Expression Engine result yet. A swipe, a continuation or a whole group turn keeps the persona. Later replies
+ * leave it to the Expression Engine, so a persona who has left the scene is not shown again (#7378).
+ */
+export function playerTurnAwaitsExpression(
+  messages: readonly { role?: unknown; content?: unknown; extra?: unknown }[],
+  before: number,
+): boolean {
+  for (let index = Math.min(before, messages.length) - 1; index >= 0; index--) {
+    const message = messages[index]!;
+    if (message.role === "user" && typeof message.content === "string" && message.content.trim()) return true;
+    if (message.role === "assistant" && Array.isArray(parseExtra(message.extra).expressionSpriteIds)) return false;
+  }
+  return false;
+}
 
 export type SpriteDisplayMode = "expressions" | "full-body";
 

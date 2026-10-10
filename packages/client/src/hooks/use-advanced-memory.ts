@@ -183,6 +183,8 @@ type AdvancedMemoryAction =
       sceneId?: string;
       /** Fix: repair every flagged scene in one run. */
       fixAll?: boolean;
+      /** Find scenes again between these message numbers. */
+      range?: { start: number; end: number };
     }
   | { action: "cancel" | "reindex" | "reset" }
   | {
@@ -224,6 +226,7 @@ export function useAdvancedMemoryAction(chatId: string) {
             debugMode: request.debugMode,
             sceneId: request.sceneId,
             fixAll: request.fixAll,
+            range: request.range,
           });
         case "import":
           return api.post<AdvancedMemoryStatus>(`${base}/import`, request.envelope);

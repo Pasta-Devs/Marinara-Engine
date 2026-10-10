@@ -45,11 +45,11 @@ let mainInputTokens = 40;
 let mainOutputTokens = 20;
 let mainToolCall = false;
 const decisionRequests: Array<{ state: Record<string, any>; questions: Record<string, { instructions: string }> }> = [];
-const sceneDecision = (transcript: Array<{ messageNumber: number; content: string }>) => ({
+const sceneDecision = (transcript: Array<{ messageNumber: number; content: string; alreadyChecked?: boolean }>) => ({
   ends: closeLatestScene
     ? [{ messageNumber: transcript.at(-1)!.messageNumber }]
     : transcript
-        .filter((message) => message.content.startsWith("SCENE_CHANGE"))
+        .filter((message) => !message.alreadyChecked && message.content.startsWith("SCENE_CHANGE"))
         .map((message) => ({ messageNumber: message.messageNumber - 1 })),
 });
 let finishStream: (() => void) | undefined;
@@ -336,10 +336,16 @@ try {
   calls.length = 0;
   await generate();
   await waitForSceneCheck();
+  const nextTranscript: Array<{ messageNumber: number; alreadyChecked?: boolean }> = JSON.parse(
+    calls.find((call) => call.kind === "scene")!.messages[1]!.content,
+  );
   assert.deepEqual(
-    JSON.parse(calls.find((call) => call.kind === "scene")!.messages[1]!.content).map(
-      (message: { messageNumber: number }) => message.messageNumber,
-    ),
+    nextTranscript.filter((message) => message.alreadyChecked).map((message) => message.messageNumber),
+    [5],
+    "the message the last check ended on is shown, so a scene can end right there (#7371)",
+  );
+  assert.deepEqual(
+    nextTranscript.filter((message) => !message.alreadyChecked).map((message) => message.messageNumber),
     [6, 7, 8, 9, 10],
     "subsequent checks inspect exactly the configured number of latest messages",
   );
@@ -723,14 +729,10 @@ try {
   );
   assert(
     decisionRequests.some((request) => request.state.transcript),
-    "scene endings get a separate Jev request",
+    "scene changes get a separate Jev request",
   );
   for (const request of decisionRequests.filter((request) => request.state.transcript)) {
-    assert(
-      Object.values(request.questions).every((question) =>
-        question.instructions.includes("clearly finish a roleplay scene"),
-      ),
-    );
+    assert(Object.values(request.questions).every((question) => question.instructions.includes("cut to a new scene")));
     assert.doesNotMatch(JSON.stringify(request), /TRACKER_SCENE_FIXTURE/u);
   }
   assert.doesNotMatch(JSON.stringify(calls.find((call) => call.kind === "tracker")!.messages), /__scene_check/u);
