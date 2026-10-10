@@ -254,7 +254,7 @@ export function appendRoundGeminiParts(
  * left out: its messages have no reasoning_content or partial field.
  */
 export function supportsAssistantReasoningPrefill(provider: string): boolean {
-  return ["openai", "openrouter", "nanogpt", "xai", "cohere", "arli", "zai", "custom"].includes(provider);
+  return ["openai", "openrouter", "nanogpt", "xai", "cohere", "arli", "zai", "deepseek", "custom"].includes(provider);
 }
 
 /**

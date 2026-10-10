@@ -158,6 +158,7 @@ const API_KEY_LINKS: Partial<Record<APIProvider, { label: string; url: string }>
   nanogpt: { label: "Get your NanoGPT API key", url: "https://nano-gpt.com/api" },
   xai: { label: "Get your xAI API key", url: "https://console.x.ai" },
   arli: { label: "Get your Arli AI API key", url: "https://www.arliai.com/account" },
+  deepseek: { label: "Get your DeepSeek API key", url: "https://platform.deepseek.com/api_keys" },
   video_generation: { label: "Get your Google AI API key", url: "https://aistudio.google.com/apikey" },
 };
 

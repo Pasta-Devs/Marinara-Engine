@@ -282,6 +282,12 @@ try {
       make: registry("arli", `${base}/v1`),
     },
     {
+      provider: "deepseek",
+      baseUrl: `${base}/v1`,
+      models: ["deepseek-flash", "deepseek-v4-pro", "deepseek-v4-flash", "some-unknown-deepseek-model"],
+      make: registry("deepseek", `${base}/v1`),
+    },
+    {
       provider: "custom",
       baseUrl: `${base}/v1`,
       models: ["llama-3.3-70b", "gpt-5.5", "glm-4.6", "claude-opus-5"],

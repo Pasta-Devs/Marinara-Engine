@@ -26,6 +26,7 @@ export const apiProviderSchema = z.enum([
   "xai",
   "arli",
   "zai",
+  "deepseek",
   "custom",
   "image_generation",
   "video_generation",

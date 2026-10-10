@@ -145,6 +145,9 @@ export function resolveProviderReasoningEffort(args: {
     isOpenAIGpt6Model(modelLower) ||
     isOpenAIGpt56Model(modelLower) ||
     isNativeAnthropicAdaptiveOnly ||
+    // DeepSeek takes max for every chat model; xhigh is not one of its levels, so maximum maps to max rather than
+    // collapsing to high.
+    providerLower === "deepseek" ||
     (providerLower === "zai" && isZaiMaxReasoningEffortModel(modelLower));
 
   if (args.reasoningEffort === "maximum") {
@@ -606,11 +609,12 @@ export const GROQ_MODELS: KnownModel[] = [
 
 // DeepSeek (from #model_deepseek_select)
 export const DEEPSEEK_MODELS: KnownModel[] = [
+  // The current names. `deepseek-v4-flash` is a legacy alias of `deepseek-flash`
+  // and still resolves, while deepseek-chat / deepseek-coder / deepseek-reasoner
+  // were retired on 2026-07-24.
+  { id: "deepseek-flash", name: "deepseek-flash", context: 1_000_000, maxOutput: 384_000 },
   { id: "deepseek-v4-pro", name: "deepseek-v4-pro", context: 1_000_000, maxOutput: 384_000 },
-  { id: "deepseek-v4-flash", name: "deepseek-v4-flash", context: 1_000_000, maxOutput: 384_000 },
-  { id: "deepseek-chat", name: "deepseek-chat", context: 131072, maxOutput: 8192 },
-  { id: "deepseek-coder", name: "deepseek-coder", context: 131072, maxOutput: 8192 },
-  { id: "deepseek-reasoner", name: "deepseek-reasoner", context: 131072, maxOutput: 8192 },
+  { id: "deepseek-v4-flash", name: "deepseek-v4-flash (legacy alias)", context: 1_000_000, maxOutput: 384_000 },
 ];
 
 // Xiaomi MiMo (available through OAI-compatible aggregators and direct APIs)
@@ -1175,6 +1179,7 @@ export const MODEL_LISTS: Record<APIProvider, KnownModel[]> = {
   xai: XAI_MODELS,
   arli: [], // Arli AI — models fetched dynamically via the /models endpoint
   zai: ZAI_MODELS,
+  deepseek: DEEPSEEK_MODELS,
   // Seed OAI-compatible endpoints with the OpenAI catalog; remote /models still merge on top.
   custom: [...OPENAI_MODELS, ...ZAI_MODELS],
   image_generation: IMAGE_GEN_MODELS,

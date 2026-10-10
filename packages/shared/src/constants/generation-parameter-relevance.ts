@@ -107,7 +107,7 @@ const ALL: GenerationParameterKey[] = [
 const SAMPLING: GenerationParameterKey[] = ["temperature", "topP", "topK", "frequencyPenalty", "presencePenalty"];
 
 /** Ids sent through OpenAIProvider under their own provider kind (provider-registry.ts). */
-const OPENAI_COMPATIBLE = new Set(["openai", "openrouter", "nanogpt", "xai", "mistral", "cohere", "arli"]);
+const OPENAI_COMPATIBLE = new Set(["openai", "openrouter", "nanogpt", "xai", "mistral", "cohere", "arli", "deepseek"]);
 const KNOWN_PROVIDERS = new Set([
   ...OPENAI_COMPATIBLE,
   "custom",
@@ -174,6 +174,10 @@ const NEVER_SENT: Record<string, GenerationParameterKey[]> = {
   mistral: ["topK", "serviceTier", "assistantReasoningPrefill"],
   cohere: ["topK", "serviceTier"],
   arli: ["topK", "serviceTier"],
+  // DeepSeek documents no verbosity and no top_k/min_p, and marks both penalties
+  // deprecated ("will not take effect"). Temperature is listed, but has no effect
+  // in thinking mode, which is why it is hidden while an effort level is active.
+  deepseek: ["verbosity", "topK", "frequencyPenalty", "presencePenalty", "serviceTier"],
   custom: ["serviceTier"],
 };
 
@@ -290,7 +294,18 @@ export function relevantGenerationParameters(context: GenerationParameterContext
         const glm = model.includes("glm") && (provider === "nanogpt" || isNativeGlmHost(context.baseUrl));
         const mistralReasoning =
           provider === "mistral" && (isMistralAdjustableReasoningModel(model) || isMistralGlm53Model(model));
-        if (provider !== "nanogpt" && !isOpenAIReasoningModel(model) && !glm && !mistralReasoning) {
+        // DeepSeek takes reasoning_effort for all of its chat models, so effort stays whatever the model id is.
+        const deepseekReasoning = provider === "deepseek";
+        // DeepSeek's thinking mode is the default and ignores temperature; its request builder drops sampling while an
+        // effort level is active, so the panel matches it rather than offering a control that changes nothing.
+        if (deepseekReasoning && effortActive) hide("temperature", "topP");
+        if (
+          provider !== "nanogpt" &&
+          !deepseekReasoning &&
+          !isOpenAIReasoningModel(model) &&
+          !glm &&
+          !mistralReasoning
+        ) {
           hide("reasoningEffort");
         }
       }

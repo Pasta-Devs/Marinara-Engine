@@ -154,6 +154,7 @@ type OpenAIProviderKind =
   | "cohere"
   | "arli"
   | "zai"
+  | "deepseek"
   | "custom"
   | "openai-chatgpt"
   | "local-sidecar";
@@ -640,6 +641,8 @@ export class OpenAIProvider extends BaseLLMProvider {
         return "Arli AI API";
       case "zai":
         return "Z.AI API";
+      case "deepseek":
+        return "DeepSeek API";
       case "local-sidecar":
         return "Local sidecar OpenAI-compatible endpoint";
       case "openai-chatgpt":
@@ -743,7 +746,8 @@ export class OpenAIProvider extends BaseLLMProvider {
   }
 
   private shouldSendPenaltyParams(model: string): boolean {
-    return !this.isXAIReasoningModel(model);
+    // DeepSeek marks both penalties deprecated and states they no longer take effect.
+    return this.providerKind !== "deepseek" && !this.isXAIReasoningModel(model);
   }
 
   /**
@@ -762,6 +766,8 @@ export class OpenAIProvider extends BaseLLMProvider {
     if (/^(o1|o3|o4)/.test(m)) return true;
     if (this.isOpenAINoSamplingModel(m)) return true;
     if (m.startsWith("gpt-5") && reasoningEffort && reasoningEffort !== "none") return true;
+    // DeepSeek documents temperature as having no effect in thinking mode, which is its default.
+    if (this.providerKind === "deepseek" && reasoningEffort && reasoningEffort !== "none") return true;
     // Claude adaptive-only models forbid all sampling params (covers reverse proxies).
     if (isClaudeAdaptiveOnlyNoSamplingModel(m)) return true;
     return false;
@@ -913,6 +919,16 @@ export class OpenAIProvider extends BaseLLMProvider {
   }
 
   private applyChatCompletionsReasoning(body: Record<string, unknown>, options: ChatOptions): void {
+    if (this.providerKind === "deepseek") {
+      // DeepSeek carries the effort in reasoning_effort itself: "none" turns thinking off, and low/high/max set the
+      // level. It also accepts a thinking {type} object, but sending both would duplicate the same decision.
+      if (this.hasExplicitReasoningDisable(options.reasoningEffort)) {
+        body.reasoning_effort = "none";
+      } else if (this.hasActiveReasoningEffort(options.reasoningEffort)) {
+        body.reasoning_effort = options.reasoningEffort;
+      }
+      return;
+    }
     if (this.providerKind === "mistral") {
       // Mistral reasoning models take only "high" or "none", and GLM 5.3 only "low", "high" or "max"; other Mistral
       // models are not listed as taking reasoning_effort. prompt_mode is never sent because Mistral rejects it alongside

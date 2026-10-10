@@ -73,6 +73,7 @@ export function createLLMProvider(
     case "mistral":
     case "arli":
     case "zai":
+    case "deepseek":
       resolved = new OpenAIProvider(
         baseUrl,
         apiKey,
