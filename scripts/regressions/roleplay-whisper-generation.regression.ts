@@ -20,7 +20,13 @@ const { createChatsStorage } = await import("../../packages/server/src/services/
 const { createConnectionsStorage } = await import("../../packages/server/src/services/storage/connections.storage.js");
 const { createCharactersStorage } = await import("../../packages/server/src/services/storage/characters.storage.js");
 const { createPromptsStorage } = await import("../../packages/server/src/services/storage/prompts.storage.js");
-const { characterDataSchema, getRoleplayWhispers } = await import("../../packages/shared/dist/index.js");
+const {
+  characterDataSchema,
+  formatTextQuotes,
+  getRoleplayCommandContentOffset,
+  getRoleplayWhispers,
+  reanchorRoleplayCommandActivity,
+} = await import("../../packages/shared/dist/index.js");
 const prompts: string[] = [];
 let outputs: string[] = [];
 const provider = createServer(async (request, response) => {
@@ -311,6 +317,119 @@ try {
     "later recipients receive whispers within the same turn",
   );
   assert(prompts[turnStart + 2]!.includes("SAME_TURN_PERSONA_SECRET"), "the narrator sees the latest in-turn secrets");
+  // An edit keeps a model whisper where it was, also when saving the edit curls the quotes.
+  await generate('"Wait," she says. [whisper: character="Bob" text="PLACED_SECRET"] She leaves. "Bye."');
+  const placed = (await chats.listMessages(chat.id)).at(-1)!;
+  const editedContent = formatTextQuotes(placed.content.replace("Wait,", "Wait a moment,"), "typographic");
+  const editResponse = await app.inject({
+    method: "PATCH",
+    url: `/api/chats/${chat.id}/messages/${placed.id}`,
+    payload: { content: editedContent },
+  });
+  assert.equal(editResponse.statusCode, 200, editResponse.body);
+  const afterEdit = (await chats.getMessage(placed.id))!;
+  assert.equal(afterEdit.content, editedContent);
+  const placedWhisper = getRoleplayWhispers(JSON.parse(afterEdit.extra)).find(
+    ({ command }) => command.text === "PLACED_SECRET",
+  )!;
+  const saysEnd = editedContent.indexOf("she says.") + "she says.".length;
+  assert.equal(getRoleplayCommandContentOffset(afterEdit.content, placedWhisper.activity), saysEnd);
+  const placedView = await preview(bob.id);
+  assert(
+    placedView.indexOf("she says.") < placedView.indexOf("PLACED_SECRET") &&
+      placedView.indexOf("PLACED_SECRET") < placedView.indexOf("She leaves."),
+    "the prompt keeps the edited whisper in place",
+  );
+  // A saved anchor in straight quotes still finds text whose quotes were curled later.
+  for (const contentOffset of [15, 3])
+    assert.equal(
+      getRoleplayCommandContentOffset("\u201cHi,\u201d she said. Then", {
+        command: placedWhisper.command,
+        raw: placedWhisper.activity.raw,
+        contentOffset,
+        contentAnchor: '"Hi," she said.',
+      }),
+      15,
+    );
+  // Other edits: unchanged text around a whisper keeps it in place; without any, it shows at the end as before.
+  const typos =
+    "The tavern was quiet tonight, the fire low.\n\nMara wiped the counter as she worked.\n\nBob ordered, smilling.";
+  for (const [before, after, marker, expected] of [
+    [typos, typos.replace("tonight", "tonite").replace("smilling", "smiling"), "as she worked.", "as she worked.[W]"],
+    ["A. middle. Z.", "AA. middle. ZZ.", "middle.", "AA. middle.[W] ZZ."],
+    ["She nods. She smiles. She leaves.", "She nods. She leaves.", "smiles.", "She nods.[W] She leaves."],
+    ["One. Two. Three.", "One. Three.", "Two.", "One.[W] Three."],
+    ["Hello. Bye.", "Hello. New. Bye.", "Hello.", "Hello.[W] New. Bye."],
+    ['He smiled. "Fine, go then."', 'She frowned. "Leave now."', "smiled.", 'She frowned. "Leave now."[W]'],
+  ] as const) {
+    const offset = before.indexOf(marker) + marker.length;
+    const [moved] = reanchorRoleplayCommandActivity(before, after, [
+      {
+        command: placedWhisper.command,
+        raw: placedWhisper.activity.raw,
+        contentOffset: offset,
+        contentAnchor: before.slice(Math.max(0, offset - 80), offset),
+      },
+    ]);
+    const position = getRoleplayCommandContentOffset(after, moved!);
+    const placedText = `${after.slice(0, position)}[W]${after.slice(position)}`;
+    assert(placedText.includes(expected), placedText);
+  }
+  // Restoring the earlier text, as Prose Guardian's toggle does, brings the whisper back to where it was.
+  const whisperAfter = (text: string, marker: string) => {
+    const offset = text.indexOf(marker) + marker.length;
+    return {
+      command: placedWhisper.command,
+      raw: placedWhisper.activity.raw,
+      contentOffset: offset,
+      contentAnchor: text.slice(Math.max(0, offset - 80), offset),
+    };
+  };
+  const placeAfterEdits = (texts: readonly string[], marker: string) => {
+    let item = whisperAfter(texts[0]!, marker);
+    for (let index = 1; index < texts.length; index++)
+      item = reanchorRoleplayCommandActivity(texts[index - 1]!, texts[index]!, [item])[0]!;
+    const text = texts.at(-1)!;
+    const position = getRoleplayCommandContentOffset(text, item);
+    return `${text.slice(0, position)}[W]${text.slice(position)}`;
+  };
+  const original = 'She smiled softly.  Her eyes sparkled. "Come here," she said.';
+  for (const rewrite of [
+    'She smiled.  Her eyes sparkled. "Come here," she said.',
+    'She smiled. Her eyes sparkled. "Come here," she said.',
+  ])
+    assert(placeAfterEdits([original, rewrite, original, rewrite, original], "softly.").includes("softly.[W]"));
+  // Undoing a deletion, or several edits, puts the whisper back where it first was.
+  const nodding = "He nods. She smiles. Bob leaves.";
+  assert(placeAfterEdits([nodding, "He nods. Bob leaves.", nodding], "smiles.").includes("smiles.[W] Bob"));
+  const late = 'She nods. "You\'re late," she says. She smiles.';
+  assert(
+    placeAfterEdits(
+      [
+        late,
+        'A nod. "You\'re late," she says. A smile tugs at her lips.',
+        'A nod. "You\'re late," she said. A smile tugs at her lips.',
+        late,
+      ],
+      "she says.",
+    ).includes("she says.[W] She smiles."),
+  );
+  // Editing away one copy of a repeated phrase leaves the whisper after the edited copy, not the other one.
+  assert(placeAfterEdits(["Go. He leaves. Go.", "Stop. He leaves. Go."], "Go.").includes("Stop.[W] He leaves."));
+  // A phrase that appears twice never pulls a whisper to the other copy; it shows at the end, as before.
+  const repeatedBeat =
+    '"You came?" *She glances at the door.* "Sit."\n\nMara pours. "Drink first." *She glances at the door.*';
+  assert(
+    placeAfterEdits(
+      [
+        repeatedBeat,
+        repeatedBeat
+          .replace('Mara pours. "Drink', 'Mara pours two. "Drink')
+          .replace(/\*She glances at the door\.\*$/, "*Her eyes return.*"),
+      ],
+      '"Drink first."',
+    ).endsWith("[W]"),
+  );
   await chats.patchMetadata(chat.id, { groupChatMode: "merged", roleplayWhisperAudience: "all" });
   assert(!(await preview(bob.id)).includes("BOB_REEDITED_SECRET"), "merged voices must not receive private knowledge");
   await generate('Merged. [whisper: character="Bob" text="MERGED_SECRET"]');

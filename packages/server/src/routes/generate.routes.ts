@@ -224,6 +224,7 @@ import {
   parseRoleplayUserCommands,
   roleplayCommandKey,
   roleplayHiddenWhisperMessageIds,
+  latestRoleplayUserInput,
   resolveRoleplayWhisperRecipient,
   RoleplayCommandStreamFilter,
   type RoleplayCommand,
@@ -2188,7 +2189,9 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
       const currentInputMessages = (): SimpleMessage[] =>
         regenerateUserSourceMessage ? [...mappedMessages, regenerateUserSourceMessage] : mappedMessages;
       const currentUserInputContent = (): string | undefined =>
-        [...currentInputMessages()].reverse().find((message) => message.role === "user")?.content;
+        chatMode === "roleplay"
+          ? latestRoleplayUserInput(currentInputMessages(), chatMessages)
+          : [...currentInputMessages()].reverse().find((message) => message.role === "user")?.content;
 
       const identity =
         roomHostIdentity() ??
