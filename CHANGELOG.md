@@ -4,6 +4,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- The **Also apply these instructions to this character's Noodle images** checkbox moved out of the character editor's **Convo** tab and into Noodle's profile editor, next to the Noodle settings it changes. The **Image Generation Instructions** help text now says that Noodle and Slurp can use the instructions. Packages can now open a character in the editor (capability API 1.67).
 - The omnibar stays responsive while quick answers stream, when opening their Mari row, and when moving between search results.
 - Character cards can now offer **interactive onboarding**: players answer onboarding questions to create a persona in the Roleplay chat wizard. Native and compatible PNG exports retain onboarding, while compatible JSON exports omit it (#7307).
 - In Roleplay group chats where characters reply one by one, **Decide who sees new messages** keeps hiding new messages from characters who are elsewhere, however long a scene runs. Before, once a scene had run for a few messages, it stopped hiding anyone. A character now counts as away when every earlier message of the scene was hidden from them, by the decision or by you, across at least four messages; a short cutaway or someone stepping out doesn't count (#7390).

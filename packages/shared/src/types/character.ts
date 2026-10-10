@@ -96,7 +96,10 @@ export interface CharacterExtensions {
   conversationImageInstructions?: string;
   /** Retain prior card revisions and automatically advance character_version on edits. */
   versioningEnabled?: boolean;
-  /** Marinara Engine: also apply conversationImageInstructions to this character's Noodle images. */
+  /**
+   * Also apply conversationImageInstructions to this character's Noodle images. Noodle owns the
+   * control; Slurp reads it as the default until the character has its own Slurp choice.
+   */
   applyConversationImageInstructionsToNoodle?: boolean;
   /** Marinara Engine: gallery image selected as this character's optional visual reference sheet. */
   characterSheetImageId?: string | null;

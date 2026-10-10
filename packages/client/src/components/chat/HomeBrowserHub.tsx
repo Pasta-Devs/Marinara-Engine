@@ -2037,6 +2037,14 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
                 openChat: (chatId: string) => {
                   if (typeof chatId === "string" && chatId) useChatStore.getState().setActiveChatId(chatId);
                 },
+                // Capability API 1.67: open a character in the editor, such as on the tab with a field
+                // the package reads.
+                openCharacter: (characterId: string, options?: { tab?: string }) => {
+                  if (typeof characterId !== "string" || !characterId) return;
+                  useUIStore.getState().openCharacterDetail(characterId, {
+                    initialTab: typeof options?.tab === "string" ? options.tab : undefined,
+                  });
+                },
               }}
             />
           ) : activeTab === "professor" ? (
