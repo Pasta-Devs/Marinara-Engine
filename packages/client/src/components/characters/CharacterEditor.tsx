@@ -64,7 +64,7 @@ import { CharacterScheduleEditorModal } from "../chat/CharacterScheduleEditorMod
 import { useUIStore } from "../../stores/ui.store";
 import { lorebookKeys, useLorebook, useUpdateLorebook } from "../../hooks/use-lorebooks";
 import { useConnections } from "../../hooks/use-connections";
-import { isCapabilityPackageAvailable, useInstalledCapabilityPackages } from "../../hooks/use-capability-packages";
+import { useInstalledCapabilityPackages } from "../../hooks/use-capability-packages";
 import { RulesetSheetsSection } from "../rulesets/RulesetSheetsSection";
 import { showConfirmDialog, showPromptDialog } from "../../lib/app-dialogs";
 import { formatCardVersionTimestamp, getCardVersionTitle } from "../../lib/card-version-history";
@@ -2096,8 +2096,6 @@ function ConvoTab({
   const ext = formData.extensions;
   const { t: localizeUi } = useUiTranslation();
   const generateCharacterConvoProfile = useGenerateCharacterConvoProfile();
-  const { data: installedCapabilities = [] } = useInstalledCapabilityPackages(kind === "character");
-  const noodleInstalled = isCapabilityPackageAvailable(installedCapabilities, "noodle");
   const currentCharacterIdRef = useRef(characterId);
   currentCharacterIdRef.current = characterId;
   const currentConvoProfileDraft = {
@@ -2172,10 +2170,6 @@ function ConvoTab({
         }
         imageInstructions={(ext.conversationImageInstructions as string) ?? ""}
         onImageInstructionsChange={(value) => updateExtension("conversationImageInstructions", value)}
-        applyImageInstructionsToNoodle={ext.applyConversationImageInstructionsToNoodle === true}
-        onApplyImageInstructionsToNoodleChange={
-          noodleInstalled ? (value) => updateExtension("applyConversationImageInstructionsToNoodle", value) : undefined
-        }
         schedule={schedule}
         onEditSchedule={kind === "character" && characterId ? () => setScheduleOpen(true) : undefined}
       />
