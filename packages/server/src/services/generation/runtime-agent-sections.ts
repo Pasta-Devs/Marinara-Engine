@@ -56,7 +56,7 @@ export function formatAgentInjections(injections: AgentInjection[], wrapFormat: 
 
 function agentInjectionXmlTag(label: string, agentType: string): string {
   const tag = nameToXmlTag(label) || nameToXmlTag(agentType) || "agent";
-  return /^[a-z_]/i.test(tag) ? tag : `agent_${tag}`;
+  return /^[\p{L}_]/u.test(tag) ? tag : `agent_${tag}`;
 }
 
 function uniqueAgentInjectionXmlTag(label: string, agentType: string, usedTags: Set<string>): string {
@@ -242,7 +242,7 @@ export function pruneEmptyPromptWrappers(
 
 function isEmptyPromptWrapper(content: string): boolean {
   if (!content) return true;
-  const xmlMatch = content.match(/^<([A-Za-z][\w.-]*)>\s*<\/\1>$/);
+  const xmlMatch = content.match(/^<(\p{L}[\p{L}\p{M}\p{N}_.-]*)>\s*<\/\1>$/u);
   if (xmlMatch) return true;
   return (
     /^#{1,6}\s+\S.*$/m.test(content) &&

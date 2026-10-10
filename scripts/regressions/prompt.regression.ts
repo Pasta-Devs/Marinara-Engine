@@ -70,6 +70,7 @@ import {
   normalizeInventoryTrackerRows,
   normalizeInventoryTrackerPlayerStats,
   findInvalidInventoryTrackerRow,
+  nameToXmlTag,
 } from "../../packages/shared/src/index.js";
 import { replaceBuiltInAgentDefinitions as replaceBuiltInAgentDefinitionsDist } from "../../packages/shared/dist/index.js";
 import { buildInventoryTrackerEditPatch } from "../../packages/client/src/features/tracker-panel/lib/inventory-tracker-edit.js";
@@ -754,7 +755,9 @@ import {
 import {
   buildRuntimeAgentSectionEligibleTypesForTest,
   clearUnusedRuntimeAgentSectionsForTest,
+  formatAgentInjections,
   makeRuntimeAgentSectionTokens,
+  pruneEmptyPromptWrappers,
   splitRuntimeHandledAgentInjectionsForTest,
 } from "../../packages/server/src/services/generation/runtime-agent-sections.js";
 import {
@@ -765,6 +768,7 @@ import {
 } from "../../packages/server/src/services/generation/prose-guardian-settings.js";
 import type { DB } from "../../packages/server/src/db/connection.js";
 import { passThroughLeaf } from "../../packages/server/src/services/prompt/prompt-escaping.js";
+import { wrapContent } from "../../packages/server/src/services/prompt/format-engine.js";
 import {
   escapeStandaloneGameNarrationAngleLines,
   hasVisibleGameNarrationText,
@@ -10984,6 +10988,129 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
       assert.doesNotMatch(scoped[0]?.content ?? "", /Pantalone card only\./u);
       assert.equal(scoped[1]?.role, "user");
       assert.match(scoped[1]?.content ?? "", /Pantalone spoke earlier/u);
+    },
+  },
+  {
+    name: "non-Latin names stay in prompt XML tags and Markdown headings",
+    run() {
+      assert.equal(nameToXmlTag("World Info (Before)"), "world_info_before");
+      assert.equal(nameToXmlTag("홍길동"), "홍길동");
+      assert.equal(nameToXmlTag("Dr. 김 철수"), "dr_김_철수");
+      assert.equal(nameToXmlTag("Amélie"), "amélie");
+      assert.equal(nameToXmlTag("राम"), "राम");
+      assert.equal(wrapContent("Card.", "홍길동", "xml"), "<홍길동>\n    Card.\n</홍길동>");
+      assert.equal(wrapContent("Card.", "Dr. 김 철수", "markdown"), "## Dr 김 철수\nCard.");
+      assert.equal(
+        formatAgentInjections([{ agentType: "custom-memory", agentName: "기억 관리자", text: "Note." }], "xml"),
+        "<기억_관리자>\nNote.\n</기억_관리자>",
+      );
+
+      const messages = [{ content: "<홍길동>\n</홍길동>" }, { content: "<홍길동>\nCard.\n</홍길동>" }];
+      pruneEmptyPromptWrappers(messages);
+      assert.deepEqual(messages, [{ content: "<홍길동>\nCard.\n</홍길동>" }]);
+    },
+  },
+  {
+    name: "emoji in names leave no invisible marks in prompt tags",
+    run() {
+      assert.equal(nameToXmlTag("Luna ❤️"), "luna");
+      assert.equal(nameToXmlTag("1️⃣ Ana"), "1_ana");
+      assert.equal(nameToXmlTag("สมศักดิ์"), "สมศักดิ์");
+      assert.equal(wrapContent("Card.", "Luna ❤️", "markdown"), "## Luna\nCard.");
+      assert.equal(
+        formatAgentInjections(
+          [
+            { agentType: "affection", agentName: "❤️ Affection Tracker", text: "Note." },
+            { agentType: "weather", agentName: "☀️", text: "Sunny." },
+          ],
+          "xml",
+        ),
+        "<affection_tracker>\nNote.\n</affection_tracker>\n\n<weather>\nSunny.\n</weather>",
+      );
+
+      const combatTag = nameToXmlTag("⚔️ Combat");
+      const messages = [{ content: `<${combatTag}>\n</${combatTag}>` }];
+      pruneEmptyPromptWrappers(messages);
+      assert.deepEqual(messages, []);
+
+      for (const format of ["xml", "markdown"] as const) {
+        const scoped = scopeIndividualGroupMessagesForTarget(
+          [
+            {
+              role: "system",
+              content: [
+                wrapContent("Hong card only.", "홍길동", format, 1),
+                wrapContent("Luna card only.", "Luna ❤️ Star", format, 1),
+              ].join("\n"),
+              contextKind: "prompt",
+            },
+          ],
+          "hong",
+          [
+            { id: "hong", name: "홍길동" },
+            { id: "luna", name: "Luna ❤️ Star" },
+          ],
+        );
+
+        assert.match(scoped[0]?.content ?? "", /Hong card only\./u, format);
+        assert.doesNotMatch(scoped[0]?.content ?? "", /Luna card only\./u, format);
+      }
+    },
+  },
+  {
+    name: "individual group turns drop other cards with non-Latin names",
+    run() {
+      for (const format of ["xml", "markdown"] as const) {
+        const scoped = scopeIndividualGroupMessagesForTarget(
+          [
+            {
+              role: "system",
+              content: [
+                wrapContent("Hong card only.", "홍길동", format, 1),
+                wrapContent("Kim card only.", "김 철수", format, 1),
+                wrapContent("Ram card only.", "Dr. राम", format, 1),
+              ].join("\n"),
+              contextKind: "prompt",
+            },
+          ],
+          "hong",
+          [
+            { id: "hong", name: "홍길동" },
+            { id: "kim", name: "김 철수" },
+            { id: "ram", name: "Dr. राम" },
+          ],
+        );
+
+        const content = scoped[0]?.content ?? "";
+        assert.match(content, /Hong card only\./u, format);
+        assert.doesNotMatch(content, /Kim card only\./u, format);
+        assert.doesNotMatch(content, /Ram card only\./u, format);
+      }
+    },
+  },
+  {
+    name: "a non-Latin character card does not hide a non-Latin persona",
+    run() {
+      const messages: ChatMLMessage[] = [
+        { role: "system", content: wrapContent("Hong card only.", "홍길동", "xml", 1) },
+        { role: "user", content: "Hello." },
+      ];
+
+      injectIdentityFallbackMessages({
+        messages,
+        charInfo: [],
+        promptTargetCharacterId: null,
+        promptMacroContext: { user: "김철수", char: "홍길동", characters: ["홍길동"], variables: {} },
+        wrapFormat: "xml",
+        personaName: "김철수",
+        personaDescription: "Kim persona only.",
+        personaFields: {},
+        persona: null,
+        resolvePromptMacros: (value) => value,
+      });
+
+      const promptText = messages.map((message) => message.content).join("\n");
+      assert.match(promptText, /<김철수>[\s\S]*Kim persona only\.[\s\S]*<\/김철수>/u);
     },
   },
   {

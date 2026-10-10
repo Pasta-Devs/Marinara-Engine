@@ -10,7 +10,8 @@ import { nameToXmlTag } from "@marinara-engine/shared";
  */
 function nameToMarkdownHeading(name: string): string {
   return name
-    .replace(/[^a-zA-Z0-9\s_-]/g, "")
+    .replace(/[^\p{L}\p{M}\p{N}\s_-]/gu, "")
+    .replace(/[\p{Variation_Selector}\u20E3]/gu, "")
     .replace(/\s+/g, " ")
     .trim();
 }
