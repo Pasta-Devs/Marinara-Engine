@@ -4,7 +4,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
-- **DeepSeek** is now a built-in connection type. Pick it, paste your key, and choose from its models in the picker; its **Reasoning Effort** levels work, and its thinking shows up in the reply like any other thinking model. The settings DeepSeek does not use (**Verbosity**, **Top K**, the deprecated penalties, **Service Tier**) stay hidden rather than pretending to work (#7401).
+- **DeepSeek** is now a built-in connection type: pick it, paste your key, and its models and **Reasoning Effort** levels are ready to use. Its thinking shows in the reply like any other thinking model, and the settings it ignores stay hidden instead of pretending to work (#7401).
 - The omnibar stays responsive while quick answers stream, when opening their Mari row, and when moving between search results.
 - Character cards can now offer **interactive onboarding**: players answer onboarding questions to create a persona in the Roleplay chat wizard. Native and compatible PNG exports retain onboarding, while compatible JSON exports omit it (#7307).
 - In Roleplay group chats where characters reply one by one, **Decide who sees new messages** keeps hiding new messages from characters who are elsewhere, however long a scene runs. Before, once a scene had run for a few messages, it stopped hiding anyone. A character now counts as away when every earlier message of the scene was hidden from them, by the decision or by you, across at least four messages; a short cutaway or someone stepping out doesn't count (#7390).
