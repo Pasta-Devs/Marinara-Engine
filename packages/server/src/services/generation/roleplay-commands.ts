@@ -399,7 +399,9 @@ export function latestRoleplayUserInput(
 ): string | undefined {
   const message = [...messages].reverse().find((candidate) => candidate.role === "user");
   const id = (message as { id?: unknown } | undefined)?.id;
-  return typeof id === "string" && roleplayWhisperOnlyMessageIds(history).has(id) ? "" : message?.content;
+  return typeof id === "string" && roleplayWhisperOnlyMessageIds(history.filter((source) => source.id === id)).has(id)
+    ? ""
+    : message?.content;
 }
 
 /** Insert secrets at their saved positions in the final viewer's retained history, after copying shared prompts. */
