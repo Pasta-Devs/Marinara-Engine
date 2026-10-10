@@ -2643,22 +2643,26 @@ export function createChatsStorage(db: DB) {
             : null;
         const prepared = prepare?.(content, existing?.extra);
         content = prepared?.content ?? content;
-        // Inline whispers keep their place when the text around them changes.
+        // Inline whispers keep their place when the text around them changes. Commands typed into this edit
+        // come last and already point into the new text.
         const previousActivity = getRoleplayCommandActivity(parseExtraRecord(existing?.extra));
+        const typedCount = prepared ? getRoleplayCommandActivity(prepared.extra).length - previousActivity.length : 0;
         const reanchored =
-          existing && existing.content !== content && previousActivity.some((item) => item.contentOffset !== undefined)
-            ? reanchorRoleplayCommandActivity(existing.content, content, previousActivity)
-            : null;
-        const withActivity = (extra: Record<string, unknown>) =>
-          reanchored
-            ? {
-                ...extra,
-                roleplayCommandActivity: [
-                  ...reanchored,
-                  ...getRoleplayCommandActivity(extra).slice(previousActivity.length),
-                ],
-              }
-            : extra;
+          !!existing &&
+          existing.content !== content &&
+          previousActivity.some((item) => item.contentOffset !== undefined);
+        const withActivity = (extra: Record<string, unknown>) => {
+          const activity = getRoleplayCommandActivity(extra);
+          if (!reanchored || !activity.some((item) => item.contentOffset !== undefined)) return extra;
+          const kept = activity.length - Math.max(0, typedCount);
+          return {
+            ...extra,
+            roleplayCommandActivity: [
+              ...reanchorRoleplayCommandActivity(existing.content, content, activity.slice(0, kept)),
+              ...activity.slice(kept),
+            ],
+          };
+        };
 
         // Conversation-mode prompt history prefers `conversationCommandContent` (the raw
         // reply before command stripping) over `content`, so a rewrite of the visible text

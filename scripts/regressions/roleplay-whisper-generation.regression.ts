@@ -373,6 +373,43 @@ try {
     const placedText = `${after.slice(0, position)}[W]${after.slice(position)}`;
     assert(placedText.includes(expected), placedText);
   }
+  // Restoring the earlier text, as Prose Guardian's toggle does, brings the whisper back to where it was.
+  const whisperAfter = (text: string, marker: string) => {
+    const offset = text.indexOf(marker) + marker.length;
+    return {
+      ...placedWhisper.activity,
+      contentOffset: offset,
+      contentAnchor: text.slice(Math.max(0, offset - 80), offset),
+    };
+  };
+  const placeAfterEdits = (texts: readonly string[], marker: string) => {
+    let item = whisperAfter(texts[0]!, marker);
+    for (let index = 1; index < texts.length; index++)
+      item = reanchorRoleplayCommandActivity(texts[index - 1]!, texts[index]!, [item])[0]!;
+    const text = texts.at(-1)!;
+    const position = getRoleplayCommandContentOffset(text, item);
+    return `${text.slice(0, position)}[W]${text.slice(position)}`;
+  };
+  const original = 'She smiled softly.  Her eyes sparkled. "Come here," she said.';
+  for (const rewrite of [
+    'She smiled.  Her eyes sparkled. "Come here," she said.',
+    'She smiled. Her eyes sparkled. "Come here," she said.',
+  ])
+    assert(placeAfterEdits([original, rewrite, original, rewrite, original], "softly.").includes("softly.[W]"));
+  // A phrase that appears twice never pulls a whisper to the other copy; it shows at the end, as before.
+  const repeatedBeat =
+    '"You came?" *She glances at the door.* "Sit."\n\nMara pours. "Drink first." *She glances at the door.*';
+  assert(
+    placeAfterEdits(
+      [
+        repeatedBeat,
+        repeatedBeat
+          .replace('Mara pours. "Drink', 'Mara pours two. "Drink')
+          .replace(/\*She glances at the door\.\*$/, "*Her eyes return.*"),
+      ],
+      '"Drink first."',
+    ).endsWith("[W]"),
+  );
   await chats.patchMetadata(chat.id, { groupChatMode: "merged", roleplayWhisperAudience: "all" });
   assert(!(await preview(bob.id)).includes("BOB_REEDITED_SECRET"), "merged voices must not receive private knowledge");
   await generate('Merged. [whisper: character="Bob" text="MERGED_SECRET"]');

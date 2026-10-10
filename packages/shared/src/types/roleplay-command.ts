@@ -67,6 +67,9 @@ export interface RoleplayCommandActivity {
   contentOffset?: number;
   /** Adjacent text before the inline command, or after it when contentOffset is zero. */
   contentAnchor?: string;
+  /** The place before the last edit moved it, so restoring that text finds it again. */
+  previousContentOffset?: number;
+  previousContentAnchor?: string;
   /** Resolve once so a rename cannot redirect a saved secret. */
   whisperRecipient?: RoleplayWhisperRecipient;
   /** Exact before/after text makes interruption reversible without overwriting later edits. */
@@ -154,32 +157,42 @@ export function getRoleplayWhispers(extra: Record<string, unknown>) {
   });
 }
 
+/** Where a saved offset and anchor place an inline result in this text, or null when they no longer do. */
+function resolveContentOffset(text: string, expected: unknown, savedAnchor: unknown): number | null {
+  if (
+    typeof expected !== "number" ||
+    !Number.isSafeInteger(expected) ||
+    expected < 0 ||
+    typeof savedAnchor !== "string" ||
+    !savedAnchor
+  )
+    return null;
+  // Saving an edit can change the quote style without moving any text.
+  const anchor = toStraightQuotes(savedAnchor);
+  const plain = toStraightQuotes(text);
+  const current =
+    expected === 0 ? plain.slice(0, anchor.length) : plain.slice(Math.max(0, expected - anchor.length), expected);
+  if (expected <= plain.length && current === anchor) return expected;
+  const index = plain.indexOf(anchor);
+  return index >= 0 && index === plain.lastIndexOf(anchor) ? index + (expected === 0 ? 0 : anchor.length) : null;
+}
+
+function resolveRoleplayCommandContentOffset(text: string, item: RoleplayCommandActivity): number | null {
+  return (
+    resolveContentOffset(text, item.contentOffset, item.contentAnchor) ??
+    resolveContentOffset(text, item.previousContentOffset, item.previousContentAnchor)
+  );
+}
+
 /** Keep an inline result near its original text after edits; ambiguous anchors fall back to the end. */
 export function getRoleplayCommandContentOffset(text: string, item: RoleplayCommandActivity): number {
-  const expected = item.contentOffset;
-  if (
-    typeof expected === "number" &&
-    Number.isSafeInteger(expected) &&
-    expected >= 0 &&
-    typeof item.contentAnchor === "string" &&
-    item.contentAnchor.length > 0
-  ) {
-    // Saving an edit can change the quote style without moving any text.
-    const anchor = toStraightQuotes(item.contentAnchor);
-    text = toStraightQuotes(text);
-    const currentAnchor =
-      expected === 0 ? text.slice(0, anchor.length) : text.slice(Math.max(0, expected - anchor.length), expected);
-    if (expected <= text.length && currentAnchor === anchor) return expected;
-    if (text.indexOf(anchor) >= 0 && text.indexOf(anchor) === text.lastIndexOf(anchor))
-      return text.indexOf(anchor) + (expected === 0 ? 0 : anchor.length);
-  }
-  return text.length;
+  return resolveRoleplayCommandContentOffset(text, item) ?? text.length;
 }
 
 /**
- * Move inline results through an edit of the text they sit in. A result before or after the changed part keeps
- * its place. One inside it follows the unchanged text right before or after it; without any, it keeps its old
- * anchor and shows at the end, as before.
+ * Move inline results whose saved text an edit changed. Text before or after the changed part keeps them in
+ * place; inside it, they follow unchanged text right before or after them that appears once. Results the new
+ * text still places, or that the old text did not, stay as they are, so they show where they did before.
  */
 export function reanchorRoleplayCommandActivity(
   before: string,
@@ -196,25 +209,30 @@ export function reanchorRoleplayCommandActivity(
     left[left.length - 1 - end] === right[right.length - 1 - end]
   )
     end++;
-  const uniqueIndex = (text: string) => {
-    const index = text ? right.indexOf(text) : -1;
-    return index >= 0 && index === right.lastIndexOf(text) ? index : -1;
+  const once = (text: string, part: string) => {
+    const index = part ? text.indexOf(part) : -1;
+    return index >= 0 && index === text.lastIndexOf(part) ? index : -1;
   };
+  const moveOnce = (part: string) => (once(left, part) >= 0 ? once(right, part) : -1);
   return activity.map((item) => {
-    if (typeof item.contentOffset !== "number") return item;
-    const offset = getRoleplayCommandContentOffset(before, item);
+    if (typeof item.contentOffset !== "number" || resolveRoleplayCommandContentOffset(after, item) !== null)
+      return item;
+    const offset = resolveRoleplayCommandContentOffset(before, item);
+    if (offset === null) return item;
     let moved = offset <= start ? offset : offset >= before.length - end ? after.length - (before.length - offset) : -1;
     for (const size of [80, 40, 20]) {
       if (moved >= 0) break;
       const prior = left.slice(Math.max(0, offset - size), offset);
-      const priorIndex = uniqueIndex(prior);
-      moved = priorIndex >= 0 ? priorIndex + prior.length : uniqueIndex(left.slice(offset, offset + size));
+      const priorIndex = moveOnce(prior);
+      moved = priorIndex >= 0 ? priorIndex + prior.length : moveOnce(left.slice(offset, offset + size));
     }
     if (moved < 0) return item;
     return {
       ...item,
       contentOffset: moved,
       contentAnchor: moved === 0 ? after.slice(0, 80) : after.slice(Math.max(0, moved - 80), moved),
+      previousContentOffset: offset,
+      previousContentAnchor: offset === 0 ? before.slice(0, 80) : before.slice(Math.max(0, offset - 80), offset),
     };
   });
 }
