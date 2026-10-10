@@ -517,6 +517,7 @@ export function renderSkillLibraryIndex(enabledIds?: Set<string>): string {
   return [
     "<skill_library>",
     "Available skills (call `skill` with the id to load full instructions):",
+    "Before acting on a task that matches a skill, load it first and follow its Workflow; if a task spans several entity types, load each matching skill first.",
     ...lines,
     "</skill_library>",
   ].join("\n");
