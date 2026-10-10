@@ -214,6 +214,8 @@ const VISIBILITY_CONTEXT = 12;
 const VISIBILITY_MIN_CONTEXT = 4;
 /** Longest a transcript message gets, and the shortest worth asking about when the limit is tight. */
 const VISIBILITY_MESSAGE_TOKENS = 1000;
+/** A candidate's latest earlier message only has to show where they were. */
+const VISIBILITY_LAST_SEEN_TOKENS = 256;
 const VISIBILITY_MIN_MESSAGE_TOKENS = 64;
 const VISIBILITY_TIMEOUT_MS = 20_000;
 const VISIBILITY_TRANSCRIPT_TOKENS = 6000;
@@ -224,7 +226,8 @@ type VisibilityItem = { message: AdvancedMemoryMessage; number: number; candidat
 type VisibilityPlan = {
   ctx: Context;
   items: VisibilityItem[];
-  transcript: Array<{ messageId: string; messageNumber: number; speaker: string; content: string }>;
+  /** lastSeen marks the latest message by a candidate who was away; trimming keeps it. */
+  transcript: Array<{ messageId: string; messageNumber: number; speaker: string; content: string; lastSeen?: true }>;
   recentlyActive: string[];
   /** Set once a model was asked. Missing entries hide nothing. */
   asked?: boolean;
@@ -1266,9 +1269,10 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
     if (!items.length) return null;
     const first = items[0]!.number - 1;
     const last = items.at(-1)!.number - 1;
-    const sceneStart =
-      savedScenes(ctx, await operationRecords(ctx)).find((scene) => first >= scene.start && first <= scene.end)
-        ?.start ?? Math.max(0, first - VISIBILITY_CONTEXT);
+    const saved = savedScenes(ctx, await operationRecords(ctx)).find(
+      (scene) => first >= scene.start && first <= scene.end,
+    );
+    const sceneStart = saved?.start ?? Math.max(0, first - VISIBILITY_CONTEXT);
     const scene = actual.filter((index) => index >= sceneStart && index <= last);
     // The scene so far, but never fewer than a few earlier messages, so a new scene's opening still shows who was around.
     const before = actual.filter((index) => index < first);
@@ -1281,16 +1285,54 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
         !narrators.has(id) &&
         scene.some((index) => ctx.messages[index]!.role === "assistant" && ctx.messages[index]!.characterId === id),
     );
+    const window = [...shown, ...scene.filter((index) => index >= first)];
+    // Who could perceive none of this scene's earlier messages, hidden by the decisions or the user's own hides; a
+    // message nobody decided is visible to all. It takes a few messages, so a short cutaway or step-out that opens
+    // a scene makes nobody away, and a saved scene start, since the fallback's last messages may not be all of it.
+    const hiddenSets = scene.flatMap((index) => {
+      const extra = object(ctx.messages[index]!.extra);
+      return saved && index < first && extra.hiddenFromAI !== true
+        ? [new Set(strings(extra.hiddenFromAICharacterIds))]
+        : [];
+    });
+    const away = new Set(
+      hiddenSets.length >= VISIBILITY_MIN_CONTEXT
+        ? [...hiddenSets[0]!].filter((id) => hiddenSets.every((hidden) => hidden.has(id)))
+        : [],
+    );
+    // A candidate who was away keeps their latest earlier message in view, so the decision can still see where they
+    // are once a scene outgrows its few earlier messages (#7390). Anyone who perceived any of it gets nothing added,
+    // so a character brought into the scene is never shown somewhere else.
+    const lastSeen = new Set(
+      [...new Set(items.flatMap((item) => item.candidates))].flatMap((id) => {
+        if (!away.has(id)) return [];
+        const index = [...before]
+          .reverse()
+          .find(
+            (candidate) =>
+              ctx.messages[candidate]!.role === "assistant" &&
+              ctx.messages[candidate]!.characterId === id &&
+              object(ctx.messages[candidate]!.extra).hiddenFromAI !== true,
+          );
+        return index === undefined ? [] : [index];
+      }),
+    );
     return {
       ctx,
       items,
-      transcript: [...shown, ...scene.filter((index) => index >= first)].map((index) => ({
-        messageId: ctx.messages[index]!.id,
-        messageNumber: index + 1,
-        speaker: speakerName(ctx, ctx.messages[index]!),
-        // Start and end of the original, so a later shortening still has the real ending to keep.
-        content: messageEnds(ctx.messages[index]!.content, VISIBILITY_MESSAGE_TOKENS),
-      })),
+      transcript: [...new Set([...lastSeen, ...window])]
+        .sort((a, b) => a - b)
+        .map((index) => ({
+          messageId: ctx.messages[index]!.id,
+          messageNumber: index + 1,
+          speaker: speakerName(ctx, ctx.messages[index]!),
+          // Start and end of the original, so a later shortening still has the real ending to keep.
+          content: messageEnds(
+            ctx.messages[index]!.content,
+            lastSeen.has(index) && !window.includes(index) ? VISIBILITY_LAST_SEEN_TOKENS : VISIBILITY_MESSAGE_TOKENS,
+          ),
+          ...(lastSeen.has(index) ? { lastSeen: true as const } : {}),
+        })),
       recentlyActive: recentlyActive.map((id) => ctx.names.get(id) ?? id),
     };
   }
@@ -1303,10 +1345,13 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
    */
   function visibilityTranscript(plan: VisibilityPlan, limit: number) {
     const fits = (transcript: VisibilityPlan["transcript"]) => tokenSize(JSON.stringify(transcript)) <= limit;
+    // Where away candidates were last seen stays, in order; the oldest other context goes first.
+    const from = (start: number) => plan.transcript.filter((entry, index) => entry.lastSeen || index >= start);
     const context = plan.transcript.findIndex((entry) => entry.messageId === plan.items[0]!.message.id);
+    const earlier = (start: number) => plan.transcript.slice(start, context).filter((entry) => !entry.lastSeen).length;
     let start = 0;
-    while (context - start > VISIBILITY_MIN_CONTEXT && !fits(plan.transcript.slice(start))) start++;
-    const kept = plan.transcript.slice(start);
+    while (earlier(start) > VISIBILITY_MIN_CONTEXT && !fits(from(start))) start++;
+    const kept = from(start);
     if (fits(kept)) return kept;
     const cut = (tokens: number) => kept.map((entry) => ({ ...entry, content: messageEnds(entry.content, tokens) }));
     // The longest length that fits, found by bisection.
