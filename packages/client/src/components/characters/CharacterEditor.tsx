@@ -11,6 +11,7 @@ import {
   useMemo,
   type ChangeEvent,
   type ReactNode,
+  type Ref,
   type SyntheticEvent,
 } from "react";
 import { toast } from "sonner";
@@ -113,6 +114,7 @@ import {
   Eraser,
   Wand2,
   UserPlus,
+  Code2,
   History,
   RotateCcw,
   Scissors,
@@ -121,7 +123,9 @@ import {
   Pencil,
   Check,
   Volume2,
+  Sparkles,
 } from "lucide-react";
+import { PresetVariablesEditor } from "../presets/PresetVariablesEditor";
 import { requestProfessorMariOpen } from "../../lib/professor-mari-open";
 import { MariContextChip } from "../chat/MariContextChip";
 import { cn, copyToClipboard, generateClientId, getAvatarCropStyle } from "../../lib/utils";
@@ -154,14 +158,29 @@ import { useEditorLeaveSave } from "../../hooks/use-editor-leave-save";
 import { LazyEditorSection } from "../ui/LazyEditorSection";
 import { leaveWithoutSaving } from "../../lib/editor-leave";
 import { EditorSectionAnchor, EditorSectionJumps } from "../ui/EditorSectionJumps";
-import { SettingsSwitch } from "../panels/settings/SettingControls";
+import { SETTINGS_BUTTON_CLASS, SettingsSwitch } from "../panels/settings/SettingControls";
 import {
+  characterOnboardingSchema,
   createDefaultRpgStatPools,
+  getOnboardingVariables,
+  getRelevantOnboardingVariables,
   normalizeSpriteExpressionLabel,
   normalizeRpgStatPools,
+  ONBOARDING_MAX_QUESTIONS,
+  ONBOARDING_PERSONA_FIELDS,
+  ONBOARDING_PLAYER_VARIABLE,
+  resolveOnboardingPersona,
+  resolveOnboardingQuestions,
   syncRpgHpFromPools,
+  withUniqueOnboardingIds,
+  validateOnboarding,
   type CharacterCardVersion,
   type CharacterData,
+  type CharacterOnboarding,
+  type CharacterOnboardingVariable,
+  type OnboardingAnswers,
+  type OnboardingIssue,
+  type OnboardingPersonaField,
   type CharacterTrackerCustomFieldDefault,
   type ConversationCallCharacterVideoClipKind,
   type ConvoBehaviorConfig,
@@ -183,6 +202,7 @@ import { useTranslation, useTranslation as useUiTranslation } from "react-i18nex
 const TABS = [
   { id: "metadata", label: "Metadata", icon: User },
   { id: "card", label: "Card", icon: IdCard },
+  { id: "onboarding", label: "Onboarding", icon: UserPlus },
   { id: "convo", label: "Convo", icon: MessageCircle },
   { id: "lorebook", label: "Lorebook", icon: Library },
   { id: "sprites", label: "Sprites", icon: Image },
@@ -204,6 +224,65 @@ const CHARACTER_CARD_SECTIONS = [
   { id: "character-card-scenario", label: "Scenario" },
   { id: "character-card-dialogue", label: "Dialogue" },
 ] as const;
+
+const CHARACTER_ONBOARDING_SECTIONS = [
+  { id: "character-onboarding-questions", label: "Onboarding Questions" },
+  { id: "character-onboarding-description", label: "Description" },
+  { id: "character-onboarding-personality", label: "Personality" },
+  { id: "character-onboarding-backstory", label: "Backstory" },
+  { id: "character-onboarding-appearance", label: "Appearance" },
+  { id: "character-onboarding-scenario", label: "Scenario" },
+  { id: "character-onboarding-preview", label: "Rendered preview" },
+] as const;
+
+/**
+ * The onboarding fields reuse the persona editor's Card copy: what the author
+ * writes here becomes the player's persona, not part of this character.
+ */
+const ONBOARDING_FIELD_COPY: Record<
+  OnboardingPersonaField,
+  { title: string; subtitle: string; placeholder: string; rows: number }
+> = {
+  description: {
+    title: "chat.settings.inlineEditor.fields.description",
+    subtitle: "ui.personas.descriptiontab.yourGeneralDescriptionThisIsSentInEveryPrompt",
+    placeholder: "ui.personas.descriptiontab.describeWhoYouAreYourRoleInTheStory",
+    rows: 12,
+  },
+  personality: {
+    title: "chat.settings.inlineEditor.fields.personality",
+    subtitle: "ui.personas.personacardtab.yourPersonalityTraitsTemperamentAndBehavioralPatterns",
+    placeholder: "ui.personas.personacardtab.calmAndAnalyticalButQuickToActWhenSomeone",
+    rows: 8,
+  },
+  backstory: {
+    title: "chat.settings.inlineEditor.fields.backstory",
+    subtitle: "ui.personas.personacardtab.yourCharacterSHistoryOriginStoryAndFormativeLife",
+    placeholder: "ui.personas.personacardtab.grewUpInAFrontierTownApprenticedUnderA",
+    rows: 12,
+  },
+  appearance: {
+    title: "chat.settings.inlineEditor.fields.appearance",
+    subtitle: "ui.personas.personacardtab.physicalDescriptionHeightBuildHairEyesClothingDistinguishingFeatures",
+    placeholder: "ui.personas.personacardtab.averageHeightDarkHairWornLoosePrefersPracticalClothing",
+    rows: 8,
+  },
+  scenario: {
+    title: "chat.settings.inlineEditor.fields.scenario",
+    subtitle: "ui.personas.personacardtab.yourDefaultSituationOrContextWithinRoleplays",
+    placeholder: "ui.personas.personacardtab.aWanderingAdventurerSeekingAnswersAboutAMysteriousArtifact",
+    rows: 8,
+  },
+};
+
+const ONBOARDING_ISSUE_KEYS: Record<Exclude<OnboardingIssue["code"], "plainIf" | "unknownName">, string> = {
+  emptyName: "ui.characters.onboarding.issueEmptyName",
+  invalidName: "ui.characters.onboarding.issueInvalidName",
+  reservedName: "ui.characters.onboarding.issueReservedName",
+  duplicateName: "ui.characters.onboarding.issueDuplicateName",
+  unused: "ui.characters.onboarding.issueUnused",
+  unknownOptionName: "ui.characters.onboarding.issueUnknownOptionName",
+};
 
 const CHARACTER_METADATA_HELP =
   "Use metadata for identity, sharing, and library organization. The avatar identifies the character throughout Marinara, name is used as {{char}}, creator/version help track authorship and revisions, tags make the card searchable, talkativeness affects group chat response frequency, and creator notes stay private.";
@@ -333,6 +412,13 @@ export function CharacterEditor() {
     () => (useUIStore.getState().characterDetailInitialTab as TabId | null) ?? "metadata",
   );
   const [formData, setFormData] = useState<CharacterData | null>(null);
+  // Same rule as the Onboarding tab: only a missing block is empty, so a block
+  // the schema can't read blocks saving until the author starts over.
+  const storedOnboarding = formData?.extensions?.onboarding;
+  const unreadableOnboarding = useMemo(
+    () => storedOnboarding !== undefined && !characterOnboardingSchema.safeParse(storedOnboarding).success,
+    [storedOnboarding],
+  );
   const { contentRef, scrollToSection } = useEditorSections(
     characterId,
     !!formData,
@@ -565,6 +651,12 @@ export function CharacterEditor() {
 
   const handleSave = async () => {
     if (!characterId || !formData) return false;
+    // The server would reject the whole card; say why instead (the Onboarding
+    // tab offers Start over). Also covers the leave-page save, which stays put.
+    if (unreadableOnboarding) {
+      toast.error(localizeUi("ui.characters.onboarding.unreadable"));
+      return false;
+    }
     if (avatarUploadInFlightRef.current) {
       toast.error(localizeUi("ui.characters.charactereditor.waitForTheCurrentAvatarUploadToFinishBefore"));
       return false;
@@ -959,7 +1051,7 @@ export function CharacterEditor() {
         : null;
 
   const headerActionButtonClass = "mari-editor-action inline-flex";
-  const saveDisabled = !dirty || saving || avatarUploading || lorebookEmbedding;
+  const saveDisabled = !dirty || unreadableOnboarding || saving || avatarUploading || lorebookEmbedding;
   const saveLabel = avatarUploading
     ? localizeUi("editor.save.uploading")
     : lorebookEmbedding
@@ -1280,6 +1372,9 @@ export function CharacterEditor() {
                 updateFormData={updateFormData}
               />
             </section>
+            <section data-editor-section="onboarding">
+              <OnboardingTab formData={formData} updateExtension={updateExtension} />
+            </section>
             <section data-editor-section="convo">
               <ConvoTab
                 formData={formData}
@@ -1497,6 +1592,342 @@ function CharacterCardTab({
   );
 }
 
+/** A new onboarding question: free text until the author adds options. */
+function createOnboardingVariable(existing: CharacterOnboardingVariable[]): CharacterOnboardingVariable {
+  const names = new Set(existing.map((variable) => variable.variableName));
+  let index = existing.length + 1;
+  while (names.has(`question_${index}`)) index++;
+  return {
+    id: generateClientId(),
+    variableName: `question_${index}`,
+    question: "",
+    options: [],
+    allowCustom: false,
+    multiSelect: false,
+    separator: ", ",
+    displayMode: "auto",
+    optionSort: "manual",
+  };
+}
+
+/**
+ * The card's skeleton persona: the persona Card fields, the questions players
+ * answer, and a preview resolved with example answers. Turning it off keeps
+ * everything written here; only `enabled` changes.
+ */
+function OnboardingTab({
+  formData,
+  updateExtension,
+}: {
+  formData: CharacterData;
+  updateExtension: (key: string, value: unknown) => void;
+}) {
+  const { t: localizeUi } = useUiTranslation();
+  const parsedOnboarding = useMemo(
+    // Only a missing block means "empty"; a stored `null` is unreadable like any other bad value.
+    () =>
+      characterOnboardingSchema.safeParse(
+        formData.extensions.onboarding === undefined ? {} : formData.extensions.onboarding,
+      ),
+    [formData.extensions.onboarding],
+  );
+  // A block the schema can't read is never shown as empty defaults: any edit
+  // would then replace the author's data. It stays untouched until the author
+  // explicitly starts over.
+  const unreadable = !parsedOnboarding.success;
+  const onboarding = useMemo(
+    () =>
+      // Unique ids: edits, deletes and reorders go by id (a hand-edited card may repeat one).
+      (parsedOnboarding.success
+        ? withUniqueOnboardingIds(parsedOnboarding.data as CharacterOnboarding)
+        : characterOnboardingSchema.parse({})) as CharacterOnboarding,
+    [parsedOnboarding],
+  );
+  // Edits can land in the same tick (e.g. two debounced option inputs), so each
+  // one merges onto the latest value instead of this render's snapshot.
+  const latestRef = useRef(onboarding);
+  useEffect(() => {
+    latestRef.current = onboarding;
+  }, [onboarding]);
+  const update = (
+    patch: Partial<CharacterOnboarding> | ((latest: CharacterOnboarding) => Partial<CharacterOnboarding>),
+  ) => {
+    if (unreadable) return;
+    const latest = latestRef.current;
+    const next = { ...latest, ...(typeof patch === "function" ? patch(latest) : patch) };
+    latestRef.current = next;
+    updateExtension("onboarding", next);
+  };
+  const setVariables = (change: (variables: CharacterOnboardingVariable[]) => CharacterOnboardingVariable[]) =>
+    update((latest) => ({ variables: change(latest.variables) }));
+
+  const issues = useMemo(() => validateOnboarding(onboarding), [onboarding]);
+  const variableIssues: Record<string, string> = {};
+  const plainIfFields = new Set<OnboardingPersonaField>();
+  const unknownNames: Partial<Record<OnboardingPersonaField, string[]>> = {};
+  // One message per question, and a real problem wins over the "unused" warning.
+  const byPriority = [...issues].sort((a, b) => Number(a.code === "unused") - Number(b.code === "unused"));
+  for (const issue of byPriority) {
+    if (issue.code === "plainIf") plainIfFields.add(issue.field);
+    else if (issue.code === "unknownName") (unknownNames[issue.field] ??= []).push(issue.name);
+    else variableIssues[issue.variableId] ??= localizeUi(ONBOARDING_ISSUE_KEYS[issue.code], { value1: issue.name });
+  }
+
+  // Example answers, like the prompt-override preview: the first option of a
+  // choice, the variable's own name for free text.
+  const preview = useMemo(() => {
+    // No prototype, so a question named `__proto__` or `toString` is just a key.
+    const answers: OnboardingAnswers = Object.create(null);
+    answers[ONBOARDING_PLAYER_VARIABLE] = { text: `‹${ONBOARDING_PLAYER_VARIABLE}›` };
+    for (const variable of onboarding.variables) {
+      const first = variable.options[0];
+      answers[variable.variableName] = first ? { optionIds: [first.id] } : { text: `‹${variable.variableName}›` };
+    }
+    return {
+      answers,
+      persona: resolveOnboardingPersona(onboarding, answers),
+      asked: getRelevantOnboardingVariables(onboarding, answers),
+    };
+  }, [onboarding]);
+  const previewQuestions = useMemo(
+    () => resolveOnboardingQuestions(onboarding, preview.answers, formData.name),
+    [onboarding, preview.answers, formData.name],
+  );
+  const previewText = ONBOARDING_PERSONA_FIELDS.filter((field) => preview.persona[field])
+    .map((field) => `${localizeUi(ONBOARDING_FIELD_COPY[field].title)}:\n${preview.persona[field]}`)
+    .join("\n\n");
+  const codeClass = "mari-editor-chip mari-editor-chip--accent rounded px-1 font-mono text-[0.625rem]";
+
+  // Variable chips (like the prompt-override editor) show under the field last
+  // focused; clicking one inserts it at the caret.
+  const [activeField, setActiveField] = useState<OnboardingPersonaField | null>(null);
+  const fieldRefs = useRef<Partial<Record<OnboardingPersonaField, HTMLTextAreaElement | null>>>({});
+  const variableNames = [
+    ...new Set(
+      getOnboardingVariables(onboarding)
+        .map((variable) => variable.variableName.trim())
+        .filter(Boolean),
+    ),
+  ];
+  const insertVariable = (field: OnboardingPersonaField, name: string) => {
+    const token = "{{" + name + "}}";
+    const textarea = fieldRefs.current[field];
+    const current = latestRef.current[field];
+    const start = textarea?.selectionStart ?? current.length;
+    const end = textarea?.selectionEnd ?? current.length;
+    update({ [field]: current.slice(0, start) + token + current.slice(end) });
+    requestAnimationFrame(() => {
+      textarea?.focus();
+      textarea?.setSelectionRange(start + token.length, start + token.length);
+    });
+  };
+
+  return (
+    <div>
+      <SectionHeader
+        title={localizeUi("editor.tabs.onboarding")}
+        subtitle={localizeUi("ui.characters.onboarding.subtitle")}
+      />
+      {unreadable && (
+        <div
+          role="status"
+          className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--card)] p-3 text-xs"
+        >
+          <AlertTriangle size="0.875rem" className="shrink-0 text-[var(--marinara-app-accent-static)]" aria-hidden />
+          <span className="min-w-0 flex-1">{localizeUi("ui.characters.onboarding.unreadable")}</span>
+          <button
+            type="button"
+            onClick={() => updateExtension("onboarding", characterOnboardingSchema.parse({}))}
+            className="mari-editor-action mari-editor-action--compact px-2 py-1 text-[0.625rem]"
+          >
+            {localizeUi("ui.characters.onboarding.startOver")}
+          </button>
+        </div>
+      )}
+      <SettingsSwitch
+        label={<span className="font-medium">{localizeUi("ui.characters.onboarding.enable")}</span>}
+        description={localizeUi("ui.characters.onboarding.enableHelp")}
+        checked={onboarding.enabled}
+        disabled={unreadable}
+        onChange={(enabled) => update({ enabled })}
+        labelPosition="start"
+        className="justify-between rounded-xl border border-[var(--border)] bg-[var(--card)] p-4"
+      />
+      {onboarding.enabled && (
+        <>
+          <div className="mari-editor-panel mt-4 space-y-2 p-3 text-xs">
+            <p className="flex items-center gap-1.5 font-semibold">
+              <Sparkles size="0.875rem" className="mari-chrome-accent-icon mari-accent-animated" />
+              {localizeUi("ui.characters.onboarding.tutorialTitle")}
+            </p>
+            <ol className="list-decimal space-y-1.5 pl-5 text-[var(--muted-foreground)]">
+              <li>
+                {localizeUi("ui.characters.onboarding.tutorialQuestionsBefore")}{" "}
+                <code className={codeClass}>faction</code>
+                {localizeUi("ui.characters.onboarding.tutorialQuestionsMiddle")}{" "}
+                <code className={codeClass}>{"{{faction}}"}</code>{" "}
+                {localizeUi("ui.characters.onboarding.tutorialQuestionsAfter")}
+              </li>
+              <li>{localizeUi("ui.characters.onboarding.tutorialFields")}</li>
+              <li>
+                {localizeUi("ui.characters.onboarding.tutorialPlayerBefore")}{" "}
+                <code className={codeClass}>{ONBOARDING_PLAYER_VARIABLE}</code>{" "}
+                {localizeUi("ui.characters.onboarding.tutorialPlayerAfter")}
+              </li>
+              <li>
+                {localizeUi("ui.characters.onboarding.tutorialIfBefore")}{" "}
+                <code className={codeClass}>{"{{#if met == yes}}…{{/if}}"}</code>{" "}
+                {localizeUi("ui.characters.onboarding.tutorialIfAfter")}
+              </li>
+            </ol>
+            <p className="text-[var(--muted-foreground)]">{localizeUi("ui.characters.onboarding.tutorialResult")}</p>
+          </div>
+          <div className="mt-4">
+            <EditorSectionJumps items={CHARACTER_ONBOARDING_SECTIONS} />
+          </div>
+          <div className="space-y-10">
+            <EditorSectionAnchor id="character-onboarding-questions">
+              <PresetVariablesEditor
+                variant="onboarding"
+                variables={onboarding.variables}
+                issues={variableIssues}
+                maxCount={ONBOARDING_MAX_QUESTIONS}
+                onCreate={() =>
+                  setVariables((variables) =>
+                    variables.length >= ONBOARDING_MAX_QUESTIONS
+                      ? variables
+                      : [...variables, createOnboardingVariable(variables)],
+                  )
+                }
+                onUpdate={(variableId, patch) =>
+                  setVariables((variables) =>
+                    variables.map((variable) => (variable.id === variableId ? { ...variable, ...patch } : variable)),
+                  )
+                }
+                onDelete={(variableId) =>
+                  setVariables((variables) => variables.filter((variable) => variable.id !== variableId))
+                }
+                onReorder={(variableIds) =>
+                  // Each question is taken once, so a reorder can never grow the list.
+                  setVariables((variables) => {
+                    const pool = new Map(variables.map((variable) => [variable.id, variable]));
+                    const ordered = variableIds.flatMap((id) => {
+                      const variable = pool.get(id);
+                      pool.delete(id);
+                      return variable ? [variable] : [];
+                    });
+                    return [...ordered, ...pool.values()];
+                  })
+                }
+              />
+            </EditorSectionAnchor>
+            {ONBOARDING_PERSONA_FIELDS.map((field) => {
+              const copy = ONBOARDING_FIELD_COPY[field];
+              return (
+                <EditorSectionAnchor key={field} id={`character-onboarding-${field}`}>
+                  <TextareaTab
+                    title={localizeUi(copy.title)}
+                    subtitle={localizeUi(copy.subtitle)}
+                    value={onboarding[field]}
+                    onChange={(value) => update({ [field]: value })}
+                    placeholder={localizeUi(copy.placeholder)}
+                    rows={copy.rows}
+                    textareaRef={(element) => {
+                      fieldRefs.current[field] = element;
+                    }}
+                    onFocus={() => setActiveField(field)}
+                    footer={
+                      activeField === field && variableNames.length > 0 ? (
+                        <div className="flex flex-col gap-1">
+                          <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">
+                            {localizeUi("ui.panels.promptoverrideseditorbody.availableVariables")}
+                          </span>
+                          <div className="flex flex-wrap gap-1.5">
+                            {variableNames.map((name) => (
+                              <button
+                                type="button"
+                                key={name}
+                                onClick={() => insertVariable(field, name)}
+                                className={cn(
+                                  SETTINGS_BUTTON_CLASS,
+                                  "mari-chrome-control--chip mari-chrome-control--regular-label font-mono text-[0.6rem]",
+                                )}
+                              >
+                                <Code2 size="0.625rem" />
+                                {"{{" + name + "}}"}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      ) : undefined
+                    }
+                  />
+                  {plainIfFields.has(field) && (
+                    <p
+                      role="status"
+                      className="mt-1.5 flex flex-wrap items-center gap-1 text-[0.625rem] text-[var(--foreground)]"
+                    >
+                      <AlertTriangle
+                        size="0.625rem"
+                        className="shrink-0 text-[var(--marinara-app-accent-static)]"
+                        aria-hidden
+                      />
+                      {localizeUi("ui.characters.onboarding.plainIfBefore")}{" "}
+                      <code className={codeClass}>{"{{#if …}}"}</code>{" "}
+                      {localizeUi("ui.characters.onboarding.plainIfAfter")}
+                    </p>
+                  )}
+                  {unknownNames[field] && (
+                    <p
+                      role="status"
+                      className="mt-1.5 flex flex-wrap items-center gap-1 text-[0.625rem] text-[var(--foreground)]"
+                    >
+                      <AlertTriangle
+                        size="0.625rem"
+                        className="shrink-0 text-[var(--marinara-app-accent-static)]"
+                        aria-hidden
+                      />
+                      {localizeUi("ui.characters.onboarding.unknownNames", {
+                        value1: unknownNames[field].join(", "),
+                      })}
+                    </p>
+                  )}
+                </EditorSectionAnchor>
+              );
+            })}
+            <EditorSectionAnchor id="character-onboarding-preview">
+              <div className="mari-editor-panel space-y-2 p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-sm font-semibold">
+                    {localizeUi("ui.panels.promptoverrideseditorbody.renderedPreview")}
+                  </span>
+                  <span className="text-[0.625rem] text-[var(--muted-foreground)]">
+                    {localizeUi("ui.panels.promptoverrideseditorbody.exampleValues")}
+                  </span>
+                </div>
+                <div className="flex flex-wrap items-center gap-1.5 text-[0.625rem] text-[var(--muted-foreground)]">
+                  <span>{localizeUi("ui.characters.onboarding.questionsAsked")}</span>
+                  {preview.asked.map((variable) => (
+                    <span key={variable.id} className="mari-editor-chip px-1.5 py-0.5">
+                      {previewQuestions.get(variable.id) ||
+                        (variable.variableName === ONBOARDING_PLAYER_VARIABLE
+                          ? localizeUi("ui.characters.onboarding.nameQuestion")
+                          : variable.variableName)}
+                    </span>
+                  ))}
+                </div>
+                <pre className="max-h-80 overflow-auto whitespace-pre-wrap break-words rounded-md bg-[var(--secondary)]/70 p-2 font-mono text-[0.6875rem] leading-relaxed text-[var(--foreground)]">
+                  {previewText || localizeUi("ui.panels.promptoverrideseditorbody.nothingToPreview")}
+                </pre>
+              </div>
+            </EditorSectionAnchor>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function CharacterSummaryField({
   formData,
   updateField,
@@ -1612,6 +2043,9 @@ function TextareaTab({
   placeholder,
   rows = 8,
   helpText,
+  textareaRef,
+  onFocus,
+  footer,
 }: {
   title: string;
   subtitle: string;
@@ -1620,12 +2054,18 @@ function TextareaTab({
   onChange: (v: string) => void;
   placeholder: string;
   rows?: number;
+  textareaRef?: Ref<HTMLTextAreaElement>;
+  onFocus?: () => void;
+  /** Shown under the textarea, inside the panel. */
+  footer?: ReactNode;
 }) {
   const selfCharacterId = useUIStore((s) => s.characterDetailId);
   return (
     <div className="mari-editor-panel space-y-3 p-3">
       <SectionHeader title={title} subtitle={subtitle} helpText={helpText} />
       <MacroTextarea
+        textareaRef={textareaRef}
+        onFocus={onFocus}
         showTokenCount
         value={value}
         onChange={onChange}
@@ -1636,6 +2076,7 @@ function TextareaTab({
         selfCharacterId={selfCharacterId}
         className="w-full resize-y rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-4 text-sm leading-relaxed outline-none transition-colors placeholder:text-[var(--muted-foreground)]/40 focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
       />
+      {footer}
     </div>
   );
 }

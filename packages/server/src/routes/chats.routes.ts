@@ -46,6 +46,7 @@ import {
   formatRpgStatsForPrompt,
   normalizeRpgStatPools,
   characterDataSchema,
+  withoutUnreadableOnboarding,
   readGameInventoryTurn,
   rulesetLiveStatesSchema,
   applyContextMessageLimitWithPins,
@@ -296,7 +297,7 @@ async function isValidCharacterIdentity(db: Parameters<typeof createCharactersSt
   if (!character) return false;
   try {
     const rawData = typeof character.data === "string" ? JSON.parse(character.data) : character.data;
-    return characterDataSchema.safeParse(rawData).success;
+    return characterDataSchema.safeParse(withoutUnreadableOnboarding(rawData)).success;
   } catch {
     return false;
   }

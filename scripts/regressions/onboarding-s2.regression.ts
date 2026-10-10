@@ -1,0 +1,367 @@
+// Interactive onboarding ("skeleton persona") — slice 2: the pure resolver.
+//
+// Which questions are asked is decided by the macro engine itself: a question
+// is relevant when resolving the five persona fields with the answers so far
+// actually reads its variable, in reachable text or in an evaluated {{#if}}.
+// This pins that behaviour plus the resolved persona and the author validator.
+import assert from "node:assert/strict";
+import {
+  characterExtensionsSchema,
+  getNextOnboardingVariable,
+  getRelevantOnboardingVariables,
+  resolveOnboardingPersona,
+  resolveOnboardingQuestions,
+  validateOnboarding,
+  type CharacterOnboarding,
+  type OnboardingAnswers,
+} from "../../packages/shared/src/index.js";
+
+function onboarding(input: Record<string, unknown>): CharacterOnboarding {
+  const parsed = characterExtensionsSchema.parse({ onboarding: { enabled: true, ...input } }).onboarding;
+  assert.ok(parsed);
+  return parsed as CharacterOnboarding;
+}
+const option = (id: string, value: string, label = value) => ({ id, label, value });
+
+const card = onboarding({
+  description:
+    "{{player}} serves the {{faction}}. {{#if class == custom}}A {{customClass}}.{{else}}A {{class}}.{{/if}} Friend of {{char}}, known as {{user}}.",
+  personality: "{{#if knowsHer == yes}}Knows Anastasia from childhood.{{/if}}",
+  appearance: "{{looks}}",
+  scenario: "You arrive at the guildhall at dusk.",
+  variables: [
+    {
+      id: "faction",
+      variableName: "faction",
+      question: "Which faction?",
+      options: [option("crown", "Crown"), option("guild", "Guild of {{guildCity}}", "Guild")],
+    },
+    {
+      id: "class",
+      variableName: "class",
+      question: "Your class?",
+      options: [option("ranger", "ranger"), option("other", "custom", "Something else")],
+    },
+    { id: "customClass", variableName: "customClass", question: "Describe your class" },
+    {
+      id: "knowsHer",
+      variableName: "knowsHer",
+      question: "Do you know her?",
+      options: [option("y", "yes"), option("n", "no")],
+    },
+    { id: "looks", variableName: "looks", question: "How do you look?" },
+    { id: "guildCity", variableName: "guildCity", question: "Which city's guild?" },
+    { id: "unused", variableName: "unused", question: "Never referenced" },
+  ],
+});
+const relevant = (answers: OnboardingAnswers) =>
+  getRelevantOnboardingVariables(card, answers).map((variable) => variable.variableName);
+
+// ── Which questions are relevant ──
+assert.deepEqual(
+  relevant({}),
+  ["player", "faction", "class", "knowsHer", "looks"],
+  "fresh: the name first, then every variable the fields reach — including knowsHer, used only in a condition",
+);
+assert.equal(
+  getNextOnboardingVariable(card, {})?.variableName,
+  "player",
+  "a card without a player variable asks the name first",
+);
+assert.equal(
+  getNextOnboardingVariable(card, {})?.question,
+  "",
+  "the synthetic name question leaves its wording to the UI",
+);
+
+assert.deepEqual(
+  relevant({ class: { optionIds: ["other"] } }),
+  ["player", "faction", "class", "customClass", "knowsHer", "looks"],
+  "choosing the 'custom' option opens the customClass sub-question",
+);
+assert.equal(
+  relevant({ class: { optionIds: ["ranger"] } }).includes("customClass"),
+  false,
+  "other classes keep it closed",
+);
+
+assert.equal(
+  relevant({}).includes("guildCity"),
+  false,
+  "a variable used only inside an option value waits for that option",
+);
+assert.equal(
+  relevant({ faction: { optionIds: ["guild"] } }).includes("guildCity"),
+  true,
+  "choosing an option whose value uses a variable makes that variable relevant",
+);
+assert.equal(relevant({}).includes("unused"), false, "a variable no field uses is never asked");
+
+const allAnswers: OnboardingAnswers = {
+  player: { text: " Kestrel " },
+  faction: { optionIds: ["guild"] },
+  guildCity: { text: "Vael" },
+  class: { optionIds: ["other"] },
+  customClass: { text: "battlemage" },
+  knowsHer: { optionIds: ["y"] },
+  looks: { text: "Tall, soot-marked coat." },
+};
+assert.equal(
+  getNextOnboardingVariable(card, allAnswers),
+  null,
+  "nothing is left to ask once every relevant question is answered",
+);
+assert.equal(
+  getNextOnboardingVariable(card, { ...allAnswers, looks: { text: "   " } })?.variableName,
+  "looks",
+  "a blank free-text answer does not count as answered",
+);
+
+// ── The resolved persona ──
+assert.deepEqual(
+  resolveOnboardingPersona(card, allAnswers),
+  {
+    name: "Kestrel",
+    description: "Kestrel serves the Guild of Vael. A battlemage. Friend of {{char}}, known as {{user}}.",
+    personality: "Knows Anastasia from childhood.",
+    backstory: "",
+    appearance: "Tall, soot-marked coat.",
+    scenario: "You arrive at the guildhall at dusk.",
+  },
+  "answers fill the fields; option values resolve their own variables; {{char}}/{{user}} stay live",
+);
+
+const partial = resolveOnboardingPersona(card, { player: { text: "Kestrel" } });
+assert.equal(partial.description, "Kestrel serves the . A . Friend of {{char}}, known as {{user}}.");
+assert.equal(partial.appearance, "", "an unanswered variable is blanked, never left as a raw {{looks}}");
+
+assert.equal(
+  resolveOnboardingPersona(card, { ...allAnswers, looks: { text: "Wears {{char}}'s ring" } }).appearance,
+  "Wears {{char}}'s ring",
+  "the player's own text is inserted as written",
+);
+
+const multi = onboarding({
+  description: "Skills: {{skills}}.",
+  variables: [
+    {
+      id: "skills",
+      variableName: "skills",
+      multiSelect: true,
+      separator: " / ",
+      options: [option("a", "archery"), option("b", "stealth"), option("c", "cooking")],
+    },
+  ],
+});
+assert.equal(
+  resolveOnboardingPersona(multi, { skills: { optionIds: ["a", "c"] } }).description,
+  "Skills: archery / cooking.",
+  "multi-select joins the chosen values with the separator in card order",
+);
+const noneTicked = { player: { text: "Kestrel" }, skills: { optionIds: [] } };
+const multiIf = onboarding({ ...multi, description: "{{#if skills}}Skills: {{skills}}.{{else}}No skills.{{/if}}" });
+assert.equal(getNextOnboardingVariable(multiIf, noneTicked), null, "ticking nothing in a multi-select is an answer");
+assert.equal(resolveOnboardingPersona(multiIf, noneTicked).description, "No skills.", "and it reads as false");
+
+const blankValue = onboarding({
+  description: "Gender: {{gender}}.",
+  variables: [{ id: "g", variableName: "gender", options: [option("m", "", "Male"), option("f", "  ", "Female")] }],
+});
+assert.equal(
+  resolveOnboardingPersona(blankValue, { gender: { optionIds: ["m"] } }).description,
+  "Gender: Male.",
+  "a blank option value falls back to the option label",
+);
+assert.equal(
+  resolveOnboardingPersona(blankValue, { gender: { optionIds: ["f"] } }).description,
+  "Gender: Female.",
+  "a whitespace-only value counts as blank too",
+);
+
+// Questions shown to the player resolve the answers so far.
+const asked = onboarding({
+  ...blankValue,
+  variables: [
+    ...blankValue.variables,
+    { id: "looks", variableName: "looks", question: "What does {{player}} look like?" },
+    { id: "met", variableName: "met", question: "Have you met {{char}}, {{user}}? ({{gender}})" },
+  ],
+});
+assert.equal(
+  resolveOnboardingQuestions(asked, { player: { text: "Mari" } }, "Ana").get("looks"),
+  "What does Mari look like?",
+  "a question can use an earlier answer",
+);
+assert.equal(
+  resolveOnboardingQuestions(asked, {}, "Ana").get("met"),
+  "Have you met Ana, …? (…)",
+  "{{char}} is the card's name; unanswered names and {{user}} show as …",
+);
+assert.equal(resolveOnboardingQuestions(asked, {}, "Ana").has("g"), false, "a question without text is left out");
+
+// Thousands of questions stay linear: one shared context, not one per question
+// (#7308 review: 10,000 questions froze the editor for ~36 s per keystroke).
+const many = onboarding({
+  description: "{{q0}}",
+  variables: Array.from({ length: 10_000 }, (_, i) => ({
+    id: `q${i}`,
+    variableName: `q${i}`,
+    question: `After {{q${Math.max(0, i - 1)}}}, what about {{player}}?`,
+  })),
+});
+const manyAnswers: OnboardingAnswers = { player: { text: "Kestrel" }, q0: { text: "dawn" } };
+const manyStarted = performance.now();
+const manyQuestions = resolveOnboardingQuestions(many, manyAnswers, "Ana");
+assert.ok(performance.now() - manyStarted < 2000, "10,000 questions must resolve in one linear pass");
+assert.equal(manyQuestions.size, 10_000);
+assert.equal(manyQuestions.get("q1"), "After dawn, what about Kestrel?");
+assert.equal(manyQuestions.get("q2"), "After …, what about Kestrel?");
+
+const withPlayer = onboarding({
+  description: "{{player}} of the north.",
+  variables: [
+    { id: "p", variableName: "player", question: "Pick a name", options: [option("1", "Ash")], allowCustom: true },
+  ],
+});
+assert.deepEqual(
+  getRelevantOnboardingVariables(withPlayer, {}).map((variable) => variable.id),
+  ["p"],
+  "an author's own player variable replaces the built-in name question",
+);
+assert.equal(resolveOnboardingPersona(withPlayer, { player: { text: "Rowan" } }).name, "Rowan");
+assert.equal(
+  resolveOnboardingPersona(withPlayer, { player: { optionIds: ["1"] } }).name,
+  "Ash",
+  "a name picked from the author's options becomes the persona name too",
+);
+
+// ── Author validator ──
+const issues = validateOnboarding(
+  onboarding({
+    description: "{{class}} {{appearance}} {{dupe}} {{if class == mage}}x{{/if}}",
+    personality: "{{If knows}}",
+    variables: [
+      { id: "1", variableName: "class" },
+      { id: "2", variableName: "" },
+      { id: "3", variableName: "has space" },
+      { id: "4", variableName: "appearance" },
+      { id: "5", variableName: "dupe" },
+      { id: "6", variableName: "dupe" },
+      { id: "7", variableName: "lonely" },
+      { id: "8", variableName: "player" },
+    ],
+  }),
+);
+assert.deepEqual(
+  issues,
+  [
+    { code: "emptyName", variableId: "2", name: "" },
+    { code: "invalidName", variableId: "3", name: "has space" },
+    { code: "reservedName", variableId: "4", name: "appearance" },
+    { code: "duplicateName", variableId: "6", name: "dupe" },
+    { code: "unused", variableId: "7", name: "lonely" },
+    { code: "plainIf", field: "description" },
+    { code: "plainIf", field: "personality" },
+  ],
+  "validator flags empty, invalid, reserved, duplicate and unused names, and {{if}} without #",
+);
+
+// A name in the fields that is neither a question nor a macro reaches the
+// persona verbatim (or, in a condition, silently compares false) — the typo case.
+assert.deepEqual(
+  validateOnboarding(
+    onboarding({
+      description: "{{player}} of the {{facton}}, friend of {{char}}. {{class}} {{facton}}",
+      personality: "{{#if knowsHr == yes}}Knows her.{{else if class == mage}}A mage.{{/if}}",
+      variables: [
+        { id: "1", variableName: "faction" },
+        { id: "2", variableName: "class" },
+      ],
+    }),
+  ),
+  [
+    { code: "unused", variableId: "1", name: "faction" },
+    { code: "unknownName", field: "description", name: "facton" },
+    { code: "unknownName", field: "personality", name: "knowsHr" },
+  ],
+  "a misspelled name in text or in a condition is flagged once per field; questions, player and macros are not",
+);
+
+// "Used" means a real macro reference: a word in prose doesn't count, but a
+// follow-up read from another question's option value does.
+assert.deepEqual(
+  validateOnboarding(
+    onboarding({
+      description: "A first class ticket. {{kind}}",
+      variables: [
+        { id: "1", variableName: "class" },
+        { id: "2", variableName: "kind", options: [option("o", "{{customKind}}", "Other")] },
+        { id: "3", variableName: "customKind" },
+      ],
+    }),
+  ),
+  [{ code: "unused", variableId: "1", name: "class" }],
+  "prose words don't mark a question as used; option-value references do",
+);
+
+// Card text is untrusted: the condition scan must stay linear. CodeQL
+// js/polynomial-redos reported "{{{{#if\t" followed by many tabs, then
+// "{{{{#if\t" repeated (quadratic before the fix: ~3 s at 20,000 repeats).
+for (const hostile of ["{{{{#if\t" + "\t".repeat(50_000), "{{{{#if\t".repeat(20_000)]) {
+  const started = performance.now();
+  validateOnboarding(onboarding({ description: hostile, variables: [] }));
+  assert.ok(performance.now() - started < 2000, "the condition scan must not backtrack on hostile card text");
+}
+assert.deepEqual(
+  validateOnboarding(onboarding({ description: "{{#if   knowsHr == yes}}x{{/if}}", variables: [] })),
+  [{ code: "unknownName", field: "description", name: "knowsHr" }],
+  "conditions with extra spaces after #if are still read",
+);
+
+// ── #7308 review, round 3 ──
+// Names must start like chat variables, so the field scan can see them.
+assert.deepEqual(
+  validateOnboarding(
+    onboarding({ description: "{{2nd_language}}", variables: [{ id: "1", variableName: "2nd_language" }] }),
+  ).filter((issue) => issue.code !== "unknownName"),
+  [{ code: "invalidName", variableId: "1", name: "2nd_language" }],
+  "a name starting with a digit is invalid, not falsely unused",
+);
+// An option value naming no question would reach the persona raw.
+assert.deepEqual(
+  validateOnboarding(
+    onboarding({
+      description: "{{origin}}",
+      variables: [{ id: "1", variableName: "origin", options: [option("o", "From {{hometown}}", "Elsewhere")] }],
+    }),
+  ),
+  [{ code: "unknownOptionName", variableId: "1", name: "hometown" }],
+  "unknown names in option values are flagged like those in the fields",
+);
+// Questions named after Object.prototype members must not read its methods.
+const protoNames = onboarding({
+  description: "{{toString}} {{constructor}} {{__proto__}}",
+  variables: ["toString", "constructor", "__proto__"].map((name) => ({
+    id: name,
+    variableName: name,
+    options: [option("a", `${name}-a`)],
+  })),
+});
+assert.equal(
+  getNextOnboardingVariable(protoNames, { player: { text: "Kestrel" } })?.variableName,
+  "toString",
+  "an unanswered toString question is unanswered, not Object.prototype.toString",
+);
+const protoAnswers: OnboardingAnswers = Object.create(null);
+protoAnswers.player = { text: "Kestrel" };
+for (const name of ["toString", "constructor", "__proto__"]) protoAnswers[name] = { optionIds: ["a"] };
+assert.equal(getNextOnboardingVariable(protoNames, protoAnswers), null);
+assert.equal(resolveOnboardingPersona(protoNames, protoAnswers).description, "toString-a constructor-a __proto__-a");
+// A persona needs a name: a `player` choice that resolves to nothing keeps Create disabled.
+const pickedName = onboarding({
+  variables: [{ id: "p", variableName: "player", multiSelect: true, options: [option("a", "Ash")] }],
+});
+assert.equal(getNextOnboardingVariable(pickedName, { player: { optionIds: [] } })?.variableName, "player");
+assert.equal(getNextOnboardingVariable(pickedName, { player: { optionIds: ["a"] } }), null);
+
+console.log("onboarding-s2: all assertions passed");

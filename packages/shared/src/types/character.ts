@@ -1,6 +1,8 @@
 // ──────────────────────────────────────────────
 // Character Card V2 Types (compatible with ST / Chub)
 // ──────────────────────────────────────────────
+import type { ChoiceDisplayMode, ChoiceOption, ChoiceOptionSort } from "./prompt.js";
+
 /** Full Character Card V2 envelope. */
 export interface CharacterCardV2 {
   spec: "chara_card_v2";
@@ -100,7 +102,44 @@ export interface CharacterExtensions {
   characterSheetImageId?: string | null;
   /** Marinara Engine: prefer the selected character sheet over the avatar for image references. */
   useCharacterSheetAsReference?: boolean;
+  /** Marinara Engine: interactive onboarding ("skeleton persona") carried by the card. */
+  onboarding?: CharacterOnboarding;
   [key: string]: unknown;
+}
+
+/**
+ * Interactive onboarding: a skeleton persona the card ships. The five persona
+ * Card fields are prose that may use `{{variable}}` and `{{#if}}`; `variables`
+ * are the questions the player answers once when a chat starts, and the resolved
+ * text becomes a real persona. Absent or `enabled: false` means nothing is parsed.
+ */
+export interface CharacterOnboarding {
+  enabled: boolean;
+  description: string;
+  personality: string;
+  backstory: string;
+  appearance: string;
+  scenario: string;
+  variables: CharacterOnboardingVariable[];
+}
+
+/**
+ * One onboarding question, shaped like a preset variable. No options = free
+ * text; options = a choice whose first option is the default; options plus
+ * `allowCustom` = a choice that also accepts the player's own answer. A variable
+ * named `player` supplies the created persona's name.
+ */
+export interface CharacterOnboardingVariable {
+  id: string;
+  variableName: string;
+  question: string;
+  /** `description` is optional help text shown to the player under the option label. */
+  options: Array<ChoiceOption & { description?: string }>;
+  allowCustom: boolean;
+  multiSelect: boolean;
+  separator: string;
+  displayMode: ChoiceDisplayMode;
+  optionSort: ChoiceOptionSort;
 }
 
 /** Where a Convo-mode behavior directive is inserted into the conversation prompt. */

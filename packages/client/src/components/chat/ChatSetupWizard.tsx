@@ -25,6 +25,7 @@ import {
   Dices,
   FolderOpen,
   Folder,
+  UserPlus,
 } from "lucide-react";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
 import { useConnections, useModelParameterCapabilities } from "../../hooks/use-connections";
@@ -52,8 +53,12 @@ import { characterMatchesSearch, getCharacterTitle, parseCharacterDisplayData } 
 import { buildCharacterIdentityGroups } from "../../lib/character-identity-groups";
 import { addSilentGreetingSwipes } from "../../lib/message-swipes";
 import { ChoiceSelectionModal } from "../presets/ChoiceSelectionModal";
+import { CharacterOnboardingModal } from "../characters/CharacterOnboardingModal";
 import { ActiveChatBackgroundPicker } from "../panels/settings/BackgroundPicker";
 import {
+  characterOnboardingSchema,
+  type CharacterOnboarding,
+  withUniqueOnboardingIds,
   CONVERSATION_COMMAND_AGENT_IDS,
   CONVERSATION_COMMAND_KEYS,
   DEFAULT_CONVERSATION_PROMPT,
@@ -620,9 +625,16 @@ function PersonaPicker({
   characterValue = null,
   onChange,
   onCharacterChange,
+  templates = [],
+  templateValue = null,
+  onTemplateChange,
   searchable = true,
 }: {
   personas: Persona[];
+  /** Characters whose onboarding builds a new persona; picking one asks its questions on Next. */
+  templates?: Array<{ id: string; data: string | Record<string, unknown>; avatarPath?: string | null }>;
+  templateValue?: string | null;
+  onTemplateChange?: (characterId: string) => void;
   characters?: Array<{
     id: string;
     data: string | Record<string, unknown>;
@@ -656,17 +668,56 @@ function PersonaPicker({
     [characterGroups, characters, localizeUi],
   );
 
+  const noneSelected = !selectedId && !selectedCharacterId && !templateValue;
+
   return (
     <div className="overflow-hidden rounded-lg bg-[var(--secondary)]/50 ring-1 ring-[var(--border)]">
+      {templates.map((character) => {
+        const isSelected = templateValue === character.id;
+        const characterData = parseCharacterDisplayData(character);
+        return (
+          <button
+            key={`template-${character.id}`}
+            type="button"
+            onClick={() => onTemplateChange?.(character.id)}
+            aria-pressed={isSelected}
+            className={cn(
+              "flex w-full items-center gap-2.5 border-b border-[var(--border)] px-3 py-2 text-left transition-all hover:bg-[var(--accent)]",
+              isSelected && "bg-[var(--primary)]/10 ring-1 ring-inset ring-[var(--primary)]/25",
+            )}
+          >
+            {character.avatarPath ? (
+              <CroppedAvatarImage
+                src={character.avatarPath}
+                alt=""
+                className="h-7 w-7 rounded-full"
+                crop={characterData.avatarCrop ?? null}
+              />
+            ) : (
+              <PersonaAvatar persona={null} />
+            )}
+            <div className="min-w-0 flex-1">
+              <span className="flex items-center gap-1 truncate text-xs font-medium">
+                <UserPlus size="0.75rem" className="shrink-0 text-[var(--primary)]" />
+                {localizeUi("ui.characters.onboarding.modalTitle")}
+              </span>
+              <span className="block truncate text-[0.625rem] text-[var(--muted-foreground)]">
+                {localizeUi("ui.characters.onboarding.templateSource", { value1: characterData.name })}
+              </span>
+            </div>
+            {isSelected && <Check size="0.75rem" className="shrink-0 text-[var(--primary)]" />}
+          </button>
+        );
+      })}
       <button
         type="button"
         onClick={() => {
           onChange(null);
         }}
-        aria-pressed={!selectedId && !selectedCharacterId}
+        aria-pressed={noneSelected}
         className={cn(
           "flex w-full items-center gap-2.5 px-3 py-2 text-left transition-all hover:bg-[var(--accent)]",
-          !selectedId && !selectedCharacterId && "bg-[var(--primary)]/10 ring-1 ring-inset ring-[var(--primary)]/25",
+          noneSelected && "bg-[var(--primary)]/10 ring-1 ring-inset ring-[var(--primary)]/25",
         )}
       >
         <PersonaAvatar persona={null} />
@@ -676,7 +727,7 @@ function PersonaPicker({
             {localizeUi("ui.chat.personapicker.stayAnonymous")}
           </span>
         </div>
-        {!selectedId && !selectedCharacterId && <Check size="0.75rem" className="shrink-0 text-[var(--primary)]" />}
+        {noneSelected && <Check size="0.75rem" className="shrink-0 text-[var(--primary)]" />}
       </button>
 
       {personas.length > 0 && <div className="border-t border-[var(--border)]" />}
@@ -2074,6 +2125,9 @@ function RoleplaySetupWizard({ chat, onFinish, defaultsApplied, defaultsAction }
   const currentStep = STEPS[step]!;
   const isLast = step === STEPS.length - 1;
   const [showChoiceModal, setShowChoiceModal] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  // The character whose onboarding the player picked as their persona; Next asks its questions.
+  const [onboardingCharacterId, setOnboardingCharacterId] = useState<string | null>(null);
   // Open in shortcut mode if the chat store flag was set (e.g. via right-click "Quick Start").
   const [shortcutMode, setShortcutMode] = useState(() => {
     const flag = useChatStore.getState().shouldOpenWizardInShortcutMode;
@@ -2413,6 +2467,8 @@ function RoleplaySetupWizard({ chat, onFinish, defaultsApplied, defaultsAction }
       if (idx >= 0) {
         current.splice(idx, 1);
         setChatCharIds(current);
+        // Re-adding the card later must not silently restore "Create your persona".
+        if (onboardingCharacterId === charId) setOnboardingCharacterId(null);
         // Auto-rename the chat if the user hasn't manually edited the name
         const updateData: { id: string; characterIds: string[]; name?: string } = {
           id: chat.id,
@@ -2431,7 +2487,7 @@ function RoleplaySetupWizard({ chat, onFinish, defaultsApplied, defaultsAction }
         updateChat.mutate(updateData);
       }
     },
-    [buildAutoName, chat.id, chatCharIds, updateChat, userEditedName],
+    [buildAutoName, chat.id, chatCharIds, onboardingCharacterId, updateChat, userEditedName],
   );
 
   const addCharactersFromFolder = useCallback(
@@ -2569,6 +2625,37 @@ function RoleplaySetupWizard({ chat, onFinish, defaultsApplied, defaultsAction }
   const isPresetStep = currentStep.key === "preset";
   const nextDisabled = isPresetStep && (updateChat.isPending || (!!chat.promptPresetId && presetFullLoading));
 
+  // Every card that ships enabled onboarding: marked in the character list, and
+  // once chosen, offered as a persona to create.
+  const onboardingByCharacterId = useMemo(() => {
+    const byId = new Map<string, { name: string; onboarding: CharacterOnboarding }>();
+    for (const character of characters) {
+      try {
+        const data = typeof character.data === "string" ? JSON.parse(character.data) : character.data;
+        const parsed = characterOnboardingSchema.safeParse(data?.extensions?.onboarding);
+        if (parsed.success && parsed.data.enabled) {
+          // Cards saved before ids were made unique, or via the API, may still repeat one.
+          const onboarding = withUniqueOnboardingIds(parsed.data as CharacterOnboarding);
+          byId.set(character.id, { name: String(data?.name ?? ""), onboarding });
+        }
+      } catch {
+        /* unreadable card data: no onboarding */
+      }
+    }
+    return byId;
+  }, [characters]);
+  const onboardingCharacters = useMemo(
+    () =>
+      chatCharIds.flatMap((id) => {
+        const character = characters.find((entry) => entry.id === id);
+        const entry = onboardingByCharacterId.get(id);
+        return character && entry ? [{ character, ...entry }] : [];
+      }),
+    [characters, chatCharIds, onboardingByCharacterId],
+  );
+  // Removing the character from the chat drops its onboarding choice too.
+  const onboardingCharacter = onboardingCharacters.find((entry) => entry.character.id === onboardingCharacterId);
+
   const next = useCallback(() => {
     if (isLast) {
       void finishWizard();
@@ -2578,13 +2665,50 @@ function RoleplaySetupWizard({ chat, onFinish, defaultsApplied, defaultsAction }
         setShowChoiceModal(true);
         return;
       }
+      // When leaving the participants step with an onboarding picked as persona, ask its questions.
+      if (currentStep.key === "participants" && onboardingCharacter) {
+        setShowOnboarding(true);
+        return;
+      }
       setStep((s) => s + 1);
       setCharSearch("");
       setLbSearch("");
       setAgentSearch("");
       setAgentAddPreview(null);
     }
-  }, [isLast, finishWizard, currentStep.key, chat.promptPresetId, presetFull?.choiceBlocks?.length]);
+  }, [
+    isLast,
+    finishWizard,
+    currentStep.key,
+    chat.promptPresetId,
+    presetFull?.choiceBlocks?.length,
+    onboardingCharacter,
+  ]);
+
+  // The new persona replaces the onboarding choice, so going Back and Next again doesn't ask twice.
+  // The questions window stays open (and locked) until the chat update settles,
+  // so Next can't run in between. If it fails, the wizard stays on this step:
+  // the persona already exists and is in the list, so asking the questions
+  // again would create a second one.
+  const finishOnboarding = useCallback(
+    async (personaId: string) => {
+      try {
+        await updateChat.mutateAsync({ id: chat.id, personaId, personaCharacterId: null });
+      } catch {
+        toast.error(localizeUi("ui.characters.onboarding.selectFailed"));
+        return;
+      } finally {
+        setOnboardingCharacterId(null);
+        setShowOnboarding(false);
+      }
+      setStep((s) => s + 1);
+      setCharSearch("");
+      setLbSearch("");
+      setAgentSearch("");
+      setAgentAddPreview(null);
+    },
+    [chat.id, localizeUi, updateChat],
+  );
 
   const previous = useCallback(() => {
     setStep((s) => Math.max(0, s - 1));
@@ -2846,10 +2970,24 @@ function RoleplaySetupWizard({ chat, onFinish, defaultsApplied, defaultsAction }
         characters={characters}
         characterGroups={(allCharacterGroups ?? []) as CharacterGroup[]}
         showCharacterIdentities={showCharacterIdentities}
-        value={chat.personaId ?? null}
-        characterValue={chat.personaCharacterId ?? null}
-        onChange={setPersona}
-        onCharacterChange={setPersonaCharacter}
+        value={onboardingCharacter ? null : (chat.personaId ?? null)}
+        characterValue={onboardingCharacter ? null : (chat.personaCharacterId ?? null)}
+        onChange={(personaId) => {
+          setOnboardingCharacterId(null);
+          setPersona(personaId);
+        }}
+        onCharacterChange={(characterId) => {
+          setOnboardingCharacterId(null);
+          setPersonaCharacter(characterId);
+        }}
+        templates={onboardingCharacters.map((entry) => entry.character)}
+        templateValue={onboardingCharacter?.character.id ?? null}
+        onTemplateChange={(characterId) => {
+          setOnboardingCharacterId(characterId);
+          // The chat's saved persona matches the picker, so skipping the wizard
+          // doesn't start the chat as the persona picked before.
+          if (chat.personaId || chat.personaCharacterId) setPersona(null);
+        }}
       />
     );
   }
@@ -2870,6 +3008,17 @@ function RoleplaySetupWizard({ chat, onFinish, defaultsApplied, defaultsAction }
       const character = pool[Math.floor(Math.random() * pool.length)];
       if (character) toggleCharacter(character.id);
     };
+    const onboardingMarker = (characterId: string) =>
+      onboardingByCharacterId.has(characterId) && (
+        <span
+          role="img"
+          aria-label={localizeUi("ui.characters.onboarding.hasOnboarding")}
+          title={localizeUi("ui.characters.onboarding.hasOnboarding")}
+          className="shrink-0 text-[var(--primary)]"
+        >
+          <UserPlus size="0.75rem" />
+        </span>
+      );
 
     return (
       <div className="space-y-2">
@@ -2906,6 +3055,7 @@ function RoleplaySetupWizard({ chat, onFinish, defaultsApplied, defaultsAction }
                       </span>
                     )}
                   </div>
+                  {onboardingMarker(cid)}
                   <button
                     onClick={() => toggleCharacter(cid)}
                     className="flex h-5 w-5 items-center justify-center rounded-md text-[var(--muted-foreground)] transition-colors hover:bg-[var(--destructive)]/15 hover:text-[var(--destructive)]"
@@ -3014,6 +3164,7 @@ function RoleplaySetupWizard({ chat, onFinish, defaultsApplied, defaultsAction }
                       </span>
                     )}
                   </div>
+                  {onboardingMarker(c.id)}
                   <Plus size="0.75rem" className="text-[var(--muted-foreground)]" />
                 </button>
               );
@@ -3513,8 +3664,15 @@ function RoleplaySetupWizard({ chat, onFinish, defaultsApplied, defaultsAction }
           showCharacterIdentities={showCharacterIdentities}
           value={chat.personaId ?? null}
           characterValue={chat.personaCharacterId ?? null}
-          onChange={setPersona}
-          onCharacterChange={setPersonaCharacter}
+          // A persona picked here replaces "Create your persona", as in the step picker.
+          onChange={(personaId) => {
+            setOnboardingCharacterId(null);
+            setPersona(personaId);
+          }}
+          onCharacterChange={(characterId) => {
+            setOnboardingCharacterId(null);
+            setPersonaCharacter(characterId);
+          }}
         />
       </div>
 
@@ -3552,7 +3710,21 @@ function RoleplaySetupWizard({ chat, onFinish, defaultsApplied, defaultsAction }
         chatId={chat.id}
       />
 
+      {onboardingCharacter && (
+        <CharacterOnboardingModal
+          key={onboardingCharacter.character.id}
+          open={showOnboarding}
+          characterName={onboardingCharacter.name}
+          onboarding={onboardingCharacter.onboarding}
+          onBack={() => setShowOnboarding(false)}
+          onCreated={finishOnboarding}
+        />
+      )}
+
+      {/* Hidden only while the questions window is actually shown: if its card
+          drops out (deleted or turned off elsewhere), the wizard comes back. */}
       {!showChoiceModal &&
+        !(showOnboarding && onboardingCharacter) &&
         (shortcutMode ? (
           <SetupWizardShell
             title={localizeUi("ui.chat.roleplaysetupwizard.quickSetup")}

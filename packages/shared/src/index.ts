@@ -138,6 +138,7 @@ export * from "./features/tactical-combat/index.js";
 // Utils
 export * from "./utils/macro-engine.js";
 export * from "./utils/chat-variables.js";
+export * from "./utils/onboarding.js";
 export * from "./utils/ui-locales.js";
 export * from "./utils/xml-wrapper.js";
 export * from "./utils/music-score.js";

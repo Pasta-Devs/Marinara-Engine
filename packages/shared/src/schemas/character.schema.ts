@@ -2,6 +2,7 @@
 // Character Zod Schemas
 // ──────────────────────────────────────────────
 import { z } from "zod";
+import { choiceDisplayModeSchema, choiceOptionSchema, choiceOptionSortSchema } from "./prompt.schema.js";
 import { storedRulesetSheetsSchema } from "./ruleset.schema.js";
 
 export const depthPromptSchema = z.object({
@@ -44,6 +45,44 @@ export const convoBehaviorConfigSchema = z.object({
   insertionStrategy: convoBehaviorInsertionStrategySchema.catch("constant_after").default("constant_after"),
 });
 
+/**
+ * One onboarding question, shaped like a preset variable. No options = a free
+ * text answer; options = a choice (the first is the default); options plus
+ * `allowCustom` = a choice with a "write your own" answer. Content is not
+ * checked here so an unfinished variable never blocks importing the card —
+ * naming rules belong to the onboarding validator. No length limits either:
+ * onboarding is saved with the whole card, so one over-long question would
+ * make the card unsavable (the five persona fields have no limit).
+ */
+export const characterOnboardingVariableSchema = z.object({
+  id: z.string(),
+  variableName: z.string().default(""),
+  question: z.string().default(""),
+  // `description` is optional help text shown to the player under the option label.
+  options: z.array(choiceOptionSchema.extend({ description: z.string().optional() })).default([]),
+  allowCustom: z.boolean().default(false),
+  multiSelect: z.boolean().default(false),
+  separator: z.string().default(", "),
+  displayMode: choiceDisplayModeSchema.default("auto"),
+  optionSort: choiceOptionSortSchema.default("manual"),
+});
+
+/**
+ * Interactive onboarding ("skeleton persona"): the five persona Card fields as
+ * prose that may use `{{variable}}` and `{{#if}}`, plus the variables the player
+ * answers. Resolved once into a real persona when a chat starts; the card itself
+ * is never modified. An absent or `enabled: false` block means nothing is parsed.
+ */
+export const characterOnboardingSchema = z.object({
+  enabled: z.boolean().default(false),
+  description: z.string().default(""),
+  personality: z.string().default(""),
+  backstory: z.string().default(""),
+  appearance: z.string().default(""),
+  scenario: z.string().default(""),
+  variables: z.array(characterOnboardingVariableSchema).default([]),
+});
+
 export const characterExtensionsSchema = z
   .object({
     talkativeness: z.number().min(0).max(1).default(0.5),
@@ -65,6 +104,11 @@ export const characterExtensionsSchema = z
     convoBehavior: convoBehaviorConfigSchema.optional(),
     /** Starting builds for Game Mode rulesets, keyed by ruleset id. Bounded, never shape-checked. */
     rulesetSheets: storedRulesetSheetsSchema.optional(),
+    /**
+     * Marinara Engine: interactive onboarding carried by the card. Absent or
+     * disabled means no onboarding is offered and nothing is parsed.
+     */
+    onboarding: characterOnboardingSchema.optional(),
   })
   .passthrough();
 
