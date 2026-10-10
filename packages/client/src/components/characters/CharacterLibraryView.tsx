@@ -599,9 +599,15 @@ export function CharacterLibraryView() {
                 {copy.heading}
               </h1>
               <p className="text-xs text-[var(--marinara-chat-chrome-panel-muted)] md:text-sm">
-                {filteredCards.length} {localizeUi("ui.characters.characterlibraryview.outOf")} {cards.length}{" "}
-                {localizeUi("ui.characters.characterlibraryview.card")}
-                {cards.length === 1 ? "" : localizeUi("ui.noodle.stageprofileview.s")}
+                {hasNextPage
+                  ? localizeUi("ui.characters.characterlibraryview.loadedCount", {
+                      visible: filteredCards.length,
+                      loaded: cards.length,
+                    })
+                  : localizeUi("ui.characters.characterlibraryview.cardCount", {
+                      visible: filteredCards.length,
+                      count: cards.length,
+                    })}
               </p>
             </div>
           </div>

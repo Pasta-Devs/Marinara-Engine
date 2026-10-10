@@ -15,6 +15,7 @@ import { basicAuthHook, isBasicAuthSatisfied } from "./middleware/basic-auth.js"
 import { csrfProtectionHook } from "./middleware/csrf-protection.js";
 import { HEALTH_RATE_LIMIT, rateLimitHook } from "./middleware/rate-limit.js";
 import { securityHeadersHook } from "./middleware/security-headers.js";
+import { compressJsonHook } from "./middleware/compress-json.js";
 import { seedDefaultPreset } from "./db/seed.js";
 import { seedProfessorMari } from "./db/seed-mari.js";
 import { seedDefaultConnection } from "./db/seed-connection.js";
@@ -299,6 +300,9 @@ export async function buildApp(https?: { cert: Buffer; key: Buffer }) {
     }
     return payload;
   });
+
+  // ── Compress API JSON (never SSE or file streams) ──
+  app.addHook("onSend", compressJsonHook);
 
   // ── Error Handler ──
   app.setErrorHandler(errorHandler);

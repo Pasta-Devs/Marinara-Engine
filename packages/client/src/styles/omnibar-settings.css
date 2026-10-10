@@ -1,0 +1,346 @@
+/* The omnibar's settings view (trigger, sheet, sections, rows, appearance packs). Imported by globals.css at
+   its old place, so the cascade order is unchanged. */
+/* ── Omnibar settings menu ─────────────────────────────────────────────────
+   A small trigger in the omnibar header. The popover is the only place the
+   omnibar's own preferences can be reached. */
+
+.omnibar-settings-menu__trigger {
+  display: inline-flex;
+  width: 1.75rem;
+  height: 1.75rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.5rem;
+  color: var(--muted-foreground);
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+/* UX-16: drawn at 28px, hit at 44px on touch. */
+@media (pointer: coarse) {
+  .omnibar-settings-menu__trigger {
+    position: relative;
+  }
+
+  .omnibar-settings-menu__trigger::after {
+    position: absolute;
+    inset: -0.5rem;
+    content: "";
+  }
+}
+
+.omnibar-settings-menu__trigger:hover,
+.omnibar-settings-menu__trigger--open {
+  background: var(--accent);
+  color: var(--foreground);
+}
+
+.omnibar-settings-menu__trigger:focus-visible,
+.omnibar-settings-menu__row input[type="checkbox"]:focus-visible,
+.omnibar-settings-menu__segmented button:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+/* The settings view fills the omnibar card, like Mari's view: same card, its own back arrow. */
+.omnibar-settings-sheet {
+  position: absolute;
+  inset: 0;
+  /* Above everything the panel stacks, the header sprite included. */
+  z-index: 100;
+  /* --card is translucent; laid over the opaque background so the list never shows through. */
+  background: linear-gradient(var(--card), var(--card)) var(--background);
+}
+
+.omnibar-settings-sheet__card {
+  height: 100%;
+  overflow-y: auto;
+  padding: 0 0.75rem 0.75rem;
+}
+
+.omnibar-settings-sheet__header {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0 -0.75rem 0.25rem;
+  padding: 0.6rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(var(--card), var(--card)) var(--background);
+}
+
+.omnibar-settings-sheet__header h2 {
+  color: var(--foreground);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+/* The text takes the free width, so every switch lines up at the right edge. */
+.omnibar-settings-menu__row > .min-w-0 {
+  flex: 1 1 auto;
+}
+
+.omnibar-settings-menu__row.omnibar-settings-menu__row--stacked {
+  flex-direction: column;
+  align-items: stretch;
+  cursor: default;
+}
+
+.omnibar-settings-sheet__select {
+  width: 100%;
+  height: 2rem;
+  padding: 0 0.5rem;
+  border-radius: 0.5rem;
+  font-size: 0.75rem;
+}
+
+.omnibar-settings-sheet__note {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.5rem;
+  margin: 0 0.45rem 0.3rem;
+  color: var(--muted-foreground);
+  font-size: 0.65rem;
+  line-height: 1.35;
+}
+
+/* Q2: Search, Quick answers, Professor Mari, Around the app, Appearance. Each section is a small heading over one
+   direction A hairline group (`.mari-edit`, like Mari's side panels), rows split by a divider. */
+.omnibar-settings-section {
+  margin-top: 0.75rem;
+}
+
+.omnibar-settings-section__description {
+  margin: 0 0.45rem 0.45rem;
+  color: var(--muted-foreground);
+  font-size: 0.65rem;
+  line-height: 1.35;
+}
+
+.omnibar-settings-menu__row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.6rem 0.75rem;
+  cursor: pointer;
+  scroll-margin: 4rem 0 1rem;
+  transition: background-color 0.15s ease;
+}
+
+.omnibar-settings-group > .omnibar-settings-menu__row + .omnibar-settings-menu__row {
+  border-top: 1px solid var(--mari-divider);
+}
+
+.omnibar-settings-menu__row:hover {
+  background: var(--mari-hover);
+}
+
+.omnibar-settings-menu__label {
+  display: block;
+  color: var(--foreground);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.omnibar-settings-menu__description {
+  display: block;
+  color: var(--muted-foreground);
+  font-size: 0.65rem;
+  line-height: 1.35;
+}
+
+.omnibar-settings-menu__row input[type="checkbox"] {
+  flex: 0 0 auto;
+  width: 1.75rem;
+  height: 1rem;
+  appearance: none;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--foreground) 20%, var(--card));
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.omnibar-settings-menu__row input[type="checkbox"]::after {
+  content: "";
+  display: block;
+  width: 0.75rem;
+  height: 0.75rem;
+  margin: 0.125rem;
+  border-radius: 999px;
+  background: var(--card);
+  transition: transform 0.15s ease;
+}
+
+.omnibar-settings-menu__row input[type="checkbox"]:checked {
+  background: var(--primary);
+}
+
+.omnibar-settings-menu__row input[type="checkbox"]:checked::after {
+  transform: translateX(0.75rem);
+}
+
+.omnibar-settings-menu__segmented {
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 0.15rem;
+  padding: 0.1rem;
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--foreground) 8%, var(--card));
+}
+
+.omnibar-settings-menu__segmented button {
+  border-radius: 0.4rem;
+  padding: 0.1rem 0.45rem;
+  color: var(--muted-foreground);
+  font-size: 0.65rem;
+  font-weight: 700;
+}
+
+.omnibar-settings-menu__segmented button[aria-pressed="true"] {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.omnibar-settings-menu__segmented button:disabled {
+  opacity: 0.5;
+}
+
+.omnibar-settings-menu__heading {
+  padding: 0.3rem 0.45rem 0.15rem;
+  color: var(--muted-foreground);
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* Q2: appearance packs as a grid of cards. Each card is a label around a visually hidden native
+   radio, so the card shows the radio's focus and checked state; the check badge means colour is
+   never the only sign of the selection. */
+.omnibar-settings-packs {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
+  gap: 0.5rem;
+}
+
+.omnibar-settings-pack {
+  position: relative;
+  display: grid;
+  align-content: start;
+  justify-items: start;
+  gap: 0.15rem;
+  padding: 0.75rem;
+  border: 1px solid var(--mari-hairline);
+  border-radius: 0.875rem;
+  background: var(--mari-group-bg);
+  cursor: pointer;
+  scroll-margin: 4rem 0 1rem;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.omnibar-settings-pack:hover {
+  background: color-mix(in srgb, var(--foreground) 6%, var(--mari-group-bg));
+}
+
+.omnibar-settings-pack:has(input:checked) {
+  border-color: var(--primary);
+  box-shadow: inset 0 0 0 1px var(--primary);
+}
+
+.omnibar-settings-pack:has(input:focus-visible) {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+/* Her profile pose at its own 128 px grid, on a small stage: whole pixels, never blurred. */
+.omnibar-settings-pack__stage {
+  display: grid;
+  place-items: center;
+  justify-self: stretch;
+  height: 8.5rem;
+  margin-bottom: 0.4rem;
+  border-radius: 0.625rem;
+  background: color-mix(in srgb, var(--foreground) 4%, transparent);
+}
+
+.omnibar-settings-pack__sprite {
+  display: block;
+  width: 8rem;
+  height: 8rem;
+  image-rendering: pixelated;
+}
+
+/* R12: a locked pack is quiet, not hidden: a lock where the preview goes and its play-time progress.
+   No art of a locked pack loads. */
+.omnibar-settings-pack[data-locked] {
+  cursor: default;
+}
+
+.omnibar-settings-pack[data-locked]:hover {
+  background: var(--mari-group-bg);
+}
+
+.omnibar-settings-pack__lock {
+  color: var(--muted-foreground);
+}
+
+.omnibar-settings-pack[data-locked] .omnibar-settings-pack__name {
+  color: var(--muted-foreground);
+}
+
+.omnibar-settings-pack__name {
+  color: var(--foreground);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.omnibar-settings-pack__description {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  color: var(--muted-foreground);
+  font-size: 0.65rem;
+  line-height: 1.35;
+}
+
+.omnibar-settings-pack__progress {
+  justify-self: stretch;
+  height: 0.25rem;
+  margin-top: 0.3rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--foreground) 10%, transparent);
+}
+
+.omnibar-settings-pack__progress > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--primary);
+}
+
+/* The selected pack says so in words, so colour is never the only sign. */
+.omnibar-settings-pack__check {
+  position: absolute;
+  top: 1.15rem;
+  right: 1.15rem;
+  display: none;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.15rem 0.45rem 0.15rem 0.35rem;
+  border-radius: 999px;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  font-size: 0.6rem;
+  font-weight: 700;
+}
+
+.omnibar-settings-pack:has(input:checked) .omnibar-settings-pack__check {
+  display: inline-flex;
+}

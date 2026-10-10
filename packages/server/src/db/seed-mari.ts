@@ -466,6 +466,8 @@ IMPORTANT RULES FOR FETCH:
 
 const now = () => new Date().toISOString();
 
+// The character avatar is stored in user databases and game NPCs, so this path stays stable. The file is
+// the Basic pixel profile; the client's appearance packs do not change it.
 const MARI_AVATAR = "/sprites/mari/Mari_profile.png";
 
 function parseExistingMariData(raw: unknown): CharacterData | null {

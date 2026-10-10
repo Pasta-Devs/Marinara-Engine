@@ -37,6 +37,7 @@
     2.  Dark Theme Variables .............. colors, palette, fonts
     3.  Light Theme Variables ............. light-mode overrides
     4.  Light Theme Component Overrides ... glass, grid, scrollbar tweaks
+    4a1. Professor Mari ................. @import ./mari.css (kept in place for the cascade)
     4a2. Floating Windows & Drawers ..... .mari-window, .mari-drawer, --mari-window-*
     5.  Base Reset & Body ................. border reset, body defaults
     6.  Custom Cursors .................... Y2K SVG cursors
@@ -197,8 +198,8 @@
   --muted-foreground: #a1a1aa;
   --accent: #2a1a3e;
   --accent-foreground: #f0e8ff;
-  --destructive: var(--primary);
-  --destructive-foreground: var(--primary-foreground);
+  --destructive: #ff6b9d;
+  --destructive-foreground: #0a0a0a;
   --border: color-mix(in srgb, var(--primary) 20%, transparent);
   --input: var(--border);
   --ring: var(--primary);
@@ -460,8 +461,8 @@
   --muted-foreground: #65656f;
   --accent: #ede4f7;
   --accent-foreground: #1a1025;
-  --destructive: var(--primary);
-  --destructive-foreground: var(--primary-foreground);
+  --destructive: #c44040;
+  --destructive-foreground: #ffffff;
   --border: color-mix(in srgb, var(--primary) 27%, transparent);
   --input: var(--border);
   --ring: var(--primary);
@@ -652,6 +653,8 @@
 .marinara-chat-popover.marinara-chat-toolbar-overflow-menu {
   border-radius: 0.5rem;
 }
+
+@import "./mari.css";
 
 /* ─────────────────────────────────────────────
    4a2. FLOATING WINDOWS AND DRAWERS
@@ -1334,6 +1337,7 @@
 }
 
 .mari-chrome-control--selected,
+.mari-chrome-control[aria-current="page"],
 .mari-chrome-control[aria-pressed="true"] {
   border-color: var(--marinara-chat-chrome-button-border-active);
   background: var(--marinara-chat-chrome-button-bg-active);
@@ -1600,12 +1604,11 @@
   --mari-suggestion-chips-fade-right: 0px;
 
   display: flex;
+  min-width: 0;
   flex-wrap: wrap;
   gap: 0.375rem;
   align-items: center;
-  overflow-x: auto;
   margin-bottom: 0.375rem;
-  padding-bottom: 0.1875rem;
   /* Keeps a chip reached by Tab from landing underneath its own edge fade. */
   scroll-padding-inline: var(--mari-suggestion-chips-fade);
 }
@@ -1664,7 +1667,7 @@
   gap: 0.3125rem;
   min-height: 2rem;
   padding: 0.375rem 0.6875rem;
-  border-radius: 999px;
+  border-radius: 0.75rem;
   /* Neutral tints are derived colors; mixing them with the derived --border can abort WebKit. */
   border: 1px solid color-mix(in srgb, var(--chip-tint) 24%, transparent);
   background: color-mix(in srgb, var(--chip-tint) 7%, var(--card) 93%);
@@ -1707,29 +1710,37 @@
 .mari-suggestion-chips--compact .mari-suggestion-chip {
   min-height: 1.75rem;
   padding: 0.3125rem 0.5625rem;
+  border-radius: 0.625rem;
   font-size: 0.6875rem;
 }
 
-@media (max-width: 767px) {
+.mari-suggestion-turn > :last-child:not(.mari-suggestion-question-turn) {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.mari-suggestion-turn .mari-suggestion-chips {
+  margin-top: 0.125rem;
+}
+
+@media (max-width: 39.99rem) {
   .mari-suggestion-chips {
     flex-wrap: nowrap;
     overflow-x: auto;
-    overflow-y: hidden;
-    scroll-snap-type: x proximity;
+    /* G8: room for the focus ring, pulled back so the first chip starts on L0. */
+    margin-inline-start: -0.125rem;
+    padding-inline: 0.125rem 0.75rem;
+    scroll-padding-inline: 0.125rem;
     scrollbar-width: none;
-    -webkit-overflow-scrolling: touch;
     overscroll-behavior-x: contain;
-    touch-action: pan-x;
   }
 
   .mari-suggestion-chips::-webkit-scrollbar {
     display: none;
   }
 
-  .mari-suggestion-chip {
+  .mari-suggestion-chips > * {
     flex: 0 0 auto;
-    max-width: calc(100% - 1rem);
-    scroll-snap-align: start;
   }
 }
 
@@ -3790,34 +3801,13 @@ body {
   background: var(--card);
 }
 
-.mari-home-professor-widget .mari-professor-pixel-scene [data-part="sprite"] {
-  width: 68%;
-}
-
-/* Mari stands about 1.04 scene-widths tall. Rather than crop her head, she may rise past the
-   card's top border (#7032): the height cap lets her pass the art column's top by at most
-   1.125rem, so she clears the card's padding by under 0.5rem and stays inside the 0.65rem
-   minimum grid gap instead of covering a neighbour. */
-.mari-home-professor-widget [data-home-professor-art] {
-  container-type: size;
-}
-
-.mari-home-professor-widget [data-home-professor-scene] {
-  width: min(100%, 11rem, calc((100cqh + 1.125rem) / 1.04));
-}
-
 .mari-home-widget--achievements header > div > p:last-child {
   font-size: 0.6875rem;
   line-height: 1.375;
 }
 
-.mari-home-professor-widget .mari-professor-pixel-scene [data-part="laptop"] {
-  width: 76%;
-}
-
 @container (max-width: 19rem) {
   .mari-home-professor-widget {
-    grid-template-columns: minmax(0, 1fr) minmax(4.5rem, 34%);
     /* The card's padding; its text column reaches into it by the same amount. */
     --mari-home-professor-pad: 0.65rem;
   }
@@ -3856,6 +3846,25 @@ body {
   .mari-home-widget--learn .mari-home-widget-shortcut-list,
   .mari-home-widget--community .mari-home-widget-shortcut-list {
     gap: 0.125rem;
+  }
+}
+
+/* Slice 85: the Home Mari widget blinks on a 5.6 s loop. The blink frame sits on top of the idle frame. */
+.mari-home-professor-blink {
+  opacity: 0;
+  animation: mari-home-professor-blink 5.6s steps(1, end) infinite;
+}
+
+@keyframes mari-home-professor-blink {
+  0%,
+  72%,
+  76%,
+  100% {
+    opacity: 0;
+  }
+  73%,
+  75% {
+    opacity: 1;
   }
 }
 
@@ -4053,147 +4062,6 @@ html.mari-home-widget-drag-active * {
   transform: translate3d(-50%, -50%, 0) rotate(45deg) scale(0.6);
 }
 
-.mari-home-professor-popup {
-  transform-origin: bottom right;
-}
-
-.mari-home-professor-popup__sprite {
-  animation: mari-home-professor-arrive 900ms cubic-bezier(0.16, 1, 0.3, 1) both;
-  transform-origin: bottom center;
-}
-
-.mari-home-professor-popup__bubble {
-  animation: mari-home-professor-bubble-arrive 650ms 280ms cubic-bezier(0.16, 1, 0.3, 1) both;
-  transition: opacity 120ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.mari-home-professor-popup__bubble::before,
-.mari-home-professor-popup__bubble::after {
-  content: none;
-  display: none;
-}
-
-.mari-home-professor-popup__bubble-tail {
-  display: block;
-  position: absolute;
-  left: -0.82rem;
-  bottom: 1.1rem;
-  width: 0.9rem;
-  height: 1.25rem;
-  z-index: -1;
-  transform-origin: center;
-}
-
-.mari-home-professor-popup__bubble-tail::before,
-.mari-home-professor-popup__bubble-tail::after {
-  content: "";
-  position: absolute;
-  clip-path: polygon(0 50%, 100% 0, 100% 100%);
-}
-
-.mari-home-professor-popup__bubble-tail::before {
-  inset: 0;
-  background: color-mix(in srgb, var(--marinara-chat-chrome-accent) 48%, var(--border));
-}
-
-.mari-home-professor-popup__bubble-tail::after {
-  left: 0.2rem;
-  bottom: 0.09rem;
-  width: 0.72rem;
-  height: 1.05rem;
-  background: color-mix(in srgb, var(--marinara-chat-chrome-accent) 8%, var(--card));
-}
-
-.mari-home-professor-popup__bubble[data-tail-side="right"] .mari-home-professor-popup__bubble-tail {
-  right: -0.82rem;
-  left: auto;
-  transform: scaleX(-1);
-}
-
-.mari-home-professor-popup__arrival-frame {
-  background-position: 0% 0;
-  animation: mari-home-professor-frame-cycle 1.45s steps(3, end) 80ms both;
-  will-change: background-position;
-}
-
-.mari-home-professor-popup__drag-frame {
-  left: 45%;
-  top: 9%;
-  width: 120%;
-  height: 114%;
-  background-position: 3.1% 0;
-  animation:
-    mari-home-professor-drag-frame-cycle 680ms steps(1, end) infinite,
-    mari-home-professor-dangle-sway 680ms cubic-bezier(0.45, 0, 0.55, 1) infinite;
-  animation-play-state: paused;
-  backface-visibility: hidden;
-  contain: paint;
-  filter: brightness(0.97) saturate(0.66) hue-rotate(1deg) contrast(1.1);
-  image-rendering: pixelated;
-  opacity: 0;
-  transform-origin: 45% 12.2%;
-  transform: translate3d(-45%, -12.2%, 0);
-  visibility: hidden;
-  will-change: background-position, transform;
-}
-
-.mari-home-professor-popup[data-dragging="true"] .mari-home-professor-popup__drag-frame {
-  animation-play-state: running;
-  opacity: 1;
-  visibility: visible;
-}
-
-.mari-home-professor-popup[data-dragging="true"] .mari-home-professor-popup__rest-frame {
-  visibility: hidden;
-}
-
-.mari-home-professor-popup[data-dragging="true"] .mari-home-professor-popup__bubble {
-  pointer-events: none;
-}
-
-html.mari-home-professor-drag-active,
-html.mari-home-professor-drag-active * {
-  cursor: grabbing !important;
-  user-select: none !important;
-}
-
-.mari-home-professor-popup__idle-stage {
-  animation: mari-home-professor-idle 5.6s ease-in-out infinite;
-  animation-play-state: paused;
-  transform-origin: bottom center;
-}
-
-.mari-home-professor-popup__idle-stage--active {
-  animation-play-state: running;
-}
-
-.mari-home-professor-popup__idle {
-  opacity: 1;
-}
-
-.mari-home-professor-popup__blink {
-  opacity: 0;
-  animation: mari-home-professor-blink 5.6s steps(1, end) infinite;
-  animation-play-state: paused;
-}
-
-.mari-home-professor-popup__idle-stage--active .mari-home-professor-popup__blink {
-  animation-play-state: running;
-}
-
-.mari-home-professor-popup__state-image {
-  transform-origin: bottom center;
-  will-change: transform, opacity;
-}
-
-.mari-home-professor-popup__state-image--map {
-  animation: mari-home-professor-map 520ms cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-.mari-home-professor-popup__state-image--shrug {
-  animation: mari-home-professor-shrug 480ms cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
 .mari-home-discovery-card {
   animation: mari-home-discovery-swap 320ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
@@ -4211,119 +4079,6 @@ html.mari-home-professor-drag-active * {
   62% {
     opacity: 0.3;
     transform: translate3d(-50%, -50%, 0) scale(0.86);
-  }
-}
-
-@keyframes mari-home-professor-drag-frame-cycle {
-  0%,
-  24.99% {
-    background-position: 3.1% 0;
-  }
-  25%,
-  49.99% {
-    background-position: 34.48% 0;
-  }
-  50%,
-  74.99% {
-    background-position: 66.12% 0;
-  }
-  75%,
-  100% {
-    background-position: 98.15% 0;
-  }
-}
-
-@keyframes mari-home-professor-dangle-sway {
-  0%,
-  100% {
-    transform: translate3d(-45%, -12.2%, 0) rotate(-0.7deg);
-  }
-  50% {
-    transform: translate3d(-45%, -12.2%, 0) rotate(0.7deg);
-  }
-}
-
-@keyframes mari-home-professor-arrive {
-  from {
-    opacity: 0;
-    transform: translate3d(0, 4.5rem, 0) scale(0.94);
-  }
-  to {
-    opacity: 1;
-    transform: translate3d(0, 0, 0) scale(1);
-  }
-}
-
-@keyframes mari-home-professor-bubble-arrive {
-  from {
-    opacity: 0;
-    transform: translate3d(0.75rem, 0.5rem, 0) scale(0.96);
-  }
-  to {
-    opacity: 1;
-    transform: translate3d(0, 0, 0) scale(1);
-  }
-}
-
-@keyframes mari-home-professor-frame-cycle {
-  from {
-    background-position: 0% 0;
-  }
-  to {
-    background-position: 100% 0;
-  }
-}
-
-@keyframes mari-home-professor-idle {
-  0%,
-  100% {
-    transform: translate3d(0, 0, 0) scaleY(1);
-  }
-  50% {
-    transform: translate3d(0, -0.12rem, 0) scaleY(1.006);
-  }
-}
-
-@keyframes mari-home-professor-blink {
-  0%,
-  72%,
-  76%,
-  100% {
-    opacity: 0;
-  }
-  73%,
-  75% {
-    opacity: 1;
-  }
-}
-
-@keyframes mari-home-professor-map {
-  0% {
-    opacity: 1;
-    transform: translate3d(0, 0.5rem, 0) scale(0.9, 0.96);
-  }
-  72% {
-    opacity: 1;
-    transform: translate3d(0, -0.12rem, 0) scale(1.018, 1.01);
-  }
-  100% {
-    opacity: 1;
-    transform: translate3d(0, 0, 0) scale(1);
-  }
-}
-
-@keyframes mari-home-professor-shrug {
-  0% {
-    opacity: 1;
-    transform: translate3d(0, 0.4rem, 0) scale(0.94);
-  }
-  62% {
-    opacity: 1;
-    transform: translate3d(0, -0.16rem, 0) scale(1.015);
-  }
-  100% {
-    opacity: 1;
-    transform: translate3d(0, 0, 0) scale(1);
   }
 }
 
@@ -4356,23 +4111,8 @@ html.mari-home-professor-drag-active * {
     opacity: 0.24;
   }
 
-  .mari-home-professor-popup {
-    animation: none;
-  }
-
-  .mari-home-professor-popup__sprite,
-  .mari-home-professor-popup__bubble,
-  .mari-home-professor-popup__arrival-frame,
-  .mari-home-professor-popup__drag-frame,
-  .mari-home-professor-popup__idle-stage,
-  .mari-home-professor-popup__blink,
-  .mari-home-professor-popup__state-image,
   .mari-home-discovery-card {
     animation: none;
-  }
-
-  .mari-home-professor-popup__arrival-frame {
-    background-position: 100% 0;
   }
 }
 
@@ -4396,34 +4136,13 @@ html[data-marinara-effects-paused="true"] .mari-home-widget > :not(.mari-home-wi
   transition: none;
 }
 
-html[data-marinara-reduced-effects="true"] .mari-home-professor-popup {
-  animation: none;
-}
-
-html[data-marinara-reduced-effects="true"] .mari-home-professor-popup__sprite,
-html[data-marinara-reduced-effects="true"] .mari-home-professor-popup__bubble,
-html[data-marinara-reduced-effects="true"] .mari-home-professor-popup__arrival-frame,
-html[data-marinara-reduced-effects="true"] .mari-home-professor-popup__drag-frame,
-html[data-marinara-reduced-effects="true"] .mari-home-professor-popup__idle-stage,
-html[data-marinara-reduced-effects="true"] .mari-home-professor-popup__blink,
-html[data-marinara-reduced-effects="true"] .mari-home-professor-popup__state-image,
 html[data-marinara-reduced-effects="true"] .mari-home-discovery-card {
   animation: none;
 }
 
-html[data-marinara-reduced-effects="true"] .mari-home-professor-popup__arrival-frame {
-  background-position: 100% 0;
-}
-
 /* Preserve the current Mari frame while the browser tab/window is inactive.
    App.tsx owns the single visibility/focus listener; Home only consumes it. */
-html[data-marinara-effects-paused="true"] .mari-home-professor-popup__sprite,
-html[data-marinara-effects-paused="true"] .mari-home-professor-popup__bubble,
-html[data-marinara-effects-paused="true"] .mari-home-professor-popup__arrival-frame,
-html[data-marinara-effects-paused="true"] .mari-home-professor-popup__drag-frame,
-html[data-marinara-effects-paused="true"] .mari-home-professor-popup__idle-stage,
-html[data-marinara-effects-paused="true"] .mari-home-professor-popup__blink,
-html[data-marinara-effects-paused="true"] .mari-home-professor-popup__state-image,
+html[data-marinara-effects-paused="true"] .mari-home-professor-blink,
 html[data-marinara-effects-paused="true"] .mari-professor-pixel-scene [data-part="sprite"],
 html[data-marinara-effects-paused="true"] .mari-professor-pixel-scene [data-part="screen"] span,
 html[data-marinara-effects-paused="true"] .mari-professor-pixel-scene [data-part="base"] i {
@@ -4460,9 +4179,12 @@ html[data-marinara-reduced-effects="true"] .game-expression-reaction__bubble,
 html[data-marinara-reduced-effects="true"] .game-expression-reaction__drop,
 html[data-marinara-reduced-effects="true"] [class^="anim-text-"],
 html[data-marinara-reduced-effects="true"] [class*=" anim-text-"],
+html[data-marinara-reduced-effects="true"] .mari-home-professor-blink,
 html[data-marinara-reduced-effects="true"] .mari-professor-pixel-scene [data-part="sprite"],
 html[data-marinara-reduced-effects="true"] .mari-professor-pixel-scene [data-part="screen"] span,
-html[data-marinara-reduced-effects="true"] .mari-professor-pixel-scene [data-part="base"] i {
+html[data-marinara-reduced-effects="true"] .mari-professor-pixel-scene [data-part="base"] i,
+html[data-marinara-reduced-effects="true"] .mari-workspace-glow-band::before,
+html[data-marinara-reduced-effects="true"] .mari-workspace-glow-band::after {
   animation: none !important;
 }
 
@@ -4568,11 +4290,11 @@ strong {
 .mari-message-content .mari-md-inline-code {
   font-family: "Consolas", "Monaco", "Courier New", monospace;
   font-size: 0.85em;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--secondary);
+  border: 1px solid var(--border);
   border-radius: 4px;
   padding: 0.1em 0.35em;
-  color: #e8e6e3;
+  color: var(--foreground);
   overflow-wrap: anywhere;
   word-break: break-word;
   /* Code is LTR syntax whatever surrounds it. The direction must live in CSS,
@@ -6082,6 +5804,8 @@ strong {
   animation: fade-in-up 0.25s ease-out;
 }
 
+@import "./omnibar.css";
+
 @keyframes scale-in {
   from {
     opacity: 0;
@@ -6473,7 +6197,9 @@ strong {
   width: min(100%, var(--mari-roleplay-message-column-width));
 }
 
-[data-chat-mode="roleplay"] .mari-scrollable-roleplay-avatar {
+/* R14: Mari beside her newest reply stays on screen while it scrolls, like the scrollable avatars. */
+[data-chat-mode="roleplay"] .mari-scrollable-roleplay-avatar,
+.mari-answer__sprite > * {
   position: sticky;
   top: var(--mari-roleplay-scrollable-avatar-top, max(0.75rem, env(safe-area-inset-top)));
   align-self: flex-start;
@@ -7400,7 +7126,8 @@ strong {
   .mari-topbar-action {
     flex: 0 0 auto;
     width: 3.5rem !important;
-    height: 2.25rem !important;
+    /* UX-16: 2.6rem is 44 px at the 17 px root, the minimum touch target. */
+    height: 2.6rem !important;
     padding: 0 !important;
   }
 }
@@ -8475,6 +8202,7 @@ html[data-marinara-reduced-effects="true"] .mari-window {
   position: absolute;
   bottom: var(--mari-professor-sprite-bottom, 15%);
   width: clamp(8.25rem, 37%, 11rem);
+  height: auto;
   image-rendering: pixelated;
   image-rendering: crisp-edges;
   filter: drop-shadow(0.45rem 0.55rem 0 rgba(0, 0, 0, 0.2));
@@ -8663,6 +8391,8 @@ html[data-marinara-reduced-effects="true"] .mari-window {
     background: #151a22;
   }
 }
+
+@import "./omnibar-settings.css";
 
 /* Short landscape screens need the chat list to share the sidebar's scroll. */
 @media (max-height: 500px) and (orientation: landscape) {

@@ -28,7 +28,7 @@ export function normalizePersonalExtensionCapabilities(value: unknown): Personal
   return PERSONAL_EXTENSION_CAPABILITIES.filter((capability) => requested.has(capability));
 }
 
-export const PERSONAL_EXTENSION_CONTRIBUTION_KINDS = ["button", "menu-item", "panel"] as const;
+export const PERSONAL_EXTENSION_CONTRIBUTION_KINDS = ["button", "menu-item", "panel", "command"] as const;
 export type PersonalExtensionContributionKind = (typeof PERSONAL_EXTENSION_CONTRIBUTION_KINDS)[number];
 
 export const PERSONAL_EXTENSION_CONTRIBUTION_SURFACES = [
@@ -108,25 +108,41 @@ export type PersonalExtensionUiElement =
   | { kind: "color"; id: string; label?: string; value?: string }
   | { kind: "spacer" };
 
-export interface PersonalExtensionContributionDescriptor {
+interface PersonalExtensionContributionBase {
   id: string;
-  kind: PersonalExtensionContributionKind;
   label: string;
   description?: string;
   icon?: PersonalExtensionContributionIcon;
+}
+
+export interface PersonalExtensionActionContributionDescriptor extends PersonalExtensionContributionBase {
+  kind: Exclude<PersonalExtensionContributionKind, "command">;
   /** Button destination. Existing descriptors default to the top bar. */
   surface?: PersonalExtensionContributionSurface;
   /** Safe insertion point for side-panel buttons. */
   position?: PersonalExtensionContributionPosition;
   elements?: PersonalExtensionUiElement[];
+  targetContributionId?: never;
 }
 
-export interface PersonalExtensionHostContribution extends PersonalExtensionContributionDescriptor {
+export interface PersonalExtensionCommandContributionDescriptor extends PersonalExtensionContributionBase {
+  kind: "command";
+  /** Existing same-extension action or panel opened by this command. */
+  targetContributionId: string;
+  surface?: never;
+  position?: never;
+  elements?: never;
+}
+
+export type PersonalExtensionContributionDescriptor =
+  PersonalExtensionActionContributionDescriptor | PersonalExtensionCommandContributionDescriptor;
+
+export type PersonalExtensionHostContribution = PersonalExtensionContributionDescriptor & {
   key: string;
   extensionId: string;
   extensionName: string;
   contentHash: string;
-}
+};
 
 /**
  * Bounded context for the chat currently displayed by the client.

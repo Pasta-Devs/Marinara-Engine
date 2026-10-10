@@ -26,6 +26,7 @@ export async function chatInsightsRoutes(app: FastifyInstance) {
       to?: string;
       offset?: string;
       limit?: string;
+      perChat?: string;
     };
   }>("/search", async (req, reply) => {
     if (Object.values(req.query).some((value) => typeof value !== "string")) {
@@ -42,6 +43,7 @@ export async function chatInsightsRoutes(app: FastifyInstance) {
       to: req.query.to ?? null,
       offset: req.query.offset === undefined ? undefined : Number(req.query.offset),
       limit: req.query.limit === undefined ? undefined : Number(req.query.limit),
+      perChat: req.query.perChat === undefined ? undefined : Number(req.query.perChat),
     });
   });
 

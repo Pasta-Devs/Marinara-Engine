@@ -1,0 +1,219 @@
+/* Slice 85: holding Mari. The slot keeps its layout; only its art moves, and the lifted figure is one fixed element. */
+.mari-hold-slot > * {
+  cursor: grab;
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mari-hold-slot[data-mari-hold="held"] > *,
+.mari-hold-slot[data-mari-hold="releasing"] > * {
+  opacity: 0;
+}
+
+.mari-hold-slot[data-mari-hold="hop"] > * {
+  animation: mari-hold-hop 420ms cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+
+.mari-hold-slot[data-mari-hold="bounce"] > * {
+  animation: mari-hold-bounce 320ms ease-out;
+}
+
+.mari-hold-slot[data-mari-hold="landed"] > * {
+  animation: mari-hold-land 420ms cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+
+@keyframes mari-hold-hop {
+  0%,
+  100% {
+    transform: translateY(0) scale(1, 1);
+  }
+  35% {
+    transform: translateY(-6px) scale(0.96, 1.05);
+  }
+  70% {
+    transform: translateY(0) scale(1.06, 0.94);
+  }
+}
+
+@keyframes mari-hold-bounce {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  45% {
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes mari-hold-land {
+  0% {
+    transform: scale(0.9, 1.1);
+  }
+  45% {
+    transform: translateY(-5px) scale(1.04, 0.96);
+  }
+  100% {
+    transform: none;
+  }
+}
+
+.mari-hold-figure {
+  position: fixed;
+  left: 0;
+  top: 0;
+  /* Above the omnibar, Mari's dialogs (layer + 1/+2) and modals; below the toaster. */
+  z-index: calc(var(--mari-layer-omnibar) + 10);
+  width: calc(160px * 2 / 3);
+  height: 160px;
+  transform-origin: 50% 0;
+  pointer-events: none;
+  will-change: transform;
+}
+
+/* The held sheet is four 300x450 frames side by side; each frame is one figure-width. */
+.mari-hold-figure__sprite {
+  position: absolute;
+  inset: 0;
+  background-repeat: no-repeat;
+  background-size: 400% 100%;
+  filter: drop-shadow(0 6px 10px rgb(0 0 0 / 0.35));
+  animation: mari-hold-frames 680ms steps(4, end) infinite;
+}
+
+.mari-hold-figure[data-dizzy="true"] .mari-hold-figure__sprite {
+  animation-duration: 1.2s;
+}
+
+@keyframes mari-hold-frames {
+  from {
+    background-position: 0% 0;
+  }
+  /* Four steps of a third each land on the frame edges 0, 33.3, 66.7 and 100 %. */
+  to {
+    background-position: 133.333333% 0;
+  }
+}
+
+.mari-hold-figure__dizzy {
+  position: absolute;
+  left: 50%;
+  top: -10px;
+  width: 0;
+  height: 0;
+}
+
+.mari-hold-figure__dizzy > span {
+  position: absolute;
+  left: -4px;
+  top: -4px;
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+  background: var(--marinara-app-accent-solid, #f5c542);
+  animation: mari-hold-orbit 1.8s linear infinite;
+}
+
+.mari-hold-figure__dizzy > span:nth-child(2) {
+  animation-delay: -0.6s;
+}
+
+.mari-hold-figure__dizzy > span:nth-child(3) {
+  animation-delay: -1.2s;
+}
+
+@keyframes mari-hold-orbit {
+  from {
+    transform: rotate(0deg) translateX(26px) rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg) translateX(26px) rotate(-360deg);
+  }
+}
+
+/* Smash: four stars burst from her head on a hard hit, then fade. */
+.mari-hold-figure__stars {
+  position: absolute;
+  left: 50%;
+  top: 28%;
+  width: 0;
+  height: 0;
+}
+
+.mari-hold-figure__stars > span {
+  position: absolute;
+  left: -6px;
+  top: -6px;
+  width: 12px;
+  height: 12px;
+  clip-path: polygon(50% 0, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+  background: var(--marinara-app-accent-solid, #f5c542);
+  opacity: 0;
+}
+
+.mari-hold-figure__stars > span:nth-child(1) {
+  --mari-star-x: -30px;
+  --mari-star-y: -22px;
+}
+
+.mari-hold-figure__stars > span:nth-child(2) {
+  --mari-star-x: 30px;
+  --mari-star-y: -18px;
+}
+
+.mari-hold-figure__stars > span:nth-child(3) {
+  --mari-star-x: -22px;
+  --mari-star-y: 8px;
+}
+
+.mari-hold-figure__stars > span:nth-child(4) {
+  --mari-star-x: 24px;
+  --mari-star-y: 10px;
+}
+
+.mari-hold-figure[data-bonk] .mari-hold-figure__stars > span {
+  animation: mari-hold-star 480ms ease-out;
+}
+
+@keyframes mari-hold-star {
+  from {
+    transform: translate(0, 0) scale(0.3);
+    opacity: 1;
+  }
+  to {
+    transform: translate(var(--mari-star-x), var(--mari-star-y)) scale(1.1);
+    opacity: 0;
+  }
+}
+
+.mari-hold-figure__line {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 6px);
+  /* Centred on her, but never past the viewport's edges (--mari-x is her centre). */
+  transform: translateX(clamp(calc(0.5rem - var(--mari-x, 50vw)), -50%, calc(100vw - 0.5rem - var(--mari-x, 50vw) - 100%)));
+  width: max-content;
+  max-width: calc(100vw - 1rem);
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--foreground);
+  font-size: 0.72rem;
+  font-weight: 600;
+  box-shadow: 0 4px 12px rgb(0 0 0 / 0.25);
+}
+
+html[data-marinara-reduced-effects="true"] .mari-hold-figure__sprite,
+html[data-marinara-reduced-effects="true"] .mari-hold-figure__dizzy > span,
+html[data-marinara-reduced-effects="true"] .mari-hold-figure__stars > span {
+  animation: none;
+}
+
+/* The window and live-line sprites are pointer-events: none on their own; a hold needs them to take presses. */
+.mari-hold-slot > .mari-story-sprite,
+.mari-hold-slot > .mari-live-work__sprite {
+  pointer-events: auto;
+}

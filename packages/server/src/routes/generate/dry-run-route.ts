@@ -2390,7 +2390,11 @@ export async function registerDryRunRoute(app: FastifyInstance) {
       return reply.status(500).send({ error: message });
     }
     const fit = advancedContext
-      ? { messages: advancedContext.providerMessages, maxTokensForSend: advancedContext.maxTokens }
+      ? {
+          messages: advancedContext.providerMessages,
+          maxTokensForSend: advancedContext.maxTokens,
+          contextFit: undefined,
+        }
       : fitMessagesForModelAccess({
           messages: limitPastReasoningMetadata(toProviderMessages(finalMessages as any), chatMeta),
           policy: { ...modelAccessPolicy, effectiveMaxContext },
@@ -2446,6 +2450,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
             ...(message.providerMetadata ? { providerMetadata: message.providerMetadata } : {}),
           })),
           wrapFormat,
+          contextFit: fit.contextFit ?? null,
           ...(decisionUnanswered.size > 0 || decisionDropped.size > 0
             ? {
                 decisions: {

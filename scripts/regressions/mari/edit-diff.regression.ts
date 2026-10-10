@@ -4,7 +4,11 @@
 // find real edits (recursing into the nested `data` column) while skipping noise/unchanged keys.
 import assert from "node:assert/strict";
 import { diffWords, type DiffSegment } from "../../../packages/client/src/lib/word-diff.js";
-import { computeFieldChanges, resolveLorebookVectorStatus } from "../../../packages/client/src/lib/mari-edit-diff.js";
+import {
+  computeFieldChanges,
+  fieldLabel,
+  resolveLorebookVectorStatus,
+} from "../../../packages/client/src/lib/mari-edit-diff.js";
 
 const reconstruct = (segments: DiffSegment[], side: "added" | "removed") =>
   segments
@@ -137,5 +141,10 @@ assert.deepEqual(
   ["excluded", "notVectorized"],
   "opting back in without an embedding transitions from excluded to not vectorized",
 );
+
+// The held card and the applied card name a field with the same label map, never its raw key.
+assert.equal(fieldLabel("first_mes"), "First message");
+assert.equal(fieldLabel("first mes"), "First message", "a key typed with a space still gets its label, not 'First mes'");
+assert.equal(fieldLabel("mes_example"), "Example messages");
 
 console.log("Mari Easy Viewer diff regressions passed.");

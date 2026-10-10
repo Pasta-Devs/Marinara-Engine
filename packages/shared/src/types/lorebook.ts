@@ -95,6 +95,8 @@ export interface Lorebook {
   /** Agent/generation origin tracking */
   generatedBy: "user" | "agent" | "import" | null;
   sourceAgentId: string | null;
+  /** Number of entries in this lorebook. Populated by list/hydrate responses; may be absent on partial rows. */
+  entryCount?: number;
   createdAt: string;
   updatedAt: string;
 }

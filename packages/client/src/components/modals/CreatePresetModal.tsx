@@ -23,14 +23,20 @@ const DEFAULT_PARAMS = {
 interface Props {
   open: boolean;
   onClose: () => void;
+  defaultName?: string;
 }
 
-export function CreatePresetModal({ open, onClose }: Props) {
+export function CreatePresetModal({ open, onClose, defaultName = "" }: Props) {
   const { t: localizeUi } = useUiTranslation();
   const qc = useQueryClient();
   const openPresetDetail = useUIStore((s) => s.openPresetDetail);
-  const [name, setName] = useState("");
+  const [name, setName] = useState(defaultName);
   const [description, setDescription] = useState("");
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) setName(defaultName);
+  }
 
   const createPreset = useMutation({
     mutationFn: (data: Record<string, unknown>) => api.post("/prompts", data),

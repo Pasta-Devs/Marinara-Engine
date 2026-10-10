@@ -109,6 +109,7 @@ export * from "./constants/tracker-custom-field-icons.js";
 export * from "./constants/stat-icons.js";
 export * from "./constants/docs-languages.js";
 export * from "./constants/mari-permissions-mode.js";
+export * from "./constants/settings-registry.js";
 
 // Feature registries
 export * from "./features/agents/agent-manifest.types.js";
@@ -150,6 +151,10 @@ export * from "./utils/game-place-tag.js";
 export * from "./utils/agent-cost.js";
 export * from "./utils/token-estimator.js";
 export * from "./utils/character-token-estimator.js";
+export * from "./utils/empty-response-reason.js";
+export * from "./utils/diagnose-reply.js";
+export * from "./utils/mari-review-session.js";
+export * from "./utils/mari-change-receipt.js";
 export * from "./utils/character-lookup-name.js";
 export * from "./utils/regex-replacement.js";
 export * from "./utils/skill-check-format.js";

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 
 const topBarUrl = new URL("../../packages/client/src/components/layout/TopBar.tsx", import.meta.url);
 const appShellUrl = new URL("../../packages/client/src/components/layout/AppShell.tsx", import.meta.url);
@@ -29,33 +29,31 @@ assert.match(
   "The Music Player switch must remain off and unavailable until Music DJ is installed",
 );
 
-assert.match(
-  appShellSource,
-  /hasProfessorMariFloatingFollowup\(\)[\s\S]{0,220}Boolean\(activeChatId\)[\s\S]{0,220}hasDetailView[\s\S]{0,220}mobileNavigationPanel/u,
-  "Professor Mari must follow an open conversation into chats, editors, and mobile navigation",
-);
-assert.match(
-  professorMariSource,
-  /controlledChatWindowOpen === undefined[\s\S]{0,180}floatingFollowupEligibleRef\.current = controlledChatWindowOpen[\s\S]{0,180}rememberProfessorMariFloatingEnabled\(controlledChatWindowOpen\)/u,
-  "The embedded Professor tab must mark its controlled chat window as eligible to follow",
-);
-assert.match(
-  professorMariSource,
-  /mari-chrome-token-scope fixed z-\[95\] flex h-\[min\(32rem/u,
-  "Professor Mari's desktop floating window must use chat-chroma tokens",
-);
-assert.match(
-  professorMariSource,
-  /mari-chrome-control mari-chrome-control--small mari-accent-animated h-7 w-7 shrink-0 p-0/u,
-  "Professor Mari's desktop floating window must use the compact close control",
-);
-assert.match(
-  professorMariSource,
-  /mari-chrome-token-scope fixed inset-x-0 top-\[calc\(3rem_/u,
-  "Professor Mari's mobile floating window must use chat-chroma tokens",
-);
+// 5bb03f918 replaced Professor Mari's floating window with the top-bar presence pill; she lives in
+// the omnibar and Home only, so no floating follow-up or floating window may come back.
 assert.doesNotMatch(
+  appShellSource,
+  /hasProfessorMariFloatingFollowup/u,
+  "Professor Mari has no floating window to follow chats",
+);
+// Slice 82: the chat's parts live in components/chat/mari/, so "nowhere" reads all of them.
+const professorMariPartsDir = new URL("../../packages/client/src/components/chat/mari/", import.meta.url);
+const professorMariAllSource = [
+  professorMariSource,
+  ...readdirSync(professorMariPartsDir).map((name) => readFileSync(new URL(name, professorMariPartsDir), "utf8")),
+].join("\n");
+assert.doesNotMatch(
+  professorMariAllSource,
+  /floatingFollowupEligibleRef|rememberProfessorMariFloatingEnabled/u,
+  "Professor Mari's chat must not track a floating window",
+);
+// Slice 82: globals.css imports Mari's and the omnibar's rules from their own files; check all of them.
+const allGlobalStyles = [
   globalsSource,
+  ...["mari.css", "omnibar.css", "omnibar-settings.css"].map((name) => readFileSync(new URL(name, globalsUrl), "utf8")),
+].join("\n");
+assert.doesNotMatch(
+  allGlobalStyles,
   /\.mari-chrome-token-scope\s*\{[^}]*--primary:/u,
   "The shared chat-chroma scope must not replace the configured app accent",
 );
@@ -79,7 +77,7 @@ assert.match(topBarSource, /<Menu size=\{15\}/u, "The mobile overflow control mu
 assert.match(topBarSource, /"ml-auto sm:hidden"/u, "The mobile overflow control must stay at the right edge");
 assert.match(
   globalsSource,
-  /@media \(max-width: 639px\) \{\s*\.mari-topbar \{[^}]*\}\s*\.mari-topbar-action \{\s*flex: 0 0 auto;\s*width: 3\.5rem !important;\s*height: 2\.25rem !important;/u,
+  /@media \(max-width: 639px\) \{\s*\.mari-topbar \{[^}]*\}\s*\.mari-topbar-action \{\s*flex: 0 0 auto;\s*width: 3\.5rem !important;\s*(?:\/\*[^*]*\*\/\s*)?height: 2\.6rem !important;/u,
   "Phone top-bar controls must keep fixed desktop-style sizes instead of filling the row",
 );
 

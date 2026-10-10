@@ -1,0 +1,4676 @@
+/* Professor Mari: tokens, glow, cards, composer, timeline, sprites and her omnibar chrome. Imported by
+   globals.css at its old place, so the cascade order is unchanged. */
+/* Professor Mari keeps one visual language across Home, floating chat, and chat mode composers. */
+.mari-professor-composer {
+  border-color: color-mix(in srgb, var(--marinara-app-accent-solid) 24%, var(--border));
+  background: color-mix(in srgb, var(--marinara-app-accent-solid) 4%, var(--marinara-chat-chrome-input-bg));
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--foreground) 5%, transparent),
+    0 0.35rem 1rem color-mix(in srgb, var(--marinara-app-accent-solid) 8%, transparent);
+}
+
+.mari-professor-composer:focus-within {
+  border-color: color-mix(in srgb, var(--marinara-app-accent-solid) 62%, var(--border));
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--marinara-app-accent-solid) 13%, transparent),
+    0 0.45rem 1.1rem color-mix(in srgb, var(--marinara-app-accent-solid) 11%, transparent);
+}
+
+[data-theme="light"] .mari-professor-composer {
+  background: color-mix(in srgb, var(--marinara-app-accent-solid) 3%, var(--card));
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--foreground) 4%, transparent);
+}
+
+@media (max-width: 30rem) {
+  .mari-professor-composer {
+    border-radius: 0.875rem;
+    padding-inline: 0.375rem;
+  }
+}
+
+/* No ring around the composer: while Mari works, her colors rise across the whole bottom of the window
+   behind the bar as one low, wide glow that wavers, like Gemini and Apple Intelligence. At rest it is
+   off. When she finishes it turns green and sinks slowly out of view; when something fails it turns red
+   and stays, quieter and smaller, until you act. */
+@property --mari-glow-a {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: transparent;
+}
+
+@property --mari-glow-b {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: transparent;
+}
+
+@property --mari-glow-c {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: transparent;
+}
+
+/* M2: the band is its own aria-hidden sibling under the transcript (not the dock's pseudo-elements), so
+   the transcript's always-on fade shows it through instead of a hard-edged box. It tracks the dock's
+   live height so it still sits low and sinks out of view as the dock shrinks. */
+.mari-workspace-glow-band {
+  --mari-glow-a: var(--mari-logo-pink);
+  --mari-glow-b: var(--mari-logo-orange);
+  --mari-glow-c: var(--mari-logo-cyan);
+  position: absolute;
+  z-index: 0;
+  inset-inline: 0;
+  bottom: 0;
+  height: var(--mari-dock-h, 0px);
+  pointer-events: none;
+  isolation: isolate;
+  transition:
+    --mari-glow-a 0.9s ease,
+    --mari-glow-b 0.9s ease,
+    --mari-glow-c 0.9s ease;
+}
+
+/* Her state, in color. */
+.mari-workspace-glow-band[data-glow="thinking"] {
+  --mari-glow-a: var(--mari-logo-cyan);
+  --mari-glow-b: oklch(0.68 0.16 280);
+  --mari-glow-c: var(--mari-logo-pink);
+}
+
+.mari-workspace-glow-band[data-glow="writing"] {
+  --mari-glow-a: var(--mari-logo-pink);
+  --mari-glow-b: var(--mari-logo-orange);
+  --mari-glow-c: var(--mari-workspace-gold, oklch(0.82 0.11 79));
+}
+
+.mari-workspace-glow-band[data-glow="waiting-approval"] {
+  --mari-glow-a: var(--mari-workspace-gold, oklch(0.82 0.11 79));
+  --mari-glow-b: var(--mari-logo-orange);
+  --mari-glow-c: var(--mari-workspace-gold, oklch(0.82 0.11 79));
+}
+
+.mari-workspace-glow-band[data-glow="broken"] {
+  --mari-glow-a: var(--destructive);
+  --mari-glow-b: oklch(0.6 0.2 25);
+  --mari-glow-c: var(--destructive);
+}
+
+.mari-workspace-glow-band[data-working="ending"] {
+  --mari-glow-a: oklch(0.78 0.08 158);
+  --mari-glow-b: oklch(0.82 0.07 172);
+  --mari-glow-c: oklch(0.78 0.08 158);
+}
+
+/* A wide, low band (an ellipse, so the middle stands higher than the ends) spanning the whole window;
+   the canvas clips it at the sides. Anchored at the bottom, so shrinking sinks it out of view. Its
+   visible rise is about 40 px at every window height (UX-31), so a tall window does not get a tall band. */
+.mari-workspace-glow-band::before,
+.mari-workspace-glow-band::after {
+  position: absolute;
+  left: 50%;
+  bottom: -2.5rem;
+  width: max(100vw, 48rem);
+  border-radius: 50%;
+  content: "";
+  pointer-events: none;
+  translate: -50% 0;
+  transform-origin: 50% 100%;
+  will-change: transform;
+  opacity: 0;
+  transition: opacity 0.6s ease;
+}
+
+.mari-workspace-glow-band::before {
+  height: 5rem;
+  background: linear-gradient(
+    90deg,
+    var(--mari-glow-a),
+    var(--mari-glow-b) 25%,
+    var(--mari-glow-c) 50%,
+    var(--mari-glow-a) 75%,
+    var(--mari-glow-b)
+  );
+  filter: blur(2rem);
+}
+
+/* Brighter spots that drift along the band, so the light moves instead of sitting still. */
+.mari-workspace-glow-band::after {
+  height: 4.5rem;
+  background:
+    radial-gradient(closest-side at 20% 60%, color-mix(in srgb, var(--mari-glow-c) 75%, transparent), transparent),
+    radial-gradient(closest-side at 50% 70%, color-mix(in srgb, var(--mari-glow-a) 70%, transparent), transparent),
+    radial-gradient(closest-side at 80% 60%, color-mix(in srgb, var(--mari-glow-b) 75%, transparent), transparent);
+  filter: blur(1.5rem);
+}
+
+.mari-workspace-glow-band[data-working="true"]::before {
+  opacity: 0.4;
+  animation: mari-glow-waver 4.2s ease-in-out infinite alternate;
+}
+
+.mari-workspace-glow-band[data-working="true"]::after {
+  opacity: 0.3;
+  animation: mari-glow-drift 5.5s ease-in-out infinite alternate;
+}
+
+/* Done: a small, low, faint green band that sinks and fades within a few seconds; no bright spots. */
+.mari-workspace-glow-band[data-working="ending"]::before {
+  animation: mari-glow-settle 3.5s cubic-bezier(0.45, 0, 0.55, 1) forwards;
+}
+
+/* Failed (R14): red, smaller and quieter, and it stays - low and faint - until the failure is answered
+   (Retry, another model, a new message, Dismiss). No fade-out timer. */
+.mari-workspace-glow-band[data-glow="broken"]:not([data-working])::before {
+  animation: mari-glow-alert 1.6s cubic-bezier(0.45, 0, 0.55, 1) forwards;
+}
+
+/* Waiting for your approval: a small, quiet gold band that stays until you answer. */
+.mari-workspace-glow-band[data-glow="waiting-approval"]:not([data-working])::before {
+  opacity: 0.35;
+  scale: 1 0.55;
+  animation: mari-glow-waver-soft 4s ease-in-out infinite alternate;
+}
+
+/* Tab hidden or unfocused: freeze the band instead of animating off-screen. */
+html[data-marinara-effects-paused="true"] .mari-workspace-glow-band::before,
+html[data-marinara-effects-paused="true"] .mari-workspace-glow-band::after {
+  animation-play-state: paused !important;
+}
+
+/* Defence in depth: the reduced-effects rule below only stops the animation; OS-level reduced
+   motion also stops the colour transition on the band and its pseudo-elements. */
+@media (prefers-reduced-motion: reduce) {
+  .mari-workspace-glow-band,
+  .mari-workspace-glow-band::before,
+  .mari-workspace-glow-band::after {
+    transition: none;
+  }
+}
+
+/* Slow and small: the band breathes in height and leans a little, it never jumps. */
+@keyframes mari-glow-waver {
+  0% {
+    scale: 1 0.88;
+  }
+  50% {
+    scale: 1.01 1.08;
+    translate: -50.4% 0;
+  }
+  100% {
+    scale: 1 0.94;
+    translate: -49.6% 0;
+  }
+}
+
+@keyframes mari-glow-waver-soft {
+  from {
+    scale: 1 0.5;
+  }
+  to {
+    scale: 1.02 0.6;
+  }
+}
+
+@keyframes mari-glow-drift {
+  from {
+    translate: -51.5% 0;
+    scale: 0.98 0.9;
+  }
+  to {
+    translate: -48.5% 0;
+    scale: 1.02 1.1;
+  }
+}
+
+@keyframes mari-glow-settle {
+  0% {
+    opacity: 0.28;
+    scale: 1 0.5;
+  }
+  100% {
+    opacity: 0;
+    scale: 1 0.15;
+  }
+}
+
+@keyframes mari-glow-alert {
+  0% {
+    opacity: 0.35;
+    scale: 1 0.7;
+  }
+  100% {
+    opacity: 0.2;
+    scale: 1 0.45;
+  }
+}
+
+/* P2: while Mari works, or has a result you have not seen, the top bar's bottom edge carries a thin line in
+   her state colour: a ~1.5px core with a short soft fade, fading out at both ends. Working wavers slowly; the
+   other states hold still. Opening her pane clears it (P3). */
+/* R8: one state colour for the edge line and the pull drop's rim (the TopBar hands the same state to both). */
+.mari-topbar-edge-glow,
+.mari-pull-overlay[data-mari-edge] {
+  --mari-edge: oklch(0.72 0.14 155);
+}
+
+.mari-topbar-edge-glow[data-state="working"],
+.mari-pull-overlay[data-mari-edge="working"] {
+  --mari-edge: var(--mari-logo-pink);
+  --mari-edge-mid: var(--mari-logo-orange);
+  --mari-edge-end: var(--mari-logo-cyan);
+}
+
+.mari-topbar-edge-glow[data-state="approval"],
+.mari-pull-overlay[data-mari-edge="approval"] {
+  --mari-edge: oklch(0.82 0.11 79);
+}
+
+/* An explicit red, not --destructive - that token is pink in dark mode, too close
+   to the working state's pink/orange gradient to read as a distinct failure. */
+.mari-topbar-edge-glow[data-state="error"],
+.mari-pull-overlay[data-mari-edge="error"] {
+  --mari-edge: oklch(0.58 0.2 25);
+}
+
+.mari-topbar-edge-glow {
+  position: absolute;
+  inset-inline: 0;
+  /* Inside the bar's own paint area (over its 1px border), not below it - a line
+     drawn below the bar is covered by whatever docks under it at narrow widths. */
+  bottom: 0;
+  height: 1.5px;
+  pointer-events: none;
+  background: var(--mari-edge);
+  box-shadow: 0 0 5px color-mix(in srgb, var(--mari-edge) 60%, transparent);
+  opacity: 0.45;
+  mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+}
+
+.mari-topbar-edge-glow[data-state="working"] {
+  background: linear-gradient(90deg, var(--mari-edge), var(--mari-edge-mid), var(--mari-edge-end), var(--mari-edge)) 0
+    0 / 200% 100%;
+  animation: mari-edge-waver 6s ease-in-out infinite alternate;
+}
+
+.mari-topbar-edge-glow[data-state="approval"] {
+  opacity: 0.6;
+}
+
+.mari-topbar-edge-glow[data-state="error"] {
+  opacity: 0.55;
+}
+
+/* Slice 73: her state as a small pill while her window is closed, with her pull-drop head. It glows in
+   the composer glow's colours (cyan thinking, gold needs you, green done, red failed): low, faint and
+   slowly wavering, static with reduced motion. It sits at the end of the left group, so the bar never
+   shifts when it comes and goes. */
+.mari-topbar-status {
+  --mari-pill-a: oklch(0.78 0.08 158);
+  --mari-pill-b: oklch(0.82 0.07 172);
+  position: relative;
+  isolation: isolate;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 0.375rem;
+  height: 1.75rem;
+  margin-inline-start: auto;
+  padding-inline: 0.25rem 0.625rem;
+  border: 1px solid color-mix(in srgb, var(--mari-pill-a) 30%, var(--border));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--mari-pill-a) 7%, var(--marinara-topbar-surface, var(--background)));
+  color: var(--foreground);
+  font-size: 0.75rem;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.mari-topbar-status[data-state="working"] {
+  --mari-pill-a: var(--mari-logo-cyan);
+  --mari-pill-b: oklch(0.68 0.16 280);
+}
+
+.mari-topbar-status[data-state="approval"] {
+  --mari-pill-a: var(--mari-workspace-gold, oklch(0.82 0.11 79));
+  --mari-pill-b: var(--mari-logo-orange);
+}
+
+/* An explicit red, like the edge line: --destructive is pink in dark mode. */
+.mari-topbar-status[data-state="error"] {
+  --mari-pill-a: oklch(0.58 0.2 25);
+  --mari-pill-b: oklch(0.62 0.18 35);
+}
+
+.mari-topbar-status::before {
+  position: absolute;
+  z-index: -1;
+  inset: -0.125rem;
+  border-radius: inherit;
+  content: "";
+  pointer-events: none;
+  background: linear-gradient(90deg, var(--mari-pill-a), var(--mari-pill-b), var(--mari-pill-a));
+  filter: blur(0.375rem);
+  opacity: 0.3;
+  animation: mari-pill-waver 4s ease-in-out infinite alternate;
+}
+
+.mari-topbar-status:hover {
+  background: color-mix(in srgb, var(--mari-pill-a) 14%, var(--marinara-topbar-surface, var(--background)));
+}
+
+.mari-topbar-status:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.mari-topbar-status__head {
+  flex: none;
+  width: 1.25rem;
+  height: 1.25rem;
+  background: var(--mari-pull-heads) 0 0 / 600% 100% no-repeat;
+  image-rendering: pixelated;
+}
+
+.mari-topbar-status__head[data-gaze="down"] {
+  background-position-x: 20%;
+}
+
+.mari-topbar-status__head[data-gaze="peering"] {
+  background-position-x: 80%;
+}
+
+.mari-topbar-status__head[data-gaze="delighted"] {
+  background-position-x: 100%;
+}
+
+.mari-topbar-status > svg {
+  color: var(--mari-pill-a);
+}
+
+@keyframes mari-pill-waver {
+  from {
+    opacity: 0.2;
+    scale: 0.97 0.9;
+  }
+  to {
+    opacity: 0.38;
+    scale: 1.03 1.05;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mari-topbar-status::before {
+    animation: none;
+  }
+}
+
+html[data-marinara-reduced-effects="true"] .mari-topbar-status::before,
+html[data-marinara-effects-paused="true"] .mari-topbar-status::before {
+  animation: none;
+}
+
+/* Phones: the bar is a row of buttons, so an in-flow pill would squeeze them. It sits in the free space
+   between Chats and More instead, out of the flow, and its text truncates on the narrowest screens. */
+@media (max-width: 767px) {
+  .mari-topbar-status {
+    position: absolute;
+    top: 50%;
+    right: calc(max(4px, env(safe-area-inset-right)) + 4.25rem);
+    max-width: calc(100% - 13rem);
+    margin: 0;
+    translate: 0 -50%;
+  }
+
+  .mari-topbar-status > span:not(.mari-topbar-status__head) {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+@media (pointer: coarse) {
+  .mari-topbar-status::after {
+    position: absolute;
+    inset: -0.5rem -0.125rem;
+    content: "";
+  }
+}
+
+/* While she works the pull drop's rim wavers with the edge line. */
+.mari-pull-overlay[data-mari-edge="working"] .mari-pull-rim-hair {
+  animation: mari-pull-rim-waver 6s ease-in-out infinite alternate;
+}
+
+html[data-marinara-reduced-effects="true"] .mari-topbar-edge-glow,
+html[data-marinara-effects-paused="true"] .mari-topbar-edge-glow,
+html[data-marinara-reduced-effects="true"] .mari-pull-overlay[data-mari-edge] .mari-pull-rim-hair,
+html[data-marinara-effects-paused="true"] .mari-pull-overlay[data-mari-edge] .mari-pull-rim-hair {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mari-topbar-edge-glow,
+  .mari-pull-overlay[data-mari-edge] .mari-pull-rim-hair {
+    animation: none;
+  }
+}
+
+@keyframes mari-pull-rim-waver {
+  from {
+    opacity: 0.55;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes mari-edge-waver {
+  from {
+    opacity: 0.35;
+    background-position: 0% 0;
+  }
+  to {
+    opacity: 0.65;
+    background-position: 100% 0;
+  }
+}
+
+/* Q6: the type badge on a portrait and a chat's stacked faces. Small and muted on purpose; the
+   picture stays the main thing. The 1.5px ring in the surface colour separates overlaps. */
+.result-type-icon__face {
+  box-shadow: 0 0 0 1.5px var(--card);
+}
+
+.result-type-icon__face svg {
+  width: 0.625rem;
+  height: 0.625rem;
+}
+
+.result-type-icon__more {
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--foreground) 10%, var(--card));
+  color: var(--muted-foreground);
+  font-size: 0.5625rem;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.result-type-icon__badge {
+  position: absolute;
+  right: -0.1875rem;
+  bottom: -0.1875rem;
+  display: grid;
+  width: 0.9375rem;
+  height: 0.9375rem;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--foreground) 12%, transparent);
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--muted-foreground);
+}
+
+.result-type-icon__badge svg {
+  width: 0.5625rem;
+  height: 0.5625rem;
+}
+
+/* A Search row's type icon and badge take the type's top-bar colour: the row carries the same
+   .mari-panel-gradient--<type> class as the top bar item (command-center-visuals.ts). Neutral rows keep
+   their colour. */
+[data-command-center-result-row] [data-command-center-media="row"] > svg {
+  color: var(--mari-panel-gradient-start, currentColor);
+}
+
+[data-command-center-result-row] .result-type-icon__badge {
+  color: var(--mari-panel-gradient-start, var(--muted-foreground));
+}
+
+/* R10 (cards v5, docs/development/mockups/mari-v5): every Mari card is a ROW - slot · title · one muted
+   fact · one trailing thing - and rows that stack share ONE inset group: one hairline, one radius, inset
+   dividers from the text edge. No box inside a box. Three radii: the group, the slot (concentric with
+   the group corner) and capsules for buttons and badges. */
+.mari-list-stack {
+  display: grid;
+  min-width: 0;
+  gap: 0.375rem;
+}
+
+.mari-list__head {
+  margin-top: 0.375rem;
+  color: var(--muted-foreground);
+  font-size: var(--mari-card-fact);
+  font-weight: 500;
+  line-height: 1.3;
+}
+
+.mari-list {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+  overflow: hidden;
+  container-type: inline-size;
+  border: 1px solid var(--mari-hairline);
+  border-radius: var(--mari-card-radius);
+  background: var(--mari-group-bg);
+  animation: mari-list-in 0.2s ease-out both;
+}
+
+.mari-list:empty,
+.mari-list:has(> .mari-list__cols:empty) {
+  display: none;
+}
+
+.mari-list__item {
+  --mari-card-text-edge: calc(var(--mari-card-pad-inline) + var(--mari-card-slot) + var(--mari-card-gap));
+  position: relative;
+  min-width: 0;
+}
+
+/* The inset divider sits 1px above its row, so the group's own clip hides it on the first row (and on
+   the first row of each column) with no :first-child bookkeeping across wrappers. */
+.mari-list__item::before {
+  position: absolute;
+  inset-inline: var(--mari-card-text-edge) 0;
+  top: -1px;
+  height: 1px;
+  background: var(--mari-divider);
+  content: "";
+  pointer-events: none;
+}
+
+.mari-row {
+  position: relative;
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  min-height: 3rem;
+  align-items: center;
+  gap: var(--mari-card-gap);
+  padding: var(--mari-card-pad-block) var(--mari-card-pad-inline);
+  color: var(--foreground);
+  text-align: start;
+  transition: background-color 0.12s ease-out;
+}
+
+.mari-row--one {
+  min-height: 2.75rem;
+}
+
+:is(button, a).mari-row,
+.mari-row__toggle {
+  cursor: pointer;
+}
+
+:is(button, a).mari-row:hover:not(:disabled),
+.mari-row:has(> .mari-row__toggle:hover) {
+  background: var(--mari-hover);
+}
+
+:is(button, a).mari-row:active:not(:disabled),
+.mari-row:has(> .mari-row__toggle:active) {
+  background: color-mix(in srgb, var(--foreground) 9%, transparent);
+}
+
+:is(button, a).mari-row:focus-visible,
+.mari-row__toggle:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: -2px;
+}
+
+:is(button, a).mari-row:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.mari-row[aria-current="true"],
+.mari-list__item[data-state="selected"] > .mari-row {
+  background: var(--mari-card-selected);
+}
+
+.mari-list__item[data-state="busy"] > .mari-row {
+  opacity: 0.6;
+}
+
+/* A row whose text opens a detail and whose end holds buttons: the toggle is the text, the buttons sit
+   beside it (a button cannot hold buttons). */
+.mari-row__toggle {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 9rem;
+  align-items: center;
+  gap: var(--mari-card-gap);
+  margin-block: calc(-1 * var(--mari-card-pad-block));
+  padding-block: var(--mari-card-pad-block);
+  align-self: stretch;
+  text-align: start;
+}
+
+.mari-row__toggle:first-child {
+  margin-inline-start: calc(-1 * var(--mari-card-pad-inline));
+  padding-inline-start: var(--mari-card-pad-inline);
+}
+
+/* A row's ⋮ shows on hover or focus, and always on touch (the repo's hover-only fallback). */
+.mari-row__more {
+  opacity: 0;
+  transition: opacity 0.12s ease-out;
+}
+
+.mari-row:hover .mari-row__more,
+.mari-row:focus-within .mari-row__more,
+.mari-row__more[data-open="true"] {
+  opacity: 1;
+}
+
+@media (pointer: coarse), (max-width: 767px) {
+  .mari-row__more {
+    opacity: 1;
+  }
+}
+
+.mari-row__toggle > .mari-row__trail {
+  margin-inline-start: auto;
+}
+
+.mari-row__slot {
+  position: relative;
+  display: grid;
+  width: var(--mari-card-slot);
+  height: var(--mari-card-slot);
+  flex: none;
+  place-items: center;
+  border-radius: var(--mari-card-slot-radius);
+  background: var(--mari-card-slot-fill);
+  color: var(--muted-foreground);
+}
+
+.mari-row__slot > svg {
+  width: 1rem;
+  height: 1rem;
+  stroke-width: 1.75;
+}
+
+/* The 58b type icon in a card slot: the slot's tile (not the omnibar's pink-ringed media), a circle with a
+   hairline outline for portraits. */
+.mari-row__slot > .result-type-icon {
+  width: 100%;
+  height: 100%;
+}
+
+.mari-row__slot:has(> .result-type-icon) {
+  background: none;
+}
+
+.mari-row__slot [data-command-center-media] {
+  border: 0;
+  border-radius: var(--mari-card-slot-radius);
+  background: var(--mari-card-slot-fill);
+  color: var(--muted-foreground);
+}
+
+.mari-row__slot [data-command-center-media][data-media-kind="avatar"]:has(img) {
+  border-radius: 999px;
+  background: none;
+  outline: 1px solid oklch(1 0 0 / 0.1);
+  outline-offset: -1px;
+}
+
+[data-theme="light"] .mari-row__slot [data-command-center-media][data-media-kind="avatar"]:has(img) {
+  outline-color: oklch(0 0 0 / 0.1);
+}
+
+.mari-row__slot [data-command-center-media] > svg {
+  width: 1rem;
+  height: 1rem;
+  stroke-width: 1.75;
+}
+
+.mari-row__slot .result-type-icon__badge,
+.mari-row__slot .result-type-icon__face {
+  box-shadow: none;
+}
+
+.mari-row__text {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  gap: 0.0625rem;
+  line-height: 1.3;
+}
+
+.mari-row__title,
+.mari-row__fact {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mari-row__title {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: var(--mari-card-title);
+  font-weight: 600;
+}
+
+.mari-row__title > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mari-row__fact {
+  color: var(--muted-foreground);
+  font-size: var(--mari-card-fact);
+}
+
+.mari-list__item[data-state="failed"] .mari-row__fact {
+  color: var(--destructive);
+}
+
+.mari-list__item--danger .mari-row__slot {
+  background: color-mix(in srgb, var(--destructive) 14%, transparent);
+  color: var(--destructive);
+}
+
+.mari-row__trail {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 0.25rem;
+  color: var(--muted-foreground);
+}
+
+.mari-row__trail > svg {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+
+/* A gold ✦: picking the row asks Mari. The plain › opens the thing now. */
+.mari-row__trail > .mari-row__spark {
+  color: color-mix(in srgb, var(--mari-workspace-gold, oklch(0.82 0.11 79)) 62%, var(--foreground));
+}
+
+.mari-row__disclose {
+  transition: transform 0.2s ease-out;
+}
+
+.mari-list__item[data-open="true"] .mari-row__disclose {
+  transform: rotate(90deg);
+}
+
+.mari-row__done {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: var(--mari-ok);
+  font-size: var(--mari-card-fact);
+  font-weight: 500;
+}
+
+.mari-row__done > svg {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+
+/* Buttons inside a row are capsules: a quiet text one, and at most one solid primary. */
+.mari-row .mari-btn,
+.mari-row .mari-link {
+  min-height: 1.75rem;
+  padding-inline: 0.7rem;
+  border-radius: 999px;
+  color: var(--foreground);
+  font-size: var(--mari-card-fact);
+}
+
+.mari-row .mari-btn:not(.mari-btn--solid, .mari-btn--danger) {
+  border-color: transparent;
+}
+
+.mari-row .mari-btn--solid {
+  color: var(--background);
+}
+
+.mari-row .mari-btn--solid:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--foreground) 88%, var(--background));
+}
+
+.mari-row .mari-btn:active:not(:disabled),
+.mari-row .mari-link:active:not(:disabled) {
+  scale: 0.96;
+}
+
+.mari-row .mari-btn svg,
+.mari-row .mari-link svg {
+  width: 0.8rem;
+  height: 0.8rem;
+}
+
+/* The detail a row opens: in the same group, under its row, from the text edge. */
+.mari-row__detail {
+  display: grid;
+  gap: 0.625rem;
+  padding: 0 var(--mari-card-pad-inline) 0.75rem var(--mari-card-text-edge);
+}
+
+.mari-row__links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 1rem;
+}
+
+.mari-row__links .mari-link {
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  color: var(--muted-foreground);
+  font-size: var(--mari-card-fact);
+  font-weight: 500;
+}
+
+.mari-row__links .mari-link:hover {
+  background: none;
+  color: var(--foreground);
+}
+
+/* Raw is one more quiet link in the line (no chevron); open, it spans the line below. */
+.mari-row__links > .mari-tech > summary > svg {
+  display: none;
+}
+
+.mari-row__links > .mari-tech[open] {
+  flex-basis: 100%;
+}
+
+/* Two rows side by side once the group is wide enough (references, next steps). */
+@container (min-width: 36rem) {
+  .mari-list__cols {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .mari-list__cols > .mari-list__item:nth-child(2n)::after {
+    position: absolute;
+    inset-block: 0.625rem;
+    inset-inline-start: 0;
+    width: 1px;
+    background: var(--mari-divider);
+    content: "";
+  }
+}
+
+/* A narrow group of references: one line per row, the fact truncates first. */
+@container (width < 36rem) {
+  .mari-list__item--compact {
+    --mari-card-slot: 1.5rem;
+  }
+
+  .mari-list__item--compact > .mari-row {
+    min-height: 2.625rem;
+    padding-block: 0.375rem;
+  }
+
+  .mari-list__item--compact .mari-row__text {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+  }
+
+  .mari-list__item--compact .mari-row__title {
+    max-width: 62%;
+    flex: none;
+  }
+
+  .mari-list__item--compact .mari-row__fact {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .mari-list__item--compact .mari-row__slot > svg,
+  .mari-list__item--compact .mari-row__slot [data-command-center-media] > svg {
+    width: 0.875rem;
+    height: 0.875rem;
+  }
+
+  .mari-list__item--compact .result-type-icon__badge {
+    right: -0.125rem;
+    bottom: -0.125rem;
+    width: 0.75rem;
+    height: 0.75rem;
+  }
+
+  .mari-list__item--compact .result-type-icon__badge svg {
+    width: 0.4375rem;
+    height: 0.4375rem;
+  }
+}
+
+@media (pointer: coarse) {
+  .mari-row {
+    min-height: 2.75rem;
+  }
+}
+
+@keyframes mari-list-in {
+  from {
+    opacity: 0;
+    translate: 0 0.25rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mari-list,
+  .mari-row__disclose {
+    animation: none;
+    transition: none;
+  }
+}
+
+/* While she works the bar steps aside for one small, labelled Stop pill in the middle, and comes back when
+   she is done. Nothing changes size in the layout: the bar's frame and contents fade, and the Send button
+   slides to the center (container units) and widens into the pill. Every step is a transition, so it
+   runs just as smoothly both ways. */
+.mari-professor-composer,
+.mari-workspace-composer {
+  container-type: inline-size;
+  transition:
+    background-color 0.35s ease,
+    border-color 0.35s ease,
+    box-shadow 0.35s ease;
+}
+
+.mari-professor-composer > *,
+.mari-workspace-composer > * {
+  transition: opacity 0.3s ease 0.15s;
+}
+
+.mari-workspace-composer[data-collapsed="true"] {
+  border-color: transparent !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+}
+
+.mari-workspace-composer[data-collapsed="true"] > :not(.mari-workspace-composer__send) {
+  opacity: 0;
+  pointer-events: none;
+  transition-delay: 0s;
+}
+
+/* While she is busy but before Stop exists, the bar only steps back. */
+.mari-workspace-composer[data-busy="true"]:not([data-collapsed]) > :not(.mari-workspace-composer__send) {
+  opacity: 0.4;
+}
+
+.mari-workspace-composer__send {
+  --mari-stop-width: 6rem;
+  position: relative;
+  display: grid;
+  /* R14: one track as wide as the button. The hidden Stop label is wider; without this the track grew to
+     its width and centred the arrow 7px right of the button's centre. */
+  grid-template-columns: minmax(0, 1fr);
+  overflow: hidden;
+  place-items: center;
+  border: 1px solid transparent;
+  transition:
+    transform 0.5s cubic-bezier(0.16, 1, 0.3, 1),
+    width 0.5s cubic-bezier(0.16, 1, 0.3, 1),
+    border-radius 0.5s cubic-bezier(0.16, 1, 0.3, 1),
+    background-color 0.3s ease,
+    border-color 0.3s ease,
+    color 0.3s ease,
+    scale 0.12s ease-out;
+}
+
+.mari-workspace-composer__send[data-mode="stop"] {
+  width: var(--mari-stop-width);
+  border-color: color-mix(in srgb, var(--foreground) 16%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--card) 85%, transparent);
+  color: var(--foreground);
+  /* The button's right edge sits on the bar's right edge; this puts its center on the bar's center. */
+  transform: translateX(calc(-50cqw + var(--mari-stop-width) / 2));
+}
+
+.mari-workspace-composer__send[data-mode="stop"]:hover {
+  background: color-mix(in srgb, var(--foreground) 10%, var(--card));
+}
+
+.mari-workspace-composer__send > [data-icon] {
+  grid-area: 1 / 1;
+  transition:
+    transform 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 0.2s ease;
+}
+
+.mari-workspace-composer__send > [data-icon="stop"] {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.mari-workspace-composer__send[data-mode="send"] > [data-icon="stop"],
+.mari-workspace-composer__send[data-mode="stop"] > [data-icon="send"] {
+  opacity: 0;
+  transform: scale(0.6);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mari-professor-composer,
+  .mari-professor-composer > *,
+  .mari-workspace-composer,
+  .mari-workspace-composer > *,
+  .mari-workspace-composer__send,
+  .mari-workspace-composer__send > [data-icon] {
+    transition: none;
+  }
+}
+
+/* The omnibar is Mari's canonical workspace: velvet-dark, warm, and still one canvas. */
+.mari-workspace-shell {
+  --mari-workspace-gold: oklch(0.82 0.11 79);
+  --mari-workspace-hoodie: oklch(0.62 0.1 252);
+  --mari-workspace-blush: oklch(0.76 0.14 344);
+  background: color-mix(in srgb, var(--background) 94%, oklch(0.22 0.035 326));
+  border-color: color-mix(in srgb, var(--mari-workspace-blush) 24%, var(--border));
+}
+
+.mari-workspace-header {
+  position: relative;
+  z-index: 50;
+  gap: 0.25rem;
+  overflow: visible;
+  background: color-mix(in srgb, var(--card) 96%, var(--mari-workspace-hoodie));
+  border-color: color-mix(in srgb, var(--mari-workspace-blush) 18%, var(--border));
+}
+
+.mari-workspace-portrait {
+  position: relative;
+  display: grid;
+  width: 3rem;
+  height: 3rem;
+  flex: 0 0 auto;
+  place-items: start center;
+  overflow: hidden;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  filter: drop-shadow(0 0 0.65rem color-mix(in srgb, var(--mari-workspace-blush) 18%, transparent));
+}
+
+/* While she works, one soft glow in her logo colours turns behind her head, the same everywhere she
+   appears: the omnibar header and the Mari button in the omnibar's search bar. It sits on the element
+   around her portrait, because the portrait crops its tall sprite and would cut it into a box. */
+[data-mari-glow] {
+  position: relative;
+  isolation: isolate;
+}
+
+[data-mari-glow="true"]::before {
+  position: absolute;
+  top: var(--mari-glow-top, 0.3rem);
+  left: var(--mari-glow-left, 50%);
+  z-index: -1;
+  width: var(--mari-glow-size, 2.6rem);
+  height: var(--mari-glow-size, 2.6rem);
+  border-radius: 50%;
+  content: "";
+  pointer-events: none;
+  background: conic-gradient(
+    from var(--angle),
+    var(--mari-logo-pink),
+    var(--mari-logo-orange),
+    var(--mari-logo-cyan),
+    var(--mari-logo-pink)
+  );
+  opacity: 0.75;
+  filter: blur(0.5rem);
+  /* P1: fade to nothing inside its own circle, so no ancestor edge can cut it into a box. */
+  mask-image: radial-gradient(closest-side, #000 50%, transparent);
+  translate: -50% 0;
+  animation: gradient-rotate 2.6s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-mari-glow="true"]::before {
+    animation: none;
+  }
+}
+
+.mari-workspace-portrait img {
+  position: absolute;
+  top: -0.1rem;
+  width: 3rem;
+  height: auto;
+  max-width: none;
+  object-fit: contain;
+  object-position: center top;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  transform: none;
+}
+
+/* Header-row variant: fits the omnibar's 3.5rem bar where the search icon sat. */
+.mari-workspace-portrait[data-size="sm"] {
+  width: 2.25rem;
+  height: 2.25rem;
+}
+
+.mari-workspace-portrait[data-size="sm"] img {
+  width: 2.25rem;
+}
+
+.mari-workspace-portrait [data-part="blink"] {
+  opacity: 0;
+}
+
+.mari-workspace-portrait [data-part="idle"] {
+  animation: mari-workspace-rare-idle 11s steps(1, end) infinite;
+}
+
+.mari-workspace-portrait [data-part="blink"] {
+  animation: mari-workspace-rare-blink 11s steps(1, end) infinite;
+}
+
+.mari-workspace-portrait[data-state="thinking"] {
+  filter: drop-shadow(0 0 0.8rem color-mix(in srgb, var(--mari-workspace-hoodie) 30%, transparent));
+}
+
+.mari-workspace-portrait[data-state="thinking"] img {
+  animation: mari-workspace-thinking 900ms steps(2, end) infinite;
+}
+
+.mari-workspace-portrait[data-state="explaining"] {
+  filter: drop-shadow(0 0 0.7rem color-mix(in srgb, var(--mari-workspace-gold) 22%, transparent));
+}
+
+.mari-workspace-portrait[data-state="success"] {
+  filter: drop-shadow(0 0 0.7rem color-mix(in srgb, oklch(0.74 0.15 154) 24%, transparent));
+}
+
+.mari-workspace-portrait[data-state="warning"] {
+  filter: drop-shadow(0 0 0.7rem color-mix(in srgb, oklch(0.72 0.18 38) 24%, transparent));
+}
+
+.mari-workspace-portrait[data-state="shrug"] img {
+  transform: rotate(-2deg);
+}
+
+/* R43: the Note. One muted line, no box, no icon of its own. */
+.mari-note {
+  font-size: 0.6875rem;
+  line-height: 1.45;
+  color: var(--muted-foreground);
+}
+
+.mari-note[data-tone="accent"] {
+  color: color-mix(in srgb, var(--mari-workspace-gold) 62%, var(--foreground));
+}
+
+.mari-note[data-tone="danger"] {
+  color: var(--destructive);
+}
+
+.mari-note__detail {
+  color: var(--muted-foreground);
+}
+
+/* The omnibar and Professor Mari sit above every app overlay (the game setup wizard, lightboxes,
+   dialogs, capability screens, help overlays). Their own portalled popovers use this layer + 1; a
+   `Modal` opened while the omnibar is open uses this layer and wins by DOM order. Only the sonner
+   toaster (999999999, so Undo stays visible) and user extension windows/menus (~2^31) sit higher.
+   Pinned by scripts/regressions/command-center.regression.ts. */
+:root {
+  --mari-layer-omnibar: 100000;
+}
+
+/* Direction A (docs/development/mockups/mari-v3): text first, chrome last. Neutral hairlines, never
+   the accent; the accent is only on her name. Colour is never the only signal of a change. */
+:root {
+  --mari-hairline: color-mix(in srgb, var(--foreground) 13%, transparent);
+  --mari-divider: color-mix(in srgb, var(--foreground) 8%, transparent);
+  --mari-hover: color-mix(in srgb, var(--foreground) 6%, transparent);
+  --mari-group-bg: color-mix(in srgb, var(--foreground) 3.5%, var(--background));
+  --mari-ins-line: oklch(0.72 0.15 162);
+  --mari-ok: oklch(0.8 0.12 165);
+  /* R10 (cards v5): one card anatomy. The light theme derives them from the tokens above. */
+  --mari-card-radius: 0.875rem;
+  --mari-card-pad-block: 0.5rem;
+  --mari-card-pad-inline: 0.75rem;
+  --mari-card-slot: 1.875rem;
+  --mari-card-slot-radius: 0.375rem;
+  --mari-card-gap: 0.75rem;
+  --mari-card-text-edge: calc(var(--mari-card-pad-inline) + var(--mari-card-slot) + var(--mari-card-gap));
+  --mari-card-title: 0.8125rem;
+  --mari-card-fact: 0.75rem;
+  --mari-card-slot-fill: color-mix(in srgb, var(--foreground) 7%, transparent);
+  --mari-card-selected: color-mix(in srgb, var(--primary) 9%, transparent);
+  /* R11 (composer v5): the composer shell and everything inside it. */
+  --mari-composer-radius: 1.125rem;
+  --mari-composer-pad: 0.5rem;
+  --mari-composer-inner-radius: calc(var(--mari-composer-radius) - var(--mari-composer-pad));
+  --mari-composer-control: 2rem;
+  --mari-composer-text: 0.8125rem;
+  --mari-composer-lines: 8;
+}
+
+/* Touch: 17px text so iOS does not zoom into the field, and a 6-line cap. */
+@media (pointer: coarse) {
+  :root {
+    --mari-composer-text: 1rem;
+    --mari-composer-lines: 6;
+  }
+}
+
+[data-theme="light"] {
+  --mari-group-bg: color-mix(in srgb, var(--foreground) 1.5%, var(--background));
+  --mari-ins-line: oklch(0.55 0.13 162);
+  --mari-ok: oklch(0.5 0.12 165);
+}
+
+/* Small buttons: one hairline or solid primary, and a quiet text secondary. On touch the hit area
+   grows past the drawn edge instead of the button growing. */
+.mari-btn,
+.mari-link {
+  position: relative;
+  display: inline-flex;
+  min-height: 1.875rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  border-radius: 0.5rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.mari-btn {
+  border: 1px solid var(--mari-hairline);
+  padding-inline: 0.75rem;
+  color: var(--foreground);
+}
+
+.mari-btn--solid {
+  border-color: transparent;
+  background: var(--foreground);
+  color: var(--background);
+}
+
+.mari-btn--danger {
+  border-color: transparent;
+  background: oklch(0.58 0.21 27);
+  color: #fff;
+}
+
+.mari-link {
+  padding-inline: 0.5rem;
+  color: var(--muted-foreground);
+}
+
+.mari-btn:not(.mari-btn--solid, .mari-btn--danger):hover,
+.mari-link:hover {
+  background: var(--mari-hover);
+  color: var(--foreground);
+}
+
+.mari-btn:disabled,
+.mari-link:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+@media (pointer: coarse) {
+  .mari-btn::after,
+  .mari-link::after {
+    position: absolute;
+    inset: -0.45rem -0.125rem;
+    content: "";
+  }
+}
+
+/* R42: a risky prompt. One neutral hairline, a small icon tile, the reason, then a quiet secondary and
+   one primary on the right. */
+.mari-card {
+  display: grid;
+  min-width: 0;
+  gap: 0.6rem;
+  border: 1px solid var(--mari-hairline);
+  border-radius: var(--mari-card-radius);
+  background: var(--mari-group-bg);
+  padding: 0.75rem var(--mari-card-pad-inline);
+  font-size: 0.8125rem;
+  line-height: 1.55;
+}
+
+.mari-card__head {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.mari-card__media {
+  display: grid;
+  width: var(--mari-card-slot);
+  height: var(--mari-card-slot);
+  flex: none;
+  place-items: center;
+  border-radius: var(--mari-card-slot-radius);
+  background: var(--mari-card-slot-fill);
+  color: var(--muted-foreground);
+}
+
+.mari-card[data-variant="danger"] .mari-card__media {
+  background: color-mix(in srgb, oklch(0.58 0.21 27) 16%, var(--background));
+  color: oklch(0.72 0.15 27);
+}
+
+.mari-card__title {
+  font-weight: 600;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.mari-card__meta {
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.mari-card__body {
+  display: grid;
+  min-width: 0;
+  gap: 0.5rem;
+  color: var(--muted-foreground);
+  overflow-wrap: anywhere;
+}
+
+.mari-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+/* Slice 71 (N1-N2, N5, N8): a card where nothing happens until you choose. One accent edge and a
+   "Needs you" kicker, the same for every kind (danger stays on the slot tint and the red button), then
+   one line that says what each button does beside them. Theme tokens only, so user themes recolour it. */
+.mari-card[data-needs-you="true"] {
+  gap: 0.55rem;
+  border-color: color-mix(in srgb, var(--primary) 34%, var(--mari-hairline));
+  background: color-mix(in srgb, var(--primary) 4%, var(--mari-group-bg));
+  box-shadow: inset 3px 0 0 var(--primary);
+}
+
+.mari-card[data-needs-you="true"] .mari-card__title {
+  font-size: 0.875rem;
+}
+
+/* The words take the accent mixed toward the foreground so they keep 4.5:1 on light themes; the edge
+   and the dot stay pure accent. */
+.mari-card__kicker {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: color-mix(in srgb, var(--primary) 62%, var(--foreground));
+  font-size: 0.6875rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.mari-card__dot {
+  width: 0.375rem;
+  height: 0.375rem;
+  flex: none;
+  border-radius: 999px;
+  background: var(--primary);
+}
+
+.mari-card__foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem 0.75rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid var(--mari-divider);
+}
+
+.mari-card__then {
+  flex: 1 1 15rem;
+  min-width: 0;
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
+.mari-card__then b {
+  color: var(--foreground);
+  font-weight: 600;
+}
+
+/* One soft ring when the card arrives and two pulses of the dot, then still. */
+@media (prefers-reduced-motion: no-preference) {
+  html:not([data-marinara-reduced-effects="true"], [data-marinara-effects-paused="true"])
+    .mari-card[data-needs-you="true"] {
+    animation: mari-needs-you-arrive 1.4s ease-out 0.15s 1 both;
+  }
+
+  html:not([data-marinara-reduced-effects="true"], [data-marinara-effects-paused="true"])
+    .mari-card[data-needs-you="true"]
+    .mari-card__dot {
+    animation: mari-needs-you-dot 2.2s ease-out 0.4s 2;
+  }
+}
+
+@keyframes mari-needs-you-arrive {
+  0% {
+    box-shadow:
+      inset 3px 0 0 var(--primary),
+      0 0 0 0 color-mix(in srgb, var(--primary) 0%, transparent);
+  }
+
+  35% {
+    box-shadow:
+      inset 3px 0 0 var(--primary),
+      0 0 0 4px color-mix(in srgb, var(--primary) 14%, transparent);
+  }
+
+  100% {
+    box-shadow:
+      inset 3px 0 0 var(--primary),
+      0 0 0 8px color-mix(in srgb, var(--primary) 0%, transparent);
+  }
+}
+
+@keyframes mari-needs-you-dot {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 45%, transparent);
+  }
+
+  100% {
+    box-shadow: 0 0 0 5px color-mix(in srgb, var(--primary) 0%, transparent);
+  }
+}
+
+/* The header status names the open choice; a tap scrolls to the card. */
+.mari-status-needs-you {
+  color: color-mix(in srgb, var(--primary) 62%, var(--foreground));
+  cursor: pointer;
+}
+
+/* R42: a risky prompt's exact package, hash, path or contents, behind one disclosure. */
+.mari-tech > summary {
+  width: fit-content;
+  cursor: pointer;
+  list-style: none;
+}
+
+.mari-tech > summary::-webkit-details-marker {
+  display: none;
+}
+
+.mari-tech > summary svg {
+  transition: transform 0.15s ease;
+}
+
+.mari-tech[open] > summary svg {
+  transform: rotate(90deg);
+}
+
+.mari-tech dl {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 0.2rem 1rem;
+  margin-top: 0.35rem;
+  font-size: 0.75rem;
+}
+
+.mari-tech dd {
+  min-width: 0;
+  color: var(--foreground);
+  overflow-wrap: anywhere;
+}
+
+.mari-tech code,
+.mari-tech pre {
+  font-family: ui-monospace, "JetBrains Mono", Consolas, monospace;
+  font-size: 0.75rem;
+}
+
+.mari-tech pre {
+  max-height: 14rem;
+  overflow: auto;
+  margin-top: 0.5rem;
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--foreground) 5%, var(--background));
+  padding: 0.5rem 0.625rem;
+  color: var(--foreground);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* Mari's side panels (Chats, Skills, Memories): one hairline group of rows. */
+.mari-edit {
+  overflow: hidden;
+  border: 1px solid var(--mari-hairline);
+  border-radius: var(--mari-card-radius);
+  background: var(--mari-group-bg);
+}
+
+.mari-edit__row + .mari-edit__row {
+  border-top: 1px solid var(--mari-divider);
+}
+
+.mari-edit__text {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  line-height: 1.3;
+}
+
+.mari-edit__title {
+  overflow: hidden;
+  font-size: var(--mari-card-title);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mari-edit__meta {
+  overflow: hidden;
+  color: var(--muted-foreground);
+  font-size: var(--mari-card-fact);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* R10: a review is rows of the shared group. A row opens to its tracked changes in place; inside another
+   group (the outcome) it gives up its own frame. */
+.mari-list .mari-list {
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  animation: none;
+}
+
+.mari-edit__expand {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.3s cubic-bezier(0.33, 1, 0.68, 1);
+}
+
+.mari-edit__expand > div {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.mari-list__item[data-open="true"] > .mari-edit__expand {
+  grid-template-rows: 1fr;
+}
+
+/* A batch of several records: its links and Undo/Keep close the group on one line. */
+.mari-edit__footer .mari-row__links {
+  flex: 1;
+}
+
+.mari-edit__reason {
+  max-width: 64ch;
+  color: var(--muted-foreground);
+  font-size: var(--mari-card-fact);
+  line-height: 1.5;
+}
+
+.mari-field {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.mari-field__label {
+  color: var(--muted-foreground);
+  font-size: var(--mari-card-fact);
+  font-weight: 500;
+}
+
+.mari-field__text {
+  max-width: 64ch;
+  max-height: 18rem;
+  overflow-y: auto;
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* Old text is struck and muted, new text is underlined on a light tint: both marks, not just colour. */
+.mari-field__text del {
+  color: var(--muted-foreground);
+  text-decoration: line-through 1px;
+}
+
+.mari-field__text ins {
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--mari-ins-line) 16%, transparent);
+  padding-inline: 1px;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  text-decoration: underline 1px var(--mari-ins-line);
+  text-underline-offset: 3px;
+}
+
+.mari-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.mari-tag {
+  display: inline-flex;
+  height: 1.375rem;
+  align-items: center;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--foreground) 8%, var(--background));
+  padding-inline: 0.5rem;
+  font-size: 0.6875rem;
+  font-weight: 500;
+}
+
+.mari-tag--del {
+  background: none;
+  box-shadow: inset 0 0 0 1px var(--mari-hairline);
+  color: var(--muted-foreground);
+  text-decoration: line-through;
+}
+
+.mari-tag--ins {
+  background: color-mix(in srgb, var(--mari-ins-line) 16%, transparent);
+}
+
+.mari-tag--del::before,
+.mari-tag--ins::before {
+  margin-inline-end: 3px;
+  font-weight: 600;
+}
+
+.mari-tag--del::before {
+  content: "\2212";
+}
+
+.mari-tag--ins::before {
+  color: var(--mari-ok);
+  content: "+";
+}
+
+/* "New" on something she made: a small gold capsule, sentence case. */
+.mari-new-badge {
+  flex: none;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--mari-workspace-gold, oklch(0.82 0.11 79)) 15%, transparent);
+  padding: 0.0625rem 0.375rem;
+  color: color-mix(in srgb, var(--mari-workspace-gold, oklch(0.82 0.11 79)) 70%, var(--foreground));
+  font-size: 0.625rem;
+  font-weight: 600;
+}
+
+/* A failed send: one red line under your message, then Retry. */
+.mari-send-failed {
+  display: flex;
+  width: fit-content;
+  max-width: min(85%, 36rem);
+  align-items: center;
+  gap: 0.35rem;
+  margin-inline-start: auto;
+  color: color-mix(in srgb, oklch(0.72 0.17 25) 80%, var(--foreground));
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+.mari-send-failed > svg {
+  flex: none;
+}
+
+.mari-send-failed__text {
+  position: relative;
+  display: -webkit-box;
+  min-width: 0;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+@media (pointer: coarse) {
+  .mari-send-failed__text::after {
+    position: absolute;
+    inset: -0.45rem -0.125rem;
+    content: "";
+  }
+}
+
+.mari-send-failed .mari-link {
+  flex: none;
+  color: var(--foreground);
+  text-decoration: underline 1px var(--mari-hairline);
+  text-underline-offset: 3px;
+}
+
+[data-chat-mode] .mari-send-failed .mari-link {
+  color: var(--marinara-chat-chrome-text);
+}
+
+/* R14: the newest unresolved failure. No box: a red label, the provider's words muted, then the actions. */
+.mari-run-error {
+  display: grid;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
+/* Her retry pose stands beside the error card; the card takes the rest of the row. */
+.mari-run-error-row > .mari-run-error {
+  min-width: 0;
+  flex: 1;
+}
+
+.mari-run-error__text {
+  display: flex;
+  min-width: 0;
+  gap: 0.4rem;
+  overflow-wrap: anywhere;
+}
+
+.mari-run-error__text > svg {
+  flex: none;
+  margin-top: 0.2rem;
+  /* F14: the v5 destructive token, not a one-off hard-coded red. */
+  color: color-mix(in srgb, var(--destructive) 80%, var(--foreground));
+}
+
+.mari-run-error__text > span {
+  display: -webkit-box;
+  min-width: 0;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.mari-run-error__label {
+  color: color-mix(in srgb, var(--destructive) 80%, var(--foreground));
+}
+
+.mari-run-error__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.9rem;
+  /* G6: the first button's words start where the error's words start (L0 + 1.3rem). */
+  padding-inline-start: calc(1.3rem - 0.7rem);
+}
+
+/* F14: v5's established quiet capsule (`.mari-row .mari-btn`'s own shape), not bold underlined links. */
+.mari-run-error__actions .mari-btn {
+  min-height: 1.75rem;
+  border-color: transparent;
+  padding-inline: 0.7rem;
+  border-radius: 999px;
+  color: var(--foreground);
+  font-size: var(--mari-card-fact);
+}
+
+.mari-run-error__actions .mari-run-error__dismiss {
+  color: var(--muted-foreground);
+}
+
+@media (pointer: coarse) {
+  .mari-run-error__actions .mari-btn {
+    min-height: 2.75rem;
+  }
+}
+
+/* An answered failure (a later run, or dismissed): one quiet line where its card was. */
+.mari-run-failed-line {
+  display: flex;
+  min-width: 0;
+  max-width: 100%;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.25rem;
+  color: var(--muted-foreground);
+  font-size: 0.6875rem;
+}
+
+.mari-run-failed-line > svg {
+  flex: none;
+  opacity: 0.8;
+}
+
+/* R2: the reply checkup line uses the Failed line's shape, but muted and under a reply (left). */
+.mari-reply-checkup {
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+.mari-reply-checkup .mari-send-failed {
+  margin-inline-start: 0;
+  color: inherit;
+}
+
+.mari-reply-checkup .mari-send-failed .mari-link {
+  color: var(--foreground);
+  font-weight: 500;
+  text-decoration: underline 1px var(--mari-hairline);
+  text-underline-offset: 3px;
+}
+
+[data-chat-mode] .mari-reply-checkup .mari-send-failed .mari-link {
+  color: var(--marinara-chat-chrome-text);
+}
+
+/* F5: muted-foreground sits on roleplay's mid-grey chat surface at ~1.2:1 in light theme. Same token
+   family as the link above, just dimmed instead of muted, so the line stays readable there. */
+[data-chat-mode] .mari-reply-checkup {
+  color: color-mix(in srgb, var(--marinara-chat-chrome-text) 72%, transparent);
+}
+
+/* R10: opened, the findings are rows of one group: the number in the title, why and the setting as the
+   fact; the whole row goes to the setting. F6: the scrollIntoView target also keeps the panel's rows
+   clear of the sticky composer below it. */
+.mari-reply-checkup__panel {
+  max-width: 28rem;
+  margin-block-start: 0.35rem;
+  scroll-margin-bottom: 7rem;
+}
+
+/* The Peek header keeps the findings as a short list of sentences. */
+.mari-reply-checkup__facts {
+  display: grid;
+  gap: 0.3rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mari-edit__expand {
+    transition: none;
+  }
+}
+
+/* R53: a split at 44rem gives each side 20rem, which is too narrow for a diff.
+   The shell already animates its height when she takes over; this is the same
+   motion on the other axis, and it needs no state passed up from the panel. */
+@media (min-width: 40rem) {
+  .mari-workspace-shell:has([data-mari-panel="open"]) {
+    max-width: 68rem;
+  }
+}
+
+.mari-workspace-canvas {
+  background: color-mix(in srgb, var(--background) 97%, oklch(0.2 0.025 315));
+}
+
+/* M6: Chats, Skills, Memories and Aware of share one surface - the canvas, one hairline on the
+   left (a full opaque sheet with Back on a phone), this header, and Mari's own `.mari-edit` group rows. */
+.mari-side-head {
+  display: flex;
+  min-height: 3.25rem;
+  flex: none;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.25rem 0.25rem 1rem;
+}
+
+.mari-side-head > .mari-omnibar-header-menu__trigger:first-child {
+  margin-inline: -0.75rem 0;
+}
+
+/* Back on a phone (the panel is a full sheet), Close beside the stream; a sub-view's own Back stays. */
+@media (min-width: 40rem) {
+  .mari-side-head > .mari-side-head__back:not([data-sub="true"]) {
+    display: none;
+  }
+}
+
+@media (max-width: 39.99rem) {
+  .mari-side-head > .mari-side-head__close {
+    display: none;
+  }
+}
+
+.mari-side-head__text {
+  min-width: 0;
+  flex: 1;
+  line-height: 1.3;
+}
+
+.mari-side-head__title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Q5: the hint is a sentence; cut to "New chat saves the current c…" it said nothing. */
+.mari-side-head__hint {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.mari-side-head__title {
+  color: var(--foreground);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.mari-side-head__hint {
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+}
+
+.mari-side-search {
+  display: flex;
+  height: 2.25rem;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid var(--mari-hairline);
+  border-radius: 0.65rem;
+  background: var(--mari-group-bg);
+  padding-inline: 0.75rem;
+  color: var(--muted-foreground);
+}
+
+.mari-side-search:focus-within {
+  border-color: color-mix(in srgb, var(--primary) 55%, transparent);
+}
+
+.mari-side-search input {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  background: none;
+  color: var(--foreground);
+  font-size: 0.8125rem;
+  outline: 0;
+}
+
+/* A group whose rows open a ⋮ menu must not clip it. */
+.mari-edit--menus {
+  overflow: visible;
+}
+
+.mari-edit--menus > :first-child,
+.mari-edit--menus > :first-child > .mari-row {
+  border-start-start-radius: inherit;
+  border-start-end-radius: inherit;
+}
+
+.mari-edit--menus > :last-child,
+.mari-edit--menus > :last-child > .mari-row {
+  border-end-start-radius: inherit;
+  border-end-end-radius: inherit;
+}
+
+/* Not clipped (its ⋮ menus overflow), so the first row's divider is hidden by hand. */
+.mari-edit--menus > .mari-list__item:first-child::before {
+  display: none;
+}
+
+.mari-edit__row[aria-current="true"] {
+  background: var(--mari-hover);
+}
+
+/* M1/M2: one always-on fade, top and bottom - the edges never go hard. Both the bottom fade stop and the
+   bottom padding track the dock's live height, so text clears into the composer instead of stopping at a
+   line. Slice 72: at the end the bottom fade starts at the dock, so the last row (her "Next" list) is
+   whole; the longer fade above the dock returns only while newer lines wait below (the jump arrow). */
+.mari-workspace-transcript {
+  position: relative;
+  z-index: 1;
+  /* Slice 71 (G1): both edges, so the column keeps the composer's centre (one side put it 5px left). */
+  scrollbar-gutter: stable both-edges;
+  /* G3: whether there is margin for her sprite to hang in, beside the 44rem column. */
+  container: mari-scroll / inline-size;
+  width: 100%;
+  padding-bottom: var(--mari-dock-h, 0px);
+  --mari-fade-above-dock: 0px;
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 2rem,
+    #000 calc(100% - var(--mari-dock-h, 0px) - var(--mari-fade-above-dock)),
+    transparent calc(100% - var(--mari-dock-h, 0px) + 1.25rem)
+  );
+}
+
+.mari-workspace-transcript[data-more-below] {
+  --mari-fade-above-dock: 2.5rem;
+}
+
+/* R10: the column's width decides whether card groups sit at the text edge or span it (phone). */
+.mari-transcript-stack {
+  container: mari-transcript / inline-size;
+}
+
+/* A long chat's older turns skip style and layout while off screen, so opening it (and every accent
+   tick) pays only for what is visible. The clip margin keeps their focus rings and 44px touch targets. */
+.mari-transcript-past-turn {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 8rem;
+  overflow-clip-margin: 0.75rem;
+}
+
+/* Their done marks stand drawn: skipped off screen, they would draw their check as you scroll to them. */
+.mari-transcript-past-turn .mari-work-timeline__done-mark :is(circle, path) {
+  animation: none;
+  stroke-dashoffset: 0;
+}
+
+/* Her chat loading (slice 83): her sprite and soft rows, held back 150 ms so a fast load never flashes it.
+   Real content fades in once the stack reports it loaded. Reduced motion: visibility only, no fades or shimmer. */
+.mari-loading {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding-block: 1rem;
+  animation: mari-loading-reveal 200ms ease-out 150ms both;
+}
+
+.mari-loading__head {
+  display: flex;
+  justify-content: flex-start;
+  min-height: 6.5rem;
+}
+
+.mari-loading__rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.mari-loading__row {
+  height: 0.5rem;
+  width: 100%;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--foreground) 9%, transparent);
+  animation: mari-loading-shimmer 1.6s ease-in-out infinite;
+}
+
+.mari-loading__row--mid {
+  width: 72%;
+}
+
+.mari-loading__row--short {
+  width: 38%;
+}
+
+.mari-loading__row:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.mari-transcript-stack[data-history="loaded"][data-arrive] {
+  animation: mari-transcript-arrive 220ms ease-out both;
+}
+
+@keyframes mari-loading-reveal {
+  from {
+    opacity: 0;
+    visibility: hidden;
+  }
+  to {
+    opacity: 1;
+    visibility: visible;
+  }
+}
+
+@keyframes mari-loading-shimmer {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
+
+@keyframes mari-transcript-arrive {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mari-loading {
+    animation: mari-loading-visibility 0ms linear 150ms both;
+  }
+
+  .mari-loading__row {
+    animation: none;
+  }
+
+  .mari-transcript-stack[data-history="loaded"][data-arrive] {
+    animation: none;
+  }
+}
+
+@keyframes mari-loading-visibility {
+  from {
+    visibility: hidden;
+  }
+  to {
+    visibility: visible;
+  }
+}
+
+/* One comfortable reading column, as in Claude and Gemini; the composer below lines up with it. */
+.mari-workspace-transcript > .mari-transcript-stack {
+  width: 100%;
+  max-width: 44rem;
+  margin-inline: auto;
+}
+
+/* A short conversation sits on the composer instead of hanging from the top, like a chat. */
+.mari-workspace-transcript[data-anchor="bottom"] {
+  display: flex;
+  flex-direction: column;
+}
+
+.mari-workspace-transcript[data-anchor="bottom"] > :first-child {
+  margin-top: auto;
+}
+
+/* Your turn: a soft bubble on the right, no avatar or name - the side it sits on says who spoke. */
+.mari-user-request {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  padding-block: 0.25rem;
+}
+
+.mari-user-request__bubble {
+  max-width: min(85%, 36rem);
+  padding: 0.55rem 0.9rem;
+  border-radius: 1.25rem 1.25rem 0.375rem 1.25rem;
+  background: color-mix(in srgb, var(--foreground) 7%, var(--card));
+}
+
+/* Mari's header is two lines and has no portrait (she is in the transcript): row 1 is Back, her name with
+   her status, settings and Close; this row 2 holds the destinations, then Chats with New chat at its end. */
+.mari-omnibar-header-row {
+  position: relative;
+  z-index: 50;
+  padding-inline: 0.5rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--mari-workspace-blush) 18%, var(--border));
+  background: color-mix(in srgb, var(--card) 96%, var(--mari-workspace-hoodie));
+}
+
+.mari-omnibar-header-row .mari-omnibar-header-controls {
+  width: 100%;
+  min-height: 2.75rem;
+}
+
+/* R11: while a phone keyboard is open (or its menu is open) the header is one line: her name and status,
+   with the destinations in a menu in the first row. Wider screens keep both rows. */
+.mari-omnibar-header-compact-menu {
+  position: relative;
+  display: none;
+}
+
+/* --card is translucent in some themes; this menu opens over the transcript. */
+.mari-omnibar-header-compact-menu .mari-omnibar-header-menu__popover {
+  background: linear-gradient(var(--card), var(--card)) var(--background);
+}
+
+@media (max-width: 39.99rem) {
+  .mari-omnibar-header-compact-menu:not(:empty) {
+    display: inline-flex;
+  }
+
+  .mari-omnibar-header-row:has(> .mari-omnibar-header-controls[data-compact="true"]) {
+    display: none;
+  }
+}
+
+/* Her status under her name shimmers while she works, like Claude's thinking text. */
+.mari-status-shimmer[data-active="true"] {
+  background: linear-gradient(100deg, var(--muted-foreground) 35%, var(--foreground) 50%, var(--muted-foreground) 65%) 0
+    0 / 250% 100%;
+  background-clip: text;
+  color: transparent;
+  animation: mari-text-shimmer 2.2s linear infinite;
+}
+
+@keyframes mari-text-shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -150% 0;
+  }
+}
+
+/* R14: her header line says a failure is waiting for an answer, in a quiet red. */
+.mari-status-shimmer[data-state="error"] {
+  color: color-mix(in srgb, oklch(0.72 0.17 25) 80%, var(--foreground));
+}
+
+html[data-marinara-effects-paused="true"] .mari-status-shimmer[data-active="true"] {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mari-status-shimmer[data-active="true"] {
+    animation: none;
+    background: none;
+    color: var(--muted-foreground);
+  }
+}
+
+.mari-omnibar-header-slot .mari-omnibar-header-destinations {
+  display: flex;
+  flex: 1 1 auto;
+  justify-content: safe center;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.mari-omnibar-header-slot .mari-omnibar-header-destinations::-webkit-scrollbar {
+  display: none;
+}
+
+.mari-omnibar-header-slot .mari-omnibar-header-destinations button {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.mari-omnibar-header-slot .mari-omnibar-header-destinations .mari-omnibar-header-destination-label-short {
+  display: none;
+}
+
+/* A phone shows icon + a short visible label stacked underneath; the full label stays for aria/title. The four share the free width and the count sits on the icon's corner, so none of them clips
+   at 390 px (F8/D2, slice 41). */
+@media (max-width: 30rem) {
+  .mari-omnibar-header-slot .mari-omnibar-header-destinations button {
+    flex: 1 1 0;
+    flex-direction: column;
+    gap: 0.125rem;
+    min-width: 0;
+    min-height: 2.75rem;
+    justify-content: center;
+    padding-inline: 0;
+  }
+
+  .mari-omnibar-header-slot .mari-omnibar-header-destinations b {
+    position: absolute;
+    top: 0.3rem;
+    left: calc(50% + 0.2rem);
+    min-width: 0.9rem;
+    height: 0.9rem;
+    padding-inline: 0.2rem;
+    font-size: 0.5625rem;
+  }
+
+  .mari-omnibar-header-slot .mari-omnibar-header-destinations .mari-omnibar-header-destination-label-full {
+    display: none;
+  }
+
+  .mari-omnibar-header-slot .mari-omnibar-header-destinations .mari-omnibar-header-destination-label-short {
+    display: block;
+    position: static;
+    width: auto;
+    height: auto;
+    clip-path: none;
+    font-size: 0.625rem;
+    line-height: 1;
+    white-space: nowrap;
+  }
+}
+
+/* Q1: New chat belongs to Chats, one "Chats · +" group; a hairline sets it off from the other destinations.
+   Q5: the group closes the row, at the right under settings and Close (mari-v4); the others stay centred. */
+.mari-omnibar-header-slot .mari-omnibar-header-destinations button.mari-omnibar-header-new-chat {
+  flex: 0 0 2.25rem;
+  justify-content: center;
+  padding-inline: 0;
+}
+
+@media (pointer: coarse) {
+  .mari-omnibar-header-slot .mari-omnibar-header-destinations button.mari-omnibar-header-new-chat {
+    flex: 0 0 2.75rem;
+  }
+}
+
+.mari-omnibar-header-slot .mari-omnibar-header-destinations button[data-destination="chats"] {
+  margin-inline-start: 0.5rem;
+}
+
+.mari-omnibar-header-destinations button[data-destination="chats"]::before {
+  content: "";
+  position: absolute;
+  inset-block: 0.6rem;
+  inset-inline-start: calc(-0.25rem - 0.5px);
+  width: 1px;
+  background: var(--border);
+}
+
+@media (min-width: 30.0625rem) {
+  .mari-omnibar-header-slot .mari-omnibar-header-destinations > .mari-omnibar-header-tablist > :first-child,
+  .mari-omnibar-header-slot .mari-omnibar-header-destinations button[data-destination="chats"] {
+    margin-inline-start: auto;
+  }
+}
+
+.mari-omnibar-header-controls {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.25rem;
+}
+
+.mari-omnibar-header-destinations {
+  display: none;
+  min-width: 0;
+  align-items: stretch;
+}
+
+.mari-omnibar-header-destinations button,
+.mari-omnibar-header-menu__popover button {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--muted-foreground);
+  font-size: 0.6875rem;
+  transition:
+    color 160ms ease,
+    background-color 160ms ease;
+}
+
+.mari-omnibar-header-destinations button {
+  position: relative;
+  min-height: 2.25rem;
+  border-radius: 0.5rem;
+  padding-inline: 0.55rem;
+}
+
+.mari-omnibar-header-destinations button:hover,
+.mari-omnibar-header-destinations button[data-active="true"] {
+  color: var(--foreground);
+  background: var(--accent);
+}
+
+/* Tabs, like a browser's: the selected tab takes the panel's own surface (--card, what the transcript
+   sits on) and rounds its top corners, so it merges into the content. The header's hairline stays
+   under the other tabs; the selected tab covers it with a shadow. Shadows and no border, so no size
+   or position changes. The tablist is display: contents: the tabs remain flex items of the row. */
+.mari-omnibar-header-tablist {
+  display: contents;
+}
+
+.mari-omnibar-header-destinations button[role="tab"] {
+  background: transparent;
+}
+
+.mari-omnibar-header-destinations button[role="tab"]:hover {
+  background: color-mix(in srgb, var(--accent) 50%, transparent);
+}
+
+.mari-omnibar-header-destinations button[role="tab"][data-active="true"] {
+  border-radius: 0.5rem 0.5rem 0 0;
+  background: var(--card);
+  box-shadow: 0 1px 0 var(--card);
+}
+
+.mari-omnibar-header-destinations b,
+.mari-omnibar-header-menu__popover b {
+  display: grid;
+  min-width: 1.05rem;
+  height: 1.05rem;
+  place-items: center;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--primary) 14%, var(--muted));
+  font-size: 0.6rem;
+  font-weight: 650;
+}
+
+.mari-omnibar-header-menu__trigger {
+  display: inline-flex;
+  width: 2.75rem;
+  height: 2.75rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.45rem;
+  color: var(--muted-foreground);
+}
+
+.mari-omnibar-header-menu__trigger:hover {
+  background: var(--accent);
+}
+
+.mari-omnibar-header-menu__trigger:focus-visible,
+.mari-omnibar-header-destinations button:focus-visible,
+.mari-omnibar-header-menu__popover button:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.mari-omnibar-header-menu__popover {
+  position: absolute;
+  z-index: 100;
+  top: calc(100% + 0.35rem);
+  right: 0;
+  width: 13rem;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 0.6rem;
+  background: var(--card);
+  padding: 0.25rem;
+  box-shadow: 0 1rem 2rem color-mix(in srgb, black 24%, transparent);
+}
+
+.mari-omnibar-header-menu__popover button {
+  width: 100%;
+  min-height: 2.75rem;
+  border-radius: 0.4rem;
+  padding-inline: 0.65rem;
+  text-align: left;
+}
+
+.mari-omnibar-header-menu__popover button:hover {
+  background: var(--accent);
+  color: var(--foreground);
+}
+
+.mari-omnibar-header-destinations button:disabled,
+.mari-omnibar-header-menu__popover button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.mari-omnibar-header-menu__popover button span {
+  min-width: 0;
+  flex: 1;
+}
+
+/* An empty chat greets you like Gemini: a large greeting in her logo colors, no card around it. The
+   composer stays at the bottom. */
+.mari-omnibar-empty-welcome {
+  display: flex;
+  width: 100%;
+  align-items: flex-end;
+  gap: 1.5rem;
+  padding-block: 1rem 0.5rem;
+  animation: mari-welcome-in 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.mari-omnibar-empty-welcome__copy {
+  min-width: 0;
+  flex: 1;
+}
+
+@media (max-width: 30rem) {
+  .mari-omnibar-empty-welcome {
+    gap: 0.9rem;
+  }
+}
+
+.mari-omnibar-empty-welcome h3 {
+  width: fit-content;
+  background: linear-gradient(90deg, var(--mari-logo-cyan), var(--mari-logo-pink) 55%, var(--mari-logo-orange));
+  background-clip: text;
+  color: transparent;
+  font-size: clamp(1.6rem, 4vw, 2.4rem);
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  text-wrap: balance;
+}
+
+.mari-omnibar-empty-welcome > p {
+  max-width: 34rem;
+  margin-top: 0.5rem;
+  color: var(--muted-foreground);
+  font-size: 0.9375rem;
+  line-height: 1.55;
+  text-wrap: pretty;
+}
+
+.mari-omnibar-empty-welcome .mari-suggestion-chips {
+  margin-top: 1.25rem;
+  margin-bottom: 0;
+}
+
+@keyframes mari-welcome-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mari-omnibar-empty-welcome {
+    animation: none;
+  }
+}
+
+/* M9: she arrives knowing the screen she came from: her sprite, one line and its facts, then ONE group of
+   rows (the things in it, then what to do). R10: the group starts at the text edge; on a phone it spans
+   the transcript and only the line stays beside her. */
+.mari-arrival {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: end;
+  gap: 0.75rem 1rem;
+  width: 100%;
+  padding-block: 1rem 0.5rem;
+}
+
+.mari-arrival__copy {
+  display: grid;
+  min-width: 0;
+  gap: 0.35rem;
+  padding-bottom: 0.4rem;
+  animation: mari-welcome-in 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.mari-arrival__line {
+  color: var(--foreground);
+  font-size: 1rem;
+  line-height: 1.45;
+  text-wrap: pretty;
+}
+
+.mari-arrival__line b {
+  font-weight: 650;
+}
+
+.mari-arrival__meta {
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+}
+
+/* R7: "Continue here / New about ..." when another thread was just in use: two quiet buttons, no banner. */
+.mari-arrival__choice {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  margin-top: 0.25rem;
+}
+
+.mari-arrival__group {
+  grid-column: 2;
+}
+
+@container mari-transcript (width < 30rem) {
+  .mari-arrival__group {
+    grid-column: 1 / -1;
+  }
+}
+
+/* M17: the line and cards wait (at their first frame) until the pull's circle has become her sprite. */
+html[data-mari-pull-landing] .mari-arrival-content,
+html[data-mari-pull-landing] .mari-arrival-content * {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mari-arrival__copy {
+    animation: none;
+  }
+}
+
+.omnibar-horizontal-strip {
+  scroll-padding-inline: 0.75rem;
+}
+
+@media (min-width: 40rem) {
+  .mari-omnibar-header-menu__trigger {
+    width: 2.25rem;
+    height: 2.25rem;
+  }
+}
+
+/* A review brings its own group (an applied edit) or card (a risky prompt); it only rises in. */
+.mari-inline-review {
+  position: relative;
+  animation: mari-review-rise 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes mari-review-rise {
+  from {
+    opacity: 0;
+    transform: translateY(0.9rem) scale(0.985);
+    filter: blur(4px);
+  }
+}
+
+/* R9: a review the omnibar jumped to gets a brief highlight when it was already on
+   screen (the rise-in entrance above only plays for a newly mounted review). */
+.mari-inline-review--jump {
+  border-radius: var(--mari-card-radius);
+  animation: mari-review-jump-highlight 1.1s ease-out;
+}
+
+@keyframes mari-review-jump-highlight {
+  0% {
+    box-shadow: inset 0 0 0 0 color-mix(in srgb, var(--marinara-app-accent-solid) 0%, transparent);
+  }
+  12% {
+    box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--marinara-app-accent-solid) 55%, transparent);
+  }
+  100% {
+    box-shadow: inset 0 0 0 0 color-mix(in srgb, var(--marinara-app-accent-solid) 0%, transparent);
+  }
+}
+
+.mari-workspace-transcript[data-mari-state="broken"] .mari-suggestion-turn,
+.mari-workspace-transcript[data-mari-state="waiting-approval"] .mari-suggestion-turn,
+.mari-workspace-transcript[data-mari-state="composing"] .mari-suggestion-turn {
+  display: none;
+}
+
+/* Working Mari on the live line. The outer box keeps the row height; the sprite stands on
+   the row and rises above it, and bobs while she works. */
+.mari-live-work__sprite {
+  position: relative;
+  flex: 0 0 auto;
+  width: calc(3rem * var(--mari-sprite-aspect, 1));
+  height: 4.5rem;
+  pointer-events: none;
+}
+
+.mari-live-work__sprite > span {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-image: var(--mari-work-sprite);
+  background-position: 0 center;
+  background-repeat: no-repeat;
+  background-size: 400% auto;
+  image-rendering: pixelated;
+  animation:
+    mari-live-work-sprite var(--mari-sprite-cycle, 3.6s) step-end infinite,
+    mari-sprite-arrive 0.45s cubic-bezier(0.16, 1, 0.3, 1) both,
+    mari-sprite-bob 1.4s ease-in-out infinite;
+}
+
+.mari-live-work__sprite[data-role="working"]::after {
+  position: absolute;
+  right: 20%;
+  bottom: -0.1rem;
+  left: 20%;
+  height: 0.3rem;
+  border-radius: 50%;
+  content: "";
+  background: oklch(0 0 0 / 0.4);
+  filter: blur(2px);
+}
+
+@keyframes mari-sprite-arrive {
+  from {
+    opacity: 0;
+    transform: scale(0.6) translateY(0.4rem);
+  }
+  45% {
+    opacity: 1;
+    transform: scale(1.04) translateY(-0.45rem);
+  }
+  75% {
+    transform: translateY(0.05rem);
+  }
+}
+
+/* A small gold puff each time working Mari changes scene. */
+.mari-live-work__sprite[data-role="working"] > span::before {
+  position: absolute;
+  inset: -25%;
+  content: "";
+  pointer-events: none;
+  background: radial-gradient(circle, var(--mari-workspace-gold, oklch(0.82 0.11 79)) 0 1.5px, transparent 2px) 50%
+    50% / 34% 34%;
+  mask-image: radial-gradient(circle, transparent 28%, #000 30%, #000 60%, transparent 62%);
+  opacity: 0;
+  animation: mari-sprite-puff 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes mari-sprite-puff {
+  from {
+    opacity: 1;
+    transform: scale(0.5) rotate(0deg);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.25) rotate(45deg);
+  }
+}
+
+@keyframes mari-sprite-bob {
+  50% {
+    translate: 0 -2px;
+  }
+}
+
+.mari-work-timeline {
+  display: grid;
+  min-width: 0;
+  gap: 0.5rem;
+}
+
+.mari-stream-word {
+  animation: mari-word-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes mari-word-in {
+  from {
+    opacity: 0;
+    filter: blur(4px);
+  }
+}
+
+/* A small glowing dot leads her words while she writes. */
+.mari-stream-caret {
+  display: inline-block;
+  width: 0.5rem;
+  height: 0.5rem;
+  margin-inline-start: 0.2rem;
+  border-radius: 50%;
+  vertical-align: middle;
+  background: radial-gradient(circle, var(--mari-workspace-gold, oklch(0.82 0.11 79)), transparent 70%);
+  box-shadow: 0 0 0.6rem var(--mari-logo-orange);
+  animation: mari-caret-pulse 0.9s ease-in-out infinite;
+}
+
+@keyframes mari-caret-pulse {
+  50% {
+    opacity: 0.6;
+    transform: scale(0.6);
+  }
+}
+
+.mari-reasoning-panel__star {
+  color: var(--mari-workspace-gold, oklch(0.82 0.11 79));
+}
+
+.mari-reasoning-panel__star--live {
+  animation: mari-star-twinkle 2.4s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+}
+
+@keyframes mari-star-twinkle {
+  50% {
+    opacity: 0.6;
+    transform: rotate(90deg) scale(0.75);
+  }
+}
+
+/* The live line: always last, working Mari leads it on the left. Tall enough for her sprite, so
+   nothing above or below can clip her. */
+.mari-work-timeline__live {
+  display: flex;
+  min-width: 0;
+  min-height: 4.75rem;
+  align-items: center;
+  gap: 0.6rem;
+  padding-inline: 0.5rem;
+  color: var(--muted-foreground);
+  font-size: 0.6875rem;
+  font-weight: 600;
+}
+
+/* A finished run: where the live line was, "Worked for Ns · N steps" folds the work away. Older turns
+   keep only the words, without her sprite. */
+.mari-work-timeline__live[data-past="true"] {
+  min-height: 2rem;
+  /* G4: "Worked for" / "Done" put their icon on L0, like every other status line. */
+  padding-inline: 0;
+}
+
+/* G4: every status line (thought, phase, "Worked for", her question, an error) has one 0.85rem icon box on
+   L0 and its words at L0 + 1.3rem, the edge the step rows nest under. */
+.mari-reasoning-panel > summary > svg:first-child,
+.mari-phase > summary > svg:first-child,
+.mari-work-timeline__header > svg:first-child,
+.mari-work-timeline__done > svg:first-child,
+.mari-suggestion-question-turn > svg,
+.mari-run-error__text > svg {
+  width: 0.85rem;
+  height: 0.85rem;
+  flex: none;
+}
+
+.mari-reasoning-panel > summary,
+.mari-phase > summary,
+.mari-work-timeline__header,
+.mari-work-timeline__done,
+.mari-suggestion-question-turn,
+.mari-run-error__text {
+  gap: 0.45rem;
+}
+
+/* "Worked for Ns · N steps". Slice 72: on a finished run it sits on top and folds the work below it. */
+.mari-work-timeline__header {
+  display: flex;
+  width: fit-content;
+  max-width: 100%;
+  min-width: 0;
+  min-height: 2rem;
+  align-items: center;
+  gap: 0.5rem;
+  margin-inline-start: -0.5rem;
+  padding-inline: 0.5rem 0.6rem;
+  border-radius: 999px;
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.mari-run > summary {
+  cursor: pointer;
+  list-style: none;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.mari-run > summary::-webkit-details-marker {
+  display: none;
+}
+
+.mari-run > summary:hover {
+  background: var(--mari-hover);
+  color: var(--foreground);
+}
+
+.mari-run[open] > summary .mari-disclosure__chevron {
+  transform: rotate(90deg);
+}
+
+/* A read she could not do and worked around: amber, never the run's red. */
+.mari-run__missed,
+.mari-phase__missed {
+  color: var(--warning);
+  font-size: 0.6875rem;
+  font-weight: 600;
+}
+
+/* Thoughts and steps between her words: quiet one-line disclosures, no frame. */
+.mari-work-timeline__rail {
+  display: grid;
+  min-width: 0;
+}
+
+/* M5a: one-line disclosures (a run phase, her "Why"): a quiet label with a chevron that turns when open. */
+.mari-disclosure {
+  display: flex;
+  width: fit-content;
+  max-width: 100%;
+  min-height: 1.9rem;
+  align-items: center;
+  gap: 0.5rem;
+  margin-inline-start: -0.5rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: 0.5rem;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  font-size: 0.8125rem;
+  list-style: none;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.mari-disclosure::-webkit-details-marker {
+  display: none;
+}
+
+.mari-disclosure:hover {
+  background: color-mix(in srgb, var(--foreground) 6%, transparent);
+  color: var(--foreground);
+}
+
+.mari-disclosure__chevron {
+  opacity: 0.7;
+  transition: transform 0.16s ease;
+}
+
+details[open] > .mari-disclosure .mari-disclosure__chevron {
+  transform: rotate(90deg);
+}
+
+/* The phase she is in reads in full colour; a finished one folds to "Looked at 4 things". */
+.mari-phase[data-state="live"] > .mari-disclosure {
+  color: var(--foreground);
+}
+
+.mari-phase__count {
+  font-size: 0.6875rem;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.8;
+}
+
+.mari-phase__failed {
+  color: var(--destructive);
+  font-size: 0.75rem;
+}
+
+.mari-phase__body {
+  display: grid;
+  min-width: 0;
+  margin: 0 0 0.2rem;
+  padding-inline-start: 1.375rem;
+}
+
+/* Slice 72: her words for the round that opened the phase, as its caption above its steps. */
+.mari-phase__caption {
+  margin: -0.15rem 0 0.1rem calc(-1.375rem + 1.3rem);
+  color: color-mix(in srgb, var(--muted-foreground) 88%, transparent);
+  font-size: 0.75rem;
+  font-style: italic;
+}
+
+/* The faces of what a look phase read, overlapping on its line. */
+.mari-face-stack {
+  display: inline-flex;
+  flex: none;
+}
+
+.mari-face-stack > * + * {
+  margin-inline-start: -0.2rem;
+}
+
+.mari-face-stack > * {
+  box-shadow: 0 0 0 1.5px var(--card);
+}
+
+/* The goal she reported acting on: one muted line above the run. */
+.mari-goal {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin-inline-start: -0.5rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.5rem;
+  color: var(--muted-foreground);
+  font-size: 0.8125rem;
+  text-align: start;
+  transition: background-color 0.15s ease;
+}
+
+.mari-goal:hover {
+  background: color-mix(in srgb, var(--foreground) 5%, transparent);
+}
+
+.mari-goal__kicker {
+  flex: none;
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* Slice 71 (G2): her words, cards, "Why" and the reply actions start on the column edge (L0), like her
+   steps. On her newest finished reply she rests beside the first line: in the margin left of the column
+   when there is room, floating at L0 with her first lines beside her when there is not (G3). */
+.mari-answer {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  gap: 0.5rem;
+}
+
+.mari-answer[data-sprite="true"] {
+  min-height: 4.5rem;
+}
+
+.mari-answer__sprite {
+  position: absolute;
+  /* The whole height of her reply, so the sprite inside can stick while the reply scrolls. */
+  inset-block: -0.6rem 0;
+  inset-inline-start: -3.75rem;
+  display: flex;
+  flex-direction: column;
+}
+
+/* G3: no margin beside the column (a phone, a narrow panel): 44rem + 2 x 3.75rem + the scrollbar gutters. */
+@container mari-scroll (width < 52rem) {
+  .mari-answer {
+    display: flow-root;
+  }
+
+  .mari-answer > * + * {
+    margin-top: 0.5rem;
+  }
+
+  .mari-answer[data-sprite="true"] {
+    min-height: 0;
+  }
+
+  .mari-answer__sprite {
+    position: relative;
+    inset: auto;
+    display: block;
+    float: inline-start;
+    margin: -0.3rem 0.6rem 0.15rem 0;
+  }
+
+  .mari-answer .mari-run-outcome {
+    clear: both;
+  }
+
+  /* Only the first plain text block sits beside her. Plain text is a span (inline by default, so clear would not apply).
+     A list, code block, table or card, and every later block, starts below her. */
+  .mari-answer .mari-message-content > span:not(.mari-stream-caret) {
+    display: block;
+  }
+
+  .mari-answer .mari-message-content > :not(span:first-child) {
+    clear: inline-start;
+  }
+}
+
+/* Under her answer: reference rows, the outcome groups, "Why", then the reply actions. */
+.mari-run-outcome {
+  display: grid;
+  min-width: 0;
+  gap: 0.6rem;
+}
+
+/* A risky prompt (delete, install, sensitive file) waiting in the outcome: a row of the group, no frame. */
+.mari-list .mari-inline-review > .mari-card {
+  --mari-card-text-edge: calc(var(--mari-card-pad-inline) + var(--mari-card-slot) + var(--mari-card-gap));
+  position: relative;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.mari-list .mari-inline-review > .mari-card::before {
+  position: absolute;
+  inset-inline: var(--mari-card-text-edge) 0;
+  top: -1px;
+  height: 1px;
+  background: var(--mari-divider);
+  content: "";
+}
+
+/* The group fades in once; its reviews do not rise in one by one. */
+.mari-list .mari-inline-review:not(.mari-inline-review--jump) {
+  animation: none;
+}
+
+.mari-why > .mari-message-content {
+  color: var(--muted-foreground);
+}
+
+/* The live headline: what Mari does now, written in letter by letter under a soft light sweep. */
+.mari-work-timeline__phrase {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  height: 1.4rem;
+  color: var(--foreground);
+  font-size: 0.875rem;
+}
+
+.mari-work-timeline__line {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  mask-image: linear-gradient(100deg, #000 38%, #0006 50%, #000 62%);
+  mask-size: 280% 100%;
+  animation: mari-headline-sheen 2.2s linear infinite;
+}
+
+.mari-work-timeline__char {
+  display: inline-block;
+  white-space: pre;
+  animation: mari-char-in 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: calc(var(--i) * 16ms);
+}
+
+.mari-work-timeline__subject-text {
+  color: var(--mari-workspace-gold, oklch(0.82 0.11 79));
+}
+
+.mari-work-timeline__timer {
+  display: inline-flex;
+  overflow: hidden;
+  font-variant-numeric: tabular-nums;
+}
+
+.mari-work-timeline__timer > span {
+  display: inline-block;
+  animation: mari-digit-in 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.mari-work-timeline__done-mark {
+  width: 0.95rem;
+  height: 0.95rem;
+  flex: 0 0 auto;
+  fill: none;
+  stroke: oklch(0.74 0.15 154);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+
+/* R13: the same check, small, on each done step and on a phase whose steps all succeeded. */
+.mari-done-mark--step {
+  width: 0.75rem;
+  height: 0.75rem;
+  margin-inline-start: 0.35rem;
+}
+
+/* An answer without steps ends on a small check and "Done". */
+.mari-work-timeline__done {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.mari-work-timeline__done-mark circle {
+  stroke-dasharray: 51;
+  stroke-dashoffset: 51;
+  animation: mari-stroke-draw 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.mari-work-timeline__done-mark path {
+  stroke-dasharray: 14;
+  stroke-dashoffset: 14;
+  animation: mari-stroke-draw 0.35s cubic-bezier(0.16, 1, 0.3, 1) 0.3s forwards;
+}
+
+@keyframes mari-headline-sheen {
+  from {
+    mask-position: 100% 0;
+  }
+  to {
+    mask-position: -180% 0;
+  }
+}
+
+@keyframes mari-char-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem) rotate(4deg);
+    filter: blur(4px);
+  }
+}
+
+@keyframes mari-digit-in {
+  from {
+    opacity: 0;
+    transform: translateY(100%);
+  }
+}
+
+@keyframes mari-stroke-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.mari-work-timeline[data-outcome="failed"] .mari-work-timeline__status {
+  color: var(--destructive);
+}
+
+.mari-work-timeline__subject {
+  width: fit-content;
+}
+
+.mari-live-work__sprite[data-scene="train"],
+.mari-live-work__sprite[data-scene="deep-dive"],
+.mari-live-work__sprite[data-scene="boat"],
+.mari-live-work__sprite[data-scene="spelunking"] {
+  --mari-sprite-aspect: 2.75;
+  --mari-sprite-cycle: 5.2s;
+}
+
+.mari-live-work__sprite[data-scene="detective"],
+.mari-live-work__sprite[data-scene="pixel-bug"],
+.mari-live-work__sprite[data-scene="puzzle"],
+.mari-live-work__sprite[data-scene="typewriter"] {
+  --mari-sprite-cycle: 2.8s;
+}
+
+.mari-live-work__sprite[data-scene="paper-airplane"],
+.mari-live-work__sprite[data-scene="telescope"],
+.mari-live-work__sprite[data-scene="clockwork"],
+.mari-live-work__sprite[data-scene="rocket"] {
+  --mari-sprite-cycle: 3.2s;
+}
+
+.mari-live-work__sprite[data-scene="tea"],
+.mari-live-work__sprite[data-scene="books"],
+.mari-live-work__sprite[data-scene="yarn"],
+.mari-live-work__sprite[data-scene="origami"],
+.mari-live-work__sprite[data-scene="constellation"],
+.mari-live-work__sprite[data-scene="images"],
+.mari-live-work__sprite[data-scene="thinking-notes"] {
+  --mari-sprite-cycle: 4.4s;
+}
+
+.mari-live-work__failed-icon {
+  flex: 0 0 auto;
+  color: var(--destructive);
+}
+
+.mari-live-work__steps {
+  display: grid;
+  gap: 0.1rem;
+  margin: 0;
+  padding: 0;
+}
+
+.mari-live-work__steps li {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  color: var(--muted-foreground);
+  font-size: 0.8125rem;
+}
+
+/* Slice 72: each row leads with its state - the green check, an amber or red warning - and a hairline rail
+   joins the rows of a phase. */
+.mari-step__glyph {
+  width: 0.85rem;
+  height: 0.85rem;
+  flex: none;
+}
+
+.mari-live-work__steps li:not(:last-child)::before {
+  position: absolute;
+  top: 1.4rem;
+  bottom: -0.45rem;
+  left: calc(0.425rem - 0.5px);
+  width: 1px;
+  background: var(--mari-hairline);
+  content: "";
+}
+
+.mari-live-work__steps li[data-status="missed"] .mari-step__glyph,
+.mari-live-work__steps li[data-status="missed"] .mari-step__verb {
+  color: var(--warning);
+}
+
+.mari-step__fact {
+  margin-inline-start: 0.35rem;
+}
+
+/* "Read character  Shrek": the verb stays quiet, the subject is what you scan for. */
+.mari-live-work__step-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mari-live-work__step-subject {
+  margin-inline-start: 0.4rem;
+  color: var(--foreground);
+  font-weight: 550;
+}
+
+/* Slice 72: a record's face - its avatar, else its initial on a tinted disc, or its type on a small tile. */
+.mari-face {
+  display: inline-grid;
+  width: 1rem;
+  height: 1rem;
+  flex: none;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 999px;
+  margin-inline-end: 0.3rem;
+  vertical-align: middle;
+  font-size: 0.55rem;
+  font-style: normal;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.mari-face[data-initial] {
+  background: color-mix(in oklch, oklch(0.72 0.11 calc(var(--mari-face-hue) * 1deg)) 34%, var(--muted));
+  color: var(--foreground);
+}
+
+.mari-face[data-type] {
+  border-radius: 0.3rem;
+  background: color-mix(in srgb, var(--primary) 16%, var(--muted));
+  color: var(--foreground);
+}
+
+.mari-face[data-type] > svg {
+  width: 0.65rem;
+  height: 0.65rem;
+}
+
+.mari-face:not([data-type]) > * {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.mari-face > :not(:first-child) {
+  display: none;
+}
+
+/* Slice 74 / 87: what she changed, as a card - face, name, what changed in words, the changed fields in boxes
+   (a label, then the value as text: old words struck, new words marked), her reason, and one action while the
+   undo copy lasts. Calm: a hairline, a little "applied" green, one soft ring on arrival. Theme tokens only. */
+.mari-receipt {
+  --mari-receipt-edge: calc(var(--mari-card-pad-inline) + 2rem + 0.65rem);
+  display: grid;
+  overflow: hidden;
+  border-color: color-mix(in srgb, var(--mari-ok) 22%, var(--mari-hairline));
+  color: var(--foreground);
+  font-size: 0.8125rem;
+}
+
+.mari-receipt:is([data-state="undone"], [data-state="old"], [data-state="closed"], [data-state="saved"]) {
+  border-color: var(--mari-hairline);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html:not([data-marinara-reduced-effects="true"], [data-marinara-effects-paused="true"])
+    .mari-receipt[data-state="open"] {
+    animation:
+      mari-list-in 0.2s ease-out both,
+      mari-receipt-arrive 1.4s ease-out 0.15s both;
+  }
+}
+
+@keyframes mari-receipt-arrive {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+  30% {
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--mari-ok) 16%, transparent);
+  }
+}
+
+.mari-receipt svg {
+  width: 0.875rem;
+  height: 0.875rem;
+  flex: none;
+}
+
+.mari-receipt__record + .mari-receipt__record,
+.mari-receipt__group + .mari-receipt__record {
+  border-top: 1px solid var(--mari-divider);
+}
+
+/* ---- head: face, name, what changed in words, and the quiet open icon (44 px target) ---- */
+.mari-receipt__head {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.7rem var(--mari-card-pad-inline) 0.4rem;
+}
+
+.mari-receipt__face .mari-face {
+  width: 2rem;
+  height: 2rem;
+  margin: 0;
+  font-size: 0.875rem;
+}
+
+.mari-receipt__face .mari-face[data-type] {
+  border-radius: 0.55rem;
+}
+
+.mari-receipt__face .mari-face[data-type] > svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.mari-receipt__text {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  gap: 0.05rem;
+}
+
+.mari-receipt__name {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 600;
+}
+
+.mari-receipt__name > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mari-receipt__what {
+  display: block;
+  color: color-mix(in srgb, var(--foreground) 72%, transparent);
+  font-size: var(--mari-card-fact, 0.75rem);
+  line-height: 1.35;
+}
+
+.mari-receipt__open {
+  display: inline-flex;
+  width: 2.75rem;
+  height: 2.75rem;
+  margin: -0.5rem -0.6rem -0.5rem 0;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.6rem;
+  color: var(--muted-foreground);
+}
+
+.mari-receipt__open:hover {
+  background: var(--mari-hover);
+  color: var(--foreground);
+}
+
+.mari-receipt__open:focus-visible,
+.mari-receipt__more:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: -2px;
+}
+
+/* several records: one group line, then a row per record */
+.mari-receipt__group {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.7rem var(--mari-card-pad-inline) 0.55rem;
+  border-bottom: 1px solid var(--mari-divider);
+  font-weight: 600;
+}
+
+.mari-receipt__faces {
+  display: inline-flex;
+  flex: none;
+}
+
+.mari-receipt__faces .mari-face {
+  width: 1.6rem;
+  height: 1.6rem;
+  margin: 0;
+  font-size: 0.75rem;
+  box-shadow: 0 0 0 2px var(--mari-card-bg, var(--card));
+}
+
+.mari-receipt__faces > span + span {
+  margin-inline-start: -0.45rem;
+}
+
+.mari-receipt[data-multi] .mari-receipt__head {
+  padding-block: 0.55rem 0.3rem;
+}
+
+/* ---- folded: one key field, two lines ---- */
+.mari-receipt__folded {
+  margin: 0.15rem var(--mari-card-pad-inline) 0.2rem var(--mari-receipt-edge);
+}
+
+/* ---- fields: a label, then the value in a box ---- */
+.mari-receipt__body {
+  display: grid;
+  gap: 0.7rem;
+  margin: 0.15rem var(--mari-card-pad-inline) 0.2rem var(--mari-receipt-edge);
+}
+
+.mari-receipt__field {
+  display: grid;
+  min-width: 0;
+  gap: 0.3rem;
+}
+
+.mari-receipt__label {
+  color: var(--muted-foreground);
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.mari-receipt__field--folded .mari-receipt__box,
+.mari-receipt__field--folded .mari-receipt__entries {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.mari-receipt__box {
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--foreground) 5%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--foreground) 6%, transparent);
+  padding: 0.45rem 0.6rem;
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.mari-receipt__box + .mari-receipt__box {
+  margin-top: 0.3rem;
+}
+
+/* Old words struck and muted on a faint red; new words underlined on a faint green: two marks, not colour only. */
+.mari-receipt del {
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--destructive) 12%, transparent);
+  color: var(--muted-foreground);
+  text-decoration: line-through 1px;
+}
+
+.mari-receipt ins {
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--mari-ins-line) 18%, transparent);
+  text-decoration: underline 1px var(--mari-ins-line);
+  text-underline-offset: 3px;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
+/* A rewrite: the old text struck in its own quiet box, the new text in a marked box under it. */
+.mari-receipt__box--old {
+  color: var(--muted-foreground);
+  background: color-mix(in srgb, var(--destructive) 5%, transparent);
+  box-shadow: inset 2px 0 0 color-mix(in srgb, var(--destructive) 45%, transparent);
+}
+
+.mari-receipt__box--old del {
+  background: none;
+}
+
+.mari-receipt__box--new {
+  background: color-mix(in srgb, var(--mari-ins-line) 9%, transparent);
+  box-shadow: inset 2px 0 0 var(--mari-ins-line);
+}
+
+.mari-receipt__box--old + .mari-receipt__box--new {
+  margin-top: 0.25rem;
+}
+
+.mari-receipt__value {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.mari-receipt__value > * {
+  border-radius: 0.4rem;
+  padding: 0.1rem 0.45rem;
+  background: color-mix(in srgb, var(--foreground) 5%, transparent);
+}
+
+.mari-receipt__arrow {
+  color: var(--muted-foreground);
+}
+
+.mari-receipt__entries {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.mari-receipt__entry {
+  display: grid;
+  gap: 0.3rem;
+  border-radius: 0.55rem;
+  background: color-mix(in srgb, var(--foreground) 4%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--foreground) 6%, transparent);
+  padding: 0.5rem 0.6rem;
+}
+
+.mari-receipt__entry-name {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 600;
+}
+
+.mari-receipt__entry-text {
+  color: color-mix(in srgb, var(--foreground) 88%, transparent);
+  line-height: 1.5;
+}
+
+/* Folded: an entry's text is one line; opening the card shows the whole entry list. */
+.mari-receipt__folded .mari-receipt__entry-text {
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.mari-receipt__chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.mari-receipt__chip {
+  display: inline-flex;
+  min-height: 1.375rem;
+  align-items: center;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--foreground) 8%, var(--background));
+  padding-inline: 0.5rem;
+  font-size: 0.6875rem;
+  font-weight: 500;
+}
+
+.mari-receipt__chip--ins {
+  background: color-mix(in srgb, var(--mari-ins-line) 18%, transparent);
+}
+
+.mari-receipt__chip--ins::before {
+  content: "+";
+  margin-inline-end: 3px;
+  color: var(--mari-ok);
+  font-weight: 600;
+}
+
+.mari-receipt__chip--del {
+  background: none;
+  color: var(--muted-foreground);
+  text-decoration: line-through 1px;
+  box-shadow: inset 0 0 0 1px var(--mari-hairline);
+}
+
+.mari-receipt__muted {
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+}
+
+.mari-receipt__details > summary {
+  cursor: pointer;
+  list-style: none;
+}
+
+.mari-receipt__details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.mari-receipt__links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.9rem;
+  font-size: 0.75rem;
+}
+
+.mari-receipt .mari-link {
+  min-height: 2.25rem;
+  padding-inline: 0;
+}
+
+.mari-receipt .mari-link svg {
+  width: 0.75rem;
+  height: 0.75rem;
+}
+
+/* "Show all 14 fields": a real button, the whole width, never a dead "N more" line. */
+.mari-receipt__more {
+  display: flex;
+  width: 100%;
+  min-height: 2.75rem;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0 var(--mari-card-pad-inline) 0 var(--mari-receipt-edge);
+  color: color-mix(in srgb, var(--foreground) 80%, transparent);
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-align: start;
+}
+
+.mari-receipt__more:hover {
+  background: var(--mari-hover);
+  color: var(--foreground);
+}
+
+.mari-receipt__chev {
+  transition: transform 0.15s ease-out;
+}
+
+.mari-receipt__record[data-open="true"] .mari-receipt__chev {
+  transform: rotate(180deg);
+}
+
+.mari-receipt__why {
+  margin: 0.35rem var(--mari-card-pad-inline) 0 var(--mari-receipt-edge);
+  color: var(--muted-foreground);
+  font-size: var(--mari-card-fact, 0.75rem);
+  line-height: 1.45;
+}
+
+.mari-receipt__why > b {
+  color: var(--foreground);
+  font-weight: 600;
+}
+
+/* Only the leading "Why" label keeps a gap; bold words inside a sentence (the held card) do not. */
+.mari-receipt__why > b:first-child {
+  margin-inline-end: 0.3rem;
+}
+
+/* A change that did not save: the reason in plain words under the name, Not saved and Try again at the foot. */
+.mari-receipt[data-state="failed"] {
+  border-color: color-mix(in srgb, var(--destructive) 35%, var(--mari-hairline));
+}
+
+.mari-receipt__error {
+  display: flex;
+  gap: 0.4rem;
+  margin: 0.1rem var(--mari-card-pad-inline) 0.3rem var(--mari-receipt-edge);
+  color: color-mix(in srgb, var(--destructive) 75%, var(--foreground));
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
+.mari-receipt__error svg {
+  margin-top: 0.1rem;
+}
+
+.mari-receipt__state[data-tone="bad"] {
+  color: color-mix(in srgb, var(--destructive) 80%, var(--foreground));
+}
+
+/* ---- foot: Why, then the state in words and at most one main action ---- */
+.mari-receipt__foot {
+  display: flex;
+  min-height: 3rem;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem 0.75rem;
+  margin-top: 0.35rem;
+  border-top: 1px solid var(--mari-divider);
+  padding: 0.35rem var(--mari-card-pad-inline) 0.35rem var(--mari-receipt-edge);
+}
+
+.mari-receipt__foot .mari-receipt__why {
+  margin: 0;
+}
+
+.mari-receipt__actions {
+  display: inline-flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-inline-start: auto;
+}
+
+.mari-receipt__state {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.mari-receipt__state[data-tone="ok"] {
+  color: var(--mari-ok);
+}
+
+.mari-receipt__state[data-tone="muted"] {
+  color: var(--muted-foreground);
+}
+
+/* A held change waits for the user: the primary tint, not a warning. */
+.mari-receipt__state[data-tone="wait"] {
+  color: var(--primary);
+}
+
+.mari-receipt__actions .mari-btn,
+.mari-receipt__actions .mari-link {
+  min-height: 2.75rem;
+}
+
+.mari-receipt__actions .mari-btn svg {
+  margin-inline-end: 0.3rem;
+}
+
+.mari-receipt[data-state="undone"] .mari-receipt__folded,
+.mari-receipt[data-state="undone"] .mari-receipt__what {
+  opacity: 0.55;
+}
+
+@container (width < 26rem) {
+  .mari-receipt__body,
+  .mari-receipt__folded,
+  .mari-receipt__foot {
+    margin-inline-start: var(--mari-card-pad-inline);
+  }
+}
+
+/* Slice 72: a name in her answer that opens its record - a tiny face and a quiet underline, no card. */
+.mari-ref {
+  display: inline;
+  padding: 0;
+  border: 0;
+  border-radius: 0.25rem;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  text-align: inherit;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--primary) 45%, transparent);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.2em;
+  transition: text-decoration-color 0.15s ease;
+}
+
+.mari-ref:hover {
+  text-decoration-color: var(--primary);
+}
+
+.mari-ref:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 1px;
+}
+
+.mari-ref > .mari-face {
+  margin-inline-end: 0.22rem;
+}
+
+.mari-face-stack .mari-face {
+  margin-inline-end: 0;
+}
+
+.mari-live-work__steps li[data-status="error"] {
+  color: var(--destructive);
+}
+
+.mari-live-work__step-details {
+  width: 100%;
+  min-width: 0;
+}
+
+.mari-live-work__step-details > summary {
+  display: flex;
+  width: fit-content;
+  max-width: 100%;
+  min-height: 1.9rem;
+  align-items: center;
+  gap: 0.5rem;
+  margin-inline-start: -0.5rem;
+  padding-inline: 0.5rem;
+  border-radius: 0.5rem;
+  color: inherit;
+  cursor: pointer;
+  list-style: none;
+}
+
+.mari-live-work__step-details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.mari-live-work__step-details > summary:hover {
+  background: var(--mari-hover);
+  color: var(--foreground);
+}
+
+.mari-live-work__step-chevron {
+  transition: transform 0.16s ease;
+}
+
+.mari-live-work__step-details[open] .mari-live-work__step-chevron {
+  transform: rotate(90deg);
+}
+
+@media (pointer: fine) {
+  .mari-live-work__step-chevron {
+    opacity: 0;
+  }
+
+  .mari-live-work__step-details > summary:hover .mari-live-work__step-chevron,
+  .mari-live-work__step-details > summary:focus-visible .mari-live-work__step-chevron,
+  .mari-live-work__step-details[open] .mari-live-work__step-chevron {
+    opacity: 1;
+  }
+}
+
+.mari-live-work__step-details-body {
+  margin: 0.1rem 0.25rem 0.35rem 1.25rem;
+  overflow: hidden;
+  border-left: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  padding: 0.45rem 0.6rem;
+  color: var(--muted-foreground);
+  font-size: 0.625rem;
+}
+
+.mari-live-work__step-details-label {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-bottom: 0.25rem;
+  font-weight: 650;
+}
+
+.mari-live-work__step-details-body code,
+.mari-live-work__step-details-body pre {
+  display: block;
+  max-width: 100%;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: color-mix(in srgb, var(--foreground) 78%, var(--muted-foreground));
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  line-height: 1.45;
+}
+
+.mari-live-work__step-details-body pre {
+  margin-top: 0.35rem;
+}
+
+@keyframes mari-live-work-sprite {
+  0%,
+  22% {
+    background-position: 0 center;
+  }
+  23%,
+  47% {
+    background-position: 33.333% center;
+  }
+  48%,
+  72% {
+    background-position: 66.666% center;
+  }
+  73%,
+  100% {
+    background-position: 100% center;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mari-live-work__sprite > span,
+  .mari-work-timeline__line,
+  .mari-work-timeline__char,
+  .mari-work-timeline__timer > span,
+  .mari-reasoning-panel__ticker > span,
+  .mari-live-work__sprite[data-role="working"] > span::before,
+  .mari-stream-word,
+  .mari-stream-caret,
+  .mari-reasoning-panel__star--live,
+  .mari-inline-review {
+    animation: none;
+  }
+
+  .mari-work-timeline__done-mark circle,
+  .mari-work-timeline__done-mark path {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+}
+
+.mari-reasoning-panel__ticker {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  height: 1.1rem;
+  overflow: hidden;
+  font-style: italic;
+  font-weight: 400;
+}
+
+.mari-reasoning-panel__ticker > span {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  animation: mari-ticker-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes mari-ticker-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.6rem);
+    filter: blur(3px);
+  }
+}
+
+.mari-workspace-composer-dock {
+  width: 100%;
+  max-width: 47.5rem;
+  margin-inline: auto;
+}
+
+.mari-workspace-answer-strip {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.mari-workspace-question-dock {
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--mari-workspace-blush) 26%, var(--border));
+  border-radius: 0.625rem;
+  background: color-mix(in srgb, var(--card) 94%, var(--mari-workspace-hoodie));
+  box-shadow:
+    0 0.5rem 1.5rem color-mix(in srgb, var(--background) 34%, transparent),
+    inset 0 1px color-mix(in srgb, var(--foreground) 6%, transparent);
+}
+
+.mari-workspace-question-dock__prompt {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  gap: 0.625rem;
+  padding: 0.75rem 0.875rem 0.625rem;
+  color: var(--foreground);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}
+
+.mari-workspace-question-dock__prompt > svg {
+  margin-top: 0.18rem;
+  flex: 0 0 auto;
+  color: var(--primary);
+  filter: drop-shadow(0 0 0.45rem color-mix(in srgb, var(--primary) 22%, transparent));
+}
+
+.mari-workspace-question-dock .mari-workspace-answer-strip {
+  padding: 0 0.875rem 0.75rem;
+}
+
+.mari-workspace-question-dock .mari-suggestion-chips {
+  margin-bottom: 0;
+}
+
+/* A real next question (a plan step, held changes) reads as her last line, with a small sparkle, no box. */
+.mari-suggestion-question-turn {
+  display: flex;
+  max-width: 42rem;
+  align-items: flex-start;
+  gap: 0.45rem;
+  color: var(--foreground);
+  font-weight: 500;
+  animation: mari-welcome-in 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.mari-suggestion-question-turn > svg {
+  flex: none;
+  margin-top: 0.2rem;
+  color: var(--primary);
+  filter: drop-shadow(0 0 0.4rem color-mix(in srgb, var(--primary) 35%, transparent));
+}
+
+/* In the omnibar the dock above the composer holds only the chips: no frame around them. */
+.mari-workspace-composer-dock .mari-workspace-question-dock {
+  overflow: visible;
+  border: 0;
+  background: none;
+  box-shadow: none;
+}
+
+.mari-workspace-composer-dock .mari-workspace-question-dock .mari-workspace-answer-strip {
+  padding: 0;
+}
+
+/* R11 (composer v5, docs/development/mockups/mari-v5 § Composer): Mari's composer is her own shell, not the
+   regular chat input. Text first; the controls are quiet borderless 34px capsules (a 44px hit area on touch
+   via ::after); one radius family: the shell, the shell minus its padding for anything square inside, and
+   capsules. Neutral at rest; the primary colour is only the focus ring (and the semantic Plan mode/Fix chip).
+   Send is neutral: grey while empty, solid foreground once there is something to send. */
+.mari-workspace-composer {
+  --mari-composer-fill: color-mix(in srgb, var(--foreground) 4%, var(--background));
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.125rem;
+  padding: var(--mari-composer-pad);
+  border: 1px solid var(--mari-hairline);
+  border-radius: var(--mari-composer-radius);
+  background: var(--mari-composer-fill);
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 0.12),
+    0 0.75rem 1.5rem -1rem rgb(0 0 0 / 0.5);
+  color: var(--foreground);
+}
+
+[data-theme="light"] .mari-workspace-composer {
+  --mari-composer-fill: color-mix(in srgb, #fff 80%, var(--background));
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 0.05),
+    0 0.75rem 1.5rem -1rem rgb(0 0 0 / 0.18);
+}
+
+.mari-workspace-composer:focus-within {
+  border-color: color-mix(in srgb, var(--primary) 50%, var(--mari-hairline));
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--primary) 15%, transparent),
+    0 0.75rem 1.5rem -1rem rgb(0 0 0 / 0.5);
+}
+
+[data-theme="light"] .mari-workspace-composer:focus-within {
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--primary) 15%, transparent),
+    0 0.75rem 1.5rem -1rem rgb(0 0 0 / 0.18);
+}
+
+/* Attachments first, then "Aware of" and its facets: one wrapping row inside the top edge. */
+.mari-workspace-composer__context {
+  display: flex;
+  min-width: 0;
+  flex: 1 0 100%;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.125rem;
+  font-size: 0.6875rem;
+}
+
+.mari-workspace-composer .mari-context-facets__label {
+  margin-inline: 0.25rem 0.125rem;
+  font-weight: 500;
+}
+
+.mari-composer-chip,
+.mari-workspace-composer .mari-workspace-context-chip {
+  display: inline-flex;
+  min-width: 0;
+  max-width: 13rem;
+  height: 1.5rem;
+  align-items: center;
+  gap: 0.3rem;
+  padding-block: 0;
+  padding-inline: 0.5rem 0.125rem;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--foreground) 7%, transparent);
+  color: var(--foreground);
+  font-size: 0.6875rem;
+  font-weight: 500;
+}
+
+.mari-composer-chip:not(:has(> button)) {
+  padding-inline-end: 0.5rem;
+}
+
+.mari-composer-chip > svg,
+.mari-workspace-composer .mari-workspace-context-chip > svg,
+.mari-workspace-composer .mari-workspace-context-chip > .result-type-icon {
+  width: 0.75rem;
+  height: 0.75rem;
+  flex: none;
+  color: var(--muted-foreground);
+}
+
+.mari-composer-chip__text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mari-composer-chip:has(> .mari-composer-chip__thumb) {
+  padding-inline-start: 0.1875rem;
+}
+
+.mari-composer-chip__thumb {
+  width: 1.125rem;
+  height: 1.125rem;
+  flex: none;
+  border-radius: 999px;
+  object-fit: cover;
+  outline: 1px solid oklch(1 0 0 / 0.1);
+  outline-offset: -1px;
+}
+
+[data-theme="light"] .mari-composer-chip__thumb {
+  outline-color: oklch(0 0 0 / 0.1);
+}
+
+/* A facet whose content is already in the message (the reply-check Fix) keeps the primary tint; one that
+   only leaves on Send stays dashed. */
+.mari-workspace-composer .mari-workspace-context-chip:not([data-later]) {
+  background: color-mix(in srgb, var(--primary) 14%, transparent);
+}
+
+.mari-workspace-composer .mari-workspace-context-chip:not([data-later]) > :is(svg, .result-type-icon) {
+  color: var(--primary);
+}
+
+.mari-workspace-composer .mari-workspace-context-chip[data-later] {
+  border: 1px dashed color-mix(in srgb, var(--muted-foreground) 45%, transparent);
+  background: transparent;
+}
+
+.mari-workspace-composer .mari-workspace-context-chip__remove {
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 999px;
+}
+
+.mari-workspace-composer__text {
+  padding: 0.25rem 0.375rem;
+  font-size: var(--mari-composer-text);
+  line-height: 1.5;
+}
+
+.mari-workspace-composer__input {
+  display: block;
+  width: 100%;
+  min-height: calc(var(--mari-composer-text) * 1.5 + 0.5rem);
+  max-height: calc(var(--mari-composer-text) * 1.5 * var(--mari-composer-lines) + 0.5rem);
+  overflow-y: auto;
+  resize: none;
+  background: transparent;
+  color: var(--foreground);
+  outline: none;
+  scrollbar-width: thin;
+  transition: height 0.12s ease-out;
+}
+
+.mari-workspace-composer__input::placeholder {
+  color: color-mix(in srgb, var(--muted-foreground) 85%, transparent);
+}
+
+.mari-workspace-composer__input:disabled {
+  cursor: not-allowed;
+}
+
+/* Lines above the visible ones fade out at the top edge once the field scrolls. */
+.mari-workspace-composer__input[data-scrolled] {
+  mask-image: linear-gradient(to bottom, transparent 0, #000 1.25rem);
+}
+
+.mari-composer-toolbar {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 0;
+  align-items: center;
+  gap: 0.125rem;
+}
+
+.mari-workspace-composer__attach {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.mari-composer-menu {
+  position: relative;
+  min-width: 0;
+}
+
+.mari-composer-icon,
+.mari-composer-menu__trigger,
+.mari-workspace-composer__send {
+  position: relative;
+  height: var(--mari-composer-control);
+  flex: none;
+  border-radius: 999px;
+}
+
+.mari-composer-icon,
+.mari-composer-menu__trigger {
+  color: var(--muted-foreground);
+  transition:
+    background-color 0.12s ease-out,
+    color 0.12s ease-out;
+}
+
+.mari-composer-icon {
+  display: grid;
+  width: var(--mari-composer-control);
+  place-items: center;
+}
+
+.mari-composer-icon > svg {
+  width: 1.0625rem;
+  height: 1.0625rem;
+}
+
+.mari-composer-menu__trigger {
+  display: inline-flex;
+  min-width: 0;
+  max-width: 11rem;
+  align-items: center;
+  gap: 0.3rem;
+  padding-inline: 0.5rem 0.4rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.mari-composer-menu__trigger > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mari-composer-menu__trigger > svg {
+  width: 0.875rem;
+  height: 0.875rem;
+  flex: none;
+  stroke-width: 1.75;
+}
+
+.mari-composer-menu__trigger > svg:last-child {
+  width: 0.75rem;
+  height: 0.75rem;
+  opacity: 0.7;
+}
+
+.mari-composer-icon:hover:not(:disabled),
+.mari-composer-icon[aria-expanded="true"],
+.mari-composer-icon[data-active="true"],
+.mari-composer-menu__trigger:hover:not(:disabled),
+.mari-composer-menu__trigger[aria-expanded="true"] {
+  background: var(--mari-hover);
+  color: var(--foreground);
+}
+
+.mari-composer-icon:disabled,
+.mari-composer-menu__trigger:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.mari-composer-menu__trigger[data-mode="plan"] {
+  color: var(--primary);
+}
+
+.mari-composer-menu__trigger[data-mode="bypass"] {
+  color: var(--destructive);
+}
+
+/* No connection: a small red dot on the trigger, so it asks for you. */
+.mari-workspace-composer__connection--missing::before {
+  position: absolute;
+  top: 0.2rem;
+  right: 0.2rem;
+  width: 0.42rem;
+  height: 0.42rem;
+  border: 1px solid var(--card);
+  border-radius: 999px;
+  content: "";
+  background: var(--destructive);
+}
+
+.mari-workspace-composer__send[data-mode="send"] {
+  width: var(--mari-composer-control);
+  margin-inline-start: auto;
+  background: var(--foreground);
+  color: var(--background);
+}
+
+.mari-workspace-composer__send[data-mode="send"]:disabled {
+  background: color-mix(in srgb, var(--foreground) 10%, transparent);
+  color: color-mix(in srgb, var(--muted-foreground) 70%, transparent);
+  cursor: default;
+}
+
+.mari-workspace-composer__send:not(:disabled):active {
+  scale: 0.96;
+}
+
+.mari-composer-icon:focus-visible,
+.mari-composer-menu__trigger:focus-visible,
+.mari-workspace-composer__send:focus-visible,
+.mari-workspace-composer .mari-workspace-context-chip__remove:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+/* Menus: the v5 row anatomy in one floating group above the trigger. */
+.mari-composer-menu__popover {
+  --mari-card-slot: 1.5rem;
+  position: absolute;
+  z-index: 100;
+  bottom: calc(100% + 0.5rem);
+  left: 0;
+  display: flex;
+  width: min(18rem, calc(100vw - 1.5rem));
+  max-height: min(28rem, calc(100dvh - 8rem));
+  flex-direction: column;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0.25rem;
+  border: 1px solid var(--mari-hairline);
+  border-radius: var(--mari-card-radius);
+  /* --card is translucent in some themes; keep the page from showing through. */
+  background: linear-gradient(
+      color-mix(in srgb, var(--foreground) 5%, var(--background)),
+      color-mix(in srgb, var(--foreground) 5%, var(--background))
+    )
+    var(--background);
+  text-align: start;
+  box-shadow: 0 1rem 2rem -0.5rem rgb(0 0 0 / 0.45);
+}
+
+[data-theme="light"] .mari-composer-menu__popover {
+  background: #fff;
+  box-shadow: 0 1rem 2rem -0.75rem rgb(0 0 0 / 0.25);
+}
+
+.mari-composer-menu__head {
+  margin: 0;
+  padding: 0.4rem 0.625rem 0.3rem;
+  color: var(--muted-foreground);
+  font-size: 0.6875rem;
+  font-weight: 500;
+}
+
+.mari-composer-menu__popover .mari-list__item::before {
+  display: none;
+}
+
+.mari-composer-menu__popover .mari-row {
+  min-height: 2.625rem;
+  padding-block: 0.375rem;
+  padding-inline: 0.5rem;
+  border-radius: var(--mari-composer-inner-radius);
+}
+
+.mari-composer-menu__popover .mari-row__slot > svg {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+
+.mari-composer-menu__popover .mari-row__trail svg {
+  width: 0.875rem;
+  height: 0.875rem;
+  color: var(--primary);
+}
+
+.mari-composer-menu__popover .mari-row[data-mode="bypass"] .mari-row__slot {
+  background: color-mix(in srgb, var(--destructive) 12%, transparent);
+  color: var(--destructive);
+}
+
+.mari-composer-menu__divider {
+  margin: 0.25rem 0.5rem;
+  border: 0;
+  border-top: 1px solid var(--mari-divider);
+}
+
+/* Phones: the menu spans the composer instead of hanging off its trigger, which would run off the edge. */
+@media (max-width: 39.99rem) {
+  .mari-composer-menu {
+    position: static;
+  }
+
+  .mari-composer-menu__popover {
+    right: 0;
+    left: 0;
+    width: auto;
+  }
+}
+
+.mari-jump-to-latest {
+  position: absolute;
+  z-index: 5;
+  bottom: calc(100% + 0.25rem);
+  left: 50%;
+  display: grid;
+  width: 2.25rem;
+  height: 2.25rem;
+  margin-left: -1.125rem;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--foreground) 12%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--card) 92%, transparent);
+  box-shadow: 0 0.35rem 1rem color-mix(in srgb, var(--background) 50%, transparent);
+  color: var(--foreground);
+  backdrop-filter: blur(8px);
+}
+
+.mari-jump-to-latest:hover {
+  background: var(--card);
+}
+
+.mari-jump-to-latest:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+@media (max-width: 30rem) {
+  .mari-workspace-composer-dock {
+    padding-bottom: max(0.65rem, var(--mari-safe-area-inset-bottom, env(safe-area-inset-bottom)));
+  }
+}
+
+/* M7: one X per facet. On touch the hit area grows past the drawn chip, like .mari-btn. */
+.mari-workspace-context-chip__remove {
+  position: relative;
+  display: inline-grid;
+  flex: none;
+  width: 1rem;
+  height: 1rem;
+  place-items: center;
+  border-radius: 0.25rem;
+  color: var(--muted-foreground);
+}
+
+.mari-workspace-context-chip__remove:hover {
+  background: var(--mari-hover);
+  color: var(--foreground);
+}
+
+/* Her icons follow the accent, so each 2 Hz accent tick restarted the color fades of every copy /
+   edit / delete button in the transcript: a long chat ran ~600 transitions (and their events) per
+   tick, which made opening it slow. Only the hover background fades while the accent animates. */
+html[data-marinara-accent-animation] .mari-message-action {
+  transition-property: background-color;
+}
+
+@media (pointer: coarse) {
+  /* 44x44 touch target: grows mostly into the chip's own padding (left), only 0.125rem
+     (half the 0.25rem chip gap) to the right, so it never reaches the next chip's hit area. */
+  .mari-workspace-context-chip__remove::after {
+    position: absolute;
+    inset: -0.875rem -0.125rem -0.875rem -1.625rem;
+    content: "";
+  }
+
+  /* UX-16: the 22px copy / edit / delete icons under a message, hit 44px high; across, only half the
+     0.375rem gap, so neighbours never overlap. */
+  .mari-message-action {
+    position: relative;
+  }
+
+  .mari-message-action::after {
+    position: absolute;
+    inset: -0.6875rem -0.1875rem;
+    content: "";
+  }
+
+  /* Drawn at 34px, hit at 44px: the controls grow past their edge, not in size. */
+  .mari-composer-icon::after,
+  .mari-composer-menu__trigger::after,
+  .mari-workspace-composer__send::after {
+    position: absolute;
+    inset: -0.3125rem -0.125rem;
+    content: "";
+  }
+
+  .mari-composer-menu__popover .mari-row {
+    min-height: 2.75rem;
+  }
+
+  /* The Stop pill keeps its size from before v5. */
+  .mari-workspace-composer__send[data-mode="stop"] {
+    min-height: 2.75rem;
+  }
+}
+
+[data-theme="light"] .mari-workspace-shell {
+  background: color-mix(in srgb, var(--background) 96%, oklch(0.93 0.025 73));
+}
+
+[data-component="GlobalOmnibar"]:not([data-pane="mari"]) .mari-workspace-portrait img,
+html[data-marinara-effects-paused="true"] .mari-workspace-portrait img {
+  animation-play-state: paused !important;
+}
+
+@keyframes mari-workspace-thinking {
+  0%,
+  100% {
+    transform: translateY(0.15rem);
+  }
+  50% {
+    transform: translateY(0.05rem);
+  }
+}
+
+@keyframes mari-workspace-rare-idle {
+  0%,
+  91%,
+  94%,
+  100% {
+    opacity: 1;
+  }
+  92%,
+  93% {
+    opacity: 0;
+  }
+}
+
+@keyframes mari-workspace-rare-blink {
+  0%,
+  91%,
+  94%,
+  100% {
+    opacity: 0;
+  }
+  92%,
+  93% {
+    opacity: 1;
+  }
+}

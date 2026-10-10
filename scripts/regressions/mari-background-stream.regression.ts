@@ -16,7 +16,7 @@
 // recovery effect that reloads the persisted reply when a run this client is
 // no longer attached to finishes.
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -38,43 +38,53 @@ assert.doesNotMatch(
 
 // ── Mari's send closure uses it, with hidden-page tracking ──────────────────
 const mariChat = readSource("packages/client/src/components/chat/HomeProfessorMariChat.tsx");
-assert.match(mariChat, /isPassiveStreamDisconnect\(error, pageWasHiddenDuringStream, controller\.signal\)/u);
-assert.doesNotMatch(
+// Slice 82: her send closure and its helpers moved into components/chat/mari/.
+const mariRun = readSource("packages/client/src/components/chat/mari/use-mari-workspace-run.ts");
+const mariHelpers = readSource("packages/client/src/components/chat/mari/mari-chat-helpers.tsx");
+const mariChatDir = "packages/client/src/components/chat/mari";
+const mariChatAll = [
   mariChat,
+  ...readdirSync(join(repositoryRoot, mariChatDir)).map((name) => readSource(`${mariChatDir}/${name}`)),
+].join("\n");
+assert.match(mariRun, /isPassiveStreamDisconnect\(error, pageWasHiddenDuringStream, controller\.signal\)/u);
+assert.doesNotMatch(
+  mariChatAll,
   /error instanceof StreamResumeDisconnectError/u,
   "Mari must not special-case only the watchdog error class",
 );
-assert.match(mariChat, /let pageWasHiddenDuringStream = /u);
+assert.match(mariRun, /let pageWasHiddenDuringStream = /u);
 assert.match(
-  mariChat,
+  mariRun,
   /document\.addEventListener\("visibilitychange", recordBackgroundedStream\);\s*\n\s*window\.addEventListener\("pagehide", markPageHidden\);/u,
 );
 assert.match(
-  mariChat,
+  mariRun,
   /document\.removeEventListener\("visibilitychange", recordBackgroundedStream\);\s*\n\s*window\.removeEventListener\("pagehide", markPageHidden\);/u,
 );
 
 // ── Clean close without a reply settles before it toasts ────────────────────
-assert.match(mariChat, /if \(!received && !controller\.signal\.aborted\) \{/u);
+// R14 (slice 62h): keyed on the missing "done", not on "no reply yet" - a socket can also close
+// after her first round spoke, and the settle then reloads what the server saved.
+assert.match(mariRun, /if \(!sawDone && !controller\.signal\.aborted\) \{/u);
 assert.match(
-  mariChat,
-  /received = await waitForWorkspaceRunToSettle\(effectiveConnectionId, controller\.signal\);/u,
+  mariRun,
+  /received = \(await waitForWorkspaceRunToSettle\(effectiveConnectionId, controller\.signal\)\) \|\| received;/u,
   "a cleanly closed no-reply stream must confirm against the status endpoint",
 );
 assert.match(
-  mariChat,
+  mariHelpers,
   /waitForWorkspaceRunToSettle\(connectionId: string \| null, signal: AbortSignal\): Promise<boolean>/u,
 );
-assert.match(mariChat, /sawActiveRun/u);
+assert.match(mariHelpers, /sawActiveRun/u);
 // One early inactive reading is not proof the run never started - the prompt
 // route does storage work before flipping active. Two readings are required.
-assert.match(mariChat, /inactiveReadings \+= 1;/u);
+assert.match(mariHelpers, /inactiveReadings \+= 1;/u);
 // A server-reported SSE error is a REAL failure, never a passive disconnect.
-assert.match(mariChat, /class MariWorkspaceRunError extends Error/u);
-assert.match(mariChat, /if \(error instanceof MariWorkspaceRunError\) throw error;/u);
+assert.match(mariHelpers, /class MariWorkspaceRunError extends Error/u);
+assert.match(mariRun, /if \(error instanceof MariWorkspaceRunError\) throw error;/u);
 // Callers suppress the "no reply" toast when visibility history makes a
 // false negative likely; the reload is the authoritative surface.
-assert.match(mariChat, /hiddenDuringStream: pageWasHiddenDuringStream/u);
+assert.match(mariRun, /hiddenDuringStream: pageWasHiddenDuringStream/u);
 assert.match(mariChat, /!received && !hiddenDuringStream/u);
 
 // ── Detached-run recovery on status transition ──────────────────────────────

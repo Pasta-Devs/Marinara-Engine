@@ -52,6 +52,17 @@ try {
   assert.equal(split.sittings, 2, "a gap just over 30 minutes starts a new sitting");
   assert.equal(split.totalMs, 0);
 
+  // R12 (Golden Mari's play-time unlock): an overnight idle gap between two evenings adds no time.
+  const overnight = computeChatPlayTime([
+    base,
+    base + 20 * MINUTE,
+    base + 45 * MINUTE, // first evening: 45 minutes
+    base + 14 * 60 * MINUTE, // the tab stayed open overnight: 13h15m of silence
+    base + 14 * 60 * MINUTE + 10 * MINUTE, // next morning: 10 minutes
+  ]);
+  assert.equal(overnight.sittings, 2);
+  assert.equal(overnight.totalMs, 55 * MINUTE, "an overnight idle gap must not inflate play time");
+
   // Local day keys follow Date#getTimezoneOffset semantics (UTC-5 is +300).
   const lateUtc = Date.UTC(2026, 0, 2, 3, 0);
   assert.equal(toLocalDayKey(lateUtc, 0), "2026-01-02");

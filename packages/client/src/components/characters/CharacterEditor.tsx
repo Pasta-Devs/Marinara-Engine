@@ -116,11 +116,14 @@ import {
   History,
   RotateCcw,
   Scissors,
+  MessageCircleQuestion,
   MessageCircle,
   Pencil,
   Check,
   Volume2,
 } from "lucide-react";
+import { requestProfessorMariOpen } from "../../lib/professor-mari-open";
+import { MariContextChip } from "../chat/MariContextChip";
 import { cn, copyToClipboard, generateClientId, getAvatarCropStyle } from "../../lib/utils";
 import {
   applyBakedGreetingImages,
@@ -345,6 +348,18 @@ export function CharacterEditor() {
   const dirtyRef = useRef(false);
   const editRevisionRef = useRef(0);
   const setEditorDirty = useUIStore((s) => s.setEditorDirty);
+  // Report the focused field to the omnibar so "make this warmer" knows the target.
+  const setActiveEditorField = useUIStore((s) => s.setActiveEditorField);
+  useEffect(() => {
+    const field =
+      activeTab === "card"
+        ? { id: "description", label: "Description" }
+        : activeTab === "convo"
+          ? { id: "first_mes", label: "Greeting" }
+          : null;
+    setActiveEditorField(field);
+    return () => setActiveEditorField(null);
+  }, [activeTab, setActiveEditorField]);
   const lorebookEmbedInFlightRef = useRef(false);
   const [lorebookEmbedding, setLorebookEmbedding] = useState(false);
   const setDirtyState = useCallback((nextDirty: boolean) => {
@@ -935,6 +950,14 @@ export function CharacterEditor() {
     );
   }
 
+  // Primary prose field for the current tab; drives the contextual Mari chip.
+  const mariChipField: { field: string; value: string } | null =
+    activeTab === "card"
+      ? { field: "description", value: formData.description ?? "" }
+      : activeTab === "convo"
+        ? { field: "first_mes", value: formData.first_mes ?? "" }
+        : null;
+
   const headerActionButtonClass = "mari-editor-action inline-flex";
   const saveDisabled = !dirty || saving || avatarUploading || lorebookEmbedding;
   const saveLabel = avatarUploading
@@ -951,6 +974,27 @@ export function CharacterEditor() {
 
   const headerActions = (
     <>
+      <button
+        type="button"
+        onClick={() => {
+          if (!characterId) return;
+          requestProfessorMariOpen({
+            destination: "omnibar",
+            draft: localizeUi("professorMari.handoff.explainResourceDraft"),
+            context: {
+              source: "character-editor",
+              capability: "explain",
+              resource: { kind: "character", id: characterId, label: formData.name },
+            },
+          });
+        }}
+        className={headerActionButtonClass}
+        title={localizeUi("professorMari.handoff.ask")}
+        aria-label={localizeUi("professorMari.handoff.ask")}
+      >
+        <MessageCircleQuestion size="1rem" />
+      </button>
+
       <button
         type="button"
         onClick={() => updateExtension("fav", !formData.extensions.fav)}
@@ -1091,23 +1135,38 @@ export function CharacterEditor() {
               "mari-editor-avatar-tile group relative",
               !avatarPreview && "mari-avatar-placeholder mari-avatar-placeholder--character",
             )}
-            onClick={() => fileInputRef.current?.click()}
           >
-            {avatarPreview ? (
-              <img
-                src={avatarPreview}
-                alt={formData.name}
-                className="pointer-events-none h-full w-full object-cover"
-                style={getAvatarCropStyle(normalizeAvatarCrop(formData.extensions.avatarCrop))}
-              />
-            ) : (
-              <User size="1.375rem" className="text-white" />
-            )}
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="absolute inset-0 overflow-hidden rounded-[inherit]"
+              aria-label={localizeUi("editor.avatar.upload")}
+            >
+              {avatarPreview ? (
+                <img
+                  src={avatarPreview}
+                  alt={formData.name}
+                  className="pointer-events-none h-full w-full object-cover"
+                  style={getAvatarCropStyle(normalizeAvatarCrop(formData.extensions.avatarCrop))}
+                />
+              ) : (
+                <span className="flex h-full w-full items-center justify-center">
+                  <User size="1.375rem" className="text-white" />
+                </span>
+              )}
+            </button>
             <EditorAvatarTileActions
               generationAvailable={imageGenerationAvailable}
               onGenerate={() => setAvatarGeneratorOpen(true)}
             />
-            <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="sr-only"
+              tabIndex={-1}
+              onChange={handleAvatarUpload}
+            />
           </div>
 
           <div className="min-w-0 flex-1">
@@ -1178,6 +1237,18 @@ export function CharacterEditor() {
         {/* Tab Content */}
         <div ref={contentRef} className="mari-editor-content @max-5xl:p-4">
           <div className="mari-editor-content-inner">
+            {characterId && mariChipField && (
+              <div className="mb-3 flex justify-end">
+                <MariContextChip
+                  entryPoint="character-editor"
+                  surface="character-editor"
+                  resource={{ kind: "character", id: characterId, label: formData.name }}
+                  field={mariChipField.field}
+                  value={mariChipField.value}
+                  subject={formData.name}
+                />
+              </div>
+            )}
             <section data-editor-section="metadata">
               <MetadataTab
                 characterId={characterId}

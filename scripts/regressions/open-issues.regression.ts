@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -398,7 +398,6 @@ import {
   filterAndSortBackgrounds,
   getNextBackgroundFolderName,
 } from "../../packages/client/src/lib/background-library.js";
-import { resolveProfessorMariNavigation } from "../../packages/client/src/lib/professor-mari-navigation.js";
 import { resolveCapabilityPackageDisplay } from "../../packages/client/src/lib/capability-package-localization.js";
 import { resolveFeatureAgentPackage } from "../../packages/client/src/lib/feature-agent-package.js";
 import { mergeEmbeddedCharacterCardFields } from "../../packages/client/src/lib/character-import.js";
@@ -753,7 +752,7 @@ assert.match(
 );
 assert.match(
   professorMariWorkspaceSource,
-  /updates are patches[\s\S]{0,400}read the entity back[\s\S]{0,300}requested value[\s\S]{0,220}Claim completion only/u,
+  /updates are patches[\s\S]{0,400}read the entity back[\s\S]{0,300}Claim completion only when every requested value matches/u,
   "Professor Mari must preserve unrelated fields and verify requested character edits before claiming completion",
 );
 const professorMariSeedSource = readFileSync(join(REPOSITORY_ROOT, "packages/server/src/db/seed-mari.ts"), "utf8");
@@ -762,107 +761,6 @@ assert.match(
   /Keep card fields distinct:[\s\S]{0,600}fetch the character again/u,
   "The seeded Professor Mari command guide must retain the same targeted character-field safeguards",
 );
-
-assert.deepEqual(resolveProfessorMariNavigation("Where are the characters?"), {
-  kind: "panel",
-  panel: "characters",
-});
-assert.deepEqual(resolveProfessorMariNavigation("CHARS"), { kind: "panel", panel: "characters" });
-assert.deepEqual(resolveProfessorMariNavigation("Persona?"), { kind: "panel", panel: "personas" });
-for (const query of ["Chats", "conversations", "convo", "roleplay", "GAME"]) {
-  assert.deepEqual(resolveProfessorMariNavigation(query), { kind: "chats" });
-}
-assert.deepEqual(resolveProfessorMariNavigation("Can I talk to Professor Mari?"), { kind: "professor" });
-assert.deepEqual(resolveProfessorMariNavigation("Where do I disable Professor Mari navigation?"), {
-  kind: "settings",
-  tab: "general",
-  controlId: "professor-mari-navigation",
-});
-assert.deepEqual(resolveProfessorMariNavigation("change my theme"), { kind: "settings", tab: "appearance" });
-assert.deepEqual(resolveProfessorMariNavigation("image generation settings"), {
-  kind: "settings",
-  tab: "generations",
-});
-assert.deepEqual(resolveProfessorMariNavigation("open Discord"), { kind: "window", window: "discord" });
-assert.deepEqual(resolveProfessorMariNavigation("customize my home widgets"), {
-  kind: "window",
-  window: "widgets",
-});
-const professorMariNamedResources = [
-  { kind: "character" as const, id: "character-maukie", name: "Maukie" },
-  { kind: "persona" as const, id: "persona-echo", name: "Echo" },
-  { kind: "character" as const, id: "character-echo", name: "Echo" },
-  { kind: "preset" as const, id: "preset-cinema", name: "Cinematic RP" },
-  { kind: "lorebook" as const, id: "lorebook-snezhnaya", name: "Snezhnaya Archives" },
-  { kind: "agent" as const, id: "illustrator", name: "Illustrator", aliases: ["image agent"] },
-];
-assert.deepEqual(resolveProfessorMariNavigation("Maukie", [], professorMariNamedResources), {
-  kind: "resource",
-  resource: "character",
-  id: "character-maukie",
-});
-assert.deepEqual(resolveProfessorMariNavigation("Where is Maukie?", [], professorMariNamedResources), {
-  kind: "resource",
-  resource: "character",
-  id: "character-maukie",
-});
-assert.deepEqual(resolveProfessorMariNavigation("Mauk", [], professorMariNamedResources), {
-  kind: "resource",
-  resource: "character",
-  id: "character-maukie",
-});
-assert.deepEqual(resolveProfessorMariNavigation("edit the Echo persona", [], professorMariNamedResources), {
-  kind: "resource",
-  resource: "persona",
-  id: "persona-echo",
-});
-// An ambiguous name resolves to the first matching resource in supply order.
-assert.deepEqual(resolveProfessorMariNavigation("Echo", [], professorMariNamedResources), {
-  kind: "resource",
-  resource: "persona",
-  id: "persona-echo",
-});
-assert.deepEqual(resolveProfessorMariNavigation("open Cinematic RP preset", [], professorMariNamedResources), {
-  kind: "resource",
-  resource: "preset",
-  id: "preset-cinema",
-});
-assert.deepEqual(resolveProfessorMariNavigation("Snezhnaya Archives lorebook", [], professorMariNamedResources), {
-  kind: "resource",
-  resource: "lorebook",
-  id: "lorebook-snezhnaya",
-});
-assert.deepEqual(resolveProfessorMariNavigation("Illustrator", [], professorMariNamedResources), {
-  kind: "resource",
-  resource: "agent",
-  id: "illustrator",
-});
-assert.deepEqual(
-  resolveProfessorMariNavigation("Where did Noodle go?", [
-    { id: "official.noodle", label: "Noodle", aliases: ["NoodleR"] },
-  ]),
-  { kind: "package", packageId: "official.noodle" },
-);
-assert.equal(resolveProfessorMariNavigation("Where did Noodle go?"), null);
-assert.equal(resolveProfessorMariNavigation("quantum spaghetti cupboard"), null);
-assert.deepEqual(
-  resolveProfessorMariNavigation(
-    "Midnight at Zapolyarny",
-    [],
-    [],
-    [{ id: "chat-midnight", name: "Midnight at Zapolyarny" }],
-  ),
-  { kind: "chat", chatId: "chat-midnight" },
-);
-assert.deepEqual(resolveProfessorMariNavigation("CHAT", [], [], [{ id: "chat-generic", name: "Chat" }]), {
-  kind: "chats",
-});
-for (const name of ["Conversation", "Roleplay", "Game"]) {
-  assert.deepEqual(resolveProfessorMariNavigation(name, [], [], [{ id: `chat-${name}`, name }]), {
-    kind: "chat",
-    chatId: `chat-${name}`,
-  });
-}
 
 const localizedPackageManifest = {
   name: "Noodle",
@@ -5496,6 +5394,17 @@ const professorMariHomeSource = readFileSync(
   new URL("../../packages/client/src/components/chat/HomeProfessorMariChat.tsx", import.meta.url),
   "utf8",
 );
+// Slice 82: the chat's parts live in components/chat/mari/; "nowhere" and count checks read all of them.
+const mariChatDir = new URL("../../packages/client/src/components/chat/mari/", import.meta.url);
+const mariChatPart = (name: string) => readFileSync(new URL(name, mariChatDir), "utf8");
+const mariChatAllSource = [professorMariHomeSource, ...readdirSync(mariChatDir).map(mariChatPart)].join("\n");
+const mariSeesPanelSource = mariChatPart("MariSeesPanel.tsx");
+const mariMessageActionsSource = mariChatPart("use-mari-message-actions.ts");
+const mariWorkspaceRunSource = mariChatPart("use-mari-workspace-run.ts");
+const mariChatHistoryActionsSource = mariChatPart("use-mari-chat-history-actions.ts");
+const mariWorkTimelineSource = mariChatPart("MariWorkTimeline.tsx");
+const mariTranscriptSource = mariChatPart("MariTranscript.tsx");
+const compactMariMessageSource = mariChatPart("CompactMariMessage.tsx");
 const contextBudgetChatInputSource = readFileSync(
   new URL("../../packages/client/src/components/chat/ChatInput.tsx", import.meta.url),
   "utf8",
@@ -5697,15 +5606,12 @@ for (const [name, source] of [
   assert.match(source, /<ContextBudgetIndicator budget=\{contextBudget\}/u, `${name} must show usage in its popup`);
   assert.match(source, /relative flex h-\[1\.875rem\] w-\[1\.875rem\]/u, `${name} must use the larger context gauge`);
 }
-assert.equal(
-  professorMariHomeSource.match(/<ContextBudgetIndicator budget=\{contextBudget\} \/>/gu)?.length,
-  2,
-  "Both Professor Mari connection popups must show context usage",
-);
-assert.equal(
-  professorMariHomeSource.match(/relative flex h-\[1\.875rem\] w-\[1\.875rem\]/gu)?.length,
-  2,
-  "Both Professor Mari connection buttons must use the larger context gauge",
+// Mari's context use moved out of the connection popups (69be7be17: it duplicated the status strip) into the
+// "how she works" connection row, behind the Show context usage setting.
+assert.match(
+  mariSeesPanelSource,
+  /showContextUsage && contextBudget\s*\?\s*localizeUi\("ui\.chat\.homeprofessormarichat\.awareOfContextUse"/u,
+  "Professor Mari's connection row must show context usage when the setting is on",
 );
 assert.match(professorMariHomeSource, /chatHistorySelectionMode/u);
 assert.match(
@@ -5713,24 +5619,32 @@ assert.match(
   /enterToSendProfessorMari/u,
   "Professor Mari must read her persisted Send on Enter preference",
 );
+// One composer since the floating-mode branch was removed (f27ce165b).
 assert.equal(
-  professorMariHomeSource.match(
+  mariChatAllSource.match(
     /event\.key === "Enter" &&\s*!event\.shiftKey &&\s*\(enterToSend \|\| event\.metaKey \|\| event\.ctrlKey\)/gu,
   )?.length,
-  2,
-  "Both Professor Mari composers must preserve Shift+Enter and require the configured send shortcut",
+  1,
+  "Professor Mari's composer must preserve Shift+Enter and require the configured send shortcut",
 );
 assert.match(professorMariHomeSource, /toggleProfessorChatSelection/u);
 assert.match(professorMariHomeSource, /handleBulkDeleteProfessorChats/u);
 assert.match(
-  professorMariHomeSource,
+  mariMessageActionsSource,
   /const handleEditMessage = useCallback\([\s\S]{0,180}if \(!chatId \|\| isBusy\) return;/u,
   "Professor Mari's first edit after generation must not be rejected by a stale busy ref",
 );
+// A failed send now keeps the message in the transcript with one Retry card (failRun) and never refills the
+// composer; Stop is not a failure, so failRun returns before it shows anything.
 assert.match(
-  professorMariHomeSource,
-  /catch \(error\) \{\s*if \(isProfessorMariAbortError\(error\)\) return;\s*setDraft\(text\)/u,
-  "Stopping Professor Mari must not restore an already-submitted prompt to the composer",
+  mariWorkspaceRunSource,
+  /const failRun = useCallback\(\s*\([^)]*\) => \{\s*if \(isProfessorMariAbortError\(error\)\) return;/u,
+  "Stopping Professor Mari must not show a failure",
+);
+assert.doesNotMatch(
+  mariChatAllSource,
+  /catch \(error\) \{[^}]*setDraft\(/u,
+  "A failed or stopped Professor Mari send must not restore the submitted prompt to the composer",
 );
 assert.match(
   lorebookHooksSource,
@@ -5738,13 +5652,15 @@ assert.match(
   "Deleting a lorebook must refresh cached chat metadata so it leaves active context immediately",
 );
 assert.match(
-  professorMariHomeSource,
+  mariChatHistoryActionsSource,
   /handleDeleteProfessorChat[\s\S]{0,500}showConfirmDialog/u,
   "Deleting one Professor Mari chat must use the app confirmation dialog",
 );
+// Every step row, failed ones included, opens to technical details with the tool's output (slice 72
+// moved the details into one `technicalDetails` helper that every step row renders).
 assert.match(
-  professorMariHomeSource,
-  /isError && tool\.output\?\.trim\(\)[\s\S]{0,200}<pre/u,
+  mariWorkTimelineSource,
+  /const technicalDetails = \(tool: WorkspaceToolCall\) =>[\s\S]{0,600}tool\.output !== null && tool\.output !== undefined \? <pre>/u,
   "Failed workspace tools must reveal their provider output in the transcript",
 );
 const professorMariTranscript = { clientHeight: 240, scrollHeight: 720, scrollTop: 0 };
@@ -5762,7 +5678,7 @@ assert.equal(
   "Professor Mari streaming must stop following output after the reader scrolls away from the bottom",
 );
 assert.match(
-  professorMariHomeSource,
+  mariTranscriptSource,
   /ref=\{setTranscriptScrollNode\}[\s\S]{0,100}data-component="HomeProfessorMariChat\.Transcript"/u,
   "Professor Mari transcript panes must trigger scrolling from their mounted ref",
 );
@@ -5773,11 +5689,11 @@ assert.match(
 );
 assert.match(
   professorMariHomeSource,
-  /options\.shouldApply\?\.\(\) === false[\s\S]{0,160}setMessages/u,
+  /options\.shouldApply\?\.\(\) === false[\s\S]{0,480}setMessages/u,
   "Professor Mari message loads must recheck an operation guard before applying a response",
 );
 assert.match(
-  professorMariHomeSource,
+  mariWorkspaceRunSource,
   /loadMessages\(completedChatId, \{[\s\S]{0,160}workspaceRunIdRef\.current === runId[\s\S]{0,100}activeChatIdRef\.current === completedChatId/u,
   "Professor Mari background refreshes must not overwrite state after a newer operation starts",
 );
@@ -5789,17 +5705,23 @@ assert.match(
   "Professor Mari workspace status loads must recheck an operation guard before applying a response",
 );
 assert.match(
-  professorMariHomeSource,
+  mariWorkspaceRunSource,
   /refreshWorkspaceStatus\([\s\S]{0,140}workspaceRunIdRef\.current === runId[\s\S]{0,100}activeChatIdRef\.current === completedChatId/u,
   "Professor Mari post-run status refreshes must not overwrite state after a newer operation starts",
 );
+// The work-stage layout (1a61247d1) replaced the user-message separators with a right-aligned bubble.
 assert.match(
-  professorMariHomeSource,
-  /message\.role === "user"[\s\S]{0,180}<TranscriptRow[\s\S]{0,100}border-y border-\[var\(--border\)\]\/60/u,
-  "Professor Mari user messages must retain their theme-aware horizontal separators",
+  compactMariMessageSource,
+  /message\.role === "user"[\s\S]{0,180}<TranscriptRow[^>]*className="mari-user-request/u,
+  "Professor Mari user messages must render as the user-request row",
 );
 assert.match(
-  professorMariHomeSource,
+  readFileSync(new URL("../../packages/client/src/styles/mari.css", import.meta.url), "utf8"),
+  /\.mari-user-request__bubble \{[^}]*background: color-mix\(in srgb, var\(--foreground\) \d+%, var\(--card\)\)/u,
+  "Professor Mari user bubbles must take their colour from the theme",
+);
+assert.match(
+  mariChatHistoryActionsSource,
   /Promise\.allSettled\([\s\S]*?api\.delete\(`\/chats\/internal\/professor-mari\/chats\/\$\{id\}`\)/u,
   "Professor Mari chat history should delete all selected chats through the existing endpoint",
 );
@@ -5934,7 +5856,8 @@ assert.match(
 // Chat Summary is a Chat Settings drawer, so a request opens Chat Settings there (desktop window or phone sheet).
 assert.match(
   assignedSweepChatAreaSource,
-  /chatId !== useChatStore\.getState\(\)\.activeChatId\) return;\s*handleOpenSettingsPanel\(undefined, \{ initialSection: "summary" \}\)[\s\S]{0,120}CHAT_SUMMARY_OPEN_REQUEST_EVENT/u,
+  // One listener table now serves the summary, lorebook-entries and search drawers (omnibar chat tool rows).
+  /\[CHAT_SUMMARY_OPEN_REQUEST_EVENT, "summary"\][\s\S]{0,400}chatId !== useChatStore\.getState\(\)\.activeChatId\) return;\s*handleOpenSettingsPanel\(undefined, \{ initialSection \}\)/u,
   "Summary requests must open Chat Settings at the Chat Summary drawer for the active chat only",
 );
 assert.match(
@@ -6216,7 +6139,12 @@ assert.match(
   /resolveIllustratorImageSize\(\s*requestChatMode === "game" \? imageSettings\.game : imageSettings\.illustration,\s*illData\.aspectRatio/u,
   "automatic Illustrator generation should use the Game scene canvas in Game mode and preserve the shared orientation resolver",
 );
-assert.match(professorMariHomeSource, /Math\.min\(textarea\.scrollHeight, 128\)/u);
+// R11: the composer cap is its CSS max-height now (8 lines, 6 on touch), not a hard-coded 128 px.
+assert.match(
+  professorMariHomeSource,
+  /const cap = Number\.parseFloat\(getComputedStyle\(textarea\)\.maxHeight\);\s*const to = Number\.isFinite\(cap\) \? Math\.min\(textarea\.scrollHeight, cap\)/u,
+  "Professor Mari's composer must stop growing at its max-height",
+);
 assert.equal(
   themesRouteSource.match(/requirePrivilegedAccess\(req, reply, \{ feature: "Theme install\/update\/delete" \}\)/gu)
     ?.length,
@@ -6288,10 +6216,10 @@ assert.equal(
   "Home effect pausing must keep one central visibility listener",
 );
 assert.match(appSource, /dispatchEvent\(new CustomEvent\("marinara:effects-paused"/u);
-assert.match(homeBrowserHubSource, /window\.removeEventListener\(MARINARA_EFFECTS_PAUSED_EVENT, sync\)/u);
+// Slice 85: the navigator is gone; the Home widget's blink is the Mari frame that pauses with the page.
 assert.match(
   globalStylesSource,
-  /data-marinara-effects-paused="true"[^}]+mari-home-professor-popup__sprite[\s\S]+animation-play-state: paused !important;/u,
+  /data-marinara-effects-paused="true"\] \.mari-home-professor-blink,[^}]+animation-play-state: paused !important;/u,
 );
 const agentEditorSource = readFileSync(
   new URL("../../packages/client/src/components/agents/AgentEditor.tsx", import.meta.url),
@@ -6539,10 +6467,14 @@ const illustratorReferencesSource = readFileSync(
   "utf8",
 );
 assert.match(appSource, /--marinara-app-accent-static-gradient/u);
-assert.match(appSource, /position=\{notificationPosition === "bottom" \? "bottom-center" : "top-center"\}/u);
+// While the omnibar is open, toasts move to the edge it does not cover; otherwise the user's position applies.
 assert.match(
   appSource,
-  /swipeDirections=\{\["left", "right", notificationPosition === "bottom" \? "bottom" : "top"\]\}/u,
+  /position=\{\s*omnibarOpen\s*\?[^:]+:[^:]+:\s*notificationPosition === "bottom"\s*\? "bottom-center"\s*: "top-center"\s*\}/u,
+);
+assert.match(
+  appSource,
+  /swipeDirections=\{\[\s*"left",\s*"right",\s*omnibarOpen \? \(isMobileShell \? "top" : "bottom"\) : notificationPosition === "bottom" \? "bottom" : "top",\s*\]\}/u,
 );
 assert.doesNotMatch(agentEditorSource, /fetch\(["']\/api\/game-assets\/pick-local-music-folder/u);
 assert.match(agentEditorSource, /api\.post<[^>]+>\(["']\/game-assets\/pick-local-music-folder["']\)/u);
@@ -7009,7 +6941,10 @@ const markdownBlockquoteStyles =
   globalStyles.match(/\.mari-message-content \.mari-md-blockquote \{[\s\S]*?\}/u)?.[0] ?? "";
 assert.match(markdownBlockquoteStyles, /color:\s*inherit;/u);
 assert.doesNotMatch(markdownBlockquoteStyles, /color:\s*var\(--muted-foreground\);/u);
-const markdownMessageStyles = globalStyles.match(/\.mari-message-content \{[\s\S]*?\}/u)?.[0] ?? "";
+// The workspace transcript adds its own earlier `.mari-message-content` rule (padding only); check every rule.
+const markdownMessageStyles = [...globalStyles.matchAll(/^\.mari-message-content \{[\s\S]*?\}/gmu)]
+  .map((match) => match[0])
+  .join("\n");
 const markdownMessageContainerStyles =
   globalStyles.match(/\.mari-message-body,\s*\.mari-message-bubble \{[\s\S]*?\}/u)?.[0] ?? "";
 const markdownCodeBlockStyles =

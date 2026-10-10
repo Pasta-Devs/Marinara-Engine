@@ -23,7 +23,7 @@ Completed:
 
 Intentionally retained for separate compatibility or product work:
 
-- `@rollup/wasm-node` and `Mari_point_down_left.png`;
+- `@rollup/wasm-node`;
 - server exports that could be out-of-tree APIs or test seams;
 - PNG parser and tutorial geometry consolidation;
 - the broad editor/composer and large-module refactors;
@@ -203,9 +203,7 @@ Do not apply this “one textual occurrence” test wholesale to `packages/share
 
 ## 5. Static asset candidate
 
-`packages/client/public/sprites/mari/Mari_point_down_left.png` is the only bundled Mari sprite whose basename/path has no repository reference. The neighboring Mari assets are referenced.
-
-**Recommendation (medium confidence):** verify that no runtime naming convention or externally-authored theme addresses it directly, then remove it and browser-check every Mari tutorial/onboarding pose. Public assets can be loaded by constructed URLs, so text absence alone is not enough for high confidence.
+`packages/client/public/sprites/mari/Mari_point_down_left.png`, the one bundled Mari sprite whose basename/path had no repository reference, was removed by omnibar slice 38a.
 
 Do not use basename searches to prune bundled game assets. Server seeders and manifests scan some asset directories dynamically.
 

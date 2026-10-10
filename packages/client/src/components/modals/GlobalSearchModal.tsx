@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Loader2, Search, SlidersHorizontal } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { GlobalChatSearchResult } from "@marinara-engine/shared";
@@ -7,6 +7,7 @@ import { cn } from "../../lib/utils";
 import { useChats } from "../../hooks/use-chats";
 import { useCharacterSummaries } from "../../hooks/use-characters";
 import { useGlobalChatSearch, type GlobalChatSearchFilters } from "../../hooks/use-chat-insights";
+import { useDebouncedValue } from "../../hooks/use-debounced-value";
 import { openChatAtMessage } from "../../lib/chat-insights";
 import { localDateInputToIso, splitSnippet } from "../../lib/chat-insights-display";
 
@@ -22,15 +23,6 @@ function readCharacterIds(raw: unknown): string[] {
   } catch {
     return [];
   }
-}
-
-function useDebouncedValue<T>(value: T, delayMs: number): T {
-  const [debounced, setDebounced] = useState(value);
-  useEffect(() => {
-    const timer = window.setTimeout(() => setDebounced(value), delayMs);
-    return () => window.clearTimeout(timer);
-  }, [value, delayMs]);
-  return debounced;
 }
 
 function SearchResultRow({ result, onOpen }: { result: GlobalChatSearchResult; onOpen: () => void }) {

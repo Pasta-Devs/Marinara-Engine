@@ -93,6 +93,18 @@ Capabilities are declared in the extension payload, persisted with every revisio
 - `button`: a compact top-bar action by default, or a host-rendered action on the `chats`, `bots`, `characters`, `personas`, `lorebooks`, `presets`, `connections`, `agents`, or `settings` surface;
 - `menu-item`: an action in the Extensions menu;
 - `panel`: an entry that opens Marinara's trusted Extensions side panel.
+- `command`: an entry in the Command Center that activates an existing `button`, `menu-item`, or `panel` from the same extension revision.
+
+Commands contain `targetContributionId` and have no `onActivate` or `onEvent` callback. The host resolves the target by extension ID, content hash, and contribution ID. A missing target or a target from another revision fails closed. For example:
+
+```js
+marinara.ui.registerContribution({
+  id: "open-weather",
+  kind: "command",
+  label: "Open weather controls",
+  targetContributionId: "weather-panel",
+});
+```
 
 Side-panel buttons accept `position: "header"`, `"before-content"`, or `"after-content"`. Top-bar buttons omit `position`. Icons are bounded kebab-case names from Marinara's Lucide icon catalog; unsupported names fall back to the puzzle icon.
 

@@ -10,7 +10,11 @@ export interface GlobalChatSearchFilters {
   /** ISO timestamps (already converted from the reader's local dates). */
   from?: string;
   to?: string;
+  /** At most this many hits per chat, with every chat counted (see `GlobalChatSearchResponse.chats`). */
+  perChat?: number;
 }
+
+export const GLOBAL_MESSAGE_HITS_PER_CHAT = 2;
 
 const GLOBAL_SEARCH_PAGE_SIZE = 30;
 
@@ -47,6 +51,7 @@ export function useGlobalChatSearch(filters: GlobalChatSearchFilters, enabled = 
         const value = filters[key];
         if (value) params.set(key, value);
       }
+      if (filters.perChat) params.set("perChat", String(filters.perChat));
       return api.get<GlobalChatSearchResponse>(`/chat-insights/search?${params.toString()}`, { signal });
     },
     getNextPageParam: (lastPage) => (lastPage.hasMore ? lastPage.offset + lastPage.results.length : undefined),

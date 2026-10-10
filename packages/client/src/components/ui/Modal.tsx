@@ -17,6 +17,7 @@ import { useBackdropDismiss } from "../../hooks/use-backdrop-dismiss";
 import { useBackDismiss } from "../../hooks/use-back-dismiss";
 import { registerModalOverlay, type ModalOverlayRegistration } from "../../lib/modal-overlay-registry";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
+import { useUIStore } from "../../stores/ui.store";
 import { useTranslation as useUiTranslation } from "react-i18next";
 
 interface ModalProps {
@@ -71,6 +72,8 @@ export function Modal({
   // before actually removing the DOM nodes.
   const [mounted, setMounted] = useState(false);
   const [animating, setAnimating] = useState<"enter" | "exit" | null>(null);
+  // A dialog the omnibar or Mari opens (a confirm, say) must not land beneath them.
+  const [overOmnibar, setOverOmnibar] = useState(false);
   const enterRafRef = useRef<number | null>(null);
   const backdropDismiss = useBackdropDismiss(onClose, closeDisabled);
   const overlayRegistrationRef = useRef<ModalOverlayRegistration | null>(null);
@@ -97,6 +100,7 @@ export function Modal({
 
     if (open) {
       setMounted(true);
+      setOverOmnibar(useUIStore.getState().omnibarOpen);
       // Start enter animation on next frame so the DOM is present
       enterRafRef.current = requestAnimationFrame(() => {
         setAnimating("enter");
@@ -181,7 +185,7 @@ export function Modal({
       aria-label={localizedTitle}
       data-chat-floating-panel={chatFloatingPanel ? "true" : undefined}
       data-component="Modal"
-      className={`mari-modal fixed inset-0 z-[10000] flex items-center justify-center ${dragThrough ? "pointer-events-none" : ""} ${
+      className={`mari-modal fixed inset-0 ${overOmnibar ? "z-(--mari-layer-omnibar)" : "z-[10000]"} flex items-center justify-center ${dragThrough ? "pointer-events-none" : ""} ${
         mobileFullscreen
           ? "p-0 sm:p-4"
           : "p-3 max-md:pt-[max(0.75rem,env(safe-area-inset-top))] max-md:pb-[max(0.75rem,var(--mari-safe-area-inset-bottom,env(safe-area-inset-bottom)))] sm:p-4"

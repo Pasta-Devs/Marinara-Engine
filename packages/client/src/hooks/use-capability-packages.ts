@@ -553,13 +553,14 @@ export function useInstallCapabilityPackage() {
   });
 }
 
-export function useDeclineCapabilityPackageUpdate() {
+/** One request for all listed updates ("Not now"), so none of them returns on a reload right after. */
+export function useDeclineCapabilityPackageUpdates() {
   const invalidate = useInvalidateCapabilityState();
   return useMutation({
-    mutationFn: ({ id, version }: Pick<CapabilityPackageUpdate, "id" | "version">) =>
-      api.post<{ declined: true }>(
-        `/capability-packages/${encodeURIComponent(id)}/updates/${encodeURIComponent(version)}/decline`,
-      ),
+    mutationFn: (updates: Array<Pick<CapabilityPackageUpdate, "id" | "version">>) =>
+      api.post<{ declined: string[] }>("/capability-packages/updates/decline", {
+        updates: updates.map(({ id, version }) => ({ id, version })),
+      }),
     onSuccess: invalidate,
   });
 }

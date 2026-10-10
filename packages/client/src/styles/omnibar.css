@@ -1,0 +1,409 @@
+/* The omnibar dialog: its open animation, the pull-to-open overlay, rows and their expansion. Imported by
+   globals.css at its old place, so the cascade order is unchanged. */
+@keyframes omnibar-in {
+  from {
+    opacity: 0;
+    transform: scale(0.98) translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.animate-omnibar-in {
+  animation: omnibar-in 0.16s ease-out;
+}
+
+/* Pull-to-open (slice 15): a sheet of the top bar's own surface pulled down to a
+   circle with a small bar under it. `use-pull-to-open-omnibar` paints the
+   geometry, the clip path and the background every frame. Above the omnibar (z 100). */
+/* Over another dialog (L8) the translucent card would show that dialog's text through the
+   omnibar's own; back it with the opaque app background. */
+[data-component="GlobalOmnibar"][data-over-dialog="true"] [data-component="GlobalOmnibar.Panel"] {
+  background-color: var(--background);
+  background-image: linear-gradient(var(--card), var(--card));
+}
+
+.mari-pull-overlay {
+  --mari-pull-rim-color: var(--marinara-app-accent-solid);
+  --mari-pull-rim-mid: var(--mari-pull-rim-color);
+  --mari-pull-rim-end: var(--mari-pull-rim-color);
+  --mari-pull-edge: color-mix(in srgb, var(--foreground) 12%, transparent);
+  --mari-pull-ring: color-mix(in srgb, var(--foreground) 22%, transparent);
+  --mari-pull-shadow: rgb(0 0 0 / 0.4);
+  position: fixed;
+  inset: 0;
+  /* Above the omnibar it opens into, so the circle can pop open over the dialog. */
+  z-index: calc(var(--mari-layer-omnibar) + 1);
+  pointer-events: none;
+}
+
+.mari-pull-overlay[data-mari-edge] {
+  --mari-pull-rim-color: var(--mari-edge);
+  --mari-pull-rim-mid: var(--mari-edge-mid, var(--mari-edge));
+  --mari-pull-rim-end: var(--mari-edge-end, var(--mari-edge));
+}
+
+[data-theme="light"] .mari-pull-overlay {
+  --mari-pull-shadow: rgb(40 20 80 / 0.16);
+}
+
+/* R8: no text selection while a mouse pulls the bar (set and lifted by the pull hook). */
+html.mari-pull-no-select,
+html.mari-pull-no-select * {
+  -webkit-user-select: none !important;
+  user-select: none !important;
+}
+
+.mari-pull-overlay > * {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+.mari-pull-glass {
+  will-change: transform;
+  -webkit-backdrop-filter: blur(10px) saturate(120%);
+  backdrop-filter: blur(10px) saturate(120%);
+}
+
+.mari-pull-rim {
+  overflow: visible;
+  will-change: transform;
+}
+
+.mari-pull-rim-edge {
+  fill: none;
+  stroke: var(--mari-pull-edge);
+  stroke-width: 1;
+}
+
+.mari-pull-rim-hair {
+  fill: none;
+  stroke-width: 1.5;
+}
+
+.mari-pull-rim-ring {
+  fill: none;
+  stroke: var(--mari-pull-ring);
+  stroke-width: 1;
+}
+
+.mari-pull-shadow {
+  border-radius: 50%;
+  will-change: transform;
+}
+
+.mari-pull-lay {
+  opacity: 0;
+  will-change: transform, opacity;
+}
+
+.mari-pull-icon {
+  color: var(--foreground);
+  filter: drop-shadow(0 1px 3px rgb(0 0 0 / 0.35));
+}
+
+.mari-pull-icon svg {
+  display: block;
+}
+
+/* Mari floats in the circle: the head of her portrait, its edge dissolving into the rim. */
+.mari-pull-portrait {
+  width: 72px;
+  height: 72px;
+  overflow: hidden;
+  border-radius: 50%;
+  -webkit-mask-image: radial-gradient(circle at 50% 46%, #000 60%, transparent 72%);
+  mask-image: radial-gradient(circle at 50% 46%, #000 60%, transparent 72%);
+}
+
+/* 45b: one 96 px head per frame of the pack's pull-heads sheet; the circle crops it, the art stays square. */
+.mari-pull-head {
+  position: absolute;
+  inset: 0;
+  background: var(--mari-pull-heads) 0 0 / 600% 100% no-repeat;
+  image-rendering: pixelated;
+}
+
+.mari-pull-head[data-gaze="down"] {
+  background-position-x: 20%;
+}
+
+.mari-pull-head[data-gaze="down-left"] {
+  background-position-x: 40%;
+}
+
+.mari-pull-head[data-gaze="down-right"] {
+  background-position-x: 60%;
+}
+
+/* Armed: she peers over her glasses, or lights up when there is something on screen to talk about. */
+[data-armed="true"] .mari-pull-head {
+  background-position-x: 80%;
+}
+
+[data-armed="true"][data-context="true"] .mari-pull-head {
+  background-position-x: 100%;
+}
+
+/* M17: sized like her sprite by the hook and moved from its top-left corner; the clip turns the circle
+   around her head into the sprite's box. */
+.mari-pull-morph {
+  transform-origin: 0 0;
+  will-change: transform, opacity, clip-path;
+}
+
+.mari-pull-morph__sprite,
+.mari-pull-morph__portrait {
+  position: absolute;
+  top: 0;
+}
+
+.mari-pull-morph__sprite {
+  inset: 0;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+}
+
+.mari-pull-morph__portrait {
+  overflow: hidden;
+  border-radius: 50%;
+}
+
+.mari-pull-morph__portrait img {
+  position: absolute;
+  top: -9%;
+  left: 50%;
+  width: 150%;
+  max-width: none;
+  transform: translateX(-46%);
+  image-rendering: pixelated;
+}
+
+.mari-pull-tag,
+.mari-pull-chip {
+  display: grid;
+  max-width: calc(100vw - 12px);
+  height: 30px;
+  place-items: center;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--card) 70%, transparent);
+  color: var(--foreground);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.22),
+    inset 0 0 0 1px var(--mari-pull-edge),
+    0 6px 16px var(--mari-pull-shadow);
+  -webkit-backdrop-filter: blur(12px) saturate(160%);
+  backdrop-filter: blur(12px) saturate(160%);
+}
+
+/* Room for the armed label's two lines; idle and armed share one box, so it never changes size. */
+.mari-pull-tag {
+  max-width: min(calc(100vw - 12px), 320px);
+  height: 32px;
+  padding-block: 2px;
+}
+
+.mari-pull-tag-side,
+.mari-pull-tag-side > span {
+  grid-area: 1 / 1;
+}
+
+.mari-pull-tag-side {
+  display: grid;
+  min-width: 0;
+  max-width: 100%;
+  justify-items: center;
+}
+
+.mari-pull-tag-side > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition:
+    opacity 180ms ease,
+    transform 240ms cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+
+.mari-pull-tag-side > [data-part="armed"],
+[data-armed="true"] .mari-pull-tag-side > [data-part="idle"] {
+  opacity: 0;
+  transform: translateY(4px);
+}
+
+[data-armed="true"] .mari-pull-tag-side > [data-part="armed"] {
+  opacity: 1;
+  transform: none;
+}
+
+.mari-pull-tag-side > [data-part="armed"] {
+  display: flex;
+  max-width: 100%;
+  flex-direction: column;
+  align-items: center;
+  line-height: 15px;
+}
+
+.mari-pull-tag [data-line="soft"] {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 13px;
+  opacity: 0.72;
+  text-overflow: ellipsis;
+}
+
+/* Reduced motion: only the label above the finger, with a progress line. */
+.mari-pull-chip {
+  display: flex;
+  height: 32px;
+  gap: 8px;
+  overflow: hidden;
+}
+
+.mari-pull-chip::after {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: calc(var(--mari-pull-progress, 0) * 100%);
+  height: 2px;
+  background: var(--primary);
+  content: "";
+}
+
+.mari-pull-chip > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mari-pull-chip svg {
+  color: var(--primary);
+}
+
+.mari-pull-chip-portrait {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  object-fit: cover;
+  object-position: 50% 12%;
+  image-rendering: pixelated;
+}
+
+.mari-pull-fadeout {
+  opacity: 0 !important;
+  transition: opacity 220ms ease-out !important;
+}
+
+/* While the circle docks in the opened dialog, what it lands on stays hidden. */
+html[data-mari-pull-landing] [data-mari-pull-target],
+html[data-mari-pull-landing] [data-mari-pull-target] * {
+  visibility: hidden !important;
+}
+
+@keyframes omnibar-row-in {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.animate-omnibar-row-in {
+  animation: omnibar-row-in 0.22s ease-out both;
+}
+
+/* An expanded omnibar row opens by its grid track, so the body never has to be
+   measured. Only the opening animates: collapsing unmounts the body. */
+@keyframes omnibar-row-expand {
+  from {
+    grid-template-rows: 0fr;
+    opacity: 0;
+  }
+  to {
+    grid-template-rows: 1fr;
+    opacity: 1;
+  }
+}
+
+/* Slice 78: the empty omnibar's one "Now" row. Status colours at low alpha (semantic only),
+   one quiet pill for its action. */
+.omnibar-now-row {
+  --omnibar-now-tone: var(--primary);
+  border: 1px solid color-mix(in srgb, var(--omnibar-now-tone) 30%, var(--border));
+  background: linear-gradient(90deg, color-mix(in srgb, var(--omnibar-now-tone) 9%, transparent), transparent 70%);
+}
+.omnibar-now-row--review {
+  --omnibar-now-tone: rgb(245 158 11);
+}
+.omnibar-now-row--fix {
+  --omnibar-now-tone: rgb(244 63 94);
+}
+.omnibar-now-row--check,
+.omnibar-now-row--setup {
+  --omnibar-now-tone: rgb(14 165 233);
+}
+.omnibar-now-row--finished {
+  --omnibar-now-tone: rgb(16 185 129);
+}
+.omnibar-now-action {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.75rem;
+  padding: 0 0.625rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--foreground);
+  border: 1px solid color-mix(in srgb, var(--omnibar-now-tone) 35%, var(--border));
+  background: color-mix(in srgb, var(--omnibar-now-tone) 8%, var(--card));
+}
+
+.omnibar-row-expansion {
+  grid-template-rows: 1fr;
+  animation: omnibar-row-expand 180ms ease-out both;
+}
+
+html[data-marinara-reduced-effects="true"] .omnibar-row-expansion {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .omnibar-row-expansion {
+    animation: none;
+  }
+}
+
+@media (pointer: coarse) {
+  .omnibar-row-expansion .mari-chrome-control--small {
+    min-height: 2.75rem;
+  }
+}
+
+/* Quick answer wait: a hairline fills over the idle delay, then the call starts. Reduced motion shows no fill. */
+.omnibar-aside-wait {
+  width: 0;
+  animation: omnibar-aside-wait linear forwards;
+}
+
+@keyframes omnibar-aside-wait {
+  to {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .omnibar-aside-wait {
+    animation: none;
+  }
+}

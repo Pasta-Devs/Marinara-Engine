@@ -589,6 +589,7 @@ export function browserWorkerSource(extension: PersonalExtension) {
     }
     let surface;
     let position;
+    let targetContributionId;
     if (kind === "button") {
       surface = options.surface == null ? "top-bar" : options.surface;
       if (!contributionSurfaces.has(surface)) throw new Error("unsupported contribution surface");
@@ -605,7 +606,17 @@ export function browserWorkerSource(extension: PersonalExtension) {
       throw new Error("only panel contributions may include elements");
     }
     const elements = kind === "panel" ? normalizeContributionElements(options.elements) : undefined;
-    return { id, kind, label, description, icon, surface, position, elements };
+    if (kind === "command") {
+      targetContributionId = contributionId(options.targetContributionId);
+      if (targetContributionId === id) throw new Error("command contribution cannot target itself");
+      if (options.onActivate !== undefined || options.onEvent !== undefined) {
+        throw new Error("command contributions cannot register callbacks");
+      }
+      return { id, kind, label, description, icon, targetContributionId };
+    } else if (options.targetContributionId !== undefined) {
+      throw new Error("only command contributions may select a target");
+    }
+    return { id, kind, label, description, icon, surface, position, elements, targetContributionId };
   };
   const registerContribution = (options) => {
     if (uiContributions.size >= contributionContract.limits.contributionsPerExtension) {
@@ -614,7 +625,7 @@ export function browserWorkerSource(extension: PersonalExtension) {
     const descriptor = normalizeContribution(options);
     if (uiContributions.has(descriptor.id)) throw new Error("contribution id is already registered");
     uiContributions.set(descriptor.id, descriptor);
-    if (typeof options.onActivate === "function") {
+    if (descriptor.kind !== "command" && typeof options.onActivate === "function") {
       uiContributionActivateHandlers.set(descriptor.id, options.onActivate);
     }
     if (typeof options.onEvent === "function") {
@@ -629,7 +640,7 @@ export function browserWorkerSource(extension: PersonalExtension) {
         const nextOptions = { ...current, ...(patch || {}), id: current.id, kind: current.kind };
         const next = normalizeContribution(nextOptions);
         uiContributions.set(next.id, next);
-        if (typeof patch?.onActivate === "function") {
+        if (next.kind !== "command" && typeof patch?.onActivate === "function") {
           uiContributionActivateHandlers.set(next.id, patch.onActivate);
         }
         if (typeof patch?.onEvent === "function") {

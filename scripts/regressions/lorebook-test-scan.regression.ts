@@ -157,6 +157,119 @@ try {
   assert.ok(chatIds.includes(filtered.id), "the chat's character tags open the tag gate");
   assert.ok(chatIds.includes(unrelated.id));
   assert.ok(chatResult.scannedMessages >= 1);
+
+  // L4: the Mari-facing `lorebook.testScan` app_data action wraps the same scanner for a
+  // secondary-key block and a "no key matched" absent entry, and never carries chat text.
+  const { MariDbService } = await import("../../packages/server/src/services/mari-db/mari-db.service.js");
+  const mariDb = new MariDbService(db);
+  const scanChat = await chats.create({ name: "Harbor trip", mode: "roleplay", characterIds: [] } as never);
+  await chats.createMessage({
+    chatId: scanChat!.id,
+    role: "user",
+    characterId: null,
+    content: "We rode to Valdenmoor by the harbor.",
+  });
+  const blockedScan = await mariDb.executeAction({
+    action: "lorebook.testScan",
+    lorebookId: book.id,
+    chatId: scanChat!.id,
+    entryId: gated.id,
+    sessionId: "test",
+  } as never);
+  assert.equal(blockedScan.ok, true);
+  assert.equal((blockedScan.output as any).status, "blocked");
+  assert.equal((blockedScan.output as any).reason, "secondary_keys");
+  assert.match((blockedScan.output as any).fix, /secondaryKeys/u, "a blocked entry carries its fix for Mari");
+  assert.deepEqual((blockedScan.output as any).matchedKeys, ["harbor"]);
+  assert.ok(
+    !JSON.stringify(blockedScan.output).includes("We rode to Valdenmoor"),
+    "the scanned message text never leaves this action",
+  );
+
+  const noMatchScan = await mariDb.executeAction({
+    action: "lorebook.testScan",
+    lorebookId: book.id,
+    chatId: scanChat!.id,
+    entryId: unrelated.id,
+    sessionId: "test",
+  } as never);
+  assert.equal(noMatchScan.ok, true);
+  assert.equal((noMatchScan.output as any).status, "no_match");
+  assert.equal((noMatchScan.output as any).reason, "no key matched in the scanned messages");
+
+  const fullScan = await mariDb.executeAction({
+    action: "lorebook.testScan",
+    lorebookId: book.id,
+    chatId: scanChat!.id,
+    sessionId: "test",
+  } as never);
+  assert.equal(fullScan.ok, true);
+  assert.ok(Array.isArray((fullScan.output as any).activated));
+  assert.ok(Array.isArray((fullScan.output as any).blocked));
+
+  // F2: an entry the real scanner would activate, but the last real generation's token budget
+  // actually left out, must be reported as blocked (reason "budget"), not activated — otherwise
+  // Mari tells the user an entry fired when it never reached the prompt.
+  const nightBell = await entry("Night bell", { keys: ["bell"], content: "A bell that tolls at midnight." });
+  const saltmarsh = await entry("Saltmarsh Pact", { keys: ["pact"], content: "An old treaty." });
+  const budgetChat = await chats.create({ name: "Harbor intrigue", mode: "roleplay", characterIds: [] } as never);
+  await chats.createMessage({
+    chatId: budgetChat!.id,
+    role: "user",
+    characterId: null,
+    content: "The bell tolled as she read the pact aloud.",
+  });
+  // The real generation's saved scan: "Night bell" matched but was skipped for budget; "Saltmarsh
+  // Pact" was never skipped, so it should stay a normal activation.
+  await chats.createMessage({
+    chatId: budgetChat!.id,
+    role: "assistant",
+    characterId: null,
+    content: "Understood.",
+    extra: {
+      lorebookScan: {
+        budgetSkippedEntries: [
+          {
+            id: nightBell.id,
+            lorebookId: book.id,
+            name: "Night bell",
+            estimatedTokens: 420,
+            lorebookBudget: 300,
+            lorebookUsedTokens: 300,
+            blockedBy: "lorebook",
+          },
+        ],
+      },
+    },
+  } as never);
+  const budgetScan = await mariDb.executeAction({
+    action: "lorebook.testScan",
+    lorebookId: book.id,
+    chatId: budgetChat!.id,
+    sessionId: "test",
+  } as never);
+  assert.equal(budgetScan.ok, true);
+  const budgetOutput = budgetScan.output as { activated: Array<{ entryId: string }>; blocked: Array<any> };
+  assert.ok(
+    !budgetOutput.activated.some((item) => item.entryId === nightBell.id),
+    "a budget-skipped entry must not be reported as activated",
+  );
+  const blockedBell = budgetOutput.blocked.find((item) => item.entryId === nightBell.id);
+  assert.ok(blockedBell, "the budget-skipped entry must appear in blocked");
+  assert.equal(blockedBell.reason, "budget");
+  assert.match(blockedBell.fix, /Token Budget/u, "the budget fix names the setting");
+  assert.equal(blockedBell.estimatedTokens, 420);
+  assert.equal(blockedBell.lorebookBudget, 300);
+  assert.equal(blockedBell.lorebookUsedTokens, 300);
+  // Negative case: an entry that matched with no budget conflict stays activated as before.
+  assert.ok(
+    budgetOutput.activated.some((item) => item.entryId === saltmarsh.id),
+    "an entry with no budget conflict stays activated",
+  );
+  assert.ok(
+    !budgetOutput.blocked.some((item) => item.entryId === saltmarsh.id),
+    "an entry with no budget conflict is not reported as blocked",
+  );
 } finally {
   await app?.close();
   await db?._fileStore.close();

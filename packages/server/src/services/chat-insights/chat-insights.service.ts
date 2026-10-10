@@ -137,6 +137,11 @@ export interface GlobalChatSearchParams {
   to?: string | null;
   offset?: number;
   limit?: number;
+  /**
+   * Keeps at most this many hits per chat and counts every match per chat (`chats`).
+   * The scan covers every chat, so the counts are complete; `offset` and `hasMore` do not apply.
+   */
+  perChat?: number;
   /** Test hook: overrides the scan time budget. */
   timeBudgetMs?: number;
 }
@@ -175,6 +180,7 @@ export async function searchAllChats(db: DB, params: GlobalChatSearchParams): Pr
   const response: GlobalChatSearchResponse = {
     query: params.query ?? "",
     results: [],
+    chats: [],
     offset,
     limit,
     hasMore: false,
@@ -198,11 +204,13 @@ export async function searchAllChats(db: DB, params: GlobalChatSearchParams): Pr
 
   const names = createCharacterNameCache(db);
   const wanted = offset + limit;
+  // perChat counts every chat, so it never stops early; the time budget still can.
+  const perChat = params.perChat === undefined ? null : clampInteger(params.perChat, 1, 1, GLOBAL_SEARCH_MAX_LIMIT);
   let matched = 0;
   const startedAt = Date.now();
 
   for (const chat of candidates) {
-    if (matched > wanted) break;
+    if (!perChat && matched > wanted) break;
     if (Date.now() - startedAt > budget) {
       response.partial = true;
       break;
@@ -210,6 +218,7 @@ export async function searchAllChats(db: DB, params: GlobalChatSearchParams): Pr
     response.scannedChats += 1;
     const rows = await listChatMessages(db, chat.id);
     const pending: Array<{ row: MessageRow; index: number }> = [];
+    let chatMatches = 0;
     // Newest matches first inside each chat, so recent context surfaces sooner.
     for (let index = rows.length - 1; index >= 0; index -= 1) {
       const row = rows[index]!;
@@ -222,14 +231,29 @@ export async function searchAllChats(db: DB, params: GlobalChatSearchParams): Pr
       if (!matchesChatSearchQuery(row.content, query)) continue;
       if (!isReaderVisibleMessage(row)) continue;
       matched += 1;
-      if (matched > offset && matched <= wanted) pending.push({ row, index });
-      if (matched > wanted) break;
+      chatMatches += 1;
+      if (perChat ? pending.length < perChat : matched > offset && matched <= wanted) pending.push({ row, index });
+      if (!perChat && matched > wanted) break;
+    }
+    if (perChat && chatMatches > 0) {
+      const castIds = parseIdList(chat.characterIds);
+      await names.load(castIds);
+      response.chats.push({
+        chatId: chat.id,
+        chatName: chat.name,
+        chatMode: chat.mode as ChatMode,
+        matches: chatMatches,
+        cast: castIds.map((id) => names.get(id)).filter((name): name is string => name !== null),
+      });
     }
     if (pending.length === 0) continue;
     await names.load(pending.map(({ row }) => row.characterId ?? "").filter(Boolean));
-    for (const { row, index } of pending) {
+    // A perChat page stops at `limit` hits; the chat counts above still cover every chat.
+    const room = perChat ? Math.max(0, limit - response.results.length) : pending.length;
+    for (const { row, index } of pending.slice(0, room)) {
       const rowRole = normalizeRole(row.role);
       const snippet = buildChatSearchSnippet(row.content, query);
+      const speaker = rowRole === "assistant" && chat.mode !== "game";
       const result: GlobalChatSearchResult = {
         chatId: chat.id,
         chatName: chat.name,
@@ -237,7 +261,8 @@ export async function searchAllChats(db: DB, params: GlobalChatSearchParams): Pr
         messageId: row.id,
         messageNumber: index + 1,
         role: rowRole,
-        speaker: rowRole === "assistant" && chat.mode !== "game" ? names.get(row.characterId) : null,
+        speaker: speaker ? names.get(row.characterId) : null,
+        characterId: speaker ? (row.characterId ?? null) : null,
         createdAt: row.createdAt,
         snippet: snippet.text,
         highlights: snippet.highlights,
@@ -247,7 +272,7 @@ export async function searchAllChats(db: DB, params: GlobalChatSearchParams): Pr
   }
 
   // The next page starts at `wanted`; past the offset cap there is no next page.
-  response.hasMore = matched > wanted && wanted <= GLOBAL_SEARCH_MAX_OFFSET;
+  response.hasMore = !perChat && matched > wanted && wanted <= GLOBAL_SEARCH_MAX_OFFSET;
   return response;
 }
 

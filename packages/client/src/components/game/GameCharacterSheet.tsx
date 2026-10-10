@@ -620,7 +620,7 @@ export function GameCharacterSheet({
                 />
               ) : (
                 <span className="flex h-full w-full items-center justify-center bg-[var(--marinara-chat-chrome-highlight-bg)] text-xl font-bold text-[var(--muted-foreground)] sm:text-2xl">
-                  {card.title[0]}
+                  {Array.from(card.title?.trim() ?? "")[0] || "?"}
                 </span>
               )}
               {onAvatarSelect ? (

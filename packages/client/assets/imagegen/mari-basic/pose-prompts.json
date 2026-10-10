@@ -1,0 +1,16 @@
+{
+  "tool": "Built-in image_gen",
+  "pack": "basic",
+  "notes": "Pixel-art replacement for all Home Mari poses. Legacy Home pose composition was preserved; Basic omnibar story strips and assistant portrait locked the character, visible pixel grid, 1-2 px dark outline, limited palette and chunky shading. Native sprites are 192 px tall (full body), 128x128 (profile), or 128 px tall (chibi); @4x files are exact nearest-neighbour enlargements.",
+  "prompts": [
+    {"asset":"wave","prompt":"Re-create the legacy Mari_wave composition exactly as Basic omnibar pixel art: high raised wave, opposite arm down, blonde curls, blue eyes, black glasses, navy hoodie, charcoal trousers and black boots. True low-resolution grid, dark 1-2 px outline, limited palette, chunky shading, transparent background."},
+    {"asset":"greet","prompt":"Re-create Mari_greet exactly as Basic omnibar pixel art: shoulder-height open greeting hand, opposite arm relaxed, feet together. Preserve Basic Mari identity; crisp low-resolution pixels and transparent background."},
+    {"asset":"point-up","prompt":"Re-create Mari_point_up_left exactly as Basic omnibar pixel art: crossed legs and index finger pointing LEFT AND UP at the same angle and height. Crisp low-resolution grid and transparent background."},
+    {"asset":"point-middle","prompt":"Re-create Mari_point_middle_left exactly as Basic omnibar pixel art: crossed legs and index finger pointing horizontally LEFT at the same height. Crisp low-resolution grid and transparent background."},
+    {"asset":"point-down","prompt":"Re-create Mari_point_down_left exactly as Basic omnibar pixel art: crossed legs and index finger pointing LEFT AND DOWN at the same angle and height. Crisp low-resolution grid and transparent background."},
+    {"asset":"explaining","prompt":"Re-create Mari_explaining exactly as Basic omnibar pixel art: raised index finger, opposite forearm crossed over torso, feet together. Crisp low-resolution grid and transparent background."},
+    {"asset":"thinking","prompt":"Re-create Mari_thinking exactly as Basic omnibar pixel art: hand at chin, opposite forearm crossed beneath it, thoughtful head tilt. Crisp low-resolution grid and transparent background."},
+    {"asset":"profile","prompt":"Re-create Mari_profile as a tight 128x128 Basic omnibar pixel-art face avatar with wide blue eyes, black glasses and surprised O mouth. Transparent outside-hair corners, no matte."},
+    {"asset":"chibi","prompt":"Re-create chibi-professor-mari as a 128 px-tall Basic omnibar pixel sprite with cat ears, arms-out stance, boots and long curled blonde cat tail. Transparent background."}
+  ]
+}

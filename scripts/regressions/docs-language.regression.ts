@@ -25,10 +25,10 @@ import { fileURLToPath } from "node:url";
 const fixtureRoot = mkdtempSync(join(tmpdir(), "marinara-docs-pack-regression-"));
 process.env.DATA_DIR = fixtureRoot;
 
-const { normalizeDocsLanguage, DEFAULT_DOCS_LANGUAGE, DOCS_LANGUAGE_LABELS, docsLanguageDirection } = await import(
-  "../../packages/shared/src/constants/docs-languages.ts"
-);
-const { resolvePhysical, supportedDocLanguages } = await import("../../packages/server/src/routes/docs.routes.ts");
+const { normalizeDocsLanguage, DEFAULT_DOCS_LANGUAGE, DOCS_LANGUAGE_LABELS, docsLanguageDirection } =
+  await import("../../packages/shared/src/constants/docs-languages.ts");
+const { rankDocSearchResults, resolvePhysical, supportedDocLanguages } =
+  await import("../../packages/server/src/routes/docs.routes.ts");
 const {
   checkDocsPackConsistency,
   docsPackManifestsMatch,
@@ -167,7 +167,10 @@ try {
     "a changed hash must trigger a refresh",
   );
   assert.equal(
-    docsPackManifestsMatch(manifestA, { language: "es", files: [...manifestA.files, { path: "new.md", sha256: sha256("c"), bytes: 1 }] }),
+    docsPackManifestsMatch(manifestA, {
+      language: "es",
+      files: [...manifestA.files, { path: "new.md", sha256: sha256("c"), bytes: 1 }],
+    }),
     false,
     "an added file must trigger a refresh",
   );
@@ -240,4 +243,24 @@ try {
   console.log(`docs-language regression passed: languages ${supported.join(", ")}; fixture pack at ${packDir}`);
 } finally {
   rmSync(fixtureRoot, { recursive: true, force: true });
+}
+
+// UX-07: a title that holds more of the query's words ranks above one that holds fewer, whatever the body
+// match counts say.
+{
+  const doc = (title: string, path: string, matches: number) =>
+    ({ title, path, matches, snippets: [], language: "en" }) as never;
+  const ranked = rankDocSearchResults(
+    [
+      doc("Writing Game Mode Rulesets", "docs/rulesets.md", 9),
+      doc("Lorebooks Overview", "docs/lorebooks.md", 2),
+      doc("Lorebook Empty States", "docs/empty.md", 1),
+    ],
+    ["lorebook", "empty"],
+  );
+  assert.deepEqual(
+    ranked.map((result) => result.title),
+    ["Lorebook Empty States", "Lorebooks Overview", "Writing Game Mode Rulesets"],
+    "the title with both query words leads, and a body-only match ranks last",
+  );
 }

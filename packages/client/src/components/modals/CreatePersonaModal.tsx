@@ -11,13 +11,19 @@ import { useTranslation as useUiTranslation } from "react-i18next";
 interface Props {
   open: boolean;
   onClose: () => void;
+  defaultName?: string;
 }
 
-export function CreatePersonaModal({ open, onClose }: Props) {
+export function CreatePersonaModal({ open, onClose, defaultName = "" }: Props) {
   const { t: localizeUi } = useUiTranslation();
   const createPersona = useCreatePersona();
   const openPersonaDetail = useUIStore((s) => s.openPersonaDetail);
-  const [name, setName] = useState("");
+  const [name, setName] = useState(defaultName);
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) setName(defaultName);
+  }
 
   const reset = () => {
     setName("");

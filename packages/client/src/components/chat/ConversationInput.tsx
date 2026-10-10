@@ -2234,6 +2234,7 @@ export function ConversationInput({
           dragging: isDragging,
           hasContent: hasInput || attachments.length > 0,
           layout: "conversation",
+          className: isProfessorMariChat ? "mari-professor-composer" : undefined,
         })}
       >
         {/* Attach button */}
@@ -2249,6 +2250,7 @@ export function ConversationInput({
           }}
         />
         <button
+          type="button"
           onClick={() => fileInputRef.current?.click()}
           className={cn(
             "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-all active:scale-90 sm:h-8 sm:w-8",
@@ -2257,6 +2259,7 @@ export function ConversationInput({
               : "text-foreground/40 hover:bg-foreground/10 hover:text-foreground/70",
           )}
           title={t("chat.input.attachFiles")}
+          aria-label={t("chat.input.attachFiles")}
         >
           <Paperclip size="1rem" />
         </button>

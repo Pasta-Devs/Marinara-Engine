@@ -25,6 +25,8 @@ The **Send on Enter** setting lives in **Settings**, under the **General** tab, 
 | Conversations | On | Enter sends the message |
 | Game | On | Enter sends the message |
 
+Professor Mari has her own toggle, **Enter sends to Professor Mari**, in the Search and Professor Mari settings (**Settings** > **General** > **Search and Professor Mari settings** > **Open**).
+
 When a mode's toggle is off, pressing Enter adds a new line instead. You then click **Send** to post the message. Roleplay is off by default because roleplay messages are often long and need line breaks.
 
 ## Attach images and files

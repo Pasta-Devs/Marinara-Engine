@@ -11,15 +11,16 @@ import { useTranslation as useUiTranslation } from "react-i18next";
 interface Props {
   open: boolean;
   onClose: () => void;
+  defaultName?: string;
 }
 
-export function CreateCharacterModal({ open, onClose }: Props) {
+export function CreateCharacterModal({ open, onClose, defaultName = "" }: Props) {
   const { t: localizeUi } = useUiTranslation();
   const createCharacter = useCreateCharacter();
   const uploadAvatar = useUploadAvatar();
   const openCharacterDetail = useUIStore((s) => s.openCharacterDetail);
 
-  const [name, setName] = useState("");
+  const [name, setName] = useState(defaultName);
   const [avatarDataUrl, setAvatarDataUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 

@@ -53,6 +53,9 @@ const AgentWriteApprovalModal = lazy(() =>
 const DocsViewerModal = lazy(() =>
   import("../modals/DocsViewerModal").then((module) => ({ default: module.DocsViewerModal })),
 );
+const FaqViewerModal = lazy(() =>
+  import("../modals/FaqViewerModal").then((module) => ({ default: module.FaqViewerModal })),
+);
 const AboutMeViewerModal = lazy(() =>
   import("../modals/AboutMeViewerModal").then((module) => ({ default: module.AboutMeViewerModal })),
 );
@@ -63,6 +66,9 @@ const ScenePromptPreferencesModal = lazy(() =>
 );
 const ChoiceSelectionModal = lazy(() =>
   import("../presets/ChoiceSelectionModal").then((module) => ({ default: module.ChoiceSelectionModal })),
+);
+const KeyboardShortcutsModal = lazy(() =>
+  import("../modals/KeyboardShortcutsModal").then((module) => ({ default: module.KeyboardShortcutsModal })),
 );
 const StartCharacterChatModal = lazy(() =>
   import("../modals/StartCharacterChatModal").then((module) => ({
@@ -89,7 +95,13 @@ export function ModalRenderer() {
   let content = null;
   switch (type) {
     case "create-character":
-      content = <CreateCharacterModal open onClose={closeModal} />;
+      content = (
+        <CreateCharacterModal
+          open
+          onClose={closeModal}
+          defaultName={(modal?.props?.defaultName as string | undefined) ?? undefined}
+        />
+      );
       break;
     case "import-character":
       content = <ImportCharacterModal open onClose={closeModal} />;
@@ -103,6 +115,7 @@ export function ModalRenderer() {
           characterId={(modal?.props?.characterId as string | null | undefined) ?? null}
           personaId={(modal?.props?.personaId as string | null | undefined) ?? null}
           defaultScope={(modal?.props?.defaultScope as LorebookScope | null | undefined) ?? null}
+          defaultName={(modal?.props?.defaultName as string | undefined) ?? undefined}
         />
       );
       break;
@@ -110,7 +123,13 @@ export function ModalRenderer() {
       content = <ImportLorebookModal open onClose={closeModal} />;
       break;
     case "create-preset":
-      content = <CreatePresetModal open onClose={closeModal} />;
+      content = (
+        <CreatePresetModal
+          open
+          onClose={closeModal}
+          defaultName={(modal?.props?.defaultName as string | undefined) ?? undefined}
+        />
+      );
       break;
     case "import-preset":
       content = <ImportPresetModal open onClose={closeModal} />;
@@ -131,7 +150,13 @@ export function ModalRenderer() {
       content = <ImportConnectionModal open onClose={closeModal} />;
       break;
     case "create-persona":
-      content = <CreatePersonaModal open onClose={closeModal} />;
+      content = (
+        <CreatePersonaModal
+          open
+          onClose={closeModal}
+          defaultName={(modal?.props?.defaultName as string | undefined) ?? undefined}
+        />
+      );
       break;
     case "st-bulk-import":
       content = <STBulkImportModal open onClose={closeModal} />;
@@ -142,9 +167,26 @@ export function ModalRenderer() {
     case "agent-write-approval":
       content = <AgentWriteApprovalModal open onClose={closeModal} />;
       break;
+    case "keyboard-shortcuts":
+      content = <KeyboardShortcutsModal open onClose={closeModal} />;
+      break;
     case "docs-viewer":
       content = (
-        <DocsViewerModal open onClose={closeModal} initialDoc={(modal?.props?.initialDoc as string | null) ?? null} />
+        <DocsViewerModal
+          open
+          onClose={closeModal}
+          initialDoc={(modal?.props?.initialDoc as string | null) ?? null}
+          initialSearchTerm={(modal?.props?.initialSearchTerm as string) ?? ""}
+        />
+      );
+      break;
+    case "faq-viewer":
+      content = (
+        <FaqViewerModal
+          open
+          onClose={closeModal}
+          initialItemId={(modal?.props?.initialItemId as string | null) ?? null}
+        />
       );
       break;
     case "about-me-viewer":

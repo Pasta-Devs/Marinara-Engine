@@ -1,0 +1,16 @@
+{
+  "tool": "Built-in image_gen",
+  "pack": "dottore",
+  "notes": "Pixel-art replacement for all Home Mari poses. Legacy pose composition was preserved; Dottore omnibar story/portrait sprites locked the cyan heart, wrist ribbon, blush and miniature plush. Native sprites use hard alpha and a reduced palette; @4x files are exact nearest-neighbour enlargements.",
+  "prompts": [
+    {"asset":"wave","prompt":"Re-create the legacy wave pose as Dottore-pack omnibar pixel art. Preserve blonde Mari, navy outfit, cyan heart/ribbon and a readable pale-cyan-haired black-mask Dottore plush clipped at her hip. True low-resolution grid, dark outline, transparent background."},
+    {"asset":"greet","prompt":"Re-create the shoulder-height greeting pose as Dottore-pack omnibar pixel art, with cyan heart/ribbon and miniature plush at her hip. Crisp pixels, limited palette, transparent background."},
+    {"asset":"point-up","prompt":"Re-create the crossed-leg LEFT-AND-UP pointing pose exactly as Dottore-pack omnibar pixel art; keep plush clipped at hip without changing direction. Transparent background."},
+    {"asset":"point-middle","prompt":"Re-create the crossed-leg horizontal LEFT pointing pose exactly as Dottore-pack omnibar pixel art; keep plush clipped at hip. Transparent background."},
+    {"asset":"point-down","prompt":"Re-create the crossed-leg LEFT-AND-DOWN pointing pose exactly as Dottore-pack omnibar pixel art; keep plush clipped at hip. Transparent background."},
+    {"asset":"explaining","prompt":"Re-create the raised-finger explaining pose exactly as Dottore-pack omnibar pixel art, with cyan accents and miniature plush. Transparent background."},
+    {"asset":"thinking","prompt":"Re-create the hand-at-chin thinking pose exactly as Dottore-pack omnibar pixel art, with cyan accents and miniature plush. Transparent background."},
+    {"asset":"profile","prompt":"Create a tight 128x128 Dottore-pack omnibar pixel-art profile avatar with blue eyes, black glasses, warm blush and cyan-heart details. No plush in tight crop; transparent corners."},
+    {"asset":"chibi","prompt":"Re-create the cat-eared chibi pose at 128 px tall in Dottore omnibar pixel art, preserving curled tail, cyan accents and a readable tiny Dottore plush clip. Transparent background."}
+  ]
+}

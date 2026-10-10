@@ -1,15 +1,18 @@
-import { useSyncExternalStore } from "react";
+import { useMemo, useSyncExternalStore } from "react";
 import {
   PERSONAL_EXTENSION_CONTRIBUTION_KINDS,
   PERSONAL_EXTENSION_CONTRIBUTION_POSITIONS,
   PERSONAL_EXTENSION_CONTRIBUTION_SURFACES,
   PERSONAL_EXTENSION_UI_ELEMENT_KINDS,
   PERSONAL_EXTENSION_UI_LIMITS,
+  personalExtensionCommandContributionSchema,
   type PersonalClientExtensionRuntime,
   type PersonalExtensionContributionDescriptor,
   type PersonalExtensionHostContribution,
   type PersonalExtensionUiElement,
 } from "@marinara-engine/shared";
+import { useUIStore } from "../stores/ui.store";
+import type { CommandDefinition } from "./command-center";
 
 type ContributionSnapshot = {
   contributions: readonly PersonalExtensionHostContribution[];
@@ -198,6 +201,10 @@ function uiElementTextLength(element: PersonalExtensionUiElement) {
 
 export function normalizePersonalExtensionContribution(value: unknown): PersonalExtensionContributionDescriptor | null {
   if (!isRecord(value)) return null;
+  if (value.kind === "command") {
+    const parsed = personalExtensionCommandContributionSchema.safeParse(value);
+    return parsed.success ? parsed.data : null;
+  }
   const id = boundedId(value.id);
   const kind = typeof value.kind === "string" && contributionKinds.has(value.kind) ? value.kind : null;
   const label = boundedString(value.label, PERSONAL_EXTENSION_UI_LIMITS.labelLength, {
@@ -261,6 +268,8 @@ export function normalizePersonalExtensionContribution(value: unknown): Personal
   } else if (value.elements !== undefined) {
     return null;
   }
+  if (value.targetContributionId !== undefined) return null;
+  if (kind === "command") return null;
 
   return {
     id,
@@ -271,7 +280,7 @@ export function normalizePersonalExtensionContribution(value: unknown): Personal
     ...(surface ? { surface } : {}),
     ...(position ? { position } : {}),
     ...(elements ? { elements } : {}),
-  };
+  } as unknown as PersonalExtensionContributionDescriptor;
 }
 
 function publish() {
@@ -284,6 +293,10 @@ function publish() {
 
 function contributionKey(extensionId: string, contributionId: string) {
   return `${extensionId}:${contributionId}`;
+}
+
+function commandId(key: string) {
+  return `personal-extension:${key}`;
 }
 
 export function registerPersonalExtensionContribution(
@@ -364,6 +377,57 @@ export function activatePersonalExtensionContribution(key: string) {
   });
 }
 
+const warnedMissingCommandTargets = new Set<string>();
+
+export function resolvePersonalExtensionCommand(key: string): PersonalExtensionHostContribution | null {
+  const command = contributions.find((candidate) => candidate.key === key && candidate.kind === "command");
+  if (!command || command.kind !== "command" || !command.targetContributionId) return null;
+  const target =
+    contributions.find(
+      (candidate) =>
+        candidate.extensionId === command.extensionId &&
+        candidate.contentHash === command.contentHash &&
+        candidate.id === command.targetContributionId &&
+        candidate.kind !== "command",
+    ) ?? null;
+  // Targets register incrementally, so this cannot be validated at registration time.
+  // Warn instead, otherwise the command just silently never appears. Once per command:
+  // every snapshot resolves it again while it waits for its target.
+  if (!target && !warnedMissingCommandTargets.has(key)) {
+    warnedMissingCommandTargets.add(key);
+    console.warn(
+      `Personal extension "${command.extensionId}": command "${command.id}" targets "${command.targetContributionId}", which is not a registered non-command contribution.`,
+    );
+  }
+  return target;
+}
+
+export function collectPersonalExtensionCommands(): CommandDefinition[] {
+  return contributions.flatMap((contribution) => {
+    if (contribution.kind !== "command" || !resolvePersonalExtensionCommand(contribution.key)) return [];
+    return [
+      {
+        id: commandId(contribution.key),
+        title: contribution.label,
+        kind: "action" as const,
+        icon: "extensions" as const,
+        aliases: [contribution.extensionName, ...(contribution.description ? [contribution.description] : [])],
+      },
+    ];
+  });
+}
+
+export function activatePersonalExtensionCommand(id: string): boolean {
+  const command = contributions.find((candidate) => candidate.kind === "command" && commandId(candidate.key) === id);
+  if (!command) return false;
+  const target = resolvePersonalExtensionCommand(command.key);
+  if (!target) return false;
+  if (target.kind !== "panel") return activatePersonalExtensionContribution(target.key);
+  if (!openPersonalExtensionPanel(target.key)) return false;
+  useUIStore.getState().openRightPanel("extensions");
+  return true;
+}
+
 export function openPersonalExtensionPanel(key: string) {
   const contribution = contributions.find((candidate) => candidate.key === key && candidate.kind === "panel");
   if (!contribution) return false;
@@ -401,4 +465,13 @@ function getSnapshot() {
 
 export function usePersonalExtensionContributions() {
   return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+}
+
+export function usePersonalExtensionCommands() {
+  // collectPersonalExtensionCommands reads module state, so the snapshot is the
+  // cache key rather than an argument. Without it every render returns new
+  // command identities and re-ranks the omnibar.
+  const contributions = usePersonalExtensionContributions();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  return useMemo(() => collectPersonalExtensionCommands(), [contributions]);
 }

@@ -53,8 +53,6 @@ interface ParsedGroup {
   members: Persona[];
 }
 
-const UNGROUPED_PERSONA_GROUP_ID = "__ungrouped-personas__";
-
 export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: ProfessorMariContextBudget | null }) {
   const { t: localizeUi } = useUiTranslation();
   const [open, setOpen] = useState(false);
@@ -129,7 +127,7 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
     return map;
   }, [sortedPersonas]);
 
-  const { groups } = useMemo(() => {
+  const { groups, ungroupedPersonas } = useMemo(() => {
     const groupRows = (rawPersonaGroups ?? []) as PersonaGroupRow[];
     const allGroupedIds = new Set<string>();
     const parsedGroups: ParsedGroup[] = [];
@@ -155,17 +153,14 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
     }
 
     parsedGroups.sort((a, b) => a.name.localeCompare(b.name));
-    const ungroupedList = visiblePersonas.filter((p) => !allGroupedIds.has(p.id));
-    if (ungroupedList.length > 0) {
-      parsedGroups.push({
-        id: UNGROUPED_PERSONA_GROUP_ID,
-        name: localizeUi("ui.chat.personapicker.ungrouped"),
-        memberIds: ungroupedList.map((p) => p.id),
-        members: ungroupedList,
-      });
-    }
-    return { groups: parsedGroups };
-  }, [localizeUi, normalizedSearch, rawPersonaGroups, personaMap, visiblePersonas]);
+    // F9 (O5): personas in no named group are not wrapped in their own
+    // "Ungrouped" folder - that folder served no purpose (everyone already
+    // starts expanded/collapsed the same way a real folder would), it just
+    // added a tap for a persona that has no group at all. Flat rows instead,
+    // matching the desktop QuickPersonaSwitcher fix from slice 50.
+    const ungroupedPersonas = visiblePersonas.filter((p) => !allGroupedIds.has(p.id));
+    return { groups: parsedGroups, ungroupedPersonas };
+  }, [normalizedSearch, rawPersonaGroups, personaMap, visiblePersonas]);
 
   const visibleCharacterGroups = useMemo(
     () =>
@@ -680,6 +675,8 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
                       </div>
                     );
                   })}
+                  {/* F9: personas in no named group: flat rows, no folder to tap through. */}
+                  {ungroupedPersonas.map((persona) => renderPersonaRow(persona, false))}
                   {sortedPersonas.length > 0 && visiblePersonas.length === 0 && !hasVisibleCharacterChoices && (
                     <div className="px-3 py-4 text-center text-[0.6875rem] italic text-foreground/45">
                       {localizeUi("ui.chat.personapicker.noMatchingPersonas")}
