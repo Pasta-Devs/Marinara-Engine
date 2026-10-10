@@ -358,6 +358,12 @@ export function roleplayHiddenWhisperMessageIds(
   return ids;
 }
 
+/** A message's visible text, without private tags the user may have typed into it. */
+function visibleBody(message: HistoryMessage): string {
+  const content = typeof message.content === "string" ? message.content : "";
+  return message.role === "user" ? parseRoleplayUserCommands(content).content : content;
+}
+
 /**
  * Messages that hold only a whisper. Advanced Memory keeps no empty messages, so its prompt keeps these
  * by position inside its retained window instead of by ID (see filterPromptHistoryByMessageIds).
@@ -366,13 +372,12 @@ export function roleplayWhisperOnlyMessageIds(history: readonly HistoryMessage[]
   const ids = new Set<string>();
   for (const message of history) {
     const extra = parseExtra(message.extra);
-    const content = typeof message.content === "string" ? message.content : "";
     if (
       typeof message.id === "string" &&
       (message.role === "assistant" || message.role === "user") &&
       extra.hiddenFromAI !== true &&
       extra.commandOnly !== true &&
-      !(message.role === "user" ? parseRoleplayUserCommands(content).content : content).trim() &&
+      !visibleBody(message).trim() &&
       getRoleplayWhispers(extra).length > 0
     )
       ids.add(message.id);
@@ -412,12 +417,13 @@ export function appendRoleplayWhispers(
     );
     if (!whispers.length) continue;
     // History wrappers shift saved offsets. Prefer the unchanged source body, then fall back to edit anchors.
-    // A stand-in's body is its placeholder, so its whispers follow it.
-    const sourceText = message.whisperSourceId
-      ? WHISPER_ONLY_PLACEHOLDER
-      : typeof source.content === "string"
-        ? source.content
-        : "";
+    // A stand-in's body, like a whisper-only message's, is its placeholder, so its whispers follow it.
+    const sourceText =
+      message.whisperSourceId || !visibleBody(source).trim()
+        ? WHISPER_ONLY_PLACEHOLDER
+        : typeof source.content === "string"
+          ? source.content
+          : "";
     const sourceStart = sourceText ? message.content.indexOf(sourceText) : -1;
     const hasSource = sourceStart >= 0 && sourceStart === message.content.lastIndexOf(sourceText);
     const positioned = whispers

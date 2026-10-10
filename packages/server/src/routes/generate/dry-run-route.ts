@@ -928,7 +928,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
       // A hidden message keeps its whisper inside the same window as in the live prompt,
       // where only messages shown before memory selection can end it.
       const globallyHidden = new Set(chatMessages.filter(isMessageHiddenFromAI).map((message) => message.id));
-      const whisperOnlyIds = roleplayWhisperOnlyMessageIds(advancedMemorySourceMessages);
+      const whisperOnlyIds = roleplayWhisperOnlyMessageIds(chatMessages.slice(Math.max(0, conversationStart)));
       const windowStart = keptWindowStart(
         mappedMessages,
         (message) => !!message.id && allowedIds.has(message.id),
@@ -939,14 +939,15 @@ export async function registerDryRunRoute(app: FastifyInstance) {
           !whisperOnlyIds.has(message.id) &&
           !globallyHidden.has(message.id) &&
           !message.hiddenFromAICharacterIds?.some((id) => audienceCharacterIds.includes(id)),
+        true,
       );
+      const anyKept = mappedMessages.some((message) => !!message.id && allowedIds.has(message.id));
       mappedMessages = mappedMessages.filter(
         (message, index) =>
           message.id === "__dryrun_user__" ||
           (message.id &&
             (allowedIds.has(message.id) ||
-              ((hiddenWhisperIds.has(message.id) || whisperOnlyIds.has(message.id)) &&
-                windowStart >= 0 &&
+              (((hiddenWhisperIds.has(message.id) && anyKept) || whisperOnlyIds.has(message.id)) &&
                 index >= windowStart))),
       );
     }

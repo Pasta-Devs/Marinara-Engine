@@ -243,7 +243,7 @@ try {
     promptPresetId: preset.id,
   });
   assert(memoryChat);
-  await chats.patchMetadata(memoryChat.id, {
+  const memoryMetadata = {
     enableAgents: false,
     enableTools: false,
     enableMemoryRecall: false,
@@ -259,7 +259,8 @@ try {
       knowledgeStarts: { [maukie.id]: null, [narrator.id]: null },
       knowledgeConfirmed: true,
     },
-  });
+  };
+  await chats.patchMetadata(memoryChat.id, memoryMetadata);
   await chats.createMessage({
     chatId: memoryChat.id,
     role: "assistant",
@@ -295,6 +296,53 @@ try {
   const maukieView = await preview(maukie.id, { chatId: memoryChat.id });
   assert(maukieView.includes("NARRATOR_WHISPER_ONLY_SECRET"), "Maukie receives a whisper-only narrator reply");
   assert(!maukieView.includes("USER_WHISPER_ONLY_SECRET"), "Maukie never receives the narrator's whisper");
+  // Its whisper stays inside the last message's wrapper, even when memory leaves out an earlier message.
+  for (const content of [maukieView, await generate("Maukie reacts.", maukie.id, { chatId: memoryChat.id })]) {
+    assert.equal(content.split("</last_message>").length, 2, "one closing tag");
+    assert(content.indexOf("NARRATOR_WHISPER_ONLY_SECRET") < content.indexOf("</last_message>"));
+  }
+  // A new conversation leaves earlier whisper-only messages behind, in Peek Prompt too.
+  await chats.createMessage({
+    chatId: memoryChat.id,
+    role: "user",
+    content: '[whisper: character="Narrator" text="OLD_WHISPER_ONLY_SECRET"]',
+  });
+  await chats.createMessage({
+    chatId: memoryChat.id,
+    role: "user",
+    content: "NEW_CONVERSATION_LINE",
+    extra: { isConversationStart: true },
+  });
+  for (const content of [
+    await preview(narrator.id, { chatId: memoryChat.id }),
+    await preview(maukie.id, { chatId: memoryChat.id }),
+    await generate("A new day.", narrator.id, { chatId: memoryChat.id }),
+  ]) {
+    assert(content.includes("NEW_CONVERSATION_LINE"));
+    assert(!content.includes("WHISPER_ONLY_SECRET") && !content.includes("[Private whisper"), "no earlier whisper");
+  }
+
+  // A chat can open with a message that is only a whisper. Memory then keeps no message to anchor it.
+  const whisperFirstChat = await chats.create({
+    name: "Whisper first",
+    mode: "roleplay",
+    characterIds: [maukie.id, narrator.id],
+    personaId: persona.id,
+    connectionId: connection.id,
+    promptPresetId: preset.id,
+  });
+  assert(whisperFirstChat);
+  await chats.patchMetadata(whisperFirstChat.id, memoryMetadata);
+  await chats.createMessage({
+    chatId: whisperFirstChat.id,
+    role: "user",
+    content: '[whisper: character="Narrator" text="FIRST_WHISPER_SECRET"]',
+  });
+  for (const content of [
+    await generate("The story begins.", narrator.id, { chatId: whisperFirstChat.id }),
+    await preview(narrator.id, { chatId: whisperFirstChat.id }),
+  ])
+    assert(content.includes("FIRST_WHISPER_SECRET"), "a chat's first whisper-only message reaches the narrator");
 
   // Advanced Memory keeps a stand-in only inside the retained window, which opens with the hidden
   // messages right before its first kept message.
@@ -333,6 +381,20 @@ try {
       whisperOnlyIds,
     ).map((message) => message.content),
     ["OPENING_STAND_IN", "KEPT", "LATE_STAND_IN"],
+  );
+  // With nothing kept, only whisper-only messages after the last left-out message remain.
+  assert.deepEqual(
+    filterPromptHistoryByMessageIds(
+      windowMessages.map((message) => ({
+        ...message,
+        id: message.id ?? message.whisperSourceId,
+        whisperSourceId: undefined,
+      })),
+      new Set(),
+      windowSources,
+      whisperOnlyIds,
+    ).map((message) => message.content),
+    ["LATE_STAND_IN"],
   );
   console.log(
     "Hidden whisper recipient passed: recipient-only stand-in, position, other characters, narrator, persona, trimming, global hide, emptied whispers and memory window.",

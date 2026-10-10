@@ -285,8 +285,11 @@ export function keptWindowStart<T>(
   messages: readonly T[],
   isKept: (message: T) => boolean,
   isDropped: (message: T) => boolean,
+  /** With nothing kept, open the window after the last dropped message instead of returning -1. */
+  openAtEnd = false,
 ): number {
   let start = messages.findIndex(isKept);
+  if (start < 0 && openAtEnd) start = messages.length;
   while (start > 0 && !isDropped(messages[start - 1]!)) start--;
   return start;
 }
@@ -307,14 +310,14 @@ export function filterPromptHistoryByMessageIds(
     !!message.id &&
     sourceIds.has(message.id) &&
     !allowedIds.has(message.id);
-  // A whisper-only entry stays only inside the kept window.
-  const windowStart = keptWindowStart(
-    messages,
-    (message) => message.contextKind === "history" && !!message.id && allowedIds.has(message.id),
-    isDropped,
-  );
+  const isKept = (message: GenerationPromptMessage) =>
+    message.contextKind === "history" && !!message.id && allowedIds.has(message.id);
+  // A whisper-only entry stays only inside the kept window. A message that holds only a whisper also
+  // counts when nothing is kept but nothing dropped follows it, such as a chat's first message.
+  const windowStart = keptWindowStart(messages, isKept, isDropped, true);
+  const anyKept = messages.some(isKept);
   const filtered = messages.filter((message, index) =>
-    whisperOnly(message) ? windowStart >= 0 && index >= windowStart : !isDropped(message),
+    whisperOnly(message) ? (anyKept || !message.whisperSourceId) && index >= windowStart : !isDropped(message),
   );
   if (filtered.length !== messages.length) {
     reassignHistoryLastMessageWrapper(filtered, messages);
