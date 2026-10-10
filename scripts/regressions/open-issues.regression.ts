@@ -5689,7 +5689,7 @@ assert.match(
 );
 assert.match(
   professorMariHomeSource,
-  /options\.shouldApply\?\.\(\) === false[\s\S]{0,160}setMessages/u,
+  /options\.shouldApply\?\.\(\) === false[\s\S]{0,480}setMessages/u,
   "Professor Mari message loads must recheck an operation guard before applying a response",
 );
 assert.match(

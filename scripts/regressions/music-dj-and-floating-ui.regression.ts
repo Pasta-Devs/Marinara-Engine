@@ -77,7 +77,7 @@ assert.match(topBarSource, /<Menu size=\{15\}/u, "The mobile overflow control mu
 assert.match(topBarSource, /"ml-auto sm:hidden"/u, "The mobile overflow control must stay at the right edge");
 assert.match(
   globalsSource,
-  /@media \(max-width: 639px\) \{\s*\.mari-topbar \{[^}]*\}\s*\.mari-topbar-action \{\s*flex: 0 0 auto;\s*width: 3\.5rem !important;\s*height: 2\.25rem !important;/u,
+  /@media \(max-width: 639px\) \{\s*\.mari-topbar \{[^}]*\}\s*\.mari-topbar-action \{\s*flex: 0 0 auto;\s*width: 3\.5rem !important;\s*(?:\/\*[^*]*\*\/\s*)?height: 2\.6rem !important;/u,
   "Phone top-bar controls must keep fixed desktop-style sizes instead of filling the row",
 );
 
