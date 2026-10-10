@@ -1309,7 +1309,10 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
         const index = [...before]
           .reverse()
           .find(
-            (candidate) => ctx.messages[candidate]!.role === "assistant" && ctx.messages[candidate]!.characterId === id,
+            (candidate) =>
+              ctx.messages[candidate]!.role === "assistant" &&
+              ctx.messages[candidate]!.characterId === id &&
+              object(ctx.messages[candidate]!.extra).hiddenFromAI !== true,
           );
         return index === undefined ? [] : [index];
       }),

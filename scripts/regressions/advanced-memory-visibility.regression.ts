@@ -496,7 +496,9 @@ try {
   const stairTranscript = async (opening: string[], maukieAway: (step: number) => boolean, savedStart = true) => {
     const chat = await createChat({ decisionEnabled: true, decisionConnectionId: decisionConnection.id });
     for (const [index, line] of opening.entries())
-      await say(chat, index % 2 ? "assistant" : "user", line, index % 2 ? ids.maukie : null);
+      await say(chat, index % 2 ? "assistant" : "user", line, index % 2 ? ids.maukie : null, {
+        ...(line.startsWith("HIDDEN") ? { hiddenFromAI: true } : {}),
+      });
     if (savedStart) await endScene(chat, opening.length);
     for (let step = 1; step <= 13; step++) {
       // Maukie could not perceive this step, by an earlier decision or the user's own choice.
@@ -519,6 +521,10 @@ try {
   // Without a saved scene start, the last few messages may not be the whole scene.
   const unsaved = await stairTranscript(swampOpening, () => true, false);
   assert(!unsaved.includes("MAUKIE_IN_THE_SWAMP"), "no saved scene start, no away");
+  // A message hidden from the AI is never brought back as where she was.
+  const hiddenLast = await stairTranscript([...swampOpening, "P naps.", "HIDDEN: Maukie dreams of fish."], () => true);
+  assert.equal(hiddenLast[0], "MAUKIE_IN_THE_SWAMP");
+  assert(!hiddenLast.some((content) => content.startsWith("HIDDEN")), "a hidden message stays out");
   // Someone who could perceive the scene, such as a character carried in, is never shown somewhere else.
   const carried = await stairTranscript(
     [...swampOpening, "P carries Maukie up the stair; she curls up, silent."],
