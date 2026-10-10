@@ -35,6 +35,7 @@ import {
   normalizeTrackerThoughtBubbleDisplay,
   normalizeScenePromptPreferences,
   normalizeConversationBackgroundImageOpacity,
+  normalizeMariWindowHeightRem,
   pickSyncedSettings,
   useUIStore,
 } from "../stores/ui.store";
@@ -67,6 +68,9 @@ export function omitLocalOnlySettings(settings: ParsedSettings): ParsedSettings 
     sanitized.conversationBackgroundImageOpacity = normalizeConversationBackgroundImageOpacity(
       sanitized.conversationBackgroundImageOpacity,
     );
+  }
+  if ("mariWindowHeightRem" in sanitized) {
+    sanitized.mariWindowHeightRem = normalizeMariWindowHeightRem(sanitized.mariWindowHeightRem);
   }
   return sanitized;
 }

@@ -239,6 +239,14 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
     kind: "Select",
   },
   {
+    id: "mari-window-height",
+    sectionId: "omnibar",
+    label: "Professor Mari window height",
+    description: "Set the height of her window on larger screens.",
+    aliases: ["mari", "window size", "taller", "resize"],
+    kind: "Slider",
+  },
+  {
     id: "mari-edit-view",
     sectionId: "omnibar",
     label: "Change cards open in",
