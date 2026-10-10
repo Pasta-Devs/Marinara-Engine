@@ -21,6 +21,9 @@ const { createConnectionsStorage } = await import("../../packages/server/src/ser
 const { createCharactersStorage } = await import("../../packages/server/src/services/storage/characters.storage.js");
 const { createPromptsStorage } = await import("../../packages/server/src/services/storage/prompts.storage.js");
 const { characterDataSchema, getRoleplayWhispers } = await import("../../packages/shared/dist/index.js");
+const { latestRoleplayUserInput } = await import("../../packages/server/src/services/generation/roleplay-commands.js");
+const { dropPromptHistoryMessages } =
+  await import("../../packages/server/src/services/generation/prompt-message-scope.js");
 const prompts: string[] = [];
 let outputs: string[] = [];
 let selectorAnswer: string[] = [];
@@ -201,6 +204,68 @@ try {
       "unsaved notes preview belongs only to narrator",
     );
   }
+  // A message that is only a whisper is not there at all for anyone it does not reach.
+  const sneak = await app.inject({
+    method: "POST",
+    url: `/api/chats/${chat.id}/messages`,
+    payload: { role: "user", content: '[whisper: character="Bob" text="SNEAK_SECRET"]' },
+  });
+  assert.equal(sneak.statusCode, 200, sneak.body);
+  const unseen = [
+    await preview(alice.id),
+    await preview(alice.id, { impersonate: true }),
+    (await generate("Alice looks around.", alice.id), prompts.at(-1)!),
+    await preview(alice.id),
+  ];
+  for (const content of unseen) {
+    assert(!content.includes("SNEAK_SECRET") && !content.includes("[Private whisper"), "no trace for others");
+    assert.equal(content.split("</last_message>").length, 2, "the last message keeps its wrapper");
+    assert.equal(content.split("</chat_history>").length, 2, "the history keeps its wrapper");
+  }
+  for (const id of [bob.id, narrator.id])
+    assert((await preview(id)).includes("SNEAK_SECRET"), "recipient and narrator");
+  // A note the user shares on it with someone still reaches them.
+  await chats.updateMessageExtra(sneak.json().id, { privateNote: "NOTE_FOR_ALICE", privateNoteRecipientId: alice.id });
+  assert((await preview(alice.id)).includes("NOTE_FOR_ALICE"), "a shared note keeps its message");
+  // {{input}} gets no text from a turn that is only a whisper.
+  const sneakHistory = [{ id: sneak.json().id, role: "user", content: "", extra: sneak.json().extra }];
+  assert.equal(
+    latestRoleplayUserInput([{ id: sneak.json().id, role: "user", content: "[Private whisper]" }], sneakHistory),
+    "",
+  );
+  // A public document in a reply that is otherwise a whisper stays public.
+  await chats.createMessage({
+    chatId: chat.id,
+    role: "assistant",
+    characterId: narrator.id,
+    content: "",
+    extra: {
+      roleplayCommandActivity: [
+        {
+          command: { type: "document", title: "Map", content: "PUBLIC_MAP_TEXT", documentType: "note" },
+          raw: "[document]",
+        },
+        {
+          command: { type: "whisper", character: "Bob", text: "DOC_WHISPER_SECRET" },
+          raw: "[whisper]",
+          whisperRecipient: { id: bob.id, kind: "character" },
+        },
+      ],
+    },
+  });
+  const documentView = await preview(alice.id);
+  assert(documentView.includes("PUBLIC_MAP_TEXT") && !documentView.includes("DOC_WHISPER_SECRET"), "public document");
+  // Dropping a message never removes an empty reasoning prefill.
+  const dropped = [
+    { id: "kept", role: "user" as const, content: "<chat_history>\nKEPT", contextKind: "history" as const },
+    { id: "gone", role: "user" as const, content: "GONE\n</chat_history>", contextKind: "history" as const },
+    { role: "assistant" as const, content: "", providerMetadata: { reasoning: true } },
+  ];
+  dropPromptHistoryMessages(dropped, (message) => message.id === "gone");
+  assert.deepEqual(
+    dropped.map((message) => message.content),
+    ["<last_message>\nKEPT\n</last_message>", ""],
+  );
   const beforeSmart = prompts.length;
   await generate("Smart answer.", undefined, {
     forCharacterId: undefined,
