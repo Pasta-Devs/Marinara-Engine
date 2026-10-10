@@ -226,7 +226,7 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
   const pane = !mariEnabled && session.pane === "mari" ? "results" : session.pane;
   const mariFinished = mariHandoff?.status === "finished";
   const setSessionValue = <K extends keyof CommandCenterSessionState>(key: K, value: CommandCenterSessionState[K]) =>
-    setSession((current) => ({ ...current, [key]: value }));
+    setSession((current) => (current[key] === value ? current : { ...current, [key]: value }));
   const setQuery = (value: string) => setSessionValue("query", value);
   // Keep typing responsive: the heavy search/rank/present pipeline reruns against
   // the deferred query so keystrokes paint immediately on large libraries.
