@@ -3969,6 +3969,32 @@ assert.ok(!("mariDetailId" in mariSession));
     "approval",
     "Needs you beats everything",
   );
+  // A change held in Manual mode is no server review, but her window says "Needs you · 1 choice waiting".
+  const held = { ...run("finished"), heldChange: true };
+  assert.equal(
+    resolveMariEdgeGlow({ ...idle, latestRun: held, seenRunId: "run-1" }),
+    "approval",
+    "a held change is Needs you, and seeing the run does not clear it",
+  );
+  assert.equal(
+    resolveMariEdgeGlow({ ...idle, working: true, latestRun: run("running", "run-2"), seenRunId: "run-1" }),
+    "working",
+    "the answer starts a new run, so Needs you goes",
+  );
+  const workspaceAgentSource = readFileSync(
+    new URL("../../packages/server/src/services/professor-mari/workspace-agent.service.ts", import.meta.url),
+    "utf8",
+  );
+  assert.match(
+    workspaceAgentSource,
+    /outcome: runError \? "failed" : "finished",[^}]*runEndedWithDeferral && !runError \? \{ heldChange: true \}/u,
+    "the server marks the run that ended with a held change",
+  );
+  assert.match(
+    workspaceAgentSource,
+    /clearHistory === true && this\.latestRun\?\.heldChange\)\s+this\.latestRun = \{ \.\.\.this\.latestRun, heldChange: false \}/u,
+    "a new thread leaves the held change behind, so the pill stops asking for it",
+  );
   assert.equal(
     resolveMariEdgeGlow({ ...idle, latestRun: run("finished"), seenRunId: "run-0", clientRunFailed: true }),
     "error",

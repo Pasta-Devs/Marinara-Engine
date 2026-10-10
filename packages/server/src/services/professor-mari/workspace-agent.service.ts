@@ -2974,6 +2974,9 @@ export class ProfessorMariWorkspaceService {
     if (options?.keepRun !== true) await this.abort();
     this.lastError = null;
     if (options?.clearHistory === true) await getMariDbService(this.app.db).clearHistory();
+    // A new thread leaves a held change behind on the old one, so the top-bar pill stops asking for it.
+    if (options?.clearHistory === true && this.latestRun?.heldChange)
+      this.latestRun = { ...this.latestRun, heldChange: false };
   }
 
   approveSecurityReview(id: string) {
@@ -4046,6 +4049,8 @@ export class ProfessorMariWorkspaceService {
           ...this.latestRun,
           finishedAt: Date.now(),
           outcome: runError ? "failed" : "finished",
+          // The same flag the saved turn carries: her window shows a "Needs you" card, so the top-bar pill does too.
+          ...(runEndedWithDeferral && !runError ? { heldChange: true } : {}),
         };
       }
       if (this.abortController === controller) {

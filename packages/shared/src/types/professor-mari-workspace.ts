@@ -939,6 +939,8 @@ export interface MariWorkspaceLatestRun {
   startedAt: number;
   finishedAt: number | null;
   outcome: "running" | "finished" | "failed";
+  /** Manual mode: the run ended with a change held behind Accept. Any answer starts a new run, which replaces this. */
+  heldChange?: boolean;
 }
 
 export interface MariWorkspaceStatus {

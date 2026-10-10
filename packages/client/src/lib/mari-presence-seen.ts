@@ -8,7 +8,7 @@ export interface MariRunState {
   working: boolean;
   /** Approvals waiting on the user. They clear when answered, not when seen. */
   pendingApprovals: number;
-  /** The newest run, from the server. */
+  /** The newest run, from the server. A change it holds behind Accept (Manual mode) waits on the user too. */
   latestRun: MariWorkspaceLatestRun | null;
   /**
    * The id of the newest run the user has seen in her window, for that run's thread. Undefined while
@@ -25,8 +25,8 @@ export interface MariRunState {
  * server.
  */
 export function resolveMariEdgeGlow(state: MariRunState): MariEdgeGlow {
-  if (state.pendingApprovals > 0) return "approval";
   const { latestRun, seenRunId } = state;
+  if (state.pendingApprovals > 0 || latestRun?.heldChange === true) return "approval";
   const unseen = latestRun !== null && seenRunId !== undefined && latestRun.id !== seenRunId;
   if (state.clientRunFailed || (unseen && latestRun?.outcome === "failed")) return "error";
   if (state.working) return "working";
