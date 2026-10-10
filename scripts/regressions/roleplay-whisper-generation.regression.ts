@@ -414,6 +414,8 @@ try {
       "she says.",
     ).includes("she says.[W] She smiles."),
   );
+  // Editing away one copy of a repeated phrase leaves the whisper after the edited copy, not the other one.
+  assert(placeAfterEdits(["Go. He leaves. Go.", "Stop. He leaves. Go."], "Go.").includes("Stop.[W] He leaves."));
   // A phrase that appears twice never pulls a whisper to the other copy; it shows at the end, as before.
   const repeatedBeat =
     '"You came?" *She glances at the door.* "Sit."\n\nMara pours. "Drink first." *She glances at the door.*';
