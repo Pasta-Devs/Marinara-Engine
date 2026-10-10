@@ -201,6 +201,26 @@ try {
       "unsaved notes preview belongs only to narrator",
     );
   }
+  // A message that is only a whisper is not there at all for anyone it does not reach.
+  const sneak = await app.inject({
+    method: "POST",
+    url: `/api/chats/${chat.id}/messages`,
+    payload: { role: "user", content: '[whisper: character="Bob" text="SNEAK_SECRET"]' },
+  });
+  assert.equal(sneak.statusCode, 200, sneak.body);
+  const unseen = [
+    await preview(alice.id),
+    await preview(alice.id, { impersonate: true }),
+    (await generate("Alice looks around.", alice.id), prompts.at(-1)!),
+    await preview(alice.id),
+  ];
+  for (const content of unseen) {
+    assert(!content.includes("SNEAK_SECRET") && !content.includes("[Private whisper"), "no trace for others");
+    assert.equal(content.split("</last_message>").length, 2, "the last message keeps its wrapper");
+    assert.equal(content.split("</chat_history>").length, 2, "the history keeps its wrapper");
+  }
+  for (const id of [bob.id, narrator.id])
+    assert((await preview(id)).includes("SNEAK_SECRET"), "recipient and narrator");
   const beforeSmart = prompts.length;
   await generate("Smart answer.", undefined, {
     forCharacterId: undefined,
