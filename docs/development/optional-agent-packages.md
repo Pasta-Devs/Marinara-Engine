@@ -1109,8 +1109,8 @@ older hosts cannot interpret this setup declaration.
 ### Capability API 1.67: open a character in the editor
 
 The browser view gets `openCharacter(characterId, { tab })`. It opens the character editor, on the
-given tab when there is one, so a package can send the user to a card field it reads. It is a soft
-seam: check that the function exists and hide the link when it does not.
+given tab when there is one, so a package can send the user to a card field it reads. Older Engines
+do not have it: check that `openCharacter` exists before you show the link.
 
 ```ts
 if (typeof props.openCharacter === "function") props.openCharacter(characterId, { tab: "convo" });
