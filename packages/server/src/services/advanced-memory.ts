@@ -214,7 +214,7 @@ const VISIBILITY_CONTEXT = 12;
 const VISIBILITY_MIN_CONTEXT = 4;
 /** Longest a transcript message gets, and the shortest worth asking about when the limit is tight. */
 const VISIBILITY_MESSAGE_TOKENS = 1000;
-/** A candidate's last message before the window only has to show where they were. */
+/** A candidate's latest earlier message only has to show where they were. */
 const VISIBILITY_LAST_SEEN_TOKENS = 256;
 const VISIBILITY_MIN_MESSAGE_TOKENS = 64;
 const VISIBILITY_TIMEOUT_MS = 20_000;
@@ -226,7 +226,8 @@ type VisibilityItem = { message: AdvancedMemoryMessage; number: number; candidat
 type VisibilityPlan = {
   ctx: Context;
   items: VisibilityItem[];
-  transcript: Array<{ messageId: string; messageNumber: number; speaker: string; content: string }>;
+  /** lastSeen marks where an absent candidate was last shown; trimming keeps it. */
+  transcript: Array<{ messageId: string; messageNumber: number; speaker: string; content: string; lastSeen?: true }>;
   recentlyActive: string[];
   /** Set once a model was asked. Missing entries hide nothing. */
   asked?: boolean;
@@ -1284,14 +1285,25 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
         scene.some((index) => ctx.messages[index]!.role === "assistant" && ctx.messages[index]!.characterId === id),
     );
     const window = [...shown, ...scene.filter((index) => index >= first)];
-    const wrote = (index: number, id: string) =>
-      ctx.messages[index]!.role === "assistant" && ctx.messages[index]!.characterId === id;
-    // A candidate this window never shows gets their last earlier message, so the decision can see where they are.
-    // Once a scene outgrows its few earlier messages, nothing else would (#7390).
+    // A message the candidate wrote, or one that names them, such as another character carrying them in.
+    const shows = (index: number, id: string) => {
+      const message = ctx.messages[index]!;
+      if (message.role === "assistant" && message.characterId === id) return true;
+      const name = ctx.names.get(id) ?? "";
+      return [name, name.split(/\s+/)[0]!].some(
+        (part) =>
+          part.length >= 3 &&
+          new RegExp(`(?<![\\p{L}\\p{N}])${part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\p{L}\\p{N}])`, "iu").test(
+            message.content,
+          ),
+      );
+    };
+    // A candidate this window never shows gets the latest earlier message that does, so the decision can see where
+    // they are. Once a scene outgrows its few earlier messages, nothing else would (#7390).
     const lastSeen = new Set(
       [...new Set(items.flatMap((item) => item.candidates))].flatMap((id) => {
-        if (window.some((index) => wrote(index, id))) return [];
-        const index = [...before].reverse().find((candidate) => candidate < window[0]! && wrote(candidate, id));
+        if (window.some((index) => shows(index, id))) return [];
+        const index = [...before].reverse().find((candidate) => candidate < window[0]! && shows(candidate, id));
         return index === undefined ? [] : [index];
       }),
     );
@@ -1310,6 +1322,7 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
             ctx.messages[index]!.content,
             lastSeen.has(index) ? VISIBILITY_LAST_SEEN_TOKENS : VISIBILITY_MESSAGE_TOKENS,
           ),
+          ...(lastSeen.has(index) ? { lastSeen: true as const } : {}),
         })),
       recentlyActive: recentlyActive.map((id) => ctx.names.get(id) ?? id),
     };
@@ -1323,10 +1336,13 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
    */
   function visibilityTranscript(plan: VisibilityPlan, limit: number) {
     const fits = (transcript: VisibilityPlan["transcript"]) => tokenSize(JSON.stringify(transcript)) <= limit;
-    const context = plan.transcript.findIndex((entry) => entry.messageId === plan.items[0]!.message.id);
+    // Where absent candidates were last seen stays; the oldest scene context goes first.
+    const pinned = plan.transcript.filter((entry) => entry.lastSeen);
+    const rest = plan.transcript.filter((entry) => !entry.lastSeen);
+    const context = rest.findIndex((entry) => entry.messageId === plan.items[0]!.message.id);
     let start = 0;
-    while (context - start > VISIBILITY_MIN_CONTEXT && !fits(plan.transcript.slice(start))) start++;
-    const kept = plan.transcript.slice(start);
+    while (context - start > VISIBILITY_MIN_CONTEXT && !fits([...pinned, ...rest.slice(start)])) start++;
+    const kept = [...pinned, ...rest.slice(start)];
     if (fits(kept)) return kept;
     const cut = (tokens: number) => kept.map((entry) => ({ ...entry, content: messageEnds(entry.content, tokens) }));
     // The longest length that fits, found by bisection.
