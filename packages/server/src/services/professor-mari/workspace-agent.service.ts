@@ -1541,7 +1541,7 @@ const INTERNAL_NAME_WORDS: Record<string, string> = {
 };
 const INTERNAL_NAME = `(?:${[...PROFESSOR_MARI_APP_DATA_ACTIONS, ...Object.keys(INTERNAL_NAME_WORDS)]
   .sort((a, b) => b.length - a.length)
-  .map((name) => name.replace(/\./g, "\\."))
+  .map((name) => name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
   .join("|")})`;
 const INTERNAL_NAME_RUN_RE = new RegExp(
   `([ \\t]*\\(\\s*)?\`?\\b${INTERNAL_NAME}\\b\`?(?:\\s*(?:/|,|\\bor\\b|\\band\\b)\\s*\`?\\b${INTERNAL_NAME}\\b\`?)*(\\s*\\))?`,
