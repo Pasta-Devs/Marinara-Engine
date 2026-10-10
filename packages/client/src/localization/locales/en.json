@@ -5125,7 +5125,7 @@
   "ui.characters.convoprofilefields.generationFailed": "Failed to generate the Conversation profile",
   "ui.characters.convoprofilefields.generationReturnedNoText": "The model returned no text",
   "ui.characters.convoprofilefields.imageGenerationInstructions": "Image generation instructions",
-  "ui.characters.convoprofilefields.imageGenerationInstructionsHelp": "Optional directions for this character's Conversation selfies: preferred subjects, quality, camera style, composition, expressions, or other personal image habits. Noodle and Slurp can use them too: turn that on for this character in their own settings.",
+  "ui.characters.convoprofilefields.imageGenerationInstructionsHelp": "Optional directions for this character's Conversation selfies, such as camera style or expressions; Noodle and Slurp use them when you turn that on in their settings.",
   "ui.characters.convoprofilefields.imageGenerationInstructionsPlaceholder": "e.g. Uses grainy 35mm film, photographs old architecture, and prefers candid, imperfect framing…",
   "ui.characters.convoprofilefields.insertEmoji": "Insert emoji",
   "ui.characters.convoprofilefields.insertion": "Insertion",
