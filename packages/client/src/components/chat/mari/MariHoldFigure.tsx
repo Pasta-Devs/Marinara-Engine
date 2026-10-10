@@ -1,5 +1,6 @@
 import { useEffect, useRef, type RefObject } from "react";
 import {
+  isNewMariSmash,
   mariFigureExtent,
   mariHandVelocity,
   mariThrowPeak,
@@ -70,6 +71,9 @@ export function MariHoldFigure({
     const hand: MariHandSample[] = [];
     let throwX: MariThrow = { v: 0, at: 0 };
     let throwY: MariThrow = { v: 0, at: 0 };
+    // The last smash per axis: the bounce of one hit must not bonk (and count toward dizzy) again.
+    let smashedX = { side: 0, at: -Infinity };
+    let smashedY = { side: 0, at: -Infinity };
     let anchor: ReturnType<typeof slotRect> = null;
     let last = performance.now();
     let frame = 0;
@@ -134,11 +138,18 @@ export function MariHoldFigure({
         const wallY = stepMariWall(y, extent.top, extent.bottom, window.innerHeight, throwY.v);
         pinnedX = wallX.spring.x !== x.x;
         pinnedY = wallY.spring.x !== y.x;
+        // A wall pushes her back inside, so the push's sign is the wall's side, opposite to it.
+        const sideX = -Math.sign(wallX.spring.x - x.x);
+        const sideY = -Math.sign(wallY.spring.x - y.x);
+        const newSmashX = wallX.smash && isNewMariSmash(smashedX, sideX, now);
+        const newSmashY = wallY.smash && isNewMariSmash(smashedY, sideY, now);
+        if (wallX.smash) smashedX = { side: sideX, at: now };
+        if (wallY.smash) smashedY = { side: sideY, at: now };
         x = wallX.spring;
         y = wallY.spring;
-        if (wallX.smash) squashX = { x: 0.22, v: 0 };
-        if (wallY.smash) squashY = { x: 0.22, v: 0 };
-        if (wallX.smash || wallY.smash) {
+        if (newSmashX) squashX = { x: 0.22, v: 0 };
+        if (newSmashY) squashY = { x: 0.22, v: 0 };
+        if (newSmashX || newSmashY) {
           onSmashRef.current();
           figure.dataset.bonk = "true";
           window.clearTimeout(bonkTimer);

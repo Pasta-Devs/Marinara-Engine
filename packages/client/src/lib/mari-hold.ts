@@ -100,6 +100,16 @@ export const MARI_HAND_WINDOW_MS = 50;
  * 55 ms, so on a phone it reaches the edge after the finger has stopped on it.
  */
 export const MARI_THROW_MEMORY_MS = 150;
+/**
+ * A smash on the same wall within this many ms is the same hit: she bounces, the hand pins her back, and
+ * the remembered throw would smash her again, which counts as a shake and makes one flick dizzy.
+ */
+export const MARI_RESMASH_MS = 450;
+
+/** Whether a smash on `side` (-1 left/top, 1 right/bottom) is a new hit, not the bounce of the last one. */
+export function isNewMariSmash(last: { side: number; at: number }, side: number, now: number): boolean {
+  return side !== last.side || now - last.at >= MARI_RESMASH_MS;
+}
 
 /** One sample of the hand: where the pointer was, and when (ms). */
 export interface MariHandSample {

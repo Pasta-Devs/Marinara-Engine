@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import type { MariPendulum } from "../../packages/client/src/lib/mari-hold.js";
 import {
+  isNewMariSmash,
   isMariFling,
   isMariShaken,
   mariFigureExtent,
@@ -196,5 +197,12 @@ for (let frame = 0; frame < 20 * 60; frame += 1) {
   );
 }
 assert.ok(smashes > 0, "the sweep does hit the walls hard enough to smash");
+
+// One flick is one bonk: the bounce the hand pins back to the same wall is not a second smash (two would
+// count as a shake and make her dizzy). The other wall, or the same wall later, is a new hit.
+assert.equal(isNewMariSmash({ side: 0, at: -Infinity }, -1, 1_000), true, "a first smash counts");
+assert.equal(isNewMariSmash({ side: -1, at: 1_000 }, -1, 1_200), false, "its bounce on the same wall does not");
+assert.equal(isNewMariSmash({ side: -1, at: 1_000 }, 1, 1_050), true, "the opposite wall is a new hit");
+assert.equal(isNewMariSmash({ side: -1, at: 1_000 }, -1, 1_500), true, "the same wall later is a new hit");
 
 console.info("Mari hold: press thresholds, shake, fling, spring and pendulum rules pass.");
