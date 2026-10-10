@@ -2506,8 +2506,9 @@ const LocalChatArea = memo(function LocalChatArea({
     const last = messages?.[messages.length - 1];
     if (!last || isStreaming || (last.role !== "assistant" && last.role !== "narrator")) return null;
     const findings = checkMessage(last);
-    return replyLineFindings(findings, { showHistoryTrimNotice }).length > 0 ? { messageId: last.id, findings } : null;
-  }, [checkMessage, isStreaming, messages, showHistoryTrimNotice]);
+    // Kept even when the trim note is hidden, so the omnibar's Check row still has a checkup to open.
+    return replyLineFindings(findings).length > 0 ? { messageId: last.id, findings } : null;
+  }, [checkMessage, isStreaming, messages]);
   const [openReplyCheckupId, setOpenReplyCheckupId] = useState<string | null>(null);
   const replyCheckupNode = useMemo(
     () =>
@@ -2519,9 +2520,10 @@ const LocalChatArea = memo(function LocalChatArea({
           onOpenChange={(open) => setOpenReplyCheckupId(open ? replyCheckup.messageId : null)}
           onLink={handleReplyCheckupLink}
           onPeek={() => handlePeekPrompt(replyCheckup.messageId)}
+          showHistoryTrimNotice={showHistoryTrimNotice}
         />
       ) : null,
-    [handlePeekPrompt, handleReplyCheckupLink, openReplyCheckupId, replyCheckup],
+    [handlePeekPrompt, handleReplyCheckupLink, openReplyCheckupId, replyCheckup, showHistoryTrimNotice],
   );
   // The omnibar's "Check the last reply" row opens the line's checkup in place.
   useEffect(() => {

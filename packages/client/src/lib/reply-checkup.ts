@@ -45,6 +45,18 @@ export function replyLineFindings(
   );
 }
 
+/**
+ * The finding the quiet line leads with, or none to show nothing under the reply. A hidden trim note
+ * still leads once the checkup is opened on request (the omnibar's Check row), so that request has
+ * something to open and a Check button to close it again.
+ */
+export function replyLineLead(
+  findings: readonly ReplyCheckupFinding[],
+  options: { showHistoryTrimNotice?: boolean; open?: boolean } = {},
+): ReplyCheckupFinding | undefined {
+  return replyLineFindings(findings, options)[0] ?? (options.open ? replyLineFindings(findings)[0] : undefined);
+}
+
 const num = (value: string | number | undefined) => (typeof value === "number" ? value.toLocaleString() : value);
 
 /** Short label: the quiet line ("Cut off · Check") and the Fix row's detail. */

@@ -6,7 +6,7 @@ import {
   REPLY_CHECKUP_LINE_CODES,
   type ReplyCheckupInput,
 } from "../../packages/shared/src/utils/diagnose-reply.js";
-import { replyLineFindings } from "../../packages/client/src/lib/reply-checkup.js";
+import { replyLineFindings, replyLineLead } from "../../packages/client/src/lib/reply-checkup.js";
 
 const info = (patch: Record<string, unknown> = {}) => ({
   model: "m",
@@ -203,5 +203,12 @@ assert.deepEqual(
   replyLineFindings(cutAndTrimmed, { showHistoryTrimNotice: false }).map((finding) => finding.code),
   ["cut_off"],
 );
+
+// The line's lead: with the note hidden, a trim-only reply shows nothing under it, but the omnibar's
+// Check row still opens the checkup (open: true), led by the trim, so that row is never a dead button.
+assert.equal(replyLineLead(trimmed, { showHistoryTrimNotice: false }), undefined);
+assert.equal(replyLineLead(trimmed, { showHistoryTrimNotice: false, open: true })?.code, "history_trimmed");
+assert.equal(replyLineLead(trimmed, { showHistoryTrimNotice: true })?.code, "history_trimmed");
+assert.equal(replyLineLead(cutAndTrimmed, { showHistoryTrimNotice: false })?.code, "cut_off");
 
 console.log("reply-checkup regression passed");
