@@ -1886,6 +1886,8 @@ function workspaceCommandValidationIssue(command: WorkspaceCommandCall): string 
     case "package_service":
       if (packageServiceInput(args) === null) return "package_service input must be a JSON object";
       return isPackageServiceRun(command) ? requireString("package") : null;
+    case "skill":
+      return requireString("id");
     case "ls":
       return null;
     default:
