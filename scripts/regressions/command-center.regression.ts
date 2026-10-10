@@ -194,7 +194,7 @@ import {
   matchOmnibarCapabilityAgentPackageIds,
   OMNIBAR_CAPABILITY_AGENT_KEYWORDS,
   type Chat,
-} from "@marinara-engine/shared";
+} from "../../packages/shared/src/index.js";
 import { OFFICIAL_AGENT_KNOWLEDGE_ENTRIES } from "../../packages/server/src/services/professor-mari/official-agent-knowledge.js";
 import {
   summarizeMergedAgentRow,

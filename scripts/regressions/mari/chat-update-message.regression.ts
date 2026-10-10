@@ -143,16 +143,13 @@ try {
     assert.equal(byPost.ok, true, "a post-number row id must resolve to its message");
     assert.equal(byPost.mode, "dry-run");
 
-    // #L7 review finding #2: `mari db transform all <script>` expands "all" to every
-    // FILE_BACKED_TABLES entry, including messages/message_swipes - parseMutation's guard only
-    // checked the literal positional ("all" itself), so the guard must also run after expansion,
-    // before the (untrusted, sandboxed) script ever executes - a nonexistent script path is enough
-    // to prove the refusal happens first.
+    // #L7 review finding #2: `mari db transform all <script>` must never reach messages/message_swipes.
+    // "all" now expands without the message tables (resolveTransformTables, pinned in
+    // command-center), so the untrusted script never gets them; a nonexistent script still fails.
     const transformAllResult = await mari.executeCli({
       argv: ["db", "transform", "all", join(dir, "does-not-exist.mjs"), "--apply"],
     });
-    assert.equal(transformAllResult.ok, false, "transform all must be refused when it would touch messages");
-    assert.match(String(transformAllResult.error), /chat\.updateMessage/);
+    assert.equal(transformAllResult.ok, false, "a transform with a missing script fails");
     assert.equal(
       (await chats.getMessage(messageId))?.content,
       "The door creaked open and she said nothing.",
