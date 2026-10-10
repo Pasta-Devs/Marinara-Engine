@@ -1,7 +1,7 @@
-import { resolveRunSeconds, resolveRunStartMs } from "./mari-work-card-timing";
-import { pickMariPhraseIndex } from "./mari-work-animations";
+import { resolveRunSeconds, resolveRunStartMs } from "../../../packages/client/src/lib/mari-work-card-timing.js";
+import { pickMariPhraseIndex } from "../../../packages/client/src/lib/mari-work-animations.js";
 
-// Minimal assert-based self-check. Run with: pnpm tsx packages/client/src/lib/mari-work-card-timing.test.ts
+// The run clock on her work card and the live status phrase.
 function assert(cond: unknown, msg: string) {
   if (!cond) throw new Error(`FAIL: ${msg}`);
 }
