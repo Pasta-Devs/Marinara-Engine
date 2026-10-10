@@ -488,10 +488,16 @@ try {
   // Once the window has moved past a candidate who was away, their latest message still says where they are,
   // and trimming a long scene keeps it (#7390).
   const stairStep = " The stone stair is cold and wet under his boots.".repeat(50);
-  const stairTranscript = async (opening: string[], maukieAway: (step: number) => boolean) => {
+  const endScene = async (chatId: string, messageNumber: number) => {
+    await memory.settleMessageVisibility(chatId);
+    const check = await memory.getSceneCheck(chatId, { force: true });
+    assert(check && (await memory.commitSceneCheck(chatId, check, { ends: [{ messageNumber }] })));
+  };
+  const stairTranscript = async (opening: string[], maukieAway: (step: number) => boolean, savedStart = true) => {
     const chat = await createChat({ decisionEnabled: true, decisionConnectionId: decisionConnection.id });
     for (const [index, line] of opening.entries())
       await say(chat, index % 2 ? "assistant" : "user", line, index % 2 ? ids.maukie : null);
+    if (savedStart) await endScene(chat, opening.length);
     for (let step = 1; step <= 13; step++) {
       // Maukie could not perceive this step, by an earlier decision or the user's own choice.
       const away = maukieAway(step) ? { hiddenFromAICharacterIds: [ids.maukie], visibilityManual: true } : {};
@@ -510,6 +516,9 @@ try {
   assert(!swamp.includes("P and Maukie wade through the swamp."), "only that message, not their old scene");
   assert(swamp.length < 15, "the long scene was trimmed");
   assert.equal(swamp.at(-1), "Pantalone reaches the top.");
+  // Without a saved scene start, the last few messages may not be the whole scene.
+  const unsaved = await stairTranscript(swampOpening, () => true, false);
+  assert(!unsaved.includes("MAUKIE_IN_THE_SWAMP"), "no saved scene start, no away");
   // Someone who could perceive the scene, such as a character carried in, is never shown somewhere else.
   const carried = await stairTranscript(
     [...swampOpening, "P carries Maukie up the stair; she curls up, silent."],
@@ -526,9 +535,7 @@ try {
   await say(cutawayChat, "user", "P carries Maukie into the tower study; she curls up, silent.");
   for (let line = 1; line <= 6; line++)
     await say(cutawayChat, "assistant", `Pantalone reads ledger ${line}.`, ids.pantalone);
-  await memory.settleMessageVisibility(cutawayChat);
-  const towerEnd = await memory.getSceneCheck(cutawayChat, { force: true });
-  assert(towerEnd && (await memory.commitSceneCheck(cutawayChat, towerEnd, { ends: [{ messageNumber: 9 }] })));
+  await endScene(cutawayChat, 9);
   const hiddenFromMaukie = { hiddenFromAICharacterIds: [ids.maukie], visibilityManual: true };
   await say(cutawayChat, "user", "Meanwhile, far away in the forest, P waits.", null, hiddenFromMaukie);
   await say(cutawayChat, "user", "The forest stays quiet.", null, hiddenFromMaukie);
@@ -541,6 +548,7 @@ try {
   const undecidedChat = await createChat({ decisionEnabled: true, decisionConnectionId: decisionConnection.id });
   await say(undecidedChat, "user", swampOpening[0]!);
   await say(undecidedChat, "assistant", swampOpening[1]!, ids.maukie);
+  await endScene(undecidedChat, 2);
   await say(undecidedChat, "assistant", "UNDECIDED: Pantalone sets down his bag.", ids.pantalone);
   for (let step = 1; step <= 11; step++)
     await say(undecidedChat, "assistant", `Pantalone climbs step ${step}.`, ids.pantalone, hiddenFromMaukie);

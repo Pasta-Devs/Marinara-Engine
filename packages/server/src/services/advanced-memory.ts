@@ -1269,9 +1269,10 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
     if (!items.length) return null;
     const first = items[0]!.number - 1;
     const last = items.at(-1)!.number - 1;
-    const sceneStart =
-      savedScenes(ctx, await operationRecords(ctx)).find((scene) => first >= scene.start && first <= scene.end)
-        ?.start ?? Math.max(0, first - VISIBILITY_CONTEXT);
+    const saved = savedScenes(ctx, await operationRecords(ctx)).find(
+      (scene) => first >= scene.start && first <= scene.end,
+    );
+    const sceneStart = saved?.start ?? Math.max(0, first - VISIBILITY_CONTEXT);
     const scene = actual.filter((index) => index >= sceneStart && index <= last);
     // The scene so far, but never fewer than a few earlier messages, so a new scene's opening still shows who was around.
     const before = actual.filter((index) => index < first);
@@ -1287,10 +1288,12 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
     const window = [...shown, ...scene.filter((index) => index >= first)];
     // Who could perceive none of this scene's earlier messages, hidden by the decisions or the user's own hides; a
     // message nobody decided is visible to all. It takes a few messages, so a short cutaway or step-out that opens
-    // a scene makes nobody away.
+    // a scene makes nobody away, and a saved scene start, since the fallback's last messages may not be all of it.
     const hiddenSets = scene.flatMap((index) => {
       const extra = object(ctx.messages[index]!.extra);
-      return index < first && extra.hiddenFromAI !== true ? [new Set(strings(extra.hiddenFromAICharacterIds))] : [];
+      return saved && index < first && extra.hiddenFromAI !== true
+        ? [new Set(strings(extra.hiddenFromAICharacterIds))]
+        : [];
     });
     const away = new Set(
       hiddenSets.length >= VISIBILITY_MIN_CONTEXT
