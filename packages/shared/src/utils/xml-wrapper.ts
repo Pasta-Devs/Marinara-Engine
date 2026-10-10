@@ -13,6 +13,7 @@ export function nameToXmlTag(name: string): string {
     .toLowerCase()
     .replace(/[^\p{L}\p{M}\p{N}\s_-]/gu, "")
     .replace(/[\p{Variation_Selector}\u20E3]/gu, "")
+    .replace(/^[\p{M}\s]+/u, "")
     .trim()
     .replace(/[\s-]+/g, "_")
     .replace(/_+/g, "_");

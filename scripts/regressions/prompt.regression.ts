@@ -10998,6 +10998,8 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
       assert.equal(nameToXmlTag("Dr. 김 철수"), "dr_김_철수");
       assert.equal(nameToXmlTag("Amélie"), "amélie");
       assert.equal(nameToXmlTag("राम"), "राम");
+      assert.equal(nameToXmlTag("\u0301Ana"), "ana");
+      assert.equal(nameToXmlTag("★\u0301Ana"), "ana");
       assert.equal(wrapContent("Card.", "홍길동", "xml"), "<홍길동>\n    Card.\n</홍길동>");
       assert.equal(wrapContent("Card.", "Dr. 김 철수", "markdown"), "## Dr 김 철수\nCard.");
       assert.equal(
