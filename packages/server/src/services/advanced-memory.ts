@@ -400,7 +400,7 @@ export function selectAdvancedMemoryMessages(
   audienceCharacterIds: string[],
   individual = true,
   view: "live" | "archive" = "live",
-  /** Messages kept even without text (see selectAdvancedMemoryWhisperOnlyIds). */
+  /** Messages kept even without text, such as whisper-only messages. */
   keepEmptyIds: ReadonlySet<string> = new Set(),
 ): AdvancedMemoryMessage[] {
   let start = 0;
@@ -446,7 +446,7 @@ export function selectAdvancedMemoryMessages(
 
 /**
  * Messages that hold only a whisper and that the live view would select if they had text. Memory keeps no
- * empty message, so prompts place these by position instead (see filterPromptHistoryByMessageIds).
+ * empty message; its preparation adds these inside its window, and other prompts that use this view add them here.
  */
 export function selectAdvancedMemoryWhisperOnlyIds(
   messages: readonly AdvancedMemoryMessage[],
@@ -519,6 +519,7 @@ function allowed(
   ctx: Context,
   messages: readonly AdvancedMemoryMessage[],
   audience: string[],
+  keepEmptyIds?: ReadonlySet<string>,
 ): AdvancedMemoryMessage[] {
   return selectAdvancedMemoryMessages(
     messages,
@@ -526,6 +527,7 @@ function allowed(
     audience.length ? audience : ctx.characterIds,
     ctx.individual && audience.length > 0,
     "archive",
+    keepEmptyIds,
   );
 }
 
@@ -3796,6 +3798,7 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
     const { boundaryIndex: initialBoundary } = contextBoundary(ctx, audience);
     let boundaryIndex = initialBoundary;
     let live = visible.filter((message) => indexes.get(message.id)! > boundaryIndex);
+    let trimmedEnd: number | undefined;
     const constantScenes = available.filter(
       (record) =>
         record.kind === "scene" &&
@@ -3915,6 +3918,7 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
       // An unfinished scene stays open. Keep bounded original text without invoking
       // a summarizer before the reply or saving a truncated replacement summary.
       currentSceneSummary = fitText(logMessages(ctx, live.slice(0, prefixLength)), excerptBudget);
+      trimmedEnd = indexes.get(live[prefixLength - 1]!.id)!;
       live = live.slice(prefixLength);
       receipt.reasons.push("open-scene-prefix-excerpts");
     }
@@ -4404,8 +4408,20 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
             ? "no-recall-budget"
             : "no-relevant-recall",
       );
+    // A message that holds only a whisper has no text to keep, but its whisper belongs to the live window.
+    // The same reader rules apply. It is never part of a record, so recall is unaffected.
+    const whisperOnly = roleplayWhisperOnlyMessageIds(sources);
+    const windowEnd = trimmedEnd ?? boundaryIndex;
+    const kept = whisperOnly.size
+      ? [
+          ...live,
+          ...allowed(ctx, sources, audience, whisperOnly).filter(
+            (message) => whisperOnly.has(message.id) && indexes.get(message.id)! > windowEnd,
+          ),
+        ].sort((a, b) => indexes.get(a.id)! - indexes.get(b.id)!)
+      : live;
     return {
-      messageIds: live.map((message) => message.id),
+      messageIds: kept.map((message) => message.id),
       chatSummary: chatSummary || null,
       currentSceneSummary,
       recalledScenes,

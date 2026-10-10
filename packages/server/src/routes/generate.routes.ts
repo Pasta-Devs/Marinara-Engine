@@ -2793,9 +2793,8 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           advancedAgentSourceIds
             ? filterPromptHistoryByMessageIds(
                 resolveAdvancedMemoryPrompt(messages, advancedMemoryPlacements, {}),
-                advancedAgentSourceIds,
+                new Set([...advancedAgentSourceIds, ...advancedAgentWhisperOnlyIds!]),
                 new Set(advancedSourceMessages.map((message) => message.id)),
-                advancedAgentWhisperOnlyIds,
               )
             : messages;
         const deferConversationLorebookScanToResponder =
@@ -7971,13 +7970,6 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               messages: preparedMessagesForGen,
               placements: advancedMemoryPlacements,
               audienceCharacterIds,
-              // The same reader and access rules as memory's own selection.
-              whisperOnlyIds: selectAdvancedMemoryWhisperOnlyIds(
-                advancedSourceMessages,
-                advancedMemorySettings,
-                audienceCharacterIds.length ? audienceCharacterIds : allCharacterIds,
-                usesIndividualGroupGeneration && audienceCharacterIds.length > 0,
-              ),
               audienceMode: input.impersonate ? "owner" : undefined,
               maxContext: effectiveMaxContext ?? connectionMaxContext,
               maxTokens,

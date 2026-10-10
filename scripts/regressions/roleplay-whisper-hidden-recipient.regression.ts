@@ -377,6 +377,78 @@ try {
     assert(content.includes("PERSONAL_START_SECRET"), "a whisper that opens Maukie's conversation reaches him");
     assert(!content.includes("PERSONAL_EARLY_LINE"));
   }
+  // A notice memory never keeps, between a whisper-only message and later text, does not cut the whisper off.
+  const noticeChat = await chats.create({
+    name: "Whisper notice",
+    mode: "roleplay",
+    characterIds: [maukie.id, narrator.id],
+    personaId: persona.id,
+    connectionId: connection.id,
+    promptPresetId: preset.id,
+  });
+  assert(noticeChat);
+  await chats.patchMetadata(noticeChat.id, memoryMetadata);
+  await chats.createMessage({
+    chatId: noticeChat.id,
+    role: "user",
+    content: '[whisper: character="Narrator" text="BEFORE_NOTICE_SECRET"]',
+  });
+  await chats.createMessage({ chatId: noticeChat.id, role: "system", content: "You are now playing as Mari." });
+  await chats.createMessage({ chatId: noticeChat.id, role: "user", content: "AFTER_NOTICE_LINE" });
+  for (const content of [
+    await preview(narrator.id, { chatId: noticeChat.id }),
+    await generate("The narrator notices.", narrator.id, { chatId: noticeChat.id }),
+  ])
+    assert(content.includes("BEFORE_NOTICE_SECRET") && content.includes("AFTER_NOTICE_LINE"), "notice in between");
+
+  // A whisper-only message follows a character's knowledge start like any other message.
+  const knowledgeChat = await chats.create({
+    name: "Whisper knowledge",
+    mode: "roleplay",
+    characterIds: [maukie.id, narrator.id],
+    personaId: persona.id,
+    connectionId: connection.id,
+    promptPresetId: preset.id,
+  });
+  assert(knowledgeChat);
+  await chats.patchMetadata(knowledgeChat.id, memoryMetadata);
+  await chats.createMessage({ chatId: knowledgeChat.id, role: "user", content: "KNOWLEDGE_EARLY_LINE" });
+  const knowledgeWhisper = await chats.createMessage({
+    chatId: knowledgeChat.id,
+    role: "user",
+    content: '[whisper: character="Maukie" text="KNOWLEDGE_SECRET"]',
+  });
+  const oldReply = await chats.createMessage({
+    chatId: knowledgeChat.id,
+    role: "assistant",
+    characterId: maukie.id,
+    content: "KNOWLEDGE_OLD_REPLY",
+  });
+  const anchor = await chats.createMessage({ chatId: knowledgeChat.id, role: "user", content: "KNOWLEDGE_ANCHOR" });
+  assert(knowledgeWhisper && oldReply && anchor);
+  const knowledgeFrom = (id: string) =>
+    chats.patchMetadata(knowledgeChat.id, {
+      advancedMemory: {
+        ...memoryMetadata.advancedMemory,
+        knowledgeStarts: { [maukie.id]: id, [narrator.id]: null },
+      },
+    });
+  await knowledgeFrom(knowledgeWhisper.id);
+  for (const content of [
+    await preview(maukie.id, { chatId: knowledgeChat.id }),
+    await generate("Maukie knows.", maukie.id, { chatId: knowledgeChat.id }),
+  ]) {
+    assert(content.includes("KNOWLEDGE_SECRET"), "Maukie's knowledge opens on the whisper");
+    assert(!content.includes("KNOWLEDGE_EARLY_LINE"));
+  }
+  // Regenerating a reply from before Maukie's knowledge start gives him nothing from then.
+  await knowledgeFrom(anchor.id);
+  assert(
+    !(
+      await generate("Maukie again.", maukie.id, { chatId: knowledgeChat.id, regenerateMessageId: oldReply.id })
+    ).includes("KNOWLEDGE_SECRET"),
+    "regenerating before the knowledge start",
+  );
 
   // Advanced Memory keeps a stand-in only inside the retained window, which opens with the hidden
   // messages right before its first kept message.
@@ -401,25 +473,6 @@ try {
     ["OPENING_STAND_IN", "KEPT", "LATE_STAND_IN"],
   );
   assert.deepEqual(filterPromptHistoryByMessageIds(windowMessages, new Set(), windowSources), []);
-  // Whisper-only messages follow the same window.
-  // With nothing kept, memory's own selection already placed them.
-  const whisperOnlyIds = new Set(["early", "opening", "late"]);
-  const whisperOnlyMessages = windowMessages.map((message) => ({
-    ...message,
-    id: message.id ?? message.whisperSourceId,
-    whisperSourceId: undefined,
-  }));
-  for (const [kept, expected] of [
-    [["kept"], ["OPENING_STAND_IN", "KEPT", "LATE_STAND_IN"]],
-    [[], ["EARLY_STAND_IN", "OPENING_STAND_IN", "LATE_STAND_IN"]],
-  ] as const)
-    assert.deepEqual(
-      filterPromptHistoryByMessageIds(whisperOnlyMessages, new Set(kept), windowSources, whisperOnlyIds).map(
-        (message) => message.content,
-      ),
-      expected,
-    );
-
   // Whisper-only messages follow memory's reader rules: knowledge and conversation starts and hiding.
   const whisperExtra = (extra: Record<string, unknown> = {}) => ({
     ...extra,

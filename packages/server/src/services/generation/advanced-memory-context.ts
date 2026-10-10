@@ -63,8 +63,6 @@ export async function prepareAdvancedMemoryContext(
     messages: GenerationPromptMessage[];
     placements: AdvancedMemoryPlacement[];
     audienceCharacterIds: string[];
-    /** Whisper-only messages memory would keep if they had text (see selectAdvancedMemoryWhisperOnlyIds). */
-    whisperOnlyIds?: ReadonlySet<string>;
     audienceMode?: "owner";
     maxContext?: number;
     maxTokens?: number;
@@ -142,7 +140,7 @@ export async function prepareAdvancedMemoryContext(
       blocking: input.blocking,
     });
     const selectedIds = new Set(prepared.messageIds);
-    const selected = filterPromptHistoryByMessageIds(input.messages, selectedIds, sourceIds, input.whisperOnlyIds);
+    const selected = filterPromptHistoryByMessageIds(input.messages, selectedIds, sourceIds);
     const parts = prepared;
     let messages = resolveAdvancedMemoryPrompt(selected, input.placements, parts);
     let providerMessages = input.toProviderMessages(messages);
