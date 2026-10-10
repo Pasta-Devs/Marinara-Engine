@@ -87,7 +87,7 @@ function sourceBadgeClass(data: PeekPromptModalProps["data"]): string {
 }
 
 function prettifyTag(tag: string): string {
-  return tag.replace(/[_-]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  return tag.replace(/[_-]/g, " ").replace(/(?<![\p{L}\p{M}\p{N}])\p{L}/gu, (c) => c.toUpperCase());
 }
 
 // ═══════════════════════════════════════════════
@@ -149,7 +149,7 @@ function conversationHistoryDisplayRole(role: string, content: string): string {
 function parseXmlSections(content: string, fallbackLabel: string): SectionBlock[] {
   const blocks: SectionBlock[] = [];
   // Match <tag_name>\n...\n</tag_name> where both tags sit on their own line.
-  const tagRegex = /(?:^|\n)(<([a-z_][a-z0-9_-]*)>\n[\s\S]*?\n<\/\2>)(?:\n|$)/gi;
+  const tagRegex = /(?:^|\n)(<([\p{L}_][\p{L}\p{M}\p{N}_-]*)>\n[\s\S]*?\n<\/\2>)(?:\n|$)/giu;
   let lastIndex = 0;
 
   for (const match of content.matchAll(tagRegex)) {

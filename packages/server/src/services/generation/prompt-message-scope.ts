@@ -50,7 +50,9 @@ export function isStandaloneCharacterProfileBlock(content: string, characterName
 
 function nameToMarkdownHeadingForMatch(name: string): string {
   return normalizeTextForMatch(name)
-    .replace(/[^\p{L}\p{N}\s_-]/gu, "")
+    .replace(/[^\p{L}\p{M}\p{N}\s_-]/gu, "")
+    .replace(/[\p{Variation_Selector}\u20E3]/gu, "")
+    .replace(/\s+/gu, " ")
     .trim();
 }
 
