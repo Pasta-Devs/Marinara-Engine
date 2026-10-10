@@ -1,11 +1,13 @@
 // The `skill` tool (PR 2) must pass the workspace-command validation gate and
 // dispatch to commandSkill. A missing `skill` case in workspaceCommandValidationIssue
 // made every skill call fail with "Unsupported workspace command: skill" before
-// reaching the dispatcher.
+// reaching the dispatcher. Models also misroute skill fetches through app_data
+// (action "skill") and guess skill ids; both dead ends must self-correct.
 import assert from "node:assert/strict";
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { ProfessorMariWorkspaceService } from "../../packages/server/src/services/professor-mari/workspace-agent.service.js";
 
 const service = new ProfessorMariWorkspaceService({} as never);
@@ -36,10 +38,6 @@ assert.match(unknown.output, /<skill_library>/u, "a miss must point at the in-co
 // The structured app-data runtime used to answer with the generic
 // "Unsupported app_data action. Use character.* ..." dead end; it must instead
 // point the model at the `skill` tool and the in-context <skill_library> index.
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-
 const skillStorageRoot = mkdtempSync(join(tmpdir(), "marinara-skill-route-"));
 const previousFileStorageDir = process.env.FILE_STORAGE_DIR;
 process.env.FILE_STORAGE_DIR = skillStorageRoot;
@@ -62,5 +60,14 @@ try {
   await closeDb?.();
   process.env.FILE_STORAGE_DIR = previousFileStorageDir;
 }
+
+// ── Tool description pin: the app_data description must say skills are not ────
+// app_data, or models keep reaching for app_data for the skill library (source
+// pin, same pattern as mari-permissions-mode's prompt-text pins).
+const registrySource = readFileSync(
+  join(resolve(dirname(fileURLToPath(import.meta.url)), "../.."), "packages/server/src/services/professor-mari/tool-registry.ts"),
+  "utf8",
+);
+assert.match(registrySource, /Skills are not app_data actions/u, "app_data description must steer skill fetches to the skill tool");
 
 console.log("mari-skill-tool regression passed");
