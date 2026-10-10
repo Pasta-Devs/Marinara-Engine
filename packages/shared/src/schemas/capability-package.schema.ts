@@ -555,7 +555,10 @@ const capabilityPackageManifestBaseSchema = z
 //        context, holds the lock while the scene runs and receives the recap when it ends. The browser
 //        view gets `startScene`, `openChat`, `focusSceneOriginId` and `onFocusSceneOriginHandled`. Requires
 //        the `scenes` permission.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 66 } as const);
+// 1.67: the browser view gets `openCharacter(characterId, { tab })`, which opens the character editor,
+//        on that tab when given. Soft seam: a package checks that the function exists, so it does not
+//        need to declare 1.67. No permission.
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 67 } as const);
 
 const capabilityApiVersionSchema = z
   .object({

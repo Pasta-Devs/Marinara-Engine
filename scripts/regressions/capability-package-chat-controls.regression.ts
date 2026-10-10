@@ -9,6 +9,7 @@ const read = (path: string) => readFileSync(new URL(`../../${path}`, import.meta
 const drawer = read("packages/client/src/components/chat/ChatSettingsDrawer.tsx");
 const convoFields = read("packages/client/src/components/characters/ConvoProfileFields.tsx");
 const characterEditor = read("packages/client/src/components/characters/CharacterEditor.tsx");
+const homeBrowserHub = read("packages/client/src/components/chat/HomeBrowserHub.tsx");
 const promptContext = read("packages/server/src/services/capability-packages/capability-prompt-context.service.ts");
 const chatsRoutes = read("packages/server/src/routes/chats.routes.ts");
 const english = JSON.parse(read("packages/client/src/localization/locales/en.json")) as Record<string, string>;
@@ -30,12 +31,14 @@ assert.ok(english["ui.chat.chatsettingsdrawer.allowSlurpActivity"]);
 assert.ok(english["ui.chat.chatsettingsdrawer.allowSlurpActivityDescription"]);
 assert.match(chatsRoutes, /typeof incoming\.slurp2ActivityContextEnabled !== "boolean"/u);
 
-// Character editor: the image instructions stay; only the Noodle checkbox depends on Noodle.
+// Character editor: the image instructions stay; the Noodle checkbox moved into Noodle's own profile editor.
 assert.match(convoFields, /\{kind === "character" && onImageInstructionsChange && \(/u);
-assert.match(convoFields, /\{onApplyImageInstructionsToNoodleChange && \(\s*<label/u);
+assert.doesNotMatch(convoFields, /onApplyImageInstructionsToNoodleChange/u);
+assert.doesNotMatch(characterEditor, /applyConversationImageInstructionsToNoodle/u);
+// Capability API 1.67: the browser view can open a character in the editor, on a tab.
 assert.match(
-  characterEditor,
-  /onApplyImageInstructionsToNoodleChange=\{\s*noodleInstalled\s*\?[\s\S]*?: undefined\s*\}/u,
+  homeBrowserHub,
+  /openCharacter: \(characterId: string, options\?: \{ tab\?: string \}\) => \{[\s\S]*?openCharacterDetail\(characterId, \{\s*initialTab:/u,
 );
 
 // Package prompt context carries the wrap format.

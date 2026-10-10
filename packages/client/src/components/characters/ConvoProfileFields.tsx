@@ -51,8 +51,6 @@ interface ConvoProfileFieldsProps {
   onBehaviorChange: (value: ConvoBehaviorConfig) => void;
   imageInstructions?: string;
   onImageInstructionsChange?: (value: string) => void;
-  applyImageInstructionsToNoodle?: boolean;
-  onApplyImageInstructionsToNoodleChange?: (value: boolean) => void;
   /** The character's weekly convo schedule, if one has been generated. */
   schedule?: WeekSchedule;
   /** Opens the schedule editor. Omit to hide the schedule panel entirely. */
@@ -74,8 +72,6 @@ export function ConvoProfileFields({
   onBehaviorChange,
   imageInstructions,
   onImageInstructionsChange,
-  applyImageInstructionsToNoodle,
-  onApplyImageInstructionsToNoodleChange,
   schedule,
   onEditSchedule,
   generateConvoProfile,
@@ -353,18 +349,6 @@ export function ConvoProfileFields({
             rows={5}
             className="w-full resize-y rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-3 text-sm leading-relaxed outline-none transition-colors placeholder:text-[var(--muted-foreground)]/40 focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
           />
-          {/* The caller passes this handler only while Noodle is installed. */}
-          {onApplyImageInstructionsToNoodleChange && (
-            <label className="flex items-start gap-2 text-xs text-[var(--muted-foreground)]">
-              <input
-                type="checkbox"
-                checked={!!applyImageInstructionsToNoodle}
-                onChange={(event) => onApplyImageInstructionsToNoodleChange(event.target.checked)}
-                className="mt-0.5 h-3.5 w-3.5 shrink-0 accent-[var(--primary)]"
-              />
-              <span>{localizeUi("ui.characters.convoprofilefields.applyImageInstructionsToNoodle")}</span>
-            </label>
-          )}
         </div>
       )}
     </div>
