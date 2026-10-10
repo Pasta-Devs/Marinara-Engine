@@ -239,6 +239,7 @@ try {
       url: "/api/generate/",
       payload: { chatId: origin.id, connectionId: conn.id, streaming: false, skipPresenceDelay: true },
     });
+    assert.ok(blocked.body.includes('"type":"offline"'), "A rejected reply emits an unavailable event");
     assert.ok(blocked.body.includes('"reason":"scene_busy"'), "A rejected reply explains Scene participation");
     assert.equal(
       (await store.listMessages(origin.id)).filter((message) => message.role === "assistant").length,
