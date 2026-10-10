@@ -6824,6 +6824,8 @@ function AdvancedSettings() {
   const setShowContextUsage = useUIStore((s) => s.setShowContextUsage);
   const showMessageNumbers = useUIStore((s) => s.showMessageNumbers);
   const setShowMessageNumbers = useUIStore((s) => s.setShowMessageNumbers);
+  const showHistoryTrimNotice = useUIStore((s) => s.showHistoryTrimNotice);
+  const setShowHistoryTrimNotice = useUIStore((s) => s.setShowHistoryTrimNotice);
   const showCharactersInPersonaPickers = useUIStore((s) => s.showCharactersInPersonaPickers);
   const setShowCharactersInPersonaPickers = useUIStore((s) => s.setShowCharactersInPersonaPickers);
   const guideGenerations = useUIStore((s) => s.guideGenerations);
@@ -7791,6 +7793,13 @@ function AdvancedSettings() {
             checked={showMessageNumbers}
             onChange={setShowMessageNumbers}
             help={localizeUi("settings.controls.showMessageNumbers.help")}
+          />
+          <ToggleSetting
+            anchorId={getSettingsControlAnchorId("show-history-trim-notice")}
+            label={localizeUi("settings.controls.showHistoryTrimNotice.label")}
+            checked={showHistoryTrimNotice}
+            onChange={setShowHistoryTrimNotice}
+            help={localizeUi("settings.controls.showHistoryTrimNotice.help")}
           />
           <ToggleSetting
             anchorId={getSettingsControlAnchorId("guide-generations")}

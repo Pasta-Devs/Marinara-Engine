@@ -3622,6 +3622,8 @@
   "settings.controls.showCharactersInPersonaPickers.label": "Show characters in Persona pickers",
   "settings.controls.showContextUsage.help": "Displays the latest measured context usage in connection switchers and Game chat settings.",
   "settings.controls.showContextUsage.label": "Show context usage",
+  "settings.controls.showHistoryTrimNotice.help": "Warns you below a reply when the prompt budget was too small to include older messages. A very long chat shows this often; turn it off to keep the chat quiet. A reply that was cut off or came back empty still shows its own note.",
+  "settings.controls.showHistoryTrimNotice.label": "Show \"older messages not sent\" note",
   "settings.controls.showMessageNumbers.help": "Displays message numbers in roleplay and conversation chats.",
   "settings.controls.showMessageNumbers.label": "Show message numbers",
   "settings.controls.showModelName.help": "Displays which AI model generated each response, shown as a small label on assistant messages.",

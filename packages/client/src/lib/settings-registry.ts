@@ -1219,6 +1219,14 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
     kind: "Toggle",
   },
   {
+    id: "show-history-trim-notice",
+    sectionId: "message-tools",
+    label: 'Show "older messages not sent" note',
+    description: "Warn under a reply when the prompt budget left older messages out.",
+    aliases: ["not sent", "trimmed", "dropped", "context", "long chat", "warning"],
+    kind: "Toggle",
+  },
+  {
     id: "guide-generations",
     sectionId: "message-tools",
     label: "Guide swipes/regens with chat input",

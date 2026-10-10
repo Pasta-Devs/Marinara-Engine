@@ -212,6 +212,10 @@ export const OMNIBAR_SETTINGS_TOGGLE_BINDINGS: Readonly<Record<string, OmnibarSe
     get: (state) => state.showMessageNumbers,
     set: (value) => useUIStore.getState().setShowMessageNumbers(value),
   },
+  "show-history-trim-notice": {
+    get: (state) => state.showHistoryTrimNotice,
+    set: (value) => useUIStore.getState().setShowHistoryTrimNotice(value),
+  },
   "guide-generations": {
     get: (state) => state.guideGenerations,
     set: (value) => useUIStore.getState().setGuideGenerations(value),

@@ -648,6 +648,7 @@ const LocalChatArea = memo(function LocalChatArea({
   const centerCompact = useUIStore((s) => s.centerCompact);
   const guideGenerations = useUIStore((s) => s.guideGenerations);
   const keepGuidanceAfterRegenerate = useUIStore((s) => s.keepGuidanceAfterRegenerate);
+  const showHistoryTrimNotice = useUIStore((s) => s.showHistoryTrimNotice);
   const intuitiveSwipeNavigation = useUIStore((s) => s.intuitiveSwipeNavigation);
   const intuitiveSwipeRerollLatest = useUIStore((s) => s.intuitiveSwipeRerollLatest);
   const editLastMessageOnArrowUp = useUIStore((s) => s.editLastMessageOnArrowUp);
@@ -2505,8 +2506,8 @@ const LocalChatArea = memo(function LocalChatArea({
     const last = messages?.[messages.length - 1];
     if (!last || isStreaming || (last.role !== "assistant" && last.role !== "narrator")) return null;
     const findings = checkMessage(last);
-    return replyLineFindings(findings).length > 0 ? { messageId: last.id, findings } : null;
-  }, [checkMessage, isStreaming, messages]);
+    return replyLineFindings(findings, { showHistoryTrimNotice }).length > 0 ? { messageId: last.id, findings } : null;
+  }, [checkMessage, isStreaming, messages, showHistoryTrimNotice]);
   const [openReplyCheckupId, setOpenReplyCheckupId] = useState<string | null>(null);
   const replyCheckupNode = useMemo(
     () =>

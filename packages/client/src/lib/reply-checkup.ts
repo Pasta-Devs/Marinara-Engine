@@ -27,9 +27,22 @@ export function checkReply(
   });
 }
 
-/** Findings about the reply itself: only these earn the quiet line and the Fix row. */
-export function replyLineFindings(findings: readonly ReplyCheckupFinding[]): ReplyCheckupFinding[] {
-  return findings.filter((finding) => REPLY_CHECKUP_LINE_CODES.includes(finding.code));
+/**
+ * Findings about the reply itself: only these earn the quiet line and the Fix row.
+ *
+ * `showHistoryTrimNotice: false` drops the "older messages not sent" note. A chat past the model's
+ * context window trims history on nearly every generation, so that note becomes steady company; the
+ * checkup panel still lists it. The other codes stay, since a cut-off or empty reply is real news.
+ */
+export function replyLineFindings(
+  findings: readonly ReplyCheckupFinding[],
+  options: { showHistoryTrimNotice?: boolean } = {},
+): ReplyCheckupFinding[] {
+  return findings.filter(
+    (finding) =>
+      REPLY_CHECKUP_LINE_CODES.includes(finding.code) &&
+      !(finding.code === "history_trimmed" && options.showHistoryTrimNotice === false),
+  );
 }
 
 const num = (value: string | number | undefined) => (typeof value === "number" ? value.toLocaleString() : value);

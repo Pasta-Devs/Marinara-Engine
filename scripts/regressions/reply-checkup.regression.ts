@@ -6,6 +6,7 @@ import {
   REPLY_CHECKUP_LINE_CODES,
   type ReplyCheckupInput,
 } from "../../packages/shared/src/utils/diagnose-reply.js";
+import { replyLineFindings } from "../../packages/client/src/lib/reply-checkup.js";
 
 const info = (patch: Record<string, unknown> = {}) => ({
   model: "m",
@@ -175,5 +176,32 @@ assert.deepEqual([...REPLY_CHECKUP_LINE_CODES].sort(), [
   "history_trimmed",
   "reply_budget_cut",
 ]);
+
+// The "older messages not sent" note is the loudest part of the line in a chat that trims on every
+// generation, so it can be turned off. Off drops only that note: a cut-off reply still gets its line.
+const lineFindings = replyLineFindings(trimmed, { showHistoryTrimNotice: true });
+assert.deepEqual(
+  lineFindings.map((finding) => finding.code),
+  ["history_trimmed"],
+);
+assert.deepEqual(replyLineFindings(trimmed, { showHistoryTrimNotice: false }), []);
+// An omitted option keeps the note, so every existing caller is unaffected.
+assert.deepEqual(
+  replyLineFindings(trimmed).map((finding) => finding.code),
+  ["history_trimmed"],
+);
+const cutAndTrimmed = diagnoseReply({
+  ...reply({
+    generationInfo: info({
+      finishReason: "length",
+      contextFit: fit({ trimmed: true, droppedHistory: 42 }),
+    }),
+  }),
+  connectionId: "conn-1",
+});
+assert.deepEqual(
+  replyLineFindings(cutAndTrimmed, { showHistoryTrimNotice: false }).map((finding) => finding.code),
+  ["cut_off"],
+);
 
 console.log("reply-checkup regression passed");
