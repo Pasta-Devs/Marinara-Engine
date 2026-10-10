@@ -401,6 +401,38 @@ try {
   ])
     assert(content.includes("BEFORE_NOTICE_SECRET") && content.includes("AFTER_NOTICE_LINE"), "notice in between");
 
+  // A one-character chat with Advanced Memory delivers a whisper-only message too.
+  const soloChat = await chats.create({
+    name: "Whisper solo",
+    mode: "roleplay",
+    characterIds: [narrator.id],
+    personaId: persona.id,
+    connectionId: connection.id,
+    promptPresetId: preset.id,
+  });
+  assert(soloChat);
+  await chats.patchMetadata(soloChat.id, {
+    ...memoryMetadata,
+    groupChatMode: undefined,
+    advancedMemory: { ...memoryMetadata.advancedMemory, knowledgeStarts: { [narrator.id]: null } },
+  });
+  await chats.createMessage({
+    chatId: soloChat.id,
+    role: "assistant",
+    characterId: narrator.id,
+    content: "SOLO_GREETING",
+  });
+  await chats.createMessage({
+    chatId: soloChat.id,
+    role: "user",
+    content: '[whisper: character="Narrator" text="SOLO_SECRET"]',
+  });
+  for (const content of [
+    await preview(narrator.id, { chatId: soloChat.id }),
+    await generate("Solo reply.", narrator.id, { chatId: soloChat.id }),
+  ])
+    assert(content.includes("SOLO_SECRET"), "one-character chat");
+
   // A whisper-only message follows a character's knowledge start like any other message.
   const knowledgeChat = await chats.create({
     name: "Whisper knowledge",
@@ -448,6 +480,11 @@ try {
       await generate("Maukie again.", maukie.id, { chatId: knowledgeChat.id, regenerateMessageId: oldReply.id })
     ).includes("KNOWLEDGE_SECRET"),
     "regenerating before the knowledge start",
+  );
+  // Impersonating reads memory as its owner, without Maukie's knowledge range, in Peek Prompt as in the live route.
+  assert(
+    (await preview(maukie.id, { chatId: knowledgeChat.id, impersonate: true })).includes("KNOWLEDGE_EARLY_LINE"),
+    "owner view",
   );
 
   // Advanced Memory keeps a stand-in only inside the retained window, which opens with the hidden

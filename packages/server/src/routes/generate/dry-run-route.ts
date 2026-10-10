@@ -920,19 +920,21 @@ export async function registerDryRunRoute(app: FastifyInstance) {
         ? roleplayHiddenWhisperMessageIds(chatMessages.slice(Math.max(0, conversationStart)), whisperViewerId)
         : new Set<string>();
     if (advancedMemoryEnabled) {
+      // Impersonation reads memory as its owner, without one character's knowledge range, as the live route does.
+      const individualMemoryReader = dryRunGroupChatMode === "individual" && audienceCharacterIds.length > 0;
       // Memory's own preparation below narrows whisper-only messages to its window, as in the live route.
       const allowedIds = new Set([
         ...selectAdvancedMemoryMessages(
           advancedMemorySourceMessages,
           advancedMemorySettings,
           audienceCharacterIds.length ? audienceCharacterIds : characterIds,
-          dryRunGroupChatMode === "individual",
+          individualMemoryReader,
         ).map((message) => message.id),
         ...selectAdvancedMemoryWhisperOnlyIds(
           advancedMemorySourceMessages,
           advancedMemorySettings,
           audienceCharacterIds.length ? audienceCharacterIds : characterIds,
-          dryRunGroupChatMode === "individual",
+          individualMemoryReader,
         ),
       ]);
       // A hidden message keeps its whisper inside the same window as in the live prompt,

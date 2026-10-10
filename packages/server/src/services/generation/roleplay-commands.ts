@@ -365,8 +365,8 @@ function visibleBody(message: HistoryMessage): string {
 }
 
 /**
- * Messages that hold only a whisper. Advanced Memory keeps no empty messages, so its prompt keeps these
- * by position inside its retained window instead of by ID (see filterPromptHistoryByMessageIds).
+ * Messages that hold only a whisper, with no text or attachment. Advanced Memory keeps no empty message,
+ * so it adds these to its window separately (see selectAdvancedMemoryWhisperOnlyIds).
  */
 export function roleplayWhisperOnlyMessageIds(history: readonly HistoryMessage[]): Set<string> {
   const ids = new Set<string>();
@@ -378,6 +378,7 @@ export function roleplayWhisperOnlyMessageIds(history: readonly HistoryMessage[]
       extra.hiddenFromAI !== true &&
       extra.commandOnly !== true &&
       !visibleBody(message).trim() &&
+      !(Array.isArray(extra.attachments) && extra.attachments.length > 0) &&
       getRoleplayWhispers(extra).length > 0
     )
       ids.add(message.id);
