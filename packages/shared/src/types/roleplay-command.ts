@@ -67,9 +67,9 @@ export interface RoleplayCommandActivity {
   contentOffset?: number;
   /** Adjacent text before the inline command, or after it when contentOffset is zero. */
   contentAnchor?: string;
-  /** The place before the last edit moved it, so restoring that text finds it again. */
-  previousContentOffset?: number;
-  previousContentAnchor?: string;
+  /** Where the result was first placed, kept when an edit moves it so that restoring that text finds it again. */
+  originalContentOffset?: number;
+  originalContentAnchor?: string;
   /** Resolve once so a rename cannot redirect a saved secret. */
   whisperRecipient?: RoleplayWhisperRecipient;
   /** Exact before/after text makes interruption reversible without overwriting later edits. */
@@ -177,10 +177,11 @@ function resolveContentOffset(text: string, expected: unknown, savedAnchor: unkn
   return index >= 0 && index === plain.lastIndexOf(anchor) ? index + (expected === 0 ? 0 : anchor.length) : null;
 }
 
+/** The original place wins while its text is there, as it did before edits could move a result. */
 function resolveRoleplayCommandContentOffset(text: string, item: RoleplayCommandActivity): number | null {
   return (
-    resolveContentOffset(text, item.contentOffset, item.contentAnchor) ??
-    resolveContentOffset(text, item.previousContentOffset, item.previousContentAnchor)
+    resolveContentOffset(text, item.originalContentOffset, item.originalContentAnchor) ??
+    resolveContentOffset(text, item.contentOffset, item.contentAnchor)
   );
 }
 
@@ -231,8 +232,8 @@ export function reanchorRoleplayCommandActivity(
       ...item,
       contentOffset: moved,
       contentAnchor: moved === 0 ? after.slice(0, 80) : after.slice(Math.max(0, moved - 80), moved),
-      previousContentOffset: offset,
-      previousContentAnchor: offset === 0 ? before.slice(0, 80) : before.slice(Math.max(0, offset - 80), offset),
+      originalContentOffset: item.originalContentOffset ?? item.contentOffset,
+      originalContentAnchor: item.originalContentAnchor ?? item.contentAnchor,
     };
   });
 }

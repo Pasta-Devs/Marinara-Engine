@@ -344,7 +344,8 @@ try {
   for (const contentOffset of [15, 3])
     assert.equal(
       getRoleplayCommandContentOffset("\u201cHi,\u201d she said. Then", {
-        ...placedWhisper.activity,
+        command: placedWhisper.command,
+        raw: placedWhisper.activity.raw,
         contentOffset,
         contentAnchor: '"Hi," she said.',
       }),
@@ -364,7 +365,8 @@ try {
     const offset = before.indexOf(marker) + marker.length;
     const [moved] = reanchorRoleplayCommandActivity(before, after, [
       {
-        ...placedWhisper.activity,
+        command: placedWhisper.command,
+        raw: placedWhisper.activity.raw,
         contentOffset: offset,
         contentAnchor: before.slice(Math.max(0, offset - 80), offset),
       },
@@ -377,7 +379,8 @@ try {
   const whisperAfter = (text: string, marker: string) => {
     const offset = text.indexOf(marker) + marker.length;
     return {
-      ...placedWhisper.activity,
+      command: placedWhisper.command,
+      raw: placedWhisper.activity.raw,
       contentOffset: offset,
       contentAnchor: text.slice(Math.max(0, offset - 80), offset),
     };
@@ -396,6 +399,21 @@ try {
     'She smiled. Her eyes sparkled. "Come here," she said.',
   ])
     assert(placeAfterEdits([original, rewrite, original, rewrite, original], "softly.").includes("softly.[W]"));
+  // Undoing a deletion, or several edits, puts the whisper back where it first was.
+  const nodding = "He nods. She smiles. Bob leaves.";
+  assert(placeAfterEdits([nodding, "He nods. Bob leaves.", nodding], "smiles.").includes("smiles.[W] Bob"));
+  const late = 'She nods. "You\'re late," she says. She smiles.';
+  assert(
+    placeAfterEdits(
+      [
+        late,
+        'A nod. "You\'re late," she says. A smile tugs at her lips.',
+        'A nod. "You\'re late," she said. A smile tugs at her lips.',
+        late,
+      ],
+      "she says.",
+    ).includes("she says.[W] She smiles."),
+  );
   // A phrase that appears twice never pulls a whisper to the other copy; it shows at the end, as before.
   const repeatedBeat =
     '"You came?" *She glances at the door.* "Sit."\n\nMara pours. "Drink first." *She glances at the door.*';
