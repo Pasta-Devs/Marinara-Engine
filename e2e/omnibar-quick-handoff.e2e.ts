@@ -15,7 +15,11 @@ const APP_VERSION = (
 
 const QUESTION = "why are my replies so short";
 
-async function startFixtureProvider(reply: string, streaming = false): Promise<{ server: Server; baseUrl: string }> {
+async function startFixtureProvider(
+  reply: string,
+  streaming = false,
+): Promise<{ server: Server; baseUrl: string; readonly cancelledStreams: number }> {
+  let cancelledStreams = 0;
   const server = createServer((incoming, response) => {
     const chunks: Buffer[] = [];
     incoming.on("data", (chunk: Buffer) => chunks.push(chunk));
@@ -56,15 +60,20 @@ async function startFixtureProvider(reply: string, streaming = false): Promise<{
       response.writeHead(200, { "content-type": "text/event-stream", connection: "close" });
       if (streaming) {
         let index = 0;
+        let completed = false;
         const timer = setInterval(() => {
           if (index < content.length) {
             response.write(`data: ${JSON.stringify({ choices: [{ delta: { content: content[index++] } }] })}\n\n`);
           } else {
             clearInterval(timer);
+            completed = true;
             response.end("data: [DONE]\n\n");
           }
         }, 2);
-        response.on("close", () => clearInterval(timer));
+        response.on("close", () => {
+          clearInterval(timer);
+          if (!completed) cancelledStreams++;
+        });
         return;
       }
       response.end(
@@ -80,7 +89,13 @@ async function startFixtureProvider(reply: string, streaming = false): Promise<{
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   const address = server.address();
   if (!address || typeof address === "string") throw new Error("Missing fixture provider address");
-  return { server, baseUrl: `http://127.0.0.1:${address.port}/v1` };
+  return {
+    server,
+    baseUrl: `http://127.0.0.1:${address.port}/v1`,
+    get cancelledStreams() {
+      return cancelledStreams;
+    },
+  };
 }
 
 async function prepareClient(page: Page, connectionId: string) {
@@ -235,6 +250,7 @@ test("quick answer streaming keeps omnibar updates within the browser frame budg
     }
     await page.keyboard.press("Control+j");
     await expect(omnibar.getByRole("searchbox", { name: "Search Marinara" })).toBeVisible();
+    const cancelledBeforeRetry = fixture.cancelledStreams;
     await aside.getByRole("button", { name: "Answer again" }).click();
     await expect(aside).toContainText("Raise");
     await expect(aside.getByRole("button", { name: "Answer again", includeHidden: true })).toBeDisabled();
@@ -244,6 +260,7 @@ test("quick answer streaming keeps omnibar updates within the browser frame budg
       () => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))),
     );
     await expect(aside).toHaveCount(0);
+    await expect.poll(() => fixture.cancelledStreams).toBeGreaterThan(cancelledBeforeRetry);
     await expect(omnibar).toContainText("Dark");
     expect(errors).toEqual([]);
   } finally {
