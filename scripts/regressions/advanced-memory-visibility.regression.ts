@@ -488,13 +488,13 @@ try {
   // Once the window has moved past a candidate who was away, their latest message still says where they are,
   // and trimming a long scene keeps it (#7390).
   const stairStep = " The stone stair is cold and wet under his boots.".repeat(50);
-  const stairTranscript = async (opening: string[], maukieAway: boolean) => {
+  const stairTranscript = async (opening: string[], maukieAway: (step: number) => boolean) => {
     const chat = await createChat({ decisionEnabled: true, decisionConnectionId: decisionConnection.id });
     for (const [index, line] of opening.entries())
       await say(chat, index % 2 ? "assistant" : "user", line, index % 2 ? ids.maukie : null);
-    // Maukie could not perceive the stair, by an earlier decision or the user's own choice.
-    const away = maukieAway ? { hiddenFromAICharacterIds: [ids.maukie], visibilityManual: true } : {};
     for (let step = 1; step <= 13; step++) {
+      // Maukie could not perceive this step, by an earlier decision or the user's own choice.
+      const away = maukieAway(step) ? { hiddenFromAICharacterIds: [ids.maukie], visibilityManual: true } : {};
       await say(chat, "assistant", `Pantalone climbs step ${step}.${stairStep}`, ids.pantalone, away);
       await memory.settleMessageVisibility(chat);
     }
@@ -504,21 +504,21 @@ try {
     assert.deepEqual(decisionRequests[0]!.state.presence.recentlyActive, ["Pantalone"], "speakers stay scene-only");
     return decisionRequests[0]!.state.presence.transcript.map((entry: { content: string }) => entry.content);
   };
-  const swamp = await stairTranscript(["P and Maukie wade through the swamp.", "MAUKIE_IN_THE_SWAMP"], true);
+  const swampOpening = ["P and Maukie wade through the swamp.", "MAUKIE_IN_THE_SWAMP"];
+  const swamp = await stairTranscript(swampOpening, () => true);
   assert.equal(swamp[0], "MAUKIE_IN_THE_SWAMP", "an away candidate's latest message comes first");
   assert(!swamp.includes("P and Maukie wade through the swamp."), "only that message, not their old scene");
   assert(swamp.length < 15, "the long scene was trimmed");
   assert.equal(swamp.at(-1), "Pantalone reaches the top.");
   // Someone who could perceive the scene, such as a character carried in, is never shown somewhere else.
   const carried = await stairTranscript(
-    [
-      "P and Maukie wade through the swamp.",
-      "MAUKIE_IN_THE_SWAMP",
-      "P carries Maukie up the stair; she curls up, silent.",
-    ],
-    false,
+    [...swampOpening, "P carries Maukie up the stair; she curls up, silent."],
+    () => false,
   );
   assert(!carried.includes("MAUKIE_IN_THE_SWAMP"), "a present character gets no earlier location");
+  // One message she could not perceive, such as Pantalone stepping out, does not make her away.
+  const steppedOut = await stairTranscript(swampOpening, (step) => step === 13);
+  assert(!steppedOut.includes("MAUKIE_IN_THE_SWAMP"), "one hidden message is not a scene away");
 
   // A small Decision state limit shortens long messages instead of dropping the earlier ones (#7263).
   const smallJev = await connections.create({

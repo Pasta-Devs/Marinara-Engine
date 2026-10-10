@@ -1285,16 +1285,19 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
         scene.some((index) => ctx.messages[index]!.role === "assistant" && ctx.messages[index]!.characterId === id),
     );
     const window = [...shown, ...scene.filter((index) => index >= first)];
-    // Who could not perceive the latest earlier decided message, by the decision or by the user's own choice.
-    const decided = [...shown].reverse().find((index) => {
+    // Who could perceive none of this scene's earlier decided messages in view, by the decisions or the user's own
+    // hides. One step-out, cutaway or wrong hide does not make anyone away.
+    const decided = shown.flatMap((index) => {
       const extra = object(ctx.messages[index]!.extra);
-      return extra.hiddenFromAI !== true && visibilitySettled(extra);
+      return index >= sceneStart && extra.hiddenFromAI !== true && visibilitySettled(extra)
+        ? [new Set(strings(extra.hiddenFromAICharacterIds))]
+        : [];
     });
     const away = new Set(
-      decided === undefined ? [] : strings(object(ctx.messages[decided]!.extra).hiddenFromAICharacterIds),
+      decided.length ? [...decided[0]!].filter((id) => decided.every((hidden) => hidden.has(id))) : [],
     );
     // A candidate who was away keeps their latest earlier message in view, so the decision can still see where they
-    // are once a scene outgrows its few earlier messages (#7390). Someone who could perceive it gets nothing added,
+    // are once a scene outgrows its few earlier messages (#7390). Anyone who perceived any of it gets nothing added,
     // so a character brought into the scene is never shown somewhere else.
     const lastSeen = new Set(
       [...new Set(items.flatMap((item) => item.candidates))].flatMap((id) => {
@@ -1319,7 +1322,7 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
           // Start and end of the original, so a later shortening still has the real ending to keep.
           content: messageEnds(
             ctx.messages[index]!.content,
-            lastSeen.has(index) ? VISIBILITY_LAST_SEEN_TOKENS : VISIBILITY_MESSAGE_TOKENS,
+            lastSeen.has(index) && !window.includes(index) ? VISIBILITY_LAST_SEEN_TOKENS : VISIBILITY_MESSAGE_TOKENS,
           ),
           ...(lastSeen.has(index) ? { lastSeen: true as const } : {}),
         })),
