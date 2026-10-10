@@ -2643,17 +2643,16 @@ export function createChatsStorage(db: DB) {
             : null;
         const prepared = prepare?.(content, existing?.extra);
         content = prepared?.content ?? content;
-        // Inline whispers keep their place when the text around them changes. Commands typed into this edit
-        // come last and already point into the new text.
-        const previousActivity = getRoleplayCommandActivity(parseExtraRecord(existing?.extra));
-        const typedCount = prepared ? getRoleplayCommandActivity(prepared.extra).length - previousActivity.length : 0;
-        const reanchored =
-          !!existing &&
-          existing.content !== content &&
-          previousActivity.some((item) => item.contentOffset !== undefined);
+        // Inline whispers keep their place when the text around them changes. Each saved list moves from the
+        // text it was anchored to. Commands typed into this edit come last and already point into the new text.
+        const typedCount = prepared
+          ? getRoleplayCommandActivity(prepared.extra).length -
+            getRoleplayCommandActivity(parseExtraRecord(existing?.extra)).length
+          : 0;
         const withActivity = (extra: Record<string, unknown>, before: string) => {
           const activity = getRoleplayCommandActivity(extra);
-          if (!reanchored || !activity.some((item) => item.contentOffset !== undefined)) return extra;
+          if (!existing || before === content || !activity.some((item) => item.contentOffset !== undefined))
+            return extra;
           const kept = activity.length - Math.max(0, typedCount);
           return {
             ...extra,
@@ -2678,9 +2677,10 @@ export function createChatsStorage(db: DB) {
           content !== (existing?.content ?? "");
 
         const messagePatch: Record<string, unknown> = { content };
-        if (prepared || clearCommandContent || reanchored) {
+        const messageExtra = withActivity(prepared?.extra ?? existingExtra, existing?.content ?? "");
+        if (prepared || clearCommandContent || messageExtra !== existingExtra) {
           messagePatch.extra = JSON.stringify({
-            ...withActivity(prepared?.extra ?? existingExtra, existing?.content ?? ""),
+            ...messageExtra,
             ...(clearCommandContent ? { conversationCommandContent: null } : {}),
           });
         }
@@ -2701,19 +2701,15 @@ export function createChatsStorage(db: DB) {
             const activeSwipe = swipes.find((s: any) => s.index === msg.activeSwipeIndex);
             if (activeSwipe) {
               const swipePatch: Record<string, unknown> = { content };
-              // The swipe's own saved text anchored its activity.
-              const swipeBefore =
-                typeof activeSwipe.content === "string" ? activeSwipe.content : (existing?.content ?? "");
-              if (prepared || reanchored) {
-                swipePatch.extra = JSON.stringify(
-                  withActivity({ ...parseExtraRecord(activeSwipe.extra), ...prepared?.extra }, swipeBefore),
-                );
-              }
+              // With typed commands the swipe takes the message's list, anchored to the message's text;
+              // otherwise it keeps its own list, anchored to its own text.
+              const swipeBase = { ...parseExtraRecord(activeSwipe.extra), ...prepared?.extra };
+              const swipeExtra = withActivity(
+                swipeBase,
+                prepared || typeof activeSwipe.content !== "string" ? (existing?.content ?? "") : activeSwipe.content,
+              );
+              if (prepared || swipeExtra !== swipeBase) swipePatch.extra = JSON.stringify(swipeExtra);
               if (clearCommandContent) {
-                const swipeExtra = withActivity(
-                  { ...parseExtraRecord(activeSwipe.extra), ...prepared?.extra },
-                  swipeBefore,
-                );
                 // Clear only a raw copy this swipe itself carries, and never a
                 // command-only carrier's.
                 if (
