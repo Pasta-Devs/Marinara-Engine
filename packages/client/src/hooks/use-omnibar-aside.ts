@@ -8,6 +8,7 @@ import {
 
 import { api } from "../lib/api-client";
 import { omnibarAsideAnswerCache } from "../lib/omnibar-aside-text";
+import { rafThrottle } from "../lib/raf-throttle";
 import { useSidecarStore } from "../stores/sidecar.store";
 import { useUIStore } from "../stores/ui.store";
 
@@ -107,6 +108,13 @@ export function useOmnibarAside(params: {
       }
       const controller = new AbortController();
       abortRef.current = controller;
+      // The hook belongs to the whole dialog: a token update also renders every
+      // result row. Match the full Mari chat's frame batching instead of asking
+      // React (and the markdown renderer) to keep up with the provider's tokens.
+      const streamText = rafThrottle<OmnibarAsideState>((next) => {
+        if (!controller.signal.aborted) setState(next);
+      });
+      controller.signal.addEventListener("abort", streamText.cancel, { once: true });
       sourcesRef.current = undefined;
       setState({ status: "thinking", answer: "", error: null, query: trimmed, tier });
       const body: ProfessorMariQuickPromptRequest = {
@@ -120,6 +128,7 @@ export function useOmnibarAside(params: {
         let answer = "";
         try {
           for await (const event of api.streamEvents("/professor-mari/quick/prompt", body, controller.signal)) {
+            if (controller.signal.aborted) return;
             if (event.type === "status") {
               // A status frame only ever precedes tokens; once streaming or
               // settled, it has nothing left to announce.
@@ -133,11 +142,20 @@ export function useOmnibarAside(params: {
               setState((current) => ({ ...current, sources: sourcesRef.current }));
             } else if (event.type === "token" && typeof event.data === "string") {
               answer += event.data;
-              setState({ status: "streaming", answer, error: null, query: trimmed, tier, sources: sourcesRef.current });
+              streamText.call({
+                status: "streaming",
+                answer,
+                error: null,
+                query: trimmed,
+                tier,
+                sources: sourcesRef.current,
+              });
             } else if (event.type === "complete") {
+              streamText.cancel();
               if (answer)
                 omnibarAsideAnswerCache.set(connectionId, trimmed, { answer, tier, sources: sourcesRef.current });
               setState({ status: "complete", answer, error: null, query: trimmed, tier, sources: sourcesRef.current });
+              return;
             } else if (event.type === "error") {
               const failure = event.data as { kind?: ProfessorMariQuickErrorKind; message?: string } | string;
               throw typeof failure === "string"
@@ -153,12 +171,9 @@ export function useOmnibarAside(params: {
           if (!controller.signal.aborted) {
             // No words at all is a failed answer, not a finished one: never leave it "thinking" or cache it.
             if (!answer) throw new QuickAnswerFailure("empty", "Professor Mari could not answer.");
+            streamText.cancel();
             omnibarAsideAnswerCache.set(connectionId, trimmed, { answer, tier, sources: sourcesRef.current });
-            setState((current) =>
-              current.query === trimmed && current.status === "streaming"
-                ? { status: "complete", answer, error: null, query: trimmed, tier, sources: sourcesRef.current }
-                : current,
-            );
+            setState({ status: "complete", answer, error: null, query: trimmed, tier, sources: sourcesRef.current });
           }
         } catch (error) {
           if (controller.signal.aborted) return;
@@ -171,6 +186,8 @@ export function useOmnibarAside(params: {
             tier,
           });
         } finally {
+          streamText.cancel();
+          controller.signal.removeEventListener("abort", streamText.cancel);
           if (abortRef.current === controller) abortRef.current = null;
         }
       })();

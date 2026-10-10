@@ -78,6 +78,12 @@ export function useOmnibarScreenContext({
   const characterLibraryOpen = useUIStore((state) => state.characterLibraryOpen);
   const cardLibraryKind = useUIStore((state) => state.cardLibraryKind);
   const editorDirty = useUIStore((state) => state.editorDirty);
+  // Query result objects change identity every render. Only their data/error
+  // fields describe this screen; depending on the objects reranked the whole
+  // library for each quick-answer token and selected-row update.
+  const failedSources = [chats, characters, personas, lorebooks, presets, connections, agents, docs].some(
+    (source) => source.isError,
+  );
   const omnibarContext = useMemo(() => {
     const chatMetadata = activeChat ? parseChatMetadata(activeChat.metadata) : null;
     const activeLorebookIds = activeChat
@@ -151,9 +157,6 @@ export function useOmnibarScreenContext({
           command.availability.setupTarget,
       )
       .map((command) => command.id);
-    const failedSources = [chats, characters, personas, lorebooks, presets, connections, agents, docs].some(
-      (source) => source.isError,
-    );
     return createOmnibarContext({
       surface,
       surfaceResultIds,
@@ -174,26 +177,21 @@ export function useOmnibarScreenContext({
     activeChat,
     activeChatId,
     agentCatalogOpen,
-    agents,
+    agents.data,
     botBrowserOpen,
     cardLibraryKind,
     characterLibraryOpen,
-    characters,
-    chats,
-    connections,
     commands,
-    docs,
     editorDirty,
+    failedSources,
     gameAssetsBrowserOpen,
-    lorebooks,
+    lorebooks.data,
     openAgentId,
     openCharacterId,
     openConnectionId,
     openLorebookId,
     openPersonaId,
     openPresetId,
-    personas,
-    presets,
     ranking.recent,
     rightPanel,
     rightPanelOpen,
