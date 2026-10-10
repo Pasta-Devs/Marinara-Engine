@@ -13,37 +13,51 @@ export interface CommandCenterVisual {
 export type CommandCenterCategoryLabels = Record<OmnibarCategory, string>;
 export type CommandCenterChatModeLabels = Record<ChatMode, string>;
 
+// A row's type colour is the top bar's: the same `.mari-panel-gradient--<type>` class sets
+// `--mari-panel-gradient-start`, which the row's icon tile and its type badge read. Chats take the colour
+// of their mode from the Chats icon's logo gradient; navigation, settings pages and docs stay neutral.
 const CATEGORY_VISUALS: Record<OmnibarCategory, Omit<CommandCenterVisual, "label">> = {
-  navigation: { tone: "neutral", groupClassName: "border-[color-mix(in_srgb,var(--foreground)_18%,var(--border))]" },
-  chat: { tone: "playful", groupClassName: "border-[color-mix(in_srgb,#22d3ee_35%,var(--border))]" },
-  character: { tone: "playful", groupClassName: "border-[color-mix(in_srgb,#fb7185_35%,var(--border))]" },
-  persona: { tone: "natural", groupClassName: "border-[color-mix(in_srgb,#2dd4bf_35%,var(--border))]" },
-  lorebook: { tone: "warm", groupClassName: "border-[color-mix(in_srgb,#fbbf24_35%,var(--border))]" },
-  preset: { tone: "playful", groupClassName: "border-[color-mix(in_srgb,#a78bfa_35%,var(--border))]" },
-  connection: { tone: "cool", groupClassName: "border-[color-mix(in_srgb,#60a5fa_35%,var(--border))]" },
-  agent: { tone: "playful", groupClassName: "border-[color-mix(in_srgb,#c084fc_35%,var(--border))]" },
-  settings: { tone: "neutral", groupClassName: "border-[color-mix(in_srgb,var(--foreground)_18%,var(--border))]" },
-  professor: {
-    tone: "playful",
-    groupClassName: "border-[color-mix(in_srgb,var(--primary)_45%,var(--border))]",
-  },
-  docs: {
-    tone: "neutral",
-    groupClassName: "border-[color-mix(in_srgb,var(--foreground)_18%,var(--border))]",
-  },
+  navigation: { tone: "neutral", groupClassName: "" },
+  chat: { tone: "playful", groupClassName: "[--mari-panel-gradient-start:var(--mari-logo-cyan)]" },
+  character: { tone: "playful", groupClassName: "mari-panel-gradient--characters" },
+  persona: { tone: "natural", groupClassName: "mari-panel-gradient--personas" },
+  lorebook: { tone: "warm", groupClassName: "mari-panel-gradient--lorebooks" },
+  preset: { tone: "playful", groupClassName: "mari-panel-gradient--presets" },
+  connection: { tone: "cool", groupClassName: "mari-panel-gradient--connections" },
+  agent: { tone: "playful", groupClassName: "mari-panel-gradient--agents" },
+  settings: { tone: "neutral", groupClassName: "mari-panel-gradient--settings" },
+  professor: { tone: "playful", groupClassName: "[--mari-panel-gradient-start:var(--primary)]" },
+  docs: { tone: "neutral", groupClassName: "" },
 };
 
 const CHAT_MODE_VISUALS: Record<ChatMode, Omit<CommandCenterVisual, "label">> = {
-  conversation: { tone: "cool", groupClassName: "border-[color-mix(in_srgb,#22d3ee_35%,var(--border))]" },
-  roleplay: { tone: "warm", groupClassName: "border-[color-mix(in_srgb,#fb923c_35%,var(--border))]" },
-  game: { tone: "playful", groupClassName: "border-[color-mix(in_srgb,#f472b6_35%,var(--border))]" },
+  conversation: { tone: "cool", groupClassName: "[--mari-panel-gradient-start:var(--mari-logo-cyan)]" },
+  roleplay: { tone: "warm", groupClassName: "[--mari-panel-gradient-start:var(--mari-logo-orange)]" },
+  game: { tone: "playful", groupClassName: "[--mari-panel-gradient-start:var(--mari-logo-pink)]" },
+};
+
+/** A navigation row about one type ("Create lorebook", the Agents library) wears that type's colour. */
+const NAVIGATION_TYPE_BY_ICON: Partial<Record<string, OmnibarCategory>> = {
+  character: "character",
+  persona: "persona",
+  lorebook: "lorebook",
+  preset: "preset",
+  connection: "connection",
+  agent: "agent",
+  package: "agent",
 };
 
 export function getCommandCenterCategoryVisual(
   category: OmnibarCategory,
   labels: CommandCenterCategoryLabels,
+  icon?: string,
 ): CommandCenterVisual {
-  return { ...CATEGORY_VISUALS[category], label: labels[category] };
+  const colourOf = category === "navigation" && icon ? (NAVIGATION_TYPE_BY_ICON[icon] ?? category) : category;
+  return {
+    ...CATEGORY_VISUALS[category],
+    groupClassName: CATEGORY_VISUALS[colourOf].groupClassName,
+    label: labels[category],
+  };
 }
 
 export function getCommandCenterChatModeVisual(

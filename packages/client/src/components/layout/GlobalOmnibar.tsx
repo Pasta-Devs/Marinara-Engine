@@ -1709,7 +1709,7 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
       const mode = chatModeByResultId.get(result.id);
       if (mode) return getCommandCenterChatModeVisual(mode as ChatMode, chatModeLabels);
     }
-    return getCommandCenterCategoryVisual(result.category, categoryLabels);
+    return getCommandCenterCategoryVisual(result.category, categoryLabels, result.icon);
   };
   /**
    * What Enter does, in one word. Resource rows open an editor even when the row

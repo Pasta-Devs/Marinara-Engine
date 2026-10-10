@@ -4,6 +4,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- Search rows show each type in its top-bar colour: characters pink, personas green, lorebooks amber, presets violet, connections blue, agents purple, settings grey, and chats in the colour of their mode. Rows that create or open a type ("Create lorebook", the Agents library) use that type's colour too.
 - A turn with a change card shows its reason once, on the card, not again in a **Why** fold under the answer.
 - Professor Mari's held card for a new record shows one short line ("12 fields") instead of every field name, and an edit names up to three fields. **Turn on** on a saved memory goes away once the memory is on.
 - A Professor Mari change that could not save names the record, or "Change to a character" when the record was not found, instead of the title "Not saved character.".

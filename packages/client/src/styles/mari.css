@@ -516,6 +516,17 @@ html[data-marinara-effects-paused="true"] .mari-pull-overlay[data-mari-edge] .ma
   height: 0.5625rem;
 }
 
+/* A Search row's type icon and badge take the type's top-bar colour: the row carries the same
+   .mari-panel-gradient--<type> class as the top bar item (command-center-visuals.ts). Neutral rows keep
+   their colour. */
+[data-command-center-result-row] [data-command-center-media="row"] > svg {
+  color: var(--mari-panel-gradient-start, currentColor);
+}
+
+[data-command-center-result-row] .result-type-icon__badge {
+  color: var(--mari-panel-gradient-start, var(--muted-foreground));
+}
+
 /* R10 (cards v5, docs/development/mockups/mari-v5): every Mari card is a ROW - slot · title · one muted
    fact · one trailing thing - and rows that stack share ONE inset group: one hairline, one radius, inset
    dividers from the text edge. No box inside a box. Three radii: the group, the slot (concentric with
