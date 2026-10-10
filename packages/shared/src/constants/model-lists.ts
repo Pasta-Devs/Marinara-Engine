@@ -159,6 +159,9 @@ export function resolveProviderReasoningEffort(args: {
   if (args.reasoningEffort === "xhigh") {
     return supportsXhigh ? "xhigh" : "high";
   }
+  // DeepSeek accepts medium for compatibility but serves it as high, so mapping it here keeps the offered levels
+  // honest: without this, "Medium" and "High" would be two buttons that send a different value yet behave the same.
+  if (providerLower === "deepseek" && args.reasoningEffort === "medium") return "high";
   return args.reasoningEffort;
 }
 
