@@ -1,3 +1,5 @@
+import { toStraightQuotes } from "../utils/quote-format.js";
+
 export const ROLEPLAY_COMMAND_KEYS = [
   "illustrate",
   "document",
@@ -155,14 +157,16 @@ export function getRoleplayWhispers(extra: Record<string, unknown>) {
 /** Keep an inline result near its original text after edits; ambiguous anchors fall back to the end. */
 export function getRoleplayCommandContentOffset(text: string, item: RoleplayCommandActivity): number {
   const expected = item.contentOffset;
-  const anchor = item.contentAnchor;
   if (
     typeof expected === "number" &&
     Number.isSafeInteger(expected) &&
     expected >= 0 &&
-    typeof anchor === "string" &&
-    anchor.length > 0
+    typeof item.contentAnchor === "string" &&
+    item.contentAnchor.length > 0
   ) {
+    // Saving an edit can change the quote style without moving any text.
+    const anchor = toStraightQuotes(item.contentAnchor);
+    text = toStraightQuotes(text);
     const currentAnchor =
       expected === 0 ? text.slice(0, anchor.length) : text.slice(Math.max(0, expected - anchor.length), expected);
     if (expected <= text.length && currentAnchor === anchor) return expected;
@@ -170,6 +174,42 @@ export function getRoleplayCommandContentOffset(text: string, item: RoleplayComm
       return text.indexOf(anchor) + (expected === 0 ? 0 : anchor.length);
   }
   return text.length;
+}
+
+/**
+ * Move inline results through an edit of the text they sit in. Results before or after the changed part keep
+ * their place; one inside it moves to the end of the new part.
+ */
+export function reanchorRoleplayCommandActivity(
+  before: string,
+  after: string,
+  activity: readonly RoleplayCommandActivity[],
+): RoleplayCommandActivity[] {
+  const [left, right] = [toStraightQuotes(before), toStraightQuotes(after)];
+  let start = 0;
+  while (start < left.length && start < right.length && left[start] === right[start]) start++;
+  let end = 0;
+  while (
+    end < left.length - start &&
+    end < right.length - start &&
+    left[left.length - 1 - end] === right[right.length - 1 - end]
+  )
+    end++;
+  return activity.map((item) => {
+    if (typeof item.contentOffset !== "number") return item;
+    const offset = getRoleplayCommandContentOffset(before, item);
+    const moved =
+      offset <= start
+        ? offset
+        : offset >= before.length - end
+          ? after.length - (before.length - offset)
+          : after.length - end;
+    return {
+      ...item,
+      contentOffset: moved,
+      contentAnchor: moved === 0 ? after.slice(0, 80) : after.slice(Math.max(0, moved - 80), moved),
+    };
+  });
 }
 
 export function roleplayCommandsEnabled(metadata: Record<string, unknown>): boolean {

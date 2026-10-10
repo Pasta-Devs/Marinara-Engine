@@ -20,7 +20,8 @@ const { createChatsStorage } = await import("../../packages/server/src/services/
 const { createConnectionsStorage } = await import("../../packages/server/src/services/storage/connections.storage.js");
 const { createCharactersStorage } = await import("../../packages/server/src/services/storage/characters.storage.js");
 const { createPromptsStorage } = await import("../../packages/server/src/services/storage/prompts.storage.js");
-const { characterDataSchema, getRoleplayWhispers } = await import("../../packages/shared/dist/index.js");
+const { characterDataSchema, formatTextQuotes, getRoleplayCommandContentOffset, getRoleplayWhispers } =
+  await import("../../packages/shared/dist/index.js");
 const prompts: string[] = [];
 let outputs: string[] = [];
 const provider = createServer(async (request, response) => {
@@ -311,6 +312,39 @@ try {
     "later recipients receive whispers within the same turn",
   );
   assert(prompts[turnStart + 2]!.includes("SAME_TURN_PERSONA_SECRET"), "the narrator sees the latest in-turn secrets");
+  // An edit keeps a model whisper where it was, also when saving the edit curls the quotes.
+  await generate('"Wait," she says. [whisper: character="Bob" text="PLACED_SECRET"] She leaves. "Bye."');
+  const placed = (await chats.listMessages(chat.id)).at(-1)!;
+  const editedContent = formatTextQuotes(placed.content.replace("Wait,", "Wait a moment,"), "typographic");
+  const editResponse = await app.inject({
+    method: "PATCH",
+    url: `/api/chats/${chat.id}/messages/${placed.id}`,
+    payload: { content: editedContent },
+  });
+  assert.equal(editResponse.statusCode, 200, editResponse.body);
+  const afterEdit = (await chats.getMessage(placed.id))!;
+  assert.equal(afterEdit.content, editedContent);
+  const placedWhisper = getRoleplayWhispers(JSON.parse(afterEdit.extra)).find(
+    ({ command }) => command.text === "PLACED_SECRET",
+  )!;
+  const saysEnd = editedContent.indexOf("she says.") + "she says.".length;
+  assert.equal(getRoleplayCommandContentOffset(afterEdit.content, placedWhisper.activity), saysEnd);
+  const placedView = await preview(bob.id);
+  assert(
+    placedView.indexOf("she says.") < placedView.indexOf("PLACED_SECRET") &&
+      placedView.indexOf("PLACED_SECRET") < placedView.indexOf("She leaves."),
+    "the prompt keeps the edited whisper in place",
+  );
+  // A saved anchor in straight quotes still finds text whose quotes were curled later.
+  for (const contentOffset of [15, 3])
+    assert.equal(
+      getRoleplayCommandContentOffset("\u201cHi,\u201d she said. Then", {
+        ...placedWhisper.activity,
+        contentOffset,
+        contentAnchor: '"Hi," she said.',
+      }),
+      15,
+    );
   await chats.patchMetadata(chat.id, { groupChatMode: "merged", roleplayWhisperAudience: "all" });
   assert(!(await preview(bob.id)).includes("BOB_REEDITED_SECRET"), "merged voices must not receive private knowledge");
   await generate('Merged. [whisper: character="Bob" text="MERGED_SECRET"]');

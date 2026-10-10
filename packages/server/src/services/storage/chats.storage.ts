@@ -47,6 +47,7 @@ import { join } from "path";
 import { DATA_DIR } from "../../utils/data-dir.js";
 import {
   getRoleplayCommandActivity,
+  reanchorRoleplayCommandActivity,
   TRANSLATOR_DEFAULTS_SETTINGS_KEY,
   normalizeTranslatorSettings,
   getChatWindowDefaultSettingsKey,
@@ -2642,6 +2643,22 @@ export function createChatsStorage(db: DB) {
             : null;
         const prepared = prepare?.(content, existing?.extra);
         content = prepared?.content ?? content;
+        // Inline whispers keep their place when the text around them changes.
+        const previousActivity = getRoleplayCommandActivity(parseExtraRecord(existing?.extra));
+        const reanchored =
+          existing && existing.content !== content && previousActivity.some((item) => item.contentOffset !== undefined)
+            ? reanchorRoleplayCommandActivity(existing.content, content, previousActivity)
+            : null;
+        const withActivity = (extra: Record<string, unknown>) =>
+          reanchored
+            ? {
+                ...extra,
+                roleplayCommandActivity: [
+                  ...reanchored,
+                  ...getRoleplayCommandActivity(extra).slice(previousActivity.length),
+                ],
+              }
+            : extra;
 
         // Conversation-mode prompt history prefers `conversationCommandContent` (the raw
         // reply before command stripping) over `content`, so a rewrite of the visible text
@@ -2657,9 +2674,9 @@ export function createChatsStorage(db: DB) {
           content !== (existing?.content ?? "");
 
         const messagePatch: Record<string, unknown> = { content };
-        if (prepared || clearCommandContent) {
+        if (prepared || clearCommandContent || reanchored) {
           messagePatch.extra = JSON.stringify({
-            ...(prepared?.extra ?? existingExtra),
+            ...withActivity(prepared?.extra ?? existingExtra),
             ...(clearCommandContent ? { conversationCommandContent: null } : {}),
           });
         }
@@ -2680,11 +2697,13 @@ export function createChatsStorage(db: DB) {
             const activeSwipe = swipes.find((s: any) => s.index === msg.activeSwipeIndex);
             if (activeSwipe) {
               const swipePatch: Record<string, unknown> = { content };
-              if (prepared) {
-                swipePatch.extra = JSON.stringify({ ...parseExtraRecord(activeSwipe.extra), ...prepared.extra });
+              if (prepared || reanchored) {
+                swipePatch.extra = JSON.stringify(
+                  withActivity({ ...parseExtraRecord(activeSwipe.extra), ...prepared?.extra }),
+                );
               }
               if (clearCommandContent) {
-                const swipeExtra = { ...parseExtraRecord(activeSwipe.extra), ...prepared?.extra };
+                const swipeExtra = withActivity({ ...parseExtraRecord(activeSwipe.extra), ...prepared?.extra });
                 // Clear only a raw copy this swipe itself carries, and never a
                 // command-only carrier's.
                 if (
