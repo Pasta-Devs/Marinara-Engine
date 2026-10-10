@@ -15,14 +15,61 @@ const APP_VERSION = (
 
 const QUESTION = "why are my replies so short";
 
-async function startFixtureProvider(reply: string): Promise<{ server: Server; baseUrl: string }> {
+async function startFixtureProvider(reply: string, streaming = false): Promise<{ server: Server; baseUrl: string }> {
   const server = createServer((incoming, response) => {
-    incoming.on("data", () => undefined);
+    const chunks: Buffer[] = [];
+    incoming.on("data", (chunk: Buffer) => chunks.push(chunk));
     incoming.on("end", () => {
+      if (incoming.method === "GET") {
+        response.writeHead(200, { "content-type": "application/json" });
+        response.end(JSON.stringify({ data: [{ id: "fixture" }] }));
+        return;
+      }
+      const body = JSON.parse(Buffer.concat(chunks).toString() || "{}") as {
+        stream?: boolean;
+        messages?: Array<{ role: string; content: string }>;
+      };
+      const content = body.messages?.some(
+        (message) =>
+          message.role === "system" && typeof message.content === "string" && message.content.includes('"commands"'),
+      )
+        ? JSON.stringify({ say: "I can help with your reply length.", stop: true, commands: [] })
+        : reply;
+      // The local workspace uses its JSON command protocol; quick answers use SSE.
+      if (!body.stream) {
+        response.writeHead(200, { "content-type": "application/json" });
+        response.end(
+          JSON.stringify({
+            choices: [
+              {
+                message: {
+                  role: "assistant",
+                  content: JSON.stringify({ say: "I can help with your reply length.", stop: true, commands: [] }),
+                },
+                finish_reason: "stop",
+              },
+            ],
+          }),
+        );
+        return;
+      }
       response.writeHead(200, { "content-type": "text/event-stream", connection: "close" });
+      if (streaming) {
+        let index = 0;
+        const timer = setInterval(() => {
+          if (index < content.length) {
+            response.write(`data: ${JSON.stringify({ choices: [{ delta: { content: content[index++] } }] })}\n\n`);
+          } else {
+            clearInterval(timer);
+            response.end("data: [DONE]\n\n");
+          }
+        }, 2);
+        response.on("close", () => clearInterval(timer));
+        return;
+      }
       response.end(
         [
-          `data: ${JSON.stringify({ choices: [{ index: 0, delta: { content: reply }, finish_reason: null }] })}`,
+          `data: ${JSON.stringify({ choices: [{ index: 0, delta: { content }, finish_reason: null }] })}`,
           `data: ${JSON.stringify({ choices: [{ index: 0, delta: {}, finish_reason: "stop" }] })}`,
           "data: [DONE]",
           "",
@@ -61,6 +108,148 @@ test.beforeEach(async ({ request }) => {
       request.delete(`/api/chats/internal/professor-mari/chats/${chat.id}`).catch(() => undefined),
     ),
   );
+});
+
+test("quick answer streaming keeps omnibar updates within the browser frame budget", async ({
+  page,
+  request,
+}, testInfo) => {
+  test.skip(!testInfo.project.name.includes("desktop"), "Render counts and pointer movement are covered on desktop.");
+  const reply = "Raise **Max Tokens** in Chat Settings. ".repeat(40);
+  const fixture = await startFixtureProvider(reply, true);
+  let connectionId: string | undefined;
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  try {
+    const response = await request.post("/api/connections", {
+      data: {
+        name: "Streaming quick answer",
+        provider: "custom",
+        baseUrl: fixture.baseUrl,
+        apiKey: "fixture",
+        model: "fixture",
+      },
+    });
+    expect(response.ok()).toBeTruthy();
+    connectionId = ((await response.json()) as { id: string }).id;
+    await prepareClient(page, connectionId);
+    // Count actual dialog renders in the development fixture, including renders
+    // whose DOM output is identical. No timing threshold depends on host speed.
+    await page.route("**/src/components/layout/GlobalOmnibar.tsx", async (route) => {
+      const response = await route.fetch();
+      const source = await response.text();
+      const declaration = "function GlobalOmnibarDialog({ onClose }) {";
+      expect(source).toContain(declaration);
+      await route.fulfill({
+        response,
+        body: source.replace(declaration, `${declaration}\nwindow.__quickRenders = (window.__quickRenders ?? 0) + 1;`),
+      });
+    });
+    await page.route("**/src/components/layout/omnibar/use-omnibar-screen-context.ts", async (route) => {
+      const response = await route.fetch();
+      const source = await response.text();
+      const build = "return createOmnibarContext({";
+      expect(source).toContain(build);
+      await route.fulfill({
+        response,
+        body: source.replace(build, `window.__quickContextBuilds = (window.__quickContextBuilds ?? 0) + 1;\n${build}`),
+      });
+    });
+    await page.goto("/");
+    await page
+      .locator("main")
+      .first()
+      .click({ position: { x: 5, y: 5 } });
+    await page.keyboard.press("Control+k");
+    const omnibar = page.locator('[data-component="GlobalOmnibar"]');
+    await omnibar.getByRole("searchbox", { name: "Search Marinara" }).fill(QUESTION);
+    const aside = omnibar.locator('[data-component="GlobalOmnibar.Aside"]');
+    await expect(aside).toContainText("Raise", { timeout: 15_000 });
+    const instrumentation = await page.evaluate(() => ({
+      renders: (window as typeof window & { __quickRenders: number }).__quickRenders,
+      contextBuilds: (window as typeof window & { __quickContextBuilds: number }).__quickContextBuilds,
+    }));
+    expect(instrumentation.renders).toBeGreaterThan(0);
+    expect(instrumentation.contextBuilds).toBeGreaterThan(0);
+    await page.evaluate(() => {
+      const counters = window as typeof window & {
+        __quickRenders: number;
+        __quickFrames: number;
+        __quickCounting: boolean;
+        __quickContextBuilds: number;
+      };
+      counters.__quickRenders = 0;
+      counters.__quickFrames = 0;
+      counters.__quickCounting = true;
+      counters.__quickContextBuilds = 0;
+      const frame = () => {
+        if (!counters.__quickCounting) return;
+        counters.__quickFrames++;
+        requestAnimationFrame(frame);
+      };
+      requestAnimationFrame(frame);
+    });
+    await expect(aside.getByRole("button", { name: "Answer again" })).toBeEnabled();
+    await expect(aside).toContainText(reply.replace(/\*\*/g, "").trim());
+    const counts = await page.evaluate(() => {
+      const counters = window as typeof window & {
+        __quickRenders: number;
+        __quickFrames: number;
+        __quickCounting: boolean;
+        __quickContextBuilds: number;
+      };
+      counters.__quickCounting = false;
+      return {
+        renders: counters.__quickRenders,
+        frames: counters.__quickFrames,
+        contextBuilds: counters.__quickContextBuilds,
+      };
+    });
+    console.log("Quick answer frame budget", counts);
+    // StrictMode calls each render twice in the development browser fixture.
+    expect.soft(counts.renders).toBeLessThanOrEqual(counts.frames * 2 + 12);
+    expect.soft(counts.contextBuilds).toBe(0);
+    const askRow = omnibar.locator('[data-result-id="ask-professor-mari"]').getByRole("button").first();
+    await askRow.hover();
+    const box = await askRow.boundingBox();
+    expect(box).not.toBeNull();
+    const beforeHover = await page.evaluate(
+      () => (window as typeof window & { __quickRenders: number }).__quickRenders,
+    );
+    await page.mouse.move(box!.x + box!.width / 2 + 10, box!.y + box!.height / 2, { steps: 20 });
+    await page.evaluate(
+      () => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))),
+    );
+    const afterHover = await page.evaluate(() => (window as typeof window & { __quickRenders: number }).__quickRenders);
+    console.log("Selected-row hover renders", afterHover - beforeHover);
+    expect.soft(afterHover - beforeHover).toBeLessThanOrEqual(2);
+    await askRow.click();
+    await expect(page.locator('[data-component="GlobalOmnibar.Mari"]')).toBeVisible();
+    await expect(page.locator('[data-component="GlobalOmnibar.Mari"]')).toContainText("Raise", { timeout: 20_000 });
+    await expect(page.locator('[data-component="GlobalOmnibar.Mari"]')).toContainText(
+      "I can help with your reply length.",
+    );
+    for (const width of [390, 768, 1440]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.screenshot({ path: testInfo.outputPath(`quick-row-${width}.png`) });
+    }
+    await page.keyboard.press("Control+j");
+    await expect(omnibar.getByRole("searchbox", { name: "Search Marinara" })).toBeVisible();
+    await aside.getByRole("button", { name: "Answer again" }).click();
+    await expect(aside).toContainText("Raise");
+    await expect(aside.getByRole("button", { name: "Answer again", includeHidden: true })).toBeDisabled();
+    await omnibar.getByRole("searchbox", { name: "Search Marinara" }).fill("dark mode");
+    await expect(aside).toHaveCount(0);
+    await page.evaluate(
+      () => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))),
+    );
+    await expect(aside).toHaveCount(0);
+    await expect(omnibar).toContainText("Dark");
+    expect(errors).toEqual([]);
+  } finally {
+    if (connectionId) await request.delete(`/api/connections/${connectionId}`);
+    await new Promise<void>((resolve) => fixture.server.close(() => resolve()));
+  }
 });
 
 test.afterEach(() => {
