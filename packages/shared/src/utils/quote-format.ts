@@ -38,7 +38,8 @@ function formatSingleQuote(previous?: string, next?: string): string {
   return isOpeningContext(previous) ? LEFT_SINGLE_QUOTE : RIGHT_SINGLE_QUOTE;
 }
 
-function toStraightQuotes(value: string): string {
+/** Replaces each curly quote with its straight form, so text keeps its length. */
+export function toStraightQuotes(value: string): string {
   return value.replace(DOUBLE_QUOTE_RE, STRAIGHT_DOUBLE_QUOTE).replace(SINGLE_QUOTE_RE, STRAIGHT_SINGLE_QUOTE);
 }
 
