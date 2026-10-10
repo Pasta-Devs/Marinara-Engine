@@ -343,6 +343,23 @@ try {
     await preview(narrator.id, { chatId: whisperFirstChat.id }),
   ])
     assert(content.includes("FIRST_WHISPER_SECRET"), "a chat's first whisper-only message reaches the narrator");
+  // Whispers separated only by a space leave a blank body. They follow the placeholder, never split it.
+  await chats.createMessage({
+    chatId: whisperFirstChat.id,
+    role: "user",
+    content:
+      '[whisper: character="Narrator" text="SPACED_NARRATOR_SECRET"] [whisper: character="Maukie" text="SPACED_MAUKIE_SECRET"]',
+  });
+  for (const [id, name] of [
+    [narrator.id, "Narrator"],
+    [maukie.id, "Maukie"],
+  ] as const) {
+    const content = await preview(id, { chatId: whisperFirstChat.id });
+    assert(
+      content.includes(`[Private whisper]\\n\\n[Private whisper to ${name} `),
+      "the whisper follows a whole placeholder",
+    );
+  }
 
   // Advanced Memory keeps a stand-in only inside the retained window, which opens with the hidden
   // messages right before its first kept message.
@@ -382,19 +399,21 @@ try {
     ).map((message) => message.content),
     ["OPENING_STAND_IN", "KEPT", "LATE_STAND_IN"],
   );
-  // With nothing kept, only whisper-only messages after the last left-out message remain.
+  // With nothing kept, they stay only when memory left nothing out either.
+  const whisperOnlyMessages = windowMessages.map((message) => ({
+    ...message,
+    id: message.id ?? message.whisperSourceId,
+    whisperSourceId: undefined,
+  }));
+  assert.deepEqual(filterPromptHistoryByMessageIds(whisperOnlyMessages, new Set(), windowSources, whisperOnlyIds), []);
   assert.deepEqual(
     filterPromptHistoryByMessageIds(
-      windowMessages.map((message) => ({
-        ...message,
-        id: message.id ?? message.whisperSourceId,
-        whisperSourceId: undefined,
-      })),
+      whisperOnlyMessages.filter((message) => whisperOnlyIds.has(message.id!)),
       new Set(),
       windowSources,
       whisperOnlyIds,
     ).map((message) => message.content),
-    ["LATE_STAND_IN"],
+    ["EARLY_STAND_IN", "OPENING_STAND_IN", "LATE_STAND_IN"],
   );
   console.log(
     "Hidden whisper recipient passed: recipient-only stand-in, position, other characters, narrator, persona, trimming, global hide, emptied whispers and memory window.",

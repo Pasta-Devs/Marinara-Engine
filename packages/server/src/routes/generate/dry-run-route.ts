@@ -929,25 +929,28 @@ export async function registerDryRunRoute(app: FastifyInstance) {
       // where only messages shown before memory selection can end it.
       const globallyHidden = new Set(chatMessages.filter(isMessageHiddenFromAI).map((message) => message.id));
       const whisperOnlyIds = roleplayWhisperOnlyMessageIds(chatMessages.slice(Math.max(0, conversationStart)));
-      const windowStart = keptWindowStart(
-        mappedMessages,
-        (message) => !!message.id && allowedIds.has(message.id),
-        (message) =>
-          !!message.id &&
-          message.id !== "__dryrun_user__" &&
-          !allowedIds.has(message.id) &&
-          !whisperOnlyIds.has(message.id) &&
-          !globallyHidden.has(message.id) &&
-          !message.hiddenFromAICharacterIds?.some((id) => audienceCharacterIds.includes(id)),
-        true,
-      );
-      const anyKept = mappedMessages.some((message) => !!message.id && allowedIds.has(message.id));
+      const isKept = (message: (typeof mappedMessages)[number]) => !!message.id && allowedIds.has(message.id);
+      const isDropped = (message: (typeof mappedMessages)[number]) =>
+        !!message.id &&
+        message.id !== "__dryrun_user__" &&
+        !allowedIds.has(message.id) &&
+        !whisperOnlyIds.has(message.id) &&
+        !globallyHidden.has(message.id) &&
+        !message.hiddenFromAICharacterIds?.some((id) => audienceCharacterIds.includes(id));
+      // The live prompt never holds messages from before the conversation start, so they leave nothing out.
+      const conversationIds = new Set(chatMessages.slice(Math.max(0, conversationStart)).map((message) => message.id));
+      const windowStart =
+        mappedMessages.some(isKept) ||
+        mappedMessages.some((message) => isDropped(message) && conversationIds.has(message.id!))
+          ? keptWindowStart(mappedMessages, isKept, isDropped)
+          : 0;
       mappedMessages = mappedMessages.filter(
         (message, index) =>
           message.id === "__dryrun_user__" ||
           (message.id &&
             (allowedIds.has(message.id) ||
-              (((hiddenWhisperIds.has(message.id) && anyKept) || whisperOnlyIds.has(message.id)) &&
+              ((hiddenWhisperIds.has(message.id) || whisperOnlyIds.has(message.id)) &&
+                windowStart >= 0 &&
                 index >= windowStart))),
       );
     }

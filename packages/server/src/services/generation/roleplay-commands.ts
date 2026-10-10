@@ -417,21 +417,25 @@ export function appendRoleplayWhispers(
     );
     if (!whispers.length) continue;
     // History wrappers shift saved offsets. Prefer the unchanged source body, then fall back to edit anchors.
-    // A stand-in's body, like a whisper-only message's, is its placeholder, so its whispers follow it.
-    const sourceText =
-      message.whisperSourceId || !visibleBody(source).trim()
-        ? WHISPER_ONLY_PLACEHOLDER
-        : typeof source.content === "string"
-          ? source.content
-          : "";
+    // A stand-in's body, like a whisper-only message's, is its placeholder. Its whispers follow the placeholder,
+    // since their saved offsets point into text the prompt does not show.
+    const placeholder = !!message.whisperSourceId || !visibleBody(source).trim();
+    const sourceText = placeholder
+      ? WHISPER_ONLY_PLACEHOLDER
+      : typeof source.content === "string"
+        ? source.content
+        : "";
     const sourceStart = sourceText ? message.content.indexOf(sourceText) : -1;
     const hasSource = sourceStart >= 0 && sourceStart === message.content.lastIndexOf(sourceText);
     const positioned = whispers
       .map((whisper) => ({
         ...whisper,
-        offset:
-          (hasSource ? sourceStart : 0) +
-          getRoleplayCommandContentOffset(hasSource ? sourceText : message.content, whisper.activity),
+        offset: placeholder
+          ? hasSource
+            ? sourceStart + sourceText.length
+            : message.content.length
+          : (hasSource ? sourceStart : 0) +
+            getRoleplayCommandContentOffset(hasSource ? sourceText : message.content, whisper.activity),
       }))
       .sort((a, b) => a.offset - b.offset || a.index - b.index);
     for (const { command, offset } of positioned.reverse()) {
