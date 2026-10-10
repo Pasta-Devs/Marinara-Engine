@@ -35,11 +35,14 @@ import {
   parseRoleplayUserCommands,
   prepareUserRoleplayCommands,
   roleplayHiddenWhisperMessageIds,
-  roleplayWhisperOnlyMessageIds,
 } from "../../services/generation/roleplay-commands.js";
 import { randomUUID } from "crypto";
 import { createChatsStorage } from "../../services/storage/chats.storage.js";
-import { createAdvancedMemoryService, selectAdvancedMemoryMessages } from "../../services/advanced-memory.js";
+import {
+  createAdvancedMemoryService,
+  selectAdvancedMemoryMessages,
+  selectAdvancedMemoryWhisperOnlyIds,
+} from "../../services/advanced-memory.js";
 import { prepareAdvancedMemoryContext } from "../../services/generation/advanced-memory-context.js";
 import {
   ADVANCED_MEMORY_MARKER_TYPES,
@@ -916,6 +919,15 @@ export async function registerDryRunRoute(app: FastifyInstance) {
       whisperViewerId && audienceCharacterIds.length === 1 && audienceCharacterIds[0] === whisperViewerId
         ? roleplayHiddenWhisperMessageIds(chatMessages.slice(Math.max(0, conversationStart)), whisperViewerId)
         : new Set<string>();
+    // Matches memory's selection below; the live route uses the same rules.
+    const whisperOnlyIds = advancedMemoryEnabled
+      ? selectAdvancedMemoryWhisperOnlyIds(
+          advancedMemorySourceMessages,
+          advancedMemorySettings,
+          audienceCharacterIds.length ? audienceCharacterIds : characterIds,
+          dryRunGroupChatMode === "individual",
+        )
+      : undefined;
     if (advancedMemoryEnabled) {
       const allowedIds = new Set(
         selectAdvancedMemoryMessages(
@@ -928,30 +940,24 @@ export async function registerDryRunRoute(app: FastifyInstance) {
       // A hidden message keeps its whisper inside the same window as in the live prompt,
       // where only messages shown before memory selection can end it.
       const globallyHidden = new Set(chatMessages.filter(isMessageHiddenFromAI).map((message) => message.id));
-      const whisperOnlyIds = roleplayWhisperOnlyMessageIds(chatMessages.slice(Math.max(0, conversationStart)));
-      const isKept = (message: (typeof mappedMessages)[number]) => !!message.id && allowedIds.has(message.id);
-      const isDropped = (message: (typeof mappedMessages)[number]) =>
-        !!message.id &&
-        message.id !== "__dryrun_user__" &&
-        !allowedIds.has(message.id) &&
-        !whisperOnlyIds.has(message.id) &&
-        !globallyHidden.has(message.id) &&
-        !message.hiddenFromAICharacterIds?.some((id) => audienceCharacterIds.includes(id));
-      // The live prompt never holds messages from before the conversation start, so they leave nothing out.
-      const conversationIds = new Set(chatMessages.slice(Math.max(0, conversationStart)).map((message) => message.id));
-      const windowStart =
-        mappedMessages.some(isKept) ||
-        mappedMessages.some((message) => isDropped(message) && conversationIds.has(message.id!))
-          ? keptWindowStart(mappedMessages, isKept, isDropped)
-          : 0;
+      const windowStart = keptWindowStart(
+        mappedMessages,
+        (message) => !!message.id && allowedIds.has(message.id),
+        (message) =>
+          !!message.id &&
+          message.id !== "__dryrun_user__" &&
+          !allowedIds.has(message.id) &&
+          !whisperOnlyIds?.has(message.id) &&
+          !globallyHidden.has(message.id) &&
+          !message.hiddenFromAICharacterIds?.some((id) => audienceCharacterIds.includes(id)),
+      );
       mappedMessages = mappedMessages.filter(
         (message, index) =>
           message.id === "__dryrun_user__" ||
           (message.id &&
             (allowedIds.has(message.id) ||
-              ((hiddenWhisperIds.has(message.id) || whisperOnlyIds.has(message.id)) &&
-                windowStart >= 0 &&
-                index >= windowStart))),
+              (hiddenWhisperIds.has(message.id) && windowStart >= 0 && index >= windowStart) ||
+              (whisperOnlyIds?.has(message.id) && (windowStart < 0 || index >= windowStart)))),
       );
     }
     if (audienceCharacterIds.length > 0) {
@@ -2362,6 +2368,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
           messages: finalMessages,
           placements: advancedMemoryPlacements,
           audienceCharacterIds,
+          whisperOnlyIds,
           audienceMode: impersonate ? "owner" : undefined,
           maxContext: Math.min(effectiveMaxContext ?? Infinity, connectionMaxContext ?? Infinity),
           maxTokens,

@@ -21,6 +21,7 @@ const { createChatsStorage } = await import("../../packages/server/src/services/
 const { createConnectionsStorage } = await import("../../packages/server/src/services/storage/connections.storage.js");
 const { createCharactersStorage } = await import("../../packages/server/src/services/storage/characters.storage.js");
 const { createPromptsStorage } = await import("../../packages/server/src/services/storage/prompts.storage.js");
+const { selectAdvancedMemoryWhisperOnlyIds } = await import("../../packages/server/src/services/advanced-memory.js");
 const { filterPromptHistoryByMessageIds } =
   await import("../../packages/server/src/services/generation/prompt-message-scope.js");
 const { characterDataSchema, getRoleplayCommandActivity, getRoleplayWhispers, DEFAULT_ADVANCED_MEMORY_SETTINGS } =
@@ -299,7 +300,8 @@ try {
   // Its whisper stays inside the last message's wrapper, even when memory leaves out an earlier message.
   for (const content of [maukieView, await generate("Maukie reacts.", maukie.id, { chatId: memoryChat.id })]) {
     assert.equal(content.split("</last_message>").length, 2, "one closing tag");
-    assert(content.indexOf("NARRATOR_WHISPER_ONLY_SECRET") < content.indexOf("</last_message>"));
+    const secretAt = content.indexOf("NARRATOR_WHISPER_ONLY_SECRET");
+    assert(content.lastIndexOf("<last_message>", secretAt) >= 0 && secretAt < content.indexOf("</last_message>"));
   }
   // A new conversation leaves earlier whisper-only messages behind, in Peek Prompt too.
   await chats.createMessage({
@@ -360,6 +362,21 @@ try {
       "the whisper follows a whole placeholder",
     );
   }
+  // A whisper-only message can open a character's own conversation. Live and Peek Prompt both deliver it.
+  await chats.createMessage({ chatId: whisperFirstChat.id, role: "user", content: "PERSONAL_EARLY_LINE" });
+  await chats.createMessage({
+    chatId: whisperFirstChat.id,
+    role: "user",
+    content: '[whisper: character="Maukie" text="PERSONAL_START_SECRET"]',
+    extra: { conversationStartForCharacterIds: [maukie.id] },
+  });
+  for (const content of [
+    await preview(maukie.id, { chatId: whisperFirstChat.id }),
+    await generate("Maukie starts over.", maukie.id, { chatId: whisperFirstChat.id }),
+  ]) {
+    assert(content.includes("PERSONAL_START_SECRET"), "a whisper that opens Maukie's conversation reaches him");
+    assert(!content.includes("PERSONAL_EARLY_LINE"));
+  }
 
   // Advanced Memory keeps a stand-in only inside the retained window, which opens with the hidden
   // messages right before its first kept message.
@@ -385,36 +402,67 @@ try {
   );
   assert.deepEqual(filterPromptHistoryByMessageIds(windowMessages, new Set(), windowSources), []);
   // Whisper-only messages follow the same window.
+  // With nothing kept, memory's own selection already placed them.
   const whisperOnlyIds = new Set(["early", "opening", "late"]);
-  assert.deepEqual(
-    filterPromptHistoryByMessageIds(
-      windowMessages.map((message) => ({
-        ...message,
-        id: message.id ?? message.whisperSourceId,
-        whisperSourceId: undefined,
-      })),
-      new Set(["kept"]),
-      windowSources,
-      whisperOnlyIds,
-    ).map((message) => message.content),
-    ["OPENING_STAND_IN", "KEPT", "LATE_STAND_IN"],
-  );
-  // With nothing kept, they stay only when memory left nothing out either.
   const whisperOnlyMessages = windowMessages.map((message) => ({
     ...message,
     id: message.id ?? message.whisperSourceId,
     whisperSourceId: undefined,
   }));
-  assert.deepEqual(filterPromptHistoryByMessageIds(whisperOnlyMessages, new Set(), windowSources, whisperOnlyIds), []);
+  for (const [kept, expected] of [
+    [["kept"], ["OPENING_STAND_IN", "KEPT", "LATE_STAND_IN"]],
+    [[], ["EARLY_STAND_IN", "OPENING_STAND_IN", "LATE_STAND_IN"]],
+  ] as const)
+    assert.deepEqual(
+      filterPromptHistoryByMessageIds(whisperOnlyMessages, new Set(kept), windowSources, whisperOnlyIds).map(
+        (message) => message.content,
+      ),
+      expected,
+    );
+
+  // Whisper-only messages follow memory's reader rules: knowledge and conversation starts and hiding.
+  const whisperExtra = (extra: Record<string, unknown> = {}) => ({
+    ...extra,
+    roleplayCommandActivity: [
+      {
+        command: { type: "whisper", character: "Maukie", text: "UNIT_SECRET" },
+        raw: "",
+        whisperRecipient: { id: maukie.id, kind: "character" },
+      },
+    ],
+  });
+  const line = (id: string, extra: Record<string, unknown> = {}) => ({ id, role: "user", content: id, extra });
+  const whisper = (id: string, extra: Record<string, unknown> = {}) => ({
+    id,
+    role: "user",
+    content: "",
+    extra: whisperExtra(extra),
+  });
+  const whisperOnlyFor = (
+    messages: Array<{ id: string; role: string; content: string; extra: Record<string, unknown> }>,
+    knowledgeStarts: Record<string, string | null> = { [maukie.id]: null },
+  ) => [
+    ...selectAdvancedMemoryWhisperOnlyIds(
+      messages,
+      { ...DEFAULT_ADVANCED_MEMORY_SETTINGS, enabled: true, knowledgeStarts },
+      [maukie.id],
+      true,
+    ),
+  ];
+  assert.deepEqual(whisperOnlyFor([line("a"), whisper("w")]), ["w"]);
+  assert.deepEqual(whisperOnlyFor([line("a"), whisper("w")], { [maukie.id]: "w" }), ["w"], "knowledge opens on it");
+  assert.deepEqual(whisperOnlyFor([whisper("w"), line("a")], { [maukie.id]: "later" }), [], "regenerating before it");
   assert.deepEqual(
-    filterPromptHistoryByMessageIds(
-      whisperOnlyMessages.filter((message) => whisperOnlyIds.has(message.id!)),
-      new Set(),
-      windowSources,
-      whisperOnlyIds,
-    ).map((message) => message.content),
-    ["EARLY_STAND_IN", "OPENING_STAND_IN", "LATE_STAND_IN"],
+    whisperOnlyFor([whisper("w"), line("a", { isConversationStart: true })]),
+    [],
+    "earlier conversation",
   );
+  assert.deepEqual(
+    whisperOnlyFor([line("a"), whisper("w", { conversationStartForCharacterIds: [maukie.id] })]),
+    ["w"],
+    "personal conversation start",
+  );
+  assert.deepEqual(whisperOnlyFor([whisper("w", { hiddenFromAICharacterIds: [maukie.id] })]), [], "hidden");
   console.log(
     "Hidden whisper recipient passed: recipient-only stand-in, position, other characters, narrator, persona, trimming, global hide, emptied whispers and memory window.",
   );

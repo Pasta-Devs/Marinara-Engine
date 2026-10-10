@@ -51,7 +51,7 @@ import {
 } from "./chat-summary/connection-resolution.js";
 import { resolveBaseUrl } from "./generation/connection-base-url.js";
 import { describeEmptyModelResponse } from "./generation/empty-response-reason.js";
-import { parseRoleplayUserCommands } from "./generation/roleplay-commands.js";
+import { parseRoleplayUserCommands, roleplayWhisperOnlyMessageIds } from "./generation/roleplay-commands.js";
 import {
   parseChatSummaryResult,
   resolveChatSummaryPrompt,
@@ -400,6 +400,8 @@ export function selectAdvancedMemoryMessages(
   audienceCharacterIds: string[],
   individual = true,
   view: "live" | "archive" = "live",
+  /** Messages kept even without text (see selectAdvancedMemoryWhisperOnlyIds). */
+  keepEmptyIds: ReadonlySet<string> = new Set(),
 ): AdvancedMemoryMessage[] {
   let start = 0;
   for (let index = 0; index < messages.length; index++) {
@@ -435,9 +437,30 @@ export function selectAdvancedMemoryMessages(
       extra.commandOnly !== true &&
       !strings(extra.hiddenFromAICharacterIds).some((id) => audienceCharacterIds.includes(id)) &&
       (message.role === "user" || message.role === "assistant" || message.role === "narrator") &&
-      (message.content.trim().length > 0 || (Array.isArray(extra.attachments) && extra.attachments.length > 0))
+      (message.content.trim().length > 0 ||
+        (Array.isArray(extra.attachments) && extra.attachments.length > 0) ||
+        keepEmptyIds.has(message.id))
     );
   });
+}
+
+/**
+ * Messages that hold only a whisper and that the live view would select if they had text. Memory keeps no
+ * empty message, so prompts place these by position instead (see filterPromptHistoryByMessageIds).
+ */
+export function selectAdvancedMemoryWhisperOnlyIds(
+  messages: readonly AdvancedMemoryMessage[],
+  settings: AdvancedMemorySettings,
+  audienceCharacterIds: string[],
+  individual: boolean,
+): Set<string> {
+  const whisperOnly = roleplayWhisperOnlyMessageIds(messages);
+  if (!whisperOnly.size) return whisperOnly;
+  return new Set(
+    selectAdvancedMemoryMessages(messages, settings, audienceCharacterIds, individual, "live", whisperOnly)
+      .map((message) => message.id)
+      .filter((id) => whisperOnly.has(id)),
+  );
 }
 
 /** In a merged group chat, the present characters other than the narrator, when there are several. */

@@ -53,6 +53,7 @@ import {
   createAdvancedMemoryService,
   sceneCheckTranscript,
   selectAdvancedMemoryMessages,
+  selectAdvancedMemoryWhisperOnlyIds,
   type AdvancedMemorySceneCheck,
 } from "../services/advanced-memory.js";
 import {
@@ -223,7 +224,6 @@ import {
   parseRoleplayUserCommands,
   roleplayCommandKey,
   roleplayHiddenWhisperMessageIds,
-  roleplayWhisperOnlyMessageIds,
   resolveRoleplayWhisperRecipient,
   RoleplayCommandStreamFilter,
   type RoleplayCommand,
@@ -2781,13 +2781,21 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               ).map((message) => message.id),
             )
           : null;
+        const advancedAgentWhisperOnlyIds = advancedMemoryEnabled
+          ? selectAdvancedMemoryWhisperOnlyIds(
+              advancedSourceMessages,
+              advancedMemorySettings,
+              promptCharacterIds,
+              promptGroupChatMode === "individual",
+            )
+          : undefined;
         const sharedPromptForAgents = (messages: GenerationPromptMessage[]) =>
           advancedAgentSourceIds
             ? filterPromptHistoryByMessageIds(
                 resolveAdvancedMemoryPrompt(messages, advancedMemoryPlacements, {}),
                 advancedAgentSourceIds,
                 new Set(advancedSourceMessages.map((message) => message.id)),
-                roleplayWhisperOnlyMessageIds(advancedSourceMessages),
+                advancedAgentWhisperOnlyIds,
               )
             : messages;
         const deferConversationLorebookScanToResponder =
@@ -7963,6 +7971,13 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               messages: preparedMessagesForGen,
               placements: advancedMemoryPlacements,
               audienceCharacterIds,
+              // The same reader and access rules as memory's own selection.
+              whisperOnlyIds: selectAdvancedMemoryWhisperOnlyIds(
+                advancedSourceMessages,
+                advancedMemorySettings,
+                audienceCharacterIds.length ? audienceCharacterIds : allCharacterIds,
+                usesIndividualGroupGeneration && audienceCharacterIds.length > 0,
+              ),
               audienceMode: input.impersonate ? "owner" : undefined,
               maxContext: effectiveMaxContext ?? connectionMaxContext,
               maxTokens,
