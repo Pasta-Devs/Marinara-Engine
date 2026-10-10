@@ -53,6 +53,7 @@ import {
   createAdvancedMemoryService,
   sceneCheckTranscript,
   selectAdvancedMemoryMessages,
+  selectAdvancedMemoryWhisperOnlyIds,
   type AdvancedMemorySceneCheck,
 } from "../services/advanced-memory.js";
 import {
@@ -2780,11 +2781,19 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               ).map((message) => message.id),
             )
           : null;
+        const advancedAgentWhisperOnlyIds = advancedMemoryEnabled
+          ? selectAdvancedMemoryWhisperOnlyIds(
+              advancedSourceMessages,
+              advancedMemorySettings,
+              promptCharacterIds,
+              promptGroupChatMode === "individual",
+            )
+          : undefined;
         const sharedPromptForAgents = (messages: GenerationPromptMessage[]) =>
           advancedAgentSourceIds
             ? filterPromptHistoryByMessageIds(
                 resolveAdvancedMemoryPrompt(messages, advancedMemoryPlacements, {}),
-                advancedAgentSourceIds,
+                new Set([...advancedAgentSourceIds, ...advancedAgentWhisperOnlyIds!]),
                 new Set(advancedSourceMessages.map((message) => message.id)),
               )
             : messages;

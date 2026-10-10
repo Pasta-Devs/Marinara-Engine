@@ -4,6 +4,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+- In Roleplay chats with Advanced Memory on, a message that is only a whisper, with no other text, now reaches the character it whispers to and the narrator. Before, Advanced Memory left such a message out of the prompt because it had no visible text, so the whisper never arrived. This also applies to a reply that is only a whisper. Regenerating a reply that missed such a whisper now includes it (#7380).
 - In **Manual** mode, when Professor Mari holds a change for your **Apply**, the top-bar pill now says **Needs you**, as her window already does. Before, the pill stayed off, so you could miss the change after you closed her window. The pill goes when you answer or start a new chat with her.
 - Search rows show each type in its top-bar colour: characters pink, personas green, lorebooks amber, presets violet, connections blue, agents purple, settings grey, and chats in the colour of their mode. Rows that create or open a type ("Create lorebook", the Agents library) use that type's colour too.
 - A turn with a change card shows its reason once, on the card, not again in a **Why** fold under the answer.

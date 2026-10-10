@@ -38,7 +38,11 @@ import {
 } from "../../services/generation/roleplay-commands.js";
 import { randomUUID } from "crypto";
 import { createChatsStorage } from "../../services/storage/chats.storage.js";
-import { createAdvancedMemoryService, selectAdvancedMemoryMessages } from "../../services/advanced-memory.js";
+import {
+  createAdvancedMemoryService,
+  selectAdvancedMemoryMessages,
+  selectAdvancedMemoryWhisperOnlyIds,
+} from "../../services/advanced-memory.js";
 import { prepareAdvancedMemoryContext } from "../../services/generation/advanced-memory-context.js";
 import {
   ADVANCED_MEMORY_MARKER_TYPES,
@@ -916,14 +920,23 @@ export async function registerDryRunRoute(app: FastifyInstance) {
         ? roleplayHiddenWhisperMessageIds(chatMessages.slice(Math.max(0, conversationStart)), whisperViewerId)
         : new Set<string>();
     if (advancedMemoryEnabled) {
-      const allowedIds = new Set(
-        selectAdvancedMemoryMessages(
+      // Impersonation reads memory as its owner, without one character's knowledge range, as the live route does.
+      const individualMemoryReader = dryRunGroupChatMode === "individual" && audienceCharacterIds.length > 0;
+      // Memory's own preparation below narrows whisper-only messages to its window, as in the live route.
+      const allowedIds = new Set([
+        ...selectAdvancedMemoryMessages(
           advancedMemorySourceMessages,
           advancedMemorySettings,
           audienceCharacterIds.length ? audienceCharacterIds : characterIds,
-          dryRunGroupChatMode === "individual",
+          individualMemoryReader,
         ).map((message) => message.id),
-      );
+        ...selectAdvancedMemoryWhisperOnlyIds(
+          advancedMemorySourceMessages,
+          advancedMemorySettings,
+          audienceCharacterIds.length ? audienceCharacterIds : characterIds,
+          individualMemoryReader,
+        ),
+      ]);
       // A hidden message keeps its whisper inside the same window as in the live prompt,
       // where only messages shown before memory selection can end it.
       const globallyHidden = new Set(chatMessages.filter(isMessageHiddenFromAI).map((message) => message.id));
