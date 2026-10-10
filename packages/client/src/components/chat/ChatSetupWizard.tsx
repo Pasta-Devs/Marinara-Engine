@@ -3664,8 +3664,15 @@ function RoleplaySetupWizard({ chat, onFinish, defaultsApplied, defaultsAction }
           showCharacterIdentities={showCharacterIdentities}
           value={chat.personaId ?? null}
           characterValue={chat.personaCharacterId ?? null}
-          onChange={setPersona}
-          onCharacterChange={setPersonaCharacter}
+          // A persona picked here replaces "Create your persona", as in the step picker.
+          onChange={(personaId) => {
+            setOnboardingCharacterId(null);
+            setPersona(personaId);
+          }}
+          onCharacterChange={(characterId) => {
+            setOnboardingCharacterId(null);
+            setPersonaCharacter(characterId);
+          }}
         />
       </div>
 
@@ -3714,8 +3721,10 @@ function RoleplaySetupWizard({ chat, onFinish, defaultsApplied, defaultsAction }
         />
       )}
 
+      {/* Hidden only while the questions window is actually shown: if its card
+          drops out (deleted or turned off elsewhere), the wizard comes back. */}
       {!showChoiceModal &&
-        !showOnboarding &&
+        !(showOnboarding && onboardingCharacter) &&
         (shortcutMode ? (
           <SetupWizardShell
             title={localizeUi("ui.chat.roleplaysetupwizard.quickSetup")}

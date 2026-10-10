@@ -3,6 +3,7 @@ import {
   normalizeAvatarCrop,
   readImageAppearanceOverride,
   resolveChatPersonaCandidate,
+  withoutUnreadableOnboarding,
 } from "@marinara-engine/shared";
 import type { createCharactersStorage } from "./storage/characters.storage.js";
 
@@ -63,7 +64,7 @@ export async function resolveChatUserIdentity(
         return null;
       }
     }
-    const parsed = characterDataSchema.safeParse(rawData);
+    const parsed = characterDataSchema.safeParse(withoutUnreadableOnboarding(rawData));
     if (!parsed.success) return null;
     const data = parsed.data;
     const extensions = data.extensions ?? {};

@@ -20,6 +20,7 @@ import {
   dropUnreadableOnboarding,
   ONBOARDING_MAX_QUESTIONS,
   withUniqueOnboardingIds,
+  withoutUnreadableOnboarding,
 } from "../../packages/shared/src/index.js";
 import { buildCompatibleCharacterExport } from "../../packages/server/src/routes/characters.routes.js";
 import { normalizeNativeCharacterData } from "../../packages/server/src/services/import/marinara.importer.js";
@@ -271,6 +272,37 @@ assert.deepEqual(
   })?.extensions.onboarding?.variables.map((variable) => variable.id),
   ["same", "same_2", "question_2"],
   "native import stores the unique ids too, not only V2/PNG",
+);
+// Card data is untrusted and options per question aren't capped: making 50,000
+// repeated ids unique must stay linear (it was quadratic: ~2 min for 40,000,
+// blocking the server during import).
+for (const repeated of ["", "a"]) {
+  const hostile = {
+    enabled: true,
+    variables: [
+      {
+        id: "q",
+        variableName: "x",
+        options: Array.from({ length: 50_000 }, () => ({ id: repeated, label: "a", value: "" })),
+      },
+    ],
+  };
+  const started = performance.now();
+  const fixed = dropUnreadableOnboarding({ onboarding: hostile }).extensions.onboarding as typeof twins;
+  assert.ok(performance.now() - started < 2000, "repeated option ids must be made unique in one linear pass");
+  assert.equal(new Set(fixed.variables[0]!.options.map((option) => option.id)).size, 50_000, "and all end up unique");
+}
+// Read-only checks (chat identity, persona-as-character) ignore an onboarding
+// block they can't read instead of rejecting the whole character.
+const foreign = { name: "Ana", extensions: { backstory: "B.", onboarding: "made by another tool" } };
+assert.equal(characterDataSchema.safeParse(foreign).success, false);
+assert.equal(characterDataSchema.safeParse(withoutUnreadableOnboarding(foreign)).success, true);
+assert.deepEqual(withoutUnreadableOnboarding({ name: "Ana" }), { name: "Ana" });
+const noOnboarding = { name: "Ana", extensions: { fav: true } };
+assert.equal(
+  withoutUnreadableOnboarding(noOnboarding),
+  noOnboarding,
+  "data without onboarding passes through unchanged",
 );
 const parsedDemo = characterExtensionsSchema.parse({ onboarding: ONBOARDING }).onboarding!;
 assert.equal(

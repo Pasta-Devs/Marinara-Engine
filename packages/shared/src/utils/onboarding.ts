@@ -43,6 +43,21 @@ export function dropUnreadableOnboarding<T extends Record<string, unknown>>(
 }
 
 /**
+ * Card data with an onboarding block the schema can't read left out, for
+ * read-only checks (chat identity, persona-as-character). Cards stored before
+ * onboarding existed may carry a foreign `onboarding` key; that must not make
+ * the whole character invalid there. The editor still shows it as unreadable.
+ */
+export function withoutUnreadableOnboarding(data: unknown): unknown {
+  if (!data || typeof data !== "object" || Array.isArray(data)) return data;
+  const record = data as Record<string, unknown>;
+  const raw = record.extensions;
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return data;
+  const { extensions } = dropUnreadableOnboarding(raw as Record<string, unknown>);
+  return extensions === raw ? data : { ...record, extensions };
+}
+
+/**
  * Gives every question, and every option within a question, its own non-empty
  * id. The editor edits, deletes and reorders by id, so a hand-edited card with
  * repeated ids would change both twins at once, or let a reorder multiply them
@@ -50,13 +65,26 @@ export function dropUnreadableOnboarding<T extends Record<string, unknown>>(
  * same ids; returns the same object when nothing needed fixing.
  */
 export function withUniqueOnboardingIds<T extends CharacterOnboarding>(onboarding: T): T {
-  /** Keeps the first use of each id; a repeat or empty one gets `<id>_2`, `_3`… unused anywhere in the list. */
+  /**
+   * Keeps the first use of each id; a repeat or empty one gets `<id>_2`, `_3`…
+   * unused anywhere in the list. Each base remembers where its search stopped
+   * (`taken` only grows and `all` is fixed, so a skipped suffix never frees up):
+   * restarting at `_2` for every repeat was quadratic, and an imported card with
+   * thousands of repeated option ids blocked the server for minutes (#7308 review).
+   */
   const uniquer = (ids: string[], fallback: string) => {
     const all = new Set(ids);
     const taken = new Set<string>();
+    const nextSuffix = new Map<string, number>();
     return (id: string) => {
       let next = id;
-      for (let n = 2; !next || taken.has(next) || (next !== id && all.has(next)); n++) next = `${id || fallback}_${n}`;
+      if (!next || taken.has(next)) {
+        const base = id || fallback;
+        let n = nextSuffix.get(base) ?? 2;
+        do next = `${base}_${n++}`;
+        while (taken.has(next) || all.has(next));
+        nextSuffix.set(base, n);
+      }
       taken.add(next);
       return next;
     };
