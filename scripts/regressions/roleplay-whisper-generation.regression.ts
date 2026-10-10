@@ -20,8 +20,13 @@ const { createChatsStorage } = await import("../../packages/server/src/services/
 const { createConnectionsStorage } = await import("../../packages/server/src/services/storage/connections.storage.js");
 const { createCharactersStorage } = await import("../../packages/server/src/services/storage/characters.storage.js");
 const { createPromptsStorage } = await import("../../packages/server/src/services/storage/prompts.storage.js");
-const { characterDataSchema, formatTextQuotes, getRoleplayCommandContentOffset, getRoleplayWhispers } =
-  await import("../../packages/shared/dist/index.js");
+const {
+  characterDataSchema,
+  formatTextQuotes,
+  getRoleplayCommandContentOffset,
+  getRoleplayWhispers,
+  reanchorRoleplayCommandActivity,
+} = await import("../../packages/shared/dist/index.js");
 const prompts: string[] = [];
 let outputs: string[] = [];
 const provider = createServer(async (request, response) => {
@@ -345,6 +350,29 @@ try {
       }),
       15,
     );
+  // Other edits: unchanged text around a whisper keeps it in place; without any, it shows at the end as before.
+  const typos =
+    "The tavern was quiet tonight, the fire low.\n\nMara wiped the counter as she worked.\n\nBob ordered, smilling.";
+  for (const [before, after, marker, expected] of [
+    [typos, typos.replace("tonight", "tonite").replace("smilling", "smiling"), "as she worked.", "as she worked.[W]"],
+    ["A. middle. Z.", "AA. middle. ZZ.", "middle.", "AA. middle.[W] ZZ."],
+    ["She nods. She smiles. She leaves.", "She nods. She leaves.", "smiles.", "She nods.[W] She leaves."],
+    ["One. Two. Three.", "One. Three.", "Two.", "One.[W] Three."],
+    ["Hello. Bye.", "Hello. New. Bye.", "Hello.", "Hello.[W] New. Bye."],
+    ['He smiled. "Fine, go then."', 'She frowned. "Leave now."', "smiled.", 'She frowned. "Leave now."[W]'],
+  ] as const) {
+    const offset = before.indexOf(marker) + marker.length;
+    const [moved] = reanchorRoleplayCommandActivity(before, after, [
+      {
+        ...placedWhisper.activity,
+        contentOffset: offset,
+        contentAnchor: before.slice(Math.max(0, offset - 80), offset),
+      },
+    ]);
+    const position = getRoleplayCommandContentOffset(after, moved!);
+    const placedText = `${after.slice(0, position)}[W]${after.slice(position)}`;
+    assert(placedText.includes(expected), placedText);
+  }
   await chats.patchMetadata(chat.id, { groupChatMode: "merged", roleplayWhisperAudience: "all" });
   assert(!(await preview(bob.id)).includes("BOB_REEDITED_SECRET"), "merged voices must not receive private knowledge");
   await generate('Merged. [whisper: character="Bob" text="MERGED_SECRET"]');

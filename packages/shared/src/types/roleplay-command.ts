@@ -177,8 +177,9 @@ export function getRoleplayCommandContentOffset(text: string, item: RoleplayComm
 }
 
 /**
- * Move inline results through an edit of the text they sit in. Results before or after the changed part keep
- * their place; one inside it moves to the end of the new part.
+ * Move inline results through an edit of the text they sit in. A result before or after the changed part keeps
+ * its place. One inside it follows the unchanged text right before or after it; without any, it keeps its old
+ * anchor and shows at the end, as before.
  */
 export function reanchorRoleplayCommandActivity(
   before: string,
@@ -195,15 +196,21 @@ export function reanchorRoleplayCommandActivity(
     left[left.length - 1 - end] === right[right.length - 1 - end]
   )
     end++;
+  const uniqueIndex = (text: string) => {
+    const index = text ? right.indexOf(text) : -1;
+    return index >= 0 && index === right.lastIndexOf(text) ? index : -1;
+  };
   return activity.map((item) => {
     if (typeof item.contentOffset !== "number") return item;
     const offset = getRoleplayCommandContentOffset(before, item);
-    const moved =
-      offset <= start
-        ? offset
-        : offset >= before.length - end
-          ? after.length - (before.length - offset)
-          : after.length - end;
+    let moved = offset <= start ? offset : offset >= before.length - end ? after.length - (before.length - offset) : -1;
+    for (const size of [80, 40, 20]) {
+      if (moved >= 0) break;
+      const prior = left.slice(Math.max(0, offset - size), offset);
+      const priorIndex = uniqueIndex(prior);
+      moved = priorIndex >= 0 ? priorIndex + prior.length : uniqueIndex(left.slice(offset, offset + size));
+    }
+    if (moved < 0) return item;
     return {
       ...item,
       contentOffset: moved,
