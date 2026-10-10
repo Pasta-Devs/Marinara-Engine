@@ -74,6 +74,7 @@ test("Continue with Mari on a quick answer opens a new Mari chat named after the
   test.skip(!testInfo.project.name.includes("desktop"), "The keyboard shortcut is covered on desktop.");
 
   const fixture = await startFixtureProvider("Raise **Max Tokens** in Chat Settings.");
+  let connectionId: string | undefined;
   try {
     const connection = await request.post("/api/connections", {
       data: {
@@ -86,7 +87,7 @@ test("Continue with Mari on a quick answer opens a new Mari chat named after the
       },
     });
     expect(connection.ok(), await connection.text()).toBeTruthy();
-    const connectionId = ((await connection.json()) as { id: string }).id;
+    connectionId = ((await connection.json()) as { id: string }).id;
 
     await prepareClient(page, connectionId);
     await page.goto("/");
@@ -108,6 +109,8 @@ test("Continue with Mari on a quick answer opens a new Mari chat named after the
     }>;
     expect(chats.map((chat) => chat.name)).toContain(QUESTION);
   } finally {
+    // A later spec on the same server (omnibar-no-model-try) needs no connection.
+    if (connectionId) await request.delete(`/api/connections/${connectionId}`).catch(() => undefined);
     await new Promise<void>((resolve) => fixture.server.close(() => resolve()));
   }
 });

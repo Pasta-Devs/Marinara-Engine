@@ -323,7 +323,8 @@ function mergeExcerpts(older: MariChangeExcerpt[], newer: MariChangeExcerpt[]): 
         added,
         [...prev.edited, ...next.edited].filter((name) => !added.includes(name)),
         [...prev.removed, ...next.removed],
-        [...(prev.items ?? []), ...(next.items ?? [])],
+        // One item per entry: an entry edited twice in a run shows once, as the later edit left it.
+        [...new Map([...(prev.items ?? []), ...(next.items ?? [])].map((item) => [item.name, item])).values()],
       );
       if (listed) {
         merged[index] = {

@@ -120,7 +120,8 @@ export function OmnibarAside({
   useEffect(() => {
     if (!continueQueued || state.status === "streaming") return;
     setContinueQueued(false);
-    if (state.status === "complete") onEscalate();
+    // A failed answer still offers Continue, so a tap made while it streamed is not dropped.
+    if (state.status === "complete" || state.status === "error") onEscalate();
   }, [continueQueued, onEscalate, state.status]);
 
   const focusSearch = () =>

@@ -17,7 +17,7 @@ import {
   type MariDbCommandResult,
   type MariDbRowChange,
   type MariWorkspaceActionResult,
-} from "@marinara-engine/shared";
+} from "../../../packages/shared/src/index.js";
 import {
   buildMariFailedActionResult,
   buildMariWorkspaceActionResult,
@@ -116,7 +116,7 @@ assert.equal(unreviewed?.reviewIds, undefined);
 assert.equal(unreviewed?.undoUntil, undefined);
 assert.equal(mariReceiptState(unreviewed!, new Set()), "saved");
 
-// Slice 87: a created character keeps all 14 fields, text and lists first, and no Keep / expiry is shown.
+// Slice 87: a created character keeps the name and all 14 fields, text and lists first, and no Keep / expiry is shown.
 const fourteen = Object.fromEntries(
   Array.from({ length: 14 }, (_, index) => [`field${index}`, index % 2 ? `Value ${index}` : index]),
 );
@@ -278,6 +278,17 @@ assert.ok(entries?.kind === "list");
 assert.deepEqual(entries.added, ["Onion field"]);
 assert.deepEqual(entries.edited, ["Swamp"]);
 assert.deepEqual(entries.count, { added: 1, edited: 1, removed: 0 });
+const editedTwice = mergeMariActionResults([
+  first!,
+  buildMariWorkspaceActionResult("lorebook.updateEntry", applied([entry("e1", "Swamp", "update")], "rev-c"))!,
+]);
+const swampItems = editedTwice[0]?.changes?.find((change) => change.field === "entries");
+assert.ok(swampItems?.kind === "list");
+assert.deepEqual(
+  swampItems.items?.map((item) => item.name),
+  ["Swamp"],
+  "an entry edited twice in one run shows once",
+);
 assert.ok(
   mergeMariActionResults(
     Array.from({ length: 30 }, (_, i) => ({ ...first!, resource: { ...first!.resource, id: `r${i}` } })),
@@ -356,6 +367,11 @@ assert.equal(
   buildMariFailedActionResult("character.update", { apply: false, id: "shrek" }, "no"),
   null,
   "a dry run leaves no card",
+);
+assert.equal(
+  buildMariFailedActionResult("character.get", { apply: true, id: "shrek" }, "not found"),
+  null,
+  "a failed read sent with apply:true wrote nothing, so it leaves no Not saved card",
 );
 assert.equal(
   buildMariFailedActionResult("chat.updateMessage", { apply: true }, "no"),

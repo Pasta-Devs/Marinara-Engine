@@ -259,6 +259,24 @@ try {
     await mari.restoreAppliedReview(turnOnReview.id);
     assert.equal((await listMemories()).some((m) => m.id === turnOnMemoryId), false, "Undo after Turn on still removes the memory");
 
+    // (6c) Undo of her edit keeps the user's switch: a memory they turned off stays off.
+    const beforeSwitch = new Set(mari.getPendingApprovals().map((a) => a.id));
+    await mari.executeAction({ action: "instruction.remember", data: { name: "Switch me", content: "Be terse." }, apply: true });
+    const switchCreate = mari.getPendingApprovals().find((a) => !beforeSwitch.has(a.id));
+    const switchId = switchCreate?.diffPreview.find((c) => c.table === "mari_instructions")?.id;
+    assert.ok(switchCreate && switchId, "the memory is reviewable");
+    await store.update(switchId, { enabled: true });
+    const beforeSwitchEdit = new Set(mari.getPendingApprovals().map((a) => a.id));
+    await mari.executeAction({ action: "instruction.update", id: switchId, data: { content: "Be very terse." }, apply: true });
+    const switchEdit = mari.getPendingApprovals().find((a) => !beforeSwitchEdit.has(a.id));
+    assert.ok(switchEdit, "the memory edit is reviewable");
+    await store.update(switchId, { enabled: false });
+    await mari.restoreAppliedReview(switchEdit.id);
+    const switched = (await listMemories()).find((m) => m.id === switchId);
+    assert.equal(switched?.enabled, false, "Undo does not turn back on a memory the user turned off");
+    await mari.restoreAppliedReview(switchCreate.id);
+    assert.equal((await listMemories()).some((m) => m.id === switchId), false, "the fixture memory is removed again");
+
     // (7) Render over LIVE rows: only ENABLED memories inject. Enable the two originals
     // (persistent one inlines its body; non-persistent shows in the index only).
     for (const m of await listMemories()) {

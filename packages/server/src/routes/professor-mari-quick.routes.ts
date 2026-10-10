@@ -7,7 +7,7 @@ import { isSseReplyWritable, sendSseEvent, startSseKeepalive, startSseReply } fr
 import { logger } from "../lib/logger.js";
 import { QuickEditConflictError } from "../services/professor-mari/quick-edit-proposal.js";
 import { classifyQuickAnswerError } from "../services/professor-mari/quick-answer-error.js";
-import { searchCanonicalDocumentation } from "../services/professor-mari/documentation-tools.js";
+import { MIN_GROUNDING_SCORE, searchCanonicalDocumentation } from "../services/professor-mari/documentation-tools.js";
 import { getMonorepoRoot } from "../config/runtime-config.js";
 import { isCapabilityAllowedFrom, type ProfessorMariQuickPromptEvent } from "@marinara-engine/shared";
 
@@ -75,7 +75,10 @@ async function sendDocsSources(message: string, send: (event: ProfessorMariQuick
   if (query.length < 2) return;
   try {
     const docs = await searchCanonicalDocumentation(getMonorepoRoot(), query, 3);
-    const sources = docs.results.slice(0, 3).map((result) => ({ path: result.path, heading: result.heading }));
+    // Only the sections the answer is grounded on: a page that matched one stray word is no source.
+    const sources = docs.results
+      .filter((result) => result.score >= MIN_GROUNDING_SCORE)
+      .map((result) => ({ path: result.path, heading: result.heading }));
     if (sources.length > 0) send({ type: "sources", data: sources });
   } catch {
     // Sources are a hint; a failed search must not stop the answer.

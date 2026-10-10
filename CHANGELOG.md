@@ -375,7 +375,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - Fixed a run finishing while Professor Mari's chat sat behind the search list being marked as seen, so its **Done** pill never showed.
 - Fixed a search crash bringing back its broken saved state on the next open.
 - Fixed the docs: the Personal Extension command example now targets the panel it registers, and the memory card button is named **Keep and enable**.
-- Professor Mari's applied changes no longer raise **Needs you**. The top-bar pill, the omnibar's Now row and its Current work row only ask for an answer when a change is held or a real approval waits. An applied change still offers **Keep or undo**.
+- Professor Mari's applied changes no longer raise **Needs you**. The top-bar pill, the omnibar's Now row and its Current work row only ask for an answer when a change is held or a real approval waits. An applied change still offers **Undo**.
 - Pressing Escape after Professor Mari's card actions (Accept, Undo) closes her window again. Before, focus fell to the page and Escape did nothing until a second press.
 - When Professor Mari's run ends while her window is open after a reload, her answer appears in the window. Before, it stayed hidden until you closed and reopened her, and opening her during a run put an arrival panel under the live thread. The arrival panel now waits for the run to end.
 - Typing **mari**, **professor**, **ask mari** or **open mari** in the omnibar puts **Open Prof. Mari** first. Enter opens her, as Ctrl+J does. Before, those words found settings and presets, and Enter opened a preset.

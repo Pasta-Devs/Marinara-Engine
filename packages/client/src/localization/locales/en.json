@@ -2338,7 +2338,7 @@
   "home.professorMari.placeholder": "Ask Professor Mari to check or change something",
   "home.professorMari.send": "Send to Professor Mari",
   "home.professorMari.skills.close": "Close Professor Mari skills",
-  "home.professorMari.widgetDescription": "Feeling a little lost? It's not a skill issue yet, I am here to help! Ask me about the app, your setup, or what to do next. I can also create characters, lorebooks, agents, and extensions for you! Looking for a page? Press Ctrl+K and type it.",
+  "home.professorMari.widgetDescription": "Feeling a little lost? It's not a skill issue yet, I am here to help! Ask me about the app, your setup, or what to do next. I can also create characters, lorebooks, agents, and extensions for you! Looking for a page? Press {{mod}}+K and type it.",
   "home.recentChats.empty": "No chats yet",
   "home.recentChats.emptyDescription": "Start a conversation, roleplay, or game and its latest moment will wait for you here.",
   "home.recentChats.emptyTitle": "Your chats will show here",

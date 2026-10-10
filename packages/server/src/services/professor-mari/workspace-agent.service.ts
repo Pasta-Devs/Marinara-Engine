@@ -288,7 +288,8 @@ export function buildMariFailedActionResult(
   reason: string,
 ): MariWorkspaceActionResult | null {
   const kind = FAILED_ACTION_KINDS[action.split(".")[0] as keyof typeof FAILED_ACTION_KINDS];
-  if (!kind || args.apply !== true) return null;
+  // A read sent with apply:true wrote nothing, so a failure there is no "Not saved" change.
+  if (!kind || args.apply !== true || appDataActionLooksReadOnly(action)) return null;
   const data = isRecord(args.data) ? args.data : {};
   const id = [args.id, args[`${kind}Id`]].find(
     (value): value is string => typeof value === "string" && value.trim() !== "",

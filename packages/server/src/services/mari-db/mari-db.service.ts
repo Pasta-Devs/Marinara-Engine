@@ -839,8 +839,7 @@ function restoreRowSuperseded(meta: TableMeta, current: Row | null, afterRaw: Ro
   const expected = knownColumnPatch(meta, afterRaw);
   for (const key of Object.keys(expected)) {
     // A memory's on/off switch ("Turn on") and the updatedAt it bumps are the user's own toggle, not a
-    // newer edit Undo must protect. ponytail: an Undo of a memory edit made before a Turn on still resets
-    // the switch to its pre-change value; exempt the column in the restore plan too if that matters.
+    // newer edit Undo must protect, and restoreChanges keeps the live switch.
     if (meta.name === "mari_instructions" && (key === "enabled" || key === "updatedAt")) continue;
     if ((current[key] ?? null) !== (expected[key] ?? null)) return true;
   }
@@ -9207,9 +9206,12 @@ export class MariDbService {
         if (!change.beforeRaw) continue;
         const meta = getMeta(change.table);
         const pk = getPrimary(meta);
+        const patch = knownColumnPatch(meta, change.beforeRaw);
+        // Only the user switches a memory on or off; Undo of her edit must not turn back on one they turned off.
+        if (meta.name === "mari_instructions") delete patch.enabled;
         await tx
           .update(meta.table as any)
-          .set(knownColumnPatch(meta, change.beforeRaw))
+          .set(patch)
           .where(eq(meta.byKey.get(pk)!.column as any, change.id));
       }
 

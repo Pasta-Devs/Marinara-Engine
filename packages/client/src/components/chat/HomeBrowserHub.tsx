@@ -2148,7 +2148,7 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
                             className="mt-1 line-clamp-6 min-w-0 text-[clamp(0.56rem,2.4cqw,0.75rem)] leading-[1.3] text-[var(--muted-foreground)] sm:mt-1.5 sm:line-clamp-7"
                             data-home-professor-description
                           >
-                            {t("home.professorMari.widgetDescription")}
+                            {t("home.professorMari.widgetDescription", { mod: formatShortcutKey("Mod") })}
                           </p>
                           <button
                             type="button"

@@ -512,7 +512,7 @@ export function formatDocumentationSearch(query: string, response: Documentation
 const MAX_GROUNDING_EXCERPT_CHARS = 260;
 const MAX_GROUNDING_RESULTS = 3;
 // UX-12: a page that matches one stray word is not grounding for a quick answer (one phrase hit scores 12).
-const MIN_GROUNDING_SCORE = 12;
+export const MIN_GROUNDING_SCORE = 12;
 
 /**
  * A compact, prompt-ready rendering of docs search results: one line per
