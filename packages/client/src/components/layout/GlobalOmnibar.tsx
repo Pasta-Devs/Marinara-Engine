@@ -120,7 +120,7 @@ import { cn } from "../../lib/utils";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { useChatStore } from "../../stores/chat.store";
 import { useSidecarStore } from "../../stores/sidecar.store";
-import { useUIStore } from "../../stores/ui.store";
+import { MARI_WINDOW_HEIGHT_MIN_REM, useUIStore } from "../../stores/ui.store";
 import { InlineGhostText } from "../ui/InlineGhostText";
 import {
   getCommandCenterCategoryVisual,
@@ -188,6 +188,8 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
   const backButtonRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
+  const mariWindowHeightRem = useUIStore((state) => state.mariWindowHeightRem);
+  const mariWindowViewportHeight = Math.min(88, (80 * mariWindowHeightRem) / MARI_WINDOW_HEIGHT_MIN_REM);
   const firstResultPaintMarked = useRef(false);
   // Opened by the pull-to-open gesture, whose circle pops the panel open: skip the
   // pop-in and hand the panel over before the first paint, so it can be clipped.
@@ -970,11 +972,12 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
       return;
     }
     // The panel grows into the takeover, so aim at the taller shell, not this one.
-    const grown = Math.min(44 * 16, window.innerHeight * 0.8);
+    const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
+    const grown = Math.min(mariWindowHeightRem * rem, window.innerHeight * (mariWindowViewportHeight / 100));
     setInputTravel(
       Math.max(0, grown - (input.getBoundingClientRect().bottom - dialog.getBoundingClientRect().top) - 44),
     );
-  }, [mariSurface, reduceMotion]);
+  }, [mariSurface, reduceMotion, mariWindowHeightRem, mariWindowViewportHeight]);
   // Ghost text: continue the query with the best-ranked result title. Uses the
   // ranked list already on screen, so the guess never disagrees with row 1.
   // It completes the name only. Completing the whole sentence ("add Eliza to
@@ -1960,9 +1963,15 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
         aria-labelledby="global-omnibar-title"
         ref={dialogRef}
         data-component="GlobalOmnibar.Panel"
+        style={
+          {
+            "--mari-window-height": `${mariWindowHeightRem}rem`,
+            "--mari-window-viewport-height": `${mariWindowViewportHeight}dvh`,
+          } as React.CSSProperties
+        }
         className={`relative isolate flex h-[100dvh] w-full flex-col overflow-hidden bg-[var(--card)] shadow-2xl ${fromPull ? "" : "motion-safe:animate-omnibar-in"} sm:max-w-[44rem] sm:rounded-2xl sm:shadow-[0_24px_60px_-12px_rgba(0,0,0,0.55)] sm:ring-1 sm:ring-[var(--border)]/60 sm:motion-safe:transition-[height,max-height,max-width] sm:motion-safe:duration-300 sm:motion-safe:ease-out motion-reduce:transition-none ${
           pane === "mari"
-            ? "mari-workspace-shell sm:h-[min(44rem,80dvh)] sm:max-h-[min(44rem,80dvh)]"
+            ? "mari-workspace-shell sm:h-[min(var(--mari-window-height),var(--mari-window-viewport-height))] sm:max-h-[min(var(--mari-window-height),var(--mari-window-viewport-height))]"
             : idle && !settingsOpen
               ? "sm:h-auto sm:max-h-none"
               : "sm:h-[min(36rem,68dvh)] sm:max-h-[min(36rem,68dvh)]"

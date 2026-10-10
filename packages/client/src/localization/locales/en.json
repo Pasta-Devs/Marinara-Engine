@@ -3126,6 +3126,8 @@
   "omnibar.settings.sendOnEnter.label": "Enter sends to Professor Mari",
   "omnibar.settings.suggestions.description": "While you edit a field, Search offers to have Professor Mari improve it.",
   "omnibar.settings.suggestions.label": "Offer to improve a field",
+  "omnibar.settings.windowHeight.description": "Set the height of her window on larger screens.",
+  "omnibar.settings.windowHeight.label": "Professor Mari window height",
   "omnibar.title": "Search Marinara",
   "onboarding.actions.getStarted": "Get Started",
   "onboarding.actions.next": "Next",

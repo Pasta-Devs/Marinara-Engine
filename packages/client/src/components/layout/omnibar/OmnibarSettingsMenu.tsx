@@ -22,7 +22,7 @@ import {
 
 import { useInDialogFocusScope } from "../../../hooks/use-in-dialog-focus-scope";
 import { useSidecarStore } from "../../../stores/sidecar.store";
-import { useUIStore } from "../../../stores/ui.store";
+import { MARI_WINDOW_HEIGHT_MIN_REM, MARI_WINDOW_HEIGHT_MAX_REM, useUIStore } from "../../../stores/ui.store";
 import { api } from "../../../lib/api-client";
 import { enqueueMariPermissionsModeWrite } from "../../../lib/mari-permissions-write-chain";
 import {
@@ -324,6 +324,9 @@ export function OmnibarSettingsSheet({
   const { t } = useTranslation();
   const cardRef = useRef<HTMLDivElement>(null);
   const connectionSelectId = useId();
+  const windowHeightId = useId();
+  const windowHeightRem = useUIStore((state) => state.mariWindowHeightRem);
+  const setWindowHeightRem = useUIStore((state) => state.setMariWindowHeightRem);
 
   const mariEnabled = useUIStore((state) => state.commandCenterMariEnabled);
   const setMariEnabled = useUIStore((state) => state.setCommandCenterMariEnabled);
@@ -532,6 +535,24 @@ export function OmnibarSettingsSheet({
             checked={mariEnabled}
             onChange={setMariEnabled}
           />
+          <div
+            id={anchorId("mari-window-height")}
+            className="omnibar-settings-menu__row omnibar-settings-menu__row--stacked"
+          >
+            <label htmlFor={windowHeightId} className="omnibar-settings-menu__label">
+              {t("omnibar.settings.windowHeight.label")}
+            </label>
+            <input
+              id={windowHeightId}
+              type="range"
+              min={MARI_WINDOW_HEIGHT_MIN_REM}
+              max={MARI_WINDOW_HEIGHT_MAX_REM}
+              step={1}
+              value={windowHeightRem}
+              className="min-h-11 w-full accent-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ring)]"
+              onChange={(event) => setWindowHeightRem(Number(event.target.value))}
+            />
+          </div>
           <PermissionsModeRow />
           <SettingRow
             controlId="professor-mari-suggestions"

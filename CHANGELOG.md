@@ -1504,6 +1504,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Changed
 
+- Professor Mari’s window is slightly taller by default on larger screens. Adjust its height with a slider in Search and Professor Mari settings; the previous height is the minimum.
+
 - Token estimates better account for Korean, Chinese, and Japanese text, and related prompt and context editors consistently show estimated token counts instead of character counts or no counter.
 
 - Community UI translations download on demand from `docs-i18n`, with explicit refresh and offline English fallback. Existing non-English users reselect their language once after upgrading; English stays bundled and canonical (#5827).
