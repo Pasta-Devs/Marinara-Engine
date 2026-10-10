@@ -766,14 +766,22 @@ export class OpenAIProvider extends BaseLLMProvider {
     if (/^(o1|o3|o4)/.test(m)) return true;
     if (this.isOpenAINoSamplingModel(m)) return true;
     if (m.startsWith("gpt-5") && reasoningEffort && reasoningEffort !== "none") return true;
-    // DeepSeek documents temperature as having no effect in thinking mode, which is its default.
-    if (this.providerKind === "deepseek" && reasoningEffort && reasoningEffort !== "none") return true;
     // Claude adaptive-only models forbid all sampling params (covers reverse proxies).
     if (isClaudeAdaptiveOnlyNoSamplingModel(m)) return true;
     return false;
   }
 
   private stripUnsupportedSamplerParameters(body: Record<string, unknown>, options: ChatOptions): void {
+    if (this.providerKind === "deepseek") {
+      // DeepSeek's two samplers belong to different modes, so only one of them is live at a time: temperature has no
+      // effect while thinking runs, and top_p is fixed at 1.0 whenever thinking is off. Strip the ignored one and let
+      // the working sampler reach the API. Unlike the GPT-5 case below, this is not "no sampling at all".
+      const thinkingOff = this.hasExplicitReasoningDisable(options.reasoningEffort);
+      const dropped = thinkingOff ? "top_p" : "temperature";
+      const explicit = options.customParameters;
+      if (!explicit || !Object.prototype.hasOwnProperty.call(explicit, dropped)) delete body[dropped];
+      return;
+    }
     // GPT-6 Sol/Luna allow sampling only when the dispatched request explicitly
     // disables reasoning; an omitted/disabled parameter uses the model default.
     const effort = isOpenAIGpt6Model(options.model)

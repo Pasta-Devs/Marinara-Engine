@@ -296,9 +296,10 @@ export function relevantGenerationParameters(context: GenerationParameterContext
           provider === "mistral" && (isMistralAdjustableReasoningModel(model) || isMistralGlm53Model(model));
         // DeepSeek takes reasoning_effort for all of its chat models, so effort stays whatever the model id is.
         const deepseekReasoning = provider === "deepseek";
-        // DeepSeek's thinking mode is the default and ignores temperature; its request builder drops sampling while an
-        // effort level is active, so the panel matches it rather than offering a control that changes nothing.
-        if (deepseekReasoning && effortActive) hide("temperature", "topP");
+        // DeepSeek's samplers are mode-specific: temperature does nothing while thinking runs, and top_p is fixed at
+        // 1.0 once thinking is off. Show the one that is live and hide the one the request drops, so a JSON agent with
+        // reasoning off still gets its low temperature, and a thinking chat still gets top_p.
+        if (deepseekReasoning) hide(effortActive ? "temperature" : "topP");
         if (
           provider !== "nanogpt" &&
           !deepseekReasoning &&
