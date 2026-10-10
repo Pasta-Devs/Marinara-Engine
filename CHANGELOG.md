@@ -419,7 +419,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - Quick answers cite only docs pages that really match your question. A page that matches one stray word is no longer a source.
 - Search for a question ranks the guides that match its content words. A page whose title holds more of your words comes first, and question words such as why or is no longer count. For a question, Ask Professor Mari comes above the docs and message results.
 - New **Add CYOA choices to the message box instead of sending them** setting in **Settings** > **General** > **Input & Editing**. When on, clicking a CYOA choice adds its text to your message box and the choices stay on screen, so you can combine several into one message and edit it before sending. It takes priority over **Use CYOA as direction**, so with both on, a clicked choice goes to your message box instead of starting an impersonated reply.
-- New **Show "older messages not sent" note** setting in **Settings** > **Advanced** > **Message Tools**. A chat that has grown past the model's context window fits the prompt by leaving older messages out, and the note under the reply said so on nearly every generation with no way to quiet it. Turn the note off to keep that line out of long chats; the reply checkup still lists it, and a reply that was cut off or came back empty keeps its own note (#7392).
+- New **Show "older messages not sent" note** setting in **Settings** > **Advanced** > **Message Tools**. Turn it off to hide that note under replies in long chats; a cut-off or empty reply still shows its own note, and **Check the last reply** in Search still opens it (#7392).
 
 ## [2.5.0]
 
