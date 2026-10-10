@@ -2651,14 +2651,14 @@ export function createChatsStorage(db: DB) {
           !!existing &&
           existing.content !== content &&
           previousActivity.some((item) => item.contentOffset !== undefined);
-        const withActivity = (extra: Record<string, unknown>) => {
+        const withActivity = (extra: Record<string, unknown>, before: string) => {
           const activity = getRoleplayCommandActivity(extra);
           if (!reanchored || !activity.some((item) => item.contentOffset !== undefined)) return extra;
           const kept = activity.length - Math.max(0, typedCount);
           return {
             ...extra,
             roleplayCommandActivity: [
-              ...reanchorRoleplayCommandActivity(existing.content, content, activity.slice(0, kept)),
+              ...reanchorRoleplayCommandActivity(before, content, activity.slice(0, kept)),
               ...activity.slice(kept),
             ],
           };
@@ -2680,7 +2680,7 @@ export function createChatsStorage(db: DB) {
         const messagePatch: Record<string, unknown> = { content };
         if (prepared || clearCommandContent || reanchored) {
           messagePatch.extra = JSON.stringify({
-            ...withActivity(prepared?.extra ?? existingExtra),
+            ...withActivity(prepared?.extra ?? existingExtra, existing?.content ?? ""),
             ...(clearCommandContent ? { conversationCommandContent: null } : {}),
           });
         }
@@ -2701,13 +2701,19 @@ export function createChatsStorage(db: DB) {
             const activeSwipe = swipes.find((s: any) => s.index === msg.activeSwipeIndex);
             if (activeSwipe) {
               const swipePatch: Record<string, unknown> = { content };
+              // The swipe's own saved text anchored its activity.
+              const swipeBefore =
+                typeof activeSwipe.content === "string" ? activeSwipe.content : (existing?.content ?? "");
               if (prepared || reanchored) {
                 swipePatch.extra = JSON.stringify(
-                  withActivity({ ...parseExtraRecord(activeSwipe.extra), ...prepared?.extra }),
+                  withActivity({ ...parseExtraRecord(activeSwipe.extra), ...prepared?.extra }, swipeBefore),
                 );
               }
               if (clearCommandContent) {
-                const swipeExtra = withActivity({ ...parseExtraRecord(activeSwipe.extra), ...prepared?.extra });
+                const swipeExtra = withActivity(
+                  { ...parseExtraRecord(activeSwipe.extra), ...prepared?.extra },
+                  swipeBefore,
+                );
                 // Clear only a raw copy this swipe itself carries, and never a
                 // command-only carrier's.
                 if (
