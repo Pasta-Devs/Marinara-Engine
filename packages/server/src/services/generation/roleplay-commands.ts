@@ -5,6 +5,7 @@ import {
   getRoleplayPrivateCommands,
   getRoleplayCommandActivity,
   getRoleplayWhispers,
+  getRoleplayDocuments,
   getRoleplayCommandContentOffset,
   ROLEPLAY_COMMAND_KEYS,
   normalizeChatSummaryEntries,
@@ -383,11 +384,22 @@ export function roleplayWhisperOnlyMessageIds(history: readonly HistoryMessage[]
       extra.commandOnly !== true &&
       !visibleBody(message).trim() &&
       !(Array.isArray(extra.attachments) && extra.attachments.length > 0) &&
+      !getRoleplayDocuments(extra).length &&
       getRoleplayWhispers(extra).length > 0
     )
       ids.add(message.id);
   }
   return ids;
+}
+
+/** The latest user turn's text for macros and searches. A turn that is only a whisper has none to share. */
+export function latestRoleplayUserInput(
+  messages: readonly { role: string; content: string }[],
+  history: readonly HistoryMessage[],
+): string | undefined {
+  const message = [...messages].reverse().find((candidate) => candidate.role === "user");
+  const id = (message as { id?: unknown } | undefined)?.id;
+  return typeof id === "string" && roleplayWhisperOnlyMessageIds(history).has(id) ? "" : message?.content;
 }
 
 /** Insert secrets at their saved positions in the final viewer's retained history, after copying shared prompts. */
@@ -408,11 +420,18 @@ export function appendRoleplayWhispers(
         (viewer.kind === recipient.kind && viewer.id === recipient.id),
     );
   };
-  // A message that is only a whisper is not there at all for anyone it does not reach.
+  // A message that is only a whisper is not there at all for anyone it does not reach, unless the user shared
+  // a private note on it with them.
   const whisperOnly = roleplayWhisperOnlyMessageIds(history);
   dropPromptHistoryMessages(
     prompt,
-    (message) => !!message.id && whisperOnly.has(message.id) && !whispersFor(message).length,
+    (message) =>
+      !!message.id &&
+      whisperOnly.has(message.id) &&
+      !whispersFor(message).length &&
+      !(
+        viewer?.kind === "character" && readMessagePrivateNoteRecipientId(sources.get(message.id)?.extra) === viewer.id
+      ),
   );
   let added = false;
   for (const message of prompt) {

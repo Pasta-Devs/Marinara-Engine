@@ -35,6 +35,7 @@ import {
   parseRoleplayUserCommands,
   prepareUserRoleplayCommands,
   roleplayHiddenWhisperMessageIds,
+  latestRoleplayUserInput,
 } from "../../services/generation/roleplay-commands.js";
 import { randomUUID } from "crypto";
 import { createChatsStorage } from "../../services/storage/chats.storage.js";
@@ -1117,7 +1118,10 @@ export async function registerDryRunRoute(app: FastifyInstance) {
         typeof chatMeta.groupScenarioText === "string" && (chatMeta.groupScenarioText as string).trim()
           ? (chatMeta.groupScenarioText as string).trim()
           : null,
-      lastInput: [...mappedMessages].reverse().find((message) => message.role === "user")?.content,
+      lastInput:
+        chatMode === "roleplay"
+          ? latestRoleplayUserInput(mappedMessages, chatMessages)
+          : [...mappedMessages].reverse().find((message) => message.role === "user")?.content,
       chatId,
       model: conn.model,
       lastGenerationType: promptLastGenerationType,
@@ -1346,7 +1350,10 @@ export async function registerDryRunRoute(app: FastifyInstance) {
         characterNamesById,
       });
     }
-    promptMacroContext.lastInput = [...mappedMessages].reverse().find((message) => message.role === "user")?.content;
+    promptMacroContext.lastInput =
+      chatMode === "roleplay"
+        ? latestRoleplayUserInput(mappedMessages, chatMessages)
+        : [...mappedMessages].reverse().find((message) => message.role === "user")?.content;
 
     const usePromptParts = !!promptParts;
     if (!usePromptParts && chatMode === "conversation" && effectivePreset) {

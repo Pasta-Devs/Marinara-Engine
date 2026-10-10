@@ -299,8 +299,15 @@ export function dropPromptHistoryMessages(
   const kept = messages.filter((message) => message.contextKind !== "history" || !drop(message));
   if (kept.length === messages.length) return;
   reassignHistoryLastMessageWrapper(kept, messages);
-  pruneEmptyPromptWrappers(kept);
-  messages.splice(0, messages.length, ...kept);
+  // Only history entries can be left empty here; other messages, such as a reasoning-only prefill, stay.
+  messages.splice(
+    0,
+    messages.length,
+    ...kept.filter(
+      (message) =>
+        message.contextKind !== "history" || message.content.trim() || message.images?.length || message.files?.length,
+    ),
+  );
 }
 
 /** Select durable history without dropping synthetic current input or rerunning prompt assembly. */
