@@ -28,7 +28,16 @@ import {
 import { vmRegexExecutor } from "./regex-timeout.js";
 
 export type LorebookTestBlockReason =
-  "secondary_keys" | "filters" | "conditions" | "group" | "probability" | "recursion_only" | "folder_disabled";
+  | "secondary_keys"
+  | "filters"
+  | "conditions"
+  | "group"
+  | "probability"
+  | "recursion_only"
+  | "folder_disabled"
+  // F2: the entry matched and would have fired, but the last real generation's token budget left
+  // it out. Set by the `testscan` handler (mari-db.service.ts), never by the scanner itself.
+  | "budget";
 
 export interface LorebookTestActivatedEntry {
   entryId: string;
@@ -46,6 +55,10 @@ export interface LorebookTestBlockedEntry {
   name: string;
   matchedKeys: string[];
   reason: LorebookTestBlockReason;
+  /** Only set for `reason: "budget"`, from the last real generation's lorebook scan. */
+  estimatedTokens?: number;
+  lorebookBudget?: number;
+  lorebookUsedTokens?: number;
 }
 
 export interface LorebookTestScanResult {

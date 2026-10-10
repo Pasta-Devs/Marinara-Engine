@@ -159,15 +159,16 @@ for (const file of [
 }
 
 // ── Client: visible by default, truncated one row, expandable ───────────────
+// M5a (slice 36): the line is the turn's "Goal" (renderGoal); its expansion state is `expanded`.
 const mariChat = readSource("packages/client/src/components/chat/HomeProfessorMariChat.tsx");
 assert.match(
   mariChat,
-  /latestUnderstoodRequest\.messageId === message\.id/u,
+  /latestUnderstoodRequest\?\.messageId === message\.id/u,
   "the line anchors to the reply its round produced",
 );
 assert.match(
   mariChat,
-  /understoodRequestExpanded \? "min-w-0 whitespace-pre-wrap break-words" : "min-w-0 truncate"/u,
+  /expanded \? "min-w-0 whitespace-pre-wrap break-words" : "min-w-0 truncate"/u,
   "one-row truncation with click-to-expand; break-words so an unbreakable token cannot widen the transcript",
 );
 // Expansion is keyed by messageId, so it can never carry over to the next
@@ -181,20 +182,19 @@ assert.match(mariChat, /actingOnOutcomeFailed/u);
 assert.match(mariChat, /actingOnOutcomeInterrupted/u);
 assert.match(
   mariChat,
-  /aria-expanded=\{understoodRequestExpanded\}/u,
+  /aria-expanded=\{expanded\}/u,
   "the disclosure exposes its expanded state to assistive tech",
 );
 assert.match(
   mariChat,
-  /actingOnCollapse"\s*\n?\s*: "ui\.chat\.homeprofessormarichat\.actingOnExpand"/u,
+  /expanded \? "ui\.chat\.homeprofessormarichat\.actingOnCollapse" : "ui\.chat\.homeprofessormarichat\.actingOnExpand"/u,
   "the tooltip switches between expand and collapse wording",
 );
 assert.match(mariChat, /understoodRequest\.outcome === "held"/u);
 
 const enJson = JSON.parse(readSource("packages/client/src/localization/locales/en.json")) as Record<string, string>;
 for (const key of [
-  "ui.chat.homeprofessormarichat.actingOnValue1",
-  "ui.chat.homeprofessormarichat.actingOnNothingReported",
+  "ui.chat.homeprofessormarichat.goalQuote",
   "ui.chat.homeprofessormarichat.actingOnExpand",
   "ui.chat.homeprofessormarichat.actingOnCollapse",
   "ui.chat.homeprofessormarichat.actingOnModeOutcomeValue1Value2",
@@ -213,7 +213,7 @@ assert.match(
 
 // ── Diagnostics: the triage line distinguishes unreachable / none / recorded ─
 const diagnostics = readSource("packages/client/src/lib/support-diagnostics.ts");
-assert.match(diagnostics, /Mari last acted on:/u);
+assert.match(diagnostics, /Professor Mari last acted on:/u);
 assert.match(diagnostics, /Unavailable \(workspace status not reachable\)/u);
 assert.match(diagnostics, /none recorded this session/u);
 // The phrase is flattened and capped for the line-oriented report (a

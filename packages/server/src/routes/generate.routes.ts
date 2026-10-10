@@ -7997,6 +7997,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             agentContext.memory._mainPromptPreview = promptPreviewForAgents(publicRoleplayPrompt ?? messages);
           };
           let effectiveMaxTokensForSend: number | undefined = maxTokens;
+          let lastContextFit: ReturnType<typeof fitMessagesForModelAccess>["contextFit"] | undefined;
           const fitPromptForSend = async (candidateMessages: ChatMessage[]): Promise<ChatMessage[]> => {
             if (advancedMemoryEnabled) {
               if (advancedMemoryReceipt)
@@ -8023,6 +8024,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             });
             finalPromptSent = fit.messages;
             effectiveMaxTokensForSend = fit.maxTokensForSend;
+            lastContextFit = fit.contextFit;
             return fit.messages;
           };
 
@@ -10321,6 +10323,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 durationMs,
                 reasoningDurationMs,
                 finishReason: finishReason ?? null,
+                contextFit: lastContextFit ?? null,
               },
             };
             if (fullThinking) extraUpdate.thinking = fullThinking;

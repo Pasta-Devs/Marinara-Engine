@@ -1,0 +1,16 @@
+{
+  "tool": "Built-in image_gen",
+  "pack": "safari",
+  "notes": "Pixel-art replacement for all Home Mari poses. Legacy pose composition was preserved; Safari omnibar story/portrait sprites locked the khaki helmet, field shirt, olive cargos, belt, boots and backpack. Native sprites use hard alpha and a reduced palette; @4x files are exact nearest-neighbour enlargements.",
+  "prompts": [
+    {"asset":"wave","prompt":"Re-create the high-wave pose exactly as Safari omnibar pixel art. Friendly blonde Mari wears khaki safari helmet, tan field shirt, olive cargos, brown belt/boots and small backpack. Crisp low-resolution grid and transparent background."},
+    {"asset":"greet","prompt":"Re-create the shoulder-height greeting pose exactly as Safari omnibar pixel art with the complete khaki/olive explorer outfit. Transparent background."},
+    {"asset":"point-up","prompt":"Re-create the crossed-leg LEFT-AND-UP pointing pose exactly as Safari omnibar pixel art with helmet, khaki shirt, cargos and backpack. Transparent background."},
+    {"asset":"point-middle","prompt":"Re-create the crossed-leg horizontal LEFT pointing pose exactly as Safari omnibar pixel art with helmet, khaki shirt, cargos and backpack. Transparent background."},
+    {"asset":"point-down","prompt":"Re-create the crossed-leg LEFT-AND-DOWN pointing pose exactly as Safari omnibar pixel art with helmet, khaki shirt, cargos and backpack. Transparent background."},
+    {"asset":"explaining","prompt":"Re-create the raised-finger explaining pose exactly as Safari omnibar pixel art with the complete explorer outfit. Transparent background."},
+    {"asset":"thinking","prompt":"Re-create the hand-at-chin thinking pose exactly as Safari omnibar pixel art with the complete explorer outfit. Transparent background."},
+    {"asset":"profile","prompt":"Create a tight 128x128 Safari omnibar pixel-art face avatar with blue eyes, black glasses and khaki helmet, preserving face scale and transparent outside-hat corners."},
+    {"asset":"chibi","prompt":"Re-create the cat-eared chibi pose at 128 px tall in Safari omnibar pixel art, integrating the helmet around the ears and preserving the curled tail and explorer outfit. Transparent background."}
+  ]
+}

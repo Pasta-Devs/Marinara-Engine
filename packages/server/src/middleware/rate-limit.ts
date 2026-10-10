@@ -24,6 +24,18 @@ type RateLimitRule = {
 
 const DEFAULT_RULE: RateLimitRule = { key: "default", limit: 600, windowMs: 60_000 };
 
+/** Quick answers call a model per request; a person asks a few per minute, never in a loop. */
+export const PROFESSOR_MARI_QUICK_RATE_LIMIT = {
+  max: 30,
+  timeWindow: 60_000,
+} as const satisfies MarinaraRouteRateLimit;
+
+/** Bulk "skip these agent updates" writes the package catalog; a person clicks it, not a script. */
+export const PACKAGE_UPDATE_DECLINE_RATE_LIMIT = {
+  max: 30,
+  timeWindow: 60_000,
+} as const satisfies MarinaraRouteRateLimit;
+
 export const UPDATE_CHANNEL_RATE_LIMIT = {
   max: 30,
   timeWindow: 60_000,
@@ -197,6 +209,22 @@ const ROUTE_RULES: Array<{ pattern: RegExp; rule: RateLimitRule }> = [
     },
   },
   { pattern: /^\/api\/haptic\/command(?:\?|$)/, rule: { key: "haptic-command", limit: 30, windowMs: 60_000 } },
+  {
+    pattern: /^\/api\/professor-mari\/quick\/(?:prompt|proposals\/[^/]+\/apply)(?:\?|$)/,
+    rule: {
+      key: "professor-mari-quick",
+      limit: PROFESSOR_MARI_QUICK_RATE_LIMIT.max,
+      windowMs: PROFESSOR_MARI_QUICK_RATE_LIMIT.timeWindow,
+    },
+  },
+  {
+    pattern: /^\/api\/capability-packages\/updates\/decline(?:\?|$)/,
+    rule: {
+      key: "package-update-decline",
+      limit: PACKAGE_UPDATE_DECLINE_RATE_LIMIT.max,
+      windowMs: PACKAGE_UPDATE_DECLINE_RATE_LIMIT.timeWindow,
+    },
+  },
   // One-shot LLM call per user click; keep it out of the 600/min default
   // class so a runaway loop can't burn API credits.
   {

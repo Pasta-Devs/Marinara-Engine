@@ -19,7 +19,6 @@ for (const mode of ["roleplay", "conversation"] as const) {
       hasCompletedOnboarding: true,
       sidebarOpen: false,
       rightPanelOpen: false,
-      professorMariNavigationEnabled: false,
       chatHelpSeenModes: ["conversation", "roleplay"],
       chatWizardDefaults: {
         [mode]: {

@@ -30,8 +30,6 @@ interface ParsedGroup {
   members: Persona[];
 }
 
-const UNGROUPED_PERSONA_GROUP_ID = "__ungrouped-personas__";
-
 export function QuickPersonaSwitcher({ className }: { className?: string }) {
   const { t: localizeUi } = useUiTranslation();
   const [open, setOpen] = useState(false);
@@ -89,8 +87,11 @@ export function QuickPersonaSwitcher({ className }: { className?: string }) {
     return map;
   }, [personas]);
 
-  // Parse persona groups and resolve members
-  const { groups } = useMemo(() => {
+  // Parse persona groups and resolve members. Personas in no named group are
+  // not wrapped in their own "Ungrouped" folder — that folder served no
+  // purpose (nothing to collapse into), just an extra tap, so they list flat
+  // instead (O4 item 4).
+  const { groups, ungroupedPersonas } = useMemo(() => {
     const groupRows = (rawPersonaGroups ?? []) as PersonaGroupRow[];
     const allGroupedIds = new Set<string>();
     const parsedGroups: ParsedGroup[] = [];
@@ -117,18 +118,8 @@ export function QuickPersonaSwitcher({ className }: { className?: string }) {
 
     parsedGroups.sort((a, b) => a.name.localeCompare(b.name));
 
-    const ungroupedList = visiblePersonas.filter((p) => !allGroupedIds.has(p.id));
-    if (ungroupedList.length > 0) {
-      parsedGroups.push({
-        id: UNGROUPED_PERSONA_GROUP_ID,
-        name: localizeUi("ui.chat.personapicker.ungrouped"),
-        memberIds: ungroupedList.map((p) => p.id),
-        members: ungroupedList,
-      });
-    }
-
-    return { groups: parsedGroups };
-  }, [localizeUi, normalizedSearch, rawPersonaGroups, personaMap, visiblePersonas]);
+    return { groups: parsedGroups, ungroupedPersonas: visiblePersonas.filter((p) => !allGroupedIds.has(p.id)) };
+  }, [normalizedSearch, rawPersonaGroups, personaMap, visiblePersonas]);
 
   const visibleCharacterGroups = useMemo(
     () =>
@@ -476,6 +467,9 @@ export function QuickPersonaSwitcher({ className }: { className?: string }) {
                   </div>
                 );
               })}
+
+              {/* Personas in no named group: flat rows, no folder to tap through. */}
+              {ungroupedPersonas.map((persona) => renderPersonaRow(persona, false))}
 
               {visiblePersonas.length === 0 && !hasVisibleCharacterChoices && (
                 <div className="px-3 py-4 text-center text-[0.6875rem] italic text-foreground/45">

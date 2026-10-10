@@ -43,6 +43,8 @@ const EDITABLE_PARAMETER_KEYS: Array<keyof EditableGenerationParameters> = [
 type AdvancedConnection = ConnectionProviderLike & Record<string, unknown>;
 
 interface AdvancedParametersSectionProps {
+  /** Open on arrival (the reply checkup's "Max output tokens" link). */
+  forceOpen?: boolean;
   metadata: Record<string, unknown>;
   isConversation: boolean;
   connectionId: string | null;
@@ -65,6 +67,7 @@ interface AdvancedParametersSectionProps {
 }
 
 export function AdvancedParametersSection({
+  forceOpen,
   metadata,
   isConversation,
   connectionId,
@@ -92,6 +95,10 @@ export function AdvancedParametersSection({
   const imageCaptioningDefaults = parseConnectionImageCaptioningDefaults(conn?.defaultParameters);
   const saveDefaults = useSaveConnectionDefaults();
   const [expanded, setExpanded] = useState(false);
+  // Explicit navigation opens once; a later user collapse still wins.
+  useEffect(() => {
+    if (forceOpen) setExpanded(true);
+  }, [forceOpen]);
   const contentVisible = useDrawerContentVisible("advanced-parameters", expanded);
   const preview = useEffectiveGenerationParameters(connectionId, contentVisible);
   const awaitingDefaults = preview.canPreview && !preview.data;

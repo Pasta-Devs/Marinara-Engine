@@ -9,6 +9,8 @@ import { ChatSettingsSection } from "../ChatSettingsSection";
 import { PickerDropdown } from "../PickerDropdown";
 
 interface LorebooksSectionProps {
+  /** Open on arrival (the reply checkup's "Lorebook token budget" link). */
+  forceOpen?: boolean;
   chatId: string;
   activeLorebooks: ActiveLorebookView[];
   lorebooks: Lorebook[];
@@ -26,6 +28,7 @@ interface LorebooksSectionProps {
 }
 
 export function LorebooksSection({
+  forceOpen,
   chatId,
   activeLorebooks,
   lorebooks,
@@ -64,6 +67,7 @@ export function LorebooksSection({
   return (
     <ChatSettingsSection
       id="lorebooks"
+      forceOpen={forceOpen}
       label={localizeUi("navigation.topbar.lorebooks")}
       icon={<BookOpen size="0.875rem" />}
       count={activeLorebooks.length}

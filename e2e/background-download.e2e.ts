@@ -14,11 +14,7 @@ test.beforeEach(async ({ page }) => {
   await page.addInitScript((appVersion) => {
     localStorage.setItem("marinara:whats-new:seen-version", appVersion);
   }, version);
-  await seedUIState(
-    page,
-    { hasCompletedOnboarding: true, sidebarOpen: false, rightPanelOpen: false, professorMariNavigationEnabled: false },
-    "if-missing",
-  );
+  await seedUIState(page, { hasCompletedOnboarding: true, sidebarOpen: false, rightPanelOpen: false }, "if-missing");
 });
 
 test("Background library downloads a background with its file name (#7129)", async ({ page }, testInfo) => {

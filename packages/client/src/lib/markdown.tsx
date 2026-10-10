@@ -388,6 +388,14 @@ function renderTable(
 
 // ── Main block-level renderer ──
 
+/** Inline markdown with line breaks as `<br>`, for compact answers that are not laid out with `pre-wrap`. */
+export function renderCompactInline(text: string, keyPrefix: string): ReactNode[] {
+  return text.split("\n").flatMap((line, index) => {
+    const nodes = applyInlineMarkdown(line, `${keyPrefix}-${index}`);
+    return index === 0 ? nodes : [<br key={`${keyPrefix}-br-${index}`} />, ...nodes];
+  });
+}
+
 /**
  * Render a markdown text string into React nodes, handling both block-level
  * and inline syntax.

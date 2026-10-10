@@ -272,6 +272,17 @@ export function useLorebookEntries(lorebookId: string | null) {
   });
 }
 
+/** Entries in every lorebook whose name, keys or content contain the query. A server read, capped. */
+export function useLorebookEntrySearch(query: string, enabled: boolean, limit = 6) {
+  return useQuery({
+    queryKey: [...lorebookKeys.all, "entry-search", query, limit] as const,
+    queryFn: ({ signal }) =>
+      api.get<LorebookEntry[]>(`/lorebooks/search/entries?q=${encodeURIComponent(query)}&limit=${limit}`, { signal }),
+    enabled: enabled && query.length > 0,
+    staleTime: 30_000,
+  });
+}
+
 /**
  * Fetch entries across multiple lorebooks in parallel. Each per-lorebook query
  * is cached independently, so repeated calls with overlapping IDs reuse cached

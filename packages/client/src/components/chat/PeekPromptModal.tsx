@@ -12,8 +12,15 @@ import {
   NEUTRAL_PANEL_TITLE,
 } from "../ui/neutral-surface-styles";
 import { useTranslation as useUiTranslation } from "react-i18next";
-import { estimateTextTokens, type GameToolPlanningInfo, type DecisionDebugPreview } from "@marinara-engine/shared";
+import {
+  estimateTextTokens,
+  type GameToolPlanningInfo,
+  type DecisionDebugPreview,
+  type ReplyCheckupFinding,
+  type ReplyCheckupLink,
+} from "@marinara-engine/shared";
 import { DecisionDebugPanel } from "./DecisionDebugPanel";
+import { ReplyCheckupFacts } from "./ReplyCheckup";
 
 const PROMPT_TAG_CLASS =
   "border border-[var(--marinara-chat-chrome-button-border)] bg-[var(--marinara-chat-chrome-highlight-bg)] text-[var(--marinara-chat-chrome-highlight-text)]";
@@ -61,6 +68,8 @@ interface PeekPromptModalProps {
     gameToolPlanning?: GameToolPlanningInfo | null;
     agentNote?: string;
     decisions?: { unanswered: string[]; dropped?: string[]; decisionModelSet: boolean };
+    /** R2: the checkup of the reply this prompt produced. */
+    checkup?: { findings: ReplyCheckupFinding[]; onLink: (link: ReplyCheckupLink) => void };
   };
   onClose: () => void;
 }
@@ -611,6 +620,14 @@ export function PeekPromptModal({ data: originalData, onClose }: PeekPromptModal
             <X size="1rem" />
           </button>
         </div>
+        {!showTest && originalData.checkup && originalData.checkup.findings.length > 0 && (
+          <div className={cn(NEUTRAL_PANEL_HEADER, "mari-reply-checkup shrink-0 px-5 pb-3")} data-peek-checkup>
+            <p className="mb-1 font-medium text-[var(--foreground)]">
+              {localizeUi("chat.replyCheckup.peekTitle", "Reply checkup")}
+            </p>
+            <ReplyCheckupFacts findings={originalData.checkup.findings} onLink={originalData.checkup.onLink} />
+          </div>
+        )}
         <div className={cn(NEUTRAL_PANEL_SCROLL_AREA, "min-h-0 flex-1 overflow-y-auto p-4 space-y-2")}>
           {originalData.chatId && (
             <DecisionDebugPanel

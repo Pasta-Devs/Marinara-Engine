@@ -1,14 +1,59 @@
 export const CHAT_FLOATING_UI_DISMISS_EVENT = "marinara:chat-floating-ui-dismiss";
 export const CHAT_SUMMARY_OPEN_REQUEST_EVENT = "marinara:chat-summary-open-request";
+export const CHAT_LOREBOOK_ENTRIES_OPEN_REQUEST_EVENT = "marinara:chat-lorebook-entries-open-request";
+export const CHAT_SEARCH_OPEN_REQUEST_EVENT = "marinara:chat-search-open-request";
+export const CHAT_PEEK_PROMPT_REQUEST_EVENT = "marinara:chat-peek-prompt-request";
+export const CHAT_REGENERATE_REQUEST_EVENT = "marinara:chat-regenerate-request";
+export const CHAT_REPLY_CHECKUP_REQUEST_EVENT = "marinara:chat-reply-checkup-request";
+export const CHAT_RETRY_WITH_CONNECTION_REQUEST_EVENT = "marinara:chat-retry-with-connection-request";
+export const CHAT_SETTINGS_SECTION_OPEN_REQUEST_EVENT = "marinara:chat-settings-section-open-request";
 
 export function announceChatFloatingUiDismiss() {
   if (typeof window === "undefined") return;
   window.dispatchEvent(new Event(CHAT_FLOATING_UI_DISMISS_EVENT));
 }
 
+/** Opens Chat Settings at one section, for omnibar rows that name a setting inside it (UX-13). */
+export function requestChatSettingsSectionOpen(chatId: string, section: "advanced-parameters" | "memory-recall") {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent(CHAT_SETTINGS_SECTION_OPEN_REQUEST_EVENT, { detail: { chatId, section } }));
+}
+
 export function requestChatSummaryOpen(chatId: string) {
   if (typeof window === "undefined") return;
   window.dispatchEvent(new CustomEvent(CHAT_SUMMARY_OPEN_REQUEST_EVENT, { detail: { chatId } }));
+}
+
+export function requestChatLorebookEntriesOpen(chatId: string) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent(CHAT_LOREBOOK_ENTRIES_OPEN_REQUEST_EVENT, { detail: { chatId } }));
+}
+
+export function requestChatSearchOpen(chatId: string) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent(CHAT_SEARCH_OPEN_REQUEST_EVENT, { detail: { chatId } }));
+}
+
+export function requestChatPeekPrompt(chatId: string) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent(CHAT_PEEK_PROMPT_REQUEST_EVENT, { detail: { chatId } }));
+}
+
+/** R2: opens the reply checkup under the chat's newest reply (the omnibar Fix row). */
+export function requestChatReplyCheckup(chatId: string) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent(CHAT_REPLY_CHECKUP_REQUEST_EVENT, { detail: { chatId } }));
+}
+
+export function requestChatRegenerate(chatId: string) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent(CHAT_REGENERATE_REQUEST_EVENT, { detail: { chatId } }));
+}
+
+/** Retries the chat's last failed reply with a specific connection, one-off (O4 item 3). */
+export function requestChatRetryWithConnection(chatId: string, connectionId: string) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent(CHAT_RETRY_WITH_CONNECTION_REQUEST_EVENT, { detail: { chatId, connectionId } }));
 }
 
 /**

@@ -20,7 +20,6 @@ test.beforeEach(async ({ page }) => {
       rightPanelOpen: false,
       chatHelpSeenModes: ["conversation", "roleplay", "game"],
       appAccentColor: "#16a6b6",
-      professorMariNavigationEnabled: false,
     },
     "if-missing",
   );

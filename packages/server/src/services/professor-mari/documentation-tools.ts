@@ -2,7 +2,26 @@ import type { Dirent } from "node:fs";
 import { lstat, readdir, readFile, realpath } from "node:fs/promises";
 import { join, relative, resolve, sep } from "node:path";
 
-const EXCLUDED_DOC_DIRS = new Set(["evidence", "pr-evidence", "screenshots", "examples", "i18n"]);
+// UX-12: docs/contrib maps contributor PR series; quick answers cited its headings ("A4c. Shutdown") to users.
+const EXCLUDED_DOC_DIRS = new Set(["evidence", "pr-evidence", "screenshots", "examples", "i18n", "contrib"]);
+/** The only docs/development files that are user docs; the docs viewer lists the same set, in this order. */
+export const USER_DEVELOPMENT_DOCS = [
+  "architecture-map.md",
+  "frontend.md",
+  "file-storage.md",
+  "noodle-internals.md",
+  "ios-pwa-safe-area.md",
+];
+
+/**
+ * docs/development is developer reference: only USER_DEVELOPMENT_DOCS at its top level are user docs.
+ * Internal plans, value tables and mockup notes there (omnibar-*.md) are never searched, read or served.
+ * `relativeDir` is relative to docs/, forward slashes.
+ */
+export function isExcludedDevelopmentDoc(relativeDir: string, fileName: string): boolean {
+  const isDevelopmentDoc = relativeDir === "development" || relativeDir.startsWith("development/");
+  return isDevelopmentDoc && !(relativeDir === "development" && USER_DEVELOPMENT_DOCS.includes(fileName));
+}
 const MAX_DOC_FILE_BYTES = 1024 * 1024;
 const MAX_DOC_CANDIDATES = 500;
 const MAX_DOC_DIRECTORIES = 250;
@@ -97,6 +116,8 @@ async function collectMarkdownFiles(
       continue;
     }
     if (!entry.isFile() || !entry.name.toLowerCase().endsWith(".md")) continue;
+    const relativeDir = relative(docsRoot, dir).split(sep).join("/");
+    if (isExcludedDevelopmentDoc(relativeDir.toLowerCase(), entry.name)) continue;
     const absolutePath = join(dir, entry.name);
     const path = `docs/${relative(docsRoot, absolutePath).split(sep).join("/")}`;
     await addDocumentationCandidate(absolutePath, path, discovery);
@@ -244,9 +265,39 @@ function readMarkdownHeading(path: string, content: string, requestedHeading: st
   return null;
 }
 
-function queryTerms(query: string) {
+// UX-07: question words match nearly every page, so they never rank a guide on their own.
+const QUERY_STOP_WORDS = new Set([
+  "a",
+  "an",
+  "and",
+  "are",
+  "be",
+  "can",
+  "do",
+  "does",
+  "for",
+  "how",
+  "i",
+  "in",
+  "is",
+  "it",
+  "me",
+  "my",
+  "of",
+  "on",
+  "or",
+  "so",
+  "the",
+  "this",
+  "to",
+  "what",
+  "why",
+  "with",
+]);
+
+export function queryTerms(query: string) {
   return [...new Set(query.toLocaleLowerCase().match(/[\p{L}\p{N}][\p{L}\p{N}_-]*/gu) ?? [])].filter(
-    (term) => term.length > 1,
+    (term) => term.length > 1 && !QUERY_STOP_WORDS.has(term),
   );
 }
 
@@ -383,6 +434,9 @@ async function resolveCanonicalDocPath(workspaceRoot: string, requestedPath: str
   if (segments.slice(1).some((segment) => EXCLUDED_DOC_DIRS.has(segment.toLowerCase()))) {
     throw new Error("docs_read path is outside the canonical user documentation set");
   }
+  if (isExcludedDevelopmentDoc(segments.slice(1, -1).join("/").toLowerCase(), segments.at(-1) ?? "")) {
+    throw new Error("docs_read path is outside the canonical user documentation set");
+  }
   const workspace = await realpath(resolve(workspaceRoot));
   const requested = resolve(workspace, ...segments);
   const requestedInfo = await lstat(requested);
@@ -453,6 +507,36 @@ export function formatDocumentationSearch(query: string, response: Documentation
   ]
     .filter(Boolean)
     .join("\n\n");
+}
+
+const MAX_GROUNDING_EXCERPT_CHARS = 260;
+const MAX_GROUNDING_RESULTS = 3;
+// UX-12: a page that matches one stray word is not grounding for a quick answer (one phrase hit scores 12).
+export const MIN_GROUNDING_SCORE = 12;
+
+/**
+ * A compact, prompt-ready rendering of docs search results: one line per
+ * result, excerpt flattened and capped well below the tool-call excerpt
+ * limit. Built for a quick-answer grounding hint (bounded, not a citation
+ * block), so it does not carry the "truncated" note or numbering that
+ * {@link formatDocumentationSearch} uses for the tool-call surface.
+ */
+export function formatDocumentationGroundingExcerpts(
+  results: DocumentationSearchResult[],
+  limit = MAX_GROUNDING_RESULTS,
+): string {
+  return results
+    .filter((result) => result.score >= MIN_GROUNDING_SCORE)
+    .slice(0, limit)
+    .map((result) => {
+      const flattened = result.excerpt.replace(/\s+/gu, " ").trim();
+      const excerpt =
+        flattened.length > MAX_GROUNDING_EXCERPT_CHARS
+          ? `${flattened.slice(0, MAX_GROUNDING_EXCERPT_CHARS - 1).trimEnd()}…`
+          : flattened;
+      return `- ${result.path} — ${result.heading}: ${excerpt}`;
+    })
+    .join("\n");
 }
 
 export function formatDocumentationRead(result: Awaited<ReturnType<typeof readCanonicalDocumentation>>) {

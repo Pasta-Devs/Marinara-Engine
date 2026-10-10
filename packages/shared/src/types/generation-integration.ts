@@ -180,6 +180,19 @@ export interface ContextFitResult {
   trimmed: boolean;
 }
 
+/** What a context fit cut from a prompt, saved alongside a generation so the UI can explain it later. */
+export interface ContextFitSummary {
+  trimmed: boolean;
+  /** Messages tagged `contextKind: "history"` removed to make the prompt fit; excludes lorebook/system drops. */
+  droppedHistory: number;
+  tokensBefore: number;
+  tokensAfter: number;
+  inputBudget: number;
+  /** Reply token budget before the fit may have shrunk it to make room for the prompt. */
+  replyBudgetFrom: number;
+  replyBudgetTo: number;
+}
+
 export type GenerationFallbackCategory = "main" | "agents" | "illustrator" | "video";
 
 export type GenerationFallbackNotice = {

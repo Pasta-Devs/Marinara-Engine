@@ -1,3 +1,5 @@
+import { matchOmnibarCapabilityAgentPackageIds } from "@marinara-engine/shared";
+
 export type OfficialAgentKnowledgeCategory = "writer" | "tracker" | "misc";
 
 export interface OfficialAgentKnowledgeEntry {
@@ -267,9 +269,25 @@ export const PROFESSOR_MARI_AGENT_CATALOG_KNOWLEDGE = [
   ]),
   "Catalog guidance:",
   "- Package sources, manifests, artifacts, and the complete official catalog are public at https://github.com/Pasta-Devs/Marinara-Agents.",
-  "- Catalog availability is not proof that a package is installed. Inspect the user's installed agents before claiming one is active.",
+  "- The catalog is not proof of install. Before naming an agent for a request, call `agent.list`; suggest a catalog package (Agents → Download Agents) only when nothing installed covers it. Never claim an uninstalled agent is active.",
   "- Install, update, or uninstall official packages from Agents → Download Agents. When a compatible update is found, Marinara asks before applying it; declining or failing an update preserves the installed version and leaves the manual Update action available.",
   "- Pipeline agents are enabled per compatible chat in Chat Settings → Agents. Feature packages such as Maps, Calls, and Conversation games expose their own controls after installation.",
   "- Do not describe About Me Keeper as an agent. Conversation About Me and its update tool are built into Marinara Engine.",
   "</official_agent_catalog>",
 ].join("\n");
+
+/**
+ * K4: when an unasked quick-answer query names a capability ("images",
+ * "music", "maps"...), ground the answer with 2-3 real catalog lines instead
+ * of letting the model guess. Static catalog data only (R22 stays true for
+ * unasked calls).
+ */
+export function formatCapabilityAgentGroundingLines(query: string): string | null {
+  const packageIds = matchOmnibarCapabilityAgentPackageIds(query);
+  if (packageIds.length === 0) return null;
+  const entries = packageIds.flatMap((id) => OFFICIAL_AGENT_KNOWLEDGE_ENTRIES.filter((entry) => entry.id === id));
+  if (entries.length === 0) return null;
+  return entries
+    .map((entry) => `- ${entry.name} (package \`${entry.id}\`; ${entry.modes}): ${entry.summary}.`)
+    .join("\n");
+}

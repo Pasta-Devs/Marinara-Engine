@@ -24,7 +24,7 @@ On a computer, click the **X** beside the layout tips (**Hide these tips for thi
 
 ## Changing how chat windows look
 
-Open **Settings > Appearance > App** and scroll to **Chat widget style** at the bottom of **App Style**. **Default** keeps the familiar Marinara look. **Dottore** combines icy blues and pale metal with technical lettering and cut corners; **Mari** pairs gemstone blues and warm gold with storybook lettering and arched frames. Both adapt to light and dark mode and style the movable buttons, windows and expandable sections in all three chat modes.
+Open **Settings > Appearance > App** and scroll to **Chat widget style** at the bottom of **App Style**. **Default** keeps the familiar Marinara look. **Dottore** combines icy blues and pale metal with technical lettering and cut corners; **Prof. Mari** pairs gemstone blues and warm gold with storybook lettering and arched frames. Both adapt to light and dark mode and style the movable buttons, windows and expandable sections in all three chat modes.
 
 Use **Font**, **Shape** and the three color pickers below the presets to mix things up. Fonts you have installed in Marinara appear in the font list too. Choosing a preset again resets the font, shape and custom colors. These choices do not move your windows or change your saved chat layouts. They are saved with your app preferences and sync to browsers connected to the same server.
 

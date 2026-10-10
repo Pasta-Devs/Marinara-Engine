@@ -1,11 +1,11 @@
 // #5073: the composer attach control for Professor Mari — a paperclip that opens a small menu
 // (like Claude's "+") instead of jumping straight to the file picker. Shared by both the floating
 // and docked composers so the menu can't drift between them. Mirrors the adjacent connection popover
-// (anchored div + outside-click), matching the surrounding composer code.
+// (anchored div + outside-click + in-dialog focus scope), matching the surrounding composer code.
 import { useEffect, useRef, useState } from "react";
 import { Loader2, MessageSquareText, Paperclip, Layers } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { cn } from "../../lib/utils";
+import { useInDialogFocusScope } from "../../hooks/use-in-dialog-focus-scope";
 
 interface Props {
   onAttachFiles: () => void;
@@ -40,16 +40,11 @@ export function MariAttachButton({
       if (buttonRef.current?.contains(target) || menuRef.current?.contains(target)) return;
       setOpen(false);
     };
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(false);
-    };
     document.addEventListener("mousedown", onMouseDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onMouseDown);
-      document.removeEventListener("keydown", onKey);
-    };
+    return () => document.removeEventListener("mousedown", onMouseDown);
   }, [open]);
+  // Escape closes only this menu; a second Escape reaches the omnibar.
+  const onMenuKeyDown = useInDialogFocusScope(menuRef, () => setOpen(false), open);
 
   const run = (action: () => void) => {
     setOpen(false);
@@ -63,25 +58,26 @@ export function MariAttachButton({
         type="button"
         onClick={() => setOpen((current) => !current)}
         disabled={disabled}
-        className={cn(
-          "flex h-8 w-8 shrink-0 items-center justify-center rounded-xl transition-all",
-          open || attachedFileCount > 0 || attachedContextCount > 0
-            ? "bg-foreground/10 text-foreground/75"
-            : "text-foreground/40 hover:bg-foreground/10 hover:text-foreground/70",
-          disabled && "cursor-not-allowed opacity-40",
-        )}
+        // R11: a quiet 34px circle (44px hit area on touch, globals.css); filled while open or in use.
+        className="mari-composer-icon"
+        data-active={attachedFileCount > 0 || attachedContextCount > 0 ? "true" : undefined}
         title={localizeUi("ui.chat.homeprofessormarichat.attachMenuLabel")}
         aria-label={localizeUi("ui.chat.homeprofessormarichat.attachMenuLabel")}
         aria-haspopup="menu"
         aria-expanded={open}
       >
-        {isReading ? <Loader2 size="1rem" className="animate-spin" /> : <Paperclip size="1rem" />}
+        {isReading ? (
+          <Loader2 className="animate-spin" aria-hidden="true" />
+        ) : (
+          <Paperclip strokeWidth={1.75} aria-hidden="true" />
+        )}
       </button>
 
       {open && (
         <div
           ref={menuRef}
           role="menu"
+          onKeyDown={onMenuKeyDown}
           className="absolute bottom-full left-0 z-20 mb-2 flex min-w-[15rem] flex-col overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card)] p-1 text-left shadow-2xl"
         >
           <button

@@ -187,5 +187,5 @@ test("Support Diagnostics copies while the iPad tap is still being handled", asy
   await expect(page.getByText("Support diagnostics copied.", { exact: true })).toBeVisible();
   await expect
     .poll(() => page.evaluate(() => (window as typeof window & { __copiedReport?: string }).__copiedReport ?? ""))
-    .toContain("Mari last acted on: none recorded this session");
+    .toContain("Professor Mari last acted on: none recorded this session");
 });

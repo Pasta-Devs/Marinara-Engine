@@ -48,6 +48,12 @@ export function useDialogFocusScope(
       if (isActive && !isActive()) return;
       const container = containerRef.current;
       if (!container) return;
+      // Focus in another modal (one stacked above this one) belongs to that modal. Compare with this
+      // dialog's own overlay: the panel is inside it, so the panel itself never matches.
+      const activeModal =
+        document.activeElement instanceof Element ? document.activeElement.closest('[aria-modal="true"]') : null;
+      const ownModal = container.closest('[aria-modal="true"]');
+      if (activeModal && activeModal !== ownModal && !container.contains(activeModal)) return;
       const roots = [
         container,
         ...(ownedPortalSelector ? Array.from(document.querySelectorAll<HTMLElement>(ownedPortalSelector)) : []),

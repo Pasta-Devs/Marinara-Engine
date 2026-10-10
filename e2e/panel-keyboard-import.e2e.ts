@@ -57,7 +57,6 @@ test("shell panel focus returns to its opener and profile import is keyboard rea
     hasCompletedOnboarding: true,
     sidebarOpen: false,
     rightPanelOpen: false,
-    professorMariNavigationEnabled: false,
   });
   await page.addInitScript((v) => localStorage.setItem("marinara:whats-new:seen-version", v), version);
   await page.goto("/");

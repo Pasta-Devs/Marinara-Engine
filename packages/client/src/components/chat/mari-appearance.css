@@ -1,0 +1,97 @@
+/* Four connected beats, played once. The last frame remains while the state does. */
+.mari-story-sprite {
+  display: inline-block;
+  position: relative;
+  flex: 0 0 auto;
+  width: 3rem;
+  height: 4.5rem;
+  pointer-events: none;
+}
+
+/* Slice 85 hover: a pointer resting on her swaps her story sheet for the hover portrait (mouse only). */
+.mari-story-sprite__hover {
+  position: absolute;
+  inset: 0;
+  display: none;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+@media (hover: hover) {
+  .mari-story-sprite:hover > .mari-story-sprite__hover {
+    display: block;
+  }
+
+  .mari-story-sprite:hover > span {
+    visibility: hidden;
+  }
+}
+
+.mari-story-sprite > span {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background-image: var(--mari-work-sprite);
+  background-size: 400% 100%;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+  animation: mari-appearance-story 4.8s step-end both;
+}
+
+.mari-live-work__sprite[data-appearance-pack] > span {
+  background-size: 400% 100%;
+  animation: mari-appearance-story 4.8s step-end both;
+}
+
+.mari-welcome-story {
+  display: block;
+  flex: 0 0 auto;
+  width: 7rem;
+  height: 10.5rem;
+}
+
+.mari-welcome-story .mari-story-sprite {
+  width: 100%;
+  height: 100%;
+}
+
+@keyframes mari-appearance-story {
+  0%,
+  24% {
+    background-position: 0 center;
+  }
+  25%,
+  49% {
+    background-position: 33.333333% center;
+  }
+  50%,
+  74% {
+    background-position: 66.666667% center;
+  }
+  75%,
+  100% {
+    background-position: 100% center;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mari-story-sprite > span,
+  .mari-live-work__sprite[data-appearance-pack] > span {
+    animation: none;
+    background-position: 100% center;
+  }
+}
+
+html[data-marinara-effects-paused="true"] .mari-story-sprite > span,
+html[data-marinara-effects-paused="true"] .mari-live-work__sprite[data-appearance-pack] > span {
+  animation: none;
+  background-position: 100% center;
+}
+
+html[data-marinara-reduced-effects="true"] .mari-story-sprite > span,
+html[data-marinara-reduced-effects="true"] .mari-live-work__sprite[data-appearance-pack] > span {
+  animation: none;
+  background-position: 100% center;
+}

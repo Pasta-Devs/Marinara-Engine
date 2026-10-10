@@ -466,14 +466,14 @@ useAgentStore.getState().setActiveAgents(["professor_mari"]);
 useAgentStore.getState().resetForChatChange();
 assert.deepEqual(
   useAgentStore.getState().mariChips,
-  continuationChips,
-  "temporary chat/editor navigation retains Professor Mari continuation suggestions",
+  [],
+  "chat navigation clears Professor Mari's suggestions so they cannot leak into another chat",
 );
-assert.equal(useAgentStore.getState().mariChipsChatId, "professor-chat");
-assert.deepEqual(useAgentStore.getState().mariPlan, guidedPlan);
-assert.equal(useAgentStore.getState().mariPlanChatId, "professor-chat");
-assert.equal(useAgentStore.getState().mariPlanCursor, 1);
-assert.deepEqual(useAgentStore.getState().mariPlanAnswers, { setting: "A candlelit library" });
+assert.equal(useAgentStore.getState().mariChipsChatId, null);
+assert.equal(useAgentStore.getState().mariPlan, null, "chat navigation clears Professor Mari's guided plan");
+assert.equal(useAgentStore.getState().mariPlanChatId, null);
+assert.equal(useAgentStore.getState().mariPlanCursor, 0);
+assert.deepEqual(useAgentStore.getState().mariPlanAnswers, {});
 assert.deepEqual(useAgentStore.getState().activeAgents, [], "other Agent runtime state still resets between chats");
 useAgentStore.getState().reset();
 assert.equal(useAgentStore.getState().mariPlan, null, "full Agent reset clears Professor Mari's guided plan");

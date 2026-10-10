@@ -94,7 +94,7 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
     titleKey: "achievements.definitions.pleaseHandleWithCare.title",
     title: "Please Handle With Care",
     descriptionKey: "achievements.definitions.pleaseHandleWithCare.description",
-    description: "Traumatized Mari by dragging her around the screen.",
+    description: "Traumatized Professor Mari by dragging her around the screen.",
     category: "milestone",
     icon: "mari-drag",
   },

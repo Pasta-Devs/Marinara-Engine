@@ -14,6 +14,7 @@ import { showConfirmDialog } from "../../lib/app-dialogs";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { ChatModeIcon } from "../chat/ChatModeIcon";
+import { normalizeAvatarCrop, type AvatarCrop } from "@marinara-engine/shared";
 
 type CharacterRow = { id: string; data: string; avatarPath: string | null; createdAt: string; updatedAt: string };
 
@@ -44,7 +45,14 @@ export function BotBrowserPanel() {
   const parsed = useMemo(() => {
     if (!characters) return [];
     return (characters as CharacterRow[]).reduce<
-      { id: string; name: string; avatarPath: string | null; createdAt: string; updatedAt: string }[]
+      {
+        id: string;
+        name: string;
+        avatarPath: string | null;
+        avatarCrop?: AvatarCrop;
+        createdAt: string;
+        updatedAt: string;
+      }[]
     >((acc, c) => {
       const d = JSON.parse(c.data);
       if (d.extensions?.botBrowserSource) {
@@ -52,6 +60,7 @@ export function BotBrowserPanel() {
           id: c.id,
           name: d.name ?? "Unnamed",
           avatarPath: c.avatarPath,
+          avatarCrop: normalizeAvatarCrop(d.extensions?.avatarCrop) ?? undefined,
           createdAt: c.createdAt,
           updatedAt: c.updatedAt,
         });
@@ -210,7 +219,7 @@ export function BotBrowserPanel() {
                       alt={char.name}
                       loading="lazy"
                       className="h-full w-full object-cover"
-                      style={getAvatarCropStyle()}
+                      style={getAvatarCropStyle(char.avatarCrop)}
                     />
                   ) : (
                     <User size="0.875rem" />

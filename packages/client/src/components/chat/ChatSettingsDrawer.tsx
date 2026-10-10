@@ -420,7 +420,17 @@ interface ChatSettingsDrawerProps {
   anchor?: ChatToolbarFloatingPanelAnchor;
   /** Show the Help Layout button beside the title (chats that mount the Help overlay). */
   showHelpLayout?: boolean;
-  initialSection?: "autonomous" | "memory-recall" | "multiplayer" | "summary" | null;
+  initialSection?:
+    | "autonomous"
+    | "memory-recall"
+    | "multiplayer"
+    | "summary"
+    | "active-context"
+    | "message-search"
+    // R2: the reply checkup's links to Max output tokens and the lorebook token budget.
+    | "advanced-parameters"
+    | "lorebooks"
+    | null;
   /**
    * Chat Branches, Search, Active Context, Gallery and the drawers in `ChatSettingsTools`. Regular chats
    * pass it; multiplayer hosting does not.
@@ -1388,18 +1398,33 @@ export function ChatSettingsDrawer({
     return () => window.cancelAnimationFrame(frame);
   }, [initialSection, isRoleplayMode, open]);
   useEffect(() => {
-    if (!open || initialSection !== "summary") return;
-    const frame = window.requestAnimationFrame(() =>
-      panelRef.current
-        ?.querySelector(`[data-chat-settings-section="${chatMode}-chat-summary"]`)
-        ?.scrollIntoView({ block: "start" }),
-    );
+    const sectionId =
+      initialSection === "summary"
+        ? "chat-summary"
+        : initialSection === "active-context"
+          ? "active-context"
+          : initialSection === "message-search"
+            ? "message-search"
+            : null;
+    if (!open || !sectionId) return;
+    const frame = window.requestAnimationFrame(() => {
+      const section = panelRef.current?.querySelector(`[data-chat-settings-section="${chatMode}-${sectionId}"]`);
+      section?.scrollIntoView({ block: "start" });
+      // The omnibar's "Search this chat" lands in the search field, ready to type.
+      if (sectionId === "message-search") section?.querySelector<HTMLInputElement>('input[type="search"]')?.focus();
+    });
     return () => window.cancelAnimationFrame(frame);
   }, [chatMode, initialSection, open]);
   useEffect(() => {
-    if (!open || initialSection !== "multiplayer") return;
+    if (
+      !open ||
+      (initialSection !== "multiplayer" && initialSection !== "advanced-parameters" && initialSection !== "lorebooks")
+    )
+      return;
     const frame = window.requestAnimationFrame(() =>
-      panelRef.current?.querySelector('[data-chat-settings-section="multiplayer"]')?.scrollIntoView({ block: "start" }),
+      panelRef.current
+        ?.querySelector(`[data-chat-settings-section="${initialSection}"]`)
+        ?.scrollIntoView({ block: "start" }),
     );
     return () => window.cancelAnimationFrame(frame);
   }, [initialSection, open]);
@@ -5358,6 +5383,7 @@ export function ChatSettingsDrawer({
               icon={<Search size="0.875rem" />}
               help={localizeUi("chat.settings.searchMessagesHelp")}
               style={{ order: CHAT_SETTINGS_ORDER.search }}
+              forceOpen={initialSection === "message-search"}
               contentClassName="pt-0"
             >
               <div data-chat-settings-search>
@@ -7623,6 +7649,7 @@ export function ChatSettingsDrawer({
 
           <div style={{ order: CHAT_SETTINGS_ORDER.lorebooks }}>
             <LorebooksSection
+              forceOpen={initialSection === "lorebooks"}
               chatId={chat.id}
               activeLorebooks={activeLorebooks}
               lorebooks={(lorebooks ?? []) as Lorebook[]}
@@ -7687,6 +7714,7 @@ export function ChatSettingsDrawer({
               label={localizeUi("chat.settings.activeContext")}
               icon={<ScanText size="0.875rem" />}
               help={localizeUi("chat.settings.activeContextHelp")}
+              forceOpen={initialSection === "active-context"}
             >
               {chatTools.activeContext ?? (
                 <Suspense fallback={<ChatToolLoading />}>
@@ -10011,6 +10039,7 @@ export function ChatSettingsDrawer({
           {/* Advanced Parameters */}
           <div style={{ order: CHAT_SETTINGS_ORDER.advancedParameters }}>
             <AdvancedParametersSection
+              forceOpen={initialSection === "advanced-parameters"}
               metadata={metadata}
               isConversation={isConversation}
               connectionId={chat.connectionId ?? null}

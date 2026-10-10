@@ -27,7 +27,7 @@ export function MariContextViewer({ open, onClose, workspaceChatId }: Props) {
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 p-4"
+      className="fixed inset-0 z-[calc(var(--mari-layer-omnibar)+1)] flex items-center justify-center bg-black/60 p-4"
       role="dialog"
       aria-modal
       aria-label={localizeUi("ui.chat.homeprofessormarichat.contextViewerTitle")}

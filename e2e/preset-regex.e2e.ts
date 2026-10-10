@@ -13,7 +13,6 @@ test.beforeEach(async ({ page }) => {
   // The shared seed also dismisses the one-time chat layout video (7f4e6ae98), which otherwise covers Chat Settings.
   await seedUIState(page, {
     hasCompletedOnboarding: true,
-    professorMariNavigationEnabled: false,
     sidebarOpen: false,
     rightPanelOpen: false,
     chatHelpSeenModes: ["conversation", "roleplay", "game"],

@@ -81,7 +81,10 @@ for (const presentation of ["classic", "visual-novel"] as const) {
       });
       const characters = [];
       const image = readFileSync(
-        new URL("../packages/client/public/sprites/mari/Mari_wave.png", import.meta.url),
+        new URL(
+          "../packages/client/assets/imagegen/mari-generated-originals/professor-mari-assistant-map-source.png",
+          import.meta.url,
+        ),
       ).toString("base64");
       for (const name of ["Alice", "Bob", "Charlie"]) {
         const character = await create("/api/characters", { data: { name, first_mes: "" } });

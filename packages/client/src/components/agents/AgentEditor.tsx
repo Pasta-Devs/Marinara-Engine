@@ -876,6 +876,11 @@ export function AgentEditor() {
   useEffect(() => {
     setEditorDirty(dirty);
   }, [dirty, setEditorDirty]);
+  // Report the last focused field to the omnibar so "make this shorter" knows the target. The ids
+  // are the `agent.update` field names Mari writes.
+  const setActiveEditorField = useUIStore((s) => s.setActiveEditorField);
+  useEffect(() => () => setActiveEditorField(null), [agentDetailId, setActiveEditorField]);
+  const reportField = (id: string, label: string) => () => setActiveEditorField({ id, label });
   const [showUnsavedWarning, setShowUnsavedWarning] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [savedFlash, setSavedFlash] = useState(false);
@@ -2074,6 +2079,7 @@ export function AgentEditor() {
             setLocalName(e.target.value);
             markDirty();
           }}
+          onFocus={reportField("name", localizeUi("ui.agents.agenteditor.nameField"))}
           className="mari-editor-title-input min-w-0 flex-1 placeholder:text-[var(--marinara-editor-muted)]"
           placeholder={localizeUi("ui.agents.agenteditor.agentName")}
         />
@@ -2198,6 +2204,7 @@ export function AgentEditor() {
                     setLocalDescription(e.target.value);
                     markDirty();
                   }}
+                  onFocus={reportField("description", localizeUi("chat.settings.inlineEditor.fields.description"))}
                   className="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
                   placeholder={localizeUi("ui.agents.agenteditor.whatDoesThisAgentDo")}
                 />
@@ -4328,6 +4335,7 @@ export function AgentEditor() {
                     setLocalPrompt(value);
                     markDirty();
                   }}
+                  onFocus={reportField("promptTemplate", localizeUi("ui.agents.agenteditor.promptTemplate"))}
                   rows={16}
                   title={localizeUi("ui.agents.agenteditor.promptTemplate")}
                   placeholder={

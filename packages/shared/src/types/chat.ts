@@ -2,9 +2,15 @@
 // Chat & Message Types
 // ──────────────────────────────────────────────
 
-import type { MariWorkspaceTraceItem } from "./professor-mari-workspace.js";
+import type {
+  MariHeldChange,
+  MariWorkspaceActionResult,
+  MariWorkspaceTraceItem,
+  ProfessorMariAskContext,
+} from "./professor-mari-workspace.js";
 import type { GameDicePlaceholderRecord } from "../utils/dice-placeholder.js";
 import type { GenerationGuideSource } from "../utils/generation-guide.js";
+import type { ContextFitSummary } from "./generation-integration.js";
 import type { HapticFeedbackSensitivity } from "./haptic.js";
 import type { CustomEmojiSelectionPrefs } from "../schemas/custom-emoji.schema.js";
 import type { DiceRollResult, GameDicePoolConsumption, GameDicePoolMismatch } from "./game.js";
@@ -180,6 +186,20 @@ export interface ChatSummaryPromptTemplate {
 
 /** Server app-setting key for Roleplay Chat Summary prompt templates shared across all roleplays. */
 export const CHAT_SUMMARY_PROMPT_SETTINGS_KEY = "chat-summary-prompts";
+
+const PROFESSOR_MARI_SEEN_RUN_SETTINGS_PREFIX = "professor-mari-seen-run:";
+
+/** Per Professor Mari thread: the id of the newest run the user has seen in her window. */
+export function professorMariSeenRunSettingsKey(chatId: string) {
+  return `${PROFESSOR_MARI_SEEN_RUN_SETTINGS_PREFIX}${chatId}`;
+}
+
+export function isProfessorMariSeenRunSettingsKey(key: string) {
+  return (
+    key.startsWith(PROFESSOR_MARI_SEEN_RUN_SETTINGS_PREFIX) &&
+    /^[A-Za-z0-9_-]{1,80}$/.test(key.slice(PROFESSOR_MARI_SEEN_RUN_SETTINGS_PREFIX.length))
+  );
+}
 
 /** Global Roleplay Chat Summary prompt template settings. */
 export interface ChatSummaryPromptSettings {
@@ -916,8 +936,21 @@ export interface MessageExtra {
   roleplayCommandActivity?: RoleplayCommandActivity[] | null;
   /** Professor Mari workspace trace shown on the home assistant transcript. */
   mariWorkspaceTimeline?: MariWorkspaceTraceItem[] | null;
+  /** Trusted resource results from Professor Mari workspace app-data commands. */
+  mariWorkspaceActionResults?: MariWorkspaceActionResult[] | null;
+  /** Resource focus used for this Professor Mari exchange, retained for transcript context. */
+  professorMariContext?: ProfessorMariAskContext | null;
   /** True when this Mari turn deferred mutating commands behind an Accept action (#5725 Manual mode). */
   mariDeferredMutations?: boolean | null;
+  /** Slice 71: what those held commands would change, for the "Needs you" card. */
+  mariHeldChanges?: MariHeldChange[] | null;
+  /** Slice 70: the quick-reply chips this Mari turn offered (raw; the client sanitizes), so a reload keeps them. */
+  mariSuggestions?: unknown;
+  /**
+   * R14: why this Mari turn failed, on the turn's last saved message (her partial reply, or your message
+   * when she saved nothing), so a reload still shows it failed. `dismissed` once you close its card.
+   */
+  mariRunError?: { message: string; dismissed?: boolean } | null;
   /** Per-swipe sprite expressions from the Expression Engine agent */
   spriteExpressions?: Record<string, string> | null;
   /** Presentation-only ID-macro card references for merged Roleplay narrator avatars; never chat members. */
@@ -1069,6 +1102,8 @@ export interface GenerationInfo {
   /** Time from generation start until reasoning yielded to visible output. */
   reasoningDurationMs?: number | null;
   finishReason: string | null;
+  /** What the context fit cut from this prompt, for the "replies got worse" checkup. */
+  contextFit?: ContextFitSummary | null;
 }
 
 /** A swipe (alternate response) for a message. */

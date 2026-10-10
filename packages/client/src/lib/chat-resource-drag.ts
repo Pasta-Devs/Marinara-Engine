@@ -146,6 +146,25 @@ export function requestChatResourceAssignment(payload: ChatResourceDragPayload) 
   window.dispatchEvent(new CustomEvent<ChatResourceDragPayload>(CHAT_RESOURCE_ASSIGN_EVENT, { detail: payload }));
 }
 
+let pendingChatResourceAssign: { chatId: string; payload: ChatResourceDragPayload } | null = null;
+
+/**
+ * Queues an attach for a chat that is not open yet ("add Eliza to Tavern
+ * Night" from elsewhere). The omnibar navigates to that chat right after
+ * calling this; `ChatResourceDropOverlay` picks the payload up once it mounts
+ * for that chat, the same handoff `requestChatAgentSetup` uses for agent setup.
+ */
+export function requestChatResourceAssignmentFor(chatId: string, payload: ChatResourceDragPayload) {
+  pendingChatResourceAssign = { chatId, payload };
+}
+
+export function takePendingChatResourceAssign(chatId: string): ChatResourceDragPayload | null {
+  if (pendingChatResourceAssign?.chatId !== chatId) return null;
+  const payload = pendingChatResourceAssign.payload;
+  pendingChatResourceAssign = null;
+  return payload;
+}
+
 export function requestChatAgentSetup(chatId: string, ids: string[]) {
   const pendingIds = pendingChatAgentSetup?.chatId === chatId ? pendingChatAgentSetup.ids : [];
   pendingChatAgentSetup = { chatId, ids: Array.from(new Set([...pendingIds, ...ids.filter(Boolean)])) };

@@ -29,6 +29,7 @@ import { showConfirmDialog } from "../../lib/app-dialogs";
 import { cn } from "../../lib/utils";
 import type { CombatPartyMember, CombatEnemy, CombatAttack, NarrativeStyle, Lorebook } from "@marinara-engine/shared";
 import { Translation, useTranslation as useUiTranslation } from "react-i18next";
+import { useDialogFocusScope } from "../../hooks/use-dialog-focus-scope";
 
 // ──────────────────────────────────────────────
 // Sub-components
@@ -172,6 +173,18 @@ interface TargetSelectionProps {
 
 function TargetSelection({ attackType, enemies, party, onSelect, onCancel }: TargetSelectionProps) {
   const { t: localizeUi } = useUiTranslation();
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useDialogFocusScope(true, dialogRef);
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onCancel();
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [onCancel]);
   const backdropDismiss = useBackdropDismiss(onCancel);
   return (
     <motion.div
@@ -182,13 +195,21 @@ function TargetSelection({ attackType, enemies, party, onSelect, onCancel }: Tar
       {...backdropDismiss}
     >
       <motion.div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="encounter-target-title"
+        data-encounter-nested-dialog
         className="w-80 max-w-[90vw] rounded-2xl border border-[var(--marinara-chat-chrome-panel-border)] bg-[var(--card)] p-5 shadow-2xl"
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.9, opacity: 0 }}
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 className="mb-4 flex items-center gap-2 text-sm font-bold text-[var(--foreground)]">
+        <h3
+          id="encounter-target-title"
+          className="mb-4 flex items-center gap-2 text-sm font-bold text-[var(--foreground)]"
+        >
           <Crosshair size="1rem" className="text-red-400" />
           {localizeUi("ui.chat.targetselection.selectTarget")}
         </h3>
@@ -334,6 +355,18 @@ function EncounterConfig() {
   const spellbookId = useEncounterStore((s) => s.spellbookId);
   const setSpellbookId = useEncounterStore((s) => s.setSpellbookId);
   const { initEncounter } = useEncounter();
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useDialogFocusScope(true, dialogRef);
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeConfigModal();
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [closeConfigModal]);
 
   const { data: lorebooks } = useLorebooks("spellbook");
   const spellbooks = (lorebooks ?? []) as Lorebook[];
@@ -348,13 +381,21 @@ function EncounterConfig() {
       {...backdropDismiss}
     >
       <motion.div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="encounter-config-title"
+        data-encounter-nested-dialog
         className="w-[26.25rem] max-w-[95vw] rounded-2xl border border-[var(--marinara-chat-chrome-panel-border)] bg-[var(--card)] p-5 sm:p-6 shadow-2xl"
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.9, opacity: 0 }}
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="mb-5 flex items-center gap-2 text-base font-bold text-[var(--foreground)]">
+        <h2
+          id="encounter-config-title"
+          className="mb-5 flex items-center gap-2 text-base font-bold text-[var(--foreground)]"
+        >
           <Swords size="1.125rem" className="text-red-400" />
           {localizeUi("ui.chat.encounterconfig.configureCombatNarrative")}
         </h2>
@@ -732,6 +773,44 @@ function EncounterModalInner() {
   const combatResult = useEncounterStore((s) => s.combatResult);
   const { sendAction, concludeEncounter, closeEncounter, initEncounter } = useEncounter();
   const settings = useEncounterStore((s) => s.settings);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const closeRequestPendingRef = useRef(false);
+  useDialogFocusScope(active && !showConfigModal, dialogRef);
+
+  const requestCloseEncounter = useCallback(async () => {
+    if (closeRequestPendingRef.current) return;
+    closeRequestPendingRef.current = true;
+    try {
+      if (
+        await showConfirmDialog({
+          title: localizeUi("ui.chat.encountermodalinner.endCombat"),
+          message: localizeUi("ui.chat.encountermodalinner.closeAndEndThisCombat"),
+          confirmLabel: localizeUi("ui.chat.encountermodalinner.endCombat"),
+          tone: "destructive",
+        })
+      ) {
+        closeEncounter();
+      }
+    } finally {
+      closeRequestPendingRef.current = false;
+    }
+  }, [closeEncounter, localizeUi]);
+
+  useEffect(() => {
+    if (!active) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (
+        event.key === "Escape" &&
+        !event.defaultPrevented &&
+        !showConfigModal &&
+        !document.querySelector("[data-encounter-nested-dialog]")
+      ) {
+        void requestCloseEncounter();
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [active, requestCloseEncounter, showConfigModal]);
 
   const handleAction = useCallback(
     (text: string) => {
@@ -786,6 +865,10 @@ function EncounterModalInner() {
 
           {/* Modal */}
           <motion.div
+            ref={dialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="encounter-title"
             className={cn(
               "relative flex h-[85dvh] w-[37.5rem] max-w-[95vw] flex-col overflow-hidden rounded-2xl border border-[var(--marinara-chat-chrome-panel-border)] bg-gradient-to-b shadow-2xl",
               envGradient,
@@ -797,7 +880,7 @@ function EncounterModalInner() {
           >
             {/* Header */}
             <div className="flex items-center justify-between border-b border-[var(--marinara-chat-chrome-panel-divider)] bg-black/30 px-5 py-3">
-              <h2 className="flex items-center gap-2 text-sm font-bold text-foreground/90">
+              <h2 id="encounter-title" className="flex items-center gap-2 text-sm font-bold text-foreground/90">
                 <Swords size="1rem" className="text-red-400" />
                 {localizeUi("ui.chat.encountermodalinner.combatEncounter")}
               </h2>
@@ -823,18 +906,7 @@ function EncounterModalInner() {
                   </button>
                 )}
                 <button
-                  onClick={async () => {
-                    if (
-                      await showConfirmDialog({
-                        title: localizeUi("ui.chat.encountermodalinner.endCombat"),
-                        message: localizeUi("ui.chat.encountermodalinner.closeAndEndThisCombat"),
-                        confirmLabel: localizeUi("ui.chat.encountermodalinner.endCombat"),
-                        tone: "destructive",
-                      })
-                    ) {
-                      closeEncounter();
-                    }
-                  }}
+                  onClick={() => void requestCloseEncounter()}
                   className="rounded-lg p-1.5 text-foreground/40 hover:bg-foreground/10 hover:text-foreground/80"
                 >
                   <X size="1rem" />

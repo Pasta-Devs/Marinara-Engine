@@ -53,7 +53,7 @@ import { cn, getAvatarCropStyle } from "../../lib/utils";
 import { chatBackgroundMetadataToUrl } from "../../lib/backgrounds";
 import { formatRelativeContact } from "../../lib/relative-time";
 import { ChatRowPeek } from "./ChatRowPeek";
-import { useState, useCallback, useMemo, useRef, useEffect } from "react";
+import { lazy, Suspense, useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { useTouchFolderDrag } from "../../hooks/use-touch-folder-drag";
 import { usePresenceClock } from "../../hooks/use-presence-clock";
 import { usePanelKeyboardFocus } from "./use-panel-keyboard-focus";
@@ -91,7 +91,11 @@ import { useTranslation, useTranslation as useUiTranslation } from "react-i18nex
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { PersonalExtensionContributionSlot } from "../extensions/PersonalExtensionContributionSlot";
 import { ChatModeIcon } from "../chat/ChatModeIcon";
-import { CharacterScheduleManagerModal } from "../chat/CharacterScheduleManagerModal";
+
+// Opened from a menu only, so it loads on first use instead of weighing on the AppShell chunk.
+const CharacterScheduleManagerModal = lazy(async () => ({
+  default: (await import("../chat/CharacterScheduleManagerModal")).CharacterScheduleManagerModal,
+}));
 
 type ChatSortOption = "custom" | "recent" | "newest" | "oldest" | "name-asc" | "name-desc";
 const CHAT_LIST_PAGE_SIZE = 100;
@@ -1709,7 +1713,11 @@ export function ChatSidebar() {
         onOpenScheduleManager={() => setScheduleManagerOpen(true)}
       />
 
-      {scheduleManagerOpen && <CharacterScheduleManagerModal open onClose={() => setScheduleManagerOpen(false)} />}
+      {scheduleManagerOpen && (
+        <Suspense fallback={null}>
+          <CharacterScheduleManagerModal open onClose={() => setScheduleManagerOpen(false)} />
+        </Suspense>
+      )}
 
       {/* ── Delete Branch Modal ── */}
       <Modal

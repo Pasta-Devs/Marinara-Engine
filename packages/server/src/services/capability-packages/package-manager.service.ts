@@ -2618,16 +2618,23 @@ export const capabilityPackageManager = {
   },
 
   async declineUpdate(packageId: string, version: string) {
-    const installedPackages = await this.installed();
-    const catalog = await this.catalog();
-    const candidate = findCompatibleCapabilityPackageUpdates(installedPackages, catalog).find(
-      ({ installed, entry }) => installed.id === packageId && entry.manifest.version === version,
+    return (await this.declineUpdates([{ id: packageId, version }])).length > 0;
+  },
+
+  /** "Not now" on the updates dialog: every listed update in one catalog read and one decisions write, so a
+   *  reload right after it cannot bring back updates a one-by-one loop had not reached yet. Returns the ids
+   *  declined; an update that is no longer offered is skipped. */
+  async declineUpdates(updates: Array<{ id: string; version: string }>) {
+    const candidates = findCompatibleCapabilityPackageUpdates(await this.installed(), await this.catalog());
+    const declined = updates.filter(({ id, version }) =>
+      candidates.some(({ installed, entry }) => installed.id === id && entry.manifest.version === version),
     );
-    if (!candidate) return false;
+    if (declined.length === 0) return [];
     const decisions = await readUpdateDecisions();
-    decisions.declined[packageId] = { version, declinedAt: new Date().toISOString() };
+    const declinedAt = new Date().toISOString();
+    for (const { id, version } of declined) decisions.declined[id] = { version, declinedAt };
     await writeUpdateDecisions(decisions);
-    return true;
+    return declined.map(({ id }) => id);
   },
 
   async install(packageId: string, expectedVersion: string, expectedArtifactSha256: string) {

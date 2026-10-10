@@ -399,17 +399,19 @@ export function DocsViewerModal({
   open,
   onClose,
   initialDoc = null,
+  initialSearchTerm = "",
 }: {
   open: boolean;
   onClose: () => void;
   initialDoc?: string | null;
+  initialSearchTerm?: string;
 }) {
   const { t: localizeUi, i18n: uiI18n } = useUiTranslation();
   const savedPlaceRef = useRef(readSavedPlace());
   const [selected, setSelectedState] = useState<string | null>(initialDoc ?? savedPlaceRef.current.doc);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [debouncedQuery, setDebouncedQuery] = useState("");
-  const [pendingScrollTerm, setPendingScrollTerm] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState(initialSearchTerm);
+  const [debouncedQuery, setDebouncedQuery] = useState(initialSearchTerm);
+  const [pendingScrollTerm, setPendingScrollTerm] = useState<string | null>(initialSearchTerm.trim() || null);
   // State (not a plain ref) so effects re-run when the reader actually mounts:
   // the Modal shell renders null on its first frame while its enter animation
   // arms, and a cached doc means no later dep change would re-fire them.

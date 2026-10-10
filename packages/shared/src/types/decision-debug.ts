@@ -1,4 +1,5 @@
 import type { AdvancedMemoryDecisionDiagnostics } from "./advanced-memory.js";
+import type { ContextFitSummary } from "./generation-integration.js";
 
 /** Diagnostics for an explicit Peek Prompt inspection or isolated live decision test. */
 export type DecisionDebugStatus =
@@ -45,6 +46,7 @@ export interface DecisionDebugPreview {
     messages: Array<{ role: string; content: string }>;
     decisionDebug: DecisionDebugReport;
     decisions?: { unanswered: string[]; dropped?: string[]; decisionModelSet: boolean };
+    contextFit?: ContextFitSummary | null;
   };
   parameters: Record<string, unknown>;
 }

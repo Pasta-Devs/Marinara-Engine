@@ -169,6 +169,17 @@ export default defineConfig({
                 urlPattern: ({ url }: { url: URL }) => url.pathname.startsWith("/api/"),
                 handler: "NetworkOnly",
               },
+              // M16: a Mari pack downloads once, on first use, and works offline after that. Sprite URLs
+              // carry MARI_SPRITE_VERSION (mari-work-animations.ts), so replaced art is a new cache key.
+              {
+                urlPattern: ({ url }: { url: URL }) => url.pathname.startsWith("/sprites/mari/"),
+                handler: "CacheFirst",
+                options: {
+                  cacheName: "mari-sprites",
+                  // Every pack's sheets plus the old versions left after a sprite version bump.
+                  expiration: { maxEntries: 200, maxAgeSeconds: 2_592_000 },
+                },
+              },
             ],
           },
         })

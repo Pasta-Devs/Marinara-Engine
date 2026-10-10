@@ -1,13 +1,26 @@
-import { useMemo, useState } from "react";
-import { BookOpen, ChevronDown, ChevronRight, HelpCircle, Search, Sparkles, TriangleAlert, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  BookOpen,
+  ChevronDown,
+  ChevronRight,
+  HelpCircle,
+  MessageCircleQuestion,
+  Search,
+  Sparkles,
+  TriangleAlert,
+  X,
+} from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useDocsIndex } from "../../hooks/use-docs";
 import { useUIStore } from "../../stores/ui.store";
 import { Modal } from "../ui/Modal";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { requestProfessorMariOpen } from "../../lib/professor-mari-open";
+import { useMariAppearancePack } from "../../hooks/use-mari-appearance-pack";
+import { MARI_ASSET_TIER, mariImgLoading } from "../../lib/mari-work-animations";
 
-interface HomeFaqItem {
+export interface HomeFaqItem {
   id: string;
   category: string;
   question: string;
@@ -31,6 +44,7 @@ interface HomeFaqProps {
   headerless?: boolean;
   /** Omits the introductory and pre-bug guidance so a modal can focus on the FAQ list. */
   faqOnly?: boolean;
+  onAskMari?: () => void;
 }
 
 const QUICK_FIXES = [
@@ -40,7 +54,7 @@ const QUICK_FIXES = [
   "If Game Mode setup keeps failing, switch to a stronger model before changing prompts or presets.",
 ];
 
-const HOME_FAQ_ITEMS: HomeFaqItem[] = [
+export const HOME_FAQ_ITEMS: HomeFaqItem[] = [
   {
     id: "connect-model",
     category: "Top Issue",
@@ -545,7 +559,7 @@ const CATEGORY_STYLES: Record<string, string> = {
   Misc: "border-[var(--border)] bg-[var(--muted)]/30 text-[var(--muted-foreground)]",
 };
 
-function getFaqSearchText(item: HomeFaqItem, localize: (englishText: string) => string) {
+export function getFaqSearchText(item: HomeFaqItem, localize: (englishText: string) => string) {
   const values = [item.category, item.question, item.answer, ...(item.bullets ?? [])];
   return [...values, ...values.map(localize)].join(" ").toLowerCase();
 }
@@ -594,9 +608,11 @@ export function HomeFaq({
   mobileModal = false,
   headerless = false,
   faqOnly = false,
+  onAskMari,
 }: HomeFaqProps = {}) {
   const { t: localizeUi } = useUiTranslation();
   const localize = useLocalizedUiText();
+  const { poses } = useMariAppearancePack();
   const [expandedInternal, setExpandedInternal] = useState(defaultExpanded);
   const [openItemIdInternal, setOpenItemIdInternal] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -612,6 +628,15 @@ export function HomeFaq({
     setOpenItemIdInternal(v);
     onOpenItemIdChange?.(v);
   };
+  // The list scrolls and holds 40+ entries, so an item opened from elsewhere
+  // (the omnibar FAQ rows) expands off-screen and reads as "nothing happened".
+  const listRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!openItemId) return;
+    listRef.current
+      ?.querySelector<HTMLElement>(`[data-faq-item="${CSS.escape(openItemId)}"]`)
+      ?.scrollIntoView({ block: "nearest" });
+  }, [openItemId]);
   const trimmedSearch = searchQuery.trim().toLowerCase();
   const visibleFaqItems = useMemo(
     () =>
@@ -619,6 +644,31 @@ export function HomeFaq({
         ? HOME_FAQ_ITEMS.filter((item) => getFaqSearchText(item, localize).includes(trimmedSearch))
         : HOME_FAQ_ITEMS,
     [localize, trimmedSearch],
+  );
+  const askMari = (item: HomeFaqItem) => {
+    requestProfessorMariOpen({
+      draft: localizeUi("professorMari.handoff.faqDraft", { question: localize(item.question) }),
+      context: {
+        source: "faq",
+        capability: "explain",
+        action: `FAQ question: ${item.question}`,
+      },
+    });
+    onAskMari?.();
+  };
+
+  const askMariButton = (item: HomeFaqItem, compactButton = false) => (
+    <button
+      type="button"
+      onClick={() => askMari(item)}
+      className={cn(
+        "mt-2 inline-flex items-center gap-1.5 rounded-md border border-[var(--primary)]/30 bg-[var(--primary)]/10 font-semibold text-[var(--primary)] transition-colors hover:bg-[var(--primary)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]",
+        compactButton ? "min-h-7 px-2 text-[0.625rem]" : "min-h-8 px-2.5 text-[0.6875rem]",
+      )}
+    >
+      <MessageCircleQuestion size={compactButton ? "0.6875rem" : "0.75rem"} aria-hidden="true" />
+      {localizeUi("professorMari.handoff.askAboutFaq")}
+    </button>
   );
 
   if (compact) {
@@ -696,6 +746,7 @@ export function HomeFaq({
                 ) : null}
               </div>
               <div
+                ref={listRef}
                 className="max-h-64 space-y-1.5 overflow-y-auto pr-1 md:min-h-0 md:max-h-none md:flex-1"
                 data-component="HomeFaq.CompactList"
               >
@@ -705,6 +756,7 @@ export function HomeFaq({
                   return (
                     <div
                       key={item.id}
+                      data-faq-item={item.id}
                       className={cn(
                         "overflow-hidden rounded-lg border border-[var(--border)]/55 bg-[var(--card)]/45 transition-colors",
                         isOpen && "border-[var(--primary)]/30 bg-[var(--card)]/70",
@@ -754,6 +806,7 @@ export function HomeFaq({
                             </ul>
                           ) : null}
                           {item.docsAccess ? <FaqDocsAccess compact /> : null}
+                          {askMariButton(item, true)}
                         </div>
                       )}
                     </div>
@@ -811,6 +864,7 @@ export function HomeFaq({
             expanded
             openItemId={openItemId}
             onOpenItemIdChange={setOpenItemId}
+            onAskMari={() => setMobileModalOpen(false)}
             className="max-w-none"
           />
         </Modal>
@@ -867,9 +921,10 @@ export function HomeFaq({
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
                     <div className="mx-auto flex h-28 w-20 shrink-0 items-start justify-center overflow-hidden rounded-[1.25rem] border border-[var(--border)] bg-[var(--card)]/80 shadow-[0_10px_24px_rgba(0,0,0,0.22)] sm:mx-0 sm:h-32 sm:w-24">
                       <img
-                        src="/sprites/mari/Mari_explaining.png"
+                        src={poses.explaining}
+                        {...mariImgLoading(MARI_ASSET_TIER.poses.explaining)}
                         alt={localizeUi("ui.chat.homefaq.professorMari")}
-                        className="h-full w-full object-cover object-[center_14%]"
+                        className="h-full w-full object-cover object-[center_14%] [image-rendering:pixelated]"
                       />
                     </div>
                     <div className="min-w-0 text-center sm:text-left">
@@ -935,13 +990,14 @@ export function HomeFaq({
                 ) : null}
               </div>
 
-              <div className="max-h-[22rem] space-y-2 overflow-y-auto pr-0.5 sm:max-h-[28rem] sm:pr-1">
+              <div ref={listRef} className="max-h-[22rem] space-y-2 overflow-y-auto pr-0.5 sm:max-h-[28rem] sm:pr-1">
                 {visibleFaqItems.map((item) => {
                   const isOpen = openItemId === item.id;
 
                   return (
                     <div
                       key={item.id}
+                      data-faq-item={item.id}
                       className={cn(
                         "overflow-hidden rounded-[1rem] border border-[var(--border)]/55 bg-[var(--card)]/45 transition-colors",
                         isOpen && "border-[var(--primary)]/30 bg-[var(--card)]/70 shadow-[0_8px_24px_rgba(0,0,0,0.18)]",
@@ -991,6 +1047,7 @@ export function HomeFaq({
                             </ul>
                           ) : null}
                           {item.docsAccess ? <FaqDocsAccess /> : null}
+                          {askMariButton(item)}
                         </div>
                       )}
                     </div>
