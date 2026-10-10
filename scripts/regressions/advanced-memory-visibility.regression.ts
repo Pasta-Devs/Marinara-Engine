@@ -537,6 +537,25 @@ try {
   await memory.settleMessageVisibility(cutawayChat);
   const cutaway = decisionRequests[0]!.state.presence.transcript.map((entry: { content: string }) => entry.content);
   assert(!cutaway.includes("MAUKIE_IN_THE_SWAMP"), "a short cutaway opening the scene is not a scene away");
+  // A scene message nobody decided was visible to her, so she was not away for the whole scene.
+  const undecidedChat = await createChat({ decisionEnabled: true, decisionConnectionId: decisionConnection.id });
+  await say(undecidedChat, "user", swampOpening[0]!);
+  await say(undecidedChat, "assistant", swampOpening[1]!, ids.maukie);
+  await say(undecidedChat, "assistant", "UNDECIDED: Pantalone sets down his bag.", ids.pantalone);
+  for (let step = 1; step <= 11; step++)
+    await say(undecidedChat, "assistant", `Pantalone climbs step ${step}.`, ids.pantalone, hiddenFromMaukie);
+  await say(undecidedChat, "assistant", "Pantalone reaches the top.", ids.pantalone);
+  decisionRequests.length = 0;
+  await memory.settleMessageVisibility(undecidedChat);
+  assert.equal(
+    (await extraOf((await chats.listMessages(undecidedChat)).find((m) => m.content.startsWith("UNDECIDED"))!.id))
+      .autoVisibility,
+    undefined,
+  );
+  const undecidedTranscript = decisionRequests[0]!.state.presence.transcript.map(
+    (entry: { content: string }) => entry.content,
+  );
+  assert(!undecidedTranscript.includes("MAUKIE_IN_THE_SWAMP"), "an undecided scene message counts as visible to her");
 
   // A small Decision state limit shortens long messages instead of dropping the earlier ones (#7263).
   const smallJev = await connections.create({

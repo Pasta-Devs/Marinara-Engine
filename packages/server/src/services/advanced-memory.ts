@@ -1285,17 +1285,16 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
         scene.some((index) => ctx.messages[index]!.role === "assistant" && ctx.messages[index]!.characterId === id),
     );
     const window = [...shown, ...scene.filter((index) => index >= first)];
-    // Who could perceive none of this scene's earlier decided messages, by the decisions or the user's own hides.
-    // It takes a few of them, so a short cutaway or step-out that opens a scene makes nobody away.
-    const decided = scene.flatMap((index) => {
+    // Who could perceive none of this scene's earlier messages, hidden by the decisions or the user's own hides; a
+    // message nobody decided is visible to all. It takes a few messages, so a short cutaway or step-out that opens
+    // a scene makes nobody away.
+    const hiddenSets = scene.flatMap((index) => {
       const extra = object(ctx.messages[index]!.extra);
-      return index < first && extra.hiddenFromAI !== true && visibilitySettled(extra)
-        ? [new Set(strings(extra.hiddenFromAICharacterIds))]
-        : [];
+      return index < first && extra.hiddenFromAI !== true ? [new Set(strings(extra.hiddenFromAICharacterIds))] : [];
     });
     const away = new Set(
-      decided.length >= VISIBILITY_MIN_CONTEXT
-        ? [...decided[0]!].filter((id) => decided.every((hidden) => hidden.has(id)))
+      hiddenSets.length >= VISIBILITY_MIN_CONTEXT
+        ? [...hiddenSets[0]!].filter((id) => hiddenSets.every((hidden) => hidden.has(id)))
         : [],
     );
     // A candidate who was away keeps their latest earlier message in view, so the decision can still see where they
