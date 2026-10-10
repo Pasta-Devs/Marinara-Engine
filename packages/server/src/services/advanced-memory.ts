@@ -214,6 +214,8 @@ const VISIBILITY_CONTEXT = 12;
 const VISIBILITY_MIN_CONTEXT = 4;
 /** Longest a transcript message gets, and the shortest worth asking about when the limit is tight. */
 const VISIBILITY_MESSAGE_TOKENS = 1000;
+/** A candidate's last message before the window only has to show where they were. */
+const VISIBILITY_LAST_SEEN_TOKENS = 256;
 const VISIBILITY_MIN_MESSAGE_TOKENS = 64;
 const VISIBILITY_TIMEOUT_MS = 20_000;
 const VISIBILITY_TRANSCRIPT_TOKENS = 6000;
@@ -1281,16 +1283,34 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
         !narrators.has(id) &&
         scene.some((index) => ctx.messages[index]!.role === "assistant" && ctx.messages[index]!.characterId === id),
     );
+    const window = [...shown, ...scene.filter((index) => index >= first)];
+    const wrote = (index: number, id: string) =>
+      ctx.messages[index]!.role === "assistant" && ctx.messages[index]!.characterId === id;
+    // A candidate this window never shows gets their last earlier message, so the decision can see where they are.
+    // Once a scene outgrows its few earlier messages, nothing else would (#7390).
+    const lastSeen = new Set(
+      [...new Set(items.flatMap((item) => item.candidates))].flatMap((id) => {
+        if (window.some((index) => wrote(index, id))) return [];
+        const index = [...before].reverse().find((candidate) => candidate < window[0]! && wrote(candidate, id));
+        return index === undefined ? [] : [index];
+      }),
+    );
     return {
       ctx,
       items,
-      transcript: [...shown, ...scene.filter((index) => index >= first)].map((index) => ({
-        messageId: ctx.messages[index]!.id,
-        messageNumber: index + 1,
-        speaker: speakerName(ctx, ctx.messages[index]!),
-        // Start and end of the original, so a later shortening still has the real ending to keep.
-        content: messageEnds(ctx.messages[index]!.content, VISIBILITY_MESSAGE_TOKENS),
-      })),
+      transcript: [...lastSeen]
+        .sort((a, b) => a - b)
+        .concat(window)
+        .map((index) => ({
+          messageId: ctx.messages[index]!.id,
+          messageNumber: index + 1,
+          speaker: speakerName(ctx, ctx.messages[index]!),
+          // Start and end of the original, so a later shortening still has the real ending to keep.
+          content: messageEnds(
+            ctx.messages[index]!.content,
+            lastSeen.has(index) ? VISIBILITY_LAST_SEEN_TOKENS : VISIBILITY_MESSAGE_TOKENS,
+          ),
+        })),
       recentlyActive: recentlyActive.map((id) => ctx.names.get(id) ?? id),
     };
   }

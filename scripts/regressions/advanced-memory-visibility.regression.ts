@@ -485,6 +485,25 @@ try {
   assert.deepEqual(decisionRequests[0]!.state.presence.recentlyActive, ["Pantalone"], "speakers stay scene-only");
   assert.equal((await extraOf(opening.id)).hiddenFromAICharacterIds, undefined);
 
+  // Once the window has moved past a candidate, their last message still shows where they were (#7390).
+  const stairChat = await createChat({ decisionEnabled: true, decisionConnectionId: decisionConnection.id });
+  await say(stairChat, "user", "P and Maukie wade through the swamp.");
+  await say(stairChat, "assistant", "MAUKIE_IN_THE_SWAMP", ids.maukie);
+  for (let step = 1; step <= 13; step++) {
+    await say(stairChat, "assistant", `Pantalone climbs step ${step}.`, ids.pantalone);
+    await memory.settleMessageVisibility(stairChat);
+  }
+  await say(stairChat, "assistant", "Pantalone reaches the top.", ids.pantalone);
+  decisionRequests.length = 0;
+  await memory.settleMessageVisibility(stairChat);
+  const stairTranscript = decisionRequests[0]!.state.presence.transcript.map(
+    (entry: { content: string }) => entry.content,
+  );
+  assert.equal(stairTranscript[0], "MAUKIE_IN_THE_SWAMP", "an absent candidate's last message comes first");
+  assert(!stairTranscript.includes("P and Maukie wade through the swamp."), "only that message, not their old scene");
+  assert.equal(stairTranscript.at(-1), "Pantalone reaches the top.");
+  assert.deepEqual(decisionRequests[0]!.state.presence.recentlyActive, ["Pantalone"], "speakers stay scene-only");
+
   // A small Decision state limit shortens long messages instead of dropping the earlier ones (#7263).
   const smallJev = await connections.create({
     name: "Small Jev",
