@@ -194,7 +194,7 @@ export interface RulesetFightOpponent {
    *  which is also what fills an invented sheet's open choices. Assigned here when not given. */
   tactics?: Pick<CombatTactics, "proficiency" | "adjective">;
   /** How a story fight has it (1.371): its Legendary Resistance and health, when it is a bestiary's. */
-  adjust?: { legendaryResistance?: number; maxHp?: number };
+  adjust?: { legendaryResistance?: number; maxHp?: number; calls?: Array<{ action: string; creature: string }> };
 }
 
 export interface RulesetFightSeed {
@@ -298,6 +298,7 @@ export function createRulesetFight(input: RulesetFightSeed): RulesetFightSeedRes
                   ? { legendaryResistance: opponent.adjust.legendaryResistance }
                   : {}),
                 ...(opponent.adjust.maxHp !== undefined ? { health: opponent.adjust.maxHp } : {}),
+                ...(opponent.adjust.calls?.length ? { calls: opponent.adjust.calls.map((call) => ({ ...call })) } : {}),
               },
             }
           : {}),

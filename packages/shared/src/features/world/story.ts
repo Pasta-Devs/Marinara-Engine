@@ -239,6 +239,23 @@ function storySheetTag(
 /** The largest party a story fight's variants were written for in 1.364; larger, or an open range
  *  (`{ "min": 7 }`), needs 1.368. */
 export const STORY_PARTY_MAX = 6;
+
+/** What a story fight changes of one of its creatures (1.371), and whom its actions call (1.379). */
+const fightAdjustShape = {
+  legendaryResistance: z.number().int().min(0).max(10).optional(),
+  maxHp: z.number().int().min(1).max(100_000).optional(),
+  /** A creature action that calls (1.320) calls another creature in this fight (1.379): by the action's id
+   *  or name, the creature by bestiary id. */
+  calls: z
+    .array(z.object({ action: z.string().min(1).max(80), creature: z.string().min(1).max(200) }).strict())
+    .min(1)
+    .max(8)
+    .optional(),
+};
+function fightAdjustChanges(each: { legendaryResistance?: number; maxHp?: number; calls?: unknown[] }): boolean {
+  return each.legendaryResistance !== undefined || each.maxHp !== undefined || !!each.calls?.length;
+}
+
 const fightCreatures = z
   .array(
     z
@@ -252,12 +269,25 @@ const fightCreatures = z
          *  health, in place of its stat block's, without a creature of its own. */
         adjust: z
           .object({
-            legendaryResistance: z.number().int().min(0).max(10).optional(),
-            maxHp: z.number().int().min(1).max(100_000).optional(),
+            ...fightAdjustShape,
+            /** The same again from a party level up (1.379), each over the last: the highest level any of
+             *  the party has reached, as the Experience's companion sheets count it. */
+            levels: z
+              .array(
+                z
+                  .object({ from: z.number().int().min(1).max(30), ...fightAdjustShape })
+                  .strict()
+                  .refine(fightAdjustChanges, { message: "A level's adjust changes something" }),
+              )
+              .max(8)
+              .refine((levels) => levels.every((each, index) => index === 0 || each.from > levels[index - 1]!.from), {
+                message: "An adjust's levels are each from a higher level",
+              })
+              .optional(),
           })
           .strict()
-          .refine((each) => each.legendaryResistance !== undefined || each.maxHp !== undefined, {
-            message: "An adjust changes its Legendary Resistance or its health",
+          .refine((each) => fightAdjustChanges(each) || !!each.levels?.length, {
+            message: "An adjust changes its Legendary Resistance, its health or whom its actions call",
           })
           .optional(),
       })
@@ -1211,6 +1241,7 @@ export function storyCapabilityMinor(story: StoryScript): number {
     fight.creatures,
     ...(fight.variants ?? []).map((variant) => variant.creatures),
   ]);
+  if (fightLists.some((list) => list.some((each) => each.adjust?.calls || each.adjust?.levels))) return 379;
   if (
     story.events.some((event) =>
       event.do.some(
@@ -1778,7 +1809,7 @@ export function storyFightRoster(
     return Array.from({ length: each.count }, (_, index) => ({
       name: each.count > 1 ? `${base} ${index + 1}` : base,
       creature,
-      ...(each.adjust ? { adjust: { ...each.adjust } } : {}),
+      ...(each.adjust ? { adjust: structuredClone(each.adjust) } : {}),
     }));
   });
 }
@@ -1787,16 +1818,54 @@ export function storyFightRoster(
 export interface StoryFightOpponent {
   name: string;
   creature: string;
-  adjust?: { legendaryResistance?: number; maxHp?: number };
+  adjust?: StoryFightAdjust;
+}
+
+/** What a story fight changes of a creature (1.371, 1.379), with what it changes from a party level up. */
+export interface StoryFightAdjustAt {
+  legendaryResistance?: number;
+  maxHp?: number;
+  calls?: Array<{ action: string; creature: string }>;
+}
+export interface StoryFightAdjust extends StoryFightAdjustAt {
+  levels?: Array<StoryFightAdjustAt & { from: number }>;
+}
+
+/** A creature's adjust for a party this high (1.379): each level reached laid over the last, a call to
+ *  the same action replaced. A party level not known reads the creature's own adjust alone. */
+export function storyFightAdjustAt(
+  adjust: StoryFightAdjust,
+  partyLevel: number | null | undefined,
+): StoryFightAdjustAt {
+  const at: StoryFightAdjustAt = {
+    ...(adjust.legendaryResistance !== undefined ? { legendaryResistance: adjust.legendaryResistance } : {}),
+    ...(adjust.maxHp !== undefined ? { maxHp: adjust.maxHp } : {}),
+    ...(adjust.calls ? { calls: adjust.calls.map((call) => ({ ...call })) } : {}),
+  };
+  for (const level of adjust.levels ?? []) {
+    if (!partyLevel || partyLevel < level.from) break;
+    if (level.legendaryResistance !== undefined) at.legendaryResistance = level.legendaryResistance;
+    if (level.maxHp !== undefined) at.maxHp = level.maxHp;
+    for (const call of level.calls ?? []) {
+      const same = (each: { action: string }) => each.action.trim().toLowerCase() === call.action.trim().toLowerCase();
+      at.calls = [...(at.calls ?? []).filter((each) => !same(each)), { ...call }];
+    }
+  }
+  return at;
 }
 
 /** How a story fight adjusts an opponent, for the Game Master (1.371): "Legendary Resistance 1, 40 HP". */
-export function storyFightAdjustText(adjust: StoryFightOpponent["adjust"]): string {
+export function storyFightAdjustText(adjust: StoryFightAdjust | undefined): string {
   if (!adjust) return "";
-  return [
-    ...(adjust.legendaryResistance !== undefined ? [`Legendary Resistance ${adjust.legendaryResistance}`] : []),
-    ...(adjust.maxHp !== undefined ? [`${adjust.maxHp} HP`] : []),
+  const said = (at: StoryFightAdjustAt) =>
+    [
+      ...(at.legendaryResistance !== undefined ? [`Legendary Resistance ${at.legendaryResistance}`] : []),
+      ...(at.maxHp !== undefined ? [`${at.maxHp} HP`] : []),
+      ...(at.calls ?? []).map((call) => `${call.action} calls ${call.creature}`),
   ].join(", ");
+  return [said(adjust), ...(adjust.levels ?? []).map((level) => `from party level ${level.from}: ${said(level)}`)]
+    .filter(Boolean)
+    .join("; ");
 }
 
 /** The sizes a variant is for, lowest and highest (an open range's highest is any). */

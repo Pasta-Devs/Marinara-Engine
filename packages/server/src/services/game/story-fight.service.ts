@@ -11,7 +11,9 @@ import {
   storyFightIn,
   storyFightRoster,
   storyIsRef,
+  storyFightAdjustAt,
   storyFightAdjustText,
+  type StoryFightAdjustAt,
   type RulesetDefinition,
   type RulesetHeldGround,
   type StoryFight,
@@ -65,16 +67,18 @@ export async function latestStoryHeldGround(
 }
 
 /** How the story fight the latest reply started adjusts its opponents (1.371), by their names in the fight
- *  (case aside): what a ruleset fight builds each of them with. Empty when there is none. */
+ *  (case aside), as a party this high meets them (1.379): what a ruleset fight builds each of them with.
+ *  Empty when there is none. */
 export async function latestStoryFightAdjusts(
   db: DB,
   chatId: string,
   meta: Record<string, unknown> | null | undefined,
-): Promise<Map<string, NonNullable<StoryFightOpponent["adjust"]>>> {
+  partyLevel?: number | null,
+): Promise<Map<string, StoryFightAdjustAt>> {
   const fight = await latestStoryFight(db, chatId, meta);
-  const adjusts = new Map<string, NonNullable<StoryFightOpponent["adjust"]>>();
+  const adjusts = new Map<string, StoryFightAdjustAt>();
   for (const each of fight ? storyFightRoster(fight) : []) {
-    if (each.adjust) adjusts.set(each.name.trim().toLowerCase(), each.adjust);
+    if (each.adjust) adjusts.set(each.name.trim().toLowerCase(), storyFightAdjustAt(each.adjust, partyLevel));
   }
   return adjusts;
 }

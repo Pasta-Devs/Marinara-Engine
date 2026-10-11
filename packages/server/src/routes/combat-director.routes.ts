@@ -78,7 +78,7 @@ import { resolveTacticalStartPreferences } from "../services/game/tactical-battl
 import { gameBattlefieldHere } from "../services/game/made-battlefield.service.js";
 import { checkStoryItemUse, keepStorySpend, storyUseOfOption } from "../services/game/story-item-uses.service.js";
 import { heldGroundReleaseDueInFight, keepHeldGroundReleased } from "../services/game/story-held-ground.service.js";
-import { gameNoncombatants } from "../services/game/experience-companions.service.js";
+import { gameNoncombatants, gamePartyLevel } from "../services/game/experience-companions.service.js";
 import { latestStoryFightAdjusts, latestStoryHeldGround } from "../services/game/story-fight.service.js";
 import { buildPartyNpcId } from "../services/generation/game-party-utils.js";
 import { logger } from "../lib/logger.js";
@@ -899,7 +899,13 @@ export async function combatDirectorRoutes(
           // One read of the visible game state, for both its live sheets and its time of day.
           const liveRow = (await visibleLiveRow(input.chatId)).row;
           // How the story fight the latest reply started has its opponents (1.371), by their names.
-          const adjusts = await latestStoryFightAdjusts(app.db, input.chatId, meta);
+          // A creature changed from a party level up (1.379) reads the party's level as the Experience counts it.
+          const adjusts = await latestStoryFightAdjusts(
+            app.db,
+            input.chatId,
+            meta,
+            await gamePartyLevel(app.db, input.chatId, meta, definition),
+          );
           // Whether death is held where it is fought (1.374): the story's Held Ground (1.318).
           const heldGround = await latestStoryHeldGround(app.db, input.chatId, meta);
           const built = createRulesetFight({

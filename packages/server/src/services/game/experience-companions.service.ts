@@ -97,6 +97,27 @@ export function companionPartyLevel(
   return highest;
 }
 
+/** The party's level as an Experience counts it (1.379): the highest level any of the party's own has
+ *  reached, read off the level fields its companion sheets name for this ruleset. Null when the game's
+ *  Experience has no companion sheet for the ruleset to say which fields those are. */
+export async function gamePartyLevel(
+  db: DB,
+  chatId: string,
+  meta: Record<string, unknown>,
+  definition: RulesetDefinition,
+): Promise<number | null> {
+  const companions = await gameCompanions(db, chatId, meta);
+  if (!companions) return null;
+  const sheet = experiencePeopleIn(companions.world, companions.people)
+    .map(({ entry }) => (entry.companion ? experienceCompanionSheet(entry.companion, definition.id) : undefined))
+    .find((each) => each);
+  if (!sheet) return null;
+  const cards = Array.isArray(meta.gameCharacterCards)
+    ? (meta.gameCharacterCards as Array<Record<string, unknown>>)
+    : [];
+  return companionPartyLevel(definition, cards, sheet, companionNames(companions));
+}
+
 /** A companion's sheet for a party this high: their build for it, read as the ruleset reads a stored one. */
 export function companionSheetEnvelope(
   definition: RulesetDefinition,

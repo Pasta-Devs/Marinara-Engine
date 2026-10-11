@@ -1435,7 +1435,9 @@ const capabilityPackageManifestBaseSchema = z
 //        of the party rolls what they owe off their own sheet.
 // 1.378: a story's `give` may name a ruleset entry by its bare id (the first catalog that offers it), and
 //        may list alternatives, the first the game offers given.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 378 } as const);
+// 1.379: a story fight's creature `adjust` may change whom its actions call (`calls`), and change any of
+//        it from a party level up (`levels`), the level read off the Experience's companion sheets' fields.
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 379 } as const);
 
 const capabilityApiVersionSchema = z
   .object({

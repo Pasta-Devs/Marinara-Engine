@@ -130,9 +130,19 @@ function amountOf(amount: RulesetCatalogMechanics["amount"]): RulesetCombatAmoun
  *  dice no longer thrown) in place of its own. */
 function rulesetAdjustedBlock(
   block: RulesetStatBlock,
-  adjust: { legendaryResistance?: number; health?: number },
+  adjust: { legendaryResistance?: number; health?: number; calls?: Array<{ action: string; creature: string }> },
 ): RulesetStatBlock {
   const adjusted: RulesetStatBlock = { ...block };
+  // Whom an action calls (1.379): the Shelves Lean calls a wraith once the party is high enough.
+  if (adjust.calls?.length) {
+    const key = (text: string) => text.trim().toLowerCase();
+    adjusted.actions = block.actions.map((action) => {
+      const call = [...adjust.calls!]
+        .reverse()
+        .find((each) => key(each.action) === key(action.id ?? "") || key(each.action) === key(action.name));
+      return call && action.calls ? { ...action, calls: { ...action.calls, creature: call.creature } } : action;
+    });
+  }
   if (adjust.legendaryResistance !== undefined) {
     if (adjust.legendaryResistance > 0) adjusted.legendaryResistance = adjust.legendaryResistance;
     else delete adjusted.legendaryResistance;

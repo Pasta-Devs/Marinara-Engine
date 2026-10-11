@@ -240,7 +240,7 @@ with fight `variants` needs 1.364, and one with `any` conditions, a `fight` even
 `leave` event, a flag's `min` or `max`, or an `if` on an action or a page needs 1.366, and one with a
 `partySize` condition, a variant for a party above 6 or open-ended, or more than 6 variants needs 1.368, and one
 with a `season` action `over` everything inside it needs 1.369, one with `exposures` needs 1.370, one
-whose fight creatures `adjust` needs 1.371, one with an exposure `save` or a track's `upTo` needs 1.372, one with an exposure `sparedByShade` needs 1.373, one with `heldGround` needs 1.374, one with a `sheet` action needs 1.376, one with a held ground `release` needs 1.377, and one that gives by a bare entry id or a list needs 1.378. A companion is a person of the pack's people file marked
+whose fight creatures `adjust` needs 1.371, one with an exposure `save` or a track's `upTo` needs 1.372, one with an exposure `sparedByShade` needs 1.373, one with `heldGround` needs 1.374, one with a `sheet` action needs 1.376, one with a held ground `release` needs 1.377, one that gives by a bare entry id or a list needs 1.378, and one whose fight creatures `adjust` `calls` or `levels` needs 1.379. A companion is a person of the pack's people file marked
 as one (see the map pack's people in [optional agent packages](../development/optional-agent-packages.md)).
 
 Of the `rest`, `travel` and `idle` events that could happen on one turn, only one does: the one with the
@@ -388,7 +388,13 @@ fight as written. No size may be held by two variants.
 A creature entry of a fight or a variant may `adjust` it for that fight (Capability API 1.371), so a boss
 scales with the party without a creature of its own: `"adjust": { "legendaryResistance": 2, "maxHp": 40 }`
 gives it that Legendary Resistance (0 takes it away) and that health (a fixed number in place of its
-block's, dice and all). The Game Master is told it beside the creature. A `party` names sizes up to 32; a range without
+block's, dice and all). The Game Master is told it beside the creature. An adjust's `calls` changes whom the creature's
+actions call (Capability API 1.379): `[{ "action": "shelves_lean", "creature": "creatures/wraith" }]`, by the
+action's id or name, for an action that calls (1.320). Its `levels` change any of these from a party level
+up, each over the last: `"levels": [{ "from": 8, "calls": [{ "action": "shelves_lean", "creature":
+"creatures/wraith" }] }]`. The party's level is the highest any of the party's own has reached, read off the
+level fields the Experience's companion sheets name for the game's ruleset; without one, `levels` are not
+read. A `party` names sizes up to 32; a range without
 a `max` (`{ "min": 7 }`, Capability API 1.368) holds every party from its `min` up, however large. The Game Master is told which party size the fight
 was set for when it starts, and again after its recap.
 

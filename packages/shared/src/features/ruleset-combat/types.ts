@@ -606,7 +606,7 @@ export type RulesetCombatantInput =
       /** Where its live tracks stand as the fight begins (1.115), as a bestiary creature has none. */
       tracks?: Record<string, number>;
       /** Its stat block as this fight has it (1.371): a story fight's Legendary Resistance and health. */
-      adjust?: { legendaryResistance?: number; health?: number };
+      adjust?: { legendaryResistance?: number; health?: number; calls?: Array<{ action: string; creature: string }> };
     };
 
 /** One thing a combatant may do, with every number already read off the sheet or the stat block.

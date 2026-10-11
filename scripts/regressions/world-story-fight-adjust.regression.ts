@@ -22,6 +22,8 @@ import {
   rulesetCombatant,
   rulesetCombatHealth,
   storyCapabilityMinor,
+  storyFightAdjustAt,
+  storyFightAdjustText,
   storyFightForParty,
   storyFightRoster,
   type GameWorld,
@@ -122,4 +124,105 @@ assert.equal(build({ legendaryResistance: 0 }).combatant.block?.legendaryResista
 // The bestiary's own entry is untouched.
 assert.equal(bestiaryCatalog.entries![0]!.creature?.legendaryResistance, undefined);
 
-console.log("Story fight adjust: a creature's Legendary Resistance and health set for one fight.");
+// ── Whom an action calls, from a party level up (1.379): the Shelves Lean calls a wraith from level 8 ──
+{
+  const leveled = checkStoryScript(game, {
+    ...input,
+    fights: [
+      {
+        id: "shelves",
+        name: "The Shelves",
+        creatures: [
+          {
+            creature: "creatures/basilisk",
+            name: "Owed",
+            adjust: {
+              maxHp: 90,
+              levels: [
+                { from: 5, calls: [{ action: "shelves_lean", creature: "creatures/ghoul" }] },
+                { from: 8, legendaryResistance: 1, calls: [{ action: "shelves_lean", creature: "creatures/wraith" }] },
+              ],
+            },
+          },
+        ],
+      },
+    ],
+  });
+  assert.ok(leveled.ok, JSON.stringify(leveled));
+  assert.equal(storyCapabilityMinor(leveled.story), 379);
+  const adjust = leveled.story.fights[0]!.creatures[0]!.adjust!;
+  assert.deepEqual(storyFightAdjustAt(adjust, 3), { maxHp: 90 });
+  assert.deepEqual(storyFightAdjustAt(adjust, null), { maxHp: 90 }, "a level not known: the creature's own");
+  assert.deepEqual(storyFightAdjustAt(adjust, 6), {
+    maxHp: 90,
+    calls: [{ action: "shelves_lean", creature: "creatures/ghoul" }],
+  });
+  assert.deepEqual(storyFightAdjustAt(adjust, 9), {
+    maxHp: 90,
+    legendaryResistance: 1,
+    calls: [{ action: "shelves_lean", creature: "creatures/wraith" }],
+  });
+  assert.match(
+    storyFightAdjustText(adjust),
+    /90 HP; from party level 5: shelves_lean calls creatures\/ghoul; from party level 8: Legendary Resistance 1, shelves_lean calls creatures\/wraith/,
+  );
+  // Refused: levels out of order, a level that changes nothing.
+  const refused = (levels: unknown) =>
+    checkStoryScript(game, {
+      ...input,
+      fights: [
+        {
+          id: "shelves",
+          name: "The Shelves",
+          creatures: [{ creature: "creatures/basilisk", adjust: { levels } as never }],
+        },
+      ],
+    }).ok;
+  assert.equal(
+    refused([
+      { from: 8, maxHp: 5 },
+      { from: 5, maxHp: 4 },
+    ]),
+    false,
+  );
+  assert.equal(refused([{ from: 8 }]), false);
+
+  // In the fight: the action's call is the adjust's creature, by the action's id or its name.
+  const [owedEntry, calledEntry] = bestiaryCatalog.entries!;
+  const lean = {
+    id: "shelves_lean",
+    name: "Shelves Lean",
+    budget: "action",
+    calls: { creature: `${bestiaryCatalog.id}/${owedEntry!.id}`, count: { flat: 1 } },
+  };
+  const shelves = {
+    ...owedEntry!,
+    creature: { ...owedEntry!.creature!, actions: [...owedEntry!.creature!.actions, lean] },
+  };
+  const fightWith = (calls?: Array<{ action: string; creature: string }>) => {
+    const state = createRulesetEncounter({
+      definition,
+      seed: 3,
+      bestiary: { [bestiaryCatalog.id]: [shelves, ...bestiaryCatalog.entries!.slice(1)] } as typeof bestiary,
+      combatants: [
+        {
+          id: "o",
+          name: "Owed",
+          side: "enemy",
+          creature: { catalogId: bestiaryCatalog.id, entryId: owedEntry!.id },
+          ...(calls ? { adjust: { calls } } : {}),
+        },
+      ],
+    });
+    return rulesetCombatant(state, "o")!.actions.find((one) => one.id === "shelves_lean")?.calls;
+  };
+  assert.equal(fightWith()?.creature.entryId, owedEntry!.id);
+  const wraith = `${bestiaryCatalog.id}/${calledEntry!.id}`;
+  assert.equal(fightWith([{ action: "Shelves Lean", creature: wraith }])?.creature.entryId, calledEntry!.id);
+  assert.equal(fightWith([{ action: "shelves_lean", creature: wraith }])?.name, calledEntry!.label);
+  assert.equal(fightWith([{ action: "other", creature: wraith }])?.creature.entryId, owedEntry!.id);
+}
+
+console.log(
+  "Story fight adjust: a creature's Legendary Resistance, health and calls set for one fight, by party level.",
+);
