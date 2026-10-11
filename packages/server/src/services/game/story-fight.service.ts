@@ -8,8 +8,10 @@ import {
   storyFightIn,
   storyFightRoster,
   storyIsRef,
+  storyFightAdjustText,
   type RulesetDefinition,
   type StoryFight,
+  type StoryFightOpponent,
 } from "@marinara-engine/shared";
 import type { DB } from "../../db/connection.js";
 import { logger } from "../../lib/logger.js";
@@ -39,11 +41,26 @@ export async function latestStoryFight(
   }
 }
 
+/** How the story fight the latest reply started adjusts its opponents (1.371), by their names in the fight
+ *  (case aside): what a ruleset fight builds each of them with. Empty when there is none. */
+export async function latestStoryFightAdjusts(
+  db: DB,
+  chatId: string,
+  meta: Record<string, unknown> | null | undefined,
+): Promise<Map<string, NonNullable<StoryFightOpponent["adjust"]>>> {
+  const fight = await latestStoryFight(db, chatId, meta);
+  const adjusts = new Map<string, NonNullable<StoryFightOpponent["adjust"]>>();
+  for (const each of fight ? storyFightRoster(fight) : []) {
+    if (each.adjust) adjusts.set(each.name.trim().toLowerCase(), each.adjust);
+  }
+  return adjusts;
+}
+
 /** The fight's opponents, each by the bestiary's own name for it when the ruleset has the id. */
 export async function storyFightOpponents(
   fight: StoryFight,
   ruleset: { definition: RulesetDefinition; packageId: string | null } | null,
-): Promise<Array<{ name: string; creature: string }>> {
+): Promise<StoryFightOpponent[]> {
   const labels = new Map<string, string>();
   if (ruleset) {
     const refs = new Set(fight.creatures.map((each) => each.creature).filter(storyIsRef));
@@ -60,11 +77,14 @@ export async function storyFightOpponents(
 }
 
 /** The prompt line that tells the blueprint writer who this fight is with. */
-export function storyFightPromptText(fight: StoryFight, opponents: ReadonlyArray<{ name: string; creature: string }>) {
+export function storyFightPromptText(fight: StoryFight, opponents: ReadonlyArray<StoryFightOpponent>) {
   return [
     `This fight is set by the story: "${fight.name}"${fight.forParty ? `, as set for a party of ${fight.forParty}` : ""}.${fight.note ? ` ${fight.note}` : ""}`,
     `Its enemies are exactly these, in this order, with these names${opponents.length ? "" : " (none)"}:`,
-    ...opponents.map((each) => `- ${each.name} (creature: ${each.creature})`),
+    ...opponents.map(
+      (each) =>
+        `- ${each.name} (creature: ${each.creature}${each.adjust ? `; in this fight: ${storyFightAdjustText(each.adjust)}` : ""})`,
+    ),
     "Write no other enemies.",
   ].join("\n");
 }

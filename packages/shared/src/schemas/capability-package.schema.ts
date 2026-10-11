@@ -1415,7 +1415,9 @@ const capabilityPackageManifestBaseSchema = z
 // 1.370: a story may keep `exposures`: what being in a place does to the party over time (every `hours`
 //        hours there while its `if` holds, tracks moved and conditions put on for each of the party, by
 //        the Engine's own sheet commands on the game's clock). Noonfield's light outside a fight.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 370 } as const);
+// 1.371: a story fight's (or variant's) creature entry may `adjust` it for that fight: its Legendary
+//        Resistance and its health (`maxHp`), in place of its stat block's.
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 371 } as const);
 
 const capabilityApiVersionSchema = z
   .object({

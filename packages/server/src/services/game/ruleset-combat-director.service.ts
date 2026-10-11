@@ -193,6 +193,8 @@ export interface RulesetFightOpponent {
   /** How it fights: the same competence and temperament its choices in the fight are made with,
    *  which is also what fills an invented sheet's open choices. Assigned here when not given. */
   tactics?: Pick<CombatTactics, "proficiency" | "adjective">;
+  /** How a story fight has it (1.371): its Legendary Resistance and health, when it is a bestiary's. */
+  adjust?: { legendaryResistance?: number; maxHp?: number };
 }
 
 export interface RulesetFightSeed {
@@ -289,6 +291,16 @@ export function createRulesetFight(input: RulesetFightSeed): RulesetFightSeedRes
         name: opponent.name,
         side: "enemy",
         creature: { catalogId: found.catalogId, entryId: found.entry.id },
+        ...(opponent.adjust
+          ? {
+              adjust: {
+                ...(opponent.adjust.legendaryResistance !== undefined
+                  ? { legendaryResistance: opponent.adjust.legendaryResistance }
+                  : {}),
+                ...(opponent.adjust.maxHp !== undefined ? { health: opponent.adjust.maxHp } : {}),
+              },
+            }
+          : {}),
       });
       if (found.entry.creature?.loot) lootTables[opponent.id] = found.entry.creature.loot;
       continue;

@@ -126,7 +126,25 @@ function amountOf(amount: RulesetCatalogMechanics["amount"]): RulesetCombatAmoun
 
 // ── Reading a combatant ──
 
-/** A bestiary reference as the fight keeps it: out of a borrowed catalog (1.220), it also names the
+/** A stat block as one fight has it (1.371): its Legendary Resistance and its health (a fixed number, its
+ *  dice no longer thrown) in place of its own. */
+function rulesetAdjustedBlock(
+  block: RulesetStatBlock,
+  adjust: { legendaryResistance?: number; health?: number },
+): RulesetStatBlock {
+  const adjusted: RulesetStatBlock = { ...block };
+  if (adjust.legendaryResistance !== undefined) {
+    if (adjust.legendaryResistance > 0) adjusted.legendaryResistance = adjust.legendaryResistance;
+    else delete adjusted.legendaryResistance;
+  }
+  if (adjust.health !== undefined) {
+    adjusted.health = adjust.health;
+    delete adjusted.healthDice;
+  }
+  return adjusted;
+}
+
+/** A bestiary reference as the fight keeps it: out of a borrowed catalog (1.215), it also names the
  *  lender's ruleset and catalog, which is what the creature's art is matched by. */
 function creatureRef(
   definition: RulesetDefinition,
@@ -4196,10 +4214,11 @@ export function createRulesetEncounter(input: RulesetEncounterInput): RulesetEnc
     if (entry.side === "enemy") {
       // A bestiary reference that names nothing is left out of the fight rather than walked in with
       // no numbers, and the opening says so.
-      const block =
+      const found =
         "block" in entry
           ? entry.block
           : rulesetCreatureBlock(definition, findRulesetCreatureEntry(input.bestiary ?? {}, entry.creature));
+      const block = found && "creature" in entry && entry.adjust ? rulesetAdjustedBlock(found, entry.adjust) : found;
       if (!block) {
         refused.push({ type: "refused", actorId: entry.id, reason: "unknown-creature" });
         continue;

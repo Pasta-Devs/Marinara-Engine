@@ -232,7 +232,8 @@ with `seasons` or the `season` action needs 1.359, one with more than 64 flags n
 with fight `variants` needs 1.364, and one with `any` conditions, a `fight` event naming its fight, a
 `leave` event, a flag's `min` or `max`, or an `if` on an action or a page needs 1.366, and one with a
 `partySize` condition, a variant for a party above 6 or open-ended, or more than 6 variants needs 1.368, and one
-with a `season` action `over` everything inside it needs 1.369, and one with `exposures` needs 1.370. A companion is a person of the pack's people file marked
+with a `season` action `over` everything inside it needs 1.369, one with `exposures` needs 1.370, and one
+whose fight creatures `adjust` needs 1.371. A companion is a person of the pack's people file marked
 as one (see the map pack's people in [optional agent packages](../development/optional-agent-packages.md)).
 
 Of the `rest`, `travel` and `idle` events that could happen on one turn, only one does: the one with the
@@ -311,7 +312,12 @@ and every companion travelling with it, but for a companion marked `noncombatant
 
 The variant whose `party` holds the party's size is fought, with its own creatures, and its own
 `battlefield` and `note` when it gives them (the fight's otherwise). A party no variant holds fights the
-fight as written. No size may be held by two variants. A `party` names sizes up to 32; a range without
+fight as written. No size may be held by two variants.
+
+A creature entry of a fight or a variant may `adjust` it for that fight (Capability API 1.371), so a boss
+scales with the party without a creature of its own: `"adjust": { "legendaryResistance": 2, "maxHp": 40 }`
+gives it that Legendary Resistance (0 takes it away) and that health (a fixed number in place of its
+block's, dice and all). The Game Master is told it beside the creature. A `party` names sizes up to 32; a range without
 a `max` (`{ "min": 7 }`, Capability API 1.368) holds every party from its `min` up, however large. The Game Master is told which party size the fight
 was set for when it starts, and again after its recap.
 

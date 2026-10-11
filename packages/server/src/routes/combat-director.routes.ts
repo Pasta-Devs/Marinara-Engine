@@ -77,6 +77,7 @@ import { resolveTacticalStartPreferences } from "../services/game/tactical-battl
 import { gameBattlefieldHere } from "../services/game/made-battlefield.service.js";
 import { checkStoryItemUse, keepStorySpend, storyUseOfOption } from "../services/game/story-item-uses.service.js";
 import { gameNoncombatants } from "../services/game/experience-companions.service.js";
+import { latestStoryFightAdjusts } from "../services/game/story-fight.service.js";
 import { buildPartyNpcId } from "../services/generation/game-party-utils.js";
 import { logger } from "../lib/logger.js";
 import { resolveVisibleGameStateAnchor } from "./generate/generate-route-utils.js";
@@ -895,6 +896,8 @@ export async function combatDirectorRoutes(
           );
           // One read of the visible game state, for both its live sheets and its time of day.
           const liveRow = (await visibleLiveRow(input.chatId)).row;
+          // How the story fight the latest reply started has its opponents (1.371), by their names.
+          const adjusts = await latestStoryFightAdjusts(app.db, input.chatId, meta);
           const built = createRulesetFight({
             definition,
             seed: battlefield.seed,
@@ -911,6 +914,9 @@ export async function combatDirectorRoutes(
               ...(enemy.tier !== undefined ? { tier: enemy.tier } : {}),
               ...(enemy.proposed !== undefined ? { proposed: enemy.proposed } : {}),
               ...(enemy.tactics ? { tactics: enemy.tactics } : {}),
+              ...(adjusts.get(enemy.name.trim().toLowerCase())
+                ? { adjust: adjusts.get(enemy.name.trim().toLowerCase())! }
+                : {}),
               boss: !!enemy.boss,
             })),
             cards,

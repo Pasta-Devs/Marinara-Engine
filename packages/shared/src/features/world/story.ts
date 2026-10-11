@@ -218,6 +218,18 @@ const fightCreatures = z
         count: z.number().int().min(1).max(20).default(1),
         /** What this one is called in the fight, when not the creature's own name. */
         name: tagWord(60).optional(),
+        /** The creature as this fight has it (Capability API 1.371): its Legendary Resistance and its
+         *  health, in place of its stat block's, without a creature of its own. */
+        adjust: z
+          .object({
+            legendaryResistance: z.number().int().min(0).max(10).optional(),
+            maxHp: z.number().int().min(1).max(100_000).optional(),
+          })
+          .strict()
+          .refine((each) => each.legendaryResistance !== undefined || each.maxHp !== undefined, {
+            message: "An adjust changes its Legendary Resistance or its health",
+          })
+          .optional(),
       })
       .strict(),
   )
@@ -1050,6 +1062,11 @@ export function storyCapabilityMinor(story: StoryScript): number {
     ...story.knowledge.flatMap((known) => known.if ?? []),
   ].some((condition) => "party" in condition);
   const lists = storyConditionLists(story);
+  const fightLists = story.fights.flatMap((fight) => [
+    fight.creatures,
+    ...(fight.variants ?? []).map((variant) => variant.creatures),
+  ]);
+  if (fightLists.some((list) => list.some((each) => each.adjust))) return 371;
   if (story.exposures.length) return 370;
   if (story.events.some((event) => event.do.some((action) => "season" in action && action.season.over))) return 369;
   if (
@@ -1443,15 +1460,32 @@ function storyActionTags(
 export function storyFightRoster(
   fight: StoryFight,
   label: (creature: string) => string | undefined = () => undefined,
-): Array<{ name: string; creature: string }> {
+): StoryFightOpponent[] {
   return fight.creatures.flatMap((each) => {
     const creature = (storyIsRef(each.creature) ? label(each.creature) : undefined) ?? each.creature;
     const base = each.name ?? creature;
     return Array.from({ length: each.count }, (_, index) => ({
       name: each.count > 1 ? `${base} ${index + 1}` : base,
       creature,
+      ...(each.adjust ? { adjust: { ...each.adjust } } : {}),
     }));
   });
+}
+
+/** One opponent of a story fight, as its roster names it (1.351), with how the fight adjusts it (1.371). */
+export interface StoryFightOpponent {
+  name: string;
+  creature: string;
+  adjust?: { legendaryResistance?: number; maxHp?: number };
+}
+
+/** How a story fight adjusts an opponent, for the Game Master (1.371): "Legendary Resistance 1, 40 HP". */
+export function storyFightAdjustText(adjust: StoryFightOpponent["adjust"]): string {
+  if (!adjust) return "";
+  return [
+    ...(adjust.legendaryResistance !== undefined ? [`Legendary Resistance ${adjust.legendaryResistance}`] : []),
+    ...(adjust.maxHp !== undefined ? [`${adjust.maxHp} HP`] : []),
+  ].join(", ");
 }
 
 /** The sizes a variant is for, lowest and highest (an open range's highest is any). */
