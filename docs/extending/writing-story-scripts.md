@@ -132,6 +132,10 @@ comes up, on a turn when:
 - and, when it has `keys`, one of them is said there too. An entry with no person needs keys, and comes in
   by them alone.
 
+At most 12 are told a turn. From 1.369 they are ranked: the people the scene names come first, then the
+entries with no person that its words bring in, then the companions only travelling along; within each,
+the entries are shared out person by person, so one talkative companion never crowds out the rest.
+
 ```json
 "knowledge": [
   { "id": "hob-self", "person": "p3-4", "text": "Hob was a miller's boy before the year stopped." },
@@ -204,7 +208,7 @@ deed it waits for, would set itself off every turn, so the Engine refuses it.
 | `{ "music": "<track id>" }` or `{ "music": null }` | Cues one of its Experience's tracks over the place's music (1.353), until another cue, or `null` hands back to the place's. The track must be one of the map pack's `music`. |
 | `{ "recruit": "<person id>" }` | Takes one of its Experience's companions into the party (1.355), with their sheet for the game's ruleset. The Game Master is told to show them joining. |
 | `{ "dismiss": "<person id>" }` | Lets a companion go from the party (1.355). |
-| `{ "season": { "place": "<place id>", "to": "winter" } }` | Holds a place, and every place inside it, at a season whatever the date (1.359); without `place`, the whole world. `"to": null` lets it go back to the script's own `seasons`, or the date's. |
+| `{ "season": { "place": "<place id>", "to": "winter" } }` | Holds a place, and every place inside it, at a season whatever the date (1.359); without `place`, the whole world. `"to": null` lets it go back to the script's own `seasons`, or the date's. With `"over": true` (1.369) it holds over every season inside it, the script's own and every other hold, as an ending that turns the year does; `"to": null` with `"over": true` lets that go. |
 
 Any action may carry its own `if` (Capability API 1.366): it is done only when its conditions hold as
 the event reaches it, with the event's earlier actions done, so one event can branch.
@@ -227,7 +231,8 @@ recruits or dismisses companions needs 1.355, one with knowledge needs 1.356, an
 with `seasons` or the `season` action needs 1.359, one with more than 64 flags needs 1.361, and one
 with fight `variants` needs 1.364, and one with `any` conditions, a `fight` event naming its fight, a
 `leave` event, a flag's `min` or `max`, or an `if` on an action or a page needs 1.366, and one with a
-`partySize` condition, a variant for a party above 6 or open-ended, or more than 6 variants needs 1.368. A companion is a person of the pack's people file marked
+`partySize` condition, a variant for a party above 6 or open-ended, or more than 6 variants needs 1.368, and one
+with a `season` action `over` everything inside it needs 1.369. A companion is a person of the pack's people file marked
 as one (see the map pack's people in [optional agent packages](../development/optional-agent-packages.md)).
 
 Of the `rest`, `travel` and `idle` events that could happen on one turn, only one does: the one with the
@@ -247,7 +252,9 @@ A world's seasons follow its calendar, 90 days each. A story can hold places at 
 
 Each holds a place and every place inside it; one without a `place` holds the whole world. The nearest
 held place decides: a village held at winter inside a region held at autumn is winter. The `season`
-action changes a hold during play, or lets it go. Where the party is held, the Game Master is told the
+action changes a hold during play, or lets it go. A hold made `over` everything inside it (1.369) is the
+exception: it beats every season there, the script's own and every other hold (the outermost such hold
+first), so `{ "season": { "to": "spring", "over": true } }` turns the whole world at once. Where the party is held, the Game Master is told the
 season and that it is held; the weather is made for it; the overworld draws each cell in the season of the
 place it lies nearest (a tile pack's `<id>@<season>` tiles), and a town in its own.
 

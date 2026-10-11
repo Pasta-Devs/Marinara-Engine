@@ -194,7 +194,15 @@ const action = z.union([
   /** Holds a place (and every place inside it), or the whole world without one, at a season whatever the
    *  day; `null` lets it go back to the script's own (Capability API 1.359). */
   act({
-      season: z.object({ place: z.string().min(1).max(120).optional(), to: z.enum(WORLD_SEASONS).nullable() }).strict(),
+    season: z
+      .object({
+        place: z.string().min(1).max(120).optional(),
+        to: z.enum(WORLD_SEASONS).nullable(),
+        /** Over every season inside it, the script's own and every other hold (Capability API 1.369): an
+         *  ending's turned year. `to: null` with `over` lets it go and gives them back. */
+        over: z.literal(true).optional(),
+      })
+      .strict(),
   }),
 ]);
 
@@ -979,6 +987,7 @@ export function storyCapabilityMinor(story: StoryScript): number {
     ...story.knowledge.flatMap((known) => known.if ?? []),
   ].some((condition) => "party" in condition);
   const lists = storyConditionLists(story);
+  if (story.events.some((event) => event.do.some((action) => "season" in action && action.season.over))) return 369;
   if (
     lists.some((list) => storyConditionsFlat(list).some((condition) => "partySize" in condition)) ||
     story.fights.some(
@@ -1276,7 +1285,8 @@ function applyActions(story: StoryScript, event: StoryEvent, flags: StoryState["
     if (action.if && !storyConditionsHold(action.if, flags, party)) continue;
     acts.push(index);
     if ("music" in action) music = action.music;
-    if ("season" in action) seasons.push([action.season.place ?? "*", action.season.to]);
+    if ("season" in action)
+      seasons.push([`${action.season.place ?? "*"}${action.season.over ? STORY_SEASON_OVER : ""}`, action.season.to]);
     if ("fight" in action) fight ??= action.fight;
     if ("ending" in action) ending ??= action.ending;
     if ("set" in action) {
@@ -1855,6 +1865,9 @@ export function storyTurn(story: StoryScript, world: StoryTurnWorld): StoryTurn 
 
 /** The season at a place (1.359): the one the story holds it, or the nearest place it is inside, at (its
  *  events' first, then the script's own), else the one it holds the whole world at, else the day's. */
+/** What marks a place's season hold as over everything inside it (1.369), after its place id. */
+const STORY_SEASON_OVER = "!";
+
 export function storySeasonAt(
   story: StoryScript,
   held: Readonly<Record<string, WorldSeason>> | undefined,
@@ -1864,6 +1877,14 @@ export function storySeasonAt(
 ): { season: WorldSeason; held: boolean } {
   const parents = new Map(game.world.places.map((place) => [place.id, place.parentId]));
   const own = new Map(story.seasons.map((each) => [each.place ?? "*", each.season]));
+  // A hold over everything inside it (1.369) beats every season there, the outermost first.
+  const over = held?.[`*${STORY_SEASON_OVER}`];
+  if (over) return { season: over, held: true };
+  let outermost: WorldSeason | undefined;
+  for (let at = placeId ?? null, hops = 0; at && hops < 64; at = parents.get(at) ?? null, hops++) {
+    outermost = held?.[`${at}${STORY_SEASON_OVER}`] ?? outermost;
+  }
+  if (outermost) return { season: outermost, held: true };
   for (let at = placeId ?? null, hops = 0; at && hops < 64; at = parents.get(at) ?? null, hops++) {
     const season = held?.[at] ?? own.get(at);
     if (season) return { season, held: true };
@@ -1920,7 +1941,8 @@ export function worldSeasonCells(
 
 /** What people know that holds now and is in the scene (1.356): an entry whose conditions hold, whose
  *  person is named in these texts or travels with the party, and, when it has keys, one of them is said;
- *  in the script's order, a turn's worth at most. */
+ *  a turn's worth at most, ranked (1.369): the people the scene names first, then what its words bring in, then
+ *  those only travelling along, each rank shared out person by person. */
 export function storyKnowledgeHere(
   story: StoryScript,
   game: GameWorld,
@@ -1941,16 +1963,49 @@ export function storyKnowledgeHere(
     }
     return here.get(personId) ?? null;
   };
-  const out: Array<{ who?: string; text: string }> = [];
-  for (const known of story.knowledge) {
-    if (out.length >= STORY_MAX.knowledgeATurn) break;
+  // What holds, ranked (1.369): the people the scene names first, then what its words bring in, then the
+  // companions who are only travelling along; within each, shared out person by person.
+  const named = (personId: string) => {
+    const person = storyPerson(game, personId);
+    return Boolean(person?.named && said.some((text) => fullName(person.name).test(text)));
+  };
+  const held: Array<{ index: number; rank: number; person?: string; who?: string; text: string }> = [];
+  for (const [index, known] of story.knowledge.entries()) {
     if (!storyConditionsHold(known.if, flags, party)) continue;
     const who = known.person ? personHere(known.person) : undefined;
     if (known.person && !who) continue;
     if (known.keys && !known.keys.some((key) => said.some((text) => fullName(key).test(text)))) continue;
-    out.push({ ...(who ? { who } : {}), text: known.text });
+    const rank = !known.person ? 1 : named(known.person) ? 0 : 2;
+    held.push({
+      index,
+      rank,
+      ...(known.person ? { person: known.person } : {}),
+      ...(who ? { who } : {}),
+      text: known.text,
+    });
   }
-  return out;
+  held.sort((a, b) => a.rank - b.rank || a.index - b.index);
+  const chosen = new Set<number>();
+  // Rank by rank; within one, each person's entries in turn, so no one takes the rest's share.
+  for (const rank of [0, 1, 2]) {
+    const queues = new Map<string, number[]>();
+    for (const entry of held) {
+      if (entry.rank !== rank) continue;
+      const key = entry.person ?? `#${entry.index}`;
+      queues.set(key, [...(queues.get(key) ?? []), entry.index]);
+    }
+    while (chosen.size < STORY_MAX.knowledgeATurn && [...queues.values()].some((queue) => queue.length)) {
+      for (const queue of queues.values()) {
+        if (chosen.size >= STORY_MAX.knowledgeATurn) break;
+        const next = queue.shift();
+        if (next !== undefined) chosen.add(next);
+      }
+    }
+  }
+  return held
+    .filter((entry) => chosen.has(entry.index))
+    .sort((a, b) => a.index - b.index)
+    .map(({ who, text }) => ({ ...(who ? { who } : {}), text }));
 }
 
 /**

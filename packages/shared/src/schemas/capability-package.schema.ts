@@ -1409,7 +1409,10 @@ const capabilityPackageManifestBaseSchema = z
 //        story condition may test the party's size (`{ "partySize": { "is": ">=", "value": 5 } }`); and a
 //        people file's companion may never fight (`noncombatant`): not counted in the party's size, and
 //        not put in its fights.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 368 } as const);
+// 1.369: a story's `season` action may hold `over` everything inside it (the script's own seasons and
+//        every other hold), and what people know is ranked: the people the scene names first, then what
+//        its words bring in, then companions only travelling along, shared out person by person.
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 369 } as const);
 
 const capabilityApiVersionSchema = z
   .object({
