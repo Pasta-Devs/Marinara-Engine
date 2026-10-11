@@ -1398,7 +1398,11 @@ const capabilityPackageManifestBaseSchema = z
 //        .tilepack.json files laid out as a dungeon set, `dn_floor`, `dn_wall`, `dn_liquid`, `dn_prop0`-
 //        `dn_prop7`), named by id from a hand map's `pack` before the library's; and a hand map may carry
 //        its own `words` for the Game Master (floor, wall, liquid and each prop slot).
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 365 } as const);
+// 1.366: a story script reaches further: `any` condition groups (one of them holds), a `fight` event that
+//        names the script's fight it waits on, a `leave` event, a number flag's `min` and `max` (every set
+//        and add kept within), and an `if` on each cutscene page and each action (done only when it holds
+//        as the event reaches it; recorded as `acts` on the trip's tag).
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 366 } as const);
 
 const capabilityApiVersionSchema = z
   .object({

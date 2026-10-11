@@ -66,6 +66,14 @@ A flag is a value the story keeps: `"bool"` (true or false) or `"number"`.
 }
 ```
 
+A number flag may have a `min` and a `max` (Capability API 1.366): every `set` and `add` keeps it within
+them, the Game Master's own tags too, so an approval score stays between -10 and 10 however many events
+add to it. Its `initial` must be within them.
+
+```json
+{ "id": "approval", "kind": "number", "initial": 0, "min": -10, "max": 10, "gm": true }
+```
+
 A yes-or-no objective is done when its flag is true; a number objective when it reaches its `goal`
 (1 when not given), and with a `goal` written the journal shows how far along it is. An objective with
 `"hidden": true` waits in the journal until an event shows it.
@@ -100,6 +108,13 @@ must hold. A yes-or-no flag is only compared with `=` or `!=`.
 
 `{ "party": "<person id>", "is": "in" | "out" }` asks whether a person of the world travels with the
 party now, such as a companion the story recruited (Capability API 1.357).
+
+`{ "any": [<condition>, <condition>, ...] }` holds when any one of its 2 to 8 conditions does (Capability
+API 1.366): an either-or in one list, in place of two events.
+
+```json
+"if": [{ "any": [{ "flag": "won_granary", "is": "=", "value": true }, { "party": "p11-3", "is": "in" }] }]
+```
 
 ### Knowledge
 
@@ -152,8 +167,9 @@ An event happens once, unless it has `"repeat": true` (which `start`, `turn` and
 | `arrive` | While the party is in `place` (a place id) or a place inside it, having come there by starting there, a walk on the overworld, a visit in town, or a place the Game Master names. With `repeat`, again each time it comes back from elsewhere.                                                                                                                                                                                                          |
 | `meet`   | Once a reply has named `person` (a person id such as `p11-3`, or `p11-e1` for one added by hand) in full. With `repeat`, again for each reply that names them. Only this session's replies are read for names.                                                                                                                                                                                                                                          |
 | `deed`   | Once the world has recorded a deed of the party, of kind `deed` and at `place` when given. With `repeat`, again for each reply that records one.                                                                                                                                                                                                                                                                                                        |
-| `fight`  | When a fight ends in `outcome`: `victory`, `defeat` or `flee`.                                                                                                                                                                                                                                                                                                                                                                                          |
-| `broke`  | When a fight broke the prop called `prop` (Capability API 1.316), matched without case. Only a prop painted on one of the world's battlefields can be named.                                                                                                                                                                                                                                                                                            |
+| `fight` | When a fight ends in `outcome`: `victory`, `defeat` or `flee`. With `fight` (one of the script's fights, 1.366), only when that fight ended so: the fight the Game Master's latest reply started, by the story's `fight` action or its own trip. |
+| `leave` | When the party leaves `place` (a place id) and every place inside it (1.366): by a walk, a visit, a place the Game Master names or the story's `move`, in the latest reply or this turn. With `repeat`, again each time it leaves. |
+| `broke` | When a fight broke the prop called `prop` (Capability API 1.316), matched without case. Only a prop painted on one of the world's battlefields can be named. |
 | `flags`  | When its conditions hold. With `repeat`, again each time they come true after being false.                                                                                                                                                                                                                                                                                                                                                              |
 | `gm`     | Only when the Game Master trips it (the event needs `"gm": true`).                                                                                                                                                                                                                                                                                                                                                                                      |
 | `rest` | After a reply in which the party rested: a `[sheet: op="rest"]` the Game Master's reply took, of the ruleset rest `rest` names (its id or label, such as `long`) or any (1.357). |
@@ -186,12 +202,27 @@ deed it waits for, would set itself off every turn, so the Engine refuses it.
 | `{ "dismiss": "<person id>" }` | Lets a companion go from the party (1.355). |
 | `{ "season": { "place": "<place id>", "to": "winter" } }` | Holds a place, and every place inside it, at a season whatever the date (1.359); without `place`, the whole world. `"to": null` lets it go back to the script's own `seasons`, or the date's. |
 
+Any action may carry its own `if` (Capability API 1.366): it is done only when its conditions hold as
+the event reaches it, with the event's earlier actions done, so one event can branch.
+
+```json
+"do": [
+  { "add": "approval", "amount": 2 },
+  { "tell": "Hob warms to the party.", "if": [{ "flag": "approval", "is": ">=", "value": 5 }] },
+  { "tell": "Hob keeps his distance.", "if": [{ "flag": "approval", "is": "<", "value": 5 }] }
+]
+```
+
+Which actions were done is recorded with the trip, so a `gm` event's scenes and asks arrive the next turn
+as they were done when the Game Master marked it.
+
 A map pack world whose story has clocks needs Capability API 1.350, one with fights, endings or the
 `give`, `fight`, `move` and `ending` actions needs 1.351, one that cues music needs 1.353, and one that
 recruits or dismisses companions needs 1.355, one with knowledge needs 1.356, and one with `rest`,
 `travel` or `idle` events, a `priority`, a `party` condition or more than 128 events needs 1.357, and one
 with `seasons` or the `season` action needs 1.359, one with more than 64 flags needs 1.361, and one
-with fight `variants` needs 1.364. A companion is a person of the pack's people file marked
+with fight `variants` needs 1.364, and one with `any` conditions, a `fight` event naming its fight, a
+`leave` event, a flag's `min` or `max`, or an `if` on an action or a page needs 1.366. A companion is a person of the pack's people file marked
 as one (see the map pack's people in [optional agent packages](../development/optional-agent-packages.md)).
 
 Of the `rest`, `travel` and `idle` events that could happen on one turn, only one does: the one with the
@@ -282,6 +313,15 @@ without a speaker is narration, a page with one is that person's line, by their 
 the player's, for `player`), with an `expression` from the Game Master's own list. A `background` is a
 background the game has, or `backgrounds:generated:<words>` to have one made when image generation is
 on. The Game Master is told the scene was shown and carries on from it.
+
+A page may carry an `if` (Capability API 1.366): it is shown only while its conditions hold as the scene
+plays, so a camp scene can give each companion a line only while they travel with the party.
+
+```json
+{ "speaker": "p11-3", "text": "Another night.", "if": [{ "party": "p11-3", "is": "in" }] }
+```
+
+A scene all of whose pages are held back shows nothing.
 
 ```json
 { "id": "dusk", "kind": "beats", "beats": ["Lamps are lit.", "A bell tolls."] }
