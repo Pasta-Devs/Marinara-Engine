@@ -113,6 +113,47 @@ assert.ok(
 replies.push(`${turned.prepend}Cold.`);
 assert.equal(storyHeldGroundNow(story, storyState(story, readStoryLedger(replies))), null);
 assert.doesNotMatch(storyTurnPromptText(story, turnOf(replies)), /death is held/);
+// Its release (1.377): what letting it go does to a fight still running, the bonus read off the story.
+assert.equal(turned.released?.felled, "die", "the felled die when left out");
+assert.equal(turned.released?.id, "valley");
+assert.equal(later.released, undefined);
+const releasing = checkStoryScript(game, {
+  ...input,
+  flags: [...input.flags!, { id: "debts_settled", kind: "number", initial: 2 }],
+  heldGround: [
+    {
+      ...input.heldGround![0]!,
+      release: { felled: "down", owing: { track: "owing", bonus: { flag: "debts_settled" } } },
+    },
+  ],
+});
+assert.ok(releasing.ok, JSON.stringify(releasing));
+assert.equal(storyCapabilityMinor(releasing.story), 377);
+const releasingTurn = (rs: string[]) =>
+  storyTurn(releasing.story, {
+    game,
+    replies: rs,
+    repliesBefore: rs.length,
+    latest: rs.at(-1) ?? null,
+    told: [],
+    day: 0,
+    fight: null,
+  });
+const on = [`${releasingTurn([]).prepend}In.`, '[story: set="year_turned=true" result="ok"] It turns.'];
+assert.deepEqual(releasingTurn(on).released, {
+  id: "valley",
+  label: "The Held Autumn",
+  felled: "down",
+  owing: { track: "owing", bonus: 2 },
+});
+assert.ok(
+  !checkStoryScript(game, {
+    ...input,
+    heldGround: [{ ...input.heldGround![0]!, release: { owing: { bonus: { flag: "year_turned" } } } }],
+  }).ok,
+  "a number flag",
+);
+
 // A script without it never records any.
 const plain = checkStoryScript(game, { ...input, heldGround: [] });
 assert.ok(plain.ok);

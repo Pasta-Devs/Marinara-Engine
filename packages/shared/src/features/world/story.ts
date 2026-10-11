@@ -362,6 +362,23 @@ export const storyScriptSchema = z
             if: conditions,
             /** For the Game Master, while it holds. */
             tell: promptSafeText(300).optional(),
+            /** What letting it go does to a fight still running (Capability API 1.377): the felled die
+             *  (`"die"`, as when left out) or go down dying (`"down"`), and with `owing` each felled
+             *  character's marks on `track` each cost a dying save, with `bonus` (a number, or a story
+             *  number flag's value: Debts Settled) added. */
+            release: z
+              .object({
+                felled: z.enum(["die", "down"]).optional(),
+                owing: z
+                  .object({
+                    track: z.string().trim().min(1).max(40).optional(),
+                    bonus: z.union([z.number().int().min(-20).max(20), z.object({ flag: id }).strict()]).optional(),
+                  })
+                  .strict()
+                  .optional(),
+              })
+              .strict()
+              .optional(),
           })
           .strict(),
       )
@@ -721,6 +738,9 @@ export function checkStoryScript(
     if (heldIds.has(held.id)) issues.push(`${where}: its id is used twice.`);
     heldIds.add(held.id);
     if (held.place !== undefined) placeOk(held.place, where);
+    const bonus = held.release?.owing?.bonus;
+    if (bonus && typeof bonus === "object" && story.flags.find((flag) => flag.id === bonus.flag)?.kind !== "number")
+      issues.push(`${where}: its release's bonus names "${bonus.flag}", which is no number flag of the script.`);
     checkConditions(held.if, where);
   }
   const exposureIds = new Set<string>();
@@ -1148,7 +1168,7 @@ export function storyCompanionsNamed(story: StoryScript): string[] {
   ];
 }
 
-/** The Capability API minor a script needs: 1.376 for sheet actions, 1.374 for held ground, 1.373 for exposures spared by a shade, 1.372 for exposure saves and stops, 1.371 for fight adjusts,
+/** The Capability API minor a script needs: 1.377 for held ground's release, 1.376 for sheet actions, 1.374 for held ground, 1.373 for exposures spared by a shade, 1.372 for exposure saves and stops, 1.371 for fight adjusts,
  *  1.370 for exposures, 1.369 for holds over everything inside, 1.368 for party size conditions and variants for parties above
  *  six, 1.366 for its reach, 1.364 for fight variants, 1.361 for more than 64 flags, 1.359 for held seasons, 1.357 for rest, travel and idle events, party conditions and more
  *  than 128 events, 1.356 for knowledge, 1.355 for companions, 1.353 for music cues, 1.351 for fights, endings and its give, move, fight and
@@ -1167,6 +1187,7 @@ export function storyCapabilityMinor(story: StoryScript): number {
     fight.creatures,
     ...(fight.variants ?? []).map((variant) => variant.creatures),
   ]);
+  if (story.heldGround.some((held) => held.release)) return 377;
   if (story.events.some((event) => event.do.some((action) => "sheet" in action))) return 376;
   if (story.heldGround.length) return 374;
   if (story.exposures.some((exposure) => exposure.sparedByShade)) return 373;
@@ -1419,9 +1440,20 @@ export interface StoryTurn {
   season: { season: WorldSeason; held: boolean };
   /** What people know that holds and is in the scene this turn (1.356), for the Game Master. */
   knowledge: Array<{ who?: string; text: string }>;
+  /** The held ground this turn let go of (1.377), with what letting it go does to a fight still running
+   *  on it: the server hands it to the fight director's release. */
+  released?: StoryHeldGroundRelease;
   /** The exposures that bit this turn with a save (1.372): the Engine rolls each one for every member of
    *  the party off their sheet, then `storyExposureSaveOutcome` says what the failures cost. */
   saves: StoryExposureSave[];
+}
+
+/** What letting held ground go does to a fight still running on it (1.377), its bonus read off the story. */
+export interface StoryHeldGroundRelease {
+  id: string;
+  label?: string;
+  felled: "die" | "down";
+  owing?: { track?: string; bonus?: number };
 }
 
 /** What Held Ground means, for the Game Master (1.374). */
@@ -1948,6 +1980,7 @@ export function storyTurn(story: StoryScript, world: StoryTurnWorld): StoryTurn 
     }
   }
   // Whether death is held where the party is (1.374), recorded as it comes and goes.
+  let released: StoryHeldGroundRelease | undefined;
   if (story.heldGround.length) {
     const holding =
       story.heldGround.find(
@@ -1955,6 +1988,24 @@ export function storyTurn(story: StoryScript, world: StoryTurnWorld): StoryTurn 
       ) ?? null;
     const was = storyState(story, ledger).held ?? null;
     if ((holding?.id ?? null) !== was) {
+      const gone = was ? story.heldGround.find((each) => each.id === was) : undefined;
+      if (gone) {
+        const bonus = gone.release?.owing?.bonus;
+        const bonusNow = typeof bonus === "object" ? Number(flags[bonus.flag] ?? 0) || 0 : bonus;
+        released = {
+          id: gone.id,
+          ...(gone.label ? { label: gone.label } : {}),
+          felled: gone.release?.felled ?? "die",
+          ...(gone.release?.owing
+            ? {
+                owing: {
+                  ...(gone.release.owing.track ? { track: gone.release.owing.track } : {}),
+                  ...(bonusNow !== undefined ? { bonus: bonusNow } : {}),
+                },
+              }
+            : {}),
+        };
+      }
       ledger.push({ held: holding?.id ?? null, by: "engine", set: [], show: [] });
       prepend.push(storyRecord({ held: holding?.id ?? null, set: [], show: [] }, "engine"));
       const before = was ? story.heldGround.find((each) => each.id === was) : undefined;
@@ -2206,6 +2257,7 @@ export function storyTurn(story: StoryScript, world: StoryTurnWorld): StoryTurn 
     tripped,
     sheet: sheet.join(" "),
     saves,
+    ...(released ? { released } : {}),
     prepend: prepend.length ? `${prepend.join("\n\n")}\n\n` : "",
     shown,
     tells,
