@@ -176,6 +176,24 @@ const action = z.union([
     .strict(),
 ]);
 
+/** The largest party a story fight's variants are written for (1.364). */
+export const STORY_PARTY_MAX = 6;
+const fightCreatures = z
+  .array(
+    z
+      .object({
+        /** A bestiary creature: its id (`catalog/entry`) or its name in the game's ruleset. */
+        creature: z.string().min(1).max(200),
+        count: z.number().int().min(1).max(20).default(1),
+        /** What this one is called in the fight, when not the creature's own name. */
+        name: tagWord(60).optional(),
+      })
+      .strict(),
+  )
+  .min(1)
+  .max(STORY_MAX.fightCreatures);
+const fightBoard = z.string().regex(/^b\d{1,4}$/, "A battlefield is b and a number");
+
 const page = z
   .object({
     /** A person of the world by id, or `player` (the game's player, named at play); none for narration.
@@ -315,27 +333,37 @@ export const storyScriptSchema = z
           .object({
             id,
             name: promptSafeText(80),
-            creatures: z
+            creatures: fightCreatures,
+            /** A board painted by hand in the world (`b<n>`), fought on instead of the one where it starts. */
+            battlefield: fightBoard.optional(),
+            /** For the Game Master: how it comes about. */
+            note: promptSafeText(300).optional(),
+            /** The fight for parties of other sizes (Capability API 1.364): the first whose `party` holds the
+             *  party's size (its player characters and the companions travelling with it) is fought, with
+             *  its own creatures (and board and note, when it gives them); else the fight as above. */
+            variants: z
               .array(
                 z
                   .object({
-                    /** A bestiary creature: its id (`catalog/entry`) or its name in the game's ruleset. */
-                    creature: z.string().min(1).max(200),
-                    count: z.number().int().min(1).max(20).default(1),
-                    /** What this one is called in the fight, when not the creature's own name. */
-                    name: tagWord(60).optional(),
+                    party: z.union([
+                      z.number().int().min(1).max(STORY_PARTY_MAX),
+                      z
+                        .object({
+                          min: z.number().int().min(1).max(STORY_PARTY_MAX),
+                          max: z.number().int().min(1).max(STORY_PARTY_MAX),
+                        })
+                        .strict()
+                        .refine((range) => range.min <= range.max, "A party's min is not above its max"),
+                    ]),
+                    creatures: fightCreatures,
+                    battlefield: fightBoard.optional(),
+                    note: promptSafeText(300).optional(),
                   })
                   .strict(),
               )
               .min(1)
-              .max(STORY_MAX.fightCreatures),
-            /** A board painted by hand in the world (`b<n>`), fought on instead of the one where it starts. */
-            battlefield: z
-              .string()
-              .regex(/^b\d{1,4}$/, "A battlefield is b and a number")
+              .max(STORY_PARTY_MAX)
               .optional(),
-            /** For the Game Master: how it comes about. */
-            note: promptSafeText(300).optional(),
           })
           .strict(),
       )
@@ -363,7 +391,10 @@ export type StoryEvent = StoryScript["events"][number];
 export type StoryFlag = StoryScript["flags"][number];
 export type StoryAction = StoryEvent["do"][number];
 export type StoryCutscene = StoryScript["cutscenes"][number];
-export type StoryFight = StoryScript["fights"][number];
+export type StoryFight = StoryScript["fights"][number] & {
+  /** The party size it was chosen for, when a variant of it was (1.364). */
+  forParty?: number;
+};
 export type StoryEnding = StoryScript["endings"][number];
 /** A `catalog/entry` item or creature id, as a ruleset's catalogs name their entries. */
 const STORY_REF = /^[a-z][a-z0-9_]{0,39}\/[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -587,8 +618,19 @@ export function checkStoryScript(
     }
   }
   for (const fight of story.fights) {
-    if (fight.battlefield && !boards.has(fight.battlefield)) {
-      issues.push(`Fight "${fight.id}": no battlefield "${fight.battlefield}" painted in this world.`);
+    for (const board of [fight.battlefield, ...(fight.variants ?? []).map((variant) => variant.battlefield)]) {
+      if (board && !boards.has(board))
+        issues.push(`Fight "${fight.id}": no battlefield "${board}" painted in this world.`);
+    }
+    // Each size of party has one variant at most.
+    const sizes = new Set<number>();
+    for (const variant of fight.variants ?? []) {
+      const [min, max] =
+        typeof variant.party === "number" ? [variant.party, variant.party] : [variant.party.min, variant.party.max];
+      for (let size = min; size <= max; size++) {
+        if (sizes.has(size)) issues.push(`Fight "${fight.id}": two variants are for a party of ${size}.`);
+        sizes.add(size);
+      }
     }
   }
   for (const ending of story.endings) {
@@ -843,7 +885,7 @@ export function storyCompanionsNamed(story: StoryScript): string[] {
   ];
 }
 
-/** The Capability API minor a script needs: 1.361 for more than 64 flags, 1.359 for held seasons, 1.357 for rest, travel and idle events, party conditions and more
+/** The Capability API minor a script needs: 1.364 for fight variants, 1.361 for more than 64 flags, 1.359 for held seasons, 1.357 for rest, travel and idle events, party conditions and more
  *  than 128 events, 1.356 for knowledge, 1.355 for companions, 1.353 for music cues, 1.351 for fights, endings and its give, move, fight and
  *  ending actions, 1.350 for clocks, else 0 (any Engine with stories reads it). */
 export function storyCapabilityMinor(story: StoryScript): number {
@@ -855,6 +897,7 @@ export function storyCapabilityMinor(story: StoryScript): number {
     ...story.directions.flatMap((direction) => direction.if ?? []),
     ...story.knowledge.flatMap((known) => known.if ?? []),
   ].some((condition) => "party" in condition);
+  if (story.fights.some((fight) => fight.variants?.length)) return 364;
   if (story.flags.length > 64) return 361;
   if (story.seasons.length || story.events.some((event) => event.do.some((action) => "season" in action))) return 359;
   if (
@@ -1031,6 +1074,9 @@ export interface StoryTurnWorld {
   item?: StoryItemLabel;
   /** Who travels with the party, by name (1.357): its party conditions hold by them. */
   party?: readonly string[];
+  /** How many the party is (1.364): its player characters and the companions travelling with it. A
+   *  story fight is started in its variant for this size. */
+  partySize?: number;
   /** The player's message this turn, read with the latest reply for who and what is in the scene (1.356). */
   player?: string | null;
 }
@@ -1198,6 +1244,22 @@ export function storyFightRoster(
   });
 }
 
+/** The fight as a party this size fights it (1.364): its variant for the size, else itself. */
+export function storyFightForParty(fight: StoryFight, size: number | null | undefined): StoryFight {
+  if (!size || !fight.variants?.length) return fight;
+  const variant = fight.variants.find((each) =>
+    typeof each.party === "number" ? each.party === size : size >= each.party.min && size <= each.party.max,
+  );
+  if (!variant) return fight;
+  return {
+    ...fight,
+    creatures: variant.creatures,
+    ...(variant.battlefield ? { battlefield: variant.battlefield } : {}),
+    ...(variant.note ? { note: variant.note } : {}),
+    forParty: size,
+  };
+}
+
 /** An ending as the player is shown it (1.351). */
 export function storyEndingOf(
   story: StoryScript,
@@ -1345,6 +1407,16 @@ export function storyTurn(story: StoryScript, world: StoryTurnWorld): StoryTurn 
   const tells: string[] = [];
   const beats: string[][] = [];
   const tripped: string[] = [];
+  // The recap of a story fight fought in its variant for the party's size names the variant (1.364).
+  if (world.fight) {
+    const ended = storyFightIn(story, world.latest);
+    const as = ended ? storyFightForParty(ended, world.partySize) : null;
+    if (as?.forParty) {
+      tells.push(
+        `The fight that just ended was the story's "${as.name}", as set for a party of ${as.forParty}: ${as.creatures.map((each) => `${each.count} ${each.name ?? each.creature}`).join(", ")}.`,
+      );
+    }
+  }
 
   /** An event's scenes, asks and deeds: by the Engine this turn, or as the Game Master marked it last
    *  reply, whose deeds went with its tag and whose beats it was told to narrate as it marked it. */
@@ -1374,10 +1446,11 @@ export function storyTurn(story: StoryScript, world: StoryTurnWorld): StoryTurn 
         const place = game.world.places.find((each) => each.id === action.move);
         if (place) tells.push(`The story has taken the party to ${place.name}. Tell how they come to be there.`);
       } else if ("fight" in action) {
-        const fight = fights.get(action.fight);
+        const set = fights.get(action.fight);
+        const fight = set ? storyFightForParty(set, world.partySize) : undefined;
         if (fight) {
           tells.push(
-            `The story starts the fight "${fight.name}" now${fight.note ? ` (${fight.note})` : ""}. Lead straight into it; the Engine starts it with its own opponents: ${fight.creatures.map((each) => `${each.count} ${each.name ?? each.creature}`).join(", ")}.`,
+            `The story starts the fight "${fight.name}"${fight.forParty ? ` (as set for a party of ${fight.forParty})` : ""} now${fight.note ? ` (${fight.note})` : ""}. Lead straight into it; the Engine starts it with its own opponents: ${fight.creatures.map((each) => `${each.count} ${each.name ?? each.creature}`).join(", ")}.`,
           );
         }
       } else if (("recruit" in action || "dismiss" in action) && byEngine) {

@@ -32,6 +32,13 @@ export function storyPartyNames(meta: Record<string, unknown>): string[] {
   return npcs.flatMap((npc) => (typeof npc.name === "string" && ids.has(buildPartyNpcId(npc.name)) ? [npc.name] : []));
 }
 
+/** How many the party is (1.364): the player and every character travelling with it, library
+ *  characters and companions alike. */
+export function gamePartySize(meta: Record<string, unknown>): number {
+  const ids = Array.isArray(meta.gamePartyCharacterIds) ? (meta.gamePartyCharacterIds as unknown[]) : [];
+  return 1 + new Set(ids.filter((id) => typeof id === "string")).size;
+}
+
 export interface GameCompanions {
   people: NonNullable<MapPack["people"]>;
   world: GameWorld;

@@ -190,7 +190,8 @@ A map pack world whose story has clocks needs Capability API 1.350, one with fig
 `give`, `fight`, `move` and `ending` actions needs 1.351, one that cues music needs 1.353, and one that
 recruits or dismisses companions needs 1.355, one with knowledge needs 1.356, and one with `rest`,
 `travel` or `idle` events, a `priority`, a `party` condition or more than 128 events needs 1.357, and one
-with `seasons` or the `season` action needs 1.359, and one with more than 64 flags needs 1.361. A companion is a person of the pack's people file marked
+with `seasons` or the `season` action needs 1.359, one with more than 64 flags needs 1.361, and one
+with fight `variants` needs 1.364. A companion is a person of the pack's people file marked
 as one (see the map pack's people in [optional agent packages](../development/optional-agent-packages.md)).
 
 Of the `rest`, `travel` and `idle` events that could happen on one turn, only one does: the one with the
@@ -233,6 +234,22 @@ Each creature is a bestiary creature of the game's ruleset, by its id (`catalog/
 `count` of them (numbered when there are several), called `name` in the fight when given. `battlefield`
 is a board painted by hand in the world (`b<n>`), fought on wherever the fight starts; without one the
 fight is fought where it starts, as any other. `note` tells the Game Master how it comes about.
+
+A fight can be set for parties of other sizes (Capability API 1.364). The party is the player's character
+and every companion travelling with it, from 1 to 6.
+
+```json
+"variants": [
+  { "party": { "min": 3, "max": 4 }, "creatures": [{ "creature": "creatures/scarecrow", "count": 4 }] },
+  { "party": 5, "creatures": [{ "creature": "creatures/scarecrow", "count": 5 }], "battlefield": "b3",
+    "note": "The Owed wakes in the loft." }
+]
+```
+
+The variant whose `party` holds the party's size is fought, with its own creatures, and its own
+`battlefield` and `note` when it gives them (the fight's otherwise). A party no variant holds fights the
+fight as written. No size may be held by two variants. The Game Master is told which party size the fight
+was set for when it starts, and again after its recap.
 
 ### Endings
 

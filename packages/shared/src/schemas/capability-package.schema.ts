@@ -1377,7 +1377,10 @@ const capabilityPackageManifestBaseSchema = z
 //        .overlay.json file each): bestiary creatures, combat conditions, sheet conditions, creature tags
 //        and entries for the ruleset's catalogs, merged into a game's ruleset of that id while the
 //        Experience is on. An overlay that does not fit the ruleset is left out whole.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 363 } as const);
+// 1.364: a story's fight may have variants by party size (`variants`: a party size or `{ min, max }` and
+//        the creatures, board and note for a party that size); a party is the player's character and the
+//        companions travelling with it. The GM is told the variant and the fight's tell names it.
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 364 } as const);
 
 const capabilityApiVersionSchema = z
   .object({
