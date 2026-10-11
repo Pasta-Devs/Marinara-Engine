@@ -1408,6 +1408,32 @@ whole: an overlay whose entries do not fit it, or that reuses an id the ruleset 
 whole and the game plays the ruleset as it was. `POST /api/game/experience/check` merges each overlay
 into its ruleset as installed and reports what does not fit.
 
+#### Capability API 1.365: dungeon looks and a hand map's own words
+
+An Experience's maps made by hand can be drawn in its own looks, not only the library's cave, crypt,
+temple and station sets, and told to the Game Master in its own words.
+
+```json
+"mapPack": { "kit": "...", "dungeons": ["looks/corn-maze.tilepack.json", "looks/snowfield.tilepack.json"] }
+```
+
+Each is an image tile pack (`tilePackVersion` 2) laid out as a dungeon set: `dn_floor`, `dn_wall`,
+`dn_liquid`, `dn_prop0` to `dn_prop7` (`dn_liquid` may have edge pieces, as a library set's). It must draw
+at least `dn_floor` and `dn_wall`; the rest fall back to plain colours. A hand map (`edits.maps`) whose
+`pack` is one of their ids is drawn with it, before any library pack of that id. No two may share an id.
+
+A hand map may also carry its own words for the Game Master:
+
+```json
+"words": { "floor": "stubbled earth", "wall": "walls of standing corn", "liquid": "a ditch of rainwater",
+           "props": ["a scarecrow", null, "a corn-dolly shrine"] }
+```
+
+`props` is one entry per prop slot, 0 to 7 (`null` for a slot left unsaid). The Game Master is then told
+the map as "A place made by hand (stubbled earth, walls of standing corn), with a ditch of rainwater in it;
+in it: a scarecrow (2), a corn-dolly shrine", in place of saying only that it was made by hand. Both need
+an Experience that declares 1.365.
+
 ### Capability API 1.18: keep Experience setup in the Game wizard
 
 A `game-surface` package can declare `contributions.gameSurface.setup` with schema

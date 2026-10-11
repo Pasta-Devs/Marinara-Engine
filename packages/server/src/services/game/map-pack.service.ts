@@ -46,6 +46,10 @@ const CHECKED_CREATURES_KEPT = 16;
 const checkedPeople = new Map<string, ExperiencePeople>();
 const CHECKED_PEOPLE_KEPT = 16;
 
+/** What a dungeon look of an Experience must draw at least (1.365): its liquid and props fall back to
+ *  plain colours, as a library set's do. */
+const DUNGEON_LOOK_TILES = ["dn_floor", "dn_wall"] as const;
+
 /** Whether a world's boards are painted with seasons (Capability API 1.359). */
 const worldSeasonPainted = (world: { edits?: { battlefields?: Array<{ seasons?: unknown }> } }) =>
   Boolean(world.edits?.battlefields?.some((board) => board.seasons));
@@ -195,6 +199,44 @@ export async function checkMapPackFiles(
       if (checkedTiles.size > CHECKED_TILES_KEPT) checkedTiles.delete(checkedTiles.keys().next().value!);
     }
   }
+  // Its image packs for maps made by hand (1.365), each read as its tiles are, laid out as a dungeon set,
+  // and named once.
+  const dungeons: TilePack[] = [];
+  for (const { path, data, sha256 } of files.dungeons ?? []) {
+    if (!files.capabilityApi || files.capabilityApi.major !== 1 || files.capabilityApi.minor < 365) {
+      return { ok: false, reason: `${path} is a dungeon look, which needs capabilityApi 1.365 or newer` };
+    }
+    const key = `${packageId}@${files.version}#dungeon:${sha256}`;
+    let pack = cache ? checkedTiles.get(key) : undefined;
+    if (!pack) {
+      const read = parseTilePack(data.toString("utf8"));
+      if (!read.ok) return { ok: false, reason: `${path} does not read: ${read.issues[0]}` };
+      pack = read.pack;
+      if (pack.tilePackVersion === 2) {
+        const cleaned = await cleanImageTilePack(pack);
+        if (!cleaned.ok) return { ok: false, reason: `${path} does not read: ${cleaned.issue}` };
+        pack = cleaned.pack;
+      }
+      if (cache) checkedTiles.set(key, pack);
+      if (checkedTiles.size > CHECKED_TILES_KEPT) checkedTiles.delete(checkedTiles.keys().next().value!);
+    }
+    const missing = DUNGEON_LOOK_TILES.filter((id) => !pack!.tiles[id]?.length);
+    if (missing.length)
+      return { ok: false, reason: `${path} has no ${missing.join(", ")}, which a dungeon look needs` };
+    if (dungeons.some((each) => each.id === pack!.id)) {
+      return { ok: false, reason: `${path} is called "${pack.id}", as another of its dungeon looks is` };
+    }
+    dungeons.push(pack);
+  }
+  // A hand map's own words for the Game Master (1.365) likewise need an Experience that declares them.
+  for (const { path, world } of worlds) {
+    if (
+      world.edits?.maps?.some((map) => map.words) &&
+      (!files.capabilityApi || files.capabilityApi.major !== 1 || files.capabilityApi.minor < 365)
+    ) {
+      return { ok: false, reason: `${path}'s maps with their own words need capabilityApi 1.365 or newer` };
+    }
+  }
   const games = worlds.map((entry) => ({ entry, game: packGameWorld(kit.kit, entry) }));
   // Its music (1.353): a place a track is for is a place of one of its worlds.
   let music: MapPack["music"];
@@ -295,6 +337,7 @@ export async function checkMapPackFiles(
       worlds,
       tiles,
       ...(creatures.length ? { creatures } : {}),
+      ...(dungeons.length ? { dungeons } : {}),
       ...(music ? { music } : {}),
       ...(people ? { people } : {}),
     },
@@ -357,7 +400,7 @@ export async function checkMapPack(input: MapPackCheckInput): Promise<MapPackChe
     block.kit,
     block.tiles,
     block.people,
-    ...[block.worlds, block.creatures].flatMap((list) => (Array.isArray(list) ? list : [])),
+    ...[block.worlds, block.creatures, block.dungeons].flatMap((list) => (Array.isArray(list) ? list : [])),
     ...(Array.isArray(block.rulesets) ? block.rulesets : []).map((each) =>
       each && typeof each === "object" ? (each as Record<string, unknown>).overlay : undefined,
     ),
@@ -428,6 +471,7 @@ export async function checkMapPack(input: MapPackCheckInput): Promise<MapPackChe
     sha256: "",
   }));
   const people = mapPack.people ? fileOf(mapPack.people) : null;
+  const dungeons = (mapPack.dungeons ?? []).map((path) => ({ path, data: fileOf(path), sha256: "" }));
   const rulesets = (mapPack.rulesets ?? []).map((each) => ({
     ruleset: each.ruleset,
     path: each.overlay,
@@ -439,6 +483,7 @@ export async function checkMapPack(input: MapPackCheckInput): Promise<MapPackChe
     !kit ||
     worlds.some((world) => !world.data) ||
     creatures.some((each) => !each.data) ||
+    dungeons.some((each) => !each.data) ||
     rulesets.some((each) => !each.data)
   ) {
     return { ok: false, minor, issues };
@@ -458,6 +503,7 @@ export async function checkMapPack(input: MapPackCheckInput): Promise<MapPackChe
       assets: declared,
       people: mapPack.people && people ? { path: mapPack.people, data: people, sha256: "" } : null,
       rulesets: rulesets.map((each) => ({ ...each, data: each.data! })),
+      dungeons: dungeons.map((each) => ({ ...each, data: each.data! })),
     },
     { cache: false },
   );
@@ -495,6 +541,7 @@ export async function checkMapPack(input: MapPackCheckInput): Promise<MapPackChe
     pack.music || audio ? 353 : 0,
     pack.people ? experiencePeopleMinor(pack.people) : 0,
     rulesets.length ? 363 : 0,
+    pack.dungeons?.length || pack.worlds.some((world) => world.world.edits?.maps?.some((map) => map.words)) ? 365 : 0,
   );
   return { ok: true, minor, issues };
 }

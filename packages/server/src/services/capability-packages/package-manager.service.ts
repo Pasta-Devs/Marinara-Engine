@@ -7064,6 +7064,8 @@ export const capabilityPackageManager = {
     assets: string[];
     /** Its ruleset overlays (1.363), with their pinned hashes. */
     rulesets: Array<{ ruleset: string; path: string; data: Buffer; sha256: string }>;
+    /** Its image packs for maps made by hand (1.365), with their pinned hashes. */
+    dungeons: Array<{ path: string; data: Buffer; sha256: string }>;
   } | null> {
     const installed = (await readRegistry()).packages.find((item) => item.id === packageId);
     if (!installed || !isInstalledCapabilityReady(installed)) return null;
@@ -7110,6 +7112,16 @@ export const capabilityPackageManager = {
           sha256:
             installed.manifest.files.find(
               (item) => tryNormalizeArchivePath(item.path) === tryNormalizeArchivePath(each.overlay),
+            )?.sha256 ?? "",
+        })),
+      ),
+      dungeons: await Promise.all(
+        (mapPack.dungeons ?? []).map(async (path) => ({
+          path,
+          data: await read(path),
+          sha256:
+            installed.manifest.files.find(
+              (item) => tryNormalizeArchivePath(item.path) === tryNormalizeArchivePath(path),
             )?.sha256 ?? "",
         })),
       ),

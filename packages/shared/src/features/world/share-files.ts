@@ -96,6 +96,9 @@ export interface ExperienceMapPack {
   kit: WorldKit;
   worlds: Array<{ path: string; name: string; world: WorldFileWorld; story?: StoryScript; snapshot?: WorldSnapshot }>;
   tiles: import("./tile-pack.js").TilePack | null;
+  /** Its image packs for maps made by hand (Capability API 1.365), named by id from a hand map's `pack`,
+   *  before the library's. */
+  dungeons?: Array<import("./tile-pack.js").TilePack>;
   /** Its creature packs (Capability API 1.352), for its fights, before the library's. */
   creatures?: import("./creature-pack.js").CreaturePack[];
   /** Its music (Capability API 1.353), each track with the address it is served at. */
