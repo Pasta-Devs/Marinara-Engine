@@ -142,6 +142,29 @@ assert.equal(crowded.filter((each) => each.startsWith("Liesl")).length, 4);
 const named = texts([`${liesl.name} sighs.`]);
 assert.equal(named.filter((each) => each.startsWith("Liesl")).length, 8, "room left: theirs all");
 assert.equal(named.filter((each) => each.startsWith("Jory")).length, 4);
+// A crowded scene still leaves the companions travelling along a small share: one each.
+const busyInput: StoryScriptInput = {
+  ...knowledgeInput,
+  knowledge: [
+    ...knowledgeInput.knowledge!,
+    ...Array.from({ length: 12 }, (_, index) => ({
+      id: `cc${index}`,
+      person: corrow.id,
+      text: `Corrow more ${index}.`,
+    })),
+    ...Array.from({ length: 12 }, (_, index) => ({ id: `oo${index}`, person: odile.id, text: `Odile more ${index}.` })),
+  ],
+};
+const busy = checkStoryScript(game, busyInput);
+assert.ok(busy.ok, JSON.stringify(busy));
+const busyTexts = storyKnowledgeHere(busy.story, game, {}, party, [`${corrow.name} and ${odile.name} argue.`]).map(
+  (each) => each.text,
+);
+assert.equal(busyTexts.length, 12);
+assert.equal(busyTexts.filter((each) => each.startsWith("Jory")).length, 1, "a travelling companion keeps one");
+assert.equal(busyTexts.filter((each) => each.startsWith("Liesl")).length, 1);
+assert.equal(busyTexts.filter((each) => each.startsWith("Corrow")).length, 5);
+assert.equal(busyTexts.filter((each) => each.startsWith("Odile")).length, 5);
 // Alone, one person still says what they know.
 assert.equal(texts(["The road."]).length, 12);
 

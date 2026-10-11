@@ -29,6 +29,8 @@ export const STORY_MAX = Object.freeze({
   knowledge: 600,
   knowledgeKeys: 8,
   knowledgeATurn: 12,
+  /** Of those, kept for the companions only travelling along, however crowded the scene. */
+  knowledgeTravelling: 2,
   pages: 40,
   beats: 20,
   /** The characters of the beats the Game Master is told with its own events, in every turn's prompt. */
@@ -2081,7 +2083,8 @@ export function worldSeasonCells(
 /** What people know that holds now and is in the scene (1.356): an entry whose conditions hold, whose
  *  person is named in these texts or travels with the party, and, when it has keys, one of them is said;
  *  a turn's worth at most, ranked (1.369): the people the scene names first, then what its words bring in, then
- *  those only travelling along, each rank shared out person by person. */
+ *  those only travelling along, each rank shared out person by person; those travelling along keep two
+ *  entries however crowded the scene. */
 export function storyKnowledgeHere(
   story: StoryScript,
   game: GameWorld,
@@ -2125,22 +2128,31 @@ export function storyKnowledgeHere(
   }
   held.sort((a, b) => a.rank - b.rank || a.index - b.index);
   const chosen = new Set<number>();
-  // Rank by rank; within one, each person's entries in turn, so no one takes the rest's share.
-  for (const rank of [0, 1, 2]) {
+  const queuesOf = (rank: number) => {
     const queues = new Map<string, number[]>();
     for (const entry of held) {
       if (entry.rank !== rank) continue;
       const key = entry.person ?? `#${entry.index}`;
       queues.set(key, [...(queues.get(key) ?? []), entry.index]);
     }
-    while (chosen.size < STORY_MAX.knowledgeATurn && [...queues.values()].some((queue) => queue.length)) {
+    return queues;
+  };
+  // Each person's entries in turn, so no one takes the rest's share.
+  const share = (queues: Map<string, number[]>, upTo: number) => {
+    while (chosen.size < upTo && [...queues.values()].some((queue) => queue.length)) {
       for (const queue of queues.values()) {
-        if (chosen.size >= STORY_MAX.knowledgeATurn) break;
+        if (chosen.size >= upTo) break;
         const next = queue.shift();
         if (next !== undefined) chosen.add(next);
       }
     }
-  }
+  };
+  // The companions travelling along keep a small share however crowded the scene, then rank by rank.
+  const travelling = queuesOf(2);
+  share(travelling, STORY_MAX.knowledgeTravelling);
+  share(queuesOf(0), STORY_MAX.knowledgeATurn);
+  share(queuesOf(1), STORY_MAX.knowledgeATurn);
+  share(travelling, STORY_MAX.knowledgeATurn);
   return held
     .filter((entry) => chosen.has(entry.index))
     .sort((a, b) => a.index - b.index)

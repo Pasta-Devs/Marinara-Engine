@@ -85,8 +85,13 @@ segments, one filled per point, shown in the game's HUD and the World tab, with 
 happens when it is full.
 
 ```json
-{ "id": "reeve", "kind": "number", "initial": 0, "gm": true,
-  "clock": { "title": "The Reeve's patience", "segments": 6, "full": "The Reeve sends his men." } }
+{
+  "id": "reeve",
+  "kind": "number",
+  "initial": 0,
+  "gm": true,
+  "clock": { "title": "The Reeve's patience", "segments": 6, "full": "The Reeve sends his men." }
+}
 ```
 
 Set it, add to it and test it in conditions like any number flag. The Game Master is told the clocks
@@ -134,7 +139,8 @@ comes up, on a turn when:
 
 At most 12 are told a turn. From 1.369 they are ranked: the people the scene names come first, then the
 entries with no person that its words bring in, then the companions only travelling along; within each,
-the entries are shared out person by person, so one talkative companion never crowds out the rest.
+the entries are shared out person by person, so one talkative companion never crowds out the rest. The
+companions travelling along always keep two of the 12, however crowded the scene, shared out the same way.
 
 ```json
 "knowledge": [
@@ -194,7 +200,7 @@ deed it waits for, would set itself off every turn, so the Engine refuses it.
 **Actions** (`do`):
 
 | Action                                                                                                  | Does                                                                     |
-| ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| ------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `{ "set": "<flag>", "value": <value> }`                                                                 | Sets a flag.                                                             |
 | `{ "add": "<flag>", "amount": <number> }`                                                               | Adds to a number flag.                                                   |
 | `{ "tell": "<text>" }`                                                                                  | Asks something of the Game Master, once, this turn.                      |
@@ -289,9 +295,16 @@ events may change them, as a ring of frost spreading or a line of spring sweepin
 A fight the story sets: who is fought, and where when the world has a board painted for it.
 
 ```json
-{ "id": "granary", "name": "The Granary",
-  "creatures": [{ "creature": "creatures/scarecrow", "count": 3 }, { "creature": "The Owed", "name": "The Owed" }],
-  "battlefield": "b2", "note": "The jars break when hit." }
+{
+  "id": "granary",
+  "name": "The Granary",
+  "creatures": [
+    { "creature": "creatures/scarecrow", "count": 3 },
+    { "creature": "The Owed", "name": "The Owed" }
+  ],
+  "battlefield": "b2",
+  "note": "The jars break when hit."
+}
 ```
 
 Each creature is a bestiary creature of the game's ruleset, by its id (`catalog/entry`) or its name, and
