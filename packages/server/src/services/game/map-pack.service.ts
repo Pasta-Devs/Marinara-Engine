@@ -20,7 +20,10 @@ import {
   experiencePeopleImages,
   experiencePeopleMinor,
   readExperiencePeople,
+  applyExperienceRulesetOverlay,
+  readExperienceRulesetOverlay,
   type ExperiencePeople,
+  type ExperienceRulesetOverlay,
   type GameWorld,
   compileGameWorld,
   gameWorldFromSnapshot,
@@ -28,6 +31,7 @@ import {
   type TilePack,
 } from "@marinara-engine/shared";
 import { capabilityPackageManager } from "../capability-packages/package-manager.service.js";
+import { loadRulesetRegistry } from "./ruleset-registry.service.js";
 import { cleanImageTilePack } from "./tile-pack-images.service.js";
 
 /** Map pack tiles already checked, by package, version and the tiles file's hash; the oldest go first. */
@@ -273,6 +277,15 @@ export async function checkMapPackFiles(
     const stray = worlds.find((entry) => entry.story && storyCompanionsNamed(entry.story).length);
     if (stray) return { ok: false, reason: `${stray.path}'s story takes in companions, and the pack has no people` };
   }
+  // Its ruleset overlays (1.363), read for their shape: each is checked against the game's ruleset when
+  // it is merged in.
+  for (const file of files.rulesets ?? []) {
+    const read = readExperienceRulesetOverlay(file.data.toString("utf8"));
+    if (!read.ok) return { ok: false, reason: `${file.path} does not read: ${read.issues[0]}` };
+    if (!files.capabilityApi || files.capabilityApi.major !== 1 || files.capabilityApi.minor < 363) {
+      return { ok: false, reason: `${file.path} is a ruleset overlay, which needs capabilityApi 1.363 or newer` };
+    }
+  }
   return {
     ok: true,
     pack: {
@@ -345,6 +358,9 @@ export async function checkMapPack(input: MapPackCheckInput): Promise<MapPackChe
     block.tiles,
     block.people,
     ...[block.worlds, block.creatures].flatMap((list) => (Array.isArray(list) ? list : [])),
+    ...(Array.isArray(block.rulesets) ? block.rulesets : []).map((each) =>
+      each && typeof each === "object" ? (each as Record<string, unknown>).overlay : undefined,
+    ),
   ].filter((path): path is string => typeof path === "string");
   const declared = [...new Set([...texts.keys(), ...named, ...assets.map((asset) => asset.path)])];
   // The manifest's own rules, on a stand-in manifest that declares exactly these files.
@@ -412,7 +428,19 @@ export async function checkMapPack(input: MapPackCheckInput): Promise<MapPackChe
     sha256: "",
   }));
   const people = mapPack.people ? fileOf(mapPack.people) : null;
-  if (issues.length || !kit || worlds.some((world) => !world.data) || creatures.some((each) => !each.data)) {
+  const rulesets = (mapPack.rulesets ?? []).map((each) => ({
+    ruleset: each.ruleset,
+    path: each.overlay,
+    data: fileOf(each.overlay),
+    sha256: "",
+  }));
+  if (
+    issues.length ||
+    !kit ||
+    worlds.some((world) => !world.data) ||
+    creatures.some((each) => !each.data) ||
+    rulesets.some((each) => !each.data)
+  ) {
     return { ok: false, minor, issues };
   }
   const checked = await checkMapPackFiles(
@@ -429,6 +457,7 @@ export async function checkMapPack(input: MapPackCheckInput): Promise<MapPackChe
       music: mapPack.music ?? null,
       assets: declared,
       people: mapPack.people && people ? { path: mapPack.people, data: people, sha256: "" } : null,
+      rulesets: rulesets.map((each) => ({ ...each, data: each.data! })),
     },
     { cache: false },
   );
@@ -436,6 +465,22 @@ export async function checkMapPack(input: MapPackCheckInput): Promise<MapPackChe
     const path = [...texts.keys(), ...declared].find((each) => checked.reason.startsWith(each)) ?? "mapPack";
     issues.push({ path, message: checked.reason });
     return { ok: false, minor, issues };
+  }
+  // Each overlay merged into its ruleset as installed here, as a game of it would (1.363).
+  if (rulesets.length) {
+    const registry = await loadRulesetRegistry();
+    for (const each of rulesets) {
+      const registered = registry.get(each.ruleset);
+      if (!registered) continue;
+      const read = readExperienceRulesetOverlay(each.data!.toString("utf8"));
+      const merged = read.ok
+        ? applyExperienceRulesetOverlay(registered.definition, read.overlay as ExperienceRulesetOverlay, false)
+        : read;
+      if (!merged.ok) {
+        for (const message of merged.issues) issues.push({ path: each.path, message });
+      }
+    }
+    if (issues.length) return { ok: false, minor, issues };
   }
   // What it needs, from what it holds.
   const pack = checked.pack;
@@ -449,6 +494,7 @@ export async function checkMapPack(input: MapPackCheckInput): Promise<MapPackChe
     pack.creatures?.some((each) => each.creaturePackVersion >= 2) ? 360 : 0,
     pack.music || audio ? 353 : 0,
     pack.people ? experiencePeopleMinor(pack.people) : 0,
+    rulesets.length ? 363 : 0,
   );
   return { ok: true, minor, issues };
 }

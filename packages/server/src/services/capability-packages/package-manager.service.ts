@@ -6998,6 +6998,43 @@ export const capabilityPackageManager = {
     return { version: installed.version, data, sha256: declaration.sha256 };
   },
 
+  /** Every ready Experience's ruleset overlays (1.363), verified as its other map pack files are, for the
+   *  ruleset registry. One that cannot be read is left out with a line saying why. Never throws. */
+  async experienceRulesetOverlays(): Promise<
+    Array<{ packageId: string; ruleset: string; path: string; data: Buffer; sha256: string }>
+  > {
+    const out: Array<{ packageId: string; ruleset: string; path: string; data: Buffer; sha256: string }> = [];
+    let packages: Awaited<ReturnType<typeof readRegistry>>["packages"];
+    try {
+      packages = (await readRegistry()).packages;
+    } catch {
+      return out;
+    }
+    for (const installed of packages) {
+      const overlays = installed.manifest.contributions?.gameSurface?.mapPack?.rulesets;
+      if (!overlays?.length || !isInstalledCapabilityReady(installed)) continue;
+      for (const each of overlays) {
+        const declaration = installed.manifest.files.find(
+          (item) => tryNormalizeArchivePath(item.path) === tryNormalizeArchivePath(each.overlay),
+        );
+        if (!declaration || declaration.bytes > WORLD_SHARE_FILE_MAX_BYTES) continue;
+        try {
+          const data = (await readVerifiedInstalledPackageFile(installed, each.overlay)).data;
+          out.push({
+            packageId: installed.id,
+            ruleset: each.ruleset,
+            path: each.overlay,
+            data,
+            sha256: declaration.sha256,
+          });
+        } catch (error) {
+          logger.warn(error, "[capability/rulesets] %s's overlay %s could not be read", installed.id, each.overlay);
+        }
+      }
+    }
+    return out;
+  },
+
   async mapPackMusic(packageId: string): Promise<ExperienceMusic | null> {
     const installed = (await readRegistry()).packages.find((item) => item.id === packageId);
     if (!installed || !isInstalledCapabilityReady(installed)) return null;
@@ -7025,6 +7062,8 @@ export const capabilityPackageManager = {
     people: { path: string; data: Buffer; sha256: string } | null;
     /** The package's declared asset paths, for the files its people name. */
     assets: string[];
+    /** Its ruleset overlays (1.363), with their pinned hashes. */
+    rulesets: Array<{ ruleset: string; path: string; data: Buffer; sha256: string }>;
   } | null> {
     const installed = (await readRegistry()).packages.find((item) => item.id === packageId);
     if (!installed || !isInstalledCapabilityReady(installed)) return null;
@@ -7063,6 +7102,17 @@ export const capabilityPackageManager = {
               )?.sha256 ?? "",
           }
         : null,
+      rulesets: await Promise.all(
+        (mapPack.rulesets ?? []).map(async (each) => ({
+          ruleset: each.ruleset,
+          path: each.overlay,
+          data: await read(each.overlay),
+          sha256:
+            installed.manifest.files.find(
+              (item) => tryNormalizeArchivePath(item.path) === tryNormalizeArchivePath(each.overlay),
+            )?.sha256 ?? "",
+        })),
+      ),
       creatures: await Promise.all(
         (mapPack.creatures ?? []).map(async (path) => ({
           path,

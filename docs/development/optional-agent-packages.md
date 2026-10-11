@@ -1379,6 +1379,35 @@ reads held places as `seasons` (place id to season, `*` for the whole world) fro
 `GET /api/game/:chatId/overworld`; a made battlefield carries its tiles' starting seasons as `seasons`,
 keyed `"x,y"`.
 
+#### Capability API 1.363: ruleset overlays
+
+An Experience's map pack may add to the rulesets its games play, while the Experience is on: its own
+creatures, conditions and items, which are not the ruleset package's to ship.
+
+```json
+"mapPack": { "kit": "...", "rulesets": [{ "ruleset": "5e-2014", "overlay": "rules/5e.overlay.json" },
+                                        { "ruleset": "dnd5e", "overlay": "rules/dnd5e.overlay.json" }] }
+```
+
+Each `.overlay.json` (declared as an asset like the pack's other files) is for one ruleset, by its id:
+
+```json
+{ "overlayVersion": 1,
+  "creatureTags": [{ "id": "unreaped", "label": "Unreaped" }],
+  "conditions": [{ "condition": "owed_frost_held", "effects": ["own-attacks-disadvantage"] }],
+  "sheetConditions": [{ "id": "owed_frost_held", "label": "Held by the Frost" }],
+  "creatures": [{ "id": "the-owed", "label": "The Owed", "creature": { ... } }],
+  "catalogs": { "magic_items": [{ "id": "lantern-of-dusk", ... }] } }
+```
+
+`creatureTags` join the ruleset's `combat.creatureTypes.tags`, `conditions` its `combat.conditions`,
+`sheetConditions` its `sheet.live.conditions`, `creatures` its `creatures` catalog, and each list of
+`catalogs` the catalog of that id. A game of that ruleset with the Experience on plays the ruleset with
+all of it merged in (story fights, `give`, the Game Master's own uses), and the ruleset is read again
+whole: an overlay whose entries do not fit it, or that reuses an id the ruleset has, is left out
+whole and the game plays the ruleset as it was. `POST /api/game/experience/check` merges each overlay
+into its ruleset as installed and reports what does not fit.
+
 ### Capability API 1.18: keep Experience setup in the Game wizard
 
 A `game-surface` package can declare `contributions.gameSurface.setup` with schema

@@ -10,6 +10,7 @@
 import { createHash } from "node:crypto";
 import {
   communityRulesetId,
+  experienceOverlayEntries,
   isCommunityRulesetId,
   parseBorrowedRulesetCatalog,
   parseRulesetCatalogFile,
@@ -44,7 +45,10 @@ export async function openRulesetCatalog(
   registry?: RulesetRegistry,
 ): Promise<OpenedRulesetCatalog> {
   if (catalog.from) return openBorrowedCatalog(definition, catalog, catalog.from, registry);
-  if (catalog.entries) return { kind: "inline", entries: catalog.entries };
+  // What the game's Experience adds to it (1.363), after its own.
+  const added = experienceOverlayEntries(definition, catalog.id);
+  if (catalog.entries)
+    return { kind: "inline", entries: added.length ? [...catalog.entries, ...added] : catalog.entries };
   if (!catalog.asset) return { kind: "unusable", issues: ["(root): this catalog holds no entries"] };
   // A package ships its catalog files; of the imported rulesets, only one from a package file has them,
   // and the package import always files it under `local/` (the JSON and repository imports refuse them).
@@ -55,7 +59,7 @@ export async function openRulesetCatalog(
   if ("issue" in source) return { kind: "unusable", issues: [source.issue] };
   return {
     kind: "asset",
-    sha256: source.sha256,
+    sha256: added.length ? `${source.sha256}+${added.length}` : source.sha256,
     read: async () => {
       const file = await source.read();
       if ("issue" in file) return { ok: false, issues: [file.issue] };
@@ -76,7 +80,7 @@ export async function openRulesetCatalog(
         );
         return { ok: false, issues: parsed.issues };
       }
-      return { ok: true, entries: parsed.entries };
+      return { ok: true, entries: added.length ? [...parsed.entries, ...added] : parsed.entries };
     },
   };
 }

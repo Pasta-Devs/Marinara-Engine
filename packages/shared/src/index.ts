@@ -106,6 +106,7 @@ export * from "./features/world/battlefield-maps.js";
 export * from "./features/world/share-files.js";
 export * from "./features/world/story.js";
 export * from "./features/world/experience-people.js";
+export * from "./features/world/experience-rulesets.js";
 export * from "./features/world/dungeon-map.js";
 export * from "./features/world/sites.js";
 export * from "./features/world/overused-names.js";

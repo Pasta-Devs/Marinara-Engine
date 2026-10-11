@@ -206,6 +206,31 @@ const capabilityPackageManifestBaseSchema = z
                   .max(240)
                   .regex(/\.people\.json$/u, "A map pack's people are a .people.json file")
                   .optional(),
+                /** What the Experience adds to rulesets while it is on (Capability API 1.363): for each
+                 *  ruleset (by id), a `.overlay.json` file of bestiary creatures, conditions, creature tags
+                 *  and catalog entries merged into a game's ruleset of that id. */
+                rulesets: z
+                  .array(
+                    z
+                      .object({
+                        ruleset: z
+                          .string()
+                          .max(140)
+                          .regex(
+                            /^(?:[A-Za-z0-9][A-Za-z0-9._-]{0,63}\/)?[a-z0-9]+(?:-[a-z0-9]+)*$/u,
+                            "A ruleset is named by its id",
+                          ),
+                        overlay: z
+                          .string()
+                          .min(1)
+                          .max(240)
+                          .regex(/\.overlay\.json$/u, "A ruleset overlay is a .overlay.json file"),
+                      })
+                      .strict(),
+                  )
+                  .min(1)
+                  .max(8)
+                  .optional(),
               })
               .strict()
               .optional(),
@@ -1348,7 +1373,11 @@ const capabilityPackageManifestBaseSchema = z
 //        so; a step only its flight takes, flying up, or the free `move:take-off` move puts it there, and
 //        `move:land` or anything that grounds it brings it down. A fighter in the air is shown in its
 //        flying art.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 362 } as const);
+// 1.363: an Experience's map pack may ship ruleset overlays (`mapPack.rulesets`: a ruleset id and a
+//        .overlay.json file each): bestiary creatures, combat conditions, sheet conditions, creature tags
+//        and entries for the ruleset's catalogs, merged into a game's ruleset of that id while the
+//        Experience is on. An overlay that does not fit the ruleset is left out whole.
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 363 } as const);
 
 const capabilityApiVersionSchema = z
   .object({
@@ -1411,6 +1440,10 @@ export const capabilityPackageManifestSchema = z
           ["creatures", index],
         ]),
         ...(mapPack.people ? [[mapPack.people, ["people"]] as [string, Array<string | number>]] : []),
+        ...(mapPack.rulesets ?? []).map((each, index): [string, Array<string | number>] => [
+          each.overlay,
+          ["rulesets", index, "overlay"],
+        ]),
       ];
       if (mapPack.music) {
         const tracks = new Set(mapPack.music.tracks.map((track) => track.id));
@@ -1450,6 +1483,20 @@ export const capabilityPackageManifestSchema = z
           code: z.ZodIssueCode.custom,
           path: ["contributions", "gameSurface", "mapPack", "music"],
           message: "A map pack's music requires capabilityApi 1.353 or newer",
+        });
+      }
+      if (mapPack.rulesets && (!api || api.major !== 1 || api.minor < 363)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["contributions", "gameSurface", "mapPack", "rulesets"],
+          message: "A map pack's ruleset overlays require capabilityApi 1.363 or newer",
+        });
+      }
+      if (new Set((mapPack.rulesets ?? []).map((each) => each.ruleset)).size !== (mapPack.rulesets ?? []).length) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["contributions", "gameSurface", "mapPack", "rulesets"],
+          message: "Two overlays are for the same ruleset",
         });
       }
       if (mapPack.people && (!api || api.major !== 1 || api.minor < 354)) {
