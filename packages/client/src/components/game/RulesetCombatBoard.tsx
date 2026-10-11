@@ -676,6 +676,7 @@ export function RulesetCombatBoard({
                       // Fights of one ruleset share the key: a fighter keeps its look across them.
                       variant={creatureArtVariant(creature.creature, view.ruleset.id, combatant.id)}
                       facing={facings.get(combatant.id) ?? "down"}
+                      flying={combatant.flying}
                       cellFraction={1 / 0.84}
                       label={combatant.name}
                     />

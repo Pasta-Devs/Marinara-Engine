@@ -1339,7 +1339,11 @@ const capabilityPackageManifestBaseSchema = z
 //        it, or the whole world; the `season` action changes or lets one go during play). The overworld,
 //        towns and the weather follow it. A world's battlefield may be painted with seasons (`seasons`
 //        rows, a letter or `.` per tile, named by `seasonKeys`), what a fight's tiles start in.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 359 } as const);
+// 1.360: a creature pack (creaturePackVersion 2) may give a creature flying art (`fly`: a block laid out as
+//        a walking one, one per look or one for all), played 0, 1, 2, 1 while it is shown flying: it flies
+//        and has no walk, it hovers, it is up in the air, or it flew this turn. Ruleset fights' views say so
+//        as `flying` on the fighter.
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 360 } as const);
 
 const capabilityApiVersionSchema = z
   .object({

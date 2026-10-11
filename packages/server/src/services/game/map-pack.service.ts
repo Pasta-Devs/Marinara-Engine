@@ -216,6 +216,13 @@ export async function checkMapPackFiles(
     }
     const read = parseCreaturePack(data.toString("utf8"));
     if (!read.ok) return { ok: false, reason: `${path} does not read: ${read.issues[0]}` };
+    // Flying art (creaturePackVersion 2) needs an Experience that declares 1.360.
+    if (
+      read.pack.creaturePackVersion >= 2 &&
+      (!files.capabilityApi || files.capabilityApi.major !== 1 || files.capabilityApi.minor < 360)
+    ) {
+      return { ok: false, reason: `${path} has flying art, which needs capabilityApi 1.360 or newer` };
+    }
     creatures.push(read.pack);
     if (cache) checkedCreatures.set(key, read.pack);
     if (checkedCreatures.size > CHECKED_CREATURES_KEPT) checkedCreatures.delete(checkedCreatures.keys().next().value!);
@@ -439,6 +446,7 @@ export async function checkMapPack(input: MapPackCheckInput): Promise<MapPackChe
     ...pack.worlds.map((world) => (world.story ? storyCapabilityMinor(world.story) : 0)),
     pack.worlds.some((world) => worldSeasonPainted(world.world)) ? 359 : 0,
     pack.creatures?.length ? 352 : 0,
+    pack.creatures?.some((each) => each.creaturePackVersion >= 2) ? 360 : 0,
     pack.music || audio ? 353 : 0,
     pack.people ? experiencePeopleMinor(pack.people) : 0,
   );

@@ -174,6 +174,9 @@ export interface DirectedRulesetCombatant {
   altitude?: number;
   /** How many cells a side it fills (1.194), `x`/`y` the top-left one. Absent for one cell. */
   span?: number;
+  /** Shown in its flying art (1.360): it flies without walking, hovers, is up in the air, or flew this
+   *  turn. Art only. */
+  flying?: true;
 }
 /**
  * What a ruleset fight's log holds: everything the resolver did, plus the few things the DIRECTOR

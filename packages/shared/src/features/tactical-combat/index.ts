@@ -63,5 +63,6 @@ export {
   creatureArtVariant,
   creatureFacingToward,
   findCreatureArt,
+  rulesetCombatantFlying,
   type CreatureArtFor,
 } from "./creature-art.js";

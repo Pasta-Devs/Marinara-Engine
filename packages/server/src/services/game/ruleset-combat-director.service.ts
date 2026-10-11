@@ -113,6 +113,7 @@ import {
   type TacticalGrid,
   type CombatTactics,
   type RulesetSheetItem,
+  rulesetCombatantFlying,
 } from "@marinara-engine/shared";
 import { logger } from "../../lib/logger.js";
 import { combatDirectorView, type CombatDirectorState } from "./combat-director.service.js";
@@ -727,6 +728,8 @@ function projectCombatant(
       : {}),
     ...(combatant.altitude !== undefined ? { altitude: combatant.altitude } : {}),
     ...(combatant.span !== undefined ? { span: combatant.span } : {}),
+    // Drawn in its flying art (1.360): never read by the rules.
+    ...(rulesetCombatantFlying(state.board?.grid, combatant) ? { flying: true as const } : {}),
   };
 }
 

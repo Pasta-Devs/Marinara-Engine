@@ -1587,6 +1587,8 @@ export function TacticalCombatUI({
                           creature: creature.creature,
                           variant: creatureArtVariant(creature.creature, String(liveState?.seed ?? ""), unit.id),
                           facing: facings.get(unit.id) ?? "down",
+                          // A flier is drawn in its flying art (1.360).
+                          flying: unit.movementMode === "fly",
                         }
                       : undefined
                   }
@@ -2153,7 +2155,13 @@ interface UnitTokenProps {
   ariaLabel: string;
   onClick: () => void;
   /** Its creature art, when the creature pack has it (design-game-creature-art.md). */
-  art?: { pack: CreaturePack; creature: CreaturePackCreature; variant: number; facing: CreatureFacing };
+  art?: {
+    pack: CreaturePack;
+    creature: CreaturePackCreature;
+    variant: number;
+    facing: CreatureFacing;
+    flying?: boolean;
+  };
 }
 
 function UnitToken({
