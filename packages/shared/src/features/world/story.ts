@@ -298,6 +298,36 @@ export const storyScriptSchema = z
      *  setting, changing as the story moves. Each is told to the Game Master on a turn its conditions hold
      *  and its person is in the scene (named, or travelling with the party), or, without a person, one of
      *  its keys is. */
+    /** What being in a place does to the party over time (Capability API 1.370): every `hours` hours it
+     *  spends there (and inside it) while `if` holds, its tracks move and its conditions go on, for each
+     *  of the party. Noonfield's light outside a fight. */
+    exposures: z
+      .array(
+        z
+          .object({
+            id,
+            place: z.string().min(1).max(120),
+            label: promptSafeText(80).optional(),
+            hours: z.number().int().min(1).max(48),
+            tracks: z
+              .array(
+                z.object({ track: z.string().trim().min(1).max(40), by: z.number().int().min(-10).max(10) }).strict(),
+              )
+              .min(1)
+              .max(4)
+              .optional(),
+            applies: z.array(z.string().trim().min(1).max(40)).min(1).max(4).optional(),
+            if: conditions,
+            /** For the Game Master, each time it bites. */
+            tell: promptSafeText(300).optional(),
+          })
+          .strict()
+          .refine((each) => !!each.tracks || !!each.applies, {
+            message: "An exposure moves a track or puts a condition on",
+          }),
+      )
+      .max(16)
+      .default([]),
     knowledge: z
       .array(
         z
@@ -460,6 +490,7 @@ export function storyConditionsFlat(list: StoryEvent["if"]): Array<Exclude<Story
  *  know's and its scenes' pages'. */
 function storyConditionLists(story: StoryScript): Array<StoryEvent["if"]> {
   return [
+    ...story.exposures.map((exposure) => exposure.if),
     ...story.events.flatMap((event) => [event.if, ...event.do.map((action) => action.if)]),
     ...story.directions.map((direction) => direction.if),
     ...story.knowledge.map((known) => known.if),
@@ -588,6 +619,14 @@ export function checkStoryScript(
     if (held.place) placeOk(held.place, `Season of "${held.place}"`);
     if (heldSeasons.has(held.place ?? "*")) issues.push(`Two seasons hold "${held.place ?? "the world"}".`);
     heldSeasons.add(held.place ?? "*");
+  }
+  const exposureIds = new Set<string>();
+  for (const exposure of story.exposures) {
+    const where = `Exposure "${exposure.id}"`;
+    if (exposureIds.has(exposure.id)) issues.push(`${where}: its id is used twice.`);
+    exposureIds.add(exposure.id);
+    placeOk(exposure.place, where);
+    checkConditions(exposure.if, where);
   }
   for (const known of story.knowledge) {
     const where = `Knowledge "${known.id}"`;
@@ -798,6 +837,9 @@ export interface StoryLedgerEntry {
   acts?: number[];
   /** The item use whose story cost it recorded (1.367), by the spend's id. */
   spend?: string;
+  /** An exposure it kept (1.370): since when (game minutes) the party has been in its place, null when it
+   *  left, and how many times it has bitten since. */
+  exposure?: { id: string; since: number | null; bitten: number };
 }
 
 // A body never holds "[", so a tag opener repeated without a "]" is read in one pass.
@@ -854,7 +896,19 @@ export function readStoryLedger(replies: readonly string[]): StoryLedgerEntry[] 
             .map((each) => Number(each.trim()))
         : undefined;
       const spend = values.get("spend")?.trim();
+      const exposureId = values.get("exposure")?.trim();
+      const since = values.get("since")?.trim();
+      const bitten = Number(values.get("bitten") ?? 0);
+      const exposure =
+        exposureId && (since === "" || (since !== undefined && /^\d{1,12}$/u.test(since)))
+          ? {
+              id: exposureId,
+              since: since ? Number(since) : null,
+              bitten: Number.isInteger(bitten) && bitten >= 0 ? bitten : 0,
+            }
+          : undefined;
       entries.push({
+        ...(exposure ? { exposure } : {}),
         ...(spend ? { spend } : {}),
         ...(acts ? { acts } : {}),
         ...(music !== undefined ? { music: music.trim() || null } : {}),
@@ -883,6 +937,9 @@ export interface StoryState {
   music?: string;
   /** The seasons the story holds places at now (1.359), by place id (`*` the whole world). */
   seasons?: Record<string, WorldSeason>;
+  /** The exposures running now (1.370): since when the party has been in each one's place, and how many
+   *  times it has bitten. */
+  exposures?: Record<string, { since: number; bitten: number }>;
 }
 
 /** The story as its ledger left it: each flag's value (a recorded value the script no longer fits is
@@ -895,8 +952,13 @@ export function storyState(story: StoryScript, ledger: readonly StoryLedgerEntry
   let ended: string | undefined;
   let music: string | null = null;
   const seasons: Record<string, WorldSeason> = {};
+  const exposures: NonNullable<StoryState["exposures"]> = {};
   for (const entry of ledger) {
     if (entry.music !== undefined) music = entry.music;
+    if (entry.exposure) {
+      if (entry.exposure.since === null) delete exposures[entry.exposure.id];
+      else exposures[entry.exposure.id] = { since: entry.exposure.since, bitten: entry.exposure.bitten };
+    }
     for (const [place, season] of entry.seasons ?? []) {
       if (season) seasons[place] = season;
       else delete seasons[place];
@@ -916,6 +978,7 @@ export function storyState(story: StoryScript, ledger: readonly StoryLedgerEntry
     ...(ended ? { ended } : {}),
     ...(music ? { music } : {}),
     ...(Object.keys(seasons).length ? { seasons } : {}),
+    ...(Object.keys(exposures).length ? { exposures } : {}),
   };
 }
 
@@ -987,6 +1050,7 @@ export function storyCapabilityMinor(story: StoryScript): number {
     ...story.knowledge.flatMap((known) => known.if ?? []),
   ].some((condition) => "party" in condition);
   const lists = storyConditionLists(story);
+  if (story.exposures.length) return 370;
   if (story.events.some((event) => event.do.some((action) => "season" in action && action.season.over))) return 369;
   if (
     lists.some((list) => storyConditionsFlat(list).some((condition) => "partySize" in condition)) ||
@@ -1181,6 +1245,8 @@ export interface StoryTurnWorld {
   day: number;
   /** What this turn's player message says a fight ended in. */
   fight: StoryFightOutcome | null;
+  /** The game's clock, in minutes from its start (1.370), for what being in a place does over time. */
+  clock?: number;
   /** What items' uses spent of story numbers in fights (1.367); those not yet recorded are, this turn. */
   spends?: readonly StorySpend[];
   /** What this turn's player message says a fight broke (1.311), by label. */
@@ -1204,6 +1270,9 @@ export interface StoryTurnWorld {
 export interface StoryTurn {
   /** The events this turn trips, in order. */
   tripped: string[];
+  /** The Engine's own sheet commands this turn (1.370): what the places the party has been in did to it,
+   *  applied with the reply's. */
+  sheet: string;
   /** Put before the reply: the trips' answered tags, the scenes shown as written, the world deeds. */
   prepend: string;
   /** The scenes shown as written, as the player sees them: told to the Game Master to follow on, and
@@ -1243,11 +1312,15 @@ function storyRecord(
     seasons?: Array<[string, WorldSeason | null]>;
     acts?: number[];
     spend?: string;
+    exposure?: { id: string; since: number | null; bitten: number };
   },
   by?: "engine",
 ) {
   const parts = [
     ...(entry.event ? [`event="${entry.event}"`] : []),
+    ...(entry.exposure
+      ? [`exposure="${entry.exposure.id}" since="${entry.exposure.since ?? ""}" bitten="${entry.exposure.bitten}"`]
+      : []),
     ...(entry.spend ? [`spend="${entry.spend}"`] : []),
     ...(entry.flag ? [`flag="${entry.flag}"`] : []),
     ...(entry.fight ? [`fight="${entry.fight}"`] : []),
@@ -1606,6 +1679,35 @@ export function storyTurn(story: StoryScript, world: StoryTurnWorld): StoryTurn 
       `${spend.label ? `Using ${spend.label}` : "An item's use"} ${spend.add < 0 ? "cost the party" : "gave the party"} ${Math.abs(spend.add)} of ${name}; it is ${entry.set[0]![1]} now.`,
     );
   }
+  // What being where the party is has done to it since it came (1.370), on the game's clock.
+  const sheet: string[] = [];
+  if (world.clock !== undefined && story.exposures.length) {
+    const running = { ...(state.exposures ?? {}) };
+    for (const exposure of story.exposures) {
+      const now = running[exposure.id];
+      const there = inside(at, exposure.place) && storyConditionsHold(exposure.if, flags, party);
+      let record: { id: string; since: number | null; bitten: number } | null = null;
+      if (there && !now) record = { id: exposure.id, since: world.clock, bitten: 0 };
+      else if (!there && now) record = { id: exposure.id, since: null, bitten: 0 };
+      else if (there && now) {
+        const due = Math.floor(Math.max(0, world.clock - now.since) / (exposure.hours * 60)) - now.bitten;
+        if (due > 0) {
+          record = { id: exposure.id, since: now.since, bitten: now.bitten + due };
+          for (const moved of exposure.tracks ?? [])
+            sheet.push(`[sheet: who="party" op="track" track="${moved.track}" by="${moved.by * due}"]`);
+          for (const condition of exposure.applies ?? [])
+            sheet.push(`[sheet: who="party" op="condition" condition="${condition}" state="on"]`);
+          const place = game.world.places.find((each) => each.id === exposure.place)?.name ?? exposure.place;
+          tells.push(
+            `${exposure.label ?? `Being in ${place}`} has told on the party: ${due === 1 ? "once" : `${due} times`} more since the last reply (every ${exposure.hours} hour${exposure.hours === 1 ? "" : "s"} there), and the Engine has marked it on each of their sheets.${exposure.tell ? ` ${exposure.tell}` : ""}`,
+          );
+        }
+      }
+      if (!record) continue;
+      ledger.push({ exposure: record, by: "engine", set: [], show: [] });
+      prepend.push(storyRecord({ exposure: record, set: [], show: [] }, "engine"));
+    }
+  }
   // The recap of a story fight fought in its variant for the party's size names the variant (1.364).
   if (world.fight) {
     const ended = storyFightIn(story, world.latest);
@@ -1838,8 +1940,10 @@ export function storyTurn(story: StoryScript, world: StoryTurnWorld): StoryTurn 
     if (record.ending) ended = record.ending;
   }
 
+  const exposuresNow = storyState(story, ledger).exposures;
   return {
     tripped,
+    sheet: sheet.join(" "),
     prepend: prepend.length ? `${prepend.join("\n\n")}\n\n` : "",
     shown,
     tells,
@@ -1850,6 +1954,7 @@ export function storyTurn(story: StoryScript, world: StoryTurnWorld): StoryTurn 
       shown: [...shownFlags],
       ...(ended ? { ended } : {}),
       ...(Object.keys(held).length ? { seasons: held } : {}),
+      ...(exposuresNow ? { exposures: exposuresNow } : {}),
     },
     filled: clocksFilled(story, flagsBeforeLatest, flags).map((flag) => ({
       flag: flag.id,

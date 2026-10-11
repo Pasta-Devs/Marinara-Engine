@@ -232,7 +232,7 @@ with `seasons` or the `season` action needs 1.359, one with more than 64 flags n
 with fight `variants` needs 1.364, and one with `any` conditions, a `fight` event naming its fight, a
 `leave` event, a flag's `min` or `max`, or an `if` on an action or a page needs 1.366, and one with a
 `partySize` condition, a variant for a party above 6 or open-ended, or more than 6 variants needs 1.368, and one
-with a `season` action `over` everything inside it needs 1.369. A companion is a person of the pack's people file marked
+with a `season` action `over` everything inside it needs 1.369, and one with `exposures` needs 1.370. A companion is a person of the pack's people file marked
 as one (see the map pack's people in [optional agent packages](../development/optional-agent-packages.md)).
 
 Of the `rest`, `travel` and `idle` events that could happen on one turn, only one does: the one with the
@@ -240,6 +240,26 @@ highest `priority` (a whole number from -100 to 100, 0 when left out; the first 
 companion's campfire talk, a pair of companions bickering on the road, or a companion coming to the player
 in a quiet hour then never pile up. With a `party` condition, such a scene happens only while those
 companions travel with the party. A script may have 256 events from 1.357 (128 before).
+
+### Exposures
+
+What being in a place does to the party over time (Capability API 1.370), such as a field of noon light
+that wears travellers down outside a fight as a board's light rule does inside one:
+
+```json
+"exposures": [
+  { "id": "noonfield", "place": "e9", "label": "Noonfield's light", "hours": 1,
+    "tracks": [{ "track": "exhaustion", "by": 1 }], "applies": ["sunstruck"],
+    "if": [{ "flag": "darkness_carried", "is": "=", "value": false }],
+    "tell": "The light presses on them; darkness would be a mercy." }
+]
+```
+
+On the game's clock: the first turn the party is in `place` (or inside it) while `if` holds starts it, and
+each later turn counts how many `hours` have passed there since. Each time they do, the Engine moves the
+`tracks` by `by` and puts the `applies` conditions on for each of the party, with its own sheet commands
+applied with the reply's, and tells the Game Master (with `tell`). Leaving the place, or `if` no longer
+holding, ends it; it starts afresh next time. It is recorded in the reply (`[story: exposure=...]`), once.
 
 ### Seasons
 

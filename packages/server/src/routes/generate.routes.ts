@@ -710,7 +710,13 @@ import {
   shouldSuppressAssistantSpatialMutation,
   validateSpatialGenerationRequest,
 } from "./generate/spatial-transition-request.js";
-import { addMinutes, createInitialTime, formatGameTime, type GameTime } from "../services/game/time.service.js";
+import {
+  addMinutes,
+  createInitialTime,
+  formatGameTime,
+  gameClockMinutes,
+  type GameTime,
+} from "../services/game/time.service.js";
 import { runTurnGameBotTurns } from "../services/turn-games/turn-game-bot-runner.service.js";
 import { getTurnGameContextBuilder } from "../services/turn-games/turn-game-runner.service.js";
 import { getCapabilityService } from "../services/capability-packages/capability-service-registry.service.js";
@@ -2166,6 +2172,8 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                     partySize: gamePartySize(chatMeta, await gameNoncombatants(app.db, input.chatId, chatMeta)),
                     // What items' uses spent of story numbers in fights (1.367), recorded this turn.
                     spends: gameStorySpends(chatMeta),
+                    // The game's clock, for what being in a place does over time (1.370).
+                    clock: gameClockMinutes(chatMeta.gameTime),
                     player: input.userMessage ?? null,
                     // The cells this turn's walks walked (map events): in town, and on a map made by hand.
                     steps: [
@@ -9630,6 +9638,12 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               );
               turnSheetContext = sheetContext;
               if (sheetContext) {
+                // What the places the party has been in did to it (1.370), applied with the reply's own.
+                const storySheet = fullResponse.trim() ? (await turnStory())?.turn.sheet : "";
+                if (storySheet) {
+                  fullResponse = `${storySheet}\n\n${fullResponse}`;
+                  contentReplaced = true;
+                }
                 rulesetSheetTurn = applyGameRulesetSheetTurn(
                   sheetContext,
                   fullResponse,

@@ -1412,7 +1412,10 @@ const capabilityPackageManifestBaseSchema = z
 // 1.369: a story's `season` action may hold `over` everything inside it (the script's own seasons and
 //        every other hold), and what people know is ranked: the people the scene names first, then what
 //        its words bring in, then companions only travelling along, shared out person by person.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 369 } as const);
+// 1.370: a story may keep `exposures`: what being in a place does to the party over time (every `hours`
+//        hours there while its `if` holds, tracks moved and conditions put on for each of the party, by
+//        the Engine's own sheet commands on the game's clock). Noonfield's light outside a fight.
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 370 } as const);
 
 const capabilityApiVersionSchema = z
   .object({
