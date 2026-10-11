@@ -200,7 +200,7 @@ deed it waits for, would set itself off every turn, so the Engine refuses it.
 **Actions** (`do`):
 
 | Action                                                                                                  | Does                                                                     |
-| ------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `{ "set": "<flag>", "value": <value> }`                                                                 | Sets a flag.                                                             |
 | `{ "add": "<flag>", "amount": <number> }`                                                               | Adds to a number flag.                                                   |
 | `{ "tell": "<text>" }`                                                                                  | Asks something of the Game Master, once, this turn.                      |
@@ -215,6 +215,7 @@ deed it waits for, would set itself off every turn, so the Engine refuses it.
 | `{ "recruit": "<person id>" }` | Takes one of its Experience's companions into the party (1.355), with their sheet for the game's ruleset. The Game Master is told to show them joining. |
 | `{ "dismiss": "<person id>" }` | Lets a companion go from the party (1.355). |
 | `{ "season": { "place": "<place id>", "to": "winter" } }` | Holds a place, and every place inside it, at a season whatever the date (1.359); without `place`, the whole world. `"to": null` lets it go back to the script's own `seasons`, or the date's. With `"over": true` (1.369) it holds over every season inside it, the script's own and every other hold, as an ending that turns the year does; `"to": null` with `"over": true` lets that go. |
+| `{ "sheet": { "condition": "<id>", "state": "on" }` or `{ "sheet": { "track": "<id>", "by": 1, "upTo": 3 } }` | Puts a sheet condition on each of the party or takes it off (`"off"`), or moves a track of each one's sheet, stopping at `upTo` (1.376): Rime Edge's cold that no rest heals, through a condition whose combat condition has `cannot-heal-nonmagical`. The Engine's own trip applies it with the reply it writes; the Game Master's, on the turn after it marked it.                         |
 
 Any action may carry its own `if` (Capability API 1.366): it is done only when its conditions hold as
 the event reaches it, with the event's earlier actions done, so one event can branch.
@@ -239,7 +240,7 @@ with fight `variants` needs 1.364, and one with `any` conditions, a `fight` even
 `leave` event, a flag's `min` or `max`, or an `if` on an action or a page needs 1.366, and one with a
 `partySize` condition, a variant for a party above 6 or open-ended, or more than 6 variants needs 1.368, and one
 with a `season` action `over` everything inside it needs 1.369, one with `exposures` needs 1.370, one
-whose fight creatures `adjust` needs 1.371, one with an exposure `save` or a track's `upTo` needs 1.372, one with an exposure `sparedByShade` needs 1.373, and one with `heldGround` needs 1.374. A companion is a person of the pack's people file marked
+whose fight creatures `adjust` needs 1.371, one with an exposure `save` or a track's `upTo` needs 1.372, one with an exposure `sparedByShade` needs 1.373, one with `heldGround` needs 1.374, and one with a `sheet` action needs 1.376. A companion is a person of the pack's people file marked
 as one (see the map pack's people in [optional agent packages](../development/optional-agent-packages.md)).
 
 Of the `rest`, `travel` and `idle` events that could happen on one turn, only one does: the one with the

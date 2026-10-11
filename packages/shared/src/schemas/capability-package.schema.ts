@@ -1427,7 +1427,9 @@ const capabilityPackageManifestBaseSchema = z
 //        ruleset fight started there is fought on that Held Ground (1.318).
 // 1.375: an Experience's ruleset overlay may add sheet tracks (`tracks`, as the ruleset's `sheet.live.tracks`):
 //        shown on the sheet, moved by sheet commands, and kept for Held Ground's and light rules' marks.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 375 } as const);
+// 1.376: a story action `sheet` puts a sheet condition on each of the party or takes it off, or moves a
+//        track of each one's sheet (`upTo` stops it), as the Engine's own sheet command.
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 376 } as const);
 
 const capabilityApiVersionSchema = z
   .object({

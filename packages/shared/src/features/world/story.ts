@@ -206,7 +206,32 @@ const action = z.union([
       })
       .strict(),
   }),
+  /** Puts a condition on each of the party, or takes it off, or moves a track of each one's sheet
+   *  (Capability API 1.376): Rime Edge's cold that no rest heals. The Engine's own sheet command,
+   *  applied with the reply it is delivered with. */
+  act({
+    sheet: z.union([
+      z.object({ condition: z.string().trim().min(1).max(40), state: z.enum(["on", "off"]) }).strict(),
+      z
+        .object({
+          track: z.string().trim().min(1).max(40),
+          by: z.number().int().min(-10).max(10),
+          upTo: z.number().int().min(-1000).max(1000).optional(),
+        })
+        .strict(),
+    ]),
+  }),
 ]);
+
+/** A story's sheet action as the party's own sheet command (1.376). */
+function storySheetTag(
+  sheet: { condition: string; state: "on" | "off" } | { track: string; by: number; upTo?: number },
+) {
+  const clean = (text: string) => text.replace(/["[\]]/g, "");
+  return "condition" in sheet
+    ? `[sheet: who="party" op="condition" condition="${clean(sheet.condition)}" state="${sheet.state}"]`
+    : `[sheet: who="party" op="track" track="${clean(sheet.track)}" by="${sheet.by}"${sheet.upTo !== undefined ? ` upto="${sheet.upTo}"` : ""}]`;
+}
 
 /** The largest party a story fight's variants were written for in 1.364; larger, or an open range
  *  (`{ "min": 7 }`), needs 1.368. */
@@ -1123,7 +1148,7 @@ export function storyCompanionsNamed(story: StoryScript): string[] {
   ];
 }
 
-/** The Capability API minor a script needs: 1.374 for held ground, 1.373 for exposures spared by a shade, 1.372 for exposure saves and stops, 1.371 for fight adjusts,
+/** The Capability API minor a script needs: 1.376 for sheet actions, 1.374 for held ground, 1.373 for exposures spared by a shade, 1.372 for exposure saves and stops, 1.371 for fight adjusts,
  *  1.370 for exposures, 1.369 for holds over everything inside, 1.368 for party size conditions and variants for parties above
  *  six, 1.366 for its reach, 1.364 for fight variants, 1.361 for more than 64 flags, 1.359 for held seasons, 1.357 for rest, travel and idle events, party conditions and more
  *  than 128 events, 1.356 for knowledge, 1.355 for companions, 1.353 for music cues, 1.351 for fights, endings and its give, move, fight and
@@ -1142,6 +1167,7 @@ export function storyCapabilityMinor(story: StoryScript): number {
     fight.creatures,
     ...(fight.variants ?? []).map((variant) => variant.creatures),
   ]);
+  if (story.events.some((event) => event.do.some((action) => "sheet" in action))) return 376;
   if (story.heldGround.length) return 374;
   if (story.exposures.some((exposure) => exposure.sparedByShade)) return 373;
   if (story.exposures.some((exposure) => exposure.save || exposure.tracks?.some((moved) => moved.upTo !== undefined)))
@@ -2007,6 +2033,10 @@ export function storyTurn(story: StoryScript, world: StoryTurnWorld): StoryTurn 
           );
         }
       }
+    }
+    for (const action of event.do) {
+      // On the reply this turn writes, by the Engine or a turn after the Game Master marked it (1.376).
+      if ("sheet" in action) sheet.push(storySheetTag(action.sheet));
     }
     for (const action of event.do) {
       if ("tell" in action) tells.push(action.tell);
