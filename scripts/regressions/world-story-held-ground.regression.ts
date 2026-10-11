@@ -19,6 +19,7 @@ import {
   readStoryLedger,
   storyCapabilityMinor,
   storyHeldGroundNow,
+  storyHeldGroundReleaseInFight,
   storyState,
   storyTurn,
   storyTurnPromptText,
@@ -153,6 +154,50 @@ assert.ok(
   }).ok,
   "a number flag",
 );
+
+// In a fight still running (1.377): what it did lets go of the held ground there and then.
+{
+  const finale = checkStoryScript(game, {
+    ...input,
+    flags: [...input.flags!, { id: "wheel", kind: "number", initial: 3 }],
+    events: [
+      {
+        id: "wheel_runs_down",
+        when: { on: "flags" },
+        if: [{ flag: "wheel", is: "<=", value: 0 }],
+        do: [{ set: "year_turned", value: true }],
+      },
+    ],
+  });
+  assert.ok(finale.ok, JSON.stringify(finale));
+  // The Year-Wheel broken on the board (a prop this test's world has no battlefield for, so added as checked).
+  finale.story.events.unshift({
+    id: "wheel_breaks",
+    when: { on: "broke", prop: "Year-Wheel" },
+    do: [{ set: "year_turned", value: true }],
+  } as (typeof finale.story.events)[number]);
+  const opening = storyTurn(finale.story, {
+    game,
+    replies: [],
+    repliesBefore: 0,
+    latest: null,
+    told: [],
+    day: 0,
+    fight: null,
+  });
+  const ledger = readStoryLedger([`${opening.prepend}In.`]);
+  assert.equal(storyState(finale.story, ledger).held, "valley");
+  assert.equal(storyHeldGroundReleaseInFight(finale.story, ledger, {}), null, "nothing done");
+  assert.equal(storyHeldGroundReleaseInFight(finale.story, ledger, { broken: ["Barn door"] }), null);
+  assert.equal(storyHeldGroundReleaseInFight(finale.story, ledger, { broken: ["year-wheel"] })?.id, "valley");
+  // An item's use that runs the wheel down, and the flags event that sets off.
+  const spend = (id: string, add: number) => ({ id, flag: "wheel", add });
+  assert.equal(storyHeldGroundReleaseInFight(finale.story, ledger, { spends: [spend("a", -2)] }), null);
+  assert.equal(
+    storyHeldGroundReleaseInFight(finale.story, ledger, { spends: [spend("a", -2), spend("b", -1)] })?.felled,
+    "die",
+  );
+}
 
 // A script without it never records any.
 const plain = checkStoryScript(game, { ...input, heldGround: [] });

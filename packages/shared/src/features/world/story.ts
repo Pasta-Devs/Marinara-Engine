@@ -1456,6 +1456,63 @@ export interface StoryHeldGroundRelease {
   owing?: { track?: string; bonus?: number };
 }
 
+/** What letting this held ground go does, its bonus read off these flags (1.377). */
+function storyHeldGroundRelease(
+  gone: StoryScript["heldGround"][number],
+  flags: StoryState["flags"],
+): StoryHeldGroundRelease {
+  const bonus = gone.release?.owing?.bonus;
+  const bonusNow = typeof bonus === "object" ? Number(flags[bonus.flag] ?? 0) || 0 : bonus;
+  return {
+    id: gone.id,
+    ...(gone.label ? { label: gone.label } : {}),
+    felled: gone.release?.felled ?? "die",
+    ...(gone.release?.owing
+      ? {
+          owing: {
+            ...(gone.release.owing.track ? { track: gone.release.owing.track } : {}),
+            ...(bonusNow !== undefined ? { bonus: bonusNow } : {}),
+          },
+        }
+      : {}),
+  };
+}
+
+/**
+ * Whether what happened in a fight still running lets its held ground go there and then (1.377): the
+ * story numbers its items' uses spent (1.367), the props it broke (1.311) and the `flags` events those
+ * set off, as the next story turn will record them, read against the held ground's conditions. The
+ * release when it no longer holds, else null. The party has not moved, so its place still holds.
+ */
+export function storyHeldGroundReleaseInFight(
+  story: StoryScript,
+  ledger: readonly StoryLedgerEntry[],
+  fight: { spends?: readonly StorySpend[]; broken?: readonly string[]; party?: StoryParty },
+): StoryHeldGroundRelease | null {
+  const state = storyState(story, ledger);
+  const held = state.held ? story.heldGround.find((each) => each.id === state.held) : undefined;
+  if (!held) return null;
+  const flags = { ...state.flags };
+  storySpendsDue(story, ledger, fight.spends, flags);
+  const fired = { ...state.fired };
+  const broken = new Set((fight.broken ?? []).map((label) => label.trim().toLowerCase()));
+  // A few passes, so a flags event set off by another's numbers is counted, as turns would.
+  for (let pass = 0; pass < 4; pass++) {
+    let moved = false;
+    for (const event of story.events) {
+      if (!event.repeat && (fired[event.id] ?? 0) > 0) continue;
+      const when = event.when;
+      const happens =
+        (when.on === "broke" && broken.has(when.prop.trim().toLowerCase())) || (when.on === "flags" && !event.repeat);
+      if (!happens || !storyConditionsHold(event.if, flags, fight.party)) continue;
+      fired[event.id] = (fired[event.id] ?? 0) + 1;
+      if (applyActions(story, event, flags, fight.party).set.length) moved = true;
+    }
+    if (!moved) break;
+  }
+  return storyConditionsHold(held.if, flags, fight.party) ? null : storyHeldGroundRelease(held, flags);
+}
+
 /** What Held Ground means, for the Game Master (1.374). */
 export function storyHeldGroundText(held: StoryScript["heldGround"][number]): string {
   return `${held.label ?? "Held Ground"}: death is held here. Whoever reaches no health in a fight is felled instead (out of it, stable, never dying), and gets up again later unless reaped${held.condition ? `; the felled are ${held.condition}` : ""}${held.marks?.length ? `; each felled character takes ${held.marks.map((mark) => `${mark.by} ${mark.track}`).join(" and ")}` : ""}. The Engine keeps this in fights.`;
@@ -1989,23 +2046,7 @@ export function storyTurn(story: StoryScript, world: StoryTurnWorld): StoryTurn 
     const was = storyState(story, ledger).held ?? null;
     if ((holding?.id ?? null) !== was) {
       const gone = was ? story.heldGround.find((each) => each.id === was) : undefined;
-      if (gone) {
-        const bonus = gone.release?.owing?.bonus;
-        const bonusNow = typeof bonus === "object" ? Number(flags[bonus.flag] ?? 0) || 0 : bonus;
-        released = {
-          id: gone.id,
-          ...(gone.label ? { label: gone.label } : {}),
-          felled: gone.release?.felled ?? "die",
-          ...(gone.release?.owing
-            ? {
-                owing: {
-                  ...(gone.release.owing.track ? { track: gone.release.owing.track } : {}),
-                  ...(bonusNow !== undefined ? { bonus: bonusNow } : {}),
-                },
-              }
-            : {}),
-        };
-      }
+      if (gone) released = storyHeldGroundRelease(gone, flags);
       ledger.push({ held: holding?.id ?? null, by: "engine", set: [], show: [] });
       prepend.push(storyRecord({ held: holding?.id ?? null, set: [], show: [] }, "engine"));
       const before = was ? story.heldGround.find((each) => each.id === was) : undefined;
