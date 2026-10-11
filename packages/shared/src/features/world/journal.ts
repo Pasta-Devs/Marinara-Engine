@@ -38,6 +38,10 @@ export interface WorldJournal {
   past: string[];
   /** The world's story's objectives the player can see (worldgen W10), when it has a story. */
   story?: import("./story.js").StoryObjective[];
+  /** The story's clocks the player can see (Capability API 1.350). */
+  clocks?: import("./story.js").StoryClock[];
+  /** The ending the story has had (Capability API 1.351), once it has. */
+  ending?: { id: string; title: string; epilogue: string };
 }
 
 /** How many of each the tab shows. */

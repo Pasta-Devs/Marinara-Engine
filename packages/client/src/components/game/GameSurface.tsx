@@ -153,6 +153,7 @@ import { CHAT_FLOATING_UI_DISMISS_EVENT } from "../../lib/chat-floating-ui-event
 import { cn, generateClientId } from "../../lib/utils";
 import { GAME_DIALOG_CLASS, GAME_SECTION_CLASS } from "../../lib/chat-widget-colors";
 import { describeGameInventoryRefusal, gameInventoryRefusalKeys } from "../../lib/game-inventory-refusal";
+import { StoryClockStrip, useStoryJournal } from "./StoryClockDial";
 import {
   filterAudioGenerationConnections,
   filterLanguageGenerationConnections,
@@ -3986,6 +3987,12 @@ function GameSurfaceComponent({
   }, [messages]);
   const latestAssistantSwipeIndex = latestAssistantMsg?.activeSwipeIndex ?? 0;
   const latestAssistantTurnKey = narrationTurnKey(latestAssistantMsg);
+  const storyJournalQuery = useStoryJournal(chatMeta.gameStory != null ? activeChatId : null, latestAssistantTurnKey);
+  const storyClocks = storyJournalQuery.data?.clocks ?? [];
+  const storyEnding = storyJournalQuery.data?.ending ?? null;
+  // The story's ending (Capability API 1.351), shown once per game until the player closes it.
+  const [storyEndingClosed, setStoryEndingClosed] = useState<string | null>(null);
+  const storyEndingKey = storyEnding ? `${activeChatId}:${storyEnding.id}` : null;
   const turnStoryboardsQuery = useGameTurnStoryboards(
     activeChatId,
     latestAssistantMsg?.id,
@@ -13754,6 +13761,13 @@ function GameSurfaceComponent({
                 </div>
               )}
 
+              {/* The story's clocks (Capability API 1.350): small dials the player watches fill. */}
+              {!replayActive && !combatUiActive && !experienceOwnsGame && storyClocks.length > 0 && (
+                <div className="pointer-events-none absolute left-3 top-14 z-30 max-w-[70%]">
+                  <StoryClockStrip clocks={storyClocks} />
+                </div>
+              )}
+
               {/* HUD Widgets - Left & Right, tops aligned */}
               {/* Hidden while the package owns the game — it draws its own HUD. */}
               {!replayActive &&
@@ -13860,6 +13874,45 @@ function GameSurfaceComponent({
               title={localizeUi("ui.game.gamesurfacecomponent.attemptAnInFictionInterruptionOutcomesCanFail")}
             >
               {localizeUi("ui.game.gamesurfacecomponent.yes")}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        open={
+          storyEnding !== null &&
+          storyEndingKey !== storyEndingClosed &&
+          sessionStatus !== "concluded" &&
+          !replayActive &&
+          !confirmEndSessionOpen
+        }
+        onClose={() => setStoryEndingClosed(storyEndingKey)}
+        title={storyEnding?.title ?? ""}
+        width="max-w-lg"
+      >
+        <div className="flex flex-col gap-4" data-story-ending="">
+          <p className="text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
+            {localizeUi("ui.game.storyEnding.theEnd")}
+          </p>
+          <p className="whitespace-pre-line text-sm leading-relaxed">{storyEnding?.epilogue}</p>
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setStoryEndingClosed(storyEndingKey)}
+              className="rounded-xl px-3 py-2 text-xs text-[var(--muted-foreground)] hover:bg-[var(--accent)]"
+            >
+              {localizeUi("ui.game.storyEnding.keepReading")}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setStoryEndingClosed(storyEndingKey);
+                handleRequestEndSession();
+              }}
+              className="rounded-xl bg-[var(--primary)] px-3 py-2 text-xs font-medium text-[var(--primary-foreground)]"
+            >
+              {localizeUi("ui.game.storyEnding.endSession")}
             </button>
           </div>
         </div>

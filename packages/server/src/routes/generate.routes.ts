@@ -222,6 +222,8 @@ import {
   gameStoryFromMetadata,
   readToldLedger,
   refuseStoryTags,
+  storyIsRef,
+  type StoryItemLabel,
   readStoryLedger,
   storyFightBroken,
   storyFightOutcome,
@@ -2099,7 +2101,8 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 return null;
               })
             : Promise.resolve(null));
-      let turnStoryRead: Promise<{ story: StoryScript; game: GameWorld; turn: StoryTurn } | null> | undefined;
+      let turnStoryRead:
+        Promise<{ story: StoryScript; game: GameWorld; turn: StoryTurn; item?: StoryItemLabel } | null> | undefined;
       const turnStory = () =>
         (turnStoryRead ??=
           chatMode === "game" && !input.impersonate && !input.continueMessageId
@@ -2121,10 +2124,22 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 const toldEntries = readToldLedger(told);
                 const present = worldPresent(game, [...before, ...toldEntries]);
                 const own = replies.all.slice(replies.carried?.tags ? 1 : 0);
+                // The ruleset's items the story gives by id (1.351), read only when it gives any.
+                const givesById = story.events.some((event) =>
+                  event.do.some((action) => "give" in action && storyIsRef(action.give.item)),
+                );
+                const book = givesById
+                  ? await loadGameInventoryItemBook(app.db, { chatId: input.chatId }, "game-master")
+                  : undefined;
+                const item: StoryItemLabel | undefined = book
+                  ? (ref) => (book.offers(ref) ? book.itemOf(ref)?.name : undefined)
+                  : undefined;
                 return {
                   story,
                   game,
+                  item,
                   turn: storyTurn(story, {
+                    item,
                     game,
                     replies: replies.all,
                     repliesBefore: (replies.carried?.replies ?? 0) + own.length,
@@ -9742,6 +9757,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                       turnWorld,
                       storyTurnTold?.turn.state ?? storyState(story, readStoryLedger(replies.all)),
                       storyTurnTold?.turn.tripped,
+                      storyTurnTold?.item,
                     )
                   : refuseStoryTags(fullResponse);
                 if (answered !== fullResponse) {

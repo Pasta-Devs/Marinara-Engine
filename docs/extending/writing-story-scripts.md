@@ -34,12 +34,14 @@ stay as they were.
   "flags": [],
   "directions": [],
   "events": [],
-  "cutscenes": []
+  "cutscenes": [],
+  "fights": [],
+  "endings": []
 }
 ```
 
 Ids are 1 to 40 lowercase letters, digits, `_` or `-`, unique within their list. A story holds at most
-64 flags, 64 directions, 128 events and 64 cutscenes. No text in it may hold a line break, square
+64 flags, 64 directions, 128 events, 64 cutscenes, 32 fights and 16 endings. No text in it may hold a line break, square
 brackets or `{{`, and names written into a tag (a group, a background) may not hold a double quote:
 nothing a story says can pass for one of the Game Master's tags.
 
@@ -67,6 +69,21 @@ A flag is a value the story keeps: `"bool"` (true or false) or `"number"`.
 A yes-or-no objective is done when its flag is true; a number objective when it reaches its `goal`
 (1 when not given), and with a `goal` written the journal shows how far along it is. An objective with
 `"hidden": true` waits in the journal until an event shows it.
+
+#### Clocks
+
+A number flag can be a **clock** the player watches fill (Capability API 1.350): a circle of 2 to 12
+segments, one filled per point, shown in the game's HUD and the World tab, with its title and what
+happens when it is full.
+
+```json
+{ "id": "reeve", "kind": "number", "initial": 0, "gm": true,
+  "clock": { "title": "The Reeve's patience", "segments": 6, "full": "The Reeve sends his men." } }
+```
+
+Set it, add to it and test it in conditions like any number flag. The Game Master is told the clocks
+each turn, and once, when one fills (by an event, or by its own tag the turn after), what to bring about.
+A clock with `"hidden": true` stays out of sight until an event `show`s it.
 
 ### Directions
 
@@ -129,9 +146,37 @@ deed it waits for, would set itself off every turn, so the Engine refuses it.
 | `{ "cutscene": "<id>" }`                                                                                | Plays a cutscene.                                                        |
 | `{ "show": "<flag>" }`                                                                                  | Shows a hidden quest objective in the journal.                           |
 | `{ "world": { "deed": "<kind>", "group": "...", "with": "...", "place": "<place id>", "who": "..." } }` | Records a deed in the world, answered as the Game Master's own would be. |
+| `{ "give": { "item": "<catalog/entry or a name>", "count": 1, "who": "...", "summary": "..." } }` | Gives an item (1.351): one of the game's ruleset items by its id, or any other by its name (with `summary` saying what it is), into the player's bag or the party member `who` names. It goes in as the Game Master's own would, so the inventory's rules apply. An id the game's ruleset does not offer is refused, with the reason in the reply. |
+| `{ "fight": "<fight id>" }` | Starts one of the script's fights (1.351). The Game Master is told to lead into it, and the fight that follows has the story's opponents. |
+| `{ "move": "<place id>" }` | Puts the party at a place of the world (1.351), as a walk would; an `arrive` event it brings happens on the same turn. |
+| `{ "ending": "<ending id>" }` | Ends the game with one of the script's endings (1.351): its scene plays, the Game Master closes on its epilogue, and the player is shown the ending and offered to end the session. Nothing in the story happens after it. |
 
-A story does not give items, start fights, move the party or end the game: those stay with the Game
-Master and the player. Ask the Game Master for them with `tell`.
+A map pack world whose story has clocks needs Capability API 1.350, and one with fights, endings or
+these four actions needs 1.351.
+
+### Fights
+
+A fight the story sets: who is fought, and where when the world has a board painted for it.
+
+```json
+{ "id": "granary", "name": "The Granary",
+  "creatures": [{ "creature": "creatures/scarecrow", "count": 3 }, { "creature": "The Owed", "name": "The Owed" }],
+  "battlefield": "b2", "note": "The jars break when hit." }
+```
+
+Each creature is a bestiary creature of the game's ruleset, by its id (`catalog/entry`) or its name, and
+`count` of them (numbered when there are several), called `name` in the fight when given. `battlefield`
+is a board painted by hand in the world (`b<n>`), fought on wherever the fight starts; without one the
+fight is fought where it starts, as any other. `note` tells the Game Master how it comes about.
+
+### Endings
+
+```json
+{ "id": "kept", "title": "The Year Kept", "cutscene": "bells", "epilogue": "The valley stays held." }
+```
+
+`cutscene` is one of the script's scenes, played as the ending begins; `epilogue` is what the Game
+Master closes the game on, and what the player reads when the ending is shown.
 
 ### Cutscenes
 
@@ -201,6 +246,9 @@ cannot mark now (done, or held back by their conditions). It marks them in its r
 - `[story: event="<id>"]` trips a `gm` event whose conditions hold (once, unless it repeats).
 - `[story: flag="<id>" value="<value>"]`, or `add="<number>"` for a number flag, sets a `gm` flag.
 
+A `gm` event's gifts, fight and move go into the reply with its tag; its ending scene and epilogue come
+at the start of the next reply.
+
 The Engine answers each tag in place, an event at most once a turn, and refuses anything else with the
 reason. In a game with no story, every story tag is refused. What the Game Master
 trips takes effect at once (its flags, its deeds); its scenes and what it asks come at the start of the
@@ -210,5 +258,5 @@ event's `pages` as what follows the moment, since the Game Master has already to
 ## Trying a story
 
 Save it to a game with `PUT /api/game/:chatId/story` and `{ "story": { ... } }`: a story that does not
-fit is refused with every reason. The game's World tab lists the objectives the story has shown, and
+fit is refused with every reason. The game's World tab lists the objectives and clocks the story has shown, and
 the Game Master's prompt carries the story's values and directions each turn.

@@ -34,6 +34,7 @@ import { showConfirmDialog } from "../../lib/app-dialogs";
 import { AnimatedText } from "./AnimatedText";
 import { GameMakeWorld } from "./GameMakeWorld";
 import { useOverworldGamesEnabled } from "../../hooks/use-world-library";
+import { StoryClockDial } from "./StoryClockDial";
 
 import type { GameNpc, WorldFile, WorldJournal } from "@marinara-engine/shared";
 import { useTranslation as useUiTranslation } from "react-i18next";
@@ -840,6 +841,25 @@ function WorldView({ chatId, turnKey }: { chatId: string; turnKey: string | null
   );
   return (
     <div className="flex flex-col gap-4">
+      {shown.clocks?.length
+        ? section(
+            localizeUi("ui.game.worldview.clocks"),
+            shown.clocks.map((clock) => (
+              <div key={clock.flag} className={cn(row, "flex items-center gap-3")}>
+                <StoryClockDial clock={clock} size={32} />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-medium text-white/85">{clock.title}</span>
+                    <span className="shrink-0 text-white/45">
+                      {localizeUi("ui.game.worldview.clockFilled", { filled: clock.filled, segments: clock.segments })}
+                    </span>
+                  </div>
+                  <div>{clock.text}</div>
+                </div>
+              </div>
+            )),
+          )
+        : null}
       {shown.story?.length
         ? section(
             localizeUi("ui.game.worldview.story"),

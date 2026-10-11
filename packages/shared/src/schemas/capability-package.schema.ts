@@ -1249,7 +1249,14 @@ const capabilityPackageManifestBaseSchema = z
 //        first message exactly, guided only shapes it; an Experience may lock its own.
 // 1.340: a ruleset of up to 512 KB and catalog files of up to 2 MB (256 KB and 1 MB before).
 // 1.341: the client host namespace (__MARINARA_HOST__), api.runtime services, commands, admission, haptics, Spotify, local speech, chat-gallery and chat-write members, and shared server libraries.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 341 } as const);
+// 1.350: a story's number flag may be a `clock` (title, 2-12 segments, a "when full" line, hidden until
+//        shown): the player sees it fill in the HUD and the World tab, and the Game Master is told once
+//        when it fills. A map pack world whose story has one needs 1.350.
+// 1.351: story actions `give` (a ruleset item by `catalog/entry` id, or one by name), `fight` (one of the
+//        script's `fights`: its creatures, counted, on a painted board), `move` (the party to a place) and
+//        `ending` (one of the script's `endings`: a title, a scene and the epilogue; nothing trips after).
+//        A map pack world whose story uses them needs 1.351.
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 351 } as const);
 
 const capabilityApiVersionSchema = z
   .object({

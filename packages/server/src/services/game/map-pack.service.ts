@@ -7,6 +7,7 @@ import {
   parseTilePack,
   readWorldFile,
   readWorldKitFile,
+  storyCapabilityMinor,
   type ExperienceMapPack,
   type TilePack,
 } from "@marinara-engine/shared";
@@ -51,6 +52,11 @@ export async function readMapPack(packageId: string): Promise<MapPackRead> {
     // A story's intro message is Capability API 1.339.
     if (world.story?.intro && !declaresIntro) {
       return { ok: false, reason: `${path} sets an intro message, which needs Capability API 1.339` };
+    }
+    // A story using clocks (1.350) or story actions (1.351) needs an Experience that declares them.
+    const needs = world.story ? storyCapabilityMinor(world.story) : 0;
+    if (needs && (!files.capabilityApi || files.capabilityApi.major !== 1 || files.capabilityApi.minor < needs)) {
+      return { ok: false, reason: `${path}'s story needs capabilityApi 1.${needs} or newer` };
     }
     worlds.push({
       path,

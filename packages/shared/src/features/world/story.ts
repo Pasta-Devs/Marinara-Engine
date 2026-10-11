@@ -26,6 +26,12 @@ export const STORY_MAX = Object.freeze({
   beats: 20,
   /** The characters of the beats the Game Master is told with its own events, in every turn's prompt. */
   gmBeatChars: 16_000,
+  /** The most segments a clock has (Capability API 1.350). */
+  clockSegments: 12,
+  /** Set-piece fights and endings a script names (Capability API 1.351). */
+  fights: 32,
+  fightCreatures: 12,
+  endings: 16,
 });
 /** The expressions a cutscene's speaker can wear: the Game Master's own list. */
 export const STORY_EXPRESSIONS = Object.freeze([
@@ -101,6 +107,19 @@ const worldDeed = z
   })
   .strict();
 
+/** An item the story gives (Capability API 1.351): one of the ruleset's by its id (`catalog/entry`), or
+ *  any other by its name, made as the Game Master's own would be. */
+const storyGive = z
+  .object({
+    item: z.string().min(1).max(120),
+    count: z.number().int().min(1).max(99).optional(),
+    /** Whose bag: a party member by name; the player's when left out. */
+    who: tagWord(80).optional(),
+    /** For an item by name: what it is, as the Game Master's proposal says it. */
+    summary: tagWord(200).optional(),
+  })
+  .strict();
+
 const action = z.union([
   z.object({ set: id, value }).strict(),
   z.object({ add: id, amount: z.number().finite() }).strict(),
@@ -108,6 +127,13 @@ const action = z.union([
   z.object({ cutscene: id }).strict(),
   z.object({ show: id }).strict(),
   z.object({ world: worldDeed }).strict(),
+  z.object({ give: storyGive }).strict(),
+  /** Starts one of the script's fights (Capability API 1.351). */
+  z.object({ fight: id }).strict(),
+  /** Puts the party at a place of the world, by id (Capability API 1.351). */
+  z.object({ move: z.string().min(1).max(120) }).strict(),
+  /** Ends the game with one of the script's endings (Capability API 1.351). */
+  z.object({ ending: id }).strict(),
 ]);
 
 const page = z
@@ -140,6 +166,19 @@ export const storyScriptSchema = z
                 text: promptSafeText(300),
                 goal: z.number().int().min(1).max(1_000_000).optional(),
                 /** Kept out of the journal until an event shows it. */
+                hidden: z.literal(true).optional(),
+              })
+              .strict()
+              .optional(),
+            /** A clock the player sees (Capability API 1.350): a number flag drawn as a circle of segments,
+             *  one filled per point, full at `segments`. The Game Master is told when it fills. */
+            clock: z
+              .object({
+                title: promptSafeText(80),
+                segments: z.number().int().min(2).max(STORY_MAX.clockSegments),
+                /** What happens when it fills, as the player reads it. */
+                full: promptSafeText(200),
+                /** Kept out of sight until an event shows it. */
                 hidden: z.literal(true).optional(),
               })
               .strict()
@@ -201,6 +240,53 @@ export const storyScriptSchema = z
      *  (`"defined"`) or guidance for the one the Game Master writes (`"guided"`); `locked` keeps a player
      *  from changing it at setup. */
     intro: gameIntroSchema.optional(),
+    /** Set-piece fights (Capability API 1.351): who is fought, and where when a board is painted for it. */
+    fights: z
+      .array(
+        z
+          .object({
+            id,
+            name: promptSafeText(80),
+            creatures: z
+              .array(
+                z
+                  .object({
+                    /** A bestiary creature: its id (`catalog/entry`) or its name in the game's ruleset. */
+                    creature: z.string().min(1).max(200),
+                    count: z.number().int().min(1).max(20).default(1),
+                    /** What this one is called in the fight, when not the creature's own name. */
+                    name: tagWord(60).optional(),
+                  })
+                  .strict(),
+              )
+              .min(1)
+              .max(STORY_MAX.fightCreatures),
+            /** A board painted by hand in the world (`b<n>`), fought on instead of the one where it starts. */
+            battlefield: z
+              .string()
+              .regex(/^b\d{1,4}$/, "A battlefield is b and a number")
+              .optional(),
+            /** For the Game Master: how it comes about. */
+            note: promptSafeText(300).optional(),
+          })
+          .strict(),
+      )
+      .max(STORY_MAX.fights)
+      .default([]),
+    /** The endings the game can have (Capability API 1.351): a title, a scene and the epilogue. */
+    endings: z
+      .array(
+        z
+          .object({
+            id,
+            title: promptSafeText(80),
+            cutscene: id.optional(),
+            epilogue: promptSafeText(2000),
+          })
+          .strict(),
+      )
+      .max(STORY_MAX.endings)
+      .default([]),
   })
   .strict();
 export type StoryScript = z.infer<typeof storyScriptSchema>;
@@ -209,6 +295,13 @@ export type StoryEvent = StoryScript["events"][number];
 export type StoryFlag = StoryScript["flags"][number];
 export type StoryAction = StoryEvent["do"][number];
 export type StoryCutscene = StoryScript["cutscenes"][number];
+export type StoryFight = StoryScript["fights"][number];
+export type StoryEnding = StoryScript["endings"][number];
+/** A `catalog/entry` item or creature id, as a ruleset's catalogs name their entries. */
+const STORY_REF = /^[a-z][a-z0-9_]{0,39}\/[a-z0-9]+(?:-[a-z0-9]+)*$/;
+export function storyIsRef(value: string): boolean {
+  return STORY_REF.test(value);
+}
 
 /** A person of the world by their id (`<place id>-<n>`, or `-e<n>` for one added by hand). */
 export function storyPerson(game: GameWorld, personId: string): WorldPerson | undefined {
@@ -268,6 +361,11 @@ export function checkStoryScript(
   unique(story.directions, "directions");
   unique(story.events, "events");
   unique(story.cutscenes, "cutscenes");
+  unique(story.fights, "fights");
+  unique(story.endings, "endings");
+  const fightIds = new Set(story.fights.map((fight) => fight.id));
+  const endingIds = new Set(story.endings.map((ending) => ending.id));
+  const boards = new Set((game.edits?.battlefields ?? []).map((board) => board.id));
 
   const flags = new Map(story.flags.map((flag) => [flag.id, flag]));
   const cutscenes = new Set(story.cutscenes.map((cutscene) => cutscene.id));
@@ -306,6 +404,7 @@ export function checkStoryScript(
     const where = `Flag "${flag.id}"`;
     if (!fits(flag, flag.initial)) issues.push(`${where}: its first value is not a ${flag.kind}.`);
     if (flag.quest?.goal !== undefined && flag.kind !== "number") issues.push(`${where}: only a number has a goal.`);
+    if (flag.clock && flag.kind !== "number") issues.push(`${where}: only a number flag is a clock.`);
   }
   for (const direction of story.directions) checkConditions(direction.if, `Direction "${direction.id}"`);
   for (const event of story.events) {
@@ -337,7 +436,8 @@ export function checkStoryScript(
         if (flag && flag.kind !== "number") issues.push(`${where}: only a number flag is added to.`);
       } else if ("show" in action) {
         const flag = flagOf(action.show, where);
-        if (flag && !flag.quest) issues.push(`${where}: "${flag.id}" is not a quest objective to show.`);
+        if (flag && !flag.quest && !flag.clock)
+          issues.push(`${where}: "${flag.id}" is not a quest objective or a clock to show.`);
       } else if ("cutscene" in action) {
         if (!cutscenes.has(action.cutscene)) issues.push(`${where}: no cutscene "${action.cutscene}".`);
         const scene = story.cutscenes.find((each) => each.id === action.cutscene);
@@ -350,6 +450,16 @@ export function checkStoryScript(
             issues.push(`${where}: its own scene names ${person.name}, so it would meet them again every turn.`);
           }
         }
+      } else if ("fight" in action) {
+        if (!fightIds.has(action.fight)) issues.push(`${where}: no fight "${action.fight}".`);
+        if (event.repeat && when.on === "fight") issues.push(`${where}: it starts a fight when one ends, every time.`);
+      } else if ("ending" in action) {
+        if (!endingIds.has(action.ending)) issues.push(`${where}: no ending "${action.ending}".`);
+      } else if ("move" in action) {
+        placeOk(action.move, where);
+        if (event.repeat && when.on === "arrive") issues.push(`${where}: it moves the party, every time it arrives.`);
+      } else if ("give" in action) {
+        if (!storyIsRef(action.give.item) && !action.give.item.trim()) issues.push(`${where}: give needs an item.`);
       } else if ("world" in action) {
         const deed = action.world;
         if (NEEDS_GROUP.includes(deed.deed) && !deed.group) issues.push(`${where}: ${deed.deed} needs a group.`);
@@ -379,6 +489,16 @@ export function checkStoryScript(
           issues.push(`${where}: ${deed.deed} needs two different groups.`);
         }
       }
+    }
+  }
+  for (const fight of story.fights) {
+    if (fight.battlefield && !boards.has(fight.battlefield)) {
+      issues.push(`Fight "${fight.id}": no battlefield "${fight.battlefield}" painted in this world.`);
+    }
+  }
+  for (const ending of story.endings) {
+    if (ending.cutscene && !cutscenes.has(ending.cutscene)) {
+      issues.push(`Ending "${ending.id}": no cutscene "${ending.cutscene}".`);
     }
   }
   for (const cutscene of story.cutscenes) {
@@ -454,6 +574,10 @@ export interface StoryLedgerEntry {
   by?: "engine";
   set: Array<[string, boolean | number]>;
   show: string[];
+  /** The script's fight it started (1.351). */
+  fight?: string;
+  /** The script's ending it ended the game with (1.351). */
+  ending?: string;
 }
 
 // A body never holds "[", so a tag opener repeated without a "]" is read in one pass.
@@ -494,8 +618,12 @@ export function readStoryLedger(replies: readonly string[]): StoryLedgerEntry[] 
         .map((each) => each.trim())
         .filter(Boolean);
       const event = values.get("event")?.trim();
+      const fight = values.get("fight")?.trim();
+      const ending = values.get("ending")?.trim();
       entries.push({
         ...(event ? { event } : {}),
+        ...(fight ? { fight } : {}),
+        ...(ending ? { ending } : {}),
         ...(values.get("by") === "engine" ? { by: "engine" } : {}),
         set,
         show,
@@ -511,6 +639,8 @@ export interface StoryState {
   fired: Record<string, number>;
   /** The hidden objectives shown so far. */
   shown: string[];
+  /** The ending the game has had, once it has (1.351): the story trips nothing after it. */
+  ended?: string;
 }
 
 /** The story as its ledger left it: each flag's value (a recorded value the script no longer fits is
@@ -520,15 +650,17 @@ export function storyState(story: StoryScript, ledger: readonly StoryLedgerEntry
   const flags: StoryState["flags"] = Object.fromEntries(story.flags.map((flag) => [flag.id, flag.initial]));
   const fired: StoryState["fired"] = {};
   const shown = new Set<string>();
+  let ended: string | undefined;
   for (const entry of ledger) {
     if (entry.event) fired[entry.event] = (fired[entry.event] ?? 0) + 1;
+    if (entry.ending && !ended && story.endings.some((ending) => ending.id === entry.ending)) ended = entry.ending;
     for (const [flag, given] of entry.set) {
       const kind = kinds.get(flag);
       if (kind && (kind === "bool" ? typeof given === "boolean" : typeof given === "number")) flags[flag] = given;
     }
     for (const flag of entry.show) if (kinds.has(flag)) shown.add(flag);
   }
-  return { flags, fired, shown: [...shown] };
+  return { flags, fired, shown: [...shown], ...(ended ? { ended } : {}) };
 }
 
 /** A quest objective the story shows the player (worldgen W10): open until its flag is true, or its
@@ -559,6 +691,56 @@ export function storyObjectives(story: StoryScript, state: StoryState): StoryObj
       },
     ];
   });
+}
+
+/** The Capability API minor a script needs: 1.351 for fights, endings and its give, move, fight and
+ *  ending actions, 1.350 for clocks, else 0 (any Engine with stories reads it). */
+export function storyCapabilityMinor(story: StoryScript): number {
+  const acts = story.events.some((event) =>
+    event.do.some((action) => "give" in action || "move" in action || "fight" in action || "ending" in action),
+  );
+  if (acts || story.fights.length || story.endings.length) return 351;
+  return story.flags.some((flag) => flag.clock) ? 350 : 0;
+}
+
+/** A clock the player sees (Capability API 1.350): its segments, how many are filled, and whether it is full. */
+export interface StoryClock {
+  flag: string;
+  title: string;
+  segments: number;
+  filled: number;
+  full: boolean;
+  /** What happens when it fills. */
+  text: string;
+}
+
+/** The clocks the player can see: every clock flag, but a hidden one only once the story shows it. */
+export function storyClocks(story: StoryScript, state: StoryState): StoryClock[] {
+  return story.flags.flatMap((flag) => {
+    if (!flag.clock || (flag.clock.hidden && !state.shown.includes(flag.id))) return [];
+    const at = Math.floor(Number(state.flags[flag.id]) || 0);
+    const filled = Math.max(0, Math.min(flag.clock.segments, at));
+    return [
+      {
+        flag: flag.id,
+        title: flag.clock.title,
+        segments: flag.clock.segments,
+        filled,
+        full: filled >= flag.clock.segments,
+        text: flag.clock.full,
+      },
+    ];
+  });
+}
+
+/** The clocks full in `after` that were not in `before`. */
+function clocksFilled(story: StoryScript, before: StoryState["flags"], after: StoryState["flags"]) {
+  return story.flags.filter(
+    (flag) =>
+      flag.clock &&
+      (Number(after[flag.id]) || 0) >= flag.clock.segments &&
+      !((Number(before[flag.id]) || 0) >= flag.clock.segments),
+  );
 }
 
 /** Whether every condition holds for these flag values. */
@@ -647,6 +829,8 @@ export interface StoryTurnWorld {
   /** The cells this turn's walk went over (a town visit's path, a map walk's path, the end cell included):
    *  a step event on one of them trips. */
   steps?: ReadonlyArray<{ place: string; x: number; y: number }>;
+  /** The game's ruleset items by id, for the items the story gives by id (1.351). */
+  item?: StoryItemLabel;
 }
 
 export interface StoryTurn {
@@ -663,6 +847,8 @@ export interface StoryTurn {
   beats: string[][];
   /** The story after this turn's trips: what the Game Master is told of its flags and directions. */
   state: StoryState;
+  /** The clocks that filled since the latest reply was written, by it or this turn's trips (1.350). */
+  filled: Array<{ flag: string; title: string; text: string }>;
 }
 
 const STORY_TRIPS_A_TURN = 32;
@@ -670,12 +856,21 @@ const recordValue = (value: boolean | number) => String(value);
 
 /** The tag a trip is recorded in: what it set and showed, so the fold never replays the script. */
 function storyRecord(
-  entry: { event?: string; flag?: string; set: Array<[string, boolean | number]>; show: string[] },
+  entry: {
+    event?: string;
+    flag?: string;
+    set: Array<[string, boolean | number]>;
+    show: string[];
+    fight?: string;
+    ending?: string;
+  },
   by?: "engine",
 ) {
   const parts = [
     ...(entry.event ? [`event="${entry.event}"`] : []),
     ...(entry.flag ? [`flag="${entry.flag}"`] : []),
+    ...(entry.fight ? [`fight="${entry.fight}"`] : []),
+    ...(entry.ending ? [`ending="${entry.ending}"`] : []),
     ...(entry.set.length
       ? [`set="${entry.set.map(([flag, value]) => `${flag}=${recordValue(value)}`).join(";")}"`]
       : []),
@@ -692,7 +887,11 @@ function applyActions(story: StoryScript, event: StoryEvent, flags: StoryState["
   const kinds = new Map(story.flags.map((flag) => [flag.id, flag.kind]));
   const set: Array<[string, boolean | number]> = [];
   const show: string[] = [];
+  let fight: string | undefined;
+  let ending: string | undefined;
   for (const action of event.do) {
+    if ("fight" in action) fight ??= action.fight;
+    if ("ending" in action) ending ??= action.ending;
     if ("set" in action) {
       flags[action.set] = action.value;
       set.push([action.set, action.value]);
@@ -705,7 +904,84 @@ function applyActions(story: StoryScript, event: StoryEvent, flags: StoryState["
       show.push(action.show);
     }
   }
-  return { set, show };
+  return { set, show, ...(fight ? { fight } : {}), ...(ending ? { ending } : {}) };
+}
+
+/** The label of a ruleset item by its id, while the game's ruleset offers it (1.351). */
+export type StoryItemLabel = (ref: string) => string | undefined;
+
+/** An item the story gives, as an inventory tag for the reply's inventory to answer like the Game
+ *  Master's; or why it cannot be given: an id the game's ruleset does not offer. */
+function storyGiveTag(give: Extract<StoryAction, { give: unknown }>["give"], label: StoryItemLabel | undefined) {
+  const named = storyIsRef(give.item) ? label?.(give.item) : give.item.trim();
+  if (!named) return { refused: give.item, tag: undefined };
+  const clean = (text: string) => text.replace(/["[\]]/g, "");
+  const parts = [
+    `action="add"`,
+    `item="${clean(named)}"`,
+    `count="${give.count ?? 1}"`,
+    ...(give.who ? [`who="${clean(give.who)}"`] : []),
+    ...(give.summary && !storyIsRef(give.item) ? [`summary="${clean(give.summary)}"`] : []),
+  ];
+  return { tag: `[inventory: ${parts.join(" ")}]`, refused: undefined };
+}
+
+/** What an event's give, move and fight actions put in the reply, as tags its own pipeline answers. */
+function storyActionTags(
+  game: GameWorld,
+  event: StoryEvent,
+  label: StoryItemLabel | undefined,
+): { tags: string[]; refusedItems: string[] } {
+  const tags: string[] = [];
+  const refusedItems: string[] = [];
+  for (const action of event.do) {
+    if ("give" in action) {
+      const given = storyGiveTag(action.give, label);
+      if (given.tag) tags.push(given.tag);
+      else if (given.refused) refusedItems.push(given.refused);
+    } else if ("move" in action) {
+      const place = game.world.places.find((each) => each.id === action.move);
+      if (place) tags.push(`[place: name="${place.name.replace(/["[\]]/g, "")}"]`);
+    } else if ("fight" in action) {
+      tags.push("[state: combat]");
+    }
+  }
+  return { tags, refusedItems };
+}
+
+/** A story fight's opponents, one by one (1.351): each creature as many times as it counts, called by its
+ *  own name in the fight (numbered when there are several), `creature` the bestiary's name for it (`label`
+ *  reads an id; a creature by name is its own). */
+export function storyFightRoster(
+  fight: StoryFight,
+  label: (creature: string) => string | undefined = () => undefined,
+): Array<{ name: string; creature: string }> {
+  return fight.creatures.flatMap((each) => {
+    const creature = (storyIsRef(each.creature) ? label(each.creature) : undefined) ?? each.creature;
+    const base = each.name ?? creature;
+    return Array.from({ length: each.count }, (_, index) => ({
+      name: each.count > 1 ? `${base} ${index + 1}` : base,
+      creature,
+    }));
+  });
+}
+
+/** An ending as the player is shown it (1.351). */
+export function storyEndingOf(
+  story: StoryScript,
+  id: string,
+): { id: string; title: string; epilogue: string } | undefined {
+  const ending = story.endings.find((each) => each.id === id);
+  return ending ? { id: ending.id, title: ending.title, epilogue: ending.epilogue } : undefined;
+}
+
+/** The script's fight a reply started (1.351): the latest one its story tags recorded. */
+export function storyFightIn(story: StoryScript, reply: string | null | undefined): StoryFight | null {
+  if (!reply) return null;
+  const id = readStoryLedger([reply])
+    .flatMap((entry) => (entry.fight ? [entry.fight] : []))
+    .at(-1);
+  return story.fights.find((fight) => fight.id === id) ?? null;
 }
 
 /** A matcher for a person's full name, whole words only. */
@@ -794,11 +1070,19 @@ export function storyTurn(story: StoryScript, world: StoryTurnWorld): StoryTurn 
   const ledger: StoryLedgerEntry[] = [];
   let flagsSoFar = storyState(story, []).flags;
   const risen = new Map(rising.map((event) => [event.id, !storyConditionsHold(event.if, flagsSoFar)]));
+  // The flags as they stood before the Game Master's own tags in the latest reply, so a clock they or this
+  // turn's trips fill is told once.
+  let flagsBeforeLatest = flagsSoFar;
   const segments = [
     ...world.replies.map((reply) => ({ world: readWorldLedger([reply]), reply })),
     { world: world.told, reply: "" },
   ];
   segments.forEach((segment, index) => {
+    if (world.latest !== null && index < world.replies.length && segment.reply === world.latest) {
+      // Its Engine trips were told in the turn they happened; only the Game Master's own are news.
+      const engine = readStoryLedger([segment.reply]).filter((entry) => entry.by === "engine");
+      flagsBeforeLatest = storyState(story, [...ledger, ...engine]).flags;
+    }
     for (const entry of segment.world) {
       if (entry.at === undefined) continue;
       const next = placeOf(entry.at);
@@ -828,17 +1112,52 @@ export function storyTurn(story: StoryScript, world: StoryTurnWorld): StoryTurn 
 
   /** An event's scenes, asks and deeds: by the Engine this turn, or as the Game Master marked it last
    *  reply, whose deeds went with its tag and whose beats it was told to narrate as it marked it. */
+  const fights = new Map(story.fights.map((fight) => [fight.id, fight]));
+  const endings = new Map(story.endings.map((ending) => [ending.id, ending]));
+  const showScene = (id: string, byEngine: boolean) => {
+    const cutscene = cutscenes.get(id);
+    if (cutscene?.kind === "pages") {
+      const pages = storyPages(game, cutscene, world.playerName);
+      prepend.push(pages);
+      shown.push(pages);
+    } else if (cutscene?.kind === "beats" && byEngine) beats.push([...cutscene.beats]);
+  };
   const deliver = (event: StoryEvent, byEngine: boolean) => {
+    if (byEngine) {
+      const { tags, refusedItems } = storyActionTags(game, event, world.item);
+      prepend.push(...tags);
+      for (const item of refusedItems) {
+        prepend.push(`[story: event="${event.id}" give="${item}" result="refused" reason="unknown-item"]`);
+      }
+    }
+    for (const action of event.do) {
+      if ("move" in action && byEngine) {
+        // Where the party is from here on this turn, so an arrival the move brings trips now.
+        for (const target of targets) if (inside(action.move, target) && !inside(at, target)) cameIn.set(target, now);
+        at = action.move;
+        const place = game.world.places.find((each) => each.id === action.move);
+        if (place) tells.push(`The story has taken the party to ${place.name}. Tell how they come to be there.`);
+      } else if ("fight" in action) {
+        const fight = fights.get(action.fight);
+        if (fight) {
+          tells.push(
+            `The story starts the fight "${fight.name}" now${fight.note ? ` (${fight.note})` : ""}. Lead straight into it; the Engine starts it with its own opponents: ${fight.creatures.map((each) => `${each.count} ${each.name ?? each.creature}`).join(", ")}.`,
+          );
+        }
+      } else if ("ending" in action) {
+        const ending = endings.get(action.ending);
+        if (ending) {
+          if (ending.cutscene) showScene(ending.cutscene, byEngine);
+          tells.push(
+            `The story ends here with "${ending.title}". This is the game's last reply: close it with this epilogue, in your own words: ${ending.epilogue}`,
+          );
+        }
+      }
+    }
     for (const action of event.do) {
       if ("tell" in action) tells.push(action.tell);
-      else if ("cutscene" in action) {
-        const cutscene = cutscenes.get(action.cutscene);
-        if (cutscene?.kind === "pages") {
-          const pages = storyPages(game, cutscene, world.playerName);
-          prepend.push(pages);
-          shown.push(pages);
-        } else if (cutscene?.kind === "beats" && byEngine) beats.push([...cutscene.beats]);
-      } else if ("world" in action && byEngine) prepend.push(storyWorldTag(game, action.world));
+      else if ("cutscene" in action) showScene(action.cutscene, byEngine);
+      else if ("world" in action && byEngine) prepend.push(storyWorldTag(game, action.world));
     }
   };
 
@@ -911,7 +1230,9 @@ export function storyTurn(story: StoryScript, world: StoryTurnWorld): StoryTurn 
   };
 
   const thisTurn = new Set<string>();
-  for (let pass = 0; pass < STORY_TRIPS_A_TURN && tripped.length < STORY_TRIPS_A_TURN; pass++) {
+  // A game that has had its ending trips nothing more.
+  let ended = state.ended;
+  for (let pass = 0; !ended && pass < STORY_TRIPS_A_TURN && tripped.length < STORY_TRIPS_A_TURN; pass++) {
     const next = story.events.find(
       (event) => !thisTurn.has(event.id) && storyConditionsHold(event.if, flags) && matches(event),
     );
@@ -923,6 +1244,7 @@ export function storyTurn(story: StoryScript, world: StoryTurnWorld): StoryTurn 
     for (const flag of record.show) shownFlags.add(flag);
     prepend.push(storyRecord({ event: next.id, ...record }, "engine"));
     deliver(next, true);
+    if (record.ending) ended = record.ending;
   }
 
   return {
@@ -931,7 +1253,12 @@ export function storyTurn(story: StoryScript, world: StoryTurnWorld): StoryTurn 
     shown,
     tells,
     beats,
-    state: { flags, fired, shown: [...shownFlags] },
+    state: { flags, fired, shown: [...shownFlags], ...(ended ? { ended } : {}) },
+    filled: clocksFilled(story, flagsBeforeLatest, flags).map((flag) => ({
+      flag: flag.id,
+      title: flag.clock!.title,
+      text: flag.clock!.full,
+    })),
   };
 }
 
@@ -949,7 +1276,10 @@ export function applyStoryTags(
   before: StoryState,
   /** The events this turn has already tripped: at most once a turn, as the Engine's own. */
   thisTurn: readonly string[] = [],
+  /** The game's ruleset items by id, for the items a trip gives (1.351). */
+  item?: StoryItemLabel,
 ): string {
+  let ended = before.ended;
   const flags = { ...before.flags };
   const fired = { ...before.fired };
   const tripped = new Set(thisTurn);
@@ -965,14 +1295,24 @@ export function applyStoryTags(
       const event = events.get(eventId);
       if (!event) return refuse("unknown-event");
       if (!event.gm) return refuse("not-yours");
+      if (ended) return refuse("ended");
       if (!event.repeat && (fired[event.id] ?? 0) > 0) return refuse("done");
       if (tripped.has(event.id)) return refuse("this-turn");
       if (!storyConditionsHold(event.if, flags)) return refuse("conditions");
       fired[event.id] = (fired[event.id] ?? 0) + 1;
       tripped.add(event.id);
       const record = applyActions(story, event, flags);
+      if (record.ending) ended = record.ending;
       const deeds = event.do.flatMap((action) => ("world" in action ? [storyWorldTag(game, action.world)] : []));
-      return [storyRecord({ event: event.id, ...record }), ...deeds].join("");
+      const { tags, refusedItems } = storyActionTags(game, event, item);
+      return [
+        storyRecord({ event: event.id, ...record }),
+        ...deeds,
+        ...tags,
+        ...refusedItems.map(
+          (refused) => `[story: event="${event.id}" give="${refused}" result="refused" reason="unknown-item"]`,
+        ),
+      ].join("");
     }
     if (flagId) {
       const flag = declared.get(flagId);
@@ -1074,7 +1414,25 @@ export function storyTurnPromptText(story: StoryScript, turn: StoryTurn): string
   for (const scene of turn.beats) {
     lines.push("Narrate this scene now, in your own words, beat by beat:", ...scene.map((beat) => `- ${beat}`));
   }
+  const clocks = story.flags.filter((flag) => flag.clock);
+  if (clocks.length) {
+    lines.push(
+      `Clocks the story keeps: ${clocks
+        .map(
+          (flag) =>
+            `${flag.clock!.title} ${Math.max(0, Math.min(flag.clock!.segments, Math.floor(Number(turn.state.flags[flag.id]) || 0)))}/${flag.clock!.segments}`,
+        )
+        .join(", ")}.`,
+    );
+  }
+  for (const clock of turn.filled ?? []) {
+    lines.push(`The clock "${clock.title}" has just filled. Bring this about now: ${clock.text}`);
+  }
   if (turn.tells.length) lines.push("The story asks this of you now:", ...turn.tells.map((tell) => `- ${tell}`));
+  const ended = turn.state.ended ? story.endings.find((ending) => ending.id === turn.state.ended) : undefined;
+  if (ended && !turn.tripped.length) {
+    lines.push(`The story has ended ("${ended.title}"). Mark no more of its moments.`);
+  }
   // Its own moments it cannot mark now (done, held back by their conditions, or the Engine's this turn),
   // so it never marks, and tells the beats of, a moment the Engine would refuse. Only the marking is
   // closed: a scene the Engine asks for this turn is still told, even one such a moment shares.

@@ -21,6 +21,8 @@ import {
   compileGameWorld,
   gameStoryFromMetadata,
   readStoryLedger,
+  storyClocks,
+  storyEndingOf,
   storyObjectives,
   storyScriptSchema,
   gameIntroChoiceSchema,
@@ -11315,10 +11317,14 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     );
     // The story's objectives (worldgen W10), as the replies have left its flags.
     const story = gameStoryFromMetadata(meta, world);
+    const storyNow = story ? storyState(story, readStoryLedger(replies.all)) : null;
+    const clocks = story && storyNow ? storyClocks(story, storyNow) : [];
     return {
       journal: {
         ...worldJournal(world, worldPresent(world, replies.ledger), { name: place?.name }),
-        ...(story ? { story: storyObjectives(story, storyState(story, readStoryLedger(replies.all))) } : {}),
+        ...(story && storyNow ? { story: storyObjectives(story, storyNow) } : {}),
+        ...(clocks.length ? { clocks } : {}),
+        ...(story && storyNow?.ended ? { ending: storyEndingOf(story, storyNow.ended) } : {}),
       },
     };
   });
