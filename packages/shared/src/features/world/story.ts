@@ -315,6 +315,33 @@ export const storyScriptSchema = z
     /** What being in a place does to the party over time (Capability API 1.370): every `hours` hours it
      *  spends there (and inside it) while `if` holds, its tracks move and its conditions go on, for each
      *  of the party. Noonfield's light outside a fight. */
+    /** Where death is held (Capability API 1.374), the showcase's valley: while the party is in `place` (or
+     *  inside it; the whole world without one) and `if` holds, a fight there is fought on Held Ground
+     *  (1.318): whoever reaches no health is felled instead, `condition` goes on them, and each one with a
+     *  sheet moves its `marks` tracks (a mark of Owing). The first that holds is the one. */
+    heldGround: z
+      .array(
+        z
+          .object({
+            id,
+            place: z.string().min(1).max(120).optional(),
+            label: promptSafeText(80).optional(),
+            condition: z.string().trim().min(1).max(40).optional(),
+            marks: z
+              .array(
+                z.object({ track: z.string().trim().min(1).max(40), by: z.number().int().min(-10).max(10) }).strict(),
+              )
+              .min(1)
+              .max(4)
+              .optional(),
+            if: conditions,
+            /** For the Game Master, while it holds. */
+            tell: promptSafeText(300).optional(),
+          })
+          .strict(),
+      )
+      .max(8)
+      .default([]),
     exposures: z
       .array(
         z
@@ -533,6 +560,7 @@ export function storyConditionsFlat(list: StoryEvent["if"]): Array<Exclude<Story
 function storyConditionLists(story: StoryScript): Array<StoryEvent["if"]> {
   return [
     ...story.exposures.map((exposure) => exposure.if),
+    ...story.heldGround.map((held) => held.if),
     ...story.events.flatMap((event) => [event.if, ...event.do.map((action) => action.if)]),
     ...story.directions.map((direction) => direction.if),
     ...story.knowledge.map((known) => known.if),
@@ -661,6 +689,14 @@ export function checkStoryScript(
     if (held.place) placeOk(held.place, `Season of "${held.place}"`);
     if (heldSeasons.has(held.place ?? "*")) issues.push(`Two seasons hold "${held.place ?? "the world"}".`);
     heldSeasons.add(held.place ?? "*");
+  }
+  const heldIds = new Set<string>();
+  for (const held of story.heldGround) {
+    const where = `Held ground "${held.id}"`;
+    if (heldIds.has(held.id)) issues.push(`${where}: its id is used twice.`);
+    heldIds.add(held.id);
+    if (held.place !== undefined) placeOk(held.place, where);
+    checkConditions(held.if, where);
   }
   const exposureIds = new Set<string>();
   for (const exposure of story.exposures) {
@@ -882,6 +918,8 @@ export interface StoryLedgerEntry {
   /** An exposure it kept (1.370): since when (game minutes) the party has been in its place, null when it
    *  left, and how many times it has bitten since. */
   exposure?: { id: string; since: number | null; bitten: number };
+  /** The held ground the party came onto (1.374), by id, or null when it left it. */
+  held?: string | null;
 }
 
 // A body never holds "[", so a tag opener repeated without a "]" is read in one pass.
@@ -949,7 +987,9 @@ export function readStoryLedger(replies: readonly string[]): StoryLedgerEntry[] 
               bitten: Number.isInteger(bitten) && bitten >= 0 ? bitten : 0,
             }
           : undefined;
+      const held = values.get("held");
       entries.push({
+        ...(held !== undefined ? { held: held.trim() || null } : {}),
         ...(exposure ? { exposure } : {}),
         ...(spend ? { spend } : {}),
         ...(acts ? { acts } : {}),
@@ -982,6 +1022,8 @@ export interface StoryState {
   /** The exposures running now (1.370): since when the party has been in each one's place, and how many
    *  times it has bitten. */
   exposures?: Record<string, { since: number; bitten: number }>;
+  /** The held ground the party is on (1.374), by id. */
+  held?: string;
 }
 
 /** The story as its ledger left it: each flag's value (a recorded value the script no longer fits is
@@ -995,8 +1037,10 @@ export function storyState(story: StoryScript, ledger: readonly StoryLedgerEntry
   let music: string | null = null;
   const seasons: Record<string, WorldSeason> = {};
   const exposures: NonNullable<StoryState["exposures"]> = {};
+  let held: string | null = null;
   for (const entry of ledger) {
     if (entry.music !== undefined) music = entry.music;
+    if (entry.held !== undefined) held = entry.held;
     if (entry.exposure) {
       if (entry.exposure.since === null) delete exposures[entry.exposure.id];
       else exposures[entry.exposure.id] = { since: entry.exposure.since, bitten: entry.exposure.bitten };
@@ -1021,6 +1065,7 @@ export function storyState(story: StoryScript, ledger: readonly StoryLedgerEntry
     ...(music ? { music } : {}),
     ...(Object.keys(seasons).length ? { seasons } : {}),
     ...(Object.keys(exposures).length ? { exposures } : {}),
+    ...(held && story.heldGround.some((each) => each.id === held) ? { held } : {}),
   };
 }
 
@@ -1078,7 +1123,7 @@ export function storyCompanionsNamed(story: StoryScript): string[] {
   ];
 }
 
-/** The Capability API minor a script needs: 1.373 for exposures spared by a shade, 1.372 for exposure saves and stops, 1.371 for fight adjusts,
+/** The Capability API minor a script needs: 1.374 for held ground, 1.373 for exposures spared by a shade, 1.372 for exposure saves and stops, 1.371 for fight adjusts,
  *  1.370 for exposures, 1.369 for holds over everything inside, 1.368 for party size conditions and variants for parties above
  *  six, 1.366 for its reach, 1.364 for fight variants, 1.361 for more than 64 flags, 1.359 for held seasons, 1.357 for rest, travel and idle events, party conditions and more
  *  than 128 events, 1.356 for knowledge, 1.355 for companions, 1.353 for music cues, 1.351 for fights, endings and its give, move, fight and
@@ -1097,6 +1142,7 @@ export function storyCapabilityMinor(story: StoryScript): number {
     fight.creatures,
     ...(fight.variants ?? []).map((variant) => variant.creatures),
   ]);
+  if (story.heldGround.length) return 374;
   if (story.exposures.some((exposure) => exposure.sparedByShade)) return 373;
   if (story.exposures.some((exposure) => exposure.save || exposure.tracks?.some((moved) => moved.upTo !== undefined)))
     return 372;
@@ -1352,6 +1398,26 @@ export interface StoryTurn {
   saves: StoryExposureSave[];
 }
 
+/** What Held Ground means, for the Game Master (1.374). */
+export function storyHeldGroundText(held: StoryScript["heldGround"][number]): string {
+  return `${held.label ?? "Held Ground"}: death is held here. Whoever reaches no health in a fight is felled instead (out of it, stable, never dying), and gets up again later unless reaped${held.condition ? `; the felled are ${held.condition}` : ""}${held.marks?.length ? `; each felled character takes ${held.marks.map((mark) => `${mark.by} ${mark.track}`).join(" and ")}` : ""}. The Engine keeps this in fights.`;
+}
+
+/** The held ground a fight is fought on, from what the story recorded (1.374): what the fight director
+ *  takes as its `heldGround` (1.318). Null when death is not held where the party is. */
+export function storyHeldGroundNow(
+  story: StoryScript,
+  state: Pick<StoryState, "held">,
+): { label?: string; condition?: string; marks?: Array<{ track: string; by: number }> } | null {
+  const held = state.held ? story.heldGround.find((each) => each.id === state.held) : undefined;
+  if (!held) return null;
+  return {
+    ...(held.label ? { label: held.label } : {}),
+    ...(held.condition ? { condition: held.condition } : {}),
+    ...(held.marks ? { marks: held.marks.map((mark) => ({ ...mark })) } : {}),
+  };
+}
+
 /** One exposure's bites this turn, owed a save by each of the party (1.372). */
 export interface StoryExposureSave {
   exposure: string;
@@ -1419,11 +1485,13 @@ function storyRecord(
     acts?: number[];
     spend?: string;
     exposure?: { id: string; since: number | null; bitten: number };
+    held?: string | null;
   },
   by?: "engine",
 ) {
   const parts = [
     ...(entry.event ? [`event="${entry.event}"`] : []),
+    ...(entry.held !== undefined ? [`held="${entry.held ?? ""}"`] : []),
     ...(entry.exposure
       ? [`exposure="${entry.exposure.id}" since="${entry.exposure.since ?? ""}" bitten="${entry.exposure.bitten}"`]
       : []),
@@ -1853,6 +1921,24 @@ export function storyTurn(story: StoryScript, world: StoryTurnWorld): StoryTurn 
       prepend.push(storyRecord({ exposure: record, set: [], show: [] }, "engine"));
     }
   }
+  // Whether death is held where the party is (1.374), recorded as it comes and goes.
+  if (story.heldGround.length) {
+    const holding =
+      story.heldGround.find(
+        (each) => (each.place === undefined || inside(at, each.place)) && storyConditionsHold(each.if, flags, party),
+      ) ?? null;
+    const was = storyState(story, ledger).held ?? null;
+    if ((holding?.id ?? null) !== was) {
+      ledger.push({ held: holding?.id ?? null, by: "engine", set: [], show: [] });
+      prepend.push(storyRecord({ held: holding?.id ?? null, set: [], show: [] }, "engine"));
+      const before = was ? story.heldGround.find((each) => each.id === was) : undefined;
+      tells.push(
+        holding
+          ? `${storyHeldGroundText(holding)}${holding.tell ? ` ${holding.tell}` : ""}`
+          : `${before?.label ?? "Held Ground"} no longer holds here: death is death again.`,
+      );
+    }
+  }
   // The recap of a story fight fought in its variant for the party's size names the variant (1.364).
   if (world.fight) {
     const ended = storyFightIn(story, world.latest);
@@ -2085,7 +2171,7 @@ export function storyTurn(story: StoryScript, world: StoryTurnWorld): StoryTurn 
     if (record.ending) ended = record.ending;
   }
 
-  const exposuresNow = storyState(story, ledger).exposures;
+  const { exposures: exposuresNow, held: heldNow } = storyState(story, ledger);
   return {
     tripped,
     sheet: sheet.join(" "),
@@ -2101,6 +2187,7 @@ export function storyTurn(story: StoryScript, world: StoryTurnWorld): StoryTurn 
       ...(ended ? { ended } : {}),
       ...(Object.keys(held).length ? { seasons: held } : {}),
       ...(exposuresNow ? { exposures: exposuresNow } : {}),
+      ...(heldNow ? { held: heldNow } : {}),
     },
     filled: clocksFilled(story, flagsBeforeLatest, flags).map((flag) => ({
       flag: flag.id,
@@ -2442,6 +2529,11 @@ export function storyTurnPromptText(story: StoryScript, turn: StoryTurn): string
   }
   if (turn.season.held) {
     lines.push(`It is ${turn.season.season} here, whatever the date: the story holds it so.`);
+  }
+  // Every turn it holds, not only the one it began (1.374): a fight can start on any of them.
+  const held = turn.state.held ? story.heldGround.find((each) => each.id === turn.state.held) : undefined;
+  if (held && !turn.tells.some((tell) => tell.startsWith(storyHeldGroundText(held)))) {
+    lines.push(storyHeldGroundText(held));
   }
   if (turn.knowledge.length) {
     lines.push(

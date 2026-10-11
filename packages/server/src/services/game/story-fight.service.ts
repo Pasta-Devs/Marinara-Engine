@@ -4,12 +4,16 @@
 // ──────────────────────────────────────────────
 import {
   gameStoryFromMetadata,
+  readStoryLedger,
+  storyHeldGroundNow,
+  storyState,
   storyFightForParty,
   storyFightIn,
   storyFightRoster,
   storyIsRef,
   storyFightAdjustText,
   type RulesetDefinition,
+  type RulesetHeldGround,
   type StoryFight,
   type StoryFightOpponent,
 } from "@marinara-engine/shared";
@@ -37,6 +41,25 @@ export async function latestStoryFight(
     return storyFightForParty(fight, gamePartySize(meta ?? {}, await gameNoncombatants(db, chatId, meta ?? {})));
   } catch (err) {
     logger.warn(err, "Story fight lookup failed for chat %s", chatId);
+    return null;
+  }
+}
+
+/** Whether death is held where the party is (1.374), as the story last recorded it: the Held Ground
+ *  (1.318) a ruleset fight started now is fought on. Null when it is not, or the game has no story. */
+export async function latestStoryHeldGround(
+  db: DB,
+  chatId: string,
+  meta: Record<string, unknown> | null | undefined,
+): Promise<RulesetHeldGround | null> {
+  try {
+    const world = await loadGameWorld(db, chatId, meta);
+    const story = gameStoryFromMetadata(meta, world);
+    if (!story?.heldGround.length) return null;
+    const replies = await gameRepliesBefore(db, chatId);
+    return storyHeldGroundNow(story, storyState(story, readStoryLedger(replies.all)));
+  } catch (err) {
+    logger.warn(err, "Story held ground lookup failed for chat %s", chatId);
     return null;
   }
 }

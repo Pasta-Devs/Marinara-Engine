@@ -239,7 +239,7 @@ with fight `variants` needs 1.364, and one with `any` conditions, a `fight` even
 `leave` event, a flag's `min` or `max`, or an `if` on an action or a page needs 1.366, and one with a
 `partySize` condition, a variant for a party above 6 or open-ended, or more than 6 variants needs 1.368, and one
 with a `season` action `over` everything inside it needs 1.369, one with `exposures` needs 1.370, one
-whose fight creatures `adjust` needs 1.371, one with an exposure `save` or a track's `upTo` needs 1.372, and one with an exposure `sparedByShade` needs 1.373. A companion is a person of the pack's people file marked
+whose fight creatures `adjust` needs 1.371, one with an exposure `save` or a track's `upTo` needs 1.372, one with an exposure `sparedByShade` needs 1.373, and one with `heldGround` needs 1.374. A companion is a person of the pack's people file marked
 as one (see the map pack's people in [optional agent packages](../development/optional-agent-packages.md)).
 
 Of the `rest`, `travel` and `idle` events that could happen on one turn, only one does: the one with the
@@ -286,6 +286,26 @@ With `"sparedByShade": true` (Capability API 1.373), a shade carried lit by any 
 exposure off, as `if` not holding does: an item whose worn or carried `light` has `"shade": true` (the
 showcase's Lantern of Dusk), one with a switch only while it is on. Lighting it ends the exposure; putting
 it out starts it afresh.
+
+### Held ground
+
+Where death is held (Capability API 1.374), as the showcase's valley holds it:
+
+```json
+"heldGround": [
+  { "id": "valley", "place": "p0", "label": "The Held Autumn", "condition": "felled",
+    "marks": [{ "track": "owing", "by": 1 }],
+    "if": [{ "flag": "year_turned", "is": "=", "value": false }],
+    "tell": "Nobody here has died in forty years." }
+]
+```
+
+While the party is in `place` (or inside it; the whole world without one) and `if` holds, a ruleset fight
+started there is fought on Held Ground (1.318): whoever reaches no health is felled instead, out of the
+fight, stable and never dying, and gets up again later unless something that reaps felled them. `condition`
+goes on the felled, and each felled character's `marks` tracks move (a mark of Owing). The first entry that
+holds is the one. The story records the party coming onto it and leaving it (`[story: held=...]`) and tells
+the Game Master each time (with `tell`); every turn it holds, the Game Master is reminded what it means.
 
 ### Seasons
 

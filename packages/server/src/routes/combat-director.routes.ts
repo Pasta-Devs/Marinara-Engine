@@ -77,7 +77,7 @@ import { resolveTacticalStartPreferences } from "../services/game/tactical-battl
 import { gameBattlefieldHere } from "../services/game/made-battlefield.service.js";
 import { checkStoryItemUse, keepStorySpend, storyUseOfOption } from "../services/game/story-item-uses.service.js";
 import { gameNoncombatants } from "../services/game/experience-companions.service.js";
-import { latestStoryFightAdjusts } from "../services/game/story-fight.service.js";
+import { latestStoryFightAdjusts, latestStoryHeldGround } from "../services/game/story-fight.service.js";
 import { buildPartyNpcId } from "../services/generation/game-party-utils.js";
 import { logger } from "../lib/logger.js";
 import { resolveVisibleGameStateAnchor } from "./generate/generate-route-utils.js";
@@ -898,6 +898,8 @@ export async function combatDirectorRoutes(
           const liveRow = (await visibleLiveRow(input.chatId)).row;
           // How the story fight the latest reply started has its opponents (1.371), by their names.
           const adjusts = await latestStoryFightAdjusts(app.db, input.chatId, meta);
+          // Whether death is held where it is fought (1.374): the story's Held Ground (1.318).
+          const heldGround = await latestStoryHeldGround(app.db, input.chatId, meta);
           const built = createRulesetFight({
             definition,
             seed: battlefield.seed,
@@ -930,6 +932,7 @@ export async function combatDirectorRoutes(
             surprised: [...input.party, ...input.enemies].flatMap((one) => (one.surprised ? [one.id] : [])),
             // Who fights in its own lair (1.315).
             inLair: input.enemies.flatMap((one) => (one.inLair ? [one.id] : [])),
+            ...(heldGround ? { heldGround } : {}),
             // The scene's time of day, for the light it is fought in (1.291).
             time: liveRow?.time ?? null,
           });

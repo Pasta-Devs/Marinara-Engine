@@ -1422,7 +1422,10 @@ const capabilityPackageManifestBaseSchema = z
 //        track it moves may stop at `upTo`. A sheet command's `op="track"` takes `upto=` the same way.
 // 1.373: a story's exposure may be `sparedByShade`: a shade carried lit by any of the party (an item whose
 //        light has `shade`, switched on where it has a switch) keeps it off, as its `if` not holding does.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 373 } as const);
+// 1.374: a story may hold death (`heldGround`: a place or the whole world, a label, the condition the felled
+//        take, the marks their tracks take, flag conditions): recorded as the party comes and goes, and a
+//        ruleset fight started there is fought on that Held Ground (1.318).
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 374 } as const);
 
 const capabilityApiVersionSchema = z
   .object({
