@@ -1417,7 +1417,10 @@ const capabilityPackageManifestBaseSchema = z
 //        the Engine's own sheet commands on the game's clock). Noonfield's light outside a fight.
 // 1.371: a story fight's (or variant's) creature entry may `adjust` it for that fight: its Legendary
 //        Resistance and its health (`maxHp`), in place of its stat block's.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 371 } as const);
+// 1.372: a story's exposure may ask a `save` ({ save, difficulty, against? }, as a light rule's 1.316) that
+//        each of the party rolls off their own sheet, only failures taking its tracks and conditions; a
+//        track it moves may stop at `upTo`. A sheet command's `op="track"` takes `upto=` the same way.
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 372 } as const);
 
 const capabilityApiVersionSchema = z
   .object({

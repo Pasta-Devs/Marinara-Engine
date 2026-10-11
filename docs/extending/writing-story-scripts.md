@@ -238,8 +238,8 @@ with `seasons` or the `season` action needs 1.359, one with more than 64 flags n
 with fight `variants` needs 1.364, and one with `any` conditions, a `fight` event naming its fight, a
 `leave` event, a flag's `min` or `max`, or an `if` on an action or a page needs 1.366, and one with a
 `partySize` condition, a variant for a party above 6 or open-ended, or more than 6 variants needs 1.368, and one
-with a `season` action `over` everything inside it needs 1.369, one with `exposures` needs 1.370, and one
-whose fight creatures `adjust` needs 1.371. A companion is a person of the pack's people file marked
+with a `season` action `over` everything inside it needs 1.369, one with `exposures` needs 1.370, one
+whose fight creatures `adjust` needs 1.371, and one with an exposure `save` or a track's `upTo` needs 1.372. A companion is a person of the pack's people file marked
 as one (see the map pack's people in [optional agent packages](../development/optional-agent-packages.md)).
 
 Of the `rest`, `travel` and `idle` events that could happen on one turn, only one does: the one with the
@@ -267,6 +267,20 @@ each later turn counts how many `hours` have passed there since. Each time they 
 `tracks` by `by` and puts the `applies` conditions on for each of the party, with its own sheet commands
 applied with the reply's, and tells the Game Master (with `tell`). Leaving the place, or `if` no longer
 holding, ends it; it starts afresh next time. It is recorded in the reply (`[story: exposure=...]`), once.
+
+A track may stop at a most (Capability API 1.372): `{ "track": "exhaustion", "by": 1, "upTo": 3 }` never
+carries it past 3, and never moves one already beyond it. An exposure may ask a save instead of biting
+everyone (1.372), the same shape as a fight board's light rule `save` (1.316):
+
+```json
+"save": { "save": "con_save", "difficulty": 12, "against": { "conditions": ["noon_light"] } }
+```
+
+Each time it bites, the Engine rolls that save for each of the party off their own sheet, and only those who
+fail take its tracks and conditions, each with their own sheet command. `against` is what the save is made
+against, so a save modifier narrowed to it counts outside a fight as it does inside one: an overlay's straw
+hat with `{ "to": "saves", "mode": "advantage", "against": { "conditions": ["noon_light"] } }` gives its
+wearer advantage. The Game Master is told who saved and who failed, with the totals.
 
 ### Seasons
 

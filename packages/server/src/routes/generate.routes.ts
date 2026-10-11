@@ -59,6 +59,7 @@ import {
   storyPartyNames,
   syncCompanionSheets,
 } from "../services/game/experience-companions.service.js";
+import { rollStoryExposureSaves } from "../services/game/story-exposure-saves.service.js";
 import { gameStorySpends } from "../services/game/story-item-uses.service.js";
 import {
   createAdvancedMemoryService,
@@ -2150,11 +2151,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 const item: StoryItemLabel | undefined = book
                   ? (ref) => (book.offers(ref) ? book.itemOf(ref)?.name : undefined)
                   : undefined;
-                return {
-                  story,
-                  game,
-                  item,
-                  turn: storyTurn(story, {
+                const storyTold = storyTurn(story, {
                     item,
                     game,
                     replies: replies.all,
@@ -2182,8 +2179,15 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                         ? (dungeonWalk.steps ?? []).map((step) => ({ place: dungeonWalk.place!, ...step }))
                         : []),
                     ],
-                  }),
-                };
+                });
+                // The saves its exposures owe (1.372), rolled off the sheets this turn starts from.
+                const turn = storyTold.saves.length
+                  ? await rollStoryExposureSaves(app.db, input.chatId, chatMeta, storyTold, {
+                      live: parseStoredRulesetLive((await turnStartRulesetSnapshot())?.rulesetLive),
+                      regenerateMessageId: input.regenerateMessageId ?? null,
+                    })
+                  : storyTold;
+                return { story, game, item, turn };
               })()
             : Promise.resolve(null));
       const turnHour = Number((chatMeta.gameTime as { hour?: unknown } | undefined)?.hour ?? 8) || 0;

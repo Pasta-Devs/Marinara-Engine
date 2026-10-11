@@ -325,12 +325,37 @@ export const storyScriptSchema = z
             hours: z.number().int().min(1).max(48),
             tracks: z
               .array(
-                z.object({ track: z.string().trim().min(1).max(40), by: z.number().int().min(-10).max(10) }).strict(),
+                z
+                  .object({
+                    track: z.string().trim().min(1).max(40),
+                    by: z.number().int().min(-10).max(10),
+                    /** Where the move stops (1.372): never past it, and never moving one already beyond it. */
+                    upTo: z.number().int().min(-1000).max(1000).optional(),
+                  })
+                  .strict(),
               )
               .min(1)
               .max(4)
               .optional(),
             applies: z.array(z.string().trim().min(1).max(40)).min(1).max(4).optional(),
+            /** A save each of the party makes each time it bites (1.372), rolled by the Engine off their own
+             *  sheets: only those who fail it take its tracks and conditions. `against` is what the save is
+             *  made against, so an item's modifier narrowed to it (a straw hat against `noon_light`) counts.
+             *  The same shape as a fight board's light rule `save` (1.316). */
+            save: z
+              .object({
+                save: z.string().trim().min(1).max(40),
+                difficulty: z.number().int().min(0).max(1000),
+                against: z
+                  .object({
+                    conditions: z.array(z.string().trim().min(1).max(40)).min(1).max(8).optional(),
+                    damage: z.array(z.string().trim().min(1).max(40)).min(1).max(8).optional(),
+                  })
+                  .strict()
+                  .optional(),
+              })
+              .strict()
+              .optional(),
             if: conditions,
             /** For the Game Master, each time it bites. */
             tell: promptSafeText(300).optional(),
@@ -1050,7 +1075,8 @@ export function storyCompanionsNamed(story: StoryScript): string[] {
   ];
 }
 
-/** The Capability API minor a script needs: 1.368 for party size conditions and variants for parties above
+/** The Capability API minor a script needs: 1.372 for exposure saves and stops, 1.371 for fight adjusts,
+ *  1.370 for exposures, 1.369 for holds over everything inside, 1.368 for party size conditions and variants for parties above
  *  six, 1.366 for its reach, 1.364 for fight variants, 1.361 for more than 64 flags, 1.359 for held seasons, 1.357 for rest, travel and idle events, party conditions and more
  *  than 128 events, 1.356 for knowledge, 1.355 for companions, 1.353 for music cues, 1.351 for fights, endings and its give, move, fight and
  *  ending actions, 1.350 for clocks, else 0 (any Engine with stories reads it). */
@@ -1068,6 +1094,8 @@ export function storyCapabilityMinor(story: StoryScript): number {
     fight.creatures,
     ...(fight.variants ?? []).map((variant) => variant.creatures),
   ]);
+  if (story.exposures.some((exposure) => exposure.save || exposure.tracks?.some((moved) => moved.upTo !== undefined)))
+    return 372;
   if (fightLists.some((list) => list.some((each) => each.adjust))) return 371;
   if (story.exposures.length) return 370;
   if (story.events.some((event) => event.do.some((action) => "season" in action && action.season.over))) return 369;
@@ -1313,6 +1341,59 @@ export interface StoryTurn {
   season: { season: WorldSeason; held: boolean };
   /** What people know that holds and is in the scene this turn (1.356), for the Game Master. */
   knowledge: Array<{ who?: string; text: string }>;
+  /** The exposures that bit this turn with a save (1.372): the Engine rolls each one for every member of
+   *  the party off their sheet, then `storyExposureSaveOutcome` says what the failures cost. */
+  saves: StoryExposureSave[];
+}
+
+/** One exposure's bites this turn, owed a save by each of the party (1.372). */
+export interface StoryExposureSave {
+  exposure: string;
+  /** What it is called in a tell. */
+  label: string;
+  /** How many times it bit since the last reply: a save for each. */
+  times: number;
+  hours: number;
+  save: string;
+  difficulty: number;
+  against?: { conditions?: string[]; damage?: string[] };
+  tracks: Array<{ track: string; by: number; upTo?: number }>;
+  applies: string[];
+  tell?: string;
+}
+
+/** What one member's saves came to: how many of `times` they failed, and the totals they rolled. */
+export interface StoryExposureSaveRoll {
+  who: string;
+  failed: number;
+  totals: number[];
+}
+
+const sheetValue = (value: string) => value.replace(/["[\]]/g, "");
+
+/** What an exposure's saves cost the party (1.372): for each member who failed any, their tracks moved by
+ *  each failure (stopped where `upTo` says) and its conditions put on; and the tell for the Game Master. */
+export function storyExposureSaveOutcome(
+  bite: StoryExposureSave,
+  rolls: readonly StoryExposureSaveRoll[],
+): { sheet: string[]; tell: string } {
+  const sheet: string[] = [];
+  for (const roll of rolls) {
+    if (roll.failed <= 0) continue;
+    const who = sheetValue(roll.who);
+    for (const moved of bite.tracks)
+      sheet.push(
+        `[sheet: who="${who}" op="track" track="${sheetValue(moved.track)}" by="${moved.by * roll.failed}"${moved.upTo !== undefined ? ` upto="${moved.upTo}"` : ""}]`,
+      );
+    for (const condition of bite.applies)
+      sheet.push(`[sheet: who="${who}" op="condition" condition="${sheetValue(condition)}" state="on"]`);
+  }
+  const each = rolls.map(
+    (roll) =>
+      `${roll.who} ${roll.failed === 0 ? "saved" : roll.failed === roll.totals.length ? "failed" : `failed ${roll.failed} of ${roll.totals.length}`} (${roll.totals.join(", ")})`,
+  );
+  const tell = `${bite.label} has told on the party: ${bite.times === 1 ? "once" : `${bite.times} times`} more since the last reply (every ${bite.hours} hour${bite.hours === 1 ? "" : "s"} there), and the Engine rolled each one's ${bite.save} save against ${bite.difficulty}${bite.times === 1 ? "" : " each time"}: ${each.length ? each.join("; ") : "nobody had a sheet to roll on"}. ${sheet.length ? "Those who failed have it marked on their sheets." : "Nobody failed."}${bite.tell ? ` ${bite.tell}` : ""}`;
+  return { sheet, tell };
 }
 
 const STORY_TRIPS_A_TURN = 32;
@@ -1717,6 +1798,7 @@ export function storyTurn(story: StoryScript, world: StoryTurnWorld): StoryTurn 
   }
   // What being where the party is has done to it since it came (1.370), on the game's clock.
   const sheet: string[] = [];
+  const saves: StoryExposureSave[] = [];
   if (world.clock !== undefined && story.exposures.length) {
     const running = { ...(state.exposures ?? {}) };
     for (const exposure of story.exposures) {
@@ -1729,15 +1811,33 @@ export function storyTurn(story: StoryScript, world: StoryTurnWorld): StoryTurn 
         const due = Math.floor(Math.max(0, world.clock - now.since) / (exposure.hours * 60)) - now.bitten;
         if (due > 0) {
           record = { id: exposure.id, since: now.since, bitten: now.bitten + due };
+          const place = game.world.places.find((each) => each.id === exposure.place)?.name ?? exposure.place;
+          if (exposure.save) {
+            // A save is rolled off each member's own sheet, which only the Engine's sheet pass has.
+            saves.push({
+              exposure: exposure.id,
+              label: exposure.label ?? `Being in ${place}`,
+              times: due,
+              hours: exposure.hours,
+              save: exposure.save.save,
+              difficulty: exposure.save.difficulty,
+              ...(exposure.save.against ? { against: exposure.save.against } : {}),
+              tracks: exposure.tracks ?? [],
+              applies: exposure.applies ?? [],
+              ...(exposure.tell ? { tell: exposure.tell } : {}),
+            });
+          } else {
           for (const moved of exposure.tracks ?? [])
-            sheet.push(`[sheet: who="party" op="track" track="${moved.track}" by="${moved.by * due}"]`);
+              sheet.push(
+                `[sheet: who="party" op="track" track="${moved.track}" by="${moved.by * due}"${moved.upTo !== undefined ? ` upto="${moved.upTo}"` : ""}]`,
+              );
           for (const condition of exposure.applies ?? [])
             sheet.push(`[sheet: who="party" op="condition" condition="${condition}" state="on"]`);
-          const place = game.world.places.find((each) => each.id === exposure.place)?.name ?? exposure.place;
           tells.push(
             `${exposure.label ?? `Being in ${place}`} has told on the party: ${due === 1 ? "once" : `${due} times`} more since the last reply (every ${exposure.hours} hour${exposure.hours === 1 ? "" : "s"} there), and the Engine has marked it on each of their sheets.${exposure.tell ? ` ${exposure.tell}` : ""}`,
           );
         }
+      }
       }
       if (!record) continue;
       ledger.push({ exposure: record, by: "engine", set: [], show: [] });
@@ -1980,6 +2080,7 @@ export function storyTurn(story: StoryScript, world: StoryTurnWorld): StoryTurn 
   return {
     tripped,
     sheet: sheet.join(" "),
+    saves,
     prepend: prepend.length ? `${prepend.join("\n\n")}\n\n` : "",
     shown,
     tells,
