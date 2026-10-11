@@ -145,22 +145,20 @@ export function applyExperienceRulesetOverlay(
   add(overlay.sheetConditions, merged.sheet?.live, "conditions", "id", "sheetConditions");
   add(overlay.creatureTags, merged.combat?.creatureTypes, "tags", "id", "creatureTags");
   if (issues.length) return { ok: false, issues };
-  const read = parseRulesetDefinition(merged);
+  // A stored ruleset is played under its namespaced id (`local/<id>`, `<owner>/<id>`), which a ruleset
+  // file's own id never is: it is read again by its bare id and given its namespaced one back.
+  const read = parseRulesetDefinition({ ...merged, id: merged.id.replace(/^[^/]+\//u, "") });
   if (!read.ok) return { ok: false, issues: read.issues.slice(0, 8) };
+  const done: RulesetDefinition = { ...read.definition, id: merged.id };
   const catalogs: Record<string, RulesetCatalogEntry[]> = {};
   const lists = [
     ...(overlay.creatures?.length ? ([[EXPERIENCE_OVERLAY_BESTIARY, overlay.creatures]] as const) : []),
     ...Object.entries(overlay.catalogs ?? {}),
   ];
   for (const [catalog, entries] of lists) {
-    const file = parseRulesetCatalogFile(
-      read.definition,
-      catalog,
-      { schemaVersion: 1, catalog, entries },
-      narrowedByLayers,
-    );
+    const file = parseRulesetCatalogFile(done, catalog, { schemaVersion: 1, catalog, entries }, narrowedByLayers);
     if (!file.ok) return { ok: false, issues: file.issues.slice(0, 8).map((issue) => `${catalog}: ${issue}`) };
-    const own = read.definition.catalogs?.find((each) => each.id === catalog)?.entries ?? [];
+    const own = done.catalogs?.find((each) => each.id === catalog)?.entries ?? [];
     const twice = sameIds([...own, ...(catalogs[catalog] ?? [])], file.entries, "id");
     if (twice.length) return { ok: false, issues: twice.map((id) => `${catalog}: "${id}" is taken already.`) };
     catalogs[catalog] = [...(catalogs[catalog] ?? []), ...file.entries];
@@ -169,13 +167,13 @@ export function applyExperienceRulesetOverlay(
   const uses = new Map<string, ExperienceStoryUse>();
   for (const use of overlay.storyUses ?? []) {
     const catalog = use.item.slice(0, use.item.indexOf("/"));
-    if (!read.definition.catalogs?.some((each) => each.id === catalog) && !catalogs[catalog]) {
+    if (!done.catalogs?.some((each) => each.id === catalog) && !catalogs[catalog]) {
       return { ok: false, issues: [`storyUses: "${use.item}" is in no catalog of the ruleset.`] };
     }
     if (uses.has(use.item)) return { ok: false, issues: [`storyUses: "${use.item}" is named twice.`] };
     uses.set(use.item, use);
   }
-  overlayEntries.set(read.definition, catalogs);
-  if (uses.size) overlayStoryUses.set(read.definition, uses);
-  return { ok: true, definition: read.definition };
+  overlayEntries.set(done, catalogs);
+  if (uses.size) overlayStoryUses.set(done, uses);
+  return { ok: true, definition: done };
 }

@@ -66,6 +66,16 @@ assert.equal(
   false,
 );
 
+// An imported ruleset is played under its namespaced id (`local/<id>`): merged all the same, and kept
+// under that id.
+const imported = applyExperienceRulesetOverlay({ ...base, id: `local/${base.id}` }, overlay, false);
+assert.ok(imported.ok, JSON.stringify(imported));
+assert.equal(imported.definition.id, `local/${base.id}`);
+assert.deepEqual(
+  experienceOverlayEntries(imported.definition, "creatures").map((entry) => entry.id),
+  ["straw-man"],
+);
+
 // ── What does not fit is left out whole ──
 const refused = (patch: Record<string, unknown>, issue: RegExp) => {
   const result = applyExperienceRulesetOverlay(base, { ...overlay, ...patch } as ExperienceRulesetOverlay, false);
