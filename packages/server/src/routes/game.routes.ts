@@ -61,7 +61,13 @@ import { eq } from "../db/file-query.js";
 import { IMPORTED_GAME_ENGINE_ANCHOR_PREFIX } from "../db/file-backed-store.js";
 import { chats as chatsTable } from "../db/schema/index.js";
 import { capabilityPackageManager } from "../services/capability-packages/package-manager.service.js";
-import { mapPackLockIssue, readMapPack, type MapPack } from "../services/game/map-pack.service.js";
+import {
+  checkMapPack,
+  mapPackLockIssue,
+  readMapPack,
+  type MapPack,
+  type MapPackCheckInput,
+} from "../services/game/map-pack.service.js";
 import {
   companionNames,
   companionPartyLevel,
@@ -11896,6 +11902,29 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     const read = readWorldKitFile(text);
     if (!read.ok) return reply.status(400).send({ error: read.issues[0], issues: read.issues });
     return { kit: read.kit, notes: read.notes };
+  });
+
+  // POST /game/experience/check (Capability API 1.358): a whole map pack an author is about to export,
+  // checked as an installed one is read, without installing it.
+  app.post("/experience/check", { bodyLimit: 128 * 1024 * 1024 }, async (req, reply) => {
+    const body = req.body as Partial<MapPackCheckInput> | null;
+    if (
+      !body ||
+      typeof body !== "object" ||
+      !body.files ||
+      typeof body.files !== "object" ||
+      Array.isArray(body.files)
+    ) {
+      return reply.status(400).send({ error: "Send the map pack block, its files by path and its assets." });
+    }
+    const assets = Array.isArray(body.assets)
+      ? body.assets.flatMap((asset) =>
+          asset && typeof asset.path === "string" && Number.isFinite(asset.bytes)
+            ? [{ path: asset.path, bytes: Number(asset.bytes) }]
+            : [],
+        )
+      : [];
+    return checkMapPack({ mapPack: body.mapPack, files: body.files as Record<string, unknown>, assets });
   });
 
   // GET /game/experience-map-pack/:packageId: an installed Experience's map pack (worldgen W9e), checked,

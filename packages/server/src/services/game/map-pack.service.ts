@@ -4,6 +4,10 @@
 // and checked as share files are. A game started with the Experience is locked to them.
 // ──────────────────────────────────────────────
 import {
+  CREATURE_PACK_MAX_BYTES,
+  WORLD_SHARE_FILE_MAX_BYTES,
+  capabilityPackageManifestSchema,
+  supportedCapabilityApi,
   parseCreaturePack,
   parseTilePack,
   type CreaturePack,
@@ -101,13 +105,26 @@ export function sameJson(left: unknown, right: unknown): boolean {
 /** The Experience's map pack, checked; null when it ships none (or is not installed and ready). A pack
  *  whose files do not read is refused whole, with the reason, never half used. */
 export async function readMapPack(packageId: string): Promise<MapPackRead> {
-  let files: Awaited<ReturnType<typeof capabilityPackageManager.mapPackFiles>>;
+  let files: MapPackFiles | null;
   try {
     files = await capabilityPackageManager.mapPackFiles(packageId);
   } catch (error) {
     return { ok: false, reason: error instanceof Error ? error.message : String(error) };
   }
   if (!files) return null;
+  return checkMapPackFiles(packageId, files);
+}
+
+/** A map pack's files as the package holds them (or as an author sends them to be checked). */
+export type MapPackFiles = NonNullable<Awaited<ReturnType<typeof capabilityPackageManager.mapPackFiles>>>;
+
+/** A map pack's files, read and checked whole: the pack, or the first reason it is refused. `cache: false`
+ *  for files that are not an installed package's (an author's, before export). */
+export async function checkMapPackFiles(
+  packageId: string,
+  files: MapPackFiles,
+  { cache = true }: { cache?: boolean } = {},
+): Promise<{ ok: true; pack: MapPack } | { ok: false; reason: string }> {
   const kit = readWorldKitFile(files.kit.toString("utf8"));
   if (!kit.ok) return { ok: false, reason: `its kit does not read: ${kit.issues[0]}` };
   const api = files.capabilityApi;
@@ -145,7 +162,7 @@ export async function readMapPack(packageId: string): Promise<MapPackRead> {
   if (files.tiles) {
     // Checked once per package version and file (an image pack's sheets are decoded to be checked).
     const key = `${packageId}@${files.version}#${files.tilesSha256 ?? ""}`;
-    const cached = checkedTiles.get(key);
+    const cached = cache ? checkedTiles.get(key) : undefined;
     if (cached) tiles = cached;
     else {
       const read = parseTilePack(files.tiles.toString("utf8"));
@@ -159,7 +176,7 @@ export async function readMapPack(packageId: string): Promise<MapPackRead> {
         if (!cleaned.ok) return { ok: false, reason: `its tiles do not read: ${cleaned.issue}` };
         tiles = cleaned.pack;
       }
-      checkedTiles.set(key, tiles);
+      if (cache) checkedTiles.set(key, tiles);
       if (checkedTiles.size > CHECKED_TILES_KEPT) checkedTiles.delete(checkedTiles.keys().next().value!);
     }
   }
@@ -181,7 +198,7 @@ export async function readMapPack(packageId: string): Promise<MapPackRead> {
   const creatures: CreaturePack[] = [];
   for (const { path, data, sha256 } of files.creatures ?? []) {
     const key = `${packageId}@${files.version}#${sha256}`;
-    const cached = checkedCreatures.get(key);
+    const cached = cache ? checkedCreatures.get(key) : undefined;
     if (cached) {
       creatures.push(cached);
       continue;
@@ -189,7 +206,7 @@ export async function readMapPack(packageId: string): Promise<MapPackRead> {
     const read = parseCreaturePack(data.toString("utf8"));
     if (!read.ok) return { ok: false, reason: `${path} does not read: ${read.issues[0]}` };
     creatures.push(read.pack);
-    checkedCreatures.set(key, read.pack);
+    if (cache) checkedCreatures.set(key, read.pack);
     if (checkedCreatures.size > CHECKED_CREATURES_KEPT) checkedCreatures.delete(checkedCreatures.keys().next().value!);
   }
   // Its people (1.354): each a named person of one of its worlds, their pictures its own assets, their
@@ -229,7 +246,7 @@ export async function readMapPack(packageId: string): Promise<MapPackRead> {
       if (stray)
         return { ok: false, reason: `${entry.path}'s story takes in "${stray}", who is not one of its companions` };
     }
-    rememberPeople(`${packageId}@${files.version}#${files.people.sha256}`, read.people);
+    if (cache) rememberPeople(`${packageId}@${files.version}#${files.people.sha256}`, read.people);
     people = {
       ...read.people,
       urls: experiencePeopleUrls(packageId, files.version, read.people),
@@ -280,4 +297,138 @@ export function mapPackLockIssue(
       )
     : false;
   return one ? null : `${pack.name} sets the game's world to one of its own maps.`;
+}
+
+/** An author's map pack to check before export (E7-A): the manifest's `gameSurface.mapPack` block, its
+ *  JSON files by path as parsed, and the package's other assets (pictures, audio) by path and size. */
+export interface MapPackCheckInput {
+  mapPack: unknown;
+  files: Record<string, unknown>;
+  assets?: Array<{ path: string; bytes: number }>;
+}
+
+export interface MapPackCheck {
+  ok: boolean;
+  /** The Capability API minor the pack needs (1.x), as far as it could be read. */
+  minor: number;
+  issues: Array<{ path: string; message: string }>;
+}
+
+/** Checks a whole map pack as an installed one is read (the manifest's rules, then its files), without
+ *  installing it: so an authoring app can say what is wrong before it exports. */
+export async function checkMapPack(input: MapPackCheckInput): Promise<MapPackCheck> {
+  const issues: MapPackCheck["issues"] = [];
+  const texts = new Map(Object.entries(input.files).map(([path, value]) => [path, JSON.stringify(value)]));
+  const assets = input.assets ?? [];
+  // The files its block names are declared too, so one left out is said to be missing, not undeclared.
+  const block = (input.mapPack && typeof input.mapPack === "object" ? input.mapPack : {}) as Record<string, unknown>;
+  const named = [
+    block.kit,
+    block.tiles,
+    block.people,
+    ...[block.worlds, block.creatures].flatMap((list) => (Array.isArray(list) ? list : [])),
+  ].filter((path): path is string => typeof path === "string");
+  const declared = [...new Set([...texts.keys(), ...named, ...assets.map((asset) => asset.path)])];
+  // The manifest's own rules, on a stand-in manifest that declares exactly these files.
+  const manifest = {
+    schemaVersion: 2,
+    capabilityApi: { ...supportedCapabilityApi },
+    builtAgainst: { engineVersion: "2.4.6", engineCommit: "0".repeat(40) },
+    id: "experience-check",
+    name: "Experience check",
+    version: "0.0.0",
+    description: "A map pack checked before export.",
+    engine: { min: "2.3.0", maxExclusive: "99.0.0" },
+    kind: ["agent"],
+    entrypoints: { client: "client.js" },
+    contributions: {
+      slots: ["game-surface"],
+      gameSurface: { setup: {}, mapPack: input.mapPack },
+      ...(declared.length ? { assets: { paths: declared } } : {}),
+    },
+    files: [
+      { path: "client.js", sha256: "0".repeat(64), bytes: 1 },
+      ...declared.map((path) => ({
+        path,
+        sha256: "0".repeat(64),
+        bytes: texts.has(path)
+          ? Buffer.byteLength(texts.get(path)!)
+          : (assets.find((asset) => asset.path === path)?.bytes ?? 0),
+      })),
+    ],
+    permissions: ["ui"],
+    restartRequired: false,
+  };
+  const parsed = capabilityPackageManifestSchema.safeParse(manifest);
+  if (!parsed.success) {
+    for (const issue of parsed.error.issues) {
+      const at = issue.path.join(".");
+      issues.push({
+        path: at.replace(/^contributions\.gameSurface\.mapPack\.?/u, "mapPack.").replace(/\.$/u, "") || "mapPack",
+        message: issue.message,
+      });
+    }
+  }
+  const mapPack = parsed.success ? parsed.data.contributions?.gameSurface?.mapPack : undefined;
+  let minor = 68;
+  if (!mapPack) return { ok: false, minor, issues };
+  // Its files, each sent and within what an installed package may hold.
+  const fileOf = (path: string, maxBytes = WORLD_SHARE_FILE_MAX_BYTES): Buffer | null => {
+    const text = texts.get(path);
+    if (text === undefined) {
+      issues.push({ path, message: `${path} was not sent` });
+      return null;
+    }
+    if (Buffer.byteLength(text) > maxBytes) {
+      issues.push({ path, message: `${path} is larger than ${maxBytes} bytes` });
+      return null;
+    }
+    return Buffer.from(text);
+  };
+  const kit = fileOf(mapPack.kit);
+  const worlds = (mapPack.worlds ?? []).map((path) => ({ path, data: fileOf(path) }));
+  const tiles = mapPack.tiles ? fileOf(mapPack.tiles) : null;
+  const creatures = (mapPack.creatures ?? []).map((path) => ({
+    path,
+    data: fileOf(path, CREATURE_PACK_MAX_BYTES),
+    sha256: "",
+  }));
+  const people = mapPack.people ? fileOf(mapPack.people) : null;
+  if (issues.length || !kit || worlds.some((world) => !world.data) || creatures.some((each) => !each.data)) {
+    return { ok: false, minor, issues };
+  }
+  const checked = await checkMapPackFiles(
+    "experience-check",
+    {
+      version: "0.0.0",
+      name: "Experience check",
+      kit,
+      worlds: worlds.map((world) => ({ path: world.path, data: world.data! })),
+      tiles,
+      tilesSha256: null,
+      capabilityApi: { ...supportedCapabilityApi },
+      creatures: creatures.map((each) => ({ ...each, data: each.data! })),
+      music: mapPack.music ?? null,
+      assets: declared,
+      people: mapPack.people && people ? { path: mapPack.people, data: people, sha256: "" } : null,
+    },
+    { cache: false },
+  );
+  if (!checked.ok) {
+    const path = [...texts.keys(), ...declared].find((each) => checked.reason.startsWith(each)) ?? "mapPack";
+    issues.push({ path, message: checked.reason });
+    return { ok: false, minor, issues };
+  }
+  // What it needs, from what it holds.
+  const pack = checked.pack;
+  const audio = declared.some((path) => /\.(?:ogg|mp3|wav)$/iu.test(path));
+  minor = Math.max(
+    minor,
+    pack.tiles?.tilePackVersion === 2 ? 75 : 0,
+    ...pack.worlds.map((world) => (world.story ? storyCapabilityMinor(world.story) : 0)),
+    pack.creatures?.length ? 352 : 0,
+    pack.music || audio ? 353 : 0,
+    pack.people ? experiencePeopleMinor(pack.people) : 0,
+  );
+  return { ok: true, minor, issues };
 }

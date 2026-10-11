@@ -1332,7 +1332,10 @@ const capabilityPackageManifestBaseSchema = z
 //        from one place for another) and `idle` (some replies with nothing happening), with a `priority`:
 //        one of them goes a turn, the highest. A condition may ask whether a person travels with the party
 //        (`{ "party": "<person id>", "is": "in" | "out" }`). A script may have 256 events (128 before).
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 357 } as const);
+// 1.358: `POST /api/game/experience/check` checks a whole map pack before it is exported, as an installed
+//        one is read: send `{ mapPack, files: { <path>: <parsed JSON> }, assets: [{ path, bytes }] }`, get
+//        `{ ok, minor, issues: [{ path, message }] }` (`minor`: the Capability API minor the pack needs).
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 358 } as const);
 
 const capabilityApiVersionSchema = z
   .object({

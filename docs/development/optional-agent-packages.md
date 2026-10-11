@@ -1351,6 +1351,25 @@ a light in the dark is never locked out of what the story asks of it.
 A people file with companions needs 1.355; without, 1.354. A story that recruits or dismisses someone
 needs 1.355, and each person it names must be a companion in the pack's people file.
 
+#### Capability API 1.358: checking a pack before export
+
+An authoring app (Pixelforge) can have the Engine check a whole map pack before it exports the package,
+exactly as an installed one is read, without installing it:
+
+```
+POST /api/game/experience/check
+{ "mapPack": { ...the manifest's gameSurface.mapPack block },
+  "files": { "map/valley.worldkit.json": { ...parsed JSON }, ... },
+  "assets": [{ "path": "people/maud.png", "bytes": 48213 }, { "path": "music/valley.ogg", "bytes": 3100000 }] }
+```
+
+`files` holds every JSON file the block names (kit, worlds, tiles, creature packs, people), parsed;
+`assets` lists the package's other assets (pictures, audio) by path and size. The answer is
+`{ "ok": true | false, "minor": <n>, "issues": [{ "path": "...", "message": "..." }] }`: `minor` is the
+Capability API minor (1.`minor`) the pack needs, and `issues` names each problem by the block's key
+(`mapPack.music.default`) or the file it is in. The manifest's own rules (declared assets, track ids,
+audio sizes) are all reported; the files' checks stop at the first problem, as an install does.
+
 ### Capability API 1.18: keep Experience setup in the Game wizard
 
 A `game-surface` package can declare `contributions.gameSurface.setup` with schema

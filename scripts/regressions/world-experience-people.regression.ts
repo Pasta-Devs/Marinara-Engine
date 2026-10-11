@@ -469,6 +469,52 @@ try {
   await why("nosprite", /no character for/);
   await why("notacompanion", /is not one of its companions/);
 
+  // ── Checked before export (1.358), as an installed pack is read ──
+  {
+    const checkApp = Fastify();
+    checkApp.decorate("db", await getDB());
+    await checkApp.register(gameRoutes, { prefix: "/api/game" });
+    const all = contents();
+    const json = Object.fromEntries(
+      Object.entries(all)
+        .filter(([path]) => path.endsWith(".json"))
+        .map(([path, value]) => [path, JSON.parse(value)]),
+    );
+    const assets = Object.entries(all)
+      .filter(([path]) => !path.endsWith(".json"))
+      .map(([path, value]) => ({ path, bytes: Buffer.byteLength(value) }));
+    const check = (payload: unknown) =>
+      checkApp.inject({ method: "POST", url: "/api/game/experience/check", payload: payload as object });
+    const good = await check({ mapPack: pack, files: json, assets });
+    assert.equal(good.statusCode, 200, good.body);
+    assert.deepEqual(good.json(), { ok: true, minor: 355, issues: [] });
+    const noPicture = await check({
+      mapPack: pack,
+      files: json,
+      assets: assets.filter((asset) => asset.path !== "people/healer.png"),
+    });
+    assert.equal(noPicture.json().ok, false);
+    assert.ok(
+      noPicture.json().issues.some((issue: { message: string }) => /people\/healer\.png is not one of its assets/.test(issue.message)),
+      noPicture.body,
+    );
+    const { ["people/valley.people.json"]: _people, ...withoutPeople } = json;
+    const unsent = await check({ mapPack: pack, files: withoutPeople, assets });
+    assert.deepEqual(unsent.json().issues, [
+      { path: "people/valley.people.json", message: "people/valley.people.json was not sent" },
+    ]);
+    const stray = await check({ mapPack: { ...pack, music: { ...music, default: "nope" } }, files: json, assets });
+    assert.ok(
+      stray.json().issues.some(
+        (issue: { path: string; message: string }) =>
+          issue.path === "mapPack.music.default" && /No track "nope"/.test(issue.message),
+      ),
+      stray.body,
+    );
+    assert.equal((await check({ mapPack: pack })).statusCode, 400);
+    await checkApp.close();
+  }
+
   // ── A game of it ──
   const db = await getDB();
   const app = Fastify();
