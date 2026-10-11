@@ -134,6 +134,9 @@ const action = z.union([
   z.object({ move: z.string().min(1).max(120) }).strict(),
   /** Ends the game with one of the script's endings (Capability API 1.351). */
   z.object({ ending: id }).strict(),
+  /** Cues one of its Experience's tracks over the place's music, or (null) hands back to the place's
+   *  (Capability API 1.353). */
+  z.object({ music: id.nullable() }).strict(),
 ]);
 
 const page = z
@@ -578,6 +581,8 @@ export interface StoryLedgerEntry {
   fight?: string;
   /** The script's ending it ended the game with (1.351). */
   ending?: string;
+  /** The track it cued, or null when it handed back to the place's music (1.353). */
+  music?: string | null;
 }
 
 // A body never holds "[", so a tag opener repeated without a "]" is read in one pass.
@@ -620,7 +625,9 @@ export function readStoryLedger(replies: readonly string[]): StoryLedgerEntry[] 
       const event = values.get("event")?.trim();
       const fight = values.get("fight")?.trim();
       const ending = values.get("ending")?.trim();
+      const music = values.get("music");
       entries.push({
+        ...(music !== undefined ? { music: music.trim() || null } : {}),
         ...(event ? { event } : {}),
         ...(fight ? { fight } : {}),
         ...(ending ? { ending } : {}),
@@ -641,6 +648,8 @@ export interface StoryState {
   shown: string[];
   /** The ending the game has had, once it has (1.351): the story trips nothing after it. */
   ended?: string;
+  /** The track the story last cued, while it holds (1.353). */
+  music?: string;
 }
 
 /** The story as its ledger left it: each flag's value (a recorded value the script no longer fits is
@@ -651,7 +660,9 @@ export function storyState(story: StoryScript, ledger: readonly StoryLedgerEntry
   const fired: StoryState["fired"] = {};
   const shown = new Set<string>();
   let ended: string | undefined;
+  let music: string | null = null;
   for (const entry of ledger) {
+    if (entry.music !== undefined) music = entry.music;
     if (entry.event) fired[entry.event] = (fired[entry.event] ?? 0) + 1;
     if (entry.ending && !ended && story.endings.some((ending) => ending.id === entry.ending)) ended = entry.ending;
     for (const [flag, given] of entry.set) {
@@ -660,7 +671,7 @@ export function storyState(story: StoryScript, ledger: readonly StoryLedgerEntry
     }
     for (const flag of entry.show) if (kinds.has(flag)) shown.add(flag);
   }
-  return { flags, fired, shown: [...shown], ...(ended ? { ended } : {}) };
+  return { flags, fired, shown: [...shown], ...(ended ? { ended } : {}), ...(music ? { music } : {}) };
 }
 
 /** A quest objective the story shows the player (worldgen W10): open until its flag is true, or its
@@ -693,12 +704,24 @@ export function storyObjectives(story: StoryScript, state: StoryState): StoryObj
   });
 }
 
-/** The Capability API minor a script needs: 1.351 for fights, endings and its give, move, fight and
+/** The tracks a script cues (1.353), for its Experience's music to have. */
+export function storyMusicCues(story: StoryScript): string[] {
+  return [
+    ...new Set(
+      story.events.flatMap((event) =>
+        event.do.flatMap((action) => ("music" in action && action.music !== null ? [action.music] : [])),
+      ),
+    ),
+  ];
+}
+
+/** The Capability API minor a script needs: 1.353 for music cues, 1.351 for fights, endings and its give, move, fight and
  *  ending actions, 1.350 for clocks, else 0 (any Engine with stories reads it). */
 export function storyCapabilityMinor(story: StoryScript): number {
   const acts = story.events.some((event) =>
     event.do.some((action) => "give" in action || "move" in action || "fight" in action || "ending" in action),
   );
+  if (story.events.some((event) => event.do.some((action) => "music" in action))) return 353;
   if (acts || story.fights.length || story.endings.length) return 351;
   return story.flags.some((flag) => flag.clock) ? 350 : 0;
 }
@@ -863,6 +886,7 @@ function storyRecord(
     show: string[];
     fight?: string;
     ending?: string;
+    music?: string | null;
   },
   by?: "engine",
 ) {
@@ -871,6 +895,7 @@ function storyRecord(
     ...(entry.flag ? [`flag="${entry.flag}"`] : []),
     ...(entry.fight ? [`fight="${entry.fight}"`] : []),
     ...(entry.ending ? [`ending="${entry.ending}"`] : []),
+    ...(entry.music !== undefined ? [`music="${entry.music ?? ""}"`] : []),
     ...(entry.set.length
       ? [`set="${entry.set.map(([flag, value]) => `${flag}=${recordValue(value)}`).join(";")}"`]
       : []),
@@ -889,7 +914,9 @@ function applyActions(story: StoryScript, event: StoryEvent, flags: StoryState["
   const show: string[] = [];
   let fight: string | undefined;
   let ending: string | undefined;
+  let music: string | null | undefined;
   for (const action of event.do) {
+    if ("music" in action) music = action.music;
     if ("fight" in action) fight ??= action.fight;
     if ("ending" in action) ending ??= action.ending;
     if ("set" in action) {
@@ -904,7 +931,13 @@ function applyActions(story: StoryScript, event: StoryEvent, flags: StoryState["
       show.push(action.show);
     }
   }
-  return { set, show, ...(fight ? { fight } : {}), ...(ending ? { ending } : {}) };
+  return {
+    set,
+    show,
+    ...(fight ? { fight } : {}),
+    ...(ending ? { ending } : {}),
+    ...(music !== undefined ? { music } : {}),
+  };
 }
 
 /** The label of a ruleset item by its id, while the game's ruleset offers it (1.351). */

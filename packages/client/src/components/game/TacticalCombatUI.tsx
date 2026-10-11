@@ -1,6 +1,6 @@
 import { CombatWeatherSummary } from "./CombatWeatherSummary";
 import { CombatAiControls } from "./CombatAiControls";
-import { CreatureArtFigure, useCreatureFacings, useCreaturePack } from "./CreatureArt";
+import { CreatureArtFigure, findCreatureArtIn, useCreatureFacings, useCreaturePacks } from "./CreatureArt";
 // ──────────────────────────────────────────────
 // Game: Tactical (grid) Combat UI
 //
@@ -77,7 +77,6 @@ import {
   type TacticalCoord,
   type TacticalBattlefieldBrief,
   type TacticalClass,
-  findCreatureArt,
   creatureArtVariant,
   type CreatureFacing,
   type CreaturePack,
@@ -1179,7 +1178,7 @@ export function TacticalCombatUI({
     );
   }, [liveState, animUnits, stagedMove, selectedUnitId, optimisticMove]);
   // Creature art (design-game-creature-art.md): the library's creature pack, and which way each fighter faces.
-  const creaturePack = useCreaturePack();
+  const creaturePacks = useCreaturePacks();
   const facings = useCreatureFacings(
     renderUnits.map(({ unit, x, y }) => ({ id: unit.id, x, y, side: unit.side })),
     String(liveState?.seed ?? ""),
@@ -1564,7 +1563,7 @@ export function TacticalCombatUI({
               // An enemy with no picture of its own is drawn with its creature art when the pack has it.
               const creature =
                 unit.side === "enemy" && resolveSprite(unit.sprite).kind !== "url"
-                  ? findCreatureArt(creaturePack, { name: unit.name })
+                  ? findCreatureArtIn(creaturePacks, { name: unit.name })
                   : null;
               const isSel = selectedUnitId === unit.id;
               const isTarget = ui.kind === "target" && targetIds.has(unit.id);
@@ -1582,11 +1581,11 @@ export function TacticalCombatUI({
                   unit={unit}
                   hp={hp}
                   art={
-                    creature && creaturePack
+                    creature
                       ? {
-                          pack: creaturePack,
-                          creature,
-                          variant: creatureArtVariant(creature, String(liveState?.seed ?? ""), unit.id),
+                          pack: creature.pack,
+                          creature: creature.creature,
+                          variant: creatureArtVariant(creature.creature, String(liveState?.seed ?? ""), unit.id),
                           facing: facings.get(unit.id) ?? "down",
                         }
                       : undefined

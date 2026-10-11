@@ -24,6 +24,39 @@ export const capabilityPermissionSchema = z.enum([
   "ui",
 ]);
 
+/** The largest audio file a package may ship as an asset (Capability API 1.353). */
+export const CAPABILITY_AUDIO_ASSET_MAX_BYTES = 16 * 1024 * 1024;
+const AUDIO_ASSET = /\.(?:ogg|mp3|wav)$/iu;
+const musicId = z.string().regex(/^[a-z0-9_-]{1,40}$/, "A track id is 1 to 40 lowercase letters, digits, _ or -");
+
+/** An Experience's own music (Capability API 1.353). */
+export const experienceMusicSchema = z
+  .object({
+    tracks: z
+      .array(
+        z
+          .object({
+            id: musicId,
+            path: z.string().min(1).max(240).regex(AUDIO_ASSET, "A track is an .ogg, .mp3 or .wav file"),
+            title: z.string().min(1).max(80).optional(),
+          })
+          .strict(),
+      )
+      .min(1)
+      .max(64),
+    /** Played wherever no place has a track of its own. */
+    default: musicId.optional(),
+    /** Played while a fight is on. */
+    combat: musicId.optional(),
+    /** A place's track (a place id of the pack's worlds), for it and every place inside it. */
+    places: z
+      .array(z.object({ place: z.string().min(1).max(120), track: musicId }).strict())
+      .max(128)
+      .optional(),
+  })
+  .strict();
+export type ExperienceMusic = z.infer<typeof experienceMusicSchema>;
+
 const capabilityPackageManifestBaseSchema = z
   .object({
     id: z
@@ -148,6 +181,23 @@ const capabilityPackageManifestBaseSchema = z
                   .max(240)
                   .regex(/\.tilepack\.json$/u, "A map pack's tiles are a .tilepack.json file")
                   .optional(),
+                /** Creature packs for this Experience's fights (Capability API 1.352): their art comes
+                 *  before the creature pack chosen in the library, in this order. */
+                creatures: z
+                  .array(
+                    z
+                      .string()
+                      .min(1)
+                      .max(240)
+                      .regex(/\.creaturepack\.json$/u, "A map pack's creatures are a .creaturepack.json file"),
+                  )
+                  .min(1)
+                  .max(8)
+                  .optional(),
+                /** The Experience's own music (Capability API 1.353): its tracks, the one for each place
+                 *  (a place's own, else the nearest place it is inside that has one), the one played
+                 *  anywhere else, and the one for fights. A story may cue a track over them. */
+                music: experienceMusicSchema.optional(),
               })
               .strict()
               .optional(),
@@ -239,9 +289,9 @@ const capabilityPackageManifestBaseSchema = z
                   .string()
                   .min(1)
                   .max(240)
-                  // Passive content only — images plus JSON metadata. Never SVG, HTML, or
-                  // scripts: those are active documents on a same-origin route.
-                  .regex(/\.(?:gif|jpe?g|png|webp|json)$/iu),
+                  // Passive content only — images, audio (Capability API 1.353) plus JSON metadata.
+                  // Never SVG, HTML, or scripts: those are active documents on a same-origin route.
+                  .regex(/\.(?:gif|jpe?g|png|webp|json|ogg|mp3|wav)$/iu),
               )
               .min(1)
               // Bounded so a manifest cannot enumerate an arbitrarily large tree.
@@ -1256,7 +1306,12 @@ const capabilityPackageManifestBaseSchema = z
 //        script's `fights`: its creatures, counted, on a painted board), `move` (the party to a place) and
 //        `ending` (one of the script's `endings`: a title, a scene and the epilogue; nothing trips after).
 //        A map pack world whose story uses them needs 1.351.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 351 } as const);
+// 1.353: a package's assets may be audio (`.ogg`, `.mp3`, `.wav`, 16 MB each at most), and an Experience's
+//        map pack may ship `music`: its tracks, by place, anywhere else and in fights. A story's `music`
+//        action cues one of them over the place's, or hands back to the place's.
+// 1.352: an Experience's map pack may ship creature packs (`mapPack.creatures`, .creaturepack.json files
+//        declared as assets): its fights draw their creatures from them first, then from the library's.
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 353 } as const);
 
 const capabilityApiVersionSchema = z
   .object({
@@ -1314,13 +1369,86 @@ export const capabilityPackageManifestSchema = z
         [mapPack.kit, ["kit"]],
         ...(mapPack.worlds ?? []).map((path, index): [string, Array<string | number>] => [path, ["worlds", index]]),
         ...(mapPack.tiles ? [[mapPack.tiles, ["tiles"]] as [string, Array<string | number>]] : []),
+        ...(mapPack.creatures ?? []).map((path, index): [string, Array<string | number>] => [
+          path,
+          ["creatures", index],
+        ]),
       ];
+      if (mapPack.music) {
+        const tracks = new Set(mapPack.music.tracks.map((track) => track.id));
+        files.push(
+          ...mapPack.music.tracks.map((track, index): [string, Array<string | number>] => [
+            track.path,
+            ["music", "tracks", index, "path"],
+          ]),
+        );
+        const named: Array<[string | undefined, Array<string | number>]> = [
+          [mapPack.music.default, ["music", "default"]],
+          [mapPack.music.combat, ["music", "combat"]],
+          ...(mapPack.music.places ?? []).map((each, index): [string, Array<string | number>] => [
+            each.track,
+            ["music", "places", index, "track"],
+          ]),
+        ];
+        for (const [track, at] of named) {
+          if (track !== undefined && !tracks.has(track)) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              path: ["contributions", "gameSurface", "mapPack", ...at],
+              message: `No track "${track}" in the map pack's music`,
+            });
+          }
+        }
+        if (tracks.size !== mapPack.music.tracks.length) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["contributions", "gameSurface", "mapPack", "music", "tracks"],
+            message: "Two tracks share an id",
+          });
+        }
+      }
+      if (mapPack.music && (!api || api.major !== 1 || api.minor < 353)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["contributions", "gameSurface", "mapPack", "music"],
+          message: "A map pack's music requires capabilityApi 1.353 or newer",
+        });
+      }
+      if (mapPack.creatures && api && api.major === 1 && api.minor < 352) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["contributions", "gameSurface", "mapPack", "creatures"],
+          message: "A map pack's creature packs require capabilityApi 1.352 or newer",
+        });
+      }
       for (const [path, at] of files) {
         if (!declared.has(path)) {
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
             path: ["contributions", "gameSurface", "mapPack", ...at],
             message: `${path} must also be declared in contributions.assets.paths`,
+          });
+        }
+      }
+    }
+    // Audio assets (1.353): only an Engine this new serves them, each kept to a size a page can stream.
+    const audio = (manifest.contributions?.assets?.paths ?? []).filter((path) => AUDIO_ASSET.test(path));
+    if (audio.length) {
+      const api = manifest.schemaVersion === 2 ? manifest.capabilityApi : null;
+      if (!api || api.major !== 1 || api.minor < 353) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["contributions", "assets", "paths"],
+          message: "Audio assets require schemaVersion 2 and capabilityApi 1.353 or newer",
+        });
+      }
+      for (const path of audio) {
+        const file = manifest.files.find((each) => each.path === path);
+        if (file && file.bytes > CAPABILITY_AUDIO_ASSET_MAX_BYTES) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["contributions", "assets", "paths"],
+            message: `${path} is larger than an audio asset can be (16 MB)`,
           });
         }
       }

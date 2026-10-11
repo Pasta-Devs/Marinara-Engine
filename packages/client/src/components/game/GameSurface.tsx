@@ -154,6 +154,7 @@ import { cn, generateClientId } from "../../lib/utils";
 import { GAME_DIALOG_CLASS, GAME_SECTION_CLASS } from "../../lib/chat-widget-colors";
 import { describeGameInventoryRefusal, gameInventoryRefusalKeys } from "../../lib/game-inventory-refusal";
 import { StoryClockStrip, useStoryJournal } from "./StoryClockDial";
+import { ExperienceCreaturePacksContext } from "./CreatureArt";
 import {
   filterAudioGenerationConnections,
   filterLanguageGenerationConnections,
@@ -2315,6 +2316,8 @@ function GameSurfaceComponent({
       : null;
   const mapPackQuery = useExperienceMapPack(mapPackId);
   const mapPackTiles = mapPackId && mapPackQuery.isLoading ? ("loading" as const) : (mapPackQuery.data?.tiles ?? null);
+  // Its creature packs (Capability API 1.352): the game's fights draw from them before the library's.
+  const mapPackCreatures = useMemo(() => mapPackQuery.data?.creatures ?? [], [mapPackQuery.data]);
   const artFamilyRef = useRef(artFamily);
   artFamilyRef.current = artFamily;
   useEffect(() => {
@@ -3987,7 +3990,10 @@ function GameSurfaceComponent({
   }, [messages]);
   const latestAssistantSwipeIndex = latestAssistantMsg?.activeSwipeIndex ?? 0;
   const latestAssistantTurnKey = narrationTurnKey(latestAssistantMsg);
-  const storyJournalQuery = useStoryJournal(chatMeta.gameStory != null ? activeChatId : null, latestAssistantTurnKey);
+  const storyJournalQuery = useStoryJournal(
+    chatMeta.gameStory != null || mapPackQuery.data?.music ? activeChatId : null,
+    latestAssistantTurnKey,
+  );
   const storyClocks = storyJournalQuery.data?.clocks ?? [];
   const storyEnding = storyJournalQuery.data?.ending ?? null;
   // The story's ending (Capability API 1.351), shown once per game until the player closes it.
@@ -8861,6 +8867,24 @@ function GameSurfaceComponent({
   );
 
   const combatUiActive = gameState === "combat" && !!combatParty && !!combatEnemies;
+  // The Experience's own music (Capability API 1.353): its fight track in a fight, else the track the
+  // Engine picked for here (the story's cue, the place's, the pack's default), over the Engine's own
+  // music. The player's own music source wins, and their volumes and mute apply as to any music.
+  const experienceMusic = mapPackQuery.data?.music;
+  const experienceTrack = experienceMusic
+    ? combatUiActive && experienceMusic.combat
+      ? experienceMusic.combat
+      : (storyJournalQuery.data?.music ?? null)
+    : null;
+  const experienceTrackUrl = experienceTrack ? (experienceMusic?.urls[experienceTrack] ?? null) : null;
+  useEffect(() => {
+    if (!mapPackId || !experienceTrack || !experienceTrackUrl || useMusicDjPlayerMusic || replayActive) {
+      audioManager.setExperienceMusic(null);
+      return;
+    }
+    audioManager.setExperienceMusic({ tag: `experience:${mapPackId}:${experienceTrack}`, url: experienceTrackUrl });
+  }, [experienceTrack, experienceTrackUrl, mapPackId, replayActive, useMusicDjPlayerMusic]);
+  useEffect(() => () => audioManager.setExperienceMusic(null), []);
   // The overworld (worldgen W8): a game with a world opens on it, and the player can switch to the scene
   // view and back. A fight, a replay and a package that draws the game itself keep their own screens.
   // A dungeon, cave or station map the Game Master opened with [map:] is shown over everything else,
@@ -12795,6 +12819,7 @@ function GameSurfaceComponent({
   };
 
   return (
+    <ExperienceCreaturePacksContext.Provider value={mapPackCreatures}>
     <div
       className={cn(
         "relative flex h-full overflow-hidden bg-black mari-card-css",
@@ -13180,7 +13205,11 @@ function GameSurfaceComponent({
                             data-component="GameSurface.MobileWidgetRailLeft"
                             className="relative z-10 flex shrink-0 items-center"
                           >
-                            <MobileWidgetPanel widgets={normalizedWidgets} position="hud_left" chatId={activeChatId} />
+                              <MobileWidgetPanel
+                                widgets={normalizedWidgets}
+                                position="hud_left"
+                                chatId={activeChatId}
+                              />
                           </div>
                           <div
                             data-component="GameSurface.MobileChoiceStack"
@@ -13197,7 +13226,11 @@ function GameSurfaceComponent({
                             data-component="GameSurface.MobileWidgetRailRight"
                             className="relative z-10 flex shrink-0 items-center"
                           >
-                            <MobileWidgetPanel widgets={normalizedWidgets} position="hud_right" chatId={activeChatId} />
+                              <MobileWidgetPanel
+                                widgets={normalizedWidgets}
+                                position="hud_right"
+                                chatId={activeChatId}
+                              />
                           </div>
                         </div>
                       ) : (
@@ -13344,7 +13377,8 @@ function GameSurfaceComponent({
                               enemies={combatEnemies}
                               difficulty={(combatSetupConfig?.difficulty as string | undefined) ?? "normal"}
                               initialState={
-                                (chatMeta.gameTacticalCombatSnapshot as TacticalCombatState | null | undefined) ?? null
+                                  (chatMeta.gameTacticalCombatSnapshot as TacticalCombatState | null | undefined) ??
+                                  null
                               }
                               environment={combatSceneMeta?.environmentType ?? null}
                               formation={combatSceneMeta?.formation ?? null}
@@ -13669,7 +13703,10 @@ function GameSurfaceComponent({
                                     ? "GM"
                                     : "System";
                               return (
-                                <div key={entry.id} className="rounded-lg border border-white/10 bg-black/25 px-3 py-2">
+                                  <div
+                                    key={entry.id}
+                                    className="rounded-lg border border-white/10 bg-black/25 px-3 py-2"
+                                  >
                                   <div className="mb-1 text-[0.65rem] font-semibold uppercase tracking-wide text-white/45">
                                     {label}
                                   </div>
@@ -14132,6 +14169,7 @@ function GameSurfaceComponent({
         </>
       )}
     </div>
+    </ExperienceCreaturePacksContext.Provider>
   );
 }
 

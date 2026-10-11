@@ -4,10 +4,15 @@
 // and checked as share files are. A game started with the Experience is locked to them.
 // ──────────────────────────────────────────────
 import {
+  parseCreaturePack,
   parseTilePack,
+  type CreaturePack,
   readWorldFile,
   readWorldKitFile,
   storyCapabilityMinor,
+  storyMusicCues,
+  compileGameWorld,
+  gameWorldFromSnapshot,
   type ExperienceMapPack,
   type TilePack,
 } from "@marinara-engine/shared";
@@ -17,10 +22,23 @@ import { cleanImageTilePack } from "./tile-pack-images.service.js";
 /** Map pack tiles already checked, by package, version and the tiles file's hash; the oldest go first. */
 const checkedTiles = new Map<string, TilePack>();
 const CHECKED_TILES_KEPT = 8;
+/** Map pack creature packs already checked, by package, version and file hash (their sheets are decoded
+ *  to be checked); the oldest go first. */
+const checkedCreatures = new Map<string, CreaturePack>();
+const CHECKED_CREATURES_KEPT = 16;
 
 export type MapPack = ExperienceMapPack;
 
 export type MapPackRead = { ok: true; pack: MapPack } | { ok: false; reason: string } | null;
+
+/** Where a package's asset is served, as the browser asks for it. */
+export function packageAssetUrl(packageId: string, version: string, path: string): string {
+  const encoded = path
+    .split("/")
+    .map((segment) => encodeURIComponent(segment))
+    .join("/");
+  return `/api/capability-packages/${encodeURIComponent(packageId)}/assets/${encoded}?v=${encodeURIComponent(version)}`;
+}
 
 /** Two values the same. Both sides always come out of the same parsers (the share file readers, the
  *  create route's schema and brief check), so their keys are in one order whatever order they were sent
@@ -53,6 +71,11 @@ export async function readMapPack(packageId: string): Promise<MapPackRead> {
     if (world.story?.intro && !declaresIntro) {
       return { ok: false, reason: `${path} sets an intro message, which needs Capability API 1.339` };
     }
+    // The tracks its story cues are the pack's own (1.353).
+    const missing = world.story
+      ? storyMusicCues(world.story).find((cue) => !files.music?.tracks.some((track) => track.id === cue))
+      : undefined;
+    if (missing) return { ok: false, reason: `${path}'s story cues the track "${missing}", which its music lacks` };
     // A story using clocks (1.350) or story actions (1.351) needs an Experience that declares them.
     const needs = world.story ? storyCapabilityMinor(world.story) : 0;
     if (needs && (!files.capabilityApi || files.capabilityApi.major !== 1 || files.capabilityApi.minor < needs)) {
@@ -89,7 +112,53 @@ export async function readMapPack(packageId: string): Promise<MapPackRead> {
       if (checkedTiles.size > CHECKED_TILES_KEPT) checkedTiles.delete(checkedTiles.keys().next().value!);
     }
   }
-  return { ok: true, pack: { packageId, name: files.name, kit: kit.kit, worlds, tiles } };
+  // Its music (1.353): a place a track is for is a place of one of its worlds.
+  let music: MapPack["music"];
+  if (files.music) {
+    const places = new Set(
+      worlds.flatMap(({ world, snapshot }) =>
+        (snapshot
+          ? gameWorldFromSnapshot(snapshot)
+          : { world: compileGameWorld({ kit: kit.kit, ...world }) }
+        ).world.places.map((place) => place.id),
+      ),
+    );
+    const stray = files.music.places?.find((each) => !places.has(each.place));
+    if (stray) return { ok: false, reason: `its music names the place "${stray.place}", which none of its worlds has` };
+    music = {
+      ...files.music,
+      urls: Object.fromEntries(
+        files.music.tracks.map((track) => [track.id, packageAssetUrl(packageId, files.version, track.path)]),
+      ),
+    };
+  }
+  // Its creature packs (1.352), each checked as the library checks one; one that does not read refuses all.
+  const creatures: CreaturePack[] = [];
+  for (const { path, data, sha256 } of files.creatures ?? []) {
+    const key = `${packageId}@${files.version}#${sha256}`;
+    const cached = checkedCreatures.get(key);
+    if (cached) {
+      creatures.push(cached);
+      continue;
+    }
+    const read = parseCreaturePack(data.toString("utf8"));
+    if (!read.ok) return { ok: false, reason: `${path} does not read: ${read.issues[0]}` };
+    creatures.push(read.pack);
+    checkedCreatures.set(key, read.pack);
+    if (checkedCreatures.size > CHECKED_CREATURES_KEPT) checkedCreatures.delete(checkedCreatures.keys().next().value!);
+  }
+  return {
+    ok: true,
+    pack: {
+      packageId,
+      name: files.name,
+      kit: kit.kit,
+      worlds,
+      tiles,
+      ...(creatures.length ? { creatures } : {}),
+      ...(music ? { music } : {}),
+    },
+  };
 }
 
 /** Why a new game's kit and world are not the ones its Experience's map pack locks it to, or nothing. */

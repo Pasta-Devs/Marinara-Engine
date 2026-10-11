@@ -46,7 +46,7 @@ export function useStoryJournal(chatId: string | null, turnKey: string | null) {
     queryKey: ["game", "world-journal", chatId, turnKey],
     queryFn: async () => {
       const journal = (await api.get<{ journal: WorldJournal | null }>(`/game/${chatId}/world-journal`)).journal;
-      return { clocks: journal?.clocks ?? [], ending: journal?.ending ?? null };
+      return { clocks: journal?.clocks ?? [], ending: journal?.ending ?? null, music: journal?.music ?? null };
     },
     enabled: Boolean(chatId),
     staleTime: 30_000,

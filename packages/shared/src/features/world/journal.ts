@@ -42,6 +42,9 @@ export interface WorldJournal {
   clocks?: import("./story.js").StoryClock[];
   /** The ending the story has had (Capability API 1.351), once it has. */
   ending?: { id: string; title: string; epilogue: string };
+  /** The game's Experience track for here (Capability API 1.353): null when none applies. Left out for a
+   *  game without Experience music. */
+  music?: string | null;
 }
 
 /** How many of each the tab shows. */

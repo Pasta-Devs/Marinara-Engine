@@ -22,6 +22,7 @@ import {
   gameStoryFromMetadata,
   readStoryLedger,
   storyClocks,
+  experienceTrackHere,
   storyEndingOf,
   storyObjectives,
   storyScriptSchema,
@@ -59,6 +60,7 @@ import { carryGameInventory, rulesetInventedItemRef } from "@marinara-engine/sha
 import { eq } from "../db/file-query.js";
 import { IMPORTED_GAME_ENGINE_ANCHOR_PREFIX } from "../db/file-backed-store.js";
 import { chats as chatsTable } from "../db/schema/index.js";
+import { capabilityPackageManager } from "../services/capability-packages/package-manager.service.js";
 import { mapPackLockIssue, readMapPack, type MapPack } from "../services/game/map-pack.service.js";
 import {
   editsStoryRefusal,
@@ -7166,7 +7168,8 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
       ...(setupConfig.worldKit ? { gameWorldKit: setupConfig.worldKit } : {}),
       ...(gameWorld ? { gameWorld } : {}),
       // The game draws with its map pack's tiles while the Experience is installed.
-      ...(mapPack?.tiles ? { gameMapPack: { packageId: mapPack.packageId } } : {}),
+      // Kept for what the game draws and plays with its pack: its tiles, creature art, music and people.
+      ...(mapPack ? { gameMapPack: { packageId: mapPack.packageId } } : {}),
       ...(gameStory ? { gameStory } : {}),
       gameNpcs: [],
       enableAgents: setupConfig.enableAgents === true,
@@ -11319,12 +11322,27 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     const story = gameStoryFromMetadata(meta, world);
     const storyNow = story ? storyState(story, readStoryLedger(replies.all)) : null;
     const clocks = story && storyNow ? storyClocks(story, storyNow) : [];
+    // The Experience's own track for here (1.353): the story's cue, else the place's, else its default.
+    const packId = (meta.gameMapPack as { packageId?: unknown } | undefined)?.packageId;
+    const packMusic = typeof packId === "string" ? await capabilityPackageManager.mapPackMusic(packId) : null;
+    const walking = worldWalkFromMetadata(meta);
+    const music = packMusic
+      ? experienceTrackHere(
+          packMusic,
+          world,
+          walking?.to ??
+            (place?.name ? worldPlaceByName(world.world, place.name)?.id : undefined) ??
+            world.world.startId,
+          storyNow?.music,
+        )
+      : undefined;
     return {
       journal: {
         ...worldJournal(world, worldPresent(world, replies.ledger), { name: place?.name }),
         ...(story && storyNow ? { story: storyObjectives(story, storyNow) } : {}),
         ...(clocks.length ? { clocks } : {}),
         ...(story && storyNow?.ended ? { ending: storyEndingOf(story, storyNow.ended) } : {}),
+        ...(music !== undefined ? { music } : {}),
       },
     };
   });
