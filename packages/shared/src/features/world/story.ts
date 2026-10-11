@@ -159,7 +159,10 @@ const worldDeed = z
  *  any other by its name, made as the Game Master's own would be. */
 const storyGive = z
   .object({
-    item: z.string().min(1).max(120),
+    /** From 1.378 also a bare entry id (`fennicks-hymnal`), given from whichever catalog of the game's
+     *  ruleset has it, or a list of alternatives, the first the ruleset offers given: one script for
+     *  two rulesets. */
+    item: z.union([z.string().min(1).max(120), z.array(z.string().min(1).max(120)).min(1).max(8)]),
     count: z.number().int().min(1).max(99).optional(),
     /** Whose bag: a party member by name; the player's when left out. */
     who: tagWord(80).optional(),
@@ -586,6 +589,27 @@ export function storyIsRef(value: string): boolean {
   return STORY_REF.test(value);
 }
 
+const STORY_BARE_ENTRY = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+/** A bare catalog entry id (1.378), given from whichever catalog of the game's ruleset has it. */
+export function storyIsBareEntry(value: string): boolean {
+  return STORY_BARE_ENTRY.test(value);
+}
+
+/** The items a give names, its alternatives in order (1.378). */
+export function storyGiveItems(give: { item: string | readonly string[] }): readonly string[] {
+  return typeof give.item === "string" ? [give.item] : give.item;
+}
+
+/** Whether a give names the ruleset's own items, by id or bare entry id, so the game's book is read. */
+export function storyGivesById(story: StoryScript): boolean {
+  return story.events.some((event) =>
+    event.do.some(
+      (action) =>
+        "give" in action && storyGiveItems(action.give).some((item) => storyIsRef(item) || storyIsBareEntry(item)),
+    ),
+  );
+}
+
 /** A person of the world by their id (`<place id>-<n>`, or `-e<n>` for one added by hand). */
 export function storyPerson(game: GameWorld, personId: string): WorldPerson | undefined {
   const match = /^(.+)-e?\d+$/.exec(personId);
@@ -822,7 +846,7 @@ export function checkStoryScript(
         placeOk(action.move, where);
         if (event.repeat && when.on === "arrive") issues.push(`${where}: it moves the party, every time it arrives.`);
       } else if ("give" in action) {
-        if (!storyIsRef(action.give.item) && !action.give.item.trim()) issues.push(`${where}: give needs an item.`);
+        if (storyGiveItems(action.give).some((item) => !item.trim())) issues.push(`${where}: give needs an item.`);
       } else if ("world" in action) {
         const deed = action.world;
         if (NEEDS_GROUP.includes(deed.deed) && !deed.group) issues.push(`${where}: ${deed.deed} needs a group.`);
@@ -1168,7 +1192,7 @@ export function storyCompanionsNamed(story: StoryScript): string[] {
   ];
 }
 
-/** The Capability API minor a script needs: 1.377 for held ground's release, 1.376 for sheet actions, 1.374 for held ground, 1.373 for exposures spared by a shade, 1.372 for exposure saves and stops, 1.371 for fight adjusts,
+/** The Capability API minor a script needs: 1.378 for gives by bare entry id or alternatives, 1.377 for held ground's release, 1.376 for sheet actions, 1.374 for held ground, 1.373 for exposures spared by a shade, 1.372 for exposure saves and stops, 1.371 for fight adjusts,
  *  1.370 for exposures, 1.369 for holds over everything inside, 1.368 for party size conditions and variants for parties above
  *  six, 1.366 for its reach, 1.364 for fight variants, 1.361 for more than 64 flags, 1.359 for held seasons, 1.357 for rest, travel and idle events, party conditions and more
  *  than 128 events, 1.356 for knowledge, 1.355 for companions, 1.353 for music cues, 1.351 for fights, endings and its give, move, fight and
@@ -1187,6 +1211,14 @@ export function storyCapabilityMinor(story: StoryScript): number {
     fight.creatures,
     ...(fight.variants ?? []).map((variant) => variant.creatures),
   ]);
+  if (
+    story.events.some((event) =>
+      event.do.some(
+        (action) => "give" in action && (typeof action.give.item !== "string" || storyIsBareEntry(action.give.item)),
+      ),
+    )
+  )
+    return 378;
   if (story.heldGround.some((held) => held.release)) return 377;
   if (story.events.some((event) => event.do.some((action) => "sheet" in action))) return 376;
   if (story.heldGround.length) return 374;
@@ -1683,15 +1715,20 @@ export type StoryItemLabel = (ref: string) => string | undefined;
 /** An item the story gives, as an inventory tag for the reply's inventory to answer like the Game
  *  Master's; or why it cannot be given: an id the game's ruleset does not offer. */
 function storyGiveTag(give: Extract<StoryAction, { give: unknown }>["give"], label: StoryItemLabel | undefined) {
-  const named = storyIsRef(give.item) ? label?.(give.item) : give.item.trim();
-  if (!named) return { refused: give.item, tag: undefined };
+  const items = storyGiveItems(give);
+  // The first the ruleset offers (1.378): an id, or a bare entry id in whichever catalog has it; else the
+  // first by name. A lone bare id the ruleset has not is a name, as it always was.
+  const found = items.find((each) => (storyIsRef(each) || storyIsBareEntry(each)) && label?.(each));
+  const byName = items.find((each) => !storyIsRef(each) && (items.length === 1 || !storyIsBareEntry(each)));
+  const named = found ? label!(found) : byName?.trim();
+  if (!named) return { refused: items.join("|"), tag: undefined };
   const clean = (text: string) => text.replace(/["[\]]/g, "");
   const parts = [
     `action="add"`,
     `item="${clean(named)}"`,
     `count="${give.count ?? 1}"`,
     ...(give.who ? [`who="${clean(give.who)}"`] : []),
-    ...(give.summary && !storyIsRef(give.item) ? [`summary="${clean(give.summary)}"`] : []),
+    ...(give.summary && !found ? [`summary="${clean(give.summary)}"`] : []),
   ];
   return { tag: `[inventory: ${parts.join(" ")}]`, refused: undefined };
 }

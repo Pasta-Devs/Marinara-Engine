@@ -16,6 +16,7 @@ import {
   WORLD_STARTER_KITS,
   applyStoryTags,
   checkStoryScript,
+  storyCapabilityMinor,
   checkWorldBrief,
   compileGameWorld,
   parseWorldKit,
@@ -278,5 +279,60 @@ assert.deepEqual(
   told.filled.map((each) => each.flag),
   ["reeve"],
 );
+
+// ── A give by bare entry id, or by alternatives (1.378): one script for two rulesets ──
+{
+  const twoRulesets = checkStoryScript(game, {
+    ...input,
+    events: [
+      {
+        id: "hymnal",
+        when: { on: "start" },
+        do: [
+          { give: { item: ["magic_items/fennicks-hymnal", "equipment/fennicks-hymnal"] } },
+          { give: { item: "fennicks-hymnal" } },
+          { give: { item: ["magic_items/none", "equipment/none"] } },
+          { give: { item: ["magic_items/none", "A Straw Hat"] } },
+        ],
+      },
+    ],
+  });
+  assert.ok(twoRulesets.ok, JSON.stringify(twoRulesets));
+  assert.equal(storyCapabilityMinor(twoRulesets.story), 378);
+  // The kenhito-dnd5e book: the hymnal is in its equipment, and a bare id finds it there.
+  const offered: Record<string, string> = {
+    "equipment/fennicks-hymnal": "Fennick's Hymnal",
+    "fennicks-hymnal": "Fennick's Hymnal",
+  };
+  const turn = storyTurn(twoRulesets.story, {
+    game,
+    replies: [],
+    repliesBefore: 0,
+    latest: null,
+    told: [],
+    day: 0,
+    fight: null,
+    item: (ref) => offered[ref],
+  });
+  const gives = turn.prepend.match(/\[inventory: [^\]]*\]/g) ?? [];
+  assert.deepEqual(gives, [
+    '[inventory: action="add" item="Fennick\'s Hymnal" count="1"]',
+    '[inventory: action="add" item="Fennick\'s Hymnal" count="1"]',
+    '[inventory: action="add" item="A Straw Hat" count="1"]',
+  ]);
+  assert.match(turn.prepend, /give="magic_items\/none\|equipment\/none" result="refused"/, "none offered");
+  // A lone bare id nothing offers is a name, as it always was.
+  const plainTurn = storyTurn(twoRulesets.story, {
+    game,
+    replies: [],
+    repliesBefore: 0,
+    latest: null,
+    told: [],
+    day: 0,
+    fight: null,
+    item: () => undefined,
+  });
+  assert.match(plainTurn.prepend, /item="fennicks-hymnal"/);
+}
 
 console.log("world-story-actions: ok");

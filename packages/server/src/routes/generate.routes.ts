@@ -237,6 +237,7 @@ import {
   gameStoryFromMetadata,
   readToldLedger,
   refuseStoryTags,
+  storyGivesById,
   storyIsRef,
   type StoryItemLabel,
   readStoryLedger,
@@ -2146,14 +2147,18 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 const present = worldPresent(game, [...before, ...toldEntries]);
                 const own = replies.all.slice(replies.carried?.tags ? 1 : 0);
                 // The ruleset's items the story gives by id (1.351), read only when it gives any.
-                const givesById = story.events.some((event) =>
-                  event.do.some((action) => "give" in action && storyIsRef(action.give.item)),
-                );
+                const givesById = storyGivesById(story);
                 const book = givesById
                   ? await loadGameInventoryItemBook(app.db, { chatId: input.chatId }, "game-master")
                   : undefined;
                 const item: StoryItemLabel | undefined = book
-                  ? (ref) => (book.offers(ref) ? book.itemOf(ref)?.name : undefined)
+                  ? (ref) => {
+                      // A bare entry id (1.378) is the first catalog's entry of that id the game offers.
+                      const id = storyIsRef(ref)
+                        ? ref
+                        : book.entries.find((entry) => entry.item.endsWith(`/${ref}`) && book.offers(entry.item))?.item;
+                      return id && book.offers(id) ? book.itemOf(id)?.name : undefined;
+                    }
                   : undefined;
                 // The party's sheets, read only for exposures that ask a save or are kept off by a shade.
                 const exposureSheets = story.exposures.some((exposure) => exposure.save || exposure.sparedByShade)
