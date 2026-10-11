@@ -23,6 +23,7 @@ import {
 import {
   buildRulesetRegistry,
   resolveGameRuleset,
+  type RegisteredRuleset,
   type RulesetRegistry,
 } from "../../packages/server/src/services/game/ruleset-registry.service.js";
 import { loadRulesetCatalogEntries } from "../../packages/server/src/services/game/ruleset-catalog.service.js";
@@ -118,6 +119,56 @@ for (const meta of [{ gameRuleset: pin }, { gameRuleset: pin, gameMapPack: { pac
     plain.status === "ok" && !plain.definition.sheet.live.conditions.some((each) => each.id === "owed_frost_held"),
   );
 }
+
+// One ruleset imported (`local/<id>`) or from a repository (`<owner>/<id>`) plays the overlay for its bare
+// id, and one for its exact id wins over that.
+const community = (id: string): RegisteredRuleset => {
+  const definition = { ...base, id };
+  return { definition, packageId: null, versions: new Map([[base.version, definition]]) };
+};
+const exactOverlay: ExperienceRulesetOverlay = {
+  ...overlay,
+  sheetConditions: [{ id: "owed_frost_exact", label: "Held by the Frost (exact)" }],
+  conditions: [{ condition: "owed_frost_exact", effects: ["own-attacks-disadvantage"] }],
+};
+const namespaced: RulesetRegistry = Object.assign(
+  new Map([
+    ["local/5e-2014", community("local/5e-2014")],
+    ["alice/5e-2014", community("alice/5e-2014")],
+    ["bob/5e-2014", community("bob/5e-2014")],
+  ]),
+  {
+    overlays: new Map([
+      ["held-autumn\n5e-2014", { overlay, sha256: "b".repeat(64) }],
+      ["held-autumn\nbob/5e-2014", { overlay: exactOverlay, sha256: "c".repeat(64) }],
+    ]),
+  },
+);
+const playedAs = (id: string) => {
+  const played = resolveGameRuleset(
+    {
+      gameRuleset: { id, version: base.version, packageId: null, options: {} },
+      gameMapPack: { packageId: "held-autumn" },
+    },
+    namespaced,
+  );
+  assert.equal(played.status, "ok", JSON.stringify(played));
+  return played.status === "ok" ? played.definition : base;
+};
+for (const id of ["local/5e-2014", "alice/5e-2014"]) {
+  const played = playedAs(id);
+  assert.equal(played.id, id);
+  assert.ok(
+    played.sheet.live.conditions.some((each) => each.id === "owed_frost_held"),
+    `${id} plays the bare overlay`,
+  );
+}
+const bob = playedAs("bob/5e-2014");
+assert.ok(
+  bob.sheet.live.conditions.some((each) => each.id === "owed_frost_exact"),
+  "the exact overlay wins",
+);
+assert.ok(!bob.sheet.live.conditions.some((each) => each.id === "owed_frost_held"));
 
 // ── The manifest names them ──
 const manifest = (rulesets: unknown, minor = 363) =>

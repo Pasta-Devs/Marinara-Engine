@@ -1389,7 +1389,9 @@ creatures, conditions and items, which are not the ruleset package's to ship.
                                         { "ruleset": "dnd5e", "overlay": "rules/dnd5e.overlay.json" }] }
 ```
 
-Each `.overlay.json` (declared as an asset like the pack's other files) is for one ruleset, by its id:
+Each `.overlay.json` (declared as an asset like the pack's other files) is for one ruleset, by its id. A
+ruleset imported from a file (`local/<id>`) or a repository (`<owner>/<id>`) plays the overlay for its bare
+id, unless the pack names its exact id too:
 
 ```json
 { "overlayVersion": 1,

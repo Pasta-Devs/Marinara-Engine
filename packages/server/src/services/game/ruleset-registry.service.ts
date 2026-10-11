@@ -75,7 +75,11 @@ function withExperienceOverlay(
 ): RulesetDefinition {
   const packId = (metadata.gameMapPack as { packageId?: unknown } | undefined)?.packageId;
   if (typeof packId !== "string" || !registry.overlays?.size) return definition;
-  const found = registry.overlays.get(`${packId}\n${ref.id}`);
+  // One ruleset plays under its bare id (a package), `local/<id>` (imported from a file) or `<owner>/<id>`
+  // (from a repository): an overlay for its exact id wins, else the one for its bare id.
+  const found =
+    registry.overlays.get(`${packId}\n${ref.id}`) ??
+    registry.overlays.get(`${packId}\n${ref.id.replace(/^[^/]+\//u, "")}`);
   if (!found) return definition;
   const key = `${found.sha256}\n${ref.id}\n${definition.version}\n${JSON.stringify(ref.options)}`;
   let merged = mergedOverlays.get(key);
