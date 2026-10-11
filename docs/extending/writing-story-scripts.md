@@ -239,7 +239,7 @@ with fight `variants` needs 1.364, and one with `any` conditions, a `fight` even
 `leave` event, a flag's `min` or `max`, or an `if` on an action or a page needs 1.366, and one with a
 `partySize` condition, a variant for a party above 6 or open-ended, or more than 6 variants needs 1.368, and one
 with a `season` action `over` everything inside it needs 1.369, one with `exposures` needs 1.370, one
-whose fight creatures `adjust` needs 1.371, and one with an exposure `save` or a track's `upTo` needs 1.372. A companion is a person of the pack's people file marked
+whose fight creatures `adjust` needs 1.371, one with an exposure `save` or a track's `upTo` needs 1.372, and one with an exposure `sparedByShade` needs 1.373. A companion is a person of the pack's people file marked
 as one (see the map pack's people in [optional agent packages](../development/optional-agent-packages.md)).
 
 Of the `rest`, `travel` and `idle` events that could happen on one turn, only one does: the one with the
@@ -281,6 +281,11 @@ fail take its tracks and conditions, each with their own sheet command. `against
 against, so a save modifier narrowed to it counts outside a fight as it does inside one: an overlay's straw
 hat with `{ "to": "saves", "mode": "advantage", "against": { "conditions": ["noon_light"] } }` gives its
 wearer advantage. The Game Master is told who saved and who failed, with the totals.
+
+With `"sparedByShade": true` (Capability API 1.373), a shade carried lit by any of the party keeps an
+exposure off, as `if` not holding does: an item whose worn or carried `light` has `"shade": true` (the
+showcase's Lantern of Dusk), one with a switch only while it is on. Lighting it ends the exposure; putting
+it out starts it afresh.
 
 ### Seasons
 

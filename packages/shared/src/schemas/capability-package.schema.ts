@@ -1420,7 +1420,9 @@ const capabilityPackageManifestBaseSchema = z
 // 1.372: a story's exposure may ask a `save` ({ save, difficulty, against? }, as a light rule's 1.316) that
 //        each of the party rolls off their own sheet, only failures taking its tracks and conditions; a
 //        track it moves may stop at `upTo`. A sheet command's `op="track"` takes `upto=` the same way.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 372 } as const);
+// 1.373: a story's exposure may be `sparedByShade`: a shade carried lit by any of the party (an item whose
+//        light has `shade`, switched on where it has a switch) keeps it off, as its `if` not holding does.
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 373 } as const);
 
 const capabilityApiVersionSchema = z
   .object({

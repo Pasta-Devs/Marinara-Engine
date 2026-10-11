@@ -59,7 +59,11 @@ import {
   storyPartyNames,
   syncCompanionSheets,
 } from "../services/game/experience-companions.service.js";
-import { rollStoryExposureSaves } from "../services/game/story-exposure-saves.service.js";
+import {
+  loadStoryExposureSheets,
+  rollStoryExposureSavesWith,
+  storyPartyCarriesShade,
+} from "../services/game/story-exposure-saves.service.js";
 import { gameStorySpends } from "../services/game/story-item-uses.service.js";
 import {
   createAdvancedMemoryService,
@@ -2151,6 +2155,13 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 const item: StoryItemLabel | undefined = book
                   ? (ref) => (book.offers(ref) ? book.itemOf(ref)?.name : undefined)
                   : undefined;
+                // The party's sheets, read only for exposures that ask a save or are kept off by a shade.
+                const exposureSheets = story.exposures.some((exposure) => exposure.save || exposure.sparedByShade)
+                  ? await loadStoryExposureSheets(app.db, input.chatId, {
+                      live: parseStoredRulesetLive((await turnStartRulesetSnapshot())?.rulesetLive),
+                      regenerateMessageId: input.regenerateMessageId ?? null,
+                    })
+                  : null;
                 const storyTold = storyTurn(story, {
                     item,
                     game,
@@ -2171,6 +2182,8 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                     spends: gameStorySpends(chatMeta),
                     // The game's clock, for what being in a place does over time (1.370).
                     clock: gameClockMinutes(chatMeta.gameTime),
+                  // A shade carried lit (1.373), for the exposures it keeps off.
+                  shade: storyPartyCarriesShade(exposureSheets),
                     player: input.userMessage ?? null,
                     // The cells this turn's walks walked (map events): in town, and on a map made by hand.
                     steps: [
@@ -2181,12 +2194,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                     ],
                 });
                 // The saves its exposures owe (1.372), rolled off the sheets this turn starts from.
-                const turn = storyTold.saves.length
-                  ? await rollStoryExposureSaves(app.db, input.chatId, chatMeta, storyTold, {
-                      live: parseStoredRulesetLive((await turnStartRulesetSnapshot())?.rulesetLive),
-                      regenerateMessageId: input.regenerateMessageId ?? null,
-                    })
-                  : storyTold;
+                const turn = rollStoryExposureSavesWith(exposureSheets, chatMeta, storyTold);
                 return { story, game, item, turn };
               })()
             : Promise.resolve(null));

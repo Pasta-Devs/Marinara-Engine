@@ -7,6 +7,7 @@
 // ──────────────────────────────────────────────
 import {
   normalizeCharacterLookupName,
+  rulesetItemsShedShade,
   storyExposureSaveOutcome,
   type RulesetLiveStates,
   type StoryExposureSaveRoll,
@@ -37,27 +38,30 @@ function partyMembers(meta: Record<string, unknown>, context: SkillCheckModifier
   return names;
 }
 
-/** Roll the saves a story turn owes and fold what they cost into it. A turn that owes none is returned
- *  as it is. A member's save the ruleset will not roll (untrained in it) counts as failed; a game with no
- *  sheets to roll on has nobody to mark, and its tell says so. */
-export async function rollStoryExposureSaves(
+/** The party's sheets and what they hold, as this turn starts, for a story's exposures (1.372, 1.373):
+ *  null when the game has none the Engine can read. */
+export async function loadStoryExposureSheets(
   db: DB,
   chatId: string,
-  meta: Record<string, unknown>,
-  turn: StoryTurn,
-  options: { live?: RulesetLiveStates | null; regenerateMessageId?: string | null; rollD20?: () => number } = {},
-): Promise<StoryTurn> {
-  if (!turn.saves.length) return turn;
-  let context: SkillCheckModifierContext | null = null;
+  options: { live?: RulesetLiveStates | null; regenerateMessageId?: string | null } = {},
+): Promise<SkillCheckModifierContext | null> {
   try {
-    context = await loadSkillCheckModifierContext(db, chatId, options.live, options.regenerateMessageId);
+    const context = await loadSkillCheckModifierContext(db, chatId, options.live, options.regenerateMessageId);
+    return context.ruleset ? context : null;
   } catch (error) {
-    logger.warn(error, "[game/story] Exposure saves for chat %s could not read the party's sheets", chatId);
+    logger.warn(error, "[game/story] Exposures for chat %s could not read the party's sheets", chatId);
+    return null;
   }
-  return rollStoryExposureSavesWith(context, meta, turn, options.rollD20);
 }
 
-/** The same, on sheets already read. */
+/** Whether any of the party carries a shade lit (1.373): a Lantern of Dusk keeps an exposure off. */
+export function storyPartyCarriesShade(context: SkillCheckModifierContext | null): boolean {
+  return [...(context?.ruleset?.items.values() ?? [])].some((items) => rulesetItemsShedShade(items));
+}
+
+/** Roll the saves a story turn owes, on the party's sheets, and fold what they cost into it. A turn that
+ *  owes none is returned as it is. A member's save the ruleset will not roll (untrained in it) counts as
+ *  failed; a game with no sheets to roll on has nobody to mark, and its tell says so. */
 export function rollStoryExposureSavesWith(
   context: SkillCheckModifierContext | null,
   meta: Record<string, unknown>,

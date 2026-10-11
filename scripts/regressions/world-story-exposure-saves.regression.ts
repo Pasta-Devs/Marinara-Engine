@@ -7,6 +7,8 @@
  *     `against: { conditions: ["noon_light"] }`) counts outside a fight as it does inside one.
  *   - A track's `upTo` stops the move there (`upto=` on the sheet command): never past it, and never
  *     moving one already beyond it. It works on an exposure without a save as well.
+ *   - `sparedByShade` (1.373): a shade carried lit by any of the party (a Lantern of Dusk) keeps it off,
+ *     as its `if` not holding does; a switched item counts only while on.
  */
 import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync } from "node:fs";
@@ -26,6 +28,7 @@ import {
   parseRulesetDefinition,
   parseSheetCommandTagBody,
   parseWorldKit,
+  rulesetItemsShedShade,
   storyCapabilityMinor,
   storyExposureSaveOutcome,
   storyTurn,
@@ -36,11 +39,13 @@ import {
 const dataDir = mkdtempSync(join(tmpdir(), "marinara-exposure-saves-"));
 process.env.DATA_DIR = dataDir;
 process.env.FILE_STORAGE_DIR = join(dataDir, "storage");
-const [{ buildSkillCheckRulesetContext, resolveSkillCheckWithContext }, { rollStoryExposureSavesWith }] =
-  await Promise.all([
-    import("../../packages/server/src/services/game/skill-check-resolution.service.js"),
-    import("../../packages/server/src/services/game/story-exposure-saves.service.js"),
-  ]);
+const [
+  { buildSkillCheckRulesetContext, resolveSkillCheckWithContext },
+  { rollStoryExposureSavesWith, storyPartyCarriesShade },
+] = await Promise.all([
+  import("../../packages/server/src/services/game/skill-check-resolution.service.js"),
+  import("../../packages/server/src/services/game/story-exposure-saves.service.js"),
+]);
 
 // ── The script ──
 const parsedKit = parseWorldKit(WORLD_STARTER_KITS.find((each) => each.id === "high_fantasy")!);
@@ -225,6 +230,55 @@ assert.deepEqual(
   [{ op: "track", track: "exhaustion", by: 2, upTo: 3 }],
 );
 
+// ── Spared by a shade (1.373) ──
+const shaded = checkStoryScript(game, {
+  ...input,
+  exposures: [{ ...input.exposures![0]!, sparedByShade: true }],
+});
+assert.ok(shaded.ok, JSON.stringify(shaded));
+assert.equal(storyCapabilityMinor(shaded.story), 373);
+const shadeTurn = (replies: string[], clock: number, shade: boolean) =>
+  storyTurn(shaded.story, {
+    game,
+    replies,
+    repliesBefore: replies.length,
+    latest: replies.at(-1) ?? null,
+    told: [],
+    day: 0,
+    fight: null,
+    clock,
+    shade,
+  });
+assert.equal(shadeTurn([], 600, true).prepend, "", "a lantern lit: it never starts");
+const begun = shadeTurn([], 600, false);
+assert.match(begun.prepend, /since="600"/);
+const lit = shadeTurn([`${begun.prepend}Out.`], 720, true);
+assert.match(lit.prepend, /exposure="noonfield" since="" bitten="0"/, "lit later: it ends");
+assert.deepEqual(lit.saves, []);
+// What counts as a shade carried lit.
+const lantern = {
+  id: "lantern_of_dusk",
+  name: "Lantern of Dusk",
+  carried: { light: { bright: 0, dim: 15, shade: true as const } },
+};
+const hooded = { ...lantern, toggle: { label: "Unhood", budget: "action" } };
+const torch = { id: "torch", name: "Torch", carried: { light: { bright: 20, dim: 20 } } };
+const held = (item: object, extra: object = {}) => ({ item, quantity: 1, worn: false, ...extra }) as never;
+assert.equal(rulesetItemsShedShade([held(lantern)]), true);
+assert.equal(rulesetItemsShedShade([held(torch)]), false);
+assert.equal(rulesetItemsShedShade([held(hooded)]), false, "switched off");
+assert.equal(rulesetItemsShedShade([held(hooded, { on: true })]), true);
+assert.equal(
+  rulesetItemsShedShade([held({ ...lantern, carried: undefined, worn: lantern.carried }, { worn: true })]),
+  true,
+);
+const carrying = buildSkillCheckRulesetContext(fiveE, cards, cards[0], {}, undefined, (name) =>
+  name === "Liesl" ? [held(lantern)] : [],
+);
+assert.equal(storyPartyCarriesShade({ skills: null, attributes: null, sheetAttributes: {}, ruleset: carrying }), true);
+assert.equal(storyPartyCarriesShade(context), false);
+assert.equal(storyPartyCarriesShade(null), false);
+
 console.log(
-  "Story exposure saves: each of the party rolls, only failures are marked, and a track stops where it says.",
+  "Story exposure saves: each of the party rolls, only failures are marked, a track stops where it says, and a shade carried lit spares them.",
 );

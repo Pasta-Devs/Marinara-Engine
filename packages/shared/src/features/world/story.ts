@@ -356,6 +356,9 @@ export const storyScriptSchema = z
               })
               .strict()
               .optional(),
+            /** A shade carried lit by any of the party (a Lantern of Dusk, an item whose light `shade`s)
+             *  keeps it off, as `if` not holding does (1.373). */
+            sparedByShade: z.literal(true).optional(),
             if: conditions,
             /** For the Game Master, each time it bites. */
             tell: promptSafeText(300).optional(),
@@ -1075,7 +1078,7 @@ export function storyCompanionsNamed(story: StoryScript): string[] {
   ];
 }
 
-/** The Capability API minor a script needs: 1.372 for exposure saves and stops, 1.371 for fight adjusts,
+/** The Capability API minor a script needs: 1.373 for exposures spared by a shade, 1.372 for exposure saves and stops, 1.371 for fight adjusts,
  *  1.370 for exposures, 1.369 for holds over everything inside, 1.368 for party size conditions and variants for parties above
  *  six, 1.366 for its reach, 1.364 for fight variants, 1.361 for more than 64 flags, 1.359 for held seasons, 1.357 for rest, travel and idle events, party conditions and more
  *  than 128 events, 1.356 for knowledge, 1.355 for companions, 1.353 for music cues, 1.351 for fights, endings and its give, move, fight and
@@ -1094,6 +1097,7 @@ export function storyCapabilityMinor(story: StoryScript): number {
     fight.creatures,
     ...(fight.variants ?? []).map((variant) => variant.creatures),
   ]);
+  if (story.exposures.some((exposure) => exposure.sparedByShade)) return 373;
   if (story.exposures.some((exposure) => exposure.save || exposure.tracks?.some((moved) => moved.upTo !== undefined)))
     return 372;
   if (fightLists.some((list) => list.some((each) => each.adjust))) return 371;
@@ -1294,6 +1298,8 @@ export interface StoryTurnWorld {
   fight: StoryFightOutcome | null;
   /** The game's clock, in minutes from its start (1.370), for what being in a place does over time. */
   clock?: number;
+  /** Whether any of the party carries a shade lit (1.373), for an exposure `sparedByShade`. */
+  shade?: boolean;
   /** What items' uses spent of story numbers in fights (1.367); those not yet recorded are, this turn. */
   spends?: readonly StorySpend[];
   /** What this turn's player message says a fight broke (1.311), by label. */
@@ -1803,7 +1809,10 @@ export function storyTurn(story: StoryScript, world: StoryTurnWorld): StoryTurn 
     const running = { ...(state.exposures ?? {}) };
     for (const exposure of story.exposures) {
       const now = running[exposure.id];
-      const there = inside(at, exposure.place) && storyConditionsHold(exposure.if, flags, party);
+      const there =
+        inside(at, exposure.place) &&
+        storyConditionsHold(exposure.if, flags, party) &&
+        !(exposure.sparedByShade && world.shade);
       let record: { id: string; since: number | null; bitten: number } | null = null;
       if (there && !now) record = { id: exposure.id, since: world.clock, bitten: 0 };
       else if (!there && now) record = { id: exposure.id, since: null, bitten: 0 };
