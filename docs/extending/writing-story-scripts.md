@@ -109,6 +109,10 @@ must hold. A yes-or-no flag is only compared with `=` or `!=`.
 `{ "party": "<person id>", "is": "in" | "out" }` asks whether a person of the world travels with the
 party now, such as a companion the story recruited (Capability API 1.357).
 
+`{ "partySize": { "is": "=" | "!=" | ">" | ">=" | "<" | "<=", "value": <1 to 32> } }` asks how many the
+party is: the player's character and every companion travelling with it, but for companions who never
+fight (Capability API 1.368). It holds only when the Engine knows the party's size.
+
 `{ "any": [<condition>, <condition>, ...] }` holds when any one of its 2 to 8 conditions does (Capability
 API 1.366): an either-or in one list, in place of two events.
 
@@ -222,7 +226,8 @@ recruits or dismisses companions needs 1.355, one with knowledge needs 1.356, an
 `travel` or `idle` events, a `priority`, a `party` condition or more than 128 events needs 1.357, and one
 with `seasons` or the `season` action needs 1.359, one with more than 64 flags needs 1.361, and one
 with fight `variants` needs 1.364, and one with `any` conditions, a `fight` event naming its fight, a
-`leave` event, a flag's `min` or `max`, or an `if` on an action or a page needs 1.366. A companion is a person of the pack's people file marked
+`leave` event, a flag's `min` or `max`, or an `if` on an action or a page needs 1.366, and one with a
+`partySize` condition, a variant for a party above 6 or open-ended, or more than 6 variants needs 1.368. A companion is a person of the pack's people file marked
 as one (see the map pack's people in [optional agent packages](../development/optional-agent-packages.md)).
 
 Of the `rest`, `travel` and `idle` events that could happen on one turn, only one does: the one with the
@@ -267,7 +272,7 @@ is a board painted by hand in the world (`b<n>`), fought on wherever the fight s
 fight is fought where it starts, as any other. `note` tells the Game Master how it comes about.
 
 A fight can be set for parties of other sizes (Capability API 1.364). The party is the player's character
-and every companion travelling with it, from 1 to 6.
+and every companion travelling with it, but for a companion marked `noncombatant` (1.368).
 
 ```json
 "variants": [
@@ -279,7 +284,8 @@ and every companion travelling with it, from 1 to 6.
 
 The variant whose `party` holds the party's size is fought, with its own creatures, and its own
 `battlefield` and `note` when it gives them (the fight's otherwise). A party no variant holds fights the
-fight as written. No size may be held by two variants. The Game Master is told which party size the fight
+fight as written. No size may be held by two variants. A `party` names sizes up to 32; a range without
+a `max` (`{ "min": 7 }`, Capability API 1.368) holds every party from its `min` up, however large. The Game Master is told which party size the fight
 was set for when it starts, and again after its recap.
 
 ### Endings

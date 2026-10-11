@@ -76,6 +76,8 @@ import { loadRulesetCatalogEntries } from "../services/game/ruleset-catalog.serv
 import { resolveTacticalStartPreferences } from "../services/game/tactical-battlefield.service.js";
 import { gameBattlefieldHere } from "../services/game/made-battlefield.service.js";
 import { checkStoryItemUse, keepStorySpend, storyUseOfOption } from "../services/game/story-item-uses.service.js";
+import { gameNoncombatants } from "../services/game/experience-companions.service.js";
+import { buildPartyNpcId } from "../services/generation/game-party-utils.js";
 import { logger } from "../lib/logger.js";
 import { resolveVisibleGameStateAnchor } from "./generate/generate-route-utils.js";
 
@@ -767,6 +769,12 @@ export async function combatDirectorRoutes(
           setup = meta.gameSetupConfig ?? {};
         if (setup.combatDirector !== true)
           return reply.code(400).send({ error: "Directed combat is not enabled for this game." });
+        // An Experience's companions who never fight (1.368) travel with the party but are not put in its fights.
+        const noncombatants = await gameNoncombatants(app.db, input.chatId, meta);
+        if (noncombatants.size) {
+          const fighting = input.party.filter((member) => !noncombatants.has(buildPartyNpcId(member.name)));
+          if (fighting.length) input.party = fighting;
+        }
         const all = [...input.party, ...input.enemies];
         if (
           new Set(all.map((u) => u.id)).size !== all.length ||

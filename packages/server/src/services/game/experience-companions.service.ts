@@ -33,10 +33,22 @@ export function storyPartyNames(meta: Record<string, unknown>): string[] {
 }
 
 /** How many the party is (1.364): the player and every character travelling with it, library
- *  characters and companions alike. */
-export function gamePartySize(meta: Record<string, unknown>): number {
+ *  characters and companions alike, but for the companions who never fight (1.368), by party id. */
+export function gamePartySize(meta: Record<string, unknown>, noncombatants?: ReadonlySet<string>): number {
   const ids = Array.isArray(meta.gamePartyCharacterIds) ? (meta.gamePartyCharacterIds as unknown[]) : [];
-  return 1 + new Set(ids.filter((id) => typeof id === "string")).size;
+  return 1 + new Set(ids.filter((id): id is string => typeof id === "string" && !noncombatants?.has(id))).size;
+}
+
+/** The party ids of the game's Experience companions who never fight (1.368): they travel with the party
+ *  but are not counted in its size or put in its fights. */
+export async function gameNoncombatants(db: DB, chatId: string, meta: Record<string, unknown>): Promise<Set<string>> {
+  const companions = await gameCompanions(db, chatId, meta).catch(() => null);
+  if (!companions) return new Set();
+  return new Set(
+    experiencePeopleIn(companions.world, companions.people)
+      .filter(({ entry }) => entry.companion?.noncombatant)
+      .map(({ name }) => buildPartyNpcId(name)),
+  );
 }
 
 export interface GameCompanions {

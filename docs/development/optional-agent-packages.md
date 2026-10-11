@@ -1451,6 +1451,22 @@ the fight takes is kept with the game, and the next story turn records it once (
 Engine), within the flag's `min` and `max`, and tells the Game Master what it cost. Each flag must be a
 number flag of one of the pack's stories. A map pack with `storyUses` needs 1.367.
 
+#### Capability API 1.368: parties beyond six, and companions who never fight
+
+A story fight's variants may be for parties above six, or open-ended (`"party": { "min": 7 }`), and a
+story condition may ask the party's size (`{ "partySize": { "is": ">=", "value": 7 } }`; see
+[writing story scripts](../extending/writing-story-scripts.md#conditions)).
+
+A companion of the people file may never fight:
+
+```json
+{ "person": "p3-7", "companion": { "role": "Keeps the ledger", "noncombatant": true, "sheets": { ... } } }
+```
+
+They travel with the party and are told to the Game Master as never fighting, but are not counted in the
+party's size (for fight variants and `partySize` conditions) and are not put in its fights. A people file
+with one needs 1.368.
+
 ### Capability API 1.18: keep Experience setup in the Game wizard
 
 A `game-surface` package can declare `contributions.gameSurface.setup` with schema

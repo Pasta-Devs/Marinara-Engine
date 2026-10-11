@@ -53,7 +53,12 @@ import {
 import { registerSequentialGameTasks } from "../services/game/sequential-tasks.js";
 import { loadGameWorld } from "../services/game/game-world.service.js";
 import { readMapPackPeople } from "../services/game/map-pack.service.js";
-import { gamePartySize, storyPartyNames, syncCompanionSheets } from "../services/game/experience-companions.service.js";
+import {
+  gameNoncombatants,
+  gamePartySize,
+  storyPartyNames,
+  syncCompanionSheets,
+} from "../services/game/experience-companions.service.js";
 import { gameStorySpends } from "../services/game/story-item-uses.service.js";
 import {
   createAdvancedMemoryService,
@@ -2158,7 +2163,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                     // Who of the world travels with the party (its tracked people), and what the player
                     // says, for party conditions and what people know (1.356, 1.357).
                     party: storyPartyNames(chatMeta),
-                    partySize: gamePartySize(chatMeta),
+                    partySize: gamePartySize(chatMeta, await gameNoncombatants(app.db, input.chatId, chatMeta)),
                     // What items' uses spent of story numbers in fights (1.367), recorded this turn.
                     spends: gameStorySpends(chatMeta),
                     player: input.userMessage ?? null,
@@ -9777,7 +9782,11 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                       storyTurnTold?.turn.state ?? storyState(story, readStoryLedger(replies.all)),
                       storyTurnTold?.turn.tripped,
                       storyTurnTold?.item,
-                      storyTurnTold ? new Set(storyTurnTold.turn.party) : undefined,
+                      storyTurnTold
+                        ? Object.assign(new Set(storyTurnTold.turn.party), {
+                            partySize: storyTurnTold.turn.partySize,
+                          })
+                        : undefined,
                     )
                   : refuseStoryTags(fullResponse);
                 if (answered !== fullResponse) {

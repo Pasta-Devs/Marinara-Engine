@@ -72,11 +72,25 @@ const value = z.union([z.boolean(), z.number().finite()]);
 const flagCondition = z.object({ flag: id, is: z.enum(["=", "!=", ">", ">=", "<", "<="]), value }).strict();
 /** Whether a person of the world travels with the party (Capability API 1.357), by person id. */
 const partyCondition = z.object({ party: z.string().min(1).max(40), is: z.enum(["in", "out"]) }).strict();
-const singleCondition = z.union([flagCondition, partyCondition]);
+/** The largest party a story names by its size (Capability API 1.368); a variant's open range holds any
+ *  larger. */
+export const STORY_PARTY_LIMIT = 32;
+/** How many the party is, its companions who never fight left out (Capability API 1.368). */
+const partySizeCondition = z
+  .object({
+    partySize: z
+      .object({
+        is: z.enum(["=", "!=", ">", ">=", "<", "<="]),
+        value: z.number().int().min(1).max(STORY_PARTY_LIMIT),
+      })
+      .strict(),
+  })
+  .strict();
+const singleCondition = z.union([flagCondition, partyCondition, partySizeCondition]);
 /** Holds when any one of its conditions does (Capability API 1.366): an either-or in one list. */
 const anyCondition = z.object({ any: z.array(singleCondition).min(2).max(STORY_MAX.conditions) }).strict();
 const conditions = z
-  .array(z.union([flagCondition, partyCondition, anyCondition]))
+  .array(z.union([flagCondition, partyCondition, partySizeCondition, anyCondition]))
   .max(STORY_MAX.conditions)
   .optional();
 /** What sets a companion's scene off (Capability API 1.357): one of them happens at most once a turn,
@@ -184,7 +198,8 @@ const action = z.union([
   }),
 ]);
 
-/** The largest party a story fight's variants are written for (1.364). */
+/** The largest party a story fight's variants were written for in 1.364; larger, or an open range
+ *  (`{ "min": 7 }`), needs 1.368. */
 export const STORY_PARTY_MAX = 6;
 const fightCreatures = z
   .array(
@@ -361,14 +376,18 @@ export const storyScriptSchema = z
                 z
                   .object({
                     party: z.union([
-                      z.number().int().min(1).max(STORY_PARTY_MAX),
+                      z.number().int().min(1).max(STORY_PARTY_LIMIT),
                       z
                         .object({
-                          min: z.number().int().min(1).max(STORY_PARTY_MAX),
-                          max: z.number().int().min(1).max(STORY_PARTY_MAX),
+                          min: z.number().int().min(1).max(STORY_PARTY_LIMIT),
+                          /** Left out, any party from `min` up (1.368). */
+                          max: z.number().int().min(1).max(STORY_PARTY_LIMIT).optional(),
                         })
                         .strict()
-                        .refine((range) => range.min <= range.max, "A party's min is not above its max"),
+                        .refine(
+                          (range) => range.max === undefined || range.min <= range.max,
+                          "A party's min is not above its max",
+                        ),
                     ]),
                     creatures: fightCreatures,
                     battlefield: fightBoard.optional(),
@@ -377,7 +396,7 @@ export const storyScriptSchema = z
                   .strict(),
               )
               .min(1)
-              .max(STORY_PARTY_MAX)
+              .max(STORY_PARTY_LIMIT)
               .optional(),
           })
           .strict(),
@@ -521,6 +540,7 @@ export function checkStoryScript(
         personOk(condition.party, where);
         continue;
       }
+      if ("partySize" in condition) continue;
       const flag = flagOf(condition.flag, where);
       if (!flag) continue;
       if (!fits(flag, condition.value)) issues.push(`${where}: "${flag.id}" is a ${flag.kind} flag.`);
@@ -672,9 +692,8 @@ export function checkStoryScript(
     // Each size of party has one variant at most.
     const sizes = new Set<number>();
     for (const variant of fight.variants ?? []) {
-      const [min, max] =
-        typeof variant.party === "number" ? [variant.party, variant.party] : [variant.party.min, variant.party.max];
-      for (let size = min; size <= max; size++) {
+      const [min, max] = storyPartyRange(variant.party);
+      for (let size = min; size <= Math.min(max, STORY_PARTY_LIMIT + 1); size++) {
         if (sizes.has(size)) issues.push(`Fight "${fight.id}": two variants are for a party of ${size}.`);
         sizes.add(size);
       }
@@ -946,7 +965,8 @@ export function storyCompanionsNamed(story: StoryScript): string[] {
   ];
 }
 
-/** The Capability API minor a script needs: 1.364 for fight variants, 1.361 for more than 64 flags, 1.359 for held seasons, 1.357 for rest, travel and idle events, party conditions and more
+/** The Capability API minor a script needs: 1.368 for party size conditions and variants for parties above
+ *  six, 1.366 for its reach, 1.364 for fight variants, 1.361 for more than 64 flags, 1.359 for held seasons, 1.357 for rest, travel and idle events, party conditions and more
  *  than 128 events, 1.356 for knowledge, 1.355 for companions, 1.353 for music cues, 1.351 for fights, endings and its give, move, fight and
  *  ending actions, 1.350 for clocks, else 0 (any Engine with stories reads it). */
 export function storyCapabilityMinor(story: StoryScript): number {
@@ -959,6 +979,15 @@ export function storyCapabilityMinor(story: StoryScript): number {
     ...story.knowledge.flatMap((known) => known.if ?? []),
   ].some((condition) => "party" in condition);
   const lists = storyConditionLists(story);
+  if (
+    lists.some((list) => storyConditionsFlat(list).some((condition) => "partySize" in condition)) ||
+    story.fights.some(
+      (fight) =>
+        (fight.variants?.length ?? 0) > STORY_PARTY_MAX ||
+        fight.variants?.some((variant) => storyPartyRange(variant.party)[1] > STORY_PARTY_MAX),
+    )
+  )
+    return 368;
   if (
     lists.some((list) => list?.some((condition) => "any" in condition)) ||
     story.events.some(
@@ -1033,13 +1062,14 @@ function clocksFilled(story: StoryScript, before: StoryState["flags"], after: St
 export function storyConditionsHold(
   list: StoryEvent["if"],
   flags: StoryState["flags"],
-  /** Who travels with the party, by person id (1.357); a party condition holds only when it is known. */
-  party?: ReadonlySet<string>,
+  /** Who travels with the party, by person id (1.357), and how many it is (1.368); a party condition
+   *  holds only when it is known. */
+  party?: StoryParty,
 ): boolean {
   const holds = (condition: Exclude<StoryCondition, { any: unknown }>): boolean => {
     if ("party" in condition) return party !== undefined && party.has(condition.party) === (condition.is === "in");
-    const { flag, is, value: wanted } = condition;
-    const current = flags[flag];
+    const { is, value: wanted } = "partySize" in condition ? condition.partySize : condition;
+    const current = "partySize" in condition ? party?.partySize : flags[condition.flag];
     if (current === undefined) return false;
     switch (is) {
       case "=":
@@ -1059,11 +1089,20 @@ export function storyConditionsHold(
   return (list ?? []).every((condition) => ("any" in condition ? condition.any.some(holds) : holds(condition)));
 }
 
+/** Who travels with the party, by person id (1.357), and how many it is when known (1.368). */
+export type StoryParty = ReadonlySet<string> & { readonly partySize?: number };
+
 /** The people of the world who travel with the party, by person id: its members' names, matched to the
- *  world's named people (1.357). */
-export function storyPartyOf(game: GameWorld, story: StoryScript, names: readonly string[] | undefined) {
+ *  world's named people (1.357); with how many the party is, when given (1.368). */
+export function storyPartyOf(
+  game: GameWorld,
+  story: StoryScript,
+  names: readonly string[] | undefined,
+  partySize?: number,
+): StoryParty {
   const wanted = new Set((names ?? []).map((name) => name.trim().toLowerCase()).filter(Boolean));
-  const ids = new Set<string>();
+  const ids: Set<string> & { partySize?: number } = new Set<string>();
+  if (partySize !== undefined) ids.partySize = partySize;
   if (!wanted.size) return ids;
   const named = new Set<string>();
   for (const list of storyConditionLists(story))
@@ -1171,6 +1210,8 @@ export interface StoryTurn {
   filled: Array<{ flag: string; title: string; text: string }>;
   /** Who of the world travels with the party, by person id (1.357). */
   party: string[];
+  /** How many the party is, when known (1.368). */
+  partySize?: number;
   /** The season where the party is, and whether the story holds it there (1.359). */
   season: { season: WorldSeason; held: boolean };
   /** What people know that holds and is in the scene this turn (1.356), for the Game Master. */
@@ -1221,7 +1262,7 @@ function storyRecord(
  *  longer a number a record can hold is left as it was; a number is kept within its flag's bounds (1.366).
  *  An action with conditions is done only when they hold as the event reaches it, its earlier actions
  *  done (1.366): which were done is recorded, and `done` is the event with only them. */
-function applyActions(story: StoryScript, event: StoryEvent, flags: StoryState["flags"], party?: ReadonlySet<string>) {
+function applyActions(story: StoryScript, event: StoryEvent, flags: StoryState["flags"], party?: StoryParty) {
   const declared = new Map(story.flags.map((flag) => [flag.id, flag]));
   const set: Array<[string, boolean | number]> = [];
   const show: string[] = [];
@@ -1330,12 +1371,18 @@ export function storyFightRoster(
   });
 }
 
+/** The sizes a variant is for, lowest and highest (an open range's highest is any). */
+function storyPartyRange(party: number | { min: number; max?: number }): [number, number] {
+  return typeof party === "number" ? [party, party] : [party.min, party.max ?? Number.POSITIVE_INFINITY];
+}
+
 /** The fight as a party this size fights it (1.364): its variant for the size, else itself. */
 export function storyFightForParty(fight: StoryFight, size: number | null | undefined): StoryFight {
   if (!size || !fight.variants?.length) return fight;
-  const variant = fight.variants.find((each) =>
-    typeof each.party === "number" ? each.party === size : size >= each.party.min && size <= each.party.max,
-  );
+  const variant = fight.variants.find((each) => {
+    const [min, max] = storyPartyRange(each.party);
+    return size >= min && size <= max;
+  });
   if (!variant) return fight;
   return {
     ...fight,
@@ -1380,7 +1427,7 @@ function storyPages(
   /** The flags and who travels with the party as it is shown: a page with conditions only while they
    *  hold (1.366). */
   flags: StoryState["flags"],
-  party: ReadonlySet<string>,
+  party: StoryParty,
 ): string {
   const lines = cutscene.background ? [`[bg: ${cutscene.background}]`] : [];
   for (const page of cutscene.pages) {
@@ -1480,7 +1527,7 @@ export function storyTurn(story: StoryScript, world: StoryTurnWorld): StoryTurn 
   // The replies in order, then this turn's walk and visit: where the party was, and when it came into
   // each place an event waits for; when each event last happened; whether a repeating flags event's
   // conditions have been false since.
-  const party = storyPartyOf(game, story, world.party);
+  const party = storyPartyOf(game, story, world.party, world.partySize);
   const targets = new Set(story.events.flatMap((event) => (event.when.on === "arrive" ? [event.when.place] : [])));
   const rising = story.events.filter((event) => event.repeat && event.when.on === "flags");
   let at: string | null = game.world.startId ?? null;
@@ -1798,6 +1845,7 @@ export function storyTurn(story: StoryScript, world: StoryTurnWorld): StoryTurn 
       text: flag.clock!.full,
     })),
     party: [...party],
+    ...(party.partySize !== undefined ? { partySize: party.partySize } : {}),
     season: storySeasonAt(story, held, game, at, world.day),
     knowledge: storyKnowledgeHere(story, game, flags, party, [world.latest, world.player]),
   };
@@ -1875,7 +1923,7 @@ export function storyKnowledgeHere(
   story: StoryScript,
   game: GameWorld,
   flags: StoryState["flags"],
-  party: ReadonlySet<string>,
+  party: StoryParty,
   texts: ReadonlyArray<string | null | undefined>,
 ): Array<{ who?: string; text: string }> {
   const said = texts.filter((text): text is string => Boolean(text?.trim()));
@@ -1920,7 +1968,7 @@ export function applyStoryTags(
   /** The game's ruleset items by id, for the items a trip gives (1.351). */
   item?: StoryItemLabel,
   /** Who travels with the party, by person id (1.357). */
-  party?: ReadonlySet<string>,
+  party?: StoryParty,
 ): string {
   let ended = before.ended;
   const flags = { ...before.flags };
@@ -2047,7 +2095,7 @@ export function storyTurnPromptText(story: StoryScript, turn: StoryTurn): string
     return `${flag.id} = ${typeof value === "boolean" ? (value ? "yes" : "no") : value}`;
   });
   if (values.length) lines.push(`Story values (the player never sees these): ${values.join(", ")}.`);
-  const party = new Set(turn.party);
+  const party: StoryParty = Object.assign(new Set(turn.party), { partySize: turn.partySize });
   const directions = story.directions.filter((direction) => storyConditionsHold(direction.if, turn.state.flags, party));
   if (directions.length)
     lines.push("Keep to these while they hold:", ...directions.map((direction) => `- ${direction.text}`));

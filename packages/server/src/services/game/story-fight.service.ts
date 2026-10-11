@@ -16,7 +16,7 @@ import { logger } from "../../lib/logger.js";
 import { gameRepliesBefore } from "./game-market.service.js";
 import { loadGameWorld } from "./game-world.service.js";
 import { loadRulesetCatalogEntries } from "./ruleset-catalog.service.js";
-import { gamePartySize } from "./experience-companions.service.js";
+import { gameNoncombatants, gamePartySize } from "./experience-companions.service.js";
 
 /** The fight the Game Master's latest reply started for the story, or null: in its variant for the
  *  party's size (1.364). */
@@ -31,7 +31,8 @@ export async function latestStoryFight(
     if (!story?.fights.length) return null;
     const replies = await gameRepliesBefore(db, chatId);
     const fight = storyFightIn(story, replies.all.filter((reply) => reply.trim()).at(-1));
-    return fight ? storyFightForParty(fight, gamePartySize(meta ?? {})) : null;
+    if (!fight) return null;
+    return storyFightForParty(fight, gamePartySize(meta ?? {}, await gameNoncombatants(db, chatId, meta ?? {})));
   } catch (err) {
     logger.warn(err, "Story fight lookup failed for chat %s", chatId);
     return null;

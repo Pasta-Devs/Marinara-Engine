@@ -57,6 +57,9 @@ const companionSchema = z
   .object({
     /** What they bring to a party, for the Game Master (healing, a light in the dark, a scout). */
     role: promptSafeText(200).optional(),
+    /** One who travels with the party but never fights (Capability API 1.368): not counted in the party's
+     *  size, and not put in its fights. */
+    noncombatant: z.literal(true).optional(),
     /** Their sheets, by the id of each ruleset they can join a game of. */
     sheets: z
       .record(rulesetRef, companionSheetSchema)
@@ -187,8 +190,10 @@ export function experiencePeopleLore(
   ];
 }
 
-/** Whether a file has companions, for the Capability API it needs (1.355; 1.354 without). */
+/** Whether a file has companions, for the Capability API it needs (1.368 with one who never fights,
+ *  1.355; 1.354 without). */
 export function experiencePeopleMinor(people: ExperiencePeople): number {
+  if (people.people.some((person) => person.companion?.noncombatant)) return 368;
   return people.people.some((person) => person.companion) ? 355 : 354;
 }
 
@@ -244,7 +249,7 @@ export function experienceCompanionsPromptText(game: GameWorld, people: Experien
   const lines = companions.map(({ entry, name }) => {
     const placeId = /^(.+)-e?\d+$/.exec(entry.person)?.[1];
     const place = game.world.places.find((each) => each.id === placeId)?.name;
-    const role = entry.companion!.role ? `: ${entry.companion!.role}` : "";
+    const role = `${entry.companion!.role ? `: ${entry.companion!.role}` : ""}${entry.companion!.noncombatant ? " (never fights; kept out of every fight)" : ""}`;
     const where = inParty.has(name.trim().toLowerCase())
       ? " (travelling with the party)"
       : place

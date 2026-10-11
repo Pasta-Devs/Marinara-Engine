@@ -128,10 +128,10 @@ assert.equal(
 assert.equal(
   checkStoryScript(game2, {
     ...input,
-    fights: [{ ...granary, variants: [{ party: 7, creatures: granary.creatures }] }],
+    fights: [{ ...granary, variants: [{ party: 33, creatures: granary.creatures }] }],
   }).ok,
   false,
-  "a party is six at most",
+  "a party is named up to 32 (1.368)",
 );
 
 // ── Which is fought ──

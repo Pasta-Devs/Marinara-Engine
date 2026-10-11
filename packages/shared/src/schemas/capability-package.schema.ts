@@ -1405,7 +1405,11 @@ const capabilityPackageManifestBaseSchema = z
 // 1.367: an Experience's ruleset overlay may give items a story cost (`storyUses`: the item by
 //        `catalog/entry`, the story's number flag, what a use adds to it, and `atLeast`): a fight refuses
 //        the use while the flag is below it, and the next story turn records what it spent.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 367 } as const);
+// 1.368: a story fight's variant may be for parties above six, or open-ended (`party: { "min": 7 }`); a
+//        story condition may test the party's size (`{ "partySize": { "is": ">=", "value": 5 } }`); and a
+//        people file's companion may never fight (`noncombatant`): not counted in the party's size, and
+//        not put in its fights.
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 368 } as const);
 
 const capabilityApiVersionSchema = z
   .object({
