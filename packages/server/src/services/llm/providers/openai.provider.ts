@@ -154,6 +154,7 @@ type OpenAIProviderKind =
   | "cohere"
   | "arli"
   | "zai"
+  | "deepseek"
   | "custom"
   | "openai-chatgpt"
   | "local-sidecar";
@@ -640,6 +641,8 @@ export class OpenAIProvider extends BaseLLMProvider {
         return "Arli AI API";
       case "zai":
         return "Z.AI API";
+      case "deepseek":
+        return "DeepSeek API";
       case "local-sidecar":
         return "Local sidecar OpenAI-compatible endpoint";
       case "openai-chatgpt":
@@ -743,7 +746,8 @@ export class OpenAIProvider extends BaseLLMProvider {
   }
 
   private shouldSendPenaltyParams(model: string): boolean {
-    return !this.isXAIReasoningModel(model);
+    // DeepSeek marks both penalties deprecated and states they no longer take effect.
+    return this.providerKind !== "deepseek" && !this.isXAIReasoningModel(model);
   }
 
   /**
@@ -768,6 +772,21 @@ export class OpenAIProvider extends BaseLLMProvider {
   }
 
   private stripUnsupportedSamplerParameters(body: Record<string, unknown>, options: ChatOptions): void {
+    if (this.providerKind === "deepseek") {
+      // DeepSeek's two samplers belong to different modes, so only one of them is live at a time: temperature has no
+      // effect while thinking runs, and top_p is fixed at 1.0 whenever thinking is off. Strip the ignored one and let
+      // the working sampler reach the API. Unlike the GPT-5 case below, this is not "no sampling at all".
+      // Read the mode from the body, because customParameters are applied before this runs and can override
+      // reasoning_effort: picking the sampler from options alone would strip temperature while the request ships
+      // reasoning_effort "none", leaving a non-thinking request with the sampler that only works while thinking.
+      const reasoningEffort =
+        typeof body.reasoning_effort === "string" ? body.reasoning_effort : options.reasoningEffort;
+      const thinkingOff = this.hasExplicitReasoningDisable(reasoningEffort);
+      const dropped = thinkingOff ? "top_p" : "temperature";
+      const explicit = options.customParameters;
+      if (!explicit || !Object.prototype.hasOwnProperty.call(explicit, dropped)) delete body[dropped];
+      return;
+    }
     // GPT-6 Sol/Luna allow sampling only when the dispatched request explicitly
     // disables reasoning; an omitted/disabled parameter uses the model default.
     const effort = isOpenAIGpt6Model(options.model)
@@ -913,6 +932,16 @@ export class OpenAIProvider extends BaseLLMProvider {
   }
 
   private applyChatCompletionsReasoning(body: Record<string, unknown>, options: ChatOptions): void {
+    if (this.providerKind === "deepseek") {
+      // DeepSeek carries the effort in reasoning_effort itself: "none" turns thinking off, and low/high/max set the
+      // level. It also accepts a thinking {type} object, but sending both would duplicate the same decision.
+      if (this.hasExplicitReasoningDisable(options.reasoningEffort)) {
+        body.reasoning_effort = "none";
+      } else if (this.hasActiveReasoningEffort(options.reasoningEffort)) {
+        body.reasoning_effort = options.reasoningEffort;
+      }
+      return;
+    }
     if (this.providerKind === "mistral") {
       // Mistral reasoning models take only "high" or "none", and GLM 5.3 only "low", "high" or "max"; other Mistral
       // models are not listed as taking reasoning_effort. prompt_mode is never sent because Mistral rejects it alongside

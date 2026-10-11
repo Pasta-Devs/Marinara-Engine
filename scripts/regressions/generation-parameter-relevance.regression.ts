@@ -58,11 +58,14 @@ try {
     await import("../../packages/server/src/services/llm/providers/openai-chatgpt.provider.js");
   const { __setSdkForTesting, ClaudeSubscriptionProvider } =
     await import("../../packages/server/src/services/llm/providers/claude-subscription.provider.js");
-  const { isClaudeAdaptiveOnlyNoSamplingModel, resolveProviderReasoningEffort } =
+  const { isClaudeAdaptiveOnlyNoSamplingModel, resolveProviderReasoningEffort, shouldSuppressUnknownModelParameters } =
     await import("../../packages/shared/src/constants/model-lists.js");
   const { relevantGenerationParameters, reasoningEffortChoices, verbosityChoices } =
     await import("../../packages/shared/src/constants/generation-parameter-relevance.js");
   const { readOpenRouterModelCapabilities } = await import("../../packages/server/src/routes/connections.routes.js");
+  const { supportsAssistantReasoningPrefill } = await import(
+    "../../packages/server/src/services/generation/generation-parameters.js"
+  );
 
   assert.deepEqual(
     readOpenRouterModelCapabilities({
@@ -282,6 +285,12 @@ try {
       make: registry("arli", `${base}/v1`),
     },
     {
+      provider: "deepseek",
+      baseUrl: `${base}/v1`,
+      models: ["deepseek-flash", "deepseek-v4-pro", "deepseek-v4-flash", "some-unknown-deepseek-model"],
+      make: registry("deepseek", `${base}/v1`),
+    },
+    {
       provider: "custom",
       baseUrl: `${base}/v1`,
       models: ["llama-3.3-70b", "gpt-5.5", "glm-4.6", "claude-opus-5"],
@@ -488,6 +497,127 @@ try {
       "assistantReasoningPrefill",
     ),
     "Mistral has no reasoning prefill field",
+  );
+
+  // DeepSeek's own levels: it takes low/high/max, treats medium as high, and never takes xhigh.
+  assert.deepEqual(
+    reasoningEffortChoices({ provider: "deepseek", model: "deepseek-flash" }).map((choice) => choice.label),
+    [null, "low", "high", "max"],
+    "DeepSeek offers Off, low, high and max, with no Medium",
+  );
+  for (const model of ["deepseek-flash", "deepseek-v4-pro", "deepseek-v4-flash", "some-unknown-deepseek-model"]) {
+    assert.equal(
+      resolveProviderReasoningEffort({ provider: "deepseek", model, reasoningEffort: "maximum" }),
+      "max",
+      `${model} maps maximum to max`,
+    );
+    assert.equal(
+      resolveProviderReasoningEffort({ provider: "deepseek", model, reasoningEffort: "medium" }),
+      "high",
+      `${model} maps medium to high, the level DeepSeek actually serves`,
+    );
+    assert.equal(
+      resolveProviderReasoningEffort({ provider: "deepseek", model, reasoningEffort: "xhigh" }),
+      "high",
+      `${model} has no xhigh level`,
+    );
+    assert.equal(
+      resolveProviderReasoningEffort({ provider: "deepseek", model, reasoningEffort: "none" }),
+      null,
+      `${model} can turn thinking off`,
+    );
+  }
+
+  // DeepSeek ignores topK, verbosity and both penalties, and the live sampler swaps with the mode.
+  for (const model of ["deepseek-flash", "deepseek-v4-pro", "deepseek-v4-flash"]) {
+    for (const reasoningEffort of ["high", null] as const) {
+      const set = relevantGenerationParameters({ provider: "deepseek", model, reasoningEffort });
+      for (const key of ["topK", "verbosity", "frequencyPenalty", "presencePenalty"] as const) {
+        assert.ok(!set.has(key), `${model} hides ${key} with effort ${reasoningEffort ?? "off"}`);
+      }
+      assert.equal(set.has("topP"), reasoningEffort === "high", `${model} shows topP only while thinking`);
+      assert.equal(
+        set.has("temperature"),
+        reasoningEffort === null,
+        `${model} shows temperature only while not thinking`,
+      );
+    }
+  }
+
+  // A DeepSeek model name this build does not know falls back to the unknown-model rule, which is the same rule that
+  // made the reported "my controls disappeared" case: the panel then offers only max tokens. Pinned here so the
+  // fallback stays deliberate, and so a model-list change that silently widens or narrows it is caught.
+  assert.ok(
+    shouldSuppressUnknownModelParameters("deepseek", "some-unknown-deepseek-model"),
+    "an unrecognized DeepSeek model id suppresses the sampled controls",
+  );
+  assert.deepEqual(
+    [...relevantGenerationParameters({
+      provider: "deepseek",
+      model: "some-unknown-deepseek-model",
+      reasoningEffort: "high",
+    })]
+      .filter((key) => PROBED.includes(key))
+      .sort(),
+    ["maxTokens"],
+    "an unrecognized DeepSeek model id keeps only max tokens",
+  );
+
+  // customParameters are applied before the sampler strip, so they can flip the reasoning mode after the built-in
+  // reasoning branch has run. The strip must follow whatever the body actually ships: picking from options alone
+  // left a non-thinking request carrying top_p and no temperature, the exact opposite of DeepSeek's rules.
+  {
+    const deepseek = registry("deepseek", `${base}/v1`);
+    const withOverride = async (custom: Record<string, unknown>, reasoningEffort: "high" | "none") => {
+      firstBody = null;
+      const instance = deepseek();
+      const request = instance.chat([{ role: "user", content: "hi" }], {
+        ...chatOptions("deepseek", "deepseek-flash", {
+          temperature: 0.7,
+          maxTokens: 64,
+          topP: 0.9,
+          topK: 0,
+          frequencyPenalty: 0,
+          presencePenalty: 0,
+          reasoningEffort: "high",
+          verbosity: "medium",
+          serviceTier: "auto",
+        }),
+        reasoningEffort: reasoningEffort === "none" ? "none" : "high",
+        customParameters: custom,
+      });
+      await request.next().catch(() => undefined);
+      const body = JSON.parse(requireRequestCapture(firstBody, "deepseek", "deepseek-flash")) as Record<string, unknown>;
+      return { temperature: "temperature" in body, topP: "top_p" in body, effort: body.reasoning_effort };
+    };
+
+    const forcedOff = await withOverride({ reasoning_effort: "none" }, "high");
+    assert.equal(forcedOff.effort, "none", "the override reaches the request body");
+    assert.equal(forcedOff.temperature, true, "a non-thinking override keeps temperature");
+    assert.equal(forcedOff.topP, false, "a non-thinking override drops top_p");
+
+    const forcedOn = await withOverride({ reasoning_effort: "high" }, "none");
+    assert.equal(forcedOn.effort, "high", "the override reaches the request body");
+    assert.equal(forcedOn.temperature, false, "a thinking override drops temperature");
+    assert.equal(forcedOn.topP, true, "a thinking override keeps top_p");
+  }
+
+  // DeepSeek's reasoning prefill needs chat prefix completion: the /beta endpoint plus a `prefix: true` flag on the
+  // final assistant message. The shipped /v1 endpoint has neither, so the panel must not offer the control and the
+  // request must not carry a prefill. Pinned on both sides so the pair cannot drift apart.
+  assert.ok(
+    !relevantGenerationParameters({ provider: "deepseek", model: "deepseek-flash" }).has("assistantReasoningPrefill"),
+    "the panel does not offer a reasoning prefill for DeepSeek",
+  );
+  assert.equal(
+    supportsAssistantReasoningPrefill("deepseek"),
+    false,
+    "the request builder refuses a DeepSeek reasoning prefill",
+  );
+  assert.equal(
+    supportsAssistantReasoningPrefill("zai"),
+    true,
+    "the sibling OpenAI-shaped provider still takes a reasoning prefill",
   );
   const chatGptChoices = reasoningEffortChoices({
     provider: "openai_chatgpt",

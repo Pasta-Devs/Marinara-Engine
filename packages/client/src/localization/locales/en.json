@@ -1326,6 +1326,7 @@
   "connections.mediaSources.codexChatgpt.loginHelp": "Uses the ChatGPT session from codex login on the computer running Marinara. No API key needed.",
   "connections.mediaSources.codexChatgpt.name": "ChatGPT (Codex login)",
   "connections.mediaSources.codexChatgpt.testHelp": "checks your Codex login without generating an image.",
+  "connections.mediaSources.deepseek.apiKeyLink": "Get your DeepSeek API key",
   "connections.mediaSources.fal.apiKeyLink": "Get your fal.ai API key",
   "connections.mediaSources.fal.configured": "fal.ai connection configured. Use Test Image to verify your key and generate an image using credits.",
   "connections.mediaSources.fal.imageDescription": "Generate images with FLUX and other fal.ai text-to-image models.",

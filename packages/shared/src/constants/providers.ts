@@ -176,6 +176,17 @@ export const PROVIDERS: Record<APIProvider, ProviderDefinition> = {
     usesAuthHeader: true,
     apiKeyHeader: null,
   },
+  deepseek: {
+    id: "deepseek",
+    name: "DeepSeek",
+    // The OpenAI-format endpoint. DeepSeek also serves an Anthropic-format
+    // endpoint at /anthropic, which this provider does not use.
+    defaultBaseUrl: "https://api.deepseek.com/v1",
+    modelsEndpoint: "/models",
+    supportsStreaming: true,
+    usesAuthHeader: true,
+    apiKeyHeader: null,
+  },
   custom: {
     id: "custom",
     name: "Custom (OAI-Compatible)",

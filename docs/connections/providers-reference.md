@@ -123,6 +123,19 @@ The same meter appears under the context indicator in a chat's connection picker
 
 **Z.AI** serves the GLM models (GLM 5.3, GLM 5.3 Flash, and earlier) on their own API. The **Model** dropdown lists the current GLM models, and **Fetch Models from API** refreshes it from your account. GLM 5.3 models always reason: the **Reasoning Effort** in your preset is mapped onto the three levels Z.AI accepts (Low, High, Maximum), and leaving it unset uses Z.AI's default (Maximum). The default base URL is the pay-as-you-go endpoint. Z.AI's Coding Plan uses a different endpoint that their usage policy reserves for the tools on their list, so a Coding Plan key is not expected to work here.
 
+## DeepSeek
+
+- Where to get a key: `https://platform.deepseek.com/api_keys`
+- Default base URL: `https://api.deepseek.com/v1`
+
+**DeepSeek** serves its own chat models, `deepseek-flash` and `deepseek-v4-pro`. After you paste your key, the **Model** dropdown lists them, and **Fetch Models from API** refreshes the list from your account.
+
+DeepSeek thinks by default. Its **Reasoning Effort** uses DeepSeek's own levels — **Low**, **High** and **Maximum** — and **Off** turns thinking off for that request. There is no **Medium**: DeepSeek serves a medium request as High, so Marinara offers High instead of a second button that would do the same thing. Its thinking appears in the reply with the usual thought display.
+
+Some settings in the parameter panel do not apply to DeepSeek, so the panel leaves them out rather than pretending they work. **Verbosity**, **Top K** and the penalties are among them: DeepSeek has retired these and ignores them. **Temperature** and **Top P** are a pair — DeepSeek only uses one at a time, depending on whether it is thinking — so you see **Temperature** when thinking is off and **Top P** when it is on.
+
+Connect DeepSeek here rather than pointing the **OpenAI** provider at DeepSeek's URL. The OpenAI provider expects OpenAI's own models, so with a DeepSeek model it hides the generation controls and sends almost none of your settings.
+
 ## Claude (Subscription)
 
 - API key: none. You sign in to a local tool instead.

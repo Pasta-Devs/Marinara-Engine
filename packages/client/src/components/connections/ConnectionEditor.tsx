@@ -723,7 +723,12 @@ export function ConnectionEditor() {
                             label: t("connections.mediaSources.zai.apiKeyLink"),
                             url: "https://z.ai/manage-apikey/apikey-list",
                           }
-                        : API_KEY_LINKS[localProvider];
+                        : localProvider === "deepseek"
+                          ? {
+                              label: t("connections.mediaSources.deepseek.apiKeyLink"),
+                              url: "https://platform.deepseek.com/api_keys",
+                            }
+                          : API_KEY_LINKS[localProvider];
 
   useEffect(() => {
     if (localProvider !== "image_generation" || !selectedImageDefaultsService) {
