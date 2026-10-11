@@ -7,6 +7,7 @@ import {
   createRulesetSheetEnvelope,
   experienceCompanionBuild,
   experienceCompanionNamed,
+  experienceCompanionSheet,
   experiencePeopleIn,
   experienceSheetLevel,
   normalizeCharacterLookupName,
@@ -74,7 +75,7 @@ export async function gameCompanions(
 export function gameCompanionNamed(companions: GameCompanions, name: string, definition: RulesetDefinition | null) {
   const found = experienceCompanionNamed(companions.world, companions.people, name);
   if (!found) return null;
-  const sheet = definition ? found.entry.companion!.sheets[definition.id] : undefined;
+  const sheet = definition ? experienceCompanionSheet(found.entry.companion!, definition.id) : undefined;
   return { name: found.name, person: found.entry.person, sheet };
 }
 

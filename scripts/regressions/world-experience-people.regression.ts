@@ -30,6 +30,7 @@ import {
   compileGameWorld,
   createRulesetSheetEnvelope,
   experienceCompanionBuild,
+  experienceCompanionSheet,
   experienceCompanionsPromptText,
   experienceDressedNpc,
   experiencePeopleLore,
@@ -182,6 +183,20 @@ assert.deepEqual(experienceDressedNpc(plain, { ...people.people, urls }), plain,
 
 // The build for the party's level: the highest reached, else the lowest.
 const sheet = people.people.people[1]!.companion!.sheets["5e-2014"]!;
+// A ruleset imported from a file or a repository finds the sheet by its bare id; an exact one wins.
+const healerCompanion = people.people.people[1]!.companion!;
+assert.equal(experienceCompanionSheet(healerCompanion, "5e-2014"), sheet);
+assert.equal(experienceCompanionSheet(healerCompanion, "local/5e-2014"), sheet);
+assert.equal(experienceCompanionSheet(healerCompanion, "alice/5e-2014"), sheet);
+assert.equal(experienceCompanionSheet(healerCompanion, "dnd5e"), undefined);
+const exactSheet = { ...sheet, builds: [level(1)] };
+assert.equal(
+  experienceCompanionSheet(
+    { ...healerCompanion, sheets: { ...healerCompanion.sheets, "bob/5e-2014": exactSheet } },
+    "bob/5e-2014",
+  ),
+  exactSheet,
+);
 assert.equal(experienceCompanionBuild(sheet, 0).at, 1);
 assert.equal(experienceCompanionBuild(sheet, 2).at, 1);
 assert.equal(experienceCompanionBuild(sheet, 7).at, 3);
@@ -495,7 +510,11 @@ try {
     });
     assert.equal(noPicture.json().ok, false);
     assert.ok(
-      noPicture.json().issues.some((issue: { message: string }) => /people\/healer\.png is not one of its assets/.test(issue.message)),
+      noPicture
+        .json()
+        .issues.some((issue: { message: string }) =>
+          /people\/healer\.png is not one of its assets/.test(issue.message),
+        ),
       noPicture.body,
     );
     const { ["people/valley.people.json"]: _people, ...withoutPeople } = json;
@@ -505,10 +524,12 @@ try {
     ]);
     const stray = await check({ mapPack: { ...pack, music: { ...music, default: "nope" } }, files: json, assets });
     assert.ok(
-      stray.json().issues.some(
-        (issue: { path: string; message: string }) =>
-          issue.path === "mapPack.music.default" && /No track "nope"/.test(issue.message),
-      ),
+      stray
+        .json()
+        .issues.some(
+          (issue: { path: string; message: string }) =>
+            issue.path === "mapPack.music.default" && /No track "nope"/.test(issue.message),
+        ),
       stray.body,
     );
     assert.equal((await check({ mapPack: pack })).statusCode, 400);

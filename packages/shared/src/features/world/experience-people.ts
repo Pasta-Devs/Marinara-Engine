@@ -207,6 +207,15 @@ export function experienceSheetLevel(build: { fields?: Record<string, unknown> }
 
 export type ExperienceCompanionSheet = z.infer<typeof companionSheetSchema>;
 
+/** A companion's sheet for a ruleset as a game plays it: under its exact id, else its bare one, as a
+ *  ruleset imported from a file (`local/<id>`) or a repository (`<owner>/<id>`) is the same ruleset. */
+export function experienceCompanionSheet(
+  companion: NonNullable<ExperiencePerson["companion"]>,
+  rulesetId: string,
+): ExperienceCompanionSheet | undefined {
+  return companion.sheets[rulesetId] ?? companion.sheets[rulesetId.replace(/^[^/]+\//u, "")];
+}
+
 /** The build a companion plays at for a party this high (the party's highest level): the one for the
  *  highest level it has reached, else the lowest. */
 export function experienceCompanionBuild(
