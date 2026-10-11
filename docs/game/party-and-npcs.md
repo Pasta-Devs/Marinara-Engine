@@ -138,6 +138,8 @@ When the GM adds an NPC who has exactly the same name as one of your character c
 
 To drop a companion yourself, use the **X** beside their portrait in **Character Profiles**, as described above. You cannot remove your own persona this way.
 
+An Experience can bring its own companions: people of its world who can join you, each with a ready-made sheet for the game's rules. The story may bring one in or send one away, and the Game Master can only recruit those companions (your own library characters can still join). A companion joins at your party's highest level and levels up as your party does.
+
 ## The Adventure Journal
 
 The Adventure Journal is a running record of your campaign. It is built from saved game events, not written by the AI, so it stays factual.

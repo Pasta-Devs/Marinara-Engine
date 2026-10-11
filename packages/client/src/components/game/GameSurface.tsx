@@ -26,6 +26,7 @@ import {
   type GameInventoryStack,
   type PlayerStats,
   type RulesetLiveStates,
+  type CreaturePack,
   rulesetCardItems,
   rulesetReadsItems,
   gameDungeonMapFromMetadata,
@@ -34,6 +35,7 @@ import {
 // Game: Main Surface (rendered by ChatArea when mode === "game")
 // ──────────────────────────────────────────────
 import { useExperienceMapPack } from "../../hooks/use-map-pack";
+import { ExperiencePeopleSpritesContext } from "../../hooks/use-overworld-view";
 import {
   useCallback,
   useEffect,
@@ -2318,6 +2320,16 @@ function GameSurfaceComponent({
   const mapPackTiles = mapPackId && mapPackQuery.isLoading ? ("loading" as const) : (mapPackQuery.data?.tiles ?? null);
   // Its creature packs (Capability API 1.352): the game's fights draw from them before the library's.
   const mapPackCreatures = useMemo(() => mapPackQuery.data?.creatures ?? [], [mapPackQuery.data]);
+  // Its people's walking looks (1.354), by person id, for the maps to dress them in.
+  const mapPackPeopleSprites = useMemo(
+    () =>
+      new Map(
+        (mapPackQuery.data?.people?.people ?? []).flatMap((person) =>
+          person.sprite ? [[person.person, person.sprite] as const] : [],
+        ),
+      ),
+    [mapPackQuery.data],
+  );
   const artFamilyRef = useRef(artFamily);
   artFamilyRef.current = artFamily;
   useEffect(() => {
@@ -3795,8 +3807,23 @@ function GameSurfaceComponent({
     if (personaInfo?.name && personaSpriteQuery.data?.length) {
       map.set(normalizeTextForMatch(personaInfo.name), personaSpriteQuery.data);
     }
+    // An Experience's people (1.354) speak with their own expressions, once the game has met them.
+    const people = mapPackQuery.data?.people;
+    if (people) {
+      for (const npc of npcs) {
+        const entry = npc.worldId ? people.people.find((each) => each.person === npc.worldId) : undefined;
+        if (!npc.name || !entry?.expressions || map.has(normalizeTextForMatch(npc.name))) continue;
+        const sprites: SpriteInfo[] = Object.entries(entry.expressions).flatMap(([expression, path]) =>
+          path && people.urls[path] ? [{ expression, filename: path, url: people.urls[path]! }] : [],
+        );
+        if (entry.portrait && people.urls[entry.portrait] && !entry.expressions.neutral) {
+          sprites.push({ expression: "neutral", filename: entry.portrait, url: people.urls[entry.portrait]! });
+        }
+        if (sprites.length) map.set(normalizeTextForMatch(npc.name), sprites);
+      }
+    }
     return map;
-  }, [characterIds, characterMap, personaInfo, personaSpriteQuery.data, spriteQueries]);
+  }, [characterIds, characterMap, personaInfo, personaSpriteQuery.data, spriteQueries, mapPackQuery.data, npcs]);
 
   // Speaker-avatar seam: an experience whose cast has no engine character cards pushes a name→url map
   // here, so its speakers still get an avatar in the narration.
@@ -12819,7 +12846,7 @@ function GameSurfaceComponent({
   };
 
   return (
-    <ExperienceCreaturePacksContext.Provider value={mapPackCreatures}>
+    <ExperienceMapPackProviders creatures={mapPackCreatures} peopleSprites={mapPackPeopleSprites}>
     <div
       className={cn(
         "relative flex h-full overflow-hidden bg-black mari-card-css",
@@ -14169,8 +14196,28 @@ function GameSurfaceComponent({
         </>
       )}
     </div>
-    </ExperienceCreaturePacksContext.Provider>
+    </ExperienceMapPackProviders>
   );
 }
 
 export const GameSurface = memo(GameSurfaceComponent);
+
+/** What an Experience's map pack brings the game's views: its creature art (1.352) and its people's
+ *  walking looks (1.354). */
+function ExperienceMapPackProviders({
+  creatures,
+  peopleSprites,
+  children,
+}: {
+  creatures: CreaturePack[];
+  peopleSprites: ReadonlyMap<string, string>;
+  children: ReactNode;
+}) {
+  return (
+    <ExperienceCreaturePacksContext.Provider value={creatures}>
+      <ExperiencePeopleSpritesContext.Provider value={peopleSprites}>
+        {children}
+      </ExperiencePeopleSpritesContext.Provider>
+    </ExperienceCreaturePacksContext.Provider>
+  );
+}

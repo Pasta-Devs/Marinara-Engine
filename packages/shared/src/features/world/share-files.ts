@@ -102,6 +102,9 @@ export interface ExperienceMapPack {
   music?: import("../../schemas/capability-package.schema.js").ExperienceMusic & {
     urls: Record<string, string>;
   };
+  /** Its people (Capability API 1.354; companions 1.355), with the address each of its pictures is
+   *  served at, by path. */
+  people?: import("./experience-people.js").ExperiencePeople & { urls: Record<string, string> };
 }
 
 /**

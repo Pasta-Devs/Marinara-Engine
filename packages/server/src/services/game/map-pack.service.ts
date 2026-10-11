@@ -11,6 +11,13 @@ import {
   readWorldKitFile,
   storyCapabilityMinor,
   storyMusicCues,
+  storyCompanionsNamed,
+  storyPerson,
+  experiencePeopleImages,
+  experiencePeopleMinor,
+  readExperiencePeople,
+  type ExperiencePeople,
+  type GameWorld,
   compileGameWorld,
   gameWorldFromSnapshot,
   type ExperienceMapPack,
@@ -27,7 +34,51 @@ const CHECKED_TILES_KEPT = 8;
 const checkedCreatures = new Map<string, CreaturePack>();
 const CHECKED_CREATURES_KEPT = 16;
 
+/** Map pack people files already read, by package, version and file hash; the oldest go first. */
+const checkedPeople = new Map<string, ExperiencePeople>();
+const CHECKED_PEOPLE_KEPT = 16;
+
 export type MapPack = ExperienceMapPack;
+
+/** A map pack world as a game plays it. */
+function packGameWorld(kit: MapPack["kit"], entry: MapPack["worlds"][number]): GameWorld {
+  return entry.snapshot
+    ? gameWorldFromSnapshot(entry.snapshot)
+    : { kit, ...entry.world, world: compileGameWorld({ kit, ...entry.world }) };
+}
+
+function rememberPeople(key: string, people: ExperiencePeople) {
+  checkedPeople.set(key, people);
+  if (checkedPeople.size > CHECKED_PEOPLE_KEPT) checkedPeople.delete(checkedPeople.keys().next().value!);
+}
+
+/** An Experience's people (1.354) for a game of it, read on their own (the pack was checked whole when the
+ *  game began); null when it ships none or the file no longer reads. */
+export async function readMapPackPeople(packageId: string): Promise<NonNullable<MapPack["people"]> | null> {
+  let file: Awaited<ReturnType<typeof capabilityPackageManager.mapPackPeople>>;
+  try {
+    file = await capabilityPackageManager.mapPackPeople(packageId);
+  } catch {
+    return null;
+  }
+  if (!file) return null;
+  const key = `${packageId}@${file.version}#${file.sha256}`;
+  let people = checkedPeople.get(key);
+  if (!people) {
+    const read = readExperiencePeople(file.data.toString("utf8"));
+    if (!read.ok) return null;
+    people = read.people;
+    rememberPeople(key, people);
+  }
+  return { ...people, urls: experiencePeopleUrls(packageId, file.version, people) };
+}
+
+/** Where each picture a people file names is served. */
+function experiencePeopleUrls(packageId: string, version: string, people: ExperiencePeople) {
+  return Object.fromEntries(
+    experiencePeopleImages(people).map((path) => [path, packageAssetUrl(packageId, version, path)]),
+  );
+}
 
 export type MapPackRead = { ok: true; pack: MapPack } | { ok: false; reason: string } | null;
 
@@ -112,17 +163,11 @@ export async function readMapPack(packageId: string): Promise<MapPackRead> {
       if (checkedTiles.size > CHECKED_TILES_KEPT) checkedTiles.delete(checkedTiles.keys().next().value!);
     }
   }
+  const games = worlds.map((entry) => ({ entry, game: packGameWorld(kit.kit, entry) }));
   // Its music (1.353): a place a track is for is a place of one of its worlds.
   let music: MapPack["music"];
   if (files.music) {
-    const places = new Set(
-      worlds.flatMap(({ world, snapshot }) =>
-        (snapshot
-          ? gameWorldFromSnapshot(snapshot)
-          : { world: compileGameWorld({ kit: kit.kit, ...world }) }
-        ).world.places.map((place) => place.id),
-      ),
-    );
+    const places = new Set(games.flatMap(({ game }) => game.world.places.map((place) => place.id)));
     const stray = files.music.places?.find((each) => !places.has(each.place));
     if (stray) return { ok: false, reason: `its music names the place "${stray.place}", which none of its worlds has` };
     music = {
@@ -147,6 +192,52 @@ export async function readMapPack(packageId: string): Promise<MapPackRead> {
     checkedCreatures.set(key, read.pack);
     if (checkedCreatures.size > CHECKED_CREATURES_KEPT) checkedCreatures.delete(checkedCreatures.keys().next().value!);
   }
+  // Its people (1.354): each a named person of one of its worlds, their pictures its own assets, their
+  // walking look one of its tiles' characters; a companion (1.355) needs an Experience that declares it,
+  // and every companion a story recruits or dismisses is one.
+  let people: MapPack["people"];
+  if (files.people) {
+    const read = readExperiencePeople(files.people.data.toString("utf8"));
+    if (!read.ok) return { ok: false, reason: `${files.people.path} does not read: ${read.issues[0]}` };
+    const needs = experiencePeopleMinor(read.people);
+    if (!files.capabilityApi || files.capabilityApi.major !== 1 || files.capabilityApi.minor < needs) {
+      return { ok: false, reason: `its people need capabilityApi 1.${needs} or newer` };
+    }
+    const declared = new Set(files.assets);
+    const image = experiencePeopleImages(read.people).find((path) => !declared.has(path));
+    if (image) return { ok: false, reason: `its people's picture ${image} is not one of its assets` };
+    const sprites = new Set(
+      tiles && tiles.tilePackVersion === 2 ? (tiles.characters ?? []).map((each) => each.id) : [],
+    );
+    for (const person of read.people.people) {
+      if (!games.some(({ game }) => storyPerson(game, person.person)?.named)) {
+        return { ok: false, reason: `its people name "${person.person}", whom none of its worlds has by name` };
+      }
+      if (person.sprite && !sprites.has(person.sprite)) {
+        return {
+          ok: false,
+          reason: `${person.person} walks as "${person.sprite}", which its tiles have no character for`,
+        };
+      }
+    }
+    for (const { entry } of games) {
+      const stray = entry.story
+        ? storyCompanionsNamed(entry.story).find(
+            (id) => !read.people.people.some((person) => person.person === id && person.companion),
+          )
+        : undefined;
+      if (stray)
+        return { ok: false, reason: `${entry.path}'s story takes in "${stray}", who is not one of its companions` };
+    }
+    rememberPeople(`${packageId}@${files.version}#${files.people.sha256}`, read.people);
+    people = {
+      ...read.people,
+      urls: experiencePeopleUrls(packageId, files.version, read.people),
+    };
+  } else {
+    const stray = worlds.find((entry) => entry.story && storyCompanionsNamed(entry.story).length);
+    if (stray) return { ok: false, reason: `${stray.path}'s story takes in companions, and the pack has no people` };
+  }
   return {
     ok: true,
     pack: {
@@ -157,6 +248,7 @@ export async function readMapPack(packageId: string): Promise<MapPackRead> {
       tiles,
       ...(creatures.length ? { creatures } : {}),
       ...(music ? { music } : {}),
+      ...(people ? { people } : {}),
     },
   };
 }

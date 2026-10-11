@@ -6983,6 +6983,21 @@ export const capabilityPackageManager = {
 
   /** An installed, ready Experience's map pack music as its manifest declares it (1.353), or null. Read
    *  off the manifest only: what a turn needs to pick a track, without reading the pack's files. */
+  /** An Experience's people file (1.354) alone, verified as its other map pack files are, for a turn to
+   *  read without the whole pack; null when it ships none or is not installed and ready. */
+  async mapPackPeople(packageId: string): Promise<{ version: string; data: Buffer; sha256: string } | null> {
+    const installed = (await readRegistry()).packages.find((item) => item.id === packageId);
+    if (!installed || !isInstalledCapabilityReady(installed)) return null;
+    const path = installed.manifest.contributions?.gameSurface?.mapPack?.people;
+    if (!path) return null;
+    const declaration = installed.manifest.files.find(
+      (item) => tryNormalizeArchivePath(item.path) === tryNormalizeArchivePath(path),
+    );
+    if (!declaration || declaration.bytes > WORLD_SHARE_FILE_MAX_BYTES) return null;
+    const data = (await readVerifiedInstalledPackageFile(installed, path)).data;
+    return { version: installed.version, data, sha256: declaration.sha256 };
+  },
+
   async mapPackMusic(packageId: string): Promise<ExperienceMusic | null> {
     const installed = (await readRegistry()).packages.find((item) => item.id === packageId);
     if (!installed || !isInstalledCapabilityReady(installed)) return null;
@@ -7006,6 +7021,10 @@ export const capabilityPackageManager = {
     creatures: Array<{ path: string; data: Buffer; sha256: string }>;
     /** Its music (1.353), as declared: the tracks are served as assets, never read here. */
     music: ExperienceMusic | null;
+    /** Its people file (1.354), with its pinned hash. */
+    people: { path: string; data: Buffer; sha256: string } | null;
+    /** The package's declared asset paths, for the files its people name. */
+    assets: string[];
   } | null> {
     const installed = (await readRegistry()).packages.find((item) => item.id === packageId);
     if (!installed || !isInstalledCapabilityReady(installed)) return null;
@@ -7033,6 +7052,17 @@ export const capabilityPackageManager = {
         : null,
       capabilityApi: installed.manifest.schemaVersion === 2 ? installed.manifest.capabilityApi : null,
       music: mapPack.music ?? null,
+      assets: installed.manifest.contributions?.assets?.paths ?? [],
+      people: mapPack.people
+        ? {
+            path: mapPack.people,
+            data: await read(mapPack.people),
+            sha256:
+              installed.manifest.files.find(
+                (item) => tryNormalizeArchivePath(item.path) === tryNormalizeArchivePath(mapPack.people!),
+              )?.sha256 ?? "",
+          }
+        : null,
       creatures: await Promise.all(
         (mapPack.creatures ?? []).map(async (path) => ({
           path,

@@ -137,6 +137,10 @@ const action = z.union([
   /** Cues one of its Experience's tracks over the place's music, or (null) hands back to the place's
    *  (Capability API 1.353). */
   z.object({ music: id.nullable() }).strict(),
+  /** Takes one of its Experience's companions into the party, or lets one go, by their person id
+   *  (Capability API 1.355). */
+  z.object({ recruit: z.string().min(1).max(40) }).strict(),
+  z.object({ dismiss: z.string().min(1).max(40) }).strict(),
 ]);
 
 const page = z
@@ -458,6 +462,10 @@ export function checkStoryScript(
         if (event.repeat && when.on === "fight") issues.push(`${where}: it starts a fight when one ends, every time.`);
       } else if ("ending" in action) {
         if (!endingIds.has(action.ending)) issues.push(`${where}: no ending "${action.ending}".`);
+      } else if ("recruit" in action) {
+        personOk(action.recruit, where);
+      } else if ("dismiss" in action) {
+        personOk(action.dismiss, where);
       } else if ("move" in action) {
         placeOk(action.move, where);
         if (event.repeat && when.on === "arrive") issues.push(`${where}: it moves the party, every time it arrives.`);
@@ -715,12 +723,26 @@ export function storyMusicCues(story: StoryScript): string[] {
   ];
 }
 
-/** The Capability API minor a script needs: 1.353 for music cues, 1.351 for fights, endings and its give, move, fight and
+/** The companions a script recruits or dismisses (1.355), by person id, for its Experience's people to have. */
+export function storyCompanionsNamed(story: StoryScript): string[] {
+  return [
+    ...new Set(
+      story.events.flatMap((event) =>
+        event.do.flatMap((action) =>
+          "recruit" in action ? [action.recruit] : "dismiss" in action ? [action.dismiss] : [],
+        ),
+      ),
+    ),
+  ];
+}
+
+/** The Capability API minor a script needs: 1.355 for companions, 1.353 for music cues, 1.351 for fights, endings and its give, move, fight and
  *  ending actions, 1.350 for clocks, else 0 (any Engine with stories reads it). */
 export function storyCapabilityMinor(story: StoryScript): number {
   const acts = story.events.some((event) =>
     event.do.some((action) => "give" in action || "move" in action || "fight" in action || "ending" in action),
   );
+  if (storyCompanionsNamed(story).length) return 355;
   if (story.events.some((event) => event.do.some((action) => "music" in action))) return 353;
   if (acts || story.fights.length || story.endings.length) return 351;
   return story.flags.some((flag) => flag.clock) ? 350 : 0;
@@ -977,6 +999,13 @@ function storyActionTags(
       if (place) tags.push(`[place: name="${place.name.replace(/["[\]]/g, "")}"]`);
     } else if ("fight" in action) {
       tags.push("[state: combat]");
+    } else if ("recruit" in action || "dismiss" in action) {
+      // The party's own tag, answered as the Game Master's is: the Experience's companion joins with its sheet.
+      const person = storyPerson(game, "recruit" in action ? action.recruit : action.dismiss);
+      if (person?.named) {
+        const change = "recruit" in action ? "add" : "remove";
+        tags.push(`[party_change: character="${person.name.replace(/["[\]]/g, "")}" change="${change}"]`);
+      }
     }
   }
   return { tags, refusedItems };
@@ -1175,6 +1204,15 @@ export function storyTurn(story: StoryScript, world: StoryTurnWorld): StoryTurn 
         if (fight) {
           tells.push(
             `The story starts the fight "${fight.name}" now${fight.note ? ` (${fight.note})` : ""}. Lead straight into it; the Engine starts it with its own opponents: ${fight.creatures.map((each) => `${each.count} ${each.name ?? each.creature}`).join(", ")}.`,
+          );
+        }
+      } else if (("recruit" in action || "dismiss" in action) && byEngine) {
+        const person = storyPerson(game, "recruit" in action ? action.recruit : action.dismiss);
+        if (person?.named) {
+          tells.push(
+            "recruit" in action
+              ? `${person.name} joins the party now. Tell how they come to travel with it.`
+              : `${person.name} leaves the party now. Tell how they part ways.`,
           );
         }
       } else if ("ending" in action) {

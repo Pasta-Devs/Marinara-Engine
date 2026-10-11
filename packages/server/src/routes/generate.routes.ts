@@ -52,6 +52,8 @@ import {
 } from "../services/generation/agent-activation-questions.js";
 import { registerSequentialGameTasks } from "../services/game/sequential-tasks.js";
 import { loadGameWorld } from "../services/game/game-world.service.js";
+import { readMapPackPeople } from "../services/game/map-pack.service.js";
+import { syncCompanionSheets } from "../services/game/experience-companions.service.js";
 import {
   createAdvancedMemoryService,
   sceneCheckTranscript,
@@ -215,6 +217,8 @@ import {
   worldWhereYouAreText,
   worldPeopleNamed,
   worldPersonNpc,
+  experienceDressedNpc,
+  experienceCompanionsPromptText,
   applyWorldHistoryTags,
   worldHistoryAnswerText,
   applyWorldTags,
@@ -5147,10 +5151,17 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           // What the story says to the Game Master this turn (worldgen W10): its values, the directions in
           // force, the scene just shown, and what it asks now.
           const promptTurnStory = await turnStory();
+          // The Experience's companions (1.355), told with the story.
+          const promptPackId = (chatMeta.gameMapPack as { packageId?: unknown } | undefined)?.packageId;
+          const promptPeople =
+            promptWorld && typeof promptPackId === "string" ? await readMapPackPeople(promptPackId) : null;
           const promptStoryNow = [
             // A guided intro (1.339), on the reply that opens the game.
             gameIntroGuidanceText(await gameIntroNow()),
             promptTurnStory ? storyTurnPromptText(promptTurnStory.story, promptTurnStory.turn) : "",
+            promptPeople && promptWorld
+              ? experienceCompanionsPromptText(promptWorld, promptPeople, canonicalGamePartyNames)
+              : "",
           ]
             .filter(Boolean)
             .join("\n\n");
@@ -9841,6 +9852,14 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             // Tracked once the reply is saved (below), so a discarded or stopped reply adds nobody.
             if (named.length > 0) worldNpcsNamed = { world: turnWorld, people: named };
           }
+          // An Experience's companions keep up with the party's level (1.355).
+          if (chatMode === "game" && !input.impersonate && chatMeta.gameMapPack && chatMeta.gameRuleset != null) {
+            try {
+              await syncCompanionSheets(app.db, input.chatId, chatMeta);
+            } catch (error) {
+              logger.warn(error, "[generate] Could not bring the Experience's companions up to the party's level");
+            }
+          }
           const tellsInventory = /\[(?:inventory|loot):/i.test(fullResponse);
           // A rest the sheet commands took may bring charges back to what the rested carry.
           const turnRests = rulesetSheetTurn?.rests ?? [];
@@ -10272,12 +10291,15 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           // The world's people the saved reply named become tracked NPCs (worldgen W2).
           if (worldNpcsNamed && savedMsg?.id && !generationSignal.aborted) {
             const { world: namedWorld, people: named } = worldNpcsNamed;
+            // An Experience's own people (1.354) come dressed: their portrait and who they are.
+            const packId = (chatMeta.gameMapPack as { packageId?: unknown } | undefined)?.packageId;
+            const people = typeof packId === "string" ? await readMapPackPeople(packId) : null;
             await chats.patchMetadata(input.chatId, (current) => {
               const npcs = Array.isArray(current.gameNpcs) ? (current.gameNpcs as GameNpc[]) : [];
               const known = new Set(npcs.flatMap((npc) => (npc.worldId ? [npc.worldId] : [])));
               const added = named
                 .filter((person) => !known.has(person.id))
-                .map((person) => worldPersonNpc(namedWorld, person));
+                .map((person) => experienceDressedNpc(worldPersonNpc(namedWorld, person), people));
               return added.length > 0 ? { gameNpcs: [...npcs, ...added] } : {};
             });
           }

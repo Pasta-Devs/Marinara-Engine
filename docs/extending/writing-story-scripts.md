@@ -150,9 +150,14 @@ deed it waits for, would set itself off every turn, so the Engine refuses it.
 | `{ "fight": "<fight id>" }` | Starts one of the script's fights (1.351). The Game Master is told to lead into it, and the fight that follows has the story's opponents. |
 | `{ "move": "<place id>" }` | Puts the party at a place of the world (1.351), as a walk would; an `arrive` event it brings happens on the same turn. |
 | `{ "ending": "<ending id>" }` | Ends the game with one of the script's endings (1.351): its scene plays, the Game Master closes on its epilogue, and the player is shown the ending and offered to end the session. Nothing in the story happens after it. |
+| `{ "music": "<track id>" }` or `{ "music": null }` | Cues one of its Experience's tracks over the place's music (1.353), until another cue, or `null` hands back to the place's. The track must be one of the map pack's `music`. |
+| `{ "recruit": "<person id>" }` | Takes one of its Experience's companions into the party (1.355), with their sheet for the game's ruleset. The Game Master is told to show them joining. |
+| `{ "dismiss": "<person id>" }` | Lets a companion go from the party (1.355). |
 
-A map pack world whose story has clocks needs Capability API 1.350, and one with fights, endings or
-these four actions needs 1.351.
+A map pack world whose story has clocks needs Capability API 1.350, one with fights, endings or the
+`give`, `fight`, `move` and `ending` actions needs 1.351, one that cues music needs 1.353, and one that
+recruits or dismisses companions needs 1.355. A companion is a person of the pack's people file marked
+as one (see the map pack's people in [optional agent packages](../development/optional-agent-packages.md)).
 
 ### Fights
 

@@ -63,6 +63,13 @@ import { chats as chatsTable } from "../db/schema/index.js";
 import { capabilityPackageManager } from "../services/capability-packages/package-manager.service.js";
 import { mapPackLockIssue, readMapPack, type MapPack } from "../services/game/map-pack.service.js";
 import {
+  companionNames,
+  companionPartyLevel,
+  companionSheetEnvelope,
+  gameCompanionNamed,
+  gameCompanions,
+} from "../services/game/experience-companions.service.js";
+import {
   editsStoryRefusal,
   storyNamesOf,
   worldForEditor,
@@ -356,6 +363,11 @@ import {
   TERRAIN_DATA,
   extractLeadingThinkingBlocks,
   gameInventoryNameKey,
+  createLorebookEntrySchema,
+  experiencePeopleLore,
+  experienceDressedNpc,
+  storyPerson,
+  worldPersonNpc,
   type RPGStatsConfig,
 } from "@marinara-engine/shared";
 import {
@@ -7107,6 +7119,34 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     else if (gameWorld && setupConfig.worldKit) {
       await saveGameWorldSnapshot(app.db, sessionChat.id, { gameWorld, gameWorldKit: setupConfig.worldKit });
     }
+    // The Experience's people (1.354): what is known of them, as a lorebook of this game's own that is
+    // active from the first turn. Only the people this world has; their names bring them in.
+    let peopleLorebookId: string | null = null;
+    const peopleWorld =
+      mapPack?.people && gameWorld
+        ? await loadGameWorld(app.db, sessionChat.id, { gameWorld, gameWorldKit: setupConfig.worldKit })
+        : null;
+    if (mapPack?.people && peopleWorld) {
+      const lore = experiencePeopleLore(peopleWorld, mapPack.people);
+      if (lore.length) {
+        const lorebooksStore = createLorebooksStorage(app.db);
+        const book = (await lorebooksStore.create({
+          name: `${mapPack.name}: people`.slice(0, 200),
+          description: "The people and lore of this game's Experience.",
+          category: "world",
+          chatId: sessionChat.id,
+          enabled: true,
+          tags: ["game", "experience"],
+        })) as { id?: string } | null;
+        if (book?.id) {
+          await lorebooksStore.bulkCreateEntries(
+            book.id,
+            lore.map((entry) => createLorebookEntrySchema.omit({ lorebookId: true }).parse(entry)),
+          );
+          peopleLorebookId = book.id;
+        }
+      }
+    }
     await chats.updateMetadata(sessionChat.id, {
       ...sessionMeta,
       gameId,
@@ -7167,7 +7207,6 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
       // The setting kit, likewise only when one was chosen, and the world made in its words.
       ...(setupConfig.worldKit ? { gameWorldKit: setupConfig.worldKit } : {}),
       ...(gameWorld ? { gameWorld } : {}),
-      // The game draws with its map pack's tiles while the Experience is installed.
       // Kept for what the game draws and plays with its pack: its tiles, creature art, music and people.
       ...(mapPack ? { gameMapPack: { packageId: mapPack.packageId } } : {}),
       ...(gameStory ? { gameStory } : {}),
@@ -7191,7 +7230,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
       gameStoryboardImagePromptTemplateId: setupConfig.gameStoryboardImagePromptTemplateId || null,
       gameStoryboardVideoPromptTemplateId: setupConfig.gameStoryboardVideoPromptTemplateId || null,
       gameLastSceneVideoId: null,
-      activeLorebookIds: setupConfig.activeLorebookIds || [],
+      activeLorebookIds: [...(setupConfig.activeLorebookIds || []), ...(peopleLorebookId ? [peopleLorebookId] : [])],
       enableCustomWidgets: setupConfig.enableCustomWidgets !== false,
       ...(customHudWidgets.length > 0 ? { gameWidgetState: customHudWidgets } : {}),
       gameUseMusicDj: setupConfig.enableSpotifyDj === true,
@@ -9631,6 +9670,13 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     } catch {
       chatCharacterIds = [];
     }
+    // An Experience's companions (1.355): one the party takes in joins with their sheet. While the
+    // Experience has companions, only they (and the player's own library characters) may join.
+    const companions = await gameCompanions(app.db, chat.id, meta);
+    const pinnedRuleset = meta.gameRuleset != null ? resolveGameRuleset(meta, await loadRulesetRegistry()) : null;
+    const companion = companions
+      ? gameCompanionNamed(companions, requestedName, pinnedRuleset?.status === "ok" ? pinnedRuleset.definition : null)
+      : null;
     const currentPartyIds = getStoredPartyCharacterIds(meta, setupConfig, chatCharacterIds);
     const gameNpcs = (meta.gameNpcs as GameNpc[]) ?? [];
     const trackedNpc = findGameNpcByName(gameNpcs, requestedName);
@@ -9651,7 +9697,10 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     const cardInParty = partyCards.find((candidate) => candidate.lookup === requestedLookup);
     let matches: typeof sameNameCards;
     // Someone of this name already in the party stays the only one, even when a stale choice is answered.
-    if (cardInParty) {
+    // An Experience's companion (1.355) joins as themselves, never as a library card.
+    if (companion) {
+      matches = [];
+    } else if (cardInParty) {
       matches = [cardInParty];
     } else if (trackedNpc && currentPartyIds.includes(buildPartyNpcId(trackedNpc.name))) {
       matches = [];
@@ -9690,8 +9739,18 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
       matches = partyMembers.length === 1 ? partyMembers : [];
     }
 
-    let npcRecruit = matches.length === 0 ? trackedNpc : null;
-    const fallbackTrackedNpc = matches.length === 0 && !npcRecruit ? buildFallbackTrackedGameNpc(requestedName) : null;
+    if (companions && !companion && matches.length === 0) {
+      throw new Error(`${requestedName} is not one of this Experience's companions, so cannot join the party.`);
+    }
+
+    let npcRecruit = matches.length === 0 ? (companion ? findGameNpcByName(gameNpcs, companion.name) : trackedNpc) : null;
+    const companionPerson = companion && !npcRecruit ? storyPerson(companions!.world, companion.person) : undefined;
+    const fallbackTrackedNpc =
+      matches.length === 0 && !npcRecruit
+        ? companionPerson
+          ? experienceDressedNpc(worldPersonNpc(companions!.world, companionPerson), companions!.people)
+          : buildFallbackTrackedGameNpc(requestedName)
+        : null;
     if (fallbackTrackedNpc) {
       npcRecruit = fallbackTrackedNpc;
       logger.info(
@@ -9723,9 +9782,15 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     const recruitRpgStats = recruit ? extractRecruitCharacterRpgStats(recruit.data) : undefined;
     // In a game on a ruleset a recruit joins the way the party did at setup: with a copy of the
     // library card's starting build, or a blank sheet (an NPC has no library card to copy from).
-    const pinnedRuleset = meta.gameRuleset != null ? resolveGameRuleset(meta, await loadRulesetRegistry()) : null;
+    // A companion joins with their own build for the party's level (1.355).
     const recruitRulesetSheet =
-      pinnedRuleset?.status === "ok"
+      pinnedRuleset?.status === "ok" && companion?.sheet
+        ? companionSheetEnvelope(
+            pinnedRuleset.definition,
+            companion.sheet,
+            companionPartyLevel(pinnedRuleset.definition, currentCards, companion.sheet, companionNames(companions!)),
+          )
+        : pinnedRuleset?.status === "ok"
         ? copyRulesetSheetForGame(
             pinnedRuleset.definition,
             recruit?.data.extensions?.rulesetSheets?.[pinnedRuleset.definition.id],

@@ -198,6 +198,14 @@ const capabilityPackageManifestBaseSchema = z
                  *  (a place's own, else the nearest place it is inside that has one), the one played
                  *  anywhere else, and the one for fights. A story may cue a track over them. */
                 music: experienceMusicSchema.optional(),
+                /** The Experience's people (Capability API 1.354): a `.people.json` file dressing the named
+                 *  people of its worlds with portraits, expressions, a walking look and lore. */
+                people: z
+                  .string()
+                  .min(1)
+                  .max(240)
+                  .regex(/\.people\.json$/u, "A map pack's people are a .people.json file")
+                  .optional(),
               })
               .strict()
               .optional(),
@@ -1311,7 +1319,13 @@ const capabilityPackageManifestBaseSchema = z
 //        action cues one of them over the place's, or hands back to the place's.
 // 1.352: an Experience's map pack may ship creature packs (`mapPack.creatures`, .creaturepack.json files
 //        declared as assets): its fights draw their creatures from them first, then from the library's.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 353 } as const);
+// 1.354: an Experience's map pack may ship its people (`mapPack.people`, a .people.json file declared as
+//        an asset): named people of its worlds with a portrait (the journal, the narration), expressions,
+//        a walking look from its tiles, how they speak, and lore that is active in its games.
+// 1.355: an Experience's people may be companions (`companion`: a role and, per ruleset, a build for each
+//        level they are made for): the story recruits and dismisses them (`recruit` / `dismiss` actions),
+//        the Game Master may take only them in, and they join with their sheet and keep up with the party.
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 355 } as const);
 
 const capabilityApiVersionSchema = z
   .object({
@@ -1373,6 +1387,7 @@ export const capabilityPackageManifestSchema = z
           path,
           ["creatures", index],
         ]),
+        ...(mapPack.people ? [[mapPack.people, ["people"]] as [string, Array<string | number>]] : []),
       ];
       if (mapPack.music) {
         const tracks = new Set(mapPack.music.tracks.map((track) => track.id));
@@ -1412,6 +1427,13 @@ export const capabilityPackageManifestSchema = z
           code: z.ZodIssueCode.custom,
           path: ["contributions", "gameSurface", "mapPack", "music"],
           message: "A map pack's music requires capabilityApi 1.353 or newer",
+        });
+      }
+      if (mapPack.people && (!api || api.major !== 1 || api.minor < 354)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["contributions", "gameSurface", "mapPack", "people"],
+          message: "A map pack's people require capabilityApi 1.354 or newer",
         });
       }
       if (mapPack.creatures && api && api.major === 1 && api.minor < 352) {
