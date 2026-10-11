@@ -8,6 +8,10 @@
  *   - What it recorded is the Held Ground (1.318) a ruleset fight started there is fought on.
  */
 import assert from "node:assert/strict";
+import { mkdtempSync, readFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import {
   WORLD_GENERATOR_VERSION,
@@ -15,6 +19,7 @@ import {
   checkStoryScript,
   checkWorldBrief,
   compileGameWorld,
+  parseRulesetDefinition,
   parseWorldKit,
   readStoryLedger,
   storyCapabilityMinor,
@@ -26,6 +31,14 @@ import {
   type GameWorld,
   type StoryScriptInput,
 } from "../../packages/shared/src/index.js";
+
+const dataDir = mkdtempSync(join(tmpdir(), "marinara-held-ground-"));
+process.env.DATA_DIR = dataDir;
+process.env.FILE_STORAGE_DIR = join(dataDir, "storage");
+const [{ buildSkillCheckRulesetContext }, { heldGroundReleasedInFight, rollStoryOwingWith }] = await Promise.all([
+  import("../../packages/server/src/services/game/skill-check-resolution.service.js"),
+  import("../../packages/server/src/services/game/story-held-ground.service.js"),
+]);
 
 const parsedKit = parseWorldKit(WORLD_STARTER_KITS.find((each) => each.id === "high_fantasy")!);
 assert.ok(parsedKit.ok);
@@ -197,6 +210,73 @@ assert.ok(
     storyHeldGroundReleaseInFight(finale.story, ledger, { spends: [spend("a", -2), spend("b", -1)] })?.felled,
     "die",
   );
+}
+
+// ── The Owing out of a fight (1.377): each of the party rolls a dying save a mark, off their own sheet ──
+{
+  const fiveE = (() => {
+    const doc = JSON.parse(
+      readFileSync(
+        fileURLToPath(new URL("../../docs/development/ruleset-5e-2014.example.json", import.meta.url)),
+        "utf8",
+      ),
+    );
+    // What an Experience's overlay adds (1.375): the Owing track.
+    doc.sheet.live.tracks.push({ id: "owing", label: "Owing", min: 0, max: 10 });
+    const parsed = parseRulesetDefinition(doc);
+    assert.ok(parsed.ok, parsed.ok ? "" : parsed.issues.join("; "));
+    return parsed.definition;
+  })();
+  const cards = [{ name: "Jory" }, { name: "Liesl" }, { name: "Hayward" }];
+  const live = { jory: { tracks: { owing: 2 } }, hayward: { tracks: { owing: 3 } } };
+  const context = {
+    skills: null,
+    attributes: null,
+    sheetAttributes: {},
+    ruleset: buildSkillCheckRulesetContext(fiveE, cards, cards[0], live),
+  };
+  const faces =
+    (...values: number[]) =>
+    () =>
+      values.shift() ?? 10;
+  const base = storyTurn(story, { game, replies: [], repliesBefore: 0, latest: null, told: [], day: 0, fight: null });
+  const released = {
+    id: "valley",
+    label: "The Held Autumn",
+    felled: "die" as const,
+    owing: { track: "owing", bonus: 2 },
+  };
+  // Jory: 5 + 2 fails, 12 + 2 holds, and the marks run out alive. Hayward: a natural 1 is two failures,
+  // 4 + 2 a third, and he dies. Liesl owes nothing and rolls nothing.
+  const owed = rollStoryOwingWith(context, { gameCharacterCards: cards }, { ...base, released }, faces(5, 12, 1, 4));
+  assert.equal(
+    owed.sheet,
+    [
+      base.sheet,
+      '[sheet: who="Jory" op="track" track="owing" by="-2"]',
+      '[sheet: who="Jory" op="track" track="death_save_failures" to="0"]',
+      '[sheet: who="Jory" op="track" track="death_save_successes" to="0"]',
+      '[sheet: who="Hayward" op="track" track="owing" by="-3"]',
+      '[sheet: who="Hayward" op="track" track="death_save_failures" to="3"]',
+      '[sheet: who="Hayward" op="track" track="death_save_successes" to="0"]',
+    ]
+      .filter(Boolean)
+      .join(" "),
+  );
+  const tell = owed.tells.at(-1)!;
+  assert.match(tell, /Jory's debt comes due, 2 saves \(5 \+ 2, 12 \+ 2\), and they live/);
+  assert.match(tell, /Hayward's debt comes due, 2 saves \(1 \+ 2, 4 \+ 2\), and they die/);
+  assert.doesNotMatch(tell, /Liesl/);
+  // Nothing let go, or no Owing: nothing rolled.
+  assert.equal(rollStoryOwingWith(context, { gameCharacterCards: cards }, base, faces(1)), base);
+  const quiet = { ...base, released: { id: "valley", felled: "die" as const } };
+  assert.equal(rollStoryOwingWith(context, { gameCharacterCards: cards }, quiet, faces(1)), quiet);
+  // A fight that let it go already rolled it: the turn recording it (and that turn regenerated) skips it.
+  const meta = { gameHeldGroundReleased: { id: "valley", replies: 4 } };
+  assert.equal(heldGroundReleasedInFight(meta, released, 4), true);
+  assert.equal(heldGroundReleasedInFight(meta, released, 6), false, "a later letting go is its own");
+  assert.equal(heldGroundReleasedInFight(meta, { ...released, id: "barrow" }, 4), false);
+  assert.equal(heldGroundReleasedInFight({}, released, 4), false);
 }
 
 // A script without it never records any.

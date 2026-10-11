@@ -200,14 +200,14 @@ deed it waits for, would set itself off every turn, so the Engine refuses it.
 **Actions** (`do`):
 
 | Action                                                                                                  | Does                                                                     |
-| ------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `{ "set": "<flag>", "value": <value> }`                                                                 | Sets a flag.                                                             |
 | `{ "add": "<flag>", "amount": <number> }`                                                               | Adds to a number flag.                                                   |
 | `{ "tell": "<text>" }`                                                                                  | Asks something of the Game Master, once, this turn.                      |
 | `{ "cutscene": "<id>" }`                                                                                | Plays a cutscene.                                                        |
 | `{ "show": "<flag>" }`                                                                                  | Shows a hidden quest objective in the journal.                           |
 | `{ "world": { "deed": "<kind>", "group": "...", "with": "...", "place": "<place id>", "who": "..." } }` | Records a deed in the world, answered as the Game Master's own would be. |
-| `{ "give": { "item": "<catalog/entry or a name>", "count": 1, "who": "...", "summary": "..." } }` | Gives an item (1.351): one of the game's ruleset items by its id, or any other by its name (with `summary` saying what it is), into the player's bag or the party member `who` names. It goes in as the Game Master's own would, so the inventory's rules apply. An id the game's ruleset does not offer is refused, with the reason in the reply. |
+| `{ "give": { "item": "<catalog/entry or a name>", "count": 1, "who": "...", "summary": "..." } }`             | Gives an item (1.351): one of the game's ruleset items by its id, or any other by its name (with `summary` saying what it is), into the player's bag or the party member `who` names. It goes in as the Game Master's own would, so the inventory's rules apply. A bare entry id (`fennicks-hymnal`) is the first of the ruleset's catalogs that offers it (1.378), so one script fits rulesets that file it differently; `item` may also be a list of up to 8, the first the game offers given (`["magic_items/fennicks-hymnal", "equipment/fennicks-hymnal"]`). An id the game's ruleset does not offer is refused, with the reason in the reply. |
 | `{ "fight": "<fight id>" }` | Starts one of the script's fights (1.351). The Game Master is told to lead into it, and the fight that follows has the story's opponents. |
 | `{ "move": "<place id>" }` | Puts the party at a place of the world (1.351), as a walk would; an `arrive` event it brings happens on the same turn. |
 | `{ "ending": "<ending id>" }` | Ends the game with one of the script's endings (1.351): its scene plays, the Game Master closes on its epilogue, and the player is shown the ending and offered to end the session. Nothing in the story happens after it. |
@@ -240,7 +240,7 @@ with fight `variants` needs 1.364, and one with `any` conditions, a `fight` even
 `leave` event, a flag's `min` or `max`, or an `if` on an action or a page needs 1.366, and one with a
 `partySize` condition, a variant for a party above 6 or open-ended, or more than 6 variants needs 1.368, and one
 with a `season` action `over` everything inside it needs 1.369, one with `exposures` needs 1.370, one
-whose fight creatures `adjust` needs 1.371, one with an exposure `save` or a track's `upTo` needs 1.372, one with an exposure `sparedByShade` needs 1.373, one with `heldGround` needs 1.374, and one with a `sheet` action needs 1.376. A companion is a person of the pack's people file marked
+whose fight creatures `adjust` needs 1.371, one with an exposure `save` or a track's `upTo` needs 1.372, one with an exposure `sparedByShade` needs 1.373, one with `heldGround` needs 1.374, one with a `sheet` action needs 1.376, one with a held ground `release` needs 1.377, and one that gives by a bare entry id or a list needs 1.378. A companion is a person of the pack's people file marked
 as one (see the map pack's people in [optional agent packages](../development/optional-agent-packages.md)).
 
 Of the `rest`, `travel` and `idle` events that could happen on one turn, only one does: the one with the
@@ -307,6 +307,24 @@ fight, stable and never dying, and gets up again later unless something that rea
 goes on the felled, and each felled character's `marks` tracks move (a mark of Owing). The first entry that
 holds is the one. The story records the party coming onto it and leaving it (`[story: held=...]`) and tells
 the Game Master each time (with `tell`); every turn it holds, the Game Master is reminded what it means.
+
+Held ground can let go (Capability API 1.377): the showcase's year turning. Its `release` says what then
+comes due:
+
+```json
+"release": { "felled": "die", "owing": { "track": "owing", "bonus": { "flag": "hymn_bonus" } } }
+```
+
+`felled` is what becomes of whoever lies felled: they die (`"die"`, the default) or go down and start
+dying by the ruleset's own rule (`"down"`). `owing` makes each of the party roll one of the ruleset's dying
+saves for each mark on `track` (the held ground's first marked track when not said), `bonus` added to each
+(a number, or a number flag read as it lets go), until the marks run out or the count is decided; the
+marks are spent, and three failures are death. In a ruleset fight still on it, it lets go in the very step
+that turns it: an item's use that spends the story number its `if` reads (1.367), or a prop broken that a
+`broke` event answers (1.311), and the flags events those set off. The felled and the Owing come due in
+that round, by the fight's own release (1.325). Out of a fight, the story turn that records it rolls each
+member's Owing off their own sheet and tells the Game Master who lived and who died; a fight left
+unfinished on it lets go on its next step. What a fight let go is never rolled twice.
 
 ### Seasons
 

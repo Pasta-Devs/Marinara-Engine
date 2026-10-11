@@ -65,6 +65,7 @@ import {
   commandRulesetCombatDirector,
   createRulesetFight,
   directedRulesetView,
+  releaseRulesetHeldGround,
   rulesetDirectorStage,
   rulesetFightLiveStates,
   syncRulesetCombatants,
@@ -76,6 +77,7 @@ import { loadRulesetCatalogEntries } from "../services/game/ruleset-catalog.serv
 import { resolveTacticalStartPreferences } from "../services/game/tactical-battlefield.service.js";
 import { gameBattlefieldHere } from "../services/game/made-battlefield.service.js";
 import { checkStoryItemUse, keepStorySpend, storyUseOfOption } from "../services/game/story-item-uses.service.js";
+import { heldGroundReleaseDueInFight, keepHeldGroundReleased } from "../services/game/story-held-ground.service.js";
 import { gameNoncombatants } from "../services/game/experience-companions.service.js";
 import { latestStoryFightAdjusts, latestStoryHeldGround } from "../services/game/story-fight.service.js";
 import { buildPartyNpcId } from "../services/generation/game-party-utils.js";
@@ -973,6 +975,36 @@ export async function combatDirectorRoutes(
       return reply.code(400).send({ error: err instanceof Error ? err.message : "Invalid combat save." });
     }
   });
+  /** Held Ground let go in the step a fight just took (1.377): the story's year turns there and then,
+   *  as the hymn's last verse is sung or the Year-Wheel breaks, and the felled and the Owing come due
+   *  in the same round. The ground let go, for the caller to keep once the step is saved. */
+  const letHeldGroundGo = async (
+    chatId: string,
+    s: CombatDirectorState,
+    ruleset: RulesetDefinition | null,
+  ): Promise<string | null> => {
+    if (!ruleset) return null;
+    const release = await heldGroundReleaseDueInFight(app.db, chatId, s);
+    if (!release) return null;
+    const answered = releaseRulesetHeldGround(ruleset, s, {
+      felled: release.felled,
+      ...(release.owing ? { owing: release.owing } : {}),
+    });
+    return answered.ok ? release.id : null;
+  };
+  /** Saves the step, then keeps that it let Held Ground go, so the story turn rolls nothing twice. */
+  const saveLettingGo = async (
+    rowId: string,
+    chatId: string,
+    s: CombatDirectorState,
+    session: RulesetSession | null,
+    ruleset: RulesetDefinition | null,
+  ) => {
+    const released = await letHeldGroundGo(chatId, s, ruleset);
+    const saved = await save(rowId, chatId, s, session);
+    if (released) await keepHeldGroundReleased(app.db, chatId, released);
+    return saved;
+  };
   app.post("/command", async (req, reply) => {
     const parsed = z
       .object({
@@ -1016,7 +1048,7 @@ export async function combatDirectorRoutes(
           if (w.requestedAt || state.gmCalls >= 12) {
             step({ type: "fallback" }, "fallback");
             state.requests = [...state.requests, input.requestId].slice(-256);
-            return await save(row.id, input.chatId, state, session);
+            return await saveLettingGo(row.id, input.chatId, state, session, ruleset);
           }
           w.requestedAt = Date.now();
           state.gmCalls++;
@@ -1074,7 +1106,7 @@ export async function combatDirectorRoutes(
         if (refused) return { refusal: refused };
         if (storySpend && "spend" in storySpend) await keepStorySpend(app.db, input.chatId, storySpend.spend);
         state.requests = [...state.requests, input.requestId].slice(-256);
-        return await save(row.id, input.chatId, state, session);
+        return await saveLettingGo(row.id, input.chatId, state, session, ruleset);
       });
       if ("refusal" in result && result.refusal)
         return reply.code(400).send({ error: result.refusal.error, code: result.refusal.code });
@@ -1127,7 +1159,7 @@ export async function combatDirectorRoutes(
           if (!answered.ok) commandRulesetCombatDirector(ruleset, current.state, { type: "fallback" }, "fallback");
         } else commandCombatDirector(current.state, answer, source);
         current.state.requests = [...current.state.requests, input.requestId].slice(-256);
-        return await save(current.row.id, input.chatId, current.state, session);
+        return await saveLettingGo(current.row.id, input.chatId, current.state, session, ruleset);
       });
     } catch (err) {
       logger.warn(err, "Directed combat command rejected");

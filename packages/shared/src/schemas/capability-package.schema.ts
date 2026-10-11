@@ -1429,7 +1429,13 @@ const capabilityPackageManifestBaseSchema = z
 //        shown on the sheet, moved by sheet commands, and kept for Held Ground's and light rules' marks.
 // 1.376: a story action `sheet` puts a sheet condition on each of the party or takes it off, or moves a
 //        track of each one's sheet (`upTo` stops it), as the Engine's own sheet command.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 376 } as const);
+// 1.377: Held Ground may let go (`heldGround[].release`: the felled die or go down, and marks of a track
+//        come due as dying saves with a bonus, a number or a number flag): in a ruleset fight still on it,
+//        in the very step that lets it go (an item's story spend, a prop broken), and out of a fight each
+//        of the party rolls what they owe off their own sheet.
+// 1.378: a story's `give` may name a ruleset entry by its bare id (the first catalog that offers it), and
+//        may list alternatives, the first the game offers given.
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 378 } as const);
 
 const capabilityApiVersionSchema = z
   .object({

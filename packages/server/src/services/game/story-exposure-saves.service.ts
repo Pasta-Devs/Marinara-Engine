@@ -22,7 +22,7 @@ import {
 } from "./skill-check-resolution.service.js";
 
 /** Each member of the party with a sheet to roll on, by the name on their card, each name once. */
-function partyMembers(meta: Record<string, unknown>, context: SkillCheckModifierContext): string[] {
+export function storyPartyMembers(meta: Record<string, unknown>, context: SkillCheckModifierContext): string[] {
   const sheets = context.ruleset?.sheets;
   if (!sheets) return [];
   const cards = Array.isArray(meta.gameCharacterCards) ? (meta.gameCharacterCards as Array<{ name?: unknown }>) : [];
@@ -69,7 +69,7 @@ export function rollStoryExposureSavesWith(
   rollD20?: () => number,
 ): StoryTurn {
   if (!turn.saves.length) return turn;
-  const members = context ? partyMembers(meta, context) : [];
+  const members = context ? storyPartyMembers(meta, context) : [];
   const sheet: string[] = [];
   const tells: string[] = [];
   for (const bite of turn.saves) {

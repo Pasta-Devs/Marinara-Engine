@@ -1502,7 +1502,9 @@ function storyHeldGroundRelease(
     ...(gone.release?.owing
       ? {
           owing: {
-            ...(gone.release.owing.track ? { track: gone.release.owing.track } : {}),
+            ...((gone.release.owing.track ?? gone.marks?.[0]?.track)
+              ? { track: gone.release.owing.track ?? gone.marks![0]!.track }
+              : {}),
             ...(bonusNow !== undefined ? { bonus: bonusNow } : {}),
           },
         }

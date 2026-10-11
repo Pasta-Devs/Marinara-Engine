@@ -64,6 +64,12 @@ import {
   rollStoryExposureSavesWith,
   storyPartyCarriesShade,
 } from "../services/game/story-exposure-saves.service.js";
+import {
+  heldGroundFightUnfinished,
+  heldGroundReleasedInFight,
+  keepHeldGroundPending,
+  rollStoryOwingWith,
+} from "../services/game/story-held-ground.service.js";
 import { gameStorySpends } from "../services/game/story-item-uses.service.js";
 import {
   createAdvancedMemoryService,
@@ -2199,7 +2205,38 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                     ],
                 });
                 // The saves its exposures owe (1.372), rolled off the sheets this turn starts from.
-                const turn = rollStoryExposureSavesWith(exposureSheets, chatMeta, storyTold);
+                let turn = rollStoryExposureSavesWith(exposureSheets, chatMeta, storyTold);
+                // Held Ground let go (1.377): a fight that let it go has rolled what came due; one still
+                // unfinished on it lets it go on its next step; otherwise the party's Owing is rolled here.
+                const released = turn.released;
+                if (released) {
+                  if (heldGroundReleasedInFight(chatMeta, released, replies.all.length)) {
+                    turn = {
+                      ...turn,
+                      tells: [
+                        ...turn.tells,
+                        `${released.label ?? "Held Ground"} was let go in the fight, and what came due was rolled there.`,
+                      ],
+                    };
+                  } else if (await heldGroundFightUnfinished(app.db, input.chatId)) {
+                    await keepHeldGroundPending(app.db, input.chatId, released);
+                    turn = {
+                      ...turn,
+                      tells: [
+                        ...turn.tells,
+                        `${released.label ?? "Held Ground"} lets go of the fight still being fought on it: the Engine settles what comes due on its next step.`,
+                      ],
+                    };
+                  } else if (released.owing) {
+                    const sheets =
+                      exposureSheets ??
+                      (await loadStoryExposureSheets(app.db, input.chatId, {
+                        live: parseStoredRulesetLive((await turnStartRulesetSnapshot())?.rulesetLive),
+                        regenerateMessageId: input.regenerateMessageId ?? null,
+                      }));
+                    turn = rollStoryOwingWith(sheets, chatMeta, turn);
+                  }
+                }
                 return { story, game, item, turn };
               })()
             : Promise.resolve(null));
