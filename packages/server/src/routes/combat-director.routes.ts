@@ -75,6 +75,7 @@ import { loadRulesetRegistry, resolveGameRuleset } from "../services/game/rulese
 import { loadRulesetCatalogEntries } from "../services/game/ruleset-catalog.service.js";
 import { resolveTacticalStartPreferences } from "../services/game/tactical-battlefield.service.js";
 import { gameBattlefieldHere } from "../services/game/made-battlefield.service.js";
+import { checkStoryItemUse, keepStorySpend, storyUseOfOption } from "../services/game/story-item-uses.service.js";
 import { logger } from "../lib/logger.js";
 import { resolveVisibleGameStateAnchor } from "./generate/generate-route-utils.js";
 
@@ -1037,9 +1038,24 @@ export async function combatDirectorRoutes(
           const truly = uses?.effectOf(usedLine.ownName ?? usedLine.name, usedEffect);
           if (truly && truly !== usedEffect) (used!.action as { truly?: CombatItemEffect }).truly = truly;
         }
+        // An item whose use costs a story number (1.367) is refused while the story cannot pay, and what
+        // it spends is kept for the next story turn once the fight has taken it.
+        const storyUse =
+          ruleset && input.command.type === "ruleset" && state.rulesetFight
+            ? storyUseOfOption(ruleset, state.rulesetFight.encounter, input.command.optionId)
+            : null;
+        let storySpend: Awaited<ReturnType<typeof checkStoryItemUse>> | null = null;
+        if (storyUse) {
+          const chat = await chats.getById(input.chatId);
+          storySpend = await checkStoryItemUse(app.db, input.chatId, JSON.parse(chat?.metadata || "{}"), storyUse);
+          if ("refusal" in storySpend) {
+            return { refusal: { ok: false as const, error: storySpend.refusal, code: "ruleset_combat_story_cost" } };
+          }
+        }
         const refused = step(input.command as DirectedCommand);
         // A refusal changed nothing, so nothing is saved and no request id is spent on it.
         if (refused) return { refusal: refused };
+        if (storySpend && "spend" in storySpend) await keepStorySpend(app.db, input.chatId, storySpend.spend);
         state.requests = [...state.requests, input.requestId].slice(-256);
         return await save(row.id, input.chatId, state, session);
       });

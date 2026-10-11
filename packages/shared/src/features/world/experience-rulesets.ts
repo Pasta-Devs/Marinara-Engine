@@ -32,6 +32,22 @@ export const experienceRulesetOverlaySchema = z
     sheetConditions: objects(EXPERIENCE_OVERLAY_MAX.rules),
     /** Bestiary entries, for the ruleset's `creatures` catalog. */
     creatures: objects(EXPERIENCE_OVERLAY_MAX.entries),
+    /** Item uses that cost a story number (Capability API 1.367): the item, by `catalog/entry` id, and
+     *  what its use adds to the story's number flag `flag` (`add: -2` spends two), refused while the
+     *  flag is below `atLeast`. */
+    storyUses: z
+      .array(
+        z
+          .object({
+            item: z.string().regex(/^[a-z][a-z0-9_]{0,39}\/[^/\s]{1,120}$/u, "An item is named catalog/entry"),
+            flag: z.string().regex(/^[a-z0-9_-]{1,40}$/u, "A story flag's id"),
+            add: z.number().finite(),
+            atLeast: z.number().finite().optional(),
+          })
+          .strict(),
+      )
+      .max(EXPERIENCE_OVERLAY_MAX.rules)
+      .optional(),
     /** Entries for any other of its catalogs, by catalog id: `{ "magic_items": [...] }`. */
     catalogs: z
       .record(catalogId, z.array(z.record(z.unknown())).max(EXPERIENCE_OVERLAY_MAX.entries))
@@ -66,6 +82,16 @@ export function readExperienceRulesetOverlay(
 /** The entries an overlay adds to a catalog of a ruleset it was merged into, by catalog id. Kept beside
  *  the definition rather than in it, because a catalog's own entries may be a file read later. */
 const overlayEntries = new WeakMap<RulesetDefinition, Record<string, RulesetCatalogEntry[]>>();
+
+/** What a use of an item costs in story numbers, by the item's `catalog/entry` id (1.367). */
+export type ExperienceStoryUse = NonNullable<ExperienceRulesetOverlay["storyUses"]>[number];
+const overlayStoryUses = new WeakMap<RulesetDefinition, ReadonlyMap<string, ExperienceStoryUse>>();
+
+/** The story cost of using this item (1.367), by its `catalog/entry` id, in a ruleset an overlay with
+ *  any was merged into; none otherwise. */
+export function experienceStoryUse(definition: RulesetDefinition, item: string): ExperienceStoryUse | undefined {
+  return overlayStoryUses.get(definition)?.get(item);
+}
 
 /** What an Experience's overlay adds to one catalog of this (merged) ruleset; none for any other. */
 export function experienceOverlayEntries(definition: RulesetDefinition, catalog: string): RulesetCatalogEntry[] {
@@ -139,6 +165,17 @@ export function applyExperienceRulesetOverlay(
     if (twice.length) return { ok: false, issues: twice.map((id) => `${catalog}: "${id}" is taken already.`) };
     catalogs[catalog] = [...(catalogs[catalog] ?? []), ...file.entries];
   }
+  // A story cost is for an item of one of its catalogs, once each (1.367).
+  const uses = new Map<string, ExperienceStoryUse>();
+  for (const use of overlay.storyUses ?? []) {
+    const catalog = use.item.slice(0, use.item.indexOf("/"));
+    if (!read.definition.catalogs?.some((each) => each.id === catalog) && !catalogs[catalog]) {
+      return { ok: false, issues: [`storyUses: "${use.item}" is in no catalog of the ruleset.`] };
+    }
+    if (uses.has(use.item)) return { ok: false, issues: [`storyUses: "${use.item}" is named twice.`] };
+    uses.set(use.item, use);
+  }
   overlayEntries.set(read.definition, catalogs);
+  if (uses.size) overlayStoryUses.set(read.definition, uses);
   return { ok: true, definition: read.definition };
 }

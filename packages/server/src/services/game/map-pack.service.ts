@@ -327,6 +327,24 @@ export async function checkMapPackFiles(
     if (!files.capabilityApi || files.capabilityApi.major !== 1 || files.capabilityApi.minor < 363) {
       return { ok: false, reason: `${file.path} is a ruleset overlay, which needs capabilityApi 1.363 or newer` };
     }
+    // Item uses that cost a story number (1.367): a number flag of one of its worlds' stories.
+    if (read.overlay.storyUses?.length) {
+      if (files.capabilityApi!.minor < 367) {
+        return { ok: false, reason: `${file.path} has story costs, which need capabilityApi 1.367 or newer` };
+      }
+      const numbers = new Set(
+        worlds.flatMap((entry) =>
+          (entry.story?.flags ?? []).flatMap((flag) => (flag.kind === "number" ? [flag.id] : [])),
+        ),
+      );
+      const stray = read.overlay.storyUses.find((use) => !numbers.has(use.flag));
+      if (stray) {
+        return {
+          ok: false,
+          reason: `${file.path}'s story cost for "${stray.item}" is of "${stray.flag}", which no story of its worlds has as a number`,
+        };
+      }
+    }
   }
   return {
     ok: true,
@@ -472,6 +490,7 @@ export async function checkMapPack(input: MapPackCheckInput): Promise<MapPackChe
   }));
   const people = mapPack.people ? fileOf(mapPack.people) : null;
   const dungeons = (mapPack.dungeons ?? []).map((path) => ({ path, data: fileOf(path), sha256: "" }));
+  let storyCosts = false;
   const rulesets = (mapPack.rulesets ?? []).map((each) => ({
     ruleset: each.ruleset,
     path: each.overlay,
@@ -513,6 +532,10 @@ export async function checkMapPack(input: MapPackCheckInput): Promise<MapPackChe
     return { ok: false, minor, issues };
   }
   // Each overlay merged into its ruleset as installed here, as a game of it would (1.363).
+  for (const each of rulesets) {
+    const read = readExperienceRulesetOverlay(each.data!.toString("utf8"));
+    if (read.ok && read.overlay.storyUses?.length) storyCosts = true;
+  }
   if (rulesets.length) {
     const registry = await loadRulesetRegistry();
     for (const each of rulesets) {
@@ -541,6 +564,7 @@ export async function checkMapPack(input: MapPackCheckInput): Promise<MapPackChe
     pack.music || audio ? 353 : 0,
     pack.people ? experiencePeopleMinor(pack.people) : 0,
     rulesets.length ? 363 : 0,
+    storyCosts ? 367 : 0,
     pack.dungeons?.length || pack.worlds.some((world) => world.world.edits?.maps?.some((map) => map.words)) ? 365 : 0,
   );
   return { ok: true, minor, issues };

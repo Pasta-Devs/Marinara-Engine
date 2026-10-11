@@ -54,6 +54,7 @@ import { registerSequentialGameTasks } from "../services/game/sequential-tasks.j
 import { loadGameWorld } from "../services/game/game-world.service.js";
 import { readMapPackPeople } from "../services/game/map-pack.service.js";
 import { gamePartySize, storyPartyNames, syncCompanionSheets } from "../services/game/experience-companions.service.js";
+import { gameStorySpends } from "../services/game/story-item-uses.service.js";
 import {
   createAdvancedMemoryService,
   sceneCheckTranscript,
@@ -2158,6 +2159,8 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                     // says, for party conditions and what people know (1.356, 1.357).
                     party: storyPartyNames(chatMeta),
                     partySize: gamePartySize(chatMeta),
+                    // What items' uses spent of story numbers in fights (1.367), recorded this turn.
+                    spends: gameStorySpends(chatMeta),
                     player: input.userMessage ?? null,
                     // The cells this turn's walks walked (map events): in town, and on a map made by hand.
                     steps: [

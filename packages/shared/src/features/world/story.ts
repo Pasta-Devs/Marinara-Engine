@@ -769,6 +769,8 @@ export interface StoryLedgerEntry {
   seasons?: Array<[string, WorldSeason | null]>;
   /** Which of its event's actions were done (1.366), by place in the list, when some have conditions. */
   acts?: number[];
+  /** The item use whose story cost it recorded (1.367), by the spend's id. */
+  spend?: string;
 }
 
 // A body never holds "[", so a tag opener repeated without a "]" is read in one pass.
@@ -824,7 +826,9 @@ export function readStoryLedger(replies: readonly string[]): StoryLedgerEntry[] 
             .filter((each) => /^\d{1,2}$/.test(each.trim()))
             .map((each) => Number(each.trim()))
         : undefined;
+      const spend = values.get("spend")?.trim();
       entries.push({
+        ...(spend ? { spend } : {}),
         ...(acts ? { acts } : {}),
         ...(music !== undefined ? { music: music.trim() || null } : {}),
         ...(seasons.length ? { seasons } : {}),
@@ -1129,7 +1133,9 @@ export interface StoryTurnWorld {
   day: number;
   /** What this turn's player message says a fight ended in. */
   fight: StoryFightOutcome | null;
-  /** What this turn's player message says a fight broke (1.316), by label. */
+  /** What items' uses spent of story numbers in fights (1.367); those not yet recorded are, this turn. */
+  spends?: readonly StorySpend[];
+  /** What this turn's player message says a fight broke (1.311), by label. */
   broke?: readonly string[];
   /** The player's name, for a page the player speaks. */
   playerName?: string;
@@ -1186,11 +1192,13 @@ function storyRecord(
     music?: string | null;
     seasons?: Array<[string, WorldSeason | null]>;
     acts?: number[];
+    spend?: string;
   },
   by?: "engine",
 ) {
   const parts = [
     ...(entry.event ? [`event="${entry.event}"`] : []),
+    ...(entry.spend ? [`spend="${entry.spend}"`] : []),
     ...(entry.flag ? [`flag="${entry.flag}"`] : []),
     ...(entry.fight ? [`fight="${entry.fight}"`] : []),
     ...(entry.ending ? [`ending="${entry.ending}"`] : []),
@@ -1406,6 +1414,40 @@ function storyWorldTag(game: GameWorld, deed: Extract<StoryAction, { world: unkn
   return `[world: ${parts.join(" ")}]`;
 }
 
+/** What an item's use spent of a story number in a fight (Capability API 1.367): kept with the game until
+ *  a turn records it, by its id, so it is recorded once whatever is regenerated. */
+export interface StorySpend {
+  id: string;
+  flag: string;
+  add: number;
+  /** What was used, for the Game Master. */
+  label?: string;
+}
+
+/** The spends these replies have not recorded yet, each as the record it is written as, applied to the
+ *  flags in order (each kept within its flag's bounds). */
+export function storySpendsDue(
+  story: StoryScript,
+  ledger: readonly StoryLedgerEntry[],
+  spends: readonly StorySpend[] | undefined,
+  flags: StoryState["flags"],
+): Array<{ spend: StorySpend; record: string; entry: StoryLedgerEntry }> {
+  const recorded = new Set(ledger.flatMap((entry) => (entry.spend ? [entry.spend] : [])));
+  const declared = new Map(story.flags.map((flag) => [flag.id, flag]));
+  const due: Array<{ spend: StorySpend; record: string; entry: StoryLedgerEntry }> = [];
+  for (const spend of spends ?? []) {
+    const flag = declared.get(spend.flag);
+    if (recorded.has(spend.id) || flag?.kind !== "number") continue;
+    recorded.add(spend.id);
+    const next = storyBounded(flag, Number(flags[spend.flag] ?? 0) + spend.add);
+    if (!Number.isFinite(next)) continue;
+    flags[spend.flag] = next;
+    const entry: StoryLedgerEntry = { set: [[spend.flag, next]], show: [], spend: spend.id, by: "engine" };
+    due.push({ spend, entry, record: storyRecord({ flag: spend.flag, ...entry }, "engine") });
+  }
+  return due;
+}
+
 /**
  * This turn of a story: what the Game Master tripped in the latest reply is delivered (its scenes and
  * what it asks), then the events the Engine sees happen trip, in the script's order, each once unless
@@ -1487,6 +1529,9 @@ export function storyTurn(story: StoryScript, world: StoryTurnWorld): StoryTurn 
     }
   });
 
+  // What items' uses spent in fights since (1.367), recorded first, so this turn's events read it.
+  const spent = storySpendsDue(story, ledger, world.spends, { ...storyState(story, ledger).flags });
+  ledger.push(...spent.map((each) => each.entry));
   const state = storyState(story, ledger);
   const flags = { ...state.flags };
   const fired = { ...state.fired };
@@ -1496,6 +1541,14 @@ export function storyTurn(story: StoryScript, world: StoryTurnWorld): StoryTurn 
   const tells: string[] = [];
   const beats: string[][] = [];
   const tripped: string[] = [];
+  prepend.push(...spent.map((each) => each.record));
+  for (const { spend, entry } of spent) {
+    const flag = story.flags.find((each) => each.id === spend.flag);
+    const name = flag?.clock?.title ?? flag?.quest?.title ?? spend.flag;
+    tells.push(
+      `${spend.label ? `Using ${spend.label}` : "An item's use"} ${spend.add < 0 ? "cost the party" : "gave the party"} ${Math.abs(spend.add)} of ${name}; it is ${entry.set[0]![1]} now.`,
+    );
+  }
   // The recap of a story fight fought in its variant for the party's size names the variant (1.364).
   if (world.fight) {
     const ended = storyFightIn(story, world.latest);

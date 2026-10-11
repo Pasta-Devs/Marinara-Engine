@@ -1434,6 +1434,23 @@ the map as "A place made by hand (stubbled earth, walls of standing corn), with 
 in it: a scarecrow (2), a corn-dolly shrine", in place of saying only that it was made by hand. Both need
 an Experience that declares 1.365.
 
+#### Capability API 1.367: items that cost a story number
+
+An overlay may name items whose use spends (or adds to) one of the Experience's story number flags:
+
+```json
+{ "overlayVersion": 1,
+  "storyUses": [{ "item": "magic_items/jar-of-someone-elses-death", "flag": "debts_settled",
+                  "add": -2, "atLeast": 2 }] }
+```
+
+`item` is `catalog/entry` of the merged ruleset (the overlay's own items count), named once. In a fight,
+using that item (the acting fighter's sheet item) is refused while the flag, with any spends not yet
+recorded, is below `atLeast`: "Jar of Someone Else's Death needs 2 Debts Settled; the party has 1." A use
+the fight takes is kept with the game, and the next story turn records it once (`spend="<id>"`, by the
+Engine), within the flag's `min` and `max`, and tells the Game Master what it cost. Each flag must be a
+number flag of one of the pack's stories. A map pack with `storyUses` needs 1.367.
+
 ### Capability API 1.18: keep Experience setup in the Game wizard
 
 A `game-surface` package can declare `contributions.gameSurface.setup` with schema

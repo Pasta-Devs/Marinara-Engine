@@ -1402,7 +1402,10 @@ const capabilityPackageManifestBaseSchema = z
 //        names the script's fight it waits on, a `leave` event, a number flag's `min` and `max` (every set
 //        and add kept within), and an `if` on each cutscene page and each action (done only when it holds
 //        as the event reaches it; recorded as `acts` on the trip's tag).
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 366 } as const);
+// 1.367: an Experience's ruleset overlay may give items a story cost (`storyUses`: the item by
+//        `catalog/entry`, the story's number flag, what a use adds to it, and `atLeast`): a fight refuses
+//        the use while the flag is below it, and the next story turn records what it spent.
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 367 } as const);
 
 const capabilityApiVersionSchema = z
   .object({
