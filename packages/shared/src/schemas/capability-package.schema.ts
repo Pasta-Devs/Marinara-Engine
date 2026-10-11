@@ -1343,7 +1343,12 @@ const capabilityPackageManifestBaseSchema = z
 //        a walking one, one per look or one for all), played 0, 1, 2, 1 while it is shown flying: it flies
 //        and has no walk, it hovers, it is up in the air, or it flew this turn. Ruleset fights' views say so
 //        as `flying` on the fighter.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 360 } as const);
+// 1.361: a story may have 256 flags (64 before).
+// 1.362: a ruleset fighter may be in the air (`airborne`): a flier with no walk, or that hovers, starts
+//        so; a step only its flight takes, flying up, or the free `move:take-off` move puts it there, and
+//        `move:land` or anything that grounds it brings it down. A fighter in the air is shown in its
+//        flying art.
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 362 } as const);
 
 const capabilityApiVersionSchema = z
   .object({

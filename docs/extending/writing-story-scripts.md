@@ -41,7 +41,7 @@ stay as they were.
 ```
 
 Ids are 1 to 40 lowercase letters, digits, `_` or `-`, unique within their list. A story holds at most
-64 flags, 64 directions, 128 events, 64 cutscenes, 32 fights and 16 endings. No text in it may hold a line break, square
+256 flags (64 before Capability API 1.361), 64 directions, 256 events (128 before 1.357), 64 cutscenes, 32 fights and 16 endings. No text in it may hold a line break, square
 brackets or `{{`, and names written into a tag (a group, a background) may not hold a double quote:
 nothing a story says can pass for one of the Game Master's tags.
 
@@ -190,7 +190,7 @@ A map pack world whose story has clocks needs Capability API 1.350, one with fig
 `give`, `fight`, `move` and `ending` actions needs 1.351, one that cues music needs 1.353, and one that
 recruits or dismisses companions needs 1.355, one with knowledge needs 1.356, and one with `rest`,
 `travel` or `idle` events, a `priority`, a `party` condition or more than 128 events needs 1.357, and one
-with `seasons` or the `season` action needs 1.359. A companion is a person of the pack's people file marked
+with `seasons` or the `season` action needs 1.359, and one with more than 64 flags needs 1.361. A companion is a person of the pack's people file marked
 as one (see the map pack's people in [optional agent packages](../development/optional-agent-packages.md)).
 
 Of the `rest`, `travel` and `idle` events that could happen on one turn, only one does: the one with the

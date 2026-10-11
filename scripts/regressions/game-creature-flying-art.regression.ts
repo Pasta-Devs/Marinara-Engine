@@ -3,8 +3,8 @@
  *
  *   - A creature pack (creaturePackVersion 2) may give a creature a flying block, laid out as a walking one
  *     (three frames across, the four facings down), one per look or one for every look.
- *   - A fighter is drawn in it, its frames played 0, 1, 2, 1, when it flies and has no walk, hovers, is up
- *     in the air, or a step of this turn's walking was one only its flight takes.
+ *   - A fighter is drawn in it, its frames played 0, 1, 2, 1, while it is in the air (1.362), up above the
+ *     ground, or flies and has no walk.
  */
 import assert from "node:assert/strict";
 
@@ -113,39 +113,12 @@ const flier = (extra: Partial<RulesetCombatant>) =>
 assert.equal(rulesetCombatantFlying(grid, flier({})), false, "standing on the ground");
 assert.equal(rulesetCombatantFlying(grid, flier({ speeds: undefined })), false, "it does not fly");
 assert.equal(rulesetCombatantFlying(grid, flier({ speed: 0 })), true, "no walk: always in the air");
-assert.equal(rulesetCombatantFlying(grid, flier({ hover: true })), true, "it hovers");
+assert.equal(rulesetCombatantFlying(grid, flier({ airborne: true })), true, "in the air (1.362)");
 assert.equal(
   rulesetCombatantFlying({ ...grid, elevation: [[0, 0, 0, 0]] } as TacticalGrid, flier({ altitude: 2 })),
   true,
-  "up in the air",
+  "up above the ground",
 );
-assert.equal(
-  rulesetCombatantFlying(
-    grid,
-    flier({
-      trail: [
-        { x: 0, y: 0 },
-        { x: 1, y: 0 },
-      ],
-    }),
-  ),
-  false,
-  "walked this turn",
-);
-assert.equal(
-  rulesetCombatantFlying(
-    grid,
-    flier({
-      x: 3,
-      trail: [
-        { x: 1, y: 0 },
-        { x: 2, y: 0 },
-        { x: 3, y: 0 },
-      ],
-    }),
-  ),
-  true,
-  "flew over the water this turn",
-);
+assert.equal(rulesetCombatantFlying(grid, flier({ airborne: true, speeds: undefined })), false, "no flight, no wings");
 
 console.log("Flying creature art: read from its block, shown while the fighter flies.");

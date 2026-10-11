@@ -17,7 +17,8 @@ import { WORLD_SEASONS, worldSeason, type WorldSeason } from "./overworld.js";
 
 export const STORY_VERSION = 1;
 export const STORY_MAX = Object.freeze({
-  flags: 64,
+  /** 64 before Capability API 1.361, which room for companions' approval, quests and secrets raised. */
+  flags: 256,
   directions: 64,
   /** 128 before Capability API 1.357, which room for companions' scenes raised. */
   events: 256,
@@ -842,7 +843,7 @@ export function storyCompanionsNamed(story: StoryScript): string[] {
   ];
 }
 
-/** The Capability API minor a script needs: 1.359 for held seasons, 1.357 for rest, travel and idle events, party conditions and more
+/** The Capability API minor a script needs: 1.361 for more than 64 flags, 1.359 for held seasons, 1.357 for rest, travel and idle events, party conditions and more
  *  than 128 events, 1.356 for knowledge, 1.355 for companions, 1.353 for music cues, 1.351 for fights, endings and its give, move, fight and
  *  ending actions, 1.350 for clocks, else 0 (any Engine with stories reads it). */
 export function storyCapabilityMinor(story: StoryScript): number {
@@ -854,6 +855,7 @@ export function storyCapabilityMinor(story: StoryScript): number {
     ...story.directions.flatMap((direction) => direction.if ?? []),
     ...story.knowledge.flatMap((known) => known.if ?? []),
   ].some((condition) => "party" in condition);
+  if (story.flags.length > 64) return 361;
   if (story.seasons.length || story.events.some((event) => event.do.some((action) => "season" in action))) return 359;
   if (
     partyConditions ||

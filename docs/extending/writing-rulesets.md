@@ -3984,6 +3984,14 @@ Flying onto ground as high as it is, or higher, lands it, as a flier on the grou
 cliff. No new key: an Engine before 1.114 keeps
 fliers on the ground, so a package that relies on height declares 1.114.
 
+**In the air** (Capability API 1.362). On any board, whether a flier is in the air is its own: a flier
+with no walk, or with `hover`, starts in the air; one on the ground takes off with the free Take off
+move, by flying up, or by a step only its flight takes (over water, or where flying is cheaper than
+walking), and comes down with the free Land move (only one with a walk) or when it is knocked prone,
+knocked down or held to a speed of nought, unless it hovers. Fly down to the ground keeps it in the
+air at the ground's height until it lands. Its creature art is its flying art while it is in the air.
+Nothing else in the rules reads it yet.
+
 **Reach and range.** A weapon row gets them from `combat.attacks[].reach` and `.range`, each a
 column of that same list or the same number on every row:
 

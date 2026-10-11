@@ -8,6 +8,8 @@ import type { DirectedRulesetOption, DirectedRulesetView } from "@marinara-engin
 import {
   RULESET_FLY_DOWN_OPTION,
   RULESET_FLY_UP_OPTION,
+  RULESET_LAND_OPTION,
+  RULESET_TAKE_OFF_OPTION,
   RULESET_MOVE_OPTION,
   RULESET_ZONE_OPTION_PREFIX,
   RULESET_ZONE_TURN_OPTION_PREFIX,
@@ -41,11 +43,13 @@ export type RulesetMenuKind = (typeof RULESET_MENU_KINDS)[number];
 /** The Engine's own word for each of the two moves a board adds, keyed by the resolver's own id.
  *  A key segment is built from the WORD and never from the id, which may carry punctuation a
  *  localization key may not. */
-const MOVE_OPTION_WORDS: Record<string, "walk" | "stand" | "flyUp" | "flyDown"> = {
+const MOVE_OPTION_WORDS: Record<string, "walk" | "stand" | "flyUp" | "flyDown" | "takeOff" | "land"> = {
   [RULESET_MOVE_OPTION]: "walk",
   [RULESET_STAND_OPTION]: "stand",
   [RULESET_FLY_UP_OPTION]: "flyUp",
   [RULESET_FLY_DOWN_OPTION]: "flyDown",
+  [RULESET_TAKE_OFF_OPTION]: "takeOff",
+  [RULESET_LAND_OPTION]: "land",
 };
 
 export interface RulesetMenuStep {

@@ -1020,6 +1020,8 @@ export function rulesetCombatEventLine(
         cost: names.distance(event.cost),
         left: names.distance(event.left),
       });
+    case "lift":
+      return key(event.up ? "tookOff" : "landed", { actor: names.combatant(event.actorId) });
     case "flew":
       return key(event.to > event.from ? "flewUp" : "flewDown", {
         actor: names.combatant(event.actorId),

@@ -4,7 +4,7 @@
 // time), which way it faces, and how big it is drawn. Never read by a fight's rules.
 // ──────────────────────────────────────────────
 import type { CreatureFacing, CreaturePack, CreaturePackCreature } from "../world/creature-pack.js";
-import { rulesetAirborne, rulesetMoveStep } from "../ruleset-combat/grid.js";
+import { rulesetAirborne } from "../ruleset-combat/grid.js";
 import type { RulesetCombatant } from "../ruleset-combat/types.js";
 import type { TacticalGrid } from "./types.js";
 
@@ -117,20 +117,11 @@ export function creatureArtFrame(
 }
 
 /**
- * Whether a ruleset fighter is shown flying (1.360): it flies and has no walk, it hovers, it is up in the
- * air, or a step of this turn's walking was one only its flight takes (over water, up a height, as the
- * move menu chose it). Art only: never read by the fight's rules.
+ * Whether a ruleset fighter is shown flying (1.360): it is in the air (its `airborne` flag, 1.362), up
+ * above the ground, or a flier with no walk, which never lands. Art
+ * only: never read by the fight's rules.
  */
 export function rulesetCombatantFlying(grid: TacticalGrid | undefined, combatant: RulesetCombatant): boolean {
-  const fly = combatant.speeds?.fly ?? 0;
-  if (fly <= 0) return false;
-  if (combatant.speed <= 0 || combatant.hover) return true;
-  if (!grid) return false;
-  if (rulesetAirborne(grid, combatant)) return true;
-  const trail = combatant.trail ?? [];
-  if (trail.length < 2) return false;
-  // Each step as the menu would take it fresh, every way of moving still whole.
-  const plenty = Object.fromEntries(["walk", "fly", "swim", "climb", "burrow"].map((mode) => [mode, 1_000]));
-  const fresh: RulesetCombatant = { ...combatant, altitude: undefined, modeLeft: plenty };
-  return trail.some((cell, n) => n > 0 && rulesetMoveStep(grid, trail[n - 1]!, cell, fresh)?.mode === "fly");
+  if (!(combatant.speeds?.fly ?? 0)) return false;
+  return Boolean(combatant.airborne || combatant.speed <= 0 || rulesetAirborne(grid, combatant));
 }

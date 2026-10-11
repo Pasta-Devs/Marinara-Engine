@@ -4508,6 +4508,10 @@ export function createRulesetEncounter(input: RulesetEncounterInput): RulesetEnc
   // Grown or shrunk by what they held as the fight began (1.195), before anybody is set down.
   rulesetSyncSizes(definition, state);
   placeRulesetCombatants(definition, combat, state, input.board);
+  // A flier with no walk, or one that hovers, starts in the air (1.362).
+  for (const combatant of state.combatants) {
+    if (combatant.speeds?.fly && (combatant.speed <= 0 || combatant.hover)) combatant.airborne = true;
+  }
   // What auras spread from where everybody stands (1.263).
   rulesetSyncAuras(definition, state);
   // Hidden in plain sight from the start (1.292), from whoever's passive Perception does not beat

@@ -1461,6 +1461,10 @@ export interface RulesetCombatant {
   speeds?: RulesetMoveSpeeds;
   /** A flier that hovers (1.113). */
   hover?: true;
+  /** In the air (Capability API 1.362): a flier off the ground, whatever its height. One that only
+   *  flies, or hovers, starts so; one takes off with a step only its flight takes or the "Take off"
+   *  move, and comes down with "Land" or when it can no longer stay up. Its art is its flying art. */
+  airborne?: true;
   /** What is left this turn of each way they move, in CELLS (1.113): every cell moved comes off all
    *  of them, as switching from walking to flying takes what was already walked off the flight.
    *  Absent for somebody who only walks, whose walk is `movementLeft`. */
@@ -2460,6 +2464,8 @@ export type RulesetCombatEvent =
     }
   /** A flier going up or down a level where it stands (1.114), for cells of its allowance. */
   | { type: "flew"; actorId: string; from: number; to: number; cost: number; left: number }
+  /** A flier taking off or landing where it stands (1.362). */
+  | { type: "lift"; actorId: string; up: boolean }
   /** A strike at somebody leaving this combatant's reach. The attack and the damage that follow are
    *  their own events, exactly as they are on a turn. */
   | { type: "opportunity"; actorId: string; targetId: string; label: string; budget: string }
