@@ -1636,7 +1636,9 @@ export function storyTurn(story: StoryScript, world: StoryTurnWorld): StoryTurn 
         goTo(action.move, now);
         const place = game.world.places.find((each) => each.id === action.move);
         if (place) tells.push(`The story has taken the party to ${place.name}. Tell how they come to be there.`);
-      } else if ("fight" in action) {
+      } else if ("fight" in action && byEngine) {
+        // A fight the Game Master's own trip started is in its reply already (`[state: combat]`), and
+        // fought by the time its trip is delivered: it is not told as starting again.
         const set = fights.get(action.fight);
         const fight = set ? storyFightForParty(set, world.partySize) : undefined;
         if (fight) {
