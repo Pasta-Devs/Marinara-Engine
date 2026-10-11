@@ -13,6 +13,10 @@ import { fileURLToPath } from "node:url";
 
 import {
   applyExperienceRulesetOverlay,
+  applySheetCommandTags,
+  createRulesetEncounter,
+  defaultRulesetSheetBuild,
+  readRulesetLive,
   capabilityPackageManifestSchema,
   experienceOverlayEntries,
   parseRulesetDefinition,
@@ -83,6 +87,45 @@ const refused = (patch: Record<string, unknown>, issue: RegExp) => {
   assert.ok(!result.ok && result.issues.some((each) => issue.test(each)), JSON.stringify(result));
 };
 refused({ sheetConditions: [{ id: "blinded", label: "Blinded" }] }, /"blinded" is the ruleset's already/);
+refused(
+  { tracks: [{ id: "exhaustion", label: "Exhaustion", min: 0, max: 6 }] },
+  /"exhaustion" is the ruleset's already/,
+);
+refused({ tracks: [{ id: "owing", label: "Owing" }] }, /./);
+
+// ── Sheet tracks (1.375): a mark of Owing, declared by the overlay and played as the ruleset's own ──
+{
+  const owingOverlay = readExperienceRulesetOverlay(
+    JSON.stringify({ ...overlayInput, tracks: [{ id: "owing", label: "Owing", min: 0, max: 20, default: 0 }] }),
+  );
+  assert.ok(owingOverlay.ok, JSON.stringify(owingOverlay));
+  const owed = applyExperienceRulesetOverlay(base, owingOverlay.overlay, false);
+  assert.ok(owed.ok, JSON.stringify(owed));
+  const definition = owed.definition;
+  assert.ok(definition.sheet.live.tracks.some((track) => track.id === "owing"));
+  assert.ok(!base.sheet.live.tracks.some((track) => track.id === "owing"), "the ruleset itself is untouched");
+  // On the sheet, moved by a sheet command and stopped where it says.
+  const build = defaultRulesetSheetBuild(definition);
+  assert.equal(readRulesetLive(definition, build, {}).tracks.find((track) => track.id === "owing")?.value, 0);
+  const marked = applySheetCommandTags('[sheet: who="Jory" op="track" track="owing" by="2" upto="20"]', {
+    definition,
+    cards: [{ name: "Jory", build }],
+    playerName: "Jory",
+    live: {},
+  });
+  assert.deepEqual(marked.live.jory?.tracks, { owing: 2 });
+  // Held Ground's marks are kept for it, where a ruleset without it drops them.
+  const ground = { label: "The Held Autumn", marks: [{ track: "owing", by: 1 }] };
+  const fight = (of: RulesetDefinition) =>
+    createRulesetEncounter({
+      definition: of,
+      seed: 1,
+      combatants: [{ id: "jory", name: "Jory", side: "party", build: defaultRulesetSheetBuild(of), live: {} }],
+      heldGround: ground,
+    }).heldGround;
+  assert.deepEqual(fight(definition), ground);
+  assert.deepEqual(fight(base), { label: "The Held Autumn" });
+}
 refused({ creatures: [lurker] }, /"thorn-lurker" is taken already/);
 refused({ catalogs: { spells_of_the_wheel: [] } }, /not a catalog of this ruleset/);
 refused({ creatureTags: [{ id: "unreaped", label: "Unreaped" }] }, /creatureTags: the ruleset has none/);

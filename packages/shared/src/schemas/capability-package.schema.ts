@@ -1425,7 +1425,9 @@ const capabilityPackageManifestBaseSchema = z
 // 1.374: a story may hold death (`heldGround`: a place or the whole world, a label, the condition the felled
 //        take, the marks their tracks take, flag conditions): recorded as the party comes and goes, and a
 //        ruleset fight started there is fought on that Held Ground (1.318).
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 374 } as const);
+// 1.375: an Experience's ruleset overlay may add sheet tracks (`tracks`, as the ruleset's `sheet.live.tracks`):
+//        shown on the sheet, moved by sheet commands, and kept for Held Ground's and light rules' marks.
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 375 } as const);
 
 const capabilityApiVersionSchema = z
   .object({

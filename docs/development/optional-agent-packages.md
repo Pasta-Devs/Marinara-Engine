@@ -1305,7 +1305,7 @@ or the World tab), so they stand at their places like everyone else; the file sa
 - `sprite` is a character of the pack's own (image) tiles, which they wear walking on town and place
   maps instead of one picked for them.
 - `description`, `voice` and `lore` become a lorebook made with each new game of the Experience
-  (*Experience name*: people), active from the first turn: one entry per person, brought in by their
+  (_Experience name_: people), active from the first turn: one entry per person, brought in by their
   name, one per `lore` entry by its own keys, and one per entry of the file's own `lore`.
 
 #### Capability API 1.355: companions
@@ -1410,6 +1410,11 @@ whole: an overlay whose entries do not fit it, or that reuses an id the ruleset 
 whole and the game plays the ruleset as it was. `POST /api/game/experience/check` merges each overlay
 into its ruleset as installed and reports what does not fit.
 
+From Capability API 1.375 an overlay may add sheet tracks too, `"tracks": [{ "id": "owing", "label":
+"Owing", "min": 0, "max": 20, "default": 0 }]`, shaped as the ruleset's `sheet.live.tracks` and joining
+them: a track the overlay declares is shown on the sheet, moved by sheet commands, and kept for what a
+story's Held Ground or a board's light rule marks. A pack with an overlay that adds tracks needs 1.375.
+
 #### Capability API 1.365: dungeon looks and a hand map's own words
 
 An Experience's maps made by hand can be drawn in its own looks, not only the library's cave, crypt,
@@ -1441,9 +1446,10 @@ an Experience that declares 1.365.
 An overlay may name items whose use spends (or adds to) one of the Experience's story number flags:
 
 ```json
-{ "overlayVersion": 1,
-  "storyUses": [{ "item": "magic_items/jar-of-someone-elses-death", "flag": "debts_settled",
-                  "add": -2, "atLeast": 2 }] }
+{
+  "overlayVersion": 1,
+  "storyUses": [{ "item": "magic_items/jar-of-someone-elses-death", "flag": "debts_settled", "add": -2, "atLeast": 2 }]
+}
 ```
 
 `item` is `catalog/entry` of the merged ruleset (the overlay's own items count), named once. In a fight,
