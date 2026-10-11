@@ -1325,7 +1325,14 @@ const capabilityPackageManifestBaseSchema = z
 // 1.355: an Experience's people may be companions (`companion`: a role and, per ruleset, a build for each
 //        level they are made for): the story recruits and dismisses them (`recruit` / `dismiss` actions),
 //        the Game Master may take only them in, and they join with their sheet and keep up with the party.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 355 } as const);
+// 1.356: a story may keep what people know (`knowledge`: a person or keys, the text, flag conditions): an
+//        entry is told to the Game Master on a turn it holds and its person is in the scene (named, or
+//        travelling with the party) or one of its keys is said. Up to 600 entries, 12 a turn.
+// 1.357: story triggers `rest` (a rest the Game Master's sheet tags took), `travel` (the party sets out
+//        from one place for another) and `idle` (some replies with nothing happening), with a `priority`:
+//        one of them goes a turn, the highest. A condition may ask whether a person travels with the party
+//        (`{ "party": "<person id>", "is": "in" | "out" }`). A script may have 256 events (128 before).
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 357 } as const);
 
 const capabilityApiVersionSchema = z
   .object({

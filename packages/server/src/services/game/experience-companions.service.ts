@@ -19,9 +19,18 @@ import {
 import type { DB } from "../../db/connection.js";
 import { logger } from "../../lib/logger.js";
 import { createChatsStorage } from "../storage/chats.storage.js";
+import { buildPartyNpcId } from "../generation/game-party-utils.js";
 import { loadGameWorld } from "./game-world.service.js";
 import { readMapPackPeople, type MapPack } from "./map-pack.service.js";
 import { loadRulesetRegistry, resolveGameRuleset } from "./ruleset-registry.service.js";
+
+/** The names of the world's people travelling with the party: its tracked people whose party id is in it
+ *  (a library character is never one of the world's people). */
+export function storyPartyNames(meta: Record<string, unknown>): string[] {
+  const ids = new Set(Array.isArray(meta.gamePartyCharacterIds) ? (meta.gamePartyCharacterIds as unknown[]) : []);
+  const npcs = Array.isArray(meta.gameNpcs) ? (meta.gameNpcs as Array<{ name?: unknown }>) : [];
+  return npcs.flatMap((npc) => (typeof npc.name === "string" && ids.has(buildPartyNpcId(npc.name)) ? [npc.name] : []));
+}
 
 export interface GameCompanions {
   people: NonNullable<MapPack["people"]>;

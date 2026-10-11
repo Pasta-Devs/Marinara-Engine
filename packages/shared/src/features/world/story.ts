@@ -18,10 +18,15 @@ export const STORY_VERSION = 1;
 export const STORY_MAX = Object.freeze({
   flags: 64,
   directions: 64,
-  events: 128,
+  /** 128 before Capability API 1.357, which room for companions' scenes raised. */
+  events: 256,
   cutscenes: 64,
   actions: 32,
   conditions: 8,
+  /** What people know, each brought in as it holds (Capability API 1.356), and how many a turn. */
+  knowledge: 600,
+  knowledgeKeys: 8,
+  knowledgeATurn: 12,
   pages: 40,
   beats: 20,
   /** The characters of the beats the Game Master is told with its own events, in every turn's prompt. */
@@ -62,10 +67,16 @@ const id = z.string().regex(/^[a-z0-9_-]{1,40}$/, "An id is 1 to 40 lowercase le
 const tagWord = (max: number) =>
   promptSafeText(max).refine((value) => !value.includes('"'), "Text cannot contain double quotes");
 const value = z.union([z.boolean(), z.number().finite()]);
+const flagCondition = z.object({ flag: id, is: z.enum(["=", "!=", ">", ">=", "<", "<="]), value }).strict();
+/** Whether a person of the world travels with the party (Capability API 1.357), by person id. */
+const partyCondition = z.object({ party: z.string().min(1).max(40), is: z.enum(["in", "out"]) }).strict();
 const conditions = z
-  .array(z.object({ flag: id, is: z.enum(["=", "!=", ">", ">=", "<", "<="]), value }).strict())
+  .array(z.union([flagCondition, partyCondition]))
   .max(STORY_MAX.conditions)
   .optional();
+/** What sets a companion's scene off (Capability API 1.357): one of them happens at most once a turn,
+ *  the one with the highest `priority`, so scenes never pile up. */
+export const STORY_QUIET_TRIGGERS = Object.freeze(["rest", "travel", "idle"] as const);
 
 const trigger = z.discriminatedUnion("on", [
   z.object({ on: z.literal("start") }).strict(),
@@ -85,6 +96,19 @@ const trigger = z.discriminatedUnion("on", [
     .strict(),
   z.object({ on: z.literal("flags") }).strict(),
   z.object({ on: z.literal("gm") }).strict(),
+  /** The party rests (Capability API 1.357): a rest the Game Master's sheet tags took last reply, of the
+   *  ruleset's rest `rest` (its id or label, as `short` or `long`) or any. */
+  z.object({ on: z.literal("rest"), rest: z.string().min(1).max(40).optional() }).strict(),
+  /** The party sets out from one place for another this turn (1.357), from `from` or to `to` when given. */
+  z
+    .object({
+      on: z.literal("travel"),
+      from: z.string().min(1).max(120).optional(),
+      to: z.string().min(1).max(120).optional(),
+    })
+    .strict(),
+  /** Nothing has happened for `turns` replies (1.357): no story event, no walk and no fight. */
+  z.object({ on: z.literal("idle"), turns: z.number().int().min(1).max(50) }).strict(),
   /** The party walks onto a cell (map editor item 4): of a settlement's town, or of a place's hand-made map
    *  (`place` says which: a settlement never has one). From the map's top-left, 0-based. */
   z
@@ -199,6 +223,26 @@ export const storyScriptSchema = z
       .array(z.object({ id, text: promptSafeText(600), if: conditions }).strict())
       .max(STORY_MAX.directions)
       .default([]),
+    /** What people know and say, as it holds (Capability API 1.356): about themselves, others and the
+     *  setting, changing as the story moves. Each is told to the Game Master on a turn its conditions hold
+     *  and its person is in the scene (named, or travelling with the party), or, without a person, one of
+     *  its keys is. */
+    knowledge: z
+      .array(
+        z
+          .object({
+            id,
+            /** Whose it is: a person of the world, by id. */
+            person: z.string().min(1).max(40).optional(),
+            /** Words that bring it in (with a person, as well as their being there). */
+            keys: z.array(z.string().trim().min(1).max(60)).min(1).max(STORY_MAX.knowledgeKeys).optional(),
+            text: promptSafeText(800),
+            if: conditions,
+          })
+          .strict(),
+      )
+      .max(STORY_MAX.knowledge)
+      .default([]),
     events: z
       .array(
         z
@@ -210,6 +254,8 @@ export const storyScriptSchema = z
             /** The Game Master may trip it with a story tag. */
             gm: z.literal(true).optional(),
             note: promptSafeText(200).optional(),
+            /** Among rest, travel and idle events that could happen on one turn, the highest goes (1.357). */
+            priority: z.number().int().min(-100).max(100).optional(),
             do: z.array(action).min(1).max(STORY_MAX.actions),
           })
           .strict(),
@@ -366,6 +412,7 @@ export function checkStoryScript(
   };
   unique(story.flags, "flags");
   unique(story.directions, "directions");
+  unique(story.knowledge, "knowledge entries");
   unique(story.events, "events");
   unique(story.cutscenes, "cutscenes");
   unique(story.fights, "fights");
@@ -387,6 +434,10 @@ export function checkStoryScript(
   };
   const checkConditions = (list: StoryEvent["if"], where: string) => {
     for (const condition of list ?? []) {
+      if ("party" in condition) {
+        personOk(condition.party, where);
+        continue;
+      }
       const flag = flagOf(condition.flag, where);
       if (!flag) continue;
       if (!fits(flag, condition.value)) issues.push(`${where}: "${flag.id}" is a ${flag.kind} flag.`);
@@ -414,12 +465,22 @@ export function checkStoryScript(
     if (flag.clock && flag.kind !== "number") issues.push(`${where}: only a number flag is a clock.`);
   }
   for (const direction of story.directions) checkConditions(direction.if, `Direction "${direction.id}"`);
+  for (const known of story.knowledge) {
+    const where = `Knowledge "${known.id}"`;
+    checkConditions(known.if, where);
+    if (known.person) personOk(known.person, where);
+    else if (!known.keys) issues.push(`${where}: it needs a person or keys to come in by.`);
+  }
   for (const event of story.events) {
     const where = `Event "${event.id}"`;
     checkConditions(event.if, where);
     const when = event.when;
     if (when.on === "gm" && !event.gm) issues.push(`${where}: only the Game Master trips it, so it must be its.`);
     if (when.on === "arrive") placeOk(when.place, where);
+    if (when.on === "travel") {
+      if (when.from) placeOk(when.from, where);
+      if (when.to) placeOk(when.to, where);
+    }
     if (when.on === "meet") personOk(when.person, where);
     if (when.on === "deed" && when.place) placeOk(when.place, where);
     // Only what stands on one of the world's battlefields can be broken (1.316).
@@ -736,12 +797,27 @@ export function storyCompanionsNamed(story: StoryScript): string[] {
   ];
 }
 
-/** The Capability API minor a script needs: 1.355 for companions, 1.353 for music cues, 1.351 for fights, endings and its give, move, fight and
+/** The Capability API minor a script needs: 1.357 for rest, travel and idle events, party conditions and more
+ *  than 128 events, 1.356 for knowledge, 1.355 for companions, 1.353 for music cues, 1.351 for fights, endings and its give, move, fight and
  *  ending actions, 1.350 for clocks, else 0 (any Engine with stories reads it). */
 export function storyCapabilityMinor(story: StoryScript): number {
   const acts = story.events.some((event) =>
     event.do.some((action) => "give" in action || "move" in action || "fight" in action || "ending" in action),
   );
+  const partyConditions = [
+    ...story.events.flatMap((event) => event.if ?? []),
+    ...story.directions.flatMap((direction) => direction.if ?? []),
+    ...story.knowledge.flatMap((known) => known.if ?? []),
+  ].some((condition) => "party" in condition);
+  if (
+    partyConditions ||
+    story.events.length > 128 ||
+    story.events.some(
+      (event) => (STORY_QUIET_TRIGGERS as readonly string[]).includes(event.when.on) || event.priority !== undefined,
+    )
+  )
+    return 357;
+  if (story.knowledge.length) return 356;
   if (storyCompanionsNamed(story).length) return 355;
   if (story.events.some((event) => event.do.some((action) => "music" in action))) return 353;
   if (acts || story.fights.length || story.endings.length) return 351;
@@ -789,8 +865,15 @@ function clocksFilled(story: StoryScript, before: StoryState["flags"], after: St
 }
 
 /** Whether every condition holds for these flag values. */
-export function storyConditionsHold(list: StoryEvent["if"], flags: StoryState["flags"]): boolean {
-  return (list ?? []).every(({ flag, is, value: wanted }) => {
+export function storyConditionsHold(
+  list: StoryEvent["if"],
+  flags: StoryState["flags"],
+  /** Who travels with the party, by person id (1.357); a party condition holds only when it is known. */
+  party?: ReadonlySet<string>,
+): boolean {
+  return (list ?? []).every((condition) => {
+    if ("party" in condition) return party !== undefined && party.has(condition.party) === (condition.is === "in");
+    const { flag, is, value: wanted } = condition;
     const current = flags[flag];
     if (current === undefined) return false;
     switch (is) {
@@ -808,6 +891,28 @@ export function storyConditionsHold(list: StoryEvent["if"], flags: StoryState["f
         return Number(current) <= Number(wanted);
     }
   });
+}
+
+/** The people of the world who travel with the party, by person id: its members' names, matched to the
+ *  world's named people (1.357). */
+export function storyPartyOf(game: GameWorld, story: StoryScript, names: readonly string[] | undefined) {
+  const wanted = new Set((names ?? []).map((name) => name.trim().toLowerCase()).filter(Boolean));
+  const ids = new Set<string>();
+  if (!wanted.size) return ids;
+  const named = new Set<string>();
+  for (const event of story.events)
+    for (const condition of event.if ?? []) if ("party" in condition) named.add(condition.party);
+  for (const known of story.knowledge) {
+    if (known.person) named.add(known.person);
+    for (const condition of known.if ?? []) if ("party" in condition) named.add(condition.party);
+  }
+  for (const direction of story.directions)
+    for (const condition of direction.if ?? []) if ("party" in condition) named.add(condition.party);
+  for (const personId of named) {
+    const person = storyPerson(game, personId);
+    if (person?.named && wanted.has(person.name.trim().toLowerCase())) ids.add(personId);
+  }
+  return ids;
 }
 
 /** The story a game keeps (`gameStory`), checked against its world, or null: one that no longer fits
@@ -876,6 +981,10 @@ export interface StoryTurnWorld {
   steps?: ReadonlyArray<{ place: string; x: number; y: number }>;
   /** The game's ruleset items by id, for the items the story gives by id (1.351). */
   item?: StoryItemLabel;
+  /** Who travels with the party, by name (1.357): its party conditions hold by them. */
+  party?: readonly string[];
+  /** The player's message this turn, read with the latest reply for who and what is in the scene (1.356). */
+  player?: string | null;
 }
 
 export interface StoryTurn {
@@ -894,6 +1003,10 @@ export interface StoryTurn {
   state: StoryState;
   /** The clocks that filled since the latest reply was written, by it or this turn's trips (1.350). */
   filled: Array<{ flag: string; title: string; text: string }>;
+  /** Who of the world travels with the party, by person id (1.357). */
+  party: string[];
+  /** What people know that holds and is in the scene this turn (1.356), for the Game Master. */
+  knowledge: Array<{ who?: string; text: string }>;
 }
 
 const STORY_TRIPS_A_TURN = 32;
@@ -1123,6 +1236,7 @@ export function storyTurn(story: StoryScript, world: StoryTurnWorld): StoryTurn 
   // The replies in order, then this turn's walk and visit: where the party was, and when it came into
   // each place an event waits for; when each event last happened; whether a repeating flags event's
   // conditions have been false since.
+  const party = storyPartyOf(game, story, world.party);
   const targets = new Set(story.events.flatMap((event) => (event.when.on === "arrive" ? [event.when.place] : [])));
   const rising = story.events.filter((event) => event.repeat && event.when.on === "flags");
   let at: string | null = game.world.startId ?? null;
@@ -1131,7 +1245,9 @@ export function storyTurn(story: StoryScript, world: StoryTurnWorld): StoryTurn 
   const lastHappened = new Map<string, number>();
   const ledger: StoryLedgerEntry[] = [];
   let flagsSoFar = storyState(story, []).flags;
-  const risen = new Map(rising.map((event) => [event.id, !storyConditionsHold(event.if, flagsSoFar)]));
+  const risen = new Map(rising.map((event) => [event.id, !storyConditionsHold(event.if, flagsSoFar, party)]));
+  // Where this turn's walk set out from and came to (1.357).
+  let setOutFrom: string | null = null;
   // The flags as they stood before the Game Master's own tags in the latest reply, so a clock they or this
   // turn's trips fill is told once.
   let flagsBeforeLatest = flagsSoFar;
@@ -1145,6 +1261,7 @@ export function storyTurn(story: StoryScript, world: StoryTurnWorld): StoryTurn 
       const engine = readStoryLedger([segment.reply]).filter((entry) => entry.by === "engine");
       flagsBeforeLatest = storyState(story, [...ledger, ...engine]).flags;
     }
+    if (index === world.replies.length) setOutFrom = at;
     for (const entry of segment.world) {
       if (entry.at === undefined) continue;
       const next = placeOf(entry.at);
@@ -1158,7 +1275,7 @@ export function storyTurn(story: StoryScript, world: StoryTurnWorld): StoryTurn 
     flagsSoFar = storyState(story, ledger).flags;
     for (const event of rising) {
       if (entries.some((entry) => entry.event === event.id)) risen.set(event.id, false);
-      if (!storyConditionsHold(event.if, flagsSoFar)) risen.set(event.id, true);
+      if (!storyConditionsHold(event.if, flagsSoFar, party)) risen.set(event.id, true);
     }
   });
 
@@ -1253,6 +1370,26 @@ export function storyTurn(story: StoryScript, world: StoryTurnWorld): StoryTurn 
 
   const turnNumber = world.repliesBefore + 1;
   const now = segments.length - 1;
+  // A rest the Game Master's sheet tags took last reply (1.357), of this rest or any.
+  const restedLast = (rest: string | undefined) =>
+    [...(world.latest ?? "").matchAll(/\[sheet:([^\]]*)\]/gi)].some((match) => {
+      const body = match[1] ?? "";
+      if (!/\bop="rest"/i.test(body) || !/\bresult="ok"/i.test(body)) return false;
+      const took = /\brest="([^"]*)"/i.exec(body)?.[1]?.trim().toLowerCase();
+      return !rest || took === rest.trim().toLowerCase();
+    });
+  // How many replies in a row, up to the latest, nothing has happened in: no story event, walk or fight.
+  let quietFor = 0;
+  for (let index = world.replies.length - 1; index >= 0; index--) {
+    const reply = world.replies[index]!;
+    if (
+      readStoryLedger([reply]).length ||
+      readWorldLedger([reply]).some((entry) => entry.at !== undefined) ||
+      /\[state:\s*combat\]/i.test(reply)
+    )
+      break;
+    quietFor++;
+  }
   const matches = (event: StoryEvent): boolean => {
     const times = fired[event.id] ?? 0;
     const when = event.when;
@@ -1291,6 +1428,23 @@ export function storyTurn(story: StoryScript, world: StoryTurnWorld): StoryTurn 
         return times === 0 || (event.repeat === true && risen.get(event.id) === true);
       case "gm":
         return false;
+      case "rest":
+        return (times === 0 || event.repeat === true) && restedLast(when.rest);
+      case "travel":
+        return (
+          (times === 0 || event.repeat === true) &&
+          setOutFrom !== null &&
+          at !== null &&
+          setOutFrom !== at &&
+          (!when.from || inside(setOutFrom, when.from)) &&
+          (!when.to || inside(at, when.to))
+        );
+      case "idle":
+        return (
+          (times === 0 || event.repeat === true) &&
+          quietFor >= when.turns &&
+          world.told.every((entry) => entry.at === undefined)
+        );
       case "step":
         // Walked onto this turn: once, or each turn the walk goes over it when it repeats.
         return (
@@ -1303,10 +1457,22 @@ export function storyTurn(story: StoryScript, world: StoryTurnWorld): StoryTurn 
   const thisTurn = new Set<string>();
   // A game that has had its ending trips nothing more.
   let ended = state.ended;
+  // A rest, a trip or a quiet spell sets off one scene a turn at most: the highest priority's (1.357).
+  const quiet = (event: StoryEvent) => (STORY_QUIET_TRIGGERS as readonly string[]).includes(event.when.on);
+  let quietTripped = false;
+  const ready = (event: StoryEvent) =>
+    !thisTurn.has(event.id) &&
+    !(quietTripped && quiet(event)) &&
+    storyConditionsHold(event.if, flags, party) &&
+    matches(event);
   for (let pass = 0; !ended && pass < STORY_TRIPS_A_TURN && tripped.length < STORY_TRIPS_A_TURN; pass++) {
-    const next = story.events.find(
-      (event) => !thisTurn.has(event.id) && storyConditionsHold(event.if, flags) && matches(event),
-    );
+    let next = story.events.find(ready);
+    if (next && quiet(next)) {
+      next = story.events
+        .filter((event) => quiet(event) && ready(event))
+        .reduce((best, event) => ((event.priority ?? 0) > (best.priority ?? 0) ? event : best));
+      quietTripped = true;
+    }
     if (!next) break;
     thisTurn.add(next.id);
     tripped.push(next.id);
@@ -1330,7 +1496,44 @@ export function storyTurn(story: StoryScript, world: StoryTurnWorld): StoryTurn 
       title: flag.clock!.title,
       text: flag.clock!.full,
     })),
+    party: [...party],
+    knowledge: storyKnowledgeHere(story, game, flags, party, [world.latest, world.player]),
   };
+}
+
+/** What people know that holds now and is in the scene (1.356): an entry whose conditions hold, whose
+ *  person is named in these texts or travels with the party, and, when it has keys, one of them is said;
+ *  in the script's order, a turn's worth at most. */
+export function storyKnowledgeHere(
+  story: StoryScript,
+  game: GameWorld,
+  flags: StoryState["flags"],
+  party: ReadonlySet<string>,
+  texts: ReadonlyArray<string | null | undefined>,
+): Array<{ who?: string; text: string }> {
+  const said = texts.filter((text): text is string => Boolean(text?.trim()));
+  const here = new Map<string, string | null>();
+  const personHere = (personId: string) => {
+    if (!here.has(personId)) {
+      const person = storyPerson(game, personId);
+      const matcher = person?.named ? fullName(person.name) : null;
+      here.set(
+        personId,
+        person?.named && (party.has(personId) || said.some((text) => matcher!.test(text))) ? person.name : null,
+      );
+    }
+    return here.get(personId) ?? null;
+  };
+  const out: Array<{ who?: string; text: string }> = [];
+  for (const known of story.knowledge) {
+    if (out.length >= STORY_MAX.knowledgeATurn) break;
+    if (!storyConditionsHold(known.if, flags, party)) continue;
+    const who = known.person ? personHere(known.person) : undefined;
+    if (known.person && !who) continue;
+    if (known.keys && !known.keys.some((key) => said.some((text) => fullName(key).test(text)))) continue;
+    out.push({ ...(who ? { who } : {}), text: known.text });
+  }
+  return out;
 }
 
 /**
@@ -1349,6 +1552,8 @@ export function applyStoryTags(
   thisTurn: readonly string[] = [],
   /** The game's ruleset items by id, for the items a trip gives (1.351). */
   item?: StoryItemLabel,
+  /** Who travels with the party, by person id (1.357). */
+  party?: ReadonlySet<string>,
 ): string {
   let ended = before.ended;
   const flags = { ...before.flags };
@@ -1369,7 +1574,7 @@ export function applyStoryTags(
       if (ended) return refuse("ended");
       if (!event.repeat && (fired[event.id] ?? 0) > 0) return refuse("done");
       if (tripped.has(event.id)) return refuse("this-turn");
-      if (!storyConditionsHold(event.if, flags)) return refuse("conditions");
+      if (!storyConditionsHold(event.if, flags, party)) return refuse("conditions");
       fired[event.id] = (fired[event.id] ?? 0) + 1;
       tripped.add(event.id);
       const record = applyActions(story, event, flags);
@@ -1473,7 +1678,8 @@ export function storyTurnPromptText(story: StoryScript, turn: StoryTurn): string
     return `${flag.id} = ${typeof value === "boolean" ? (value ? "yes" : "no") : value}`;
   });
   if (values.length) lines.push(`Story values (the player never sees these): ${values.join(", ")}.`);
-  const directions = story.directions.filter((direction) => storyConditionsHold(direction.if, turn.state.flags));
+  const party = new Set(turn.party);
+  const directions = story.directions.filter((direction) => storyConditionsHold(direction.if, turn.state.flags, party));
   if (directions.length)
     lines.push("Keep to these while they hold:", ...directions.map((direction) => `- ${direction.text}`));
   if (turn.shown.length) {
@@ -1499,6 +1705,12 @@ export function storyTurnPromptText(story: StoryScript, turn: StoryTurn): string
   for (const clock of turn.filled ?? []) {
     lines.push(`The clock "${clock.title}" has just filled. Bring this about now: ${clock.text}`);
   }
+  if (turn.knowledge.length) {
+    lines.push(
+      "What people here know and may say, if it comes up (in their own words, never all at once):",
+      ...turn.knowledge.map((known) => `- ${known.who ? `${known.who}: ` : ""}${known.text}`),
+    );
+  }
   if (turn.tells.length) lines.push("The story asks this of you now:", ...turn.tells.map((tell) => `- ${tell}`));
   const ended = turn.state.ended ? story.endings.find((ending) => ending.id === turn.state.ended) : undefined;
   if (ended && !turn.tripped.length) {
@@ -1512,7 +1724,7 @@ export function storyTurnPromptText(story: StoryScript, turn: StoryTurn): string
       event.gm &&
       (turn.tripped.includes(event.id) ||
         (!event.repeat && (turn.state.fired[event.id] ?? 0) > 0) ||
-        !storyConditionsHold(event.if, turn.state.flags)),
+        !storyConditionsHold(event.if, turn.state.flags, party)),
   );
   if (closed.length) {
     lines.push(`Story moments you cannot mark now: ${closed.map((event) => event.id).join(", ")}.`);

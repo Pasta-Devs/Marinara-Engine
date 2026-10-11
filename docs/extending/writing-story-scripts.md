@@ -98,6 +98,34 @@ A direction is a standing instruction to the Game Master, in force while its con
 `{ "flag": "<id>", "is": "=" | "!=" | ">" | ">=" | "<" | "<=", "value": <value> }`. All of an `if` list
 must hold. A yes-or-no flag is only compared with `=` or `!=`.
 
+`{ "party": "<person id>", "is": "in" | "out" }` asks whether a person of the world travels with the
+party now, such as a companion the story recruited (Capability API 1.357).
+
+### Knowledge
+
+What people know and say about themselves, each other and the setting, changing as the story moves
+(Capability API 1.356). Each entry is told to the Game Master, as something that person may say if it
+comes up, on a turn when:
+
+- its conditions hold,
+- its `person` is in the scene: named in the latest reply or the player's message, or travelling with the
+  party,
+- and, when it has `keys`, one of them is said there too. An entry with no person needs keys, and comes in
+  by them alone.
+
+```json
+"knowledge": [
+  { "id": "hob-self", "person": "p3-4", "text": "Hob was a miller's boy before the year stopped." },
+  { "id": "hob-mill", "person": "p3-4", "if": [{ "flag": "act", "is": ">=", "value": 2 }],
+    "text": "Since the second act, Hob is afraid of the mill." },
+  { "id": "hob-bells", "person": "p3-4", "keys": ["bells"], "text": "Hob thinks the bells are a lie." },
+  { "id": "wheel", "keys": ["mill", "millwheel"], "text": "The mill's wheel has not turned in a hundred autumns." }
+]
+```
+
+A script holds up to 600 entries. At most 12 are told a turn, in the script's order, so put the ones that
+matter most first.
+
 ### Events
 
 An event is something that happens: when its trigger fires and its conditions hold, it does its actions.
@@ -128,6 +156,9 @@ An event happens once, unless it has `"repeat": true` (which `start`, `turn` and
 | `broke`  | When a fight broke the prop called `prop` (Capability API 1.316), matched without case. Only a prop painted on one of the world's battlefields can be named.                                                                                                                                                                                                                                                                                            |
 | `flags`  | When its conditions hold. With `repeat`, again each time they come true after being false.                                                                                                                                                                                                                                                                                                                                                              |
 | `gm`     | Only when the Game Master trips it (the event needs `"gm": true`).                                                                                                                                                                                                                                                                                                                                                                                      |
+| `rest` | After a reply in which the party rested: a `[sheet: op="rest"]` the Game Master's reply took, of the ruleset rest `rest` names (its id or label, such as `long`) or any (1.357). |
+| `travel` | On a turn the party sets out from one place for another, from inside `from` and to inside `to` when they are given (1.357). |
+| `idle` | After `turns` replies in a row with nothing happening: no story event, no walk and no fight (1.357). |
 | `step`   | When a walk goes over the cell `x`, `y` (0-based from the top-left) of `place`: a settlement's town (a visit's path, door to door), or a place's map made by hand (a walk on it). The cell must be one the party can walk onto: in a town, ground the square reaches and not a free lot, where the story may build; on a map, floor its entry reaches. A generated map has no cells to name. With `repeat`, again on each turn whose walk goes over it. |
 
 Hand edits that take a step event's cell away (a building put on it, a map's floor walled) are refused
@@ -156,8 +187,15 @@ deed it waits for, would set itself off every turn, so the Engine refuses it.
 
 A map pack world whose story has clocks needs Capability API 1.350, one with fights, endings or the
 `give`, `fight`, `move` and `ending` actions needs 1.351, one that cues music needs 1.353, and one that
-recruits or dismisses companions needs 1.355. A companion is a person of the pack's people file marked
+recruits or dismisses companions needs 1.355, one with knowledge needs 1.356, and one with `rest`,
+`travel` or `idle` events, a `priority`, a `party` condition or more than 128 events needs 1.357. A companion is a person of the pack's people file marked
 as one (see the map pack's people in [optional agent packages](../development/optional-agent-packages.md)).
+
+Of the `rest`, `travel` and `idle` events that could happen on one turn, only one does: the one with the
+highest `priority` (a whole number from -100 to 100, 0 when left out; the first in the script on a tie). A
+companion's campfire talk, a pair of companions bickering on the road, or a companion coming to the player
+in a quiet hour then never pile up. With a `party` condition, such a scene happens only while those
+companions travel with the party. A script may have 256 events from 1.357 (128 before).
 
 ### Fights
 
