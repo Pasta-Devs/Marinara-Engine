@@ -1370,6 +1370,15 @@ Capability API minor (1.`minor`) the pack needs, and `issues` names each problem
 (`mapPack.music.default`) or the file it is in. The manifest's own rules (declared assets, track ids,
 audio sizes) are all reported; the files' checks stop at the first problem, as an install does.
 
+#### Capability API 1.359: held seasons
+
+A world's story may hold places at a season whatever the date (`seasons`, and the `season` action: see
+[writing story scripts](../extending/writing-story-scripts.md#seasons)), and a world's battlefields may be
+painted with seasons (`seasons` rows and `seasonKeys`). A map pack with either needs 1.359. The overworld
+reads held places as `seasons` (place id to season, `*` for the whole world) from
+`GET /api/game/:chatId/overworld`; a made battlefield carries its tiles' starting seasons as `seasons`,
+keyed `"x,y"`.
+
 ### Capability API 1.18: keep Experience setup in the Game wizard
 
 A `game-surface` package can declare `contributions.gameSurface.setup` with schema

@@ -13,6 +13,7 @@ import { worldPlaceNamed } from "./edits.js";
 import { worldCast, type WorldPerson } from "./people.js";
 import { worldPlaceMap, worldPlaceMapReach } from "./place-maps.js";
 import { worldTown, worldTownReach } from "./town.js";
+import { WORLD_SEASONS, worldSeason, type WorldSeason } from "./overworld.js";
 
 export const STORY_VERSION = 1;
 export const STORY_MAX = Object.freeze({
@@ -165,6 +166,13 @@ const action = z.union([
    *  (Capability API 1.355). */
   z.object({ recruit: z.string().min(1).max(40) }).strict(),
   z.object({ dismiss: z.string().min(1).max(40) }).strict(),
+  /** Holds a place (and every place inside it), or the whole world without one, at a season whatever the
+   *  day; `null` lets it go back to the script's own (Capability API 1.359). */
+  z
+    .object({
+      season: z.object({ place: z.string().min(1).max(120).optional(), to: z.enum(WORLD_SEASONS).nullable() }).strict(),
+    })
+    .strict(),
 ]);
 
 const page = z
@@ -222,6 +230,12 @@ export const storyScriptSchema = z
     directions: z
       .array(z.object({ id, text: promptSafeText(600), if: conditions }).strict())
       .max(STORY_MAX.directions)
+      .default([]),
+    /** Places held at a season whatever the day (Capability API 1.359): a place and every place inside it,
+     *  the nearest holding one deciding; one without a place holds the whole world. */
+    seasons: z
+      .array(z.object({ place: z.string().min(1).max(120).optional(), season: z.enum(WORLD_SEASONS) }).strict())
+      .max(64)
       .default([]),
     /** What people know and say, as it holds (Capability API 1.356): about themselves, others and the
      *  setting, changing as the story moves. Each is told to the Game Master on a turn its conditions hold
@@ -465,6 +479,12 @@ export function checkStoryScript(
     if (flag.clock && flag.kind !== "number") issues.push(`${where}: only a number flag is a clock.`);
   }
   for (const direction of story.directions) checkConditions(direction.if, `Direction "${direction.id}"`);
+  const heldSeasons = new Set<string>();
+  for (const held of story.seasons) {
+    if (held.place) placeOk(held.place, `Season of "${held.place}"`);
+    if (heldSeasons.has(held.place ?? "*")) issues.push(`Two seasons hold "${held.place ?? "the world"}".`);
+    heldSeasons.add(held.place ?? "*");
+  }
   for (const known of story.knowledge) {
     const where = `Knowledge "${known.id}"`;
     checkConditions(known.if, where);
@@ -523,6 +543,8 @@ export function checkStoryScript(
         if (event.repeat && when.on === "fight") issues.push(`${where}: it starts a fight when one ends, every time.`);
       } else if ("ending" in action) {
         if (!endingIds.has(action.ending)) issues.push(`${where}: no ending "${action.ending}".`);
+      } else if ("season" in action) {
+        if (action.season.place) placeOk(action.season.place, where);
       } else if ("recruit" in action) {
         personOk(action.recruit, where);
       } else if ("dismiss" in action) {
@@ -652,6 +674,8 @@ export interface StoryLedgerEntry {
   ending?: string;
   /** The track it cued, or null when it handed back to the place's music (1.353). */
   music?: string | null;
+  /** The seasons it held places at (1.359), by place id (`*` the whole world); null lets one go. */
+  seasons?: Array<[string, WorldSeason | null]>;
 }
 
 // A body never holds "[", so a tag opener repeated without a "]" is read in one pass.
@@ -695,8 +719,15 @@ export function readStoryLedger(replies: readonly string[]): StoryLedgerEntry[] 
       const fight = values.get("fight")?.trim();
       const ending = values.get("ending")?.trim();
       const music = values.get("music");
+      const seasons = (values.get("seasons") ?? "").split(";").flatMap((pair): Array<[string, WorldSeason | null]> => {
+        const [place, season] = pair.split("=").map((each) => each?.trim());
+        if (!place) return [];
+        if (!season) return [[place, null]];
+        return (WORLD_SEASONS as readonly string[]).includes(season) ? [[place, season as WorldSeason]] : [];
+      });
       entries.push({
         ...(music !== undefined ? { music: music.trim() || null } : {}),
+        ...(seasons.length ? { seasons } : {}),
         ...(event ? { event } : {}),
         ...(fight ? { fight } : {}),
         ...(ending ? { ending } : {}),
@@ -719,6 +750,8 @@ export interface StoryState {
   ended?: string;
   /** The track the story last cued, while it holds (1.353). */
   music?: string;
+  /** The seasons the story holds places at now (1.359), by place id (`*` the whole world). */
+  seasons?: Record<string, WorldSeason>;
 }
 
 /** The story as its ledger left it: each flag's value (a recorded value the script no longer fits is
@@ -730,8 +763,13 @@ export function storyState(story: StoryScript, ledger: readonly StoryLedgerEntry
   const shown = new Set<string>();
   let ended: string | undefined;
   let music: string | null = null;
+  const seasons: Record<string, WorldSeason> = {};
   for (const entry of ledger) {
     if (entry.music !== undefined) music = entry.music;
+    for (const [place, season] of entry.seasons ?? []) {
+      if (season) seasons[place] = season;
+      else delete seasons[place];
+    }
     if (entry.event) fired[entry.event] = (fired[entry.event] ?? 0) + 1;
     if (entry.ending && !ended && story.endings.some((ending) => ending.id === entry.ending)) ended = entry.ending;
     for (const [flag, given] of entry.set) {
@@ -740,7 +778,14 @@ export function storyState(story: StoryScript, ledger: readonly StoryLedgerEntry
     }
     for (const flag of entry.show) if (kinds.has(flag)) shown.add(flag);
   }
-  return { flags, fired, shown: [...shown], ...(ended ? { ended } : {}), ...(music ? { music } : {}) };
+  return {
+    flags,
+    fired,
+    shown: [...shown],
+    ...(ended ? { ended } : {}),
+    ...(music ? { music } : {}),
+    ...(Object.keys(seasons).length ? { seasons } : {}),
+  };
 }
 
 /** A quest objective the story shows the player (worldgen W10): open until its flag is true, or its
@@ -797,7 +842,7 @@ export function storyCompanionsNamed(story: StoryScript): string[] {
   ];
 }
 
-/** The Capability API minor a script needs: 1.357 for rest, travel and idle events, party conditions and more
+/** The Capability API minor a script needs: 1.359 for held seasons, 1.357 for rest, travel and idle events, party conditions and more
  *  than 128 events, 1.356 for knowledge, 1.355 for companions, 1.353 for music cues, 1.351 for fights, endings and its give, move, fight and
  *  ending actions, 1.350 for clocks, else 0 (any Engine with stories reads it). */
 export function storyCapabilityMinor(story: StoryScript): number {
@@ -809,6 +854,7 @@ export function storyCapabilityMinor(story: StoryScript): number {
     ...story.directions.flatMap((direction) => direction.if ?? []),
     ...story.knowledge.flatMap((known) => known.if ?? []),
   ].some((condition) => "party" in condition);
+  if (story.seasons.length || story.events.some((event) => event.do.some((action) => "season" in action))) return 359;
   if (
     partyConditions ||
     story.events.length > 128 ||
@@ -1005,6 +1051,8 @@ export interface StoryTurn {
   filled: Array<{ flag: string; title: string; text: string }>;
   /** Who of the world travels with the party, by person id (1.357). */
   party: string[];
+  /** The season where the party is, and whether the story holds it there (1.359). */
+  season: { season: WorldSeason; held: boolean };
   /** What people know that holds and is in the scene this turn (1.356), for the Game Master. */
   knowledge: Array<{ who?: string; text: string }>;
 }
@@ -1022,6 +1070,7 @@ function storyRecord(
     fight?: string;
     ending?: string;
     music?: string | null;
+    seasons?: Array<[string, WorldSeason | null]>;
   },
   by?: "engine",
 ) {
@@ -1031,6 +1080,9 @@ function storyRecord(
     ...(entry.fight ? [`fight="${entry.fight}"`] : []),
     ...(entry.ending ? [`ending="${entry.ending}"`] : []),
     ...(entry.music !== undefined ? [`music="${entry.music ?? ""}"`] : []),
+    ...(entry.seasons?.length
+      ? [`seasons="${entry.seasons.map(([place, season]) => `${place}=${season ?? ""}`).join(";")}"`]
+      : []),
     ...(entry.set.length
       ? [`set="${entry.set.map(([flag, value]) => `${flag}=${recordValue(value)}`).join(";")}"`]
       : []),
@@ -1050,8 +1102,10 @@ function applyActions(story: StoryScript, event: StoryEvent, flags: StoryState["
   let fight: string | undefined;
   let ending: string | undefined;
   let music: string | null | undefined;
+  const seasons: Array<[string, WorldSeason | null]> = [];
   for (const action of event.do) {
     if ("music" in action) music = action.music;
+    if ("season" in action) seasons.push([action.season.place ?? "*", action.season.to]);
     if ("fight" in action) fight ??= action.fight;
     if ("ending" in action) ending ??= action.ending;
     if ("set" in action) {
@@ -1072,6 +1126,7 @@ function applyActions(story: StoryScript, event: StoryEvent, flags: StoryState["
     ...(fight ? { fight } : {}),
     ...(ending ? { ending } : {}),
     ...(music !== undefined ? { music } : {}),
+    ...(seasons.length ? { seasons } : {}),
   };
 }
 
@@ -1455,6 +1510,7 @@ export function storyTurn(story: StoryScript, world: StoryTurnWorld): StoryTurn 
   };
 
   const thisTurn = new Set<string>();
+  const held: Record<string, WorldSeason> = { ...(state.seasons ?? {}) };
   // A game that has had its ending trips nothing more.
   let ended = state.ended;
   // A rest, a trip or a quiet spell sets off one scene a turn at most: the highest priority's (1.357).
@@ -1479,6 +1535,10 @@ export function storyTurn(story: StoryScript, world: StoryTurnWorld): StoryTurn 
     fired[next.id] = (fired[next.id] ?? 0) + 1;
     const record = applyActions(story, next, flags);
     for (const flag of record.show) shownFlags.add(flag);
+    for (const [place, season] of record.seasons ?? []) {
+      if (season) held[place] = season;
+      else delete held[place];
+    }
     prepend.push(storyRecord({ event: next.id, ...record }, "engine"));
     deliver(next, true);
     if (record.ending) ended = record.ending;
@@ -1490,15 +1550,87 @@ export function storyTurn(story: StoryScript, world: StoryTurnWorld): StoryTurn 
     shown,
     tells,
     beats,
-    state: { flags, fired, shown: [...shownFlags], ...(ended ? { ended } : {}) },
+    state: {
+      flags,
+      fired,
+      shown: [...shownFlags],
+      ...(ended ? { ended } : {}),
+      ...(Object.keys(held).length ? { seasons: held } : {}),
+    },
     filled: clocksFilled(story, flagsBeforeLatest, flags).map((flag) => ({
       flag: flag.id,
       title: flag.clock!.title,
       text: flag.clock!.full,
     })),
     party: [...party],
+    season: storySeasonAt(story, held, game, at, world.day),
     knowledge: storyKnowledgeHere(story, game, flags, party, [world.latest, world.player]),
   };
+}
+
+/** The season at a place (1.359): the one the story holds it, or the nearest place it is inside, at (its
+ *  events' first, then the script's own), else the one it holds the whole world at, else the day's. */
+export function storySeasonAt(
+  story: StoryScript,
+  held: Readonly<Record<string, WorldSeason>> | undefined,
+  game: GameWorld,
+  placeId: string | null | undefined,
+  day: number,
+): { season: WorldSeason; held: boolean } {
+  const parents = new Map(game.world.places.map((place) => [place.id, place.parentId]));
+  const own = new Map(story.seasons.map((each) => [each.place ?? "*", each.season]));
+  for (let at = placeId ?? null, hops = 0; at && hops < 64; at = parents.get(at) ?? null, hops++) {
+    const season = held?.[at] ?? own.get(at);
+    if (season) return { season, held: true };
+  }
+  const world = held?.["*"] ?? own.get("*");
+  return world ? { season: world, held: true } : { season: worldSeason(day), held: false };
+}
+
+/** Every place the story holds at a season now (1.359), with that season: each place whose own, or a place
+ *  it is inside, or the world's, is held (and `*` when the world's is). Empty when the story holds none, so the day's season stands. */
+export function storyPlaceSeasons(
+  story: StoryScript,
+  held: Readonly<Record<string, WorldSeason>> | undefined,
+  game: GameWorld,
+): Record<string, WorldSeason> {
+  if (!story.seasons.length && !Object.keys(held ?? {}).length) return {};
+  const seasons: Record<string, WorldSeason> = {};
+  for (const place of game.world.places) {
+    const at = storySeasonAt(story, held, game, place.id, 0);
+    if (at.held) seasons[place.id] = at.season;
+  }
+  const world = storySeasonAt(story, held, game, null, 0);
+  if (world.held) seasons["*"] = world.season;
+  return seasons;
+}
+
+/** The season each cell of the world is held at (1.359), row by row: the one of the place it lies nearest
+ *  (among the places no other is inside), null where that place is not held. Null when nothing is. */
+export function worldSeasonCells(
+  game: GameWorld,
+  seasons: Readonly<Record<string, WorldSeason>> | undefined,
+): Array<WorldSeason | null> | null {
+  if (!seasons || !Object.keys(seasons).length) return null;
+  const { width, height, places } = game.world;
+  const parents = new Set(places.flatMap((place) => (place.parentId ? [place.parentId] : [])));
+  const leaves = places.filter((place) => !parents.has(place.id));
+  if (!leaves.some((place) => seasons[place.id])) return null;
+  const cells: Array<WorldSeason | null> = new Array(width * height).fill(null);
+  for (let y = 0; y < height; y++)
+    for (let x = 0; x < width; x++) {
+      let best = Infinity;
+      let season: WorldSeason | null = null;
+      for (const place of leaves) {
+        const far = (place.at.x - x) ** 2 + (place.at.y - y) ** 2;
+        if (far < best) {
+          best = far;
+          season = seasons[place.id] ?? null;
+        }
+      }
+      cells[y * width + x] = season;
+    }
+  return cells;
 }
 
 /** What people know that holds now and is in the scene (1.356): an entry whose conditions hold, whose
@@ -1704,6 +1836,9 @@ export function storyTurnPromptText(story: StoryScript, turn: StoryTurn): string
   }
   for (const clock of turn.filled ?? []) {
     lines.push(`The clock "${clock.title}" has just filled. Bring this about now: ${clock.text}`);
+  }
+  if (turn.season.held) {
+    lines.push(`It is ${turn.season.season} here, whatever the date: the story holds it so.`);
   }
   if (turn.knowledge.length) {
     lines.push(

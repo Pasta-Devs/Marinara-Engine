@@ -173,6 +173,9 @@ export type OverworldTileDrawer = ((
   ) => boolean;
   /** Whether the pack has edge tiles for a terrain (water, road, street, square). */
   hasEdges: (terrain: WorldEdgeTerrain) => boolean;
+  /** Draws what follows in a season of its own (a place the story holds at one, Capability API 1.359)
+   *  instead of the drawer's; undefined goes back to the drawer's. */
+  setCellSeason: (season: WorldSeason | undefined) => void;
   /** Whether the pack has a fringe for a ground look (or for the look it stands in for). */
   hasFringe: (look: string) => boolean;
   /**
@@ -300,8 +303,12 @@ export function useOverworldAtlas(
     // A look the pack has no tile for (a newer forest) draws the one it stands in for.
     const fallbackOf = (id: string) => WORLD_GROUND_LOOK_FALLBACK[id as WorldGroundLook];
     // A tile's seasonal variant (`<id>@<season>`) in its season, where the pack has one.
-    const seasonal = <T>(tiles: Record<string, T> | undefined, id: string) =>
-      (season ? tiles?.[`${id}@${season}`] : undefined) ?? tiles?.[id];
+    // A cell the story holds at a season of its own is drawn in that one.
+    let cellSeason: WorldSeason | undefined;
+    const seasonal = <T>(tiles: Record<string, T> | undefined, id: string) => {
+      const now = cellSeason ?? season;
+      return (now ? tiles?.[`${id}@${now}`] : undefined) ?? tiles?.[id];
+    };
     const variantOf = <T>(variants: readonly T[] | undefined, pick: number) =>
       variants?.length ? variants[Math.min(variants.length - 1, Math.floor(pick * variants.length))]! : null;
     if (image) {
@@ -434,6 +441,9 @@ export function useOverworldAtlas(
         ctx.drawImage(ready.canvas, at.sx, at.sy, size, size, x - half, y - half, OVERWORLD_TILE, OVERWORLD_TILE);
         return true;
       };
+      draw.setCellSeason = (value) => {
+        cellSeason = value;
+      };
       return draw;
     }
     const draw = ((ctx, id, x, y, pick = 0) => {
@@ -458,6 +468,9 @@ export function useOverworldAtlas(
     draw.fringe = () => false;
     draw.edgeRows = () => 0;
     draw.edge = () => false;
+    draw.setCellSeason = (value) => {
+      cellSeason = value;
+    };
     return draw;
   }, [atlas, chosen, family, fetchFailed, fetched, image, libraryPending, own, peopleSprites, ready, season]);
 }

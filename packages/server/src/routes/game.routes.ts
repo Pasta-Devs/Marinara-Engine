@@ -27,6 +27,7 @@ import {
   storyObjectives,
   storyScriptSchema,
   gameIntroChoiceSchema,
+  storyPlaceSeasons,
   storyState,
   type StoryScript,
   worldEditsEmpty,
@@ -313,6 +314,7 @@ import {
   worldTrip,
   worldIsSite,
   worldSettlementOf,
+  worldSeason,
   worldSiteLocks,
   worldWalkFromMetadata,
   worldWalkJoined,
@@ -11192,6 +11194,15 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     return { time: newTime, formatted: formatGameTime(newTime) };
   });
 
+  /** The season where the party is, in a game with a world (1.359): held by its story, else the day's. */
+  const gameSeasonHere = async (chatId: string, mode: string, meta: Record<string, unknown>) => {
+    const world = mode === "game" ? await loadGameWorld(app.db, chatId, meta) : null;
+    if (!world) return null;
+    const day = ((meta.gameTime as GameTime | undefined) ?? createInitialTime()).day;
+    const { here, seasons } = await overworldPlace(chatId, meta, world);
+    return (here ? seasons[here] : undefined) ?? seasons["*"] ?? worldSeason(day);
+  };
+
   // ── POST /game/weather/update ──
   app.post("/weather/update", async (req) => {
     const schema = z.object({
@@ -11201,12 +11212,15 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
       season: z.enum(["spring", "summer", "autumn", "winter"]).default("summer"),
       type: z.string().max(100).optional(),
     });
-    const { chatId, action, location, season, type } = schema.parse(req.body);
+    const { chatId, action, location, type } = schema.parse(req.body);
     const chats = createChatsStorage(app.db);
     const chat = await chats.getById(chatId);
     if (!chat) throw new Error("Chat not found");
 
     const meta = parseMeta(chat.metadata);
+    // A game with a world has its own season where the party is: the one the story holds it at (1.359),
+    // else the day's. Without one, the season sent.
+    const season = (await gameSeasonHere(chat.id, chat.mode, meta)) ?? schema.parse(req.body).season;
 
     // "set" action from scene analyzer — apply the exact weather type
     if (action === "set" && type) {
@@ -11426,9 +11440,14 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     const present = worldPresent(world, replies.ledger);
     // The sites the story keeps closed until the Game Master opens them (design-game-overworld-sites.md).
     // Reveals from every session (carried ones first), not only this one's.
-    const locks = worldSiteLocks(world, gameStoryFromMetadata(meta, world), replies.all);
+    const story = gameStoryFromMetadata(meta, world);
+    const locks = worldSiteLocks(world, story, replies.all);
+    // The places the story holds at a season whatever the day (1.359).
+    const seasons = story
+      ? storyPlaceSeasons(story, storyState(story, readStoryLedger(replies.all)).seasons, world)
+      : {};
     const walk = worldWalkFromMetadata(meta);
-    if (walk) return { here: walk.to, walk, present, placeName: undefined, locks };
+    if (walk) return { here: walk.to, walk, present, placeName: undefined, locks, seasons };
     const place = worldPlaceInForce(
       world,
       lastGamePlace(replies.scoped),
@@ -11439,6 +11458,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
       walk: null,
       present,
       locks,
+      seasons,
       placeName: place?.name,
     };
   };
@@ -12188,7 +12208,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     const meta = parseMeta(chat.metadata);
     const world = chat.mode === "game" ? await loadGameWorld(app.db, chat.id, meta) : null;
     if (!world) return { overworld: null };
-    const { here, walk, present, locks } = await overworldPlace(req.params.chatId, meta, world);
+    const { here, walk, present, locks, seasons } = await overworldPlace(req.params.chatId, meta, world);
     // A hidden site is never sent: the player does not know it is there.
     const locked = Object.fromEntries([...locks].filter(([, lock]) => lock === "sealed"));
     const hidden = new Set([...locks].filter(([, lock]) => lock === "hidden").map(([id]) => id));
@@ -12200,6 +12220,8 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
         // Only when the story keeps a site closed: an overworld without any reads as it always did.
         ...(Object.keys(locked).length ? { locked } : {}),
         ...(hidden.size ? { hidden: [...hidden] } : {}),
+        // Only when the story holds a place at a season (1.359).
+        ...(Object.keys(seasons).length ? { seasons } : {}),
       },
     };
   });

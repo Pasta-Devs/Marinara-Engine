@@ -1335,7 +1335,11 @@ const capabilityPackageManifestBaseSchema = z
 // 1.358: `POST /api/game/experience/check` checks a whole map pack before it is exported, as an installed
 //        one is read: send `{ mapPack, files: { <path>: <parsed JSON> }, assets: [{ path, bytes }] }`, get
 //        `{ ok, minor, issues: [{ path, message }] }` (`minor`: the Capability API minor the pack needs).
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 358 } as const);
+// 1.359: a story may hold places at a season whatever the date (`seasons`: a place, and every place inside
+//        it, or the whole world; the `season` action changes or lets one go during play). The overworld,
+//        towns and the weather follow it. A world's battlefield may be painted with seasons (`seasons`
+//        rows, a letter or `.` per tile, named by `seasonKeys`), what a fight's tiles start in.
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 359 } as const);
 
 const capabilityApiVersionSchema = z
   .object({

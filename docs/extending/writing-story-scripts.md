@@ -184,11 +184,13 @@ deed it waits for, would set itself off every turn, so the Engine refuses it.
 | `{ "music": "<track id>" }` or `{ "music": null }` | Cues one of its Experience's tracks over the place's music (1.353), until another cue, or `null` hands back to the place's. The track must be one of the map pack's `music`. |
 | `{ "recruit": "<person id>" }` | Takes one of its Experience's companions into the party (1.355), with their sheet for the game's ruleset. The Game Master is told to show them joining. |
 | `{ "dismiss": "<person id>" }` | Lets a companion go from the party (1.355). |
+| `{ "season": { "place": "<place id>", "to": "winter" } }` | Holds a place, and every place inside it, at a season whatever the date (1.359); without `place`, the whole world. `"to": null` lets it go back to the script's own `seasons`, or the date's. |
 
 A map pack world whose story has clocks needs Capability API 1.350, one with fights, endings or the
 `give`, `fight`, `move` and `ending` actions needs 1.351, one that cues music needs 1.353, and one that
 recruits or dismisses companions needs 1.355, one with knowledge needs 1.356, and one with `rest`,
-`travel` or `idle` events, a `priority`, a `party` condition or more than 128 events needs 1.357. A companion is a person of the pack's people file marked
+`travel` or `idle` events, a `priority`, a `party` condition or more than 128 events needs 1.357, and one
+with `seasons` or the `season` action needs 1.359. A companion is a person of the pack's people file marked
 as one (see the map pack's people in [optional agent packages](../development/optional-agent-packages.md)).
 
 Of the `rest`, `travel` and `idle` events that could happen on one turn, only one does: the one with the
@@ -196,6 +198,26 @@ highest `priority` (a whole number from -100 to 100, 0 when left out; the first 
 companion's campfire talk, a pair of companions bickering on the road, or a companion coming to the player
 in a quiet hour then never pile up. With a `party` condition, such a scene happens only while those
 companions travel with the party. A script may have 256 events from 1.357 (128 before).
+
+### Seasons
+
+A world's seasons follow its calendar, 90 days each. A story can hold places at a season whatever the date
+(Capability API 1.359): a valley stuck in autumn, a hill held at winter.
+
+```json
+"seasons": [{ "place": "p3", "season": "autumn" }, { "season": "summer" }]
+```
+
+Each holds a place and every place inside it; one without a `place` holds the whole world. The nearest
+held place decides: a village held at winter inside a region held at autumn is winter. The `season`
+action changes a hold during play, or lets it go. Where the party is held, the Game Master is told the
+season and that it is held; the weather is made for it; the overworld draws each cell in the season of the
+place it lies nearest (a tile pack's `<id>@<season>` tiles), and a town in its own.
+
+A world's hand-painted battlefield may be painted with seasons too: a `seasons` row per tile row, a letter
+or `.` per tile, with `seasonKeys` naming the letters (`{ "a": "autumn", "w": "winter" }`). A tile left
+`.` is in the season of the place the fight is at. A fight's tiles start in them, and its round's map
+events may change them, as a ring of frost spreading or a line of spring sweeping across.
 
 ### Fights
 

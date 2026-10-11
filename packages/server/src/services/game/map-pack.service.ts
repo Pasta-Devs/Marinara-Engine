@@ -42,6 +42,10 @@ const CHECKED_CREATURES_KEPT = 16;
 const checkedPeople = new Map<string, ExperiencePeople>();
 const CHECKED_PEOPLE_KEPT = 16;
 
+/** Whether a world's boards are painted with seasons (Capability API 1.359). */
+const worldSeasonPainted = (world: { edits?: { battlefields?: Array<{ seasons?: unknown }> } }) =>
+  Boolean(world.edits?.battlefields?.some((board) => board.seasons));
+
 export type MapPack = ExperienceMapPack;
 
 /** A map pack world as a game plays it. */
@@ -148,6 +152,13 @@ export async function checkMapPackFiles(
     const needs = world.story ? storyCapabilityMinor(world.story) : 0;
     if (needs && (!files.capabilityApi || files.capabilityApi.major !== 1 || files.capabilityApi.minor < needs)) {
       return { ok: false, reason: `${path}'s story needs capabilityApi 1.${needs} or newer` };
+    }
+    // Boards painted with seasons (1.359) likewise.
+    if (
+      worldSeasonPainted(world.world) &&
+      (!files.capabilityApi || files.capabilityApi.major !== 1 || files.capabilityApi.minor < 359)
+    ) {
+      return { ok: false, reason: `${path}'s battlefields painted with seasons need capabilityApi 1.359 or newer` };
     }
     worlds.push({
       path,
@@ -426,6 +437,7 @@ export async function checkMapPack(input: MapPackCheckInput): Promise<MapPackChe
     minor,
     pack.tiles?.tilePackVersion === 2 ? 75 : 0,
     ...pack.worlds.map((world) => (world.story ? storyCapabilityMinor(world.story) : 0)),
+    pack.worlds.some((world) => worldSeasonPainted(world.world)) ? 359 : 0,
     pack.creatures?.length ? 352 : 0,
     pack.music || audio ? 353 : 0,
     pack.people ? experiencePeopleMinor(pack.people) : 0,
