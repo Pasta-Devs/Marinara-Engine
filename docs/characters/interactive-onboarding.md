@@ -8,6 +8,8 @@ A persona is the character that represents you in a chat. See [User Personas](pe
 
 When a player starts a Roleplay chat with the card, they can choose **Create your persona**, answer the questions, and get a new, ordinary persona. The answers are written into the text once. The result is a normal persona that the player can edit, keep, or delete like any other. The card itself does not change.
 
+A card can also ask **character questions**, whose answers are saved on that one chat instead of in a persona. See [Character questions](#character-questions) below.
+
 Onboarding uses the existing macro syntax. It runs no scripts.
 
 ## Setting it up as an author
@@ -20,7 +22,7 @@ Turning the switch off hides the onboarding fields but keeps what you wrote.
 
 ### Add questions
 
-Under **Onboarding Questions**, click **Add Question**. Each question works like a preset variable. See [Presets](../prompts/presets.md). A card can have up to 100 questions.
+Under **Persona Questions**, click **Add Question**. Each question works like a preset variable. See [Presets](../prompts/presets.md). A card can have up to 100 questions.
 
 - **Variable Name** is the name you use in the fields, such as `faction`. Pick any name with letters, numbers, and underscores that starts with a letter or underscore. Names are case-sensitive: `Gender` and `gender` are different.
 - **Question (shown to user)** is what the player reads. It can use earlier answers, such as `What does {{player}} look like?`. Here `{{char}}` is the card's name and `{{user}}` the player's name.
@@ -33,6 +35,23 @@ Under **Onboarding Questions**, click **Add Question**. Each question works like
 A question named `player` sets the persona's name. If you don't add one, players are asked for their name first.
 
 The editor warns you when a name is empty, invalid, used twice, or taken by a built-in macro, and when no field uses a question.
+
+### Character questions
+
+Lower down the same tab there is a second list, **Character Questions**. Its questions work exactly like the ones above, but the answers are saved on the **chat**, not in a persona. Put the name in one of the card's own fields: **Description**, **Personality**, **Backstory**, **Appearance**, or **Scenario**.
+
+```
+{{char}} treats {{relationshipToUser}} with open warmth.
+```
+
+Those five fields are the ones the model reads, so they are the ones a character answer can reach.
+
+The answers are stored as chat variables, so the card reads a different value in every chat and never has to be edited. A card question is asked whenever the card is in the chat, whether or not the player creates a persona. The window shows an **About you** section only when one is being made.
+
+Two things an author should know:
+
+- **An answer that is never filled in stays a literal tag.** A free-text question with no default is not seeded, so a chat started without the wizard shows `{{name}}` as written. Choice questions seed their first option, which covers most cards.
+- **If two cards in one chat declare the same name, they share one value.** A chat stores one answer per name, so the last one saved is what both cards read. The window warns about this when it happens.
 
 ### Write the persona fields
 
@@ -58,17 +77,15 @@ A question that only appears inside an `{{#if}}` is asked only when that conditi
 
 The **Rendered preview** at the bottom shows the persona built from example answers, and lists the questions asked, in order.
 
-## Creating a persona as a player
+## Answering the questions as a player
 
 1. Start a new Roleplay chat. In the **Persona & Characters** step, cards with onboarding show a small person-with-plus icon in the character list.
-2. Add the character. A **Create your persona** row appears at the top of **Your Persona**, naming the card it belongs to.
-3. Select that row and click **Next**.
-4. A **Create your persona** window shows the card's questions. Follow-up questions appear as soon as your answers make them relevant.
-5. Click **Create persona**. The new persona is saved and selected for the chat, and the wizard continues.
+2. Add the character. To get a new persona out of it, select the **Create your persona** row at the top of **Your Persona**. It names the card it belongs to. Any other choice (or **None**) skips the persona and keeps yours.
+3. Click **Next**. The questions window opens whenever a card in the chat has character questions, whether or not you are creating a persona.
+4. Answer the questions. **Character questions** come first, with one section per card, then **About you** when a persona is being made. Follow-up questions appear as soon as your answers make them relevant.
+5. Click **Create persona**, or **Save answers** when you are not making one. The character answers are saved on the chat, and the wizard continues.
 
-If you choose any other persona or **None** (Stay anonymous), no questions are asked. **Back** in the questions window returns to the persona picker. Each card with onboarding in the chat gets its own **Create your persona** row.
-
-Onboarding is offered in the Roleplay new chat wizard. Quick Start, the Conversation setup, and starting a chat straight from a character card do not offer it yet.
+Onboarding questions are asked in the Roleplay new chat wizard. Quick Start, the Conversation setup, and starting a chat straight from a character card do not ask them yet. A chat started that way still fills in each question's first option, so `{{relationshipToUser}}` resolves instead of showing the tag. Answering in the wizard replaces that default, for that chat only.
 
 ## Sharing cards with onboarding
 

@@ -53,11 +53,15 @@ import { characterMatchesSearch, getCharacterTitle, parseCharacterDisplayData } 
 import { buildCharacterIdentityGroups } from "../../lib/character-identity-groups";
 import { addSilentGreetingSwipes } from "../../lib/message-swipes";
 import { ChoiceSelectionModal } from "../presets/ChoiceSelectionModal";
-import { CharacterOnboardingModal } from "../characters/CharacterOnboardingModal";
+import { CharacterOnboardingModal, type OnboardingCardTarget } from "../characters/CharacterOnboardingModal";
 import { ActiveChatBackgroundPicker } from "../panels/settings/BackgroundPicker";
 import {
   characterOnboardingSchema,
   type CharacterOnboarding,
+  type OnboardingCardFields,
+  hasOnboardingContent,
+  canBuildPersona,
+  getRelevantCardVariables,
   withUniqueOnboardingIds,
   CONVERSATION_COMMAND_AGENT_IDS,
   CONVERSATION_COMMAND_KEYS,
@@ -2625,10 +2629,12 @@ function RoleplaySetupWizard({ chat, onFinish, defaultsApplied, defaultsAction }
   const isPresetStep = currentStep.key === "preset";
   const nextDisabled = isPresetStep && (updateChat.isPending || (!!chat.promptPresetId && presetFullLoading));
 
-  // Every card that ships enabled onboarding: marked in the character list, and
-  // once chosen, offered as a persona to create.
+  // Every card that ships enabled onboarding with something to offer: marked in
+  // the character list, and once chosen, offered as a persona to create. An
+  // enabled-but-empty block is filtered out here, so the wizard never offers a
+  // window with no questions and no field text behind it.
   const onboardingByCharacterId = useMemo(() => {
-    const byId = new Map<string, { name: string; onboarding: CharacterOnboarding }>();
+    const byId = new Map<string, { name: string; onboarding: CharacterOnboarding; cardFields: OnboardingCardFields }>();
     for (const character of characters) {
       try {
         const data = typeof character.data === "string" ? JSON.parse(character.data) : character.data;
@@ -2636,7 +2642,28 @@ function RoleplaySetupWizard({ chat, onFinish, defaultsApplied, defaultsAction }
         if (parsed.success && parsed.data.enabled) {
           // Cards saved before ids were made unique, or via the API, may still repeat one.
           const onboarding = withUniqueOnboardingIds(parsed.data as CharacterOnboarding);
-          byId.set(character.id, { name: String(data?.name ?? ""), onboarding });
+          if (!hasOnboardingContent(onboarding)) continue;
+          // The card's own text decides which character questions are asked, so
+          // the wizard has to hand the modal the same fields the prompt reads.
+          // `backstory` and `appearance` live on `extensions`, NOT at the top
+          // level — reading them from `data` silently yields undefined, and a
+          // question is then never asked because nothing appears to read it.
+          const extensions = (data?.extensions ?? {}) as Record<string, unknown>;
+          const extensionText = (key: string) => {
+            const value = extensions[key];
+            return typeof value === "string" ? value : undefined;
+          };
+          byId.set(character.id, {
+            name: String(data?.name ?? ""),
+            onboarding,
+            cardFields: {
+              description: data?.description,
+              personality: data?.personality,
+              backstory: extensionText("backstory"),
+              appearance: extensionText("appearance"),
+              scenario: data?.scenario,
+            },
+          });
         }
       } catch {
         /* unreadable card data: no onboarding */
@@ -2654,7 +2681,67 @@ function RoleplaySetupWizard({ chat, onFinish, defaultsApplied, defaultsAction }
     [characters, chatCharIds, onboardingByCharacterId],
   );
   // Removing the character from the chat drops its onboarding choice too.
-  const onboardingCharacter = onboardingCharacters.find((entry) => entry.character.id === onboardingCharacterId);
+  // Resolved from the FULL character list rather than `onboardingCharacters`:
+  // that list drops any character without an onboarding block, so a template
+  // pick for such a character would resolve to nothing and the window would fall
+  // back to a name it found elsewhere.
+  const onboardingCharacter = useMemo(() => {
+    if (!onboardingCharacterId) return undefined;
+    const character = characters.find((entry) => entry.id === onboardingCharacterId);
+    if (!character) return undefined;
+    const entry = onboardingByCharacterId.get(onboardingCharacterId);
+    return entry ? { character, ...entry } : undefined;
+  }, [onboardingCharacterId, characters, onboardingByCharacterId]);
+  // EVERY chosen card with something to ask, not just the first: two characters
+  // can both declare card questions, and each answer lands in its own card's
+  // field, so one window has to ask both. A card that only ships persona field
+  // text (no questions) is not asked about here.
+  const onboardingCardTargets = useMemo<OnboardingCardTarget[]>(
+    () =>
+      onboardingCharacters
+        .filter((entry) => getRelevantCardVariables(entry.onboarding, entry.cardFields, {}).length > 0)
+        .map((entry) => ({
+          characterId: entry.character.id,
+          name: entry.name,
+          onboarding: entry.onboarding,
+          cardFields: entry.cardFields,
+        })),
+    [onboardingCharacters],
+  );
+  // The window opens when a persona is being created OR any card has card
+  // questions; the persona section appears only for the former.
+  const showOnboardingWindow = !!onboardingCharacter || onboardingCardTargets.length > 0;
+  // Offered as a "Create your persona" template only when the card can actually
+  // fill one in. A card that declares card questions alone still opens the
+  // window, but picking it here would create a persona from a bare name — which
+  // is the button the player saw with no persona questions at all.
+  const personaTemplateCharacters = useMemo(
+    () => onboardingCharacters.filter((entry) => canBuildPersona(entry.onboarding)),
+    [onboardingCharacters],
+  );
+  // The persona the chat will use if the player creates nothing. Its name is the
+  // player's name for `{{user}}` in card question headings.
+  const personaForOnboarding = useMemo(
+    () => (chat.personaId ? personas.find((persona) => persona.id === chat.personaId) : undefined),
+    [chat.personaId, personas],
+  );
+
+  // The player's name when it already exists: an existing persona's. Card
+  // question headings show `{{user}}`, and without this they printed the raw tag
+  // while a persona question in the same window resolved — a mismatch the user
+  // caught. When a NEW persona is being created the name comes from its answer.
+  const knownPlayerName = useMemo(
+    () => (personaForOnboarding && personaForOnboarding.name.trim() ? personaForOnboarding.name.trim() : undefined),
+    [personaForOnboarding],
+  );
+
+  // Every participant's name, in wizard order, for the window's opening line.
+  // Built from `onboardingCharacters` (which covers every selected character
+  // with an onboarding block) rather than from the card-question targets: a
+  // participant without card questions still belongs in that sentence, and
+  // deriving it from the targets dropped its name — or, with no card questions
+  // at all, left the sentence with no subject.
+  const participantNames = useMemo(() => onboardingCharacters.map((entry) => entry.name), [onboardingCharacters]);
 
   const next = useCallback(() => {
     if (isLast) {
@@ -2665,8 +2752,9 @@ function RoleplaySetupWizard({ chat, onFinish, defaultsApplied, defaultsAction }
         setShowChoiceModal(true);
         return;
       }
-      // When leaving the participants step with an onboarding picked as persona, ask its questions.
-      if (currentStep.key === "participants" && onboardingCharacter) {
+      // Leaving the participants step: ask every chosen card's own questions,
+      // and the persona's when one is being created. Either reason opens it.
+      if (currentStep.key === "participants" && showOnboardingWindow) {
         setShowOnboarding(true);
         return;
       }
@@ -2682,32 +2770,51 @@ function RoleplaySetupWizard({ chat, onFinish, defaultsApplied, defaultsAction }
     currentStep.key,
     chat.promptPresetId,
     presetFull?.choiceBlocks?.length,
-    onboardingCharacter,
+    showOnboardingWindow,
   ]);
 
-  // The new persona replaces the onboarding choice, so going Back and Next again doesn't ask twice.
-  // The questions window stays open (and locked) until the chat update settles,
-  // so Next can't run in between. If it fails, the wizard stays on this step:
-  // the persona already exists and is in the list, so asking the questions
-  // again would create a second one.
+  // The new persona replaces the onboarding choice, so going Back and Next again
+  // doesn't ask twice. The questions window stays open (and locked) until every
+  // write settles, so Next can't run in between. If selecting the new persona
+  // fails, the window is closed and the template choice cleared: the persona
+  // already exists, so a second Create would duplicate it.
   const finishOnboarding = useCallback(
-    async (personaId: string) => {
+    async (personaId: string | null, cardVariables: Record<string, string>) => {
+      // Chat variables go in their OWN request: `PATCH /chats/:id/metadata`
+      // rejects `macroVariables` alongside any other key, and they are a
+      // metadata write while `personaId` is a chat-column write.
       try {
-        await updateChat.mutateAsync({ id: chat.id, personaId, personaCharacterId: null });
+        if (Object.keys(cardVariables).length > 0) {
+          await updateMeta.mutateAsync({ id: chat.id, macroVariables: cardVariables });
+        }
       } catch {
-        toast.error(localizeUi("ui.characters.onboarding.selectFailed"));
-        return;
-      } finally {
-        setOnboardingCharacterId(null);
-        setShowOnboarding(false);
+        // The answers are lost but the chat is usable: the card falls back to
+        // whatever the unseeded field reads, and the wizard still moves on.
+        toast.error(localizeUi("ui.characters.onboarding.cardVariablesFailed"));
       }
+      if (personaId) {
+        try {
+          await updateChat.mutateAsync({ id: chat.id, personaId, personaCharacterId: null });
+        } catch {
+          // The persona itself was already created by the window, so leaving the
+          // window open would let a second Create make a duplicate. Close it and
+          // drop the template choice instead: the persona is in the list, so the
+          // player picks it again and no second one is written.
+          toast.error(localizeUi("ui.characters.onboarding.selectFailed"));
+          setOnboardingCharacterId(null);
+          setShowOnboarding(false);
+          return;
+        }
+      }
+      setOnboardingCharacterId(null);
+      setShowOnboarding(false);
       setStep((s) => s + 1);
       setCharSearch("");
       setLbSearch("");
       setAgentSearch("");
       setAgentAddPreview(null);
     },
-    [chat.id, localizeUi, updateChat],
+    [chat.id, localizeUi, updateChat, updateMeta],
   );
 
   const previous = useCallback(() => {
@@ -2980,7 +3087,7 @@ function RoleplaySetupWizard({ chat, onFinish, defaultsApplied, defaultsAction }
           setOnboardingCharacterId(null);
           setPersonaCharacter(characterId);
         }}
-        templates={onboardingCharacters.map((entry) => entry.character)}
+        templates={personaTemplateCharacters.map((entry) => entry.character)}
         templateValue={onboardingCharacter?.character.id ?? null}
         onTemplateChange={(characterId) => {
           setOnboardingCharacterId(characterId);
@@ -3710,12 +3817,32 @@ function RoleplaySetupWizard({ chat, onFinish, defaultsApplied, defaultsAction }
         chatId={chat.id}
       />
 
-      {onboardingCharacter && (
+      {showOnboardingWindow && (
         <CharacterOnboardingModal
-          key={onboardingCharacter.character.id}
+          // Re-keyed by the whole card set AND the persona template: adding or
+          // removing a participant has to rebuild the answer state, not keep
+          // another chat's answers.
+          //
+          // The template belongs in the key because it can drop out while this
+          // modal is already open: removing the card, or turning its onboarding
+          // off elsewhere, clears `onboardingCharacterId` and flips `withPersona`
+          // to false on the mounted modal. Persona answers are held by scope
+          // rather than by character, so without the re-key the answers typed for
+          // the old template would linger instead of being discarded.
+          key={`${onboardingCardTargets.map((card) => card.characterId).join("|") || "persona"}|${onboardingCharacterId ?? "no-template"}`}
           open={showOnboarding}
-          characterName={onboardingCharacter.name}
-          onboarding={onboardingCharacter.onboarding}
+          cards={onboardingCardTargets}
+          participantNames={participantNames}
+          persona={
+            onboardingCharacter
+              ? { characterName: onboardingCharacter.name, onboarding: onboardingCharacter.onboarding }
+              : null
+          }
+          playerName={knownPlayerName}
+          // A persona is created only when the card was picked AS a template.
+          // A card that merely carries character questions asks those, and the
+          // window must not promise a persona it will not write.
+          withPersona={!!onboardingCharacter}
           onBack={() => setShowOnboarding(false)}
           onCreated={finishOnboarding}
         />
@@ -3724,7 +3851,7 @@ function RoleplaySetupWizard({ chat, onFinish, defaultsApplied, defaultsAction }
       {/* Hidden only while the questions window is actually shown: if its card
           drops out (deleted or turned off elsewhere), the wizard comes back. */}
       {!showChoiceModal &&
-        !(showOnboarding && onboardingCharacter) &&
+        !(showOnboarding && showOnboardingWindow) &&
         (shortcutMode ? (
           <SetupWizardShell
             title={localizeUi("ui.chat.roleplaysetupwizard.quickSetup")}

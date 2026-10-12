@@ -67,6 +67,17 @@ const ONBOARDING = {
       options: [{ id: "o3", label: "Ranger", value: "ranger" }],
     },
   ],
+  // Card variables (#7434): a second list whose answers become chat variables.
+  cardVariables: [
+    {
+      ...VARIABLE_DEFAULTS,
+      id: "c1",
+      variableName: "relationshipToUser",
+      question: "Who are you to her?",
+      options: [{ id: "co1", label: "Childhood friend", value: "a childhood friend" }],
+    },
+    { ...VARIABLE_DEFAULTS, id: "c2", variableName: "mood", question: "Your mood?", options: [] },
+  ],
 };
 
 // ── 1. A card carrying onboarding parses and keeps every field ──

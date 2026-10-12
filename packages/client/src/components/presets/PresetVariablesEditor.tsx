@@ -147,9 +147,11 @@ function readChoiceOptionSort(value: unknown): ChoiceOptionSort {
  * "preset": preset variables (random pick, single-option on/off switch, at
  * least one option). "onboarding": a character card's onboarding questions —
  * no options means a free-text answer, options may also accept the player's own
- * answer, and there is no random pick.
+ * answer, and there is no random pick. "onboarding-card": the same behaviour for
+ * the card's own questions, whose answers are saved on the chat rather than
+ * folded into the player's persona, so only the wording differs.
  */
-export type VariablesEditorVariant = "preset" | "onboarding";
+export type VariablesEditorVariant = "preset" | "onboarding" | "onboarding-card";
 
 export function PresetVariablesEditor({
   variables,
@@ -180,7 +182,13 @@ export function PresetVariablesEditor({
   maxCount?: number;
 }) {
   const { t: localizeUi } = useUiTranslation();
-  const isOnboarding = variant === "onboarding";
+  // Both onboarding variants behave the same (free text, own answer, no random
+  // pick); only where the answer lands differs, so only the copy branches.
+  const isOnboarding = variant !== "preset";
+  const isCardOnboarding = variant === "onboarding-card";
+  /** The persona list's wording, or the card list's where the two differ. */
+  const onboardingCopy = (personaKey: string, cardKey?: string) =>
+    localizeUi(isCardOnboarding && cardKey ? cardKey : personaKey);
   const atLimit = maxCount !== undefined && variables.length >= maxCount;
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [draggingIdx, setDraggingIdx] = useState<number | null>(null);
@@ -283,7 +291,7 @@ export function PresetVariablesEditor({
           <Hash size="0.875rem" className="mari-chrome-accent-icon mari-accent-animated" />
           <span className="text-sm font-semibold">
             {isOnboarding
-              ? localizeUi("ui.characters.onboarding.questions")
+              ? onboardingCopy("ui.characters.onboarding.questions", "ui.characters.onboarding.cardQuestions")
               : localizeUi("ui.presets.presetvariableseditor.presetVariables")}
           </span>
           <span
@@ -304,20 +312,23 @@ export function PresetVariablesEditor({
         >
           <Plus size="0.6875rem" />{" "}
           {isOnboarding
-            ? localizeUi("ui.characters.onboarding.addQuestion")
+            ? onboardingCopy("ui.characters.onboarding.addQuestion", "ui.characters.onboarding.addCardQuestion")
             : localizeUi("ui.presets.presetvariableseditor.addVariable")}
         </button>
       </div>
 
       <p className="text-[0.625rem] text-[var(--muted-foreground)]">
         {isOnboarding
-          ? localizeUi("ui.characters.onboarding.questionsIntro")
+          ? onboardingCopy("ui.characters.onboarding.questionsIntro", "ui.characters.onboarding.cardQuestionsIntro")
           : localizeUi("ui.presets.presetvariableseditor.defineVariablesThatUsersSelectWhenAssigningThisPreset")}{" "}
         <code className="mari-editor-chip mari-editor-chip--accent rounded px-1 text-[0.625rem]">
           {"{{variable_name}}"}
         </code>{" "}
         {isOnboarding
-          ? localizeUi("ui.characters.onboarding.inThePersonaFieldsToInsertTheAnswer")
+          ? onboardingCopy(
+              "ui.characters.onboarding.inThePersonaFieldsToInsertTheAnswer",
+              "ui.characters.onboarding.inTheCardFieldsToInsertTheAnswer",
+            )
           : localizeUi("ui.presets.presetvariableseditor.inAnySectionToInsertTheSelectedValue")}
       </p>
       {atLimit && (
@@ -331,7 +342,7 @@ export function PresetVariablesEditor({
           <Hash size="1.25rem" className="text-[var(--muted-foreground)]" />
           <p className="text-[0.6875rem] text-[var(--muted-foreground)]">
             {isOnboarding
-              ? localizeUi("ui.characters.onboarding.noQuestionsYet")
+              ? onboardingCopy("ui.characters.onboarding.noQuestionsYet", "ui.characters.onboarding.noCardQuestionsYet")
               : localizeUi("ui.presets.presetvariableseditor.noVariablesYetAddOneToLetUsersCustomize")}
           </p>
         </div>
@@ -455,7 +466,8 @@ function VariableCard({
     }
   }, [variable.options]);
 
-  const isOnboarding = variant === "onboarding";
+  const isOnboarding = variant !== "preset";
+  const isCardOnboarding = variant === "onboarding-card";
   const varName = variable.variableName ?? variable.variable_name ?? "";
   const question = variable.question ?? "";
   const isMultiSelect = variable.multiSelect === "true" || variable.multiSelect === true;
@@ -693,7 +705,11 @@ function VariableCard({
               {localizeUi("ui.presets.variablecard.use")}{" "}
               <code className="mari-chrome-accent-text mari-accent-animated">{`{{${varName}}}`}</code>{" "}
               {isOnboarding
-                ? localizeUi("ui.characters.onboarding.inThePersonaFieldsToInsertTheAnswer")
+                ? localizeUi(
+                    isCardOnboarding
+                      ? "ui.characters.onboarding.inTheCardFieldsToInsertTheAnswer"
+                      : "ui.characters.onboarding.inThePersonaFieldsToInsertTheAnswer",
+                  )
                 : localizeUi("ui.presets.variablecard.inAnyPromptSectionToInsertTheSelectedValue")}
             </p>
           </div>
@@ -741,7 +757,11 @@ function VariableCard({
                   </span>
                 </div>
                 <SettingsSwitch
-                  ariaLabel={isMultiSelect ? "Disable multi-select" : "Enable multi-select"}
+                  ariaLabel={localizeUi(
+                    isMultiSelect
+                      ? "ui.presets.presetvariableseditor.disableMultiselect"
+                      : "ui.presets.presetvariableseditor.enableMultiselect",
+                  )}
                   checked={isMultiSelect}
                   onChange={(checked) => update({ multiSelect: checked })}
                   className="p-0 hover:bg-transparent"
@@ -864,11 +884,11 @@ function VariableCard({
                 </p>
               </div>
               <SettingsSwitch
-                ariaLabel={
+                ariaLabel={localizeUi(
                   optionOrderIsAlphabetical
-                    ? "Use manual option display order"
-                    : "Use alphabetical option display order"
-                }
+                    ? "ui.presets.presetvariableseditor.useManualOptionDisplayOrder"
+                    : "ui.presets.presetvariableseditor.useAlphabeticalOptionDisplayOrder",
+                )}
                 checked={optionOrderIsAlphabetical}
                 onChange={(checked) => update({ optionSort: checked ? "alphabetical" : "manual" })}
                 className="p-0 hover:bg-transparent"

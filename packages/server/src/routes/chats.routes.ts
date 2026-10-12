@@ -47,6 +47,9 @@ import {
   normalizeRpgStatPools,
   characterDataSchema,
   withoutUnreadableOnboarding,
+  characterOnboardingSchema,
+  seedCardVariables,
+  withUniqueOnboardingIds,
   readGameInventoryTurn,
   rulesetLiveStatesSchema,
   applyContextMessageLimitWithPins,
@@ -665,6 +668,80 @@ function mergeRoleplayTrackerDefaultCharacters(currentCharacters: PresentCharact
   return merged;
 }
 
+/**
+ * The card-variable defaults every character in this chat declares, first
+ * character winning on a shared name (the two lists are separate, so two cards
+ * may legitimately use the same name).
+ */
+async function buildNewChatCardVariableDefaults(
+  app: FastifyInstance,
+  characterIds: string[],
+): Promise<Record<string, string>> {
+  const charactersStore = createCharactersStorage(app.db);
+  const defaults: Record<string, string> = {};
+  for (const characterId of characterIds) {
+    const row = await charactersStore.getById(characterId);
+    if (!row) continue;
+    let data: CharacterData;
+    try {
+      data = (typeof row.data === "string" ? JSON.parse(row.data) : row.data) as CharacterData;
+    } catch {
+      continue;
+    }
+    const parsed = characterOnboardingSchema.safeParse((data.extensions ?? {})?.onboarding);
+    if (!parsed.success || !parsed.data.enabled) continue;
+    // Cards saved before ids were made unique repeat one; the seeding below is
+    // keyed by name, so this is only about reading a card the wizard reads too.
+    for (const [name, value] of Object.entries(seedCardVariables(withUniqueOnboardingIds(parsed.data)))) {
+      if (!Object.prototype.hasOwnProperty.call(defaults, name)) defaults[name] = value;
+    }
+  }
+  return defaults;
+}
+
+/**
+ * Give a new chat the starting values for the character questions its chosen
+ * card declares (#7434).
+ *
+ * Card fields can hold `{{relationshipToUser}}`, which only resolves when that
+ * name exists as a chat variable. The Roleplay setup wizard asks the questions
+ * and writes the real answers, but a chat can also be created without it (Quick
+ * Start, the conversation wizard, start-from-card). Seeding the defaults here
+ * means such a chat shows something sensible instead of the literal tag.
+ *
+ * Seeding is skipped for any name the chat already has, and a free-text
+ * question seeds nothing at all — an absent variable is exactly what a card
+ * that never declared the question would see.
+ *
+ * A failure here must not fail chat creation: an unseeded chat is the behaviour
+ * that existed before, so it is logged and swallowed.
+ *
+ * Returns the updated row when it wrote something, so the caller can answer with
+ * what is actually stored — `storage.create`'s row predates this patch, and the
+ * client caches whatever the response carries.
+ */
+async function seedNewChatCardVariables(app: FastifyInstance, chatId: string, characterIds: string[]) {
+  if (characterIds.length === 0) return null;
+  const defaults = await buildNewChatCardVariableDefaults(app, characterIds);
+  if (Object.keys(defaults).length === 0) return null;
+
+  // Imported here rather than at the top like the routes below: the prompt
+  // module reads this one's types, so a static import is a load-order cycle.
+  const { normalizeChatMacroVariables } = await import("../services/prompt/index.js");
+  let wrote = false;
+  const updated = await createChatsStorage(app.db).patchMetadata(chatId, (current) => {
+    const saved = normalizeChatMacroVariables(current.macroVariables);
+    const missing: Record<string, string> = {};
+    for (const [name, value] of Object.entries(defaults)) {
+      if (!Object.prototype.hasOwnProperty.call(saved, name)) missing[name] = value;
+    }
+    if (Object.keys(missing).length === 0) return {};
+    wrote = true;
+    return { macroVariables: { ...saved, ...missing } };
+  });
+  return wrote ? updated : null;
+}
+
 async function seedNewRoleplayChatTrackerDefaults(
   app: FastifyInstance,
   chat: { id: string; mode?: string | null },
@@ -1250,7 +1327,14 @@ export async function chatsRoutes(app: FastifyInstance) {
       logger.warn(err, "Failed to seed Character Tracker defaults for new Roleplay chat");
     }
 
-    return normalizeChatForResponse(chat);
+    let seeded = chat;
+    try {
+      seeded = (await seedNewChatCardVariables(app, chat.id, input.characterIds)) ?? chat;
+    } catch (err) {
+      logger.warn(err, "Failed to seed onboarding card variables for new chat");
+    }
+
+    return normalizeChatForResponse(seeded);
   });
 
   // Update chat
@@ -1316,6 +1400,11 @@ export async function chatsRoutes(app: FastifyInstance) {
       }
     }
     let roleplayTrackerCharacterIdsToSeed: string[] = [];
+    // Characters added to an existing chat need the same card-variable defaults
+    // as at creation, or a card that just joined carries a literal
+    // `{{relationshipToUser}}` into the prompt. Compared before/after like the
+    // tracker below so re-sending an unchanged roster writes nothing.
+    let cardVariableCharacterIdsToSeed: string[] = [];
     if (data.characterIds !== undefined) {
       const previousIds = resolveChatCharacterIds(existing.characterIds);
       const nextIds = data.characterIds;
@@ -1323,6 +1412,8 @@ export async function chatsRoutes(app: FastifyInstance) {
       const previousSet = new Set(previousIds);
       const removedIds = previousIds.filter((id) => !nextSet.has(id));
       const addedIds = nextIds.filter((id) => !previousSet.has(id));
+
+      cardVariableCharacterIdsToSeed = addedIds;
 
       if (removedIds.length > 0 || addedIds.length > 0) {
         const existingMessages = await storage.listMessages(req.params.id);
@@ -1396,12 +1487,23 @@ export async function chatsRoutes(app: FastifyInstance) {
         }
       }
     }
-    const updated = await storage.update(req.params.id, data);
+    let updated = await storage.update(req.params.id, data);
     if (updated && roleplayTrackerCharacterIdsToSeed.length > 0) {
       try {
         await seedNewRoleplayChatTrackerDefaults(app, updated, roleplayTrackerCharacterIdsToSeed);
       } catch (err) {
         logger.warn(err, "Failed to seed Character Tracker defaults while setting up Roleplay chat");
+      }
+    }
+    // Seeded after the update, and its row returned: the client caches whatever
+    // this response carries, so answering with the pre-seed row would leave the
+    // added character's variables missing until the next fetch. Swallowed like
+    // the tracker above — an unseeded chat is the pre-existing behaviour.
+    if (updated && cardVariableCharacterIdsToSeed.length > 0) {
+      try {
+        updated = (await seedNewChatCardVariables(app, req.params.id, cardVariableCharacterIdsToSeed)) ?? updated;
+      } catch (err) {
+        logger.warn(err, "Failed to seed onboarding card variables for added chat characters");
       }
     }
     if (updated && identityChanged) {

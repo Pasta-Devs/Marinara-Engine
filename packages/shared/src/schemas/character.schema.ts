@@ -72,6 +72,8 @@ export const characterOnboardingVariableSchema = z.object({
  * prose that may use `{{variable}}` and `{{#if}}`, plus the variables the player
  * answers. Resolved once into a real persona when a chat starts; the card itself
  * is never modified. An absent or `enabled: false` block means nothing is parsed.
+ * `cardVariables` is a second list of questions for the card's own fields: their
+ * answers are saved as chat variables instead of being written into a persona.
  */
 export const characterOnboardingSchema = z.object({
   enabled: z.boolean().default(false),
@@ -81,6 +83,7 @@ export const characterOnboardingSchema = z.object({
   appearance: z.string().default(""),
   scenario: z.string().default(""),
   variables: z.array(characterOnboardingVariableSchema).default([]),
+  cardVariables: z.array(characterOnboardingVariableSchema).default([]),
 });
 
 export const characterExtensionsSchema = z

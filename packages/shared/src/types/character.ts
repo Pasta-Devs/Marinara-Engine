@@ -124,6 +124,11 @@ export interface CharacterOnboarding {
   appearance: string;
   scenario: string;
   variables: CharacterOnboardingVariable[];
+  /**
+   * Questions for the card's own fields. The answers are saved as chat variables,
+   * so a `{{name}}` in the card resolves per chat and the card itself never changes.
+   */
+  cardVariables: CharacterOnboardingVariable[];
 }
 
 /**
