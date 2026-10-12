@@ -1314,6 +1314,10 @@ export function buildGmFormatReminder(
     return items.length > 0 ? [{ holder, items, note: bearerFor(bag.holder) }] : [];
   });
   const carriedByOthers = partyBags.some((bag) => bag.holder);
+  // In a game with money every purse is said, an empty one too, so the player's bag is listed even with
+  // nothing in it: a Game Master never told a purse is empty narrates a buy the Engine then refuses.
+  const withMoney = Boolean(normalizePromptText(ctx.inventoryPurses?.[gameInventoryBagKey(undefined)]));
+  const nobodyElse = withMoney ? [`Party members not listed carry nothing, coins included.`] : [];
 
   // ── Current State (closest to generation) ──
   lines.push(
@@ -1640,17 +1644,26 @@ export function buildGmFormatReminder(
   // built-in list, which would contradict the inventory the player has on screen.
   if (!experienceOwnsInventory && carriedByOthers) {
     const playerLabel = normalizePromptText(ctx.playerName) || "Player";
+    const bags =
+      withMoney && !partyBags.some((bag) => !bag.holder)
+        ? [{ holder: "", items: [], note: bearerFor(undefined) }, ...partyBags]
+        : partyBags;
     lines.push(
       ``,
       `PARTY INVENTORY:`,
-      ...partyBags.map(
+      ...bags.map(
         (bag) =>
-          `- ${bag.holder || playerLabel}${bag.note ? ` (${bag.note})` : ""}: ${buildCompactInventoryLine(bag.items)}`,
+          `- ${bag.holder || playerLabel}${bag.note ? ` (${bag.note})` : ""}: ${buildCompactInventoryLine(bag.items) || "nothing"}`,
       ),
+      ...nobodyElse,
     );
-  } else if (!experienceOwnsInventory && playerInventory.length > 0) {
+  } else if (!experienceOwnsInventory && (playerInventory.length > 0 || withMoney)) {
     const note = bearerFor(undefined);
-    lines.push(``, `PLAYER INVENTORY${note ? ` (${note})` : ""}: ${buildCompactInventoryLine(playerInventory)}`);
+    lines.push(
+      ``,
+      `PLAYER INVENTORY${note ? ` (${note})` : ""}: ${buildCompactInventoryLine(playerInventory) || "nothing"}`,
+      ...nobodyElse,
+    );
   }
 
   if (ctx.market) lines.push(``, ctx.market);

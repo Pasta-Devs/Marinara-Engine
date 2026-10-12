@@ -2612,6 +2612,16 @@ export function applyGeneratedGameCharacterCards(
   return { cards, updatedCount };
 }
 
+/**
+ * The party's cards as a prompt shows them: everything the model may read or write back, without this
+ * game's copy of the ruleset sheet. The sheet is the game's own (the model never writes it, and a card
+ * written back keeps it), and the Game Master reads the sheets in their own block, so a whole sheet
+ * here only spends the context window.
+ */
+function gameCardsForPrompt(cards: Array<Record<string, unknown>>): Array<Record<string, unknown>> {
+  return cards.map(({ rulesetSheet: _sheet, ...card }) => card);
+}
+
 function buildFallbackGameCharacterCard(characterData: Record<string, any>, characterName: string) {
   const description =
     typeof characterData.description === "string" && characterData.description.trim()
@@ -3537,7 +3547,7 @@ function truncateSessionTranscriptMiddle(content: string, targetTokens: number):
   return head + SESSION_SUMMARY_TRUNCATION_MARKER + tail;
 }
 
-function buildSessionConclusionMessages(args: {
+export function buildSessionConclusionMessages(args: {
   sessionNumber: number;
   language?: string | null;
   journalRecap: string;
@@ -3595,7 +3605,7 @@ function buildSessionConclusionMessages(args: {
     `${args.currentMorale}/100 (${getMoraleTier(args.currentMorale)})`,
     "",
     "Current character cards:",
-    JSON.stringify(args.currentCards, null, 2),
+    JSON.stringify(gameCardsForPrompt(args.currentCards), null, 2),
     "",
     "Current campaign plan (replace its next-arc material; do not repeat resolved hooks):",
     JSON.stringify(args.currentCampaignPlan, null, 2),
@@ -8888,7 +8898,10 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     const existingTargetCard = targetCardIndex >= 0 ? currentCards[targetCardIndex]! : null;
     if (!targetCharacterCard) {
       targetCharacterCard = existingTargetCard
-        ? [`Name: ${targetName}`, `Current game sheet: ${JSON.stringify(existingTargetCard, null, 2)}`].join("\n")
+        ? [
+            `Name: ${targetName}`,
+            `Current game sheet: ${JSON.stringify(gameCardsForPrompt([existingTargetCard])[0], null, 2)}`,
+          ].join("\n")
         : `Name: ${targetName}`;
     }
 
@@ -8931,8 +8944,11 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
       targetCharacterName: targetName,
       targetCharacterCard,
       currentPartyNames: Array.from(new Set(partyNames)),
-      currentPartyCards: otherPartyCards.length > 0 ? JSON.stringify(otherPartyCards, null, 2) : null,
-      existingTargetCard: existingTargetCard ? JSON.stringify(existingTargetCard, null, 2) : null,
+      currentPartyCards:
+        otherPartyCards.length > 0 ? JSON.stringify(gameCardsForPrompt(otherPartyCards), null, 2) : null,
+      existingTargetCard: existingTargetCard
+        ? JSON.stringify(gameCardsForPrompt([existingTargetCard])[0], null, 2)
+        : null,
       worldOverview: (meta.gameWorldOverview as string) || null,
       storyArc: (meta.gameStoryArc as string) || null,
       plotTwists: Array.isArray(meta.gamePlotTwists) ? (meta.gamePlotTwists as string[]) : null,
@@ -9276,7 +9292,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
           targetCharacterName: recruitName,
           targetCharacterCard: recruitSourceCard,
           currentPartyNames,
-          currentPartyCards: currentCards.length > 0 ? JSON.stringify(currentCards, null, 2) : null,
+          currentPartyCards: currentCards.length > 0 ? JSON.stringify(gameCardsForPrompt(currentCards), null, 2) : null,
           worldOverview: (meta.gameWorldOverview as string) || null,
           storyArc: (meta.gameStoryArc as string) || null,
           plotTwists: (meta.gamePlotTwists as string[]) || null,

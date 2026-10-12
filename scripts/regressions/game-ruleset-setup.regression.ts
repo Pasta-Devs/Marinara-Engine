@@ -6,6 +6,7 @@
  */
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
+import { createServer } from "node:http";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -163,7 +164,7 @@ writeFileSync(
 
 const { default: Fastify } = await import("../../packages/server/node_modules/fastify/fastify.js");
 const { getDB, closeDB } = await import("../../packages/server/src/db/connection.js");
-const { applyGeneratedGameCharacterCards, gameRoutes } =
+const { applyGeneratedGameCharacterCards, buildSessionConclusionMessages, gameRoutes } =
   await import("../../packages/server/src/routes/game.routes.js");
 const db = await getDB();
 const app = Fastify();
@@ -300,6 +301,101 @@ try {
     const bram = recruitedCards.find((card) => card.name === "Bram Ironhand");
     assert.equal(bram?.rulesetSheet?.build.abilities.str, 17, "a recruit gets a copy of the library build");
     assert.equal(recruitedCards[0]!.rulesetSheet?.build.abilities.dex, 16, "recruiting leaves the others alone");
+  }
+
+  // With a model to write the recruit's card, the prompt shows the party's cards without their sheets:
+  // a sheet is the game's own, and the Game Master reads sheets in their own block.
+  {
+    let prompt = "";
+    const provider = createServer(async (req, res) => {
+      let raw = "";
+      for await (const chunk of req) raw += chunk;
+      prompt = JSON.stringify(JSON.parse(raw).messages);
+      res.setHeader("Content-Type", "application/json");
+      res.end(
+        JSON.stringify({
+          id: "local-proof",
+          object: "chat.completion",
+          choices: [
+            {
+              index: 0,
+              message: {
+                role: "assistant",
+                content: JSON.stringify({ name: "Cora Vale", shortDescription: "A scout." }),
+              },
+              finish_reason: "stop",
+            },
+          ],
+          usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
+        }),
+      );
+    });
+    await new Promise<void>((resolve) => provider.listen(0, "127.0.0.1", resolve));
+    try {
+      const address = provider.address();
+      assert.ok(address && typeof address !== "string");
+      const { createConnectionsStorage } =
+        await import("../../packages/server/src/services/storage/connections.storage.js");
+      const connection = await createConnectionsStorage(db).create({
+        name: "Local recruit fixture",
+        provider: "custom",
+        baseUrl: `http://127.0.0.1:${address.port}/v1`,
+        model: "fixture-model",
+        treatAsLocalEndpoint: true,
+      } as never);
+      await characters.create({ ...blankCard, name: "Cora Vale", extensions: {} } as never);
+      const recruited = await app.inject({
+        method: "POST",
+        url: "/api/game/party/recruit",
+        payload: { chatId: partyChatId, characterName: "Cora Vale", connectionId: connection!.id },
+      });
+      assert.equal(recruited.statusCode, 200, recruited.body);
+      assert.match(prompt, /Mira/, "the party's cards are shown");
+      assert.doesNotMatch(prompt, /rulesetSheet/, `no sheet in the prompt: ${prompt.slice(0, 400)}`);
+      // Writing a member's card again shows their own card and the others', none with a sheet.
+      prompt = "";
+      const regenerated = await app.inject({
+        method: "POST",
+        url: "/api/game/character-sheet/regenerate",
+        payload: {
+          chatId: partyChatId,
+          characterId: withSheet.id,
+          characterName: "Mira",
+          connectionId: connection!.id,
+        },
+      });
+      assert.equal(regenerated.statusCode, 200, regenerated.body);
+      assert.match(prompt, /Tam the Bold/, "the rest of the party is shown");
+      assert.match(prompt, /existing_target_party_sheet/, "and Mira's own card");
+      assert.doesNotMatch(prompt, /rulesetSheet/, `no sheet in the prompt: ${prompt.slice(0, 400)}`);
+    } finally {
+      provider.closeAllConnections();
+      await new Promise<void>((resolve) => provider.close(() => resolve()));
+    }
+  }
+
+  // The end of a session shows the cards it may rewrite, without their sheets.
+  {
+    const after = JSON.parse((await createChatsStorage(db).getById(partyChatId))!.metadata as string);
+    const messages = buildSessionConclusionMessages({
+      sessionNumber: 1,
+      journalRecap: "",
+      transcriptText: "",
+      transcriptMessageCount: 0,
+      transcriptTruncated: false,
+      latestState: null,
+      currentStoryArc: null,
+      currentPlotTwists: [],
+      currentPartyArcs: [],
+      currentMorale: 50,
+      currentCards: after.gameCharacterCards,
+      currentCampaignPlan: {} as never,
+      currentNpcs: [],
+    });
+    const text = JSON.stringify(messages);
+    assert.match(text, /Tam the Bold/);
+    assert.ok(after.gameCharacterCards.some((card: { rulesetSheet?: unknown }) => card.rulesetSheet));
+    assert.doesNotMatch(text, /rulesetSheet/);
   }
 
   // A game with no ruleset gets no sheets.

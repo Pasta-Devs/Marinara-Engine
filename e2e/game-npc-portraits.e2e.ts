@@ -73,16 +73,20 @@ test("Game NPC portraits survive a same-name library card and reload over LAN", 
       const panel = page.locator('[data-component="GameNarration.ActivePanel"]');
       await expect(panel).toContainText("The bridge is safe.", { timeout: 30_000 });
       const portrait = panel.locator(`img[src*="${avatarUrl}"]`).first();
-      await expect(portrait).toBeVisible();
+      await expect(portrait).toBeVisible({ timeout: 30_000 });
       await expect
-        .poll(() => portrait.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0))
+        .poll(() => portrait.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0), {
+          timeout: 30_000,
+        })
         .toBe(true);
       await expect
-        .poll(() =>
-          page.evaluate(async () => {
-            const { useGameModeStore } = await import("/src/stores/game-mode.store.ts" as string);
-            return useGameModeStore.getState().npcs.find((npc: { name: string }) => npc.name === "Guide")?.avatarUrl;
-          }),
+        .poll(
+          () =>
+            page.evaluate(async () => {
+              const { useGameModeStore } = await import("/src/stores/game-mode.store.ts" as string);
+              return useGameModeStore.getState().npcs.find((npc: { name: string }) => npc.name === "Guide")?.avatarUrl;
+            }),
+          { timeout: 30_000 },
         )
         .toContain(avatarUrl);
       const stored = await (await request.get(`/api/chats/${chat.id}`)).json();
@@ -107,15 +111,21 @@ test("Game NPC portraits survive a same-name library card and reload over LAN", 
         })
       ).ok(),
     ).toBeTruthy();
+    // Every wait after a reload gets the first load's time: on a busy machine the page and the game store
+    // can take longer than the default to come back.
     await page.reload();
-    await expect(page.locator('[data-component="GameNarration.ActivePanel"]')).toContainText("The bridge is safe.");
+    await expect(page.locator('[data-component="GameNarration.ActivePanel"]')).toContainText("The bridge is safe.", {
+      timeout: 30_000,
+    });
     await expect
-      .poll(() =>
-        page.evaluate(async () => {
-          const { useGameModeStore } = await import("/src/stores/game-mode.store.ts" as string);
-          const npc = useGameModeStore.getState().npcs.find((entry: { name: string }) => entry.name === "Guide");
-          return npc ? (npc.avatarUrl ?? null) : "not hydrated";
-        }),
+      .poll(
+        () =>
+          page.evaluate(async () => {
+            const { useGameModeStore } = await import("/src/stores/game-mode.store.ts" as string);
+            const npc = useGameModeStore.getState().npcs.find((entry: { name: string }) => entry.name === "Guide");
+            return npc ? (npc.avatarUrl ?? null) : "not hydrated";
+          }),
+        { timeout: 30_000 },
       )
       .toBeNull();
   } finally {

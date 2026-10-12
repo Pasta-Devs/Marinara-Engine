@@ -159,10 +159,14 @@ try {
     }
 
     const pnpmRunner = resolvePnpmRunner();
+    // The watcher's own command line is how this test sees the guarded flag, and pnpm prints it only
+    // when it reports. A run started with `pnpm -s` passes `npm_config_reporter=silent` down to every
+    // pnpm below it, so the watcher gets pnpm's ordinary reporter whatever this run was started with.
+    const { npm_config_reporter: _reporter, npm_config_loglevel: _loglevel, ...inherited } = process.env;
     const watcher = spawn(pnpmRunner.command, [...pnpmRunner.args, "--filter", "@marinara-engine/server", "dev"], {
       cwd: repositoryRoot,
       env: {
-        ...process.env,
+        ...inherited,
         FILE_STORAGE_DIR: dir,
         MARINARA_ENV_FILE: join(dir, ".watcher.env"),
         NODE_ENV: "production",

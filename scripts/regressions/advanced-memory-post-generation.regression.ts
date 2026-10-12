@@ -1052,7 +1052,9 @@ try {
         (call) =>
           call.kind === "main" &&
           (call.messages.some((message) => message.role === "tool") ||
-            JSON.stringify(call.messages).includes("The engine resolved your roll request")),
+            JSON.stringify(call.messages).includes("The engine resolved your roll request") ||
+            // The last tool round's follow-up retells the results as text (toolRoundsAsText).
+            JSON.stringify(call.messages).includes("The engine ran the tools you called")),
       ).length;
   const expectFollowupWithoutCutoff = async (label: string) => {
     const before = calls.length;

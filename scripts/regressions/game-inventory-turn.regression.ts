@@ -534,9 +534,28 @@ try {
       .join("\n");
     assert.match(
       prompt,
-      /PLAYER INVENTORY \(Body 0 of 1, Hands 0 of 2\): Road rations ×10 \[Provisions, Common; Bulk 1; costs 5 bits\]; Arrows ×4; Lamp; Arrows ×2 \[Ammunition, Common, Arrow; Bulk 1; costs 1 marks\]/,
+      /PLAYER INVENTORY \(Body 0 of 1, Hands 0 of 2; no coins\): Road rations ×10 \[Provisions, Common; Bulk 1; costs 5 bits\]; Arrows ×4; Lamp; Arrows ×2 \[Ammunition, Common, Arrow; Bulk 1; costs 1 marks\]/,
     );
     assert.match(prompt, /an item named exactly as one of them becomes that item/);
+    // A ruleset with coins says an empty purse through the route, the bag empty or holding only items
+    // of the player's own naming (no ruleset item to load the book for).
+    const broke = await rulesetGame("local/ember-roads");
+    const brokePrompt = async () => {
+      await chats.createMessage({ chatId: broke.id, role: "user", content: "I look at my purse." });
+      const turn = await app.inject({
+        method: "POST",
+        url: "/api/generate/",
+        payload: { chatId: broke.id, streaming: true },
+      });
+      assert.equal(turn.statusCode, 200, turn.body);
+      return prompts
+        .at(-1)!
+        .map((message) => message.content)
+        .join("\n");
+    };
+    assert.match(await brokePrompt(), /\nPLAYER INVENTORY \([^)]*no coins\): nothing\n/);
+    await change(broke.id, [{ op: "add", name: "Rope", count: 1 }]);
+    assert.match(await brokePrompt(), /\nPLAYER INVENTORY \([^)]*no coins\): Rope\n/);
 
     // A new session brings back what only the detailed inventory still names, stacked as its item
     // allows: thirty arrows are a stack of twenty and one of ten.
@@ -734,9 +753,11 @@ try {
     const block = text.slice(at, text.indexOf("\n\n", at));
     assert.match(
       block,
-      /- User \(load 12 of 6, most 12, encumbered; Body 1 of 1, Hands 2 of 2\): Leather coat \(1 worn\) \[[^\]]*\]; Arrows ×5 \[[^\]]*\]; Hunting bow ×2 \(1 worn\)/,
+      /- User \(load 12 of 6, most 12, encumbered; Body 1 of 1, Hands 2 of 2; no coins\): Leather coat \(1 worn\) \[[^\]]*\]; Arrows ×5 \[[^\]]*\]; Hunting bow ×2 \(1 worn\)/,
     );
-    assert.match(block, /- Bram \(load 12 of 9, most 12, encumbered; Body 0 of 1, Hands 0 of 2\): /);
+    assert.match(block, /- Bram \(load 12 of 9, most 12, encumbered; Body 0 of 1, Hands 0 of 2; no coins\): /);
+    // Through the route too: with money in the game an empty purse is said, and so is anyone left out.
+    assert.match(block, /\nParty members not listed carry nothing, coins included\.(\n|$)/);
     // And each sheet reads what its character wears (#6826): Guard is 6 + Wits, and Ada's coat adds 1.
     assert.match(text, /\nAda\nBRN \+0, WIT \+0, HRT \+0\nGrit maximum 6, Guard 7\n/);
     assert.match(text, /\nBram\nBRN \+3, WIT \+0, HRT \+0\nGrit maximum \d+, Guard 6\n/);

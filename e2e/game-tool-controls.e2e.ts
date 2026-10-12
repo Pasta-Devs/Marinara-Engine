@@ -8,6 +8,9 @@ for (const theme of ["dark", "light"] as const) {
     page,
     request,
   }, testInfo) => {
+    // Four reloads, each reopening the settings: well within a minute alone, not always beside the
+    // rest of the game specs on a busy machine.
+    test.setTimeout(120_000);
     const narrator = await (
       await request.post("/api/connections", {
         data: { name: "Subscription narrator", provider: "claude_subscription", model: "fixture", apiKey: "synthetic" },

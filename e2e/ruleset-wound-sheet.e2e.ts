@@ -72,7 +72,7 @@ for (const theme of ["light", "dark"] as const) {
         );
       };
       const persisted = async () =>
-        (await (await request.get(`/api/chats/${chat.id}/game-state`)).json()).rulesetLive?.warden?.wounds?.harm;
+        (await (await request.get(`/api/chats/${chat.id}/game-state`)).json())?.rulesetLive?.warden?.wounds?.harm;
       const sheet = page.locator("[data-wound-fixture]");
       const mark = sheet.getByRole("button", { name: "Mark", exact: true });
       const clear = sheet.getByRole("button", { name: "Clear one", exact: true });
@@ -186,7 +186,7 @@ test("Ruleset box track marks the box clicked, clears the highest, and refuses w
       { definition: ember, chatId: chat.id },
     );
     const persisted = async () =>
-      (await (await request.get(`/api/chats/${chat.id}/game-state`)).json()).rulesetLive?.traveller?.wounds?.strain;
+      (await (await request.get(`/api/chats/${chat.id}/game-state`)).json())?.rulesetLive?.traveller?.wounds?.strain;
     const sheet = page.locator("[data-box-fixture]");
     const box = (n: number) => sheet.getByRole("button", { name: new RegExp(`^Box ${n}, `) });
     const mark = sheet.getByRole("button", { name: "Mark", exact: true });

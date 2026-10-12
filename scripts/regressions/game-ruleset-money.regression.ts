@@ -19,6 +19,7 @@ import { fileURLToPath } from "node:url";
 import {
   GAME_INVENTORY_ITEM_REF_PATTERN,
   applyGameInventoryTags,
+  gameInventoryBagKey,
   gameInventoryCoinWorth,
   gameInventoryLoad,
   parseRulesetDefinition,
@@ -377,7 +378,8 @@ const withoutMarket = (doc: Record<string, any>) => {
     ["cakes", "cake", 1, "Bram"],
   ]);
   assert.equal(rulesetPurseText(graveBook, purse, undefined), "Coin worth 72 pennies");
-  assert.equal(rulesetPurseText(graveBook, purse, "Bram"), "", "no coins, nothing said");
+  // An empty purse is said, or the Game Master narrates a buy the Engine then refuses.
+  assert.equal(rulesetPurseText(graveBook, purse, "Bram"), "no coins");
   // Worth is said in the smallest coin, wherever the family lists it.
   const reversed = parsedOrThrow(
     variant(gravewatchText, (doc) => doc.items.currencies[0].units.reverse()),
@@ -420,6 +422,11 @@ const withoutMarket = (doc: Record<string, any>) => {
     "Gravewatch without coins",
   );
   assert.doesNotMatch(reminder(coinless), /action="pay"/);
+  assert.equal(
+    rulesetPurseText(rulesetItemBook(coinless, entriesOf(coinless)), purse, undefined),
+    "",
+    "no money at all",
+  );
   // Each bag's worth beside it.
   assert.match(
     reminder(gravewatch, {
@@ -427,8 +434,31 @@ const withoutMarket = (doc: Record<string, any>) => {
       partyInventory: [{ items: [{ name: "crowns", quantity: 1 }] }],
       inventoryPurses: { "": "Coin worth 60 pennies" },
     }),
-    /PLAYER INVENTORY \(Coin worth 60 pennies\): crowns/,
+    /PLAYER INVENTORY \(Coin worth 60 pennies\): crowns\nParty members not listed carry nothing, coins included\./,
   );
+  // With money in the game, an empty bag is still listed with its empty purse, and so is the player's
+  // in a party where only others carry anything.
+  assert.match(
+    reminder(gravewatch, { playerInventory: [], partyInventory: [], inventoryPurses: { "": "no coins" } }),
+    /\nPLAYER INVENTORY \(no coins\): nothing\nParty members not listed carry nothing, coins included\./,
+  );
+  assert.match(
+    reminder(gravewatch, {
+      playerName: "Ada",
+      playerInventory: [],
+      partyInventory: [{ holder: "Bram", items: [{ name: "cakes", quantity: 2 }] }],
+      inventoryPurses: { "": "no coins", [gameInventoryBagKey("Bram")]: "no coins" },
+    }),
+    /\nPARTY INVENTORY:\n- Ada \(no coins\): nothing\n- Bram \(no coins\): cakes ×2\nParty members not listed carry nothing, coins included\./,
+  );
+  // A game without money says nothing of an empty bag, as before.
+  assert.doesNotMatch(
+    reminder(coinless, { playerInventory: [], partyInventory: [] }),
+    /INVENTORY|Party members not listed/,
+  );
+  const lampOnly = reminder(coinless, { playerInventory: [{ name: "Lamp", quantity: 1 }], partyInventory: [] });
+  assert.match(lampOnly, /\nPLAYER INVENTORY: Lamp\n/);
+  assert.doesNotMatch(lampOnly, /Party members not listed/, "nor of anyone else's coins");
 }
 
 // ── Layers hide coins, never rewrite them ──

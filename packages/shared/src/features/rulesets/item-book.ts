@@ -442,7 +442,8 @@ export function rulesetItemGateDifficulty(
 }
 
 /** What one bag's coins are worth, family by family, in each family's smallest coin, for the Game
- *  Master: "Coin worth 432 bits". Empty when the bag holds no coins. */
+ *  Master: "Coin worth 432 bits", or "no coins" when the bag holds none (a Game Master never told a purse
+ *  is empty narrates a buy the Engine then refuses). Empty only when the game has no coins at all. */
 export function rulesetPurseText(
   book: Pick<RulesetItemBook, "coins">,
   stacks: readonly GameInventoryStack[],
@@ -461,10 +462,11 @@ export function rulesetPurseText(
         .reduce((sum, stack) => sum + stack.quantity, 0);
     families.set(family, known);
   }
-  return [...families.values()]
+  const worth = [...families.values()]
     .filter((family) => family.worth > 0)
     .map((family) => `${family.label} worth ${family.worth} ${family.smallest}`)
     .join(", ");
+  return worth || (families.size ? "no coins" : "");
 }
 
 /** What a use's gate rolls, in the ruleset's own words: a skill's or an ability's label, or the value

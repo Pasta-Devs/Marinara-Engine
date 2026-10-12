@@ -6180,6 +6180,14 @@ assert.notEqual(
   mobilePlaywrightProject.use?.baseURL,
   "desktop and mobile Playwright projects must use isolated app servers",
 );
+// Chromium runs with its audio output off, so opening an audio device cannot stall a headless page
+// (and the toasts with it); the switch is Chromium's own, so a WebKit project never gets it.
+for (const project of [desktopPlaywrightProject, mobilePlaywrightProject]) {
+  assert.ok(project.use?.launchOptions?.args?.includes("--disable-audio-output"), `${project.name} mutes Chromium`);
+}
+for (const project of playwrightConfig.projects ?? []) {
+  if (!/chromium/u.test(project.name ?? "")) assert.ok(!project.use?.launchOptions?.args?.length, project.name);
+}
 const playwrightServerSource = readFileSync(join(REPOSITORY_ROOT, "e2e/start-servers.mjs"), "utf8");
 assert.match(playwrightServerSource, /startProject\("mobile", mobileClientPort, mobileServerPort\)/u);
 assert.match(playwrightServerSource, /startProject\("desktop", desktopClientPort, desktopServerPort\)/u);

@@ -17,6 +17,13 @@ const DEFAULT_PORT = 7860;
 const DEFAULT_HOST = "127.0.0.1";
 const DEFAULT_DATA_DIR = resolve(SERVER_ROOT, "data");
 const DEFAULT_MAX_TOOL_ROUNDS = 100;
+/** The most tool rounds a Game Mode turn gets before it must narrate (MAX_TOOL_ROUNDS when lower). */
+export const GAME_TURN_MAX_TOOL_ROUNDS = 4;
+/** The most tool rounds an agent gets before it must answer (MAX_TOOL_ROUNDS when lower). */
+export const AGENT_MAX_TOOL_ROUNDS = 16;
+/** The most tool rounds a lorebook backfill run gets: it saves one entry a call, a chunk at a time, on a
+ *  backend that may call one tool a round (MAX_TOOL_ROUNDS when lower). */
+export const LOREBOOK_BACKFILL_MAX_TOOL_ROUNDS = 64;
 const MAX_CONFIGURED_TOOL_ROUNDS = 10_000;
 const DEFAULT_CUSTOM_TOOL_TIMEOUT_MS = 60_000;
 export const DEFAULT_CHAT_GENERATION_TIMEOUT_MS = 300_000;

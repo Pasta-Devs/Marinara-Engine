@@ -124,7 +124,8 @@ for (const source of ["漢字かな한글𠀀".repeat(300), "First sentence. ".r
 const gameSource = readFileSync(new URL("../../packages/server/src/routes/game.routes.ts", import.meta.url), "utf8");
 const gameCutter = gameSource.slice(
   gameSource.indexOf("function truncateSessionTranscriptMiddle("),
-  gameSource.indexOf("function buildSessionConclusionMessages("),
+  // Up to the line the next function starts on, whether or not it is exported.
+  gameSource.lastIndexOf("\n", gameSource.indexOf("function buildSessionConclusionMessages(")),
 );
 const truncateSession = new Function(
   "estimateTextTokens",

@@ -146,8 +146,12 @@ test("coins show their worth, are picked from the Coins list, and the Game Maste
       // A turn: the Game Master charges 3 shillings and gives 2 pennies back.
       await page.getByPlaceholder("What do you do?", { exact: true }).fill("I pay the ferryman.");
       await page.getByRole("button", { name: "Send game turn", exact: true }).click();
-      await expect(page.getByText("You paid shillings x3.", { exact: true })).toBeVisible({ timeout: 30_000 });
-      await expect(page.getByText("You gained pennies x2!", { exact: true })).toBeVisible();
+      // Both toasts waited for at once: waited for one after the other, the second can come and go while
+      // the first is still awaited on a busy machine. The coins below are what was paid and earned.
+      await Promise.all([
+        expect(page.getByText("You paid shillings x3.", { exact: true })).toBeVisible({ timeout: 30_000 }),
+        expect(page.getByText("You gained pennies x2!", { exact: true })).toBeVisible({ timeout: 30_000 }),
+      ]);
       // Paid with the crown, the shilling and the pennies, and 4 shillings came back.
       await expect
         .poll(() => coinsOf(request, chatId))

@@ -208,6 +208,7 @@ import {
   normalizeGameInventoryStacks,
   rulesetItemPromptFacts,
   rulesetLayerOptionKey,
+  rulesetLayeredCurrencies,
   rulesetPurseText,
   type RoleplayCommandActivity,
   type RulesetDefinition,
@@ -346,7 +347,11 @@ import {
   type ChatOptions,
   type LLMUsage,
 } from "../services/llm/base-provider.js";
-import { executeToolCalls, formatToolExecutionResultForModel } from "../services/tools/tool-executor.js";
+import {
+  executeToolCalls,
+  formatToolExecutionResultForModel,
+  toolRoundsAsText,
+} from "../services/tools/tool-executor.js";
 import { createAgentPipeline, type ResolvedAgent, type AgentInjection } from "../services/agents/agent-pipeline.js";
 import { DATA_DIR } from "../utils/data-dir.js";
 import {
@@ -663,7 +668,12 @@ import {
   resolveChatSummaryPrompt,
   withoutRetiredChatSummaryAgentIds,
 } from "../services/generation/roleplay-summary-runtime.js";
-import { getChatGenerationTimeoutMs, getMaxToolRounds, isDebugAgentsEnabled } from "../config/runtime-config.js";
+import {
+  GAME_TURN_MAX_TOOL_ROUNDS,
+  getChatGenerationTimeoutMs,
+  getMaxToolRounds,
+  isDebugAgentsEnabled,
+} from "../config/runtime-config.js";
 import {
   isReviewableWriterAgentType,
   buildRuntimeAgentSectionEligibleTypes,
@@ -4763,9 +4773,14 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                   },
                 ).start
               : normalizeGameInventoryStacks(chatMeta.gameInventory);
-          // What each ruleset item the party holds is, for the Game Master: only read when one is held.
+          // What each ruleset item the party holds is, for the Game Master: read when one is held, or
+          // when the game has coins in use (its layers may hide them all), so an empty purse is said
+          // too (never told one is empty, the Game Master narrates a buy the Engine then refuses).
           const promptItemBook =
-            pinnedGameRuleset?.status === "ok" && promptInventoryStacks.some((stack) => stack.item)
+            pinnedGameRuleset?.status === "ok" &&
+            (promptInventoryStacks.some((stack) => stack.item) ||
+              rulesetLayeredCurrencies(pinnedGameRuleset.definition, gameRulesetLayerOptions(pinnedGameRuleset))
+                .length > 0)
               ? await loadGameInventoryItemBook(
                   app.db,
                   { metadata: chatMeta, resolved: pinnedGameRuleset, playerName: personaName || null },
@@ -8371,7 +8386,14 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               : null;
           if (generationSignal.aborted) return null;
           if (responderToolsAttached && (gameToolPlan || (!gameToolConnection && provider.chatComplete))) {
-            const maxToolRounds = gameToolPlan ? 1 : getMaxToolRounds();
+            // A game turn rolls a check or two, so it gets a few rounds, never the general limit: a
+            // model that keeps asking for a roll (a proxy that loses the results makes Claude re-roll
+            // forever) costs a few calls, not a hundred. MAX_TOOL_ROUNDS still wins when lower.
+            const maxToolRounds = gameToolPlan
+              ? 1
+              : chatMode === "game"
+                ? Math.min(getMaxToolRounds(), GAME_TURN_MAX_TOOL_ROUNDS)
+                : getMaxToolRounds();
             let loopMessages: ChatMessage[] = [...initialProviderMessages];
             const loopTools = supportsNativeToolCalls(conn.provider) ? responderToolDefs : undefined;
             let rollRequestAbort: AbortController | null = null;
@@ -8762,7 +8784,8 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               if (round === maxToolRounds - 1) {
                 // Reset per-character accumulator for final round content
                 const prevLen = fullResponse.length;
-                loopMessages = await fitPromptForSend(loopMessages, { tools: undefined });
+                // Sent without tools, so the exchange so far goes as text (toolRoundsAsText).
+                loopMessages = await fitPromptForSend(toolRoundsAsText(loopMessages), { tools: undefined });
                 rememberMainPromptPreviewForAgents(loopMessages);
                 logPromptSentToModel(loopMessages, "Prompt sent to model (final tool follow-up)");
                 const finalResult = await withLlmRequestTimeout(chatGenerationTimeoutMs, () =>
