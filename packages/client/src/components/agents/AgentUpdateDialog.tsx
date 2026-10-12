@@ -3,6 +3,7 @@ import { ChevronDown, ChevronRight } from "lucide-react";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import type { CapabilityPackageUpdate } from "@marinara-engine/shared";
 import { Modal } from "../ui/Modal";
+import { AgentReleaseNoteList } from "./AgentReleaseNoteList";
 import { NotableChangeMarker } from "./NotableChangeMarker";
 
 /** Prompt shown when installed Agent packages have compatible updates waiting.
@@ -14,6 +15,9 @@ import { NotableChangeMarker } from "./NotableChangeMarker";
  *  Notes are collapsed by default and render as PLAIN TEXT. `MARINARA_AGENT_CATALOG_URL`
  *  is operator-configurable, so notes are untrusted remote content and must never be
  *  parsed as markdown or HTML here.
+ *
+ *  A package several versions behind lists the notes of every version it skips, newest
+ *  first, each cut to two lines with a More/Less button so a long history stays scannable.
  *
  *  `releaseHighlight` marks a version the publisher says the user will notice. It is a
  *  reading cue, not a recommendation: the primary action still updates everything, so
@@ -55,6 +59,7 @@ export function AgentUpdateDialog({
         <ul className="max-h-[50vh] space-y-2 overflow-y-auto">
           {updates.map((update) => {
             const isOpen = expanded.has(update.id);
+            const notes = update.releaseNotes ?? [];
             return (
               <li key={update.id} className="rounded-lg ring-1 ring-[var(--border)]">
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1 px-3 py-2">
@@ -68,7 +73,7 @@ export function AgentUpdateDialog({
                       {localizeUi("ui.agents.agentupdatedialog.restartRequired")}
                     </span>
                   )}
-                  {update.releaseNotes && (
+                  {notes.length > 0 && (
                     <button
                       type="button"
                       onClick={() => toggle(update.id)}
@@ -76,14 +81,16 @@ export function AgentUpdateDialog({
                       className="ml-auto flex items-center gap-1 rounded-md px-2 py-1 text-xs text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
                     >
                       {isOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
-                      {localizeUi("ui.agents.agentupdatedialog.whatChanged")}
+                      {notes.length > 1
+                        ? localizeUi("ui.agents.agentupdatedialog.whatChangedCount", { count: notes.length })
+                        : localizeUi("ui.agents.agentupdatedialog.whatChanged")}
                     </button>
                   )}
                 </div>
-                {update.releaseNotes && isOpen && (
-                  <p className="whitespace-pre-wrap break-words border-t border-[var(--border)] px-3 py-2 text-xs leading-relaxed text-[var(--muted-foreground)]">
-                    {update.releaseNotes}
-                  </p>
+                {notes.length > 0 && isOpen && (
+                  <div className="border-t border-[var(--border)] px-3 py-2">
+                    <AgentReleaseNoteList entries={notes} clamp={notes.length > 1} />
+                  </div>
                 )}
               </li>
             );

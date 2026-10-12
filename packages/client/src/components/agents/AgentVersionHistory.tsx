@@ -1,6 +1,6 @@
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { useCapabilityPackageReleaseNotes } from "../../hooks/use-capability-packages";
-import { NotableChangeMarker } from "./NotableChangeMarker";
+import { AgentReleaseNoteList } from "./AgentReleaseNoteList";
 
 /** Version history for one Agent package, newest first.
  *
@@ -19,20 +19,9 @@ export function AgentVersionHistory({ packageId }: { packageId: string }) {
   return (
     <section>
       <h3 className="text-sm font-semibold">{localizeUi("ui.agents.agentversionhistory.versionHistory")}</h3>
-      <ol className="mt-3 space-y-3">
-        {entries.map((entry) => (
-          <li key={entry.version} className="border-l-2 border-[var(--border)] pl-3">
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-              {entry.highlight && <NotableChangeMarker />}
-              <span className="text-sm font-medium text-[var(--foreground)]">{entry.version}</span>
-              <span className="text-xs text-[var(--muted-foreground)]">{entry.date}</span>
-            </div>
-            <p className="mt-1 whitespace-pre-wrap break-words text-xs leading-relaxed text-[var(--muted-foreground)]">
-              {entry.notes}
-            </p>
-          </li>
-        ))}
-      </ol>
+      <div className="mt-3">
+        <AgentReleaseNoteList entries={entries} />
+      </div>
     </section>
   );
 }

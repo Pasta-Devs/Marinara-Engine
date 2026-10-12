@@ -14822,7 +14822,9 @@ test("Agent updates share one dismissible prompt and remain available after Not 
       installedVersion: "1.0.0",
       version: "1.1.0",
       restartRequired: false,
-      releaseNotes: "- Keeps dialogue tags out of narration.",
+      releaseNotes: [
+        { version: "1.1.0", date: "2026-07-23", notes: "- Keeps dialogue tags out of narration.", highlight: true },
+      ],
       releaseHighlight: true,
     },
     // Deliberately publishes no notes: the catalog may ship none, and the row

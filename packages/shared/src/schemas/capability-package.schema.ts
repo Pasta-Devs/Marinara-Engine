@@ -1000,9 +1000,10 @@ export interface CapabilityPackageUpdate {
   version: string;
   artifactSha256: string;
   restartRequired: boolean;
-  /** Release notes published for `version`, when the catalog ships a notes sidecar. */
-  releaseNotes?: string;
-  /** Whether the publisher marked `version` as a change the user will notice. */
+  /** Notes published for every version after `installedVersion` up to `version`, newest first,
+   *  when the catalog ships a notes sidecar. */
+  releaseNotes?: CapabilityPackageVersionNote[];
+  /** Whether the publisher marked any of those versions as a change the user will notice. */
   releaseHighlight?: boolean;
 }
 
@@ -1026,10 +1027,9 @@ const capabilityPackageVersionNoteSchema = z
     //   * numeric prerelease identifiers must be canonical, or "01" and "1"
     //     compare as different versions while meaning the same one.
     // Leading zeros matter for the same reason: 01.2.3 and 1.2.3 compare equal
-    // numerically but differ as strings, so the duplicate check and the lookup in
-    // attachCapabilityReleaseNotes would disagree with the ordering — two notes
-    // for one version, or a note that never attaches because the catalog spells
-    // the version differently.
+    // numerically but differ as strings, so the duplicate check and the range
+    // filter in attachCapabilityReleaseNotes would disagree with the ordering —
+    // two notes listed for what the comparator treats as one version.
     // Nine digits is far beyond any real version, and this is canonical SemVer
     // otherwise.
     version: z
@@ -1067,8 +1067,8 @@ export const capabilityReleaseNotesSchema = z
           versions: z
             .array(capabilityPackageVersionNoteSchema)
             .max(MAX_RELEASE_NOTE_VERSIONS)
-            // A repeated version would make the two readers disagree: the update
-            // prompt takes the first match, the history sheet shows every one.
+            // A repeated version would list the same release twice in the update
+            // prompt and the history sheet, and collide on their per-version list key.
             .refine((versions) => new Set(versions.map((note) => note.version)).size === versions.length, {
               message: "must not list the same version twice",
             }),

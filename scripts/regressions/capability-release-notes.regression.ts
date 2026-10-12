@@ -15,9 +15,12 @@
 //   * absent (404), unreachable, malformed, and over-cap documents all degrade
 //     to "no notes" without throwing, leaving pending updates byte-identical to
 //     what an Engine without this feature returns;
-//   * `highlight` is passed through as published and never recomputed here, so
-//     the publisher's "the user will notice this" marker cannot drift from the
-//     changelog it was generated from.
+//   * each version's `highlight` is passed through as published and never
+//     recomputed here, so the publisher's "the user will notice this" marker
+//     cannot drift from the changelog it was generated from; an update is
+//     marked notable when any version it installs is;
+//   * an update carries the notes of every version it installs — above the
+//     installed version, up to and including the target — newest first.
 import assert from "node:assert/strict";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -40,11 +43,11 @@ function notFound() {
   return new Response("404: Not Found", { status: 404, headers: { "content-type": "text/plain; charset=utf-8" } });
 }
 
-function update(id: string, version: string) {
+function update(id: string, version: string, installedVersion = "1.0.0") {
   return {
     id,
     name: id,
-    installedVersion: "1.0.0",
+    installedVersion,
     version,
     artifactSha256: "0".repeat(64),
     restartRequired: false,
@@ -103,10 +106,68 @@ try {
       chess: { versions: [{ version: "9.9.9", date: "2026-09-01", notes: "Unrelated.", highlight: true }] },
     },
   });
-  assert.equal(decorated[0].releaseNotes, "Handles flashbacks.");
-  assert.equal(decorated[0].releaseHighlight, true, "highlight is passed through as published, never recomputed");
-  assert.equal(decorated[1].releaseNotes, undefined, "Only the version being installed contributes its notes");
+  assert.deepEqual(
+    decorated[0].releaseNotes?.map((note) => note.notes),
+    ["Handles flashbacks."],
+    "The installed version's own note is not part of the update",
+  );
+  assert.equal(decorated[0].releaseHighlight, true, "A version's highlight is passed through as published");
+  assert.equal(decorated[1].releaseNotes, undefined, "A note above the target version never leaks onto the update");
   assert.equal(decorated[1].releaseHighlight, undefined);
+
+  // ── An update several versions behind carries every version it skips ────────
+  const memoryNote = (version: string, highlight = false) => ({
+    version,
+    date: "2026-09-01",
+    notes: `Notes for ${version}.`,
+    highlight,
+  });
+  const [skipped] = attachCapabilityReleaseNotes([update("memory", "1.4.28", "1.4.24")], {
+    schemaVersion: 1,
+    packages: {
+      memory: {
+        versions: [
+          // Deliberately unordered: the range and its order are imposed here, not trusted from the document.
+          memoryNote("1.4.26", true),
+          memoryNote("1.4.9"), // below the installed 1.4.24 — only a text sort would let it through
+          memoryNote("1.4.28"),
+          memoryNote("1.4.24"), // the installed version itself
+          memoryNote("1.4.29"), // newer than the target
+          memoryNote("1.4.25"),
+          memoryNote("1.4.28-rc.1"), // a prerelease of the target sorts just below it
+          memoryNote("1.4.27"),
+        ],
+      },
+    },
+  });
+  assert.deepEqual(
+    skipped.releaseNotes?.map((note) => note.version),
+    ["1.4.28", "1.4.28-rc.1", "1.4.27", "1.4.26", "1.4.25"],
+    "Every version above the installed one up to the target is listed, newest first",
+  );
+  assert.equal(
+    skipped.releaseHighlight,
+    true,
+    "A notable change in a skipped version marks the update even when the newest release is routine",
+  );
+
+  const routine = update("memory", "1.4.28", "1.4.24");
+  const [routineResult] = attachCapabilityReleaseNotes([routine], {
+    schemaVersion: 1,
+    packages: { memory: { versions: [memoryNote("1.4.27"), memoryNote("1.4.28")] } },
+  });
+  assert.equal(routineResult.releaseHighlight, false, "No notable version in range leaves the dot off");
+
+  // Notes exist for the package, but none falls in this update's range: byte-identical, as with no document.
+  const outOfRange = update("maps", "2.0.1", "2.0.0");
+  assert.deepEqual(
+    attachCapabilityReleaseNotes([outOfRange], {
+      schemaVersion: 1,
+      packages: { maps: { versions: [memoryNote("1.9.0"), memoryNote("2.0.0"), memoryNote("2.0.2")] } },
+    }),
+    [outOfRange],
+    "Notes that all fall outside the update's range leave the update exactly as it was",
+  );
 
   // ── Fetch degradation ───────────────────────────────────────────────────────
   const notesUrl = resolveCapabilityReleaseNotesUrl(`${AGENTS_ROOT}/staging/catalog/v2/catalog.json`);

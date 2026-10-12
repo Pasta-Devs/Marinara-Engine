@@ -1714,19 +1714,27 @@ export function findCompatibleCapabilityPackageUpdates(
   });
 }
 
-/** Decorate pending updates with the notes published for their target version.
+/** Decorate pending updates with the notes published for every version they install:
+ *  each version above the installed one, up to and including the target, newest first.
  *
  *  Pure and separate from the fetch so the mapping is testable without a network,
- *  and so a notes document that is absent, unreadable, or missing this package
- *  provably returns the update list unchanged. */
+ *  and so a notes document that is absent, unreadable, or has nothing in range for
+ *  this package provably returns the update list unchanged. */
 export function attachCapabilityReleaseNotes(
   updates: CapabilityPackageUpdate[],
   notes: CapabilityReleaseNotes | null,
 ): CapabilityPackageUpdate[] {
   if (!notes) return updates;
   return updates.map((update) => {
-    const note = notes.packages[update.id]?.versions.find((entry) => entry.version === update.version);
-    return note ? { ...update, releaseNotes: note.notes, releaseHighlight: note.highlight } : update;
+    const inRange = (notes.packages[update.id]?.versions ?? [])
+      .filter(
+        (entry) =>
+          compareCapabilityPackageVersions(entry.version, update.installedVersion) > 0 &&
+          compareCapabilityPackageVersions(entry.version, update.version) <= 0,
+      )
+      .sort((left, right) => compareCapabilityPackageVersions(right.version, left.version));
+    if (inRange.length === 0) return update;
+    return { ...update, releaseNotes: inRange, releaseHighlight: inRange.some((entry) => entry.highlight) };
   });
 }
 
