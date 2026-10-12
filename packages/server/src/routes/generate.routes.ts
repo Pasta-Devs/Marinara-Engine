@@ -255,6 +255,7 @@ import {
   gameIntroFor,
   gameIntroGuidanceText,
   readGameIntroChoice,
+  readGameIntro,
   type GameIntro,
   type StoryScript,
   type StoryTurn,
@@ -2117,8 +2118,10 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           chatMode === "game" && !input.impersonate && !input.continueMessageId
             ? (async () => {
                 const game = await loadGameWorld(app.db, input.chatId, chatMeta);
+                // The Experience's own intro (1.381) first, then its story's (1.380).
                 const intro = gameIntroFor(
-                  game ? gameStoryFromMetadata(chatMeta, game)?.intro : undefined,
+                  readGameIntro(chatMeta.gameExperienceIntro) ??
+                    (game ? gameStoryFromMetadata(chatMeta, game)?.intro : undefined),
                   readGameIntroChoice(chatMeta.gameIntro),
                 );
                 if (!intro) return null;

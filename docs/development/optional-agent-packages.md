@@ -1475,6 +1475,45 @@ They travel with the party and are told to the Game Master as never fighting, bu
 party's size (for fight variants and `partySize` conditions) and are not put in its fights. A people file
 with one needs 1.368.
 
+### Capability API 1.381: GM setup values
+
+`contributions.gameSurface.setup.defaults` sets what picking the Experience in the Game wizard fills in.
+Pixelforge's Experience tab writes it. Every key is optional, and the player may still change each value:
+
+```json
+"setup": {
+  "defaults": {
+    "name": "The Held Autumn",
+    "genre": ["Fantasy"],
+    "setting": "Sallowmarch, a valley where nothing has died for forty years.",
+    "tone": ["Whimsical", "Dark"],
+    "difficulty": "Normal",
+    "rating": "sfw",
+    "language": "English",
+    "combatStyle": "tactical",
+    "playerGoals": "Find out why the year will not turn.",
+    "preferences": "Quiet dread over gore.",
+    "gameSpecialInstructions": "Keep the valley's names.",
+    "artStylePrompt": "Muted autumn watercolour.",
+    "intro": { "mode": "defined", "text": "The leaves have not fallen in nine years.", "locked": true }
+  }
+}
+```
+
+- `name`: at most 100 characters.
+- `genre` and `tone`: 1 to 12 names each, at most 60 characters, no commas. Joined, each list stays within 200 characters.
+- `difficulty`: `Casual`, `Normal`, `Hard` or `Brutal`.
+- `rating`: `sfw` or `nsfw`.
+- `combatStyle`: `classic` or `tactical`.
+- Text limits: `setting` 4,000 characters, `language` 100, `playerGoals` and `preferences` 2,000, `gameSpecialInstructions` 2,000, `artStylePrompt` 500.
+
+`intro` is the Game Master's intro message (1.380), with the same rules as a story script's `intro`
+(see [Writing story scripts](../extending/writing-story-scripts.md#the-intro-message)). It is the only
+value that locks. A locked intro shows read-only in the wizard, and the game opens with it whatever the
+setup sends. The game keeps the intro as it was when the game began (`chat.metadata.gameExperienceIntro`).
+It is read before the story's own `intro`. A setup-file import keeps its own values, and turning the
+Experience off leaves the filled values as they are.
+
 ### Capability API 1.18: keep Experience setup in the Game wizard
 
 A `game-surface` package can declare `contributions.gameSurface.setup` with schema

@@ -7045,6 +7045,14 @@ export const capabilityPackageManager = {
    *  paths its manifest declares, each declared as an asset, hash-pinned in `files[]` and re-verified
    *  against the install-time hash. Null when the package is not installed, not ready, or ships no map
    *  pack; throws (with the reason) when one is declared but cannot be read as installed. */
+  /** An Experience's GM setup values (1.381), as its manifest declares them; null when it sets none or is
+   *  not ready. */
+  async experienceSetupDefaults(packageId: string) {
+    const installed = (await readRegistry()).packages.find((item) => item.id === packageId);
+    if (!installed || !isInstalledCapabilityReady(installed)) return null;
+    return installed.manifest.contributions?.gameSurface?.setup?.defaults ?? null;
+  },
+
   async mapPackFiles(packageId: string): Promise<{
     version: string;
     name: string;

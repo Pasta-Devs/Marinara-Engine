@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { experienceSetupDefaultsSchema } from "../features/world/game-intro.js";
 import { agentResultTypeSchema } from "./agent.schema.js";
 import { isRulesetCatalogAssetPath, RULESET_ASSET_PATH } from "./ruleset.schema.js";
 
@@ -151,6 +152,8 @@ const capabilityPackageManifestBaseSchema = z
                   .refine((value) => JSON.stringify(value).length <= 8_000)
                   .optional(),
                 requires: z.object({ enableCustomWidgets: z.boolean().optional() }).strict().optional(),
+                /** GM setup values the wizard fills in when the Experience is picked (Capability API 1.381). */
+                defaults: experienceSetupDefaultsSchema.optional(),
               })
               .strict()
               .optional(),
@@ -1437,7 +1440,9 @@ const capabilityPackageManifestBaseSchema = z
 //        may list alternatives, the first the game offers given.
 // 1.379: a story fight's creature `adjust` may change whom its actions call (`calls`), and change any of
 //        it from a party level up (`levels`), the level read off the Experience's companion sheets' fields.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 379 } as const);
+// 1.381: an Experience's GM setup values (`contributions.gameSurface.setup.defaults`), filled into the Game
+//        wizard when it is picked, with its own intro (locked or not) beside a story's.
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 381 } as const);
 
 const capabilityApiVersionSchema = z
   .object({
@@ -1628,6 +1633,13 @@ export const capabilityPackageManifestSchema = z
           code: z.ZodIssueCode.custom,
           path: ["contributions", "gameSurface", "setup", "config"],
           message: "Experience config cannot override the declared seed key",
+        });
+      }
+      if (setup.defaults && (!api || api.major !== 1 || api.minor < 381)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["contributions", "gameSurface", "setup", "defaults"],
+          message: "Experience setup defaults require capabilityApi 1.381 or newer",
         });
       }
     }
