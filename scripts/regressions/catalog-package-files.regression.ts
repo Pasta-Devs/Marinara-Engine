@@ -1,6 +1,6 @@
 // The agents catalog serves rulesets (Capability API 1.335) and Experiences (1.382) as one plain JSON file
 // each, never a package zip: a zip of either is refused before anything is downloaded, and a file is read
-// by the same strict reader a player's import uses, held to the manifest the catalog lists.
+// by the same strict reader a player's import of it uses, held to the manifest the catalog lists.
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { existsSync, mkdtempSync, readFileSync } from "node:fs";
@@ -11,8 +11,7 @@ const dataDir = mkdtempSync(join(tmpdir(), "marinara-catalog-package-files-"));
 process.env.DATA_DIR = dataDir;
 process.env.LOG_LEVEL = "silent";
 
-const { experienceFileParts, rulesetFileParts, ExperienceFileReader, RULESET_FILE_KIND } =
-  await import("../../packages/shared/src/features/world/experience-file.js");
+const { experienceFileParts } = await import("../../packages/shared/src/features/world/experience-file.js");
 const { capabilityPackageManifestSchema } =
   await import("../../packages/shared/src/schemas/capability-package.schema.js");
 const { capabilityPackageManager, installCatalogPackageForTests } =
@@ -59,22 +58,15 @@ const entryFor = (manifest: ReturnType<typeof rulesetManifest>, url: string, byt
   artifact: { url, sha256: sha256(bytes), bytes: bytes.length },
 });
 
-// The ruleset file reads with the Experience file's reader, under its own format.
-{
-  const text = rulesetFileParts(rulesetManifest(), rulesetFiles).join("");
-  assert.ok(text.startsWith('{"format":"marinara-ruleset","version":1,'));
-  const reader = new ExperienceFileReader(RULESET_FILE_KIND);
-  const events = [...reader.push(new TextEncoder().encode(text)), ...reader.finish()];
-  assert.deepEqual(
-    events.filter((event) => event.type === "file-end").map((event) => event.type === "file-end" && event.path),
-    rulesetFiles.map((file) => file.path),
-  );
-  assert.throws(
-    () =>
-      new ExperienceFileReader(RULESET_FILE_KIND).push(new TextEncoder().encode(experienceFileParts({}, []).join(""))),
-    /This is not a ruleset file\./,
-  );
-}
+/** A ruleset package file, as the Agents catalog build and the Engine's ruleset export write it. */
+const rulesetFileParts = (manifest: unknown, files: Array<{ path: string; data: Buffer }>) => [
+  JSON.stringify({
+    format: "marinara-ruleset",
+    version: 1,
+    manifest,
+    files: Object.fromEntries(files.map((file) => [file.path, file.data.toString("base64")])),
+  }),
+];
 
 // ── Installed from its file, checked as a catalog zip's files were ──
 {
@@ -145,7 +137,7 @@ const refuse = async (
   await refuse(
     entryFor(next, `${ARTIFACTS}/ember-roads-file-1.1.0.ruleset.json`, tamperedBytes),
     tamperedBytes,
-    /size mismatch|checksum mismatch/,
+    /ruleset package file does not read: manifest: catalogs\/[^ ]+ is not the file it lists/,
     "A changed catalog",
   );
   // Code in a ruleset file.
@@ -158,7 +150,7 @@ const refuse = async (
   await refuse(
     entryFor(codeManifest, `${ARTIFACTS}/ember-roads-file-1.1.0.ruleset.json`, codeBytes),
     codeBytes,
-    /client\.js is not a picture, music or data file/,
+    /"client\.js" is not a file a ruleset package has/,
     "Code",
   );
   // A zip handed over as a ruleset file.
@@ -166,7 +158,7 @@ const refuse = async (
   await refuse(
     entryFor(next, `${ARTIFACTS}/ember-roads-file-1.1.0.ruleset.json`, zipBytes),
     zipBytes,
-    /This is not a ruleset file\./,
+    /This is not a ruleset package file\./,
     "Zip bytes under a ruleset file's name",
   );
   // Nothing refused replaced what was installed.

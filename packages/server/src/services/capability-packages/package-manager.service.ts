@@ -58,8 +58,8 @@ import {
 import {
   CREATURE_PACK_MAX_BYTES,
   EXPERIENCE_FILE_EXTENSION,
-  RULESET_FILE_EXTENSION,
-  RULESET_FILE_KIND,
+  RULESET_PACKAGE_FILE_EXTENSION,
+  RULESET_PACKAGE_FILE_MAX_BYTES,
   ExperienceFileError,
   ExperienceFileReader,
   readExperienceFileManifest,
@@ -71,6 +71,7 @@ import {
 import { DATA_DIR } from "../../utils/data-dir.js";
 import { safeFetch } from "../../utils/security.js";
 import { sanitizeExperienceAsset } from "./experience-asset-sanitizer.js";
+import { readRulesetPackageFile } from "../game/ruleset-package-file.js";
 import { logger } from "../../lib/logger.js";
 import { openZipArchive, type ZipArchive, type ZipEntry, type ZipEntryBudget } from "../../lib/zip-reader.js";
 import { getBuildBranch } from "../../config/build-info.js";
@@ -6429,12 +6430,12 @@ function isExperienceFileArtifact(entry: CapabilityCatalogPackage) {
   }
 }
 
-/** A ruleset in the catalog comes as a ruleset file (Capability API 1.335), never a package zip. */
+/** A ruleset in the catalog comes as a ruleset package file (Capability API 1.335), never a package zip. */
 const RULESET_FILE_CAPABILITY_MINOR = 335;
 
 function isRulesetFileArtifact(entry: CapabilityCatalogPackage) {
   try {
-    return new URL(entry.artifact.url).pathname.toLowerCase().endsWith(RULESET_FILE_EXTENSION);
+    return new URL(entry.artifact.url).pathname.toLowerCase().endsWith(RULESET_PACKAGE_FILE_EXTENSION);
   } catch {
     return false;
   }
@@ -6443,32 +6444,26 @@ function isRulesetFileArtifact(entry: CapabilityCatalogPackage) {
 /** A downloaded package's files, as a zip's entries are read: by name, size and verified bytes. */
 type PackageEntry = { entryName: string; size: number; read(maximum: number): Buffer };
 
-/** A ruleset file read whole (a ruleset is small): its manifest as manifest.json, then every file it holds. */
+/** A ruleset package file, read by the reader a player's ruleset import uses: its manifest as manifest.json,
+ *  then each document as the bytes the manifest lists (which that reader has checked by size and sha256). */
 function readRulesetFileEntries(bytes: Buffer): PackageEntry[] {
-  const reader = new ExperienceFileReader(RULESET_FILE_KIND);
-  const entries: PackageEntry[] = [];
-  let current: { path: string; parts: Uint8Array[] } | null = null;
-  const take = (events: ReturnType<ExperienceFileReader["push"]>) => {
-    for (const event of events) {
-      if (event.type === "manifest") {
-        const data = Buffer.from(JSON.stringify(event.manifest));
-        entries.push({ entryName: "manifest.json", size: data.length, read: () => data });
-      } else if (event.type === "file-start") {
-        if (entries.length > MAX_ARCHIVE_ENTRIES) throw new Error("Package contains too many files");
-        current = { path: event.path, parts: [] };
-      } else if (event.type === "file-data") {
-        current!.parts.push(event.data.slice());
-      } else if (event.type === "file-end") {
-        // Data only, as every ruleset file is JSON: checked and kept as a player's Experience file import keeps it.
-        const data = sanitizeExperienceAsset(current!.path, Buffer.concat(current!.parts));
-        entries.push({ entryName: current!.path, size: data.length, read: () => data });
-        current = null;
-      }
-    }
-  };
-  take(reader.push(bytes));
-  take(reader.finish());
-  return entries;
+  let document: unknown;
+  try {
+    document = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
+  } catch {
+    throw new Error("This is not a ruleset package file.");
+  }
+  const read = readRulesetPackageFile(document);
+  if (!read.ok) throw new Error(`The ruleset package file does not read: ${read.issues.join("; ")}`);
+  const files = (document as { files: Record<string, string> }).files;
+  const manifest = Buffer.from(read.manifest);
+  return [
+    { entryName: "manifest.json", size: manifest.length, read: () => manifest },
+    ...Object.entries(files).map(([name, base64]) => {
+      const data = Buffer.from(base64, "base64");
+      return { entryName: name, size: data.length, read: () => data };
+    }),
+  ];
 }
 
 /** Installs a catalog entry through the caller's download rather than the network, for regressions. */
@@ -6490,8 +6485,11 @@ async function installCatalogPackage(
   const isRuleset = manifest.kind.includes("ruleset");
   if (isRuleset && !isRulesetFileArtifact(entry)) {
     throw new Error(
-      `${manifest.name} is a ruleset packaged as a zip. Rulesets install only from a ${RULESET_FILE_EXTENSION} file.`,
+      `${manifest.name} is a ruleset packaged as a zip. Rulesets install only from a ${RULESET_PACKAGE_FILE_EXTENSION} file.`,
     );
+  }
+  if (isRuleset && artifact.bytes > RULESET_PACKAGE_FILE_MAX_BYTES) {
+    throw new Error(`${manifest.name} is larger than a ruleset package file may be`);
   }
   if (
     isRuleset &&
