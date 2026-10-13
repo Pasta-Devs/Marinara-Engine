@@ -71,9 +71,28 @@ const encoder = new TextEncoder();
 const strictDecoder = new TextDecoder("utf-8", { fatal: true });
 
 /** The header's fixed tokens in order, the manifest's value standing between `"manifest":` and `,`. */
-const BEFORE_MANIFEST = ["{", '"format"', ":", JSON.stringify(EXPERIENCE_FILE_FORMAT), ",", '"version"', ":"].map(
-  (token) => encoder.encode(token),
-);
+const beforeManifest = (format: string) =>
+  ["{", '"format"', ":", JSON.stringify(format), ",", '"version"', ":"].map((token) => encoder.encode(token));
+
+/** A package file's kind: the format it names and how its messages call it. */
+export interface PackageFileKind {
+  format: string;
+  name: string;
+  withArticle: string;
+}
+export const EXPERIENCE_FILE_KIND: PackageFileKind = {
+  format: EXPERIENCE_FILE_FORMAT,
+  name: "Experience file",
+  withArticle: "an Experience file",
+};
+/** A ruleset as one plain JSON file (Capability API 1.335), the Experience file's shape with its own format. */
+export const RULESET_FILE_FORMAT = "marinara-ruleset";
+export const RULESET_FILE_EXTENSION = ".ruleset.json";
+export const RULESET_FILE_KIND: PackageFileKind = {
+  format: RULESET_FILE_FORMAT,
+  name: "ruleset file",
+  withArticle: "a ruleset file",
+};
 const MANIFEST_KEY = [",", '"manifest"', ":"].map((token) => encoder.encode(token));
 const FILES_KEY = [",", '"files"', ":", "{"].map((token) => encoder.encode(token));
 
@@ -114,7 +133,8 @@ type State =
  * it throws {@link ExperienceFileError} at the first byte out of place.
  */
 export class ExperienceFileReader {
-  private state: State = { at: "tokens", tokens: BEFORE_MANIFEST, token: 0, offset: 0, then: "version" };
+  private readonly kind: PackageFileKind;
+  private state: State;
   private consumed = 0;
   private manifestParts: Uint8Array[] = [];
   private manifestLength = 0;
@@ -127,6 +147,12 @@ export class ExperienceFileReader {
   private fileBytes = 0;
   private output = new Uint8Array(0);
   private outputLength = 0;
+
+  /** Reads an Experience file, or with {@link RULESET_FILE_KIND} a ruleset file of the same shape. */
+  constructor(kind: PackageFileKind = EXPERIENCE_FILE_KIND) {
+    this.kind = kind;
+    this.state = { at: "tokens", tokens: beforeManifest(kind.format), token: 0, offset: 0, then: "version" };
+  }
 
   /** The bytes read so far. */
   get bytesRead(): number {
@@ -145,7 +171,7 @@ export class ExperienceFileReader {
         case "tokens": {
           const token = state.tokens[state.token]!;
           if (state.offset === 0 && isWhitespace(byte)) break;
-          if (byte !== token[state.offset]) this.fail("This is not an Experience file.");
+          if (byte !== token[state.offset]) this.fail(`This is not ${this.kind.withArticle}.`);
           state.offset += 1;
           if (state.offset === token.length) {
             state.token += 1;
@@ -166,11 +192,11 @@ export class ExperienceFileReader {
           }
           if (!state.digits) {
             if (isWhitespace(byte)) break;
-            this.fail("This is not an Experience file.");
+            this.fail(`This is not ${this.kind.withArticle}.`);
           }
           if (state.digits !== String(EXPERIENCE_FILE_VERSION)) {
             this.fail(
-              `This Experience file is version ${state.digits}; this Engine reads version ${EXPERIENCE_FILE_VERSION}.`,
+              `This ${this.kind.name} is version ${state.digits}; this Engine reads version ${EXPERIENCE_FILE_VERSION}.`,
             );
           }
           this.state = { at: "tokens", tokens: MANIFEST_KEY, token: 0, offset: 0, then: "manifest" };
@@ -181,7 +207,7 @@ export class ExperienceFileReader {
         case "manifest": {
           if (!state.started) {
             if (isWhitespace(byte)) break;
-            if (byte !== OPEN_BRACE) this.fail("The Experience file's manifest is not an object.");
+            if (byte !== OPEN_BRACE) this.fail(`The ${this.kind.name}'s manifest is not an object.`);
             state.started = true;
             manifestStart = index;
           }
@@ -202,7 +228,7 @@ export class ExperienceFileReader {
             }
           }
           if (this.manifestLength + (index - manifestStart + 1) > EXPERIENCE_FILE_MANIFEST_MAX_BYTES) {
-            this.fail("The Experience file's manifest is too large.");
+            this.fail(`The ${this.kind.name}'s manifest is too large.`);
           }
           break;
         }
@@ -212,7 +238,7 @@ export class ExperienceFileReader {
             this.state = { at: "close" };
             break;
           }
-          if (byte !== QUOTE) this.fail("The Experience file's files do not read.");
+          if (byte !== QUOTE) this.fail(`The ${this.kind.name}'s files do not read.`);
           this.keyBytes = [];
           this.state = { at: "file-key" };
           break;
@@ -223,29 +249,29 @@ export class ExperienceFileReader {
             try {
               path = strictDecoder.decode(Uint8Array.from(this.keyBytes));
             } catch {
-              this.fail("A file name in the Experience file does not read.");
+              this.fail(`A file name in the ${this.kind.name} does not read.`);
             }
-            if (!path) this.fail("A file in the Experience file has no name.");
-            if (this.paths.has(path)) this.fail(`The Experience file holds ${path} twice.`);
+            if (!path) this.fail(`A file in the ${this.kind.name} has no name.`);
+            if (this.paths.has(path)) this.fail(`The ${this.kind.name} holds ${path} twice.`);
             this.paths.add(path);
             this.path = path;
             this.state = { at: "file-colon" };
             break;
           }
-          if (byte === BACKSLASH || byte < 0x20) this.fail("A file name in the Experience file does not read.");
-          if (this.keyBytes.length >= PATH_MAX_BYTES) this.fail("A file name in the Experience file is too long.");
+          if (byte === BACKSLASH || byte < 0x20) this.fail(`A file name in the ${this.kind.name} does not read.`);
+          if (this.keyBytes.length >= PATH_MAX_BYTES) this.fail(`A file name in the ${this.kind.name} is too long.`);
           this.keyBytes.push(byte);
           break;
         }
         case "file-colon": {
           if (isWhitespace(byte)) break;
-          if (byte !== COLON) this.fail("The Experience file's files do not read.");
+          if (byte !== COLON) this.fail(`The ${this.kind.name}'s files do not read.`);
           this.state = { at: "file-open" };
           break;
         }
         case "file-open": {
           if (isWhitespace(byte)) break;
-          if (byte !== QUOTE) this.fail(`${this.path} in the Experience file is not base64 text.`);
+          if (byte !== QUOTE) this.fail(`${this.path} in the ${this.kind.name} is not base64 text.`);
           this.quadLength = 0;
           this.padding = 0;
           this.fileBytes = 0;
@@ -268,12 +294,12 @@ export class ExperienceFileReader {
             const next = chunk[at]!;
             if (next === QUOTE) break;
             if (next === EQUALS) {
-              if (quadLength < 2) this.fail(`${this.path} in the Experience file is not base64 text.`);
+              if (quadLength < 2) this.fail(`${this.path} in the ${this.kind.name} is not base64 text.`);
               padding += 1;
               quad[quadLength++] = 0;
             } else {
               const value = BASE64[next]!;
-              if (value < 0 || padding > 0) this.fail(`${this.path} in the Experience file is not base64 text.`);
+              if (value < 0 || padding > 0) this.fail(`${this.path} in the ${this.kind.name} is not base64 text.`);
               quad[quadLength++] = value;
             }
             if (quadLength === 4) {
@@ -290,7 +316,7 @@ export class ExperienceFileReader {
           this.outputLength = outputLength;
           this.consumed += at - index;
           if (at < chunk.length) {
-            if (quadLength !== 0) this.fail(`${this.path} in the Experience file is not base64 text.`);
+            if (quadLength !== 0) this.fail(`${this.path} in the ${this.kind.name} is not base64 text.`);
             this.flush(events);
             events.push({ type: "file-end", path: this.path, bytes: this.fileBytes });
             this.state = { at: "after-file" };
@@ -305,17 +331,17 @@ export class ExperienceFileReader {
           if (isWhitespace(byte)) break;
           if (byte === COMMA) this.state = { at: "file-key-or-end", afterComma: true };
           else if (byte === CLOSE_BRACE) this.state = { at: "close" };
-          else this.fail("The Experience file's files do not read.");
+          else this.fail(`The ${this.kind.name}'s files do not read.`);
           break;
         }
         case "close": {
           if (isWhitespace(byte)) break;
-          if (byte !== CLOSE_BRACE) this.fail("The Experience file goes on past its files.");
+          if (byte !== CLOSE_BRACE) this.fail(`The ${this.kind.name} goes on past its files.`);
           this.state = { at: "done" };
           break;
         }
         case "done": {
-          if (!isWhitespace(byte)) this.fail("The Experience file goes on past its end.");
+          if (!isWhitespace(byte)) this.fail(`The ${this.kind.name} goes on past its end.`);
           break;
         }
       }
@@ -323,7 +349,7 @@ export class ExperienceFileReader {
         this.consumed > EXPERIENCE_FILE_HEADER_MAX_BYTES &&
         (this.state.at === "tokens" || this.state.at === "version" || this.state.at === "manifest")
       ) {
-        this.fail("The Experience file's manifest is too large.");
+        this.fail(`The ${this.kind.name}'s manifest is too large.`);
       }
     }
     if (this.state.at === "manifest" && manifestStart >= 0) this.keepManifest(chunk.subarray(manifestStart));
@@ -333,7 +359,7 @@ export class ExperienceFileReader {
 
   /** Call once the file has all arrived: throws when it stopped short. */
   finish(): ExperienceFileEvent[] {
-    if (this.state.at !== "done") this.fail("The Experience file stops before its end.");
+    if (this.state.at !== "done") this.fail(`The ${this.kind.name} stops before its end.`);
     return [{ type: "end" }];
   }
 
@@ -345,7 +371,7 @@ export class ExperienceFileReader {
     if (!part.length) return;
     this.manifestLength += part.length;
     if (this.manifestLength > EXPERIENCE_FILE_MANIFEST_MAX_BYTES)
-      this.fail("The Experience file's manifest is too large.");
+      this.fail(`The ${this.kind.name}'s manifest is too large.`);
     this.manifestParts.push(part.slice());
   }
 
@@ -360,7 +386,7 @@ export class ExperienceFileReader {
     try {
       return JSON.parse(strictDecoder.decode(bytes));
     } catch {
-      this.fail("The Experience file's manifest does not read.");
+      this.fail(`The ${this.kind.name}'s manifest does not read.`);
     }
   }
 
@@ -443,9 +469,13 @@ export function readExperienceFileManifest(raw: unknown): ExperienceFileManifest
 
 /** Writes an Experience file from a manifest and its files' bytes: the format {@link ExperienceFileReader}
  *  reads, as the parts to join (a Blob, or a stream), so no one string ever holds it whole. */
-export function experienceFileParts(manifest: unknown, files: Array<{ path: string; data: Uint8Array }>): string[] {
+export function experienceFileParts(
+  manifest: unknown,
+  files: Array<{ path: string; data: Uint8Array }>,
+  kind: PackageFileKind = EXPERIENCE_FILE_KIND,
+): string[] {
   const parts = [
-    `{"format":${JSON.stringify(EXPERIENCE_FILE_FORMAT)},"version":${EXPERIENCE_FILE_VERSION},\n"manifest":${JSON.stringify(manifest, null, 2)},\n"files":{`,
+    `{"format":${JSON.stringify(kind.format)},"version":${EXPERIENCE_FILE_VERSION},\n"manifest":${JSON.stringify(manifest, null, 2)},\n"files":{`,
   ];
   files.forEach((file, index) => {
     parts.push(`${index ? "," : ""}\n${JSON.stringify(file.path)}:"`);
@@ -456,6 +486,10 @@ export function experienceFileParts(manifest: unknown, files: Array<{ path: stri
   parts.push("\n}}\n");
   return parts;
 }
+
+/** Writes a ruleset file (Capability API 1.335): the Experience file's shape, format `marinara-ruleset`. */
+export const rulesetFileParts = (manifest: unknown, files: Array<{ path: string; data: Uint8Array }>) =>
+  experienceFileParts(manifest, files, RULESET_FILE_KIND);
 
 const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 

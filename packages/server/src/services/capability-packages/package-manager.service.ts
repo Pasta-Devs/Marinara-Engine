@@ -58,6 +58,8 @@ import {
 import {
   CREATURE_PACK_MAX_BYTES,
   EXPERIENCE_FILE_EXTENSION,
+  RULESET_FILE_EXTENSION,
+  RULESET_FILE_KIND,
   ExperienceFileError,
   ExperienceFileReader,
   readExperienceFileManifest,
@@ -6427,13 +6429,80 @@ function isExperienceFileArtifact(entry: CapabilityCatalogPackage) {
   }
 }
 
+/** A ruleset in the catalog comes as a ruleset file (Capability API 1.335), never a package zip. */
+const RULESET_FILE_CAPABILITY_MINOR = 335;
+
+function isRulesetFileArtifact(entry: CapabilityCatalogPackage) {
+  try {
+    return new URL(entry.artifact.url).pathname.toLowerCase().endsWith(RULESET_FILE_EXTENSION);
+  } catch {
+    return false;
+  }
+}
+
+/** A downloaded package's files, as a zip's entries are read: by name, size and verified bytes. */
+type PackageEntry = { entryName: string; size: number; read(maximum: number): Buffer };
+
+/** A ruleset file read whole (a ruleset is small): its manifest as manifest.json, then every file it holds. */
+function readRulesetFileEntries(bytes: Buffer): PackageEntry[] {
+  const reader = new ExperienceFileReader(RULESET_FILE_KIND);
+  const entries: PackageEntry[] = [];
+  let current: { path: string; parts: Uint8Array[] } | null = null;
+  const take = (events: ReturnType<ExperienceFileReader["push"]>) => {
+    for (const event of events) {
+      if (event.type === "manifest") {
+        const data = Buffer.from(JSON.stringify(event.manifest));
+        entries.push({ entryName: "manifest.json", size: data.length, read: () => data });
+      } else if (event.type === "file-start") {
+        if (entries.length > MAX_ARCHIVE_ENTRIES) throw new Error("Package contains too many files");
+        current = { path: event.path, parts: [] };
+      } else if (event.type === "file-data") {
+        current!.parts.push(event.data.slice());
+      } else if (event.type === "file-end") {
+        // Data only, as every ruleset file is JSON: checked and kept as a player's Experience file import keeps it.
+        const data = sanitizeExperienceAsset(current!.path, Buffer.concat(current!.parts));
+        entries.push({ entryName: current!.path, size: data.length, read: () => data });
+        current = null;
+      }
+    }
+  };
+  take(reader.push(bytes));
+  take(reader.finish());
+  return entries;
+}
+
+/** Installs a catalog entry through the caller's download rather than the network, for regressions. */
+export function installCatalogPackageForTests(entry: CapabilityCatalogPackage, download: () => Promise<Buffer>) {
+  return installCatalogPackage(entry, false, download);
+}
+
 /** A catalog Experience the Engine will install: a data-only Experience published as an Experience file. */
 function isInstallableCatalogExperience(entry: CapabilityCatalogPackage) {
   return entry.manifest.kind.includes("experience") && isExperienceFileArtifact(entry);
 }
 
-async function installCatalogPackage(entry: CapabilityCatalogPackage, activateDuringStartup = false) {
+async function installCatalogPackage(
+  entry: CapabilityCatalogPackage,
+  activateDuringStartup = false,
+  download: (url: string, maximum: number) => Promise<Buffer> = fetchBytes,
+) {
   const { manifest, artifact } = entry;
+  const isRuleset = manifest.kind.includes("ruleset");
+  if (isRuleset && !isRulesetFileArtifact(entry)) {
+    throw new Error(
+      `${manifest.name} is a ruleset packaged as a zip. Rulesets install only from a ${RULESET_FILE_EXTENSION} file.`,
+    );
+  }
+  if (
+    isRuleset &&
+    (manifest.schemaVersion === 1 ||
+      (manifest.capabilityApi.major === 1 && manifest.capabilityApi.minor < RULESET_FILE_CAPABILITY_MINOR))
+  ) {
+    throw new Error(
+      `A ruleset published as a ruleset file needs Capability API 1.${RULESET_FILE_CAPABILITY_MINOR} or newer`,
+    );
+  }
+
   if (isCatalogExperience(entry) && !isInstallableCatalogExperience(entry)) {
     throw new Error(
       `${manifest.name} is an Experience packaged as a zip. Experiences install only from an ${EXPERIENCE_FILE_EXTENSION} file.`,
@@ -6450,7 +6519,7 @@ async function installCatalogPackage(entry: CapabilityCatalogPackage, activateDu
       `Package requires Marinara Engine ${manifest.engine.min} to below ${manifest.engine.maxExclusive}`,
     );
   }
-  const archive = await fetchBytes(artifact.url, Math.min(artifact.bytes + 1, MAX_ARTIFACT_BYTES));
+  const archive = await download(artifact.url, Math.min(artifact.bytes + 1, MAX_ARTIFACT_BYTES));
   if (archive.byteLength !== artifact.bytes) throw new Error("Downloaded package size does not match the catalog");
   const digest = createHash("sha256").update(archive).digest("hex");
   if (digest !== artifact.sha256) throw new Error("Downloaded package checksum does not match the catalog");
@@ -6465,8 +6534,9 @@ async function installCatalogPackage(entry: CapabilityCatalogPackage, activateDu
     return { ...installed, usesDecisions: false };
   }
 
-  const zip = openZipArchive(archive, PACKAGE_ARCHIVE_BUDGET);
-  const entries = validatePackageArchiveEntries(zip);
+  const entries: PackageEntry[] = isRuleset
+    ? readRulesetFileEntries(archive)
+    : validatePackageArchiveEntries(openZipArchive(archive, PACKAGE_ARCHIVE_BUDGET));
   const manifestEntry = entries.find((item) => item.entryName === "manifest.json");
   if (!manifestEntry || manifestEntry.size > MAX_MANIFEST_BYTES) {
     throw new Error("Package manifest is missing or too large");
@@ -7580,6 +7650,8 @@ export const capabilityPackageManager = {
       if (installedById.get(entry.manifest.id)?.version === entry.manifest.version) continue;
       // Experiences are the player's choice per game, and a zip one is never accepted.
       if (isCatalogExperience(entry)) continue;
+      // A ruleset still published as a zip is refused, and must not stop the rest from installing.
+      if (entry.manifest.kind.includes("ruleset") && !isRulesetFileArtifact(entry)) continue;
       await installCatalogPackage(entry, true);
     }
     // Existing-install completion also depends on per-chat selections becoming

@@ -4732,6 +4732,14 @@ Adding things needs nothing more. When a new layout moves a value somewhere else
 
 The manifest lists `ruleset.json` and each `catalogs/<id>.json` in `contributions.assets.paths` and in `files`, with each one's size and sha256. A ruleset editor such as Pixelforge makes one. **Import agents** → **Game Mode ruleset** takes the file and shows the same review as for a ruleset file, with each catalog and its number of entries. Nothing in it is compressed, so it never holds more than its own size. It is read as data and never installed as a package: it is refused, with the reason, if it holds anything else (another key, any other file, a document that is not strict base64 or not UTF-8 text), if its manifest is more than a ruleset's (any code, permissions or other contributions), if a file is not the one the manifest lists, if a `$comment` is longer than 2,000 characters or `$schema` names anything but the Engine's own schema, or if the ruleset or a catalog does not read. It is filed as `local/<its id>` like a ruleset file, at most 24 MB, with at most 12 catalog files of 2 MB each. A version is its ruleset and its catalogs together, so a changed catalog needs a higher `version` too. Ruleset packages are not accepted as zips.
 
+**Through the official agents catalog.** A ruleset published in the catalog is a ruleset file,
+`<id>.ruleset.json`: one plain JSON file of the shape `{"format":"marinara-ruleset","version":1,"manifest":{...},"files":{"ruleset.json":"<base64>",...}}`,
+never a package zip (Capability API 1.335). Its manifest declares Capability API 1.335 or newer, so an older
+Engine is never offered it. The Engine reads it with the same strict reader as an Experience file, checks
+every file's size and hash against the manifest the catalog lists, and refuses a file that is not JSON. A
+catalog ruleset whose artifact is a zip is refused before anything is downloaded; rulesets already installed
+keep working.
+
 **From a GitHub repository.** If you keep your work in a public GitHub repository, put each ruleset in a `rulesets` folder at the top of the repository, one file per ruleset:
 
 ```text
