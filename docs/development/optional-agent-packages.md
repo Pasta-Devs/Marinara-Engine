@@ -1549,7 +1549,17 @@ data, and Import and Don't Import. Import sends the file to `POST /api/capabilit
 (content type `application/vnd.marinara.experience+json`). The server reads it as it arrives, writes each
 file to a temporary folder, and checks its size and `sha256` against the manifest. A file that does not
 match, a missing or extra file, a cut-off file or an older version than the one installed is refused, and
-nothing it wrote is kept. A newer version replaces the installed one, as a catalog update does. An
+nothing it wrote is kept.
+
+Each file must then be what its name says. Pictures pass the signature check character card imports use
+(`isAllowedImageBuffer`) and must be the type their extension names, so a page or an SVG named `.png` is
+refused. They are stored without their metadata: PNG keeps only the chunks that draw it (no `tEXt`, `zTXt`,
+`iTXt`, `eXIf` or `iCCP`), JPEG drops its APP segments but JFIF and Adobe and its comments (so EXIF
+orientation is not kept), GIF drops comments, plain text and application extensions but the loop count,
+and WebP drops its EXIF, XMP and ICC chunks. Music must be well-formed Ogg Vorbis or Opus (every page's
+checksum checked; its comments and cover art are blanked in place), MP3 (its ID3 and APE tags removed) or
+WAV (only its `fmt `, `fact` and `data` chunks kept). Data files must be UTF-8 JSON. Anything after a
+picture's or sound's end is dropped. The installed manifest records the stored files' sizes and hashes. A newer version replaces the installed one, as a catalog update does. An
 Experience file cannot replace a package of another kind with the same id.
 
 Pixelforge 0.45.0 exports an Experience as this file, and still writes a package zip for an agents

@@ -67,6 +67,7 @@ import {
 } from "@marinara-engine/shared";
 import { DATA_DIR } from "../../utils/data-dir.js";
 import { safeFetch } from "../../utils/security.js";
+import { sanitizeExperienceAsset } from "./experience-asset-sanitizer.js";
 import { logger } from "../../lib/logger.js";
 import { openZipArchive, type ZipArchive, type ZipEntry, type ZipEntryBudget } from "../../lib/zip-reader.js";
 import { getBuildBranch } from "../../config/build-info.js";
@@ -6698,8 +6699,28 @@ async function installExperienceFile(source: AsyncIterable<Uint8Array>): Promise
     if (missing.length) {
       throw new ExperienceFileError(`The Experience file is missing ${missing.slice(0, 3).join(", ")}`);
     }
-    await writeFile(join(temporary, "manifest.json"), `${JSON.stringify(rawManifest, null, 2)}\n`, { mode: 0o600 });
-    return await commitPackageInstall(manifest, temporary);
+    // Each file is kept only as what it says it is, without its metadata; the installed manifest
+    // records the bytes that are stored, so serving still verifies every file.
+    const stored = new Map<string, { sha256: string; bytes: number }>();
+    for (const path of written) {
+      const output = inside(temporary, join(temporary, path));
+      const original = await readFile(output);
+      const sanitized = sanitizeExperienceAsset(path, original);
+      if (sanitized.equals(original)) continue;
+      await writeFile(output, sanitized, { mode: 0o600 });
+      stored.set(path, { sha256: createHash("sha256").update(sanitized).digest("hex"), bytes: sanitized.length });
+    }
+    const restate = <T extends { path: string; sha256: string; bytes: number }>(file: T): T => {
+      const replaced = stored.get(normalizeArchivePath(file.path));
+      return replaced ? { ...file, ...replaced } : file;
+    };
+    // Set by onManifest inside the reader's callbacks, which TypeScript does not follow.
+    const read = manifest as CapabilityPackageManifest;
+    const storedManifest: CapabilityPackageManifest = { ...read, files: read.files.map(restate) };
+    const raw = rawManifest as { files: Array<{ path: string; sha256: string; bytes: number }> };
+    const storedRaw = { ...raw, files: raw.files.map(restate) };
+    await writeFile(join(temporary, "manifest.json"), `${JSON.stringify(storedRaw, null, 2)}\n`, { mode: 0o600 });
+    return await commitPackageInstall(storedManifest, temporary);
   } finally {
     const unfinished = current as { handle: FileHandle } | null;
     if (unfinished) await unfinished.handle.close().catch(() => undefined);

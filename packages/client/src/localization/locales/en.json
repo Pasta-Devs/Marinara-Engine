@@ -2515,7 +2515,7 @@
   "game.experienceFile.imported": "Imported {{name}}. It is on for this game.",
   "game.experienceFile.importing": "Importing…",
   "game.experienceFile.invalid": "This file cannot be imported as an Experience: {{issues}}",
-  "game.experienceFile.noCode": "An Experience file holds no code, only pictures, music, and story and world data. Nothing from it is kept until you choose Import.",
+  "game.experienceFile.noCode": "An Experience file holds no code, only pictures, music, and story and world data. Nothing from it is kept until you choose Import. On import, every picture and sound is checked to be what it says it is and stripped of hidden text and tags.",
   "game.experienceFile.open": "Import an Experience file",
   "game.experienceFile.replacesVersion": "Version {{installed}} is installed. Importing replaces it with version {{version}}.",
   "game.experienceFile.sameVersion": "Version {{version}} is already installed. Importing replaces it with this file.",
