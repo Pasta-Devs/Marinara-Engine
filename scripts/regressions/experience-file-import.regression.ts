@@ -493,4 +493,55 @@ const refuseImport = async (text: string, pattern: RegExp, message: string) => {
   assert.equal(installed.previousVersion, "1.0.0");
 }
 
+// ── The catalog: an Experience comes only as an Experience file, never a package zip ──
+{
+  const catalogEntry = (manifest: Record<string, unknown>, url: string) => ({
+    manifest: capabilityPackageManifestSchema.parse(manifest),
+    artifact: { url, sha256: "0".repeat(64), bytes: 1 },
+  });
+  const zipped = experience(files, { id: "zipped-experience", name: "Zipped Experience" });
+  const drawn = {
+    ...experience(files, { id: "drawn-surface", name: "Drawn Surface", kind: ["agent"] }),
+    capabilityApi: { major: 1, minor: 381 },
+    entrypoints: { client: "client.js" },
+    files: [{ path: "client.js", sha256: "0".repeat(64), bytes: 1 }],
+    contributions: { slots: ["game-surface"], gameSurface: { surfaceClass: "full" } },
+  };
+  const original = capabilityPackageManager.catalog;
+  const entries = [
+    catalogEntry(zipped, "https://raw.githubusercontent.com/Pasta-Devs/Marinara-Agents/main/artifacts/zipped.zip"),
+  ];
+  const drawnParsed = capabilityPackageManifestSchema.safeParse(drawn);
+  if (drawnParsed.success) {
+    entries.push(
+      catalogEntry(drawn, "https://raw.githubusercontent.com/Pasta-Devs/Marinara-Agents/main/artifacts/drawn.zip"),
+    );
+  }
+  capabilityPackageManager.catalog = (async () => ({ schemaVersion: 1, packages: entries })) as typeof original;
+  try {
+    for (const entry of entries) {
+      await assert.rejects(
+        capabilityPackageManager.install(entry.manifest.id, entry.manifest.version, entry.artifact.sha256),
+        /is an Experience packaged as a zip\. Experiences install only from an \.experience\.json file/,
+        `${entry.manifest.id}: refused before anything is downloaded`,
+      );
+    }
+    assert.equal(entries.length, 2, `The drawn surface fixture parses: ${JSON.stringify(drawnParsed.error?.issues)}`);
+  } finally {
+    capabilityPackageManager.catalog = original;
+  }
+
+  // A catalog's Experience file must carry the very manifest the catalog lists.
+  const listed = experience(files, { id: "catalog-experience", version: "2.0.0" });
+  const shown = capabilityPackageManifestSchema.parse({ ...listed, description: "Not what the file says." });
+  await assert.rejects(
+    capabilityPackageManager.installExperienceFile(stream(fileText(listed)), { expectedManifest: shown }),
+    /does not match the catalog/,
+  );
+  const matching = await capabilityPackageManager.installExperienceFile(stream(fileText(listed)), {
+    expectedManifest: capabilityPackageManifestSchema.parse(listed),
+  });
+  assert.equal(matching.id, "catalog-experience");
+}
+
 console.log("experience-file-import: ok");

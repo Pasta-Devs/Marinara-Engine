@@ -57,6 +57,7 @@ import {
 } from "@marinara-engine/shared";
 import {
   CREATURE_PACK_MAX_BYTES,
+  EXPERIENCE_FILE_EXTENSION,
   ExperienceFileError,
   ExperienceFileReader,
   readExperienceFileManifest,
@@ -6411,8 +6412,33 @@ export function findPendingCapabilityPackageUpdates(
     }));
 }
 
+/** An Experience owns the Game surface. Since 1.382 one comes only as an Experience file, never a package zip. */
+function isCatalogExperience(entry: CapabilityCatalogPackage) {
+  return (
+    entry.manifest.kind.includes("experience") || (entry.manifest.contributions?.slots ?? []).includes("game-surface")
+  );
+}
+
+function isExperienceFileArtifact(entry: CapabilityCatalogPackage) {
+  try {
+    return new URL(entry.artifact.url).pathname.toLowerCase().endsWith(EXPERIENCE_FILE_EXTENSION);
+  } catch {
+    return false;
+  }
+}
+
+/** A catalog Experience the Engine will install: a data-only Experience published as an Experience file. */
+function isInstallableCatalogExperience(entry: CapabilityCatalogPackage) {
+  return entry.manifest.kind.includes("experience") && isExperienceFileArtifact(entry);
+}
+
 async function installCatalogPackage(entry: CapabilityCatalogPackage, activateDuringStartup = false) {
   const { manifest, artifact } = entry;
+  if (isCatalogExperience(entry) && !isInstallableCatalogExperience(entry)) {
+    throw new Error(
+      `${manifest.name} is an Experience packaged as a zip. Experiences install only from an ${EXPERIENCE_FILE_EXTENSION} file.`,
+    );
+  }
   const installIssue = getCapabilityPackageInstallIssue(manifest);
   if (installIssue) throw new CapabilityPackageCompatibilityError(installIssue);
   const initiallyInstalled = await readInstalledVersion(manifest.id);
@@ -6428,6 +6454,16 @@ async function installCatalogPackage(entry: CapabilityCatalogPackage, activateDu
   if (archive.byteLength !== artifact.bytes) throw new Error("Downloaded package size does not match the catalog");
   const digest = createHash("sha256").update(archive).digest("hex");
   if (digest !== artifact.sha256) throw new Error("Downloaded package checksum does not match the catalog");
+  if (isCatalogExperience(entry)) {
+    // The same reader, checks and sanitizing as an Experience file a player imports, held to the catalog's manifest.
+    const installed = await installExperienceFile(
+      (async function* () {
+        yield new Uint8Array(archive);
+      })(),
+      { expectedManifest: manifest, activateDuringStartup },
+    );
+    return { ...installed, usesDecisions: false };
+  }
 
   const zip = openZipArchive(archive, PACKAGE_ARCHIVE_BUDGET);
   const entries = validatePackageArchiveEntries(zip);
@@ -6577,7 +6613,10 @@ async function commitPackageInstall(
  * the manifest's size and sha256, so neither the upload nor any one file is ever held whole. Anything
  * out of place stops the import and removes what it wrote.
  */
-async function installExperienceFile(source: AsyncIterable<Uint8Array>): Promise<InstalledCapabilityPackage> {
+async function installExperienceFile(
+  source: AsyncIterable<Uint8Array>,
+  options: { expectedManifest?: CapabilityPackageManifest; activateDuringStartup?: boolean } = {},
+): Promise<InstalledCapabilityPackage> {
   /** A check shared with catalog installs, its refusal told as the file's. */
   const fileCheck = <T>(check: () => T): T => {
     try {
@@ -6604,6 +6643,9 @@ async function installExperienceFile(source: AsyncIterable<Uint8Array>): Promise
     const read = readExperienceFileManifest(raw);
     if (!read.ok) throw new ExperienceFileError(`This Experience file cannot be imported: ${read.issues.join("; ")}`);
     const next = read.manifest;
+    if (options.expectedManifest && JSON.stringify(next) !== JSON.stringify(options.expectedManifest)) {
+      throw new ExperienceFileError("The Experience file's manifest does not match the catalog");
+    }
     const issue = getCapabilityApiCompatibilityIssue(next) ?? getCapabilityPackageInstallIssue(next);
     if (issue) throw new ExperienceFileError(issue);
     if (
@@ -6720,7 +6762,7 @@ async function installExperienceFile(source: AsyncIterable<Uint8Array>): Promise
     const raw = rawManifest as { files: Array<{ path: string; sha256: string; bytes: number }> };
     const storedRaw = { ...raw, files: raw.files.map(restate) };
     await writeFile(join(temporary, "manifest.json"), `${JSON.stringify(storedRaw, null, 2)}\n`, { mode: 0o600 });
-    return await commitPackageInstall(storedManifest, temporary);
+    return await commitPackageInstall(storedManifest, temporary, options.activateDuringStartup);
   } finally {
     const unfinished = current as { handle: FileHandle } | null;
     if (unfinished) await unfinished.handle.close().catch(() => undefined);
@@ -7536,6 +7578,8 @@ export const capabilityPackageManager = {
     const installedById = new Map((await this.installed()).map((item) => [item.id, item]));
     for (const entry of catalog.packages) {
       if (installedById.get(entry.manifest.id)?.version === entry.manifest.version) continue;
+      // Experiences are the player's choice per game, and a zip one is never accepted.
+      if (isCatalogExperience(entry)) continue;
       await installCatalogPackage(entry, true);
     }
     // Existing-install completion also depends on per-chat selections becoming
@@ -7683,8 +7727,11 @@ export const capabilityPackageManager = {
   },
 
   /** Imports an Experience file (1.382) the user reviewed, read as it streams in. */
-  async installExperienceFile(source: AsyncIterable<Uint8Array>) {
-    return installExperienceFile(source);
+  async installExperienceFile(
+    source: AsyncIterable<Uint8Array>,
+    options?: Parameters<typeof installExperienceFile>[1],
+  ) {
+    return installExperienceFile(source, options);
   },
 
   async uninstall(packageId: string) {

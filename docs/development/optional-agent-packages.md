@@ -1562,8 +1562,14 @@ WAV (only its `fmt `, `fact` and `data` chunks kept). Data files must be UTF-8 J
 picture's or sound's end is dropped. The installed manifest records the stored files' sizes and hashes. A newer version replaces the installed one, as a catalog update does. An
 Experience file cannot replace a package of another kind with the same id.
 
-Pixelforge 0.45.0 exports an Experience as this file, and still writes a package zip for an agents
-catalog.
+An Experience is never accepted as a package zip. An agents catalog lists one only with an artifact URL
+ending in `.experience.json`. The Engine installs that file through the same reader, checks and stripping,
+and refuses it unless its manifest is the one the catalog lists. A catalog entry that is an Experience
+(`kind` `experience`, or the `game-surface` slot) with any other artifact is refused before anything is
+downloaded, and the first-start catalog install skips Experiences. Experiences already installed keep
+working.
+
+Pixelforge 0.45.0 exports an Experience as this file, and only opens Experience files.
 
 ### Capability API 1.18: keep Experience setup in the Game wizard
 
