@@ -8,7 +8,15 @@ import { isRulesetCatalogAssetPath, RULESET_ASSET_PATH } from "./ruleset.schema.
 export const MAX_RELEASE_NOTE_CHARACTERS = 1000;
 export const MAX_RELEASE_NOTE_VERSIONS = 20;
 
-export const capabilityPackageKindSchema = z.enum(["agent", "maps", "conversation-calls", "turn-game", "ruleset"]);
+export const capabilityPackageKindSchema = z.enum([
+  "agent",
+  "maps",
+  "conversation-calls",
+  "turn-game",
+  "ruleset",
+  // A data-only Experience (Capability API 1.382): Game Mode's own view plays it; it carries no code.
+  "experience",
+]);
 export const capabilityPermissionSchema = z.enum([
   "achievements",
   "agent-runtime",
@@ -24,6 +32,10 @@ export const capabilityPermissionSchema = z.enum([
   "tools",
   "ui",
 ]);
+
+/** What a data-only Experience (Capability API 1.382) may hold: pictures, music and data, nothing that runs.
+ *  The same list as the Experience file's (features/world/experience-file.ts). */
+const DATA_ONLY_EXPERIENCE_FILE = /\.(?:png|jpe?g|gif|webp|ogg|mp3|wav|json)$/iu;
 
 /** The largest audio file a package may ship as an asset (Capability API 1.353). */
 export const CAPABILITY_AUDIO_ASSET_MAX_BYTES = 16 * 1024 * 1024;
@@ -1442,7 +1454,10 @@ const capabilityPackageManifestBaseSchema = z
 //        it from a party level up (`levels`), the level read off the Experience's companion sheets' fields.
 // 1.381: an Experience's GM setup values (`contributions.gameSurface.setup.defaults`), filled into the Game
 //        wizard when it is picked, with its own intro (locked or not) beside a story's.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 381 } as const);
+// 1.382: a data-only Experience (`kind: ["experience"]`): no entrypoints, permissions or code, only
+//        pictures, music and data; Game Mode's own view plays it. Shared as one `.experience.json` file
+//        (features/world/experience-file.ts) the user reviews before it is imported.
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 382 } as const);
 
 const capabilityApiVersionSchema = z
   .object({
@@ -1706,10 +1721,43 @@ export const capabilityPackageManifestSchema = z
         });
       }
     }
+    // A data-only Experience (1.382): Game Mode's own view plays it, so it has nothing to run and may hold
+    // nothing that could. Everything else about it is an Experience package's as before.
+    if (manifest.kind.includes("experience")) {
+      const issue = (path: Array<string | number>, message: string) =>
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path, message });
+      const api = manifest.schemaVersion === 2 ? manifest.capabilityApi : null;
+      if (!api || api.major !== 1 || api.minor < 382) {
+        issue(["kind"], "A data-only Experience requires schemaVersion 2 and capabilityApi 1.382 or newer");
+      }
+      if (manifest.kind.length !== 1) issue(["kind"], "A data-only Experience is an Experience and nothing else");
+      for (const [key, value] of Object.entries(manifest.entrypoints)) {
+        if (value !== undefined) issue(["entrypoints", key], "A data-only Experience carries no code");
+      }
+      if (manifest.permissions.length) issue(["permissions"], "A data-only Experience asks for no permissions");
+      if (manifest.restartRequired) issue(["restartRequired"], "A data-only Experience never needs a restart");
+      const slots = manifest.contributions?.slots ?? [];
+      if (slots.length !== 1 || slots[0] !== "game-surface") {
+        issue(["contributions", "slots"], 'A data-only Experience fills the "game-surface" slot and nothing else');
+      }
+      if (manifest.contributions?.gameSurface?.prepareBeforeStart) {
+        issue(["contributions", "gameSurface", "prepareBeforeStart"], "A data-only Experience has nothing to prepare");
+      }
+      manifest.files.forEach((file, index) => {
+        if (!DATA_ONLY_EXPERIENCE_FILE.test(file.path)) {
+          issue(["files", index, "path"], `${file.path} is not a picture, music or data file`);
+        }
+      });
+    }
     // A game-surface package draws the whole mode from its client bundle: without a client entrypoint the
     // module loader skips it, so it would be offered in the setup wizard and then render nothing. Caught
-    // here so it fails at install with a clear reason rather than as an empty screen later.
-    if (manifest.contributions?.slots?.includes("game-surface") && !manifest.entrypoints.client?.trim()) {
+    // here so it fails at install with a clear reason rather than as an empty screen later. A data-only
+    // Experience (1.382) is the one game surface Game Mode draws itself.
+    if (
+      manifest.contributions?.slots?.includes("game-surface") &&
+      !manifest.kind.includes("experience") &&
+      !manifest.entrypoints.client?.trim()
+    ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["entrypoints", "client"],

@@ -1514,6 +1514,47 @@ setup sends. The game keeps the intro as it was when the game began (`chat.metad
 It is read before the story's own `intro`. A setup-file import keeps its own values, and turning the
 Experience off leaves the filled values as they are.
 
+### Capability API 1.382: Experience files
+
+An Experience that holds only pictures, music and data can travel as one `<id>.experience.json` file
+instead of a package zip. Players import it from the Game wizard's Experiences section with
+**Import an Experience file**; it needs no agents catalog.
+
+Its manifest has `"kind": ["experience"]` and nothing else in `kind`, needs `capabilityApi` 1.382 or newer,
+and carries no code: `entrypoints` is `{}`, `permissions` is empty, there is no `restartRequired` or
+`prepareBeforeStart`, and `contributions.slots` is exactly `["game-surface"]`. Every file in `files` is
+`.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`, `.ogg`, `.mp3`, `.wav` or `.json`. The game surface draws
+nothing of its own; the Experience works through its `gameSurface` contributions (setup, maps, worlds,
+creature packs, music).
+
+The file is JSON with its keys in this order:
+
+```json
+{"format":"marinara-experience","version":1,
+"manifest":{ ... },
+"files":{
+"art/portrait.png":"iVBORw0KGgo...",
+"music/theme.ogg":"T2dnUwAC..."
+}}
+```
+
+- `manifest` is the package manifest as above, at most 1 MB, and comes before any file.
+- `files` maps each path in the manifest's `files` to its bytes in standard base64 (padding only at its end,
+  no whitespace or line breaks inside it). Every listed file appears exactly once, and nothing else does.
+- Paths are written without escapes.
+
+Before anything is sent, the wizard reads only the start of the file, up to the end of its manifest, and
+shows a review: the name, version and description, the import size, how much of it is pictures, music and
+data, and Import and Don't Import. Import sends the file to `POST /api/capability-packages/experience-file`
+(content type `application/vnd.marinara.experience+json`). The server reads it as it arrives, writes each
+file to a temporary folder, and checks its size and `sha256` against the manifest. A file that does not
+match, a missing or extra file, a cut-off file or an older version than the one installed is refused, and
+nothing it wrote is kept. A newer version replaces the installed one, as a catalog update does. An
+Experience file cannot replace a package of another kind with the same id.
+
+Pixelforge 0.45.0 exports an Experience as this file, and still writes a package zip for an agents
+catalog.
+
 ### Capability API 1.18: keep Experience setup in the Game wizard
 
 A `game-surface` package can declare `contributions.gameSurface.setup` with schema
