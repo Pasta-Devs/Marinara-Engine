@@ -653,3 +653,20 @@ Cycle precedent for #7604 and #7595 (`appearance/appearance-settings.md`, `appea
 | older context is cut off (Maximum allowed context) | 较早的上下文会被截断 | Same 截断 as the automatic cutoff in **While chatting**. |
 
 These are translation choices, not a new native-reader review.
+
+## Character recollections (2026-10-14)
+
+Cycle precedent for #7605 (`agents/memory.md`: the new Character recollections section and the Setup priority sentence that links to it). None of the `chat.advancedMemory.characterRecollections`, `recollections.*`, `stage.recollecting` or `manual` keys has a zh-Hans string, so these labels render in English.
+
+| English | Rendering | Note |
+| --- | --- | --- |
+| recollection / character recollections | 回想 / 角色回想 | Never 回忆, which `agents/memory.md` already uses for *recall* (普通回忆, 回忆记录), nor 记忆, the memory feature itself. The only other 回想 in the pack is the plain verb in `agents/custom-agents.md:35`. |
+| Character recollections (the switch, and the section in **Access memories for this chat**) | **Character recollections**(角色回想) | Glossed once. Heading `### 角色回想` with the pack's `<a id="character-recollections"></a>` anchor; the Setup link reads 开启时的[角色回想](#character-recollections). |
+| personal recollections | — | Only inside the inline-code prompt line `` `Kaito's personal recollections from this scene: *…*` ``, which stays English. |
+| Writing character recollections (progress stage) | 正在撰写角色回想 | A stage label, glossed like other progress labels (§5.2.d). |
+| Manually edited | 已手动编辑 | Follows the file's 手动编辑过的摘要. |
+| Prepare (short for the memory preparation action) | 准备 | As in **Prepare existing history**(准备现有历史). |
+| the four-word copy check | 连续照抄了四个词 | Prose, not a label; a dropped recollection is 舍弃. |
+| knowledge start | 知识范围起点 | Follows the file's 知识范围 for "knowledge range". |
+
+These are translation choices, not a new native-reader review.

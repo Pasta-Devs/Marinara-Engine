@@ -538,3 +538,22 @@ Choices from the #7604 and #7595 sync (`appearance/appearance-settings.md`, `app
 | excerpt (Advanced Memory) | 抜粋, defined as 呼び出したシーンのメッセージをそのまま抜き出したもの |
 
 These are translation choices, not a new native-reader review.
+
+## Character recollections (2026-10-14)
+
+Choices from the #7605 sync (`agents/memory.md`). `ja.json` has no recollection strings, so the gloss is coined here.
+
+| English | Translation |
+| --- | --- |
+| character recollection(s) | 回想. The switch is **Character recollections**(キャラクターの回想), and the setup sentence's link text is キャラクターの回想. 記憶 stays the word for the memory feature and for recalled memories (§3), so it is not used for a recollection. In `roleplay/scenes.md:7` and `roleplay/getting-started.md:156`, 回想 means a flashback scene, which is a different sense |
+| personal recollections | The prompt line `Kaito's personal recollections from this scene: *…*` stays English in its code span. In prose, a character's own recollection is 自分の回想 |
+| `### Character recollections` (heading) | Stays English, because it names the switch (the UI-surface heading rule, like **Quick answers in Search**). Its anchor stays `#character-recollections`, so it needs no `<a id>` |
+| copy check (four words in a row) | 照合. The prose is 4語続けて写した回想 |
+| knowledge start | 知識範囲の始まり, after 知識範囲 for a knowledge range |
+| first person | 一人称 |
+| the Helper's room for the scene | 補助モデルがそのシーンに使える容量 |
+| merged reply | まとめた返信, after まとめて返信するグループチャット |
+| **Prepare** | **Prepare**(準備), after **Prepare existing history**(既存履歴を準備) |
+| **Writing character recollections**, **Manually edited** | App status strings (a progress stage and a badge), so they stay unglossed |
+
+Labels already glossed earlier in the file get their gloss again at their first mention in this section, following the once-per-section rule: **Narrator**(ナレーター), **Decide who sees new messages**(新しいメッセージを見られる相手を決める), **Hide from AI**(AIから隠す), **Resume**(再開), **Summary and recall budget**(要約と呼び出しの予算), **Re-scan scenes**(シーンを再スキャン). These are translation choices, not a new native-reader review.

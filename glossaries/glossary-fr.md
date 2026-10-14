@@ -461,3 +461,15 @@ Precedent from the #7604 / #7595 mirror (`appearance/appearance-settings.md`, `a
 - The Session window's **Journal** tab is **l'onglet Journal** in prose, so it does not read as one of *les journaux* (table in `appearance/custom-css-themes.md`, "Habiller les messages, les champs de saisie et les contrôles du chat").
 - Game dialogs (interrupt, end session, JSON repair, widget editors) are **les boîtes de dialogue**, the pack's term for modal dialogs; the narration box keeps *la boîte de dialogue Game*. Combat panels are **les panneaux de combat**, Game choices **les choix**, and the Inventory panel is **l'inventaire** in prose (the widget label **Inventory** stays English).
 - Advanced Memory setup: context that is cut off is **coupé**; an excerpt stays **un extrait**; the recall pool is *les souvenirs qui peuvent être rappelés*. Percentages in `agents/memory.md` keep that file's unspaced form (`70%`, `10%`).
+
+## Character recollections (2026-10-14)
+
+Precedent from the #7605 mirror (`agents/memory.md`: the new section `### Souvenirs personnels des personnages` and the Setup priority sentence):
+
+- A character recollection is **le souvenir personnel** (pl. *les souvenirs personnels*), always with *personnel*. Bare *souvenir* stays the generic Advanced Memory "memory" (*les souvenirs qui peuvent être rappelés*, **Access memories for this chat**), and the qualifier keeps the two apart. It also matches the "personal recollections" of the prompt line. Inside one bullet that has already named it, a back-reference may drop the qualifier (*un souvenir généré est réécrit*).
+- The setting **Character recollections** is glossed once as *(souvenirs personnels des personnages)*. The section heading and the Setup link text use the same words.
+- The translated heading follows the file's `<a id="fixing-memory-problems"></a>` pattern: `<a id="character-recollections"></a>`, a blank line, then `### Souvenirs personnels des personnages`. The English same-file link `(#character-recollections)` stays byte-identical and still resolves.
+- The four-word copy check is described rather than named: a recollection *recopie quatre mots d'affilée* and *est écarté*. If a later source names it, call it **la vérification de recopie**, parallel to *la vérification de scène*.
+- The prompt-line example `Kaito's personal recollections from this scene: *…*` stays an English code span.
+- **Writing character recollections** (progress) and **Manually edited** (badge) are status strings: no gloss (§5.8), and the French sentence carries the meaning (*la progression s'affiche sous le nom **Writing character recollections***, *est marqué **Manually edited***). The new bare button **Prepare** is glossed *(préparer)*.
+- Other renderings: "knowledge start" *le début de sa plage de connaissance*; "the Helper's room for the scene" *la place dont le modèle auxiliaire dispose pour la scène*; "recollection run" *le traitement des souvenirs personnels*; "out of date" *périmés*; "left out of prompts" *restent hors des prompts*; "never cut short" *jamais tronqué*; "the model is told to" *le modèle a pour consigne de* (guidance sense of `consigne`, §3.1).

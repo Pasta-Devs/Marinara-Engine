@@ -787,3 +787,16 @@ Precedents from the #7604 and #7595 sync (`appearance/appearance-settings.md`, `
 - Advanced Memory: older context is **काट दिया जाता है**; memories that can be recalled are **यादें जिन्हें रिकॉल किया जा सकता है**; an excerpt is **अंश**, defined as the recalled scene's **हूबहू संदेश**. "Maximum allowed context" in prose is **अधिकतम कॉन्टेक्स्ट**, matching the label's gloss.
 
 These are translation choices, not a new native-reader review.
+
+## Character recollections (2026-10-14)
+
+Precedents from the #7605 sync (`agents/memory.md`):
+
+- A character recollection is **निजी याद**, plural **निजी यादें** (feminine: `निजी याद … दोबारा लिखी जाती है`). The **Character recollections** switch is glossed **(कैरेक्टर की निजी यादें)**, and the setup sentence's link text uses the same words. EN's "personal recollections" is also **निजी यादें**. Bare याद/यादें stays the word for any recalled memory (§3), so निजी marks a character's own memory. Avoid स्मृति, संस्मरण and a loaned रिकलेक्शन.
+- The heading `### Character recollections` stays English because it is also the switch's name, like `## Quick answers in Search`. Its GitHub anchor stays `#character-recollections`, so it needs no `<a id>`.
+- The four-word copy check is **नकल की जाँच**. "Copies four words in a row" is `लगातार चार शब्द हूबहू उतारती है`.
+- A character's knowledge start is **जानकारी सीमा की शुरुआत**, after the file's **जानकारी सीमा** for a knowledge range. "First person, in their own voice" is `अपनी आवाज़ में "मैं" के रूप में`, with no grammar term (उत्तम पुरुष) and no loan.
+- An out-of-date recollection **पुरानी हो जाती है**. "The Helper's room for the scene" is `सीन के लिए सहायक मॉडल के पास मौजूद जगह`. "Generated" is spelled **जेनरेट** (the pack majority: 227 against 41 for जनरेट).
+- New gloss **Prepare** (तैयार करें), after **Prepare existing history** (मौजूदा इतिहास तैयार करें). **Writing character recollections** (a progress stage) and **Manually edited** (a badge) are app status strings, so they stay unglossed (Pattern B).
+
+These are translation choices, not a new native-reader review.

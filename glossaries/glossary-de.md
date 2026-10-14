@@ -751,3 +751,39 @@ Cycle precedent for the #7604 and #7595 sync (`appearance/appearance-settings.md
   that Setup list are unswept residuals (R4). The sentence after the new one says
   „dieses Budgets“ instead of „davon“, because the inserted sentence would otherwise
   make „davon“ point to the maximum context.
+
+## Character recollections (2026-10-14)
+
+Cycle precedent for the #7605 sync (`agents/memory.md`: the new section
+„### Charaktererinnerungen“ and the Setup priority sentence):
+
+- A *character recollection* is **die Charaktererinnerung**, pl.
+  **Charaktererinnerungen**: a closed native compound like `Charakterkarte` (§6),
+  used for every mention, so one search finds the feature. Bare **Erinnerung**
+  stays the generic Advanced Memory memory („Erinnerungen, die abgerufen werden
+  können“, „die Erinnerung eines Charakters“ in the access paragraphs). Only the
+  section's first bullet says „eine kurze Erinnerung daran“, where it defines the
+  term. The prompt line `Kaito's personal recollections from this scene: *…*` stays
+  an English code span; *personal recollections* needs no second German term.
+- The setting **Character recollections** is glossed once *(Charaktererinnerungen)*;
+  the later mention (the scene's section in **Access memories for this chat**) stays
+  bare. Heading and Setup link text use the same word.
+- The translated heading follows the file's `<a id="fixing-memory-problems"></a>`
+  pattern: `<a id="character-recollections"></a>`, a blank line, then the heading, so
+  the English same-file link `(#character-recollections)` stays byte-identical and
+  resolves (§6).
+- The four-word copy check is described, not named: a recollection „übernimmt vier
+  Wörter am Stück“ and „wird weggelassen“. No noun was coined for it.
+- *In the first person and in their own voice* is „in der Ich-Form und in seinem
+  eigenen Tonfall“. Not *Stimme*, which this pack spends on the TTS voice
+  (`media/tts-setup.md`, the **Voice** tab).
+- **Writing character recollections** (progress) and **Manually edited** (badge) are
+  app-rendered statuses and stay unglossed (§3.3). The new bare button **Prepare** is
+  glossed *(Vorbereiten)*; **Resume** and **Re-scan scenes** keep their earlier
+  glosses in the file.
+- Other renderings: *knowledge start* „der Beginn seines Wissensbereichs“ (cf.
+  „Wissensbereiche“ in the same file); *the Helper's room for the scene* „der Platz,
+  den der Helfer für die Szene hat“ (**der Helfer**, as in the Fix section); the
+  *recollection run* „der Durchgang für Charaktererinnerungen“; *out of date*
+  „veraltet“; *left out of prompts* „bleibt aus den Prompts heraus“; *never cut short*
+  „wird nie gekürzt“; *the model is told to* „das Modell wird angewiesen“.
