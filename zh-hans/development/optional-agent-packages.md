@@ -526,6 +526,12 @@ API 1.26 添加可选 `combat`，定义掷骰、目标、行动预算、攻击�
 
 游戏在 `chat.metadata.gameRuleset` 中保存一次选择。没有绑定时继续使用旧规则。包缺失或定义版本过旧时，规则集不可用，不会换成其他规则。绑定同时检查规则集 ID 和提供包，防止另一个包用相同 ID 接管游戏。
 
+### Capability API 1.73：虚拟形象智能体
+
+Engine 托管两个虚拟形象智能体：`2d-avatars`(PNGTuber 立绘和网格虚拟形象) 和 `3d-avatars`(VRM 模型)。它们的包保持精简，各自只有一份智能体定义、默认提示词、本地化文本和目录条目。其余部分都归 Engine 所有：`DATA_DIR/avatar-models/` 下按所有者划分的存储、导入、懒加载的渲染器、各智能体在智能体编辑器页面上的设置、流式指挥器（stream director）、表情分类器和生成路由。共享契约是 `packages/shared/src/types/avatars.ts`(其结构定义在 `schemas/avatars.schema.ts` 中)，客户端那一半是 `packages/client/src/features/avatars/contract.ts`。用户指南是 [`docs/agents/avatars.md`](../agents/avatars.md)。
+
+没有新增清单字段。虚拟形象包声明架构版本 2 和 Capability API 1.73，因此缺少这些宿主接口的 Engine 会拒绝安装，而不会列出一个什么都不显示的智能体。引入 1.73 的那次改动只把这些接口作为不起作用的占位实现发布，所以要等 Engine 的设置界面、舞台和至少一个渲染器都进入 `staging` 之后，这些包才会发布，即使是发布到预览目录也一样。2D 智能体的生成提示词作为 `defaultSettings` 中的 `avatarGenerationTemplates` 提示词模板集合发布，其 ID 列在 `AVATAR_PROMPT_TEMPLATE_IDS` 中；智能体编辑器会像处理其他内置模板集合一样合并和重置它们。
+
 ### Capability API 1.18：在 Game 向导中保留 Experience 设置
 
 `game-surface` 包可以使用架构版本 2 和 Capability API 1.18 声明 `contributions.gameSurface.setup`。Engine 保留通常的七个设置步骤，包括 **Party**(队伍)、目标、模型和世界书。只有新游戏提供 Experiences；重新打开已有游戏的设置会保留其 Experience 和包配置。没有此声明的包继续使用原有设置对话框。

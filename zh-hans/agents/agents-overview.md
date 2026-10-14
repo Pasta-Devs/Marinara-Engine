@@ -98,6 +98,7 @@ Marinara 会先征求你的同意，再更新包。你安装的包出现兼容�
 ## 相关指南
 
 - [可下载智能体参考](built-in-agents.md)
+- [2D 和 3D 虚拟形象](avatars.md)
 - [Marinara Agents 官方仓库](https://github.com/Pasta-Devs/Marinara-Agents)
 - [创建自定义智能体](custom-agents.md)
 - [智能体审批与 Agent Suite](approvals-and-agent-suite.md)

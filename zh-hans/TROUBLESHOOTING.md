@@ -271,6 +271,7 @@ Game Mode 分镜会把一段完整的 GM 叙述变成关键帧图像和可选的
 - 关键帧图像需要图像连接。短片还额外需要视频连接。
 - 如果自定义提示词在所有角色合并处理时效果更好，把 **Use NovelAI Character Prompts** 关掉。
 - 服务商太慢会超时。在 `.env` 里调大 `IMAGE_GEN_TIMEOUT_MS` 或 `VIDEO_GEN_TIMEOUT_MS`，然后重启 Marinara。服务器只在启动时读取这两个值。
+- 默认情况下，图像服务商的响应超过 30 MiB 时会失败，报错 `Outbound response exceeded 31457280 bytes`。本地 ComfyUI 的输出文件如果把工作流和参考图作为元数据嵌进去，就可能达到这个大小。在 `.env` 里调大 `IMAGE_GEN_MAX_RESPONSE_BYTES` 并重启 Marinara，或者在 ComfyUI 里关闭元数据。
 
 两种工作流见 [Storyboard 智能体指南](game/storyboard.md)，游戏本身的配置见 [Game Mode：入门](game/getting-started.md)。
 
@@ -348,6 +349,12 @@ Docker 和 Podman 将数据保存在 `marinara-data` 卷中，因此请在一次
 ### 备份或导出返回 403
 
 环回会话不用管理员密钥就能做备份。但从其他设备、网络地址或 Docker 访问时，备份和档案导出需要额外授权。在服务器上设置 `ADMIN_SECRET`，并把同一个值保存到 **Settings** > **Advanced** > **Admin Access**。如果希望环回访问也必须提供密钥，设置 `MARINARA_REQUIRE_ADMIN_SECRET_ON_LOOPBACK=true`。
+
+### 导入时提示文件不是可读的 ZIP 压缩包
+
+Marinara 把 `.charx` 角色卡、`.marinara` 包、智能体包和自定义智能体仓库都当作 ZIP 压缩包读取。压缩包损坏，或者内容与它自己的文件列表对不上时，Marinara 会拒绝读取，并显示 **The file is not a readable ZIP archive**；如果是 `.marinara` 包，则显示 **Could not read .marinara package**。最常见的原因是文件没下载完整，重新下载一次即可。如果压缩包是你自己做的，请用标准工具重新创建，比如系统自带的压缩功能、`zip` 或 7-Zip。传输过程中在压缩包末尾多出的零填充或换行符不影响读取。
+
+**Package contains too many files** 表示智能体包或自定义仓库里的文件超过 8,192 个。**.marinara package has too many entries** 表示 `.marinara` 包里的文件超过 8 个。这些限制不是新加的。删掉多余的文件后再试。
 
 ## Android 和 Docker
 
