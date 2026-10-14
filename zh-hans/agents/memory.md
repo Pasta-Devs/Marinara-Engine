@@ -43,7 +43,9 @@ Memory Recall 需要一个嵌入来源来生成这些含义指纹。它配置在
 
 有些服务商不提供嵌入。这种情况下 Marinara 会提示另选一个专门的嵌入连接，比如 OpenAI 兼容连接、Google 或 Local Model。
 
-完全没有配置嵌入连接时，Marinara 会退回内置的本地嵌入模型。这个模型只下载一次，之后在自己的机器上运行，不需要 API 密钥。内置模型的更多说明见[本地模型设置](../connections/local-model.md)。
+想在所有地方都用同一个嵌入来源，就在 **Connections** > **Connection defaults**(默认连接)的 **Embeddings** 里选它。没有自己设置嵌入模型或 **Embedding Connection** 的连接会使用它，连接自己的设置仍然优先。
+
+既没有配置嵌入连接、也没有 **Embeddings** 默认值时，Marinara 会退回内置的本地嵌入模型。这个模型只下载一次，之后在自己的机器上运行，不需要 API 密钥。内置模型的更多说明见[本地模型设置](../connections/local-model.md)。
 
 同一处 **Semantic Search (Embeddings)** 设置也驱动世界书的语义搜索，配置一次两个功能都受益。
 

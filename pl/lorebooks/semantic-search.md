@@ -18,6 +18,8 @@ Dopasowania po słowach kluczowych i dopasowania semantyczne mają równy priory
 
 Wyszukiwanie semantyczne potrzebuje modelu, który potrafi tworzyć embeddingi. Są dwie możliwości.
 
+Niezależnie od wyboru możesz ustawić to źródło jako domyślne w całej aplikacji: otwórz **Connections** (połączenia), potem **Connection defaults** (domyślne połączenia) i wybierz je w polu **Embeddings**. Każde połączenie, które nie ma własnego modelu embeddingów ani własnego pola **Embedding Connection**, korzysta wtedy z tego ustawienia. Własne ustawienie połączenia nadal ma pierwszeństwo, a wiersz pokazuje, ile połączeń używa własnych ustawień. **None** zostawia wbudowany model lokalny jako rozwiązanie zapasowe.
+
 Opcja 1: połączenie z modelem embeddingów.
 
 1. Otwórz panel **Connections** (Połączenia).
@@ -95,7 +97,7 @@ Po zmianie modelu embeddingów przebuduj każdy wektor. Użyj przycisku **Re-vec
 
 Po zmianie modelu nie uruchamiaj samej częściowej wektoryzacji. Jeśli przetwarzanie w trybie "tylko brakujące" zwróci inny rozmiar wektora niż zapisane wektory, serwer je odrzuca i pokazuje komunikat: "Embedding dimensions changed. Use Re-vectorize all entries instead of only missing entries before switching embedding models."
 
-Warto znać jeszcze jeden cichy tryb awarii. Podczas czatu Marinara tworzy embedding ostatnich wiadomości modelem zapytań. Model zapytań to model embeddingów ustawiony w aktywnym połączeniu. Jeśli połączenie go nie ma, Marinara sięga po wbudowany model lokalny. Model zapytań może dawać inny rozmiar wektora niż model, którym zwektoryzowano wpisy. Marinara pomija wtedy takie wpisy przy dopasowaniu semantycznym. Nie widać żadnego błędu. Dlatego wektoryzuj wpisy tym samym źródłem embeddingów, którego używasz podczas czatu. Po każdej zmianie modelu powtórz wektoryzację.
+Warto znać jeszcze jeden cichy tryb awarii. Podczas czatu Marinara tworzy embedding ostatnich wiadomości modelem zapytań. Model zapytań to model embeddingów ustawiony w aktywnym połączeniu albo model z pola **Embedding Connection**, jeśli je ustawiono. Jeśli połączenie nie ma żadnego z nich, Marinara używa domyślnego ustawienia **Embeddings** z **Connection defaults**, a gdy jest tam **None**, wbudowanego modelu lokalnego. Model zapytań może dawać inny rozmiar wektora niż model, którym zwektoryzowano wpisy. Marinara pomija wtedy takie wpisy przy dopasowaniu semantycznym. Nie widać żadnego błędu. Dlatego wektoryzuj wpisy tym samym źródłem embeddingów, którego używasz podczas czatu. Pomaga ustawienie domyślne **Embeddings**: lista wektoryzacji zaczyna od niego, o ile wcześniej nie wybrano czegoś innego, a połączenia bez własnych ustawień embeddingów odpytują właśnie nim. Po każdej zmianie modelu powtórz wektoryzację.
 
 ## Jak to zasila agenta Knowledge Router
 

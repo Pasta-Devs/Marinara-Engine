@@ -43,7 +43,9 @@ Do budowania odcisków palca znaczenia sekcja **Memory Recall** potrzebuje źró
 
 Część dostawców nie udostępnia embeddingów. Wtedy Marinara pokazuje uwagę z prośbą o wskazanie osobnego połączenia do embeddingów, na przykład zgodnego z OpenAI, połączenia Google albo **Local Model**.
 
-Jeśli nie zostanie ustawione żadne połączenie do embeddingów, Marinara przechodzi na wbudowany, lokalny model embeddingów. Pobiera go jeden raz i uruchamia na twoim komputerze, bez żadnego klucza API. Więcej o wbudowanym modelu znajdziesz w przewodniku [Konfiguracja modelu Local Model](../connections/local-model.md).
+Jeśli chcesz używać jednego źródła embeddingów wszędzie, wybierz je w polu **Embeddings** w **Connections** > **Connection defaults** (domyślne połączenia). Połączenia bez własnego modelu embeddingów ani pola **Embedding Connection** korzystają wtedy z niego, a własne ustawienie połączenia nadal ma pierwszeństwo.
+
+Jeśli nie zostanie ustawione żadne połączenie do embeddingów ani domyślne ustawienie **Embeddings**, Marinara przechodzi na wbudowany, lokalny model embeddingów. Pobiera go jeden raz i uruchamia na twoim komputerze, bez żadnego klucza API. Więcej o wbudowanym modelu znajdziesz w przewodniku [Konfiguracja modelu Local Model](../connections/local-model.md).
 
 To samo ustawienie **Semantic Search (Embeddings)** napędza też wyszukiwanie semantyczne w lorebookach, więc jedna konfiguracja obsługuje obie funkcje.
 

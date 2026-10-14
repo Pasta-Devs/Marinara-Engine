@@ -18,6 +18,8 @@ As correspondências por palavra-chave e por sentido têm a mesma prioridade qua
 
 A busca semântica precisa de um modelo capaz de criar embeddings. Você tem duas opções.
 
+Seja qual for a sua escolha, você pode torná-la o padrão de todo o aplicativo: abra **Connections** (Conexões), depois **Connection defaults** (conexões padrão) e escolha-a em **Embeddings**. Toda conexão que não defina um modelo de embeddings nem uma **Embedding Connection** própria passa a usá-la. A configuração própria de uma conexão continua tendo prioridade, e a linha mostra quantas conexões usam as próprias configurações. **None** mantém o modelo local integrado como alternativa.
+
 Opção 1: uma conexão com um modelo de embeddings.
 
 1. Abra o painel **Connections** (Conexões).
@@ -95,7 +97,7 @@ Reconstrua todos os vetores depois de trocar o modelo de embeddings. Use **Re-ve
 
 Não faça só uma vetorização parcial depois de trocar de modelo. Se uma execução do tipo "missing only" devolver um tamanho de vetor diferente do que está salvo, o servidor recusa a operação com esta mensagem: "Embedding dimensions changed. Use Re-vectorize all entries instead of only missing entries before switching embedding models."
 
-Existe uma falha silenciosa que vale a pena conhecer. Durante o chat, Marinara gera o embedding das mensagens recentes com um modelo de consulta. Esse modelo de consulta é o modelo de embeddings da própria conexão ativa. Se a conexão não tiver nenhum definido, Marinara usa o modelo local integrado. O modelo de consulta pode produzir um tamanho de vetor diferente do modelo que vetorizou as entradas. Nesse caso, Marinara ignora essas entradas na correspondência semântica. Nenhum erro aparece. Para evitar isso, vetorize as entradas com a mesma fonte de embeddings usada durante o chat. Vetorize de novo a cada troca de modelo.
+Existe uma falha silenciosa que vale a pena conhecer. Durante o chat, Marinara gera o embedding das mensagens recentes com um modelo de consulta. Esse modelo de consulta é o modelo de embeddings da própria conexão ativa ou, se ela definir uma, o da sua **Embedding Connection**. Se a conexão não definir nenhum dos dois, Marinara usa o padrão de **Embeddings** em **Connection defaults** ou, quando ele é **None**, o modelo local integrado. O modelo de consulta pode produzir um tamanho de vetor diferente do modelo que vetorizou as entradas. Nesse caso, Marinara ignora essas entradas na correspondência semântica. Nenhum erro aparece. Para evitar isso, vetorize as entradas com a mesma fonte de embeddings usada durante o chat. Definir um padrão de **Embeddings** ajuda: o seletor de vetorização começa nele, a menos que você tenha escolhido outra coisa antes, e as conexões sem configurações de embeddings próprias fazem a consulta com ele. Vetorize de novo a cada troca de modelo.
 
 ## Como isso alimenta o agente Knowledge Router
 

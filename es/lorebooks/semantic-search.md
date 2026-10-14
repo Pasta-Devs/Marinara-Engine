@@ -18,6 +18,8 @@ Las coincidencias por palabra clave y las semánticas tienen la misma prioridad 
 
 La búsqueda semántica necesita un modelo que pueda crear embeddings. Tienes dos opciones.
 
+Elijas la que elijas, puedes convertirla en la predeterminada de toda la aplicación: abre **Connections** (Conexiones), luego **Connection defaults** (valores predeterminados de conexión) y elígela en **Embeddings**. Todas las conexiones que no definan un modelo de embeddings ni una **Embedding Connection** propios la usan entonces. El ajuste propio de una conexión sigue teniendo prioridad, y la fila te indica cuántas conexiones usan sus propios ajustes. **None** mantiene el modelo local integrado como alternativa.
+
 Opción 1: una conexión con un modelo de embeddings.
 
 1. Abre el panel **Connections** (Conexiones).
@@ -95,7 +97,7 @@ Reconstruye todos los vectores después de cambiar el modelo de embeddings. Usa 
 
 No ejecutes solo una vectorización parcial después de un cambio de modelo. Si una ejecución de "solo los que faltan" devuelve un tamaño de vector diferente al de los vectores guardados, el servidor la rechaza con este mensaje: "Embedding dimensions changed. Use Re-vectorize all entries instead of only missing entries before switching embedding models." (Las dimensiones del embedding cambiaron. Usa Re-vectorize all entries en lugar de solo las entradas que faltan antes de cambiar de modelo de embeddings.)
 
-Hay un modo de fallo silencioso que conviene conocer. Al momento del chat, Marinara genera el embedding de tus mensajes recientes con un modelo de consulta. El modelo de consulta es el propio modelo de embeddings de la conexión activa. Si la conexión no tiene ninguno configurado, Marinara usa el modelo local integrado. El modelo de consulta puede producir un tamaño de vector diferente al del modelo que vectorizó tus entradas. Entonces Marinara omite esas entradas en la coincidencia semántica. No ves ningún error. Para evitar esto, vectoriza tus entradas con la misma fuente de embeddings que usas durante el chat. Revectoriza después de cualquier cambio de modelo.
+Hay un modo de fallo silencioso que conviene conocer. Al momento del chat, Marinara genera el embedding de tus mensajes recientes con un modelo de consulta. El modelo de consulta es el propio modelo de embeddings de la conexión activa o, si define una, el de su **Embedding Connection**. Si la conexión no define ninguno de los dos, Marinara usa el valor predeterminado de **Embeddings** en **Connection defaults** o, cuando es **None**, el modelo local integrado. El modelo de consulta puede producir un tamaño de vector diferente al del modelo que vectorizó tus entradas. Entonces Marinara omite esas entradas en la coincidencia semántica. No ves ningún error. Para evitar esto, vectoriza tus entradas con la misma fuente de embeddings que usas durante el chat. Definir un valor predeterminado de **Embeddings** ayuda: el selector de vectorización empieza en él, salvo que hayas elegido otra cosa antes, y las conexiones sin ajustes de embeddings propios consultan con él. Revectoriza después de cualquier cambio de modelo.
 
 ## Cómo alimenta al agente Knowledge Router
 

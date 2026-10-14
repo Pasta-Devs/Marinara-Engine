@@ -43,7 +43,9 @@ Für die Bedeutungs-Fingerabdrücke braucht **Memory Recall** eine Embedding-Que
 
 Manche Anbieter bieten gar keine Embeddings an. Dann weist Marinara mit einem Hinweis darauf hin, dass du eine eigene Embedding-Verbindung wählen sollst – etwa eine OpenAI-kompatible, Google oder das Local Model.
 
-Trägst du überhaupt keine Embedding-Verbindung ein, greift Marinara auf ein eingebautes lokales Embedding-Modell zurück. Es lädt dieses Modell einmalig herunter und führt es auf dem eigenen Rechner aus, ganz ohne API-Key. Mehr zum eingebauten Modell steht unter [Local Model einrichten](../connections/local-model.md).
+Wenn du überall dieselbe Embedding-Quelle nutzen willst, wähle sie unter **Embeddings** in **Connections** > **Connection defaults** (Standardverbindungen). Verbindungen ohne eigenes Embedding-Modell oder eigene **Embedding Connection** verwenden sie dann, während die Einstellung einer Verbindung weiterhin Vorrang hat.
+
+Trägst du weder eine Embedding-Verbindung noch einen **Embeddings**-Standard ein, greift Marinara auf ein eingebautes lokales Embedding-Modell zurück. Es lädt dieses Modell einmalig herunter und führt es auf dem eigenen Rechner aus, ganz ohne API-Key. Mehr zum eingebauten Modell steht unter [Local Model einrichten](../connections/local-model.md).
 
 Dieselbe Einstellung **Semantic Search (Embeddings)** treibt auch die semantische Suche in Lorebooks an. Einmal eingerichtet, profitieren also beide Funktionen davon.
 

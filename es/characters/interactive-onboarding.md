@@ -8,6 +8,8 @@ Una persona es el personaje que te representa en un chat. Consulta [Personas de 
 
 Cuando un jugador empieza un chat de Roleplay con la tarjeta, puede elegir **Create your persona** (Crear tu persona), responder a las preguntas y obtener una persona nueva y corriente. Las respuestas se escriben en el texto una sola vez. El resultado es una persona normal que el jugador puede editar, conservar o eliminar como cualquier otra. La tarjeta en sí no cambia.
 
+Una tarjeta también puede hacer **preguntas de personaje**, cuyas respuestas se guardan en ese chat en lugar de en una persona. Consulta [Preguntas de personaje](#character-questions) más abajo.
+
 El onboarding usa la sintaxis de macros existente. No ejecuta ningún script.
 
 ## Configurarlo en tu tarjeta
@@ -20,7 +22,7 @@ Desactivar el interruptor oculta los campos de onboarding, pero conserva lo que 
 
 ### Añadir preguntas
 
-En **Onboarding Questions** (Preguntas de onboarding), haz clic en **Add Question** (Añadir pregunta). Cada pregunta funciona como una variable de preset. Consulta [Presets](../prompts/presets.md). Una tarjeta puede tener hasta 100 preguntas.
+En **Persona Questions** (Preguntas de persona), haz clic en **Add Question** (Añadir pregunta). Cada pregunta funciona como una variable de preset. Consulta [Presets](../prompts/presets.md). Una tarjeta puede tener hasta 100 preguntas.
 
 - **Variable Name** es el nombre que usas en los campos, como `faction`. Elige cualquier nombre con letras, números y guiones bajos que empiece por una letra o un guion bajo. Los nombres distinguen mayúsculas de minúsculas: `Gender` y `gender` son distintos.
 - **Question (shown to user)** es lo que lee el jugador. Puede usar respuestas anteriores, como `What does {{player}} look like?`. Aquí `{{char}}` es el nombre de la tarjeta y `{{user}}`, el nombre del jugador.
@@ -33,6 +35,25 @@ En **Onboarding Questions** (Preguntas de onboarding), haz clic en **Add Questio
 Una pregunta llamada `player` establece el nombre de la persona. Si no añades ninguna, primero se pregunta a los jugadores su nombre.
 
 El editor te avisa cuando un nombre está vacío, no es válido, se usa dos veces o ya lo ocupa una macro integrada, y cuando ningún campo usa una pregunta.
+
+<a id="character-questions"></a>
+
+### Preguntas de personaje
+
+Más abajo, en la misma pestaña, hay una segunda lista: **Character Questions** (Preguntas de personaje). Sus preguntas funcionan igual que las de arriba, pero las respuestas se guardan en el **chat**, no en una persona. Escribe el nombre en uno de los campos propios de la tarjeta: **Description**, **Personality**, **Backstory**, **Appearance** o **Scenario**.
+
+```
+{{char}} treats {{relationshipToUser}} with open warmth.
+```
+
+Esos cinco campos son los que lee el modelo, así que son los únicos a los que puede llegar una respuesta de personaje.
+
+Las respuestas se guardan como variables del chat, de modo que la tarjeta lee un valor distinto en cada chat y nunca hace falta editarla. Una pregunta de la tarjeta se hace siempre que la tarjeta está en el chat, tanto si el jugador crea una persona como si no. La ventana muestra una sección **About you** (Sobre ti) solo cuando se está creando una.
+
+Hay dos cosas que conviene saber como autor:
+
+- **Una respuesta que nunca se rellena se queda como etiqueta literal.** Una pregunta de texto libre sin valor predeterminado no recibe un valor inicial, así que un chat iniciado sin el asistente muestra `{{name}}` tal cual. Las preguntas de opción reciben su primera opción como valor inicial, lo que cubre la mayoría de las tarjetas.
+- **Si dos tarjetas de un mismo chat declaran el mismo nombre, comparten un valor.** Un chat guarda una sola respuesta por nombre, así que la última guardada es la que leen ambas tarjetas. La ventana avisa cuando ocurre.
 
 ### Escribir los campos de la persona
 
@@ -58,17 +79,15 @@ Una pregunta que solo aparece dentro de un `{{#if}}` solo se hace cuando esa con
 
 El cuadro **Rendered preview** (Vista previa procesada) de la parte inferior muestra la persona creada a partir de respuestas de ejemplo y enumera las preguntas que se hacen, en orden.
 
-## Crear una persona como jugador
+## Responder las preguntas como jugador
 
 1. Empieza un chat nuevo de Roleplay. En el paso **Persona & Characters** (Persona y personajes), las tarjetas con onboarding muestran un pequeño icono de una silueta con un signo más en la lista de personajes.
-2. Añade el personaje. En la parte superior de **Your Persona** (Tu persona) aparece una fila **Create your persona**, con el nombre de la tarjeta a la que pertenece.
-3. Selecciona esa fila y haz clic en **Next** (Siguiente).
-4. Una ventana **Create your persona** muestra las preguntas de la tarjeta. Las preguntas de seguimiento aparecen en cuanto tus respuestas las hacen pertinentes.
-5. Haz clic en **Create persona** (Crear persona). La persona nueva se guarda y se selecciona para el chat, y el asistente continúa.
+2. Añade el personaje. Para obtener una persona nueva a partir de él, selecciona la fila **Create your persona** en la parte superior de **Your Persona** (Tu persona). Indica el nombre de la tarjeta a la que pertenece. Cualquier otra opción (o **None**) omite la persona y conserva la tuya.
+3. Haz clic en **Next** (Siguiente). La ventana de preguntas se abre siempre que alguna tarjeta del chat tenga preguntas de personaje, tanto si creas una persona como si no.
+4. Responde las preguntas. Primero van las **Character questions** (Preguntas de personaje), con una sección por tarjeta, y luego **About you** cuando se está creando una persona. Las preguntas de seguimiento aparecen en cuanto tus respuestas las hacen pertinentes.
+5. Haz clic en **Create persona** (Crear persona), o en **Save answers** (Guardar respuestas) si no estás creando una. Las respuestas de personaje se guardan en el chat y el asistente continúa.
 
-Si eliges cualquier otra persona o **None** (Ninguna), la opción que dice "Stay anonymous", no se hace ninguna pregunta. **Back** (Atrás) en la ventana de preguntas vuelve al selector de persona. Cada tarjeta con onboarding del chat tiene su propia fila **Create your persona**.
-
-El onboarding se ofrece en el asistente de chat nuevo de Roleplay. Quick Start, la configuración del modo Conversation y empezar un chat directamente desde una tarjeta de personaje todavía no lo ofrecen.
+Las preguntas de onboarding se hacen en el asistente de chat nuevo de Roleplay. Quick Start, la configuración del modo Conversation y empezar un chat directamente desde una tarjeta de personaje todavía no las hacen. Un chat iniciado así rellena igualmente la primera opción de cada pregunta, de modo que `{{relationshipToUser}}` se resuelve en lugar de mostrar la etiqueta. Responder en el asistente sustituye ese valor predeterminado, solo para ese chat.
 
 ## Compartir tarjetas con onboarding
 

@@ -43,7 +43,9 @@ Memory Recall necesita una fuente de embeddings para construir esas huellas de s
 
 Algunos proveedores no ofrecen embeddings. En ese caso, Marinara muestra una nota que te pide elegir una conexión de embeddings dedicada, como una compatible con OpenAI, Google o el Local Model.
 
-Si no defines ninguna conexión de embeddings, Marinara recurre a un modelo de embeddings local integrado. Descarga este modelo una sola vez y lo ejecuta en tu propia computadora, sin necesidad de una API key (clave de API). Para saber más sobre el modelo integrado, consulta [Configuración del Local Model](../connections/local-model.md).
+Para usar una misma fuente de embeddings en todas partes, elígela en **Embeddings**, dentro de **Connections** > **Connection defaults** (valores predeterminados de conexión). Las conexiones sin un modelo de embeddings ni una **Embedding Connection** propios la usan, y el ajuste propio de una conexión sigue teniendo prioridad.
+
+Si no defines ninguna conexión de embeddings ni un valor predeterminado de **Embeddings**, Marinara recurre a un modelo de embeddings local integrado. Descarga este modelo una sola vez y lo ejecuta en tu propia computadora, sin necesidad de una API key (clave de API). Para saber más sobre el modelo integrado, consulta [Configuración del Local Model](../connections/local-model.md).
 
 Este mismo ajuste de **Semantic Search (Embeddings)** también impulsa la búsqueda semántica del Lorebook, así que configurarlo una vez ayuda a ambas funciones.
 
