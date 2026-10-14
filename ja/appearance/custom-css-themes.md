@@ -22,9 +22,11 @@ CSSを書かずに外観を変えるには、**Settings > Appearance > App**(設
 
 チャットのほかの部分にも同じ外観を適用するには、カラーピッカーの下にある3つのスイッチを使ってください。
 
-- **Apply preset font**(プリセットのフォントを適用)は、選んだウィジェットのフォントをメッセージ、入力欄、チャットの操作部品に使います。Game ModeのHUDウィジェット、マップパネル、補足の発言、キャラクターシートも対象です。
-- **Apply preset shape**(プリセットの形を適用)は、選んだ枠の形を、クラシックとビジュアルノベルの両レイアウトのRoleplayメッセージ、Gameの会話ボックス、補足の発言、HUDウィジェット、マップパネル、キャラクターシート、入力欄、操作部品に使います。Conversationメッセージは元の形を保ちます。
+- **Apply preset font**(プリセットのフォントを適用)は、選んだウィジェットのフォントをメッセージ、入力欄、チャットの操作部品に使います。
+- **Apply preset shape**(プリセットの形を適用)は、選んだ枠の形を、クラシックとビジュアルノベルの両レイアウトのRoleplayメッセージ、Gameの会話ボックス、入力欄、操作部品に使います。Conversationメッセージは元の形を保ちます。
 - **Apply preset colors**(プリセットの色を適用)は、ウィジェットの枠線、背景、文字の色をこれらの領域に使います。Conversationメッセージも対象です。独自の色やグラデーションも適用されます。引用符で囲まれたセリフは、キャラクターやペルソナごとのDialogue Highlight Colorを保ちます。
+
+Game Modeでは、補足の発言、HUDウィジェット、マップパネル、キャラクターシート、ログ、インベントリー、戦闘画面のパネル、ダイアログにもこれらのスイッチが適用されます。
 
 各スイッチは最初はオフで、それぞれ独立して動作します。たとえば、通常のチャットの色を保ったままProfessor Mariの書体を使えます。スイッチをオフにすると、該当する部分が通常のチャットの外観に戻ります。別のプリセットを選んでもスイッチの選択は保たれます。Professor Mariに、これらの領域のカスタムテーマを作成してもらうこともできます。
 
@@ -224,6 +226,8 @@ Game controls、Session、Volume、Game Assets、接続したチャット、パ�
 | 部品 | クラス |
 | --- | --- |
 | RoleplayとGameのメッセージボックス、Gameの補足の発言、HUDウィジェット、マップパネル、キャラクターシート、チャット入力欄 | `.mari-chat-style-surface` |
+| Gameのログ、インベントリー、戦闘画面のパネル、選択肢、ダイアログ。パネルには、`logs`、`inventory`、`combat-actions`のように名前を示す`data-game-section`も付きます | `.mari-game-section.mari-chat-style-surface` |
+| Journalなど、ウィンドウ内に表示されるGameの内容。ウィンドウの色に従います | `.mari-game-section` |
 | Conversationメッセージ(フォントと色のみ) | `.mari-chat-style-conversation` |
 | 枠のないConversationメッセージの文字 | `.mari-chat-style-text` |
 | CallsとConversationのグループ操作を含むチャットの操作部品 | `.mari-chat-style-control` |

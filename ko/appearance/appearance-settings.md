@@ -51,7 +51,7 @@
 
 **Button size (px)**(버튼 크기, px)는 Display Size를 바꾸지 않고 이동 가능한 채팅 버튼과 아이콘의 크기를 바꿉니다. 32부터 96픽셀 사이의 값을 입력하세요. 필드를 비우거나 초기화 버튼을 누르면 현재 기본값을 유지합니다. 크기는 모양 환경설정에 저장되며 다른 프리셋을 선택해도 그대로 유지됩니다.
 
-색상 선택기 아래의 **Apply preset font**(프리셋 글꼴 적용), **Apply preset shape**(프리셋 모양 적용), **Apply preset colors**(프리셋 색상 적용)를 켜면 채팅의 나머지 영역도 같은 스타일로 맞출 수 있습니다. 세 스위치는 꺼진 상태로 시작하며 각각 독립적으로 동작합니다. 메시지, 입력란과 채팅 컨트롤에 적용되며, Game Mode의 HUD 위젯, 지도 패널, 부가 발언과 캐릭터 시트도 포함합니다. Conversation 메시지는 선택한 글꼴과 색상을 사용하지만 원래 모양은 유지합니다. 사용자 지정 글꼴, 모양, 색상 선택도 함께 적용됩니다. **Apply preset colors**를 켜도 따옴표 안의 대사는 각 캐릭터나 페르소나에 지정된 Dialogue Highlight Color를 그대로 사용합니다. 예시와 사용자 지정 테마는 [사용자 지정 CSS 테마](custom-css-themes.md#ready-made-chat-window-styles)를 참고하세요.
+색상 선택기 아래의 **Apply preset font**(프리셋 글꼴 적용), **Apply preset shape**(프리셋 모양 적용), **Apply preset colors**(프리셋 색상 적용)를 켜면 채팅의 나머지 영역도 같은 스타일로 맞출 수 있습니다. 세 스위치는 꺼진 상태로 시작하며 각각 독립적으로 동작합니다. 메시지, 입력란과 채팅 컨트롤에 적용됩니다. Game Mode에서는 HUD 위젯, 지도 패널, 부가 발언, 캐릭터 시트, 로그, 인벤토리, 전투 패널과 팝업 창에도 적용됩니다. Conversation 메시지는 선택한 글꼴과 색상을 사용하지만 원래 모양은 유지합니다. 사용자 지정 글꼴, 모양, 색상 선택도 함께 적용됩니다. **Apply preset colors**를 켜도 따옴표 안의 대사는 각 캐릭터나 페르소나에 지정된 Dialogue Highlight Color를 그대로 사용합니다. 예시와 사용자 지정 테마는 [사용자 지정 CSS 테마](custom-css-themes.md#ready-made-chat-window-styles)를 참고하세요.
 
 ## 사용자 지정 마우스 포인터
 

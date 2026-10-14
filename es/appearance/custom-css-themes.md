@@ -22,9 +22,11 @@ Usa **Reset color** junto a un control para volver a los colores claros u oscuro
 
 Para llevar este aspecto al resto del chat, usa los tres interruptores debajo de los selectores de color:
 
-- **Apply preset font** (Aplicar fuente del preset) usa la fuente elegida para los widgets en los mensajes, los campos de entrada y los controles del chat, incluidos los widgets del HUD, el panel del mapa, los comentarios al margen y las fichas de personaje de Game Mode.
-- **Apply preset shape** (Aplicar forma del preset) usa la forma de marco elegida en los mensajes de Roleplay con diseño clásico o de novela visual, el cuadro de diálogo de Game, los comentarios al margen, los widgets del HUD, el panel del mapa, las fichas de personaje, los campos de entrada y los controles. Los mensajes de Conversation conservan su propia forma.
+- **Apply preset font** (Aplicar fuente del preset) usa la fuente elegida para los widgets en los mensajes, los campos de entrada y los controles del chat.
+- **Apply preset shape** (Aplicar forma del preset) usa la forma de marco elegida en los mensajes de Roleplay con diseño clásico o de novela visual, el cuadro de diálogo de Game, los campos de entrada y los controles. Los mensajes de Conversation conservan su propia forma.
 - **Apply preset colors** (Aplicar colores del preset) usa los colores del borde, el fondo y el texto del widget en esas áreas, incluidos los mensajes de Conversation. También se aplican tus colores y degradados personalizados. El diálogo entrecomillado conserva el Dialogue Highlight Color propio de cada personaje o persona.
+
+En Game Mode, los interruptores también se aplican a los comentarios al margen, los widgets del HUD, el panel del mapa, las fichas de personaje, los registros, el inventario, los paneles de combate y los cuadros de diálogo.
 
 Cada interruptor empieza desactivado y funciona de forma independiente. Por ejemplo, puedes usar las letras de Professor Mari y conservar los colores habituales del chat. Desactivar un interruptor restaura esa parte del estilo habitual del chat. Elegir otro preset conserva tus elecciones de los interruptores. Professor Mari también puede crear temas personalizados para estas áreas.
 
@@ -223,6 +225,8 @@ Los tres interruptores **Apply preset** también permiten que un tema personaliz
 | Parte | Clase |
 | --- | --- |
 | Cuadros de mensajes de Roleplay y Game, comentarios al margen de Game, widgets del HUD, panel del mapa y fichas de personaje, y campos de entrada del chat | `.mari-chat-style-surface` |
+| Registros, inventario, paneles de combate, elecciones y cuadros de diálogo de Game; los paneles también tienen `data-game-section` con su nombre, como `logs`, `inventory` o `combat-actions` | `.mari-game-section.mari-chat-style-surface` |
+| Contenido de Game dentro de una ventana, como el Journal, que sigue los colores de la ventana | `.mari-game-section` |
 | Mensajes de Conversation (solo fuente y colores) | `.mari-chat-style-conversation` |
 | Texto de mensajes de Conversation sin recuadro | `.mari-chat-style-text` |
 | Controles del chat, incluidos Calls y los controles de grupo de Conversation | `.mari-chat-style-control` |

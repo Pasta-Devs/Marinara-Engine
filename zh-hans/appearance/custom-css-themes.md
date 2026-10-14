@@ -22,9 +22,11 @@
 
 想把这套外观用到聊天的其他区域，可以使用颜色选择器下方的三个开关：
 
-- **Apply preset font**(应用预设字体) 将所选组件字体用于消息、输入框和聊天控件，包括 Game Mode 的 HUD 组件、地图面板、补充发言和角色表。
-- **Apply preset shape**(应用预设形状) 将所选边框形状用于经典布局和视觉小说布局中的 Roleplay 消息、Game 对话框、补充发言、HUD 组件、地图面板、角色表、输入框和控件。Conversation 消息保留自己的形状。
+- **Apply preset font**(应用预设字体) 将所选组件字体用于消息、输入框和聊天控件。
+- **Apply preset shape**(应用预设形状) 将所选边框形状用于经典布局和视觉小说布局中的 Roleplay 消息、Game 对话框、输入框和控件。Conversation 消息保留自己的形状。
 - **Apply preset colors**(应用预设颜色) 将组件的边框、背景和文字颜色用于这些区域，也包括 Conversation 消息。自定义颜色和渐变同样适用。引号内的对白仍保留每个角色或用户角色自己的 Dialogue Highlight Color。
+
+在 Game Mode 中，这些开关还作用于补充发言、HUD 组件、地图面板、角色表、日志、物品栏、战斗面板和弹窗。
 
 每个开关初始都是关闭的，且独立生效。例如，可以使用 Professor Mari 的字体，同时保留聊天原本的颜色。关闭某个开关，就会恢复聊天对应部分原本的样式。选择其他预设不会改变开关状态。也可以让 Professor Mari 为这些区域创建自定义主题。
 
@@ -225,6 +227,8 @@
 | 部分 | 类名 |
 | --- | --- |
 | Roleplay 和 Game 的消息框、Game 补充发言、HUD 组件、地图面板、角色表以及聊天输入框 | `.mari-chat-style-surface` |
+| Game 日志、物品栏、战斗面板、选项和弹窗；这些面板还带有 `data-game-section`，值为面板名称，例如 `logs`、`inventory` 或 `combat-actions` | `.mari-game-section.mari-chat-style-surface` |
+| 窗口中的 Game 内容，例如 Journal(日志)，会跟随窗口的颜色 | `.mari-game-section` |
 | Conversation 消息（仅字体和颜色） | `.mari-chat-style-conversation` |
 | 无边框的 Conversation 消息文字 | `.mari-chat-style-text` |
 | 聊天控件，包括 Calls 和 Conversation 群聊控件 | `.mari-chat-style-control` |

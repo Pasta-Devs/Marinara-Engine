@@ -631,3 +631,33 @@ Cycle precedent for #7382, #7396, #7372 and #7309 (`home/professor-mari.md`, `se
 | **Re-scan scenes** / **Re-scan** | (장면 다시 검사) / (다시 검사); particles 를 (신스) / 을 (리스캔) |
 
 **Gloss placement when a label is already glossed later in the file.** A new, earlier mention of a label that the file already glosses further down stays bare, so each label still has exactly one gloss per file (§5 rule 5). This applies to **Settings** and **Delete** in `home/professor-mari.md` (**General** has no later gloss there, so its first mention takes (일반)), to **Use Decision model** in the new Re-scanning section of `agents/memory.md`, and to the new Message Tools table row in `settings/settings-overview.md`, whose label is glossed in the intro sentence just above. These are translation choices, not a new native-reader review.
+
+## Game sections and Advanced Memory setup (2026-10-14)
+
+Cycle precedent for #7604 and #7595 (`appearance/appearance-settings.md`, `appearance/custom-css-themes.md`, `agents/memory.md`).
+
+| English | Translation |
+| --- | --- |
+| dialogs (Game windows such as End session or Repair JSON) | **팝업 창**, kept apart from 대화 상자, which these files already use for the Game dialogue box |
+| logs / combat panels / choices (Game sections) | 로그, as the **Logs**(로그) button / 전투 패널 / 선택지 |
+| the Inventory (in prose) | 인벤토리, unglossed, as in the pack's other prose |
+| Game content in a window, such as the Journal | Journal(일지)처럼 창 안에 표시되는 Game 콘텐츠 |
+
+These are translation choices, not a new native-reader review.
+
+## Character recollections (2026-10-14)
+
+Cycle precedent for #7605 (`agents/memory.md`: the new Character recollections section and the Setup priority sentence that links to it). `ko.json` has no `chat.advancedMemory.characterRecollections`, `recollections.*` or `stage.recollecting` value yet, so these glosses follow the nearest shipped strings. Re-check them once `ko.json` ships the keys.
+
+| English | Translation |
+| --- | --- |
+| recollection / character recollections | **회고** / **캐릭터 회고**. Never 회상, which this file already uses for *recall* (`Memory Recall`(기억 회상), 회상된 장면, 선택적 회상), so "Recollections appear only with recalled scenes" stays 회고는 회상된 장면에만 표시됩니다. The only other 회고 in the pack is the combat recap in `development/game-rulesets-and-sheets-implementation.md`, an engineering memo |
+| **Character recollections** (the switch, and the Inspector section) | **Character recollections**(캐릭터 회고), glossed once; particle 를 (리콜렉션스, no batchim). Heading `### 캐릭터 회고` with the pack's `<a id="character-recollections"></a>` anchor; link text `[캐릭터 회고]` |
+| personal recollections | Only inside the inline-code prompt line `` `Kaito's personal recollections from this scene: *…*` ``, which stays English |
+| **Writing character recollections** (progress stage) | (캐릭터 회고 작성 중), on the `ko.json` `chat.advancedMemory.stage.*` "X 중" pattern (장면 요약 중); particle 로 |
+| **Manually edited** | (수동 편집됨), byte-exact `ko.json` `chat.advancedMemory.manual` |
+| **Prepare** (short for the memory preparation action) | (준비), on the `ko.json` 기존 기록 준비 / 장면 준비 strings; particle 나 (프리페어) |
+| the four-word copy check | Prose, not a label: 네 단어를 연달아 그대로 옮긴 회고는 제외합니다 |
+| knowledge start | 지식 범위가 시작되기 전, following the file's 지식 범위 for "knowledge range" |
+
+These are translation choices, not a new native-reader review.

@@ -22,9 +22,11 @@ Mit **Reset color** (Farbe zurücksetzen) neben einer Einstellung folgst du wied
 
 Mit den drei Schaltern unter den Farbwählern überträgst du den Stil auf den restlichen Chat:
 
-- **Apply preset font** (Preset-Schrift anwenden) nutzt die gewählte Widget-Schrift für Nachrichten, Eingabefelder und Chat-Bedienelemente, einschließlich HUD-Widgets, Kartenpanel, Randbemerkungen und Charakterbögen in Game Mode.
-- **Apply preset shape** (Preset-Form anwenden) nutzt die gewählte Rahmenform für Roleplay-Nachrichten im klassischen und im Visual-Novel-Layout, das Game-Dialogfeld, Randbemerkungen, HUD-Widgets, Kartenpanel und Charakterbögen sowie Eingabefelder und Bedienelemente. Conversation-Nachrichten behalten ihre eigene Form.
+- **Apply preset font** (Preset-Schrift anwenden) nutzt die gewählte Widget-Schrift für Nachrichten, Eingabefelder und Chat-Bedienelemente.
+- **Apply preset shape** (Preset-Form anwenden) nutzt die gewählte Rahmenform für Roleplay-Nachrichten im klassischen und im Visual-Novel-Layout, das Game-Dialogfeld sowie Eingabefelder und Bedienelemente. Conversation-Nachrichten behalten ihre eigene Form.
 - **Apply preset colors** (Preset-Farben anwenden) nutzt die Rahmen-, Hintergrund- und Textfarben des Widgets für diese Bereiche, einschließlich Conversation-Nachrichten. Auch deine eigenen Farben und Farbverläufe gelten dort. Wörtliche Rede behält die eigene Dialogue Highlight Color des jeweiligen Charakters oder der jeweiligen Persona.
+
+In Game Mode gelten die Schalter außerdem für Randbemerkungen, HUD-Widgets, das Kartenpanel, Charakterbögen, Protokolle, das Inventar, Kampfpanels und Dialogfenster.
 
 Jeder Schalter ist anfangs aus und funktioniert unabhängig von den anderen. So kannst du etwa die Professor-Mari-Schrift mit den gewohnten Chatfarben kombinieren. Schaltest du eine Option aus, kehrt dieser Teil zur üblichen Chatgestaltung zurück. Die Auswahl eines anderen Presets behält deine Schalterstellungen bei. Professor Mari kann auch eigene Themes für diese Bereiche erstellen.
 
@@ -225,6 +227,8 @@ Mit den drei **Apply preset**-Schaltern kann auch ein eigenes Theme das Widget-D
 | Teil | Klasse |
 | --- | --- |
 | Nachrichtenfelder in Roleplay und Game, Randbemerkungen, HUD-Widgets, Kartenpanel und Charakterbögen in Game sowie Chat-Eingabefelder | `.mari-chat-style-surface` |
+| Protokolle, Inventar, Kampfpanels, Entscheidungen und Dialogfenster in Game; die Panels tragen zusätzlich `data-game-section` mit ihrem Namen, etwa `logs`, `inventory` oder `combat-actions` | `.mari-game-section.mari-chat-style-surface` |
+| Game-Inhalte in einem Fenster wie dem Journal, die sich nach den Farben des Fensters richten | `.mari-game-section` |
 | Conversation-Nachrichten (nur Schrift und Farben) | `.mari-chat-style-conversation` |
 | Conversation-Nachrichtentext ohne Rahmen | `.mari-chat-style-text` |
 | Chat-Bedienelemente, einschließlich Calls und Conversation-Gruppensteuerung | `.mari-chat-style-control` |

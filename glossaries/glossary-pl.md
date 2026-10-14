@@ -1022,3 +1022,26 @@ These are documented choices for this sync, not a claim of independent native-re
 - *The usual thought display* is **zwykły podgląd myśli**, after the **View
   thoughts** *(podgląd myśli)* gloss (`chats/sending-and-streaming.md:98`), not
   *podgląd myślenia*.
+
+## Game HUD sections and Advanced Memory setup (2026-10-14)
+
+Precedent from the #7604 / #7595 sync (`appearance/appearance-settings.md`, `appearance/custom-css-themes.md`, `agents/memory.md`):
+
+- Game Mode logs are **dzienniki**, following **Logs** *(dzienniku)* in `game/dice-and-skill-checks.md` and *dziennik walki* in `game/combat.md:79`.
+- The **Journal** tab is glossed *(dziennik)* in `game/sessions-and-saves.md`, so prose that names it beside the logs keeps the English name behind the carrier **zakładka Journal** (R-81), and it does not read as one of the *dzienniki*.
+- Game dialogs (interrupt, end session, JSON repair, widget editors) are **okna dialogowe**; R-83's bare *okno* would blur them with "Game content in a window" (**treści Game w oknie**). The narration box stays *pole dialogowe Game*.
+- Combat panels are **panele walki**; Game choices are **opcje wyboru** (bare *wybory* reads as elections); the Inventory panel is **ekwipunek** in prose, while the widget label **Inventory** stays English.
+- Advanced Memory setup: context that is cut off is **odcięty** (*To, co odcięto, zostaje podsumowane*); an excerpt stays **fragment**, introduced with the R-7 copula (*Fragment to dokładne wiadomości z przywołanej sceny*).
+
+## Character recollections (2026-10-14)
+
+Precedent from the #7605 sync (`agents/memory.md`: the new section `### Osobiste wspomnienia postaci` and the Setup priority sentence):
+
+- A character recollection is **osobiste wspomnienie** (osobiste wspomnienia, osobistych wspomnień, osobistym wspomnieniem), always with *osobiste*. Bare *wspomnienia* stays R-50 memories (**Delete all memories** *(usuń wszystkie wspomnienia)*, *wybrane wspomnienia*), and the qualifier keeps the two apart. It also matches the "personal recollections" of the prompt line. Inside one bullet that has already named it, a back-reference may drop the qualifier (*wygenerowane wspomnienie*, *Edytowane wspomnienie*).
+- The setting **Character recollections** is glossed once as *(osobiste wspomnienia postaci)*. The section heading and the Setup link text use the same words.
+- The translated heading follows the file's `<a id="fixing-memory-problems"></a>` pattern: `<a id="character-recollections"></a>`, a blank line, then `### Osobiste wspomnienia postaci`. The English same-file link `(#character-recollections)` stays byte-identical. T-3's "do not add same-file fragment links" means links the English lacks; a same-file link mirrored from English keeps its target and gets this anchor.
+- The four-word copy check is described rather than named: a recollection *powtarza cztery słowa z rzędu* and *zostaje pominięte*. If a later source names it, call it **sprawdzenie kopiowania**, parallel to *sprawdzenie sceny*.
+- The prompt-line example `Kaito's personal recollections from this scene: *…*` stays an English code span.
+- **Writing character recollections** sits behind the carrier **zadanie**, like *zadanie **Updating continuity***, glossed *(pisanie osobistych wspomnień postaci)*. The badge **Manually edited** sits behind **etykieta**, glossed *(edytowano ręcznie)* like **Not saved** *(nie zapisano)*. The new bare button **Prepare** is glossed *(przygotuj)*, the imperative this file uses for **Prepare existing history** *(przygotuj dotychczasową historię)*.
+- "The model is told to" is **Instrukcje nakazują modelowi**, never *polecenie* (R-21, R-60). "Because you edited it" stays gender-free: *bo zostało edytowane przez ciebie*, *jeśli je edytowano* (R-3/R-4).
+- Other renderings: "knowledge start" *początek zakresu wiedzy*; "the Helper's room for the scene" *miejsce, jakie model pomocniczy ma na scenę*; "recollection run" *tworzenie osobistych wspomnień*; "a logical character" *postać myśląca logicznie*; "left out of prompts" *nie trafiają do promptów*; "never cut short" *nigdy nie jest ucinane*.

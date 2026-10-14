@@ -776,3 +776,27 @@ These are translation choices, not a new native-reader review.
 - A model's thoughts are **सोच**, as in the **View thoughts** (सोच देखें) gloss; "the usual thought display" is **सोच दिखाने का आम तरीका**. A request at a given effort level is **<स्तर> स्तर की रिक्वेस्ट** (`मध्यम स्तर की रिक्वेस्ट`), not a bare `मध्यम रिक्वेस्ट`.
 
 These are translation choices, not a new native-reader review.
+
+## Game HUD sections and Advanced Memory setup (2026-10-14)
+
+Precedents from the #7604 and #7595 sync (`appearance/appearance-settings.md`, `appearance/custom-css-themes.md`, `agents/memory.md`):
+
+- A UI dialog is **डायलॉग विंडो** wherever quoted dialogue (**डायलॉग**) is nearby, as in both appearance guides. Bare डायलॉग for a named dialog (`**Forget Memory** डायलॉग`) stays as it is.
+- The Game panels EN capitalizes without bold, **the Inventory** and **the Journal**, stay Latin and unbolded (`Inventory`, `Journal`), like `Journal` in `game/party-and-npcs.md`. Generic inventory stays **इन्वेंटरी**.
+- Combat panels are **लड़ाई के पैनल**, after `game/combat.md`'s लड़ाई. Game logs are **लॉग**, as in the **Logs** (लॉग) gloss. Game choices are **विकल्प**.
+- Advanced Memory: older context is **काट दिया जाता है**; memories that can be recalled are **यादें जिन्हें रिकॉल किया जा सकता है**; an excerpt is **अंश**, defined as the recalled scene's **हूबहू संदेश**. "Maximum allowed context" in prose is **अधिकतम कॉन्टेक्स्ट**, matching the label's gloss.
+
+These are translation choices, not a new native-reader review.
+
+## Character recollections (2026-10-14)
+
+Precedents from the #7605 sync (`agents/memory.md`):
+
+- A character recollection is **निजी याद**, plural **निजी यादें** (feminine: `निजी याद … दोबारा लिखी जाती है`). The **Character recollections** switch is glossed **(कैरेक्टर की निजी यादें)**, and the setup sentence's link text uses the same words. EN's "personal recollections" is also **निजी यादें**. Bare याद/यादें stays the word for any recalled memory (§3), so निजी marks a character's own memory. Avoid स्मृति, संस्मरण and a loaned रिकलेक्शन.
+- The heading `### Character recollections` stays English because it is also the switch's name, like `## Quick answers in Search`. Its GitHub anchor stays `#character-recollections`, so it needs no `<a id>`.
+- The four-word copy check is **नकल की जाँच**. "Copies four words in a row" is `लगातार चार शब्द हूबहू उतारती है`.
+- A character's knowledge start is **जानकारी सीमा की शुरुआत**, after the file's **जानकारी सीमा** for a knowledge range. "First person, in their own voice" is `अपनी आवाज़ में "मैं" के रूप में`, with no grammar term (उत्तम पुरुष) and no loan.
+- An out-of-date recollection **पुरानी हो जाती है**. "The Helper's room for the scene" is `सीन के लिए सहायक मॉडल के पास मौजूद जगह`. "Generated" is spelled **जेनरेट** (the pack majority: 227 against 41 for जनरेट).
+- New gloss **Prepare** (तैयार करें), after **Prepare existing history** (मौजूदा इतिहास तैयार करें). **Writing character recollections** (a progress stage) and **Manually edited** (a badge) are app status strings, so they stay unglossed (Pattern B).
+
+These are translation choices, not a new native-reader review.

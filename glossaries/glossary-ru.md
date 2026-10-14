@@ -696,3 +696,27 @@ Precedent from the #7382 / #7396 / #7372 / #7309 mirror (`home/professor-mari.md
 - **Show "older messages not sent" note** keeps straight ASCII quotes inside the bold and is glossed (показывать пометку о неотправленных старых сообщениях).
 
 These are documented translation choices from this sync, not an independent native-reader review.
+
+## Game HUD sections and Advanced Memory setup (2026-10-14)
+
+Precedent from the #7604 / #7595 mirror (`appearance/appearance-settings.md`, `appearance/custom-css-themes.md`, `agents/memory.md`) against `staging` `a8481ca6de96`:
+
+- Game logs (Session Logs, Combat Logs) are **журналы**, following the **Logs** (журнал) gloss at `game/dice-and-skill-checks.md:45`. The Journal in prose is **журнал приключений**, as in `game/party-and-npcs.md`, so the two never share a bare `журнал` in one passage. The Inventory is **инвентарь**, combat panels are **боевые панели**, and Game choices are **варианты выбора**, as at `game/sessions-and-saves.md:86`.
+- Game dialogs (the interrupt, end-session, JSON-repair and widget-editor windows) are **диалоговые окна**, matching the pack's **окно** for dialogs. Keep them apart from **диалоговое поле Game**, the dialogue box where the narration shows.
+- Advanced Memory setup: older context that is "cut off" **отсекается**, as **отсечка** at `agents/memory.md:170`. "The memories that can be recalled" is **воспоминания, доступные для извлечения**, and an excerpt in the Setup list stays **фрагмент**. The constants sentence now reads `не более **70%** этого значения`, so the share points at the budget and not at the maximum context named in the inserted sentence.
+
+These are documented translation choices from this sync, not an independent native-reader review.
+
+## Character recollections (2026-10-14)
+
+Precedent from the #7605 mirror (`agents/memory.md`) against `staging` `a8481ca6de96`:
+
+- **Character recollections** (the Advanced Memory setting, and the area of the same name in **Access memories for this chat**) is glossed (воспоминания персонажей). One recollection is **воспоминание**, declining normally. The heading `### Воспоминания персонажей` sits under `<a id="character-recollections"></a>`, so the English `#character-recollections` link in the Setup priority sentence keeps working.
+- Collision to watch: elsewhere in the same file bare **воспоминания** are the saved memories (§3 "memory (a saved item)"). Inside the new section bare **воспоминание** means a recollection; where the word could be read as the archive (the Setup priority sentence, the section intro, the "appear only with recalled scenes" and "never copied into Chat Summaries" bullets) write **воспоминания персонажей**. `roleplay/scenes.md:75` uses **воспоминание персонажа** for EN "character memory" of a Conversation scene, a different feature with the same Russian words.
+- "Personal recollections" appears only in the prompt-line example `Kaito's personal recollections from this scene: *…*`, which is code and stays English.
+- The four-word copy check (English describes it but never names it) reads "копирует четыре слова подряд из того, чего его персонаж не мог знать"; such a recollection **отбрасывается**, and the copied run is **фраза**. If a later text names the check, use **проверка на копирование**.
+- A character's knowledge start is **начало его диапазона знаний**, built on the file's **диапазоны знаний**. "In their own voice" is **своим голосом**, "in the first person" **от первого лица**. An excerpt here is **фрагмент**, as in the Setup list; the Setup priority sentence keeps its existing **отрывки сообщений**.
+- **Writing character recollections** and **Manually edited** are status strings and take no gloss (§5 Pattern B); the sentence says what they are (`этот этап показывается как`, `помечается как`). **Prepare** is glossed (подготовить), a different label from **Prepare existing history**. **Resume** and **Re-scan scenes** already appear earlier in the file and stay bare.
+- "Export, import and branches include them": branches are **ветки**, as in `chats/branches.md`.
+
+These are documented translation choices from this sync, not an independent native-reader review.
