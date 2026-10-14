@@ -271,6 +271,7 @@ Game Mode Storyboards는 완성된 GM 서술을 키프레임 이미지와 선택
 - 키프레임 이미지에는 이미지 연결이 필요합니다. 클립에는 동영상 연결도 필요합니다.
 - 모든 캐릭터를 한데 묶은 사용자 지정 프롬프트가 더 잘 맞는다면 **Use NovelAI Character Prompts**(NovelAI 캐릭터 프롬프트 사용)를 끄세요.
 - 느린 제공자에서는 시간 초과가 날 수 있습니다. `.env`의 `IMAGE_GEN_TIMEOUT_MS`나 `VIDEO_GEN_TIMEOUT_MS` 값을 늘린 다음 Marinara를 다시 시작하세요. 서버는 이 값을 시작할 때만 읽습니다.
+- 기본적으로 이미지 제공자의 응답이 30 MiB보다 크면 `Outbound response exceeded 31457280 bytes` 오류로 실패합니다. 워크플로와 참조 이미지를 메타데이터로 담은 로컬 ComfyUI 출력 파일은 이 크기에 이를 수 있습니다. `.env`의 `IMAGE_GEN_MAX_RESPONSE_BYTES` 값을 늘리고 Marinara를 다시 시작하거나, ComfyUI에서 메타데이터를 끄세요.
 
 두 워크플로에 대한 설명은 [스토리보드 에이전트 가이드](game/storyboard.md), 게임 준비 방법은 [Game Mode: 시작하기](game/getting-started.md)를 참고하세요.
 
@@ -348,6 +349,12 @@ Docker와 Podman은 `marinara-data` 볼륨에 데이터를 보관하므로 일�
 ### 백업이나 내보내기에서 403이 반환될 때
 
 루프백 세션에서는 관리자 시크릿 없이도 백업을 만들 수 있습니다. 다른 기기, 네트워크 주소, Docker에서 접근할 때는 백업과 프로필 내보내기에 추가 절차가 필요합니다. 서버에 `ADMIN_SECRET`을 설정하고 같은 값을 **Settings** > **Advanced** > **Admin Access**에 저장하세요. 루프백에서도 시크릿을 요구하려면 `MARINARA_REQUIRE_ADMIN_SECRET_ON_LOOPBACK=true`를 설정하세요.
+
+### 가져오기에서 파일이 읽을 수 있는 ZIP 아카이브가 아니라고 나올 때
+
+Marinara는 `.charx` 카드, `.marinara` 패키지, 에이전트 패키지, 사용자 지정 에이전트 저장소를 ZIP 아카이브로 읽습니다. 아카이브가 손상되었거나 내용이 아카이브 자체의 파일 목록과 맞지 않으면 거부하고 **The file is not a readable ZIP archive**를 표시합니다(`.marinara` 패키지라면 **Could not read .marinara package**). 대개는 다운로드가 중간에 끊긴 것이 원인이므로 파일을 다시 다운로드하세요. 아카이브를 직접 만들었다면 시스템의 압축 기능, `zip`, 7-Zip 같은 표준 도구로 다시 만드세요. 전송 중에 아카이브 뒤에 0으로 채운 바이트나 줄바꿈이 붙은 것은 문제없습니다.
+
+**Package contains too many files**는 에이전트 패키지나 사용자 지정 저장소에 파일이 8,192개보다 많다는 뜻입니다. **.marinara package has too many entries**는 `.marinara` 패키지에 파일이 8개보다 많다는 뜻입니다. 이 한도는 새로 생긴 것이 아닙니다. 남는 파일을 지우고 다시 시도하세요.
 
 ## Android와 Docker
 

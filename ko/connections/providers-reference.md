@@ -38,6 +38,8 @@
 
 **Google Gemini**는 Google AI Studio를 통해 Gemini 모델을 제공합니다. Google 계열 두 가지 선택지 중 설정이 더 간단한 쪽입니다.
 
+Marinara는 Google 계열 두 선택지 모두에서 Google의 조정 가능한 안전 필터를 끕니다. 단, **Custom Parameters**(사용자 지정 매개변수)에서 직접 설정한 카테고리는 예외입니다. 그래도 아동 안전 같은 Google의 핵심 보호 장치는 계속 적용됩니다.
+
 ## Google Vertex AI
 
 - 자격 증명 문서: `https://cloud.google.com/vertex-ai/docs/authentication`
@@ -50,6 +52,10 @@
 1. 서비스 계정 JSON 키.
 2. OAuth 접근 토큰. 예를 들어 `gcloud auth print-access-token`으로 얻은 토큰입니다.
 3. Vertex API 키.
+
+**Gemini 4 Argon**은 `global`, `us`, `eu` 위치에서만 실행되며, `us-central1` 같은 단일 리전에서는 실행되지 않습니다. 사용하려면 **Base URL**을 `https://aiplatform.googleapis.com/v1/projects/YOUR_PROJECT_ID/locations/global`로 설정하세요. 다른 위치를 쓰면 Google이 오류를 돌려주고 Marinara가 그 오류를 보여 줍니다.
+
+Argon은 어느 Google 연결에서든 답변하는 데 몇 분이 걸릴 수 있습니다. 채팅 답변에서 시간 초과가 나면 `CHAT_GENERATION_TIMEOUT_MS`를 늘리세요. 에이전트 호출에서 시간 초과가 나면 `AGENT_CALL_TIMEOUT_MS`를 늘리세요([서버 설정 참고 문서](../CONFIGURATION.md) 참고). Google은 최소 15분, 즉 `900000`을 허용하라고 권장합니다.
 
 ## Mistral
 
