@@ -328,6 +328,28 @@ Prépare des storyboards visuels, fixes ou animés, à partir des échanges Role
 - **Compatibilité** : moteur `2.3.5` jusqu'à, mais sans inclure, `3.0.0`. Le package utilise les permissions `agent-runtime`, `chat-read`, `prompt-context`, `storage` et `ui`, et ne demande aucun redémarrage.
 - **Guide complet** : [Agent Storyboard : Roleplay et Game Mode](../game/storyboard.md).
 
+### 2D Avatars
+
+Affiche tes personnages et tes personas sous forme d'avatars 2D animés qui clignent des yeux, parlent et changent de visage à chaque réponse. Un avatar est soit un ensemble de sprites façon PNGTuber (tes sprites d'expression, avec des images de clignement et de parole), soit un fichier d'avatar mesh (`.mavatar`), un modèle 2D souple posé sur un maillage.
+
+- **Intégration** : package d'agent ; le moteur l'exécute et dessine les avatars. Il n'envoie aucune requête supplémentaire à tes connexions d'IA pendant que tu discutes.
+- **Où ça marche** : Roleplay et Game, pour les personnages et les personas.
+- **Disponibilité** : **In development** (en développement). Il n'est pas encore dans **Download Agents**.
+- **Réglages clés** : configure chaque avatar sur la page de l'agent, dans **Agents**. L'agent fournit aussi les prompts qui servent à créer les images de clignement et de parole, ainsi qu'un avatar mesh, à partir d'un de tes sprites.
+- **Compatibilité** : moteur `2.5.0` jusqu'à, mais sans inclure, `4.0.0`, avec la Capability API 1.73. Le package utilise les permissions `agent-runtime`, `chat-read`, `storage` et `ui`, et ne demande aucun redémarrage.
+- **Guide complet** : [Avatars 2D et 3D](avatars.md).
+
+### 3D Avatars
+
+Affiche tes personnages et tes personas sous forme de modèles 3D animés qui clignent des yeux, parlent et changent de visage à chaque réponse. Il utilise des modèles VRM (`.vrm`, versions 0.x et 1.0), avec une animation au repos facultative (`.vrma`).
+
+- **Intégration** : package d'agent ; le moteur l'exécute et dessine les avatars. Il n'envoie aucune requête supplémentaire à tes connexions d'IA pendant que tu discutes.
+- **Où ça marche** : Roleplay et Game, pour les personnages et les personas.
+- **Disponibilité** : **In development**. Il n'est pas encore dans **Download Agents**.
+- **Réglages clés** : configure chaque avatar sur la page de l'agent, dans **Agents**.
+- **Compatibilité** : moteur `2.5.0` jusqu'à, mais sans inclure, `4.0.0`, avec la Capability API 1.73. Le package utilise les permissions `agent-runtime`, `chat-read`, `storage` et `ui`, et ne demande aucun redémarrage.
+- **Guide complet** : [Avatars 2D et 3D](avatars.md).
+
 ### Calls
 
 Ajoute des appels audio et vidéo en direct avec les personnages de Conversation : appels que tu lances, appels entrants, transcriptions propres à l'appel, Text to Speech (synthèse vocale), entrée micro et clips vidéo de personnage.

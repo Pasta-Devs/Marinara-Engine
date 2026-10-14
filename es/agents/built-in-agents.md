@@ -328,6 +328,28 @@ Planifica storyboards (secuencias de viñetas) visuales fijos o animados a parti
 - **Compatibilidad**: Engine `2.3.5` hasta antes de `3.0.0`. El paquete usa los permisos `agent-runtime`, `chat-read`, `prompt-context`, `storage` y `ui`, y no requiere reiniciar.
 - **Guía completa**: [El agente Storyboard: Roleplay y Game Mode](../game/storyboard.md).
 
+### 2D Avatars
+
+Muestra a tus personajes y personas como avatares 2D animados que parpadean, hablan y cambian de cara con cada respuesta. Un avatar puede ser de sprites al estilo PNGTuber (tus sprites de expresión, con imágenes de parpadeo y de habla) o un archivo de avatar de malla (`.mavatar`).
+
+- **Integración**: paquete de agente; el Engine lo ejecuta y dibuja los avatares. No envía solicitudes adicionales a tus conexiones de IA mientras chateas.
+- **Dónde funciona**: Roleplay y Game, para personajes y personas.
+- **Disponibilidad**: **En desarrollo**. Todavía no está en **Download Agents**.
+- **Ajustes clave**: configura cada avatar en la página del agente en **Agents**. El agente también incluye los prompts que se usan para crear imágenes de parpadeo y de habla, y un avatar de malla, a partir de uno de tus sprites.
+- **Compatibilidad**: Engine `2.5.0` hasta antes de `4.0.0`, con Capability API 1.73. El paquete usa los permisos `agent-runtime`, `chat-read`, `storage` y `ui`, y no requiere reiniciar.
+- **Guía completa**: [Avatares 2D y 3D](avatars.md).
+
+### 3D Avatars
+
+Muestra a tus personajes y personas como modelos 3D animados que parpadean, hablan y cambian de cara con cada respuesta. Usa modelos VRM (`.vrm`, versiones 0.x y 1.0), con una animación en reposo opcional (`.vrma`).
+
+- **Integración**: paquete de agente; el Engine lo ejecuta y dibuja los avatares. No envía solicitudes adicionales a tus conexiones de IA mientras chateas.
+- **Dónde funciona**: Roleplay y Game, para personajes y personas.
+- **Disponibilidad**: **En desarrollo**. Todavía no está en **Download Agents**.
+- **Ajustes clave**: configura cada avatar en la página del agente en **Agents**.
+- **Compatibilidad**: Engine `2.5.0` hasta antes de `4.0.0`, con Capability API 1.73. El paquete usa los permisos `agent-runtime`, `chat-read`, `storage` y `ui`, y no requiere reiniciar.
+- **Guía completa**: [Avatares 2D y 3D](avatars.md).
+
 ### Calls
 
 Añade llamadas de audio y video en vivo con los personajes de Conversation, incluidas las llamadas iniciadas por el usuario y las entrantes, transcripciones solo de llamada, texto a voz, entrada de micrófono y clips de video del personaje.

@@ -98,6 +98,7 @@ Marinara спрашивает, прежде чем обновить пакет. 
 ## Смежные руководства
 
 - [Справочник агентов для скачивания](built-in-agents.md)
+- [2D- и 3D-аватары](avatars.md)
 - [Официальный репозиторий Marinara Agents](https://github.com/Pasta-Devs/Marinara-Agents)
 - [Создание своих агентов](custom-agents.md)
 - [Одобрение записей агентов и редактор Agent Suite](approvals-and-agent-suite.md)

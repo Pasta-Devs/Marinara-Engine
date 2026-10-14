@@ -98,6 +98,7 @@ Marinara는 패키지를 업데이트하기 전에 먼저 묻습니다. 설치�
 ## 관련 가이드
 
 - [다운로드 가능한 에이전트 레퍼런스](built-in-agents.md)
+- [2D와 3D 아바타](avatars.md)
 - [공식 Marinara Agents 저장소](https://github.com/Pasta-Devs/Marinara-Agents)
 - [사용자 지정 에이전트 만들기](custom-agents.md)
 - [에이전트 승인과 Agent Suite](approvals-and-agent-suite.md)

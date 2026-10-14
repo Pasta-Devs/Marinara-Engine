@@ -38,6 +38,8 @@
 
 **Google Gemini** 通过 Google AI Studio 提供 Gemini 系列模型。两个 Google 选项里，这个更省事。
 
+在两个 Google 选项上，Marinara 都会关闭 Google 可调整的安全过滤器，你自己在 **Custom Parameters**(自定义参数) 里设置的类别除外；不过 Google 的核心保护措施，例如儿童安全，仍然有效。
+
 ## Google Vertex AI
 
 - 凭据文档：`https://cloud.google.com/vertex-ai/docs/authentication`
@@ -50,6 +52,10 @@
 1. 服务账号 JSON 密钥。
 2. OAuth 访问 Token，例如 `gcloud auth print-access-token` 的输出。
 3. Vertex API 密钥。
+
+**Gemini 4 Argon** 只在 `global`、`us` 和 `eu` 这几个位置运行，不在 `us-central1` 这样的单个地区运行。要使用它，把 **Base URL** 设为 `https://aiplatform.googleapis.com/v1/projects/YOUR_PROJECT_ID/locations/global`。用其他位置时，Google 会返回错误，Marinara 会把错误显示出来。
+
+无论用哪种 Google 连接，Argon 都可能要几分钟才回答。如果聊天回复超时，调大 `CHAT_GENERATION_TIMEOUT_MS`。如果智能体调用超时，调大 `AGENT_CALL_TIMEOUT_MS`(见[服务器配置参考](../CONFIGURATION.md))。Google 建议至少留出 15 分钟，也就是 `900000`。
 
 ## Mistral
 

@@ -271,6 +271,7 @@ Game Modeの絵コンテは、そろったGMの語りをキーフレーム画像
 - キーフレーム画像には画像用の接続が必要です。動画にはさらに動画用の接続も必要です。
 - すべてのキャラクターをまとめたカスタムのプロンプトのほうが結果が良い場合は、**Use NovelAI Character Prompts**をオフにします。
 - 応答の遅いプロバイダーではタイムアウトになることがあります。`.env`の`IMAGE_GEN_TIMEOUT_MS`または`VIDEO_GEN_TIMEOUT_MS`を大きくしてから、Marinaraを再起動してください。サーバーはこれらの値を起動時にしか読み込みません。
+- デフォルトでは、画像プロバイダーからの応答が30 MiBを超えると`Outbound response exceeded 31457280 bytes`で失敗します。ワークフローと参照画像をメタデータとして埋め込んだローカルのComfyUIの出力ファイルは、この大きさに達することがあります。`.env`の`IMAGE_GEN_MAX_RESPONSE_BYTES`を大きくしてMarinaraを再起動するか、ComfyUIでメタデータをオフにしてください。
 
 どちらの使い方も[Storyboardエージェントガイド](game/storyboard.md)で説明しています。Gameのセットアップは[Game Mode: はじめに](game/getting-started.md)を参照してください。
 
@@ -348,6 +349,12 @@ DockerとPodmanは`marinara-data`ボリュームにデータを保存するた�
 ### バックアップやエクスポートが403を返す
 
 ループバックのセッションであれば、管理者用の秘密の値なしでバックアップを作成できます。別のデバイス、ネットワークアドレス、Dockerからの場合、バックアップとプロファイルのエクスポートには追加の設定が必要です。サーバーに`ADMIN_SECRET`を設定し、同じ値を**Settings** > **Advanced** > **Admin Access**に保存してください。ループバックでも秘密の値を必須にしたい場合は、`MARINARA_REQUIRE_ADMIN_SECRET_ON_LOOPBACK=true`を設定します。
+
+### インポートでファイルが読み取れるZIPアーカイブではないと表示される
+
+Marinaraは、`.charx`カード、`.marinara`パッケージ、エージェントパッケージ、独自のエージェントリポジトリーをZIPアーカイブとして読み込みます。壊れたアーカイブや、中身がアーカイブ自身のファイル一覧と一致しないアーカイブは拒否し、**The file is not a readable ZIP archive**と表示します(`.marinara`パッケージの場合は**Could not read .marinara package**)。よくある原因はダウンロードが途中で切れたことなので、ファイルをもう一度ダウンロードしてください。アーカイブを自分で作った場合は、システムの圧縮機能、`zip`、7-Zipなどの標準的なツールで作り直してください。転送中にアーカイブの末尾へゼロ埋めや改行が追加されていても問題ありません。
+
+**Package contains too many files**は、エージェントパッケージまたは独自のリポジトリーに8,192個を超えるファイルが含まれていることを示します。**.marinara package has too many entries**は、`.marinara`パッケージに8個を超えるファイルが含まれていることを示します。どちらの上限も新しく設けたものではありません。余分なファイルを取り除いてから、もう一度試してください。
 
 ## AndroidとDocker
 

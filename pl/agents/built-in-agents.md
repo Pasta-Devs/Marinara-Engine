@@ -330,6 +330,28 @@ Planuje nieruchome albo animowane storyboardy na podstawie zakończonych wymian 
 - **Zgodność**: silnik od wersji `2.3.5` do wersji sprzed `3.0.0`. Pakiet korzysta z uprawnień `agent-runtime`, `chat-read`, `prompt-context`, `storage` i `ui`, a jego instalacja nie wymaga ponownego uruchomienia.
 - **Pełny przewodnik**: [Przewodnik po agencie Storyboard](../game/storyboard.md).
 
+### 2D Avatars
+
+Pokazuje twoje postacie i persony jako animowane awatary 2D, które mrugają, mówią i zmieniają minę przy każdej odpowiedzi. Awatar to albo sprite'y w stylu PNGTuber (twoje sprite'y wyrazów twarzy z obrazkami mrugania i mówienia), albo plik awatara mesh (`.mavatar`).
+
+- **Integracja**: pakiet agenta – silnik go uruchamia i rysuje awatary. Podczas czatu nie wysyła żadnych dodatkowych zapytań do twoich połączeń AI.
+- **Gdzie działa**: Roleplay i Game, dla postaci i person.
+- **Dostępność**: **In development** (w przygotowaniu). Nie ma go jeszcze w **Download Agents**.
+- **Najważniejsze ustawienia**: każdy awatar konfigurujesz na stronie agenta w panelu **Agents**. Agent zawiera też prompty, za pomocą których z jednego z twoich sprite'ów powstają obrazki mrugania i mówienia oraz awatar mesh.
+- **Zgodność**: silnik od wersji `2.5.0` do wersji sprzed `4.0.0`, z Capability API 1.73. Pakiet korzysta z uprawnień `agent-runtime`, `chat-read`, `storage` i `ui`, a jego instalacja nie wymaga ponownego uruchomienia.
+- **Pełny przewodnik**: [Awatary 2D i 3D](avatars.md).
+
+### 3D Avatars
+
+Pokazuje twoje postacie i persony jako animowane modele 3D, które mrugają, mówią i zmieniają minę przy każdej odpowiedzi. Korzysta z modeli VRM (`.vrm`, w wersjach 0.x i 1.0) z opcjonalną animacją spoczynkową (`.vrma`).
+
+- **Integracja**: pakiet agenta – silnik go uruchamia i rysuje awatary. Podczas czatu nie wysyła żadnych dodatkowych zapytań do twoich połączeń AI.
+- **Gdzie działa**: Roleplay i Game, dla postaci i person.
+- **Dostępność**: **In development**. Nie ma go jeszcze w **Download Agents**.
+- **Najważniejsze ustawienia**: każdy awatar konfigurujesz na stronie agenta w panelu **Agents**.
+- **Zgodność**: silnik od wersji `2.5.0` do wersji sprzed `4.0.0`, z Capability API 1.73. Pakiet korzysta z uprawnień `agent-runtime`, `chat-read`, `storage` i `ui`, a jego instalacja nie wymaga ponownego uruchomienia.
+- **Pełny przewodnik**: [Awatary 2D i 3D](avatars.md).
+
 ### Calls
 
 Dodaje rozmowy audio i wideo na żywo z postaciami w trybie Conversation, w tym rozmowy wychodzące i przychodzące, transkrypcje samych rozmów, syntezę mowy, wejście z mikrofonu oraz klipy wideo z postaciami.

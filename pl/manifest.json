@@ -1,6 +1,6 @@
 {
   "language": "pl",
-  "sourceCommit": "41e403e24b9c38523b98c00e6427b9b56d524860",
+  "sourceCommit": "d882afa9f88af970dfcfb7d4cf4063787ecaff44",
   "files": [
     {
       "path": "CONFIGURATION.md",
@@ -24,8 +24,8 @@
     },
     {
       "path": "TROUBLESHOOTING.md",
-      "sha256": "efae0796348898a03de6cac507dd9d86352809573390dd6ab3e8990022fc0d8c",
-      "bytes": 54508
+      "sha256": "f6b1fabcc2cf979205d86fcc28662f752e59c93057abd0514a7138dea7d9fb36",
+      "bytes": 55976
     },
     {
       "path": "UPGRADING.md",
@@ -34,8 +34,8 @@
     },
     {
       "path": "agents/agents-overview.md",
-      "sha256": "717a4c7e5873fe4ecfc9f2f247d7195bb206fd124c79da1f763bfd464ba7ce6b",
-      "bytes": 13234
+      "sha256": "f5c2a192e84a0480cc5851f27d437a9e4a385f97dae7187e860ccca6098c6ffb",
+      "bytes": 13266
     },
     {
       "path": "agents/approvals-and-agent-suite.md",
@@ -43,9 +43,14 @@
       "bytes": 8055
     },
     {
+      "path": "agents/avatars.md",
+      "sha256": "fc55167ac6bbde84804e8d9df108ed7b1cb0c568f03e803df0397dfc9049fc38",
+      "bytes": 31875
+    },
+    {
       "path": "agents/built-in-agents.md",
-      "sha256": "4f5113f69248c36e651b0f4c7a7d37a0e0d0f8fc8013a778c2b314c4abd9c526",
-      "bytes": 38299
+      "sha256": "7dcaa73c42a24cc9b3d4a26379f1721538b18797bccd76b6c957cce77c0d6d08",
+      "bytes": 40345
     },
     {
       "path": "agents/custom-agents.md",
@@ -234,8 +239,8 @@
     },
     {
       "path": "connections/providers-reference.md",
-      "sha256": "6d3a49714eeb92a30c7498c817188c4023e1634e93ebdc709a14c7468500117d",
-      "bytes": 18838
+      "sha256": "3a74cd8541f7c92706e73d7e698cc0f931711ac753432fd586215c051e21adcb",
+      "bytes": 19832
     },
     {
       "path": "connections/subscription-clis.md",
@@ -389,8 +394,8 @@
     },
     {
       "path": "development/optional-agent-packages.md",
-      "sha256": "41b1350c8c4d5c3423c2e7c56765136bad6a4a2fb822abb67be53dfb638c3d6a",
-      "bytes": 88177
+      "sha256": "f48ab5ed4ff0ff39893df58ef583f3f50044135d93f91d80e0886b7e57d22528",
+      "bytes": 92639
     },
     {
       "path": "development/personal-extensions.md",
