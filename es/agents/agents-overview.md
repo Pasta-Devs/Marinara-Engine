@@ -98,6 +98,7 @@ Algunos agentes cambian algo que puedes ver de inmediato. Otros trabajan en sile
 ## Guías relacionadas
 
 - [Downloadable Agents Reference](built-in-agents.md)
+- [Avatares 2D y 3D](avatars.md)
 - [Official Marinara Agents repository](https://github.com/Pasta-Devs/Marinara-Agents)
 - [Creating Custom Agents](custom-agents.md)
 - [Agent Approvals and the Agent Suite](approvals-and-agent-suite.md)

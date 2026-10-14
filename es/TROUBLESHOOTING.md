@@ -271,6 +271,7 @@ Los Game Mode Storyboards (secuencias de viñetas) convierten una narración ter
 - Las imágenes de fotograma clave necesitan una conexión de imagen. Los clips también necesitan una conexión de video.
 - Si un prompt personalizado funciona mejor con todos los personajes combinados, desactiva **Use NovelAI Character Prompts**.
 - Los proveedores lentos pueden alcanzar un tiempo de espera. Sube `IMAGE_GEN_TIMEOUT_MS` o `VIDEO_GEN_TIMEOUT_MS` en `.env` y luego reinicia Marinara. El servidor solo lee estos valores en el arranque.
+- De forma predeterminada, una respuesta de un proveedor de imagen de más de 30 MiB falla con `Outbound response exceeded 31457280 bytes`. Los archivos de salida de ComfyUI local que incrustan el flujo de trabajo y las imágenes de referencia como metadatos pueden llegar a ese tamaño. Sube `IMAGE_GEN_MAX_RESPONSE_BYTES` en `.env` y reinicia Marinara, o desactiva los metadatos en ComfyUI.
 
 Revisa la [Guía del agente Storyboard](game/storyboard.md) para ambos flujos de trabajo y [Game Mode: Primeros pasos](game/getting-started.md) para la configuración del Game.
 
@@ -348,6 +349,12 @@ Docker y Podman guardan los datos en el volumen `marinara-data`, así que ejecut
 ### La copia de seguridad o la exportación devuelve 403
 
 Las sesiones de loopback pueden hacer copias de seguridad sin un admin secret. Desde otro dispositivo, una dirección de red o Docker, las copias de seguridad y las exportaciones de perfil necesitan más. Fija `ADMIN_SECRET` en el servidor y guarda el mismo valor en **Settings** > **Advanced** > **Admin Access**. Si quieres que loopback también requiera el secreto, fija `MARINARA_REQUIRE_ADMIN_SECRET_ON_LOOPBACK=true`.
+
+### La importación dice que el archivo no es un archivo ZIP legible
+
+Marinara lee las tarjetas `.charx`, los paquetes `.marinara`, los paquetes de agentes y los repositorios de agentes personalizados como archivos ZIP. Rechaza un archivo comprimido dañado o cuyo contenido no coincide con su propia lista de archivos, y muestra **The file is not a readable ZIP archive** (o **Could not read .marinara package** para un paquete `.marinara`). La causa habitual es una descarga incompleta, así que vuelve a descargar el archivo. Si creaste tú el archivo comprimido, vuelve a crearlo con una herramienta estándar, como la opción de comprimir de tu sistema, `zip` o 7-Zip. No pasa nada si una transferencia añade ceros de relleno o un salto de línea después del archivo comprimido.
+
+**Package contains too many files** significa que un paquete de agente o un repositorio personalizado contiene más de 8.192 archivos. **.marinara package has too many entries** significa que un paquete `.marinara` contiene más de 8 archivos. Estos límites no son nuevos. Quita los archivos sobrantes y vuelve a intentarlo.
 
 ## Android y Docker
 
