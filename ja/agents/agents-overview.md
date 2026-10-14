@@ -98,6 +98,7 @@ Marinaraは、パッケージをアップデートする前に確認を求めま
 ## 関連ガイド
 
 - [ダウンロードできるエージェント一覧](built-in-agents.md)
+- [2Dアバターと3Dアバター](avatars.md)
 - [Marinara Agents公式リポジトリー](https://github.com/Pasta-Devs/Marinara-Agents)
 - [カスタムエージェントの作成](custom-agents.md)
 - [エージェントの承認とAgent Suite](approvals-and-agent-suite.md)
