@@ -129,8 +129,8 @@
     },
     {
       "path": "characters/interactive-onboarding.md",
-      "sha256": "0199517343e3e881007159f0886c26572577452657aa4e6831bc645131e67f14",
-      "bytes": 8454
+      "sha256": "00c33e26f5ead60e589c20bae1c11e8bbff0786c26528d57386359e13fada78b",
+      "bytes": 8458
     },
     {
       "path": "characters/library-organization.md",
@@ -564,7 +564,7 @@
     },
     {
       "path": "lorebooks/semantic-search.md",
-      "sha256": "7e27824eaec8b7f31199c87421b5fbce51e44df2b42ef9fb9b8803b08079d43f",
+      "sha256": "02703652e2bd69eed5ed0c6c8084e6920eacd655c5d0910549c23c1850c66798",
       "bytes": 9353
     },
     {
