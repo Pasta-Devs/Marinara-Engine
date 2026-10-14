@@ -43,7 +43,9 @@ Memory Recall a besoin d'une source d'embeddings pour construire ces empreintes 
 
 Certains fournisseurs ne proposent pas d'embeddings. Dans ce cas, Marinara affiche un message qui t'invite à choisir une connexion d'embeddings dédiée : une connexion compatible OpenAI, Google, ou le modèle local.
 
-Si aucune connexion d'embeddings n'est définie, Marinara se rabat sur un modèle d'embeddings local intégré. Il télécharge ce modèle une seule fois et le fait tourner sur ta machine, sans clé API (un code secret, un peu comme un mot de passe). Pour en savoir plus sur ce modèle intégré, voir [Configurer le modèle local](../connections/local-model.md).
+Pour utiliser une même source d'embeddings partout, choisis-la sous **Embeddings**, dans **Connections** > **Connection defaults** (connexions par défaut). Les connexions sans modèle d'embedding ni **Embedding Connection** propre l'utilisent alors, tandis que le réglage propre à une connexion garde la priorité.
+
+Si aucune connexion d'embeddings ni valeur par défaut **Embeddings** n'est définie, Marinara se rabat sur un modèle d'embeddings local intégré. Il télécharge ce modèle une seule fois et le fait tourner sur ta machine, sans clé API (un code secret, un peu comme un mot de passe). Pour en savoir plus sur ce modèle intégré, voir [Configurer le modèle local](../connections/local-model.md).
 
 Ce même réglage **Semantic Search (Embeddings)** alimente aussi la recherche sémantique des lorebooks : une seule configuration sert donc aux deux fonctions.
 
