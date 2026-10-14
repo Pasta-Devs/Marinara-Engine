@@ -548,6 +548,41 @@ Engine 전투와 데이터를 연결하는 기능이며 완전한 테이블톱 �
 
 선택은 `chat.metadata.gameRuleset`에 한 번 저장합니다. 고정 정보가 없으면 기존 규칙입니다. 패키지가 없거나 정의가 오래되면 사용할 수 없는 상태로 두며 다른 규칙을 대신 쓰지 않습니다. 집합 ID와 제공 패키지를 함께 검사해 같은 ID의 다른 패키지가 게임을 가져가지 못하게 합니다.
 
+### Capability API 1.73: 아바타 에이전트
+
+Engine은 두 아바타 에이전트 `2d-avatars`(PNGTuber 스프라이트와 메시 아바타)와 `3d-avatars`(VRM 모델)를 호스팅합니다. 패키지는 얇게 유지합니다. 각각 에이전트 정의 하나, 기본 프롬프트, 로케일, 카탈로그 항목만 담습니다. 나머지는 모두 Engine이 소유합니다. `DATA_DIR/avatar-models/` 아래의 소유자별 저장소, 가져오기, 지연 로드되는 렌더러, 각 에이전트의 에이전트 편집기 페이지에 있는 설정, 스트림 디렉터, 표정 분류기, 생성 라우트가 여기에 속합니다. 공유 계약은 `packages/shared/src/types/avatars.ts`(스키마는 `schemas/avatars.schema.ts`)이고, 클라이언트 쪽 절반은 `packages/client/src/features/avatars/contract.ts`입니다. 사용자 가이드는 [`docs/agents/avatars.md`](../agents/avatars.md)입니다.
+
+새 매니페스트 필드는 없습니다. 아바타 패키지는 스키마 버전 2와 Capability API 1.73을 선언하므로, 이 화면이 없는 Engine은 아무것도 보여 주지 않는 에이전트를 목록에 올리는 대신 설치를 거부합니다. 1.73을 도입한 변경은 이 화면을 아무 동작도 하지 않는 스텁으로 넣었습니다. 그래서 패키지는 Engine의 설정, 스테이지, 렌더러 하나가 `staging`에 들어온 뒤에야 공개하며, 미리보기 카탈로그도 예외가 아닙니다. 2D 에이전트의 생성 프롬프트는 `defaultSettings` 안의 `avatarGenerationTemplates` 프롬프트 템플릿 모음으로 제공되며, ID는 `AVATAR_PROMPT_TEMPLATE_IDS`에 있습니다. 에이전트 편집기는 다른 내장 템플릿 모음과 똑같이 이 템플릿을 병합하고 초기화합니다.
+
+### Capability API 1.72: Experience의 지도 팩
+
+Game 마법사로 설정하는 `game-surface` 패키지(`gameSurface.setup`, 1.18)는 스키마 버전 2와 Capability API 1.72로 지도 팩을 함께 배포할 수 있습니다. 지도 팩에는 자체 세계관 키트, 그 키트로 미리 만든 월드, 자체 타일 팩이 들어갑니다. 각각은 Game Mode와 Pixelforge가 이미 읽고 쓰는 공유 파일(`.worldkit.json` 하나, `.world.json` 파일들, `.tilepack.json` 하나)이며, 동시에 선언되고 해시가 고정된 에셋입니다.
+
+```json
+{
+  "gameSurface": {
+    "setup": {},
+    "mapPack": {
+      "kit": "map/riverlands.worldkit.json",
+      "worlds": ["map/upriver.world.json", "map/downriver.world.json"],
+      "tiles": "map/riverlands.tilepack.json"
+    }
+  },
+  "assets": {
+    "paths": [
+      "map/riverlands.worldkit.json",
+      "map/upriver.world.json",
+      "map/downriver.world.json",
+      "map/riverlands.tilepack.json"
+    ]
+  }
+}
+```
+
+`worlds`(최대 32개)와 `tiles`는 선택 사항입니다. 월드 파일에는 그 월드의 스토리 스크립트(worldgen W10)가 들어 있을 수 있으며, 스토리 스크립트는 지도의 일부로 함께 배포됩니다. 버전 2 월드 파일에는 월드를 만든 당시 모습인 `snapshot`(W11)도 들어 있습니다. 그 뒤로 월드 생성기가 바뀐 Engine도 이 스냅샷에서 월드를 만든 그대로 읽으므로, 팩은 Engine을 업데이트해도 계속 동작합니다. 파일은 게임이나 라이브러리 월드의 **Download**(또는 `GET /api/game/:chatId/world/file`)로 만드세요. 이렇게 만든 파일에는 스냅샷이 들어 있습니다. 팩 파일은 여전히 최대 2 MB이므로, 파일이 그보다 큰 월드(큰 월드의 스냅샷)는 팩에 넣어 배포할 수 없습니다. Experience를 켜면 새 게임은 팩의 키트로 고정됩니다. 팩에 월드가 있으면 플레이어는 그중 하나를(스토리 포함) 고르고 다른 월드는 만들지 않습니다. Experience를 끄면 플레이어가 다시 직접 고를 수 있습니다. `POST /api/game/create`도 게임에 같은 고정을 적용합니다. 게임은 여느 게임처럼 키트와 월드를 보관하므로 패키지를 제거해도 계속 플레이할 수 있고, 패키지가 설치되어 있는 동안에는 오버월드와 마을을 팩의 타일로 그립니다.
+
+Engine은 검증된 에셋 경로로 파일을 읽고(파일마다 선언 크기 최대 2 MB, 해시 재확인), 공유 파일을 검사하는 방식 그대로 검사합니다. 파일을 읽을 수 없거나, 월드가 다른 키트로 만들어졌거나 키트에 맞지 않거나, 바이트가 설치된 것과 다르면 팩 전체를 이유와 함께 거부합니다. 그러면 그 Experience로는 게임을 시작할 수 없습니다. 규칙 집합은 지도 팩에 절대 들어가지 않습니다. 자체 규칙이 필요한 Experience는 별도의 규칙 집합 패키지를 배포합니다.
+
 ### Capability API 1.18: Game 마법사 안에서 Experience 설정
 
 `game-surface` 패키지는 스키마 버전 2와 Capability API 1.18에서 `contributions.gameSurface.setup`을 선언할 수 있습니다. Engine은 **Party**(파티), 목표, 모델, 로어북을 포함한 기존 7단계 설정을 유지합니다. 새 게임에서만 Experiences를 제공합니다. 기존 게임의 설정을 다시 열면 해당 Experience와 패키지 설정을 유지합니다. 이 선언이 없는 패키지는 기존 설정 대화상자를 사용합니다.
