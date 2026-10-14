@@ -98,6 +98,7 @@ Um agente que você esperava não rodou? Verifique se a opção **Enable Agents*
 ## Guias relacionados
 
 - [Referência dos agentes para download](built-in-agents.md)
+- [Avatares 2D e 3D](avatars.md)
 - [Repositório oficial Marinara Agents](https://github.com/Pasta-Devs/Marinara-Agents)
 - [Como criar agentes personalizados](custom-agents.md)
 - [Aprovações de agentes e o Agent Suite](approvals-and-agent-suite.md)

@@ -328,6 +328,28 @@ Planeja storyboards visuais, estáticos ou animados, a partir de trocas já conc
 - **Compatibilidade**: Engine `2.3.5` até antes da versão `3.0.0`. O pacote usa as permissões `agent-runtime`, `chat-read`, `prompt-context`, `storage` e `ui`, e não exige reiniciar Marinara.
 - **Guia completo**: [Agente Storyboard: Roleplay e Game Mode](../game/storyboard.md).
 
+### 2D Avatars
+
+Mostra os seus personagens e as suas personas como avatares 2D animados, que piscam, falam e mudam de rosto a cada resposta. Um avatar é feito de sprites no estilo PNGTuber (os seus sprites de expressão, com imagens de piscada e de fala) ou de um arquivo de avatar de malha (`.mavatar`).
+
+- **Integração**: pacote de agente; o Engine roda o agente e desenha os avatares. Ele não envia nenhuma solicitação extra às suas conexões de IA durante o chat.
+- **Onde funciona**: Roleplay e Game, para personagens e personas.
+- **Disponibilidade**: **Em desenvolvimento**. Ainda não está em **Download Agents**.
+- **Configurações principais**: configure cada avatar na página do agente em **Agents**. O agente também traz os prompts usados para criar as imagens de piscada e de fala e um avatar de malha a partir de um dos seus sprites.
+- **Compatibilidade**: Engine `2.5.0` até antes da versão `4.0.0`, com Capability API 1.73. O pacote usa as permissões `agent-runtime`, `chat-read`, `storage` e `ui`, e não exige reiniciar Marinara.
+- **Guia completo**: [Avatares 2D e 3D](avatars.md).
+
+### 3D Avatars
+
+Mostra os seus personagens e as suas personas como modelos 3D animados, que piscam, falam e mudam de rosto a cada resposta. Ele usa modelos VRM (`.vrm`, versões 0.x e 1.0), com uma animação de espera opcional (`.vrma`).
+
+- **Integração**: pacote de agente; o Engine roda o agente e desenha os avatares. Ele não envia nenhuma solicitação extra às suas conexões de IA durante o chat.
+- **Onde funciona**: Roleplay e Game, para personagens e personas.
+- **Disponibilidade**: **Em desenvolvimento**. Ainda não está em **Download Agents**.
+- **Configurações principais**: configure cada avatar na página do agente em **Agents**.
+- **Compatibilidade**: Engine `2.5.0` até antes da versão `4.0.0`, com Capability API 1.73. O pacote usa as permissões `agent-runtime`, `chat-read`, `storage` e `ui`, e não exige reiniciar Marinara.
+- **Guia completo**: [Avatares 2D e 3D](avatars.md).
+
 ### Calls
 
 Acrescenta chamadas de áudio e de vídeo ao vivo com os personagens de Conversation, incluindo chamadas iniciadas por você e chamadas recebidas, transcrições só da chamada, conversão de texto em voz, entrada de microfone e clipes de vídeo do personagem.
