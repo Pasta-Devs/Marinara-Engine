@@ -98,6 +98,7 @@ Spodziewany agent nie zadziałał? Sprawdź, czy przełącznik **Enable Agents**
 ## Powiązane przewodniki
 
 - [Agenci do pobrania: przegląd pakietów](built-in-agents.md)
+- [Awatary 2D i 3D](avatars.md)
 - [Oficjalne repozytorium Marinara Agents](https://github.com/Pasta-Devs/Marinara-Agents)
 - [Tworzenie własnych agentów](custom-agents.md)
 - [Zatwierdzanie zapisów agentów i Agent Suite](approvals-and-agent-suite.md)

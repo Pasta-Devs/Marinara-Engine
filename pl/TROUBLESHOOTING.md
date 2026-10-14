@@ -271,6 +271,7 @@ Storyboardy w trybie Game Mode zamieniają zakończoną narrację postaci GM w o
 - Klatki kluczowe wymagają połączenia do generowania obrazów. Klipy potrzebują dodatkowo połączenia wideo.
 - Jeśli własny prompt działa lepiej ze wszystkimi postaciami naraz, wyłącz **Use NovelAI Character Prompts**.
 - U wolnych dostawców może zostać przekroczony limit czasu. Zwiększ `IMAGE_GEN_TIMEOUT_MS` lub `VIDEO_GEN_TIMEOUT_MS` w pliku `.env`, a potem uruchom aplikację Marinara Engine ponownie. Serwer odczytuje te wartości tylko przy starcie.
+- Domyślnie odpowiedź dostawcy obrazów większa niż 30 MiB kończy się błędem `Outbound response exceeded 31457280 bytes`. Taki rozmiar mogą osiągnąć lokalne pliki wynikowe ComfyUI, które zapisują w metadanych workflow i obrazy referencyjne. Zwiększ `IMAGE_GEN_MAX_RESPONSE_BYTES` w pliku `.env` i uruchom aplikację Marinara Engine ponownie albo wyłącz metadane w ComfyUI.
 
 Oba sposoby pracy opisuje [Przewodnik po agencie Storyboard](game/storyboard.md), a konfigurację gry – [Game Mode: pierwsze kroki](game/getting-started.md).
 
@@ -348,6 +349,12 @@ Docker i Podman przechowują dane w wolumenie `marinara-data`, dlatego uruchom p
 ### Kopia zapasowa lub eksport zwraca błąd 403
 
 Sesje na pętli zwrotnej tworzą kopie zapasowe bez sekretu administratora. Z innego urządzenia, spod adresu sieciowego albo z kontenera Docker kopie zapasowe i eksport profilu wymagają więcej. Ustaw `ADMIN_SECRET` na serwerze i zapisz tę samą wartość w **Settings** > **Advanced** > **Admin Access**. Jeśli sekret ma być wymagany także na pętli zwrotnej, ustaw `MARINARA_REQUIRE_ADMIN_SECRET_ON_LOOPBACK=true`.
+
+### Import zgłasza, że plik nie jest czytelnym archiwum ZIP
+
+Marinara odczytuje karty `.charx`, pakiety `.marinara`, pakiety agentów i własne repozytoria agentów jako archiwa ZIP. Odrzuca archiwum, które jest uszkodzone albo którego zawartość nie zgadza się z jego własną listą plików, i pokazuje komunikat **The file is not a readable ZIP archive** (albo **Could not read .marinara package** w przypadku pakietu `.marinara`). Najczęstszą przyczyną jest niepełne pobranie pliku, więc pobierz go ponownie. Jeśli archiwum przygotowujesz samodzielnie, utwórz je jeszcze raz standardowym narzędziem, takim jak opcja kompresji w systemie, `zip` albo 7-Zip. Dopełnienie zerami albo znak końca wiersza dodany za archiwum podczas przesyłania nie przeszkadzają.
+
+**Package contains too many files** oznacza, że pakiet agenta lub własne repozytorium zawiera więcej niż 8 192 pliki. **.marinara package has too many entries** oznacza, że pakiet `.marinara` zawiera więcej niż 8 plików. Te limity nie są nowe. Usuń nadmiarowe pliki i spróbuj ponownie.
 
 ## Android i Docker
 

@@ -473,6 +473,41 @@ API 1.27 pozwala katalogowi deklarować `"holds": "creatures"`. Bloki stworzeń 
 
 Katalog stworzeń nie deklaruje `feeds` i nie pojawia się w selektorze arkusza. Przy włączonym reżyserze walki gra z `combat` używa tych zasad i bestiariusza na ekranie bitwy oraz zapisuje arkusze po każdym działaniu. To styl `ruleset`, który nie wymaga osobnego poziomu Capability API. Bez `combat` nadal działa blok `battle` albo wybrane Classic/Tactical. Instalacja sprawdza zweryfikowane `ruleset.json` i `catalogs/<id>.json`: `combat` i nowe klucze `mechanics` wymagają 1.26, a `holds` i `creature` — 1.27. Starszy ścisły schemat odrzuciłby plik. Nie ma nowych uprawnień ani zmian dla zestawów bez tych pól.
 
+### Capability API 1.73: agenci awatarów
+
+Engine hostuje dwóch agentów awatarów: `2d-avatars` (sprite'y PNGTuber i awatary mesh) oraz `3d-avatars` (modele VRM). Ich pakiety pozostają cienkie: każdy zawiera definicję agenta, domyślne prompty, pliki lokalizacji i wpis w katalogu. Wszystko inne należy do Engine: przechowywanie danych osobno dla każdego właściciela w `DATA_DIR/avatar-models/`, import, leniwie ładowane renderery, konfiguracja na stronie każdego agenta w edytorze agenta, reżyser strumienia, klasyfikator wyrazów twarzy i trasy generowania. Wspólny kontrakt to `packages/shared/src/types/avatars.ts` (jego schematy są w `schemas/avatars.schema.ts`), a część kliencka to `packages/client/src/features/avatars/contract.ts`. Przewodnik dla użytkownika to [`docs/agents/avatars.md`](../agents/avatars.md).
+
+Nie ma nowego pola manifestu. Pakiet awatarów deklaruje schemat w wersji 2 i Capability API 1.73, więc Engine bez tych powierzchni odmawia instalacji, zamiast wyświetlać agenta, który niczego nie pokazuje. Zmiana, która wprowadziła 1.73, dostarczyła te powierzchnie jako nieaktywne zaślepki, dlatego pakiety są publikowane, nawet w katalogu podglądowym, dopiero gdy konfiguracja, scena i jeden z rendererów Engine trafią na `staging`. Prompty generowania agenta 2D są dostarczane jako kolekcja szablonów promptów `avatarGenerationTemplates` w jego `defaultSettings`, z identyfikatorami w `AVATAR_PROMPT_TEMPLATE_IDS`; edytor agenta scala je i przywraca do wartości domyślnych tak jak każdą inną wbudowaną kolekcję szablonów.
+
+### Capability API 1.72: pakiet map dla Experience
+
+Pakiet `game-surface` konfigurowany w kreatorze Game (`gameSurface.setup`, 1.18) może dostarczyć pakiet map przy schemacie w wersji 2 i Capability API 1.72: własny zestaw realiów świata (setting kit), gotowe światy zbudowane na tym zestawie realiów i własny zestaw kafelków. Każdy z nich to plik do udostępniania, który Game Mode i Pixelforge już odczytują i zapisują (plik `.worldkit.json`, pliki `.world.json` i plik `.tilepack.json`), a zarazem zadeklarowany zasób przypięty hashem.
+
+```json
+{
+  "gameSurface": {
+    "setup": {},
+    "mapPack": {
+      "kit": "map/riverlands.worldkit.json",
+      "worlds": ["map/upriver.world.json", "map/downriver.world.json"],
+      "tiles": "map/riverlands.tilepack.json"
+    }
+  },
+  "assets": {
+    "paths": [
+      "map/riverlands.worldkit.json",
+      "map/upriver.world.json",
+      "map/downriver.world.json",
+      "map/riverlands.tilepack.json"
+    ]
+  }
+}
+```
+
+`worlds` (maksymalnie 32) i `tiles` są opcjonalne. Plik świata może zawierać skrypt fabuły swojego świata (worldgen W10), który trafia do pakietu razem z mapą jako jej część. Plik świata w wersji 2 zawiera też `snapshot` świata, czyli świat w takiej postaci, w jakiej powstał (W11): Engine, którego generator światów od tego czasu się zmienił, odczytuje świat z tej migawki dokładnie w takiej postaci, w jakiej powstał, więc pakiet działa dalej po aktualizacjach Engine. Zapisuj pliki przyciskiem **Download** (pobranie) przy grze albo świecie z biblioteki (lub przez `GET /api/game/:chatId/world/file`), bo tak zapisane pliki zawierają migawkę. Plik pakietu nadal może mieć najwyżej 2 MB, więc świata z większym plikiem (migawka dużego świata) nie da się dostarczyć w pakiecie. Gdy Experience jest włączone, nowa gra jest związana z zestawem realiów pakietu; jeśli pakiet dostarcza światy, gracz wybiera jeden z nich (razem z fabułą) i nie tworzy innego. Wyłączenie Experience przywraca graczowi własne wybory. `POST /api/game/create` wymusza tę samą blokadę. Gra zachowuje swój zestaw realiów i świat jak każda inna, więc działa dalej po usunięciu pakietu, a dopóki pakiet jest zainstalowany, rysuje mapę świata i miasta kafelkami z pakietu.
+
+Engine odczytuje pliki zweryfikowaną ścieżką zasobów (deklarowany rozmiar najwyżej 2 MB na plik, hash sprawdzany ponownie) i sprawdza je tak samo jak pliki do udostępniania. Pakiet jest odrzucany w całości, z podaniem powodu, gdy któregoś pliku nie da się odczytać, gdy świat powstał na innym zestawie realiów albo do niego nie pasuje lub gdy bajty pliku nie są tymi zainstalowanymi; Experience nie może wtedy rozpocząć gry. Zestaw zasad nigdy nie jest częścią pakietu map: Experience, które potrzebuje własnych zasad, dostarcza osobny pakiet zestawu zasad.
+
 ### Capability API 1.18: konfiguracja Experience w kreatorze Game
 
 Pakiet `game-surface` może zadeklarować `contributions.gameSurface.setup` przy schemacie w wersji 2 i Capability API 1.18. Engine zachowuje siedem zwykłych kroków konfiguracji, w tym **Party** (Drużyna), cele, modele i lorebooki. Experiences są dostępne tylko przy nowych grach; ponowne otwarcie konfiguracji istniejącej gry zachowuje jej Experience i konfigurację pakietu. Pakiety bez tej deklaracji zachowują dawny dialog konfiguracji.
