@@ -1,6 +1,6 @@
 {
   "language": "ko",
-  "sourceCommit": "d882afa9f88af970dfcfb7d4cf4063787ecaff44",
+  "sourceCommit": "c132810c08d089df58499c5200bd901e4e2cc0ab",
   "files": [
     {
       "path": "CONFIGURATION.md",
@@ -69,8 +69,8 @@
     },
     {
       "path": "agents/memory.md",
-      "sha256": "01597655af0438478998e989b010d9a1060c00776f7fc273890a0a3d2b573d72",
-      "bytes": 64250
+      "sha256": "3b10c81c9166ea270d4aa46893b6922cf068522a6f856a711121a975ec361ddc",
+      "bytes": 64587
     },
     {
       "path": "appearance/appearance-settings.md",
@@ -564,8 +564,8 @@
     },
     {
       "path": "lorebooks/semantic-search.md",
-      "sha256": "ed51937ce2b75c5e103a6da02fe5a408db96e6dc8f6d93ad4067cbe850b37793",
-      "bytes": 10955
+      "sha256": "89a52dd7f2e4b282421857bc782c307326088f763520c1a460f9b89a3c7d775f",
+      "bytes": 11869
     },
     {
       "path": "lorebooks/token-budgets.md",

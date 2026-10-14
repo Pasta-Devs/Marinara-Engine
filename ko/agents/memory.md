@@ -43,7 +43,9 @@ Memory Recall이 의미 지문을 만들려면 임베딩 소스가 필요합니�
 
 임베딩을 제공하지 않는 제공자도 있습니다. 그럴 때 Marinara는 임베딩 전용 연결을 고르라는 안내를 표시합니다. OpenAI 호환 연결, Google, Local Model 중에서 선택하면 됩니다.
 
-임베딩 연결을 전혀 지정하지 않으면 Marinara는 내장 로컬 임베딩 모델로 대체합니다. 이 모델은 처음 한 번만 다운로드하고 이후에는 컴퓨터에서 직접 실행되며, API 키도 필요 없습니다. 내장 모델은 [Local Model 설정](../connections/local-model.md)에서 더 자세히 확인할 수 있습니다.
+어디서나 하나의 임베딩 소스를 쓰려면 **Connections** > **Connection defaults**(연결 기본값)의 **Embeddings**에서 선택하세요. 자체 임베딩 모델이나 **Embedding Connection**이 없는 연결은 그 소스를 사용하며, 연결에 직접 설정한 값이 계속 우선합니다.
+
+임베딩 연결도 **Embeddings** 기본값도 지정하지 않으면 Marinara는 내장 로컬 임베딩 모델로 대체합니다. 이 모델은 처음 한 번만 다운로드하고 이후에는 컴퓨터에서 직접 실행되며, API 키도 필요 없습니다. 내장 모델은 [Local Model 설정](../connections/local-model.md)에서 더 자세히 확인할 수 있습니다.
 
 같은 **Semantic Search (Embeddings)** 설정이 로어북 시맨틱 검색에도 쓰입니다. 한 번만 설정해 두면 두 기능에 모두 적용됩니다.
 
