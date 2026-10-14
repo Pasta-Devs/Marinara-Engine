@@ -18,7 +18,7 @@ Las coincidencias por palabra clave y las semánticas tienen la misma prioridad 
 
 La búsqueda semántica necesita un modelo que pueda crear embeddings. Tienes dos opciones.
 
-Elijas la que elijas, puedes convertirla en la predeterminada de toda la aplicación: abre **Connections** (Conexiones), luego **Connection defaults** (valores predeterminados de conexión) y elígela en **Embeddings**. Todas las conexiones que no definen un modelo de embeddings ni una **Embedding Connection** propios la usan entonces. El ajuste propio de una conexión sigue teniendo prioridad, y la fila te indica cuántas conexiones usan sus propios ajustes. **None** mantiene el modelo local integrado como alternativa.
+Elijas la que elijas, puedes convertirla en la predeterminada de toda la aplicación: abre **Connections** (Conexiones), luego **Connection defaults** (valores predeterminados de conexión) y elígela en **Embeddings**. Todas las conexiones que no definan un modelo de embeddings ni una **Embedding Connection** propios la usan entonces. El ajuste propio de una conexión sigue teniendo prioridad, y la fila te indica cuántas conexiones usan sus propios ajustes. **None** mantiene el modelo local integrado como alternativa.
 
 Opción 1: una conexión con un modelo de embeddings.
 
