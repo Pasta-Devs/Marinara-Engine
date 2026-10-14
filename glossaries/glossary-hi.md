@@ -776,3 +776,14 @@ These are translation choices, not a new native-reader review.
 - A model's thoughts are **सोच**, as in the **View thoughts** (सोच देखें) gloss; "the usual thought display" is **सोच दिखाने का आम तरीका**. A request at a given effort level is **<स्तर> स्तर की रिक्वेस्ट** (`मध्यम स्तर की रिक्वेस्ट`), not a bare `मध्यम रिक्वेस्ट`.
 
 These are translation choices, not a new native-reader review.
+
+## Game HUD sections and Advanced Memory setup (2026-10-14)
+
+Precedents from the #7604 and #7595 sync (`appearance/appearance-settings.md`, `appearance/custom-css-themes.md`, `agents/memory.md`):
+
+- A UI dialog is **डायलॉग विंडो** wherever quoted dialogue (**डायलॉग**) is nearby, as in both appearance guides. Bare डायलॉग for a named dialog (`**Forget Memory** डायलॉग`) stays as it is.
+- The Game panels EN capitalizes without bold, **the Inventory** and **the Journal**, stay Latin and unbolded (`Inventory`, `Journal`), like `Journal` in `game/party-and-npcs.md`. Generic inventory stays **इन्वेंटरी**.
+- Combat panels are **लड़ाई के पैनल**, after `game/combat.md`'s लड़ाई. Game logs are **लॉग**, as in the **Logs** (लॉग) gloss. Game choices are **विकल्प**.
+- Advanced Memory: older context is **काट दिया जाता है**; memories that can be recalled are **यादें जिन्हें रिकॉल किया जा सकता है**; an excerpt is **अंश**, defined as the recalled scene's **हूबहू संदेश**. "Maximum allowed context" in prose is **अधिकतम कॉन्टेक्स्ट**, matching the label's gloss.
+
+These are translation choices, not a new native-reader review.

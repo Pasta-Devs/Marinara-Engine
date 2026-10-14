@@ -22,9 +22,11 @@ Użyj **Reset color** (przywrócenie koloru) przy wybranej opcji, aby znów korz
 
 Aby przenieść ten wygląd na resztę czatu, użyj trzech przełączników pod narzędziami wyboru kolorów:
 
-- **Apply preset font** (zastosowanie czcionki presetu) stosuje wybraną czcionkę widgetów w wiadomościach, polach wpisywania i kontrolkach czatu, w tym widgetach paska HUD, panelu mapy, uwagach pobocznych i kartach postaci w trybie Game Mode.
-- **Apply preset shape** (zastosowanie kształtu presetu) stosuje wybrany kształt ramki w wiadomościach Roleplay w układzie klasycznym i visual novel, polu dialogowym Game, uwagach pobocznych, widgetach paska HUD, panelu mapy i kartach postaci, polach wpisywania oraz kontrolkach. Wiadomości Conversation zachowują swój kształt.
+- **Apply preset font** (zastosowanie czcionki presetu) stosuje wybraną czcionkę widgetów w wiadomościach, polach wpisywania i kontrolkach czatu.
+- **Apply preset shape** (zastosowanie kształtu presetu) stosuje wybrany kształt ramki w wiadomościach Roleplay w układzie klasycznym i visual novel, polu dialogowym Game, polach wpisywania oraz kontrolkach. Wiadomości Conversation zachowują swój kształt.
 - **Apply preset colors** (zastosowanie kolorów presetu) stosuje kolory obramowań, tła i tekstu widgetów w tych obszarach, także w wiadomościach Conversation. Uwzględnia też własne kolory i gradienty. Wypowiedzi w cudzysłowie zachowują kolor Dialogue Highlight Color ustawiony dla danej postaci lub persony.
+
+W trybie Game Mode przełączniki obejmują też uwagi poboczne, widgety paska HUD, panel mapy, karty postaci, dzienniki, ekwipunek, panele walki i okna dialogowe.
 
 Każdy przełącznik jest początkowo wyłączony i działa niezależnie. Możesz na przykład użyć czcionki Professor Mari, zachowując zwykłe kolory czatu. Wyłączenie przełącznika przywraca zwykły wygląd odpowiedniej części czatu. Wybranie innego presetu zachowuje ustawienia przełączników. Asystentka Professor Mari może też tworzyć własne motywy dla tych obszarów.
 
@@ -222,6 +224,8 @@ Trzy przełączniki **Apply preset** pozwalają też własnemu motywowi stosowa�
 | Element | Klasa |
 | --- | --- |
 | Pola wiadomości Roleplay i Game, uwagi poboczne Game, widgety paska HUD, panel mapy i karty postaci oraz pola wpisywania wiadomości | `.mari-chat-style-surface` |
+| Dzienniki, ekwipunek, panele walki, opcje wyboru i okna dialogowe Game; panele mają też atrybut `data-game-section` ze swoją nazwą, np. `logs`, `inventory` albo `combat-actions` | `.mari-game-section.mari-chat-style-surface` |
+| Treści Game w oknie, takie jak zakładka Journal, które korzystają z kolorów okna | `.mari-game-section` |
 | Wiadomości Conversation (tylko czcionka i kolory) | `.mari-chat-style-conversation` |
 | Tekst wiadomości Conversation bez obramowania | `.mari-chat-style-text` |
 | Kontrolki czatu, w tym Calls i kontrolki grup Conversation | `.mari-chat-style-control` |

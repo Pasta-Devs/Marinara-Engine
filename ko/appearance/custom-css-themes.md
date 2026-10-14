@@ -22,9 +22,11 @@ CSS 없이 모양을 빠르게 바꾸려면 **Settings > Appearance > App**(설�
 
 채팅의 나머지 영역에도 같은 모양을 적용하려면 색상 선택기 아래의 스위치 세 개를 사용하세요.
 
-- **Apply preset font**(프리셋 글꼴 적용)는 선택한 위젯 글꼴을 메시지, 입력란과 채팅 컨트롤에 적용합니다. Game Mode의 HUD 위젯, 지도 패널, 부가 발언과 캐릭터 시트도 포함합니다.
-- **Apply preset shape**(프리셋 모양 적용)는 선택한 프레임 모양을 클래식 및 비주얼 노벨 레이아웃의 Roleplay 메시지, Game 대화 상자, 부가 발언, HUD 위젯, 지도 패널, 캐릭터 시트, 입력란과 컨트롤에 적용합니다. Conversation 메시지는 원래 모양을 유지합니다.
+- **Apply preset font**(프리셋 글꼴 적용)는 선택한 위젯 글꼴을 메시지, 입력란과 채팅 컨트롤에 적용합니다.
+- **Apply preset shape**(프리셋 모양 적용)는 선택한 프레임 모양을 클래식 및 비주얼 노벨 레이아웃의 Roleplay 메시지, Game 대화 상자, 입력란과 컨트롤에 적용합니다. Conversation 메시지는 원래 모양을 유지합니다.
 - **Apply preset colors**(프리셋 색상 적용)는 위젯의 테두리, 배경과 글자 색상을 해당 영역에 적용합니다. Conversation 메시지도 포함하며, 사용자 지정 색상과 그라데이션도 적용됩니다. 따옴표 안의 대사는 각 캐릭터나 페르소나에 지정된 Dialogue Highlight Color를 그대로 유지합니다.
+
+Game Mode에서는 이 스위치가 부가 발언, HUD 위젯, 지도 패널, 캐릭터 시트, 로그, 인벤토리, 전투 패널과 팝업 창에도 적용됩니다.
 
 각 스위치는 처음에는 꺼져 있으며 독립적으로 동작합니다. 예를 들어 채팅의 원래 색상을 유지하면서 Professor Mari 글꼴을 사용할 수 있습니다. 스위치를 끄면 해당 부분이 원래 채팅 스타일로 돌아갑니다. 다른 프리셋을 선택해도 스위치 선택은 유지됩니다. Professor Mari에게 이 영역의 사용자 지정 테마를 만들게 할 수도 있습니다.
 
@@ -224,6 +226,8 @@ Game controls, Session, Volume, Game Assets, 연결된 채팅과 패키지 컨�
 | 부분 | 클래스 |
 | --- | --- |
 | Roleplay와 Game 메시지 상자, Game 부가 발언, HUD 위젯, 지도 패널, 캐릭터 시트와 채팅 입력란 | `.mari-chat-style-surface` |
+| Game 로그, 인벤토리, 전투 패널, 선택지와 팝업 창. 각 패널에는 `logs`, `inventory`, `combat-actions`처럼 그 이름을 담은 `data-game-section`도 있습니다 | `.mari-game-section.mari-chat-style-surface` |
+| Journal(일지)처럼 창 안에 표시되는 Game 콘텐츠. 창의 색상을 따릅니다 | `.mari-game-section` |
 | Conversation 메시지(글꼴과 색상만 적용) | `.mari-chat-style-conversation` |
 | 상자 없는 Conversation 메시지 텍스트 | `.mari-chat-style-text` |
 | Calls와 Conversation 그룹 컨트롤을 포함한 채팅 컨트롤 | `.mari-chat-style-control` |

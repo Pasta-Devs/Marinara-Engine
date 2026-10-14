@@ -22,9 +22,11 @@ Utilise **Reset color** près d'un contrôle pour retrouver les couleurs claires
 
 Pour étendre ce style au reste du chat, utilise les trois interrupteurs sous les sélecteurs de couleur :
 
-- **Apply preset font** (appliquer la police du preset) utilise la police choisie pour les widgets dans les messages, les champs de saisie et les contrôles du chat, y compris les widgets du HUD, le panneau de carte, les apartés et les fiches de personnage de Game Mode.
-- **Apply preset shape** (appliquer la forme du preset) utilise la forme de cadre choisie pour les messages Roleplay dans les dispositions classique et visual novel, la boîte de dialogue Game, les apartés, les widgets du HUD, le panneau de carte, les fiches de personnage, les champs de saisie et les contrôles. Les messages Conversation gardent leur propre forme.
+- **Apply preset font** (appliquer la police du preset) utilise la police choisie pour les widgets dans les messages, les champs de saisie et les contrôles du chat.
+- **Apply preset shape** (appliquer la forme du preset) utilise la forme de cadre choisie pour les messages Roleplay dans les dispositions classique et visual novel, la boîte de dialogue Game, les champs de saisie et les contrôles. Les messages Conversation gardent leur propre forme.
 - **Apply preset colors** (appliquer les couleurs du preset) utilise les couleurs de bordure, de fond et de texte du widget dans ces zones, y compris les messages Conversation. Tes couleurs et dégradés personnalisés s'appliquent aussi. Les dialogues entre guillemets conservent la **Dialogue Highlight Color** (couleur de surbrillance des dialogues) propre à chaque personnage ou persona.
+
+En Game Mode, les interrupteurs s'appliquent aussi aux apartés, aux widgets du HUD, au panneau de carte, aux fiches de personnage, aux journaux, à l'inventaire, aux panneaux de combat et aux boîtes de dialogue.
 
 Chaque interrupteur est désactivé au départ et fonctionne indépendamment. Tu peux par exemple utiliser la police de Professor Mari tout en gardant les couleurs habituelles du chat. Désactiver un interrupteur rétablit cette partie du style habituel. Choisir un autre preset conserve tes choix d'interrupteurs. Professor Mari peut aussi créer des thèmes personnalisés pour ces zones.
 
@@ -223,6 +225,8 @@ Les trois interrupteurs **Apply preset** permettent aussi à un thème personnal
 | Élément | Classe |
 | --- | --- |
 | Cadres des messages Roleplay et Game, apartés de Game, widgets du HUD, panneau de carte et fiches de personnage, et champs de saisie du chat | `.mari-chat-style-surface` |
+| Journaux, inventaire, panneaux de combat, choix et boîtes de dialogue de Game ; les panneaux ont aussi l'attribut `data-game-section` avec leur nom, par exemple `logs`, `inventory` ou `combat-actions` | `.mari-game-section.mari-chat-style-surface` |
+| Contenu de Game dans une fenêtre, comme l'onglet Journal, qui suit les couleurs de la fenêtre | `.mari-game-section` |
 | Messages Conversation (police et couleurs uniquement) | `.mari-chat-style-conversation` |
 | Texte des messages Conversation sans cadre | `.mari-chat-style-text` |
 | Contrôles du chat, y compris Calls et les contrôles de groupe de Conversation | `.mari-chat-style-control` |

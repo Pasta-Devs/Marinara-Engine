@@ -696,3 +696,13 @@ Precedent from the #7382 / #7396 / #7372 / #7309 mirror (`home/professor-mari.md
 - **Show "older messages not sent" note** keeps straight ASCII quotes inside the bold and is glossed (показывать пометку о неотправленных старых сообщениях).
 
 These are documented translation choices from this sync, not an independent native-reader review.
+
+## Game HUD sections and Advanced Memory setup (2026-10-14)
+
+Precedent from the #7604 / #7595 mirror (`appearance/appearance-settings.md`, `appearance/custom-css-themes.md`, `agents/memory.md`) against `staging` `a8481ca6de96`:
+
+- Game logs (Session Logs, Combat Logs) are **журналы**, following the **Logs** (журнал) gloss at `game/dice-and-skill-checks.md:45`. The Journal in prose is **журнал приключений**, as in `game/party-and-npcs.md`, so the two never share a bare `журнал` in one passage. The Inventory is **инвентарь**, combat panels are **боевые панели**, and Game choices are **варианты выбора**, as at `game/sessions-and-saves.md:86`.
+- Game dialogs (the interrupt, end-session, JSON-repair and widget-editor windows) are **диалоговые окна**, matching the pack's **окно** for dialogs. Keep them apart from **диалоговое поле Game**, the dialogue box where the narration shows.
+- Advanced Memory setup: older context that is "cut off" **отсекается**, as **отсечка** at `agents/memory.md:170`. "The memories that can be recalled" is **воспоминания, доступные для извлечения**, and an excerpt in the Setup list stays **фрагмент**. The constants sentence now reads `не более **70%** этого значения`, so the share points at the budget and not at the maximum context named in the inserted sentence.
+
+These are documented translation choices from this sync, not an independent native-reader review.

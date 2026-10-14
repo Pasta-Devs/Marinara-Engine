@@ -22,9 +22,11 @@ Use **Reset color** ao lado de um controle para voltar às cores claras ou escur
 
 Para levar esse visual ao restante do chat, use os três botões liga/desliga abaixo dos seletores de cor:
 
-- **Apply preset font** (aplicar fonte do preset) usa a fonte escolhida para os widgets nas mensagens, nos campos de entrada e nos controles do chat, incluindo os widgets do HUD, o painel do mapa, os comentários laterais e as fichas de personagem do Game Mode.
-- **Apply preset shape** (aplicar forma do preset) usa a forma de moldura escolhida nas mensagens de Roleplay com layout clássico ou de visual novel, na caixa de diálogo de Game, nos comentários laterais, nos widgets do HUD, no painel do mapa, nas fichas de personagem, nos campos de entrada e nos controles. As mensagens de Conversation mantêm sua própria forma.
+- **Apply preset font** (aplicar fonte do preset) usa a fonte escolhida para os widgets nas mensagens, nos campos de entrada e nos controles do chat.
+- **Apply preset shape** (aplicar forma do preset) usa a forma de moldura escolhida nas mensagens de Roleplay com layout clássico ou de visual novel, na caixa de diálogo de Game, nos campos de entrada e nos controles. As mensagens de Conversation mantêm sua própria forma.
 - **Apply preset colors** (aplicar cores do preset) usa as cores de borda, fundo e texto do widget nessas áreas, incluindo as mensagens de Conversation. Suas cores e gradientes personalizados também se aplicam. As falas entre aspas mantêm a Dialogue Highlight Color própria de cada personagem ou persona.
+
+No Game Mode, os botões também se aplicam aos comentários laterais, aos widgets do HUD, ao painel do mapa, às fichas de personagem, aos registros, ao inventário, aos painéis de combate e às janelas de diálogo.
 
 Cada botão começa desativado e funciona de forma independente. Por exemplo, você pode usar as letras da Professor Mari e manter as cores habituais do chat. Desativar um botão restaura essa parte do estilo habitual do chat. Escolher outro preset mantém as opções desses botões. Professor Mari também pode criar temas personalizados para essas áreas.
 
@@ -223,6 +225,8 @@ Os três botões **Apply preset** também permitem que um tema personalizado use
 | Parte | Classe |
 | --- | --- |
 | Caixas de mensagem de Roleplay e Game, comentários laterais de Game, widgets do HUD, painel do mapa e fichas de personagem, e campos de entrada do chat | `.mari-chat-style-surface` |
+| Registros, inventário, painéis de combate, escolhas e janelas de diálogo de Game; os painéis também têm `data-game-section` com o nome deles, como `logs`, `inventory` ou `combat-actions` | `.mari-game-section.mari-chat-style-surface` |
+| Conteúdo de Game dentro de uma janela, como o Journal, que segue as cores da janela | `.mari-game-section` |
 | Mensagens de Conversation (somente fonte e cores) | `.mari-chat-style-conversation` |
 | Texto de mensagens de Conversation sem caixa | `.mari-chat-style-text` |
 | Controles do chat, incluindo Calls e controles de grupo de Conversation | `.mari-chat-style-control` |

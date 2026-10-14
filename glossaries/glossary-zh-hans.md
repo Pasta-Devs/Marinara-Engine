@@ -640,3 +640,16 @@ Cycle precedent for the #7382, #7396, #7372 and #7309 sync. None of these labels
 | Create your persona / Create persona / Your Persona | 创建你的用户角色 / 创建用户角色 / 你的用户角色 | A persona template is a 用户角色模板; the player is the 玩家. |
 
 Reused glosses: **Variable Name**(变量名), **Question (shown to user)**(向用户展示的提问), **Options**(选项), **Value**(值) and **Multi-Select**(多选) from `prompts/preset-variables.md`; **Available variables**(可用变量) and **Rendered preview**(渲染预览) from `prompts/prompt-overrides.md`; **Persona & Characters**(用户角色与角色) from `roleplay/getting-started.md`; the five persona fields take the Card-tab glosses of `characters/creating-and-editing-characters.md`, so **Appearance** is (外观), not the (外貌) of `characters/import-export.md`. These are translation choices, not a new native-reader review.
+
+## Game sections and Advanced Memory setup (2026-10-14)
+
+Cycle precedent for #7604 and #7595 (`appearance/appearance-settings.md`, `appearance/custom-css-themes.md`, `agents/memory.md`).
+
+| English | Rendering | Note |
+| --- | --- | --- |
+| dialogs (Game windows such as End session or Repair JSON) | 弹窗 | Kept apart from Game 对话框 / 对白框, the dialogue box. Same word as the **Memories for This Chat** window in `agents/memory.md`. |
+| logs / combat panels / choices (Game sections) | 日志 / 战斗面板 / 选项 | 日志 as the **Logs**(日志) button in `appearance/appearance-settings.md`. |
+| the Inventory (in prose) | 物品栏 | As **Inventory**(物品栏) in `game/party-and-npcs.md`. |
+| older context is cut off (Maximum allowed context) | 较早的上下文会被截断 | Same 截断 as the automatic cutoff in **While chatting**. |
+
+These are translation choices, not a new native-reader review.

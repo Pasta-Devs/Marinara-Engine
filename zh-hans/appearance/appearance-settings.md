@@ -51,7 +51,7 @@
 
 **Button size (px)**(按钮大小，px) 可以改变可移动聊天按钮及其图标的大小，而不改变 Display Size。输入 32 到 96 像素之间的值。留空或使用重置按钮，会保留当前默认值。大小会和外观偏好一起保存，选择其他预设也不会改变。
 
-颜色选择器下方的 **Apply preset font**(应用预设字体)、**Apply preset shape**(应用预设形状) 和 **Apply preset colors**(应用预设颜色) 可以让聊天的其他区域保持同样的风格。它们初始都是关闭的，且独立生效。它们作用于消息、输入框和聊天控件，也包括 Game Mode 的 HUD 组件、地图面板、补充发言和角色表；Conversation 消息可以使用所选字体和颜色，但保留自己的形状。你自定义的字体、形状和颜色也会一并应用。开启 **Apply preset colors** 时，引号内的对白仍使用每个角色或用户角色自己的 Dialogue Highlight Color。示例和自定义主题见[自定义 CSS 主题](custom-css-themes.md#ready-made-chat-window-styles)。
+颜色选择器下方的 **Apply preset font**(应用预设字体)、**Apply preset shape**(应用预设形状) 和 **Apply preset colors**(应用预设颜色) 可以让聊天的其他区域保持同样的风格。它们初始都是关闭的，且独立生效。它们作用于消息、输入框和聊天控件。在 Game Mode 中，它们还作用于 HUD 组件、地图面板、补充发言、角色表、日志、物品栏、战斗面板和弹窗。Conversation 消息可以使用所选字体和颜色，但保留自己的形状。你自定义的字体、形状和颜色也会一并应用。开启 **Apply preset colors** 时，引号内的对白仍使用每个角色或用户角色自己的 Dialogue Highlight Color。示例和自定义主题见[自定义 CSS 主题](custom-css-themes.md#ready-made-chat-window-styles)。
 
 ## 自定义鼠标指针
 

@@ -731,3 +731,23 @@ Cycle precedent for the #7492 catch-up of `extending/writing-rulesets.md`:
   in inline code, and quoted UI strings, stay English.
 - New prose in this file uses „…“. Older paragraphs of `extending/writing-rulesets.md`
   still use straight quotes; that is a documented residual, not swept here (R4).
+
+## Game HUD sections and memory budget (2026-10-14)
+
+Cycle precedent for the #7604 and #7595 sync (`appearance/appearance-settings.md`,
+`appearance/custom-css-themes.md`, `agents/memory.md`):
+
+- Game Mode *dialogs* (pop-up windows) are **Dialogfenster**, as elsewhere in the
+  pack. Keep them apart from the *Game dialogue box*, **das Game-Dialogfeld**.
+- *Combat panels* are **Kampfpanels** (closed like `Kartenpanel`, loan plural `-s`
+  like `Seitenpanels`). Game *logs* are **Protokolle** (cf. `**Logs** (Protokolle)`
+  in `game/dice-and-skill-checks.md`), the unbolded *Inventory* is **das Inventar**,
+  Game *choices* are **Entscheidungen** (`game/sessions-and-saves.md`), and the
+  *Journal* stays **das Journal**. *Game content* is **Game-Inhalte** (carrier
+  pattern, §2). Class names and `data-game-section` values stay byte-identical.
+- Advanced Memory: an *excerpt* stays **der Auszug**; *the memories that can be
+  recalled* are „die Erinnerungen, die abgerufen werden können“. The new budget
+  sentence writes `10 %` (§5); the `**70%**`, `**2,000**` and `**8,196**` already in
+  that Setup list are unswept residuals (R4). The sentence after the new one says
+  „dieses Budgets“ instead of „davon“, because the inserted sentence would otherwise
+  make „davon“ point to the maximum context.

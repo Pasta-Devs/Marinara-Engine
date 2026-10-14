@@ -69,13 +69,13 @@
     },
     {
       "path": "agents/memory.md",
-      "sha256": "29e3677c2d50f2592b38fdf4c20970fa02e9ef38c4fe97307cb00591b61dd04a",
-      "bytes": 64078
+      "sha256": "bdbe101c2c68a46de0e77cdf06fecd6163e64f96c60a784cdf972ccc737a3912",
+      "bytes": 64621
     },
     {
       "path": "appearance/appearance-settings.md",
-      "sha256": "56afc371c5be49829efec83423b0187984c7ccc56e0e9dd3068f2c7e1b9a93b5",
-      "bytes": 14558
+      "sha256": "ada0f49aed3850f7155461cb8b314df29f011e4f43d171c9d28c5907aea0eb26",
+      "bytes": 14657
     },
     {
       "path": "appearance/card-css-theming.md",
@@ -89,8 +89,8 @@
     },
     {
       "path": "appearance/custom-css-themes.md",
-      "sha256": "7418950346f5180c96068dfd6b8f93f8efd6ad507df7078bd7d607c28c2467f0",
-      "bytes": 29079
+      "sha256": "cdab33dc322342ca88cfae66dc584803abc3586363612f54f1a4de2d1489f727",
+      "bytes": 29507
     },
     {
       "path": "appearance/fonts.md",

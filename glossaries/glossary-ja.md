@@ -522,3 +522,19 @@ Choices from the #7382, #7396, #7372 and #7309 sync. `ja.json` has none of these
 | out-of-character POV note | POV(視点)を示すキャラクター外の注記, following 「キャラクター外の注記」 for *out of character notes* in `extending/regex-scripts.md` |
 
 Bold labels such as **Ask Prof. Mari**, **Prof. Mari**, **Continue with Prof. Mari** and **Same as Prof. Mari** stay byte-exact. Prose that EN renamed from "Mari" to "Professor Mari" follows, and Mariチャット becomes Professor Mariのチャット. The heading **Quick answers in Search** stays English because it is also the toggle's name, following the UI-surface heading rule. These are translation choices, not a new native-reader review.
+
+## Game HUD sections and Advanced Memory setup (2026-10-14)
+
+Choices from the #7604 and #7595 sync (`appearance/appearance-settings.md`, `appearance/custom-css-themes.md`, `agents/memory.md`).
+
+| English | Translation |
+| --- | --- |
+| combat panels (Game Mode) | 戦闘画面のパネル, after 戦闘画面 in `game/combat.md` |
+| the Inventory (Game panel) | インベントリー; the bold label keeps **Inventory**(インベントリー) |
+| the Journal (Game panel) | Latin `Journal` in prose, as in `extending/writing-rulesets.md` |
+| logs / choices / dialogs (Game) | ログ / 選択肢 / ダイアログ |
+| maximum allowed context (prose) | 最大許容コンテキスト |
+| older context is cut off | 古いコンテキストが切り捨てられ |
+| excerpt (Advanced Memory) | 抜粋, defined as 呼び出したシーンのメッセージをそのまま抜き出したもの |
+
+These are translation choices, not a new native-reader review.

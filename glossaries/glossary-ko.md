@@ -631,3 +631,16 @@ Cycle precedent for #7382, #7396, #7372 and #7309 (`home/professor-mari.md`, `se
 | **Re-scan scenes** / **Re-scan** | (장면 다시 검사) / (다시 검사); particles 를 (신스) / 을 (리스캔) |
 
 **Gloss placement when a label is already glossed later in the file.** A new, earlier mention of a label that the file already glosses further down stays bare, so each label still has exactly one gloss per file (§5 rule 5). This applies to **Settings** and **Delete** in `home/professor-mari.md` (**General** has no later gloss there, so its first mention takes (일반)), to **Use Decision model** in the new Re-scanning section of `agents/memory.md`, and to the new Message Tools table row in `settings/settings-overview.md`, whose label is glossed in the intro sentence just above. These are translation choices, not a new native-reader review.
+
+## Game sections and Advanced Memory setup (2026-10-14)
+
+Cycle precedent for #7604 and #7595 (`appearance/appearance-settings.md`, `appearance/custom-css-themes.md`, `agents/memory.md`).
+
+| English | Translation |
+| --- | --- |
+| dialogs (Game windows such as End session or Repair JSON) | **팝업 창**, kept apart from 대화 상자, which these files already use for the Game dialogue box |
+| logs / combat panels / choices (Game sections) | 로그, as the **Logs**(로그) button / 전투 패널 / 선택지 |
+| the Inventory (in prose) | 인벤토리, unglossed, as in the pack's other prose |
+| Game content in a window, such as the Journal | Journal(일지)처럼 창 안에 표시되는 Game 콘텐츠 |
+
+These are translation choices, not a new native-reader review.
