@@ -43,7 +43,7 @@ O Memory Recall precisa de uma fonte de embeddings para montar essas impressões
 
 Alguns provedores não oferecem embeddings. Nesse caso, Marinara mostra um aviso pedindo que você escolha uma conexão dedicada a embeddings, como uma conexão compatível com OpenAI, a Google ou o Local Model.
 
-Para usar uma única fonte de embeddings em todo lugar, escolha-a em **Embeddings**, em **Connections** > **Connection defaults** (conexões padrão). As conexões sem um modelo de embeddings nem uma **Embedding Connection** próprios passam a usá-la, e a configuração própria de uma conexão continua valendo.
+Para usar uma única fonte de embeddings em todo lugar, escolha-a em **Embeddings**, em **Connections** > **Connection defaults** (conexões padrão). As conexões sem um modelo de embeddings nem uma **Embedding Connection** próprios passam a usá-la, e a configuração própria de uma conexão continua tendo prioridade.
 
 Se nenhuma conexão de embeddings nem padrão de **Embeddings** for definida, Marinara recorre a um modelo de embeddings local embutido. Ele baixa esse modelo uma única vez e o executa na sua própria máquina, sem precisar de chave de API. Para saber mais sobre o modelo embutido, veja [Como configurar o Local Model](../connections/local-model.md).
 

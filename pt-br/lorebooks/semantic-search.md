@@ -18,7 +18,7 @@ As correspondências por palavra-chave e por sentido têm a mesma prioridade qua
 
 A busca semântica precisa de um modelo capaz de criar embeddings. Você tem duas opções.
 
-Seja qual for a sua escolha, você pode torná-la o padrão de todo o aplicativo: abra **Connections** (Conexões), depois **Connection defaults** (conexões padrão) e escolha-a em **Embeddings**. Toda conexão que não define um modelo de embeddings nem uma **Embedding Connection** própria passa a usá-la. A configuração própria de uma conexão continua valendo, e a linha mostra quantas conexões usam as próprias configurações. **None** mantém o modelo local integrado como alternativa.
+Seja qual for a sua escolha, você pode torná-la o padrão de todo o aplicativo: abra **Connections** (Conexões), depois **Connection defaults** (conexões padrão) e escolha-a em **Embeddings**. Toda conexão que não defina um modelo de embeddings nem uma **Embedding Connection** própria passa a usá-la. A configuração própria de uma conexão continua tendo prioridade, e a linha mostra quantas conexões usam as próprias configurações. **None** mantém o modelo local integrado como alternativa.
 
 Opção 1: uma conexão com um modelo de embeddings.
 

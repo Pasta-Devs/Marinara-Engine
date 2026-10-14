@@ -69,8 +69,8 @@
     },
     {
       "path": "agents/memory.md",
-      "sha256": "9b1cbb4e14c7d707de10b8f8af66d3e5fe66dab89e72e289877be8f407427350",
-      "bytes": 58527
+      "sha256": "878ed8f894f6ebc8682e883f4ccc1dfecb71e4e4252f8d13b0ba6d9a56bdbdf0",
+      "bytes": 58536
     },
     {
       "path": "appearance/appearance-settings.md",
@@ -564,8 +564,8 @@
     },
     {
       "path": "lorebooks/semantic-search.md",
-      "sha256": "e6e3bcdac188434e5aa42233f799644790e989e80dac67c84b8ebdd36881f9e1",
-      "bytes": 10958
+      "sha256": "cef08f2de51c5c312595c15adfe817372aefd91bdb9ce69cfd42af5c19778a26",
+      "bytes": 10967
     },
     {
       "path": "lorebooks/token-budgets.md",
