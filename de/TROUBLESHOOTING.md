@@ -271,6 +271,7 @@ Game-Mode-Storyboards machen aus einer abgeschlossenen GM-Erzählung Keyframe-Bi
 - Keyframe-Bilder brauchen eine Bildverbindung. Clips zusätzlich eine Videoverbindung.
 - Funktioniert ein eigener Prompt besser, wenn alle Charaktere zusammengefasst sind, schalte **Use NovelAI Character Prompts** aus.
 - Langsame Anbieter laufen leicht in ein Zeitlimit. Erhöh `IMAGE_GEN_TIMEOUT_MS` oder `VIDEO_GEN_TIMEOUT_MS` in der `.env` und starte Marinara neu. Der Server liest diese Werte nur beim Start.
+- Standardmäßig scheitert eine Antwort eines Bildanbieters, die größer als 30 MiB ist, mit `Outbound response exceeded 31457280 bytes`. Lokale ComfyUI-Ausgabedateien, die den Workflow und die Referenzbilder als Metadaten einbetten, können diese Größe erreichen. Erhöh `IMAGE_GEN_MAX_RESPONSE_BYTES` in der `.env` und starte Marinara neu, oder schalte die Metadaten in ComfyUI aus.
 
 Beide Abläufe beschreibt die [Anleitung zum Storyboard-Agenten](game/storyboard.md); die Einrichtung des Spiels beschreibt [Game Mode: Erste Schritte](game/getting-started.md).
 
@@ -348,6 +349,12 @@ Docker und Podman speichern Daten im Volume `marinara-data`. Führe den Befehl d
 ### Backup oder Export liefert 403
 
 Loopback-Sitzungen dürfen Backups ohne Admin-Secret anlegen. Von einem anderen Gerät, über eine Netzwerkadresse oder aus Docker heraus braucht es mehr: Setz `ADMIN_SECRET` auf dem Server und speichere denselben Wert unter **Settings** > **Advanced** > **Admin Access**. Soll auch Loopback das Secret verlangen, setz `MARINARA_REQUIRE_ADMIN_SECRET_ON_LOOPBACK=true`.
+
+### Import meldet, die Datei sei kein lesbares ZIP-Archiv
+
+Marinara liest `.charx`-Karten, `.marinara`-Pakete, Agent-Pakete und eigene Agent-Repositorys als ZIP-Archive. Ein Archiv, das beschädigt ist oder dessen Inhalt nicht zu seiner eigenen Dateiliste passt, lehnt Marinara ab und zeigt **The file is not a readable ZIP archive** (bei einem `.marinara`-Paket **Could not read .marinara package**). Meist steckt ein unvollständiger Download dahinter, also lade die Datei erneut herunter. Hast du das Archiv selbst erstellt, erstell es mit einem Standardwerkzeug neu, etwa mit der Komprimieren-Funktion deines Systems, mit `zip` oder mit 7-Zip. Füllbytes aus Nullen oder ein Zeilenumbruch, die bei einer Übertragung hinter dem Archiv angehängt wurden, sind kein Problem.
+
+**Package contains too many files** bedeutet, dass ein Agent-Paket oder ein eigenes Repository mehr als 8.192 Dateien enthält. **.marinara package has too many entries** bedeutet, dass ein `.marinara`-Paket mehr als 8 Dateien enthält. Diese Grenzen sind nicht neu. Entferne die überzähligen Dateien und versuch es erneut.
 
 ## Android und Docker
 

@@ -98,6 +98,7 @@ Ein erwarteter Agent ist nicht gelaufen? PrÃ¼f, ob **Enable Agents** an ist. PrÃ
 ## Verwandte Anleitungen
 
 - [Referenz der herunterladbaren Agenten](built-in-agents.md)
+- [2D- und 3D-Avatare](avatars.md)
 - [Offizielles Marinara-Agents-Repository](https://github.com/Pasta-Devs/Marinara-Agents)
 - [Eigene Agenten erstellen](custom-agents.md)
 - [Agent-Freigaben und die Agent Suite](approvals-and-agent-suite.md)

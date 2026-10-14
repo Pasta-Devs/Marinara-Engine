@@ -484,6 +484,41 @@ API 1.27 erlaubt `"holds": "creatures"`. Kreaturenwerte verwenden `combat`: fest
 
 Ein Kreaturenkatalog deklariert kein `feeds` und erscheint nicht in der Blattauswahl. Bei eingeschaltetem Kampfdirektor verwendet ein Spiel mit `combat` diese Regeln und das Bestiarium auf dem Kampfbildschirm; nach jeder Aktion werden die Blätter gespeichert. Das ist der Stil `ruleset`, ohne zusätzliche Capability-API-Stufe. Ohne `combat` gelten weiterhin der `battle`-Block oder die Wahl Classic/Tactical. Die Installation prüft die verifizierten Dateien `ruleset.json` und `catalogs/<id>.json`: `combat` und die neuen `mechanics`-Schlüssel erfordern 1.26, `holds` und `creature` 1.27. Ein älteres strenges Schema würde die Datei ablehnen. Keine neuen Berechtigungen; Regelwerke ohne diese Felder bleiben unverändert.
 
+### Capability API 1.73: die Avatar-Agenten
+
+Die Engine hostet die beiden Avatar-Agenten `2d-avatars` (PNGTuber-Sprites und Mesh-Avatare) und `3d-avatars` (VRM-Modelle). Ihre Pakete bleiben schlank: je eine Agent-Definition, Standard-Prompts, Sprachdateien und der Katalogeintrag. Alles andere gehört der Engine: der Speicher pro Besitzer unter `DATA_DIR/avatar-models/`, der Import, die verzögert geladenen Renderer, die Einrichtung auf der Agent-Editor-Seite jedes Agenten, der Stream-Director, der Ausdrucks-Klassifikator und die Generierungsrouten. Der gemeinsame Vertrag ist `packages/shared/src/types/avatars.ts` (seine Schemas liegen in `schemas/avatars.schema.ts`), die Client-Hälfte ist `packages/client/src/features/avatars/contract.ts`. Die Nutzeranleitung ist [`docs/agents/avatars.md`](../agents/avatars.md).
+
+Es gibt kein neues Manifestfeld. Ein Avatar-Paket deklariert Schemaversion 2 und Capability API 1.73. Eine Engine ohne diese Oberflächen verweigert deshalb die Installation, statt einen Agenten aufzulisten, der nichts anzeigt. Die Änderung, mit der 1.73 kam, hat diese Oberflächen als wirkungslose Stubs ausgeliefert. Deshalb werden die Pakete erst veröffentlicht, wenn Einrichtung, Bühne und ein Renderer der Engine auf `staging` sind. Das gilt auch für den Vorschau-Katalog. Die Generierungs-Prompts des 2D-Agenten werden als Prompt-Vorlagensammlung `avatarGenerationTemplates` in seinen `defaultSettings` ausgeliefert, mit den IDs in `AVATAR_PROMPT_TEMPLATE_IDS`; der Agent-Editor führt sie zusammen und setzt sie zurück wie jede andere eingebaute Vorlagensammlung.
+
+### Capability API 1.72: das Kartenpaket einer Experience
+
+Ein `game-surface`-Paket, das über den Game-Assistenten eingerichtet wird (`gameSurface.setup`, 1.18), kann mit Schemaversion 2 und Capability API 1.72 ein Kartenpaket mitliefern: ein eigenes Setting-Kit, fertige Welten, die mit diesem Kit gebaut sind, und ein eigenes Tile-Pack. Jedes davon ist die Austauschdatei, die Game Mode und Pixelforge bereits lesen und schreiben (eine `.worldkit.json`, `.world.json`-Dateien und eine `.tilepack.json`), und jedes ist zugleich ein deklariertes Asset, das per Hash festgeschrieben ist.
+
+```json
+{
+  "gameSurface": {
+    "setup": {},
+    "mapPack": {
+      "kit": "map/riverlands.worldkit.json",
+      "worlds": ["map/upriver.world.json", "map/downriver.world.json"],
+      "tiles": "map/riverlands.tilepack.json"
+    }
+  },
+  "assets": {
+    "paths": [
+      "map/riverlands.worldkit.json",
+      "map/upriver.world.json",
+      "map/downriver.world.json",
+      "map/riverlands.tilepack.json"
+    ]
+  }
+}
+```
+
+`worlds` (höchstens 32) und `tiles` sind optional. Eine Weltdatei kann das Story-Skript ihrer Welt enthalten (worldgen W10), das als Teil der Karte mitgeliefert wird. Eine Weltdatei der Version 2 enthält außerdem den `snapshot` der Welt, also die Welt, wie sie erstellt wurde (W11): Eine Engine, deren Weltgenerator sich seitdem geändert hat, liest die Welt daraus, genau so, wie sie erstellt wurde. So funktioniert ein Paket auch über Engine-Updates hinweg. Schreib die Dateien über **Download** eines Spiels oder einer Welt aus der Weltbibliothek (oder über `GET /api/game/:chatId/world/file`); diese Dateien enthalten den Snapshot. Eine Paketdatei darf weiterhin höchstens 2 MB groß sein. Eine Welt mit größerer Datei (etwa durch den Snapshot einer großen Welt) lässt sich daher nicht in einem Paket ausliefern. Ist die Experience eingeschaltet, ist ein neues Spiel fest an das Kit des Pakets gebunden; liefert das Paket Welten mit, wählt der Spieler eine davon (samt Story-Skript) und erstellt keine andere. Wird die Experience ausgeschaltet, gelten wieder die eigenen Entscheidungen des Spielers. `POST /api/game/create` setzt dieselbe Bindung für ein Spiel durch. Das Spiel behält wie jedes Spiel sein Kit und seine Welt. Es läuft also weiter, wenn das Paket entfernt wird, und zeichnet seine Oberwelt und Städte mit den Tiles des Pakets, solange das Paket installiert ist.
+
+Die Engine liest die Dateien über den verifizierten Asset-Weg (deklarierte Größe jeweils höchstens 2 MB, Hash erneut geprüft) und prüft sie so, wie sie Austauschdateien prüft. Ein Paket wird als Ganzes abgelehnt, mit Angabe des Grunds, wenn sich eine Datei nicht lesen lässt, wenn eine Welt mit einem anderen Kit erstellt wurde oder nicht dazu passt oder wenn ihre Bytes nicht die installierten sind; die Experience kann dann kein Spiel starten. Ein Regelsatz ist nie Teil eines Kartenpakets: Eine Experience, die eigene Regeln braucht, liefert ein separates Regelsatz-Paket mit.
+
 ### Capability API 1.18: Experience-Einrichtung im Game-Assistenten
 
 Ein `game-surface`-Paket kann mit Schemaversion 2 und Capability API 1.18 `contributions.gameSurface.setup` deklarieren. Die Engine behält ihre üblichen sieben Einrichtungsschritte bei, einschließlich **Party** (Gruppe), Zielen, Modellen und Lorebooks. Experiences werden nur für neue Spiele angeboten; beim erneuten Öffnen der Einrichtung eines bestehenden Spiels bleiben dessen Experience und Paketkonfiguration erhalten. Pakete ohne diese Deklaration behalten ihren bisherigen Einrichtungsdialog.
