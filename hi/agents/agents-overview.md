@@ -98,6 +98,7 @@ Marinara कोई पैकेज अपडेट करने से पहल
 ## मिलती-जुलती गाइड
 
 - [डाउनलोड किए जाने वाले एजेंट का रेफ़रेंस](built-in-agents.md)
+- [2D और 3D अवतार](avatars.md)
 - [आधिकारिक Marinara Agents रिपॉज़िटरी](https://github.com/Pasta-Devs/Marinara-Agents)
 - [कस्टम एजेंट बनाना](custom-agents.md)
 - [एजेंट की मंज़ूरी और Agent Suite](approvals-and-agent-suite.md)

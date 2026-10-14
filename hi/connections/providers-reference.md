@@ -38,6 +38,8 @@
 
 **Google Gemini** Google AI Studio के ज़रिए Gemini मॉडल चलाता है। Google के दोनों विकल्पों में यह आसान वाला है।
 
+Marinara Google के दोनों विकल्पों पर Google के बदले जा सकने वाले सेफ़्टी फ़िल्टर बंद कर देता है, सिवाय उन श्रेणियों के जो आप खुद **Custom Parameters** (कस्टम पैरामीटर) में सेट करते हैं। फिर भी Google की बुनियादी सुरक्षा, जैसे बच्चों की सुरक्षा, लागू रहती है।
+
 ## Google Vertex AI
 
 - क्रेडेंशियल डॉक्यूमेंटेशन: `https://cloud.google.com/vertex-ai/docs/authentication`
@@ -50,6 +52,10 @@
 1. सर्विस अकाउंट वाली JSON कुंजी।
 2. OAuth एक्सेस टोकन, जैसे `gcloud auth print-access-token` से मिलने वाला।
 3. Vertex API कुंजी।
+
+**Gemini 4 Argon** सिर्फ़ `global`, `us` और `eu` लोकेशन में चलता है, `us-central1` जैसे किसी एक रीजन में नहीं। इसे इस्तेमाल करने के लिए **Base URL** को `https://aiplatform.googleapis.com/v1/projects/YOUR_PROJECT_ID/locations/global` पर सेट करें। किसी और लोकेशन के साथ Google एरर लौटाता है, और Marinara वही एरर दिखाता है।
+
+Google के दोनों कनेक्शन पर Argon को जवाब देने में कई मिनट लग सकते हैं। अगर चैट के जवाब टाइमआउट हो जाएँ, तो `CHAT_GENERATION_TIMEOUT_MS` बढ़ाएँ। अगर एजेंट कॉल टाइमआउट हो जाएँ, तो `AGENT_CALL_TIMEOUT_MS` बढ़ाएँ ([कॉन्फ़िगरेशन](../CONFIGURATION.md) देखें)। Google कम से कम 15 मिनट देने का सुझाव देता है, जो `900000` है।
 
 ## Mistral
 
