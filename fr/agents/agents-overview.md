@@ -98,6 +98,7 @@ Un agent attendu ne s'est pas déclenché ? Vérifie que **Enable Agents** est s
 ## Guides associés
 
 - [Référence des agents téléchargeables](built-in-agents.md)
+- [Avatars 2D et 3D](avatars.md)
 - [Dépôt officiel Marinara Agents](https://github.com/Pasta-Devs/Marinara-Agents)
 - [Créer des agents personnalisés](custom-agents.md)
 - [Validations des agents et Agent Suite](approvals-and-agent-suite.md)
