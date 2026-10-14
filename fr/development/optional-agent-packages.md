@@ -540,6 +540,41 @@ API 1.27 permet `"holds": "creatures"`. Les blocs utilisent `combat` : santé fi
 
 Un catalogue de créatures ne déclare pas `feeds` et n'apparaît pas dans le sélecteur de fiches. Avec le directeur de combat activé, une partie dotée de `combat` utilise ces règles et son bestiaire sur l'écran de bataille, puis enregistre les fiches après chaque action. Il s'agit du style `ruleset`, sans niveau supplémentaire de Capability API. Sans `combat`, le bloc `battle` ou la préférence Classic/Tactical reste utilisé. L'installation contrôle les fichiers vérifiés `ruleset.json` et `catalogs/<id>.json` : `combat` et les nouvelles clés de `mechanics` exigent 1.26, `holds` et `creature` exigent 1.27. Un ancien schéma strict refuserait le fichier. Aucun nouveau droit ; les ensembles sans ces champs restent inchangés.
 
+### Capability API 1.73 : les agents d'avatar
+
+Engine héberge les deux agents d'avatar, `2d-avatars` (sprites PNGTuber et avatars mesh) et `3d-avatars` (modèles VRM). Leurs packages restent légers : une définition d'agent chacun, des prompts par défaut, des locales et l'entrée du catalogue. Engine possède tout le reste : le stockage par propriétaire sous `DATA_DIR/avatar-models/`, l'import, les moteurs de rendu chargés à la demande, la configuration sur la page de chaque agent dans l'éditeur d'agent, le directeur de streaming, le classifieur d'expressions et les routes de génération. Le contrat partagé est `packages/shared/src/types/avatars.ts` (ses schémas se trouvent dans `schemas/avatars.schema.ts`), et la moitié client est `packages/client/src/features/avatars/contract.ts`. Le guide utilisateur est [`docs/agents/avatars.md`](../agents/avatars.md).
+
+Il n'y a aucun nouveau champ de manifeste. Un package d'avatar déclare la version 2 du schéma et Capability API 1.73 : un moteur qui n'a pas ces surfaces refuse donc l'installation au lieu de lister un agent qui n'affiche rien. Le changement qui a introduit 1.73 a livré ces surfaces sous forme de coquilles vides inertes. Les packages ne sont donc publiés, même dans le catalogue de préversion, qu'une fois que la configuration, la scène et un moteur de rendu d'Engine sont sur `staging`. Les prompts de génération de l'agent 2D sont livrés sous forme de collection de modèles de prompt `avatarGenerationTemplates` dans ses `defaultSettings`, avec les identifiants dans `AVATAR_PROMPT_TEMPLATE_IDS` ; l'éditeur d'agent les fusionne et les réinitialise comme n'importe quelle autre collection de modèles intégrée.
+
+### Capability API 1.72 : le pack de carte d'une Experience
+
+Un package `game-surface` qui se configure dans l'assistant Game (`gameSurface.setup`, 1.18) peut livrer un pack de carte avec la version 2 du schéma et Capability API 1.72 : son propre kit d'univers, des mondes prêts à l'emploi construits avec ce kit, et son propre pack de tuiles. Chacun est le fichier de partage que Game Mode et Pixelforge lisent et écrivent déjà (un `.worldkit.json`, des fichiers `.world.json` et un `.tilepack.json`), et chacun est aussi une ressource déclarée, épinglée par son empreinte.
+
+```json
+{
+  "gameSurface": {
+    "setup": {},
+    "mapPack": {
+      "kit": "map/riverlands.worldkit.json",
+      "worlds": ["map/upriver.world.json", "map/downriver.world.json"],
+      "tiles": "map/riverlands.tilepack.json"
+    }
+  },
+  "assets": {
+    "paths": [
+      "map/riverlands.worldkit.json",
+      "map/upriver.world.json",
+      "map/downriver.world.json",
+      "map/riverlands.tilepack.json"
+    ]
+  }
+}
+```
+
+`worlds` (32 au maximum) et `tiles` sont facultatifs. Un fichier de monde peut contenir le script d'histoire de son monde (worldgen W10), qui est livré avec la carte et en fait partie. Un fichier de monde en version 2 contient aussi le `snapshot` du monde, c'est-à-dire le monde tel qu'il a été créé (W11) : un moteur dont le générateur de monde a changé depuis lit le monde à partir de lui, exactement tel qu'il a été créé, si bien qu'un pack continue de fonctionner d'une mise à jour d'Engine à l'autre. Écris les fichiers depuis **Download** (télécharger) sur une partie ou sur un monde de la bibliothèque (ou avec `GET /api/game/:chatId/world/file`) : ces fichiers l'incluent. Un fichier de pack reste limité à 2 Mo : un monde dont le fichier est plus gros (l'instantané d'un grand monde) ne peut donc pas être livré dans un pack. Avec l'Experience activée, une nouvelle partie est verrouillée sur le kit du pack ; si le pack livre des mondes, le joueur en choisit un (histoire comprise) et n'en crée aucun autre. Désactiver l'Experience rend au joueur ses propres choix. `POST /api/game/create` impose le même verrou à une partie. La partie garde son kit et son monde comme n'importe quelle partie : elle continue donc si le package est retiré, et dessine sa carte du monde et ses villes avec les tuiles du pack tant que le package est installé.
+
+Engine lit les fichiers par le chemin de ressources vérifié (taille déclarée de 2 Mo au plus par fichier, empreinte contrôlée de nouveau) et les vérifie comme il vérifie les fichiers de partage. Un pack est refusé en entier, avec la raison, quand un fichier ne se lit pas, quand un monde a été créé avec un autre kit ou ne lui correspond pas, ou quand ses octets ne sont pas ceux qui ont été installés ; l'Experience ne peut alors lancer aucune partie. Un ensemble de règles ne fait jamais partie d'un pack de carte : une Experience qui a besoin de ses propres règles livre un package d'ensemble de règles distinct.
+
 ### Capability API 1.18 : conserver la configuration d'Experience dans l'assistant Game
 
 Un package `game-surface` peut déclarer `contributions.gameSurface.setup` avec la version 2 du schéma et Capability API 1.18. Engine conserve ses sept étapes habituelles de configuration, dont **Party** (groupe), les objectifs, les modèles et les lorebooks. Seules les nouvelles parties proposent des Experiences ; rouvrir la configuration d'une partie existante conserve son Experience et la configuration du package. Les packages sans cette déclaration conservent leur ancienne boîte de dialogue de configuration.
