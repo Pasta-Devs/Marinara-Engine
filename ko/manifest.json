@@ -564,8 +564,8 @@
     },
     {
       "path": "lorebooks/semantic-search.md",
-      "sha256": "89a52dd7f2e4b282421857bc782c307326088f763520c1a460f9b89a3c7d775f",
-      "bytes": 11869
+      "sha256": "34f01539a953334c711c56b3f2c079e734a05adf5fa466d30506d46e9ff9b13a",
+      "bytes": 11880
     },
     {
       "path": "lorebooks/token-budgets.md",
