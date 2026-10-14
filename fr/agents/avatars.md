@@ -18,6 +18,8 @@ Les deux agents sont en cours de test. Pour l'instant, **Download Agents** (tél
 
 Les agents n'envoient aucune requête supplémentaire à tes connexions d'IA pendant que tu discutes. Ils ont besoin d'un moteur doté de la Capability API 1.73, et un moteur plus ancien refuse de les installer.
 
+<a id="setting-up-an-avatar"></a>
+
 ## Configurer un avatar
 
 Les avatars se configurent sur la page de chaque agent. Ouvre **Agents**, ouvre **2D Avatars** ou **3D Avatars**, puis utilise la section **Avatars** près du haut de la page.
@@ -35,9 +37,13 @@ Un avatar s'affiche dans un chat Roleplay, Visual Novel ou Game quand les agents
 
 Les fichiers importés sont vérifiés avant d'être stockés. Seule compte la limite de téléversement habituelle du serveur : les avatars n'ont pas de limite de taille plus basse. Les fichiers d'avatar se trouvent dans le dossier de données, sous `avatar-models/<character or persona>/<id>/`, à côté d'un fichier `avatar.json` qui contient les réglages. Les sauvegardes et les exports de profil incluent ce dossier. Supprimer un personnage ou un persona supprime son avatar, y compris quand la Danger Zone des réglages efface tous les **Characters** (personnages) ou tous les **Personas** (personas), et y vider **Media & Assets** (médias et ressources) vide le dossier. Les exports de fiches de personnage n'incluent jamais les avatars.
 
+<a id="2d-avatars-pngtuber-sprites-and-mesh-avatars"></a>
+
 ## Avatars 2D : sprites PNGTuber et avatars mesh
 
 **2D Avatars** affiche l'un de deux types d'avatar : les **sprites PNGTuber**, des images plates qui changent de visage, ouvrent la bouche et clignent des yeux, et les **avatars mesh**, des dessins qui bougent la tête, les yeux et la bouche en douceur. Configure les deux sur la page de l'agent, dans l'éditeur d'agent, après avoir choisi un personnage ou un persona.
+
+<a id="pngtuber-sprites"></a>
 
 ### Sprites PNGTuber
 
@@ -66,6 +72,8 @@ Sous **Look for each feeling** (apparence pour chaque émotion), choisis ce que 
 Chaque fichier est vérifié à l'import, et un fichier endommagé est refusé avec une courte explication. C'est aussi le cas d'un fichier trop détaillé pour s'animer de façon fluide, ou d'un fichier qui dépasse la limite de téléversement une fois décompressé. Seules les parties dont l'avatar a besoin sont conservées : l'illustration d'origine contenue dans le fichier n'est donc pas stockée. L'illustration appartient à son créateur ; vérifie sa licence avant de la partager.
 
 Les avatars mesh ont besoin de WebGL2, que les navigateurs actuels prennent en charge. Sans WebGL2, ou quand le navigateur arrête les graphismes de l'avatar pour économiser de la mémoire, l'avatar affiche à la place ta configuration PNGTuber ou tes sprites.
+
+<a id="3d-avatars-vrm-models"></a>
 
 ## Avatars 3D : modèles VRM
 
@@ -127,6 +135,8 @@ Quand la synthèse vocale lit une réponse Roleplay, l'avatar du personnage qui 
 
 La synchronisation labiale ne change pas la façon dont la voix est jouée. Marinara Engine lit une copie séparée de chaque clip vocal pour caler la bouche : la lecture fonctionne comme avant, y compris dans Safari et sur iPhone et iPad. Si ton navigateur ne peut pas lire un clip, la voix est quand même jouée, et seule la bouche cesse de la suivre.
 
+<a id="making-an-avatar-from-a-sprite"></a>
+
 ## Créer un avatar à partir d'un sprite
 
 Sur la page **2D Avatars** de l'éditeur d'agent, choisis un personnage ou un persona, puis utilise **Make an avatar from a sprite** (créer un avatar à partir d'un sprite). Cette section part des sprites que le personnage ou le persona a déjà. Ton avatar ne change pas tant que tu n'enregistres pas un résultat : tu peux donc essayer autant de fois que tu veux.
@@ -139,6 +149,8 @@ Sur la page **2D Avatars** de l'éditeur d'agent, choisis un personnage ou un pe
 4. Sélectionne **Save kept pictures** (enregistrer les images gardées). Elles deviennent les images de clignement et de parole de l'avatar PNGTuber pour ces expressions, à côté d'une copie du sprite d'origine, pour qu'elles soient toujours bien alignées. Si l'avatar affichait encore tes sprites tels quels, il les garde tous et reçoit en plus les nouvelles images. Si tu remplaces un sprite avant d'enregistrer, crée de nouveau ses images.
 
 Les modèles d'image qui savent retoucher des images donnent les meilleurs résultats, car ils reçoivent ton sprite comme référence. Ton sprite est envoyé à la taille et au format que le modèle accepte, puis redécoupé dans le résultat : un modèle qui garde l'image en place donne donc des images bien alignées. Si une image change plus que les yeux ou la bouche, l'avatar saute quand il cligne des yeux ou parle ; réessaie celle-là.
+
+<a id="mesh-avatar"></a>
 
 ### Avatar mesh
 
@@ -188,6 +200,8 @@ Tu n'as rien à créer pour commencer. Un personnage ou un persona qui a des spr
 1. Crée le personnage dans VRoid Studio. Ses visages, ses formes de bouche et son clignement sont des expressions VRM standard : ils sont donc trouvés automatiquement.
 2. Exporte-le au format VRM. VRM 1.0 et VRM 0.0 fonctionnent tous les deux. Renseigne les informations et les conditions du modèle quand VRoid Studio te les demande.
 3. Ouvre **3D Avatars** dans **Agents**, choisis le personnage ou le persona, puis sélectionne **Import VRM**.
+
+<a id="blender-with-the-vrm-add-on-for-blender"></a>
 
 ### Blender avec le VRM Add-on for Blender
 
