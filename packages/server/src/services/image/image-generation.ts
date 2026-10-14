@@ -39,7 +39,7 @@ import {
   supportsNovelAiCharacterPrompts,
 } from "./character-prompts.js";
 import { isImageLocalUrlsEnabled } from "../../config/runtime-config.js";
-import { runMediaGenerationRequest } from "./image-generation-queue.js";
+import { mediaProviderLaneKey, runInMediaProviderLane, runMediaGenerationRequest } from "./image-generation-queue.js";
 import { generateRunPodComfyUI } from "./runpod-comfyui.service.js";
 import { logger, logDebugOverride } from "../../lib/logger.js";
 import {
@@ -221,6 +221,10 @@ export function imageAdmissionKey(normalizedBaseUrl: string, resolvedSource: str
  * does this function's own fallback-connection recursion. Batch/automatic work
  * (admissionMode "background") never occupies the last permit ahead of
  * interactive requests.
+ *
+ * With "Queue media generation requests" on, every call also waits its turn in
+ * the provider lane for this endpoint and API key (#7662), so agents, trackers,
+ * capability packages and routes all share one line per provider account.
  */
 export async function generateImage(
   source: string,
@@ -229,12 +233,27 @@ export async function generateImage(
   serviceHint: string,
   request: ImageGenRequest,
 ): Promise<ImageGenResult> {
-  return runMediaGenerationRequest({
-    connectionKey: `image:${baseUrl || source}`,
-    queue: false,
+  // The provider lane comes first and the global permit second, so requests waiting
+  // their turn at one account never hold permits other providers could use.
+  const laneKey = mediaProviderLaneKey(
+    imageAdmissionKey(
+      normalizeImageUrl(baseUrl),
+      resolveImageBackend(source, baseUrl, serviceHint, request.model),
+      request.imageEndpointId,
+    ),
+    apiKey,
+  );
+  return runInMediaProviderLane({
+    laneKey,
     signal: request.signal,
-    priority: request.admissionMode?.kind === "background" ? "background" : "foreground",
-    task: () => generateImageUncapped(source, baseUrl, apiKey, serviceHint, request),
+    task: () =>
+      runMediaGenerationRequest({
+        connectionKey: `image:${baseUrl || source}`,
+        queue: false,
+        signal: request.signal,
+        priority: request.admissionMode?.kind === "background" ? "background" : "foreground",
+        task: () => generateImageUncapped(source, baseUrl, apiKey, serviceHint, request),
+      }),
   });
 }
 

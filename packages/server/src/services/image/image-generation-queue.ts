@@ -1,4 +1,5 @@
 import { AsyncLocalStorage } from "node:async_hooks";
+import { createHash } from "node:crypto";
 import { DEFAULT_MEDIA_GENERATION_CONCURRENCY } from "@marinara-engine/shared";
 import { logger } from "../../lib/logger.js";
 
@@ -288,3 +289,102 @@ export async function runMediaGenerationRequest<T>(args: {
 
 /** Backward-compatible image-specific entry point for existing callers. */
 export const runImageGenerationRequest = runMediaGenerationRequest;
+
+// ── Provider lanes ───────────────────────────────────────────────────────────
+// "Queue media generation requests" means one request at a time per provider
+// account, whichever feature sends it. The per-connection FIFO above only
+// covers callers that opt in, so agents, trackers and capability packages
+// bypassed it and providers that reject parallel work (NovelAI) still got
+// overlapping requests. Lanes are entered inside generateImage itself, keyed on
+// the physical endpoint plus a hash of the API key, so every path shares one
+// line per account no matter which connection row it came through.
+//
+// Order vs the global ceiling: callers enter the lane first and take a permit
+// inside it (invariant 1 above), so lane waiters never sit on permits. Callers
+// still wrapped in the legacy per-connection FIFO already hold a permit when
+// they reach their lane; that only parks a slot while they wait.
+// ponytail: route those legacy image wrappers through the lane alone in a
+// follow-up so no waiter holds a permit.
+
+let providerLanesEnabled = true;
+const providerLaneTails = new Map<string, Promise<void>>();
+const heldProviderLanes = new AsyncLocalStorage<ReadonlySet<string>>();
+
+/**
+ * Mirror the user's "Queue media generation requests" toggle from the synced
+ * `ui` app setting (null = key removed). Anything but an explicit `false`
+ * keeps the default, which is on.
+ */
+export function applyMediaQueueUiSettingsValue(value: string | null): void {
+  let parsed: unknown = null;
+  if (value) {
+    try {
+      parsed = JSON.parse(value);
+    } catch {
+      parsed = null;
+    }
+  }
+  const flag =
+    parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>).queueImageGenerationRequests
+      : undefined;
+  providerLanesEnabled = flag !== false;
+}
+
+/** Load the toggle at startup; app-settings writes keep it current afterwards. */
+export async function loadMediaQueueUiSettings(storage: { get(key: string): Promise<string | null> }) {
+  applyMediaQueueUiSettingsValue(await storage.get("ui"));
+}
+
+export function mediaProviderLanesEnabled(): boolean {
+  return providerLanesEnabled;
+}
+
+/** One lane per provider endpoint and account. The key is hashed, never stored or logged in clear. */
+export function mediaProviderLaneKey(endpointKey: string, apiKey: string): string {
+  const key = apiKey.trim();
+  const account = key ? createHash("sha256").update(key).digest("hex").slice(0, 16) : "no-key";
+  return `${endpointKey.trim() || "default"}|${account}`;
+}
+
+/**
+ * Run `task` alone in its provider lane when the queue setting is on. Re-entrant:
+ * a task that already holds this lane (a nested generateImage call) runs straight
+ * through instead of waiting on itself.
+ */
+export async function runInMediaProviderLane<T>(args: {
+  laneKey: string;
+  task: MediaGenerationQueueTask<T>;
+  signal?: AbortSignal;
+}): Promise<T> {
+  if (!providerLanesEnabled) return args.task();
+  const held = heldProviderLanes.getStore();
+  if (held?.has(args.laneKey)) return args.task();
+
+  const laneKey = args.laneKey;
+  const previous = providerLaneTails.get(laneKey) ?? Promise.resolve();
+  let releaseCurrent: () => void = () => undefined;
+  const current = new Promise<void>((resolve) => {
+    releaseCurrent = resolve;
+  });
+  const queuedTail = previous.catch(() => undefined).then(() => current);
+  providerLaneTails.set(laneKey, queuedTail);
+
+  try {
+    await waitForMediaGenerationTurn(previous, args.signal);
+    if (args.signal?.aborted) throw mediaGenerationAbortError(args.signal);
+    const nextHeld = new Set(held ?? []);
+    nextHeld.add(laneKey);
+    return await heldProviderLanes.run(nextHeld, () => args.task());
+  } finally {
+    releaseCurrent();
+    void queuedTail.finally(() => {
+      if (providerLaneTails.get(laneKey) === queuedTail) providerLaneTails.delete(laneKey);
+    });
+  }
+}
+
+/** Test-only: lanes with a holder or waiters. */
+export function inspectMediaProviderLanesForTests() {
+  return { activeLanes: providerLaneTails.size, enabled: providerLanesEnabled };
+}

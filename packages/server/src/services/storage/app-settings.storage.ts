@@ -7,6 +7,7 @@ import type { DB } from "../../db/connection.js";
 import { appSettings } from "../../db/schema/index.js";
 import { now } from "../../utils/id-generator.js";
 import { applyFeatureSettingsValue } from "../features/feature-settings.js";
+import { applyMediaQueueUiSettingsValue } from "../image/image-generation-queue.js";
 
 export function createAppSettingsStorage(db: DB) {
   return {
@@ -25,11 +26,14 @@ export function createAppSettingsStorage(db: DB) {
       }
       // Feature switches are read from an in-memory copy on hot paths; refresh it on every write.
       if (key === FEATURE_SETTINGS_KEY) applyFeatureSettingsValue(value);
+      // The media queue toggle is read on every image request; mirror it the same way.
+      if (key === "ui") applyMediaQueueUiSettingsValue(value);
     },
 
     async remove(key: string): Promise<void> {
       await db.delete(appSettings).where(eq(appSettings.key, key));
       if (key === FEATURE_SETTINGS_KEY) applyFeatureSettingsValue(null);
+      if (key === "ui") applyMediaQueueUiSettingsValue(null);
     },
   };
 }
