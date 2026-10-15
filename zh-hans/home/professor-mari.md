@@ -95,6 +95,14 @@ Professor Mari 需要一个连接才能思考。连接就是用 API 密钥把 Ma
 
 完整的操作步骤见文末链接的连接指南。
 
+## 试用 Pi 运行时（实验性）
+
+Professor Mari 有两种工作方式。**Classic** 是默认方式。**Pi** 是一项试用功能，让她在动手之前多想一会儿，并能处理更长的任务。
+
+要切换，请打开 **Search and Professor Mari settings**，在 **Permissions mode**(权限模式) 下方修改 **Runtime**(运行时)。修改从她的下一个回答开始生效。权限模式、改动卡片和 **Undo** 在两种方式下的表现相同。
+
+Pi 适用于所有连接，包括本地模型。如果 Professor Mari 在 Pi 下行为异常，请切回 Classic。
+
 ## 附加文件
 
 点击标着 **Attach files**(附加文件) 的回形针按钮，就能给消息加上文件。
