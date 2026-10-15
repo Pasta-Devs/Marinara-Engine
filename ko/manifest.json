@@ -1,11 +1,11 @@
 {
   "language": "ko",
-  "sourceCommit": "c132810c08d089df58499c5200bd901e4e2cc0ab",
+  "sourceCommit": "aa1dfc215105",
   "files": [
     {
       "path": "CONFIGURATION.md",
-      "sha256": "10460cab4413983f38007ccb7b6844d1974fe99992801b530e53098bddaa64e3",
-      "bytes": 52033
+      "sha256": "61ebacc1052430403e0770f760c7c583d9621d6e3653afa1745e5531ba392d35",
+      "bytes": 52308
     },
     {
       "path": "FAQ.md",
@@ -394,8 +394,8 @@
     },
     {
       "path": "development/optional-agent-packages.md",
-      "sha256": "074fccfa1753b50ff59aaa18d6c56a69574f742e49daaf2e4673dc52ab0a390d",
-      "bytes": 102395
+      "sha256": "8c8a7a7f9d3d41339b92894c6c6f04040906e9ecece697903994b55bfe590418",
+      "bytes": 105071
     },
     {
       "path": "development/personal-extensions.md",
@@ -484,8 +484,8 @@
     },
     {
       "path": "home/professor-mari.md",
-      "sha256": "932874d37d951b4ebe0492f89a2aebc34a9584fb1fa5a374445b94a741c7a002",
-      "bytes": 32966
+      "sha256": "7e5f2b61c989b0786782251992d21e5277c2cd443e9b8d4ab262c1324fb380f9",
+      "bytes": 33723
     },
     {
       "path": "home/tutorial.md",
