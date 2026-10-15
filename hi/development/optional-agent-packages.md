@@ -270,7 +270,27 @@ Enum यानी तय मानों की सूची से फ़र्
 
 पैकेज का एजेंट प्रॉम्प्ट टेम्पलेट उपयोगकर्ता के कस्टम एजेंट की तरह निर्णय कथन इस्तेमाल कर सकता है: `{{#if decision:"..."}}` और `{{#if decision_choice:"..." == "..."}}`। Engine उन्हें टेम्पलेट में ढूँढ़ता है, एजेंट चलने से पहले पूछता है (पोस्ट-प्रोसेसिंग एजेंट के लिए जवाब के बाद) और उत्तरों से टेम्पलेट हल करता है। इसमें किसी capability API वर्ज़न की भूमिका नहीं है। सिंटैक्स और शब्द चुनने के लिए [सशर्त प्रॉम्प्ट](../prompts/conditional-prompts.md#asking-the-decision-model), और एजेंट चरण उन्हें कैसे पढ़ते हैं, इसके लिए [कस्टम एजेंट बनाना](../agents/custom-agents.md#decision-statements-in-the-agents-prompt) देखें।
 
-पैकेज रनटाइम कोड अभी सीधे निर्णय मॉडल से नहीं पूछ सकता। उसके लिए अपना capability API तरीका और वर्ज़न बढ़ोतरी चाहिए।
+पैकेज का सर्वर कोड `api.runtime.decisions.evaluate(...)` के ज़रिए उपयोगकर्ता के सेट किए निर्णय मॉडल से, पैकेज के दिए संदर्भ के बारे में, सीमित हाँ/नहीं और विकल्प (Choice) वाले सवाल भी पूछ सकता है। यह वही निर्णय मॉडल है जो एजेंट सक्रियता के सवालों और प्रॉम्प्ट की शर्तों में इस्तेमाल होता है (मैनेज किया हुआ लोकल मॉडल या Decision कनेक्शन), और वह कभी कुंजियाँ या Engine के अंदरूनी हिस्से सामने नहीं रखता। `decisions` वैकल्पिक है और इसके लिए न नया capability API चाहिए, न कोई परमिशन: `typeof api.runtime.decisions?.evaluate === "function"` जाँचें और पुराने Engine पर फ़ॉलबैक रखें।
+
+```ts
+const result = await api.runtime.decisions?.evaluate({
+  messages: [{ role: "user", content: "The tavern falls silent as the stranger draws a blade." }],
+  questions: [
+    { id: "danger", question: "Someone is about to be attacked." },
+    { id: "mood", question: "The mood of the scene is", options: ["calm", "tense", "festive"] },
+  ],
+  // Optional: pass `signal` to cancel and `debugMode: true` to log the Decision prompt.
+});
+// null: no Decision model is configured, or it gave no answer (unreachable, timed out or cancelled).
+if (result && (result.answers.danger ?? 0) >= result.threshold) {
+  // ...
+}
+```
+
+- `messages` पैकेज का अपना संदर्भ है, सबसे पुराना पहले (ज़्यादा से ज़्यादा 200 संदेश और 200,000 अक्षर; संदेश का `name` ज़्यादा से ज़्यादा 100 अक्षर का)। मॉडल में समाने के लिए सबसे पुराने संदेश हटा दिए जाते हैं।
+- हर `question` ज़्यादा से ज़्यादा 500 अक्षर का हो; id अनोखी होनी चाहिए। विकल्प वाले सवाल में कम से कम दो `options` होते हैं, और उसका जवाब उनमें से एक या `"none of these"` होता है।
+- एक अनुरोध में ज़्यादा से ज़्यादा उपयोगकर्ता की **Decision statements per turn** (हर टर्न के निर्णय कथन) सीमा जितने जवाब माँगे जा सकते हैं; हर विकल्प एक बार गिना जाता है, साथ में एक और। अमान्य अनुरोध `TypeError` फेंकता है।
+- `answers` में हर हाँ/नहीं सवाल के लिए हाँ की संभावना होती है, और उसमें जो सवाल नहीं है, उसका जवाब नहीं मिला। इसकी तुलना `threshold` से करें, जो मॉडल का अपना ऑपरेटिंग पॉइंट है: अलग-अलग निर्णय मॉडल की संभावनाओं की आपस में तुलना नहीं हो सकती।
 
 हर इस्तेमाल उस उपयोगकर्ता के लिए भी बनाएँ जिसके पास निर्णय मॉडल नहीं है। बिना उत्तर का कथन नहीं माना जाता है, इसलिए `{{else}}` शाखा या कोई टेक्स्ट न देना समझदार डिफ़ॉल्ट हो। Jev ज़रूरी बताने के बजाय किसी भी निर्णय मॉडल के लिए लिखें: स्थानीय चैट मॉडल और दूसरे समर्थित बैकएंड वही सिंटैक्स इस्तेमाल करते हैं, पर अलग जवाब दे सकते हैं। किसी खास स्कोर, अनुरोध संख्या या कैश उत्तर पर भरोसा करने से पहले [सीमाएँ](../connections/decision-models.md#thresholds) और [सीमाएँ तथा लागत](../prompts/conditional-prompts.md#limits-and-cost) पढ़ें।
 
@@ -533,6 +553,14 @@ const memoryVectors = await embeddings.embed(memoryTexts, signal); // documents
 
 यह सॉफ़्ट इंटरफ़ेस है: पुराना Engine तीसरे आर्ग्युमेंट को अनदेखा करता है, इसलिए पैकेज इसे हमेशा दे सकता है और उसे 1.68 घोषित करने की ज़रूरत नहीं है। इनपुट टाइप को तीसरे आर्ग्युमेंट के रूप में दें, किसी ऑप्शन ऑब्जेक्ट में कभी नहीं: पुराना Engine दूसरा आर्ग्युमेंट सीधे प्रोवाइडर को रद्द करने वाले सिग्नल के रूप में दे देता है।
 
+### Capability API 1.67: कैरेक्टर को एडिटर में खोलना
+
+ब्राउज़र व्यू को `openCharacter(characterId, { tab })` मिलता है। यह कैरेक्टर एडिटर खोलता है, और टैब दिया हो तो उसी टैब पर, ताकि पैकेज उपयोगकर्ता को कार्ड के उस फ़ील्ड तक भेज सके जिसे वह पढ़ता है। पुराने Engine में यह नहीं है: लिंक दिखाने से पहले जाँचें कि `openCharacter` मौजूद है।
+
+```ts
+if (typeof props.openCharacter === "function") props.openCharacter(characterId, { tab: "convo" });
+```
+
 ### Capability API 1.30: घाव ट्रैक, हर जाँच पर खर्च और ट्रैक आधारित लड़ाई
 
 नियमसेट की `live.tracks` एंट्री `levels` और `kinds` घोषित कर सकती है, जिससे सीमित पूर्णांक एक घाव ट्रैक बन जाता है: अपने लेबल और दंड वाले खानों का कॉलम, जिन पर निशान लगते हैं। `levels` में अच्छे से बुरे क्रम में 1–16 स्तर होते हैं, हर एक में `label` और पूर्णांक `penalty` होता है। `kinds` में नुकसान के 1–6 प्रकार होते हैं, हर एक में `id`, छोटा `label` और अलग `severity` होता है। `levels` के बिना `kinds` अस्वीकार होता है, क्योंकि निशान लगाने के लिए कुछ नहीं होगा। `resolution.penaltyFrom` उस ट्रैक को बताता है जिसका दंड हर रोल पर लगता है: `dice-pool` में यह पासे घटाता है, पर `pool.min` से नीचे नहीं; `dice-sum` में यह स्थिर मॉडिफ़ायर देता है।
@@ -602,7 +630,11 @@ difficulty?, onSuccess: "none" | "half" } }` है: अलग रोल और 
 export async function activate({ api }) {
   api.registerService("mari-actions:my-package", {
     list: () => [
-      { name: "add-idea", summary: "Give a Creator an idea for a post.", inputs: { accountId: "The Creator.", text: "The idea." } },
+      {
+        name: "add-idea",
+        summary: "Give a Creator an idea for a post.",
+        inputs: { accountId: "The Creator.", text: "The idea." },
+      },
     ],
     run: async (name, input, { signal }) => {
       const parsed = schemas[name]?.safeParse(input);
