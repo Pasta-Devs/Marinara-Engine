@@ -15,6 +15,7 @@ import {
   useUpdateConnection,
 } from "../../hooks/use-connections";
 import { useUpdateChat } from "../../hooks/use-chats";
+import { usePickModel } from "../../hooks/use-connection-accounts";
 import {
   connectionFieldsForModelPick,
   filterConnectionModelOptions,
@@ -31,6 +32,8 @@ export type ModelPickerConnection = {
   provider?: string | null;
   model?: string | null;
   pinnedModels?: unknown;
+  /** The Connection this Model belongs to; `applyPick` needs it. */
+  accountId?: string | null;
   profileImportReviewRequired?: unknown;
   /**
    * NanoGPT: the connection's own "Show subscription usage" toggle. The cost
@@ -63,6 +66,8 @@ export function ConnectionModelPicker({
   showConnectionName = false,
   autoFocusSearch = false,
   onPicked,
+  applyPick,
+  accountName,
   className,
 }: {
   connection: ModelPickerConnection;
@@ -76,6 +81,13 @@ export function ConnectionModelPicker({
   /** Focus the search box on devices with a mouse (a phone keyboard would cover the list). */
   autoFocusSearch?: boolean;
   onPicked?: () => void;
+  /**
+   * Quick switch: a pick finds or creates the Model for that id under the Connection, then hands its id here
+   * (the host applies it to the chat). Without it a pick edits `connection` in place.
+   */
+  applyPick?: (connectionId: string) => Promise<void>;
+  /** The Connection's name, shown in the header with `applyPick`. */
+  accountName?: string | null;
   className?: string;
 }) {
   const { t } = useTranslation();
@@ -97,7 +109,8 @@ export function ConnectionModelPicker({
   const setPinned = useSetConnectionModelPinned();
   const updateConnection = useUpdateConnection();
   const updateChat = useUpdateChat();
-  const saving = updateConnection.isPending || updateChat.isPending;
+  const pickModel = usePickModel();
+  const saving = updateConnection.isPending || updateChat.isPending || pickModel.isPending;
 
   useEffect(() => {
     // A new connection starts with an empty search.
@@ -167,10 +180,22 @@ export function ConnectionModelPicker({
   const pick = async (row: PickerRow) => {
     if (saving) return;
     try {
+      if (applyPick && connection.accountId) {
+        const { connectionId } = await pickModel.mutateAsync({
+          accountId: connection.accountId,
+          model: row.id,
+          name: row.name || undefined,
+        });
+        await applyPick(connectionId);
+        setSearch("");
+        onPicked?.();
+        return;
+      }
       if (row.id !== currentModel) {
         await updateConnection.mutateAsync({ id: connection.id, ...connectionFieldsForModelPick(provider, row) });
       }
-      if (chatId && chatConnectionId !== connection.id) {
+      if (applyPick) await applyPick(connection.id);
+      else if (chatId && chatConnectionId !== connection.id) {
         await updateChat.mutateAsync({ id: chatId, connectionId: connection.id });
       }
       setSearch("");
@@ -285,15 +310,21 @@ export function ConnectionModelPicker({
       <div className="flex min-w-0 items-center gap-2 px-3 pb-2 pt-2.5">
         {leading}
         <span className="shrink-0 text-xs font-semibold">{t("connections.modelPicker.title")}</span>
-        {(providerName || showConnectionName) && (
+        {applyPick && accountName ? (
           <span data-model-picker-provider className="min-w-0 truncate text-[0.6875rem] text-foreground/55">
-            {showConnectionName && connection.name && connection.name !== providerName
-              ? t("connections.modelPicker.connectionAndProvider", {
-                  connection: connection.name,
-                  provider: providerName,
-                })
-              : providerName}
+            {accountName}
           </span>
+        ) : (
+          (providerName || showConnectionName) && (
+            <span data-model-picker-provider className="min-w-0 truncate text-[0.6875rem] text-foreground/55">
+              {showConnectionName && connection.name && connection.name !== providerName
+                ? t("connections.modelPicker.connectionAndProvider", {
+                    connection: connection.name,
+                    provider: providerName,
+                  })
+                : providerName}
+            </span>
+          )
         )}
       </div>
 
@@ -417,7 +448,7 @@ export function ConnectionModelPicker({
           </div>
 
           <p className="border-t border-foreground/10 px-3 py-2 text-[0.625rem] text-foreground/50">
-            {t("connections.modelPicker.footer")}
+            {applyPick ? t("connections.switcher.appliesToChat") : t("connections.modelPicker.footer")}
           </p>
         </>
       )}
