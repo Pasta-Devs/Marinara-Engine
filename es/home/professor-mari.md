@@ -95,6 +95,14 @@ Si aún no tienes conexiones, el menú desplegable muestra **Add a connection** 
 
 Para un recorrido completo, consulta la guía de conexión enlazada al final.
 
+## Probar el entorno de ejecución Pi (experimental)
+
+Professor Mari puede trabajar de dos maneras. **Classic** (Clásico) es la predeterminada. **Pi** es una prueba que le permite pensar más antes de actuar y resolver tareas más largas.
+
+Para cambiar, abre **Search and Professor Mari settings** y cambia **Runtime** (Entorno de ejecución), debajo de **Permissions mode** (Modo de permisos). El cambio se aplica desde su siguiente respuesta. Tu modo de permisos, las tarjetas de cambios y Undo funcionan igual en ambos.
+
+Pi funciona con todas las conexiones, incluido el modelo local. Si Professor Mari se comporta de forma extraña en Pi, vuelve a Classic.
+
 ## Adjuntar archivos
 
 Haz clic en el botón del clip, etiquetado **Attach files** (Adjuntar archivos), para añadir un archivo a tu mensaje.
