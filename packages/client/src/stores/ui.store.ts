@@ -67,6 +67,7 @@ export type LorebookPanelSort = (typeof LOREBOOK_PANEL_SORT_OPTIONS)[number];
 export type ResourcePanelSort = BasicPanelSort;
 export const CONNECTION_PANEL_SORT_OPTIONS = [...BASIC_PANEL_SORT_OPTIONS, "custom"] as const;
 export type ConnectionPanelSort = (typeof CONNECTION_PANEL_SORT_OPTIONS)[number];
+export type ConnectionPanelView = "cards" | "folders";
 
 function normalizeConnectionPanelSort(value: unknown): ConnectionPanelSort {
   return CONNECTION_PANEL_SORT_OPTIONS.includes(value as ConnectionPanelSort)
@@ -851,6 +852,7 @@ interface UIState {
   presetPanelSort: ResourcePanelSort;
   /** Sort order for the compact Connections panel */
   connectionPanelSort: ConnectionPanelSort;
+  connectionPanelView: ConnectionPanelView;
   /** Sort order for the compact Agents panel */
   agentPanelSort: ResourcePanelSort;
   libraryManualOrders: Record<string, { active: boolean; ids: string[] }>;
@@ -1253,6 +1255,7 @@ interface UIState {
   setBotBrowserPanelSort: (sort: ResourcePanelSort) => void;
   setPresetPanelSort: (sort: ResourcePanelSort) => void;
   setConnectionPanelSort: (sort: ConnectionPanelSort) => void;
+  setConnectionPanelView: (view: ConnectionPanelView) => void;
   setAgentPanelSort: (sort: ResourcePanelSort) => void;
   setLibraryManualOrder: (kind: string, order: { active: boolean; ids: string[] }) => void;
   openCharacterDetail: (id: string, options?: { preserveCharacterLibrary?: boolean; initialTab?: string }) => void;
@@ -1772,6 +1775,7 @@ export function pickPersistedUIState(state: UIState) {
     botBrowserPanelSort: state.botBrowserPanelSort,
     presetPanelSort: state.presetPanelSort,
     connectionPanelSort: state.connectionPanelSort,
+    connectionPanelView: state.connectionPanelView,
     agentPanelSort: state.agentPanelSort,
     libraryManualOrders: state.libraryManualOrders,
     trackerPanelEnabled: state.trackerPanelEnabled,
@@ -2093,6 +2097,7 @@ export const useUIStore = create<UIState>()(
         botBrowserPanelSort: "name-asc" as ResourcePanelSort,
         presetPanelSort: "name-asc" as ResourcePanelSort,
         connectionPanelSort: "name-asc" as ConnectionPanelSort,
+        connectionPanelView: "cards" as ConnectionPanelView,
         agentPanelSort: "name-asc" as ResourcePanelSort,
         libraryManualOrders: {},
         editorDirty: false,
@@ -2443,6 +2448,7 @@ export const useUIStore = create<UIState>()(
         setBotBrowserPanelSort: (sort) => set({ botBrowserPanelSort: normalizeBasicPanelSort(sort) }),
         setPresetPanelSort: (sort) => set({ presetPanelSort: normalizeBasicPanelSort(sort) }),
         setConnectionPanelSort: (sort) => set({ connectionPanelSort: normalizeConnectionPanelSort(sort) }),
+        setConnectionPanelView: (view) => set({ connectionPanelView: view === "folders" ? "folders" : "cards" }),
         setAgentPanelSort: (sort) => set({ agentPanelSort: normalizeBasicPanelSort(sort) }),
         setLibraryManualOrder: (kind, order) =>
           set((state) => ({ libraryManualOrders: { ...state.libraryManualOrders, [kind]: order } })),
@@ -3838,6 +3844,7 @@ export const useUIStore = create<UIState>()(
         persisted.botBrowserPanelSort = normalizeBasicPanelSort(persisted.botBrowserPanelSort);
         persisted.presetPanelSort = normalizeBasicPanelSort(persisted.presetPanelSort);
         persisted.connectionPanelSort = normalizeConnectionPanelSort(persisted.connectionPanelSort);
+        persisted.connectionPanelView = persisted.connectionPanelView === "folders" ? "folders" : "cards";
         persisted.agentPanelSort = normalizeBasicPanelSort(persisted.agentPanelSort);
         normalizePersistedMainSurface(persisted);
         if (Array.isArray(persisted.recentUserActivities)) {

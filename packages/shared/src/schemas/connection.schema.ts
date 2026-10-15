@@ -101,6 +101,7 @@ export const createConnectionSchema = z.object({
   audioSource: audioGenerationSourceSchema.nullable().default(null),
   decisionSource: z.enum(DECISION_SOURCES).nullable().default(null),
   credentialsFromConnectionId: z.string().trim().min(1).nullable().default(null),
+  accountId: z.string().trim().min(1).nullable().default(null),
   maxStateTokens: z.number().int().min(1).max(30000).nullable().default(null),
   /** Milliseconds; null keeps the default. */
   decisionTimeoutMs: z

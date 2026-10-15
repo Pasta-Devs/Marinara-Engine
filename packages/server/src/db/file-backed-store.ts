@@ -350,7 +350,7 @@ type InsertValuesBuilder = Executable<void> & {
 // Exported so regressions can pin behavior against the CURRENT version
 // without chasing literals on every bump. Must equal root storage-format.json
 // (the launcher-format-guard regression pins the pairing).
-export const STORAGE_VERSION = 7;
+export const STORAGE_VERSION = 8;
 export const STORAGE_WRITER_LEASE_FILENAME = ".writer-lease";
 export const STORAGE_WRITER_OWNER_FILENAME = "owner.json";
 export const STORAGE_WRITER_LIVENESS_FILENAME = "live.sock";
@@ -405,6 +405,7 @@ const BUILT_IN_FILE_BACKED_TABLES = [
   "prompt_sections",
   "choice_blocks",
   "api_connections",
+  "connection_accounts",
   "assets",
   "agent_configs",
   "agent_runs",

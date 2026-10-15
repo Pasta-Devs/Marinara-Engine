@@ -145,6 +145,8 @@ export interface APIConnection {
   /** System One backend; absent on older connections. */
   decisionSource?: DecisionSource | null;
   credentialsFromConnectionId?: string | null;
+  /** Connection (account) this Model belongs to; null = standalone. */
+  accountId?: string | null;
   maxStateTokens?: number | null;
   /** How long a Decision connection may take to answer, in milliseconds; null is the default. */
   decisionTimeoutMs?: number | null;

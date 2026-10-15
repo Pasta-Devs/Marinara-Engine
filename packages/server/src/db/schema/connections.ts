@@ -101,6 +101,8 @@ export const apiConnections = fileTable("api_connections", {
   audioSource: text("audio_source"),
   decisionSource: text("decision_source"),
   credentialsFromConnectionId: text("credentials_from_connection_id"),
+  /** Connection account this row belongs to (null = standalone). Deliberately not named *ConnectionId. */
+  accountId: text("account_id"),
   maxStateTokens: integer("max_state_tokens"),
   /** A Decision connection's time limit in milliseconds; null uses the default. */
   decisionTimeoutMs: integer("decision_timeout_ms"),
