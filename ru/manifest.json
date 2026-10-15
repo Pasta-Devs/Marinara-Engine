@@ -394,8 +394,8 @@
     },
     {
       "path": "development/optional-agent-packages.md",
-      "sha256": "527ee567c8814612277bd26af889ce526d0d9d90e3d82a717cba2b793b272b9a",
-      "bytes": 147686
+      "sha256": "7d988d9a9d2b74211a06112fa35b3ec6648c1dd6e516954665350983f160208b",
+      "bytes": 147707
     },
     {
       "path": "development/personal-extensions.md",
@@ -484,8 +484,8 @@
     },
     {
       "path": "home/professor-mari.md",
-      "sha256": "17388df35cd917542271c4a1b78ed5088d7a5cd71010ffe5a609c1493a5d3d71",
-      "bytes": 49293
+      "sha256": "b53a753d356369d96fffafc67494fdefd5527b70cacb823dcd390cab707f66b3",
+      "bytes": 49303
     },
     {
       "path": "home/tutorial.md",
