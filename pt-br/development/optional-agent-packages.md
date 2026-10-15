@@ -273,7 +273,7 @@ O **Decision model** (Modelo de decisão) do usuário responde a declarações d
 
 Um template de prompt de agente incluído num pacote pode usar `{{#if decision:"..."}}` e `{{#if decision_choice:"..." == "..."}}` como um agente personalizado. O motor encontra as declarações e pergunta antes de executar o agente (depois da resposta, para pós-processamento), resolvendo o template com as respostas. Nenhuma versão da API de capacidades está envolvida. Veja a sintaxe e a redação em [Prompts condicionais](../prompts/conditional-prompts.md#asking-the-decision-model) e as fases em [Criar agentes personalizados](../agents/custom-agents.md#decision-statements-in-the-agents-prompt).
 
-O código de servidor do pacote também pode fazer ao modelo de decisão configurado pelo usuário perguntas limitadas de sim/não e de Choice sobre o contexto que o pacote fornece, por meio de `api.runtime.decisions.evaluate(...)`. Ele usa o mesmo modelo de decisão das perguntas de ativação de agentes e dos condicionais de prompt (um modelo local gerenciado ou uma conexão de decisão) e nunca expõe chaves nem partes internas do Engine. `decisions` é opcional e não exige uma API de capacidades mais nova nem permissão: verifique `typeof api.runtime.decisions?.evaluate === "function"` e use uma alternativa em motores antigos.
+O código de servidor do pacote também pode fazer ao modelo de decisão configurado pelo usuário perguntas limitadas de sim/não e de Choice sobre o contexto que o pacote fornece, por meio de `api.runtime.decisions.evaluate(...)`. Ele usa o mesmo modelo de decisão das perguntas de ativação de agentes e dos condicionais de prompt (um modelo local gerenciado ou uma conexão de decisão) e nunca expõe chaves nem partes internas do Engine. `decisions` é opcional e não exige uma API de capacidades mais nova nem permissão: verifique `typeof api.runtime.decisions?.evaluate === "function"` e use uma alternativa em Engines antigos.
 
 ```ts
 const result = await api.runtime.decisions?.evaluate({
@@ -292,7 +292,7 @@ if (result && (result.answers.danger ?? 0) >= result.threshold) {
 
 - `messages` é o contexto do próprio pacote, da mais antiga para a mais recente (no máximo 200 mensagens e 200.000 caracteres; o `name` de uma mensagem tem no máximo 100 caracteres). As mensagens mais antigas são descartadas para caber no modelo.
 - Cada `question` tem no máximo 500 caracteres; os ids devem ser únicos. Uma pergunta Choice tem pelo menos duas `options`, e a resposta dela é uma delas ou `"none of these"`.
-- Uma requisição pode pedir no máximo tantas respostas quanto o limite **Decision statements per turn** (Declarações de decisão por turno) do usuário; cada opção de Choice conta uma vez, mais uma. Uma requisição inválida lança um `TypeError`.
+- Uma requisição pode pedir no máximo tantas respostas quanto o limite **Decision statements per turn** (declarações de decisão por turno) do usuário; cada opção de Choice conta uma vez, mais uma. Uma requisição inválida lança um `TypeError`.
 - `answers` guarda a probabilidade de sim de cada pergunta de sim/não, e uma pergunta ausente não foi respondida. Compare com `threshold`, o ponto de operação do próprio modelo: as probabilidades não são comparáveis entre modelos de decisão.
 
 Projete cada uso para quem não tem modelo de decisão. Uma declaração sem resposta vale não: a ramificação `{{else}}`, ou nada, precisa ser um padrão sensato. Escreva para um modelo de decisão em geral, sem exigir Jev: modelos de chat locais e outros backends compatíveis usam a mesma sintaxe, mas podem responder diferente. Veja [Limiares](../connections/decision-models.md#thresholds) e [Limites e custo](../prompts/conditional-prompts.md#limits-and-cost) antes de depender de uma pontuação, quantidade de solicitações ou resposta em cache específica.
@@ -617,7 +617,7 @@ const memoryVectors = await embeddings.embed(memoryTexts, signal); // documents
 
 ### Capability API 1.67: abrir um personagem no editor
 
-A visão do navegador ganha `openCharacter(characterId, { tab })`. Ela abre o editor de personagens, na aba indicada quando houver uma, para que um pacote leve o usuário a um campo do card que ele lê. Motores antigos não têm esse método: verifique se `openCharacter` existe antes de mostrar o link.
+A visão do navegador ganha `openCharacter(characterId, { tab })`. Ela abre o editor de personagens, na aba indicada quando houver uma, para que um pacote leve o usuário a um campo do card que ele lê. Engines antigos não têm esse método: verifique se `openCharacter` existe antes de mostrar o link.
 
 ```ts
 if (typeof props.openCharacter === "function") props.openCharacter(characterId, { tab: "convo" });
