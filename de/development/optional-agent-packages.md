@@ -276,7 +276,7 @@ Das **Decision model** (Entscheidungsmodell) des Nutzers beantwortet Ja/Nein- un
 
 Eine vom Paket gelieferte Agenten-Prompt-Vorlage kann dieselben Decision-Bedingungen wie ein eigener Agent verwenden: `{{#if decision:"..."}}` und `{{#if decision_choice:"..." == "..."}}`. Die Engine findet sie in der Vorlage, fragt sie vor dem Agentenlauf ab, bei nachverarbeitenden Agenten nach der Chat-Antwort, und löst die Vorlage mit den Ergebnissen auf. Dafür ist keine Capability-API-Version nötig. Syntax und Formulierungshinweise stehen unter [Bedingte Prompts](../prompts/conditional-prompts.md#asking-the-decision-model); die Phasen beschreibt [Eigene Agenten erstellen](../agents/custom-agents.md#decision-statements-in-the-agents-prompt).
 
-Paketcode auf dem Server kann das konfigurierte Decision-Modell des Nutzers außerdem begrenzte Ja/Nein- und Auswahlfragen zu Kontext stellen, den das Paket liefert, über `api.runtime.decisions.evaluate(...)`. Es verwendet dasselbe Decision-Modell wie die Aktivierungsfragen von Agenten und Prompt-Bedingungen (ein verwaltetes lokales Modell oder eine Decision-Verbindung) und gibt nie Schlüssel oder Engine-Interna preis. `decisions` ist optional und braucht weder eine neuere Capability API noch eine Berechtigung: Prüfe `typeof api.runtime.decisions?.evaluate === "function"` und weiche auf älteren Engines auf einen Ersatz aus.
+Paketcode auf dem Server kann das konfigurierte Decision-Modell des Nutzers außerdem begrenzte Ja/Nein- und Auswahlfragen zu Kontext stellen, den das Paket liefert, über `api.runtime.decisions.evaluate(...)`. Die Methode verwendet dasselbe Decision-Modell wie die Aktivierungsfragen von Agenten und Prompt-Bedingungen (ein verwaltetes lokales Modell oder eine Decision-Verbindung) und gibt nie Schlüssel oder Engine-Interna preis. `decisions` ist optional und braucht weder eine neuere Capability API noch eine Berechtigung: Prüfe `typeof api.runtime.decisions?.evaluate === "function"` und weiche auf älteren Engines auf einen Ersatz aus.
 
 ```ts
 const result = await api.runtime.decisions?.evaluate({
@@ -649,7 +649,7 @@ Dies ist eine weiche Schnittstelle: Eine ältere Engine ignoriert das dritte Arg
 
 ### Capability API 1.67: einen Charakter im Editor öffnen
 
-Die Browseransicht erhält `openCharacter(characterId, { tab })`. Sie öffnet den Charakter-Editor, falls angegeben auf dem passenden Tab, sodass ein Paket den Nutzer zu einem Kartenfeld führen kann, das es liest. Ältere Engines haben sie nicht: Prüfe, ob `openCharacter` existiert, bevor du den Link anzeigst.
+Die Browseransicht erhält `openCharacter(characterId, { tab })`. Sie öffnet den Charakter-Editor, falls angegeben auf dem passenden Tab, sodass ein Paket den Nutzer zu einem Kartenfeld führen kann, das es liest. Ältere Engines haben diese Funktion nicht: Prüfe, ob `openCharacter` existiert, bevor du den Link anzeigst.
 
 ```ts
 if (typeof props.openCharacter === "function") props.openCharacter(characterId, { tab: "convo" });
