@@ -97,7 +97,7 @@ Pełny opis krok po kroku znajdziesz w przewodniku o połączeniach, podlinkowan
 
 ## Wypróbowanie środowiska Pi (eksperymentalne)
 
-Professor Mari może działać na dwa sposoby. **Classic** (klasyczny) jest ustawieniem domyślnym. **Pi** to wersja próbna: asystentka więcej myśli, zanim zadziała, i radzi sobie z dłuższymi zadaniami.
+Professor Mari może działać na dwa sposoby. **Classic** (klasyczny) jest ustawieniem domyślnym. **Pi** to wersja próbna: asystentka więcej myśli, zanim podejmie działanie, i radzi sobie z dłuższymi zadaniami.
 
 Żeby przełączyć, otwórz **Search and Professor Mari settings** i zmień **Runtime** (środowisko uruchomieniowe) pod **Permissions mode** (tryb uprawnień). Zmiana obowiązuje od następnej odpowiedzi asystentki. Tryb uprawnień, karty zmian i Undo (cofnięcie) działają tak samo w obu sposobach.
 
