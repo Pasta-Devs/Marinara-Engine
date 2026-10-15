@@ -276,7 +276,27 @@ export async function activate({ api }) {
 
 Шаблон промпта агента из пакета может использовать условия решений точно так же, как пользовательский агент: `{{#if decision:"..."}}` и `{{#if decision_choice:"..." == "..."}}`. Engine находит их в шаблоне, задает вопросы до запуска агента (после ответа для агента постобработки) и разрешает шаблон по ответам. Версия API возможностей на это не влияет. [Условные промпты](../prompts/conditional-prompts.md#asking-the-decision-model) описывают синтаксис и формулировки, а [Создание собственных агентов](../agents/custom-agents.md#decision-statements-in-the-agents-prompt) — чтение в разных фазах агента.
 
-Код среды пакета пока не может обращаться к модели решений напрямую. Для этого нужны отдельный метод API возможностей и повышение версии.
+Серверный код пакета также может задавать настроенной у пользователя модели решений ограниченные вопросы да/нет и Choice о контексте, который предоставляет пакет, через `api.runtime.decisions.evaluate(...)`. Он использует ту же модель решений, что и вопросы об активации агента и условные промпты (управляемая локальная модель или подключение модели решений), и никогда не раскрывает ключи или внутреннее устройство Engine. `decisions` необязателен и не требует более нового API возможностей или разрешения: проверьте `typeof api.runtime.decisions?.evaluate === "function"` и в более старых версиях Engine используйте запасной вариант.
+
+```ts
+const result = await api.runtime.decisions?.evaluate({
+  messages: [{ role: "user", content: "The tavern falls silent as the stranger draws a blade." }],
+  questions: [
+    { id: "danger", question: "Someone is about to be attacked." },
+    { id: "mood", question: "The mood of the scene is", options: ["calm", "tense", "festive"] },
+  ],
+  // Optional: pass `signal` to cancel and `debugMode: true` to log the Decision prompt.
+});
+// null: no Decision model is configured, or it gave no answer (unreachable, timed out or cancelled).
+if (result && (result.answers.danger ?? 0) >= result.threshold) {
+  // ...
+}
+```
+
+- `messages` – собственный контекст пакета, от самых старых сообщений к новым (не более 200 сообщений и 200 000 символов; `name` сообщения – не более 100 символов). Самые старые сообщения отбрасываются, чтобы уместиться в модель.
+- Каждый `question` – не более 500 символов; id должны быть уникальными. У вопроса Choice не менее двух `options`, а ответ – один из них или `"none of these"`.
+- Один запрос может запросить не больше ответов, чем задает лимит пользователя **Decision statements per turn** (утверждения решений за один ответ); каждый вариант Choice считается один раз, плюс один. Недопустимый запрос выбрасывает `TypeError`.
+- `answers` содержит вероятность ответа "да" для каждого вопроса да/нет, а вопрос, которого в нем нет, остался без ответа. Сравнивайте ее с `threshold` – собственной рабочей точкой модели: вероятности разных моделей решений несопоставимы.
 
 Каждое использование проектируйте и для пользователя без модели решений. Утверждение без ответа считается нет, поэтому ветка `{{else}}` или отсутствие текста должны быть разумным вариантом по умолчанию. Пишите для любой модели решений, не требуя Jev: локальные модели чата и другие поддерживаемые бэкенды используют тот же синтаксис, но могут отвечать иначе. Прежде чем полагаться на конкретную оценку, число запросов или кешированный ответ, прочитайте [Пороги](../connections/decision-models.md#thresholds) и [Ограничения и стоимость](../prompts/conditional-prompts.md#limits-and-cost).
 
@@ -627,6 +647,14 @@ const memoryVectors = await embeddings.embed(memoryTexts, signal); // documents
 
 Это мягкий интерфейс: более старый Engine игнорирует третий аргумент, поэтому пакет может передавать его всегда и не обязан объявлять 1.68. Передавайте тип входных данных третьим аргументом, никогда не в объекте параметров: более старый Engine передает второй аргумент прямо провайдеру как сигнал отмены.
 
+### API возможностей 1.67: открытие персонажа в редакторе
+
+Представление в браузере получает `openCharacter(characterId, { tab })`. Он открывает редактор персонажа, а если указана вкладка – сразу на ней, чтобы пакет мог направить пользователя к полю карточки персонажа, которое он читает. Более старые Engine его не имеют: прежде чем показывать ссылку, проверьте, что `openCharacter` существует.
+
+```ts
+if (typeof props.openCharacter === "function") props.openCharacter(characterId, { tab: "convo" });
+```
+
 <a id="capability-api-150-professor-mari-actions"></a>
 
 ### API возможностей 1.50: действия Professor Mari
@@ -637,7 +665,11 @@ const memoryVectors = await embeddings.embed(memoryTexts, signal); // documents
 export async function activate({ api }) {
   api.registerService("mari-actions:my-package", {
     list: () => [
-      { name: "add-idea", summary: "Give a Creator an idea for a post.", inputs: { accountId: "The Creator.", text: "The idea." } },
+      {
+        name: "add-idea",
+        summary: "Give a Creator an idea for a post.",
+        inputs: { accountId: "The Creator.", text: "The idea." },
+      },
     ],
     run: async (name, input, { signal }) => {
       const parsed = schemas[name]?.safeParse(input);
