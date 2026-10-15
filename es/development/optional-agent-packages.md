@@ -272,7 +272,27 @@ El **Decision model** (Modelo de decisión) del usuario responde declaraciones d
 
 Una plantilla de prompt de agente incluida en un paquete puede usar `{{#if decision:"..."}}` y `{{#if decision_choice:"..." == "..."}}` igual que un agente personalizado. El motor las detecta y pregunta antes de ejecutar el agente (después de la respuesta, si es de posprocesamiento), y resuelve la plantilla con las respuestas. No interviene ninguna versión de la API de capacidades. Consulta la sintaxis y redacción en [Prompts condicionales](../prompts/conditional-prompts.md#asking-the-decision-model) y las fases en [Crear agentes personalizados](../agents/custom-agents.md#decision-statements-in-the-agents-prompt).
 
-El código de ejecución del paquete todavía no puede consultar directamente el modelo de decisión. Hace falta un método de la API de capacidades con su propio aumento de versión.
+El código de servidor del paquete también puede hacer al modelo de decisión configurado por el usuario preguntas acotadas de sí/no y de tipo Choice sobre el contexto que aporta el paquete, mediante `api.runtime.decisions.evaluate(...)`. Usa el mismo modelo de decisión que las preguntas de activación de agentes y los condicionales de prompt (un modelo local gestionado o una conexión de decisión) y nunca expone claves ni elementos internos del Engine. `decisions` es opcional y no requiere una API de capacidades más reciente ni un permiso: comprueba `typeof api.runtime.decisions?.evaluate === "function"` y usa una alternativa en Engines anteriores.
+
+```ts
+const result = await api.runtime.decisions?.evaluate({
+  messages: [{ role: "user", content: "The tavern falls silent as the stranger draws a blade." }],
+  questions: [
+    { id: "danger", question: "Someone is about to be attacked." },
+    { id: "mood", question: "The mood of the scene is", options: ["calm", "tense", "festive"] },
+  ],
+  // Optional: pass `signal` to cancel and `debugMode: true` to log the Decision prompt.
+});
+// null: no Decision model is configured, or it gave no answer (unreachable, timed out or cancelled).
+if (result && (result.answers.danger ?? 0) >= result.threshold) {
+  // ...
+}
+```
+
+- `messages` es el contexto propio del paquete, del más antiguo al más reciente (como máximo 200 mensajes y 200.000 caracteres; el `name` de un mensaje tiene como máximo 100 caracteres). Los mensajes más antiguos se descartan para que quepan en el modelo.
+- Cada `question` tiene como máximo 500 caracteres; los ids deben ser únicos. Una pregunta Choice tiene al menos dos `options`, y su respuesta es una de ellas o `"none of these"`.
+- Una solicitud puede pedir como máximo tantas respuestas como el límite **Decision statements per turn** (declaraciones de decisión por turno) del usuario; cada opción de Choice cuenta una vez, más una. Una solicitud no válida lanza un `TypeError`.
+- `answers` contiene la probabilidad de sí de cada pregunta de sí/no, y una pregunta que falta no fue respondida. Compárala con `threshold`, el punto de operación propio del modelo: las probabilidades no son comparables entre modelos de decisión.
 
 Diseña cada uso para quien no tenga modelo de decisión. Una declaración sin respuesta se interpreta como no: la rama `{{else}}`, o nada, debe ser un valor predeterminado sensato. Escribe para un modelo de decisión en general, sin exigir Jev: los modelos de chat locales y otros backends compatibles usan la misma sintaxis, pero pueden responder distinto. Consulta [Umbrales](../connections/decision-models.md#thresholds) y [Límites y coste](../prompts/conditional-prompts.md#limits-and-cost) antes de depender de una puntuación, cantidad de solicitudes o respuesta en caché concreta.
 
@@ -594,6 +614,14 @@ const memoryVectors = await embeddings.embed(memoryTexts, signal); // documents
 
 Es una interfaz flexible: un Engine anterior ignora el tercer argumento, así que un paquete siempre puede pasarlo y no necesita declarar 1.68. Pasa el tipo de entrada como tercer argumento, nunca dentro de un objeto de opciones: un Engine anterior entrega el segundo argumento directamente al proveedor como señal de cancelación.
 
+### Capability API 1.67: abrir un personaje en el editor
+
+La vista del navegador recibe `openCharacter(characterId, { tab })`. Abre el editor de personajes, en la pestaña indicada si se da una, para que un paquete pueda llevar al usuario a un campo de la tarjeta que lee. Los Engines anteriores no lo tienen: comprueba que `openCharacter` exista antes de mostrar el enlace.
+
+```ts
+if (typeof props.openCharacter === "function") props.openCharacter(characterId, { tab: "convo" });
+```
+
 <a id="capability-api-150-professor-mari-actions"></a>
 
 ### Capability API 1.50: acciones de Professor Mari
@@ -604,7 +632,11 @@ Un paquete con el nuevo permiso `mari-actions` puede ofrecer acciones con nombre
 export async function activate({ api }) {
   api.registerService("mari-actions:my-package", {
     list: () => [
-      { name: "add-idea", summary: "Give a Creator an idea for a post.", inputs: { accountId: "The Creator.", text: "The idea." } },
+      {
+        name: "add-idea",
+        summary: "Give a Creator an idea for a post.",
+        inputs: { accountId: "The Creator.", text: "The idea." },
+      },
     ],
     run: async (name, input, { signal }) => {
       const parsed = schemas[name]?.safeParse(input);

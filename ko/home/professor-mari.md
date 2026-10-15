@@ -95,6 +95,14 @@ Professor Mari가 생각하려면 연결이 필요합니다. 연결은 API 키�
 
 연결을 처음부터 설정하는 방법은 문서 끝에 링크된 연결 가이드에서 볼 수 있습니다.
 
+## Pi 런타임 사용해 보기(실험 기능)
+
+Professor Mari는 두 가지 방식으로 작업할 수 있습니다. **Classic**이 기본값입니다. **Pi**는 Professor Mari가 행동하기 전에 더 오래 생각하고 더 긴 작업을 끝까지 해내도록 하는 시험 기능입니다.
+
+전환하려면 **Search and Professor Mari settings**를 열고 **Permissions mode**(권한 모드) 아래의 **Runtime**(런타임)을 바꾸세요. 변경은 Professor Mari의 다음 답변부터 적용됩니다. 권한 모드, 변경 카드, **Undo**는 두 방식에서 똑같이 작동합니다.
+
+Pi는 로컬 모델을 포함한 모든 연결에서 작동합니다. Pi에서 Professor Mari가 이상하게 동작하면 Classic으로 되돌리세요.
+
 ## 파일 첨부하기
 
 **Attach files**(파일 첨부)라고 표시된 클립 버튼을 클릭하면 메시지에 파일을 붙일 수 있습니다.

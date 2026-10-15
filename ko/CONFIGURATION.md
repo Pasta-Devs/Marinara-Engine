@@ -132,7 +132,7 @@ Marinara는 실행 중에도 `.env` 파일을 지켜봅니다. 변경 사항을 
 - `AUTO_OPEN_BROWSER`, `AUTO_UPDATE_ENABLED`, `AUTO_CREATE_DEFAULT_CONNECTION`
 - `LOG_DISABLE_REQUEST_LOGGING`
 - `STORAGE_CACHE_WINDOWS_BOOT_ID`, `SHUTDOWN_WINDOWS_CONSOLE_SIGNALS`, `SHUTDOWN_FORCE_EXIT_ON_REPEAT`
-- 이미지, 동영상, 스프라이트, ComfyUI의 타임아웃 및 폴링 설정(`IMAGE_GEN_TIMEOUT_MS`, `VIDEO_GEN_TIMEOUT_MS`, `VIDEO_GEN_MAX_RESPONSE_BYTES`, `SPRITE_GENERATION_TIMEOUT_MS`, `SPRITE_ANIMATED_FFMPEG_TIMEOUT_MS`, `COMFYUI_GEN_TIMEOUT`, 그리고 네 가지 `*_VIDEO_POLL_INTERVAL_MS` 설정)
+- 이미지, 동영상, 스프라이트, ComfyUI의 타임아웃 및 폴링 설정(`IMAGE_GEN_TIMEOUT_MS`, `IMAGE_GEN_MAX_RESPONSE_BYTES`, `VIDEO_GEN_TIMEOUT_MS`, `VIDEO_GEN_MAX_RESPONSE_BYTES`, `SPRITE_GENERATION_TIMEOUT_MS`, `SPRITE_ANIMATED_FFMPEG_TIMEOUT_MS`, `COMFYUI_GEN_TIMEOUT`, 그리고 네 가지 `*_VIDEO_POLL_INTERVAL_MS` 설정)
 
 이 중 하나가 바뀌면 로그에 재시작이 필요하다는 경고가 남습니다. `BASIC_AUTH_USER`, `BASIC_AUTH_PASS`, `IP_ALLOWLIST`, `ADMIN_SECRET`, `CSRF_TRUSTED_ORIGINS` 같은 접근 제어 설정과 비밀 값은 재시작이 필요 없습니다.
 
@@ -242,6 +242,7 @@ LOG_DISABLE_REQUEST_LOGGING=true
 | `GAME_DYNAMIC_IMAGE_PROMPT_TIMEOUT_MS` | `45000`(45초) | 현재 Game 장면을 동적 이미지 프롬프트로 바꾸는 모델 호출의 전체 시간 상한입니다. 느린 로컬 모델이라면 값을 올리세요. 유효 범위는 `10000`-`3600000`입니다. |
 | `EMBEDDING_TIMEOUT_MS` | `300000`(5분) | 임베딩 요청 한 번에 허용하는 시간입니다. 느린 로컬 임베딩 서버에서는 값을 올리면 도움이 됩니다. |
 | `IMAGE_GEN_TIMEOUT_MS` | `1800000`(30분) | 이미지 생성 요청 한 번에 허용하는 시간입니다. |
+| `IMAGE_GEN_MAX_RESPONSE_BYTES` | `31457280`(30 MiB) | 서버가 이미지 제공자로부터 받아들이는 이미지 응답의 최대 크기입니다. 로컬 ComfyUI가 파일에 큰 메타데이터를 넣을 때는 값을 올리세요. |
 | `VIDEO_GEN_TIMEOUT_MS` | `1800000`(30분) | 로컬 ComfyUI 동영상 워크플로를 포함해 장면 동영상 생성 요청 한 번에 허용하는 시간입니다. |
 | `VIDEO_GEN_MAX_RESPONSE_BYTES` | `167772160`(160 MiB) | 서버가 받아들이는 장면 동영상 다운로드의 최대 크기입니다. |
 | `COMFYUI_GEN_TIMEOUT` | `2400`(40분, 단위는 초) | 대기열에 들어간 ComfyUI 이미지 워크플로 한 번에 허용하는 시간입니다. |

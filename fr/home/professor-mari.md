@@ -95,6 +95,14 @@ Si tu n'as encore aucune connexion, le menu déroulant affiche **Add a connectio
 
 Pour un déroulé complet, consulte le guide des connexions en fin de page.
 
+## Essayer le runtime Pi (expérimental)
+
+Professor Mari peut travailler de deux façons. **Classic** est le mode par défaut. **Pi** est un essai : elle réfléchit davantage avant d'agir et mène à bien des tâches plus longues.
+
+Pour changer, ouvre **Search and Professor Mari settings** (réglages de la recherche et de Professor Mari) et modifie **Runtime** (environnement d'exécution), sous **Permissions mode** (mode de permissions). Le changement s'applique dès sa prochaine réponse. Ton mode de permissions, les encarts de modification et **Undo** fonctionnent de la même façon dans les deux.
+
+Pi fonctionne avec toutes les connexions, y compris le modèle local. Si Professor Mari se comporte de façon étrange avec Pi, reviens à Classic.
+
 ## Joindre des fichiers
 
 Clique sur le bouton trombone, intitulé **Attach files** (joindre des fichiers), pour ajouter un fichier à ton message.

@@ -132,7 +132,7 @@ Marinara следит за файлом `.env` во время работы. П�
 - `AUTO_OPEN_BROWSER`, `AUTO_UPDATE_ENABLED`, `AUTO_CREATE_DEFAULT_CONNECTION`
 - `LOG_DISABLE_REQUEST_LOGGING`
 - `STORAGE_CACHE_WINDOWS_BOOT_ID`, `SHUTDOWN_WINDOWS_CONSOLE_SIGNALS`, `SHUTDOWN_FORCE_EXIT_ON_REPEAT`
-- Настройки тайм-аутов и опроса для изображений, видео, спрайтов и ComfyUI (`IMAGE_GEN_TIMEOUT_MS`, `VIDEO_GEN_TIMEOUT_MS`, `VIDEO_GEN_MAX_RESPONSE_BYTES`, `SPRITE_GENERATION_TIMEOUT_MS`, `SPRITE_ANIMATED_FFMPEG_TIMEOUT_MS`, `COMFYUI_GEN_TIMEOUT` и четыре настройки `*_VIDEO_POLL_INTERVAL_MS`)
+- Настройки тайм-аутов и опроса для изображений, видео, спрайтов и ComfyUI (`IMAGE_GEN_TIMEOUT_MS`, `IMAGE_GEN_MAX_RESPONSE_BYTES`, `VIDEO_GEN_TIMEOUT_MS`, `VIDEO_GEN_MAX_RESPONSE_BYTES`, `SPRITE_GENERATION_TIMEOUT_MS`, `SPRITE_ANIMATED_FFMPEG_TIMEOUT_MS`, `COMFYUI_GEN_TIMEOUT` и четыре настройки `*_VIDEO_POLL_INTERVAL_MS`)
 
 При изменении любой из них журнал предупреждает, что нужен перезапуск. Настройки управления доступом и секреты – `BASIC_AUTH_USER`, `BASIC_AUTH_PASS`, `IP_ALLOWLIST`, `ADMIN_SECRET`, `CSRF_TRUSTED_ORIGINS` – перезапуска не требуют.
 
@@ -242,6 +242,7 @@ LOG_DISABLE_REQUEST_LOGGING=true
 | `GAME_DYNAMIC_IMAGE_PROMPT_TIMEOUT_MS` | `45000` (45 секунд) | Ограничение общей длительности обращения к модели, которое превращает текущую сцену режима Game в динамический промпт для изображения. Повысьте его для более медленных локальных моделей. Допустимый диапазон: `10000`-`3600000`. |
 | `EMBEDDING_TIMEOUT_MS` | `300000` (5 минут) | Время на один запрос эмбеддинга. Значение побольше помогает медленным локальным серверам эмбеддингов. |
 | `IMAGE_GEN_TIMEOUT_MS` | `1800000` (30 минут) | Время на один запрос генерации изображения. |
+| `IMAGE_GEN_MAX_RESPONSE_BYTES` | `31457280` (30 MiB) | Максимальный размер ответа с изображением, который сервер согласится принять от провайдера изображений. Увеличьте значение, если локальный ComfyUI встраивает в файлы большие метаданные. |
 | `VIDEO_GEN_TIMEOUT_MS` | `1800000` (30 минут) | Время на один запрос генерации видео сцены, включая локальные процессы видео в ComfyUI. |
 | `VIDEO_GEN_MAX_RESPONSE_BYTES` | `167772160` (160 MiB) | Максимальный размер видео сцены, которое сервер согласится скачать. |
 | `COMFYUI_GEN_TIMEOUT` | `2400` (40 минут, в секундах) | Время на один процесс изображения в ComfyUI после постановки в очередь. |

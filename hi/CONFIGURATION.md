@@ -132,7 +132,7 @@ BASIC_AUTH_PASS=correct-horse-battery-staple
 - `AUTO_OPEN_BROWSER`, `AUTO_UPDATE_ENABLED`, `AUTO_CREATE_DEFAULT_CONNECTION`
 - `LOG_DISABLE_REQUEST_LOGGING`
 - `STORAGE_CACHE_WINDOWS_BOOT_ID`, `SHUTDOWN_WINDOWS_CONSOLE_SIGNALS`, `SHUTDOWN_FORCE_EXIT_ON_REPEAT`
-- इमेज, वीडियो, स्प्राइट और ComfyUI के टाइमआउट तथा पोल वाली सेटिंग्स (`IMAGE_GEN_TIMEOUT_MS`, `VIDEO_GEN_TIMEOUT_MS`, `VIDEO_GEN_MAX_RESPONSE_BYTES`, `SPRITE_GENERATION_TIMEOUT_MS`, `SPRITE_ANIMATED_FFMPEG_TIMEOUT_MS`, `COMFYUI_GEN_TIMEOUT`, और चारों `*_VIDEO_POLL_INTERVAL_MS` सेटिंग्स)
+- इमेज, वीडियो, स्प्राइट और ComfyUI के टाइमआउट तथा पोल वाली सेटिंग्स (`IMAGE_GEN_TIMEOUT_MS`, `IMAGE_GEN_MAX_RESPONSE_BYTES`, `VIDEO_GEN_TIMEOUT_MS`, `VIDEO_GEN_MAX_RESPONSE_BYTES`, `SPRITE_GENERATION_TIMEOUT_MS`, `SPRITE_ANIMATED_FFMPEG_TIMEOUT_MS`, `COMFYUI_GEN_TIMEOUT`, और चारों `*_VIDEO_POLL_INTERVAL_MS` सेटिंग्स)
 
 इनमें से कोई बदले, तो लॉग में चेतावनी आती है कि रीस्टार्ट ज़रूरी है। एक्सेस कंट्रोल की सेटिंग्स और `BASIC_AUTH_USER`, `BASIC_AUTH_PASS`, `IP_ALLOWLIST`, `ADMIN_SECRET` तथा `CSRF_TRUSTED_ORIGINS` जैसे सीक्रेट के लिए रीस्टार्ट की ज़रूरत नहीं होती।
 
@@ -242,6 +242,7 @@ LOG_DISABLE_REQUEST_LOGGING=true
 | `GAME_DYNAMIC_IMAGE_PROMPT_TIMEOUT_MS` | `45000` (45 सेकंड) | उस मॉडल कॉल की कुल अवधि की सीमा, जो मौजूदा Game सीन को डायनैमिक इमेज प्रॉम्प्ट में बदलती है। धीमे लोकल मॉडल के लिए इसे बढ़ाएँ। मान्य रेंज: `10000`-`3600000`। |
 | `EMBEDDING_TIMEOUT_MS` | `300000` (5 मिनट) | एक एम्बेडिंग रिक्वेस्ट के लिए मिलने वाला समय। धीमे लोकल एम्बेडिंग सर्वर के लिए इसे बढ़ाना काम आता है। |
 | `IMAGE_GEN_TIMEOUT_MS` | `1800000` (30 मिनट) | एक इमेज जेनरेशन रिक्वेस्ट के लिए मिलने वाला समय। |
+| `IMAGE_GEN_MAX_RESPONSE_BYTES` | `31457280` (30 MiB) | सर्वर इमेज प्रोवाइडर से ज़्यादा से ज़्यादा इतना बड़ा इमेज जवाब स्वीकार करता है। जब लोकल ComfyUI अपनी फ़ाइलों में बड़ा मेटाडेटा एम्बेड करे, तब इसे बढ़ाएँ। |
 | `VIDEO_GEN_TIMEOUT_MS` | `1800000` (30 मिनट) | एक सीन वीडियो जेनरेशन रिक्वेस्ट के लिए मिलने वाला समय, लोकल ComfyUI वीडियो वर्कफ़्लो समेत। |
 | `VIDEO_GEN_MAX_RESPONSE_BYTES` | `167772160` (160 MiB) | सर्वर ज़्यादा से ज़्यादा इतने बड़े सीन वीडियो का डाउनलोड स्वीकार करता है। |
 | `COMFYUI_GEN_TIMEOUT` | `2400` (40 मिनट, सेकंड में) | कतार में लगने के बाद एक ComfyUI इमेज वर्कफ़्लो के लिए मिलने वाला समय। |

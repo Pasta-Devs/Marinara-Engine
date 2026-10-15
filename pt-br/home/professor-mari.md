@@ -95,6 +95,14 @@ Se ainda não houver nenhuma conexão, o menu suspenso mostra **Add a connection
 
 O passo a passo completo está no guia de conexão indicado no fim da página.
 
+## Experimentar o ambiente de execução Pi (experimental)
+
+A Professor Mari pode trabalhar de duas formas. **Classic** (clássico) é o padrão. **Pi** é um teste que a deixa pensar mais antes de agir e levar tarefas mais longas até o fim.
+
+Para trocar, abra **Search and Professor Mari settings** e mude **Runtime** (ambiente de execução), abaixo de **Permissions mode** (modo de permissões). A mudança vale a partir da próxima resposta dela. Seu modo de permissões, os cards de mudança e o Undo funcionam igual nos dois.
+
+O Pi funciona com todas as conexões, inclusive o modelo local. Se a Professor Mari se comportar de forma estranha no Pi, volte para o Classic.
+
 ## Anexar arquivos
 
 Clique no botão do clipe de papel, chamado **Attach files** (anexar arquivos), para adicionar um arquivo à mensagem.

@@ -132,7 +132,7 @@ Niewielka grupa ustawień niskopoziomowych zostaje ustalona przy starcie serwera
 - `AUTO_OPEN_BROWSER`, `AUTO_UPDATE_ENABLED`, `AUTO_CREATE_DEFAULT_CONNECTION`
 - `LOG_DISABLE_REQUEST_LOGGING`
 - `STORAGE_CACHE_WINDOWS_BOOT_ID`, `SHUTDOWN_WINDOWS_CONSOLE_SIGNALS`, `SHUTDOWN_FORCE_EXIT_ON_REPEAT`
-- Ustawienia limitu czasu i odpytywania dla obrazów, wideo, sprite'ów oraz ComfyUI (`IMAGE_GEN_TIMEOUT_MS`, `VIDEO_GEN_TIMEOUT_MS`, `VIDEO_GEN_MAX_RESPONSE_BYTES`, `SPRITE_GENERATION_TIMEOUT_MS`, `SPRITE_ANIMATED_FFMPEG_TIMEOUT_MS`, `COMFYUI_GEN_TIMEOUT` oraz cztery ustawienia `*_VIDEO_POLL_INTERVAL_MS`)
+- Ustawienia limitu czasu i odpytywania dla obrazów, wideo, sprite'ów oraz ComfyUI (`IMAGE_GEN_TIMEOUT_MS`, `IMAGE_GEN_MAX_RESPONSE_BYTES`, `VIDEO_GEN_TIMEOUT_MS`, `VIDEO_GEN_MAX_RESPONSE_BYTES`, `SPRITE_GENERATION_TIMEOUT_MS`, `SPRITE_ANIMATED_FFMPEG_TIMEOUT_MS`, `COMFYUI_GEN_TIMEOUT` oraz cztery ustawienia `*_VIDEO_POLL_INTERVAL_MS`)
 
 Po zmianie któregokolwiek z nich w logu pojawia się ostrzeżenie o konieczności restartu. Ustawienia kontroli dostępu i sekrety, czyli `BASIC_AUTH_USER`, `BASIC_AUTH_PASS`, `IP_ALLOWLIST`, `ADMIN_SECRET` i `CSRF_TRUSTED_ORIGINS`, restartu nie wymagają.
 
@@ -242,6 +242,7 @@ Te ustawienia obejmują wszystkie profile i są zapisywane obok aktywnego pliku 
 | `GAME_DYNAMIC_IMAGE_PROMPT_TIMEOUT_MS` | `45000` (45 sekund) | Górna granica łącznego czasu wywołania modelu, które zamienia bieżącą scenę w trybie Game na dynamiczny prompt obrazu. Zwiększ ją dla wolniejszych modeli lokalnych. Dozwolony zakres: `10000`-`3600000`. |
 | `EMBEDDING_TIMEOUT_MS` | `300000` (5 minut) | Czas na jedno żądanie embeddingu. Wyższa wartość pomaga powolnym lokalnym serwerom embeddingów. |
 | `IMAGE_GEN_TIMEOUT_MS` | `1800000` (30 minut) | Czas na jedno żądanie generowania obrazu. |
+| `IMAGE_GEN_MAX_RESPONSE_BYTES` | `31457280` (30 MiB) | Największa odpowiedź z obrazem, jaką serwer przyjmie od dostawcy obrazów. Zwiększ tę wartość, gdy lokalny ComfyUI osadza w plikach duże metadane. |
 | `VIDEO_GEN_TIMEOUT_MS` | `1800000` (30 minut) | Czas na jedno żądanie generowania wideo sceny, łącznie z lokalnymi procesami wideo w ComfyUI. |
 | `VIDEO_GEN_MAX_RESPONSE_BYTES` | `167772160` (160 MiB) | Największe wideo sceny, jakie serwer przyjmie przy pobieraniu. |
 | `COMFYUI_GEN_TIMEOUT` | `2400` (40 minut, w sekundach) | Czas na jeden proces generowania obrazu w ComfyUI po jego zakolejkowaniu. |

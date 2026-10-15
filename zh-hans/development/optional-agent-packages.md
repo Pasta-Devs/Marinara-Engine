@@ -249,7 +249,27 @@ export async function activate({ api }) {
 
 包附带的智能体提示词模板可以像用户的自定义智能体一样使用 `{{#if decision:"..."}}` 和 `{{#if decision_choice:"..." == "..."}}`。Engine 在模板中找到语句，在智能体运行前询问(后处理智能体则在回复之后)，再用答案解析模板。这不涉及 Capability API 版本。语法和措辞建议见[条件提示词](../prompts/conditional-prompts.md#asking-the-decision-model)，各智能体阶段如何读取它们见[创建自定义智能体](../agents/custom-agents.md#decision-statements-in-the-agents-prompt)。
 
-包运行时代码暂时无法直接询问 Decision 模型。这需要专门的 Capability API 方法和版本升级。
+包的服务器代码还可以通过 `api.runtime.decisions.evaluate(...)`，向用户配置的 Decision 模型询问有边界的是非问题和选项问题，问题基于包自己提供的上下文。它与智能体激活问题和提示词条件使用同一个 Decision 模型（托管的本地模型或 Decision 连接），并且绝不暴露密钥或 Engine 内部实现。`decisions` 是可选的，不需要更新的 Capability API 或权限：检查 `typeof api.runtime.decisions?.evaluate === "function"`，在旧 Engine 上回退。
+
+```ts
+const result = await api.runtime.decisions?.evaluate({
+  messages: [{ role: "user", content: "The tavern falls silent as the stranger draws a blade." }],
+  questions: [
+    { id: "danger", question: "Someone is about to be attacked." },
+    { id: "mood", question: "The mood of the scene is", options: ["calm", "tense", "festive"] },
+  ],
+  // Optional: pass `signal` to cancel and `debugMode: true` to log the Decision prompt.
+});
+// null: no Decision model is configured, or it gave no answer (unreachable, timed out or cancelled).
+if (result && (result.answers.danger ?? 0) >= result.threshold) {
+  // ...
+}
+```
+
+- `messages` 是包自己的上下文，按从旧到新排列（最多 200 条消息和 200,000 字符；消息的 `name` 最多 100 字符）。为适应模型，最旧的消息会被丢弃。
+- 每个 `question` 最多 500 字符；id 必须唯一。选项问题至少有两个 `options`，答案是其中之一或 `"none of these"`。
+- 一次请求最多可以要求用户的 **Decision statements per turn**(每回合判定陈述数) 上限那么多个答案；每个选项问题的每个选项计一次，再加一。无效请求会抛出 `TypeError`。
+- `answers` 保存每个是非问题回答“是”的概率，没出现在其中的问题表示没有得到回答。把它与 `threshold` 比较，后者是模型自己的工作点：不同 Decision 模型之间的概率不可比。
 
 每处使用都应考虑未配置 Decision 模型的用户。没有答案的语句视为否，因此 `{{else}}` 分支或不输出任何内容必须是合理默认行为。请面向一般 Decision 模型编写，而不要要求 Jev：本地聊天模型和其他支持的后端使用相同语法，但答案可能不同。依赖特定分数、请求次数或缓存答案前，请先阅读[阈值](../connections/decision-models.md#thresholds)及[限制与成本](../prompts/conditional-prompts.md#limits-and-cost)。
 
@@ -581,6 +601,14 @@ const memoryVectors = await embeddings.embed(memoryTexts, signal); // documents
 
 这是软接口：旧 Engine 会忽略第三个参数，因此包始终可以传入它，无需声明 1.68。输入类型要作为第三个参数传入，绝不要放进选项对象：旧 Engine 会把第二个参数直接作为中止信号交给服务商。
 
+### Capability API 1.67：在编辑器中打开角色
+
+浏览器视图新增 `openCharacter(characterId, { tab })`。它会打开角色编辑器，有指定标签页时就打开到该标签页，这样包可以把用户带到它所读取的角色卡字段。旧 Engine 没有这个方法：显示链接前，先检查 `openCharacter` 是否存在。
+
+```ts
+if (typeof props.openCharacter === "function") props.openCharacter(characterId, { tab: "convo" });
+```
+
 <a id="capability-api-150-professor-mari-actions"></a>
 
 ### Capability API 1.50：Professor Mari 操作
@@ -591,7 +619,11 @@ const memoryVectors = await embeddings.embed(memoryTexts, signal); // documents
 export async function activate({ api }) {
   api.registerService("mari-actions:my-package", {
     list: () => [
-      { name: "add-idea", summary: "Give a Creator an idea for a post.", inputs: { accountId: "The Creator.", text: "The idea." } },
+      {
+        name: "add-idea",
+        summary: "Give a Creator an idea for a post.",
+        inputs: { accountId: "The Creator.", text: "The idea." },
+      },
     ],
     run: async (name, input, { signal }) => {
       const parsed = schemas[name]?.safeParse(input);

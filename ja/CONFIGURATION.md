@@ -132,7 +132,7 @@ Marinaraは実行中も`.env`ファイルを監視しています。変更を保
 - `AUTO_OPEN_BROWSER`、`AUTO_UPDATE_ENABLED`、`AUTO_CREATE_DEFAULT_CONNECTION`
 - `LOG_DISABLE_REQUEST_LOGGING`
 - `STORAGE_CACHE_WINDOWS_BOOT_ID`, `SHUTDOWN_WINDOWS_CONSOLE_SIGNALS`, `SHUTDOWN_FORCE_EXIT_ON_REPEAT`
-- 画像、動画、スプライト、ComfyUIのタイムアウトとポーリングの設定(`IMAGE_GEN_TIMEOUT_MS`、`VIDEO_GEN_TIMEOUT_MS`、`VIDEO_GEN_MAX_RESPONSE_BYTES`、`SPRITE_GENERATION_TIMEOUT_MS`、`SPRITE_ANIMATED_FFMPEG_TIMEOUT_MS`、`COMFYUI_GEN_TIMEOUT`、および4つの`*_VIDEO_POLL_INTERVAL_MS`設定)
+- 画像、動画、スプライト、ComfyUIのタイムアウトとポーリングの設定(`IMAGE_GEN_TIMEOUT_MS`、`IMAGE_GEN_MAX_RESPONSE_BYTES`、`VIDEO_GEN_TIMEOUT_MS`、`VIDEO_GEN_MAX_RESPONSE_BYTES`、`SPRITE_GENERATION_TIMEOUT_MS`、`SPRITE_ANIMATED_FFMPEG_TIMEOUT_MS`、`COMFYUI_GEN_TIMEOUT`、および4つの`*_VIDEO_POLL_INTERVAL_MS`設定)
 
 これらを変更すると、再起動が必要である旨の警告がログに出ます。`BASIC_AUTH_USER`、`BASIC_AUTH_PASS`、`IP_ALLOWLIST`、`ADMIN_SECRET`、`CSRF_TRUSTED_ORIGINS`のようなアクセス制御の設定や秘密の値には、再起動は必要ありません。
 
@@ -242,6 +242,7 @@ LOG_DISABLE_REQUEST_LOGGING=true
 | `GAME_DYNAMIC_IMAGE_PROMPT_TIMEOUT_MS` | `45000`(45秒) | 現在のGameのシーンを動的な画像プロンプトに変換するモデル呼び出しの、合計時間の上限です。遅いローカルモデルでは値を大きくしてください。有効範囲は`10000`から`3600000`です。 |
 | `EMBEDDING_TIMEOUT_MS` | `300000`(5分) | 埋め込みのリクエスト1件に許される時間です。遅いローカルの埋め込みサーバーでは、値を大きくすると改善します。 |
 | `IMAGE_GEN_TIMEOUT_MS` | `1800000`(30分) | 画像生成のリクエスト1件に許される時間です。 |
+| `IMAGE_GEN_MAX_RESPONSE_BYTES` | `31457280`(30 MiB) | サーバーが画像プロバイダーから受け入れる画像レスポンスの最大サイズです。ローカルのComfyUIがファイルに大きなメタデータを埋め込む場合は、この値を大きくしてください。 |
 | `VIDEO_GEN_TIMEOUT_MS` | `1800000`(30分) | ローカルのComfyUIの動画ワークフローを含む、シーン動画の生成リクエスト1件に許される時間です。 |
 | `VIDEO_GEN_MAX_RESPONSE_BYTES` | `167772160`(160 MiB) | サーバーが受け入れるシーン動画のダウンロードの最大サイズです。 |
 | `COMFYUI_GEN_TIMEOUT` | `2400`(40分、単位は秒) | キューに入った後のComfyUIの画像ワークフロー1件に許される時間です。 |

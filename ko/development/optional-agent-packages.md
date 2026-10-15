@@ -271,7 +271,27 @@ export async function activate({ api }) {
 
 패키지의 에이전트 프롬프트 템플릿은 사용자 지정 에이전트처럼 `{{#if decision:"..."}}`와 `{{#if decision_choice:"..." == "..."}}`를 쓸 수 있습니다. Engine은 템플릿에서 문을 찾고 에이전트 실행 전에, 후처리 에이전트라면 답변 후에 질문하여 답으로 템플릿을 해석합니다. Capability API 버전은 관여하지 않습니다. 구문과 문장 작성 요령은 [조건부 프롬프트](../prompts/conditional-prompts.md#asking-the-decision-model), 에이전트 단계별 처리 방식은 [사용자 지정 에이전트 만들기](../agents/custom-agents.md#decision-statements-in-the-agents-prompt)를 참고하세요.
 
-패키지 런타임 코드가 Decision 모델에 직접 질문할 방법은 아직 없습니다. 별도의 Capability API 메서드와 버전 증가가 필요합니다.
+패키지 서버 코드는 `api.runtime.decisions.evaluate(...)`로 사용자가 설정한 Decision 모델에 패키지가 제공하는 맥락에 관한 제한된 예/아니요 질문과 선택 질문을 할 수도 있습니다. 에이전트 활성화 질문 및 프롬프트 조건문과 같은 Decision 모델(관리형 로컬 모델 또는 Decision 연결)을 쓰며, 키나 Engine 내부는 노출하지 않습니다. `decisions`는 선택 사항이며 더 새로운 Capability API나 권한이 필요 없습니다. `typeof api.runtime.decisions?.evaluate === "function"`을 확인하고 오래된 Engine에서는 대체 동작을 쓰세요.
+
+```ts
+const result = await api.runtime.decisions?.evaluate({
+  messages: [{ role: "user", content: "The tavern falls silent as the stranger draws a blade." }],
+  questions: [
+    { id: "danger", question: "Someone is about to be attacked." },
+    { id: "mood", question: "The mood of the scene is", options: ["calm", "tense", "festive"] },
+  ],
+  // Optional: pass `signal` to cancel and `debugMode: true` to log the Decision prompt.
+});
+// null: no Decision model is configured, or it gave no answer (unreachable, timed out or cancelled).
+if (result && (result.answers.danger ?? 0) >= result.threshold) {
+  // ...
+}
+```
+
+- `messages`는 패키지 자체의 맥락이며 오래된 것부터 순서대로 넣습니다(최대 200개 메시지와 200,000자이며, 메시지 `name`은 최대 100자). 모델에 맞추기 위해 가장 오래된 메시지부터 버려집니다.
+- 각 `question`은 최대 500자이며 id는 고유해야 합니다. 선택 질문에는 `options`가 두 개 이상 있어야 하며, 답은 그중 하나이거나 `"none of these"`입니다.
+- 요청 하나로 받을 수 있는 답의 수는 최대 사용자의 **Decision statements per turn**(턴당 판정문 수) 한도까지입니다. 선택 질문은 옵션 하나당 1로 세고 거기에 1을 더합니다. 잘못된 요청은 `TypeError`를 던집니다.
+- `answers`에는 예/아니요 질문별로 예일 확률이 들어 있으며, 여기에 없는 질문은 답을 받지 못한 것입니다. `threshold`, 즉 모델 자신의 기준점과 비교하세요. 확률은 Decision 모델 사이에서 서로 비교할 수 없습니다.
 
 모든 사용처는 Decision 모델이 없는 사용자를 고려해 설계하세요. 답이 없는 문은 아니요로 읽으므로 `{{else}}` 분기나 아무것도 없는 상태가 합리적인 기본값이어야 합니다. Jev를 필수로 요구하지 말고 일반적인 Decision 모델을 대상으로 작성하세요. 로컬 채팅 모델과 다른 지원 백엔드도 같은 구문을 쓰지만 답은 다를 수 있습니다. 특정 점수, 요청 횟수 또는 캐시된 답에 의존하기 전에 [임계값](../connections/decision-models.md#thresholds)과 [제한과 비용](../prompts/conditional-prompts.md#limits-and-cost)을 확인하세요.
 
@@ -632,6 +652,14 @@ const memoryVectors = await embeddings.embed(memoryTexts, signal); // documents
 
 소프트 인터페이스입니다. 오래된 Engine은 세 번째 인수를 무시하므로 패키지는 언제나 이 인수를 전달해도 되며 1.68을 선언할 필요가 없습니다. 입력 유형은 옵션 객체에 넣지 말고 반드시 세 번째 인수로 전달하세요. 오래된 Engine은 두 번째 인수를 중단 신호로 여겨 제공자에게 그대로 넘깁니다.
 
+### Capability API 1.67: 편집기에서 캐릭터 열기
+
+브라우저 뷰에 `openCharacter(characterId, { tab })`가 생깁니다. 캐릭터 편집기를 열고, 탭이 주어지면 해당 탭으로 이동하므로 패키지가 자신이 읽는 카드 필드로 사용자를 안내할 수 있습니다. 오래된 Engine에는 이 함수가 없습니다. 링크를 보여 주기 전에 `openCharacter`가 있는지 확인하세요.
+
+```ts
+if (typeof props.openCharacter === "function") props.openCharacter(characterId, { tab: "convo" });
+```
+
 <a id="capability-api-150-professor-mari-actions"></a>
 
 ### Capability API 1.50: Professor Mari 동작
@@ -642,7 +670,11 @@ const memoryVectors = await embeddings.embed(memoryTexts, signal); // documents
 export async function activate({ api }) {
   api.registerService("mari-actions:my-package", {
     list: () => [
-      { name: "add-idea", summary: "Give a Creator an idea for a post.", inputs: { accountId: "The Creator.", text: "The idea." } },
+      {
+        name: "add-idea",
+        summary: "Give a Creator an idea for a post.",
+        inputs: { accountId: "The Creator.", text: "The idea." },
+      },
     ],
     run: async (name, input, { signal }) => {
       const parsed = schemas[name]?.safeParse(input);

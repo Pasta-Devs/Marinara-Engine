@@ -276,7 +276,27 @@ Das **Decision model** (Entscheidungsmodell) des Nutzers beantwortet Ja/Nein- un
 
 Eine vom Paket gelieferte Agenten-Prompt-Vorlage kann dieselben Decision-Bedingungen wie ein eigener Agent verwenden: `{{#if decision:"..."}}` und `{{#if decision_choice:"..." == "..."}}`. Die Engine findet sie in der Vorlage, fragt sie vor dem Agentenlauf ab, bei nachverarbeitenden Agenten nach der Chat-Antwort, und löst die Vorlage mit den Ergebnissen auf. Dafür ist keine Capability-API-Version nötig. Syntax und Formulierungshinweise stehen unter [Bedingte Prompts](../prompts/conditional-prompts.md#asking-the-decision-model); die Phasen beschreibt [Eigene Agenten erstellen](../agents/custom-agents.md#decision-statements-in-the-agents-prompt).
 
-Paket-Laufzeitcode kann das Decision-Modell noch nicht direkt fragen. Dafür wären eine eigene Capability-API-Methode und eine Versionsanhebung nötig.
+Paketcode auf dem Server kann das konfigurierte Decision-Modell des Nutzers außerdem begrenzte Ja/Nein- und Auswahlfragen zu Kontext stellen, den das Paket liefert, über `api.runtime.decisions.evaluate(...)`. Die Methode verwendet dasselbe Decision-Modell wie die Aktivierungsfragen von Agenten und Prompt-Bedingungen (ein verwaltetes lokales Modell oder eine Decision-Verbindung) und gibt nie Schlüssel oder Engine-Interna preis. `decisions` ist optional und braucht weder eine neuere Capability API noch eine Berechtigung: Prüfe `typeof api.runtime.decisions?.evaluate === "function"` und weiche auf älteren Engines auf einen Ersatz aus.
+
+```ts
+const result = await api.runtime.decisions?.evaluate({
+  messages: [{ role: "user", content: "The tavern falls silent as the stranger draws a blade." }],
+  questions: [
+    { id: "danger", question: "Someone is about to be attacked." },
+    { id: "mood", question: "The mood of the scene is", options: ["calm", "tense", "festive"] },
+  ],
+  // Optional: pass `signal` to cancel and `debugMode: true` to log the Decision prompt.
+});
+// null: no Decision model is configured, or it gave no answer (unreachable, timed out or cancelled).
+if (result && (result.answers.danger ?? 0) >= result.threshold) {
+  // ...
+}
+```
+
+- `messages` ist der eigene Kontext des Pakets, die älteste Nachricht zuerst (höchstens 200 Nachrichten und 200.000 Zeichen; ein Nachrichten-`name` hat höchstens 100 Zeichen). Die ältesten Nachrichten fallen weg, damit der Rest ins Modell passt.
+- Jede `question` hat höchstens 500 Zeichen; IDs müssen eindeutig sein. Eine Auswahlfrage hat mindestens zwei `options`, und ihre Antwort ist eine davon oder `"none of these"`.
+- Eine Anfrage darf höchstens so viele Antworten verlangen, wie das Limit **Decision statements per turn** (Decision-Aussagen pro Zug) des Nutzers erlaubt; jede Auswahloption zählt einmal, plus eins. Eine ungültige Anfrage wirft einen `TypeError`.
+- `answers` enthält die Ja-Wahrscheinlichkeit je Ja/Nein-Frage; eine Frage, die dort fehlt, wurde nicht beantwortet. Vergleiche sie mit `threshold`, dem eigenen Arbeitspunkt des Modells: Wahrscheinlichkeiten lassen sich zwischen Decision-Modellen nicht vergleichen.
 
 Plane jede Verwendung auch für Nutzer ohne Decision-Modell. Ohne Antwort gilt eine Aussage als nein; der `{{else}}`-Zweig oder kein Zusatztext muss daher ein sinnvoller Standard sein. Schreib für „ein Decision-Modell“, statt Jev zu verlangen: Lokale Chat-Modelle und andere unterstützte Backends verwenden dieselbe Syntax, können aber anders antworten. Lies [Schwellenwerte](../connections/decision-models.md#thresholds) und [Grenzen und Kosten](../prompts/conditional-prompts.md#limits-and-cost), bevor du dich auf eine bestimmte Bewertung, Anfragezahl oder gespeicherte Antwort verlässt.
 
@@ -627,6 +647,14 @@ const memoryVectors = await embeddings.embed(memoryTexts, signal); // documents
 
 Dies ist eine weiche Schnittstelle: Eine ältere Engine ignoriert das dritte Argument. Ein Paket kann es daher immer übergeben und muss 1.68 nicht deklarieren. Übergib den Eingabetyp als drittes Argument, nie in einem Optionsobjekt: Eine ältere Engine reicht das zweite Argument unverändert als Abbruchsignal an den Anbieter weiter.
 
+### Capability API 1.67: einen Charakter im Editor öffnen
+
+Die Browseransicht erhält `openCharacter(characterId, { tab })`. Sie öffnet den Charakter-Editor, falls angegeben auf dem passenden Tab, sodass ein Paket den Nutzer zu einem Kartenfeld führen kann, das es liest. Ältere Engines haben diese Funktion nicht: Prüfe, ob `openCharacter` existiert, bevor du den Link anzeigst.
+
+```ts
+if (typeof props.openCharacter === "function") props.openCharacter(characterId, { tab: "convo" });
+```
+
 <a id="capability-api-150-professor-mari-actions"></a>
 
 ### Capability API 1.50: Aktionen für Professor Mari
@@ -637,7 +665,11 @@ Ein Paket mit der neuen Berechtigung `mari-actions` kann Professor Mari benannte
 export async function activate({ api }) {
   api.registerService("mari-actions:my-package", {
     list: () => [
-      { name: "add-idea", summary: "Give a Creator an idea for a post.", inputs: { accountId: "The Creator.", text: "The idea." } },
+      {
+        name: "add-idea",
+        summary: "Give a Creator an idea for a post.",
+        inputs: { accountId: "The Creator.", text: "The idea." },
+      },
     ],
     run: async (name, input, { signal }) => {
       const parsed = schemas[name]?.safeParse(input);
