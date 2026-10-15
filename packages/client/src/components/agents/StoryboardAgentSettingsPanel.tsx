@@ -10,12 +10,7 @@ import {
   type StoryboardAgentSettings,
 } from "@marinara-engine/shared";
 import { MacroTextarea } from "../ui/MacroTextarea";
-
-interface ConnectionOption {
-  id: string;
-  name: string;
-  provider: string;
-}
+import { ConnectionSelect } from "../connections/ConnectionSelect";
 
 interface StoryboardAgentSettingsPanelProps {
   settings: StoryboardAgentSettings;
@@ -23,7 +18,6 @@ interface StoryboardAgentSettingsPanelProps {
   plannerPrompt: string;
   defaultPlannerPrompt: string;
   plannerTemplates: AgentPromptTemplateOption[];
-  connections: ConnectionOption[];
   onChange: (settings: StoryboardAgentSettings) => void;
   onPlannerPromptChange: (prompt: string) => void;
   onPlannerTemplatesChange: (templates: AgentPromptTemplateOption[]) => void;
@@ -363,7 +357,6 @@ export function StoryboardAgentSettingsPanel({
   plannerPrompt,
   defaultPlannerPrompt,
   plannerTemplates,
-  connections,
   onChange,
   onPlannerPromptChange,
   onPlannerTemplatesChange,
@@ -371,8 +364,6 @@ export function StoryboardAgentSettingsPanel({
 }: StoryboardAgentSettingsPanelProps) {
   const { t: localizeUi } = useUiTranslation();
   const [activeWorkflow, setActiveWorkflow] = useState<"roleplay" | "game">("roleplay");
-  const imageConnections = connections.filter((connection) => connection.provider === "image_generation");
-  const videoConnections = connections.filter((connection) => connection.provider === "video_generation");
   const stillPlanners = plannerTemplates.filter((template) =>
     settings.illustrationPlannerTemplateIds.includes(template.id),
   );
@@ -711,18 +702,13 @@ export function StoryboardAgentSettingsPanel({
               <ImageIcon size="0.75rem" />
               {localizeUi("ui.agents.storyboard.imageConnection")}
             </span>
-            <select
-              value={settings.imageConnectionId ?? ""}
-              onChange={(event) => update({ imageConnectionId: event.target.value || null })}
-              className="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
-            >
-              <option value="">{localizeUi("ui.agents.storyboard.useGameImageConnection")}</option>
-              {imageConnections.map((connection) => (
-                <option key={connection.id} value={connection.id}>
-                  {connection.name}
-                </option>
-              ))}
-            </select>
+            <ConnectionSelect
+              kind="image"
+              value={settings.imageConnectionId ?? null}
+              onChange={(id) => update({ imageConnectionId: id })}
+              defaultLabel={localizeUi("ui.agents.storyboard.useGameImageConnection")}
+              className="rounded-xl px-3 py-2.5 text-sm"
+            />
           </label>
           {showAnimationStages ? (
             <label className="space-y-1.5" data-storyboard-animation-only>
@@ -730,18 +716,13 @@ export function StoryboardAgentSettingsPanel({
                 <Video size="0.75rem" />
                 {localizeUi("ui.agents.storyboard.videoConnection")}
               </span>
-              <select
-                value={settings.videoConnectionId ?? ""}
-                onChange={(event) => update({ videoConnectionId: event.target.value || null })}
-                className="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
-              >
-                <option value="">{localizeUi("ui.agents.storyboard.useGameVideoConnection")}</option>
-                {videoConnections.map((connection) => (
-                  <option key={connection.id} value={connection.id}>
-                    {connection.name}
-                  </option>
-                ))}
-              </select>
+              <ConnectionSelect
+                kind="video"
+                value={settings.videoConnectionId ?? null}
+                onChange={(id) => update({ videoConnectionId: id })}
+                defaultLabel={localizeUi("ui.agents.storyboard.useGameVideoConnection")}
+                className="rounded-xl px-3 py-2.5 text-sm"
+              />
             </label>
           ) : null}
         </div>

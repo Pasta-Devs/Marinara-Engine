@@ -6,6 +6,7 @@ import { useUIStore } from "../../stores/ui.store";
 import { api } from "../../lib/api-client";
 import { cn } from "../../lib/utils";
 import { Modal } from "./Modal";
+import { ConnectionSelect } from "../connections/ConnectionSelect";
 import { ImagePromptReviewModal, type ImagePromptOverride, type ImagePromptReviewItem } from "./ImagePromptReviewModal";
 import { useTranslation as useUiTranslation } from "react-i18next";
 
@@ -235,21 +236,12 @@ export function AvatarGenerationModal({
                     {localizeUi("ui.ui.avatargenerationmodal.noImageGenerationConnectionsFound")}
                   </p>
                 ) : (
-                  <select
-                    value={effectiveConnectionId ?? ""}
-                    onChange={(event) => setConnectionId(event.target.value || null)}
-                    className="w-full rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs text-[var(--foreground)] outline-none ring-1 ring-transparent transition-all focus:ring-[var(--primary)]/40"
-                  >
-                    {imageConnections.map((connection) => (
-                      <option key={connection.id} value={connection.id}>
-                        {connection.name}
-                        {connection.model
-                          ? localizeUi("ui.ui.avatargenerationmodal.value1", { value1: connection.model })
-                          : ""}
-                        {isDefaultImageConnection(connection) ? localizeUi("ui.ui.avatargenerationmodal.default") : ""}
-                      </option>
-                    ))}
-                  </select>
+                  <ConnectionSelect
+                    kind="image"
+                    value={effectiveConnectionId}
+                    onChange={setConnectionId}
+                    className="rounded-lg px-3 py-2 text-xs"
+                  />
                 )}
               </label>
 

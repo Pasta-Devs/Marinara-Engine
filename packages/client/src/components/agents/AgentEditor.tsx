@@ -19,6 +19,7 @@ import {
   type AgentConfigRow,
 } from "../../hooks/use-agents";
 import { useConnections } from "../../hooks/use-connections";
+import { ConnectionSelect } from "../connections/ConnectionSelect";
 import { useOpenGameAssetsFolder } from "../../hooks/use-game-assets";
 import {
   isCustomToolSelectable,
@@ -2740,30 +2741,25 @@ export function AgentEditor() {
               icon={<ImageIcon size="0.875rem" className="text-[var(--primary)]" />}
               help={localizeUi("ui.agents.agenteditor.theConnectionUsedToGenerateImagesThisShouldPoint")}
             >
-              <select
-                value={localImageConnectionId}
-                onChange={(e) => {
-                  setLocalImageConnectionId(e.target.value);
+              <ConnectionSelect
+                kind="image"
+                value={localImageConnectionId || null}
+                onChange={(id) => {
+                  setLocalImageConnectionId(id ?? "");
                   markDirty();
                 }}
-                className="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
-              >
-                <option value="">
-                  {defaultAgentImageConn
+                defaultLabel={
+                  defaultAgentImageConn
                     ? localizeUi(
                         isIllustratorAgent
                           ? "ui.agents.agenteditor.illustratorAgentDefaultValue1"
                           : "ui.agents.agenteditor.imageAgentDefaultValue1",
                         { value1: defaultAgentImageConn.name },
                       )
-                    : localizeUi("ui.agents.agenteditor.noneNoImageGeneration")}
-                </option>
-                {imageConnections.map((conn) => (
-                  <option key={conn.id} value={conn.id}>
-                    {conn.name} ({conn.provider})
-                  </option>
-                ))}
-              </select>
+                    : localizeUi("ui.agents.agenteditor.noneNoImageGeneration")
+                }
+                className="rounded-xl px-3 py-2.5 text-sm"
+              />
               <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
                 {localizeUi(
                   isIllustratorAgent
@@ -2870,21 +2866,16 @@ export function AgentEditor() {
                   <label className="block text-xs text-[var(--muted-foreground)] mb-1">
                     {localizeUi("ui.agents.agenteditor.imageGenerationConnection")}
                   </label>
-                  <select
-                    value={localImageConnectionId}
-                    onChange={(e) => {
-                      setLocalImageConnectionId(e.target.value);
+                  <ConnectionSelect
+                    kind="image"
+                    value={localImageConnectionId || null}
+                    onChange={(id) => {
+                      setLocalImageConnectionId(id ?? "");
                       markDirty();
                     }}
-                    className="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
-                  >
-                    <option value="">{localizeUi("ui.agents.agenteditor.noneSelectAConnection")}</option>
-                    {imageConnections.map((conn) => (
-                      <option key={conn.id} value={conn.id}>
-                        {conn.name} ({conn.provider})
-                      </option>
-                    ))}
-                  </select>
+                    defaultLabel={localizeUi("ui.agents.agenteditor.noneSelectAConnection")}
+                    className="rounded-xl px-3 py-2.5 text-sm"
+                  />
                 </div>
               )}
             </FieldGroup>
@@ -4303,7 +4294,6 @@ export function AgentEditor() {
                 plannerPrompt={localPrompt}
                 defaultPlannerPrompt={defaultPrompt ?? ""}
                 plannerTemplates={localPromptTemplates}
-                connections={allConnections}
                 onChange={setLocalStoryboardSettings}
                 onPlannerPromptChange={setLocalPrompt}
                 onPlannerTemplatesChange={setLocalPromptTemplates}

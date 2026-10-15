@@ -25,6 +25,7 @@ import { toast } from "sonner";
 import { useTTSConfig, useUpdateTTSConfig, useTTSModels, useTTSVoices } from "../../../hooks/use-tts";
 import { useCharacters } from "../../../hooks/use-characters";
 import { useConnections } from "../../../hooks/use-connections";
+import { ConnectionSelect } from "../../connections/ConnectionSelect";
 import { ttsService } from "../../../lib/tts-service";
 import {
   listCachedTTSAudioEntries,
@@ -1391,9 +1392,6 @@ export function TTSConfigCard() {
     [connections],
   );
   const defaultAgentConnection = languageConnectionOptions.find(isDefaultAgentTTSConnection) ?? null;
-  const selectedExtractorConnectionMissing =
-    !!roleplaySpeakerExtractorConnectionId &&
-    !languageConnectionOptions.some((connection) => connection.id === roleplaySpeakerExtractorConnectionId);
   const assignedCharacterIds = useMemo(
     () => new Set(voiceAssignments.map((assignment) => assignment.characterId).filter(Boolean)),
     [voiceAssignments],
@@ -2193,38 +2191,22 @@ export function TTSConfigCard() {
                   label={localizeUi("ui.panels.ttsconfigcard.speakerExtractorConnection")}
                   help={localizeUi("ui.panels.ttsconfigcard.speakerExtractorConnectionHelp")}
                 >
-                  <select
-                    value={roleplaySpeakerExtractorConnectionId}
-                    onChange={(event) => {
-                      const connectionId = event.target.value;
+                  <ConnectionSelect
+                    value={roleplaySpeakerExtractorConnectionId || null}
+                    onChange={(id) => {
+                      const connectionId = id ?? "";
                       setRoleplaySpeakerExtractorConnectionId(connectionId);
                       mark({ roleplaySpeakerExtractorConnectionId: connectionId });
                     }}
-                    className={cn(INPUT_CLS, "cursor-pointer appearance-none")}
-                  >
-                    <option value="">
-                      {defaultAgentConnection
+                    defaultLabel={
+                      defaultAgentConnection
                         ? localizeUi("ui.panels.ttsconfigcard.defaultAgentConnectionNamed", {
                             name: defaultAgentConnection.name,
                           })
-                        : localizeUi("ui.panels.ttsconfigcard.defaultAgentConnectionNotConfigured")}
-                    </option>
-                    {selectedExtractorConnectionMissing && (
-                      <option value={roleplaySpeakerExtractorConnectionId}>
-                        {localizeUi("ui.panels.ttsconfigcard.selectedConnectionUnavailable")}
-                      </option>
-                    )}
-                    {languageConnectionOptions.map((connection) => (
-                      <option key={connection.id} value={connection.id}>
-                        {connection.model
-                          ? localizeUi("ui.panels.ttsconfigcard.connectionNameAndModel", {
-                              name: connection.name,
-                              model: connection.model,
-                            })
-                          : connection.name}
-                      </option>
-                    ))}
-                  </select>
+                        : localizeUi("ui.panels.ttsconfigcard.defaultAgentConnectionNotConfigured")
+                    }
+                    className={cn(INPUT_CLS, "h-auto cursor-pointer")}
+                  />
                 </FieldRow>
                 {languageConnectionOptions.length === 0 && (
                   <p className="text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">

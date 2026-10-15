@@ -8,6 +8,7 @@ import { useConnections } from "../../hooks/use-connections";
 import { type CharacterCallVideoGenerationInput } from "../../hooks/use-characters";
 import { cn } from "../../lib/utils";
 import { Modal } from "./Modal";
+import { ConnectionSelect } from "../connections/ConnectionSelect";
 import { useTranslation as useUiTranslation } from "react-i18next";
 
 type VideoGenerationConnectionOption = {
@@ -104,23 +105,12 @@ export function CallClipGenerationModal({
 
         <label className="grid gap-1.5 text-xs font-semibold text-[var(--foreground)]">
           {localizeUi("ui.ui.callclipgenerationmodal.videoGenerationConnection")}
-          <select
-            value={effectiveConnectionId ?? ""}
-            onChange={(event) => setConnectionId(event.target.value || null)}
-            className="rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-sm font-medium text-[var(--foreground)] outline-none focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
-          >
-            {videoConnections.length === 0 ? (
-              <option value="">{localizeUi("ui.ui.callclipgenerationmodal.noVideoGenerationConnections")}</option>
-            ) : null}
-            {videoConnections.map((connection) => (
-              <option key={connection.id} value={connection.id}>
-                {connection.name || connection.model || "Video connection"}
-                {isDefaultVideoGenerationConnection(connection)
-                  ? localizeUi("ui.ui.avatargenerationmodal.default")
-                  : ""}
-              </option>
-            ))}
-          </select>
+          <ConnectionSelect
+            kind="video"
+            value={effectiveConnectionId}
+            onChange={setConnectionId}
+            className="rounded-lg px-3 py-2 text-sm font-medium"
+          />
         </label>
 
         <label className="flex items-center justify-between gap-3 rounded-lg border border-[var(--border)] bg-[var(--secondary)]/60 px-3 py-2">
