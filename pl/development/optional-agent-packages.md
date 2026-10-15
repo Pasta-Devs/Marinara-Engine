@@ -265,7 +265,27 @@ Te limity dotyczą wyłącznie oczekiwania asynchronicznego. Pakiety działają 
 
 Szablon promptu agenta dostarczony przez pakiet może używać instrukcji decyzyjnych tak samo jak własny agent użytkownika: `{{#if decision:"..."}}` i `{{#if decision_choice:"..." == "..."}}`. Engine znajduje je w szablonie, pyta o nie przed uruchomieniem agenta (po odpowiedzi dla agenta przetwarzania końcowego) i rozwiązuje szablon według odpowiedzi. Nie zależy to od wersji API możliwości. [Prompty warunkowe](../prompts/conditional-prompts.md#asking-the-decision-model) opisują składnię i formułowanie pytań, a [Tworzenie własnych agentów](../agents/custom-agents.md#decision-statements-in-the-agents-prompt) wyjaśnia, jak czytają je fazy agentów.
 
-Kod środowiska pakietu nie ma jeszcze sposobu na bezpośrednie pytanie modelu decyzyjnego. Wymaga to własnej metody API możliwości i podniesienia wersji.
+Kod serwerowy pakietu może też zadawać skonfigurowanemu modelowi decyzyjnemu użytkownika ograniczone pytania tak/nie oraz Choice o kontekst dostarczony przez pakiet, przez `api.runtime.decisions.evaluate(...)`. Używa tego samego modelu decyzyjnego co pytania o aktywację agenta i warunki w promptach (zarządzany model lokalny albo połączenie decyzyjne) i nigdy nie ujawnia kluczy ani wnętrza Engine. `decisions` jest opcjonalne i nie wymaga nowszego API możliwości ani uprawnienia: sprawdź `typeof api.runtime.decisions?.evaluate === "function"` i w starszych wersjach Engine użyj zachowania zastępczego.
+
+```ts
+const result = await api.runtime.decisions?.evaluate({
+  messages: [{ role: "user", content: "The tavern falls silent as the stranger draws a blade." }],
+  questions: [
+    { id: "danger", question: "Someone is about to be attacked." },
+    { id: "mood", question: "The mood of the scene is", options: ["calm", "tense", "festive"] },
+  ],
+  // Optional: pass `signal` to cancel and `debugMode: true` to log the Decision prompt.
+});
+// null: no Decision model is configured, or it gave no answer (unreachable, timed out or cancelled).
+if (result && (result.answers.danger ?? 0) >= result.threshold) {
+  // ...
+}
+```
+
+- `messages` to własny kontekst pakietu, od najstarszej wiadomości (najwyżej 200 wiadomości i 200 000 znaków; `name` wiadomości ma najwyżej 100 znaków). Najstarsze wiadomości są odrzucane, żeby zmieściły się w modelu.
+- Każde `question` ma najwyżej 500 znaków; identyfikatory muszą być unikalne. Pytanie Choice ma co najmniej dwie `options`, a odpowiedzią jest jedna z nich albo `"none of these"`.
+- Jedno żądanie może pytać najwyżej o tyle odpowiedzi, ile wynosi limit **Decision statements per turn** (stwierdzenia decyzyjne na turę) użytkownika; każda opcja Choice liczy się raz, plus jeden. Nieprawidłowe żądanie zgłasza `TypeError`.
+- `answers` zawiera prawdopodobieństwo odpowiedzi tak dla każdego pytania tak/nie, a pytanie, którego w nim brakuje, nie otrzymało odpowiedzi. Porównuj je z `threshold`, własnym punktem pracy modelu: prawdopodobieństw nie da się porównywać między modelami decyzyjnymi.
 
 Projektuj każde użycie także dla użytkownika bez modelu decyzyjnego. Stwierdzenie bez odpowiedzi oznacza nie, więc gałąź `{{else}}` albo brak tekstu musi być rozsądną wartością domyślną. Pisz dla dowolnego modelu decyzyjnego zamiast wymagać Jev: lokalne modele czatu i inne obsługiwane zaplecza używają tej samej składni, lecz mogą odpowiadać inaczej. Zanim oprzesz działanie na określonym wyniku, liczbie żądań lub odpowiedzi z pamięci podręcznej, przeczytaj [Progi](../connections/decision-models.md#thresholds) oraz [Limity i koszt](../prompts/conditional-prompts.md#limits-and-cost).
 
@@ -616,6 +636,14 @@ const memoryVectors = await embeddings.embed(memoryTexts, signal); // documents
 
 To miękki interfejs: starszy Engine ignoruje trzeci argument, więc pakiet może zawsze go przekazywać i nie musi deklarować 1.68. Przekazuj typ danych wejściowych jako trzeci argument, nigdy w obiekcie opcji: starszy Engine przekazuje drugi argument bezpośrednio dostawcy jako sygnał przerwania.
 
+### Capability API 1.67: otwieranie postaci w edytorze
+
+Widok w przeglądarce dostaje `openCharacter(characterId, { tab })`. Otwiera edytor postaci, a jeśli podano zakładkę, od razu na niej, więc pakiet może skierować użytkownika do pola karty postaci, które czyta. Starsze wersje Engine go nie mają: zanim pokażesz łącze, sprawdź, czy `openCharacter` istnieje.
+
+```ts
+if (typeof props.openCharacter === "function") props.openCharacter(characterId, { tab: "convo" });
+```
+
 <a id="capability-api-150-professor-mari-actions"></a>
 
 ### Capability API 1.50: akcje dla Professor Mari
@@ -626,7 +654,11 @@ Pakiet z nowym uprawnieniem `mari-actions` może oferować nazwane akcje dla Pro
 export async function activate({ api }) {
   api.registerService("mari-actions:my-package", {
     list: () => [
-      { name: "add-idea", summary: "Give a Creator an idea for a post.", inputs: { accountId: "The Creator.", text: "The idea." } },
+      {
+        name: "add-idea",
+        summary: "Give a Creator an idea for a post.",
+        inputs: { accountId: "The Creator.", text: "The idea." },
+      },
     ],
     run: async (name, input, { signal }) => {
       const parsed = schemas[name]?.safeParse(input);

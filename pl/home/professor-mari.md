@@ -95,6 +95,14 @@ Kiedy nie ma jeszcze żadnych połączeń, lista rozwijana pokazuje **Add a conn
 
 Pełny opis krok po kroku znajdziesz w przewodniku o połączeniach, podlinkowanym na końcu.
 
+## Wypróbowanie środowiska Pi (eksperymentalne)
+
+Professor Mari może działać na dwa sposoby. **Classic** (klasyczny) jest ustawieniem domyślnym. **Pi** to wersja próbna: asystentka więcej myśli, zanim zadziała, i radzi sobie z dłuższymi zadaniami.
+
+Żeby przełączyć, otwórz **Search and Professor Mari settings** i zmień **Runtime** (środowisko uruchomieniowe) pod **Permissions mode** (tryb uprawnień). Zmiana obowiązuje od następnej odpowiedzi asystentki. Tryb uprawnień, karty zmian i Undo (cofnięcie) działają tak samo w obu sposobach.
+
+Pi działa z każdym połączeniem, także z modelem lokalnym. Jeśli Professor Mari dziwnie się zachowuje w trybie Pi, wróć do ustawienia Classic.
+
 ## Dołączanie plików
 
 Kliknij przycisk spinacza, opisany jako **Attach files** (dołączenie plików), żeby dodać plik do wiadomości.
