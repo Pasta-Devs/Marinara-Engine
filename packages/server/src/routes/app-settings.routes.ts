@@ -17,6 +17,9 @@ import {
   appSettingsUpdateSchema,
   FEATURE_SETTINGS_KEY,
   featureSettingsSchema,
+  FEATURE_MODEL_CONNECTIONS_SETTINGS_KEY,
+  featureModelConnectionsSchema,
+  type FeatureModelConnections,
   type FeatureSettingsResponse,
   impersonatePromptTemplateCatalogSchema,
   getChatWindowDefaultSettingsKey,
@@ -38,6 +41,7 @@ import {
 import { createAppSettingsStorage } from "../services/storage/app-settings.storage.js";
 import { createConnectionsStorage } from "../services/storage/connections.storage.js";
 import { initializeChatWindowDefaults } from "../services/storage/chat-window-defaults.js";
+import { readFeatureModelConnections } from "../services/storage/feature-model-connections.js";
 import { featureSettingsResponse, loadFeatureSettings } from "../services/features/feature-settings.js";
 import { loadMediaQueueUiSettings } from "../services/image/image-generation-queue.js";
 
@@ -69,6 +73,23 @@ export async function appSettingsRoutes(app: FastifyInstance) {
     const settings = featureSettingsSchema.parse(req.body ?? {});
     await storage.set(FEATURE_SETTINGS_KEY, JSON.stringify(settings));
     return featureSettingsResponse();
+  });
+
+  app.get(`/${FEATURE_MODEL_CONNECTIONS_SETTINGS_KEY}`, (): Promise<FeatureModelConnections> =>
+    readFeatureModelConnections(app.db),
+  );
+
+  // Replaces the whole object. Each id must be an existing Model (or the local sidecar), or null.
+  app.put(`/${FEATURE_MODEL_CONNECTIONS_SETTINGS_KEY}`, async (req, reply): Promise<FeatureModelConnections | void> => {
+    const settings = featureModelConnectionsSchema.parse(req.body);
+    const connections = createConnectionsStorage(app.db);
+    for (const id of new Set(Object.values(settings))) {
+      if (id && id !== LOCAL_SIDECAR_CONNECTION_ID && !(await connections.getById(id))) {
+        return reply.status(400).send({ error: "Connection not found" });
+      }
+    }
+    await storage.set(FEATURE_MODEL_CONNECTIONS_SETTINGS_KEY, JSON.stringify(settings));
+    return readFeatureModelConnections(app.db);
   });
 
   app.get(`/${HOME_CUSTOM_WIDGETS_SETTINGS_KEY}`, () => readHomeWidgetCatalog(app.db));

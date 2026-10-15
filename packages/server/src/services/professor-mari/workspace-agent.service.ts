@@ -17,13 +17,13 @@ import { resolveStoredChatOptions } from "../generation/generation-parameters.js
 import { parseTextualToolCalls, textualCallMarkerIndex } from "../llm/textual-tool-call-parser.js";
 import { createLLMProvider } from "../llm/provider-registry.js";
 import { GeminiNoContentError } from "../llm/providers/google.provider.js";
-import { setConnectionRateLimit } from "../llm/connection-rate-limit-registry.js";
 import { getLocalSidecarProvider, LOCAL_SIDECAR_MODEL } from "../llm/local-sidecar.js";
 import { createChatsStorage } from "../storage/chats.storage.js";
 import { createCharactersStorage } from "../storage/characters.storage.js";
 import { createChatPresetsStorage } from "../storage/chat-presets.storage.js";
 import { createLorebooksStorage } from "../storage/lorebooks.storage.js";
 import { createConnectionsStorage } from "../storage/connections.storage.js";
+import { readFeatureModelConnections } from "../storage/feature-model-connections.js";
 import { createAgentsStorage } from "../storage/agents.storage.js";
 import { createMariInstructionsStorage } from "../storage/mari-instructions.storage.js";
 import { MARI_DECISION_AUTHORING_PROMPT, mariDecisionContext } from "./decision-authoring.js";
@@ -44,7 +44,6 @@ import { resolveBaseUrl } from "../generation/connection-base-url.js";
 import { MARI_GUIDED_SEQUENCES } from "./guided-sequences.js";
 import { getFileStorageDir, getPort, getServerProtocol, isDebugAgentsEnabled } from "../../config/runtime-config.js";
 import { apiConnections } from "../../db/schema/index.js";
-import { decryptApiKey } from "../../utils/crypto.js";
 import { DATA_DIR } from "../../utils/data-dir.js";
 import { logger, logDebugOverride } from "../../lib/logger.js";
 import { tryParseJsonRecord } from "../../lib/json-repair.js";
@@ -3170,7 +3169,7 @@ export class ProfessorMariWorkspaceService {
     },
   ) {
     if (!this.enabled) throw new Error("Professor Mari workspace mode is disabled.");
-    const connection = await this.resolveConnection(args.connectionId);
+    const connection = await this.resolveConnection(args.connectionId, args.unasked === true ? "aside" : "mari");
     if (!connection) throw new Error("Set up a language connection before using Quick Prof. Mari.");
 
     // The omnibar aside fires without being asked, so its payload is built from
@@ -4657,27 +4656,31 @@ export class ProfessorMariWorkspaceService {
     };
   }
 
-  private async resolveConnection(connectionId?: string | null): Promise<WorkspaceConnection | null> {
-    if (connectionId === LOCAL_SIDECAR_CONNECTION_ID) {
-      return this.buildLocalSidecarConnection();
+  /**
+   * Request id → global feature setting (`mariConnectionId`, or the aside's for an unasked quick
+   * answer) → agents default → default Model → local sidecar. Goes through connections storage
+   * so a Model blocked by its account is skipped and the throttle registry stays in sync.
+   */
+  private async resolveConnection(
+    connectionId?: string | null,
+    feature: "mari" | "aside" = "mari",
+  ): Promise<WorkspaceConnection | null> {
+    const featureModels = await readFeatureModelConnections(this.app.db);
+    const featureConnectionId =
+      feature === "aside" ? featureModels.omnibarAsideConnectionId : featureModels.mariConnectionId;
+    const connections = createConnectionsStorage(this.app.db);
+    const candidates = [connectionId, featureConnectionId];
+    for (const id of candidates) {
+      if (!id) continue;
+      if (id === LOCAL_SIDECAR_CONNECTION_ID) return this.buildLocalSidecarConnection();
+      const row = await connections.getWithKey(id);
+      if (row && isChatProvider(row.provider)) return row;
     }
-
-    const rows = (await this.app.db.select().from(apiConnections)) as Array<typeof apiConnections.$inferSelect>;
-    const languageRows = rows.filter((row) => isChatProvider(row.provider));
-    const selected = connectionId ? languageRows.find((row) => row.id === connectionId) : null;
+    const defaultRow = await connections.getDefault();
     const fallback =
-      selected ??
-      languageRows.find((row) => bool(row.defaultForAgents)) ??
-      languageRows.find((row) => bool(row.isDefault)) ??
-      languageRows[0] ??
-      null;
-    if (!fallback) {
-      return sidecarModelService.getConfiguredModelRef() ? this.buildLocalSidecarConnection() : null;
-    }
-    // This raw decrypt bypasses the storage layer's read-path sync, so refresh the throttle
-    // registry here — otherwise Mari's proactive per-connection pacing no-ops on a cold registry.
-    setConnectionRateLimit(fallback.id, fallback.maxRequestsPerMinute ?? null);
-    return { ...fallback, apiKey: decryptApiKey(fallback.apiKeyEncrypted) };
+      (await connections.getDefaultForAgents()) ?? (defaultRow && (await connections.getWithKey(defaultRow.id)));
+    if (fallback && isChatProvider(fallback.provider)) return fallback;
+    return sidecarModelService.getConfiguredModelRef() ? this.buildLocalSidecarConnection() : null;
   }
 }
 

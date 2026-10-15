@@ -6,6 +6,7 @@ import { eq, like, ne } from "../db/file-query.js";
 import { existsSync, readdirSync, rmSync } from "fs";
 import { join } from "path";
 import {
+  FEATURE_MODEL_CONNECTIONS_SETTINGS_KEY,
   MARINARA_UNIVERSAL_PRESET_SYSTEM_KEY,
   PROFESSOR_MARI_ID,
   SPEECH_TO_TEXT_SETTINGS_KEY,
@@ -299,6 +300,10 @@ export async function adminRoutes(app: FastifyInstance) {
 
     if (requestedScopes.includes("connections")) {
       await runDelete("api_connections", () => db.delete(schema.apiConnections).run());
+      await runDelete("connection_accounts", () => db.delete(schema.connectionAccounts).run());
+      await runDelete("app_settings", () =>
+        db.delete(schema.appSettings).where(eq(schema.appSettings.key, FEATURE_MODEL_CONNECTIONS_SETTINGS_KEY)).run(),
+      );
       await runDelete("app_settings", () =>
         db.delete(schema.appSettings).where(eq(schema.appSettings.key, TTS_SETTINGS_KEY)).run(),
       );

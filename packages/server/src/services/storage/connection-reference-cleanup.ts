@@ -24,7 +24,10 @@
 // codebase, and stays correct as new *ConnectionId settings are added
 // without requiring this file to be updated in lockstep.
 
-import { DEFAULT_EMBEDDING_CONNECTION_SETTINGS_KEY } from "@marinara-engine/shared";
+import {
+  DEFAULT_EMBEDDING_CONNECTION_SETTINGS_KEY,
+  FEATURE_MODEL_CONNECTIONS_SETTINGS_KEY,
+} from "@marinara-engine/shared";
 import { eq } from "../../db/file-query.js";
 import type { DB } from "../../db/connection.js";
 import { apiConnections, chats, agentConfigs } from "../../db/schema/index.js";
@@ -98,6 +101,11 @@ export async function sweepDanglingConnectionReferences(
   if ((await appSettings.get(DEFAULT_EMBEDDING_CONNECTION_SETTINGS_KEY)) === deletedConnectionId) {
     await appSettings.remove(DEFAULT_EMBEDDING_CONNECTION_SETTINGS_KEY);
   }
+  const featureModels = serializeNullifiedConnectionIdReferences(
+    await appSettings.get(FEATURE_MODEL_CONNECTIONS_SETTINGS_KEY),
+    deletedConnectionId,
+  );
+  if (featureModels !== undefined) await appSettings.set(FEATURE_MODEL_CONNECTIONS_SETTINGS_KEY, featureModels);
 
   for (let offset = 0; ; offset += CLEANUP_BATCH_SIZE) {
     const chatRows = await db.select().from(chats).orderBy(chats.id).limit(CLEANUP_BATCH_SIZE).offset(offset);

@@ -833,7 +833,7 @@ import {
   type GameDicePoolTarget,
 } from "../services/game/dice-pool.service.js";
 import { createGameDicePoolsStorage } from "../services/storage/game-dice-pools.storage.js";
-import type { GameDiceTurnNotice } from "@marinara-engine/shared";
+import type { GameDiceTurnNotice, GenerationFallbackNotice } from "@marinara-engine/shared";
 import {
   applyMapUpdateCommand,
   getGameMapsFromMeta,
@@ -877,6 +877,8 @@ import {
 } from "../services/generation/agent-prompt-runtime.js";
 import { resolveAgentPipelineAgents, resolveEffectiveAgentSettings } from "../services/generation/agent-resolution.js";
 import { createReplyFallbackNotifier } from "./generate/fallback-notification.js";
+import { resolveChatConnectionOrFallback } from "../services/generation/connection-resolution.js";
+import { readFeatureModelConnections } from "../services/storage/feature-model-connections.js";
 import {
   GAME_MODE_AUTO_ATTACH_TOOL_NAMES,
   isChatToolResolved,
@@ -1559,8 +1561,10 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
     }
 
     // Resolve connection
-    const impersonateConnectionOverride =
-      input.impersonate && input.impersonateConnectionId ? input.impersonateConnectionId : null;
+    const impersonateConnectionOverride = input.impersonate
+      ? input.impersonateConnectionId ||
+        (await readFeatureModelConnections(app.db).catch(releaseActiveGenerationAndRethrow)).impersonateConnectionId
+      : null;
     const fallbackConnectionId = input.connectionId || chat.connectionId;
     let connId = impersonateConnectionOverride || fallbackConnectionId;
     let memoryRecallConnectionId = connId === "random" ? "random" : undefined;
@@ -1586,6 +1590,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
         : await connections.getWithKey(connectionId).catch(releaseActiveGenerationAndRethrow);
 
     let conn = await resolveGenerationConnection(connId);
+    let unavailableModelNotice: GenerationFallbackNotice | null = null;
     if (!conn && impersonateConnectionOverride && connId === impersonateConnectionOverride && fallbackConnectionId) {
       logger.warn(
         "[generate] Impersonate connection override %s was not found; falling back to chat/request connection",
@@ -1603,6 +1608,14 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
         connId = picked.id;
       }
       conn = connId ? await resolveGenerationConnection(connId) : null;
+    }
+    if (!conn && connId) {
+      // The Model exists but its account is off or needs a key: use the main fallback and tell the user.
+      // The stream has not started yet; the notice is sent as an event once it does.
+      conn = await resolveChatConnectionOrFallback(connections, connId, (notice) => {
+        unavailableModelNotice = notice;
+      }).catch(releaseActiveGenerationAndRethrow);
+      if (conn) connId = conn.id;
     }
     if (!conn) {
       releaseActiveGeneration();
@@ -1694,6 +1707,9 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
       });
     }
     const onFallback = createReplyFallbackNotifier(reply);
+    // Assigned inside a callback, which flow analysis cannot see.
+    const pendingFallbackNotice = unavailableModelNotice as GenerationFallbackNotice | null;
+    if (pendingFallbackNotice) await onFallback(pendingFallbackNotice);
 
     let generationComplete = false;
     let restoredRoleplayInterruption = false;

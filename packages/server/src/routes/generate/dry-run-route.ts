@@ -197,6 +197,9 @@ import {
 } from "../../services/generation/runtime-agent-sections.js";
 import { loadPriorBeholderState } from "../../services/agents/beholder-state.js";
 import { logger } from "../../lib/logger.js";
+import { resolveChatConnectionOrFallback } from "../../services/generation/connection-resolution.js";
+import { readFeatureModelConnections } from "../../services/storage/feature-model-connections.js";
+import { createReplyFallbackNotifier } from "./fallback-notification.js";
 import { resolveGameGmPromptTemplate } from "../../services/generation/game-gm-prompt-runtime.js";
 
 import { injectCapabilityContexts } from "../../services/generation/capability-prompt-runtime.js";
@@ -589,7 +592,10 @@ export async function registerDryRunRoute(app: FastifyInstance) {
 
     // Resolve connection (allow override; otherwise use chat connection)
     // Extensions may send connectionId like presetId (number or `{id}`); accept it.
-    const impersonateConnectionOverride = impersonate ? asNonEmptyString(body.impersonateConnectionId) : null;
+    const impersonateConnectionOverride = impersonate
+      ? asNonEmptyString(body.impersonateConnectionId) ||
+        (await readFeatureModelConnections(app.db)).impersonateConnectionId
+      : null;
     const fallbackConnectionId = asNonEmptyString(body.connectionId) || ((chat.connectionId as string | null) ?? null);
     let connId = impersonateConnectionOverride || fallbackConnectionId;
 
@@ -620,6 +626,10 @@ export async function registerDryRunRoute(app: FastifyInstance) {
         connId = picked.id;
       }
       conn = connId ? await resolveDryRunConnection(connId) : null;
+    }
+    if (!conn && connId) {
+      conn = await resolveChatConnectionOrFallback(connections, connId, createReplyFallbackNotifier(reply));
+      if (conn) connId = conn.id;
     }
     if (!conn) return reply.status(400).send({ error: "API connection not found" });
 

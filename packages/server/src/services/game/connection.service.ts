@@ -1,9 +1,11 @@
 import { localAuthProviderBaseUrl } from "@marinara-engine/shared";
+import { resolveChatConnectionOrFallback } from "../generation/connection-resolution.js";
 import type { createConnectionsStorage } from "../storage/connections.storage.js";
 
 /** Resolve a connection (handles "random" pool + baseUrl fallback). */
 export async function resolveGameConnection(
-  connections: Pick<ReturnType<typeof createConnectionsStorage>, "getWithKey" | "listRandomPool">,
+  connections: Pick<ReturnType<typeof createConnectionsStorage>, "getWithKey" | "listRandomPool"> &
+    Partial<Pick<ReturnType<typeof createConnectionsStorage>, "getById" | "getFallbackForMain">>,
   connId: string | null | undefined,
   chatConnectionId: string | null,
 ) {
@@ -14,7 +16,7 @@ export async function resolveGameConnection(
     id = pool[Math.floor(Math.random() * pool.length)].id;
   }
   if (!id) throw new Error("No API connection configured");
-  const conn = await connections.getWithKey(id);
+  const conn = await resolveChatConnectionOrFallback(connections, id);
   if (!conn) throw new Error("API connection not found");
 
   let baseUrl = conn.baseUrl;
