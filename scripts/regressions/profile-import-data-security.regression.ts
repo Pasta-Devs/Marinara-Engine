@@ -430,7 +430,15 @@ try {
       null,
       "changing connection artwork alone must not approve an imported endpoint",
     );
-    await connections.update("new-connection", { baseUrl: String(afterById.get("new-connection")!.baseUrl) });
+    // The import regroups the row into a Connection under review; saving that Connection locally is the review boundary.
+    const reviewAccountId = (await connections.getById("new-connection"))?.accountId;
+    assert.ok(reviewAccountId, "an imported Model must land in a Connection under review");
+    const { createConnectionAccountsStorage } = await import(
+      "../../packages/server/src/services/storage/connection-accounts.storage.js"
+    );
+    await createConnectionAccountsStorage(db).update(reviewAccountId, {
+      baseUrl: String(afterById.get("new-connection")!.baseUrl),
+    });
     assert.ok(await connections.getWithKey("new-connection"), "saving locally must preserve the imported capability");
 
     const [instruction] = await db.select().from(schema.mariInstructions);
