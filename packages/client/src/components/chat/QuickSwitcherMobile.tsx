@@ -2,34 +2,17 @@
 // Quick Switcher Mobile — single chevron opens
 // a tabbed menu with Connections + Personas
 // (with persona group support). Tapping a
-// connection switches to it; its arrow opens
-// the connection's models as a second step.
+// Connection opens its models as a second step;
+// a pick applies to this chat only.
 // ──────────────────────────────────────────────
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
-import {
-  ChevronUp,
-  ChevronDown,
-  ChevronLeft,
-  ChevronRight,
-  Link,
-  CircleUser,
-  FolderOpen,
-  Folder,
-  Check,
-  Search,
-} from "lucide-react";
+import { ChevronUp, ChevronDown, ChevronRight, Link, CircleUser, FolderOpen, Folder, Search } from "lucide-react";
 import { createPortal } from "react-dom";
-import { useConnections, useUpdateConnection } from "../../hooks/use-connections";
 import { useCharacters, usePersonas, usePersonaGroups, useCharacterGroups } from "../../hooks/use-characters";
 import { useUpdateChat, useChat } from "../../hooks/use-chats";
 import { useChatStore } from "../../stores/chat.store";
 import { useUIStore } from "../../stores/ui.store";
 import { useSidecarStore } from "../../stores/sidecar.store";
-import {
-  appendLocalSidecarConnectionOption,
-  isLocalSidecarConnectionOption,
-  resolveUsageConnection,
-} from "../../lib/connection-filters";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
 import { getCharacterTitle, parseCharacterDisplayData } from "../../lib/character-display";
 import { buildCharacterIdentityGroups, type CharacterIdentityChoice } from "../../lib/character-identity-groups";
@@ -37,8 +20,7 @@ import { useTranslation as useUiTranslation } from "react-i18next";
 import type { CharacterGroup, Persona } from "@marinara-engine/shared";
 import type { ProfessorMariContextBudget } from "../../lib/professor-mari-context-budget";
 import { ContextBudgetGauge, ContextBudgetIndicator } from "./ContextBudgetIndicator";
-import { SubscriptionUsageWidget } from "../connections/SubscriptionUsageWidget";
-import { ConnectionModelPicker } from "../connections/ConnectionModelPicker";
+import { ConnectionSwitcherBody, useChatModelPick } from "../connections/ConnectionSwitcherBody";
 
 interface PersonaGroupRow {
   id: string;
@@ -62,22 +44,20 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
   const [showCharacterGroups, setShowCharacterGroups] = useState(false);
   const [expandedCharacterGroups, setExpandedCharacterGroups] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState("");
-  /** The connection whose models are shown as the menu's second step; null shows the connection list. */
-  const [modelsStep, setModelsStep] = useState<string | null>(null);
+  /** The Connections tab shows a Connection's models as its second step. */
+  const [modelsStep, setModelsStep] = useState(false);
   const btnRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const activeChatId = useChatStore((s) => s.activeChatId);
   const showCharacterIdentities = useUIStore((state) => state.showCharactersInPersonaPickers);
-  const { data: connections } = useConnections();
   const { data: rawPersonas } = usePersonas();
   const { data: rawCharacters } = useCharacters();
   const { data: rawCharacterGroups } = useCharacterGroups();
   const { data: rawPersonaGroups } = usePersonaGroups();
   const { data: chat } = useChat(activeChatId);
   const updateChat = useUpdateChat();
-  const updateConnection = useUpdateConnection();
+  const applyPick = useChatModelPick(activeChatId);
   const sidecarModelDownloaded = useSidecarStore((state) => state.modelDownloaded);
-  const sidecarModelDisplayName = useSidecarStore((state) => state.modelDisplayName);
 
   const activeConnectionId = (chat as unknown as Record<string, unknown>)?.connectionId as string | null;
   const activePersonaId = chat?.personaId ?? null;
@@ -94,25 +74,6 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
   );
   const chatMode = (chat as unknown as { mode?: string } | null | undefined)?.mode;
   const isRandom = activeConnectionId === "random";
-  const sortedConnections = appendLocalSidecarConnectionOption(
-    (connections ?? []) as Array<{
-      id: string;
-      name: string;
-      provider?: string;
-      model?: string;
-      pinnedModels?: unknown;
-      useForRandom?: string;
-      showUsageWidget?: unknown;
-    }>,
-    chatMode !== "game" && sidecarModelDownloaded,
-    sidecarModelDisplayName,
-  )
-    .filter((connection) => !isRandom || !isLocalSidecarConnectionOption(connection))
-    .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
-
-  // Mirrors the desktop switcher: the NanoGPT quota follows the selected
-  // connection, and Random has no single connection to read a quota from.
-  const usageConnection = resolveUsageConnection(sortedConnections, activeConnectionId);
 
   const sortedPersonas = (rawPersonas ?? []).slice().sort((a, b) => a.name.localeCompare(b.name));
   const normalizedSearch = search.trim().toLocaleLowerCase();
@@ -193,37 +154,19 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
     });
   }, []);
 
-  const handleSwitchConnection = useCallback(
-    (connId: string) => {
-      if (!activeChatId) return;
-      if (connId !== activeConnectionId) updateChat.mutate({ id: activeChatId, connectionId: connId });
-      // Tapping a row only switches; the row's arrow opens the model list (picking a model there switches too).
-      setOpen(false);
-      btnRef.current?.focus();
-    },
-    [activeChatId, activeConnectionId, updateChat],
-  );
   useEffect(() => {
-    if (!open) setModelsStep(null);
+    if (!open) setModelsStep(false);
   }, [open]);
-  const modelsConnection =
-    tab === "connections" && modelsStep && !isRandom
-      ? sortedConnections.find(
-          (connection) => connection.id === modelsStep && !isLocalSidecarConnectionOption(connection),
-        )
-      : undefined;
 
   const handleToggleRandom = useCallback(() => {
     if (!activeChatId) return;
     updateChat.mutate({ id: activeChatId, connectionId: isRandom ? null : "random" });
   }, [activeChatId, isRandom, updateChat]);
 
-  const handleTogglePool = useCallback(
-    (connId: string, inPool: boolean) => {
-      updateConnection.mutate({ id: connId, useForRandom: !inPool });
-    },
-    [updateConnection],
-  );
+  const closeMenu = useCallback(() => {
+    setOpen(false);
+    btnRef.current?.focus();
+  }, []);
 
   const handleSwitchPersona = useCallback(
     (personaId: string | null) => {
@@ -421,7 +364,7 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
               <button
                 onClick={() => {
                   setTab("connections");
-                  setModelsStep(null);
+                  setModelsStep(false);
                 }}
                 className={cn(
                   "flex flex-1 items-center justify-center gap-1.5 px-3 py-2.5 text-[0.6875rem] font-semibold transition-colors",
@@ -459,159 +402,27 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
               </label>
             )}
 
-            {modelsConnection && (
-              <ConnectionModelPicker
-                connection={modelsConnection}
-                chatId={activeChatId}
-                chatConnectionId={activeConnectionId}
-                showConnectionName
-                onPicked={() => {
-                  setOpen(false);
-                  btnRef.current?.focus();
-                }}
-                leading={
-                  <button
-                    type="button"
-                    data-model-back
-                    onClick={() => setModelsStep(null)}
-                    aria-label={localizeUi("connections.modelPicker.back")}
-                    title={localizeUi("connections.modelPicker.back")}
-                    className="-my-2 -ml-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-foreground/60 transition-colors hover:bg-foreground/10 hover:text-foreground/85"
-                  >
-                    <ChevronLeft size="1rem" />
-                  </button>
-                }
-              />
-            )}
-            <div className={cn("min-h-0 flex-1 overflow-y-auto overscroll-contain p-1", modelsConnection && "hidden")}>
-              {tab === "connections" && (
-                <>
-                  {contextBudget && (
+            {tab === "connections" && (
+              <ConnectionSwitcherBody
+                layout="steps"
+                currentId={activeConnectionId}
+                onApply={applyPick}
+                onDone={closeMenu}
+                onStepChange={(step) => setModelsStep(step === "models")}
+                showLocalModel={chatMode !== "game" && sidecarModelDownloaded}
+                shuffle={{ active: isRandom, onToggle: handleToggleRandom }}
+                listHeader={
+                  contextBudget && (
                     <div className="px-2 pt-1">
                       <ContextBudgetIndicator budget={contextBudget} useAccentColor />
                     </div>
-                  )}
-                  {usageConnection && (
-                    <div className="px-2 pt-1">
-                      <SubscriptionUsageWidget connectionId={usageConnection.id} variant="inline" />
-                    </div>
-                  )}
-                  <button
-                    onClick={handleToggleRandom}
-                    className={cn(
-                      "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs transition-colors",
-                      isRandom
-                        ? "bg-foreground/10 font-semibold text-foreground/85 ring-1 ring-foreground/15"
-                        : "hover:bg-foreground/10",
-                    )}
-                    title={
-                      isRandom
-                        ? localizeUi("ui.chat.quickconnectionswitcher.randomPoolActiveClickToDisable")
-                        : localizeUi("ui.chat.quickconnectionswitcher.useRandomConnectionFromPool")
-                    }
-                  >
-                    <span>{localizeUi("ui.chat.quickswitchermobile.random")}</span>
-                    {isRandom && (
-                      <span className="ml-auto text-[0.6875rem]">
-                        {localizeUi("ui.chat.quickswitchermobile.active")}
-                      </span>
-                    )}
-                  </button>
-                  <div className="mx-2 my-1 h-px bg-foreground/10" />
-                  {sortedConnections.map((conn) => {
-                    const inPool = conn.useForRandom === "true";
-                    const isActive = activeConnectionId === conn.id;
-                    if (isRandom) {
-                      return (
-                        <button
-                          key={conn.id}
-                          onClick={() => handleTogglePool(conn.id, inPool)}
-                          className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs transition-colors hover:bg-foreground/10"
-                          title={
-                            inPool
-                              ? localizeUi("ui.chat.quickconnectionswitcher.inRandomPoolClickToRemove")
-                              : localizeUi("ui.chat.quickconnectionswitcher.clickToAddToRandomPool")
-                          }
-                        >
-                          <span className="flex-1 truncate">{conn.name || conn.id}</span>
-                          <span
-                            className={cn(
-                              "flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors",
-                              inPool
-                                ? "border-foreground/35 bg-foreground/10 text-foreground/75"
-                                : "border-foreground/20 bg-transparent",
-                            )}
-                          >
-                            {inPool && <Check size="0.625rem" strokeWidth={3} />}
-                          </span>
-                        </button>
-                      );
-                    }
-                    const hasModels = !isLocalSidecarConnectionOption(conn);
-                    return (
-                      <div
-                        key={conn.id}
-                        className={cn(
-                          "relative flex min-h-11 w-full items-stretch rounded-lg text-xs",
-                          isActive && "bg-foreground/[0.07] text-foreground font-semibold",
-                        )}
-                      >
-                        {isActive && (
-                          <span
-                            aria-hidden
-                            className="pointer-events-none absolute inset-y-1.5 left-0 w-0.5 rounded-full bg-[var(--marinara-chat-chrome-accent)]"
-                          />
-                        )}
-                        <button
-                          type="button"
-                          data-connection-option={conn.id}
-                          aria-current={isActive ? "true" : undefined}
-                          onClick={() => handleSwitchConnection(conn.id)}
-                          className={cn(
-                            "flex min-w-0 flex-1 items-center gap-2 px-3 py-1.5 text-left transition-colors hover:bg-foreground/10",
-                            hasModels ? "rounded-l-lg" : "rounded-lg",
-                          )}
-                        >
-                          <span className="flex min-w-0 flex-1 flex-col">
-                            <span className="truncate">{conn.name || conn.id}</span>
-                            {isActive && conn.model && (
-                              <span className="truncate text-[0.625rem] font-normal text-foreground/50">
-                                {conn.model}
-                              </span>
-                            )}
-                          </span>
-                          {isActive && (
-                            <Check size="0.75rem" className="shrink-0 text-[var(--marinara-chat-chrome-accent)]" />
-                          )}
-                        </button>
-                        {hasModels && (
-                          <button
-                            type="button"
-                            data-connection-models={conn.id}
-                            onClick={() => setModelsStep(conn.id)}
-                            aria-label={localizeUi("connections.modelPicker.showModels", {
-                              connection: conn.name || conn.id,
-                            })}
-                            title={localizeUi("connections.modelPicker.showModels", {
-                              connection: conn.name || conn.id,
-                            })}
-                            className="relative flex w-12 shrink-0 items-center justify-center rounded-r-lg text-foreground/40 transition-colors hover:bg-foreground/10 hover:text-foreground/70"
-                          >
-                            <span aria-hidden className="absolute inset-y-2.5 left-0 border-l border-foreground/15" />
-                            <ChevronRight size="0.875rem" aria-hidden />
-                          </button>
-                        )}
-                      </div>
-                    );
-                  })}
-                  {sortedConnections.length === 0 && (
-                    <div className="px-3 py-4 text-center text-[0.6875rem] italic text-foreground/45">
-                      {localizeUi("ui.chat.quickconnectionswitcher.noConnectionsFound")}
-                    </div>
-                  )}
-                </>
-              )}
-
+                  )
+                }
+              />
+            )}
+            <div
+              className={cn("min-h-0 flex-1 overflow-y-auto overscroll-contain p-1", tab !== "personas" && "hidden")}
+            >
               {tab === "personas" && (
                 <>
                   <button

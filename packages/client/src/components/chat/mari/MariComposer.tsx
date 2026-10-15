@@ -14,8 +14,6 @@ import {
   Link,
   ChevronDown,
   Check,
-  ChevronLeft,
-  ChevronRight,
   Plus,
   ArrowUp,
   Square,
@@ -30,7 +28,8 @@ import { cn } from "../../../lib/utils";
 import { useLocalizedUiText } from "../../../localization/use-localized-ui-text";
 import { useUIStore } from "../../../stores/ui.store";
 import { InlineGhostText } from "../../ui/InlineGhostText";
-import { ConnectionModelPicker } from "../../connections/ConnectionModelPicker";
+import { ConnectionSwitcherBody } from "../../connections/ConnectionSwitcherBody";
+import { useFeatureModels, useSetFeatureModels } from "../../../hooks/use-connection-accounts";
 import { MariRow } from "../mari-primitives";
 import { MariAttachButton } from "../MariAttachButton";
 import { MariContextFacetChips } from "../MariContextFacetChips";
@@ -173,14 +172,16 @@ export function MariComposer({
   const { t: localizeUi } = useTranslation();
   const { t } = useTranslation();
   const ActivePermissionsModeIcon = MARI_PERMISSIONS_MODE_ICONS[permissionsMode];
-  // The connection menu shows the chosen connection's models beside the list, like the chat input's
-  // Connections menu. A narrow composer shows one step at a time: the list, then the chosen models.
-  const [shownConnectionId, setShownConnectionId] = useState<string | null>(null);
-  // Narrow only: the row's arrow opens the models step; tapping the row itself just switches.
+  // The connection menu is the chat's quick switch: the list, with the chosen Connection's models beside it.
+  // A narrow composer shows one step at a time (CSS reads data-step).
   const [modelsStep, setModelsStep] = useState(false);
-  const modelsConnection = connectionOptions.find(
-    (connection) => connection.id === (shownConnectionId ?? effectiveConnectionId),
-  );
+  const { data: featureModels } = useFeatureModels();
+  const setFeatureModels = useSetFeatureModels();
+  // Her Model is a global setting; the local selection keeps working while the server copy saves.
+  const applyMariPick = async (connectionId: string) => {
+    handleConnectionChange(connectionId);
+    if (featureModels) setFeatureModels.mutate({ ...featureModels, mariConnectionId: connectionId });
+  };
   // R11 (composer v5): one-line facts; the full description stays in the row's tooltip and in Settings.
   const renderPermissionsModeRow = ({
     key,
@@ -408,7 +409,6 @@ export function MariComposer({
               type="button"
               onClick={() => {
                 setPermissionsMenuOpen(false);
-                setShownConnectionId(null);
                 setModelsStep(false);
                 setConnectionMenuOpen((current) => !current);
               }}
@@ -452,62 +452,25 @@ export function MariComposer({
                   onConnectionMenuKeyDown(event);
                 }}
               >
-                <div className="mari-connection-picker__list">
-                  <p className="mari-composer-menu__head">{localizeUi("navigation.topbar.connections")}</p>
-                  {connectionOptions.length > 0 ? (
-                    connectionOptions.map((connection) => {
-                      const isActive = effectiveConnectionId === connection.id;
-                      return (
-                        <MariRow
-                          key={connection.id}
-                          slot={<Link aria-hidden="true" />}
-                          title={connection.name || connection.id}
-                          fact={
-                            connection.id === LOCAL_SIDECAR_CONNECTION_ID
-                              ? sidecarNativeToolCalls
-                                ? localizeUi("ui.chat.homeprofessormarichat.nativeTools")
-                                : localizeUi("ui.chat.homeprofessormarichat.toolsOff")
-                              : [connection.provider, connection.model].filter(Boolean).join(" · ")
-                          }
-                          trail={isActive ? <Check aria-hidden="true" /> : undefined}
-                          state={isActive ? "selected" : undefined}
-                          onClick={() => {
-                            if (!isActive) handleConnectionChange(connection.id);
-                            setShownConnectionId(connection.id);
-                            // Choosing is the last step when no models show beside the list: a narrow composer
-                            // (its arrow opens them), or the local model, which has no list to pick from.
-                            const modelsShown = connectionMenuRef.current
-                              ?.querySelector(".mari-connection-picker__models")
-                              ?.getClientRects().length;
-                            if (connection.id === LOCAL_SIDECAR_CONNECTION_ID || !modelsShown) {
-                              setConnectionMenuOpen(false);
-                              connectionButtonRef.current?.focus();
-                            }
-                          }}
-                          action={
-                            connection.id !== LOCAL_SIDECAR_CONNECTION_ID ? (
-                              <button
-                                type="button"
-                                className="mari-connection-picker__open"
-                                onClick={() => {
-                                  setShownConnectionId(connection.id);
-                                  setModelsStep(true);
-                                }}
-                                aria-label={localizeUi("connections.modelPicker.showModels", {
-                                  connection: connection.name || connection.id,
-                                })}
-                                title={localizeUi("connections.modelPicker.showModels", {
-                                  connection: connection.name || connection.id,
-                                })}
-                              >
-                                <ChevronRight aria-hidden="true" />
-                              </button>
-                            ) : undefined
-                          }
-                        />
-                      );
-                    })
-                  ) : (
+                <ConnectionSwitcherBody
+                  layout="container"
+                  currentId={effectiveConnectionId}
+                  onApply={applyMariPick}
+                  onDone={() => {
+                    setConnectionMenuOpen(false);
+                    connectionButtonRef.current?.focus();
+                  }}
+                  onStepChange={(step) => setModelsStep(step === "models")}
+                  autoFocusSearch
+                  showLocalModel={connectionOptions.some((connection) => connection.id === LOCAL_SIDECAR_CONNECTION_ID)}
+                  localModelHint={localizeUi(
+                    sidecarNativeToolCalls
+                      ? "ui.chat.homeprofessormarichat.nativeTools"
+                      : "ui.chat.homeprofessormarichat.toolsOff",
+                  )}
+                  pickerFooter={localizeUi("connections.switcher.appliesToMari")}
+                  listHeader={<p className="mari-composer-menu__head">{localizeUi("navigation.topbar.connections")}</p>}
+                  empty={
                     <MariRow
                       slot={<Plus aria-hidden="true" />}
                       title={localizeUi("ui.chat.homeprofessormarichat.addAConnection")}
@@ -516,41 +479,11 @@ export function MariComposer({
                         useUIStore.getState().openModal("create-connection");
                       }}
                     />
-                  )}
-                </div>
-                {modelsConnection && (
-                  <div className="mari-connection-picker__models">
-                    {modelsConnection.id !== LOCAL_SIDECAR_CONNECTION_ID ? (
-                      <ConnectionModelPicker
-                        key={modelsConnection.id}
-                        connection={modelsConnection}
-                        autoFocusSearch
-                        onPicked={() => {
-                          if (modelsConnection.id !== effectiveConnectionId)
-                            handleConnectionChange(modelsConnection.id);
-                          setConnectionMenuOpen(false);
-                          connectionButtonRef.current?.focus();
-                        }}
-                        leading={
-                          <button
-                            type="button"
-                            className="mari-connection-picker__back"
-                            onClick={() => {
-                              setShownConnectionId(null);
-                              setModelsStep(false);
-                            }}
-                            aria-label={localizeUi("connections.modelPicker.back")}
-                            title={localizeUi("connections.modelPicker.back")}
-                          >
-                            <ChevronLeft aria-hidden="true" />
-                          </button>
-                        }
-                      />
-                    ) : (
-                      <p className="mari-composer-menu__head">{localizeUi("connections.modelPicker.localModel")}</p>
-                    )}
-                  </div>
-                )}
+                  }
+                  listClassName="mari-connection-picker__list"
+                  modelsClassName="mari-connection-picker__models"
+                  backClassName="mari-connection-picker__back"
+                />
               </div>
             )}
           </div>
