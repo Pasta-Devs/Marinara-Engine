@@ -6,7 +6,7 @@
 // ──────────────────────────────────────────────
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useChat, useUpdateChatMetadata } from "../../hooks/use-chats";
-import { useConnections } from "../../hooks/use-connections";
+import { ConnectionSelect } from "../connections/ConnectionSelect";
 import { useChatStore } from "../../stores/chat.store";
 import { parseChatMetadata } from "../../lib/chat-display";
 import {
@@ -28,7 +28,6 @@ export function CustomEmojiSelectionSettings() {
   const activeChatId = useChatStore((s) => s.activeChatId);
   const { data: activeChat } = useChat(activeChatId);
   const updateMeta = useUpdateChatMetadata();
-  const { data: connections } = useConnections();
 
   const selectionPrefs = useMemo(
     () => normalizeCustomEmojiSelection(parseChatMetadata(activeChat?.metadata).customEmojiSelection),
@@ -84,18 +83,11 @@ export function CustomEmojiSelectionSettings() {
       </p>
       {draftPrefs.mode === "tool-call" && (
         <div className="mb-2">
-          <select
-            value={draftPrefs.toolConnectionId ?? ""}
-            onChange={(e) => savePrefs({ toolConnectionId: e.target.value || null })}
-            className="w-full rounded bg-foreground/5 px-2 py-1 text-xs text-foreground ring-1 ring-foreground/10 focus:outline-none focus:ring-[var(--primary)]"
-          >
-            <option value="">{localizeUi("ui.chat.customemojiselectionsettings.selectAConnection")}</option>
-            {((connections ?? []) as Array<{ id: string; name?: string }>).map((connection) => (
-              <option key={connection.id} value={connection.id}>
-                {connection.name || connection.id}
-              </option>
-            ))}
-          </select>
+          <ConnectionSelect
+            value={draftPrefs.toolConnectionId ?? null}
+            onChange={(toolConnectionId) => savePrefs({ toolConnectionId })}
+            defaultLabel={localizeUi("ui.chat.customemojiselectionsettings.selectAConnection")}
+          />
           {!draftPrefs.toolConnectionId && (
             <p className="mt-1 text-[0.625rem] text-amber-400/80">
               {localizeUi("ui.chat.customemojiselectionsettings.noConnectionSetThisFallsBackToSemanticSelection")}

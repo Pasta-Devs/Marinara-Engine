@@ -54,6 +54,7 @@ import { toast } from "sonner";
 import { cn, generateClientId } from "../../lib/utils";
 import { useUIStore } from "../../stores/ui.store";
 import { useConnections } from "../../hooks/use-connections";
+import { ConnectionSelect } from "../connections/ConnectionSelect";
 import { NEUTRAL_PANEL_SUBTITLE } from "../ui/neutral-surface-styles";
 import {
   type APIConnection,
@@ -239,11 +240,6 @@ function isSummaryConnectionOption(value: unknown): value is SummaryConnectionOp
 
 function isDefaultAgentConnection(connection: SummaryConnectionOption): boolean {
   return connection.defaultForAgents === true || connection.defaultForAgents === "true";
-}
-
-function formatSummaryConnectionLabel(connection: SummaryConnectionOption): string {
-  const model = typeof connection.model === "string" && connection.model.trim() ? ` · ${connection.model.trim()}` : "";
-  return `${connection.name}${model}`;
 }
 
 function formatSummaryHeading(value: string): string {
@@ -686,9 +682,6 @@ export function ChatSummaryPanel({
   const defaultAgentConnection = summaryConnections.find(isDefaultAgentConnection) ?? null;
   const selectedSummaryConnectionId =
     typeof summaryConnectionId === "string" && summaryConnectionId.trim() ? summaryConnectionId.trim() : "";
-  const selectedSummaryConnectionMissing =
-    !!selectedSummaryConnectionId &&
-    !summaryConnections.some((connection) => connection.id === selectedSummaryConnectionId);
   const defaultConnectionLabel = defaultAgentConnection
     ? localizeUi("chat.summary.connection.agentDefaultNamed", {
         name: defaultAgentConnection.name,
@@ -729,10 +722,10 @@ export function ChatSummaryPanel({
   );
 
   const handleSummaryConnectionChange = useCallback(
-    (connectionId: string) => {
+    (connectionId: string | null) => {
       updateMeta.mutate({
         id: chatId,
-        summaryConnectionId: connectionId || null,
+        summaryConnectionId: connectionId,
       });
     },
     [chatId, updateMeta],
@@ -2190,27 +2183,14 @@ export function ChatSummaryPanel({
                 {localizeUi("ui.chat.summarypopover.chooseTheModelConnectionUsedForManualAndAutomatic")}
               </p>
             </div>
-            <select
-              value={selectedSummaryConnectionId}
-              onChange={(event) => handleSummaryConnectionChange(event.target.value)}
-              disabled={updateMeta.isPending}
-              className="w-full rounded-md bg-[var(--card)] px-2 py-1.5 text-xs font-semibold text-[var(--foreground)] ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)] disabled:cursor-not-allowed disabled:opacity-50"
-              aria-label={localizeUi("ui.chat.summarypopover.summaryConnection_febe5c4")}
-            >
-              <option value="">{defaultConnectionLabel}</option>
-              {selectedSummaryConnectionMissing && (
-                <option value={selectedSummaryConnectionId}>
-                  {localizeUi("chat.summary.connection.missing", {
-                    id: selectedSummaryConnectionId,
-                  })}
-                </option>
-              )}
-              {summaryConnections.map((connection) => (
-                <option key={connection.id} value={connection.id}>
-                  {formatSummaryConnectionLabel(connection)}
-                </option>
-              ))}
-            </select>
+            <fieldset disabled={updateMeta.isPending} className="min-w-0">
+              <ConnectionSelect
+                value={selectedSummaryConnectionId || null}
+                onChange={handleSummaryConnectionChange}
+                defaultLabel={defaultConnectionLabel}
+                aria-label={localizeUi("ui.chat.summarypopover.summaryConnection_febe5c4")}
+              />
+            </fieldset>
             <label className="space-y-1">
               <span className="text-[0.625rem] font-semibold text-[var(--muted-foreground)]">
                 {localizeUi("ui.chat.summarypopover.maximumOutputSize")}

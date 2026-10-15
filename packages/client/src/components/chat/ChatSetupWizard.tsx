@@ -40,7 +40,7 @@ import { useUIStore } from "../../stores/ui.store";
 import { useChatStore } from "../../stores/chat.store";
 import { useSidecarStore } from "../../stores/sidecar.store";
 import { api } from "../../lib/api-client";
-import { appendLocalSidecarConnectionOption, filterLanguageGenerationConnections } from "../../lib/connection-filters";
+import { appendLocalSidecarConnectionOption } from "../../lib/connection-filters";
 import { resolveConversationSelfieSetup } from "../../lib/conversation-selfie-setup";
 import {
   captureChatWizardDefaults,
@@ -3476,7 +3476,6 @@ function RoleplaySetupWizard({ chat, onFinish, defaultsApplied, defaultsAction }
             metadataSettings={metadata.advancedMemory}
             individual={metadata.groupChatMode === "individual"}
             characters={chatCharIds.map((id) => ({ id, name: charInfoMap.get(id)?.name ?? id }))}
-            connections={filterLanguageGenerationConnections((connections ?? []) as ConnectionSetupOption[])}
             hasHistory={!!chat.lastMessageAt}
           />
         )}

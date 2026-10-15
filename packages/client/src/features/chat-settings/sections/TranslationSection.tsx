@@ -4,7 +4,7 @@ import { formatEstimatedTokens } from "../../../lib/character-token-count";
 import { HelpTooltip } from "../../../components/ui/HelpTooltip";
 import { SettingsSwitch } from "../../../components/panels/settings/SettingControls";
 import { ChatSettingsSection } from "../ChatSettingsSection";
-import type { ChatConnectionOption } from "./ConnectionSection";
+import { ConnectionSelect } from "../../../components/connections/ConnectionSelect";
 import { useTranslation as useUiTranslation } from "react-i18next";
 
 import { toast } from "sonner";
@@ -13,11 +13,10 @@ import { useSaveTranslatorDefaults, useTranslatorDefaults } from "../../../hooks
 interface TranslationSectionProps {
   chatId: string;
   metadata: Record<string, unknown>;
-  textConnections: ChatConnectionOption[];
   onMetadataChange: (patch: Record<string, unknown>) => void;
 }
 
-export function TranslationSection({ chatId, metadata, textConnections, onMetadataChange }: TranslationSectionProps) {
+export function TranslationSection({ chatId, metadata, onMetadataChange }: TranslationSectionProps) {
   const { t: localizeUi } = useUiTranslation();
   const { data: hasSavedDefaults } = useTranslatorDefaults();
   const saveDefaults = useSaveTranslatorDefaults();
@@ -104,18 +103,12 @@ export function TranslationSection({ chatId, metadata, textConnections, onMetada
                   size="0.625rem"
                 />
               </label>
-              <select
-                value={(metadata.translationConnectionId as string | undefined) ?? ""}
-                onChange={(e) => onMetadataChange({ translationConnectionId: e.target.value })}
-                className="mt-0.5 w-full rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs outline-none ring-1 ring-transparent transition-shadow focus:ring-[var(--primary)]/40"
-              >
-                <option value="">{localizeUi("ui.chatSettings.translationsection.selectConnection")}</option>
-                {textConnections.map((connection) => (
-                  <option key={connection.id} value={connection.id}>
-                    {connection.name}
-                  </option>
-                ))}
-              </select>
+              <ConnectionSelect
+                value={(metadata.translationConnectionId as string | undefined) || null}
+                onChange={(connectionId) => onMetadataChange({ translationConnectionId: connectionId ?? "" })}
+                defaultLabel={localizeUi("ui.chatSettings.translationsection.selectConnection")}
+                className="mt-0.5"
+              />
             </div>
 
             <TranslationPromptField

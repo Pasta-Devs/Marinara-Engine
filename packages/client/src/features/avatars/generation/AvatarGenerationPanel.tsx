@@ -14,7 +14,6 @@ import {
   AVATAR_EMOTIONS,
   AVATAR_EXTRA_FEELINGS,
   AVATAR_FACE_GROUPS,
-  isChatProvider,
   readImageAppearanceOverride,
   type Persona,
 } from "@marinara-engine/shared";
@@ -103,13 +102,10 @@ export function AvatarGenerationPanel({ owner, config, onChanged }: AvatarKindSe
     [spriteList],
   );
   const seed = useMemo(() => spriteGeneratorSeed(character.data, persona.data), [character.data, persona.data]);
-  const { imageConnections, languageConnections } = useMemo(() => {
-    const rows = (connectionList ?? []) as ConnectionRow[];
-    return {
-      imageConnections: rows.filter((row) => row.provider === "image_generation"),
-      languageConnections: rows.filter((row) => isChatProvider(row.provider)),
-    };
-  }, [connectionList]);
+  const imageConnections = useMemo(
+    () => ((connectionList ?? []) as ConnectionRow[]).filter((row) => row.provider === "image_generation"),
+    [connectionList],
+  );
   const defaultImageConnection = imageConnections.find(
     (row) => row.defaultForAgents === true || row.defaultForAgents === "true",
   );
@@ -212,12 +208,7 @@ export function AvatarGenerationPanel({ owner, config, onChanged }: AvatarKindSe
             onChanged={onChanged}
           />
           <div className="border-t border-[var(--border)]" />
-          <MeshAvatarSection
-            owner={owner}
-            sprites={sprites}
-            languageConnections={languageConnections}
-            onChanged={onChanged}
-          />
+          <MeshAvatarSection owner={owner} sprites={sprites} onChanged={onChanged} />
         </>
       )}
 

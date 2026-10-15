@@ -6,6 +6,7 @@ import { AlertTriangle, Loader2, Sparkles, X } from "lucide-react";
 import { normalizeSpriteExpressionKey, type AvatarOwnerRef } from "@marinara-engine/shared";
 import type { SpriteInfo } from "../../../hooks/use-characters";
 import { isFullBodySprite } from "../renderers/pngtuber/pngtuber-layers";
+import { ConnectionSelect } from "../../../components/connections/ConnectionSelect";
 import { SpritePicker } from "./SpritePicker";
 import { useMeshRigJob, useOneAtATime, useSaveMeshRig } from "./use-avatar-generation";
 
@@ -24,12 +25,10 @@ export function preferredMeshSource(sprites: readonly SpriteInfo[]): string | nu
 export function MeshAvatarSection({
   owner,
   sprites,
-  languageConnections,
   onChanged,
 }: {
   owner: AvatarOwnerRef;
   sprites: SpriteInfo[];
-  languageConnections: ConnectionOption[];
   onChanged: () => void;
 }) {
   const { t } = useTranslation();
@@ -40,7 +39,7 @@ export function MeshAvatarSection({
     picked === null || (picked !== undefined && sprites.some((sprite) => sprite.expression === picked))
       ? picked
       : preferredMeshSource(sprites);
-  const [visionConnectionId, setVisionConnectionId] = useState("");
+  const [visionConnectionId, setVisionConnectionId] = useState<string | null>(null);
   const saving = useOneAtATime();
   const job = useMeshRigJob(owner);
   const save = useSaveMeshRig(owner);
@@ -48,7 +47,7 @@ export function MeshAvatarSection({
 
   const start = () => {
     if (job.running || !label) return;
-    void job.start({ sourceLabel: label, connectionId: visionConnectionId || null });
+    void job.start({ sourceLabel: label, connectionId: visionConnectionId });
   };
 
   const keep = () =>
@@ -84,19 +83,13 @@ export function MeshAvatarSection({
       <div className="md:max-w-sm">
         <label className="flex flex-col gap-1 text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
           {t("avatars.generation.visionConnection")}
-          <select
-            value={visionConnectionId}
-            disabled={busy}
-            onChange={(event) => setVisionConnectionId(event.target.value)}
-            className="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm text-[var(--foreground)] ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)] disabled:opacity-50"
-          >
-            <option value="">{t("avatars.generation.visionConnectionAgent")}</option>
-            {languageConnections.map((connection) => (
-              <option key={connection.id} value={connection.id}>
-                {connection.name} ({connection.provider})
-              </option>
-            ))}
-          </select>
+          <fieldset disabled={busy} className="min-w-0">
+            <ConnectionSelect
+              value={visionConnectionId}
+              onChange={setVisionConnectionId}
+              defaultLabel={t("avatars.generation.visionConnectionAgent")}
+            />
+          </fieldset>
         </label>
       </div>
       <p className="text-[0.625rem] text-[var(--muted-foreground)]">{t("avatars.generation.sourceSpriteHelp")}</p>

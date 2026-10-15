@@ -11,13 +11,12 @@ import {
   type StoryboardAgentSettings,
   type StoryboardAutoGenerateMode,
   type StoryboardViewerMode,
-  isChatProvider,
 } from "@marinara-engine/shared";
 import { mergeBuiltInAgentSettings, normalizeStoryboardAgentSettings } from "@marinara-engine/shared";
 import { useAgentConfigs, type AgentConfigRow } from "../../hooks/use-agents";
 import { useCapabilityAgentRegistry } from "../../hooks/use-capability-packages";
 import { useUpdateChatMetadata } from "../../hooks/use-chats";
-import { useConnections } from "../../hooks/use-connections";
+import { ConnectionSelect, type ConnectionSelectKind } from "../connections/ConnectionSelect";
 import { useUIStore } from "../../stores/ui.store";
 import {
   AgentSettingsActionButton,
@@ -598,14 +597,6 @@ function RoleplayStoryboardChatSettingsPanel({
   onOpenAgentSettings,
 }: StoryboardChatSettingsPanelProps) {
   const { t: localizeUi } = useUiTranslation();
-  const { data: connectionRows = [] } = useConnections();
-  const connections = connectionRows.filter(
-    (connection): connection is Record<string, unknown> =>
-      typeof connection === "object" && connection !== null && !Array.isArray(connection),
-  );
-  const imageConnections = connections.filter((connection) => connection.provider === "image_generation");
-  const videoConnections = connections.filter((connection) => connection.provider === "video_generation");
-  const promptConnections = connections.filter((connection) => isChatProvider(connection.provider));
   const autoModeOverridden =
     metadata.roleplayStoryboardAutoGenerateMode === "manual" ||
     metadata.roleplayStoryboardAutoGenerateMode === "illustration" ||
@@ -676,43 +667,17 @@ function RoleplayStoryboardChatSettingsPanel({
     settings.videoTemplates,
   );
 
-  const renderConnectionSelect = (
-    label: string,
-    value: unknown,
-    options: Record<string, unknown>[],
-    metadataKey: string,
-  ) => {
-    const selectedId = readString(value);
-    const selectedConnectionMissing =
-      !!selectedId && !options.some((connection) => readString(connection.id) === selectedId);
-    return (
-      <label className="flex flex-col gap-1">
-        <span className="text-[0.625rem] font-medium text-[var(--foreground)]">{label}</span>
-        <select
-          value={selectedId}
-          onChange={(event) => onUpdate({ [metadataKey]: event.target.value || null })}
-          className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 text-xs text-[var(--foreground)] outline-none transition-colors focus:border-[var(--primary)]/50"
-        >
-          <option value="">{localizeUi("ui.agents.storyboard.useGlobalConnection")}</option>
-          {selectedConnectionMissing ? (
-            <option value={selectedId}>{localizeUi("ui.chat.chatsettingsdrawer.missingConnection")}</option>
-          ) : null}
-          {options.map((connection) => {
-            const id = readString(connection.id);
-            if (!id) return null;
-            const name = readString(connection.name) || id;
-            const model = readString(connection.model);
-            return (
-              <option key={id} value={id}>
-                {name}
-                {model ? localizeUi("ui.connections.connectioneditor.value1", { value1: model }) : ""}
-              </option>
-            );
-          })}
-        </select>
-      </label>
-    );
-  };
+  const renderConnectionSelect = (label: string, value: unknown, kind: ConnectionSelectKind, metadataKey: string) => (
+    <label className="flex flex-col gap-1">
+      <span className="text-[0.625rem] font-medium text-[var(--foreground)]">{label}</span>
+      <ConnectionSelect
+        value={readString(value) || null}
+        onChange={(connectionId) => onUpdate({ [metadataKey]: connectionId })}
+        kind={kind}
+        defaultLabel={localizeUi("ui.agents.storyboard.useGlobalConnection")}
+      />
+    </label>
+  );
 
   return (
     <>
@@ -789,19 +754,19 @@ function RoleplayStoryboardChatSettingsPanel({
             {renderConnectionSelect(
               localizeUi("ui.agents.storyboard.promptConnection"),
               metadata.roleplayStoryboardPromptConnectionId,
-              promptConnections,
+              "chat",
               "roleplayStoryboardPromptConnectionId",
             )}
             {renderConnectionSelect(
               localizeUi("ui.agents.storyboard.imageConnection"),
               metadata.roleplayStoryboardImageConnectionId,
-              imageConnections,
+              "image",
               "roleplayStoryboardImageConnectionId",
             )}
             {renderConnectionSelect(
               localizeUi("ui.agents.storyboard.videoConnection"),
               metadata.roleplayStoryboardVideoConnectionId,
-              videoConnections,
+              "video",
               "roleplayStoryboardVideoConnectionId",
             )}
           </div>
