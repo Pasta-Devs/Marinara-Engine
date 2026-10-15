@@ -95,6 +95,14 @@ Gibt es noch keine Verbindungen, zeigt das Dropdown-Menü **Add a connection** (
 
 Die komplette Anleitung dazu findest du im Verbindungs-Leitfaden am Ende der Seite.
 
+## Die Pi-Runtime ausprobieren (experimentell)
+
+Professor Mari kann auf zwei Arten arbeiten. **Classic** ist die Standardeinstellung. **Pi** ist ein Test: Sie denkt damit vor einer Aktion mehr nach und arbeitet längere Aufgaben ab.
+
+Zum Umschalten öffnest du **Search and Professor Mari settings** (Einstellungen für Suche und Professor Mari) und änderst **Runtime** (Laufzeit) unterhalb von **Permissions mode** (Berechtigungsmodus). Die Änderung gilt ab ihrer nächsten Antwort. Berechtigungsmodus, Änderungskarten und **Undo** funktionieren in beiden gleich.
+
+Pi funktioniert mit jeder Verbindung, auch mit dem lokalen Modell. Verhält sich Professor Mari auf Pi merkwürdig, wechsle zurück zu Classic.
+
 ## Dateien anhängen
 
 Klick auf die Büroklammer-Schaltfläche mit der Beschriftung **Attach files** (Dateien anhängen), um deiner Nachricht eine Datei beizulegen.
