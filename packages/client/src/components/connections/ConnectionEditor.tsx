@@ -10,6 +10,7 @@ import {
   isChatProvider,
 } from "@marinara-engine/shared";
 import { isConnectionFlagFalse, isLanguageGenerationConnection } from "../../lib/connection-filters";
+import { useConnectionAccounts } from "../../hooks/use-connection-accounts";
 import { useEffectiveGenerationParameters } from "../../hooks/use-effective-generation-parameters";
 // ──────────────────────────────────────────────
 // Full-Page Connection Editor
@@ -329,6 +330,10 @@ export function ConnectionEditor() {
   const closeConnectionDetail = useUIStore((s) => s.closeConnectionDetail);
 
   const { data: conn, isLoading } = useConnection(connectionDetailId);
+  const openModal = useUIStore((s) => s.openModal);
+  const { data: connectionAccounts } = useConnectionAccounts();
+  const accountId = (conn as { accountId?: string | null } | undefined)?.accountId ?? null;
+  const linkedAccount = accountId ? (connectionAccounts ?? []).find((account) => account.id === accountId) : undefined;
   const parameterPreview = useEffectiveGenerationParameters(
     connectionDetailId,
     !!conn && isLanguageGenerationConnection(conn),
@@ -927,6 +932,21 @@ export function ConnectionEditor() {
     } else if (clearStoredManagementTokenOnSave) {
       payload.managementToken = "";
     }
+    if (accountId) {
+      // The Connection owns the credentials; this Model only keeps its own endpoint (image/video/audio/decision).
+      for (const key of [
+        "provider",
+        "apiKey",
+        "managementToken",
+        "showUsageWidget",
+        "showUsageFiveHour",
+        "showUsageWeekly",
+        "treatAsLocalEndpoint",
+      ]) {
+        delete payload[key];
+      }
+      if (!isMediaProvider) delete payload.baseUrl;
+    }
     try {
       // Persist media/default parameters first. The main connection save runs
       // last so its query refresh cannot race in an older defaults snapshot.
@@ -992,6 +1012,7 @@ export function ConnectionEditor() {
       throw err instanceof Error ? err : new Error(message);
     }
   }, [
+    accountId,
     connectionDetailId,
     localName,
     localProvider,
@@ -1502,6 +1523,11 @@ export function ConnectionEditor() {
   const isOpenAIChatGPTProvider = localProvider === "openai_chatgpt";
   const isGrokSubscriptionProvider = localProvider === "grok_subscription";
   const isNanoGptProvider = localProvider === "nanogpt";
+  // A Model of a Connection gets key, token, usage and local flag from it. Image/video/audio/decision Models
+  // keep their own endpoint (decision 20), so only that field stays here.
+  const accountLinked = !!accountId;
+  const hasOwnEndpoint =
+    accountLinked && ["image_generation", "video_generation", "audio", "decision"].includes(localProvider);
   const isLocalAuthProvider = isLocalAuthConnectionProvider(localProvider);
   const supportsDirectEmbeddingConfig = providerSupportsDirectEmbeddingConfig(localProvider);
   // The usage switch, the plan window switches and the meter, shared by the
@@ -1733,80 +1759,95 @@ export function ConnectionEditor() {
             />
           </FieldGroup>
 
-          {/* ── Provider ── */}
-          <FieldGroup
-            label={localizeUi("ui.connections.connectioneditor.provider")}
-            icon={<Globe size="0.875rem" className="text-sky-400" />}
-            help={localizeUi("ui.connections.connectioneditor.theAiServiceYouWantToConnectToEach")}
-          >
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
-              {(Object.entries(PROVIDERS) as [APIProvider, typeof providerDef][]).map(([key, info]) => (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => {
-                    if (key === localProvider) return;
-                    const defaultModel = MODEL_LISTS[key]?.[0];
-                    setLocalProvider(key);
-                    // Auto-fill base URL
-                    setLocalBaseUrl(info.defaultBaseUrl);
-                    // The base URL and model are reset, so the old image service must be picked again;
-                    // otherwise a hidden-field service like ChatGPT (Codex login) keeps a stale URL.
-                    setLocalImageGenerationSource("");
-                    setLocalImageService(null);
-                    // Leave Grok CLI blank so the local CLI can use its
-                    // account/default model until the user fetches
-                    // `grok models`. Other providers keep their usual seeded
-                    // default model when we know one.
-                    setLocalModel(
-                      key === "grok_subscription" ? "" : (defaultModel?.id ?? (key === "xai" ? "grok-4.5" : "")),
-                    );
-                    setLocalMaxContext(
-                      key === "grok_subscription"
-                        ? GROK_CLI_DEFAULT_CONTEXT_TOKENS
-                        : Number(defaultModel?.context) || 128000,
-                    );
-                    setLocalMaxTokensOverride(null);
-                    setLocalDefaultParametersEnabled(false);
-                    setLocalDefaultParameters(
-                      getEditableGenerationParameters(CONNECTION_PARAMETER_DEFAULTS, null, key),
-                    );
-                    if (key === "decision") {
-                      setLocalDecisionSource("typesafe");
-                      setLocalCredentialsFrom("");
-                      setLocalMaxStateTokens(30000);
-                      setLocalDecisionTimeoutMs(DECISION_TIMEOUT_MS.systemOne);
-                      setLocalModel("jev-latest");
-                    }
-                    if (key === "audio") {
-                      // The provider tile seeds ElevenLabs base URL/model, so
-                      // the audio source must reset to match — otherwise a
-                      // pockettts/openai/xai source survives the switch under
-                      // ElevenLabs endpoints and saves a self-inconsistent row.
-                      setLocalAudioSource("elevenlabs");
-                      setLocalAudioVoice("");
-                      setLocalAudioSoundEffects(false);
-                      setLocalAudioMusic(false);
-                    }
-                    // Provider switches must not keep an encrypted key from
-                    // the previous provider under the new provider identity.
-                    setLocalApiKey("");
-                    setClearStoredApiKeyOnSave(true);
-                    markDirty();
-                  }}
-                  aria-pressed={localProvider === key}
-                  className={cn(
-                    "truncate rounded-md px-3 py-2.5 text-xs font-medium transition-all",
-                    localProvider === key
-                      ? "bg-sky-400/15 text-sky-400 ring-1 ring-sky-400/30"
-                      : "bg-[var(--secondary)] text-[var(--muted-foreground)] ring-1 ring-[var(--border)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
-                  )}
-                >
-                  {key === "decision" ? t("connections.decision.label") : info.name}
-                </button>
-              ))}
+          {/* ── Provider (or the Connection that owns the credentials) ── */}
+          {accountLinked ? (
+            <div className="flex items-center justify-between gap-2 rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)]">
+              <span className="min-w-0 truncate">
+                {t("connections.editor.connectionLine", { name: linkedAccount?.name ?? "…" })}
+              </span>
+              <button
+                type="button"
+                onClick={() => openModal("connection-account", { accountId })}
+                className="mari-chrome-control mari-chrome-control--small shrink-0 text-xs"
+              >
+                {t("connections.editor.editConnection")}
+              </button>
             </div>
-          </FieldGroup>
+          ) : (
+            <FieldGroup
+              label={localizeUi("ui.connections.connectioneditor.provider")}
+              icon={<Globe size="0.875rem" className="text-sky-400" />}
+              help={localizeUi("ui.connections.connectioneditor.theAiServiceYouWantToConnectToEach")}
+            >
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
+                {(Object.entries(PROVIDERS) as [APIProvider, typeof providerDef][]).map(([key, info]) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => {
+                      if (key === localProvider) return;
+                      const defaultModel = MODEL_LISTS[key]?.[0];
+                      setLocalProvider(key);
+                      // Auto-fill base URL
+                      setLocalBaseUrl(info.defaultBaseUrl);
+                      // The base URL and model are reset, so the old image service must be picked again;
+                      // otherwise a hidden-field service like ChatGPT (Codex login) keeps a stale URL.
+                      setLocalImageGenerationSource("");
+                      setLocalImageService(null);
+                      // Leave Grok CLI blank so the local CLI can use its
+                      // account/default model until the user fetches
+                      // `grok models`. Other providers keep their usual seeded
+                      // default model when we know one.
+                      setLocalModel(
+                        key === "grok_subscription" ? "" : (defaultModel?.id ?? (key === "xai" ? "grok-4.5" : "")),
+                      );
+                      setLocalMaxContext(
+                        key === "grok_subscription"
+                          ? GROK_CLI_DEFAULT_CONTEXT_TOKENS
+                          : Number(defaultModel?.context) || 128000,
+                      );
+                      setLocalMaxTokensOverride(null);
+                      setLocalDefaultParametersEnabled(false);
+                      setLocalDefaultParameters(
+                        getEditableGenerationParameters(CONNECTION_PARAMETER_DEFAULTS, null, key),
+                      );
+                      if (key === "decision") {
+                        setLocalDecisionSource("typesafe");
+                        setLocalCredentialsFrom("");
+                        setLocalMaxStateTokens(30000);
+                        setLocalDecisionTimeoutMs(DECISION_TIMEOUT_MS.systemOne);
+                        setLocalModel("jev-latest");
+                      }
+                      if (key === "audio") {
+                        // The provider tile seeds ElevenLabs base URL/model, so
+                        // the audio source must reset to match — otherwise a
+                        // pockettts/openai/xai source survives the switch under
+                        // ElevenLabs endpoints and saves a self-inconsistent row.
+                        setLocalAudioSource("elevenlabs");
+                        setLocalAudioVoice("");
+                        setLocalAudioSoundEffects(false);
+                        setLocalAudioMusic(false);
+                      }
+                      // Provider switches must not keep an encrypted key from
+                      // the previous provider under the new provider identity.
+                      setLocalApiKey("");
+                      setClearStoredApiKeyOnSave(true);
+                      markDirty();
+                    }}
+                    aria-pressed={localProvider === key}
+                    className={cn(
+                      "truncate rounded-md px-3 py-2.5 text-xs font-medium transition-all",
+                      localProvider === key
+                        ? "bg-sky-400/15 text-sky-400 ring-1 ring-sky-400/30"
+                        : "bg-[var(--secondary)] text-[var(--muted-foreground)] ring-1 ring-[var(--border)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
+                    )}
+                  >
+                    {key === "decision" ? t("connections.decision.label") : info.name}
+                  </button>
+                ))}
+              </div>
+            </FieldGroup>
+          )}
 
           {/* ── Claude (Subscription) — prerequisites notice ── */}
           {isClaudeSubscriptionProvider && (
@@ -1839,7 +1880,7 @@ export function ConnectionEditor() {
           )}
 
           {/* ── Claude (Subscription) — plan usage ── */}
-          {isClaudeSubscriptionProvider && <div className="space-y-3">{usageWidgetControls}</div>}
+          {isClaudeSubscriptionProvider && !accountLinked && <div className="space-y-3">{usageWidgetControls}</div>}
 
           {/* ── OpenAI (ChatGPT) — prerequisites notice ── */}
           {isOpenAIChatGPTProvider && (
@@ -1870,7 +1911,7 @@ export function ConnectionEditor() {
           )}
 
           {/* ── OpenAI (ChatGPT) — plan usage ── */}
-          {isOpenAIChatGPTProvider && <div className="space-y-3">{usageWidgetControls}</div>}
+          {isOpenAIChatGPTProvider && !accountLinked && <div className="space-y-3">{usageWidgetControls}</div>}
 
           {/* ── Grok CLI (Subscription) — prerequisites notice ── */}
           {isGrokSubscriptionProvider && (
@@ -2132,45 +2173,47 @@ export function ConnectionEditor() {
           {!isLocalAuthProvider && !isCodexImageService && (
             <>
               {/* ── API Key ── */}
-              <FieldGroup
-                label={localizeUi("ui.connections.connectioneditor.apiKey")}
-                icon={<Key size="0.875rem" className="text-sky-400" />}
-                help={localizeUi("ui.connections.connectioneditor.yourAuthenticationKeyFromTheAiProviderYouCan")}
-              >
-                <input
-                  disabled={isDecisionProvider && !!localCredentialsFrom}
-                  value={localApiKey}
-                  onChange={(e) => {
-                    setLocalApiKey(e.target.value);
-                    markDirty();
-                  }}
-                  type="password"
-                  className="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
-                  placeholder={localizeUi("ui.connections.connectioneditor.leaveEmptyToKeepExistingKey")}
-                />
-                <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
-                  {localizeUi("ui.connections.connectioneditor.yourKeyIsEncryptedAtRestLeaveBlankWhen")}
-                </p>
-                {apiKeyLink && (
-                  <a
-                    href={apiKeyLink.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-1.5 inline-flex items-center gap-1 text-[0.6875rem] font-medium text-sky-400 transition-colors hover:text-sky-300"
-                  >
-                    <ExternalLink size="0.625rem" />
-                    {apiKeyLink.label}
-                  </a>
-                )}
-                {localProvider === "custom" && (
-                  <p className="mt-1.5 text-[0.625rem] text-[var(--muted-foreground)]">
-                    {localizeUi("ui.connections.connectioneditor.forLocalModelsOllamaLmStudioKoboldcppEtcYou")}
+              {!accountLinked && (
+                <FieldGroup
+                  label={localizeUi("ui.connections.connectioneditor.apiKey")}
+                  icon={<Key size="0.875rem" className="text-sky-400" />}
+                  help={localizeUi("ui.connections.connectioneditor.yourAuthenticationKeyFromTheAiProviderYouCan")}
+                >
+                  <input
+                    disabled={isDecisionProvider && !!localCredentialsFrom}
+                    value={localApiKey}
+                    onChange={(e) => {
+                      setLocalApiKey(e.target.value);
+                      markDirty();
+                    }}
+                    type="password"
+                    className="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+                    placeholder={localizeUi("ui.connections.connectioneditor.leaveEmptyToKeepExistingKey")}
+                  />
+                  <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
+                    {localizeUi("ui.connections.connectioneditor.yourKeyIsEncryptedAtRestLeaveBlankWhen")}
                   </p>
-                )}
-              </FieldGroup>
+                  {apiKeyLink && (
+                    <a
+                      href={apiKeyLink.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-1.5 inline-flex items-center gap-1 text-[0.6875rem] font-medium text-sky-400 transition-colors hover:text-sky-300"
+                    >
+                      <ExternalLink size="0.625rem" />
+                      {apiKeyLink.label}
+                    </a>
+                  )}
+                  {localProvider === "custom" && (
+                    <p className="mt-1.5 text-[0.625rem] text-[var(--muted-foreground)]">
+                      {localizeUi("ui.connections.connectioneditor.forLocalModelsOllamaLmStudioKoboldcppEtcYou")}
+                    </p>
+                  )}
+                </FieldGroup>
+              )}
 
               {/* ── NanoGPT management token + subscription usage ── */}
-              {isNanoGptProvider && (
+              {isNanoGptProvider && !accountLinked && (
                 // A fragment's children are not direct children of the parent's
                 // space-y-6, so this block carries its own vertical rhythm.
                 <div className="space-y-6">
@@ -2221,69 +2264,71 @@ export function ConnectionEditor() {
               )}
 
               {/* ── Base URL ── */}
-              <FieldGroup
-                label={localizeUi("ui.connections.connectioneditor.baseUrl")}
-                icon={<Globe size="0.875rem" className="text-sky-400" />}
-                help={localizeUi("ui.connections.connectioneditor.theApiEndpointUrlUsuallyAutoFilledForKnown")}
-              >
-                <input
-                  disabled={isDecisionProvider && localDecisionSource === "openrouter"}
-                  value={localBaseUrl}
-                  onChange={(e) => {
-                    setLocalBaseUrl(e.target.value);
-                    markDirty();
-                  }}
-                  className={cn(
-                    "w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm font-mono ring-1 placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]",
-                    baseUrlValidation.error ? "ring-[var(--destructive)]" : "ring-[var(--border)]",
+              {(!accountLinked || hasOwnEndpoint) && (
+                <FieldGroup
+                  label={localizeUi("ui.connections.connectioneditor.baseUrl")}
+                  icon={<Globe size="0.875rem" className="text-sky-400" />}
+                  help={localizeUi("ui.connections.connectioneditor.theApiEndpointUrlUsuallyAutoFilledForKnown")}
+                >
+                  <input
+                    disabled={isDecisionProvider && localDecisionSource === "openrouter"}
+                    value={localBaseUrl}
+                    onChange={(e) => {
+                      setLocalBaseUrl(e.target.value);
+                      markDirty();
+                    }}
+                    className={cn(
+                      "w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm font-mono ring-1 placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]",
+                      baseUrlValidation.error ? "ring-[var(--destructive)]" : "ring-[var(--border)]",
+                    )}
+                    placeholder={providerDef?.defaultBaseUrl || "https://api.example.com/v1"}
+                  />
+                  {providerDef?.defaultBaseUrl && !localBaseUrl && (
+                    <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
+                      {localizeUi("ui.connections.connectioneditor.default")} {providerDef.defaultBaseUrl}
+                    </p>
                   )}
-                  placeholder={providerDef?.defaultBaseUrl || "https://api.example.com/v1"}
-                />
-                {providerDef?.defaultBaseUrl && !localBaseUrl && (
-                  <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
-                    {localizeUi("ui.connections.connectioneditor.default")} {providerDef.defaultBaseUrl}
-                  </p>
-                )}
-                {baseUrlValidation.error && (
-                  <p className="mt-1 text-[0.625rem] text-[var(--destructive)]">{baseUrlValidation.error}</p>
-                )}
-                {!baseUrlValidation.error && baseUrlValidation.value !== localBaseUrl.trim() && (
-                  <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
-                    {localizeUi("ui.connections.connectioneditor.willSaveAs")} {baseUrlValidation.value}
-                  </p>
-                )}
-                {localProvider === "custom" && (
-                  <p className="mt-1.5 text-[0.625rem] text-[var(--muted-foreground)]">
-                    {localizeUi("ui.connections.connectioneditor.localModelExamplesOllama")}{" "}
-                    <code className="rounded bg-[var(--secondary)] px-1">{"http://localhost:11434/v1"}</code>{" "}
-                    {localizeUi("ui.connections.connectioneditor.lmStudio")}{" "}
-                    <code className="rounded bg-[var(--secondary)] px-1">{"http://localhost:1234/v1"}</code>{" "}
-                    {localizeUi("ui.connections.connectioneditor.koboldcpp")}{" "}
-                    <code className="rounded bg-[var(--secondary)] px-1">{"http://localhost:5001/v1"}</code>
-                  </p>
-                )}
-                <p className="mt-1.5 flex items-start gap-1 text-[0.625rem] text-amber-400/80">
-                  <AlertCircle size="0.625rem" className="mt-px shrink-0" />
-                  <span>
-                    {localizeUi("ui.connections.connectioneditor.onlyUseUrlsFromProvidersYouTrustAMalicious")}
-                  </span>
-                </p>
-                {localProvider === "custom" && (
-                  <p className="mt-1.5 flex items-start gap-1 text-[0.625rem] text-sky-400/80">
+                  {baseUrlValidation.error && (
+                    <p className="mt-1 text-[0.625rem] text-[var(--destructive)]">{baseUrlValidation.error}</p>
+                  )}
+                  {!baseUrlValidation.error && baseUrlValidation.value !== localBaseUrl.trim() && (
+                    <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
+                      {localizeUi("ui.connections.connectioneditor.willSaveAs")} {baseUrlValidation.value}
+                    </p>
+                  )}
+                  {localProvider === "custom" && (
+                    <p className="mt-1.5 text-[0.625rem] text-[var(--muted-foreground)]">
+                      {localizeUi("ui.connections.connectioneditor.localModelExamplesOllama")}{" "}
+                      <code className="rounded bg-[var(--secondary)] px-1">{"http://localhost:11434/v1"}</code>{" "}
+                      {localizeUi("ui.connections.connectioneditor.lmStudio")}{" "}
+                      <code className="rounded bg-[var(--secondary)] px-1">{"http://localhost:1234/v1"}</code>{" "}
+                      {localizeUi("ui.connections.connectioneditor.koboldcpp")}{" "}
+                      <code className="rounded bg-[var(--secondary)] px-1">{"http://localhost:5001/v1"}</code>
+                    </p>
+                  )}
+                  <p className="mt-1.5 flex items-start gap-1 text-[0.625rem] text-amber-400/80">
                     <AlertCircle size="0.625rem" className="mt-px shrink-0" />
                     <span>
-                      <strong>{localizeUi("ui.connections.connectioneditor.windowsUsers")}</strong>{" "}
-                      {localizeUi("ui.connections.connectioneditor.ifYourProxyOrLocalServerIsnTDetected")}{" "}
-                      <em>
-                        {localizeUi(
-                          "ui.connections.connectioneditor.windowsSecurityFirewallNetworkProtectionAllowAnAppThrough",
-                        )}
-                      </em>{" "}
-                      {localizeUi("ui.connections.connectioneditor.andAddNodeJsOrYourProxyApplication")}
+                      {localizeUi("ui.connections.connectioneditor.onlyUseUrlsFromProvidersYouTrustAMalicious")}
                     </span>
                   </p>
-                )}
-              </FieldGroup>
+                  {localProvider === "custom" && (
+                    <p className="mt-1.5 flex items-start gap-1 text-[0.625rem] text-sky-400/80">
+                      <AlertCircle size="0.625rem" className="mt-px shrink-0" />
+                      <span>
+                        <strong>{localizeUi("ui.connections.connectioneditor.windowsUsers")}</strong>{" "}
+                        {localizeUi("ui.connections.connectioneditor.ifYourProxyOrLocalServerIsnTDetected")}{" "}
+                        <em>
+                          {localizeUi(
+                            "ui.connections.connectioneditor.windowsSecurityFirewallNetworkProtectionAllowAnAppThrough",
+                          )}
+                        </em>{" "}
+                        {localizeUi("ui.connections.connectioneditor.andAddNodeJsOrYourProxyApplication")}
+                      </span>
+                    </p>
+                  )}
+                </FieldGroup>
+              )}
             </>
           )}
 
@@ -3186,7 +3231,7 @@ export function ConnectionEditor() {
             </FieldGroup>
           )}
 
-          {canTreatAsLocalEndpoint && (
+          {canTreatAsLocalEndpoint && !accountLinked && (
             <FieldGroup
               label={localizeUi("ui.connections.connectioneditor.localCustomEndpoint")}
               icon={<Server size="0.875rem" className="text-[var(--marinara-chat-chrome-button-text-active)]" />}

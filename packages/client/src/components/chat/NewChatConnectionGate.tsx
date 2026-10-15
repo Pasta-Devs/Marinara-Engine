@@ -13,10 +13,10 @@ import { ChatModeIcon } from "./ChatModeIcon";
 
 type Mode = "conversation" | "roleplay" | "game";
 
-const MODE_META: Record<Mode, { label: string; icon: React.ReactNode }> = {
-  conversation: { label: "Conversation", icon: <ChatModeIcon mode="conversation" size="0.875rem" /> },
-  roleplay: { label: "Roleplay", icon: <ChatModeIcon mode="roleplay" size="0.875rem" /> },
-  game: { label: "Game", icon: <ChatModeIcon mode="game" size="0.875rem" /> },
+const MODE_ICON: Record<Mode, React.ReactNode> = {
+  conversation: <ChatModeIcon mode="conversation" size="0.875rem" />,
+  roleplay: <ChatModeIcon mode="roleplay" size="0.875rem" />,
+  game: <ChatModeIcon mode="game" size="0.875rem" />,
 };
 
 interface NewChatConnectionGateProps {
@@ -26,11 +26,12 @@ interface NewChatConnectionGateProps {
 
 export function NewChatConnectionGate({ mode, onClose }: NewChatConnectionGateProps) {
   const { t: localizeUi } = useUiTranslation();
+  const modeLabel = localizeUi(`connections.add.mode.${mode}`);
   const { data: connections, isLoading } = useConnections();
   const createChat = useCreateChat();
   const { data: chatPresetsData } = useChatPresets();
   const applyChatPreset = useApplyChatPreset();
-  const openRightPanel = useUIStore((s) => s.openRightPanel);
+  const openModal = useUIStore((s) => s.openModal);
   const setSidebarOpen = useUIStore((s) => s.setSidebarOpen);
   const pendingNewChatOrigin = useChatStore((s) => s.pendingNewChatOrigin);
   const sidecarModelDownloaded = useSidecarStore((state) => state.modelDownloaded);
@@ -59,7 +60,6 @@ export function NewChatConnectionGate({ mode, onClose }: NewChatConnectionGatePr
 
   const handleCreate = () => {
     if (!connectionId) return;
-    const label = MODE_META[mode].label;
     const presets = chatPresetsData ?? [];
     const presetMode = mode === "conversation" || mode === "roleplay" ? mode : null;
     const starred = presetMode
@@ -67,7 +67,7 @@ export function NewChatConnectionGate({ mode, onClose }: NewChatConnectionGatePr
       : null;
     createChat.mutate(
       {
-        name: `New ${label}`,
+        name: `New ${mode[0]!.toUpperCase()}${mode.slice(1)}`, // chat names are stored English
         mode,
         characterIds: [],
         connectionId,
@@ -99,7 +99,7 @@ export function NewChatConnectionGate({ mode, onClose }: NewChatConnectionGatePr
 
   const handleOpenConnections = () => {
     onClose();
-    openRightPanel("connections");
+    openModal("create-connection");
   };
 
   return (
@@ -113,7 +113,7 @@ export function NewChatConnectionGate({ mode, onClose }: NewChatConnectionGatePr
           <div className="flex shrink-0 items-center justify-between border-b border-[var(--border)] px-4 py-3">
             <div>
               <h3 className="text-sm font-semibold">
-                {localizeUi("ui.chat.newchatconnectiongate.setUp")} {MODE_META[mode].label}
+                {localizeUi("ui.chat.newchatconnectiongate.setUp")} {modeLabel}
               </h3>
               <p className="text-[0.6875rem] text-[var(--muted-foreground)]">
                 {localizeUi("ui.chat.newchatconnectiongate.chooseAConnectionBeforeWeCreateTheChat")}
@@ -188,7 +188,7 @@ export function NewChatConnectionGate({ mode, onClose }: NewChatConnectionGatePr
                   : "mari-chrome-accent-surface border",
               )}
             >
-              {createChat.isPending ? <Loader2 size="0.75rem" className="animate-spin" /> : MODE_META[mode].icon}
+              {createChat.isPending ? <Loader2 size="0.75rem" className="animate-spin" /> : MODE_ICON[mode]}
               {localizeUi("ui.chat.newchatconnectiongate.createChat")}
             </button>
           </div>
