@@ -14,6 +14,16 @@ import {
   type CreateConnectionInput,
 } from "@marinara-engine/shared";
 import { sweepDanglingConnectionReferences } from "./connection-reference-cleanup.js";
+import {
+  ACCOUNT_MIRRORED_INPUT_KEYS,
+  credentialOrigin,
+  getConnectionAccount,
+  isBlockedByAccount,
+  linkConnectionAccounts,
+  mirrorToAccountPeers,
+  syncAccountBudget,
+  withoutBlockedRows,
+} from "./connection-accounts.storage.js";
 import { clearConnectionRateLimit, setConnectionRateLimit } from "../llm/connection-rate-limit-registry.js";
 import { logger } from "../../lib/logger.js";
 
@@ -29,6 +39,10 @@ function withDecryptedKey<T extends { id: string; apiKeyEncrypted: string; maxRe
 ): T & { apiKey: string } {
   setConnectionRateLimit(row.id, row.maxRequestsPerMinute ?? null);
   return { ...row, apiKey: decryptApiKey(row.apiKeyEncrypted) };
+}
+
+function definedFields<T extends object>(data: T): Partial<T> {
+  return Object.fromEntries(Object.entries(data).filter(([, value]) => value !== undefined)) as Partial<T>;
 }
 
 function defaultCategoryForProvider(provider: string): ConnectionDefaultCategory {
@@ -104,6 +118,16 @@ export function withoutSavedModels<T extends Record<string, unknown>>(row: T): O
 }
 
 export function createConnectionsStorage(db: DB) {
+  /** Decrypt for use, and keep the throttle and shared-account budget registries in sync with the row. */
+  const withKey = async <
+    T extends { id: string; apiKeyEncrypted: string; accountId?: string | null; maxRequestsPerMinute?: number | null },
+  >(
+    row: T,
+  ) => {
+    await syncAccountBudget(db, row);
+    return withDecryptedKey(row);
+  };
+
   return {
     async list() {
       const rows = await db.select().from(apiConnections).orderBy(desc(apiConnections.updatedAt));
@@ -123,8 +147,8 @@ export function createConnectionsStorage(db: DB) {
     /** Get connection with decrypted API key (for internal use only). */
     async getWithKey(id: string) {
       const conn = await this.getById(id);
-      if (!conn || conn.profileImportReviewRequired === "true") return null;
-      return withDecryptedKey(conn);
+      if (!conn || conn.profileImportReviewRequired === "true" || (await isBlockedByAccount(db, conn))) return null;
+      return withKey(conn);
     },
 
     /**
@@ -134,7 +158,7 @@ export function createConnectionsStorage(db: DB) {
      */
     async getManagementToken(id: string) {
       const conn = await this.getById(id);
-      if (!conn || conn.profileImportReviewRequired === "true") return null;
+      if (!conn || conn.profileImportReviewRequired === "true" || (await isBlockedByAccount(db, conn))) return null;
       if (conn.provider !== "nanogpt") return null;
       const token = decryptApiKey(conn.managementTokenEncrypted ?? "");
       return token ? token : null;
@@ -145,7 +169,7 @@ export function createConnectionsStorage(db: DB) {
         .select()
         .from(apiConnections)
         .where(and(eq(apiConnections.isDefault, "true"), ne(apiConnections.profileImportReviewRequired, "true")));
-      return rows[0] ?? null;
+      return (await withoutBlockedRows(db, rows))[0] ?? null;
     },
 
     /** Get the language connection used after a main generation failure. */
@@ -154,9 +178,11 @@ export function createConnectionsStorage(db: DB) {
         .select()
         .from(apiConnections)
         .where(and(eq(apiConnections.fallbackForMain, "true"), ne(apiConnections.profileImportReviewRequired, "true")));
-      const row = rows.find((candidate) => defaultCategoryForProvider(candidate.provider) === "language");
+      const row = (await withoutBlockedRows(db, rows)).find(
+        (candidate) => defaultCategoryForProvider(candidate.provider) === "language",
+      );
       if (!row) return null;
-      return withDecryptedKey(row);
+      return withKey(row);
     },
 
     /** Get the connection marked as default for agents (with decrypted key). */
@@ -167,9 +193,11 @@ export function createConnectionsStorage(db: DB) {
         .where(
           and(eq(apiConnections.defaultForAgents, "true"), ne(apiConnections.profileImportReviewRequired, "true")),
         );
-      const row = rows.find((candidate) => defaultCategoryForProvider(candidate.provider) === "language");
+      const row = (await withoutBlockedRows(db, rows)).find(
+        (candidate) => defaultCategoryForProvider(candidate.provider) === "language",
+      );
       if (!row) return null;
-      return withDecryptedKey(row);
+      return withKey(row);
     },
 
     /** Get the language connection used after an agent generation failure. */
@@ -180,9 +208,11 @@ export function createConnectionsStorage(db: DB) {
         .where(
           and(eq(apiConnections.fallbackForAgents, "true"), ne(apiConnections.profileImportReviewRequired, "true")),
         );
-      const row = rows.find((candidate) => defaultCategoryForProvider(candidate.provider) === "language");
+      const row = (await withoutBlockedRows(db, rows)).find(
+        (candidate) => defaultCategoryForProvider(candidate.provider) === "language",
+      );
       if (!row) return null;
-      return withDecryptedKey(row);
+      return withKey(row);
     },
 
     /** Get the image-generation connection selected under Defaults → Images (with decrypted key). */
@@ -197,9 +227,9 @@ export function createConnectionsStorage(db: DB) {
             ne(apiConnections.profileImportReviewRequired, "true"),
           ),
         );
-      const row = rows[0] ?? null;
+      const row = (await withoutBlockedRows(db, rows))[0] ?? null;
       if (!row) return null;
-      return withDecryptedKey(row);
+      return withKey(row);
     },
 
     /** Get the image-generation connection used after an image generation failure. */
@@ -214,9 +244,9 @@ export function createConnectionsStorage(db: DB) {
             ne(apiConnections.profileImportReviewRequired, "true"),
           ),
         );
-      const row = rows[0] ?? null;
+      const row = (await withoutBlockedRows(db, rows))[0] ?? null;
       if (!row) return null;
-      return withDecryptedKey(row);
+      return withKey(row);
     },
 
     /** Get the video-generation connection marked as default for scene videos (with decrypted key). */
@@ -231,9 +261,9 @@ export function createConnectionsStorage(db: DB) {
             ne(apiConnections.profileImportReviewRequired, "true"),
           ),
         );
-      const row = rows[0] ?? null;
+      const row = (await withoutBlockedRows(db, rows))[0] ?? null;
       if (!row) return null;
-      return withDecryptedKey(row);
+      return withKey(row);
     },
 
     /** Get the video-generation connection used after a video generation failure. */
@@ -248,9 +278,9 @@ export function createConnectionsStorage(db: DB) {
             ne(apiConnections.profileImportReviewRequired, "true"),
           ),
         );
-      const row = rows[0] ?? null;
+      const row = (await withoutBlockedRows(db, rows))[0] ?? null;
       if (!row) return null;
-      return withDecryptedKey(row);
+      return withKey(row);
     },
 
     /** Get the audio connection marked as default (with decrypted key). */
@@ -265,9 +295,9 @@ export function createConnectionsStorage(db: DB) {
             ne(apiConnections.profileImportReviewRequired, "true"),
           ),
         );
-      const row = rows[0] ?? null;
+      const row = (await withoutBlockedRows(db, rows))[0] ?? null;
       if (!row) return null;
-      return withDecryptedKey(row);
+      return withKey(row);
     },
 
     /** Get the audio connection used when the preferred one fails or is gone. */
@@ -282,9 +312,9 @@ export function createConnectionsStorage(db: DB) {
             ne(apiConnections.profileImportReviewRequired, "true"),
           ),
         );
-      const row = rows[0] ?? null;
+      const row = (await withoutBlockedRows(db, rows))[0] ?? null;
       if (!row) return null;
-      return withDecryptedKey(row);
+      return withKey(row);
     },
 
     /** Decision defaults are independent of chat, agent, and media defaults. */
@@ -299,13 +329,17 @@ export function createConnectionsStorage(db: DB) {
             ne(apiConnections.profileImportReviewRequired, "true"),
           ),
         );
-      return rows[0] ? withDecryptedKey(rows[0]) : null;
+      const row = (await withoutBlockedRows(db, rows))[0];
+      return row ? withKey(row) : null;
     },
 
     async create(input: CreateConnectionInput) {
       const id = newId();
       const timestamp = now();
       const providerCategory = defaultCategoryForProvider(input.provider);
+      const account = input.accountId ? await getConnectionAccount(db, input.accountId) : null;
+      if (input.accountId && !account)
+        logger.warn("[connections] Unknown account %s: creating a standalone Model", input.accountId);
       const values = {
         id,
         name: input.name,
@@ -359,9 +393,28 @@ export function createConnectionsStorage(db: DB) {
         maxTokensOverride: input.maxTokensOverride ?? null,
         claudeFastMode: String(input.claudeFastMode ?? false),
         treatAsLocalEndpoint: String(input.treatAsLocalEndpoint ?? false),
+        accountId: null as string | null,
         createdAt: timestamp,
         updatedAt: timestamp,
       };
+      // A Model under an account copies the account's credentials and ignores any in the input. It joins only
+      // when its own endpoint is on the account's origin, so the key is never sent to another host.
+      if (account && credentialOrigin({ ...input, baseUrl: input.baseUrl ?? "" }) === credentialOrigin(account)) {
+        const sameType = input.provider === account.provider;
+        values.accountId = account.id;
+        values.apiKeyEncrypted = account.apiKeyEncrypted;
+        values.managementTokenEncrypted = input.provider === "nanogpt" ? account.managementTokenEncrypted : "";
+        values.showUsageWidget = String(
+          supportsSubscriptionUsageWidget(input.provider) && account.showUsageWidget === "true",
+        );
+        values.showUsageFiveHour = account.showUsageFiveHour;
+        values.showUsageWeekly = account.showUsageWeekly;
+        values.treatAsLocalEndpoint = account.treatAsLocalEndpoint;
+        values.profileImportReviewRequired = account.profileImportReviewRequired;
+        if (sameType) values.baseUrl = account.baseUrl;
+      } else if (account) {
+        logger.warn("[connections] Model endpoint is outside account %s: creating a standalone Model", account.id);
+      }
       await db.transaction(async (tx) => {
         // If this is set as default, unset others.
         if (input.isDefault && takesChatDefaults(input.provider)) {
@@ -419,6 +472,8 @@ export function createConnectionsStorage(db: DB) {
         await tx.insert(apiConnections).values(values);
       });
       setConnectionRateLimit(id, input.maxRequestsPerMinute ?? null);
+      // A standalone Model joins the account that already holds its credentials, or starts one.
+      if (!values.accountId) await linkConnectionAccounts(db);
       return this.getById(id);
     },
 
@@ -437,9 +492,17 @@ export function createConnectionsStorage(db: DB) {
       });
     },
 
-    async update(id: string, data: Partial<CreateConnectionInput>) {
+    async update(id: string, input: Partial<CreateConnectionInput>) {
       const existing = await this.getById(id);
       if (!existing) return null;
+      // A linked row takes its credentials from the account: those fields are ignored here, and the account
+      // editor writes them through. `baseUrl` is the account's only on rows of the account's own type.
+      const account = existing.accountId ? await getConnectionAccount(db, existing.accountId) : null;
+      const data = { ...input };
+      if (account) {
+        for (const key of ACCOUNT_MIRRORED_INPUT_KEYS) delete data[key];
+        if (existing.provider === account.provider) delete data.baseUrl;
+      }
 
       const effectiveProvider = data.provider ?? existing.provider;
       const effectiveProviderCategory = defaultCategoryForProvider(effectiveProvider);
@@ -449,12 +512,21 @@ export function createConnectionsStorage(db: DB) {
         updatedAt: now(),
       };
       if (
-        data.provider !== undefined ||
-        data.baseUrl !== undefined ||
-        data.apiKey !== undefined ||
-        data.model !== undefined
+        !account &&
+        (data.provider !== undefined ||
+          data.baseUrl !== undefined ||
+          data.apiKey !== undefined ||
+          data.model !== undefined)
       ) {
         updateFields.profileImportReviewRequired = "false";
+      }
+      // Detach explicitly, or when the row's own endpoint moved off the account's origin.
+      if (
+        account &&
+        (input.accountId === null ||
+          credentialOrigin({ ...existing, ...definedFields(data) }) !== credentialOrigin(account))
+      ) {
+        updateFields.accountId = null;
       }
       const shouldClearDefault = data.isDefault === true;
       const shouldClearMainFallback = effectiveProviderCategory === "language" && data.fallbackForMain === true;
@@ -708,6 +780,7 @@ export function createConnectionsStorage(db: DB) {
         pinnedModels: source.pinnedModels,
         // The copy keeps the same provider, address and key, so the saved list still applies.
         savedModels: source.savedModels,
+        accountId: source.accountId,
         imagePath: source.imagePath,
         maxContext: source.maxContext,
         isDefault: "false",
@@ -766,7 +839,11 @@ export function createConnectionsStorage(db: DB) {
       // The pool is drawn as the live chat LLM — media connections can never
       // serve a chat turn, so they are excluded even if a row was flagged
       // before its provider changed.
-      return rows.filter((r: any) => isChatProvider(r.provider)).map((r: any) => withDecryptedKey(r));
+      const available = await withoutBlockedRows(
+        db,
+        rows.filter((r: any) => isChatProvider(r.provider)),
+      );
+      return Promise.all(available.map((r: any) => withKey(r)));
     },
 
     async remove(id: string) {
@@ -804,6 +881,7 @@ export function createConnectionsStorage(db: DB) {
           .update(apiConnections)
           .set({ savedModels: JSON.stringify(list) })
           .where(eq(apiConnections.id, expected.id));
+        await mirrorToAccountPeers(tx, current, { savedModels: JSON.stringify(list) });
         return list;
       });
     },
@@ -825,6 +903,8 @@ export function createConnectionsStorage(db: DB) {
           .update(apiConnections)
           .set({ pinnedModels: JSON.stringify(pinnedModels), updatedAt: now() })
           .where(eq(apiConnections.id, id));
+        // Pins are account-wide for Models of the same provider (the favourites of one Connection).
+        await mirrorToAccountPeers(tx, row, { pinnedModels: JSON.stringify(pinnedModels) });
         return { pinnedModels };
       });
     },

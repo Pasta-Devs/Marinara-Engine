@@ -9,6 +9,7 @@ import { charactersRoutes } from "./characters.routes.js";
 import { lorebooksRoutes } from "./lorebooks.routes.js";
 import { promptsRoutes } from "./prompts.routes.js";
 import { connectionsRoutes } from "./connections.routes.js";
+import { connectionAccountsRoutes } from "./connection-accounts.routes.js";
 import { agentsRoutes } from "./agents.routes.js";
 import { customToolsRoutes } from "./custom-tools.routes.js";
 import { generateRoutes, type GenerationRunner } from "./generate.routes.js";
@@ -109,6 +110,7 @@ export async function registerRoutes(app: FastifyInstance) {
   await app.register(lorebooksRoutes, { prefix: "/api/lorebooks" });
   await app.register(promptsRoutes, { prefix: "/api/prompts" });
   await app.register(connectionsRoutes, { prefix: "/api/connections" });
+  await app.register(connectionAccountsRoutes, { prefix: "/api/connection-accounts" });
   await app.register(decisionRoutes, { prefix: "/api/decision" });
   await app.register(connectionFoldersRoutes, { prefix: "/api/connection-folders" });
   await app.register(libraryFoldersRoutes, { prefix: "/api/library-folders" });

@@ -19,6 +19,7 @@ import { compressJsonHook } from "./middleware/compress-json.js";
 import { seedDefaultPreset } from "./db/seed.js";
 import { seedProfessorMari } from "./db/seed-mari.js";
 import { seedDefaultConnection } from "./db/seed-connection.js";
+import { linkConnectionAccounts } from "./services/storage/connection-accounts.storage.js";
 import { seedDefaultBackgrounds } from "./db/seed-backgrounds.js";
 import { seedDefaultGameAssets } from "./db/seed-game-assets.js";
 import { seedDefaultRegexScripts } from "./db/seed-regex.js";
@@ -226,6 +227,7 @@ export async function buildApp(https?: { cert: Buffer; key: Buffer }) {
   } else {
     await startup.phase("seed.connection", () => seedDefaultConnection(db));
   }
+  await startup.phase("migrate.connection-accounts", () => linkConnectionAccounts(db));
   await startup.phase("seed.regex", () => seedDefaultRegexScripts(db));
   await startup.phase("migrate.agent-prompts", () => migrateLegacyDefaultAgentPrompts(db));
   await startup.phase("migrate.extended-descriptions", () => migrateCharacterExtendedDescriptionsToLorebooks(db));

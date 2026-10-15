@@ -86,6 +86,9 @@ try {
 
   db = await getDB();
   const storage = createConnectionsStorage(db);
+  // A new Model joins a connection account, whose key and address are edited on the account. This test edits
+  // them on the row itself, so it stands the row alone first.
+  await storage.update(legacy.id, { accountId: null });
   app = Fastify();
   app.decorate("db", db);
   await app.register(connectionsRoutes, { prefix: "/connections" });
