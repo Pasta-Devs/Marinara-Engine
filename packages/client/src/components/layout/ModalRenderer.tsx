@@ -38,6 +38,9 @@ const ImportPersonaModal = lazy(() =>
 const CreateConnectionModal = lazy(() =>
   import("../modals/CreateConnectionModal").then((module) => ({ default: module.CreateConnectionModal })),
 );
+const ConnectionAccountEditor = lazy(() =>
+  import("../connections/ConnectionAccountEditor").then((module) => ({ default: module.ConnectionAccountEditor })),
+);
 const ImportConnectionModal = lazy(() =>
   import("../modals/ImportConnectionModal").then((module) => ({ default: module.ImportConnectionModal })),
 );
@@ -148,6 +151,9 @@ export function ModalRenderer() {
       break;
     case "import-connection":
       content = <ImportConnectionModal open onClose={closeModal} />;
+      break;
+    case "connection-account":
+      content = <ConnectionAccountEditor accountId={(modal?.props?.accountId as string) ?? ""} onClose={closeModal} />;
       break;
     case "create-persona":
       content = (

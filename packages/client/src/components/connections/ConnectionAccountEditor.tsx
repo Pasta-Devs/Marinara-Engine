@@ -1,0 +1,398 @@
+// ──────────────────────────────────────────────
+// ConnectionAccountEditor — a Connection's credentials and limits, once for all its Models
+// ──────────────────────────────────────────────
+import { useEffect, useState } from "react";
+import { ChevronDown, Loader2, Trash2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
+import { PROVIDERS, type APIProvider, type UpdateConnectionAccountInput } from "@marinara-engine/shared";
+import { useConnections, useTestConnection } from "../../hooks/use-connections";
+import {
+  useConnectionAccounts,
+  useDeleteConnectionAccount,
+  useUpdateConnectionAccount,
+} from "../../hooks/use-connection-accounts";
+import { ApiError } from "../../lib/api-client";
+import { showConfirmDialog } from "../../lib/app-dialogs";
+import { useUIStore } from "../../stores/ui.store";
+import { cn } from "../../lib/utils";
+import { Modal } from "../ui/Modal";
+import { SmoothFolderContent } from "../ui/SmoothFolderContent";
+import { SettingsSwitch } from "../panels/settings/SettingControls";
+import type { ConnectionRowData } from "./ConnectionRow";
+
+type Draft = {
+  name: string;
+  baseUrl: string;
+  enabled: boolean;
+  showUsageWidget: boolean;
+  showUsageFiveHour: boolean;
+  showUsageWeekly: boolean;
+  maxRequestsPerMinute: string;
+  maxParallelJobs: string;
+};
+
+const capValue = (value: string) => (value.trim() ? Number(value) : null);
+
+function SecretField({
+  label,
+  saved,
+  last4,
+  value,
+  onChange,
+}: {
+  label: string;
+  saved: boolean;
+  last4?: string;
+  /** Null while the saved secret is kept. */
+  value: string | null;
+  onChange: (value: string | null) => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <label className="block">
+      <span className="mb-1 block text-[0.6875rem] font-medium text-[var(--muted-foreground)]">{label}</span>
+      {saved && value === null ? (
+        <div className="flex items-center gap-2">
+          <span className="mari-chrome-field flex h-9 min-w-0 flex-1 items-center px-3 text-xs text-[var(--muted-foreground)]">
+            {last4 ? t("connections.accounts.editor.keyEnding", { last4 }) : "••••••••"}
+          </span>
+          <button
+            type="button"
+            onClick={() => onChange("")}
+            className="mari-chrome-control mari-chrome-control--small h-9 text-[0.6875rem] max-md:min-h-11"
+          >
+            {t("connections.accounts.editor.replace")}
+          </button>
+        </div>
+      ) : (
+        <input
+          type="password"
+          autoComplete="off"
+          value={value ?? ""}
+          onChange={(event) => onChange(event.target.value)}
+          placeholder={t("connections.accounts.editor.keyPlaceholder")}
+          className="mari-chrome-field h-9 w-full px-3 text-xs"
+        />
+      )}
+    </label>
+  );
+}
+
+export function ConnectionAccountEditor({ accountId, onClose }: { accountId: string; onClose: () => void }) {
+  const { t } = useTranslation();
+  const { data: accounts, isLoading } = useConnectionAccounts();
+  const { data: rawRows } = useConnections();
+  const update = useUpdateConnectionAccount();
+  const remove = useDeleteConnectionAccount();
+  const test = useTestConnection();
+  const openConnectionDetail = useUIStore((s) => s.openConnectionDetail);
+  const account = accounts?.find((entry) => entry.id === accountId) ?? null;
+  const models = ((rawRows ?? []) as ConnectionRowData[]).filter((row) => row.accountId === accountId);
+  const firstModel = models[0] ?? null;
+
+  const [draft, setDraft] = useState<Draft | null>(null);
+  const [apiKey, setApiKey] = useState<string | null>(null);
+  const [managementToken, setManagementToken] = useState<string | null>(null);
+  const [more, setMore] = useState(false);
+  const [blockedBy, setBlockedBy] = useState<Array<{ id: string; name: string; model?: string }>>([]);
+
+  useEffect(() => {
+    if (!account || draft) return;
+    setDraft({
+      name: account.name,
+      baseUrl: account.baseUrl,
+      enabled: account.enabled,
+      showUsageWidget: account.showUsageWidget,
+      showUsageFiveHour: account.showUsageFiveHour,
+      showUsageWeekly: account.showUsageWeekly,
+      maxRequestsPerMinute: account.maxRequestsPerMinute?.toString() ?? "",
+      maxParallelJobs: account.maxParallelJobs?.toString() ?? "",
+    });
+    // A key that was never saved has nothing to keep, so its field starts open.
+    if (!account.hasApiKey) setApiKey("");
+  }, [account, draft]);
+
+  const set = <K extends keyof Draft>(key: K, value: Draft[K]) =>
+    setDraft((current) => (current ? { ...current, [key]: value } : current));
+
+  const changes: UpdateConnectionAccountInput = {};
+  if (account && draft) {
+    if (draft.name.trim() && draft.name.trim() !== account.name) changes.name = draft.name.trim();
+    if (draft.baseUrl.trim() !== account.baseUrl) changes.baseUrl = draft.baseUrl.trim();
+    if (draft.enabled !== account.enabled) changes.enabled = draft.enabled;
+    if (draft.showUsageWidget !== account.showUsageWidget) changes.showUsageWidget = draft.showUsageWidget;
+    if (draft.showUsageFiveHour !== account.showUsageFiveHour) changes.showUsageFiveHour = draft.showUsageFiveHour;
+    if (draft.showUsageWeekly !== account.showUsageWeekly) changes.showUsageWeekly = draft.showUsageWeekly;
+    const rpm = capValue(draft.maxRequestsPerMinute);
+    if (rpm !== account.maxRequestsPerMinute) changes.maxRequestsPerMinute = rpm;
+    const parallel = capValue(draft.maxParallelJobs);
+    if (parallel !== account.maxParallelJobs) changes.maxParallelJobs = parallel;
+    if (apiKey) changes.apiKey = apiKey;
+    if (managementToken) changes.managementToken = managementToken;
+  }
+  const dirty = Object.keys(changes).length > 0;
+
+  const save = async () => {
+    if (!account || !dirty) return;
+    try {
+      await update.mutateAsync({ id: account.id, ...changes });
+      toast.success(t("connections.accounts.editor.saved"));
+      onClose();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : t("connections.accounts.editor.saveFailed"));
+    }
+  };
+
+  const deleteAccount = async () => {
+    if (!account) return;
+    const confirmed = await showConfirmDialog({
+      title: t("connections.accounts.editor.delete"),
+      message: t("connections.accounts.editor.deleteConfirm", { name: account.name }),
+      confirmLabel: t("connections.accounts.editor.delete"),
+      tone: "destructive",
+    });
+    if (!confirmed) return;
+    try {
+      await remove.mutateAsync(account.id);
+      onClose();
+    } catch (error) {
+      const blocked =
+        error instanceof ApiError && error.status === 409
+          ? ((error.payload as { models?: Array<{ id: string; name: string; model?: string }> } | undefined)?.models ??
+            [])
+          : null;
+      if (blocked) setBlockedBy(blocked);
+      else toast.error(error instanceof Error ? error.message : t("connections.accounts.editor.deleteFailed"));
+    }
+  };
+
+  const openModel = (id: string) => {
+    onClose();
+    openConnectionDetail(id);
+  };
+
+  const label = (text: string) => (
+    <span className="mb-1 block text-[0.6875rem] font-medium text-[var(--muted-foreground)]">{text}</span>
+  );
+  const capInput = (key: "maxRequestsPerMinute" | "maxParallelJobs", max: number, text: string) => (
+    <label className="block min-w-0">
+      {label(text)}
+      <input
+        type="number"
+        inputMode="numeric"
+        min={1}
+        max={max}
+        value={draft?.[key] ?? ""}
+        onChange={(event) => set(key, event.target.value)}
+        placeholder={t("connections.accounts.editor.noLimit")}
+        className="mari-chrome-field h-9 w-full px-3 text-xs"
+      />
+    </label>
+  );
+
+  return (
+    <Modal open onClose={onClose} title={account?.name ?? t("connections.accounts.editor.title")}>
+      {!account || !draft ? (
+        <p className="text-xs text-[var(--muted-foreground)]">
+          {isLoading ? <Loader2 size="0.875rem" className="animate-spin" /> : t("connections.accounts.editor.notFound")}
+        </p>
+      ) : (
+        <div className="flex flex-col gap-3">
+          <label className="block">
+            {label(t("connections.accounts.editor.name"))}
+            <input
+              value={draft.name}
+              onChange={(event) => set("name", event.target.value)}
+              className="mari-chrome-field h-9 w-full px-3 text-xs"
+            />
+          </label>
+          <div>
+            {label(t("connections.accounts.editor.service"))}
+            <p className="text-xs">{PROVIDERS[account.provider as APIProvider]?.name ?? account.provider}</p>
+          </div>
+          <label className="block">
+            {label(t("connections.accounts.editor.endpoint"))}
+            <input
+              value={draft.baseUrl}
+              onChange={(event) => set("baseUrl", event.target.value)}
+              placeholder={t("connections.accounts.editor.endpointPlaceholder")}
+              inputMode="url"
+              className="mari-chrome-field h-9 w-full px-3 text-xs"
+            />
+          </label>
+          <SecretField
+            label={t("connections.accounts.editor.apiKey")}
+            saved={account.hasApiKey}
+            last4={account.apiKeyLast4}
+            value={apiKey}
+            onChange={setApiKey}
+          />
+
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => firstModel && test.mutate(firstModel.id)}
+              disabled={!firstModel || test.isPending}
+              className="mari-chrome-control mari-chrome-control--small text-[0.6875rem] max-md:min-h-11"
+            >
+              {test.isPending && <Loader2 size="0.75rem" className="animate-spin" />}
+              {t("connections.accounts.test")}
+            </button>
+            {!firstModel && (
+              <span className="text-[0.6875rem] text-[var(--muted-foreground)]">
+                {t("connections.accounts.addModelFirst")}
+              </span>
+            )}
+            {(test.data || test.isError) && (
+              <span
+                role="status"
+                className={cn(
+                  "min-w-0 text-[0.6875rem]",
+                  test.data?.success ? "text-[var(--muted-foreground)]" : "text-[var(--destructive)]",
+                )}
+              >
+                {test.data
+                  ? test.data.success
+                    ? t("connections.accounts.testOk", { latency: test.data.latencyMs })
+                    : test.data.message
+                  : t("connections.accounts.testFailed")}
+              </span>
+            )}
+          </div>
+          {dirty && firstModel && (
+            <p className="text-[0.625rem] text-[var(--muted-foreground)]">
+              {t("connections.accounts.editor.testUsesSaved")}
+            </p>
+          )}
+
+          <SettingsSwitch
+            label={t("connections.accounts.editor.enabled")}
+            checked={draft.enabled}
+            onChange={(checked) => set("enabled", checked)}
+            className="p-0 hover:bg-transparent"
+            labelClassName="text-xs"
+          />
+
+          <div>
+            {label(t("connections.accounts.editor.models", { count: models.length }))}
+            {models.length === 0 ? (
+              <p className="text-[0.6875rem] text-[var(--muted-foreground)]">{t("connections.accounts.noModels")}</p>
+            ) : (
+              <ul className="max-h-48 overflow-y-auto rounded-lg ring-1 ring-[var(--border)]">
+                {models.map((row) => (
+                  <li key={row.id}>
+                    <button
+                      type="button"
+                      onClick={() => openModel(row.id)}
+                      className="flex min-h-11 w-full min-w-0 flex-col justify-center px-3 py-1.5 text-left transition-colors hover:bg-[var(--sidebar-accent)] md:min-h-9"
+                    >
+                      <span className="truncate text-xs">{row.name}</span>
+                      {row.model && (
+                        <span className="truncate text-[0.625rem] text-[var(--muted-foreground)]">{row.model}</span>
+                      )}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setMore((value) => !value)}
+            aria-expanded={more}
+            className="flex min-h-11 items-center gap-1.5 self-start text-[0.6875rem] font-medium text-[var(--muted-foreground)] md:min-h-9"
+          >
+            <ChevronDown size="0.75rem" className={cn("transition-transform", more && "rotate-180")} />
+            {t("connections.accounts.editor.more")}
+          </button>
+          <SmoothFolderContent open={more}>
+            <div className="flex flex-col gap-3 pb-1">
+              <SecretField
+                label={t("connections.accounts.editor.managementToken")}
+                saved={account.hasManagementToken}
+                value={managementToken}
+                onChange={setManagementToken}
+              />
+              <SettingsSwitch
+                label={t("connections.accounts.editor.showUsage")}
+                checked={draft.showUsageWidget}
+                onChange={(checked) => set("showUsageWidget", checked)}
+                className="p-0 hover:bg-transparent"
+                labelClassName="text-xs"
+              />
+              {draft.showUsageWidget && (
+                <>
+                  <SettingsSwitch
+                    label={t("connections.accounts.editor.showUsageFiveHour")}
+                    checked={draft.showUsageFiveHour}
+                    onChange={(checked) => set("showUsageFiveHour", checked)}
+                    className="p-0 hover:bg-transparent"
+                    labelClassName="text-xs text-[var(--muted-foreground)]"
+                  />
+                  <SettingsSwitch
+                    label={t("connections.accounts.editor.showUsageWeekly")}
+                    checked={draft.showUsageWeekly}
+                    onChange={(checked) => set("showUsageWeekly", checked)}
+                    className="p-0 hover:bg-transparent"
+                    labelClassName="text-xs text-[var(--muted-foreground)]"
+                  />
+                </>
+              )}
+              <div className="grid grid-cols-2 gap-2">
+                {capInput("maxRequestsPerMinute", 600, t("connections.accounts.editor.maxRequestsPerMinute"))}
+                {capInput("maxParallelJobs", 16, t("connections.accounts.editor.maxParallelJobs"))}
+              </div>
+              <p className="text-[0.625rem] text-[var(--muted-foreground)]">
+                {t("connections.accounts.editor.capsHelp")}
+              </p>
+              <button
+                type="button"
+                onClick={() => void deleteAccount()}
+                disabled={remove.isPending}
+                className="mari-chrome-control mari-chrome-control--small self-start text-[0.6875rem] text-[var(--destructive)] max-md:min-h-11"
+              >
+                <Trash2 size="0.75rem" />
+                {t("connections.accounts.editor.delete")}
+              </button>
+              {blockedBy.length > 0 && (
+                <div role="status" className="rounded-lg bg-[var(--destructive)]/10 p-2.5 text-[0.6875rem]">
+                  <p className="text-[var(--destructive)]">{t("connections.accounts.editor.deleteBlocked")}</p>
+                  <ul className="mt-1 space-y-0.5">
+                    {blockedBy.map((row) => (
+                      <li key={row.id}>
+                        <button type="button" onClick={() => openModel(row.id)} className="text-left underline">
+                          {row.name}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          </SmoothFolderContent>
+
+          <div className="flex justify-end gap-2 border-t border-[var(--border)] pt-3">
+            <button
+              type="button"
+              onClick={onClose}
+              className="mari-chrome-control mari-chrome-control--small text-xs max-md:min-h-11"
+            >
+              {t("connections.accounts.editor.cancel")}
+            </button>
+            <button
+              type="button"
+              onClick={() => void save()}
+              disabled={!dirty || update.isPending}
+              className="mari-panel-gradient-button mari-panel-gradient--connections px-3 text-xs max-md:min-h-11"
+            >
+              {update.isPending && <Loader2 size="0.75rem" className="animate-spin" />}
+              {t("connections.accounts.editor.save")}
+            </button>
+          </div>
+        </div>
+      )}
+    </Modal>
+  );
+}

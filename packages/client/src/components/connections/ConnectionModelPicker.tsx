@@ -68,6 +68,7 @@ export function ConnectionModelPicker({
   onPicked,
   applyPick,
   accountName,
+  footer,
   className,
 }: {
   connection: ModelPickerConnection;
@@ -88,6 +89,8 @@ export function ConnectionModelPicker({
   applyPick?: (connectionId: string) => Promise<void>;
   /** The Connection's name, shown in the header with `applyPick`. */
   accountName?: string | null;
+  /** Replaces the footer line, for hosts where a pick does not touch a chat. */
+  footer?: string;
   className?: string;
 }) {
   const { t } = useTranslation();
@@ -181,9 +184,10 @@ export function ConnectionModelPicker({
     if (saving) return;
     try {
       if (applyPick && connection.accountId) {
+        // A new Model takes the listed context size and output limit, as an in-place pick does.
         const { connectionId } = await pickModel.mutateAsync({
           accountId: connection.accountId,
-          model: row.id,
+          ...connectionFieldsForModelPick(provider, row),
           name: row.name || undefined,
         });
         await applyPick(connectionId);
@@ -448,7 +452,7 @@ export function ConnectionModelPicker({
           </div>
 
           <p className="border-t border-foreground/10 px-3 py-2 text-[0.625rem] text-foreground/50">
-            {applyPick ? t("connections.switcher.appliesToChat") : t("connections.modelPicker.footer")}
+            {footer ?? (applyPick ? t("connections.switcher.appliesToChat") : t("connections.modelPicker.footer"))}
           </p>
         </>
       )}

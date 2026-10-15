@@ -1,0 +1,216 @@
+// ──────────────────────────────────────────────
+// ConnectionCard — one Connection (account) in the Connections panel, its Models as ConnectionRows
+// ──────────────────────────────────────────────
+import { useState, type ReactNode } from "react";
+import { ChevronDown, ChevronUp, ImageIcon, Link, Loader2, Plus, Settings2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
+import { PROVIDERS, isChatProvider, type APIProvider, type ConnectionAccountListItem } from "@marinara-engine/shared";
+import { useTestConnection } from "../../hooks/use-connections";
+import { subgroupByUpstream, roleBadges } from "../../lib/connection-groups";
+import { isConnectionFlagTrue } from "../../lib/connection-filters";
+import { useUIStore } from "../../stores/ui.store";
+import { cn } from "../../lib/utils";
+import { SmoothFolderContent } from "../ui/SmoothFolderContent";
+import { ConnectionModelPicker } from "./ConnectionModelPicker";
+import { SubscriptionUsageWidget } from "./SubscriptionUsageWidget";
+import type { ConnectionRowData } from "./ConnectionRow";
+
+/** Today's Local Model card surface, coloured from the Connections panel tokens. */
+export const CONNECTION_CARD_CLASS =
+  "mari-panel-gradient--connections rounded-xl border border-[color-mix(in_srgb,var(--mari-panel-gradient-start)_20%,transparent)] bg-[linear-gradient(135deg,color-mix(in_srgb,var(--mari-panel-gradient-start)_5%,transparent),color-mix(in_srgb,var(--mari-panel-gradient-end)_5%,transparent))] p-3 transition-all";
+export const CONNECTION_TILE_CLASS =
+  "mari-panel-gradient-surface mari-panel-gradient--connections flex h-9 w-9 shrink-0 items-center justify-center rounded-xl shadow-sm";
+
+const MEDIA_KIND: Record<string, "image" | "video" | "audio"> = {
+  image_generation: "image",
+  video_generation: "video",
+  audio: "audio",
+};
+
+export const isMediaRow = (row: Pick<ConnectionRowData, "provider">) => row.provider in MEDIA_KIND;
+
+export type ConnectionRowDisplay = { subtitle: string; badge: string | null };
+
+export function ConnectionCard({
+  account,
+  rows,
+  forceOpen = false,
+  renderRow,
+}: {
+  account: ConnectionAccountListItem;
+  rows: ConnectionRowData[];
+  /** Search is on: keep the card open so its matches show. */
+  forceOpen?: boolean;
+  renderRow: (row: ConnectionRowData, display: ConnectionRowDisplay) => ReactNode;
+}) {
+  const { t } = useTranslation();
+  const openModal = useUIStore((s) => s.openModal);
+  const [open, setOpen] = useState(true);
+  const [adding, setAdding] = useState(false);
+  const test = useTestConnection();
+  const expanded = open || forceOpen;
+
+  const chatRow = rows.find((row) => isChatProvider(row.provider)) ?? null;
+  const firstRow = chatRow ?? rows[0] ?? null;
+  // A Connection holding chat and image Models shows once; its media Models carry their kind.
+  const mixed = !!chatRow && rows.some(isMediaRow);
+  const mediaOnly = rows.length > 0 && rows.every(isMediaRow);
+  const service = PROVIDERS[account.provider as APIProvider]?.name ?? account.provider;
+  const stateLabel = t(`connections.accounts.state.${account.state}`);
+
+  const badgeFor = (row: ConnectionRowData): string | null => {
+    const kind = MEDIA_KIND[row.provider];
+    if (kind) {
+      if (mixed) return t(`connections.accounts.kind.${kind}`);
+      if (isConnectionFlagTrue(row.defaultForAgents)) return t("connections.accounts.badge.default");
+      return isConnectionFlagTrue(row.fallbackForAgents) ? t("connections.switcher.role.fallback") : null;
+    }
+    const [role] = roleBadges(row);
+    return role ? t(`connections.switcher.role.${role}`) : null;
+  };
+  const subtitleFor = (row: ConnectionRowData, upstream: string | null) => {
+    const model = row.model?.trim() ?? "";
+    const id = upstream && model.startsWith(`${upstream}/`) ? model.slice(upstream.length + 1) : model;
+    return (
+      id ||
+      row.imageService ||
+      row.imageGenerationSource ||
+      row.videoService ||
+      row.videoGenerationSource ||
+      t("connections.accounts.row.noModel")
+    );
+  };
+
+  const runTest = () => {
+    if (!firstRow) return;
+    test.mutate(firstRow.id);
+  };
+
+  return (
+    <section className={CONNECTION_CARD_CLASS} data-connection-account-id={account.id}>
+      <div className="flex items-center gap-2.5">
+        <div className={CONNECTION_TILE_CLASS}>{mediaOnly ? <ImageIcon size="1rem" /> : <Link size="1rem" />}</div>
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-sm font-medium text-[var(--foreground)]" title={account.name}>
+            {account.name}
+          </div>
+          <div className="truncate text-[0.6875rem] text-[var(--muted-foreground)]">
+            {service} · <span className={cn(account.state !== "ok" && "text-[var(--warning)]")}>{stateLabel}</span>
+          </div>
+        </div>
+        <div className="flex shrink-0 items-center gap-1.5">
+          <button
+            type="button"
+            onClick={runTest}
+            disabled={!firstRow || test.isPending}
+            className="mari-chrome-control mari-chrome-control--small h-8 min-h-0 px-2 text-[0.6875rem] max-md:h-11"
+            title={firstRow ? t("connections.accounts.test") : t("connections.accounts.addModelFirst")}
+          >
+            {test.isPending ? <Loader2 size="0.75rem" className="animate-spin" /> : t("connections.accounts.test")}
+          </button>
+          <button
+            type="button"
+            onClick={() => openModal("connection-account", { accountId: account.id })}
+            className="mari-chrome-control mari-chrome-control--small h-8 min-h-0 w-8 p-0 max-md:h-11 max-md:w-11"
+            title={t("connections.accounts.edit", { name: account.name })}
+            aria-label={t("connections.accounts.edit", { name: account.name })}
+          >
+            <Settings2 size="0.8125rem" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setOpen((value) => !value)}
+            className="mari-chrome-control mari-chrome-control--small h-8 min-h-0 w-8 p-0 max-md:h-11 max-md:w-11"
+            aria-label={
+              expanded
+                ? t("connections.accounts.collapse", { name: account.name })
+                : t("connections.accounts.expand", { name: account.name })
+            }
+            aria-expanded={expanded}
+          >
+            {expanded ? <ChevronUp size="0.875rem" /> : <ChevronDown size="0.875rem" />}
+          </button>
+        </div>
+      </div>
+
+      {(test.data || test.isError) && (
+        <p
+          role="status"
+          className={cn(
+            "mt-2 text-[0.6875rem]",
+            test.data?.success ? "text-[var(--muted-foreground)]" : "text-[var(--destructive)]",
+          )}
+        >
+          {test.data
+            ? test.data.success
+              ? t("connections.accounts.testOk", { latency: test.data.latencyMs })
+              : test.data.message
+            : t("connections.accounts.testFailed")}
+        </p>
+      )}
+
+      {account.showUsageWidget && firstRow && (
+        <div className="mt-2">
+          <SubscriptionUsageWidget connectionId={firstRow.id} variant="inline" />
+        </div>
+      )}
+
+      <SmoothFolderContent open={expanded}>
+        <div className="mt-2 flex flex-col gap-0.5">
+          {rows.length === 0 && (
+            <p className="px-1 py-1 text-[0.6875rem] text-[var(--muted-foreground)]">
+              {t("connections.accounts.noModels")}
+            </p>
+          )}
+          {subgroupByUpstream(rows).map((group) => (
+            <div key={group.upstream ?? ""} className="flex flex-col gap-0.5">
+              {group.upstream && (
+                <p className="px-1 pt-1 text-[0.625rem] font-medium text-[var(--muted-foreground)]">{group.upstream}</p>
+              )}
+              {group.rows.map((row) => (
+                <div key={row.id}>
+                  {renderRow(row, { subtitle: subtitleFor(row, group.upstream), badge: badgeFor(row) })}
+                </div>
+              ))}
+            </div>
+          ))}
+          {firstRow ? (
+            <button
+              type="button"
+              onClick={() => setAdding((value) => !value)}
+              aria-expanded={adding}
+              className="mari-chrome-control mari-chrome-control--small mt-1 w-fit text-[0.6875rem] max-md:min-h-11"
+            >
+              <Plus size="0.75rem" />
+              {t("connections.accounts.addModel")}
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => openModal("create-connection", { provider: account.provider })}
+              className="mari-chrome-control mari-chrome-control--small mt-1 w-fit text-[0.6875rem] max-md:min-h-11"
+            >
+              <Plus size="0.75rem" />
+              {t("connections.accounts.addModel")}
+            </button>
+          )}
+          {adding && firstRow && (
+            <div className="mt-1 flex h-[min(24rem,60dvh)] flex-col overflow-hidden rounded-lg ring-1 ring-foreground/10">
+              <ConnectionModelPicker
+                connection={firstRow}
+                accountName={account.name}
+                autoFocusSearch
+                footer={t("connections.accounts.addModelFooter")}
+                applyPick={async () => {
+                  toast.success(t("connections.accounts.modelAdded"));
+                }}
+                onPicked={() => setAdding(false)}
+              />
+            </div>
+          )}
+        </div>
+      </SmoothFolderContent>
+    </section>
+  );
+}
