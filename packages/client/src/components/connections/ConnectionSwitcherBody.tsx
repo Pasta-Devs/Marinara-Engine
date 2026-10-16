@@ -8,7 +8,7 @@
 // (decision 30).
 // ──────────────────────────────────────────────
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Check, ChevronDown, ChevronRight, Cpu, House, Link, Search, Shuffle, Star } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, Cpu, House, Search, Shuffle, Star } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -31,6 +31,7 @@ import {
 } from "../../lib/connection-filters";
 import { accountStateLabel, groupModelsByAccount, recentModels, subgroupByUpstream } from "../../lib/connection-groups";
 import { cn } from "../../lib/utils";
+import { ProviderIcon } from "./ProviderIcon";
 import { ConnectionModelPicker } from "./ConnectionModelPicker";
 import { openAddModels } from "../../lib/add-connection";
 import { SubscriptionUsageWidget } from "./SubscriptionUsageWidget";
@@ -535,12 +536,13 @@ export function ConnectionSwitcherBody({
           className={cn(ROW_CLASS, isShown && "bg-foreground/[0.07]", isCurrent && "font-semibold")}
         >
           {isShown && <AccentBar />}
-          <span
-            aria-hidden
-            className="mari-panel-gradient-surface mari-panel-gradient--connections flex h-6 w-6 shrink-0 items-center justify-center rounded-md"
-          >
-            <Link size="0.75rem" />
-          </span>
+          <ProviderIcon
+            provider={group.account?.provider ?? group.rows[0]?.provider ?? "custom"}
+            baseUrl={group.account?.baseUrl}
+            name={group.name}
+            size="sm"
+            className="rounded-md"
+          />
           <span className="min-w-0 flex-1 truncate">{group.name}</span>
           {state && (
             <span className="mari-chrome-muted-badge shrink-0 px-1.5 py-px text-[0.625rem] font-normal leading-4">

@@ -1506,6 +1506,13 @@
   box-shadow: 0 0.25rem 0.75rem color-mix(in srgb, var(--mari-panel-gradient-end) 18%, transparent);
 }
 
+/* A bundled provider icon (decision 34c) drawn in the text colour; the size comes from the caller. */
+.brand-mark {
+  background-color: currentColor;
+  -webkit-mask: var(--brand-mark) center / contain no-repeat;
+  mask: var(--brand-mark) center / contain no-repeat;
+}
+
 .mari-panel-gradient-button {
   display: inline-flex;
   min-height: 2.5rem;

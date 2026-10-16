@@ -4,67 +4,75 @@ import { Trans, useTranslation } from "react-i18next";
 
 const FONT_AWESOME_D20_SOURCE_URL = "https://github.com/FortAwesome/Font-Awesome/blob/5.15.4/svgs/solid/dice-d20.svg";
 const CC_BY_4_0_LICENSE_URL = "https://creativecommons.org/licenses/by/4.0/";
+const LOBE_ICONS_URL = "https://github.com/lobehub/lobe-icons";
+const LOBE_ICONS_LICENSE_URL = "https://github.com/lobehub/lobe-icons/blob/master/LICENSE";
 
 const CONTRIBUTORS = [
-  { login: "SpicyMarinara", url: "https://github.com/SpicyMarinara", contributions: 3463 },
-  { login: "kolacheee", url: "https://github.com/kolacheee", contributions: 915 },
-  { login: "Gunterlie", url: "https://github.com/Gunterlie", contributions: 622 },
+  { login: "SpicyMarinara", url: "https://github.com/SpicyMarinara", contributions: 4567 },
+  { login: "kolacheee", url: "https://github.com/kolacheee", contributions: 1531 },
+  { login: "Gunterlie", url: "https://github.com/Gunterlie", contributions: 700 },
   { login: "thetopham", url: "https://github.com/thetopham", contributions: 342 },
   { login: "cha1latte", url: "https://github.com/cha1latte", contributions: 319 },
   { login: "Romuromylus", url: "https://github.com/Romuromylus", contributions: 218 },
   { login: "Xelvanis", url: "https://github.com/Xelvanis", contributions: 193 },
-  { login: "Promansis", url: "https://github.com/Promansis", contributions: 89 },
+  { login: "SirAdoni", url: "https://github.com/SirAdoni", contributions: 102 },
+  { login: "Promansis", url: "https://github.com/Promansis", contributions: 93 },
   { login: "LukaTheHero", url: "https://github.com/LukaTheHero", contributions: 86 },
   { login: "TheLonelyDevil9", url: "https://github.com/TheLonelyDevil9", contributions: 69 },
   { login: "coxde", url: "https://github.com/coxde", contributions: 60 },
-  { login: "munimunigamer", url: "https://github.com/munimunigamer", contributions: 31 },
-  { login: "bobneumann77-hub", url: "https://github.com/bobneumann77-hub", contributions: 26 },
-  { login: "SonaGat3", url: "https://github.com/SonaGat3", contributions: 20 },
+  { login: "ylli-selmani", url: "https://github.com/ylli-selmani", contributions: 42 },
+  { login: "SonaGat3", url: "https://github.com/SonaGat3", contributions: 27 },
   { login: "Minsklatte", url: "https://github.com/Minsklatte", contributions: 16 },
   { login: "aeriondyseti", url: "https://github.com/aeriondyseti", contributions: 15 },
   { login: "GetBeholder", url: "https://github.com/GetBeholder", contributions: 15 },
   { login: "NeoKazuya", url: "https://github.com/NeoKazuya", contributions: 14 },
+  { login: "minikkeuen", url: "https://github.com/minikkeuen", contributions: 13 },
   { login: "JorgeLTE", url: "https://github.com/JorgeLTE", contributions: 11 },
+  { login: "kentarofujiy", url: "https://github.com/kentarofujiy", contributions: 10 },
   { login: "Sulphuratum", url: "https://github.com/Sulphuratum", contributions: 10 },
   { login: "kaldigo", url: "https://github.com/kaldigo", contributions: 9 },
   { login: "loungemeister", url: "https://github.com/loungemeister", contributions: 9 },
-  { login: "minikkeuen", url: "https://github.com/minikkeuen", contributions: 7 },
+  { login: "JurijPietrowicz", url: "https://github.com/JurijPietrowicz", contributions: 7 },
   { login: "felorhik", url: "https://github.com/felorhik", contributions: 6 },
   { login: "Nero10578", url: "https://github.com/Nero10578", contributions: 6 },
   { login: "bignast", url: "https://github.com/bignast", contributions: 6 },
-  { login: "amauragis", url: "https://github.com/amauragis", contributions: 5 },
-  { login: "mm14141", url: "https://github.com/mm14141", contributions: 5 },
-  { login: "JurijPietrowicz", url: "https://github.com/JurijPietrowicz", contributions: 5 },
+  { login: "menemorofaan", url: "https://github.com/menemorofaan", contributions: 6 },
   { login: "kh0p", url: "https://github.com/kh0p", contributions: 5 },
   { login: "jake9000", url: "https://github.com/jake9000", contributions: 5 },
-  { login: "mallang0723", url: "https://github.com/mallang0723", contributions: 4 },
+  { login: "BiBoBaBe", url: "https://github.com/BiBoBaBe", contributions: 5 },
+  { login: "mm14141", url: "https://github.com/mm14141", contributions: 5 },
+  { login: "amauragis", url: "https://github.com/amauragis", contributions: 5 },
+  { login: "claude", url: "https://github.com/claude", contributions: 4 },
   { login: "marysia", url: "https://github.com/marysia", contributions: 4 },
+  { login: "mallang0723", url: "https://github.com/mallang0723", contributions: 4 },
+  { login: "Ejmathewp", url: "https://github.com/Ejmathewp", contributions: 3 },
   { login: "myaiexp", url: "https://github.com/myaiexp", contributions: 3 },
-  { login: "LightD31", url: "https://github.com/LightD31", contributions: 3 },
   { login: "augusteo", url: "https://github.com/augusteo", contributions: 3 },
-  { login: "MetzeVanDeus", url: "https://github.com/MetzeVanDeus", contributions: 2 },
-  { login: "Lochalan", url: "https://github.com/Lochalan", contributions: 2 },
-  { login: "Lamboozled", url: "https://github.com/Lamboozled", contributions: 2 },
-  { login: "fendorix", url: "https://github.com/fendorix", contributions: 2 },
-  { login: "ailthrim", url: "https://github.com/ailthrim", contributions: 2 },
-  { login: "adunato", url: "https://github.com/adunato", contributions: 2 },
+  { login: "LightD31", url: "https://github.com/LightD31", contributions: 3 },
   { login: "Trade-Mottoes", url: "https://github.com/Trade-Mottoes", contributions: 2 },
+  { login: "adunato", url: "https://github.com/adunato", contributions: 2 },
+  { login: "ailthrim", url: "https://github.com/ailthrim", contributions: 2 },
+  { login: "fendorix", url: "https://github.com/fendorix", contributions: 2 },
+  { login: "Lamboozled", url: "https://github.com/Lamboozled", contributions: 2 },
+  { login: "Lochalan", url: "https://github.com/Lochalan", contributions: 2 },
+  { login: "MetzeVanDeus", url: "https://github.com/MetzeVanDeus", contributions: 2 },
+  { login: "RaynoldVanHeyningen", url: "https://github.com/RaynoldVanHeyningen", contributions: 2 },
+  { login: "OnlyJimmy", url: "https://github.com/OnlyJimmy", contributions: 2 },
+  { login: "MagicGoddess", url: "https://github.com/MagicGoddess", contributions: 2 },
+  { login: "Kranael", url: "https://github.com/Kranael", contributions: 2 },
+  { login: "Javedz678", url: "https://github.com/Javedz678", contributions: 2 },
   { login: "BahamutRU", url: "https://github.com/BahamutRU", contributions: 2 },
   { login: "Morgul", url: "https://github.com/Morgul", contributions: 2 },
   { login: "Nelathan", url: "https://github.com/Nelathan", contributions: 2 },
-  { login: "Javedz678", url: "https://github.com/Javedz678", contributions: 2 },
-  { login: "Kranael", url: "https://github.com/Kranael", contributions: 2 },
-  { login: "MagicGoddess", url: "https://github.com/MagicGoddess", contributions: 2 },
-  { login: "RaynoldVanHeyningen", url: "https://github.com/RaynoldVanHeyningen", contributions: 2 },
-  { login: "OnlyJimmy", url: "https://github.com/OnlyJimmy", contributions: 2 },
-  { login: "smurfboyyessir", url: "https://github.com/smurfboyyessir", contributions: 1 },
-  { login: "taiman724", url: "https://github.com/taiman724", contributions: 1 },
-  { login: "mikemikimike", url: "https://github.com/mikemikimike", contributions: 1 },
-  { login: "luma-inibitor", url: "https://github.com/luma-inibitor", contributions: 1 },
-  { login: "abhi-0203", url: "https://github.com/abhi-0203", contributions: 1 },
-  { login: "Yasyasyasvil", url: "https://github.com/Yasyasyasvil", contributions: 1 },
-  { login: "vanta-jack", url: "https://github.com/vanta-jack", contributions: 1 },
   { login: "pwildani", url: "https://github.com/pwildani", contributions: 1 },
+  { login: "vanta-jack", url: "https://github.com/vanta-jack", contributions: 1 },
+  { login: "Yasyasyasvil", url: "https://github.com/Yasyasyasvil", contributions: 1 },
+  { login: "abhi-0203", url: "https://github.com/abhi-0203", contributions: 1 },
+  { login: "luma-inibitor", url: "https://github.com/luma-inibitor", contributions: 1 },
+  { login: "mikemikimike", url: "https://github.com/mikemikimike", contributions: 1 },
+  { login: "taiman724", url: "https://github.com/taiman724", contributions: 1 },
+  { login: "smurfboyyessir", url: "https://github.com/smurfboyyessir", contributions: 1 },
+  { login: "stonebystone", url: "https://github.com/stonebystone", contributions: 1 },
   { login: "olegpro171", url: "https://github.com/olegpro171", contributions: 1 },
   { login: "Leruca", url: "https://github.com/Leruca", contributions: 1 },
   { login: "Lemon-will", url: "https://github.com/Lemon-will", contributions: 1 },
@@ -73,8 +81,6 @@ const CONTRIBUTORS = [
   { login: "Rafa-Ross", url: "https://github.com/Rafa-Ross", contributions: 1 },
   { login: "Dinokin", url: "https://github.com/Dinokin", contributions: 1 },
   { login: "DarthTheMonster", url: "https://github.com/DarthTheMonster", contributions: 1 },
-  { login: "claude", url: "https://github.com/claude", contributions: 1 },
-  { login: "BiBoBaBe", url: "https://github.com/BiBoBaBe", contributions: 1 },
   { login: "Anarchistcowboy", url: "https://github.com/Anarchistcowboy", contributions: 1 },
 ];
 
@@ -184,6 +190,26 @@ export function HomeCreditsModal({ open, onClose }: { open: boolean; onClose: ()
               ]}
             />
           </p>
+          <p className="text-xs leading-relaxed text-[var(--muted-foreground)]">
+            <Trans
+              i18nKey="home.credits.providerIcons"
+              components={[
+                <a
+                  href={LOBE_ICONS_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-medium text-[var(--primary)] underline-offset-2 hover:underline"
+                />,
+                <a
+                  href={LOBE_ICONS_LICENSE_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-medium text-[var(--primary)] underline-offset-2 hover:underline"
+                />,
+              ]}
+            />
+          </p>
+          <p className="text-xs leading-relaxed text-[var(--muted-foreground)]">{t("home.credits.trademarks")}</p>
         </section>
       </div>
     </Modal>

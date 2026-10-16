@@ -28,7 +28,7 @@ import {
 import { Modal } from "../ui/Modal";
 import { SmoothFolderContent } from "../ui/SmoothFolderContent";
 import { ConnectionModelPicker } from "../connections/ConnectionModelPicker";
-import { ProviderIcon } from "../connections/ProviderIcon";
+import { BrandMark, ProviderIcon } from "../connections/ProviderIcon";
 import {
   useConnectionModels,
   useConnections,
@@ -164,9 +164,9 @@ function failureReason(provider: APIProvider, message: string): "plan" | "key" |
   return "other";
 }
 
-/** The service tile: its cached icon (never fetched here, decision 34b), else an icon or the initials. */
+/** The service tile: its bundled brand icon in colour on a neutral tile (decision 34c), else an icon or the initials. */
 function ServiceTile({ service, large = false }: { service: ServiceId; large?: boolean }) {
-  return <ProviderIcon provider={service} size={large ? "addLarge" : "add"} />;
+  return <ProviderIcon provider={service} size={large ? "addLarge" : "add"} color />;
 }
 
 /** Choice card (Agent editor / Download Agents rows): tile, name with up to two badges, a 2-line hint. */
@@ -791,6 +791,7 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
                   baseUrl.trim() === preset.url && "mari-chrome-control--selected",
                 )}
               >
+                <BrandMark of={preset.label} className="h-3 w-3" />
                 {preset.label}
               </button>
             ))}

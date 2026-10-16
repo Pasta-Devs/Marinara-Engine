@@ -31,6 +31,7 @@ import {
 import { isConnectionFlagTrue } from "../../lib/connection-filters";
 import { formatCompactTokenCount } from "../../lib/professor-mari-context-budget";
 import { subgroupByUpstream } from "../../lib/connection-groups";
+import { BrandMark } from "./ProviderIcon";
 import { SubscriptionCostPill } from "./SubscriptionCostPill";
 import { cn } from "../../lib/utils";
 
@@ -520,7 +521,10 @@ export function ConnectionModelPicker({
                   ? subgroupByUpstream(otherRows.map((row) => ({ ...row, model: row.id }))).map((group) => (
                       <div key={group.upstream ?? ""} data-model-upstream={group.upstream ?? undefined}>
                         {group.upstream && (
-                          <p className="px-3 pb-0.5 pt-1.5 text-[0.625rem] text-foreground/40">{group.upstream}</p>
+                          <p className="flex items-center gap-1.5 px-3 pb-0.5 pt-1.5 text-[0.625rem] text-foreground/40">
+                            <BrandMark of={group.upstream} className="h-3 w-3" />
+                            {group.upstream}
+                          </p>
                         )}
                         {group.rows.map((row) => renderRow(row, false))}
                       </div>

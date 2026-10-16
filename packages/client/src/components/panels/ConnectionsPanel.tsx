@@ -27,12 +27,7 @@ import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import { PROVIDERS, isChatProvider, parsePinnedModels, type APIProvider } from "@marinara-engine/shared";
 import { useConnections, useMoveConnection, useUploadConnectionImage } from "../../hooks/use-connections";
-import {
-  useConnectionAccounts,
-  useProviderIcons,
-  useSetProviderIconsEnabled,
-  useUpdateConnectionAccount,
-} from "../../hooks/use-connection-accounts";
+import { useConnectionAccounts, useUpdateConnectionAccount } from "../../hooks/use-connection-accounts";
 import { starAnchorOf, useHiddenModelIds, useModelStar } from "../../hooks/use-model-star";
 import type { DeviceItem } from "../../hooks/use-device-setup";
 import { useChatStore } from "../../stores/chat.store";
@@ -51,7 +46,7 @@ import { ConnectionRow, isMediaRow, type ConnectionRowData } from "../connection
 import { ConnectionDetail, hostOf } from "../connections/ConnectionDetail";
 import { ConnectionDefaultsDetail, useConnectionDefaults } from "../connections/ConnectionDefaults";
 import { DeviceDetail, SMALL_ACTION, StateWord, useDeviceEngines } from "../connections/DeviceDetail";
-import { ProviderIcon } from "../connections/ProviderIcon";
+import { BrandMark, ProviderIcon } from "../connections/ProviderIcon";
 import { openAddConnection } from "../../lib/add-connection";
 import { useChatModelPick } from "../connections/ConnectionSwitcherBody";
 import { PanelSection } from "../ui/PanelSection";
@@ -175,8 +170,6 @@ export function ConnectionsPanel() {
   const uploadConnectionImage = useUploadConnectionImage();
   const moveConnection = useMoveConnection();
   const updateAccount = useUpdateConnectionAccount();
-  const { data: iconState } = useProviderIcons();
-  const setIconsEnabled = useSetProviderIconsEnabled();
   const activeChat = useChatStore((s) => s.activeChat);
   const chatPick = useChatModelPick(activeChat?.id ?? null);
   const modelStar = useModelStar();
@@ -579,17 +572,20 @@ export function ConnectionsPanel() {
           </div>
           {!linkApiBannerDismissed && (
             <div className="mt-1 flex flex-col gap-2 rounded-xl border border-sky-400/20 bg-gradient-to-br from-sky-400/5 to-blue-500/5 p-3">
-              <p className="text-xs text-[var(--muted-foreground)]">
-                {t("ui.panels.connectionspanel.lookingToTryNewModelsFromATrustedProvider")}{" "}
-                <a
-                  href="https://linkapi.ai/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="font-medium text-sky-400 underline decoration-sky-400/30 transition-colors hover:text-sky-300"
-                >
-                  {t("ui.panels.connectionspanel.linkapi")}
-                </a>
-                !
+              <p className="flex items-start gap-2 text-xs text-[var(--muted-foreground)]">
+                <BrandMark of="linkapi" color className="h-6 w-6" />
+                <span>
+                  {t("ui.panels.connectionspanel.lookingToTryNewModelsFromATrustedProvider")}{" "}
+                  <a
+                    href="https://linkapi.ai/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-medium text-sky-400 underline decoration-sky-400/30 transition-colors hover:text-sky-300"
+                  >
+                    {t("ui.panels.connectionspanel.linkapi")}
+                  </a>
+                  !
+                </span>
               </p>
               <div className="grid min-w-0 grid-cols-2 gap-2">
                 <a
@@ -715,7 +711,6 @@ export function ConnectionsPanel() {
     }
   }
 
-  const iconsEnabled = iconState?.enabled ?? true;
   const header = (
     <>
       <div className="flex gap-2">
@@ -776,14 +771,6 @@ export function ConnectionsPanel() {
             autoFocus={headerMenu.keyboard}
             onClose={() => setHeaderMenu(null)}
             items={[
-              {
-                label: t("connections.list.loadIcons"),
-                hint: t("connections.list.loadIconsHint"),
-                icon: <ImageIcon size="0.75rem" />,
-                checked: iconsEnabled,
-                disabled: setIconsEnabled.isPending,
-                onSelect: () => setIconsEnabled.mutate(!iconsEnabled),
-              },
               {
                 label: t("connections.list.exportAll"),
                 icon: <Upload size="0.75rem" />,

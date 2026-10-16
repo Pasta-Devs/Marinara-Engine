@@ -87,6 +87,7 @@ import {
 import { DraftNumberInput } from "../ui/DraftNumberInput";
 import { decisionConnectionTestMessage } from "../../lib/decision-test-message";
 import { AtlasCloudModelOptions } from "./AtlasCloudModelOptions";
+import { BrandMark } from "./ProviderIcon";
 import { SubscriptionUsageWidget } from "./SubscriptionUsageWidget";
 import { SubscriptionCostPill } from "./SubscriptionCostPill";
 import { HelpTooltip } from "../ui/HelpTooltip";
@@ -2645,6 +2646,7 @@ export function ConnectionEditor() {
                         )}
                       >
                         <div className="flex items-center gap-1.5">
+                          <BrandMark of={src.id} className="h-3 w-3" />
                           <span className="font-medium">{sourceName}</span>
                           {isActive && <Check size="0.625rem" />}
                         </div>
@@ -2734,6 +2736,7 @@ export function ConnectionEditor() {
                         )}
                       >
                         <div className="flex items-center gap-1.5">
+                          <BrandMark of={src.id} className="h-3 w-3" />
                           <span className="font-medium">{sourceName}</span>
                           {isActive && <Check size="0.625rem" />}
                         </div>
@@ -2791,6 +2794,7 @@ export function ConnectionEditor() {
                         )}
                       >
                         <div className="flex items-center gap-1.5">
+                          <BrandMark of={src.id} className="h-3 w-3" />
                           <span className="font-medium">{src.name}</span>
                           {isActive && <Check size="0.625rem" />}
                         </div>

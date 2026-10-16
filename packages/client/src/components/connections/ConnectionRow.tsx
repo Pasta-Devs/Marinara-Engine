@@ -64,6 +64,7 @@ export type ConnectionRowData = {
   imageEndpointId?: string | null;
   videoGenerationSource?: string | null;
   videoService?: string | null;
+  audioSource?: string | null;
   defaultParameters?: string | null;
   promptPresetId?: string | null;
   maxContext?: number;
@@ -353,6 +354,7 @@ export function ConnectionRow({
           <ProviderIcon
             provider={account?.provider ?? row.provider}
             baseUrl={account?.baseUrl ?? row.baseUrl}
+            service={row.imageService ?? row.videoService ?? row.audioSource}
             name={account?.name ?? row.name}
             size="sm"
             dim={!!unavailable}

@@ -2,19 +2,8 @@
 // ConnectionDetail — one Connection's page in the Connections panel (variant D): hero with state, service and
 // host; Test / Edit / Add model; the problem strip; usage; "Your models", grouped by upstream; Browse all models.
 // ──────────────────────────────────────────────
-import { useState, type ReactNode } from "react";
-import {
-  AlertTriangle,
-  ChevronRight,
-  ImageIcon,
-  Loader2,
-  MoreHorizontal,
-  Plus,
-  RefreshCw,
-  Search,
-  Settings2,
-  Wifi,
-} from "lucide-react";
+import type { ReactNode } from "react";
+import { AlertTriangle, ChevronRight, ImageIcon, Loader2, Plus, Search, Settings2, Wifi } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
@@ -25,15 +14,14 @@ import {
   type ConnectionAccountListItem,
 } from "@marinara-engine/shared";
 import { useCreateConnection, useDuplicateConnection, useTestConnection } from "../../hooks/use-connections";
-import { useRefreshProviderIcon, useUpdateConnectionAccount } from "../../hooks/use-connection-accounts";
+import { useUpdateConnectionAccount } from "../../hooks/use-connection-accounts";
 import { starAnchorOf } from "../../hooks/use-model-star";
 import { subgroupByUpstream } from "../../lib/connection-groups";
 import { useUIStore } from "../../stores/ui.store";
 import { openAddModels } from "../../lib/add-connection";
 import { cn } from "../../lib/utils";
-import { ContextMenu } from "../ui/ContextMenu";
 import { SubscriptionUsageWidget } from "./SubscriptionUsageWidget";
-import { ProviderIcon } from "./ProviderIcon";
+import { BrandMark, ProviderIcon } from "./ProviderIcon";
 import { DETAIL_CARD_CLASS, DetailHero, SMALL_ACTION, StateWord, type EngineTone } from "./DeviceDetail";
 import { modelSubtitle, type ConnectionRowData } from "./ConnectionRow";
 
@@ -63,9 +51,7 @@ export function ConnectionDetail({
   const duplicate = useDuplicateConnection();
   const createConnection = useCreateConnection();
   const updateAccount = useUpdateConnectionAccount();
-  const refreshIcon = useRefreshProviderIcon();
   const test = useTestConnection();
-  const [menu, setMenu] = useState<{ x: number; y: number; keyboard: boolean } | null>(null);
 
   // The anchor Model: Add model shows and keeps the Connection's stars on it.
   const chatRow = starAnchorOf(rows) ?? null;
@@ -109,13 +95,6 @@ export function ConnectionDetail({
             },
           })
         : openModal("create-connection", { provider: account.provider });
-  const refresh = () =>
-    refreshIcon.mutate(account.id, {
-      onSuccess: ({ cached }) =>
-        toast(cached ? t("connections.detail.iconRefreshed") : t("connections.detail.iconMissing")),
-      onError: (error) => toast.error(error instanceof Error ? error.message : t("connections.detail.iconFailed")),
-    });
-
   const service = PROVIDERS[account.provider as APIProvider]?.name ?? account.provider;
   const host = hostOf(account.baseUrl);
   const editAccount = () => openModal("connection-account", { accountId: account.id });
@@ -172,37 +151,6 @@ export function ConnectionDetail({
             <ImageIcon size="0.75rem" />
             {t("connections.accounts.addImageModel")}
           </button>
-        )}
-        <button
-          type="button"
-          onClick={(event) => {
-            const rect = event.currentTarget.getBoundingClientRect();
-            setMenu({ x: rect.right, y: rect.bottom, keyboard: event.detail === 0 });
-          }}
-          className={cn(SMALL_ACTION, "w-8 !px-0 max-md:w-11")}
-          title={t("connections.accounts.header.more")}
-          aria-label={t("connections.accounts.header.more")}
-          aria-haspopup="menu"
-          aria-expanded={!!menu}
-        >
-          <MoreHorizontal size="0.875rem" />
-        </button>
-        {menu && (
-          <ContextMenu
-            x={menu.x}
-            y={menu.y}
-            autoFocus={menu.keyboard}
-            onClose={() => setMenu(null)}
-            items={[
-              {
-                label: t("connections.detail.refreshIcon"),
-                icon: <RefreshCw size="0.75rem" />,
-                disabled: refreshIcon.isPending,
-                onSelect: refresh,
-              },
-              { label: t("connections.detail.edit"), icon: <Settings2 size="0.75rem" />, onSelect: editAccount },
-            ]}
-          />
         )}
       </div>
 
@@ -280,7 +228,8 @@ export function ConnectionDetail({
           ).map((group) => (
             <div key={group.upstream ?? ""} className="flex flex-col gap-0.5">
               {group.upstream && (
-                <p className="px-2 pt-2 text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
+                <p className="flex items-center gap-1.5 px-2 pt-2 text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
+                  <BrandMark of={group.upstream} className="h-3 w-3" />
                   {t("connections.accounts.upstreamHeading", { upstream: group.upstream, count: group.rows.length })}
                 </p>
               )}
