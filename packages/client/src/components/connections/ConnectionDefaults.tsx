@@ -1,7 +1,8 @@
 // ──────────────────────────────────────────────
 // ConnectionDefaults — "Who does what" (variant D): which Model or service each job uses, as one vertical list.
 // Every job is a section with its pickers in view (the way staging's Defaults card reads); a problem shows inside
-// its section with its fix. The panel list shows the summary row (Main and the problem count).
+// its section with its fix. The panel list shows the summary card (Main and the problem count); on a narrow panel
+// it unfolds this list in place (`compact`).
 // Device jobs (Voice, Speech to text) open their engine's page, or the Add window when the engine is not set up.
 // ──────────────────────────────────────────────
 import { useMemo, useState, type ReactNode } from "react";
@@ -396,9 +397,12 @@ function DeviceJobRow({ tile, onClick }: { tile: DefaultsTile; onClick: () => vo
 export function ConnectionDefaultsDetail({
   connectionsList,
   onOpenDevice,
+  compact = false,
 }: {
   connectionsList: ConnectionRowData[];
   onOpenDevice: (item: DeviceItem) => void;
+  /** Inline under the list's Defaults card: no page heading, no card of its own. */
+  compact?: boolean;
 }) {
   const { t } = useTranslation();
   const { tiles } = useConnectionDefaults(connectionsList);
@@ -529,17 +533,19 @@ export function ConnectionDefaultsDetail({
 
   return (
     <div className="flex flex-col gap-3">
-      <DetailHero
-        icon={
-          <span className="mari-panel-gradient-surface mari-panel-gradient--connections flex h-11 w-11 shrink-0 items-center justify-center rounded-xl shadow-sm">
-            <Settings2 size="1.25rem" />
-          </span>
-        }
-        title={t("connections.defaults.whoDoesWhat")}
-      >
-        <span>{t("connections.defaults.whoDoesWhatHelp")}</span>
-      </DetailHero>
-      <div className={cn(DETAIL_CARD_CLASS, "divide-y divide-[var(--border)]/50 p-0")}>
+      {!compact && (
+        <DetailHero
+          icon={
+            <span className="mari-panel-gradient-surface mari-panel-gradient--connections flex h-11 w-11 shrink-0 items-center justify-center rounded-xl shadow-sm">
+              <Settings2 size="1.25rem" />
+            </span>
+          }
+          title={t("connections.defaults.whoDoesWhat")}
+        >
+          <span>{t("connections.defaults.whoDoesWhatHelp")}</span>
+        </DetailHero>
+      )}
+      <div className={cn(!compact && DETAIL_CARD_CLASS, "divide-y divide-[var(--border)]/50 p-0")}>
         {tiles.map((tile) => (
           <RoleSection key={tile.key} role={tile.key} icon={tile.icon} title={tile.title} warning={tile.warning}>
             {tile.device || (tile.setup && tile.key !== "decision") ? (

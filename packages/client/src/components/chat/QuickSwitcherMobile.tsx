@@ -1,12 +1,13 @@
 // ──────────────────────────────────────────────
 // Quick Switcher Mobile — single chevron opens
 // a tabbed menu with Connections + Personas
-// (with persona group support). Tapping a
-// Connection opens its models as a second step;
-// a pick applies to this chat only.
+// (with persona group support). The Connections
+// tab is the shared chooser: Now pinned at the
+// top, a Connection's Browse opens its catalog in
+// place; a pick applies to this chat only.
 // ──────────────────────────────────────────────
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
-import { ChevronUp, ChevronDown, ChevronRight, Link, CircleUser, FolderOpen, Folder, Search } from "lucide-react";
+import { ChevronUp, ChevronDown, ChevronRight, Link, CircleUser, FolderOpen, Folder, Search, X } from "lucide-react";
 import { createPortal } from "react-dom";
 import { useCharacters, usePersonas, usePersonaGroups, useCharacterGroups } from "../../hooks/use-characters";
 import { useUpdateChat, useChat } from "../../hooks/use-chats";
@@ -238,8 +239,8 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
       const openAbove = spaceAbove >= spaceBelow;
       const anchoredSpace = openAbove ? spaceAbove : spaceBelow;
       const useViewportFallback = anchoredSpace < 160;
-      // The models step has a search box and a list, so it may grow taller than the connection list.
-      const maxHeight = Math.min(400, useViewportFallback ? window.innerHeight - 16 : anchoredSpace);
+      // The chooser and a Connection's catalog have a search box and a list, so the menu may use the room above.
+      const maxHeight = Math.min(560, useViewportFallback ? window.innerHeight - 16 : anchoredSpace);
       setPos({
         left,
         // Anchor by `bottom` when opening upwards so short content stays
@@ -314,13 +315,15 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
         type="button"
         ref={btnRef}
         onClick={() => setOpen((v) => !v)}
+        aria-haspopup="dialog"
+        aria-expanded={open}
         title={
           activeCharacterId && characters.find((character) => character.id === activeCharacterId)
             ? parseCharacterDisplayData(characters.find((character) => character.id === activeCharacterId)!).name
             : localizeUi("ui.chat.quickswitchermobile.quickSwitcher")
         }
         className={cn(
-          "flex h-9 w-9 items-center justify-center rounded-xl transition-all",
+          "flex h-11 w-11 items-center justify-center rounded-xl transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/25",
           open
             ? "bg-foreground/10 text-foreground/75 ring-1 ring-foreground/20"
             : "text-foreground/40 hover:bg-foreground/10 hover:text-foreground/70",
@@ -336,6 +339,8 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
         createPortal(
           <div
             ref={menuRef}
+            role="dialog"
+            aria-label={localizeUi(tab === "connections" ? "connections.switcher.title" : "navigation.topbar.personas")}
             data-chat-floating-panel
             data-quick-switcher-mobile-menu
             className={cn(
@@ -351,6 +356,7 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
                     ...(pos.top !== undefined ? { top: pos.top } : { bottom: pos.bottom }),
                     width: pos.width,
                     maxHeight: pos.maxHeight,
+                    height: tab === "connections" ? pos.maxHeight : undefined,
                   }
                 : { visibility: "hidden" as const }
             }
@@ -359,7 +365,7 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
               <button
                 onClick={() => setTab("connections")}
                 className={cn(
-                  "flex flex-1 items-center justify-center gap-1.5 px-3 py-2.5 text-[0.6875rem] font-semibold transition-colors",
+                  "flex min-h-11 flex-1 items-center justify-center gap-1.5 px-3 py-2.5 text-[0.6875rem] font-semibold transition-colors",
                   tab === "connections"
                     ? "border-b-2 border-foreground/25 bg-foreground/10 text-foreground/85"
                     : "text-foreground/50 hover:text-foreground/80",
@@ -371,7 +377,7 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
               <button
                 onClick={() => setTab("personas")}
                 className={cn(
-                  "flex flex-1 items-center justify-center gap-1.5 px-3 py-2.5 text-[0.6875rem] font-semibold transition-colors",
+                  "flex min-h-11 flex-1 items-center justify-center gap-1.5 px-3 py-2.5 text-[0.6875rem] font-semibold transition-colors",
                   tab === "personas"
                     ? "border-b-2 border-foreground/25 bg-foreground/10 text-foreground/85"
                     : "text-foreground/50 hover:text-foreground/80",
@@ -379,6 +385,14 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
               >
                 <CircleUser size="0.75rem" />
                 {localizeUi("navigation.topbar.personas")}
+              </button>
+              <button
+                type="button"
+                onClick={closeMenu}
+                aria-label={localizeUi("common.close")}
+                className="flex h-11 w-11 shrink-0 items-center justify-center text-foreground/55 outline-none transition-colors hover:bg-foreground/10 hover:text-foreground/80 focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-foreground/25"
+              >
+                <X size="1rem" aria-hidden />
               </button>
             </div>
             {tab === "personas" && (

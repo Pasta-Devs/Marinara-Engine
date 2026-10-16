@@ -1,21 +1,21 @@
 // ──────────────────────────────────────────────
-// Panel: Connections (variant D). The list: Defaults, then the Connections grouped (Chat, Images & voice), then the
-// engines set up on this device. Each row opens a detail page: two columns on a wide panel, a drill-in otherwise.
-// Each Connection shows its Models under it, open until the user folds it shut. Search finds models first; a model
-// result opens its editor.
+// Panel: Connections (concept A, the library). A toolbar (Import, Add, ⋯), search and a filter (All, Chat,
+// Images & voice); then the Defaults card, one folding card per Connection with its Models under it, and the
+// engines set up on this device. Defaults unfolds in place on a narrow panel; a wide panel shows it, a device or
+// the other Models as a second column, a narrow one drills in. Search and the filter narrow the cards in place:
+// a Connection that matches shows all its Models, and its fold still works.
 // ──────────────────────────────────────────────
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type ReactNode } from "react";
 import {
   AlertTriangle,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   CloudOff,
   Download,
   ExternalLink,
   HardDrive,
-  ImageIcon,
   Link,
-  MessageSquareText,
   MoreHorizontal,
   Plus,
   RefreshCw,
@@ -96,6 +96,8 @@ function ListRow({
   sub,
   label,
   fix,
+  expanded,
+  controls,
   onOpen,
 }: {
   /** The page the row opens: "defaults", "device:<item>" or "other". */
@@ -106,6 +108,9 @@ function ListRow({
   sub: ReactNode;
   label: string;
   fix?: { label: string; aria: string; run: () => void };
+  /** Set when the row unfolds its content in place instead of opening a page. */
+  expanded?: boolean;
+  controls?: string;
   onOpen: () => void;
 }) {
   return (
@@ -123,6 +128,8 @@ function ListRow({
         data-connections-row={rowKey}
         onClick={onOpen}
         aria-current={selected || undefined}
+        aria-expanded={expanded}
+        aria-controls={expanded ? controls : undefined}
         aria-label={label}
         className={cn(
           "group flex min-h-12 min-w-0 flex-1 items-center gap-2.5 rounded-xl p-2 text-left transition-colors hover:bg-[var(--sidebar-accent)]",
@@ -136,11 +143,21 @@ function ListRow({
             {sub}
           </span>
         </span>
-        {!fix && (
-          <ChevronRight
+        {expanded !== undefined ? (
+          <ChevronDown
             size="0.875rem"
-            className="shrink-0 text-[var(--muted-foreground)] opacity-60 group-hover:opacity-100"
+            className={cn(
+              "shrink-0 text-[var(--muted-foreground)] transition-transform motion-reduce:transition-none",
+              expanded && "rotate-180",
+            )}
           />
+        ) : (
+          !fix && (
+            <ChevronRight
+              size="0.875rem"
+              className="shrink-0 text-[var(--muted-foreground)] opacity-60 group-hover:opacity-100"
+            />
+          )
         )}
       </button>
       {fix && (
@@ -184,6 +201,10 @@ export function ConnectionsPanel() {
   const toggleConnectionCollapsed = useUIStore((s) => s.toggleConnectionCollapsed);
 
   const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState<"all" | "chat" | "media">("all");
+  /** Connections folded while a search runs; a new query unfolds every match again. */
+  const [searchFolded, setSearchFolded] = useState<string[]>([]);
+  const [defaultsOpen, setDefaultsOpen] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
   const [headerMenu, setHeaderMenu] = useState<{ x: number; y: number; keyboard: boolean } | null>(null);
   const [wide, setWide] = useState(false);
@@ -230,9 +251,8 @@ export function ConnectionsPanel() {
     const sorted = [...groups].sort((a, b) => a.account.name.localeCompare(b.account.name));
     const isMedia = (group: (typeof sorted)[number]) => group.rows.length > 0 && group.rows.every(isMediaRow);
     return {
-      all: sorted,
-      chat: sorted.filter((group) => !isMedia(group)),
-      media: sorted.filter(isMedia),
+      // Chat Connections first, then the image and voice ones.
+      all: [...sorted.filter((group) => !isMedia(group)), ...sorted.filter(isMedia)],
       // Until the Connections load, every Model would look standalone.
       standalone: accounts ? standalone : [],
     };
@@ -240,18 +260,28 @@ export function ConnectionsPanel() {
   const accountById = useMemo(() => new Map((accounts ?? []).map((account) => [account.id, account])), [accounts]);
 
   const query = search.trim().toLowerCase();
-  const results = useMemo(() => {
-    if (!query) return null;
-    return {
-      models: connectionsList.filter((row) => connectionMatchesSearch(row, query)),
-      accounts: grouped.all.filter(({ account }) =>
+  const visible = useMemo(() => {
+    const kindShown = (row: ConnectionRowData) => filter === "all" || (filter === "media") === isMediaRow(row);
+    const rowShown = (row: ConnectionRowData) => kindShown(row) && connectionMatchesSearch(row, query);
+    const groups = grouped.all.flatMap((group) => {
+      const { account } = group;
+      const accountHit =
+        !!query &&
         [account.name, PROVIDERS[account.provider as APIProvider]?.name ?? account.provider, hostOf(account.baseUrl)]
           .join(" ")
           .toLowerCase()
-          .includes(query),
-      ),
+          .includes(query);
+      const visibleRows = group.rows.filter((row) => (accountHit ? kindShown(row) : rowShown(row)));
+      const showEmpty = group.rows.length === 0 && filter !== "media" && (!query || accountHit);
+      if (visibleRows.length === 0 && !showEmpty) return [];
+      return [{ ...group, visibleRows }];
+    });
+    return {
+      groups,
+      standalone: grouped.standalone.filter(rowShown),
+      engines: query ? engines.filter((engine) => engine.name.toLowerCase().includes(query)) : engines,
     };
-  }, [connectionsList, grouped.all, query]);
+  }, [engines, filter, grouped, query]);
 
   // A wide panel always shows a page: the chosen one, else Defaults.
   const firstKey = "defaults";
@@ -431,13 +461,20 @@ export function ConnectionsPanel() {
   };
 
   // ── List rows ──
-  const accountRow = ({ account, rows }: (typeof grouped.all)[number]) => (
+  const accountRow = ({ account, rows, visibleRows }: (typeof visible.groups)[number]) => (
     <ConnectionGroup
       key={account.id}
       account={account}
       rows={rows}
-      open={!collapsedConnections.includes(account.id)}
-      onToggle={() => toggleConnectionCollapsed(account.id)}
+      visibleRows={visibleRows}
+      open={query ? !searchFolded.includes(account.id) : !collapsedConnections.includes(account.id)}
+      onToggle={() =>
+        query
+          ? setSearchFolded((ids) =>
+              ids.includes(account.id) ? ids.filter((id) => id !== account.id) : [...ids, account.id],
+            )
+          : toggleConnectionCollapsed(account.id)
+      }
       renderRow={(row, subtitle) => renderRow(row, subtitle)}
       tile={
         <ProviderIcon
@@ -451,68 +488,97 @@ export function ConnectionsPanel() {
     />
   );
 
+  // An engine without its page yet (its state still loading) opens its set-up screen instead.
+  const openDevice = (item: DeviceItem) =>
+    engines.some((engine) => engine.item === item)
+      ? select(`device:${item}`)
+      : openAddConnection({ category: "device", item });
   const problemCount = defaults.problems.length;
-  const defaultsRow = (
-    <ListRow
-      key="defaults"
-      rowKey="defaults"
-      selected={wide && current === "defaults"}
-      tile={<SettingsTile />}
-      title={t("connections.defaults.title")}
-      label={
-        problemCount
-          ? t("connections.list.defaultsLabelProblems", { model: defaults.mainLabel, count: problemCount })
-          : t("connections.list.defaultsLabel", { model: defaults.mainLabel })
-      }
-      sub={
-        <>
-          <span className="truncate">{t("connections.list.main", { model: defaults.mainLabel })}</span>
-          {problemCount > 0 && (
-            <span className="inline-flex shrink-0 items-center gap-1 text-[var(--marinara-app-accent-static)]">
-              <AlertTriangle size="0.6875rem" />
-              {t("connections.list.problems", { count: problemCount })}
+  const mainTile = defaults.tiles[0];
+  // A wide panel shows Defaults as its second column; a narrow one unfolds it here.
+  const defaultsCard = (
+    <div key="defaults" className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-1">
+      <ListRow
+        rowKey="defaults"
+        selected={wide && current === "defaults"}
+        tile={<SettingsTile />}
+        title={t("connections.defaults.title")}
+        label={
+          problemCount
+            ? t("connections.list.defaultsLabelProblems", { model: defaults.mainLabel, count: problemCount })
+            : t("connections.list.defaultsLabel", { model: defaults.mainLabel })
+        }
+        sub={
+          <>
+            <span className="min-w-0 truncate">
+              {mainTile?.hint && !mainTile.muted
+                ? t("connections.defaults.summaryWithConnection", {
+                    model: defaults.mainLabel,
+                    connection: mainTile.hint,
+                  })
+                : t("connections.defaults.summary", { model: defaults.mainLabel })}
             </span>
-          )}
-        </>
-      }
-      onOpen={() => select("defaults")}
-    />
+            {problemCount > 0 && (
+              <span className="inline-flex shrink-0 items-center gap-1 text-[var(--marinara-app-accent-static)]">
+                <AlertTriangle size="0.6875rem" />
+                {t("connections.list.problems", { count: problemCount })}
+              </span>
+            )}
+          </>
+        }
+        expanded={wide ? undefined : defaultsOpen}
+        controls="connections-defaults"
+        onOpen={() => (wide ? select("defaults") : setDefaultsOpen((open) => !open))}
+      />
+      {!wide && defaultsOpen && (
+        <div id="connections-defaults" className="-mx-1 -mb-1 mt-1 border-t border-[var(--border)]">
+          <ConnectionDefaultsDetail compact connectionsList={connectionsList} onOpenDevice={openDevice} />
+        </div>
+      )}
+    </div>
   );
-  const deviceGroup = engines.length > 0 && (
+  const deviceGroup = visible.engines.length > 0 && (
     <PanelSection title={t("connections.accounts.section.device")} icon={<HardDrive size="0.75rem" />}>
-      {engines.map((engine) => {
-        const key = `device:${engine.item}`;
-        return (
-          <ListRow
-            key={key}
-            rowKey={key}
-            selected={wide && current === key}
-            tile={<ProviderIcon provider={engine.item} />}
-            title={engine.name}
-            label={t("connections.list.rowLabel", { name: engine.name, state: engine.state })}
-            sub={
-              <>
-                <StateWord tone={engine.tone} label={engine.state} />
-                {engine.detail && <span>· {engine.detail}</span>}
-              </>
-            }
-            fix={
-              engine.fix && {
-                label: engine.fix.label,
-                aria: t("connections.list.fixFor", { action: engine.fix.label, name: engine.name }),
-                run: engine.fix.run,
+      <div className="flex flex-col gap-0.5 rounded-xl border border-[var(--border)] bg-[var(--card)] p-1">
+        {visible.engines.map((engine) => {
+          const key = `device:${engine.item}`;
+          return (
+            <ListRow
+              key={key}
+              rowKey={key}
+              selected={wide && current === key}
+              tile={<ProviderIcon provider={engine.item} />}
+              title={engine.name}
+              label={t("connections.list.rowLabel", { name: engine.name, state: engine.state })}
+              sub={
+                <>
+                  <StateWord tone={engine.tone} label={engine.state} />
+                  {engine.detail && <span>· {engine.detail}</span>}
+                </>
               }
-            }
-            onOpen={() => select(key)}
-          />
-        );
-      })}
+              fix={
+                engine.fix && {
+                  label: engine.fix.label,
+                  aria: t("connections.list.fixFor", { action: engine.fix.label, name: engine.name }),
+                  run: engine.fix.run,
+                }
+              }
+              onOpen={() => select(key)}
+            />
+          );
+        })}
+      </div>
     </PanelSection>
   );
 
   const noConnections = !isLoading && !loadFailed && connectionsList.length === 0 && (accounts?.length ?? 0) === 0;
+  // Only a search or a filter can hide everything; an unfiltered list is never "no match".
+  const nothingShown =
+    (query ? visible.engines.length === 0 : filter !== "all") &&
+    visible.groups.length === 0 &&
+    visible.standalone.length === 0;
   const list = (
-    <div className="flex flex-col gap-0.5">
+    <div className="flex flex-col gap-2">
       {loadFailed ? (
         // ERR-1: a failed load never looks like an empty list.
         <div className="rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-3" role="alert">
@@ -545,7 +611,7 @@ export function ConnectionsPanel() {
         </div>
       ) : noConnections ? (
         <>
-          {defaultsRow}
+          {defaultsCard}
           <div className="mt-1 flex flex-col items-start gap-2 rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-3">
             <p className="text-sm font-medium text-[var(--foreground)]">{t("connections.list.emptyTitle")}</p>
             <p className="text-[0.6875rem] text-[var(--muted-foreground)]">{t("connections.list.emptyHelp")}</p>
@@ -591,35 +657,45 @@ export function ConnectionsPanel() {
         </>
       ) : (
         <>
-          {defaultsRow}
+          {defaultsCard}
           {/* The rows show no stars: every saved Model has one. */}
-          {(grouped.chat.length > 0 || grouped.media.length > 0) && (
-            <p className="flex items-center gap-1.5 px-2 pt-1 text-[0.6875rem] text-[var(--muted-foreground)]">
+          {grouped.all.length > 0 && (
+            <p className="flex items-center gap-1.5 px-2 text-[0.6875rem] text-[var(--muted-foreground)]">
               <Star size="0.75rem" className="shrink-0 fill-current text-[var(--primary)]" aria-hidden />
               {t("connections.list.starredHint")}
             </p>
           )}
-          {grouped.chat.length > 0 && (
-            <PanelSection title={t("connections.accounts.section.chat")} icon={<MessageSquareText size="0.75rem" />}>
-              {grouped.chat.map((group) => accountRow(group))}
-            </PanelSection>
-          )}
-          {grouped.media.length > 0 && (
-            <PanelSection title={t("connections.accounts.section.media")} icon={<ImageIcon size="0.75rem" />}>
-              {grouped.media.map((group) => accountRow(group))}
-            </PanelSection>
-          )}
-          {grouped.standalone.length > 0 && (
+          <p
+            className={nothingShown ? "px-2 py-6 text-center text-xs text-[var(--muted-foreground)]" : "sr-only"}
+            role="status"
+          >
+            {nothingShown
+              ? query
+                ? t("connections.list.noMatch", { query: search.trim() })
+                : t("connections.list.noneOfKind")
+              : null}
+          </p>
+          {visible.groups.map((group) => accountRow(group))}
+          {visible.standalone.length > 0 && (
             <PanelSection title={t("connections.accounts.section.other")} icon={<Link size="0.75rem" />}>
-              <ListRow
-                rowKey="other"
-                selected={wide && current === "other"}
-                tile={<ProviderIcon provider="custom" />}
-                title={t("connections.accounts.section.other")}
-                label={t("connections.accounts.section.other")}
-                sub={<span>{t("connections.list.models", { count: grouped.standalone.length })}</span>}
-                onOpen={() => select("other")}
-              />
+              {query ? (
+                // A search lists the matching Models here; otherwise they wait on their own page.
+                <div className="flex flex-col gap-0.5 rounded-xl border border-[var(--border)] bg-[var(--card)] p-1">
+                  {visible.standalone.map((row) => renderRow(row))}
+                </div>
+              ) : (
+                <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-1">
+                  <ListRow
+                    rowKey="other"
+                    selected={wide && current === "other"}
+                    tile={<ProviderIcon provider="custom" />}
+                    title={t("connections.accounts.section.other")}
+                    label={t("connections.accounts.section.other")}
+                    sub={<span>{t("connections.list.models", { count: grouped.standalone.length })}</span>}
+                    onOpen={() => select("other")}
+                  />
+                </div>
+              )}
             </PanelSection>
           )}
         </>
@@ -628,42 +704,6 @@ export function ConnectionsPanel() {
     </div>
   );
 
-  const searchResults = results && (
-    <div className="flex flex-col gap-0.5" aria-live="polite">
-      {results.models.length === 0 && results.accounts.length === 0 ? (
-        <p className="px-2 py-6 text-center text-xs text-[var(--muted-foreground)]">
-          {t("connections.list.noMatch", { query: search.trim() })}
-        </p>
-      ) : (
-        <>
-          {results.models.length > 0 && (
-            <>
-              <p className="px-2 pb-0.5 pt-2 text-[0.6875rem] font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">
-                {t("connections.list.modelsHeading", { count: results.models.length })}
-              </p>
-              {results.models.map((row) =>
-                renderRow(row, undefined, row.accountId ? accountById.get(row.accountId)?.name : undefined),
-              )}
-            </>
-          )}
-          {results.accounts.length > 0 && (
-            <>
-              <p className="px-2 pb-0.5 pt-2 text-[0.6875rem] font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">
-                {t("connections.list.connectionsHeading", { count: results.accounts.length })}
-              </p>
-              {results.accounts.map((group) => accountRow(group))}
-            </>
-          )}
-        </>
-      )}
-    </div>
-  );
-
-  // An engine without its page yet (its state still loading) opens its set-up screen instead.
-  const openDevice = (item: DeviceItem) =>
-    engines.some((engine) => engine.item === item)
-      ? select(`device:${item}`)
-      : openAddConnection({ category: "device", item });
   let detail: ReactNode = null;
   if (current === "defaults") {
     detail = <ConnectionDefaultsDetail connectionsList={connectionsList} onOpenDevice={openDevice} />;
@@ -672,7 +712,13 @@ export function ConnectionsPanel() {
       <DeviceDetail
         key={current}
         item={current.slice("device:".length) as DeviceItem}
-        onOpenDefaults={() => select("defaults")}
+        onOpenDefaults={() => {
+          if (wide) return select("defaults");
+          // A narrow panel goes back to the list and unfolds Defaults there.
+          returnKeyRef.current = "defaults";
+          setDefaultsOpen(true);
+          setSelected(null);
+        }}
       />
     );
   } else if (current === "other") {
@@ -688,11 +734,21 @@ export function ConnectionsPanel() {
 
   const header = (
     <>
-      <div className="flex gap-2">
+      <div className="flex items-center justify-end gap-1.5">
+        <button
+          type="button"
+          onClick={() => openModal("import-connection")}
+          className="mari-chrome-control mari-chrome-control--small !min-h-9 px-3 text-xs max-md:!min-h-11 [@media(pointer:coarse)]:!min-h-11"
+          title={t("ui.panels.connectionspanel.importConnection")}
+          aria-label={t("ui.panels.connectionspanel.importConnection")}
+        >
+          <Download size="0.8125rem" />
+          {t("connections.accounts.header.import")}
+        </button>
         <button
           type="button"
           onClick={() => openModal("create-connection")}
-          className="mari-panel-gradient-button mari-panel-gradient--connections flex-1 text-xs"
+          className="mari-panel-gradient-button mari-panel-gradient--connections !min-h-9 px-3 py-0 text-xs max-md:!min-h-11 [@media(pointer:coarse)]:!min-h-11"
           title={t("ui.panels.connectionspanel.createConnection")}
         >
           <Plus size="0.8125rem" />
@@ -700,38 +756,11 @@ export function ConnectionsPanel() {
         </button>
         <button
           type="button"
-          onClick={() => openModal("import-connection")}
-          className="mari-chrome-control mari-chrome-control--primary px-3 text-xs"
-          title={t("ui.panels.connectionspanel.importConnection")}
-          aria-label={t("ui.panels.connectionspanel.importConnection")}
-        >
-          <Download size="0.8125rem" />
-          {t("connections.accounts.header.import")}
-        </button>
-      </div>
-      <div className="flex gap-1.5">
-        <div className="relative flex-1">
-          <Search
-            size="0.8125rem"
-            className="mari-chrome-field-icon pointer-events-none absolute left-3 top-1/2 -translate-y-1/2"
-          />
-          <input
-            type="text"
-            placeholder={t("connections.list.search")}
-            aria-label={t("connections.list.search")}
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            autoComplete="off"
-            className="mari-chrome-field h-10 w-full py-0 pl-8 pr-3 text-xs md:h-9"
-          />
-        </div>
-        <button
-          type="button"
           onClick={(event) => {
             const rect = event.currentTarget.getBoundingClientRect();
             setHeaderMenu({ x: rect.right, y: rect.bottom + 4, keyboard: event.detail === 0 });
           }}
-          className="mari-chrome-control mari-chrome-control--small h-10 min-h-0 w-10 !p-0 md:h-9 md:w-9"
+          className="mari-chrome-control mari-chrome-control--small h-11 min-h-0 w-11 !p-0 md:h-9 md:w-9 [@media(pointer:coarse)]:!h-11 [@media(pointer:coarse)]:!w-11"
           title={t("connections.accounts.header.more")}
           aria-label={t("connections.accounts.header.more")}
           aria-haspopup="menu"
@@ -755,6 +784,46 @@ export function ConnectionsPanel() {
             ]}
           />
         )}
+      </div>
+      <div className="relative">
+        <Search
+          size="0.8125rem"
+          className="mari-chrome-field-icon pointer-events-none absolute left-3 top-1/2 -translate-y-1/2"
+        />
+        <input
+          type="search"
+          placeholder={t("connections.list.search")}
+          aria-label={t("connections.list.search")}
+          value={search}
+          onChange={(event) => {
+            setSearch(event.target.value);
+            setSearchFolded([]);
+          }}
+          autoComplete="off"
+          className="mari-chrome-field h-11 w-full py-0 pl-8 pr-3 text-xs md:h-9 [@media(pointer:coarse)]:h-11"
+        />
+      </div>
+      <div role="group" aria-label={t("connections.list.filterLabel")} className="mari-chrome-segmented !min-h-0">
+        {(
+          [
+            ["all", t("connections.list.filter.all")],
+            ["chat", t("connections.accounts.section.chat")],
+            ["media", t("connections.accounts.section.media")],
+          ] as const
+        ).map(([value, label]) => (
+          <button
+            key={value}
+            type="button"
+            aria-pressed={filter === value}
+            onClick={() => setFilter(value)}
+            className={cn(
+              "mari-chrome-segmented__button !min-h-9 truncate px-1.5 text-xs max-md:!min-h-11 motion-reduce:transition-none [@media(pointer:coarse)]:!min-h-11",
+              FOCUS,
+            )}
+          >
+            {label}
+          </button>
+        ))}
       </div>
       {upgradedFromModels && !upgradeNoteDismissed && (
         <div
@@ -787,7 +856,7 @@ export function ConnectionsPanel() {
     <>
       {header}
       <div className="flex min-h-0 gap-3">
-        <div className="w-72 shrink-0">{searchResults ?? list}</div>
+        <div className="w-80 shrink-0">{list}</div>
         <div className="min-w-0 flex-1 border-l border-[var(--border)]/50 pl-3">
           {detail ?? (
             <p className="px-2 py-6 text-xs text-[var(--muted-foreground)]">{t("connections.list.nothingToShow")}</p>
@@ -818,7 +887,7 @@ export function ConnectionsPanel() {
   ) : (
     <>
       {header}
-      {searchResults ?? list}
+      {list}
     </>
   );
 

@@ -1,11 +1,12 @@
 // ────────────────────────────────────────────────
-// Modal: Add connection (service → key/URL with test → pick models → ready)
-// From 768 px the service list and the chosen service sit side by side (the Download Agents
-// layout); smaller screens get the same parts as three screens in a full-screen sheet.
+// Modal: Add connection (service → access with an inline test → star models → ready)
+// One screen per step with Back, "Step n of 4" and one primary in the footer; phones get a
+// full-screen sheet. Main and "use in this chat" are explicit choices on the last screen.
 // ────────────────────────────────────────────────
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { AlertCircle, Check, ChevronDown, ChevronLeft, ExternalLink, Eye, EyeOff, Loader2, Search } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
 import {
   MODEL_LISTS,
   PROVIDERS,
@@ -31,7 +32,9 @@ import {
   useDeleteConnectionAccount,
   useUpdateConnectionAccount,
 } from "../../hooks/use-connection-accounts";
+import { useSetChatModel } from "../../hooks/use-chats";
 import { useUIStore } from "../../stores/ui.store";
+import { useChatStore } from "../../stores/chat.store";
 import { useSidecarStore } from "../../stores/sidecar.store";
 import { useDeviceSetup, type DeviceItem } from "../../hooks/use-device-setup";
 import type { ModelsFor } from "../../lib/add-connection";
@@ -62,9 +65,8 @@ type DeviceService = "local_model" | "tts" | "stt";
 export type ServiceId = APIProvider | DeviceService;
 const DEVICE_ITEMS: Record<DeviceService, DeviceItem> = { local_model: "local-model", tts: "tts", stt: "stt" };
 const isDevice = (service: ServiceId | null): service is DeviceService => !!service && service in DEVICE_ITEMS;
-type Kind = "all" | "chat" | "image" | "video" | "voice" | "local";
+type Kind = "chat" | "image" | "video" | "voice" | "local";
 
-const KINDS: Kind[] = ["all", "chat", "image", "video", "voice", "local"];
 const SERVICE_KINDS: Partial<Record<ServiceId, Kind[]>> = {
   custom: ["chat", "local"],
   local_model: ["local"],
@@ -77,6 +79,7 @@ const SERVICE_KINDS: Partial<Record<ServiceId, Kind[]>> = {
   decision: [],
 };
 const kindsOf = (service: ServiceId) => SERVICE_KINDS[service] ?? ["chat"];
+const errorText = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
 /** Open groups are the paths most people take; the long vendor list folds behind a chevron. */
 const SERVICE_GROUPS: Array<{ id: string; services: ServiceId[]; collapsed?: boolean }> = [
@@ -163,6 +166,7 @@ function ServiceCard({
   service,
   name,
   hint,
+  kinds,
   badges,
   selected,
   onClick,
@@ -170,6 +174,8 @@ function ServiceCard({
   service: ServiceId;
   name: string;
   hint: string;
+  /** What it gives, like "Chat · Images". */
+  kinds: string;
   badges: Array<{ label: string; highlight?: boolean }>;
   selected: boolean;
   onClick: () => void;
@@ -181,7 +187,7 @@ function ServiceCard({
       onClick={onClick}
       aria-pressed={selected}
       aria-label={name}
-      aria-description={[hint, ...badges.map((badge) => badge.label)].join(". ")}
+      aria-description={[hint, kinds, ...badges.map((badge) => badge.label)].filter(Boolean).join(". ")}
       className="mari-chrome-control mari-chrome-control--card min-h-16 p-3 text-xs"
     >
       <span className="flex min-w-0 items-start gap-3">
@@ -200,6 +206,9 @@ function ServiceCard({
           <span className="mt-0.5 line-clamp-2 text-[0.6875rem] leading-snug text-[var(--muted-foreground)]">
             {hint}
           </span>
+          {kinds && (
+            <span className="mt-0.5 block text-[0.625rem] font-medium text-[var(--muted-foreground)]">{kinds}</span>
+          )}
         </span>
       </span>
     </button>
@@ -282,7 +291,9 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
   const deleteRow = useDeleteConnection();
   const updateRow = useUpdateConnection();
   const testConnection = useTestConnection();
+  const setChatModel = useSetChatModel();
   const openConnectionDetail = useUIStore((s) => s.openConnectionDetail);
+  const activeChatId = useChatStore((s) => s.activeChatId);
   const deviceSetup = useDeviceSetup();
 
   const startDevice = isDevice(initialService ?? null) ? (initialService as DeviceService) : null;
@@ -299,27 +310,28 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
   const [maxRpm, setMaxRpm] = useState("");
   const [maxJobs, setMaxJobs] = useState("");
   const [tested, setTested] = useState<TestResult | null>(null);
-  const [addedIds, setAddedIds] = useState<string[]>([]);
-  const [main, setMain] = useState<{ connectionId: string; modelId: string } | null>(null);
-  const [firstPickId, setFirstPickId] = useState<string | null>(null);
+  // The models starred in this setup, in order; the first one is what the ready screen offers.
+  const [picks, setPicks] = useState<Array<{ connectionId: string; modelId: string }>>([]);
   const [query, setQuery] = useState("");
-  const [kind, setKind] = useState<Kind>("all");
   const [vendorsOpen, setVendorsOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
-  const [starting, setStarting] = useState(false);
+  // A service that is already connected: the user chose to connect a second account of it.
+  const [second, setSecond] = useState(false);
+  // Ready screen; null = "Make Main" is on when there is no Main model yet.
+  const [makeMain, setMakeMain] = useState<boolean | null>(null);
+  const [useInChat, setUseInChat] = useState(false);
+  const [finishing, setFinishing] = useState(false);
   // Set once from the first loaded list: a setup with no chat Model yet is a first run.
   const [firstRun, setFirstRun] = useState<boolean | null>(null);
-  const defaultsSet = useRef(false);
-  // Models that existed when the window opened; a Model made here and unstarred again is removed (decision 30).
-  const knownRowIds = useRef<Set<string> | null>(null);
-  const madeHere = useRef(new Map<string, string>());
   const headingRef = useRef<HTMLHeadingElement>(null);
   const keyRef = useRef<HTMLInputElement>(null);
 
   const allRows = (rows ?? []) as ConnectionRowLite[];
+  const chatRows = allRows.filter((row) => isChatProvider(row.provider ?? ""));
+  const hasMain = chatRows.some((row) => isConnectionFlagTrue((row as Record<string, unknown>).isDefault));
+  const hasAgents = chatRows.some((row) => isConnectionFlagTrue((row as Record<string, unknown>).defaultForAgents));
   useEffect(() => {
     if (firstRun !== null || !rows) return;
-    knownRowIds.current = new Set((rows as ConnectionRowLite[]).map((row) => row.id));
     setFirstRun(!modelsFor && !(rows as ConnectionRowLite[]).some((row) => isChatProvider(row.provider ?? "")));
   }, [firstRun, modelsFor, rows]);
 
@@ -328,8 +340,19 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
   const isLocal = provider === "custom";
   const isMedia = !!provider && !isChatProvider(provider);
   const busy = createAccount.isPending || updateAccount.isPending || testConnection.isPending;
-  const modelList = useConnectionModels(target?.connectionId, !!tested?.success && !isMedia);
+  const shownRow = target ? allRows.find((row) => row.id === target.connectionId) : undefined;
+  const starAnchor = target ? starAnchorOf(allRows.filter((row) => row.accountId === target.accountId)) : undefined;
+  // Unstarring the original Model may remove it after another Model was added.
+  const pickerBase = shownRow ?? starAnchor;
+  const pickerRow = pickerBase && { ...pickerBase, pinnedModels: (starAnchor ?? pickerBase).pinnedModels };
+  const modelList = useConnectionModels(
+    pickerBase?.id ?? target?.connectionId,
+    !isMedia && (!!tested?.success || step === 3 || step === "ready"),
+  );
   const modelCount = modelList.data?.models?.length;
+  const addedIds = picks.map((pick) => pick.modelId);
+  // "Use in this chat" needs an open chat; the new-chat gate makes its chat with the pick instead.
+  const chatTarget = !onStartChat && !modelsFor ? activeChatId : null;
 
   // On a step change the focus moves to the step heading; on a desktop step 2 to the key field
   // instead (a phone keyboard would cover the screen).
@@ -350,20 +373,63 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
       : key === "decision"
         ? t("connections.decision.label")
         : (PROVIDERS[key]?.name ?? key);
+  const kindsLabel = (key: ServiceId) =>
+    kindsOf(key)
+      .map((value) => t(`connections.add.kind.${value}`))
+      .join(" · ");
 
   // Throw away the empty Model of a Connection that was created but never got a Model picked.
   const discard = async () => {
-    if (!target?.fresh || addedIds.length > 0) return;
+    if (!target?.fresh || picks.length > 0) return;
     try {
-      await deleteRow.mutateAsync(target.connectionId);
+      for (const row of allRows.filter((row) => row.accountId === target.accountId)) {
+        await deleteRow.mutateAsync(row.id);
+      }
       await deleteAccount.mutateAsync(target.accountId);
     } catch {
       /* the Connection stays; the user can delete it in the panel */
     }
   };
 
-  const close = async () => {
-    await discard();
+  // The ready screen's choices. Main changes only here, and only with its box on.
+  const firstPick = picks[0];
+  const firstPickRow = firstPick && allRows.find((row) => row.id === firstPick.connectionId);
+  const alreadyMain = isConnectionFlagTrue((firstPickRow as Record<string, unknown> | undefined)?.isDefault);
+  const makeMainOn = makeMain ?? !hasMain;
+  const applyReadyChoices = async () => {
+    if (!firstPick) return true;
+    if (makeMainOn && !alreadyMain) {
+      try {
+        // A first Main also becomes the Agents default when there is none, when the user chooses to make it Main.
+        await updateRow.mutateAsync({
+          id: firstPick.connectionId,
+          isDefault: true,
+          ...(hasAgents ? {} : { defaultForAgents: true }),
+        });
+      } catch (error) {
+        toast.error(t("connections.switcher.defaultFailed", { error: errorText(error) }));
+        return false;
+      }
+    }
+    if (useInChat && chatTarget) {
+      try {
+        await setChatModel.mutateAsync({ chatId: chatTarget, connectionId: firstPick.connectionId });
+      } catch (error) {
+        toast.error(t("connections.switcher.pickFailed", { error: errorText(error) }));
+        return false;
+      }
+    }
+    return true;
+  };
+
+  const close = async (saveChoices = false) => {
+    setFinishing(true);
+    try {
+      if (saveChoices && step === "ready" && !(await applyReadyChoices())) return;
+      await discard();
+    } finally {
+      setFinishing(false);
+    }
     onClose();
   };
 
@@ -377,10 +443,10 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
     setMaxRpm("");
     setMaxJobs("");
     setMoreOpen(false);
+    setSecond(false);
   };
 
   const chooseService = async (key: ServiceId) => {
-    if ((key === provider || key === device) && step === 2) return;
     await discard();
     resetFields();
     setProvider(isDevice(key) ? null : key);
@@ -396,12 +462,19 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
     setStep(1);
   };
 
-  const addAnother = () => {
+  const addAnother = async () => {
+    setFinishing(true);
+    try {
+      if (!(await applyReadyChoices())) return;
+    } finally {
+      setFinishing(false);
+    }
     resetFields();
     setProvider(null);
     setDevice(null);
-    setAddedIds([]);
-    setFirstPickId(null);
+    setPicks([]);
+    setMakeMain(null);
+    setUseInChat(false);
     setQuery("");
     setStep(1);
   };
@@ -419,7 +492,7 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
     maxParallelJobs: maxJobs ? Math.min(16, Math.max(1, Math.trunc(Number(maxJobs)))) : null,
   });
 
-  /** Creates the Connection with its empty first Model (or updates it on a retry), then tests it. */
+  /** Creates the Connection with its empty first Model (or updates it on a retry), tests it, and on success goes on. */
   const saveAndTest = async () => {
     if (!provider) return;
     try {
@@ -447,9 +520,12 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
         openConnectionDetail(current.connectionId);
         return;
       }
-      setTested(await testConnection.mutateAsync(current.connectionId));
+      const result = await testConnection.mutateAsync(current.connectionId);
+      setTested(result);
+      // "Test and continue" is one press: a passing test opens the models.
+      if (result.success) setStep(3);
     } catch (error) {
-      setTested({ success: false, message: error instanceof Error ? error.message : String(error) });
+      setTested({ success: false, message: errorText(error) });
     }
   };
 
@@ -470,46 +546,24 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once, when the rows arrive
   }, [modelsFor, rows]);
 
-  // The first Model of a setup becomes Main and Agents default when none exists.
-  const recordPick = (connectionId: string, modelId: string) => {
-    if (connectionId !== target?.connectionId && !knownRowIds.current?.has(connectionId))
-      madeHere.current.set(modelId, connectionId);
-    // Add model is not a setup; only a setup hands out the Main and Agents defaults.
-    if (!defaultsSet.current && !modelsFor) {
-      const chat = allRows.filter((row) => isChatProvider(row.provider ?? ""));
-      const patch: Record<string, boolean> = {};
-      if (!chat.some((row) => isConnectionFlagTrue((row as Record<string, unknown>).isDefault))) patch.isDefault = true;
-      if (!chat.some((row) => isConnectionFlagTrue((row as Record<string, unknown>).defaultForAgents)))
-        patch.defaultForAgents = true;
-      if (Object.keys(patch).length) updateRow.mutate({ id: connectionId, ...patch });
-      if (patch.isDefault) setMain({ connectionId, modelId });
-      defaultsSet.current = true;
-    }
-    setFirstPickId((current) => current ?? connectionId);
-    setAddedIds((current) => (current.includes(modelId) ? current : [...current, modelId]));
-  };
+  const recordPick = (connectionId: string, modelId: string) =>
+    setPicks((current) =>
+      current.some((pick) => pick.modelId === modelId) ? current : [...current, { connectionId, modelId }],
+    );
 
   // A star taken off here: the model is no longer added. The star hook removes the Model (decision 30).
-  const unstar = (modelId: string) => {
-    setAddedIds((current) => current.filter((id) => id !== modelId));
-    const made = madeHere.current.get(modelId);
-    madeHere.current.delete(modelId);
-    // Start chatting must not open a Model that goes with the star.
-    setFirstPickId((current) =>
-      current && (current === made || allRows.find((row) => row.id === current)?.model === modelId) ? null : current,
-    );
-  };
+  const unstar = (modelId: string) => setPicks((current) => current.filter((pick) => pick.modelId !== modelId));
 
   const startChatting = async () => {
-    const connectionId = main?.connectionId ?? firstPickId;
-    if (!onStartChat || !connectionId) return;
-    setStarting(true);
+    if (!onStartChat || !firstPick) return;
+    setFinishing(true);
     try {
-      await onStartChat(connectionId);
+      if (!(await applyReadyChoices())) return;
+      await onStartChat(firstPick.connectionId);
     } catch {
       // useCreateChat already shows the error toast; the window stays open so the user can try again.
     } finally {
-      setStarting(false);
+      setFinishing(false);
     }
   };
 
@@ -536,9 +590,11 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
     services: group.services.filter(
       (key) =>
         (!isDevice(key) || deviceSetup[DEVICE_ITEMS[key]].available) &&
-        (kind === "all" || kindsOf(key).includes(kind)) &&
         (!searching ||
-          [serviceName(key), t(`connections.add.hint.${key}`)].some((text) => text.toLowerCase().includes(needle))),
+          // The kinds are searchable too ("images", "voice"), so no separate filter row is needed.
+          [serviceName(key), t(`connections.add.hint.${key}`), kindsLabel(key)].some((text) =>
+            text.toLowerCase().includes(needle),
+          )),
     ),
   })).filter((group) => group.services.length > 0);
 
@@ -559,29 +615,13 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
           className="mari-chrome-field h-11 w-full py-0 pl-8 pr-3 text-xs md:h-9"
         />
       </div>
-      <div className="grid grid-cols-6 gap-1" role="group" aria-label={t("connections.add.kindFilter")}>
-        {KINDS.map((value) => (
-          <button
-            key={value}
-            type="button"
-            onClick={() => setKind(value)}
-            aria-pressed={kind === value}
-            className={cn(
-              "mari-chrome-control h-8 min-h-8 min-w-0 px-1 text-[0.625rem] max-md:h-11 max-md:min-h-11",
-              kind === value && "mari-chrome-control--selected",
-            )}
-          >
-            <span className="whitespace-nowrap">{t(`connections.add.kind.${value}`)}</span>
-          </button>
-        ))}
-      </div>
       {groups.map((group) => (
         <ServiceGroup
           key={group.id}
           title={t(`connections.add.group.${group.id}`)}
           count={group.services.length}
-          collapsible={!!group.collapsed && !searching && kind === "all"}
-          open={searching || kind !== "all" || vendorsOpen}
+          collapsible={!!group.collapsed && !searching}
+          open={searching || vendorsOpen}
           onToggle={() => setVendorsOpen((value) => !value)}
         >
           {group.services.map((key) => (
@@ -590,8 +630,9 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
               service={key}
               name={serviceName(key)}
               hint={t(`connections.add.hint.${key}`)}
+              kinds={kindsLabel(key)}
               badges={badgesFor(key)}
-              selected={(provider === key || device === key) && step === 2}
+              selected={provider === key || device === key}
               onClick={() => void chooseService(key)}
             />
           ))}
@@ -603,12 +644,19 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
     </div>
   );
 
-  // ── Step 2: connect the chosen service ──
+  // ── Step 2: access for the chosen service ──
   const existing = provider ? connectedAccount(provider) : undefined;
+  // Already connected: the user picks "Add models to it" or a second account before any field shows.
+  const choosing = !!existing && !target && !isMedia && !second;
   const keyUrl = def?.keyUrl;
   const failure = tested && !tested.success && provider ? failureReason(provider, tested.message ?? "") : null;
-  const connectDisabled = busy || (isLocal && !baseUrl.trim()) || (!keyless && !isLocal && !isMedia && !apiKey.trim());
+  const connectDisabled =
+    busy || choosing || (isLocal && !baseUrl.trim()) || (!keyless && !isLocal && !isMedia && !apiKey.trim());
   const resetTest = () => setTested(null);
+  const connectSecond = () => {
+    setSecond(true);
+    if (window.matchMedia?.("(pointer: fine)").matches) requestAnimationFrame(() => keyRef.current?.focus());
+  };
 
   const keyField = (optional: boolean) => (
     <div className="flex flex-col gap-1">
@@ -628,7 +676,7 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
           autoComplete="off"
           spellCheck={false}
           autoCapitalize="off"
-          aria-describedby={tested ? "add-connection-result" : undefined}
+          aria-describedby={tested ? "add-connection-key-help add-connection-result" : "add-connection-key-help"}
           className={cn(inputClass, "min-w-0 flex-1 font-mono")}
         />
         <button
@@ -642,6 +690,9 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
           {showKey ? <EyeOff size="0.875rem" aria-hidden /> : <Eye size="0.875rem" aria-hidden />}
         </button>
       </div>
+      <p id="add-connection-key-help" className="text-[0.6875rem] text-[var(--muted-foreground)]">
+        {t("connections.add.keySaved")}
+      </p>
       {keyUrl && !optional && (
         <p className="flex flex-wrap items-center gap-x-1.5 text-[0.6875rem]">
           <a
@@ -714,16 +765,12 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
 
   const connectPane = provider && (
     <div className="flex flex-col gap-4 p-4 md:p-5">
-      <div className="flex items-start gap-3">
-        <ServiceTile service={provider} large />
-        <div className="min-w-0 flex-1">
-          <p className="text-base font-semibold">{serviceName(provider)}</p>
-          <p className="text-xs leading-snug text-[var(--muted-foreground)]">{t(`connections.add.hint.${provider}`)}</p>
-          {def?.billing && (
-            <p className="mt-1 text-[0.6875rem] text-[var(--muted-foreground)]">
-              {t(`connections.add.billingInfo.${def.billing}`)}
-            </p>
-          )}
+      {/* The heading names the service; this row only says what it is and what it costs. */}
+      <div className="flex items-center gap-3">
+        <ServiceTile service={provider} />
+        <div className="min-w-0 flex-1 text-xs leading-snug text-[var(--muted-foreground)]">
+          <p>{t(`connections.add.hint.${provider}`)}</p>
+          {def?.billing && <p className="mt-0.5 text-[0.6875rem]">{t(`connections.add.billingInfo.${def.billing}`)}</p>}
         </div>
       </div>
 
@@ -734,132 +781,148 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
         >
           <p>
             {t("connections.add.alreadyHave", { name: existing.name })}{" "}
-            {!keyless && t(isLocal ? "connections.add.secondServer" : "connections.add.secondKey")}
+            {second && !keyless && t(isLocal ? "connections.add.secondServer" : "connections.add.secondKey")}
           </p>
-          <button type="button" onClick={() => showModelsOf(existing.id)} className={cn(SECONDARY_CLASS, "self-start")}>
-            {t("connections.add.addModelsTo")}
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={() => showModelsOf(existing.id)} className={PRIMARY_CLASS}>
+              {t("connections.add.addModelsTo")}
+            </button>
+            {choosing && (
+              <button type="button" onClick={connectSecond} className={SECONDARY_CLASS}>
+                {t("connections.add.connectSecond")}
+              </button>
+            )}
+          </div>
         </div>
       )}
 
-      {isLocal && (
-        <div className="flex flex-col gap-1">
-          <label htmlFor="add-connection-url" className={labelClass}>
-            {t("connections.add.serverAddress")}
-          </label>
-          <input
-            id="add-connection-url"
-            ref={keyRef}
-            value={baseUrl}
-            onChange={(e) => {
-              setBaseUrl(e.target.value);
-              resetTest();
-            }}
-            placeholder={LOCAL_PRESETS[0]!.url}
-            spellCheck={false}
-            autoCapitalize="off"
-            aria-describedby={tested ? "add-connection-result" : undefined}
-            className={cn(inputClass, "font-mono")}
-          />
-          <div className="flex flex-wrap gap-1 pt-1" role="group" aria-label={t("connections.add.presets")}>
-            {LOCAL_PRESETS.map((preset) => (
-              <button
-                key={preset.label}
-                type="button"
-                onClick={() => {
-                  setBaseUrl(preset.url);
+      {!choosing && (
+        <>
+          {isLocal && (
+            <div className="flex flex-col gap-1">
+              <label htmlFor="add-connection-url" className={labelClass}>
+                {t("connections.add.serverAddress")}
+              </label>
+              <input
+                id="add-connection-url"
+                ref={keyRef}
+                value={baseUrl}
+                onChange={(e) => {
+                  setBaseUrl(e.target.value);
                   resetTest();
                 }}
-                aria-pressed={baseUrl.trim() === preset.url}
-                className={cn(
-                  "mari-chrome-control h-8 min-h-8 px-2.5 text-[0.625rem] max-md:h-11 max-md:min-h-11",
-                  baseUrl.trim() === preset.url && "mari-chrome-control--selected",
-                )}
-              >
-                <BrandMark of={preset.label} className="h-3 w-3" />
-                {preset.label}
-              </button>
-            ))}
-          </div>
-          <p className="text-[0.6875rem] text-[var(--muted-foreground)]">{t("connections.add.noKeyNeeded")}</p>
-        </div>
-      )}
-      {!keyless && !isLocal && !isMedia && keyField(false)}
-      {keyless && <p className="text-xs text-[var(--muted-foreground)]">{t("connections.add.keyless")}</p>}
-      {isMedia && <p className="text-xs text-[var(--muted-foreground)]">{t("connections.add.mediaNext")}</p>}
-
-      {!isMedia && (
-        <>
-          <button
-            type="button"
-            onClick={() => setMoreOpen((value) => !value)}
-            aria-expanded={moreOpen}
-            aria-controls="add-connection-more"
-            className="flex min-h-11 items-center gap-1.5 self-start rounded-lg px-1 text-[0.6875rem] font-medium text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)] md:min-h-9"
-          >
-            <ChevronDown size="0.75rem" className={cn("transition-transform", moreOpen && "rotate-180")} />
-            {t("connections.add.moreOptions")}
-          </button>
-          <SmoothFolderContent open={moreOpen}>
-            <div id="add-connection-more" className="flex flex-col gap-2 pb-1">
-              {isLocal && keyField(true)}
-              <label className="flex flex-col gap-1">
-                <span className="text-xs text-[var(--muted-foreground)]">{t("connections.add.name")}</span>
-                <input
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder={
-                    // Next to another Connection of this service the automatic name ends with the key's last 4.
-                    !isLocal && existing ? withKeyTail(def?.name ?? "", apiKey) : def?.name
-                  }
-                  className={inputClass}
-                />
-              </label>
-              {!isLocal && !keyless && (
-                <label className="flex flex-col gap-1">
-                  <span className="text-xs text-[var(--muted-foreground)]">{t("connections.add.endpoint")}</span>
-                  <input
-                    value={baseUrl}
-                    onChange={(e) => {
-                      setBaseUrl(e.target.value);
+                placeholder={LOCAL_PRESETS[0]!.url}
+                inputMode="url"
+                spellCheck={false}
+                autoCapitalize="off"
+                aria-describedby={tested ? "add-connection-result" : undefined}
+                className={cn(inputClass, "font-mono")}
+              />
+              <div className="flex flex-wrap gap-1 pt-1" role="group" aria-label={t("connections.add.presets")}>
+                {LOCAL_PRESETS.map((preset) => (
+                  <button
+                    key={preset.label}
+                    type="button"
+                    onClick={() => {
+                      setBaseUrl(preset.url);
                       resetTest();
                     }}
-                    placeholder={def?.defaultBaseUrl}
-                    className={cn(inputClass, "font-mono")}
-                  />
-                </label>
-              )}
-              <div className="grid grid-cols-2 gap-2">
-                <label className="flex flex-col gap-1">
-                  <span className="text-xs text-[var(--muted-foreground)]">
-                    {t("connections.add.maxRequestsPerMinute")}
-                  </span>
-                  <input
-                    type="number"
-                    min={1}
-                    max={600}
-                    value={maxRpm}
-                    onChange={(e) => setMaxRpm(e.target.value)}
-                    className={inputClass}
-                  />
-                </label>
-                <label className="flex flex-col gap-1">
-                  <span className="text-xs text-[var(--muted-foreground)]">{t("connections.add.maxParallelJobs")}</span>
-                  <input
-                    type="number"
-                    min={1}
-                    max={16}
-                    value={maxJobs}
-                    onChange={(e) => setMaxJobs(e.target.value)}
-                    className={inputClass}
-                  />
-                </label>
+                    aria-pressed={baseUrl.trim() === preset.url}
+                    className={cn(
+                      "mari-chrome-control h-8 min-h-8 px-2.5 text-[0.625rem] max-md:h-11 max-md:min-h-11",
+                      baseUrl.trim() === preset.url && "mari-chrome-control--selected",
+                    )}
+                  >
+                    <BrandMark of={preset.label} className="h-3 w-3" />
+                    {preset.label}
+                  </button>
+                ))}
               </div>
+              <p className="text-[0.6875rem] text-[var(--muted-foreground)]">{t("connections.add.noKeyNeeded")}</p>
             </div>
-          </SmoothFolderContent>
+          )}
+          {!keyless && !isLocal && !isMedia && keyField(false)}
+          {keyless && <p className="text-xs text-[var(--muted-foreground)]">{t("connections.add.keyless")}</p>}
+          {isMedia && <p className="text-xs text-[var(--muted-foreground)]">{t("connections.add.mediaNext")}</p>}
+
+          {resultCard}
+
+          {!isMedia && (
+            <>
+              <button
+                type="button"
+                onClick={() => setMoreOpen((value) => !value)}
+                aria-expanded={moreOpen}
+                aria-controls="add-connection-more"
+                className="flex min-h-11 items-center gap-1.5 self-start rounded-lg px-1 text-[0.6875rem] font-medium text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)] md:min-h-9"
+              >
+                <ChevronDown size="0.75rem" className={cn("transition-transform", moreOpen && "rotate-180")} />
+                {t("connections.add.moreOptions")}
+              </button>
+              <SmoothFolderContent open={moreOpen}>
+                <div id="add-connection-more" className="flex flex-col gap-2 pb-1">
+                  {isLocal && keyField(true)}
+                  <label className="flex flex-col gap-1">
+                    <span className="text-xs text-[var(--muted-foreground)]">{t("connections.add.name")}</span>
+                    <input
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder={
+                        // Next to another Connection of this service the automatic name ends with the key's last 4.
+                        !isLocal && existing ? withKeyTail(def?.name ?? "", apiKey) : def?.name
+                      }
+                      className={inputClass}
+                    />
+                  </label>
+                  {!isLocal && !keyless && (
+                    <label className="flex flex-col gap-1">
+                      <span className="text-xs text-[var(--muted-foreground)]">{t("connections.add.endpoint")}</span>
+                      <input
+                        value={baseUrl}
+                        onChange={(e) => {
+                          setBaseUrl(e.target.value);
+                          resetTest();
+                        }}
+                        placeholder={def?.defaultBaseUrl}
+                        inputMode="url"
+                        className={cn(inputClass, "font-mono")}
+                      />
+                    </label>
+                  )}
+                  <div className="grid grid-cols-2 gap-2">
+                    <label className="flex flex-col gap-1">
+                      <span className="text-xs text-[var(--muted-foreground)]">
+                        {t("connections.add.maxRequestsPerMinute")}
+                      </span>
+                      <input
+                        type="number"
+                        min={1}
+                        max={600}
+                        value={maxRpm}
+                        onChange={(e) => setMaxRpm(e.target.value)}
+                        className={inputClass}
+                      />
+                    </label>
+                    <label className="flex flex-col gap-1">
+                      <span className="text-xs text-[var(--muted-foreground)]">
+                        {t("connections.add.maxParallelJobs")}
+                      </span>
+                      <input
+                        type="number"
+                        min={1}
+                        max={16}
+                        value={maxJobs}
+                        onChange={(e) => setMaxJobs(e.target.value)}
+                        className={inputClass}
+                      />
+                    </label>
+                  </div>
+                </div>
+              </SmoothFolderContent>
+            </>
+          )}
         </>
       )}
-      {resultCard}
     </div>
   );
 
@@ -868,11 +931,10 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
   const devicePane = device && (
     <div className="flex flex-col gap-4 p-4 md:p-5">
       <div className={cn("flex items-start gap-3", device !== "local_model" && "hidden")}>
-        <ServiceTile service={device} large />
-        <div className="min-w-0 flex-1">
-          <p className="text-base font-semibold">{serviceName(device)}</p>
-          <p className="text-xs leading-snug text-[var(--muted-foreground)]">{t(`connections.add.hint.${device}`)}</p>
-          <p data-add-connection-device-state className="mt-1 text-[0.6875rem] text-[var(--muted-foreground)]">
+        <ServiceTile service={device} />
+        <div className="min-w-0 flex-1 text-xs leading-snug text-[var(--muted-foreground)]">
+          <p>{t(`connections.add.hint.${device}`)}</p>
+          <p data-add-connection-device-state className="mt-1 text-[0.6875rem]">
             {t(deviceState?.setUp ? "connections.add.deviceReady" : "connections.add.deviceNotSetUp")}
           </p>
         </div>
@@ -886,32 +948,31 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
     </div>
   );
 
-  // ── Step 3: pick models ──
-  const shownRow = target ? allRows.find((row) => row.id === target.connectionId) : undefined;
-  // A pick runs on the shown Model; the stars come from the Connection's anchor Model.
-  const starAnchor = target ? starAnchorOf(allRows.filter((row) => row.accountId === target.accountId)) : undefined;
-  const pickerRow = shownRow && { ...shownRow, pinnedModels: (starAnchor ?? shownRow).pinnedModels };
+  // ── Step 3: star models ──
   const chat = modelsFor?.chat;
-  const inPlace = !!target?.fresh && addedIds.length === 0;
+  const inPlace = !!target?.fresh && !!shownRow && picks.length === 0;
   const recommended = provider && !NO_RECOMMENDED.has(provider) ? (MODEL_LISTS[provider] ?? []).slice(0, 3) : [];
   const targetName =
     (target && accounts?.find((account) => account.id === target.accountId)?.name) || serviceName(provider ?? "custom");
-  const mainName =
-    main &&
-    (modelList.data?.models?.find((model) => model.id === main.modelId)?.name ||
-      (provider && MODEL_LISTS[provider]?.find((model) => model.id === main.modelId)?.name) ||
-      main.modelId);
+  const modelName = (modelId: string) =>
+    modelList.data?.models?.find((model) => model.id === modelId)?.name ||
+    (provider && MODEL_LISTS[provider]?.find((model) => model.id === modelId)?.name) ||
+    modelId;
 
-  // ── Header copy ──
+  // ── Header: Back, the step's heading and "Step n of N" ──
   const heading =
     step === 1
       ? t("connections.add.heading.service")
       : step === 2
         ? device
           ? t("connections.add.heading.device", { service: serviceName(device) })
-          : t("connections.add.heading.connect", { service: serviceName(provider!) })
+          : isMedia || keyless
+            ? t("connections.add.heading.connect", { service: serviceName(provider!) })
+            : isLocal
+              ? t("connections.add.heading.local")
+              : t("connections.add.heading.key", { service: serviceName(provider!) })
         : step === 3
-          ? t(modelsFor ? "connections.add.heading.addModels" : "connections.add.heading.models", { name: targetName })
+          ? t(modelsFor ? "connections.add.heading.addModels" : "connections.add.heading.star", { name: targetName })
           : t("connections.add.heading.ready", { name: targetName });
   const subtitle =
     step === 1
@@ -931,44 +992,30 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
                     : "connections.add.sub.key",
           )
         : step === 3
-          ? t(
-              modelsFor?.chat
-                ? "connections.add.sub.modelsChat"
-                : firstRun
-                  ? "connections.add.sub.modelsFirstRun"
-                  : "connections.add.sub.models",
-            )
+          ? t(modelsFor?.chat ? "connections.add.sub.modelsChat" : "connections.add.sub.models")
           : "";
   const stepNumber = step === "ready" ? 4 : step;
-  const progressSteps = [
-    { n: 1, label: t("connections.add.progress.service"), go: stepNumber > 1 && step !== "ready" ? backToList : null },
-    {
-      n: 2,
-      label: t(device ? "connections.add.progress.setUp" : "connections.add.progress.connect"),
-      go: step === 3 && target?.fresh && addedIds.length === 0 ? () => setStep(2) : null,
-    },
-    { n: 3, label: t("connections.add.progress.models"), go: null },
-  ].filter((item) => !device || item.n < 3);
+  // Devices and media services end after their set-up screen.
+  const totalSteps = device || isMedia ? 2 : 4;
+  const goBack =
+    step === 2
+      ? backToList
+      : step === 3 && !modelsFor && picks.length === 0
+        ? target?.fresh
+          ? () => setStep(2)
+          : backToList
+        : step === "ready"
+          ? () => setStep(3)
+          : null;
 
   // ── Footer: one primary per step ──
-  const backButton = (onClick: () => void, className?: string) => (
-    <button type="button" onClick={onClick} className={cn(SECONDARY_CLASS, className)}>
-      <ChevronLeft size="0.75rem" aria-hidden />
-      {t("connections.add.back")}
-    </button>
-  );
-  const cancelButton = (className?: string) => (
-    <button type="button" onClick={() => void close()} className={cn(SECONDARY_CLASS, className)}>
-      {t("chat.delete.dialog.cancel")}
-    </button>
-  );
-
   let footerLeft: ReactNode = null;
   let footerRight: ReactNode = null;
   if (step === 1) {
-    footerLeft = cancelButton();
+    footerLeft = (
+      <p className="text-[0.6875rem] text-[var(--muted-foreground)]">{t("connections.add.footer.service")}</p>
+    );
   } else if (step === 2) {
-    footerLeft = backButton(() => void backToList());
     footerRight = device ? (
       device === "local_model" ? (
         <button
@@ -984,9 +1031,9 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
           {t("connections.add.done")}
         </button>
       )
-    ) : tested?.success ? (
+    ) : choosing ? null : tested?.success ? (
       <button type="button" onClick={() => setStep(3)} className={PRIMARY_CLASS}>
-        {t("connections.add.chooseModels")}
+        {t("connections.add.continue")}
       </button>
     ) : (
       <div className="flex items-center gap-3">
@@ -1007,37 +1054,39 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
           className={PRIMARY_CLASS}
         >
           {busy && <Loader2 size="0.75rem" className="animate-spin" aria-hidden />}
-          {t(isMedia ? "connections.add.continue" : failure ? "connections.add.tryAgain" : "connections.add.connect")}
+          {t(
+            isMedia
+              ? "connections.add.continue"
+              : failure
+                ? "connections.add.tryAgain"
+                : "connections.add.testContinue",
+          )}
         </button>
       </div>
     );
   } else if (step === 3) {
-    footerLeft =
-      addedIds.length > 0 ? (
-        <p role="status" className="flex items-center gap-1 text-xs text-[var(--muted-foreground)]">
-          <Check size="0.75rem" className="text-emerald-500" aria-hidden />
-          {t("connections.add.picked", { count: addedIds.length })}
-        </p>
-      ) : modelsFor ? null : target?.fresh ? (
-        backButton(() => setStep(2))
-      ) : (
-        backButton(() => void backToList())
-      );
+    footerLeft = picks.length > 0 && (
+      <p role="status" className="flex items-center gap-1 text-xs text-[var(--muted-foreground)]">
+        <Check size="0.75rem" className="text-emerald-500" aria-hidden />
+        {t("connections.add.picked", { count: picks.length })}
+      </p>
+    );
     footerRight = (
       <button
         type="button"
         data-add-connection-done
         // Add model ends here: what has a star is added.
-        onClick={() => (addedIds.length > 0 && !modelsFor ? setStep("ready") : onClose())}
-        disabled={target?.fresh && addedIds.length === 0}
+        onClick={() => (picks.length > 0 && !modelsFor ? setStep("ready") : onClose())}
+        // A new Connection needs one model; without it the window throws the Connection away.
+        disabled={target?.fresh && picks.length === 0}
         className={PRIMARY_CLASS}
       >
-        {t("connections.add.done")}
+        {t(picks.length > 0 && !modelsFor ? "connections.add.continue" : "connections.add.done")}
       </button>
     );
   } else {
     footerLeft = (
-      <button type="button" onClick={addAnother} className={SECONDARY_CLASS}>
+      <button type="button" onClick={() => void addAnother()} disabled={finishing} className={SECONDARY_CLASS}>
         {t("connections.add.addAnother")}
       </button>
     );
@@ -1045,19 +1094,25 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
       <button
         type="button"
         onClick={() => void startChatting()}
-        disabled={starting}
+        disabled={finishing}
         className={PRIMARY_CLASS}
         data-add-connection-start
       >
-        {starting && <Loader2 size="0.75rem" className="animate-spin" aria-hidden />}
+        {finishing && <Loader2 size="0.75rem" className="animate-spin" aria-hidden />}
         {t("connections.add.startChatting")}
       </button>
     ) : (
-      <button type="button" onClick={onClose} className={PRIMARY_CLASS}>
+      <button type="button" onClick={() => void close(true)} disabled={finishing} className={PRIMARY_CLASS}>
+        {finishing && <Loader2 size="0.75rem" className="animate-spin" aria-hidden />}
         {t("connections.add.done")}
       </button>
     );
   }
+
+  const firstName = firstPick ? modelName(firstPick.modelId) : "";
+  const checkClass = "h-[1.125rem] w-[1.125rem] shrink-0 accent-[var(--primary)]";
+  const optionClass =
+    "flex min-h-11 cursor-pointer items-center gap-3 rounded-lg px-2 text-sm hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)]";
 
   return (
     <Modal
@@ -1067,61 +1122,60 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
       width="max-w-3xl lg:max-w-4xl"
       mobileFullscreen
       opaque
+      closeDisabled={finishing}
       panelClassName="sm:h-[min(90dvh,44rem)]"
       contentClassName="flex flex-col overflow-hidden! p-0!"
     >
       <div data-add-connection-step={step} className="flex min-h-0 flex-1 flex-col">
-        <div className="shrink-0 border-b border-[var(--marinara-chat-chrome-panel-divider)] px-5 py-3">
-          <ol
-            className={cn(
-              "flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.6875rem] text-[var(--muted-foreground)]",
-              modelsFor && "hidden",
+        <div className="shrink-0 border-b border-[var(--marinara-chat-chrome-panel-divider)] px-5 py-3 max-md:px-4">
+          <div className="flex items-center gap-2">
+            {goBack && (
+              <button
+                type="button"
+                onClick={() => void goBack()}
+                aria-label={t("connections.add.back")}
+                title={t("connections.add.back")}
+                className="mari-chrome-control -ml-1.5 h-11 w-11 shrink-0 p-0 md:h-8 md:w-8 [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:w-11"
+              >
+                <ChevronLeft size="1rem" aria-hidden />
+              </button>
             )}
-          >
-            {progressSteps.map((item, index) => {
-              const done = stepNumber > item.n;
-              const current = stepNumber === item.n;
-              const content = (
-                <>
-                  {done ? (
-                    <Check size="0.6875rem" className="text-emerald-500" aria-hidden />
-                  ) : (
-                    <span aria-hidden className="tabular-nums">
-                      {item.n}
-                    </span>
+            <h3
+              ref={headingRef}
+              tabIndex={-1}
+              aria-describedby={modelsFor ? undefined : "add-connection-step-count"}
+              className="min-w-0 flex-1 text-sm font-semibold outline-none"
+            >
+              {heading}
+            </h3>
+            {!modelsFor && (
+              <span
+                id="add-connection-step-count"
+                className="shrink-0 text-[0.6875rem] tabular-nums text-[var(--muted-foreground)]"
+              >
+                {t("connections.add.stepOf", { step: stepNumber, total: totalSteps })}
+              </span>
+            )}
+          </div>
+          {!modelsFor && (
+            <div aria-hidden className="mt-2 flex gap-1">
+              {Array.from({ length: totalSteps }, (_, index) => (
+                <span
+                  key={index}
+                  className={cn(
+                    "h-[3px] flex-1 rounded-full",
+                    index < stepNumber
+                      ? "bg-[var(--marinara-chat-chrome-accent)]"
+                      : "bg-[var(--marinara-chat-chrome-panel-divider)]",
                   )}
-                  {item.label}
-                </>
-              );
-              return (
-                <li
-                  key={item.n}
-                  aria-current={current ? "step" : undefined}
-                  className={cn("flex items-center gap-2", current && "font-medium text-[var(--foreground)]")}
-                >
-                  {index > 0 && <span aria-hidden className="h-px w-4 bg-[var(--border)]" />}
-                  {item.go ? (
-                    <button
-                      type="button"
-                      onClick={() => void item.go!()}
-                      className="flex min-h-11 items-center gap-1 rounded-md hover:text-[var(--foreground)] md:min-h-0"
-                    >
-                      {content}
-                    </button>
-                  ) : (
-                    <span className="flex items-center gap-1">{content}</span>
-                  )}
-                </li>
-              );
-            })}
-          </ol>
-          <h3 ref={headingRef} tabIndex={-1} className={cn("text-sm font-semibold outline-none", !modelsFor && "mt-2")}>
-            {heading}
-          </h3>
-          {subtitle && <p className="mt-0.5 text-[0.6875rem] text-[var(--muted-foreground)]">{subtitle}</p>}
+                />
+              ))}
+            </div>
+          )}
+          {subtitle && <p className="mt-1.5 text-[0.6875rem] text-[var(--muted-foreground)]">{subtitle}</p>}
         </div>
 
-        <div key={String(step === 2 ? 1 : step)} className="animate-fade-in-up min-h-0 flex-1">
+        <div key={String(step)} className="animate-fade-in-up min-h-0 flex-1">
           {step === 1 && <div className="h-full min-h-0 overflow-y-auto overscroll-contain">{serviceList}</div>}
           {step === 2 && (
             <section className="h-full min-h-0 overflow-y-auto overscroll-contain">
@@ -1147,7 +1201,6 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
               applyPick={inPlace ? undefined : async (connectionId, modelId) => recordPick(connectionId, modelId)}
               recommended={recommended}
               addedIds={addedIds}
-              mainModelId={main?.modelId}
               addMode
               onUnstar={unstar}
               footer={null}
@@ -1156,25 +1209,78 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
           )}
 
           {step === "ready" && (
-            <div className="flex h-full flex-col items-center justify-center gap-3 p-8 text-center">
-              <span className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-500">
-                <Check size="1.5rem" aria-hidden />
-              </span>
-              <p className="text-sm text-[var(--foreground)]">
-                {mainName
-                  ? t("connections.add.readyWithMain", { count: addedIds.length, model: mainName })
-                  : t("connections.add.picked", { count: addedIds.length })}
-              </p>
-              {onStartChat && newChatMode && (
-                <p className="text-xs text-[var(--muted-foreground)]">
-                  {t("connections.add.readyGate", { mode: t(`connections.add.mode.${newChatMode}`) })}
-                </p>
-              )}
-            </div>
+            <section className="h-full min-h-0 overflow-y-auto overscroll-contain">
+              <div className="mx-auto flex max-w-xl flex-col gap-3 p-4 md:p-5">
+                <div className="flex items-center gap-3 rounded-xl border border-[var(--marinara-chat-chrome-panel-divider)] p-3">
+                  {provider && <ServiceTile service={provider} large />}
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold">{targetName}</p>
+                    <p className="text-xs text-[var(--muted-foreground)]">
+                      {t("connections.add.picked", { count: picks.length })}
+                    </p>
+                  </div>
+                </div>
+                <ul className="flex flex-col" aria-label={t("connections.add.readyModels")}>
+                  {picks.map((pick) => (
+                    <li key={pick.modelId} className="flex min-h-11 items-center gap-3 px-2 text-sm">
+                      <ProviderIcon provider={provider ?? "custom"} model={pick.modelId} size="sm" />
+                      <span className="min-w-0 truncate">{modelName(pick.modelId)}</span>
+                    </li>
+                  ))}
+                </ul>
+                {firstPick && (
+                  <div
+                    className="flex flex-col border-t border-[var(--marinara-chat-chrome-panel-divider)] pt-2"
+                    role="group"
+                    aria-label={t("connections.add.readyChoices")}
+                  >
+                    {chatTarget && (
+                      <label className={optionClass}>
+                        <input
+                          type="checkbox"
+                          checked={useInChat}
+                          onChange={(event) => setUseInChat(event.target.checked)}
+                          className={checkClass}
+                          data-add-connection-use-in-chat
+                        />
+                        <span className="min-w-0">{t("connections.add.useInChat", { model: firstName })}</span>
+                      </label>
+                    )}
+                    {alreadyMain ? (
+                      <p className="flex min-h-11 items-center px-2 text-xs text-[var(--muted-foreground)]">
+                        {t("connections.add.isMain", { model: firstName })}
+                      </p>
+                    ) : (
+                      <label className={optionClass}>
+                        <input
+                          type="checkbox"
+                          checked={makeMainOn}
+                          onChange={(event) => setMakeMain(event.target.checked)}
+                          className={checkClass}
+                          data-add-connection-make-main
+                        />
+                        <span className="min-w-0">
+                          {t("connections.add.makeMain", { model: firstName })}
+                          <span className="text-xs text-[var(--muted-foreground)]">
+                            {" "}
+                            · {t("connections.add.makeMainHint")}
+                          </span>
+                        </span>
+                      </label>
+                    )}
+                  </div>
+                )}
+                {onStartChat && newChatMode && (
+                  <p className="text-xs text-[var(--muted-foreground)]">
+                    {t("connections.add.readyGate", { mode: t(`connections.add.mode.${newChatMode}`) })}
+                  </p>
+                )}
+              </div>
+            </section>
           )}
         </div>
 
-        <div className="flex shrink-0 items-center justify-between gap-2 border-t border-[var(--marinara-chat-chrome-panel-divider)] px-5 py-3">
+        <div className="flex shrink-0 items-center justify-between gap-2 border-t border-[var(--marinara-chat-chrome-panel-divider)] px-5 py-3 max-md:px-4">
           <div className="flex min-w-0 items-center gap-2">{footerLeft}</div>
           {footerRight}
         </div>

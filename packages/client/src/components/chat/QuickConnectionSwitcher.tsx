@@ -1,11 +1,11 @@
 // ──────────────────────────────────────────────
-// Quick Connection Switcher — inline dropdown with
-// the chosen Connection's models beside the list;
-// a pick applies to this chat only
+// Quick Connection Switcher — the composer chip shows the model the chat
+// runs (its maker, and whether it follows Main or is this chat's own pick);
+// it opens the shared one-column chooser. A pick applies to this chat only.
 // ──────────────────────────────────────────────
 import { useState, useRef, useCallback, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { Link } from "lucide-react";
+import { ChevronDown, X } from "lucide-react";
 import { useUpdateChat, useChat } from "../../hooks/use-chats";
 import { useChatStore } from "../../stores/chat.store";
 import { useSidecarStore } from "../../stores/sidecar.store";
@@ -13,7 +13,12 @@ import { cn } from "../../lib/utils";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import type { ProfessorMariContextBudget } from "../../lib/professor-mari-context-budget";
 import { ContextBudgetGauge, ContextBudgetIndicator } from "./ContextBudgetIndicator";
-import { ConnectionSwitcherBody, useChatModelPick } from "../connections/ConnectionSwitcherBody";
+import {
+  ConnectionSwitcherBody,
+  EffectiveModelIcon,
+  useChatModelPick,
+  useEffectiveChatModel,
+} from "../connections/ConnectionSwitcherBody";
 
 export function QuickConnectionSwitcher({
   className,
@@ -30,13 +35,12 @@ export function QuickConnectionSwitcher({
   const { data: chat } = useChat(activeChatId);
   const updateChat = useUpdateChat();
   const chatPick = useChatModelPick(activeChatId);
+  const effective = useEffectiveChatModel(activeChatId);
   const sidecarModelDownloaded = useSidecarStore((state) => state.modelDownloaded);
 
   const activeConnectionId = (chat as unknown as Record<string, unknown>)?.connectionId as string | null;
   const chatMode = (chat as unknown as { mode?: string } | null | undefined)?.mode;
   const isRandom = activeConnectionId === "random";
-  // Random has no single connection, so no models column.
-  const showModels = !isRandom;
 
   const handleToggleRandom = useCallback(() => {
     if (!activeChatId) return;
@@ -91,7 +95,7 @@ export function QuickConnectionSwitcher({
       if (left < 8) left = 8;
       setPos({ left, top: Math.max(8, anchorTop - menuHeight - 4) });
     });
-  }, [open, hasContextBudget, showModels]);
+  }, [open, hasContextBudget]);
 
   // Focus once the menu is placed: a hidden menu cannot take focus.
   const placed = pos !== null;
@@ -122,7 +126,7 @@ export function QuickConnectionSwitcher({
             ref={menuRef}
             // A non-modal dialog: it holds a search box and toggle buttons, not menu items.
             role="dialog"
-            aria-label={localizeUi("navigation.topbar.connections")}
+            aria-labelledby="quick-connection-menu-title"
             tabIndex={-1}
             onPointerDown={(event) => event.stopPropagation()}
             onKeyDown={(event) => {
@@ -134,19 +138,29 @@ export function QuickConnectionSwitcher({
             }}
             data-quick-connection-menu
             className={cn(
-              "mari-chat-style-surface fixed z-[9999] flex overflow-hidden rounded-xl border border-foreground/10 shadow-2xl",
-              showModels
-                ? // A fixed size keeps the menu still while a model list loads or is filtered.
-                  "h-[min(30rem,calc(100dvh-6rem))] w-[min(46rem,calc(100vw-1rem))]"
-                : "max-h-[360px] min-w-[280px] max-w-[340px] flex-col",
+              // One column; a fixed size keeps the menu still while a catalog loads or is filtered.
+              "mari-chat-style-surface fixed z-[9999] flex h-[min(34rem,calc(100dvh-6rem))] w-[min(26rem,calc(100vw-1rem))] flex-col overflow-hidden rounded-xl border border-foreground/10 shadow-2xl",
               chatMode === "roleplay"
                 ? "bg-[var(--card)] [--mari-chat-existing-bg:var(--card)]"
                 : "bg-[var(--background)] [--mari-chat-existing-bg:var(--background)]",
             )}
             style={pos ? { left: pos.left, top: pos.top } : { visibility: "hidden" as const }}
           >
+            <div className="flex shrink-0 items-center gap-2 py-1 pl-4 pr-1">
+              <h2 id="quick-connection-menu-title" className="min-w-0 flex-1 truncate text-sm font-semibold">
+                {localizeUi("connections.switcher.title")}
+              </h2>
+              <button
+                type="button"
+                onClick={close}
+                aria-label={localizeUi("common.close")}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-foreground/55 outline-none transition-colors hover:bg-foreground/10 hover:text-foreground/80 focus-visible:ring-1 focus-visible:ring-foreground/25 [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:w-11"
+              >
+                <X size="1rem" aria-hidden />
+              </button>
+            </div>
             <ConnectionSwitcherBody
-              layout="columns"
+              layout="steps"
               current={chatPick.current}
               recent={chatPick.recent}
               onApply={chatPick.apply}
@@ -154,8 +168,6 @@ export function QuickConnectionSwitcher({
               showLocalModel={chatMode !== "game" && sidecarModelDownloaded}
               shuffle={{ active: isRandom, onToggle: handleToggleRandom }}
               followDefault={{ active: chatPick.followsMain, onSelect: chatPick.useDefault }}
-              className={showModels ? undefined : "flex-col"}
-              listClassName={showModels ? undefined : "w-full border-r-0"}
               listHeader={
                 contextBudget && (
                   <div className="border-b border-foreground/10 px-3 pt-2">
@@ -169,25 +181,54 @@ export function QuickConnectionSwitcher({
         )
       : null;
 
+  const chipName =
+    !effective || effective.kind === "none" ? localizeUi("connections.switcher.chooseModel") : effective.title;
+  const unavailable = effective?.unavailable ? localizeUi(`connections.accounts.state.${effective.unavailable}`) : null;
+
   return (
     <>
       <button
         type="button"
         ref={btnRef}
         onClick={() => setOpen((v) => !v)}
-        title={localizeUi("ui.chat.quickconnectionswitcher.quickConnectionSwitcher")}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        aria-label={localizeUi("chat.settings.connectionModel.buttonLabel", { model: chipName })}
+        title={chipName}
         className={cn(
-          "flex h-8 w-8 items-center justify-center rounded-xl transition-all",
+          "flex h-8 min-w-0 max-w-[11rem] items-center gap-1 rounded-full border pl-px pr-2 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/25 lg:max-w-[16rem] [@media(pointer:coarse)]:h-11",
           open
-            ? "bg-foreground/10 text-foreground/75 ring-1 ring-foreground/20"
-            : "text-foreground/40 hover:bg-foreground/10 hover:text-foreground/70",
+            ? "border-foreground/25 bg-foreground/10 text-foreground/85"
+            : "border-foreground/10 text-foreground/65 hover:bg-foreground/10 hover:text-foreground/85",
           className,
         )}
       >
-        <span className="relative flex h-[1.875rem] w-[1.875rem] items-center justify-center">
+        <span className="relative flex h-[1.875rem] w-[1.875rem] shrink-0 items-center justify-center">
           {contextBudget && <ContextBudgetGauge percentage={contextBudget.percentage} />}
-          <Link size="1rem" />
+          <EffectiveModelIcon
+            effective={effective}
+            // Inside the context ring the tile shrinks so the ring stays readable.
+            className={contextBudget ? "!h-[1.125rem] !w-[1.125rem] !rounded-md" : undefined}
+          />
         </span>
+        <span className="min-w-0 truncate font-medium">{chipName}</span>
+        {effective?.kind === "model" && !unavailable && (
+          <span className="hidden shrink-0 text-foreground/45 lg:inline">
+            {localizeUi(
+              effective.followsMain ? "connections.switcher.chipFollowsMain" : "connections.switcher.chipThisChat",
+            )}
+          </span>
+        )}
+        {unavailable && (
+          <span className="mari-chrome-muted-badge shrink-0 rounded px-1 py-px text-[0.5625rem] leading-4">
+            {unavailable}
+          </span>
+        )}
+        <ChevronDown
+          size="0.75rem"
+          className={cn("shrink-0 text-foreground/45 transition-transform", open && "rotate-180")}
+          aria-hidden
+        />
       </button>
       {menu}
     </>

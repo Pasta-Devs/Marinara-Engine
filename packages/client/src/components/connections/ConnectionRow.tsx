@@ -97,6 +97,9 @@ export const ROW_BUTTON = cn(
   FOCUS,
 );
 
+/** A role or state pill at the right of a Model's second line. */
+const BADGE = "shrink-0 whitespace-nowrap rounded-full border px-1.5 text-[0.625rem] font-semibold leading-4";
+
 export type MenuAt = { x: number; y: number; keyboard: boolean };
 export const menuAt = (event: MouseEvent<HTMLElement>): MenuAt => {
   const rect = event.currentTarget.getBoundingClientRect();
@@ -401,10 +404,11 @@ export function ConnectionRow({
             {unavailable ? (
               <span
                 className={cn(
-                  "inline-flex shrink-0 items-center gap-1 rounded px-1 py-0.5 text-[0.5625rem] font-medium uppercase leading-none tracking-wide",
+                  BADGE,
+                  "inline-flex items-center gap-1",
                   unavailable === "needs_key"
-                    ? "bg-[var(--marinara-app-accent-static)]/10 text-[var(--marinara-app-accent-static)]"
-                    : "bg-[var(--secondary)] text-[var(--muted-foreground)]",
+                    ? "border-[var(--marinara-app-accent-static)]/45 text-[var(--marinara-app-accent-static)]"
+                    : "border-[var(--border)] text-[var(--muted-foreground)]",
                 )}
               >
                 {unavailable === "needs_key" ? <KeyRound size="0.5625rem" /> : <Power size="0.5625rem" />}
@@ -412,10 +416,9 @@ export function ConnectionRow({
               </span>
             ) : (
               badges.map((badge) => (
-                // Presets' DEFAULT badge; the badge rule is unlayered, so the readable foreground needs `!`.
                 <span
                   key={badge}
-                  className="mari-chrome-muted-badge shrink-0 rounded px-1 py-0.5 text-[0.5625rem] uppercase leading-none tracking-wide !text-[var(--foreground)]"
+                  className={cn(BADGE, "border-[var(--border)] bg-[var(--sidebar-accent)] text-[var(--foreground)]")}
                 >
                   {badge}
                 </span>
