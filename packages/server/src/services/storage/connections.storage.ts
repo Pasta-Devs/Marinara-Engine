@@ -521,11 +521,9 @@ export function createConnectionsStorage(db: DB) {
         updateFields.profileImportReviewRequired = "false";
       }
       // Detach explicitly, or when the row's own endpoint moved off the account's origin.
-      if (
-        account &&
-        (input.accountId === null ||
-          credentialOrigin({ ...existing, ...definedFields(data) }) !== credentialOrigin(account))
-      ) {
+      const movedOffAccount =
+        !!account && credentialOrigin({ ...existing, ...definedFields(data) }) !== credentialOrigin(account);
+      if (account && (input.accountId === null || movedOffAccount)) {
         updateFields.accountId = null;
       }
       const shouldClearDefault = data.isDefault === true;
@@ -563,6 +561,14 @@ export function createConnectionsStorage(db: DB) {
       if (data.showUsageFiveHour !== undefined) updateFields.showUsageFiveHour = String(data.showUsageFiveHour);
       if (data.showUsageWeekly !== undefined) updateFields.showUsageWeekly = String(data.showUsageWeekly);
       if (effectiveProvider !== "nanogpt") updateFields.managementTokenEncrypted = encryptApiKey("");
+      // As on create, the account's credentials never go to another host: a Model that moves off its account
+      // keeps only what this save sends.
+      if (movedOffAccount) {
+        updateFields.apiKeyEncrypted = encryptApiKey(input.apiKey ?? "");
+        updateFields.managementTokenEncrypted = encryptApiKey(
+          effectiveProvider === "nanogpt" ? (input.managementToken ?? "") : "",
+        );
+      }
       if (!supportsSubscriptionUsageWidget(effectiveProvider)) updateFields.showUsageWidget = "false";
       if (data.model !== undefined) updateFields.model = data.model;
       if (data.pinnedModels !== undefined)

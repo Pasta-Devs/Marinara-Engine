@@ -277,7 +277,19 @@ try {
   await connections.update(soloImage!.id, { baseUrl: "https://proxy.example/v1" });
   const moved = await rowOf(soloImage!.id);
   assert(moved.accountId && moved.accountId !== solo.data.account.id, "the moved Model is linked again");
-  assert.equal(await plainKey(soloImage!.id), "fixture-solo-key-0000", "it keeps its own key");
+  assert.equal(await plainKey(soloImage!.id), "", "the account key does not follow the Model to another host");
+  const keyedImage = await connections.create(
+    createConnectionSchema.parse({
+      name: "Keyed image",
+      provider: "image_generation",
+      imageGenerationSource: "openai",
+      baseUrl: IMAGE_URL,
+      model: "gpt-image-1",
+      accountId: solo.data.account.id,
+    }),
+  );
+  await connections.update(keyedImage!.id, { baseUrl: "https://proxy2.example/v1", apiKey: "proxy-key" });
+  assert.equal(await plainKey(keyedImage!.id), "proxy-key", "a key sent with the move is the one kept");
 
   console.log("connection-accounts-write-through regression passed");
 } finally {

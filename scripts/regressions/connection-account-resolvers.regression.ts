@@ -189,6 +189,15 @@ try {
   };
   assert.deepEqual(merged.json(), chosen, "one field changes, the others stay");
   assert.deepEqual(await getFeatureModels(), chosen);
+  const sentinels = await putFeatureModels({ omnibarAsideConnectionId: "mari", impersonateConnectionId: "random" });
+  assert.equal(sentinels.statusCode, 200, sentinels.body);
+  assert.deepEqual(
+    sentinels.json(),
+    { ...chosen, omnibarAsideConnectionId: "mari", impersonateConnectionId: "random" },
+    '"Same as Prof. Mari" and "Random" are kept',
+  );
+  assert.equal((await putFeatureModels({ mariConnectionId: "random" })).json().mariConnectionId, null);
+  await putFeatureModels(chosen);
 
   // Mari resolver: request id, then the setting, then the defaults; blocked Models are skipped.
   const mari = new ProfessorMariWorkspaceService({ db } as never) as unknown as {

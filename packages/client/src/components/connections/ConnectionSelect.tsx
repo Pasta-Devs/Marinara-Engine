@@ -56,8 +56,8 @@ export function ConnectionSelect({
     const rows = ((rawRows ?? []) as Row[]).filter((row) => matchesKind(row, kind));
     const accountById = new Map((accounts ?? []).map((account) => [account.id, account]));
     const { groups, standalone } = groupModelsByAccount(rows, accounts ?? []);
-    // Image and video Models default through the agents flag, not the chat one.
-    const defaultFlag = kind === "image" || kind === "video" ? "defaultForAgents" : "isDefault";
+    // Image, video and audio Models default through the agents flag, not the chat one.
+    const defaultFlag = kind === "image" || kind === "video" || kind === "audio" ? "defaultForAgents" : "isDefault";
     const resolved = rows.find((row) => isConnectionFlagTrue(row[defaultFlag])) ?? null;
     const resolvedAccount = resolved?.accountId ? accountById.get(resolved.accountId) : undefined;
     return { rows, groups, standalone, resolved, resolvedAccount, accountById };

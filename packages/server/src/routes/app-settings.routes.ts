@@ -80,16 +80,24 @@ export async function appSettingsRoutes(app: FastifyInstance) {
     readFeatureModelConnections(app.db),
   );
 
-  // Merges the sent fields into the stored choices. An id that is not a chat Model (or the local sidecar) is
-  // stored as null, so a stale browser value cannot block the other fields.
+  // Merges the sent fields into the stored choices. An id that is not a chat Model or a choice of that
+  // field (local sidecar, "mari" = same as Prof. Mari, "random") is stored as null, so a stale browser value
+  // cannot block the other fields.
   app.put(`/${FEATURE_MODEL_CONNECTIONS_SETTINGS_KEY}`, async (req): Promise<FeatureModelConnections> => {
     const input = featureModelConnectionsSchema.partial().parse(req.body);
     const connections = createConnectionsStorage(app.db);
-    const settings = { ...(await readFeatureModelConnections(app.db)) };
+    const choices: Record<keyof FeatureModelConnections, string[]> = {
+      mariConnectionId: [LOCAL_SIDECAR_CONNECTION_ID],
+      omnibarAsideConnectionId: [LOCAL_SIDECAR_CONNECTION_ID, "mari"],
+      impersonateConnectionId: [LOCAL_SIDECAR_CONNECTION_ID, "random"],
+    };
+    const changes: Partial<FeatureModelConnections> = {};
     for (const [key, id] of Object.entries(input) as Array<[keyof FeatureModelConnections, string | null]>) {
-      const row = id && id !== LOCAL_SIDECAR_CONNECTION_ID ? await connections.getById(id) : null;
-      settings[key] = id === LOCAL_SIDECAR_CONNECTION_ID || (row && isChatProvider(row.provider)) ? id : null;
+      const row = id && !choices[key].includes(id) ? await connections.getById(id) : null;
+      changes[key] = id && (choices[key].includes(id) || (row && isChatProvider(row.provider))) ? id : null;
     }
+    // Read just before the write, so an overlapping save of another field is not lost.
+    const settings = { ...(await readFeatureModelConnections(app.db)), ...changes };
     await storage.set(FEATURE_MODEL_CONNECTIONS_SETTINGS_KEY, JSON.stringify(settings));
     return readFeatureModelConnections(app.db);
   });

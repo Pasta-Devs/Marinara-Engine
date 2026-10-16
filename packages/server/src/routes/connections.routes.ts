@@ -469,6 +469,11 @@ function knownStabilityImageModels() {
 
 export async function connectionsRoutes(app: FastifyInstance) {
   const storage = createConnectionsStorage(app.db);
+  // `getWithKey` is null for a missing Model and for a blocked one; only the first is "not found".
+  const unusableConnection = async (id: string, reply: FastifyReply) =>
+    (await storage.getById(id))
+      ? reply.status(400).send({ error: "This connection is off, under review, or needs an API key." })
+      : reply.status(404).send({ error: "Connection not found" });
   const maskConnection = <T extends { apiKeyEncrypted?: unknown; managementTokenEncrypted?: unknown } | null>(
     conn: T,
   ): T =>
@@ -640,7 +645,7 @@ export async function connectionsRoutes(app: FastifyInstance) {
   // Test connection (sends a tiny ping to the API)
   app.post<{ Params: { id: string } }>("/:id/test", async (req, reply) => {
     const conn = await storage.getWithKey(req.params.id);
-    if (!conn) return reply.status(404).send({ error: "Connection not found" });
+    if (!conn) return unusableConnection(req.params.id, reply);
 
     const requestDebug = readDebugMode(req.body);
     const debugLog = (message: string, ...args: any[]) => logDebugOverride(requestDebug, message, ...args);
@@ -1523,7 +1528,7 @@ export async function connectionsRoutes(app: FastifyInstance) {
   // provider again. `refresh=true` (the Refresh and Fetch Models buttons) fetches and replaces it.
   app.get<{ Params: { id: string }; Querystring: { refresh?: string } }>("/:id/models", async (req, reply) => {
     const conn = await storage.getWithKey(req.params.id);
-    if (!conn) return reply.status(404).send({ error: "Connection not found" });
+    if (!conn) return unusableConnection(req.params.id, reply);
     const savesList = connectionSavesModelList(conn.provider);
     if (savesList && req.query.refresh !== "true") {
       const saved = readSavedModelList(conn);
@@ -1556,7 +1561,7 @@ export async function connectionsRoutes(app: FastifyInstance) {
   // ── Test image generation — uses a broadly supported 1K square canvas ──
   app.post<{ Params: { id: string } }>("/:id/test-image", async (req, reply) => {
     const conn = await storage.getWithKey(req.params.id);
-    if (!conn) return reply.status(404).send({ error: "Connection not found" });
+    if (!conn) return unusableConnection(req.params.id, reply);
     if (conn.provider !== "image_generation") {
       return reply.status(400).send({ error: "Not an image generation connection" });
     }
@@ -1609,7 +1614,7 @@ export async function connectionsRoutes(app: FastifyInstance) {
   // ── Test video generation — generates a short fixed MP4 ──
   app.post<{ Params: { id: string } }>("/:id/test-video", async (req, reply) => {
     const conn = await storage.getWithKey(req.params.id);
-    if (!conn) return reply.status(404).send({ error: "Connection not found" });
+    if (!conn) return unusableConnection(req.params.id, reply);
     if (conn.provider !== "video_generation") {
       return reply.status(400).send({ error: "Not a video generation connection" });
     }
@@ -1759,7 +1764,7 @@ export async function connectionsRoutes(app: FastifyInstance) {
   //    SDK billed Y." ──
   app.post<{ Params: { id: string } }>("/:id/diagnose-claude-subscription", async (req, reply) => {
     const conn = await storage.getWithKey(req.params.id);
-    if (!conn) return reply.status(404).send({ error: "Connection not found" });
+    if (!conn) return unusableConnection(req.params.id, reply);
     if (conn.provider !== "claude_subscription") {
       return reply.status(400).send({ error: "Not a Claude (Subscription) connection" });
     }
@@ -1858,7 +1863,7 @@ export async function connectionsRoutes(app: FastifyInstance) {
   // ── Test message — sends "hi" to the model and returns the response ──
   app.post<{ Params: { id: string } }>("/:id/test-message", async (req, reply) => {
     const conn = await storage.getWithKey(req.params.id);
-    if (!conn) return reply.status(404).send({ error: "Connection not found" });
+    if (!conn) return unusableConnection(req.params.id, reply);
 
     if (conn.provider === "image_generation" || conn.provider === "video_generation") {
       return reply.status(400).send({ error: "This provider does not support chat test messages." });
