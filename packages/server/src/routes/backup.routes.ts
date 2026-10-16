@@ -828,9 +828,15 @@ export function quarantineProfileApiConnectionRow(
     // Like the key: the local saved model list still applies only to the same endpoint.
     savedModels: trustedIdentity ? (existing?.savedModels ?? null) : null,
     profileImportReviewRequired: trustedIdentity ? "false" : "true",
-    // The exported account id means nothing here. A trusted row keeps its local account; any other row is
-    // regrouped by linkConnectionAccounts, where the review flag keeps it out of every trusted account.
-    accountId: trustedIdentity ? (existing?.accountId ?? null) : null,
+    // A trusted row keeps its local account. Any other row keeps its exported account id: linkConnectionAccounts
+    // keeps it there only while that account is the imported one with the same blank key and origin, and
+    // otherwise regroups it with the rows of the same exported account (two keys on one endpoint stay apart).
+    // The review flag keeps it out of every trusted account that has a key.
+    accountId: trustedIdentity
+      ? (existing?.accountId ?? null)
+      : typeof row.accountId === "string"
+        ? row.accountId
+        : null,
   };
   if (trustedIdentity) return { row: secured, trustedIdentity };
   for (const field of PROFILE_CONNECTION_AUTOMATIC_SELECTION_FIELDS) secured[field] = "false";
