@@ -35,7 +35,7 @@ Sekcja **Danger Zone** pokazuje listę ośmiu kategorii z polami wyboru. Każda 
 | **Automation & Addons** (automatyzacja i dodatki) | Agenci, narzędzia, skrypty regex, zsynchronizowane motywy i stan automatyzacji. |
 | **Media & Assets** (multimedia i zasoby) | Tła, awatary, sprite'y, elementy galerii, czcionki i pliki źródeł wiedzy. |
 
-Kilka kategorii usuwa więcej niż same rekordy z bazy danych. **Chats & Messages** kasuje też cały folder galerii na dysku razem ze wszystkimi plikami wideo scen. Dotyczy to również obrazów z galerii postaci i person, nawet bez zaznaczenia kategorii **Characters** i **Personas**. **Media & Assets** usuwa z dysku foldery teł, awatarów, sprite'ów, galerii, plików wideo scen, czcionek i plików źródeł wiedzy. **Connections** czyści dodatkowo zapisane ustawienia syntezy mowy (TTS) i Speech to Text (zamiana mowy na tekst), bo są one powiązane z połączeniem.
+Kilka kategorii usuwa więcej niż same rekordy z bazy danych. **Chats & Messages** kasuje też cały folder galerii na dysku razem ze wszystkimi plikami wideo scen. Dotyczy to również obrazów z galerii postaci i person, nawet bez zaznaczenia kategorii **Characters** i **Personas**. **Media & Assets** usuwa z dysku foldery teł, awatarów, sprite'ów, galerii, plików wideo scen, czcionek i plików źródeł wiedzy. **Connections** czyści dodatkowo zapisane ustawienia syntezy mowy (TTS) i Speech to Text (zamiana mowy na tekst), bo są one powiązane z połączeniem. Usuwa też klucz API Tripo zapisany na stronie **3D Avatars** (awatary 3D).
 
 ## Czyszczenie wybranych kategorii
 

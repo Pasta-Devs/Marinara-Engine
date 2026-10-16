@@ -49,10 +49,12 @@ Ein Charakter oder eine Persona mit Ausdrucks-Sprites hat bereits einen PNGTuber
 
 - **Bilder zum Sprechen und Blinzeln**: Füge Sprites hinzu, die nach einem Gesicht benannt sind, mit `_talk` für den offenen Mund und `_blink` für geschlossene Augen, zum Beispiel `happy_talk` und `happy_blink`, und `happy_blink_talk` für beides. `_talking`, `_speak`, `_mouth_open`, `_blinking` und `_eyes_closed` funktionieren auch. Ein Gesicht ohne diese Bilder hüpft trotzdem, während es spricht.
 - **Face for each feeling** (Gesicht für jedes Gefühl): Wähle, welches Gesicht bei Neutral, Happy, Angry, Sad, Relaxed und Surprised erscheint. **Resting face** (Ruhegesicht) verwendet das Gesicht für Neutral. Wählt die Expression Engine oder der Game Master ein Sprite, das du hast, erscheint genau dieses Gesicht.
+- **More feelings** (weitere Gefühle): Öffne unter **Face for each feeling** den Bereich **More feelings**, um ein Gesicht für 23 spezifischere Gefühle zu wählen, gruppiert nach den sechs: Curiosity unter Neutral; Admiration, Amusement, Desire, Embarrassment, Excitement, Gratitude, Optimism und Pride unter Happy; Annoyance, Disapproval und Disgust unter Angry; Disappointment, Grief, Nervousness und Remorse unter Sad; Approval, Caring, Love und Relief unter Relaxed; sowie Confusion, Fear und Realization unter Surprised. Sie sind optional. Jedes davon nutzt das Gesicht seines Hauptgefühls, bis du ein anderes wählst. Ein Sprite, das nach einem davon benannt ist, etwa `fear`, `amusement` oder ein Wort wie `scared` oder `laughing`, wird ohne jede Einrichtung dafür verwendet.
 - **Movement**: **Hop while talking** (beim Sprechen hüpfen) und **Hop height** (Hüpfhöhe) steuern das Hüpfen im PNGTuber-Stil. **Time between blinks** (Zeit zwischen dem Blinzeln) ist der Durchschnitt; jedes Blinzeln kommt etwas früher oder später, damit es nie mechanisch wirkt. Ist auf deinem Gerät reduzierte Bewegung eingeschaltet, hüpft und atmet der Avatar nicht, aber Gesicht und Mund ändern sich weiterhin.
+- **Sprites erscheinen so, wie sie sind**: Ein Sprite, das auf einen Hintergrund gezeichnet ist, erscheint mit diesem Hintergrund, und deine Sprite-Dateien werden nie verändert. Für Gesichter ohne Hintergrund nutze [Gesichter aus dem Avatar](#faces-from-the-avatar).
 - **Use my sprites** (meine Sprites verwenden) speichert die Sprites als Gesichter des Avatars. Auch wenn du ein Gesicht wählst oder die Bewegung änderst, wird er gespeichert. **Update from sprites** (aus Sprites aktualisieren) übernimmt Sprites, die du später hinzugefügt hast, und behält die Gesichter, die du für jedes Gefühl gewählt hast. Wähle nach einem Import **Remove** (Entfernen), um zu deinen Sprites zurückzukehren.
 
-**Import PNGTuber Plus save** (PNGTuber-Plus-Speicherstand importieren) liest einen Avatar, der mit [PNGTuber Plus](https://github.com/kaiakairos/PNGTuber-Plus) gespeichert wurde (eine `.save`-Datei). Jedes Kostüm wird zu einem Gesicht, und seine Ebenen fürs Sprechen und Blinzeln werden zu den Bildern zum Sprechen und Blinzeln. Kostüme werden den Gefühlen über die Namen der Bilder zugeordnet, die sie zeigen, etwa `angry eyes.png`. Wähle ein Gesicht für jedes Gefühl, das die Namen nicht abdecken. Manches wird nicht übernommen:
+**Import PNGTuber Plus save** (PNGTuber-Plus-Speicherstand importieren) liest einen Avatar, der mit [PNGTuber Plus](https://github.com/kaiakairos/PNGTuber-Plus) gespeichert wurde (eine `.save`-Datei). Jedes Kostüm wird zu einem Gesicht, und seine Ebenen fürs Sprechen und Blinzeln werden zu den Bildern zum Sprechen und Blinzeln. Die Bilder werden unverändert übernommen, auch mit einem Hintergrund, falls sie einen haben. Kostüme werden den Gefühlen über die Namen der Bilder zugeordnet, die sie zeigen, etwa `angry eyes.png`. Wähle ein Gesicht für jedes Gefühl, das die Namen nicht abdecken. Manches wird nicht übernommen:
 
 - Wackeln, Nachziehen, Drehung und Dehnung werden nicht importiert; der Avatar zeigt jede Ebene in Ruhestellung.
 - Animierte Ebenen zeigen nur ihr erstes Einzelbild.
@@ -77,6 +79,8 @@ Mesh-Avatare brauchen WebGL2, das aktuelle Browser mitbringen. Fehlt es oder sto
 
 **3D Avatars** zeigt VRM-Modelle, das Format, das VRoid Studio, das VRM Add-on for Blender und UniVRM für Unity exportieren. Dateien mit VRM 1.0 und VRM 0.x funktionieren beide.
 
+Du kannst mit Tripo auch ein VRM-Modell aus einem Ganzkörper-Sprite erstellen lassen, mit deinem eigenen Tripo-Konto. Siehe [Ein 3D-Modell mit Tripo erstellen](#make-a-3d-model-with-tripo).
+
 1. Öffne **3D Avatars** im Agent-Editor und wähle den Charakter oder die Persona.
 2. Wähle unter **VRM model** (VRM-Modell) **Import VRM** (VRM importieren) und dann eine `.vrm`-Datei.
 3. Lies **The author's terms** (die Bedingungen des Urhebers). Sie stammen aus der Modelldatei und legen fest, wer das Modell als Avatar nutzen darf, ob kommerzielle Nutzung erlaubt ist, ob du das Modell verändern darfst, ob sexuelle oder sehr gewalttätige Inhalte erlaubt sind und bei VRM-1.0-Modellen, ob du den Urheber nennen musst und die Datei weitergeben darfst. Verlinkt die Datei auf eine Lizenz oder auf eigene Bedingungen des Urhebers, öffne auch diese. Marinara Engine zeigt die Bedingungen an, setzt sie aber nicht durch. Halte dich also bitte selbst daran.
@@ -95,6 +99,54 @@ Manche Dateien lassen sich nicht verwenden, und der Import nennt den Grund:
 
 Über das übliche Upload-Limit der App hinaus gibt es kein Größenlimit, aber große Modelle laden länger, besonders auf Handys.
 
+<a id="get-a-3d-model"></a>
+
+## Ein 3D-Modell besorgen
+
+Hat der Charakter oder die Persona noch kein VRM-Modell, erstelle eines mit VRoid Studio. Das ist eine kostenlose App von pixiv für Windows, macOS und iPad, und Modelle, die du damit erstellst, darfst du selbst verwenden. Für einige der eingebauten Elemente und für gekaufte Texturen gelten eigene Bedingungen; prüfe diese also zuerst. Die Modelle bringen die sechs Gesichter, die fünf Mundformen und das Blinzeln mit, sodass Gesichter und Lippensynchronisation sofort funktionieren.
+
+Oder lass Tripo mit deinem eigenen Tripo-Konto eines aus einem Ganzkörper-Sprite erstellen: siehe [Ein 3D-Modell mit Tripo erstellen](#make-a-3d-model-with-tripo). Das kostet Tripo-Credits, und das Gesicht des Modells bewegt sich nicht.
+
+Wähle auf der Seite **3D Avatars** den Charakter oder die Persona. Unter **Get a 3D model** (3D-Modell besorgen) öffnet **Read the guide** (Anleitung lesen) diesen Abschnitt, und **Copy prompt** (Prompt kopieren) kopiert eine Beschreibung des Aussehens.
+
+1. Lade [VRoid Studio](https://vroid.com/en/studio) herunter und installiere es.
+2. Erstelle optional ein Bild als Vorlage: Wähle **Copy prompt** und füge den Prompt in einen Bildgenerator ein. VRoid Studio hat kein Feld für einen Prompt, das Bild dient also nur zum Anschauen, während du baust.
+3. Erstelle in VRoid Studio ein neues Modell. Wähle die Haare, das Gesicht, die Augen, den Körper und das Outfit, die dem Charakter am nächsten kommen, und ändere dann ihre Formen und Farben, bis sie passen.
+4. Exportiere das Modell als VRM. VRM 1.0 und VRM 0.0 funktionieren beide. Trag die Angaben und Bedingungen des Modells ein, wenn VRoid Studio danach fragt.
+5. Öffne **3D Avatars** unter **Agents**, wähle den Charakter oder die Persona und dann **Import VRM** unter **VRM model**. Unter **Faces and mouth shapes** sind bei einem Modell aus VRoid Studio alle Gesichter, Mundformen und das Blinzeln schon ausgefüllt.
+
+**Wofür der Prompt da ist.** Er beschreibt den Charakter für Werkzeuge, die aus Text ein Bild oder ein 3D-Modell erstellen: einen Ganzkörper-Charakter im Anime-Stil, der in T-Pose steht, von vorn gesehen auf einfarbigem Hintergrund, mit seinem Aussehen. Das Aussehen stammt aus dem Feld **Appearance** (Aussehen), stattdessen aus den Tags unter **Image Appearance Override** (eigene Aussehensbeschreibung für Bilder), wenn diese Option eingeschaltet ist, oder aus der Beschreibung, wenn kein Aussehen eingetragen ist. Der Prompt enthält nur Namen und Aussehen: nichts anderes aus der Karte und nichts aus deinen Chats. Er ist auf Englisch; ändere ihn vor der Verwendung nach Belieben.
+
+**Was sich bewegt.** Das Gesicht folgt der Antwort, und der Mund bewegt sich mit dem Text oder der Stimme, wenn das Modell Ausdrücke dafür hat. Ein VRM aus einem anderen Werkzeug hat vielleicht weniger oder gar keine, und **Faces and mouth shapes** zeigt, welche es hat. Manche Websites geben an, aus einem Bild oder einer Beschreibung ein VRM mit Gesichtsausdrücken zu erstellen, doch keine davon ließ sich beim Schreiben dieser Anleitung (Oktober 2026) bestätigen. Diese Anleitung empfiehlt deshalb keine.
+
+<a id="make-a-3d-model-with-tripo"></a>
+
+### Ein 3D-Modell mit Tripo erstellen
+
+Tripo ist ein kostenpflichtiger Dienst, der aus Bildern 3D-Modelle erstellt. Auf der Seite **3D Avatars** macht **Make 3D model** (3D-Modell erstellen) unter **Get a 3D model** mit deinem eigenen Tripo-Konto aus einem Ganzkörper-Sprite ein VRM-Modell. Ein Modell kostet etwa 60 Tripo-Credits (etwa 0,60 US-Dollar) und dauert etwa 3 Minuten.
+
+1. Melde dich bei Tripo an und erstelle dann auf der [Key-Seite von Tripo](https://developers.tripo3d.ai/en/keys) einen API-Key. Dort kaufst du auch Credits.
+2. Öffne **3D Avatars** unter **Agents** und wähle den Charakter oder die Persona. Füge unter **Get a 3D model** den Key in **Tripo API key** (Tripo-API-Key) ein und wähle **Save** (Speichern). **Get a key** (Key holen) daneben öffnet die Key-Seite von Tripo. Der Key gilt für alle Charaktere und Personas, du fügst ihn also nur einmal ein. **Remove** löscht ihn.
+3. Ist der Key gespeichert, erscheint dein Tripo-Guthaben. Das neutrale Ganzkörper-Sprite ist schon für dich ausgewählt; du kannst ein anderes wählen. Nimm ein Ganzkörper-Sprite, auf dem der ganze Charakter zu sehen ist: Ein Brustbild oder ein abgeschnittenes Sprite ergibt ein Modell ohne Beine, und das wird abgelehnt.
+4. Prüf dein Guthaben und die Kosten und wähle dann **Make 3D model**. Jeder Schritt erscheint, sobald er fertig ist, mit den bisher verbrauchten Credits: Tripo zeichnet das Sprite stehend in T-Pose (5 Credits), erstellt das 3D-Modell (30 Credits) und fügt ein Skelett hinzu (25 Credits); danach macht Marinara Engine daraus eine VRM-Datei.
+5. Sieh dir die Bilder an und wähle dann **Save as the VRM model** (als VRM-Modell speichern) oder **Discard** (Verwerfen). Speichern ersetzt das aktuelle VRM-Modell des Charakters oder der Persona.
+
+**Nur der Körper.** Ein Tripo-Modell bewegt Körper, Arme und Kopf, aber sein Gesicht bewegt sich nicht: Es hat keine Gesichtsausdrücke, kann also weder lächeln noch blinzeln noch den Mund bewegen. **Faces and mouth shapes** weist darauf hin, statt Gesichter zur Auswahl anzubieten. Haare, Mäntel und Schwänze gehören zum Körper und schwingen nicht mit, und die Hände haben keine Finger, die sich beugen lassen.
+
+**Cancel** (Abbrechen) beendet das Warten sofort. Tripo kann einen bereits begonnenen Schritt nicht stoppen, schließt ihn also womöglich trotzdem ab und berechnet ihn. Für einen fehlgeschlagenen Schritt gibt Tripo die Credits zurück.
+
+Geht etwas schief, sagt dir die Einrichtung, was zu tun ist:
+
+- **Key not accepted**: Füge einen funktionierenden Key in **Tripo API key** auf der Seite **3D Avatars** ein und wähle **Save**. **Get a key** öffnet die Key-Seite von Tripo.
+- **Not enough credits**: Lade dein Guthaben bei Tripo auf. Das Guthaben wird geprüft, bevor etwas beginnt, es wird also nichts ausgegeben.
+- **Content policy**: Tripo hat das Bild abgelehnt. Versuch es mit einem anderen Sprite.
+- **Busy**: Versuch es in einer Minute noch einmal.
+- **Arms down or no legs**: Das Modell kann sich nicht wie ein Avatar bewegen und wird deshalb abgelehnt, bevor etwas gespeichert wird. Versuch es mit einem anderen Ganzkörper-Sprite.
+
+**Was gesendet wird.** Dein Sprite geht an Tripo; hat es einen Hintergrund, wird dieser vorher entfernt. Der Key wird verschlüsselt auf dem Server gespeichert, nur an die API von Tripo gesendet und nie in der App angezeigt, in ein Log geschrieben oder in einen Profil-Export aufgenommen. Im Debug-Modus zeigt das Server-Log die Einstellungen und Auftragsnummern jeder Tripo-Anfrage.
+
+**Wer das Modell nutzen darf.** Nach den Bedingungen von Tripo gehören Modelle zahlender Nutzer diesen selbst, an kostenlos erstellten Modellen behält Tripo die Rechte. Auch die Grafik in deinem Sprite kann jemand anderem gehören. Die Modelldatei beansprucht deshalb nur die persönliche, nicht kommerzielle Nutzung durch dich, bittet um Namensnennung, sagt, dass die Datei nicht weitergegeben werden soll, und verlinkt die [Bedingungen von Tripo](https://developers.tripo3d.ai/en/terms). **The author's terms** zeigt diese an. Prüfe sie, bevor du das Modell weitergibst.
+
 ## Wie Gesichter und Münder der Antwort folgen
 
 Avatare reagieren von selbst; für diesen Teil musst du nichts einrichten.
@@ -105,6 +157,8 @@ Avatare reagieren von selbst; für diesen Teil musst du nichts einrichten.
 - Ein Gesicht bleibt mindestens zwei Sekunden.
 - Das Gesicht wird erst nach zwei ruhigen Sätzen in Folge wieder ruhig.
 - Etwa vier Sekunden nach dem Ende der Antwort entspannt sich das Gesicht wieder.
+
+Ein PNGTuber-Avatar mit Gesichtern für [weitere Gefühle](#pngtuber-sprites) kann auch das spezifischere Gefühl zeigen, als das ein Satz gelesen wird, etwa Amusement bei fröhlicher Stimmung. Dieses Gesicht folgt denselben Regeln: Es braucht eine eindeutige Einschätzung und bleibt mindestens zwei Sekunden, und ein Gefühl ohne eigenes Gesicht zeigt das Gesicht seines Hauptgefühls. Bei der Wahl der Expression Engine und des Game Masters ist es genauso: Hat der Avatar kein Gesicht mit dem gewählten Namen, etwa `scared`, zeigt er das Gesicht dieses Gefühls, hier Fear. 3D- und Mesh-Avatare zeigen nur die sechs Gefühle.
 
 **So wird die Stimmung gelesen.** Deine Chat-Verbindung wird nicht gefragt. Dein Chat-Text bleibt in deiner eigenen Installation von Marinara Engine und wird nie an einen externen Dienst geschickt.
 
@@ -139,21 +193,27 @@ Die Lippensynchronisation ändert nichts daran, wie die Stimme abgespielt wird. 
 
 Wähle auf der Seite **2D Avatars** im Agent-Editor einen Charakter oder eine Persona und nutze dann **Make an avatar from a sprite** (Avatar aus einem Sprite erstellen). Das funktioniert mit den Sprites, die der Charakter oder die Persona bereits hat. Dein Avatar bleibt unverändert, bis du ein Ergebnis speicherst. Du kannst es also so oft versuchen, wie du willst.
 
+<a id="faces-from-the-avatar"></a>
+
+### Gesichter aus dem Avatar
+
+**Make faces from the avatar** (Gesichter aus dem Avatar erstellen) erstellt Gesichter ohne Hintergrund, auch für einen Charakter oder eine Persona ohne Sprites. Es öffnet die Sprite-Generierung – dieselbe wie in den Editoren für Charaktere und Personas – mit dem Avatar als angehakter Referenz. Sie beginnt mit den sechs Hauptgesichtern Neutral, Happy, Angry, Sad, Relaxed und Surprised und bietet 23 weitere Gefühle an, etwa Pride, Grief und Realization. Jedes zusätzliche Gefühl steht in der Zeile des Hauptgesichts, das es zeigt, bis es ein eigenes Gesicht hat. Wähle **All faces** (alle Gesichter) für alle 29, **Main faces** (Hauptgesichter) für die sechs oder beliebige einzelne Gesichter. Die Gesichter werden in Gruppen gezeichnet, Hauptgesichter zuerst, mit so vielen pro Bild, wie das Raster fasst; ältere GPT-Image-Modelle zeichnen ein Gesicht pro Bild. Ein fehlgeschlagenes Bild wird einmal erneut versucht; schlägt es wieder fehl, hält der Durchgang mit **Retry picture** (Bild wiederholen) an, und **Cancel** behält die bereits erstellten Gesichter. Ist **Expose media prompts before sending** (Medien-Prompts vor dem Senden anzeigen) eingeschaltet, prüfst du die Prompts für alle Bilder auf einmal, bevor das erste gesendet wird. Jedes Gesicht wird mit offenen Augen und geschlossenem Mund gezeichnet, damit seine Bilder zum Blinzeln und Sprechen etwas zum Schließen und Öffnen haben. Dabei entstehen aus dem Avatar neue Ausdrucks-Sprites auf einer einfarbigen Fläche; diese Farbe wird entfernt, und die neuen Sprites werden beim Charakter oder bei der Persona gespeichert. Ein neues Sprite ersetzt das gleichnamige; benenne es also im letzten Schritt um, wenn du das alte behalten willst. Voraussetzung sind ein Avatar und eine Bildverbindung.
+
 ### Bilder zum Blinzeln und Sprechen
 
-1. Wähle ein oder mehrere Sprites und dann **Eyes closed** (Augen geschlossen), **Mouth open** (Mund offen) oder beides. Hat der Charakter oder die Persona Porträt-Sprites, werden nur diese angeboten, denn der Avatar mischt nie Porträt- und Ganzkörper-Gesichter.
-2. Prüf die **Image connection** (Bildverbindung) – deine Standard-Bildverbindung ist schon ausgewählt – und wähle **Make pictures** (Bilder erstellen). Jedes Bild ist eine Bildanfrage. Ist **Expose media prompts before sending** (Medien-Prompts vor dem Senden anzeigen) in den Einstellungen eingeschaltet, siehst du jeden Prompt vorher und kannst ihn bearbeiten.
-3. Die neuen Bilder erscheinen nacheinander. Wähle **Keep** (Behalten) bei denen, die passen, und **Try again** (erneut versuchen) bei den anderen. **Cancel** (Abbrechen) stoppt das Bild, das gerade entsteht. Bilder, die du schon hast, bleiben erhalten, wenn du weitere erstellst: **Make pictures** erstellt nur die fehlenden, und wenn **Try again** scheitert, bleibt das alte Bild. Um ein behaltenes Bild neu zu erstellen, wähle zuerst **Kept**, um es freizugeben.
+1. Jedes Gesicht, das der Avatar für ein Gefühl zeigt, ist eine Zeile, benannt nach den Gefühlen, bei denen es erscheint. Neben dem **Face** (Gesicht) stehen seine Bilder für **Eyes closed** (Augen geschlossen) und **Mouth open** (Mund offen): solche, die du gespeichert hast, `_blink`- und `_talk`-Sprites, die du hinzugefügt hast, oder neue. Hat der Charakter oder die Persona Porträt-Sprites, werden nur diese verwendet, denn der Avatar mischt nie Porträt- und Ganzkörper-Gesichter. Ein Gesicht, das keines deiner Sprites ist, etwa eines aus einem Import von PNGTuber Plus, zeigt seine Bilder, aber neue lassen sich dafür nicht zeichnen.
+2. Prüf die **Image connection** (Bildverbindung) – deine Standard-Bildverbindung ist schon ausgewählt. **Make** (Erstellen) zeichnet ein fehlendes Bild, **Make pictures** (Bilder erstellen) zeichnet alle. Jedes Bild ist eine Bildanfrage. Ist **Expose media prompts before sending** in den Einstellungen eingeschaltet, siehst du jeden Prompt vorher und kannst ihn bearbeiten.
+3. Die neuen Bilder erscheinen nacheinander. Wähle **Keep** (Behalten) bei denen, die passen, und **Try again** (erneut versuchen) bei den anderen; **Try again** zeichnet auch ein Bild neu, das du schon hast. Das Bild, das neu gezeichnet wird, bleibt abgedunkelt und zeigt eine Ladeanzeige, bis das neue ankommt. **Cancel** stoppt das Bild, das gerade entsteht, auch auf dem Server, und verwirft die Bilder, die noch nicht erstellt wurden. Wenn **Try again** scheitert, bleibt das alte Bild. Um ein behaltenes Bild neu zu erstellen, wähle zuerst **Kept**, um es freizugeben.
 4. Wähle **Save kept pictures** (behaltene Bilder speichern). Sie werden zu den Bildern zum Blinzeln und Sprechen des PNGTuber-Avatars für diese Ausdrücke, neben einer Kopie des Sprites, aus dem sie gezeichnet wurden, damit sie immer deckungsgleich sind. Hat der Avatar deine Sprites bisher unverändert gezeigt, behält er alle und bekommt die neuen Bilder dazu. Ersetzt du ein Sprite vor dem Speichern, erstelle seine Bilder neu.
 
-Am besten funktionieren Bildmodelle, die Bilder bearbeiten, denn sie bekommen dein Sprite als Referenz. Dein Sprite wird in der Größe und Form gesendet, die das Modell akzeptiert, und danach wieder aus dem Ergebnis ausgeschnitten. Ein Modell, das das Bild an seinem Platz lässt, liefert also deckungsgleiche Bilder. Ändert ein Bild mehr als Augen oder Mund, springt der Avatar beim Blinzeln oder Sprechen; versuch es bei diesem Bild erneut.
+Am besten funktionieren Bildmodelle, die Bilder bearbeiten, denn sie bekommen dein Sprite als einzige Referenz, mit einem Prompt, der nur Änderungen an Augen oder Mund verlangt. Dein Sprite wird in der Größe und Form gesendet, die das Modell akzeptiert, freigestellt auf weißem Hintergrund, und mit seinem eigenen Umriss wieder aus dem Ergebnis ausgeschnitten. Ein Modell, das das Bild an seinem Platz lässt, liefert also deckungsgleiche Bilder. Ändert ein Bild mehr als Augen oder Mund, springt der Avatar beim Blinzeln oder Sprechen; versuch es bei diesem Bild erneut.
 
 ### Mesh-Avatar
 
-1. Wähle ein Sprite. Am besten eignet sich ein Brustbild von vorn (Kopf und Schultern); auf einem Ganzkörper-Sprite ist das Gesicht klein.
+1. Wähle ein Sprite. Hat der Charakter ein neutrales Ganzkörper-Sprite, ist es schon für dich ausgewählt, sonst das neutrale Sprite; du kannst ein anderes wählen. Am besten eignet sich ein Ganzkörper-Sprite oder Brustbild von vorn.
 2. Wähle die **Chat connection that can see pictures** (Chat-Verbindung, die Bilder sehen kann). **The agent's connection** (die Verbindung des Agenten) nutzt die Verbindung, die auf der Seite von 2D Avatars eingestellt ist, und sonst deine Standard-Verbindung für Agenten. Ihr Modell muss Bilder annehmen.
-3. Wähle **Make mesh avatar** (Mesh-Avatar erstellen). Das Chat-Modell findet das Gesicht, und Marinara Engine baut den Avatar aus deinem Sprite. **Cancel** stoppt den Vorgang.
-4. Prüf die Vorschau: Die Umrisse sollten auf Augen, Brauen und Mund liegen. Wähle **Save as mesh avatar** (als Mesh-Avatar speichern) oder **Discard** (Verwerfen) und versuch es mit einem anderen Sprite oder Modell.
+3. Wähle **Make mesh avatar** (Mesh-Avatar erstellen). Das Chat-Modell findet das Gesicht, und Marinara Engine baut den Avatar aus deinem Sprite, so wie es ist. **Cancel** stoppt den Vorgang.
+4. Prüf die Vorschau: Die Umrisse sollten auf Augen, Brauen und Mund liegen. Wähle **Save as mesh avatar** (als Mesh-Avatar speichern) oder **Discard** und versuch es mit einem anderen Sprite oder Modell.
 
 Ein erstellter Mesh-Avatar bewegt Kopf, Augen, Brauen und Mund und blinzelt und spricht mit seinen eigenen Lidern und seinem eigenen Mund. Seine Haare bewegen sich mit dem Kopf; Hände, einzelne Haarsträhnen und herabhängende Accessoires werden nicht animiert. Füllt das Gesicht den größten Teil eines großen Sprites aus, wird der Avatar aus einer kleineren Kopie gebaut, damit die Erstellung schnell bleibt.
 
@@ -172,7 +232,7 @@ Zum Start musst du nichts erstellen. Ein Charakter oder eine Persona mit Ausdruc
 
 ### Deine eigenen Sprites
 
-1. Zeichne ein Bild für jedes Gefühl, alle gleich groß und mit dem Charakter an derselben Stelle. Benenne jedes nach seinem Gefühl: `neutral`, `happy`, `angry`, `sad`, `relaxed` und `surprised`. Namen, die ein Gefühlswort enthalten, funktionieren auch, etwa `smile`, `cry`, `calm` oder `shock`.
+1. Zeichne ein Bild für jedes Gefühl, alle gleich groß und mit dem Charakter an derselben Stelle. Benenne jedes nach seinem Gefühl: `neutral`, `happy`, `angry`, `sad`, `relaxed` und `surprised`. Namen, die ein Gefühlswort enthalten, funktionieren auch, etwa `smile`, `cry`, `calm` oder `shock`. Für die optionalen [weiteren Gefühle](#pngtuber-sprites) füge ebenfalls Bilder hinzu, die nach ihnen benannt sind, etwa `amusement`, `fear` oder `gratitude`.
 2. Für einen beweglichen Mund zeichne dasselbe Bild, nur mit offenem Mund, und häng `_talk` an seinen Namen an, zum Beispiel `happy_talk`. Fürs Blinzeln schließ nur die Augen und häng `_blink` an; für beides häng `_blink_talk` an. Ein Gefühl ohne diese Bilder hüpft trotzdem, während es spricht.
 3. Füge die Bilder im Tab **Sprites** des Charakters oder der Persona unter **Facial Expressions** (Gesichtsausdrücke) hinzu. **Upload Folder** (Ordner hochladen) fügt einen ganzen Ordner hinzu und benennt jedes Sprite nach seiner Datei. Siehe [Charakter-Sprites](../characters/sprites.md).
 4. Chats, in denen 2D Avatars eingeschaltet ist, zeigen sie sofort. Wie du das Gesicht für ein Gefühl oder die Bewegung änderst, steht unter [PNGTuber-Sprites](#pngtuber-sprites).
@@ -180,7 +240,7 @@ Zum Start musst du nichts erstellen. Ein Charakter oder eine Persona mit Ausdruc
 ### PNGTuber Plus
 
 1. Bau den Avatar aus getrennten Ebenen auf. Stell den offenen Mund so ein, dass er nur beim Sprechen erscheint, und den geschlossenen Mund nur, wenn der Avatar still ist. Stell die geschlossenen Augen so ein, dass sie nur beim Blinzeln erscheinen, und die offenen Augen nur, wenn der Avatar nicht blinzelt.
-2. Leg für jedes Gefühl ein Kostüm an, das die Augen oder den Mund austauscht, und benenne diese Bilder nach dem Gefühl, zum Beispiel `angry eyes.png` oder `happy_mouth.png`. Kostüm 1 ist das Ruhegesicht.
+2. Leg für jedes Gefühl ein Kostüm an, das die Augen oder den Mund austauscht, und benenne diese Bilder nach dem Gefühl, zum Beispiel `angry eyes.png` oder `happy_mouth.png`. Die spezifischeren Gefühle funktionieren genauso, zum Beispiel `fear eyes.png`. Kostüm 1 ist das Ruhegesicht.
 3. Speichere den Avatar, um eine `.save`-Datei zu erhalten.
 4. Öffne **2D Avatars** unter **Agents**, wähle den Charakter oder die Persona, dann **PNGTuber sprites** und **Import PNGTuber Plus save**. Wähle ein Gesicht für jedes Gefühl, das die Namen nicht abdecken.
 
