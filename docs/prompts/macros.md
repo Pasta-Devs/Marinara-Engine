@@ -109,11 +109,14 @@ These macros describe the current chat and the current request.
 | --- | --- |
 | `{{input}}` | The most recent user message available to the prompt. |
 | `{{model}}` | The current model name, when one is selected. |
+| `{{reasoning}}` | The reasoning level this reply is generated with: `low`, `medium`, `high`, `xhigh`, or `max`, or `off` when the model is not asked to think. |
 | `{{chatId}}` | The current chat's ID. |
 | `{{lastGenerationType}}` | A label for why this reply is being generated. |
 | `{{idle_duration}}` | How long since the last chat activity, as text like `8 minutes` or `1 hour 5 minutes`. |
 | `{{gameStoryboardKeyframeCount}}` | Game Mode's current **Keyframes per Turn** target, from 1 to 6. It defaults to `3`. |
 | `{{agent::TYPE}}` | The saved output of an agent of the given type. |
+
+`{{reasoning}}` names the level the model is actually sent, after your preset, connection, and chat settings are layered. **Maximum** shows as the highest level the model takes, so it can read `max`, `xhigh`, or `high`. Because `off` reads as false, `{{#if reasoning}}` keeps a block only while the model thinks. If your preset or chat already has its own variable named `reasoning`, that variable keeps the name.
 
 The value of `{{lastGenerationType}}` is a plain label. Example values seen in the app include `normal`, `continue`, `regenerate`, `impersonate`, `guided`, `autonomous`, `turn_game`, `preview`, `game_setup`, `lorebook_scan`, and `retry_agents`. This list can grow, so treat it as examples, not a fixed set.
 

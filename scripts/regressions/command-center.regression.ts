@@ -4075,7 +4075,7 @@ assert.ok(!("mariDetailId" in mariSession));
   // without a reopen), and an arrival door waits for the run instead of landing under the live thread.
   assert.match(
     mariSource,
-    /if \(!ended \|\| !chatId\) return;\s*void loadMessages\(chatId,/u,
+    /if \(!ended \|\| !chatId \|\| sending\) return;\s*void loadMessages\(chatId,/u,
     "UX-03: the thread reloads when a run ends",
   );
   assert.match(

@@ -9,6 +9,7 @@ import type {
   AdvancedMemoryOperationOptions,
   createAdvancedMemoryService,
 } from "../advanced-memory.js";
+import { MEMORY_DECISION_RECALL_TOTAL_MS } from "../advanced-memory-decisions.js";
 import {
   contextWindowForInputBudget,
   measureContextBudget,
@@ -69,6 +70,7 @@ export async function prepareAdvancedMemoryContext(
     tools?: LLMToolDefinition[];
     query?: string;
     readOnly?: boolean;
+    continueMessageId?: string;
     /** Oldest swipe first; legacy replies acquire a snapshot on their next generation. */
     cachedSnapshots?: readonly unknown[];
     toProviderMessages: (messages: GenerationPromptMessage[]) => ChatMessage[];
@@ -123,7 +125,9 @@ export async function prepareAdvancedMemoryContext(
       rejectedReceipts.add(receiptKey);
     }
   }
-  // Usually one pass. The extra passes account for formatted history, macros and media estimates.
+  // Usually one pass. The extra passes account for formatted history, macros and media estimates, and share
+  // one Decision recall time limit, since the reply waits for all of them.
+  const decisionDeadline = Date.now() + MEMORY_DECISION_RECALL_TOTAL_MS;
   for (let attempt = 0; attempt < 6 && budgetTokens > 0; attempt++) {
     const reusedSnapshot = !!prepared;
     prepared ??= await input.service.prepare({
@@ -134,6 +138,8 @@ export async function prepareAdvancedMemoryContext(
       budgetTokens,
       query: input.query,
       readOnly: input.readOnly,
+      continueMessageId: input.continueMessageId,
+      decisionDeadline,
       signal: input.signal,
       debugMode: input.debugMode,
       onProgress: input.onProgress,

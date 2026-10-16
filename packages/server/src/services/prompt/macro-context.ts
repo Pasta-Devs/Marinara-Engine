@@ -54,6 +54,7 @@ export interface BuildPromptMacroContextInput {
   lastInput?: string;
   chatId?: string;
   model?: string;
+  reasoning?: string;
   lastGenerationType?: string;
   idleDuration?: string;
   timeZone?: string;
@@ -834,6 +835,7 @@ export async function buildPromptMacroContext(input: BuildPromptMacroContextInpu
     lastInput: input.lastInput,
     chatId: input.chatId,
     model: input.model,
+    reasoning: input.reasoning,
     lastGenerationType: input.lastGenerationType,
     idleDuration: input.idleDuration,
     timeZone: input.timeZone,

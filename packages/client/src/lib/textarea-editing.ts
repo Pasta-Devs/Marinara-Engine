@@ -132,6 +132,19 @@ function applyTextareaEdit(textarea: HTMLTextAreaElement, edit: TextareaEdit) {
   textarea.ownerDocument.defaultView?.requestAnimationFrame(restoreSelection);
 }
 
+/** Inserts `text` at the caret as if typed, keeping the browser's native undo. */
+export function insertTextAtCaret(textarea: HTMLTextAreaElement, text: string) {
+  const caret = textarea.selectionEnd;
+  applyTextareaEdit(textarea, {
+    start: caret,
+    end: caret,
+    replacement: text,
+    selectionStart: caret + text.length,
+    selectionEnd: caret + text.length,
+    selectionDirection: "none",
+  });
+}
+
 /**
  * Applies editor-style Tab and Shift+Tab behavior without discarding the
  * browser's native undo transaction.

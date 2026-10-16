@@ -24,6 +24,7 @@ type MariMessageActionsInput = {
   failRun: (
     error: unknown,
     retry: Pick<ProfessorMariRecovery, "text" | "attachments" | "context" | "localMessageId">,
+    runChatId?: string | null,
   ) => void;
   isBusy: boolean;
   loadMessages: (

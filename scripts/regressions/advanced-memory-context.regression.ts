@@ -41,7 +41,7 @@ const prompt: Input["messages"] = [
   },
   ...source.map((item) => ({ ...item, role: item.role as "user" | "assistant", contextKind: "history" as const })),
 ];
-const calls: Array<{ budget: number; readOnly?: boolean }> = [];
+const calls: Array<{ budget: number; readOnly?: boolean; decisionDeadline?: number }> = [];
 let recall = "";
 let cacheValid = true;
 const service = {
@@ -49,7 +49,7 @@ const service = {
     if (!cacheValid) throw new Error("Memory sources changed");
   },
   async prepare(input: Parameters<Input["service"]["prepare"]>[0]) {
-    calls.push({ budget: input.budgetTokens, readOnly: input.readOnly });
+    calls.push({ budget: input.budgetTokens, readOnly: input.readOnly, decisionDeadline: input.decisionDeadline });
     const count = Math.min(source.length, Math.max(1, Math.floor((input.budgetTokens - 256) / 1010)));
     return {
       messageIds: source.slice(-count).map((item) => item.id),
@@ -215,6 +215,20 @@ const preview = await prepareAdvancedMemoryContext({ ...input, readOnly: true })
 assert.equal(calls.at(-1)!.readOnly, true);
 assert.deepEqual(preview.providerMessages, roomy.providerMessages);
 assert.ok(prompt[0]!.content.includes(placements[0]!.token), "prepared snapshot must stay reusable");
+
+// Formatting can outgrow the estimate, so the history is refitted; every attempt for the reply shares one
+// Decision recall time limit.
+const beforeFormatted = calls.length;
+await prepareAdvancedMemoryContext({
+  ...input,
+  maxContext: 12_000,
+  toProviderMessages: (messages) =>
+    messages.map((message) => ({ ...message, content: `${message.content}${"y".repeat(200)}` })),
+});
+const deadlines = calls.slice(beforeFormatted).map((call) => call.decisionDeadline);
+assert(deadlines.length > 1, "the formatted history is refitted");
+assert.equal(new Set(deadlines).size, 1, "one Decision recall time limit per reply");
+assert.equal(typeof deadlines[0], "number");
 
 const synthetic = {
   role: "user" as const,

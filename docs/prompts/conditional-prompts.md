@@ -115,7 +115,7 @@ A truthy check is true when the value is not empty and is not one of these words
 
 The left or right side of a condition can be any of these:
 
-1. A field or identity keyword, such as `char`, `user`, `group`, `persona`, `description`, `personality`, `scenario`, `input`, or `model`. These read the same values as the matching macros. `group` lists the other active chat characters after excluding the current responder.
+1. A field or identity keyword, such as `char`, `user`, `group`, `persona`, `description`, `personality`, `scenario`, `input`, `model`, or `reasoning`. These read the same values as the matching macros. `group` lists the other active chat characters after excluding the current responder.
 2. A quoted literal, such as `"Alice"`.
 3. A preset variable name, such as `length`. A preset variable is a named value you define in a Prompt Preset. See [Preset Variables](preset-variables.md).
 4. An explicit variable lookup written as `var:name` or `var.name`.
@@ -157,7 +157,7 @@ Group blocks only expand in a chat with two or more characters. In a solo chat, 
 
 ## Worked examples (before and after)
 
-Here are three full examples with the result the model receives.
+Here are five full examples with the result the model receives.
 
 Character-specific tone inside a shared preset:
 
@@ -190,6 +190,28 @@ Address the user as Doctor.
 ```
 
 If your persona name contains `Dr`, the model is told to address you as Doctor. If not, the block resolves to nothing.
+
+Model-specific instructions:
+
+```
+{{#if model contains "opus"}}
+Keep replies under 400 words.
+{{/if}}
+```
+
+`model` is the model ID from your connection, such as `claude-opus-5-5`, so `contains` matches every Opus version and `==` matches one exact model.
+
+Chain-of-thought instructions only while the model thinks:
+
+```
+{{#if reasoning}}
+Plan the reply in your thinking before you write it.
+{{else}}
+Before replying, write your plan inside <plan></plan> tags.
+{{/if}}
+```
+
+With reasoning on at any level, the model gets the first line. With reasoning off, `{{reasoning}}` is `off`, which reads as false, so it gets the second. To act on one level, compare it: `{{#if reasoning == "max"}}`.
 
 ## Asking the Decision model
 

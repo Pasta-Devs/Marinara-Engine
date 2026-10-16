@@ -113,6 +113,19 @@ export function getMessageRunError(
   return dismissed && !includeDismissed ? null : { message: value.message, dismissed };
 }
 
+/**
+ * Your saved question for `text`, if the server has it. F3: when a later round failed, the newest message
+ * is her partial reply (mariRunError set), not your question, so look past it.
+ */
+export function findSavedUserMessage(messages: Message[] | undefined, text: string) {
+  const newest = messages?.at(-1);
+  const saved =
+    newest && getMessageRunError(newest, { includeDismissed: true })
+      ? messages?.findLast((message) => message.role === "user")
+      : newest;
+  return saved?.role === "user" && saved.content === text ? saved : undefined;
+}
+
 export function isMariWorkspaceActionResult(value: unknown): value is MariWorkspaceActionResult {
   const result = asRecord(value);
   const resource = asRecord(result?.resource);

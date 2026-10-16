@@ -180,10 +180,12 @@ import {
   ProfessorMariMobilePortal,
   MARI_PANEL_SLOT_CLASS,
   retryOf,
+  isSavedUserMessage,
 } from "./mari/mari-chat-helpers";
 import {
   WorkspaceTimelineItem,
   appendTextTimeline,
+  findSavedUserMessage,
   getMessageRunError,
   getMessageRunTime,
   getMessageWorkspaceActionResults,
@@ -1421,11 +1423,12 @@ export function HomeProfessorMariChat({
   useEffect(() => {
     const ended = timelineRunActiveRef.current && !workspaceTimelineActive;
     timelineRunActiveRef.current = workspaceTimelineActive;
-    if (!ended || !chatId) return;
+    // A send in flight reloads the thread itself (and its failure recovery needs that reload to land).
+    if (!ended || !chatId || sending) return;
     void loadMessages(chatId, { restoreFocus: false, shouldApply: () => activeChatIdRef.current === chatId }).catch(
       () => undefined,
     );
-  }, [workspaceTimelineActive, chatId, loadMessages]);
+  }, [workspaceTimelineActive, chatId, loadMessages, sending]);
   const emptyStateReady =
     omnibarMode && messages.length === 0 && !isBusy && chatId !== null && loadedMessagesChatId === chatId;
   // D1: an arrival door (⌘J, the pull, the drag, Home's "Ask Professor Mari") opened into a chat that
@@ -2299,8 +2302,19 @@ export function HomeProfessorMariChat({
     // under her answer once the thread has a message.
     handledArrivalAppendRequestRef.current = arrivalAppendRequestRef.current;
     let localMessageId: string | undefined;
+    let runChatId: string | null = null;
+    // Your newest question the server holds now: a different one after the failure means it saved this one
+    // (an id, not a count, because the thread loads only its newest page).
+    let lastSavedUserId = messagesRef.current.findLast(isSavedUserMessage)?.id;
     try {
       const chat = await ensureProfessorMariChat(effectiveConnectionId);
+      runChatId = chat.id;
+      // The thread was still loading when you sent: ask the server, or a failed send cannot tell it was never saved.
+      if (lastSavedUserId === undefined && loadedMessagesChatId !== chat.id) {
+        lastSavedUserId = (await fetchMariThreadMessages(chat.id).catch(() => [] as Message[])).findLast(
+          isSavedUserMessage,
+        )?.id;
+      }
       // A retry or a chip sends its own text: leave whatever you have typed since in the composer.
       if (overrideText === undefined) setDraft("");
       setMariChips(chat.id, []);
@@ -2311,14 +2325,7 @@ export function HomeProfessorMariChat({
       let existingUserMessageId: string | undefined;
       if (overrideRecovery?.reuseSavedMessage) {
         const loaded = await loadMessages(chat.id, { restoreFocus: false }).catch(() => undefined);
-        // F3: when a later round failed, the newest message is her partial reply (mariRunError set), not
-        // your question — look past it for the user message it answers, or Retry sends a duplicate.
-        const newest = loaded?.at(-1);
-        const saved =
-          newest && getMessageRunError(newest, { includeDismissed: true })
-            ? loaded?.findLast((message) => message.role === "user")
-            : newest;
-        if (saved?.role === "user" && saved.content === messageText) existingUserMessageId = saved.id;
+        existingUserMessageId = findSavedUserMessage(loaded, messageText)?.id;
       }
       if (existingUserMessageId) {
         setTurnStartMessageId(existingUserMessageId);
@@ -2358,11 +2365,23 @@ export function HomeProfessorMariChat({
       // Like Claude: your message stays where you sent it and one error card with Retry sits under the turn.
       // No toast over her header, and the text is not pushed back into the composer as a duplicate.
       if (!isProfessorMariAbortError(error)) setHandoffContext(submittedContext);
-      failRun(error, {
-        text: messageText,
-        attachments: submittedAttachments,
-        context: submittedContext,
-        localMessageId,
+      // Awaited so `sending` holds until the reload lands: a new send cannot start under it.
+      await failRun(
+        error,
+        {
+          text: messageText,
+          attachments: submittedAttachments,
+          context: submittedContext,
+          localMessageId,
+        },
+        runChatId ?? undefined,
+      )?.then((loaded) => {
+        if (!localMessageId || !loaded || loaded.findLast(isSavedUserMessage)?.id !== lastSavedUserId) return;
+        // The server refused before it saved your message (no admin secret, a 401/403, a dead connection),
+        // so the reload took your bubble away. Give it back in the composer, ahead of anything typed since.
+        setDraft((current) => [text, current].filter((part) => part.trim()).join("\n\n"));
+        setAttachments((current) => [...submittedAttachments, ...current]);
+        setRecoveryState((current) => current && { ...current, inComposer: true });
       });
     } finally {
       setSending(false);
@@ -2456,6 +2475,11 @@ export function HomeProfessorMariChat({
     const target = recovery ?? (savedRunError ? retryOf(lastUserMessage) : null);
     if (!target?.text) return;
     setHandoffContext(target.context);
+    // Your message went back to the composer: send it from there, edits included.
+    if (recovery?.inComposer && (draft.trim() || attachments.length > 0)) {
+      void handleSubmit(undefined, undefined, target.context);
+      return;
+    }
     void handleSubmit(target.text, { ...target, reuseSavedMessage: true });
   };
   const retryRunEvent = useEffectEvent(retryRun);

@@ -115,6 +115,8 @@ import {
   setLorebookEntryCounts,
   type AssemblerInput,
 } from "../../services/prompt/index.js";
+import { parsePresetParameters } from "../../services/prompt/assembler.js";
+import { resolveReasoningMacroValue } from "../../services/generation/provider-generation-runtime.js";
 import { cardPromptText } from "../../services/prompt/card-text.js";
 import { resolveChatUserIdentity } from "../../services/chat-user-identity.js";
 import { wrapContent } from "../../services/prompt/format-engine.js";
@@ -1113,6 +1115,23 @@ export async function registerDryRunRoute(app: FastifyInstance) {
       return pending;
     };
     const chatMacroVariables = normalizeChatMacroVariables(chatMeta.macroVariables);
+    // Same base level as the parameters this preview reports below: the preset's when it assembles the prompt (not
+    // with promptParts) or, in Conversation and Game, always; otherwise none.
+    const presetUsesModeParameters = chatMode === "conversation" || chatMode === "game";
+    const promptReasoning = resolveReasoningMacroValue({
+      connection: conn,
+      chatMode,
+      isSceneChat: false,
+      chatParameters: chatMeta.chatParameters,
+      baseReasoningEffort:
+        !effectivePresetId || !effectivePreset
+          ? reasoningEffort
+          : presetUsesModeParameters
+            ? (parseStoredGenerationParameters(effectivePreset.parameters)?.reasoningEffort ?? reasoningEffort)
+            : promptParts
+              ? reasoningEffort
+              : (parsePresetParameters(effectivePreset.parameters).reasoningEffort ?? null),
+    });
     const promptMacroContext = await buildPromptMacroContext({
       db: app.db,
       characterIds: promptCharacterIds,
@@ -1134,6 +1153,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
           : [...mappedMessages].reverse().find((message) => message.role === "user")?.content,
       chatId,
       model: conn.model,
+      reasoning: promptReasoning,
       lastGenerationType: promptLastGenerationType,
       idleDuration: promptIdleDuration,
       macroSources: [
@@ -1775,6 +1795,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
 
       const assemblerInput: AssemblerInput = {
         model: conn.model,
+        reasoning: promptReasoning,
         deferMessagePostProcessing: true,
         db: app.db,
         preset: preset as any,

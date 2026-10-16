@@ -442,6 +442,7 @@ import {
   setLorebookEntryCounts,
   type AssemblerInput,
 } from "../services/prompt/index.js";
+import { parsePresetParameters } from "../services/prompt/assembler.js";
 import { wrapContent } from "../services/prompt/format-engine.js";
 import {
   withLlmRequestTimeout,
@@ -723,7 +724,10 @@ import {
   shouldRunDirectorSecretPlotMaintenance,
 } from "../services/generation/director-secret-plot-runtime.js";
 import { applyPromptPatchOperations } from "../services/generation/prompt-patch-runtime.js";
-import { resolveGenerationProviderRuntime } from "../services/generation/provider-generation-runtime.js";
+import {
+  resolveGenerationProviderRuntime,
+  resolveReasoningMacroValue,
+} from "../services/generation/provider-generation-runtime.js";
 import { applyContextMessageLimitWithPins, supportsNativeToolCalls } from "@marinara-engine/shared";
 import { planGameToolCalls } from "../services/generation/game-tool-planning.js";
 import {
@@ -3154,6 +3158,17 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           chatMode !== "game" &&
           promptGroupChatMode === "individual" &&
           (chatMode === "conversation" || chatMeta.groupSpeakerNamesInHistory === true);
+        // The preset's level counts only where the preset assembles the prompt, matching the parameters sent below.
+        const promptReasoning = resolveReasoningMacroValue({
+          connection: conn,
+          chatMode,
+          isSceneChat: chatMeta.sceneStatus === "active",
+          chatParameters: chatMeta.chatParameters,
+          baseReasoningEffort:
+            presetId && resolvedPreset && chatMode !== "conversation" && chatMode !== "game"
+              ? (parsePresetParameters(resolvedPreset.parameters).reasoningEffort ?? null)
+              : reasoningEffort,
+        });
         const promptMacroContext = await buildPromptMacroContext({
           db: app.db,
           characterIds: promptCharacterIds,
@@ -3175,6 +3190,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           lastInput: currentUserInputContent(),
           chatId: input.chatId,
           model: conn.model,
+          reasoning: promptReasoning,
           lastGenerationType: promptLastGenerationType,
           idleDuration: promptIdleDuration,
           timeZone: promptTimeZone,
@@ -3701,6 +3717,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
 
           const assemblerInput: AssemblerInput = {
             model: conn.model,
+            reasoning: promptReasoning,
             agentHistoryMessageId: input.regenerateMessageId ?? undefined,
             deferMessagePostProcessing: true,
             db: app.db,
@@ -8530,6 +8547,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 .slice(-4)
                 .map((message) => message.content)
                 .join("\n"),
+              continueMessageId: input.continueMessageId ?? undefined,
               signal: generationSignal,
               debugMode: requestDebug,
               blocking: true,

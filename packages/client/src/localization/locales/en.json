@@ -590,6 +590,7 @@
   "chat.advancedMemory.reason.decisionExcerptFallback": "Some original excerpts were chosen by text matching because the Decision model did not pick a message for them.",
   "chat.advancedMemory.reason.decisionRecall": "The Decision model judged which past memories were relevant.",
   "chat.advancedMemory.reason.decisionRecallFallback": "The Decision model was unavailable, too slow, or could not evaluate every candidate. Ordinary recall was used.",
+  "chat.advancedMemory.reason.decisionRecallPartial": "The Decision model could not judge some memories, so ordinary recall judged those.",
   "chat.advancedMemory.reason.decisionRecallPreview": "This preview uses ordinary recall without calling the Decision model. A new reply may select different memories.",
   "chat.advancedMemory.reason.excerptNoRoom": "Some recalled scenes have no message excerpt because not enough memory space was left. A higher Summary and recall budget can make room.",
   "chat.advancedMemory.reason.excerptNoSource": "Some recalled scenes have no message excerpt because none of their messages can be quoted.",

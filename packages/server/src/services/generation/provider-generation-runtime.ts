@@ -251,6 +251,49 @@ export function resolveGenerationParameters(args: GenerationParameterArgs): Reso
   };
 }
 
+/**
+ * The level `{{reasoning}}` reads: what this request asks the model for (`low` to `max`), or `off` when thinking stays
+ * off. Macros resolve while the prompt is built, before the request's parameters are, so this runs the same layering
+ * early from the base level (the preset's, or the default without one).
+ */
+export function resolveReasoningMacroValue(args: {
+  connection: Pick<GenerationConnection, "provider" | "model" | "maxTokensOverride" | "defaultParameters">;
+  chatMode: string;
+  isSceneChat: boolean;
+  chatParameters: unknown;
+  baseReasoningEffort: GenerationParameterValues["reasoningEffort"] | undefined;
+}): string {
+  const { resolvedEffort } = resolveGenerationParameters({
+    connection: args.connection,
+    chatMode: args.chatMode,
+    isSceneChat: args.isSceneChat,
+    chatParameters: args.chatParameters,
+    managedParameterDefinitions: [],
+    modelAccessPolicy: { suppressModelParameters: false },
+    initial: {
+      temperature: undefined,
+      maxTokens: 0,
+      topP: undefined,
+      topK: 0,
+      minP: 0,
+      frequencyPenalty: 0,
+      presencePenalty: 0,
+      showThoughts: false,
+      reasoningEffort: args.baseReasoningEffort,
+      verbosity: null,
+      serviceTier: null,
+      assistantPrefill: "",
+      assistantReasoningPrefill: "",
+      customThinkingTags: [],
+      customParameters: {},
+      enabledParameters: undefined,
+      stopSequences: [],
+      effectiveMaxContext: undefined,
+    },
+  });
+  return resolvedEffort ?? "off";
+}
+
 export function resolveGenerationProviderRuntime(args: GenerationProviderRuntimeArgs): GenerationProviderRuntime {
   const parameters = resolveGenerationParameters(args);
   const primaryProvider =

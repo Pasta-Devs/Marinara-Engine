@@ -300,6 +300,13 @@ export function isProfessorMariChatActive(chat: ProfessorMariChatSummary) {
   }
 }
 
+const LOCAL_MESSAGE_ID_PREFIX = "__professor_mari_local_";
+
+/** A question the server holds, not the optimistic bubble of one still in flight. */
+export function isSavedUserMessage(message: Message) {
+  return message.role === "user" && !message.id.startsWith(LOCAL_MESSAGE_ID_PREFIX);
+}
+
 export function createLocalUserMessage(
   chatId: string,
   content: string,
@@ -307,7 +314,7 @@ export function createLocalUserMessage(
   context: ProfessorMariAskContext | null = null,
 ): Message {
   return {
-    id: `__professor_mari_local_${Date.now()}`,
+    id: `${LOCAL_MESSAGE_ID_PREFIX}${Date.now()}`,
     chatId,
     role: "user",
     characterId: null,
@@ -401,6 +408,8 @@ export type ProfessorMariRecovery = {
   detail?: string;
   /** The optimistic bubble of the failed message, replaced when you retry. */
   localMessageId?: string;
+  /** The server never saved the message, so it went back to the composer: Retry sends the composer. */
+  inComposer?: boolean;
 };
 
 export function classifyProfessorMariFailure(error: unknown): ProfessorMariRecovery["kind"] {

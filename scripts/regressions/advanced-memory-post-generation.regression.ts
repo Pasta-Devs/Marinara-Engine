@@ -500,6 +500,14 @@ try {
     );
   }
   await createConnectionsStorage(db).update(connection.id, { provider: "custom", model: "fixture" });
+  // The embedding space follows the provider, so the Responses reply's upkeep embedded the archive for that one;
+  // a reply's upkeep embeds it for this one again.
+  calls.length = 0;
+  await memory.checkScenesAfterGeneration(chat.id);
+  assert(
+    calls.some((call) => call.kind === "embedding"),
+    "another provider's vectors are replaced",
+  );
 
   const swipeTarget = (await chats.listMessages(chat.id)).at(-1)!;
   for (let swipe = 0; swipe < 3; swipe++) {

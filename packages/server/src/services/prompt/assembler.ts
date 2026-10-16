@@ -62,6 +62,8 @@ interface RuntimeAgentData {
 export interface AssemblerInput {
   /** Resolved model for this request, including connection overrides. */
   model?: string;
+  /** Reasoning level for {{reasoning}}: `low` to `max`, or `off`. */
+  reasoning?: string;
   /** Generation routes format messages after audience filtering and context fitting. */
   deferMessagePostProcessing?: boolean;
   db: DB;
@@ -328,6 +330,7 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
   const macroCtx = await buildPromptMacroContext({
     db: input.db,
     model: input.model,
+    reasoning: input.reasoning,
     characterIds: input.characterIds,
     groupCharacterIds: input.groupCharacterIds,
     personaName: input.personaName,

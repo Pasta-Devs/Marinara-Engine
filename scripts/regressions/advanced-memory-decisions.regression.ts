@@ -184,7 +184,12 @@ try {
   await memory.initialize(chat.id);
   assert(requests.some((request) => request.kind === "summary" && request.body.model === "summary"));
   assert(!requests.some((request) => request.kind === "classify"), "Jev handles historical boundaries");
-  assert(!requests.some((request) => request.kind === "embedding"), "decision mode needs no archive embeddings");
+  // Mari reversed "decision mode needs no archive embeddings" (#7699): the Decision shortlist ranks by meaning too,
+  // so archiving in Decision mode embeds what it writes.
+  assert(
+    requests.some((request) => request.kind === "embedding"),
+    "decision mode embeds its archive",
+  );
   const source = await chats.listMessages(chat.id);
   const input = { chatId: chat.id, messages: source, audienceCharacterIds: ["reader"], budgetTokens: 50000 };
   const beforeRecall = requests.length;
@@ -202,10 +207,15 @@ try {
   assert(diagnostics.results.some((row) => row.kind === "message" && row.selected && row.id === source[3]!.id));
   assert.doesNotMatch(JSON.stringify(diagnostics), /PRIVATE_SECRET/);
   const recallRequests = requests.slice(beforeRecall);
-  assert(recallRequests.length >= 2, "rank memories and then select original messages");
+  assert(
+    recallRequests.filter((request) => request.kind === "decision").length >= 2,
+    "rank memories and then select original messages",
+  );
+  // With the archive embedded (#7699), recall also embeds its query once. No request carries hidden text.
+  assert.equal(recallRequests.filter((request) => request.kind === "embedding").length, 1);
   for (const request of recallRequests) {
-    assert.equal(request.kind, "decision");
-    assert.equal(request.body.model, "memory-decisions");
+    assert(["decision", "embedding"].includes(request.kind));
+    if (request.kind === "decision") assert.equal(request.body.model, "memory-decisions");
     assert.doesNotMatch(JSON.stringify(request.body), /PRIVATE_SECRET/);
   }
   const beforePreview = requests.length;
@@ -268,7 +278,7 @@ try {
   );
   assert.doesNotMatch(conditional.recalledScenes!, /CONDITION_SECRET|PRIVATE_SECRET/);
   for (const request of requests.slice(beforeConditional)) {
-    assert.equal(request.kind, "decision");
+    assert(["decision", "embedding"].includes(request.kind));
     assert.doesNotMatch(JSON.stringify(request.body), /CONDITION_SECRET|PRIVATE_SECRET/);
   }
   assert(
@@ -406,7 +416,7 @@ try {
   assert(
     !requests
       .slice(beforeCrowded)
-      .some((request) => request.body.state.memories?.some((item: { id: string }) => crowdedIds.has(item.id))),
+      .some((request) => request.body.state?.memories?.some((item: { id: string }) => crowdedIds.has(item.id))),
     "the Decision model is not asked about messages that cannot fit",
   );
 
@@ -535,8 +545,15 @@ try {
   await memory.updateSettings(chat.id, { decisionEnabled: true });
   const beforeReindex = requests.length;
   await memory.reindex(chat.id);
-  assert.equal(requests.length, beforeReindex, "Decision reindex needs no model calls");
-  assert.deepEqual(await vectorizedIds(), existingVectors, "Decision reindex preserves existing fallback vectors");
+  // Part of the same reversal (#7699): Decision reindex no longer keeps old vectors as fallback, it rebuilds them
+  // as ordinary reindex does, and still asks no Decision or summary model.
+  const reindexRequests = requests.slice(beforeReindex);
+  assert(reindexRequests.length > 0, "Decision reindex rebuilds vectors");
+  assert(
+    reindexRequests.every((request) => request.kind === "embedding"),
+    "Decision reindex calls only the embedder",
+  );
+  assert.deepEqual(await vectorizedIds(), existingVectors, "Decision reindex vectorizes the same records");
 
   await connections.remove(decision.id);
   assert((await memory.status(chat.id)).warnings.includes("decision-connection-unavailable"));

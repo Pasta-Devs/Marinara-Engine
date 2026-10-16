@@ -24,6 +24,7 @@ const buttonClass =
 export const reasonKeys: Record<string, string> = {
   "decision-recall": "chat.advancedMemory.reason.decisionRecall",
   "decision-recall-fallback": "chat.advancedMemory.reason.decisionRecallFallback",
+  "decision-recall-partial": "chat.advancedMemory.reason.decisionRecallPartial",
   "decision-recall-preview": "chat.advancedMemory.reason.decisionRecallPreview",
   "decision-excerpt-fallback": "chat.advancedMemory.reason.decisionExcerptFallback",
   "excerpt-no-room": "chat.advancedMemory.reason.excerptNoRoom",

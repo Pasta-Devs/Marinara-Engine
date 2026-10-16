@@ -44,6 +44,11 @@ export interface MacroContext {
   chatId?: string;
   /** Model name (for {{model}}) */
   model?: string;
+  /**
+   * Reasoning level this request runs with (for {{reasoning}}): `low` to `max`, or `off` when thinking stays off.
+   * `off` reads as false in `{{#if reasoning}}`, so a block can follow whether the model thinks at all.
+   */
+  reasoning?: string;
   /** Generation trigger/type label (for {{lastGenerationType}}) */
   lastGenerationType?: string;
   /** Human-readable time since the last chat activity before this generation (for {{idle_duration}}) */
@@ -328,6 +333,22 @@ function readMacroVariable(map: Record<string, string> | undefined, name: string
   return typeof value === "string" ? value : undefined;
 }
 
+/**
+ * `{{reasoning}}`, or undefined when a preset or chat variable of that name owns it. Presets made before the macro
+ * existed may define their own `reasoning` variable, so the variable keeps the name. `name` is the spelling as
+ * written: the macro matches any case, but variables match exactly, as in the catch-all pass.
+ */
+function readReasoningMacro(ctx: MacroContext, name: string): string | undefined {
+  if (
+    readMacroVariable(ctx.variables, name) !== undefined ||
+    ctx.deferredPresetVariableNames?.has(name) ||
+    readMacroVariable(ctx.localVariables, name) !== undefined
+  ) {
+    return undefined;
+  }
+  return ctx.reasoning ?? "";
+}
+
 function clampMacroOutput(value: string, options: ResolveMacroOptions): string {
   const maxLength = macroLimit(options, "maxMacroOutputLength");
   if (value.length <= maxLength) return value;
@@ -496,6 +517,11 @@ export const SUPPORTED_MACROS: readonly SupportedMacroDefinition[] = [
   },
   { category: "Context", syntax: "{{input}}", description: "Most recent user message" },
   { category: "Context", syntax: "{{model}}", description: "Current model name" },
+  {
+    category: "Context",
+    syntax: "{{reasoning}}",
+    description: "Current reasoning level (low, medium, high, xhigh, max), or off; off is false in {{#if reasoning}}",
+  },
   { category: "Context", syntax: "{{chatId}}", description: "Current chat ID" },
   { category: "Context", syntax: "{{lastGenerationType}}", description: "Current generation type label" },
   { category: "Context", syntax: "{{idle_duration}}", description: "Time since the last chat activity" },
@@ -666,6 +692,7 @@ function macroContextForCharacterProfile(profile: CharacterMacroProfile, base?: 
     lastInput: base?.lastInput,
     chatId: base?.chatId,
     model: base?.model,
+    reasoning: base?.reasoning,
     lastGenerationType: base?.lastGenerationType,
     idleDuration: base?.idleDuration,
     timeZone: base?.timeZone,
@@ -1335,6 +1362,12 @@ function resolveConditionalOperand(raw: string, ctx: MacroContext, options: Reso
       return ctx.lastInput ?? "";
     case "model":
       return ctx.model ?? "";
+    case "reasoning": {
+      const name = token.replace(/^@/, "");
+      const reasoning = readReasoningMacro(ctx, name);
+      if (reasoning !== undefined) return reasoning;
+      return readMacroVariable(ctx.variables, name) ?? readMacroVariable(ctx.localVariables, name) ?? "";
+    }
     case "chatid":
       return ctx.chatId ?? "";
     case "description":
@@ -2142,6 +2175,7 @@ const PLAN_FIXED_OPERAND_NAMES = new Set([
   "group",
   "input",
   "model",
+  "reasoning",
   "chatid",
   "description",
   "personality",
@@ -3149,6 +3183,7 @@ export function expandLorebookIncludes(
  *  - {{decvar::name}} — decrement numeric variable by 1
  *  - {{input}} — last user message
  *  - {{model}} — current model name
+ *  - {{reasoning}} — current reasoning level, or "off"
  *  - {{chatId}} — current chat ID
  *  - {{lastGenerationType}} — current generation type label
  *  - {{idle_duration}} — time since the last chat activity
@@ -3301,6 +3336,7 @@ export function resolveMacros(template: string, ctx: MacroContext, options: Reso
   );
   result = result.replace(/\{\{input\}\}/gi, ctx.lastInput ?? "");
   result = result.replace(/\{\{model\}\}/gi, ctx.model ?? "");
+  result = result.replace(/\{\{(reasoning)\}\}/gi, (match, name: string) => readReasoningMacro(ctx, name) ?? match);
   result = result.replace(/\{\{chatId\}\}/gi, ctx.chatId ?? "");
   result = result.replace(/\{\{lastGenerationType\}\}/gi, ctx.lastGenerationType ?? "");
   result = result.replace(/\{\{idle_duration\}\}/gi, ctx.idleDuration ?? "");

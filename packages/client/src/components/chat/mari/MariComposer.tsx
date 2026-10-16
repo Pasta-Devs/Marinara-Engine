@@ -357,6 +357,8 @@ export function MariComposer({
             scrollLeft={composerScroll.left}
             scrollTop={composerScroll.top}
             className="mari-workspace-composer__text"
+            // The textarea is disabled while busy, so the suggestion is not tappable then either.
+            onAccept={isBusy ? undefined : acceptDraftCompletion}
           />
           <textarea
             ref={floatingTextareaRef}

@@ -62,6 +62,7 @@ import {
   MESSAGE_MARK_EXTRA_KEYS,
   MAX_PINNED_CONTEXT_MESSAGES,
   semanticSummaryRetrievalSettingsSchema,
+  DEFAULT_GENERATION_PARAMS,
 } from "@marinara-engine/shared";
 import type {
   CharacterData,
@@ -3487,7 +3488,10 @@ export async function chatsRoutes(app: FastifyInstance) {
           resolveCharacterMacroData,
           resolvePromptIdleDuration,
           setLorebookEntryCounts,
+          normalizeChatMacroVariables,
         } = await import("../services/prompt/index.js");
+        const { parsePresetParameters } = await import("../services/prompt/assembler.js");
+        const { resolveReasoningMacroValue } = await import("../services/generation/provider-generation-runtime.js");
         const presetStore = createPromptsStorage(app.db);
         const charStore = createCharactersStorage(app.db);
 
@@ -3583,9 +3587,26 @@ export async function chatsRoutes(app: FastifyInstance) {
           const connection = chat.connectionId
             ? await connections.getById(chat.connectionId)
             : await connections.getDefault();
+          // Generation counts the preset's level only where the preset assembles the prompt.
+          const chatMacroVariables = normalizeChatMacroVariables(chatMeta.macroVariables);
+          const promptReasoning = connection
+            ? resolveReasoningMacroValue({
+                connection,
+                chatMode,
+                isSceneChat: chatMeta.sceneStatus === "active",
+                chatParameters: chatMeta.chatParameters,
+                baseReasoningEffort:
+                  preset && chatMode !== "conversation" && chatMode !== "game"
+                    ? (parsePresetParameters(preset.parameters).reasoningEffort ?? null)
+                    : DEFAULT_GENERATION_PARAMS.reasoningEffort,
+              })
+            : undefined;
           const promptMacroContext = await buildPromptMacroContext({
             db: app.db,
             model: connection?.model,
+            reasoning: promptReasoning,
+            // Chat variables win over built-in macros of the same name, as in generation.
+            localVariables: chatMacroVariables,
             characterIds: assistantCharacterIds,
             groupCharacterIds: assistantCharacterIds,
             personaName,
@@ -3901,6 +3922,8 @@ export async function chatsRoutes(app: FastifyInstance) {
           const assembled = await assemblePrompt({
             db: app.db,
             model: connection?.model,
+            reasoning: promptReasoning,
+            localVariables: chatMacroVariables,
             preset: preset as any,
             sections: sections as any,
             groups: groups as any,

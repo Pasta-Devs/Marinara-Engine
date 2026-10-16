@@ -201,7 +201,8 @@ try {
   // Decision recall: one shortlist batch of scene summaries, then messages from the chosen scenes.
   const beforeCalls = calls.length;
   const prepared = await memory.prepare(input);
-  assert.deepEqual(calls.slice(beforeCalls), [], "no archive vectors exist, so no query embedding is requested");
+  // Mari reversed "Decision mode makes no embeddings" (#7699): the archive has vectors, so the query is embedded once.
+  assert.deepEqual(calls.slice(beforeCalls), ["embedding"], "the Decision shortlist embeds its query once");
   assert.equal(recallRequests.length, 2, "one request picks scenes and one picks their messages");
   const [scenePass, messagePass] = recallRequests.splice(0);
   assert(scenePass!.length <= 24, "the scene pass judges at most one batch");

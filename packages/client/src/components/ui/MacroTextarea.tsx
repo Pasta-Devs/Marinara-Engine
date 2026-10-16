@@ -5,6 +5,7 @@ import {
   useState,
   type ChangeEvent,
   type KeyboardEvent as ReactKeyboardEvent,
+  type MutableRefObject,
   type ReactNode,
   type Ref,
 } from "react";
@@ -19,6 +20,7 @@ import { formatEstimatedTokens } from "../../lib/character-token-count";
 import { handleTextareaTab } from "../../lib/textarea-editing";
 import { isBrowserExtensionUi } from "../../lib/chat-floating-ui-events";
 import { DecisionStatementNote } from "./DecisionStatementNote";
+import { MacroCompletionGhost, useMacroCompletion } from "./MacroCompletionGhost";
 import { Trans, useTranslation as useUiTranslation } from "react-i18next";
 
 type MacroDefinition = (typeof SUPPORTED_MACROS)[number];
@@ -75,6 +77,8 @@ interface ExpandedMacroEditorProps {
   formatOnChange?: (textarea: HTMLTextAreaElement, inputEvent: InputEvent) => string;
   /** Font class for the expanded textarea, so it matches the inline field. */
   fontClassName: string;
+  /** Grey in macro names after `{{`, Tab to accept. */
+  macroCompletion: boolean;
 }
 
 function ExpandedMacroEditor({
@@ -89,10 +93,18 @@ function ExpandedMacroEditor({
   showTokenCount = false,
   formatOnChange,
   fontClassName,
+  macroCompletion,
 }: ExpandedMacroEditorProps) {
   const { t: localizeUi } = useUiTranslation();
   const [localValue, setLocalValue] = useState(value);
-  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const {
+    textareaRef,
+    completion,
+    refresh: refreshCompletion,
+    clear: clearCompletion,
+    accept: acceptCompletion,
+    insert: insertCompletion,
+  } = useMacroCompletion(open && macroCompletion && !readOnly, localValue);
   const valueRef = useRef(value);
   valueRef.current = value;
 
@@ -104,6 +116,8 @@ function ExpandedMacroEditor({
     setLocalValue(valueRef.current);
     const focusTimer = window.setTimeout(() => textareaRef.current?.focus(), 20);
     return () => window.clearTimeout(focusTimer);
+    // textareaRef is a stable ref; only opening should initialize and focus.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   useEffect(() => {
@@ -131,6 +145,14 @@ function ExpandedMacroEditor({
       setLocalValue(textarea.value);
     },
     [formatOnChange, onChange],
+  );
+
+  const handleKeyDown = useCallback(
+    (event: ReactKeyboardEvent<HTMLTextAreaElement>) => {
+      if (acceptCompletion(event)) return;
+      handleTextareaTab(event);
+    },
+    [acceptCompletion],
   );
 
   if (!open) {
@@ -175,20 +197,27 @@ function ExpandedMacroEditor({
               <X className="h-4 w-4" />
             </button>
           </div>
-          <textarea
-            ref={textareaRef}
-            value={localValue}
-            onChange={handleChange}
-            onKeyDown={handleTextareaTab}
-            placeholder={placeholder}
-            readOnly={readOnly}
-            maxLength={maxLength}
-            className={cn(
-              "min-h-0 flex-1 resize-none bg-[var(--sidebar)] p-4 text-sm leading-6 text-[var(--foreground)] outline-none placeholder:text-[var(--muted-foreground)]",
-              fontClassName,
-            )}
-            spellCheck={false}
-          />
+          <div className="relative flex min-h-0 flex-1 flex-col">
+            <textarea
+              ref={textareaRef}
+              value={localValue}
+              onChange={handleChange}
+              onKeyDown={handleKeyDown}
+              onSelect={refreshCompletion}
+              onScroll={refreshCompletion}
+              onFocus={refreshCompletion}
+              onBlur={clearCompletion}
+              placeholder={placeholder}
+              readOnly={readOnly}
+              maxLength={maxLength}
+              className={cn(
+                "min-h-0 flex-1 resize-none bg-[var(--sidebar)] p-4 text-sm leading-6 text-[var(--foreground)] outline-none placeholder:text-[var(--muted-foreground)]",
+                fontClassName,
+              )}
+              spellCheck={false}
+            />
+            <MacroCompletionGhost completion={completion} onAccept={insertCompletion} />
+          </div>
         </div>
       </div>
     </MacroModalPortal>
@@ -384,6 +413,23 @@ export function MacroTextarea({
   const [expanded, setExpanded] = useState(false);
   const [showMacroRef, setShowMacroRef] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  const macroCompletionEnabled = showMacroReference && !readOnly;
+  const {
+    textareaRef: completionTextareaRef,
+    completion,
+    refresh: refreshCompletion,
+    clear: clearCompletion,
+    accept: acceptCompletion,
+    insert: insertCompletion,
+  } = useMacroCompletion(macroCompletionEnabled && !expanded && !(showMarkdownPreview && showPreview), value);
+  const setTextareaRef = useCallback(
+    (node: HTMLTextAreaElement | null) => {
+      completionTextareaRef.current = node;
+      if (typeof textareaRef === "function") textareaRef(node);
+      else if (textareaRef) (textareaRef as MutableRefObject<HTMLTextAreaElement | null>).current = node;
+    },
+    [completionTextareaRef, textareaRef],
+  );
 
   const handleExpandedClose = useCallback(() => {
     setExpanded(false);
@@ -404,14 +450,24 @@ export function MacroTextarea({
   const handleKeyDown = useCallback(
     (event: ReactKeyboardEvent<HTMLTextAreaElement>) => {
       onKeyDown?.(event);
-      if (event.defaultPrevented || event.key !== "Tab") {
+      if (acceptCompletion(event) || event.defaultPrevented || event.key !== "Tab") {
         return;
       }
 
       handleTextareaTab(event);
     },
-    [onKeyDown],
+    [acceptCompletion, onKeyDown],
   );
+
+  const handleFocus = useCallback(() => {
+    refreshCompletion();
+    onFocus?.();
+  }, [onFocus, refreshCompletion]);
+
+  const handleBlur = useCallback(() => {
+    clearCompletion();
+    onBlur?.();
+  }, [clearCompletion, onBlur]);
 
   const affordanceButtonClassName = cn(
     "rounded p-1 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]",
@@ -440,12 +496,14 @@ export function MacroTextarea({
           </div>
         ) : (
           <textarea
-            ref={textareaRef}
+            ref={setTextareaRef}
             value={value}
             onChange={handleChange}
-            onBlur={onBlur}
-            onFocus={onFocus}
+            onBlur={handleBlur}
+            onFocus={handleFocus}
             onKeyDown={handleKeyDown}
+            onSelect={refreshCompletion}
+            onScroll={refreshCompletion}
             rows={rows}
             aria-label={ariaLabel}
             aria-invalid={ariaInvalid || undefined}
@@ -460,6 +518,7 @@ export function MacroTextarea({
             )}
           />
         )}
+        <MacroCompletionGhost completion={completion} onAccept={insertCompletion} />
         {(showExpand || showMacroReference || showMarkdownPreview || toolbarExtra) && (
           <div className={cn("absolute right-1.5 top-1.5 flex flex-col gap-0.5", toolbarClassName)}>
             {showMarkdownPreview ? (
@@ -535,6 +594,7 @@ export function MacroTextarea({
         showTokenCount={showTokenCount}
         formatOnChange={formatOnChange}
         fontClassName={className?.split(/\s+/).includes("mari-prompt-font") ? "mari-prompt-font" : "font-mono"}
+        macroCompletion={macroCompletionEnabled}
       />
       <MacrosReferenceModal open={showMacroRef} onClose={() => setShowMacroRef(false)} />
     </>

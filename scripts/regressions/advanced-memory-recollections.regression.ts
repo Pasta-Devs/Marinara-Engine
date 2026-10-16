@@ -390,8 +390,11 @@ try {
     !entries.some((entry) => /BRAM_ONE|ADA_TWO|BRAM_TWO|personal recollections/u.test(entry.content)),
     "no recollection is copied into a constant summary",
   );
-  // Only Bram's recollection of scene two speaks of the pendant; its summary and messages never do.
+  // Only Bram's recollection of scene two speaks of the pendant; its summary and messages never do. Bram speaks
+  // first, so his recall reads only the pendant questions (#7699): the scene-opening message shares a word with
+  // scene two's messages.
   await chats.createMessagesBatch(chat.id, [
+    { role: "assistant", characterId: "bram", content: "Bram nods." },
     { role: "user", content: "Mari asks about the glowing moonstone pendant.", extra: persona },
     { role: "assistant", characterId: "narr", content: "A glowing moonstone pendant is mentioned again." },
     { role: "user", content: "Where did the moonstone pendant go?", extra: persona },
