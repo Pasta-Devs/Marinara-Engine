@@ -67,7 +67,10 @@ export function subgroupByUpstream<R extends { model?: string | null }>(
   }
   const prefixes = [...groups.keys()].filter((key): key is string => key !== null);
   if (prefixes.length < 2) return [{ upstream: null, rows: [...rows] }];
-  const result: Array<{ upstream: string | null; rows: R[] }> = prefixes.map((upstream) => ({ upstream, rows: groups.get(upstream)! }));
+  const result: Array<{ upstream: string | null; rows: R[] }> = prefixes.map((upstream) => ({
+    upstream,
+    rows: groups.get(upstream)!,
+  }));
   const bare = groups.get(null);
   if (bare) result.push({ upstream: null, rows: bare });
   return result;
