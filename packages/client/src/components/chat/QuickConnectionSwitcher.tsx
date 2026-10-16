@@ -153,6 +153,7 @@ export function QuickConnectionSwitcher({
               onDone={close}
               showLocalModel={chatMode !== "game" && sidecarModelDownloaded}
               shuffle={{ active: isRandom, onToggle: handleToggleRandom }}
+              followDefault={{ active: chatPick.followsMain, onSelect: chatPick.useDefault }}
               className={showModels ? undefined : "flex-col"}
               listClassName={showModels ? undefined : "w-full border-r-0"}
               listHeader={

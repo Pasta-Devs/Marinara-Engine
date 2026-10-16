@@ -412,6 +412,7 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
                 onStepChange={(step) => setModelsStep(step === "models")}
                 showLocalModel={chatMode !== "game" && sidecarModelDownloaded}
                 shuffle={{ active: isRandom, onToggle: handleToggleRandom }}
+                followDefault={{ active: chatPick.followsMain, onSelect: chatPick.useDefault }}
                 listHeader={
                   contextBudget && (
                     <div className="px-2 pt-1">

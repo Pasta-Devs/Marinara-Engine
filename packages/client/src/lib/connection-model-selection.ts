@@ -1,6 +1,11 @@
 // What picking a model changes on a connection, and the merged model list a picker shows. The full
 // connection editor and the quick model pickers share these, so a pick has the same effect everywhere.
-import type { APIProvider, KnownModel, ModelParameterCapabilities } from "@marinara-engine/shared";
+import {
+  rankModelMatch,
+  type APIProvider,
+  type KnownModel,
+  type ModelParameterCapabilities,
+} from "@marinara-engine/shared";
 
 /** A model as a provider's model list reports it (see GET /connections/:id/models). */
 export type RemoteConnectionModel = {
@@ -79,12 +84,15 @@ export function mergeConnectionModelOptions(
   return options;
 }
 
-/** Models whose ID or name contains the search text, ignoring case. */
+/** Models whose ID or name contains the search text, ignoring case; prefix matches first (decision 27). */
 export function filterConnectionModelOptions<T extends { id: string; name: string }>(
   options: readonly T[],
   search: string,
 ): readonly T[] {
-  const query = search.trim().toLowerCase();
-  if (!query) return options;
-  return options.filter((model) => model.id.toLowerCase().includes(query) || model.name.toLowerCase().includes(query));
+  if (!search.trim()) return options;
+  return options
+    .map((model) => ({ model, rank: rankModelMatch(search, model) }))
+    .filter((entry) => entry.rank >= 0)
+    .sort((a, b) => a.rank - b.rank)
+    .map((entry) => entry.model);
 }

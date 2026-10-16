@@ -11,6 +11,7 @@ import { Reorder } from "framer-motion";
 import {
   useConnections,
   useDeleteConnection,
+  useMoveConnection,
   useSetConnectionModelPinned,
   useUpdateConnection,
   useUploadConnectionImage,
@@ -98,6 +99,14 @@ import { PanelSection } from "../ui/PanelSection";
 import { ContextMenu } from "../ui/ContextMenu";
 import { useConnectionAccounts } from "../../hooks/use-connection-accounts";
 import { groupModelsByAccount } from "../../lib/connection-groups";
+
+function originOf(url: string): string {
+  try {
+    return new URL(url).origin;
+  } catch {
+    return url.trim();
+  }
+}
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(0)} MB`;
@@ -918,6 +927,8 @@ export function ConnectionsPanel() {
   const openModal = useUIStore((s) => s.openModal);
   const linkApiBannerDismissed = useUIStore((s) => s.linkApiBannerDismissed);
   const dismissLinkApiBanner = useUIStore((s) => s.dismissLinkApiBanner);
+  const upgradeNoteDismissed = useUIStore((s) => s.connectionsUpgradeNoteDismissed);
+  const dismissUpgradeNote = useUIStore((s) => s.dismissConnectionsUpgradeNote);
   const sort = useUIStore((s) => s.connectionPanelSort);
   const setSort = useUIStore((s) => s.setConnectionPanelSort);
   const panelView = useUIStore((s) => s.connectionPanelView);
@@ -925,6 +936,7 @@ export function ConnectionsPanel() {
   const { data: accounts } = useConnectionAccounts();
   const setModelPinned = useSetConnectionModelPinned();
   const updateConnection = useUpdateConnection();
+  const moveConnection = useMoveConnection();
 
   // Folder hooks
   const { data: folders } = useConnectionFolders();
@@ -955,6 +967,21 @@ export function ConnectionsPanel() {
   const suppressConnectionClickRef = useRef(false);
 
   const connectionsList = useMemo(() => (connections as ConnectionRowData[] | undefined) ?? [], [connections]);
+  // ponytail: "had connections before" = a Connection created well after one of its Models, which only the upgrade
+  // grouping does (a Model saved without a Connection is linked in the same moment). A Model moved into a much
+  // newer Connection also counts; a server flag if that ever matters.
+  const upgradedFromModels = useMemo(
+    () =>
+      !!accounts?.some((account) =>
+        connectionsList.some(
+          (row) =>
+            row.accountId === account.id &&
+            !!row.createdAt &&
+            Date.parse(account.createdAt) - Date.parse(row.createdAt) > 60_000,
+        ),
+      ),
+    [accounts, connectionsList],
+  );
   const filteredConnections = useMemo(() => {
     const query = search.trim().toLowerCase();
     return connectionsList.filter((connection) => connectionMatchesSearch(connection, query));
@@ -1360,6 +1387,19 @@ export function ConnectionsPanel() {
     // Media Models carry their kind's default in the agents flag.
     const defaultField = chatModel ? "isDefault" : "defaultForAgents";
     const canMakeDefault = !!display && conn.provider !== "decision" && !isConnectionFlagTrue(conn[defaultField]);
+    // Same service and endpoint only; the server checks the credential kind again (decision 28).
+    const account = accounts?.find((item) => item.id === conn.accountId);
+    const moveTargets =
+      account && !conn.credentialsFromConnectionId
+        ? accounts!
+            .filter(
+              (item) =>
+                item.id !== account.id &&
+                item.provider === account.provider &&
+                (account.provider !== "custom" || originOf(item.baseUrl) === originOf(account.baseUrl)),
+            )
+            .map(({ id, name }) => ({ id, name }))
+        : [];
     return (
       <ConnectionRow
         key={conn.id}
@@ -1374,6 +1414,22 @@ export function ConnectionsPanel() {
         }
         onMakeDefault={
           canMakeDefault ? () => updateConnection.mutate({ id: conn.id, [defaultField]: true }) : undefined
+        }
+        moveTargets={moveTargets}
+        onMove={(accountId, name) =>
+          moveConnection.mutate(
+            { id: conn.id, accountId },
+            {
+              onSuccess: () =>
+                toast.success(localizeUi("connections.accounts.row.moved", { model: conn.name, connection: name })),
+              onError: (error) =>
+                toast.error(
+                  localizeUi("connections.accounts.row.moveFailed", {
+                    error: error instanceof Error ? error.message : String(error ?? ""),
+                  }),
+                ),
+            },
+          )
         }
         isSelected={isSelected}
         isBulkSelected={isBulkSelected}
@@ -1601,6 +1657,28 @@ export function ConnectionsPanel() {
               {localizeUi("ui.panels.connectionspanel.dragAndDropConnectionsToFoldersDoubleClickOr")}
             </p>
           )}
+        </div>
+      )}
+
+      {upgradedFromModels && !upgradeNoteDismissed && (
+        <div
+          role="note"
+          data-connections-upgrade-note
+          className="flex items-start gap-2 rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-3 text-xs text-[var(--muted-foreground)]"
+        >
+          <div className="min-w-0 flex-1 space-y-1">
+            <p>{localizeUi("connections.upgradeNote.grouped")}</p>
+            <p>{localizeUi("connections.upgradeNote.picks")}</p>
+          </div>
+          <button
+            type="button"
+            onClick={dismissUpgradeNote}
+            className="-m-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-lg hover:bg-[var(--sidebar)] hover:text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)]"
+            aria-label={localizeUi("connections.upgradeNote.dismiss")}
+            title={localizeUi("connections.upgradeNote.dismiss")}
+          >
+            <X size="0.875rem" />
+          </button>
         </div>
       )}
 

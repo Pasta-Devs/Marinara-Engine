@@ -1,9 +1,10 @@
 // #7098: the input-box Connections menu shows the chosen connection's models. Lists are saved on the
 // connection, so reopening (even after a reload) does not ask the provider again; Refresh does. Models
-// can be pinned, typed by ID, and changed from Chat Settings → Connection too.
+// can be starred, typed by ID, and changed from Chat Settings → Connection too.
 // Connections redesign (decisions 25/26): a catalog pick in the menu applies to this chat only and saves no Model;
 // it never edits a saved Model. The toast offers Undo and "Make it my Main model"; Recent lists this chat's last
-// two choices; the star and "Save to library" save a model. Chat Settings → Connection works the same way.
+// two choices; the star saves a model and keeps it on top (decision 27); "Use default" follows the Main model again.
+// Chat Settings → Connection works the same way.
 import { expect, test, type APIRequestContext, type Locator, type Page, type TestInfo } from "@playwright/test";
 import { createServer } from "node:http";
 import { readFileSync } from "node:fs";
@@ -173,7 +174,7 @@ async function closeMenu(page: Page) {
   await expect(page.locator("[data-quick-connection-menu], [data-quick-switcher-mobile-menu]")).toHaveCount(0);
 }
 
-const modelRow = (picker: Locator, section: "pinned" | "all", id: string) =>
+const modelRow = (picker: Locator, section: "favorites" | "all", id: string) =>
   picker.locator(`[data-model-section="${section}"] [data-model-row][data-model-id="${id}"]`);
 
 async function expectNoHorizontalScroll(page: Page) {
@@ -186,7 +187,7 @@ async function capture(page: Page, testInfo: TestInfo, name: string) {
   await testInfo.attach(name, { path, contentType: "image/png" });
 }
 
-test("the Connections menu lists, pins, picks, refreshes and types models without refetching (#7098)", async ({
+test("the Connections menu lists, stars, picks, refreshes and types models without refetching (#7098)", async ({
   page,
   request,
 }, testInfo) => {
@@ -230,7 +231,7 @@ test("the Connections menu lists, pins, picks, refreshes and types models withou
         picker.locator("[data-model-refresh]"),
         picker.locator("label:has([data-model-search])"),
         modelRow(picker, "all", "vendor/beta").locator("[data-model-option]"),
-        modelRow(picker, "all", "vendor/beta").locator("[data-model-pin]"),
+        modelRow(picker, "all", "vendor/beta").locator("[data-model-star]"),
       ]) {
         expect((await target.boundingBox())!.height).toBeGreaterThanOrEqual(44);
       }
@@ -254,23 +255,29 @@ test("the Connections menu lists, pins, picks, refreshes and types models withou
       await expect(picker.locator("[data-model-option]").first()).toBeFocused();
     }
 
-    // Pinning moves a model into Pinned; the star names what it pins, and it saves the model to the library.
-    await picker.getByRole("button", { name: "Pin Beta", exact: true }).click();
-    await expect(modelRow(picker, "pinned", "vendor/beta")).toBeVisible();
+    // Starring moves a model into Favorites; the star names its model, and it saves the model.
+    await picker.getByRole("button", { name: "Favorite Beta", exact: true }).click();
+    await expect(modelRow(picker, "favorites", "vendor/beta")).toBeVisible();
     await expect(modelRow(picker, "all", "vendor/beta")).toHaveCount(0);
-    await expect(picker.getByRole("button", { name: "Pin Beta", exact: true })).toHaveAttribute("aria-pressed", "true");
-    await expect(picker.getByRole("button", { name: "Pin Beta", exact: true })).toHaveAttribute("title", "Unpin Beta");
+    await expect(picker.getByRole("button", { name: "Favorite Beta", exact: true })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await expect(picker.getByRole("button", { name: "Favorite Beta", exact: true })).toHaveAttribute(
+      "title",
+      "Remove Beta from favorites",
+    );
     await expect.poll(async () => (await connectionRow(request, main.id))?.pinnedModels).toBe('["vendor/beta"]');
     await expect
       .poll(async () => (await accountRows(request, mainAccount)).find((row) => row.model === "vendor/beta")?.name)
       .toBe("Beta");
     await capture(page, testInfo, isPhone(testInfo) ? "mobile-models-step-dark" : "desktop-models-menu-dark");
 
-    // The pin and the saved list survive a reload without asking the provider again.
+    // The star and the saved list survive a reload without asking the provider again.
     await page.reload();
     await expect(page.locator("[data-chat-composer]").first()).toBeVisible();
     picker = await openModels(page, testInfo, mainAccount);
-    await expect(modelRow(picker, "pinned", "vendor/beta")).toBeVisible();
+    await expect(modelRow(picker, "favorites", "vendor/beta")).toBeVisible();
     await expect(modelRow(picker, "all", "vendor/gamma")).toBeVisible();
     expect(provider.state.calls).toBe(1);
 
@@ -384,13 +391,13 @@ test("the Connections menu lists, pins, picks, refreshes and types models withou
     await menuGone();
     await expect.poll(chatModel).toBe("vendor/kappa");
 
-    // "Save to library" makes the chat's pick a saved Model and points the chat at it.
+    // The star on the chat's catalog pick saves it as a Model, keeps it on top and points the chat at it.
     menu = await openMenu(page, testInfo);
-    await menu.locator("[data-switcher-save]").click();
-    await expect(
-      page.locator("[data-sonner-toast]").filter({ hasText: "Kappa is saved to your library" }),
-    ).toBeVisible();
+    await menu.locator('[data-switcher-star="vendor/kappa"]').first().click();
     await expect.poll(async () => (await chatState(request, chat.id)).override).toBeNull();
+    await expect
+      .poll(async () => (await connectionRow(request, main.id))?.pinnedModels)
+      .toBe('["vendor/beta","vendor/kappa"]');
     const kappa = (await chatState(request, chat.id)).row!;
     expect({ model: kappa.model, name: kappa.name, accountId: kappa.accountId }).toEqual({
       model: "vendor/kappa",
@@ -427,6 +434,19 @@ test("the Connections menu lists, pins, picks, refreshes and types models withou
       expect((await accountRows(request, account)).some((row) => row.model === "vendor/delta")).toBe(false);
     }
 
+    // "Use default" drops the chat's own pick: the chat follows the Main model again.
+    menu = await openMenu(page, testInfo);
+    await menu.locator("[data-switcher-default]").click();
+    await menuGone();
+    await expect(
+      page.locator("[data-sonner-toast]").filter({ hasText: "This chat now follows your Main model" }),
+    ).toBeVisible();
+    await expect.poll(async () => (await chatState(request, chat.id)).connectionId).toBeNull();
+    expect((await chatState(request, chat.id)).override).toBeNull();
+    menu = await openMenu(page, testInfo);
+    await expect(menu.locator("[data-switcher-default]")).toHaveAttribute("aria-current", "true");
+    await closeMenu(page);
+
     // Back to the other Connection's own Model for the settings check below (this drops the catalog pick).
     expect((await request.patch(`/api/chats/${chat.id}`, { data: { connectionId: other.id } })).ok()).toBeTruthy();
     expect((await chatState(request, chat.id)).override).toBeNull();
@@ -452,8 +472,8 @@ test("the Connections menu lists, pins, picks, refreshes and types models withou
         return !!sheet && !!list && list.y >= sheet.y - 1 && list.y + list.height <= sheet.y + sheet.height + 1;
       })
       .toBe(true);
-    // Pins belong to a Connection: Beta was pinned on the first one, not on this one.
-    await expect(modelRow(settingsPicker, "pinned", "vendor/beta")).toHaveCount(0);
+    // Stars belong to a Connection: Beta was starred on the first one, not on this one.
+    await expect(modelRow(settingsPicker, "favorites", "vendor/beta")).toHaveCount(0);
     await settingsPicker.locator('[data-model-row][data-model-id="vendor/alpha"] [data-model-option]').click();
     await expect(settingsPicker).toHaveCount(0);
     await expect(field.locator("button[aria-expanded]")).toContainText("vendor/alpha");
@@ -489,8 +509,8 @@ test("the models menu reads in light theme too (#7098)", async ({ page, request 
     await expect(page.locator("[data-chat-composer]").first()).toBeVisible();
     const groupKey = ((await connectionRow(request, main.id))?.accountId as string) ?? main.id;
     const picker = await openModels(page, testInfo, groupKey);
-    await picker.getByRole("button", { name: "Pin Gamma", exact: true }).click();
-    await expect(modelRow(picker, "pinned", "vendor/gamma")).toBeVisible();
+    await picker.getByRole("button", { name: "Favorite Gamma", exact: true }).click();
+    await expect(modelRow(picker, "favorites", "vendor/gamma")).toBeVisible();
     await expectNoHorizontalScroll(page);
     await capture(page, testInfo, isPhone(testInfo) ? "mobile-models-step-light" : "desktop-models-menu-light");
   } finally {

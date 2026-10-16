@@ -19,7 +19,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { PROVIDERS, isChatProvider, isLocalAuthProvider, type APIProvider } from "@marinara-engine/shared";
+import { PROVIDERS, isChatProvider, isLocalAuthProvider, withKeyTail, type APIProvider } from "@marinara-engine/shared";
 import { Modal } from "../ui/Modal";
 import { SmoothFolderContent } from "../ui/SmoothFolderContent";
 import { ConnectionModelPicker } from "../connections/ConnectionModelPicker";
@@ -159,7 +159,10 @@ function ServiceGroup({
   );
 }
 
-type Target = { accountId: string; connectionId: string; fresh: boolean };
+/** `autoName`: the name the server chose, when the user typed none. */
+type Target = { accountId: string; connectionId: string; fresh: boolean; autoName?: string };
+/** The key's end the server adds to an automatic name next to another Connection of the same service. */
+const KEY_TAIL = / · …\S{4}$/u;
 type ConnectionRowLite = { id: string; name?: string; provider?: string; accountId?: string | null };
 
 const LOCAL_URL_EXAMPLE = "http://localhost:11434/v1";
@@ -216,8 +219,13 @@ export function CreateConnectionModal({ open, onClose, initialProvider }: Props)
     onClose();
   };
 
+  // A retry with another key keeps an automatic name in step with that key (decision 28); a typed name wins.
+  const autoName =
+    target?.autoName && KEY_TAIL.test(target.autoName)
+      ? withKeyTail(target.autoName.replace(KEY_TAIL, ""), apiKey)
+      : "";
   const accountFields = () => ({
-    ...(name.trim() ? { name: name.trim() } : {}),
+    ...(name.trim() || autoName ? { name: name.trim() || autoName } : {}),
     apiKey: keyless ? "" : apiKey.trim(),
     baseUrl: baseUrl.trim() || (keyless ? "" : (def?.defaultBaseUrl ?? "")),
     maxRequestsPerMinute: maxRpm ? Math.min(600, Math.max(1, Math.trunc(Number(maxRpm)))) : null,
@@ -233,7 +241,12 @@ export function CreateConnectionModal({ open, onClose, initialProvider }: Props)
         await updateAccount.mutateAsync({ id: current.accountId, ...accountFields() });
       } else {
         const created = await createAccount.mutateAsync({ provider, ...accountFields() });
-        current = { accountId: created.account.id, connectionId: created.connectionId, fresh: true };
+        current = {
+          accountId: created.account.id,
+          connectionId: created.connectionId,
+          fresh: true,
+          ...(name.trim() ? {} : { autoName: created.account.name }),
+        };
         setTarget(current);
       }
       if (!isChatProvider(provider)) {
@@ -429,7 +442,12 @@ export function CreateConnectionModal({ open, onClose, initialProvider }: Props)
                   <input
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    placeholder={def?.name}
+                    placeholder={
+                      // Next to another Connection of this service the automatic name ends with the key's last 4.
+                      provider !== "custom" && (accounts ?? []).some((account) => account.provider === provider)
+                        ? withKeyTail(def?.name ?? "", apiKey)
+                        : def?.name
+                    }
                     className={inputClass}
                   />
                 </label>

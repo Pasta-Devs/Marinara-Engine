@@ -193,6 +193,22 @@ export function useDuplicateConnection() {
   });
 }
 
+/** "Move to connection…": the Model keeps its id and takes the target Connection's key and catalog. */
+export function useMoveConnection() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, accountId }: { id: string; accountId: string }) =>
+      api.post(`/connections/${id}/move`, { accountId }),
+    onSuccess: (_data, variables) =>
+      Promise.all([
+        qc.invalidateQueries({ queryKey: connectionKeys.list() }),
+        qc.invalidateQueries({ queryKey: connectionKeys.detail(variables.id) }),
+        qc.invalidateQueries({ queryKey: connectionKeys.models(variables.id) }),
+        qc.invalidateQueries({ queryKey: connectionAccountKeys.all }),
+      ]),
+  });
+}
+
 export function useDeleteConnection() {
   const qc = useQueryClient();
   const { t } = useTranslation();

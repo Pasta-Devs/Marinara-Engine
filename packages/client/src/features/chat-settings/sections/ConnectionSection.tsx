@@ -3,11 +3,12 @@ import { AlertTriangle, ChevronDown, Plug } from "lucide-react";
 import { LOCAL_SIDECAR_CONNECTION_ID } from "@marinara-engine/shared";
 import { ChatSettingsSection } from "../ChatSettingsSection";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { toast } from "sonner";
 import { ContextBudgetIndicator } from "../../../components/chat/ContextBudgetIndicator";
 import { SubscriptionUsageWidget } from "../../../components/connections/SubscriptionUsageWidget";
 import { ConnectionModelPicker } from "../../../components/connections/ConnectionModelPicker";
 import { useChatModelPick } from "../../../components/connections/ConnectionSwitcherBody";
-import { resolveUsageConnection } from "../../../lib/connection-filters";
+import { isConnectionFlagTrue, resolveUsageConnection } from "../../../lib/connection-filters";
 import { cn } from "../../../lib/utils";
 import type { ProfessorMariContextBudget } from "../../../lib/professor-mari-context-budget";
 
@@ -124,6 +125,21 @@ export function ConnectionSection({
     savedConnection && chatPick.current?.connectionId === savedConnection.id && chatPick.current.model
       ? { ...savedConnection, model: chatPick.current.model }
       : savedConnection;
+  // The empty choice is "Use default" (decision 27): the chat drops its own pick and follows the Main model.
+  const mainConnection = connections.find((connection) => isConnectionFlagTrue(connection.isDefault));
+  const useDefaultLabel = mainConnection
+    ? localizeUi("connections.switcher.useDefault", { model: mainConnection.name || mainConnection.model })
+    : localizeUi("connections.switcher.useDefaultNone");
+  const choose = (value: string) =>
+    value
+      ? onConnectionChange(value)
+      : void chatPick.useDefault().catch((error) =>
+          toast.error(
+            localizeUi("connections.switcher.pickFailed", {
+              error: error instanceof Error ? error.message : String(error ?? ""),
+            }),
+          ),
+        );
 
   return (
     <ChatSettingsSection
@@ -144,10 +160,10 @@ export function ConnectionSection({
             </label>
             <select
               value={connectionId ?? ""}
-              onChange={(e) => onConnectionChange(e.target.value || null)}
+              onChange={(e) => choose(e.target.value)}
               className="w-full rounded-lg bg-foreground/5 px-3 py-2 text-xs outline-none ring-1 ring-foreground/10 transition-shadow focus:ring-foreground/20"
             >
-              <option value="">{localizeUi("ui.game.gamesurfacecomponent.none")}</option>
+              <option value="">{useDefaultLabel}</option>
               <option value="random">{localizeUi("ui.chatSettings.connectionsection.random")}</option>
               {connections.map((connection) => (
                 <option key={connection.id} value={connection.id}>
@@ -171,10 +187,10 @@ export function ConnectionSection({
         <div className="space-y-2">
           <select
             value={connectionId ?? ""}
-            onChange={(e) => onConnectionChange(e.target.value || null)}
+            onChange={(e) => choose(e.target.value)}
             className="w-full rounded-lg bg-foreground/5 px-3 py-2 text-xs outline-none ring-1 ring-foreground/10 transition-shadow focus:ring-foreground/20"
           >
-            <option value="">{localizeUi("ui.game.gamesurfacecomponent.none")}</option>
+            <option value="">{useDefaultLabel}</option>
             <option value="random">{localizeUi("ui.chatSettings.connectionsection.random")}</option>
             {connections.map((connection) => (
               <option key={connection.id} value={connection.id}>

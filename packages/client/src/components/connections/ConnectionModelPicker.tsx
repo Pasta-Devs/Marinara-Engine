@@ -1,5 +1,5 @@
 // ──────────────────────────────────────────────
-// Connection Model Picker — search, type, pin and pick a connection's
+// Connection Model Picker — search, type, star and pick a connection's
 // model. Shared by the input-box Connections menu (desktop and phone),
 // Chat Settings → Connection (a pick applies to the chat only), the panel's
 // Add model and the setup flow (a pick saves a Model).
@@ -220,13 +220,13 @@ export function ConnectionModelPicker({
     }
   };
 
-  // Star means "keep handy" (decision 25): starring a catalog model also saves it to the library.
-  const togglePin = (row: PickerRow, pinned: boolean) => {
+  // The star (decision 27): a favorite is saved and stays on top. Unstarring keeps the saved Model.
+  const toggleStar = (row: PickerRow, starred: boolean) => {
     setPinned.mutate(
-      { id: connection.id, model: row.id, pinned },
-      { onError: (error) => toast.error(t("connections.modelPicker.pinFailed", { error: errorMessage(error) })) },
+      { id: connection.id, model: row.id, pinned: starred },
+      { onError: (error) => toast.error(t("connections.favorite.failed", { error: errorMessage(error) })) },
     );
-    if (!pinned || !connection.accountId) return;
+    if (!starred || !connection.accountId) return;
     pickModel.mutate(
       {
         accountId: connection.accountId,
@@ -272,7 +272,7 @@ export function ConnectionModelPicker({
     const label = row.name || row.id;
     return (
       <div
-        key={`${pinned ? "pinned" : "all"}:${row.id}`}
+        key={`${pinned ? "favorites" : "all"}:${row.id}`}
         data-model-row
         data-model-id={row.id}
         className={cn("relative flex rounded-lg", current && "bg-foreground/[0.07]")}
@@ -308,21 +308,24 @@ export function ConnectionModelPicker({
             />
           )}
         </button>
-        <button
-          type="button"
-          data-model-pin
-          aria-pressed={pinned}
-          // A toggle keeps one name; aria-pressed says whether it is pinned.
-          aria-label={t("connections.modelPicker.pin", { model: label })}
-          title={t(pinned ? "connections.modelPicker.unpin" : "connections.modelPicker.pin", { model: label })}
-          onClick={() => togglePin(row, !pinned)}
-          className={cn(
-            "flex h-11 w-10 shrink-0 items-center justify-center rounded-lg outline-none transition-colors hover:bg-foreground/10 focus-visible:ring-1 focus-visible:ring-foreground/25",
-            pinned ? "text-[var(--marinara-chat-chrome-accent)]" : "text-foreground/35 hover:text-foreground/70",
-          )}
-        >
-          <Star size="0.875rem" fill={pinned ? "currentColor" : "none"} />
-        </button>
+        {/* A Model outside a Connection has nowhere to save a favorite; an old star there can still be removed. */}
+        {(connection.accountId || pinned) && (
+          <button
+            type="button"
+            data-model-star
+            aria-pressed={pinned}
+            // A toggle keeps one name; aria-pressed says whether it is a favorite.
+            aria-label={t("connections.favorite.toggle", { model: label })}
+            title={t(pinned ? "connections.favorite.remove" : "connections.favorite.add", { model: label })}
+            onClick={() => toggleStar(row, !pinned)}
+            className={cn(
+              "flex h-11 w-10 shrink-0 items-center justify-center rounded-lg outline-none transition-colors hover:bg-foreground/10 focus-visible:ring-1 focus-visible:ring-foreground/25",
+              pinned ? "text-[var(--marinara-chat-chrome-accent)]" : "text-foreground/35 hover:text-foreground/70",
+            )}
+          >
+            <Star size="0.875rem" fill={pinned ? "currentColor" : "none"} />
+          </button>
+        )}
       </div>
     );
   };
@@ -434,8 +437,8 @@ export function ConnectionModelPicker({
             )}
 
             {pinnedRows.length > 0 && (
-              <section aria-label={t("connections.modelPicker.pinned")} data-model-section="pinned">
-                {sectionLabel(t("connections.modelPicker.pinned"))}
+              <section aria-label={t("connections.switcher.favourites")} data-model-section="favorites">
+                {sectionLabel(t("connections.switcher.favourites"))}
                 {pinnedRows.map((row) => renderRow(row, true))}
               </section>
             )}

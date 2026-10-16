@@ -27,7 +27,7 @@ import { isMessageHidden } from "../lib/message-visibility";
 import { copyLocalSpriteVisualSettings } from "../components/chat/local-sprite-visual-settings";
 import { lorebookKeys } from "./use-lorebooks";
 import { achievementKeys, trackAchievementEvent } from "./use-achievements";
-import { normalizeAdvancedMemorySettings, type ChatModelChoice } from "@marinara-engine/shared";
+import { normalizeAdvancedMemorySettings, type ChatModelPick } from "@marinara-engine/shared";
 import type {
   AdvancedMemoryStatus,
   Chat,
@@ -906,7 +906,7 @@ export function useDeleteChatGroup() {
 export function useSetChatModel() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ chatId, ...choice }: ChatModelChoice & { chatId: string }) =>
+    mutationFn: ({ chatId, ...choice }: ChatModelPick & { chatId: string }) =>
       api.put<Chat>(`/chats/${chatId}/model`, choice),
     onMutate: ({ chatId }) => ({ metadataVersion: captureChatMetadataVersion(chatId) }),
     onSuccess: (updatedChat, vars, context) => {

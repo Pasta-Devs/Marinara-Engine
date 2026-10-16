@@ -1,24 +1,31 @@
 // ──────────────────────────────────────────────
 // Connection Switcher Body — the quick switch shared by the desktop popover,
 // the phone sheet and Professor Mari's composer. Left: search across saved
-// Models and catalogs, Favourites, Recent, Connections (each opens in place
-// with its saved Models), Local Model, Shuffle. Right (or a second step): the
-// chosen Connection's catalog. A catalog pick applies to the chat only.
+// Models and catalogs, Use default, Favorites, Recent, Connections (each opens
+// in place with its saved Models), Local Model, Shuffle. Right (or a second
+// step): the chosen Connection's catalog. A catalog pick applies to the chat
+// only; the star saves a model and keeps it on top (decision 27).
 // ──────────────────────────────────────────────
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Check, ChevronDown, ChevronLeft, ChevronRight, Cpu, Library, Link, Search, Shuffle, Star } from "lucide-react";
+import { Check, ChevronDown, ChevronLeft, ChevronRight, Cpu, House, Link, Search, Shuffle, Star } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   LOCAL_SIDECAR_CONNECTION_ID,
   parsePinnedModels,
+  rankModelMatch,
   readChatModelOverride,
   readChatRecentModels,
   type ChatModelChoice,
   type ConnectionAccountListItem,
 } from "@marinara-engine/shared";
-import { connectionKeys, useConnections, useUpdateConnection } from "../../hooks/use-connections";
+import {
+  connectionKeys,
+  useConnections,
+  useSetConnectionModelPinned,
+  useUpdateConnection,
+} from "../../hooks/use-connections";
 import { useChat, useChats, useSetChatModel } from "../../hooks/use-chats";
 import { useCatalogSearch, useConnectionAccounts, usePickModel } from "../../hooks/use-connection-accounts";
 import { useSidecarStore } from "../../stores/sidecar.store";
@@ -120,7 +127,7 @@ export function useChatModelPick(chatId: string | null) {
       // Read the cache now: a Model saved a moment ago is not in any earlier render's list.
       const rows = (qc.getQueryData(connectionKeys.list()) as SwitcherRow[] | undefined) ?? [];
       const row = rows.find((candidate) => candidate.id === applied.connectionId);
-      // Saving the chat's pick to the library keeps the same model: no toast.
+      // Starring the chat's pick saves it and keeps the same model: no toast.
       if (!row || (previous && runsKey(previous, rows) === runsKey(applied, rows))) return;
       const model = applied.model ? (applied.name ?? applied.model) : rowLabel(row);
       const makeMain = async () => {
@@ -171,7 +178,28 @@ export function useChatModelPick(chatId: string | null) {
     },
     [chatId, current, pickModel, qc, setChatModel, t, updateConnection],
   );
-  return { current, recent, apply };
+  // "Use default" (decision 27): the chat drops its own pick and follows the Main model again.
+  const followsMain = !!chat && !chat.connectionId;
+  const useDefault = useCallback(async () => {
+    if (!chatId) return;
+    const previous = current;
+    // A failure throws to the caller, which reports it and keeps its menu open.
+    await setChatModel.mutateAsync({ chatId, connectionId: null });
+    toast.success(t("connections.switcher.followingDefault"), {
+      ...(previous
+        ? {
+            cancel: {
+              label: t("connections.switcher.undo"),
+              onClick: () =>
+                void setChatModel
+                  .mutateAsync({ chatId, ...previous })
+                  .catch((error) => toast.error(t("connections.switcher.pickFailed", { error: errorMessage(error) }))),
+            },
+          }
+        : {}),
+    });
+  }, [chatId, current, setChatModel, t]);
+  return { current, recent, apply, followsMain, useDefault };
 }
 
 export function ConnectionSwitcherBody({
@@ -183,6 +211,7 @@ export function ConnectionSwitcherBody({
   showLocalModel,
   localModelHint,
   shuffle,
+  followDefault,
   listHeader,
   empty,
   autoFocusSearch = false,
@@ -207,6 +236,8 @@ export function ConnectionSwitcherBody({
   localModelHint?: string;
   /** The chat's random-pool mode; absent where there is none (Professor Mari). */
   shuffle?: { active: boolean; onToggle: () => void };
+  /** "Use default": the host follows the Main model; absent where there is no such state (Professor Mari). */
+  followDefault?: { active: boolean; onSelect: () => Promise<void> };
   listHeader?: ReactNode;
   /** Shown when there is nothing to pick. */
   empty?: ReactNode;
@@ -226,6 +257,7 @@ export function ConnectionSwitcherBody({
   const sidecarModelDisplayName = useSidecarStore((state) => state.modelDisplayName);
   const updateConnection = useUpdateConnection();
   const pickModel = usePickModel();
+  const setPinned = useSetConnectionModelPinned();
   const [busy, setBusy] = useState(false);
   const [query, setQuery] = useState("");
   const deferredQuery = useDeferredValue(query.trim());
@@ -298,34 +330,58 @@ export function ConnectionSwitcherBody({
     }
   };
 
-  // "Save to library": the chat's catalog pick becomes a saved Model, and the chat points at it.
-  const saveCurrent = async (group: SwitcherGroup) => {
-    if (busy || !current?.model || !group.account) return;
+  // The star (decision 27): starring saves the model when it is not saved yet (and points the chat at the saved
+  // Model when it was the chat's catalog pick) and keeps it on top. Unstarring keeps the saved Model.
+  const toggleStar = async (group: SwitcherGroup, model: string, starred: boolean, name?: string) => {
+    if (busy || !group.account) return;
     setBusy(true);
     try {
-      const { connectionId } = await pickModel.mutateAsync({
-        accountId: group.account.id,
-        model: current.model,
-        name: current.name,
-        maxContext: current.maxContext,
-        maxTokensOverride: current.maxTokensOverride,
-      });
-      await onApply({ connectionId });
-      toast.success(t("connections.switcher.savedToLibrary", { model: current.name ?? current.model }));
+      if (!starred && !group.rows.some((row) => row.model === model)) {
+        const pick = current?.model === model && groupOfRow.get(current.connectionId) === group ? current : null;
+        const { connectionId } = await pickModel.mutateAsync({
+          accountId: group.account.id,
+          model,
+          name: pick?.name ?? name,
+          maxContext: pick?.maxContext,
+          maxTokensOverride: pick?.maxTokensOverride,
+        });
+        if (pick) await onApply({ connectionId });
+      }
+      await setPinned.mutateAsync({ id: anchorOf(group).id, model, pinned: !starred });
     } catch (error) {
-      toast.error(t("connections.modelPicker.saveFailed", { error: errorMessage(error) }));
+      toast.error(t("connections.favorite.failed", { error: errorMessage(error) }));
     } finally {
       setBusy(false);
     }
   };
+  const starsOf = (group: SwitcherGroup) => new Set(group.rows.flatMap((row) => parsePinnedModels(row.pinnedModels)));
+  const starButton = (group: SwitcherGroup, model: string, title: string, starred: boolean) =>
+    group.account ? (
+      <button
+        type="button"
+        data-switcher-star={model}
+        disabled={busy}
+        aria-pressed={starred}
+        // A toggle keeps one name; aria-pressed says whether it is a favorite.
+        aria-label={t("connections.favorite.toggle", { model: title })}
+        title={t(starred ? "connections.favorite.remove" : "connections.favorite.add", { model: title })}
+        onClick={() => void toggleStar(group, model, starred, title)}
+        className={cn(
+          "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg outline-none transition-colors hover:bg-foreground/10 focus-visible:ring-1 focus-visible:ring-foreground/25 max-md:h-11 max-md:w-11",
+          starred ? "text-[var(--marinara-chat-chrome-accent)]" : "text-foreground/35 hover:text-foreground/70",
+        )}
+      >
+        <Star size="0.875rem" fill={starred ? "currentColor" : "none"} aria-hidden />
+      </button>
+    ) : null;
 
-  // ★ Favourites: the pins of every Connection (pins are shared by all Models of an account).
+  // ★ Favorites: the stars of every Connection (stars are shared by all Models of an account).
   const favourites = useMemo(
     () =>
       groups.flatMap((group) => {
         if (!group.account) return [];
         const pins = new Set(group.rows.flatMap((row) => parsePinnedModels(row.pinnedModels)));
-        return [...pins].map((model) => entryFor(group, anchorOf(group), model));
+        return [...pins].map((model) => ({ group, model, entry: entryFor(group, anchorOf(group), model) }));
       }),
     [anchorOf, groups],
   );
@@ -346,7 +402,7 @@ export function ConnectionSwitcherBody({
         return [{ key, title, subtitle: groupOfRow.get(row.id)?.name, choice }];
       });
     }
-    const shown = new Set(favourites.map((entry) => (entry.choice.model ? null : entry.choice.connectionId)));
+    const shown = new Set(favourites.map(({ entry }) => (entry.choice.model ? null : entry.choice.connectionId)));
     return recentModels(chats ?? [], rows, 3, currentId)
       .filter((row) => !shown.has(row.id))
       .map((row): Entry => ({
@@ -357,25 +413,49 @@ export function ConnectionSwitcherBody({
       }));
   }, [chats, current, currentId, favourites, groupOfRow, recentChoices, rows, showLocalModel, t]);
 
-  // Search: saved Models first, then catalog models not saved yet, then the typed text as a model id.
+  // Search (decision 27): saved Models first (starred, then the rest), then catalog models not saved yet, each
+  // with prefix matches before the rest, then the typed text as a model id.
   const catalog = useCatalogSearch(deferredQuery);
   const { saved: savedHits, extra: extraHits } = useMemo(() => {
     const q = deferredQuery.toLowerCase();
     if (!q) return { saved: [] as Entry[], extra: [] as Entry[] };
-    const saved = rows
-      .filter((row) => `${row.name ?? ""}\n${row.model ?? ""}`.toLowerCase().includes(q))
-      .map((row): Entry => ({
-        key: row.id,
-        title: rowLabel(row),
-        subtitle: groupOfRow.get(row.id)?.name,
-        choice: { connectionId: row.id },
-      }));
-    const added = (catalog.data ?? []).flatMap((hit) => {
-      const group = groupByAccount.get(hit.accountId);
-      return group && !group.rows.some((row) => row.model === hit.model)
-        ? [{ ...entryFor(group, anchorOf(group), hit.model, hit.name), subtitle: `${hit.model} · ${group.name}` }]
-        : [];
-    });
+    const byRank = <T,>(items: Array<{ rank: number; text: number; item: T }>) =>
+      items.filter((entry) => entry.rank >= 0).sort((a, b) => a.rank - b.rank || a.text - b.text);
+    const starredIn = (group: SwitcherGroup | undefined, model: string | null | undefined) =>
+      !!group?.account && !!model && group.rows.some((row) => parsePinnedModels(row.pinnedModels).includes(model));
+    const saved = byRank(
+      rows.map((row) => {
+        const model = { id: row.model ?? "", name: row.name };
+        const group = groupOfRow.get(row.id);
+        return {
+          rank: rankModelMatch(q, model, { saved: true, starred: starredIn(group, row.model) }),
+          text: rankModelMatch(q, model),
+          item: {
+            key: row.id,
+            title: rowLabel(row),
+            subtitle: group?.name,
+            choice: { connectionId: row.id },
+          } as Entry,
+        };
+      }),
+    ).map(({ item }) => item);
+    const added = byRank(
+      (catalog.data ?? []).flatMap((hit) => {
+        const group = groupByAccount.get(hit.accountId);
+        if (!group || group.rows.some((row) => row.model === hit.model)) return [];
+        const model = { id: hit.model, name: hit.name };
+        return [
+          {
+            rank: rankModelMatch(q, model, { starred: starredIn(group, hit.model) }),
+            text: rankModelMatch(q, model),
+            item: {
+              ...entryFor(group, anchorOf(group), hit.model, hit.name),
+              subtitle: `${hit.model} · ${group.name}`,
+            },
+          },
+        ];
+      }),
+    ).map(({ item }) => item);
     // A pasted id goes to the Connection in use, or the one on show.
     const typed = deferredQuery;
     const target = [currentGroup, shownGroup].find((group) => group?.account);
@@ -494,32 +574,31 @@ export function ConnectionSwitcherBody({
                   choice: override,
                 },
                 undefined,
-                <button
-                  type="button"
-                  data-switcher-save
-                  disabled={busy}
-                  onClick={() => void saveCurrent(group)}
-                  aria-label={t("connections.switcher.saveToLibrary")}
-                  title={t("connections.switcher.saveToLibrary")}
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-foreground/50 outline-none transition-colors hover:bg-foreground/10 hover:text-foreground/80 focus-visible:ring-1 focus-visible:ring-foreground/25 max-md:h-11 max-md:w-11"
-                >
-                  <Library size="0.875rem" aria-hidden />
-                </button>,
+                starButton(
+                  group,
+                  override.model!,
+                  override.name ?? override.model!,
+                  starsOf(group).has(override.model!),
+                ),
               )}
             {subgroupByUpstream(group.rows).map((sub) => (
               <div key={sub.upstream ?? ""}>
                 {sub.upstream && <SectionLabel>{sub.upstream}</SectionLabel>}
                 {sub.rows.map((row) =>
-                  renderEntry({
-                    key: row.id,
-                    title: rowLabel(row),
-                    // The upstream is the heading above, so the id drops it (as on the panel cards).
-                    subtitle:
-                      sub.upstream && row.model?.startsWith(`${sub.upstream}/`)
-                        ? row.model.slice(sub.upstream.length + 1)
-                        : (row.model ?? undefined),
-                    choice: { connectionId: row.id },
-                  }),
+                  renderEntry(
+                    {
+                      key: row.id,
+                      title: rowLabel(row),
+                      // The upstream is the heading above, so the id drops it (as on the panel cards).
+                      subtitle:
+                        sub.upstream && row.model?.startsWith(`${sub.upstream}/`)
+                          ? row.model.slice(sub.upstream.length + 1)
+                          : (row.model ?? undefined),
+                      choice: { connectionId: row.id },
+                    },
+                    undefined,
+                    row.model ? starButton(group, row.model, rowLabel(row), starsOf(group).has(row.model)) : undefined,
+                  ),
                 )}
               </div>
             ))}
@@ -537,6 +616,41 @@ export function ConnectionSwitcherBody({
       </div>
     );
   };
+
+  // "Use default (model name)": names the model the chat would follow.
+  const mainRow = rows.find((row) => isConnectionFlagTrue(row.isDefault));
+  const defaultRow = followDefault && (
+    <button
+      type="button"
+      data-switcher-default
+      aria-current={followDefault.active ? "true" : undefined}
+      disabled={busy}
+      onClick={() => {
+        if (followDefault.active) return onDone();
+        setBusy(true);
+        void followDefault
+          .onSelect()
+          .then(onDone)
+          .catch((error) => toast.error(t("connections.switcher.pickFailed", { error: errorMessage(error) })))
+          .finally(() => setBusy(false));
+      }}
+      className={cn(ROW_CLASS, followDefault.active && "bg-foreground/[0.07] font-semibold")}
+    >
+      {followDefault.active && <AccentBar />}
+      <House size="0.875rem" className="shrink-0 text-foreground/55" aria-hidden />
+      <span className="flex min-w-0 flex-1 flex-col">
+        <span className="truncate">
+          {mainRow
+            ? t("connections.switcher.useDefault", { model: rowLabel(mainRow) })
+            : t("connections.switcher.useDefaultNone")}
+        </span>
+        <span className="truncate text-[0.625rem] font-normal text-foreground/50">
+          {t("connections.switcher.useDefaultHint")}
+        </span>
+      </span>
+      {followDefault.active && <Check size="0.75rem" className="shrink-0 text-[var(--marinara-chat-chrome-accent)]" />}
+    </button>
+  );
 
   const localEntry: Entry = {
     key: LOCAL_SIDECAR_CONNECTION_ID,
@@ -672,13 +786,16 @@ export function ConnectionSwitcherBody({
               </div>
             ) : (
               <>
+                {defaultRow}
                 {favourites.length > 0 && (
                   <section data-switcher-section="favourites" aria-label={t("connections.switcher.favourites")}>
                     <SectionLabel>
                       <Star size="0.625rem" className="mr-1 inline align-[-1px]" fill="currentColor" aria-hidden />
                       {t("connections.switcher.favourites")}
                     </SectionLabel>
-                    {favourites.map((entry) => renderEntry(entry))}
+                    {favourites.map(({ group, model, entry }) =>
+                      renderEntry(entry, undefined, starButton(group, model, entry.title, true)),
+                    )}
                   </section>
                 )}
                 {recent.length > 0 && (

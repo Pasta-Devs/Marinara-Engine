@@ -10,6 +10,7 @@ import {
   Link,
   MessageSquarePlus,
   MoreHorizontal,
+  MoveRight,
   Music,
   Shuffle,
   Star,
@@ -131,6 +132,8 @@ export function ConnectionRow({
   pinned,
   onTogglePin,
   onMakeDefault,
+  moveTargets,
+  onMove,
 }: {
   conn: ConnectionRowData;
   isSelected: boolean;
@@ -153,6 +156,9 @@ export function ConnectionRow({
   onTogglePin?: () => void;
   /** Shown only when the row does not hold the role yet. */
   onMakeDefault?: () => void;
+  /** Other Connections of the same service the Model can move to; "Move to connection…" shows when there is one. */
+  moveTargets?: { id: string; name: string }[];
+  onMove?: (accountId: string, name: string) => void;
 }) {
   const { t: localizeUi } = useUiTranslation();
   const duplicateConnection = useDuplicateConnection();
@@ -163,6 +169,8 @@ export function ConnectionRow({
   const openConnectionDetail = useUIStore((s) => s.openConnectionDetail);
   const activeChat = useChatStore((state) => state.activeChat);
   const [menu, setMenu] = useState<{ x: number; y: number; keyboard: boolean } | null>(null);
+  // The ⋯ menu closes after a pick, so the target list is a second menu at the same place.
+  const [moveMenu, setMoveMenu] = useState<{ x: number; y: number; keyboard: boolean } | null>(null);
   const inRandomPool = conn.useForRandom === "true";
 
   const resourcePayload = {
@@ -263,6 +271,15 @@ export function ConnectionRow({
             icon: <GitBranch size="0.75rem" />,
             onSelect: useForDecisions,
             disabled: createConnection.isPending,
+          },
+        ]
+      : []),
+    ...(onMove && moveTargets?.length
+      ? [
+          {
+            label: localizeUi("connections.accounts.row.moveTo"),
+            icon: <MoveRight size="0.75rem" />,
+            onSelect: () => setMoveMenu(menu),
           },
         ]
       : []),
@@ -411,6 +428,25 @@ export function ConnectionRow({
             items={menuItems}
             autoFocus={menu.keyboard}
             onClose={() => setMenu(null)}
+          />
+        </span>
+      )}
+      {moveMenu && onMove && (
+        <span
+          onClick={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
+          onTouchStart={(e) => e.stopPropagation()}
+        >
+          <ContextMenu
+            x={moveMenu.x}
+            y={moveMenu.y}
+            items={(moveTargets ?? []).map((target) => ({
+              label: target.name,
+              icon: <MoveRight size="0.75rem" />,
+              onSelect: () => onMove(target.id, target.name),
+            }))}
+            autoFocus={moveMenu.keyboard}
+            onClose={() => setMoveMenu(null)}
           />
         </span>
       )}
