@@ -42,7 +42,7 @@ import {
   type ConnectionTransferRow,
 } from "../../lib/connection-transfer";
 import { groupModelsByAccount } from "../../lib/connection-groups";
-import { ConnectionRow, isMediaRow, type ConnectionRowData } from "../connections/ConnectionRow";
+import { ConnectionRow, isMediaRow, mediaService, type ConnectionRowData } from "../connections/ConnectionRow";
 import { ConnectionDetail, hostOf } from "../connections/ConnectionDetail";
 import { ConnectionDefaultsDetail, useConnectionDefaults } from "../connections/ConnectionDefaults";
 import { DeviceDetail, SMALL_ACTION, StateWord, useDeviceEngines } from "../connections/DeviceDetail";
@@ -454,6 +454,7 @@ export function ConnectionsPanel() {
           <ProviderIcon
             provider={account.provider}
             baseUrl={account.baseUrl}
+            service={rows[0] && mediaService(rows[0])}
             name={account.name}
             dim={account.state === "off"}
           />

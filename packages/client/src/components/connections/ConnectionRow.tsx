@@ -104,6 +104,15 @@ const menuAt = (event: MouseEvent<HTMLElement>): MenuAt => {
 /** The menus are portalled, but React events still bubble to the row; keep them off its click. */
 const stop = (event: { stopPropagation: () => void }) => event.stopPropagation();
 
+/** A media Connection's service (ComfyUI, fal…), for its brand icon. */
+export const mediaService = (row: ConnectionRowData) =>
+  row.imageService ||
+  row.imageGenerationSource ||
+  row.videoService ||
+  row.videoGenerationSource ||
+  row.audioSource ||
+  null;
+
 /** The model id under the name; a gateway's upstream prefix is dropped when the list already groups by it. */
 export function modelSubtitle(row: ConnectionRowData, upstream: string | null = null): string {
   const model = row.model?.trim() ?? "";
@@ -354,7 +363,7 @@ export function ConnectionRow({
           <ProviderIcon
             provider={account?.provider ?? row.provider}
             baseUrl={account?.baseUrl ?? row.baseUrl}
-            service={row.imageService ?? row.videoService ?? row.audioSource}
+            service={mediaService(row)}
             name={account?.name ?? row.name}
             size="sm"
             dim={!!unavailable}
