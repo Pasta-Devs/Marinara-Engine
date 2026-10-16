@@ -530,6 +530,7 @@ export function ModelDownloadModal({ open, onClose }: Props) {
       open={open}
       onClose={onClose}
       title={localizeUi("ui.modals.modeldownloadmodal.localAiModel")}
+      opaque
       width="max-w-2xl"
       contentRef={modalScrollRef}
     >

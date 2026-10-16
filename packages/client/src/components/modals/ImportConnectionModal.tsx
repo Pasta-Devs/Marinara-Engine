@@ -106,6 +106,7 @@ export function ImportConnectionModal({ open, onClose }: Props) {
         onClose();
       }}
       title={localizeUi("ui.modals.importconnectionmodal.importConnections")}
+      opaque
     >
       <div className="flex flex-col gap-4">
         <div

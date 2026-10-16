@@ -198,7 +198,7 @@ export function ConnectionAccountEditor({ accountId, onClose }: { accountId: str
   );
 
   return (
-    <Modal open onClose={onClose} title={account?.name ?? t("connections.accounts.editor.title")}>
+    <Modal open onClose={onClose} title={account?.name ?? t("connections.accounts.editor.title")} opaque>
       {!account || !draft ? (
         <p className="text-xs text-[var(--muted-foreground)]">
           {isLoading ? <Loader2 size="0.875rem" className="animate-spin" /> : t("connections.accounts.editor.notFound")}

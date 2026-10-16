@@ -285,7 +285,13 @@ export function DecisionModelModal({ open, onClose }: Props) {
   };
 
   return (
-    <Modal open={open} onClose={onClose} title={localizeUi("ui.modals.decisionmodelmodal.title")} width="max-w-2xl">
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={localizeUi("ui.modals.decisionmodelmodal.title")}
+      width="max-w-2xl"
+      opaque
+    >
       <div className="flex flex-col gap-5">
         <div className="flex items-start gap-3">
           <div className="mari-chrome-accent-soft-tile mari-accent-animated flex h-10 w-10 shrink-0 items-center justify-center rounded-xl">

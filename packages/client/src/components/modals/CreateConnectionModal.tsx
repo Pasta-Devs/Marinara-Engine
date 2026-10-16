@@ -4,18 +4,7 @@
 // layout); smaller screens get the same parts as three screens in a full-screen sheet.
 // ────────────────────────────────────────────────
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import {
-  AlertCircle,
-  Check,
-  ChevronDown,
-  ChevronLeft,
-  ExternalLink,
-  Eye,
-  EyeOff,
-  Loader2,
-  Plug,
-  Search,
-} from "lucide-react";
+import { AlertCircle, Check, ChevronDown, ChevronLeft, ExternalLink, Eye, EyeOff, Loader2, Search } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import {
   MODEL_LISTS,
@@ -233,7 +222,7 @@ function ServiceGroup({
   onToggle: () => void;
   children: ReactNode;
 }) {
-  const list = <div className="flex flex-col gap-2">{children}</div>;
+  const list = <div className="grid grid-cols-1 gap-2 md:grid-cols-2">{children}</div>;
   if (!collapsible) {
     return (
       <section className="flex flex-col gap-1.5">
@@ -555,7 +544,7 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
 
   const serviceList = (
     <div className="flex flex-col gap-3 p-4">
-      {firstRun && <FirstRunIntro text={t("connections.add.intro")} className="md:hidden" />}
+      {firstRun && <FirstRunIntro text={t("connections.add.intro")} />}
       <div className="relative">
         <Search
           size="0.8125rem"
@@ -570,11 +559,7 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
           className="mari-chrome-field h-11 w-full py-0 pl-8 pr-3 text-xs md:h-9"
         />
       </div>
-      <div
-        className="grid grid-cols-6 gap-1 md:grid-cols-3 lg:grid-cols-6"
-        role="group"
-        aria-label={t("connections.add.kindFilter")}
-      >
+      <div className="grid grid-cols-6 gap-1" role="group" aria-label={t("connections.add.kindFilter")}>
         {KINDS.map((value) => (
           <button
             key={value}
@@ -983,13 +968,7 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
   if (step === 1) {
     footerLeft = cancelButton();
   } else if (step === 2) {
-    // Side by side the list stays in view, so Cancel; on one screen Back returns to it.
-    footerLeft = (
-      <>
-        {backButton(() => void backToList(), "md:hidden!")}
-        {cancelButton("max-md:hidden!")}
-      </>
-    );
+    footerLeft = backButton(() => void backToList());
     footerRight = device ? (
       device === "local_model" ? (
         <button
@@ -1087,6 +1066,7 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
       title={t(modelsFor ? "connections.accounts.addModel" : "connections.add.title")}
       width="max-w-3xl lg:max-w-4xl"
       mobileFullscreen
+      opaque
       panelClassName="sm:h-[min(90dvh,44rem)]"
       contentClassName="flex flex-col overflow-hidden! p-0!"
     >
@@ -1142,33 +1122,11 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
         </div>
 
         <div key={String(step === 2 ? 1 : step)} className="animate-fade-in-up min-h-0 flex-1">
-          {(step === 1 || step === 2) && (
-            <div className="grid h-full min-h-0 md:grid-cols-[17rem_minmax(0,1fr)] lg:grid-cols-[20rem_minmax(0,1fr)]">
-              <aside
-                className={cn(
-                  "min-h-0 overflow-y-auto overscroll-contain border-[var(--marinara-chat-chrome-panel-divider)] md:border-r",
-                  step === 2 && "max-md:hidden",
-                )}
-              >
-                {serviceList}
-              </aside>
-              <section className={cn("min-h-0 overflow-y-auto overscroll-contain", step === 1 && "max-md:hidden")}>
-                {step === 2 ? (
-                  (devicePane ?? connectPane)
-                ) : firstRun ? (
-                  <div className="p-5">
-                    <FirstRunIntro text={t("connections.add.intro")} />
-                  </div>
-                ) : (
-                  <div className="flex h-full flex-col items-center justify-center gap-3 p-8 text-center text-xs text-[var(--muted-foreground)]">
-                    <span className="mari-panel-gradient-surface mari-panel-gradient--connections flex h-12 w-12 items-center justify-center rounded-xl opacity-70 shadow-sm">
-                      <Plug size="1.25rem" aria-hidden />
-                    </span>
-                    <p>{t("connections.add.choosePrompt")}</p>
-                  </div>
-                )}
-              </section>
-            </div>
+          {step === 1 && <div className="h-full min-h-0 overflow-y-auto overscroll-contain">{serviceList}</div>}
+          {step === 2 && (
+            <section className="h-full min-h-0 overflow-y-auto overscroll-contain">
+              <div className="mx-auto max-w-xl">{devicePane ?? connectPane}</div>
+            </section>
           )}
 
           {step === 3 && target && pickerRow && (

@@ -1635,7 +1635,6 @@
   "connections.add.billingInfo.pay_per_use": "You pay the service for what you use.",
   "connections.add.billingInfo.plan": "Uses the plan you already pay for.",
   "connections.add.chooseModels": "Choose models",
-  "connections.add.choosePrompt": "Choose a service on the left to connect it.",
   "connections.add.connect": "Connect",
   "connections.add.connected": "Connected",
   "connections.add.connectedModels_one": "Connected · {{count}} model found",

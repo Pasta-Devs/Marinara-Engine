@@ -2832,6 +2832,18 @@ html[data-mari-ios-webkit] .mari-modal-panel {
   background-image: linear-gradient(var(--marinara-chat-chrome-panel-bg), var(--marinara-chat-chrome-panel-bg));
 }
 
+/* Opt-in solid window (Connections): the chrome panel colour is translucent, so back it with the app background. */
+.mari-modal--opaque {
+  --mari-modal-opaque-bg: var(--background);
+}
+
+.mari-modal--opaque .mari-modal-panel.marinara-chat-popover:not(.mari-window) {
+  background-color: var(--mari-modal-opaque-bg);
+  background-image: linear-gradient(var(--marinara-chat-chrome-panel-bg), var(--marinara-chat-chrome-panel-bg));
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
 /* Full-screen mobile navigation needs no translucent copy of the covered chat. */
 html[data-mari-ios-webkit] :is([data-component="RightPanelMobile"], [data-component="ChatSidebarPanel"]) {
   background-color: var(--sidebar) !important;
