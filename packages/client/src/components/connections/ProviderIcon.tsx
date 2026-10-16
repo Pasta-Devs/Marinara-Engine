@@ -267,7 +267,7 @@ export function ProviderIcon({
       aria-hidden
       className={cn(
         "mari-panel-gradient--connections flex shrink-0 items-center justify-center overflow-hidden font-semibold shadow-sm",
-        "ring-[1.5px] ring-inset ring-[var(--mari-panel-gradient-start)]",
+        "ring-[1.5px] ring-inset ring-[var(--border)]",
         brand?.tint ? "text-white" : "mari-panel-gradient-surface",
         box,
         dim && "opacity-50",
