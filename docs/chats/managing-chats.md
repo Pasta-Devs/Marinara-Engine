@@ -24,7 +24,7 @@ Some rows show a small branch icon with a number. This means the chat has more t
 
 The new chat is named **New Conversation**, **New Roleplay**, or **New Game**. You can rename it later (see Renaming a chat below).
 
-You need at least one connection before a chat will open. A connection links Marinara to an AI provider. If you have no connection yet, a **Set Up** window appears instead of the chat. It asks you to choose a connection first. If you have none at all, it shows **No connections found** with an **Open Connections** button. To set one up, see [Connecting to an AI Provider](../connections/connecting-to-a-provider.md).
+You need at least one connection before a chat will open. A connection links Marinara to an AI provider. If you have no connection yet, the **Add connection** window opens instead of the chat. When you finish it, **Start chatting** opens the new chat. For the full walkthrough, see [Connecting to an AI Provider](../connections/connecting-to-a-provider.md).
 
 If you saved a starred default settings profile for that mode, Marinara applies it to the new chat automatically. See [Chat Settings Overview](chat-settings.md).
 

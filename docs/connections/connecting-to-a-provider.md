@@ -14,7 +14,7 @@ Marinara Engine does not come with a ready-made connection or a free starter key
 
 You manage connections in the **Connections** panel on the right side of the app.
 
-If you have no connections yet and you try to start a chat, Marinara shows a **Set Up** dialog. That dialog has an **Open Connections** button. Click it to jump straight to the **Connections** panel.
+If you have no connections yet and you try to start a chat, Marinara opens the **Add connection** window at once. When you finish, **Start chatting** creates the chat with the model you picked.
 
 At the top of the panel is the **Defaults** card. It sets your **Main** model, a **Fallback**, and the models for other features such as decisions, embeddings, and images. Below it are your connections, each with its models grouped under it.
 
@@ -29,14 +29,25 @@ The **More actions** button (three dots) next to the search box opens a menu. It
 
 Follow these steps to add your first connection.
 
-1. In the **Connections** panel, click **Add connection**.
-2. Step 1 is **Choose a service**. Click the service you want, for example **OpenAI**, **Anthropic**, or **OpenRouter**. You can type in the **Find a service** box to filter the list.
-3. Step 2 is **Key or address**. Paste your key into the **API key** field. If you do not have a key yet, get one from the service's website. For a local server, enter its **Endpoint** instead. For a subscription service, the step tells you that no key is needed. Open **More options** to type a **Name (optional)**, set the **Endpoint**, or limit **Requests per minute** and **Parallel jobs**. Then click **Save and test**. A successful test shows **The connection works.**
-4. Step 3 is **Pick models**. Click each model you want to use. A picked model is added to the connection. If the list is empty, type a model ID instead. Click **Done**.
+1. In the **Connections** panel, click **Add connection**. On a phone the window fills the screen; on a wider screen the service list is on the left and the current step is on the right.
+2. Step 1 is **Choose a service**. Click the service you want, for example **OpenAI**, **Anthropic**, or **OpenRouter**. Type in the **Find a service** box, or use the chips (**Chat**, **Images**, **Video**, **Voice**, **Local**), to filter the list. Each service shows at most two badges, for example **Recommended**, **Pay per use**, or **Already connected**.
+3. Step 2 is **Connect**. Paste your key into the **API key** field. The eye button shows or hides the key. If you do not have a key yet, click **Get your (service) API key** to open the service's key page. For a local server, enter its **Server address**, or pick one of the **Common local servers**. For a subscription service, the step tells you that no key is needed. Open **More options** to type a **Name (optional)**, set the **Endpoint**, or limit **Requests per minute** and **Parallel jobs**. Then click **Connect**. Marinara tests the connection and shows one result: **Connected · (number) models found**, or the reason the test failed with **Try again**.
+4. Step 3 is **Models**. Click each model you want to use, or click its star. A picked model is added to the connection and gets a star. Click the star again to take a model off. **Recommended** models are at the top, and each row shows its context size. On your very first connection, your first pick becomes your **Main** model. If the list is empty, type a model ID instead. Click **Done**.
+5. The last screen names the connection and its models. Click **Done**, or **Add another connection**. If you came from a new chat, click **Start chatting**.
 
 If you leave the **Name** empty, Marinara names the connection after the service. When you add a second connection for the same service without typing a name, the automatic name gets the last 4 characters of the key, for example `OpenAI · …a1b2`. A name you type is never changed.
 
-To use a service you already added with another key, pick it under **Use existing** in step 1 to add more models to that connection.
+If you pick a service that you already connected, step 1 marks it **Already connected**. Choose **Add models to it** to open its model list, or add a second key as a new connection.
+
+### On this device
+
+The **On this device** group in step 1 has the parts that are built into Marinara: **Local Model**, **Text to Speech**, and **Speech to Text** (only when the **Calls** agent is installed). They need no account. A part that you already set up shows **Already set up**. **Local Model** opens the Local Model download (see [Local Model Setup](local-model.md)). **Text to Speech** and **Speech to Text** show their settings in the window, and changes save at once.
+
+### Adding models later
+
+To add models to a connection that you already have, click **Add model** on its card in the panel, or in its editor. This opens the same model list as step 3, for that connection only. Click a model or its star to add it, click the star again to take it off, and click **Done** to close.
+
+**Browse all models** in the chat input's **Connections** menu opens the same list. There, a click on a model uses it in this chat only, and a click on its star adds it to the connection.
 
 Later, you can change the model for one chat without opening the editor: use the **Connections** menu in the chat input or the **Model** field in **Chat Settings → Connection**. See [Quick switch](organizing-connections.md#shuffle-and-quick-switch).
 
@@ -50,7 +61,7 @@ To connect a model running on your own computer, see [Connecting a Local or Self
 
 ## Testing your connection
 
-**Save and test** in the Add flow already checks the connection. You can test it again later with **Test** on the connection's card. To test a saved model, open it from its connection in the panel. The bottom of the model editor has a **Connection Tests** card. Use it to confirm your setup works before you chat.
+**Connect** in the Add flow already checks the connection. You can test it again later with **Test** on the connection's card. To test a saved model, open it from its connection in the panel. The bottom of the model editor has a **Connection Tests** card. Use it to confirm your setup works before you chat.
 
 1. Click **Test Connection**. This checks your API key against the provider. On success you see a green **Connection Test: Success** line with the response time.
 2. Click **Send Test Message**. This sends the word "hi" to the model you picked and shows the reply. On success you see a green **Test Message: Success** line with the model's answer below it.
@@ -66,7 +77,7 @@ A new chat uses your **Main** model from the **Defaults** card. To give one chat
 
 A pick there changes only that chat. To make the chat follow your Main model again, choose **Use default (model name)**. The dropdown also has **🎲 Random**, which picks a different model each time from your Shuffle. In Game Mode, the section is still called **Connection**, but the dropdown inside it is labeled **GM / Party Model**.
 
-When you create a brand-new chat and have no connection saved, the **Set Up** dialog asks you to pick a connection first. Choose one, then click **Create Chat**.
+When you create a brand-new chat and have no connection saved, the **Add connection** window opens first. Add a connection and pick a model, then click **Start chatting**.
 
 ## Common errors
 
