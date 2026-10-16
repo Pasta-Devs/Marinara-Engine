@@ -21,6 +21,8 @@ export function PanelSection({
     <div className="mt-1">
       <div className="flex items-center justify-between">
         <button
+          type="button"
+          aria-expanded={open}
           onClick={() => setOpen((o) => !o)}
           className="flex items-center gap-1.5 px-1 py-1 text-left text-[0.6875rem] font-semibold uppercase tracking-wider text-[var(--muted-foreground)]"
         >

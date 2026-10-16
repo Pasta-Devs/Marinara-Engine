@@ -96,9 +96,11 @@ export async function appSettingsRoutes(app: FastifyInstance) {
       const row = id && !choices[key].includes(id) ? await connections.getById(id) : null;
       changes[key] = id && (choices[key].includes(id) || (row && isChatProvider(row.provider))) ? id : null;
     }
-    // Read just before the write, so an overlapping save of another field is not lost.
-    const settings = { ...(await readFeatureModelConnections(app.db)), ...changes };
-    await storage.set(FEATURE_MODEL_CONNECTIONS_SETTINGS_KEY, JSON.stringify(settings));
+    // Transactions run one at a time, so an overlapping save of another field is not lost.
+    await app.db.transaction(async () => {
+      const settings = { ...(await readFeatureModelConnections(app.db)), ...changes };
+      await storage.set(FEATURE_MODEL_CONNECTIONS_SETTINGS_KEY, JSON.stringify(settings));
+    });
     return readFeatureModelConnections(app.db);
   });
 

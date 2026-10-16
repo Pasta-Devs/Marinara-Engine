@@ -227,7 +227,12 @@ export async function buildApp(https?: { cert: Buffer; key: Buffer }) {
   } else {
     await startup.phase("seed.connection", () => seedDefaultConnection(db));
   }
-  await startup.phase("migrate.connection-accounts", () => linkConnectionAccounts(db));
+  try {
+    // Unlinked Models still work on their own copied credentials, so a failed link must not stop the boot.
+    await startup.phase("migrate.connection-accounts", () => linkConnectionAccounts(db));
+  } catch (error) {
+    app.log.warn(error, "Connection account linking did not complete; it will retry next startup");
+  }
   await startup.phase("seed.regex", () => seedDefaultRegexScripts(db));
   await startup.phase("migrate.agent-prompts", () => migrateLegacyDefaultAgentPrompts(db));
   await startup.phase("migrate.extended-descriptions", () => migrateCharacterExtendedDescriptionsToLorebooks(db));
