@@ -70,10 +70,16 @@ export const chatModelChoiceSchema = z.object({
 });
 export type ChatModelChoice = z.infer<typeof chatModelChoiceSchema>;
 
+/** The body of a chat's model pick: a choice, or `connectionId: null` to drop the chat's own pick and follow Main. */
+export const chatModelPickSchema = z.union([chatModelChoiceSchema, z.object({ connectionId: z.null() }).strict()]);
+export type ChatModelPick = z.infer<typeof chatModelPickSchema>;
+
 /** Chat metadata keys: the current per-chat catalog pick, and the chat's last two choices (newest first). */
 export const CHAT_MODEL_OVERRIDE_KEY = "modelOverride";
 export const CHAT_RECENT_MODELS_KEY = "recentModels";
 export const CHAT_RECENT_MODELS_LIMIT = 2;
+/** Set when the user chose "Use default": the chat has no Model of its own and answers through Main, silently. */
+export const CHAT_FOLLOWS_MAIN_KEY = "followsMainModel";
 
 export type ChatModelOverride = ChatModelChoice & { model: string };
 
@@ -110,4 +116,18 @@ export function readChatRecentModels(chat: { metadata?: unknown }): ChatModelCho
     const parsed = chatModelChoiceSchema.safeParse(entry);
     return parsed.success ? [parsed.data] : [];
   });
+}
+
+/** The chat follows the Main default by choice (decision 27), not because its Model was deleted. */
+export function readChatFollowsMain(chat: { connectionId?: string | null; metadata?: unknown }): boolean {
+  return !chat.connectionId && chatMetadataRecord(chat.metadata)[CHAT_FOLLOWS_MAIN_KEY] === true;
+}
+
+/**
+ * An automatic Connection name with the key's last 4 ("OpenAI · …a1b2"), for when another Connection of the same
+ * provider exists (decision 28). Short keys would be mostly revealed, so they add nothing.
+ */
+export function withKeyTail(label: string, apiKey: string | null | undefined): string {
+  const key = apiKey?.trim() ?? "";
+  return key.length >= 8 ? `${label} · …${key.slice(-4)}` : label;
 }

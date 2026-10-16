@@ -201,6 +201,7 @@ import { loadPriorBeholderState } from "../../services/agents/beholder-state.js"
 import { logger } from "../../lib/logger.js";
 import {
   applyChatModelOverride,
+  readChatFollowsMain,
   readChatModelOverride,
   resolveChatConnectionOrFallback,
 } from "../../services/generation/connection-resolution.js";
@@ -636,7 +637,13 @@ export async function registerDryRunRoute(app: FastifyInstance) {
       conn = connId ? await resolveDryRunConnection(connId) : null;
     }
     if (!conn) {
-      conn = await resolveChatConnectionOrFallback(connections, connId || null, createReplyFallbackNotifier(reply));
+      conn = await resolveChatConnectionOrFallback(
+        connections,
+        connId || null,
+        createReplyFallbackNotifier(reply),
+        null,
+        !connId && readChatFollowsMain(chat),
+      );
       if (conn) connId = conn.id;
     }
     if (!conn) {

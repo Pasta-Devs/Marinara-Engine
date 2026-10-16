@@ -30,6 +30,7 @@ import {
   isLocalAuthProvider,
   localAuthProviderBaseUrl,
   supportsSubscriptionUsageWidget,
+  withKeyTail,
   type ConnectionAccountListItem,
   type CreateConnectionAccountInput,
   type UpdateConnectionAccountInput,
@@ -207,7 +208,7 @@ function groupKeyOf(row: GroupableRow, plainKey: string, importedAccountId = "")
  * A row that sends its key to an embeddings host on another origin keeps its own key: it never joins an account
  * by itself (an account key change detaches it for the same reason), so it stays a standalone Model.
  */
-function hasForeignEmbeddingHost(row: Pick<ConnectionRow, "embeddingBaseUrl"> & IdentityRow): boolean {
+export function hasForeignEmbeddingHost(row: Pick<ConnectionRow, "embeddingBaseUrl"> & IdentityRow): boolean {
   return !!row.embeddingBaseUrl?.trim() && originOfUrl(trimUrl(row.embeddingBaseUrl)) !== credentialOrigin(row);
 }
 
@@ -326,7 +327,8 @@ export function toAccountListItem(account: ConnectionAccountRow, modelCount: num
 
 // ── Migration and linking ───────────────────────
 
-function accountLabel(anchor: ConnectionRow, keyless: boolean): string {
+/** The automatic name of a Connection: the service, with the host for a custom or keyless remote endpoint. */
+export function accountLabel(anchor: IdentityRow, keyless: boolean): string {
   const endpoint = credentialEndpoint(anchor);
   const host = hostOf(endpoint);
   if (anchor.provider === "custom") return host ? `Custom · ${host}` : "Custom";
@@ -339,21 +341,35 @@ function accountLabel(anchor: ConnectionRow, keyless: boolean): string {
   return keyless && host && !isLocalAuthProvider(anchor.provider) ? `${label} · ${host}` : label;
 }
 
+/**
+ * Connections with the same key here get the same automatic name, so a new one adds its key's end (decision 28):
+ * the service, and for a custom endpoint its address too ("Custom · host" already tells two hosts apart).
+ */
+export function accountSiblingKey(row: IdentityRow, keyless: boolean): string {
+  return row.provider === "custom" ? accountLabel(row, keyless) : credentialVendor(row);
+}
+
 const ANCHOR_ORDER = ["chat", "image_generation", "video_generation", "audio", "decision"];
 const anchorRank = (row: ConnectionRow) => ANCHOR_ORDER.indexOf(isChatProvider(row.provider) ? "chat" : row.provider);
 
 const newerFirst = (a: ConnectionRow, b: ConnectionRow) =>
   b.updatedAt.localeCompare(a.updatedAt) || a.id.localeCompare(b.id);
 
-function accountFromGroup(rows: ConnectionRow[], plainKey: string): ConnectionAccountRow {
-  // The account's own provider is the best-ranked row type (chat first); its newest row supplies the flags.
-  const anchor = [...rows].sort((a, b) => anchorRank(a) - anchorRank(b) || newerFirst(a, b))[0]!;
+// The account's own provider is the best-ranked row type (chat first).
+const anchorOf = (rows: ConnectionRow[]) =>
+  [...rows].sort((a, b) => anchorRank(a) - anchorRank(b) || newerFirst(a, b))[0]!;
+
+function accountFromGroup(rows: ConnectionRow[], plainKey: string, hasSibling = false): ConnectionAccountRow {
+  const anchor = anchorOf(rows);
+  // Its newest row of the anchor's type supplies the flags.
   const sameType = rows.filter((row) => row.provider === anchor.provider).sort(newerFirst);
   const flags = sameType[0]!;
   const timestamp = now();
+  const label = accountLabel(anchor, !plainKey);
   return {
     id: newId(),
-    name: accountLabel(anchor, !plainKey),
+    // Several keys of one provider get distinct names (decision 28); a Connection the user named stays as it is.
+    name: hasSibling ? withKeyTail(label, plainKey) : label,
     provider: anchor.provider,
     // Stored explicitly (default endpoint included) so the account's origin is known without its rows.
     baseUrl: anchor.baseUrl || (isLocalAuthProvider(anchor.provider) ? "" : credentialEndpoint(anchor)),
@@ -429,10 +445,21 @@ export async function linkConnectionAccounts(db: DB): Promise<{ created: number;
       groups.set(key, [...(groups.get(key) ?? []), row]);
     }
 
+    // Services that will have more than one Connection: existing accounts plus the ones created below.
+    const siblings = new Map<string, number>();
+    const count = (key: string) => siblings.set(key, (siblings.get(key) ?? 0) + 1);
+    const groupSiblingKey = (members: ConnectionRow[]) =>
+      accountSiblingKey(anchorOf(members), !keys.get(members[0]!.id));
+    for (const account of accounts as ConnectionAccountRow[]) {
+      count(accountSiblingKey(account, !decryptApiKey(account.apiKeyEncrypted)));
+    }
+    for (const [groupKey, members] of groups) if (!accountForGroup.has(groupKey)) count(groupSiblingKey(members));
+
     for (const [groupKey, members] of groups) {
       let accountId = accountForGroup.get(groupKey);
       if (!accountId) {
-        const account = accountFromGroup(members, keys.get(members[0]!.id) ?? "");
+        const hasSibling = (siblings.get(groupSiblingKey(members)) ?? 0) > 1;
+        const account = accountFromGroup(members, keys.get(members[0]!.id) ?? "", hasSibling);
         await tx.insert(connectionAccounts).values(account);
         accountId = account.id;
         accountForGroup.set(groupKey, accountId);

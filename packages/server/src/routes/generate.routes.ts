@@ -883,6 +883,7 @@ import { resolveAgentPipelineAgents, resolveEffectiveAgentSettings } from "../se
 import { createReplyFallbackNotifier } from "./generate/fallback-notification.js";
 import {
   applyChatModelOverride,
+  readChatFollowsMain,
   readChatModelOverride,
   resolveChatConnectionOrFallback,
 } from "../services/generation/connection-resolution.js";
@@ -1620,9 +1621,15 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
     if (!conn) {
       // The Model is gone, or its Connection is off or needs a key: use a fallback and tell the user why.
       // The stream has not started yet; the notice is sent as an event once it does.
-      conn = await resolveChatConnectionOrFallback(connections, connId || null, (notice) => {
-        unavailableModelNotice = notice;
-      }).catch(releaseActiveGenerationAndRethrow);
+      conn = await resolveChatConnectionOrFallback(
+        connections,
+        connId || null,
+        (notice) => {
+          unavailableModelNotice = notice;
+        },
+        null,
+        !connId && readChatFollowsMain(chat),
+      ).catch(releaseActiveGenerationAndRethrow);
       if (conn) connId = conn.id;
     }
     if (!conn) {

@@ -147,7 +147,7 @@ try {
   await db.update(apiConnections).set({ accountId }).where(eq(apiConnections.id, image.id));
   await json("PATCH", `/accounts/${accountId}`, { apiKey: KEY, treatAsLocalEndpoint: false });
 
-  // for-model ("Save to library", decision 25): finds or creates, named after the catalog, limits from the catalog,
+  // for-model (the star, decision 25): finds or creates, named after the catalog, limits from the catalog,
   // neutral tuning (never cloned from a sibling), no roles, source untouched.
   await connections.update(chatId, { isDefault: true, useForRandom: true, enableCaching: true, maxContext: 32000 });
   const sourceBefore = await rowOf(chatId);

@@ -47,6 +47,9 @@ export const connectionModelPinSchema = z.object({
   pinned: z.boolean(),
 });
 
+/** Move a Model to another Connection (decision 28). */
+export const connectionMoveSchema = z.object({ accountId: z.string().trim().min(1).max(200) });
+
 export const connectionImageCaptioningDefaultsSchema = z.object({
   imageCaptioningEnabled: z.boolean().optional(),
   imageCaptioningConnectionId: z.string().trim().min(1).nullable().optional(),

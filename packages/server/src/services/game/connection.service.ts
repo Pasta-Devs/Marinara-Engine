@@ -1,5 +1,9 @@
 import { localAuthProviderBaseUrl } from "@marinara-engine/shared";
-import { readChatModelOverride, resolveChatConnectionOrFallback } from "../generation/connection-resolution.js";
+import {
+  readChatFollowsMain,
+  readChatModelOverride,
+  resolveChatConnectionOrFallback,
+} from "../generation/connection-resolution.js";
 import type { createConnectionsStorage } from "../storage/connections.storage.js";
 
 /** The chat whose Model is the default: its id, or the chat row (then its per-chat catalog pick applies). */
@@ -23,6 +27,11 @@ export async function resolveGameConnection(
     const pool = await connections.listRandomPool();
     if (!pool.length) throw new Error("No connections marked for the random pool");
     id = pool[Math.floor(Math.random() * pool.length)].id;
+  }
+  // A chat set to "Use default" has no Model of its own and answers through Main.
+  if (!id && chat && typeof chat === "object" && readChatFollowsMain(chat)) {
+    const main = await resolveChatConnectionOrFallback(connections, null, undefined, null, true);
+    if (main) id = main.id;
   }
   if (!id) throw new Error("No API connection configured");
   // The chat's own Model runs the chat's catalog pick, whichever way its id arrived.

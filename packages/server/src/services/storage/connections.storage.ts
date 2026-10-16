@@ -3,7 +3,7 @@
 // ──────────────────────────────────────────────
 import { eq, desc, and, ne } from "../../db/file-query.js";
 import type { DB } from "../../db/connection.js";
-import { apiConnections } from "../../db/schema/index.js";
+import { apiConnections, connectionAccounts } from "../../db/schema/index.js";
 import { newId, now } from "../../utils/id-generator.js";
 import { encryptApiKey, decryptApiKey } from "../../utils/crypto.js";
 import {
@@ -18,12 +18,15 @@ import {
   ACCOUNT_MIRRORED_INPUT_KEYS,
   accountBlocksRows,
   credentialOrigin,
+  credentialVendor,
   getConnectionAccount,
+  hasForeignEmbeddingHost,
   isBlockedByAccount,
   linkConnectionAccounts,
   mirrorToAccountPeers,
   syncAccountBudget,
   withoutBlockedRows,
+  type ConnectionAccountRow,
   type ConnectionRow,
 } from "./connection-accounts.storage.js";
 import { clearConnectionRateLimit, setConnectionRateLimit } from "../llm/connection-rate-limit-registry.js";
@@ -952,6 +955,67 @@ export function createConnectionsStorage(db: DB) {
         await mirrorToAccountPeers(tx, row, { pinnedModels: JSON.stringify(pinnedModels) });
         return { pinnedModels };
       });
+    },
+
+    /**
+     * "Move to connection…" (decision 28): the Model joins another Connection of the same service and endpoint and
+     * takes that Connection's key, usage settings, review state and catalog. Its id stays, so chats, per-chat picks
+     * and agents that point at it keep working. A Model under import review, one that borrows another row's key
+     * or one that sends its key to a second host cannot move: that would hand a key across the review boundary.
+     */
+    async moveToAccount(
+      id: string,
+      accountId: string,
+    ): Promise<ConnectionRow | "not_found" | "account_not_found" | "mismatch" | "review"> {
+      // Reads, checks and the write share one transaction, so a host change in between cannot slip past the checks.
+      const refused = await db.transaction(async (tx) => {
+        const [row] = (await tx.select().from(apiConnections).where(eq(apiConnections.id, id))) as ConnectionRow[];
+        if (!row) return "not_found" as const;
+        const [account] = (await tx
+          .select()
+          .from(connectionAccounts)
+          .where(eq(connectionAccounts.id, accountId))) as ConnectionAccountRow[];
+        if (!account) return "account_not_found" as const;
+        if (row.profileImportReviewRequired === "true") return "review" as const;
+        if (
+          row.accountId === account.id ||
+          row.credentialsFromConnectionId ||
+          hasForeignEmbeddingHost(row) ||
+          credentialVendor(row) !== credentialVendor(account) ||
+          credentialOrigin(row) !== credentialOrigin(account)
+        ) {
+          return "mismatch" as const;
+        }
+        const peer = (await tx.select().from(apiConnections).where(eq(apiConnections.accountId, account.id)))
+          .filter((candidate: ConnectionRow) => candidate.provider === row.provider)
+          .sort((a: ConnectionRow, b: ConnectionRow) => b.updatedAt.localeCompare(a.updatedAt))[0] as
+          ConnectionRow | undefined;
+        await tx
+          .update(apiConnections)
+          .set({
+            accountId: account.id,
+            apiKeyEncrypted: account.apiKeyEncrypted,
+            managementTokenEncrypted: row.provider === "nanogpt" ? account.managementTokenEncrypted : "",
+            showUsageWidget: String(
+              supportsSubscriptionUsageWidget(row.provider) && account.showUsageWidget === "true",
+            ),
+            showUsageFiveHour: account.showUsageFiveHour,
+            showUsageWeekly: account.showUsageWeekly,
+            treatAsLocalEndpoint: account.treatAsLocalEndpoint,
+            profileImportReviewRequired: account.profileImportReviewRequired,
+            ...(row.provider === account.provider ? { baseUrl: account.baseUrl } : {}),
+            // Another key can serve another model list; the new Connection's favorites apply.
+            savedModels: peer?.savedModels ?? null,
+            ...(peer ? { pinnedModels: peer.pinnedModels } : {}),
+            updatedAt: now(),
+          })
+          .where(eq(apiConnections.id, id));
+        return null;
+      });
+      if (refused) return refused;
+      const moved = (await this.getById(id)) as ConnectionRow;
+      await syncAccountBudget(db, moved);
+      return moved;
     },
 
     async updateDefaultParameters(id: string, params: Record<string, unknown> | null) {

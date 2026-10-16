@@ -25,6 +25,7 @@ import {
   VIDEO_DEFAULTS_STORAGE_KEY,
   connectionImageCaptioningDefaultsSchema,
   connectionModelPinSchema,
+  connectionMoveSchema,
   createConnectionSchema,
   MAX_PINNED_MODELS,
   createDefaultVideoGenerationProfile,
@@ -1545,6 +1546,22 @@ export async function connectionsRoutes(app: FastifyInstance) {
       return reply.status(409).send({ error: "The connection changed while its models were loading." });
     }
     return saved;
+  });
+
+  app.post<{ Params: { id: string } }>("/:id/move", async (req, reply) => {
+    const parsed = connectionMoveSchema.safeParse(req.body);
+    if (!parsed.success) return reply.status(400).send({ error: "Send the Connection to move the Model to." });
+    const result = await storage.moveToAccount(req.params.id, parsed.data.accountId);
+    if (result === "not_found") return reply.status(404).send({ error: "Model not found" });
+    if (result === "account_not_found") return reply.status(404).send({ error: "Connection not found" });
+    if (result === "review") {
+      return reply.status(409).send({ error: "Review this imported Model before you move it." });
+    }
+    if (result === "mismatch") {
+      return reply.status(400).send({ error: "A Model can only move to another Connection of the same service." });
+    }
+    resetMemoryRecallVectorizerCache();
+    return maskConnection(result);
   });
 
   app.post<{ Params: { id: string } }>("/:id/pinned-models", async (req, reply) => {

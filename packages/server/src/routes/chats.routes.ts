@@ -66,8 +66,10 @@ import {
   CHAT_MODEL_OVERRIDE_KEY,
   CHAT_RECENT_MODELS_KEY,
   CHAT_RECENT_MODELS_LIMIT,
+  CHAT_FOLLOWS_MAIN_KEY,
   LOCAL_SIDECAR_CONNECTION_ID,
   chatModelChoiceSchema,
+  chatModelPickSchema,
   isChatProvider,
   type ChatModelChoice,
 } from "@marinara-engine/shared";
@@ -1550,16 +1552,19 @@ export async function chatsRoutes(app: FastifyInstance) {
   // as an override on one of the Connection's Models (its key and endpoint); a model the library already holds
   // points the chat at that saved Model instead. The previous choices are kept for "Recent" and Undo.
   app.put<{ Params: { id: string } }>("/:id/model", async (req, reply) => {
-    let choice: ChatModelChoice = chatModelChoiceSchema.parse(req.body);
+    const pick = chatModelPickSchema.parse(req.body);
     const existing = await storage.getById(req.params.id);
     if (!existing || isHomeProfessorMariChat(existing)) return reply.status(404).send({ error: "Chat not found" });
-    const special = choice.connectionId === "random" || choice.connectionId === LOCAL_SIDECAR_CONNECTION_ID;
-    const row = special ? null : await createConnectionsStorage(app.db).getById(choice.connectionId);
-    if (!special && !row) return reply.status(404).send({ error: "Model not found" });
-    if (row ? !isChatProvider(row.provider) : choice.model) {
+    // "Use default" (decision 27): no Model of its own, so the chat answers through Main (as an unset chat did).
+    let choice: ChatModelChoice | null = pick.connectionId === null ? null : (pick as ChatModelChoice);
+    const special =
+      !!choice && (choice.connectionId === "random" || choice.connectionId === LOCAL_SIDECAR_CONNECTION_ID);
+    const row = special || !choice ? null : await createConnectionsStorage(app.db).getById(choice.connectionId);
+    if (choice && !special && !row) return reply.status(404).send({ error: "Model not found" });
+    if (row ? !isChatProvider(row.provider) : choice?.model) {
       return reply.status(400).send({ error: "A chat needs a chat Model to run on." });
     }
-    if (choice.model && row) {
+    if (choice?.model && row) {
       if (row.model === choice.model) choice = { connectionId: row.id };
       else if (row.accountId) {
         const found = await createConnectionAccountsStorage(app.db).findChatModel(row.accountId, choice.model);
@@ -1586,7 +1591,7 @@ export async function chatsRoutes(app: FastifyInstance) {
         latest.connectionId && latest.connectionId !== "random"
           ? (readChatModelOverride(latest) ?? { connectionId: latest.connectionId })
           : null;
-      await storage.update(req.params.id, { connectionId: choice.connectionId });
+      await storage.update(req.params.id, { connectionId: choice?.connectionId ?? null });
       return storage.patchMetadata(
         req.params.id,
         (current) => {
@@ -1594,14 +1599,19 @@ export async function chatsRoutes(app: FastifyInstance) {
           const recent: ChatModelChoice[] = [];
           for (const candidate of [previous, ...stored]) {
             const parsed = chatModelChoiceSchema.safeParse(candidate);
-            if (!parsed.success || sameChoice(parsed.data, choice) || recent.some((r) => sameChoice(r, parsed.data))) {
+            if (
+              !parsed.success ||
+              (choice && sameChoice(parsed.data, choice)) ||
+              recent.some((r) => sameChoice(r, parsed.data))
+            ) {
               continue;
             }
             recent.push(parsed.data);
           }
           return {
-            [CHAT_MODEL_OVERRIDE_KEY]: choice.model ? choice : null,
+            [CHAT_MODEL_OVERRIDE_KEY]: choice?.model ? choice : null,
             [CHAT_RECENT_MODELS_KEY]: recent.slice(0, CHAT_RECENT_MODELS_LIMIT),
+            [CHAT_FOLLOWS_MAIN_KEY]: !choice,
           };
         },
         { metadataQueueHeld: true },

@@ -1,7 +1,7 @@
 // ──────────────────────────────────────────────
 // Resolve a chat's Model: its per-chat catalog pick, and the fallback when its Model cannot answer
 // ──────────────────────────────────────────────
-import { readChatModelOverride, type ChatModelOverride } from "@marinara-engine/shared";
+import { readChatFollowsMain, readChatModelOverride, type ChatModelOverride } from "@marinara-engine/shared";
 import { logger } from "../../lib/logger.js";
 import type { createConnectionsStorage } from "../storage/connections.storage.js";
 import { notifyGenerationFallback, type GenerationFallbackNotifier } from "./fallback-notification.js";
@@ -11,7 +11,7 @@ type ConnectionsStorage = ReturnType<typeof createConnectionsStorage>;
 type ChatConnectionStorage = Pick<ConnectionsStorage, "getWithKey"> &
   Partial<Pick<ConnectionsStorage, "getById" | "getFallbackForMain" | "getDefault" | "unavailableReason">>;
 
-export { readChatModelOverride, type ChatModelOverride };
+export { readChatFollowsMain, readChatModelOverride, type ChatModelOverride };
 
 /** The fields a per-chat pick sets; everything else a saved Model tunes goes back to its neutral default. */
 const NEUTRAL_TUNING = {
@@ -46,14 +46,21 @@ export function applyChatModelOverride<T extends { id: string }>(conn: T, overri
  * `getWithKey` returns null for a Model that does not exist and for one that is blocked (under import review,
  * or its Connection is off, under review or a hosted one without a key). Either way generation goes through a
  * fallback and the user is told why: a blocked Model uses the main fallback, a missing one the Main default
- * (then the main fallback). With `override`, the chat's own Model runs the per-chat catalog pick.
+ * (then the main fallback). With `override`, the chat's own Model runs the per-chat catalog pick. With
+ * `followsMain` (the user chose "Use default"), a chat without a Model uses the Main default without a notice;
+ * only a Main that cannot answer is reported.
  */
 export async function resolveChatConnectionOrFallback(
   connections: ChatConnectionStorage,
   connectionId: string | null,
   onFallback: GenerationFallbackNotifier = notifyGenerationFallback,
   override: ChatModelOverride | null = null,
-) {
+  followsMain = false,
+): Promise<Awaited<ReturnType<ChatConnectionStorage["getWithKey"]>>> {
+  if (!connectionId && followsMain && connections.getDefault) {
+    const main = await connections.getDefault();
+    if (main) return resolveChatConnectionOrFallback(connections, main.id, onFallback);
+  }
   const connection = connectionId ? await connections.getWithKey(connectionId) : null;
   if (connection) return applyChatModelOverride(connection, override);
   if (!connections.unavailableReason || !connections.getFallbackForMain) return null;

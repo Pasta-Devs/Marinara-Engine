@@ -83,6 +83,25 @@ export function parsePinnedModels(value: unknown): string[] {
   return [...new Set(ids)].slice(0, MAX_PINNED_MODELS);
 }
 
+/**
+ * Search rank of a model (decision 27): 0 starred, 1 saved, 2 the query starts the id, the name or one of their
+ * words ("sonnet" in "anthropic/claude-sonnet-4"), 3 the query is anywhere in them. -1: no match. Lower first.
+ */
+export function rankModelMatch(
+  query: string,
+  model: { id: string; name?: string | null },
+  flags: { starred?: boolean; saved?: boolean } = {},
+): number {
+  const q = query.trim().toLowerCase();
+  const id = model.id.toLowerCase();
+  const name = (model.name ?? "").toLowerCase();
+  if (q && !id.includes(q) && !name.includes(q)) return -1;
+  if (flags.starred) return 0;
+  if (flags.saved) return 1;
+  const words = [id, id.slice(id.lastIndexOf("/") + 1), name, ...`${id} ${name}`.split(/[\s/:._-]+/u)];
+  return !q || words.some((word) => word.startsWith(q)) ? 2 : 3;
+}
+
 /** An API connection configuration. */
 export interface APIConnection {
   id: string;

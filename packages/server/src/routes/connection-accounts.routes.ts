@@ -4,14 +4,18 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import {
-  PROVIDERS,
   connectionModelIdSchema,
   createConnectionAccountSchema,
   createConnectionSchema,
+  parsePinnedModels,
+  rankModelMatch,
   updateConnectionAccountSchema,
+  withKeyTail,
 } from "@marinara-engine/shared";
 import {
   accountBlocksRows,
+  accountLabel,
+  accountSiblingKey,
   createConnectionAccountsStorage,
   pickLimits,
   toAccountListItem,
@@ -19,6 +23,7 @@ import {
 } from "../services/storage/connection-accounts.storage.js";
 import { createConnectionsStorage, readSavedModelList } from "../services/storage/connections.storage.js";
 import { resetMemoryRecallVectorizerCache } from "../services/memory-recall-embedding.js";
+import { decryptApiKey } from "../utils/crypto.js";
 import { apiConnections } from "../db/schema/index.js";
 
 const createAccountBodySchema = createConnectionAccountSchema.partial({ name: true }).extend({
@@ -79,29 +84,44 @@ export async function connectionAccountsRoutes(app: FastifyInstance) {
   // Search the saved model lists of enabled accounts. Never calls a provider.
   app.get("/catalog-search", async (req) => {
     const { q, limit } = catalogQuerySchema.parse(req.query);
-    const needle = q.toLowerCase();
-    const hits: Array<{ accountId: string; model: string; name: string }> = [];
+    // Ranked before the cut (decision 27): starred, saved, then prefix matches, then the rest.
+    const ranked: Array<{ rank: number; hit: { accountId: string; model: string; name: string } }> = [];
     const rows = await app.db.select().from(apiConnections);
     for (const account of (await accounts.list()).sort((a, b) => a.createdAt.localeCompare(b.createdAt))) {
       if (accountBlocksRows(account)) continue;
-      const source = rows
-        .filter((row) => row.accountId === account.id && readSavedModelList(row))
+      const linked = rows.filter((row) => row.accountId === account.id);
+      const source = linked
+        .filter((row) => readSavedModelList(row))
         .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
+      const starred = new Set(linked.flatMap((row) => parsePinnedModels(row.pinnedModels)));
+      const saved = new Set(linked.map((row) => row.model));
       for (const model of readSavedModelList(source)?.models ?? []) {
-        if (needle && !model.id.toLowerCase().includes(needle) && !model.name.toLowerCase().includes(needle)) continue;
-        hits.push({ accountId: account.id, model: model.id, name: model.name });
-        if (hits.length >= limit) return hits;
+        const rank = rankModelMatch(q, model, { starred: starred.has(model.id), saved: saved.has(model.id) });
+        if (rank >= 0) ranked.push({ rank, hit: { accountId: account.id, model: model.id, name: model.name } });
       }
     }
-    return hits;
+    // Array sort is stable: within a rank, accounts keep their age order and models their catalog order.
+    return ranked
+      .sort((a, b) => a.rank - b.rank)
+      .slice(0, limit)
+      .map(({ hit }) => hit);
   });
 
   // Create the account and its first Model together (the add flow).
   app.post("/", async (req, reply) => {
     const { model, maxContext, ...input } = createAccountBodySchema.parse(req.body);
-    const providerName = PROVIDERS[input.provider]?.name ?? input.provider;
+    // An automatic name is told apart from another Connection of the same service by the key's end (decision 28).
+    const keyless = !input.apiKey?.trim();
+    const label = accountLabel(input, keyless);
+    const sibling =
+      !input.name &&
+      (await accounts.list()).some(
+        (account) =>
+          accountSiblingKey(account, !decryptApiKey(account.apiKeyEncrypted)) === accountSiblingKey(input, keyless),
+      );
+    const name = input.name ?? (sibling ? withKeyTail(label, input.apiKey) : label);
     const created = await app.db.transaction(async () => {
-      const account = await accounts.create({ ...input, name: input.name ?? providerName });
+      const account = await accounts.create({ ...input, name });
       const row = await connections.create(
         createConnectionSchema.parse({
           name: model || account.name,
@@ -138,10 +158,9 @@ export async function connectionAccountsRoutes(app: FastifyInstance) {
     return reply.status(204).send();
   });
 
-  // Save a model to the library (star, "Save to library", panel Add model, "Make it my Main model"). A new Model
-  // takes the catalog limits and neutral tuning, never a sibling's (decision 25); the existing one is returned.
-  // "Save to library": the account's saved Model for the id, or a new one. Saves of one Connection run one at a
-  // time, so a double click finds the Model the first click created.
+  // Save a model (the star, panel Add model, "Make it my Main model"): the account's saved Model for the id, or a new
+  // one. A new Model takes the catalog limits and neutral tuning, never a sibling's (decision 25). Saves of one
+  // Connection run one at a time, so a double click finds the Model the first click created.
   app.post<{ Params: { id: string } }>("/:id/for-model", async (req, reply) => {
     const body = forModelBodySchema.parse(req.body);
     const result = await oneAtATime(req.params.id, async () => {

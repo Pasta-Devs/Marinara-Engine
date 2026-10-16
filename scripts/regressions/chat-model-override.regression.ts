@@ -2,7 +2,8 @@
 // Model, maps a model the library already holds to that saved Model, fills the catalog's name and limits and keeps
 // the chat's last two choices. Generation runs the pick on the chat's Model with neutral tuning; setting the chat's
 // Model another way drops the pick; deleting the Model moves the pick to a peer Model of the same Connection, or
-// the chat falls back to Main and the notice says the Model was deleted. Also: a key rotation that leaves a Model
+// the chat falls back to Main and the notice says the Model was deleted. "Use default" (decision 27) clears the
+// chat's own pick: it follows Main without a notice until the next pick. Also: a key rotation that leaves a Model
 // with a foreign embeddings host behind does not bring it back as a second Connection at the next start, and
 // "Make it my Main model" keeps the fallback flag.
 import assert from "node:assert/strict";
@@ -71,7 +72,12 @@ const noticeOf = (response: { headers: Record<string, unknown>; body: string }) 
 const chatOf = async (id: string) => {
   const chat = (await chats.getById(id))!;
   const metadata = typeof chat.metadata === "string" ? JSON.parse(chat.metadata) : (chat.metadata ?? {});
-  return { connectionId: chat.connectionId, override: metadata.modelOverride ?? null, recent: metadata.recentModels };
+  return {
+    connectionId: chat.connectionId,
+    override: metadata.modelOverride ?? null,
+    recent: metadata.recentModels,
+    followsMain: metadata.followsMainModel ?? false,
+  };
 };
 const setModel = (chatId: string, payload: Record<string, unknown>) =>
   app.inject({ method: "PUT", url: `/api/chats/${chatId}/model`, payload });
@@ -238,6 +244,25 @@ try {
     { reason: fallback.notice?.reason, connectionId: fallback.notice?.connectionId },
     { reason: "deleted", connectionId: main.connectionId },
   );
+
+  // "Use default" (decision 27): the chat drops its own pick and follows Main, as an unset chat did, without a notice.
+  assert.equal((await setModel(chat.id, { connectionId: main.connectionId })).statusCode, 200);
+  // An empty id is not the default: the body is rejected (400 behind the app's error handler) and nothing changes.
+  assert.notEqual((await setModel(chat.id, { connectionId: "" })).statusCode, 200);
+  assert.equal((await chatOf(chat.id)).connectionId, main.connectionId);
+  const followed = await setModel(chat.id, { connectionId: null });
+  assert.equal(followed.statusCode, 200, followed.body);
+  state = await chatOf(chat.id);
+  assert.equal(state.connectionId, null);
+  assert.equal(state.override, null);
+  assert.equal(state.followsMain, true);
+  assert.deepEqual(state.recent[0], { connectionId: main.connectionId }, "the last pick stays in Recent");
+  const viaMain = await generate(chat.id);
+  assert.deepEqual(viaMain.served, ["main-model"]);
+  assert.equal(viaMain.notice, null, "following Main is a choice, not a fallback");
+  // Any later pick ends it.
+  assert.equal((await setModel(chat.id, { connectionId: main.connectionId })).statusCode, 200);
+  assert.equal((await chatOf(chat.id)).followsMain, false);
 
   // "Make it my Main model" keeps the fallback flag (the fallback wrapper skips itself as a fallback).
   const spare = await makeAccount("spare", "spare-model");
