@@ -109,11 +109,14 @@ Conversation 模式会自动往提示词里插入好几个内容块。这些宏�
 | --- | --- |
 | `{{input}}` | 提示词能拿到的最近一条用户消息。 |
 | `{{model}}` | 当前的模型名称，前提是已经选了模型。 |
+| `{{reasoning}}` | 生成这条回复所用的推理等级：`low`、`medium`、`high`、`xhigh` 或 `max`；如果没有要求模型思考，则为 `off`。 |
 | `{{chatId}}` | 当前聊天的 ID。 |
 | `{{lastGenerationType}}` | 说明这次回复因何而生成的标签。 |
 | `{{idle_duration}}` | 距离上次聊天活动过去了多久，形如 `8 minutes` 或 `1 hour 5 minutes`。 |
 | `{{gameStoryboardKeyframeCount}}` | Game Mode(游戏模式) 当前的 **Keyframes per Turn**(每回合关键帧数) 目标值，范围 1 到 6，默认是 `3`。 |
 | `{{agent::TYPE}}` | 指定类型的智能体保存下来的输出。 |
+
+`{{reasoning}}` 给出的是模型实际收到的等级，即叠加了预设、连接和聊天设置之后的结果。**Maximum** 会显示为该模型接受的最高等级，所以可能读作 `max`、`xhigh` 或 `high`。因为 `off` 会被当作假值，所以 `{{#if reasoning}}` 只在模型思考时才保留其中的块。如果你的预设或聊天里已经有一个名为 `reasoning` 的变量，这个名字归那个变量所有。
 
 `{{lastGenerationType}}` 的值只是一个普通标签。应用里出现过的取值包括 `normal`、`continue`、`regenerate`、`impersonate`、`guided`、`autonomous`、`turn_game`、`preview`、`game_setup`、`lorebook_scan` 和 `retry_agents`。这份清单以后还会变长，所以只当举例看，不是固定集合。
 

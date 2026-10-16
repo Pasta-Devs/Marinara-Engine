@@ -175,6 +175,8 @@ Pamiętaj o trzech rzeczach.
 - Zmienne należą wyłącznie do tego czatu. Inny czat ma własną listę, a Twoja pozostaje po ponownym uruchomieniu aplikacji.
 - To ten sam magazyn, którego używa `{{setvar}}`. Wartość ustawiona przez sekcję promptu lub wpis lorebooka pojawia się tutaj jako edytowalny wiersz. Taki wpis nadpisze wpisaną przez Ciebie wartość, jeśli użyje tej samej nazwy.
 
+Gdy masz wiele zmiennych, kliknij **Search and edit all in the State Editor** (szukaj i edytuj wszystko w State Editor) na górze sekcji. Otwiera ona wszystkie zmienne na jednej liście, na której możesz szukać, edytować wartości jako pola albo wkleić wiele naraz jako JSON, a przed zapisem przejrzeć zmiany. Zapis zmienia tylko nazwy, które zmieniasz, więc wartość, którą w międzyczasie zapisze `{{setvar}}` pod inną nazwą, zostaje zachowana. Zobacz [State Editor](../roleplay/hud-and-trackers.md#the-state-editor).
+
 Pozostałe możliwości podwójnych klamer opisuje przewodnik [Makra promptu](../prompts/macros.md).
 
 ## Narzędzia czatu w Chat Settings

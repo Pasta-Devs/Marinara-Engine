@@ -135,6 +135,22 @@ Character Tracker 有了图像连接后，角色的大卡片就能生成新肖�
 - **Always show Docked thoughts**：当 **Thought display mode** 为 **Docked** 时，让每个重点角色的想法一直显示，而不是收在按钮后面。
 - **Temperature unit**：气温显示单位可选 **°C**(摄氏度) 或 **°F**(华氏度)，默认是 °C。这只改变显示方式，保存下来的世界状态数值不变。
 
+<a id="the-state-editor"></a>
+
+## State Editor
+
+**State Editor** 把当前回合的所有追踪器放进同一个窗口，让你不用逐个打开追踪器，就能找到并修正某个值。它在手机上同样可用。
+
+打开方式：点击 Tracker Panel 标题栏里的齿轮（**Tracker panel settings**），再点击 **{ }** 按钮（**Open in State Editor**）。在 **Agent Suite** 中，**Tracker Data** 的标题栏也有一个 **Open in State Editor** 链接。
+
+- **你正在编辑哪个回合：** 搜索框下面那一行会说明这份状态属于哪条消息的哪个滑动，例如“Editing message #12 · swipe 2 of 3”。**Latest**(最新)标出最新的回合，再配上一小段消息摘录，方便你和聊天内容对应起来。每个滑动都有自己的状态，所以想修正另一个，先切换滑动。
+- **分区：** **Scene**、**Present Characters**、**Persona Stats**、**Inventory Tracker**、**Custom Tracker Fields** 和 **Active Quests**。在手机上，它们是编辑器上方的一排小标签。带圆点的分区表示你改过。
+- **搜索：** 在搜索框里输入，就能同时在所有分区中查找某个键或值，例如 `mood`。每条结果都会显示它所在的位置，比如“Present Characters › Gwendolyn”。点击结果即可直接跳过去。
+- **Fields 与 JSON：** 每个分区默认以 **Fields**(字段)打开：文字、数字和开关值显示为可输入的框，每个角色、物品或任务各占一张卡片。要添加或删除条目，请切换到 **JSON** 直接编辑文本。**Format**(格式化)会整理 JSON，**Revert**(还原)会撤销你对某个分区的改动。如果 JSON 无法解析，该分区会被标记，修好之前无法保存。
+- **保存：** **Review changes**(查看改动)会逐行显示每个分区具体改了什么。**Save changes**(保存改动)会把所有改动一次性写入你正在编辑的回合。在此之前，草稿都留在窗口里，关闭窗口时会先询问再丢弃。
+
+如果你编辑期间故事继续推进，编辑器不会覆盖它。新的回复或滑动会让另一个回合成为当前回合，这时保存会被拒绝，并出现 **Reload**(重新加载)按钮。如果打开编辑器之后，有追踪器智能体更新了你改过的分区，也会这样。**Reload** 会显示最新状态并丢弃你的草稿。
+
 ## 哪些智能体在填充 HUD
 
 HUD 的每个小组件都由一个在回合结束后运行的追踪器智能体填充。本指南开头的小组件表格列出了各个小组件对应哪个智能体。

@@ -175,6 +175,8 @@ Vale saber três coisas.
 - As variáveis pertencem apenas a este chat. Outro chat tem sua própria lista, e a sua permanece depois de reiniciar o aplicativo.
 - Elas usam o mesmo armazenamento de `{{setvar}}`. Um valor definido por uma seção do prompt ou entrada de lorebook aparece aqui como uma linha editável. Uma entrada que use o mesmo nome sobrescreve o valor que você digitou.
 
+Com muitas variáveis, clique em **Search and edit all in the State Editor** (buscar e editar tudo no State Editor), no topo da seção. Ele abre todas as variáveis em uma lista só, onde você pode buscar, editar valores como campos ou colar várias de uma vez como JSON, e revisar as alterações antes de salvar. Salvar altera apenas os nomes que você editou, então um valor que o `{{setvar}}` grave nesse meio-tempo com outro nome é mantido. Veja [O State Editor](../roleplay/hud-and-trackers.md#the-state-editor).
+
 Para conhecer tudo o que pode ser escrito entre chaves duplas, veja [Macros de prompt](../prompts/macros.md).
 
 ## Ferramentas do chat em Chat Settings

@@ -115,7 +115,7 @@ Sprawdzenie prawdziwości wypada pozytywnie, gdy wartość nie jest pusta i nie 
 
 Po lewej lub prawej stronie warunku może stać dowolna z tych rzeczy:
 
-1. Słowo kluczowe pola lub tożsamości, na przykład `char`, `user`, `group`, `persona`, `description`, `personality`, `scenario`, `input` albo `model`. Odczytują one te same wartości co odpowiadające im makra. `group` wymienia pozostałe aktywne postacie czatu, z pominięciem tej, która właśnie odpowiada.
+1. Słowo kluczowe pola lub tożsamości, na przykład `char`, `user`, `group`, `persona`, `description`, `personality`, `scenario`, `input`, `model` albo `reasoning`. Odczytują one te same wartości co odpowiadające im makra. `group` wymienia pozostałe aktywne postacie czatu, z pominięciem tej, która właśnie odpowiada.
 2. Wartość w cudzysłowie, na przykład `"Alice"`.
 3. Nazwa zmiennej presetu, na przykład `length`. Zmienna presetu to nazwana wartość zdefiniowana w presecie promptu (**Prompt Preset**). Zobacz [Zmienne presetu](preset-variables.md).
 4. Jawne odwołanie do zmiennej zapisane jako `var:name` albo `var.name`.
@@ -157,7 +157,7 @@ Bloki grupowe rozwijają się tylko w czacie z co najmniej dwiema postaciami. W 
 
 ## Przykłady z omówieniem (przed i po)
 
-Oto trzy pełne przykłady wraz z tym, co ostatecznie dostaje model.
+Oto pięć pełnych przykładów wraz z tym, co ostatecznie dostaje model.
 
 Ton wypowiedzi zależny od postaci wewnątrz wspólnego presetu:
 
@@ -191,6 +191,28 @@ Address the user as Doctor.
 
 Jeśli nazwa persony zawiera `Dr`, model dostaje polecenie, żeby zwracać się do ciebie per doktorze. W przeciwnym razie blok znika bez śladu.
 
+
+Instrukcje zależne od modelu:
+
+```
+{{#if model contains "opus"}}
+Keep replies under 400 words.
+{{/if}}
+```
+
+`model` to identyfikator modelu z twojego połączenia, na przykład `claude-opus-5-5`, więc `contains` pasuje do każdej wersji Opusa, a `==` do jednego konkretnego modelu.
+
+Instrukcje rozumowania krok po kroku tylko wtedy, gdy model myśli:
+
+```
+{{#if reasoning}}
+Plan the reply in your thinking before you write it.
+{{else}}
+Before replying, write your plan inside <plan></plan> tags.
+{{/if}}
+```
+
+Gdy rozumowanie jest włączone na dowolnym poziomie, model dostaje pierwszą linię. Gdy jest wyłączone, `{{reasoning}}` ma wartość `off`, którą czyta się jako fałsz, więc model dostaje drugą. Aby zareagować na jeden poziom, porównaj go: `{{#if reasoning == "max"}}`.
 
 <a id="asking-the-decision-model"></a>
 

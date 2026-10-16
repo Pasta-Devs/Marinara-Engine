@@ -104,9 +104,11 @@ Marinara 会读取 NanoGPT 的详细模型目录，因此下拉列表会标明�
 - **Management Token**(推荐)：在 `https://nano-gpt.com/settings#management-api-tokens` 创建令牌，并选择 **Usage only**(仅用量) 权限范围。它能读取额度，但不能运行模型或花费余额，因此更适合安全地显示用量。Marinara 会加密保存它，并仅发送到 NanoGPT 的管理端点。
 - **你的 API 密钥**：未保存管理令牌时自动使用。这也能工作，但读取额度所用的凭据同时具有花费余额的权限。
 
+每个用量条下面，小组件会显示剩余多少，以及窗口何时重置，例如 `42M remaining · resets in 4d`。
+
 NanoGPT 暂时无法提供的额度会显示为**未知**，而非未使用。未激活的订阅会明确标出，不会显示为完整可用额度。点击刷新按钮即可按需更新小组件。
 
-同一用量条也会出现在聊天连接选择器的上下文指示条下方，以及聊天的 **Connection**(连接) 设置中，让你无需离开聊天就能查看额度。它跟随当前连接：仅在 NanoGPT 连接开启 **Show subscription usage** 时显示；**Random** 没有唯一可查询的连接，因此不显示。选择器中的样式与上方上下文条一致，读法也相同，即已用量相对于每周额度，例如 `8.9M / 60M tokens`。
+同一用量条也会出现在聊天连接选择器的上下文指示条下方，以及聊天的 **Connection**(连接) 设置中，让你无需离开聊天就能查看额度。它跟随当前连接：仅在 NanoGPT 连接开启 **Show subscription usage** 时显示；**Random** 没有唯一可查询的连接，因此不显示。选择器中的样式与上方上下文条一致，读法也相同，即已用量相对于每周额度，例如 `8.9M / 60M tokens`，重置时间显示在百分比旁边。
 
 ## xAI / Grok
 
@@ -150,6 +152,24 @@ DeepSeek 默认会思考。它的 **Reasoning Effort** 使用 DeepSeek 自己的
 
 安装和登录步骤见 [Claude、ChatGPT 和 Grok 订阅连接](subscription-clis.md)。
 
+### 套餐用量
+
+这个连接可以显示你的 Claude 套餐用掉了多少速率限制：
+
+1. 在连接编辑器中开启 **Show subscription usage**(显示订阅用量)。
+2. 保持勾选 **5-hour window**(5 小时窗口)和 **Weekly window**(每周窗口)，或取消勾选你不想看的那一个。
+3. 保存连接。
+
+每个窗口都有一条用量条，显示已用百分比和重置时间，例如 `58% · resets in 2h`。只要这个连接处于活动状态，同样的用量条也会出现在聊天连接选择器的上下文指示条下方，以及聊天的 **Connection** 设置中。**Random** 没有唯一可查询的连接，因此不会显示。
+
+需要了解：
+
+- 用量条统计的是你 Claude 套餐上的全部使用，例如 Claude Code 和 claude.ai，而不只是 Marinara。
+- Claude 只报告每个窗口的百分比，不提供 token 数，所以不会显示 token 数。
+- 每次读取，都会让 Marinara 主机上的 Claude Code 工具提供与其 `/usage` 命令相同的数据。它不会向 Claude 发送消息，也不消耗你套餐的任何额度。耗时一两秒，刷新按钮会重新读取一次。
+- 标题旁的套餐名称，例如 **Pro**，是 Claude 为当前登录账号报告的名称。
+- Claude Code 把这份用量数据标为实验性的。如果将来的版本改动了它，用量条会显示带重试按钮的错误，而不是错误的数字。
+
 ## OpenAI (ChatGPT)
 
 - API 密钥：不需要，改为登录一个本地工具。
@@ -157,6 +177,17 @@ DeepSeek 默认会思考。它的 **Reasoning Effort** 使用 DeepSeek 自己的
 **OpenAI (ChatGPT)** 借助 Codex 工具使用 ChatGPT 账号。该工具运行在托管 Marinara 服务器的那台电脑上，登录一次即可。这家服务商的 **API Key** 和 **Base URL** 输入框会被隐藏。它不提供嵌入，见下文的 Embeddings 一节。它的思考程度由连接参数或聊天参数里的 **Reasoning Effort** 决定；选定级别之前，Codex 对该模型使用它自己的默认级别。
 
 安装和登录步骤见 [Claude、ChatGPT 和 Grok 订阅连接](subscription-clis.md)。
+
+### 套餐用量
+
+这个连接可以显示你的 ChatGPT 套餐用掉了多少 Codex 限额。它的用法和上面的 Claude (Subscription) 一样：开启 **Show subscription usage**，保持勾选或取消勾选 **5-hour window** 和 **Weekly window**，然后保存。用量条会出现在连接编辑器、聊天的连接选择器，以及聊天的 **Connection** 设置中。
+
+需要了解：
+
+- 用量条统计的是你 ChatGPT 套餐上的全部 Codex 使用，例如 Codex CLI，而不只是 Marinara。chatgpt.com 上的聊天有各自的限额，不计入这些用量条。
+- ChatGPT 只报告每个窗口的百分比，不提供 token 数，所以不会显示 token 数。
+- 每次读取，都会通过 Marinara 主机上的 Codex 登录，向 ChatGPT 请求与 Codex CLI 显示的限额相同的数据。它不会向任何模型发送消息，也不消耗你套餐的任何额度。
+- 只有两个窗口中的一个的套餐，只显示一条用量条。
 
 ## Grok CLI (Subscription)
 

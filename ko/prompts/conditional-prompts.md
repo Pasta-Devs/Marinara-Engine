@@ -115,7 +115,7 @@ truthy 검사는 값이 비어 있지 않고 `false`, `0`, `no`, `off`, `null`, 
 
 조건의 왼쪽이나 오른쪽에는 다음을 쓸 수 있습니다.
 
-1. 필드나 신원 키워드. `char`, `user`, `group`, `persona`, `description`, `personality`, `scenario`, `input`, `model` 등이 있습니다. 같은 이름의 매크로와 똑같은 값을 읽습니다. `group`은 지금 답하는 캐릭터를 뺀 나머지 활성 캐릭터를 나열합니다.
+1. 필드나 신원 키워드. `char`, `user`, `group`, `persona`, `description`, `personality`, `scenario`, `input`, `model`, `reasoning` 등이 있습니다. 같은 이름의 매크로와 똑같은 값을 읽습니다. `group`은 지금 답하는 캐릭터를 뺀 나머지 활성 캐릭터를 나열합니다.
 2. 따옴표로 감싼 리터럴. `"Alice"`가 그런 예입니다.
 3. 프리셋 변수 이름. `length`가 그런 예입니다. 프리셋 변수는 프롬프트 프리셋에서 직접 이름을 붙여 정의한 값입니다. [프리셋 변수](preset-variables.md)를 참고하세요.
 4. `var:name` 또는 `var.name` 형태로 명시한 변수 조회.
@@ -157,7 +157,7 @@ Alice와 Bob이 있는 그룹 채팅이라면 이 블록은 두 번 실행됩니
 
 ## 적용 예시(적용 전과 후)
 
-모델이 실제로 받는 결과까지 보여 주는 예시 3가지입니다.
+모델이 실제로 받는 결과까지 보여 주는 예시 5가지입니다.
 
 공용 프리셋 안에서 캐릭터별로 말투를 다르게 하기.
 
@@ -190,6 +190,28 @@ Address the user as Doctor.
 ```
 
 페르소나 이름에 `Dr`이 들어 있으면 모델은 Doctor라고 부르라는 지시를 받습니다. 들어 있지 않으면 블록은 빈 내용이 됩니다.
+
+모델별 지시를 주는 예시입니다.
+
+```
+{{#if model contains "opus"}}
+Keep replies under 400 words.
+{{/if}}
+```
+
+`model`은 연결에서 가져온 모델 ID로, 예를 들어 `claude-opus-5-5`입니다. 그래서 `contains`는 모든 Opus 버전과 일치하고, `==`는 정확히 한 모델과만 일치합니다.
+
+모델이 생각하는 동안에만 사고 과정 지시를 주는 예시입니다.
+
+```
+{{#if reasoning}}
+Plan the reply in your thinking before you write it.
+{{else}}
+Before replying, write your plan inside <plan></plan> tags.
+{{/if}}
+```
+
+추론이 어떤 수준으로든 켜져 있으면 모델은 첫 번째 줄을 받습니다. 추론이 꺼져 있으면 `{{reasoning}}`은 `off`이고 거짓으로 읽히므로 두 번째 줄을 받습니다. 특정 수준에서만 동작하게 하려면 비교하세요. 예를 들어 `{{#if reasoning == "max"}}`처럼 씁니다.
 
 <a id="asking-the-decision-model"></a>
 

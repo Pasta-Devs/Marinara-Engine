@@ -104,9 +104,11 @@ Das Widget liest den Nutzungsendpunkt von NanoGPT und zeigt deine wöchentlichen
 - **Management Token** (empfohlen): Erstelle unter `https://nano-gpt.com/settings#management-api-tokens` einen Token mit dem Berechtigungsumfang **Usage only** (nur Nutzung). Er kann Kontingente lesen, aber keine Modelle ausführen oder dein Guthaben ausgeben und ist deshalb die sicherere Wahl für eine Verbrauchsanzeige. Marinara speichert ihn verschlüsselt und sendet ihn nur an den Verwaltungsendpunkt von NanoGPT.
 - **Dein API-Schlüssel**: Wird automatisch verwendet, wenn kein Verwaltungstoken gespeichert ist. Das funktioniert, aber die Abfrage verwendet dann dieselben Zugangsdaten, mit denen dein Guthaben ausgegeben werden kann.
 
+Unter jedem Balken steht, was noch übrig ist und wann das Zeitfenster zurückgesetzt wird, zum Beispiel `42M remaining · resets in 4d`.
+
 Ein Kontingent, das NanoGPT gerade nicht melden kann, erscheint als **unbekannt** statt als ungenutzt. Ein inaktives Abonnement wird ausdrücklich gekennzeichnet, statt ein vollständig verfügbares Kontingent anzuzeigen. Mit der Aktualisierungsschaltfläche aktualisierst du das Widget bei Bedarf.
 
-Dieselbe Anzeige erscheint unter der Kontextanzeige in der Verbindungsauswahl eines Chats und in dessen **Connection**-Einstellungen (Verbindung). So kannst du dein Kontingent verfolgen, ohne den Chat zu verlassen. Sie folgt der aktiven Verbindung: Sie erscheint nur bei einer NanoGPT-Verbindung mit aktiviertem **Show subscription usage** und nicht bei **Random**, das keine einzelne Verbindung zum Abfragen hat. In der Auswahl passt sie optisch zum Kontextbalken darüber und wird genauso gelesen: Verbrauch im Verhältnis zum Wochenkontingent, etwa `8.9M / 60M tokens`.
+Dieselbe Anzeige erscheint unter der Kontextanzeige in der Verbindungsauswahl eines Chats und in dessen **Connection**-Einstellungen (Verbindung). So kannst du dein Kontingent verfolgen, ohne den Chat zu verlassen. Sie folgt der aktiven Verbindung: Sie erscheint nur bei einer NanoGPT-Verbindung mit aktiviertem **Show subscription usage** und nicht bei **Random**, das keine einzelne Verbindung zum Abfragen hat. In der Auswahl passt sie optisch zum Kontextbalken darüber und wird genauso gelesen: Verbrauch im Verhältnis zum Wochenkontingent, etwa `8.9M / 60M tokens`, mit der Zurücksetzzeit neben dem Prozentwert.
 
 ## xAI / Grok
 
@@ -150,6 +152,24 @@ Verbinde DeepSeek über diesen Anbieter, statt den Anbieter **OpenAI** auf die U
 
 Installation und Anmeldung beschreibt [Abo-Verbindungen für Claude, ChatGPT und Grok](subscription-clis.md).
 
+### Planverbrauch
+
+Diese Verbindung kann anzeigen, wie viel der Ratenlimits deines Claude-Plans verbraucht ist:
+
+1. Aktiviere **Show subscription usage** (Abonnementverbrauch anzeigen) im Verbindungseditor.
+2. Lass **5-hour window** (5-Stunden-Fenster) und **Weekly window** (Wochenfenster) angehakt oder entferne den Haken bei dem, das du nicht sehen willst.
+3. Speichere die Verbindung.
+
+Jedes Fenster bekommt einen Balken mit dem verbrauchten Prozentwert und dem Zeitpunkt der Zurücksetzung, zum Beispiel `58% · resets in 2h`. Dieselben Balken erscheinen unter der Kontextanzeige in der Verbindungsauswahl eines Chats und in dessen **Connection**-Einstellungen, solange diese Verbindung aktiv ist. Bei **Random**, das keine einzelne Verbindung zum Abfragen hat, erscheinen sie nicht.
+
+Gut zu wissen:
+
+- Die Balken zählen alles auf deinem Claude-Plan, etwa Claude Code und claude.ai, nicht nur Marinara.
+- Claude meldet für jedes Fenster einen Prozentwert und keine Token-Zahlen, deshalb werden keine angezeigt.
+- Eine Abfrage bittet das Werkzeug Claude Code auf dem Marinara-Host um dieselben Daten, die sein Befehl `/usage` zeigt. Sie sendet keine Nachricht an Claude und verbraucht nichts von deinem Plan. Sie dauert ein bis zwei Sekunden, und die Aktualisierungsschaltfläche liest sie erneut.
+- Der Plan-Name neben dem Titel, zum Beispiel **Pro**, ist der, den Claude für das angemeldete Konto meldet.
+- Claude Code kennzeichnet diese Nutzungsdaten als experimentell. Ändert eine künftige Version sie, zeigen die Balken einen Fehler mit einer Schaltfläche zum Wiederholen statt einer falschen Zahl.
+
 ## OpenAI (ChatGPT)
 
 - API-Key: keiner. Stattdessen meldest du dich in einem lokalen Werkzeug an.
@@ -157,6 +177,17 @@ Installation und Anmeldung beschreibt [Abo-Verbindungen für Claude, ChatGPT und
 **OpenAI (ChatGPT)** nutzt dein ChatGPT-Konto über das Werkzeug Codex. Das Werkzeug läuft auf dem Rechner mit dem Marinara-Server, und du meldest dich einmalig an. Die Felder **API Key** und **Base URL** sind bei diesem Anbieter ausgeblendet. Embeddings bietet er nicht (siehe Abschnitt „Embeddings“ weiter unten). Wie gründlich Codex nachdenkt, legst du über **Reasoning Effort** in den Parametern der Verbindung oder des Chats fest; solange du dort keine Stufe wählst, nutzt Codex seinen eigenen Standard für das Modell.
 
 Installation und Anmeldung beschreibt [Abo-Verbindungen für Claude, ChatGPT und Grok](subscription-clis.md).
+
+### Planverbrauch
+
+Diese Verbindung kann anzeigen, wie viel der Codex-Limits deines ChatGPT-Plans verbraucht ist. Sie funktioniert wie die oben beschriebene bei Claude (Subscription): Aktiviere **Show subscription usage**, lass **5-hour window** und **Weekly window** angehakt oder entferne den Haken, und speichere. Die Balken erscheinen im Verbindungseditor, in der Verbindungsauswahl eines Chats und in dessen **Connection**-Einstellungen.
+
+Gut zu wissen:
+
+- Die Balken zählen jede Codex-Nutzung auf deinem ChatGPT-Plan, etwa die Codex CLI, nicht nur Marinara. Chats auf chatgpt.com haben eigene Limits und gehören nicht zu diesen Balken.
+- ChatGPT meldet für jedes Fenster einen Prozentwert und keine Token-Zahlen, deshalb werden keine angezeigt.
+- Eine Abfrage bittet ChatGPT um dieselben Daten, die die Codex CLI als ihre Limits zeigt, und nutzt dafür die Codex-Anmeldung auf dem Marinara-Host. Sie sendet keine Nachricht an ein Modell und verbraucht nichts von deinem Plan.
+- Ein Plan mit nur einem der beiden Fenster zeigt nur einen Balken.
 
 ## Grok CLI (Subscription)
 

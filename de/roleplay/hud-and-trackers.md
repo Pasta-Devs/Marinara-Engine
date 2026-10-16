@@ -135,6 +135,22 @@ Diese Einstellungen steuern das Panel:
 - **Always show Docked thoughts**: hält bei **Thought display mode** auf **Docked** den Gedanken jedes hervorgehobenen Charakters dauerhaft sichtbar, statt ihn hinter einer Schaltfläche zu verstecken.
 - **Temperature unit**: legt fest, ob Temperaturen in **°C** (Celsius) oder **°F** (Fahrenheit) angezeigt werden. Standard ist °C. Das ändert nur die Anzeige, nicht den gespeicherten Weltzustand-Wert.
 
+<a id="the-state-editor"></a>
+
+## Der State Editor
+
+Der **State Editor** zeigt alle Tracker der aktuellen Runde in einem einzigen Fenster, sodass du einen Wert finden und korrigieren kannst, ohne jeden Tracker einzeln zu öffnen. Er funktioniert auch am Telefon.
+
+Klick zum Öffnen im Kopf des Tracker Panels auf das Zahnrad (**Tracker panel settings**) und dann auf die Schaltfläche **{ }** (**Open in State Editor**). In der **Agent Suite** hat auch die Kopfzeile von **Tracker Data** einen Link **Open in State Editor**.
+
+- **Welche Runde du bearbeitest:** Die Zeile unter dem Suchfeld nennt, zu welcher Nachricht und welchem Swipe der Zustand gehört, zum Beispiel „Editing message #12 · swipe 2 of 3“. **Latest** (neueste) kennzeichnet die jüngste Runde, und ein kurzer Auszug der Nachricht hilft dir, sie dem Chat zuzuordnen. Jeder Swipe hat seinen eigenen Zustand; wische also zuerst, wenn du einen anderen korrigieren willst.
+- **Abschnitte:** **Scene**, **Present Characters**, **Persona Stats**, **Inventory Tracker**, **Custom Tracker Fields** und **Active Quests**. Am Telefon stehen sie als Reihe von Chips über dem Editor. Ein Punkt markiert einen Abschnitt, den du geändert hast.
+- **Suche:** Gib etwas in das Suchfeld ein, um einen Schlüssel oder einen Wert in allen Abschnitten gleichzeitig zu finden, zum Beispiel `mood`. Jedes Ergebnis zeigt, wo es steht, etwa „Present Characters › Gwendolyn“. Klick auf ein Ergebnis, um direkt dorthin zu springen.
+- **Fields und JSON:** Jeder Abschnitt öffnet sich als **Fields** (Felder): Text, Zahlen und An/Aus-Werte als Eingabefelder, wobei jeder Charakter, jeder Gegenstand und jede Quest eine eigene Karte bekommt. Um einen Eintrag hinzuzufügen oder zu entfernen, wechsle zu **JSON** und bearbeite den Text direkt. **Format** (formatieren) ordnet das JSON, und **Revert** (zurücksetzen) macht deine Änderungen an einem Abschnitt rückgängig. Lässt sich das JSON nicht parsen, wird der Abschnitt markiert und kann erst gespeichert werden, wenn du den Fehler behoben hast.
+- **Speichern:** **Review changes** (Änderungen prüfen) zeigt Zeile für Zeile, was sich in jedem Abschnitt ändert. **Save changes** (Änderungen speichern) schreibt alles auf einmal in die Runde, die du bearbeitet hast. Bis dahin bleiben deine Entwürfe im Fenster, und beim Schließen wirst du gefragt, bevor sie verworfen werden.
+
+Wenn die Geschichte weiterläuft, während du bearbeitest, überschreibt der Editor sie nicht. Eine neue Antwort oder ein neuer Swipe macht eine andere Runde zur aktuellen, und das Speichern wird mit einer Schaltfläche **Reload** (neu laden) abgelehnt. Dasselbe passiert, wenn ein Tracker-Agent einen Abschnitt aktualisiert, den du nach dem Öffnen des Editors geändert hast. **Reload** zeigt den neuesten Zustand und verwirft deine Entwürfe.
+
 ## Welche Agenten das HUD füllen
 
 Hinter jedem HUD-Widget steckt ein Tracker-Agent, der nach jedem Zug läuft. Welcher Agent welches Widget speist, steht in der Widget-Tabelle am Anfang dieser Anleitung.

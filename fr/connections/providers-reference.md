@@ -104,9 +104,11 @@ Le widget interroge le point d'accès de consommation de NanoGPT et affiche tes 
 - **Management Token** (recommandé) : crée-le sur `https://nano-gpt.com/settings#management-api-tokens` avec la portée **Usage only** (consommation uniquement). Il peut lire tes quotas, mais ne peut ni exécuter de modèles ni dépenser ton solde : c'est donc le choix le plus sûr pour afficher la consommation. Marinara le conserve chiffré et l'envoie uniquement au point d'accès de gestion de NanoGPT.
 - **Ta clé API** : utilisée automatiquement si aucun jeton de gestion n'est enregistré. Cela fonctionne, mais les lectures emploient alors le même identifiant que celui permettant de dépenser ton solde.
 
+Sous chaque barre, le widget indique ce qu'il reste et quand la fenêtre se réinitialise, par exemple `42M remaining · resets in 4d`.
+
 Un quota que NanoGPT ne peut pas communiquer apparaît comme **inconnu**, et non comme inutilisé. Un abonnement inactif est signalé au lieu d'être représenté avec tout son quota disponible. Le bouton d'actualisation du widget permet de le rafraîchir à la demande.
 
-Le même indicateur apparaît sous celui du contexte dans le sélecteur de connexion du chat et dans ses réglages **Connection** (connexion). Tu peux ainsi suivre ton quota sans quitter le chat. Il suit la connexion active : il apparaît uniquement pour une connexion NanoGPT avec **Show subscription usage** activé, jamais pour **Random**, qui ne désigne pas une seule connexion à interroger. Dans le sélecteur, il reprend le style de la barre de contexte au-dessus et se lit de la même manière : consommation par rapport au quota hebdomadaire, par exemple `8.9M / 60M tokens`.
+Le même indicateur apparaît sous celui du contexte dans le sélecteur de connexion du chat et dans ses réglages **Connection** (connexion). Tu peux ainsi suivre ton quota sans quitter le chat. Il suit la connexion active : il apparaît uniquement pour une connexion NanoGPT avec **Show subscription usage** activé, jamais pour **Random**, qui ne désigne pas une seule connexion à interroger. Dans le sélecteur, il reprend le style de la barre de contexte au-dessus et se lit de la même manière : consommation par rapport au quota hebdomadaire, par exemple `8.9M / 60M tokens`, avec l'heure de réinitialisation à côté du pourcentage.
 
 ## xAI / Grok
 
@@ -150,6 +152,24 @@ Passe par ce fournisseur pour connecter DeepSeek, plutôt que de diriger le four
 
 Les étapes d'installation et d'identification figurent dans [Connexions par abonnement Claude, ChatGPT et Grok](subscription-clis.md).
 
+### Consommation du forfait
+
+Cette connexion peut afficher la part des limites de ton forfait Claude déjà consommée :
+
+1. Active **Show subscription usage** (afficher la consommation de l'abonnement) dans l'éditeur de connexion.
+2. Laisse cochées **5-hour window** (fenêtre de 5 heures) et **Weekly window** (fenêtre hebdomadaire), ou décoche celle que tu ne veux pas voir.
+3. Enregistre la connexion.
+
+Chaque fenêtre a une barre avec le pourcentage consommé et le moment de sa réinitialisation, par exemple `58% · resets in 2h`. Les mêmes barres apparaissent sous l'indicateur de contexte dans le sélecteur de connexion d'un chat et dans les réglages **Connection** du chat tant que cette connexion est active. Elles n'apparaissent pas pour **Random**, qui ne désigne pas une seule connexion à interroger.
+
+À savoir :
+
+- Les barres comptent tout ce qui passe par ton forfait Claude, comme Claude Code et claude.ai, pas seulement Marinara.
+- Claude donne un pourcentage par fenêtre et aucun nombre de tokens, donc aucun n'est affiché.
+- Une lecture demande à l'outil Claude Code de l'hôte Marinara les mêmes données que sa commande `/usage`. Elle n'envoie aucun message à Claude et n'utilise rien de ton forfait. Elle prend une seconde ou deux, et le bouton d'actualisation la relit.
+- Le nom du forfait à côté du titre, comme **Pro**, est celui que Claude indique pour le compte connecté.
+- Claude Code signale ces données d'usage comme expérimentales. Si une version future les change, les barres affichent une erreur avec un bouton de nouvel essai plutôt qu'un chiffre faux.
+
 ## OpenAI (ChatGPT)
 
 - Clé API : aucune. Tu t'identifies dans un outil local à la place.
@@ -157,6 +177,17 @@ Les étapes d'installation et d'identification figurent dans [Connexions par abo
 **OpenAI (ChatGPT)** exploite ton compte ChatGPT via l'outil Codex. L'outil tourne sur l'ordinateur qui héberge le serveur Marinara, et tu t'y identifies une seule fois. Les champs **API Key** et **Base URL** sont masqués pour ce fournisseur. Il ne propose pas d'embeddings (voir la section Embeddings plus bas). Son niveau de réflexion correspond au réglage **Reasoning Effort** des paramètres de la connexion ou du chat ; tant que tu n'en choisis aucun, Codex utilise sa propre valeur par défaut pour le modèle.
 
 Les étapes d'installation et d'identification figurent dans [Connexions par abonnement Claude, ChatGPT et Grok](subscription-clis.md).
+
+### Consommation du forfait
+
+Cette connexion peut afficher la part des limites Codex de ton forfait ChatGPT déjà consommée. Elle fonctionne comme celle de Claude (Subscription) ci-dessus : active **Show subscription usage**, laisse cochées ou décoche **5-hour window** et **Weekly window**, puis enregistre. Les barres apparaissent dans l'éditeur de connexion, dans le sélecteur de connexion d'un chat et dans les réglages **Connection** du chat.
+
+À savoir :
+
+- Les barres comptent tout l'usage de Codex sur ton forfait ChatGPT, comme la Codex CLI, pas seulement Marinara. Les chats sur chatgpt.com ont leurs propres limites et ne font pas partie de ces barres.
+- ChatGPT donne un pourcentage par fenêtre et aucun nombre de tokens, donc aucun n'est affiché.
+- Une lecture demande à ChatGPT les mêmes données que la Codex CLI affiche comme ses limites, en utilisant la connexion Codex de l'hôte Marinara. Elle n'envoie aucun message à un modèle et n'utilise rien de ton forfait.
+- Un forfait qui n'a qu'une des deux fenêtres affiche une seule barre.
 
 ## Grok CLI (Subscription)
 

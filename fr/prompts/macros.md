@@ -109,11 +109,14 @@ Ces macros décrivent le chat en cours et la requête en cours.
 | --- | --- |
 | `{{input}}` | Le message utilisateur le plus récent disponible pour le prompt. |
 | `{{model}}` | Le nom du modèle en cours, quand un modèle est sélectionné. |
+| `{{reasoning}}` | Le niveau de raisonnement avec lequel cette réponse est générée : `low`, `medium`, `high`, `xhigh` ou `max`, ou `off` quand on ne demande pas au modèle de réfléchir. |
 | `{{chatId}}` | L'identifiant du chat en cours. |
 | `{{lastGenerationType}}` | Une étiquette indiquant pourquoi cette réponse est générée. |
 | `{{idle_duration}}` | Le temps écoulé depuis la dernière activité du chat, sous forme de texte comme `8 minutes` ou `1 hour 5 minutes`. |
 | `{{gameStoryboardKeyframeCount}}` | L'objectif **Keyframes per Turn** du moment en Game Mode, de 1 à 6. Par défaut `3`. |
 | `{{agent::TYPE}}` | Le résultat enregistré d'un agent du type indiqué. |
+
+`{{reasoning}}` indique le niveau réellement envoyé au modèle, une fois combinés ton preset, ta connexion et les réglages du chat. **Maximum** s'affiche comme le niveau le plus élevé que le modèle accepte : on peut donc lire `max`, `xhigh` ou `high`. Comme `off` se lit comme faux, `{{#if reasoning}}` ne garde un bloc que tant que le modèle réfléchit. Si ton preset ou ton chat a déjà sa propre variable nommée `reasoning`, cette variable garde le nom.
 
 La valeur de `{{lastGenerationType}}` est une simple étiquette. Parmi les valeurs observées dans l'application : `normal`, `continue`, `regenerate`, `impersonate`, `guided`, `autonomous`, `turn_game`, `preview`, `game_setup`, `lorebook_scan` et `retry_agents`. Cette liste peut s'allonger : vois-la comme des exemples, pas comme un ensemble figé.
 

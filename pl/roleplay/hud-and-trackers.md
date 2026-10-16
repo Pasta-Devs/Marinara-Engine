@@ -135,6 +135,22 @@ Odpowiadają za to następujące ustawienia:
 - **Always show Docked thoughts**: przy ustawieniu **Thought display mode** na **Docked** myśl każdej wyróżnionej postaci pozostaje widoczna, zamiast chować się pod przyciskiem.
 - **Temperature unit**: wybór jednostki **°C** (stopnie Celsjusza) lub **°F** (stopnie Fahrenheita) do wyświetlania temperatury. Domyślnie jest to °C. Zmienia się tylko sposób wyświetlania, a nie zapisana wartość stanu świata.
 
+<a id="the-state-editor"></a>
+
+## State Editor
+
+**State Editor** pokazuje wszystkie trackery bieżącej tury w jednym oknie, więc możesz znaleźć wartość i ją poprawić bez otwierania każdego trackera z osobna. Działa także na telefonie.
+
+Aby go otworzyć, kliknij zębatkę (**Tracker panel settings**) w nagłówku Tracker Panel, a potem przycisk **{ }** (**Open in State Editor**). W **Agent Suite** nagłówek **Tracker Data** też ma link **Open in State Editor**.
+
+- **Którą turę edytujesz:** linia pod polem wyszukiwania podaje, do której wiadomości i którego swipe'a należy stan, na przykład „Editing message #12 · swipe 2 of 3”. **Latest** (najnowsza) oznacza najnowszą turę, a krótki fragment wiadomości pomaga dopasować ją do czatu. Każdy swipe ma własny stan, więc jeśli chcesz poprawić inny, najpierw przełącz swipe'a.
+- **Sekcje:** **Scene**, **Present Characters**, **Persona Stats**, **Inventory Tracker**, **Custom Tracker Fields** i **Active Quests**. Na telefonie są rzędem chipów nad edytorem. Kropka oznacza sekcję ze zmianami.
+- **Wyszukiwanie:** wpisz coś w pole wyszukiwania, aby znaleźć klucz lub wartość we wszystkich sekcjach naraz, na przykład `mood`. Każdy wynik pokazuje, gdzie się znajduje, na przykład „Present Characters › Gwendolyn”. Kliknij wynik, aby od razu do niego przejść.
+- **Fields i JSON:** każda sekcja otwiera się jako **Fields** (pola): tekst, liczby i wartości włącz/wyłącz jako pola do wpisywania, a każda postać, przedmiot i zadanie ma osobną kartę. Aby dodać lub usunąć wpis, przełącz się na **JSON** i edytuj tekst bezpośrednio. **Format** (formatuj) porządkuje JSON, a **Revert** (cofnij) cofa zmiany w jednej sekcji. Jeśli JSON się nie parsuje, sekcja jest oznaczona i nie można jej zapisać, dopóki tego nie naprawisz.
+- **Zapisywanie:** **Review changes** (przejrzyj zmiany) pokazuje linia po linii, co dokładnie zmienia się w każdej sekcji. **Save changes** (zapisz zmiany) zapisuje je wszystkie naraz w turze, którą edytujesz. Do tego czasu szkice zostają w oknie, a przy zamykaniu okno pyta, zanim je odrzuci.
+
+Jeśli historia posuwa się naprzód, kiedy edytujesz, edytor jej nie nadpisze. Nowa odpowiedź lub swipe sprawia, że bieżąca staje się inna tura, a zapis zostaje odrzucony z przyciskiem **Reload** (wczytaj ponownie). To samo dzieje się, gdy agent trackera zaktualizuje sekcję, którą zmieniasz po otwarciu edytora. **Reload** pokazuje najnowszy stan i odrzuca szkice.
+
 ## Którzy agenci zasilają pasek HUD
 
 Każdy widget na pasku HUD wypełnia tracker uruchamiany po każdej turze. Tabela widgetów na początku tego przewodnika pokazuje, który agent zasila który widget.
