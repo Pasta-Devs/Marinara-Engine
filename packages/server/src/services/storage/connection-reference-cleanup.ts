@@ -26,6 +26,7 @@
 
 import {
   CHAT_MODEL_OVERRIDE_KEY,
+  type ChatModelOverride,
   DEFAULT_EMBEDDING_CONNECTION_SETTINGS_KEY,
   FEATURE_MODEL_CONNECTIONS_SETTINGS_KEY,
 } from "@marinara-engine/shared";
@@ -85,6 +86,8 @@ export async function sweepDanglingConnectionReferences(
   deletedConnectionId: string,
   /** Another chat Model of the deleted Model's Connection: a chat's catalog pick moves onto it. */
   overrideCarrierId: string | null = null,
+  /** The deleted Model as a catalog pick: a chat that used it keeps it through the carrier (decision 30). */
+  keptPick: ChatModelOverride | null = null,
 ): Promise<ConnectionReferenceCleanupResult> {
   const result: ConnectionReferenceCleanupResult = { chatsUpdated: 0, agentsUpdated: 0, connectionsUpdated: 0 };
   if (!deletedConnectionId) return result;
@@ -117,7 +120,7 @@ export async function sweepDanglingConnectionReferences(
       let metadata = serializeNullifiedConnectionIdReferences(chat.metadata, deletedConnectionId);
       const directMatch = chat.connectionId === deletedConnectionId;
       if (metadata === undefined && !directMatch) continue;
-      const override = directMatch && overrideCarrierId ? readChatModelOverride(chat) : null;
+      const override = directMatch && overrideCarrierId ? (readChatModelOverride(chat) ?? keptPick) : null;
       if (override) {
         const moved = JSON.parse(metadata ?? chat.metadata ?? "{}") as Record<string, unknown>;
         moved[CHAT_MODEL_OVERRIDE_KEY] = { ...override, connectionId: overrideCarrierId };

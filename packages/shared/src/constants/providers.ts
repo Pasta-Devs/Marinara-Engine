@@ -17,8 +17,26 @@ export interface ProviderDefinition {
   keyUrl?: string;
   /** How the service is paid for, shown as a badge when adding a connection. No prices: they change. */
   billing?: ProviderBilling;
-  /** Logo image URL for the service tile; without one the tile shows the service's initials. */
+  /**
+   * The service's website. Its icon stands for the service's Connections: the server fetches it once when a
+   * Connection is added (decision 34b). Without one, a Connection uses its endpoint's host, else its initials.
+   */
   logo?: string;
+}
+
+/**
+ * The site whose icon stands for a Connection (decision 34b): the service's website, else the endpoint's origin.
+ * Null when there is neither (a device engine, a login-only service without a site).
+ */
+export function providerIconSite(provider: string, baseUrl?: string | null): string | null {
+  const definition = PROVIDERS[provider as APIProvider] as ProviderDefinition | undefined;
+  const source = definition?.logo || baseUrl?.trim() || definition?.defaultBaseUrl || "";
+  try {
+    const url = new URL(source);
+    return url.protocol === "https:" || url.protocol === "http:" ? url.origin : null;
+  } catch {
+    return null;
+  }
 }
 
 export type ProviderBilling = "pay_per_use" | "plan" | "local" | "free_tier";
@@ -79,6 +97,7 @@ export const PROVIDERS: Record<APIProvider, ProviderDefinition> = {
     apiKeyHeader: null,
     keyUrl: "https://platform.openai.com/api-keys",
     billing: "pay_per_use",
+    logo: "https://openai.com",
   },
   openai_chatgpt: {
     id: "openai_chatgpt",
@@ -91,6 +110,7 @@ export const PROVIDERS: Record<APIProvider, ProviderDefinition> = {
     usesAuthHeader: false,
     apiKeyHeader: null,
     billing: "plan",
+    logo: "https://openai.com",
   },
   anthropic: {
     id: "anthropic",
@@ -102,6 +122,7 @@ export const PROVIDERS: Record<APIProvider, ProviderDefinition> = {
     apiKeyHeader: "x-api-key",
     keyUrl: "https://console.anthropic.com/settings/keys",
     billing: "pay_per_use",
+    logo: "https://www.anthropic.com",
   },
   claude_subscription: {
     id: "claude_subscription",
@@ -115,6 +136,7 @@ export const PROVIDERS: Record<APIProvider, ProviderDefinition> = {
     usesAuthHeader: false,
     apiKeyHeader: null,
     billing: "plan",
+    logo: "https://claude.ai",
   },
   grok_subscription: {
     id: "grok_subscription",
@@ -127,6 +149,7 @@ export const PROVIDERS: Record<APIProvider, ProviderDefinition> = {
     usesAuthHeader: false,
     apiKeyHeader: null,
     billing: "plan",
+    logo: "https://grok.com",
   },
   google: {
     id: "google",
@@ -138,6 +161,7 @@ export const PROVIDERS: Record<APIProvider, ProviderDefinition> = {
     apiKeyHeader: "x-goog-api-key",
     keyUrl: "https://aistudio.google.com/apikey",
     billing: "free_tier",
+    logo: "https://gemini.google.com",
   },
   google_vertex: {
     id: "google_vertex",
@@ -149,6 +173,7 @@ export const PROVIDERS: Record<APIProvider, ProviderDefinition> = {
     apiKeyHeader: null,
     keyUrl: "https://cloud.google.com/vertex-ai/docs/authentication",
     billing: "pay_per_use",
+    logo: "https://cloud.google.com",
   },
   mistral: {
     id: "mistral",
@@ -160,6 +185,7 @@ export const PROVIDERS: Record<APIProvider, ProviderDefinition> = {
     apiKeyHeader: null,
     keyUrl: "https://console.mistral.ai/api-keys",
     billing: "pay_per_use",
+    logo: "https://mistral.ai",
   },
   cohere: {
     id: "cohere",
@@ -171,6 +197,7 @@ export const PROVIDERS: Record<APIProvider, ProviderDefinition> = {
     apiKeyHeader: null,
     keyUrl: "https://dashboard.cohere.com/api-keys",
     billing: "pay_per_use",
+    logo: "https://cohere.com",
   },
   openrouter: {
     id: "openrouter",
@@ -182,6 +209,7 @@ export const PROVIDERS: Record<APIProvider, ProviderDefinition> = {
     apiKeyHeader: null,
     keyUrl: "https://openrouter.ai/keys",
     billing: "free_tier",
+    logo: "https://openrouter.ai",
   },
   nanogpt: {
     id: "nanogpt",
@@ -194,6 +222,7 @@ export const PROVIDERS: Record<APIProvider, ProviderDefinition> = {
     apiKeyHeader: null,
     keyUrl: "https://nano-gpt.com/api",
     billing: "pay_per_use",
+    logo: "https://nano-gpt.com",
   },
   xai: {
     id: "xai",
@@ -205,6 +234,7 @@ export const PROVIDERS: Record<APIProvider, ProviderDefinition> = {
     apiKeyHeader: null,
     keyUrl: "https://console.x.ai",
     billing: "pay_per_use",
+    logo: "https://x.ai",
   },
   arli: {
     id: "arli",
@@ -215,6 +245,7 @@ export const PROVIDERS: Record<APIProvider, ProviderDefinition> = {
     usesAuthHeader: true,
     apiKeyHeader: null,
     keyUrl: "https://www.arliai.com/account",
+    logo: "https://www.arliai.com",
   },
   zai: {
     id: "zai",
@@ -228,6 +259,7 @@ export const PROVIDERS: Record<APIProvider, ProviderDefinition> = {
     apiKeyHeader: null,
     keyUrl: "https://z.ai/manage-apikey/apikey-list",
     billing: "pay_per_use",
+    logo: "https://z.ai",
   },
   deepseek: {
     id: "deepseek",
@@ -241,6 +273,7 @@ export const PROVIDERS: Record<APIProvider, ProviderDefinition> = {
     apiKeyHeader: null,
     keyUrl: "https://platform.deepseek.com/api_keys",
     billing: "pay_per_use",
+    logo: "https://www.deepseek.com",
   },
   custom: {
     id: "custom",

@@ -117,6 +117,31 @@ export function readSavedModelList(row: { savedModels?: unknown } | null | undef
 }
 
 /** API responses never carry the saved model list; `/connections/:id/models` serves it. */
+/**
+ * Whether a saved Model has settings of its own (decision 30): a name, tuning or limits the user set. Such a Model
+ * stays in "Your models" without its star; a Model with only catalog values goes when its star is removed.
+ */
+export function hasOwnModelSettings(row: Record<string, unknown>): boolean {
+  const model = typeof row.model === "string" ? row.model : "";
+  const entry = readSavedModelList(row)?.models.find((saved) => saved.id === model);
+  const name = typeof row.name === "string" ? row.name.trim() : "";
+  if (name && name !== model && name !== entry?.name) return true;
+  const set = (value: unknown) => value !== null && value !== undefined && value !== "";
+  const on = (value: unknown) => value === true || value === "true";
+  const params = typeof row.defaultParameters === "string" ? row.defaultParameters.trim() : row.defaultParameters;
+  if (set(params) && params !== "{}" && params !== "null") return true;
+  if ([row.promptPresetId, row.openrouterProvider, row.maxStateTokens, row.maxRequestsPerMinute].some(set)) return true;
+  if ([row.imagePath, row.embeddingModel, row.embeddingConnectionId].some(set)) return true;
+  if (on(row.enableCaching) || on(row.claudeFastMode)) return true;
+  if (typeof row.maxParallelJobs === "number" && row.maxParallelJobs !== 1) return true;
+  // Limits count only where the catalog tells what the model's own limit is.
+  if (typeof entry?.context === "number" && row.maxContext !== entry.context) return true;
+  if (typeof entry?.maxOutput === "number" && set(row.maxTokensOverride) && row.maxTokensOverride !== entry.maxOutput) {
+    return true;
+  }
+  return false;
+}
+
 export function withoutSavedModels<T extends Record<string, unknown>>(row: T): Omit<T, "savedModels"> {
   const { savedModels: _savedModels, ...rest } = row;
   return rest;
@@ -139,6 +164,7 @@ export function createConnectionsStorage(db: DB) {
       // Mask API keys and management tokens in list response
       return rows.map(({ savedModels: _savedModels, ...r }: any) => ({
         ...r,
+        ownSettings: hasOwnModelSettings({ ...r, savedModels: _savedModels }),
         apiKeyEncrypted: r.apiKeyEncrypted ? "••••••••" : "",
         managementTokenEncrypted: r.managementTokenEncrypted ? "••••••••" : "",
       }));
@@ -883,7 +909,8 @@ export function createConnectionsStorage(db: DB) {
       return Promise.all(available.map((r: any) => withKey(r)));
     },
 
-    async remove(id: string) {
+    /** `keepChatPicks`: chats that use this Model keep it as a catalog pick on a sibling Model (unstar, decision 30). */
+    async remove(id: string, keepChatPicks = false) {
       const cleanup = await db.transaction(async (tx) => {
         const [row] = (await tx.select().from(apiConnections).where(eq(apiConnections.id, id))) as ConnectionRow[];
         // A chat's catalog pick runs on this Model's key; another chat Model of the same Connection can carry it.
@@ -897,7 +924,17 @@ export function createConnectionsStorage(db: DB) {
           .filter((peer) => peer.id !== id && isChatProvider(peer.provider))
           .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
         await tx.delete(apiConnections).where(eq(apiConnections.id, id));
-        return sweepDanglingConnectionReferences(tx, id, carrier?.id ?? null);
+        const keptPick =
+          keepChatPicks && row?.model
+            ? {
+                connectionId: id,
+                model: row.model,
+                ...(row.name.trim() && row.name !== row.model ? { name: row.name.trim().slice(0, 200) } : {}),
+                ...(row.maxContext >= 1 ? { maxContext: row.maxContext } : {}),
+                ...(row.maxTokensOverride && row.maxTokensOverride >= 1 ? { maxTokensOverride: row.maxTokensOverride } : {}),
+              }
+            : null;
+        return sweepDanglingConnectionReferences(tx, id, carrier?.id ?? null, keptPick);
       });
       // Clear the throttle registry only after the delete commits.
       clearConnectionRateLimit(id);
