@@ -327,7 +327,7 @@ function RoleTile({ tile, open, onClick }: { tile: DefaultsTile; open: boolean; 
       className={cn(
         "flex min-h-14 min-w-0 flex-col justify-center gap-0.5 rounded-xl border px-2.5 py-2 text-left transition-colors hover:bg-[var(--sidebar-accent)]",
         problem
-          ? "border-[var(--warning)]/40 bg-[var(--warning)]/10"
+          ? "border-[var(--marinara-app-accent-static)]/40 bg-[var(--marinara-app-accent-static)]/10"
           : open
             ? "border-[var(--primary)]/50 bg-[var(--accent)]"
             : "border-[var(--border)]/60 bg-[var(--background)]/40",
@@ -337,7 +337,7 @@ function RoleTile({ tile, open, onClick }: { tile: DefaultsTile; open: boolean; 
       <span
         className={cn(
           "flex items-center gap-1.5 text-[0.625rem] font-medium",
-          problem ? "text-[var(--warning)]" : "text-[var(--muted-foreground)]",
+          problem ? "text-[var(--marinara-app-accent-static)]" : "text-[var(--muted-foreground)]",
         )}
       >
         {problem ? <AlertTriangle size="0.6875rem" /> : tile.icon}
@@ -355,14 +355,16 @@ function RoleTile({ tile, open, onClick }: { tile: DefaultsTile; open: boolean; 
         <span
           className={cn(
             "flex min-w-0 items-center gap-1 text-[0.625rem]",
-            problem ? "text-[var(--warning)]" : "text-[var(--primary)]",
+            problem ? "text-[var(--marinara-app-accent-static)]" : "text-[var(--primary)]",
           )}
         >
           <span className="truncate">{tile.setup.text}</span>
           <span className="shrink-0 font-semibold">· {t("connections.defaults.setUpLink")}</span>
         </span>
       ) : problem ? (
-        <span className="block truncate text-[0.625rem] text-[var(--warning)]">{tile.warning!.text}</span>
+        <span className="block truncate text-[0.625rem] text-[var(--marinara-app-accent-static)]">
+          {tile.warning!.text}
+        </span>
       ) : (
         tile.hint && <span className="block truncate text-[0.625rem] text-[var(--muted-foreground)]">{tile.hint}</span>
       )}
@@ -531,7 +533,7 @@ export function ConnectionDefaultsDetail({
       {problem && (
         <div
           role="status"
-          className="flex items-center gap-2 rounded-lg bg-[var(--warning)]/10 px-2.5 py-1.5 text-[0.6875rem] text-[var(--warning)]"
+          className="flex items-center gap-2 rounded-lg bg-[var(--marinara-app-accent-static)]/10 px-2.5 py-1.5 text-[0.6875rem] text-[var(--marinara-app-accent-static)]"
         >
           <AlertTriangle size="0.75rem" className="shrink-0" />
           <span className="min-w-0 flex-1">

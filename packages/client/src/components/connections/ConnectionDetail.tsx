@@ -211,7 +211,7 @@ export function ConnectionDetail({
           role="status"
           className={cn(
             "text-[0.6875rem]",
-            test.data?.success ? "text-[var(--muted-foreground)]" : "text-[var(--warning)]",
+            test.data?.success ? "text-[var(--muted-foreground)]" : "text-[var(--marinara-app-accent-static)]",
           )}
         >
           {test.data
@@ -225,7 +225,7 @@ export function ConnectionDetail({
       {account.state !== "ok" && (
         <div
           role="status"
-          className="flex items-center gap-2 rounded-lg bg-[var(--warning)]/10 px-2.5 py-1.5 text-[0.6875rem] text-[var(--warning)]"
+          className="flex items-center gap-2 rounded-lg bg-[var(--marinara-app-accent-static)]/10 px-2.5 py-1.5 text-[0.6875rem] text-[var(--marinara-app-accent-static)]"
         >
           <AlertTriangle size="0.75rem" className="shrink-0" />
           <span className="min-w-0 flex-1">
@@ -262,7 +262,7 @@ export function ConnectionDetail({
           <span
             className={cn(
               "text-right text-[0.625rem]",
-              account.state === "ok" ? "text-[var(--muted-foreground)]" : "text-[var(--warning)]",
+              account.state === "ok" ? "text-[var(--muted-foreground)]" : "text-[var(--marinara-app-accent-static)]",
             )}
           >
             {hint}
@@ -274,7 +274,10 @@ export function ConnectionDetail({
               {t("connections.accounts.noModels")}
             </p>
           )}
-          {subgroupByUpstream(rows).map((group) => (
+          {/* By model id: the groups and rows keep their places when a star or an edit touches a Model. */}
+          {subgroupByUpstream(
+            [...rows].sort((a, b) => (a.model ?? "").localeCompare(b.model ?? "") || a.id.localeCompare(b.id)),
+          ).map((group) => (
             <div key={group.upstream ?? ""} className="flex flex-col gap-0.5">
               {group.upstream && (
                 <p className="px-2 pt-2 text-[0.6875rem] font-medium text-[var(--muted-foreground)]">

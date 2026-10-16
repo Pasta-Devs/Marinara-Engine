@@ -98,14 +98,19 @@ const QUANT_LABEL: Record<SidecarQuantization, string> = { q4_k_m: "Q4", q8_0: "
 export type EngineTone = "ok" | "warn" | "off";
 export const TONE_DOT: Record<EngineTone, string> = {
   ok: "bg-emerald-400",
-  warn: "bg-[var(--warning)]",
+  warn: "bg-[var(--marinara-app-accent-static)]",
   off: "bg-[var(--muted-foreground)]",
 };
 
 /** A coloured dot and one word, the state on a row or a hero. */
 export function StateWord({ tone, label }: { tone: EngineTone; label: string }) {
   return (
-    <span className={cn("inline-flex shrink-0 items-center gap-1", tone === "warn" && "text-[var(--warning)]")}>
+    <span
+      className={cn(
+        "inline-flex shrink-0 items-center gap-1",
+        tone === "warn" && "text-[var(--marinara-app-accent-static)]",
+      )}
+    >
       <span aria-hidden className={cn("h-1.5 w-1.5 rounded-full", TONE_DOT[tone])} />
       {label}
     </span>
@@ -434,8 +439,11 @@ function LocalModelDetail({ onOpenDefaults }: { onOpenDefaults: () => void }) {
       </div>
 
       {failed && (
-        <div className="rounded-lg border border-[var(--warning)]/20 bg-[var(--warning)]/5 p-2.5" role="alert">
-          <div className="text-[0.6875rem] font-medium text-[var(--warning)]">
+        <div
+          className="rounded-lg border border-[var(--marinara-app-accent-static)]/20 bg-[var(--marinara-app-accent-static)]/5 p-2.5"
+          role="alert"
+        >
+          <div className="text-[0.6875rem] font-medium text-[var(--marinara-app-accent-static)]">
             {localizeUi("ui.panels.sidecarcard.localRuntimeUnavailable")}
           </div>
           <div className="mt-1 text-[0.6875rem] text-[var(--muted-foreground)]">
@@ -494,8 +502,8 @@ function LocalModelDetail({ onOpenDefaults }: { onOpenDefaults: () => void }) {
         </FactRow>
       </section>
 
-      <div className="rounded-lg border border-[var(--warning)]/30 bg-[var(--warning)]/10 p-2.5">
-        <div className="flex items-center gap-2 text-xs font-semibold text-[var(--warning)]">
+      <div className="rounded-lg border border-[var(--marinara-app-accent-static)]/30 bg-[var(--marinara-app-accent-static)]/10 p-2.5">
+        <div className="flex items-center gap-2 text-xs font-semibold text-[var(--marinara-app-accent-static)]">
           <AlertTriangle size="0.875rem" className="shrink-0" />
           {localizeUi("ui.panels.sidecarcard.localModelIsNotForRoleplay")}
         </div>
@@ -737,7 +745,7 @@ export function LocalWhisper() {
         </div>
       )}
       {speechError && (
-        <div className="mt-2 rounded-md border border-[var(--warning)]/20 bg-[var(--warning)]/10 px-2 py-1.5 text-[0.625rem] text-[var(--warning)]">
+        <div className="mt-2 rounded-md border border-[var(--marinara-app-accent-static)]/20 bg-[var(--marinara-app-accent-static)]/10 px-2 py-1.5 text-[0.625rem] text-[var(--marinara-app-accent-static)]">
           {speechError}
         </div>
       )}

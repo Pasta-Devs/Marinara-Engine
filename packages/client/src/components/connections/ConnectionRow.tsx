@@ -374,7 +374,7 @@ export function ConnectionRow({
                 className={cn(
                   "inline-flex shrink-0 items-center gap-1 rounded px-1 py-0.5 text-[0.5625rem] font-medium uppercase leading-none tracking-wide",
                   unavailable === "needs_key"
-                    ? "bg-[var(--warning)]/10 text-[var(--warning)]"
+                    ? "bg-[var(--marinara-app-accent-static)]/10 text-[var(--marinara-app-accent-static)]"
                     : "bg-[var(--secondary)] text-[var(--muted-foreground)]",
                 )}
               >

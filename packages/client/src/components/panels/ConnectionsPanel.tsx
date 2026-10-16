@@ -495,7 +495,7 @@ export function ConnectionsPanel() {
         <>
           <span className="truncate">{t("connections.list.main", { model: defaults.mainLabel })}</span>
           {problemCount > 0 && (
-            <span className="inline-flex shrink-0 items-center gap-1 text-[var(--warning)]">
+            <span className="inline-flex shrink-0 items-center gap-1 text-[var(--marinara-app-accent-static)]">
               <AlertTriangle size="0.6875rem" />
               {t("connections.list.problems", { count: problemCount })}
             </span>
