@@ -56,6 +56,10 @@ try {
   assert.deepEqual(await stars(a), ["gpt-a", "gpt-c"]);
   assert.equal(await starSavedModels(db), 0, "an unstar after the upgrade stays");
   assert.deepEqual(await stars(b), ["gpt-a", "gpt-c"]);
+  // A model saved later takes the shared stars; an empty list of its own would wipe them on its first star.
+  const d = await save(account, "gpt-d");
+  assert.deepEqual(await stars(d), ["gpt-a", "gpt-c"], "a new Model takes the shared stars");
+  assert.equal((await json("DELETE", `/accounts/${account}/models/${d}`)).status, 204);
 
   // A chat that uses the model keeps it as its catalog pick on a sibling Model.
   await db.insert(chats).values({ id: "chat-b", name: "B", mode: "conversation", connectionId: b });
@@ -80,8 +84,15 @@ try {
   await db.update(apiConnections).set({ name: "My GPT" }).where(eq(apiConnections.id, c));
   assert.equal((await json("DELETE", `/accounts/${account}/models/${c}`)).data.reason, "settings");
   await db.update(apiConnections).set({ name: "gpt-c" }).where(eq(apiConnections.id, c));
+  // A Model that borrows its key (a Decision connection) keeps it.
+  await db.update(apiConnections).set({ credentialsFromConnectionId: c }).where(eq(apiConnections.id, a));
+  assert.equal((await json("DELETE", `/accounts/${account}/models/${c}`)).data.reason, "in_use");
+  await db.update(apiConnections).set({ credentialsFromConnectionId: null }).where(eq(apiConnections.id, a));
   // A feature that uses it keeps it.
-  await createAppSettingsStorage(db).set(FEATURE_MODEL_CONNECTIONS_SETTINGS_KEY, JSON.stringify({ mariConnectionId: c }));
+  await createAppSettingsStorage(db).set(
+    FEATURE_MODEL_CONNECTIONS_SETTINGS_KEY,
+    JSON.stringify({ mariConnectionId: c }),
+  );
   assert.equal((await json("DELETE", `/accounts/${account}/models/${c}`)).data.reason, "in_use");
   await createAppSettingsStorage(db).set(FEATURE_MODEL_CONNECTIONS_SETTINGS_KEY, "{}");
   assert.equal((await json("DELETE", `/accounts/${account}/models/${c}`)).status, 204, "nothing keeps it any more");

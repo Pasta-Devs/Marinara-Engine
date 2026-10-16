@@ -81,7 +81,7 @@ async function download(site: string): Promise<{ buffer: Buffer; type: string } 
         // The site's own host only: a redirect to any other host is refused.
         policy: {
           allowLocal: isProviderLocalUrlsEnabled(),
-          allowLoopback: true,
+          allowLoopback: isProviderLocalUrlsEnabled(),
           allowedProtocols: ["https:", "http:"],
           allowedHostnames: [host],
           maxRedirects: 3,
@@ -159,12 +159,14 @@ export async function readProviderIcon(site: string): Promise<{ buffer: Buffer; 
 /** Once after the upgrade: one fetch per existing Connection's site, one at a time, in the background. */
 export async function backfillProviderIcons(db: DB): Promise<void> {
   const settings = createAppSettingsStorage(db);
-  if ((await settings.get(BACKFILL_MARKER_KEY)) === "true") return;
-  await settings.set(BACKFILL_MARKER_KEY, "true");
+  // Turned off: no marker either, so the backfill runs on the first start after the setting is turned on.
+  if ((await settings.get(BACKFILL_MARKER_KEY)) === "true" || !(await providerIconsEnabled(db))) return;
   const sites = new Set<string>();
   for (const account of await db.select().from(connectionAccounts)) {
     const site = providerIconSite(account.provider, account.baseUrl);
     if (site) sites.add(site);
   }
+  // Known sites (an icon or a cached failure) are skipped, so a backfill cut short only fetches the rest next start.
   for (const site of sites) await ensureProviderIcon(db, site).catch(() => false);
+  await settings.set(BACKFILL_MARKER_KEY, "true");
 }

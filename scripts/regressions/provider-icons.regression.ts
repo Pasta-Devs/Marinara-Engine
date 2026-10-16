@@ -1,6 +1,7 @@
 // Provider icons, decision 34b: a site's icon is fetched once and cached in DATA_DIR; a failure is cached too and not
 // retried until "Refresh icon" (force); the setting turns every fetch off; only image bytes from the site's own host
-// are kept (a redirect to another host, a non-image type and an oversized body all fail).
+// are kept (a redirect to another host, a non-image type and an oversized body all fail); the upgrade backfill runs
+// once, and not while the setting is off.
 import assert from "node:assert/strict";
 import { mkdtempSync, rmSync } from "node:fs";
 import { createServer } from "node:http";
@@ -14,6 +15,8 @@ process.env.PROVIDER_LOCAL_URLS_ENABLED = "true";
 const { getDB, closeDB } = await import("../../packages/server/src/db/connection.js");
 const icons = await import("../../packages/server/src/services/connections/provider-icons.js");
 const { createAppSettingsStorage } = await import("../../packages/server/src/services/storage/app-settings.storage.js");
+const { createConnectionAccountsStorage } =
+  await import("../../packages/server/src/services/storage/connection-accounts.storage.js");
 const { providerIconSite } = await import("../../packages/shared/src/index.js");
 
 const PNG = Buffer.from(
@@ -83,6 +86,21 @@ try {
   assert.equal(await icons.ensureProviderIcon(db, site("other"), true), false);
   assert.equal(count("other"), 0, "nothing is fetched while the setting is off");
   assert.deepEqual(await icons.listProviderIcons(db), {}, "and no icon is shown");
+
+  // ── The upgrade backfill: nothing (and no marker) while off; once turned on, one fetch per site, once ──
+  await createConnectionAccountsStorage(db).create({
+    provider: "custom",
+    name: "Stub",
+    baseUrl: `http://127.0.0.1:${port}/v1`,
+  } as Parameters<ReturnType<typeof createConnectionAccountsStorage>["create"]>[0]);
+  const rootHits = () => hits.filter((hit) => hit === "/apple-touch-icon.png").length;
+  await icons.backfillProviderIcons(db);
+  assert.equal(rootHits(), 0, "no backfill while the setting is off");
+  await createAppSettingsStorage(db).set(icons.PROVIDER_ICONS_ENABLED_SETTINGS_KEY, "true");
+  await icons.backfillProviderIcons(db);
+  assert.equal(rootHits(), 1, "turned on, the next start fetches the Connection's site");
+  await icons.backfillProviderIcons(db);
+  assert.equal(rootHits(), 1, "and only once");
 
   console.log("provider-icons regression passed");
 } finally {

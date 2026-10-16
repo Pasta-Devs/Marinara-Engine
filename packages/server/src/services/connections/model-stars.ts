@@ -51,7 +51,10 @@ export async function modelKeepReason(db: DB, row: ConnectionRow): Promise<Model
     (peer: ConnectionRow) => peer.id !== row.id,
   );
   if (!peers.some((peer: ConnectionRow) => isChatProvider(peer.provider))) return "last";
-  if (peers.some((peer: ConnectionRow) => peer.embeddingConnectionId === row.id)) return "in_use";
+  // Any Model may point here: an embedding source, or a Decision connection that borrows this key.
+  const pointsHere = (other: ConnectionRow) =>
+    other.embeddingConnectionId === row.id || other.credentialsFromConnectionId === row.id;
+  if (((await db.select().from(apiConnections)) as ConnectionRow[]).some(pointsHere)) return "in_use";
   const settings = createAppSettingsStorage(db);
   if ((await settings.get(DEFAULT_EMBEDDING_CONNECTION_SETTINGS_KEY)) === row.id) return "in_use";
   if (names(await settings.get(FEATURE_MODEL_CONNECTIONS_SETTINGS_KEY), row.id)) return "in_use";
@@ -85,7 +88,15 @@ export async function starSavedModels(db: DB): Promise<number> {
     for (const rows of groups.values()) {
       const current = [...new Set(rows.flatMap((row) => parsePinnedModels(row.pinnedModels)))];
       const added = rows.map((row) => row.model.trim()).filter((model) => model && !current.includes(model));
-      const next = [...new Set([...current, ...added])].slice(0, MAX_PINNED_MODELS);
+      const all = [...new Set([...current, ...added])];
+      const next = all.slice(0, MAX_PINNED_MODELS);
+      if (all.length > next.length) {
+        logger.warn(
+          "[migration] %d saved model(s) stay unstarred: over the cap of %d stars",
+          all.length - next.length,
+          MAX_PINNED_MODELS,
+        );
+      }
       starred += next.length - current.length;
       for (const row of rows) {
         if (row.pinnedModels === JSON.stringify(next)) continue;

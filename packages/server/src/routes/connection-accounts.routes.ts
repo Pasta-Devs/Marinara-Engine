@@ -213,7 +213,8 @@ export async function connectionAccountsRoutes(app: FastifyInstance) {
       if (!row) return null;
       await connections.setModelPinned(row.id, row.model, false);
       const updated = await linkedModel(req.params.id, row.id);
-      return { removable: !!updated && (await modelKeepReason(app.db, updated)) === null };
+      const reason = updated ? await modelKeepReason(app.db, updated) : null;
+      return { removable: !!updated && reason === null, reason };
     });
     if (!result) return reply.status(404).send({ error: "Model not found" });
     return result;
@@ -236,7 +237,10 @@ export async function connectionAccountsRoutes(app: FastifyInstance) {
   });
 
   // ── Provider icons (decision 34b): only cached icons are served; reading never fetches. ──
-  const iconState = async () => ({ enabled: await providerIconsEnabled(app.db), icons: await listProviderIcons(app.db) });
+  const iconState = async () => ({
+    enabled: await providerIconsEnabled(app.db),
+    icons: await listProviderIcons(app.db),
+  });
 
   app.get("/icons", iconState);
 

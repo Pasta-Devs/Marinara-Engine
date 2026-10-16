@@ -463,7 +463,8 @@ export function createConnectionsStorage(db: DB) {
           .sort((a, b) => (b.updatedAt ?? "").localeCompare(a.updatedAt ?? ""))[0];
         if (peer) {
           values.savedModels = peer.savedModels;
-          if (!input.pinnedModels) values.pinnedModels = peer.pinnedModels;
+          // The schema defaults the pins to [], so an empty list also takes the shared one.
+          if (!input.pinnedModels?.length) values.pinnedModels = peer.pinnedModels;
         }
       } else if (account) {
         logger.warn("[connections] Model endpoint is outside account %s: creating a standalone Model", account.id);
@@ -931,7 +932,9 @@ export function createConnectionsStorage(db: DB) {
                 model: row.model,
                 ...(row.name.trim() && row.name !== row.model ? { name: row.name.trim().slice(0, 200) } : {}),
                 ...(row.maxContext >= 1 ? { maxContext: row.maxContext } : {}),
-                ...(row.maxTokensOverride && row.maxTokensOverride >= 1 ? { maxTokensOverride: row.maxTokensOverride } : {}),
+                ...(row.maxTokensOverride && row.maxTokensOverride >= 1
+                  ? { maxTokensOverride: row.maxTokensOverride }
+                  : {}),
               }
             : null;
         return sweepDanglingConnectionReferences(tx, id, carrier?.id ?? null, keptPick);
