@@ -140,6 +140,7 @@ Roleplay 그룹 채팅에서는 `/guided respond for [name] [direction (optional
 |---|---|
 | `/games` | 설치된 Conversation 게임 선택기를 엽니다. `/game`과 `/play`도 같은 동작을 합니다. |
 | `/selfie [name (optional)]` | 설치된 Illustrator 에이전트로 셀피를 생성합니다. 이름을 붙이면 캐릭터를 선택할 수 있습니다. |
+| `/video [name (optional)]` | 채팅의 **Video messages**(동영상 메시지) 설정에 따라 캐릭터가 짧은 동영상 메시지를 보내게 합니다. 이름을 붙이면 캐릭터를 선택할 수 있습니다. [동영상 메시지](../conversation/selfies.md#video-messages)를 참고하세요. |
 | `/uno` | 채팅에 있는 캐릭터들과 UNO 게임을 시작합니다. |
 | `/chess` | 캐릭터 한 명과 일대일 체스 게임을 시작합니다. |
 | `/poker` | 캐릭터들과 텍사스 홀덤 포커 게임을 시작합니다. |

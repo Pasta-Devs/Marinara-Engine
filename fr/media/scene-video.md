@@ -4,7 +4,7 @@ Ce guide explique comment Marinara Engine transforme l'illustration d'une scène
 
 ## À quoi sert la vidéo de scène
 
-Une vidéo de scène part d'une image déjà présente dans la galerie et l'anime en un court clip MP4. L'image fixe devient la première image du clip, et l'IA ajoute le mouvement. Les vidéos de scène fonctionnent dans les chats **Roleplay** et **Game Mode**.
+Une vidéo de scène part d'une image déjà présente dans la galerie et l'anime en un court clip MP4. L'image fixe devient la première image du clip, et l'IA ajoute le mouvement. Les vidéos de scène fonctionnent dans les chats **Roleplay** et **Game Mode**. Les chats en mode Conversation envoient plutôt des messages vidéo ; voir [Messages vidéo](../conversation/selfies.md#video-messages).
 
 Il faut toujours une image au départ. La génération de vidéos de scène ne part jamais d'un simple texte. Génère ou téléverse une image dans la galerie avant de pouvoir l'animer.
 
@@ -80,7 +80,7 @@ Les huit services fabriquent tous de courts clips à partir de l'image. Ils diff
 - **xAI Imagine** : clips de 1 à 15 secondes. La limite de longueur du prompt y est plus basse que sur les autres services.
 - **OpenRouter Video** : de 1 à 60 secondes, avec la possibilité de saisir n'importe quel modèle vidéo pris en charge par ton compte OpenRouter.
 - **NanoGPT** : de 1 à 60 secondes. Il n'a pas de modèle par défaut : charge les modèles vidéo de NanoGPT avec **Fetch Models from API** et choisis-en un.
-- **Atlas Cloud** : **Fetch Models** (Récupérer les modèles) charge le catalogue vidéo actuel d’Atlas Cloud, avec les modèles image-vers-vidéo en premier et leur tarif de départ par seconde de vidéo. Si le catalogue est inaccessible, Marinara propose les modèles de départ Veo 3.1 et Seedance 2.0. Tu peux aussi saisir l’identifiant exact d’un modèle vidéo Atlas Cloud ; ses limites de durée, de résolution et d’images de référence s’appliquent toujours.
+- **Atlas Cloud** : **Fetch Models** (Récupérer les modèles) charge le catalogue vidéo actuel d'Atlas Cloud, avec les modèles image-vers-vidéo en premier et leur tarif de départ par seconde de vidéo. Si le catalogue est inaccessible, Marinara propose les modèles de départ Veo 3.1 et Seedance 2.0. Tu peux aussi saisir l'identifiant exact d'un modèle vidéo Atlas Cloud ; ses limites de durée, de résolution et d'images de référence s'appliquent toujours.
 - **Seedance 2.0** : clips de 4 à 15 secondes, avec les modes première image et première et dernière image. Il lui faut un lien public vers l'image de référence.
 - **ComfyUI** : génération en local via ton propre workflow au format API. Marinara téléverse l'image de référence directement vers ComfyUI quand le workflow utilise `%reference_image_name%`.
 - **SwarmUI** : génération en local via ton propre workflow au format API, transmis par ton serveur SwarmUI. L'image de référence entre dans le workflow via `%reference_image%`.
@@ -89,34 +89,34 @@ Attends-toi à ce que les tâches vidéo prennent du temps. Le fournisseur lance
 
 ### Différences entre les modèles Atlas Cloud
 
-Les modèles Atlas Cloud n’acceptent pas tous les mêmes réglages. Avant chaque requête, Marinara lit le schéma d’entrée publié du modèle sur `static.atlascloud.ai` et y adapte les valeurs par défaut de ta connexion :
+Les modèles Atlas Cloud n'acceptent pas tous les mêmes réglages. Avant chaque requête, Marinara lit le schéma d'entrée publié du modèle sur `static.atlascloud.ai` et y adapte les valeurs par défaut de ta connexion :
 
-- L’illustration source est envoyée dans le champ d’image utilisé par ce modèle.
+- L'illustration source est envoyée dans le champ d'image utilisé par ce modèle.
 - La durée du clip est ramenée à la durée proposée la plus proche. Un modèle limité à 5 ou 10 secondes transforme une valeur par défaut de 8 secondes en 10 secondes.
 - La résolution est ramenée au niveau proposé le plus proche. Les modèles qui attendent des dimensions en pixels reçoivent le `width*height` le plus proche pour ton format et ta résolution.
-- Un réglage absent du modèle est omis, afin que sa propre valeur par défaut s’applique.
+- Un réglage absent du modèle est omis, afin que sa propre valeur par défaut s'applique.
 
-Le journal du serveur énumère les valeurs modifiées dans une ligne commençant par `[video-gen/atlas-cloud] fitted request`. Si le schéma est illisible, Marinara envoie la même requête générale qu’auparavant.
+Le journal du serveur énumère les valeurs modifiées dans une ligne commençant par `[video-gen/atlas-cloud] fitted request`. Si le schéma est illisible, Marinara envoie la même requête générale qu'auparavant.
 
-Choisis un modèle **image-to-video** (image-vers-vidéo) pour les vidéos de scène. Un modèle texte-vers-vidéo n’a pas de champ d’image : il ignore donc ton illustration et produit un autre clip à partir du seul prompt. Le serveur le signale dans son journal.
+Choisis un modèle **image-to-video** (image-vers-vidéo) pour les vidéos de scène. Un modèle texte-vers-vidéo n'a pas de champ d'image : il ignore donc ton illustration et produit un autre clip à partir du seul prompt. Le serveur le signale dans son journal.
 
 **Test Video** (Tester la vidéo) envoie un simple dégradé comme première image lorsque le modèle Atlas Cloud choisi exige une image. Les modèles image-vers-vidéo peuvent ainsi réussir le test de connexion.
 
 ### Options des modèles Atlas Cloud
 
-De nombreux modèles Atlas Cloud ont leurs propres entrées, comme `negative_prompt`, `seed`, `generate_audio`, `shot_type`, `enable_prompt_expansion` ou des listes de LoRA. L’éditeur de connexion les affiche pour le modèle choisi :
+De nombreux modèles Atlas Cloud ont leurs propres entrées, comme `negative_prompt`, `seed`, `generate_audio`, `shot_type`, `enable_prompt_expansion` ou des listes de LoRA. L'éditeur de connexion les affiche pour le modèle choisi :
 
 1. Ouvre la connexion Atlas Cloud et choisis ou saisis un modèle.
 2. Déplie **Video Defaults** (Valeurs par défaut des vidéos), puis **Atlas Cloud setup** (Configuration Atlas Cloud).
 3. Cherche **Model options** (Options du modèle) sous les réglages de durée, de format et de résolution.
 
-En haut de **Model options** figurent les durées, résolutions, dimensions d’image et formats acceptés par le modèle. Un modèle texte-vers-vidéo y affiche aussi un avertissement, car il ne peut pas utiliser l’image de ta galerie.
+En haut de **Model options** figurent les durées, résolutions, dimensions d'image et formats acceptés par le modèle. Un modèle texte-vers-vidéo y affiche aussi un avertissement, car il ne peut pas utiliser l'image de ta galerie.
 
-Chaque option reprend exactement le nom et la description donnés par Atlas Cloud. Toutes commencent sur **Model default** (Valeur par défaut du modèle), avec la valeur du fournisseur entre parenthèses. Une option laissée sur **Model default** n’est pas envoyée : Atlas Cloud décide. Modifie une option pour envoyer ta valeur avec chaque vidéo de cette connexion, y compris **Test Video**. Les listes et objets, comme les LoRA, se saisissent en JSON.
+Chaque option reprend exactement le nom et la description donnés par Atlas Cloud. Toutes commencent sur **Model default** (Valeur par défaut du modèle), avec la valeur du fournisseur entre parenthèses. Une option laissée sur **Model default** n'est pas envoyée : Atlas Cloud décide. Modifie une option pour envoyer ta valeur avec chaque vidéo de cette connexion, y compris **Test Video**. Les listes et objets, comme les LoRA, se saisissent en JSON.
 
 Les choix sont enregistrés par modèle : passer à un autre modèle puis revenir conserve les options de chacun. **Reset model options** (Réinitialiser les options du modèle) efface les choix du modèle actuel. Clique sur **Save** (Enregistrer) dans la connexion pour conserver tes modifications.
 
-Si une option enregistrée ne correspond plus au modèle, par exemple après une modification des entrées par Atlas Cloud, Marinara l’omet de la requête et la nomme dans la ligne `[video-gen/atlas-cloud] fitted request` du journal.
+Si une option enregistrée ne correspond plus au modèle, par exemple après une modification des entrées par Atlas Cloud, Marinara l'omet de la requête et la nomme dans la ligne `[video-gen/atlas-cloud] fitted request` du journal.
 
 ## Générer une vidéo depuis la galerie
 
@@ -132,6 +132,8 @@ Pour animer l'image la plus récente :
 4. Le bouton devient **Generating...**, et une bannière signale que la génération de vidéos est en cours.
 5. Une fois terminé, le clip apparaît sous l'onglet **Videos**.
 
+En **Roleplay**, le clip terminé se lit aussi directement dans le chat, sous la dernière réponse, même si l'image vient d'une réponse plus ancienne. Les clips ne s'ouvrent plus d'eux-mêmes dans une fenêtre flottante. Pour en faire flotter un, utilise **Pin video to chat** (épingler la vidéo au chat) sous l'onglet **Videos**. Retire un clip d'un message avec son bouton **X** ; il reste dans la galerie.
+
 Pour animer une image précise plutôt que la plus récente :
 
 1. Ouvre l'onglet **Images**.
@@ -140,7 +142,7 @@ Pour animer une image précise plutôt que la plus récente :
 
 La même fenêtre **Review Video Prompt** (relire le prompt vidéo) s'affiche pour **Animate illustration** quand la relecture du prompt est activée. Elle montre le prompt exact compilé par le serveur, la durée, le format d'image et la résolution qui seront utilisés pour l'image sélectionnée. Ta modification ne vaut que pour cette génération. En Roleplay, les instructions réutilisables qui produisent ce prompt se règlent à part, avec **Roleplay Gallery Animation Director**, sous **Settings**, **Generations**, **Video Generation Prompt Overrides**.
 
-Sous l'onglet **Videos**, chaque clip se lit directement dans la page et affiche sa durée et le nom du modèle. Épingle un clip avec **Pin video to chat** (épingler la vidéo au chat), ou enregistre-le avec **Download scene video** (télécharger la vidéo de scène). S'il n'y a encore aucun clip, l'onglet affiche **No videos yet**.
+Sous l'onglet **Videos**, chaque clip se lit directement dans la page et affiche sa durée et le nom du modèle. Épingle un clip avec **Pin video to chat**, ou enregistre-le avec **Download scene video** (télécharger la vidéo de scène). S'il n'y a encore aucun clip, l'onglet affiche **No videos yet**.
 
 Si tu tentes de créer une vidéo alors que le chat ne contient aucune image, Marinara affiche ce message : "Add or generate a gallery image before generating a scene video." Génère ou téléverse d'abord une image, puis réessaie.
 

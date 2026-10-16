@@ -140,6 +140,7 @@
 |---|---|
 | `/games` | 打开已安装的 Conversation 游戏选择器。`/game` 和 `/play` 的作用相同。 |
 | `/selfie [name (optional)]` | 通过已安装的 Illustrator 智能体生成自拍。加上名字即可选择角色。 |
+| `/video [name (optional)]` | 让角色给你发一条短视频消息，使用的是这个聊天的 **Video messages**(视频消息) 设置。加上名字即可选择角色。见[视频消息](../conversation/selfies.md#video-messages)。 |
 | `/uno` | 和聊天里的角色开一局 UNO。 |
 | `/chess` | 和一个角色单挑国际象棋。 |
 | `/poker` | 和聊天里的角色开一局德州扑克。 |

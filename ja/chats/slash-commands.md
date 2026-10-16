@@ -140,6 +140,7 @@ Roleplayのグループチャットでは、`/guided respond for [name] [directi
 |---|---|
 | `/games` | インストール済みのConversationゲームの選択画面を開きます。`/game`と`/play`も同じ動作です。 |
 | `/selfie [name (optional)]` | インストール済みのIllustratorエージェントで自撮りを生成します。名前を付けるとキャラクターを指定できます。 |
+| `/video [name (optional)]` | チャットの**Video messages**(動画メッセージ)の設定を使い、キャラクターに短い動画メッセージを送ってもらいます。名前を付けるとキャラクターを指定できます。[動画メッセージ](../conversation/selfies.md#video-messages)を参照してください。 |
 | `/uno` | チャットにいるキャラクターとUNOのゲームを始めます。 |
 | `/chess` | キャラクターと1対1のチェスを始めます。 |
 | `/poker` | キャラクターとテキサスホールデムポーカーを始めます。 |

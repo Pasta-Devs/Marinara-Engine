@@ -97,6 +97,23 @@ Here is a picture from my walk!
 
 自拍完成后会看到一条“Selfie generated.”消息，图片随之出现在聊天里。手动请求同样走选定的 **Selfie Connection**，因此也会消耗一次图像生成请求。
 
+<a id="video-messages"></a>
+
+## 视频消息
+
+角色也可以给你发一段短视频。输入 `/video`，或者输入 `/video Aster` 指定角色；也可以点击聊天 **Gallery** 里的 **Video**(视频)（胶片图标），这时由 Gallery 里选中的角色来发。只要装了 Illustrator，**Video** 就能用，即使自拍处于关闭状态也一样。短片会作为该角色的一条新消息发来，并直接在聊天里播放。用这种方式要来的短片，展示的是对话最新的一刻：撰写短片的 AI 读取的最近消息条数，和 Illustrator 生成图片时一样（即 Illustrator 的 **Agent Budget**(智能体预算) 里的上下文大小）。以自拍作为首帧时，读取的也是这些消息，所以短片同样从这一刻开始。之后的回复会看到一条简短的备注，写明短片里展示了什么。也可以让 Gallery 里的一张图片动起来：短片会接着这张图片往下演，由 Gallery 里选中的角色发出，并归入最新的一条回复。如果短片没能加进聊天，它仍会保存在 Gallery 的 **Videos**(视频) 选项卡下。
+
+相关设置位于 **Chat Settings**、**Agents**、**Illustrator Settings** 下的 **Video messages**(视频消息) 部分：
+
+- **Video Connection**(视频连接) 用来选择 Video Generation(视频生成) 连接。保持 **Default video connection**(默认视频连接) 即可使用你的默认连接。连接里的 **Video Prompting Instructions**(视频提示词指令) 会指导撰写视频提示词的 AI。
+- **First frame**(首帧) 用来选择短片从哪张图片开始：
+  - **New selfie, or the avatar if no selfie connection**(新自拍，没有自拍连接时用头像)（默认）会在自拍已开启且设置了 **Selfie Connection** 时拍一张新自拍，否则使用头像。
+  - **New selfie, then animate it**(先拍新自拍，再让它动起来) 总是先拍一张新自拍。这需要开启自拍并设置 **Selfie Connection**，拍好的自拍也会保存到 Gallery。开启 **Expose media prompts before sending** 时，你会把自拍的提示词和短片的提示词放在一起检查。
+  - **Avatar or sprite**(头像或立绘) 从角色的头像开始；没有头像时，改用全身立绘。
+  - **Prompt only (no picture)**(只用提示词，不带图片) 不发送图片，视频模型只根据提示词生成。有些 ComfyUI 工作流必须有图片，没有就会失败。
+
+其他格式的图片（比如 WebP）会先转换成视频服务能用的格式。一条视频消息会发出一次视频请求；如果从新自拍开始，还会多发一次图像请求。撰写提示词的 AI 就是你的 **Prompt Model**，它的指令位于 **Settings**、**Generations**、**Video Generation Prompt Overrides**(视频生成提示词覆盖)、**Conversation Video Message**(Conversation 视频消息)。
+
 ## 相关指南
 
 - [Conversation 模式：入门](getting-started.md)

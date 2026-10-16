@@ -97,6 +97,23 @@ Here is a picture from my walk!
 
 自撮り写真ができあがると「Selfie generated.」というメッセージが表示され、画像がチャットに現れます。この手動のリクエストも、選んだ**Selfie Connection**を使うため、画像生成リクエストを1回消費します。
 
+<a id="video-messages"></a>
+
+## 動画メッセージ
+
+キャラクターに短い動画クリップを送ってもらうこともできます。`/video`と入力するか、キャラクターを指定して`/video Aster`のように入力します。または、チャットの**Gallery**(ギャラリー)にある、フィルムのアイコンの**Video**(動画)ボタンをクリックします。この場合は、Galleryで選んでいるキャラクターが送ります。**Video**は、Illustratorがインストールされていれば、自撮り写真がオフでも使えます。クリップはそのキャラクターからの新しいメッセージとして届き、チャットの中で再生されます。この方法で頼んだクリップには、会話のいちばん新しい場面が映ります。クリップのプロンプトを書くAIは、Illustratorが画像を作るときと同じ数の直近のメッセージを読みます。この数は、Illustratorの**Agent Budget**(エージェントの割り当て)のコンテキストサイズです。最初のフレームに自撮り写真を使う場合も同じメッセージを読むため、クリップもその場面から始まります。以降の返信を書くAIには、クリップに映っている内容を伝える短いメモが見えます。Galleryの画像を動かすこともできます。その場合、クリップはその画像の続きになり、Galleryで選んでいるキャラクターが送り、いちばん新しい返信に追加されます。クリップをチャットに追加できなかった場合も、Galleryの**Videos**(動画)タブには保存されます。
+
+設定は、**Chat Settings**(チャット設定)、**Agents**、**Illustrator Settings**の**Video messages**(動画メッセージ)セクションで行います。
+
+- **Video Connection**(動画の接続)では、Video Generationの接続を選びます。デフォルトの接続を使うなら、**Default video connection**のままにしておきます。接続の**Video Prompting Instructions**(動画プロンプトの作成指示)が、動画のプロンプトを書くAIへの指示になります。
+- **First frame**(最初のフレーム)では、クリップの始まりになる画像を選びます。
+  - **New selfie, or the avatar if no selfie connection**(デフォルト)は、自撮り写真がオンで**Selfie Connection**が設定されていれば新しい自撮り写真を作り、そうでなければアバターを使います。
+  - **New selfie, then animate it**は、必ず先に新しい自撮り写真を作ります。自撮り写真がオンで、**Selfie Connection**が設定されている必要があります。作った自撮り写真はGalleryにも保存されます。**Expose media prompts before sending**(送信前にメディアのプロンプトを表示)がオンの場合は、自撮り写真のプロンプトをクリップのプロンプトと一緒に確認します。
+  - **Avatar or sprite**は、キャラクターのアバターから始めます。アバターがない場合は全身スプライトを使います。
+  - **Prompt only (no picture)**は画像を送らないため、動画モデルはプロンプトだけをもとに動画を作ります。ComfyUIのワークフローの中には画像を必要とするものがあり、画像がないと失敗します。
+
+WebPなど、ほかの形式の画像は動画サービス向けに変換されます。動画メッセージ1件につき、動画のリクエストが1回発生します。新しい自撮り写真から始める場合は、さらに画像のリクエストが1回発生します。プロンプトを書くAIは**Prompt Model**(プロンプトモデル)で選んだモデルで、その指示は**Settings**、**Generations**、**Video Generation Prompt Overrides**、**Conversation Video Message**にあります。
+
 ## 関連ガイド
 
 - [Conversationモード: はじめに](getting-started.md)
