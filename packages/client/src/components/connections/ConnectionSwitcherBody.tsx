@@ -37,6 +37,7 @@ import {
 import { accountStateLabel, groupModelsByAccount, recentModels, subgroupByUpstream } from "../../lib/connection-groups";
 import { cn } from "../../lib/utils";
 import { ConnectionModelPicker } from "./ConnectionModelPicker";
+import { openAddModels } from "../../lib/add-connection";
 import { SubscriptionUsageWidget } from "./SubscriptionUsageWidget";
 
 type SwitcherRow = {
@@ -477,11 +478,6 @@ export function ConnectionSwitcherBody({
 
   useEffect(() => setHighlight(0), [deferredQuery]);
 
-  const showModels = (group: SwitcherGroup) => {
-    setShownKey(group.key);
-    setStep("models");
-  };
-
   const renderEntry = (entry: Entry, index?: number, trailing?: ReactNode) => {
     const isCurrent = sameChoice(entry.choice, current);
     const highlighted = index !== undefined && index === highlight;
@@ -605,7 +601,19 @@ export function ConnectionSwitcherBody({
             <button
               type="button"
               data-switcher-browse={group.key}
-              onClick={() => showModels(group)}
+              // The big model screen for this Connection (decision 32); the menu closes under it.
+              onClick={() => {
+                const anchor = anchorOf(group);
+                onDone();
+                openAddModels({
+                  accountId: group.account!.id,
+                  connectionId: anchor.id,
+                  chat: {
+                    currentModel: anchor === currentRow ? (current?.model ?? anchor.model ?? null) : null,
+                    onChoose: (choice) => (sameChoice(choice, current) ? Promise.resolve() : onApply(choice)),
+                  },
+                });
+              }}
               className={cn(ROW_CLASS, "text-foreground/65")}
             >
               <span className="min-w-0 flex-1 truncate">{t("connections.switcher.browseAll")}</span>

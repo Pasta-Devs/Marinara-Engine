@@ -17,9 +17,9 @@ import { useCreateConnection, useDuplicateConnection, useTestConnection } from "
 import { subgroupByUpstream, roleBadges } from "../../lib/connection-groups";
 import { isConnectionFlagTrue } from "../../lib/connection-filters";
 import { useUIStore } from "../../stores/ui.store";
+import { openAddModels } from "../../lib/add-connection";
 import { cn } from "../../lib/utils";
 import { SmoothFolderContent } from "../ui/SmoothFolderContent";
-import { ConnectionModelPicker } from "./ConnectionModelPicker";
 import { SubscriptionUsageWidget } from "./SubscriptionUsageWidget";
 import type { ConnectionRowData } from "./ConnectionRow";
 
@@ -61,7 +61,6 @@ export function ConnectionCard({
   const duplicate = useDuplicateConnection();
   const createConnection = useCreateConnection();
   const [open, setOpen] = useState(true);
-  const [adding, setAdding] = useState(false);
   const test = useTestConnection();
   const expanded = open || forceOpen;
 
@@ -229,8 +228,8 @@ export function ConnectionCard({
             <div className="mt-1 flex flex-wrap gap-1.5">
               <button
                 type="button"
-                onClick={() => setAdding((value) => !value)}
-                aria-expanded={adding}
+                data-add-model
+                onClick={() => openAddModels({ accountId: account.id, connectionId: chatRow.id })}
                 className="mari-chrome-control mari-chrome-control--small w-fit text-[0.6875rem] max-md:min-h-11"
               >
                 <Plus size="0.75rem" />
@@ -268,20 +267,6 @@ export function ConnectionCard({
               <Plus size="0.75rem" />
               {t("connections.accounts.addModel")}
             </button>
-          )}
-          {adding && chatRow && (
-            <div className="mt-1 flex h-[min(24rem,60dvh)] flex-col overflow-hidden rounded-lg ring-1 ring-foreground/10">
-              <ConnectionModelPicker
-                connection={chatRow}
-                accountName={account.name}
-                autoFocusSearch
-                footer={t("connections.accounts.addModelFooter")}
-                applyPick={async () => {
-                  toast.success(t("connections.accounts.modelAdded"));
-                }}
-                onPicked={() => setAdding(false)}
-              />
-            </div>
           )}
         </div>
       </SmoothFolderContent>

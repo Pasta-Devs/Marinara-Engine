@@ -28,6 +28,8 @@ import {
   mergeConnectionModelOptions,
 } from "../../lib/connection-model-selection";
 import { isConnectionFlagTrue } from "../../lib/connection-filters";
+import { formatCompactTokenCount } from "../../lib/professor-mari-context-budget";
+import { subgroupByUpstream } from "../../lib/connection-groups";
 import { SubscriptionCostPill } from "./SubscriptionCostPill";
 import { cn } from "../../lib/utils";
 
@@ -75,6 +77,11 @@ export function ConnectionModelPicker({
   accountName,
   footer,
   className,
+  recommended,
+  addMode = false,
+  onUnstar,
+  addedIds,
+  mainModelId,
 }: {
   connection: ModelPickerConnection;
   /** Shown before the title, such as the phone menu's back control. */
@@ -83,12 +90,12 @@ export function ConnectionModelPicker({
   showConnectionName?: boolean;
   /** Focus the search box on devices with a mouse (a phone keyboard would cover the list). */
   autoFocusSearch?: boolean;
-  onPicked?: () => void;
+  onPicked?: (modelId: string) => void;
   /**
    * Add model: a pick finds or saves the Model for that id under the Connection, then hands its id here.
    * Without it (and without `onChoose`) a pick edits `connection` in place.
    */
-  applyPick?: (connectionId: string) => Promise<void>;
+  applyPick?: (connectionId: string, modelId: string) => Promise<void>;
   /** Per-chat pick (decision 26): hands the model with its catalog limits to the host; nothing is saved. */
   onChoose?: (choice: ChatModelChoice) => Promise<void>;
   /** The Connection's name, shown in the header with `applyPick` or `onChoose`. */
@@ -96,6 +103,19 @@ export function ConnectionModelPicker({
   /** Replaces the footer line, for hosts where a pick does not touch a chat; null hides it (the host shows one). */
   footer?: string | null;
   className?: string;
+  /** Good first picks shown above Favorites (Add connection, vendors with a known list). */
+  recommended?: readonly PickerRow[];
+  /**
+   * The big Add model screen (decision 30/32): a pick also stars the model and a star adds it; rows show their
+   * context size and group by upstream; the host's heading replaces the title row.
+   */
+  addMode?: boolean;
+  /** Add mode: a star was taken off, so the host can drop a Model it added in this session. */
+  onUnstar?: (modelId: string) => void;
+  /** Models already added in this session; they get the same check as the current model. */
+  addedIds?: readonly string[];
+  /** The model that became the Main model, marked with a badge. */
+  mainModelId?: string | null;
 }) {
   const { t } = useTranslation();
   const [search, setSearch] = useState("");
@@ -143,25 +163,34 @@ export function ConnectionModelPicker({
   );
   const optionsById = useMemo(() => new Map(options.map((option) => [option.id, option])), [options]);
 
-  const { pinnedAll, othersAll } = useMemo(() => {
+  const { pinnedAll, othersAll, recommendedAll } = useMemo(() => {
     const pinnedSet = new Set(pinnedIds);
+    const recommendedRows = (recommended ?? [])
+      .filter((row) => !pinnedSet.has(row.id))
+      .map((row) => optionsById.get(row.id) ?? row);
+    const recommendedSet = new Set(recommendedRows.map((row) => row.id));
     // The current model stays visible even when the provider does not list it (a typed ID).
     const others: PickerRow[] =
       currentModel && !pinnedSet.has(currentModel) && !optionsById.has(currentModel)
         ? [{ id: currentModel, name: currentModel }]
         : [];
-    for (const option of options) if (!pinnedSet.has(option.id)) others.push(option);
-    return { pinnedAll: pinnedIds.map((id): PickerRow => optionsById.get(id) ?? { id, name: id }), othersAll: others };
-  }, [currentModel, options, optionsById, pinnedIds]);
+    for (const option of options) if (!pinnedSet.has(option.id) && !recommendedSet.has(option.id)) others.push(option);
+    return {
+      pinnedAll: pinnedIds.map((id): PickerRow => optionsById.get(id) ?? { id, name: id }),
+      othersAll: others,
+      recommendedAll: recommendedRows,
+    };
+  }, [currentModel, options, optionsById, pinnedIds, recommended]);
 
-  const { pinnedRows, otherRows, totalOther } = useMemo(() => {
+  const { recommendedRows, pinnedRows, otherRows, totalOther } = useMemo(() => {
     const filteredOthers = filterConnectionModelOptions(othersAll, deferredSearch);
     return {
+      recommendedRows: filterConnectionModelOptions(recommendedAll, deferredSearch),
       pinnedRows: filterConnectionModelOptions(pinnedAll, deferredSearch),
       otherRows: filteredOthers.slice(0, MAX_LISTED_MODELS),
       totalOther: filteredOthers.length,
     };
-  }, [deferredSearch, othersAll, pinnedAll]);
+  }, [deferredSearch, othersAll, pinnedAll, recommendedAll]);
 
   // What Enter does with the search text: an exact ID or name picks that model, a search with a single match
   // picks it, and only text that matches nothing is used as a model ID. Several matches wait for a choice.
@@ -169,7 +198,7 @@ export function ConnectionModelPicker({
   const { exactId, enterTarget, enterUsesTyped } = useMemo(() => {
     const typed = typedId.toLowerCase();
     if (!typed) return { exactId: null, enterTarget: null, enterUsesTyped: false };
-    const rows = [...pinnedAll, ...othersAll];
+    const rows = [...recommendedAll, ...pinnedAll, ...othersAll];
     const byId = rows.find((row) => row.id.toLowerCase() === typed) ?? null;
     const byName = rows.filter((row) => row.name.toLowerCase() === typed);
     const matches = filterConnectionModelOptions(rows, typedId);
@@ -179,14 +208,24 @@ export function ConnectionModelPicker({
       (matches.length === 1 ? matches[0]! : null) ??
       (matches.length === 0 ? { id: typedId, name: typedId } : null);
     return { exactId: byId, enterTarget: target, enterUsesTyped: matches.length === 0 };
-  }, [othersAll, pinnedAll, typedId]);
+  }, [othersAll, pinnedAll, recommendedAll, typedId]);
   // The typed text can always be used as it is from its own row; Enter uses it only when nothing matches.
   const showTypedRow = !!typedId && !exactId;
 
-  const pick = async (row: PickerRow) => {
+  // Add mode: what is picked is starred, so it stays in the Connection (decision 30).
+  const starPicked = (row: PickerRow) => {
+    if (!addMode || pinnedIds.includes(row.id)) return;
+    setPinned.mutate(
+      { id: connection.id, model: row.id, pinned: true },
+      { onError: (error) => toast.error(t("connections.favorite.failed", { error: errorMessage(error) })) },
+    );
+  };
+
+  const pick = async (row: PickerRow, viaStar = false) => {
     if (saving) return;
     try {
-      if (onChoose) {
+      // In add mode a star adds the model even where a tap only chooses it for the chat.
+      if (onChoose && !viaStar) {
         const fields = connectionFieldsForModelPick(provider, row);
         await onChoose({
           connectionId: connection.id,
@@ -194,7 +233,7 @@ export function ConnectionModelPicker({
           ...(row.name && row.name !== row.id ? { name: row.name } : {}),
         });
         setSearch("");
-        onPicked?.();
+        onPicked?.(row.id);
         return;
       }
       if (applyPick && connection.accountId) {
@@ -204,17 +243,19 @@ export function ConnectionModelPicker({
           ...connectionFieldsForModelPick(provider, row),
           name: row.name || undefined,
         });
-        await applyPick(connectionId);
+        await applyPick(connectionId, row.id);
+        starPicked(row);
         setSearch("");
-        onPicked?.();
+        onPicked?.(row.id);
         return;
       }
       if (row.id !== currentModel) {
         await updateConnection.mutateAsync({ id: connection.id, ...connectionFieldsForModelPick(provider, row) });
       }
-      if (applyPick) await applyPick(connection.id);
+      if (applyPick) await applyPick(connection.id, row.id);
+      starPicked(row);
       setSearch("");
-      onPicked?.();
+      onPicked?.(row.id);
     } catch (error) {
       toast.error(t("connections.modelPicker.saveFailed", { error: errorMessage(error) }));
     }
@@ -222,6 +263,9 @@ export function ConnectionModelPicker({
 
   // The star (decision 27): a favorite is saved and stays on top. Unstarring keeps the saved Model.
   const toggleStar = (row: PickerRow, starred: boolean) => {
+    // Add mode: a star is a pick, so the host counts it (and the first one can become Main).
+    if (addMode && starred) return void pick(row, true);
+    if (addMode) onUnstar?.(row.id);
     setPinned.mutate(
       { id: connection.id, model: row.id, pinned: starred },
       { onError: (error) => toast.error(t("connections.favorite.failed", { error: errorMessage(error) })) },
@@ -267,12 +311,12 @@ export function ConnectionModelPicker({
     }
   };
 
-  const renderRow = (row: PickerRow, pinned: boolean) => {
-    const current = row.id === currentModel;
+  const renderRow = (row: PickerRow, pinned: boolean, section = pinned ? "favorites" : "all") => {
+    const current = row.id === currentModel || !!addedIds?.includes(row.id);
     const label = row.name || row.id;
     return (
       <div
-        key={`${pinned ? "favorites" : "all"}:${row.id}`}
+        key={`${section}:${row.id}`}
         data-model-row
         data-model-id={row.id}
         className={cn("relative flex rounded-lg", current && "bg-foreground/[0.07]")}
@@ -297,9 +341,19 @@ export function ConnectionModelPicker({
             <span className="flex min-w-0 items-center gap-1.5">
               <span className="truncate text-xs font-medium text-foreground/90">{label}</span>
               {showSubscriptionCost && <SubscriptionCostPill model={row} />}
+              {row.id === mainModelId && (
+                <span data-model-main className="mari-chrome-muted-badge shrink-0 px-1.5 py-0.5 text-[0.5625rem]">
+                  {t("connections.add.mainBadge")}
+                </span>
+              )}
             </span>
             {label !== row.id && <span className="truncate text-[0.625rem] text-foreground/50">{row.id}</span>}
           </span>
+          {addMode && !!row.context && (
+            <span className="shrink-0 text-[0.625rem] tabular-nums text-foreground/50">
+              {t("connections.add.context", { size: formatCompactTokenCount(row.context) })}
+            </span>
+          )}
           {current && (
             <Check
               size="0.875rem"
@@ -319,7 +373,7 @@ export function ConnectionModelPicker({
             title={t(pinned ? "connections.favorite.remove" : "connections.favorite.add", { model: label })}
             onClick={() => toggleStar(row, !pinned)}
             className={cn(
-              "flex h-11 w-10 shrink-0 items-center justify-center rounded-lg outline-none transition-colors hover:bg-foreground/10 focus-visible:ring-1 focus-visible:ring-foreground/25",
+              "flex h-11 w-11 shrink-0 items-center justify-center rounded-lg outline-none transition-colors hover:bg-foreground/10 focus-visible:ring-1 focus-visible:ring-foreground/25",
               pinned ? "text-[var(--marinara-chat-chrome-accent)]" : "text-foreground/35 hover:text-foreground/70",
             )}
           >
@@ -336,7 +390,7 @@ export function ConnectionModelPicker({
 
   return (
     <div data-connection-model-picker className={cn("flex min-h-0 min-w-0 flex-1 flex-col", className)}>
-      <div className="flex min-w-0 items-center gap-2 px-3 pb-2 pt-2.5">
+      <div className={cn("flex min-w-0 items-center gap-2 px-3 pb-2 pt-2.5", addMode && "hidden")}>
         {leading}
         <span className="shrink-0 text-xs font-semibold">{t("connections.modelPicker.title")}</span>
         {(applyPick || onChoose) && accountName ? (
@@ -436,8 +490,19 @@ export function ConnectionModelPicker({
               </div>
             )}
 
+            {recommendedRows.length > 0 && (
+              <section aria-label={t("connections.add.recommended")} data-model-section="recommended">
+                {sectionLabel(t("connections.add.recommended"))}
+                {recommendedRows.map((row) => renderRow(row, false, "recommended"))}
+              </section>
+            )}
+
             {pinnedRows.length > 0 && (
-              <section aria-label={t("connections.switcher.favourites")} data-model-section="favorites">
+              <section
+                aria-label={t("connections.switcher.favourites")}
+                data-model-section="favorites"
+                className={cn(recommendedRows.length > 0 && "mt-1 border-t border-foreground/10")}
+              >
                 {sectionLabel(t("connections.switcher.favourites"))}
                 {pinnedRows.map((row) => renderRow(row, true))}
               </section>
@@ -447,10 +512,21 @@ export function ConnectionModelPicker({
               <section
                 aria-label={t("connections.modelPicker.allModels")}
                 data-model-section="all"
-                className={cn(pinnedRows.length > 0 && "mt-1 border-t border-foreground/10")}
+                className={cn(
+                  (pinnedRows.length > 0 || recommendedRows.length > 0) && "mt-1 border-t border-foreground/10",
+                )}
               >
                 {sectionLabel(t("connections.modelPicker.allModels"))}
-                {otherRows.map((row) => renderRow(row, false))}
+                {addMode
+                  ? subgroupByUpstream(otherRows.map((row) => ({ ...row, model: row.id }))).map((group) => (
+                      <div key={group.upstream ?? ""} data-model-upstream={group.upstream ?? undefined}>
+                        {group.upstream && (
+                          <p className="px-3 pb-0.5 pt-1.5 text-[0.625rem] text-foreground/40">{group.upstream}</p>
+                        )}
+                        {group.rows.map((row) => renderRow(row, false))}
+                      </div>
+                    ))
+                  : otherRows.map((row) => renderRow(row, false))}
               </section>
             )}
 
@@ -470,6 +546,7 @@ export function ConnectionModelPicker({
             {!modelList.isLoading &&
               !modelList.isError &&
               !typedId &&
+              recommendedRows.length === 0 &&
               pinnedRows.length === 0 &&
               otherRows.length === 0 && (
                 <p className="px-3 py-3 text-[0.6875rem] text-foreground/50">{t("connections.modelPicker.empty")}</p>

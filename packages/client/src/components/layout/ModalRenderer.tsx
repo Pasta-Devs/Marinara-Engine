@@ -3,9 +3,10 @@
 // ──────────────────────────────────────────────
 import { lazy, Suspense } from "react";
 import { useUIStore } from "../../stores/ui.store";
+import type { ServiceId } from "../modals/CreateConnectionModal";
+import type { ModelsFor } from "../../lib/add-connection";
 import {
   normalizeAvatarCrop,
-  type APIProvider,
   type LorebookCategory,
   type LorebookScope,
   type ScenePromptPreferences,
@@ -145,7 +146,8 @@ export function ModalRenderer() {
         <CreateConnectionModal
           open
           onClose={closeModal}
-          initialProvider={(modal?.props?.provider as APIProvider | undefined) ?? undefined}
+          initialService={(modal?.props?.service ?? modal?.props?.provider) as ServiceId | undefined}
+          modelsFor={modal?.props?.modelsFor as ModelsFor | undefined}
         />
       );
       break;

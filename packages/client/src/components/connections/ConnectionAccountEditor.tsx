@@ -2,10 +2,15 @@
 // ConnectionAccountEditor — a Connection's credentials and limits, once for all its Models
 // ──────────────────────────────────────────────
 import { useEffect, useState } from "react";
-import { Boxes, ChevronDown, ChevronRight, KeyRound, Loader2, Trash2, Wifi } from "lucide-react";
+import { Boxes, ChevronDown, ChevronRight, KeyRound, Loader2, Plus, Trash2, Wifi } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { PROVIDERS, type APIProvider, type UpdateConnectionAccountInput } from "@marinara-engine/shared";
+import {
+  PROVIDERS,
+  isChatProvider,
+  type APIProvider,
+  type UpdateConnectionAccountInput,
+} from "@marinara-engine/shared";
 import { useConnections, useTestConnection } from "../../hooks/use-connections";
 import {
   useConnectionAccounts,
@@ -15,6 +20,7 @@ import {
 import { ApiError } from "../../lib/api-client";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { useUIStore } from "../../stores/ui.store";
+import { openAddModels } from "../../lib/add-connection";
 import { cn } from "../../lib/utils";
 import { Modal } from "../ui/Modal";
 import { SmoothFolderContent } from "../ui/SmoothFolderContent";
@@ -312,6 +318,17 @@ export function ConnectionAccountEditor({ accountId, onClose }: { accountId: str
                   </li>
                 ))}
               </ul>
+            )}
+            {models.some((row) => isChatProvider(row.provider ?? "")) && (
+              <button
+                type="button"
+                data-add-model
+                onClick={() => openAddModels({ accountId })}
+                className="mari-chrome-control mari-chrome-control--small m-1 w-fit text-[0.6875rem] max-md:min-h-11"
+              >
+                <Plus size="0.75rem" />
+                {t("connections.accounts.addModel")}
+              </button>
             )}
           </SettingsSection>
 

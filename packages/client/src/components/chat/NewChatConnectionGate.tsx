@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Loader2, Plug, X } from "lucide-react";
+import { Loader2, X } from "lucide-react";
 import { useConnections } from "../../hooks/use-connections";
 import { useCreateChat } from "../../hooks/use-chats";
 import { useChatPresets, useApplyChatPreset } from "../../hooks/use-chat-presets";
@@ -10,6 +10,7 @@ import { appendLocalSidecarConnectionOption } from "../../lib/connection-filters
 import { cn } from "../../lib/utils";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { ChatModeIcon } from "./ChatModeIcon";
+import { CreateConnectionModal } from "../modals/CreateConnectionModal";
 
 type Mode = "conversation" | "roleplay" | "game";
 
@@ -31,7 +32,6 @@ export function NewChatConnectionGate({ mode, onClose }: NewChatConnectionGatePr
   const createChat = useCreateChat();
   const { data: chatPresetsData } = useChatPresets();
   const applyChatPreset = useApplyChatPreset();
-  const openModal = useUIStore((s) => s.openModal);
   const setSidebarOpen = useUIStore((s) => s.setSidebarOpen);
   const pendingNewChatOrigin = useChatStore((s) => s.pendingNewChatOrigin);
   const sidecarModelDownloaded = useSidecarStore((state) => state.modelDownloaded);
@@ -58,14 +58,13 @@ export function NewChatConnectionGate({ mode, onClose }: NewChatConnectionGatePr
     setConnectionId((current) => current || preferred.id);
   }, [connectionRows]);
 
-  const handleCreate = () => {
-    if (!connectionId) return;
+  const createWith = async (connectionId: string) => {
     const presets = chatPresetsData ?? [];
     const presetMode = mode === "conversation" || mode === "roleplay" ? mode : null;
     const starred = presetMode
       ? (presets.find((p) => p.mode === presetMode && p.isActive && !p.isDefault) ?? null)
       : null;
-    createChat.mutate(
+    await createChat.mutateAsync(
       {
         name: `New ${mode[0]!.toUpperCase()}${mode.slice(1)}`, // chat names are stored English
         mode,
@@ -95,10 +94,21 @@ export function NewChatConnectionGate({ mode, onClose }: NewChatConnectionGatePr
     );
   };
 
-  const showEmptyState = !isLoading && connectionRows.length === 0;
+  const handleCreate = () => {
+    if (connectionId) void createWith(connectionId).catch(() => {});
+  };
 
-  // The setup modal opens above the gate; once it closes, the gate lists the new Model and creates the chat.
-  const handleOpenConnections = () => openModal("create-connection");
+  // With no connection yet, the Add window opens at once and ends with "Start chatting". It stays the
+  // gate's view until it closes, also after the first Connection exists.
+  const [addFlow, setAddFlow] = useState(false);
+  const showEmptyState = !isLoading && connectionRows.length === 0;
+  useEffect(() => {
+    if (showEmptyState) setAddFlow(true);
+  }, [showEmptyState]);
+
+  if (addFlow) {
+    return <CreateConnectionModal open onClose={onClose} newChatMode={mode} onStartChat={createWith} />;
+  }
 
   return (
     <>
@@ -126,28 +136,7 @@ export function NewChatConnectionGate({ mode, onClose }: NewChatConnectionGatePr
           </div>
 
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4">
-            {showEmptyState ? (
-              <div
-                data-new-chat-connection-empty
-                className="rounded-xl border border-[var(--marinara-chat-chrome-button-border-active)] bg-[var(--marinara-chat-chrome-highlight-bg)] p-4"
-              >
-                <div className="mb-2 flex items-center gap-2 text-sm font-medium text-[var(--foreground)]">
-                  <Plug size="0.875rem" className="mari-chrome-accent-icon" />
-                  {localizeUi("ui.chat.newchatconnectiongate.noConnectionsFound")}
-                </div>
-                <p className="text-xs text-[var(--muted-foreground)]">
-                  {localizeUi("ui.chat.newchatconnectiongate.createAConnectionFirstThenComeBackHereAnd")}
-                </p>
-                <button
-                  data-new-chat-open-connections
-                  onClick={handleOpenConnections}
-                  className="mari-chrome-control mari-chrome-control--primary mt-3 w-full text-xs"
-                >
-                  <Plug size="0.75rem" />
-                  {localizeUi("connections.add.title")}
-                </button>
-              </div>
-            ) : (
+            {!showEmptyState && (
               <div className="space-y-1.5">
                 <label className="text-[0.6875rem] font-medium uppercase tracking-wider text-[var(--muted-foreground)]">
                   {localizeUi("ui.chat.conversationquicksetup.connection")}

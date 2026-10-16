@@ -153,23 +153,6 @@ import {
 } from "@marinara-engine/shared";
 
 /** Links where users can obtain API keys for each provider */
-const API_KEY_LINKS: Partial<Record<APIProvider, { label: string; url: string }>> = {
-  openai: { label: "Get your OpenAI API key", url: "https://platform.openai.com/api-keys" },
-  anthropic: { label: "Get your Anthropic API key", url: "https://console.anthropic.com/settings/keys" },
-  google: { label: "Get your Google AI API key", url: "https://aistudio.google.com/apikey" },
-  google_vertex: {
-    label: "Open Vertex AI credentials docs",
-    url: "https://cloud.google.com/vertex-ai/docs/authentication",
-  },
-  mistral: { label: "Get your Mistral API key", url: "https://console.mistral.ai/api-keys" },
-  cohere: { label: "Get your Cohere API key", url: "https://dashboard.cohere.com/api-keys" },
-  openrouter: { label: "Get your OpenRouter API key", url: "https://openrouter.ai/keys" },
-  nanogpt: { label: "Get your NanoGPT API key", url: "https://nano-gpt.com/api" },
-  xai: { label: "Get your xAI API key", url: "https://console.x.ai" },
-  arli: { label: "Get your Arli AI API key", url: "https://www.arliai.com/account" },
-  video_generation: { label: "Get your Google AI API key", url: "https://aistudio.google.com/apikey" },
-};
-
 const DEFAULT_CACHING_AT_DEPTH = 5;
 const MAX_CACHING_AT_DEPTH = 100;
 const DEFAULT_MAX_PARALLEL_JOBS = 1;
@@ -717,6 +700,10 @@ export function ConnectionEditor() {
         selectedImageService === "runpod_comfyui")) ||
     (localProvider === "video_generation" &&
       (selectedVideoProvider === "comfyui" || selectedVideoProvider === "swarmui"));
+  const keyLink = (service: APIProvider) => {
+    const url = PROVIDERS[service]?.keyUrl;
+    return url ? { label: t("connections.add.getKey", { service: PROVIDERS[service].name }), url } : undefined;
+  };
   const apiKeyLink =
     localProvider === "image_generation" && selectedImageService === "arli"
       ? { label: t("connections.mediaSources.arli.apiKeyLink"), url: "https://www.arliai.com/docs/api?lang=en" }
@@ -733,32 +720,21 @@ export function ConnectionEditor() {
                   url: "https://www.atlascloud.ai/user/api-keys",
                 }
               : localProvider === "video_generation" && selectedVideoDefaultsService === "xai"
-                ? API_KEY_LINKS.xai
+                ? keyLink("xai")
                 : localProvider === "video_generation" && selectedVideoDefaultsService === "openrouter"
-                  ? selectedVideoProvider === "nanogpt"
-                    ? API_KEY_LINKS.nanogpt
-                    : API_KEY_LINKS.openrouter
+                  ? keyLink(selectedVideoProvider === "nanogpt" ? "nanogpt" : "openrouter")
                   : localProvider === "video_generation" && selectedVideoDefaultsService === "seedance"
                     ? { label: "Open Seedance API docs", url: "https://seedance2.ai/api-docs" }
                     : localProvider === "video_generation" &&
                         (selectedVideoProvider === "comfyui" || selectedVideoProvider === "swarmui")
                       ? undefined
-                      : localProvider === "zai"
+                      : localProvider === "image_generation" && selectedImageService === "spicyapi"
                         ? {
-                            label: t("connections.mediaSources.zai.apiKeyLink"),
-                            url: "https://z.ai/manage-apikey/apikey-list",
+                            label: t("connections.mediaSources.spicyapi.apiKeyLink"),
+                            url: "https://spicyapi.ai/console/keys",
                           }
-                        : localProvider === "deepseek"
-                          ? {
-                              label: t("connections.mediaSources.deepseek.apiKeyLink"),
-                              url: "https://platform.deepseek.com/api_keys",
-                            }
-                          : localProvider === "image_generation" && selectedImageService === "spicyapi"
-                            ? {
-                                label: t("connections.mediaSources.spicyapi.apiKeyLink"),
-                                url: "https://spicyapi.ai/console/keys",
-                              }
-                            : API_KEY_LINKS[localProvider];
+                        : // Gemini and Veo clips use a Google AI Studio key.
+                          keyLink(localProvider === "video_generation" ? "google" : localProvider);
 
   useEffect(() => {
     if (localProvider !== "image_generation" || !selectedImageDefaultsService) {

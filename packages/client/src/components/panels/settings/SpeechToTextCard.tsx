@@ -38,7 +38,7 @@ function serverName(baseUrl: string): string {
 }
 
 /** Lets Calls send recorded speech to the user's own speech-to-text server instead of Local Whisper. */
-export function SpeechToTextCard() {
+export function SpeechToTextCard({ defaultExpanded = false }: { defaultExpanded?: boolean } = {}) {
   const { t } = useTranslation();
   const { data: installedPackages } = useInstalledCapabilityPackages();
   // Only Calls records speech, so the card stays out of the way until it is installed.
@@ -53,7 +53,7 @@ export function SpeechToTextCard() {
   const updateConfig = useUpdateSpeechToTextConfig();
   const testServer = useTestSpeechToText();
   const [draft, setDraft] = useState<SpeechToTextConfig | null>(null);
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(defaultExpanded);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);

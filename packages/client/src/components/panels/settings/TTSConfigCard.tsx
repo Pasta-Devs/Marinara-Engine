@@ -944,7 +944,7 @@ function NpcDefaultVoicePool({
 
 // ── Main card ─────────────────────────────────────
 
-export function TTSConfigCard() {
+export function TTSConfigCard({ defaultExpanded = false }: { defaultExpanded?: boolean } = {}) {
   const { t: localizeUi } = useUiTranslation();
   const { data: savedConfig, isLoading } = useTTSConfig();
   const updateConfig = useUpdateTTSConfig();
@@ -990,9 +990,12 @@ export function TTSConfigCard() {
   const [callAutomaticVideoClipsEnabled, setCallAutomaticVideoClipsEnabled] = useState(false);
   const [callCustomVideoClipsEnabled, setCallCustomVideoClipsEnabled] = useState(false);
 
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(defaultExpanded);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // The edit waiting for the debounce; closing the card (or the Add window around it) still saves it.
+  const pendingSaveRef = useRef<TTSConfig | null>(null);
+  const { mutateAsync: putConfig } = updateConfig;
   const statusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sourceProfilesRef = useRef<TTSSourceProfiles>({});
   const [ttsState, setTTSState] = useState(ttsService.getState());
@@ -1079,13 +1082,15 @@ export function TTSConfigCard() {
     [],
   );
 
-  // Clear debounce timer on unmount
+  // Clear debounce timer on unmount, and send the edit it was holding
   useEffect(
     () => () => {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+      const pending = pendingSaveRef.current;
+      if (pending) void putConfig(pending).catch(() => undefined);
       if (statusTimerRef.current) clearTimeout(statusTimerRef.current);
     },
-    [],
+    [putConfig],
   );
 
   useEffect(() => {
@@ -1154,6 +1159,7 @@ export function TTSConfigCard() {
       clearTimeout(saveTimerRef.current);
       saveTimerRef.current = null;
     }
+    pendingSaveRef.current = null;
     setSaveStatus("saving");
     await updateConfig.mutateAsync(payload);
     setSaveStatus("saved");
@@ -1169,6 +1175,7 @@ export function TTSConfigCard() {
     setSaveStatus("idle");
     setPreviewError(null);
     const payload = buildPayload(overrides);
+    pendingSaveRef.current = payload;
     saveTimerRef.current = setTimeout(async () => {
       try {
         await saveNow(payload);
