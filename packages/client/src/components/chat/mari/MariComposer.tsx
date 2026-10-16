@@ -29,7 +29,7 @@ import { useLocalizedUiText } from "../../../localization/use-localized-ui-text"
 import { useUIStore } from "../../../stores/ui.store";
 import { InlineGhostText } from "../../ui/InlineGhostText";
 import { ConnectionSwitcherBody } from "../../connections/ConnectionSwitcherBody";
-import { useFeatureModels, useSetFeatureModels } from "../../../hooks/use-connection-accounts";
+import { useSetFeatureModels } from "../../../hooks/use-connection-accounts";
 import { MariRow } from "../mari-primitives";
 import { MariAttachButton } from "../MariAttachButton";
 import { MariContextFacetChips } from "../MariContextFacetChips";
@@ -175,12 +175,11 @@ export function MariComposer({
   // The connection menu is the chat's quick switch: the list, with the chosen Connection's models beside it.
   // A narrow composer shows one step at a time (CSS reads data-step).
   const [modelsStep, setModelsStep] = useState(false);
-  const { data: featureModels } = useFeatureModels();
   const setFeatureModels = useSetFeatureModels();
   // Her Model is a global setting; the local selection keeps working while the server copy saves.
   const applyMariPick = async (connectionId: string) => {
     handleConnectionChange(connectionId);
-    if (featureModels) setFeatureModels.mutate({ ...featureModels, mariConnectionId: connectionId });
+    setFeatureModels.mutate({ mariConnectionId: connectionId });
   };
   // R11 (composer v5): one-line facts; the full description stays in the row's tooltip and in Settings.
   const renderPermissionsModeRow = ({

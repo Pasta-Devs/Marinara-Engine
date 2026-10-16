@@ -400,15 +400,8 @@ export function ConnectionDefaultsCard({ connectionsList }: { connectionsList: C
 
   const mainRow = connectionsList.find((row) => isChatProvider(row.provider) && isConnectionFlagTrue(row.isDefault));
   const features = featureModels.data;
-  const setFeature = (key: keyof FeatureModelConnections, value: string | null) => {
-    if (!features) return;
-    setFeatureModels.mutate(
-      { ...features, [key]: value },
-      {
-        onError: (error) => toast.error(error instanceof Error ? error.message : t("connections.defaults.saveFailed")),
-      },
-    );
-  };
+  const setFeature = (key: keyof FeatureModelConnections, value: string | null) =>
+    setFeatureModels.mutate({ [key]: value });
 
   return (
     <section className={CONNECTION_CARD_CLASS}>

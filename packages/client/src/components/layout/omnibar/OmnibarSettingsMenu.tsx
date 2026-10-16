@@ -502,7 +502,7 @@ export function OmnibarSettingsSheet({
   const setFeatureModels = useSetFeatureModels();
   const asideConnectionId = featureModels?.omnibarAsideConnectionId ?? LOCAL_SIDECAR_CONNECTION_ID;
   const setAsideConnectionId = (id: string) => {
-    if (featureModels) setFeatureModels.mutate({ ...featureModels, omnibarAsideConnectionId: id });
+    setFeatureModels.mutate({ omnibarAsideConnectionId: id });
   };
   const asideDelayMs = useUIStore((state) => state.omnibarAsideDelayMs);
   const setAsideDelayMs = useUIStore((state) => state.setOmnibarAsideDelayMs);

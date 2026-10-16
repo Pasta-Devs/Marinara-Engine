@@ -3,6 +3,7 @@
 // ──────────────────────────────────────────────
 import { useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import {
   FEATURE_MODEL_CONNECTIONS_SETTINGS_KEY,
   LOCAL_SIDECAR_CONNECTION_ID,
@@ -12,6 +13,7 @@ import {
   type UpdateConnectionAccountInput,
 } from "@marinara-engine/shared";
 import { api } from "../lib/api-client";
+import { translate } from "../localization/i18n";
 import { clearStagedFeatureModels, readStagedFeatureModels } from "../lib/legacy-feature-models";
 import { connectionKeys } from "./use-connections";
 
@@ -110,17 +112,21 @@ export function useFeatureModels() {
   });
 }
 
+/** Sends only the changed fields; the server merges them, so concurrent edits of different fields both stay. */
 export function useSetFeatureModels() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (input: FeatureModelConnections) => api.put<FeatureModelConnections>(FEATURE_MODELS_PATH, input),
-    onSuccess: () => qc.invalidateQueries({ queryKey: connectionAccountKeys.featureModels() }),
+    mutationFn: (input: Partial<FeatureModelConnections>) =>
+      api.put<FeatureModelConnections>(FEATURE_MODELS_PATH, input),
+    onSuccess: (saved) => qc.setQueryData(connectionAccountKeys.featureModels(), saved),
+    onError: (error) =>
+      toast.error(error instanceof Error ? error.message : translate("connections.defaults.saveFailed")),
   });
 }
 
 /**
  * One-shot: copies the browser's old feature picks (staged by the ui.store migration) to the server, but only
- * where the server still holds its default. Mount once near the app root.
+ * where the server still holds its default. The server stores unknown ids as null. Mount once near the app root.
  */
 export function useMigrateFeatureModels() {
   const { data: server } = useFeatureModels();
@@ -129,16 +135,20 @@ export function useMigrateFeatureModels() {
     if (!server) return;
     const staged = readStagedFeatureModels();
     if (!staged) return;
-    const merged: FeatureModelConnections = {
-      mariConnectionId: server.mariConnectionId ?? staged.mariConnectionId ?? null,
-      omnibarAsideConnectionId:
-        server.omnibarAsideConnectionId === LOCAL_SIDECAR_CONNECTION_ID
-          ? (staged.omnibarAsideConnectionId ?? server.omnibarAsideConnectionId)
-          : server.omnibarAsideConnectionId,
-      impersonateConnectionId: server.impersonateConnectionId ?? staged.impersonateConnectionId ?? null,
-    };
-    clearStagedFeatureModels();
-    if (JSON.stringify(merged) !== JSON.stringify(server)) setFeatureModels.mutate(merged);
+    const changes: Partial<FeatureModelConnections> = {};
+    if (!server.mariConnectionId && staged.mariConnectionId) changes.mariConnectionId = staged.mariConnectionId;
+    if (server.omnibarAsideConnectionId === LOCAL_SIDECAR_CONNECTION_ID && staged.omnibarAsideConnectionId) {
+      changes.omnibarAsideConnectionId = staged.omnibarAsideConnectionId;
+    }
+    if (!server.impersonateConnectionId && staged.impersonateConnectionId) {
+      changes.impersonateConnectionId = staged.impersonateConnectionId;
+    }
+    if (!Object.keys(changes).length) {
+      clearStagedFeatureModels();
+      return;
+    }
+    // Keep the staged picks until the server has them, so a failed request retries on the next load.
+    setFeatureModels.mutate(changes, { onSuccess: clearStagedFeatureModels });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once per loaded server value
   }, [server]);
 }

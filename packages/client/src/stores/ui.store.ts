@@ -3984,7 +3984,7 @@ export const useUIStore = create<UIState>()(
         persisted.defaultRoleplayBackground = normalizeDefaultRoleplayBackground(persisted.defaultRoleplayBackground);
         delete persisted.trackerPanelWidth;
         // v103 -> v104: the three feature Model picks moved to the server; stage them for useMigrateFeatureModels.
-        stageLegacyFeatureModels(persisted);
+        if (version <= 103) stageLegacyFeatureModels(persisted, version);
         return persisted;
       },
       merge: (persistedState: unknown, currentState) => {

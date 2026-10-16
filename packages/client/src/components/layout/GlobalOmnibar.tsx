@@ -375,7 +375,7 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
   const setAsideDisclosed = useUIStore((state) => state.setOmnibarAsideDisclosed);
   const setAsideEnabled = useUIStore((state) => state.setOmnibarAsideEnabled);
   const setAsideConnectionId = (id: string) => {
-    if (featureModels) setFeatureModels.mutate({ ...featureModels, omnibarAsideConnectionId: id });
+    setFeatureModels.mutate({ omnibarAsideConnectionId: id });
   };
   const openRightPanel = useUIStore((state) => state.openRightPanel);
   const openAgentCatalog = useUIStore((state) => state.openAgentCatalog);

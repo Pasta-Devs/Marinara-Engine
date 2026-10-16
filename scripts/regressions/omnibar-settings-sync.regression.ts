@@ -9,7 +9,8 @@ const stored = new Map<string, string>([
     UI_PERSISTENCE.name,
     JSON.stringify({
       state: { hasCompletedOnboarding: true, omnibarAsideConnectionId: "quick-model" },
-      version: 103,
+      // v102: Mari's pick still lives under its own browser key (read only by migrations from <= v102).
+      version: 102,
     }),
   ],
   [LEGACY_MARI_CONNECTION_KEY, "mari-connection"],

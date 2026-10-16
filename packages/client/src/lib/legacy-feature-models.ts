@@ -5,11 +5,12 @@ import { readLegacyMariConnectionId } from "./omnibar-aside-text";
 // until useMigrateFeatureModels has copied them to the server.
 const STAGED_KEY = "marinara:legacy-feature-models";
 
-/** Moves the old picks out of a persisted ui.store snapshot and into the staging key. */
-export function stageLegacyFeatureModels(persisted: Record<string, unknown>) {
+/** Moves the old picks out of a persisted ui.store snapshot (version <= 103) and into the staging key. */
+export function stageLegacyFeatureModels(persisted: Record<string, unknown>, version: number) {
   const str = (value: unknown) => (typeof value === "string" && value ? value : null);
   const staged: FeatureModelConnections = {
-    mariConnectionId: str(persisted.mariConnectionId) ?? readLegacyMariConnectionId(),
+    // Before v103 Mari's pick lived under its own browser key.
+    mariConnectionId: str(persisted.mariConnectionId) ?? (version <= 102 ? readLegacyMariConnectionId() : null),
     omnibarAsideConnectionId: str(persisted.omnibarAsideConnectionId),
     impersonateConnectionId: str(persisted.impersonateConnectionId),
   };

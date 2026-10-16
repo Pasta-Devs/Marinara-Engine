@@ -22,7 +22,7 @@ export function ImpersonateSection({ presets, connections }: ImpersonateSectionP
   const setFeatureModels = useSetFeatureModels();
   const connectionId = featureModels?.impersonateConnectionId ?? null;
   const setConnectionId = (id: string | null) => {
-    if (featureModels) setFeatureModels.mutate({ ...featureModels, impersonateConnectionId: id });
+    setFeatureModels.mutate({ impersonateConnectionId: id });
   };
   const blockAgents = useUIStore((state) => state.impersonateBlockAgents);
   const setBlockAgents = useUIStore((state) => state.setImpersonateBlockAgents);
