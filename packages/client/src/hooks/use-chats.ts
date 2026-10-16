@@ -27,7 +27,7 @@ import { isMessageHidden } from "../lib/message-visibility";
 import { copyLocalSpriteVisualSettings } from "../components/chat/local-sprite-visual-settings";
 import { lorebookKeys } from "./use-lorebooks";
 import { achievementKeys, trackAchievementEvent } from "./use-achievements";
-import { normalizeAdvancedMemorySettings } from "@marinara-engine/shared";
+import { normalizeAdvancedMemorySettings, type ChatModelChoice } from "@marinara-engine/shared";
 import type {
   AdvancedMemoryStatus,
   Chat,
@@ -895,6 +895,25 @@ export function useDeleteChatGroup() {
       if (context?.groupId) {
         qc.invalidateQueries({ queryKey: chatKeys.group(context.groupId) });
       }
+    },
+  });
+}
+
+/**
+ * Point a chat at a saved Model, or (with `model`) run a catalog model on that Model's Connection for this chat
+ * only. The server keeps the chat's last two choices for "Recent" and Undo.
+ */
+export function useSetChatModel() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ chatId, ...choice }: ChatModelChoice & { chatId: string }) =>
+      api.put<Chat>(`/chats/${chatId}/model`, choice),
+    onMutate: ({ chatId }) => ({ metadataVersion: captureChatMetadataVersion(chatId) }),
+    onSuccess: (updatedChat, vars, context) => {
+      const guardedChat = updatedChat ? guardServerChatSnapshot(qc, updatedChat, context?.metadataVersion ?? 0) : null;
+      if (guardedChat) syncCachedChat(qc, guardedChat);
+      qc.invalidateQueries({ queryKey: chatKeys.detail(vars.chatId) });
+      qc.invalidateQueries({ queryKey: chatKeys.list() });
     },
   });
 }

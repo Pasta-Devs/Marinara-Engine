@@ -1,20 +1,26 @@
 // ──────────────────────────────────────────────
 // Connection Model Picker — search, type, pin and pick a connection's
-// model. Shared by the input-box Connections menu (desktop and phone) and
-// Chat Settings → Connection. A pick is saved to the connection itself.
+// model. Shared by the input-box Connections menu (desktop and phone),
+// Chat Settings → Connection (a pick applies to the chat only), the panel's
+// Add model and the setup flow (a pick saves a Model).
 // ──────────────────────────────────────────────
 import { useDeferredValue, useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { Check, Loader2, RefreshCw, Search, Star } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { MODEL_LISTS, PROVIDERS, parsePinnedModels, type APIProvider } from "@marinara-engine/shared";
+import {
+  MODEL_LISTS,
+  PROVIDERS,
+  parsePinnedModels,
+  type APIProvider,
+  type ChatModelChoice,
+} from "@marinara-engine/shared";
 import {
   useConnectionModels,
   useRefreshConnectionModels,
   useSetConnectionModelPinned,
   useUpdateConnection,
 } from "../../hooks/use-connections";
-import { useUpdateChat } from "../../hooks/use-chats";
 import { usePickModel } from "../../hooks/use-connection-accounts";
 import {
   connectionFieldsForModelPick,
@@ -32,7 +38,7 @@ export type ModelPickerConnection = {
   provider?: string | null;
   model?: string | null;
   pinnedModels?: unknown;
-  /** The Connection this Model belongs to; `applyPick` needs it. */
+  /** The Connection this Model belongs to; `applyPick` and saving a starred model need it. */
   accountId?: string | null;
   profileImportReviewRequired?: unknown;
   /**
@@ -60,21 +66,17 @@ const errorMessage = (error: unknown) => (error instanceof Error ? error.message
 
 export function ConnectionModelPicker({
   connection,
-  chatId,
-  chatConnectionId,
   leading,
   showConnectionName = false,
   autoFocusSearch = false,
   onPicked,
   applyPick,
+  onChoose,
   accountName,
   footer,
   className,
 }: {
   connection: ModelPickerConnection;
-  /** The chat to switch to this connection when a model is picked, if it uses another one. */
-  chatId?: string | null;
-  chatConnectionId?: string | null;
   /** Shown before the title, such as the phone menu's back control. */
   leading?: ReactNode;
   /** Name the connection beside its provider, where the connection list is out of sight. */
@@ -83,11 +85,13 @@ export function ConnectionModelPicker({
   autoFocusSearch?: boolean;
   onPicked?: () => void;
   /**
-   * Quick switch: a pick finds or creates the Model for that id under the Connection, then hands its id here
-   * (the host applies it to the chat). Without it a pick edits `connection` in place.
+   * Add model: a pick finds or saves the Model for that id under the Connection, then hands its id here.
+   * Without it (and without `onChoose`) a pick edits `connection` in place.
    */
   applyPick?: (connectionId: string) => Promise<void>;
-  /** The Connection's name, shown in the header with `applyPick`. */
+  /** Per-chat pick (decision 26): hands the model with its catalog limits to the host; nothing is saved. */
+  onChoose?: (choice: ChatModelChoice) => Promise<void>;
+  /** The Connection's name, shown in the header with `applyPick` or `onChoose`. */
   accountName?: string | null;
   /** Replaces the footer line, for hosts where a pick does not touch a chat. */
   footer?: string;
@@ -111,9 +115,8 @@ export function ConnectionModelPicker({
   const refresh = useRefreshConnectionModels();
   const setPinned = useSetConnectionModelPinned();
   const updateConnection = useUpdateConnection();
-  const updateChat = useUpdateChat();
   const pickModel = usePickModel();
-  const saving = updateConnection.isPending || updateChat.isPending || pickModel.isPending;
+  const saving = updateConnection.isPending || pickModel.isPending;
 
   useEffect(() => {
     // A new connection starts with an empty search.
@@ -183,6 +186,17 @@ export function ConnectionModelPicker({
   const pick = async (row: PickerRow) => {
     if (saving) return;
     try {
+      if (onChoose) {
+        const fields = connectionFieldsForModelPick(provider, row);
+        await onChoose({
+          connectionId: connection.id,
+          ...fields,
+          ...(row.name && row.name !== row.id ? { name: row.name } : {}),
+        });
+        setSearch("");
+        onPicked?.();
+        return;
+      }
       if (applyPick && connection.accountId) {
         // A new Model takes the listed context size and output limit, as an in-place pick does.
         const { connectionId } = await pickModel.mutateAsync({
@@ -199,9 +213,6 @@ export function ConnectionModelPicker({
         await updateConnection.mutateAsync({ id: connection.id, ...connectionFieldsForModelPick(provider, row) });
       }
       if (applyPick) await applyPick(connection.id);
-      else if (chatId && chatConnectionId !== connection.id) {
-        await updateChat.mutateAsync({ id: chatId, connectionId: connection.id });
-      }
       setSearch("");
       onPicked?.();
     } catch (error) {
@@ -209,11 +220,22 @@ export function ConnectionModelPicker({
     }
   };
 
-  const togglePin = (id: string, pinned: boolean) =>
+  // Star means "keep handy" (decision 25): starring a catalog model also saves it to the library.
+  const togglePin = (row: PickerRow, pinned: boolean) => {
     setPinned.mutate(
-      { id: connection.id, model: id, pinned },
+      { id: connection.id, model: row.id, pinned },
       { onError: (error) => toast.error(t("connections.modelPicker.pinFailed", { error: errorMessage(error) })) },
     );
+    if (!pinned || !connection.accountId) return;
+    pickModel.mutate(
+      {
+        accountId: connection.accountId,
+        ...connectionFieldsForModelPick(provider, row),
+        ...(row.name && row.name !== row.id ? { name: row.name } : {}),
+      },
+      { onError: (error) => toast.error(t("connections.modelPicker.saveFailed", { error: errorMessage(error) })) },
+    );
+  };
 
   const focusOption = (from: HTMLElement | null, step: 1 | -1) => {
     const buttons = [...(listRef.current?.querySelectorAll<HTMLButtonElement>("[data-model-option]") ?? [])];
@@ -293,7 +315,7 @@ export function ConnectionModelPicker({
           // A toggle keeps one name; aria-pressed says whether it is pinned.
           aria-label={t("connections.modelPicker.pin", { model: label })}
           title={t(pinned ? "connections.modelPicker.unpin" : "connections.modelPicker.pin", { model: label })}
-          onClick={() => togglePin(row.id, !pinned)}
+          onClick={() => togglePin(row, !pinned)}
           className={cn(
             "flex h-11 w-10 shrink-0 items-center justify-center rounded-lg outline-none transition-colors hover:bg-foreground/10 focus-visible:ring-1 focus-visible:ring-foreground/25",
             pinned ? "text-[var(--marinara-chat-chrome-accent)]" : "text-foreground/35 hover:text-foreground/70",
@@ -314,7 +336,7 @@ export function ConnectionModelPicker({
       <div className="flex min-w-0 items-center gap-2 px-3 pb-2 pt-2.5">
         {leading}
         <span className="shrink-0 text-xs font-semibold">{t("connections.modelPicker.title")}</span>
-        {applyPick && accountName ? (
+        {(applyPick || onChoose) && accountName ? (
           <span data-model-picker-provider className="min-w-0 truncate text-[0.6875rem] text-foreground/55">
             {accountName}
           </span>
@@ -452,7 +474,14 @@ export function ConnectionModelPicker({
           </div>
 
           <p className="border-t border-foreground/10 px-3 py-2 text-[0.625rem] text-foreground/50">
-            {footer ?? (applyPick ? t("connections.switcher.appliesToChat") : t("connections.modelPicker.footer"))}
+            {footer ??
+              t(
+                onChoose
+                  ? "connections.switcher.appliesToChat"
+                  : applyPick
+                    ? "connections.accounts.addModelFooter"
+                    : "connections.modelPicker.footer",
+              )}
           </p>
         </>
       )}

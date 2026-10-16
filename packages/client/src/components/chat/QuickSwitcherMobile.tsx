@@ -56,7 +56,7 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
   const { data: rawPersonaGroups } = usePersonaGroups();
   const { data: chat } = useChat(activeChatId);
   const updateChat = useUpdateChat();
-  const applyPick = useChatModelPick(activeChatId);
+  const chatPick = useChatModelPick(activeChatId);
   const sidecarModelDownloaded = useSidecarStore((state) => state.modelDownloaded);
 
   const activeConnectionId = (chat as unknown as Record<string, unknown>)?.connectionId as string | null;
@@ -405,8 +405,9 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
             {tab === "connections" && (
               <ConnectionSwitcherBody
                 layout="steps"
-                currentId={activeConnectionId}
-                onApply={applyPick}
+                current={chatPick.current}
+                recent={chatPick.recent}
+                onApply={chatPick.apply}
                 onDone={closeMenu}
                 onStepChange={(step) => setModelsStep(step === "models")}
                 showLocalModel={chatMode !== "game" && sidecarModelDownloaded}

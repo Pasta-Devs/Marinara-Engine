@@ -19,7 +19,7 @@ import {
   Square,
   RotateCcw,
 } from "lucide-react";
-import type { MariPermissionsMode, Message } from "@marinara-engine/shared";
+import type { ChatModelChoice, MariPermissionsMode, Message } from "@marinara-engine/shared";
 import { RefObject, Dispatch, SetStateAction, ChangeEvent, useState, type KeyboardEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { MariWorkspaceContextItem } from "../../../hooks/use-mari-workspace-context";
@@ -29,7 +29,8 @@ import { useLocalizedUiText } from "../../../localization/use-localized-ui-text"
 import { useUIStore } from "../../../stores/ui.store";
 import { InlineGhostText } from "../../ui/InlineGhostText";
 import { ConnectionSwitcherBody } from "../../connections/ConnectionSwitcherBody";
-import { useSetFeatureModels } from "../../../hooks/use-connection-accounts";
+import { usePickModel, useSetFeatureModels } from "../../../hooks/use-connection-accounts";
+import { useConnections } from "../../../hooks/use-connections";
 import { MariRow } from "../mari-primitives";
 import { MariAttachButton } from "../MariAttachButton";
 import { MariContextFacetChips } from "../MariContextFacetChips";
@@ -176,8 +177,20 @@ export function MariComposer({
   // A narrow composer shows one step at a time (CSS reads data-step).
   const [modelsStep, setModelsStep] = useState(false);
   const setFeatureModels = useSetFeatureModels();
-  // Her Model is a global setting; the local selection keeps working while the server copy saves.
-  const applyMariPick = async (connectionId: string) => {
+  const pickModel = usePickModel();
+  const { data: connectionRows } = useConnections();
+  // Her Model is a global setting with no chat to hold a per-chat pick, so a catalog pick is saved to the library.
+  // The local selection keeps working while the server copy saves.
+  const applyMariPick = async (choice: ChatModelChoice) => {
+    let connectionId = choice.connectionId;
+    if (choice.model) {
+      const accountId = (connectionRows as Array<{ id: string; accountId?: string | null }> | undefined)?.find(
+        (row) => row.id === choice.connectionId,
+      )?.accountId;
+      if (!accountId) throw new Error(t("connections.switcher.noConnection"));
+      const { model, name, maxContext, maxTokensOverride } = choice;
+      ({ connectionId } = await pickModel.mutateAsync({ accountId, model, name, maxContext, maxTokensOverride }));
+    }
     handleConnectionChange(connectionId);
     setFeatureModels.mutate({ mariConnectionId: connectionId });
   };
@@ -455,7 +468,7 @@ export function MariComposer({
               >
                 <ConnectionSwitcherBody
                   layout="container"
-                  currentId={effectiveConnectionId}
+                  current={effectiveConnectionId ? { connectionId: effectiveConnectionId } : null}
                   onApply={applyMariPick}
                   onDone={() => {
                     setConnectionMenuOpen(false);

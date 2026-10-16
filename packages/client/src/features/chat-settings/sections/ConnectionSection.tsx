@@ -6,6 +6,7 @@ import { useTranslation as useUiTranslation } from "react-i18next";
 import { ContextBudgetIndicator } from "../../../components/chat/ContextBudgetIndicator";
 import { SubscriptionUsageWidget } from "../../../components/connections/SubscriptionUsageWidget";
 import { ConnectionModelPicker } from "../../../components/connections/ConnectionModelPicker";
+import { useChatModelPick } from "../../../components/connections/ConnectionSwitcherBody";
 import { resolveUsageConnection } from "../../../lib/connection-filters";
 import { cn } from "../../../lib/utils";
 import type { ProfessorMariContextBudget } from "../../../lib/professor-mari-context-budget";
@@ -25,10 +26,21 @@ export interface ChatConnectionOption extends Record<string, unknown> {
   showUsageWidget?: boolean | string;
   /** Model IDs pinned in the model picker (JSON array). */
   pinnedModels?: unknown;
+  /** The Connection the Model belongs to; a starred catalog model is saved under it. */
+  accountId?: string | null;
 }
 
-/** The chat connection's model, changed with the same picker as the input-box Connections menu. */
-function ConnectionModelField({ connection }: { connection: ChatConnectionOption }) {
+/**
+ * The chat's model, changed with the same picker as the input-box Connections menu. Like there, a pick applies to
+ * this chat only (decision 26); `connection.model` is what the chat runs, its catalog pick included.
+ */
+function ConnectionModelField({
+  connection,
+  onChoose,
+}: {
+  connection: ChatConnectionOption;
+  onChoose: Parameters<typeof ConnectionModelPicker>[0]["onChoose"];
+}) {
   const { t } = useUiTranslation();
   const [open, setOpen] = useState(false);
   const toggleRef = useRef<HTMLButtonElement>(null);
@@ -73,7 +85,7 @@ function ConnectionModelField({ connection }: { connection: ChatConnectionOption
           ref={pickerRef}
           className="mt-2 flex h-[min(24rem,60dvh)] flex-col overflow-hidden rounded-lg ring-1 ring-foreground/10"
         >
-          <ConnectionModelPicker connection={connection} autoFocusSearch onPicked={close} />
+          <ConnectionModelPicker connection={connection} onChoose={onChoose} autoFocusSearch onPicked={close} />
         </div>
       )}
     </div>
@@ -81,6 +93,7 @@ function ConnectionModelField({ connection }: { connection: ChatConnectionOption
 }
 
 interface ConnectionSectionProps {
+  chatId: string;
   connectionId: string | null;
   connections: ChatConnectionOption[];
   contextBudget?: ProfessorMariContextBudget | null;
@@ -89,6 +102,7 @@ interface ConnectionSectionProps {
 }
 
 export function ConnectionSection({
+  chatId,
   connectionId,
   connections,
   contextBudget,
@@ -101,10 +115,15 @@ export function ConnectionSection({
   // opted in from its editor shows it, and a random pick has no single quota.
   const usageConnection = resolveUsageConnection(connections, connectionId);
   // Random has no single connection and the Local Model has no model list, so neither gets a model field.
-  const modelConnection =
+  const chatPick = useChatModelPick(chatId);
+  const savedConnection =
     connectionId && connectionId !== "random" && !selectedLocalSidecar
       ? connections.find((connection) => connection.id === connectionId)
       : undefined;
+  const modelConnection =
+    savedConnection && chatPick.current?.connectionId === savedConnection.id && chatPick.current.model
+      ? { ...savedConnection, model: chatPick.current.model }
+      : savedConnection;
 
   return (
     <ChatSettingsSection
@@ -140,7 +159,9 @@ export function ConnectionSection({
               ))}
             </select>
           </div>
-          {modelConnection && <ConnectionModelField key={modelConnection.id} connection={modelConnection} />}
+          {modelConnection && (
+            <ConnectionModelField key={modelConnection.id} connection={modelConnection} onChoose={chatPick.apply} />
+          )}
           {contextBudget && <ContextBudgetIndicator budget={contextBudget} />}
           {usageConnection && <SubscriptionUsageWidget connectionId={usageConnection.id} variant="panel" />}
         </div>
@@ -161,7 +182,9 @@ export function ConnectionSection({
               </option>
             ))}
           </select>
-          {modelConnection && <ConnectionModelField key={modelConnection.id} connection={modelConnection} />}
+          {modelConnection && (
+            <ConnectionModelField key={modelConnection.id} connection={modelConnection} onChoose={chatPick.apply} />
+          )}
           {connectionId === "random" && (
             <p className="text-[0.625rem] text-foreground/50">
               {localizeUi("ui.chatSettings.connectionsection.eachGenerationWillRandomlyPickFromConnectionsMarkedFor")}

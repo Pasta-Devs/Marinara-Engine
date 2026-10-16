@@ -5409,6 +5409,7 @@ export function ChatSettingsDrawer({
 
           <div style={{ order: CHAT_SETTINGS_ORDER.connection }}>
             <ConnectionSection
+              chatId={chat.id}
               connectionId={chat.connectionId ?? null}
               connections={chatGenerationConnectionsList}
               contextBudget={gameContextBudget}

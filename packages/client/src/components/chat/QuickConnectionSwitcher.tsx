@@ -29,7 +29,7 @@ export function QuickConnectionSwitcher({
   const activeChatId = useChatStore((s) => s.activeChatId);
   const { data: chat } = useChat(activeChatId);
   const updateChat = useUpdateChat();
-  const applyPick = useChatModelPick(activeChatId);
+  const chatPick = useChatModelPick(activeChatId);
   const sidecarModelDownloaded = useSidecarStore((state) => state.modelDownloaded);
 
   const activeConnectionId = (chat as unknown as Record<string, unknown>)?.connectionId as string | null;
@@ -147,8 +147,9 @@ export function QuickConnectionSwitcher({
           >
             <ConnectionSwitcherBody
               layout="columns"
-              currentId={activeConnectionId}
-              onApply={applyPick}
+              current={chatPick.current}
+              recent={chatPick.recent}
+              onApply={chatPick.apply}
               onDone={close}
               showLocalModel={chatMode !== "game" && sidecarModelDownloaded}
               shuffle={{ active: isRandom, onToggle: handleToggleRandom }}

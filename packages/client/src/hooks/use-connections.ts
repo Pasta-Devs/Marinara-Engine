@@ -136,6 +136,8 @@ export type CreateConnectionPayload = {
   maxRequestsPerMinute?: number | null;
   treatAsLocalEndpoint?: boolean;
   claudeFastMode?: boolean;
+  /** Join this Connection: the Model takes its credentials (server-side). */
+  accountId?: string | null;
 };
 
 export function useCreateConnection() {
