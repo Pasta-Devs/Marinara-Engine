@@ -1,6 +1,6 @@
 // ──────────────────────────────────────────────
 // ConnectionRow — one saved Model in the Connections panel (variant D): a focusable row that opens the model
-// editor, its role badges, the star (decision 30) and the ⋯ menu.
+// editor, its role badges and the ⋯ menu.
 // ──────────────────────────────────────────────
 import { useState, type MouseEvent } from "react";
 import {
@@ -15,6 +15,7 @@ import {
   Pencil,
   Power,
   Shuffle,
+  SlidersHorizontal,
   Star,
   Trash2,
 } from "lucide-react";
@@ -173,8 +174,8 @@ export function ConnectionRow({
     ...roles.map((role) => t(`connections.switcher.role.${role}`)),
     ...(kind && isConnectionFlagTrue(row.defaultForAgents) ? [t("connections.accounts.badge.default")] : []),
     ...(kind && isConnectionFlagTrue(row.fallbackForAgents) ? [t("connections.switcher.role.fallback")] : []),
-    ...(chatModel && !starred && roles.length === 0 && row.ownSettings ? [t("connections.row.customSettings")] : []),
   ];
+  const customSettings = chatModel && !starred && roles.length === 0 && !!row.ownSettings;
   const sub = [connectionName, subtitle ?? modelSubtitle(row)].filter(Boolean).join(" · ");
 
   const openEditor = () => openConnectionDetail(row.id);
@@ -256,6 +257,10 @@ export function ConnectionRow({
           },
         ]
       : []),
+    // Every saved Model has a star, so the list shows none; a Model kept without one can get it back here.
+    ...(onToggleStar && !starred
+      ? [{ label: t("connections.accounts.row.favourite"), icon: <Star size="0.75rem" />, onSelect: onToggleStar }]
+      : []),
     { label: t("connections.row.editModel"), icon: <Pencil size="0.75rem" />, onSelect: openEditor },
     ...(onMove && moveTargets?.length
       ? [
@@ -311,7 +316,6 @@ export function ConnectionRow({
     },
   ];
 
-  const starLabel = starred ? t("connections.accounts.row.unfavourite") : t("connections.accounts.row.favourite");
   const unavailableLabel = unavailable ? t(`connections.accounts.state.${unavailable}`) : "";
 
   return (
@@ -341,7 +345,7 @@ export function ConnectionRow({
           title={t("connections.row.current")}
         />
       )}
-      {/* The row opens the editor; the star and "…" sit beside it, never inside it. */}
+      {/* The row opens the editor; "…" sits beside it, never inside it. */}
       <button
         type="button"
         onClick={openEditor}
@@ -364,6 +368,7 @@ export function ConnectionRow({
             provider={account?.provider ?? row.provider}
             baseUrl={account?.baseUrl ?? row.baseUrl}
             service={mediaService(row)}
+            model={row.model}
             name={account?.name ?? row.name}
             size="sm"
             dim={!!unavailable}
@@ -379,7 +384,14 @@ export function ConnectionRow({
           >
             {title}
           </span>
+          {/* Line two: where the Model runs, then its state and role badges at the right. */}
           <span className="flex min-w-0 items-center gap-1.5">
+            <span
+              className="min-w-0 flex-1 truncate text-[0.6875rem] leading-4 text-[var(--muted-foreground)]"
+              title={sub}
+            >
+              {sub}
+            </span>
             {unavailable ? (
               <span
                 className={cn(
@@ -393,45 +405,27 @@ export function ConnectionRow({
                 {unavailableLabel}
               </span>
             ) : (
-              badges.map((badge) => (
-                // Presets' DEFAULT badge; the badge rule is unlayered, so the readable foreground needs `!`.
-                <span
-                  key={badge}
-                  className="mari-chrome-muted-badge shrink-0 rounded px-1 py-0.5 text-[0.5625rem] uppercase leading-none tracking-wide !text-[var(--foreground)]"
-                >
-                  {badge}
-                </span>
-              ))
-            )}
-            {sub && (
-              <span className="min-w-0 truncate text-[0.6875rem] leading-4 text-[var(--muted-foreground)]" title={sub}>
-                {sub}
-              </span>
+              <>
+                {badges.map((badge) => (
+                  // Presets' DEFAULT badge; the badge rule is unlayered, so the readable foreground needs `!`.
+                  <span
+                    key={badge}
+                    className="mari-chrome-muted-badge shrink-0 rounded px-1 py-0.5 text-[0.5625rem] uppercase leading-none tracking-wide !text-[var(--foreground)]"
+                  >
+                    {badge}
+                  </span>
+                ))}
+                {customSettings && (
+                  <span className="mari-chrome-muted-badge inline-flex shrink-0 items-center gap-1 rounded px-1 py-0.5 text-[0.5625rem] uppercase leading-none tracking-wide !text-[var(--foreground)]">
+                    <SlidersHorizontal size="0.5625rem" aria-hidden />
+                    {t("connections.row.customSettings")}
+                  </span>
+                )}
+              </>
             )}
           </span>
         </span>
       </button>
-      {onToggleStar && (
-        <button
-          type="button"
-          onClick={(event) => {
-            stop(event);
-            onToggleStar();
-          }}
-          className={cn(
-            ROW_BUTTON,
-            starred && !unavailable ? "text-[var(--primary)]" : "text-[var(--muted-foreground)]",
-          )}
-          aria-pressed={!!starred}
-          title={starLabel}
-          aria-label={starLabel}
-        >
-          <Star
-            size="0.875rem"
-            className={cn(starred && "fill-current", (!starred || unavailable) && "mari-rgb-static-icon")}
-          />
-        </button>
-      )}
       <button
         type="button"
         onClick={(event) => {

@@ -108,6 +108,36 @@ const HINTS: Array<[RegExp, string]> = [
   [/perplexity/, "perplexity"],
 ];
 
+/** Model makers, matched in a model id once its gateway prefixes are gone ("nanogpt/openai/gpt-5" → "openai/gpt-5"). */
+const MAKERS: Array<[RegExp, string]> = [
+  [/claude|anthropic/, "claude"],
+  [/deepseek/, "deepseek"],
+  [/glm|z-?ai\b|zhipu/, "zai"],
+  [/minimax/, "minimax"],
+  [/grok|x-?ai\b/, "grok"],
+  [/gemini|gemma|google/, "gemini"],
+  [/qwen|qwq/, "qwen"],
+  [/kimi|moonshot/, "moonshot"],
+  [/mistral|mixtral|codestral|magistral|ministral/, "mistral"],
+  [/hermes|nousresearch/, "nousresearch"],
+  [/nemotron|nvidia/, "nvidia"],
+  [/llama|meta-/, "meta"],
+  [/command-|cohere/, "cohere"],
+  [/sonar|perplexity/, "perplexity"],
+  [/(^|\/)phi-|microsoft/, "microsoft"],
+  [/gpt|chatgpt|openai|(^|\/)o\d|dall-e|sora/, "openai"],
+];
+const GATEWAY_PREFIX = /^(?:(?:nano-?gpt|linkapi|openrouter|bifrost|litellm|new-?api|one-?api)\/)+/;
+
+/** The maker's icon file for a model id, else its gateway's (the upstream prefix), else nothing. */
+export function modelBrand(model: string | null | undefined): string | undefined {
+  const id = model?.trim().toLowerCase();
+  if (!id) return undefined;
+  const rest = id.replace(GATEWAY_PREFIX, "");
+  for (const [pattern, name] of MAKERS) if (pattern.test(rest)) return name;
+  return id !== rest ? brandName(null, id.split("/")[0]) : undefined;
+}
+
 /** The icon file name for a service id, else for the first text that names a known brand. */
 function brandName(id?: string | null, ...texts: Array<string | null | undefined>): string | undefined {
   if (id && BRANDS[id]) return BRANDS[id];
@@ -239,6 +269,7 @@ export function ProviderIcon({
   provider,
   baseUrl,
   service,
+  model,
   name,
   size = "md",
   dim = false,
@@ -250,6 +281,8 @@ export function ProviderIcon({
   baseUrl?: string | null;
   /** A media Connection's service (ComfyUI, fal…); its brand wins over the generic media icon. */
   service?: string | null;
+  /** A Model's id: its maker's icon (Claude, GPT…) wins over the Connection's, which the list already shows. */
+  model?: string | null;
   /** The Connection's name; a custom endpoint without a known brand shows its first letter. */
   name?: string;
   size?: keyof typeof SIZES;
@@ -258,7 +291,9 @@ export function ProviderIcon({
   className?: string;
 }) {
   const brand = brandIcon(
-    brandName(service) ?? (provider === "custom" ? brandName(null, baseUrl, name) : brandName(provider)),
+    brandName(service) ??
+      modelBrand(model) ??
+      (provider === "custom" ? brandName(null, baseUrl, name) : brandName(provider)),
   );
   const Icon = SERVICE_ICONS[provider];
   const { box, icon } = SIZES[size];

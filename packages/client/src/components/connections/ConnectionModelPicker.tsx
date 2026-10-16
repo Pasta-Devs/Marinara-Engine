@@ -31,7 +31,7 @@ import {
 import { isConnectionFlagTrue } from "../../lib/connection-filters";
 import { formatCompactTokenCount } from "../../lib/professor-mari-context-budget";
 import { subgroupByUpstream } from "../../lib/connection-groups";
-import { BrandMark } from "./ProviderIcon";
+import { BrandMark, ProviderIcon } from "./ProviderIcon";
 import { SubscriptionCostPill } from "./SubscriptionCostPill";
 import { cn } from "../../lib/utils";
 
@@ -338,6 +338,7 @@ export function ConnectionModelPicker({
             "flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-lg py-1.5 pl-3 pr-1 text-left outline-none transition-colors hover:bg-foreground/10 focus-visible:bg-foreground/10 focus-visible:ring-1 focus-visible:ring-foreground/25 disabled:cursor-wait",
           )}
         >
+          <ProviderIcon provider={provider || "custom"} model={row.id} name={connection.name ?? undefined} size="sm" />
           <span className="flex min-w-0 flex-1 flex-col">
             <span className="flex min-w-0 items-center gap-1.5">
               <span className="truncate text-xs font-medium text-foreground/90">{label}</span>

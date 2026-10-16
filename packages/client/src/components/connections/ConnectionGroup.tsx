@@ -219,8 +219,8 @@ export function ConnectionGroup({
       {open && (
         <div
           id={modelsId}
-          aria-label={`${account.name} · ${service}`}
-          className="ml-[1.625rem] flex flex-col gap-0.5 border-l border-[var(--border)]/50 pl-1"
+          aria-label={t("ui.agents.featureagentdetailhost.value1Value2", { value1: account.name, value2: service })}
+          className="ml-3 flex flex-col gap-0.5 border-l border-[var(--border)]/50 pl-1"
         >
           {account.showUsageWidget && firstRow && (
             <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-3">

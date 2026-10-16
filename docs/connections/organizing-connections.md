@@ -12,7 +12,7 @@ You do all of this in the **Connections** panel. At the top is the **Defaults** 
 
 Each row shows the connection's icon, its name, and how many models you saved. A row that needs attention has its fix on the row: **Add key** for a connection without a key, **Turn on** for a connection that is off, and **Load** or **Retry** for the Local Model.
 
-Each connection shows its models under it. Click the connection's row, or the chevron at the right of the row, to hide its models, and click again to show them. Marinara remembers which connections you hid. Under the models, **Browse all models** opens the connection's full model list. The models are grouped by the company that made them; each model shows its badges and a star. Click a model to edit it. For services that report usage, the usage card shows above the models.
+A line with a star under the **Defaults** row tells you that the list shows your connections and their starred models. Each connection shows its models under it. Click the connection's row, or the chevron at the right of the row, to hide its models, and click again to show them. Marinara remembers which connections you hid. Under the models, **Browse all models** opens the connection's full model list. The models are grouped by the company that made them; each model shows the icon of the company that made it, and its badges. Click a model to edit it. For services that report usage, the usage card shows above the models.
 
 Click **⋯** on a connection's row for its actions:
 
@@ -34,7 +34,7 @@ Each connection shows the icon of its service. The icons come with Marinara, so 
 
 The star on a model marks it as one of your models. Click the star in the **Add model** list to save a model with a star. Starred models are at the top of the quick switch.
 
-Click the star of a saved model to remove it. Marinara removes the model and shows **Undo** for a few seconds. A model stays, without its star, when it still has a job: when it has a role in **Defaults**, its own settings, a chat that uses it, or when it is the last model of the connection. The message names the reason.
+Every saved model has a star, so the panel does not show the stars. To remove a saved model, click its star in the **Add model** list, or choose **Remove** in its **⋯** menu. When you click the star, Marinara removes the model and shows **Undo** for a few seconds. A model stays, without its star, when it still has a job: when it has a role in **Defaults**, its own settings, a chat that uses it, or when it is the last model of the connection. The message names the reason. To give such a model its star again, choose **Add to favorites** in its **⋯** menu.
 
 When you update from an older version, Marinara stars all the models you saved before, so none of them are removed.
 

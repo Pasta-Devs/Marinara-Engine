@@ -21,6 +21,7 @@ import {
   RefreshCw,
   Search,
   Settings2,
+  Star,
   Upload,
   X,
 } from "lucide-react";
@@ -591,6 +592,13 @@ export function ConnectionsPanel() {
       ) : (
         <>
           {defaultsRow}
+          {/* The rows show no stars: every saved Model has one. */}
+          {(grouped.chat.length > 0 || grouped.media.length > 0) && (
+            <p className="flex items-center gap-1.5 px-2 pt-1 text-[0.6875rem] text-[var(--muted-foreground)]">
+              <Star size="0.75rem" className="shrink-0 fill-current text-[var(--primary)]" aria-hidden />
+              {t("connections.list.starredHint")}
+            </p>
+          )}
           {grouped.chat.length > 0 && (
             <PanelSection title={t("connections.accounts.section.chat")} icon={<MessageSquareText size="0.75rem" />}>
               {grouped.chat.map((group) => accountRow(group))}
