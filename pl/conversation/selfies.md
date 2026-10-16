@@ -82,6 +82,7 @@ Odpowiedź modelu zawiera `[selfie]`, opcjonalnie z kontekstem:
 Here is a picture from my walk!
 [selfie: context="standing beside the river at sunset"]
 ```
+
 Działają także `[selfie: "standing beside the river"]` i `[selfie: standing beside the river]`. Wielkość liter nie ma znaczenia, więc `[SELFIE:xxxxx.]` to poprawna składnia. Jest to komenda trybu Conversation, a nie wyzwalacz obrazu w Roleplay lub Game Mode. Dosłowny znacznik pozostawiony w wiadomości może oznaczać inny tryb czatu albo wyłączoną opcję **Commands**. Sprawdź, czy Illustrator jest zainstalowany, **Generated Selfies** jest włączone i wybrano **Selfie Connection** (połączenie do selfie). Jeśli generowanie rusza, ale kończy się błędem, sprawdź zgłoszony błąd połączenia lub dostawcy obrazów; zmiana wielkości liter w znaczniku go nie naprawi.
 
 ## Ręczna prośba o selfie
@@ -95,6 +96,23 @@ Selfie można też zamówić samodzielnie, zamiast czekać na inicjatywę postac
 5. Poczekaj, aż przycisk przestanie pokazywać napis **Generating...**.
 
 Kiedy selfie jest gotowe, pojawia się komunikat "Selfie generated.", a zdjęcie trafia na czat. Ręczna prośba również korzysta z wybranego połączenia **Selfie Connection**, więc także zużywa jedno żądanie generowania obrazu.
+
+<a id="video-messages"></a>
+
+## Wiadomości wideo
+
+Postać może też wysłać ci krótki klip wideo. Wpisz `/video` (albo `/video Aster`, żeby wybrać postać) lub kliknij przycisk **Video** (wideo, ikona kliszy filmowej) w sekcji **Gallery** czatu. Ten przycisk korzysta z postaci wybranej w sekcji **Gallery**. Przycisk **Video** działa zawsze, gdy Illustrator jest zainstalowany, nawet przy wyłączonych selfie. Klip przychodzi jako nowa wiadomość od tej postaci i odtwarza się na czacie. Klip zamówiony w ten sposób pokazuje najnowszą chwilę rozmowy: AI, które pisze jego opis, czyta tyle ostatnich wiadomości, ile Illustrator czyta przy tworzeniu obrazu (według rozmiaru kontekstu w jego sekcji **Agent Budget**). Selfie zrobione jako pierwsza klatka korzysta z tych samych wiadomości, więc klip również zaczyna się od tej chwili. Kolejne odpowiedzi widzą krótką informację o tym, co pokazuje klip. Możesz też zanimować obraz z sekcji **Gallery**: klip jest dalszym ciągiem tego obrazu, wysyła go postać wybrana w sekcji **Gallery**, a sam klip dołącza do najnowszej odpowiedzi. Jeśli klipu nie da się dodać do czatu, i tak zostaje zapisany w zakładce **Videos** (filmy) w sekcji **Gallery**.
+
+Ustawisz to w **Chat Settings**, **Agents**, **Illustrator Settings**, w sekcji **Video messages** (wiadomości wideo):
+
+- Pole **Video Connection** (połączenie wideo) wskazuje połączenie typu Video Generation (generowanie wideo). Zostaw na nim wartość **Default video connection** (domyślne połączenie wideo), żeby użyć domyślnego połączenia wideo. Pole **Video Prompting Instructions** (instrukcje do promptów wideo) w ustawieniach połączenia kieruje AI, które pisze prompt wideo.
+- Pole **First frame** (pierwsza klatka) wskazuje obraz, od którego zaczyna się klip:
+  - **New selfie, or the avatar if no selfie connection** (nowe selfie albo awatar, gdy brak połączenia do selfie) – wartość domyślna – robi nowe selfie, gdy selfie są włączone i ustawiono **Selfie Connection**, a w przeciwnym razie używa awatara.
+  - **New selfie, then animate it** (nowe selfie, a potem jego animacja) zawsze najpierw robi nowe selfie. Wymaga włączonych selfie i ustawionego pola **Selfie Connection**, a samo selfie zostaje też zapisane w galerii. Przy włączonej opcji **Expose media prompts before sending** przeglądasz prompt selfie razem z promptem klipu.
+  - **Avatar or sprite** (awatar lub sprite) zaczyna od awatara postaci, a gdy postać nie ma awatara – od sprite'a całej sylwetki.
+  - **Prompt only (no picture)** (tylko prompt, bez obrazu) nie wysyła żadnego obrazu, więc model wideo pracuje wyłącznie na podstawie promptu. Niektóre workflow ComfyUI wymagają obrazu i bez niego kończą się błędem.
+
+Obrazy w innych formatach, na przykład WebP, są konwertowane na potrzeby usługi wideo. Wiadomość wideo zużywa jedno żądanie generowania wideo, a gdy zaczyna się od nowego selfie – także jedno żądanie generowania obrazu. Prompt pisze model wybrany w polu **Prompt Model**, a jego instrukcje znajdują się w **Settings**, **Generations**, **Video Generation Prompt Overrides** (nadpisania promptów wideo), **Conversation Video Message** (wiadomość wideo w trybie Conversation).
 
 ## Powiązane przewodniki
 

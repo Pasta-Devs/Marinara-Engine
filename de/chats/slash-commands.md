@@ -140,6 +140,7 @@ Diese Befehle funktionieren ausschließlich in einem **Conversation**-Chat.
 |---|---|
 | `/games` | Öffnet die Auswahl der installierten Conversation-Spiele. `/game` und `/play` machen dasselbe. |
 | `/selfie [name (optional)]` | Generiert ein Selfie mit dem installierten Illustrator-Agenten. Ergänze einen Namen, um einen Charakter auszuwählen. |
+| `/video [name (optional)]` | Ein Charakter schickt dir eine kurze Videonachricht. Dafür gelten die Einstellungen unter **Video messages** (Videonachrichten) dieses Chats. Ergänze einen Namen, um einen Charakter auszuwählen. Siehe [Videonachrichten](../conversation/selfies.md#video-messages). |
 | `/uno` | Startet eine Partie UNO mit den Charakteren im Chat. |
 | `/chess` | Startet eine Schachpartie zu zweit mit einem Charakter. |
 | `/poker` | Startet eine Runde Texas Hold'em mit den Charakteren. |

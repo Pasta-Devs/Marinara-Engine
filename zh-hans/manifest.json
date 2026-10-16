@@ -204,8 +204,8 @@
     },
     {
       "path": "chats/slash-commands.md",
-      "sha256": "ac92240c51376dd70b986186a04276e37525b000925b1d32a75e1e86c60574ae",
-      "bytes": 10077
+      "sha256": "fed9104c5add8886a335702478d3ef076cc656193320a146f8417b4aef27c74e",
+      "bytes": 10319
     },
     {
       "path": "configuration/features.md",
@@ -279,8 +279,8 @@
     },
     {
       "path": "conversation/selfies.md",
-      "sha256": "07d7e43a5b8640d9656fbd41983d0d0115b69db4c87ece160a96017b36d32f9f",
-      "bytes": 6594
+      "sha256": "b284eed5cba175664fa980c9dfd4657bc7a0a54108358c67d84014b377214991",
+      "bytes": 9464
     },
     {
       "path": "conversation/table-games.md",
@@ -604,8 +604,8 @@
     },
     {
       "path": "media/scene-video.md",
-      "sha256": "2fb8eb0df9d7b7555660d5419f7c31e03e62a38ab9f56ba44e7001e1f91b1a9c",
-      "bytes": 20186
+      "sha256": "76268e06e7aff29cce886776533ee22adb85557b178e18b482a7ddb597a32e56",
+      "bytes": 20696
     },
     {
       "path": "media/style-profiles.md",

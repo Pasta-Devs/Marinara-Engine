@@ -4,7 +4,7 @@
 
 ## 场景视频能做什么
 
-场景视频会取图库里已有的一张图片，把它变成一小段 MP4 短片。静态图片作为第一帧，动态部分由 AI 补出来。场景视频可以在 **Roleplay**(角色扮演) 和 **Game Mode**(游戏模式) 聊天里使用。
+场景视频会取图库里已有的一张图片，把它变成一小段 MP4 短片。静态图片作为第一帧，动态部分由 AI 补出来。场景视频可以在 **Roleplay**(角色扮演) 和 **Game Mode**(游戏模式) 聊天里使用。Conversation(对话模式) 聊天则改为发送视频消息，见[视频消息](../conversation/selfies.md#video-messages)。
 
 必须先有图片。场景视频没法只凭文字生成，动画之前一定要先生成或上传一张图库图片。
 
@@ -132,6 +132,8 @@ Gallery 分 **Images**(图片) 和 **Videos**(视频) 两个选项卡，各自�
 4. 按钮会变成 **Generating...**，同时有一条横幅提示视频正在生成。
 5. 生成完毕后，短片出现在 **Videos** 选项卡下。
 
+在 **Roleplay** 里，生成好的短片还会直接在聊天里播放，显示在最新一条回复下方，即使图片来自更早的回复也是如此。短片不会再自动在悬浮窗口里打开。想让短片悬浮显示，就在 **Videos** 选项卡下使用 **Pin video to chat**(把视频固定到聊天)。要从消息里移除短片，点它的 **X** 按钮；短片仍会留在 Gallery 里。
+
 如果想指定某一张图片，而不是最新那张：
 
 1. 打开 **Images** 选项卡。
@@ -140,7 +142,7 @@ Gallery 分 **Images**(图片) 和 **Videos**(视频) 两个选项卡，各自�
 
 开启提示词预览后，**Animate illustration** 同样会弹出 **Review Video Prompt**(检查视频提示词) 窗口，里面显示服务器为这张选中图片编译出的确切提示词、时长、宽高比和分辨率。在这里做的修改只对这一次生成生效。在 Roleplay 里，生成这段提示词的可复用指令由另一处控制，位于 **Settings**、**Generations**、**Video Generation Prompt Overrides**(视频生成提示词覆盖) 下的 **Roleplay Gallery Animation Director**(Roleplay 图库动画导演)。
 
-在 **Videos** 选项卡下，每段短片都能就地播放，并显示时长和模型名。可以用 **Pin video to chat**(把视频固定到聊天) 固定短片，或者用 **Download scene video**(下载场景视频) 保存到本地。还没有短片时，这个选项卡显示 **No videos yet**。
+在 **Videos** 选项卡下，每段短片都能就地播放，并显示时长和模型名。可以用 **Pin video to chat** 固定短片，或者用 **Download scene video**(下载场景视频) 保存到本地。还没有短片时，这个选项卡显示 **No videos yet**。
 
 如果聊天里一张图片都没有就去生成视频，Marinara 会提示：“Add or generate a gallery image before generating a scene video.”先生成或上传一张图片，然后再试。
 

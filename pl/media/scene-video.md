@@ -4,7 +4,7 @@ Ten przewodnik wyjaśnia, jak Marinara Engine zamienia ilustrację sceny w krót
 
 ## Do czego służy wideo sceny
 
-Wideo sceny bierze istniejący obraz z galerii i animuje go w krótki klip MP4. Nieruchomy obraz staje się pierwszą klatką, a AI dodaje ruch. Wideo sceny działa w czatach w trybie **Roleplay** i **Game Mode**.
+Wideo sceny bierze istniejący obraz z galerii i animuje go w krótki klip MP4. Nieruchomy obraz staje się pierwszą klatką, a AI dodaje ruch. Wideo sceny działa w czatach w trybie **Roleplay** i **Game Mode**. Czaty w trybie Conversation wysyłają zamiast tego wiadomości wideo; zobacz [Wiadomości wideo](../conversation/selfies.md#video-messages).
 
 Najpierw zawsze potrzebny jest obraz. Generowanie wideo sceny nie ruszy z samego tekstu. Zanim cokolwiek da się zanimować, trzeba wygenerować lub wgrać obraz do galerii.
 
@@ -131,6 +131,8 @@ Panel **Gallery** ma zakładkę **Images** i zakładkę **Videos**, każdą z li
 3. Jeśli w sekcji **Settings**, **Generations**, **Overall Generations** włączono opcję **Expose media prompts before sending**, przejrzyj lub popraw skompilowany prompt animacji i kliknij przycisk **Generate**. Anulowanie tego okna nie wysyła do dostawcy żadnego żądania.
 4. Przycisk zmienia się w **Generating...**, a baner informuje, że generowanie wideo trwa.
 5. Po zakończeniu klip pojawia się w zakładce **Videos**.
+
+W trybie **Roleplay** gotowy klip odtwarza się też bezpośrednio w czacie, pod najnowszą odpowiedzią, nawet jeśli obraz pochodzi z wcześniejszej. Klipy nie otwierają się już same w pływającym okienku. Żeby wyświetlić klip w pływającym okienku, użyj przycisku **Pin video to chat** (przypięcie wideo do czatu) w zakładce **Videos**. Klip usuniesz z wiadomości jego przyciskiem **X**; nadal zostaje w panelu **Gallery**.
 
 Żeby zanimować konkretny obraz zamiast najnowszego:
 

@@ -97,6 +97,23 @@ Here is a picture from my walk!
 
 셀카가 완성되면 "Selfie generated."라는 메시지가 뜨고 이미지가 채팅에 나타납니다. 직접 요청한 셀카도 지정한 **Selfie Connection**을 쓰기 때문에 이미지 생성 요청을 한 번 소비합니다.
 
+<a id="video-messages"></a>
+
+## 동영상 메시지
+
+캐릭터가 짧은 동영상 클립을 보내게 할 수도 있습니다. `/video`를 입력하거나, 캐릭터를 고르려면 `/video Aster`처럼 입력하세요. 채팅 **Gallery**의 **Video**(비디오) 버튼(필름 아이콘)을 클릭해도 됩니다. 이 버튼은 Gallery에서 고른 캐릭터를 사용합니다. **Video**는 셀카가 꺼져 있어도 Illustrator가 설치되어 있으면 언제든 동작합니다. 클립은 그 캐릭터가 보낸 새 메시지로 도착하고 채팅 안에서 재생됩니다. 이렇게 요청한 클립은 대화의 가장 최근 순간을 보여 줍니다. 클립 내용을 작성하는 AI는 Illustrator가 그림을 만들 때와 같은 수의 최근 메시지를 읽습니다(Illustrator의 **Agent Budget**(에이전트 예산) 컨텍스트 크기). 셀카 첫 프레임도 같은 메시지를 읽으므로 클립도 그 순간에서 시작합니다. 이후의 답변에는 클립이 보여 주는 내용을 적은 짧은 메모가 전달됩니다. Gallery의 그림을 움직이게 만들 수도 있습니다. 이때 클립은 그 그림에서 이어지고, Gallery에서 고른 캐릭터가 보내며, 가장 최근 답변에 붙습니다. 클립을 채팅에 추가하지 못하더라도 Gallery의 **Videos**(동영상) 탭에는 저장됩니다.
+
+**Chat Settings**, **Agents**, **Illustrator Settings** 안의 **Video messages**(동영상 메시지) 섹션에서 설정합니다.
+
+- **Video Connection**(비디오 연결)은 Video Generation 연결을 고릅니다. 기본으로 지정한 연결을 쓰려면 **Default video connection**(기본 비디오 연결)으로 두세요. 연결의 **Video Prompting Instructions**(동영상 프롬프트 지시문)는 동영상 프롬프트를 쓰는 AI에게 지침을 줍니다.
+- **First frame**(첫 프레임)은 클립이 시작할 그림을 고릅니다.
+  - **New selfie, or the avatar if no selfie connection**(새 셀카, 셀카 연결이 없으면 아바타)은 기본값입니다. 셀카가 켜져 있고 **Selfie Connection**이 지정되어 있으면 새 셀카를 만들고, 그렇지 않으면 아바타를 씁니다.
+  - **New selfie, then animate it**(새 셀카 생성 후 애니메이션 만들기)은 항상 새 셀카부터 만듭니다. 셀카가 켜져 있고 **Selfie Connection**이 지정되어 있어야 하며, 만든 셀카는 Gallery에도 저장됩니다. **Expose media prompts before sending**을 켜 두면 셀카 프롬프트와 클립 프롬프트를 함께 확인합니다.
+  - **Avatar or sprite**(아바타 또는 스프라이트)는 캐릭터의 아바타에서 시작합니다. 아바타가 없으면 전신 스프라이트에서 시작합니다.
+  - **Prompt only (no picture)**(프롬프트만, 그림 없음)는 그림을 보내지 않으므로 동영상 모델이 프롬프트만으로 클립을 만듭니다. 일부 ComfyUI 워크플로는 그림이 꼭 필요해서 그림 없이는 실패합니다.
+
+WebP 같은 다른 형식의 그림은 동영상 서비스에 맞게 변환됩니다. 동영상 메시지 하나는 동영상 요청을 한 번 쓰고, 새 셀카에서 시작하면 이미지 요청도 한 번 더 씁니다. 프롬프트를 쓰는 AI는 **Prompt Model**이며, 그 지시문은 **Settings**, **Generations**, **Video Generation Prompt Overrides**(동영상 생성 프롬프트 재정의), **Conversation Video Message**에 있습니다.
+
 ## 관련 가이드
 
 - [Conversation Mode: 시작하기](getting-started.md)

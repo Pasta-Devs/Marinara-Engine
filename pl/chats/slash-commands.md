@@ -140,6 +140,7 @@ Te komendy działają wyłącznie w czacie **Conversation**.
 |---|---|
 | `/games` | Otwiera wybór zainstalowanych gier dla trybu Conversation. `/game` i `/play` robią to samo. |
 | `/selfie [name (optional)]` | Generuje selfie za pomocą zainstalowanego agenta Illustrator. Dopisz imię, żeby wybrać postać. |
+| `/video [name (optional)]` | Sprawia, że postać wysyła ci krótką wiadomość wideo, zgodnie z ustawieniami **Video messages** (wiadomości wideo) tego czatu. Dopisz imię, żeby wybrać postać. Zobacz [Wiadomości wideo](../conversation/selfies.md#video-messages). |
 | `/uno` | Zaczyna partię UNO z postaciami z czatu. |
 | `/chess` | Zaczyna partię szachów jeden na jednego z postacią. |
 | `/poker` | Zaczyna partię pokera Texas Hold'em z postaciami. |

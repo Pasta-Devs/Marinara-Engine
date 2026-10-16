@@ -97,6 +97,23 @@ Autre option : demander toi-même un selfie plutôt que d'attendre le personnage
 
 Quand le selfie est prêt, le message "Selfie generated." s'affiche et l'image apparaît dans le chat. Cette demande manuelle passe elle aussi par la **Selfie Connection** choisie : elle consomme donc également une requête de génération d'images.
 
+<a id="video-messages"></a>
+
+## Messages vidéo
+
+Un personnage peut aussi t'envoyer un court clip vidéo. Tape `/video`, ou `/video Aster` pour choisir un personnage, ou clique sur **Video**, l'icône de pellicule, dans la **Gallery** du chat : ce bouton utilise le personnage choisi dans la galerie. Le bouton **Video** fonctionne dès qu'Illustrator est installé, même si les selfies sont désactivés. Le clip arrive sous la forme d'un nouveau message de ce personnage et se lit dans le chat. Quand tu demandes un clip de cette façon, il montre le moment le plus récent du chat : l'IA qui en écrit le prompt lit autant de messages récents qu'Illustrator pour une image, c'est-à-dire la taille de contexte de son **Agent Budget** (budget de l'agent). Quand la première image est un selfie, elle s'appuie sur les mêmes messages : le clip part donc lui aussi de ce moment. Les réponses suivantes voient une courte note qui indique ce que montre le clip. Tu peux aussi animer une image depuis la galerie : le clip prolonge cette image, il est envoyé par le personnage choisi dans la galerie et rejoint la réponse la plus récente. Si un clip ne peut pas être ajouté au chat, il est quand même enregistré dans l'onglet **Videos** de la galerie.
+
+Règle tout cela sous **Chat Settings**, **Agents**, **Illustrator Settings**, dans la section **Video messages** (messages vidéo) :
+
+- **Video Connection** (connexion vidéo) choisit la connexion Video Generation. Garde l'option **Default video connection** (connexion vidéo par défaut) pour utiliser ta connexion par défaut. Les **Video Prompting Instructions** (instructions de prompt vidéo) d'une connexion guident l'IA qui écrit le prompt vidéo.
+- **First frame** (première image) choisit l'image de départ du clip :
+  - **New selfie, or the avatar if no selfie connection** (par défaut) : crée un nouveau selfie quand les selfies sont activés et qu'une **Selfie Connection** est définie, et utilise l'avatar sinon.
+  - **New selfie, then animate it** : crée toujours d'abord un nouveau selfie. Cette option exige que les selfies soient activés et qu'une **Selfie Connection** soit définie, et le selfie est aussi enregistré dans la galerie. Si l'option **Expose media prompts before sending** est activée, tu relis le prompt du selfie en même temps que celui du clip.
+  - **Avatar or sprite** : part de l'avatar du personnage, ou d'un sprite en pied s'il n'a pas d'avatar.
+  - **Prompt only (no picture)** : n'envoie aucune image, si bien que le modèle vidéo travaille à partir du seul prompt. Certains workflows ComfyUI ont besoin d'une image et échouent sans elle.
+
+Les images dans d'autres formats, comme le WebP, sont converties pour le service vidéo. Un message vidéo envoie une requête vidéo, plus une requête d'image quand il part d'un nouveau selfie. L'IA qui écrit le prompt est ton **Prompt Model**, et ses instructions se trouvent sous **Settings**, **Generations**, **Video Generation Prompt Overrides** (remplacements de prompt pour la génération de vidéos), **Conversation Video Message** (message vidéo de Conversation).
+
 ## Guides associés
 
 - [Mode Conversation : premiers pas](getting-started.md)

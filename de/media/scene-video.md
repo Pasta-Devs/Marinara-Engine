@@ -4,7 +4,7 @@ In dieser Anleitung erfährst du, wie Marinara Engine aus einer Szenen-Illustrat
 
 ## Was ein Szenenvideo macht
 
-Ein Szenenvideo nimmt ein vorhandenes Bild aus der Galerie und animiert es zu einem kurzen MP4-Clip. Das Standbild wird zum ersten Bild, die KI ergänzt die Bewegung. Szenenvideos funktionieren in **Roleplay**- und **Game-Mode**-Chats.
+Ein Szenenvideo nimmt ein vorhandenes Bild aus der Galerie und animiert es zu einem kurzen MP4-Clip. Das Standbild wird zum ersten Bild, die KI ergänzt die Bewegung. Szenenvideos funktionieren in **Roleplay**- und **Game-Mode**-Chats. Conversation-Chats verschicken stattdessen Videonachrichten; siehe [Videonachrichten](../conversation/selfies.md#video-messages).
 
 Ohne Bild geht nichts. Aus reinem Text lässt sich kein Szenenvideo generieren. Erst muss ein Galeriebild da sein – generiert oder hochgeladen –, dann kannst du es animieren.
 
@@ -132,6 +132,8 @@ So animierst du das neueste Bild:
 4. Die Schaltfläche wechselt zu **Generating...**, und ein Banner meldet die laufende Videogenerierung.
 5. Ist alles fertig, erscheint der Clip unter dem Tab **Videos**.
 
+Im **Roleplay** läuft der fertige Clip außerdem direkt im Chat, unter der neuesten Antwort – auch wenn das Bild aus einer früheren stammt. Clips öffnen sich nicht mehr von selbst in einem schwebenden Fenster. Soll einer schweben, nutze **Pin video to chat** (Video an den Chat anheften) unter dem Tab **Videos**. Über seine Schaltfläche **X** entfernst du einen Clip aus einer Nachricht; in der Galerie bleibt er erhalten.
+
 So animierst du stattdessen ein bestimmtes Bild:
 
 1. Öffne den Tab **Images**.
@@ -140,7 +142,7 @@ So animierst du stattdessen ein bestimmtes Bild:
 
 Bei aktivierter Prompt-Prüfung erscheint auch für **Animate illustration** dasselbe Fenster **Review Video Prompt** (Video-Prompt prüfen). Es zeigt genau den Prompt, den der Server zusammengesetzt hat, dazu Dauer, Seitenverhältnis und Auflösung für das gewählte Bild. Deine Änderung gilt nur für diese eine Generierung. Im Roleplay steuerst du die wiederverwendbaren Anweisungen hinter diesem Prompt separat über **Roleplay Gallery Animation Director** unter **Settings**, **Generations**, **Video Generation Prompt Overrides**.
 
-Unter **Videos** läuft jeder Clip direkt im Panel und zeigt Länge und Modellnamen an. Mit **Pin video to chat** (Video an den Chat anheften) heftest du einen Clip fest, mit **Download scene video** (Szenenvideo herunterladen) speicherst du ihn. Gibt es noch keine Clips, steht dort **No videos yet**.
+Unter **Videos** läuft jeder Clip direkt im Panel und zeigt Länge und Modellnamen an. Mit **Pin video to chat** heftest du einen Clip fest, mit **Download scene video** (Szenenvideo herunterladen) speicherst du ihn. Gibt es noch keine Clips, steht dort **No videos yet**.
 
 Versuchst du ein Video ohne Bild im Chat, meldet Marinara: „Add or generate a gallery image before generating a scene video.“ Generiere oder lade also erst ein Bild hoch und versuch es dann erneut.
 

@@ -4,7 +4,7 @@ Esta guía explica cómo Marinara Engine convierte la ilustración de una escena
 
 ## Qué hace el video de escena
 
-Un video de escena toma una imagen que ya está en la galería y la anima en un clip MP4 corto. La imagen fija se convierte en el primer fotograma, y la IA añade movimiento. Los videos de escena funcionan en chats de **Roleplay** y **Game Mode**.
+Un video de escena toma una imagen que ya está en la galería y la anima en un clip MP4 corto. La imagen fija se convierte en el primer fotograma, y la IA añade movimiento. Los videos de escena funcionan en chats de **Roleplay** y **Game Mode**. Los chats de Conversation envían mensajes de video en su lugar; consulta [Mensajes de video](../conversation/selfies.md#video-messages).
 
 Siempre necesitas una imagen primero. La generación de video de escena no puede partir solo de texto. Debes generar o subir una imagen de galería antes de poder animarla.
 
@@ -132,6 +132,8 @@ Para animar la imagen más reciente:
 4. El botón cambia a **Generating...** (Generando...), y un aviso te dice que la generación de video está en curso.
 5. Cuando termina, el clip aparece en la pestaña **Videos**.
 
+En **Roleplay**, el clip terminado también se reproduce en línea en el chat, debajo de la respuesta más reciente, incluso cuando la imagen venía de una anterior. Los clips ya no se abren solos en una ventana flotante. Para que uno flote, usa **Pin video to chat** (Fijar video al chat) en la pestaña **Videos**. Para quitar un clip de un mensaje, usa su botón **X**; el clip sigue en la **Gallery**.
+
 Para animar una imagen específica en vez de la más reciente:
 
 1. Abre la pestaña **Images**.
@@ -140,7 +142,7 @@ Para animar una imagen específica en vez de la más reciente:
 
 La misma ventana **Review Video Prompt** (Revisar el prompt de video) aparece para **Animate illustration** cuando la revisión de prompts está activada. Muestra el prompt exacto compilado por el servidor, la duración, la relación de aspecto y la resolución que se usarán para esa imagen seleccionada. Tu edición se aplica solo a esa generación. En Roleplay, las instrucciones reutilizables que producen este prompt se controlan aparte con **Roleplay Gallery Animation Director** (Director de animación de la galería de Roleplay) en **Settings**, **Generations**, **Video Generation Prompt Overrides** (Anulaciones del prompt de generación de video).
 
-En la pestaña **Videos**, cada clip se reproduce en línea y muestra su duración y el nombre del modelo. Puedes fijar un clip con **Pin video to chat** (Fijar video al chat), o guardarlo con **Download scene video** (Descargar video de escena). Si aún no hay clips, la pestaña dice **No videos yet** (Aún no hay videos).
+En la pestaña **Videos**, cada clip se reproduce en línea y muestra su duración y el nombre del modelo. Puedes fijar un clip con **Pin video to chat**, o guardarlo con **Download scene video** (Descargar video de escena). Si aún no hay clips, la pestaña dice **No videos yet** (Aún no hay videos).
 
 Si intentas hacer un video sin ninguna imagen en el chat, Marinara muestra este mensaje: **Add or generate a gallery image before generating a scene video** (Añade o genera una imagen de galería antes de generar un video de escena). Genera o sube una imagen primero, y luego vuelve a intentarlo.
 

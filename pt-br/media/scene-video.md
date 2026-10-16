@@ -4,7 +4,7 @@ Este guia explica como Marinara Engine transforma a ilustração de uma cena em 
 
 ## Para que serve o vídeo de cena
 
-O vídeo de cena pega uma imagem que já está na galeria e a anima em um clipe MP4 curto. A imagem estática vira o primeiro quadro, e a IA acrescenta o movimento. Os vídeos de cena funcionam nos chats de **Roleplay** e de **Game Mode**.
+O vídeo de cena pega uma imagem que já está na galeria e a anima em um clipe MP4 curto. A imagem estática vira o primeiro quadro, e a IA acrescenta o movimento. Os vídeos de cena funcionam nos chats de **Roleplay** e de **Game Mode**. Já os chats de Conversation enviam mensagens de vídeo; veja [Mensagens de vídeo](../conversation/selfies.md#video-messages).
 
 Você sempre precisa de uma imagem antes. A geração de vídeos de cena não funciona só com texto. Gere ou faça upload de uma imagem na galeria para depois animá-la.
 
@@ -131,6 +131,8 @@ Para animar a imagem mais recente:
 3. Se a opção **Expose media prompts before sending** estiver ativada em **Settings**, **Generations**, **Overall Generations**, revise ou edite o prompt de animação compilado e clique em **Generate**. Cancelar essa janela não envia nenhuma requisição ao provedor.
 4. O botão muda para **Generating...**, e uma faixa avisa que a geração de vídeos está em andamento.
 5. Ao terminar, o clipe aparece na aba **Videos**.
+
+No **Roleplay**, o clipe pronto também toca direto no chat, abaixo da resposta mais recente, mesmo quando a imagem veio de uma resposta anterior. Os clipes não abrem mais sozinhos em uma janela flutuante. Para deixar um clipe flutuando, use **Pin video to chat** (fixar o vídeo no chat) na aba **Videos**. Para tirar um clipe de uma mensagem, use o botão **X** dele; o clipe continua na galeria.
 
 Para animar uma imagem específica em vez da mais recente:
 
