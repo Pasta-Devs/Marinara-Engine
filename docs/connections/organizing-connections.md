@@ -22,13 +22,11 @@ A connection's page shows:
 - **Your models**, grouped by the company that made them. Each model shows its badges and a star. Click a model to edit it.
 - **Browse all models**, which opens the connection's full model list.
 
-The **⋯** button on the page has **Refresh icon** and **Edit**.
-
 The **Defaults** page is **Who does what**. It has a tile for each job: **Main**, **Fallback**, **Decision**, **Agents**, **Embeddings**, **Images**, **Video**, **Audio**, **Voice**, and **Speech to text** (only when the **Calls** agent is installed). Click a tile to choose its model. A tile for a part that is not set up shows **Set up ›**, which opens the steps for it. Below the tiles, **Features** lists the features that use their own model.
 
 ### Provider icons
 
-Each connection shows the icon of its service. Marinara fetches the icon once from the service's website when you add the connection, and keeps it. For a custom endpoint, the icon comes from the endpoint's site. When there is no icon, the row shows the first letter of the name instead. To fetch the icon again, open the connection's page, click **⋯**, and choose **Refresh icon**. To stop all icon fetches, open **More actions** at the top of the panel and turn off **Load provider icons**.
+Each connection shows the icon of its service. The icons come with Marinara, so Marinara never loads them from the internet. A custom endpoint shows the icon of a known server or gateway when its address or name contains one, for example Ollama, LM Studio, KoboldCpp, Bifrost, or LiteLLM. Otherwise it shows the first letter of its name. A gateway that groups its models by upstream, for example `linkapi/` or `nanogpt/`, shows the upstream's icon next to each group.
 
 ## Favorites and moving models
 

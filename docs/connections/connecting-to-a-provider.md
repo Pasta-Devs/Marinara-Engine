@@ -23,7 +23,7 @@ Two buttons sit above the list:
 - **Add connection** opens the **Add connection** window.
 - **Import** loads connections from a file.
 
-The **More actions** button (three dots) opens a menu with **Load provider icons** and **Export all connections**.
+The **More actions** button (three dots) opens a menu with **Export all connections**.
 
 ## Creating a connection
 
