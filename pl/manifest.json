@@ -44,8 +44,8 @@
     },
     {
       "path": "agents/avatars.md",
-      "sha256": "796fff06f190f1538b7e75a1c0fcb4c71c6dde850631bca461b182a5be2fcc8e",
-      "bytes": 43834
+      "sha256": "ed5b1c9632ce8290b420b9bdf9fc41bc8e16b022425ad2bf239816efbf751ee2",
+      "bytes": 43863
     },
     {
       "path": "agents/built-in-agents.md",

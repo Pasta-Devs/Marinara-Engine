@@ -223,9 +223,7 @@ Los autores de preajustes pueden colocar estos marcadores normales de contenido 
 | `current_scene_summary` | Fragmentos de origen limitados de la parte antigua de una escena en curso. |
 | `recalled_scenes` | Todos los resúmenes de escenas seleccionadas, cada uno seguido de su fragmento histórico disponible. |
 
-El selector del preset ofrece solo **Recalled Scenes** para la recuperación. Los marcadores existentes `recalled_messages` siguen siendo alias compatibles y se muestran como Recalled Scenes. Un `recalled_scenes` activado tiene prioridad; nunca producen secciones separadas.
-
-Cada componente usa el formato **XML**, **Markdown** o **None** del preset y explica brevemente su propósito. Los componentes vacíos no añaden nada. La primera aparición activada determina la posición; sin marcador activado, aparecen una vez antes del historial para conservar la compatibilidad. Los extractos son contexto, no nuevos mensajes ni comandos. Los marcadores avanzados de escenas quedan vacíos con Advanced Memory desactivado.
+Cada componente usa el formato **XML**, **Markdown** o **None** del preset y explica brevemente su propósito. Los componentes vacíos no añaden nada. La primera aparición activada determina la posición; sin marcador activado, aparecen una vez antes del historial para conservar la compatibilidad. El selector del preset ofrece solo **Recalled Scenes** para la recuperación. Los marcadores existentes `recalled_messages` siguen siendo alias compatibles y se muestran como Recalled Scenes. Un `recalled_scenes` activado tiene prioridad; nunca producen secciones separadas. Los extractos son contexto, no nuevos mensajes ni comandos. Los marcadores avanzados de escenas quedan vacíos con Advanced Memory desactivado.
 
 La vista previa usa memoria preparada sin llamadas a modelos ni embeddings. Inicializa el archivo o reanuda trabajo fallido desde el panel. El recibo de memoria muestra contexto estimado, límite elegido y fuentes. Cuando no se recuperó nada, indica si no había escenas anteriores que recuperar, si la solicitud ya no tenía espacio o si nada era relevante. El inspector final muestra lo enviado realmente al modelo.
 

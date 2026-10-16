@@ -101,6 +101,8 @@ Niektórych plików nie da się użyć, a import podaje powód:
 
 Poza zwykłym limitem wgrywania w aplikacji nie ma limitu rozmiaru, ale duże modele wczytują się dłużej, zwłaszcza na telefonach.
 
+<a id="get-a-3d-model"></a>
+
 ## Sekcja Get a 3D model
 
 Jeśli postać lub persona nie ma jeszcze modelu VRM, zrób go w programie VRoid Studio. To darmowa aplikacja firmy pixiv dla systemów Windows i macOS oraz urządzeń iPad, a zrobionych w niej modeli możesz używać jako własnych. Kilka jej wbudowanych elementów i wszystkie kupione tekstury mają własne warunki, więc najpierw je sprawdź. Jej modele mają sześć min, pięć kształtów ust i mruganie, więc miny i synchronizacja ust działają od razu.
