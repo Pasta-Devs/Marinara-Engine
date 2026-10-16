@@ -215,7 +215,8 @@ test("the Connections menu lists, pins, picks, refreshes and types models withou
       "aria-current",
       "true",
     );
-    await expect(picker).toContainText("Applies to this chat");
+    await expect(picker).not.toContainText("Applies to this chat");
+    await expect(menu).toContainText("Applies to this chat");
     expect(provider.state.calls).toBe(1);
 
     if (isPhone(testInfo)) {

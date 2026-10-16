@@ -3556,12 +3556,15 @@ test("mobile connection drag previews preserve configured Chroma text", async ({
           getState: () => {
             setAppAccentColor: (value: string) => void;
             setChatChromeTextColor: (value: string) => void;
+            setConnectionPanelView: (view: "cards" | "folders") => void;
           };
         };
       };
       const ui = useUIStore.getState();
       ui.setAppAccentColor("#ff1493");
       ui.setChatChromeTextColor("#14b8a6");
+      // Drag cards are in the folder view; the default card view groups Models by connection.
+      ui.setConnectionPanelView("folders");
     });
     await clickTopbarPanel(page, "connections");
 
@@ -7393,9 +7396,7 @@ test("generation fallbacks identify the replacement connection in a toast", asyn
     await page.locator("textarea.mari-chat-input-textarea").fill("Use the fallback if necessary");
     await page.locator("button.mari-chat-send-btn").click();
     await expect(page.getByText("Main switched to Backup API (fallback-model).")).toBeVisible();
-    await expect(
-      page.getByText("The primary generation failed, so Marinara retried with your configured fallback."),
-    ).toBeVisible();
+    await expect(page.getByText("The request failed, so Marinara tried again with your fallback.")).toBeVisible();
   } finally {
     await page.request.delete(`/api/chats/${chat.id}`);
   }
@@ -17822,6 +17823,9 @@ test("desktop Connections and Lorebooks folders expand without a React hook erro
 
     await clickTopbarPanel(page, "connections");
     const resourceSidebar = page.locator('[data-component="RightPanelDesktop"]');
+    // The panel groups by connection; folders are the second view, behind More actions.
+    await resourceSidebar.getByRole("button", { name: "More actions", exact: true }).click();
+    await page.getByRole("menuitem", { name: "Folder view", exact: true }).click();
     const connectionFolderToggle = resourceSidebar.locator(
       `[data-connection-folder-id="${connectionFolder.id}"] > [role="button"]`,
     );

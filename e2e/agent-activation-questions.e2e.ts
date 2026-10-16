@@ -73,9 +73,13 @@ test("Decision settings, test errors and custom-agent questions survive reload",
       useUIStore.getState().closeAllDetails();
       useUIStore.getState().openRightPanel("connections");
     });
-    const expand = page.getByRole("button", { name: "Expand connection defaults" });
-    await expect(expand.or(page.getByRole("button", { name: "Collapse connection defaults" }))).toBeVisible();
+    const expand = page.getByRole("button", { name: "Expand defaults" });
+    await expect(expand.or(page.getByRole("button", { name: "Collapse defaults" }))).toBeVisible();
     if (await expand.isVisible()) await expand.click();
+    // Each default is one line that opens in place; the Decision line holds the model select.
+    const decisionLine = page.locator('[aria-controls="connection-default-decision"]');
+    if ((await decisionLine.getAttribute("aria-expanded")) !== "true") await decisionLine.click();
+    await expect(decisionLine).toHaveAttribute("aria-expanded", "true");
     await expect(page.getByLabel("Decision model", { exact: true })).toBeVisible();
   };
   const screenshot = async (name: string) => {
@@ -355,12 +359,21 @@ test("OpenRouter decision shortcut links a key and warns before its deletion", a
       const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
       useUIStore.getState().openConnectionDetail(id);
     }, id);
-    await expect(page.getByPlaceholder("Connection name")).toBeVisible();
+    await expect(page.getByPlaceholder("Model name")).toBeVisible();
   };
   try {
     await page.goto("/");
-    await open(source.id);
-    await page.getByRole("button", { name: "Use this key for decisions", exact: true }).click();
+    await page.evaluate(async () => {
+      const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+      useUIStore.getState().openRightPanel("connections");
+    });
+    const actions = page.getByRole("button", {
+      name: `Actions for Borrowed key ${testInfo.project.name}`,
+      exact: true,
+    });
+    await actions.scrollIntoViewIfNeeded();
+    await actions.click();
+    await page.getByRole("menuitem", { name: "Use this key for decisions", exact: true }).click();
     await expect(page.getByLabel("Decision source", { exact: true })).toHaveValue("openrouter");
     await expect(page.getByLabel("API key source", { exact: true })).toHaveValue(source.id);
     const rows = await (await request.get("/api/connections")).json();

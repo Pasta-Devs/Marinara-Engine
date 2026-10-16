@@ -69,8 +69,15 @@ test("a Custom connection's chat model becomes a Decision connection in one clic
       await testInfo.attach(label, { path, contentType: "image/png" });
     };
 
-    const shortcut = editor.getByRole("button", { name: "Use this model for decisions", exact: true });
-    await shortcut.scrollIntoViewIfNeeded();
+    // The shortcut lives in the Model's row menu in the Connections panel.
+    await page.evaluate(async () => {
+      const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+      useUIStore.getState().openRightPanel("connections");
+    });
+    const actions = page.getByRole("button", { name: `Actions for ${name}`, exact: true });
+    await actions.scrollIntoViewIfNeeded();
+    await actions.click();
+    const shortcut = page.getByRole("menuitem", { name: "Use this model for decisions", exact: true });
     await capture("decision-chat-shortcut");
     await shortcut.click();
 
