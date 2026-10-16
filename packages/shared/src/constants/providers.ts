@@ -13,7 +13,15 @@ export interface ProviderDefinition {
   usesAuthHeader: boolean;
   /** Custom header name for API key (e.g. "x-api-key" for Anthropic) */
   apiKeyHeader: string | null;
+  /** Where a user gets a key for this service (Add connection and the connection editor link to it). */
+  keyUrl?: string;
+  /** How the service is paid for, shown as a badge when adding a connection. No prices: they change. */
+  billing?: ProviderBilling;
+  /** Logo image URL for the service tile; without one the tile shows the service's initials. */
+  logo?: string;
 }
+
+export type ProviderBilling = "pay_per_use" | "plan" | "local" | "free_tier";
 
 /** Connections that can't answer a chat request: pictures, video, audio and decisions. */
 export const NON_CHAT_PROVIDERS: readonly APIProvider[] = ["image_generation", "video_generation", "audio", "decision"];
@@ -69,6 +77,8 @@ export const PROVIDERS: Record<APIProvider, ProviderDefinition> = {
     supportsStreaming: true,
     usesAuthHeader: true,
     apiKeyHeader: null,
+    keyUrl: "https://platform.openai.com/api-keys",
+    billing: "pay_per_use",
   },
   openai_chatgpt: {
     id: "openai_chatgpt",
@@ -80,6 +90,7 @@ export const PROVIDERS: Record<APIProvider, ProviderDefinition> = {
     supportsStreaming: true,
     usesAuthHeader: false,
     apiKeyHeader: null,
+    billing: "plan",
   },
   anthropic: {
     id: "anthropic",
@@ -89,6 +100,8 @@ export const PROVIDERS: Record<APIProvider, ProviderDefinition> = {
     supportsStreaming: true,
     usesAuthHeader: false,
     apiKeyHeader: "x-api-key",
+    keyUrl: "https://console.anthropic.com/settings/keys",
+    billing: "pay_per_use",
   },
   claude_subscription: {
     id: "claude_subscription",
@@ -101,6 +114,7 @@ export const PROVIDERS: Record<APIProvider, ProviderDefinition> = {
     supportsStreaming: true,
     usesAuthHeader: false,
     apiKeyHeader: null,
+    billing: "plan",
   },
   grok_subscription: {
     id: "grok_subscription",
@@ -112,6 +126,7 @@ export const PROVIDERS: Record<APIProvider, ProviderDefinition> = {
     supportsStreaming: false,
     usesAuthHeader: false,
     apiKeyHeader: null,
+    billing: "plan",
   },
   google: {
     id: "google",
@@ -121,6 +136,8 @@ export const PROVIDERS: Record<APIProvider, ProviderDefinition> = {
     supportsStreaming: true,
     usesAuthHeader: false,
     apiKeyHeader: "x-goog-api-key",
+    keyUrl: "https://aistudio.google.com/apikey",
+    billing: "free_tier",
   },
   google_vertex: {
     id: "google_vertex",
@@ -130,6 +147,8 @@ export const PROVIDERS: Record<APIProvider, ProviderDefinition> = {
     supportsStreaming: true,
     usesAuthHeader: false,
     apiKeyHeader: null,
+    keyUrl: "https://cloud.google.com/vertex-ai/docs/authentication",
+    billing: "pay_per_use",
   },
   mistral: {
     id: "mistral",
@@ -139,6 +158,8 @@ export const PROVIDERS: Record<APIProvider, ProviderDefinition> = {
     supportsStreaming: true,
     usesAuthHeader: true,
     apiKeyHeader: null,
+    keyUrl: "https://console.mistral.ai/api-keys",
+    billing: "pay_per_use",
   },
   cohere: {
     id: "cohere",
@@ -148,6 +169,8 @@ export const PROVIDERS: Record<APIProvider, ProviderDefinition> = {
     supportsStreaming: true,
     usesAuthHeader: true,
     apiKeyHeader: null,
+    keyUrl: "https://dashboard.cohere.com/api-keys",
+    billing: "pay_per_use",
   },
   openrouter: {
     id: "openrouter",
@@ -157,6 +180,8 @@ export const PROVIDERS: Record<APIProvider, ProviderDefinition> = {
     supportsStreaming: true,
     usesAuthHeader: true,
     apiKeyHeader: null,
+    keyUrl: "https://openrouter.ai/keys",
+    billing: "free_tier",
   },
   nanogpt: {
     id: "nanogpt",
@@ -167,6 +192,8 @@ export const PROVIDERS: Record<APIProvider, ProviderDefinition> = {
     supportsStreaming: true,
     usesAuthHeader: true,
     apiKeyHeader: null,
+    keyUrl: "https://nano-gpt.com/api",
+    billing: "pay_per_use",
   },
   xai: {
     id: "xai",
@@ -176,6 +203,8 @@ export const PROVIDERS: Record<APIProvider, ProviderDefinition> = {
     supportsStreaming: true,
     usesAuthHeader: true,
     apiKeyHeader: null,
+    keyUrl: "https://console.x.ai",
+    billing: "pay_per_use",
   },
   arli: {
     id: "arli",
@@ -185,6 +214,7 @@ export const PROVIDERS: Record<APIProvider, ProviderDefinition> = {
     supportsStreaming: true,
     usesAuthHeader: true,
     apiKeyHeader: null,
+    keyUrl: "https://www.arliai.com/account",
   },
   zai: {
     id: "zai",
@@ -196,6 +226,8 @@ export const PROVIDERS: Record<APIProvider, ProviderDefinition> = {
     supportsStreaming: true,
     usesAuthHeader: true,
     apiKeyHeader: null,
+    keyUrl: "https://z.ai/manage-apikey/apikey-list",
+    billing: "pay_per_use",
   },
   deepseek: {
     id: "deepseek",
@@ -207,6 +239,8 @@ export const PROVIDERS: Record<APIProvider, ProviderDefinition> = {
     supportsStreaming: true,
     usesAuthHeader: true,
     apiKeyHeader: null,
+    keyUrl: "https://platform.deepseek.com/api_keys",
+    billing: "pay_per_use",
   },
   custom: {
     id: "custom",
@@ -216,6 +250,7 @@ export const PROVIDERS: Record<APIProvider, ProviderDefinition> = {
     supportsStreaming: true,
     usesAuthHeader: true,
     apiKeyHeader: null,
+    billing: "local",
   },
   image_generation: {
     id: "image_generation",
