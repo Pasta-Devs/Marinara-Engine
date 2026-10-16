@@ -195,11 +195,35 @@ function groupKeyOf(row: GroupableRow, plainKey: string): string {
 
 // ── Gate ────────────────────────────────────────
 
-/** A disabled account, or one still waiting for review, makes every Model under it unavailable. */
-export function accountBlocksRows(
-  account: Pick<ConnectionAccountRow, "enabled" | "profileImportReviewRequired"> | null | undefined,
-): boolean {
-  return !!account && (account.enabled === "false" || account.profileImportReviewRequired === "true");
+type GateAccount = Pick<
+  ConnectionAccountRow,
+  "enabled" | "profileImportReviewRequired" | "provider" | "baseUrl" | "apiKeyEncrypted" | "treatAsLocalEndpoint"
+>;
+
+function providerRequiresApiKey(provider: string): boolean {
+  return (
+    !isLocalAuthProvider(provider) &&
+    !["custom", "image_generation", "video_generation", "audio", "decision"].includes(provider)
+  );
+}
+
+/**
+ * A hosted vendor endpoint without a key cannot answer. A keyless account on another address (a local or proxy
+ * server behind a vendor-compatible API) may not need a key, so it is not flagged.
+ */
+export function accountNeedsKey(account: GateAccount): boolean {
+  if (!providerRequiresApiKey(account.provider) || account.treatAsLocalEndpoint === "true") return false;
+  if (decryptApiKey(account.apiKeyEncrypted)) return false;
+  const vendorDefault = PROVIDERS[account.provider as keyof typeof PROVIDERS]?.defaultBaseUrl ?? "";
+  return !account.baseUrl.trim() || originOfUrl(trimUrl(account.baseUrl)) === originOfUrl(trimUrl(vendorDefault));
+}
+
+/** A disabled account, one still waiting for review, or a hosted one without a key blocks every Model under it. */
+export function accountBlocksRows(account: GateAccount | null | undefined): boolean {
+  return (
+    !!account &&
+    (account.enabled === "false" || account.profileImportReviewRequired === "true" || accountNeedsKey(account))
+  );
 }
 
 export async function getConnectionAccount(db: DB, id: string): Promise<ConnectionAccountRow | null> {
@@ -254,13 +278,6 @@ export async function mirrorToAccountPeers(
 
 // ── Listing ─────────────────────────────────────
 
-function providerRequiresApiKey(provider: string): boolean {
-  return (
-    !isLocalAuthProvider(provider) &&
-    !["custom", "image_generation", "video_generation", "audio", "decision"].includes(provider)
-  );
-}
-
 export function toAccountListItem(account: ConnectionAccountRow, modelCount: number): ConnectionAccountListItem {
   const key = decryptApiKey(account.apiKeyEncrypted);
   const review = account.profileImportReviewRequired === "true";
@@ -283,7 +300,7 @@ export function toAccountListItem(account: ConnectionAccountRow, modelCount: num
     maxParallelJobs: account.maxParallelJobs ?? null,
     profileImportReviewRequired: review,
     modelCount,
-    state: !enabled ? "off" : review || (providerRequiresApiKey(account.provider) && !key) ? "needs_key" : "ok",
+    state: !enabled ? "off" : review || accountNeedsKey(account) ? "needs_key" : "ok",
     createdAt: account.createdAt,
     updatedAt: account.updatedAt,
   };
@@ -499,8 +516,15 @@ export function createConnectionAccountsStorage(db: DB) {
           for (const row of rows as ConnectionRow[]) {
             const sameType = row.provider === account.provider;
             const takesBaseUrl = sameType && input.baseUrl !== undefined;
-            // A row whose own endpoint is on another origin must not receive the key: it leaves the account.
-            if (!takesBaseUrl && credentialOrigin(row) !== accountOrigin) {
+            // A second endpoint (embeddings) on another origin would also receive the row's key.
+            const foreignEndpoint =
+              !!row.embeddingBaseUrl?.trim() && originOfUrl(trimUrl(row.embeddingBaseUrl)) !== accountOrigin;
+            // A row whose own or embedding endpoint is on another origin must not receive the key: it leaves
+            // the account and keeps its own key and review state.
+            if (
+              (!takesBaseUrl && credentialOrigin(row) !== accountOrigin) ||
+              (input.apiKey !== undefined && foreignEndpoint)
+            ) {
               await tx.update(apiConnections).set({ accountId: null }).where(eq(apiConnections.id, row.id));
               continue;
             }
@@ -518,9 +542,7 @@ export function createConnectionAccountsStorage(db: DB) {
             if (takesBaseUrl) rowSet.baseUrl = updated.baseUrl;
             // A different key or address can serve a different model list.
             if (keyChanged || (takesBaseUrl && baseUrlChanged)) rowSet.savedModels = null;
-            // A row with a second endpoint (embeddings) on another origin stays under review.
-            const foreignEndpoint =
-              !!row.embeddingBaseUrl?.trim() && originOfUrl(trimUrl(row.embeddingBaseUrl)) !== accountOrigin;
+            // A row with a second endpoint on another origin stays under review.
             if (credentialsTouched && !foreignEndpoint) rowSet.profileImportReviewRequired = "false";
             await tx.update(apiConnections).set(rowSet).where(eq(apiConnections.id, row.id));
           }

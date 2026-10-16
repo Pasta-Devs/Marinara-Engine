@@ -356,21 +356,22 @@ export function withConnectionFallbackProvider({
   fallbackSupportsAssistantReasoningPrefill = true,
 }: ConnectionFallbackProviderArgs): BaseLLMProvider {
   const { primaryMode, fallbackMode, settle } = splitConnectionAttemptAcrossFallback(admissionMode);
+  // A primary that is already wrapped (createLLMProvider with a connectionId, or a capability package passing
+  // one to llm.withFallback) is unwrapped: the layer added below replaces it. Two layers would take two shared
+  // account slots for one request and deadlock at a cap of 1.
+  const primaryLeg = primary instanceof RateLimitAwareProvider ? primary.provider : primary;
   if (!isFallbackConnectionUsable(fallbackConnection, primaryConnectionId, fallbackBaseUrl)) {
     // No fallback exists, so the primary is the whole logical attempt and owns its own outcome.
     // Rate-limit-aware wraps outside admission so a 429 pauses/retries this connection here too —
     // the main chat/agent path builds `primary` without a connectionId, so it is added here.
     return withRateLimitAwareProvider(
-      withConnectionAdmissionProvider(wrapProvider(primary), primaryConnectionId, admissionMode),
+      withConnectionAdmissionProvider(wrapProvider(primaryLeg), primaryConnectionId, admissionMode),
       primaryConnectionId,
     );
   }
   // A fallback exists, so a transient failure on the primary goes straight to it instead of
   // waiting out a transient backoff first (PROVIDER_RETRY_TRANSIENT_ERRORS). Rate limits are
-  // unchanged. A primary that is already wrapped (createLLMProvider with a connectionId, or a
-  // capability package passing one to llm.withFallback) has its own wrapper opted out too, since
-  // admission may sit between it and the outer wrapper below.
-  const primaryLeg = primary instanceof RateLimitAwareProvider ? primary.withoutTransientRetry() : primary;
+  // unchanged.
   const admittedPrimary = withRateLimitAwareProvider(
     withConnectionAdmissionProvider(wrapProvider(primaryLeg), primaryConnectionId, primaryMode),
     primaryConnectionId,

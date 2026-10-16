@@ -106,6 +106,28 @@ try {
   assert.equal(await plainKey(chatId), KEY);
   assert.equal((await json("PATCH", `/accounts/${accountId}`, { baseUrl: "https://api.openai.com/v1" })).status, 200);
 
+  // A key change never reaches a row whose embedding endpoint is on another host: that row leaves the account.
+  const embedAccount = await json("POST", "/accounts", { provider: "openrouter", apiKey: "fixture-or-key-1111" });
+  assert.equal(embedAccount.status, 201, embedAccount.body);
+  const embedRow = await connections.create(
+    createConnectionSchema.parse({
+      name: "Embeds",
+      provider: "openrouter",
+      model: "some/model",
+      embeddingBaseUrl: "https://embeddings.example/v1",
+      accountId: embedAccount.data.account.id,
+    }),
+  );
+  assert(embedRow);
+  assert.equal(embedRow.accountId, embedAccount.data.account.id);
+  assert.equal(
+    (await json("PATCH", `/accounts/${embedAccount.data.account.id}`, { apiKey: "fixture-or-key-2222" })).status,
+    200,
+  );
+  assert.equal((await rowOf(embedRow.id)).accountId, null);
+  assert.equal(await plainKey(embedRow.id), "fixture-or-key-1111");
+  assert.equal(await plainKey(embedAccount.data.connectionId), "fixture-or-key-2222");
+
   // A linked row ignores account-owned fields and keeps its own tuning.
   const patched = await json("PATCH", `/connections/${chatId}`, {
     apiKey: "evil-key",
@@ -239,6 +261,23 @@ try {
   const solo = await json("POST", "/accounts", { provider: "openai", apiKey: "fixture-solo-key-0000", model: "gpt-5" });
   const copy = await connections.duplicate(solo.data.connectionId);
   assert.equal(copy?.accountId, solo.data.account.id);
+
+  // A Model moved to another host leaves its account and joins (here: starts) the one for its new address.
+  const soloImage = await connections.create(
+    createConnectionSchema.parse({
+      name: "Solo image",
+      provider: "image_generation",
+      imageGenerationSource: "openai",
+      baseUrl: IMAGE_URL,
+      model: "gpt-image-1",
+      accountId: solo.data.account.id,
+    }),
+  );
+  assert.equal(soloImage?.accountId, solo.data.account.id);
+  await connections.update(soloImage!.id, { baseUrl: "https://proxy.example/v1" });
+  const moved = await rowOf(soloImage!.id);
+  assert(moved.accountId && moved.accountId !== solo.data.account.id, "the moved Model is linked again");
+  assert.equal(await plainKey(soloImage!.id), "fixture-solo-key-0000", "it keeps its own key");
 
   console.log("connection-accounts-write-through regression passed");
 } finally {

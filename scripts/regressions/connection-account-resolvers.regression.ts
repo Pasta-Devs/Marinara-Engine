@@ -1,7 +1,7 @@
 // Resolvers around connection accounts: a chat whose Model is blocked by its account generates through the main
 // fallback and says so (real generate + dry-run routes); the Professor Mari resolver honours the account gate and the
-// global feature setting; the feature-model PUT validates ids; deleting a Model sweeps the setting; the admin
-// "connections" reset clears accounts and the setting.
+// global feature setting; the feature-model PUT merges fields and nulls unknown ids; deleting a Model sweeps the
+// setting; the admin "connections" reset clears accounts and the setting.
 import assert from "node:assert/strict";
 import { mkdtempSync, rmSync } from "node:fs";
 import { createServer } from "node:http";
@@ -162,33 +162,32 @@ try {
   assert.equal(response.statusCode, 400, "a blocked Model with no main fallback is not silently rerouted");
   assert.deepEqual(servedModels, []);
 
-  // Feature-model setting: defaults, validation, full-object round trip.
+  // Feature-model setting: defaults, partial merge, unknown ids stored as null without blocking the others.
   assert.deepEqual(await getFeatureModels(), {
     mariConnectionId: null,
     omnibarAsideConnectionId: LOCAL_SIDECAR_CONNECTION_ID,
     impersonateConnectionId: null,
   });
-  const bad = await putFeatureModels({
+  const stale = await putFeatureModels({
     mariConnectionId: "no-such-model",
-    omnibarAsideConnectionId: null,
-    impersonateConnectionId: null,
+    impersonateConnectionId: primary.connectionId,
   });
-  assert.equal(bad.statusCode, 400);
-  assert.equal(await settings.get(FEATURE_MODEL_CONNECTIONS_SETTINGS_KEY), null, "a rejected PUT stores nothing");
+  assert.equal(stale.statusCode, 200, stale.body);
+  assert.deepEqual(stale.json(), {
+    mariConnectionId: null,
+    omnibarAsideConnectionId: LOCAL_SIDECAR_CONNECTION_ID,
+    impersonateConnectionId: primary.connectionId,
+  });
   // This bare app has no error handler, so a schema failure is a 500 here and a 400 in the server.
-  assert.notEqual(
-    (await putFeatureModels({ mariConnectionId: backup.connectionId })).statusCode,
-    200,
-    "full object only",
-  );
+  assert.notEqual((await putFeatureModels({ mariConnectionId: "" })).statusCode, 200, "empty ids are rejected");
+  const merged = await putFeatureModels({ mariConnectionId: backup.connectionId });
+  assert.equal(merged.statusCode, 200, merged.body);
   const chosen = {
     mariConnectionId: backup.connectionId,
     omnibarAsideConnectionId: LOCAL_SIDECAR_CONNECTION_ID,
     impersonateConnectionId: primary.connectionId,
   };
-  const ok = await putFeatureModels(chosen);
-  assert.equal(ok.statusCode, 200, ok.body);
-  assert.deepEqual(ok.json(), chosen);
+  assert.deepEqual(merged.json(), chosen, "one field changes, the others stay");
   assert.deepEqual(await getFeatureModels(), chosen);
 
   // Mari resolver: request id, then the setting, then the defaults; blocked Models are skipped.

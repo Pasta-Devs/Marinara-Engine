@@ -24,6 +24,7 @@ import {
   impersonatePromptTemplateCatalogSchema,
   getChatWindowDefaultSettingsKey,
   LOCAL_SIDECAR_CONNECTION_ID,
+  isChatProvider,
   parseChatWindowDefault,
 } from "@marinara-engine/shared";
 import { z } from "zod";
@@ -79,14 +80,15 @@ export async function appSettingsRoutes(app: FastifyInstance) {
     readFeatureModelConnections(app.db),
   );
 
-  // Replaces the whole object. Each id must be an existing Model (or the local sidecar), or null.
-  app.put(`/${FEATURE_MODEL_CONNECTIONS_SETTINGS_KEY}`, async (req, reply): Promise<FeatureModelConnections | void> => {
-    const settings = featureModelConnectionsSchema.parse(req.body);
+  // Merges the sent fields into the stored choices. An id that is not a chat Model (or the local sidecar) is
+  // stored as null, so a stale browser value cannot block the other fields.
+  app.put(`/${FEATURE_MODEL_CONNECTIONS_SETTINGS_KEY}`, async (req): Promise<FeatureModelConnections> => {
+    const input = featureModelConnectionsSchema.partial().parse(req.body);
     const connections = createConnectionsStorage(app.db);
-    for (const id of new Set(Object.values(settings))) {
-      if (id && id !== LOCAL_SIDECAR_CONNECTION_ID && !(await connections.getById(id))) {
-        return reply.status(400).send({ error: "Connection not found" });
-      }
+    const settings = { ...(await readFeatureModelConnections(app.db)) };
+    for (const [key, id] of Object.entries(input) as Array<[keyof FeatureModelConnections, string | null]>) {
+      const row = id && id !== LOCAL_SIDECAR_CONNECTION_ID ? await connections.getById(id) : null;
+      settings[key] = id === LOCAL_SIDECAR_CONNECTION_ID || (row && isChatProvider(row.provider)) ? id : null;
     }
     await storage.set(FEATURE_MODEL_CONNECTIONS_SETTINGS_KEY, JSON.stringify(settings));
     return readFeatureModelConnections(app.db);

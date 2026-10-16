@@ -11,9 +11,10 @@ type ChatConnectionStorage = Pick<ConnectionsStorage, "getWithKey"> &
   Partial<Pick<ConnectionsStorage, "getById" | "getFallbackForMain">>;
 
 /**
- * `getWithKey` returns null for a Model that does not exist and for one its account blocks
- * (account off, or needs a key). A blocked Model still exists, so generation goes through the
- * main fallback Model and the user is told. A Model that does not exist stays null.
+ * `getWithKey` returns null for a Model that does not exist and for one that is blocked (under import
+ * review, or its account is off, under review or a hosted one without a key). A blocked Model still
+ * exists, so generation goes through the main fallback Model and the user is told. A Model that does not
+ * exist stays null.
  */
 export async function resolveChatConnectionOrFallback(
   connections: ChatConnectionStorage,

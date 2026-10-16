@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { BaseLLMProvider, type ChatCompletionResult } from "../../packages/server/src/services/llm/base-provider.js";
 import { withRateLimitAwareProvider } from "../../packages/server/src/services/llm/rate-limit-aware-provider.js";
+import { withConnectionFallbackProvider } from "../../packages/server/src/services/llm/connection-fallback-provider.js";
 import {
   resetConnectionRateLimitsForTests,
   setAccountRateLimit,
@@ -119,6 +120,22 @@ reset();
   assert.equal(fake.starts.length, 2, "uncapped attempts start synchronously");
   await Promise.all(all);
   assert.equal(fake.peak, 2, "no shared cap, both run in parallel");
+}
+
+// 5. A pre-wrapped primary (a package's llm.createProvider + llm.withFallback) takes one slot, not two.
+reset();
+{
+  const fake = new Fake();
+  setConnectionBudgetScope("e1", "acct6");
+  setAccountParallelLimit("acct6", 1);
+  const wrapped = withConnectionFallbackProvider({
+    primary: withRateLimitAwareProvider(fake, "e1"),
+    primaryConnectionId: "e1",
+    fallbackConnection: null,
+    category: "main",
+  });
+  const done = await Promise.race([wrapped.chatComplete([], { model: "m" }), sleep(1000).then(() => null)]);
+  assert.equal(done?.content, "done", "cap 1 with a pre-wrapped primary must not deadlock");
 }
 
 console.info("account-budget regression passed");

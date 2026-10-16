@@ -760,6 +760,9 @@ export function createConnectionsStorage(db: DB) {
       if (data.maxRequestsPerMinute !== undefined) {
         setConnectionRateLimit(id, data.maxRequestsPerMinute ?? null);
       }
+      // A Model whose endpoint moved off its account joins the account for its new address (as on create), so
+      // a quick-switch pick never has to edit a shared standalone row. An explicit detach stays detached.
+      if (input.accountId !== null && updateFields.accountId === null) await linkConnectionAccounts(db);
       return this.getById(id);
     },
 

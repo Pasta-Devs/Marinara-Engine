@@ -4680,6 +4680,12 @@ export class ProfessorMariWorkspaceService {
     const fallback =
       (await connections.getDefaultForAgents()) ?? (defaultRow && (await connections.getWithKey(defaultRow.id)));
     if (fallback && isChatProvider(fallback.provider)) return fallback;
+    // No default yet (e.g. right after an import): any usable chat Model, as before.
+    for (const row of await connections.list()) {
+      if (!isChatProvider(row.provider)) continue;
+      const usable = await connections.getWithKey(row.id);
+      if (usable) return usable;
+    }
     return sidecarModelService.getConfiguredModelRef() ? this.buildLocalSidecarConnection() : null;
   }
 }
