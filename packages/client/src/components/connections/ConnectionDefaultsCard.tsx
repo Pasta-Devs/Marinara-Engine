@@ -43,6 +43,7 @@ import { cn } from "../../lib/utils";
 import { SmoothFolderContent } from "../ui/SmoothFolderContent";
 import { ToggleSetting } from "../panels/settings/SettingControls";
 import { ConnectionSelect, type ConnectionSelectKind } from "./ConnectionSelect";
+import { MARI_QUICK_CONNECTION } from "../../lib/omnibar-aside-text";
 import { EmbeddingDefaultControl } from "./EmbeddingDefaultControl";
 import { DecisionDefaultControl } from "./DecisionDefaultControl";
 import { CONNECTION_CARD_CLASS, CONNECTION_TILE_CLASS } from "./ConnectionCard";
@@ -109,6 +110,11 @@ const FEATURE_KEYS: Array<keyof FeatureModelConnections> = [
   "omnibarAsideConnectionId",
   "impersonateConnectionId",
 ];
+/** Feature values that are not a Model: quick answers can follow Professor Mari, Impersonate can shuffle. */
+const FEATURE_EXTRA_OPTIONS: Partial<Record<keyof FeatureModelConnections, Array<{ value: string; key: string }>>> = {
+  omnibarAsideConnectionId: [{ value: MARI_QUICK_CONNECTION, key: "connections.defaults.featureOption.sameAsMari" }],
+  impersonateConnectionId: [{ value: "random", key: "connections.defaults.featureOption.random" }],
+};
 
 type Warning = { text: string; fix?: { label: string; run: () => void } };
 
@@ -467,6 +473,10 @@ export function ConnectionDefaultsCard({ connectionsList }: { connectionsList: C
                   value={features?.[key] ?? null}
                   onChange={(value) => setFeature(key, value)}
                   defaultLabel={t(`connections.defaults.featureDefault.${key}`)}
+                  extraOptions={FEATURE_EXTRA_OPTIONS[key]?.map((extra) => ({
+                    value: extra.value,
+                    label: t(extra.key),
+                  }))}
                   includeLocalSidecar={!lite}
                   className={cn(!features && "opacity-60")}
                   aria-label={t(`connections.defaults.feature.${key}`)}

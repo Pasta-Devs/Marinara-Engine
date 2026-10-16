@@ -33,6 +33,7 @@ export function ConnectionSelect({
   kind = "chat",
   defaultLabel,
   includeLocalSidecar = false,
+  extraOptions = [],
   className,
   ...aria
 }: {
@@ -44,6 +45,8 @@ export function ConnectionSelect({
   defaultLabel?: string;
   /** Add the on-device Local Model after the Connections. */
   includeLocalSidecar?: boolean;
+  /** Values that are not Models but valid for this slot, such as "random"; listed after the first option. */
+  extraOptions?: ReadonlyArray<{ value: string; label: string }>;
   className?: string;
   id?: string;
   "aria-label"?: string;
@@ -73,7 +76,9 @@ export function ConnectionSelect({
       : t("connections.select.default"));
 
   const known =
-    (includeLocalSidecar && value === LOCAL_SIDECAR_CONNECTION_ID) || view.rows.some((row) => row.id === value);
+    (includeLocalSidecar && value === LOCAL_SIDECAR_CONNECTION_ID) ||
+    extraOptions.some((extra) => extra.value === value) ||
+    view.rows.some((row) => row.id === value);
   const missing = !!value && !known;
 
   // An off Connection, one without a key, or an import awaiting review cannot answer;
@@ -103,6 +108,11 @@ export function ConnectionSelect({
       )}
     >
       <option value="">{defaultText}</option>
+      {extraOptions.map((extra) => (
+        <option key={extra.value} value={extra.value}>
+          {extra.label}
+        </option>
+      ))}
       {missing && <option value={value!}>{t("connections.select.missing", { id: value })}</option>}
       {view.groups
         .filter((group) => group.rows.length > 0)

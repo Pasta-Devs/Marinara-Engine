@@ -5,8 +5,15 @@ import { useState, type ReactNode } from "react";
 import { ChevronDown, ChevronUp, ImageIcon, Link, Loader2, Plus, Settings2, Wifi } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { PROVIDERS, isChatProvider, type APIProvider, type ConnectionAccountListItem } from "@marinara-engine/shared";
-import { useDuplicateConnection, useTestConnection } from "../../hooks/use-connections";
+import {
+  IMAGE_GENERATION_SOURCES,
+  IMAGE_SOURCE_VENDOR,
+  PROVIDERS,
+  isChatProvider,
+  type APIProvider,
+  type ConnectionAccountListItem,
+} from "@marinara-engine/shared";
+import { useCreateConnection, useDuplicateConnection, useTestConnection } from "../../hooks/use-connections";
 import { subgroupByUpstream, roleBadges } from "../../lib/connection-groups";
 import { isConnectionFlagTrue } from "../../lib/connection-filters";
 import { useUIStore } from "../../stores/ui.store";
@@ -48,6 +55,7 @@ export function ConnectionCard({
   const openModal = useUIStore((s) => s.openModal);
   const openConnectionDetail = useUIStore((s) => s.openConnectionDetail);
   const duplicate = useDuplicateConnection();
+  const createConnection = useCreateConnection();
   const [open, setOpen] = useState(true);
   const [adding, setAdding] = useState(false);
   const test = useTestConnection();
@@ -58,6 +66,33 @@ export function ConnectionCard({
   // A Connection holding chat and image Models shows once; its media Models carry their kind.
   const mixed = !!chatRow && rows.some(isMediaRow);
   const mediaOnly = rows.length > 0 && rows.every(isMediaRow);
+  // Decision 20: an image Model on the same vendor key joins this Connection, so it needs no key of its own.
+  const imageSource = chatRow
+    ? IMAGE_GENERATION_SOURCES.find((source) => IMAGE_SOURCE_VENDOR[source.id] === account.provider)
+    : undefined;
+  const addImageModel = () =>
+    imageSource &&
+    createConnection.mutate(
+      {
+        name: imageSource.name,
+        provider: "image_generation",
+        apiKey: "",
+        imageGenerationSource: imageSource.id,
+        accountId: account.id,
+      },
+      {
+        onSuccess: (data) => {
+          const id = (data as { id?: string } | undefined)?.id;
+          if (id) openConnectionDetail(id);
+        },
+        onError: (error) =>
+          toast.error(
+            t("connections.accounts.addImageModelFailed", {
+              error: error instanceof Error ? error.message : String(error ?? ""),
+            }),
+          ),
+      },
+    );
   const service = PROVIDERS[account.provider as APIProvider]?.name ?? account.provider;
   const stateLabel = t(`connections.accounts.state.${account.state}`);
 
@@ -181,15 +216,29 @@ export function ConnectionCard({
           ))}
           {/* Only a chat Model can seed the catalog pick; a media-only card copies its Model into the editor. */}
           {chatRow ? (
-            <button
-              type="button"
-              onClick={() => setAdding((value) => !value)}
-              aria-expanded={adding}
-              className="mari-chrome-control mari-chrome-control--small mt-1 w-fit text-[0.6875rem] max-md:min-h-11"
-            >
-              <Plus size="0.75rem" />
-              {t("connections.accounts.addModel")}
-            </button>
+            <div className="mt-1 flex flex-wrap gap-1.5">
+              <button
+                type="button"
+                onClick={() => setAdding((value) => !value)}
+                aria-expanded={adding}
+                className="mari-chrome-control mari-chrome-control--small w-fit text-[0.6875rem] max-md:min-h-11"
+              >
+                <Plus size="0.75rem" />
+                {t("connections.accounts.addModel")}
+              </button>
+              {imageSource && (
+                <button
+                  type="button"
+                  data-add-image-model
+                  onClick={addImageModel}
+                  disabled={createConnection.isPending}
+                  className="mari-chrome-control mari-chrome-control--small w-fit text-[0.6875rem] max-md:min-h-11"
+                >
+                  <ImageIcon size="0.75rem" />
+                  {t("connections.accounts.addImageModel")}
+                </button>
+              )}
+            </div>
           ) : (
             <button
               type="button"

@@ -97,10 +97,8 @@ export function NewChatConnectionGate({ mode, onClose }: NewChatConnectionGatePr
 
   const showEmptyState = !isLoading && connectionRows.length === 0;
 
-  const handleOpenConnections = () => {
-    onClose();
-    openModal("create-connection");
-  };
+  // The setup modal opens above the gate; once it closes, the gate lists the new Model and creates the chat.
+  const handleOpenConnections = () => openModal("create-connection");
 
   return (
     <>
