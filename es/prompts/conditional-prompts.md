@@ -115,7 +115,7 @@ Una comprobación de veracidad es verdadera cuando el valor no está vacío y no
 
 El lado izquierdo o derecho de una condición puede ser cualquiera de estos:
 
-1. Una palabra clave de campo o identidad, como `char`, `user`, `group`, `persona`, `description`, `personality`, `scenario`, `input` o `model`. Estas leen los mismos valores que las macros correspondientes. `group` lista los demás personajes activos del chat después de excluir al que responde en ese momento.
+1. Una palabra clave de campo o identidad, como `char`, `user`, `group`, `persona`, `description`, `personality`, `scenario`, `input`, `model` o `reasoning`. Estas leen los mismos valores que las macros correspondientes. `group` lista los demás personajes activos del chat después de excluir al que responde en ese momento.
 2. Un literal entre comillas, como `"Alice"`.
 3. El nombre de una variable de preset, como `length`. Una variable de preset es un valor con nombre que tú defines en un Prompt Preset. Consulta [Variables de preset](preset-variables.md).
 4. Una búsqueda explícita de variable escrita como `var:name` o `var.name`.
@@ -157,7 +157,7 @@ Los bloques de grupo solo se expanden en un chat con dos o más personajes. En u
 
 ## Ejemplos resueltos (antes y después)
 
-Aquí tienes tres ejemplos completos con el resultado que recibe el modelo.
+Aquí tienes cinco ejemplos completos con el resultado que recibe el modelo.
 
 Tono específico de un personaje dentro de un preset compartido:
 
@@ -190,6 +190,28 @@ Address the user as Doctor.
 ```
 
 Si el nombre de tu persona contiene `Dr`, se le indica al modelo que te trate como Doctor. Si no, el bloque se resuelve en nada.
+
+Instrucciones específicas de un modelo:
+
+```
+{{#if model contains "opus"}}
+Keep replies under 400 words.
+{{/if}}
+```
+
+`model` es el ID del modelo de tu conexión, como `claude-opus-5-5`, así que `contains` coincide con todas las versiones de Opus y `==` coincide con un modelo exacto.
+
+Instrucciones de cadena de pensamiento solo mientras el modelo piensa:
+
+```
+{{#if reasoning}}
+Plan the reply in your thinking before you write it.
+{{else}}
+Before replying, write your plan inside <plan></plan> tags.
+{{/if}}
+```
+
+Con el razonamiento activado en cualquier nivel, el modelo recibe la primera línea. Con el razonamiento desactivado, `{{reasoning}}` vale `off`, que se lee como falso, así que recibe la segunda. Para actuar según un nivel concreto, compáralo: `{{#if reasoning == "max"}}`.
 
 <a id="asking-the-decision-model"></a>
 

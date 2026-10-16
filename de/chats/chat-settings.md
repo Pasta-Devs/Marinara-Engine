@@ -175,6 +175,8 @@ Drei Dinge solltest du wissen.
 - Variablen gehören nur zu diesem Chat. Ein anderer Chat hat seine eigene Liste, und deine bleibt nach einem Neustart erhalten.
 - Sie nutzen denselben Speicher wie `{{setvar}}`. Ein Wert, den ein Prompt-Abschnitt oder Lorebook-Eintrag setzt, erscheint hier als bearbeitbare Zeile. Verwendet ein solcher Eintrag denselben Namen, überschreibt er deinen eingegebenen Wert.
 
+Bei vielen Variablen klick oben im Abschnitt auf **Search and edit all in the State Editor** (alle im State Editor suchen und bearbeiten). Dort öffnen sich alle Variablen in einer Liste, in der du suchen, Werte als Felder bearbeiten oder viele auf einmal als JSON einfügen und die Änderungen vor dem Speichern prüfen kannst. Gespeichert werden nur die Namen, die du bearbeitet hast; ein Wert, den `{{setvar}}` in der Zwischenzeit unter einem anderen Namen speichert, bleibt erhalten. Siehe [Der State Editor](../roleplay/hud-and-trackers.md#the-state-editor).
+
 Was du sonst noch in doppelten geschweiften Klammern schreiben kannst, erklärt [Prompt-Makros](../prompts/macros.md).
 
 ## Chat-Tools in Chat Settings

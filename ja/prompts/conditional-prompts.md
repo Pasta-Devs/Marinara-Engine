@@ -115,7 +115,7 @@ No specific scene is set.
 
 条件の左辺と右辺には、次のいずれかを書けます。
 
-1. `char`、`user`、`group`、`persona`、`description`、`personality`、`scenario`、`input`、`model`などの項目キーワードや本人を指すキーワード。対応するマクロと同じ値を読み取ります。`group`は、いま返信するキャラクターを除いた、チャットに参加中のほかのキャラクターを並べます。
+1. `char`、`user`、`group`、`persona`、`description`、`personality`、`scenario`、`input`、`model`、`reasoning`などの項目キーワードや本人を指すキーワード。対応するマクロと同じ値を読み取ります。`group`は、いま返信するキャラクターを除いた、チャットに参加中のほかのキャラクターを並べます。
 2. `"Alice"`のような引用符付きのリテラル。
 3. `length`のようなプリセット変数の名前。プリセット変数とは、プロンプトプリセットの中で定義する名前付きの値です。[プリセット変数](preset-variables.md)を参照してください。
 4. `var:name`または`var.name`と書く、明示的な変数の参照。
@@ -157,7 +157,7 @@ AliceとBobがいるグループチャットでは、このブロックは2回�
 
 ## 実例(変換前と変換後)
 
-モデルが実際に受け取る結果まで含めて、3つの例を示します。
+モデルが実際に受け取る結果まで含めて、5つの例を示します。
 
 共通のプリセットの中で、キャラクターごとに口調を変える例です。
 
@@ -190,6 +190,28 @@ Address the user as Doctor.
 ```
 
 ペルソナ名に`Dr`が含まれていれば、モデルはDoctorと呼びかけるよう指示されます。含まれていなければ、ブロックには何も残りません。
+
+モデルごとの指示を出す例です。
+
+```
+{{#if model contains "opus"}}
+Keep replies under 400 words.
+{{/if}}
+```
+
+`model`は接続に設定したモデルIDで、たとえば`claude-opus-5-5`です。そのため`contains`はOpusのすべてのバージョンに一致し、`==`は特定の1つのモデルだけに一致します。
+
+モデルが考えている間だけ思考の手順を指示する例です。
+
+```
+{{#if reasoning}}
+Plan the reply in your thinking before you write it.
+{{else}}
+Before replying, write your plan inside <plan></plan> tags.
+{{/if}}
+```
+
+推論がどのレベルでもオンなら、モデルは最初の行を受け取ります。推論がオフのときは`{{reasoning}}`が`off`で、偽として扱われるため、2行目を受け取ります。特定のレベルに反応させたいときは、比較します。`{{#if reasoning == "max"}}`のように書きます。
 
 <a id="asking-the-decision-model"></a>
 

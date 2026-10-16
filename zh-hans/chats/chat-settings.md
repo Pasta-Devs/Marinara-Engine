@@ -175,6 +175,8 @@ Game Mode 里没有方案控件。
 - 变量只属于当前聊天。其他聊天有各自的列表，当前列表会在重启后保留。
 - 它和 `{{setvar}}` 使用同一份存储。提示词章节或世界书条目设置的值也会在这里显示为可编辑的行。如果条目使用同一个名字，就会覆盖你手动输入的值。
 
+变量很多时，点击该部分顶部的 **Search and edit all in the State Editor**(在 State Editor 中搜索并编辑全部)。它会把所有变量放进同一个列表，你可以在里面搜索、把值当作字段编辑，或把许多变量一次性以 JSON 粘贴进去，并在保存前查看改动。保存只会改动你编辑过的名称，所以 `{{setvar}}` 期间以其他名称保存的值会被保留。参见 [State Editor](../roleplay/hud-and-trackers.md#the-state-editor)。
+
 双大括号的其他用法见[提示词宏](../prompts/macros.md)。
 
 ## Chat Settings 里的聊天工具

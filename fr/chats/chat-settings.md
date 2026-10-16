@@ -175,6 +175,8 @@ Trois points sont à connaître.
 - Les variables appartiennent uniquement à ce chat. Un autre chat possède sa propre liste, et la tienne est conservée après un redémarrage.
 - Elles utilisent le même stockage que `{{setvar}}`. Une valeur définie par une section du prompt ou une entrée de lorebook apparaît ici sous forme de ligne modifiable. Une entrée qui utilise le même nom remplace la valeur que tu as saisie.
 
+Si tu as beaucoup de variables, clique sur **Search and edit all in the State Editor** (tout chercher et modifier dans le State Editor) en haut de la section. Il ouvre toutes les variables dans une seule liste où tu peux chercher, modifier les valeurs sous forme de champs ou en coller plusieurs d'un coup en JSON, puis relire les changements avant d'enregistrer. L'enregistrement ne modifie que les noms que tu as édités : une valeur que `{{setvar}}` enregistre entre-temps sous un autre nom est conservée. Voir [Le State Editor](../roleplay/hud-and-trackers.md#the-state-editor).
+
 Pour les autres possibilités des doubles accolades, consulte [Macros de prompt](../prompts/macros.md).
 
 ## Outils du chat dans Chat Settings

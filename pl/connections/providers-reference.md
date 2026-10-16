@@ -104,9 +104,11 @@ Widżet odczytuje punkt końcowy zużycia NanoGPT i pokazuje tygodniowy oraz dzi
 - **Management Token** (zalecany): utwórz go pod adresem `https://nano-gpt.com/settings#management-api-tokens` z zakresem **Usage only** (tylko odczyt zużycia). Pozwala odczytywać limity, ale nie uruchamia modeli ani nie wydaje środków z salda, więc jest bezpieczniejszym wyborem do wyświetlania zużycia. Marinara zapisuje go w postaci zaszyfrowanej i wysyła tylko do punktu końcowego zarządzania NanoGPT.
 - **Twój klucz API**: używany automatycznie, gdy nie zapisano tokenu zarządzania. To działa, ale odczyt zużycia korzysta wtedy z tych samych danych uwierzytelniających, które pozwalają wydawać środki z salda.
 
+Pod każdym paskiem widżet podaje, ile zostało i kiedy okno się resetuje, na przykład `42M remaining · resets in 4d`.
+
 Limit, którego NanoGPT nie może obecnie podać, jest oznaczony jako **nieznany**, a nie jako niewykorzystany. Nieaktywna subskrypcja jest wyraźnie oznaczona, zamiast pokazywać pełny dostępny limit. Przycisk odświeżania aktualizuje widżet na żądanie.
 
-Ten sam wskaźnik znajduje się pod wskaźnikiem kontekstu w selektorze połączenia czatu oraz w ustawieniach **Connection** (połączenie), więc możesz śledzić zużycie bez opuszczania czatu. Dotyczy aktywnego połączenia: pojawia się tylko dla połączenia NanoGPT z włączonym **Show subscription usage** i nie pojawia się przy **Random**, które nie wskazuje jednego połączenia do odczytu. W selektorze wygląda podobnie do paska kontekstu powyżej i odczytuje się go tak samo: zużycie względem tygodniowego limitu, np. `8.9M / 60M tokens`.
+Ten sam wskaźnik znajduje się pod wskaźnikiem kontekstu w selektorze połączenia czatu oraz w ustawieniach **Connection** (połączenie), więc możesz śledzić zużycie bez opuszczania czatu. Dotyczy aktywnego połączenia: pojawia się tylko dla połączenia NanoGPT z włączonym **Show subscription usage** i nie pojawia się przy **Random**, które nie wskazuje jednego połączenia do odczytu. W selektorze wygląda podobnie do paska kontekstu powyżej i odczytuje się go tak samo: zużycie względem tygodniowego limitu, np. `8.9M / 60M tokens`, a obok wartości procentowej widać czas resetu.
 
 ## xAI / Grok
 
@@ -150,6 +152,24 @@ Połącz się z usługą DeepSeek tutaj, zamiast kierować dostawcę **OpenAI** 
 
 Instalację i logowanie opisuje przewodnik [Połączenia abonamentowe z Claude, ChatGPT i Grok](subscription-clis.md).
 
+### Zużycie planu
+
+To połączenie może pokazać, jaka część limitów twojego planu Claude została zużyta:
+
+1. Włącz **Show subscription usage** (pokaż zużycie subskrypcji) w edytorze połączenia.
+2. Zostaw zaznaczone **5-hour window** (okno 5-godzinne) i **Weekly window** (okno tygodniowe) albo odznacz to, którego nie chcesz widzieć.
+3. Zapisz połączenie.
+
+Każde okno ma pasek z procentem zużycia i czasem resetu, na przykład `58% · resets in 2h`. Te same paski pojawiają się pod wskaźnikiem kontekstu w selektorze połączeń czatu i w ustawieniach **Connection** czatu, gdy to połączenie jest aktywne. Nie pojawiają się przy **Random**, które nie wskazuje jednego połączenia do odczytu.
+
+Warto wiedzieć:
+
+- Paski liczą wszystko na twoim planie Claude, na przykład Claude Code i claude.ai, nie tylko Marinarę.
+- Claude podaje procent dla każdego okna i nie podaje liczby tokenów, więc żadna nie jest pokazywana.
+- Odczyt prosi narzędzie Claude Code na hoście Marinary o te same dane, które pokazuje jego polecenie `/usage`. Nie wysyła żadnej wiadomości do Claude i nie zużywa nic z twojego planu. Trwa sekundę lub dwie, a przycisk odświeżania czyta dane ponownie.
+- Nazwa planu obok tytułu, na przykład **Pro**, to ta, którą Claude podaje dla zalogowanego konta.
+- Claude Code oznacza te dane o użyciu jako eksperymentalne. Jeśli przyszła wersja je zmieni, paski pokażą błąd z przyciskiem ponowienia zamiast błędnej liczby.
+
 ## OpenAI (ChatGPT)
 
 - Klucz API: brak. Zamiast tego logujesz się w lokalnym narzędziu.
@@ -157,6 +177,17 @@ Instalację i logowanie opisuje przewodnik [Połączenia abonamentowe z Claude, 
 **OpenAI (ChatGPT)** korzysta z twojego konta ChatGPT przez narzędzie Codex. Narzędzie działa na komputerze, na którym stoi serwer Marinara, i logujesz się w nim raz. Pola **API Key** oraz **Base URL** są przy tym dostawcy ukryte. Embeddingów nie oferuje (patrz sekcja o embeddingach niżej). Poziom myślenia tego dostawcy to ustawienie **Reasoning Effort** w parametrach połączenia albo czatu; dopóki nie wybierzesz konkretnego poziomu, Codex korzysta z własnego ustawienia domyślnego dla danego modelu.
 
 Instalację i logowanie opisuje przewodnik [Połączenia abonamentowe z Claude, ChatGPT i Grok](subscription-clis.md).
+
+### Zużycie planu
+
+To połączenie może pokazać, jaka część limitów Codex twojego planu ChatGPT została zużyta. Działa jak opisane wyżej połączenie Claude (Subscription): włącz **Show subscription usage**, zostaw zaznaczone **5-hour window** i **Weekly window** albo je odznacz, i zapisz. Paski pojawiają się w edytorze połączenia, w selektorze połączeń czatu i w ustawieniach **Connection** czatu.
+
+Warto wiedzieć:
+
+- Paski liczą całe użycie Codex na twoim planie ChatGPT, na przykład w Codex CLI, nie tylko Marinarę. Czaty na chatgpt.com mają własne limity i nie wchodzą do tych pasków.
+- ChatGPT podaje procent dla każdego okna i nie podaje liczby tokenów, więc żadna nie jest pokazywana.
+- Odczyt prosi ChatGPT o te same dane, które Codex CLI pokazuje jako swoje limity, używając logowania Codex na hoście Marinary. Nie wysyła żadnej wiadomości do modelu i nie zużywa nic z twojego planu.
+- Plan z tylko jednym z dwóch okien pokazuje jeden pasek.
 
 ## Grok CLI (Subscription)
 

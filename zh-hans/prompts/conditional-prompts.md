@@ -115,7 +115,7 @@ No specific scene is set.
 
 条件的左边或右边可以是下面这几种：
 
-1. 字段或身份关键词，例如 `char`、`user`、`group`、`persona`、`description`、`personality`、`scenario`、`input`、`model`。它们读取的值和同名的宏完全一致。`group` 列出的是当前聊天中除本次回复者以外的其他在场角色。
+1. 字段或身份关键词，例如 `char`、`user`、`group`、`persona`、`description`、`personality`、`scenario`、`input`、`model`、`reasoning`。它们读取的值和同名的宏完全一致。`group` 列出的是当前聊天中除本次回复者以外的其他在场角色。
 2. 带引号的字面值，例如 `"Alice"`。
 3. 预设变量名，例如 `length`。预设变量是在 Prompt Preset 里自己定义的具名值，详见[预设变量](preset-variables.md)。
 4. 写成 `var:name` 或 `var.name` 的显式变量查找。
@@ -157,7 +157,7 @@ Speak in a cold, clinical tone.
 
 ## 实例演示（处理前后对照）
 
-下面是三个完整示例，同时给出模型最终收到的内容。
+下面是五个完整示例，同时给出模型最终收到的内容。
 
 在共用预设里给特定角色定制语气：
 
@@ -190,6 +190,28 @@ Address the user as Doctor.
 ```
 
 用户角色的名字里含有 `Dr`，模型就会被要求称呼你为 Doctor；没有的话，这个块什么都不留下。
+
+针对特定模型的指令：
+
+```
+{{#if model contains "opus"}}
+Keep replies under 400 words.
+{{/if}}
+```
+
+`model` 是你的连接里的模型 ID，例如 `claude-opus-5-5`，所以 `contains` 会匹配所有 Opus 版本，而 `==` 只匹配某一个确切的模型。
+
+只在模型思考时才加入的思维链指令：
+
+```
+{{#if reasoning}}
+Plan the reply in your thinking before you write it.
+{{else}}
+Before replying, write your plan inside <plan></plan> tags.
+{{/if}}
+```
+
+只要推理开着，无论哪个等级，模型都会收到第一行。推理关闭时，`{{reasoning}}` 是 `off`，会被当作假值，所以模型收到第二行。想只针对某一个等级生效，就拿它做比较：`{{#if reasoning == "max"}}`。
 
 <a id="asking-the-decision-model"></a>
 

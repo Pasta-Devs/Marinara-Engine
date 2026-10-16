@@ -104,9 +104,11 @@ El widget consulta el endpoint de uso de NanoGPT y muestra tus cuotas semanales 
 - **Management Token** (recomendado): créalo en `https://nano-gpt.com/settings#management-api-tokens` con el permiso **Usage only** (solo uso). Puede leer tus cuotas, pero no ejecutar modelos ni gastar tu saldo, por lo que es la opción más segura para mostrar el consumo. Marinara lo guarda cifrado y lo envía únicamente al endpoint de administración de NanoGPT.
 - **Tu clave de API**: se usa automáticamente si no hay un token de administración guardado. Funciona, pero las consultas usan la misma credencial que permite gastar tu saldo.
 
+Bajo cada barra, el widget indica lo que queda y cuándo se reinicia la ventana, por ejemplo `42M remaining · resets in 4d`.
+
 Una cuota que NanoGPT no puede informar en ese momento aparece como **desconocida**, no como sin usar. Una suscripción inactiva se indica expresamente, en lugar de mostrar toda la cuota como disponible. El botón de actualización del widget permite actualizarlo cuando quieras.
 
-El mismo indicador aparece debajo del indicador de contexto en el selector de conexión del chat y en sus ajustes de **Connection** (conexión), para que puedas consultar la cuota sin salir del chat. Sigue la conexión activa: solo aparece si es una conexión NanoGPT con **Show subscription usage** activado, y no aparece con **Random**, que no tiene una única conexión que consultar. En el selector tiene el mismo estilo que la barra de contexto superior y se lee igual: consumo frente al límite semanal, por ejemplo `8.9M / 60M tokens`.
+El mismo indicador aparece debajo del indicador de contexto en el selector de conexión del chat y en sus ajustes de **Connection** (conexión), para que puedas consultar la cuota sin salir del chat. Sigue la conexión activa: solo aparece si es una conexión NanoGPT con **Show subscription usage** activado, y no aparece con **Random**, que no tiene una única conexión que consultar. En el selector tiene el mismo estilo que la barra de contexto superior y se lee igual: consumo frente al límite semanal, por ejemplo `8.9M / 60M tokens`, con la hora de reinicio junto al porcentaje.
 
 ## xAI / Grok
 
@@ -150,6 +152,24 @@ Conecta DeepSeek aquí en lugar de apuntar el proveedor **OpenAI** a la URL de D
 
 Los pasos de instalación e inicio de sesión están en [Conexiones de suscripción de Claude, ChatGPT y Grok](subscription-clis.md).
 
+### Uso del plan
+
+Esta conexión puede mostrar cuánto de los límites de tu plan de Claude has usado:
+
+1. Activa **Show subscription usage** (mostrar el uso de la suscripción) en el editor de conexiones.
+2. Deja marcadas **5-hour window** (ventana de 5 horas) y **Weekly window** (ventana semanal), o desmarca la que no quieras ver.
+3. Guarda la conexión.
+
+Cada ventana tiene una barra con el porcentaje usado y cuándo se reinicia, por ejemplo `58% · resets in 2h`. Las mismas barras aparecen bajo el indicador de contexto en el selector de conexión de un chat y en los ajustes de **Connection** del chat mientras esta conexión está activa. No aparecen con **Random**, que no tiene una única conexión que consultar.
+
+Conviene saber:
+
+- Las barras cuentan todo lo que se usa en tu plan de Claude, como Claude Code y claude.ai, no solo Marinara.
+- Claude informa de un porcentaje por ventana y no de tokens, así que no se muestran.
+- Una lectura le pide a la herramienta Claude Code del host de Marinara los mismos datos que muestra su comando `/usage`. No envía ningún mensaje a Claude ni gasta nada de tu plan. Tarda un par de segundos, y el botón de actualizar la vuelve a leer.
+- El nombre del plan junto al título, como **Pro**, es el que Claude informa para la cuenta con la que has iniciado sesión.
+- Claude Code marca estos datos de uso como experimentales. Si una versión futura los cambia, las barras muestran un error con un botón de reintento en lugar de un número incorrecto.
+
 ## OpenAI (ChatGPT)
 
 - API key: ninguna. En su lugar, inicias sesión en una herramienta local.
@@ -157,6 +177,17 @@ Los pasos de instalación e inicio de sesión están en [Conexiones de suscripci
 **OpenAI (ChatGPT)** usa tu cuenta de ChatGPT a través de la herramienta Codex. La herramienta se ejecuta en la computadora que aloja el servidor de Marinara, y tú inicias sesión una vez. Los campos **API Key** y **Base URL** quedan ocultos para este proveedor. No ofrece embeddings (consulta la sección Embeddings más abajo). Su nivel de razonamiento es el **Reasoning Effort** de los parámetros de la conexión o del chat; hasta que elijas uno, Codex usa su propio valor predeterminado para el modelo.
 
 Los pasos de instalación e inicio de sesión están en [Conexiones de suscripción de Claude, ChatGPT y Grok](subscription-clis.md).
+
+### Uso del plan
+
+Esta conexión puede mostrar cuánto de los límites de Codex de tu plan de ChatGPT has usado. Funciona como la de Claude (Subscription) de arriba: activa **Show subscription usage**, deja marcadas o desmarca **5-hour window** y **Weekly window**, y guarda. Las barras aparecen en el editor de conexiones, en el selector de conexión de un chat y en los ajustes de **Connection** del chat.
+
+Conviene saber:
+
+- Las barras cuentan todo el uso de Codex en tu plan de ChatGPT, como el de la Codex CLI, no solo Marinara. Los chats de chatgpt.com tienen sus propios límites y no forman parte de estas barras.
+- ChatGPT informa de un porcentaje por ventana y no de tokens, así que no se muestran.
+- Una lectura le pide a ChatGPT los mismos datos que la Codex CLI muestra como sus límites, usando el inicio de sesión de Codex en el host de Marinara. No envía ningún mensaje a un modelo ni gasta nada de tu plan.
+- Un plan con una sola de las dos ventanas muestra una sola barra.
 
 ## Grok CLI (Subscription)
 

@@ -109,11 +109,14 @@ Te makra opisują bieżący czat i bieżące zapytanie.
 | --- | --- |
 | `{{input}}` | Najnowsza wiadomość użytkownika dostępna dla promptu. |
 | `{{model}}` | Nazwa bieżącego modelu, o ile jakiś jest wybrany. |
+| `{{reasoning}}` | Poziom rozumowania, z jakim generowana jest ta odpowiedź: `low`, `medium`, `high`, `xhigh` albo `max`, lub `off`, gdy model nie jest proszony o myślenie. |
 | `{{chatId}}` | Identyfikator bieżącego czatu. |
 | `{{lastGenerationType}}` | Etykieta opisująca powód wygenerowania tej odpowiedzi. |
 | `{{idle_duration}}` | Czas od ostatniej aktywności w czacie, w formie tekstu w rodzaju `8 minutes` albo `1 hour 5 minutes`. |
 | `{{gameStoryboardKeyframeCount}}` | Bieżąca wartość docelowa **Keyframes per Turn** w trybie Game Mode, od 1 do 6. Domyślnie `3`. |
 | `{{agent::TYPE}}` | Zapisany wynik agenta danego typu. |
+
+`{{reasoning}}` podaje poziom, który model faktycznie dostaje po nałożeniu na siebie presetu, połączenia i ustawień czatu. **Maximum** pokazuje się jako najwyższy poziom, jaki model przyjmuje, więc może to być `max`, `xhigh` albo `high`. Ponieważ `off` czyta się jako fałsz, `{{#if reasoning}}` zachowuje blok tylko wtedy, gdy model myśli. Jeśli twój preset lub czat ma już własną zmienną o nazwie `reasoning`, to ta zmienna zachowuje nazwę.
 
 Wartość `{{lastGenerationType}}` to prosta etykieta. W aplikacji pojawiają się między innymi `normal`, `continue`, `regenerate`, `impersonate`, `guided`, `autonomous`, `turn_game`, `preview`, `game_setup`, `lorebook_scan` i `retry_agents`. Ta lista może się rozrastać, więc traktuj ją jako przykłady, a nie zamknięty zbiór.
 

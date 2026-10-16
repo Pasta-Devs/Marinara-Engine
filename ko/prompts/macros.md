@@ -109,11 +109,14 @@ Conversation Mode는 여러 블록을 프롬프트에 자동으로 넣어 줍니
 | --- | --- |
 | `{{input}}` | 프롬프트에서 사용할 수 있는 가장 최근 user 메시지. |
 | `{{model}}` | 모델을 선택한 경우 현재 모델 이름. |
+| `{{reasoning}}` | 이 답변을 생성할 때 쓰는 추론 수준입니다. `low`, `medium`, `high`, `xhigh`, `max` 중 하나이거나, 모델에게 생각하라고 요청하지 않을 때는 `off`입니다. |
 | `{{chatId}}` | 현재 채팅의 ID. |
 | `{{lastGenerationType}}` | 이 답변을 생성하는 이유를 나타내는 라벨. |
 | `{{idle_duration}}` | 마지막 채팅 활동 이후 지난 시간. `8 minutes`, `1 hour 5 minutes` 같은 텍스트입니다. |
 | `{{gameStoryboardKeyframeCount}}` | Game Mode의 현재 **Keyframes per Turn**(턴당 키프레임 수) 목표값. 1에서 6까지이며 기본값은 `3`입니다. |
 | `{{agent::TYPE}}` | 지정한 종류의 에이전트가 저장한 출력. |
+
+`{{reasoning}}`은 프리셋, 연결, 채팅 설정을 겹쳐 적용한 뒤 모델이 실제로 받는 수준을 나타냅니다. **Maximum**은 모델이 받아들이는 가장 높은 수준으로 표시되므로 `max`, `xhigh`, `high` 중 하나로 읽힐 수 있습니다. `off`는 거짓으로 읽히므로 `{{#if reasoning}}`은 모델이 생각하는 동안에만 블록을 남깁니다. 프리셋이나 채팅에 이미 `reasoning`이라는 이름의 자체 변수가 있다면, 그 변수가 이름을 유지합니다.
 
 `{{lastGenerationType}}`의 값은 단순한 라벨입니다. 앱에서 볼 수 있는 값의 예로는 `normal`, `continue`, `regenerate`, `impersonate`, `guided`, `autonomous`, `turn_game`, `preview`, `game_setup`, `lorebook_scan`, `retry_agents`가 있습니다. 이 목록은 늘어날 수 있으므로 고정된 집합이 아니라 예시로 봐 주세요.
 

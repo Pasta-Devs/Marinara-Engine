@@ -115,7 +115,7 @@ Eine Truthy-Prüfung trifft zu, wenn der Wert nicht leer ist und keines dieser W
 
 Links oder rechts in einer Bedingung steht eines der folgenden Elemente:
 
-1. Ein Feld- oder Identitäts-Schlüsselwort wie `char`, `user`, `group`, `persona`, `description`, `personality`, `scenario`, `input` oder `model`. Diese lesen dieselben Werte wie die passenden Makros. `group` listet die übrigen aktiven Charaktere im Chat auf, ohne den gerade antwortenden Charakter.
+1. Ein Feld- oder Identitäts-Schlüsselwort wie `char`, `user`, `group`, `persona`, `description`, `personality`, `scenario`, `input`, `model` oder `reasoning`. Diese lesen dieselben Werte wie die passenden Makros. `group` listet die übrigen aktiven Charaktere im Chat auf, ohne den gerade antwortenden Charakter.
 2. Ein Literal in Anführungszeichen, etwa `"Alice"`.
 3. Der Name einer Preset-Variablen, etwa `length`. Eine Preset-Variable ist ein benannter Wert, den du in einem Prompt-Preset festlegst. Siehe [Preset-Variablen](preset-variables.md).
 4. Ein ausdrücklicher Variablenzugriff in der Form `var:name` oder `var.name`.
@@ -157,7 +157,7 @@ Gruppenblöcke greifen nur in Chats mit zwei oder mehr Charakteren. Im Einzelcha
 
 ## Beispiele aus der Praxis (vorher und nachher)
 
-Es folgen drei vollständige Beispiele samt dem Ergebnis, das beim Modell ankommt.
+Es folgen fünf vollständige Beispiele samt dem Ergebnis, das beim Modell ankommt.
 
 Charakterspezifischer Ton innerhalb eines gemeinsamen Presets:
 
@@ -190,6 +190,28 @@ Address the user as Doctor.
 ```
 
 Enthält der Name der Persona `Dr`, wird das Modell angewiesen, dich mit Doktor anzusprechen. Andernfalls ergibt der Block nichts.
+
+Modellspezifische Anweisungen:
+
+```
+{{#if model contains "opus"}}
+Keep replies under 400 words.
+{{/if}}
+```
+
+`model` ist die Modell-ID aus deiner Verbindung, etwa `claude-opus-5-5`; `contains` trifft also auf jede Opus-Version zu, `==` nur auf ein bestimmtes Modell.
+
+Chain-of-Thought-Anweisungen nur, solange das Modell nachdenkt:
+
+```
+{{#if reasoning}}
+Plan the reply in your thinking before you write it.
+{{else}}
+Before replying, write your plan inside <plan></plan> tags.
+{{/if}}
+```
+
+Ist Reasoning auf irgendeiner Stufe aktiv, bekommt das Modell die erste Zeile. Ist es aus, lautet `{{reasoning}}` gleich `off`, was als falsch gilt, und das Modell bekommt die zweite. Um auf eine bestimmte Stufe zu reagieren, vergleiche sie: `{{#if reasoning == "max"}}`.
 
 <a id="asking-the-decision-model"></a>
 

@@ -67,7 +67,9 @@
 
 左侧是这个聊天里活跃的智能体列表，选中一个就能看到它存了什么。右侧是可编辑的区块，分成 **Stored Memory**(存储记忆)、**Tracker Data**(追踪器数据，只有追踪器智能体才有) 和 **Recent Outputs**(最近输出，只有自定义智能体才有) 三组。不追踪数据的智能体只显示 **Stored Memory**。
 
-每个区块都是一个文本或 JSON 编辑器。改完一个区块之后：
+每个区块都是一个文本或 JSON 编辑器。JSON 区块带有行号，JSON 无法解析时会立刻提示；在能解析之前，**Save** 一直不可用。想一次搜索全部追踪器数据，或把它们当作字段编辑，请点击 **Tracker Data** 标题栏里的 **Open in State Editor**(参见 [State Editor](../roleplay/hud-and-trackers.md#the-state-editor))。
+
+改完一个区块之后：
 
 - 点击 **Save**(保存) 保留改动。
 - 点击 **Reset**(重置) 撤销尚未保存的改动，回到已存储的值。

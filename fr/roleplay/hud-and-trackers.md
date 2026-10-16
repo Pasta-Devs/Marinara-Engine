@@ -135,6 +135,22 @@ Voici les réglages disponibles :
 - **Always show Docked thoughts** : quand **Thought display mode** vaut **Docked**, la pensée de chaque personnage mis en avant reste visible, au lieu d'être cachée derrière un bouton.
 - **Temperature unit** : choisis **°C** (Celsius) ou **°F** (Fahrenheit) pour l'affichage des températures. La valeur par défaut est °C. Cela ne change que l'affichage, pas la valeur enregistrée dans l'état du monde.
 
+<a id="the-state-editor"></a>
+
+## Le State Editor
+
+Le **State Editor** affiche tous les trackers du tour en cours dans une seule fenêtre, pour que tu puisses retrouver une valeur et la corriger sans ouvrir chaque tracker. Il fonctionne aussi sur téléphone.
+
+Pour l'ouvrir, clique sur l'engrenage (**Tracker panel settings**) dans l'en-tête du Tracker Panel, puis sur le bouton **{ }** (**Open in State Editor**). Dans **Agent Suite**, l'en-tête de **Tracker Data** propose aussi un lien **Open in State Editor**.
+
+- **Quel tour tu modifies :** la ligne sous le champ de recherche indique à quel message et à quel swipe appartient l'état, par exemple « Editing message #12 · swipe 2 of 3 ». **Latest** (le plus récent) marque le tour le plus récent, et un court extrait du message t'aide à le repérer dans le chat. Chaque swipe a son propre état : change donc de swipe d'abord si tu veux en corriger un autre.
+- **Sections :** **Scene**, **Present Characters**, **Persona Stats**, **Inventory Tracker**, **Custom Tracker Fields** et **Active Quests**. Sur téléphone, elles forment une rangée de pastilles au-dessus de l'éditeur. Un point signale une section que tu as modifiée.
+- **Recherche :** tape dans le champ de recherche pour trouver une clé ou une valeur dans toutes les sections à la fois, par exemple `mood`. Chaque résultat indique où il se trouve, comme « Present Characters › Gwendolyn ». Clique sur un résultat pour y aller directement.
+- **Fields et JSON :** chaque section s'ouvre en **Fields** (champs) : texte, nombres et valeurs oui/non sous forme de champs à remplir, avec chaque personnage, objet ou quête sur sa propre carte. Pour ajouter ou retirer une entrée, passe en **JSON** et modifie directement le texte. **Format** (mettre en forme) remet le JSON en ordre, et **Revert** (annuler) défait tes changements dans une section. Si le JSON est invalide, la section est signalée et ne peut pas être enregistrée tant que tu ne l'as pas corrigé.
+- **Enregistrement :** **Review changes** (relire les changements) montre ligne par ligne ce qui change dans chaque section. **Save changes** (enregistrer les changements) les écrit tous d'un coup dans le tour que tu modifiais. D'ici là, tes brouillons restent dans la fenêtre, et la fermer demande confirmation avant de les jeter.
+
+Si l'histoire avance pendant que tu modifies, l'éditeur ne l'écrase pas. Une nouvelle réponse ou un nouveau swipe fait d'un autre tour le tour courant, et l'enregistrement est refusé avec un bouton **Reload** (recharger). Il en va de même quand un agent de tracker met à jour une section que tu as modifiée après avoir ouvert l'éditeur. **Reload** affiche l'état le plus récent et abandonne tes brouillons.
+
 ## Quels agents alimentent le HUD
 
 Chaque widget du HUD est rempli par un tracker qui s'exécute après chaque tour. Le tableau des widgets, au début de ce guide, indique quel agent alimente quel widget.

@@ -109,11 +109,14 @@ Conversation Modeは、いくつかのブロックを自動でプロンプトに
 | --- | --- |
 | `{{input}}` | プロンプトから参照できる、直近のユーザーのメッセージ。 |
 | `{{model}}` | 選択中のモデル名(選ばれている場合)。 |
+| `{{reasoning}}` | この返信の生成に使われる推論レベル。`low`、`medium`、`high`、`xhigh`、`max`のいずれか、またはモデルに考えさせない場合は`off`です。 |
 | `{{chatId}}` | 現在のチャットのID。 |
 | `{{lastGenerationType}}` | この返信を生成している理由を表すラベル。 |
 | `{{idle_duration}}` | 最後にチャットが動いてからの経過時間。`8 minutes`や`1 hour 5 minutes`のようなテキストです。 |
 | `{{gameStoryboardKeyframeCount}}` | Game Modeの現在の**Keyframes per Turn**(1ターンあたりのキーフレーム数)の目標値。1から6までで、デフォルトは`3`です。 |
 | `{{agent::TYPE}}` | 指定した種類のエージェントの保存済み出力。 |
+
+`{{reasoning}}`は、プリセット、接続、チャット設定を重ねたあとに、モデルが実際に受け取るレベルを表します。**Maximum**は、そのモデルが受け付ける最も高いレベルとして表示されるため、`max`、`xhigh`、`high`のいずれかになりえます。`off`は偽として扱われるので、`{{#if reasoning}}`はモデルが考えている間だけブロックを残します。プリセットやチャットに`reasoning`という名前の独自の変数がすでにある場合は、その変数が名前を優先します。
 
 `{{lastGenerationType}}`の値は単純なラベルです。アプリで実際に見られる値には`normal`、`continue`、`regenerate`、`impersonate`、`guided`、`autonomous`、`turn_game`、`preview`、`game_setup`、`lorebook_scan`、`retry_agents`などがあります。今後増える可能性があるので、固定の一覧ではなく例として考えてください。
 

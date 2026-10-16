@@ -115,7 +115,7 @@ Un test de contenu est vrai quand la valeur n'est pas vide et qu'elle ne fait pa
 
 Le côté gauche ou droit d'une condition accepte l'un des éléments suivants :
 
-1. Un mot-clé de champ ou d'identité, comme `char`, `user`, `group`, `persona`, `description`, `personality`, `scenario`, `input` ou `model`. Ces mots-clés lisent les mêmes valeurs que les macros correspondantes. `group` liste les autres personnages actifs du chat, une fois écarté celui qui répond.
+1. Un mot-clé de champ ou d'identité, comme `char`, `user`, `group`, `persona`, `description`, `personality`, `scenario`, `input`, `model` ou `reasoning`. Ces mots-clés lisent les mêmes valeurs que les macros correspondantes. `group` liste les autres personnages actifs du chat, une fois écarté celui qui répond.
 2. Une valeur littérale entre guillemets, comme `"Alice"`.
 3. Un nom de variable de preset, comme `length`. Une variable de preset est une valeur nommée que tu définis dans un preset de prompt. Voir [Variables de preset](preset-variables.md).
 4. Une recherche de variable explicite, écrite `var:name` ou `var.name`.
@@ -157,7 +157,7 @@ Les blocs de groupe ne se déploient que dans un chat comptant deux personnages 
 
 ## Exemples concrets (avant et après)
 
-Voici trois exemples complets, avec le résultat que reçoit le modèle.
+Voici cinq exemples complets, avec le résultat que reçoit le modèle.
 
 Un ton propre à un personnage dans un preset partagé :
 
@@ -190,6 +190,28 @@ Address the user as Doctor.
 ```
 
 Si le nom du persona contient `Dr`, le modèle reçoit la consigne de t'appeler Doctor. Sinon, le bloc ne produit rien.
+
+Instructions propres à un modèle :
+
+```
+{{#if model contains "opus"}}
+Keep replies under 400 words.
+{{/if}}
+```
+
+`model` est l'ID du modèle de ta connexion, comme `claude-opus-5-5` : `contains` correspond donc à toutes les versions d'Opus, et `==` à un seul modèle précis.
+
+Instructions de raisonnement pas à pas seulement quand le modèle réfléchit :
+
+```
+{{#if reasoning}}
+Plan the reply in your thinking before you write it.
+{{else}}
+Before replying, write your plan inside <plan></plan> tags.
+{{/if}}
+```
+
+Avec le raisonnement activé, quel que soit le niveau, le modèle reçoit la première ligne. Avec le raisonnement désactivé, `{{reasoning}}` vaut `off`, ce qui se lit comme faux : il reçoit alors la seconde. Pour agir sur un niveau précis, compare-le : `{{#if reasoning == "max"}}`.
 
 <a id="asking-the-decision-model"></a>
 

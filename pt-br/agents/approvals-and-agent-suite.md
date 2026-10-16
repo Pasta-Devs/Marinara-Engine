@@ -67,7 +67,9 @@ Para abrir:
 
 À esquerda fica a lista dos agentes ativos neste chat. Escolha um para ver o que ele salvou. O lado direito mostra blocos editáveis, reunidos em **Stored Memory** (memória salva), **Tracker Data** (dados do tracker, só para agentes tracker) e **Recent Outputs** (saídas recentes, só para agentes personalizados). Os agentes que não acompanham dados mostram apenas **Stored Memory**.
 
-Cada bloco é um editor de texto ou de JSON. Depois de alterar um bloco:
+Cada bloco é um editor de texto ou de JSON. Os blocos JSON têm números de linha e avisam na hora quando o JSON não pode ser lido; **Save** fica desativado até que possa. Para buscar em todos os dados do tracker de uma vez ou editá-los como campos, clique em **Open in State Editor** no cabeçalho de **Tracker Data** (veja [O State Editor](../roleplay/hud-and-trackers.md#the-state-editor)).
+
+Depois de alterar um bloco:
 
 - Clique em **Save** para manter a edição.
 - Clique em **Reset** para desfazer a alteração não salva e voltar ao valor salvo.
