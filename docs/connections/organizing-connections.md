@@ -1,10 +1,22 @@
 # Organizing Connections
 
-This guide covers how to keep your saved connections tidy in Marinara Engine. It explains connection folders, search and sort, duplicating and deleting, the random pool, the Quick Connection Switcher, and exporting or importing connections. A connection is a saved setup that tells Marinara how to reach one AI service.
+This guide covers how to keep your saved connections tidy in Marinara Engine. It explains how models are grouped under connections, favorites, moving a model, folder view, search and sort, duplicating and deleting, Shuffle, quick switch, and exporting or importing connections. A connection is one API key, account, or endpoint for an AI service.
 
-You do all of this in the **Connections** panel. Open it, and your saved connections appear as a list of rows. Each row shows the connection name and its provider and model below the name.
+You do all of this in the **Connections** panel. Open it, and below the **Defaults** card your connections appear as cards. Each card shows the connection name and its state (**Ready**, **Needs key**, or **Off**). Open a card to see the models you saved under it. Each saved model keeps its own settings.
+
+## Favorites and moving models
+
+Click the star on a model to add it to **Favorites**. Starring saves the model and keeps it at the top of its connection and of the quick switch. Click the star again to remove it from favorites. Removing the star keeps the saved model.
+
+To move a model to another connection, open the model's **⋯** menu and choose **Move to connection…**. You can only move a model to another connection of the same service. The model then uses that connection's key and model list. Chats that use the model keep working.
+
+When you add a second connection of the same service without typing a name, its automatic name gets the last 4 characters of the key, for example `OpenAI · …a1b2`. A name you type is never changed.
+
+When you update from an older version, Marinara groups your existing connections automatically on first start. The Connections panel shows a one-time note about it. Click **Dismiss this note** to hide it.
 
 ## Connection folders
+
+Folders are part of **Folder view**. To turn it on, click **More actions** next to the search box and choose **Folder view**. Choose **Card view** from the same menu to go back to the cards.
 
 Use connection folders to group related connections. For example, put all your local models in one folder and all your paid providers in another.
 
@@ -24,7 +36,7 @@ To delete a folder, click the trash icon on the folder row. If the folder still 
 
 ## Search and sort
 
-The **Search connections** box filters the list as you type. It matches the connection name, provider, model, base URL, image or video service, and embedding model. When nothing matches, you see "No connections match your search".
+The **Search connections** box filters the list as you type. It matches the connection name, service, model, endpoint, image or video service, and embedding model. When nothing matches, you see "No connections match your search".
 
 The **Sort order** dropdown next to the search box changes the list order. It has five options:
 
@@ -40,44 +52,44 @@ To set a custom order, drag connection rows up or down. Dragging a connection sw
 
 ## Duplicating and deleting
 
-Hover over a connection row (or look at the row on a touch screen) to see its action buttons.
+Open the **⋯** menu on a model row to see its actions, such as **Make default**, **Duplicate**, and **Delete**.
 
-To duplicate a connection, click the **Duplicate** button (the copy icon). This makes a full copy, including the stored API key. The copy opens in the editor so you can rename it. There is no confirmation step.
+To duplicate a model, choose **Duplicate**. This makes a full copy with the same settings. There is no confirmation step.
 
-To delete a single connection, click its **Delete** button (the trash icon). Marinara shows a **Delete Connection** dialog that reads Delete "your connection name"? This cannot be undone. Click **Delete** to confirm.
+To delete a single model, choose **Delete**. Marinara shows a **Delete Connection** dialog that reads Delete "your model name"? This cannot be undone. Click **Delete** to confirm.
 
-To delete or export several connections at once, click the **Select** button at the top of the panel. This turns on selection mode. Tap the connections you want, then use the **Export** or **Delete** button in the action bar at the bottom. Bulk delete shows a **Delete Connections** dialog before it removes them.
+To delete a whole connection, click **Edit** on its card, then click **Delete connection**. Marinara asks you to remove its models first. This removes the key and the endpoint.
 
-## The random pool and Quick Connection Switcher
+To delete or export several at once, click **More actions**, then **Select connections**. This turns on selection mode. Tap the items you want, then use the **Export** or **Delete** button in the action bar at the bottom. Bulk delete shows a **Delete Connections** dialog before it removes them.
 
-The random pool lets a chat pick a different connection each time it generates a reply. This is useful when you want to spread requests across several providers or models.
+## Shuffle and quick switch
 
-To add a connection to the random pool, click the shuffle icon on its row. Its tooltip reads **Add to random pool**. Once the connection is in the pool, the tooltip changes to **In random pool (click to remove)**. Click the icon again to take the connection out.
+Shuffle lets a chat pick a different connection each time it generates a reply. This is useful when you want to spread requests across several services or models.
 
-To make a chat use the random pool, open **Chat Settings**, find the **Connection** section, and choose **🎲 Random** from the dropdown. In Game Mode this dropdown is labeled **GM / Party Model**. Each reply then picks a random connection from your pool.
+To add a model to Shuffle, open its **⋯** menu and choose **Add to Shuffle**. Choose **Remove from Shuffle** to take it out again.
 
-The **Quick Connection Switcher** is a faster way to change the connection, and its model, for the chat you are in. Click the link icon in the chat input area to open it. It shows your connections on the left and the chosen connection's **Models** on the right:
+To make a chat use Shuffle, open **Chat Settings**, find the **Connection** section, and choose **🎲 Random** from the dropdown. In Game Mode this dropdown is labeled **GM / Party Model**. Each reply then picks a random model from your Shuffle.
 
-- Click a connection to use it for the current chat right away. The menu stays open so you can pick one of its models next.
-- Click a model to use it. The model is saved to that connection, the connection is selected for the chat if it was not already, and the menu closes. A checkmark marks the model the connection uses now. As in the connection editor, picking a listed model also updates the connection's context size, and its output limit, when the provider reports them.
-- Type in the **Search or enter model ID…** box to filter the list. Pressing Enter picks the model whose ID or name you typed, or the only model left in the list. To use a model that is not listed, type its exact ID: press Enter when nothing in the list matches it, or click the **Use "…"** row.
-- Click the star next to a model to pin it. Pinned models stay at the top under **Pinned**, even ones you typed by hand. Click the star again to unpin it.
-- The first time you open a connection's models, Marinara loads the list from the provider and saves it with the connection, so later visits show it right away. Click the refresh button next to the search box to load the list again, for example after the provider adds new models. Changing the connection's API key, Base URL or provider also loads a fresh list.
-- If the provider has no model list or cannot be reached, the menu says so, and you can still type a model ID.
-- Click the dice button at the top of the menu to turn the random pool on or off for this chat.
-- While the random pool is on, clicking a connection instead adds it to or removes it from the pool. A checkmark shows which connections are in the pool. The **Models** column is hidden, because the pool has no single connection.
+The **Connections** menu in the chat input is a faster way to change the model for the chat you are in. Open it from the chat input area. A pick there changes only that chat, and the menu says **This chat only** next to it. It shows these parts:
 
-On a phone, tap the chevron next to the message box and open the **Connections** tab. Tapping a connection selects it and shows its models in the same menu; tap the back arrow to return to the connection list.
+- **Favorites** and **Recent** models, grouped by connection, for quick picks.
+- **Browse all models** opens the full list of a connection. Type in the **Search models or paste an ID…** box to filter the list. To use a model that is not listed, type its exact ID and click the **Use "…"** row. This adds the ID to the connection.
+- **Use default (model name)** clears the chat's own pick. The chat then follows your Main model again. The hint reads **Follows your Main model**.
+- **Shuffle** turns Shuffle on for this chat.
+- After you pick a model, the confirmation message offers **Make it my Main model**, which sets that model as your Main model for new chats, and **Undo**, which reverts the pick.
+- Click the star next to a model to add it to **Favorites**.
 
-**A model change applies everywhere the connection is used.** The note at the bottom of the menu, "Model changes are saved to this connection.", means agents, helpers and other chats that use the same connection switch to the new model too. Other model settings on the connection, such as its embedding model or image-captioning connection, do not change. If you want a different model for one purpose only, duplicate the connection and change the copy.
+On a phone, tap the chevron next to the message box and open the **Connections** tab.
+
+**A pick in the menu does not change the connection.** Other chats, agents, and helpers keep their models. To change the model for new chats, set the **Main** model in the **Defaults** card at the top of the **Connections** panel. The same card sets the **Fallback** and the models for decisions, embeddings, images, and other features.
 
 ## Exporting and importing connections
 
 You can export connections to a file to back them up or move them to another install, then import them later.
 
-**Your API keys are never included in an export.** After you import connections, you must open each one and enter its API key again. Pinned models are included; the saved model list is not, so it loads again the first time you open the connection's models.
+**Your API keys are never included in an export.** After you import connections, you must open each one and enter its API key again. Favorites are included; the saved model list is not, so it loads again the first time you open the connection's models.
 
-To export a single connection, open it in the editor and click its **Export** button (the upload icon). To export several at once, use **Select** mode in the panel and click **Export** in the action bar. Before the download starts, Marinara shows an **Export Connection Data** dialog with this warning: This will export your connection data, WITHOUT your provided API Key. Remember to never share those with others! Click **Export** to continue.
+To export a single model, open it in the editor and click its **Export** button (the upload icon). To export several at once, use **Select connections** mode in the panel and click **Export** in the action bar. Before the download starts, Marinara shows an **Export Connection Data** dialog with this warning: This will export your connection data, WITHOUT your provided API Key. Remember to never share those with others! Click **Export** to continue.
 
 A single connection downloads as a `.connection.json` file. Several connections download together as a `marinara-connections.zip` file.
 

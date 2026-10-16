@@ -23,7 +23,7 @@ The first time you open Marinara, a short guided tour points out the main button
 Follow these steps in order to get to your first chat.
 
 1. Install Marinara Engine and open it in your browser. Pick your platform in [Marinara Engine Installation](../INSTALLATION.md).
-2. Add a connection so the app can reach an AI service. A connection stores your provider, your API key, and your model. An API key is a secret code, a bit like a password, that you get from the AI provider. See [Connecting to an AI Provider](../connections/connecting-to-a-provider.md).
+2. Add a connection so the app can reach an AI service. A connection is one API key, account, or endpoint. You choose the service, paste the key, and pick your models. An API key is a secret code, a bit like a password, that you get from the AI provider. See [Connecting to an AI Provider](../connections/connecting-to-a-provider.md).
 3. Make or import a character to chat with. Open the **Characters** panel, then click **New** to open the **Create Character** window, or click **Import** to bring in a card from a file. See [Creating and Editing Characters](../characters/creating-and-editing-characters.md).
 4. Start a chat. In the chat sidebar, pick a mode tab, then click the **+** button. The button is named **New Conversation**, **New Roleplay**, or **New Game**, to match the tab. The new chat opens with a setup window that walks you through the rest. If you have no connection saved yet, a **Set Up Conversation**, **Set Up Roleplay**, or **Set Up Game** window appears first. Choose your connection there, then click **Create Chat**.
 

@@ -78,15 +78,15 @@ A manual status override also belongs to the character. If you set a character t
 
 ## Do I need an API key to use Marinara?
 
-Almost always, yes. A **connection** is a saved link that tells Marinara how to reach one AI service: which provider, which model, and your login for it. An **API key** is a secret code, a bit like a password. You get it from an AI provider so Marinara can talk to that provider for you.
+Almost always, yes. A **connection** is one API key, account, or endpoint for an AI service. The models you save are grouped under it. An **API key** is a secret code, a bit like a password. You get it from an AI provider so Marinara can talk to that provider for you.
 
-You need at least one connection before you can start any chat. To make one, open the **Connections** panel, click **New**, pick a provider, paste your **API Key**, and pick a model. For the full walkthrough, see [Connecting to an AI Provider](connections/connecting-to-a-provider.md).
+You need at least one connection before you can start any chat. To make one, open the **Connections** panel, click **Add connection**, choose the service, paste your **API key**, and choose models. For the full walkthrough, see [Connecting to an AI Provider](connections/connecting-to-a-provider.md).
 
 A few providers do not use an API key at all. The subscription options (Claude, ChatGPT, and Grok) log in through a command-line tool instead, and the built-in Local Model runs on your own machine with no key.
 
 ## Which AI providers are supported?
 
-Marinara supports many providers. You pick one per connection.
+Marinara supports many services. You choose one service per connection.
 
 For chat and roleplay text, the choices are **OpenAI**, **OpenAI (ChatGPT)**, **Anthropic**, **Claude (Subscription)**, **Grok CLI (Subscription)**, **Google Gemini**, **Google Vertex AI**, **Mistral**, **Cohere**, **OpenRouter**, **NanoGPT**, **xAI / Grok**, and **Custom (OAI-Compatible)** for local or self-hosted models such as Ollama, LM Studio, and KoboldCpp.
 
@@ -94,7 +94,7 @@ For image generation, the choices include **OpenAI (DALL-E)**, **Stability AI**,
 
 For video generation, the choices are **Google AI Studio**, **xAI Imagine**, **OpenRouter Video**, **Atlas Cloud**, **Seedance 2.0**, and local **ComfyUI** API-format workflows.
 
-You can save many connections at once and assign a different one to each chat. See [Connecting to an AI Provider](connections/connecting-to-a-provider.md).
+You can save many connections at once. A model you pick in a chat from the **Connections** menu by the chat input changes only that chat. See [Connecting to an AI Provider](connections/connecting-to-a-provider.md).
 
 ## Do I have to pay to use Marinara?
 

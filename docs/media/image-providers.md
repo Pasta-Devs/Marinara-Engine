@@ -6,18 +6,20 @@ You set up image generation as a special kind of connection. Once one image conn
 
 ## How to add an image generation connection
 
-An **API key** is a secret password from a provider that lets Marinara use your account. A **Base URL** is the web address of the service's application interface. Marinara fills in the correct Base URL for you when you pick a service.
+An **API key** is a secret password from a provider that lets Marinara use your account. A **Base URL** (shown as **Endpoint** on the connection) is the web address of the service's application interface. Marinara fills in the correct one for you when you pick a service.
 
 Follow these steps to add an image connection.
 
 1. Open the **Connections** panel.
-2. Click **New** to open the **Create Connection** modal.
-3. Enter a name, then pick the **Image Generation** provider.
-4. In the connection editor, choose a **Service** from the grid.
-5. Paste your **API Key** if that service needs one. Free and local services do not.
+2. Click **Add connection**.
+3. In step 1, open **Images, video & voice** and choose **Image Generation**.
+4. In step 2, paste your key into the **API key** field if the service you plan to use needs one. Free and local services do not. For a local server, set its **Endpoint** here. Click **Save and test**. The model editor for your new image model opens.
+5. In the model editor, choose a **Service** from the grid.
 6. Pick a **Model** from the list, or type a model ID. Some services offer **Fetch Models from API** to load the current list.
 7. Click **Save**.
 8. Click **Test Image** to confirm it works. Marinara generates a small test image.
+
+To add another image model to a connection you already have, open its card and click **Add image model**. To make an image model the one the app uses, set **Images** in the **Defaults** card at the top of the **Connections** panel.
 
 If **Test Image** returns a picture, your connection is ready. If it fails, check the API key and Base URL.
 

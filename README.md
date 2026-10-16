@@ -84,7 +84,7 @@
   <img src="docs/screenshots/Desktop_Chat_Settings_Window.png" width="45%" alt="Chat Settings window" />
 </p>
 <p align="center">
-  <em>Pick and pin models right from the chat input &nbsp;&nbsp;·&nbsp;&nbsp; Chat Settings in a movable window</em>
+  <em>Pick and favorite models right from the chat input &nbsp;&nbsp;·&nbsp;&nbsp; Chat Settings in a movable window</em>
 </p>
 
 <p align="center">
@@ -207,7 +207,7 @@ Personal Extensions are disabled-by-default drafts authored for you by Professor
 - **Voice and audio:** text-to-speech through OpenAI-compatible servers, ElevenLabs, PocketTTS, or xAI Voice, plus optional ElevenLabs sound effects and music in Game Mode.
 - **Decision models:** an optional fast model that answers yes-or-no questions about the story, so agents, lorebook entries, and prompt sections switch on only when they should. Use a local model, a hosted TypeSafe or OpenRouter connection, or a server you run.
 
-Change a connection's model right from the **Connections** menu by the chat input: search the list or type a model ID, and star models to pin them to the top. Each chat can use its own connection or pick from a random pool, and API keys are encrypted at rest with AES-256. See [Supported AI Providers](docs/connections/providers-reference.md) and [Decision Models](docs/connections/decision-models.md).
+Change a chat's model right from the **Connections** menu by the chat input: search the list or type a model ID, and star models to add them to **Favorites**. A pick there changes only that chat. Each chat can use its own model or pick from **Shuffle**, and API keys are encrypted at rest with AES-256. See [Supported AI Providers](docs/connections/providers-reference.md) and [Decision Models](docs/connections/decision-models.md).
 
 ### Export & Data
 
