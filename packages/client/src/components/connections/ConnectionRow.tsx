@@ -382,6 +382,12 @@ export function ConnectionRow({
             )}
             title={title}
           >
+            {customSettings && (
+              <span title={t("connections.row.customSettings")} className="mr-1 inline-block align-[-0.125em]">
+                <SlidersHorizontal size="0.75rem" className="text-[var(--muted-foreground)]" aria-hidden />
+                <span className="sr-only">{t("connections.row.customSettings")}</span>
+              </span>
+            )}
             {title}
           </span>
           {/* Line two: where the Model runs, then its state and role badges at the right. */}
@@ -405,23 +411,15 @@ export function ConnectionRow({
                 {unavailableLabel}
               </span>
             ) : (
-              <>
-                {badges.map((badge) => (
-                  // Presets' DEFAULT badge; the badge rule is unlayered, so the readable foreground needs `!`.
-                  <span
-                    key={badge}
-                    className="mari-chrome-muted-badge shrink-0 rounded px-1 py-0.5 text-[0.5625rem] uppercase leading-none tracking-wide !text-[var(--foreground)]"
-                  >
-                    {badge}
-                  </span>
-                ))}
-                {customSettings && (
-                  <span className="mari-chrome-muted-badge inline-flex shrink-0 items-center gap-1 rounded px-1 py-0.5 text-[0.5625rem] uppercase leading-none tracking-wide !text-[var(--foreground)]">
-                    <SlidersHorizontal size="0.5625rem" aria-hidden />
-                    {t("connections.row.customSettings")}
-                  </span>
-                )}
-              </>
+              badges.map((badge) => (
+                // Presets' DEFAULT badge; the badge rule is unlayered, so the readable foreground needs `!`.
+                <span
+                  key={badge}
+                  className="mari-chrome-muted-badge shrink-0 rounded px-1 py-0.5 text-[0.5625rem] uppercase leading-none tracking-wide !text-[var(--foreground)]"
+                >
+                  {badge}
+                </span>
+              ))
             )}
           </span>
         </span>
