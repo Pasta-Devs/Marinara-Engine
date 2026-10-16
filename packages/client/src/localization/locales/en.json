@@ -3787,7 +3787,7 @@
   "home.community.title": "Around the table",
   "home.credits.contributors": "GitHub Contributors",
   "home.credits.contributorsDescription": "Synced from the Marinara Engine GitHub contributors list.",
-  "home.credits.providerIcons": "Provider icons come from <0>Lobe Icons</0> by LobeHub, licensed under the <1>MIT License</1>. Marks for brands that Lobe Icons lacks (such as NanoGPT, LinkAPI, KoboldCpp, Bifrost and SwarmUI) are Marinara-made drawings of their owners' logos; the color LinkAPI icon is LinkAPI's own logo.",
+  "home.credits.providerIcons": "Provider icons come from <0>Lobe Icons</0> by LobeHub, licensed under the <1>MIT License</1>. Brands that Lobe Icons lacks use their owners' own logos or Marinara-made drawings of them.",
   "home.credits.specialThanks": "Special Thanks",
   "home.credits.thirdPartyAssets": "Third-Party Assets",
   "home.credits.thirdPartyAssetsDescription": "The tracker panel d20 icon uses the path geometry from <0>Font Awesome Free 5.15.4 dice-d20</0> by Fonticons, Inc., licensed under <1>CC BY 4.0</1>. The path formatting was adapted for React; the geometry is unchanged.",

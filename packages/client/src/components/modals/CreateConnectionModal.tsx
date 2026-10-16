@@ -164,9 +164,9 @@ function failureReason(provider: APIProvider, message: string): "plan" | "key" |
   return "other";
 }
 
-/** The service tile: its bundled brand icon in colour on a neutral tile (decision 34c), else an icon or the initials. */
+/** The service tile: its white brand mark on the brand colour (decision 34c), else an icon or the initials. */
 function ServiceTile({ service, large = false }: { service: ServiceId; large?: boolean }) {
-  return <ProviderIcon provider={service} size={large ? "addLarge" : "add"} color />;
+  return <ProviderIcon provider={service} size={large ? "addLarge" : "add"} />;
 }
 
 /** Choice card (Agent editor / Download Agents rows): tile, name with up to two badges, a 2-line hint. */
