@@ -20847,7 +20847,7 @@ test("chat mode tabs and new-chat actions stay reachable", { tag: "@smoke" }, as
   }
 });
 
-test("new-chat connection gates follow Chat Chrome Text Color and stay open under Add connection", async ({ page }) => {
+test("with no connection, new-chat opens Add connection directly for every mode", async ({ page }) => {
   const errors = collectUnexpectedErrors(page);
   await page.route("**/api/connections", async (route) => {
     const request = route.request();
@@ -20859,27 +20859,14 @@ test("new-chat connection gates follow Chat Chrome Text Color and stay open unde
   });
 
   await page.goto("/");
-  await page.evaluate(async () => {
-    const { useUIStore } = (await import("/src/stores/ui.store.ts" as string)) as {
-      useUIStore: {
-        getState: () => {
-          setAppAccentColor: (value: string) => void;
-          setChatChromeTextColor: (value: string) => void;
-        };
-      };
-    };
-    const ui = useUIStore.getState();
-    ui.setAppAccentColor("#ff1493");
-    ui.setChatChromeTextColor("#1ad1c8");
-  });
 
   const modes = [
-    { mode: "conversation", tour: "chat-mode-conversation", label: "New Conversation" },
-    { mode: "roleplay", tour: "chat-mode-roleplay", label: "New Roleplay" },
-    { mode: "game", tour: "chat-mode-game", label: "New Game" },
+    { mode: "conversation", tour: "chat-mode-conversation", label: "New Conversation", name: "Conversation" },
+    { mode: "roleplay", tour: "chat-mode-roleplay", label: "New Roleplay", name: "Roleplay" },
+    { mode: "game", tour: "chat-mode-game", label: "New Game", name: "Game" },
   ] as const;
 
-  for (const [index, mode] of modes.entries()) {
+  for (const mode of modes) {
     const sidebar = page.locator('[data-component="ChatSidebar"]');
     const sidebarToggle = page.locator('[data-tour="sidebar-toggle"]');
     if ((await sidebarToggle.getAttribute("aria-pressed")) !== "true") await sidebarToggle.click();
@@ -20889,54 +20876,23 @@ test("new-chat connection gates follow Chat Chrome Text Color and stay open unde
     await sidebar.locator(`[data-tour="${mode.tour}"]`).click();
     await sidebar.getByLabel(mode.label, { exact: true }).click();
 
-    const gate = page.locator(`[data-new-chat-connection-gate="${mode.mode}"]`);
-    await expect(gate).toBeVisible();
-    const colors = await gate.evaluate((element) => {
-      const emptyState = element.querySelector<HTMLElement>("[data-new-chat-connection-empty]")!;
-      const openConnections = element.querySelector<HTMLElement>("[data-new-chat-open-connections]")!;
-      const probe = document.createElement("span");
-      element.append(probe);
-      const resolveColor = (value: string) => {
-        probe.style.color = value;
-        return getComputedStyle(probe).color;
-      };
-      const resolveBackground = (value: string) => {
-        probe.style.background = value;
-        return getComputedStyle(probe).backgroundColor;
-      };
-      const resolveBorder = (value: string) => {
-        probe.style.border = `1px solid ${value}`;
-        return getComputedStyle(probe).borderColor;
-      };
-      const result = {
-        scopedAccent: resolveColor("var(--marinara-chat-chrome-accent)"),
-        chromeText: resolveColor("var(--marinara-chat-chrome-text)"),
-        appAccent: resolveColor("var(--primary)"),
-        buttonText: getComputedStyle(openConnections).color,
-        expectedButtonText: resolveColor("var(--marinara-chat-chrome-button-text-active)"),
-        emptyBackground: getComputedStyle(emptyState).backgroundColor,
-        expectedEmptyBackground: resolveBackground("var(--marinara-chat-chrome-highlight-bg)"),
-        emptyBorder: getComputedStyle(emptyState).borderColor,
-        expectedEmptyBorder: resolveBorder("var(--marinara-chat-chrome-button-border-active)"),
-      };
-      probe.remove();
-      return result;
-    });
-    expect(colors.scopedAccent).toBe(colors.chromeText);
-    expect(colors.scopedAccent).not.toBe(colors.appAccent);
-    expect(colors.buttonText).toBe(colors.expectedButtonText);
-    expect(colors.emptyBackground).toBe(colors.expectedEmptyBackground);
-    expect(colors.emptyBorder).toBe(colors.expectedEmptyBorder);
+    // No dead-end gate box: the Add window opens at once and names the chat that follows (decision 29).
+    const dialog = page.getByRole("dialog", { name: "Add connection", exact: true });
+    await expect(dialog).toBeVisible();
+    await expect(page.locator(`[data-new-chat-connection-gate="${mode.mode}"]`)).toHaveCount(0);
+    await expect(dialog.getByText(`Connect an AI service, then we start your ${mode.name}.`)).toBeVisible();
 
-    if (index < modes.length - 1) {
-      await gate.getByRole("button", { name: "Cancel", exact: true }).click();
-      await expect(gate).toHaveCount(0);
-    } else {
-      await gate.getByRole("button", { name: "Add connection", exact: true }).click();
-      await expect(page.getByRole("dialog", { name: "Add connection", exact: true })).toBeVisible();
-      // The gate waits under the setup modal, so the new-chat flow goes on after it.
-      await expect(gate).toHaveCount(1);
-    }
+    // Cancel leaves the new chat too.
+    await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+    await expect(dialog).toHaveCount(0);
+    await expect
+      .poll(() =>
+        page.evaluate(async () => {
+          const { useChatStore } = await import("/src/stores/chat.store.ts" as string);
+          return useChatStore.getState().pendingNewChatMode;
+        }),
+      )
+      .toBeNull();
   }
 
   expect(errors).toEqual([]);

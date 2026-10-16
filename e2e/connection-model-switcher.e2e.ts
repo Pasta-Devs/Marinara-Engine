@@ -152,19 +152,22 @@ async function openMenu(page: Page, testInfo: TestInfo): Promise<Locator> {
 
 /**
  * Shows a Connection's catalog: its group opens in place (the chat's own one is open already); a phone then
- * takes the "Browse all models" step, a desktop shows it in the right column.
+ * takes "Browse all models" to the full-screen model screen (decision 32), a desktop shows it in the right column.
  */
 async function showModels(menu: Locator, testInfo: TestInfo, groupKey: string): Promise<Locator> {
   const header = menu.locator(`[data-connection-group="${groupKey}"]`);
   if ((await header.getAttribute("aria-expanded")) !== "true") await header.click();
   await expect(header).toHaveAttribute("aria-expanded", "true");
-  const picker = menu.locator("[data-connection-model-picker]");
   if (isPhone(testInfo)) {
     await menu.locator(`[data-switcher-browse="${groupKey}"]`).click();
-    await expect(picker.locator("[data-model-back]")).toBeVisible();
+    const screen = modelScreen(menu.page());
+    await expect(screen).toBeVisible();
+    return screen.locator("[data-connection-model-picker]");
   }
-  return picker;
+  return menu.locator("[data-connection-model-picker]");
 }
+
+const modelScreen = (page: Page) => page.getByRole("dialog", { name: "Add model", exact: true });
 
 const openModels = async (page: Page, testInfo: TestInfo, groupKey: string) =>
   showModels(await openMenu(page, testInfo), testInfo, groupKey);
@@ -217,17 +220,16 @@ test("the Connections menu lists, stars, picks, refreshes and types models witho
       "true",
     );
     await expect(picker).not.toContainText("Applies to this chat");
-    await expect(menu).toContainText("Applies to this chat");
+    if (isPhone(testInfo)) await expect(modelScreen(page)).toContainText("use it in this chat only");
+    else await expect(menu).toContainText("Applies to this chat");
     expect(provider.state.calls).toBe(1);
 
     if (isPhone(testInfo)) {
       await expectNoHorizontalScroll(page);
-      const sheet = page.locator("[data-quick-switcher-mobile-menu]");
-      const sheetBox = (await sheet.boundingBox())!;
+      const sheetBox = (await modelScreen(page).boundingBox())!;
       expect(sheetBox.x).toBeGreaterThanOrEqual(0);
       expect(sheetBox.x + sheetBox.width).toBeLessThanOrEqual(page.viewportSize()!.width);
       for (const target of [
-        picker.locator("[data-model-back]"),
         picker.locator("[data-model-refresh]"),
         picker.locator("label:has([data-model-search])"),
         modelRow(picker, "all", "vendor/beta").locator("[data-model-option]"),
@@ -235,17 +237,18 @@ test("the Connections menu lists, stars, picks, refreshes and types models witho
       ]) {
         expect((await target.boundingBox())!.height).toBeGreaterThanOrEqual(44);
       }
-      // The back control returns to the connection list, where the group and its browse row are full-size targets.
-      await picker.locator("[data-model-back]").click();
-      await expect(sheet.locator("[data-connection-model-picker]")).toHaveCount(0);
+      // Escape returns to the chat; in the menu the group and its browse row are full-size targets.
+      await page.keyboard.press("Escape");
+      await expect(modelScreen(page)).toHaveCount(0);
+      menu = await openMenu(page, testInfo);
       for (const target of [
-        sheet.locator(`[data-connection-group="${mainAccount}"]`),
-        sheet.locator(`[data-switcher-browse="${mainAccount}"]`),
+        menu.locator(`[data-connection-group="${mainAccount}"]`),
+        menu.locator(`[data-switcher-browse="${mainAccount}"]`),
       ]) {
         await expect(target).toBeVisible();
         expect((await target.boundingBox())!.height).toBeGreaterThanOrEqual(44);
       }
-      picker = await showModels(sheet, testInfo, mainAccount);
+      picker = await showModels(menu, testInfo, mainAccount);
       await expect(modelRow(picker, "all", "vendor/beta")).toBeVisible();
     } else {
       // With a mouse the search over all models takes focus; in the models column, arrows move through the list.
@@ -408,8 +411,9 @@ test("the Connections menu lists, stars, picks, refreshes and types models witho
 
     // Another Connection opens in place; a pick of its own saved model moves the chat to that Model.
     menu = await openMenu(page, testInfo);
-    picker = await showModels(menu, testInfo, otherAccount);
+    await menu.locator(`[data-connection-group="${otherAccount}"]`).click();
     await expect(menu.locator(`[data-switcher-group-models="${otherAccount}"]`)).toContainText("Browse all models");
+    picker = await showModels(menu, testInfo, otherAccount);
     await expect(picker.locator("[data-model-picker-provider]")).not.toBeEmpty();
     await modelRow(picker, "all", "vendor/kappa").locator("[data-model-option]").click();
     await menuGone();
