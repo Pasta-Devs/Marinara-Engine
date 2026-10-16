@@ -60,6 +60,12 @@ const BRANDS: Record<string, string> = {
   atlas: "atlascloud",
   seedance: "bytedance",
   elevenlabs: "elevenlabs",
+  swarmui: "swarmui",
+  spicyapi: "spicyapi",
+  horde: "horde",
+  drawthings: "drawthings",
+  blockentropy: "blockentropy",
+  pockettts: "pockettts",
 };
 
 /**

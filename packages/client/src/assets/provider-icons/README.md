@@ -22,6 +22,12 @@ They are not the owners' artwork and not part of Lobe Icons:
 - `arliai.svg` — Arli AI
 - `bifrost.svg` — Bifrost (the pixel B)
 - `litellm.svg` — LiteLLM (the bullet train)
+- `swarmui.svg` — SwarmUI (the bee)
+- `spicyapi.svg` — SpicyAPI (the flame in a circle)
+- `horde.svg` — AI Horde / Stable Horde (dotted rings)
+- `drawthings.svg` — Draw Things (the horse)
+- `blockentropy.svg` — Block Entropy (a cube; no logo to follow)
+- `pockettts.svg` — PocketTTS by Kyutai (the "/k")
 
 `linkapi-color.png` is LinkAPI's own logo, from their site.
 
