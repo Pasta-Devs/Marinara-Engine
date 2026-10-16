@@ -47,6 +47,7 @@ import {
   resolveMariAppearancePack,
 } from "../../../lib/mari-work-animations";
 import { useActivityOverview } from "../../../hooks/use-chat-insights";
+import { useFeatureModels, useSetFeatureModels } from "../../../hooks/use-connection-accounts";
 import { MARI_QUICK_CONNECTION, OMNIBAR_ASIDE_DELAY_CHOICES_MS } from "../../../lib/omnibar-aside-text";
 import { useLocalizedUiText } from "../../../localization/use-localized-ui-text";
 import { cn } from "../../../lib/utils";
@@ -247,7 +248,7 @@ function RuntimeRow() {
   const { t } = useTranslation();
   const selectId = useId();
   const helpId = useId();
-  const connectionId = useUIStore((state) => state.mariConnectionId);
+  const connectionId = useFeatureModels().data?.mariConnectionId ?? null;
   const [status, setStatus] = useState<MariRuntimeStatus | null>(null);
   const writeSeqRef = useRef(0);
   const statusPath = `/professor-mari/workspace/status${
@@ -497,8 +498,12 @@ export function OmnibarSettingsSheet({
   const setSuggestionsEnabled = useUIStore((state) => state.setOmnibarSuggestionsEnabled);
   const asideEnabled = useUIStore((state) => state.omnibarAsideEnabled);
   const setAsideEnabled = useUIStore((state) => state.setOmnibarAsideEnabled);
-  const asideConnectionId = useUIStore((state) => state.omnibarAsideConnectionId);
-  const setAsideConnectionId = useUIStore((state) => state.setOmnibarAsideConnectionId);
+  const { data: featureModels } = useFeatureModels();
+  const setFeatureModels = useSetFeatureModels();
+  const asideConnectionId = featureModels?.omnibarAsideConnectionId ?? LOCAL_SIDECAR_CONNECTION_ID;
+  const setAsideConnectionId = (id: string) => {
+    if (featureModels) setFeatureModels.mutate({ ...featureModels, omnibarAsideConnectionId: id });
+  };
   const asideDelayMs = useUIStore((state) => state.omnibarAsideDelayMs);
   const setAsideDelayMs = useUIStore((state) => state.setOmnibarAsideDelayMs);
   const editViewMode = useUIStore((state) => state.mariEditViewMode);

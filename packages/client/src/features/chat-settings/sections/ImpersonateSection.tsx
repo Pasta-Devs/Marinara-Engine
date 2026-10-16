@@ -2,6 +2,7 @@ import { ArrowRight, Drama } from "lucide-react";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { HelpTooltip } from "../../../components/ui/HelpTooltip";
 import { SettingsSwitch } from "../../../components/panels/settings/SettingControls";
+import { useFeatureModels, useSetFeatureModels } from "../../../hooks/use-connection-accounts";
 import { QUICK_REPLIES_SETTINGS_CONTROL_ID, useUIStore } from "../../../stores/ui.store";
 import { ChatSettingsSection } from "../ChatSettingsSection";
 import { ImpersonatePromptTemplateField } from "./ImpersonatePromptTemplateField";
@@ -17,8 +18,12 @@ export function ImpersonateSection({ presets, connections }: ImpersonateSectionP
   const setCyoaChoices = useUIStore((state) => state.setImpersonateCyoaChoices);
   const presetId = useUIStore((state) => state.impersonatePresetId);
   const setPresetId = useUIStore((state) => state.setImpersonatePresetId);
-  const connectionId = useUIStore((state) => state.impersonateConnectionId);
-  const setConnectionId = useUIStore((state) => state.setImpersonateConnectionId);
+  const { data: featureModels } = useFeatureModels();
+  const setFeatureModels = useSetFeatureModels();
+  const connectionId = featureModels?.impersonateConnectionId ?? null;
+  const setConnectionId = (id: string | null) => {
+    if (featureModels) setFeatureModels.mutate({ ...featureModels, impersonateConnectionId: id });
+  };
   const blockAgents = useUIStore((state) => state.impersonateBlockAgents);
   const setBlockAgents = useUIStore((state) => state.setImpersonateBlockAgents);
   const openRightPanel = useUIStore((state) => state.openRightPanel);

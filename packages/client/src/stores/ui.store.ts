@@ -7,7 +7,6 @@ import { generateClientId } from "../lib/utils";
 import { getMariAppearancePack } from "../lib/mari-work-animations";
 import {
   IMAGE_STYLE_PROFILES_STORAGE_KEY,
-  LOCAL_SIDECAR_CONNECTION_ID,
   normalizeImageStyleProfileSettings,
   normalizeQuoteFormat,
   type ImageStyleProfileSettings,
@@ -24,7 +23,8 @@ import { detectConversationTimeZone, normalizeConversationTimeZone } from "../li
 import { BASIC_PANEL_SORT_OPTIONS, normalizeBasicPanelSort, type BasicPanelSort } from "../lib/panel-sort";
 import { DEFAULT_APP_LANGUAGE, type AppLanguage } from "../localization/locale-types";
 import { deferEditorLeave } from "../lib/editor-leave";
-import { OMNIBAR_ASIDE_DELAY_MS, readLegacyMariConnectionId } from "../lib/omnibar-aside-text";
+import { OMNIBAR_ASIDE_DELAY_MS } from "../lib/omnibar-aside-text";
+import { stageLegacyFeatureModels } from "../lib/legacy-feature-models";
 import { markOmnibarOpenStart } from "../lib/omnibar-open-timing";
 import { UI_PERSISTENCE } from "../lib/ui-persistence";
 import { normalizeChatWidgetFont } from "../lib/font-family";
@@ -710,8 +710,6 @@ interface UIState {
   mariPanelSortMode: MariPanelSortMode;
   /** The omnibar aside may answer a dead-end query without being asked (R3/R10). */
   omnibarAsideEnabled: boolean;
-  /** Connection the aside answers with. Defaults to the local sidecar, so nothing is spent unasked. */
-  omnibarAsideConnectionId: string;
   /** False until the aside has answered once and explained itself in place (R19). */
   omnibarAsideDisclosed: boolean;
   /** Idle time after a dead-end query before the aside calls a model (R23). */
@@ -728,8 +726,6 @@ interface UIState {
   mariAppearancePackId: string;
   /** R12: packs whose play-time rule was met once; the one-time "unlocked" toast has been shown for them. */
   mariUnlockedPackIds: string[];
-  /** Connection Professor Mari's window answers with. Null until she is first given one. */
-  mariConnectionId: string | null;
   chatBackground: string | null;
   /** Default background applied when a Roleplay chat has no saved background yet. */
   defaultRoleplayBackground: string;
@@ -1157,8 +1153,6 @@ interface UIState {
   addCyoaChoicesToMessage: boolean;
   /** Override preset used when impersonating (null = use chat default). Persisted. */
   impersonatePresetId: string | null;
-  /** Override connection used when impersonating (null = use chat default). Persisted. */
-  impersonateConnectionId: string | null;
   /** When true, suppress agent pipeline during impersonate. Persisted. */
   impersonateBlockAgents: boolean;
 
@@ -1220,8 +1214,6 @@ interface UIState {
   setReduceAmbientEffects: (enabled: boolean) => void;
   setMariPanelSortMode: (mode: MariPanelSortMode) => void;
   setOmnibarAsideEnabled: (enabled: boolean) => void;
-  setOmnibarAsideConnectionId: (id: string) => void;
-  setMariConnectionId: (id: string | null) => void;
   setOmnibarAsideDisclosed: (disclosed: boolean) => void;
   setOmnibarAsideDelayMs: (delayMs: number) => void;
   setMariEditViewMode: (mode: MariEditViewMode) => void;
@@ -1460,7 +1452,6 @@ interface UIState {
   setImpersonateCyoaChoices: (v: boolean) => void;
   setAddCyoaChoicesToMessage: (v: boolean) => void;
   setImpersonatePresetId: (id: string | null) => void;
-  setImpersonateConnectionId: (id: string | null) => void;
   setImpersonateBlockAgents: (v: boolean) => void;
 
   /** Legacy migration helpers for browser-local custom themes. */
@@ -1644,7 +1635,6 @@ export function pickSyncedSettings(state: UIState) {
     omnibarSuggestionsEnabled: state.omnibarSuggestionsEnabled,
     mariPanelSortMode: state.mariPanelSortMode,
     omnibarAsideEnabled: state.omnibarAsideEnabled,
-    omnibarAsideConnectionId: state.omnibarAsideConnectionId,
     omnibarAsideDisclosed: state.omnibarAsideDisclosed,
     omnibarAsideDelayMs: state.omnibarAsideDelayMs,
     mariEditViewMode: state.mariEditViewMode,
@@ -1654,7 +1644,6 @@ export function pickSyncedSettings(state: UIState) {
     omnibarWindowHeightRem: normalizeOmnibarWindowHeightRem(state.omnibarWindowHeightRem),
     mariAppearancePackId: getMariAppearancePack(state.mariAppearancePackId).id,
     mariUnlockedPackIds: state.mariUnlockedPackIds,
-    mariConnectionId: state.mariConnectionId,
     achievementsEnabled: state.achievementsEnabled,
     musicPlayerEnabled: state.musicPlayerEnabled,
     musicPlayerSource: state.musicPlayerSource,
@@ -1726,7 +1715,6 @@ export function pickSyncedSettings(state: UIState) {
     impersonateCyoaChoices: state.impersonateCyoaChoices,
     addCyoaChoicesToMessage: state.addCyoaChoicesToMessage,
     impersonatePresetId: state.impersonatePresetId,
-    impersonateConnectionId: state.impersonateConnectionId,
     impersonateBlockAgents: state.impersonateBlockAgents,
     learnedGameSetupOptions: state.learnedGameSetupOptions,
     rememberedGameSetupText: state.rememberedGameSetupText,
@@ -1801,7 +1789,6 @@ export function pickPersistedUIState(state: UIState) {
     reduceAmbientEffects: state.reduceAmbientEffects,
     mariPanelSortMode: state.mariPanelSortMode,
     omnibarAsideEnabled: state.omnibarAsideEnabled,
-    omnibarAsideConnectionId: state.omnibarAsideConnectionId,
     omnibarAsideDisclosed: state.omnibarAsideDisclosed,
     omnibarAsideDelayMs: state.omnibarAsideDelayMs,
     mariEditViewMode: state.mariEditViewMode,
@@ -1811,7 +1798,6 @@ export function pickPersistedUIState(state: UIState) {
     omnibarWindowHeightRem: normalizeOmnibarWindowHeightRem(state.omnibarWindowHeightRem),
     mariAppearancePackId: getMariAppearancePack(state.mariAppearancePackId).id,
     mariUnlockedPackIds: state.mariUnlockedPackIds,
-    mariConnectionId: state.mariConnectionId,
     chatBackground: state.chatBackground,
     defaultRoleplayBackground: state.defaultRoleplayBackground,
     chatBackgroundBlur: state.chatBackgroundBlur,
@@ -1974,7 +1960,6 @@ export function pickPersistedUIState(state: UIState) {
     impersonateCyoaChoices: state.impersonateCyoaChoices,
     addCyoaChoicesToMessage: state.addCyoaChoicesToMessage,
     impersonatePresetId: state.impersonatePresetId,
-    impersonateConnectionId: state.impersonateConnectionId,
     impersonateBlockAgents: state.impersonateBlockAgents,
     learnedGameSetupOptions: state.learnedGameSetupOptions,
     rememberedGameSetupText: state.rememberedGameSetupText,
@@ -2032,7 +2017,6 @@ export const useUIStore = create<UIState>()(
         mariPanelSortMode: "az",
         // Quick answers send a model request from Search, so they are opt-in.
         omnibarAsideEnabled: false,
-        omnibarAsideConnectionId: LOCAL_SIDECAR_CONNECTION_ID,
         omnibarAsideDisclosed: false,
         omnibarAsideDelayMs: OMNIBAR_ASIDE_DELAY_MS,
         mariEditViewMode: "easy",
@@ -2042,7 +2026,6 @@ export const useUIStore = create<UIState>()(
         omnibarWindowHeightRem: null,
         mariAppearancePackId: "basic",
         mariUnlockedPackIds: [],
-        mariConnectionId: null,
         chatBackground: null,
         defaultRoleplayBackground: DEFAULT_ROLEPLAY_BACKGROUND_URL,
         chatBackgroundBlur: 0,
@@ -2275,7 +2258,6 @@ export const useUIStore = create<UIState>()(
         impersonateCyoaChoices: false,
         addCyoaChoicesToMessage: false,
         impersonatePresetId: null,
-        impersonateConnectionId: null,
         impersonateBlockAgents: false,
 
         toggleSidebar: () =>
@@ -2404,10 +2386,8 @@ export const useUIStore = create<UIState>()(
         setReduceAmbientEffects: (enabled) => set({ reduceAmbientEffects: enabled }),
         setMariPanelSortMode: (mode) => set({ mariPanelSortMode: mode }),
         setOmnibarAsideEnabled: (enabled) => set({ omnibarAsideEnabled: enabled }),
-        setOmnibarAsideConnectionId: (id) => set({ omnibarAsideConnectionId: id }),
         setOmnibarAsideDisclosed: (disclosed) => set({ omnibarAsideDisclosed: disclosed }),
         setOmnibarAsideDelayMs: (delayMs) => set({ omnibarAsideDelayMs: delayMs }),
-        setMariConnectionId: (id) => set({ mariConnectionId: id }),
         setMariEditViewMode: (mode) => set({ mariEditViewMode: mode }),
         setMariWindowHeightRem: (height) => set({ mariWindowHeightRem: normalizeMariWindowHeightRem(height) }),
         setMariWindowWidthRem: (width) => set({ mariWindowWidthRem: normalizeMariWindowWidthRem(width) }),
@@ -3308,7 +3288,6 @@ export const useUIStore = create<UIState>()(
         setImpersonateCyoaChoices: (v) => set({ impersonateCyoaChoices: v }),
         setAddCyoaChoicesToMessage: (v) => set({ addCyoaChoicesToMessage: v }),
         setImpersonatePresetId: (id) => set({ impersonatePresetId: id }),
-        setImpersonateConnectionId: (id) => set({ impersonateConnectionId: id }),
         setImpersonateBlockAgents: (v) => set({ impersonateBlockAgents: v }),
         setHasMigratedCustomThemesToServer: (v) => set({ hasMigratedCustomThemesToServer: v }),
         clearLegacyCustomThemes: () => set({ customThemes: [], activeCustomTheme: null }),
@@ -3568,7 +3547,6 @@ export const useUIStore = create<UIState>()(
         if (version <= 15) {
           if (persisted.impersonatePromptTemplate === undefined) persisted.impersonatePromptTemplate = "";
           if (persisted.impersonatePresetId === undefined) persisted.impersonatePresetId = null;
-          if (persisted.impersonateConnectionId === undefined) persisted.impersonateConnectionId = null;
           if (persisted.impersonateBlockAgents === undefined) persisted.impersonateBlockAgents = false;
           if (persisted.trimIncompleteModelOutput === undefined) {
             persisted.trimIncompleteModelOutput = false;
@@ -4005,10 +3983,8 @@ export const useUIStore = create<UIState>()(
         persisted.chatChromeTextColor = normalizeChatChromeTextColor(persisted.chatChromeTextColor);
         persisted.defaultRoleplayBackground = normalizeDefaultRoleplayBackground(persisted.defaultRoleplayBackground);
         delete persisted.trackerPanelWidth;
-        // v102 -> v103: Mari's window connection moved from its own browser key into the store, so it syncs.
-        if (version <= 102 && persisted.mariConnectionId === undefined) {
-          persisted.mariConnectionId = readLegacyMariConnectionId();
-        }
+        // v103 -> v104: the three feature Model picks moved to the server; stage them for useMigrateFeatureModels.
+        stageLegacyFeatureModels(persisted);
         return persisted;
       },
       merge: (persistedState: unknown, currentState) => {

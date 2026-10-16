@@ -1,15 +1,18 @@
 // ──────────────────────────────────────────────
 // React Query: Connection (account) hooks, the quick-switch pick and the global feature Models
 // ──────────────────────────────────────────────
+import { useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   FEATURE_MODEL_CONNECTIONS_SETTINGS_KEY,
+  LOCAL_SIDECAR_CONNECTION_ID,
   type ConnectionAccountListItem,
   type CreateConnectionAccountInput,
   type FeatureModelConnections,
   type UpdateConnectionAccountInput,
 } from "@marinara-engine/shared";
 import { api } from "../lib/api-client";
+import { clearStagedFeatureModels, readStagedFeatureModels } from "../lib/legacy-feature-models";
 import { connectionKeys } from "./use-connections";
 
 export const connectionAccountKeys = {
@@ -113,4 +116,29 @@ export function useSetFeatureModels() {
     mutationFn: (input: FeatureModelConnections) => api.put<FeatureModelConnections>(FEATURE_MODELS_PATH, input),
     onSuccess: () => qc.invalidateQueries({ queryKey: connectionAccountKeys.featureModels() }),
   });
+}
+
+/**
+ * One-shot: copies the browser's old feature picks (staged by the ui.store migration) to the server, but only
+ * where the server still holds its default. Mount once near the app root.
+ */
+export function useMigrateFeatureModels() {
+  const { data: server } = useFeatureModels();
+  const setFeatureModels = useSetFeatureModels();
+  useEffect(() => {
+    if (!server) return;
+    const staged = readStagedFeatureModels();
+    if (!staged) return;
+    const merged: FeatureModelConnections = {
+      mariConnectionId: server.mariConnectionId ?? staged.mariConnectionId ?? null,
+      omnibarAsideConnectionId:
+        server.omnibarAsideConnectionId === LOCAL_SIDECAR_CONNECTION_ID
+          ? (staged.omnibarAsideConnectionId ?? server.omnibarAsideConnectionId)
+          : server.omnibarAsideConnectionId,
+      impersonateConnectionId: server.impersonateConnectionId ?? staged.impersonateConnectionId ?? null,
+    };
+    clearStagedFeatureModels();
+    if (JSON.stringify(merged) !== JSON.stringify(server)) setFeatureModels.mutate(merged);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once per loaded server value
+  }, [server]);
 }

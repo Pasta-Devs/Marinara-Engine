@@ -2,14 +2,14 @@ import assert from "node:assert/strict";
 import { UI_PERSISTENCE } from "../../packages/client/src/lib/ui-persistence.js";
 
 // Omnibar and Professor Mari choices must follow the user to other browsers, so every one of them
-// has to be in the server-synced set, and the old browser-only Mari connection key must migrate once.
+// has to be in the server-synced set, and the old browser-only picks must be staged once for the server copy.
 const LEGACY_MARI_CONNECTION_KEY = "marinara:home-professor-mari-connection-id";
 const stored = new Map<string, string>([
   [
     UI_PERSISTENCE.name,
     JSON.stringify({
       state: { hasCompletedOnboarding: true, omnibarAsideConnectionId: "quick-model" },
-      version: 102,
+      version: 103,
     }),
   ],
   [LEGACY_MARI_CONNECTION_KEY, "mari-connection"],
@@ -29,33 +29,29 @@ try {
     await import("../../packages/client/src/stores/ui.store.js");
   const { mergeUndatedSyncedSettings } = await import("../../packages/client/src/hooks/use-settings-sync.js");
 
-  const state = useUIStore.getState();
-  assert.equal(state.mariConnectionId, "mari-connection", "the v103 migration reads Mari's old browser key once");
-  assert.equal(state.omnibarAsideConnectionId, "quick-model", "the Quick answer model survives the migration");
+  const state = useUIStore.getState() as unknown as Record<string, unknown>;
+  for (const key of ["mariConnectionId", "omnibarAsideConnectionId", "impersonateConnectionId"]) {
+    assert.ok(!(key in state), `${key} lives in the server feature-model setting, not in the store`);
+  }
+  assert.deepEqual(
+    JSON.parse(stored.get("marinara:legacy-feature-models") ?? "null"),
+    { mariConnectionId: "mari-connection", omnibarAsideConnectionId: "quick-model", impersonateConnectionId: null },
+    "the migration stages the old picks (Mari's old browser key included) for the one-time server copy",
+  );
 
-  const synced = pickSyncedSettings(state);
-  const persistedKeys = Object.keys(pickPersistedUIState(state));
+  const synced = pickSyncedSettings(useUIStore.getState());
+  const persistedKeys = Object.keys(pickPersistedUIState(useUIStore.getState()));
   const omnibarOrMariKeys = persistedKeys.filter((key) => /omnibar|mari/iu.test(key));
   for (const key of omnibarOrMariKeys) {
     assert.ok(key in synced, `${key} is a saved Omnibar or Professor Mari setting and must sync to the server`);
   }
-  assert.ok(omnibarOrMariKeys.includes("mariConnectionId"), "Mari's connection is one of the saved settings");
 
   // A fresh browser has no local timestamp, so the server value must replace the local default.
   const fresh = mergeUndatedSyncedSettings(pickSyncedSettings(useUIStore.getInitialState()), {
-    omnibarAsideConnectionId: "server-quick-model",
-    mariConnectionId: "server-mari-connection",
+    omnibarAsideEnabled: true,
   });
-  assert.equal(
-    fresh.omnibarAsideConnectionId,
-    "server-quick-model",
-    "a server Quick answer model wins over the default",
-  );
-  assert.equal(fresh.mariConnectionId, "server-mari-connection", "a server Mari connection wins over the default");
+  assert.equal(fresh.omnibarAsideEnabled, true, "a server value wins over the default");
 
-  // The old key is only read by the migration, so a later write does not depend on it.
-  useUIStore.getState().setMariConnectionId("new-mari-connection");
-  assert.equal(pickSyncedSettings(useUIStore.getState()).mariConnectionId, "new-mari-connection");
   // Let the debounced browser-storage write land before the fake storage is removed.
   await new Promise((resolve) => setTimeout(resolve, 1100));
   console.info("Omnibar and Professor Mari settings sync regression passed.");

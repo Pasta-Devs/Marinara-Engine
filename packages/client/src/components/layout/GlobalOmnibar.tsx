@@ -33,6 +33,7 @@ import { useCharacters, usePersonas } from "../../hooks/use-characters";
 import { chatKeys, useChats, useProfessorMariChats, useUpdateChat, useUpdateChatMetadata } from "../../hooks/use-chats";
 import { requestChatRetryWithConnection } from "../../lib/chat-floating-ui-events";
 import { useConnections } from "../../hooks/use-connections";
+import { useFeatureModels, useSetFeatureModels } from "../../hooks/use-connection-accounts";
 import { useStartNewChatMode } from "../../hooks/use-start-new-chat-mode";
 import { useInstalledCapabilityPackages } from "../../hooks/use-capability-packages";
 import { HOME_FAQ_ITEMS, getFaqSearchText } from "../chat/HomeFaq";
@@ -366,12 +367,16 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
   // Her run keeps going on the server when her pane is closed; the status poll is how the omnibar knows.
   const mariWorkingInBackground = mariWorkspaceStatus.data?.active === true;
   const asideDisclosed = useUIStore((state) => state.omnibarAsideDisclosed);
-  const asideConnectionId = useUIStore((state) => state.omnibarAsideConnectionId);
-  const mariConnectionId = useUIStore((state) => state.mariConnectionId);
+  const { data: featureModels } = useFeatureModels();
+  const setFeatureModels = useSetFeatureModels();
+  const asideConnectionId = featureModels?.omnibarAsideConnectionId ?? LOCAL_SIDECAR_CONNECTION_ID;
+  const mariConnectionId = featureModels?.mariConnectionId ?? null;
   const asideDelayMs = useUIStore((state) => state.omnibarAsideDelayMs);
   const setAsideDisclosed = useUIStore((state) => state.setOmnibarAsideDisclosed);
   const setAsideEnabled = useUIStore((state) => state.setOmnibarAsideEnabled);
-  const setAsideConnectionId = useUIStore((state) => state.setOmnibarAsideConnectionId);
+  const setAsideConnectionId = (id: string) => {
+    if (featureModels) setFeatureModels.mutate({ ...featureModels, omnibarAsideConnectionId: id });
+  };
   const openRightPanel = useUIStore((state) => state.openRightPanel);
   const openAgentCatalog = useUIStore((state) => state.openAgentCatalog);
   const activeChat = useChatStore((state) => state.activeChat);

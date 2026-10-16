@@ -102,13 +102,18 @@ async function prepareClient(page: Page, connectionId: string) {
   await page.setViewportSize({ width: 1440, height: 900 });
   // Quick answers are off by default, and an earlier test's synced settings would win over this seed.
   await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "" } }));
+  // The aside Model is a server setting now.
+  await page.route("**/api/app-settings/feature-model-connections", (route) =>
+    route.fulfill({
+      json: { mariConnectionId: null, omnibarAsideConnectionId: connectionId, impersonateConnectionId: null },
+    }),
+  );
   await page.addInitScript((v) => localStorage.setItem("marinara:whats-new:seen-version", v), APP_VERSION);
   await seedUIState(page, {
     hasCompletedOnboarding: true,
     rightPanelOpen: false,
     sidebarOpen: false,
     omnibarAsideEnabled: true,
-    omnibarAsideConnectionId: connectionId,
     omnibarAsideDelayMs: 1_000,
   });
 }

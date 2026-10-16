@@ -1126,8 +1126,7 @@ const COMMANDS: SlashCommand[] = [
     usage: "/impersonate [direction (optional)]",
     async execute(args, ctx) {
       const direction = args.trim();
-      const { impersonatePresetId, impersonateConnectionId, impersonateBlockAgents, impersonatePromptTemplate } =
-        useUIStore.getState();
+      const { impersonatePresetId, impersonateBlockAgents, impersonatePromptTemplate } = useUIStore.getState();
       const trimmedPromptTemplate = impersonatePromptTemplate.trim();
       await ctx.generate({
         chatId: ctx.chatId,
@@ -1135,7 +1134,6 @@ const COMMANDS: SlashCommand[] = [
         impersonate: true,
         ...(direction ? { userMessage: direction } : {}),
         ...(impersonatePresetId ? { impersonatePresetId } : {}),
-        ...(impersonateConnectionId ? { impersonateConnectionId } : {}),
         ...(impersonateBlockAgents !== undefined ? { impersonateBlockAgents } : {}),
         ...(trimmedPromptTemplate ? { impersonatePromptTemplate: trimmedPromptTemplate } : {}),
       });
