@@ -12,15 +12,17 @@ You do all of this in the **Connections** panel. At the top is the **Defaults** 
 
 Each row shows the connection's icon, its name, and how many models you saved. A row that needs attention has its fix on the row: **Add key** for a connection without a key, **Turn on** for a connection that is off, and **Load** or **Retry** for the Local Model.
 
-Each connection shows its models under it. Click the chevron at the left of a connection to hide its models, and click it again to show them. Marinara remembers which connections you hid. Click a connection's row to open its page. When the panel is narrow, the page replaces the list; click **‹ Connections** to go back. When the panel is at least 768 pixels wide, the list stays on the left and the page opens on the right.
+Each connection shows its models under it. Click the connection's row, or the chevron at the right of the row, to hide its models, and click again to show them. Marinara remembers which connections you hid. Under the models, **Browse all models** opens the connection's full model list. The models are grouped by the company that made them; each model shows its badges and a star. Click a model to edit it. For services that report usage, the usage card shows above the models.
 
-A connection's page shows:
+Click **⋯** on a connection's row for its actions:
 
-- **Test**, **Edit**, and **Add model**. **Test** checks the key and shows the result below.
-- A note when the connection needs a key or is off.
-- The usage card, for services that report usage.
-- **Your models**, grouped by the company that made them. Each model shows its badges and a star. Click a model to edit it.
-- **Browse all models**, which opens the connection's full model list.
+- **Test** checks the key and shows the result in a message.
+- **Edit** opens the connection's settings (key, address, name).
+- **Add model** opens the connection's model list.
+- **Add image model**, for services that also make images.
+- **Browse all models**.
+
+The **Defaults** row and the rows under **On this device** open a page. When the panel is narrow, the page replaces the list; click **‹ Connections** to go back. When the panel is at least 768 pixels wide, the list stays on the left and the page opens on the right.
 
 The **Defaults** page is **Who does what**. It is one list with a section for each job: **Main**, **Agents**, **Images**, **Video**, **Audio**, **Embeddings**, **Decision**, **Voice**, and **Speech to text** (only when the **Calls** agent is installed). Main, Agents, Images, Video and Audio each have a **Default** and a **Fallback** row. Click a row to choose the model. If a job has a problem, for example its connection needs a key or is off, the section shows the problem with a button to fix it. **Voice** and **Speech to text** open the page of their engine. When the engine is not set up, the row shows **Set up ›**, which opens the steps for it. At the end, **Features** lists the models for Professor Mari, quick answers and Impersonate.
 
@@ -44,7 +46,7 @@ When you update from an older version, Marinara groups your existing connections
 
 ## Search
 
-The **Search models and connections** box at the top of the panel searches as you type. Models that match are listed first, then connections. Click a model to open its editor, or a connection to open its page. When nothing matches, the panel says so.
+The **Search models and connections** box at the top of the panel searches as you type. Models that match are listed first, then connections. Click a model to open its editor. A connection shows its models and its **⋯** actions, as in the list. When nothing matches, the panel says so.
 
 On a computer, you can drag a model row onto a chat to use that model in the chat.
 
@@ -56,7 +58,7 @@ To duplicate a model, choose **Duplicate**. This makes a full copy with the same
 
 To remove a single model, choose **Remove**. Marinara shows a **Delete Connection** dialog that reads Delete "your model name"? This cannot be undone. Click **Delete** to confirm.
 
-To delete a whole connection, open its page and click **Edit**, then click **Delete connection**. Marinara asks you to remove its models first. This removes the key and the endpoint.
+To delete a whole connection, click **⋯** on its row and **Edit**, then click **Delete connection**. Marinara asks you to remove its models first. This removes the key and the endpoint.
 
 ## Shuffle and quick switch
 

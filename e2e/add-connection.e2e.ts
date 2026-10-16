@@ -202,8 +202,13 @@ test("Add model on a card opens the model screen; a star adds a model and taking
     }, APP_VERSION);
     await page.goto("/");
 
-    await page.locator(`[data-connections-row="account:${created.account.id}"]`).click();
-    await page.locator(`[data-connection-account-id="${created.account.id}"] [data-add-model]`).click();
+    // Add model sits in the Connection's ⋯ menu in the list.
+    await page
+      .locator(`[data-connection-account-id="${created.account.id}"]`)
+      .getByRole("button", { name: "Actions for E2E add model", exact: true })
+      .first()
+      .click();
+    await page.getByRole("menuitem", { name: "Add model", exact: true }).click();
     const screen = page.getByRole("dialog", { name: "Add model", exact: true });
     await expect(screen.getByText("Add models to E2E add model")).toBeVisible();
     // No steps: the screen is the model list alone.
@@ -237,7 +242,10 @@ test("Add model on a card opens the model screen; a star adds a model and taking
   }
 });
 
-test("the panel list shows each Connection's Models open, and a toggle folds them shut", async ({ page, request }) => {
+test("the panel list shows each Connection's Models open, and its row or toggle folds them shut", async ({
+  page,
+  request,
+}) => {
   const created = (await (
     await request.post("/api/connection-accounts", {
       data: { provider: "custom", name: "E2E open models", baseUrl: "http://127.0.0.1:9/v1", model: "local/open-one" },
@@ -261,9 +269,12 @@ test("the panel list shows each Connection's Models open, and a toggle folds the
     await toggle.click();
     await expect(model).toBeVisible();
 
-    // The Connection itself still opens its page.
-    await page.locator(`[data-connections-row="account:${created.account.id}"]`).filter({ visible: true }).click();
-    await expect(page.locator(`[data-connection-account-id="${created.account.id}"]`)).toBeVisible();
+    // The Connection's row folds the same way; it opens no page of its own.
+    const row = page.locator(`[data-connections-row="account:${created.account.id}"]`).filter({ visible: true });
+    await row.click();
+    await expect(model).toHaveCount(0);
+    await row.click();
+    await expect(model).toBeVisible();
   } finally {
     await request.delete(`/api/connection-accounts/${created.account.id}`);
   }

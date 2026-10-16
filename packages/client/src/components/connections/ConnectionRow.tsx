@@ -91,13 +91,13 @@ export const isMediaRow = (row: Pick<ConnectionRowData, "provider">) => row.prov
 
 const FOCUS =
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)]";
-const ROW_BUTTON = cn(
+export const ROW_BUTTON = cn(
   "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors hover:bg-[var(--sidebar)] active:scale-90 max-md:h-11 max-md:w-11 [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:w-11",
   FOCUS,
 );
 
-type MenuAt = { x: number; y: number; keyboard: boolean };
-const menuAt = (event: MouseEvent<HTMLElement>): MenuAt => {
+export type MenuAt = { x: number; y: number; keyboard: boolean };
+export const menuAt = (event: MouseEvent<HTMLElement>): MenuAt => {
   const rect = event.currentTarget.getBoundingClientRect();
   return { x: rect.right, y: rect.bottom, keyboard: event.detail === 0 };
 };

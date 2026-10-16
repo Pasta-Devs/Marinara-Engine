@@ -45,7 +45,7 @@ The **On this device** group in step 1 has the parts that are built into Marinar
 
 ### Adding models later
 
-To add models to a connection that you already have, click **Add model** on its page in the panel, or in its editor. This opens the same model list as step 3, for that connection only. Click a model or its star to add it, click the star again to remove it (see [Favorites](organizing-connections.md#favorites-and-moving-models)), and click **Done** to close.
+To add models to a connection that you already have, click **⋯** on its row in the panel and **Add model**, or click **Add model** in its editor. This opens the same model list as step 3, for that connection only. Click a model or its star to add it, click the star again to remove it (see [Favorites](organizing-connections.md#favorites-and-moving-models)), and click **Done** to close.
 
 **Browse all models** in the chat input's **Connections** menu opens the same list. There, a click on a model uses it in this chat only, and a click on its star adds it to the connection.
 

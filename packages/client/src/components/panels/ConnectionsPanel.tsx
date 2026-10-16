@@ -7,7 +7,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type ReactNode } from "react";
 import {
   AlertTriangle,
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
   CloudOff,
@@ -29,7 +28,7 @@ import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import { PROVIDERS, isChatProvider, parsePinnedModels, type APIProvider } from "@marinara-engine/shared";
 import { useConnections, useMoveConnection, useUploadConnectionImage } from "../../hooks/use-connections";
-import { useConnectionAccounts, useUpdateConnectionAccount } from "../../hooks/use-connection-accounts";
+import { useConnectionAccounts } from "../../hooks/use-connection-accounts";
 import { starAnchorOf, useHiddenModelIds, useModelStar } from "../../hooks/use-model-star";
 import type { DeviceItem } from "../../hooks/use-device-setup";
 import { useChatStore } from "../../stores/chat.store";
@@ -43,9 +42,9 @@ import {
   createConnectionExportEnvelope,
   type ConnectionTransferRow,
 } from "../../lib/connection-transfer";
-import { groupModelsByAccount, sortByModelId } from "../../lib/connection-groups";
+import { groupModelsByAccount } from "../../lib/connection-groups";
 import { ConnectionRow, isMediaRow, mediaService, type ConnectionRowData } from "../connections/ConnectionRow";
-import { ConnectionDetail, hostOf } from "../connections/ConnectionDetail";
+import { ConnectionGroup, hostOf } from "../connections/ConnectionGroup";
 import { ConnectionDefaultsDetail, useConnectionDefaults } from "../connections/ConnectionDefaults";
 import { DeviceDetail, SMALL_ACTION, StateWord, useDeviceEngines } from "../connections/DeviceDetail";
 import { BrandMark, ProviderIcon } from "../connections/ProviderIcon";
@@ -98,7 +97,7 @@ function ListRow({
   fix,
   onOpen,
 }: {
-  /** The page the row opens: "defaults", "account:<id>", "device:<item>" or "other". */
+  /** The page the row opens: "defaults", "device:<item>" or "other". */
   rowKey: string;
   selected: boolean;
   tile: ReactNode;
@@ -171,7 +170,6 @@ export function ConnectionsPanel() {
   const loadFailed = connectionsQuery.isError || accountsQuery.isError;
   const uploadConnectionImage = useUploadConnectionImage();
   const moveConnection = useMoveConnection();
-  const updateAccount = useUpdateConnectionAccount();
   const activeChat = useChatStore((s) => s.activeChat);
   const chatPick = useChatModelPick(activeChat?.id ?? null);
   const modelStar = useModelStar();
@@ -254,14 +252,14 @@ export function ConnectionsPanel() {
     };
   }, [connectionsList, grouped.all, query]);
 
-  // A wide panel always shows a page: the chosen one, else the first Connection, else Defaults.
-  const firstKey = grouped.all[0] ? `account:${grouped.all[0].account.id}` : "defaults";
+  // A wide panel always shows a page: the chosen one, else Defaults.
+  const firstKey = "defaults";
   const validKey = (key: string | null) => {
     if (!key) return false;
     if (key === "defaults") return true;
     if (key === "other") return grouped.standalone.length > 0;
     if (key.startsWith("device:")) return engines.some((engine) => `device:${engine.item}` === key);
-    return accountById.has(key.slice("account:".length));
+    return false;
   };
   const current = validKey(selected) ? selected : wide ? firstKey : null;
 
@@ -432,89 +430,25 @@ export function ConnectionsPanel() {
   };
 
   // ── List rows ──
-  /** `withModels`: the main list; search results list the Models on their own. */
-  const accountRow = ({ account, rows }: (typeof grouped.all)[number], withModels = false) => {
-    const key = `account:${account.id}`;
-    const state = t(`connections.accounts.state.${account.state}`);
-    const fix =
-      account.state === "needs_key"
-        ? {
-            label: t("connections.accounts.addKey"),
-            aria: t("connections.list.addKeyFor", { name: account.name }),
-            run: () => openModal("connection-account", { accountId: account.id }),
-          }
-        : account.state === "off"
-          ? {
-              label: t("connections.defaults.fix.turnOn"),
-              aria: t("connections.list.turnOn", { name: account.name }),
-              run: () => updateAccount.mutate({ id: account.id, enabled: true }),
-            }
-          : undefined;
-    const listRow = (
-      <ListRow
-        key={withModels ? undefined : key}
-        rowKey={key}
-        selected={wide && current === key}
-        tile={
-          <ProviderIcon
-            provider={account.provider}
-            baseUrl={account.baseUrl}
-            service={rows[0] && mediaService(rows[0])}
-            name={account.name}
-            dim={account.state === "off"}
-          />
-        }
-        title={account.name}
-        label={t("connections.list.rowLabel", { name: account.name, state })}
-        sub={
-          <>
-            <StateWord tone={account.state === "ok" ? "ok" : account.state === "off" ? "off" : "warn"} label={state} />
-            <span>· {t("connections.list.models", { count: rows.length })}</span>
-          </>
-        }
-        fix={fix}
-        onOpen={() => select(key)}
-      />
-    );
-    if (!withModels) return listRow;
-    const open = !collapsedConnections.includes(account.id);
-    const modelsId = `connection-models-${account.id}`;
-    const toggleLabel = t(open ? "connections.list.collapse" : "connections.list.expand", { name: account.name });
-    return (
-      <div key={key} className="flex flex-col">
-        <div className="flex min-w-0 items-center">
-          {rows.length > 0 ? (
-            <button
-              type="button"
-              data-connections-toggle={account.id}
-              onClick={() => toggleConnectionCollapsed(account.id)}
-              aria-expanded={open}
-              aria-controls={modelsId}
-              aria-label={toggleLabel}
-              title={toggleLabel}
-              className={cn(
-                "flex h-9 w-7 shrink-0 items-center justify-center rounded-lg text-[var(--muted-foreground)] transition-colors hover:bg-[var(--sidebar-accent)] hover:text-[var(--foreground)] max-md:h-11 max-md:w-11",
-                FOCUS,
-              )}
-            >
-              <ChevronDown size="0.875rem" className={cn("transition-transform", !open && "-rotate-90")} />
-            </button>
-          ) : (
-            <span aria-hidden className="w-7 shrink-0 max-md:w-11" />
-          )}
-          <div className="min-w-0 flex-1">{listRow}</div>
-        </div>
-        {open && rows.length > 0 && (
-          <div
-            id={modelsId}
-            className="ml-3.5 flex flex-col gap-0.5 border-l border-[var(--border)]/50 pl-1 max-md:ml-5"
-          >
-            {sortByModelId(rows).map((row) => renderRow(row))}
-          </div>
-        )}
-      </div>
-    );
-  };
+  const accountRow = ({ account, rows }: (typeof grouped.all)[number]) => (
+    <ConnectionGroup
+      key={account.id}
+      account={account}
+      rows={rows}
+      open={!collapsedConnections.includes(account.id)}
+      onToggle={() => toggleConnectionCollapsed(account.id)}
+      renderRow={(row, subtitle) => renderRow(row, subtitle)}
+      tile={
+        <ProviderIcon
+          provider={account.provider}
+          baseUrl={account.baseUrl}
+          service={rows[0] && mediaService(rows[0])}
+          name={account.name}
+          dim={account.state === "off"}
+        />
+      }
+    />
+  );
 
   const problemCount = defaults.problems.length;
   const defaultsRow = (
@@ -659,12 +593,12 @@ export function ConnectionsPanel() {
           {defaultsRow}
           {grouped.chat.length > 0 && (
             <PanelSection title={t("connections.accounts.section.chat")} icon={<MessageSquareText size="0.75rem" />}>
-              {grouped.chat.map((group) => accountRow(group, true))}
+              {grouped.chat.map((group) => accountRow(group))}
             </PanelSection>
           )}
           {grouped.media.length > 0 && (
             <PanelSection title={t("connections.accounts.section.media")} icon={<ImageIcon size="0.75rem" />}>
-              {grouped.media.map((group) => accountRow(group, true))}
+              {grouped.media.map((group) => accountRow(group))}
             </PanelSection>
           )}
           {grouped.standalone.length > 0 && (
@@ -742,18 +676,6 @@ export function ConnectionsPanel() {
         {grouped.standalone.map((row) => renderRow(row))}
       </div>
     );
-  } else if (current?.startsWith("account:")) {
-    const group = grouped.all.find((entry) => `account:${entry.account.id}` === current);
-    if (group) {
-      detail = (
-        <ConnectionDetail
-          key={group.account.id}
-          account={group.account}
-          rows={group.rows}
-          renderRow={(row, subtitle) => renderRow(row, subtitle)}
-        />
-      );
-    }
   }
 
   const header = (
