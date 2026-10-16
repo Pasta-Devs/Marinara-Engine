@@ -19,7 +19,7 @@ Follow these steps to add an image connection.
 7. Click **Save**.
 8. Click **Test Image** to confirm it works. Marinara generates a small test image.
 
-To add another image model to a connection you already have, open its card and click **Add image model**. To make an image model the one the app uses, set **Images** in the **Defaults** card at the top of the **Connections** panel.
+To add another image model to a connection you already have, open its page in the **Connections** panel and click **Add image model**. To make an image model the one the app uses, set the **Images** tile in **Defaults** at the top of the **Connections** panel.
 
 If **Test Image** returns a picture, your connection is ready. If it fails, check the API key and Base URL.
 

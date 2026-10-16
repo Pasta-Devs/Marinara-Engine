@@ -1,12 +1,42 @@
 # Organizing Connections
 
-This guide covers how to keep your saved connections tidy in Marinara Engine. It explains how models are grouped under connections, favorites, moving a model, folder view, search and sort, duplicating and deleting, Shuffle, quick switch, and exporting or importing connections. A connection is one API key, account, or endpoint for an AI service.
+This guide covers how to keep your saved connections tidy in Marinara Engine. It explains the Connections panel, favorites, moving a model, search, duplicating and removing, Shuffle, quick switch, and exporting or importing connections. A connection is one API key, account, or endpoint for an AI service.
 
-You do all of this in the **Connections** panel. Open it, and below the **Defaults** card your connections appear as cards. Each card shows the connection name and its state (**Ready**, **Needs key**, or **Off**). Open a card to see the models you saved under it. Each saved model keeps its own settings.
+## The Connections panel
+
+You do all of this in the **Connections** panel. At the top is the **Defaults** row. It shows your **Main** model and, when something needs attention, how many problems there are. Below it your connections are listed in groups:
+
+- **Chat** has the connections for chat models.
+- **Images & voice** has the image, video, and voice services.
+- **On this device** has the parts built into Marinara that you set up: **Local Model**, **Text to Speech**, and **Speech to Text**.
+
+Each row shows the connection's icon, its name, and how many models you saved. A row that needs attention has its fix on the row: **Add key** for a connection without a key, **Turn on** for a connection that is off, and **Load** or **Retry** for the Local Model.
+
+Click a row to open its page. When the panel is narrow, the page replaces the list; click **‹ Connections** to go back. When the panel is at least 768 pixels wide, the list stays on the left and the page opens on the right.
+
+A connection's page shows:
+
+- **Test**, **Edit**, and **Add model**. **Test** checks the key and shows the result below.
+- A note when the connection needs a key or is off.
+- The usage card, for services that report usage.
+- **Your models**, grouped by the company that made them. Each model shows its badges and a star. Click a model to edit it.
+- **Browse all models**, which opens the connection's full model list.
+
+The **⋯** button on the page has **Refresh icon** and **Edit**.
+
+The **Defaults** page is **Who does what**. It has a tile for each job: **Main**, **Fallback**, **Decision**, **Agents**, **Embeddings**, **Images**, **Video**, **Audio**, **Voice**, and **Speech to text** (only when the **Calls** agent is installed). Click a tile to choose its model. A tile for a part that is not set up shows **Set up ›**, which opens the steps for it. Below the tiles, **Features** lists the features that use their own model.
+
+### Provider icons
+
+Each connection shows the icon of its service. Marinara fetches the icon once from the service's website when you add the connection, and keeps it. For a custom endpoint, the icon comes from the endpoint's site. When there is no icon, the row shows the first letter of the name instead. To fetch the icon again, open the connection's page, click **⋯**, and choose **Refresh icon**. To stop all icon fetches, open **More actions** at the top of the panel and turn off **Load provider icons**.
 
 ## Favorites and moving models
 
-Click the star on a model to add it to **Favorites**. Starring saves the model and keeps it at the top of its connection and of the quick switch. Click the star again to remove it from favorites. Removing the star keeps the saved model.
+The star on a model marks it as one of your models. Click the star in the **Add model** list to save a model with a star. Starred models are at the top of the quick switch.
+
+Click the star of a saved model to remove it. Marinara removes the model and shows **Undo** for a few seconds. A model stays, without its star, when it still has a job: when it has a role in **Defaults**, its own settings, a chat that uses it, or when it is the last model of the connection. The message names the reason.
+
+When you update from an older version, Marinara stars all the models you saved before, so none of them are removed.
 
 To move a model to another connection, open the model's **⋯** menu and choose **Move to connection…**. You can only move a model to another connection of the same service. The model then uses that connection's key and model list. Chats that use the model keep working.
 
@@ -14,53 +44,21 @@ When you add a second connection of the same service without typing a name, its 
 
 When you update from an older version, Marinara groups your existing connections automatically on first start. The Connections panel shows a one-time note about it. Click **Dismiss this note** to hide it.
 
-## Connection folders
+## Search
 
-Folders are part of **Folder view**. To turn it on, click **More actions** next to the search box and choose **Folder view**. Choose **Card view** from the same menu to go back to the cards.
+The **Search models and connections** box at the top of the panel searches as you type. Models that match are listed first, then connections. Click a model to open its editor, or a connection to open its page. When nothing matches, the panel says so.
 
-Use connection folders to group related connections. For example, put all your local models in one folder and all your paid providers in another.
+On a computer, you can drag a model row onto a chat to use that model in the chat.
 
-To create a folder, follow these steps:
+## Duplicating and removing
 
-1. Click the **New Folder** button above the connection list.
-2. A new folder named "unnamed" appears.
-3. Rename it right away so you can tell it apart (see below).
-
-To rename a folder, double-click the folder row, or double-tap it on a touch screen. You can also select the folder row and press the **F2** key. Type the new name and press Enter.
-
-To file a connection into a folder, drag the connection row and drop it onto the folder. To take a connection back out, drag it onto the area below the folders. A hint reads **Drop here to move out of folder** while you drag.
-
-To collapse or expand a folder, click the folder row once. A small number on the folder row shows how many connections are inside.
-
-To delete a folder, click the trash icon on the folder row. If the folder still has connections inside, Marinara asks you to confirm with a **Delete Folder** dialog. An empty folder is deleted right away, with no confirmation prompt. Deleting a folder does not delete the connections inside it. Those connections move back to the unfiled area instead.
-
-## Search and sort
-
-The **Search connections** box filters the list as you type. It matches the connection name, service, model, endpoint, image or video service, and embedding model. When nothing matches, you see "No connections match your search".
-
-The **Sort order** dropdown next to the search box changes the list order. It has five options:
-
-| Option | What it does |
-|---|---|
-| **Custom** | Your own drag-and-drop order. |
-| **A-Z** | Sorts by name, A to Z. |
-| **Z-A** | Sorts by name, Z to A. |
-| **Newest** | Newest connections first. |
-| **Oldest** | Oldest connections first. |
-
-To set a custom order, drag connection rows up or down. Dragging a connection switches the sort to **Custom** for you automatically.
-
-## Duplicating and deleting
-
-Open the **⋯** menu on a model row to see its actions, such as **Make default**, **Duplicate**, and **Delete**.
+Open the **⋯** menu on a model row to see its actions, such as **Make default for…**, **Edit model**, **Duplicate**, and **Remove**.
 
 To duplicate a model, choose **Duplicate**. This makes a full copy with the same settings. There is no confirmation step.
 
-To delete a single model, choose **Delete**. Marinara shows a **Delete Connection** dialog that reads Delete "your model name"? This cannot be undone. Click **Delete** to confirm.
+To remove a single model, choose **Remove**. Marinara shows a **Delete Connection** dialog that reads Delete "your model name"? This cannot be undone. Click **Delete** to confirm.
 
-To delete a whole connection, click **Edit** on its card, then click **Delete connection**. Marinara asks you to remove its models first. This removes the key and the endpoint.
-
-To delete or export several at once, click **More actions**, then **Select connections**. This turns on selection mode. Tap the items you want, then use the **Export** or **Delete** button in the action bar at the bottom. Bulk delete shows a **Delete Connections** dialog before it removes them.
+To delete a whole connection, open its page and click **Edit**, then click **Delete connection**. Marinara asks you to remove its models first. This removes the key and the endpoint.
 
 ## Shuffle and quick switch
 
@@ -81,7 +79,7 @@ The **Connections** menu in the chat input is a faster way to change the model f
 
 On a phone, tap the chevron next to the message box and open the **Connections** tab.
 
-**A pick in the menu does not change the connection.** Other chats, agents, and helpers keep their models. To change the model for new chats, set the **Main** model in the **Defaults** card at the top of the **Connections** panel. The same card sets the **Fallback** and the models for decisions, embeddings, images, and other features.
+**A pick in the menu does not change the connection.** Other chats, agents, and helpers keep their models. To change the model for new chats, set the **Main** model on the **Defaults** page of the **Connections** panel. The same page sets the **Fallback** and the models for decisions, embeddings, images, and other features.
 
 ## Exporting and importing connections
 
@@ -89,7 +87,7 @@ You can export connections to a file to back them up or move them to another ins
 
 **Your API keys are never included in an export.** After you import connections, you must open each one and enter its API key again. Favorites are included; the saved model list is not, so it loads again the first time you open the connection's models.
 
-To export a single model, open it in the editor and click its **Export** button (the upload icon). To export several at once, use **Select connections** mode in the panel and click **Export** in the action bar. Before the download starts, Marinara shows an **Export Connection Data** dialog with this warning: This will export your connection data, WITHOUT your provided API Key. Remember to never share those with others! Click **Export** to continue.
+To export a single model, open it in the editor and click its **Export** button (the upload icon). To export all of them, open **More actions** at the top of the panel and choose **Export all connections**. Before the download starts, Marinara shows an **Export Connection Data** dialog with this warning: This will export your connection data, WITHOUT your provided API Key. Remember to never share those with others! Click **Export** to continue.
 
 A single connection downloads as a `.connection.json` file. Several connections download together as a `marinara-connections.zip` file.
 

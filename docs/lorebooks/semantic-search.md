@@ -18,7 +18,7 @@ Keyword and semantic matches have equal priority when Marinara applies lorebook 
 
 Semantic search needs a model that can create embeddings. You have two options.
 
-Whichever you pick, you can make it the app-wide default: open **Connections**, then the **Defaults** card, and choose it under **Embeddings**. Every connection that does not set an embedding model or **Embedding Connection** of its own then uses it. A connection's own setting still wins, and the row tells you how many connections use their own settings instead. **None** keeps the built-in local model as the fallback.
+Whichever you pick, you can make it the app-wide default: open **Connections**, then **Defaults**, and choose it on the **Embeddings** tile. Every connection that does not set an embedding model or **Embedding Connection** of its own then uses it. A connection's own setting still wins, and the row tells you how many connections use their own settings instead. **None** keeps the built-in local model as the fallback.
 
 Option 1: a connection with an embedding model.
 

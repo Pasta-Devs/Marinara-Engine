@@ -16,14 +16,14 @@ You manage connections in the **Connections** panel on the right side of the app
 
 If you have no connections yet and you try to start a chat, Marinara opens the **Add connection** window at once. When you finish, **Start chatting** creates the chat with the model you picked.
 
-At the top of the panel is the **Defaults** card. It sets your **Main** model, a **Fallback**, and the models for other features such as decisions, embeddings, and images. Below it are your connections, each with its models grouped under it.
+At the top of the panel is the **Defaults** row. Its page sets your **Main** model, a **Fallback**, and the models for other jobs such as decisions, embeddings, and images. Below it are your connections, in the groups **Chat**, **Images & voice**, and **On this device**. Click a connection to see its models (see [Organizing Connections](organizing-connections.md)).
 
 Two buttons sit above the list:
 
 - **Add connection** opens the **Add connection** window.
 - **Import** loads connections from a file.
 
-The **More actions** button (three dots) next to the search box opens a menu. It has **Select connections**, which turns on bulk selection so you can export or delete several connections at once, and **Folder view** (see [Organizing Connections](organizing-connections.md)).
+The **More actions** button (three dots) opens a menu with **Load provider icons** and **Export all connections**.
 
 ## Creating a connection
 
@@ -45,7 +45,7 @@ The **On this device** group in step 1 has the parts that are built into Marinar
 
 ### Adding models later
 
-To add models to a connection that you already have, click **Add model** on its card in the panel, or in its editor. This opens the same model list as step 3, for that connection only. Click a model or its star to add it, click the star again to take it off, and click **Done** to close.
+To add models to a connection that you already have, click **Add model** on its page in the panel, or in its editor. This opens the same model list as step 3, for that connection only. Click a model or its star to add it, click the star again to remove it (see [Favorites](organizing-connections.md#favorites-and-moving-models)), and click **Done** to close.
 
 **Browse all models** in the chat input's **Connections** menu opens the same list. There, a click on a model uses it in this chat only, and a click on its star adds it to the connection.
 
@@ -70,7 +70,7 @@ The **Send Test Message** button stays disabled until you pick a model. If a tes
 
 ## Choosing a model for a chat
 
-A new chat uses your **Main** model from the **Defaults** card. To give one chat a different model, use either of these:
+A new chat uses your **Main** model from **Defaults** in the **Connections** panel. To give one chat a different model, use either of these:
 
 - Open the **Connections** menu in the chat input, then pick a model.
 - Open **Chat Settings**, find the **Connection** section, and pick a saved model from the dropdown.
