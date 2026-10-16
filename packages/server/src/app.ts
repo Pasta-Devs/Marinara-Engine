@@ -21,7 +21,6 @@ import { seedProfessorMari } from "./db/seed-mari.js";
 import { seedDefaultConnection } from "./db/seed-connection.js";
 import { linkConnectionAccounts } from "./services/storage/connection-accounts.storage.js";
 import { starSavedModels } from "./services/connections/model-stars.js";
-import { backfillProviderIcons } from "./services/connections/provider-icons.js";
 import { seedDefaultBackgrounds } from "./db/seed-backgrounds.js";
 import { seedDefaultGameAssets } from "./db/seed-game-assets.js";
 import { seedDefaultRegexScripts } from "./db/seed-regex.js";
@@ -240,8 +239,6 @@ export async function buildApp(https?: { cert: Buffer; key: Buffer }) {
   } catch (error) {
     app.log.warn(error, "Starring saved models did not complete; it will retry next startup");
   }
-  // Once after the upgrade, in the background: a slow or missing site never holds up the boot.
-  void backfillProviderIcons(db).catch((error) => app.log.warn(error, "Provider icon backfill did not complete"));
   await startup.phase("seed.regex", () => seedDefaultRegexScripts(db));
   await startup.phase("migrate.agent-prompts", () => migrateLegacyDefaultAgentPrompts(db));
   await startup.phase("migrate.extended-descriptions", () => migrateCharacterExtendedDescriptionsToLorebooks(db));

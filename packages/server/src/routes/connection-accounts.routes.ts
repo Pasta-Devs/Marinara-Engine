@@ -8,7 +8,6 @@ import {
   createConnectionAccountSchema,
   createConnectionSchema,
   parsePinnedModels,
-  providerIconSite,
   rankModelMatch,
   updateConnectionAccountSchema,
   withKeyTail,
@@ -26,15 +25,6 @@ import { createConnectionsStorage, readSavedModelList } from "../services/storag
 import { resetMemoryRecallVectorizerCache } from "../services/memory-recall-embedding.js";
 import { decryptApiKey } from "../utils/crypto.js";
 import { modelKeepReason } from "../services/connections/model-stars.js";
-import {
-  PROVIDER_ICONS_ENABLED_SETTINGS_KEY,
-  ensureProviderIcon,
-  fetchIconForConnection,
-  listProviderIcons,
-  providerIconsEnabled,
-  readProviderIcon,
-} from "../services/connections/provider-icons.js";
-import { createAppSettingsStorage } from "../services/storage/app-settings.storage.js";
 import { apiConnections } from "../db/schema/index.js";
 
 const createAccountBodySchema = createConnectionAccountSchema.partial({ name: true }).extend({
@@ -145,8 +135,6 @@ export async function connectionAccountsRoutes(app: FastifyInstance) {
       );
       return { account, connectionId: row?.id ?? null };
     });
-    // The service's icon is fetched once, now (decision 34b); the tile shows initials until it is there.
-    fetchIconForConnection(app.db, created.account.provider, created.account.baseUrl);
     reply.status(201);
     return { account: await listItem(created.account), connectionId: created.connectionId };
   });
@@ -234,43 +222,5 @@ export async function connectionAccountsRoutes(app: FastifyInstance) {
     if (result === "not_found") return reply.status(404).send({ error: "Model not found" });
     if (result !== "removed") return reply.status(409).send({ error: "This model is still in use.", reason: result });
     return reply.status(204).send();
-  });
-
-  // ── Provider icons (decision 34b): only cached icons are served; reading never fetches. ──
-  const iconState = async () => ({
-    enabled: await providerIconsEnabled(app.db),
-    icons: await listProviderIcons(app.db),
-  });
-
-  app.get("/icons", iconState);
-
-  app.put("/icons/settings", async (req) => {
-    const { enabled } = z.object({ enabled: z.boolean() }).parse(req.body);
-    await createAppSettingsStorage(app.db).set(PROVIDER_ICONS_ENABLED_SETTINGS_KEY, String(enabled));
-    return iconState();
-  });
-
-  app.get("/icons/image", async (req, reply) => {
-    const { site } = z.object({ site: z.string().max(300) }).parse(req.query);
-    const icon = (await providerIconsEnabled(app.db)) ? await readProviderIcon(site) : null;
-    if (!icon) return reply.status(404).send({ error: "No icon" });
-    return reply
-      .header("Content-Type", icon.type)
-      .header("X-Content-Type-Options", "nosniff")
-      .header("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; sandbox")
-      .header("Cache-Control", "private, max-age=31536000, immutable")
-      .send(icon.buffer);
-  });
-
-  // "Refresh icon": the only way to ask a site again after the first fetch, success or failure.
-  app.post<{ Params: { id: string } }>("/:id/refresh-icon", async (req, reply) => {
-    const account = await accounts.getById(req.params.id);
-    if (!account) return reply.status(404).send({ error: "Connection not found" });
-    const site = providerIconSite(account.provider, account.baseUrl);
-    if (!site) return reply.status(400).send({ error: "This Connection has no site to take an icon from." });
-    if (!(await providerIconsEnabled(app.db))) {
-      return reply.status(409).send({ error: "Provider icons are turned off in the Connections settings." });
-    }
-    return { site, cached: await ensureProviderIcon(app.db, site, true) };
   });
 }
