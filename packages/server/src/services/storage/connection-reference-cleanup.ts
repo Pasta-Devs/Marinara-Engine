@@ -25,11 +25,13 @@
 // without requiring this file to be updated in lockstep.
 
 import {
+  CHAT_MODEL_OVERRIDE_KEY,
   DEFAULT_EMBEDDING_CONNECTION_SETTINGS_KEY,
   FEATURE_MODEL_CONNECTIONS_SETTINGS_KEY,
 } from "@marinara-engine/shared";
 import { eq } from "../../db/file-query.js";
 import type { DB } from "../../db/connection.js";
+import { readChatModelOverride } from "../generation/connection-resolution.js";
 import { apiConnections, chats, agentConfigs } from "../../db/schema/index.js";
 import { createAppSettingsStorage } from "./app-settings.storage.js";
 import { now } from "../../utils/id-generator.js";
@@ -81,6 +83,8 @@ function serializeNullifiedConnectionIdReferences(raw: unknown, deletedConnectio
 export async function sweepDanglingConnectionReferences(
   db: DB,
   deletedConnectionId: string,
+  /** Another chat Model of the deleted Model's Connection: a chat's catalog pick moves onto it. */
+  overrideCarrierId: string | null = null,
 ): Promise<ConnectionReferenceCleanupResult> {
   const result: ConnectionReferenceCleanupResult = { chatsUpdated: 0, agentsUpdated: 0, connectionsUpdated: 0 };
   if (!deletedConnectionId) return result;
@@ -110,14 +114,20 @@ export async function sweepDanglingConnectionReferences(
   for (let offset = 0; ; offset += CLEANUP_BATCH_SIZE) {
     const chatRows = await db.select().from(chats).orderBy(chats.id).limit(CLEANUP_BATCH_SIZE).offset(offset);
     for (const chat of chatRows) {
-      const metadata = serializeNullifiedConnectionIdReferences(chat.metadata, deletedConnectionId);
+      let metadata = serializeNullifiedConnectionIdReferences(chat.metadata, deletedConnectionId);
       const directMatch = chat.connectionId === deletedConnectionId;
       if (metadata === undefined && !directMatch) continue;
+      const override = directMatch && overrideCarrierId ? readChatModelOverride(chat) : null;
+      if (override) {
+        const moved = JSON.parse(metadata ?? chat.metadata ?? "{}") as Record<string, unknown>;
+        moved[CHAT_MODEL_OVERRIDE_KEY] = { ...override, connectionId: overrideCarrierId };
+        metadata = JSON.stringify(moved);
+      }
 
       await db
         .update(chats)
         .set({
-          connectionId: directMatch ? null : chat.connectionId,
+          connectionId: override ? overrideCarrierId : directMatch ? null : chat.connectionId,
           metadata: metadata ?? chat.metadata,
           updatedAt: now(),
         })

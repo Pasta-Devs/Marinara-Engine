@@ -1,4 +1,5 @@
 import { allowsDefaultChatModel } from "../../services/llm/local-context-limit.js";
+import { applyChatModelOverride, readChatModelOverride } from "../../services/generation/connection-resolution.js";
 import type { FastifyInstance } from "fastify";
 import { randomUUID } from "crypto";
 import { logger, logDebugOverride } from "../../lib/logger.js";
@@ -1820,7 +1821,11 @@ export async function resolveRetryAgents(args: {
       return { entry: null, unavailableReason: "the configured fallback connection was deleted" };
     }
 
-    return resolveStoredRetryConnection(null, fallbackConn);
+    // Agents on the chat's own Model use the chat's catalog pick, as in generation.
+    return resolveStoredRetryConnection(
+      null,
+      connId === chat.connectionId ? applyChatModelOverride(fallbackConn, readChatModelOverride(chat)) : fallbackConn,
+    );
   };
   const fallbackConnection = await resolveFallbackRetryConnection();
   const retryAgentConnectionCache = new Map<string, RetryAgentConnectionResolution>();

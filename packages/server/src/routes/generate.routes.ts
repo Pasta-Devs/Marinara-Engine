@@ -881,7 +881,11 @@ import {
 } from "../services/generation/agent-prompt-runtime.js";
 import { resolveAgentPipelineAgents, resolveEffectiveAgentSettings } from "../services/generation/agent-resolution.js";
 import { createReplyFallbackNotifier } from "./generate/fallback-notification.js";
-import { resolveChatConnectionOrFallback } from "../services/generation/connection-resolution.js";
+import {
+  applyChatModelOverride,
+  readChatModelOverride,
+  resolveChatConnectionOrFallback,
+} from "../services/generation/connection-resolution.js";
 import { readFeatureModelConnections } from "../services/storage/feature-model-connections.js";
 import {
   GAME_MODE_AUTO_ATTACH_TOOL_NAMES,
@@ -1571,6 +1575,8 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
       : null;
     const fallbackConnectionId = input.connectionId || chat.connectionId;
     let connId = impersonateConnectionOverride || fallbackConnectionId;
+    // Only a selection of the chat's own Model runs its catalog pick (decision 25): not a Random or impersonate pick.
+    let runsChatModel = !impersonateConnectionOverride && fallbackConnectionId === chat.connectionId;
     let memoryRecallConnectionId = connId === "random" ? "random" : undefined;
 
     // ── Random connection: pick one from the random pool ──
@@ -1584,16 +1590,13 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
       connId = picked.id;
     }
 
-    if (!connId) {
-      releaseActiveGeneration();
-      return rejectGenerationOutput(reply, 400, { error: "No API connection configured for this chat" });
-    }
     const resolveGenerationConnection = async (connectionId: string) =>
       connectionId === LOCAL_SIDECAR_CONNECTION_ID
         ? createLocalSidecarGenerationConnection()
         : await connections.getWithKey(connectionId).catch(releaseActiveGenerationAndRethrow);
 
-    let conn = await resolveGenerationConnection(connId);
+    // A chat without a Model (deleted, or never set) answers through the Main default, with the notice below.
+    let conn = connId ? await resolveGenerationConnection(connId) : null;
     let unavailableModelNotice: GenerationFallbackNotice | null = null;
     if (!conn && impersonateConnectionOverride && connId === impersonateConnectionOverride && fallbackConnectionId) {
       logger.warn(
@@ -1601,6 +1604,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
         impersonateConnectionOverride,
       );
       connId = fallbackConnectionId;
+      runsChatModel = fallbackConnectionId === chat.connectionId;
       memoryRecallConnectionId = connId === "random" ? "random" : undefined;
       if (connId === "random") {
         const pool = await connections.listRandomPool().catch(releaseActiveGenerationAndRethrow);
@@ -1613,17 +1617,24 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
       }
       conn = connId ? await resolveGenerationConnection(connId) : null;
     }
-    if (!conn && connId) {
-      // The Model exists but its account is off or needs a key: use the main fallback and tell the user.
+    if (!conn) {
+      // The Model is gone, or its Connection is off or needs a key: use a fallback and tell the user why.
       // The stream has not started yet; the notice is sent as an event once it does.
-      conn = await resolveChatConnectionOrFallback(connections, connId, (notice) => {
+      conn = await resolveChatConnectionOrFallback(connections, connId || null, (notice) => {
         unavailableModelNotice = notice;
       }).catch(releaseActiveGenerationAndRethrow);
       if (conn) connId = conn.id;
     }
     if (!conn) {
       releaseActiveGeneration();
-      return rejectGenerationOutput(reply, 400, { error: "API connection not found" });
+      return rejectGenerationOutput(
+        reply,
+        400,
+        connId ? { error: "API connection not found" } : { error: "No API connection configured for this chat" },
+      );
+    }
+    if (runsChatModel && connId === chat.connectionId) {
+      conn = applyChatModelOverride(conn, readChatModelOverride(chat));
     }
 
     // Resolve base URL — fall back to provider default if empty

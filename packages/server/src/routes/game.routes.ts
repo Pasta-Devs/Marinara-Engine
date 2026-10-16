@@ -37,7 +37,7 @@ import {
   worldKitArtFamily,
 } from "@marinara-engine/shared";
 import { resolveCombatWeather } from "../services/game/weather.service.js";
-import { resolveGameConnection } from "../services/game/connection.service.js";
+import { resolveGameConnection, type GameChatModel } from "../services/game/connection.service.js";
 import { combatAiHintsSchema, combatTacticsSchema, combatInterruptFields } from "@marinara-engine/shared";
 // ──────────────────────────────────────────────
 // Routes: Game Mode
@@ -1263,7 +1263,7 @@ async function summarizeIllustrationFromNarration(args: {
     const { conn, baseUrl, defaultGenerationParameters } = await resolveConnection(
       args.connections,
       sceneConnId,
-      args.chat.connectionId,
+      args.chat,
     );
     const parameters = resolveStoredGameGenerationParameters(args.meta, defaultGenerationParameters, {
       includeChatParameters: inheritsChatGenerationParameters({
@@ -3238,9 +3238,9 @@ async function updateLatestGameStateWithTrackerLocks(
 async function resolveConnection(
   connections: Pick<ReturnType<typeof createConnectionsStorage>, "getWithKey" | "listRandomPool">,
   connId: string | null | undefined,
-  chatConnectionId: string | null,
+  chat: GameChatModel,
 ) {
-  const { conn, baseUrl } = await resolveGameConnection(connections, connId, chatConnectionId);
+  const { conn, baseUrl } = await resolveGameConnection(connections, connId, chat);
   return { conn, baseUrl, defaultGenerationParameters: parseStoredGenerationParameters(conn.defaultParameters) };
 }
 
@@ -4377,7 +4377,7 @@ async function runGameLorebookKeeperAfterConclusion(args: {
     const { conn, baseUrl, defaultGenerationParameters } = await resolveConnection(
       connections,
       args.connectionId,
-      chat.connectionId,
+      chat,
     );
     const generationParameters = resolveStoredGameGenerationParameters(meta, defaultGenerationParameters);
     const provider = await createGameMainProvider(connections, conn, baseUrl);
@@ -7179,11 +7179,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     }
     const customHudWidgets = sanitizeGameHudWidgets(setupConfig.customHudWidgets);
 
-    const { conn, baseUrl, defaultGenerationParameters } = await resolveConnection(
-      connections,
-      connectionId,
-      chat.connectionId,
-    );
+    const { conn, baseUrl, defaultGenerationParameters } = await resolveConnection(connections, connectionId, chat);
     const provider = await createGameMainProvider(connections, conn, baseUrl);
     const setupGenerationParameters = resolveStoredGameGenerationParameters(meta, defaultGenerationParameters);
 
@@ -7983,7 +7979,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
           const { conn, baseUrl, defaultGenerationParameters } = await resolveConnection(
             connections,
             connectionId,
-            newChat.connectionId,
+            newChat,
           );
           const provider = await createGameMainProvider(connections, conn, baseUrl);
 
@@ -8172,11 +8168,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
       const currentCampaignPlan = currentGameCampaignPlan(meta);
       const currentNpcs = Array.isArray(meta.gameNpcs) ? (meta.gameNpcs as GameNpc[]) : [];
 
-      const { conn, baseUrl, defaultGenerationParameters } = await resolveConnection(
-        connections,
-        connectionId,
-        chat.connectionId,
-      );
+      const { conn, baseUrl, defaultGenerationParameters } = await resolveConnection(connections, connectionId, chat);
       const conclusionGenerationParameters = resolveStoredGameGenerationParameters(meta, defaultGenerationParameters);
       const modelAccessPolicy = resolveGameModelAccessPolicy({
         provider: conn.provider,
@@ -8733,11 +8725,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     const currentCampaignPlan = currentGameCampaignPlan(meta);
     const currentNpcs = Array.isArray(meta.gameNpcs) ? (meta.gameNpcs as GameNpc[]) : [];
 
-    const { conn, baseUrl, defaultGenerationParameters } = await resolveConnection(
-      connections,
-      connectionId,
-      chat.connectionId,
-    );
+    const { conn, baseUrl, defaultGenerationParameters } = await resolveConnection(connections, connectionId, chat);
     const conclusionGenerationParameters = resolveStoredGameGenerationParameters(meta, defaultGenerationParameters);
     const modelAccessPolicy = resolveGameModelAccessPolicy({
       provider: conn.provider,
@@ -9008,7 +8996,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     const { conn, baseUrl, defaultGenerationParameters } = await resolveConnection(
       connections,
       connectionId,
-      currentChat.connectionId,
+      currentChat,
     );
     const progressionGenerationParameters = resolveStoredGameGenerationParameters(
       currentMeta,
@@ -9409,7 +9397,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     const { conn, baseUrl, defaultGenerationParameters } = await resolveConnection(
       connections,
       input.connectionId,
-      chat.connectionId,
+      chat,
     );
     const generationParameters = resolveStoredGameGenerationParameters(meta, defaultGenerationParameters);
     const modelAccessPolicy = resolveGameModelAccessPolicy({
@@ -9674,7 +9662,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
         const { conn, baseUrl, defaultGenerationParameters } = await resolveConnection(
           connections,
           input.connectionId,
-          chat.connectionId,
+          chat,
         );
         const provider = await createGameMainProvider(connections, conn, baseUrl);
         const generationParameters = resolveStoredGameGenerationParameters(meta, defaultGenerationParameters);
@@ -10307,11 +10295,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     const chat = await chats.getById(chatId);
     if (!chat) throw new Error("Chat not found");
 
-    const { conn, baseUrl, defaultGenerationParameters } = await resolveConnection(
-      connections,
-      connectionId,
-      chat.connectionId,
-    );
+    const { conn, baseUrl, defaultGenerationParameters } = await resolveConnection(connections, connectionId, chat);
     const provider = await createGameMainProvider(connections, conn, baseUrl);
 
     const messages: ChatMessage[] = [
@@ -12752,7 +12736,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
       const { conn, baseUrl, defaultGenerationParameters } = await resolveConnection(
         connections,
         input.connectionId,
-        chat.connectionId,
+        chat,
       );
       const gameGenerationParameters = resolveStoredGameGenerationParameters(meta, defaultGenerationParameters);
       const modelAccessPolicy = resolveGameModelAccessPolicy({
@@ -13234,7 +13218,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     const { conn, baseUrl, defaultGenerationParameters } = await resolveConnection(
       connections,
       input.connectionId,
-      chat.connectionId,
+      chat,
     );
     const gameGenerationParameters = resolveStoredGameGenerationParameters(meta, defaultGenerationParameters);
 
@@ -13580,7 +13564,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     const { conn, baseUrl, defaultGenerationParameters } = await resolveConnection(
       connections,
       requestedSceneConnId,
-      chat.connectionId,
+      chat,
     );
     const gameGenerationParameters = resolveStoredGameGenerationParameters(meta, defaultGenerationParameters, {
       includeChatParameters: inheritsChatGenerationParameters({
@@ -14279,11 +14263,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
           ? readTrimmedString(meta.gameSceneConnectionId) ||
             readTrimmedString((meta.gameSetupConfig as Record<string, unknown> | null)?.sceneConnectionId)
           : null);
-      const { conn, baseUrl, defaultGenerationParameters } = await resolveConnection(
-        connections,
-        sceneConnId,
-        chat.connectionId,
-      );
+      const { conn, baseUrl, defaultGenerationParameters } = await resolveConnection(connections, sceneConnId, chat);
       const includeChatParameters = inheritsChatGenerationParameters({
         requestedConnectionId: sceneConnId,
         resolvedConnectionId: conn.id,

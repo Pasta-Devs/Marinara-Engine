@@ -1,6 +1,7 @@
 // ──────────────────────────────────────────────
 // Routes: Prompts (Presets, Groups, Sections, Choices)
 // ──────────────────────────────────────────────
+import { applyChatModelOverride, readChatModelOverride } from "../services/generation/connection-resolution.js";
 import type { FastifyInstance, FastifyReply } from "fastify";
 import { mkdir, readFile, unlink, writeFile } from "fs/promises";
 import { extname, join } from "path";
@@ -538,9 +539,9 @@ export async function promptsRoutes(app: FastifyInstance) {
     ]);
 
     const connections = createConnectionsStorage(app.db);
-    const connection = chat.connectionId
-      ? await connections.getById(chat.connectionId)
-      : await connections.getDefault();
+    const stored = chat.connectionId ? await connections.getById(chat.connectionId) : await connections.getDefault();
+    // A preview shows what generation sends: the chat's catalog pick on its own Model.
+    const connection = stored ? applyChatModelOverride(stored, readChatModelOverride(chat)) : null;
     const assemblerInput: AssemblerInput = {
       db: app.db,
       model: connection?.model,

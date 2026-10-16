@@ -195,11 +195,20 @@ export interface ContextFitSummary {
 
 export type GenerationFallbackCategory = "main" | "agents" | "illustrator" | "video";
 
+/** Why the chat's own Model did not answer. "failed": it was tried and the request failed. */
+export type GenerationFallbackReason = "off" | "needs_key" | "review" | "deleted" | "failed";
+
 export type GenerationFallbackNotice = {
   category: GenerationFallbackCategory;
+  /** The fallback Model that answered. */
   connectionId: string;
   connectionName: string;
   model: string;
+  reason?: GenerationFallbackReason;
+  /** The Model that could not answer, and its Connection (where "Fix" goes). */
+  unavailableConnectionId?: string;
+  unavailableName?: string;
+  unavailableAccountId?: string;
 };
 
 export type GenerationFallbackNotifier = (notice: GenerationFallbackNotice) => void | Promise<void>;

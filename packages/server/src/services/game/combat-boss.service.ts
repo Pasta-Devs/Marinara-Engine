@@ -221,7 +221,7 @@ export async function chooseGmCombatOption(
   const { conn, baseUrl } = await resolveGameConnection(
     createConnectionsStorage(db),
     meta.gameGmToolConnectionId ?? null,
-    chat.connectionId,
+    chat,
   );
   let personality = "";
   const characterId = meta.gameGmCharacterId ?? meta.gameSetupConfig?.gmCharacterId;

@@ -8,12 +8,12 @@ import {
   connectionModelIdSchema,
   createConnectionAccountSchema,
   createConnectionSchema,
-  isChatProvider,
   updateConnectionAccountSchema,
 } from "@marinara-engine/shared";
 import {
   accountBlocksRows,
   createConnectionAccountsStorage,
+  pickLimits,
   toAccountListItem,
   type ConnectionAccountRow,
 } from "../services/storage/connection-accounts.storage.js";
@@ -38,6 +38,19 @@ const catalogQuerySchema = z.object({
   q: z.string().trim().max(200).default(""),
   limit: z.coerce.number().int().min(1).max(100).default(30),
 });
+
+// ponytail: an in-process queue per key; one server process owns the store. A shared lock if that ever changes.
+const queues = new Map<string, Promise<unknown>>();
+function oneAtATime<T>(key: string, run: () => Promise<T>): Promise<T> {
+  const next = (queues.get(key) ?? Promise.resolve()).catch(() => undefined).then(run);
+  queues.set(key, next);
+  void next
+    .catch(() => undefined)
+    .finally(() => {
+      if (queues.get(key) === next) queues.delete(key);
+    });
+  return next;
+}
 
 export async function connectionAccountsRoutes(app: FastifyInstance) {
   const accounts = createConnectionAccountsStorage(app.db);
@@ -125,19 +138,33 @@ export async function connectionAccountsRoutes(app: FastifyInstance) {
     return reply.status(204).send();
   });
 
-  // A quick-switch pick: find the Model for this model id, or create it named after the catalog entry.
+  // Save a model to the library (star, "Save to library", panel Add model, "Make it my Main model"). A new Model
+  // takes the catalog limits and neutral tuning, never a sibling's (decision 25); the existing one is returned.
+  // "Save to library": the account's saved Model for the id, or a new one. Saves of one Connection run one at a
+  // time, so a double click finds the Model the first click created.
   app.post<{ Params: { id: string } }>("/:id/for-model", async (req, reply) => {
     const body = forModelBodySchema.parse(req.body);
-    const linked = (await accounts.linkedRows(req.params.id)).filter((row) => isChatProvider(row.provider));
-    const catalogName = linked
-      .map((row) => readSavedModelList(row)?.models.find((entry) => entry.id === body.model)?.name)
-      .find(Boolean);
-    const result = await accounts.findOrCreateModel(req.params.id, {
-      ...body,
-      name: body.name ?? catalogName ?? body.model,
+    const result = await oneAtATime(req.params.id, async () => {
+      const found = await accounts.findChatModel(req.params.id, body.model);
+      if (typeof found !== "object") return found;
+      if (found.existing) return { connectionId: found.existing.id, created: false };
+      // A saved Model takes its name and limits from the catalog, never from a sibling Model.
+      const row = await connections.create(
+        createConnectionSchema.parse({
+          name: body.name ?? found.catalog.name ?? body.model,
+          provider: found.provider,
+          baseUrl: found.provider === found.account.provider ? found.account.baseUrl : "",
+          model: body.model,
+          accountId: found.account.id,
+          ...pickLimits(body, found.catalog),
+        }),
+      );
+      return row ? { connectionId: row.id, created: true } : "failed";
     });
     if (result === "not_found") return reply.status(404).send({ error: "Connection not found" });
     if (result === "not_chat") return reply.status(400).send({ error: "This Connection cannot hold chat Models." });
+    if (result === "failed") return reply.status(500).send({ error: "Could not save the model" });
+    if (result.created) reply.status(201);
     return { connectionId: result.connectionId };
   });
 }

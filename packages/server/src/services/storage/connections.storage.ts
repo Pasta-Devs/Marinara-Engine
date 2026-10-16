@@ -16,6 +16,7 @@ import {
 import { sweepDanglingConnectionReferences } from "./connection-reference-cleanup.js";
 import {
   ACCOUNT_MIRRORED_INPUT_KEYS,
+  accountBlocksRows,
   credentialOrigin,
   getConnectionAccount,
   isBlockedByAccount,
@@ -23,6 +24,7 @@ import {
   mirrorToAccountPeers,
   syncAccountBudget,
   withoutBlockedRows,
+  type ConnectionRow,
 } from "./connection-accounts.storage.js";
 import { clearConnectionRateLimit, setConnectionRateLimit } from "../llm/connection-rate-limit-registry.js";
 import { logger } from "../../lib/logger.js";
@@ -149,6 +151,20 @@ export function createConnectionsStorage(db: DB) {
       const conn = await this.getById(id);
       if (!conn || conn.profileImportReviewRequired === "true" || (await isBlockedByAccount(db, conn))) return null;
       return withKey(conn);
+    },
+
+    /** Why `getWithKey` returns null for this id: the Model is gone, under review, or its Connection blocks it. */
+    async unavailableReason(id: string): Promise<{
+      reason: "deleted" | "review" | "off" | "needs_key";
+      row: ConnectionRow | null;
+    } | null> {
+      const row = (await this.getById(id)) as ConnectionRow | null;
+      if (!row) return { reason: "deleted", row: null };
+      if (row.profileImportReviewRequired === "true") return { reason: "review", row };
+      const account = row.accountId ? await getConnectionAccount(db, row.accountId) : null;
+      if (!account || !accountBlocksRows(account)) return null;
+      if (account.enabled === "false") return { reason: "off", row };
+      return { reason: account.profileImportReviewRequired === "true" ? "review" : "needs_key", row };
     },
 
     /**
@@ -355,7 +371,7 @@ export function createConnectionsStorage(db: DB) {
         profileImportReviewRequired: "false",
         model: input.model ?? "",
         pinnedModels: JSON.stringify(parsePinnedModels(input.pinnedModels ?? [])),
-        savedModels: null,
+        savedModels: null as string | null,
         imagePath: input.imagePath ?? null,
         maxContext: input.maxContext ?? 128000,
         isDefault: String(takesChatDefaults(input.provider) && (input.isDefault ?? false)),
@@ -412,6 +428,14 @@ export function createConnectionsStorage(db: DB) {
         values.treatAsLocalEndpoint = account.treatAsLocalEndpoint;
         values.profileImportReviewRequired = account.profileImportReviewRequired;
         if (sameType) values.baseUrl = account.baseUrl;
+        // Models of one provider under an account share the saved catalog and the pins.
+        const peer = (await db.select().from(apiConnections).where(eq(apiConnections.accountId, account.id)))
+          .filter((row) => row.provider === input.provider)
+          .sort((a, b) => (b.updatedAt ?? "").localeCompare(a.updatedAt ?? ""))[0];
+        if (peer) {
+          values.savedModels = peer.savedModels;
+          if (!input.pinnedModels) values.pinnedModels = peer.pinnedModels;
+        }
       } else if (account) {
         logger.warn("[connections] Model endpoint is outside account %s: creating a standalone Model", account.id);
       }
@@ -688,7 +712,8 @@ export function createConnectionsStorage(db: DB) {
       await db.transaction(async (tx) => {
         if (shouldClearDefault && takesChatDefaults(effectiveProvider)) {
           await tx.update(apiConnections).set({ isDefault: "false" });
-          updateFields.fallbackForMain = "false";
+          // "Make it my Main model" keeps the row's fallback flag: it rests while the row is Main (a fallback
+          // equal to the primary is skipped) and works again once Main moves on.
         }
         if (shouldClearMainFallback) {
           await tx.update(apiConnections).set({ fallbackForMain: "false" });
@@ -857,8 +882,19 @@ export function createConnectionsStorage(db: DB) {
 
     async remove(id: string) {
       const cleanup = await db.transaction(async (tx) => {
+        const [row] = (await tx.select().from(apiConnections).where(eq(apiConnections.id, id))) as ConnectionRow[];
+        // A chat's catalog pick runs on this Model's key; another chat Model of the same Connection can carry it.
+        const peers = row?.accountId
+          ? ((await tx
+              .select()
+              .from(apiConnections)
+              .where(eq(apiConnections.accountId, row.accountId))) as ConnectionRow[])
+          : [];
+        const carrier = peers
+          .filter((peer) => peer.id !== id && isChatProvider(peer.provider))
+          .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
         await tx.delete(apiConnections).where(eq(apiConnections.id, id));
-        return sweepDanglingConnectionReferences(tx, id);
+        return sweepDanglingConnectionReferences(tx, id, carrier?.id ?? null);
       });
       // Clear the throttle registry only after the delete commits.
       clearConnectionRateLimit(id);

@@ -199,7 +199,11 @@ import {
 } from "../../services/generation/runtime-agent-sections.js";
 import { loadPriorBeholderState } from "../../services/agents/beholder-state.js";
 import { logger } from "../../lib/logger.js";
-import { resolveChatConnectionOrFallback } from "../../services/generation/connection-resolution.js";
+import {
+  applyChatModelOverride,
+  readChatModelOverride,
+  resolveChatConnectionOrFallback,
+} from "../../services/generation/connection-resolution.js";
 import { readFeatureModelConnections } from "../../services/storage/feature-model-connections.js";
 import { createReplyFallbackNotifier } from "./fallback-notification.js";
 import { resolveGameGmPromptTemplate } from "../../services/generation/game-gm-prompt-runtime.js";
@@ -600,6 +604,8 @@ export async function registerDryRunRoute(app: FastifyInstance) {
       : null;
     const fallbackConnectionId = asNonEmptyString(body.connectionId) || ((chat.connectionId as string | null) ?? null);
     let connId = impersonateConnectionOverride || fallbackConnectionId;
+    // Only a selection of the chat's own Model runs its catalog pick (decision 25): not a Random or impersonate pick.
+    let runsChatModel = !impersonateConnectionOverride && fallbackConnectionId === chat.connectionId;
 
     if (connId === "random") {
       const pool = await connections.listRandomPool();
@@ -608,19 +614,19 @@ export async function registerDryRunRoute(app: FastifyInstance) {
       connId = picked.id;
     }
 
-    if (!connId) return reply.status(400).send({ error: "No API connection configured for this chat" });
     const resolveDryRunConnection = async (connectionId: string) =>
       connectionId === LOCAL_SIDECAR_CONNECTION_ID
         ? createLocalSidecarGenerationConnection()
         : await connections.getWithKey(connectionId);
 
-    let conn = await resolveDryRunConnection(connId);
+    let conn = connId ? await resolveDryRunConnection(connId) : null;
     if (!conn && impersonateConnectionOverride && connId === impersonateConnectionOverride && fallbackConnectionId) {
       logger.warn(
         "[dryRun] Impersonate connection override %s was not found; falling back to chat/request connection",
         impersonateConnectionOverride,
       );
       connId = fallbackConnectionId;
+      runsChatModel = fallbackConnectionId === chat.connectionId;
       if (connId === "random") {
         const pool = await connections.listRandomPool();
         if (!pool.length) return reply.status(400).send({ error: "No connections are marked for the random pool" });
@@ -629,11 +635,18 @@ export async function registerDryRunRoute(app: FastifyInstance) {
       }
       conn = connId ? await resolveDryRunConnection(connId) : null;
     }
-    if (!conn && connId) {
-      conn = await resolveChatConnectionOrFallback(connections, connId, createReplyFallbackNotifier(reply));
+    if (!conn) {
+      conn = await resolveChatConnectionOrFallback(connections, connId || null, createReplyFallbackNotifier(reply));
       if (conn) connId = conn.id;
     }
-    if (!conn) return reply.status(400).send({ error: "API connection not found" });
+    if (!conn) {
+      return reply
+        .status(400)
+        .send({ error: connId ? "API connection not found" : "No API connection configured for this chat" });
+    }
+    if (runsChatModel && connId === chat.connectionId) {
+      conn = applyChatModelOverride(conn, readChatModelOverride(chat));
+    }
 
     const baseUrl = resolveBaseUrl(conn);
     if (!baseUrl) return reply.status(400).send({ error: "No base URL configured for this connection" });

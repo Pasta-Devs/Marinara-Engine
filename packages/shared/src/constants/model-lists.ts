@@ -817,6 +817,17 @@ export const VIDEO_GENERATION_SOURCES: VideoGenSource[] = [
 /** The image model Codex's own image tool uses through a ChatGPT login. */
 export const CODEX_IMAGE_MODEL = "gpt-image-2";
 
+/** Image sources that use the same vendor key as the chat provider of the given id (one Connection holds both). */
+export const IMAGE_SOURCE_VENDOR: Record<string, string> = {
+  openai: "openai",
+  openrouter: "openrouter",
+  xai: "xai",
+  nanogpt: "nanogpt",
+  arli: "arli",
+  zai: "zai",
+  gemini_image: "google",
+};
+
 export const IMAGE_GENERATION_SOURCES: ImageGenSource[] = [
   {
     id: "openai",

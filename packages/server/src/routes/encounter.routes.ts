@@ -875,7 +875,7 @@ export async function encounterRoutes(app: FastifyInstance) {
       const chat = await chats.getById(chatId);
       if (!chat) return reply.status(404).send({ error: "Chat not found" });
 
-      const { conn, baseUrl } = await resolveEncounterConnection(connections, connectionId, chat.connectionId);
+      const { conn, baseUrl } = await resolveEncounterConnection(connections, connectionId, chat);
       const provider = createLLMProvider(
         conn.provider,
         baseUrl,
@@ -1043,7 +1043,7 @@ export async function encounterRoutes(app: FastifyInstance) {
       const chat = await chats.getById(chatId);
       if (!chat) return reply.status(404).send({ error: "Chat not found" });
 
-      const { conn, baseUrl } = await resolveEncounterConnection(connections, connectionId, chat.connectionId);
+      const { conn, baseUrl } = await resolveEncounterConnection(connections, connectionId, chat);
       const provider = createLLMProvider(
         conn.provider,
         baseUrl,
@@ -1153,7 +1153,7 @@ export async function encounterRoutes(app: FastifyInstance) {
       const chat = await chats.getById(chatId);
       if (!chat) return reply.status(404).send({ error: "Chat not found" });
 
-      const { conn, baseUrl } = await resolveEncounterConnection(connections, connectionId, chat.connectionId);
+      const { conn, baseUrl } = await resolveEncounterConnection(connections, connectionId, chat);
       const provider = createLLMProvider(
         conn.provider,
         baseUrl,

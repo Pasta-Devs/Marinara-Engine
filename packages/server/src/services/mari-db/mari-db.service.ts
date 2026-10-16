@@ -1,6 +1,7 @@
 // ──────────────────────────────────────────────
 // Professor Mari DB service
 // ──────────────────────────────────────────────
+import { applyChatModelOverride, readChatModelOverride } from "../generation/connection-resolution.js";
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { appendFile, mkdir, readFile, writeFile } from "node:fs/promises";
@@ -7582,7 +7583,10 @@ export class MariDbService {
         "Token Budget": (row as unknown as Lorebook).tokenBudget,
       }));
 
-    const connection = chat.connectionId ? await createConnectionsStorage(this.db).getById(chat.connectionId) : null;
+    const storedConnection = chat.connectionId
+      ? await createConnectionsStorage(this.db).getById(chat.connectionId)
+      : null;
+    const connection = storedConnection ? applyChatModelOverride(storedConnection, readChatModelOverride(chat)) : null;
     const presetCandidates = buildGenerationPromptPresetCandidates({
       chatMode: chat.mode,
       chatPromptPresetId: chat.promptPresetId,

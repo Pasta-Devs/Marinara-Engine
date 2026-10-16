@@ -13,6 +13,7 @@ import { readdirSync, existsSync } from "fs";
 import { join, extname } from "path";
 import { createChatsStorage } from "../services/storage/chats.storage.js";
 import { createConnectionsStorage } from "../services/storage/connections.storage.js";
+import { resolveGameConnection } from "../services/game/connection.service.js";
 import { createCharactersStorage } from "../services/storage/characters.storage.js";
 import { createPromptsStorage } from "../services/storage/prompts.storage.js";
 import { resolveChatUserIdentity } from "../services/chat-user-identity.js";
@@ -23,7 +24,7 @@ import { createReplyFallbackNotifier } from "./generate/fallback-notification.js
 import { stripConversationPromptTimestamps } from "../services/conversation/transcript-sanitize.js";
 import { DATA_DIR } from "../utils/data-dir.js";
 import type { ChatCompletionResult, ChatMessage } from "../services/llm/base-provider.js";
-import { localAuthProviderBaseUrl, parseChoiceOptions } from "@marinara-engine/shared";
+import { parseChoiceOptions } from "@marinara-engine/shared";
 import type {
   SceneCreateRequest,
   SceneCreateResponse,
@@ -131,33 +132,8 @@ function formatScenePromptPreferences(preferences: ScenePromptPreferences | null
 // Helpers (reused from encounter pattern)
 // ──────────────────────────────────────────────
 
-async function resolveConnection(
-  connections: ReturnType<typeof createConnectionsStorage>,
-  connId: string | null | undefined,
-  chatConnectionId: string | null,
-) {
-  let id = connId ?? chatConnectionId;
-  if (id === "random") {
-    const pool = await connections.listRandomPool();
-    if (!pool.length) throw new Error("No connections marked for the random pool");
-    id = pool[Math.floor(Math.random() * pool.length)].id;
-  }
-  if (!id) throw new Error("No API connection configured");
-  const conn = await connections.getWithKey(id);
-  if (!conn) throw new Error("API connection not found");
-
-  let baseUrl = conn.baseUrl;
-  if (!baseUrl) {
-    const { PROVIDERS } = await import("@marinara-engine/shared");
-    const providerDef = PROVIDERS[conn.provider as keyof typeof PROVIDERS];
-    baseUrl = providerDef?.defaultBaseUrl ?? "";
-  }
-  const localAuthBaseUrl = localAuthProviderBaseUrl(conn.provider);
-  if (!baseUrl && localAuthBaseUrl) baseUrl = localAuthBaseUrl;
-  if (!baseUrl) throw new Error("No base URL configured for this connection");
-
-  return { conn, baseUrl };
-}
+// Same resolution as game mode: random pool, fallback with a notice, the chat's per-chat catalog pick.
+const resolveConnection = resolveGameConnection;
 
 async function buildCharacterContext(chars: ReturnType<typeof createCharactersStorage>, characterIds: string[]) {
   let ctx = "";
@@ -679,7 +655,7 @@ export async function sceneRoutes(app: FastifyInstance) {
     const sceneOriginChat = originChatId ? await chats.getById(originChatId) : null;
 
     // Resolve connection
-    const { conn, baseUrl } = await resolveConnection(connections, connectionId, sceneChat.connectionId);
+    const { conn, baseUrl } = await resolveConnection(connections, connectionId, sceneChat);
     const provider = await createSceneProvider(conn, baseUrl, createReplyFallbackNotifier(reply));
 
     // Build context — the scene chat inherits its personaId from the origin;
@@ -1104,7 +1080,7 @@ export async function sceneRoutes(app: FastifyInstance) {
     const participants = await resolveSceneParticipants(origin, req.body.promptPreferences ?? {});
     if ("error" in participants) return reply.status(400).send({ error: participants.error });
 
-    const { conn, baseUrl } = await resolveConnection(connections, connectionId, origin.connectionId);
+    const { conn, baseUrl } = await resolveConnection(connections, connectionId, origin);
     const provider = await createSceneProvider(conn, baseUrl, createReplyFallbackNotifier(reply));
 
     const characterIds = participants.characterIds;

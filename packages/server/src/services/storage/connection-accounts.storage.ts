@@ -21,6 +21,7 @@ import { encryptApiKey, decryptApiKey } from "../../utils/crypto.js";
 import {
   DECISION_SOURCE_BASE_URLS,
   IMAGE_GENERATION_SOURCES,
+  IMAGE_SOURCE_VENDOR,
   PROVIDERS,
   VIDEO_GENERATION_SOURCES,
   inferImageSource,
@@ -36,9 +37,26 @@ import {
 import { setConnectionBudgetScope, setAccountRateLimit } from "../llm/connection-rate-limit-registry.js";
 import { setAccountParallelLimit } from "../llm/account-budget.js";
 import { logger } from "../../lib/logger.js";
+// A cycle with connections.storage, safe: the function is only called at request time.
+import { readSavedModelList } from "./connections.storage.js";
 
 export type ConnectionRow = typeof apiConnections.$inferSelect;
 export type ConnectionAccountRow = typeof connectionAccounts.$inferSelect;
+/** What an account's saved catalog says about one model id. */
+export type CatalogModelInfo = { name?: string; maxContext?: number; maxTokensOverride?: number };
+
+/** The limits a pick sends, else the catalog's; a missing one stays absent so the schema default applies. */
+export function pickLimits(
+  sent: { maxContext?: number; maxTokensOverride?: number },
+  catalog: CatalogModelInfo,
+): { maxContext?: number; maxTokensOverride?: number } {
+  const maxContext = sent.maxContext ?? catalog.maxContext;
+  const maxTokensOverride = sent.maxTokensOverride ?? catalog.maxTokensOverride;
+  return {
+    ...(maxContext !== undefined ? { maxContext } : {}),
+    ...(maxTokensOverride !== undefined ? { maxTokensOverride } : {}),
+  };
+}
 
 /** Row input fields that belong to the account: a linked row ignores them in `update`. */
 export const ACCOUNT_MIRRORED_INPUT_KEYS = [
@@ -53,16 +71,6 @@ export const ACCOUNT_MIRRORED_INPUT_KEYS = [
 
 // ── Credential identity ─────────────────────────
 
-/** Image-source ids that use the same vendor credential as the chat provider of the same name. */
-const IMAGE_SOURCE_VENDOR: Record<string, string> = {
-  openai: "openai",
-  openrouter: "openrouter",
-  xai: "xai",
-  nanogpt: "nanogpt",
-  arli: "arli",
-  zai: "zai",
-  gemini_image: "google",
-};
 const VIDEO_SOURCE_VENDOR: Record<string, string> = {
   openrouter: "openrouter",
   xai: "xai",
@@ -183,14 +191,24 @@ type GroupableRow = IdentityRow & { apiKeyEncrypted: string; profileImportReview
  * key (local servers, ComfyUI) group by their full endpoint instead, so two local servers stay apart.
  * A row under import review never joins a trusted account.
  */
-function groupKeyOf(row: GroupableRow, plainKey: string): string {
+function groupKeyOf(row: GroupableRow, plainKey: string, importedAccountId = ""): string {
   return [
     credentialVendor(row),
     credentialOrigin(row),
     keyDigest(plainKey),
     plainKey ? "" : credentialEndpoint(row).toLowerCase(),
-    row.profileImportReviewRequired === "true" ? "review" : "",
+    // Imported keys are blanked, so two keys on one endpoint look the same: their exported account keeps
+    // them apart.
+    row.profileImportReviewRequired === "true" ? `review:${importedAccountId}` : "",
   ].join("\u0000");
+}
+
+/**
+ * A row that sends its key to an embeddings host on another origin keeps its own key: it never joins an account
+ * by itself (an account key change detaches it for the same reason), so it stays a standalone Model.
+ */
+function hasForeignEmbeddingHost(row: Pick<ConnectionRow, "embeddingBaseUrl"> & IdentityRow): boolean {
+  return !!row.embeddingBaseUrl?.trim() && originOfUrl(trimUrl(row.embeddingBaseUrl)) !== credentialOrigin(row);
 }
 
 // ── Gate ────────────────────────────────────────
@@ -368,6 +386,8 @@ export async function linkConnectionAccounts(db: DB): Promise<{ created: number;
     let created = 0;
     let linked = 0;
     let detached = 0;
+    // An imported row that left its exported account still groups with the rows of that account only.
+    const importedAccount = new Map<string, string>();
 
     // 1. Consistency: drift from a downgraded build, an import or an edit leaves the row standalone.
     for (const row of rows) {
@@ -379,6 +399,7 @@ export async function linkConnectionAccounts(db: DB): Promise<{ created: number;
         keys.get(row.id) === decryptApiKey(account.apiKeyEncrypted) &&
         credentialOrigin(row) === credentialOrigin(account);
       if (consistent) continue;
+      if (row.profileImportReviewRequired === "true") importedAccount.set(row.id, row.accountId);
       await tx.update(apiConnections).set({ accountId: null }).where(eq(apiConnections.id, row.id));
       row.accountId = null;
       detached++;
@@ -388,23 +409,23 @@ export async function linkConnectionAccounts(db: DB): Promise<{ created: number;
     const accountForGroup = new Map<string, string>();
     for (const row of rows) {
       if (row.accountId) {
-        const key = groupKeyOf(row, keys.get(row.id) ?? "");
+        const key = groupKeyOf(row, keys.get(row.id) ?? "", row.accountId);
         if (!accountForGroup.has(key)) accountForGroup.set(key, row.accountId);
       }
     }
     for (const account of accounts as ConnectionAccountRow[]) {
       // An account without rows can only be matched by its own provider (chat accounts).
       if (rows.some((row) => row.accountId === account.id) || !isChatProvider(account.provider)) continue;
-      const key = groupKeyOf(account, decryptApiKey(account.apiKeyEncrypted));
+      const key = groupKeyOf(account, decryptApiKey(account.apiKeyEncrypted), account.id);
       if (!accountForGroup.has(key)) accountForGroup.set(key, account.id);
     }
 
     const groups = new Map<string, ConnectionRow[]>();
     const unlinked = rows
-      .filter((row) => !row.accountId && !row.credentialsFromConnectionId)
+      .filter((row) => !row.accountId && !row.credentialsFromConnectionId && !hasForeignEmbeddingHost(row))
       .sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
     for (const row of unlinked) {
-      const key = groupKeyOf(row, keys.get(row.id) ?? "");
+      const key = groupKeyOf(row, keys.get(row.id) ?? "", importedAccount.get(row.id));
       groups.set(key, [...(groups.get(key) ?? []), row]);
     }
 
@@ -564,59 +585,31 @@ export function createConnectionAccountsStorage(db: DB) {
     },
 
     /**
-     * Find or create the chat Model for `model` under the account. A new Model clones the account's newest chat
-     * row (tuning, caching, parameters, preset override) without its role flags; the source row is untouched.
+     * The account's saved chat Model for `model`, the chat provider a new one would use, and what the
+     * account's saved catalog says about `model` (name and limits).
      */
-    async findOrCreateModel(
+    async findChatModel(
       id: string,
-      input: { model: string; name: string; maxContext?: number; maxTokensOverride?: number },
-    ): Promise<{ connectionId: string; created: boolean } | "not_found" | "not_chat"> {
-      return db.transaction(async (tx) => {
-        const [account] = await tx.select().from(connectionAccounts).where(eq(connectionAccounts.id, id));
-        if (!account) return "not_found" as const;
-        const chatRows = (
-          (await tx.select().from(apiConnections).where(eq(apiConnections.accountId, id))) as ConnectionRow[]
-        )
-          .filter((row) => isChatProvider(row.provider))
-          .sort(newerFirst);
-        const existing = chatRows.find((row) => row.model === input.model);
-        if (existing) return { connectionId: existing.id, created: false };
-        if (!isChatProvider(account.provider) && !chatRows.length) return "not_chat" as const;
-
-        const timestamp = now();
-        const template = chatRows[0];
-        const base = template
-          ? { ...template }
-          : {
-              provider: account.provider,
-              baseUrl: account.baseUrl,
-              apiKeyEncrypted: account.apiKeyEncrypted,
-              managementTokenEncrypted: account.managementTokenEncrypted,
-              showUsageWidget: account.showUsageWidget,
-              showUsageFiveHour: account.showUsageFiveHour,
-              showUsageWeekly: account.showUsageWeekly,
-              treatAsLocalEndpoint: account.treatAsLocalEndpoint,
-              profileImportReviewRequired: account.profileImportReviewRequired,
-            };
-        const connectionId = newId();
-        await tx.insert(apiConnections).values({
-          ...base,
-          id: connectionId,
-          name: input.name,
-          model: input.model,
-          accountId: id,
-          isDefault: "false",
-          fallbackForMain: "false",
-          useForRandom: "false",
-          defaultForAgents: "false",
-          fallbackForAgents: "false",
-          ...(input.maxContext !== undefined ? { maxContext: input.maxContext } : {}),
-          ...(input.maxTokensOverride !== undefined ? { maxTokensOverride: input.maxTokensOverride } : {}),
-          createdAt: timestamp,
-          updatedAt: timestamp,
-        });
-        return { connectionId, created: true };
-      });
+      model: string,
+    ): Promise<
+      | { account: ConnectionAccountRow; existing: ConnectionRow | null; provider: string; catalog: CatalogModelInfo }
+      | "not_found"
+      | "not_chat"
+    > {
+      const account = await getConnectionAccount(db, id);
+      if (!account) return "not_found";
+      const linked = (await this.linkedRows(id)) as ConnectionRow[];
+      const chatRows = linked.filter((row) => isChatProvider(row.provider)).sort(newerFirst);
+      const provider = isChatProvider(account.provider) ? account.provider : chatRows[0]?.provider;
+      if (!provider) return "not_chat";
+      const entry = linked.map((row) => readSavedModelList(row)?.models.find((m) => m.id === model)).find(Boolean);
+      const positive = (value: unknown) => (typeof value === "number" && value >= 1 ? Math.floor(value) : undefined);
+      const catalog: CatalogModelInfo = {
+        ...(entry?.name ? { name: entry.name } : {}),
+        ...(positive(entry?.context) ? { maxContext: positive(entry?.context) } : {}),
+        ...(positive(entry?.maxOutput) ? { maxTokensOverride: positive(entry?.maxOutput) } : {}),
+      };
+      return { account, existing: chatRows.find((row) => row.model === model) ?? null, provider, catalog };
     },
   };
 }
