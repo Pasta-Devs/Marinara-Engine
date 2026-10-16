@@ -1,5 +1,5 @@
-// Resolvers around connection accounts: a chat whose Model is blocked by its account generates through the main
-// fallback and says so (real generate + dry-run routes); the Professor Mari resolver honours the account gate and the
+// Resolvers around connection accounts: a chat whose Model is blocked by its account, or was deleted, generates
+// through a fallback and says why (real generate + dry-run routes); the Professor Mari resolver honours the account gate and the
 // global feature setting; the feature-model PUT merges fields and nulls unknown ids; deleting a Model sweeps the
 // setting; the admin "connections" reset clears accounts and the setting.
 import assert from "node:assert/strict";
@@ -131,8 +131,25 @@ try {
   assert.deepEqual(servedModels.splice(0), ["backup-model"]);
   const notice = noticeOf(response);
   assert.deepEqual(
-    { category: notice?.category, connectionId: notice?.connectionId, model: notice?.model },
-    { category: "main", connectionId: backup.connectionId, model: "backup-model" },
+    {
+      category: notice?.category,
+      connectionId: notice?.connectionId,
+      model: notice?.model,
+      reason: notice?.reason,
+      unavailableConnectionId: notice?.unavailableConnectionId,
+      unavailableName: notice?.unavailableName,
+      unavailableAccountId: notice?.unavailableAccountId,
+    },
+    {
+      category: "main",
+      connectionId: backup.connectionId,
+      model: "backup-model",
+      reason: "off",
+      unavailableConnectionId: primary.connectionId,
+      unavailableName: "primary-model",
+      unavailableAccountId: primary.accountId,
+    },
+    "the notice names the real reason and where Fix goes",
   );
 
   // Dry run takes the same path.
@@ -141,7 +158,8 @@ try {
   assert.deepEqual(servedModels.splice(0), ["backup-model"]);
   assert.equal(noticeOf(response)?.connectionId, backup.connectionId);
 
-  // A Model that does not exist is still an error, and so is a blocked one with no fallback.
+  // A Model that no longer exists falls back too (Main first, then the main fallback) and says it was deleted;
+  // a blocked one with no fallback is still an error.
   const ghost = await chats.create({
     name: "Ghost",
     mode: "conversation",
@@ -155,8 +173,12 @@ try {
     url: "/api/generate/",
     payload: { chatId: ghost.id, streaming: true },
   });
-  assert.equal(response.statusCode, 400);
-  assert.deepEqual(servedModels, []);
+  assert.equal(response.statusCode, 200, response.body);
+  assert.deepEqual(servedModels.splice(0), ["backup-model"]);
+  assert.deepEqual(
+    { reason: noticeOf(response)?.reason, unavailableConnectionId: noticeOf(response)?.unavailableConnectionId },
+    { reason: "deleted", unavailableConnectionId: "no-such-model" },
+  );
   await connections.update(backup.connectionId, { fallbackForMain: false });
   response = await app.inject({ method: "POST", url: "/api/generate/", payload: { chatId: chat.id, streaming: true } });
   assert.equal(response.statusCode, 400, "a blocked Model with no main fallback is not silently rerouted");

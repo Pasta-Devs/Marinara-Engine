@@ -20843,9 +20843,7 @@ test("chat mode tabs and new-chat actions stay reachable", { tag: "@smoke" }, as
   }
 });
 
-test("new-chat connection gates follow Chat Chrome Text Color and close before opening Connections", async ({
-  page,
-}) => {
+test("new-chat connection gates follow Chat Chrome Text Color and stay open under Add connection", async ({ page }) => {
   const errors = collectUnexpectedErrors(page);
   await page.route("**/api/connections", async (route) => {
     const request = route.request();
@@ -20931,8 +20929,9 @@ test("new-chat connection gates follow Chat Chrome Text Color and close before o
       await expect(gate).toHaveCount(0);
     } else {
       await gate.getByRole("button", { name: "Add connection", exact: true }).click();
-      await expect(gate).toHaveCount(0);
       await expect(page.getByRole("dialog", { name: "Add connection", exact: true })).toBeVisible();
+      // The gate waits under the setup modal, so the new-chat flow goes on after it.
+      await expect(gate).toHaveCount(1);
     }
   }
 

@@ -147,26 +147,28 @@ try {
   await db.update(apiConnections).set({ accountId }).where(eq(apiConnections.id, image.id));
   await json("PATCH", `/accounts/${accountId}`, { apiKey: KEY, treatAsLocalEndpoint: false });
 
-  // for-model: finds or creates, named after the catalog, clones tuning without roles, source untouched.
+  // for-model ("Save to library", decision 25): finds or creates, named after the catalog, limits from the catalog,
+  // neutral tuning (never cloned from a sibling), no roles, source untouched.
   await connections.update(chatId, { isDefault: true, useForRandom: true, enableCaching: true, maxContext: 32000 });
   const sourceBefore = await rowOf(chatId);
   const chatRow = (await connections.getById(chatId))!;
   const saved = await connections.saveModelListIfUnchanged(chatRow, [
     { id: "gpt-5", name: "GPT-5" },
-    { id: "gpt-5-mini", name: "GPT-5 mini" },
+    { id: "gpt-5-mini", name: "GPT-5 mini", context: 64000, maxOutput: 8000 },
   ]);
   assert(saved);
   const savedAfter = await rowOf(chatId);
   const pick = await json("POST", `/accounts/${accountId}/for-model`, { model: "gpt-5-mini" });
-  assert.equal(pick.status, 200, pick.body);
+  assert.equal(pick.status, 201, pick.body);
   const miniId: string = pick.data.connectionId;
   assert.notEqual(miniId, chatId);
   const mini = await rowOf(miniId);
   assert.equal(mini.name, "GPT-5 mini");
   assert.equal(mini.model, "gpt-5-mini");
   assert.equal(mini.accountId, accountId);
-  assert.equal(mini.enableCaching, "true");
-  assert.equal(mini.maxContext, 32000);
+  assert.equal(mini.enableCaching, "false", "tuning is not cloned from the sibling");
+  assert.equal(mini.maxContext, 64000, "context from the catalog");
+  assert.equal(mini.maxTokensOverride, 8000, "max output from the catalog");
   for (const flag of [
     "isDefault",
     "useForRandom",
@@ -180,6 +182,7 @@ try {
   assert.deepEqual(await rowOf(chatId), savedAfter, "the source row is never modified");
   assert.notEqual(sourceBefore.savedModels, savedAfter.savedModels);
   const again = await json("POST", `/accounts/${accountId}/for-model`, { model: "gpt-5-mini", name: "Other" });
+  assert.equal(again.status, 200, again.body);
   assert.equal(again.data.connectionId, miniId, "idempotent");
   assert.equal((await rowOf(miniId)).name, "GPT-5 mini", "existing names are never touched");
   const concurrent = await Promise.all(

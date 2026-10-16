@@ -1,8 +1,9 @@
 // #7098: the input-box Connections menu shows the chosen connection's models. Lists are saved on the
 // connection, so reopening (even after a reload) does not ask the provider again; Refresh does. Models
 // can be pinned, typed by ID, and changed from Chat Settings → Connection too.
-// Connections redesign: a pick in the menu moves only this chat. It finds or creates the Model under the
-// Connection and never edits the shared row; a toast offers "Use for new chats too".
+// Connections redesign (decisions 25/26): a catalog pick in the menu applies to this chat only and saves no Model;
+// it never edits a saved Model. The toast offers Undo and "Make it my Main model"; Recent lists this chat's last
+// two choices; the star and "Save to library" save a model. Chat Settings → Connection works the same way.
 import { expect, test, type APIRequestContext, type Locator, type Page, type TestInfo } from "@playwright/test";
 import { createServer } from "node:http";
 import { readFileSync } from "node:fs";
@@ -110,36 +111,62 @@ async function setup(page: Page, request: APIRequestContext, testInfo: TestInfo,
   return { provider, main, other, broken, chat, cleanup, suffix };
 }
 
-async function connectionRow(request: APIRequestContext, id: string) {
-  const rows = (await (await request.get("/api/connections")).json()) as Array<Record<string, unknown>>;
-  return rows.find((row) => row.id === id) ?? null;
+async function connectionRows(request: APIRequestContext) {
+  return (await (await request.get("/api/connections")).json()) as Array<Record<string, unknown>>;
 }
 
-/** The Model row the chat uses now. */
-async function chatModelRow(request: APIRequestContext, chatId: string) {
-  const chat = (await (await request.get(`/api/chats/${chatId}`)).json()) as { connectionId?: string | null };
-  return chat.connectionId ? connectionRow(request, chat.connectionId) : null;
+async function connectionRow(request: APIRequestContext, id: string) {
+  return (await connectionRows(request)).find((row) => row.id === id) ?? null;
+}
+
+/** The saved Models of one Connection. */
+async function accountRows(request: APIRequestContext, accountId: unknown) {
+  return (await connectionRows(request)).filter((row) => row.accountId === accountId);
+}
+
+/** What the chat runs: its Model, and its per-chat catalog pick when it has one (decision 26). */
+async function chatState(request: APIRequestContext, chatId: string) {
+  const chat = (await (await request.get(`/api/chats/${chatId}`)).json()) as {
+    connectionId?: string | null;
+    metadata?: unknown;
+  };
+  const metadata = (typeof chat.metadata === "string" ? JSON.parse(chat.metadata || "{}") : (chat.metadata ?? {})) as {
+    modelOverride?: Record<string, unknown> | null;
+  };
+  const override = metadata.modelOverride?.connectionId === chat.connectionId ? metadata.modelOverride : null;
+  const row = chat.connectionId ? await connectionRow(request, chat.connectionId) : null;
+  const model = (override?.model ?? row?.model ?? null) as string | null;
+  return { connectionId: chat.connectionId ?? null, override, row, model };
 }
 
 const isPhone = (testInfo: TestInfo) => testInfo.project.name.includes("mobile");
 
-/** Opens the input-box menu and, on phones, the models step for the connection (the chat's current one on desktop). */
-async function openModels(page: Page, testInfo: TestInfo, connectionId: string): Promise<Locator> {
-  if (isPhone(testInfo)) {
-    await page.getByRole("button", { name: "Quick Switcher", exact: true }).click();
-    const sheet = page.locator("[data-quick-switcher-mobile-menu]");
-    await expect(sheet).toBeVisible();
-    await sheet.locator(`[data-connection-option="${connectionId}"]`).click();
-    const picker = sheet.locator("[data-connection-model-picker]");
-    await expect(picker.locator("[data-model-back]")).toBeVisible();
-    return picker;
-  }
-  await page.getByRole("button", { name: "Quick Connection Switcher", exact: true }).click();
-  const menu = page.locator("[data-quick-connection-menu]");
+async function openMenu(page: Page, testInfo: TestInfo): Promise<Locator> {
+  const phone = isPhone(testInfo);
+  await page.getByRole("button", { name: phone ? "Quick Switcher" : "Quick Connection Switcher", exact: true }).click();
+  const menu = page.locator(phone ? "[data-quick-switcher-mobile-menu]" : "[data-quick-connection-menu]");
   await expect(menu).toBeVisible();
-  await expect(menu.locator(`[data-connection-option="${connectionId}"]`)).toHaveAttribute("aria-current", "true");
-  return menu.locator("[data-connection-model-picker]");
+  return menu;
 }
+
+/**
+ * Shows a Connection's catalog: its group opens in place (the chat's own one is open already); a phone then
+ * takes the "Browse all models" step, a desktop shows it in the right column.
+ */
+async function showModels(menu: Locator, testInfo: TestInfo, groupKey: string): Promise<Locator> {
+  const header = menu.locator(`[data-connection-group="${groupKey}"]`);
+  if ((await header.getAttribute("aria-expanded")) !== "true") await header.click();
+  await expect(header).toHaveAttribute("aria-expanded", "true");
+  const picker = menu.locator("[data-connection-model-picker]");
+  if (isPhone(testInfo)) {
+    await menu.locator(`[data-switcher-browse="${groupKey}"]`).click();
+    await expect(picker.locator("[data-model-back]")).toBeVisible();
+  }
+  return picker;
+}
+
+const openModels = async (page: Page, testInfo: TestInfo, groupKey: string) =>
+  showModels(await openMenu(page, testInfo), testInfo, groupKey);
 
 async function closeMenu(page: Page) {
   await page.keyboard.press("Escape");
@@ -164,13 +191,23 @@ test("the Connections menu lists, pins, picks, refreshes and types models withou
   request,
 }, testInfo) => {
   const { provider, main, other, broken, chat, cleanup } = await setup(page, request, testInfo, "dark");
-  const chatModel = async () => (await chatModelRow(request, chat.id))?.model;
+  const chatModel = async () => (await chatState(request, chat.id)).model;
+  const mainAccount = (await connectionRow(request, main.id))!.accountId as string;
+  const otherAccount = ((await connectionRow(request, other.id))!.accountId as string) ?? other.id;
+  const brokenGroup = ((await connectionRow(request, broken.id))!.accountId as string) ?? broken.id;
+  const menuGone = () =>
+    expect(page.locator("[data-quick-connection-menu], [data-quick-switcher-mobile-menu]")).toHaveCount(0);
   try {
     await page.goto("/");
     await expect(page.locator("[data-chat-composer]").first()).toBeVisible();
 
     // The first look fetches the list once and saves it on the connection.
-    let picker = await openModels(page, testInfo, main.id);
+    let menu = await openMenu(page, testInfo);
+    // The chat's Connection is open in place with its saved Models; the others are collapsed.
+    await expect(menu.locator(`[data-connection-group="${mainAccount}"]`)).toHaveAttribute("aria-expanded", "true");
+    await expect(menu.locator(`[data-connection-group="${otherAccount}"]`)).toHaveAttribute("aria-expanded", "false");
+    await expect(menu.locator(`[data-switcher-group-models="${mainAccount}"]`)).toContainText("Browse all models");
+    let picker = await showModels(menu, testInfo, mainAccount);
     await expect(picker).toContainText("Models");
     await expect(picker.locator("[data-model-picker-provider]")).not.toBeEmpty();
     await expect(modelRow(picker, "all", "vendor/gamma")).toBeVisible();
@@ -196,14 +233,17 @@ test("the Connections menu lists, pins, picks, refreshes and types models withou
       ]) {
         expect((await target.boundingBox())!.height).toBeGreaterThanOrEqual(44);
       }
-      // The back control returns to the connection list.
+      // The back control returns to the connection list, where the group and its browse row are full-size targets.
       await picker.locator("[data-model-back]").click();
       await expect(sheet.locator("[data-connection-model-picker]")).toHaveCount(0);
-      const connectionButton = sheet.locator(`[data-connection-option="${main.id}"]`);
-      await expect(connectionButton).toBeVisible();
-      expect((await connectionButton.boundingBox())!.height).toBeGreaterThanOrEqual(44);
-      await connectionButton.click();
-      picker = sheet.locator("[data-connection-model-picker]");
+      for (const target of [
+        sheet.locator(`[data-connection-group="${mainAccount}"]`),
+        sheet.locator(`[data-switcher-browse="${mainAccount}"]`),
+      ]) {
+        await expect(target).toBeVisible();
+        expect((await target.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+      }
+      picker = await showModels(sheet, testInfo, mainAccount);
       await expect(modelRow(picker, "all", "vendor/beta")).toBeVisible();
     } else {
       // With a mouse the search over all models takes focus; in the models column, arrows move through the list.
@@ -213,51 +253,61 @@ test("the Connections menu lists, pins, picks, refreshes and types models withou
       await expect(picker.locator("[data-model-option]").first()).toBeFocused();
     }
 
-    // Pinning moves a model into Pinned; the star names what it pins.
+    // Pinning moves a model into Pinned; the star names what it pins, and it saves the model to the library.
     await picker.getByRole("button", { name: "Pin Beta", exact: true }).click();
     await expect(modelRow(picker, "pinned", "vendor/beta")).toBeVisible();
     await expect(modelRow(picker, "all", "vendor/beta")).toHaveCount(0);
     await expect(picker.getByRole("button", { name: "Pin Beta", exact: true })).toHaveAttribute("aria-pressed", "true");
     await expect(picker.getByRole("button", { name: "Pin Beta", exact: true })).toHaveAttribute("title", "Unpin Beta");
     await expect.poll(async () => (await connectionRow(request, main.id))?.pinnedModels).toBe('["vendor/beta"]');
+    await expect
+      .poll(async () => (await accountRows(request, mainAccount)).find((row) => row.model === "vendor/beta")?.name)
+      .toBe("Beta");
     await capture(page, testInfo, isPhone(testInfo) ? "mobile-models-step-dark" : "desktop-models-menu-dark");
 
     // The pin and the saved list survive a reload without asking the provider again.
     await page.reload();
     await expect(page.locator("[data-chat-composer]").first()).toBeVisible();
-    picker = await openModels(page, testInfo, main.id);
+    picker = await openModels(page, testInfo, mainAccount);
     await expect(modelRow(picker, "pinned", "vendor/beta")).toBeVisible();
     await expect(modelRow(picker, "all", "vendor/gamma")).toBeVisible();
     expect(provider.state.calls).toBe(1);
 
-    // Picking a model moves only this chat: it gets a Model of its own under the same Connection, named after
-    // the catalog entry and with its context size and output limit. The shared row does not change.
+    // A catalog pick applies to this chat only: the chat keeps its Model and runs Gamma on it with the catalog's
+    // context size and output limit. No Model is saved and the saved one does not change.
     const beforePick = (await connectionRow(request, main.id))!;
+    const savedCount = (await accountRows(request, mainAccount)).length;
     await modelRow(picker, "all", "vendor/gamma").locator("[data-model-option]").click();
-    await expect(page.locator("[data-connection-model-picker]")).toHaveCount(0);
+    await menuGone();
     await expect.poll(chatModel).toBe("vendor/gamma");
-    const gamma = (await chatModelRow(request, chat.id))!;
-    expect(gamma.id).not.toBe(main.id);
-    expect({
-      name: gamma.name,
-      accountId: gamma.accountId,
-      maxContext: gamma.maxContext,
-      maxTokensOverride: gamma.maxTokensOverride,
-      embeddingModel: gamma.embeddingModel,
-      isDefault: gamma.isDefault,
-    }).toEqual({
-      name: "Gamma",
-      accountId: beforePick.accountId,
-      maxContext: 200_000,
-      maxTokensOverride: 8_192,
-      embeddingModel: "fixture-embedding",
-      isDefault: "false",
+    const picked = await chatState(request, chat.id);
+    expect({ connectionId: picked.connectionId, override: picked.override }).toEqual({
+      connectionId: main.id,
+      override: {
+        connectionId: main.id,
+        model: "vendor/gamma",
+        name: "Gamma",
+        maxContext: 200_000,
+        maxTokensOverride: 8_192,
+      },
     });
+    expect((await accountRows(request, mainAccount)).length).toBe(savedCount);
     expect(await connectionRow(request, main.id)).toEqual(beforePick);
-    // The toast offers to make the pick the default for new chats as well.
+    // The toast offers Undo and "Make it my Main model"; Undo puts the chat back.
     const toast = page.locator("[data-sonner-toast]").filter({ hasText: "This chat now uses Gamma" });
-    await expect(toast.getByRole("button", { name: "Use for new chats too" })).toBeVisible();
-    picker = await openModels(page, testInfo, gamma.id as string);
+    await expect(toast.getByRole("button", { name: "Make it my Main model" })).toBeVisible();
+    await toast.getByRole("button", { name: "Undo" }).click();
+    await expect.poll(chatModel).toBe("vendor/alpha");
+    expect((await chatState(request, chat.id)).override).toBeNull();
+
+    picker = await openModels(page, testInfo, mainAccount);
+    await modelRow(picker, "all", "vendor/gamma").locator("[data-model-option]").click();
+    await menuGone();
+    await expect.poll(chatModel).toBe("vendor/gamma");
+    // The pick shows as current, in the open group ("This chat only") and in the catalog.
+    menu = await openMenu(page, testInfo);
+    await expect(menu.locator(`[data-switcher-group-models="${mainAccount}"]`)).toContainText("This chat only");
+    picker = await showModels(menu, testInfo, mainAccount);
     await expect(modelRow(picker, "all", "vendor/gamma").locator("[data-model-option]")).toHaveAttribute(
       "aria-current",
       "true",
@@ -292,73 +342,98 @@ test("the Connections menu lists, pins, picks, refreshes and types models withou
     // A search with one match picks that model, and focus goes back to the menu button.
     await search.fill("kapp");
     await search.press("Enter");
-    await expect(page.locator("[data-connection-model-picker]")).toHaveCount(0);
+    await menuGone();
     await expect.poll(chatModel).toBe("vendor/kappa");
     if (!isPhone(testInfo)) {
       await expect(page.getByRole("button", { name: "Quick Connection Switcher", exact: true })).toBeFocused();
     }
 
-    // A model's name, typed in any case, picks that model (its existing Model) rather than saving the name as an ID.
-    picker = await openModels(page, testInfo, (await chatModelRow(request, chat.id))!.id as string);
+    // A model's name, typed in any case, picks that model rather than saving the name as an ID.
+    picker = await openModels(page, testInfo, mainAccount);
     search = picker.locator("[data-model-search]");
     await search.fill("gamma");
     await search.press("Enter");
-    await expect(page.locator("[data-connection-model-picker]")).toHaveCount(0);
-    await expect.poll(async () => (await chatModelRow(request, chat.id))?.id).toBe(gamma.id);
+    await menuGone();
+    await expect.poll(chatModel).toBe("vendor/gamma");
 
     // A typed ID that matches nothing can be used with Enter.
-    picker = await openModels(page, testInfo, gamma.id as string);
+    picker = await openModels(page, testInfo, mainAccount);
     search = picker.locator("[data-model-search]");
     await search.fill("my-org/custom-model");
     await expect(picker.locator("[data-model-use-typed]")).toContainText("Use “my-org/custom-model”");
     await expect(picker.locator("[data-model-use-typed]")).toContainText("Press Enter to use this ID.");
     await search.press("Enter");
-    await expect(page.locator("[data-connection-model-picker]")).toHaveCount(0);
+    await menuGone();
     await expect.poll(chatModel).toBe("my-org/custom-model");
-    picker = await openModels(page, testInfo, (await chatModelRow(request, chat.id))!.id as string);
+    picker = await openModels(page, testInfo, mainAccount);
     await expect(modelRow(picker, "all", "my-org/custom-model").locator("[data-model-option]")).toHaveAttribute(
       "aria-current",
       "true",
     );
     expect((await connectionRow(request, main.id))?.model).toBe("vendor/alpha");
+    await closeMenu(page);
 
-    // Choosing another Connection only shows its models; picking one there moves the chat to its saved Model.
-    if (isPhone(testInfo)) {
-      await picker.locator("[data-model-back]").click();
-      await page.locator(`[data-quick-switcher-mobile-menu] [data-connection-option="${other.id}"]`).click();
-      picker = page.locator("[data-quick-switcher-mobile-menu] [data-connection-model-picker]");
-    } else {
-      await page.locator(`[data-quick-connection-menu] [data-connection-option="${other.id}"]`).click();
-    }
+    // Recent lists this chat's last two choices; picking one switches back to it.
+    menu = await openMenu(page, testInfo);
+    const recent = menu.locator('[data-switcher-section="recent"]');
+    await expect(recent.locator("[data-switcher-entry]")).toHaveCount(2);
+    await expect(recent).toContainText("Gamma");
+    await expect(recent).toContainText("Kappa");
+    await recent.locator('[data-switcher-entry="vendor/kappa"]').click();
+    await menuGone();
+    await expect.poll(chatModel).toBe("vendor/kappa");
+
+    // "Save to library" makes the chat's pick a saved Model and points the chat at it.
+    menu = await openMenu(page, testInfo);
+    await menu.locator("[data-switcher-save]").click();
+    await expect(
+      page.locator("[data-sonner-toast]").filter({ hasText: "Kappa is saved to your library" }),
+    ).toBeVisible();
+    await expect.poll(async () => (await chatState(request, chat.id)).override).toBeNull();
+    const kappa = (await chatState(request, chat.id)).row!;
+    expect({ model: kappa.model, name: kappa.name, accountId: kappa.accountId }).toEqual({
+      model: "vendor/kappa",
+      name: "Kappa",
+      accountId: mainAccount,
+    });
+    await closeMenu(page);
+
+    // Another Connection opens in place; a pick of its own saved model moves the chat to that Model.
+    menu = await openMenu(page, testInfo);
+    picker = await showModels(menu, testInfo, otherAccount);
+    await expect(menu.locator(`[data-switcher-group-models="${otherAccount}"]`)).toContainText("Browse all models");
     await expect(picker.locator("[data-model-picker-provider]")).not.toBeEmpty();
-    expect(await chatModel()).toBe("my-org/custom-model");
     await modelRow(picker, "all", "vendor/kappa").locator("[data-model-option]").click();
-    await expect(page.locator("[data-connection-model-picker]")).toHaveCount(0);
-    await expect.poll(async () => (await chatModelRow(request, chat.id))?.id).toBe(other.id);
+    await menuGone();
+    await expect.poll(async () => (await chatState(request, chat.id)).connectionId).toBe(other.id);
+    expect((await chatState(request, chat.id)).override).toBeNull();
     expect((await connectionRow(request, other.id))?.model).toBe("vendor/kappa");
     expect(provider.state.calls).toBeLessThanOrEqual(3);
 
-    // Any model in two moves: the search finds catalog models of every Connection, and Enter picks.
-    if (isPhone(testInfo)) {
-      await page.getByRole("button", { name: "Quick Switcher", exact: true }).click();
-    } else {
-      await page.getByRole("button", { name: "Quick Connection Switcher", exact: true }).click();
-    }
-    const switcherSearch = page.locator("[data-switcher-search]");
-    await switcherSearch.fill("Beta");
-    await expect(page.locator("[data-switcher-results]")).toContainText("Add from catalog");
+    // Any model in two moves: the search finds catalog models of every Connection, and Enter picks it for this chat.
+    menu = await openMenu(page, testInfo);
+    const switcherSearch = menu.locator("[data-switcher-search]");
+    await switcherSearch.fill("Delta");
+    await expect(menu.locator("[data-switcher-results]")).toContainText("Add from catalog");
     await switcherSearch.press("Enter");
-    await expect(page.locator("[data-quick-connection-menu], [data-quick-switcher-mobile-menu]")).toHaveCount(0);
-    await expect.poll(chatModel).toBe("vendor/beta");
-    const beta = (await chatModelRow(request, chat.id))!;
-    // Back to the other Connection's own Model for the settings check below.
+    await menuGone();
+    await expect.poll(chatModel).toBe("vendor/delta");
+    const delta = await chatState(request, chat.id);
+    // Both Connections list Delta now; the first hit runs on one of their Models, and nothing is saved.
+    expect([mainAccount, otherAccount]).toContain(delta.row?.accountId);
+    expect(delta.override?.model).toBe("vendor/delta");
+    for (const account of [mainAccount, otherAccount]) {
+      expect((await accountRows(request, account)).some((row) => row.model === "vendor/delta")).toBe(false);
+    }
+
+    // Back to the other Connection's own Model for the settings check below (this drops the catalog pick).
     expect((await request.patch(`/api/chats/${chat.id}`, { data: { connectionId: other.id } })).ok()).toBeTruthy();
+    expect((await chatState(request, chat.id)).override).toBeNull();
     await page.reload();
     await expect(page.locator("[data-chat-composer]").first()).toBeVisible();
-    expect(beta.id).not.toBe(other.id);
     const callsBeforeSettings = provider.state.calls;
 
-    // Chat Settings → Connection has the same picker for the chat's connection.
+    // Chat Settings → Connection has the same picker, and a pick there applies to this chat only too.
     const settings = await openChatSettings(page);
     const field = settings.locator("[data-chat-settings-model-field]");
     await field.scrollIntoViewIfNeeded();
@@ -367,7 +442,8 @@ test("the Connections menu lists, pins, picks, refreshes and types models withou
     }
     await field.locator("button[aria-expanded]").click();
     const settingsPicker = field.locator("[data-connection-model-picker]");
-    await expect(settingsPicker).toContainText("Model changes are saved to this connection.");
+    await expect(settingsPicker).toContainText("Applies to this chat");
+    await expect(settingsPicker).not.toContainText("Model changes are saved to this connection.");
     // The opened list is scrolled into view inside Chat Settings (it can start near a phone's bottom edge).
     await expect
       .poll(async () => {
@@ -376,25 +452,20 @@ test("the Connections menu lists, pins, picks, refreshes and types models withou
       })
       .toBe(true);
     // Pins belong to a Connection: Beta was pinned on the first one, not on this one.
-    const chatConnectionId = other.id;
     await expect(modelRow(settingsPicker, "pinned", "vendor/beta")).toHaveCount(0);
     await settingsPicker.locator('[data-model-row][data-model-id="vendor/alpha"] [data-model-option]').click();
     await expect(settingsPicker).toHaveCount(0);
     await expect(field.locator("button[aria-expanded]")).toContainText("vendor/alpha");
-    await expect.poll(async () => (await connectionRow(request, chatConnectionId))?.model).toBe("vendor/alpha");
+    await expect.poll(chatModel).toBe("vendor/alpha");
+    expect((await chatState(request, chat.id)).connectionId).toBe(other.id);
+    expect((await connectionRow(request, other.id))?.model).toBe("vendor/kappa");
     expect(provider.state.calls).toBe(callsBeforeSettings);
     await expectNoHorizontalScroll(page);
     await closeChatSettings(page);
 
     // A custom endpoint whose list cannot be read says so plainly, shows no built-in catalog, and still
-    // takes a typed model ID.
-    if (isPhone(testInfo)) {
-      picker = await openModels(page, testInfo, broken.id);
-    } else {
-      await page.getByRole("button", { name: "Quick Connection Switcher", exact: true }).click();
-      await page.locator(`[data-quick-connection-menu] [data-connection-option="${broken.id}"]`).click();
-      picker = page.locator("[data-quick-connection-menu] [data-connection-model-picker]");
-    }
+    // takes a typed model ID (for this chat).
+    picker = await openModels(page, testInfo, brokenGroup);
     await expect(picker).toContainText("Couldn't load the model list. You can still type a model ID.");
     await expect(picker.locator("[data-model-section]")).toHaveCount(0);
     await expect(picker.locator('[data-model-row][data-model-id^="gpt-"]')).toHaveCount(0);
@@ -415,7 +486,8 @@ test("the models menu reads in light theme too (#7098)", async ({ page, request 
     await page.goto("/");
     await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
     await expect(page.locator("[data-chat-composer]").first()).toBeVisible();
-    const picker = await openModels(page, testInfo, main.id);
+    const groupKey = ((await connectionRow(request, main.id))?.accountId as string) ?? main.id;
+    const picker = await openModels(page, testInfo, groupKey);
     await picker.getByRole("button", { name: "Pin Gamma", exact: true }).click();
     await expect(modelRow(picker, "pinned", "vendor/gamma")).toBeVisible();
     await expectNoHorizontalScroll(page);

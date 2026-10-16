@@ -1,6 +1,7 @@
 // Connection accounts in profiles: neither export path carries a key or token, an untrusted imported account
 // is quarantined, a trusted identity keeps the local key, and one key entered on a quarantined account
-// unlocks its linked Models except the one with a foreign-origin embedding endpoint.
+// unlocks its linked Models except the one with a foreign-origin embedding endpoint, and two profile accounts on
+// one endpoint (their keys stripped on import) stay two Connections.
 import assert from "node:assert/strict";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -14,12 +15,10 @@ const { getDB, closeDB } = await import("../../packages/server/src/db/connection
 const { apiConnections, connectionAccounts } = await import("../../packages/server/src/db/schema/index.js");
 const { eq } = await import("../../packages/server/src/db/file-query.js");
 const { decryptApiKey, encryptApiKey } = await import("../../packages/server/src/utils/crypto.js");
-const { backupRoutes, quarantineProfileConnectionAccountRow } = await import(
-  "../../packages/server/src/routes/backup.routes.js"
-);
-const { createConnectionAccountsStorage } = await import(
-  "../../packages/server/src/services/storage/connection-accounts.storage.js"
-);
+const { backupRoutes, quarantineProfileConnectionAccountRow } =
+  await import("../../packages/server/src/routes/backup.routes.js");
+const { createConnectionAccountsStorage } =
+  await import("../../packages/server/src/services/storage/connection-accounts.storage.js");
 const { connectionAccountsRoutes } = await import("../../packages/server/src/routes/connection-accounts.routes.js");
 const { default: Fastify } = await import("../../packages/server/node_modules/fastify/fastify.js");
 const { default: multipart } = await import("../../packages/server/node_modules/@fastify/multipart/index.js");
@@ -52,8 +51,12 @@ try {
   assert.equal(created.statusCode, 201, created.body);
   const accountId: string = created.json().account.id;
   const chatId: string = created.json().connectionId;
-  const second = await accounts.findOrCreateModel(accountId, { model: "gpt-5-mini", name: "gpt-5-mini" });
-  assert(typeof second === "object");
+  const second = await app.inject({
+    method: "POST",
+    url: `/accounts/${accountId}/for-model`,
+    payload: { model: "gpt-5-mini", name: "gpt-5-mini" },
+  });
+  assert.equal(second.statusCode, 201, second.body);
   const nano = await app.inject({
     method: "POST",
     url: "/accounts",
@@ -202,6 +205,22 @@ try {
   const embedding = await rowOf("imported-embedding");
   assert.equal(embedding.profileImportReviewRequired, "true", "a foreign-origin embedding endpoint stays under review");
   assert.equal(plain((await rowOf(chatId)).apiKeyEncrypted), KEY, "the local Model never receives the entered key");
+
+  // Two profile accounts with different keys on one endpoint: the keys are stripped on import, so the old account
+  // ids are all that tells them apart. They must not merge into one Connection (one key would then reach both).
+  const SHARED = "https://shared-endpoint.example/v1";
+  const sharedAccount = (id: string) => ({ ...foreignAccount, id, name: id, baseUrl: SHARED });
+  await importProfile({
+    connection_accounts: [sharedAccount("shared-a"), sharedAccount("shared-b")],
+    api_connections: [
+      modelFixture("shared-row-a", { accountId: "shared-a", baseUrl: SHARED, apiKeyEncrypted: encryptApiKey("key-a") }),
+      modelFixture("shared-row-b", { accountId: "shared-b", baseUrl: SHARED, apiKeyEncrypted: encryptApiKey("key-b") }),
+    ],
+  });
+  const sharedA = (await rowOf("shared-row-a")).accountId;
+  const sharedB = (await rowOf("shared-row-b")).accountId;
+  assert(sharedA && sharedB, "both imported Models are grouped");
+  assert.notEqual(sharedA, sharedB, "two profile accounts on one endpoint stay apart");
 } finally {
   await app.close();
   await closeDB();
