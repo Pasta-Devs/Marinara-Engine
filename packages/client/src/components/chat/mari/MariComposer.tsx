@@ -20,7 +20,7 @@ import {
   RotateCcw,
 } from "lucide-react";
 import type { ChatModelChoice, MariPermissionsMode, Message } from "@marinara-engine/shared";
-import { RefObject, Dispatch, SetStateAction, ChangeEvent, useState, type KeyboardEvent } from "react";
+import { RefObject, Dispatch, SetStateAction, ChangeEvent, type KeyboardEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { MariWorkspaceContextItem } from "../../../hooks/use-mari-workspace-context";
 import { ProfessorMariContextFacet } from "../../../lib/professor-mari-presentation";
@@ -174,8 +174,6 @@ export function MariComposer({
   const { t } = useTranslation();
   const ActivePermissionsModeIcon = MARI_PERMISSIONS_MODE_ICONS[permissionsMode];
   // The connection menu is the chat's quick switch: the list, with the chosen Connection's models beside it.
-  // A narrow composer shows one step at a time (CSS reads data-step).
-  const [modelsStep, setModelsStep] = useState(false);
   const setFeatureModels = useSetFeatureModels();
   const pickModel = usePickModel();
   const { data: connectionRows } = useConnections();
@@ -423,7 +421,6 @@ export function MariComposer({
               type="button"
               onClick={() => {
                 setPermissionsMenuOpen(false);
-                setModelsStep(false);
                 setConnectionMenuOpen((current) => !current);
               }}
               disabled={isBusy}
@@ -459,7 +456,6 @@ export function MariComposer({
               <div
                 ref={connectionMenuRef}
                 className="mari-composer-menu__popover mari-connection-picker"
-                data-step={modelsStep ? "models" : "list"}
                 onKeyDown={(event) => {
                   // Enter in the model search must not send the message: the menu sits inside the composer form.
                   if (event.key === "Enter" && event.target instanceof HTMLInputElement) event.preventDefault();
@@ -474,7 +470,6 @@ export function MariComposer({
                     setConnectionMenuOpen(false);
                     connectionButtonRef.current?.focus();
                   }}
-                  onStepChange={(step) => setModelsStep(step === "models")}
                   autoFocusSearch
                   showLocalModel={connectionOptions.some((connection) => connection.id === LOCAL_SIDECAR_CONNECTION_ID)}
                   localModelHint={localizeUi(
@@ -496,7 +491,6 @@ export function MariComposer({
                   }
                   listClassName="mari-connection-picker__list"
                   modelsClassName="mari-connection-picker__models"
-                  backClassName="mari-connection-picker__back"
                 />
               </div>
             )}

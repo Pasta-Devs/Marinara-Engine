@@ -22,6 +22,7 @@ export const connectionAccountKeys = {
   list: () => [...connectionAccountKeys.all, "list"] as const,
   catalog: (query: string, limit: number) => [...connectionAccountKeys.all, "catalog", query, limit] as const,
   featureModels: () => [...connectionKeys.all, "feature-models"] as const,
+  icons: () => [...connectionAccountKeys.all, "icons"] as const,
 };
 
 const FEATURE_MODELS_PATH = `/app-settings/${FEATURE_MODEL_CONNECTIONS_SETTINGS_KEY}`;
@@ -47,13 +48,18 @@ function useInvalidateConnections() {
 }
 
 export function useCreateConnectionAccount() {
+  const qc = useQueryClient();
   const invalidate = useInvalidateConnections();
   return useMutation({
     mutationFn: (
       input: Partial<CreateConnectionAccountInput> &
         Pick<CreateConnectionAccountInput, "provider"> & { model?: string },
     ) => api.post<{ account: ConnectionAccountListItem; connectionId: string }>("/connection-accounts", input),
-    onSuccess: invalidate,
+    onSuccess: () => {
+      // The server fetches the service's icon in the background after the add; look again once it had time.
+      window.setTimeout(() => void qc.invalidateQueries({ queryKey: connectionAccountKeys.icons() }), 10_000);
+      return invalidate();
+    },
   });
 }
 
@@ -151,4 +157,64 @@ export function useMigrateFeatureModels() {
     setFeatureModels.mutate(changes, { onSuccess: clearStagedFeatureModels });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once per loaded server value
   }, [server]);
+}
+
+// ── Provider icons (decision 34b): the server's cache only; reading never fetches from a site. ──
+export type ProviderIconState = { enabled: boolean; icons: Record<string, string> };
+
+export function useProviderIcons() {
+  return useQuery({
+    queryKey: connectionAccountKeys.icons(),
+    queryFn: () => api.get<ProviderIconState>("/connection-accounts/icons"),
+    staleTime: 5 * 60_000,
+  });
+}
+
+/** The cached icon of a site, or null (the tile then shows initials). */
+export function providerIconUrl(state: ProviderIconState | undefined, site: string | null): string | null {
+  const version = site && state?.enabled ? state.icons[site] : undefined;
+  return version ? `/api/connection-accounts/icons/image?site=${encodeURIComponent(site!)}&v=${version}` : null;
+}
+
+export function useSetProviderIconsEnabled() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (enabled: boolean) => api.put<ProviderIconState>("/connection-accounts/icons/settings", { enabled }),
+    onSuccess: (state) => qc.setQueryData(connectionAccountKeys.icons(), state),
+  });
+}
+
+/** "Refresh icon": asks the service's site once more, also after an earlier failure. */
+export function useRefreshProviderIcon() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (accountId: string) =>
+      api.post<{ site: string; cached: boolean }>(`/connection-accounts/${accountId}/refresh-icon`, {}),
+    onSettled: () => qc.invalidateQueries({ queryKey: connectionAccountKeys.icons() }),
+  });
+}
+
+/** Removes a saved Model's star (decision 30); `removable` says nothing else keeps the Model. */
+export function useUnstarModel() {
+  const invalidate = useInvalidateConnections();
+  return useMutation({
+    mutationFn: ({ accountId, connectionId }: { accountId: string; connectionId: string }) =>
+      api.post<{ removable: boolean; reason: ModelKeepReason | null }>(
+        `/connection-accounts/${accountId}/models/${connectionId}/unstar`,
+        {},
+      ),
+    onSuccess: invalidate,
+  });
+}
+
+export type ModelKeepReason = "starred" | "role" | "settings" | "in_use" | "last" | "not_chat";
+
+/** Removes an unstarred saved Model; the server keeps it when something still needs it. */
+export function useRemoveUnstarredModel() {
+  const invalidate = useInvalidateConnections();
+  return useMutation({
+    mutationFn: ({ accountId, connectionId }: { accountId: string; connectionId: string }) =>
+      api.delete(`/connection-accounts/${accountId}/models/${connectionId}`),
+    onSettled: invalidate,
+  });
 }

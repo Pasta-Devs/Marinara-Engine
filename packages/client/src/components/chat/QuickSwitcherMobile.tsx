@@ -45,7 +45,6 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
   const [expandedCharacterGroups, setExpandedCharacterGroups] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState("");
   /** The Connections tab shows a Connection's models as its second step. */
-  const [modelsStep, setModelsStep] = useState(false);
   const btnRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const activeChatId = useChatStore((s) => s.activeChatId);
@@ -154,10 +153,6 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
     });
   }, []);
 
-  useEffect(() => {
-    if (!open) setModelsStep(false);
-  }, [open]);
-
   const handleToggleRandom = useCallback(() => {
     if (!activeChatId) return;
     updateChat.mutate({ id: activeChatId, connectionId: isRandom ? null : "random" });
@@ -244,7 +239,7 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
       const anchoredSpace = openAbove ? spaceAbove : spaceBelow;
       const useViewportFallback = anchoredSpace < 160;
       // The models step has a search box and a list, so it may grow taller than the connection list.
-      const maxHeight = Math.min(modelsStep ? 560 : 400, useViewportFallback ? window.innerHeight - 16 : anchoredSpace);
+      const maxHeight = Math.min(400, useViewportFallback ? window.innerHeight - 16 : anchoredSpace);
       setPos({
         left,
         // Anchor by `bottom` when opening upwards so short content stays
@@ -269,7 +264,7 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
       window.visualViewport?.removeEventListener("resize", update);
       window.visualViewport?.removeEventListener("scroll", update);
     };
-  }, [open, tab, expandedGroups, expandedCharacterGroups, showCharacterGroups, modelsStep]);
+  }, [open, tab, expandedGroups, expandedCharacterGroups, showCharacterGroups]);
 
   if (!activeChatId) return null;
 
@@ -362,10 +357,7 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
           >
             <div className="flex border-b border-foreground/10">
               <button
-                onClick={() => {
-                  setTab("connections");
-                  setModelsStep(false);
-                }}
+                onClick={() => setTab("connections")}
                 className={cn(
                   "flex flex-1 items-center justify-center gap-1.5 px-3 py-2.5 text-[0.6875rem] font-semibold transition-colors",
                   tab === "connections"
@@ -409,7 +401,6 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
                 recent={chatPick.recent}
                 onApply={chatPick.apply}
                 onDone={closeMenu}
-                onStepChange={(step) => setModelsStep(step === "models")}
                 showLocalModel={chatMode !== "game" && sidecarModelDownloaded}
                 shuffle={{ active: isRandom, onToggle: handleToggleRandom }}
                 followDefault={{ active: chatPick.followsMain, onSelect: chatPick.useDefault }}

@@ -1,76 +1,41 @@
-import { useState, type TouchEvent } from "react";
+// ──────────────────────────────────────────────
+// ConnectionRow — one saved Model in the Connections panel (variant D): a focusable row that opens the model
+// editor, its role badges, the star (decision 30) and the ⋯ menu.
+// ──────────────────────────────────────────────
+import { useState, type MouseEvent } from "react";
 import {
   BadgeCheck,
   Camera,
   Check,
   Copy,
-  Film,
   GitBranch,
-  ImageIcon,
-  Link,
-  MessageSquarePlus,
+  KeyRound,
   MoreHorizontal,
   MoveRight,
-  Music,
+  Pencil,
+  Power,
   Shuffle,
   Star,
   Trash2,
 } from "lucide-react";
-import { useTranslation as useUiTranslation } from "react-i18next";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { DECISION_SOURCE_BASE_URLS } from "@marinara-engine/shared";
+import { DECISION_SOURCE_BASE_URLS, isChatProvider, type ConnectionAccountListItem } from "@marinara-engine/shared";
 import {
   useConnections,
   useCreateConnection,
-  useDuplicateConnection,
   useDeleteConnection,
+  useDuplicateConnection,
   useUpdateConnection,
 } from "../../hooks/use-connections";
 import { useUIStore } from "../../stores/ui.store";
-import { useChatStore } from "../../stores/chat.store";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { cn } from "../../lib/utils";
-import { isLanguageGenerationConnection } from "../../lib/connection-filters";
-import { requestChatResourceAssignment } from "../../lib/chat-resource-drag";
-import { resolveChatResourceDropAction } from "../../lib/chat-resource-drop-capabilities";
+import { isConnectionFlagTrue, isLanguageGenerationConnection } from "../../lib/connection-filters";
+import { clearActiveChatResourceDrag, writeChatResourceDragPayload } from "../../lib/chat-resource-drag";
+import { roleBadges } from "../../lib/connection-groups";
 import { ContextMenu, type ContextMenuItem } from "../ui/ContextMenu";
-
-const CONNECTION_ICON_COLORS = {
-  from: "from-sky-400",
-  to: "to-blue-500",
-  ring: "ring-sky-400/40",
-  badge: "bg-sky-400",
-};
-const PROVIDER_COLORS: Record<string, { from: string; to: string; ring: string; badge: string }> = {
-  openai: CONNECTION_ICON_COLORS,
-  openai_chatgpt: CONNECTION_ICON_COLORS,
-  anthropic: CONNECTION_ICON_COLORS,
-  claude_subscription: CONNECTION_ICON_COLORS,
-  grok_subscription: CONNECTION_ICON_COLORS,
-  google: CONNECTION_ICON_COLORS,
-  google_vertex: CONNECTION_ICON_COLORS,
-  mistral: CONNECTION_ICON_COLORS,
-  cohere: CONNECTION_ICON_COLORS,
-  openrouter: CONNECTION_ICON_COLORS,
-  nanogpt: CONNECTION_ICON_COLORS,
-  xai: CONNECTION_ICON_COLORS,
-  arli: CONNECTION_ICON_COLORS,
-  zai: CONNECTION_ICON_COLORS,
-  deepseek: CONNECTION_ICON_COLORS,
-  custom: CONNECTION_ICON_COLORS,
-  image_generation: CONNECTION_ICON_COLORS,
-  video_generation: CONNECTION_ICON_COLORS,
-  audio: CONNECTION_ICON_COLORS,
-  decision: CONNECTION_ICON_COLORS,
-};
-const DEFAULT_COLOR = CONNECTION_ICON_COLORS;
-
-function getConnectionFallbackIcon(provider: string) {
-  if (provider === "image_generation") return <ImageIcon size="0.75rem" />;
-  if (provider === "video_generation") return <Film size="0.75rem" />;
-  if (provider === "audio") return <Music size="0.75rem" />;
-  return <Link size="0.75rem" />;
-}
+import { ProviderIcon } from "./ProviderIcon";
 
 export type ConnectionRowData = {
   credentialsFromConnectionId?: string | null;
@@ -110,318 +75,368 @@ export type ConnectionRowData = {
   accountId?: string | null;
   pinnedModels?: unknown;
   showUsageWidget?: boolean | string;
+  /** Settings of its own (a name, parameters, limits…): the Model stays without a star (decision 30). */
+  ownSettings?: boolean;
   createdAt?: string;
   updatedAt?: string;
 };
 
+const MEDIA_KIND: Record<string, "image" | "video" | "audio"> = {
+  image_generation: "image",
+  video_generation: "video",
+  audio: "audio",
+};
+export const isMediaRow = (row: Pick<ConnectionRowData, "provider">) => row.provider in MEDIA_KIND;
+
+const FOCUS =
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)]";
+const ROW_BUTTON = cn(
+  "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors hover:bg-[var(--sidebar)] active:scale-90 max-md:h-11 max-md:w-11 [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:w-11",
+  FOCUS,
+);
+
+type MenuAt = { x: number; y: number; keyboard: boolean };
+const menuAt = (event: MouseEvent<HTMLElement>): MenuAt => {
+  const rect = event.currentTarget.getBoundingClientRect();
+  return { x: rect.right, y: rect.bottom, keyboard: event.detail === 0 };
+};
+/** The menus are portalled, but React events still bubble to the row; keep them off its click. */
+const stop = (event: { stopPropagation: () => void }) => event.stopPropagation();
+
+/** The model id under the name; a gateway's upstream prefix is dropped when the list already groups by it. */
+export function modelSubtitle(row: ConnectionRowData, upstream: string | null = null): string {
+  const model = row.model?.trim() ?? "";
+  const id = upstream && model.startsWith(`${upstream}/`) ? model.slice(upstream.length + 1) : model;
+  return id || row.imageService || row.imageGenerationSource || row.videoService || row.videoGenerationSource || "";
+}
+
 export function ConnectionRow({
-  conn,
-  isSelected,
-  isBulkSelected,
-  selectionMode,
-  onClickRow,
-  isDragging,
-  onDragStart,
-  onDragEnd,
-  onDropOnRow,
-  onTouchStart,
-  suppressClickRef,
-  onImagePick,
+  row,
+  account,
   subtitle,
-  badge,
-  pinned,
-  onTogglePin,
-  onMakeDefault,
+  connectionName,
+  current = false,
+  starred,
+  onToggleStar,
+  onUseInChat,
   moveTargets,
   onMove,
+  onImagePick,
 }: {
-  conn: ConnectionRowData;
-  isSelected: boolean;
-  isBulkSelected: boolean;
-  selectionMode: boolean;
-  onClickRow: () => void;
-  isDragging: boolean;
-  onDragStart: (event: React.DragEvent<HTMLDivElement>) => void;
-  onDragEnd: () => void;
-  onDropOnRow: (event: React.DragEvent<HTMLDivElement>) => void;
-  onTouchStart?: (event: TouchEvent<HTMLDivElement> | React.MouseEvent<HTMLDivElement>) => void;
-  suppressClickRef?: { current: boolean };
-  onImagePick: () => void;
-  /** Replaces the "provider • model" line (the Connection card shows the model id). */
+  row: ConnectionRowData;
+  /** The Connection the Model runs on; a Connection without a key, or off, makes the Model unavailable. */
+  account?: ConnectionAccountListItem;
   subtitle?: string;
-  /** One short role or kind label beside the name. */
-  badge?: string | null;
-  /** Favourite state; the star action shows only with `onTogglePin`. */
-  pinned?: boolean;
-  onTogglePin?: () => void;
-  /** Shown only when the row does not hold the role yet. */
-  onMakeDefault?: () => void;
-  /** Other Connections of the same service the Model can move to; "Move to connection…" shows when there is one. */
+  /** Search results name the Connection before the model id. */
+  connectionName?: string;
+  /** The active chat runs this Model. */
+  current?: boolean;
+  /** Chat Models only; media Models have no star. */
+  starred?: boolean;
+  onToggleStar?: () => void;
+  onUseInChat?: () => void;
+  /** Other Connections of the same service the Model can move to. */
   moveTargets?: { id: string; name: string }[];
   onMove?: (accountId: string, name: string) => void;
+  onImagePick: () => void;
 }) {
-  const { t: localizeUi } = useUiTranslation();
+  const { t } = useTranslation();
   const duplicateConnection = useDuplicateConnection();
   const deleteConnection = useDeleteConnection();
   const updateConnection = useUpdateConnection();
   const createConnection = useCreateConnection();
   const { data: allConnections } = useConnections();
   const openConnectionDetail = useUIStore((s) => s.openConnectionDetail);
-  const activeChat = useChatStore((state) => state.activeChat);
-  const [menu, setMenu] = useState<{ x: number; y: number; keyboard: boolean } | null>(null);
-  // The ⋯ menu closes after a pick, so the target list is a second menu at the same place.
-  const [moveMenu, setMoveMenu] = useState<{ x: number; y: number; keyboard: boolean } | null>(null);
-  const inRandomPool = conn.useForRandom === "true";
+  const [menu, setMenu] = useState<MenuAt | null>(null);
+  // A pick closes the ⋯ menu, so "Make default for…" and "Move to connection…" open a second menu at its place.
+  const [subMenu, setSubMenu] = useState<{ at: MenuAt; items: ContextMenuItem[] } | null>(null);
 
-  const resourcePayload = {
-    version: 1 as const,
-    kind: "connection" as const,
-    ids: [conn.id],
-    label: conn.name,
-    ...(isLanguageGenerationConnection(conn) ? {} : { unsupported: "connection-kind" as const }),
-  };
-  const chatAction = activeChat ? resolveChatResourceDropAction(resourcePayload, activeChat) : null;
-  const canShuffle = conn.provider !== "audio" && conn.provider !== "decision";
-  const toggleRandomPool = () => updateConnection.mutate({ id: conn.id, useForRandom: !inRandomPool });
+  const chatModel = isChatProvider(row.provider);
+  const kind = MEDIA_KIND[row.provider];
+  const unavailable = account && account.state !== "ok" ? account.state : null;
+  const inRandomPool = row.useForRandom === "true";
+  const canShuffle = row.provider !== "audio" && row.provider !== "decision";
+  const title = row.name?.trim() || row.model?.trim() || row.id;
+  const roles = chatModel ? roleBadges(row).filter((role) => role !== "random") : [];
+  const badges = [
+    ...(kind ? [t(`connections.accounts.kind.${kind}`)] : []),
+    ...roles.map((role) => t(`connections.switcher.role.${role}`)),
+    ...(kind && isConnectionFlagTrue(row.defaultForAgents) ? [t("connections.accounts.badge.default")] : []),
+    ...(kind && isConnectionFlagTrue(row.fallbackForAgents) ? [t("connections.switcher.role.fallback")] : []),
+    ...(chatModel && !starred && roles.length === 0 && row.ownSettings ? [t("connections.row.customSettings")] : []),
+  ];
+  const sub = [connectionName, subtitle ?? modelSubtitle(row)].filter(Boolean).join(" · ");
+
+  const openEditor = () => openConnectionDetail(row.id);
   const duplicate = () =>
-    duplicateConnection.mutate(conn.id, {
-      onSuccess: (data: any) => {
-        if (data?.id) openConnectionDetail(data.id);
+    duplicateConnection.mutate(row.id, {
+      onSuccess: (data: unknown) => {
+        const id = (data as { id?: string } | undefined)?.id;
+        if (id) openConnectionDetail(id);
       },
     });
   // OpenRouter lends its key to hosted Jev. A Custom connection lends its server, model and key,
   // so the chat model it already runs answers decisions.
-  const decisionFromChat = conn.provider === "custom";
-  const canLendToDecisions = conn.provider === "openrouter" || (decisionFromChat && !!conn.model?.trim());
+  const decisionFromChat = row.provider === "custom";
+  const canLendToDecisions = row.provider === "openrouter" || (decisionFromChat && !!row.model?.trim());
   const useForDecisions = () =>
     createConnection.mutate(
       {
-        name: localizeUi("connections.decision.linkedName", { name: conn.name }),
+        name: t("connections.decision.linkedName", { name: row.name }),
         provider: "decision",
         decisionSource: decisionFromChat ? "openai_compatible" : "openrouter",
-        baseUrl: decisionFromChat ? (conn.baseUrl ?? "") : DECISION_SOURCE_BASE_URLS.openrouter,
+        baseUrl: decisionFromChat ? (row.baseUrl ?? "") : DECISION_SOURCE_BASE_URLS.openrouter,
         apiKey: "",
-        model: decisionFromChat ? conn.model.trim() : "jev-latest",
-        credentialsFromConnectionId: conn.id,
+        model: decisionFromChat ? row.model.trim() : "jev-latest",
+        credentialsFromConnectionId: row.id,
         defaultForAgents: !(allConnections as ConnectionRowData[] | undefined)?.some(
-          (row) => row.provider === "decision" && (row.defaultForAgents === true || row.defaultForAgents === "true"),
+          (other) => other.provider === "decision" && isConnectionFlagTrue(other.defaultForAgents),
         ),
       },
       {
         onSuccess: (created) => openConnectionDetail((created as { id: string }).id),
-        onError: (error) =>
-          toast.error(error instanceof Error ? error.message : localizeUi("connections.decision.saveFailed")),
+        onError: (error) => toast.error(error instanceof Error ? error.message : t("connections.decision.saveFailed")),
       },
     );
   const remove = async () => {
-    if (
-      !(await showConfirmDialog({
-        title: localizeUi("ui.panels.connectionrow.deleteConnection"),
-        message: localizeUi("ui.panels.characterspanel.deleteValue1ThisCannotBeUndone", { value1: conn.name }),
-        confirmLabel: localizeUi("lorebook.editor.batch.delete"),
-        tone: "destructive",
-      }))
-    ) {
-      return;
-    }
-    deleteConnection.mutate(conn.id);
+    const confirmed = await showConfirmDialog({
+      title: t("ui.panels.connectionrow.deleteConnection"),
+      message: t("ui.panels.characterspanel.deleteValue1ThisCannotBeUndone", { value1: title }),
+      confirmLabel: t("lorebook.editor.batch.delete"),
+      tone: "destructive",
+    });
+    if (confirmed) deleteConnection.mutate(row.id);
   };
-  const pinLabel = pinned
-    ? localizeUi("connections.accounts.row.unfavourite")
-    : localizeUi("connections.accounts.row.favourite");
-  const pictureLabel = conn.imagePath
-    ? localizeUi("ui.panels.connectionrow.replaceConnectionPicture")
-    : localizeUi("ui.panels.connectionrow.uploadConnectionPicture");
-  // One ⋯ menu holds every row action, on every pointer; the row itself opens the editor.
+
+  // Media Models carry their kind's default in the agents flag.
+  const defaultRoles: Array<{ label: string; field: "isDefault" | "defaultForAgents" }> = chatModel
+    ? [
+        { label: t("connections.defaults.role.main"), field: "isDefault" },
+        { label: t("connections.defaults.role.agents"), field: "defaultForAgents" },
+      ]
+    : kind
+      ? [{ label: t(`connections.accounts.kind.${kind}`), field: "defaultForAgents" }]
+      : [];
+  const openSub = (items: ContextMenuItem[]) => menu && setSubMenu({ at: menu, items });
+
   const menuItems: ContextMenuItem[] = [
-    ...(chatAction && chatAction.type !== "blocked"
+    ...(onUseInChat && !unavailable
       ? [
           {
-            label: localizeUi("ui.chat.chatresourceactionbutton.addToActiveChat", { name: conn.name }),
-            icon: <MessageSquarePlus size="0.75rem" />,
-            onSelect: () => requestChatResourceAssignment(resourcePayload),
+            label: t("connections.row.useInChat"),
+            hint: t("connections.row.useInChatHint"),
+            icon: <Check size="0.75rem" />,
+            onSelect: onUseInChat,
           },
         ]
       : []),
-    ...(onTogglePin ? [{ label: pinLabel, icon: <Star size="0.75rem" />, onSelect: onTogglePin }] : []),
-    ...(onMakeDefault
+    ...(defaultRoles.length
       ? [
           {
-            label: localizeUi("connections.accounts.row.makeDefault"),
+            label: t("connections.row.makeDefaultFor"),
             icon: <BadgeCheck size="0.75rem" />,
-            onSelect: onMakeDefault,
+            onSelect: () =>
+              openSub(
+                defaultRoles.map((role) => ({
+                  label: role.label,
+                  checked: isConnectionFlagTrue(row[role.field]),
+                  onSelect: () => updateConnection.mutate({ id: row.id, [role.field]: true }),
+                })),
+              ),
           },
         ]
       : []),
+    { label: t("connections.row.editModel"), icon: <Pencil size="0.75rem" />, onSelect: openEditor },
+    ...(onMove && moveTargets?.length
+      ? [
+          {
+            label: t("connections.accounts.row.moveTo"),
+            hint: moveTargets.map((target) => target.name).join(", "),
+            icon: <MoveRight size="0.75rem" />,
+            onSelect: () =>
+              openSub(
+                moveTargets.map((target) => ({
+                  label: target.name,
+                  icon: <MoveRight size="0.75rem" />,
+                  onSelect: () => onMove(target.id, target.name),
+                })),
+              ),
+          },
+        ]
+      : []),
+    { label: t("ui.presets.sectionstab.duplicate"), icon: <Copy size="0.75rem" />, onSelect: duplicate },
     ...(canShuffle
       ? [
           {
             label: inRandomPool
-              ? localizeUi("connections.accounts.row.removeFromShuffle")
-              : localizeUi("connections.accounts.row.addToShuffle"),
+              ? t("connections.accounts.row.removeFromShuffle")
+              : t("connections.accounts.row.addToShuffle"),
             icon: <Shuffle size="0.75rem" />,
-            onSelect: toggleRandomPool,
+            onSelect: () => updateConnection.mutate({ id: row.id, useForRandom: !inRandomPool }),
           },
         ]
       : []),
     ...(canLendToDecisions
       ? [
           {
-            label: localizeUi(decisionFromChat ? "connections.decision.chatShortcut" : "connections.decision.shortcut"),
+            label: t(decisionFromChat ? "connections.decision.chatShortcut" : "connections.decision.shortcut"),
             icon: <GitBranch size="0.75rem" />,
             onSelect: useForDecisions,
             disabled: createConnection.isPending,
           },
         ]
       : []),
-    ...(onMove && moveTargets?.length
-      ? [
-          {
-            label: localizeUi("connections.accounts.row.moveTo"),
-            icon: <MoveRight size="0.75rem" />,
-            onSelect: () => setMoveMenu(menu),
-          },
-        ]
-      : []),
-    { label: localizeUi("ui.presets.sectionstab.duplicate"), icon: <Copy size="0.75rem" />, onSelect: duplicate },
-    { label: pictureLabel, icon: <Camera size="0.75rem" />, onSelect: onImagePick },
     {
-      label: localizeUi("lorebook.editor.batch.delete"),
+      label: row.imagePath
+        ? t("ui.panels.connectionrow.replaceConnectionPicture")
+        : t("ui.panels.connectionrow.uploadConnectionPicture"),
+      icon: <Camera size="0.75rem" />,
+      onSelect: onImagePick,
+    },
+    {
+      label: t("connections.row.remove"),
       icon: <Trash2 size="0.75rem" />,
       onSelect: () => void remove(),
       destructive: true,
     },
   ];
 
-  const colors = PROVIDER_COLORS[conn.provider] ?? DEFAULT_COLOR;
-  const iconContent = conn.imagePath ? (
-    <img src={conn.imagePath} alt="" className="h-full w-full object-cover" draggable={false} />
-  ) : (
-    getConnectionFallbackIcon(conn.provider)
-  );
-  const iconFrameClasses = cn(
-    "relative flex h-6 w-6 shrink-0 items-center justify-center overflow-visible rounded-lg text-white shadow-sm",
-    conn.imagePath ? "bg-[var(--muted)]" : `bg-gradient-to-br ${colors.from} ${colors.to}`,
-  );
+  const starLabel = starred ? t("connections.accounts.row.unfavourite") : t("connections.accounts.row.favourite");
+  const unavailableLabel = unavailable ? t(`connections.accounts.state.${unavailable}`) : "";
 
   return (
     <div
-      data-connection-id={conn.id}
-      data-touch-drag-card="connection"
-      data-drag-id={conn.id}
-      aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"
-      data-drag-kind="connection"
-      data-drag-payload={JSON.stringify({
-        version: 1,
-        kind: "connection",
-        ids: [conn.id],
-        label: conn.name,
-        ...(isLanguageGenerationConnection(conn) ? {} : { unsupported: "connection-kind" }),
-      })}
-      onMouseDown={onTouchStart}
-      onTouchStart={(event) => {
-        onTouchStart?.(event);
-      }}
-      onClick={() => {
-        if (suppressClickRef?.current) return;
-        onClickRow();
-      }}
+      data-connection-id={row.id}
+      // Desktop only: drag the Model onto a chat to use it there.
       draggable
-      onDragStart={onDragStart}
-      onDragEnd={onDragEnd}
-      onDragOver={(event) => {
-        event.preventDefault();
-        event.dataTransfer.dropEffect = "move";
+      onDragStart={(event) => {
+        event.dataTransfer.effectAllowed = "copy";
+        writeChatResourceDragPayload(event.dataTransfer, {
+          version: 1,
+          kind: "connection",
+          ids: [row.id],
+          label: row.name,
+          ...(isLanguageGenerationConnection(row) ? {} : { unsupported: "connection-kind" as const }),
+        });
       }}
-      onDrop={onDropOnRow}
+      onDragEnd={clearActiveChatResourceDrag}
       className={cn(
-        "group relative flex min-h-11 touch-pan-y cursor-grab active:cursor-grabbing items-center gap-2.5 rounded-lg px-2 py-1.5 transition-all hover:bg-[var(--sidebar-accent)] md:min-h-10",
-        isSelected && `ring-1 ${colors.ring} bg-[var(--sidebar-accent)]/50`,
-        selectionMode && isBulkSelected && "ring-1 ring-[var(--border)] bg-[var(--sidebar-accent)]/70",
-        isDragging && "opacity-50",
+        "group relative flex min-h-11 min-w-0 items-center gap-1 rounded-lg pr-1 transition-colors hover:bg-[var(--sidebar-accent)]",
+        current && "bg-[var(--sidebar-accent)]/40",
       )}
     >
-      {selectionMode && (
-        <div
-          className={cn(
-            "flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 transition-colors",
-            isBulkSelected
-              ? "border-[var(--marinara-chat-chrome-button-border-active)] bg-[var(--marinara-chat-chrome-highlight-bg)] text-[var(--marinara-chat-chrome-button-text-active)]"
-              : "border-[var(--muted-foreground)]/40 bg-[var(--secondary)] text-transparent",
-          )}
-          aria-hidden="true"
-        >
-          {isBulkSelected && <Check size="0.75rem" />}
-        </div>
+      {current && (
+        <span
+          className="mari-chrome-accent-progress mari-accent-animated absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-full"
+          title={t("connections.row.current")}
+        />
       )}
-      <span className={iconFrameClasses} aria-hidden="true">
-        <span className="flex h-full w-full items-center justify-center overflow-hidden rounded-lg">{iconContent}</span>
-        {!selectionMode && isSelected && (
+      {/* The row opens the editor; the star and "…" sit beside it, never inside it. */}
+      <button
+        type="button"
+        onClick={openEditor}
+        aria-label={
+          unavailable
+            ? t("connections.row.editUnavailable", { name: title, state: unavailableLabel })
+            : t("connections.row.edit", { name: title })
+        }
+        className={cn("flex min-h-11 min-w-0 flex-1 items-center gap-2.5 rounded-lg py-1.5 pl-2 text-left", FOCUS)}
+      >
+        {row.imagePath ? (
+          <span
+            aria-hidden
+            className={cn("h-6 w-6 shrink-0 overflow-hidden rounded-lg bg-[var(--muted)]", unavailable && "opacity-40")}
+          >
+            <img src={row.imagePath} alt="" className="h-full w-full object-cover" draggable={false} />
+          </span>
+        ) : (
+          <ProviderIcon
+            provider={account?.provider ?? row.provider}
+            baseUrl={account?.baseUrl ?? row.baseUrl}
+            name={account?.name ?? row.name}
+            size="sm"
+            dim={!!unavailable}
+          />
+        )}
+        <span className="block min-w-0 flex-1">
           <span
             className={cn(
-              "pointer-events-none absolute -right-1 -top-1 flex h-3 w-3 items-center justify-center rounded-full ring-1 ring-[var(--sidebar)]",
-              colors.badge,
+              "line-clamp-2 break-words text-sm leading-5",
+              unavailable ? "text-[var(--muted-foreground)]" : "text-[var(--foreground)]",
             )}
+            title={title}
           >
-            <Check size="0.5rem" className="text-white" />
+            {title}
           </span>
-        )}
-      </span>
-      {/* The ⋯ button sits in this right gutter on every pointer, so the name and badge never run under it. */}
-      <div className="min-w-0 flex-1 pr-9 max-md:pr-11 [@media(pointer:coarse)]:pr-11">
-        <div className="flex min-w-0 items-center gap-1.5">
-          <span className="min-w-0 truncate text-sm leading-5" title={conn.name}>
-            {conn.name}
+          <span className="flex min-w-0 items-center gap-1.5">
+            {unavailable ? (
+              <span
+                className={cn(
+                  "inline-flex shrink-0 items-center gap-1 rounded px-1 py-0.5 text-[0.5625rem] font-medium uppercase leading-none tracking-wide",
+                  unavailable === "needs_key"
+                    ? "bg-[var(--warning)]/10 text-[var(--warning)]"
+                    : "bg-[var(--secondary)] text-[var(--muted-foreground)]",
+                )}
+              >
+                {unavailable === "needs_key" ? <KeyRound size="0.5625rem" /> : <Power size="0.5625rem" />}
+                {unavailableLabel}
+              </span>
+            ) : (
+              badges.map((badge) => (
+                // Presets' DEFAULT badge; the badge rule is unlayered, so the readable foreground needs `!`.
+                <span
+                  key={badge}
+                  className="mari-chrome-muted-badge shrink-0 rounded px-1 py-0.5 text-[0.5625rem] uppercase leading-none tracking-wide !text-[var(--foreground)]"
+                >
+                  {badge}
+                </span>
+              ))
+            )}
+            {sub && (
+              <span className="min-w-0 truncate text-[0.6875rem] leading-4 text-[var(--muted-foreground)]" title={sub}>
+                {sub}
+              </span>
+            )}
           </span>
-          {/* Presets' DEFAULT badge; the badge rule is unlayered, so the readable foreground needs `!`. */}
-          {badge && (
-            <span className="mari-chrome-muted-badge shrink-0 rounded px-1 py-0.5 text-[0.5625rem] uppercase leading-none tracking-wide !text-[var(--foreground)]">
-              {badge}
-            </span>
-          )}
-          {pinned && (
-            <Star
-              size="0.625rem"
-              className="shrink-0 fill-current text-[var(--muted-foreground)]"
-              aria-label={localizeUi("connections.accounts.row.favourited")}
-            />
-          )}
-        </div>
-        <div className="truncate text-[0.6875rem] leading-4 text-[var(--muted-foreground)]" title={subtitle}>
-          {subtitle ?? `${conn.provider} • ${conn.model || localizeUi("connections.accounts.row.noModel")}`}
-        </div>
-      </div>
-      {!selectionMode && (
+        </span>
+      </button>
+      {onToggleStar && (
         <button
           type="button"
-          onMouseDown={(e) => e.stopPropagation()}
-          onTouchStart={(e) => e.stopPropagation()}
-          onClick={(e) => {
-            e.stopPropagation();
-            const rect = e.currentTarget.getBoundingClientRect();
-            setMenu({ x: rect.right, y: rect.bottom, keyboard: e.detail === 0 });
+          onClick={(event) => {
+            stop(event);
+            onToggleStar();
           }}
-          // Hover and keyboard focus reveal it on a mouse; touch screens always show it at 44 px.
           className={cn(
-            "absolute right-1 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-[var(--muted-foreground)] transition-[opacity,background-color,color] hover:bg-[var(--sidebar)] hover:text-[var(--foreground)] focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)] active:scale-90",
-            "opacity-0 group-hover:opacity-100 max-md:h-11 max-md:w-11 max-md:opacity-100 [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:w-11 [@media(pointer:coarse)]:opacity-100",
-            menu && "opacity-100",
+            ROW_BUTTON,
+            starred && !unavailable ? "text-[var(--primary)]" : "text-[var(--muted-foreground)]",
           )}
-          title={localizeUi("connections.accounts.row.actions", { name: conn.name })}
-          aria-label={localizeUi("connections.accounts.row.actions", { name: conn.name })}
-          aria-haspopup="menu"
-          aria-expanded={!!menu}
+          aria-pressed={!!starred}
+          title={starLabel}
+          aria-label={starLabel}
         >
-          <MoreHorizontal size="1rem" />
+          <Star
+            size="0.875rem"
+            className={cn(starred && "fill-current", (!starred || unavailable) && "mari-rgb-static-icon")}
+          />
         </button>
       )}
+      <button
+        type="button"
+        onClick={(event) => {
+          stop(event);
+          setMenu(menuAt(event));
+        }}
+        className={cn(ROW_BUTTON, "text-[var(--muted-foreground)] hover:text-[var(--foreground)]")}
+        title={t("connections.accounts.row.actions", { name: title })}
+        aria-label={t("connections.accounts.row.actions", { name: title })}
+        aria-haspopup="menu"
+        aria-expanded={!!menu}
+      >
+        <MoreHorizontal size="1rem" />
+      </button>
       {menu && (
-        // The menu is portalled, but React events still bubble to the row; keep them off its click and drag.
-        <span
-          onClick={(e) => e.stopPropagation()}
-          onMouseDown={(e) => e.stopPropagation()}
-          onTouchStart={(e) => e.stopPropagation()}
-        >
+        <span onClick={stop} onKeyDown={stop}>
           <ContextMenu
             x={menu.x}
             y={menu.y}
@@ -431,22 +446,14 @@ export function ConnectionRow({
           />
         </span>
       )}
-      {moveMenu && onMove && (
-        <span
-          onClick={(e) => e.stopPropagation()}
-          onMouseDown={(e) => e.stopPropagation()}
-          onTouchStart={(e) => e.stopPropagation()}
-        >
+      {subMenu && (
+        <span onClick={stop} onKeyDown={stop}>
           <ContextMenu
-            x={moveMenu.x}
-            y={moveMenu.y}
-            items={(moveTargets ?? []).map((target) => ({
-              label: target.name,
-              icon: <MoveRight size="0.75rem" />,
-              onSelect: () => onMove(target.id, target.name),
-            }))}
-            autoFocus={moveMenu.keyboard}
-            onClose={() => setMoveMenu(null)}
+            x={subMenu.at.x}
+            y={subMenu.at.y}
+            items={subMenu.items}
+            autoFocus={subMenu.at.keyboard}
+            onClose={() => setSubMenu(null)}
           />
         </span>
       )}

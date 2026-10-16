@@ -1529,6 +1529,7 @@ export function TTSConfigCard({ defaultExpanded = false }: { defaultExpanded?: b
 
   return (
     <div
+      data-component="TTSConfigCard"
       className={cn(
         "rounded-xl border border-sky-400/20 bg-gradient-to-br from-sky-400/5 to-blue-500/5 p-3 transition-all",
         expanded && "border-sky-400/30",

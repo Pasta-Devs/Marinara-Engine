@@ -4,7 +4,7 @@
 // Chat Settings → Connection (a pick applies to the chat only), the panel's
 // Add model and the setup flow (a pick saves a Model).
 // ──────────────────────────────────────────────
-import { useDeferredValue, useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { useDeferredValue, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { Check, Loader2, RefreshCw, Search, Star } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -22,6 +22,7 @@ import {
   useUpdateConnection,
 } from "../../hooks/use-connections";
 import { usePickModel } from "../../hooks/use-connection-accounts";
+import { useModelStar } from "../../hooks/use-model-star";
 import {
   connectionFieldsForModelPick,
   filterConnectionModelOptions,
@@ -68,7 +69,6 @@ const errorMessage = (error: unknown) => (error instanceof Error ? error.message
 
 export function ConnectionModelPicker({
   connection,
-  leading,
   showConnectionName = false,
   autoFocusSearch = false,
   onPicked,
@@ -84,8 +84,6 @@ export function ConnectionModelPicker({
   mainModelId,
 }: {
   connection: ModelPickerConnection;
-  /** Shown before the title, such as the phone menu's back control. */
-  leading?: ReactNode;
   /** Name the connection beside its provider, where the connection list is out of sight. */
   showConnectionName?: boolean;
   /** Focus the search box on devices with a mouse (a phone keyboard would cover the list). */
@@ -110,7 +108,7 @@ export function ConnectionModelPicker({
    * context size and group by upstream; the host's heading replaces the title row.
    */
   addMode?: boolean;
-  /** Add mode: a star was taken off, so the host can drop a Model it added in this session. */
+  /** Add mode: a star was taken off, so the host can stop counting it. The star hook removes the Model. */
   onUnstar?: (modelId: string) => void;
   /** Models already added in this session; they get the same check as the current model. */
   addedIds?: readonly string[];
@@ -136,6 +134,7 @@ export function ConnectionModelPicker({
   const setPinned = useSetConnectionModelPinned();
   const updateConnection = useUpdateConnection();
   const pickModel = usePickModel();
+  const modelStar = useModelStar();
   const saving = updateConnection.isPending || pickModel.isPending;
 
   useEffect(() => {
@@ -261,24 +260,25 @@ export function ConnectionModelPicker({
     }
   };
 
-  // The star (decision 27): a favorite is saved and stays on top. Unstarring keeps the saved Model.
+  // The star (decision 30): a star saves the model; taking it off removes the saved Model unless something keeps it.
   const toggleStar = (row: PickerRow, starred: boolean) => {
     // Add mode: a star is a pick, so the host counts it (and the first one can become Main).
     if (addMode && starred) return void pick(row, true);
     if (addMode) onUnstar?.(row.id);
-    setPinned.mutate(
-      { id: connection.id, model: row.id, pinned: starred },
-      { onError: (error) => toast.error(t("connections.favorite.failed", { error: errorMessage(error) })) },
-    );
-    if (!starred || !connection.accountId) return;
-    pickModel.mutate(
-      {
-        accountId: connection.accountId,
-        ...connectionFieldsForModelPick(provider, row),
-        ...(row.name && row.name !== row.id ? { name: row.name } : {}),
-      },
-      { onError: (error) => toast.error(t("connections.modelPicker.saveFailed", { error: errorMessage(error) })) },
-    );
+    if (!connection.accountId) {
+      setPinned.mutate(
+        { id: connection.id, model: row.id, pinned: starred },
+        { onError: (error) => toast.error(t("connections.favorite.failed", { error: errorMessage(error) })) },
+      );
+      return;
+    }
+    const target = {
+      accountId: connection.accountId,
+      ...connectionFieldsForModelPick(provider, row),
+      ...(row.name && row.name !== row.id ? { name: row.name } : {}),
+      anchorId: connection.id,
+    };
+    void (starred ? modelStar.star(target) : modelStar.unstar(target));
   };
 
   const focusOption = (from: HTMLElement | null, step: 1 | -1) => {
@@ -391,7 +391,6 @@ export function ConnectionModelPicker({
   return (
     <div data-connection-model-picker className={cn("flex min-h-0 min-w-0 flex-1 flex-col", className)}>
       <div className={cn("flex min-w-0 items-center gap-2 px-3 pb-2 pt-2.5", addMode && "hidden")}>
-        {leading}
         <span className="shrink-0 text-xs font-semibold">{t("connections.modelPicker.title")}</span>
         {(applyPick || onChoose) && accountName ? (
           <span data-model-picker-provider className="min-w-0 truncate text-[0.6875rem] text-foreground/55">

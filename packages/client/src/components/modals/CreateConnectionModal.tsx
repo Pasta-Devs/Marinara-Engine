@@ -6,24 +6,15 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   AlertCircle,
-  AudioLines,
   Check,
   ChevronDown,
   ChevronLeft,
-  Cpu,
   ExternalLink,
   Eye,
   EyeOff,
-  Film,
-  ImageIcon,
   Loader2,
-  Mic,
   Plug,
-  Scale,
   Search,
-  Server,
-  Volume2,
-  type LucideIcon,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import {
@@ -37,6 +28,7 @@ import {
 import { Modal } from "../ui/Modal";
 import { SmoothFolderContent } from "../ui/SmoothFolderContent";
 import { ConnectionModelPicker } from "../connections/ConnectionModelPicker";
+import { ProviderIcon } from "../connections/ProviderIcon";
 import {
   useConnectionModels,
   useConnections,
@@ -56,6 +48,8 @@ import { useDeviceSetup, type DeviceItem } from "../../hooks/use-device-setup";
 import type { ModelsFor } from "../../lib/add-connection";
 import { TTSConfigCard } from "../panels/settings/TTSConfigCard";
 import { SpeechToTextCard } from "../panels/settings/SpeechToTextCard";
+import { LocalWhisper } from "../connections/DeviceDetail";
+import { starAnchorOf } from "../../hooks/use-model-star";
 import { isConnectionFlagTrue } from "../../lib/connection-filters";
 import { cn } from "../../lib/utils";
 
@@ -109,35 +103,6 @@ const SERVICE_GROUPS: Array<{ id: string; services: ServiceId[]; collapsed?: boo
   { id: "media", services: ["image_generation", "video_generation", "audio", "decision"] },
 ];
 
-/** Services without a brand get an icon; brands get their initials until logos are approved. */
-const SERVICE_ICONS: Partial<Record<ServiceId, LucideIcon>> = {
-  custom: Server,
-  local_model: Cpu,
-  tts: Volume2,
-  stt: Mic,
-  image_generation: ImageIcon,
-  video_generation: Film,
-  audio: AudioLines,
-  decision: Scale,
-};
-const MONOGRAMS: Partial<Record<APIProvider, string>> = {
-  openrouter: "OR",
-  nanogpt: "N",
-  openai_chatgpt: "CG",
-  claude_subscription: "C",
-  grok_subscription: "G",
-  openai: "OA",
-  anthropic: "A",
-  google: "Ge",
-  google_vertex: "V",
-  mistral: "M",
-  cohere: "Co",
-  xai: "x",
-  zai: "Z",
-  deepseek: "DS",
-  arli: "Ar",
-};
-
 /** Common ports of local servers; one tap fills the address. Brand names are not translated. */
 const LOCAL_PRESETS = [
   { label: "Ollama", url: "http://localhost:11434/v1" },
@@ -160,7 +125,15 @@ const NO_RECOMMENDED = new Set<APIProvider>(["openrouter", "nanogpt", "custom", 
 type Target = { accountId: string; connectionId: string; fresh: boolean; autoName?: string };
 /** The key's end the server adds to an automatic name next to another Connection of the same service. */
 const KEY_TAIL = / · …\S{4}$/u;
-type ConnectionRowLite = { id: string; name?: string; provider?: string; accountId?: string | null };
+type ConnectionRowLite = {
+  id: string;
+  name?: string;
+  provider?: string;
+  accountId?: string | null;
+  model?: string;
+  createdAt?: string | null;
+  pinnedModels?: unknown;
+};
 type TestResult = { success: boolean; message?: string };
 
 const inputClass = "mari-chrome-field h-11 w-full px-3 text-xs md:h-9";
@@ -191,27 +164,9 @@ function failureReason(provider: APIProvider, message: string): "plan" | "key" |
   return "other";
 }
 
-/** The service tile: a logo when the shared metadata has one, else an icon or the initials. */
+/** The service tile: its cached icon (never fetched here, decision 34b), else an icon or the initials. */
 function ServiceTile({ service, large = false }: { service: ServiceId; large?: boolean }) {
-  const logo = isDevice(service) ? undefined : PROVIDERS[service]?.logo;
-  const Icon = SERVICE_ICONS[service];
-  return (
-    <span
-      aria-hidden
-      className={cn(
-        "mari-panel-gradient-surface mari-panel-gradient--connections flex shrink-0 items-center justify-center overflow-hidden rounded-xl font-semibold shadow-sm",
-        large ? "h-12 w-12 text-base" : "h-10 w-10 text-sm",
-      )}
-    >
-      {logo ? (
-        <img src={logo} alt="" className="h-full w-full object-contain p-1.5" />
-      ) : Icon ? (
-        <Icon size={large ? "1.25rem" : "1.0625rem"} />
-      ) : (
-        (MONOGRAMS[service as APIProvider] ?? PROVIDERS[service as APIProvider]?.name.slice(0, 1) ?? "?")
-      )}
-    </span>
-  );
+  return <ProviderIcon provider={service} size={large ? "addLarge" : "add"} />;
 }
 
 /** Choice card (Agent editor / Download Agents rows): tile, name with up to two badges, a 2-line hint. */
@@ -512,10 +467,7 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
   const showModelsOf = (accountId: string, connectionId?: string) => {
     // A key shared by chat and image Models (decision 20): the models list belongs to a chat Model.
     const linked = allRows.filter((candidate) => candidate.accountId === accountId);
-    const row =
-      linked.find((candidate) => candidate.id === connectionId) ??
-      linked.find((candidate) => isChatProvider(candidate.provider ?? "")) ??
-      linked[0];
+    const row = linked.find((candidate) => candidate.id === connectionId) ?? starAnchorOf(linked) ?? linked[0];
     if (!row) return;
     resetFields();
     setProvider((row.provider as APIProvider) ?? null);
@@ -548,13 +500,15 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
     setAddedIds((current) => (current.includes(modelId) ? current : [...current, modelId]));
   };
 
-  // A star taken off here: the model is no longer added, and a Model made here without a role goes (decision 30).
+  // A star taken off here: the model is no longer added. The star hook removes the Model (decision 30).
   const unstar = (modelId: string) => {
     setAddedIds((current) => current.filter((id) => id !== modelId));
     const made = madeHere.current.get(modelId);
-    if (!made || main?.connectionId === made) return;
     madeHere.current.delete(modelId);
-    deleteRow.mutate(made);
+    // Start chatting must not open a Model that goes with the star.
+    setFirstPickId((current) =>
+      current && (current === made || allRows.find((row) => row.id === current)?.model === modelId) ? null : current,
+    );
   };
 
   const startChatting = async () => {
@@ -942,11 +896,15 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
       )}
       {device === "tts" && <TTSConfigCard defaultExpanded />}
       {device === "stt" && <SpeechToTextCard defaultExpanded />}
+      {device === "stt" && import.meta.env.VITE_MARINARA_LITE !== "true" && <LocalWhisper />}
     </div>
   );
 
   // ── Step 3: pick models ──
-  const pickerRow = target ? allRows.find((row) => row.id === target.connectionId) : undefined;
+  const shownRow = target ? allRows.find((row) => row.id === target.connectionId) : undefined;
+  // A pick runs on the shown Model; the stars come from the Connection's anchor Model.
+  const starAnchor = target ? starAnchorOf(allRows.filter((row) => row.accountId === target.accountId)) : undefined;
+  const pickerRow = shownRow && { ...shownRow, pinnedModels: (starAnchor ?? shownRow).pinnedModels };
   const chat = modelsFor?.chat;
   const inPlace = !!target?.fresh && addedIds.length === 0;
   const recommended = provider && !NO_RECOMMENDED.has(provider) ? (MODEL_LISTS[provider] ?? []).slice(0, 3) : [];

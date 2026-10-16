@@ -211,14 +211,14 @@ assert.deepEqual(
   "A first install waiting for restart must not expose a client module that has never loaded",
 );
 
-const connectionsPanelSource = await readFile(
-  new URL("../../packages/client/src/components/panels/ConnectionsPanel.tsx", import.meta.url),
+const deviceDetailSource = await readFile(
+  new URL("../../packages/client/src/components/connections/DeviceDetail.tsx", import.meta.url),
   "utf8",
 );
-const sidecarCardStart = connectionsPanelSource.indexOf("function SidecarCard()");
-const sidecarCardEnd = connectionsPanelSource.indexOf("\nfunction connectionMatchesSearch", sidecarCardStart);
-assert.ok(sidecarCardStart >= 0 && sidecarCardEnd > sidecarCardStart, "Connections must retain the Sidecar card");
-const sidecarCardSource = connectionsPanelSource.slice(sidecarCardStart, sidecarCardEnd);
+const sidecarCardStart = deviceDetailSource.indexOf("function LocalModelDetail(");
+const sidecarCardEnd = deviceDetailSource.indexOf("\nexport function LocalWhisper", sidecarCardStart);
+assert.ok(sidecarCardStart >= 0 && sidecarCardEnd > sidecarCardStart, "Connections must retain the Local Model page");
+const sidecarCardSource = deviceDetailSource.slice(sidecarCardStart, sidecarCardEnd);
 assert.match(
   sidecarCardSource,
   /const \{ data: capabilityAgents \} = useCapabilityAgentRegistry\(\);/u,

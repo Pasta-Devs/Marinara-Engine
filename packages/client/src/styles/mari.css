@@ -4572,14 +4572,9 @@ details[open] > .mari-disclosure .mari-disclosure__chevron {
   flex-direction: column;
 }
 
-.mari-connection-picker__back,
-.mari-connection-picker__open {
-  display: none;
-}
-
-/* A narrow composer shows one step at a time: the list, then the chosen connection's models. */
+/* A narrow composer shows only the list: a Connection opens in place, and Browse all models opens the model screen. */
 @container (width < 34rem) {
-  .mari-connection-picker[data-step="list"] {
+  .mari-connection-picker {
     height: auto;
   }
 
@@ -4589,68 +4584,8 @@ details[open] > .mari-disclosure .mari-disclosure__chevron {
     border-right: 0;
   }
 
-  .mari-connection-picker[data-step="list"] .mari-connection-picker__models,
-  .mari-connection-picker[data-step="models"] .mari-connection-picker__list {
+  .mari-connection-picker__models {
     display: none;
-  }
-
-  .mari-connection-picker__back {
-    display: flex;
-    width: 2.75rem;
-    height: 2.75rem;
-    flex-shrink: 0;
-    align-items: center;
-    justify-content: center;
-    margin: -0.5rem 0 -0.5rem -0.5rem;
-    border-radius: var(--mari-composer-inner-radius);
-    color: var(--muted-foreground);
-  }
-
-  .mari-connection-picker__back:hover {
-    background: color-mix(in srgb, var(--foreground) 8%, transparent);
-    color: var(--foreground);
-  }
-
-  .mari-connection-picker__back > svg {
-    width: 1rem;
-    height: 1rem;
-  }
-
-  /* The row's end opens its models, set off from the row by a soft divider. */
-  .mari-connection-picker__open {
-    position: relative;
-    display: flex;
-    width: 3rem;
-    flex: none;
-    align-items: center;
-    justify-content: center;
-    align-self: stretch;
-    margin-block: calc(-1 * var(--mari-card-pad-block));
-    margin-inline-end: calc(-1 * var(--mari-card-pad-inline));
-    color: var(--muted-foreground);
-  }
-
-  .mari-connection-picker__open::before {
-    position: absolute;
-    inset-block: 0.75rem;
-    inset-inline-start: 0;
-    border-inline-start: 1px solid var(--mari-hairline);
-    content: "";
-  }
-
-  .mari-connection-picker__open:hover {
-    background: var(--mari-hover);
-    color: var(--foreground);
-  }
-
-  .mari-connection-picker__open:focus-visible {
-    outline: 2px solid var(--ring);
-    outline-offset: -2px;
-  }
-
-  .mari-connection-picker__open > svg {
-    width: 0.875rem;
-    height: 0.875rem;
   }
 }
 

@@ -2,30 +2,25 @@
 // Connection Switcher Body — the quick switch shared by the desktop popover,
 // the phone sheet and Professor Mari's composer. Left: search across saved
 // Models and catalogs, Use default, Favorites, Recent, Connections (each opens
-// in place with its saved Models), Local Model, Shuffle. Right (or a second
-// step): the chosen Connection's catalog. A catalog pick applies to the chat
-// only; the star saves a model and keeps it on top (decision 27).
+// in place with its saved Models), Local Model, Shuffle. Right (wide hosts
+// only): the chosen Connection's catalog. A catalog pick applies to the chat
+// only; the star saves a model, and removing it can remove the saved Model
+// (decision 30).
 // ──────────────────────────────────────────────
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Check, ChevronDown, ChevronLeft, ChevronRight, Cpu, House, Link, Search, Shuffle, Star } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, Cpu, House, Link, Search, Shuffle, Star } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   LOCAL_SIDECAR_CONNECTION_ID,
-  parsePinnedModels,
   rankModelMatch,
   readChatModelOverride,
   readChatRecentModels,
   type ChatModelChoice,
   type ConnectionAccountListItem,
 } from "@marinara-engine/shared";
-import {
-  connectionKeys,
-  useConnections,
-  useSetConnectionModelPinned,
-  useUpdateConnection,
-} from "../../hooks/use-connections";
+import { connectionKeys, useConnections, useUpdateConnection } from "../../hooks/use-connections";
 import { useChat, useChats, useSetChatModel } from "../../hooks/use-chats";
 import { useCatalogSearch, useConnectionAccounts, usePickModel } from "../../hooks/use-connection-accounts";
 import { useSidecarStore } from "../../stores/sidecar.store";
@@ -39,6 +34,7 @@ import { cn } from "../../lib/utils";
 import { ConnectionModelPicker } from "./ConnectionModelPicker";
 import { openAddModels } from "../../lib/add-connection";
 import { SubscriptionUsageWidget } from "./SubscriptionUsageWidget";
+import { starAnchorOf, starsOfRows, useHiddenModelIds, useModelStar } from "../../hooks/use-model-star";
 
 type SwitcherRow = {
   id: string;
@@ -48,6 +44,7 @@ type SwitcherRow = {
   accountId?: string | null;
   credentialsFromConnectionId?: string | null;
   pinnedModels?: unknown;
+  createdAt?: string | null;
   useForRandom?: boolean | string | null;
   isDefault?: boolean | string | null;
   showUsageWidget?: unknown;
@@ -217,11 +214,9 @@ export function ConnectionSwitcherBody({
   empty,
   autoFocusSearch = false,
   pickerFooter,
-  onStepChange,
   className,
   listClassName,
   modelsClassName,
-  backClassName,
 }: {
   /** What the host uses: a Model, or a catalog model on one ("random" while Shuffle is on). */
   current: ChatModelChoice | null;
@@ -231,7 +226,7 @@ export function ConnectionSwitcherBody({
   onApply: (choice: ChatModelChoice) => Promise<void>;
   /** Closes the host menu; every pick ends with it. */
   onDone: () => void;
-  /** columns: both panes side by side. steps: one pane at a time. container: both rendered, host CSS decides. */
+  /** columns: both panes side by side. steps: the list only (a Connection's models open in the Add model screen). container: both rendered, host CSS decides. */
   layout: "columns" | "steps" | "container";
   showLocalModel: boolean;
   localModelHint?: string;
@@ -245,11 +240,9 @@ export function ConnectionSwitcherBody({
   /** Focus the search box on devices with a mouse (a phone keyboard would cover the list). */
   autoFocusSearch?: boolean;
   pickerFooter?: string;
-  onStepChange?: (step: "list" | "models") => void;
   className?: string;
   listClassName?: string;
   modelsClassName?: string;
-  backClassName?: string;
 }) {
   const { t } = useTranslation();
   const { data: connectionsRaw } = useConnections();
@@ -257,25 +250,22 @@ export function ConnectionSwitcherBody({
   const { data: chats } = useChats();
   const sidecarModelDisplayName = useSidecarStore((state) => state.modelDisplayName);
   const updateConnection = useUpdateConnection();
-  const pickModel = usePickModel();
-  const setPinned = useSetConnectionModelPinned();
+  const modelStar = useModelStar();
+  const hiddenIds = useHiddenModelIds();
   const [busy, setBusy] = useState(false);
   const [query, setQuery] = useState("");
   const deferredQuery = useDeferredValue(query.trim());
   const [highlight, setHighlight] = useState(0);
   const [shownKey, setShownKey] = useState<string | null>(null);
   const [openKeys, setOpenKeys] = useState<Record<string, boolean>>({});
-  const [step, setStepState] = useState<"list" | "models">("list");
   const searchRef = useRef<HTMLInputElement>(null);
 
-  const setStep = (next: "list" | "models") => {
-    setStepState(next);
-    onStepChange?.(next);
-  };
-
   const rows = useMemo(
-    () => filterLanguageGenerationConnections((connectionsRaw ?? []) as SwitcherRow[]),
-    [connectionsRaw],
+    () =>
+      filterLanguageGenerationConnections((connectionsRaw ?? []) as SwitcherRow[]).filter(
+        (row) => !hiddenIds.has(row.id),
+      ),
+    [connectionsRaw, hiddenIds],
   );
   const groups = useMemo<SwitcherGroup[]>(() => {
     const { groups: byAccount, standalone } = groupModelsByAccount(rows, accounts ?? []);
@@ -331,31 +321,34 @@ export function ConnectionSwitcherBody({
     }
   };
 
-  // The star (decision 27): starring saves the model when it is not saved yet (and points the chat at the saved
-  // Model when it was the chat's catalog pick) and keeps it on top. Unstarring keeps the saved Model.
+  // The star (decision 30): starring saves the model when it is not saved yet (and points the chat at the saved
+  // Model when it was the chat's catalog pick). Unstarring removes the saved Model unless something keeps it.
   const toggleStar = async (group: SwitcherGroup, model: string, starred: boolean, name?: string) => {
     if (busy || !group.account) return;
     setBusy(true);
     try {
-      if (!starred && !group.rows.some((row) => row.model === model)) {
-        const pick = current?.model === model && groupOfRow.get(current.connectionId) === group ? current : null;
-        const { connectionId } = await pickModel.mutateAsync({
-          accountId: group.account.id,
-          model,
-          name: pick?.name ?? name,
-          maxContext: pick?.maxContext,
-          maxTokensOverride: pick?.maxTokensOverride,
-        });
-        if (pick) await onApply({ connectionId });
+      const pick = current?.model === model && groupOfRow.get(current.connectionId) === group ? current : null;
+      const target = {
+        accountId: group.account.id,
+        model,
+        name: pick?.name ?? name,
+        maxContext: pick?.maxContext,
+        maxTokensOverride: pick?.maxTokensOverride,
+        anchorId: (starAnchorOf(group.rows) ?? anchorOf(group)).id,
+      };
+      if (starred) {
+        await modelStar.unstar(target);
+        return;
       }
-      await setPinned.mutateAsync({ id: anchorOf(group).id, model, pinned: !starred });
+      const connectionId = await modelStar.star(target);
+      if (pick && connectionId) await onApply({ connectionId });
     } catch (error) {
       toast.error(t("connections.favorite.failed", { error: errorMessage(error) }));
     } finally {
       setBusy(false);
     }
   };
-  const starsOf = (group: SwitcherGroup) => new Set(group.rows.flatMap((row) => parsePinnedModels(row.pinnedModels)));
+  const starsOf = (group: SwitcherGroup) => starsOfRows(group.rows);
   const starButton = (group: SwitcherGroup, model: string, title: string, starred: boolean) =>
     group.account ? (
       <button
@@ -376,13 +369,16 @@ export function ConnectionSwitcherBody({
       </button>
     ) : null;
 
-  // ★ Favorites: the stars of every Connection (stars are shared by all Models of an account).
+  // ★ Favorites: the stars of every Connection, read from its anchor Model.
   const favourites = useMemo(
     () =>
       groups.flatMap((group) => {
         if (!group.account) return [];
-        const pins = new Set(group.rows.flatMap((row) => parsePinnedModels(row.pinnedModels)));
-        return [...pins].map((model) => ({ group, model, entry: entryFor(group, anchorOf(group), model) }));
+        return [...starsOfRows(group.rows)].map((model) => ({
+          group,
+          model,
+          entry: entryFor(group, anchorOf(group), model),
+        }));
       }),
     [anchorOf, groups],
   );
@@ -423,7 +419,7 @@ export function ConnectionSwitcherBody({
     const byRank = <T,>(items: Array<{ rank: number; text: number; item: T }>) =>
       items.filter((entry) => entry.rank >= 0).sort((a, b) => a.rank - b.rank || a.text - b.text);
     const starredIn = (group: SwitcherGroup | undefined, model: string | null | undefined) =>
-      !!group?.account && !!model && group.rows.some((row) => parsePinnedModels(row.pinnedModels).includes(model));
+      !!group?.account && !!model && starsOfRows(group.rows).has(model);
     const saved = byRank(
       rows.map((row) => {
         const model = { id: row.model ?? "", name: row.name };
@@ -764,7 +760,6 @@ export function ConnectionSwitcherBody({
         "flex min-h-0 flex-col",
         layout === "columns" && "w-[15.5rem] shrink-0 border-r border-foreground/10",
         layout === "steps" && "flex-1",
-        layout === "steps" && step === "models" && "hidden",
         listClassName,
       )}
     >
@@ -833,64 +828,46 @@ export function ConnectionSwitcherBody({
   const pickerRow = shownGroup ? anchorOf(shownGroup) : undefined;
   const pickerConnection =
     pickerRow && shownGroup?.account
-      ? { ...pickerRow, model: pickerRow === currentRow ? (current?.model ?? pickerRow.model) : null }
+      ? {
+          ...pickerRow,
+          // A pick runs on the chat's Model; the stars come from the Connection's anchor.
+          pinnedModels: (starAnchorOf(shownGroup.rows) ?? pickerRow).pinnedModels,
+          model: pickerRow === currentRow ? (current?.model ?? pickerRow.model) : null,
+        }
       : undefined;
   const usageRow = pickerRow ? resolveUsageConnection(rows, pickerRow.id) : null;
 
-  const models = shuffle?.active ? null : (
-    <div
-      data-quick-connection-models
-      className={cn(
-        "flex min-h-0 min-w-0 flex-1 flex-col",
-        layout === "steps" && step === "list" && "hidden",
-        modelsClassName,
-      )}
-    >
-      {usageRow && (layout !== "steps" || step === "models") && (
-        <div className="border-b border-foreground/10 px-3 pt-1">
-          <SubscriptionUsageWidget connectionId={usageRow.id} variant="inline" />
-        </div>
-      )}
-      {pickerConnection && (layout !== "steps" || step === "models") ? (
-        <ConnectionModelPicker
-          key={pickerConnection.id}
-          connection={pickerConnection}
-          onChoose={(choice) => (sameChoice(choice, current) ? Promise.resolve() : onApply(choice))}
-          accountName={shownGroup?.account?.name}
-          footer={layout === "container" ? pickerFooter : null}
-          onPicked={onDone}
-          leading={
-            layout !== "columns" ? (
-              <button
-                type="button"
-                data-model-back
-                onClick={() => setStep("list")}
-                aria-label={t("connections.modelPicker.back")}
-                title={t("connections.modelPicker.back")}
-                className={
-                  backClassName ??
-                  "-my-2 -ml-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-foreground/60 transition-colors hover:bg-foreground/10 hover:text-foreground/85"
-                }
-              >
-                <ChevronLeft size="1rem" aria-hidden />
-              </button>
-            ) : undefined
-          }
-        />
-      ) : (
-        <p className="px-4 py-4 text-[0.6875rem] text-foreground/50">
-          {currentId === LOCAL_SIDECAR_CONNECTION_ID ? (
-            <span className="flex items-center gap-1.5">
-              <Cpu size="0.75rem" aria-hidden />
-              {sidecarModelDisplayName || t("connections.modelPicker.localModel")}
-            </span>
-          ) : (
-            t("connections.modelPicker.chooseConnection")
-          )}
-        </p>
-      )}
-    </div>
-  );
+  const models =
+    shuffle?.active || layout === "steps" ? null : (
+      <div data-quick-connection-models className={cn("flex min-h-0 min-w-0 flex-1 flex-col", modelsClassName)}>
+        {usageRow && (
+          <div className="border-b border-foreground/10 px-3 pt-1">
+            <SubscriptionUsageWidget connectionId={usageRow.id} variant="inline" />
+          </div>
+        )}
+        {pickerConnection ? (
+          <ConnectionModelPicker
+            key={pickerConnection.id}
+            connection={pickerConnection}
+            onChoose={(choice) => (sameChoice(choice, current) ? Promise.resolve() : onApply(choice))}
+            accountName={shownGroup?.account?.name}
+            footer={layout === "container" ? pickerFooter : null}
+            onPicked={onDone}
+          />
+        ) : (
+          <p className="px-4 py-4 text-[0.6875rem] text-foreground/50">
+            {currentId === LOCAL_SIDECAR_CONNECTION_ID ? (
+              <span className="flex items-center gap-1.5">
+                <Cpu size="0.75rem" aria-hidden />
+                {sidecarModelDisplayName || t("connections.modelPicker.localModel")}
+              </span>
+            ) : (
+              t("connections.modelPicker.chooseConnection")
+            )}
+          </p>
+        )}
+      </div>
+    );
 
   // One footer for both columns, and on both phone steps. The composer menu keeps the picker's own line.
   const footer = layout !== "container" && (

@@ -6428,6 +6428,10 @@ const connectionsPanelSource = readFileSync(
   new URL("../../packages/client/src/components/panels/ConnectionsPanel.tsx", import.meta.url),
   "utf8",
 );
+const deviceDetailSource = readFileSync(
+  new URL("../../packages/client/src/components/connections/DeviceDetail.tsx", import.meta.url),
+  "utf8",
+);
 const presetsPanelSource = readFileSync(
   new URL("../../packages/client/src/components/panels/PresetsPanel.tsx", import.meta.url),
   "utf8",
@@ -6879,9 +6883,9 @@ assert.match(sidecarStoreSource, /loadModel: async \(\) =>/u);
 assert.match(sidecarProcessSource, /private manuallyUnloaded = false/u);
 assert.match(sidecarProcessSource, /if \(this\.manuallyUnloaded\) \{/u);
 assert.match(sidecarProcessSource, /this\.manuallyUnloaded = false;\s*this\.clearStartupFailure\(\)/u);
-assert.match(connectionsPanelSource, /ui\.panels\.sidecarcard\.failedToDeleteTheLocalWhisperModel/u);
-assert.match(connectionsPanelSource, /ui\.panels\.sidecarcard\.unloadLocalModel/u);
-assert.match(connectionsPanelSource, /ui\.panels\.sidecarcard\.loadLocalModel/u);
+assert.match(deviceDetailSource, /ui\.panels\.sidecarcard\.failedToDeleteTheLocalWhisperModel/u);
+assert.match(deviceDetailSource, /ui\.panels\.sidecarcard\.unloadLocalModel/u);
+assert.match(deviceDetailSource, /ui\.panels\.sidecarcard\.loadLocalModel/u);
 assert.match(
   connectionsPanelSource,
   /className="grid min-w-0 grid-cols-2 gap-2"/u,
@@ -9881,20 +9885,18 @@ assert.equal(({} as { tags?: string[] }).tags, undefined, "Background metadata m
     );
   }
 
-  // Connection Model rows: the hover overlay is fine-pointer only; touch layouts get one "…" button instead, so
-  // they reserve its width and never overlay the row.
+  // Connection Model rows (variant D): the star and "…" stay visible, so nothing overlays the row, and touch
+  // layouts get 44 px targets.
   const connectionRowSource = readFileSync(
     join(REPOSITORY_ROOT, "packages/client/src/components/connections/ConnectionRow.tsx"),
     "utf8",
   );
-  assert.match(connectionRowSource, /pr-0 max-md:pr-12 \[@media\(pointer:coarse\)\]:pr-12/u);
-  assert.doesNotMatch(connectionRowSource, /\[@media\(pointer:fine\)\]:group-hover:pr-/u);
-  assert.match(
+  assert.doesNotMatch(
     connectionRowSource,
-    /pointer-events-none[^"\n]*opacity-0[^"\n]*\[@media\(pointer:fine\)\]:group-focus-within:opacity-100[^"\n]*max-md:hidden \[@media\(pointer:coarse\)\]:hidden[^"\n]*\[@media\(pointer:fine\)\]:group-focus-within:\[&_button\]:pointer-events-auto/u,
-    "Connection row overlays must open on keyboard focus and stay off touch layouts",
+    /opacity-0|group-hover:/u,
+    "Connection rows must not hide actions behind hover",
   );
-  assert.match(connectionRowSource, /!hidden h-11 w-11[^"\n]*max-md:!flex \[@media\(pointer:coarse\)\]:!flex/u);
+  assert.match(connectionRowSource, /h-8 w-8[^"\n]*max-md:h-11 max-md:w-11 \[@media\(pointer:coarse\)\]:h-11/u);
 
   const personasPanelSource = sidebarPanelSources.get("Personas")!;
   const charactersPanelSource = sidebarPanelSources.get("Characters")!;

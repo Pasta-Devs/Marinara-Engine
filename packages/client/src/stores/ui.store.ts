@@ -20,7 +20,7 @@ import type { LegacyNoodleNavigationState as NoodleNavigationState } from "../li
 import { isCssGradient, MARINARA_GRADIENT_PRESET, RAINBOW_GRADIENT_PRESET } from "../lib/css-colors";
 import { announceChatFloatingUiDismiss } from "../lib/chat-floating-ui-events";
 import { detectConversationTimeZone, normalizeConversationTimeZone } from "../lib/conversation-time-zone";
-import { BASIC_PANEL_SORT_OPTIONS, normalizeBasicPanelSort, type BasicPanelSort } from "../lib/panel-sort";
+import { normalizeBasicPanelSort, type BasicPanelSort } from "../lib/panel-sort";
 import { DEFAULT_APP_LANGUAGE, type AppLanguage } from "../localization/locale-types";
 import { deferEditorLeave } from "../lib/editor-leave";
 import { OMNIBAR_ASIDE_DELAY_MS } from "../lib/omnibar-aside-text";
@@ -65,15 +65,6 @@ export type LorebookPanelCategory = (typeof LOREBOOK_PANEL_CATEGORY_OPTIONS)[num
 export const LOREBOOK_PANEL_SORT_OPTIONS = ["name-asc", "name-desc", "newest", "oldest", "tokens"] as const;
 export type LorebookPanelSort = (typeof LOREBOOK_PANEL_SORT_OPTIONS)[number];
 export type ResourcePanelSort = BasicPanelSort;
-export const CONNECTION_PANEL_SORT_OPTIONS = [...BASIC_PANEL_SORT_OPTIONS, "custom"] as const;
-export type ConnectionPanelSort = (typeof CONNECTION_PANEL_SORT_OPTIONS)[number];
-export type ConnectionPanelView = "cards" | "folders";
-
-function normalizeConnectionPanelSort(value: unknown): ConnectionPanelSort {
-  return CONNECTION_PANEL_SORT_OPTIONS.includes(value as ConnectionPanelSort)
-    ? (value as ConnectionPanelSort)
-    : "name-asc";
-}
 type FontSize = 12 | 14 | 16 | 17 | 19 | 22 | 26 | 30 | 34;
 export type VisualTheme = "default" | "sillytavern";
 export type ChatWidgetPreset = "default" | "dottore" | "mari";
@@ -847,8 +838,6 @@ interface UIState {
   /** Sort order for the compact Presets panel */
   presetPanelSort: ResourcePanelSort;
   /** Sort order for the compact Connections panel */
-  connectionPanelSort: ConnectionPanelSort;
-  connectionPanelView: ConnectionPanelView;
   /** Sort order for the compact Agents panel */
   agentPanelSort: ResourcePanelSort;
   libraryManualOrders: Record<string, { active: boolean; ids: string[] }>;
@@ -1248,8 +1237,6 @@ interface UIState {
   setLorebookPanelTagsExpanded: (expanded: boolean) => void;
   setBotBrowserPanelSort: (sort: ResourcePanelSort) => void;
   setPresetPanelSort: (sort: ResourcePanelSort) => void;
-  setConnectionPanelSort: (sort: ConnectionPanelSort) => void;
-  setConnectionPanelView: (view: ConnectionPanelView) => void;
   setAgentPanelSort: (sort: ResourcePanelSort) => void;
   setLibraryManualOrder: (kind: string, order: { active: boolean; ids: string[] }) => void;
   openCharacterDetail: (id: string, options?: { preserveCharacterLibrary?: boolean; initialTab?: string }) => void;
@@ -1766,8 +1753,6 @@ export function pickPersistedUIState(state: UIState) {
     lorebookPanelTagsExpanded: state.lorebookPanelTagsExpanded,
     botBrowserPanelSort: state.botBrowserPanelSort,
     presetPanelSort: state.presetPanelSort,
-    connectionPanelSort: state.connectionPanelSort,
-    connectionPanelView: state.connectionPanelView,
     agentPanelSort: state.agentPanelSort,
     libraryManualOrders: state.libraryManualOrders,
     trackerPanelEnabled: state.trackerPanelEnabled,
@@ -2084,8 +2069,6 @@ export const useUIStore = create<UIState>()(
         lorebookPanelTagsExpanded: false,
         botBrowserPanelSort: "name-asc" as ResourcePanelSort,
         presetPanelSort: "name-asc" as ResourcePanelSort,
-        connectionPanelSort: "name-asc" as ConnectionPanelSort,
-        connectionPanelView: "cards" as ConnectionPanelView,
         agentPanelSort: "name-asc" as ResourcePanelSort,
         libraryManualOrders: {},
         editorDirty: false,
@@ -2433,8 +2416,6 @@ export const useUIStore = create<UIState>()(
         setLorebookPanelTagsExpanded: (expanded) => set({ lorebookPanelTagsExpanded: expanded }),
         setBotBrowserPanelSort: (sort) => set({ botBrowserPanelSort: normalizeBasicPanelSort(sort) }),
         setPresetPanelSort: (sort) => set({ presetPanelSort: normalizeBasicPanelSort(sort) }),
-        setConnectionPanelSort: (sort) => set({ connectionPanelSort: normalizeConnectionPanelSort(sort) }),
-        setConnectionPanelView: (view) => set({ connectionPanelView: view === "folders" ? "folders" : "cards" }),
         setAgentPanelSort: (sort) => set({ agentPanelSort: normalizeBasicPanelSort(sort) }),
         setLibraryManualOrder: (kind, order) =>
           set((state) => ({ libraryManualOrders: { ...state.libraryManualOrders, [kind]: order } })),
@@ -3828,8 +3809,6 @@ export const useUIStore = create<UIState>()(
         persisted.lorebookPanelTagsExpanded = persisted.lorebookPanelTagsExpanded === true;
         persisted.botBrowserPanelSort = normalizeBasicPanelSort(persisted.botBrowserPanelSort);
         persisted.presetPanelSort = normalizeBasicPanelSort(persisted.presetPanelSort);
-        persisted.connectionPanelSort = normalizeConnectionPanelSort(persisted.connectionPanelSort);
-        persisted.connectionPanelView = persisted.connectionPanelView === "folders" ? "folders" : "cards";
         persisted.agentPanelSort = normalizeBasicPanelSort(persisted.agentPanelSort);
         normalizePersistedMainSurface(persisted);
         if (Array.isArray(persisted.recentUserActivities)) {
