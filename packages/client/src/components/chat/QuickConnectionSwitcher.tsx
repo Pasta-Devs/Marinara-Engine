@@ -156,18 +156,11 @@ export function QuickConnectionSwitcher({
               className={showModels ? undefined : "flex-col"}
               listClassName={showModels ? undefined : "w-full border-r-0"}
               listHeader={
-                <>
-                  <div className="border-b border-foreground/10 px-3 py-2">
-                    <span className="text-[0.6875rem] font-semibold">
-                      {localizeUi("navigation.topbar.connections")}
-                    </span>
+                contextBudget && (
+                  <div className="border-b border-foreground/10 px-3 pt-2">
+                    <ContextBudgetIndicator budget={contextBudget} />
                   </div>
-                  {contextBudget && (
-                    <div className="border-b border-foreground/10 px-3 pt-2">
-                      <ContextBudgetIndicator budget={contextBudget} />
-                    </div>
-                  )}
-                </>
+                )
               }
             />
           </div>,

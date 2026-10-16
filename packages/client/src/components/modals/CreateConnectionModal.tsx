@@ -1,11 +1,27 @@
 // ────────────────────────────────────────────────
 // Modal: Add connection (service → key/URL with test → pick models)
 // ────────────────────────────────────────────────
-import { useState } from "react";
-import { Check, Loader2 } from "lucide-react";
+import { useState, type ReactNode } from "react";
+import {
+  AudioLines,
+  Building2,
+  Check,
+  ChevronDown,
+  Film,
+  ImageIcon,
+  Link,
+  Loader2,
+  Network,
+  Scale,
+  Search,
+  Server,
+  UserRound,
+  type LucideIcon,
+} from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { PROVIDERS, isChatProvider, isLocalAuthProvider, type APIProvider } from "@marinara-engine/shared";
 import { Modal } from "../ui/Modal";
+import { SmoothFolderContent } from "../ui/SmoothFolderContent";
 import { ConnectionModelPicker } from "../connections/ConnectionModelPicker";
 import {
   useConnections,
@@ -30,10 +46,14 @@ interface Props {
   initialProvider?: APIProvider;
 }
 
-const SERVICE_GROUPS: Array<{ id: string; providers: APIProvider[] }> = [
+/** Shown open: the paths most people take. Collapsed: the long lists, so step 1 fits one screen. */
+const SERVICE_GROUPS: Array<{ id: string; providers: APIProvider[]; collapsed?: boolean }> = [
   { id: "gateways", providers: ["openrouter", "nanogpt"] },
+  { id: "local", providers: ["custom"] },
+  { id: "subscription", providers: ["openai_chatgpt", "claude_subscription", "grok_subscription"] },
   {
     id: "vendors",
+    collapsed: true,
     providers: [
       "openai",
       "anthropic",
@@ -47,17 +67,105 @@ const SERVICE_GROUPS: Array<{ id: string; providers: APIProvider[] }> = [
       "arli",
     ],
   },
-  { id: "local", providers: ["custom"] },
-  { id: "subscription", providers: ["openai_chatgpt", "claude_subscription", "grok_subscription"] },
-  { id: "media", providers: ["image_generation", "video_generation", "audio", "decision"] },
+  { id: "media", providers: ["image_generation", "video_generation", "audio", "decision"], collapsed: true },
 ];
+
+const GROUP_ICONS: Record<string, LucideIcon> = {
+  gateways: Network,
+  local: Server,
+  subscription: UserRound,
+  vendors: Building2,
+};
+const PROVIDER_ICONS: Partial<Record<APIProvider, LucideIcon>> = {
+  image_generation: ImageIcon,
+  video_generation: Film,
+  audio: AudioLines,
+  decision: Scale,
+};
+
+/** Agent editor choice card, laid out as a list row: icon, name, one-line hint. */
+function ServiceCard({
+  icon: Icon,
+  name,
+  hint,
+  onClick,
+}: {
+  icon: LucideIcon;
+  name: string;
+  hint: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={name}
+      aria-description={hint}
+      className="mari-chrome-control mari-chrome-control--card min-h-14 p-2.5 text-xs"
+    >
+      <span className="flex min-w-0 items-center gap-2.5">
+        <span className="mari-panel-gradient-surface mari-panel-gradient--connections flex h-8 w-8 shrink-0 items-center justify-center rounded-lg shadow-sm">
+          <Icon size="0.875rem" />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate font-medium">{name}</span>
+          <span className="block truncate text-[0.6875rem] text-[var(--muted-foreground)]">{hint}</span>
+        </span>
+      </span>
+    </button>
+  );
+}
+
+/** A small group label above choice cards; long groups fold behind the same chevron the panel uses. */
+function ServiceGroup({
+  title,
+  count,
+  collapsible,
+  open,
+  onToggle,
+  children,
+}: {
+  title: string;
+  count: number;
+  collapsible: boolean;
+  open: boolean;
+  onToggle: () => void;
+  children: ReactNode;
+}) {
+  const grid = <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">{children}</div>;
+  if (!collapsible) {
+    return (
+      <div className="flex flex-col gap-1.5">
+        <span className="text-[0.6875rem] font-medium text-[var(--muted-foreground)]">{title}</span>
+        {grid}
+      </div>
+    );
+  }
+  return (
+    <div className="flex flex-col">
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={open}
+        className="flex min-h-11 items-center gap-1.5 self-start rounded-lg px-1 text-[0.6875rem] font-medium text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)] md:min-h-9"
+      >
+        <ChevronDown size="0.75rem" className={cn("transition-transform", open && "rotate-180")} />
+        {title} ({count})
+      </button>
+      <SmoothFolderContent open={open}>
+        <div className="pt-1">{grid}</div>
+      </SmoothFolderContent>
+    </div>
+  );
+}
 
 type Target = { accountId: string; connectionId: string; fresh: boolean };
 type ConnectionRowLite = { id: string; name?: string; provider?: string; accountId?: string | null };
 
 const LOCAL_URL_EXAMPLE = "http://localhost:11434/v1";
-const inputClass =
-  "w-full rounded-lg bg-[var(--secondary)] px-3 py-2 text-sm outline-none ring-1 ring-[var(--border)] focus:ring-[var(--primary)]";
+const inputClass = "mari-chrome-field h-10 w-full px-3 text-xs md:h-9";
+const PRIMARY_CLASS = "mari-panel-gradient-button mari-panel-gradient--connections px-4 text-xs max-md:min-h-11";
+const SECONDARY_CLASS = "mari-chrome-control mari-chrome-control--small px-3 text-xs max-md:min-h-11";
 
 export function CreateConnectionModal({ open, onClose, initialProvider }: Props) {
   const { t } = useTranslation();
@@ -81,6 +189,9 @@ export function CreateConnectionModal({ open, onClose, initialProvider }: Props)
   const [maxJobs, setMaxJobs] = useState("");
   const [tested, setTested] = useState<{ success: boolean; message?: string } | null>(null);
   const [picked, setPicked] = useState(0);
+  const [query, setQuery] = useState("");
+  const [openGroups, setOpenGroups] = useState<Set<string>>(() => new Set());
+  const [moreOpen, setMoreOpen] = useState(false);
 
   const allRows = (rows ?? []) as ConnectionRowLite[];
   const existing = (accounts ?? []).filter((account) => account.modelCount > 0);
@@ -164,68 +275,115 @@ export function CreateConnectionModal({ open, onClose, initialProvider }: Props)
     setStep(1);
   };
 
+  const serviceName = (key: APIProvider) =>
+    key === "decision" ? t("connections.decision.label") : (PROVIDERS[key]?.name ?? key);
+  const needle = query.trim().toLowerCase();
+  const searching = needle.length > 0;
+  const matches = (...texts: string[]) => !searching || texts.some((text) => text.toLowerCase().includes(needle));
+  const filteredExisting = existing.filter((account) =>
+    matches(account.name, serviceName(account.provider as APIProvider)),
+  );
+  const filteredGroups = SERVICE_GROUPS.map((group) => ({
+    ...group,
+    providers: group.providers.filter((key) => matches(serviceName(key), t(`connections.add.hint.${key}`))),
+  })).filter((group) => group.providers.length > 0);
+
   const pickerRow = target ? allRows.find((row) => row.id === target.connectionId) : undefined;
   const inPlace = !!target?.fresh && picked === 0;
   const stepTitle = t(`connections.add.step${step}`);
 
   return (
-    <Modal open={open} onClose={() => void close()} title={t("connections.add.title")} width="max-w-md">
+    <Modal open={open} onClose={() => void close()} title={t("connections.add.title")} width="max-w-lg">
       <div className="flex flex-col gap-3">
         <p className="text-xs text-[var(--muted-foreground)]">{stepTitle}</p>
 
         {step === 1 && (
           <div className="flex flex-col gap-3">
-            {existing.length > 0 && (
-              <div className="flex flex-col gap-1.5">
-                <span className="text-xs font-medium text-[var(--muted-foreground)]">
-                  {t("connections.add.group.existing")}
-                </span>
-                <div className="grid grid-cols-2 gap-1.5">
-                  {existing.map((account) => (
-                    <button
-                      key={account.id}
-                      type="button"
-                      onClick={() => chooseExisting(account.id)}
-                      className="mari-chrome-control mari-chrome-control--card text-xs"
-                    >
-                      <span className="font-medium">{account.name}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
+            <div className="relative">
+              <Search
+                size="0.8125rem"
+                className="mari-chrome-field-icon pointer-events-none absolute left-3 top-1/2 -translate-y-1/2"
+              />
+              <input
+                type="search"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder={t("connections.add.search")}
+                aria-label={t("connections.add.search")}
+                className="mari-chrome-field h-10 w-full py-0 pl-8 pr-3 text-xs md:h-9"
+              />
+            </div>
+            {filteredExisting.length > 0 && (
+              <ServiceGroup
+                title={t("connections.add.group.existing")}
+                count={filteredExisting.length}
+                collapsible={false}
+                open
+                onToggle={() => {}}
+              >
+                {filteredExisting.map((account) => (
+                  <ServiceCard
+                    key={account.id}
+                    icon={Link}
+                    name={account.name}
+                    hint={t("connections.add.existingHint", {
+                      service: serviceName(account.provider as APIProvider),
+                      count: account.modelCount,
+                    })}
+                    onClick={() => chooseExisting(account.id)}
+                  />
+                ))}
+              </ServiceGroup>
             )}
-            {SERVICE_GROUPS.map((group) => (
-              <div key={group.id} className="flex flex-col gap-1.5">
-                <span className="text-xs font-medium text-[var(--muted-foreground)]">
-                  {t(`connections.add.group.${group.id}`)}
-                </span>
-                <div className="grid grid-cols-2 gap-1.5">
-                  {group.providers.map((key) => (
-                    <button
-                      key={key}
-                      type="button"
-                      onClick={() => {
-                        setProvider(key);
-                        setStep(2);
-                      }}
-                      className="mari-chrome-control mari-chrome-control--card text-xs"
-                    >
-                      <span className="font-medium">
-                        {key === "decision" ? t("connections.decision.label") : PROVIDERS[key].name}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </div>
+            {filteredGroups.map((group) => (
+              <ServiceGroup
+                key={group.id}
+                title={t(`connections.add.group.${group.id}`)}
+                count={group.providers.length}
+                collapsible={!!group.collapsed && !searching}
+                open={searching || openGroups.has(group.id)}
+                onToggle={() =>
+                  setOpenGroups((current) => {
+                    const next = new Set(current);
+                    if (next.has(group.id)) next.delete(group.id);
+                    else next.add(group.id);
+                    return next;
+                  })
+                }
+              >
+                {group.providers.map((key) => (
+                  <ServiceCard
+                    key={key}
+                    icon={PROVIDER_ICONS[key] ?? GROUP_ICONS[group.id] ?? Link}
+                    name={serviceName(key)}
+                    hint={t(`connections.add.hint.${key}`)}
+                    onClick={() => {
+                      setProvider(key);
+                      setStep(2);
+                    }}
+                  />
+                ))}
+              </ServiceGroup>
             ))}
+            {searching && filteredExisting.length === 0 && filteredGroups.length === 0 && (
+              <p className="py-4 text-center text-xs text-[var(--muted-foreground)]">{t("connections.add.noMatch")}</p>
+            )}
           </div>
         )}
 
         {step === 2 && provider && (
           <div className="flex flex-col gap-3">
-            <p className="text-sm font-medium">
-              {provider === "decision" ? t("connections.decision.label") : def?.name}
-            </p>
+            <div className="flex items-center gap-2.5">
+              <span className="mari-panel-gradient-surface mari-panel-gradient--connections flex h-9 w-9 shrink-0 items-center justify-center rounded-xl shadow-sm">
+                <Link size="1rem" />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-sm font-medium">{serviceName(provider)}</span>
+                <span className="block text-[0.6875rem] text-[var(--muted-foreground)]">
+                  {t(`connections.add.hint.${provider}`)}
+                </span>
+              </span>
+            </div>
             {needsUrl && (
               <label className="flex flex-col gap-1">
                 <span className="text-xs font-medium text-[var(--muted-foreground)]">
@@ -254,11 +412,18 @@ export function CreateConnectionModal({ open, onClose, initialProvider }: Props)
               </label>
             )}
             {keyless && <p className="text-xs text-[var(--muted-foreground)]">{t("connections.add.keyless")}</p>}
-            <details className="rounded-lg ring-1 ring-[var(--border)]">
-              <summary className="cursor-pointer px-3 py-2 text-xs font-medium">
-                {t("connections.add.moreOptions")}
-              </summary>
-              <div className="flex flex-col gap-2 px-3 pb-3">
+            <button
+              type="button"
+              onClick={() => setMoreOpen((value) => !value)}
+              aria-expanded={moreOpen}
+              aria-controls="add-connection-more"
+              className="flex min-h-11 items-center gap-1.5 self-start rounded-lg px-1 text-[0.6875rem] font-medium text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)] md:min-h-9"
+            >
+              <ChevronDown size="0.75rem" className={cn("transition-transform", moreOpen && "rotate-180")} />
+              {t("connections.add.moreOptions")}
+            </button>
+            <SmoothFolderContent open={moreOpen}>
+              <div id="add-connection-more" className="flex flex-col gap-2 pb-1">
                 <label className="flex flex-col gap-1">
                   <span className="text-xs text-[var(--muted-foreground)]">{t("connections.add.name")}</span>
                   <input
@@ -308,7 +473,7 @@ export function CreateConnectionModal({ open, onClose, initialProvider }: Props)
                   </label>
                 </div>
               </div>
-            </details>
+            </SmoothFolderContent>
             {tested && (
               <p
                 role="status"
@@ -346,7 +511,7 @@ export function CreateConnectionModal({ open, onClose, initialProvider }: Props)
           <button
             type="button"
             onClick={() => void (step === 1 || (step === 3 && target?.fresh) ? close() : back())}
-            className="rounded-lg px-4 py-2 text-xs font-medium max-md:min-h-11 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)]"
+            className={SECONDARY_CLASS}
           >
             {step === 1 || (step === 3 && target?.fresh) ? t("chat.delete.dialog.cancel") : t("connections.add.back")}
           </button>
@@ -356,7 +521,8 @@ export function CreateConnectionModal({ open, onClose, initialProvider }: Props)
                 type="button"
                 onClick={() => void saveAndTest()}
                 disabled={busy || (needsUrl && !baseUrl.trim()) || (!keyless && !needsUrl && !apiKey.trim())}
-                className="mari-chrome-control flex items-center gap-1.5 px-4 py-2 text-xs font-medium max-md:min-h-11 disabled:opacity-50"
+                // One primary per step: Save and test until the test passes, then Next.
+                className={cn(tested?.success && target ? SECONDARY_CLASS : PRIMARY_CLASS, "disabled:opacity-50")}
               >
                 {busy && <Loader2 size="0.75rem" className="animate-spin" />}
                 {t("connections.add.test")}
@@ -365,7 +531,7 @@ export function CreateConnectionModal({ open, onClose, initialProvider }: Props)
                 <button
                   type="button"
                   onClick={() => setStep(3)}
-                  className="rounded-lg bg-[var(--primary)] px-4 py-2 text-xs font-medium max-md:min-h-11 text-[var(--primary-foreground)] transition-all hover:opacity-90"
+                  className={tested.success ? PRIMARY_CLASS : SECONDARY_CLASS}
                 >
                   {t("connections.add.next")}
                 </button>
@@ -377,7 +543,7 @@ export function CreateConnectionModal({ open, onClose, initialProvider }: Props)
               type="button"
               onClick={onClose}
               disabled={target?.fresh && picked === 0}
-              className="rounded-lg bg-[var(--primary)] px-4 py-2 text-xs font-medium max-md:min-h-11 text-[var(--primary-foreground)] transition-all hover:opacity-90 disabled:opacity-50"
+              className={cn(PRIMARY_CLASS, "disabled:opacity-50")}
             >
               {t("connections.add.done")}
             </button>

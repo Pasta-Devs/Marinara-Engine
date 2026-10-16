@@ -35,6 +35,10 @@ const MEDIA_KIND: Record<string, "image" | "video" | "audio"> = {
   audio: "audio",
 };
 
+/** Card header icon buttons: compact on a mouse so the name keeps the width, 44 px on touch. */
+const CARD_ICON_BUTTON_CLASS =
+  "mari-chrome-control mari-chrome-control--small h-7 min-h-0 w-7 !p-0 max-md:h-11 max-md:w-11 [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:w-11";
+
 export const isMediaRow = (row: Pick<ConnectionRowData, "provider">) => row.provider in MEDIA_KIND;
 
 export type ConnectionRowDisplay = { subtitle: string; badge: string | null };
@@ -126,32 +130,36 @@ export function ConnectionCard({
 
   return (
     <section className={CONNECTION_CARD_CLASS} data-connection-account-id={account.id}>
-      <div className="flex items-center gap-2.5">
+      {/* A narrow card moves the buttons to their own line, so the name and its state stay readable. */}
+      <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
         <div className={CONNECTION_TILE_CLASS}>{mediaOnly ? <ImageIcon size="1rem" /> : <Link size="1rem" />}</div>
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 md:min-w-[8rem]">
           {/* Two lines, so names that differ only at the end (an address, a port) stay apart. */}
-          <div className="line-clamp-2 break-words text-sm font-medium text-[var(--foreground)]" title={account.name}>
+          <div
+            className="line-clamp-2 text-sm font-medium [overflow-wrap:anywhere] text-[var(--foreground)]"
+            title={account.name}
+          >
             {account.name}
           </div>
           <div className="truncate text-[0.6875rem] text-[var(--muted-foreground)]">
             {service} · <span className={cn(account.state !== "ok" && "text-[var(--warning)]")}>{stateLabel}</span>
           </div>
         </div>
-        <div className="flex shrink-0 items-center gap-1.5">
+        <div className="ml-auto flex shrink-0 items-center gap-0.5 max-md:gap-1">
           <button
             type="button"
             onClick={runTest}
             disabled={!firstRow || test.isPending}
-            className="mari-chrome-control mari-chrome-control--small h-8 min-h-0 w-8 p-0 max-md:h-11 max-md:w-11"
+            className={CARD_ICON_BUTTON_CLASS}
             title={firstRow ? t("connections.accounts.test") : t("connections.accounts.addModelFirst")}
-            aria-label={t("connections.accounts.test")}
+            aria-label={t("connections.accounts.testNamed", { name: account.name })}
           >
             {test.isPending ? <Loader2 size="0.75rem" className="animate-spin" /> : <Wifi size="0.8125rem" />}
           </button>
           <button
             type="button"
             onClick={() => openModal("connection-account", { accountId: account.id })}
-            className="mari-chrome-control mari-chrome-control--small h-8 min-h-0 w-8 p-0 max-md:h-11 max-md:w-11"
+            className={CARD_ICON_BUTTON_CLASS}
             title={t("connections.accounts.edit", { name: account.name })}
             aria-label={t("connections.accounts.edit", { name: account.name })}
           >
@@ -160,7 +168,7 @@ export function ConnectionCard({
           <button
             type="button"
             onClick={() => setOpen((value) => !value)}
-            className="mari-chrome-control mari-chrome-control--small h-8 min-h-0 w-8 p-0 max-md:h-11 max-md:w-11"
+            className={CARD_ICON_BUTTON_CLASS}
             aria-label={
               expanded
                 ? t("connections.accounts.collapse", { name: account.name })
@@ -205,7 +213,9 @@ export function ConnectionCard({
           {subgroupByUpstream(rows).map((group) => (
             <div key={group.upstream ?? ""} className="flex flex-col gap-0.5">
               {group.upstream && (
-                <p className="px-1 pt-1 text-[0.625rem] font-medium text-[var(--muted-foreground)]">{group.upstream}</p>
+                <p className="px-2 pt-2 text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
+                  {t("connections.accounts.upstreamHeading", { upstream: group.upstream, count: group.rows.length })}
+                </p>
               )}
               {group.rows.map((row) => (
                 <div key={row.id}>

@@ -1,7 +1,8 @@
 // ──────────────────────────────────────────────
-// ConnectionSelect — native <select> that picks a Model, grouped by Connection.
+// ConnectionSelect — picks a Model, grouped by Connection: a native <select>, or a label/value row with a menu.
 // ──────────────────────────────────────────────
-import { useMemo } from "react";
+import { useMemo, useState, type ReactNode } from "react";
+import { ChevronRight } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { LOCAL_SIDECAR_CONNECTION_ID, isChatProvider } from "@marinara-engine/shared";
 import { useConnections } from "../../hooks/use-connections";
@@ -9,6 +10,7 @@ import { useConnectionAccounts } from "../../hooks/use-connection-accounts";
 import { groupModelsByAccount, type ConnectionModelRow } from "../../lib/connection-groups";
 import { isConnectionFlagTrue } from "../../lib/connection-filters";
 import { cn } from "../../lib/utils";
+import { ContextMenu, type ContextMenuItem } from "../ui/ContextMenu";
 
 export type ConnectionSelectKind = "chat" | "image" | "video" | "audio" | "decision";
 
@@ -34,6 +36,8 @@ export function ConnectionSelect({
   defaultLabel,
   includeLocalSidecar = false,
   extraOptions = [],
+  variant = "native",
+  label: rowLabel,
   className,
   ...aria
 }: {
@@ -47,10 +51,15 @@ export function ConnectionSelect({
   includeLocalSidecar?: boolean;
   /** Values that are not Models but valid for this slot, such as "random"; listed after the first option. */
   extraOptions?: ReadonlyArray<{ value: string; label: string }>;
+  /** `menu`: a Settings-style label/value row that opens a menu instead of a native select. */
+  variant?: "native" | "menu";
+  /** Left side of the `menu` row (icon and role name). */
+  label?: ReactNode;
   className?: string;
   id?: string;
   "aria-label"?: string;
 }) {
+  const [menu, setMenu] = useState<{ x: number; y: number; keyboard: boolean } | null>(null);
   const { t } = useTranslation();
   const { data: rawRows } = useConnections();
   const { data: accounts } = useConnectionAccounts();
@@ -83,19 +92,94 @@ export function ConnectionSelect({
 
   // An off Connection, one without a key, or an import awaiting review cannot answer;
   // the option stays visible but disabled.
-  const option = (row: Row) => {
+  const stateOf = (row: Row) => {
     const account = row.accountId ? view.accountById.get(row.accountId) : undefined;
     const suffix = isConnectionFlagTrue(row.profileImportReviewRequired)
       ? t("connections.select.review")
       : account && account.state !== "ok"
         ? t(`connections.select.${account.state}`)
         : "";
+    return { account, suffix };
+  };
+  const option = (row: Row) => {
+    const { suffix } = stateOf(row);
     return (
       <option key={row.id} value={row.id} disabled={!!suffix && row.id !== value}>
         {[label(row), suffix && `(${suffix})`].filter(Boolean).join(" ")}
       </option>
     );
   };
+
+  if (variant === "menu") {
+    const modelItem = (row: Row): ContextMenuItem => {
+      const { account, suffix } = stateOf(row);
+      return {
+        label: label(row),
+        hint: [account?.name ?? t("connections.select.standalone"), suffix].filter(Boolean).join(" · "),
+        checked: row.id === value,
+        disabled: !!suffix && row.id !== value,
+        onSelect: () => onChange(row.id),
+      };
+    };
+    const items: ContextMenuItem[] = [
+      { label: defaultText, checked: !value, onSelect: () => onChange(null) },
+      ...extraOptions.map((extra) => ({
+        label: extra.label,
+        checked: extra.value === value,
+        onSelect: () => onChange(extra.value),
+      })),
+      ...(missing
+        ? [{ label: t("connections.select.missing", { id: value }), checked: true, onSelect: () => {} }]
+        : []),
+      ...view.groups.flatMap((group) => group.rows.map(modelItem)),
+      ...view.standalone.map(modelItem),
+      ...(includeLocalSidecar
+        ? [
+            {
+              label: t("connections.select.localModel"),
+              checked: value === LOCAL_SIDECAR_CONNECTION_ID,
+              onSelect: () => onChange(LOCAL_SIDECAR_CONNECTION_ID),
+            },
+          ]
+        : []),
+    ];
+    const current = items.find((item) => item.checked) ?? items[0]!;
+    return (
+      <>
+        <button
+          type="button"
+          id={aria.id}
+          aria-label={
+            aria["aria-label"]
+              ? t("connections.select.labelWithValue", { label: aria["aria-label"], value: current.label })
+              : undefined
+          }
+          aria-haspopup="menu"
+          aria-expanded={!!menu}
+          onClick={(event) => {
+            const rect = event.currentTarget.getBoundingClientRect();
+            setMenu({ x: rect.left, y: rect.bottom + 2, keyboard: event.detail === 0 });
+          }}
+          className={cn(
+            "flex min-h-11 w-full min-w-0 items-center gap-2 rounded-lg px-1.5 py-1 text-left text-xs transition-colors hover:bg-[var(--sidebar-accent)]/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)] md:min-h-9",
+            className,
+          )}
+        >
+          {rowLabel && <span className="flex shrink-0 items-center gap-2 text-[var(--foreground)]">{rowLabel}</span>}
+          <span className="min-w-0 flex-1 text-right">
+            <span className="block break-words text-[var(--foreground)]">{current.label}</span>
+            {current.hint && (
+              <span className="block truncate text-[0.625rem] text-[var(--muted-foreground)]">{current.hint}</span>
+            )}
+          </span>
+          <ChevronRight size="0.75rem" className="shrink-0 text-[var(--muted-foreground)]" />
+        </button>
+        {menu && (
+          <ContextMenu x={menu.x} y={menu.y} items={items} autoFocus={menu.keyboard} onClose={() => setMenu(null)} />
+        )}
+      </>
+    );
+  }
 
   return (
     <select

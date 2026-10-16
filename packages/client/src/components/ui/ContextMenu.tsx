@@ -3,6 +3,7 @@
 // ──────────────────────────────────────────────
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { Check } from "lucide-react";
 import { cn } from "../../lib/utils";
 
 export interface ContextMenuItem {
@@ -11,6 +12,10 @@ export interface ContextMenuItem {
   onSelect: () => void;
   disabled?: boolean;
   destructive?: boolean;
+  /** Muted second line, such as the Connection a Model belongs to. */
+  hint?: string;
+  /** Marks the current choice when the menu picks one value. */
+  checked?: boolean;
 }
 
 interface ContextMenuProps {
@@ -91,14 +96,15 @@ export function ContextMenu({
       ref={ref}
       role="menu"
       style={{ position: "fixed", left: pos.left, top: pos.top, zIndex: 9999 }}
-      className="max-h-[calc(100dvh-0.5rem)] min-w-[12rem] overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--card)] py-1 shadow-xl animate-fade-in-up"
+      className="max-h-[calc(100dvh-0.5rem)] min-w-[12rem] max-w-[min(20rem,calc(100vw-0.5rem))] overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--card)] py-1 shadow-xl animate-fade-in-up"
       onContextMenu={(e) => e.preventDefault()}
     >
       {items.map((item, i) => (
         <button
           key={`${item.label}-${i}`}
           type="button"
-          role="menuitem"
+          role={item.checked === undefined ? "menuitem" : "menuitemradio"}
+          aria-checked={item.checked}
           disabled={item.disabled}
           onClick={() => {
             if (item.disabled) return;
@@ -117,7 +123,13 @@ export function ContextMenu({
           )}
         >
           {item.icon && <span className="shrink-0 text-[var(--muted-foreground)]">{item.icon}</span>}
-          <span className="flex-1 truncate">{item.label}</span>
+          <span className="min-w-0 flex-1">
+            <span className="block truncate">{item.label}</span>
+            {item.hint && (
+              <span className="block truncate text-[0.625rem] text-[var(--muted-foreground)]">{item.hint}</span>
+            )}
+          </span>
+          {item.checked && <Check size="0.75rem" className="shrink-0 text-[var(--primary)]" />}
         </button>
       ))}
     </div>,

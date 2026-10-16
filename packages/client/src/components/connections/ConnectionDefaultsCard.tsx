@@ -9,12 +9,15 @@ import {
   ChevronUp,
   Database,
   Film,
+  GraduationCap,
   ImageIcon,
   Loader2,
+  MessageCircleQuestion,
   MessageSquareText,
   Music,
   Settings2,
   Sparkles,
+  VenetianMask,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -61,35 +64,35 @@ const FLAG_ROLES: Array<{
 }> = [
   {
     key: "main",
-    icon: <MessageSquareText size="0.8125rem" />,
+    icon: <MessageSquareText size="0.875rem" />,
     kind: "chat",
     primary: "isDefault",
     fallback: "fallbackForMain",
   },
   {
     key: "agents",
-    icon: <Sparkles size="0.8125rem" />,
+    icon: <Sparkles size="0.875rem" />,
     kind: "chat",
     primary: "defaultForAgents",
     fallback: "fallbackForAgents",
   },
   {
     key: "images",
-    icon: <ImageIcon size="0.8125rem" />,
+    icon: <ImageIcon size="0.875rem" />,
     kind: "image",
     primary: "defaultForAgents",
     fallback: "fallbackForAgents",
   },
   {
     key: "video",
-    icon: <Film size="0.8125rem" />,
+    icon: <Film size="0.875rem" />,
     kind: "video",
     primary: "defaultForAgents",
     fallback: "fallbackForAgents",
   },
   {
     key: "audio",
-    icon: <Music size="0.8125rem" />,
+    icon: <Music size="0.875rem" />,
     kind: "audio",
     primary: "defaultForAgents",
     fallback: "fallbackForAgents",
@@ -116,14 +119,22 @@ const FEATURE_EXTRA_OPTIONS: Partial<Record<keyof FeatureModelConnections, Array
   impersonateConnectionId: [{ value: "random", key: "connections.defaults.featureOption.random" }],
 };
 
+const FEATURE_ICONS: Record<keyof FeatureModelConnections, ReactNode> = {
+  mariConnectionId: <GraduationCap size="0.875rem" />,
+  omnibarAsideConnectionId: <MessageCircleQuestion size="0.875rem" />,
+  impersonateConnectionId: <VenetianMask size="0.875rem" />,
+};
+
 type Warning = { text: string; fix?: { label: string; run: () => void } };
 
-/** One role: icon, "model · connection", a warning with one fix; tapping opens its selects. */
+/** One role as a Settings-style label/value row: the Model's name, its Connection below; tapping opens its pickers. */
 function DefaultLine({
   id,
   icon,
   title,
-  summary,
+  value,
+  hint,
+  muted = false,
   warning,
   open,
   onToggle,
@@ -132,29 +143,33 @@ function DefaultLine({
   id: string;
   icon: ReactNode;
   title: string;
-  summary: string;
+  value: string;
+  hint?: string;
+  /** An unset role reads quieter than a chosen one. */
+  muted?: boolean;
   warning: Warning | null;
   open: boolean;
   onToggle: () => void;
   children: ReactNode;
 }) {
   return (
-    <div className="py-1.5">
+    <div className="py-1">
       <button
         type="button"
         onClick={onToggle}
         aria-expanded={open}
         aria-controls={`connection-default-${id}`}
-        className="flex min-h-11 w-full min-w-0 items-center gap-2.5 rounded-lg px-1 text-left transition-colors hover:bg-[var(--sidebar-accent)]/40 md:min-h-9"
+        className="flex min-h-11 w-full min-w-0 items-center gap-2 rounded-lg px-1.5 py-1 text-left text-xs transition-colors hover:bg-[var(--sidebar-accent)]/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)] md:min-h-9"
       >
-        <span className="mari-panel-gradient-surface mari-panel-gradient--connections flex h-7 w-7 shrink-0 items-center justify-center rounded-lg shadow-sm">
-          {icon}
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className="block text-xs font-semibold text-[var(--foreground)]">{title}</span>
-          <span className="block truncate text-[0.6875rem] text-[var(--muted-foreground)]" title={summary}>
-            {summary}
+        <span className="shrink-0 text-[var(--muted-foreground)]">{icon}</span>
+        <span className="shrink-0 font-medium text-[var(--foreground)]">{title}</span>
+        <span className="min-w-0 flex-1 text-right">
+          <span
+            className={cn("block break-words", muted ? "text-[var(--muted-foreground)]" : "text-[var(--foreground)]")}
+          >
+            {value}
           </span>
+          {hint && <span className="block truncate text-[0.625rem] text-[var(--muted-foreground)]">{hint}</span>}
         </span>
         <ChevronDown
           size="0.75rem"
@@ -162,7 +177,7 @@ function DefaultLine({
         />
       </button>
       {warning && (
-        <div className="mt-1 flex flex-wrap items-center gap-2 pl-[2.625rem] text-[0.6875rem] text-[var(--warning)]">
+        <div className="mt-1 flex flex-wrap items-center gap-2 pl-7 text-[0.6875rem] text-[var(--warning)]">
           <AlertTriangle size="0.75rem" className="shrink-0" />
           <span className="min-w-0">{warning.text}</span>
           {warning.fix && (
@@ -177,20 +192,14 @@ function DefaultLine({
         </div>
       )}
       <SmoothFolderContent open={open}>
-        <div id={`connection-default-${id}`} className="space-y-2 pb-1 pl-[2.625rem] pt-2">
+        <div
+          id={`connection-default-${id}`}
+          className="ml-7 mt-1 space-y-1 border-l border-[color-mix(in_srgb,var(--mari-panel-gradient-start)_15%,transparent)] pb-1 pl-2"
+        >
           {children}
         </div>
       </SmoothFolderContent>
     </div>
-  );
-}
-
-function LabeledSelect({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <label className="block min-w-0">
-      <span className="mb-1 block text-[0.625rem] font-medium text-[var(--muted-foreground)]">{label}</span>
-      {children}
-    </label>
   );
 }
 
@@ -223,12 +232,10 @@ export function ConnectionDefaultsCard({ connectionsList }: { connectionsList: C
   const offerLocalSidecar = !lite && (sidecarModelDownloaded || sidecarAsAgentsDefault);
   const toggleLine = (key: string) => setOpenLine((current) => (current === key ? null : key));
 
+  /** The name the user gave the Model, with its Connection as the muted second line. */
   const describe = (row: ConnectionRowData) => {
     const account = row.accountId ? accountById.get(row.accountId) : undefined;
-    return t("connections.defaults.modelOnConnection", {
-      model: row.model?.trim() || row.name,
-      connection: account?.name ?? row.name,
-    });
+    return { value: row.name?.trim() || row.model?.trim() || row.id, hint: account?.name };
   };
   /** A broken Connection behind the chosen Model, and its one fix. */
   const accountWarning = (account: ConnectionAccountListItem | undefined): Warning | null => {
@@ -312,15 +319,15 @@ export function ConnectionDefaultsCard({ connectionsList }: { connectionsList: C
     const isAgents = role.key === "agents";
     const usesSidecar = isAgents && sidecarAsAgentsDefault;
 
-    let summary: string;
+    let summary: { value: string; hint?: string; muted?: boolean };
     let warning: Warning | null = null;
-    if (usesSidecar) summary = sidecarName;
+    if (usesSidecar) summary = { value: sidecarName };
     else if (primary) {
       summary = describe(primary);
       warning = accountWarning(primary.accountId ? accountById.get(primary.accountId) : undefined);
-    } else if (isAgents) summary = t("connections.defaults.agentsFollowChat");
+    } else if (isAgents) summary = { value: t("connections.defaults.agentsFollowChat"), muted: true };
     else {
-      summary = t("connections.defaults.notSet");
+      summary = { value: t("connections.defaults.notSet"), muted: true };
       if (role.key === "main") warning = { text: t("connections.defaults.warning.noMain"), fix: chooseFix(role.key) };
     }
 
@@ -330,30 +337,32 @@ export function ConnectionDefaultsCard({ connectionsList }: { connectionsList: C
         id={role.key}
         icon={role.icon}
         title={title}
-        summary={summary}
+        value={summary.value}
+        hint={summary.hint}
+        muted={summary.muted}
         warning={warning}
         open={openLine === role.key}
         onToggle={() => toggleLine(role.key)}
       >
-        <LabeledSelect label={t("connections.defaults.default")}>
-          <ConnectionSelect
-            kind={role.kind}
-            value={usesSidecar ? LOCAL_SIDECAR_CONNECTION_ID : (primary?.id ?? null)}
-            onChange={(id) => (isAgents ? setAgentsDefault(primary, id) : setRole(role.primary, primary, id))}
-            defaultLabel={isAgents ? t("connections.defaults.agentsFollowChat") : t("connections.defaults.none")}
-            includeLocalSidecar={isAgents && offerLocalSidecar}
-            aria-label={t("connections.defaults.defaultFor", { role: title })}
-          />
-        </LabeledSelect>
-        <LabeledSelect label={t("connections.defaults.fallback")}>
-          <ConnectionSelect
-            kind={role.kind}
-            value={fallback?.id ?? null}
-            onChange={(id) => setRole(role.fallback, fallback, id)}
-            defaultLabel={t("connections.defaults.none")}
-            aria-label={t("connections.defaults.fallbackFor", { role: title })}
-          />
-        </LabeledSelect>
+        <ConnectionSelect
+          variant="menu"
+          label={t("connections.defaults.default")}
+          kind={role.kind}
+          value={usesSidecar ? LOCAL_SIDECAR_CONNECTION_ID : (primary?.id ?? null)}
+          onChange={(id) => (isAgents ? setAgentsDefault(primary, id) : setRole(role.primary, primary, id))}
+          defaultLabel={isAgents ? t("connections.defaults.agentsFollowChat") : t("connections.defaults.none")}
+          includeLocalSidecar={isAgents && offerLocalSidecar}
+          aria-label={t("connections.defaults.defaultFor", { role: title })}
+        />
+        <ConnectionSelect
+          variant="menu"
+          label={t("connections.defaults.fallback")}
+          kind={role.kind}
+          value={fallback?.id ?? null}
+          onChange={(id) => setRole(role.fallback, fallback, id)}
+          defaultLabel={t("connections.defaults.none")}
+          aria-label={t("connections.defaults.fallbackFor", { role: title })}
+        />
         {isAgents && (
           <>
             <ToggleSetting
@@ -384,18 +393,21 @@ export function ConnectionDefaultsCard({ connectionsList }: { connectionsList: C
   // Embeddings: an app setting naming a Model with an embedding model, or the sidecar.
   const embeddingId = embeddingDefault.data?.connectionId ?? null;
   const embeddingRow = embeddingId ? connectionsList.find((row) => row.id === embeddingId) : undefined;
-  let embeddingSummary = t("connections.defaults.notSet");
+  let embeddingSummary: { value: string; hint?: string; muted?: boolean } = {
+    value: t("connections.defaults.notSet"),
+    muted: true,
+  };
   let embeddingWarning: Warning | null = null;
-  if (embeddingId === LOCAL_SIDECAR_CONNECTION_ID) embeddingSummary = sidecarName;
+  if (embeddingId === LOCAL_SIDECAR_CONNECTION_ID) embeddingSummary = { value: sidecarName };
   else if (embeddingRow) {
     const account = embeddingRow.accountId ? accountById.get(embeddingRow.accountId) : undefined;
-    embeddingSummary = t("connections.defaults.modelOnConnection", {
-      model: embeddingRow.embeddingModel?.trim() || embeddingRow.name,
-      connection: account?.name ?? embeddingRow.name,
-    });
+    embeddingSummary = {
+      value: embeddingRow.embeddingModel?.trim() || embeddingRow.name,
+      hint: account?.name ?? embeddingRow.name,
+    };
     embeddingWarning = accountWarning(account);
   } else if (embeddingId) {
-    embeddingSummary = t("connections.defaults.missing");
+    embeddingSummary = { value: t("connections.defaults.missing"), muted: true };
     embeddingWarning = { text: t("connections.defaults.warning.missing"), fix: chooseFix("embeddings") };
   }
 
@@ -419,14 +431,14 @@ export function ConnectionDefaultsCard({ connectionsList }: { connectionsList: C
           <div className="text-sm font-medium text-[var(--foreground)]">{t("connections.defaults.title")}</div>
           <div className="truncate text-[0.6875rem] text-[var(--muted-foreground)]">
             {t("connections.defaults.summary", {
-              model: mainRow ? describe(mainRow) : t("connections.defaults.notSet"),
+              model: mainRow ? describe(mainRow).value : t("connections.defaults.notSet"),
             })}
           </div>
         </div>
         <button
           type="button"
           onClick={() => setOpen((current) => !current)}
-          className="mari-chrome-control mari-chrome-control--small h-8 min-h-0 w-8 p-0 max-md:h-11 max-md:w-11"
+          className="mari-chrome-control mari-chrome-control--small h-8 min-h-0 w-8 !p-0 max-md:h-11 max-md:w-11"
           title={open ? t("connections.defaults.collapse") : t("connections.defaults.expand")}
           aria-label={open ? t("connections.defaults.collapse") : t("connections.defaults.expand")}
           aria-expanded={open}
@@ -438,14 +450,16 @@ export function ConnectionDefaultsCard({ connectionsList }: { connectionsList: C
       <SmoothFolderContent open={open}>
         <div
           id="connection-defaults-content"
-          className="mt-3 divide-y divide-[color-mix(in_srgb,var(--mari-panel-gradient-start)_10%,transparent)] border-t border-[color-mix(in_srgb,var(--mari-panel-gradient-start)_10%,transparent)]"
+          className="mt-3 border-t border-[color-mix(in_srgb,var(--mari-panel-gradient-start)_10%,transparent)] pt-1"
         >
           {roleLines}
           <DefaultLine
             id="embeddings"
-            icon={<Database size="0.8125rem" />}
+            icon={<Database size="0.875rem" />}
             title={t("connections.defaults.role.embeddings")}
-            summary={embeddingSummary}
+            value={embeddingSummary.value}
+            hint={embeddingSummary.hint}
+            muted={embeddingSummary.muted}
             warning={embeddingWarning}
             open={openLine === "embeddings"}
             onToggle={() => toggleLine("embeddings")}
@@ -454,34 +468,41 @@ export function ConnectionDefaultsCard({ connectionsList }: { connectionsList: C
           </DefaultLine>
           <DefaultLine
             id="decision"
-            icon={<BrainCircuit size="0.8125rem" />}
+            icon={<BrainCircuit size="0.875rem" />}
             title={t("connections.defaults.role.decision")}
-            summary={decisionSelected?.label ?? t("connections.defaults.notSet")}
+            value={decisionSelected?.label ?? t("connections.defaults.notSet")}
+            muted={!decisionSelected}
             warning={decisionWarning}
             open={openLine === "decision"}
             onToggle={() => toggleLine("decision")}
           >
             <DecisionDefaultControl />
           </DefaultLine>
-          <div className="space-y-2 py-3">
-            <p className="px-1 text-[0.625rem] font-medium text-[var(--muted-foreground)]">
+          <div className="space-y-0.5 py-2">
+            <p className="px-1.5 pb-1 text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
               {t("connections.defaults.featuresTitle")}
             </p>
             {FEATURE_KEYS.map((key) => (
-              <LabeledSelect key={key} label={t(`connections.defaults.feature.${key}`)}>
-                <ConnectionSelect
-                  value={features?.[key] ?? null}
-                  onChange={(value) => setFeature(key, value)}
-                  defaultLabel={t(`connections.defaults.featureDefault.${key}`)}
-                  extraOptions={FEATURE_EXTRA_OPTIONS[key]?.map((extra) => ({
-                    value: extra.value,
-                    label: t(extra.key),
-                  }))}
-                  includeLocalSidecar={!lite}
-                  className={cn(!features && "opacity-60")}
-                  aria-label={t(`connections.defaults.feature.${key}`)}
-                />
-              </LabeledSelect>
+              <ConnectionSelect
+                key={key}
+                variant="menu"
+                label={
+                  <>
+                    <span className="text-[var(--muted-foreground)]">{FEATURE_ICONS[key]}</span>
+                    <span className="font-medium">{t(`connections.defaults.feature.${key}`)}</span>
+                  </>
+                }
+                value={features?.[key] ?? null}
+                onChange={(value) => setFeature(key, value)}
+                defaultLabel={t(`connections.defaults.featureDefault.${key}`)}
+                extraOptions={FEATURE_EXTRA_OPTIONS[key]?.map((extra) => ({
+                  value: extra.value,
+                  label: t(extra.key),
+                }))}
+                includeLocalSidecar={!lite}
+                className={cn(!features && "opacity-60")}
+                aria-label={t(`connections.defaults.feature.${key}`)}
+              />
             ))}
           </div>
         </div>

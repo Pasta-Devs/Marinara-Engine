@@ -5,6 +5,7 @@ import {
   Check,
   Copy,
   Film,
+  GitBranch,
   ImageIcon,
   Link,
   MessageSquarePlus,
@@ -15,7 +16,15 @@ import {
   Trash2,
 } from "lucide-react";
 import { useTranslation as useUiTranslation } from "react-i18next";
-import { useDuplicateConnection, useDeleteConnection, useUpdateConnection } from "../../hooks/use-connections";
+import { toast } from "sonner";
+import { DECISION_SOURCE_BASE_URLS } from "@marinara-engine/shared";
+import {
+  useConnections,
+  useCreateConnection,
+  useDuplicateConnection,
+  useDeleteConnection,
+  useUpdateConnection,
+} from "../../hooks/use-connections";
 import { useUIStore } from "../../stores/ui.store";
 import { useChatStore } from "../../stores/chat.store";
 import { showConfirmDialog } from "../../lib/app-dialogs";
@@ -23,7 +32,6 @@ import { cn } from "../../lib/utils";
 import { isLanguageGenerationConnection } from "../../lib/connection-filters";
 import { requestChatResourceAssignment } from "../../lib/chat-resource-drag";
 import { resolveChatResourceDropAction } from "../../lib/chat-resource-drop-capabilities";
-import { ChatResourceActionButton } from "../chat/ChatResourceActionButton";
 import { ContextMenu, type ContextMenuItem } from "../ui/ContextMenu";
 
 const CONNECTION_ICON_COLORS = {
@@ -57,10 +65,10 @@ const PROVIDER_COLORS: Record<string, { from: string; to: string; ring: string; 
 const DEFAULT_COLOR = CONNECTION_ICON_COLORS;
 
 function getConnectionFallbackIcon(provider: string) {
-  if (provider === "image_generation") return <ImageIcon size="1rem" />;
-  if (provider === "video_generation") return <Film size="1rem" />;
-  if (provider === "audio") return <Music size="1rem" />;
-  return <Link size="1rem" />;
+  if (provider === "image_generation") return <ImageIcon size="0.75rem" />;
+  if (provider === "video_generation") return <Film size="0.75rem" />;
+  if (provider === "audio") return <Music size="0.75rem" />;
+  return <Link size="0.75rem" />;
 }
 
 export type ConnectionRowData = {
@@ -150,6 +158,8 @@ export function ConnectionRow({
   const duplicateConnection = useDuplicateConnection();
   const deleteConnection = useDeleteConnection();
   const updateConnection = useUpdateConnection();
+  const createConnection = useCreateConnection();
+  const { data: allConnections } = useConnections();
   const openConnectionDetail = useUIStore((s) => s.openConnectionDetail);
   const activeChat = useChatStore((state) => state.activeChat);
   const [menu, setMenu] = useState<{ x: number; y: number; keyboard: boolean } | null>(null);
@@ -171,6 +181,30 @@ export function ConnectionRow({
         if (data?.id) openConnectionDetail(data.id);
       },
     });
+  // OpenRouter lends its key to hosted Jev. A Custom connection lends its server, model and key,
+  // so the chat model it already runs answers decisions.
+  const decisionFromChat = conn.provider === "custom";
+  const canLendToDecisions = conn.provider === "openrouter" || (decisionFromChat && !!conn.model?.trim());
+  const useForDecisions = () =>
+    createConnection.mutate(
+      {
+        name: localizeUi("connections.decision.linkedName", { name: conn.name }),
+        provider: "decision",
+        decisionSource: decisionFromChat ? "openai_compatible" : "openrouter",
+        baseUrl: decisionFromChat ? (conn.baseUrl ?? "") : DECISION_SOURCE_BASE_URLS.openrouter,
+        apiKey: "",
+        model: decisionFromChat ? conn.model.trim() : "jev-latest",
+        credentialsFromConnectionId: conn.id,
+        defaultForAgents: !(allConnections as ConnectionRowData[] | undefined)?.some(
+          (row) => row.provider === "decision" && (row.defaultForAgents === true || row.defaultForAgents === "true"),
+        ),
+      },
+      {
+        onSuccess: (created) => openConnectionDetail((created as { id: string }).id),
+        onError: (error) =>
+          toast.error(error instanceof Error ? error.message : localizeUi("connections.decision.saveFailed")),
+      },
+    );
   const remove = async () => {
     if (
       !(await showConfirmDialog({
@@ -187,7 +221,10 @@ export function ConnectionRow({
   const pinLabel = pinned
     ? localizeUi("connections.accounts.row.unfavourite")
     : localizeUi("connections.accounts.row.favourite");
-  // Touch screens get one ⋯ button instead of a row of always-visible actions.
+  const pictureLabel = conn.imagePath
+    ? localizeUi("ui.panels.connectionrow.replaceConnectionPicture")
+    : localizeUi("ui.panels.connectionrow.uploadConnectionPicture");
+  // One ⋯ menu holds every row action, on every pointer; the row itself opens the editor.
   const menuItems: ContextMenuItem[] = [
     ...(chatAction && chatAction.type !== "blocked"
       ? [
@@ -212,14 +249,25 @@ export function ConnectionRow({
       ? [
           {
             label: inRandomPool
-              ? localizeUi("ui.panels.connectionrow.inRandomPoolClickToRemove")
-              : localizeUi("ui.panels.connectionrow.addToRandomPool"),
+              ? localizeUi("connections.accounts.row.removeFromShuffle")
+              : localizeUi("connections.accounts.row.addToShuffle"),
             icon: <Shuffle size="0.75rem" />,
             onSelect: toggleRandomPool,
           },
         ]
       : []),
+    ...(canLendToDecisions
+      ? [
+          {
+            label: localizeUi(decisionFromChat ? "connections.decision.chatShortcut" : "connections.decision.shortcut"),
+            icon: <GitBranch size="0.75rem" />,
+            onSelect: useForDecisions,
+            disabled: createConnection.isPending,
+          },
+        ]
+      : []),
     { label: localizeUi("ui.presets.sectionstab.duplicate"), icon: <Copy size="0.75rem" />, onSelect: duplicate },
+    { label: pictureLabel, icon: <Camera size="0.75rem" />, onSelect: onImagePick },
     {
       label: localizeUi("lorebook.editor.batch.delete"),
       icon: <Trash2 size="0.75rem" />,
@@ -235,8 +283,8 @@ export function ConnectionRow({
     getConnectionFallbackIcon(conn.provider)
   );
   const iconFrameClasses = cn(
-    "relative flex h-full w-full items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br text-white shadow-sm",
-    conn.imagePath ? "bg-[var(--muted)]" : `${colors.from} ${colors.to}`,
+    "relative flex h-6 w-6 shrink-0 items-center justify-center overflow-visible rounded-lg text-white shadow-sm",
+    conn.imagePath ? "bg-[var(--muted)]" : `bg-gradient-to-br ${colors.from} ${colors.to}`,
   );
 
   return (
@@ -270,7 +318,7 @@ export function ConnectionRow({
       }}
       onDrop={onDropOnRow}
       className={cn(
-        "group relative flex touch-pan-y cursor-grab active:cursor-grabbing items-center gap-3 rounded-xl p-2.5 transition-all hover:bg-[var(--sidebar-accent)]",
+        "group relative flex min-h-11 touch-pan-y cursor-grab active:cursor-grabbing items-center gap-2.5 rounded-lg px-2 py-1.5 transition-all hover:bg-[var(--sidebar-accent)] md:min-h-10",
         isSelected && `ring-1 ${colors.ring} bg-[var(--sidebar-accent)]/50`,
         selectionMode && isBulkSelected && "ring-1 ring-[var(--border)] bg-[var(--sidebar-accent)]/70",
         isDragging && "opacity-50",
@@ -289,53 +337,28 @@ export function ConnectionRow({
           {isBulkSelected && <Check size="0.75rem" />}
         </div>
       )}
-      <button
-        type="button"
-        onClick={(event) => {
-          event.stopPropagation();
-          if (suppressClickRef?.current) return;
-          onImagePick();
-        }}
-        className={cn(
-          "relative flex h-10 w-10 shrink-0 items-center justify-center overflow-visible rounded-xl text-white",
-          "transition-transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-[var(--marinara-chat-chrome-focus-ring)]",
-        )}
-        title={
-          conn.imagePath
-            ? localizeUi("ui.panels.connectionrow.replaceConnectionPicture")
-            : localizeUi("ui.panels.connectionrow.uploadConnectionPicture")
-        }
-        aria-label={
-          conn.imagePath
-            ? localizeUi("ui.panels.connectionrow.replaceConnectionPicture")
-            : localizeUi("ui.panels.connectionrow.uploadConnectionPicture")
-        }
-      >
-        <span className={iconFrameClasses}>
-          {iconContent}
-          <span className="absolute inset-0 flex items-center justify-center bg-black/45 opacity-0 transition-opacity group-hover:opacity-100">
-            <Camera size="0.875rem" />
-          </span>
-        </span>
+      <span className={iconFrameClasses} aria-hidden="true">
+        <span className="flex h-full w-full items-center justify-center overflow-hidden rounded-lg">{iconContent}</span>
         {!selectionMode && isSelected && (
-          <div
+          <span
             className={cn(
-              "pointer-events-none absolute -right-1 -top-1 z-10 flex h-4 w-4 items-center justify-center rounded-md shadow-sm ring-1 ring-[var(--sidebar)]",
+              "pointer-events-none absolute -right-1 -top-1 flex h-3 w-3 items-center justify-center rounded-full ring-1 ring-[var(--sidebar)]",
               colors.badge,
             )}
           >
-            <Check size="0.625rem" className="text-white" />
-          </div>
+            <Check size="0.5rem" className="text-white" />
+          </span>
         )}
-      </button>
-      <div className="min-w-0 flex-1 pr-0 max-md:pr-12 [@media(pointer:coarse)]:pr-12">
+      </span>
+      {/* The ⋯ button sits in this right gutter on every pointer, so the name and badge never run under it. */}
+      <div className="min-w-0 flex-1 pr-9 max-md:pr-11 [@media(pointer:coarse)]:pr-11">
         <div className="flex min-w-0 items-center gap-1.5">
-          <span className="min-w-0 truncate text-sm font-medium leading-5" title={conn.name}>
+          <span className="min-w-0 truncate text-sm leading-5" title={conn.name}>
             {conn.name}
           </span>
-          {/* The badge rule is unlayered, so its accent colour needs `!` to give way to the readable foreground. */}
+          {/* Presets' DEFAULT badge; the badge rule is unlayered, so the readable foreground needs `!`. */}
           {badge && (
-            <span className="mari-chrome-muted-badge shrink-0 px-1.5 py-px text-[0.625rem] leading-4 !text-[var(--foreground)]">
+            <span className="mari-chrome-muted-badge shrink-0 rounded px-1 py-0.5 text-[0.5625rem] uppercase leading-none tracking-wide !text-[var(--foreground)]">
               {badge}
             </span>
           )}
@@ -351,79 +374,6 @@ export function ConnectionRow({
           {subtitle ?? `${conn.provider} • ${conn.model || localizeUi("connections.accounts.row.noModel")}`}
         </div>
       </div>
-      <div className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 flex shrink-0 items-center gap-0.5 rounded-lg bg-[var(--sidebar)] px-1 py-0.5 opacity-0 shadow-sm ring-1 ring-foreground/10 transition-opacity group-hover:opacity-100 [@media(pointer:fine)]:group-focus-within:opacity-100 max-md:hidden [@media(pointer:coarse)]:hidden group-hover:[&_button]:pointer-events-auto [@media(pointer:fine)]:group-focus-within:[&_button]:pointer-events-auto">
-        <ChatResourceActionButton payload={resourcePayload} />
-        {onTogglePin && (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onTogglePin();
-            }}
-            className="mari-chrome-control mari-chrome-control--small p-1.5"
-            title={pinLabel}
-            aria-label={pinLabel}
-            aria-pressed={!!pinned}
-          >
-            <Star size="0.75rem" className={cn(pinned && "fill-current")} />
-          </button>
-        )}
-        {onMakeDefault && (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onMakeDefault();
-            }}
-            className="mari-chrome-control mari-chrome-control--small p-1.5"
-            title={localizeUi("connections.accounts.row.makeDefault")}
-            aria-label={localizeUi("connections.accounts.row.makeDefault")}
-          >
-            <BadgeCheck size="0.75rem" />
-          </button>
-        )}
-        {canShuffle && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              toggleRandomPool();
-            }}
-            className={cn(
-              "rounded-lg p-1.5 transition-all active:scale-90",
-              inRandomPool
-                ? "bg-foreground/10 text-foreground/75 ring-1 ring-foreground/20"
-                : "text-foreground/45 hover:bg-foreground/10 hover:text-foreground/75",
-            )}
-            title={
-              inRandomPool
-                ? localizeUi("ui.panels.connectionrow.inRandomPoolClickToRemove")
-                : localizeUi("ui.panels.connectionrow.addToRandomPool")
-            }
-          >
-            <Shuffle size="0.75rem" />
-          </button>
-        )}
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            duplicate();
-          }}
-          className="mari-chrome-control mari-chrome-control--small p-1.5"
-          title={localizeUi("ui.presets.sectionstab.duplicate")}
-        >
-          <Copy size="0.75rem" />
-        </button>
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            void remove();
-          }}
-          className="mari-chrome-control mari-chrome-control--small p-1.5"
-          title={localizeUi("lorebook.editor.batch.delete")}
-        >
-          <Trash2 size="0.75rem" />
-        </button>
-      </div>
       {!selectionMode && (
         <button
           type="button"
@@ -434,15 +384,18 @@ export function ConnectionRow({
             const rect = e.currentTarget.getBoundingClientRect();
             setMenu({ x: rect.right, y: rect.bottom, keyboard: e.detail === 0 });
           }}
-          // `.mari-chrome-control` is unlayered and sets `display`, so the visibility utilities need `!`; the text
-          // column reserves `pr-12` under the same conditions.
-          className="mari-chrome-control mari-chrome-control--small absolute right-1 top-1/2 !hidden h-11 w-11 -translate-y-1/2 p-0 max-md:!flex [@media(pointer:coarse)]:!flex"
+          // Hover and keyboard focus reveal it on a mouse; touch screens always show it at 44 px.
+          className={cn(
+            "absolute right-1 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-[var(--muted-foreground)] transition-[opacity,background-color,color] hover:bg-[var(--sidebar)] hover:text-[var(--foreground)] focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)] active:scale-90",
+            "opacity-0 group-hover:opacity-100 max-md:h-11 max-md:w-11 max-md:opacity-100 [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:w-11 [@media(pointer:coarse)]:opacity-100",
+            menu && "opacity-100",
+          )}
           title={localizeUi("connections.accounts.row.actions", { name: conn.name })}
           aria-label={localizeUi("connections.accounts.row.actions", { name: conn.name })}
           aria-haspopup="menu"
           aria-expanded={!!menu}
         >
-          <MoreHorizontal size="0.875rem" />
+          <MoreHorizontal size="1rem" />
         </button>
       )}
       {menu && (

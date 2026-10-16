@@ -90,7 +90,7 @@ function AccentBar() {
 }
 
 function SectionLabel({ children }: { children: ReactNode }) {
-  return <p className="px-3 pb-0.5 pt-2 text-[0.625rem] font-medium text-foreground/45">{children}</p>;
+  return <p className="px-3 pb-0.5 pt-2 text-[0.6875rem] font-medium text-foreground/45">{children}</p>;
 }
 
 /**
@@ -513,7 +513,11 @@ export function ConnectionSwitcherBody({
                   renderEntry({
                     key: row.id,
                     title: rowLabel(row),
-                    subtitle: row.model ?? undefined,
+                    // The upstream is the heading above, so the id drops it (as on the panel cards).
+                    subtitle:
+                      sub.upstream && row.model?.startsWith(`${sub.upstream}/`)
+                        ? row.model.slice(sub.upstream.length + 1)
+                        : (row.model ?? undefined),
                     choice: { connectionId: row.id },
                   }),
                 )}
@@ -728,7 +732,7 @@ export function ConnectionSwitcherBody({
           connection={pickerConnection}
           onChoose={(choice) => (sameChoice(choice, current) ? Promise.resolve() : onApply(choice))}
           accountName={shownGroup?.account?.name}
-          footer={pickerFooter}
+          footer={layout === "container" ? pickerFooter : null}
           onPicked={onDone}
           leading={
             layout !== "columns" ? (
@@ -763,13 +767,29 @@ export function ConnectionSwitcherBody({
     </div>
   );
 
+  // One footer for both columns, and on both phone steps. The composer menu keeps the picker's own line.
+  const footer = layout !== "container" && (
+    <p className="shrink-0 border-t border-foreground/10 px-3 py-2 text-[0.625rem] text-foreground/50">
+      {pickerFooter ?? t("connections.switcher.appliesToChat")}
+    </p>
+  );
+
+  if (layout === "columns") {
+    return (
+      <div data-connection-switcher className={cn("flex min-h-0 min-w-0 flex-1 flex-col", className)}>
+        <div className="flex min-h-0 min-w-0 flex-1">
+          {list}
+          {models}
+        </div>
+        {footer}
+      </div>
+    );
+  }
   return (
-    <div
-      data-connection-switcher
-      className={cn(layout === "columns" ? "flex min-h-0 min-w-0 flex-1" : "contents", className)}
-    >
+    <div data-connection-switcher className={cn("contents", className)}>
       {list}
       {models}
+      {footer}
     </div>
   );
 }

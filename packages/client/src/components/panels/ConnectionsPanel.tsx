@@ -62,9 +62,11 @@ import {
   ChevronRight,
   FolderPlus,
   FolderTree,
+  MoreHorizontal,
   ImageIcon,
   Mic,
   Loader2,
+  HardDrive,
   HardDriveDownload,
   MessageSquareText,
   Power,
@@ -93,6 +95,7 @@ import { ConnectionRow, type ConnectionRowData } from "../connections/Connection
 import { ConnectionCard, isMediaRow, type ConnectionRowDisplay } from "../connections/ConnectionCard";
 import { ConnectionDefaultsCard } from "../connections/ConnectionDefaultsCard";
 import { PanelSection } from "../ui/PanelSection";
+import { ContextMenu } from "../ui/ContextMenu";
 import { useConnectionAccounts } from "../../hooks/use-connection-accounts";
 import { groupModelsByAccount } from "../../lib/connection-groups";
 
@@ -935,6 +938,17 @@ export function ConnectionsPanel() {
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedConnectionIds, setSelectedConnectionIds] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState("");
+  const sidecarNeedsAttention = useSidecarStore(
+    (state) =>
+      state.status === "downloading_runtime" ||
+      state.status === "downloading_model" ||
+      state.status === "starting_server" ||
+      state.status === "server_error" ||
+      !!state.startupError ||
+      state.downloadProgress?.status === "downloading" ||
+      state.downloadProgress?.status === "error",
+  );
+  const [headerMenu, setHeaderMenu] = useState<{ x: number; y: number; keyboard: boolean } | null>(null);
   const [exportingSelected, setExportingSelected] = useState(false);
   const connectionImageInputRef = useRef<HTMLInputElement>(null);
   const imageTargetConnectionIdRef = useRef<string | null>(null);
@@ -1411,6 +1425,22 @@ export function ConnectionsPanel() {
     );
   };
 
+  // Local Model, TTS and STT are helpers, so they follow the user's connections — unless there are none yet,
+  // or the Local Model needs attention (a download or load runs or failed). Decided once per mount:
+  // moving the section remounts SidecarCard and drops its state in the middle of a download.
+  const deviceFirstRef = useRef<boolean | null>(null);
+  const wantsDeviceFirst = (!isLoading && connectionsList.length === 0) || sidecarNeedsAttention;
+  if (deviceFirstRef.current === null && !isLoading) deviceFirstRef.current = wantsDeviceFirst;
+  const deviceFirst = deviceFirstRef.current ?? wantsDeviceFirst;
+  const deviceSection = (
+    <PanelSection title={localizeUi("connections.accounts.section.device")} icon={<HardDrive size="0.75rem" />}>
+      {import.meta.env.VITE_MARINARA_LITE !== "true" && <SidecarCard />}
+      <TTSConfigCard />
+      {/* Speech to Text renders only while the Calls package is installed. */}
+      <SpeechToTextCard />
+    </PanelSection>
+  );
+
   const renderAccountCard = (card: (typeof accountCards.chat)[number]) => (
     <ConnectionCard
       key={card.account.id}
@@ -1431,7 +1461,7 @@ export function ConnectionsPanel() {
         onChange={handleConnectionImageSelected}
       />
 
-      {/* Action buttons */}
+      {/* Header: one primary action, then search, sort and a ⋯ menu for the rarer views */}
       <div className="flex gap-2">
         <button
           type="button"
@@ -1445,33 +1475,15 @@ export function ConnectionsPanel() {
         <button
           type="button"
           onClick={() => openModal("import-connection")}
-          className="mari-chrome-control mari-chrome-control--primary flex-1 text-xs"
+          className="mari-chrome-control mari-chrome-control--primary px-3 text-xs"
           title={localizeUi("ui.panels.connectionspanel.importConnection")}
+          aria-label={localizeUi("ui.panels.connectionspanel.importConnection")}
         >
           <Download size="0.8125rem" />
           {localizeUi("connections.accounts.header.import")}
         </button>
-        <button
-          type="button"
-          onClick={() => (selectionMode ? exitSelectionMode() : setSelectionMode(true))}
-          disabled={connectionsList.length === 0}
-          className={cn(
-            "mari-chrome-control mari-chrome-control--primary flex-1 text-xs",
-            selectionMode && "mari-chrome-control--selected",
-          )}
-          aria-pressed={selectionMode}
-          title={
-            selectionMode
-              ? localizeUi("ui.panels.connectionspanel.exitConnectionSelectionMode")
-              : localizeUi("ui.panels.connectionspanel.selectConnections")
-          }
-        >
-          <Check size="0.8125rem" />
-          {localizeUi("connections.accounts.header.select")}
-        </button>
       </div>
 
-      {/* Search + Sort */}
       <div className="flex gap-1.5">
         <div className="relative flex-1">
           <Search
@@ -1481,6 +1493,7 @@ export function ConnectionsPanel() {
           <input
             type="text"
             placeholder={localize("Search connections")}
+            aria-label={localize("Search connections")}
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             className="mari-chrome-field h-10 w-full py-0 pl-8 pr-3 text-xs md:h-9"
@@ -1509,17 +1522,47 @@ export function ConnectionsPanel() {
         </div>
         <button
           type="button"
-          onClick={() => setPanelView(panelView === "folders" ? "cards" : "folders")}
-          aria-pressed={panelView === "folders"}
+          onClick={(event) => {
+            const rect = event.currentTarget.getBoundingClientRect();
+            setHeaderMenu({ x: rect.right, y: rect.bottom + 4, keyboard: event.detail === 0 });
+          }}
           className={cn(
-            "mari-chrome-control mari-chrome-control--small h-10 min-h-0 px-2.5 text-[0.6875rem] md:h-9",
-            panelView === "folders" && "mari-chrome-control--selected",
+            "mari-chrome-control mari-chrome-control--small h-10 min-h-0 w-10 !p-0 md:h-9 md:w-9",
+            (selectionMode || panelView === "folders") && "mari-chrome-control--selected",
           )}
-          title={localizeUi("connections.accounts.view.foldersHelp")}
+          title={localizeUi("connections.accounts.header.more")}
+          aria-label={localizeUi("connections.accounts.header.more")}
+          aria-haspopup="menu"
+          aria-expanded={!!headerMenu}
         >
-          <FolderTree size="0.75rem" />
-          {localizeUi("connections.accounts.view.folders")}
+          <MoreHorizontal size="0.875rem" />
         </button>
+        {headerMenu && (
+          <ContextMenu
+            x={headerMenu.x}
+            y={headerMenu.y}
+            autoFocus={headerMenu.keyboard}
+            onClose={() => setHeaderMenu(null)}
+            items={[
+              {
+                label: selectionMode
+                  ? localizeUi("ui.panels.connectionspanel.exitConnectionSelectionMode")
+                  : localizeUi("ui.panels.connectionspanel.selectConnections"),
+                icon: <Check size="0.75rem" />,
+                disabled: connectionsList.length === 0,
+                onSelect: () => (selectionMode ? exitSelectionMode() : setSelectionMode(true)),
+              },
+              {
+                label:
+                  panelView === "folders"
+                    ? localizeUi("connections.accounts.view.cards")
+                    : localizeUi("connections.accounts.view.folders"),
+                icon: <FolderTree size="0.75rem" />,
+                onSelect: () => setPanelView(panelView === "folders" ? "cards" : "folders"),
+              },
+            ]}
+          />
+        )}
       </div>
 
       {needsKeyAccounts.length > 0 && (
@@ -1563,14 +1606,7 @@ export function ConnectionsPanel() {
 
       <ConnectionDefaultsCard connectionsList={connectionsList} />
 
-      {/* ── Local Model (Sidecar) ── */}
-      {import.meta.env.VITE_MARINARA_LITE !== "true" && <SidecarCard />}
-
-      {/* ── Text to Speech ── */}
-      <TTSConfigCard />
-
-      {/* ── Speech to Text (Calls only) ── */}
-      <SpeechToTextCard />
+      {deviceFirst && deviceSection}
 
       {isLoading && (
         <div className="flex flex-col gap-2 py-2">
@@ -1724,6 +1760,8 @@ export function ConnectionsPanel() {
           {unfiledConnections.map((conn) => renderConnectionRow(conn))}
         </div>
       )}
+
+      {!deviceFirst && deviceSection}
 
       {activeChat && (
         <p className="px-1 text-[0.625rem] text-[var(--muted-foreground)]/60">

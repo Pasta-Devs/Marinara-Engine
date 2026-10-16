@@ -93,8 +93,8 @@ export function ConnectionModelPicker({
   onChoose?: (choice: ChatModelChoice) => Promise<void>;
   /** The Connection's name, shown in the header with `applyPick` or `onChoose`. */
   accountName?: string | null;
-  /** Replaces the footer line, for hosts where a pick does not touch a chat. */
-  footer?: string;
+  /** Replaces the footer line, for hosts where a pick does not touch a chat; null hides it (the host shows one). */
+  footer?: string | null;
   className?: string;
 }) {
   const { t } = useTranslation();
@@ -473,16 +473,18 @@ export function ConnectionModelPicker({
               )}
           </div>
 
-          <p className="border-t border-foreground/10 px-3 py-2 text-[0.625rem] text-foreground/50">
-            {footer ??
-              t(
-                onChoose
-                  ? "connections.switcher.appliesToChat"
-                  : applyPick
-                    ? "connections.accounts.addModelFooter"
-                    : "connections.modelPicker.footer",
-              )}
-          </p>
+          {footer !== null && (
+            <p className="border-t border-foreground/10 px-3 py-2 text-[0.625rem] text-foreground/50">
+              {footer ??
+                t(
+                  onChoose
+                    ? "connections.switcher.appliesToChat"
+                    : applyPick
+                      ? "connections.accounts.addModelFooter"
+                      : "connections.modelPicker.footer",
+                )}
+            </p>
+          )}
         </>
       )}
     </div>

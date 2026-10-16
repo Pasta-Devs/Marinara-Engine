@@ -2,7 +2,7 @@
 // ConnectionAccountEditor — a Connection's credentials and limits, once for all its Models
 // ──────────────────────────────────────────────
 import { useEffect, useState } from "react";
-import { ChevronDown, Loader2, Trash2 } from "lucide-react";
+import { Boxes, ChevronDown, ChevronRight, KeyRound, Loader2, Trash2, Wifi } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { PROVIDERS, type APIProvider, type UpdateConnectionAccountInput } from "@marinara-engine/shared";
@@ -18,7 +18,7 @@ import { useUIStore } from "../../stores/ui.store";
 import { cn } from "../../lib/utils";
 import { Modal } from "../ui/Modal";
 import { SmoothFolderContent } from "../ui/SmoothFolderContent";
-import { SettingsSwitch } from "../panels/settings/SettingControls";
+import { SETTINGS_BUTTON_CLASS, SettingsSection, ToggleSetting } from "../panels/settings/SettingControls";
 import type { ConnectionRowData } from "./ConnectionRow";
 
 type Draft = {
@@ -199,104 +199,121 @@ export function ConnectionAccountEditor({ accountId, onClose }: { accountId: str
         </p>
       ) : (
         <div className="flex flex-col gap-3">
-          <label className="block">
-            {label(t("connections.accounts.editor.name"))}
-            <input
-              value={draft.name}
-              onChange={(event) => set("name", event.target.value)}
-              className="mari-chrome-field h-9 w-full px-3 text-xs max-md:min-h-11"
-            />
-          </label>
-          <div>
-            {label(t("connections.accounts.editor.service"))}
-            <p className="text-xs">{PROVIDERS[account.provider as APIProvider]?.name ?? account.provider}</p>
-          </div>
-          <label className="block">
-            {label(t("connections.accounts.editor.endpoint"))}
-            <input
-              value={draft.baseUrl}
-              onChange={(event) => set("baseUrl", event.target.value)}
-              placeholder={t("connections.accounts.editor.endpointPlaceholder")}
-              inputMode="url"
-              className="mari-chrome-field h-9 w-full px-3 text-xs max-md:min-h-11"
-            />
-          </label>
-          <SecretField
-            label={t("connections.accounts.editor.apiKey")}
-            saved={account.hasApiKey}
-            last4={account.apiKeyLast4}
-            value={apiKey}
-            onChange={setApiKey}
-          />
-
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => firstModel && test.mutate(firstModel.id)}
-              disabled={!firstModel || test.isPending}
-              className="mari-chrome-control mari-chrome-control--small text-[0.6875rem] max-md:min-h-11"
-            >
-              {test.isPending && <Loader2 size="0.75rem" className="animate-spin" />}
-              {t("connections.accounts.test")}
-            </button>
-            {!firstModel && (
-              <span className="text-[0.6875rem] text-[var(--muted-foreground)]">
-                {t("connections.accounts.addModelFirst")}
+          <SettingsSection
+            title={t("connections.accounts.editor.access")}
+            icon={<KeyRound size="0.875rem" />}
+            contentClassName="flex flex-col gap-3"
+          >
+            <label className="block">
+              {label(t("connections.accounts.editor.name"))}
+              <input
+                value={draft.name}
+                onChange={(event) => set("name", event.target.value)}
+                className="mari-chrome-field h-9 w-full px-3 text-xs max-md:min-h-11"
+              />
+            </label>
+            <div className="flex items-baseline justify-between gap-3 text-xs">
+              <span className="text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
+                {t("connections.accounts.editor.service")}
               </span>
-            )}
-            {(test.data || test.isError) && (
+              <span className="min-w-0 truncate">
+                {PROVIDERS[account.provider as APIProvider]?.name ?? account.provider}
+              </span>
+            </div>
+            <label className="block">
+              {label(t("connections.accounts.editor.endpoint"))}
+              <input
+                value={draft.baseUrl}
+                onChange={(event) => set("baseUrl", event.target.value)}
+                placeholder={t("connections.accounts.editor.endpointPlaceholder")}
+                inputMode="url"
+                className="mari-chrome-field h-9 w-full px-3 text-xs max-md:min-h-11"
+              />
+            </label>
+            <SecretField
+              label={t("connections.accounts.editor.apiKey")}
+              saved={account.hasApiKey}
+              last4={account.apiKeyLast4}
+              value={apiKey}
+              onChange={setApiKey}
+            />
+            {/* The Test row keeps its result beside it, so the answer lands where the question was asked. */}
+            <div className="flex items-center gap-2 rounded-lg bg-[var(--secondary)]/40 p-1.5 ring-1 ring-[var(--border)]/60">
+              <button
+                type="button"
+                onClick={() => firstModel && test.mutate(firstModel.id)}
+                disabled={!firstModel || test.isPending}
+                className={cn(SETTINGS_BUTTON_CLASS, "shrink-0 max-md:min-h-11")}
+              >
+                {test.isPending ? <Loader2 size="0.75rem" className="animate-spin" /> : <Wifi size="0.75rem" />}
+                {t("connections.accounts.test")}
+              </button>
               <span
                 role="status"
                 className={cn(
-                  "min-w-0 text-[0.6875rem]",
-                  test.data?.success ? "text-[var(--muted-foreground)]" : "text-[var(--destructive)]",
+                  "min-w-0 flex-1 break-words text-[0.6875rem]",
+                  test.isError || (test.data && !test.data.success)
+                    ? "text-[var(--destructive)]"
+                    : "text-[var(--muted-foreground)]",
                 )}
               >
-                {test.data
-                  ? test.data.success
-                    ? t("connections.accounts.testOk", { latency: test.data.latencyMs })
-                    : test.data.message
-                  : t("connections.accounts.testFailed")}
+                {test.isPending
+                  ? t("connections.accounts.editor.testing")
+                  : test.data
+                    ? test.data.success
+                      ? t("connections.accounts.testOk", { latency: test.data.latencyMs })
+                      : test.data.message
+                    : test.isError
+                      ? t("connections.accounts.testFailed")
+                      : !firstModel
+                        ? t("connections.accounts.addModelFirst")
+                        : dirty
+                          ? t("connections.accounts.editor.testUsesSaved")
+                          : t("connections.accounts.editor.notTested")}
               </span>
-            )}
+            </div>
+          </SettingsSection>
+
+          <div className="rounded-lg border border-[var(--border)]/70 px-1.5 py-1">
+            <ToggleSetting
+              label={t("connections.accounts.editor.enabled")}
+              help={t("connections.accounts.editor.enabledHelp")}
+              checked={draft.enabled}
+              onChange={(checked) => set("enabled", checked)}
+            />
           </div>
-          {dirty && firstModel && (
-            <p className="text-[0.625rem] text-[var(--muted-foreground)]">
-              {t("connections.accounts.editor.testUsesSaved")}
-            </p>
-          )}
 
-          <SettingsSwitch
-            label={t("connections.accounts.editor.enabled")}
-            checked={draft.enabled}
-            onChange={(checked) => set("enabled", checked)}
-            className="p-0 hover:bg-transparent"
-            labelClassName="text-xs"
-          />
-
-          <div>
-            {label(t("connections.accounts.editor.models", { count: models.length }))}
+          <SettingsSection
+            title={t("connections.accounts.editor.models", { count: models.length })}
+            icon={<Boxes size="0.875rem" />}
+            contentClassName="p-1"
+          >
             {models.length === 0 ? (
-              <p className="text-[0.6875rem] text-[var(--muted-foreground)]">{t("connections.accounts.noModels")}</p>
+              <p className="px-2 py-1.5 text-[0.6875rem] text-[var(--muted-foreground)]">
+                {t("connections.accounts.noModels")}
+              </p>
             ) : (
-              <ul className="max-h-48 overflow-y-auto rounded-lg ring-1 ring-[var(--border)]">
+              <ul>
                 {models.map((row) => (
                   <li key={row.id}>
                     <button
                       type="button"
                       onClick={() => openModel(row.id)}
-                      className="flex min-h-11 w-full min-w-0 flex-col justify-center px-3 py-1.5 text-left transition-colors hover:bg-[var(--sidebar-accent)] md:min-h-9"
+                      className="flex min-h-11 w-full min-w-0 items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-[var(--sidebar-accent)] md:min-h-9"
                     >
-                      <span className="truncate text-xs">{row.name}</span>
-                      {row.model && (
-                        <span className="truncate text-[0.625rem] text-[var(--muted-foreground)]">{row.model}</span>
-                      )}
+                      <span className="flex min-w-0 flex-1 flex-col">
+                        <span className="truncate text-xs">{row.name}</span>
+                        {row.model && (
+                          <span className="truncate text-[0.625rem] text-[var(--muted-foreground)]">{row.model}</span>
+                        )}
+                      </span>
+                      <ChevronRight size="0.75rem" className="shrink-0 text-[var(--muted-foreground)]" aria-hidden />
                     </button>
                   </li>
                 ))}
               </ul>
             )}
-          </div>
+          </SettingsSection>
 
           <button
             type="button"
@@ -305,75 +322,88 @@ export function ConnectionAccountEditor({ accountId, onClose }: { accountId: str
             className="flex min-h-11 items-center gap-1.5 self-start text-[0.6875rem] font-medium text-[var(--muted-foreground)] md:min-h-9"
           >
             <ChevronDown size="0.75rem" className={cn("transition-transform", more && "rotate-180")} />
-            {t("connections.accounts.editor.more")}
+            {t("connections.accounts.editor.advanced")}
           </button>
           <SmoothFolderContent open={more}>
-            <div className="flex flex-col gap-3 pb-1">
-              <SecretField
-                label={t("connections.accounts.editor.managementToken")}
-                saved={account.hasManagementToken}
-                value={managementToken}
-                onChange={setManagementToken}
-              />
-              <SettingsSwitch
-                label={t("connections.accounts.editor.showUsage")}
-                checked={draft.showUsageWidget}
-                onChange={(checked) => set("showUsageWidget", checked)}
-                className="p-0 hover:bg-transparent"
-                labelClassName="text-xs"
-              />
-              {draft.showUsageWidget && (
-                <>
-                  <SettingsSwitch
-                    label={t("connections.accounts.editor.showUsageFiveHour")}
-                    checked={draft.showUsageFiveHour}
-                    onChange={(checked) => set("showUsageFiveHour", checked)}
-                    className="p-0 hover:bg-transparent"
-                    labelClassName="text-xs text-[var(--muted-foreground)]"
-                  />
-                  <SettingsSwitch
-                    label={t("connections.accounts.editor.showUsageWeekly")}
-                    checked={draft.showUsageWeekly}
-                    onChange={(checked) => set("showUsageWeekly", checked)}
-                    className="p-0 hover:bg-transparent"
-                    labelClassName="text-xs text-[var(--muted-foreground)]"
-                  />
-                </>
-              )}
-              <div className="grid grid-cols-2 gap-2">
-                {capInput("maxRequestsPerMinute", 600, t("connections.accounts.editor.maxRequestsPerMinute"))}
-                {capInput("maxParallelJobs", 16, t("connections.accounts.editor.maxParallelJobs"))}
-              </div>
-              <p className="text-[0.625rem] text-[var(--muted-foreground)]">
-                {t("connections.accounts.editor.capsHelp")}
-              </p>
-              <button
-                type="button"
-                onClick={() => void deleteAccount()}
-                disabled={remove.isPending}
-                className="mari-chrome-control mari-chrome-control--small self-start text-[0.6875rem] text-[var(--destructive)] max-md:min-h-11"
+            <div data-account-advanced className="flex flex-col gap-3 pb-1">
+              <SettingsSection
+                title={t("connections.accounts.editor.usageAndLimits")}
+                contentClassName="flex flex-col gap-2"
               >
-                <Trash2 size="0.75rem" />
-                {t("connections.accounts.editor.delete")}
-              </button>
-              {blockedBy.length > 0 && (
-                <div role="status" className="rounded-lg bg-[var(--destructive)]/10 p-2.5 text-[0.6875rem]">
-                  <p className="text-[var(--destructive)]">{t("connections.accounts.editor.deleteBlocked")}</p>
-                  <ul className="mt-1 space-y-0.5">
-                    {blockedBy.map((row) => (
-                      <li key={row.id}>
-                        <button type="button" onClick={() => openModel(row.id)} className="text-left underline">
-                          {row.name}
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
+                <SecretField
+                  label={t("connections.accounts.editor.managementToken")}
+                  saved={account.hasManagementToken}
+                  value={managementToken}
+                  onChange={setManagementToken}
+                />
+                {/* The toggles' own padding lines their labels up with the fields above. */}
+                <div className="-mx-1.5">
+                  <ToggleSetting
+                    label={t("connections.accounts.editor.showUsage")}
+                    checked={draft.showUsageWidget}
+                    onChange={(checked) => set("showUsageWidget", checked)}
+                  />
+                  {draft.showUsageWidget && (
+                    <>
+                      <ToggleSetting
+                        label={t("connections.accounts.editor.showUsageFiveHour")}
+                        checked={draft.showUsageFiveHour}
+                        onChange={(checked) => set("showUsageFiveHour", checked)}
+                      />
+                      <ToggleSetting
+                        label={t("connections.accounts.editor.showUsageWeekly")}
+                        checked={draft.showUsageWeekly}
+                        onChange={(checked) => set("showUsageWeekly", checked)}
+                      />
+                    </>
+                  )}
                 </div>
-              )}
+                <div className="grid grid-cols-2 gap-2">
+                  {capInput("maxRequestsPerMinute", 600, t("connections.accounts.editor.maxRequestsPerMinute"))}
+                  {capInput("maxParallelJobs", 16, t("connections.accounts.editor.maxParallelJobs"))}
+                </div>
+                <p className="text-[0.625rem] text-[var(--muted-foreground)]">
+                  {t("connections.accounts.editor.capsHelp")}
+                </p>
+              </SettingsSection>
+              <SettingsSection
+                title={t("connections.accounts.editor.delete")}
+                description={t("connections.accounts.editor.deleteHelp")}
+                tone="danger"
+                headerAction={
+                  <button
+                    type="button"
+                    onClick={() => void deleteAccount()}
+                    disabled={remove.isPending}
+                    aria-label={t("connections.accounts.editor.delete")}
+                    className={cn(SETTINGS_BUTTON_CLASS, "mari-chrome-control--danger max-md:min-h-11")}
+                  >
+                    <Trash2 size="0.75rem" />
+                    {t("connections.accounts.editor.deleteShort")}
+                  </button>
+                }
+                contentClassName={blockedBy.length > 0 ? undefined : "hidden"}
+              >
+                {blockedBy.length > 0 && (
+                  <div role="status" className="text-[0.6875rem]">
+                    <p className="text-[var(--destructive)]">{t("connections.accounts.editor.deleteBlocked")}</p>
+                    <ul className="mt-1 space-y-0.5">
+                      {blockedBy.map((row) => (
+                        <li key={row.id}>
+                          <button type="button" onClick={() => openModel(row.id)} className="text-left underline">
+                            {row.name}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </SettingsSection>
             </div>
           </SmoothFolderContent>
 
-          <div className="flex justify-end gap-2 border-t border-[var(--border)] pt-3">
+          {/* On a phone the footer stays in reach while the form scrolls. */}
+          <div className="flex justify-end gap-2 border-t border-[var(--border)] pt-3 max-md:sticky max-md:bottom-0 max-md:z-10 max-md:-mx-5 max-md:-mb-4 max-md:bg-[var(--sidebar)] max-md:px-5 max-md:pb-4">
             <button
               type="button"
               onClick={onClose}
