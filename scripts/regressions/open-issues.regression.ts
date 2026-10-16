@@ -9839,7 +9839,7 @@ assert.equal(({} as { tags?: string[] }).tags, undefined, "Background metadata m
 // actions and Conversation Call duration rows size from their panel width.
 {
   const sidebarPanelSources = new Map(
-    ["Characters", "Personas", "Lorebooks", "Agents", "Presets", "Connections"].map((panelName) => [
+    ["Characters", "Personas", "Lorebooks", "Agents", "Presets"].map((panelName) => [
       panelName,
       readFileSync(join(REPOSITORY_ROOT, `packages/client/src/components/panels/${panelName}Panel.tsx`), "utf8"),
     ]),
@@ -9880,6 +9880,21 @@ assert.equal(({} as { tags?: string[] }).tags, undefined, "Background metadata m
       `${panelName} must keep every focused fine-pointer action overlay interactive`,
     );
   }
+
+  // Connection Model rows: the hover overlay is fine-pointer only; touch layouts get one "…" button instead, so
+  // they reserve its width and never overlay the row.
+  const connectionRowSource = readFileSync(
+    join(REPOSITORY_ROOT, "packages/client/src/components/connections/ConnectionRow.tsx"),
+    "utf8",
+  );
+  assert.match(connectionRowSource, /pr-0 max-md:pr-12 \[@media\(pointer:coarse\)\]:pr-12/u);
+  assert.doesNotMatch(connectionRowSource, /\[@media\(pointer:fine\)\]:group-hover:pr-/u);
+  assert.match(
+    connectionRowSource,
+    /pointer-events-none[^"\n]*opacity-0[^"\n]*\[@media\(pointer:fine\)\]:group-focus-within:opacity-100[^"\n]*max-md:hidden \[@media\(pointer:coarse\)\]:hidden[^"\n]*\[@media\(pointer:fine\)\]:group-focus-within:\[&_button\]:pointer-events-auto/u,
+    "Connection row overlays must open on keyboard focus and stay off touch layouts",
+  );
+  assert.match(connectionRowSource, /!hidden h-11 w-11[^"\n]*max-md:!flex \[@media\(pointer:coarse\)\]:!flex/u);
 
   const personasPanelSource = sidebarPanelSources.get("Personas")!;
   const charactersPanelSource = sidebarPanelSources.get("Characters")!;

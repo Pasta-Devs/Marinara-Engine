@@ -11,6 +11,7 @@ import {
 import Fastify from "../../packages/server/node_modules/fastify/fastify.js";
 import { connectionsRoutes } from "../../packages/server/src/routes/connections.routes.js";
 import { createConnectionsStorage } from "../../packages/server/src/services/storage/connections.storage.js";
+import { createConnectionAccountsStorage } from "../../packages/server/src/services/storage/connection-accounts.storage.js";
 import { generateImage } from "../../packages/server/src/services/image/image-generation.js";
 import { buildFalImageUrl } from "../../packages/server/src/services/image/fal-image.js";
 import { resolveConnectionImageDefaults } from "../../packages/server/src/services/image/image-generation-defaults.js";
@@ -139,7 +140,10 @@ try {
     FAL_IMAGE_MODELS.map(({ id, name }) => ({ id, name })),
   );
   assert.equal(requests.length, beforeTest, "Configuration and starter model discovery must not spend credits");
-  await storage.update(connection.id, { apiKey: "" });
+  // The Model is linked to a Connection, which holds its key.
+  const accountId = (await storage.getById(connection.id))?.accountId;
+  assert.ok(accountId, "the fal Model is linked to a Connection");
+  await createConnectionAccountsStorage(db).update(accountId, { apiKey: "" });
   const missingKey = await app.inject({ method: "POST", url: `/api/connections/${connection.id}/test` });
   assert.equal(missingKey.json().success, false, missingKey.body);
   assert.match(missingKey.json().message, /requires an API key/);

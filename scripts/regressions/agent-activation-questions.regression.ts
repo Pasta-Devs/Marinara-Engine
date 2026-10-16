@@ -24,6 +24,7 @@ import {
   createConnectionExportEnvelope,
 } from "../../packages/client/src/lib/connection-transfer.js";
 import { createConnectionsStorage } from "../../packages/server/src/services/storage/connections.storage.js";
+import { createConnectionAccountsStorage } from "../../packages/server/src/services/storage/connection-accounts.storage.js";
 import { connectionsRoutes } from "../../packages/server/src/routes/connections.routes.js";
 import { quarantineProfileApiConnectionRow } from "../../packages/server/src/routes/backup.routes.js";
 import Fastify from "../../packages/server/node_modules/fastify/fastify.js";
@@ -254,9 +255,12 @@ try {
   const resolve = async () =>
     resolveDecisionConnection((await storage.getWithKey(decision!.id))!, (id) => storage.getWithKey(id));
   assert.equal((await resolve()).connection?.apiKey, "original");
-  await storage.update(chat!.id, { apiKey: "rotated" });
+  // The chat Model is linked to a Connection, which holds its key and address.
+  const chatAccounts = createConnectionAccountsStorage(db);
+  const chatAccountId = (await storage.getById(chat!.id))!.accountId!;
+  await chatAccounts.update(chatAccountId, { apiKey: "rotated" });
   assert.equal((await resolve()).connection?.apiKey, "rotated");
-  await storage.update(chat!.id, { baseUrl: "https://unexpected.example/v1" });
+  await chatAccounts.update(chatAccountId, { baseUrl: "https://unexpected.example/v1" });
   assert.equal((await resolve()).error, "needs_relinking");
   await storage.remove(chat!.id);
   assert.equal((await resolve()).error, "needs_relinking");

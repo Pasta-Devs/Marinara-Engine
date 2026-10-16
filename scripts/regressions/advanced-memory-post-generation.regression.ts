@@ -460,6 +460,8 @@ try {
     ["custom", "fixture"],
     ["openai", "gpt-6-astra"],
   ] as const) {
+    // A linked Model takes its provider from its Connection, so a provider switch leaves the Connection first.
+    await createConnectionsStorage(db).update(connection.id, { accountId: null });
     await createConnectionsStorage(db).update(connection.id, { provider, model });
     streamGate = new Promise<void>((resolve) => {
       finishStream = resolve;
@@ -499,6 +501,7 @@ try {
       "routine recall does not prepare the archive",
     );
   }
+  await createConnectionsStorage(db).update(connection.id, { accountId: null });
   await createConnectionsStorage(db).update(connection.id, { provider: "custom", model: "fixture" });
   // The embedding space follows the provider, so the Responses reply's upkeep embedded the archive for that one;
   // a reply's upkeep embeds it for this one again.
@@ -1859,6 +1862,7 @@ try {
 
   // A failed provider result can contain text. It must never become an active
   // replacement or deactivate the originals, even on repeated Resume attempts.
+  await createConnectionsStorage(db).update(connection.id, { accountId: null });
   await createConnectionsStorage(db).update(connection.id, { provider: "custom", model: "fixture" });
   const failureEntries = [
     { ...longConstant, id: "failed-replacement-source", content: "EXISTING_CONSTANT ".repeat(2000) },
