@@ -1,3 +1,8 @@
+import {
+  getMessageConversationStartCharacterIds,
+  isMessageHiddenFromAIForCharacter,
+} from "../../routes/generate/generate-route-utils.js";
+
 export interface SceneVideoPromptLimits {
   narrationSummary: number;
   illustrationPrompt: number;
@@ -243,4 +248,53 @@ function parseExtraRecord(extra: unknown): Record<string, unknown> {
   } catch {
     return {};
   }
+}
+
+/**
+ * The recent chat a new video should know about, the way Illustrator reads it for a picture: the last `count`
+ * user and assistant messages with text, up to `endMessageId` (else the newest), each labelled with who said it.
+ * Messages before the latest conversation start, and messages hidden from the AI (or from `characterId`), are left
+ * out; over `maxLength`, the oldest text goes first so the latest moment is kept.
+ */
+export function formatRecentVideoContext(
+  messages: ReadonlyArray<{ id: string; role?: string | null; content?: string | null; extra?: unknown }>,
+  options: {
+    count: number;
+    endMessageId?: string | null;
+    speaker?: (message: { role?: string | null; extra?: unknown } & Record<string, unknown>) => string;
+    maxLength?: number;
+    /** Who the clip is for: messages hidden from that character are left out, as their replies leave them out. */
+    characterId?: string | null;
+  },
+): string {
+  const end = options.endMessageId ? messages.findIndex((message) => message.id === options.endMessageId) : -1;
+  const upTo = end >= 0 ? messages.slice(0, end + 1) : messages;
+  // A conversation start marker (for everyone, or for this character) cuts off what came before, as replies do.
+  let start = 0;
+  for (let index = upTo.length - 1; index >= 0; index--) {
+    const message = upTo[index]!;
+    if (
+      parseExtraRecord(message.extra).isConversationStart === true ||
+      (!!options.characterId && getMessageConversationStartCharacterIds(message).includes(options.characterId))
+    ) {
+      start = index;
+      break;
+    }
+  }
+  const text = upTo
+    .slice(start)
+    .filter((message) => message.role === "user" || message.role === "assistant")
+    .filter((message) => !isMessageHiddenFromAIForCharacter(message, options.characterId))
+    // A message with no text (a video message, for one) says nothing here and would use up the count.
+    .filter((message) => (message.content ?? "").trim().length > 0)
+    .slice(-Math.max(1, options.count))
+    .map((message) => {
+      const speaker =
+        options.speaker?.(message as Parameters<NonNullable<typeof options.speaker>>[0]) ??
+        (message.role === "user" ? "User" : "Assistant");
+      return `${speaker}:\n${(message.content ?? "").trim()}`;
+    })
+    .join("\n\n");
+  const maxLength = options.maxLength ?? 12_000;
+  return text.length > maxLength ? text.slice(-maxLength) : text;
 }

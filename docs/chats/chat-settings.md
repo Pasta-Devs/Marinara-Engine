@@ -165,6 +165,8 @@ Three things are worth knowing.
 - Variables belong to this chat alone. Another chat has its own list, and yours survives a restart.
 - This is the same storage `{{setvar}}` uses. A value set by a prompt section or a lorebook entry shows up here as a row you can edit, and such an entry overwrites the value you typed if it uses the same name.
 
+With many variables, click **Search and edit all in the State Editor** at the top of the section. It opens every variable in one list where you can search, edit values as fields, or paste in many at once as JSON, and review the changes before saving. Saving only changes the names you edited, so a value `{{setvar}}` saves meanwhile under another name is kept. See [The State Editor](../roleplay/hud-and-trackers.md#the-state-editor).
+
 For everything else you can write in double braces, see [Prompt Macros](../prompts/macros.md).
 
 ## Chat tools in Chat Settings

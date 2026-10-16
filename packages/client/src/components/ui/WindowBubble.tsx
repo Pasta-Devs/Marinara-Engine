@@ -159,7 +159,13 @@ export function WindowBubble({
     mountedBubbles.set(id, {
       // A banner grows with its summary, so it is the one to give way when it grows into a neighbour.
       point: { x: origin.x, y: origin.y, automatic: hasBanner || point.automatic ? true : undefined },
-      bounds: { left: bounds.left, top: bounds.top, right: bounds.right, bottom: bounds.bottom },
+      bounds: {
+        left: bounds.left,
+        top: bounds.top,
+        right: bounds.right,
+        bottom: bounds.bottom,
+        besideComposer: bounds.besideComposer,
+      },
       size: { width: renderedWidth, height: renderedHeight },
     });
     updateBubblePlacements();
@@ -173,6 +179,7 @@ export function WindowBubble({
     bounds.top,
     bounds.right,
     bounds.bottom,
+    bounds.besideComposer,
     renderedWidth,
     renderedHeight,
   ]);

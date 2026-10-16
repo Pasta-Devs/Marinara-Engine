@@ -171,6 +171,8 @@ export interface APIConnection {
   decisionTimeoutMs?: number | null;
   /** Default voice id/name for speech synthesis on this audio connection. */
   audioVoice: string | null;
+  /** How long a speech request on this audio connection may take, in milliseconds; null is the default. */
+  audioTimeoutMs?: number | null;
   /** Whether this audio connection may generate game sound effects (ElevenLabs only today). */
   audioSoundEffects: boolean;
   /** Whether this audio connection may generate game music (ElevenLabs only today). */

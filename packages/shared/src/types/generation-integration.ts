@@ -195,8 +195,12 @@ export interface ContextFitSummary {
 
 export type GenerationFallbackCategory = "main" | "agents" | "illustrator" | "video";
 
-/** Why the chat's own Model did not answer. "failed": it was tried and the request failed. */
-export type GenerationFallbackReason = "off" | "needs_key" | "review" | "deleted" | "failed";
+/** Why the chat's own Model did not answer, so the fallback did. */
+export type GenerationFallbackUnavailableReason = "off" | "needs_key" | "review" | "deleted";
+
+/** Why the chosen connection failed before the fallback answered. */
+export type GenerationFallbackReason =
+  "rate_limit" | "auth" | "not_found" | "timeout" | "network" | "server" | "empty" | "error";
 
 export type GenerationFallbackNotice = {
   category: GenerationFallbackCategory;
@@ -204,11 +208,21 @@ export type GenerationFallbackNotice = {
   connectionId: string;
   connectionName: string;
   model: string;
-  reason?: GenerationFallbackReason;
+  /** Set when the chat's own Model was unavailable and never tried; absent after a failed request. */
+  reason?: GenerationFallbackUnavailableReason;
   /** The Model that could not answer, and its Connection (where "Fix" goes). */
   unavailableConnectionId?: string;
   unavailableName?: string;
   unavailableAccountId?: string;
+  /** The connection that failed first, such as the random pool's pick (#7697). */
+  failed?: {
+    connectionId: string;
+    connectionName?: string;
+    model?: string;
+    reason: GenerationFallbackReason;
+    /** The HTTP status the failure came with, when it had one. */
+    status?: number;
+  };
 };
 
 export type GenerationFallbackNotifier = (notice: GenerationFallbackNotice) => void | Promise<void>;
@@ -424,6 +438,8 @@ export interface CapabilityIntegrationProvider {
 export interface CapabilityConnectionFallbackOptions {
   primary: CapabilityIntegrationProvider;
   primaryConnectionId: string;
+  /** Names the primary in the fallback notice; without it the notice names only its model. */
+  primaryConnectionName?: string | null;
   fallbackConnection: FallbackConnection | null | undefined;
   fallbackBaseUrl: string;
   category: "main" | "agents";

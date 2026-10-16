@@ -9,6 +9,7 @@ import {
   MAX_PINNED_MODELS,
 } from "../types/connection.js";
 import { DECISION_CONNECTION_TIMEOUT_BOUNDS_MS } from "../types/decision.js";
+import { TTS_REQUEST_TIMEOUT_MS } from "../types/tts.js";
 import { MAX_IMAGE_PROMPT_INSTRUCTIONS_LENGTH } from "../constants/defaults.js";
 
 export const apiProviderSchema = z.enum([
@@ -115,6 +116,14 @@ export const createConnectionSchema = z.object({
     .nullable()
     .default(null),
   audioVoice: z.string().nullable().default(null),
+  /** Milliseconds; null keeps the default. */
+  audioTimeoutMs: z
+    .number()
+    .int()
+    .min(TTS_REQUEST_TIMEOUT_MS.min)
+    .max(TTS_REQUEST_TIMEOUT_MS.max)
+    .nullable()
+    .default(null),
   audioSoundEffects: z.boolean().default(false),
   audioMusic: z.boolean().default(false),
   promptPresetId: z.string().nullable().default(null),

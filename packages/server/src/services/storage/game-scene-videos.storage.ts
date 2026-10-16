@@ -13,6 +13,19 @@ export interface CreateGameSceneVideoInput {
   model: string;
   durationSeconds: number;
   aspectRatio: string;
+  /** Characters the video shows; omit to keep it in every chat character's gallery. */
+  characterIds?: string[] | null;
+}
+
+/** The characters a video row was tagged with, or null for an untagged (older or non-Conversation) video. */
+export function parseSceneVideoCharacterIds(value: unknown): string[] | null {
+  if (typeof value !== "string" || !value.trim()) return null;
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    return Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === "string") : null;
+  } catch {
+    return null;
+  }
 }
 
 export function createGameSceneVideosStorage(db: DB) {
@@ -54,6 +67,7 @@ export function createGameSceneVideosStorage(db: DB) {
         model: input.model,
         durationSeconds: input.durationSeconds,
         aspectRatio: input.aspectRatio,
+        characterIds: input.characterIds?.length ? JSON.stringify(input.characterIds) : null,
         createdAt,
       });
       return this.getById(id, input.chatId);

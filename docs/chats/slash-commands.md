@@ -140,6 +140,7 @@ These commands only work in a **Conversation** chat.
 |---|---|
 | `/games` | Opens the installed conversation game picker. `/game` and `/play` do the same. |
 | `/selfie [name (optional)]` | Generates a selfie with the installed Illustrator agent. Add a name to choose a character. |
+| `/video [name (optional)]` | Has a character send you a short video message, using the chat's **Video messages** settings. Add a name to choose a character. See [Video messages](../conversation/selfies.md#video-messages). |
 | `/uno` | Starts a game of UNO with the characters in the chat. |
 | `/chess` | Starts a one-on-one chess game with a character. |
 | `/poker` | Starts a game of Texas Hold'em poker with the characters. |

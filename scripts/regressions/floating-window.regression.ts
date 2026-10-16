@@ -92,6 +92,31 @@ assert.deepEqual(resizeWindowGeometry(start, "nw", -1000, -1000, bounds, limits)
 });
 assert.deepEqual(resizeWindowGeometry(start, "e", 5000, 0, bounds, limits), { ...start, width: 1032 });
 
+// #7703: on a computer, windows and buttons reach the bottom beside the message box (x 500–1000, top 800), never over it.
+const desk = { ...bounds, bottom: 792, besideComposer: { left: 492, right: 1008, bottom: 892 } };
+const low = { x: 100, y: 400, width: 320, height: 492 };
+assert.deepEqual(clampWindowGeometry(low, desk, limits), low, "beside the box a window reaches the bottom");
+assert.deepEqual(clampWindowGeometry({ ...low, x: 1100 }, desk, limits), { ...low, x: 1100 }, "on either side");
+assert.deepEqual(
+  clampWindowGeometry({ ...low, x: 300 }, desk, limits),
+  { ...low, x: 300, y: 300 },
+  "over the box it rises above it",
+);
+assert.deepEqual(resizeWindowGeometry({ ...low, height: 300 }, "s", 0, 5000, desk, limits), low);
+assert.deepEqual(
+  resizeWindowGeometry(low, "e", 5000, 0, desk, limits),
+  { ...low, width: 392 },
+  "a low window widens up to the box",
+);
+assert.deepEqual(resizeWindowGeometry({ ...low, x: 1100 }, "w", -5000, 0, desk, limits), {
+  ...low,
+  x: 1008,
+  width: 412,
+});
+assert.deepEqual(clampWindowBubble({ x: 100, y: 5000 }, desk), { x: 100, y: 860 }, "a button reaches the bottom");
+assert.deepEqual(clampWindowBubble({ x: 600, y: 5000 }, desk), { x: 600, y: 760 }, "but stays above the box");
+assert.deepEqual(clampWindowGeometry(low, { ...desk, besideComposer: undefined }, limits), { ...low, y: 300 });
+
 // ── Stored layouts survive old, missing and corrupt values ──
 const valid = { x: 10, y: 20, width: 400, height: 300, pinned: true, locked: false };
 assert.deepEqual(parseWindowLayoutSnapshot(undefined).windows, {});

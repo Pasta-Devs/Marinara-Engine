@@ -118,6 +118,7 @@ const sharedSettings = (tag: string) => ({
   roleplayCommandsEnabled: tag === "source",
   roleplayCommandToggles: { roll: tag === "source", document: tag === "source", whisper: tag === "source" },
   sceneVideoConnectionId: `video-connection-${tag}`,
+  sceneVideoFirstFrame: tag === "source" ? "prompt_only" : "avatar",
   summaryConnectionId: `summary-connection-${tag}`,
   translationProvider: tag === "source" ? "deepl" : "google",
   windowLayout: { version: 1, windows: { [`window-${tag}`]: { x: 1 } } },
@@ -402,6 +403,7 @@ try {
     assert.deepEqual(appliedMeta[key], value, `applying a profile by hand sets its ${key}, as before`);
   }
   assert.equal(appliedMeta.sceneVideoConnectionId, "video-connection-source", "applying sets the video connection");
+  assert.equal(appliedMeta.sceneVideoFirstFrame, "prompt_only", "applying sets the video first frame");
   assert.deepEqual(
     appliedMeta.chatParameters,
     chatParameters("source"),
@@ -457,6 +459,11 @@ try {
     oldAppliedMeta.sceneVideoConnectionId,
     "video-connection-source",
     "a profile saved without a video connection leaves the chat's own",
+  );
+  assert.equal(
+    oldAppliedMeta.sceneVideoFirstFrame,
+    "prompt_only",
+    "a profile saved without a video first frame leaves the chat's own",
   );
   const roomApplied = await app.inject({ method: "POST", url: `/api/chat-presets/${profile.id}/apply/${room}` });
   assert.deepEqual(JSON.parse(roomApplied.json().metadata).multiplayer, hostedRoom, "applying keeps a room");

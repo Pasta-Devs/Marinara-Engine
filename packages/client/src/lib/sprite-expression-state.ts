@@ -49,6 +49,8 @@ export function resolveLatestSpriteExpressionTurn(
       const characterIds = extra.expressionSpriteIds.filter((id): id is string => typeof id === "string" && !!id);
       return { characterIds, messageId: message.id, messageIndex: index };
     }
+    // An earlier Individual reply holds only its own expression; the turn's sprite list is on its last reply.
+    if (extra.expressionTurnPart === true) continue;
 
     // Older turns only stored sparse expressions, with persona expressions on the preceding user message.
     // A user map alone can outlive a regenerated assistant swipe, so it cannot prove that turn completed.

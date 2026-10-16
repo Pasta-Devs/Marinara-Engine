@@ -257,6 +257,11 @@ export function TrackerDataSidebar({
           onSetStatDisplayMode={setTrackerStatDisplayMode}
           onToggleDetached={onToggleDetached}
           onClose={closeTrackerPanel}
+          onOpenStateEditor={
+            activeChatId
+              ? () => useUIStore.getState().openModal("game-state-editor", { chatId: activeChatId })
+              : undefined
+          }
           launchers={
             activeChatId && launcherPackages.length > 0
               ? launcherPackages.map((item) => (

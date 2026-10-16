@@ -16,6 +16,7 @@ import {
   setCharacterVoiceAssignment,
   TTS_VOICE_MAX_LENGTH,
   normalizeMusicEnemyTier,
+  resolveTtsRequestTimeoutMs,
   TTS_SETTINGS_KEY,
   TTS_API_KEY_MASK,
   ttsRoleplaySpeakerExtractorResponseSchema,
@@ -593,7 +594,7 @@ async function resolveAudioConfig(
   storage: ReturnType<typeof createAppSettingsStorage>,
   connections: ReturnType<typeof createConnectionsStorage>,
   requestedConnectionId?: string | null,
-) {
+): Promise<TTSConfig & { connectionName?: string }> {
   const cfg = await loadConfig(storage);
   // The TTS settings card tests the blob it edits; the empty-string sentinel
   // must reach it even when a default audio connection exists.
@@ -631,6 +632,9 @@ async function resolveAudioConfig(
     model: row.model || profile?.model || TTS_SOURCE_DEFAULTS[source].model,
     elevenLabsGameSoundEffects: row.audioSoundEffects === "true",
     elevenLabsGameMusic: row.audioMusic === "true",
+    // The connection's own limit, never the settings card's: each one is set where its server is.
+    requestTimeoutMs: resolveTtsRequestTimeoutMs(row.audioTimeoutMs),
+    connectionName: row.name,
   };
 }
 
@@ -1744,7 +1748,9 @@ export async function ttsRoutes(app: FastifyInstance) {
                     response_format: audioFormat,
                     ...(speechInstructions ? { instructions: speechInstructions } : {}),
                   }),
-        signal: AbortSignal.timeout(60_000),
+        signal: AbortSignal.timeout(cfg.requestTimeoutMs),
+        // undici otherwise stops waiting after 300 s, whatever the limit above says.
+        agentOptions: { headersTimeout: cfg.requestTimeoutMs, bodyTimeout: cfg.requestTimeoutMs },
         policy: {
           allowLocal: allowLocalTtsUrl(cfg),
           allowedProtocols: ["https:", "http:"],
@@ -1754,10 +1760,22 @@ export async function ttsRoutes(app: FastifyInstance) {
         decodeCompressedResponse: cfg.source === "elevenlabs",
       });
     } catch (err: unknown) {
-      const msg =
-        err instanceof Error && err.name === "TimeoutError" ? "TTS request timed out" : "TTS provider unreachable";
+      if (err instanceof Error && err.name === "TimeoutError") {
+        const timeoutSeconds = cfg.requestTimeoutMs / 1000;
+        const setting = cfg.connectionName
+          ? `the "${cfg.connectionName}" audio connection`
+          : "Connections > Text to Speech";
+        logger.warn("TTS request timed out after %d s. Raise Request timeout in %s.", timeoutSeconds, setting);
+        // The client words this for the user from the code; `error` stays as before for anything else reading it.
+        return reply.status(502).send({
+          error: "TTS request timed out",
+          code: "tts_timeout",
+          timeoutSeconds,
+          connectionName: cfg.connectionName ?? null,
+        });
+      }
       req.log.error(err, "TTS provider request failed");
-      return reply.status(502).send({ error: msg });
+      return reply.status(502).send({ error: "TTS provider unreachable" });
     }
 
     if (!providerRes.ok) {

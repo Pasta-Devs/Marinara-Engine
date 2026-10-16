@@ -2,6 +2,7 @@ import {
   DECISION_SOURCES,
   defaultDecisionStateTokens,
   resolveDecisionConnectionTimeoutMs,
+  resolveTtsRequestTimeoutMs,
   type DecisionSource,
   normalizeImagePromptInstructions,
   normalizeVideoPromptInstructions,
@@ -47,6 +48,7 @@ export type ConnectionTransferRow = {
   maxStateTokens?: unknown;
   decisionTimeoutMs?: unknown;
   audioVoice?: unknown;
+  audioTimeoutMs?: unknown;
   audioSoundEffects?: unknown;
   audioMusic?: unknown;
   service?: unknown;
@@ -93,6 +95,7 @@ export type SafeConnectionExport = {
   maxStateTokens: number | null;
   decisionTimeoutMs: number | null;
   audioVoice: string | null;
+  audioTimeoutMs: number | null;
   audioSoundEffects: boolean;
   audioMusic: boolean;
   imageEndpointId: string | null;
@@ -184,10 +187,12 @@ export function normalizeImportedConnectionEntry(value: unknown): ConnectionImpo
         provider === "decision"
           ? asBoundedPositiveInteger(value.maxStateTokens, defaultDecisionStateTokens(decisionSource), 30000)
           : null,
-      decisionTimeoutMs: provider === "decision" ? asDecisionTimeoutMs(value.decisionTimeoutMs) : null,
+      decisionTimeoutMs:
+        provider === "decision" ? asTimeoutMs(value.decisionTimeoutMs, resolveDecisionConnectionTimeoutMs) : null,
       credentialsFromConnectionId: null,
       audioSource: provider === "audio" ? asAudioGenerationSource(value.audioSource ?? value.service) : null,
       audioVoice: provider === "audio" ? asNullableString(value.audioVoice) : null,
+      audioTimeoutMs: provider === "audio" ? asTimeoutMs(value.audioTimeoutMs, resolveTtsRequestTimeoutMs) : null,
       audioSoundEffects: provider === "audio" && asBoolean(value.audioSoundEffects),
       audioMusic: provider === "audio" && asBoolean(value.audioMusic),
       promptPresetId: null,
@@ -246,9 +251,11 @@ function serializeConnectionForExport(connection: ConnectionTransferRow): SafeCo
       provider === "decision"
         ? asBoundedPositiveInteger(connection.maxStateTokens, defaultDecisionStateTokens(decisionSource), 30000)
         : null,
-    decisionTimeoutMs: provider === "decision" ? asDecisionTimeoutMs(connection.decisionTimeoutMs) : null,
+    decisionTimeoutMs:
+      provider === "decision" ? asTimeoutMs(connection.decisionTimeoutMs, resolveDecisionConnectionTimeoutMs) : null,
     audioSource: isAudioProvider ? asNullableString(connection.audioSource ?? connection.service) : null,
     audioVoice: isAudioProvider ? asNullableString(connection.audioVoice) : null,
+    audioTimeoutMs: isAudioProvider ? asTimeoutMs(connection.audioTimeoutMs, resolveTtsRequestTimeoutMs) : null,
     audioSoundEffects: isAudioProvider && asBoolean(connection.audioSoundEffects),
     audioMusic: isAudioProvider && asBoolean(connection.audioMusic),
     imageEndpointId: asNullableString(connection.imageEndpointId),
@@ -341,12 +348,12 @@ function asBoundedPositiveInteger(value: unknown, fallback: number, max: number)
   return Math.min(max, asPositiveInteger(value, fallback));
 }
 
-/** A Decision connection's own time limit, or null to keep the default. */
-function asDecisionTimeoutMs(value: unknown) {
+/** A Decision or audio connection's own time limit, or null to keep the default. */
+function asTimeoutMs(value: unknown, resolve: (ms: number) => number) {
   // A blank string is unset, not zero: Number(" ") is 0, which would clamp to the minimum.
   const text = typeof value === "string" ? value.trim() : null;
   const numberValue = typeof value === "number" ? value : text ? Number(text) : NaN;
-  return Number.isFinite(numberValue) ? resolveDecisionConnectionTimeoutMs(numberValue) : null;
+  return Number.isFinite(numberValue) ? resolve(numberValue) : null;
 }
 
 function asNonNegativeInteger(value: unknown, fallback: number) {

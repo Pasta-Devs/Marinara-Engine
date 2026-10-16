@@ -4,6 +4,7 @@
 import { TTS_DIALOGUE_PAUSE_MAX_SECONDS } from "@marinara-engine/shared";
 import { deleteCachedTTSAudioKeys, getOrCreateCachedTTSAudioBlob } from "./tts-audio-cache";
 import { SILENT_AUDIO_DATA_URI } from "./silent-audio";
+import { translate } from "../localization/i18n";
 
 export type TTSState = "idle" | "loading" | "playing" | "paused" | "blocked" | "error";
 
@@ -307,6 +308,13 @@ class TTSService {
 
     try {
       const data = JSON.parse(raw) as Record<string, unknown>;
+      // A timeout says where its limit is set: these settings, or the audio connection that was used.
+      if (data.code === "tts_timeout" && typeof data.timeoutSeconds === "number") {
+        const seconds = data.timeoutSeconds;
+        return typeof data.connectionName === "string" && data.connectionName
+          ? translate("tts.errors.timeoutConnection", { seconds, name: data.connectionName })
+          : translate("tts.errors.timeout", { seconds });
+      }
       const error = typeof data.error === "string" ? data.error : "";
       const detail = typeof data.detail === "string" ? data.detail : "";
       const message = typeof data.message === "string" ? data.message : "";

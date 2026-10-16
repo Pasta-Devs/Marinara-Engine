@@ -1,4 +1,5 @@
 import {
+  capabilityModelId,
   isClaudeAdaptiveOnlyNoSamplingModel,
   normalizeThinkingTagPairs,
   resolveManagedGenerationParameters,
@@ -34,6 +35,7 @@ import {
 import type { GenerationFallbackNotifier } from "./fallback-notification.js";
 
 type GenerationConnection = {
+  name?: string | null;
   provider: string;
   model: string;
   apiKey: string;
@@ -194,7 +196,7 @@ export function resolveGenerationParameters(args: GenerationParameterArgs): Reso
     if (capped < runtime.maxTokens) forceParameters("outputCap", { maxTokens: capped });
   }
 
-  const modelLower = (args.connection.model ?? "").toLowerCase();
+  const modelLower = capabilityModelId(args.connection.model ?? "");
   const providerLower = (args.connection.provider ?? "").toLowerCase();
   const isCodex = providerLower === "openai_chatgpt";
   if (runtime.reasoningEffort !== null && keepsCodexDefaultEffort(providerLower, connectionParams, chatParams)) {
@@ -323,6 +325,7 @@ export function resolveGenerationProviderRuntime(args: GenerationProviderRuntime
     primary: primaryProvider,
     wrapProvider: args.wrapProvider,
     primaryConnectionId: args.connectionId,
+    primaryConnectionName: args.connection.name,
     fallbackConnection: args.fallbackConnection,
     fallbackBaseUrl: args.fallbackBaseUrl ?? "",
     category: "main",

@@ -46,7 +46,7 @@ jobs:
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         with:
           run_install: false
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
           cache: pnpm
@@ -86,7 +86,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
@@ -120,7 +120,7 @@ jobs:
       - name: Compile installer pinned to this checkout
         working-directory: win/installer
         run: makensis -DRELEASE_COMMIT="$(git rev-parse HEAD)" installer.nsi
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: windows-installer-compile-only
           path: win/installer/Marinara-Engine-Installer-*.exe
@@ -144,13 +144,13 @@ jobs:
           packages: "platform-tools platforms;android-34 build-tools;36.0.0"
       - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
         with:
-          gradle-version: "9.8.0"
+          gradle-version: "9.8.1"
           cache-read-only: true
       - name: Bootstrap pinned Gradle wrapper
         working-directory: android
         run: |
           if [ ! -f ./gradlew ]; then
-            gradle wrapper --gradle-version 9.8.0 --gradle-distribution-sha256-sum bafd5ce9cfaea0fbccfdc8439a1ac42fbd4cd9c89dc9a988228d8a2639a58e6c
+            gradle wrapper --gradle-version 9.8.1 --gradle-distribution-sha256-sum dce76f55f8e251a3a1f130eb120f30b3d271de2b76c9b0729d316b5a1b6dc01f
           fi
           chmod +x ./gradlew
       - name: Assemble debug APK through the documented build script
@@ -165,7 +165,7 @@ jobs:
             exit 1
           fi
           grep -F 'Release APK/AAB builds require all ANDROID_SIGNING_* credentials' release-guard.log
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: android-debug-branch-proof
           path: android/app/build/outputs/apk/debug/app-debug.apk

@@ -235,7 +235,7 @@ What a decision model does, how to choose one, and the full setup live in [Decis
 - **PocketTTS**: a free voice server you run on your own computer.
 - **xAI Voice**: xAI's voice service.
 
-Each source fills in a default base URL and model. **Default Voice** is the voice used when nothing more specific, such as a per-character voice, is set. To pick which audio connection Marinara uses by default, open the **Connections** panel, expand **Defaults**, and choose it under **Audio**.
+Each source fills in a default base URL and model. **Default Voice** is the voice used when nothing more specific, such as a per-character voice, is set. **Request timeout (seconds)** is how long Marinara waits for one spoken line, 60 seconds by default; raise it for a slow voice server. To pick which audio connection Marinara uses by default, open the **Connections** panel, expand **Defaults**, and choose it under **Audio**.
 
 With the **ElevenLabs** source, two more switches appear: **Game sound effects** and **Game music**. They let Game Mode make sound effects and music with this connection. See [Generated sound effects and music](../game/game-assets.md#generated-sound-effects-and-music). For voices and reading messages aloud, see [Text to Speech (TTS) Setup](../media/tts-setup.md).
 

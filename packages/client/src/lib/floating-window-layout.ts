@@ -79,10 +79,8 @@ export function clampWindowBubble(
   size: BubbleSize = WINDOW_BUBBLE_SIZE_PX,
 ): WindowPoint {
   const { width, height } = readBubbleSize(size);
-  return {
-    x: clamp(finiteOr(point.x, bounds.left), bounds.left, bounds.right - width),
-    y: clamp(finiteOr(point.y, bounds.top), bounds.top, bounds.bottom - height),
-  };
+  const x = clamp(finiteOr(point.x, bounds.left), bounds.left, bounds.right - width);
+  return { x, y: clamp(finiteOr(point.y, bounds.top), bounds.top, readBottomLimit(bounds, x, x + width) - height) };
 }
 
 /**
@@ -125,7 +123,7 @@ function findFreeBubblePoint(
         candidate.x >= bounds.left &&
         candidate.x + width <= bounds.right &&
         candidate.y >= bounds.top &&
-        candidate.y + height <= bounds.bottom &&
+        candidate.y + height <= readBottomLimit(bounds, candidate.x, candidate.x + width) &&
         free(candidate),
     );
     if (available) return available;
@@ -247,6 +245,17 @@ export interface WindowBounds {
   top: number;
   right: number;
   bottom: number;
+  /**
+   * On a computer, `bottom` is the top of the message box. A window or button wholly left of `left` or right
+   * of `right` (the box's sides) may reach down to `bottom` here instead, beside the box (#7703).
+   */
+  besideComposer?: { left: number; right: number; bottom: number };
+}
+
+/** The lowest a window or button spanning `left` to `right` may reach. */
+function readBottomLimit(bounds: WindowBounds, left: number, right: number) {
+  const beside = bounds.besideComposer;
+  return beside && (right <= beside.left || left >= beside.right) ? beside.bottom : bounds.bottom;
 }
 
 export interface WindowSizeLimits {
@@ -279,15 +288,12 @@ export function clampWindowGeometry(
   limits: WindowSizeLimits,
 ): WindowGeometry {
   const availableWidth = Math.max(0, bounds.right - bounds.left);
-  const availableHeight = Math.max(0, bounds.bottom - bounds.top);
   const width = Math.max(limits.minWidth, Math.min(finiteOr(geometry.width, limits.minWidth), availableWidth));
+  const x = clamp(finiteOr(geometry.x, bounds.left), bounds.left, bounds.right - width);
+  const bottom = readBottomLimit(bounds, x, x + width);
+  const availableHeight = Math.max(0, bottom - bounds.top);
   const height = Math.max(limits.minHeight, Math.min(finiteOr(geometry.height, limits.minHeight), availableHeight));
-  return {
-    x: clamp(finiteOr(geometry.x, bounds.left), bounds.left, bounds.right - width),
-    y: clamp(finiteOr(geometry.y, bounds.top), bounds.top, bounds.bottom - height),
-    width,
-    height,
-  };
+  return { x, y: clamp(finiteOr(geometry.y, bounds.top), bounds.top, bottom - height), width, height };
 }
 
 export function moveWindowGeometry(
@@ -312,13 +318,20 @@ export function resizeWindowGeometry(
   const from = clampWindowGeometry(start, bounds, limits);
   const right = from.x + from.width;
   const bottom = from.y + from.height;
+  // Reaching down beside the message box, a side edge stops at the box instead of covering it.
+  const beside = bottom > bounds.bottom ? bounds.besideComposer : undefined;
   let { x, y, width, height } = from;
-  if (edge.includes("e")) width = clamp(from.width + dx, limits.minWidth, bounds.right - from.x);
+  if (edge.includes("e")) {
+    const limit = beside && right <= beside.left ? beside.left : bounds.right;
+    width = clamp(from.width + dx, limits.minWidth, limit - from.x);
+  }
   if (edge.includes("w")) {
-    x = clamp(from.x + dx, bounds.left, right - limits.minWidth);
+    x = clamp(from.x + dx, beside && from.x >= beside.right ? beside.right : bounds.left, right - limits.minWidth);
     width = right - x;
   }
-  if (edge.includes("s")) height = clamp(from.height + dy, limits.minHeight, bounds.bottom - from.y);
+  if (edge.includes("s")) {
+    height = clamp(from.height + dy, limits.minHeight, readBottomLimit(bounds, x, x + width) - from.y);
+  }
   if (edge.includes("n")) {
     y = clamp(from.y + dy, bounds.top, bottom - limits.minHeight);
     height = bottom - y;

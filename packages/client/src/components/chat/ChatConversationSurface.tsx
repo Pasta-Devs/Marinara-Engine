@@ -5,6 +5,7 @@ import { ChatCommonOverlays } from "./ChatCommonOverlays";
 import { ChatConnectedChatWindow } from "./ChatControlWindow";
 import { useRenderTimer } from "../../lib/perf-diagnostics";
 import { useProvideChatGalleryActions } from "../../hooks/use-chat-gallery-actions";
+import type { ChatImage } from "../../hooks/use-gallery";
 import type { CharacterMap, MessageSelectionToggle, PeekPromptData, PersonaInfo } from "./chat-area.types";
 
 type SceneInfo =
@@ -74,6 +75,8 @@ type ConversationSurfaceProps = {
   onIllustrate?: (prompt?: string, messageRange?: [string, string]) => void;
   onIllustrateWithAgent?: (agentType: string) => void | Promise<void>;
   onGenerateSelfie?: (characterId?: string) => void | Promise<void>;
+  onGenerateVideo?: (characterId?: string) => void | Promise<void>;
+  onAnimateImage?: (image: ChatImage, characterId?: string) => void | Promise<void>;
   onWizardFinish: () => void;
   onClosePeekPrompt: () => void;
   onResetSpritePlacements: () => void;
@@ -144,6 +147,8 @@ export function ChatConversationSurface({
   onIllustrate,
   onIllustrateWithAgent,
   onGenerateSelfie,
+  onGenerateVideo,
+  onAnimateImage,
   onWizardFinish,
   onClosePeekPrompt,
   onResetSpritePlacements,
@@ -167,6 +172,8 @@ export function ChatConversationSurface({
       onIllustrate,
       onIllustrateWithAgent,
       onGenerateSelfie,
+      onGenerateVideo,
+      onAnimateImage,
       selfieCharacters: chatCharIds
         .map((id) => {
           const character = characterMap.get(id);
@@ -174,7 +181,7 @@ export function ChatConversationSurface({
         })
         .filter((character): character is { id: string; name: string } => Boolean(character)),
     }),
-    [characterMap, chatCharIds, onGenerateSelfie, onIllustrate, onIllustrateWithAgent],
+    [characterMap, chatCharIds, onAnimateImage, onGenerateSelfie, onGenerateVideo, onIllustrate, onIllustrateWithAgent],
   );
   useProvideChatGalleryActions(activeChatId, galleryActions);
   return (
@@ -207,6 +214,7 @@ export function ChatConversationSurface({
           onPeekPrompt={onPeekPrompt}
           onIllustrate={onIllustrate}
           onGenerateSelfie={onGenerateSelfie}
+          onGenerateVideo={onGenerateVideo}
           lastAssistantMessageId={lastAssistantMessageId}
           onOpenSettings={onOpenSettings}
           onOpenScheduleEditor={onOpenScheduleEditor}

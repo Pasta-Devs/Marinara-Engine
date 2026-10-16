@@ -133,6 +133,20 @@ These settings control it:
 - **Always show Docked thoughts**: when **Thought display mode** is **Docked**, keeps every featured character's thought visible instead of hiding it behind a button.
 - **Temperature unit**: choose **°C** (Celsius) or **°F** (Fahrenheit) for temperature displays. The default is °C. This changes only the display, not the saved world-state value.
 
+## The State Editor
+
+The **State Editor** shows every tracker of the current turn in one window, so you can find a value and fix it without opening each tracker. It also works on a phone.
+
+To open it, click the gear (**Tracker panel settings**) in the Tracker Panel header, then the **{ }** button (**Open in State Editor**). In **Agent Suite**, the **Tracker Data** header has an **Open in State Editor** link too.
+
+- **Which turn you're editing:** the line under the search box says which message and swipe the state belongs to, for example "Editing message #12 · swipe 2 of 3". **Latest** marks the newest turn, and a short excerpt of the message helps you match it to the chat. Each swipe has its own state, so swipe first if you want to fix a different one.
+- **Sections:** **Scene**, **Present Characters**, **Persona Stats**, **Inventory Tracker**, **Custom Tracker Fields**, and **Active Quests**. On a phone they are a row of chips above the editor. A dot marks a section you changed.
+- **Search:** type in the search box to find a key or a value in every section at once, for example `mood`. Each result shows where it lives, such as "Present Characters › Gwendolyn". Click a result to jump straight to it.
+- **Fields and JSON:** each section opens as **Fields**: text, numbers and on/off values as boxes you can type in, with each character, item or quest on its own card. To add or remove an entry, switch to **JSON** and edit the text directly. **Format** tidies the JSON, and **Revert** undoes your changes to one section. If the JSON doesn't parse, the section is marked and can't be saved until you fix it.
+- **Saving:** **Review changes** shows exactly what changes in each section, line by line. **Save changes** writes them all at once to the turn you were editing. Until then your drafts stay in the window, and closing it asks before throwing them away.
+
+If the story moves on while you edit, the editor won't overwrite it. A new reply or swipe makes a different turn current, and the save is refused with a **Reload** button. The same happens when a tracker agent updates a section you changed after you opened the editor. **Reload** shows the newest state and discards your drafts.
+
 ## Which agents populate the HUD
 
 Every HUD widget is filled in by a tracker agent that runs after each turn. The widget table at the top of this guide lists which agent feeds each widget.

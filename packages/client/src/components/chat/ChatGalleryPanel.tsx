@@ -52,6 +52,8 @@ export function ChatGalleryPanel({ chat }: { chat: Chat }) {
         ? chatMetadata.enableSpriteGeneration === true
         : chatMetadata.enableAgents === true && chatMetadata.activeAgentIds?.includes("illustrator");
   const illustratorAvailable = illustratorInstalled && illustratorEnabledForChat;
+  // Conversation video messages don't need selfies: their First frame can be the avatar or no picture.
+  const videoAvailable = chat.mode === "conversation" ? illustratorInstalled : illustratorAvailable;
   // Roleplay Illustrate and Background are one-off runs: an installed Illustrator need not be added to the chat.
   const manualIllustratorAvailable = illustratorInstalled && (chat.mode === "roleplay" || illustratorEnabledForChat);
   const customImageAgents = useMemo(() => {
@@ -84,8 +86,8 @@ export function ChatGalleryPanel({ chat }: { chat: Chat }) {
       selfieCharacters={selfieCharacters}
       onGenerateStoryboard={onGenerateStoryboard}
       onViewStoryboard={onViewStoryboard}
-      onGenerateVideo={illustratorAvailable ? onGenerateVideo : undefined}
-      onAnimateImage={illustratorAvailable ? onAnimateImage : undefined}
+      onGenerateVideo={videoAvailable ? onGenerateVideo : undefined}
+      onAnimateImage={videoAvailable ? onAnimateImage : undefined}
       onGenerateBackground={manualIllustratorAvailable ? onGenerateBackground : undefined}
     />
   );

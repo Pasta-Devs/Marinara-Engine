@@ -79,6 +79,22 @@ To throw away the current arc and have the AI write a fresh one, click **Regener
 
 The hidden arc is stored with the **Narrative Director** agent. Clearing your chat's agent runs and memory does not erase it. The arc is deleted only when you remove the **Narrative Director** agent from the chat. If you remove the agent, a warning tells you the hidden arc will be wiped and cannot be undone.
 
+### Secret Plot prompt
+
+The **Secret Plot Prompt** holds the instructions the Narrative Director follows when it writes and updates the hidden arc. The built-in prompt frames each arc as a mystery to uncover. That suits adventure and intrigue, but it may not fit a story driven by the characters.
+
+To use your own instructions, follow these steps.
+
+1. Open **Agents** and edit the **Narrative Director**.
+2. In the **Secret Plot** section, click **Copy default to edit**.
+3. Change the text, then save the agent.
+
+Click **Reset to default** to go back to the built-in prompt, then save the agent.
+
+Keep the JSON reply format at the end of the prompt: an `overarchingArc` object with `description`, `protagonistArc`, an optional `characterArc`, and `completed`. Without it, the arc can't be read.
+
+This prompt is saved on the agent, so it applies to every chat that uses that Narrative Director.
+
 ## Related guides
 
 - [Downloadable Agents Reference](../agents/built-in-agents.md)

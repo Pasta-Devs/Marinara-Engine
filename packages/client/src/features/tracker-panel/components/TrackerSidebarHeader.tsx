@@ -1,6 +1,7 @@
 import { useRef, useState, type FocusEvent, type KeyboardEvent, type ReactNode } from "react";
 import {
   BarChart3,
+  Braces,
   ExternalLink,
   EyeOff,
   Gauge,
@@ -29,7 +30,17 @@ const TRACKER_PANEL_SIZE_LABELS: Record<TrackerPanelSizeProfile, string> = {
 /** Package buttons in the header look like its own icon buttons, and stay lit while their window is open. */
 export const TRACKER_HEADER_PACKAGE_BUTTON_CLASS =
   "flex h-6 w-6 shrink-0 items-center justify-center rounded-sm text-[var(--muted-foreground)] ring-1 ring-transparent transition-all hover:bg-[var(--accent)] hover:text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-[var(--primary)] active:scale-90 aria-pressed:bg-[var(--foreground)]/12 aria-pressed:text-[var(--foreground)] aria-pressed:ring-[var(--foreground)]/24";
-const TRACKER_TOOLBAR_ITEM_ORDER = ["detach", "side", "size", "statDisplay", "hide", "lock", "add", "delete"] as const;
+const TRACKER_TOOLBAR_ITEM_ORDER = [
+  "detach",
+  "side",
+  "size",
+  "statDisplay",
+  "hide",
+  "lock",
+  "add",
+  "delete",
+  "stateEditor",
+] as const;
 type TrackerToolbarItem = (typeof TRACKER_TOOLBAR_ITEM_ORDER)[number];
 
 const isToolbarButton = (target: EventTarget | null): target is HTMLButtonElement =>
@@ -47,6 +58,7 @@ export function TrackerSidebarHeader({
   onSetStatDisplayMode,
   onToggleDetached,
   onClose,
+  onOpenStateEditor,
   launchers,
 }: {
   trackerPanelSide: TrackerPanelSide;
@@ -60,6 +72,8 @@ export function TrackerSidebarHeader({
   onSetStatDisplayMode: (mode: TrackerStatDisplayMode) => void;
   onToggleDetached?: () => void;
   onClose: () => void;
+  /** Opens the State Editor on this chat's game state; the button is hidden without it. */
+  onOpenStateEditor?: () => void;
   /** Package buttons, such as the one that opens Quartermaster's dock. */
   launchers?: ReactNode;
 }) {
@@ -400,6 +414,18 @@ export function TrackerSidebarHeader({
         >
           <Trash2 size="0.75rem" />
         </button>
+        {onOpenStateEditor ? (
+          <button
+            {...getToolbarItemProps("stateEditor")}
+            type="button"
+            onClick={onOpenStateEditor}
+            title={localizeUi("ui.trackerPanel.trackersidebarheader.openStateEditor")}
+            aria-label={localizeUi("ui.trackerPanel.trackersidebarheader.openStateEditor")}
+            className="flex h-6 w-6 items-center justify-center rounded-sm text-[var(--muted-foreground)]/55 ring-1 ring-transparent transition-all hover:bg-[var(--accent)] hover:text-[var(--muted-foreground)] hover:ring-[var(--border)] active:scale-90"
+          >
+            <Braces size="0.75rem" />
+          </button>
+        ) : null}
       </div>
     </div>
   );

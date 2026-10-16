@@ -46,13 +46,15 @@ const CHAT_SETUP_AGENT_IDS = new Set(["knowledge-retrieval", "knowledge-router",
  * rejects, such as OpenRouter routing, and image captioning without a value uses the chat's own
  * connection's defaults, so updating other chats changes these only in chats on the profile's connection.
  */
+/** `scene…` keys that are Chat Settings a profile carries, unlike the rest of a chat's scene state. */
+const PROFILE_SCENE_SETTING_KEYS = new Set(["sceneVideoConnectionId", "sceneVideoFirstFrame"]);
 const CONNECTION_SETTING_KEYS = new Set(["chatParameters", "imageCaptioningEnabled", "imageCaptioningConnectionId"]);
 
 function isPresetExcludedMetadataKey(key: string) {
   return (
     EXCLUDED_METADATA_SET.has(key) ||
-    // The Illustrator's scene video connection is a setting, not part of one chat's scene.
-    (key.startsWith("scene") && key !== "sceneVideoConnectionId") ||
+    // The Illustrator's scene video connection and video first frame are settings, not part of one chat's scene.
+    (key.startsWith("scene") && !PROFILE_SCENE_SETTING_KEYS.has(key)) ||
     key.startsWith("multiplayer")
   );
 }
@@ -407,8 +409,8 @@ export function createChatPresetsStorage(db: DB) {
         if (Object.keys(ownMemory).length > 0) {
           preserved.advancedMemory = { ...pickAdvancedMemoryKeys(presetMetadata.advancedMemory, false), ...ownMemory };
         }
-        // Profiles saved before they held window layouts or the scene video connection leave the chat's own.
-        for (const key of ["windowLayout", "sceneVideoConnectionId"]) {
+        // Profiles saved before they held window layouts or the video settings leave the chat's own.
+        for (const key of ["windowLayout", ...PROFILE_SCENE_SETTING_KEYS]) {
           if (
             !Object.prototype.hasOwnProperty.call(presetMetadata, key) &&
             Object.prototype.hasOwnProperty.call(currentMetadata, key)

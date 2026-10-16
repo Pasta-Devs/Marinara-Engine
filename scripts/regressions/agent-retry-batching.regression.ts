@@ -33,6 +33,15 @@ const rewriteAgent = (id: string, name: string, defaultPromptTemplate: string) =
 replaceBuiltInAgentDefinitions([
   rewriteAgent("prose-guardian", "Prose Guardian", "STYLE_FIXTURE"),
   rewriteAgent("continuity", "Continuity Checker", "CONTINUITY_FIXTURE"),
+  {
+    id: "director",
+    name: "Narrative Director",
+    description: "Regression fixture",
+    category: "misc" as const,
+    phase: "pre_generation" as const,
+    enabledByDefault: false,
+    defaultPromptTemplate: "DIRECTOR_FIXTURE",
+  },
 ]);
 
 const completion = {
@@ -50,6 +59,12 @@ OpenAIProvider.prototype.chatComplete = async (messages) => {
   peak = Math.max(peak, active);
   try {
     await new Promise((resolve) => setTimeout(resolve, 20));
+    if (prompt.includes("SECRET_PLOT_FIXTURE") || prompt.includes("preserve its core mystery")) {
+      return {
+        content: JSON.stringify({ overarchingArc: { description: "A fixture arc.", completed: false } }),
+        ...completion,
+      };
+    }
     if (!prompt.includes("STYLE_FIXTURE") && !prompt.includes("CONTINUITY_FIXTURE")) {
       return { content: JSON.stringify({ "notes-a": "A", "notes-b": "B", "notes-solo": "S" }), ...completion };
     }
@@ -96,7 +111,7 @@ try {
       promptTemplate,
       settings,
     });
-  const retry = async (agentTypes: string[]) => {
+  const retry = async (agentTypes: string[], extraPayload: Record<string, unknown> = {}) => {
     const chat = await chats.create({ name: "Retry", mode: "roleplay", characterIds: [], connectionId: connection.id });
     assert.ok(chat);
     await chats.patchMetadata(chat.id, { enableAgents: true, activeAgentIds: agentTypes, enableTools: false });
@@ -107,7 +122,12 @@ try {
     const response = await app.inject({
       method: "POST",
       url: "/api/generate/retry-agents",
-      payload: { chatId: chat.id, agentTypes },
+      payload: {
+        chatId: chat.id,
+        agentTypes,
+        ...extraPayload,
+        ...(extraPayload.secretPlotRerollMode ? { forMessageId: reply!.id } : {}),
+      },
     });
     assert.equal(response.statusCode, 200, response.body);
     assert.ok(!response.body.includes('"type":"error"'), response.body);
@@ -135,6 +155,21 @@ try {
   await retry(["notes-a", "notes-solo", "notes-b"]);
   assert.equal(prompts.length, 2, "the opted-out agent gets its own request beside the shared one");
   assert.equal(peak, 1, "agent retries keep to the connection's Max Parallel Agent Jobs");
+
+  // #7655: Regenerate in the Secret Plot panel uses the Director's own Secret Plot prompt.
+  await createAgent("director", "DIRECTOR_FIXTURE", {
+    secretPlotEnabled: true,
+    secretPlotPromptTemplate: "SECRET_PLOT_FIXTURE: keep the arc about the relationship.",
+  });
+  await retry(["director"], { secretPlotRerollMode: "full" });
+  assert.ok(
+    prompts.some((prompt) => prompt.includes("SECRET_PLOT_FIXTURE")),
+    "the Secret Plot reroll sends the Director's custom Secret Plot prompt",
+  );
+  assert.ok(
+    !prompts.some((prompt) => prompt.includes("preserve its core mystery")),
+    "the Secret Plot reroll does not fall back to the built-in prompt",
+  );
 } finally {
   await app.close();
   await closeDB();

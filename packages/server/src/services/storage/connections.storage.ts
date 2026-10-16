@@ -432,6 +432,7 @@ export function createConnectionsStorage(db: DB) {
         maxStateTokens: input.maxStateTokens ?? null,
         decisionTimeoutMs: input.decisionTimeoutMs ?? null,
         audioVoice: input.audioVoice ?? null,
+        audioTimeoutMs: input.audioTimeoutMs ?? null,
         audioSoundEffects: String(input.audioSoundEffects ?? false),
         audioMusic: String(input.audioMusic ?? false),
         promptPresetId: input.promptPresetId ?? null,
@@ -710,6 +711,7 @@ export function createConnectionsStorage(db: DB) {
       if (data.audioVoice !== undefined) {
         updateFields.audioVoice = data.audioVoice;
       }
+      if (data.audioTimeoutMs !== undefined) updateFields.audioTimeoutMs = data.audioTimeoutMs;
       if (data.audioSoundEffects !== undefined) {
         updateFields.audioSoundEffects = String(data.audioSoundEffects);
       }
@@ -875,6 +877,7 @@ export function createConnectionsStorage(db: DB) {
         maxStateTokens: source.maxStateTokens,
         decisionTimeoutMs: source.decisionTimeoutMs,
         audioVoice: source.audioVoice,
+        audioTimeoutMs: source.audioTimeoutMs,
         audioSoundEffects: source.audioSoundEffects,
         audioMusic: source.audioMusic,
         promptPresetId: source.promptPresetId,

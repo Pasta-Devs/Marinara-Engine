@@ -257,6 +257,77 @@ test.describe("Roleplay trackers on desktop", () => {
     }
   });
 
+  // #7703: only phones keep windows above the message box; on a computer they reach the bottom beside it.
+  test("the Trackers window and its button reach the bottom beside the message box, never over it", async ({
+    page,
+    request,
+  }) => {
+    const chat = await createTrackerChat(request);
+    try {
+      await page.setViewportSize({ width: 1920, height: 1000 });
+      await prepare(page, chat.id, { trackerPanelEnabled: false, trackerPanelOpen: false });
+      await page.goto("/");
+      const trackerWindow = page.locator('.mari-window[data-window="trackers"]');
+      const trackerBubble = page.locator('.mari-window-bubble[data-window="trackers"]');
+      const input = page.locator(".chat-input-container:visible").first();
+      const box = async (locator: Locator) => (await locator.boundingBox())!;
+      const bottomOf = (rect: { y: number; height: number }) => Math.round(rect.y + rect.height);
+      await expect(trackerWindow).toBeVisible({ timeout: 30_000 });
+
+      // Stretched down to the bottom of the screen beside the message box, it stays there as the box grows.
+      const edge = await box(trackerWindow.locator('[data-edge="s"]'));
+      await page.mouse.move(edge.x + edge.width / 2, edge.y + edge.height / 2);
+      await page.mouse.down();
+      await page.mouse.move(edge.x + edge.width / 2, 999, { steps: 5 });
+      await page.mouse.up();
+      await expect.poll(async () => bottomOf(await box(trackerWindow))).toBe(1000 - 8);
+      const stretched = await box(trackerWindow);
+      expect(stretched.x + stretched.width).toBeLessThanOrEqual((await box(input)).x);
+      const composer = page.locator("textarea[data-chat-composer]").first();
+      await composer.fill("/");
+      await expect.poll(async () => (await box(input)).y).toBeLessThan(bottomOf(stretched) - 100);
+      expect(await box(trackerWindow)).toEqual(stretched);
+      await composer.fill("");
+
+      // The stretched place saves with the chat and loads again.
+      await expect
+        .poll(async () => {
+          const response = await request.get(`/api/chats/${chat.id}`);
+          const { metadata } = (await response.json()) as { metadata: unknown };
+          const parsed = (typeof metadata === "string" ? JSON.parse(metadata) : metadata) as {
+            windowLayout?: { windows?: Record<string, { y: number; height: number }> };
+          };
+          const saved = parsed.windowLayout?.windows?.trackers;
+          return saved ? bottomOf(saved) : null;
+        })
+        .toBe(bottomOf(stretched));
+      await page.reload();
+      await expect(trackerWindow).toBeVisible({ timeout: 30_000 });
+      await expect.poll(() => box(trackerWindow)).toEqual(stretched);
+
+      // Moved over the message box, it rises above it instead of covering it.
+      const header = await box(trackerWindow.locator(".mari-window__title"));
+      await page.mouse.move(header.x + 4, header.y + header.height / 2);
+      await page.mouse.down();
+      await page.mouse.move(header.x + 604, header.y + header.height / 2, { steps: 5 });
+      await page.mouse.up();
+      await expect.poll(async () => (await box(trackerWindow)).x).toBeGreaterThan(stretched.x + 500);
+      expect(bottomOf(await box(trackerWindow))).toBeLessThanOrEqual((await box(input)).y);
+
+      // Its button goes down beside the message box too.
+      await trackerWindow.getByRole("button", { name: "Close Trackers", exact: true }).click();
+      await expect(trackerBubble).toBeVisible();
+      await trackerBubble.focus();
+      for (let index = 0; index < 25; index++) {
+        await trackerBubble.press("Shift+ArrowLeft");
+        await trackerBubble.press("Shift+ArrowDown");
+      }
+      await expect.poll(async () => bottomOf(await box(trackerBubble))).toBe(1000 - 8);
+    } finally {
+      await request.delete(`/api/chats/${chat.id}?force=true`);
+    }
+  });
+
   test("with the Tracker Panel off, trackers show in a Tracker window with a drawer each", async ({
     page,
     request,

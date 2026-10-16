@@ -50,9 +50,11 @@ import {
   TTS_DIALOGUE_PAUSE_DEFAULT_SECONDS,
   TTS_DIALOGUE_PAUSE_MAX_SECONDS,
   TTS_DIALOGUE_PAUSE_MIN_SECONDS,
+  TTS_REQUEST_TIMEOUT_MS,
   ttsSourceProfileFromConfig,
   isChatProvider,
 } from "@marinara-engine/shared";
+import { DraftNumberInput } from "../../ui/DraftNumberInput";
 import { HelpTooltip } from "../../ui/HelpTooltip";
 import { SettingsCheckbox, SettingsSwitch } from "./SettingControls";
 import { useTranslation as useUiTranslation } from "react-i18next";
@@ -983,6 +985,7 @@ export function TTSConfigCard({ defaultExpanded = false }: { defaultExpanded?: b
   const [roleplaySpeakerExtractorEmotionsEnabled, setRoleplaySpeakerExtractorEmotionsEnabled] = useState(false);
   const [dialoguePauseSeconds, setDialoguePauseSeconds] = useState(TTS_DIALOGUE_PAUSE_DEFAULT_SECONDS);
   const [audioFormat, setAudioFormat] = useState<TTSAudioFormat>("mp3");
+  const [requestTimeoutMs, setRequestTimeoutMs] = useState<number>(TTS_REQUEST_TIMEOUT_MS.default);
   const [callAudioEnabled, setCallAudioEnabled] = useState(false);
   const [callAudioInputMode, setCallAudioInputMode] = useState<TTSConversationCallAudioInputMode>("local_whisper");
   const [callVideoInputEnabled, setCallVideoInputEnabled] = useState(false);
@@ -1060,6 +1063,7 @@ export function TTSConfigCard({ defaultExpanded = false }: { defaultExpanded?: b
     setRoleplaySpeakerExtractorEmotionsEnabled(savedConfig.roleplaySpeakerExtractorEmotionsEnabled ?? false);
     setDialoguePauseSeconds((savedConfig.dialoguePauseMs ?? TTS_DIALOGUE_PAUSE_DEFAULT_SECONDS * 1000) / 1000);
     setAudioFormat(savedConfig.audioFormat ?? "mp3");
+    setRequestTimeoutMs(savedConfig.requestTimeoutMs ?? TTS_REQUEST_TIMEOUT_MS.default);
     setCallAudioEnabled(savedConfig.callAudioEnabled ?? false);
     setCallAudioInputMode(savedConfig.callAudioInputMode ?? "local_whisper");
     setCallVideoInputEnabled(savedConfig.callVideoInputEnabled ?? false);
@@ -1140,6 +1144,7 @@ export function TTSConfigCard({ defaultExpanded = false }: { defaultExpanded?: b
     roleplaySpeakerExtractorEmotionsEnabled,
     dialoguePauseMs: dialoguePauseSeconds * 1000,
     audioFormat,
+    requestTimeoutMs,
     callAudioEnabled,
     callSttConnectionId: "",
     callSttModel: "",
@@ -1725,6 +1730,20 @@ export function TTSConfigCard({ defaultExpanded = false }: { defaultExpanded?: b
                 </p>
               </>
             )}
+          </FieldRow>
+
+          <FieldRow label={localizeUi("tts.requestTimeout")} help={localizeUi("tts.requestTimeoutHelp")}>
+            <DraftNumberInput
+              ariaLabel={localizeUi("tts.requestTimeout")}
+              min={TTS_REQUEST_TIMEOUT_MS.min / 1000}
+              max={TTS_REQUEST_TIMEOUT_MS.max / 1000}
+              value={requestTimeoutMs / 1000}
+              onCommit={(seconds) => {
+                setRequestTimeoutMs(seconds * 1000);
+                mark({ requestTimeoutMs: seconds * 1000 });
+              }}
+              className={INPUT_CLS}
+            />
           </FieldRow>
 
           {/* Voice assignment mode */}

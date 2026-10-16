@@ -134,6 +134,57 @@ for (const theme of ["dark", "light"]) {
       await request.delete(`/api/chats/${chat.id}?force=true`);
     }
   });
+
+  // #7689: lock mode on the readable cards shows what it can lock, and a locked name is saved.
+  test(`Present Characters lock mode marks each field with a padlock (${theme})`, async ({
+    page,
+    request,
+    isMobile,
+  }, info) => {
+    test.skip(isMobile, "Phones keep the tracker strip with its own lock buttons.");
+    const chat = await createChat(request);
+    try {
+      await prepare(page, chat.id, { theme, trackerPanelEnabled: false, trackerPanelOpen: false });
+      await page.goto("/");
+      await page.locator('.mari-window-bubble[data-window="trackers"]').click();
+      const trackers = page.locator('.mari-window[data-window="trackers"]');
+      const badges = trackers.locator("[data-tracker-lock-badge]");
+      await expect(trackers.getByRole("button", { name: "Thrum", exact: true })).toBeVisible();
+      await expect(badges).toHaveCount(0);
+
+      await trackers.getByRole("button", { name: "Enter HUD lock mode", exact: true }).click();
+      const exitLockMode = trackers.getByRole("button", { name: "Exit HUD lock mode", exact: true });
+      await expect(exitLockMode).toHaveAttribute("aria-pressed", "true");
+      await page.mouse.move(0, 0);
+      await expect(exitLockMode).not.toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+      for (const field of ["Thrum", "Thrum emoji", "determined", "stocky dwarf with a braided beard"]) {
+        await expect(
+          trackers
+            .getByRole("button", { name: `Lock ${field}`, exact: true })
+            .locator('[data-tracker-lock-badge="unlocked"]'),
+        ).toBeVisible();
+      }
+
+      await trackers.getByRole("button", { name: "Lock Thrum", exact: true }).click();
+      const unlockName = trackers.getByRole("button", { name: "Unlock Thrum", exact: true });
+      await expect(unlockName).toHaveAttribute("aria-pressed", "true");
+      await expect(unlockName.locator('[data-tracker-lock-badge="locked"]')).toBeVisible();
+      await expect
+        .poll(async () => (await (await request.get(`/api/chats/${chat.id}/game-state`)).json()).fieldLocks)
+        .toEqual({ "characters.id:thrum.name": true });
+      await page.mouse.move(0, 0);
+      await trackers.screenshot({ path: info.outputPath(`characters-lock-mode-${theme}.png`), animations: "disabled" });
+
+      await exitLockMode.click();
+      await expect(trackers.getByRole("button", { name: "Enter HUD lock mode", exact: true })).toHaveAttribute(
+        "aria-pressed",
+        "false",
+      );
+      await expect(badges).toHaveCount(0);
+    } finally {
+      await request.delete(`/api/chats/${chat.id}?force=true`);
+    }
+  });
 }
 
 test("Trackers reopens the selected panel and respects each chat's choice", async ({

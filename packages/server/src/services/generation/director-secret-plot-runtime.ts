@@ -106,10 +106,16 @@ export function appendSecretPlotSystemMessage(
   messages.splice(insertAt, 0, { role: "system", content });
 }
 
+/** A Narrative Director's own Secret Plot prompt, or the built-in one when it has none. */
+export function resolveDirectorSecretPlotPromptTemplate(settings: Record<string, unknown>): string {
+  const custom = settings.secretPlotPromptTemplate;
+  return typeof custom === "string" && custom.trim() ? custom : NARRATIVE_DIRECTOR_SECRET_PLOT_PROMPT;
+}
+
 export function buildDirectorSecretPlotAgent(agent: ResolvedAgent): ResolvedAgent {
   return {
     ...agent,
-    promptTemplate: NARRATIVE_DIRECTOR_SECRET_PLOT_PROMPT,
+    promptTemplate: resolveDirectorSecretPlotPromptTemplate(agent.settings),
     settings: {
       ...agent.settings,
       resultType: "secret_plot",

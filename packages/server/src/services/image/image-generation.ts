@@ -63,6 +63,7 @@ import {
 } from "../generation/connection-admission.js";
 import {
   COMFYUI_MAX_REFERENCE_IMAGES,
+  comfyWorkflowTakesReference,
   findMissingComfyReferenceSlots,
   numberedComfyReferencePlaceholder,
 } from "./comfyui-reference-placeholders.js";
@@ -79,7 +80,11 @@ import {
   readSpicyApiMessage,
   trimSpicyApiReferences,
 } from "./spicyapi-image.js";
-import { buildAtlasCloudImageRequest, runAtlasCloudPrediction } from "../media/atlas-cloud.js";
+import {
+  atlasCloudImageModelTakesReference,
+  buildAtlasCloudImageRequest,
+  runAtlasCloudPrediction,
+} from "../media/atlas-cloud.js";
 import {
   OPENAI_CHATGPT_CODEX_BASE_URL,
   buildOpenAIChatGPTHeaders,
@@ -181,6 +186,89 @@ function resolveImageBackend(source: string, baseUrl: string, serviceHint: strin
   }
 
   return explicitSource;
+}
+
+type ReferencePictureTarget = { model: string; baseUrl: string; comfyWorkflow: string };
+
+/** A ComfyUI file-name slot, which SwarmUI workflows can't fill. */
+const SWARMUI_FILE_NAME_SLOT = /%reference_image_name(?:_0[1-4])?%/;
+
+const openAITakesReference = ({ model }: ReferencePictureTarget) => isOpenAIGptImageModel(model);
+
+/**
+ * Whether each image backend sends the reference picture to the model, as its generate function below
+ * does; a function where that depends on the model, the base URL or the workflow. A backend that sends
+ * only the prompt turns an edit into a new picture.
+ */
+const REFERENCE_PICTURE_SUPPORT: Readonly<Record<string, boolean | ((target: ReferencePictureTarget) => boolean)>> = {
+  // Only GPT Image models go to /images/edits; the others are asked for a new picture.
+  openai: openAITakesReference,
+  codex_chatgpt: true,
+  arli: true,
+  nanogpt: true,
+  openrouter: true,
+  pollinations: false,
+  // The v1 API is text-to-image only.
+  stability: ({ baseUrl }) => !isStabilityV1Base(baseUrl),
+  togetherai: false,
+  // NovelAI's own host takes references on V4.5 only; a proxy gets them through chat completions.
+  novelai: ({ baseUrl, model }) =>
+    !isNativeNovelAiHost(imageHostname(baseUrl)) || isNovelAiPreciseReferenceModel(model || "nai-diffusion-4-5-full"),
+  horde: false,
+  xai: true,
+  venice: false,
+  zai: false,
+  fal: false,
+  // The model's input schema decides, and it is read only when the picture is asked for, so
+  // generateSpicyApi refuses an edit itself when the model has no picture input.
+  spicyapi: true,
+  atlas: ({ model }) => atlasCloudImageModelTakesReference(model),
+  // ComfyUI's built-in workflow is text-to-image; a workflow needs a reference placeholder.
+  comfyui: ({ comfyWorkflow }) => comfyWorkflowTakesReference(comfyWorkflow),
+  // SwarmUI takes pictures as prompt images, or in a workflow through %reference_image% only
+  // (buildSwarmUiGenerationBody refuses a workflow with any file-name slot).
+  swarmui: ({ comfyWorkflow }) =>
+    !comfyWorkflow.trim() ||
+    (comfyWorkflowTakesReference(comfyWorkflow, ["reference_image"]) && !SWARMUI_FILE_NAME_SLOT.test(comfyWorkflow)),
+  automatic1111: true,
+  runpod_comfyui: ({ comfyWorkflow }) => comfyWorkflowTakesReference(comfyWorkflow),
+  gemini_image: true,
+};
+
+function imageHostname(baseUrl: string): string {
+  try {
+    return new URL(baseUrl).hostname;
+  } catch {
+    return "";
+  }
+}
+
+/** Shown when an edit is asked of an image connection that would draw a new picture instead. */
+export const IMAGE_EDIT_UNSUPPORTED_MESSAGE =
+  "This image connection can't edit pictures. Choose one that accepts a reference picture.";
+
+/** Shown when an edit's picture is too large for the image connection, which does take pictures. */
+export const IMAGE_EDIT_REFERENCE_TOO_LARGE_MESSAGE =
+  "The picture is too large for this image connection to edit. Use a smaller picture or another connection.";
+
+/** Whether an image connection, given as generateImage receives it, sends a reference picture to its model. */
+export function imageConnectionTakesReferencePicture(connection: {
+  source: string;
+  baseUrl: string;
+  serviceHint: string;
+  model?: string;
+  comfyWorkflow?: string;
+}): boolean {
+  const backend = resolveImageBackend(connection.source, connection.baseUrl, connection.serviceHint, connection.model);
+  // Any other backend is called as OpenAI, like the default case of generateImage.
+  const support = REFERENCE_PICTURE_SUPPORT[backend] ?? openAITakesReference;
+  return typeof support === "boolean"
+    ? support
+    : support({
+        model: connection.model?.trim() ?? "",
+        baseUrl: connection.baseUrl,
+        comfyWorkflow: connection.comfyWorkflow ?? "",
+      });
 }
 
 /** Default 30-minute timeout for image generation API calls (overridable via env). */
@@ -359,6 +447,15 @@ export async function generateImage(
   } catch (error) {
     const fallback = request.fallback;
     if (!fallback || request.signal?.aborted || isConnectionAdmissionFailure(error)) throw error;
+    // An edit drawn without its picture is a new picture, so a fallback that drops the picture is not tried.
+    if (request.referenceIsCanvas && !imageConnectionTakesReferencePicture(fallback)) {
+      logger.warn(
+        error,
+        "[illustrator-fallback] Primary image edit failed; skipped fallback connection %s, which can't take a reference picture",
+        fallback.connectionId,
+      );
+      throw error;
+    }
     logger.warn(
       error,
       "[illustrator-fallback] Primary image generation failed; retrying with connection %s (%s)",
@@ -1688,18 +1785,26 @@ async function generateSpicyApi(baseUrl: string, apiKey: string, request: ImageG
     "model lookup",
   );
   const inputSchema = (modelInfo as { data?: { inputSchema?: unknown } } | null)?.data?.inputSchema;
-  const input = withImageCustomParameters(
-    request,
-    buildSpicyApiImageInput(inputSchema, {
-      prompt: request.prompt,
-      negativePrompt: request.negativePrompt,
-      width: request.width,
-      height: request.height,
-      referenceImages: openAIReferenceImages(request).map(imageDataUrlFromReference),
-    }),
-  );
+  const modelInput = buildSpicyApiImageInput(inputSchema, {
+    prompt: request.prompt,
+    negativePrompt: request.negativePrompt,
+    width: request.width,
+    height: request.height,
+    referenceImages: openAIReferenceImages(request).map(imageDataUrlFromReference),
+  });
+  // Read from the model's schema, before custom parameters, so a custom picture field can't pass for one.
+  const takesPicture = modelInput.image_urls !== undefined || modelInput.image_url !== undefined;
+  const input = withImageCustomParameters(request, modelInput);
   const body = { model, input };
   await fitSpicyApiReferences(body);
+  // Checked before the task is made, so a model without a picture input never bills a redrawn edit. A model
+  // that takes one but lost every reference to the size limits gets a size error instead.
+  if (
+    request.referenceIsCanvas &&
+    (!takesPicture || (input.image_urls === undefined && input.image_url === undefined))
+  ) {
+    throw new Error(takesPicture ? IMAGE_EDIT_REFERENCE_TOO_LARGE_MESSAGE : IMAGE_EDIT_UNSUPPORTED_MESSAGE);
+  }
   logDebugOverride(
     request.debugMode === true,
     "[debug/image/spicyapi] final request payload:\n%s",
@@ -3827,7 +3932,7 @@ export function buildSwarmUiGenerationBody(request: ImageGenRequest, sessionId: 
     }
     return body;
   }
-  if (/%reference_image_name(?:_0[1-4])?%/.test(workflowText)) {
+  if (SWARMUI_FILE_NAME_SLOT.test(workflowText)) {
     throw new Error(
       "SwarmUI workflows must use %reference_image% placeholders; backend-local filename placeholders cannot be distributed safely.",
     );

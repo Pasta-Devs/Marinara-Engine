@@ -228,12 +228,15 @@ export function readFloatingWindowBounds(): WindowBounds {
       ).getBoundingClientRect(),
     )
     .find((rect) => rect.width > 1 && rect.height > 1);
+  const bottom = Math.min(window.innerHeight, area?.bottom ?? window.innerHeight) - WINDOW_MARGIN_PX;
   return {
     left: Math.max(0, area?.left ?? 0) + WINDOW_MARGIN_PX,
     top: Math.max(0, topbar?.getBoundingClientRect().bottom ?? 0, area?.top ?? 0) + WINDOW_MARGIN_PX,
     right: Math.min(window.innerWidth, area?.right ?? window.innerWidth) - WINDOW_MARGIN_PX,
-    bottom:
-      Math.min(window.innerHeight, area?.bottom ?? window.innerHeight, composer?.top ?? Infinity) - WINDOW_MARGIN_PX,
+    bottom: Math.min(bottom, (composer?.top ?? Infinity) - WINDOW_MARGIN_PX),
+    ...(composer && {
+      besideComposer: { left: composer.left - WINDOW_MARGIN_PX, right: composer.right + WINDOW_MARGIN_PX, bottom },
+    }),
   };
 }
 
@@ -257,7 +260,8 @@ function readSafeAreaInsets() {
 
 /**
  * Where phone bubbles may sit: the chat below the topbar, inside the safe area, above the on-screen
- * keyboard and above the open chat's message box, so a bubble never covers it.
+ * keyboard and above the open chat's message box, so a bubble never covers it. Unlike a computer's,
+ * they never reach down beside the box.
  */
 export function readPhoneBubbleBounds(): WindowBounds {
   const base = readFloatingWindowBounds();
@@ -286,8 +290,15 @@ export function readPhoneBubbleBounds(): WindowBounds {
 }
 
 function sameBounds(left: WindowBounds, right: WindowBounds) {
+  const [a, b] = [left.besideComposer, right.besideComposer];
   return (
-    left.left === right.left && left.top === right.top && left.right === right.right && left.bottom === right.bottom
+    left.left === right.left &&
+    left.top === right.top &&
+    left.right === right.right &&
+    left.bottom === right.bottom &&
+    a?.left === b?.left &&
+    a?.right === b?.right &&
+    a?.bottom === b?.bottom
   );
 }
 

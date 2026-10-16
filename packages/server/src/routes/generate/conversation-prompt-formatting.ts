@@ -120,6 +120,24 @@ export function conversationPromptHistoryContent(
 const SENT_SELFIE_DESCRIPTION_MAX_CHARS = 600;
 
 /**
+ * History notes for video messages a character sent, so the next reply knows a clip went out and
+ * what it shows. Only Conversation video messages name a sender; Roleplay scene clips stay hidden
+ * like Illustrator images.
+ */
+export function formatSentVideoNotes(attachments: PromptAttachment[] | undefined): string {
+  return (attachments ?? [])
+    .filter((attachment) => attachment.type === "video" && !!attachment.characterName?.trim())
+    .map((attachment) => {
+      const description = (attachment.prompt ?? "")
+        .replace(/\s+/g, " ")
+        .trim()
+        .slice(0, SENT_SELFIE_DESCRIPTION_MAX_CHARS);
+      return `\n[${attachment.characterName!.trim()} sent a video message${description ? `: ${description}` : ""}]`;
+    })
+    .join("");
+}
+
+/**
  * History notes for selfies a character sent, so the next reply knows a photo went out and what it
  * shows. A saved caption describes the real image and wins, even after captioning is turned off;
  * otherwise the image prompt's first paragraph (later ones are appearance and reference notes).

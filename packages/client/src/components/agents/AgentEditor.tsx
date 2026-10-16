@@ -124,6 +124,7 @@ import {
   type CustomAgentContextSources,
   type ToolDefinition,
   isChatProvider,
+  NARRATIVE_DIRECTOR_SECRET_PLOT_PROMPT,
 } from "@marinara-engine/shared";
 import {
   createAgentFolderPackageFilename,
@@ -673,6 +674,12 @@ function storyboardSettingsForStorage(settings: StoryboardAgentSettings): Record
 // ═══════════════════════════════════════════════
 //  Main Editor
 // ═══════════════════════════════════════════════
+/** A Secret Plot prompt worth saving: not blank and not an unedited copy of the built-in one. */
+function isCustomSecretPlotPrompt(value: string): boolean {
+  const trimmed = value.trim();
+  return !!trimmed && trimmed !== NARRATIVE_DIRECTOR_SECRET_PLOT_PROMPT.trim();
+}
+
 export function AgentEditor() {
   const { t: localizeUi } = useUiTranslation();
   const agentDetailId = useUIStore((s) => s.agentDetailId);
@@ -831,6 +838,7 @@ export function AgentEditor() {
   const [localProseGuardianHoldForRewrite, setLocalProseGuardianHoldForRewrite] = useState(true);
   const [localSecretPlotEnabled, setLocalSecretPlotEnabled] = useState(false);
   const [localSecretPlotRunInterval, setLocalSecretPlotRunInterval] = useState(8);
+  const [localSecretPlotPrompt, setLocalSecretPlotPrompt] = useState("");
   const [spotifyStatus, setSpotifyStatus] = useState<{
     connected: boolean;
     expired: boolean;
@@ -1016,6 +1024,9 @@ export function AgentEditor() {
       setLocalSecretPlotRunInterval(
         normalizePositiveInteger(settings.secretPlotRunInterval ?? defaultSettings.secretPlotRunInterval, 8, 100),
       );
+      setLocalSecretPlotPrompt(
+        typeof settings.secretPlotPromptTemplate === "string" ? settings.secretPlotPromptTemplate : "",
+      );
       setLocalCustomCapabilities(normalizeCustomAgentCapabilities(settings));
       setLocalContextSources(getAgentContextSources({ isCustomAgent: !builtIn, settings }));
       setLocalResultType(normalizeCustomResultType(settings.resultType));
@@ -1069,6 +1080,7 @@ export function AgentEditor() {
       setLocalProseGuardianHoldForRewrite(defaultSettings.holdForRewrite !== false);
       setLocalSecretPlotEnabled(defaultSettings.secretPlotEnabled === true);
       setLocalSecretPlotRunInterval(normalizePositiveInteger(defaultSettings.secretPlotRunInterval, 8, 100));
+      setLocalSecretPlotPrompt("");
       setLocalCustomCapabilities({});
       setLocalContextSources(getAgentContextSources({ settings: defaultSettings }));
       setLocalResultType("context_injection");
@@ -1134,6 +1146,7 @@ export function AgentEditor() {
       setLocalProseGuardianHoldForRewrite(true);
       setLocalSecretPlotEnabled(false);
       setLocalSecretPlotRunInterval(8);
+      setLocalSecretPlotPrompt("");
       setLocalCustomCapabilities({});
       setLocalContextSources({ ...DEFAULT_CUSTOM_AGENT_CONTEXT_SOURCES });
       setLocalResultType("context_injection");
@@ -1555,6 +1568,9 @@ export function AgentEditor() {
           ? {
               secretPlotEnabled: localSecretPlotEnabled,
               secretPlotRunInterval: localSecretPlotRunInterval,
+              ...(isCustomSecretPlotPrompt(localSecretPlotPrompt)
+                ? { secretPlotPromptTemplate: localSecretPlotPrompt }
+                : {}),
             }
           : {}),
         ...(localImagePositivePrompt.trim() ? { imagePositivePrompt: localImagePositivePrompt.trim() } : {}),
@@ -1640,6 +1656,7 @@ export function AgentEditor() {
     localProseGuardianHoldForRewrite,
     localSecretPlotEnabled,
     localSecretPlotRunInterval,
+    localSecretPlotPrompt,
     localImagePositivePrompt,
     localImageNegativePrompt,
     localStoryboardSettings,
@@ -1796,6 +1813,9 @@ export function AgentEditor() {
         ? {
             secretPlotEnabled: localSecretPlotEnabled,
             secretPlotRunInterval: localSecretPlotRunInterval,
+            ...(isCustomSecretPlotPrompt(localSecretPlotPrompt)
+              ? { secretPlotPromptTemplate: localSecretPlotPrompt }
+              : {}),
           }
         : {}),
       ...(localImagePositivePrompt.trim() ? { imagePositivePrompt: localImagePositivePrompt.trim() } : {}),
@@ -3340,6 +3360,55 @@ export function AgentEditor() {
                   </div>
                 </div>
               )}
+              <div className="mt-4">
+                <div className="mb-1 flex items-center gap-2">
+                  <label className="block text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
+                    {localizeUi("ui.agents.agenteditor.secretPlotPrompt")}
+                  </label>
+                  <div className="flex-1" />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLocalSecretPlotPrompt(
+                        localSecretPlotPrompt.trim() ? "" : NARRATIVE_DIRECTOR_SECRET_PLOT_PROMPT,
+                      );
+                      markDirty();
+                    }}
+                    className="flex items-center gap-1 rounded-lg px-2.5 py-1 text-[0.625rem] font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+                  >
+                    {localSecretPlotPrompt.trim() ? (
+                      <>
+                        <RotateCcw size="0.625rem" /> {localizeUi("ui.agents.agenteditor.resetToDefault")}
+                      </>
+                    ) : (
+                      <>
+                        <FileText size="0.625rem" /> {localizeUi("ui.agents.agenteditor.copyDefaultToEdit")}
+                      </>
+                    )}
+                  </button>
+                </div>
+                {localSecretPlotPrompt.trim() ? (
+                  <MacroTextarea
+                    showTokenCount
+                    value={localSecretPlotPrompt}
+                    onChange={(value) => {
+                      setLocalSecretPlotPrompt(value);
+                      markDirty();
+                    }}
+                    rows={12}
+                    title={localizeUi("ui.agents.agenteditor.secretPlotPrompt")}
+                    ariaLabel={localizeUi("ui.agents.agenteditor.secretPlotPrompt")}
+                    className="w-full resize-y rounded-xl bg-[var(--secondary)] px-4 py-3 font-mono text-xs leading-relaxed ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)] max-h-[50vh] overflow-y-auto"
+                  />
+                ) : (
+                  <pre className="w-full max-h-[30vh] overflow-y-auto rounded-xl bg-[var(--secondary)] px-4 py-3 font-mono text-xs leading-relaxed ring-1 ring-[var(--border)] text-[var(--muted-foreground)] whitespace-pre-wrap">
+                    {NARRATIVE_DIRECTOR_SECRET_PLOT_PROMPT}
+                  </pre>
+                )}
+                <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
+                  {localizeUi("ui.agents.agenteditor.secretPlotPromptHelp")}
+                </p>
+              </div>
             </FieldGroup>
           )}
 

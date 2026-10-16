@@ -13,8 +13,6 @@ import {
   resolveGameSetupArtStylePrompt,
   VIDEO_GENERATION_SETTINGS_KEY,
   normalizeVideoGenerationUserSettings,
-  type GameSceneVideoAspectRatio,
-  type GeneratedSceneVideo,
 } from "@marinara-engine/shared";
 import { createGalleryStorage } from "../services/storage/gallery.storage.js";
 import { createChatsStorage } from "../services/storage/chats.storage.js";
@@ -27,12 +25,7 @@ import { createGameSceneVideosStorage } from "../services/storage/game-scene-vid
 import { createPromptOverridesStorage } from "../services/storage/prompt-overrides.storage.js";
 import { createAppSettingsStorage } from "../services/storage/app-settings.storage.js";
 import { loadGameVideoPrompt } from "../services/video/game-video-prompt.js";
-import {
-  generateVideo,
-  removeSavedVideoFromDisk,
-  saveVideoToDisk,
-  type VideoReferenceImage,
-} from "../services/video/video-generation.js";
+import { removeSavedVideoFromDisk, type VideoReferenceImage } from "../services/video/video-generation.js";
 import { resolveGameVideoRuntime } from "../services/video/game-video-runtime.js";
 import { generateImage, removeSavedImageFromDisk, saveImageToDisk } from "../services/image/image-generation.js";
 import { resolveGalleryImagePath } from "../services/image/gallery-image-path.js";
@@ -61,10 +54,7 @@ import {
   resolveStoredGalleryFile,
   storedGalleryFilename,
 } from "../services/image/gallery-file-lifecycle.js";
-import {
-  resolveImageConnectionFallback,
-  resolveVideoConnectionFallback,
-} from "../services/generation/media-connection-fallback.js";
+import { resolveImageConnectionFallback } from "../services/generation/media-connection-fallback.js";
 import { resolveIllustratorPromptRuntime } from "../services/generation/illustrator-prompt-runtime.js";
 import { resolveIllustratorImageConnectionId } from "../services/generation/illustrator-background-generation.js";
 import { resolveConversationSelfieSystemPrompt } from "../services/conversation/selfie-prompt.js";
@@ -81,10 +71,19 @@ import {
   resolveGalleryVideoSourceExchange,
 } from "../services/video/prompt-context.js";
 import { resolveSceneVideoPrompt, SceneVideoPromptReviewError } from "../services/video/scene-video-prompt-review.js";
+import { generateConversationVideo } from "../services/generation/conversation-video-runtime.js";
+import {
+  ChatVideoError,
+  generateAndSaveChatVideo,
+  toVideoReferenceImage,
+} from "../services/video/chat-video-generation.js";
 import {
   attachVideoToMessage,
   buildChatVideoAttachment,
   resolveChatVideoAnchor,
+  resolveSceneVideoConnectionId,
+  type ChatVideoAnchor,
+  serializeSceneVideo,
 } from "../services/video/chat-video-messages.js";
 import {
   buildRoleplayVideoDirectionMessages,
@@ -110,7 +109,6 @@ const SPRITE_FILE_RE = /\.(png|jpg|jpeg|gif|webp|avif|svg)$/i;
 const SCENE_VIDEO_FILENAME_RE = /^[A-Za-z0-9_-]+\.mp4$/;
 const SCENE_VIDEO_GENERATION_TIMEOUT_MS = 31 * 60 * 1000;
 
-type SceneVideoRow = NonNullable<Awaited<ReturnType<ReturnType<typeof createGameSceneVideosStorage>["getById"]>>>;
 type ChatGalleryImageRow = NonNullable<Awaited<ReturnType<ReturnType<typeof createGalleryStorage>["getById"]>>>;
 type ChatRow = NonNullable<Awaited<ReturnType<ReturnType<typeof createChatsStorage>["getById"]>>>;
 
@@ -161,6 +159,20 @@ const generateConversationSelfieSchema = z.object({
   debugMode: z.boolean().optional().default(false),
 });
 
+const generateConversationVideoSchema = z.object({
+  characterId: z.string().min(1),
+  context: z.string().max(2000).optional(),
+  /** Animate this gallery image (the clip then joins the newest reply) instead of sending a new video message. */
+  galleryImageId: z.string().min(1).optional(),
+  promptOverride: z.string().trim().min(1).max(200_000).optional(),
+  /** The reviewed prompt of the selfie the clip starts from, when First frame makes one. */
+  selfiePromptOverride: z.string().trim().min(1).max(200_000).optional(),
+  selfieNegativePromptOverride: z.string().max(200_000).optional(),
+  previewOnly: z.boolean().optional().default(false),
+  queueMediaGenerationRequests: z.boolean().optional().default(true),
+  debugMode: z.boolean().optional().default(false),
+});
+
 const mapsArtworkContextSchema = z
   .object({
     locationName: z.string().trim().max(200),
@@ -204,29 +216,6 @@ class GalleryImageRequestError extends Error {
     super(message);
     this.name = "GalleryImageRequestError";
   }
-}
-
-function sceneVideoUrl(chatId: string, filePath: string): string {
-  const filename = filePath.split(/[\\/]/).pop() ?? "";
-  return `/api/gallery/scene-videos/file/${encodeURIComponent(chatId)}/${encodeURIComponent(filename)}`;
-}
-
-function serializeSceneVideo(row: SceneVideoRow): GeneratedSceneVideo {
-  const aspectRatio: GameSceneVideoAspectRatio = row.aspectRatio === "9:16" ? "9:16" : "16:9";
-  return {
-    id: row.id,
-    chatId: row.chatId,
-    filePath: row.filePath,
-    url: sceneVideoUrl(row.chatId, row.filePath),
-    sourceIllustrationTag: row.sourceIllustrationTag ?? null,
-    sourceIllustrationPath: row.sourceIllustrationPath ?? null,
-    prompt: row.prompt,
-    provider: row.provider,
-    model: row.model,
-    durationSeconds: row.durationSeconds,
-    aspectRatio,
-    createdAt: row.createdAt,
-  };
 }
 
 // Reject any chatId segment that could escape GALLERY_DIR (traversal, absolute
@@ -408,19 +397,6 @@ function sourceGalleryImagePathForMetadata(image: ChatGalleryImageRow): string {
   return `gallery/${image.filePath.replace(/\\/g, "/")}`;
 }
 
-function imageMimeTypeForPath(path: string): VideoReferenceImage["mimeType"] | null {
-  const ext = extname(path).toLowerCase();
-  if (ext === ".png") return "image/png";
-  if (ext === ".jpg" || ext === ".jpeg") return "image/jpeg";
-  return null;
-}
-
-function readSceneVideoReferenceImage(path: string, url?: string | null): VideoReferenceImage {
-  const mimeType = imageMimeTypeForPath(path);
-  if (!mimeType) throw new Error("Scene videos require a PNG or JPEG gallery image");
-  return { base64: readFileSync(path).toString("base64"), mimeType, url };
-}
-
 function buildRoleplayVideoSettingLine(chat: ChatRow, meta: Record<string, unknown>, maxPartLength: number): string {
   const parts = [
     readTrimmedString(meta.groupScenarioText),
@@ -431,18 +407,6 @@ function buildRoleplayVideoSettingLine(chat: ChatRow, meta: Record<string, unkno
   ].filter((part): part is string => Boolean(part));
   const setting = Array.from(new Set(parts.map((part) => compactVideoPromptText(part, maxPartLength)).filter(Boolean)));
   return setting.length ? setting.join("; ") : "Current roleplay scene";
-}
-
-async function resolveSceneVideoConnectionId(
-  meta: Record<string, unknown>,
-  connections: ReturnType<typeof createConnectionsStorage>,
-): Promise<string | null> {
-  const chatConnectionId =
-    readTrimmedString(meta.sceneVideoConnectionId) ?? readTrimmedString(meta.gameVideoConnectionId);
-  if (chatConnectionId) return chatConnectionId;
-
-  const defaultConnection = await connections.getDefaultForVideoGeneration();
-  return defaultConnection?.id ?? null;
 }
 
 function createResponseAbortSignal(reply: FastifyReply, timeoutMs: number, label: string): AbortSignal {
@@ -869,8 +833,6 @@ export async function galleryRoutes(app: FastifyInstance) {
       promptOverride: input.promptOverride,
       maxPromptLength: videoRuntime.promptLimits.finalPrompt,
     });
-    const videoFallback = await resolveVideoConnectionFallback(connections, videoConnectionId);
-
     return {
       chatMode: chat.mode,
       videoConnectionId,
@@ -879,7 +841,6 @@ export async function galleryRoutes(app: FastifyInstance) {
       durationSeconds,
       aspectRatio,
       prompt,
-      videoFallback,
     };
   }
 
@@ -1128,30 +1089,8 @@ export async function galleryRoutes(app: FastifyInstance) {
     const debugLog = (message: string, ...args: unknown[]) => {
       logDebugOverride(debugOverrideEnabled, message, ...args);
     };
-    const sceneVideos = createGameSceneVideosStorage(app.db);
-    const {
-      chatMode,
-      videoConnectionId,
-      galleryImage,
-      videoRuntime,
-      durationSeconds,
-      aspectRatio,
-      prompt,
-      videoFallback,
-    } = prepared;
-    const {
-      source,
-      serviceHint,
-      baseUrl,
-      apiKey,
-      model,
-      resolution,
-      publicReferenceUpload,
-      comfyWorkflow,
-      comfyLoras,
-      comfyFps,
-      atlasModelOptions,
-    } = videoRuntime;
+    const { chatMode, videoConnectionId, galleryImage, videoRuntime, durationSeconds, aspectRatio, prompt } = prepared;
+    const { source, model } = videoRuntime;
 
     const galleryImagePath = resolveGalleryImagePath(galleryImage);
     if (!galleryImagePath) {
@@ -1160,7 +1099,10 @@ export async function galleryRoutes(app: FastifyInstance) {
 
     let referenceImage: VideoReferenceImage;
     try {
-      referenceImage = readSceneVideoReferenceImage(galleryImagePath, sourceGalleryImagePathForMetadata(galleryImage));
+      referenceImage = await toVideoReferenceImage(
+        readFileSync(galleryImagePath).toString("base64"),
+        sourceGalleryImagePathForMetadata(galleryImage),
+      );
     } catch (err) {
       const message = err instanceof Error ? err.message : "The selected gallery image cannot be used.";
       return reply.status(400).send({ error: message });
@@ -1180,45 +1122,20 @@ export async function galleryRoutes(app: FastifyInstance) {
       debugLog("[debug/gallery/scene-video] prompt:\n%s", prompt);
     }
 
-    let savedFilePath: string | null = null;
-    let metadataSaved = false;
     try {
-      const generated = await generateVideo(source, baseUrl, apiKey, serviceHint, {
-        prompt,
-        model,
-        durationSeconds,
-        aspectRatio,
-        resolution,
-        comfyWorkflow,
-        comfyLoras,
-        fps: comfyFps,
-        atlasModelOptions,
-        referenceImage,
-        publicReferenceUpload,
-        queue: input.queueMediaGenerationRequests,
-        connectionKey: videoConnectionId,
-        signal: sceneVideoAbortSignal,
-        fallback: videoFallback,
-      });
-      const filePath = await saveVideoToDisk(input.chatId, generated.base64);
-      savedFilePath = filePath;
-      const row = await sceneVideos.create({
-        chatId: input.chatId,
-        filePath,
-        sourceIllustrationTag: `gallery:${galleryImage.id}`,
-        sourceIllustrationPath: sourceGalleryImagePathForMetadata(galleryImage),
-        prompt,
-        provider: source,
-        model,
-        durationSeconds,
-        aspectRatio,
-      });
-      if (!row) throw new Error("Scene video metadata could not be saved");
-      metadataSaved = true;
-
-      await chats.patchMetadata(input.chatId, () => ({ sceneLastVideoId: row.id }));
-      logger.info("[gallery/generate-scene-video] saved video %s for chat %s", row.id, input.chatId);
-      const video = serializeSceneVideo(row);
+      const video = await generateAndSaveChatVideo(
+        app.db,
+        { videoConnectionId, runtime: videoRuntime, durationSeconds, aspectRatio },
+        {
+          chatId: input.chatId,
+          prompt,
+          referenceImage,
+          sourceTag: `gallery:${galleryImage.id}`,
+          sourcePath: sourceGalleryImagePathForMetadata(galleryImage),
+          queue: input.queueMediaGenerationRequests,
+          signal: sceneVideoAbortSignal,
+        },
+      );
       // Shown inline under the newest reply, chosen now rather than before generating: the user may have sent
       // or swiped a message meanwhile. Game Mode keeps its clips in the gallery only. The video is saved by now,
       // so a failure to find or update the reply still reports success, with no messageId.
@@ -1226,26 +1143,126 @@ export async function galleryRoutes(app: FastifyInstance) {
       try {
         const anchor = chatMode === "game" ? null : resolveChatVideoAnchor(await chats.listMessages(input.chatId));
         if (anchor) {
-          await attachVideoToMessage(chats, anchor, buildChatVideoAttachment(video));
-          messageId = anchor.messageId;
+          // Reported only when the clip really landed on the reply (it may have been deleted meanwhile).
+          if (await attachVideoToMessage(chats, anchor, buildChatVideoAttachment(video))) messageId = anchor.messageId;
         }
       } catch (attachErr) {
-        logger.warn(attachErr, "[gallery/generate-scene-video] Failed to attach video %s to a message", row.id);
+        logger.warn(attachErr, "[gallery/generate-scene-video] Failed to attach video %s to a message", video.id);
       }
       return { video, messageId };
     } catch (err) {
-      if (savedFilePath && !metadataSaved) {
-        await removeSavedVideoFromDisk(savedFilePath).catch((cleanupErr) => {
-          logger.warn(
-            cleanupErr,
-            "[gallery/generate-scene-video] Failed to clean up orphaned video file %s",
-            savedFilePath,
-          );
-        });
-      }
       logger.warn(err, "[gallery/generate-scene-video] Scene video generation failed for chat %s", input.chatId);
       const message = err instanceof Error ? err.message : "Scene video generation failed";
       return reply.status(502).send({ error: message });
+    }
+  });
+
+  app.post<{ Params: { chatId: string } }>("/:chatId/video", async (req, reply) => {
+    const { chatId } = req.params;
+    if (!isValidChatId(chatId)) return reply.status(400).send({ error: "Invalid chatId" });
+    const input = generateConversationVideoSchema.parse(req.body);
+
+    const chat = await chats.getById(chatId);
+    if (!chat) return reply.status(404).send({ error: "Chat not found" });
+    if (chat.mode !== "conversation") {
+      return reply.status(400).send({ error: "Video messages are only available in Conversation mode." });
+    }
+    const chatCharacterIds = parseStringArray(chat.characterIds);
+    if (!chatCharacterIds.includes(input.characterId)) {
+      return reply.status(400).send({ error: "Selected character is not in this conversation." });
+    }
+    const charInfo = [];
+    for (const id of chatCharacterIds) {
+      const row = await characters.getById(id);
+      if (!row) continue;
+      const data = parseJsonRecord(row.data);
+      const { appearance, imageAppearance } = getCharacterAppearance(data);
+      charInfo.push({
+        id,
+        name: readTrimmedString(data.name) ?? "character",
+        avatarPath: row.avatarPath ?? null,
+        appearance,
+        imageAppearanceOverride: imageAppearance || null,
+      });
+    }
+    // The built-in local model has no stored connection; its id still reaches the Prompt Model, as /selfie does.
+    const promptConnectionId = chat.connectionId ?? null;
+    const storedPromptConnectionId =
+      promptConnectionId && promptConnectionId !== LOCAL_SIDECAR_CONNECTION_ID ? promptConnectionId : null;
+
+    try {
+      const result = await generateConversationVideo({
+        db: app.db,
+        chatId,
+        chatMeta: parseChatMetadata(chat.metadata),
+        characterId: input.characterId,
+        charInfo,
+        persona: await (async () => {
+          const persona = chat.personaId ? await characters.getPersona(chat.personaId) : null;
+          return persona ? { id: persona.id, name: persona.name, avatarPath: persona.avatarPath ?? null } : null;
+        })(),
+        promptConnection: storedPromptConnectionId
+          ? await createConnectionsStorage(app.db).getWithKey(storedPromptConnectionId)
+          : null,
+        promptConnectionId,
+        context: input.context,
+        promptOverride: input.promptOverride,
+        selfiePromptOverride: input.selfiePromptOverride,
+        selfieNegativePromptOverride: input.selfieNegativePromptOverride,
+        galleryImageId: input.galleryImageId,
+        previewOnly: input.previewOnly,
+        queue: input.queueMediaGenerationRequests,
+        debugMode: input.debugMode,
+        signal: createResponseAbortSignal(reply, SCENE_VIDEO_GENERATION_TIMEOUT_MS, "Conversation video"),
+      });
+      if (!("video" in result)) return result;
+
+      // A new clip arrives as its own message from the character; an animated picture joins the newest reply.
+      // If the clip can't be attached, it stays in the gallery: the reply says so with a null messageId, and a
+      // message created for it is removed rather than left empty.
+      let messageId: string | null = null;
+      let createdMessageId: string | null = null;
+      try {
+        let anchor: ChatVideoAnchor | null = null;
+        if (input.galleryImageId) {
+          anchor = resolveChatVideoAnchor(await chats.listMessages(chatId));
+        } else {
+          const message = await chats.createMessage({
+            chatId,
+            role: "assistant",
+            characterId: input.characterId,
+            content: "",
+          });
+          createdMessageId = message?.id ?? null;
+          anchor = message ? { messageId: message.id, swipeIndex: 0 } : null;
+        }
+        if (anchor) {
+          // Only a video message the character sent names it; an animated picture under someone's reply doesn't, so
+          // later prompts never credit the character with a clip it didn't send.
+          const attached = await attachVideoToMessage(
+            chats,
+            anchor,
+            buildChatVideoAttachment(result.video, input.galleryImageId ? undefined : result.characterName),
+          );
+          // The message vanished before the clip landed: handled like a failed attach (an empty new message goes).
+          if (!attached) throw new Error(`Message ${anchor.messageId} no longer has the swipe for this video`);
+          messageId = anchor.messageId;
+        }
+      } catch (attachErr) {
+        logger.warn(attachErr, "[gallery/video] Saved video %s but could not attach it", result.video.id);
+        if (createdMessageId) {
+          await chats.removeMessage(createdMessageId).catch((removeErr) => {
+            logger.warn(removeErr, "[gallery/video] Could not remove empty message %s", createdMessageId);
+          });
+        }
+      }
+      return { video: result.video, messageId, firstFrame: result.firstFrame };
+    } catch (err) {
+      if (err instanceof ChatVideoError || err instanceof SceneVideoPromptReviewError) {
+        return reply.status(err.statusCode).send({ error: err.message });
+      }
+      logger.warn(err, "[gallery/video] Conversation video failed for chat %s", chatId);
+      return reply.status(502).send({ error: err instanceof Error ? err.message : "Video generation failed" });
     }
   });
 

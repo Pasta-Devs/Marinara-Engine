@@ -2,7 +2,7 @@ import { promises as dns } from "node:dns";
 import { createHash, timingSafeEqual } from "node:crypto";
 import { basename, extname, relative, resolve, sep, win32 } from "node:path";
 import { brotliDecompressSync, gunzipSync, zstdDecompressSync } from "node:zlib";
-import { Agent } from "undici";
+import { Agent, EnvHttpProxyAgent, type Dispatcher } from "undici";
 import { isLoopbackIp, isNonRoutableNetworkIp, isPrivateNetworkIp } from "../middleware/ip-allowlist.js";
 import { logger } from "../lib/logger.js";
 import { CSRF_HEADER, CSRF_HEADER_VALUE } from "@marinara-engine/shared";
@@ -386,19 +386,41 @@ export async function validateOutboundUrl(url: string | URL, policy: OutboundUrl
   return parsed;
 }
 
+/**
+ * Node sends its own fetch through HTTP(S)_PROXY when NODE_USE_ENV_PROXY=1 or --use-env-proxy is set, but a
+ * dispatcher passed to fetch replaces that global one, so provider calls skipped the proxy (#7652). Follow the same
+ * switch. NO_PROXY hosts and this machine's own addresses keep the plain agent, with its pinned address.
+ */
+function createDispatcher(hostname: string, options: AgentOptions): Dispatcher {
+  const envProxy =
+    (process.env.NODE_USE_ENV_PROXY === "1" ||
+      [...process.execArgv, ...(process.env.NODE_OPTIONS ?? "").split(/\s+/)].includes("--use-env-proxy")) &&
+    Boolean(process.env.HTTPS_PROXY || process.env.https_proxy || process.env.HTTP_PROXY || process.env.http_proxy);
+  if (!envProxy || isLoopbackHostname(hostname)) return new Agent(options);
+  // A proxied request tunnels through the proxy, which looks up the name itself, so `connect` only reaches NO_PROXY
+  // hosts. The address check still runs first, but cannot pin what the proxy connects to (the same as Node's own
+  // fetch), because local DNS behind a proxy may be filtered. Keep the keepalive on the socket to the proxy.
+  const keepAliveInitialDelay =
+    typeof options?.connect === "object" ? options.connect.keepAliveInitialDelay : undefined;
+  return new EnvHttpProxyAgent({
+    ...options,
+    ...(keepAliveInitialDelay ? { proxyTls: { keepAliveInitialDelay } } : {}),
+  });
+}
+
 async function validateOutboundUrlForFetch(
   url: string | URL,
   policy: OutboundUrlPolicy = {},
   agentOptions?: Omit<AgentOptions, "connect">,
   keepAliveInitialDelayMs?: number,
-): Promise<{ url: URL; dispatcher?: Agent }> {
+): Promise<{ url: URL; dispatcher?: Dispatcher }> {
   const parsed = await validateOutboundUrl(url, policy);
   // Local URLs skip the address checks, but `localhost` still goes through the pinned lookup below
   // so it reaches 127.0.0.1 even where the resolver only answers `::1`.
   if (policy.allowLocal && !isLocalhostName(parsed.hostname)) {
     const dispatcher =
       agentOptions || keepAliveInitialDelayMs
-        ? new Agent({
+        ? createDispatcher(parsed.hostname, {
             ...(agentOptions ?? {}),
             ...(keepAliveInitialDelayMs ? { connect: { keepAliveInitialDelay: keepAliveInitialDelayMs } } : {}),
           })
@@ -409,7 +431,7 @@ async function validateOutboundUrlForFetch(
   const original = typeof url === "string" ? url : parsed.toString();
   const addresses = await validateResolvedAddresses(parsed.hostname, policy, original);
   let used = false;
-  const dispatcher = new Agent({
+  const dispatcher = createDispatcher(parsed.hostname, {
     ...(agentOptions ?? {}),
     connect: {
       ...(keepAliveInitialDelayMs ? { keepAliveInitialDelay: keepAliveInitialDelayMs } : {}),
@@ -439,7 +461,7 @@ async function validateOutboundUrlForFetch(
 async function readCappedResponse(
   response: Response,
   maxBytes: number,
-  dispatcher?: Agent,
+  dispatcher?: Dispatcher,
   decodeCompressedResponse = false,
 ): Promise<Response> {
   if (!response.body) {
@@ -496,7 +518,7 @@ function normalizeCompressedBody(body: Buffer, headers: Headers, maxBytes: numbe
   return { body, headers };
 }
 
-function capStreamingResponse(response: Response, maxBytes: number, dispatcher?: Agent): Response {
+function capStreamingResponse(response: Response, maxBytes: number, dispatcher?: Dispatcher): Response {
   if (!response.body) {
     void dispatcher?.close().catch(() => undefined);
     return response;

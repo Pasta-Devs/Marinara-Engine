@@ -117,6 +117,8 @@ import { CapabilityElement } from "../capabilities/CapabilityElement";
 import type { AvatarCrop, MultiplayerHostAction } from "@marinara-engine/shared";
 import {
   BUILT_IN_AGENTS,
+  VIDEO_FIRST_FRAMES,
+  normalizeVideoFirstFrame,
   DEFAULT_GAME_DICE_POOL_AGE_TURNS as DEFAULT_DICE_POOL_AGE_TURNS,
   DEFAULT_GAME_DICE_POOL_WINDOW as DEFAULT_DICE_POOL_WINDOW,
   advancedMemoryProblems,
@@ -7207,6 +7209,65 @@ export function ChatSettingsDrawer({
                             {localizeUi("ui.chat.chatsettingsdrawer.turnOnSelfiesToRevealConnectionPromptModelImage")}
                           </p>
                         )}
+
+                        <div className="space-y-2 border-t border-[var(--border)]/60 pt-3">
+                          <span className="block text-[0.6875rem] font-semibold text-[var(--foreground)]">
+                            {localizeUi("ui.chat.chatsettingsdrawer.videoMessages")}
+                          </span>
+                          <label className="flex flex-col gap-1">
+                            <span className="text-[0.625rem] font-medium text-[var(--foreground)]">
+                              {localizeUi("ui.chat.chatsettingsdrawer.videoConnection")}
+                            </span>
+                            <select
+                              value={(metadata.sceneVideoConnectionId as string) ?? ""}
+                              onChange={(e) =>
+                                updateMeta.mutate({ id: chat.id, sceneVideoConnectionId: e.target.value || null })
+                              }
+                              className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 text-xs text-[var(--foreground)] outline-none transition-colors focus:border-[var(--primary)]/50"
+                            >
+                              <option value="">
+                                {localizeUi("ui.chat.chatsettingsdrawer.defaultVideoConnection")}
+                              </option>
+                              {videoConnectionsList.map((c: { id: string; name: string; model?: string }) => (
+                                <option key={c.id} value={c.id}>
+                                  {c.name}
+                                  {c.model ? localizeUi("ui.chat.chatsettingsdrawer.value1", { value1: c.model }) : ""}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                          <label className="flex flex-col gap-1">
+                            <span className="text-[0.625rem] font-medium text-[var(--foreground)]">
+                              {localizeUi("ui.chat.chatsettingsdrawer.videoFirstFrame")}
+                            </span>
+                            <select
+                              value={normalizeVideoFirstFrame(metadata.sceneVideoFirstFrame)}
+                              onChange={(e) =>
+                                updateMeta.mutate({
+                                  id: chat.id,
+                                  sceneVideoFirstFrame: normalizeVideoFirstFrame(e.target.value),
+                                })
+                              }
+                              className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 text-xs text-[var(--foreground)] outline-none transition-colors focus:border-[var(--primary)]/50"
+                            >
+                              {VIDEO_FIRST_FRAMES.map((mode) => (
+                                <option key={mode} value={mode}>
+                                  {localizeUi(`ui.chat.chatsettingsdrawer.videoFirstFrame.${mode}`)}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                          {videoConnectionsList.length === 0 && (
+                            <p className="text-[0.625rem] text-[var(--marinara-app-accent-static)]">
+                              {localizeUi(
+                                "ui.chat.chatsettingsdrawer.noVideoGenerationConnectionsFoundAddOneInSettings",
+                              )}
+                            </p>
+                          )}
+                          <p className="text-[0.55rem] text-[var(--muted-foreground)]">
+                            {localizeUi("ui.chat.chatsettingsdrawer.videoMessagesHelp")}
+                          </p>
+                        </div>
                       </AgentSettingsCard>
                     )}
 

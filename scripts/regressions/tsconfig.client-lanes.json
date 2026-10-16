@@ -5,8 +5,12 @@
     "declaration": false,
     "declarationMap": false,
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
-    "types": ["node"],
-    "typeRoots": ["../../node_modules/@types", "../../packages/server/node_modules/@types"],
+    "types": ["node", "vite/client"],
+    "typeRoots": [
+      "../../node_modules/@types",
+      "../../packages/server/node_modules/@types",
+      "../../packages/client/node_modules"
+    ],
     "paths": {
       "@marinara-engine/shared": ["../../packages/shared/src/index.ts"]
     }
@@ -22,6 +26,7 @@
     "ruleset-dice-pool-client.regression.ts",
     "ruleset-layers-client.regression.ts",
     "nanogpt-usage-meter-gate.regression.ts",
-    "game-inventory-refusal-client.regression.ts"
+    "game-inventory-refusal-client.regression.ts",
+    "state-editor.regression.ts"
   ]
 }

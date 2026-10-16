@@ -10,7 +10,8 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 // #7115: native character/persona exports embedded every gallery image at once and a large gallery killed
 // the server. The export now streams one image at a time, so a server with a small heap exports ~64 MB galleries.
-const HEAP_LIMIT_MB = 112;
+// Leave room for the loaded server and one streamed image; the buffered-export control below must still OOM.
+const HEAP_LIMIT_MB = 128;
 const IMAGE_COUNT = 16;
 const IMAGE_BYTES = 4 * 1024 * 1024;
 const role = process.env.NATIVE_EXPORT_ROLE;

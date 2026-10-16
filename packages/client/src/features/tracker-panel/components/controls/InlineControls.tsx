@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
-import { Pencil, Plus } from "lucide-react";
+import { Lock, Pencil, Plus, Unlock } from "lucide-react";
 import { cn } from "../../../../lib/utils";
 import { TRACKER_TEXT_MICRO } from "../../lib/tracker-panel.constants";
 import { getNumberValueWidth } from "../../lib/tracker-display";
@@ -303,13 +303,28 @@ export function InlineEdit({
           )}
         </span>
       )}
-      {!(lockMode || locked) && (
-        <Pencil
+      {lockToggleActive ? (
+        // Lock mode marks each field it can lock with a padlock, as the World State tiles do (#7689).
+        <span
+          aria-hidden="true"
+          data-tracker-lock-badge={locked ? "locked" : "unlocked"}
           className={cn(
-            "pointer-events-none absolute right-0.5 top-1/2 h-2.5 w-2.5 -translate-y-1/2 shrink-0 text-[color:var(--tracker-inline-muted,var(--muted-foreground))] opacity-0 transition-opacity group-hover/inline:opacity-60 max-md:hidden",
-            (!showEditHint || fullPreview) && "hidden",
+            "pointer-events-none absolute right-0.5 z-[1] flex h-3 w-3 items-center justify-center rounded-[2px] bg-[var(--background)]/58 ring-1 ring-[var(--border)]",
+            multilinePreviewLineCount ? "top-0.5" : "top-1/2 -translate-y-1/2",
+            locked ? "text-[var(--foreground)] opacity-90" : "text-[var(--muted-foreground)] opacity-60",
           )}
-        />
+        >
+          {locked ? <Lock className="h-2 w-2" /> : <Unlock className="h-2 w-2" />}
+        </span>
+      ) : (
+        !(lockMode || locked) && (
+          <Pencil
+            className={cn(
+              "pointer-events-none absolute right-0.5 top-1/2 h-2.5 w-2.5 -translate-y-1/2 shrink-0 text-[color:var(--tracker-inline-muted,var(--muted-foreground))] opacity-0 transition-opacity group-hover/inline:opacity-60 max-md:hidden",
+              (!showEditHint || fullPreview) && "hidden",
+            )}
+          />
+        )
       )}
     </button>
   );

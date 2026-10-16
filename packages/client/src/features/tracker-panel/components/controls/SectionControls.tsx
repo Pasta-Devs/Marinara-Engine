@@ -63,11 +63,12 @@ export function SectionIconButton({
       aria-pressed={pressed}
       className={cn(
         "flex h-6 min-h-6 w-6 min-w-6 shrink-0 items-center justify-center rounded-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--border)] active:scale-95 disabled:cursor-not-allowed disabled:opacity-40",
-        tone === "feature"
-          ? pressed
-            ? "bg-[var(--foreground)]/10 text-[var(--foreground)] ring-1 ring-[var(--foreground)]/18 hover:bg-[var(--foreground)]/14"
-            : "text-[var(--muted-foreground)]/45 hover:bg-[var(--secondary)]/65 hover:text-[var(--foreground)]/86"
-          : "text-[var(--muted-foreground)]/62 hover:bg-[var(--secondary)]/65 hover:text-[var(--foreground)]",
+        // A switched-on mode (lock, add, delete) looks pressed whatever its tone (#7689).
+        pressed
+          ? "bg-[var(--foreground)]/10 text-[var(--foreground)] ring-1 ring-[var(--foreground)]/18 hover:bg-[var(--foreground)]/14"
+          : tone === "feature"
+            ? "text-[var(--muted-foreground)]/45 hover:bg-[var(--secondary)]/65 hover:text-[var(--foreground)]/86"
+            : "text-[var(--muted-foreground)]/62 hover:bg-[var(--secondary)]/65 hover:text-[var(--foreground)]",
         className,
       )}
     >

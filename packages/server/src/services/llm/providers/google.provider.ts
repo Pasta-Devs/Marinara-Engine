@@ -16,6 +16,7 @@ import {
   type LLMUsage,
 } from "../base-provider.js";
 import {
+  capabilityModelId,
   isGeminiArgonModel,
   isGeminiStrictRequestModel,
   isGeminiThinkingLevelModel,
@@ -295,7 +296,7 @@ function capGeminiThinkingBudget(requestedBudget: number, maxOutputTokens: numbe
 }
 
 function supportsGeminiThinkingDisable(model: string): boolean {
-  const normalized = model.toLowerCase();
+  const normalized = capabilityModelId(model);
   return (
     /^gemini-2\.5-flash(?:-lite)?(?:$|-preview|-latest)/u.test(normalized) ||
     normalized.startsWith("gemini-2.0-flash-thinking")

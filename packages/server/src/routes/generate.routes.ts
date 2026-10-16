@@ -630,6 +630,7 @@ import {
   conversationPromptHistoryContent,
   formatConversationGroupOutputFormat,
   formatSentSelfieNotes,
+  formatSentVideoNotes,
   resolvePresetModePrompt,
 } from "./generate/conversation-prompt-formatting.js";
 import {
@@ -837,7 +838,7 @@ import {
   type GameDicePoolTarget,
 } from "../services/game/dice-pool.service.js";
 import { createGameDicePoolsStorage } from "../services/storage/game-dice-pools.storage.js";
-import type { GameDiceTurnNotice, GenerationFallbackNotice } from "@marinara-engine/shared";
+import type { GameDiceTurnNotice, GenerationFallbackNotice, GenerationInfo } from "@marinara-engine/shared";
 import {
   applyMapUpdateCommand,
   getGameMapsFromMeta,
@@ -2414,7 +2415,12 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           const photoName = userUploadedImages[0]?.filename ?? userUploadedImages[0]?.name;
           content += `\n[Sent a photo${photoName ? `: ${photoName}` : ""}]`;
         }
-        if (m.role === "assistant") content += formatSentSelfieNotes(updatedAttachments ?? attachments);
+        if (m.role === "assistant") {
+          content += formatSentSelfieNotes(updatedAttachments ?? attachments);
+          const videoNotes = formatSentVideoNotes(attachments);
+          // A video-only message has no text of its own; its note then starts the turn without a blank line.
+          if (videoNotes) content = content.trim() ? content + videoNotes : videoNotes.trimStart();
+        }
         const hiddenFromAICharacterIds = getMessageHiddenFromAICharacterIds(m);
         const conversationStartForCharacterIds = getMessageConversationStartCharacterIds(m);
 
@@ -2650,6 +2656,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             conn.defaultParameters,
           ),
           primaryConnectionId: connId ?? conn.id,
+          primaryConnectionName: conn.name,
           fallbackConnection: mainFallbackConnection,
           fallbackBaseUrl: mainFallbackBaseUrl,
           category: "main",
@@ -4474,10 +4481,12 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           });
         }
 
-        let generationProviderOrigin: { model: string; provider: string } = {
+        let generationProviderOrigin: { model: string; provider: string; fallback?: GenerationFallbackNotice } = {
           model: conn.model,
           provider: conn.provider,
         };
+        // The reply keeps which connection failed before the fallback wrote it (#7697).
+        let mainFallbackNotice: GenerationFallbackNotice | undefined;
         const lorebookReferenceImages = new Set<string>();
         const lorebookImageNotices = new Set<LorebookImageNotice>();
         const notifyLorebookImages = (code: LorebookImageNotice) => {
@@ -4498,11 +4507,14 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           baseUrl,
           fallbackConnection: mainFallbackConnection,
           fallbackBaseUrl: mainFallbackBaseUrl,
-          onFallback,
+          onFallback: (notice) => {
+            mainFallbackNotice = notice;
+            return onFallback(notice);
+          },
           onProviderUsed: (origin) => {
             generationProviderOrigin =
               origin.kind === "fallback"
-                ? { model: origin.model, provider: origin.provider }
+                ? { model: origin.model, provider: origin.provider, fallback: mainFallbackNotice }
                 : { model: conn.model, provider: conn.provider };
           },
           chatMode,
@@ -7544,6 +7556,8 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
         const roleplayResponseIndexes = new Map<string, number>();
         let continuedMessageRewriteSource: string | null = null;
         const generatedExpressionTargetIds = new Set<string>();
+        // Each Individual group reply, so it can carry its own character's expression (#7712).
+        const individualReplyTargets = new Map<string, { messageId: string; swipeIndex: number }>();
         const recordExpressionTarget = (savedMsg: any, fallbackCharacterId: string | null) => {
           const savedRole =
             typeof savedMsg?.role === "string" ? savedMsg.role : input.impersonate ? "user" : "assistant";
@@ -10706,6 +10720,9 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               gameToolPlan,
               gameToolConnection,
               generationProviderOrigin,
+              continuedFallback: input.continueMessageId
+                ? (parseExtra(savedMsg.extra).generationInfo as GenerationInfo | undefined)?.fallback
+                : undefined,
               temperature,
               effectiveMaxTokensForSend,
               suppressModelParameters,
@@ -10896,7 +10913,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 : message;
             if (replyParts) {
               // The reasoning and the memory preparation belong to the first part, whose prompt produced them.
-              // Generation info, the prompt cache and everything that ends the turn stay with the last part.
+              // Usage, the prompt cache and everything that ends the turn stay with the last part.
               // Each part keeps what regenerating it replays. Gemini parts hold the whole reply's text, so a
               // split reply keeps none: replayed with one part, they would show the others to its readers.
               const firstPartKeys = [
@@ -10909,6 +10926,8 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               const pick = (keys: string[]) =>
                 Object.fromEntries(keys.filter((key) => key in extraUpdate).map((key) => [key, extraUpdate[key]]));
               const everyPart = pick(["contextInjections", "generationReplay", "referencedCharacterIds"]);
+              // Every fallback-written part keeps its identity, without duplicating the turn's usage.
+              if (generationProviderOrigin.fallback) everyPart.generationInfo = generationProviderOrigin;
               for (const [index, part] of replyParts.slice(0, -1).entries()) {
                 const savedPart = await chats.updateMessageExtraForSwipe(part.message.id, 0, {
                   ...everyPart,
@@ -11288,6 +11307,11 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               allResponseSegments.push({ characterId: charId, characterName: charName, content: part.content });
             }
             recordExpressionTarget(genResult.savedMsg, charId);
+            if (typeof genResult.savedMsg?.id === "string")
+              individualReplyTargets.set(charId, {
+                messageId: genResult.savedMsg.id,
+                swipeIndex: genResult.savedSwipeIndex ?? genResult.savedMsg.activeSwipeIndex ?? 0,
+              });
             for (const cmd of genResult.commands) {
               collectedCommands.push({
                 command: cmd,
@@ -12550,6 +12574,21 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                     ...(Object.keys(exprMap).length > 0 ? { spriteExpressions: exprMap } : {}),
                     expressionSpriteIds: persistedExpressions.map((entry) => entry.characterId),
                   });
+                  // The last reply keeps the whole turn's map, which marks the turn's sprites active (#6024).
+                  // Earlier Individual replies also get their own character's expression (#7712), marked as part
+                  // of a turn so the client never reads one as a whole finished turn.
+                  for (const [characterId, target] of individualReplyTargets) {
+                    const expression = exprMap[characterId];
+                    if (!expression || target.messageId === messageId) continue;
+                    try {
+                      await chats.updateMessageExtraForSwipe(target.messageId, target.swipeIndex, {
+                        spriteExpressions: { [characterId]: expression },
+                        expressionTurnPart: true,
+                      });
+                    } catch (err) {
+                      logger.warn(err, "[generate] Could not save the expression on reply %s", target.messageId);
+                    }
+                  }
                   if (Object.keys(personaExprMap).length > 0) {
                     const personaMessageId =
                       currentTurnUserMessageId ?? (await findLastUserMessageIdBefore(chats, input.chatId, messageId));

@@ -108,6 +108,8 @@ export const apiConnections = fileTable("api_connections", {
   decisionTimeoutMs: integer("decision_timeout_ms"),
   /** Default voice id/name for speech synthesis on this audio connection. */
   audioVoice: text("audio_voice"),
+  /** How long a speech request on this audio connection may take, in milliseconds; null uses the default. */
+  audioTimeoutMs: integer("audio_timeout_ms"),
   /** Whether this audio connection may generate game sound effects ("true"/"false"). */
   audioSoundEffects: text("audio_sound_effects").notNull().default("false"),
   /** Whether this audio connection may generate game music ("true"/"false"). */

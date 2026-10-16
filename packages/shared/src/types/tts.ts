@@ -21,6 +21,19 @@ function normalizeDialoguePauseMs(value: number): number {
   return Math.min(TTS_DIALOGUE_PAUSE_MAX_SECONDS, Math.max(TTS_DIALOGUE_PAUSE_MIN_SECONDS, wholeSeconds)) * 1000;
 }
 
+/**
+ * How long one speech request may take, in milliseconds. The default is the fixed limit every
+ * request had before it could be changed; a local voice server on a laptop can need more (#7711).
+ */
+export const TTS_REQUEST_TIMEOUT_MS = { default: 60_000, min: 10_000, max: 3_600_000 } as const;
+
+/** A speech request's time limit: the saved one in whole seconds within bounds, otherwise the default. */
+export function resolveTtsRequestTimeoutMs(value: unknown): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) return TTS_REQUEST_TIMEOUT_MS.default;
+  const { min, max } = TTS_REQUEST_TIMEOUT_MS;
+  return Math.min(max, Math.max(min, Math.round(value / 1000) * 1000));
+}
+
 export const ttsConversationCallAudioInputModeSchema = z.enum(["system", "auto", "transcribe", "local_whisper"]);
 export type TTSConversationCallAudioInputMode = z.infer<typeof ttsConversationCallAudioInputModeSchema>;
 
@@ -188,6 +201,8 @@ const ttsConfigBaseSchema = z.object({
     .default(TTS_DIALOGUE_PAUSE_DEFAULT_SECONDS * 1000)
     .transform(normalizeDialoguePauseMs),
   audioFormat: ttsAudioFormatSchema.default("mp3"),
+  /** How long a speech request from these settings may take. An audio connection has its own. */
+  requestTimeoutMs: z.number().default(TTS_REQUEST_TIMEOUT_MS.default).transform(resolveTtsRequestTimeoutMs),
   /** Global gate for Conversation-mode calls. Individual chats opt in separately. */
   callAudioEnabled: z.boolean().default(false),
   /** Deprecated: call transcription now uses the active conversation connection. */

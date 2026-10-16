@@ -3737,12 +3737,19 @@ export function createChatsStorage(db: DB) {
       });
     },
 
-    /** Atomically append an attachment to a swipe's extra JSON field. */
-    async appendSwipeAttachment(messageId: string, swipeIndex: number, attachment: Record<string, unknown>) {
+    /**
+     * Atomically append an attachment to a swipe's extra JSON field. Returns false when that swipe (or its message)
+     * no longer exists, so nothing was written.
+     */
+    async appendSwipeAttachment(
+      messageId: string,
+      swipeIndex: number,
+      attachment: Record<string, unknown>,
+    ): Promise<boolean> {
       return withPatchQueue(messageExtraPatchQueues, messageId, async () => {
         const swipes = await this.getSwipes(messageId);
         const target = swipes.find((s: any) => s.index === swipeIndex);
-        if (!target) return;
+        if (!target) return false;
         const existing = typeof target.extra === "string" ? JSON.parse(target.extra) : (target.extra ?? {});
         const attachments = Array.isArray(existing.attachments) ? existing.attachments : [];
         const merged = { ...existing, attachments: [...attachments, attachment] };
@@ -3750,6 +3757,7 @@ export function createChatsStorage(db: DB) {
           .update(messageSwipes)
           .set({ extra: JSON.stringify(merged) })
           .where(and(eq(messageSwipes.messageId, messageId), eq(messageSwipes.id, target.id)));
+        return true;
       });
     },
 

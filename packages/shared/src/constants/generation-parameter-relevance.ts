@@ -1,4 +1,6 @@
 import {
+  capabilityModelId,
+  impliesProxyThinking,
   isClaudeAdaptiveOnlyNoSamplingModel,
   isGeminiStrictRequestModel,
   isGeminiThinkingLevelModel,
@@ -225,9 +227,7 @@ export function relevantGenerationParameters(context: GenerationParameterContext
   const rawProvider = String(context.provider ?? "").trim();
   if (!rawProvider) return new Set(ALL.filter((key) => key !== "serviceTier"));
   const provider = KNOWN_PROVIDERS.has(rawProvider) ? rawProvider : "custom";
-  const model = String(context.model ?? "")
-    .trim()
-    .toLowerCase();
+  const model = capabilityModelId(String(context.model ?? ""));
   const caps = context.capabilities ?? null;
   const effortActive = hasActiveEffort(context.reasoningEffort);
   const hidden = new Set<GenerationParameterKey>(NEVER_SENT[provider] ?? []);
@@ -248,8 +248,10 @@ export function relevantGenerationParameters(context: GenerationParameterContext
       hide("topP", "topK", "frequencyPenalty", "presencePenalty");
     }
 
-    // Claude thinking rejects temperature and top_k, so the request drops both (anthropic.provider.ts).
-    if (provider === "anthropic" && effortActive) hide("temperature", "topK");
+    // Claude thinking rejects temperature and top_k, so the request drops both (anthropic.provider.ts). A `-thinking`
+    // proxy id thinks even with effort off.
+    if (provider === "anthropic" && (effortActive || impliesProxyThinking(String(context.model ?? ""))))
+      hide("temperature", "topK");
 
     if (provider === "openai_chatgpt" && !isOpenAIReasoningModel(model)) hide("reasoningEffort");
 
@@ -277,7 +279,8 @@ export function relevantGenerationParameters(context: GenerationParameterContext
         isOpenAIGpt56Model(model) ||
         model.startsWith("gpt-5.5") ||
         isOpenAIGpt6AlwaysReasoningModel(model) ||
-        ((model.startsWith("gpt-5") || isOpenAIGpt6Model(model)) && effortActive);
+        ((model.startsWith("gpt-5") || isOpenAIGpt6Model(model)) && effortActive) ||
+        (model.startsWith("gpt-5") && impliesProxyThinking(String(context.model ?? "")));
       if (noSampling) hide("temperature", "topP", "frequencyPenalty", "presencePenalty");
 
       // Responses API models never carry penalties. GPT-6 uses it everywhere but OpenRouter.
@@ -351,9 +354,7 @@ export function reasoningEffortChoices(
   context: GenerationParameterContext & { selected?: StoredEffortLevel | null },
 ): Array<GenerationParameterChoice<StoredEffortLevel | null>> {
   const provider = String(context.provider ?? "").trim();
-  const model = String(context.model ?? "")
-    .trim()
-    .toLowerCase();
+  const model = capabilityModelId(String(context.model ?? ""));
   const caps = context.capabilities ?? null;
   // ChatGPT (Codex) has no off level; sending nothing keeps the model's own default.
   const off: GenerationParameterChoice<null> =

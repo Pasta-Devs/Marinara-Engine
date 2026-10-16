@@ -128,6 +128,7 @@ export type CreateConnectionPayload = {
   maxStateTokens?: number | null;
   decisionTimeoutMs?: number | null;
   audioVoice?: string | null;
+  audioTimeoutMs?: number | null;
   audioSoundEffects?: boolean;
   audioMusic?: boolean;
   promptPresetId?: string | null;

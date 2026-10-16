@@ -7,8 +7,17 @@ import type { GeneratedSceneVideo } from "@marinara-engine/shared";
 
 const PINNED_GALLERY_IMAGES_STORAGE_KEY = "marinara-pinned-gallery-images";
 
-export type PinnedGalleryImage = ChatImage & { kind: "image" };
-export type PinnedGalleryVideo = GeneratedSceneVideo & { kind: "video" };
+/** Where the user left a pin, in viewport pixels; `locked` stops it moving or resizing. */
+export interface PinnedMediaLayout {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  locked?: boolean;
+}
+
+export type PinnedGalleryImage = ChatImage & { kind: "image"; layout?: PinnedMediaLayout };
+export type PinnedGalleryVideo = GeneratedSceneVideo & { kind: "video"; layout?: PinnedMediaLayout };
 export type PinnedGalleryMedia = PinnedGalleryImage | PinnedGalleryVideo;
 
 function isStoredChatImage(value: unknown): value is ChatImage {
@@ -45,12 +54,23 @@ function isStoredSceneVideo(value: unknown): value is GeneratedSceneVideo {
   );
 }
 
+function normalizeStoredLayout(value: unknown): PinnedMediaLayout | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const { x, y, w, h, locked } = value as Record<string, unknown>;
+  if (typeof x !== "number" || typeof y !== "number" || typeof w !== "number" || typeof h !== "number") {
+    return undefined;
+  }
+  if (![x, y, w, h].every(Number.isFinite) || w <= 0 || h <= 0) return undefined;
+  return locked === true ? { x, y, w, h, locked } : { x, y, w, h };
+}
+
 function normalizeStoredMedia(value: unknown): PinnedGalleryMedia | null {
   if (!value || typeof value !== "object") return null;
   const maybeMedia = value as Partial<PinnedGalleryMedia>;
-  if (maybeMedia.kind === "video" && isStoredSceneVideo(value)) return { ...value, kind: "video" };
+  const layout = normalizeStoredLayout(maybeMedia.layout);
+  if (maybeMedia.kind === "video" && isStoredSceneVideo(value)) return { ...value, kind: "video", layout };
   if ((maybeMedia.kind === "image" || maybeMedia.kind === undefined) && isStoredChatImage(value)) {
-    return { ...value, kind: "image" };
+    return { ...value, kind: "image", layout };
   }
   return null;
 }
@@ -103,6 +123,8 @@ interface GalleryState {
   syncLatestViewer: (media: PinnedGalleryMedia) => void;
   clearViewerMedia: () => void;
   unpinImage: (mediaId: string) => void;
+  /** Saves where a pin sits, how big it is and whether it is locked, so a reload keeps it. */
+  setPinnedLayout: (mediaId: string, layout: PinnedMediaLayout) => void;
   clearPinned: () => void;
   setChatIllustrating: (chatId: string, illustrating: boolean) => void;
   setChatGeneratingSelfie: (chatId: string, generating: boolean) => void;
@@ -154,6 +176,14 @@ export const useGalleryStore = create<GalleryState>((set) => ({
   unpinImage: (mediaId) =>
     set((s) => {
       const pinnedImages = s.pinnedImages.filter((p) => p.id !== mediaId);
+      savePinnedImages(pinnedImages);
+      return { pinnedImages };
+    }),
+
+  setPinnedLayout: (mediaId, layout) =>
+    set((s) => {
+      if (!s.pinnedImages.some((p) => p.id === mediaId)) return s;
+      const pinnedImages = s.pinnedImages.map((p) => (p.id === mediaId ? { ...p, layout } : p));
       savePinnedImages(pinnedImages);
       return { pinnedImages };
     }),

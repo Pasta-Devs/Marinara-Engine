@@ -235,6 +235,7 @@ export const CHAT_PROFILE_FOLLOWER_SYNC_KEYS: readonly string[] = [
   "selfieResolution", // Selfie size
   "selfieUseAvatarReferences", // Send avatars as selfie references
   "selfieIncludeCharacterAppearance", // Add card appearance to selfie prompts
+  "sceneVideoFirstFrame", // Video messages: the picture a clip starts from
   "conversationCallsEnabled", // Calls: the call button
   "conversationCallVoiceCues", // Calls: voice cues in replies
   "conversationCallSummaryConnectionId", // Calls: connection that summarises calls

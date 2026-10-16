@@ -727,7 +727,7 @@ function parseRecollections(ctx: Context, raw: unknown): Recollection[] {
   return [...found].map(([characterId, text]) => ({ characterId, text }));
 }
 
-function sceneSource(ctx: Context, messages = ctx.messages): AdvancedMemoryMessage[] {
+function sceneSource(ctx: Context, messages: readonly AdvancedMemoryMessage[] = ctx.messages): AdvancedMemoryMessage[] {
   return selectAdvancedMemoryMessages(messages, ctx.settings, audienceView(ctx, []), false, "archive");
 }
 
@@ -745,6 +745,36 @@ function allowed(
     "archive",
     keepEmptyIds,
   );
+}
+
+type Selection = { messages: readonly AdvancedMemoryMessage[]; ids: Set<string> };
+type MessageLookup = { indexes: Map<string, number>; selections: Map<string, Selection> };
+// Each message's position and what each view selects, made once per context and message list rather than once
+// per stored record: checking or rendering every record of a long archive must not rescan the chat each time (#7702).
+// ponytail: valid while nothing changes a context's settings or a message list in place (nothing does: a change
+// makes a new context or list); if something ever must, key these on a revision instead of the object.
+const messageLookups = new WeakMap<Context, WeakMap<readonly AdvancedMemoryMessage[], MessageLookup>>();
+function messageLookup(ctx: Context, source: readonly AdvancedMemoryMessage[]): MessageLookup {
+  const lookups = messageLookups.get(ctx) ?? new WeakMap<readonly AdvancedMemoryMessage[], MessageLookup>();
+  messageLookups.set(ctx, lookups);
+  const lookup = lookups.get(source) ?? {
+    indexes: new Map(source.map((message, index) => [message.id, index])),
+    selections: new Map(),
+  };
+  lookups.set(source, lookup);
+  return lookup;
+}
+
+/** Every message, the scene archive's view (`sceneSource`), or what an audience may read (`allowed`). */
+function selection(ctx: Context, source: readonly AdvancedMemoryMessage[], view: "all" | "scene" | string[]) {
+  const { selections } = messageLookup(ctx, source);
+  const key = typeof view === "string" ? view : JSON.stringify(view);
+  let found = selections.get(key);
+  if (!found) {
+    const messages = view === "all" ? source : view === "scene" ? sceneSource(ctx, source) : allowed(ctx, source, view);
+    selections.set(key, (found = { messages, ids: new Set(messages.map((message) => message.id)) }));
+  }
+  return found;
 }
 
 function visibilityReaders(ctx: Context): VisibilityReader[] {
@@ -1154,8 +1184,11 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
   }
 
   function recordValid(ctx: Context, record: StoredRecord, source = ctx.messages): boolean {
-    const byId = new Map(source.map((message) => [message.id, message]));
-    const covered = record.messageIds.map((id) => byId.get(id));
+    const lookup = messageLookup(ctx, source);
+    const covered = record.messageIds.map((id) => {
+      const index = lookup.indexes.get(id);
+      return index === undefined ? undefined : source[index];
+    });
     if (!covered.length || covered.some((message) => !message)) return false;
     // Finished archive entries keep their source IDs and index across text edits,
     // swipes, illustrations and live cutoffs. Recall reads the current messages.
@@ -1174,19 +1207,22 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
       record.kind === "continuity" &&
       record.dependencies.length > 0 &&
       record.dependencies.every((dependency) => dependency.id.startsWith("summary:"));
-    const eligibleIds = new Set(
-      (summaryOnly
-        ? source
+    const eligibleIds = selection(
+      ctx,
+      source,
+      summaryOnly
+        ? "all"
         : archived && !(record.kind === "excerpt" && record.audienceCharacterIds.length)
-          ? sceneSource(ctx, source)
-          : allowed(ctx, source, record.kind === "excerpt" ? record.audienceCharacterIds : archiveAudience)
-      ).map((message) => message.id),
-    );
+          ? "scene"
+          : record.kind === "excerpt"
+            ? record.audienceCharacterIds
+            : archiveAudience,
+    ).ids;
     const structural = record.kind === "scene" && record.id === record.sceneId;
     // A partial summary may be empty while retaining discontiguous audience-scoped coverage.
     if (!structural && record.messageIds.some((id) => !eligibleIds.has(id))) return false;
-    const first = source.findIndex((message) => message.id === record.messageIds[0]);
-    const last = source.findIndex((message) => message.id === record.messageIds.at(-1));
+    const first = lookup.indexes.get(record.messageIds[0]!) ?? -1;
+    const last = lookup.indexes.get(record.messageIds.at(-1)!) ?? -1;
     if (first < 0 || last < first) return false;
     if (archived) {
       const expected = source.slice(first, last + 1).filter((message) => structural || eligibleIds.has(message.id));
@@ -2545,8 +2581,8 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
     const user = String(
       object(
         object(
-          allowed(ctx, ctx.messages, audience)
-            .slice()
+          selection(ctx, ctx.messages, audience)
+            .messages.slice()
             .reverse()
             .find((message) => message.role === "user")?.extra,
         ).personaSnapshot,

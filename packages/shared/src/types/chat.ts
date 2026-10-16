@@ -10,7 +10,7 @@ import type {
 } from "./professor-mari-workspace.js";
 import type { GameDicePlaceholderRecord } from "../utils/dice-placeholder.js";
 import type { GenerationGuideSource } from "../utils/generation-guide.js";
-import type { ContextFitSummary } from "./generation-integration.js";
+import type { ContextFitSummary, GenerationFallbackNotice } from "./generation-integration.js";
 import type { HapticFeedbackSensitivity } from "./haptic.js";
 import type { CustomEmojiSelectionPrefs } from "../schemas/custom-emoji.schema.js";
 import type { DiceRollResult, GameDicePoolConsumption, GameDicePoolMismatch } from "./game.js";
@@ -46,6 +46,17 @@ export interface KnowledgeAgentSourceSettings {
   sourceLorebookIds?: string[];
   /** Uploaded file source IDs. Used by Knowledge Retrieval only. */
   sourceFileIds?: string[];
+}
+
+/**
+ * What a Conversation video message starts from: a fresh selfie, the character's avatar (or
+ * sprite), a selfie with the avatar as fallback, or nothing (text-to-video).
+ */
+export const VIDEO_FIRST_FRAMES = ["picture_or_avatar", "picture", "avatar", "prompt_only"] as const;
+export type VideoFirstFrame = (typeof VIDEO_FIRST_FRAMES)[number];
+
+export function normalizeVideoFirstFrame(value: unknown): VideoFirstFrame {
+  return VIDEO_FIRST_FRAMES.includes(value as VideoFirstFrame) ? (value as VideoFirstFrame) : "picture_or_avatar";
 }
 
 export const CONVERSATION_COMMAND_KEYS = [
@@ -740,8 +751,10 @@ export interface ChatMetadata {
   gameStoryboardUseNovelAiCharacterPrompts?: boolean;
   /** Last generated scene-video record ID for this game. */
   gameLastSceneVideoId?: string | null;
-  /** Connection used for roleplay/gallery scene-video generation. */
+  /** Connection used for roleplay/gallery scene-video generation and Conversation video messages. */
   sceneVideoConnectionId?: string | null;
+  /** First frame of a Conversation video message; see `normalizeVideoFirstFrame`. */
+  sceneVideoFirstFrame?: VideoFirstFrame | null;
   /** Last generated roleplay/gallery scene-video record ID. */
   sceneLastVideoId?: string | null;
   /** Game-mode GM instruction override. Empty/null uses the built-in default prompt. */
@@ -965,6 +978,8 @@ export interface MessageExtra {
   referencedCharacterIds?: string[];
   /** All sprite owners in the completed expression result, including the persona. Empty means none. */
   expressionSpriteIds?: string[];
+  /** An earlier Individual group reply: its `spriteExpressions` hold only its own character, not the whole turn. */
+  expressionTurnPart?: boolean;
   /** Per-swipe CYOA choices from the CYOA Choices agent */
   cyoaChoices?: Array<{ label: string; text: string }> | null;
   /** Presentation-only Game Mode cues retained so completed turns can be replayed without rerunning scene analysis. */
@@ -1112,6 +1127,8 @@ export interface GenerationInfo {
   finishReason: string | null;
   /** What the context fit cut from this prompt, for the "replies got worse" checkup. */
   contextFit?: ContextFitSummary | null;
+  /** Set when the chosen connection failed and the fallback wrote this reply (#7697). */
+  fallback?: GenerationFallbackNotice | null;
 }
 
 /** A swipe (alternate response) for a message. */

@@ -131,3 +131,64 @@ export const CONVERSATION_SELFIE: PromptOverrideKeyDef<ConversationSelfieCtx> = 
     selfieTagsBlock: "\n\nAlways include these tags/modifiers in the prompt: masterpiece, best quality, sharp focus",
   },
 };
+
+// ── Video message wrapper ──
+//
+// The text LLM writes the prompt for a short video message the character
+// sends in a Conversation (`/video` or the Gallery Video button).
+
+export interface ConversationVideoCtx extends Record<string, string | number | undefined> {
+  charName: string;
+  /** Card appearance text. Empty when the card has none. */
+  appearance: string;
+  personality: string;
+  durationSeconds: number;
+}
+
+export const CONVERSATION_VIDEO: PromptOverrideKeyDef<ConversationVideoCtx> = {
+  key: "conversation.video",
+  label: "Conversation Video Message",
+  description:
+    "Meta-prompt that asks the chat LLM to write a video prompt for a short video message from the active character.",
+  variables: [
+    { name: "charName", description: "Character display name.", example: "Lyra" },
+    {
+      name: "appearance",
+      description: "Character appearance text. Empty when the card has none.",
+      example: "auburn hair, green eyes, leather jacket, mid-twenties, athletic build",
+    },
+    {
+      name: "personality",
+      description: "Character personality and traits that should shape how they move and speak.",
+      example: "reserved, observant, fascinated by old architecture",
+    },
+    { name: "durationSeconds", description: "Length of the clip in seconds.", example: "6" },
+  ],
+  defaultBuilder: (ctx) =>
+    [
+      `You are a video prompt writer. Write one prompt for a short ${ctx.durationSeconds}-second video message that ${ctx.charName} records on their phone and sends in a chat.`,
+      `Character name: ${ctx.charName}`,
+      ...(ctx.appearance ? [`The character's appearance: ${ctx.appearance}`] : []),
+      ...(ctx.personality
+        ? [
+            `Character personality and traits: ${ctx.personality}`,
+            `Let those traits shape their expression, gestures and how they talk to the camera.`,
+          ]
+        : []),
+      ``,
+      `Describe, in present tense:`,
+      `- What ${ctx.charName} does and says to the camera, as one continuous moment that fits ${ctx.durationSeconds} seconds`,
+      `- Their expression, gestures and small movements`,
+      `- How the handheld phone camera frames and moves`,
+      `- The setting, lighting and any ambient sound`,
+      ``,
+      `If the clip starts from an existing picture, continue naturally from it without describing a different person or place.`,
+      `Output ONLY the prompt text, nothing else.`,
+    ].join("\n"),
+  exampleContext: {
+    charName: "Lyra",
+    appearance: "auburn hair, green eyes, leather jacket, mid-twenties, athletic build",
+    personality: "reserved, observant, fascinated by old architecture",
+    durationSeconds: 6,
+  },
+};

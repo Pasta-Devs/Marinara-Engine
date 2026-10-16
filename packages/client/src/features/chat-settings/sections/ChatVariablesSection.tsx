@@ -249,6 +249,14 @@ export function ChatVariablesSection({ sectionId, order, chatId, variables }: Ch
         >
           <Plus size="0.75rem" /> {localizeUi("ui.chatSettings.chatvariablessection.addVariable")}
         </button>
+        <button
+          type="button"
+          onClick={() => useUIStore.getState().openModal("chat-variables-editor", { chatId })}
+          className="inline-flex min-h-7 items-center gap-1 rounded-md px-2 py-1 text-[0.625rem] font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--ring)]"
+        >
+          <Braces size="0.6875rem" />
+          {localizeUi("ui.chatSettings.chatvariablessection.openStateEditor")}
+        </button>
         <p className="px-1 text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
           {localizeUi("ui.chatSettings.chatvariablessection.aPromptSectionOrLorebookEntryThatSetsA")}
         </p>

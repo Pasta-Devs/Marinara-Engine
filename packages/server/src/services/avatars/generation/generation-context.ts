@@ -33,7 +33,11 @@ import {
   resolveConnectionImageDefaults,
   resolveConnectionImageQuality,
 } from "../../image/image-generation-defaults.js";
-import { generateImage } from "../../image/image-generation.js";
+import {
+  IMAGE_EDIT_UNSUPPORTED_MESSAGE,
+  generateImage,
+  imageConnectionTakesReferencePicture,
+} from "../../image/image-generation.js";
 import { renderTemplate } from "../../prompt-overrides/template.js";
 import { getSharp } from "../../image/sharp-runtime.js";
 import { createAgentsStorage } from "../../storage/agents.storage.js";
@@ -301,7 +305,24 @@ export async function resolveAvatarImageConnection(
       "That connection doesn't make pictures. Choose an image generation connection.",
     );
   }
+  // Every avatar picture is an edit of a sprite; a connection that drops the sprite would draw a new one.
+  if (!imageConnectionTakesReferencePicture(avatarImageService(conn))) {
+    throw new AvatarGenerationError(400, IMAGE_EDIT_UNSUPPORTED_MESSAGE);
+  }
   return { conn, fallback: await resolveImageConnectionFallback(connections, conn.id) };
+}
+
+/** The service an avatar picture is asked of, as generateImage receives it. */
+function avatarImageService(conn: AvatarImageConnection["conn"]) {
+  const model = conn.model || "";
+  const source = (conn as { imageGenerationSource?: string | null }).imageGenerationSource || model;
+  return {
+    source,
+    baseUrl: conn.baseUrl || "https://image.pollinations.ai",
+    serviceHint: conn.imageService || source,
+    model,
+    comfyWorkflow: conn.comfyuiWorkflow || undefined,
+  };
 }
 
 /** The size to ask the provider for: the sprite's own shape, within what the model accepts. */
@@ -361,7 +382,8 @@ export function avatarCanvasPlacement(
  *  is asked for: some models can't make one (GPT Image 2), and a cut-out gets the sprite's own outline back. */
 export async function drawAvatarImageEdit(request: AvatarImageEditRequest): Promise<Buffer> {
   const { conn, fallback } = request.image;
-  const model = conn.model || "";
+  const service = avatarImageService(conn);
+  const { model } = service;
   const size = avatarImageRequestSize(request.source.width, request.source.height, model);
   const place = avatarCanvasPlacement(request.source, size);
   const sharp = await getSharp();
@@ -402,28 +424,22 @@ export async function drawAvatarImageEdit(request: AvatarImageEditRequest): Prom
     request.prompt,
     request.negativePrompt ?? "",
   );
-  const result = await generateImage(
-    (conn as { imageGenerationSource?: string | null }).imageGenerationSource || model,
-    conn.baseUrl || "https://image.pollinations.ai",
-    conn.apiKey || "",
-    conn.imageService || (conn as { imageGenerationSource?: string | null }).imageGenerationSource || model,
-    {
-      prompt: request.prompt,
-      negativePrompt: request.negativePrompt || undefined,
-      model,
-      width: size.width,
-      height: size.height,
-      referenceImage: reference.toString("base64"),
-      referenceIsCanvas: true,
-      imageEndpointId: conn.imageEndpointId || undefined,
-      comfyWorkflow: conn.comfyuiWorkflow || undefined,
-      imageDefaults: resolveConnectionImageDefaults(conn),
-      quality: resolveConnectionImageQuality(conn),
-      fallback,
-      signal: request.signal,
-      debugMode: request.debug,
-    },
-  );
+  const result = await generateImage(service.source, service.baseUrl, conn.apiKey || "", service.serviceHint, {
+    prompt: request.prompt,
+    negativePrompt: request.negativePrompt || undefined,
+    model,
+    width: size.width,
+    height: size.height,
+    referenceImage: reference.toString("base64"),
+    referenceIsCanvas: true,
+    imageEndpointId: conn.imageEndpointId || undefined,
+    comfyWorkflow: service.comfyWorkflow,
+    imageDefaults: resolveConnectionImageDefaults(conn),
+    quality: resolveConnectionImageQuality(conn),
+    fallback,
+    signal: request.signal,
+    debugMode: request.debug,
+  });
   return fitAvatarImageToSource(Buffer.from(result.base64, "base64"), request.source, size);
 }
 

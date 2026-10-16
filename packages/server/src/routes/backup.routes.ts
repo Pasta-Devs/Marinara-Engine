@@ -619,15 +619,22 @@ function resolveProfileExportFilePath(dataDir: string, filePath: unknown) {
   }
 }
 
-function redactAgentSecrets(agent: any) {
-  const SECRET_KEY_RE = /token|secret|password|api[_-]?key/i;
+// An agent setting is a credential when its name ENDS in a credential word, optionally stored
+// "Encrypted": token, spotifyAccessToken, youtubeApiKey, clientSecret, password, apiKeyEncrypted.
+// Token counts end in plural "Tokens" or put "Token" first (maxTokens, existingNoteTokenBudget), and
+// Secret Plot settings only start with "secret", so they export (#7661).
+// ponytail: name-based, so a credential saved under a name that doesn't end in a credential word
+// (e.g. "secretValue") still exports; give such a setting a credential-word ending or add it here.
+const AGENT_CREDENTIAL_KEY_RE =
+  /(?:token|(?:access|refresh|auth|api|bearer|session)[_-]?tokens|secrets?|passwords?|passwd|passphrase|credentials?|bearer|(?:api|access|private|secret)[_-]?keys?)(?:[_-]?encrypted)?$/i;
 
+function redactAgentSecrets(agent: any) {
   const redactSettings = (settings: unknown): unknown => {
     if (Array.isArray(settings)) return settings.map(redactSettings);
     if (!settings || typeof settings !== "object") return settings;
     const out: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(settings)) {
-      if (SECRET_KEY_RE.test(key)) {
+      if (AGENT_CREDENTIAL_KEY_RE.test(key)) {
         out[key] = null;
       } else if (value && typeof value === "object") {
         out[key] = redactSettings(value);

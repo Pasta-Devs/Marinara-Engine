@@ -50,6 +50,14 @@ PocketTTS is not built into Marinara Engine. Install [the official PocketTTS ser
 
 The official server uses `http://localhost:8000` by default. Leave the **Base URL** on that value unless you changed the host or port. Marinara detects the official multipart `/tts` API automatically. Existing custom URLs for the [OpenAI-compatible PocketTTS wrapper](https://github.com/teddybear082/pocket-tts-openai_streaming_server) remain supported.
 
+### Request timeout
+
+By default, Marinara waits up to 60 seconds for each spoken line. A voice server on your own computer, especially a laptop, can need longer for a long line. To wait longer, raise **Request timeout (seconds)** below **Model** in the card. You can set 10 to 3,600 seconds.
+
+An audio connection has its own **Request timeout (seconds)** field, below **Default Voice** in the connection editor. When chats speak through an audio connection, they use that connection's limit. The card's limit covers speech from the card's own settings, including its **Preview** button.
+
+If a line takes too long, the error says how many seconds Marinara waited and which setting to raise.
+
 ## Step 3: Choose a voice (Voice Option)
 
 The **Voice Option** setting decides how voices are assigned:
@@ -165,6 +173,7 @@ This override is used only during Conversation audio and video calls. The regula
 - Nothing speaks: confirm the **Enable TTS** switch is on. Then check the right per-mode **Auto-play** toggle, or use the per-message **Speak** button. The **Speak** button and auto-play options only appear after TTS is enabled.
 - No voices in the dropdown: save the card with TTS enabled and a valid API key, then click **Refresh voices**. The official PocketTTS server uses Marinara's built-in list because it has no voice-list endpoint. For a compatible PocketTTS wrapper, verify that `<Base URL>/v1/voices` responds.
 - ElevenLabs will not speak: make sure you selected a real voice, not the "Select an ElevenLabs voice" placeholder. Also check that the **Model** is a speech model, not a voice-design model whose ID contains `ttv`.
+- A line stops with **No audio after 60 s**: the voice server needs more time. Raise **Request timeout (seconds)** where the message says. See [Request timeout](#request-timeout).
 - A self-hosted TTS server on a local address is blocked: turn on the server setting `TTS_LOCAL_URLS_ENABLED`. It lets the app reach a local or private address for OpenAI-compatible or ElevenLabs-style servers. PocketTTS does not need this setting. See [Server Configuration Reference](../CONFIGURATION.md).
 - Test your setup fast: click the **Preview** button in the card to play a short sample line with your current settings.
 

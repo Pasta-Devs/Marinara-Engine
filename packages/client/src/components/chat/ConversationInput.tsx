@@ -335,6 +335,7 @@ interface ConversationInputProps {
   onPeekPrompt?: () => void;
   onIllustrate?: (prompt?: string, messageRange?: [string, string]) => void | Promise<void>;
   onGenerateSelfie?: (characterId?: string) => void | Promise<void>;
+  onGenerateVideo?: (characterId?: string) => void | Promise<void>;
 }
 
 export function ConversationInput({
@@ -345,6 +346,7 @@ export function ConversationInput({
   onPeekPrompt,
   onIllustrate,
   onGenerateSelfie,
+  onGenerateVideo,
 }: ConversationInputProps) {
   const { t: localizeUi } = useUiTranslation();
   const { t } = useTranslation();
@@ -1083,6 +1085,7 @@ export function ConversationInput({
         lastMessageRole,
         illustrate: onIllustrate,
         selfie: onGenerateSelfie,
+        video: onGenerateVideo,
         availableCapabilityIds,
         conversationGames: conversationGameSlashContributions,
       };
@@ -1237,6 +1240,7 @@ export function ConversationInput({
     onPeekPrompt,
     onIllustrate,
     onGenerateSelfie,
+    onGenerateVideo,
     availableCapabilityIds,
     conversationGameSlashContributions,
     localizeUi,
@@ -1281,6 +1285,7 @@ export function ConversationInput({
         lastMessageRole,
         illustrate: onIllustrate,
         selfie: onGenerateSelfie,
+        video: onGenerateVideo,
         availableCapabilityIds,
         conversationGames: conversationGameSlashContributions,
       };
@@ -1337,6 +1342,7 @@ export function ConversationInput({
       latestAssistantMessage,
       onIllustrate,
       onGenerateSelfie,
+      onGenerateVideo,
       availableCapabilityIds,
       conversationGameSlashContributions,
       qc,

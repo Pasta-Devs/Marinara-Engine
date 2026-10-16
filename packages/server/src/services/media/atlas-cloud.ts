@@ -87,10 +87,15 @@ export function buildAtlasCloudImageRequest(input: {
   } else if (/^black-forest-labs\/flux-(?:dev|krea|kontext)/i.test(model)) {
     body.size = `${Math.round(width)}*${Math.round(height)}`;
   }
-  if (input.referenceImageDataUrl && /(?:kontext|image-to-image|image-edit|edit-image)/i.test(model)) {
+  if (input.referenceImageDataUrl && atlasCloudImageModelTakesReference(model)) {
     body.image = input.referenceImageDataUrl;
   }
   return body;
+}
+
+/** Whether an Atlas Cloud image model is sent the reference picture; the others draw from the prompt alone. */
+export function atlasCloudImageModelTakesReference(model: string): boolean {
+  return /(?:kontext|image-to-image|image-edit|edit-image)/i.test(model);
 }
 
 export function buildAtlasCloudVideoRequest(input: {

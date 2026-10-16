@@ -67,7 +67,9 @@ To open it:
 
 On the left is a list of the agents active in this chat. Pick one to see what it has stored. The right side shows editable blocks. They are grouped into **Stored Memory**, **Tracker Data** (only for tracker agents), and **Recent Outputs** (only for custom agents). Agents that do not track data show only **Stored Memory**.
 
-Each block is a text or JSON editor. After you change a block:
+Each block is a text or JSON editor. JSON blocks have line numbers and say right away when the JSON doesn't parse; **Save** stays off until it does. To search all tracker data at once or edit it as fields, click **Open in State Editor** in the **Tracker Data** header (see [The State Editor](../roleplay/hud-and-trackers.md#the-state-editor)).
+
+After you change a block:
 
 - Click **Save** to keep your edit.
 - Click **Reset** to undo your unsaved change and return to the stored value.

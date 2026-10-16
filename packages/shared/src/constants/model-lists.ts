@@ -13,16 +13,96 @@ export interface KnownModel {
   maxOutput: number;
 }
 
+const BRACKET_PAIRS: Record<string, string> = { "[": "]", "【": "】", "(": ")", "（": "）" };
+
+/** Channel tags that new-api/one-api resellers put in front of a model id, such as `[次]`, `[SP]`, `【限时】`. */
+function stripTagPrefix(id: string): string {
+  let s = id.trimStart();
+  for (let close = BRACKET_PAIRS[s[0] ?? ""]; close; close = BRACKET_PAIRS[s[0] ?? ""]) {
+    const end = s.indexOf(close);
+    if (end < 0) break;
+    s = s.slice(end + 1).trimStart();
+  }
+  return s;
+}
+
+/**
+ * Modifiers after a model id: CLIProxyAPI `(high)`/`(8192)`, Claude Code `[1m]`, new-api `@thinking:on` and
+ * Vertex `@20250805`. No catalog id contains brackets or `@`. Linear scans, because ids are user input.
+ */
+function stripModifierSuffix(id: string): string {
+  let t = id.trimEnd();
+  // Proxies add one or two suffixes; the cap keeps a crafted imported id from looping once per character.
+  for (let pass = 0; pass < 4; pass++) {
+    const open = Object.keys(BRACKET_PAIRS).find((o) => t.endsWith(BRACKET_PAIRS[o]!));
+    const start = open ? t.lastIndexOf(open) : -1;
+    if (start >= 0) {
+      t = t.slice(0, start).trimEnd();
+      continue;
+    }
+    const at = t.lastIndexOf("@");
+    if (at < 0 || t.indexOf("/", at) >= 0) break;
+    t = t.slice(0, at).trimEnd();
+  }
+  return t;
+}
+
+/**
+ * The id that capability checks read: trimmed, lower case, without proxy tags or modifiers.
+ * `[次]claude-opus-4-6` and `claude-opus-4-6(high)` are checked as `claude-opus-4-6`. Vendor paths (`anthropic/…`)
+ * stay, because OpenRouter rules read them. Never send this id to a provider; the request keeps the configured id.
+ */
+export function capabilityModelId(model: string): string {
+  return stripModifierSuffix(stripTagPrefix(model.trim().toLowerCase()));
+}
+
+/**
+ * Proxy ids that make the proxy turn thinking on whatever the request says: new-api's `-thinking`,
+ * `-thinking-<budget>`, effort tails (`-high`) and `@thinking:<on|budget>`, AiHubMix `-think`, CLIProxyAPI
+ * `(<level|budget>)`. Treat them like a thinking request: no sampling and no forced tool choice, which Anthropic and
+ * GPT-5 reject while reasoning runs. Thinking settings Marinara sends still apply where the proxy keeps them.
+ */
+export function impliesProxyThinking(model: string): boolean {
+  let raw = model.trim().toLowerCase();
+  // The modifier nearest the end that carries a thinking setting decides; plain labels such as `(free)` or `[1m]` are skipped.
+  for (let pass = 0; pass < 4; pass++) {
+    const closer = raw.trimEnd().slice(-1);
+    const open = Object.keys(BRACKET_PAIRS).find((o) => BRACKET_PAIRS[o] === closer);
+    const start = open ? raw.trimEnd().lastIndexOf(open) : -1;
+    if (start >= 0) {
+      const inner = raw
+        .trimEnd()
+        .slice(start + 1, -1)
+        .trim();
+      if (open === "(" || open === "（") {
+        if (/^(?:minimal|low|medium|high|xhigh|max|auto|[1-9]\d*)$/u.test(inner)) return true;
+        if (["none", "off", "0"].includes(inner)) return false;
+      }
+      raw = raw.slice(0, start);
+      continue;
+    }
+    const at = raw.lastIndexOf("@");
+    if (at < 0 || raw.indexOf("/", at) >= 0) break;
+    if (raw.startsWith("@thinking:", at)) return !["", "off", "none", "0"].includes(raw.slice(at + 10).trim());
+    raw = raw.slice(0, at);
+  }
+  const id = capabilityModelId(raw);
+  return (
+    /(?<!-no|-non)-think(?:ing(?:-[1-9]\d*)?)?$/u.test(id) ||
+    /^(?:claude-|gpt-5|o[134])\S*-(?:minimal|low|medium|high|xhigh|max)$/u.test(id)
+  );
+}
+
 const CLAUDE_ADAPTIVE_ONLY_OPUS_RE = /claude-opus-4-(?:[7-9]|\d{2,})/;
 
 /** Native Claude ID and the dotted ID used by OpenRouter/compatible gateways. */
 export function isClaudeOpus55Model(model: string): boolean {
-  return /(?:^|\/)claude-opus-5[.-]5(?:$|[-:])/iu.test(model.trim());
+  return /(?:^|\/)claude-opus-5[.-]5(?:$|[-:])/u.test(capabilityModelId(model));
 }
 
 /** Native Claude ID and the dotted ID used by OpenRouter/compatible gateways. */
 export function isClaudeSonnet55Model(model: string): boolean {
-  return /(?:^|\/)claude-sonnet-5[.-]5(?:$|[-:])/iu.test(model.trim());
+  return /(?:^|\/)claude-sonnet-5[.-]5(?:$|[-:])/u.test(capabilityModelId(model));
 }
 
 /**
@@ -36,7 +116,7 @@ export function isClaudeStrictRequestModel(model: string): boolean {
 }
 
 export function isClaudeAdaptiveOnlyNoSamplingModel(model: string): boolean {
-  const normalized = model.toLowerCase();
+  const normalized = capabilityModelId(model);
   return (
     CLAUDE_ADAPTIVE_ONLY_OPUS_RE.test(normalized) ||
     /claude-(?:opus|sonnet)-5(?:$|[-.])/u.test(normalized) ||
@@ -46,7 +126,7 @@ export function isClaudeAdaptiveOnlyNoSamplingModel(model: string): boolean {
 }
 
 export function supportsXhighReasoningEffort(model: string): boolean {
-  const normalized = model.toLowerCase();
+  const normalized = capabilityModelId(model);
   return (
     isOpenAIGpt6Model(normalized) ||
     normalized.startsWith("gpt-5.6") ||
@@ -64,7 +144,7 @@ export function supportsXhighReasoningEffort(model: string): boolean {
  * lowered to `high` on the way to the provider.
  */
 export function isZaiMaxReasoningEffortModel(model: string): boolean {
-  return /(?:^|\/)glm-5\.[23](?:$|[-:])/u.test(model.toLowerCase());
+  return /(?:^|\/)glm-5\.[23](?:$|[-:])/u.test(capabilityModelId(model));
 }
 
 /**
@@ -73,7 +153,7 @@ export function isZaiMaxReasoningEffortModel(model: string): boolean {
  * https://docs.mistral.ai/capabilities/reasoning
  */
 export function isMistralAdjustableReasoningModel(model: string): boolean {
-  const normalized = model.trim().toLowerCase();
+  const normalized = capabilityModelId(model);
   return (
     normalized === "mistral-small-latest" ||
     /^mistral-large-4(?:$|[-.])/u.test(normalized) ||
@@ -83,19 +163,19 @@ export function isMistralAdjustableReasoningModel(model: string): boolean {
 
 /** GLM 5.3 on Mistral (`zai-glm-5-3`) always reasons and takes only "low", "high" or "max", never "none". */
 export function isMistralGlm53Model(model: string): boolean {
-  return /^zai-glm-5-3(?:$|-)/u.test(model.trim().toLowerCase());
+  return /^zai-glm-5-3(?:$|-)/u.test(capabilityModelId(model));
 }
 
 export function isOpenAIGpt56Model(model: string): boolean {
-  return model.toLowerCase().startsWith("gpt-5.6");
+  return capabilityModelId(model).startsWith("gpt-5.6");
 }
 
 export function isOpenAIGpt6AstraModel(model: string): boolean {
-  return /^(?:openai\/)?gpt-6-astra(?:$|[-:])/i.test(model);
+  return /^(?:openai\/)?gpt-6-astra(?:$|[-:])/u.test(capabilityModelId(model));
 }
 
 export function isOpenAIGpt6Model(model: string): boolean {
-  return /^(?:openai\/)?gpt-6(?:-(?:astra|sol|luna)|\.1-sol)(?:$|[-:])/i.test(model);
+  return /^(?:openai\/)?gpt-6(?:-(?:astra|sol|luna)|\.1-sol)(?:$|[-:])/u.test(capabilityModelId(model));
 }
 
 /**
@@ -103,7 +183,7 @@ export function isOpenAIGpt6Model(model: string): boolean {
  * so these never take it at all. https://developers.openai.com/api/docs/models/gpt-6.1-sol
  */
 export function isOpenAIGpt6AlwaysReasoningModel(model: string): boolean {
-  return isOpenAIGpt6AstraModel(model) || /^(?:openai\/)?gpt-6\.1-sol(?:$|[-:])/i.test(model);
+  return isOpenAIGpt6AstraModel(model) || /^(?:openai\/)?gpt-6\.1-sol(?:$|[-:])/u.test(capabilityModelId(model));
 }
 
 export function isOpenAIGpt56SolProAlias(model: string): boolean {
@@ -132,7 +212,7 @@ export function resolveProviderReasoningEffort(args: {
     return "medium";
   }
   if (!args.reasoningEffort || args.reasoningEffort === "none") return null;
-  const modelLower = args.model.toLowerCase();
+  const modelLower = capabilityModelId(args.model);
 
   const xaiUsesAutoReasoning =
     (providerLower === "xai" && isXaiAutoReasoningModel(modelLower)) ||
@@ -175,7 +255,7 @@ export function resolveProviderReasoningEffort(args: {
 
 /** Gemini 3 and later set thinking with `thinkingLevel`; Gemini 2.5 and older take `thinkingBudget`. */
 export function isGeminiThinkingLevelModel(model: string): boolean {
-  return /gemini-(?:[3-9]|[1-9]\d)(?!\d)/i.test(model);
+  return /gemini-(?:[3-9]|[1-9]\d)(?!\d)/u.test(capabilityModelId(model));
 }
 
 /**
@@ -185,12 +265,12 @@ export function isGeminiThinkingLevelModel(model: string): boolean {
  * https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/guides/gemini-4-argon
  */
 export function isGeminiArgonModel(model: string): boolean {
-  return /(?:^|\/)gemini-4-argon(?:$|-)/i.test(model);
+  return /(?:^|\/)gemini-4-argon(?:$|-)/u.test(capabilityModelId(model));
 }
 
 /** Any Gemini model id, bare or with a router prefix such as OpenRouter's `google/`. */
 export function isGeminiModel(model: string): boolean {
-  return /(?:^|\/)gemini-/i.test(model);
+  return /(?:^|\/)gemini-/u.test(capabilityModelId(model));
 }
 
 /**
@@ -202,16 +282,16 @@ export function isGeminiModel(model: string): boolean {
  * https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/guides/gemini-3-6-flash (also 3-7, 3-8)
  */
 export function isGeminiStrictRequestModel(model: string): boolean {
-  return /(?:^|\/)gemini-(?:4-argon|3\.5-flash-lite|3\.[6-8]-flash)(?:$|[-:])/i.test(model);
+  return /(?:^|\/)gemini-(?:4-argon|3\.5-flash-lite|3\.[6-8]-flash)(?:$|[-:])/u.test(capabilityModelId(model));
 }
 
 export function isXaiConfigurableReasoningModel(model: string): boolean {
-  const normalized = model.toLowerCase().replace(/^x-ai\//, "");
+  const normalized = capabilityModelId(model).replace(/^x-ai\//, "");
   return /^grok-4\.[3567](?:$|-)/.test(normalized);
 }
 
 export function isXaiAutoReasoningModel(model: string): boolean {
-  const normalized = model.toLowerCase().replace(/^x-ai\//, "");
+  const normalized = capabilityModelId(model).replace(/^x-ai\//, "");
   return normalized.startsWith("grok-4-1-fast");
 }
 
@@ -1272,22 +1352,56 @@ const OPENAI_COMPATIBLE_AGGREGATOR_MODELS: KnownModel[] = [
 ];
 
 /**
- * Look up a known model by ID across all providers.
+ * Variant suffixes proxies add to a catalog id: thinking switches (new-api `-thinking[-<budget>]`/`-nothinking`,
+ * AiHubMix `-think`/`-nothink`), effort tails (new-api, AiHubMix `gpt-5.4-high`), AiHubMix `-search`, LinkAPI `-r`,
+ * Chutes `-tee`, and date pins (`-20250929`, `-2024-08-06`, `-0731`). findKnownModel removes them one at a time,
+ * and only while the id is still unknown, so a real catalog id that ends the same way (`command-r`,
+ * `gpt-5.1-codex-max`, `grok-4-0709`) always matches as it is.
+ */
+const PROXY_MODEL_SUFFIX_RE =
+  /-(?:thinking(?:-\d+)?|think|nothinking|nothink|no-thinking|non-thinking|none|minimal|low|medium|high|xhigh|max|search|r|tee|\d{4}-\d{2}-\d{2}|\d{8}|\d{4})$/u;
+
+/**
+ * The catalog form of a proxy or gateway id: no tags or modifiers, no namespace path (OpenRouter, Bifrost and
+ * LiteLLM `vendor/…`, Chutes `deepseek-ai/…`, CLIProxyAPI `provider://…`), no `:variant` (OpenRouter `:free`, NanoGPT
+ * `:thinking`), no Bedrock wrapper (`us.anthropic.…-v1:0`), Vertex date pins as Anthropic's (`@20250805` is
+ * `-20250805`), and hyphenated Claude versions (Poe and OpenRouter `claude-opus-4.6`).
+ */
+function catalogModelId(modelId: string): string {
+  return (
+    capabilityModelId(modelId.trim().replace(/@(\d{8})$/u, "-$1"))
+      .split("/")
+      .pop() ?? ""
+  )
+    .split(":", 1)[0]!
+    .replace(/^(?:[a-z]+\.)?anthropic\.(claude-.+)-v\d+$/u, "$1")
+    .replace(/^(claude-(?:opus|sonnet|haiku|fable|mythos)-\d+)\.(\d+)/u, "$1-$2");
+}
+
+/**
+ * Look up a known model by ID across all providers. A proxy id resolves to the catalog model it serves:
+ * `[次]claude-opus-4-6-thinking` is `claude-opus-4-6`.
  */
 export function findKnownModel(provider: APIProvider, modelId: string): KnownModel | undefined {
   const exact = MODEL_LISTS[provider]?.find((model) => model.id === modelId);
-  if (exact || (provider !== "openrouter" && provider !== "nanogpt" && provider !== "custom")) return exact;
+  if (exact) return exact;
 
   // Aggregators namespace model IDs (for example, `deepseek/deepseek-v4-pro`)
   // while direct OAI-compatible endpoints generally do not. Resolve both
   // forms without exposing a large, stale static list in their model pickers.
-  const normalizedId = modelId.trim().toLowerCase();
-  const unqualifiedId = isClaudeOpus55Model(normalizedId)
-    ? "claude-opus-5-5"
-    : isClaudeSonnet55Model(normalizedId)
-      ? "claude-sonnet-5-5"
-      : (normalizedId.split("/").pop()?.split(":", 1)[0] ?? normalizedId);
-  return OPENAI_COMPATIBLE_AGGREGATOR_MODELS.find((model) => model.id.toLowerCase() === unqualifiedId);
+  const catalog =
+    provider === "openrouter" || provider === "nanogpt" || provider === "custom"
+      ? OPENAI_COMPATIBLE_AGGREGATOR_MODELS
+      : MODEL_LISTS[provider];
+  if (!catalog?.length) return undefined;
+  let id = catalogModelId(modelId);
+  // At most 4 suffix passes: a crafted imported id must not loop once per character.
+  for (let pass = 0; ; pass++) {
+    const known = catalog.find((model) => model.id.toLowerCase() === id);
+    const shorter = id.replace(PROXY_MODEL_SUFFIX_RE, "");
+    if (known || shorter === id || pass === 4) return known;
+    id = shorter;
+  }
 }
 
 function normalizeProviderForCatalog(provider: APIProvider | string): APIProvider | null {

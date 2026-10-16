@@ -15,7 +15,9 @@ import {
   type LLMUsage,
 } from "../base-provider.js";
 import {
+  capabilityModelId,
   findKnownModel,
+  impliesProxyThinking,
   isClaudeAdaptiveOnlyNoSamplingModel,
   isClaudeOpus55Model,
   isClaudeSonnet55Model,
@@ -111,7 +113,7 @@ function isAnthropicThinkingBlock(block: AnthropicContentBlock): boolean {
 }
 
 export function supportsAnthropicThinkingDisable(model: string): boolean {
-  return !isClaudeOpus55Model(model) && /claude-(?:opus|sonnet)-5(?:$|[-.])/u.test(model.toLowerCase());
+  return !isClaudeOpus55Model(model) && /claude-(?:opus|sonnet)-5(?:$|[-.])/u.test(capabilityModelId(model));
 }
 
 function normalizeStrictClaudeParameters(
@@ -238,7 +240,7 @@ function splitAnthropicSystemMessages(messages: ChatMessage[], model: string) {
       "claude-fable-5-1",
       "claude-mythos-5",
       "claude-mythos-5-1",
-    ].includes(model.toLowerCase());
+    ].includes(capabilityModelId(model));
   const chatMessages = history.map((message, index): ChatMessage => {
     if (message.role !== "system") return message;
     let start = index;
@@ -280,8 +282,13 @@ export function applyAnthropicToolChoice(
     return "none";
   }
 
-  const model = options.model.toLowerCase();
-  if (model.includes("mythos") || model === "claude-fable-5-1" || isClaudeStrictRequestModel(model)) {
+  const model = capabilityModelId(options.model);
+  if (
+    model.includes("mythos") ||
+    model === "claude-fable-5-1" ||
+    isClaudeStrictRequestModel(model) ||
+    impliesProxyThinking(options.model)
+  ) {
     setToolChoiceType("auto");
     return "automatic-only";
   }
@@ -516,7 +523,7 @@ export class AnthropicProvider extends BaseLLMProvider {
       this.shouldSendParameter(options, "reasoningEffort") &&
       options.reasoningEffort === "none" &&
       supportsAnthropicThinkingDisable(options.model);
-    if (isAdaptiveOnly) stripAnthropicSamplingParameters(body);
+    if (isAdaptiveOnly || impliesProxyThinking(options.model)) stripAnthropicSamplingParameters(body);
 
     if (shouldDisableThinking) {
       // Sonnet 5.5 rejects "disabled"; normalizeStrictClaudeParameters sends it as "between_tools".
@@ -539,6 +546,7 @@ export class AnthropicProvider extends BaseLLMProvider {
     }
 
     this.applyCustomParameters(body, options);
+    if (!isAdaptiveOnly && impliesProxyThinking(options.model)) stripAnthropicSamplingParameters(body);
     if (isAdaptiveOnly) {
       stripAnthropicSamplingParameters(body);
       if (
@@ -889,7 +897,7 @@ export class AnthropicProvider extends BaseLLMProvider {
       this.shouldSendParameter(options, "reasoningEffort") &&
       options.reasoningEffort === "none" &&
       supportsAnthropicThinkingDisable(options.model);
-    if (isAdaptiveOnly && !suppressModelParameters) {
+    if ((isAdaptiveOnly || impliesProxyThinking(options.model)) && !suppressModelParameters) {
       stripAnthropicSamplingParameters(body);
     }
 
@@ -922,6 +930,9 @@ export class AnthropicProvider extends BaseLLMProvider {
     }
 
     this.applyCustomParameters(body, options);
+    if (!isAdaptiveOnly && !suppressModelParameters && impliesProxyThinking(options.model)) {
+      stripAnthropicSamplingParameters(body);
+    }
     if (isAdaptiveOnly && !suppressModelParameters) {
       stripAnthropicSamplingParameters(body);
       if (

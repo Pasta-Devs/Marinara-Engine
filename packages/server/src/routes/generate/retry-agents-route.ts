@@ -9,7 +9,6 @@ import {
   applyQuestUpdatesToPlayerStats,
   applyTrackerFieldLocksToGameStatePatch,
   getCustomAgentResultCapability,
-  NARRATIVE_DIRECTOR_SECRET_PLOT_PROMPT,
   customAgentHasCapability,
   isAgentAvailableInChatMode,
   isAgentConfigDeleted,
@@ -117,6 +116,7 @@ import {
   resolveConnectionImageQuality,
 } from "../../services/image/image-generation-defaults.js";
 import { injectMemoryRecallContext } from "../../services/generation/memory-recall-context.js";
+import { buildDirectorSecretPlotAgent } from "../../services/generation/director-secret-plot-runtime.js";
 import {
   appendTrackerLorebookBatchContextKey,
   applyTrackerLorebookContextPolicy,
@@ -4823,14 +4823,7 @@ export async function registerRetryAgentsRoute(
       const secretPlotDirectorRetry =
         secretPlotRerollMode && resolvedAgents.find((entry) => entry.resolved.type === "director");
       if (secretPlotDirectorRetry) {
-        secretPlotDirectorRetry.resolved = {
-          ...secretPlotDirectorRetry.resolved,
-          promptTemplate: NARRATIVE_DIRECTOR_SECRET_PLOT_PROMPT,
-          settings: {
-            ...secretPlotDirectorRetry.resolved.settings,
-            resultType: "secret_plot",
-          },
-        };
+        secretPlotDirectorRetry.resolved = buildDirectorSecretPlotAgent(secretPlotDirectorRetry.resolved);
       }
       const cyoaAgentWillRun = resolvedAgents.some((e) => e.resolved.type === "cyoa");
       const retryPersonaContext = await runRetrySetupPhase(abortController.signal, () =>

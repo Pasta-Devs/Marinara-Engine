@@ -4,7 +4,7 @@ This guide explains how Marinara Engine turns a scene illustration into a short 
 
 ## What scene video does
 
-A scene video takes an existing gallery image and animates it into a short MP4 clip. The still image becomes the first frame, and the AI adds motion. Scene videos work in **Roleplay** and **Game Mode** chats.
+A scene video takes an existing gallery image and animates it into a short MP4 clip. The still image becomes the first frame, and the AI adds motion. Scene videos work in **Roleplay** and **Game Mode** chats. Conversation chats send video messages instead; see [Video messages](../conversation/selfies.md#video-messages).
 
 You always need a picture first. Scene video generation cannot run from text alone. You must generate or upload a gallery image before you can animate it.
 

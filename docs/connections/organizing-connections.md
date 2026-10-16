@@ -64,6 +64,8 @@ To delete a whole connection, click **⋯** on its row and **Edit**, then click 
 
 Shuffle lets a chat pick a different connection each time it generates a reply. This is useful when you want to spread requests across several services or models.
 
+If the connection a reply picked fails and you have set a fallback connection for **Main**, the fallback writes the reply instead. A notice names the connection that failed, its model and a short reason, such as "key rejected", "rate limited" or "not found", so you can tell which pool connection needs fixing. The reply keeps a small **Fallback** label; tap it, or point at it, to see the same line again.
+
 To add a model to Shuffle, open its **⋯** menu and choose **Add to Shuffle**. Choose **Remove from Shuffle** to take it out again.
 
 To make a chat use Shuffle, open **Chat Settings**, find the **Connection** section, and choose **🎲 Random** from the dropdown. In Game Mode this dropdown is labeled **GM / Party Model**. Each reply then picks a random model from your Shuffle.

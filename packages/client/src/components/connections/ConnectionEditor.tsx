@@ -6,6 +6,8 @@ import {
   defaultDecisionStateTokens,
   defaultDecisionTimeoutMs,
   resolveDecisionConnectionTimeoutMs,
+  resolveTtsRequestTimeoutMs,
+  TTS_REQUEST_TIMEOUT_MS,
   type DecisionSource,
   isChatProvider,
 } from "@marinara-engine/shared";
@@ -407,6 +409,7 @@ export function ConnectionEditor() {
   const [localDecisionTimeoutMs, setLocalDecisionTimeoutMs] = useState<number>(DECISION_TIMEOUT_MS.systemOne);
   const [localAudioSource, setLocalAudioSource] = useState("elevenlabs");
   const [localAudioVoice, setLocalAudioVoice] = useState("");
+  const [localAudioTimeoutMs, setLocalAudioTimeoutMs] = useState<number>(TTS_REQUEST_TIMEOUT_MS.default);
   const [localAudioSoundEffects, setLocalAudioSoundEffects] = useState(false);
   const [localAudioMusic, setLocalAudioMusic] = useState(false);
   const [localMaxTokensOverride, setLocalMaxTokensOverride] = useState<number | null>(null);
@@ -548,6 +551,7 @@ export function ConnectionEditor() {
     setLocalDecisionTimeoutMs(resolveDecisionConnectionTimeoutMs(c.decisionTimeoutMs, c.decisionSource as string));
     setLocalAudioSource((c.audioSource as string) || "elevenlabs");
     setLocalAudioVoice((c.audioVoice as string) ?? "");
+    setLocalAudioTimeoutMs(resolveTtsRequestTimeoutMs(c.audioTimeoutMs));
     setLocalAudioSoundEffects(c.audioSoundEffects === "true" || c.audioSoundEffects === true);
     setLocalAudioMusic(c.audioMusic === "true" || c.audioMusic === true);
     setLocalMaxTokensOverride(typeof c.maxTokensOverride === "number" ? (c.maxTokensOverride as number) : null);
@@ -908,6 +912,9 @@ export function ConnectionEditor() {
           : null,
       audioSource: isAudioProvider ? localAudioSource || null : null,
       audioVoice: isAudioProvider ? localAudioVoice || null : null,
+      // The default is stored as null, like the Decision time limit.
+      audioTimeoutMs:
+        isAudioProvider && localAudioTimeoutMs !== TTS_REQUEST_TIMEOUT_MS.default ? localAudioTimeoutMs : null,
       // Only ElevenLabs can generate game sound effects / music today.
       audioSoundEffects: isAudioProvider && localAudioSource === "elevenlabs" ? localAudioSoundEffects : false,
       audioMusic: isAudioProvider && localAudioSource === "elevenlabs" ? localAudioMusic : false,
@@ -1058,6 +1065,7 @@ export function ConnectionEditor() {
     localDecisionTimeoutMs,
     localAudioSource,
     localAudioVoice,
+    localAudioTimeoutMs,
     localAudioSoundEffects,
     localAudioMusic,
     selectedImageService,
@@ -1176,6 +1184,8 @@ export function ConnectionEditor() {
       videoService,
       audioSource: isAudioProvider ? localAudioSource || null : null,
       audioVoice: isAudioProvider ? localAudioVoice || null : null,
+      audioTimeoutMs:
+        isAudioProvider && localAudioTimeoutMs !== TTS_REQUEST_TIMEOUT_MS.default ? localAudioTimeoutMs : null,
       audioSoundEffects: isAudioProvider && localAudioSource === "elevenlabs" ? localAudioSoundEffects : false,
       audioMusic: isAudioProvider && localAudioSource === "elevenlabs" ? localAudioMusic : false,
       imageEndpointId:
@@ -1244,6 +1254,7 @@ export function ConnectionEditor() {
     localizeUi,
     localAudioSource,
     localAudioVoice,
+    localAudioTimeoutMs,
     localAudioSoundEffects,
     localAudioMusic,
   ]);
@@ -2829,6 +2840,25 @@ export function ConnectionEditor() {
                   />
                   <p className="text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
                     {localizeUi("ui.connections.connectioneditor.voiceIdOrNameUsedWhenNothingMoreSpecific")}
+                  </p>
+                </label>
+                <label className="block space-y-1.5">
+                  <span className="block text-xs font-medium text-[var(--muted-foreground)]">
+                    {t("tts.requestTimeout")}
+                  </span>
+                  <DraftNumberInput
+                    ariaLabel={t("tts.requestTimeout")}
+                    min={TTS_REQUEST_TIMEOUT_MS.min / 1000}
+                    max={TTS_REQUEST_TIMEOUT_MS.max / 1000}
+                    value={localAudioTimeoutMs / 1000}
+                    onCommit={(seconds) => {
+                      setLocalAudioTimeoutMs(seconds * 1000);
+                      markDirty();
+                    }}
+                    className="w-32 rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+                  />
+                  <p className="text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
+                    {t("tts.requestTimeoutHelp")}
                   </p>
                 </label>
                 {localAudioSource === "elevenlabs" ? (

@@ -315,8 +315,10 @@ import { applyRegexScriptsToPromptText } from "../../packages/server/src/service
 import { shouldSkipAgentByMessageInterval } from "../../packages/server/src/services/generation/agent-cadence.js";
 import {
   DIRECTOR_SECRET_PLOT_LAST_MESSAGE_KEY,
+  buildDirectorSecretPlotAgent,
   shouldRunDirectorSecretPlotMaintenance,
 } from "../../packages/server/src/services/generation/director-secret-plot-runtime.js";
+import { NARRATIVE_DIRECTOR_SECRET_PLOT_PROMPT } from "../../packages/shared/src/constants/agent-prompts.js";
 import {
   filterPromptHistoryByMessageIds,
   filterPromptMessagesForCharacterAudience,
@@ -463,6 +465,27 @@ assert.equal(
   false,
   "Narrative Director cadence should not invent a new message for continuations",
 );
+{
+  const director = { type: "director", promptTemplate: "direction prompt", settings: {} } as unknown as Parameters<
+    typeof buildDirectorSecretPlotAgent
+  >[0];
+  assert.equal(
+    buildDirectorSecretPlotAgent(director).promptTemplate,
+    NARRATIVE_DIRECTOR_SECRET_PLOT_PROMPT,
+    "Secret Plot should use the built-in prompt when the Director has no custom one",
+  );
+  assert.equal(
+    buildDirectorSecretPlotAgent({ ...director, settings: { secretPlotPromptTemplate: "  " } }).promptTemplate,
+    NARRATIVE_DIRECTOR_SECRET_PLOT_PROMPT,
+    "a blank custom Secret Plot prompt should fall back to the built-in one",
+  );
+  const custom = buildDirectorSecretPlotAgent({
+    ...director,
+    settings: { secretPlotPromptTemplate: "Keep the arc about the relationship." },
+  });
+  assert.equal(custom.promptTemplate, "Keep the arc about the relationship.");
+  assert.equal(custom.settings.resultType, "secret_plot");
+}
 assert.equal(
   formatAgentMainResponseForPrompt({
     mainResponse: "I tighten my gloves.",

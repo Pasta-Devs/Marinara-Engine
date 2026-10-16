@@ -2,9 +2,9 @@
 // Pinned Image Overlay — Draggable floating gallery media in the chat area
 // ──────────────────────────────────────────────
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
-import { Film, GripHorizontal, X } from "lucide-react";
+import { Film, GripHorizontal, Lock, Unlock, X } from "lucide-react";
 import { useGalleryStore } from "../../stores/gallery.store";
-import type { PinnedGalleryMedia } from "../../stores/gallery.store";
+import type { PinnedGalleryMedia, PinnedMediaLayout } from "../../stores/gallery.store";
 import { cn } from "../../lib/utils";
 import { getChatToolbarButtonClass } from "./ChatToolbarControls";
 import { useGalleryImages, useSceneVideos } from "../../hooks/use-gallery";
@@ -12,6 +12,8 @@ import type { GeneratedSceneVideo } from "@marinara-engine/shared";
 import { useTranslation as useUiTranslation } from "react-i18next";
 
 const EMPTY_SCENE_VIDEOS: GeneratedSceneVideo[] = [];
+
+type Frame = { x: number; y: number; w: number; h: number };
 
 function getViewport() {
   return {
@@ -43,8 +45,7 @@ function getInitialSize(media: PinnedGalleryMedia) {
   return getInitialSizeForAspect(getMediaAspect(media));
 }
 
-function clampPosition(pos: { x: number; y: number }, size: { w: number; h: number }) {
-  const viewport = getViewport();
+function clampPosition(pos: { x: number; y: number }, size: { w: number; h: number }, viewport = getViewport()) {
   return {
     x: Math.max(8, Math.min(pos.x, viewport.width - size.w - 8)),
     y: Math.max(8, Math.min(pos.y, viewport.height - size.h - 8)),
@@ -63,6 +64,14 @@ function clampSizeToViewport(width: number, aspect: number, pos: { x: number; y:
   return { w: nextWidth, h: nextHeight };
 }
 
+/** Where a pin shows: shrunk to fit (same shape) and kept on screen. The saved frame is left as the user set it,
+ *  so the pin goes back there when the window grows again. */
+function fitFrameToViewport(frame: Frame, viewport: { width: number; height: number }): Frame {
+  const scale = Math.min(1, (viewport.width - 16) / frame.w, (viewport.height - 16) / frame.h);
+  const size = { w: frame.w * scale, h: frame.h * scale };
+  return { ...clampPosition(frame, size, viewport), ...size };
+}
+
 function shouldIgnoreDragTarget(target: EventTarget | null) {
   return target instanceof Element && !!target.closest("button,a,video,[data-gallery-media-no-drag]");
 }
@@ -76,33 +85,47 @@ function PinnedMediaViewer({
   media,
   onClose,
   offsetIndex,
+  onLayoutChange,
 }: {
   media: PinnedGalleryMedia;
   onClose: () => void;
   offsetIndex: number;
+  /** Pins save where they sit and can be locked; the one-shot viewer passes nothing. */
+  onLayoutChange?: (layout: PinnedMediaLayout) => void;
 }) {
   const { t: localizeUi } = useUiTranslation();
-  const initialSize = getInitialSize(media);
-  const [pos, setPos] = useState(() =>
-    clampPosition(
+  const savedLayout = onLayoutChange ? media.layout : undefined;
+  const locked = !!savedLayout?.locked;
+  const [frame, setFrame] = useState<Frame>(() => {
+    if (savedLayout) return { x: savedLayout.x, y: savedLayout.y, w: savedLayout.w, h: savedLayout.h };
+    const size = getInitialSize(media);
+    const viewport = getViewport();
+    const pos = clampPosition(
       {
-        x: (getViewport().width - initialSize.w) / 2 + offsetIndex * 24,
-        y: (getViewport().height - initialSize.h) / 2 + offsetIndex * 24,
+        x: (viewport.width - size.w) / 2 + offsetIndex * 24,
+        y: (viewport.height - size.h) / 2 + offsetIndex * 24,
       },
-      initialSize,
-    ),
-  );
-  const [size, setSize] = useState(initialSize);
+      size,
+    );
+    return { ...pos, ...size };
+  });
+  const [viewport, setViewport] = useState(getViewport);
+  // The one-shot viewer keeps its place when it moves on to newer media, but takes that media's size.
+  const [frameMediaId, setFrameMediaId] = useState(media.id);
+  if (frameMediaId !== media.id) {
+    setFrameMediaId(media.id);
+    setFrame((current) => ({ ...current, ...getInitialSize(media) }));
+  }
+  const shown = useMemo(() => fitFrameToViewport(frame, viewport), [frame, viewport]);
   const [touchControlsVisible, setTouchControlsVisible] = useState(false);
-  const dragRef = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
-  const resizeRef = useRef<{
-    startX: number;
-    startY: number;
-    origW: number;
-    origH: number;
-    aspect: number;
-  } | null>(null);
+  // A drag moves what is shown but keeps the saved size, so a pin shrunk by a small window grows back later.
+  const dragRef = useRef<{ startX: number; startY: number; origin: Frame; saved: Frame; frame: Frame } | null>(null);
+  const resizeRef = useRef<{ startX: number; startY: number; origin: Frame; frame: Frame } | null>(null);
   const touchControlsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mediaNoun =
+    media.kind === "video"
+      ? localizeUi("ui.ui.spritegenerationmodal.video")
+      : localizeUi("ui.ui.spritegenerationmodal.image");
 
   const showTouchControls = useCallback(() => {
     setTouchControlsVisible(true);
@@ -111,15 +134,10 @@ function PinnedMediaViewer({
   }, []);
 
   useEffect(() => {
-    const recomputeFrame = () => {
-      const nextSize = getInitialSize(media);
-      setSize(nextSize);
-      setPos((current) => clampPosition(current, nextSize));
-    };
-    recomputeFrame();
-    window.addEventListener("resize", recomputeFrame);
-    return () => window.removeEventListener("resize", recomputeFrame);
-  }, [media]);
+    const onResize = () => setViewport(getViewport());
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
 
   useEffect(
     () => () => {
@@ -128,78 +146,89 @@ function PinnedMediaViewer({
     [],
   );
 
+  const saveLayout = useCallback(
+    (next: Frame, nextLocked: boolean) => {
+      onLayoutChange?.(nextLocked ? { ...next, locked: true } : next);
+    },
+    [onLayoutChange],
+  );
+
   const onDragStart = useCallback(
     (e: React.PointerEvent) => {
       if (shouldIgnoreDragTarget(e.target)) return;
       e.preventDefault();
       if (e.pointerType !== "mouse") showTouchControls();
-      dragRef.current = { startX: e.clientX, startY: e.clientY, origX: pos.x, origY: pos.y };
+      if (locked) return;
+      dragRef.current = { startX: e.clientX, startY: e.clientY, origin: shown, saved: frame, frame };
       e.currentTarget.setPointerCapture(e.pointerId);
     },
-    [pos, showTouchControls],
+    [frame, locked, shown, showTouchControls],
   );
 
-  const onDragMove = useCallback(
-    (e: React.PointerEvent) => {
-      if (!dragRef.current) return;
-      const dx = e.clientX - dragRef.current.startX;
-      const dy = e.clientY - dragRef.current.startY;
-      setPos(clampPosition({ x: dragRef.current.origX + dx, y: dragRef.current.origY + dy }, size));
-    },
-    [size],
-  );
-
-  const onDragEnd = useCallback((e: React.PointerEvent) => {
-    dragRef.current = null;
-    if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
+  const onDragMove = useCallback((e: React.PointerEvent) => {
+    const drag = dragRef.current;
+    if (!drag) return;
+    const { origin } = drag;
+    const pos = clampPosition({ x: origin.x + e.clientX - drag.startX, y: origin.y + e.clientY - drag.startY }, origin);
+    drag.frame = { ...drag.saved, ...pos };
+    setFrame(drag.frame);
   }, []);
+
+  const onDragEnd = useCallback(
+    (e: React.PointerEvent) => {
+      const drag = dragRef.current;
+      dragRef.current = null;
+      if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
+      if (drag && drag.frame !== drag.saved) saveLayout(drag.frame, locked);
+    },
+    [locked, saveLayout],
+  );
 
   const onResizeStart = useCallback(
     (e: React.PointerEvent) => {
       e.preventDefault();
       e.stopPropagation();
       if (e.pointerType !== "mouse") showTouchControls();
-      resizeRef.current = {
-        startX: e.clientX,
-        startY: e.clientY,
-        origW: size.w,
-        origH: size.h,
-        aspect: size.w / size.h,
-      };
+      resizeRef.current = { startX: e.clientX, startY: e.clientY, origin: shown, frame: shown };
       e.currentTarget.setPointerCapture(e.pointerId);
     },
-    [showTouchControls, size],
+    [showTouchControls, shown],
   );
 
-  const onResizeMove = useCallback(
-    (e: React.PointerEvent) => {
-      if (!resizeRef.current) return;
-      e.preventDefault();
-      e.stopPropagation();
-      const dx = e.clientX - resizeRef.current.startX;
-      const dy = e.clientY - resizeRef.current.startY;
-      const widthFromHorizontal = resizeRef.current.origW + dx;
-      const widthFromVertical = (resizeRef.current.origH + dy) * resizeRef.current.aspect;
-      setSize(clampSizeToViewport(Math.max(widthFromHorizontal, widthFromVertical), resizeRef.current.aspect, pos));
-    },
-    [pos],
-  );
-
-  const onResizeEnd = useCallback((e: React.PointerEvent) => {
-    resizeRef.current = null;
-    if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
+  const onResizeMove = useCallback((e: React.PointerEvent) => {
+    const resize = resizeRef.current;
+    if (!resize) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const { origin } = resize;
+    const aspect = origin.w / origin.h;
+    const widthFromHorizontal = origin.w + e.clientX - resize.startX;
+    const widthFromVertical = (origin.h + e.clientY - resize.startY) * aspect;
+    resize.frame = {
+      ...origin,
+      ...clampSizeToViewport(Math.max(widthFromHorizontal, widthFromVertical), aspect, origin),
+    };
+    setFrame(resize.frame);
   }, []);
+
+  const onResizeEnd = useCallback(
+    (e: React.PointerEvent) => {
+      const resize = resizeRef.current;
+      resizeRef.current = null;
+      if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
+      if (resize && resize.frame !== resize.origin) saveLayout(resize.frame, locked);
+    },
+    [locked, saveLayout],
+  );
 
   const handleImageLoad = useCallback(
     (event: React.SyntheticEvent<HTMLImageElement>) => {
-      if (media.kind !== "image" || (media.width && media.height)) return;
+      if (media.kind !== "image" || (media.width && media.height) || savedLayout) return;
       const { naturalWidth, naturalHeight } = event.currentTarget;
       if (!naturalWidth || !naturalHeight) return;
-      const nextSize = getInitialSizeForAspect(naturalWidth / naturalHeight);
-      setSize(nextSize);
-      setPos((current) => clampPosition(current, nextSize));
+      setFrame((current) => ({ ...current, ...getInitialSizeForAspect(naturalWidth / naturalHeight) }));
     },
-    [media],
+    [media, savedLayout],
   );
   const controlsVisibilityClass = touchControlsVisible
     ? "opacity-100"
@@ -207,20 +236,49 @@ function PinnedMediaViewer({
 
   return (
     <div
-      className="group fixed z-[20] cursor-grab select-none touch-none active:cursor-grabbing"
-      style={{ left: pos.x, top: pos.y, width: size.w, height: size.h }}
+      className={cn("group fixed z-[20] select-none touch-none", !locked && "cursor-grab active:cursor-grabbing")}
+      style={{ left: shown.x, top: shown.y, width: shown.w, height: shown.h }}
       onPointerDown={onDragStart}
       onPointerMove={onDragMove}
       onPointerUp={onDragEnd}
       onPointerCancel={onDragEnd}
-      aria-label={localizeUi("ui.chat.pinnedmediaviewer.pinnedValue1DragToMove", {
-        value1:
-          media.kind === "video"
-            ? localizeUi("ui.chat.pinnedmediaviewer.sceneVideo")
-            : localizeUi("ui.chat.pinnedmediaviewer.galleryImage"),
-      })}
+      aria-label={localizeUi(
+        locked ? "ui.chat.pinnedmediaviewer.pinnedMediaLocked" : "ui.chat.pinnedmediaviewer.pinnedValue1DragToMove",
+        {
+          value1:
+            media.kind === "video"
+              ? localizeUi("ui.chat.pinnedmediaviewer.sceneVideo")
+              : localizeUi("ui.chat.pinnedmediaviewer.galleryImage"),
+        },
+      )}
     >
       <div className="relative h-full w-full">
+        {onLayoutChange && (
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              saveLayout(frame, !locked);
+            }}
+            onPointerDown={(event) => event.stopPropagation()}
+            className={cn(
+              getChatToolbarButtonClass({
+                active: locked,
+                compact: true,
+                sizeClassName: "h-7 w-7",
+                className: "absolute -top-2 right-6 z-10 shadow-lg transition-opacity duration-150",
+              }),
+              controlsVisibilityClass,
+            )}
+            aria-pressed={locked}
+            aria-label={localizeUi("ui.chat.pinnedmediaviewer.lockPinnedMedia", { value1: mediaNoun })}
+            title={localizeUi(locked ? "ui.chat.pinnedmediaviewer.unlockHint" : "ui.chat.pinnedmediaviewer.lockHint", {
+              value1: mediaNoun,
+            })}
+          >
+            {locked ? <Lock size="0.875rem" /> : <Unlock size="0.875rem" />}
+          </button>
+        )}
         <button
           type="button"
           onClick={(event) => {
@@ -236,12 +294,7 @@ function PinnedMediaViewer({
             }),
             controlsVisibilityClass,
           )}
-          aria-label={localizeUi("ui.chat.pinnedmediaviewer.dismissPinnedValue1", {
-            value1:
-              media.kind === "video"
-                ? localizeUi("ui.ui.spritegenerationmodal.video")
-                : localizeUi("ui.ui.spritegenerationmodal.image"),
-          })}
+          aria-label={localizeUi("ui.chat.pinnedmediaviewer.dismissPinnedValue1", { value1: mediaNoun })}
         >
           <X size="0.875rem" />
         </button>
@@ -249,13 +302,14 @@ function PinnedMediaViewer({
           <>
             <div
               className={cn(
-                "absolute left-2 top-2 z-10 flex max-w-[calc(100%-4rem)] cursor-grab items-center gap-1.5 rounded-md bg-black/65 px-2 py-1 text-[0.625rem] font-medium text-white shadow-lg backdrop-blur-sm active:cursor-grabbing",
+                "absolute left-2 top-2 z-10 flex max-w-[calc(100%-4rem)] items-center gap-1.5 rounded-md bg-black/65 px-2 py-1 text-[0.625rem] font-medium text-white shadow-lg backdrop-blur-sm",
+                !locked && "cursor-grab active:cursor-grabbing",
                 controlsVisibilityClass,
               )}
               onPointerDown={onDragStart}
-              aria-label={localizeUi("ui.chat.pinnedmediaviewer.dragPinnedVideo")}
+              aria-label={locked ? undefined : localizeUi("ui.chat.pinnedmediaviewer.dragPinnedVideo")}
             >
-              <GripHorizontal size="0.75rem" className="shrink-0" />
+              {!locked && <GripHorizontal size="0.75rem" className="shrink-0" />}
               <Film size="0.75rem" className="shrink-0" />
               <span className="truncate">{getPinnedMediaLabel(media)}</span>
             </div>
@@ -278,25 +332,22 @@ function PinnedMediaViewer({
             onLoad={handleImageLoad}
           />
         )}
-        <div
-          className={cn(
-            "absolute -bottom-2 -right-2 z-10 flex h-7 w-7 cursor-nwse-resize items-center justify-center rounded-lg border border-[var(--marinara-chat-chrome-button-border)] bg-[var(--marinara-chat-chrome-button-bg)] text-[var(--marinara-chat-chrome-button-text)] shadow-lg transition-all duration-150 hover:border-[var(--marinara-chat-chrome-button-border-hover)] hover:bg-[var(--marinara-chat-chrome-button-bg-hover)] hover:text-[var(--marinara-chat-chrome-button-text-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)] active:scale-95",
-            controlsVisibilityClass,
-          )}
-          aria-label={localizeUi("ui.chat.pinnedmediaviewer.resizePinnedValue1", {
-            value1:
-              media.kind === "video"
-                ? localizeUi("ui.ui.spritegenerationmodal.video")
-                : localizeUi("ui.ui.spritegenerationmodal.image"),
-          })}
-          tabIndex={0}
-          onPointerDown={onResizeStart}
-          onPointerMove={onResizeMove}
-          onPointerUp={onResizeEnd}
-          onPointerCancel={onResizeEnd}
-        >
-          <span className="h-2.5 w-2.5 rounded-br-sm border-b-2 border-r-2 border-current" />
-        </div>
+        {!locked && (
+          <div
+            className={cn(
+              "absolute -bottom-2 -right-2 z-10 flex h-7 w-7 cursor-nwse-resize items-center justify-center rounded-lg border border-[var(--marinara-chat-chrome-button-border)] bg-[var(--marinara-chat-chrome-button-bg)] text-[var(--marinara-chat-chrome-button-text)] shadow-lg transition-all duration-150 hover:border-[var(--marinara-chat-chrome-button-border-hover)] hover:bg-[var(--marinara-chat-chrome-button-bg-hover)] hover:text-[var(--marinara-chat-chrome-button-text-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)] active:scale-95",
+              controlsVisibilityClass,
+            )}
+            aria-label={localizeUi("ui.chat.pinnedmediaviewer.resizePinnedValue1", { value1: mediaNoun })}
+            tabIndex={0}
+            onPointerDown={onResizeStart}
+            onPointerMove={onResizeMove}
+            onPointerUp={onResizeEnd}
+            onPointerCancel={onResizeEnd}
+          >
+            <span className="h-2.5 w-2.5 rounded-br-sm border-b-2 border-r-2 border-current" />
+          </div>
+        )}
       </div>
     </div>
   );
@@ -315,6 +366,7 @@ export function PinnedImageOverlay({
   const latestViewerChatId = useGalleryStore((s) => s.latestViewerChatId);
   const syncLatestViewer = useGalleryStore((s) => s.syncLatestViewer);
   const unpinImage = useGalleryStore((s) => s.unpinImage);
+  const setPinnedLayout = useGalleryStore((s) => s.setPinnedLayout);
   const clearViewerMedia = useGalleryStore((s) => s.clearViewerMedia);
 
   const latestViewerActive = !!activeChatId && latestViewerChatId === activeChatId;
@@ -354,6 +406,7 @@ export function PinnedImageOverlay({
           media={media}
           offsetIndex={index}
           onClose={() => (media.id === activeViewer?.id ? clearViewerMedia() : unpinImage(media.id))}
+          onLayoutChange={media.id === activeViewer?.id ? undefined : (layout) => setPinnedLayout(media.id, layout)}
         />
       ))}
     </>

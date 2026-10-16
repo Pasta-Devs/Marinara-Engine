@@ -1,3 +1,4 @@
+import type { GenerationFallbackNotice } from "@marinara-engine/shared";
 import type { LLMUsage } from "../../services/llm/base-provider.js";
 import { getVisibleCompletionTokens } from "../../services/generation/generation-text-utils.js";
 import { GAME_MARKET_PLACE_EXTRA } from "../../services/game/game-market.service.js";
@@ -13,7 +14,9 @@ export function buildGenerationInfoExtra(o: {
   marketWorldPlace: string | null | undefined;
   gameToolPlan: { usage?: LLMUsage | null } | null | undefined;
   gameToolConnection: { id: string; model: string; provider: string } | null | undefined;
-  generationProviderOrigin: { model: string; provider: string };
+  generationProviderOrigin: { model: string; provider: string; fallback?: GenerationFallbackNotice };
+  /** A continuation keeps the fallback that wrote the existing part of its swipe. */
+  continuedFallback?: GenerationFallbackNotice | null;
   temperature: number | undefined;
   effectiveMaxTokensForSend: number | undefined;
   suppressModelParameters: boolean;
@@ -48,6 +51,7 @@ export function buildGenerationInfoExtra(o: {
     gameToolPlan,
     gameToolConnection,
     generationProviderOrigin,
+    continuedFallback,
     temperature,
     effectiveMaxTokensForSend,
     suppressModelParameters,
@@ -75,6 +79,7 @@ export function buildGenerationInfoExtra(o: {
     encryptedReasoningItems,
     contextInjections,
   } = o;
+  const fallback = generationProviderOrigin.fallback ?? continuedFallback;
   const extraUpdate: Record<string, unknown> = {
     ...(chatMode === "game" ? { gameOutcomeNarrationFailed } : {}),
     // Set, or cleared on a regeneration at a place a tag named.
@@ -118,6 +123,8 @@ export function buildGenerationInfoExtra(o: {
       reasoningDurationMs,
       finishReason: finishReason ?? null,
       contextFit: lastContextFit ?? null,
+      // A fresh reply clears the prior swipe's notice; a continuation keeps it with the retained text.
+      ...(fallback ? { fallback } : {}),
     },
   };
   if (fullThinking) extraUpdate.thinking = fullThinking;
