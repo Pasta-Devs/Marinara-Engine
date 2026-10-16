@@ -1,6 +1,7 @@
 // ──────────────────────────────────────────────
-// ConnectionDefaults — "Who does what" (variant D): which Model or service each job uses, one tile per job.
-// The panel list shows its summary row (Main and the problem count); a tile opens its pickers below the grid.
+// ConnectionDefaults — "Who does what" (variant D): which Model or service each job uses, as one vertical list.
+// Every job is a section with its pickers in view (the way staging's Defaults card reads); a problem shows inside
+// its section with its fix. The panel list shows the summary row (Main and the problem count).
 // Device jobs (Voice, Speech to text) open their engine's page, or the Add window when the engine is not set up.
 // ──────────────────────────────────────────────
 import { useMemo, useState, type ReactNode } from "react";
@@ -8,7 +9,7 @@ import {
   AlertTriangle,
   AudioLines,
   BrainCircuit,
-  ChevronDown,
+  ChevronRight,
   Database,
   Film,
   GraduationCap,
@@ -49,7 +50,6 @@ import { showConfirmDialog } from "../../lib/app-dialogs";
 import { openAddConnection } from "../../lib/add-connection";
 import { createLocalSidecarConnectionOption, isConnectionFlagTrue } from "../../lib/connection-filters";
 import { cn } from "../../lib/utils";
-import { SmoothFolderContent } from "../ui/SmoothFolderContent";
 import { ToggleSetting } from "../panels/settings/SettingControls";
 import { ConnectionSelect, type ConnectionSelectKind } from "./ConnectionSelect";
 import { MARI_QUICK_CONNECTION } from "../../lib/omnibar-aside-text";
@@ -314,59 +314,80 @@ export function useConnectionDefaults(connectionsList: ConnectionRowData[]) {
   };
 }
 
-/** One job: its name, the chosen Model or service, and a third line with the Connection or the set-up link. */
-function RoleTile({ tile, open, onClick }: { tile: DefaultsTile; open: boolean; onClick: () => void }) {
+/** One job: its icon and name, its problem with the fix, then its pickers. */
+function RoleSection({
+  role,
+  icon,
+  title,
+  warning,
+  children,
+}: {
+  role: string;
+  icon: ReactNode;
+  title: string;
+  warning?: Warning | null;
+  children: ReactNode;
+}) {
+  return (
+    <section data-defaults-role={role} aria-label={title} className="px-3 py-2.5">
+      <h3 className="flex items-center gap-2 text-xs font-semibold text-[var(--foreground)]">
+        <span
+          aria-hidden
+          className="mari-panel-gradient-surface mari-panel-gradient--connections flex h-6 w-6 shrink-0 items-center justify-center rounded-lg"
+        >
+          {icon}
+        </span>
+        <span className="min-w-0 flex-1 truncate">{title}</span>
+      </h3>
+      {warning && (
+        <div
+          role="status"
+          className="mt-1.5 flex items-center gap-2 rounded-lg bg-[var(--marinara-app-accent-static)]/10 px-2.5 py-1.5 text-[0.6875rem] text-[var(--marinara-app-accent-static)]"
+        >
+          <AlertTriangle size="0.75rem" className="shrink-0" />
+          <span className="min-w-0 flex-1 break-words">{warning.text}</span>
+          {warning.fix && (
+            <button type="button" onClick={warning.fix.run} className={cn(SMALL_ACTION, "shrink-0")}>
+              {warning.fix.label}
+            </button>
+          )}
+        </div>
+      )}
+      <div className="mt-1 flex flex-col gap-0.5">{children}</div>
+    </section>
+  );
+}
+
+/** A device job: its service, and a way to its engine's page, or to the Add window while it is not set up. */
+function DeviceJobRow({ tile, onClick }: { tile: DefaultsTile; onClick: () => void }) {
   const { t } = useTranslation();
-  const problem = !!tile.warning;
+  const note = tile.setup?.text ?? tile.hint;
   return (
     <button
       type="button"
       onClick={onClick}
-      aria-expanded={tile.setup || tile.device ? undefined : open}
       data-defaults-tile={tile.key}
+      aria-label={t("connections.defaults.jobLabel", { role: tile.title, value: tile.value })}
       className={cn(
-        "flex min-h-14 min-w-0 flex-col justify-center gap-0.5 rounded-xl border px-2.5 py-2 text-left transition-colors hover:bg-[var(--sidebar-accent)]",
-        problem
-          ? "border-[var(--marinara-app-accent-static)]/40 bg-[var(--marinara-app-accent-static)]/10"
-          : open
-            ? "border-[var(--primary)]/50 bg-[var(--accent)]"
-            : "border-[var(--border)]/60 bg-[var(--background)]/40",
+        "flex min-h-11 w-full min-w-0 items-center gap-2 rounded-lg px-1.5 py-1 text-left text-xs transition-colors hover:bg-[var(--sidebar-accent)]/40 md:min-h-9",
         FOCUS,
       )}
     >
-      <span
-        className={cn(
-          "flex items-center gap-1.5 text-[0.625rem] font-medium",
-          problem ? "text-[var(--marinara-app-accent-static)]" : "text-[var(--muted-foreground)]",
-        )}
-      >
-        {problem ? <AlertTriangle size="0.6875rem" /> : tile.icon}
-        {tile.title}
-      </span>
-      <span
-        className={cn(
-          "block truncate text-xs",
-          tile.muted ? "text-[var(--muted-foreground)]" : "font-medium text-[var(--foreground)]",
-        )}
-      >
-        {tile.value}
-      </span>
-      {tile.setup ? (
+      <span className="min-w-0 flex-1">
         <span
           className={cn(
-            "flex min-w-0 items-center gap-1 text-[0.625rem]",
-            problem ? "text-[var(--marinara-app-accent-static)]" : "text-[var(--primary)]",
+            "block break-words",
+            tile.muted ? "text-[var(--muted-foreground)]" : "text-[var(--foreground)]",
           )}
         >
-          <span className="truncate">{tile.setup.text}</span>
-          <span className="shrink-0 font-semibold">· {t("connections.defaults.setUpLink")}</span>
+          {tile.value}
         </span>
-      ) : problem ? (
-        <span className="block truncate text-[0.625rem] text-[var(--marinara-app-accent-static)]">
-          {tile.warning!.text}
-        </span>
+        {note && <span className="block truncate text-[0.625rem] text-[var(--muted-foreground)]">{note}</span>}
+      </span>
+      {tile.setup ? (
+        <span className="shrink-0 font-semibold text-[var(--primary)]">{t("connections.defaults.setUpLink")}</span>
       ) : (
-        tile.hint && <span className="block truncate text-[0.625rem] text-[var(--muted-foreground)]">{tile.hint}</span>
+        <ChevronRight size="0.75rem" className="shrink-0 text-[var(--muted-foreground)]" />
       )}
     </button>
   );
@@ -380,9 +401,7 @@ export function ConnectionDefaultsDetail({
   onOpenDevice: (item: DeviceItem) => void;
 }) {
   const { t } = useTranslation();
-  const { tiles, problems } = useConnectionDefaults(connectionsList);
-  const [openTile, setOpenTile] = useState<TileKey | null>(null);
-  const [featuresOpen, setFeaturesOpen] = useState(false);
+  const { tiles } = useConnectionDefaults(connectionsList);
   const updateConnection = useUpdateConnection();
   const showPaidAgentConnectionWarning = useUIStore((s) => s.showPaidAgentConnectionWarning);
   const setShowPaidAgentConnectionWarning = useUIStore((s) => s.setShowPaidAgentConnectionWarning);
@@ -451,13 +470,6 @@ export function ConnectionDefaultsDetail({
     }
   };
 
-  const clickTile = (tile: DefaultsTile) => {
-    // Decision still opens its picker (None or a hosted model are ways out); its warning offers the set-up.
-    if (tile.setup && tile.key !== "decision") openAddConnection({ category: "device", item: tile.setup.item });
-    else if (tile.device) onOpenDevice(tile.device);
-    else setOpenTile((current) => (current === tile.key ? null : tile.key));
-  };
-
   const roleControls = (key: FlagRoleKey) => {
     const role = FLAG_ROLES.find((entry) => entry.key === key)!;
     const rows = connectionsList.filter((row) => matchesKind(row, role.kind));
@@ -513,10 +525,7 @@ export function ConnectionDefaultsDetail({
     );
   };
 
-  const open = tiles.find((tile) => tile.key === openTile);
-  const problem = problems[0];
   const features = featureModels.data;
-  const ownFeatures = FEATURE_KEYS.filter((key) => !!features?.[key]).length;
 
   return (
     <div className="flex flex-col gap-3">
@@ -530,89 +539,55 @@ export function ConnectionDefaultsDetail({
       >
         <span>{t("connections.defaults.whoDoesWhatHelp")}</span>
       </DetailHero>
-      {problem && (
-        <div
-          role="status"
-          className="flex items-center gap-2 rounded-lg bg-[var(--marinara-app-accent-static)]/10 px-2.5 py-1.5 text-[0.6875rem] text-[var(--marinara-app-accent-static)]"
-        >
-          <AlertTriangle size="0.75rem" className="shrink-0" />
-          <span className="min-w-0 flex-1">
-            {problem.title}: {problem.warning!.text}
-          </span>
-          <button
-            type="button"
-            onClick={problem.warning!.fix?.run ?? (() => setOpenTile(problem.key))}
-            className={cn(SMALL_ACTION, "shrink-0")}
-          >
-            {problem.warning!.fix?.label ?? t("connections.defaults.fix.choose")}
-          </button>
-        </div>
-      )}
-      <div className="grid grid-cols-2 gap-1.5">
+      <div className={cn(DETAIL_CARD_CLASS, "divide-y divide-[var(--border)]/50 p-0")}>
         {tiles.map((tile) => (
-          <RoleTile key={tile.key} tile={tile} open={openTile === tile.key} onClick={() => clickTile(tile)} />
-        ))}
-      </div>
-      {open && (
-        <section className={cn(DETAIL_CARD_CLASS, "space-y-1")} aria-label={open.title}>
-          <p className="px-1 pb-1 text-[0.6875rem] font-medium text-[var(--muted-foreground)]">{open.title}</p>
-          {open.key === "embeddings" ? (
-            <EmbeddingDefaultControl connections={connectionsList.filter((row) => isChatProvider(row.provider))} />
-          ) : open.key === "decision" ? (
-            <DecisionDefaultControl />
-          ) : (
-            roleControls(open.key as FlagRoleKey)
-          )}
-        </section>
-      )}
-      <div>
-        <button
-          type="button"
-          onClick={() => setFeaturesOpen((value) => !value)}
-          aria-expanded={featuresOpen}
-          aria-controls="connection-defaults-features"
-          className={cn(
-            "flex min-h-11 w-full items-center gap-2 rounded-lg px-2 text-left text-xs hover:bg-[var(--sidebar-accent)] md:min-h-9",
-            FOCUS,
-          )}
-        >
-          <Sparkles size="0.875rem" className="shrink-0 text-[var(--muted-foreground)]" />
-          <span className="min-w-0 flex-1 text-[var(--muted-foreground)]">
-            {ownFeatures
-              ? t("connections.defaults.featuresLine", { count: ownFeatures })
-              : t("connections.defaults.featuresLineNone")}
-          </span>
-          <ChevronDown
-            size="0.875rem"
-            className={cn("shrink-0 text-[var(--muted-foreground)] transition-transform", featuresOpen && "rotate-180")}
-          />
-        </button>
-        <SmoothFolderContent open={featuresOpen}>
-          <div id="connection-defaults-features" className="space-y-0.5 pt-1">
-            {FEATURE_KEYS.map((key) => (
-              <ConnectionSelect
-                key={key}
-                variant="menu"
-                label={
-                  <>
-                    <span className="text-[var(--muted-foreground)]">{FEATURE_ICONS[key]}</span>
-                    <span className="font-medium">{t(`connections.defaults.feature.${key}`)}</span>
-                  </>
+          <RoleSection key={tile.key} role={tile.key} icon={tile.icon} title={tile.title} warning={tile.warning}>
+            {tile.device || (tile.setup && tile.key !== "decision") ? (
+              <DeviceJobRow
+                tile={tile}
+                onClick={() =>
+                  tile.device
+                    ? onOpenDevice(tile.device)
+                    : openAddConnection({ category: "device", item: tile.setup!.item })
                 }
-                value={features?.[key] ?? null}
-                onChange={(value) => setFeatureModels.mutate({ [key]: value })}
-                defaultLabel={t(`connections.defaults.featureDefault.${key}`)}
-                extraOptions={FEATURE_EXTRA_OPTIONS[key]?.map((extra) => ({
-                  value: extra.value,
-                  label: t(extra.key),
-                }))}
-                includeLocalSidecar={!lite}
-                className={cn(!features && "opacity-60")}
-                aria-label={t(`connections.defaults.feature.${key}`)}
               />
-            ))}
-          </div>
-        </SmoothFolderContent>
+            ) : tile.key === "embeddings" ? (
+              <EmbeddingDefaultControl connections={connectionsList.filter((row) => isChatProvider(row.provider))} />
+            ) : tile.key === "decision" ? (
+              <DecisionDefaultControl />
+            ) : (
+              roleControls(tile.key as FlagRoleKey)
+            )}
+          </RoleSection>
+        ))}
+        <RoleSection
+          role="features"
+          icon={<Sparkles size="0.6875rem" />}
+          title={t("connections.defaults.featuresTitle")}
+        >
+          {FEATURE_KEYS.map((key) => (
+            <ConnectionSelect
+              key={key}
+              variant="menu"
+              label={
+                <>
+                  <span className="text-[var(--muted-foreground)]">{FEATURE_ICONS[key]}</span>
+                  <span className="font-medium">{t(`connections.defaults.feature.${key}`)}</span>
+                </>
+              }
+              value={features?.[key] ?? null}
+              onChange={(value) => setFeatureModels.mutate({ [key]: value })}
+              defaultLabel={t(`connections.defaults.featureDefault.${key}`)}
+              extraOptions={FEATURE_EXTRA_OPTIONS[key]?.map((extra) => ({
+                value: extra.value,
+                label: t(extra.key),
+              }))}
+              includeLocalSidecar={!lite}
+              className={cn(!features && "opacity-60")}
+              aria-label={t(`connections.defaults.feature.${key}`)}
+            />
+          ))}
+        </RoleSection>
       </div>
     </div>
   );

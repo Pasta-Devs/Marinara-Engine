@@ -101,6 +101,13 @@ test("a first run adds a connection from the empty new-chat gate and starts the 
         json: { success: false, message: "API returned 401: invalid key", latencyMs: 1, modelName: null },
       }),
     );
+    // Stepped flow (decision 29b): screen 1 is the list alone, screen 2 the connect form alone, Back returns.
+    await expect(dialog.getByLabel("API key", { exact: true })).toHaveCount(0);
+    await dialog.getByRole("button", { name: "OpenRouter", exact: true }).click();
+    await expect(dialog.getByRole("button", { name: "Custom (OAI-Compatible)", exact: true })).toHaveCount(0);
+    await dialog.getByRole("button", { name: "Back", exact: true }).click();
+    await expect(dialog.getByRole("button", { name: "Custom (OAI-Compatible)", exact: true })).toBeVisible();
+    await expect(dialog.getByLabel("API key", { exact: true })).toHaveCount(0);
     await dialog.getByRole("button", { name: "OpenRouter", exact: true }).click();
     await expect(dialog.getByRole("link", { name: /Get your OpenRouter API key/ })).toHaveAttribute(
       "href",
@@ -227,5 +234,37 @@ test("Add model on a card opens the model screen; a star adds a model and taking
     }
     await request.delete(`/api/connection-accounts/${created.account.id}`).catch(() => undefined);
     await provider.close();
+  }
+});
+
+test("the panel list shows each Connection's Models open, and a toggle folds them shut", async ({ page, request }) => {
+  const created = (await (
+    await request.post("/api/connection-accounts", {
+      data: { provider: "custom", name: "E2E open models", baseUrl: "http://127.0.0.1:9/v1", model: "local/open-one" },
+    })
+  ).json()) as { account: { id: string }; connectionId: string };
+  try {
+    await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "" } }));
+    await seedUIState(page, { hasCompletedOnboarding: true, rightPanelOpen: true, rightPanel: "connections" });
+    await page.addInitScript((appVersion) => {
+      localStorage.setItem("marinara:whats-new:seen-version", appVersion);
+    }, APP_VERSION);
+    await page.goto("/");
+
+    const model = page.locator(`[data-connection-id="${created.connectionId}"]`).filter({ visible: true });
+    await expect(model).toBeVisible();
+    const toggle = page.locator(`[data-connections-toggle="${created.account.id}"]`).filter({ visible: true });
+    await expect(toggle).toHaveAttribute("aria-expanded", "true");
+    await toggle.click();
+    await expect(toggle).toHaveAttribute("aria-expanded", "false");
+    await expect(model).toHaveCount(0);
+    await toggle.click();
+    await expect(model).toBeVisible();
+
+    // The Connection itself still opens its page.
+    await page.locator(`[data-connections-row="account:${created.account.id}"]`).filter({ visible: true }).click();
+    await expect(page.locator(`[data-connection-account-id="${created.account.id}"]`)).toBeVisible();
+  } finally {
+    await request.delete(`/api/connection-accounts/${created.account.id}`);
   }
 });

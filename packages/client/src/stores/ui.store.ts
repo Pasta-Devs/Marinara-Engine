@@ -1112,6 +1112,8 @@ interface UIState {
   linkApiBannerDismissed: boolean;
   /** The one-time Connections upgrade note (accounts, per-chat picks, stars) was dismissed. */
   connectionsUpgradeNoteDismissed: boolean;
+  /** Ids of Connections folded shut in the Connections panel list; every other Connection shows its Models. */
+  connectionsCollapsed: string[];
   /** The Chat Settings "drag to place it" tip was dismissed on this device. */
   chatSettingsMoveTipDismissed: boolean;
   /** The once-only chat window introduction was dismissed across chats and devices. */
@@ -1451,6 +1453,7 @@ interface UIState {
   setChatHelpButtonHidden: (v: boolean) => void;
   dismissLinkApiBanner: () => void;
   dismissConnectionsUpgradeNote: () => void;
+  toggleConnectionCollapsed: (id: string) => void;
   dismissChatSettingsMoveTip: () => void;
   dismissChatWindowIntro: () => void;
   toggleEchoChamber: () => void;
@@ -1683,6 +1686,7 @@ export function pickSyncedSettings(state: UIState) {
     chatHelpButtonHidden: state.chatHelpButtonHidden,
     linkApiBannerDismissed: state.linkApiBannerDismissed,
     connectionsUpgradeNoteDismissed: state.connectionsUpgradeNoteDismissed,
+    connectionsCollapsed: state.connectionsCollapsed,
     chatSettingsMoveTipDismissed: state.chatSettingsMoveTipDismissed,
     chatWindowIntroDismissed: state.chatWindowIntroDismissed,
     echoChamberOpen: state.echoChamberOpen,
@@ -1922,6 +1926,7 @@ export function pickPersistedUIState(state: UIState) {
     chatHelpButtonHidden: state.chatHelpButtonHidden,
     linkApiBannerDismissed: state.linkApiBannerDismissed,
     connectionsUpgradeNoteDismissed: state.connectionsUpgradeNoteDismissed,
+    connectionsCollapsed: state.connectionsCollapsed,
     chatSettingsMoveTipDismissed: state.chatSettingsMoveTipDismissed,
     chatWindowIntroDismissed: state.chatWindowIntroDismissed,
     echoChamberOpen: state.echoChamberOpen,
@@ -2225,6 +2230,7 @@ export const useUIStore = create<UIState>()(
         chatHelpButtonHidden: false,
         linkApiBannerDismissed: false,
         connectionsUpgradeNoteDismissed: false,
+        connectionsCollapsed: [],
         chatSettingsMoveTipDismissed: false,
         chatWindowIntroDismissed: false,
         echoChamberOpen: true,
@@ -3291,6 +3297,12 @@ export const useUIStore = create<UIState>()(
           })),
         dismissLinkApiBanner: () => set({ linkApiBannerDismissed: true }),
         dismissConnectionsUpgradeNote: () => set({ connectionsUpgradeNoteDismissed: true }),
+        toggleConnectionCollapsed: (id) =>
+          set((state) => ({
+            connectionsCollapsed: state.connectionsCollapsed.includes(id)
+              ? state.connectionsCollapsed.filter((other) => other !== id)
+              : [...state.connectionsCollapsed, id],
+          })),
         dismissChatSettingsMoveTip: () => set({ chatSettingsMoveTipDismissed: true }),
         dismissChatWindowIntro: () => set({ chatWindowIntroDismissed: true }),
         toggleEchoChamber: () => set((s) => ({ echoChamberOpen: !s.echoChamberOpen })),

@@ -1,11 +1,13 @@
 // ──────────────────────────────────────────────
 // Panel: Connections (variant D). The list: Defaults, then the Connections grouped (Chat, Images & voice), then the
 // engines set up on this device. Each row opens a detail page: two columns on a wide panel, a drill-in otherwise.
-// Search finds models first; a model result opens its editor.
+// Each Connection shows its Models under it, open until the user folds it shut. Search finds models first; a model
+// result opens its editor.
 // ──────────────────────────────────────────────
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type ReactNode } from "react";
 import {
   AlertTriangle,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   CloudOff,
@@ -41,7 +43,7 @@ import {
   createConnectionExportEnvelope,
   type ConnectionTransferRow,
 } from "../../lib/connection-transfer";
-import { groupModelsByAccount } from "../../lib/connection-groups";
+import { groupModelsByAccount, sortByModelId } from "../../lib/connection-groups";
 import { ConnectionRow, isMediaRow, mediaService, type ConnectionRowData } from "../connections/ConnectionRow";
 import { ConnectionDetail, hostOf } from "../connections/ConnectionDetail";
 import { ConnectionDefaultsDetail, useConnectionDefaults } from "../connections/ConnectionDefaults";
@@ -179,6 +181,8 @@ export function ConnectionsPanel() {
   const dismissLinkApiBanner = useUIStore((s) => s.dismissLinkApiBanner);
   const upgradeNoteDismissed = useUIStore((s) => s.connectionsUpgradeNoteDismissed);
   const dismissUpgradeNote = useUIStore((s) => s.dismissConnectionsUpgradeNote);
+  const collapsedConnections = useUIStore((s) => s.connectionsCollapsed);
+  const toggleConnectionCollapsed = useUIStore((s) => s.toggleConnectionCollapsed);
 
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<string | null>(null);
@@ -428,7 +432,8 @@ export function ConnectionsPanel() {
   };
 
   // ── List rows ──
-  const accountRow = ({ account, rows }: (typeof grouped.all)[number]) => {
+  /** `withModels`: the main list; search results list the Models on their own. */
+  const accountRow = ({ account, rows }: (typeof grouped.all)[number], withModels = false) => {
     const key = `account:${account.id}`;
     const state = t(`connections.accounts.state.${account.state}`);
     const fix =
@@ -445,9 +450,9 @@ export function ConnectionsPanel() {
               run: () => updateAccount.mutate({ id: account.id, enabled: true }),
             }
           : undefined;
-    return (
+    const listRow = (
       <ListRow
-        key={key}
+        key={withModels ? undefined : key}
         rowKey={key}
         selected={wide && current === key}
         tile={
@@ -471,7 +476,46 @@ export function ConnectionsPanel() {
         onOpen={() => select(key)}
       />
     );
+    if (!withModels) return listRow;
+    const open = !collapsedConnections.includes(account.id);
+    const modelsId = `connection-models-${account.id}`;
+    const toggleLabel = t(open ? "connections.list.collapse" : "connections.list.expand", { name: account.name });
+    return (
+      <div key={key} className="flex flex-col">
+        <div className="flex min-w-0 items-center">
+          {rows.length > 0 ? (
+            <button
+              type="button"
+              data-connections-toggle={account.id}
+              onClick={() => toggleConnectionCollapsed(account.id)}
+              aria-expanded={open}
+              aria-controls={modelsId}
+              aria-label={toggleLabel}
+              title={toggleLabel}
+              className={cn(
+                "flex h-9 w-7 shrink-0 items-center justify-center rounded-lg text-[var(--muted-foreground)] transition-colors hover:bg-[var(--sidebar-accent)] hover:text-[var(--foreground)] max-md:h-11 max-md:w-11",
+                FOCUS,
+              )}
+            >
+              <ChevronDown size="0.875rem" className={cn("transition-transform", !open && "-rotate-90")} />
+            </button>
+          ) : (
+            <span aria-hidden className="w-7 shrink-0 max-md:w-11" />
+          )}
+          <div className="min-w-0 flex-1">{listRow}</div>
+        </div>
+        {open && rows.length > 0 && (
+          <div
+            id={modelsId}
+            className="ml-3.5 flex flex-col gap-0.5 border-l border-[var(--border)]/50 pl-1 max-md:ml-5"
+          >
+            {sortByModelId(rows).map((row) => renderRow(row))}
+          </div>
+        )}
+      </div>
+    );
   };
+
   const problemCount = defaults.problems.length;
   const defaultsRow = (
     <ListRow
@@ -615,12 +659,12 @@ export function ConnectionsPanel() {
           {defaultsRow}
           {grouped.chat.length > 0 && (
             <PanelSection title={t("connections.accounts.section.chat")} icon={<MessageSquareText size="0.75rem" />}>
-              {grouped.chat.map(accountRow)}
+              {grouped.chat.map((group) => accountRow(group, true))}
             </PanelSection>
           )}
           {grouped.media.length > 0 && (
             <PanelSection title={t("connections.accounts.section.media")} icon={<ImageIcon size="0.75rem" />}>
-              {grouped.media.map(accountRow)}
+              {grouped.media.map((group) => accountRow(group, true))}
             </PanelSection>
           )}
           {grouped.standalone.length > 0 && (
@@ -665,7 +709,7 @@ export function ConnectionsPanel() {
               <p className="px-2 pb-0.5 pt-2 text-[0.6875rem] font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">
                 {t("connections.list.connectionsHeading", { count: results.accounts.length })}
               </p>
-              {results.accounts.map(accountRow)}
+              {results.accounts.map((group) => accountRow(group))}
             </>
           )}
         </>

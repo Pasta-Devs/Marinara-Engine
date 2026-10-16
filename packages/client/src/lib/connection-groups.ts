@@ -46,6 +46,11 @@ export function groupModelsByAccount<R extends ConnectionModelRow>(
   return { groups: [...groups.values()], standalone };
 }
 
+/** By model id: lists keep their places when a star or an edit touches a Model. */
+export function sortByModelId<R extends { id: string; model?: string | null }>(rows: readonly R[]): R[] {
+  return [...rows].sort((a, b) => (a.model ?? "").localeCompare(b.model ?? "") || a.id.localeCompare(b.id));
+}
+
 /** The gateway upstream of a model id: everything before the first "/" (`nanogpt/zai-org/glm` → `nanogpt`). */
 export function upstreamOf(modelId: string | null | undefined): string | null {
   const id = modelId?.trim() ?? "";

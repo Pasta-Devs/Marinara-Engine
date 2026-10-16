@@ -16,7 +16,7 @@ import {
 import { useCreateConnection, useDuplicateConnection, useTestConnection } from "../../hooks/use-connections";
 import { useUpdateConnectionAccount } from "../../hooks/use-connection-accounts";
 import { starAnchorOf } from "../../hooks/use-model-star";
-import { subgroupByUpstream } from "../../lib/connection-groups";
+import { sortByModelId, subgroupByUpstream } from "../../lib/connection-groups";
 import { useUIStore } from "../../stores/ui.store";
 import { openAddModels } from "../../lib/add-connection";
 import { cn } from "../../lib/utils";
@@ -223,9 +223,7 @@ export function ConnectionDetail({
             </p>
           )}
           {/* By model id: the groups and rows keep their places when a star or an edit touches a Model. */}
-          {subgroupByUpstream(
-            [...rows].sort((a, b) => (a.model ?? "").localeCompare(b.model ?? "") || a.id.localeCompare(b.id)),
-          ).map((group) => (
+          {subgroupByUpstream(sortByModelId(rows)).map((group) => (
             <div key={group.upstream ?? ""} className="flex flex-col gap-0.5">
               {group.upstream && (
                 <p className="flex items-center gap-1.5 px-2 pt-2 text-[0.6875rem] font-medium text-[var(--muted-foreground)]">

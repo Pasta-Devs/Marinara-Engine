@@ -36,7 +36,7 @@ For activation questions and prompt/lorebook statements, the model receives the 
 
 ## Choosing a Decision model
 
-Open **Connections**, open **Defaults**, click the **Decision** tile, and pick from **Decision model**. The list has three groups:
+Open **Connections**, open **Defaults**, find the **Decision** section, and pick from **Decision model**. The list has three groups:
 
 - **None**, the default. Nothing is asked, and the activation question fields in the agent editor stay disabled.
 - **Local models**: the **Primary local model** or **Utility local model** you already run. Nothing is downloaded and nothing leaves your machine. The **Decision sidecar**, if you installed one, is listed here too.
@@ -67,7 +67,7 @@ When someone imports content that uses decisions, Marinara shows a notice with a
 
 If you have a local model in **Local Model**, you can use it for decisions and never create a connection or pay for a request.
 
-1. In **Connections**, open **Defaults**, click the **Decision** tile and set **Decision model** to **Primary local model**, or to **Utility local model** if you have one set up.
+1. In **Connections**, open **Defaults**, find the **Decision** section and set **Decision model** to **Primary local model**, or to **Utility local model** if you have one set up.
 2. Click **Test**. A successful result shows the probability and request time, plus two things that are specific to a local model: whether log-probabilities were available, and whether the model answers directly.
 
 Marinara asks the model a single yes/no question, lets it produce one token, and reads the answer from that token's probabilities. No reply is written, so the request is short. A choice between several answers is asked as one yes/no question per answer. How many recent messages fit is worked out from the slot's own context size.

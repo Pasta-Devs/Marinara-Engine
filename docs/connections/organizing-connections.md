@@ -12,7 +12,7 @@ You do all of this in the **Connections** panel. At the top is the **Defaults** 
 
 Each row shows the connection's icon, its name, and how many models you saved. A row that needs attention has its fix on the row: **Add key** for a connection without a key, **Turn on** for a connection that is off, and **Load** or **Retry** for the Local Model.
 
-Click a row to open its page. When the panel is narrow, the page replaces the list; click **‹ Connections** to go back. When the panel is at least 768 pixels wide, the list stays on the left and the page opens on the right.
+Each connection shows its models under it. Click the chevron at the left of a connection to hide its models, and click it again to show them. Marinara remembers which connections you hid. Click a connection's row to open its page. When the panel is narrow, the page replaces the list; click **‹ Connections** to go back. When the panel is at least 768 pixels wide, the list stays on the left and the page opens on the right.
 
 A connection's page shows:
 
@@ -22,7 +22,7 @@ A connection's page shows:
 - **Your models**, grouped by the company that made them. Each model shows its badges and a star. Click a model to edit it.
 - **Browse all models**, which opens the connection's full model list.
 
-The **Defaults** page is **Who does what**. It has a tile for each job: **Main**, **Fallback**, **Decision**, **Agents**, **Embeddings**, **Images**, **Video**, **Audio**, **Voice**, and **Speech to text** (only when the **Calls** agent is installed). Click a tile to choose its model. A tile for a part that is not set up shows **Set up ›**, which opens the steps for it. Below the tiles, **Features** lists the features that use their own model.
+The **Defaults** page is **Who does what**. It is one list with a section for each job: **Main**, **Agents**, **Images**, **Video**, **Audio**, **Embeddings**, **Decision**, **Voice**, and **Speech to text** (only when the **Calls** agent is installed). Main, Agents, Images, Video and Audio each have a **Default** and a **Fallback** row. Click a row to choose the model. If a job has a problem, for example its connection needs a key or is off, the section shows the problem with a button to fix it. **Voice** and **Speech to text** open the page of their engine. When the engine is not set up, the row shows **Set up ›**, which opens the steps for it. At the end, **Features** lists the models for Professor Mari, quick answers and Impersonate.
 
 ### Provider icons
 
