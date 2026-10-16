@@ -356,8 +356,14 @@ export function ConnectionSwitcherBody({
           data-connection-option={isCurrent && currentRow ? currentRow.id : group.rows[0]!.id}
           data-connection-group={group.key}
           aria-current={isCurrent ? "true" : undefined}
-          onClick={() => showModels(group)}
-          aria-label={t("connections.modelPicker.showModels", { connection: group.name })}
+          // A standalone Model has no Connection to add a Model to, and editing it in place would change it for
+          // every chat, so picking it only switches this chat to it.
+          onClick={() =>
+            group.account
+              ? showModels(group)
+              : void apply({ key: group.key, title: group.name, rowId: group.rows[0]!.id })
+          }
+          aria-label={group.account ? t("connections.modelPicker.showModels", { connection: group.name }) : undefined}
           className={cn(ROW_CLASS, isShown && "bg-foreground/[0.07]", isCurrent && "font-semibold")}
         >
           {isShown && <AccentBar />}
@@ -368,7 +374,11 @@ export function ConnectionSwitcherBody({
             <Link size="0.75rem" />
           </span>
           <span className="min-w-0 flex-1 truncate">{group.name}</span>
-          {state && <span className="mari-chrome-muted-badge shrink-0 font-normal">{state}</span>}
+          {state && (
+            <span className="mari-chrome-muted-badge shrink-0 px-1.5 py-px text-[0.625rem] font-normal leading-4">
+              {state}
+            </span>
+          )}
           <ChevronRight size="0.875rem" className="shrink-0 text-foreground/40" aria-hidden />
         </button>
         {isCurrent && (
@@ -553,10 +563,15 @@ export function ConnectionSwitcherBody({
   );
 
   // The catalog shows the chosen Connection through one of its Models. A Model the chat does not use must not
-  // look current there, so it is passed without its model id. A standalone Model keeps it: a pick edits it in place.
+  // look current there, so it is passed without its model id. A standalone Model gets no catalog: a pick there
+  // would edit the shared row for every chat.
   const pickerRow = shownGroup ? (shownGroup === currentGroup ? currentRow : shownGroup.rows[0]) : undefined;
   const pickerConnection =
-    pickerRow && shownGroup?.account && pickerRow !== currentRow ? { ...pickerRow, model: null } : pickerRow;
+    pickerRow && shownGroup?.account
+      ? pickerRow !== currentRow
+        ? { ...pickerRow, model: null }
+        : pickerRow
+      : undefined;
   const usageRow = pickerRow ? resolveUsageConnection(rows, pickerRow.id) : null;
 
   const models = shuffle?.active ? null : (

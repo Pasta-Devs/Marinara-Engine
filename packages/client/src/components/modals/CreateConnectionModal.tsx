@@ -346,7 +346,7 @@ export function CreateConnectionModal({ open, onClose, initialProvider }: Props)
           <button
             type="button"
             onClick={() => void (step === 1 || (step === 3 && target?.fresh) ? close() : back())}
-            className="rounded-lg px-4 py-2 text-xs font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)]"
+            className="rounded-lg px-4 py-2 text-xs font-medium max-md:min-h-11 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)]"
           >
             {step === 1 || (step === 3 && target?.fresh) ? t("chat.delete.dialog.cancel") : t("connections.add.back")}
           </button>
@@ -356,7 +356,7 @@ export function CreateConnectionModal({ open, onClose, initialProvider }: Props)
                 type="button"
                 onClick={() => void saveAndTest()}
                 disabled={busy || (needsUrl && !baseUrl.trim()) || (!keyless && !needsUrl && !apiKey.trim())}
-                className="mari-chrome-control flex items-center gap-1.5 px-4 py-2 text-xs font-medium disabled:opacity-50"
+                className="mari-chrome-control flex items-center gap-1.5 px-4 py-2 text-xs font-medium max-md:min-h-11 disabled:opacity-50"
               >
                 {busy && <Loader2 size="0.75rem" className="animate-spin" />}
                 {t("connections.add.test")}
@@ -365,7 +365,7 @@ export function CreateConnectionModal({ open, onClose, initialProvider }: Props)
                 <button
                   type="button"
                   onClick={() => setStep(3)}
-                  className="rounded-lg bg-[var(--primary)] px-4 py-2 text-xs font-medium text-[var(--primary-foreground)] transition-all hover:opacity-90"
+                  className="rounded-lg bg-[var(--primary)] px-4 py-2 text-xs font-medium max-md:min-h-11 text-[var(--primary-foreground)] transition-all hover:opacity-90"
                 >
                   {t("connections.add.next")}
                 </button>
@@ -377,7 +377,7 @@ export function CreateConnectionModal({ open, onClose, initialProvider }: Props)
               type="button"
               onClick={onClose}
               disabled={target?.fresh && picked === 0}
-              className="rounded-lg bg-[var(--primary)] px-4 py-2 text-xs font-medium text-[var(--primary-foreground)] transition-all hover:opacity-90 disabled:opacity-50"
+              className="rounded-lg bg-[var(--primary)] px-4 py-2 text-xs font-medium max-md:min-h-11 text-[var(--primary-foreground)] transition-all hover:opacity-90 disabled:opacity-50"
             >
               {t("connections.add.done")}
             </button>

@@ -20930,9 +20930,9 @@ test("new-chat connection gates follow Chat Chrome Text Color and close before o
       await gate.getByRole("button", { name: "Cancel", exact: true }).click();
       await expect(gate).toHaveCount(0);
     } else {
-      await gate.getByRole("button", { name: "Open Connections", exact: true }).click();
+      await gate.getByRole("button", { name: "Add connection", exact: true }).click();
       await expect(gate).toHaveCount(0);
-      await expect(page.locator('[data-component="RightPanel"][aria-label="Connections"]')).toBeVisible();
+      await expect(page.getByRole("dialog", { name: "Add connection", exact: true })).toBeVisible();
     }
   }
 

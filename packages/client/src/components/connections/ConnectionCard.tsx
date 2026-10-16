@@ -2,11 +2,11 @@
 // ConnectionCard — one Connection (account) in the Connections panel, its Models as ConnectionRows
 // ──────────────────────────────────────────────
 import { useState, type ReactNode } from "react";
-import { ChevronDown, ChevronUp, ImageIcon, Link, Loader2, Plus, Settings2 } from "lucide-react";
+import { ChevronDown, ChevronUp, ImageIcon, Link, Loader2, Plus, Settings2, Wifi } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { PROVIDERS, isChatProvider, type APIProvider, type ConnectionAccountListItem } from "@marinara-engine/shared";
-import { useTestConnection } from "../../hooks/use-connections";
+import { useDuplicateConnection, useTestConnection } from "../../hooks/use-connections";
 import { subgroupByUpstream, roleBadges } from "../../lib/connection-groups";
 import { isConnectionFlagTrue } from "../../lib/connection-filters";
 import { useUIStore } from "../../stores/ui.store";
@@ -46,6 +46,8 @@ export function ConnectionCard({
 }) {
   const { t } = useTranslation();
   const openModal = useUIStore((s) => s.openModal);
+  const openConnectionDetail = useUIStore((s) => s.openConnectionDetail);
+  const duplicate = useDuplicateConnection();
   const [open, setOpen] = useState(true);
   const [adding, setAdding] = useState(false);
   const test = useTestConnection();
@@ -92,7 +94,8 @@ export function ConnectionCard({
       <div className="flex items-center gap-2.5">
         <div className={CONNECTION_TILE_CLASS}>{mediaOnly ? <ImageIcon size="1rem" /> : <Link size="1rem" />}</div>
         <div className="min-w-0 flex-1">
-          <div className="truncate text-sm font-medium text-[var(--foreground)]" title={account.name}>
+          {/* Two lines, so names that differ only at the end (an address, a port) stay apart. */}
+          <div className="line-clamp-2 break-words text-sm font-medium text-[var(--foreground)]" title={account.name}>
             {account.name}
           </div>
           <div className="truncate text-[0.6875rem] text-[var(--muted-foreground)]">
@@ -104,10 +107,11 @@ export function ConnectionCard({
             type="button"
             onClick={runTest}
             disabled={!firstRow || test.isPending}
-            className="mari-chrome-control mari-chrome-control--small h-8 min-h-0 px-2 text-[0.6875rem] max-md:h-11"
+            className="mari-chrome-control mari-chrome-control--small h-8 min-h-0 w-8 p-0 max-md:h-11 max-md:w-11"
             title={firstRow ? t("connections.accounts.test") : t("connections.accounts.addModelFirst")}
+            aria-label={t("connections.accounts.test")}
           >
-            {test.isPending ? <Loader2 size="0.75rem" className="animate-spin" /> : t("connections.accounts.test")}
+            {test.isPending ? <Loader2 size="0.75rem" className="animate-spin" /> : <Wifi size="0.8125rem" />}
           </button>
           <button
             type="button"
@@ -175,7 +179,8 @@ export function ConnectionCard({
               ))}
             </div>
           ))}
-          {firstRow ? (
+          {/* Only a chat Model can seed the catalog pick; a media-only card copies its Model into the editor. */}
+          {chatRow ? (
             <button
               type="button"
               onClick={() => setAdding((value) => !value)}
@@ -188,17 +193,27 @@ export function ConnectionCard({
           ) : (
             <button
               type="button"
-              onClick={() => openModal("create-connection", { provider: account.provider })}
+              onClick={() =>
+                firstRow
+                  ? duplicate.mutate(firstRow.id, {
+                      onSuccess: (data) => {
+                        const id = (data as { id?: string } | undefined)?.id;
+                        if (id) openConnectionDetail(id);
+                      },
+                    })
+                  : openModal("create-connection", { provider: account.provider })
+              }
+              disabled={duplicate.isPending}
               className="mari-chrome-control mari-chrome-control--small mt-1 w-fit text-[0.6875rem] max-md:min-h-11"
             >
               <Plus size="0.75rem" />
               {t("connections.accounts.addModel")}
             </button>
           )}
-          {adding && firstRow && (
+          {adding && chatRow && (
             <div className="mt-1 flex h-[min(24rem,60dvh)] flex-col overflow-hidden rounded-lg ring-1 ring-foreground/10">
               <ConnectionModelPicker
-                connection={firstRow}
+                connection={chatRow}
                 accountName={account.name}
                 autoFocusSearch
                 footer={t("connections.accounts.addModelFooter")}

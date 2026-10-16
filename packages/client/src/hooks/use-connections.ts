@@ -17,6 +17,7 @@ import { ApiError, api, isRequestTimeoutError, requestTimeoutSignal } from "../l
 import { useUIStore } from "../stores/ui.store";
 import { useChatStore } from "../stores/chat.store";
 import { captureChatMetadataVersion, chatKeys, guardServerChatSnapshot } from "./use-chats";
+import { connectionAccountKeys } from "./use-connection-accounts";
 import type {
   APIProvider,
   Chat,
@@ -141,7 +142,12 @@ export function useCreateConnection() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (data: CreateConnectionPayload) => api.post("/connections", data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: connectionKeys.list() }),
+    // The server links a new Model to its Connection, so the account list changes too.
+    onSuccess: () =>
+      Promise.all([
+        qc.invalidateQueries({ queryKey: connectionKeys.list() }),
+        qc.invalidateQueries({ queryKey: connectionAccountKeys.all }),
+      ]),
   });
 }
 
@@ -156,6 +162,7 @@ export function useUpdateConnection() {
         qc.invalidateQueries({ queryKey: connectionKeys.list() }),
         qc.invalidateQueries({ queryKey: connectionKeys.detail(variables.id) }),
         qc.invalidateQueries({ queryKey: connectionKeys.models(variables.id) }),
+        qc.invalidateQueries({ queryKey: connectionAccountKeys.all }),
       ]),
   });
 }
@@ -176,7 +183,11 @@ export function useDuplicateConnection() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => api.post(`/connections/${id}/duplicate`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: connectionKeys.list() }),
+    onSuccess: () =>
+      Promise.all([
+        qc.invalidateQueries({ queryKey: connectionKeys.list() }),
+        qc.invalidateQueries({ queryKey: connectionAccountKeys.all }),
+      ]),
   });
 }
 
@@ -201,6 +212,7 @@ export function useDeleteConnection() {
     },
     onSuccess: async (_data, id) => {
       qc.invalidateQueries({ queryKey: connectionKeys.list() });
+      qc.invalidateQueries({ queryKey: connectionAccountKeys.all });
       // Deleting the default embedding connection clears that default on the server.
       qc.invalidateQueries({ queryKey: connectionKeys.defaultEmbedding() });
       const activeChatId = useChatStore.getState().activeChatId;

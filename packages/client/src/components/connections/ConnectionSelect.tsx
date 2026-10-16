@@ -10,9 +10,6 @@ import { groupModelsByAccount, type ConnectionModelRow } from "../../lib/connect
 import { isConnectionFlagTrue } from "../../lib/connection-filters";
 import { cn } from "../../lib/utils";
 
-/** `value` / `onChange` carry this when "None" is chosen (needs `allowNone`). */
-export const CONNECTION_SELECT_NONE = "none";
-
 export type ConnectionSelectKind = "chat" | "image" | "video" | "audio" | "decision";
 
 const KIND_PROVIDER: Record<Exclude<ConnectionSelectKind, "chat">, string> = {
@@ -26,6 +23,8 @@ function matchesKind(row: ConnectionModelRow, kind: ConnectionSelectKind) {
   return kind === "chat" ? isChatProvider(row.provider) : row.provider === KIND_PROVIDER[kind];
 }
 
+type Row = ConnectionModelRow & { profileImportReviewRequired?: unknown };
+
 const label = (row: ConnectionModelRow) => row.name?.trim() || row.model?.trim() || row.id;
 
 export function ConnectionSelect({
@@ -33,18 +32,16 @@ export function ConnectionSelect({
   onChange,
   kind = "chat",
   defaultLabel,
-  allowNone = false,
   includeLocalSidecar = false,
   className,
   ...aria
 }: {
-  /** A Model id, `null` for "Default", or `CONNECTION_SELECT_NONE`. */
+  /** A Model id, or `null` for "Default". */
   value: string | null;
   onChange: (value: string | null) => void;
   kind?: ConnectionSelectKind;
   /** Text of the first option; without it the option names the Model the flags resolve to. */
   defaultLabel?: string;
-  allowNone?: boolean;
   /** Add the on-device Local Model after the Connections. */
   includeLocalSidecar?: boolean;
   className?: string;
@@ -56,10 +53,12 @@ export function ConnectionSelect({
   const { data: accounts } = useConnectionAccounts();
 
   const view = useMemo(() => {
-    const rows = ((rawRows ?? []) as ConnectionModelRow[]).filter((row) => matchesKind(row, kind));
+    const rows = ((rawRows ?? []) as Row[]).filter((row) => matchesKind(row, kind));
     const accountById = new Map((accounts ?? []).map((account) => [account.id, account]));
     const { groups, standalone } = groupModelsByAccount(rows, accounts ?? []);
-    const resolved = rows.find((row) => isConnectionFlagTrue(row.isDefault)) ?? null;
+    // Image and video Models default through the agents flag, not the chat one.
+    const defaultFlag = kind === "image" || kind === "video" ? "defaultForAgents" : "isDefault";
+    const resolved = rows.find((row) => isConnectionFlagTrue(row[defaultFlag])) ?? null;
     const resolvedAccount = resolved?.accountId ? accountById.get(resolved.accountId) : undefined;
     return { rows, groups, standalone, resolved, resolvedAccount, accountById };
   }, [accounts, kind, rawRows]);
@@ -73,13 +72,19 @@ export function ConnectionSelect({
         })
       : t("connections.select.default"));
 
-  const known = value === LOCAL_SIDECAR_CONNECTION_ID || view.rows.some((row) => row.id === value);
-  const missing = !!value && value !== CONNECTION_SELECT_NONE && !known;
+  const known =
+    (includeLocalSidecar && value === LOCAL_SIDECAR_CONNECTION_ID) || view.rows.some((row) => row.id === value);
+  const missing = !!value && !known;
 
-  // An off Connection or one without a key cannot answer; the option stays visible but disabled.
-  const option = (row: ConnectionModelRow) => {
+  // An off Connection, one without a key, or an import awaiting review cannot answer;
+  // the option stays visible but disabled.
+  const option = (row: Row) => {
     const account = row.accountId ? view.accountById.get(row.accountId) : undefined;
-    const suffix = account && account.state !== "ok" ? t(`connections.select.${account.state}`) : "";
+    const suffix = isConnectionFlagTrue(row.profileImportReviewRequired)
+      ? t("connections.select.review")
+      : account && account.state !== "ok"
+        ? t(`connections.select.${account.state}`)
+        : "";
     return (
       <option key={row.id} value={row.id} disabled={!!suffix && row.id !== value}>
         {[label(row), suffix && `(${suffix})`].filter(Boolean).join(" ")}
@@ -92,10 +97,12 @@ export function ConnectionSelect({
       {...aria}
       value={value ?? ""}
       onChange={(event) => onChange(event.target.value || null)}
-      className={cn("mari-chrome-field h-9 w-full min-w-0 truncate px-2 py-0 text-[0.6875rem]", className)}
+      className={cn(
+        "mari-chrome-field h-9 w-full max-md:min-h-11 min-w-0 truncate px-2 py-0 text-[0.6875rem]",
+        className,
+      )}
     >
       <option value="">{defaultText}</option>
-      {allowNone && <option value={CONNECTION_SELECT_NONE}>{t("connections.select.none")}</option>}
       {missing && <option value={value!}>{t("connections.select.missing", { id: value })}</option>}
       {view.groups
         .filter((group) => group.rows.length > 0)

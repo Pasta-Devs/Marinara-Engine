@@ -8023,7 +8023,12 @@ export function ChatSettingsDrawer({
                         onChange={(connectionId) =>
                           updateMeta.mutate({ id: chat.id, gameSceneConnectionId: connectionId })
                         }
-                        defaultLabel={localizeUi("ui.chat.chatsettingsdrawer.localSidecarGemma")}
+                        // Lite has no sidecar; an empty scene connection falls back to the chat's own.
+                        defaultLabel={
+                          import.meta.env.VITE_MARINARA_LITE === "true"
+                            ? t("connections.select.default")
+                            : localizeUi("ui.chat.chatsettingsdrawer.localSidecarGemma")
+                        }
                       />
                     </div>
                   )}

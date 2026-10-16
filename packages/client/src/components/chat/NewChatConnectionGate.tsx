@@ -146,7 +146,7 @@ export function NewChatConnectionGate({ mode, onClose }: NewChatConnectionGatePr
                   className="mari-chrome-control mari-chrome-control--primary mt-3 w-full text-xs"
                 >
                   <Plug size="0.75rem" />
-                  {localizeUi("ui.chat.newchatconnectiongate.openConnections")}
+                  {localizeUi("connections.add.title")}
                 </button>
               </div>
             ) : (

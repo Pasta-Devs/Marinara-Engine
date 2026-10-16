@@ -330,10 +330,15 @@ export function ConnectionRow({
       </button>
       <div className="min-w-0 flex-1 pr-0 max-md:pr-12 [@media(pointer:coarse)]:pr-12">
         <div className="flex min-w-0 items-center gap-1.5">
-          <span className="truncate text-sm font-medium leading-5" title={conn.name}>
+          <span className="min-w-0 truncate text-sm font-medium leading-5" title={conn.name}>
             {conn.name}
           </span>
-          {badge && <span className="mari-chrome-muted-badge shrink-0">{badge}</span>}
+          {/* The badge rule is unlayered, so its accent colour needs `!` to give way to the readable foreground. */}
+          {badge && (
+            <span className="mari-chrome-muted-badge shrink-0 px-1.5 py-px text-[0.625rem] leading-4 !text-[var(--foreground)]">
+              {badge}
+            </span>
+          )}
           {pinned && (
             <Star
               size="0.625rem"
@@ -343,7 +348,7 @@ export function ConnectionRow({
           )}
         </div>
         <div className="truncate text-[0.6875rem] leading-4 text-[var(--muted-foreground)]" title={subtitle}>
-          {subtitle ?? `${conn.provider} • ${conn.model || "No model set"}`}
+          {subtitle ?? `${conn.provider} • ${conn.model || localizeUi("connections.accounts.row.noModel")}`}
         </div>
       </div>
       <div className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 flex shrink-0 items-center gap-0.5 rounded-lg bg-[var(--sidebar)] px-1 py-0.5 opacity-0 shadow-sm ring-1 ring-foreground/10 transition-opacity group-hover:opacity-100 [@media(pointer:fine)]:group-focus-within:opacity-100 max-md:hidden [@media(pointer:coarse)]:hidden group-hover:[&_button]:pointer-events-auto [@media(pointer:fine)]:group-focus-within:[&_button]:pointer-events-auto">
@@ -429,7 +434,9 @@ export function ConnectionRow({
             const rect = e.currentTarget.getBoundingClientRect();
             setMenu({ x: rect.right, y: rect.bottom, keyboard: e.detail === 0 });
           }}
-          className="mari-chrome-control mari-chrome-control--small absolute right-1 top-1/2 hidden h-11 w-11 -translate-y-1/2 p-0 max-md:flex [@media(pointer:coarse)]:flex"
+          // `.mari-chrome-control` is unlayered and sets `display`, so the visibility utilities need `!`; the text
+          // column reserves `pr-12` under the same conditions.
+          className="mari-chrome-control mari-chrome-control--small absolute right-1 top-1/2 !hidden h-11 w-11 -translate-y-1/2 p-0 max-md:!flex [@media(pointer:coarse)]:!flex"
           title={localizeUi("connections.accounts.row.actions", { name: conn.name })}
           aria-label={localizeUi("connections.accounts.row.actions", { name: conn.name })}
           aria-haspopup="menu"

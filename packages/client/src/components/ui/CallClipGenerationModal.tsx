@@ -109,6 +109,11 @@ export function CallClipGenerationModal({
             kind="video"
             value={effectiveConnectionId}
             onChange={setConnectionId}
+            defaultLabel={
+              videoConnections.length
+                ? undefined
+                : localizeUi("ui.ui.callclipgenerationmodal.noVideoGenerationConnections")
+            }
             className="rounded-lg px-3 py-2 text-sm font-medium"
           />
         </label>

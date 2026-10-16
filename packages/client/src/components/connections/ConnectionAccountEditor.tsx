@@ -54,7 +54,7 @@ function SecretField({
       <span className="mb-1 block text-[0.6875rem] font-medium text-[var(--muted-foreground)]">{label}</span>
       {saved && value === null ? (
         <div className="flex items-center gap-2">
-          <span className="mari-chrome-field flex h-9 min-w-0 flex-1 items-center px-3 text-xs text-[var(--muted-foreground)]">
+          <span className="mari-chrome-field flex h-9 min-w-0 flex-1 max-md:min-h-11 items-center px-3 text-xs text-[var(--muted-foreground)]">
             {last4 ? t("connections.accounts.editor.keyEnding", { last4 }) : "••••••••"}
           </span>
           <button
@@ -72,7 +72,7 @@ function SecretField({
           value={value ?? ""}
           onChange={(event) => onChange(event.target.value)}
           placeholder={t("connections.accounts.editor.keyPlaceholder")}
-          className="mari-chrome-field h-9 w-full px-3 text-xs"
+          className="mari-chrome-field h-9 w-full px-3 text-xs max-md:min-h-11"
         />
       )}
     </label>
@@ -186,7 +186,7 @@ export function ConnectionAccountEditor({ accountId, onClose }: { accountId: str
         value={draft?.[key] ?? ""}
         onChange={(event) => set(key, event.target.value)}
         placeholder={t("connections.accounts.editor.noLimit")}
-        className="mari-chrome-field h-9 w-full px-3 text-xs"
+        className="mari-chrome-field h-9 w-full px-3 text-xs max-md:min-h-11"
       />
     </label>
   );
@@ -204,7 +204,7 @@ export function ConnectionAccountEditor({ accountId, onClose }: { accountId: str
             <input
               value={draft.name}
               onChange={(event) => set("name", event.target.value)}
-              className="mari-chrome-field h-9 w-full px-3 text-xs"
+              className="mari-chrome-field h-9 w-full px-3 text-xs max-md:min-h-11"
             />
           </label>
           <div>
@@ -218,7 +218,7 @@ export function ConnectionAccountEditor({ accountId, onClose }: { accountId: str
               onChange={(event) => set("baseUrl", event.target.value)}
               placeholder={t("connections.accounts.editor.endpointPlaceholder")}
               inputMode="url"
-              className="mari-chrome-field h-9 w-full px-3 text-xs"
+              className="mari-chrome-field h-9 w-full px-3 text-xs max-md:min-h-11"
             />
           </label>
           <SecretField
