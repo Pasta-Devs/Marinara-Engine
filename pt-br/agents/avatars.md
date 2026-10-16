@@ -51,10 +51,12 @@ Um personagem ou uma persona com sprites de expressão já tem um avatar PNGTube
 
 - **Imagens de fala e de piscada.** Adicione sprites com o nome de um rosto mais `_talk` para a boca aberta e `_blink` para os olhos fechados, por exemplo `happy_talk` e `happy_blink`, e `happy_blink_talk` para os dois. `_talking`, `_speak`, `_mouth_open`, `_blinking` e `_eyes_closed` também funcionam. Um rosto sem essas imagens ainda dá pulinhos enquanto fala.
 - **Rosto de cada sentimento.** Escolha qual rosto aparece para Neutral, Happy, Angry, Sad, Relaxed e Surprised (neutro, feliz, bravo, triste, relaxado e surpreso). **Resting face** (rosto em repouso) usa o rosto Neutral. Quando o Expression Engine ou o Game Master escolhe um sprite que você tem, esse rosto exato aparece.
+- **Mais sentimentos.** Em **Face for each feeling** (rosto de cada sentimento), abra **More feelings** (mais sentimentos) para escolher um rosto para 23 sentimentos mais específicos, agrupados nos seis: Curiosity (curiosidade) em Neutral; Admiration (admiração), Amusement (diversão), Desire (desejo), Embarrassment (constrangimento), Excitement (empolgação), Gratitude (gratidão), Optimism (otimismo) e Pride (orgulho) em Happy; Annoyance (irritação), Disapproval (desaprovação) e Disgust (nojo) em Angry; Disappointment (decepção), Grief (luto), Nervousness (nervosismo) e Remorse (remorso) em Sad; Approval (aprovação), Caring (carinho), Love (amor) e Relief (alívio) em Relaxed; e Confusion (confusão), Fear (medo) e Realization (percepção súbita) em Surprised. Eles são opcionais. Cada um usa o rosto do seu sentimento principal até você escolher outro. Um sprite com o nome de um deles, como `fear`, `amusement` ou uma palavra como `scared` ou `laughing`, é usado para esse sentimento sem nenhuma configuração.
 - **Movimento.** **Hop while talking** (pular enquanto fala) e **Hop height** (altura do pulo) definem o pulinho no estilo PNGTuber. **Time between blinks** (tempo entre piscadas) é a média; cada piscada vem um pouco antes ou um pouco depois, para nunca parecer mecânica. Com a redução de movimento ativada no seu dispositivo, o avatar não pula nem respira, mas o rosto e a boca continuam mudando.
+- **Os sprites aparecem como são.** Um sprite desenhado sobre um fundo aparece com ele, e os seus arquivos de sprite nunca são alterados. Para rostos sem fundo, use [Rostos a partir do avatar](#faces-from-the-avatar).
 - **Use my sprites** (usar os meus sprites) salva os sprites como os rostos do avatar. Escolher um rosto ou mudar o movimento também salva. **Update from sprites** (atualizar a partir dos sprites) pega os sprites que você adicionou depois e mantém os rostos que você escolheu para cada sentimento. Depois de uma importação, escolha **Remove** (remover) para voltar aos seus sprites.
 
-**Import PNGTuber Plus save** (importar save do PNGTuber Plus) lê um avatar salvo pelo [PNGTuber Plus](https://github.com/kaiakairos/PNGTuber-Plus) (um arquivo `.save`). Cada figurino vira um rosto, e as camadas de fala e de piscada dele viram as imagens de fala e de piscada. Os figurinos são associados aos sentimentos pelos nomes das imagens que mostram, como `angry eyes.png`. Escolha um rosto para qualquer sentimento que os nomes não cobriram. Algumas coisas não são trazidas:
+**Import PNGTuber Plus save** (importar save do PNGTuber Plus) lê um avatar salvo pelo [PNGTuber Plus](https://github.com/kaiakairos/PNGTuber-Plus) (um arquivo `.save`). Cada figurino vira um rosto, e as camadas de fala e de piscada dele viram as imagens de fala e de piscada. As imagens chegam como são, com o fundo que tiverem. Os figurinos são associados aos sentimentos pelos nomes das imagens que mostram, como `angry eyes.png`. Escolha um rosto para qualquer sentimento que os nomes não cobriram. Algumas coisas não são trazidas:
 
 - O balanço, o arrasto, a rotação e o esticamento não são importados; o avatar mostra cada camada em repouso.
 - As camadas animadas mostram só o primeiro quadro.
@@ -79,6 +81,8 @@ Os avatares de malha precisam de WebGL2, que os navegadores atuais têm. Sem ele
 
 **3D Avatars** mostra modelos VRM, o formato que o VRoid Studio, o add-on VRM para o Blender e o UniVRM para Unity exportam. Arquivos VRM 1.0 e VRM 0.x funcionam.
 
+Você também pode criar um modelo VRM a partir de um sprite de corpo inteiro com o Tripo, usando a sua própria conta do Tripo. Veja [Criar um modelo 3D com o Tripo](#make-a-3d-model-with-tripo).
+
 1. Abra **3D Avatars** no editor de agentes e escolha o personagem ou a persona.
 2. Em **VRM model**, selecione **Import VRM** (importar VRM) e escolha um arquivo `.vrm`.
 3. Leia **The author's terms** (os termos do autor). Eles vêm do arquivo do modelo e dizem quem pode usar o modelo como avatar, se o uso comercial é permitido, se você pode alterar o modelo, se conteúdo sexual ou muito violento é permitido e, nos modelos VRM 1.0, se você precisa dar crédito ao autor e se pode compartilhar o arquivo. Quando o arquivo tiver um link para uma licença ou para os termos próprios do autor, abra esses links também. Marinara Engine mostra os termos, mas não os aplica, então siga-os você mesmo.
@@ -97,6 +101,54 @@ Alguns arquivos não podem ser usados, e a importação explica o motivo:
 
 Não há limite de tamanho além do limite normal de upload do aplicativo, mas modelos grandes demoram mais para carregar, principalmente nos celulares.
 
+<a id="get-a-3d-model"></a>
+
+## Obter um modelo 3D
+
+Se o personagem ou a persona ainda não tem um modelo VRM, crie um com o VRoid Studio. É um aplicativo gratuito da pixiv para Windows, macOS e iPad, e os modelos que você cria nele são seus para usar. Alguns dos itens embutidos dele e as texturas que você comprar têm termos próprios, então confira esses termos antes. Os modelos dele vêm com os seis rostos, os cinco formatos de boca e a piscada, então os rostos e a sincronia labial funcionam logo de cara.
+
+Ou deixe o Tripo criar um a partir de um sprite de corpo inteiro, com a sua própria conta do Tripo: veja [Criar um modelo 3D com o Tripo](#make-a-3d-model-with-tripo). Isso custa créditos do Tripo, e o rosto do modelo não se mexe.
+
+Na página do **3D Avatars**, escolha o personagem ou a persona. Em **Get a 3D model** (obter um modelo 3D), **Read the guide** (ler o guia) abre esta seção e **Copy prompt** (copiar prompt) copia uma descrição da aparência do personagem ou da persona.
+
+1. Baixe o [VRoid Studio](https://vroid.com/en/studio) e instale-o.
+2. Se quiser, crie uma imagem para usar de referência: selecione **Copy prompt** e cole o prompt em um gerador de imagens. O VRoid Studio não tem uma caixa para prompt, então a imagem serve só para você olhar enquanto monta o modelo.
+3. No VRoid Studio, crie um novo modelo. Escolha o cabelo, o rosto, os olhos, o corpo e a roupa mais parecidos com os do personagem e depois mude os formatos e as cores até ficarem iguais.
+4. Exporte o modelo como VRM. VRM 1.0 e VRM 0.0 funcionam. Preencha os detalhes e os termos do modelo quando o VRoid Studio pedir.
+5. Abra **3D Avatars** em **Agents**, escolha o personagem ou a persona e selecione **Import VRM** em **VRM model**. Em **Faces and mouth shapes**, todos os rostos, todos os formatos de boca e a piscada de um modelo do VRoid Studio já vêm preenchidos.
+
+**Para que serve o prompt.** Ele descreve o personagem para ferramentas que criam uma imagem ou um modelo 3D a partir de texto: um personagem de corpo inteiro no estilo anime, em pé na pose em T, visto de frente sobre um fundo liso, com a aparência dele. A aparência vem do campo **Appearance** (aparência), das tags de **Image Appearance Override** (aparência alternativa para imagens) quando elas estão ativadas, ou da descrição quando não há aparência. O prompt traz só o nome e a aparência: nada mais do card e nada dos seus chats. Ele está em inglês; mude-o como quiser antes de usar.
+
+**O que se mexe.** O rosto acompanha a resposta, e a boca se mexe com o texto ou com a voz quando o modelo tem expressões para isso. Um VRM de outra ferramenta pode ter menos expressões ou nenhuma, e **Faces and mouth shapes** mostra quais ele tem. Alguns sites dizem criar um VRM com expressões faciais a partir de uma imagem ou de uma descrição, mas nenhum pôde ser confirmado quando este guia foi escrito (outubro de 2026), então este guia não recomenda nenhum.
+
+<a id="make-a-3d-model-with-tripo"></a>
+
+### Criar um modelo 3D com o Tripo
+
+O Tripo é um serviço pago que cria modelos 3D a partir de imagens. Na página do **3D Avatars**, **Make 3D model** (criar modelo 3D), em **Get a 3D model**, transforma um sprite de corpo inteiro em um modelo VRM com a sua própria conta do Tripo. Um modelo custa cerca de 60 créditos do Tripo (cerca de US$ 0,60) e leva cerca de 3 minutos.
+
+1. Entre na sua conta do Tripo e crie uma chave de API na [página de chaves do Tripo](https://developers.tripo3d.ai/en/keys). Compre créditos lá também.
+2. Abra **3D Avatars** em **Agents** e escolha o personagem ou a persona. Em **Get a 3D model**, cole a chave em **Tripo API key** (chave de API do Tripo) e selecione **Save** (salvar). **Get a key** (obter uma chave), ao lado, abre a página de chaves do Tripo. A chave vale para todos os personagens e personas, então você só precisa colá-la uma vez. **Remove** a exclui.
+3. Com a chave salva, o seu saldo do Tripo aparece. O sprite neutro de corpo inteiro já vem escolhido; você pode escolher outro. Use um sprite de corpo inteiro em que o personagem apareça por completo: um busto ou um sprite cortado gera um modelo sem pernas, e esse modelo é recusado.
+4. Confira o saldo e o custo e depois selecione **Make 3D model**. Cada etapa aparece quando termina, com os créditos gastos até ali: o Tripo desenha o sprite em pé na pose em T (5 créditos), cria o modelo 3D (30 créditos) e acrescenta um esqueleto (25 créditos), e depois Marinara Engine o transforma em um arquivo VRM.
+5. Olhe as imagens e depois selecione **Save as the VRM model** (salvar como o modelo VRM) ou **Discard** (descartar). Salvar substitui o modelo VRM atual do personagem ou da persona.
+
+**Só o corpo.** Um modelo do Tripo mexe o corpo, os braços e a cabeça, mas o rosto dele não se mexe: ele não tem expressões faciais, então não consegue sorrir, piscar nem mexer a boca. **Faces and mouth shapes** avisa isso em vez de oferecer rostos para escolher. O cabelo, os casacos e as caudas fazem parte do corpo e não balançam, e as mãos não têm dedos para dobrar.
+
+**Cancel** (cancelar) para de esperar na hora. O Tripo não consegue interromper uma etapa que já começou, então ele ainda pode terminar essa etapa e cobrar por ela. O Tripo devolve os créditos de uma etapa que falha.
+
+Se algo der errado, a configuração diz o que fazer:
+
+- **Chave não aceita:** cole uma chave que funcione em **Tripo API key** na página do **3D Avatars** e selecione **Save**. **Get a key** abre a página de chaves do Tripo.
+- **Créditos insuficientes:** recarregue os créditos no Tripo. O saldo é verificado antes de qualquer coisa começar, então nada é gasto.
+- **Política de conteúdo:** o Tripo recusou a imagem. Tente outro sprite.
+- **Ocupado:** tente de novo em um minuto.
+- **Braços abaixados ou sem pernas:** o modelo não consegue se mexer como um avatar, então é recusado antes de qualquer coisa ser salva. Tente outro sprite de corpo inteiro.
+
+**O que é enviado.** O seu sprite vai para o Tripo, com o fundo removido antes, quando ele tem um. A chave é armazenada criptografada no servidor, é enviada só para a API do Tripo e nunca é mostrada no aplicativo, gravada em um log nem incluída em uma exportação de perfil. Com o modo de depuração ligado, o log do servidor mostra as configurações e os números de tarefa de cada requisição ao Tripo.
+
+**Quem pode usar o modelo.** Pelos termos do Tripo, os modelos criados por usuários pagantes pertencem a eles, e o Tripo fica com os direitos dos modelos criados de graça. A arte do seu sprite também pode pertencer a outra pessoa. Por isso, o arquivo do modelo declara só o uso pessoal e não comercial por você, pede crédito, diz para não compartilhar o arquivo e traz um link para os [termos do Tripo](https://developers.tripo3d.ai/en/terms). **The author's terms** mostra essas informações. Confira-as antes de compartilhar o modelo.
+
 ## Como os rostos e as bocas acompanham a resposta
 
 Os avatares reagem sozinhos; não há nada para configurar nesta parte.
@@ -107,6 +159,8 @@ Os avatares reagem sozinhos; não há nada para configurar nesta parte.
 - Um rosto fica pelo menos dois segundos.
 - O rosto só volta ao estado calmo depois de duas frases calmas seguidas.
 - Cerca de quatro segundos depois do fim da resposta, o rosto relaxa e volta ao estado calmo.
+
+Um avatar PNGTuber com rostos para [mais sentimentos](#pngtuber-sprites) também pode mostrar o sentimento mais específico que uma frase transmite, como Amusement quando a frase é alegre. Esse rosto segue as mesmas regras: precisa de uma leitura clara e fica pelo menos dois segundos, e um sentimento sem rosto próprio mostra o rosto do seu sentimento principal. As escolhas do Expression Engine e do Game Master funcionam do mesmo jeito: quando o avatar não tem um rosto com o nome escolhido, como `scared`, ele mostra o rosto desse sentimento, aqui Fear. Os avatares 3D e de malha mostram só os seis sentimentos.
 
 **Como o humor é lido.** A sua conexão de chat não é consultada. O texto do seu chat fica no seu próprio Marinara Engine e nunca é enviado a um serviço externo.
 
@@ -141,23 +195,29 @@ A sincronia labial não muda a forma como a voz toca. Marinara Engine lê uma c�
 
 Na página do agente **2D Avatars** no editor de agentes, escolha um personagem ou uma persona e use **Make an avatar from a sprite** (criar um avatar a partir de um sprite). Esse recurso trabalha com os sprites que o personagem ou a persona já tem. O seu avatar continua igual até você salvar um resultado, então você pode tentar quantas vezes quiser.
 
+<a id="faces-from-the-avatar"></a>
+
+### Rostos a partir do avatar
+
+**Make faces from the avatar** (criar rostos a partir do avatar) cria rostos sem fundo, inclusive para um personagem ou uma persona que ainda não tem sprites. Ele abre a geração de sprites, a mesma dos editores de personagem e de persona, com o avatar marcado como referência. Ele começa pelos seis rostos principais, Neutral, Happy, Angry, Sad, Relaxed e Surprised, e oferece mais 23 sentimentos, como Pride, Grief e Realization. Cada sentimento extra fica na linha do rosto principal que ele mostra até ter um rosto próprio. Escolha **All faces** (todos os rostos) para os 29, **Main faces** (rostos principais) para os seis, ou os rostos que quiser. Os rostos são desenhados em lotes, primeiro os principais, com tantos rostos em cada imagem quanto a grade comporta; os modelos GPT Image mais antigos desenham um rosto por imagem. Uma imagem que falha é tentada de novo uma vez; se falhar de novo, a execução para com **Retry picture** (tentar a imagem novamente), e **Cancel** mantém os rostos já criados. Com **Expose media prompts before sending** ligado, você revisa os prompts de todas as imagens de uma vez antes de a primeira ser enviada. Todo rosto é desenhado com os olhos abertos e a boca fechada, para que as imagens de piscada e de fala dele tenham o que fechar e abrir. Ele desenha novos sprites de expressão a partir do avatar sobre uma cor lisa, remove essa cor e os salva como os sprites do personagem ou da persona. Um sprite novo substitui o que tem o mesmo nome, então renomeie-o no último passo para manter o antigo. É preciso ter um avatar e uma conexão de geração de imagens.
+
 ### Imagens de piscada e de fala
 
-1. Escolha um ou mais sprites e depois **Eyes closed** (olhos fechados), **Mouth open** (boca aberta) ou os dois. Quando o personagem ou a persona tem sprites de retrato, só eles são oferecidos, porque o avatar nunca mistura rostos de retrato e de corpo inteiro.
-2. Confira a **Image connection** (conexão de imagem); a sua conexão de imagem padrão já vem escolhida. Depois selecione **Make pictures** (criar imagens). Cada imagem é uma solicitação de imagem. Com a opção **Expose media prompts before sending** ligada em **Settings** (Configurações), você vê cada prompt antes e pode editá-lo.
-3. As imagens novas aparecem uma de cada vez. Selecione **Keep** (manter) nas que ficaram boas e **Try again** (tentar de novo) nas outras. **Cancel** (cancelar) interrompe a imagem que está sendo criada. As imagens que você já tem continuam lá quando você cria mais: **Make pictures** só cria as que faltam, e se **Try again** falhar, a imagem antiga fica. Para refazer uma imagem mantida, selecione **Kept** (mantida) para liberá-la antes.
+1. Cada rosto que o avatar mostra para um sentimento é uma linha, com o nome dos sentimentos que o mostram. Ao lado do **Face** (rosto) ficam as imagens **Eyes closed** (olhos fechados) e **Mouth open** (boca aberta) dele: as que você salvou, os sprites `_blink` e `_talk` que você adicionou ou imagens novas. Quando o personagem ou a persona tem sprites de retrato, só eles são usados, porque o avatar nunca mistura rostos de retrato e de corpo inteiro. Um rosto que não é um dos seus sprites, como um que veio de uma importação do PNGTuber Plus, mostra as imagens dele, mas não é possível desenhar imagens novas para ele.
+2. Confira a **Image connection** (conexão de imagem); a sua conexão de imagem padrão já vem escolhida. **Make** (criar) desenha uma imagem que falta, e **Make pictures** (criar imagens) desenha todas. Cada imagem é uma solicitação de imagem. Com a opção **Expose media prompts before sending** ligada em **Settings** (Configurações), você vê cada prompt antes e pode editá-lo.
+3. As imagens novas aparecem uma de cada vez. Selecione **Keep** (manter) nas que ficaram boas e **Try again** (tentar de novo) nas outras; **Try again** também redesenha uma imagem que você já tem. A imagem que está sendo redesenhada fica esmaecida, com um indicador de carregamento, até a nova chegar. **Cancel** interrompe a imagem que está sendo criada, também no servidor, e descarta as imagens que ainda não foram criadas. Se **Try again** falhar, a imagem antiga fica. Para refazer uma imagem mantida, selecione **Kept** (mantida) para liberá-la antes.
 4. Selecione **Save kept pictures** (salvar as imagens mantidas). Elas viram as imagens de piscada e de fala do avatar PNGTuber para essas expressões, ao lado de uma cópia do sprite a partir do qual foram desenhadas, para ficarem sempre alinhadas. Se o avatar ainda mostrava os seus sprites como estão, ele mantém todos e ganha as imagens novas. Se você substituir um sprite antes de salvar, crie as imagens dele de novo.
 
-Os modelos de imagem que editam imagens funcionam melhor, porque recebem o seu sprite como referência. O seu sprite é enviado no tamanho e no formato que o modelo aceita e recortado de volta a partir do resultado, então um modelo que mantém a imagem no lugar gera imagens alinhadas. Se uma imagem mudar mais do que os olhos ou a boca, o avatar dá um salto quando pisca ou fala; tente essa imagem de novo.
+Os modelos de imagem que editam imagens funcionam melhor, porque recebem o seu sprite como a única referência, com um prompt que pede para mudar só os olhos ou a boca. O seu sprite é enviado no tamanho e no formato que o modelo aceita, como um recorte sobre um fundo branco, e recortado de volta a partir do resultado com o contorno do próprio sprite, então um modelo que mantém a imagem no lugar gera imagens alinhadas. Se uma imagem mudar mais do que os olhos ou a boca, o avatar dá um salto quando pisca ou fala; tente essa imagem de novo.
 
 <a id="mesh-avatar"></a>
 
 ### Avatar de malha
 
-1. Escolha um sprite. Um busto de frente (cabeça e ombros) funciona melhor; em um sprite de corpo inteiro, o rosto fica pequeno.
+1. Escolha um sprite. O sprite neutro de corpo inteiro já vem escolhido quando o personagem tem um; caso contrário, vem o sprite neutro. Você pode escolher outro. Um sprite de frente, de corpo inteiro ou de busto, funciona melhor.
 2. Escolha a **Chat connection that can see pictures** (conexão de chat que enxerga imagens). **The agent's connection** (a conexão do agente) usa a conexão definida na página do 2D Avatars ou, se não houver, a sua conexão padrão de agentes. O modelo dela precisa aceitar imagens.
-3. Selecione **Make mesh avatar** (criar avatar de malha). O modelo de chat encontra o rosto, e Marinara Engine monta o avatar a partir do seu sprite. **Cancel** interrompe a criação.
-4. Confira a pré-visualização: os contornos devem ficar sobre os olhos, as sobrancelhas e a boca. Selecione **Save as mesh avatar** (salvar como avatar de malha) ou **Discard** (descartar) e tente outro sprite ou outro modelo.
+3. Selecione **Make mesh avatar** (criar avatar de malha). O modelo de chat encontra o rosto, e Marinara Engine monta o avatar a partir do seu sprite como ele é. **Cancel** interrompe a criação.
+4. Confira a pré-visualização: os contornos devem ficar sobre os olhos, as sobrancelhas e a boca. Selecione **Save as mesh avatar** (salvar como avatar de malha) ou **Discard** e tente outro sprite ou outro modelo.
 
 Um avatar de malha gerado mexe a cabeça, os olhos, as sobrancelhas e a boca, e pisca e fala com as próprias pálpebras e a própria boca. O cabelo se mexe junto com a cabeça; as mãos, as mechas soltas de cabelo e os acessórios pendurados não são articulados. Quando o rosto ocupa a maior parte de um sprite grande, o avatar é montado a partir de uma cópia menor, para a criação continuar rápida.
 
@@ -176,7 +236,7 @@ Você não precisa criar nada para começar. Um personagem ou uma persona com sp
 
 ### Os seus próprios sprites
 
-1. Desenhe uma imagem para cada sentimento, todas do mesmo tamanho e com o personagem no mesmo lugar. Dê a cada imagem o nome do sentimento dela: `neutral`, `happy`, `angry`, `sad`, `relaxed` e `surprised`. Nomes que contêm uma palavra de sentimento também funcionam, como `smile`, `cry`, `calm` ou `shock`.
+1. Desenhe uma imagem para cada sentimento, todas do mesmo tamanho e com o personagem no mesmo lugar. Dê a cada imagem o nome do sentimento dela: `neutral`, `happy`, `angry`, `sad`, `relaxed` e `surprised`. Nomes que contêm uma palavra de sentimento também funcionam, como `smile`, `cry`, `calm` ou `shock`. Para os [sentimentos extras](#pngtuber-sprites) opcionais, adicione também imagens com o nome deles, como `amusement`, `fear` ou `gratitude`.
 2. Para a boca se mexer, desenhe a mesma imagem só com a boca aberta e acrescente `_talk` ao nome dela, por exemplo `happy_talk`. Para piscar, feche só os olhos e acrescente `_blink`; com os dois, acrescente `_blink_talk`. Um sentimento sem essas imagens ainda dá pulinhos enquanto fala.
 3. Adicione as imagens na aba **Sprites** do personagem ou da persona, em **Facial Expressions** (expressões faciais). **Upload Folder** (enviar pasta) adiciona uma pasta inteira e dá a cada sprite o nome do arquivo dele. Veja [Sprites de personagem](../characters/sprites.md).
 4. Os chats com o 2D Avatars ativado mostram as imagens na hora. Para mudar o rosto de um sentimento ou o movimento, veja [Sprites PNGTuber](#pngtuber-sprites).
@@ -184,7 +244,7 @@ Você não precisa criar nada para começar. Um personagem ou uma persona com sp
 ### PNGTuber Plus
 
 1. Monte o avatar com camadas separadas. Configure a boca aberta para aparecer só enquanto o avatar fala e a boca fechada só em silêncio. Configure os olhos fechados para aparecer só enquanto o avatar pisca e os olhos abertos só quando ele não está piscando.
-2. Para cada sentimento, crie um figurino que troque os olhos ou a boca, e dê a essas imagens o nome do sentimento, por exemplo `angry eyes.png` ou `happy_mouth.png`. O figurino 1 é o rosto em repouso.
+2. Para cada sentimento, crie um figurino que troque os olhos ou a boca, e dê a essas imagens o nome do sentimento, por exemplo `angry eyes.png` ou `happy_mouth.png`. Os sentimentos mais específicos funcionam do mesmo jeito, por exemplo `fear eyes.png`. O figurino 1 é o rosto em repouso.
 3. Salve o avatar para obter um arquivo `.save`.
 4. Abra **2D Avatars** em **Agents**, escolha o personagem ou a persona e depois **PNGTuber sprites** e **Import PNGTuber Plus save**. Escolha um rosto para qualquer sentimento que os nomes não cobriram.
 

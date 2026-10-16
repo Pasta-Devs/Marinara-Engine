@@ -44,8 +44,8 @@
     },
     {
       "path": "agents/avatars.md",
-      "sha256": "8836d36a8e11f70b562797466c10cfc4a038322b106f96c22d6f49224eafdec9",
-      "bytes": 34287
+      "sha256": "b46023fad7320a359cc3d48b63818a80b6413d6fc9e03c861739ecc3d39999b9",
+      "bytes": 47258
     },
     {
       "path": "agents/built-in-agents.md",
@@ -69,8 +69,8 @@
     },
     {
       "path": "agents/memory.md",
-      "sha256": "3b10c81c9166ea270d4aa46893b6922cf068522a6f856a711121a975ec361ddc",
-      "bytes": 64587
+      "sha256": "7889efe7e6890faf2477e17d2fb1af93fdf45e3c5032dc723c7dfc856236e423",
+      "bytes": 67261
     },
     {
       "path": "appearance/appearance-settings.md",
@@ -294,8 +294,8 @@
     },
     {
       "path": "data/clearing-data.md",
-      "sha256": "c56b58d8ee9ac3f8e393484ef18f3df183f9d2841aa6d345704fbc456e69acc7",
-      "bytes": 5168
+      "sha256": "f00af077e26a4894c346a070ab61b3c2fed0551c203b4dbfa0e3ac7afb1e76fb",
+      "bytes": 5254
     },
     {
       "path": "data/importing-from-sillytavern.md",
