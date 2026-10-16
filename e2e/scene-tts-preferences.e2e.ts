@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { createServer } from "node:http";
 import { seedUIState } from "./ui-state-fixture.js";
+import { openDefaultsTile, ttsConfigCard } from "./connections-panel.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 
@@ -397,17 +398,10 @@ test("TTS playback filters keep compatible defaults and save independent choices
     if (route.request().method() === "PUT") config = route.request().postDataJSON();
     await route.fulfill({ json: config });
   });
+  // Variant D: Text to Speech is off here, so its Defaults tile opens the settings in the Add window.
   const open = async () => {
-    await page.evaluate(async () => {
-      const { useUIStore } = (await import("/src/stores/ui.store.ts" as string)) as PageUiStoreModule;
-      useUIStore.setState({ rightPanel: "connections", rightPanelOpen: true });
-    });
-    const card = page
-      .locator('[data-component="RightPanel"]')
-      .getByText("Text to Speech", { exact: true })
-      .locator("xpath=../../..");
-    await card.getByTitle("Expand", { exact: true }).click();
-    return card;
+    await openDefaultsTile(page, "voice");
+    return ttsConfigCard(page);
   };
   await page.goto("/");
   let card = await open();

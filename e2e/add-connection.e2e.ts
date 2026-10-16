@@ -195,6 +195,7 @@ test("Add model on a card opens the model screen; a star adds a model and taking
     }, APP_VERSION);
     await page.goto("/");
 
+    await page.locator(`[data-connections-row="account:${created.account.id}"]`).click();
     await page.locator(`[data-connection-account-id="${created.account.id}"] [data-add-model]`).click();
     const screen = page.getByRole("dialog", { name: "Add model", exact: true });
     await expect(screen.getByText("Add models to E2E add model")).toBeVisible();
@@ -210,10 +211,14 @@ test("Add model on a card opens the model screen; a star adds a model and taking
       .poll(async () => (await accountRows()).find((row) => row.id === created.connectionId)?.pinnedModels)
       .toBe('["local/beta"]');
 
-    // Taking the star off a model added here removes it again: it has no role and no settings of its own.
+    // Taking the star off a model added here removes it again (decision 30): it has no role and no settings of
+    // its own, so it goes once the Undo toast closes.
     await star.click();
     await expect(star).toHaveAttribute("aria-pressed", "false");
-    await expect.poll(async () => (await accountRows()).filter((row) => row.model === "local/beta").length).toBe(0);
+    await expect(page.getByText("Removed Beta from your models")).toBeVisible();
+    await expect
+      .poll(async () => (await accountRows()).filter((row) => row.model === "local/beta").length, { timeout: 15_000 })
+      .toBe(0);
     await screen.getByRole("button", { name: "Done", exact: true }).click();
     await expect(screen).toHaveCount(0);
   } finally {

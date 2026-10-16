@@ -1,5 +1,12 @@
 import { clickTopbarPanel } from "./topbar-navigation.js";
 import {
+  openConnectionsPanelModel,
+  openDefaultsTile,
+  openDevicePage,
+  showConnectionsList,
+  ttsConfigCard,
+} from "./connections-panel.js";
+import {
   expect,
   test,
   type APIRequestContext,
@@ -3049,10 +3056,7 @@ test("connection model fetch errors inherit the configured editor accent", async
 
     await clickTopbarPanel(page, "connections");
     const rightPanel = page.locator('[data-component="RightPanelDesktop"]');
-    await rightPanel
-      .getByText("Connection Fetch Error Chroma", { exact: true })
-      .first()
-      .evaluate((element) => (element as HTMLElement).click());
+    await openConnectionsPanelModel(rightPanel, "Connection Fetch Error Chroma");
 
     const editor = page.locator(".mari-editor-shell");
     await expect(editor).toBeVisible();
@@ -3127,10 +3131,7 @@ test("connection test-message errors inherit the configured editor accent", asyn
 
     await clickTopbarPanel(page, "connections");
     const rightPanel = page.locator('[data-component="RightPanelDesktop"]');
-    await rightPanel
-      .getByText("Connection Message Error Chroma", { exact: true })
-      .first()
-      .evaluate((element) => (element as HTMLElement).click());
+    await openConnectionsPanelModel(rightPanel, "Connection Message Error Chroma");
 
     const editor = page.locator(".mari-editor-shell");
     await expect(editor).toBeVisible();
@@ -3170,10 +3171,7 @@ test("NovelAI style plate upload keeps the connection editor mounted", async ({ 
     await page.goto("/");
     await clickTopbarPanel(page, "connections");
     const rightPanel = page.locator('[data-component="RightPanelDesktop"]');
-    await rightPanel
-      .getByText("NovelAI Style Plate Upload", { exact: true })
-      .first()
-      .evaluate((element) => (element as HTMLElement).click());
+    await openConnectionsPanelModel(rightPanel, "NovelAI Style Plate Upload");
 
     const editor = page.locator(".mari-editor-shell");
     await expect(editor).toBeVisible();
@@ -3252,10 +3250,7 @@ test("NovelAI generation defaults survive save and editor navigation", async ({ 
     await page.goto("/");
     await clickTopbarPanel(page, "connections");
     const rightPanel = page.locator('[data-component="RightPanelDesktop"]');
-    await rightPanel
-      .getByText(connectionName, { exact: true })
-      .first()
-      .evaluate((element) => (element as HTMLElement).click());
+    await openConnectionsPanelModel(rightPanel, connectionName);
 
     let editor = page.locator(".mari-editor-shell");
     await expect(editor).toBeVisible();
@@ -3304,10 +3299,7 @@ test("NovelAI generation defaults survive save and editor navigation", async ({ 
       .toBe(personaId);
 
     await clickTopbarPanel(page, "connections");
-    await rightPanel
-      .getByText(connectionName, { exact: true })
-      .first()
-      .evaluate((element) => (element as HTMLElement).click());
+    await openConnectionsPanelModel(rightPanel, connectionName);
     editor = page.locator(".mari-editor-shell");
     const reopenedSeedInput = editor.getByRole("spinbutton", { name: "Seed" });
     if (!(await reopenedSeedInput.isVisible())) {
@@ -3379,10 +3371,7 @@ test("NovelAI generation defaults survive connection import", async ({ page, req
 
     await importDialog.getByRole("button", { name: "Close Import Connections" }).click();
     await expect(importDialog).toHaveCount(0);
-    await rightPanel
-      .getByText(connectionName, { exact: true })
-      .first()
-      .evaluate((element) => (element as HTMLElement).click());
+    await openConnectionsPanelModel(rightPanel, connectionName);
     const editor = page.locator(".mari-editor-shell");
     await expect(editor).toBeVisible();
     const seedInput = editor.getByRole("spinbutton", { name: "Seed" });
@@ -3440,10 +3429,7 @@ test("Connection image captioning defaults persist with a dedicated captioning c
     await page.goto("/");
     await clickTopbarPanel(page, "connections");
     const rightPanel = page.locator('[data-component="RightPanelDesktop"]');
-    await rightPanel
-      .getByText(chatConnectionName, { exact: true })
-      .first()
-      .evaluate((element) => (element as HTMLElement).click());
+    await openConnectionsPanelModel(rightPanel, chatConnectionName);
 
     const editor = page.locator(".mari-editor-shell");
     await expect(editor).toBeVisible();
@@ -3477,10 +3463,7 @@ test("Connection image captioning defaults persist with a dedicated captioning c
     expect(storedDefaults.imageCaptioningConnectionId).toBe(captionConnection.id);
 
     await editor.locator(".mari-editor-header .mari-editor-action").first().click();
-    await rightPanel
-      .getByText(chatConnectionName, { exact: true })
-      .first()
-      .evaluate((element) => (element as HTMLElement).click());
+    await openConnectionsPanelModel(rightPanel, chatConnectionName);
     await expect(editor.getByRole("checkbox", { name: "Use custom defaults for this connection" })).toBeChecked();
     await expect(editor.getByRole("checkbox", { name: "Image Captioning" })).toBeChecked();
     await expect(captioningSelect).toHaveValue(captionConnection.id);
@@ -3514,10 +3497,7 @@ test("Connection Discard uses the configured editor accent", async ({ page }, te
 
     await clickTopbarPanel(page, "connections");
     const rightPanel = page.locator('[data-component="RightPanelDesktop"]');
-    await rightPanel
-      .getByText("Connection Discard Accent", { exact: true })
-      .first()
-      .evaluate((element) => (element as HTMLElement).click());
+    await openConnectionsPanelModel(rightPanel, "Connection Discard Accent");
 
     const editor = page.locator(".mari-editor-shell");
     await expect(editor).toBeVisible();
@@ -3533,75 +3513,6 @@ test("Connection Discard uses the configured editor accent", async ({ page }, te
     await expect(editor).toHaveCount(0);
   } finally {
     await page.request.delete(`/api/connections/${connection.id}`).catch(() => undefined);
-  }
-});
-
-test("mobile connection drag previews preserve configured Chroma text", async ({ page, request }, testInfo) => {
-  test.skip(!testInfo.project.name.includes("mobile"), "Touch drag preview colors are covered on mobile.");
-
-  const suffix = Date.now().toString(36);
-  const connectionName = `Drag Preview Chroma ${suffix}`;
-  const model = `drag-preview-${suffix}`;
-  const connectionResponse = await request.post("/api/connections", {
-    data: { name: connectionName, provider: "openrouter", model },
-  });
-  expect(connectionResponse.ok(), await connectionResponse.text()).toBeTruthy();
-  const connection = (await connectionResponse.json()) as { id: string };
-
-  try {
-    await page.goto("/");
-    await page.evaluate(async () => {
-      const { useUIStore } = (await import("/src/stores/ui.store.ts" as string)) as {
-        useUIStore: {
-          getState: () => {
-            setAppAccentColor: (value: string) => void;
-            setChatChromeTextColor: (value: string) => void;
-            setConnectionPanelView: (view: "cards" | "folders") => void;
-          };
-        };
-      };
-      const ui = useUIStore.getState();
-      ui.setAppAccentColor("#ff1493");
-      ui.setChatChromeTextColor("#14b8a6");
-      // Drag cards are in the folder view; the default card view groups Models by connection.
-      ui.setConnectionPanelView("folders");
-    });
-    await clickTopbarPanel(page, "connections");
-
-    const panel = page.locator('[data-component="RightPanelMobile"]');
-    const source = panel.locator(`[data-touch-drag-card="connection"][data-connection-id="${connection.id}"]`);
-    const metadataText = `openrouter • ${model}`;
-    const sourceMetadata = source.getByText(metadataText, { exact: true });
-    const expectedColor = await readScopedCssVariableColor(source, "--muted-foreground");
-    await expect(sourceMetadata).toHaveCSS("color", expectedColor);
-
-    const dragHandle = source;
-    const handleBounds = await dragHandle.boundingBox();
-    expect(handleBounds).not.toBeNull();
-    const point = {
-      x: handleBounds!.x + handleBounds!.width / 2,
-      y: handleBounds!.y + handleBounds!.height / 2,
-    };
-    await dragHandle.evaluate((handle, startPoint) => {
-      const touch = { identifier: 1, target: handle, clientX: startPoint.x, clientY: startPoint.y };
-      const event = new Event("touchstart", { bubbles: true, cancelable: true });
-      Object.defineProperties(event, {
-        touches: { value: [touch] },
-        changedTouches: { value: [touch] },
-      });
-      handle.dispatchEvent(event);
-    }, point);
-    await page.waitForTimeout(350);
-
-    const preview = page.locator(
-      `body > [data-touch-drag-card="connection"][data-connection-id="${connection.id}"][aria-hidden="true"]`,
-    );
-    await expect(preview).toBeVisible();
-    await expect(preview.getByText(metadataText, { exact: true })).toHaveCSS("color", expectedColor);
-    await page.evaluate(() => window.dispatchEvent(new Event("touchcancel")));
-    await expect(preview).toHaveCount(0);
-  } finally {
-    await request.delete(`/api/connections/${connection.id}`).catch(() => undefined);
   }
 });
 
@@ -11906,12 +11817,8 @@ test("PocketTTS discovers server voices and uses its speech endpoint", async ({ 
     });
 
     await page.goto("/");
-    await clickTopbarPanel(page, "connections");
-    const rightPanel = page.locator('[data-component="RightPanel"]');
-    await expect(rightPanel).toBeVisible();
-    const ttsLabel = rightPanel.getByText("Text to Speech", { exact: true });
-    const ttsCard = ttsLabel.locator("xpath=../../..");
-    await ttsCard.getByTitle("Expand").click();
+    await openDevicePage(page, "tts");
+    const ttsCard = ttsConfigCard(page);
     const serverVoiceSelect = ttsCard.getByLabel("PocketTTS server voice");
     await expect(serverVoiceSelect.locator('option[value="AgentCobra.wav"]')).toHaveText(
       "Agent Cobra (AgentCobra.wav)",
@@ -12050,11 +11957,8 @@ test("OpenAI-compatible TTS accepts and persists a custom Kokoro voice mix", asy
   });
 
   await page.goto("/");
-  await clickTopbarPanel(page, "connections");
-  const rightPanel = page.locator('[data-component="RightPanel"]');
-  await expect(rightPanel).toBeVisible();
-  const ttsCard = rightPanel.getByText("Text to Speech", { exact: true }).locator("xpath=../../..");
-  await ttsCard.getByTitle("Expand").click();
+  await openDefaultsTile(page, "voice");
+  const ttsCard = ttsConfigCard(page);
 
   const customVoiceInput = ttsCard.getByTestId("tts-custom-voice-input-global");
   await expect(customVoiceInput).toHaveAttribute("placeholder", /Custom voice or mix/);
@@ -12164,11 +12068,8 @@ test("ElevenLabs keeps models visible and exposes scrollable account voices in e
     });
 
     await page.goto("/");
-    await clickTopbarPanel(page, "connections");
-    const rightPanel = page.locator('[data-component="RightPanel"]');
-    const ttsLabel = rightPanel.getByText("Text to Speech", { exact: true });
-    const ttsCard = ttsLabel.locator("xpath=../../..");
-    await ttsCard.getByTitle("Expand").click();
+    await openDevicePage(page, "tts");
+    const ttsCard = ttsConfigCard(page);
 
     const modelSelect = ttsCard.getByRole("combobox", { name: "Model" });
     await expect(modelSelect.locator("option")).toHaveCount(3);
@@ -15211,24 +15112,16 @@ test("Connections exposes Local Whisper only while Conversation Calls is install
     });
   });
 
-  const openExpandedLocalModel = async () => {
-    const rightPanel = page.locator('[data-component="RightPanel"]');
-    const connectionsButton = page.locator('[data-tour="panel-connections"]');
-    if ((await connectionsButton.getAttribute("aria-pressed")) !== "true") await clickTopbarPanel(page, "connections");
-    await expect(rightPanel).toBeVisible();
-    const localModelLabel = rightPanel.getByText("Local Model", { exact: true });
-    await localModelLabel.evaluate((element) => element.parentElement?.parentElement?.click());
-    const localModelCard = localModelLabel.locator("xpath=../../..");
-    await expect(localModelCard.getByTitle("Collapse")).toBeVisible();
-    return rightPanel;
-  };
-
+  // Variant D: Local Whisper sits with Speech to text, which exists only while Calls is installed.
   await page.goto("/");
-  let rightPanel = await openExpandedLocalModel();
-  await expect(rightPanel.getByText("Local Speech Model", { exact: true })).toBeVisible();
-  await expect(rightPanel.getByRole("button", { name: "Download Whisper" })).toBeVisible();
+  await openDefaultsTile(page, "stt");
+  const speechModel = page.getByText("Local Speech Model", { exact: true }).filter({ visible: true });
+  await expect(speechModel).toBeVisible();
+  await expect(page.getByRole("button", { name: "Download Whisper" }).filter({ visible: true })).toBeVisible();
   if (testInfo.project.name.includes("mobile")) {
-    const speechSelect = rightPanel.locator("select").filter({ has: page.locator('option[value="whisper_tiny"]') });
+    const speechSelect = page
+      .locator("select")
+      .filter({ visible: true, has: page.locator('option[value="whisper_tiny"]') });
     await expect(speechSelect).toBeVisible();
     const spacing = await speechSelect.evaluate((element) => {
       const style = getComputedStyle(element);
@@ -15238,15 +15131,18 @@ test("Connections exposes Local Whisper only while Conversation Calls is install
     expect(spacing.right).toBeGreaterThanOrEqual(24);
     await speechSelect.scrollIntoViewIfNeeded();
     await testInfo.attach(`mobile-whisper-spacing-${testInfo.project.name}.png`, {
-      body: await rightPanel.screenshot(),
+      body: await page.screenshot(),
       contentType: "image/png",
     });
   }
 
   callsInstalled = false;
   await page.reload();
-  rightPanel = await openExpandedLocalModel();
-  await expect(rightPanel.getByText("Local Speech Model", { exact: true })).toHaveCount(0);
+  await showConnectionsList(page);
+  await page.locator('[data-connections-row="defaults"]').filter({ visible: true }).click();
+  await expect(page.locator('[data-defaults-tile="voice"]').filter({ visible: true })).toBeVisible();
+  await expect(page.locator('[data-defaults-tile="stt"]')).toHaveCount(0);
+  await expect(page.getByText("Local Speech Model", { exact: true })).toHaveCount(0);
   expect(errors).toEqual([]);
 });
 
@@ -17724,9 +17620,13 @@ test("desktop resource editors open beside their source sidebars", async ({ page
       await clickTopbarPanel(page, resource.panel);
       await expect(resourceSidebar).toBeVisible();
       await expect(centerContent).toHaveAttribute("data-center-compact", "true");
-      const resourceRow = resourceSidebar.getByText(resource.name, { exact: true }).first();
-      await expect(resourceRow).toBeVisible();
-      await resourceRow.evaluate((element) => (element as HTMLElement).click());
+      if (resource.panel === "connections") {
+        await openConnectionsPanelModel(resourceSidebar, resource.name);
+      } else {
+        const resourceRow = resourceSidebar.getByText(resource.name, { exact: true }).first();
+        await expect(resourceRow).toBeVisible();
+        await resourceRow.evaluate((element) => (element as HTMLElement).click());
+      }
 
       const editor = centerContent.locator(".mari-editor-shell");
       await expect(editor).toBeVisible();
@@ -17751,40 +17651,13 @@ test("desktop resource editors open beside their source sidebars", async ({ page
   }
 });
 
-test("desktop Connections and Lorebooks folders expand without a React hook error", async ({ page }, testInfo) => {
+test("desktop Lorebooks folders expand without a React hook error", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name.includes("mobile"), "Desktop right-sidebar folder regression.");
   await page.setViewportSize({ width: 1360, height: 900 });
 
   const suffix = Date.now().toString(36);
-  const connectionName = `Folder Connection ${suffix}`;
-  const connectionFolderName = `Connection Folder ${suffix}`;
   const lorebookName = `Folder Lorebook ${suffix}`;
   const lorebookFolderName = `Lorebook Folder ${suffix}`;
-  const connectionResponse = await page.request.post("/api/connections", {
-    data: { name: connectionName, provider: "custom" },
-  });
-  expect(connectionResponse.ok()).toBeTruthy();
-  const connection = (await connectionResponse.json()) as { id: string };
-  const connectionFolderResponse = await page.request.post("/api/connection-folders", {
-    data: { name: connectionFolderName },
-  });
-  expect(connectionFolderResponse.ok()).toBeTruthy();
-  const connectionFolder = (await connectionFolderResponse.json()) as { id: string };
-  expect(
-    (
-      await page.request.post("/api/connection-folders/move-connection", {
-        data: { connectionId: connection.id, folderId: connectionFolder.id },
-      })
-    ).ok(),
-  ).toBeTruthy();
-  expect(
-    (
-      await page.request.patch(`/api/connection-folders/${connectionFolder.id}`, {
-        data: { collapsed: true },
-      })
-    ).ok(),
-  ).toBeTruthy();
-
   const lorebookResponse = await page.request.post("/api/lorebooks", {
     data: {
       name: lorebookName,
@@ -17821,19 +17694,7 @@ test("desktop Connections and Lorebooks folders expand without a React hook erro
   try {
     await page.goto("/");
 
-    await clickTopbarPanel(page, "connections");
     const resourceSidebar = page.locator('[data-component="RightPanelDesktop"]');
-    // The panel groups by connection; folders are the second view, behind More actions.
-    await resourceSidebar.getByRole("button", { name: "More actions", exact: true }).click();
-    await page.getByRole("menuitem", { name: "Folder view", exact: true }).click();
-    const connectionFolderToggle = resourceSidebar.locator(
-      `[data-connection-folder-id="${connectionFolder.id}"] > [role="button"]`,
-    );
-    await expect(connectionFolderToggle).toBeVisible();
-    await connectionFolderToggle.click();
-    await expect(connectionFolderToggle).toHaveAttribute("aria-expanded", "true");
-    await expect(resourceSidebar.getByText(connectionName, { exact: true })).toBeVisible();
-
     await clickTopbarPanel(page, "lorebooks");
     const lorebookFolderToggle = resourceSidebar.locator(
       '[data-lorebook-folder-id="folder-expansion-regression"] > [role="button"]',
@@ -17845,11 +17706,7 @@ test("desktop Connections and Lorebooks folders expand without a React hook erro
     expect(errors).toEqual([]);
   } finally {
     if (!page.isClosed()) {
-      await Promise.all([
-        page.request.delete(`/api/connections/${connection.id}`),
-        page.request.delete(`/api/connection-folders/${connectionFolder.id}`),
-        page.request.delete(`/api/lorebooks/${lorebook.id}`),
-      ]);
+      await page.request.delete(`/api/lorebooks/${lorebook.id}`);
     }
   }
 });

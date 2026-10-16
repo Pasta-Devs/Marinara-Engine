@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { readFileSync } from "node:fs";
-import { clickTopbarPanel } from "./topbar-navigation.js";
+import { openDefaultsTile } from "./connections-panel.js";
 import { seedUIState } from "./ui-state-fixture.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
@@ -19,8 +19,9 @@ const callsManifest = {
 };
 
 // #7344: an edit made just before leaving Connections is saved once, and Connections shows it when opened again.
-// On a phone, switching to the chat list unmounts the card at once, so it must not come back with older settings.
-test("Speech to Text keeps an edit made just before leaving Connections", async ({ page }, testInfo) => {
+// Variant D: Speech to text is not set up here, so its Defaults tile opens the card in the Add window; closing the
+// window unmounts the card at once, so it must not come back with older settings.
+test("Speech to Text keeps an edit made just before leaving Connections", async ({ page }) => {
   const saved = { enabled: false, baseUrl: "", apiKey: "", model: "", language: "" };
   const saves: Array<Record<string, unknown>> = [];
   await page.route("**/api/capability-packages/installed", (route) =>
@@ -60,12 +61,11 @@ test("Speech to Text keeps an edit made just before leaving Connections", async 
   const card = page.locator('[data-component="SpeechToTextCard"]');
   const serverUrl = card.getByPlaceholder("http://localhost:8000/v1");
   const leaveConnections = async () => {
-    const name = testInfo.project.name.startsWith("mobile") ? "Chats" : "Close panel";
-    await page.getByRole("button", { name, exact: true }).filter({ visible: true }).click();
+    await page.keyboard.press("Escape");
     await expect(serverUrl).toBeHidden();
   };
   const openCard = async () => {
-    await clickTopbarPanel(page, "connections");
+    await openDefaultsTile(page, "stt");
     const toggle = card.locator("button[aria-expanded]");
     if ((await toggle.getAttribute("aria-expanded")) !== "true") await toggle.click();
     await expect(serverUrl).toBeVisible();

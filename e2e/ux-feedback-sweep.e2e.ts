@@ -1,4 +1,5 @@
 import { clickTopbarPanel } from "./topbar-navigation.js";
+import { openDevicePage, ttsConfigCard } from "./connections-panel.js";
 import { expect, test, type Page, type Locator } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { seedUIState } from "./ui-state-fixture.js";
@@ -218,12 +219,8 @@ test("UX sweep: Character Voice names a same-name card's voice and keeps typing 
       route.fulfill({ json: { voices: ["echo"], voiceOptions: [{ id: "echo", name: "echo" }], fromProvider: false } }),
     );
     await page.goto("/");
-    await clickTopbarPanel(page, "connections");
-    const ttsCard = page
-      .locator('[data-component="RightPanel"]')
-      .getByText("Text to Speech", { exact: true })
-      .locator("xpath=../../..");
-    await ttsCard.getByTitle("Expand").click();
+    await openDevicePage(page, "tts");
+    const ttsCard = ttsConfigCard(page);
     await openEditor(page, "Character", auId);
     const editor = page.locator(".mari-editor-shell");
     await openSection(editor, "Voice");
