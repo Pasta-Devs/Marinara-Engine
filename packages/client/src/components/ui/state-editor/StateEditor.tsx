@@ -14,6 +14,7 @@ import {
   ChevronRight,
   ListTree,
   Loader2,
+  Lock,
   RotateCcw,
   Search,
   Wand2,
@@ -242,6 +243,12 @@ export function StateEditor({ sections, onSave, notice, onDirtyChange, reviewSub
             className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--primary)]"
             aria-label={localizeUi("ui.stateEditor.sections.edited")}
           />
+        ) : section.readOnly ? (
+          <Lock
+            size="0.625rem"
+            className="shrink-0 opacity-60"
+            aria-label={localizeUi("ui.stateEditor.sections.readOnly")}
+          />
         ) : null}
         {count !== null && !compact ? (
           <span className="shrink-0 tabular-nums text-[0.625rem] text-[var(--muted-foreground)]/80">{count}</span>
@@ -300,6 +307,7 @@ export function StateEditor({ sections, onSave, notice, onDirtyChange, reviewSub
   const renderSection = () => {
     if (!activeSection) return null;
     const hasDraft = drafts[activeSection.id] !== undefined;
+    const readOnly = activeSection.readOnly === true;
     return (
       <div className="flex min-h-0 flex-1 flex-col gap-3">
         {query.trim() ? (
@@ -319,6 +327,11 @@ export function StateEditor({ sections, onSave, notice, onDirtyChange, reviewSub
               {activeStatus?.kind === "changed" ? (
                 <span className="rounded-full bg-[var(--primary)]/15 px-1.5 py-px text-[0.625rem] font-semibold text-[var(--primary)] ring-1 ring-[var(--primary)]/30">
                   {localizeUi("ui.stateEditor.sections.edited")}
+                </span>
+              ) : readOnly ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-[var(--secondary)] px-1.5 py-px text-[0.625rem] font-semibold text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
+                  <Lock size="0.5625rem" />
+                  {localizeUi("ui.stateEditor.sections.readOnly")}
                 </span>
               ) : null}
             </h3>
@@ -352,7 +365,7 @@ export function StateEditor({ sections, onSave, notice, onDirtyChange, reviewSub
                 </button>
               ))}
             </div>
-            {mode === "json" ? (
+            {mode === "json" && !readOnly ? (
               <button
                 type="button"
                 onClick={formatActive}
@@ -363,10 +376,12 @@ export function StateEditor({ sections, onSave, notice, onDirtyChange, reviewSub
                 {localizeUi("ui.stateEditor.editor.format")}
               </button>
             ) : null}
-            <button type="button" onClick={revertActive} disabled={!hasDraft} className={SMALL_TOOL_BUTTON}>
-              <RotateCcw size="0.75rem" />
-              {localizeUi("ui.stateEditor.editor.revert")}
-            </button>
+            {readOnly ? null : (
+              <button type="button" onClick={revertActive} disabled={!hasDraft} className={SMALL_TOOL_BUTTON}>
+                <RotateCcw size="0.75rem" />
+                {localizeUi("ui.stateEditor.editor.revert")}
+              </button>
+            )}
           </div>
         </div>
         {activeStatus?.kind === "invalid" ? (
@@ -387,6 +402,7 @@ export function StateEditor({ sections, onSave, notice, onDirtyChange, reviewSub
             onChange={(text) => setDraft(activeSection.id, text)}
             ariaLabel={localizeUi("ui.stateEditor.editor.ariaLabel", { section: activeSection.label })}
             invalid={activeStatus?.kind === "invalid"}
+            readOnly={readOnly}
             textareaRef={textareaRef}
             className="min-h-[16rem] flex-1"
           />
@@ -401,6 +417,7 @@ export function StateEditor({ sections, onSave, notice, onDirtyChange, reviewSub
             onChange={(next) => setDraft(activeSection.id, layoutStateJson(next).text)}
             focusPath={focusPath}
             onFocusHandled={clearFocusPath}
+            readOnly={readOnly}
           />
         )}
       </div>

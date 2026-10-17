@@ -182,6 +182,7 @@ export * from "./utils/music-score.js";
 export * from "./utils/game-inventory-stacks.js";
 export * from "./utils/game-inventory-coins.js";
 export * from "./utils/game-inventory-ops.js";
+export * from "./utils/game-data-edit.js";
 export * from "./utils/game-inventory-tags.js";
 export * from "./utils/game-inventory-turns.js";
 export * from "./utils/inventory-command-tag.js";

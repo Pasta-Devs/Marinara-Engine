@@ -10,6 +10,8 @@ export interface StateEditorSection {
   label: string;
   description?: string;
   value: unknown;
+  /** Shown and searchable, never edited or saved (e.g. game data the server rebuilds itself). */
+  readOnly?: boolean;
 }
 
 /** A section whose draft parsed and differs from the saved value. */

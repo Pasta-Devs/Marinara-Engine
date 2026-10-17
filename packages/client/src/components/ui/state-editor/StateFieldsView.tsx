@@ -21,6 +21,8 @@ interface StateFieldsViewProps {
   /** A search result to bring into view; cleared through onFocusHandled once it is shown. */
   focusPath?: StateEditorPath | null;
   onFocusHandled?: () => void;
+  /** Values show as non-editable inputs, for a section the source can't save. */
+  readOnly?: boolean;
 }
 
 const isPlainRecord = (value: unknown): value is Record<string, unknown> =>
@@ -29,7 +31,14 @@ const isPlainRecord = (value: unknown): value is Record<string, unknown> =>
 const isContainer = (value: unknown) => Array.isArray(value) || isPlainRecord(value);
 
 const INPUT =
-  "w-full min-w-0 rounded-lg bg-[var(--background)] px-2.5 text-sm text-[var(--foreground)] ring-1 ring-[var(--border)] outline-none transition-shadow placeholder:text-[var(--muted-foreground)] focus:ring-2 focus:ring-[var(--ring)]";
+  "w-full min-w-0 rounded-lg bg-[var(--background)] px-2.5 text-sm text-[var(--foreground)] ring-1 ring-[var(--border)] outline-none transition-shadow placeholder:text-[var(--muted-foreground)] focus:ring-2 focus:ring-[var(--ring)] read-only:bg-[var(--secondary)]/40 read-only:text-[var(--muted-foreground)]";
+
+interface LeafProps<T> {
+  value: T;
+  onChange: (next: T) => void;
+  label: string;
+  readOnly?: boolean;
+}
 
 /** Text wraps to about 60 characters a line; short text stays one row. */
 const TEXT_LINE = 60;
@@ -38,13 +47,14 @@ const TEXT_LINE = 60;
  * Always a textarea, so typing past one line or pressing Enter never swaps the element (and drops
  * focus mid-edit); only its height follows the text.
  */
-function TextField({ value, onChange, label }: { value: string; onChange: (next: string) => void; label: string }) {
+function TextField({ value, onChange, label, readOnly }: LeafProps<string>) {
   const rows = Math.min(6, Math.max(1, Math.ceil(value.length / TEXT_LINE), value.split("\n").length));
   return (
     <textarea
       value={value}
       onChange={(event) => onChange(event.target.value)}
       aria-label={label}
+      readOnly={readOnly}
       rows={rows}
       className={cn(INPUT, "block min-h-9 resize-y py-1.5 leading-snug")}
     />
@@ -52,7 +62,7 @@ function TextField({ value, onChange, label }: { value: string; onChange: (next:
 }
 
 /** Keeps what is typed ("-", "1.") while it isn't a number yet; only a real number reaches the draft. */
-function NumberField({ value, onChange, label }: { value: number; onChange: (next: number) => void; label: string }) {
+function NumberField({ value, onChange, label, readOnly }: LeafProps<number>) {
   const [text, setText] = useState(String(value));
   useEffect(() => {
     setText((current) => (Number(current) === value && current.trim() !== "" ? current : String(value)));
@@ -73,6 +83,7 @@ function NumberField({ value, onChange, label }: { value: number; onChange: (nex
         if (!valid) setText(String(value));
       }}
       aria-label={label}
+      readOnly={readOnly}
       aria-invalid={!valid || undefined}
       className={cn(
         INPUT,
@@ -83,15 +94,7 @@ function NumberField({ value, onChange, label }: { value: number; onChange: (nex
   );
 }
 
-function BooleanField({
-  value,
-  onChange,
-  label,
-}: {
-  value: boolean;
-  onChange: (next: boolean) => void;
-  label: string;
-}) {
+function BooleanField({ value, onChange, label, readOnly }: LeafProps<boolean>) {
   const { t: localizeUi } = useUiTranslation();
   return (
     <button
@@ -100,7 +103,8 @@ function BooleanField({
       aria-checked={value}
       aria-label={label}
       onClick={() => onChange(!value)}
-      className="inline-flex min-h-9 items-center gap-2 rounded-lg px-1 text-xs text-[var(--muted-foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+      disabled={readOnly}
+      className="inline-flex min-h-9 items-center gap-2 rounded-lg px-1 text-xs text-[var(--muted-foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] disabled:cursor-default"
     >
       <span
         className={cn(
@@ -120,7 +124,7 @@ function BooleanField({
   );
 }
 
-export function StateFieldsView({ value, onChange, focusPath, onFocusHandled }: StateFieldsViewProps) {
+export function StateFieldsView({ value, onChange, focusPath, onFocusHandled, readOnly }: StateFieldsViewProps) {
   const { t: localizeUi } = useUiTranslation();
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -140,23 +144,25 @@ export function StateFieldsView({ value, onChange, focusPath, onFocusHandled }: 
 
   const renderLeaf = (node: unknown, path: StateEditorPath, label: string) => {
     if (typeof node === "string")
-      return <TextField value={node} onChange={(next) => update(path, next)} label={label} />;
+      return <TextField value={node} onChange={(next) => update(path, next)} label={label} readOnly={readOnly} />;
     if (typeof node === "number") {
-      return <NumberField value={node} onChange={(next) => update(path, next)} label={label} />;
+      return <NumberField value={node} onChange={(next) => update(path, next)} label={label} readOnly={readOnly} />;
     }
     if (typeof node === "boolean") {
-      return <BooleanField value={node} onChange={(next) => update(path, next)} label={label} />;
+      return <BooleanField value={node} onChange={(next) => update(path, next)} label={label} readOnly={readOnly} />;
     }
     // null: nothing to type into without guessing its kind.
     return (
       <span className="inline-flex min-h-9 items-center text-xs italic text-[var(--muted-foreground)]">
-        {localizeUi("ui.stateEditor.fields.noValue")}
+        {localizeUi(readOnly ? "ui.stateEditor.fields.noValueReadOnly" : "ui.stateEditor.fields.noValue")}
       </span>
     );
   };
 
   const emptyNote = (
-    <p className="text-xs text-[var(--muted-foreground)]">{localizeUi("ui.stateEditor.fields.empty")}</p>
+    <p className="text-xs text-[var(--muted-foreground)]">
+      {localizeUi(readOnly ? "ui.stateEditor.fields.emptyReadOnly" : "ui.stateEditor.fields.empty")}
+    </p>
   );
 
   /** One labelled entry: a field for a simple value, a nested group for an object or a list. */
@@ -219,7 +225,9 @@ export function StateFieldsView({ value, onChange, focusPath, onFocusHandled }: 
 
   return (
     <div ref={containerRef} className="flex min-w-0 flex-col gap-3">
-      <p className="text-[0.6875rem] text-[var(--muted-foreground)]">{localizeUi("ui.stateEditor.fields.hint")}</p>
+      {readOnly ? null : (
+        <p className="text-[0.6875rem] text-[var(--muted-foreground)]">{localizeUi("ui.stateEditor.fields.hint")}</p>
+      )}
       {isContainer(value)
         ? renderChildren(value, [])
         : renderEntry(value, [], localizeUi("ui.stateEditor.fields.value"))}
