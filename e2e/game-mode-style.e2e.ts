@@ -1,3 +1,4 @@
+import { chooseConnection } from "./connection-picker.js";
 import { expect, test, type Locator, type Page, type TestInfo } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { WORLD_STARTER_KITS, parseWorldKit } from "@marinara-engine/shared";
@@ -75,11 +76,7 @@ async function mountWizard(page: Page, testInfo: TestInfo): Promise<Locator> {
   });
   const wizard = page.locator('[data-component="GameSetupWizard"]');
   await expect(wizard).toBeVisible();
-  await wizard
-    .locator("select")
-    .filter({ has: page.locator('option[value="wizard-connection"]') })
-    .first()
-    .selectOption("wizard-connection");
+  await chooseConnection(page, wizard.locator("[data-connection-value]").first(), "wizard-connection");
   return wizard;
 }
 

@@ -109,14 +109,14 @@ const FLAG_ROLES: Array<{
   },
 ];
 
-const KIND_PROVIDER: Record<Exclude<ConnectionSelectKind, "chat">, string> = {
+const KIND_PROVIDER: Record<Exclude<ConnectionSelectKind, "chat" | "all">, string> = {
   image: "image_generation",
   video: "video_generation",
   audio: "audio",
   decision: "decision",
 };
 const matchesKind = (row: ConnectionRowData, kind: ConnectionSelectKind) =>
-  kind === "chat" ? isChatProvider(row.provider) : row.provider === KIND_PROVIDER[kind];
+  kind === "all" || (kind === "chat" ? isChatProvider(row.provider) : row.provider === KIND_PROVIDER[kind]);
 
 const FEATURE_KEYS: Array<keyof FeatureModelConnections> = [
   "mariConnectionId",

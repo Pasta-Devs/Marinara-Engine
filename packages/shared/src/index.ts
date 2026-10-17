@@ -15,6 +15,7 @@ export * from "./types/character-catalog.js";
 export * from "./types/lorebook.js";
 export * from "./types/prompt.js";
 export * from "./types/connection.js";
+export * from "./types/connection-picker.js";
 export * from "./utils/openai-image.js";
 export * from "./types/agent.js";
 export * from "./types/game-state.js";

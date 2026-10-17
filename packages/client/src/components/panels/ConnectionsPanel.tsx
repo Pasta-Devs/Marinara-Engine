@@ -27,7 +27,15 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
-import { PROVIDERS, isChatProvider, parsePinnedModels, type APIProvider } from "@marinara-engine/shared";
+import {
+  IMAGE_GENERATION_SOURCES,
+  VIDEO_GENERATION_SOURCES,
+  IMAGE_SOURCE_VENDOR,
+  PROVIDERS,
+  isChatProvider,
+  parsePinnedModels,
+  type APIProvider,
+} from "@marinara-engine/shared";
 import { useConnections, useMoveConnection, useUploadConnectionImage } from "../../hooks/use-connections";
 import { useConnectionAccounts } from "../../hooks/use-connection-accounts";
 import { starAnchorOf, useHiddenModelIds, useModelStar } from "../../hooks/use-model-star";
@@ -249,10 +257,8 @@ export function ConnectionsPanel() {
   const grouped = useMemo(() => {
     const { groups, standalone } = groupModelsByAccount(connectionsList, accounts ?? []);
     const sorted = [...groups].sort((a, b) => a.account.name.localeCompare(b.account.name));
-    const isMedia = (group: (typeof sorted)[number]) => group.rows.length > 0 && group.rows.every(isMediaRow);
     return {
-      // Chat Connections first, then the image and voice ones.
-      all: [...sorted.filter((group) => !isMedia(group)), ...sorted.filter(isMedia)],
+      all: sorted,
       // Until the Connections load, every Model would look standalone.
       standalone: accounts ? standalone : [],
     };
@@ -282,6 +288,40 @@ export function ConnectionsPanel() {
       engines: query ? engines.filter((engine) => engine.name.toLowerCase().includes(query)) : engines,
     };
   }, [engines, filter, grouped, query]);
+
+  // Provider families are visual only: separate endpoints and keys keep their account actions and rows.
+  const providerGroups = useMemo(() => {
+    const families = new Map<string, { key: string; name: string; groups: typeof visible.groups }>();
+    for (const group of visible.groups) {
+      const service = isChatProvider(group.account.provider) ? null : group.rows.map(mediaService).find(Boolean);
+      const vendor = service ? (IMAGE_SOURCE_VENDOR[service] ?? service) : group.account.provider;
+      const custom = vendor === "custom";
+      const unknownMedia = !service && !isChatProvider(group.account.provider);
+      const key = unknownMedia
+        ? `account:${group.account.id}`
+        : custom
+          ? `custom:${group.account.baseUrl || group.account.id}`
+          : vendor;
+      const name = unknownMedia
+        ? group.account.name
+        : custom
+          ? hostOf(group.account.baseUrl) || group.account.name
+          : (PROVIDERS[vendor as APIProvider]?.name ??
+            [...IMAGE_GENERATION_SOURCES, ...VIDEO_GENERATION_SOURCES].find((source) => source.id === vendor)?.name ??
+            ({ elevenlabs: "ElevenLabs", pockettts: "PocketTTS" } as Record<string, string>)[vendor] ??
+            vendor);
+      const family = families.get(key) ?? { key, name, groups: [] };
+      family.groups.push(group);
+      families.set(key, family);
+    }
+    return [...families.values()]
+      .map((family) => ({
+        ...family,
+        name:
+          family.key.startsWith("custom:") && family.groups.length === 1 ? family.groups[0].account.name : family.name,
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [visible]);
 
   // A wide panel always shows a page: the chosen one, else Defaults.
   const firstKey = "defaults";
@@ -675,7 +715,48 @@ export function ConnectionsPanel() {
                 : t("connections.list.noneOfKind")
               : null}
           </p>
-          {visible.groups.map((group) => accountRow(group))}
+          {providerGroups.map((provider) => {
+            const foldKey = `provider:${provider.key}`;
+            const open = query ? !searchFolded.includes(foldKey) : !collapsedConnections.includes(foldKey);
+            const bodyId = `provider-accounts-${encodeURIComponent(provider.key)}`;
+            return (
+              <div key={provider.key} data-connection-provider={provider.key} className="min-w-0">
+                <button
+                  type="button"
+                  aria-expanded={open}
+                  aria-controls={bodyId}
+                  onClick={() =>
+                    query
+                      ? setSearchFolded((keys) =>
+                          keys.includes(foldKey) ? keys.filter((key) => key !== foldKey) : [...keys, foldKey],
+                        )
+                      : toggleConnectionCollapsed(foldKey)
+                  }
+                  className={cn(
+                    "flex min-h-11 w-full items-center gap-2 rounded-lg px-2 text-left text-sm font-semibold hover:bg-[var(--sidebar-accent)]",
+                    FOCUS,
+                  )}
+                >
+                  <span className="flex h-4 w-4 shrink-0 items-center justify-center">
+                    <BrandMark
+                      of={provider.key.startsWith("custom:") ? provider.groups[0].account.name : provider.key}
+                      className="h-4 w-4"
+                    />
+                  </span>
+                  <span className="min-w-0 flex-1 truncate">{provider.name}</span>
+                  <span className="text-xs font-normal text-[var(--muted-foreground)]">
+                    {t("connections.list.connectionCount", { count: provider.groups.length })}
+                  </span>
+                  <ChevronDown size="0.875rem" className={cn("shrink-0 transition-transform", !open && "-rotate-90")} />
+                </button>
+                {open && (
+                  <div id={bodyId} className="flex min-w-0 flex-col gap-2 ps-3">
+                    {provider.groups.map((group) => accountRow(group))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
           {visible.standalone.length > 0 && (
             <PanelSection title={t("connections.accounts.section.other")} icon={<Link size="0.75rem" />}>
               {query ? (

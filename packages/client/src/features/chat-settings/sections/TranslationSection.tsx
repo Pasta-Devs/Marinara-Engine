@@ -104,6 +104,7 @@ export function TranslationSection({ chatId, metadata, onMetadataChange }: Trans
                 />
               </label>
               <ConnectionSelect
+                aria-label={localizeUi("ui.chatSettings.connectionsection.connection")}
                 value={(metadata.translationConnectionId as string | undefined) || null}
                 onChange={(connectionId) => onMetadataChange({ translationConnectionId: connectionId ?? "" })}
                 defaultLabel={localizeUi("ui.chatSettings.translationsection.selectConnection")}

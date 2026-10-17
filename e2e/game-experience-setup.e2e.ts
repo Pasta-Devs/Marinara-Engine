@@ -1,3 +1,4 @@
+import { chooseConnection } from "./connection-picker.js";
 import { prepareViteFixtureDependencies } from "./vite-fixture-dependencies.js";
 import { expect, test, type Locator, type Page, type TestInfo } from "@playwright/test";
 import { readFileSync } from "node:fs";
@@ -191,11 +192,7 @@ for (const hosted of [false, true]) {
       ),
     ).toBeVisible();
     await expect(wizard.getByRole("switch", { name: "Setup fixture", exact: true })).toHaveCount(0);
-    await wizard
-      .locator("select")
-      .filter({ has: page.locator('option[value="wizard-connection"]') })
-      .first()
-      .selectOption("wizard-connection");
+    await chooseConnection(page, wizard.locator("[data-connection-value]").first(), "wizard-connection");
     const { next } = stepNavigation(wizard);
     await next();
     await next();
@@ -770,11 +767,7 @@ test("A setting kit is off by default, can be picked, written for the setting, e
   });
 
   const wizard = await mountWizard(page, testInfo, { isNewGame: true });
-  await wizard
-    .locator("select")
-    .filter({ has: page.locator('option[value="wizard-connection"]') })
-    .first()
-    .selectOption("wizard-connection");
+  await chooseConnection(page, wizard.locator("[data-connection-value]").first(), "wizard-connection");
   const { next, back } = stepNavigation(wizard);
   await next();
   // A new game is on the Overworld RPG, whose world needs a kit: the genre's own until another is picked,
@@ -949,11 +942,7 @@ test("The wizard suggests settings from across settings, and a picked kit brings
   const wizard = await mountWizard(page, testInfo, { isNewGame: true });
   const suggested = async () =>
     (await wizard.getByRole("button").allInnerTexts()).map((text) => text.trim()).filter((text) => settingOf.has(text));
-  await wizard
-    .locator("select")
-    .filter({ has: page.locator('option[value="wizard-connection"]') })
-    .first()
-    .selectOption("wizard-connection");
+  await chooseConnection(page, wizard.locator("[data-connection-value]").first(), "wizard-connection");
   // A Classic game has no kit, so its ideas come from across the settings.
   const styles = wizard.getByTestId("game-style-chooser");
   await styles.getByRole("radio", { name: /Classic/ }).click();
@@ -1109,11 +1098,7 @@ test("A world is made from a seed in the kit's words: the lore's places kept, th
   });
 
   const wizard = await mountWizard(page, testInfo, { isNewGame: true });
-  await wizard
-    .locator("select")
-    .filter({ has: page.locator('option[value="wizard-connection"]') })
-    .first()
-    .selectOption("wizard-connection");
+  await chooseConnection(page, wizard.locator("[data-connection-value]").first(), "wizard-connection");
   const { next, back } = stepNavigation(wizard);
   await next();
   // The Overworld RPG always has a world: one is rolled for the kit, with no switch to leave it out.
@@ -1237,11 +1222,7 @@ test("A game that makes a world can lay it out as its World Maps map, exactly th
   await page.route("**/api/connections", (route) => route.fulfill({ json: wizardConnections }));
   await page.route("**/api/lorebooks", (route) => route.fulfill({ json: [] }));
   const wizard = await mountWizard(page, testInfo, { isNewGame: true });
-  await wizard
-    .locator("select")
-    .filter({ has: page.locator('option[value="wizard-connection"]') })
-    .first()
-    .selectOption("wizard-connection");
+  await chooseConnection(page, wizard.locator("[data-connection-value]").first(), "wizard-connection");
   const { next } = stepNavigation(wizard);
   await next();
   await wizard.getByRole("button", { name: /^High fantasy/u }).click();

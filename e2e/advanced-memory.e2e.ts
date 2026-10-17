@@ -16,6 +16,7 @@ import {
   DEFAULT_ADVANCED_MEMORY_SETTINGS,
   createChatSummaryEntry,
 } from "@marinara-engine/shared";
+import { chooseConnection } from "./connection-picker.js";
 import { seedUIState } from "./ui-state-fixture.js";
 import { closeChatSettings, drawerToggle, openChatSettings, openChatSettingsTool } from "./chat-settings-tools.js";
 
@@ -1748,14 +1749,14 @@ test("Advanced Memory Decision connection is optional and persists for its chat"
     await expect(settings.getByText("Advanced Memory Recall", { exact: true })).toBeVisible();
     const toggle = settings.getByRole("checkbox", { name: /^Use Decision model/ });
     await expect(toggle).not.toBeChecked();
-    await expect(settings.getByRole("combobox", { name: "Memory Decision connection", exact: true })).toHaveCount(0);
+    await expect(settings.getByRole("button", { name: /^Memory Decision connection/u })).toHaveCount(0);
     await captureThemes(page, info, "memory-decision-off");
     await settings.getByText("Use Decision model", { exact: true }).click();
-    const picker = settings.getByRole("combobox", { name: "Memory Decision connection", exact: true });
+    const picker = settings.getByRole("button", { name: /^Memory Decision connection/u });
     await expect(picker).toBeEnabled();
-    await expect(picker).toHaveValue("");
+    await expect(picker).toHaveAttribute("data-connection-value", "");
     await expect(settings.getByText(/Choose a usable Decision connection/)).toBeVisible();
-    await picker.selectOption(connection.id);
+    await chooseConnection(page, picker, connection.id);
     await expect.poll(async () => (await status()).settings.decisionConnectionId).toBe(connection.id);
     await expect(settings.getByText(/Choose a usable Decision connection/)).toHaveCount(0);
     await captureThemes(page, info, "memory-decision-on");
@@ -1763,7 +1764,8 @@ test("Advanced Memory Decision connection is optional and persists for its chat"
     await expect(page.locator("textarea[data-chat-composer]")).toBeVisible();
     settings = await openMemory();
     await expect(settings.getByRole("checkbox", { name: /^Use Decision model/ })).toBeChecked();
-    await expect(settings.getByRole("combobox", { name: "Memory Decision connection", exact: true })).toHaveValue(
+    await expect(settings.getByRole("button", { name: /^Memory Decision connection/u })).toHaveAttribute(
+      "data-connection-value",
       connection.id,
     );
     expect((await request.delete(`/api/connections/${connection.id}`)).ok()).toBeTruthy();
@@ -1773,7 +1775,7 @@ test("Advanced Memory Decision connection is optional and persists for its chat"
     await expect(settings.getByText(/Choose a usable Decision connection/)).toBeVisible();
     await settings.getByText("Use Decision model", { exact: true }).click();
     await expect.poll(async () => (await status()).settings.decisionEnabled).toBe(false);
-    await expect(settings.getByRole("combobox", { name: "Memory Decision connection", exact: true })).toHaveCount(0);
+    await expect(settings.getByRole("button", { name: /^Memory Decision connection/u })).toHaveCount(0);
   } finally {
     await request.delete(`/api/connections/${connection.id}`);
     await fixture.cleanup();

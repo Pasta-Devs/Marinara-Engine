@@ -247,7 +247,7 @@ export function ConnectionGroup({
         <div
           id={modelsId}
           aria-label={t("ui.agents.featureagentdetailhost.value1Value2", { value1: account.name, value2: service })}
-          className="mx-1 mb-1.5 flex flex-col gap-0.5"
+          className="me-1 ms-4 mb-1.5 flex min-w-0 flex-col gap-0.5"
         >
           {rows.length === 0 && (
             <p className="px-2 py-1 text-[0.6875rem] text-[var(--muted-foreground)]">
@@ -264,7 +264,9 @@ export function ConnectionGroup({
                 </p>
               )}
               {group.rows.map((row) => (
-                <div key={row.id}>{renderRow(row, modelSubtitle(row, group.upstream))}</div>
+                <div key={row.id} className={group.upstream ? "min-w-0 ps-3" : "min-w-0"}>
+                  {renderRow(row, modelSubtitle(row, group.upstream))}
+                </div>
               ))}
             </div>
           ))}

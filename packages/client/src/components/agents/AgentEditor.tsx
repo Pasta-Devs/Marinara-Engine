@@ -1366,7 +1366,6 @@ export function AgentEditor() {
     };
   }, [utilityAgentType]);
 
-  const llmConnections = allConnections.filter((conn) => isChatProvider(conn.provider));
   const imageConnections = allConnections.filter((conn) => conn.provider === "image_generation");
 
   const defaultAgentConn = allConnections.find(
@@ -2687,46 +2686,37 @@ export function AgentEditor() {
               icon={<Link2 size="0.875rem" className="text-[var(--primary)]" />}
               help={localizeUi("ui.agents.agenteditor.useADifferentAiConnectionForThisAgentFor")}
             >
-              <select
-                value={localConnectionId}
-                onChange={(e) => {
-                  setLocalConnectionId(e.target.value);
+              <ConnectionSelect
+                value={localConnectionId || null}
+                onChange={(value) => {
+                  setLocalConnectionId(value ?? "");
                   markDirty();
                 }}
-                className="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
-              >
-                <option value="">
-                  {sidecarIsAgentsDefault
+                aria-label={localizeUi("ui.agents.agenteditor.connectionOverride")}
+                defaultLabel={
+                  sidecarIsAgentsDefault
                     ? localizeUi("ui.agents.agenteditor.agentDefaultValue1", {
                         value1: localizeUi("ui.agents.agenteditor.localModelSidecar"),
                       })
                     : defaultAgentConn
                       ? localizeUi("ui.agents.agenteditor.agentDefaultValue1", { value1: defaultAgentConn.name })
-                      : localizeUi("ui.agents.agenteditor.useChatConnection")}
-                </option>
-                {import.meta.env.VITE_MARINARA_LITE !== "true" && (
-                  <option value={LOCAL_SIDECAR_CONNECTION_ID}>
-                    {localizeUi("ui.agents.agenteditor.localModelSidecar")}
-                  </option>
-                )}
-                {/* Only offered once a model is installed for this agent: an option that
-                    cannot answer is worse than no option at all. The exception is a
-                    selection already saved — dropping that option would leave the select
-                    with no match and silently hide that the saved choice cannot serve. */}
-                {import.meta.env.VITE_MARINARA_LITE !== "true" &&
-                  (utilitySlotServesThisAgent || localConnectionId === UTILITY_SIDECAR_CONNECTION_ID) && (
-                    <option value={UTILITY_SIDECAR_CONNECTION_ID}>
-                      {utilitySlotServesThisAgent
-                        ? localizeUi("ui.agents.agenteditor.utilityModelSidecar")
-                        : localizeUi("ui.agents.agenteditor.utilityModelSidecarUnavailable")}
-                    </option>
-                  )}
-                {llmConnections.map((conn) => (
-                  <option key={conn.id} value={conn.id}>
-                    {conn.name} ({conn.provider})
-                  </option>
-                ))}
-              </select>
+                      : localizeUi("ui.agents.agenteditor.useChatConnection")
+                }
+                includeLocalSidecar={import.meta.env.VITE_MARINARA_LITE !== "true"}
+                extraOptions={
+                  import.meta.env.VITE_MARINARA_LITE !== "true" &&
+                  (utilitySlotServesThisAgent || localConnectionId === UTILITY_SIDECAR_CONNECTION_ID)
+                    ? [
+                        {
+                          value: UTILITY_SIDECAR_CONNECTION_ID,
+                          label: utilitySlotServesThisAgent
+                            ? localizeUi("ui.agents.agenteditor.utilityModelSidecar")
+                            : localizeUi("ui.agents.agenteditor.utilityModelSidecarUnavailable"),
+                        },
+                      ]
+                    : []
+                }
+              />
               <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
                 {localConnectionId === LOCAL_SIDECAR_CONNECTION_ID
                   ? localizeUi("ui.agents.agenteditor.usesTheBuiltInLocalModelFromTheConnections")

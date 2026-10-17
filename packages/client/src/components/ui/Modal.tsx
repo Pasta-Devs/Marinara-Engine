@@ -41,6 +41,7 @@ interface ModalProps {
   /** Optional feature-local style variables applied to the full panel. */
   panelStyle?: CSSProperties;
   closeDisabled?: boolean;
+  closeButtonClassName?: string;
   /** Solid panel surface and no backdrop blur (Connections windows); other modals keep the translucent chrome. */
   opaque?: boolean;
   /** Let drag hit-testing reach content behind the modal while keeping the panel interactive. */
@@ -63,6 +64,7 @@ export function Modal({
   contentClassName,
   panelStyle,
   closeDisabled = false,
+  closeButtonClassName,
   opaque = false,
   dragThrough = false,
 }: ModalProps) {
@@ -235,7 +237,7 @@ export function Modal({
             onClick={onClose}
             disabled={closeDisabled}
             aria-label={localizeUi("ui.ui.modal.value1Value2", { value1: localize("Close"), value2: localizedTitle })}
-            className="flex shrink-0 items-center justify-center rounded-lg p-1.5 text-[var(--marinara-chat-chrome-panel-muted)] transition-colors max-md:h-9 max-md:w-9 [@media(pointer:coarse)]:h-9 [@media(pointer:coarse)]:w-9 hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)] hover:text-[var(--marinara-chat-chrome-highlight-text)] disabled:cursor-wait disabled:opacity-40"
+            className={`flex shrink-0 items-center justify-center rounded-lg p-1.5 text-[var(--marinara-chat-chrome-panel-muted)] transition-colors max-md:h-9 max-md:w-9 [@media(pointer:coarse)]:h-9 [@media(pointer:coarse)]:w-9 hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)] hover:text-[var(--marinara-chat-chrome-highlight-text)] disabled:cursor-wait disabled:opacity-40 ${closeButtonClassName ?? ""}`}
           >
             <X size="1rem" />
           </button>

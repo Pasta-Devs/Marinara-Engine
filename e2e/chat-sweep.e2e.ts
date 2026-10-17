@@ -628,7 +628,7 @@ test("Translator defaults wait for edits, survive reload, and apply only to futu
     await openSettings(origin.id);
     await expect(forget).toBeEnabled();
     await expect(section.getByRole("combobox").first()).toHaveValue("ai");
-    await expect(section.getByRole("combobox").nth(1)).toHaveValue(connectionId);
+    await expect(section.locator("[data-connection-value]")).toHaveAttribute("data-connection-value", connectionId);
     await expect(incomingPrompt).toHaveValue(expected.translationOutputPrompt);
     const inheritedChatIds: string[] = [];
     let gameChatId = "";

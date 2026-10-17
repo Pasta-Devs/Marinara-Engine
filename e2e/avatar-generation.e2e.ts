@@ -1,3 +1,4 @@
+import { chooseConnection } from "./connection-picker.js";
 // Making a 2D avatar from a sprite, end to end against the real server with local image and vision models
 // that hold their answers: Cancel aborts the picture or mesh avatar being made (the model's request closes)
 // and leaves the panel idle with only finished pictures, Try again shows the picture being redone, and a
@@ -242,7 +243,11 @@ test("Cancel stops the picture being made, and avatars made from a sprite keep i
       .toMatchObject({ source: "file", path: expect.stringMatching(/^pngtuber\/.+\.png$/u) });
 
     // ── Cancel while the vision model looks at the sprite for the mesh avatar ──
-    await panel.getByLabel("Chat connection that can see pictures").selectOption(visionId);
+    await chooseConnection(
+      page,
+      panel.getByRole("button", { name: /^Chat connection that can see pictures/ }),
+      visionId,
+    );
     // The neutral sprite is picked for a mesh avatar until the user picks another.
     await expect(
       panel.getByRole("group", { name: "Sprite to use" }).getByRole("button", { name: "neutral" }),

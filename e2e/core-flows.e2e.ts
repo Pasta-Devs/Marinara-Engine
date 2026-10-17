@@ -22,6 +22,7 @@ import type { HomeCustomWidgetCatalog } from "@marinara-engine/shared";
 import { downloadExport } from "./export-save.js";
 import { forceColorValueEnablesColor } from "./playwright-color-environment.js";
 import { mockUILanguagePacks } from "./ui-language-fixtures.js";
+import { chooseConnection } from "./connection-picker.js";
 import { seedUIState } from "./ui-state-fixture.js";
 import {
   chatSettingsDrawer,
@@ -4619,7 +4620,7 @@ test("Character-sheet generation offers the saved neutral full-body sprite as an
     const create = editor.locator('[data-editor-section="sprites"]').getByRole("button", { name: "Create with AI" });
     await create.click();
     const dialog = page.getByRole("dialog", { name: "Create Character Sheet" });
-    await dialog.getByRole("combobox").selectOption(connection.id);
+    await chooseConnection(page, dialog.locator("[data-connection-value]"), connection.id);
     const neutral = dialog.getByRole("checkbox", { name: "Use neutral full-body sprite as a reference" });
     const likeness = dialog.getByRole("checkbox", { name: /Use current avatar as a likeness reference/ });
     await expect(neutral).not.toBeChecked();
@@ -4751,7 +4752,7 @@ test("Persona sheets accept neutral full-body references and save the result", a
       .getByRole("button", { name: "Create with AI", exact: true });
     await create.click();
     const dialog = page.getByRole("dialog", { name: "Create Character Sheet", exact: true });
-    await dialog.getByRole("combobox").selectOption(connectionId);
+    await chooseConnection(page, dialog.locator("[data-connection-value]"), connectionId);
     const neutral = dialog.getByRole("checkbox", { name: "Use neutral full-body sprite as a reference" });
     const likeness = dialog.getByRole("checkbox", { name: /Use current avatar as a likeness reference/ });
     await expect(neutral).not.toBeChecked();
@@ -13285,9 +13286,9 @@ test("Storyboard Agent settings stay organized and contained at phone widths", a
     await expect(roleplayTab).toHaveAttribute("aria-selected", "true");
 
     await expect(setup.getByText("Image connection", { exact: true })).toBeVisible();
-    const imageConnection = setup.locator("select").first();
-    await imageConnection.selectOption(connection.id);
-    await expect(imageConnection).toHaveValue(connection.id);
+    const imageConnection = setup.locator("[data-connection-value]").first();
+    await chooseConnection(page, imageConnection, connection.id);
+    await expect(imageConnection).toHaveAttribute("data-connection-value", connection.id);
 
     const roleplay = workflow.locator("[data-storyboard-active-roleplay]");
     const roleplayInterval = roleplay.getByLabel("Default Roleplay episode interval", { exact: true });

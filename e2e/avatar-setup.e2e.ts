@@ -1,3 +1,4 @@
+import { chooseConnection } from "./connection-picker.js";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { AVATAR_EMOTIONS, AVATAR_EXTRA_FEELINGS } from "@marinara-engine/shared";
@@ -549,7 +550,7 @@ test("2D Avatars makes faces from the avatar with sprite generation, also for an
     const dialog = page.getByRole("dialog", { name: "Generate Sprites" });
     const reference = dialog.getByRole("checkbox", { name: "Use current avatar as a reference image" });
     const makeFaces = setup.getByRole("button", { name: "Make faces from the avatar", exact: true });
-    const useConnection = (id: string) => dialog.locator("select").first().selectOption(id);
+    const useConnection = (id: string) => chooseConnection(page, dialog.locator("[data-connection-value]").first(), id);
     const face = (name: string) => dialog.getByRole("button", { name, exact: true });
 
     // ── A character without sprites ──

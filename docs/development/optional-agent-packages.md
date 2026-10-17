@@ -24,6 +24,21 @@ Client capability elements receive the Engine's selected UI locale through their
 English; the Engine does not translate package prompts or package-authored machine values. Locale changes reuse the
 existing `marinara-capability-props` event so an installed interface can rerender without an Engine restart.
 
+### Shared connection picker
+
+Client capability elements also receive `capabilityProps.ui.pickConnection(options)`. It opens the
+Engine's searchable saved-model picker, filtered by `chat`, `image`, `video`, `audio`, `decision`, or
+`all`. Models stay grouped by their Connection, and unavailable choices explain their state.
+
+The result distinguishes an explicit selection (`{ status: "selected", value }`, where `null` means
+the caller's inherited/default choice) from cancellation (`{ status: "cancelled" }`). Opening or using
+the picker does not save package settings, change a chat, or change global defaults. The package owns
+those actions after selection. Older Engines may lack this optional UI method: feature-detect it.
+
+See the [shared picker API and package example](../../packages/shared/CONNECTION_PICKER.md) for the
+public TypeScript types, filter meanings, lifecycle, and Engine component usage. Packages must not
+import private Engine React components or build another picker merely to list Connections.
+
 ### Delivery and caching
 
 Installed package files are served with strong validators derived from the manifest's per-file

@@ -22,6 +22,7 @@ test("Connections keep the established header, mixed models and compact role con
   expect(response.ok()).toBeTruthy();
   const created = (await response.json()) as { account: { id: string }; connectionId: string };
   const ids = [created.connectionId];
+  const extraAccounts: string[] = [];
   try {
     for (const model of [
       { name: "Studio Image", provider: "image_generation", imageGenerationSource: "openai", model: "gpt-image-1.5" },
@@ -32,6 +33,18 @@ test("Connections keep the established header, mixed models and compact role con
       });
       expect(r.ok()).toBeTruthy();
       ids.push((await r.json()).id);
+    }
+    for (const media of [
+      { name: "Comfy still", provider: "image_generation", imageGenerationSource: "comfyui" },
+      { name: "Comfy motion", provider: "video_generation", videoGenerationSource: "comfyui" },
+    ]) {
+      const result = await request.post("/api/connections", {
+        data: { ...media, baseUrl: "http://127.0.0.1:8188", apiKey: "" },
+      });
+      expect(result.ok()).toBeTruthy();
+      const row = (await result.json()) as { id: string; accountId: string };
+      ids.push(row.id);
+      if (row.accountId) extraAccounts.push(row.accountId);
     }
     expect(
       (await request.patch(`/api/connections/${created.connectionId}`, { data: { isDefault: true } })).ok(),
@@ -57,10 +70,35 @@ test("Connections keep the established header, mixed models and compact role con
     expect(Math.abs(sizes[0]!.width - sizes[2]!.width)).toBeLessThan(1);
     await expect(panel.getByRole("searchbox", { name: "Search models and connections" })).toBeVisible();
     const group = panel.locator(`[data-connection-account-id="${created.account.id}"]`);
-    for (const id of ids) await expect(group.locator(`[data-connection-id="${id}"]`)).toBeVisible();
+    for (const id of ids.slice(0, 3)) await expect(group.locator(`[data-connection-id="${id}"]`)).toBeVisible();
     await expect(group).toContainText("Chat");
     await expect(group).toContainText("Image");
     await expect(group).toContainText("Audio");
+    const provider = panel.locator('[data-connection-provider="comfyui"]');
+    await expect(provider.locator("[data-connection-account-id]")).toHaveCount(2);
+    const providerToggle = provider.getByRole("button", { name: /ComfyUI.*2 connections/ });
+    const model = provider.locator("[data-connection-id]").first();
+    const providerBox = await providerToggle.boundingBox();
+    const modelBox = await model.boundingBox();
+    expect(modelBox!.x).toBeGreaterThan(providerBox!.x + 8);
+    await providerToggle.click();
+    await expect(providerToggle).toHaveAttribute("aria-expanded", "false");
+    await expect(provider.locator("[data-connection-id]")).toHaveCount(0);
+    await providerToggle.click();
+    await expect(provider.locator("[data-connection-id]")).toHaveCount(2);
+    if (info.project.name === "desktop-chromium") {
+      const originalViewport = page.viewportSize()!;
+      for (const width of [390, 768, 1440]) {
+        await page.setViewportSize({ width, height: 960 });
+        for (const theme of ["dark", "light"]) {
+          await page.evaluate((theme) => document.documentElement.setAttribute("data-theme", theme), theme);
+          await page.screenshot({ path: `.tmp/shared-picker/screenshots/hierarchy-${width}-${theme}.png` });
+          expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
+        }
+      }
+      await page.setViewportSize(originalViewport);
+      await page.evaluate(() => document.documentElement.setAttribute("data-theme", "dark"));
+    }
     await panel.locator('[data-connections-row="defaults"]').click();
     await expect(panel.locator('[data-defaults-tile="main"]')).toBeVisible();
     await expect(panel.locator('[data-defaults-tile="main"]')).toHaveAttribute("aria-expanded", "false");
@@ -75,7 +113,10 @@ test("Connections keep the established header, mixed models and compact role con
     const imageDefault = images.getByRole("button", { name: /^Default model for Images:/ });
     await imageDefault.focus();
     await imageDefault.press("Enter");
-    await page.getByRole("menuitemradio", { name: /Studio Image/ }).click();
+    await page
+      .getByRole("dialog", { name: "Choose a model" })
+      .getByRole("button", { name: /Studio Image/ })
+      .click();
     await expect(imageDefault).toContainText("Studio Image");
     await expect(images).toHaveAttribute("data-retained-row", "true");
     await expect(imageDefault).toBeFocused();
@@ -84,7 +125,10 @@ test("Connections keep the established header, mixed models and compact role con
     await images.locator('[data-defaults-tile="images"]').click();
     await imageDefault.focus();
     await imageDefault.press("Enter");
-    await page.getByRole("menuitemradio", { name: "None", exact: true }).click();
+    await page
+      .getByRole("dialog", { name: "Choose a model" })
+      .getByRole("button", { name: "None", exact: true })
+      .click();
     await expect(imageDefault).toContainText("None");
     await images.locator('[data-defaults-tile="images"]').click();
     await expect(panel.locator("[data-defaults-unused]")).toBeFocused();
@@ -118,6 +162,7 @@ test("Connections keep the established header, mixed models and compact role con
   } finally {
     for (const id of ids) await request.delete(`/api/connections/${id}`);
     await request.delete(`/api/connection-accounts/${created.account.id}`);
+    for (const id of new Set(extraAccounts)) await request.delete(`/api/connection-accounts/${id}`);
     if (previousMain) await request.patch(`/api/connections/${previousMain.id}`, { data: { isDefault: true } });
   }
 });
