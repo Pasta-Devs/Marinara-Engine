@@ -213,6 +213,14 @@ export function createGameStoryboardsStorage(db: DB) {
       return this.listKeyframes(storyboardId);
     },
 
+    /** Keyframes showing a chat gallery image, so a regenerated image can replace it (#7767). */
+    async listKeyframesByChatImageId(chatImageId: string) {
+      return db
+        .select()
+        .from(gameTurnStoryboardKeyframes)
+        .where(eq(gameTurnStoryboardKeyframes.chatImageId, chatImageId));
+    },
+
     async updateKeyframe(id: string, patch: Partial<typeof gameTurnStoryboardKeyframes.$inferInsert>) {
       await db
         .update(gameTurnStoryboardKeyframes)

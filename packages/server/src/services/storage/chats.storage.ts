@@ -3771,6 +3771,50 @@ export function createChatsStorage(db: DB) {
       });
     },
 
+    /**
+     * Point every attachment that shows a gallery image at its regenerated replacement (#7767),
+     * on the message mirror and on whichever swipe rows hold it. Other attachment fields are
+     * kept. Returns whether anything changed.
+     */
+    async replaceGalleryImageAttachment(
+      messageId: string,
+      oldGalleryId: string,
+      patch: { url: string; prompt: string; galleryId: string },
+    ): Promise<boolean> {
+      const swap = (extra: unknown): string | null => {
+        const existing = parseExtraRecord(extra);
+        if (!Array.isArray(existing.attachments)) return null;
+        let changed = false;
+        const attachments = existing.attachments.map((attachment) => {
+          if (!attachment || typeof attachment !== "object") return attachment;
+          if ((attachment as Record<string, unknown>).galleryId !== oldGalleryId) return attachment;
+          changed = true;
+          return { ...attachment, ...patch };
+        });
+        return changed ? JSON.stringify({ ...existing, attachments }) : null;
+      };
+      return withPatchQueue(messageExtraPatchQueues, messageId, async () => {
+        const msg = await this.getMessage(messageId);
+        if (!msg) return false;
+        let changed = false;
+        const nextMessageExtra = swap(msg.extra);
+        if (nextMessageExtra) {
+          await db.update(messages).set({ extra: nextMessageExtra }).where(eq(messages.id, messageId));
+          changed = true;
+        }
+        for (const swipe of await this.getSwipes(messageId)) {
+          const nextSwipeExtra = swap(swipe.extra);
+          if (!nextSwipeExtra) continue;
+          await db
+            .update(messageSwipes)
+            .set({ extra: nextSwipeExtra })
+            .where(and(eq(messageSwipes.messageId, messageId), eq(messageSwipes.id, swipe.id)));
+          changed = true;
+        }
+        return changed;
+      });
+    },
+
     // ── Chat Connections ──
 
     /** Bidirectionally link two chats. */

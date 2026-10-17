@@ -163,6 +163,7 @@ interface ChatMessageImageLightboxState {
   alt: string;
   pinEnabled: boolean;
   downloadEnabled: boolean;
+  regenerate?: { messageId?: string };
 }
 
 function readString(value: unknown): string | null {
@@ -2059,6 +2060,8 @@ export const ChatMessage = memo(function ChatMessage({
         alt,
         pinEnabled: true,
         downloadEnabled: true,
+        // Only generated images saved to the chat gallery can be regenerated (#7767).
+        ...(readString(attachment.galleryId) ? { regenerate: { messageId: message.id } } : {}),
       });
     },
     [message],
@@ -2083,6 +2086,7 @@ export const ChatMessage = memo(function ChatMessage({
           }),
         pinEnabled: true,
         downloadEnabled: true,
+        regenerate: {},
       });
     },
     [localizeUi, message.chatId],
@@ -3713,6 +3717,7 @@ export const ChatMessage = memo(function ChatMessage({
             alt={imageLightbox.alt}
             pinEnabled={imageLightbox.pinEnabled}
             downloadEnabled={imageLightbox.downloadEnabled}
+            regenerate={imageLightbox.regenerate}
             onClose={closeImageLightbox}
           />
         )}
@@ -3858,6 +3863,7 @@ export const ChatMessage = memo(function ChatMessage({
               alt={imageLightbox.alt}
               pinEnabled={imageLightbox.pinEnabled}
               downloadEnabled={imageLightbox.downloadEnabled}
+              regenerate={imageLightbox.regenerate}
               onClose={closeImageLightbox}
             />
           )}
@@ -4377,6 +4383,7 @@ export const ChatMessage = memo(function ChatMessage({
             alt={imageLightbox.alt}
             pinEnabled={imageLightbox.pinEnabled}
             downloadEnabled={imageLightbox.downloadEnabled}
+            regenerate={imageLightbox.regenerate}
             onClose={closeImageLightbox}
           />
         )}
@@ -4894,6 +4901,7 @@ export const ChatMessage = memo(function ChatMessage({
           alt={imageLightbox.alt}
           pinEnabled={imageLightbox.pinEnabled}
           downloadEnabled={imageLightbox.downloadEnabled}
+          regenerate={imageLightbox.regenerate}
           onClose={closeImageLightbox}
         />
       )}

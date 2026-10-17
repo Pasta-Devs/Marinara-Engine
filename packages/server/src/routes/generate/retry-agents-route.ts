@@ -36,6 +36,7 @@ import {
   type GenerationParameterSendMap,
   type ManagedGenerationParameterDefinition,
   CUSTOM_GENERATION_PARAMETERS_SETTINGS_KEY,
+  buildChatImageGenerationRecord,
   parseManagedGenerationParameterDefinitions,
   removeCopiedPromptGuidance,
 } from "@marinara-engine/shared";
@@ -4059,6 +4060,15 @@ async function applyRetryResultEffects(args: {
                 model: effectiveImageModel,
                 width: imgWidth,
                 height: imgHeight,
+                generation: buildChatImageGenerationRecord({
+                  prompt: promptSubmission.prompt,
+                  connectionId: imgConnFull.id,
+                  negativePrompt: promptSubmission.negativePrompt,
+                  characterPrompts: illustratorCharacterPrompts,
+                  referenceCharacterIds: useAvatarRefs ? referenceResolution.characterIds : [],
+                  referencePersonaId: useAvatarRefs ? referenceResolution.personaId : null,
+                  locationImageId: spatialLocationReferenceImage ? retryOwnerSpatialProjection?.referenceImageId : null,
+                }),
               });
               assertRetryActive();
               await persistGeneratedImageToEntityGalleries({

@@ -22,6 +22,8 @@ export const chatImages = fileTable("chat_images", {
   width: integer("width"),
   /** Image height in pixels */
   height: integer("height"),
+  /** JSON ChatImageGenerationRecord: the request this image was rendered from, for regeneration. Null on older rows. */
+  generation: text("generation"),
   createdAt: text("created_at").notNull(),
 });
 

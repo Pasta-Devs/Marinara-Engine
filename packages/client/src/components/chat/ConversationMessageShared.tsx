@@ -168,7 +168,8 @@ export interface MessageRenderContext {
   onCopy: () => void;
   onTranslate: () => void;
   onStartEdit: () => void;
-  onImageOpen: (url: string, prompt?: string | null) => void;
+  /** `galleryId` is set for generated images saved to the chat gallery, which can be regenerated (#7767). */
+  onImageOpen: (url: string, prompt?: string | null, galleryId?: string | null) => void;
   /** Open the Convo about-me profile popout, anchored to the clicked avatar (undefined when unresolvable). */
   onOpenAboutMe?: (anchor: DOMRect) => void;
   onRemoveAttachment: (index: number) => void;
@@ -563,9 +564,11 @@ export function ConversationMessageAttachments({
     name?: string;
     prompt?: string;
     videoId?: string;
+    galleryId?: string;
   }>;
   renderedContent: string;
-  onImageOpen: (url: string, prompt?: string | null) => void;
+  /** `galleryId` is set for generated images saved to the chat gallery, which can be regenerated (#7767). */
+  onImageOpen: (url: string, prompt?: string | null, galleryId?: string | null) => void;
   onRemove: (i: number) => void;
 }) {
   const { t: localizeUi } = useUiTranslation();
@@ -587,7 +590,7 @@ export function ConversationMessageAttachments({
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
-                onImageOpen(att.url || att.data || "", att.prompt);
+                onImageOpen(att.url || att.data || "", att.prompt, att.galleryId);
               }}
               className="block cursor-zoom-in rounded-lg text-left"
               title={localizeUi("ui.noodle.noodlepostcard.openImage")}

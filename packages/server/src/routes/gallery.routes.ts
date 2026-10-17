@@ -7,7 +7,9 @@ import { writeFile } from "fs/promises";
 import { basename, extname, join } from "path";
 import { z } from "zod";
 import {
+  buildChatImageGenerationRecord,
   findImageStyleProfile,
+  parseChatImageGenerationRecord,
   LOCAL_SIDECAR_CONNECTION_ID,
   readImageAppearanceOverride,
   resolveGameSetupArtStylePrompt,
@@ -61,8 +63,14 @@ import { resolveConversationSelfieSystemPrompt } from "../services/conversation/
 import { appendImagePromptInstructions } from "../services/generation/image-prompt-instructions.js";
 import {
   suppressesReferencePromptLine,
+  readRecordedReferenceImages,
   resolveIllustratorCharacterReferences,
 } from "./generate/illustrator-references.js";
+import {
+  mergeSpatialLocationReferenceImages,
+  readSpatialLocationReferenceImageById,
+} from "../services/image/spatial-location-reference.js";
+import { createGameStoryboardsStorage } from "../services/storage/game-storyboards.storage.js";
 import { resolveBaseUrl } from "./generate/generate-route-utils.js";
 import {
   compactVideoPromptText,
@@ -190,6 +198,28 @@ const generateGalleryImageSchema = z.object({
   mapsArtworkContext: mapsArtworkContextSchema.optional(),
   promptOverride: z.string().trim().min(1).max(200_000).optional(),
   negativePromptOverride: z.string().max(200_000).optional(),
+  debugMode: z.boolean().optional().default(false),
+});
+
+/** Re-send an existing image's final request, possibly edited (#7767). */
+const regenerateGalleryImageSchema = z.object({
+  prompt: z.string().trim().min(1).max(200_000),
+  negativePrompt: z.string().max(200_000).optional(),
+  characterPrompts: z
+    .array(
+      z.object({
+        name: z.string().trim().min(1).max(200),
+        prompt: z.string().trim().min(1).max(20_000),
+        negativePrompt: z.string().max(20_000).optional(),
+        position: z.object({ x: z.number().min(0).max(1), y: z.number().min(0).max(1) }).optional(),
+      }),
+    )
+    .max(6)
+    .optional(),
+  /** Another image connection to try; defaults to the one that made the image. */
+  connectionId: z.string().trim().min(1).max(200).optional(),
+  /** Message the image was opened from, so its attachment is swapped without scanning swipes. */
+  messageId: z.string().trim().min(1).max(200).optional(),
   debugMode: z.boolean().optional().default(false),
 });
 
@@ -1558,6 +1588,12 @@ export async function galleryRoutes(app: FastifyInstance) {
           model: imageModel || "unknown",
           width,
           height,
+          generation: buildChatImageGenerationRecord({
+            prompt: providerPrompt,
+            connectionId: imageConn.id,
+            negativePrompt: providerNegativePrompt,
+            referenceCharacterIds: referenceImages ? [character.id] : [],
+          }),
         });
         if (!image) throw new Error("Generated selfie metadata could not be saved");
         await persistGeneratedImageToEntityGalleries({
@@ -1708,6 +1744,11 @@ export async function galleryRoutes(app: FastifyInstance) {
         model: context.imageModel || "unknown",
         width: compiledPrompt.width,
         height: compiledPrompt.height,
+        generation: buildChatImageGenerationRecord({
+          prompt: compiledPrompt.prompt,
+          connectionId: context.imageConnection.id,
+          negativePrompt: compiledPrompt.negativePrompt,
+        }),
       });
       if (!image) throw new Error("Generated Gallery image metadata could not be saved");
       metadataSaved = true;
@@ -1727,6 +1768,204 @@ export async function galleryRoutes(app: FastifyInstance) {
       });
     }
   });
+
+  // Regenerate an existing image from its final request, optionally edited (#7767). The new image
+  // replaces the old one wherever a message or storyboard frame shows it; the old one stays in the
+  // gallery.
+  app.post<{ Params: { chatId: string; imageId: string } }>(
+    "/:chatId/images/:imageId/regenerate",
+    async (req, reply) => {
+      const { chatId, imageId } = req.params;
+      if (!isValidChatId(chatId)) return reply.status(400).send({ error: "Invalid chatId" });
+
+      const input = regenerateGalleryImageSchema.parse(req.body);
+      const chat = await chats.getById(chatId);
+      if (!chat) return reply.status(404).send({ error: "Chat not found" });
+      const original = await storage.getById(imageId, chatId);
+      if (!original) return reply.status(404).send({ error: "Image not found" });
+      const record = parseChatImageGenerationRecord(original.generation);
+
+      // The connection that made the image, unless the user picked another; images from before
+      // records existed (or whose connection is gone) use the chat's current image connection.
+      const connectionsStore = createConnectionsStorage(app.db);
+      const preferredConnectionId = input.connectionId ?? record?.connectionId ?? null;
+      let imageConnection = preferredConnectionId ? await connectionsStore.getWithKey(preferredConnectionId) : null;
+      if (imageConnection && imageConnection.provider !== "image_generation") imageConnection = null;
+      if (input.connectionId && !imageConnection) {
+        return reply.status(400).send({ error: "That image connection no longer exists." });
+      }
+      imageConnection ??= (await resolveGalleryImageConnection(app, chat.mode, parseChatMetadata(chat.metadata)))
+        .connection;
+      if (!imageConnection) {
+        return reply
+          .status(400)
+          .send({ error: "Choose an image connection for Illustrator or set a default Images connection first." });
+      }
+
+      const imageSettings = await loadImageGenerationUserSettings(app.db);
+      const imageDefaults = resolveConnectionImageDefaults(imageConnection);
+      const imageModel = imageConnection.model || "";
+      const imageBaseUrl = imageConnection.baseUrl || "https://image.pollinations.ai";
+      const imageSource = imageConnection.imageGenerationSource || imageModel;
+      const imageServiceHint = imageConnection.imageService || imageSource;
+      const imageFallback = await resolveImageConnectionFallback(connectionsStore, imageConnection.id);
+      const width = original.width ?? imageSettings.illustration.width;
+      const height = original.height ?? imageSettings.illustration.height;
+      const negativePrompt = (input.negativePrompt ?? record?.negativePrompt ?? "").trim();
+      const characterPrompts = input.characterPrompts ?? record?.characterPrompts ?? [];
+
+      const references = record?.references ?? { characterIds: [], personaId: null, locationImageId: null };
+      const locationImage = references.locationImageId
+        ? await readSpatialLocationReferenceImageById({
+            db: app.db,
+            chatId,
+            referenceImageId: references.locationImageId,
+          })
+        : null;
+      const referenceImages = mergeSpatialLocationReferenceImages(
+        locationImage,
+        await readRecordedReferenceImages({
+          characterIds: references.characterIds,
+          personaId: references.personaId,
+          charactersStore: characters,
+          characterGallery,
+          personaGallery,
+        }),
+        6,
+      );
+
+      const debugOverrideEnabled = input.debugMode || isDebugAgentsEnabled();
+      logDebugOverride(debugOverrideEnabled, "[debug/gallery/regenerate] final prompt:\n%s", input.prompt);
+      if (negativePrompt) {
+        logDebugOverride(debugOverrideEnabled, "[debug/gallery/regenerate] negative prompt:\n%s", negativePrompt);
+      }
+      if (characterPrompts.length > 0) {
+        logDebugOverride(
+          debugOverrideEnabled,
+          "[debug/gallery/regenerate] character prompts:\n%s",
+          JSON.stringify(characterPrompts, null, 2),
+        );
+      }
+
+      const signal = createResponseAbortSignal(reply, SCENE_VIDEO_GENERATION_TIMEOUT_MS, "Gallery image regeneration");
+      let savedFilePath: string | null = null;
+      let metadataSaved = false;
+      try {
+        const generated = await generateImage(
+          imageSource,
+          imageBaseUrl,
+          imageConnection.apiKey || "",
+          imageServiceHint,
+          {
+            prompt: input.prompt,
+            negativePrompt: negativePrompt || undefined,
+            model: imageModel,
+            width,
+            height,
+            imageEndpointId: imageConnection.imageEndpointId || undefined,
+            comfyWorkflow: imageConnection.comfyuiWorkflow || undefined,
+            imageDefaults,
+            quality: resolveConnectionImageQuality(imageConnection),
+            ...(referenceImages.length > 0 ? { referenceImages } : {}),
+            ...(characterPrompts.length > 0 ? { characterPrompts } : {}),
+            signal,
+            debugMode: input.debugMode,
+            fallback: imageFallback,
+          },
+        );
+        const filePath = saveImageToDisk(chatId, generated.base64, generated.ext, { shared: true });
+        savedFilePath = filePath;
+        const prompt = generated.effectivePrompt ?? input.prompt;
+        const provider = generated.effectiveConnection?.provider ?? imageConnection.provider ?? "image_generation";
+        const model = generated.effectiveConnection?.model || imageModel || "unknown";
+        const image = await storage.create({
+          chatId,
+          filePath,
+          prompt,
+          provider,
+          model,
+          width,
+          height,
+          generation: buildChatImageGenerationRecord({
+            prompt: input.prompt,
+            connectionId: imageConnection.id,
+            negativePrompt,
+            characterPrompts,
+            referenceCharacterIds: references.characterIds,
+            referencePersonaId: references.personaId,
+            locationImageId: references.locationImageId,
+          }),
+        });
+        if (!image) throw new Error("Regenerated image metadata could not be saved");
+        metadataSaved = true;
+        await persistGeneratedImageToEntityGalleries({
+          enabled: imageSettings.autoSaveToGalleries,
+          sourceFilePath: filePath,
+          sourceChatImageId: image.id,
+          characterIds: references.characterIds,
+          personaIds: references.personaId ? [references.personaId] : [],
+          characterGallery,
+          personaGallery,
+          prompt,
+          provider,
+          model,
+          width,
+          height,
+        });
+
+        const url = buildGalleryImageUrl(image, chatId);
+        const attachmentPatch = { url, prompt, galleryId: image.id };
+        let candidateMessageIds: string[];
+        if (input.messageId) {
+          const message = await chats.getMessage(input.messageId);
+          candidateMessageIds = message?.chatId === chatId ? [message.id] : [];
+        } else {
+          // Opened from the gallery: only active-swipe mirrors are scanned, which is where a
+          // visible image lives; reading every swipe row of a long chat would be too slow.
+          candidateMessageIds = (await chats.listMessages(chatId))
+            .filter((message) => {
+              const extra = typeof message.extra === "string" ? message.extra : JSON.stringify(message.extra ?? {});
+              return extra.includes(original.id);
+            })
+            .map((message) => message.id);
+        }
+        const replacedMessageIds: string[] = [];
+        for (const messageId of candidateMessageIds) {
+          if (await chats.replaceGalleryImageAttachment(messageId, original.id, attachmentPatch)) {
+            replacedMessageIds.push(messageId);
+          }
+        }
+        const storyboards = createGameStoryboardsStorage(app.db);
+        const replacedKeyframeIds: string[] = [];
+        for (const keyframe of await storyboards.listKeyframesByChatImageId(original.id)) {
+          await storyboards.updateKeyframe(keyframe.id, { chatImageId: image.id });
+          replacedKeyframeIds.push(keyframe.id);
+        }
+
+        logger.info(
+          "[gallery/regenerate] Regenerated image %s as %s for chat %s (messages=%d keyframes=%d)",
+          original.id,
+          image.id,
+          chatId,
+          replacedMessageIds.length,
+          replacedKeyframeIds.length,
+        );
+        return { image: { ...image, url }, replacedMessageIds, replacedKeyframeIds };
+      } catch (err) {
+        if (savedFilePath && !metadataSaved) {
+          try {
+            removeSavedImageFromDisk(savedFilePath);
+          } catch (cleanupErr) {
+            logger.warn(cleanupErr, "[gallery/regenerate] Failed to clean up orphaned image file %s", savedFilePath);
+          }
+        }
+        logger.warn(err, "[gallery/regenerate] Image regeneration failed for chat %s", chatId);
+        return reply.status(502).send({
+          error: err instanceof Error ? err.message : "Image regeneration failed",
+        });
+      }
+    },
+  );
 
   // List all images for a chat
   app.get<{ Params: { chatId: string } }>("/:chatId", async (req) => {

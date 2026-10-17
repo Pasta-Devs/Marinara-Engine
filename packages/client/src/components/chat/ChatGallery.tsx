@@ -1316,7 +1316,9 @@ export function ChatGallery({
         )}
 
       {/* Lightbox */}
-      {lightbox && <ChatImageLightbox image={lightbox} onPin={handlePinImage} onClose={() => setLightbox(null)} />}
+      {lightbox && (
+        <ChatImageLightbox image={lightbox} regenerate={{}} onPin={handlePinImage} onClose={() => setLightbox(null)} />
+      )}
       {sceneVideosEnabled && videoLightbox && (
         <ChatVideoLightbox video={videoLightbox} onPin={handlePinVideo} onClose={() => setVideoLightbox(null)} />
       )}

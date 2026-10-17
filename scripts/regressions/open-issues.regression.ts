@@ -6935,7 +6935,7 @@ assert.match(
 );
 assert.match(
   conversationSelfieRuntimeSource,
-  /selfieResolvedCharacterIds = Array\.from\([\s\S]{0,300}referenceResolution\.characterIds[\s\S]{0,4500}characterIds: selfieResolvedCharacterIds/u,
+  /selfieResolvedCharacterIds = Array\.from\([\s\S]{0,300}referenceResolution\.characterIds[\s\S]{0,6000}characterIds: selfieResolvedCharacterIds/u,
   "Conversation group selfies must be saved to every depicted character gallery",
 );
 assert.match(

@@ -147,6 +147,7 @@ import {
   parseManagedGenerationParameterDefinitions,
   normalizeGameStoryboardKeyframeCount,
   estimateTextTokens,
+  buildChatImageGenerationRecord,
   diffChatVariables,
   mergeChatVariableChanges,
   removeCopiedPromptGuidance,
@@ -14011,6 +14012,17 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                           model: effectiveImageModel,
                           width: imgWidth,
                           height: imgHeight,
+                          generation: buildChatImageGenerationRecord({
+                            prompt: compiledPrompt.prompt,
+                            connectionId: imgConnFull.id,
+                            negativePrompt: finalNegativePrompt,
+                            characterPrompts: illustratorCharacterPrompts,
+                            referenceCharacterIds: useAvatarRefs ? referenceResolution.characterIds : [],
+                            referencePersonaId: useAvatarRefs ? referenceResolution.personaId : null,
+                            locationImageId: spatialLocationReferenceImage
+                              ? ownerSpatialProjection?.referenceImageId
+                              : null,
+                          }),
                         });
                         await persistGeneratedImageToEntityGalleries({
                           enabled: imageSettings.autoSaveToGalleries,

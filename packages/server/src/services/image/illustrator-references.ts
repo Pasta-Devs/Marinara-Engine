@@ -474,6 +474,57 @@ export async function readPreferredPersonaReferenceImage(args: {
   return sprite ? { base64: sprite, source: "sprite" } : null;
 }
 
+/**
+ * Re-read the reference images a regenerated chat image was originally sent with (#7767),
+ * from the characters/persona it recorded, using their current sheet/avatar/sprite.
+ * Sources that no longer exist or have no picture are skipped.
+ */
+export async function readRecordedReferenceImages(args: {
+  characterIds: readonly string[];
+  personaId: string | null;
+  charactersStore: {
+    getById: (id: string) => Promise<CharacterRowLike | null>;
+    getPersona: (id: string) => Promise<{
+      id: string;
+      avatarPath?: string | null;
+      characterSheetImageId?: string | null;
+      useCharacterSheetAsReference?: unknown;
+    } | null>;
+  };
+  characterGallery?: CharacterGalleryReferenceStore;
+  personaGallery?: PersonaGalleryReferenceStore;
+}): Promise<string[]> {
+  const images: string[] = [];
+  for (const characterId of args.characterIds) {
+    const row = await args.charactersStore.getById(characterId).catch(() => null);
+    const source = row ? characterRowToSource(row, 0) : null;
+    if (!source) continue;
+    const image = await readPreferredCharacterReferenceImage({
+      characterId: source.id,
+      avatarPath: source.avatarPath,
+      characterSheetImageId: source.characterSheetImageId,
+      useCharacterSheetAsReference: source.useCharacterSheetAsReference,
+      characterGallery: args.characterGallery,
+    });
+    if (image) images.push(image.base64);
+  }
+  if (args.personaId) {
+    const persona = await args.charactersStore.getPersona(args.personaId).catch(() => null);
+    const image = persona
+      ? await readPreferredPersonaReferenceImage({
+          personaId: persona.id,
+          avatarPath: persona.avatarPath,
+          characterSheetImageId: persona.characterSheetImageId ?? null,
+          useCharacterSheetAsReference:
+            persona.useCharacterSheetAsReference === true || persona.useCharacterSheetAsReference === "true",
+          personaGallery: args.personaGallery,
+        })
+      : null;
+    if (image) images.push(image.base64);
+  }
+  return images;
+}
+
 export async function resolveIllustratorCharacterReferences(args: {
   charactersStore: { list: () => Promise<CharacterRowLike[]> };
   chatCharacters: IllustratorChatCharacterReference[];
