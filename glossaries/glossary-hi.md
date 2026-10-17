@@ -800,3 +800,12 @@ Precedents from the #7605 sync (`agents/memory.md`):
 - New gloss **Prepare** (तैयार करें), after **Prepare existing history** (मौजूदा इतिहास तैयार करें). **Writing character recollections** (a progress stage) and **Manually edited** (a badge) are app status strings, so they stay unglossed (Pattern B).
 
 These are translation choices, not a new native-reader review.
+
+## TTS emotion indicators (2026-10-17)
+
+Precedents from the #7763 sync (`media/tts-setup.md`):
+
+- **Roleplay speaker extractor** (Roleplay में बोलने वाले की पहचान)
+- **Enable emotion indicators** (भाव के संकेत चालू करें)
+
+These are translation choices, not a new native-reader review.

@@ -128,6 +128,12 @@ Automatyczne odtwarzanie uruchamia się tylko raz, przy najnowszej odpowiedzi, w
 
 Te same ustawienia odtwarzania pozwalają też włączyć **Skip text inside HTML and custom tags** (pomijaj tekst wewnątrz znaczników HTML i własnych znaczników), **Skip fenced code blocks** (pomijaj ogrodzone bloki kodu) lub **Skip text inside square brackets** (pomijaj tekst w nawiasach kwadratowych). Bloki kodu są domyślnie pomijane; pozostałe dwa filtry są początkowo wyłączone. Filtrowanie znaczników usuwa ich zawartość, na przykład ukryty blok `<simulation>...</simulation>`, ale zachowuje znaczniki mówców używane do wyboru głosów. Filtry działają przy ręcznym i automatycznym odtwarzaniu, także dla narracji Game i rozpoznawania mówców w Roleplay.
 
+Włącz **Roleplay speaker extractor** (rozpoznawanie mówców w trybie Roleplay), aby zobaczyć opcję **Enable emotion indicators** (włącz oznaczenia emocji). Gdy oznaczenia emocji są włączone, tekst w nawiasach kwadratowych trafia do usługi syntezy mowy nawet przy włączonej opcji **Skip text inside square brackets**. Dotyczy to także notatek. Aby notatki w nawiasach nie były odczytywane, wyłącz oznaczenia emocji i zostaw opcję pomijania włączoną.
+
+Wskazówki dotyczące głosu, takie jak `[Low, steady voice, restrained urgency]`, pozostają w całości, gdy długa kwestia jest dzielona do odczytu. Znane oznaczenia mówców i scen nadal są usuwane. O tym, jak wykorzystać daną wskazówkę, decyduje model mowy.
+
+**Roleplay speaker extractor** dodaje wskazówki bez zmiany słów oryginalnych kwestii. Gdy **Enable TTS**, **Game narration** i oznaczenia emocji są włączone, takie wskazówki mogą też trafiać do kwestii mówionych w scenach, dialogach drużyny i podczas walki w trybie Game Mode.
+
 ## Odczytanie pojedynczej wiadomości
 
 Kiedy TTS jest włączony, na pasku narzędzi pod każdą wiadomością postaci lub narratora pojawia się przycisk **Speak** (ikona mikrofonu). Czyta on tę jedną wiadomość na żądanie.

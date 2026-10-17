@@ -473,3 +473,10 @@ Precedent from the #7605 mirror (`agents/memory.md`: the new section `### Souven
 - The prompt-line example `Kaito's personal recollections from this scene: *…*` stays an English code span.
 - **Writing character recollections** (progress) and **Manually edited** (badge) are status strings: no gloss (§5.8), and the French sentence carries the meaning (*la progression s'affiche sous le nom **Writing character recollections***, *est marqué **Manually edited***). The new bare button **Prepare** is glossed *(préparer)*.
 - Other renderings: "knowledge start" *le début de sa plage de connaissance*; "the Helper's room for the scene" *la place dont le modèle auxiliaire dispose pour la scène*; "recollection run" *le traitement des souvenirs personnels*; "out of date" *périmés*; "left out of prompts" *restent hors des prompts*; "never cut short" *jamais tronqué*; "the model is told to" *le modèle a pour consigne de* (guidance sense of `consigne`, §3.1).
+
+## TTS emotion indicators (2026-10-17)
+
+Precedent from the #7763 sync (`media/tts-setup.md`):
+
+- **Roleplay speaker extractor** is glossed *(identification des locuteurs en Roleplay)*.
+- **Enable emotion indicators** is glossed *(activer les indications d'émotion)*.

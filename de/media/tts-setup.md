@@ -128,6 +128,12 @@ Die automatische Wiedergabe greift genau einmal, bei der neuesten Antwort, im Mo
 
 Dieselben Wiedergabeeinstellungen bieten außerdem **Skip text inside HTML and custom tags** (Text in HTML- und eigenen Tags überspringen), **Skip fenced code blocks** (abgegrenzte Codeblöcke überspringen) und **Skip text inside square brackets** (Text in eckigen Klammern überspringen). Codeblöcke werden standardmäßig übersprungen; die anderen beiden Filter sind zunächst aus. Der Tag-Filter entfernt eingeschlossenen Text, etwa einen verborgenen Block `<simulation>...</simulation>`, behält aber Sprecher-Tags für die Stimmenwahl. Die Filter gelten für manuelle und automatische Wiedergabe, einschließlich Game-Erzählung und Sprechererkennung in Roleplay.
 
+Schalte **Roleplay speaker extractor** (Sprechererkennung in Roleplay) ein, damit **Enable emotion indicators** (Emotionshinweise aktivieren) erscheint. Wenn die Emotionshinweise eingeschaltet sind, bleibt Text in eckigen Klammern für den Sprachdienst erhalten, auch wenn **Skip text inside square brackets** eingeschaltet ist. Das kann auch Notizen einschließen. Sollen Notizen in Klammern nicht vorgelesen werden, schalte die Emotionshinweise aus und lass die Option zum Überspringen eingeschaltet.
+
+Sprechanweisungen wie `[Low, steady voice, restrained urgency]` bleiben vollständig erhalten, wenn eine lange Zeile für die Sprachausgabe aufgeteilt wird. Bekannte Sprecher- und Szenenmarkierungen werden weiterhin entfernt. Das Sprachmodell entscheidet, wie es die einzelnen Anweisungen umsetzt.
+
+Der **Roleplay speaker extractor** ergänzt Sprechanweisungen, ohne den Wortlaut der ursprünglichen Dialoge zu ändern. Wenn **Enable TTS**, **Game narration** und die Emotionshinweise eingeschaltet sind, können auch Szenen-, Party- und Kampfdialoge im Game Mode solche Anweisungen enthalten.
+
 ## Eine einzelne Nachricht vorlesen
 
 Sobald TTS aktiv ist, erscheint in der Werkzeugleiste unter jeder Charakter- oder Erzählernachricht eine Schaltfläche **Speak** (Mikrofonsymbol). Sie liest genau diese eine Nachricht auf Zuruf vor.

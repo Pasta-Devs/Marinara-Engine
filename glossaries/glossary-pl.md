@@ -1045,3 +1045,10 @@ Precedent from the #7605 sync (`agents/memory.md`: the new section `### Osobiste
 - **Writing character recollections** sits behind the carrier **zadanie**, like *zadanie **Updating continuity***, glossed *(pisanie osobistych wspomnień postaci)*. The badge **Manually edited** sits behind **etykieta**, glossed *(edytowano ręcznie)* like **Not saved** *(nie zapisano)*. The new bare button **Prepare** is glossed *(przygotuj)*, the imperative this file uses for **Prepare existing history** *(przygotuj dotychczasową historię)*.
 - "The model is told to" is **Instrukcje nakazują modelowi**, never *polecenie* (R-21, R-60). "Because you edited it" stays gender-free: *bo zostało edytowane przez ciebie*, *jeśli je edytowano* (R-3/R-4).
 - Other renderings: "knowledge start" *początek zakresu wiedzy*; "the Helper's room for the scene" *miejsce, jakie model pomocniczy ma na scenę*; "recollection run" *tworzenie osobistych wspomnień*; "a logical character" *postać myśląca logicznie*; "left out of prompts" *nie trafiają do promptów*; "never cut short" *nigdy nie jest ucinane*.
+
+## TTS emotion indicators (2026-10-17)
+
+Translation choices for `media/tts-setup.md` in #7763, matching English source `5ae55e73`:
+
+- **Roleplay speaker extractor** is glossed once as *(rozpoznawanie mówców w trybie Roleplay)*, using the guide's speaker-detection wording with the mode carrier required by R-14.
+- **Enable emotion indicators** is glossed once as *(włącz oznaczenia emocji)*. Later prose uses *oznaczenia emocji*; voice directions are *wskazówki dotyczące głosu*.

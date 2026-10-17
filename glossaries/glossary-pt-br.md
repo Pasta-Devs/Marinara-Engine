@@ -687,3 +687,10 @@ Sync of #7605 (`agents/memory.md`) against `staging` `a8481ca6de96`.
 - A character's knowledge start is **o início do intervalo de conhecimento dele**, built on the file's **intervalo de conhecimento**. "In their own voice" is **com a voz dele**, "in the first person" **em primeira pessoa**, "what stayed with them most" **o que mais o marcou**. Leaving a recollection out of prompts is **ficar fora dos prompts** / **sair dos prompts**.
 - Labels: **Writing character recollections** (escrevendo as recordações dos personagens), **Manually edited** (editada manualmente, agreeing with `recordação`), **Prepare** (preparar), a different label from **Prepare existing history**. **Resume** and **Re-scan scenes** already appear earlier in the file and stay bare.
 - "Export, import and branches include them": branches are **ramificações**, as in `chats/branches.md`.
+
+## TTS emotion indicators (2026-10-17)
+
+Precedent from the #7763 sync (`media/tts-setup.md`):
+
+- **Roleplay speaker extractor** is glossed **(identificação de falantes em Roleplay)**.
+- **Enable emotion indicators** is glossed **(ativar indicadores de emoção)**.
