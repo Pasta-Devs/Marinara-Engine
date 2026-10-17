@@ -105,6 +105,7 @@ export function collectStateChanges(
   const changes: StateEditorChange[] = [];
   const invalidSectionIds: string[] = [];
   for (const section of sections) {
+    if (section.readOnly) continue;
     const status = getStateSectionDraftStatus(section, drafts[section.id]);
     if (status.kind === "changed") changes.push({ sectionId: section.id, value: status.value });
     else if (status.kind === "invalid") invalidSectionIds.push(section.id);

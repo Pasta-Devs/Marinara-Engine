@@ -22,6 +22,11 @@ import {
   buildChatVariablesEditorPatch,
   readChatVariables,
 } from "../../packages/client/src/lib/state-editor/chat-variables-editor-source.js";
+import {
+  buildGameDataEditorEdits,
+  buildGameDataEditorSections,
+  readGameMetadata,
+} from "../../packages/client/src/lib/state-editor/game-data-editor-source.js";
 import type { StateEditorSection } from "../../packages/client/src/lib/state-editor/state-editor.types.js";
 
 // ── layout ──
@@ -222,5 +227,110 @@ assert.deepEqual(issueOf({ big: "x".repeat(10_001) }), { kind: "tooLong", name: 
 assert.deepEqual(issueOf(Object.fromEntries(Array.from({ length: 501 }, (_, i) => [`v${i}`, "x"]))), {
   kind: "tooMany",
 });
+
+// ── game data (#7743): read-only sections ──
+
+const lockedSection: StateEditorSection = { id: "locked", label: "Locked", value: { a: 1 }, readOnly: true };
+assert.deepEqual(
+  collectStateChanges([lockedSection], { locked: '{ "a": 2 }' }),
+  { changes: [], invalidSectionIds: [] },
+  "a read-only section never counts as changed or invalid, whatever draft it is handed",
+);
+assert.deepEqual(
+  collectStateChanges([lockedSection], { locked: "{ broken" }),
+  { changes: [], invalidSectionIds: [] },
+  "a broken draft on a read-only section doesn't block saving the others",
+);
+
+const gameMetadata = readGameMetadata(
+  JSON.stringify({
+    gameNpcs: [{ id: "npc-1", name: "Bram", reputation: 35 }],
+    gameStoryArc: "The bell was stolen.",
+    gamePlotTwists: ["The mayor did it"],
+    activeGameMapId: "map-1",
+    gameSpecialInstructions: "Keep combat rare.",
+    gameNarrationIndex: 0,
+    gameSomethingNew: { added: "later" },
+    macroVariables: { day: "3" },
+    sceneBackground: "not a game key",
+  }),
+);
+const gameSections = buildGameDataEditorSections(gameMetadata, (id, part) => `${id}.${part}`);
+const gameSectionById = Object.fromEntries(gameSections.map((section) => [section.id, section]));
+assert.deepEqual(
+  gameSections.map((section) => section.id),
+  ["npcs", "story", "maps", "settings", "other"],
+  "only sections the game has data for show, named ones first, then Settings and Other",
+);
+assert.deepEqual(
+  gameSections.filter((section) => !section.readOnly).map((section) => section.id),
+  ["npcs", "story"],
+  "a section is editable only when every key in it is on the allow-list; catch-alls never are",
+);
+assert.deepEqual(gameSectionById.npcs?.value, gameMetadata.gameNpcs, "a one-key section shows that key's value as is");
+assert.deepEqual(
+  gameSectionById.story?.value,
+  { gameStoryArc: "The bell was stolen.", gamePlotTwists: ["The mayor did it"] },
+  "a several-key section shows the keys the game has, by name",
+);
+assert.deepEqual(
+  gameSectionById.maps?.value,
+  { activeGameMapId: "map-1" },
+  "named keys without the game prefix land in their section",
+);
+assert.deepEqual(
+  gameSectionById.settings?.value,
+  { gameSpecialInstructions: "Keep combat rare." },
+  "prompt and media preferences fall into Settings, by name even when alone",
+);
+assert.deepEqual(
+  gameSectionById.other?.value,
+  { gameNarrationIndex: 0, gameSomethingNew: { added: "later" } },
+  "a game key no section names still shows, so new Game Mode keys are never hidden",
+);
+assert.equal(gameSectionById.npcs?.label, "npcs.label", "labels come from the localize callback");
+assert.deepEqual(readGameMetadata("{ not json"), {}, "unreadable metadata shows no sections instead of throwing");
+assert.deepEqual(
+  buildGameDataEditorSections({ macroVariables: { a: "b" } }, () => ""),
+  [],
+  "non-game keys never show",
+);
+
+// ── game data (#7743): per-key edits with the opened values ──
+
+const openedGame = { gameNpcs: [{ id: "n1", name: "Bram" }], gameStoryArc: "Old arc", gamePlotTwists: ["a"] };
+assert.deepEqual(
+  buildGameDataEditorEdits(openedGame, [
+    { sectionId: "npcs", value: [{ id: "n1", name: "Bram", reputation: 5 }] },
+    { sectionId: "story", value: { gameStoryArc: "New arc", gamePlotTwists: ["a"], gameWorldOverview: "Added" } },
+  ]),
+  {
+    edits: [
+      { key: "gameNpcs", expected: openedGame.gameNpcs, value: [{ id: "n1", name: "Bram", reputation: 5 }] },
+      { key: "gameWorldOverview", expected: null, value: "Added" },
+      { key: "gameStoryArc", expected: "Old arc", value: "New arc" },
+    ],
+  },
+  "a several-key section sends only changed keys, each with the value it opened (null when absent)",
+);
+assert.deepEqual(
+  buildGameDataEditorEdits(openedGame, [{ sectionId: "story", value: { gamePlotTwists: ["a"] } }]),
+  { edits: [{ key: "gameStoryArc", expected: "Old arc", value: null }] },
+  "a key removed from a several-key section is sent as null",
+);
+assert.deepEqual(
+  buildGameDataEditorEdits(openedGame, [{ sectionId: "story", value: { gameSystemPrompt: "x" } }]),
+  { sectionId: "story", issue: { kind: "unknownKey", key: "gameSystemPrompt" } },
+  "a key that isn't the section's is refused before it reaches the server",
+);
+assert.deepEqual(buildGameDataEditorEdits(openedGame, [{ sectionId: "story", value: ["x"] }]), {
+  sectionId: "story",
+  issue: { kind: "notObject" },
+});
+assert.deepEqual(
+  buildGameDataEditorEdits(openedGame, [{ sectionId: "maps", value: {} }]),
+  { sectionId: "maps", issue: { kind: "readOnly" } },
+  "a read-only section can't produce an edit",
+);
 
 console.log("state-editor regression passed");

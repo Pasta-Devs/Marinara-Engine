@@ -13,6 +13,8 @@ interface StateJsonFieldProps {
   /** Draws the field in the error color, e.g. while the JSON does not parse. */
   invalid?: boolean;
   disabled?: boolean;
+  /** Selectable and scrollable but not editable, unlike `disabled`, which also greys it out. */
+  readOnly?: boolean;
   /** Smaller type for dense panels such as Agent Suite. */
   compact?: boolean;
   /** Fixed visible rows; the field fills its container's height when omitted. */
@@ -28,6 +30,7 @@ export function StateJsonField({
   ariaLabel,
   invalid = false,
   disabled = false,
+  readOnly = false,
   compact = false,
   rows,
   textareaRef,
@@ -77,6 +80,7 @@ export function StateJsonField({
         }}
         onSelect={onSelect}
         disabled={disabled}
+        readOnly={readOnly}
         rows={rows}
         wrap="off"
         spellCheck={false}

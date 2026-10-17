@@ -40,6 +40,8 @@ import {
 import { resolveCombatWeather } from "../services/game/weather.service.js";
 import { resolveGameConnection } from "../services/game/connection.service.js";
 import { combatAiHintsSchema, combatTacticsSchema, combatInterruptFields } from "@marinara-engine/shared";
+import { gameDataEditRequestSchema, type GameDataEditIssue } from "@marinara-engine/shared";
+import { buildGameDataEditPatch } from "../services/game/game-data-edit.service.js";
 // ──────────────────────────────────────────────
 // Routes: Game Mode
 // ──────────────────────────────────────────────
@@ -13192,6 +13194,51 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     });
 
     return { ok: true };
+  });
+
+  // ── PATCH /game/:chatId/data ──
+  // The State Editor's hand edits of the game's own data (#7743). Only allow-listed keys, each
+  // checked; refused whole when any key changed since the editor opened it. Never the generic
+  // metadata PATCH, which merges any key unchecked and replaces lists like gameNpcs wholesale.
+  app.patch<{ Params: { chatId: string } }>("/:chatId/data", async (req, reply) => {
+    const parsed = gameDataEditRequestSchema.safeParse(req.body);
+    if (!parsed.success) return reply.status(400).send({ error: "Invalid game data edit", issues: [] });
+    const { edits } = parsed.data;
+    if (new Set(edits.map((edit) => edit.key)).size !== edits.length) {
+      return reply.status(400).send({ error: "Each key may be edited once per save", issues: [] });
+    }
+    const chats = createChatsStorage(app.db);
+    const chat = await chats.getById(req.params.chatId);
+    if (!chat) return reply.status(404).send({ error: "Chat not found" });
+    if (chat.mode !== "game") return reply.status(400).send({ error: "Not a game", issues: [] });
+
+    // Party card sheets are read through the game's pinned ruleset, resolved once before the queue.
+    const meta = parseMeta(chat.metadata);
+    const pinned =
+      meta.gameRuleset != null && edits.some((edit) => edit.key === "gameCharacterCards")
+        ? resolveGameRuleset(meta, await loadRulesetRegistry(app.db))
+        : null;
+    const ruleset = pinned?.status === "ok" ? pinned.definition : null;
+
+    let issues: GameDataEditIssue[] = [];
+    const updated = await chats.patchMetadata(req.params.chatId, (fresh) => {
+      const result = buildGameDataEditPatch(fresh, edits, ruleset);
+      if ("issues" in result) {
+        issues = result.issues;
+        return {};
+      }
+      return result.patch;
+    });
+    if (!updated) return reply.status(404).send({ error: "Chat not found" });
+    if (issues.length > 0) {
+      const stale = issues.some((issue) => issue.reason === "stale");
+      return reply.status(stale ? 409 : 400).send({
+        error: stale ? "The game changed this data since the editor opened it" : "Some game data can't be saved",
+        issues,
+      });
+    }
+    logger.info("[game/data] %s: hand edit saved (%s)", req.params.chatId, edits.map((edit) => edit.key).join(", "));
+    return { saved: edits.map((edit) => edit.key) };
   });
 
   // ── POST /game/party-turn ──

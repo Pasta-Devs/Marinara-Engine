@@ -2071,6 +2071,7 @@ function applyElementAttackTagsToCombatants(
 import {
   AlertTriangle,
   BookOpen,
+  Braces,
   Feather,
   Folder,
   Film,
@@ -14022,6 +14023,13 @@ function GameSurfaceComponent({
                 </div>
               )}
               {renderRetryItems()}
+              <button
+                onClick={() => useUIStore.getState().openModal("game-data-editor", { chatId: activeChatId })}
+                className={GAME_ACTION_MENU_ITEM}
+              >
+                <Braces size={13} />
+                <span>{t("game.toolbar.editGameData")}</span>
+              </button>
             </div>
           </ChatControlWindow>
           <ChatControlWindow
