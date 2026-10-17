@@ -186,6 +186,8 @@ import {
   sanitizeGameNpcAvatarUrls,
 } from "../services/game/npc-avatar-utils.js";
 import {
+  buildCheckpointGameMetadataRestore,
+  readCheckpointCharacterIds,
   createCheckpointService,
   type CapturedEngineState,
   type CheckpointTrigger,
@@ -16604,11 +16606,26 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
       }
     });
 
-    // Restore chat metadata fields from checkpoint
-    if (cp.gameState) {
-      await chats.patchMetadata(input.chatId, () => ({
-        gameActiveState: cp.gameState as GameActiveState,
+    // Restore chat metadata fields from checkpoint: the game's own keys it captured (#7742), and the
+    // active state. A checkpoint from before gameMetadataData leaves those keys as they are, as before.
+    const capturedGameMetadata = parseJsonField<Record<string, unknown> | null>(cp.gameMetadataData, null);
+    const restoresGameMetadata =
+      !!capturedGameMetadata && typeof capturedGameMetadata === "object" && !Array.isArray(capturedGameMetadata);
+    const restorePatch = (current: Record<string, unknown>): Record<string, unknown> => ({
+      ...(restoresGameMetadata ? buildCheckpointGameMetadataRestore(capturedGameMetadata, current) : {}),
+      ...(cp.gameState ? { gameActiveState: cp.gameState as GameActiveState } : {}),
+    });
+    // The chat's characterIds column holds the party's library members, and session start trusts it
+    // over gamePartyCharacterIds. So the load puts back the list it had at the save, in the same
+    // queued write, or a member recruited after the save would come back at the next session.
+    const capturedCharacterIds = parseJsonField<unknown>(cp.chatCharacterIdsData, null);
+    if (restoresGameMetadata && Array.isArray(capturedCharacterIds)) {
+      await chats.patchMetadataWithCharacterIds(input.chatId, (current) => ({
+        metadata: restorePatch(current),
+        characterIds: readCheckpointCharacterIds(capturedCharacterIds),
       }));
+    } else if (cp.gameState || restoresGameMetadata) {
+      await chats.patchMetadata(input.chatId, (current) => ({ ...restorePatch(current) }));
     }
 
     return { ok: true, messageId: restoreMsg.id };

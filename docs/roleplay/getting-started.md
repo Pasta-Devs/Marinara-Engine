@@ -99,6 +99,12 @@ You can view, edit, and re-run a saved snippet. An edit changes only what is use
 
 The Narrative Director has a **Push Story** button above the chat box. It arms the Director for the next reply only. The Narrative Director can also hold a hidden long-term arc called **Secret Plot**. See [Narrative Director and Secret Plot](narrative-director.md) for both.
 
+## Illustrations in the message
+
+In **Chat Settings → Agents → Roleplay Commands**, enable **Illustrations** to let characters request an image with `[illustrate: subject="..." characters="..."]`. The image uses the chat's Illustrator settings and appears below the message.
+
+Turn on **Render in-line** under **Illustrations** to show each image inside the message instead, at the place the character wrote the command, for example between two paragraphs. The image keeps its controls: select it to see its prompt, or use the **X** to remove it. The character is told it can place the command wherever the picture belongs. The setting applies to new images, so images already in the chat stay where they are. Automatic Illustrator images and the Visual Novel layout keep showing images as before.
+
 ## Whispers and secrets
 
 In **Chat Settings → Agents → Roleplay Commands**, enable **Whisper** to allow private asides, secrets, or visions inside a reply. It starts off. Choose whether **All** characters or only the appointed **Narrator** can use it. Like Personal Notes, it requires a solo chat or **Individual** group generation.

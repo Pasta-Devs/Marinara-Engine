@@ -2343,6 +2343,226 @@ test("Roleplay commands require attached agents, enforce combat audience, and fo
   }
 });
 
+test("Render in-line shows each illustrate command's images where the command was written", async ({
+  page,
+  request,
+}, testInfo) => {
+  test.setTimeout(90_000);
+  const output = [
+    "The campus is doing its best October impression.",
+    '[illustrate: subject="A lecture hall filling up" characters="Alice"]',
+    "The hall smells like radiator dust.",
+    '[illustrate: subject="A phone showing a pigeon in a tiny hat"]',
+    "She climbs the steps two at a time.",
+  ].join("\n\n");
+  const chatRequests: any[] = [];
+  const colors = ["#d9822b", "#2b7ad9"];
+  let images = 0;
+  const provider = createServer(async (incoming, response) => {
+    if (incoming.method !== "POST") {
+      incoming.resume();
+      response.writeHead(404).end();
+      return;
+    }
+    const chunks: Buffer[] = [];
+    for await (const chunk of incoming) chunks.push(Buffer.from(chunk));
+    const data = Buffer.concat(chunks);
+    if (incoming.url?.includes("/images/")) {
+      const background = colors[images++ % colors.length];
+      const image: Buffer = await sharp({ create: { width: 640, height: 400, channels: 3, background } })
+        .png()
+        .toBuffer();
+      response.writeHead(200, { "content-type": "application/json" });
+      response.end(JSON.stringify({ data: [{ b64_json: image.toString("base64") }] }));
+      return;
+    }
+    const body = JSON.parse(data.toString("utf8"));
+    const prompt = contentOf(body);
+    const content = prompt.includes("You are the Illustrator prompt writer")
+      ? JSON.stringify({
+          prompt: prompt.includes("A lecture hall filling up") ? "LECTURE_HALL_PROMPT" : "PIGEON_PHONE_PROMPT",
+          style: "ink sketch",
+          aspectRatio: "landscape",
+        })
+      : (chatRequests.push(body), output);
+    if (body.stream) {
+      response.writeHead(200, { "content-type": "text/event-stream", connection: "close" });
+      response.end(
+        `data: ${JSON.stringify({ choices: [{ index: 0, delta: { content }, finish_reason: "stop" }] })}\n\ndata: [DONE]\n\n`,
+      );
+    } else {
+      response.writeHead(200, { "content-type": "application/json" });
+      response.end(
+        JSON.stringify({
+          choices: [{ message: { role: "assistant", content }, finish_reason: "stop" }],
+          usage: { prompt_tokens: 10, completion_tokens: 10, total_tokens: 20 },
+        }),
+      );
+    }
+  });
+  await new Promise<void>((resolve) => provider.listen(0, "127.0.0.1", resolve));
+  const address = provider.address();
+  if (!address || typeof address === "string") throw new Error("Fixture did not bind");
+  const baseUrl = `http://127.0.0.1:${address.port}/v1`;
+  const fixture = await createFixture(request, baseUrl, ["Alice"]);
+  const alice = fixture.characters[0].id;
+  const create = async (path: string, data: unknown) => {
+    const response = await request.post(path, { data });
+    expect(response.ok(), await response.text()).toBeTruthy();
+    const row = await response.json();
+    fixture.resources.unshift(`${path}/${row.id}`);
+    return row;
+  };
+  const metadata = async (data: unknown) => {
+    const response = await request.patch(`/api/chats/${fixture.chat.id}/metadata`, { data });
+    expect(response.ok(), await response.text()).toBeTruthy();
+  };
+  const generate = async () => {
+    const response = await request.post("/api/generate", { data: { chatId: fixture.chat.id, forCharacterId: alice } });
+    expect(response.ok(), await response.text()).toBeTruthy();
+    const stream = await response.text();
+    expect(stream).not.toContain("event: error\n");
+    expect(stream).not.toContain('"agent_error"');
+    expect(stream).not.toContain('"roleplay_command_error"');
+    const messages = await (await request.get(`/api/chats/${fixture.chat.id}/messages`)).json();
+    return messages.filter((message: any) => message.role === "assistant").at(-1);
+  };
+  try {
+    const connection = await create("/api/connections", {
+      name: "Local image fixture",
+      provider: "custom",
+      model: "gpt-image-2",
+      baseUrl,
+      apiKey: "synthetic-test-key",
+      treatAsLocalEndpoint: true,
+      imageGenerationSource: "openai",
+      imageService: "openai",
+    });
+    await create("/api/agents", {
+      type: "illustrator",
+      name: "illustrator",
+      phase: "post_processing",
+      connectionId: fixture.chat.connectionId,
+      promptTemplate: "DEFAULT_ILLUSTRATOR_MODE",
+      settings: { runInterval: 0, enabledTools: [], customCapabilities: { trigger_image_generation: true } },
+    });
+    await metadata({
+      roleplayCommandsEnabled: true,
+      roleplayCommandToggles: { illustrate: true },
+      activeAgentIds: ["illustrator"],
+      illustratorImageConnectionId: connection.id,
+      illustratorUseAvatarReferences: false,
+    });
+
+    // Off: the prompt has no placement sentence and images keep no place in the text.
+    const below = await generate();
+    expect(contentOf(chatRequests.at(-1))).not.toContain("The image appears exactly where you write the command");
+    expect(extra(below.extra).roleplayCommandActivity.map((item: any) => item.contentOffset)).toEqual([
+      undefined,
+      undefined,
+    ]);
+    expect(images).toBe(2);
+    expect(extra(below.extra).attachments).toHaveLength(2);
+
+    // On: each image records its command, and the command records where it was written.
+    await metadata({ roleplayIllustrateInline: true });
+    const inline = await generate();
+    expect(contentOf(chatRequests.at(-1))).toContain("The image appears exactly where you write the command");
+    const activity = extra(inline.extra).roleplayCommandActivity;
+    expect(activity.map((item: any) => inline.content.slice(0, item.contentOffset).trim())).toEqual([
+      "The campus is doing its best October impression.",
+      "The campus is doing its best October impression.\n\nThe hall smells like radiator dust.",
+    ]);
+    // Both images run at once, so either can be saved first.
+    expect(
+      extra(inline.extra)
+        .attachments.map((item: any) => item.roleplayCommandIndex)
+        .sort(),
+    ).toEqual([0, 1]);
+
+    await openChat(page, fixture.chat.id, { theme: "dark" });
+    const message = page.locator(`[data-message-id="${inline.id}"]`).first();
+    await expect(message).toContainText("radiator dust", { timeout: 30_000 });
+    const placed = message.locator("[data-roleplay-inline-illustration]");
+    await expect(placed).toHaveCount(2);
+    await expect(placed.locator("img")).toHaveCount(2);
+    // Each image sits after the paragraph its command followed, inside the message text.
+    const before = await placed.evaluateAll((elements) =>
+      elements.map((element) => {
+        const container = element.closest(".mari-message-content") ?? element.parentElement!;
+        const range = document.createRange();
+        range.setStart(container, 0);
+        range.setEndBefore(element);
+        return range.toString().trim();
+      }),
+    );
+    expect(before[0]).toMatch(/October impression\.$/u);
+    expect(before[1]).toMatch(/radiator dust\.$/u);
+    await placed.first().scrollIntoViewIfNeeded();
+    await testInfo.attach(`roleplay-inline-illustrations-${testInfo.project.name}.png`, {
+      body: await page.screenshot({
+        animations: "disabled",
+        path: testInfo.outputPath("roleplay-inline-illustrations.png"),
+      }),
+      contentType: "image/png",
+    });
+
+    // Selecting each image still opens it with the prompt of the command written at its place.
+    for (const [index, expected] of ["LECTURE_HALL_PROMPT", "PIGEON_PHONE_PROMPT"].entries()) {
+      if (index > 0) await page.keyboard.press("Escape");
+      await placed
+        .nth(index)
+        .getByRole("button", { name: /^Open /u })
+        .click();
+      await expect(page.getByText(expected).first()).toBeVisible();
+    }
+    await testInfo.attach(`roleplay-inline-illustration-lightbox-${testInfo.project.name}.png`, {
+      body: await page.screenshot({
+        animations: "disabled",
+        path: testInfo.outputPath("roleplay-inline-illustration-lightbox.png"),
+      }),
+      contentType: "image/png",
+    });
+    await page.keyboard.press("Escape");
+
+    // Removing one keeps the other in its place.
+    await placed.first().hover();
+    await placed.first().getByRole("button", { name: "Remove image from message" }).click();
+    await expect(placed).toHaveCount(1);
+    await expect
+      .poll(async () => {
+        const messages = await (await request.get(`/api/chats/${fixture.chat.id}/messages`)).json();
+        const saved = messages.find((item: any) => item.id === inline.id);
+        return extra(saved.extra).attachments.map((item: any) => item.roleplayCommandIndex);
+      })
+      .toEqual([1]);
+
+    await page.evaluate(async () => {
+      const { useChatStore } = await import("/src/stores/chat.store.ts" as string);
+      useChatStore.getState().setShouldOpenSettings(true);
+    });
+    const section = page.locator('[data-chat-settings-section="roleplay-agents"]');
+    const header = section.locator('[role="button"][aria-expanded]').first();
+    if ((await header.getAttribute("aria-expanded")) === "false") await header.click();
+    const commands = page.locator("[data-roleplay-commands]");
+    await commands.getByRole("button", { name: "Expand Commands", exact: true }).click();
+    const toggle = commands.getByRole("checkbox", { name: /^Render in-line\b/u });
+    await expect(toggle).toBeChecked();
+    await toggle.scrollIntoViewIfNeeded();
+    await testInfo.attach(`roleplay-inline-illustration-setting-${testInfo.project.name}.png`, {
+      body: await page.screenshot({
+        animations: "disabled",
+        path: testInfo.outputPath("roleplay-inline-illustration-setting.png"),
+      }),
+      contentType: "image/png",
+    });
+  } finally {
+    await fixture.cleanup();
+    provider.closeAllConnections();
+    await new Promise<void>((resolve) => provider.close(() => resolve()));
+  }
+});
+
 test("Roleplay gates Soundtrack and Documents and uses the selected Music DJ source", async ({ page, request }) => {
   const mainRequests: any[] = [],
     musicRequests: any[] = [];

@@ -4782,6 +4782,8 @@
   "roleplay.commands.errors.whisperRecipient": "Whispers need one unambiguous character in this chat.",
   "roleplay.commands.failed": "A roleplay command could not be completed: {{error}}",
   "roleplay.commands.illustrate.description": "Let characters request extra Illustrator images. Automatic runs still follow the agent's Run Interval.",
+  "roleplay.commands.illustrate.inline.description": "Show each image inside the message, where the character placed the command, instead of below it.",
+  "roleplay.commands.illustrate.inline.label": "Render in-line",
   "roleplay.commands.illustrate.label": "Illustrations",
   "roleplay.commands.individualRequired": "Private context requires a solo chat or individual group mode.",
   "roleplay.commands.interrupt.description": "Let characters plausibly interrupt the latest message. You can restore its original text.",

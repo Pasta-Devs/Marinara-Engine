@@ -7578,7 +7578,13 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
         };
         const captureReasoning = chatMode === "roleplay" && showThoughts;
 
-        const roleplayMediaRequests: Array<{ command: RoleplayCommand; messageId: string; swipeIndex: number }> = [];
+        const roleplayMediaRequests: Array<{
+          command: RoleplayCommand;
+          messageId: string;
+          swipeIndex: number;
+          /** The command's place in its message's saved activity, so its images can be shown where it was written. */
+          activityIndex?: number;
+        }> = [];
         const streamOutput = new GenerationStreamOutput(
           reply,
           holdForTextRewrite,
@@ -9157,6 +9163,11 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                       ? "spotify"
                       : null;
               if (requiredAgent && !resolvedAgents.some((agent) => agent.type === requiredAgent)) continue;
+              if (command.type === "illustrate" && chatMeta.roleplayIllustrateInline === true) {
+                // Saved like a whisper's place, so edits keep the images next to the same text.
+                activity.contentOffset = parsed.positions.get(activity) ?? parsed.content.length;
+                roleplayInlinePrefixes.set(activity, parsed.content.slice(0, activity.contentOffset));
+              }
               roleplayActivity.push(activity);
               roleplayActivityPlaces.set(activity, parsed.content.slice(0, parsed.positions.get(activity)));
               if (
@@ -10808,10 +10819,9 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 });
                 for (const [index, part] of replyParts.entries()) part.activity = placed[index]!;
               }
-              extraUpdate.roleplayCommandActivity = [
-                ...getRoleplayCommandActivity(previousExtra),
-                ...(replyParts?.at(-1)!.activity ?? roleplayActivity),
-              ];
+              const previousActivity = getRoleplayCommandActivity(previousExtra);
+              const savedActivity = replyParts?.at(-1)!.activity ?? roleplayActivity;
+              extraUpdate.roleplayCommandActivity = [...previousActivity, ...savedActivity];
               // New records own their editable context; legacy extras are read only as a fallback.
               extraUpdate.roleplayPrivateCommands = null;
               extraUpdate.roleplayDocuments = null;
@@ -10843,10 +10853,16 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               else roleplayTimeline.push(timelineMessage);
               for (const command of currentRoleplayMedia) {
                 const part = replyParts?.find((item) => item.activity.some((activity) => activity.command === command));
+                // Only the last part keeps the earlier activity of a continued message ahead of its own.
+                const partActivity = replyParts ? part?.activity : roleplayActivity;
+                const index = partActivity?.findIndex((activity) => activity.command === command) ?? -1;
                 roleplayMediaRequests.push({
                   command,
                   messageId: (part?.message ?? savedMsg).id,
                   swipeIndex: savedSwipeIndex ?? 0,
+                  ...(index >= 0
+                    ? { activityIndex: (partActivity === savedActivity ? previousActivity.length : 0) + index }
+                    : {}),
                 });
               }
             }
@@ -14042,6 +14058,10 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                             filename: `illustration_${variantIndex + 1}.${imageResult.ext}`,
                             prompt: renderedPrompt,
                             galleryId: (galleryEntry as any)?.id,
+                            ...(commandTarget?.command.type === "illustrate" &&
+                            typeof commandTarget.activityIndex === "number"
+                              ? { roleplayCommandIndex: commandTarget.activityIndex }
+                              : {}),
                           };
 
                           // Always persist to the swipe row so the attachment survives

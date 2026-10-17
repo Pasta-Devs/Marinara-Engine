@@ -110,6 +110,22 @@ export function RoleplayCommandsSettings({
                       )}
                       labelClassName="text-[0.6875rem] font-medium"
                     />
+                    {checked && key === "illustrate" && (
+                      <SettingsSwitch
+                        label={t("roleplay.commands.illustrate.inline.label")}
+                        description={t("roleplay.commands.illustrate.inline.description")}
+                        checked={metadata.roleplayIllustrateInline === true}
+                        labelPosition="start"
+                        onChange={(value) => update.mutate({ id: chat.id, roleplayIllustrateInline: value })}
+                        className={cn(
+                          "min-h-11 shrink-0 items-center justify-between rounded-lg px-3 py-2 text-left ring-1",
+                          metadata.roleplayIllustrateInline === true
+                            ? "bg-[var(--primary)]/10 ring-[var(--primary)]/30"
+                            : "bg-[var(--background)]/75 ring-[var(--border)] hover:bg-[var(--accent)]",
+                        )}
+                        labelClassName="text-[0.6875rem] font-medium"
+                      />
+                    )}
                     {checked && (key === "roll" || key === "combat" || key === "document" || key === "whisper") && (
                       <div className="flex flex-col gap-1.5 text-xs">
                         <label htmlFor={`${chat.id}:${key}-audience`}>{t(`roleplay.commands.${key}.audience`)}</label>

@@ -7,6 +7,7 @@ import { cn, copyToClipboard, getAvatarCropStyle, isLegacyAvatarCrop } from "../
 import {
   normalizeAvatarCrop,
   getRoleplayWhispers,
+  getRoleplayCommandActivity,
   getRoleplayCommandContentOffset,
   type AvatarCrop,
 } from "@marinara-engine/shared";
@@ -2990,6 +2991,25 @@ export const ChatMessage = memo(function ChatMessage({
     return `mari-html-message-${suffix || "content"}`;
   }, [message.id]);
 
+  // Images an illustrate command made, by the command's place in this message's activity.
+  const illustrationsByCommand = useMemo(() => {
+    const byCommand = new Map<number, Array<{ attachment: MessageImageAttachmentLike; index: number }>>();
+    // Visual Novel keeps its own media stage, so its illustrations stay there.
+    if (!isRoleplay || isUser || visualNovel || !Array.isArray(extra.attachments)) return byCommand;
+    extra.attachments.forEach((attachment: any, index: number) => {
+      if (
+        typeof attachment?.roleplayCommandIndex !== "number" ||
+        !(attachment.type === "image" || attachment.type?.startsWith?.("image/")) ||
+        !(attachment.url || attachment.data)
+      )
+        return;
+      const images = byCommand.get(attachment.roleplayCommandIndex) ?? [];
+      images.push({ attachment, index });
+      byCommand.set(attachment.roleplayCommandIndex, images);
+    });
+    return byCommand;
+  }, [isRoleplay, isUser, visualNovel, extra.attachments]);
+
   const inlineRoleplayCommands = useMemo(() => {
     const commands = isRoleplay
       ? [
@@ -2999,6 +3019,21 @@ export const ChatMessage = memo(function ChatMessage({
             kind: "whisper" as const,
             offset: getRoleplayCommandContentOffset(fullText, whisper.activity),
           })),
+          // Only commands saved with a place (Render in-line was on) show their images in the text.
+          ...getRoleplayCommandActivity(extra).flatMap((activity, index) => {
+            const images = illustrationsByCommand.get(index);
+            if (
+              activity.command.type !== "illustrate" ||
+              activity.deleted ||
+              typeof activity.contentOffset !== "number" ||
+              !images?.length
+            )
+              return [];
+            // An image between paragraphs opens the next one, so the break above it stays and none is left below.
+            let offset = getRoleplayCommandContentOffset(fullText, activity);
+            while (fullText[offset] === "\n" || fullText[offset] === "\r") offset++;
+            return [{ kind: "illustration" as const, index, images, offset }];
+          }),
         ].sort((a, b) => a.offset - b.offset || a.index - b.index)
       : [];
     let paragraphStart = 0;
@@ -3021,11 +3056,87 @@ export const ChatMessage = memo(function ChatMessage({
         (command) => paragraphStart >= 0 && command.offset >= paragraphStart && command.offset < nextParagraphStart,
       )
       .map((command) => ({ ...command, offset: Math.min(command.offset - paragraphStart, text.length) }));
-  }, [isRoleplay, isUser, fullText, extra, visualNovel, activeVnParagraphIndex, vnParagraphs, text.length]);
+  }, [
+    isRoleplay,
+    isUser,
+    fullText,
+    extra,
+    illustrationsByCommand,
+    visualNovel,
+    activeVnParagraphIndex,
+    vnParagraphs,
+    text.length,
+  ]);
+
+  const inlineIllustrationIndexes = useMemo(
+    () =>
+      new Set(
+        inlineRoleplayCommands.flatMap((command) =>
+          command.kind === "illustration" ? command.images.map(({ index }) => index) : [],
+        ),
+      ),
+    [inlineRoleplayCommands],
+  );
+
+  const renderRoleplayImageAttachment = useCallback(
+    (att: any, i: number, vnTarget: boolean) => (
+      <div
+        key={i}
+        className={cn(
+          "group/att relative",
+          vnTarget
+            ? "pointer-events-auto flex h-full min-h-0 min-w-0 max-w-3xl flex-1 items-end justify-center"
+            : "inline-block",
+        )}
+      >
+        <button
+          type="button"
+          onClick={() => openAttachmentImageLightbox(att, i)}
+          className={vnTarget ? "flex h-full min-h-0 w-full items-end justify-center" : "block"}
+          title={localizeUi("ui.noodle.noodlepostcard.openImage")}
+          aria-label={localizeUi("ui.chat.chatmessage.openValue1", {
+            value1: att.filename || att.name || localizeUi("ui.ui.spritegenerationmodal.image"),
+          })}
+        >
+          <ChatImagePreview
+            src={att.url || att.data}
+            alt={att.filename || att.name || "image"}
+            className={cn(
+              "max-w-full rounded-lg object-contain",
+              vnTarget ? "max-h-full" : "max-h-[70vh] sm:max-h-[32rem]",
+            )}
+            loading="lazy"
+            decoding="async"
+          />
+        </button>
+        {!vnTarget && (
+          <button
+            type="button"
+            onClick={() => handleRemoveAttachment(i)}
+            aria-label={localizeUi("ui.chat.chatmessage.removeImageFromMessage")}
+            title={localizeUi("ui.chat.chatmessage.removeFromMessage")}
+            // Touch screens have no hover, so the remove button stays shown there with a larger target.
+            className="absolute top-1.5 right-1.5 rounded-full bg-black/60 p-1 text-white/80 transition-opacity hover:bg-black/80 hover:text-white/100 pointer-coarse:p-2 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover/att:opacity-100 [@media(hover:hover)]:focus-visible:opacity-100"
+          >
+            <X size="0.875rem" />
+          </button>
+        )}
+      </div>
+    ),
+    [openAttachmentImageLightbox, handleRemoveAttachment, localizeUi],
+  );
 
   const renderInlineRoleplayCommand = useCallback(
     (command: (typeof inlineRoleplayCommands)[number]) =>
-      command.kind === "whisper" ? (
+      command.kind === "illustration" ? (
+        <div
+          key={`illustration-${message.id}-${message.activeSwipeIndex}-${command.index}`}
+          className="mb-4 flex flex-col items-center gap-2 whitespace-normal"
+          data-roleplay-inline-illustration
+        >
+          {command.images.map(({ attachment, index }) => renderRoleplayImageAttachment(attachment, index, false))}
+        </div>
+      ) : command.kind === "whisper" ? (
         <RoleplayWhisper
           // The original command text identifies the whisper, so an open editor never saves over a replacement.
           key={`whisper-${message.id}-${message.activeSwipeIndex}-${command.index}-${personaInfo?.id}-${command.activity.raw}`}
@@ -3057,6 +3168,7 @@ export const ChatMessage = memo(function ChatMessage({
       extra,
       isStreaming,
       isUser,
+      renderRoleplayImageAttachment,
     ],
   );
 
@@ -3417,13 +3529,15 @@ export const ChatMessage = memo(function ChatMessage({
   // Text that is an image link already shows that picture; only videos still show below it.
   const textIsImageUrl = IMAGE_URL_RE.test(message.content.trim());
   const skipAttachment = (att: any) => att.roleplaySound === true || isAttachmentHiddenByImageText(att, textIsImageUrl);
+  // Illustrations already shown inside the message text are not repeated below it.
+  const skipRoleplayAttachment = (att: any, i: number) => skipAttachment(att) || inlineIllustrationIndexes.has(i);
   const roleplayAttachments = isRoleplay &&
     !editing &&
     extra.attachments?.length > 0 &&
-    extra.attachments.some((att: any) => !skipAttachment(att)) && (
+    extra.attachments.some((att: any, i: number) => !skipRoleplayAttachment(att, i)) && (
       <div className={hasVnMediaTarget ? "contents" : "mt-1.5 flex flex-col items-center gap-2 px-3 pb-2"}>
         {extra.attachments.map((att: any, i: number) =>
-          skipAttachment(att) ? null : isVideoAttachment(att) && att.url ? (
+          skipRoleplayAttachment(att, i) ? null : isVideoAttachment(att) && att.url ? (
             renderRoleplayImage(
               <ChatVideoAttachment
                 key={att.videoId ?? att.url}
@@ -3435,50 +3549,7 @@ export const ChatMessage = memo(function ChatMessage({
               i,
             )
           ) : att.type === "image" || att.type?.startsWith("image/") ? (
-            renderRoleplayImage(
-              <div
-                key={i}
-                className={cn(
-                  "group/att relative",
-                  hasVnMediaTarget
-                    ? "pointer-events-auto flex h-full min-h-0 min-w-0 max-w-3xl flex-1 items-end justify-center"
-                    : "inline-block",
-                )}
-              >
-                <button
-                  type="button"
-                  onClick={() => openAttachmentImageLightbox(att, i)}
-                  className={hasVnMediaTarget ? "flex h-full min-h-0 w-full items-end justify-center" : "block"}
-                  title={localizeUi("ui.noodle.noodlepostcard.openImage")}
-                  aria-label={localizeUi("ui.chat.chatmessage.openValue1", {
-                    value1: att.filename || att.name || localizeUi("ui.ui.spritegenerationmodal.image"),
-                  })}
-                >
-                  <ChatImagePreview
-                    src={att.url || att.data}
-                    alt={att.filename || att.name || "image"}
-                    className={cn(
-                      "max-w-full rounded-lg object-contain",
-                      hasVnMediaTarget ? "max-h-full" : "max-h-[70vh] sm:max-h-[32rem]",
-                    )}
-                    loading="lazy"
-                    decoding="async"
-                  />
-                </button>
-                {!hasVnMediaTarget && (
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveAttachment(i)}
-                    aria-label={localizeUi("ui.chat.chatmessage.removeImageFromMessage")}
-                    title={localizeUi("ui.chat.chatmessage.removeFromMessage")}
-                    className="absolute top-1.5 right-1.5 rounded-full bg-black/60 p-1 text-white/80 transition-opacity hover:bg-black/80 hover:text-white sm:opacity-0 sm:group-hover/att:opacity-100"
-                  >
-                    <X size="0.875rem" />
-                  </button>
-                )}
-              </div>,
-              i,
-            )
+            renderRoleplayImage(renderRoleplayImageAttachment(att, i, hasVnMediaTarget), i)
           ) : (
             <div
               key={i}

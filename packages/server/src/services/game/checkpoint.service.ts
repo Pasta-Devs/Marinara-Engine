@@ -9,6 +9,9 @@ import { and, eq, ne, desc, inArray } from "../../db/file-query.js";
 import type { DB } from "../../db/connection.js";
 import { gameCheckpoints, gameStateSnapshots, spatialContextSnapshots } from "../../db/schema/index.js";
 import { createGameEngineStateStorage } from "../storage/game-engine-state.storage.js";
+import { createChatsStorage } from "../storage/chats.storage.js";
+import { readMetadata } from "./game-inventory.service.js";
+import { gamePartySheetRevision } from "./game-party-sheet.service.js";
 import { newId, now } from "../../utils/id-generator.js";
 import { logger } from "../../lib/logger.js";
 
@@ -49,6 +52,8 @@ export interface StoredCheckpointRow extends CheckpointRow {
   snapshotData: string | null;
   spatialSnapshotData: string | null;
   engineStateData: string | null;
+  gameMetadataData: string | null;
+  chatCharacterIdsData: string | null;
 }
 
 /** One captured game_engine_state blob inside a checkpoint's engineStateData array (#5102). */
@@ -56,6 +61,80 @@ export interface CapturedEngineState {
   gameType: string;
   schemaVersion: number;
   state: string;
+}
+
+/**
+ * The game's own chat-metadata keys a checkpoint saves and a load puts back (#7742): what the party,
+ * the people and the story have become, which lives in chat metadata rather than the turn snapshot.
+ * An allow-list, so a new key is rewound only once someone decides it should be. Deliberately left
+ * out: settings and prompt/media preferences (a rewind must not undo a user's choices), ids, pins and
+ * lifecycle keys, live combat, caches, write ordinals, and the world, story and maps, which keep
+ * their own snapshots and checks.
+ */
+export const CHECKPOINT_GAME_METADATA_KEYS = [
+  "gameCharacterCards",
+  "gamePartyCharacterIds",
+  "gamePartySheet",
+  "gameNpcs",
+  "gameJournal",
+  "gamePlayerNotes",
+  "gameInventory",
+  "gameInventedItems",
+  "gameLootedFights",
+  "gameStartingGearTaken",
+  "gameWorldOverview",
+  "gameStoryArc",
+  "gamePlotTwists",
+  "gamePartyArcs",
+  "gamePreviousSessionSummaries",
+  "gameTime",
+  "gameWeather",
+  "gameMorale",
+] as const;
+
+/** A chat's characterIds column (a JSON string or an array) as a clean list of unique ids. */
+export function readCheckpointCharacterIds(raw: unknown): string[] {
+  let value = raw;
+  if (typeof raw === "string") {
+    try {
+      value = JSON.parse(raw);
+    } catch {
+      return [];
+    }
+  }
+  if (!Array.isArray(value)) return [];
+  return Array.from(new Set(value.filter((id): id is string => typeof id === "string" && id.trim().length > 0)));
+}
+
+/** The allow-listed keys present in `metadata`, copied by value. Null when none are. */
+export function captureCheckpointGameMetadata(metadata: Record<string, unknown>): Record<string, unknown> | null {
+  const captured: Record<string, unknown> = {};
+  for (const key of CHECKPOINT_GAME_METADATA_KEYS) {
+    if (metadata[key] !== undefined) captured[key] = metadata[key];
+  }
+  return Object.keys(captured).length > 0 ? structuredClone(captured) : null;
+}
+
+/**
+ * The metadata patch that puts a checkpoint's captured keys back. A key the checkpoint saw is
+ * restored; one it did not see, but which exists now, is cleared, so a rewind also drops what was
+ * added later (an NPC met after the save). Two keys follow the ones they belong to: the shared party
+ * sheet's revision moves FORWARD, so a sheet open from before the load is refused as stale instead of
+ * saving over the restored one, and the inventory's record of the current turn's tellings is dropped,
+ * because it describes stacks the load just replaced.
+ */
+export function buildCheckpointGameMetadataRestore(
+  captured: Record<string, unknown>,
+  current: Record<string, unknown>,
+): Record<string, unknown> {
+  const patch: Record<string, unknown> = {};
+  for (const key of CHECKPOINT_GAME_METADATA_KEYS) {
+    if (Object.hasOwn(captured, key)) patch[key] = structuredClone(captured[key]);
+    else if (current[key] != null) patch[key] = null;
+  }
+  if (Object.hasOwn(patch, "gamePartySheet")) patch.gamePartySheetRevision = gamePartySheetRevision(current) + 1;
+  if (Object.hasOwn(patch, "gameInventory")) patch.gameInventoryTurn = null;
+  return patch;
 }
 
 /** Auto-checkpoints fire at session start/end and on every combat start/end, and only manual
@@ -185,6 +264,9 @@ export function createCheckpointService(db: DB) {
         (row): CapturedEngineState => ({ gameType: row.gameType, schemaVersion: row.schemaVersion, state: row.state }),
       );
 
+      const chat = await createChatsStorage(db).getById(input.chatId);
+      const capturedGameMetadata = chat ? captureCheckpointGameMetadata(readMetadata(chat.metadata)) : null;
+
       const id = newId();
       // Serialize the insert + prune per chat so concurrent automatic creates cannot race on the
       // same bucket (see withCheckpointWriteLock). The snapshot reads above touch other tables and
@@ -198,6 +280,10 @@ export function createCheckpointService(db: DB) {
           snapshotData: JSON.stringify(capturedGameSnapshot),
           spatialSnapshotData: capturedSpatialSnapshot ? JSON.stringify(capturedSpatialSnapshot) : null,
           engineStateData: capturedEngineStates.length > 0 ? JSON.stringify(capturedEngineStates) : null,
+          // `{}` when the game had none of the keys yet, so a load still clears what came later;
+          // null stays reserved for checkpoints from before this field.
+          gameMetadataData: JSON.stringify(capturedGameMetadata ?? {}),
+          chatCharacterIdsData: chat ? JSON.stringify(readCheckpointCharacterIds(chat.characterIds)) : null,
           messageId: input.messageId,
           label: input.label,
           triggerType: input.triggerType,
@@ -240,7 +326,7 @@ export function createCheckpointService(db: DB) {
         .where(eq(gameCheckpoints.chatId, chatId))
         .orderBy(desc(gameCheckpoints.createdAt));
       // The projection already omits every blob column (snapshotData, spatialSnapshotData,
-      // engineStateData), so the rows are list-shaped as-is — no post-strip needed.
+      // engineStateData, gameMetadataData, chatCharacterIdsData), so the rows are list-shaped as-is.
       return rows as CheckpointRow[];
     },
 

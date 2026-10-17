@@ -551,6 +551,8 @@ export interface ChatMetadata {
   roleplayDocumentAudience?: RoleplayCommandAudience;
   roleplayWhisperAudience?: RoleplayCommandAudience;
   roleplaySoundConnectionId?: string | null;
+  /** Show each illustrate command's images inside the message, where the command was written. */
+  roleplayIllustrateInline?: boolean;
   /** Chat-scoped Intiface Central WebSocket URL for haptic manual and auto-connect. */
   hapticIntifaceUrl?: string | null;
   /** Haptic response style for any chat mode. Missing = standard. */

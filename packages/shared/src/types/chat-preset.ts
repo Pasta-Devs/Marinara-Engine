@@ -245,6 +245,7 @@ export const CHAT_PROFILE_FOLLOWER_SYNC_KEYS: readonly string[] = [
   "roleplayDmCommandsEnabled", // Older switch for character DMs, read when roleplayCommandsEnabled is missing
   "roleplayCommandToggles", // Which Roleplay commands are on
   "roleplaySoundConnectionId", // Connection for sound effects
+  "roleplayIllustrateInline", // Illustrate command images shown where the command was written
   // Agents
   "enableAgents", // Agents on or off
   "activeAgentIds", // Which agents run, except the agents each chat sets up itself

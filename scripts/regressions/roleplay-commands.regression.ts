@@ -666,6 +666,18 @@ for (const format of ["xml", "markdown", "none"] as const) {
   assert.doesNotMatch(prompt(null), /\[roll:|\[combat\]|\[document:/u);
   assert.doesNotMatch(prompt("narrator", new Set()), /\[illustrate:|\[combat\]/u);
   assert.doesNotMatch(prompt("narrator"), /\n\s*\n\s*-/u);
+  assert.doesNotMatch(prompt("alice"), /appears exactly where you write the command/u);
+  // Render in-line tells the model the image is shown where the command is written (#7748).
+  const inline = buildRoleplayCommandsReminder({
+    metadata: { ...scoped, roleplayIllustrateInline: true },
+    characterId: "alice",
+    privateAvailable: true,
+    availableAgentIds: new Set(["illustrator"]),
+    format,
+    characterNames: ["Alice", "Narrator"],
+  });
+  assert.match(inline, /capture an important moment\. The image appears exactly where you write the command/u);
+  assert.match(inline, /between paragraphs/u);
 }
 const soundtrack = {
   ...metadata,

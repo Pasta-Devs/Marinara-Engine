@@ -19,6 +19,14 @@ export const gameCheckpoints = fileTable("game_checkpoints", {
    *  legacy createdAt re-lookup, which same-anchor rewrites (experience saves, silent turn
    *  games) invalidate. Null on checkpoints from before this field or with no engine state. */
   engineStateData: text("engine_state_data"),
+  /** Immutable JSON object of the game's own chat-metadata keys at capture time (party cards, NPCs,
+   *  journal, inventory, …; see CHECKPOINT_GAME_METADATA_KEYS), so a load rewinds them too (#7742).
+   *  `{}` when the game had none of them yet; null on checkpoints from before this field. */
+  gameMetadataData: text("game_metadata_data"),
+  /** Immutable JSON array of the chat's characterIds column at capture time: the party's library
+   *  members, which session start trusts over gamePartyCharacterIds. A load rewinds it in the same
+   *  write as gameMetadataData (#7742). Null on checkpoints from before this field. */
+  chatCharacterIdsData: text("chat_character_ids_data"),
   /** FK to messages.id — the message this checkpoint was taken at */
   messageId: text("message_id").notNull(),
 

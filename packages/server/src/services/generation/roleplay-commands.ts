@@ -802,7 +802,10 @@ export function buildRoleplayCommandsReminder(args: {
   const enabled = (key: RoleplayCommandKey) => isRoleplayCommandAllowed(args.metadata, key, args.characterId);
   if (enabled("illustrate") && args.availableAgentIds.has("illustrator"))
     lines.push(
-      '- [illustrate: subject="the moment, object, or interaction to depict" characters="names of involved characters, separated by commas"] requests an image using this chat\'s Illustrator settings and the named characters\' avatars. Use it to surprise the user or capture an important moment.',
+      '- [illustrate: subject="the moment, object, or interaction to depict" characters="names of involved characters, separated by commas"] requests an image using this chat\'s Illustrator settings and the named characters\' avatars. Use it to surprise the user or capture an important moment.' +
+        (args.metadata.roleplayIllustrateInline === true
+          ? " The image appears exactly where you write the command, so place it where the picture belongs: at the start, between paragraphs, or at the end."
+          : ""),
     );
   if (enabled("document"))
     lines.push(
