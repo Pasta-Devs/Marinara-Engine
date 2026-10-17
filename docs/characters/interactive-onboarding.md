@@ -20,6 +20,10 @@ Onboarding uses the existing macro syntax. It runs no scripts.
 
 Turning the switch off hides the onboarding fields but keeps what you wrote.
 
+### Let Professor Mari write it
+
+You can also ask [Professor Mari](../home/professor-mari.md) to write the onboarding, for example: "Write a fun onboarding for Queen Ayrene, with a template persona." She writes the questions and the persona fields and turns onboarding on. The app checks her work before it is saved, so a misspelled name, a `{{name}}` without a question, or a condition missing its `#` is sent back to her to fix. For a character question, she also adds its `{{name}}` to one of the card's own fields. Her changes show up on a change card you can review or undo, like her other edits.
+
 ### Add questions
 
 Under **Persona Questions**, click **Add Question**. Each question works like a preset variable. See [Presets](../prompts/presets.md). A card can have up to 100 questions.

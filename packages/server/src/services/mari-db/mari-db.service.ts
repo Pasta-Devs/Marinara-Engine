@@ -45,6 +45,7 @@ import {
 import { newId, now } from "../../utils/id-generator.js";
 import { normalizeThemeCss } from "../../utils/theme-css.js";
 import { getMariImagesService } from "./mari-images.service.js";
+import { buildOnboardingUpdate, describeCharacterOnboarding } from "./character-onboarding.js";
 import { executeWikiCli } from "../professor-mari/fandom-mediawiki/wiki-cli.js";
 import {
   LIMITS,
@@ -3019,6 +3020,62 @@ export class MariDbService {
           context.command,
           context.sessionId,
         );
+      }
+      case "onboarding.get": {
+        const id = requiredString(args, ["id", "characterId"], "character id");
+        const existing = await this.getRawById(getMeta("characters"), id);
+        if (!existing) throw new Error(`Character ${id} not found`);
+        const data = tryParseJsonColumn(existing, "data");
+        return {
+          ok: true,
+          mode: "read",
+          command: context.command,
+          output: { characterId: id, ...describeCharacterOnboarding(isRecord(data) ? data : {}) },
+        };
+      }
+      case "onboarding.update": {
+        const id = requiredString(args, ["id", "characterId"], "character id");
+        const existing = await this.getRawById(getMeta("characters"), id);
+        if (!existing) throw new Error(`Character ${id} not found`);
+        const existingDataRaw = tryParseJsonColumn(existing, "data");
+        const existingData = isRecord(existingDataRaw) ? existingDataRaw : {};
+        const { onboarding, warnings } = buildOnboardingUpdate(
+          existingData,
+          args.onboarding ?? args.patch ?? args.data,
+        );
+        const extensions = isRecord(existingData.extensions) ? existingData.extensions : {};
+        const name = typeof existingData.name === "string" ? existingData.name : "";
+        const row: Row = {
+          id,
+          data: buildMinimalCharacterData(
+            name,
+            { ...existingData, extensions: { ...extensions, onboarding } },
+            new Map(),
+          ),
+          comment: typeof existing.comment === "string" ? existing.comment : "",
+          avatarPath: existing.avatarPath ?? null,
+          spriteFolderPath: existing.spriteFolderPath ?? null,
+          createdAt: existing.createdAt,
+          updatedAt: now(),
+        };
+        const result = await this.executeMutation(
+          {
+            kind: "replace",
+            table: "characters",
+            id,
+            row,
+            apply: firstBoolean(args, ["apply"]) === true,
+            cascade: false,
+            reason: firstString(args, ["reason"]) ?? null,
+            cwd: context.cwd,
+          },
+          context.command,
+          context.sessionId,
+        );
+        if (warnings.length === 0) return result;
+        const notices = warnings.map((message) => ({ level: "notice" as const, table: "characters", id, message }));
+        const validation = result.validation ?? { status: "passed" as const, errors: [], notices: [], infos: [] };
+        return { ...result, validation: { ...validation, notices: [...validation.notices, ...notices] } };
       }
       case "movetofolder": {
         return this.withCharacterFolderMutationLock(async () => {

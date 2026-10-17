@@ -31,7 +31,7 @@ The attached items show as **Aware of** chips above her message box. Remove a co
 Ask her for help with any of these:
 
 - Explaining a setting, a mode, or a concept before you change anything.
-- Creating or editing a character. A character is a card that gives the AI a name, personality, and voice.
+- Creating or editing a character. A character is a card that gives the AI a name, personality, and voice. She can also write a card's [interactive onboarding](../characters/interactive-onboarding.md), the questions players answer to build their persona.
 - Creating or editing a persona. A persona is the identity you play as in a chat, the "you" in the story.
 - Creating or editing a lorebook. A lorebook is a set of world notes the AI pulls in when they are relevant.
 - Creating or editing a theme, an agent, a prompt preset, or a Personal Extension draft. Professor Mari is the only default extension author. Her drafts remain disabled until you inspect the sandboxed code, review any requested active Character-card or Persona permissions, and approve the exact hash in **Settings** > **Addons**.
@@ -179,9 +179,9 @@ She only saves or changes a memory when **you** ask her to, never because someth
 
 How she uses them, and why it stays efficient:
 
-- Every turn she sees a short **index** of your *enabled* memories (just their titles and one-line descriptions), which costs almost nothing. When a memory is relevant to what you are doing, she looks up its full text and follows it. This keeps her prompt small as you add memories, since only the short index is always present. The exception is a memory you mark **Persistent** (below): its full text is injected on every turn, so those are the ones to keep few and small. A disabled memory is kept but ignored, so you can switch one off to try something different and switch it back on later.
+- Every turn she sees a short **index** of your _enabled_ memories (just their titles and one-line descriptions), which costs almost nothing. When a memory is relevant to what you are doing, she looks up its full text and follows it. This keeps her prompt small as you add memories, since only the short index is always present. The exception is a memory you mark **Persistent** (below): its full text is injected on every turn, so those are the ones to keep few and small. A disabled memory is kept but ignored, so you can switch one off to try something different and switch it back on later.
 - Saved memories **take precedence over her default behavior** when they conflict. For example, a memory that says "when I ask how to do something, just do it" opts you back into edit-without-asking, overriding her usual habit of confirming first.
-- A rare directive that must apply on *every* turn can be made **Persistent** so its full text is always in front of her. Keep persistent memories few and small, since each one is always in her prompt, and use them only to describe behavior you want to be always true.
+- A rare directive that must apply on _every_ turn can be made **Persistent** so its full text is always in front of her. Keep persistent memories few and small, since each one is always in her prompt, and use them only to describe behavior you want to be always true.
 
 To manage your memories, use the **Memories** panel, or just ask her: "what do you remember?", "update my lorebook-formatting memory to also include titles," or "forget that."
 
