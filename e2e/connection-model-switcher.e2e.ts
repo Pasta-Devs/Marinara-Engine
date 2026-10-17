@@ -502,6 +502,43 @@ test("the Connections menu lists, stars, picks, refreshes and types models witho
   }
 });
 
+test("catalog upstream filters, metadata and copying keep the chat choice unchanged", async ({
+  page,
+  request,
+}, testInfo) => {
+  const { provider, main, chat, cleanup } = await setup(page, request, testInfo, "dark");
+  provider.state.catalog.push({ id: "second/omega", name: "Omega", context_length: 128_000 });
+  const accountId = (await connectionRow(request, main.id))!.accountId as string;
+  try {
+    await page.goto("/");
+    const picker = await openModels(page, testInfo, accountId);
+    const omega = modelRow(picker, "all", "second/omega");
+    await expect(omega.locator("[data-model-metadata]")).toContainText("128k");
+    await expect(modelRow(picker, "all", "vendor/gamma").locator("[data-model-metadata]")).toContainText("output");
+    const before = await chatState(request, chat.id);
+    await omega.locator("[data-model-copy]").click();
+    await expect(picker).toBeVisible();
+    await expect(omega.locator("[data-model-copy]")).toBeFocused();
+    expect((await chatState(request, chat.id)).model).toBe(before.model);
+    await picker.locator('[data-model-upstream-filter="second"]').click();
+    await expect(omega).toBeVisible();
+    await expect(modelRow(picker, "all", "vendor/alpha")).toHaveCount(0);
+    // Enter must not pick a model hidden by the upstream filter.
+    await picker.locator("[data-model-search]").fill("Alpha");
+    await picker.locator("[data-model-search]").press("Enter");
+    await expect(picker).toBeVisible();
+    expect((await chatState(request, chat.id)).model).toBe(before.model);
+    await picker.locator("[data-model-search]").fill("");
+    // Refresh removes the selected upstream: reset to All so the list is not stranded empty.
+    provider.state.catalog = [...CATALOG];
+    await picker.locator("[data-model-refresh]").click();
+    await expect(picker.locator("[data-model-upstream-filter]")).toHaveCount(0);
+    await expect(modelRow(picker, "all", "vendor/alpha")).toBeVisible();
+  } finally {
+    await cleanup();
+  }
+});
+
 test("the models menu reads in light theme too (#7098)", async ({ page, request }, testInfo) => {
   const { main, cleanup } = await setup(page, request, testInfo, "light");
   try {

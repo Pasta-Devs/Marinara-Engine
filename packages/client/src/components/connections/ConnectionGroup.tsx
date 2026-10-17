@@ -1,20 +1,10 @@
 // ──────────────────────────────────────────────
-// ConnectionGroup — one Connection in the Connections panel list, as a card: its head (where it connects or its
-// state, fix, ⋯ actions, open/close chevron at the right), its usage and, while open, its Models (split into Chat
-// and Images & voice when it has both, then grouped by upstream) and Browse all models.
+// ConnectionGroup — one Connection in the Connections panel list, as a tinted block: its head (where it connects or
+// its state, fix, ⋯ actions, open/close chevron at the right), its usage and, while open, its Models of every kind
+// in one list (a kind badge on each row, grouped by upstream) and Browse all models.
 // ──────────────────────────────────────────────
 import { useState, type ReactNode } from "react";
-import {
-  ChevronDown,
-  ChevronRight,
-  ImageIcon,
-  MessageSquareText,
-  MoreHorizontal,
-  Plus,
-  Search,
-  Settings2,
-  Wifi,
-} from "lucide-react";
+import { ChevronDown, ChevronRight, ImageIcon, MoreHorizontal, Plus, Search, Settings2, Wifi } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
@@ -35,7 +25,10 @@ import { ContextMenu } from "../ui/ContextMenu";
 import { SubscriptionUsageWidget } from "./SubscriptionUsageWidget";
 import { BrandMark } from "./ProviderIcon";
 import { SMALL_ACTION, StateWord, type EngineTone } from "./DeviceDetail";
-import { isMediaRow, menuAt, modelSubtitle, ROW_BUTTON, type ConnectionRowData, type MenuAt } from "./ConnectionRow";
+import { menuAt, modelSubtitle, ROW_BUTTON, type ConnectionRowData, type MenuAt } from "./ConnectionRow";
+
+/** A block in the Connections list: a tint and spacing, no outline. */
+export const GROUP_SURFACE = "rounded-xl bg-[color-mix(in_srgb,var(--foreground)_4%,transparent)]";
 
 const STATE_TONE: Record<ConnectionAccountListItem["state"], EngineTone> = { ok: "ok", off: "off", needs_key: "warn" };
 
@@ -141,26 +134,10 @@ export function ConnectionGroup({
             run: () => updateAccount.mutate({ id: account.id, enabled: true }),
           }
         : null;
-  // Mixed Connections (one key for chat and images) split by kind; the rest list their Models directly.
-  const chatRows = visibleRows.filter((row) => !isMediaRow(row));
-  const mediaRows = visibleRows.filter(isMediaRow);
-  const kinds: Array<{
-    key: string;
-    heading: string | null;
-    icon: typeof ImageIcon | null;
-    rows: ConnectionRowData[];
-  }> =
-    chatRows.length > 0 && mediaRows.length > 0
-      ? [
-          { key: "chat", heading: t("connections.accounts.section.chat"), icon: MessageSquareText, rows: chatRows },
-          { key: "media", heading: t("connections.accounts.section.media"), icon: ImageIcon, rows: mediaRows },
-        ]
-      : [{ key: "all", heading: null, icon: null, rows: visibleRows }];
-
   return (
     <div
       role="group"
-      className="flex flex-col rounded-xl border border-[var(--border)] bg-[var(--card)]"
+      className={cn("flex flex-col", GROUP_SURFACE)}
       data-connection-account-id={account.id}
       aria-label={account.name}
     >
@@ -270,37 +247,24 @@ export function ConnectionGroup({
         <div
           id={modelsId}
           aria-label={t("ui.agents.featureagentdetailhost.value1Value2", { value1: account.name, value2: service })}
-          className="mb-1.5 ml-4 mr-1 flex flex-col gap-0.5 border-l border-[var(--border)] pl-1.5"
+          className="mx-1 mb-1.5 flex flex-col gap-0.5"
         >
           {rows.length === 0 && (
             <p className="px-2 py-1 text-[0.6875rem] text-[var(--muted-foreground)]">
               {t("connections.accounts.noModels")}
             </p>
           )}
-          {kinds.map((kind) => (
-            <div key={kind.key} className="flex flex-col gap-0.5">
-              {kind.heading && kind.icon && (
-                <p className="flex items-center gap-1.5 px-2 pt-2 text-[0.6875rem] font-semibold text-[var(--muted-foreground)]">
-                  <kind.icon size="0.75rem" aria-hidden />
-                  {kind.heading}
+          {/* By model id: the groups and rows keep their places when a star or an edit touches a Model. */}
+          {subgroupByUpstream(sortByModelId(visibleRows)).map((group) => (
+            <div key={group.upstream ?? ""} className="flex flex-col gap-0.5">
+              {group.upstream && (
+                <p className="flex items-center gap-1.5 px-2 pt-1.5 text-[0.625rem] font-medium text-[var(--muted-foreground)]">
+                  <BrandMark of={group.upstream} className="h-3 w-3 opacity-70" />
+                  {t("connections.accounts.upstreamHeading", { upstream: group.upstream, count: group.rows.length })}
                 </p>
               )}
-              {/* By model id: the groups and rows keep their places when a star or an edit touches a Model. */}
-              {subgroupByUpstream(sortByModelId(kind.rows)).map((group) => (
-                <div key={group.upstream ?? ""} className="flex flex-col gap-0.5">
-                  {group.upstream && (
-                    <p className="flex items-center gap-1.5 px-2 pt-2 text-[0.6875rem] font-semibold text-[var(--muted-foreground)]">
-                      <BrandMark of={group.upstream} className="h-3 w-3" />
-                      {t("connections.accounts.upstreamHeading", {
-                        upstream: group.upstream,
-                        count: group.rows.length,
-                      })}
-                    </p>
-                  )}
-                  {group.rows.map((row) => (
-                    <div key={row.id}>{renderRow(row, modelSubtitle(row, group.upstream))}</div>
-                  ))}
-                </div>
+              {group.rows.map((row) => (
+                <div key={row.id}>{renderRow(row, modelSubtitle(row, group.upstream))}</div>
               ))}
             </div>
           ))}

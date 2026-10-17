@@ -1,6 +1,6 @@
 // ──────────────────────────────────────────────
 // ConnectionRow — one saved Model in the Connections panel (variant D): a focusable row that opens the model
-// editor, its role badges and the ⋯ menu.
+// editor, its kind and role badges and the ⋯ menu. Every kind (chat, image, video, audio) uses the same row.
 // ──────────────────────────────────────────────
 import { useState, type MouseEvent } from "react";
 import {
@@ -97,8 +97,8 @@ export const ROW_BUTTON = cn(
   FOCUS,
 );
 
-/** A role or state pill at the right of a Model's second line. */
-const BADGE = "shrink-0 whitespace-nowrap rounded-full border px-1.5 text-[0.625rem] font-semibold leading-4";
+/** A kind, role or state pill at the right of a Model's second line. */
+const BADGE = "shrink-0 whitespace-nowrap rounded-full px-1.5 text-[0.625rem] font-semibold leading-4";
 
 export type MenuAt = { x: number; y: number; keyboard: boolean };
 export const menuAt = (event: MouseEvent<HTMLElement>): MenuAt => {
@@ -172,13 +172,19 @@ export function ConnectionRow({
   const canShuffle = row.provider !== "audio" && row.provider !== "decision";
   const title = row.name?.trim() || row.model?.trim() || row.id;
   const roles = chatModel ? roleBadges(row).filter((role) => role !== "random") : [];
+  // The kind reads quieter than the roles: it says what the Model is, a role says what it does.
+  const kindLabel = kind
+    ? t(`connections.accounts.kind.${kind}`)
+    : chatModel
+      ? t("connections.accounts.section.chat")
+      : null;
   const badges = [
-    ...(kind ? [t(`connections.accounts.kind.${kind}`)] : []),
     ...roles.map((role) => t(`connections.switcher.role.${role}`)),
     ...(kind && isConnectionFlagTrue(row.defaultForAgents) ? [t("connections.accounts.badge.default")] : []),
     ...(kind && isConnectionFlagTrue(row.fallbackForAgents) ? [t("connections.switcher.role.fallback")] : []),
   ];
-  const customSettings = chatModel && !starred && roles.length === 0 && !!row.ownSettings;
+  // Display only: which Models show stays with the star, role and settings rules (decision 30).
+  const customSettings = chatModel && !!row.ownSettings;
   const sub = [connectionName, subtitle ?? modelSubtitle(row)].filter(Boolean).join(" · ");
 
   const openEditor = () => openConnectionDetail(row.id);
@@ -342,16 +348,11 @@ export function ConnectionRow({
         current && "bg-[var(--sidebar-accent)]/40",
       )}
     >
-      {current && (
-        <span
-          className="mari-chrome-accent-progress mari-accent-animated absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-full"
-          title={t("connections.row.current")}
-        />
-      )}
       {/* The row opens the editor; "…" sits beside it, never inside it. */}
       <button
         type="button"
         onClick={openEditor}
+        aria-current={current ? "true" : undefined}
         aria-label={
           unavailable
             ? t("connections.row.editUnavailable", { name: title, state: unavailableLabel })
@@ -401,11 +402,15 @@ export function ConnectionRow({
             >
               {sub}
             </span>
+            {kindLabel && (
+              <span className={cn(BADGE, "px-0 font-medium text-[var(--muted-foreground)]")}>{kindLabel}</span>
+            )}
+            {current && <Check size="0.75rem" className="shrink-0 text-[var(--muted-foreground)]" aria-hidden />}
             {unavailable ? (
               <span
                 className={cn(
                   BADGE,
-                  "inline-flex items-center gap-1",
+                  "inline-flex items-center gap-1 border",
                   unavailable === "needs_key"
                     ? "border-[var(--marinara-app-accent-static)]/45 text-[var(--marinara-app-accent-static)]"
                     : "border-[var(--border)] text-[var(--muted-foreground)]",
@@ -416,10 +421,7 @@ export function ConnectionRow({
               </span>
             ) : (
               badges.map((badge) => (
-                <span
-                  key={badge}
-                  className={cn(BADGE, "border-[var(--border)] bg-[var(--sidebar-accent)] text-[var(--foreground)]")}
-                >
+                <span key={badge} className={cn(BADGE, "bg-[var(--sidebar-accent)] text-[var(--foreground)]")}>
                   {badge}
                 </span>
               ))

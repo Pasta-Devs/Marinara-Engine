@@ -1,8 +1,8 @@
 // ──────────────────────────────────────────────
-// ConnectionDefaults — "Who does what" (variant D): which Model or service each job uses, as one vertical list.
-// Every job is a section with its pickers in view (the way staging's Defaults card reads); a problem shows inside
-// its section with its fix. The panel list shows the summary card (Main and the problem count); on a narrow panel
-// it unfolds this list in place (`compact`).
+// ConnectionDefaults — "Who does what" (round 2): which Model or service each job uses, as one compact list. A set
+// job is one line (its Model, Connection and fallback) that unfolds its pickers in place; a job with a problem always
+// shows, with its fix. Jobs nobody set wait behind "Set up another role". The panel list shows the summary card
+// (Main and the problem count); on a narrow panel it unfolds this list in place (`compact`).
 // Device jobs (Voice, Speech to text) open their engine's page, or the Add window when the engine is not set up.
 // ──────────────────────────────────────────────
 import { useMemo, useState, type ReactNode } from "react";
@@ -10,6 +10,7 @@ import {
   AlertTriangle,
   AudioLines,
   BrainCircuit,
+  ChevronDown,
   ChevronRight,
   Database,
   Film,
@@ -19,6 +20,7 @@ import {
   MessageCircleQuestion,
   MessageSquareText,
   Mic,
+  Plus,
   Settings2,
   Sparkles,
   VenetianMask,
@@ -61,7 +63,7 @@ import type { ConnectionRowData } from "./ConnectionRow";
 
 type RoleField = "isDefault" | "defaultForAgents" | "fallbackForMain" | "fallbackForAgents";
 type FlagRoleKey = "main" | "agents" | "images" | "video" | "audio";
-type TileKey = FlagRoleKey | "decision" | "voice" | "stt" | "embeddings";
+type TileKey = FlagRoleKey | "decision" | "voice" | "stt" | "embeddings" | keyof FeatureModelConnections;
 
 const FLAG_ROLES: Array<{
   key: FlagRoleKey;
@@ -128,9 +130,9 @@ const FEATURE_EXTRA_OPTIONS: Partial<Record<keyof FeatureModelConnections, Array
 };
 
 const FEATURE_ICONS: Record<keyof FeatureModelConnections, ReactNode> = {
-  mariConnectionId: <GraduationCap size="0.875rem" />,
-  omnibarAsideConnectionId: <MessageCircleQuestion size="0.875rem" />,
-  impersonateConnectionId: <VenetianMask size="0.875rem" />,
+  mariConnectionId: <GraduationCap size="0.6875rem" />,
+  omnibarAsideConnectionId: <MessageCircleQuestion size="0.6875rem" />,
+  impersonateConnectionId: <VenetianMask size="0.6875rem" />,
 };
 
 const FOCUS =
@@ -145,6 +147,8 @@ export type DefaultsTile = {
   value: string;
   /** The Connection, or what kind of service it is. */
   hint?: string;
+  /** The fallback Model's name, when the job has one. */
+  fallback?: string;
   /** An unset job reads quieter than a chosen one. */
   muted?: boolean;
   warning: Warning | null;
@@ -166,6 +170,7 @@ export function useConnectionDefaults(connectionsList: ConnectionRowData[]) {
   const decisionOptions = useDecisionOptions();
   const deviceSetup = useDeviceSetup();
   const { data: tts } = useTTSConfig();
+  const featureModels = useFeatureModels();
 
   const accountById = useMemo(() => new Map((accounts ?? []).map((account) => [account.id, account])), [accounts]);
   const sidecarName = createLocalSidecarConnectionOption(sidecarModelDisplayName).name;
@@ -199,8 +204,16 @@ export function useConnectionDefaults(connectionsList: ConnectionRowData[]) {
   const tiles: DefaultsTile[] = FLAG_ROLES.map((role) => {
     const primary =
       connectionsList.find((row) => matchesKind(row, role.kind) && isConnectionFlagTrue(row[role.primary])) ?? null;
+    const fallbackRow =
+      connectionsList.find((row) => matchesKind(row, role.kind) && isConnectionFlagTrue(row[role.fallback])) ?? null;
     const isAgents = role.key === "agents";
-    const tile = { key: role.key, icon: role.icon, title: t(`connections.defaults.role.${role.key}`), warning: null };
+    const tile = {
+      key: role.key,
+      icon: role.icon,
+      title: t(`connections.defaults.role.${role.key}`),
+      fallback: fallbackRow ? describe(fallbackRow).value : undefined,
+      warning: null,
+    };
     if (isAgents && sidecarAsAgentsDefault) return { ...tile, value: sidecarName };
     if (primary) {
       return {
@@ -306,91 +319,128 @@ export function useConnectionDefaults(connectionsList: ConnectionRowData[]) {
       }
     : null;
 
+  // Features name a Model, the sidecar, or a value of their own; unset ones follow their default. They stay out of
+  // the problem count, as before.
+  const features: DefaultsTile[] = FEATURE_KEYS.map((key) => {
+    const value = featureModels.data?.[key] ?? null;
+    const extra = FEATURE_EXTRA_OPTIONS[key]?.find((option) => option.value === value);
+    const row = value ? connectionsList.find((entry) => entry.id === value) : undefined;
+    const tile = { key, icon: FEATURE_ICONS[key], title: t(`connections.defaults.feature.${key}`), warning: null };
+    if (!value) return { ...tile, value: t(`connections.defaults.featureDefault.${key}`), muted: true };
+    if (extra) return { ...tile, value: t(extra.key) };
+    if (value === LOCAL_SIDECAR_CONNECTION_ID) return { ...tile, value: sidecarName };
+    if (row) return { ...tile, ...describe(row) };
+    return {
+      ...tile,
+      value: t("connections.defaults.missing"),
+      warning: { text: t("connections.defaults.warning.missing") },
+    };
+  });
+
   const all = [...tiles, embeddings, decision, voice, ...(stt ? [stt] : [])];
   const main = tiles[0]!;
   return {
     tiles: all,
+    features,
     mainLabel: main.muted ? t("connections.defaults.notSet") : main.value,
     problems: all.filter((tile) => tile.warning),
   };
 }
 
-/** One job: its icon and name, its problem with the fix, then its pickers. */
-function RoleSection({
-  role,
-  icon,
-  title,
-  warning,
-  children,
-}: {
-  role: string;
-  icon: ReactNode;
-  title: string;
-  warning?: Warning | null;
-  children: ReactNode;
-}) {
+type Job = {
+  tile: DefaultsTile;
+  /** Pickers that unfold under the line. */
+  controls?: ReactNode;
+  /** A device job opens a page instead. */
+  onOpen?: () => void;
+};
+
+/** One job as one line: its name, its Model with the Connection and fallback under it, then its problem and fix. */
+function JobRow({ job, open, onToggle }: { job: Job; open: boolean; onToggle: () => void }) {
+  const { t } = useTranslation();
+  const { tile } = job;
+  const controlsId = `connections-defaults-${tile.key}`;
+  const sub = [
+    tile.setup?.text ?? tile.hint,
+    tile.fallback && t("connections.defaults.thenFallback", { model: tile.fallback }),
+  ]
+    .filter(Boolean)
+    .join(" · ");
   return (
-    <section data-defaults-role={role} aria-label={title} className="px-3 py-2.5">
-      <h3 className="flex items-center gap-2 text-xs font-semibold text-[var(--foreground)]">
+    <section data-defaults-role={tile.key} aria-label={tile.title}>
+      <button
+        type="button"
+        data-defaults-tile={tile.key}
+        onClick={job.onOpen ?? onToggle}
+        aria-expanded={job.onOpen ? undefined : open}
+        aria-controls={job.onOpen || !open ? undefined : controlsId}
+        aria-label={t("connections.defaults.jobLabel", { role: tile.title, value: tile.value })}
+        className={cn(
+          "flex min-h-11 w-full min-w-0 items-center gap-2.5 rounded-lg px-1.5 py-1.5 text-left transition-colors hover:bg-[var(--sidebar-accent)]/50 md:min-h-10 [@media(pointer:coarse)]:min-h-11",
+          open && "bg-[var(--sidebar-accent)]/30",
+          FOCUS,
+        )}
+      >
         <span
           aria-hidden
           className="mari-panel-gradient-surface mari-panel-gradient--connections flex h-6 w-6 shrink-0 items-center justify-center rounded-lg"
         >
-          {icon}
+          {tile.icon}
         </span>
-        <span className="min-w-0 flex-1 truncate">{title}</span>
-      </h3>
-      {warning && (
+        <span className="w-24 shrink-0 break-words text-xs font-semibold leading-4 text-[var(--foreground)]">
+          {tile.title}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span
+            className={cn(
+              "block truncate text-xs leading-4",
+              tile.muted ? "text-[var(--muted-foreground)]" : "text-[var(--foreground)]",
+            )}
+          >
+            {tile.value}
+          </span>
+          {sub && <span className="block truncate text-[0.625rem] text-[var(--muted-foreground)]">{sub}</span>}
+        </span>
+        {tile.warning && (
+          <AlertTriangle size="0.75rem" aria-hidden className="shrink-0 text-[var(--marinara-app-accent-static)]" />
+        )}
+        {job.onOpen ? (
+          tile.setup ? (
+            <span className="shrink-0 text-xs font-semibold text-[var(--primary)]">
+              {t("connections.defaults.setUpLink")}
+            </span>
+          ) : (
+            <ChevronRight size="0.75rem" className="shrink-0 text-[var(--muted-foreground)]" />
+          )
+        ) : (
+          <ChevronDown
+            size="0.75rem"
+            className={cn(
+              "shrink-0 text-[var(--muted-foreground)] transition-transform motion-reduce:transition-none",
+              open && "rotate-180",
+            )}
+          />
+        )}
+      </button>
+      {tile.warning && (
         <div
           role="status"
-          className="mt-1.5 flex items-center gap-2 rounded-lg bg-[var(--marinara-app-accent-static)]/10 px-2.5 py-1.5 text-[0.6875rem] text-[var(--marinara-app-accent-static)]"
+          className="mb-1 ml-10 flex items-center gap-2 rounded-lg bg-[var(--marinara-app-accent-static)]/10 px-2.5 py-1.5 text-[0.6875rem] text-[var(--marinara-app-accent-static)]"
         >
-          <AlertTriangle size="0.75rem" className="shrink-0" />
-          <span className="min-w-0 flex-1 break-words">{warning.text}</span>
-          {warning.fix && (
-            <button type="button" onClick={warning.fix.run} className={cn(SMALL_ACTION, "shrink-0")}>
-              {warning.fix.label}
+          <span className="min-w-0 flex-1 break-words">{tile.warning.text}</span>
+          {tile.warning.fix && (
+            <button type="button" onClick={tile.warning.fix.run} className={cn(SMALL_ACTION, "shrink-0")}>
+              {tile.warning.fix.label}
             </button>
           )}
         </div>
       )}
-      <div className="mt-1 flex flex-col gap-0.5">{children}</div>
+      {open && job.controls && (
+        <div id={controlsId} className="mb-2 ml-10 mt-0.5 flex flex-col gap-0.5">
+          {job.controls}
+        </div>
+      )}
     </section>
-  );
-}
-
-/** A device job: its service, and a way to its engine's page, or to the Add window while it is not set up. */
-function DeviceJobRow({ tile, onClick }: { tile: DefaultsTile; onClick: () => void }) {
-  const { t } = useTranslation();
-  const note = tile.setup?.text ?? tile.hint;
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      data-defaults-tile={tile.key}
-      aria-label={t("connections.defaults.jobLabel", { role: tile.title, value: tile.value })}
-      className={cn(
-        "flex min-h-11 w-full min-w-0 items-center gap-2 rounded-lg px-1.5 py-1 text-left text-xs transition-colors hover:bg-[var(--sidebar-accent)]/40 md:min-h-9",
-        FOCUS,
-      )}
-    >
-      <span className="min-w-0 flex-1">
-        <span
-          className={cn(
-            "block break-words",
-            tile.muted ? "text-[var(--muted-foreground)]" : "text-[var(--foreground)]",
-          )}
-        >
-          {tile.value}
-        </span>
-        {note && <span className="block truncate text-[0.625rem] text-[var(--muted-foreground)]">{note}</span>}
-      </span>
-      {tile.setup ? (
-        <span className="shrink-0 font-semibold text-[var(--primary)]">{t("connections.defaults.setUpLink")}</span>
-      ) : (
-        <ChevronRight size="0.75rem" className="shrink-0 text-[var(--muted-foreground)]" />
-      )}
-    </button>
   );
 }
 
@@ -405,7 +455,7 @@ export function ConnectionDefaultsDetail({
   compact?: boolean;
 }) {
   const { t } = useTranslation();
-  const { tiles } = useConnectionDefaults(connectionsList);
+  const { tiles, features: featureTiles } = useConnectionDefaults(connectionsList);
   const updateConnection = useUpdateConnection();
   const showPaidAgentConnectionWarning = useUIStore((s) => s.showPaidAgentConnectionWarning);
   const setShowPaidAgentConnectionWarning = useUIStore((s) => s.setShowPaidAgentConnectionWarning);
@@ -417,6 +467,9 @@ export function ConnectionDefaultsDetail({
   const { data: agentConfigs } = useAgentConfigs();
   const updateAgent = useUpdateAgent();
   const [resettingAgents, setResettingAgents] = useState(false);
+  const [openKey, setOpenKey] = useState<string | null>(null);
+  const [openInUnused, setOpenInUnused] = useState(false);
+  const [showUnused, setShowUnused] = useState(false);
 
   const lite = import.meta.env.VITE_MARINARA_LITE === "true";
   // Keep the option visible while the flag is set, so a stale sidecar default can be cleared here.
@@ -530,6 +583,78 @@ export function ConnectionDefaultsDetail({
   };
 
   const features = featureModels.data;
+  const jobs: Job[] = [
+    ...tiles.map((tile) =>
+      tile.device || (tile.setup && tile.key !== "decision")
+        ? {
+            tile,
+            onOpen: () =>
+              tile.device
+                ? onOpenDevice(tile.device)
+                : openAddConnection({ category: "device", item: tile.setup!.item }),
+          }
+        : {
+            tile,
+            controls:
+              tile.key === "embeddings" ? (
+                <EmbeddingDefaultControl connections={connectionsList.filter((row) => isChatProvider(row.provider))} />
+              ) : tile.key === "decision" ? (
+                <DecisionDefaultControl />
+              ) : (
+                roleControls(tile.key as FlagRoleKey)
+              ),
+          },
+    ),
+    ...featureTiles.map((tile) => {
+      const key = tile.key as keyof FeatureModelConnections;
+      return {
+        tile,
+        controls: (
+          <ConnectionSelect
+            variant="menu"
+            label={t("connections.defaults.default")}
+            value={features?.[key] ?? null}
+            onChange={(value) => setFeatureModels.mutate({ [key]: value })}
+            defaultLabel={t(`connections.defaults.featureDefault.${key}`)}
+            extraOptions={FEATURE_EXTRA_OPTIONS[key]?.map((extra) => ({
+              value: extra.value,
+              label: t(extra.key),
+            }))}
+            includeLocalSidecar={!lite}
+            className={cn(!features && "opacity-60")}
+            aria-label={t(`connections.defaults.feature.${key}`)}
+          />
+        ),
+      };
+    }),
+  ];
+  // A job counts as set once it has a Model, a fallback or a problem.
+  // Hold an open row in its original group while a picker changes its configuration. Moving it between
+  // groups would remount the control and lose keyboard focus before the picker has finished closing.
+  const isSet = ({ tile }: Job) =>
+    tile.key === openKey ? !openInUnused : !tile.muted || !!tile.fallback || !!tile.warning;
+  const unused = jobs.filter((job) => !isSet(job));
+  const renderJob = (job: Job) => (
+    <JobRow
+      key={job.tile.key}
+      job={job}
+      open={openKey === job.tile.key}
+      onToggle={() => {
+        if (openKey === job.tile.key) {
+          setOpenKey(null);
+          requestAnimationFrame(() => {
+            const target =
+              document.querySelector<HTMLButtonElement>(`[data-defaults-tile="${job.tile.key}"]`) ??
+              document.querySelector<HTMLButtonElement>("[data-defaults-unused]");
+            target?.focus();
+          });
+        } else {
+          setOpenInUnused(!isSet(job));
+          setOpenKey(job.tile.key);
+        }
+      }}
+    />
+  );
 
   return (
     <div className="flex flex-col gap-3">
@@ -545,55 +670,56 @@ export function ConnectionDefaultsDetail({
           <span>{t("connections.defaults.whoDoesWhatHelp")}</span>
         </DetailHero>
       )}
-      <div className={cn(!compact && DETAIL_CARD_CLASS, "divide-y divide-[var(--border)]/50 p-0")}>
-        {tiles.map((tile) => (
-          <RoleSection key={tile.key} role={tile.key} icon={tile.icon} title={tile.title} warning={tile.warning}>
-            {tile.device || (tile.setup && tile.key !== "decision") ? (
-              <DeviceJobRow
-                tile={tile}
-                onClick={() =>
-                  tile.device
-                    ? onOpenDevice(tile.device)
-                    : openAddConnection({ category: "device", item: tile.setup!.item })
-                }
+      <div className={cn(!compact && DETAIL_CARD_CLASS, "flex flex-col gap-0.5 p-1")}>
+        {/* Scope: these apply to every chat; a chat's own pick lives on the chat. */}
+        <p className="flex min-w-0 items-center gap-1.5 px-1.5 pb-1 text-[0.6875rem] text-[var(--muted-foreground)]">
+          <span className="shrink-0 rounded-md bg-[var(--sidebar-accent)] px-1.5 text-[0.625rem] font-semibold uppercase leading-4 tracking-wide text-[var(--foreground)]">
+            {t("connections.defaults.global")}
+          </span>
+          <span className="min-w-0">{t("connections.defaults.globalHelp")}</span>
+        </p>
+        {jobs.filter(isSet).map(renderJob)}
+        {unused.length > 0 && (
+          <>
+            <button
+              type="button"
+              data-defaults-unused
+              onClick={() => {
+                if (showUnused && openInUnused) setOpenKey(null);
+                setShowUnused((shown) => !shown);
+              }}
+              aria-expanded={showUnused}
+              className={cn(
+                "flex min-h-11 w-full min-w-0 items-center gap-2.5 rounded-lg px-1.5 py-1.5 text-left text-xs transition-colors hover:bg-[var(--sidebar-accent)]/50 md:min-h-10 [@media(pointer:coarse)]:min-h-11",
+                FOCUS,
+              )}
+            >
+              <span
+                aria-hidden
+                className="flex h-6 w-6 shrink-0 items-center justify-center text-[var(--muted-foreground)]"
+              >
+                <Plus size="0.875rem" />
+              </span>
+              <span className="min-w-0 flex-1 text-[var(--foreground)]">
+                {t("connections.defaults.setUpAnother")}
+                {!showUnused && (
+                  <span className="text-[var(--muted-foreground)]">
+                    {" · "}
+                    {unused.map((job) => job.tile.title).join(", ")}
+                  </span>
+                )}
+              </span>
+              <ChevronDown
+                size="0.75rem"
+                className={cn(
+                  "shrink-0 text-[var(--muted-foreground)] transition-transform motion-reduce:transition-none",
+                  showUnused && "rotate-180",
+                )}
               />
-            ) : tile.key === "embeddings" ? (
-              <EmbeddingDefaultControl connections={connectionsList.filter((row) => isChatProvider(row.provider))} />
-            ) : tile.key === "decision" ? (
-              <DecisionDefaultControl />
-            ) : (
-              roleControls(tile.key as FlagRoleKey)
-            )}
-          </RoleSection>
-        ))}
-        <RoleSection
-          role="features"
-          icon={<Sparkles size="0.6875rem" />}
-          title={t("connections.defaults.featuresTitle")}
-        >
-          {FEATURE_KEYS.map((key) => (
-            <ConnectionSelect
-              key={key}
-              variant="menu"
-              label={
-                <>
-                  <span className="text-[var(--muted-foreground)]">{FEATURE_ICONS[key]}</span>
-                  <span className="font-medium">{t(`connections.defaults.feature.${key}`)}</span>
-                </>
-              }
-              value={features?.[key] ?? null}
-              onChange={(value) => setFeatureModels.mutate({ [key]: value })}
-              defaultLabel={t(`connections.defaults.featureDefault.${key}`)}
-              extraOptions={FEATURE_EXTRA_OPTIONS[key]?.map((extra) => ({
-                value: extra.value,
-                label: t(extra.key),
-              }))}
-              includeLocalSidecar={!lite}
-              className={cn(!features && "opacity-60")}
-              aria-label={t(`connections.defaults.feature.${key}`)}
-            />
-          ))}
-        </RoleSection>
+            </button>
+            {showUnused && unused.map(renderJob)}
+          </>
+        )}
       </div>
     </div>
   );

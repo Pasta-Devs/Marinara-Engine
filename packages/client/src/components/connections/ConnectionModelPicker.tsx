@@ -5,7 +5,7 @@
 // Add model and the setup flow (a pick saves a Model).
 // ──────────────────────────────────────────────
 import { useDeferredValue, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
-import { Check, Loader2, RefreshCw, Search, Star } from "lucide-react";
+import { Check, Copy, Loader2, RefreshCw, Search, Star } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
@@ -14,6 +14,7 @@ import {
   parsePinnedModels,
   type APIProvider,
   type ChatModelChoice,
+  type ModelParameterCapabilities,
 } from "@marinara-engine/shared";
 import {
   useConnectionModels,
@@ -30,10 +31,10 @@ import {
 } from "../../lib/connection-model-selection";
 import { isConnectionFlagTrue } from "../../lib/connection-filters";
 import { formatCompactTokenCount } from "../../lib/professor-mari-context-budget";
-import { subgroupByUpstream } from "../../lib/connection-groups";
+import { subgroupByUpstream, upstreamOf } from "../../lib/connection-groups";
 import { BrandMark, ProviderIcon } from "./ProviderIcon";
 import { SubscriptionCostPill } from "./SubscriptionCostPill";
-import { cn } from "../../lib/utils";
+import { cn, copyToClipboard } from "../../lib/utils";
 
 /** The connection row fields the picker reads. */
 export type ModelPickerConnection = {
@@ -64,6 +65,7 @@ type PickerRow = {
   isRemote?: boolean;
   subscriptionIncluded?: boolean;
   inputTokenMultiplier?: number;
+  capabilities?: ModelParameterCapabilities;
 };
 
 const errorMessage = (error: unknown) => (error instanceof Error ? error.message : String(error ?? ""));
@@ -118,6 +120,7 @@ export function ConnectionModelPicker({
 }) {
   const { t } = useTranslation();
   const [search, setSearch] = useState("");
+  const [upstream, setUpstream] = useState<string | null>(null);
   const deferredSearch = useDeferredValue(search);
   const searchRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -141,6 +144,7 @@ export function ConnectionModelPicker({
   useEffect(() => {
     // A new connection starts with an empty search.
     setSearch("");
+    setUpstream(null);
   }, [connection.id]);
 
   useEffect(() => {
@@ -162,6 +166,16 @@ export function ConnectionModelPicker({
     [modelList.isLoading, provider, remoteModels],
   );
   const optionsById = useMemo(() => new Map(options.map((option) => [option.id, option])), [options]);
+  const upstreams = useMemo(
+    () =>
+      subgroupByUpstream(options.map((row) => ({ model: row.id }))).flatMap((group) =>
+        group.upstream ? [group.upstream] : [],
+      ),
+    [options],
+  );
+  useEffect(() => {
+    if (upstream && !upstreams.includes(upstream)) setUpstream(null);
+  }, [upstream, upstreams]);
 
   const { pinnedAll, othersAll, recommendedAll } = useMemo(() => {
     const pinnedSet = new Set(pinnedIds);
@@ -183,14 +197,15 @@ export function ConnectionModelPicker({
   }, [currentModel, options, optionsById, pinnedIds, recommended]);
 
   const { recommendedRows, pinnedRows, otherRows, totalOther } = useMemo(() => {
-    const filteredOthers = filterConnectionModelOptions(othersAll, deferredSearch);
+    const inUpstream = (row: PickerRow) => !upstream || upstreamOf(row.id) === upstream;
+    const filteredOthers = filterConnectionModelOptions(othersAll.filter(inUpstream), deferredSearch);
     return {
-      recommendedRows: filterConnectionModelOptions(recommendedAll, deferredSearch),
-      pinnedRows: filterConnectionModelOptions(pinnedAll, deferredSearch),
+      recommendedRows: filterConnectionModelOptions(recommendedAll.filter(inUpstream), deferredSearch),
+      pinnedRows: filterConnectionModelOptions(pinnedAll.filter(inUpstream), deferredSearch),
       otherRows: filteredOthers.slice(0, MAX_LISTED_MODELS),
       totalOther: filteredOthers.length,
     };
-  }, [deferredSearch, othersAll, pinnedAll, recommendedAll]);
+  }, [deferredSearch, othersAll, pinnedAll, recommendedAll, upstream]);
 
   // What Enter does with the search text: an exact ID or name picks that model, a search with a single match
   // picks it, and only text that matches nothing is used as a model ID. Several matches wait for a choice.
@@ -198,19 +213,20 @@ export function ConnectionModelPicker({
   const { exactId, enterTarget, enterUsesTyped } = useMemo(() => {
     const typed = typedId.toLowerCase();
     if (!typed) return { exactId: null, enterTarget: null, enterUsesTyped: false };
-    const rows = [...recommendedAll, ...pinnedAll, ...othersAll];
-    const byId = rows.find((row) => row.id.toLowerCase() === typed) ?? null;
+    const allRows = [...recommendedAll, ...pinnedAll, ...othersAll];
+    const rows = allRows.filter((row) => !upstream || upstreamOf(row.id) === upstream);
+    const byId = allRows.find((row) => row.id.toLowerCase() === typed) ?? null;
     const byName = rows.filter((row) => row.name.toLowerCase() === typed);
     const matches = filterConnectionModelOptions(rows, typedId);
     const target: PickerRow | null =
-      byId ??
+      (byId && (!upstream || upstreamOf(byId.id) === upstream) ? byId : null) ??
       (byName.length === 1 ? byName[0]! : null) ??
       (matches.length === 1 ? matches[0]! : null) ??
-      (matches.length === 0 ? { id: typedId, name: typedId } : null);
-    return { exactId: byId, enterTarget: target, enterUsesTyped: matches.length === 0 };
-  }, [othersAll, pinnedAll, recommendedAll, typedId]);
+      (matches.length === 0 && !upstream ? { id: typedId, name: typedId } : null);
+    return { exactId: byId, enterTarget: target, enterUsesTyped: matches.length === 0 && !upstream };
+  }, [othersAll, pinnedAll, recommendedAll, typedId, upstream]);
   // The typed text can always be used as it is from its own row; Enter uses it only when nothing matches.
-  const showTypedRow = !!typedId && !exactId;
+  const showTypedRow = !!typedId && (!exactId || (!!upstream && upstreamOf(exactId.id) !== upstream));
 
   // Add mode: what is picked is starred, so it stays in the Connection (decision 30).
   const starPicked = (row: PickerRow) => {
@@ -327,12 +343,6 @@ export function ConnectionModelPicker({
         data-model-id={row.id}
         className={cn("relative flex rounded-lg", current && "bg-foreground/[0.07]")}
       >
-        {current && (
-          <span
-            aria-hidden
-            className="pointer-events-none absolute inset-y-1.5 left-0 w-0.5 rounded-full bg-[var(--marinara-chat-chrome-accent)]"
-          />
-        )}
         <button
           type="button"
           data-model-option
@@ -354,13 +364,28 @@ export function ConnectionModelPicker({
                 </span>
               )}
             </span>
-            {label !== row.id && <span className="truncate text-[0.625rem] text-foreground/50">{row.id}</span>}
+            {label !== row.id && (
+              <span className="truncate font-mono text-[0.625rem] text-foreground/55">{row.id}</span>
+            )}
+            {(!!row.context ||
+              !!row.maxOutput ||
+              row.capabilities?.adaptiveThinking ||
+              !!row.capabilities?.effortLevels?.length) && (
+              <span data-model-metadata className="flex flex-wrap gap-x-2 text-[0.625rem] text-foreground/55">
+                {!!row.context && (
+                  <span>{t("connections.add.context", { size: formatCompactTokenCount(row.context) })}</span>
+                )}
+                {!!row.maxOutput && (
+                  <span>
+                    {t("connections.modelPicker.maxOutput", { size: formatCompactTokenCount(row.maxOutput) })}
+                  </span>
+                )}
+                {(row.capabilities?.adaptiveThinking || !!row.capabilities?.effortLevels?.length) && (
+                  <span>{t("connections.modelPicker.reasoning")}</span>
+                )}
+              </span>
+            )}
           </span>
-          {addMode && !!row.context && (
-            <span className="shrink-0 text-[0.625rem] tabular-nums text-foreground/50">
-              {t("connections.add.context", { size: formatCompactTokenCount(row.context) })}
-            </span>
-          )}
           {current && (
             <Check
               size="0.875rem"
@@ -368,6 +393,22 @@ export function ConnectionModelPicker({
               aria-label={t("connections.modelPicker.current")}
             />
           )}
+        </button>
+        <button
+          type="button"
+          data-model-copy
+          aria-label={t("connections.modelPicker.copyId", { model: label })}
+          title={t("connections.modelPicker.copyId", { model: label })}
+          onClick={async (event) => {
+            const trigger = event.currentTarget;
+            const copied = await copyToClipboard(row.id);
+            if (document.activeElement === document.body) trigger.focus({ preventScroll: true });
+            if (copied) toast.success(t("connections.modelPicker.copied"));
+            else toast.error(t("connections.modelPicker.copyFailed"));
+          }}
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-foreground/45 outline-none transition-colors hover:bg-foreground/10 hover:text-foreground/80 focus-visible:ring-1 focus-visible:ring-foreground/25"
+        >
+          <Copy size="0.8125rem" aria-hidden />
         </button>
         {/* A Model outside a Connection has nowhere to save a favorite; an old star there can still be removed. */}
         {(connection.accountId || pinned) && (
@@ -422,7 +463,7 @@ export function ConnectionModelPicker({
       ) : (
         <>
           <div className="flex min-w-0 items-center gap-1.5 px-3 pb-1.5">
-            <label className="flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-lg border sm:min-h-9 border-foreground/10 bg-foreground/[0.04] px-2.5 text-foreground/55 focus-within:border-foreground/25">
+            <label className="flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-lg border sm:min-h-9 border-foreground/10 bg-foreground/[0.04] px-2.5 text-foreground/55 focus-within:border-foreground/25 [@media(pointer:coarse)]:min-h-11">
               <Search size="0.875rem" className="shrink-0" aria-hidden />
               <span className="sr-only">{t("connections.modelPicker.searchLabel")}</span>
               <input
@@ -451,7 +492,7 @@ export function ConnectionModelPicker({
               disabled={refresh.isPending || modelList.isFetching}
               aria-label={t("connections.modelPicker.refresh")}
               title={t("connections.modelPicker.refresh")}
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-foreground/10 sm:h-9 sm:w-9 text-foreground/55 outline-none transition-colors hover:bg-foreground/10 hover:text-foreground/80 focus-visible:ring-1 focus-visible:ring-foreground/25 disabled:opacity-60"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-foreground/10 sm:h-9 sm:w-9 text-foreground/55 outline-none transition-colors hover:bg-foreground/10 hover:text-foreground/80 focus-visible:ring-1 focus-visible:ring-foreground/25 disabled:opacity-60 [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:w-11"
             >
               <RefreshCw
                 size="0.875rem"
@@ -460,6 +501,31 @@ export function ConnectionModelPicker({
               />
             </button>
           </div>
+
+          {upstreams.length > 1 && (
+            <div
+              role="group"
+              aria-label={t("connections.modelPicker.filterUpstream")}
+              className="flex shrink-0 gap-1 overflow-x-auto px-3 pb-2"
+            >
+              {[null, ...upstreams].map((value) => (
+                <button
+                  key={value ?? "all"}
+                  type="button"
+                  data-model-upstream-filter={value ?? "all"}
+                  aria-pressed={upstream === value}
+                  onClick={() => setUpstream(value)}
+                  className={cn(
+                    "mari-chrome-control mari-chrome-control--small shrink-0 !min-h-9 px-2 text-xs max-md:!min-h-11 [@media(pointer:coarse)]:!min-h-11",
+                    upstream === value && "mari-chrome-control--selected",
+                  )}
+                >
+                  {value && <BrandMark of={value} className="h-3 w-3" />}
+                  {value ?? t("connections.modelPicker.allUpstreams")}
+                </button>
+              ))}
+            </div>
+          )}
 
           {modelList.isError && !refresh.isPending && (
             <div role="status" className="px-3 pb-1 text-[0.6875rem] leading-snug text-foreground/60">
@@ -481,7 +547,7 @@ export function ConnectionModelPicker({
                   data-model-option
                   data-model-use-typed
                   disabled={saving}
-                  onClick={() => void pick({ id: typedId, name: typedId })}
+                  onClick={() => void pick(exactId ?? { id: typedId, name: typedId })}
                   className="flex min-h-11 min-w-0 flex-1 flex-col justify-center rounded-lg px-3 py-1.5 text-left outline-none transition-colors hover:bg-foreground/10 focus-visible:bg-foreground/10 focus-visible:ring-1 focus-visible:ring-foreground/25"
                 >
                   <span className="truncate text-xs font-medium text-foreground/90">
@@ -507,7 +573,7 @@ export function ConnectionModelPicker({
               <section
                 aria-label={t("connections.switcher.favourites")}
                 data-model-section="favorites"
-                className={cn(recommendedRows.length > 0 && "mt-1 border-t border-foreground/10")}
+                className={cn(recommendedRows.length > 0 && "mt-2")}
               >
                 {sectionLabel(t("connections.switcher.favourites"))}
                 {pinnedRows.map((row) => renderRow(row, true))}
@@ -518,24 +584,20 @@ export function ConnectionModelPicker({
               <section
                 aria-label={t("connections.modelPicker.allModels")}
                 data-model-section="all"
-                className={cn(
-                  (pinnedRows.length > 0 || recommendedRows.length > 0) && "mt-1 border-t border-foreground/10",
-                )}
+                className={cn((pinnedRows.length > 0 || recommendedRows.length > 0) && "mt-2")}
               >
                 {sectionLabel(t("connections.modelPicker.allModels"))}
-                {addMode
-                  ? subgroupByUpstream(otherRows.map((row) => ({ ...row, model: row.id }))).map((group) => (
-                      <div key={group.upstream ?? ""} data-model-upstream={group.upstream ?? undefined}>
-                        {group.upstream && (
-                          <p className="flex items-center gap-1.5 px-3 pb-0.5 pt-1.5 text-[0.625rem] text-foreground/40">
-                            <BrandMark of={group.upstream} className="h-3 w-3" />
-                            {group.upstream}
-                          </p>
-                        )}
-                        {group.rows.map((row) => renderRow(row, false))}
-                      </div>
-                    ))
-                  : otherRows.map((row) => renderRow(row, false))}
+                {subgroupByUpstream(otherRows.map((row) => ({ ...row, model: row.id }))).map((group) => (
+                  <div key={group.upstream ?? ""} data-model-upstream={group.upstream ?? undefined}>
+                    {group.upstream && (
+                      <p className="flex items-center gap-1.5 px-3 pb-0.5 pt-1.5 text-[0.625rem] text-foreground/40">
+                        <BrandMark of={group.upstream} className="h-3 w-3" />
+                        {group.upstream}
+                      </p>
+                    )}
+                    {group.rows.map((row) => renderRow(row, false))}
+                  </div>
+                ))}
               </section>
             )}
 

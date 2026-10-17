@@ -11,7 +11,11 @@ import {
   type DecisionSource,
   isChatProvider,
 } from "@marinara-engine/shared";
-import { isConnectionFlagFalse, isLanguageGenerationConnection } from "../../lib/connection-filters";
+import {
+  isConnectionFlagFalse,
+  isConnectionFlagTrue,
+  isLanguageGenerationConnection,
+} from "../../lib/connection-filters";
 import { useConnectionAccounts } from "../../hooks/use-connection-accounts";
 import { useEffectiveGenerationParameters } from "../../hooks/use-effective-generation-parameters";
 // ──────────────────────────────────────────────
@@ -89,7 +93,7 @@ import {
 import { DraftNumberInput } from "../ui/DraftNumberInput";
 import { decisionConnectionTestMessage } from "../../lib/decision-test-message";
 import { AtlasCloudModelOptions } from "./AtlasCloudModelOptions";
-import { BrandMark } from "./ProviderIcon";
+import { BrandMark, ProviderIcon } from "./ProviderIcon";
 import { SubscriptionUsageWidget } from "./SubscriptionUsageWidget";
 import { SubscriptionCostPill } from "./SubscriptionCostPill";
 import { HelpTooltip } from "../ui/HelpTooltip";
@@ -2083,9 +2087,33 @@ export function ConnectionEditor() {
 
             {/* ── Provider (or the Connection that owns the credentials) ── */}
             {accountLinked ? (
-              <div className="flex items-center justify-between gap-2 rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)]">
-                <span className="min-w-0 truncate">
-                  {t("connections.editor.connectionLine", { name: linkedAccount?.name ?? "…" })}
+              <div className="flex items-center justify-between gap-3 rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)]">
+                <ProviderIcon
+                  provider={localProvider}
+                  baseUrl={localBaseUrl}
+                  model={localModel}
+                  name={localName}
+                  size="sm"
+                />
+                <span className="flex min-w-0 flex-1 flex-col">
+                  <span className="truncate">
+                    {t("connections.editor.connectionLine", { name: linkedAccount?.name ?? "…" })}
+                  </span>
+                  {localModel && (
+                    <span className="truncate font-mono text-[0.6875rem] text-[var(--muted-foreground)]">
+                      {localModel}
+                    </span>
+                  )}
+                  {isConnectionFlagTrue(conn?.isDefault) && (
+                    <span className="text-[0.625rem] text-[var(--muted-foreground)]">
+                      {t("connections.defaults.role.main")}
+                    </span>
+                  )}
+                  {localDefaultForAgents && isChatProvider(localProvider) && (
+                    <span className="text-[0.625rem] text-[var(--muted-foreground)]">
+                      {t("connections.editor.roleAgentsDefault")}
+                    </span>
+                  )}
                 </span>
                 <button
                   type="button"
@@ -3431,7 +3459,7 @@ export function ConnectionEditor() {
                         ? localizeUi("ui.connections.connectioneditor.value1TokensMax", {
                             value1: localMaxTokensOverride.toLocaleString(),
                           })
-                        : localizeUi("ui.connections.connectioneditor.noOverride")}
+                        : t("connections.editor.maxOutputAutomatic")}
                     </span>
                   </div>
                   <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
@@ -3490,6 +3518,13 @@ export function ConnectionEditor() {
                     markDirty();
                   }}
                 />
+                <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
+                  {t(
+                    localDefaultParametersEnabled
+                      ? "connections.editor.generationSource.model"
+                      : "connections.editor.generationSource.inherited",
+                  )}
+                </p>
 
                 {localDefaultParametersEnabled ? (
                   <div className="rounded-xl bg-[var(--secondary)]/40 p-3 ring-1 ring-[var(--border)]">

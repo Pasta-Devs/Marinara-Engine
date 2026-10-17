@@ -3,7 +3,7 @@ import { clickTopbarPanel } from "./topbar-navigation.js";
 
 /** Variant D: a Model shows on its Connection's page; the panel search lists every Model first. */
 export async function openConnectionsPanelModel(panel: Locator, name: string) {
-  await panel.getByRole("textbox", { name: "Search models and connections" }).fill(name);
+  await panel.getByRole("searchbox", { name: "Search models and connections" }).fill(name);
   await panel.locator("[data-connection-id]").filter({ hasText: name }).first().click();
 }
 
@@ -36,6 +36,13 @@ export async function openDefaultsTile(page: Page, tile: "voice" | "stt") {
   if (!(await tileButton.count())) {
     await showConnectionsList(page);
     await page.locator('[data-connections-row="defaults"]').filter({ visible: true }).click();
+  }
+  await expect(page.locator('[data-defaults-tile="main"]').filter({ visible: true })).toBeVisible();
+  if (!(await tileButton.count())) {
+    await page
+      .getByRole("button", { name: /Set up another role/ })
+      .filter({ visible: true })
+      .click();
   }
   await expect(tileButton).toBeVisible();
   await tileButton.click();

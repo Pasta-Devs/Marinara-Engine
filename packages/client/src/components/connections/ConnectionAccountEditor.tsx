@@ -26,6 +26,8 @@ import { Modal } from "../ui/Modal";
 import { SmoothFolderContent } from "../ui/SmoothFolderContent";
 import { SETTINGS_BUTTON_CLASS, SettingsSection, ToggleSetting } from "../panels/settings/SettingControls";
 import type { ConnectionRowData } from "./ConnectionRow";
+import { ProviderIcon } from "./ProviderIcon";
+import { StateWord } from "./DeviceDetail";
 
 type Draft = {
   name: string;
@@ -101,6 +103,7 @@ export function ConnectionAccountEditor({ accountId, onClose }: { accountId: str
   const [apiKey, setApiKey] = useState<string | null>(null);
   const [managementToken, setManagementToken] = useState<string | null>(null);
   const [more, setMore] = useState(false);
+  const [manage, setManage] = useState(false);
   const [blockedBy, setBlockedBy] = useState<Array<{ id: string; name: string; model?: string }>>([]);
 
   useEffect(() => {
@@ -116,7 +119,10 @@ export function ConnectionAccountEditor({ accountId, onClose }: { accountId: str
       maxParallelJobs: account.maxParallelJobs?.toString() ?? "",
     });
     // A key that was never saved has nothing to keep, so its field starts open.
-    if (!account.hasApiKey) setApiKey("");
+    if (!account.hasApiKey) {
+      setApiKey("");
+      setManage(account.state === "needs_key");
+    }
   }, [account, draft]);
 
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) =>
@@ -205,80 +211,117 @@ export function ConnectionAccountEditor({ accountId, onClose }: { accountId: str
         </p>
       ) : (
         <div className="flex flex-col gap-3">
-          <SettingsSection
-            title={t("connections.accounts.editor.access")}
-            icon={<KeyRound size="0.875rem" />}
-            contentClassName="flex flex-col gap-3"
-          >
-            <label className="block">
-              {label(t("connections.accounts.editor.name"))}
-              <input
-                value={draft.name}
-                onChange={(event) => set("name", event.target.value)}
-                className="mari-chrome-field h-9 w-full px-3 text-xs max-md:min-h-11"
-              />
-            </label>
-            <div className="flex items-baseline justify-between gap-3 text-xs">
-              <span className="text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
-                {t("connections.accounts.editor.service")}
-              </span>
-              <span className="min-w-0 truncate">
-                {PROVIDERS[account.provider as APIProvider]?.name ?? account.provider}
-              </span>
-            </div>
-            <label className="block">
-              {label(t("connections.accounts.editor.endpoint"))}
-              <input
-                value={draft.baseUrl}
-                onChange={(event) => set("baseUrl", event.target.value)}
-                placeholder={t("connections.accounts.editor.endpointPlaceholder")}
-                inputMode="url"
-                className="mari-chrome-field h-9 w-full px-3 text-xs max-md:min-h-11"
-              />
-            </label>
-            <SecretField
-              label={t("connections.accounts.editor.apiKey")}
-              saved={account.hasApiKey}
-              last4={account.apiKeyLast4}
-              value={apiKey}
-              onChange={setApiKey}
-            />
-            {/* The Test row keeps its result beside it, so the answer lands where the question was asked. */}
-            <div className="flex items-center gap-2 rounded-lg bg-[var(--secondary)]/40 p-1.5 ring-1 ring-[var(--border)]/60">
-              <button
-                type="button"
-                onClick={() => firstModel && test.mutate(firstModel.id)}
-                disabled={!firstModel || test.isPending}
-                className={cn(SETTINGS_BUTTON_CLASS, "shrink-0 max-md:min-h-11")}
-              >
-                {test.isPending ? <Loader2 size="0.75rem" className="animate-spin" /> : <Wifi size="0.75rem" />}
-                {t("connections.accounts.test")}
-              </button>
-              <span
-                role="status"
-                className={cn(
-                  "min-w-0 flex-1 break-words text-[0.6875rem]",
-                  test.isError || (test.data && !test.data.success)
-                    ? "text-[var(--destructive)]"
-                    : "text-[var(--muted-foreground)]",
+          {/* Summary first: what this Connection is and whether it works. Credentials open on demand. */}
+          <div className="flex flex-wrap items-center gap-3 rounded-lg bg-[var(--secondary)]/40 p-3">
+            <ProviderIcon provider={account.provider} baseUrl={account.baseUrl} name={account.name} size="md" />
+            <div className="min-w-0 flex-1">
+              <div className="flex min-w-0 items-center gap-2">
+                <span className="truncate text-sm font-semibold">{account.name}</span>
+                <span className="shrink-0 text-[0.625rem] font-medium">
+                  <StateWord
+                    tone={account.state === "ok" ? "ok" : account.state === "off" ? "off" : "warn"}
+                    label={t(`connections.accounts.editor.state.${account.state}`)}
+                  />
+                </span>
+              </div>
+              <p className="flex flex-col text-[0.6875rem] text-[var(--muted-foreground)]">
+                <span>{PROVIDERS[account.provider as APIProvider]?.name ?? account.provider}</span>
+                {account.baseUrl && <span className="truncate font-mono">{account.baseUrl}</span>}
+                {account.hasApiKey && account.apiKeyLast4 && (
+                  <span>{t("connections.accounts.editor.keyEnding", { last4: account.apiKeyLast4 })}</span>
                 )}
-              >
-                {test.isPending
-                  ? t("connections.accounts.editor.testing")
-                  : test.data
-                    ? test.data.success
-                      ? t("connections.accounts.testOk", { latency: test.data.latencyMs })
-                      : test.data.message
-                    : test.isError
-                      ? t("connections.accounts.testFailed")
-                      : !firstModel
-                        ? t("connections.accounts.addModelFirst")
-                        : dirty
-                          ? t("connections.accounts.editor.testUsesSaved")
-                          : t("connections.accounts.editor.notTested")}
-              </span>
+              </p>
             </div>
-          </SettingsSection>
+            <button
+              type="button"
+              onClick={() => setManage((value) => !value)}
+              aria-expanded={manage}
+              aria-controls={manage ? "connection-account-access" : undefined}
+              className={cn(
+                SETTINGS_BUTTON_CLASS,
+                "shrink-0 max-sm:w-full max-sm:justify-center max-md:min-h-11 [@media(pointer:coarse)]:min-h-11",
+              )}
+            >
+              <KeyRound size="0.75rem" />
+              {account.state === "needs_key"
+                ? t("connections.accounts.editor.repairAccess")
+                : t("connections.accounts.editor.manageAccess")}
+            </button>
+          </div>
+
+          <SmoothFolderContent open={manage}>
+            <div id="connection-account-access" data-account-access className="flex flex-col gap-3 pb-1">
+              <label className="block">
+                {label(t("connections.accounts.editor.name"))}
+                <input
+                  value={draft.name}
+                  onChange={(event) => set("name", event.target.value)}
+                  className="mari-chrome-field h-9 w-full px-3 text-xs max-md:min-h-11"
+                />
+              </label>
+              <div className="flex items-baseline justify-between gap-3 text-xs">
+                <span className="text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
+                  {t("connections.accounts.editor.service")}
+                </span>
+                <span className="min-w-0 truncate">
+                  {PROVIDERS[account.provider as APIProvider]?.name ?? account.provider}
+                </span>
+              </div>
+              <label className="block">
+                {label(t("connections.accounts.editor.endpoint"))}
+                <input
+                  value={draft.baseUrl}
+                  onChange={(event) => set("baseUrl", event.target.value)}
+                  placeholder={t("connections.accounts.editor.endpointPlaceholder")}
+                  inputMode="url"
+                  className="mari-chrome-field h-9 w-full px-3 text-xs max-md:min-h-11"
+                />
+              </label>
+              <SecretField
+                label={t("connections.accounts.editor.apiKey")}
+                saved={account.hasApiKey}
+                last4={account.apiKeyLast4}
+                value={apiKey}
+                onChange={setApiKey}
+              />
+            </div>
+          </SmoothFolderContent>
+
+          {/* The Test row keeps its result beside it, so the answer lands where the question was asked. */}
+          <div className="flex items-center gap-2 rounded-lg bg-[var(--secondary)]/40 p-1.5 ring-1 ring-[var(--border)]/60">
+            <button
+              type="button"
+              onClick={() => firstModel && test.mutate(firstModel.id)}
+              disabled={!firstModel || test.isPending}
+              className={cn(SETTINGS_BUTTON_CLASS, "shrink-0 max-md:min-h-11")}
+            >
+              {test.isPending ? <Loader2 size="0.75rem" className="animate-spin" /> : <Wifi size="0.75rem" />}
+              {t("connections.accounts.test")}
+            </button>
+            <span
+              role="status"
+              className={cn(
+                "min-w-0 flex-1 break-words text-[0.6875rem]",
+                test.isError || (test.data && !test.data.success)
+                  ? "text-[var(--destructive)]"
+                  : "text-[var(--muted-foreground)]",
+              )}
+            >
+              {test.isPending
+                ? t("connections.accounts.editor.testing")
+                : test.data
+                  ? test.data.success
+                    ? t("connections.accounts.testOk", { latency: test.data.latencyMs })
+                    : test.data.message
+                  : test.isError
+                    ? t("connections.accounts.testFailed")
+                    : !firstModel
+                      ? t("connections.accounts.addModelFirst")
+                      : dirty
+                        ? t("connections.accounts.editor.testUsesSaved")
+                        : t("connections.accounts.editor.notTested")}
+            </span>
+          </div>
 
           <div className="rounded-lg border border-[var(--border)]/70 px-1.5 py-1">
             <ToggleSetting

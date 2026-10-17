@@ -1,9 +1,9 @@
 // ──────────────────────────────────────────────
-// Panel: Connections (concept A, the library). A toolbar (Import, Add, ⋯), search and a filter (All, Chat,
-// Images & voice); then the Defaults card, one folding card per Connection with its Models under it, and the
-// engines set up on this device. Defaults unfolds in place on a narrow panel; a wide panel shows it, a device or
-// the other Models as a second column, a narrow one drills in. Search and the filter narrow the cards in place:
-// a Connection that matches shows all its Models, and its fold still works.
+// Panel: Connections (concept A, the library). Staging's action row (Add, Import, ⋯), search and a filter (All,
+// Chat, Images & voice); then the Defaults block, one folding block per Connection with its Models of every kind,
+// and the engines set up on this device. Defaults unfolds in place on a narrow panel; a wide panel shows it, a
+// device or the other Models as a second column, a narrow one drills in. Search and the filter narrow the blocks in
+// place: a Connection that matches shows all its Models, and its fold still works.
 // ──────────────────────────────────────────────
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type ReactNode } from "react";
 import {
@@ -45,7 +45,7 @@ import {
 } from "../../lib/connection-transfer";
 import { groupModelsByAccount } from "../../lib/connection-groups";
 import { ConnectionRow, isMediaRow, mediaService, type ConnectionRowData } from "../connections/ConnectionRow";
-import { ConnectionGroup, hostOf } from "../connections/ConnectionGroup";
+import { ConnectionGroup, GROUP_SURFACE, hostOf } from "../connections/ConnectionGroup";
 import { ConnectionDefaultsDetail, useConnectionDefaults } from "../connections/ConnectionDefaults";
 import { DeviceDetail, SMALL_ACTION, StateWord, useDeviceEngines } from "../connections/DeviceDetail";
 import { BrandMark, ProviderIcon } from "../connections/ProviderIcon";
@@ -497,7 +497,7 @@ export function ConnectionsPanel() {
   const mainTile = defaults.tiles[0];
   // A wide panel shows Defaults as its second column; a narrow one unfolds it here.
   const defaultsCard = (
-    <div key="defaults" className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-1">
+    <div key="defaults" className={cn(GROUP_SURFACE, "p-1")}>
       <ListRow
         rowKey="defaults"
         selected={wide && current === "defaults"}
@@ -531,7 +531,7 @@ export function ConnectionsPanel() {
         onOpen={() => (wide ? select("defaults") : setDefaultsOpen((open) => !open))}
       />
       {!wide && defaultsOpen && (
-        <div id="connections-defaults" className="-mx-1 -mb-1 mt-1 border-t border-[var(--border)]">
+        <div id="connections-defaults" className="pb-1">
           <ConnectionDefaultsDetail compact connectionsList={connectionsList} onOpenDevice={openDevice} />
         </div>
       )}
@@ -539,7 +539,7 @@ export function ConnectionsPanel() {
   );
   const deviceGroup = visible.engines.length > 0 && (
     <PanelSection title={t("connections.accounts.section.device")} icon={<HardDrive size="0.75rem" />}>
-      <div className="flex flex-col gap-0.5 rounded-xl border border-[var(--border)] bg-[var(--card)] p-1">
+      <div className={cn(GROUP_SURFACE, "flex flex-col gap-0.5 p-1")}>
         {visible.engines.map((engine) => {
           const key = `device:${engine.item}`;
           return (
@@ -680,11 +680,11 @@ export function ConnectionsPanel() {
             <PanelSection title={t("connections.accounts.section.other")} icon={<Link size="0.75rem" />}>
               {query ? (
                 // A search lists the matching Models here; otherwise they wait on their own page.
-                <div className="flex flex-col gap-0.5 rounded-xl border border-[var(--border)] bg-[var(--card)] p-1">
+                <div className={cn(GROUP_SURFACE, "flex flex-col gap-0.5 p-1")}>
                   {visible.standalone.map((row) => renderRow(row))}
                 </div>
               ) : (
-                <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-1">
+                <div className={cn(GROUP_SURFACE, "p-1")}>
                   <ListRow
                     rowKey="other"
                     selected={wide && current === "other"}
@@ -734,25 +734,25 @@ export function ConnectionsPanel() {
 
   const header = (
     <>
-      <div className="flex items-center justify-end gap-1.5">
+      {/* Staging's action row: Add, Import and More as equal icon buttons. */}
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={() => openModal("create-connection")}
+          className="mari-panel-gradient-button mari-panel-gradient--connections flex-1 text-xs"
+          title={t("ui.panels.connectionspanel.createConnection")}
+          aria-label={t("ui.panels.connectionspanel.createConnection")}
+        >
+          <Plus size="0.8125rem" />
+        </button>
         <button
           type="button"
           onClick={() => openModal("import-connection")}
-          className="mari-chrome-control mari-chrome-control--small !min-h-9 px-3 text-xs max-md:!min-h-11 [@media(pointer:coarse)]:!min-h-11"
+          className="mari-chrome-control mari-chrome-control--primary flex-1 text-xs"
           title={t("ui.panels.connectionspanel.importConnection")}
           aria-label={t("ui.panels.connectionspanel.importConnection")}
         >
           <Download size="0.8125rem" />
-          {t("connections.accounts.header.import")}
-        </button>
-        <button
-          type="button"
-          onClick={() => openModal("create-connection")}
-          className="mari-panel-gradient-button mari-panel-gradient--connections !min-h-9 px-3 py-0 text-xs max-md:!min-h-11 [@media(pointer:coarse)]:!min-h-11"
-          title={t("ui.panels.connectionspanel.createConnection")}
-        >
-          <Plus size="0.8125rem" />
-          {t("connections.accounts.header.add")}
         </button>
         <button
           type="button"
@@ -760,7 +760,7 @@ export function ConnectionsPanel() {
             const rect = event.currentTarget.getBoundingClientRect();
             setHeaderMenu({ x: rect.right, y: rect.bottom + 4, keyboard: event.detail === 0 });
           }}
-          className="mari-chrome-control mari-chrome-control--small h-11 min-h-0 w-11 !p-0 md:h-9 md:w-9 [@media(pointer:coarse)]:!h-11 [@media(pointer:coarse)]:!w-11"
+          className="mari-chrome-control mari-chrome-control--primary flex-1 text-xs"
           title={t("connections.accounts.header.more")}
           aria-label={t("connections.accounts.header.more")}
           aria-haspopup="menu"
