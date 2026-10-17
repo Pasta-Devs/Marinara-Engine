@@ -128,6 +128,12 @@ La reproducción automática se dispara una sola vez, en la respuesta más recie
 
 Los mismos ajustes de reproducción permiten activar **Skip text inside HTML and custom tags** (omitir texto dentro de etiquetas HTML y personalizadas), **Skip fenced code blocks** (omitir bloques de código delimitados) o **Skip text inside square brackets** (omitir texto entre corchetes). Los bloques de código se omiten de forma predeterminada; los otros dos filtros empiezan desactivados. El filtro de etiquetas elimina el texto encerrado, como un bloque oculto `<simulation>...</simulation>`, pero conserva las etiquetas de hablante usadas para elegir voces. Estos filtros se aplican a la reproducción manual y automática, incluida la narración Game y la identificación de hablantes en Roleplay.
 
+Activa **Roleplay speaker extractor** (Identificación de hablantes en Roleplay) para ver **Enable emotion indicators** (Activar indicadores de emoción). Con los indicadores de emoción activados, el texto entre corchetes se conserva para el servicio de voz incluso si **Skip text inside square brackets** está activado. Esto puede incluir notas. Para que las notas entre corchetes no se lean, desactiva los indicadores de emoción y deja activada la opción de omitir ese texto.
+
+Las indicaciones de voz como `[Low, steady voice, restrained urgency]` se mantienen completas cuando una línea larga se divide para leerla en voz alta. Se siguen eliminando las etiquetas conocidas de hablante y escena. El modelo de voz decide cómo usar cada indicación.
+
+**Roleplay speaker extractor** añade indicaciones sin cambiar las palabras del diálogo original. Con **Enable TTS**, **Game narration** y los indicadores de emoción activados, los diálogos de las escenas, del grupo y de combate de Game Mode también pueden incluir estas indicaciones.
+
 ## Hablar un solo mensaje
 
 Una vez que TTS está activado, aparece un botón **Speak** (un icono de micrófono) en la barra de herramientas debajo de cada mensaje de personaje o de narrador. Lee ese único mensaje cuando lo pidas.

@@ -557,3 +557,14 @@ Choices from the #7605 sync (`agents/memory.md`). `ja.json` has no recollection 
 | **Writing character recollections**, **Manually edited** | App status strings (a progress stage and a badge), so they stay unglossed |
 
 Labels already glossed earlier in the file get their gloss again at their first mention in this section, following the once-per-section rule: **Narrator**(ナレーター), **Decide who sees new messages**(新しいメッセージを見られる相手を決める), **Hide from AI**(AIから隠す), **Resume**(再開), **Summary and recall budget**(要約と呼び出しの予算), **Re-scan scenes**(シーンを再スキャン). These are translation choices, not a new native-reader review.
+
+## TTS emotion indicators (2026-10-17)
+
+Choices from the #7763 sync (`media/tts-setup.md`) against `staging` `5ae55e73`. The labels have no shipped Japanese UI strings, so the glosses are coined here.
+
+| English | Translation |
+| --- | --- |
+| **Roleplay speaker extractor** | **Roleplay speaker extractor**(Roleplayの話者抽出) |
+| **Enable emotion indicators** | **Enable emotion indicators**(感情表現の指示を使う) |
+
+These are translation choices, not a new native-reader review.

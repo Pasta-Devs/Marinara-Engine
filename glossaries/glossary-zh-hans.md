@@ -670,3 +670,12 @@ Cycle precedent for #7605 (`agents/memory.md`: the new Character recollections s
 | knowledge start | 知识范围起点 | Follows the file's 知识范围 for "knowledge range". |
 
 These are translation choices, not a new native-reader review.
+
+## TTS emotion indicators (2026-10-17)
+
+Cycle precedent for #7763 (`media/tts-setup.md`).
+
+- **Roleplay speaker extractor**(Roleplay 说话人提取器)
+- **Enable emotion indicators**(启用情绪提示)
+
+These are translation choices, not a new native-reader review.

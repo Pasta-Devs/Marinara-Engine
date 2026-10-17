@@ -128,6 +128,12 @@ Character Voices 区域里的 **Refresh** 按钮会重新加载同一份服务�
 
 同一组播放设置还提供 **Skip text inside HTML and custom tags**(跳过 HTML 及自定义标签内的文字)、**Skip fenced code blocks**(跳过围栏代码块) 和 **Skip text inside square brackets**(跳过方括号内的文字)。默认跳过代码块，另外两个过滤选项默认关闭。标签过滤会移除标签包围的文字，例如隐藏的 `<simulation>...</simulation>` 块，但会保留用于选择声音的说话人标签。这些过滤选项同时适用于手动朗读和自动朗读，包括 Game 旁白及 Roleplay 说话人提取。
 
+打开 **Roleplay speaker extractor**(Roleplay 说话人提取器) 后，会显示 **Enable emotion indicators**(启用情绪提示)。启用情绪提示后，即使打开了 **Skip text inside square brackets**，方括号内的文字也会保留并发送给语音服务，其中也可能包含备注。要避免朗读方括号里的备注，关闭情绪提示，并保持跳过方括号文字的选项开启。
+
+将较长的一行拆成多个语音片段时，`[Low, steady voice, restrained urgency]` 这样的朗读提示会保持完整，不会被拆开。已知的说话人和场景标签仍会移除。每条提示该怎么处理，由语音模型决定。
+
+**Roleplay speaker extractor** 会添加朗读提示，不会改动原对白的字词。**Enable TTS**、**Game narration** 和情绪提示都开启时，Game 的场景、队伍和战斗对白也可以包含这些提示。
+
 ## 朗读单条消息
 
 TTS 开启之后，每条角色消息或旁白消息下方的工具栏里会出现 **Speak** 按钮（麦克风图标），点一下就朗读这一条。

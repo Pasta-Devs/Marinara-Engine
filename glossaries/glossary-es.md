@@ -458,3 +458,10 @@ Precedents from the #7605 sync (`agents/memory.md`: the new section `### Recuerd
 - *In the first person and in their own voice* is **en primera persona y con su propia voz** (narrative voice; the sentence context keeps it apart from the TTS **Voice** tab).
 - Glosses: **Prepare** (Preparar), **Writing character recollections** (Escribiendo recuerdos personales de los personajes), **Manually edited** (Editado manualmente), following the file's habit of glossing status strings such as **Fixed N scenes** (Se repararon N escenas). **Resume** and **Re-scan scenes** keep their earlier treatment in the file.
 - Other renderings: *knowledge start* **el inicio de su intervalo de conocimiento** (cf. `intervalos de conocimiento` in the same file); *the Helper's room for the scene* **el espacio que tiene el auxiliar para la escena** (**el auxiliar**, as in the Fix section); the *recollection run* **el proceso de escribir recuerdos personales** (not `pasada`, which the file spends on a recall pass); *out of date* **desactualizados**; *left out of prompts* **fuera de los prompts**; *never cut short* **nunca se recorta**; *the setting* **el ajuste**. An *excerpt* in the new section is **fragmento**, per the 2026-10-14 entry above; the priority sentence keeps its older `extractos de mensajes`.
+
+## TTS emotion indicators (2026-10-17)
+
+Precedent from the #7763 sync (`media/tts-setup.md`):
+
+- **Roleplay speaker extractor** is glossed **(Identificación de hablantes en Roleplay)**.
+- **Enable emotion indicators** is glossed **(Activar indicadores de emoción)**.

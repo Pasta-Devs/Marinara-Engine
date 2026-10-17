@@ -1,6 +1,6 @@
 {
   "language": "pl",
-  "sourceCommit": "4aadaa6695a42dd7ae5782ba0edbde967693a91f",
+  "sourceCommit": "5ae55e73c46f90bbc835b28bb52f0dfd8d813be7",
   "files": [
     {
       "path": "CONFIGURATION.md",
@@ -614,8 +614,8 @@
     },
     {
       "path": "media/tts-setup.md",
-      "sha256": "4f8bb3ac35328a0d6fe2fea02b80c1343931ed3f0016eed118b0ec33e8227a0e",
-      "bytes": 17180
+      "sha256": "896c0b12da0c8522ba1e4cc6fec53bb1d2201f0f1374251000d317971929dae4",
+      "bytes": 18210
     },
     {
       "path": "noodle/overview.md",

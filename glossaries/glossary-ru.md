@@ -720,3 +720,12 @@ Precedent from the #7605 mirror (`agents/memory.md`) against `staging` `a8481ca6
 - "Export, import and branches include them": branches are **ветки**, as in `chats/branches.md`.
 
 These are documented translation choices from this sync, not an independent native-reader review.
+
+## TTS emotion indicators (2026-10-17)
+
+Precedent from the #7763 mirror (`media/tts-setup.md`) against `staging` `5ae55e73`:
+
+- **Roleplay speaker extractor** is glossed (определение говорящих в Roleplay).
+- **Enable emotion indicators** is glossed (включить пометки эмоций).
+
+These are documented translation choices from this sync, not an independent native-reader review.

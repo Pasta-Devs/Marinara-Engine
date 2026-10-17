@@ -128,6 +128,12 @@ A leitura automática acontece uma vez só, na resposta mais recente, no momento
 
 Os mesmos ajustes de reprodução também permitem ativar **Skip text inside HTML and custom tags** (ignorar texto dentro de tags HTML e personalizadas), **Skip fenced code blocks** (ignorar blocos de código delimitados) ou **Skip text inside square brackets** (ignorar texto entre colchetes). Os blocos de código são ignorados por padrão; os outros dois filtros começam desativados. O filtro de tags remove o texto contido nelas, como um bloco oculto `<simulation>...</simulation>`, mas preserva as tags de falante usadas para escolher vozes. Esses filtros se aplicam à reprodução manual e automática, incluindo a narração Game e a identificação de falantes em Roleplay.
 
+Ative **Roleplay speaker extractor** (identificação de falantes em Roleplay) para ver **Enable emotion indicators** (ativar indicadores de emoção). Com os indicadores de emoção ativados, o texto entre colchetes é mantido para o serviço de voz mesmo quando **Skip text inside square brackets** está ativado. Isso pode incluir notas. Para que as notas entre colchetes não sejam lidas em voz alta, desative os indicadores de emoção e mantenha a opção de ignorar esse texto ativada.
+
+Orientações de voz como `[Low, steady voice, restrained urgency]` ficam inteiras quando uma linha longa é dividida para a síntese de voz. As marcações conhecidas de falante e de cena continuam sendo removidas. O modelo de voz decide como usar cada orientação.
+
+**Roleplay speaker extractor** acrescenta orientações sem mudar as palavras do diálogo original. Com **Enable TTS**, **Game narration** e os indicadores de emoção ativados, os diálogos de cena, da equipe e de combate no Game Mode também podem incluir essas orientações.
+
 ## Falar uma mensagem específica
 
 Com o TTS ligado, um botão **Speak** (um ícone de microfone) aparece na barra de ferramentas embaixo de cada mensagem de personagem ou de narrador. Ele lê aquela mensagem quando você pedir.

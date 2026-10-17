@@ -128,6 +128,12 @@ La lecture automatique ne se déclenche qu'une fois, sur la réponse la plus ré
 
 Les mêmes réglages de lecture proposent aussi **Skip text inside HTML and custom tags** (ignorer le texte dans les balises HTML et personnalisées), **Skip fenced code blocks** (ignorer les blocs de code délimités) et **Skip text inside square brackets** (ignorer le texte entre crochets). Les blocs de code sont ignorés par défaut ; les deux autres filtres sont initialement désactivés. Le filtre de balises retire le texte contenu, par exemple un bloc caché `<simulation>...</simulation>`, mais conserve les balises de locuteur utilisées pour choisir les voix. Ces filtres s'appliquent à la lecture manuelle et automatique, y compris à la narration Game et à l'identification des locuteurs en Roleplay.
 
+Active **Roleplay speaker extractor** (identification des locuteurs en Roleplay) pour afficher **Enable emotion indicators** (activer les indications d'émotion). Quand les indications d'émotion sont activées, le texte entre crochets est conservé pour le service de synthèse vocale même si **Skip text inside square brackets** est activé. Cela peut inclure des notes. Pour que les notes entre crochets ne soient pas lues, désactive les indications d'émotion et laisse l'option d'exclusion activée.
+
+Les consignes vocales comme `[Low, steady voice, restrained urgency]` restent entières lorsqu'une longue ligne est découpée pour la synthèse vocale. Les étiquettes de locuteur et de scène reconnues sont toujours supprimées. Le modèle vocal décide comment utiliser chaque consigne.
+
+**Roleplay speaker extractor** ajoute des consignes sans changer les mots du dialogue d'origine. Lorsque **Enable TTS** et **Game narration** sont activés et que les indications d'émotion le sont aussi, les dialogues des scènes, de l'équipe et des combats en Game Mode peuvent aussi contenir ces consignes.
+
 ## Lire un message précis
 
 Une fois le TTS activé, un bouton **Speak** (icône de microphone) apparaît dans la barre d'outils sous chaque message de personnage ou de narrateur. Il lit ce message précis, à la demande.

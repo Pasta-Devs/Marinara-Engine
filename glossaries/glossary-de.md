@@ -787,3 +787,10 @@ Cycle precedent for the #7605 sync (`agents/memory.md`: the new section
   *recollection run* „der Durchgang für Charaktererinnerungen“; *out of date*
   „veraltet“; *left out of prompts* „bleibt aus den Prompts heraus“; *never cut short*
   „wird nie gekürzt“; *the model is told to* „das Modell wird angewiesen“.
+
+## TTS emotion indicators (2026-10-17)
+
+Precedent from the #7763 sync (`media/tts-setup.md`):
+
+- **Roleplay speaker extractor** is glossed *(Sprechererkennung in Roleplay)*.
+- **Enable emotion indicators** is glossed *(Emotionshinweise aktivieren)*.
