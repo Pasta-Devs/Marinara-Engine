@@ -556,10 +556,28 @@ test("reselecting Main keeps the chat following it, and unavailable search picks
     await expect(menu).toHaveCount(0);
     expect((await chatState(request, chat.id)).connectionId).toBeNull();
 
+    // A saved Model with its own settings stays a separate choice even when its provider model id is Main's.
+    const duplicate = (await (await request.post(`/api/connections/${main.id}/duplicate`)).json()) as { id: string };
+    expect(
+      (await request.patch(`/api/connections/${duplicate.id}`, { data: { name: "Alpha with own settings" } })).ok(),
+    ).toBeTruthy();
+    await page.reload();
+    menu = await openMenu(page, testInfo);
+    await menu.locator(`[data-switcher-entry="${duplicate.id}"]`).click();
+    await expect(menu).toHaveCount(0);
+    await expect.poll(async () => (await chatState(request, chat.id)).connectionId).toBe(duplicate.id);
+    menu = await openMenu(page, testInfo);
+    await menu.locator("[data-switcher-default]").click();
+    await expect(menu).toHaveCount(0);
+    expect((await chatState(request, chat.id)).connectionId).toBeNull();
+
     menu = await openMenu(page, testInfo);
     await expect(menu.locator(`[data-switcher-browse="${otherAccount}"]`)).toHaveCount(0);
     await menu.locator("[data-switcher-search]").fill("vendor/kappa");
-    await expect(menu.locator("[data-switcher-results] [data-switcher-entry]").first()).toContainText(/kappa/i);
+    await expect(menu.locator("[data-switcher-results] [data-switcher-entry]").first()).toHaveAttribute(
+      "data-switcher-entry",
+      other.id,
+    );
     await menu.locator("[data-switcher-search]").press("Enter");
     await expect
       .poll(async () => {

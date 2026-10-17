@@ -68,6 +68,13 @@ export function QuickConnectionSwitcher({
     const onKeyDown = (event: KeyboardEvent) => {
       // Escape while an input method is composing cancels the composition, not the menu.
       if (event.key !== "Escape" || event.defaultPrevented || event.isComposing || event.keyCode === 229) return;
+      // Touch browsers may leave focus on the page after Browse, outside the chooser's key handler.
+      const back = menuRef.current?.querySelector<HTMLButtonElement>("[data-switcher-back]");
+      if (back) {
+        event.preventDefault();
+        back.click();
+        return;
+      }
       setOpen(false);
       btnRef.current?.focus();
     };

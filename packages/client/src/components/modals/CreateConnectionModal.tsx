@@ -950,7 +950,7 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
 
   // ── Step 3: star models ──
   const chat = modelsFor?.chat;
-  const inPlace = !!target?.fresh && !!shownRow && picks.length === 0;
+  const inPlace = !!target?.fresh && !!shownRow && !shownRow.model?.trim() && picks.length === 0;
   const recommended = provider && !NO_RECOMMENDED.has(provider) ? (MODEL_LISTS[provider] ?? []).slice(0, 3) : [];
   const targetName =
     (target && accounts?.find((account) => account.id === target.accountId)?.name) || serviceName(provider ?? "custom");
@@ -1067,7 +1067,7 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
   } else if (step === 3) {
     footerLeft = picks.length > 0 && (
       <p role="status" className="flex items-center gap-1 text-xs text-[var(--muted-foreground)]">
-        <Check size="0.75rem" className="text-emerald-500" aria-hidden />
+        <Check size="0.75rem" className="text-[var(--primary)]" aria-hidden />
         {t("connections.add.picked", { count: picks.length })}
       </p>
     );

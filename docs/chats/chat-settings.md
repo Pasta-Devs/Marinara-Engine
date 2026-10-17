@@ -124,9 +124,9 @@ The **Chat Name** section holds the name shown in your chat list. This name is o
 
 The **Connection** section picks which AI model answers in this chat. A connection is one API key, account, or endpoint for an AI service. The models you save are grouped under it. An API key is a secret code that lets Marinara Engine use your account with that service.
 
-Pick a saved model from the dropdown. The first entry is **Use default (model name)**. It clears this chat's own pick, so the chat follows your **Main** model again. You can also pick **Random**. It chooses a different model each time from the models you added to Shuffle.
+The **Model** field shows the effective model and whether this chat follows **Main** or has its own choice. Click it to open the same chooser as the model button in the chat input. The current model stays at the top, with recent and starred models below. Search across models and connections, or use **Browse** to open one connection's catalog. A pick changes only this chat.
 
-Below the dropdown, the **Model** field shows the model this chat uses. Click it to open the same model list as the **Connections** menu in the chat input: search or type a model ID, star models to add them to **Favorites**, refresh the list, and click a model to use it. A pick here changes only this chat. Other chats, agents and helpers keep their models. The field is hidden for **Random** and for the built-in Local Model. See [Shuffle and quick switch](../connections/organizing-connections.md#shuffle-and-quick-switch) for details.
+**Follow Main** clears the chat's own choice. **Shuffle** chooses a different model for each reply from your pool. If a connection needs a key or is off, its model leads to the repair action. Stars save models to your list without changing the chat. See [Shuffle and quick switch](../connections/organizing-connections.md#shuffle-and-quick-switch) for details.
 
 To learn how to create a connection in the first place, see [Connecting to an AI Provider](../connections/connecting-to-a-provider.md).
 

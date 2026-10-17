@@ -250,7 +250,12 @@ export function ConnectionModelPicker({
         return;
       }
       if (row.id !== currentModel) {
-        await updateConnection.mutateAsync({ id: connection.id, ...connectionFieldsForModelPick(provider, row) });
+        await updateConnection.mutateAsync({
+          id: connection.id,
+          ...connectionFieldsForModelPick(provider, row),
+          // A new account's empty placeholder is named for its service; the first Model takes its catalog name.
+          ...(addMode && !currentModel ? { name: row.name || row.id } : {}),
+        });
       }
       if (applyPick) await applyPick(connection.id, row.id);
       starPicked(row);

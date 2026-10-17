@@ -277,7 +277,7 @@ test("the panel list shows each Connection's Models open, and its row or toggle 
     await expect(model).toBeVisible();
 
     const panel = page.locator("[data-connections-panel]").filter({ visible: true });
-    const search = panel.getByRole("textbox", { name: "Search models and connections" });
+    const search = panel.getByRole("searchbox", { name: "Search models and connections" });
     await search.fill("E2E open models");
     await toggle.click();
     await expect(model).toHaveCount(0);

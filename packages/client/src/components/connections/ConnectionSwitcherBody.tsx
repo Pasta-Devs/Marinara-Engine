@@ -575,8 +575,13 @@ export function ConnectionSwitcherBody({
           ? entryOfRow(mainRow, groupOfRow.get(mainRow.id))
           : null;
   const nowRuns = nowEntry && nowEntry !== localEntry ? runsKey(nowEntry.choice, rows) : null;
-  const isNow = (entry: Entry) =>
-    !!nowRuns && entry.key !== LOCAL_SIDECAR_CONNECTION_ID && runsKey(entry.choice, rows) === nowRuns;
+  // Catalog choices name a model on an anchor row. Saved Models keep their own identity and tuning,
+  // even when another saved Model under the same Connection has the same provider model id.
+  const matchesNow = (choice: ChatModelChoice) =>
+    sameChoice(choice, current) ||
+    (!!followDefault?.active && choice.connectionId === mainRow?.id && !choice.model) ||
+    (!!choice.model && !!nowRuns && runsKey(choice, rows) === nowRuns);
+  const isNow = (entry: Entry) => matchesNow(entry.choice);
 
   const recent = useMemo(() => {
     if (recentChoices) {
@@ -986,10 +991,7 @@ export function ConnectionSwitcherBody({
             : null,
     };
   };
-  const onChoose = (choice: ChatModelChoice) =>
-    sameChoice(choice, current) || (!!nowRuns && runsKey(choice, rows) === nowRuns)
-      ? Promise.resolve()
-      : onApply(choice);
+  const onChoose = (choice: ChatModelChoice) => (matchesNow(choice) ? Promise.resolve() : onApply(choice));
 
   const nothing = groups.length === 0 && !showLocalModel;
   const nowLabel = followDefault

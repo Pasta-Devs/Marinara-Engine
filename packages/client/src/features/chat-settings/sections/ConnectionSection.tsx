@@ -118,7 +118,9 @@ export function ConnectionSection({
           onKeyDown={(event) => {
             if (event.key !== "Escape" || !open || event.nativeEvent.isComposing || event.keyCode === 229) return;
             event.stopPropagation();
-            close();
+            const back = chooserRef.current?.querySelector<HTMLButtonElement>("[data-switcher-back]");
+            if (back) back.click();
+            else close();
           }}
         >
           <span className="mb-1 block text-[0.6875rem] font-medium text-foreground/50">
