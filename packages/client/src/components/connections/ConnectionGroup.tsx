@@ -1,7 +1,7 @@
 // ──────────────────────────────────────────────
-// ConnectionGroup — one Connection in the Connections panel list, as a tinted block: its head (where it connects or
-// its state, fix, ⋯ actions, open/close chevron at the right), its usage and, while open, its Models of every kind
-// in one list (a kind badge on each row, grouped by upstream) and Browse all models.
+// ConnectionGroup — a provider/Connection heading with status, model count and account actions.
+// A single Connection is its provider heading; multiple accounts use compact nested headings.
+// Models of every kind sit underneath without enclosing cards, grouped by upstream where needed.
 // ──────────────────────────────────────────────
 import { useState, type ReactNode } from "react";
 import { ChevronDown, ChevronRight, ImageIcon, MoreHorizontal, Plus, Search, Settings2, Wifi } from "lucide-react";
@@ -49,6 +49,8 @@ export function ConnectionGroup({
   open,
   onToggle,
   tile,
+  providerName,
+  parentName,
 }: {
   account: ConnectionAccountListItem;
   rows: ConnectionRowData[];
@@ -58,6 +60,10 @@ export function ConnectionGroup({
   open: boolean;
   onToggle: () => void;
   tile: ReactNode;
+  /** A provider with one Connection shares this heading instead of rendering a second row. */
+  providerName?: string;
+  /** The provider already named above a nested account row. */
+  parentName?: string;
 }) {
   const { t } = useTranslation();
   const openModal = useUIStore((s) => s.openModal);
@@ -118,6 +124,16 @@ export function ConnectionGroup({
     });
   const service = PROVIDERS[account.provider as APIProvider]?.name ?? account.provider;
   const state = t(`connections.accounts.state.${account.state}`);
+  const host = hostOf(account.baseUrl);
+  const familyName = providerName ?? parentName;
+  // Generated names repeat the provider and endpoint; custom account names remain visible.
+  const automaticName =
+    familyName &&
+    [familyName, `${familyName} · ${host}`].some((name) => name.toLowerCase() === account.name.trim().toLowerCase());
+  const heading = providerName ?? (automaticName && host ? host : account.name);
+  const accountLabel = providerName && !automaticName ? account.name : null;
+  const endpoint = host !== heading ? host : "";
+  const count = t("connections.list.models", { count: visibleRows.length });
   const modelsId = `connection-models-${account.id}`;
   const toggleLabel = t(open ? "connections.list.collapse" : "connections.list.expand", { name: account.name });
   const fix =
@@ -137,32 +153,41 @@ export function ConnectionGroup({
   return (
     <div
       role="group"
-      className={cn("flex flex-col", GROUP_SURFACE)}
+      className="flex min-w-0 flex-col"
       data-connection-account-id={account.id}
       aria-label={account.name}
     >
-      <div className="flex min-w-0 items-center gap-0.5 p-1">
+      <div className="flex min-w-0 items-center gap-0.5">
         <button
           type="button"
           data-connections-row={`account:${account.id}`}
           onClick={onToggle}
           aria-expanded={open}
           aria-controls={modelsId}
-          aria-label={t("connections.list.rowLabel", { name: account.name, state })}
-          className="flex min-h-12 min-w-0 flex-1 items-center gap-2.5 rounded-xl p-2 text-left transition-colors hover:bg-[var(--sidebar-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)]"
+          aria-label={t("connections.list.rowLabel", {
+            name: [heading, accountLabel, endpoint, count].filter(Boolean).join(", "),
+            state,
+          })}
+          className="flex min-h-11 min-w-0 flex-1 items-start gap-2 rounded-lg px-2 py-2 text-left transition-colors hover:bg-[var(--sidebar-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)]"
         >
-          {tile}
+          {tile && <span className="mt-0.5 shrink-0">{tile}</span>}
           <span className="min-w-0 flex-1">
-            <span className="block truncate text-sm font-semibold leading-5 text-[var(--foreground)]">
-              {account.name}
+            <span className="flex min-w-0 items-baseline gap-2">
+              <span
+                className={cn(
+                  "min-w-0 flex-1 truncate text-sm leading-5 text-[var(--foreground)]",
+                  providerName ? "font-semibold" : "font-medium",
+                )}
+              >
+                {heading}
+              </span>
+              <span className="shrink-0 text-[0.6875rem] font-normal text-[var(--muted-foreground)]">{count}</span>
             </span>
-            {/* A working Connection says where it connects; a broken one says what is wrong. */}
-            <span className="flex min-w-0 items-center gap-x-1.5 text-[0.6875rem] text-[var(--muted-foreground)]">
-              {account.state === "ok" ? (
-                <span className="truncate">{hostOf(account.baseUrl) || service}</span>
-              ) : (
-                <StateWord tone={STATE_TONE[account.state]} label={state} />
+            <span className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[0.6875rem] text-[var(--muted-foreground)]">
+              {(accountLabel || endpoint) && (
+                <span className="min-w-0 truncate">{[accountLabel, endpoint].filter(Boolean).join(" · ")}</span>
               )}
+              <StateWord tone={STATE_TONE[account.state]} label={state} />
             </span>
           </span>
         </button>
@@ -192,7 +217,7 @@ export function ConnectionGroup({
           title={toggleLabel}
           className={cn(ROW_BUTTON, "text-[var(--muted-foreground)] hover:text-[var(--foreground)]")}
         >
-          <ChevronDown size="0.875rem" className={cn("transition-transform", open && "rotate-180")} />
+          <ChevronDown size="0.875rem" className={cn("transition-transform", !open && "-rotate-90")} />
         </button>
         {menu && (
           <ContextMenu
@@ -239,7 +264,7 @@ export function ConnectionGroup({
       </div>
 
       {open && account.showUsageWidget && firstRow && (
-        <div className="px-3 pb-2 pl-14">
+        <div className="ps-8 pe-2 pb-2">
           <SubscriptionUsageWidget connectionId={firstRow.id} variant="inline" />
         </div>
       )}
@@ -247,7 +272,7 @@ export function ConnectionGroup({
         <div
           id={modelsId}
           aria-label={t("ui.agents.featureagentdetailhost.value1Value2", { value1: account.name, value2: service })}
-          className="me-1 ms-4 mb-1.5 flex min-w-0 flex-col gap-0.5"
+          className="ms-4 mb-1.5 flex min-w-0 flex-col gap-0.5"
         >
           {rows.length === 0 && (
             <p className="px-2 py-1 text-[0.6875rem] text-[var(--muted-foreground)]">

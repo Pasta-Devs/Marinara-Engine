@@ -56,6 +56,7 @@ test("Connections keep the established header, mixed models and compact role con
       rightPanelOpen: true,
       rightPanel: "connections",
       theme: "dark",
+      connectionsCollapsed: [created.account.id],
     });
     await page.addInitScript((v) => localStorage.setItem("marinara:whats-new:seen-version", v), version);
     await page.goto("/");
@@ -70,15 +71,61 @@ test("Connections keep the established header, mixed models and compact role con
     expect(Math.abs(sizes[0]!.width - sizes[2]!.width)).toBeLessThan(1);
     await expect(panel.getByRole("searchbox", { name: "Search models and connections" })).toBeVisible();
     const group = panel.locator(`[data-connection-account-id="${created.account.id}"]`);
+    const singleProvider = panel.locator('[data-connection-provider="openai"]');
+    const accountHeader = group.locator(`[data-connections-row="account:${created.account.id}"]`);
+    // A singleton is one rich header, not a provider row plus another Connection card.
+    await expect(singleProvider.locator(":scope > button")).toHaveCount(0);
+    await expect(accountHeader).toContainText("OpenAI");
+    await expect(accountHeader).toContainText("3 models");
+    await expect(accountHeader).toContainText(`Mixed studio ${info.project.name}`);
+    await expect(accountHeader).toContainText("Ready");
+    // Opening the merged header also clears a legacy account fold.
+    await expect(accountHeader).toHaveAttribute("aria-expanded", "false");
+    await accountHeader.press("Enter");
+    await expect(accountHeader).toHaveAttribute("aria-expanded", "true");
     for (const id of ids.slice(0, 3)) await expect(group.locator(`[data-connection-id="${id}"]`)).toBeVisible();
     await expect(group).toContainText("Chat");
     await expect(group).toContainText("Image");
     await expect(group).toContainText("Audio");
+    await accountHeader.press("Space");
+    await expect(group.locator("[data-connection-id]")).toHaveCount(0);
+    await group.locator(`[data-connections-toggle="${created.account.id}"]`).click();
+    await expect(group.locator("[data-connection-id]")).toHaveCount(3);
+    const search = panel.getByRole("searchbox", { name: "Search models and connections" });
+    await search.fill("Studio Image");
+    await expect(accountHeader).toContainText("1 model");
+    await accountHeader.click();
+    await expect(group.locator("[data-connection-id]")).toHaveCount(0);
+    await search.fill("Studio Voice");
+    await expect(group.locator("[data-connection-id]")).toHaveCount(1);
+    await search.fill("");
+    await expect(group.locator("[data-connection-id]")).toHaveCount(3);
+    expect(
+      (await request.patch(`/api/connection-accounts/${created.account.id}`, { data: { enabled: false } })).ok(),
+    ).toBeTruthy();
+    // Refetch to observe the changed state; Repair stays on the same merged header.
+    await page.reload();
+    await expect(accountHeader).toContainText("Off");
+    await group.getByRole("button", { name: `Turn on Mixed studio ${info.project.name}` }).click();
+    await expect(accountHeader).toContainText("Ready");
+    await accountHeader.press("Enter");
+    await expect(group.locator("[data-connection-id]")).toHaveCount(3);
     const provider = panel.locator('[data-connection-provider="comfyui"]');
     await expect(provider.locator("[data-connection-account-id]")).toHaveCount(2);
+    for (const header of await provider.locator('[data-connections-row^="account:"]').all()) {
+      await expect(header).toContainText("127.0.0.1:8188");
+      await expect(header).not.toContainText("ComfyUI");
+    }
     const providerToggle = provider.getByRole("button", { name: /ComfyUI.*2 connections/ });
     const model = provider.locator("[data-connection-id]").first();
     const providerBox = await providerToggle.boundingBox();
+    const providerNameBox = await providerToggle.getByText("ComfyUI", { exact: true }).boundingBox();
+    const accountNameBox = await provider
+      .locator('[data-connections-row^="account:"]')
+      .first()
+      .getByText("127.0.0.1:8188", { exact: true })
+      .boundingBox();
+    expect(accountNameBox!.x).toBeGreaterThan(providerNameBox!.x + 4);
     const modelBox = await model.boundingBox();
     expect(modelBox!.x).toBeGreaterThan(providerBox!.x + 8);
     await providerToggle.click();
@@ -86,13 +133,14 @@ test("Connections keep the established header, mixed models and compact role con
     await expect(provider.locator("[data-connection-id]")).toHaveCount(0);
     await providerToggle.click();
     await expect(provider.locator("[data-connection-id]")).toHaveCount(2);
+    await page.mouse.move(0, 0);
     if (info.project.name === "desktop-chromium") {
       const originalViewport = page.viewportSize()!;
       for (const width of [390, 768, 1440]) {
         await page.setViewportSize({ width, height: 960 });
         for (const theme of ["dark", "light"]) {
           await page.evaluate((theme) => document.documentElement.setAttribute("data-theme", theme), theme);
-          await page.screenshot({ path: `.tmp/shared-picker/screenshots/hierarchy-${width}-${theme}.png` });
+          await page.screenshot({ path: `.tmp/provider-headers/screenshots/hierarchy-${width}-${theme}.png` });
           expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
         }
       }
@@ -133,10 +181,8 @@ test("Connections keep the established header, mixed models and compact role con
     await images.locator('[data-defaults-tile="images"]').click();
     await expect(panel.locator("[data-defaults-unused]")).toBeFocused();
     // Account credentials remain hidden until requested, and opening access never changes the account.
-    await page.evaluate(async (id) => {
-      const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
-      useUIStore.getState().openModal("connection-account", { accountId: id });
-    }, created.account.id);
+    await group.getByRole("button", { name: `Actions for Mixed studio ${info.project.name}` }).click();
+    await page.getByRole("menuitem", { name: "Edit", exact: true }).click();
     const dialog = page.getByRole("dialog");
     await expect(dialog.getByRole("button", { name: "Manage access" })).toBeVisible();
     await expect(dialog.getByRole("button", { name: "Manage access" })).toHaveAttribute("aria-expanded", "false");
