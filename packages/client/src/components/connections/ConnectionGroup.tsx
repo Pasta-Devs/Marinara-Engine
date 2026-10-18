@@ -1,7 +1,6 @@
 // ──────────────────────────────────────────────
 // ConnectionGroup — a provider/Connection heading with status, model count and account actions.
-// A single Connection is its provider heading; multiple accounts use compact nested headings.
-// Models of every kind sit underneath without enclosing cards, grouped by upstream where needed.
+// Each account has a full-width heading; only its mixed-kind model list is indented.
 // ──────────────────────────────────────────────
 import { useState, type ReactNode } from "react";
 import { ChevronDown, ChevronRight, ImageIcon, MoreHorizontal, Plus, Search, Settings2, Wifi } from "lucide-react";
@@ -17,13 +16,12 @@ import {
 import { useCreateConnection, useDuplicateConnection, useTestConnection } from "../../hooks/use-connections";
 import { useUpdateConnectionAccount } from "../../hooks/use-connection-accounts";
 import { starAnchorOf } from "../../hooks/use-model-star";
-import { sortByModelId, subgroupByUpstream } from "../../lib/connection-groups";
+import { sortByModelId } from "../../lib/connection-groups";
 import { useUIStore } from "../../stores/ui.store";
 import { openAddModels } from "../../lib/add-connection";
 import { cn } from "../../lib/utils";
 import { ContextMenu } from "../ui/ContextMenu";
 import { SubscriptionUsageWidget } from "./SubscriptionUsageWidget";
-import { BrandMark } from "./ProviderIcon";
 import { SMALL_ACTION, StateWord, type EngineTone } from "./DeviceDetail";
 import { menuAt, modelSubtitle, ROW_BUTTON, type ConnectionRowData, type MenuAt } from "./ConnectionRow";
 
@@ -50,7 +48,6 @@ export function ConnectionGroup({
   onToggle,
   tile,
   providerName,
-  parentName,
 }: {
   account: ConnectionAccountListItem;
   rows: ConnectionRowData[];
@@ -60,10 +57,8 @@ export function ConnectionGroup({
   open: boolean;
   onToggle: () => void;
   tile: ReactNode;
-  /** A provider with one Connection shares this heading instead of rendering a second row. */
+  /** Provider identity is part of each account heading, without an enclosing family header. */
   providerName?: string;
-  /** The provider already named above a nested account row. */
-  parentName?: string;
 }) {
   const { t } = useTranslation();
   const openModal = useUIStore((s) => s.openModal);
@@ -125,11 +120,12 @@ export function ConnectionGroup({
   const service = PROVIDERS[account.provider as APIProvider]?.name ?? account.provider;
   const state = t(`connections.accounts.state.${account.state}`);
   const host = hostOf(account.baseUrl);
-  const familyName = providerName ?? parentName;
   // Generated names repeat the provider and endpoint; custom account names remain visible.
   const automaticName =
-    familyName &&
-    [familyName, `${familyName} · ${host}`].some((name) => name.toLowerCase() === account.name.trim().toLowerCase());
+    providerName &&
+    [providerName, `${providerName} · ${host}`].some(
+      (name) => name.toLowerCase() === account.name.trim().toLowerCase(),
+    );
   const heading = providerName ?? (automaticName && host ? host : account.name);
   const accountLabel = providerName && !automaticName ? account.name : null;
   const endpoint = host !== heading ? host : "";
@@ -279,20 +275,10 @@ export function ConnectionGroup({
               {t("connections.accounts.noModels")}
             </p>
           )}
-          {/* By model id: the groups and rows keep their places when a star or an edit touches a Model. */}
-          {subgroupByUpstream(sortByModelId(visibleRows)).map((group) => (
-            <div key={group.upstream ?? ""} className="flex flex-col gap-0.5">
-              {group.upstream && (
-                <p className="flex items-center gap-1.5 px-2 pt-1.5 text-[0.625rem] font-medium text-[var(--muted-foreground)]">
-                  <BrandMark of={group.upstream} className="h-3 w-3 opacity-70" />
-                  {t("connections.accounts.upstreamHeading", { upstream: group.upstream, count: group.rows.length })}
-                </p>
-              )}
-              {group.rows.map((row) => (
-                <div key={row.id} className={group.upstream ? "min-w-0 ps-3" : "min-w-0"}>
-                  {renderRow(row, modelSubtitle(row, group.upstream))}
-                </div>
-              ))}
+          {/* By model id: rows keep their places when a star or an edit touches a Model. */}
+          {sortByModelId(visibleRows).map((row) => (
+            <div key={row.id} className="min-w-0">
+              {renderRow(row, modelSubtitle(row))}
             </div>
           ))}
           {chatRow && (

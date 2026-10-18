@@ -501,40 +501,31 @@ export function ConnectionsPanel() {
   };
 
   // ── List rows ──
-  const accountRow = (
-    { account, rows, visibleRows }: (typeof visible.groups)[number],
-    provider?: { name: string; open: boolean; onToggle: () => void },
-    parentName?: string,
-  ) => (
+  const accountRow = ({ account, rows, visibleRows }: (typeof visible.groups)[number], providerName: string) => (
     <ConnectionGroup
       key={account.id}
       account={account}
       rows={rows}
       visibleRows={visibleRows}
-      providerName={provider?.name}
-      parentName={parentName}
-      open={provider?.open ?? (query ? !searchFolded.includes(account.id) : !collapsedConnections.includes(account.id))}
-      onToggle={
-        provider?.onToggle ??
-        (() =>
-          query
-            ? setSearchFolded((ids) =>
-                ids.includes(account.id) ? ids.filter((id) => id !== account.id) : [...ids, account.id],
-              )
-            : toggleConnectionCollapsed(account.id))
+      providerName={providerName}
+      open={query ? !searchFolded.includes(account.id) : !collapsedConnections.includes(account.id)}
+      onToggle={() =>
+        query
+          ? setSearchFolded((ids) =>
+              ids.includes(account.id) ? ids.filter((id) => id !== account.id) : [...ids, account.id],
+            )
+          : toggleConnectionCollapsed(account.id)
       }
       renderRow={(row, subtitle) => renderRow(row, subtitle)}
       tile={
-        provider ? (
-          <ProviderIcon
-            size="sm"
-            provider={account.provider}
-            baseUrl={account.baseUrl}
-            service={rows[0] && mediaService(rows[0])}
-            name={account.name}
-            dim={account.state === "off"}
-          />
-        ) : null
+        <ProviderIcon
+          size="sm"
+          provider={account.provider}
+          baseUrl={account.baseUrl}
+          service={rows[0] && mediaService(rows[0])}
+          name={account.name}
+          dim={account.state === "off"}
+        />
       }
     />
   );
@@ -726,70 +717,12 @@ export function ConnectionsPanel() {
                 : t("connections.list.noneOfKind")
               : null}
           </p>
-          {providerGroups.map((provider) => {
-            const foldKey = `provider:${provider.key}`;
-            const single = provider.groups.length === 1 ? provider.groups[0] : null;
-            const folded = query ? searchFolded : collapsedConnections;
-            // A merged header replaces both old folds; opening it clears either saved fold.
-            const open = !folded.includes(foldKey) && (!single || !folded.includes(single.account.id));
-            const toggle = () => {
-              if (query) {
-                setSearchFolded((keys) =>
-                  open ? [...keys, foldKey] : keys.filter((key) => key !== foldKey && key !== single?.account.id),
-                );
-              } else if (open) {
-                toggleConnectionCollapsed(foldKey);
-              } else {
-                if (folded.includes(foldKey)) toggleConnectionCollapsed(foldKey);
-                if (single && folded.includes(single.account.id)) toggleConnectionCollapsed(single.account.id);
-              }
-            };
-            const bodyId = `provider-accounts-${encodeURIComponent(provider.key)}`;
-            if (single)
-              return (
-                <div key={provider.key} data-connection-provider={provider.key} className="min-w-0">
-                  {accountRow(single, { name: provider.name, open, onToggle: toggle })}
-                </div>
-              );
-            return (
-              <div key={provider.key} data-connection-provider={provider.key} className="min-w-0">
-                <button
-                  type="button"
-                  aria-expanded={open}
-                  aria-controls={bodyId}
-                  onClick={toggle}
-                  className={cn(
-                    "flex min-h-11 w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm font-semibold hover:bg-[var(--sidebar-accent)]",
-                    FOCUS,
-                  )}
-                >
-                  <span className="flex h-6 w-6 shrink-0 items-center justify-center">
-                    <BrandMark
-                      of={provider.key.startsWith("custom:") ? provider.groups[0].account.name : provider.key}
-                      className="h-4 w-4"
-                    />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate">{provider.name}</span>
-                    <span className="block text-[0.6875rem] font-normal text-[var(--muted-foreground)]">
-                      {t("connections.list.connectionCount", { count: provider.groups.length })}
-                    </span>
-                  </span>
-                  <span className="shrink-0 text-[0.6875rem] font-normal text-[var(--muted-foreground)]">
-                    {t("connections.list.models", {
-                      count: provider.groups.reduce((count, group) => count + group.visibleRows.length, 0),
-                    })}
-                  </span>
-                  <ChevronDown size="0.875rem" className={cn("shrink-0 transition-transform", !open && "-rotate-90")} />
-                </button>
-                {open && (
-                  <div id={bodyId} className="flex min-w-0 flex-col gap-2 ps-10">
-                    {provider.groups.map((group) => accountRow(group, undefined, provider.name))}
-                  </div>
-                )}
-              </div>
-            );
-          })}
+          {providerGroups.map((provider) => (
+            // Provider ordering stays; accounts are peers and each folds by its own id.
+            <div key={provider.key} data-connection-provider={provider.key} className="flex min-w-0 flex-col gap-2">
+              {provider.groups.map((group) => accountRow(group, provider.name))}
+            </div>
+          ))}
           {visible.standalone.length > 0 && (
             <PanelSection title={t("connections.accounts.section.other")} icon={<Link size="0.75rem" />}>
               {query ? (

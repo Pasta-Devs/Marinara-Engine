@@ -23,6 +23,7 @@ test("Connections keep the established header, mixed models and compact role con
   const created = (await response.json()) as { account: { id: string }; connectionId: string };
   const ids = [created.connectionId];
   const extraAccounts: string[] = [];
+  const comfy: Array<{ id: string; accountId: string; name: string }> = [];
   try {
     for (const model of [
       { name: "Studio Image", provider: "image_generation", imageGenerationSource: "openai", model: "gpt-image-1.5" },
@@ -44,6 +45,7 @@ test("Connections keep the established header, mixed models and compact role con
       expect(result.ok()).toBeTruthy();
       const row = (await result.json()) as { id: string; accountId: string };
       ids.push(row.id);
+      comfy.push({ ...row, name: media.name });
       if (row.accountId) extraAccounts.push(row.accountId);
     }
     expect(
@@ -111,28 +113,33 @@ test("Connections keep the established header, mixed models and compact role con
     await accountHeader.press("Enter");
     await expect(group.locator("[data-connection-id]")).toHaveCount(3);
     const provider = panel.locator('[data-connection-provider="comfyui"]');
+    // Separate accounts are peers: no provider heading or account-inside-provider indentation.
     await expect(provider.locator("[data-connection-account-id]")).toHaveCount(2);
-    for (const header of await provider.locator('[data-connections-row^="account:"]').all()) {
-      await expect(header).toContainText("127.0.0.1:8188");
-      await expect(header).not.toContainText("ComfyUI");
+    await expect(provider.locator('[data-connections-row^="provider:"]')).toHaveCount(0);
+    const primaryBox = await accountHeader.boundingBox();
+    for (const entry of comfy) {
+      const account = provider.locator(`[data-connection-account-id="${entry.accountId}"]`);
+      const header = account.locator(`[data-connections-row="account:${entry.accountId}"]`);
+      await expect(header).toContainText("ComfyUI");
+      await expect(header.getByText("127.0.0.1:8188", { exact: true })).toHaveCount(1);
+      const headerBox = await header.boundingBox();
+      expect(Math.abs(headerBox!.x - primaryBox!.x)).toBeLessThan(1);
+      const modelBox = await account.locator(`[data-connection-id="${entry.id}"]`).boundingBox();
+      expect(modelBox!.x - headerBox!.x).toBeGreaterThanOrEqual(8);
+      expect(modelBox!.x - headerBox!.x).toBeLessThanOrEqual(24);
+      await header.press("Space");
+      await expect(account.locator("[data-connection-id]")).toHaveCount(0);
+      await header.press("Enter");
+      await expect(account.locator(`[data-connection-id="${entry.id}"]`)).toBeVisible();
+      // Account-specific actions must still open the right credentials/models.
+      await account.getByRole("button", { name: "Actions for ComfyUI · 127.0.0.1:8188", exact: true }).click();
+      await page.getByRole("menuitem", { name: "Edit", exact: true }).click();
+      const accountDialog = page.getByRole("dialog");
+      await expect(accountDialog.getByRole("button", { name: entry.name, exact: true })).toBeVisible();
+      const other = comfy.find((row) => row.id !== entry.id)!;
+      await expect(accountDialog.getByRole("button", { name: other.name, exact: true })).toHaveCount(0);
+      await page.keyboard.press("Escape");
     }
-    const providerToggle = provider.getByRole("button", { name: /ComfyUI.*2 connections/ });
-    const model = provider.locator("[data-connection-id]").first();
-    const providerBox = await providerToggle.boundingBox();
-    const providerNameBox = await providerToggle.getByText("ComfyUI", { exact: true }).boundingBox();
-    const accountNameBox = await provider
-      .locator('[data-connections-row^="account:"]')
-      .first()
-      .getByText("127.0.0.1:8188", { exact: true })
-      .boundingBox();
-    expect(accountNameBox!.x).toBeGreaterThan(providerNameBox!.x + 4);
-    const modelBox = await model.boundingBox();
-    expect(modelBox!.x).toBeGreaterThan(providerBox!.x + 8);
-    await providerToggle.click();
-    await expect(providerToggle).toHaveAttribute("aria-expanded", "false");
-    await expect(provider.locator("[data-connection-id]")).toHaveCount(0);
-    await providerToggle.click();
-    await expect(provider.locator("[data-connection-id]")).toHaveCount(2);
     await page.mouse.move(0, 0);
     if (info.project.name === "desktop-chromium") {
       const originalViewport = page.viewportSize()!;
