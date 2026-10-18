@@ -1030,7 +1030,12 @@ export function createConnectionsStorage(db: DB) {
           (a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id),
         )[0];
         const peer = linked
-          .filter((candidate) => candidate.provider === row.provider)
+          .filter(
+            (candidate) =>
+              candidate.provider === row.provider &&
+              credentialVendor(candidate) === credentialVendor(row) &&
+              sameEndpoint(candidate, row.provider === account.provider ? account : row),
+          )
           .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
         const sameServer =
           !!representative &&

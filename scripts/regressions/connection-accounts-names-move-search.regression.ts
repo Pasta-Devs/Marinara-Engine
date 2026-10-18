@@ -191,6 +191,16 @@ try {
       .status,
     400,
   );
+  // Legacy/manual links can contain another video service: its cache must never replace Comfy's catalog.
+  const swarmVideo = (await connections.create(comfyMedia("video_generation", "swarmui", "http://127.0.0.1:7100")))!;
+  await db
+    .update(apiConnections)
+    .set({
+      accountId: imageAccountId,
+      savedModels: '{"models":[{"id":"wrong-service-model"}]}',
+      pinnedModels: '["wrong-service-model"]',
+    })
+    .where(eq(apiConnections.id, swarmVideo.id));
   const movedVideo = await json("POST", `/connections/${comfyVideo.id}/move`, { accountId: imageAccountId });
   assert.equal(movedVideo.status, 200, movedVideo.body);
   const video = await rowOf(comfyVideo.id);

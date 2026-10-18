@@ -129,7 +129,7 @@ test("Connections keep the established header, mixed models and compact role con
     const gatewayRow = panel.locator(`[data-connection-account-id="${gateway.account.id}"]`);
     await expect(gatewayRow.getByRole("button", { name: "Edit My GLM", exact: true })).toBeVisible();
     const nanoGroup = gatewayRow.locator('[data-connection-upstream="nanogpt"]');
-    await expect(nanoGroup).toContainText("NanoGPT · 1");
+    await expect(nanoGroup.getByText("NanoGPT · 1", { exact: true })).toBeVisible();
     await expect(nanoGroup.getByRole("button", { name: "Edit My GLM", exact: true })).toBeVisible();
     await expect(nanoGroup.getByText("zai-org/glm-5.2", { exact: true })).toBeVisible();
     await expect(gatewayRow.locator("span[title]").filter({ hasText: "My GLM" })).toHaveAttribute(
