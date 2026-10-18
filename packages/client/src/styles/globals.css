@@ -1520,22 +1520,113 @@
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--foreground) 10%, transparent);
 }
 
-/* Account identity outranks maker marks; model pictures retain their own frame. */
+/* The reference uses one account card and one continuous, inset model list. */
+[data-connection-account-id].mari-connection-group {
+  padding: 0.5rem;
+  border-radius: 0.875rem;
+  container-type: inline-size;
+}
 [data-connection-group-heading] .mari-provider-icon {
   width: 2rem;
   height: 2rem;
-  border-radius: 0.625rem;
+  border-radius: 50%;
 }
-.mari-connection-model > button:first-of-type {
-  min-height: 3.25rem;
+.mari-connection-model-list {
+  margin-block-start: 0.25rem;
+  overflow: hidden;
+  border-radius: 0.625rem;
+  background: color-mix(in srgb, var(--foreground) 2.5%, transparent);
+}
+.mari-connection-model-slot + .mari-connection-model-slot,
+.mari-connection-model-list > .mari-connection-browse {
+  border-block-start: 1px solid color-mix(in srgb, var(--foreground) 4%, transparent);
+}
+.mari-connection-model {
+  container-type: inline-size;
+}
+.mari-connection-model-choice {
+  display: grid;
+  grid-template-columns: 1.5rem minmax(0, 1fr) minmax(4rem, max-content) 4.5rem;
+  align-items: center;
+  column-gap: 0.625rem;
+  min-height: 2.75rem;
+}
+.mari-connection-model-meta {
+  display: contents;
+}
+.mari-connection-model [data-connection-role] > span {
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 .mari-connection-model .mari-provider-icon:not(:has(img)) {
   background: none;
   box-shadow: none;
 }
 .mari-connection-model .mari-provider-icon .brand-mark {
-  width: 75%;
-  height: 75%;
+  width: 87.5%;
+  height: 87.5%;
+}
+.mari-connection-model .mari-provider-icon > svg {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+.mari-connection-defaults-row [data-connection-list-title] {
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.5rem;
+}
+.mari-connection-defaults-row [data-connection-list-subtitle] {
+  font-size: 0.75rem;
+  line-height: 1.125rem;
+}
+.mari-connection-defaults-row > svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+/* Keep count and status secondary without taking the account name's room on narrow cards. */
+.mari-connection-heading-line {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+.mari-connection-defaults-row {
+  padding-block: 0.25rem;
+}
+@container (max-width: 360px) {
+  .mari-connection-heading-line {
+    flex-wrap: wrap;
+  }
+  .mari-connection-model-choice {
+    grid-template-columns: 1.5rem minmax(0, 1fr);
+    row-gap: 0.125rem;
+  }
+  .mari-connection-model-choice > :first-child {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .mari-connection-model-choice [data-connection-model-copy] {
+    grid-column: 2 / -1;
+    grid-row: 1;
+  }
+  .mari-connection-model-meta {
+    display: flex;
+    min-width: 0;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.25rem 0.5rem;
+    grid-column: 2;
+    grid-row: 2;
+  }
+  [data-connection-type] {
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  [data-connection-role] {
+    max-width: 100%;
+  }
 }
 
 /* A bundled provider icon (decision 34c) drawn in the text colour; the size comes from the caller. */

@@ -139,14 +139,20 @@ function ListRow({
         aria-controls={expanded ? controls : undefined}
         aria-label={label}
         className={cn(
-          "group flex min-h-12 min-w-0 flex-1 items-center gap-2.5 rounded-xl p-2 text-left transition-colors hover:bg-[var(--sidebar-accent)]",
+          "group flex min-h-12 min-w-0 flex-1 items-center gap-3 rounded-xl p-2 text-left transition-colors hover:bg-[var(--sidebar-accent)]",
+          rowKey === "defaults" && "mari-connection-defaults-row",
           FOCUS,
         )}
       >
         {tile}
         <span className="min-w-0 flex-1">
-          <span className="block break-words text-sm leading-5 text-[var(--foreground)]">{title}</span>
-          <span className="flex min-w-0 flex-wrap items-center gap-x-1.5 text-[0.6875rem] text-[var(--muted-foreground)]">
+          <span data-connection-list-title className="block break-words text-sm leading-5 text-[var(--foreground)]">
+            {title}
+          </span>
+          <span
+            data-connection-list-subtitle
+            className="flex min-w-0 flex-wrap items-center gap-x-1.5 text-[0.6875rem] text-[var(--muted-foreground)]"
+          >
             {sub}
           </span>
         </span>
@@ -155,7 +161,7 @@ function ListRow({
             size="0.875rem"
             className={cn(
               "shrink-0 text-[var(--muted-foreground)] transition-transform motion-reduce:transition-none",
-              expanded && "rotate-180",
+              !expanded && "-rotate-90",
             )}
           />
         ) : (
@@ -180,8 +186,8 @@ function ListRow({
 
 function SettingsTile() {
   return (
-    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--secondary)] text-[var(--muted-foreground)]">
-      <Settings2 size="1rem" />
+    <span className="flex h-8 w-8 shrink-0 items-center justify-center text-[var(--muted-foreground)]">
+      <Settings2 size="1.25rem" />
     </span>
   );
 }
@@ -520,7 +526,7 @@ export function ConnectionsPanel() {
   const mainTile = defaults.tiles[0];
   // A wide panel shows Defaults as its second column; a narrow one unfolds it here.
   const defaultsCard = (
-    <div key="defaults" className={cn(GROUP_SURFACE, "p-1")}>
+    <div key="defaults" className={cn(GROUP_SURFACE, "mari-connection-defaults p-1")}>
       <ListRow
         rowKey="defaults"
         selected={wide && current === "defaults"}

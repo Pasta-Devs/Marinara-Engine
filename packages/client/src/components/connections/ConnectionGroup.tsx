@@ -3,7 +3,17 @@
 // Each account has a full-width heading; only its mixed-kind model list is indented.
 // ──────────────────────────────────────────────
 import { useState, type ReactNode } from "react";
-import { ChevronDown, ChevronRight, ImageIcon, MoreHorizontal, Plus, Search, Settings2, Wifi } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronRight,
+  ImageIcon,
+  MoreHorizontal,
+  Plus,
+  LayoutGrid,
+  Search,
+  Settings2,
+  Wifi,
+} from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
@@ -165,21 +175,23 @@ export function ConnectionGroup({
             name: [heading, accountLabel, endpoint, count].filter(Boolean).join(", "),
             state,
           })}
-          className="flex min-h-11 min-w-0 flex-1 items-center gap-2.5 rounded-lg px-2 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)]"
+          className="flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded-lg px-1 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)]"
         >
           {tile && <span className="shrink-0">{tile}</span>}
           <span className="min-w-0 flex-1">
-            <span className="flex min-w-0 items-baseline gap-2">
-              <span className="min-w-0 flex-1 truncate text-[0.9375rem] font-semibold leading-5 text-[var(--foreground)]">
+            <span className="mari-connection-heading-line">
+              <span className="min-w-0 truncate text-base font-semibold leading-5 text-[var(--foreground)]">
                 {heading}
               </span>
+              <span data-connection-group-count className="shrink-0 text-xs font-normal text-[var(--muted-foreground)]">
+                {count}
+              </span>
             </span>
-            <span className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[0.6875rem] text-[var(--muted-foreground)]">
+            <span className="mt-0.5 flex min-w-0 items-center gap-2 text-xs text-[var(--muted-foreground)]">
               {(accountLabel || endpoint) && (
                 <span className="min-w-0 truncate">{[accountLabel, endpoint].filter(Boolean).join(" · ")}</span>
               )}
               <StateWord tone={STATE_TONE[account.state]} label={state} />
-              <span className="shrink-0">{count}</span>
             </span>
           </span>
         </button>
@@ -264,7 +276,7 @@ export function ConnectionGroup({
         <div
           id={modelsId}
           aria-label={t("ui.agents.featureagentdetailhost.value1Value2", { value1: account.name, value2: service })}
-          className="ms-4 mb-2 flex min-w-0 flex-col gap-1"
+          className="mari-connection-model-list flex min-w-0 flex-col"
         >
           {rows.length === 0 && (
             <p className="px-2 py-1 text-[0.6875rem] text-[var(--muted-foreground)]">
@@ -279,7 +291,7 @@ export function ConnectionGroup({
                 ({ linkapi: "LinkAPI", arliai: "ArliAI" } as Record<string, string>)[upstream.toLowerCase()])
               : null;
             return (
-              <div key={row.id} className="min-w-0">
+              <div key={row.id} className="mari-connection-model-slot min-w-0">
                 {renderRow(row, upstreamName ?? modelSubtitle(row))}
               </div>
             );
@@ -288,9 +300,9 @@ export function ConnectionGroup({
             <button
               type="button"
               onClick={() => openAddModels({ accountId: account.id, connectionId: chatRow.id })}
-              className="flex min-h-11 w-full items-center gap-2.5 rounded-lg px-2 text-left text-xs hover:bg-[var(--sidebar-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)] md:min-h-9 [@media(pointer:coarse)]:min-h-11"
+              className="mari-connection-browse flex min-h-11 w-full items-center gap-3 px-4 text-left text-xs text-[var(--muted-foreground)] hover:bg-foreground/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)]"
             >
-              <Search size="0.875rem" className="shrink-0 text-[var(--muted-foreground)]" />
+              <LayoutGrid size="1rem" className="shrink-0 text-[var(--muted-foreground)]" />
               <span className="min-w-0 flex-1 text-[var(--muted-foreground)]">{t("connections.detail.browseAll")}</span>
               <ChevronRight size="0.875rem" className="shrink-0 text-[var(--muted-foreground)]" />
             </button>

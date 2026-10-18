@@ -98,7 +98,7 @@ export const ROW_BUTTON = cn(
 );
 
 /** A kind, role or state pill at the right of a Model's second line. */
-const BADGE = "shrink-0 whitespace-nowrap rounded-full px-1.5 text-[0.625rem] font-semibold leading-4";
+const BADGE = "shrink-0 whitespace-nowrap rounded-md px-1.5 text-[0.6875rem] font-medium leading-5";
 
 export type MenuAt = { x: number; y: number; keyboard: boolean };
 export const menuAt = (event: MouseEvent<HTMLElement>): MenuAt => {
@@ -177,7 +177,9 @@ export function ConnectionRow({
     ? t(`connections.accounts.kind.${kind}`)
     : chatModel
       ? t("connections.accounts.section.chat")
-      : null;
+      : row.provider === "decision"
+        ? t("connections.decision.label")
+        : null;
   const badges = [
     ...roles.map((role) => t(`connections.switcher.role.${role}`)),
     ...(kind && isConnectionFlagTrue(row.defaultForAgents) ? [t("connections.accounts.badge.default")] : []),
@@ -347,8 +349,8 @@ export function ConnectionRow({
       }}
       onDragEnd={clearActiveChatResourceDrag}
       className={cn(
-        "mari-connection-model group relative flex min-h-11 min-w-0 items-center gap-1 rounded-lg pr-1 transition-colors hover:bg-[var(--sidebar-accent)]",
-        current && "bg-[var(--sidebar-accent)]/40",
+        "mari-connection-model group relative flex min-h-11 min-w-0 items-center gap-1 pr-1 transition-colors hover:bg-foreground/[0.04]",
+        current && "bg-foreground/[0.06]",
       )}
     >
       {/* The row opens the editor; "…" sits beside it, never inside it. */}
@@ -361,7 +363,10 @@ export function ConnectionRow({
             ? t("connections.row.editUnavailable", { name: title, state: unavailableLabel })
             : t("connections.row.edit", { name: title })
         }
-        className={cn("flex min-h-11 min-w-0 flex-1 items-center gap-2.5 rounded-lg py-2 pl-2 text-left", FOCUS)}
+        className={cn(
+          "mari-connection-model-choice min-h-11 min-w-0 flex-1 py-0.5 ps-4 text-left focus-visible:ring-inset",
+          FOCUS,
+        )}
       >
         {row.imagePath ? (
           <span
@@ -372,7 +377,7 @@ export function ConnectionRow({
           </span>
         ) : (
           <ProviderIcon
-            provider={account?.provider ?? row.provider}
+            provider={row.provider === "decision" ? row.provider : (account?.provider ?? row.provider)}
             baseUrl={account?.baseUrl ?? row.baseUrl}
             service={mediaService(row)}
             model={row.model}
@@ -381,10 +386,10 @@ export function ConnectionRow({
             dim={!!unavailable}
           />
         )}
-        <span className="min-w-0 flex-1">
+        <span data-connection-model-copy className="min-w-0 flex-1">
           <span
             className={cn(
-              "line-clamp-2 break-words text-sm font-medium leading-5",
+              "line-clamp-2 break-words text-sm font-semibold leading-5",
               unavailable ? "text-[var(--muted-foreground)]" : "text-[var(--foreground)]",
             )}
             title={row.model && row.model !== title ? [title, row.model].join("\n") : title}
@@ -398,38 +403,45 @@ export function ConnectionRow({
             {title}
           </span>
           {sub && (
-            <span className="block truncate text-[0.6875rem] leading-4 text-[var(--muted-foreground)]" title={sub}>
+            <span className="block truncate text-xs leading-[1.125rem] text-[var(--muted-foreground)]" title={sub}>
               {sub}
             </span>
           )}
         </span>
-        <span className="flex max-w-[45%] shrink-0 flex-wrap items-center justify-end gap-1.5">
-          {kindLabel && (
-            <span className={cn(BADGE, "min-w-9 px-0 text-right font-normal text-[var(--muted-foreground)]")}>
-              {kindLabel}
-            </span>
-          )}
-          {current && <Check size="0.75rem" className="shrink-0 text-[var(--muted-foreground)]" aria-hidden />}
-          {unavailable ? (
-            <span
-              className={cn(
-                BADGE,
-                "inline-flex items-center gap-1 border",
-                unavailable === "needs_key"
-                  ? "border-[var(--marinara-app-accent-static)]/45 text-[var(--marinara-app-accent-static)]"
-                  : "border-[var(--border)] text-[var(--muted-foreground)]",
-              )}
-            >
-              {unavailable === "needs_key" ? <KeyRound size="0.5625rem" /> : <Power size="0.5625rem" />}
-              {unavailableLabel}
-            </span>
-          ) : (
-            badges.map((badge) => (
-              <span key={badge} className={cn(BADGE, "bg-foreground/[0.08] text-[var(--foreground)]")}>
-                {badge}
+        <span className="mari-connection-model-meta">
+          <span
+            data-connection-type
+            className="min-w-0 whitespace-nowrap text-xs leading-4 text-[var(--muted-foreground)]"
+          >
+            {kindLabel}
+          </span>
+          <span data-connection-role className="flex min-w-0 flex-wrap items-center justify-start gap-1">
+            {current && <Check size="0.75rem" className="shrink-0 text-[var(--muted-foreground)]" aria-hidden />}
+            {unavailable ? (
+              <span
+                className={cn(
+                  BADGE,
+                  "inline-flex max-w-full items-center gap-1 border",
+                  unavailable === "needs_key"
+                    ? "border-[var(--marinara-app-accent-static)]/45 text-[var(--marinara-app-accent-static)]"
+                    : "border-[var(--border)] text-[var(--muted-foreground)]",
+                )}
+              >
+                {unavailable === "needs_key" ? <KeyRound size="0.5625rem" /> : <Power size="0.5625rem" />}
+                <span className="min-w-0">{unavailableLabel}</span>
               </span>
-            ))
-          )}
+            ) : (
+              badges.map((badge) => (
+                <span
+                  key={badge}
+                  title={badge}
+                  className={cn(BADGE, "max-w-full whitespace-normal bg-foreground/[0.08] text-[var(--foreground)]")}
+                >
+                  {badge}
+                </span>
+              ))
+            )}
+          </span>
         </span>
       </button>
       <button

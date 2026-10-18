@@ -171,9 +171,13 @@ test("Connections keep the established header, mixed models and compact role con
       await expect(header.getByText("127.0.0.1:8188", { exact: true })).toHaveCount(1);
       const headerBox = await header.boundingBox();
       expect(Math.abs(headerBox!.x - primaryBox!.x)).toBeLessThan(1);
-      const modelBox = await account.locator(`[data-connection-id="${entry.id}"]`).boundingBox();
-      expect(modelBox!.x - headerBox!.x).toBeGreaterThanOrEqual(8);
-      expect(modelBox!.x - headerBox!.x).toBeLessThanOrEqual(24);
+      const modelBox = await account.locator(`[data-connection-id="${entry.id}"] .mari-provider-icon`).boundingBox();
+      const headerIconBox = await header.locator(".mari-provider-icon").boundingBox();
+      // The approved inset list starts level with the heading; only the maker mark is indented.
+      const rowBox = await account.locator(`[data-connection-id="${entry.id}"]`).boundingBox();
+      expect(Math.abs(rowBox!.x - headerBox!.x)).toBeLessThan(1);
+      expect(modelBox!.x - headerIconBox!.x).toBeGreaterThanOrEqual(8);
+      expect(modelBox!.x - headerIconBox!.x).toBeLessThanOrEqual(24);
       await header.press("Space");
       await expect(account.locator("[data-connection-id]")).toHaveCount(0);
       await header.press("Enter");
