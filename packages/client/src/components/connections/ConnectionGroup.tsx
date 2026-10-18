@@ -140,6 +140,21 @@ export function ConnectionGroup({
   const accountLabel = providerName && !automaticName ? account.name : null;
   const endpoint = host !== heading ? host : "";
   const count = t("connections.list.models", { count: visibleRows.length });
+  // A proxy's upstreams are labels within its one model list, never nested cards or folders.
+  const modelGroups = new Map<string, { label: string | null; rows: ConnectionRowData[] }>();
+  for (const row of sortByModelId(visibleRows)) {
+    const upstream = account.provider === "custom" ? upstreamOf(row.model)?.toLowerCase() : null;
+    const label = upstream
+      ? (PROVIDERS[upstream as APIProvider]?.name ??
+        ({ linkapi: "LinkAPI", arliai: "ArliAI" } as Record<string, string>)[upstream])
+      : null;
+    // Unrecognized prefixes may be model organizations, such as meta-llama, rather than proxy routes.
+    const key = label ? upstream! : "";
+    const group = modelGroups.get(key) ?? { label: label ?? null, rows: [] };
+    group.rows.push(row);
+    modelGroups.set(key, group);
+  }
+  const modelSections = [...modelGroups.entries()].sort(([a], [b]) => Number(!a) - Number(!b) || a.localeCompare(b));
   const modelsId = `connection-models-${account.id}`;
   const toggleLabel = t(open ? "connections.list.collapse" : "connections.list.expand", { name: account.name });
   const fix =
@@ -283,19 +298,22 @@ export function ConnectionGroup({
               {t("connections.accounts.noModels")}
             </p>
           )}
-          {/* By model id: rows keep their places when a star or an edit touches a Model. */}
-          {sortByModelId(visibleRows).map((row) => {
-            const upstream = account.provider === "custom" ? upstreamOf(row.model) : null;
-            const upstreamName = upstream
-              ? (PROVIDERS[upstream.toLowerCase() as APIProvider]?.name ??
-                ({ linkapi: "LinkAPI", arliai: "ArliAI" } as Record<string, string>)[upstream.toLowerCase()])
-              : null;
-            return (
-              <div key={row.id} className="mari-connection-model-slot min-w-0">
-                {renderRow(row, upstreamName ?? modelSubtitle(row))}
-              </div>
-            );
-          })}
+          {modelSections.map(([upstream, section]) => (
+            <div key={upstream || "models"} data-connection-upstream={upstream || undefined} className="min-w-0">
+              {(section.label || modelSections.length > 1) && (
+                <div className="px-4 pb-1 pt-2 text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
+                  {section.label
+                    ? t("connections.accounts.upstreamHeading", { upstream: section.label, count: section.rows.length })
+                    : t("connections.accounts.section.other")}
+                </div>
+              )}
+              {section.rows.map((row) => (
+                <div key={row.id} className="mari-connection-model-slot min-w-0">
+                  {renderRow(row, section.label ? row.model.slice(row.model.indexOf("/") + 1) : modelSubtitle(row))}
+                </div>
+              ))}
+            </div>
+          ))}
           {chatRow && (
             <button
               type="button"

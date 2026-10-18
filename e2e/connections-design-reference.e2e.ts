@@ -140,6 +140,11 @@ test("connections concept A reference renders without overflow", async ({ browse
     // The Decision row borrows credentials from GLM, so all 5 stay under Bifrost.
     const bifrostRows = panel.locator('[data-connection-account-id="acc-bifrost"] [data-connection-id]');
     await expect(bifrostRows).toHaveCount(5);
+    const proxy = panel.locator('[data-connection-account-id="acc-bifrost"]');
+    await expect(proxy.locator("[data-connection-upstream]")).toHaveCount(3);
+    await expect(proxy.getByText("Other models", { exact: true })).toBeVisible();
+    await expect(proxy.locator('[data-connection-upstream="nanogpt"] [data-connection-id]')).toHaveCount(2);
+    await expect(proxy.locator('[data-connection-upstream="linkapi"] [data-connection-id="c-gpt"]')).toBeVisible();
     await expect(panel.locator("[data-connection-id]")).toHaveCount(6);
     const left = (loc: ReturnType<typeof panel.locator>) =>
       loc.evaluateAll((els) => els.map((el) => Math.round(el.getBoundingClientRect().left)));

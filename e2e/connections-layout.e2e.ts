@@ -128,7 +128,10 @@ test("Connections keep the established header, mixed models and compact role con
     ).toHaveCount(1);
     const gatewayRow = panel.locator(`[data-connection-account-id="${gateway.account.id}"]`);
     await expect(gatewayRow.getByRole("button", { name: "Edit My GLM", exact: true })).toBeVisible();
-    await expect(gatewayRow.getByText("NanoGPT", { exact: true })).toBeVisible();
+    const nanoGroup = gatewayRow.locator('[data-connection-upstream="nanogpt"]');
+    await expect(nanoGroup).toContainText("NanoGPT · 1");
+    await expect(nanoGroup.getByRole("button", { name: "Edit My GLM", exact: true })).toBeVisible();
+    await expect(nanoGroup.getByText("zai-org/glm-5.2", { exact: true })).toBeVisible();
     await expect(gatewayRow.locator("span[title]").filter({ hasText: "My GLM" })).toHaveAttribute(
       "title",
       /nanogpt\/zai-org\/glm-5\.2/,
@@ -160,37 +163,40 @@ test("Connections keep the established header, mixed models and compact role con
     await accountHeader.press("Enter");
     await expect(group.locator("[data-connection-id]")).toHaveCount(3);
     const provider = panel.locator('[data-connection-provider="comfyui"]');
-    // Separate accounts are peers: no provider heading or account-inside-provider indentation.
-    await expect(provider.locator("[data-connection-account-id]")).toHaveCount(2);
+    // One endpoint/access identity owns both image and video models, with one fold and settings page.
+    expect(comfy[0]!.accountId).toBe(comfy[1]!.accountId);
+    await expect(provider.locator("[data-connection-account-id]")).toHaveCount(1);
     await expect(provider.locator('[data-connections-row^="provider:"]')).toHaveCount(0);
+    const comfyAccount = provider.locator(`[data-connection-account-id="${comfy[0]!.accountId}"]`);
+    const comfyHeader = comfyAccount.locator(`[data-connections-row="account:${comfy[0]!.accountId}"]`);
+    await expect(comfyHeader).toContainText("ComfyUI");
+    await expect(comfyHeader).toContainText("2 models");
+    await expect(comfyHeader.getByText("127.0.0.1:8188", { exact: true })).toHaveCount(1);
     const primaryBox = await accountHeader.boundingBox();
+    const headerBox = await comfyHeader.boundingBox();
+    expect(Math.abs(headerBox!.x - primaryBox!.x)).toBeLessThan(1);
     for (const entry of comfy) {
-      const account = provider.locator(`[data-connection-account-id="${entry.accountId}"]`);
-      const header = account.locator(`[data-connections-row="account:${entry.accountId}"]`);
-      await expect(header).toContainText("ComfyUI");
-      await expect(header.getByText("127.0.0.1:8188", { exact: true })).toHaveCount(1);
-      const headerBox = await header.boundingBox();
-      expect(Math.abs(headerBox!.x - primaryBox!.x)).toBeLessThan(1);
-      const modelBox = await account.locator(`[data-connection-id="${entry.id}"] .mari-provider-icon`).boundingBox();
-      const headerIconBox = await header.locator(".mari-provider-icon").boundingBox();
-      // The approved inset list starts level with the heading; only the maker mark is indented.
-      const rowBox = await account.locator(`[data-connection-id="${entry.id}"]`).boundingBox();
+      const model = comfyAccount.locator(`[data-connection-id="${entry.id}"]`);
+      await expect(model).toBeVisible();
+      const modelBox = await model.locator(".mari-provider-icon").boundingBox();
+      const headerIconBox = await comfyHeader.locator(".mari-provider-icon").boundingBox();
+      const rowBox = await model.boundingBox();
       expect(Math.abs(rowBox!.x - headerBox!.x)).toBeLessThan(1);
       expect(modelBox!.x - headerIconBox!.x).toBeGreaterThanOrEqual(8);
       expect(modelBox!.x - headerIconBox!.x).toBeLessThanOrEqual(24);
-      await header.press("Space");
-      await expect(account.locator("[data-connection-id]")).toHaveCount(0);
-      await header.press("Enter");
-      await expect(account.locator(`[data-connection-id="${entry.id}"]`)).toBeVisible();
-      // Account-specific actions must still open the right credentials/models.
-      await account.getByRole("button", { name: "Actions for ComfyUI · 127.0.0.1:8188", exact: true }).click();
-      await page.getByRole("menuitem", { name: "Edit", exact: true }).click();
-      const accountDialog = page.getByRole("dialog");
-      await expect(accountDialog.getByRole("button", { name: entry.name, exact: true })).toBeVisible();
-      const other = comfy.find((row) => row.id !== entry.id)!;
-      await expect(accountDialog.getByRole("button", { name: other.name, exact: true })).toHaveCount(0);
-      await page.keyboard.press("Escape");
     }
+    await expect(comfyAccount).toContainText("Image");
+    await expect(comfyAccount).toContainText("Video");
+    await comfyHeader.press("Space");
+    await expect(comfyAccount.locator("[data-connection-id]")).toHaveCount(0);
+    await comfyHeader.press("Enter");
+    await expect(comfyAccount.locator("[data-connection-id]")).toHaveCount(2);
+    await comfyAccount.getByRole("button", { name: "Actions for ComfyUI · 127.0.0.1:8188", exact: true }).click();
+    await page.getByRole("menuitem", { name: "Edit", exact: true }).click();
+    const accountDialog = page.getByRole("dialog");
+    for (const entry of comfy)
+      await expect(accountDialog.getByRole("button", { name: entry.name, exact: true })).toBeVisible();
+    await page.keyboard.press("Escape");
     await page.mouse.move(0, 0);
     if (info.project.name === "desktop-chromium") {
       const originalViewport = page.viewportSize()!;

@@ -121,11 +121,11 @@ export function credentialVendor(row: IdentityRow): string {
   switch (row.provider) {
     case "image_generation": {
       const source = imageSourceOf(row);
-      return IMAGE_SOURCE_VENDOR[source] ?? `image:${source}`;
+      return IMAGE_SOURCE_VENDOR[source] ?? `media:${source}`;
     }
     case "video_generation": {
       const source = videoSourceOf(row);
-      return VIDEO_SOURCE_VENDOR[source] ?? `video:${source}`;
+      return VIDEO_SOURCE_VENDOR[source] ?? `media:${source}`;
     }
     case "audio": {
       const source = row.audioSource?.trim() ?? "";
@@ -171,6 +171,11 @@ function originOfUrl(url: string): string {
 /** Normalized origin (scheme, host, port) of the row's effective endpoint. Paths are not part of the identity. */
 export function credentialOrigin(row: IdentityRow): string {
   return originOfUrl(credentialEndpoint(row));
+}
+
+/** Whether two rows talk to the same effective endpoint (trailing slashes ignored, paths are case-sensitive). */
+export function sameEndpoint(a: IdentityRow, b: IdentityRow): boolean {
+  return credentialEndpoint(a) === credentialEndpoint(b);
 }
 
 function hostOf(url: string): string {
@@ -423,13 +428,17 @@ export async function linkConnectionAccounts(db: DB): Promise<{ created: number;
 
     // 2. Grouping by credential identity. Existing accounts are matched through their linked rows.
     const accountForGroup = new Map<string, string>();
-    for (const row of rows) {
+    const byAge = (a: ConnectionRow, b: ConnectionRow) =>
+      a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id);
+    for (const row of [...rows].sort(byAge)) {
       if (row.accountId) {
         const key = groupKeyOf(row, keys.get(row.id) ?? "", row.accountId);
         if (!accountForGroup.has(key)) accountForGroup.set(key, row.accountId);
       }
     }
-    for (const account of accounts as ConnectionAccountRow[]) {
+    for (const account of [...(accounts as ConnectionAccountRow[])].sort(
+      (a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id),
+    )) {
       // An account without rows can only be matched by its own provider (chat accounts).
       if (rows.some((row) => row.accountId === account.id) || !isChatProvider(account.provider)) continue;
       const key = groupKeyOf(account, decryptApiKey(account.apiKeyEncrypted), account.id);
@@ -561,9 +570,22 @@ export function createConnectionAccountsStorage(db: DB) {
           input.treatAsLocalEndpoint !== undefined;
         if (mirrored) {
           const rows = await tx.select().from(apiConnections).where(eq(apiConnections.accountId, id));
+          const isMedia = (provider: string) => provider === "image_generation" || provider === "video_generation";
+          // The account row has no media source: the oldest linked row stands for the account's service.
+          const representative = [...(rows as ConnectionRow[])].sort(
+            (a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id),
+          )[0];
           for (const row of rows as ConnectionRow[]) {
             const sameType = row.provider === account.provider;
-            const takesBaseUrl = sameType && input.baseUrl !== undefined;
+            // Image and video rows of one media server (Comfy) share its exact address, so an address edit moves both.
+            const sharesMediaEndpoint =
+              isMedia(row.provider) &&
+              !!representative &&
+              isMedia(representative.provider) &&
+              credentialVendor(row) === credentialVendor(representative) &&
+              !!trimUrl(account.baseUrl) &&
+              credentialEndpoint(row) === trimUrl(account.baseUrl);
+            const takesBaseUrl = (sameType || sharesMediaEndpoint) && input.baseUrl !== undefined;
             // A second endpoint (embeddings) on another origin would also receive the row's key.
             const foreignEndpoint =
               !!row.embeddingBaseUrl?.trim() && originOfUrl(trimUrl(row.embeddingBaseUrl)) !== accountOrigin;

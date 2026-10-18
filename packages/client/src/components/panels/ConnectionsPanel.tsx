@@ -426,15 +426,21 @@ export function ConnectionsPanel() {
     const anchor =
       (row.accountId && starAnchorOf(connectionsList.filter((other) => other.accountId === row.accountId))) || row;
     const starred = !!row.model && parsePinnedModels(anchor.pinnedModels).includes(row.model);
-    // Same service and endpoint only; the server checks the credential kind again (decision 28).
+    // Media kinds can share access (for example ComfyUI image + video); the server verifies the vendor.
+    const source = mediaService(row);
     const moveTargets =
       account && !row.credentialsFromConnectionId
         ? (accounts ?? [])
             .filter(
               (item) =>
                 item.id !== account.id &&
-                item.provider === account.provider &&
-                (account.provider !== "custom" || originOf(item.baseUrl) === originOf(account.baseUrl)),
+                (item.provider === account.provider ||
+                  (source &&
+                    connectionsList.some(
+                      (candidate) => candidate.accountId === item.id && mediaService(candidate) === source,
+                    ))) &&
+                (!(account.provider === "custom" || isMediaRow(row)) ||
+                  originOf(item.baseUrl) === originOf(account.baseUrl)),
             )
             .map(({ id, name }) => ({ id, name }))
         : [];

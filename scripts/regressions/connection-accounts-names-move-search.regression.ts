@@ -15,7 +15,7 @@ const { apiConnections, connectionAccounts } = await import("../../packages/serv
 const { eq } = await import("../../packages/server/src/db/file-query.js");
 const { decryptApiKey, encryptApiKey } = await import("../../packages/server/src/utils/crypto.js");
 const { createConnectionsStorage } = await import("../../packages/server/src/services/storage/connections.storage.js");
-const { linkConnectionAccounts } =
+const { linkConnectionAccounts, createConnectionAccountsStorage } =
   await import("../../packages/server/src/services/storage/connection-accounts.storage.js");
 const { connectionAccountsRoutes } = await import("../../packages/server/src/routes/connection-accounts.routes.js");
 const { connectionsRoutes } = await import("../../packages/server/src/routes/connections.routes.js");
@@ -153,6 +153,89 @@ try {
   assert.equal((await json("POST", `/connections/${model.id}/move`, { accountId: first.id })).status, 200);
   assert.equal(await connections.getWithKey(model.id), null);
   await json("PATCH", `/accounts/${first.id}`, { enabled: true });
+
+  // ── Cross-kind move: a Comfy video Model joins the image Connection of the same server ──
+  const comfyMedia = (provider: string, source: string, baseUrl: string) =>
+    ({
+      name: `${provider}-${baseUrl}`,
+      provider,
+      [provider === "video_generation" ? "videoGenerationSource" : "imageGenerationSource"]: source,
+      baseUrl,
+      model: "",
+    }) as never;
+  const comfyImage = (await connections.create(comfyMedia("image_generation", "comfyui", "http://127.0.0.1:7100")))!;
+  const comfyOther = (await connections.create(comfyMedia("image_generation", "comfyui", "http://127.0.0.1:7200")))!;
+  const comfyVideo = (await connections.create(comfyMedia("video_generation", "comfyui", "http://127.0.0.1:7100")))!;
+  assert.equal((await rowOf(comfyVideo.id)).accountId, (await rowOf(comfyImage.id)).accountId, "new rows share");
+  assert.notEqual((await rowOf(comfyOther.id)).accountId, (await rowOf(comfyImage.id)).accountId, "other endpoint");
+  // An older install holds the video Model in its own account: it stays apart until moved explicitly.
+  const oldAccount = await createConnectionAccountsStorage(db).create({
+    name: "Old video",
+    provider: "video_generation",
+    baseUrl: "http://127.0.0.1:7100",
+  } as never);
+  await db
+    .update(apiConnections)
+    .set({ accountId: oldAccount.id, comfyuiWorkflow: '{"node":{"inputs":{"text":"%prompt%"}}}', savedModels: '{"fetchedAt":"x","models":[{"id":"wf"}]}', pinnedModels: '["wf"]' })
+    .where(eq(apiConnections.id, comfyVideo.id));
+  await linkConnectionAccounts(db);
+  const imageAccountId = (await rowOf(comfyImage.id)).accountId!;
+  assert.equal((await rowOf(comfyVideo.id)).accountId, oldAccount.id, "old separate accounts stay separate");
+  assert.equal(
+    (await json("POST", `/connections/${comfyVideo.id}/move`, { accountId: (await rowOf(comfyOther.id)).accountId }))
+      .status,
+    400,
+  );
+  const movedVideo = await json("POST", `/connections/${comfyVideo.id}/move`, { accountId: imageAccountId });
+  assert.equal(movedVideo.status, 200, movedVideo.body);
+  const video = await rowOf(comfyVideo.id);
+  assert.equal(video.accountId, imageAccountId);
+  assert.equal(video.provider, "video_generation");
+  assert.equal(video.baseUrl, "http://127.0.0.1:7100", "its own endpoint is untouched");
+  assert.match(video.savedModels ?? "", /"wf"/u, "no same-kind peer: its catalog stays");
+  assert.equal(video.pinnedModels, '["wf"]');
+  assert.equal(video.comfyuiWorkflow, '{"node":{"inputs":{"text":"%prompt%"}}}', "workflow unchanged");
+  // Shared settings edits reach both kinds, and the address edit does not detach the video Model.
+  assert.equal((await json("PATCH", `/accounts/${imageAccountId}`, { baseUrl: "http://127.0.0.1:7300" })).status, 200);
+  assert.equal((await rowOf(comfyVideo.id)).accountId, imageAccountId);
+  assert.equal((await rowOf(comfyVideo.id)).baseUrl, "http://127.0.0.1:7300");
+  assert.equal((await rowOf(comfyImage.id)).baseUrl, "http://127.0.0.1:7300");
+  assert.equal(decryptApiKey((await rowOf(comfyVideo.id)).apiKeyEncrypted), "", "no key was invented");
+
+  // NanoGPT image (/api/v1) and video (/api) share a key: an image path edit leaves the video path and catalog alone.
+  const nanoKey = "fixture-nano-key-7777";
+  const nanoImage = (await connections.create({
+    ...comfyMedia("image_generation", "nanogpt", "https://nano-gpt.com/api/v1"),
+    apiKey: nanoKey,
+  }))!;
+  const nanoVideo = (await connections.create({
+    ...comfyMedia("video_generation", "nanogpt", "https://nano-gpt.com/api"),
+    apiKey: nanoKey,
+  }))!;
+  await db
+    .update(apiConnections)
+    .set({ savedModels: '{"fetchedAt":"x","models":[{"id":"nv"}]}' })
+    .where(eq(apiConnections.id, nanoVideo.id));
+  await db.update(apiConnections).set({ createdAt: "2020-01-01T00:00:00.000Z" }).where(eq(apiConnections.id, nanoVideo.id));
+  const nanoAccountId = (await rowOf(nanoImage.id)).accountId!;
+  assert.equal((await rowOf(nanoVideo.id)).accountId, nanoAccountId, "one key, one account");
+  assert.equal((await json("PATCH", `/accounts/${nanoAccountId}`, { baseUrl: "https://nano-gpt.com/api/v2" })).status, 200);
+  const nanoVideoAfter = await rowOf(nanoVideo.id);
+  assert.equal(nanoVideoAfter.accountId, nanoAccountId, "same origin: not detached");
+  assert.equal(nanoVideoAfter.baseUrl, "https://nano-gpt.com/api", "the video path is not overwritten");
+  assert.match(nanoVideoAfter.savedModels ?? "", /"nv"/u, "the video catalog stays");
+
+  // A different key cannot keep a cached catalog when the target has no same-kind peer.
+  const keyedImage = (await connections.create({
+    ...comfyMedia("image_generation", "comfyui", "http://127.0.0.1:7400"), apiKey: "fixture-key-A",
+  }))!;
+  const keyedVideo = (await connections.create({
+    ...comfyMedia("video_generation", "comfyui", "http://127.0.0.1:7400"), apiKey: "fixture-key-B",
+  }))!;
+  assert.notEqual((await rowOf(keyedImage.id)).accountId, (await rowOf(keyedVideo.id)).accountId, "different keys stay apart");
+  await db.update(apiConnections).set({ savedModels: '{"models":[{"id":"old-key-model"}]}' }).where(eq(apiConnections.id, keyedVideo.id));
+  assert.equal((await json("POST", `/connections/${keyedVideo.id}/move`, {accountId: (await rowOf(keyedImage.id)).accountId})).status, 200);
+  assert.equal((await rowOf(keyedVideo.id)).savedModels, null, "changed key clears old catalog");
 
   // ── Catalog search order: starred, saved, prefix, substring; ranked before the limit ──
   const catalogRow = await rowOf(hostB.row);

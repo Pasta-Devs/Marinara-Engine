@@ -19,6 +19,7 @@ import {
   accountBlocksRows,
   credentialOrigin,
   credentialVendor,
+  sameEndpoint,
   getConnectionAccount,
   hasForeignEmbeddingHost,
   isBlockedByAccount,
@@ -1020,19 +1021,30 @@ export function createConnectionsStorage(db: DB) {
           .where(eq(connectionAccounts.id, accountId))) as ConnectionAccountRow[];
         if (!account) return "account_not_found" as const;
         if (row.profileImportReviewRequired === "true") return "review" as const;
+        const linked = (await tx
+          .select()
+          .from(apiConnections)
+          .where(eq(apiConnections.accountId, account.id))) as ConnectionRow[];
+        // The account row has no media source, so a media account's vendor comes from its oldest linked row.
+        const representative = [...linked].sort(
+          (a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id),
+        )[0];
+        const peer = linked
+          .filter((candidate) => candidate.provider === row.provider)
+          .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
+        const sameServer =
+          !!representative &&
+          decryptApiKey(row.apiKeyEncrypted) === decryptApiKey(account.apiKeyEncrypted) &&
+          sameEndpoint(row, representative);
         if (
           row.accountId === account.id ||
           row.credentialsFromConnectionId ||
           hasForeignEmbeddingHost(row) ||
-          credentialVendor(row) !== credentialVendor(account) ||
+          credentialVendor(row) !== credentialVendor(representative ?? account) ||
           credentialOrigin(row) !== credentialOrigin(account)
         ) {
           return "mismatch" as const;
         }
-        const peer = (await tx.select().from(apiConnections).where(eq(apiConnections.accountId, account.id)))
-          .filter((candidate: ConnectionRow) => candidate.provider === row.provider)
-          .sort((a: ConnectionRow, b: ConnectionRow) => b.updatedAt.localeCompare(a.updatedAt))[0] as
-          ConnectionRow | undefined;
         await tx
           .update(apiConnections)
           .set({
@@ -1047,9 +1059,13 @@ export function createConnectionsStorage(db: DB) {
             treatAsLocalEndpoint: account.treatAsLocalEndpoint,
             profileImportReviewRequired: account.profileImportReviewRequired,
             ...(row.provider === account.provider ? { baseUrl: account.baseUrl } : {}),
-            // Another key can serve another model list; the new Connection's favorites apply.
-            savedModels: peer?.savedModels ?? null,
-            ...(peer ? { pinnedModels: peer.pinnedModels } : {}),
+            // Another key can serve another model list; the new Connection's favorites apply. Without a same-kind
+            // peer the row keeps its catalog only when key and address are unchanged (the same server).
+            ...(peer
+              ? { savedModels: peer.savedModels, pinnedModels: peer.pinnedModels }
+              : sameServer
+                ? {}
+                : { savedModels: null }),
             updatedAt: now(),
           })
           .where(eq(apiConnections.id, id));

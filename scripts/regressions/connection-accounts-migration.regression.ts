@@ -93,6 +93,22 @@ try {
     imageGenerationSource: "comfyui",
     baseUrl: "http://127.0.0.1:8188/",
   });
+  // Image and video rows of one Comfy server share an account on the same endpoint, including a non-default port; another endpoint stays apart.
+  await seed("comfy-video", {
+    provider: "video_generation",
+    videoGenerationSource: "comfyui",
+    baseUrl: "http://127.0.0.1:8188",
+  });
+  await seed("comfy-9000-image", {
+    provider: "image_generation",
+    imageGenerationSource: "comfyui",
+    baseUrl: "http://127.0.0.1:9000",
+  });
+  await seed("comfy-9000-video", {
+    provider: "video_generation",
+    videoGenerationSource: "comfyui",
+    baseUrl: "http://127.0.0.1:9000",
+  });
   await seed("swarm", {
     provider: "image_generation",
     imageGenerationSource: "swarmui",
@@ -138,6 +154,9 @@ try {
   assert.equal(nanoAccount.showUsageWidget, "true");
 
   assert.equal(await accountIdOf("comfy-a"), await accountIdOf("comfy-b"));
+  assert.equal(await accountIdOf("comfy-video"), await accountIdOf("comfy-a"));
+  assert.equal(await accountIdOf("comfy-9000-video"), await accountIdOf("comfy-9000-image"));
+  assert.notEqual(await accountIdOf("comfy-9000-image"), await accountIdOf("comfy-a"));
   assert.notEqual(await accountIdOf("comfy-a"), await accountIdOf("swarm"));
   assert.notEqual(await accountIdOf("local-a"), await accountIdOf("local-b"));
   assert.equal(await accountIdOf("decision-borrow"), null);
