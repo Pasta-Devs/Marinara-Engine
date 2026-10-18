@@ -176,7 +176,12 @@ try {
   } as never);
   await db
     .update(apiConnections)
-    .set({ accountId: oldAccount.id, comfyuiWorkflow: '{"node":{"inputs":{"text":"%prompt%"}}}', savedModels: '{"fetchedAt":"x","models":[{"id":"wf"}]}', pinnedModels: '["wf"]' })
+    .set({
+      accountId: oldAccount.id,
+      comfyuiWorkflow: '{"node":{"inputs":{"text":"%prompt%"}}}',
+      savedModels: '{"fetchedAt":"x","models":[{"id":"wf"}]}',
+      pinnedModels: '["wf"]',
+    })
     .where(eq(apiConnections.id, comfyVideo.id));
   await linkConnectionAccounts(db);
   const imageAccountId = (await rowOf(comfyImage.id)).accountId!;
@@ -216,10 +221,16 @@ try {
     .update(apiConnections)
     .set({ savedModels: '{"fetchedAt":"x","models":[{"id":"nv"}]}' })
     .where(eq(apiConnections.id, nanoVideo.id));
-  await db.update(apiConnections).set({ createdAt: "2020-01-01T00:00:00.000Z" }).where(eq(apiConnections.id, nanoVideo.id));
+  await db
+    .update(apiConnections)
+    .set({ createdAt: "2020-01-01T00:00:00.000Z" })
+    .where(eq(apiConnections.id, nanoVideo.id));
   const nanoAccountId = (await rowOf(nanoImage.id)).accountId!;
   assert.equal((await rowOf(nanoVideo.id)).accountId, nanoAccountId, "one key, one account");
-  assert.equal((await json("PATCH", `/accounts/${nanoAccountId}`, { baseUrl: "https://nano-gpt.com/api/v2" })).status, 200);
+  assert.equal(
+    (await json("PATCH", `/accounts/${nanoAccountId}`, { baseUrl: "https://nano-gpt.com/api/v2" })).status,
+    200,
+  );
   const nanoVideoAfter = await rowOf(nanoVideo.id);
   assert.equal(nanoVideoAfter.accountId, nanoAccountId, "same origin: not detached");
   assert.equal(nanoVideoAfter.baseUrl, "https://nano-gpt.com/api", "the video path is not overwritten");
@@ -227,14 +238,27 @@ try {
 
   // A different key cannot keep a cached catalog when the target has no same-kind peer.
   const keyedImage = (await connections.create({
-    ...comfyMedia("image_generation", "comfyui", "http://127.0.0.1:7400"), apiKey: "fixture-key-A",
+    ...comfyMedia("image_generation", "comfyui", "http://127.0.0.1:7400"),
+    apiKey: "fixture-key-A",
   }))!;
   const keyedVideo = (await connections.create({
-    ...comfyMedia("video_generation", "comfyui", "http://127.0.0.1:7400"), apiKey: "fixture-key-B",
+    ...comfyMedia("video_generation", "comfyui", "http://127.0.0.1:7400"),
+    apiKey: "fixture-key-B",
   }))!;
-  assert.notEqual((await rowOf(keyedImage.id)).accountId, (await rowOf(keyedVideo.id)).accountId, "different keys stay apart");
-  await db.update(apiConnections).set({ savedModels: '{"models":[{"id":"old-key-model"}]}' }).where(eq(apiConnections.id, keyedVideo.id));
-  assert.equal((await json("POST", `/connections/${keyedVideo.id}/move`, {accountId: (await rowOf(keyedImage.id)).accountId})).status, 200);
+  assert.notEqual(
+    (await rowOf(keyedImage.id)).accountId,
+    (await rowOf(keyedVideo.id)).accountId,
+    "different keys stay apart",
+  );
+  await db
+    .update(apiConnections)
+    .set({ savedModels: '{"models":[{"id":"old-key-model"}]}' })
+    .where(eq(apiConnections.id, keyedVideo.id));
+  assert.equal(
+    (await json("POST", `/connections/${keyedVideo.id}/move`, { accountId: (await rowOf(keyedImage.id)).accountId }))
+      .status,
+    200,
+  );
   assert.equal((await rowOf(keyedVideo.id)).savedModels, null, "changed key clears old catalog");
 
   // ── Catalog search order: starred, saved, prefix, substring; ranked before the limit ──
