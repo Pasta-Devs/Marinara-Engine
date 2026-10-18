@@ -16,7 +16,7 @@ import {
 import { useCreateConnection, useDuplicateConnection, useTestConnection } from "../../hooks/use-connections";
 import { useUpdateConnectionAccount } from "../../hooks/use-connection-accounts";
 import { starAnchorOf } from "../../hooks/use-model-star";
-import { sortByModelId } from "../../lib/connection-groups";
+import { sortByModelId, upstreamOf } from "../../lib/connection-groups";
 import { useUIStore } from "../../stores/ui.store";
 import { openAddModels } from "../../lib/add-connection";
 import { cn } from "../../lib/utils";
@@ -157,6 +157,7 @@ export function ConnectionGroup({
         <button
           type="button"
           data-connections-row={`account:${account.id}`}
+          data-connection-group-heading
           onClick={onToggle}
           aria-expanded={open}
           aria-controls={modelsId}
@@ -164,26 +165,21 @@ export function ConnectionGroup({
             name: [heading, accountLabel, endpoint, count].filter(Boolean).join(", "),
             state,
           })}
-          className="flex min-h-11 min-w-0 flex-1 items-start gap-2 rounded-lg px-2 py-2 text-left transition-colors hover:bg-[var(--sidebar-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)]"
+          className="flex min-h-11 min-w-0 flex-1 items-center gap-2.5 rounded-lg px-2 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)]"
         >
-          {tile && <span className="mt-0.5 shrink-0">{tile}</span>}
+          {tile && <span className="shrink-0">{tile}</span>}
           <span className="min-w-0 flex-1">
             <span className="flex min-w-0 items-baseline gap-2">
-              <span
-                className={cn(
-                  "min-w-0 flex-1 truncate text-sm leading-5 text-[var(--foreground)]",
-                  providerName ? "font-semibold" : "font-medium",
-                )}
-              >
+              <span className="min-w-0 flex-1 truncate text-[0.9375rem] font-semibold leading-5 text-[var(--foreground)]">
                 {heading}
               </span>
-              <span className="shrink-0 text-[0.6875rem] font-normal text-[var(--muted-foreground)]">{count}</span>
             </span>
             <span className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[0.6875rem] text-[var(--muted-foreground)]">
               {(accountLabel || endpoint) && (
                 <span className="min-w-0 truncate">{[accountLabel, endpoint].filter(Boolean).join(" · ")}</span>
               )}
               <StateWord tone={STATE_TONE[account.state]} label={state} />
+              <span className="shrink-0">{count}</span>
             </span>
           </span>
         </button>
@@ -268,7 +264,7 @@ export function ConnectionGroup({
         <div
           id={modelsId}
           aria-label={t("ui.agents.featureagentdetailhost.value1Value2", { value1: account.name, value2: service })}
-          className="ms-4 mb-1.5 flex min-w-0 flex-col gap-0.5"
+          className="ms-4 mb-2 flex min-w-0 flex-col gap-1"
         >
           {rows.length === 0 && (
             <p className="px-2 py-1 text-[0.6875rem] text-[var(--muted-foreground)]">
@@ -276,11 +272,18 @@ export function ConnectionGroup({
             </p>
           )}
           {/* By model id: rows keep their places when a star or an edit touches a Model. */}
-          {sortByModelId(visibleRows).map((row) => (
-            <div key={row.id} className="min-w-0">
-              {renderRow(row, modelSubtitle(row))}
-            </div>
-          ))}
+          {sortByModelId(visibleRows).map((row) => {
+            const upstream = account.provider === "custom" ? upstreamOf(row.model) : null;
+            const upstreamName = upstream
+              ? (PROVIDERS[upstream.toLowerCase() as APIProvider]?.name ??
+                ({ linkapi: "LinkAPI", arliai: "ArliAI" } as Record<string, string>)[upstream.toLowerCase()])
+              : null;
+            return (
+              <div key={row.id} className="min-w-0">
+                {renderRow(row, upstreamName ?? modelSubtitle(row))}
+              </div>
+            );
+          })}
           {chatRow && (
             <button
               type="button"

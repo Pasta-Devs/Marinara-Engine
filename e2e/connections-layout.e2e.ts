@@ -8,7 +8,12 @@ test("Connections keep the established header, mixed models and compact role con
   page,
   request,
 }, info) => {
-  const initial = (await (await request.get("/api/connections")).json()) as Array<{ id: string; isDefault?: unknown }>;
+  const initial = (await (await request.get("/api/connections")).json()) as Array<{
+    id: string;
+    isDefault?: unknown;
+    defaultForAgents?: unknown;
+  }>;
+  const previousAgents = initial.find((r) => r.defaultForAgents === true || r.defaultForAgents === "true");
   const previousMain = initial.find((r) => r.isDefault === true || r.isDefault === "true");
   const response = await request.post("/api/connection-accounts", {
     data: {
@@ -48,8 +53,36 @@ test("Connections keep the established header, mixed models and compact role con
       comfy.push({ ...row, name: media.name });
       if (row.accountId) extraAccounts.push(row.accountId);
     }
+    const gatewayResponse = await request.post("/api/connection-accounts", {
+      data: {
+        provider: "custom",
+        name: "Bifrost studio",
+        baseUrl: "http://127.0.0.1:9/gateway/v1",
+        apiKey: "fixture-key",
+        model: "nanogpt/zai-org/glm-5.2",
+      },
+    });
+    expect(gatewayResponse.ok()).toBeTruthy();
+    const gateway = (await gatewayResponse.json()) as { account: { id: string }; connectionId: string };
+    extraAccounts.push(gateway.account.id);
+    ids.push(gateway.connectionId);
     expect(
-      (await request.patch(`/api/connections/${created.connectionId}`, { data: { isDefault: true } })).ok(),
+      (await request.patch(`/api/connections/${gateway.connectionId}`, { data: { name: "My GLM" } })).ok(),
+    ).toBeTruthy();
+    const localResponse = await request.post(`/api/connection-accounts/${gateway.account.id}/for-model`, {
+      data: {
+        name: "Local Llama",
+        model: "meta-llama/Llama-3.1-8B",
+      },
+    });
+    expect(localResponse.ok()).toBeTruthy();
+    ids.push((await localResponse.json()).connectionId);
+    expect(
+      (
+        await request.patch(`/api/connections/${created.connectionId}`, {
+          data: { isDefault: true, defaultForAgents: true },
+        })
+      ).ok(),
     ).toBeTruthy();
     await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "" } }));
     await seedUIState(page, {
@@ -89,6 +122,20 @@ test("Connections keep the established header, mixed models and compact role con
     await expect(group).toContainText("Chat");
     await expect(group).toContainText("Image");
     await expect(group).toContainText("Audio");
+    // A keeps authored names and full IDs, while avoiding redundant/subordinate ID noise.
+    await expect(
+      group.locator(`[data-connection-id="${created.connectionId}"]`).getByText("gpt-5.5", { exact: true }),
+    ).toHaveCount(1);
+    const gatewayRow = panel.locator(`[data-connection-account-id="${gateway.account.id}"]`);
+    await expect(gatewayRow.getByRole("button", { name: "Edit My GLM", exact: true })).toBeVisible();
+    await expect(gatewayRow.getByText("NanoGPT", { exact: true })).toBeVisible();
+    await expect(gatewayRow.locator("span[title]").filter({ hasText: "My GLM" })).toHaveAttribute(
+      "title",
+      /nanogpt\/zai-org\/glm-5\.2/,
+    );
+
+    await expect(gatewayRow.getByText("meta-llama/Llama-3.1-8B", { exact: true })).toBeVisible();
+
     await accountHeader.press("Space");
     await expect(group.locator("[data-connection-id]")).toHaveCount(0);
     await group.locator(`[data-connections-toggle="${created.account.id}"]`).click();
@@ -151,6 +198,10 @@ test("Connections keep the established header, mixed models and compact role con
           expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
         }
       }
+      await page.setViewportSize({ width: 320, height: 960 });
+      await group.scrollIntoViewIfNeeded();
+      await group.screenshot({ path: ".tmp/provider-headers/screenshots/roles-320-dark.png" });
+      expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
       await page.setViewportSize(originalViewport);
       await page.evaluate(() => document.documentElement.setAttribute("data-theme", "dark"));
     }
@@ -213,6 +264,8 @@ test("Connections keep the established header, mixed models and compact role con
       name: `Mixed studio ${info.project.name}`,
     });
   } finally {
+    if (previousAgents)
+      await request.patch(`/api/connections/${previousAgents.id}`, { data: { defaultForAgents: true } });
     for (const id of ids) await request.delete(`/api/connections/${id}`);
     await request.delete(`/api/connection-accounts/${created.account.id}`);
     for (const id of new Set(extraAccounts)) await request.delete(`/api/connection-accounts/${id}`);

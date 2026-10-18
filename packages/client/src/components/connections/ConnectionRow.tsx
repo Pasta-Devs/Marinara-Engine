@@ -185,7 +185,10 @@ export function ConnectionRow({
   ];
   // Display only: which Models show stays with the star, role and settings rules (decision 30).
   const customSettings = chatModel && !!row.ownSettings;
-  const sub = [connectionName, subtitle ?? modelSubtitle(row)].filter(Boolean).join(" · ");
+  const detail = subtitle ?? modelSubtitle(row);
+  const sub = [connectionName, detail.trim().toLowerCase() === title.trim().toLowerCase() ? null : detail]
+    .filter(Boolean)
+    .join(" · ");
 
   const openEditor = () => openConnectionDetail(row.id);
   const duplicate = () =>
@@ -344,7 +347,7 @@ export function ConnectionRow({
       }}
       onDragEnd={clearActiveChatResourceDrag}
       className={cn(
-        "group relative flex min-h-11 min-w-0 items-center gap-1 rounded-lg pr-1 transition-colors hover:bg-[var(--sidebar-accent)]",
+        "mari-connection-model group relative flex min-h-11 min-w-0 items-center gap-1 rounded-lg pr-1 transition-colors hover:bg-[var(--sidebar-accent)]",
         current && "bg-[var(--sidebar-accent)]/40",
       )}
     >
@@ -358,7 +361,7 @@ export function ConnectionRow({
             ? t("connections.row.editUnavailable", { name: title, state: unavailableLabel })
             : t("connections.row.edit", { name: title })
         }
-        className={cn("flex min-h-11 min-w-0 flex-1 items-center gap-2.5 rounded-lg py-1.5 pl-2 text-left", FOCUS)}
+        className={cn("flex min-h-11 min-w-0 flex-1 items-center gap-2.5 rounded-lg py-2 pl-2 text-left", FOCUS)}
       >
         {row.imagePath ? (
           <span
@@ -378,13 +381,13 @@ export function ConnectionRow({
             dim={!!unavailable}
           />
         )}
-        <span className="block min-w-0 flex-1">
+        <span className="min-w-0 flex-1">
           <span
             className={cn(
-              "line-clamp-2 break-words text-sm leading-5",
+              "line-clamp-2 break-words text-sm font-medium leading-5",
               unavailable ? "text-[var(--muted-foreground)]" : "text-[var(--foreground)]",
             )}
-            title={title}
+            title={row.model && row.model !== title ? [title, row.model].join("\n") : title}
           >
             {customSettings && (
               <span title={t("connections.row.customSettings")} className="mr-1 inline-block align-[-0.125em]">
@@ -394,39 +397,39 @@ export function ConnectionRow({
             )}
             {title}
           </span>
-          {/* Line two: where the Model runs, then its state and role badges at the right. */}
-          <span className="flex min-w-0 items-center gap-1.5">
-            <span
-              className="min-w-0 flex-1 truncate text-[0.6875rem] leading-4 text-[var(--muted-foreground)]"
-              title={sub}
-            >
+          {sub && (
+            <span className="block truncate text-[0.6875rem] leading-4 text-[var(--muted-foreground)]" title={sub}>
               {sub}
             </span>
-            {kindLabel && (
-              <span className={cn(BADGE, "px-0 font-medium text-[var(--muted-foreground)]")}>{kindLabel}</span>
-            )}
-            {current && <Check size="0.75rem" className="shrink-0 text-[var(--muted-foreground)]" aria-hidden />}
-            {unavailable ? (
-              <span
-                className={cn(
-                  BADGE,
-                  "inline-flex items-center gap-1 border",
-                  unavailable === "needs_key"
-                    ? "border-[var(--marinara-app-accent-static)]/45 text-[var(--marinara-app-accent-static)]"
-                    : "border-[var(--border)] text-[var(--muted-foreground)]",
-                )}
-              >
-                {unavailable === "needs_key" ? <KeyRound size="0.5625rem" /> : <Power size="0.5625rem" />}
-                {unavailableLabel}
+          )}
+        </span>
+        <span className="flex max-w-[45%] shrink-0 flex-wrap items-center justify-end gap-1.5">
+          {kindLabel && (
+            <span className={cn(BADGE, "min-w-9 px-0 text-right font-normal text-[var(--muted-foreground)]")}>
+              {kindLabel}
+            </span>
+          )}
+          {current && <Check size="0.75rem" className="shrink-0 text-[var(--muted-foreground)]" aria-hidden />}
+          {unavailable ? (
+            <span
+              className={cn(
+                BADGE,
+                "inline-flex items-center gap-1 border",
+                unavailable === "needs_key"
+                  ? "border-[var(--marinara-app-accent-static)]/45 text-[var(--marinara-app-accent-static)]"
+                  : "border-[var(--border)] text-[var(--muted-foreground)]",
+              )}
+            >
+              {unavailable === "needs_key" ? <KeyRound size="0.5625rem" /> : <Power size="0.5625rem" />}
+              {unavailableLabel}
+            </span>
+          ) : (
+            badges.map((badge) => (
+              <span key={badge} className={cn(BADGE, "bg-foreground/[0.08] text-[var(--foreground)]")}>
+                {badge}
               </span>
-            ) : (
-              badges.map((badge) => (
-                <span key={badge} className={cn(BADGE, "bg-[var(--sidebar-accent)] text-[var(--foreground)]")}>
-                  {badge}
-                </span>
-              ))
-            )}
-          </span>
+            ))
+          )}
         </span>
       </button>
       <button

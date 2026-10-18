@@ -21,7 +21,6 @@ import {
   RefreshCw,
   Search,
   Settings2,
-  Star,
   Upload,
   X,
 } from "lucide-react";
@@ -181,7 +180,7 @@ function ListRow({
 
 function SettingsTile() {
   return (
-    <span className="mari-panel-gradient-surface mari-panel-gradient--connections flex h-9 w-9 shrink-0 items-center justify-center rounded-xl shadow-sm">
+    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--secondary)] text-[var(--muted-foreground)]">
       <Settings2 size="1rem" />
     </span>
   );
@@ -203,8 +202,6 @@ export function ConnectionsPanel() {
   const openModal = useUIStore((s) => s.openModal);
   const linkApiBannerDismissed = useUIStore((s) => s.linkApiBannerDismissed);
   const dismissLinkApiBanner = useUIStore((s) => s.dismissLinkApiBanner);
-  const upgradeNoteDismissed = useUIStore((s) => s.connectionsUpgradeNoteDismissed);
-  const dismissUpgradeNote = useUIStore((s) => s.dismissConnectionsUpgradeNote);
   const collapsedConnections = useUIStore((s) => s.connectionsCollapsed);
   const toggleConnectionCollapsed = useUIStore((s) => s.toggleConnectionCollapsed);
 
@@ -238,22 +235,6 @@ export function ConnectionsPanel() {
   );
   const defaults = useConnectionDefaults(connectionsList);
   const engines = useDeviceEngines();
-  // ponytail: "had connections before" = a Connection created well after one of its Models, which only the upgrade
-  // grouping does (a Model saved without a Connection is linked in the same moment). A Model moved into a much
-  // newer Connection also counts; a server flag if that ever matters.
-  const upgradedFromModels = useMemo(
-    () =>
-      !!accounts?.some((account) =>
-        connectionsList.some(
-          (row) =>
-            row.accountId === account.id &&
-            !!row.createdAt &&
-            Date.parse(account.createdAt) - Date.parse(row.createdAt) > 60_000,
-        ),
-      ),
-    [accounts, connectionsList],
-  );
-
   const grouped = useMemo(() => {
     const { groups, standalone } = groupModelsByAccount(connectionsList, accounts ?? []);
     const sorted = [...groups].sort((a, b) => a.account.name.localeCompare(b.account.name));
@@ -700,13 +681,6 @@ export function ConnectionsPanel() {
       ) : (
         <>
           {defaultsCard}
-          {/* The rows show no stars: every saved Model has one. */}
-          {grouped.all.length > 0 && (
-            <p className="flex items-center gap-1.5 px-2 text-[0.6875rem] text-[var(--muted-foreground)]">
-              <Star size="0.75rem" className="shrink-0 fill-current text-[var(--primary)]" aria-hidden />
-              {t("connections.list.starredHint")}
-            </p>
-          )}
           <p
             className={nothingShown ? "px-2 py-6 text-center text-xs text-[var(--muted-foreground)]" : "sr-only"}
             role="status"
@@ -719,7 +693,7 @@ export function ConnectionsPanel() {
           </p>
           {providerGroups.map((provider) => (
             // Provider ordering stays; accounts are peers and each folds by its own id.
-            <div key={provider.key} data-connection-provider={provider.key} className="flex min-w-0 flex-col gap-2">
+            <div key={provider.key} data-connection-provider={provider.key} className="flex min-w-0 flex-col gap-3">
               {provider.groups.map((group) => accountRow(group, provider.name))}
             </div>
           ))}
@@ -872,30 +846,6 @@ export function ConnectionsPanel() {
           </button>
         ))}
       </div>
-      {upgradedFromModels && !upgradeNoteDismissed && (
-        <div
-          role="note"
-          data-connections-upgrade-note
-          className="flex items-start gap-2 rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-3 text-xs text-[var(--muted-foreground)]"
-        >
-          <div className="min-w-0 flex-1 space-y-1">
-            <p>{t("connections.upgradeNote.grouped")}</p>
-            <p>{t("connections.upgradeNote.picks")}</p>
-          </div>
-          <button
-            type="button"
-            onClick={dismissUpgradeNote}
-            className={cn(
-              "-m-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-lg hover:bg-[var(--sidebar)] hover:text-[var(--foreground)]",
-              FOCUS,
-            )}
-            aria-label={t("connections.upgradeNote.dismiss")}
-            title={t("connections.upgradeNote.dismiss")}
-          >
-            <X size="0.875rem" />
-          </button>
-        </div>
-      )}
     </>
   );
 

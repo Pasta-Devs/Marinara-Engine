@@ -1509,7 +1509,7 @@
 /* Connection accounts share one quiet surface across the sidebar and model pickers. */
 .mari-connection-group {
   border-radius: 0.75rem;
-  padding: 0.25rem;
+  padding: 0.5rem;
   background-color: color-mix(in srgb, var(--foreground) 6%, transparent);
 }
 
@@ -1518,6 +1518,24 @@
   background: color-mix(in srgb, var(--sidebar) 94%, var(--foreground));
   color: var(--foreground);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--foreground) 10%, transparent);
+}
+
+/* Account identity outranks maker marks; model pictures retain their own frame. */
+[data-connection-group-heading] .mari-provider-icon {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.625rem;
+}
+.mari-connection-model > button:first-of-type {
+  min-height: 3.25rem;
+}
+.mari-connection-model .mari-provider-icon:not(:has(img)) {
+  background: none;
+  box-shadow: none;
+}
+.mari-connection-model .mari-provider-icon .brand-mark {
+  width: 75%;
+  height: 75%;
 }
 
 /* A bundled provider icon (decision 34c) drawn in the text colour; the size comes from the caller. */
