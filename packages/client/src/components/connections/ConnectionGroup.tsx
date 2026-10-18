@@ -149,11 +149,11 @@ export function ConnectionGroup({
   return (
     <div
       role="group"
-      className="flex min-w-0 flex-col"
+      className="mari-connection-group flex min-w-0 flex-col"
       data-connection-account-id={account.id}
       aria-label={account.name}
     >
-      <div className="flex min-w-0 items-center gap-0.5">
+      <div className="flex min-w-0 items-center gap-0.5 rounded-lg">
         <button
           type="button"
           data-connections-row={`account:${account.id}`}

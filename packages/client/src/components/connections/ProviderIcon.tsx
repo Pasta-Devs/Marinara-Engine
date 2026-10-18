@@ -148,69 +148,10 @@ function brandName(id?: string | null, ...texts: Array<string | null | undefined
   return undefined;
 }
 
-/**
- * Each brand's main colour, the tile's backdrop behind its white mark (decision 34c). Brand identity, not theme:
- * these stay the same in every theme, like the logos. Too-light brand colours use a darker brand shade.
- */
-const BRAND_COLORS: Record<string, string> = {
-  openrouter: "#6467F2",
-  nanogpt: "#13A89E",
-  openai: "#0D0D0D",
-  anthropic: "#D97757",
-  claude: "#D97757",
-  grok: "#0D0D0D",
-  gemini: "#3186FF",
-  aistudio: "#1A73E8",
-  vertexai: "#4285F4",
-  mistral: "#FA520F",
-  cohere: "#39594D",
-  zai: "#1F63EC",
-  deepseek: "#4D6BFE",
-  arliai: "#334155",
-  ollama: "#0D0D0D",
-  lmstudio: "#4B3FD3",
-  koboldcpp: "#3A7BD5",
-  llamacpp: "#FF8236",
-  vllm: "#30A2FF",
-  linkapi: "#5B5BD6",
-  newapi: "#E9479B",
-  openwebui: "#0D0D0D",
-  bifrost: "#0D0D0D",
-  litellm: "#0A1FA8",
-  featherless: "#6D28D9",
-  infermatic: "#4334F5",
-  chutes: "#0D0D0D",
-  comfyui: "#172DD7",
-  automatic: "#E00054",
-  novelai: "#13152C",
-  stability: "#9D39FF",
-  pollinations: "#0D0D0D",
-  fal: "#EC0648",
-  venice: "#E05A2D",
-  together: "#0F6FFF",
-  atlascloud: "#2F54EB",
-  bytedance: "#3C8CFF",
-  elevenlabs: "#0D0D0D",
-  swarmui: "#6D28D9",
-  spicyapi: "#0D0D0D",
-  horde: "#1E88E5",
-  drawthings: "#B45309",
-  blockentropy: "#111827",
-  pockettts: "#0D0D0D",
-  meta: "#0082FB",
-  qwen: "#6336E7",
-  moonshot: "#0D0D0D",
-  minimax: "#E2167E",
-  nousresearch: "#0D0D0D",
-  microsoft: "#0078D4",
-  nvidia: "#5E9400",
-  perplexity: "#20808D",
-};
-
 /** A brand's icon: `mono` is its single-colour mark, `color` its own colour logo where one is bundled. */
-function brandIcon(name: string | undefined): { mono: string; color?: string; tint?: string } | null {
+function brandIcon(name: string | undefined): { mono: string; color?: string } | null {
   const mono = name ? (fileUrl(`${name}.svg`) ?? fileUrl(`${name}.png`)) : undefined;
-  return mono ? { mono, color: fileUrl(`${name}-color.png`), tint: BRAND_COLORS[name!] } : null;
+  return mono ? { mono, color: fileUrl(`${name}-color.png`) } : null;
 }
 
 const maskStyle = (url: string) => ({ "--brand-mark": `url("${url}")` }) as CSSProperties;
@@ -301,14 +242,11 @@ export function ProviderIcon({
     <span
       aria-hidden
       className={cn(
-        "mari-panel-gradient--connections flex shrink-0 items-center justify-center overflow-hidden font-semibold shadow-sm",
-        "ring-[1.5px] ring-inset ring-[var(--border)]",
-        brand?.tint ? "text-white" : "mari-panel-gradient-surface",
+        "mari-provider-icon flex shrink-0 items-center justify-center overflow-hidden font-semibold",
         box,
         dim && "opacity-50",
         className,
       )}
-      style={brand?.tint ? { backgroundColor: brand.tint } : undefined}
     >
       {brand ? (
         <span className="brand-mark h-[60%] w-[60%]" style={maskStyle(brand.mono)} />

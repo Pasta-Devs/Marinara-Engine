@@ -815,8 +815,13 @@ export function ConnectionSwitcherBody({
     }
     const unavailable = unavailableOf(group);
     return (
-      <section key={group.key} data-switcher-section="connection" aria-label={group.name}>
-        <div data-connection-group={group.key} className="flex min-w-0 items-center gap-2 px-3 pb-0.5 pt-2">
+      <section
+        key={group.key}
+        className="mari-connection-group mt-1"
+        data-switcher-section="connection"
+        aria-label={group.name}
+      >
+        <div data-connection-group={group.key} className="flex min-w-0 items-center gap-2 rounded-lg px-2 py-1.5">
           <ProviderIcon
             provider={group.account.provider}
             baseUrl={group.account.baseUrl}
@@ -825,7 +830,7 @@ export function ConnectionSwitcherBody({
             dim={!!unavailable}
             className="!h-5 !w-5 !rounded-md"
           />
-          <span className="min-w-0 flex-1 truncate text-[0.6875rem] font-medium text-foreground/60">{group.name}</span>
+          <span className="min-w-0 flex-1 truncate text-xs font-semibold text-foreground/85">{group.name}</span>
           {unavailable && <span className={BADGE_CLASS}>{t(accountStateLabel(group.account))}</span>}
           {unavailable && fixButton(group)}
           {!unavailable && (
@@ -840,7 +845,7 @@ export function ConnectionSwitcherBody({
             </button>
           )}
         </div>
-        {shown.map((entry) => renderEntry(entry, { star: "all" }))}
+        <div className="ms-3">{shown.map((entry) => renderEntry(entry, { star: "all" }))}</div>
       </section>
     );
   };

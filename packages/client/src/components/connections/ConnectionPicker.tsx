@@ -224,9 +224,9 @@ export function ConnectionPicker({
   const nothingShown = top.length === 0 && groups.length === 0 && standalone.length === 0 && !localShown;
 
   const header = (icon: ReactNode, name: string, badge?: string) => (
-    <div className="flex min-w-0 items-center gap-2 px-3 pb-0.5 pt-2">
+    <div className="flex min-w-0 items-center gap-2 rounded-lg px-2 py-1.5">
       {icon}
-      <span className="min-w-0 flex-1 truncate text-[0.6875rem] font-medium text-foreground/60">{name}</span>
+      <span className="min-w-0 flex-1 truncate text-xs font-semibold text-foreground/85">{name}</span>
       {badge && <span className={BADGE_CLASS}>{badge}</span>}
     </div>
   );
@@ -292,7 +292,7 @@ export function ConnectionPicker({
       >
         {top}
         {groups.map(({ group, rows }) => (
-          <section key={group.account.id} aria-label={group.account.name}>
+          <section key={group.account.id} className="mari-connection-group mt-1" aria-label={group.account.name}>
             {header(
               <ProviderIcon
                 provider={group.account.provider}
@@ -305,11 +305,11 @@ export function ConnectionPicker({
               group.account.name,
               group.account.state !== "ok" ? t(accountStateLabel(group.account)) : undefined,
             )}
-            {rows.map(modelOption)}
+            <div className="ms-3">{rows.map(modelOption)}</div>
           </section>
         ))}
         {standalone.length > 0 && (
-          <section aria-label={t("connections.select.standalone")}>
+          <section className="mari-connection-group mt-1" aria-label={t("connections.select.standalone")}>
             {header(null, t("connections.select.standalone"))}
             {standalone.map(modelOption)}
           </section>

@@ -1506,6 +1506,20 @@
   box-shadow: 0 0.25rem 0.75rem color-mix(in srgb, var(--mari-panel-gradient-end) 18%, transparent);
 }
 
+/* Connection accounts share one quiet surface across the sidebar and model pickers. */
+.mari-connection-group {
+  border-radius: 0.75rem;
+  padding: 0.25rem;
+  background-color: color-mix(in srgb, var(--foreground) 6%, transparent);
+}
+
+/* Bundled marks use the theme's foreground; uploaded model pictures keep their own colours. */
+.mari-provider-icon {
+  background: color-mix(in srgb, var(--sidebar) 94%, var(--foreground));
+  color: var(--foreground);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--foreground) 10%, transparent);
+}
+
 /* A bundled provider icon (decision 34c) drawn in the text colour; the size comes from the caller. */
 .brand-mark {
   background-color: currentColor;
