@@ -211,18 +211,13 @@ export function useConnectionDefaults(connectionsList: ConnectionRowData[]) {
     connectionsList.find((row) => matchesKind(row, role.kind) && isConnectionFlagTrue(row[role.primary])) ?? null;
   const mainRow = primaryOf(FLAG_ROLES.find((role) => role.key === "main")!);
   const agentsRow = primaryOf(FLAG_ROLES.find((role) => role.key === "agents")!);
-  /** An unset job shows the model that really runs, and the job it comes from. */
+  /** An unset job shows the model that really runs; line 2 names the job it comes from, then the Connection. */
+  const fromRole = (from: FlagRoleKey, connection?: string) =>
+    [t("connections.defaults.fromRole", { role: t(`connections.defaults.role.${from}`) }), connection]
+      .filter(Boolean)
+      .join(" · ");
   const inherited = (row: ConnectionRowData | null, from: FlagRoleKey) =>
-    row
-      ? {
-          value: t("connections.defaults.fromRole", {
-            model: describe(row).value,
-            role: t(`connections.defaults.role.${from}`),
-          }),
-          source: row,
-          muted: true,
-        }
-      : null;
+    row ? { value: describe(row).value, hint: fromRole(from, describe(row).hint), source: row, muted: true } : null;
 
   const accountOf = (row: ConnectionRowData) => (row.accountId ? accountById.get(row.accountId) : undefined);
   const usable = (row: ConnectionRowData | null | undefined) => !!row && (accountOf(row)?.state ?? "ok") === "ok";
@@ -368,13 +363,7 @@ export function useConnectionDefaults(connectionsList: ConnectionRowData[]) {
       const from =
         key === "mariConnectionId"
           ? sidecarAsAgentsDefault
-            ? {
-                value: t("connections.defaults.fromRole", {
-                  model: sidecarName,
-                  role: t("connections.defaults.role.agents"),
-                }),
-                muted: true,
-              }
+            ? { value: sidecarName, hint: fromRole("agents"), muted: true }
             : (inherited(agentsRow, "agents") ?? inherited(mainRow, "main"))
           : inherited(mainRow, "main");
       return { ...tile, ...(from ?? { value: t(`connections.defaults.featureDefault.${key}`), muted: true }) };
@@ -469,7 +458,7 @@ function JobRow({
               baseUrl={tile.source.baseUrl}
               service={mediaService(tile.source)}
               model={tile.source.model}
-              name={tile.hint ?? tile.source.name}
+              name={tile.source.name || tile.hint}
               icon={tile.source.icon}
               imagePath={tile.source.imagePath}
             />

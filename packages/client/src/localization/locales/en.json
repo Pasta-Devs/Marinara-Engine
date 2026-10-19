@@ -1936,7 +1936,7 @@
   "connections.defaults.featuresTitle": "Features",
   "connections.defaults.fix.addKey": "Add key",
   "connections.defaults.fix.turnOn": "Turn on",
-  "connections.defaults.fromRole": "{{model}} (from {{role}})",
+  "connections.defaults.fromRole": "From {{role}}",
   "connections.defaults.help": "New chats and helpers use these unless a chat picks its own.",
   "connections.defaults.jobLabel": "{{role}}: {{value}}",
   "connections.defaults.missing": "Missing model",
