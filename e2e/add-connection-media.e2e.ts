@@ -207,6 +207,7 @@ test("guided ComfyUI setup adds distinct image and video workflows without chang
         }, theme);
         await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
         await page.screenshot({
+          animations: "disabled",
           path: `.tmp/connections-media/screenshots/guided-image-${width}-${theme}.png`,
         });
         await info.attach(`control-colors-${width}-${theme}`, {
@@ -676,6 +677,7 @@ test("a vendor connection set up for images can open its chat catalog without re
     await expect(dialog.locator('[data-model-id="gpt-fixture"]')).toBeVisible();
     await dialog.locator('[data-model-id="gpt-fixture"] [data-model-option]').click();
     await dialog.locator('[data-model-id="gpt-fixture-two"] [data-model-option]').click();
+    await expect.poll(async () => (await rows(request)).filter((row) => row.accountId === image.accountId).length).toBe(3);
     const linked = (await rows(request)).filter((row) => row.accountId === image.accountId);
     expect(linked).toHaveLength(3);
     expect(linked.filter((row) => row.id !== image.id).every((row) => !!row.model?.trim())).toBe(true);

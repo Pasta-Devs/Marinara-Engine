@@ -79,7 +79,7 @@ test("shared access home protects unsaved changes and names the saved-model test
           useUIStore.getState().setTheme(theme);
         }, theme);
         await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
-        await editor.screenshot({ path: `.tmp/connections-coherence/screenshots/edit-${width}-${theme}.png` });
+        await editor.screenshot({ animations: "disabled", path: `.tmp/connections-coherence/screenshots/edit-${width}-${theme}.png` });
         expect(await editor.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
       }
     }
