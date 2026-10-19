@@ -8,7 +8,7 @@ import {
 } from "../../packages/client/src/lib/seasonal-themes.ts";
 import { UI_PERSISTENCE } from "../../packages/client/src/lib/ui-persistence.ts";
 
-// Seasonal themes switch on by themselves for one local calendar day, say hello once a year, and always yield to
+// Seasonal themes switch on by themselves for a few local calendar days, say hello once a year, and always yield to
 // the Settings toggle; only the maintainer preview can force them.
 
 const decide = (
@@ -27,21 +27,30 @@ const local = (month: number, day: number, hours: number, minutes: number, year 
 const ON = { themeId: "halloween", showGreeting: true };
 const OFF = { themeId: null, showGreeting: false };
 
-// Halloween is the whole of October 31 on the device's own clock, and nothing either side of it.
-assert.deepEqual(decide(local(10, 31, 0, 0)), ON, "Oct 31 00:00 local is Halloween");
-assert.deepEqual(decide(local(10, 31, 23, 59)), ON, "Oct 31 23:59 local is still Halloween");
-assert.deepEqual(decide(local(10, 30, 23, 59)), OFF, "Oct 30 23:59 is not Halloween yet");
-assert.deepEqual(decide(local(11, 1, 0, 0)), OFF, "Nov 1 00:00 the costume has come off");
+// Halloween runs from October 30 00:00 to November 1 23:59 on the device's own clock, and nothing either side.
+assert.deepEqual(decide(local(10, 29, 23, 59)), OFF, "Oct 29 23:59 is not Halloween yet");
+assert.deepEqual(decide(local(10, 30, 0, 0)), ON, "Oct 30 00:00 local is Halloween");
+assert.deepEqual(decide(local(10, 31, 12, 0)), ON, "Oct 31 is Halloween");
+assert.deepEqual(decide(local(11, 1, 23, 59)), ON, "Nov 1 23:59 local is still Halloween");
+assert.deepEqual(decide(local(11, 2, 0, 0)), OFF, "Nov 2 00:00 the costume has come off");
+assert.deepEqual(decide(local(10, 1, 12, 0)), OFF, "October 1 is not Halloween");
+assert.deepEqual(decide(local(12, 1, 12, 0)), OFF, "December 1 is not Halloween");
 assert.deepEqual(decide(local(10, 31, 12, 0, 2031)), ON, "it comes back every year");
 
-// "Local" means the device's time zone: one instant is Halloween in Honolulu and already November in UTC.
+// "Local" means the device's time zone: one instant can be inside the window in one zone and outside it in another.
 const originalTimeZone = process.env.TZ;
 try {
-  const instant = new Date("2026-11-01T05:00:00Z");
+  const lastEvening = new Date("2026-11-02T05:00:00Z");
   process.env.TZ = "Pacific/Honolulu";
-  assert.deepEqual(decide(instant), ON, "Oct 31 19:00 in Honolulu is Halloween");
+  assert.deepEqual(decide(lastEvening), ON, "Nov 1 19:00 in Honolulu is still Halloween");
   process.env.TZ = "UTC";
-  assert.deepEqual(decide(instant), OFF, "Nov 1 05:00 in UTC is not");
+  assert.deepEqual(decide(lastEvening), OFF, "Nov 2 05:00 in UTC is not");
+
+  const firstMorning = new Date("2026-10-29T23:00:00Z");
+  process.env.TZ = "Asia/Tokyo";
+  assert.deepEqual(decide(firstMorning), ON, "Oct 30 08:00 in Tokyo is already Halloween");
+  process.env.TZ = "UTC";
+  assert.deepEqual(decide(firstMorning), OFF, "Oct 29 23:00 in UTC is not yet");
 } finally {
   if (originalTimeZone === undefined) delete process.env.TZ;
   else process.env.TZ = originalTimeZone;
@@ -50,19 +59,23 @@ try {
 // The Settings toggle wins over the date, and the greeting never shows while it is on.
 assert.deepEqual(decide(local(10, 31, 9, 0), { disabled: true }), OFF, "Disable seasonal ME themes wins");
 
-// "Turn it off" from the greeting only covers that year's Halloween.
+// "Turn it off" from the greeting covers the rest of that year's window, and only that year's.
+const windowDays = [local(10, 30, 9, 0), local(10, 31, 9, 0), local(11, 1, 23, 59)];
 const offThisYear = { turnedOff: { halloween: 2026 } };
-assert.deepEqual(decide(local(10, 31, 9, 0), offThisYear), OFF, "turned off for 2026");
-assert.deepEqual(decide(local(10, 31, 9, 0, 2027), offThisYear), ON, "back on, with a greeting, in 2027");
+for (const day of windowDays) assert.deepEqual(decide(day, offThisYear), OFF, `turned off for 2026: ${day.toString()}`);
+assert.deepEqual(decide(local(10, 30, 9, 0, 2027), offThisYear), ON, "back on, with a greeting, in 2027");
 
-// The greeting shows once per year.
+// The greeting shows once per window: seen on its first day, it stays away for the other two.
 const greetedThisYear = { greeted: { halloween: 2026 } };
-assert.deepEqual(
-  decide(local(10, 31, 21, 0), greetedThisYear),
-  { themeId: "halloween", showGreeting: false },
-  "seen in 2026: the theme stays, the greeting does not return",
-);
-assert.deepEqual(decide(local(10, 31, 9, 0, 2027), greetedThisYear), ON, "greeted again in 2027");
+assert.deepEqual(decide(windowDays[0]!), ON, "the first day of the window greets");
+for (const day of windowDays) {
+  assert.deepEqual(
+    decide(day, greetedThisYear),
+    { themeId: "halloween", showGreeting: false },
+    `seen in 2026: the theme stays, the greeting does not return: ${day.toString()}`,
+  );
+}
+assert.deepEqual(decide(local(10, 30, 9, 0, 2027), greetedThisYear), ON, "greeted again in 2027");
 
 // The preview forces the theme and its greeting on any date, even with the toggle on; its own "Turn it off" still
 // removes it (the hook keeps those preview years in memory only).

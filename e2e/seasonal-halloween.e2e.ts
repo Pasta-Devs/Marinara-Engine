@@ -52,9 +52,9 @@ test("the Halloween preview greets, keeps or turns off the theme, and saves noth
   expect(await seasonalRecords(page)).toMatchObject({ greeted: {}, off: {} });
 });
 
-test("on October 31 Halloween greets once and the Settings toggle takes it off", async ({ page }) => {
-  // Noon keeps the browser on October 31 in any CI time zone up to ±11 hours.
-  await page.clock.setFixedTime(new Date(2026, 9, 31, 12, 0));
+test("from October 30 to November 1 Halloween greets once and the Settings toggle takes it off", async ({ page }) => {
+  // Noon keeps the browser on the intended date in any CI time zone up to ±11 hours.
+  await page.clock.setFixedTime(new Date(2026, 9, 30, 12, 0));
   await prepare(page, { seasonalThemesDisabled: false });
   await page.goto("/");
   const root = page.locator("html");
@@ -66,7 +66,8 @@ test("on October 31 Halloween greets once and the Settings toggle takes it off",
   await expect(root).toHaveAttribute("data-seasonal-theme", "halloween");
   expect(await seasonalRecords(page)).toMatchObject({ greeted: { halloween: 2026 }, off: {} });
 
-  // Once a year: after a reload the theme stays and the greeting does not come back.
+  // Once per window: on November 1 the theme is still worn and the greeting does not come back.
+  await page.clock.setFixedTime(new Date(2026, 10, 1, 12, 0));
   await page.reload();
   await expect(root).toHaveAttribute("data-seasonal-theme", "halloween");
   await expect.poll(async () => (await seasonalRecords(page)).ready).toBe(true);
