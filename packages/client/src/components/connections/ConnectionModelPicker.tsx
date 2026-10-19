@@ -15,6 +15,7 @@ import {
   type APIProvider,
   type ChatModelChoice,
   type ConnectionModelCost,
+  type ModelCatalogPricing,
   type ModelParameterCapabilities,
 } from "@marinara-engine/shared";
 import {
@@ -64,9 +65,41 @@ type PickerRow = {
   inputTokenMultiplier?: number;
   capabilities?: ModelParameterCapabilities;
   cost?: ConnectionModelCost;
+  pricing?: ModelCatalogPricing;
   deprecated?: boolean;
   retiresAt?: string;
 };
+
+type CostFilter = "free" | "included" | "paid";
+type ModelSort = "list" | "price" | "context";
+
+/** The cost chip a row falls under; a multiplier is still in the plan. */
+const costKind = (row: PickerRow): CostFilter | null =>
+  row.cost === "free" || row.cost === "paid"
+    ? row.cost
+    : row.cost === "included" || row.cost?.startsWith("multiplier:")
+      ? "included"
+      : null;
+
+/** Cheapest first: free, in the plan (by multiplier), then listed prices; no price last. */
+function priceKey(row: PickerRow): [number, number] {
+  if (row.cost === "free") return [0, 0];
+  if (row.cost === "included") return [1, 1];
+  if (row.cost?.startsWith("multiplier:")) return [1, Number(row.cost.slice("multiplier:".length)) || 1];
+  const price = (row.pricing?.prompt ?? 0) + (row.pricing?.completion ?? 0);
+  return price > 0 ? [2, price] : [3, 0];
+}
+
+function sortRows(rows: readonly PickerRow[], sort: ModelSort): readonly PickerRow[] {
+  if (sort === "context") return [...rows].sort((a, b) => (b.context ?? 0) - (a.context ?? 0));
+  if (sort === "price")
+    return [...rows].sort((a, b) => {
+      const [ra, pa] = priceKey(a);
+      const [rb, pb] = priceKey(b);
+      return ra - rb || pa - pb;
+    });
+  return rows;
+}
 
 const errorMessage = (error: unknown) => (error instanceof Error ? error.message : String(error ?? ""));
 
@@ -121,6 +154,8 @@ export function ConnectionModelPicker({
   const { t } = useTranslation();
   const [search, setSearch] = useState("");
   const [upstream, setUpstream] = useState<string | null>(null);
+  const [costFilter, setCostFilter] = useState<CostFilter | null>(null);
+  const [sort, setSort] = useState<ModelSort>("list");
   const deferredSearch = useDeferredValue(search);
   const searchRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -142,6 +177,8 @@ export function ConnectionModelPicker({
     // A new connection starts with an empty search.
     setSearch("");
     setUpstream(null);
+    setCostFilter(null);
+    setSort("list");
   }, [connection.id]);
 
   useEffect(() => {
@@ -194,6 +231,19 @@ export function ConnectionModelPicker({
   useEffect(() => {
     if (upstream && !upstreams.includes(upstream)) setUpstream(null);
   }, [upstream, upstreams]);
+  // Cost chips only where the list has more than one kind of cost to tell apart.
+  const costKinds = useMemo(() => {
+    const kinds = new Set(options.map(costKind));
+    return (["free", "included", "paid"] as const).filter(
+      (kind) => kinds.has(kind) && (kind !== "paid" || showPaid || kinds.has("free")),
+    );
+  }, [options, showPaid]);
+  useEffect(() => {
+    if (costFilter && !costKinds.includes(costFilter)) setCostFilter(null);
+  }, [costFilter, costKinds]);
+  const inFilter = (row: PickerRow) =>
+    (!upstream || upstreamOf(row.id) === upstream) && (!costFilter || costKind(row) === costFilter);
+  const filtering = !!upstream || !!costFilter;
 
   const { pinnedAll, othersAll, recommendedAll } = useMemo(() => {
     const pinnedSet = new Set(pinnedIds);
@@ -215,15 +265,15 @@ export function ConnectionModelPicker({
   }, [currentModel, options, optionsById, pinnedIds, recommended]);
 
   const { recommendedRows, pinnedRows, otherRows, totalOther } = useMemo(() => {
-    const inUpstream = (row: PickerRow) => !upstream || upstreamOf(row.id) === upstream;
-    const filteredOthers = filterConnectionModelOptions(othersAll.filter(inUpstream), deferredSearch);
+    const filteredOthers = sortRows(filterConnectionModelOptions(othersAll.filter(inFilter), deferredSearch), sort);
     return {
-      recommendedRows: filterConnectionModelOptions(recommendedAll.filter(inUpstream), deferredSearch),
-      pinnedRows: filterConnectionModelOptions(pinnedAll.filter(inUpstream), deferredSearch),
+      recommendedRows: filterConnectionModelOptions(recommendedAll.filter(inFilter), deferredSearch),
+      pinnedRows: filterConnectionModelOptions(pinnedAll.filter(inFilter), deferredSearch),
       otherRows: filteredOthers.slice(0, MAX_LISTED_MODELS),
       totalOther: filteredOthers.length,
     };
-  }, [deferredSearch, othersAll, pinnedAll, recommendedAll, upstream]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- inFilter reads only upstream and costFilter
+  }, [costFilter, deferredSearch, othersAll, pinnedAll, recommendedAll, sort, upstream]);
 
   // What Enter does with the search text: an exact ID or name picks that model, a search with a single match
   // picks it, and only text that matches nothing is used as a model ID. Several matches wait for a choice.
@@ -232,19 +282,20 @@ export function ConnectionModelPicker({
     const typed = typedId.toLowerCase();
     if (!typed) return { exactId: null, enterTarget: null, enterUsesTyped: false };
     const allRows = [...recommendedAll, ...pinnedAll, ...othersAll];
-    const rows = allRows.filter((row) => !upstream || upstreamOf(row.id) === upstream);
+    const rows = allRows.filter(inFilter);
     const byId = allRows.find((row) => row.id.toLowerCase() === typed) ?? null;
     const byName = rows.filter((row) => row.name.toLowerCase() === typed);
     const matches = filterConnectionModelOptions(rows, typedId);
     const target: PickerRow | null =
-      (byId && (!upstream || upstreamOf(byId.id) === upstream) ? byId : null) ??
+      (byId && inFilter(byId) ? byId : null) ??
       (byName.length === 1 ? byName[0]! : null) ??
       (matches.length === 1 ? matches[0]! : null) ??
-      (matches.length === 0 && !upstream ? { id: typedId, name: typedId } : null);
-    return { exactId: byId, enterTarget: target, enterUsesTyped: matches.length === 0 && !upstream };
-  }, [othersAll, pinnedAll, recommendedAll, typedId, upstream]);
+      (matches.length === 0 && !filtering ? { id: typedId, name: typedId } : null);
+    return { exactId: byId, enterTarget: target, enterUsesTyped: matches.length === 0 && !filtering };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- inFilter reads only upstream and costFilter
+  }, [costFilter, othersAll, pinnedAll, recommendedAll, typedId, upstream]);
   // The typed text can always be used as it is from its own row; Enter uses it only when nothing matches.
-  const showTypedRow = !!typedId && (!exactId || (!!upstream && upstreamOf(exactId.id) !== upstream));
+  const showTypedRow = !!typedId && (!exactId || (filtering && !inFilter(exactId)));
 
   // Add mode: what is picked is starred, so it stays in the Connection (decision 30).
   const starPicked = (row: PickerRow) => {
@@ -537,6 +588,38 @@ export function ConnectionModelPicker({
             </div>
           )}
 
+          {addMode && options.length > 1 && (
+            <div className="flex shrink-0 items-center gap-1 overflow-x-auto px-3 pb-2">
+              {costKinds.length > 1 && (
+                <div role="group" aria-label={t("connections.modelPicker.filterCost")} className="flex gap-1">
+                  {costKinds.map((kind) => (
+                    <button
+                      key={kind}
+                      type="button"
+                      data-model-cost-filter={kind}
+                      aria-pressed={costFilter === kind}
+                      onClick={() => setCostFilter(costFilter === kind ? null : kind)}
+                      className="mari-connection-chip mari-panel-gradient--connections"
+                    >
+                      {t(`connections.cost.${kind}`)}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <select
+                data-model-sort
+                aria-label={t("connections.modelPicker.sort")}
+                value={sort}
+                onChange={(event) => setSort(event.target.value as ModelSort)}
+                className="ml-auto h-7 shrink-0 rounded-md bg-foreground/5 px-1.5 text-[0.6875rem] text-foreground/70 outline-none focus-visible:ring-1 focus-visible:ring-foreground/25"
+              >
+                <option value="list">{t("connections.modelPicker.sortList")}</option>
+                <option value="price">{t("connections.modelPicker.sortPrice")}</option>
+                <option value="context">{t("connections.modelPicker.sortContext")}</option>
+              </select>
+            </div>
+          )}
+
           {modelList.isError && !refresh.isPending && (
             <div role="status" className="px-3 pb-1 text-[0.6875rem] leading-snug text-foreground/60">
               <p>{t("connections.modelPicker.loadFailed")}</p>
@@ -597,7 +680,11 @@ export function ConnectionModelPicker({
                 className={cn((pinnedRows.length > 0 || recommendedRows.length > 0) && "mt-2")}
               >
                 {sectionLabel(t("connections.modelPicker.allModels"))}
-                {subgroupByUpstream(otherRows.map((row) => ({ ...row, model: row.id }))).map((group) => (
+                {/* A sorted list stays in one run; maker groups would break the order. */}
+                {(sort === "list"
+                  ? subgroupByUpstream(otherRows.map((row) => ({ ...row, model: row.id })))
+                  : [{ upstream: null, rows: otherRows }]
+                ).map((group) => (
                   <div key={group.upstream ?? ""} data-model-upstream={group.upstream ?? undefined}>
                     {group.upstream && (
                       <p className="flex items-center gap-1.5 px-3 pb-0.5 pt-1.5 text-[0.625rem] text-foreground/40">

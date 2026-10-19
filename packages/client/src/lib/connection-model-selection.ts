@@ -5,6 +5,7 @@ import {
   type APIProvider,
   type ConnectionModelCost,
   type KnownModel,
+  type ModelCatalogPricing,
   type ModelParameterCapabilities,
 } from "@marinara-engine/shared";
 
@@ -21,6 +22,8 @@ export type RemoteConnectionModel = {
   inputTokenMultiplier?: number;
   /** The cost badge the server worked out; left out when unknown. */
   cost?: Exclude<ConnectionModelCost, null>;
+  /** USD per million tokens, when the provider lists prices. */
+  pricing?: ModelCatalogPricing;
   deprecated?: true;
   /** When the provider retires the model (ISO date). */
   retiresAt?: string;
@@ -35,6 +38,7 @@ export type ConnectionModelOption = {
   subscriptionIncluded?: boolean;
   inputTokenMultiplier?: number;
   cost?: Exclude<ConnectionModelCost, null>;
+  pricing?: ModelCatalogPricing;
   deprecated?: true;
   retiresAt?: string;
   /** Came from the provider's own list rather than Marinara's built-in one. */
@@ -83,6 +87,7 @@ export function mergeConnectionModelOptions(
       subscriptionIncluded: model.subscriptionIncluded,
       inputTokenMultiplier: model.inputTokenMultiplier,
       cost: model.cost,
+      pricing: model.pricing,
       deprecated: model.deprecated,
       retiresAt: model.retiresAt,
       isRemote: true,
