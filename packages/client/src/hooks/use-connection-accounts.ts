@@ -78,6 +78,16 @@ export function useDeleteConnectionAccount() {
   });
 }
 
+/** "Duplicate": a copy of the Connection with a copy of each of its Models. */
+export function useDuplicateConnectionAccount() {
+  const invalidate = useInvalidateConnections();
+  return useMutation({
+    mutationFn: (id: string) =>
+      api.post<{ account: ConnectionAccountListItem }>(`/connection-accounts/${id}/duplicate`),
+    onSuccess: invalidate,
+  });
+}
+
 /** "Move to a new connection": a copy of the Connection (same key, address and limits) takes the Model. */
 export function useSplitModel() {
   const invalidate = useInvalidateConnections();

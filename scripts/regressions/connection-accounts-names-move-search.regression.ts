@@ -643,6 +643,25 @@ try {
   assert.equal(decryptApiKey(stillOld!.apiKeyEncrypted), "split-key-7777");
   const renamed = await json("PATCH", `/accounts/${splitSource.id}`, { name: "Split source 2" });
   assert.equal(renamed.data.sameKeyAccounts, undefined, "no key change, no list");
+
+  // "Duplicate": a copy of the Connection with a copy of each Model (same name, no default roles); the original stays.
+  await json("PATCH", `/connections/${splitSource.row}`, { isDefault: true });
+  const duplicated = await json("POST", `/accounts/${copyId}/duplicate`);
+  assert.equal(duplicated.status, 201, duplicated.body);
+  assert.doesNotMatch(duplicated.body, /split-key/, "the key never leaves the server");
+  const dupId = duplicated.data.account.id as string;
+  assert.equal(duplicated.data.account.name, "Split copy (Copy)");
+  const [dupAccount] = await db.select().from(connectionAccounts).where(eq(connectionAccounts.id, dupId));
+  assert.equal(decryptApiKey(dupAccount!.apiKeyEncrypted), "split-key-7777", "the key comes along");
+  const dupRows = await db.select().from(apiConnections).where(eq(apiConnections.accountId, dupId));
+  const originalRow = await rowOf(splitSource.row);
+  assert.equal(dupRows.length, 1);
+  assert.notEqual(dupRows[0]!.id, splitSource.row);
+  assert.equal(dupRows[0]!.name, originalRow.name, "the Model copy keeps its name");
+  assert.equal(dupRows[0]!.isDefault, "false", "the copy takes no default role");
+  assert.equal(originalRow.accountId, copyId, "the original Model stays");
+  assert.equal(originalRow.isDefault, "true");
+  assert.equal((await json("POST", "/accounts/missing/duplicate")).status, 404);
   console.log("connection-accounts-names-move-search: ok");
 } finally {
   await app.close();

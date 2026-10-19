@@ -181,16 +181,10 @@ export async function connectionAccountsRoutes(app: FastifyInstance) {
     return listItem(updated);
   });
 
-  // "Move to a new connection": a copy of this Connection (same service, address, key and limits) takes one Model.
-  // It splits what the upgrade grouped; the copy keeps its own models from then on.
-  app.post<{ Params: { id: string } }>("/:id/split", async (req, reply) => {
-    const body = splitBodySchema.parse(req.body);
-    const source = await accounts.getById(req.params.id);
-    if (!source || !(await linkedModel(source.id, body.connectionId))) {
-      return reply.status(404).send({ error: "Model not found in this Connection" });
-    }
+  /** A new Connection with the same service, address, key, limits and saved model lists; no Models. */
+  async function copyAccount(source: ConnectionAccountRow, name: string) {
     const copy = await accounts.create({
-      name: body.name,
+      name,
       provider: source.provider as CreateConnectionAccountInput["provider"],
       baseUrl: source.baseUrl,
       apiKey: decryptApiKey(source.apiKeyEncrypted),
@@ -209,12 +203,45 @@ export async function connectionAccountsRoutes(app: FastifyInstance) {
       .update(connectionAccounts)
       .set({ modelCatalogs: source.modelCatalogs })
       .where(eq(connectionAccounts.id, copy.id));
+    return copy;
+  }
+
+  // "Move to a new connection": a copy of this Connection (same service, address, key and limits) takes one Model.
+  // It splits what the upgrade grouped; the copy keeps its own models from then on.
+  app.post<{ Params: { id: string } }>("/:id/split", async (req, reply) => {
+    const body = splitBodySchema.parse(req.body);
+    const source = await accounts.getById(req.params.id);
+    if (!source || !(await linkedModel(source.id, body.connectionId))) {
+      return reply.status(404).send({ error: "Model not found in this Connection" });
+    }
+    const copy = await copyAccount(source, body.name);
     const moved = await connections.moveToAccount(body.connectionId, copy.id);
     if (typeof moved === "string") {
       await accounts.remove(copy.id);
       logger.warn("Split of model %s from connection %s failed: %s", body.connectionId, source.id, moved);
       return reply.status(409).send({ error: "This model cannot move to a new connection.", reason: moved });
     }
+    reply.status(201);
+    return { account: await listItem(copy) };
+  });
+
+  // "Duplicate": a copy of the Connection with a copy of each of its Models. The Model copies keep their names and
+  // settings but take no default roles.
+  app.post<{ Params: { id: string } }>("/:id/duplicate", async (req, reply) => {
+    const source = await accounts.getById(req.params.id);
+    if (!source) return reply.status(404).send({ error: "Connection not found" });
+    const copy = await app.db.transaction(async () => {
+      const created = await copyAccount(source, `${source.name} (Copy)`);
+      for (const row of await accounts.linkedRows(source.id)) {
+        const duplicate = await connections.duplicate(row.id);
+        if (!duplicate) continue;
+        await app.db
+          .update(apiConnections)
+          .set({ accountId: created.id, name: row.name })
+          .where(eq(apiConnections.id, duplicate.id));
+      }
+      return created;
+    });
     reply.status(201);
     return { account: await listItem(copy) };
   });

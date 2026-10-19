@@ -6,7 +6,18 @@ import { useState, type ReactNode } from "react";
 import { ConnectionModelList } from "./ConnectionModelList";
 import { ConnectionIdentity } from "./ConnectionIdentity";
 import { getConnectionIdentity, modelSubtitle } from "../../lib/connection-identity";
-import { ChevronDown, ImageIcon, KeyRound, MoreHorizontal, Plus, Power, Settings2, Trash2, Wifi } from "lucide-react";
+import {
+  ChevronDown,
+  Copy,
+  ImageIcon,
+  KeyRound,
+  MoreHorizontal,
+  Plus,
+  Power,
+  Settings2,
+  Trash2,
+  Wifi,
+} from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
@@ -17,7 +28,11 @@ import {
   type ConnectionAccountListItem,
 } from "@marinara-engine/shared";
 import { useCachedCatalogFacts, useTestConnection, type CachedCatalogFacts } from "../../hooks/use-connections";
-import { useDeleteConnectionAccount, useUpdateConnectionAccount } from "../../hooks/use-connection-accounts";
+import {
+  useDeleteConnectionAccount,
+  useDuplicateConnectionAccount,
+  useUpdateConnectionAccount,
+} from "../../hooks/use-connection-accounts";
 import { starAnchorOf } from "../../hooks/use-model-star";
 import { sortByModelId } from "../../lib/connection-groups";
 import { useUIStore } from "../../stores/ui.store";
@@ -76,6 +91,7 @@ export function ConnectionGroup({
   const openModal = useUIStore((s) => s.openModal);
   const updateAccount = useUpdateConnectionAccount();
   const removeAccount = useDeleteConnectionAccount();
+  const duplicateAccount = useDuplicateConnectionAccount();
   const test = useTestConnection();
   const [menu, setMenu] = useState<MenuAt | null>(null);
   // Cost badges read the catalogs already cached for this Connection's Models; nothing is fetched for them.
@@ -258,6 +274,18 @@ export function ConnectionGroup({
                     },
                   ]
                 : []),
+              {
+                label: t("connections.accounts.duplicate"),
+                icon: <Copy size="0.75rem" />,
+                disabled: duplicateAccount.isPending,
+                onSelect: () =>
+                  duplicateAccount.mutate(account.id, {
+                    onSuccess: ({ account: copy }) =>
+                      toast.success(t("connections.accounts.duplicated", { name: copy.name })),
+                    onError: (error) =>
+                      toast.error(t("connections.accounts.duplicateFailed", { error: error.message })),
+                  }),
+              },
               {
                 // Off in one step: its models stop running and chats fall back, without opening the editor.
                 label: t(account.enabled ? "connections.accounts.turnOff" : "connections.accounts.turnOn"),
