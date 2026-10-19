@@ -423,8 +423,8 @@ function resetClock(resetAt: number, locale: string | undefined): string {
 type MeterWindow = { key: string; short: string; long: string; window: NanoGptQuotaWindow; limit: number | null };
 
 /**
- * One compact line under a connection's header: "42% of 5-hour limit used · 18% of weekly limit used" with two
- * small bars. Amber above 80%, red at the limit, where the text becomes the problem ("5-hour limit reached · resets
+ * One compact line under a connection's header: "42% of 5-hour limit used" and "18% of weekly limit used", each with its own
+ * small bar. Amber above 80%, red at the limit, where the text becomes the problem ("5-hour limit reached · resets
  * 14:20"). Exact figures sit in the tooltip. It reads the same query as the full widget, so it adds no request.
  */
 export function CompactUsageMeter({
@@ -511,10 +511,10 @@ export function CompactUsageMeter({
     <p
       data-connection-usage-meter
       title={tooltip}
-      className={`flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-[0.6875rem] tabular-nums text-[var(--muted-foreground)] ${className ?? ""}`}
+      className={`flex min-w-0 flex-wrap items-center gap-x-3 gap-y-0.5 text-[0.6875rem] tabular-nums text-[var(--muted-foreground)] ${className ?? ""}`}
     >
       <span className="sr-only">{tooltip}</span>
-      {readings.map((reading, index) => (
+      {readings.map((reading) => (
         <span
           key={reading.key}
           aria-hidden
@@ -528,7 +528,6 @@ export function CompactUsageMeter({
                 : ""
           }`}
         >
-          {index > 0 && <span className="text-[var(--muted-foreground)]">·</span>}
           <span className="h-1 w-8 overflow-hidden rounded-full bg-foreground/15">
             <span
               className={`block h-full rounded-full ${
