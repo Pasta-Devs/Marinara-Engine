@@ -21,7 +21,8 @@ import {
   toAccountListItem,
   type ConnectionAccountRow,
 } from "../services/storage/connection-accounts.storage.js";
-import { createConnectionsStorage, readSavedModelList } from "../services/storage/connections.storage.js";
+import { catalogOf, createConnectionsStorage } from "../services/storage/connections.storage.js";
+import { saveConnectionImage } from "./connections.routes.js";
 import { resetMemoryRecallVectorizerCache } from "../services/memory-recall-embedding.js";
 import { decryptApiKey } from "../utils/crypto.js";
 import { modelKeepReason } from "../services/connections/model-stars.js";
@@ -86,19 +87,25 @@ export async function connectionAccountsRoutes(app: FastifyInstance) {
   app.get("/catalog-search", async (req) => {
     const { q, limit } = catalogQuerySchema.parse(req.query);
     // Ranked before the cut (decision 27): starred, saved, then prefix matches, then the rest.
-    const ranked: Array<{ rank: number; hit: { accountId: string; model: string; name: string } }> = [];
+    const ranked: Array<{ rank: number; hit: { accountId: string; provider: string; model: string; name: string } }> =
+      [];
     const rows = await app.db.select().from(apiConnections);
     for (const account of (await accounts.list()).sort((a, b) => a.createdAt.localeCompare(b.createdAt))) {
       if (accountBlocksRows(account)) continue;
       const linked = rows.filter((row) => row.accountId === account.id);
-      const source = linked
-        .filter((row) => readSavedModelList(row))
-        .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
+      const source = [...linked]
+        .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+        .find((row) => catalogOf(row, account));
+      const catalog = source ? catalogOf(source, account) : null;
       const starred = new Set(linked.flatMap((row) => parsePinnedModels(row.pinnedModels)));
       const saved = new Set(linked.map((row) => row.model));
-      for (const model of readSavedModelList(source)?.models ?? []) {
+      for (const model of catalog?.models ?? []) {
         const rank = rankModelMatch(q, model, { starred: starred.has(model.id), saved: saved.has(model.id) });
-        if (rank >= 0) ranked.push({ rank, hit: { accountId: account.id, model: model.id, name: model.name } });
+        if (rank >= 0)
+          ranked.push({
+            rank,
+            hit: { accountId: account.id, provider: source!.provider, model: model.id, name: model.name },
+          });
       }
     }
     // Array sort is stable: within a rank, accounts keep their age order and models their catalog order.
@@ -144,6 +151,16 @@ export async function connectionAccountsRoutes(app: FastifyInstance) {
     const updated = await accounts.update(req.params.id, input);
     if (!updated) return reply.status(404).send({ error: "Connection not found" });
     if (input.apiKey !== undefined || input.baseUrl !== undefined) resetMemoryRecallVectorizerCache();
+    return listItem(updated);
+  });
+
+  // Upload the Connection's picture (same checks and folder as a Model's). PATCH `icon` changes or resets it.
+  app.post<{ Params: { id: string } }>("/:id/image", async (req, reply) => {
+    if (!(await accounts.getById(req.params.id))) return reply.status(404).send({ error: "Connection not found" });
+    const saved = await saveConnectionImage(req.params.id, req.body);
+    if ("error" in saved) return reply.status(400).send(saved);
+    const updated = await accounts.setImage(req.params.id, saved.imagePath);
+    if (!updated) return reply.status(404).send({ error: "Connection not found" });
     return listItem(updated);
   });
 

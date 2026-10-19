@@ -3,15 +3,25 @@
 // ──────────────────────────────────────────────
 import { eq, desc, and, ne } from "../../db/file-query.js";
 import type { DB } from "../../db/connection.js";
-import { apiConnections, connectionAccounts } from "../../db/schema/index.js";
+import { apiConnections, chats, connectionAccounts } from "../../db/schema/index.js";
 import { newId, now } from "../../utils/id-generator.js";
 import { encryptApiKey, decryptApiKey } from "../../utils/crypto.js";
 import {
   MAX_PINNED_MODELS,
+  connectionBilling,
+  CHAT_MODEL_OVERRIDE_KEY,
+  CHAT_RECENT_MODELS_KEY,
+  GENERATION_PARAMETER_KEYS,
   isChatProvider,
+  isLocalAuthProvider,
   parsePinnedModels,
+  rankModelMoveCandidates,
+  relevantGenerationParameters,
   supportsSubscriptionUsageWidget,
   type CreateConnectionInput,
+  type GenerationParameterContext,
+  type GenerationParameterKey,
+  type ModelParameterCapabilities,
 } from "@marinara-engine/shared";
 import { sweepDanglingConnectionReferences } from "./connection-reference-cleanup.js";
 import {
@@ -75,6 +85,12 @@ const SAVED_MODEL_EXTRA_FIELDS = [
   "capabilities",
   "subscriptionIncluded",
   "inputTokenMultiplier",
+  "pricing",
+  "inputModalities",
+  "outputModalities",
+  "free",
+  "deprecated",
+  "retiresAt",
 ] as const;
 
 /** The fields that decide which list a provider returns; when one changes, the saved list is stale. */
@@ -105,16 +121,280 @@ function toSavedModels(models: readonly unknown[]): SavedConnectionModel[] {
   return saved;
 }
 
-/** Read a connection's saved model list, or null when there is none or it is malformed. */
-export function readSavedModelList(row: { savedModels?: unknown } | null | undefined): SavedConnectionModelList | null {
-  if (typeof row?.savedModels !== "string" || !row.savedModels) return null;
+function toSavedModelList(value: unknown): SavedConnectionModelList | null {
+  const parsed = value && typeof value === "object" ? (value as { fetchedAt?: unknown; models?: unknown }) : null;
+  if (typeof parsed?.fetchedAt !== "string" || !Array.isArray(parsed.models)) return null;
+  return { fetchedAt: parsed.fetchedAt, models: toSavedModels(parsed.models) };
+}
+
+function parseJson(raw: unknown): unknown {
+  if (typeof raw !== "string" || !raw) return null;
   try {
-    const parsed = JSON.parse(row.savedModels) as { fetchedAt?: unknown; models?: unknown };
-    if (typeof parsed.fetchedAt !== "string" || !Array.isArray(parsed.models)) return null;
-    return { fetchedAt: parsed.fetchedAt, models: toSavedModels(parsed.models) };
+    return JSON.parse(raw);
   } catch {
     return null;
   }
+}
+
+/** Read a row's own saved model list, or null when there is none or it is malformed. */
+export function readSavedModelList(row: { savedModels?: unknown } | null | undefined): SavedConnectionModelList | null {
+  return toSavedModelList(parseJson(row?.savedModels));
+}
+
+/** A Connection's catalogs by row provider; malformed entries are dropped. */
+export function readAccountCatalogs(
+  account: { modelCatalogs?: unknown } | null | undefined,
+): Record<string, SavedConnectionModelList> {
+  const all = parseJson(account?.modelCatalogs);
+  const catalogs: Record<string, SavedConnectionModelList> = {};
+  if (!all || typeof all !== "object" || Array.isArray(all)) return catalogs;
+  for (const [provider, value] of Object.entries(all)) {
+    const list = toSavedModelList(value);
+    if (list) catalogs[provider] = list;
+  }
+  return catalogs;
+}
+
+/** The Connection's catalogs JSON with one provider's catalog set (or removed with null). */
+export function withAccountCatalog(
+  account: { modelCatalogs?: unknown },
+  provider: string,
+  list: SavedConnectionModelList | null,
+): string | null {
+  const catalogs = readAccountCatalogs(account);
+  if (list) catalogs[provider] = list;
+  else delete catalogs[provider];
+  return Object.keys(catalogs).length ? JSON.stringify(catalogs) : null;
+}
+
+/**
+ * The catalog a Model reads: its Connection's catalog for the Model's provider (one copy for all linked Models),
+ * else its own saved list (a standalone Model, or one whose list was not moved yet).
+ */
+export function catalogOf(
+  row: { accountId?: string | null; provider: string; savedModels?: unknown },
+  account: { id: string; modelCatalogs?: unknown } | null | undefined,
+): SavedConnectionModelList | null {
+  const shared = row.accountId && account?.id === row.accountId ? readAccountCatalogs(account)[row.provider] : null;
+  return shared ?? readSavedModelList(row);
+}
+
+/** What a Model takes from the Connection it moves to: the key, the usage settings and the review state. */
+function takenFromAccount(account: ConnectionAccountRow, provider: string): Partial<ConnectionRow> {
+  return {
+    accountId: account.id,
+    apiKeyEncrypted: account.apiKeyEncrypted,
+    managementTokenEncrypted: provider === "nanogpt" ? account.managementTokenEncrypted : "",
+    showUsageWidget: String(supportsSubscriptionUsageWidget(provider) && account.showUsageWidget === "true"),
+    showUsageFiveHour: account.showUsageFiveHour,
+    showUsageWeekly: account.showUsageWeekly,
+    treatAsLocalEndpoint: account.treatAsLocalEndpoint,
+    profileImportReviewRequired: account.profileImportReviewRequired,
+  };
+}
+
+/** The account row has no media source, so a media account's vendor comes from its oldest linked row. */
+function representativeOf(linked: ConnectionRow[]): ConnectionRow | undefined {
+  return [...linked].sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id))[0];
+}
+
+/**
+ * How a Model may move to a Connection: within its service and endpoint ("same"), to a chat Connection of another
+ * service or endpoint ("cross", a new model id is needed), or not at all. A Model that borrows another row's key or
+ * sends its key to a second host never moves; media, decision and local-login Models never change service.
+ */
+function moveKind(row: ConnectionRow, account: ConnectionAccountRow, linked: ConnectionRow[]): MoveKind {
+  if (row.accountId === account.id || row.credentialsFromConnectionId || hasForeignEmbeddingHost(row)) {
+    return "mismatch";
+  }
+  if (
+    credentialVendor(row) === credentialVendor(representativeOf(linked) ?? account) &&
+    credentialOrigin(row) === credentialOrigin(account)
+  ) {
+    return "same";
+  }
+  const portable = (provider: string) => isChatProvider(provider) && !isLocalAuthProvider(provider);
+  return portable(row.provider) && portable(account.provider) ? "cross" : "mismatch";
+}
+
+export type MoveKind = "same" | "cross" | "mismatch";
+
+/** Default parameters without the settings the target provider and model never send. */
+function clampDefaultParameters(raw: string | null, context: GenerationParameterContext): string | null {
+  const params = parseJson(raw);
+  if (!params || typeof params !== "object" || Array.isArray(params)) return raw;
+  const relevant = relevantGenerationParameters(context);
+  const kept = Object.fromEntries(
+    Object.entries(params).filter(
+      ([key]) =>
+        !(GENERATION_PARAMETER_KEYS as readonly string[]).includes(key) || relevant.has(key as GenerationParameterKey),
+    ),
+  );
+  return JSON.stringify(kept);
+}
+
+/** The cross-service branch of `moveToAccount`, inside its transaction (the shared checks already passed). */
+async function moveAcrossServices(
+  tx: DB,
+  row: ConnectionRow,
+  account: ConnectionAccountRow,
+  linked: ConnectionRow[],
+  model: string | undefined,
+): Promise<"model_required" | "model_not_offered" | null> {
+  const provider = account.provider as ConnectionRow["provider"];
+  if (!model) return "model_required";
+  const peers = linked.filter((candidate) => candidate.provider === provider);
+  const peer = [...peers].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
+  const catalog = readAccountCatalogs(account)[provider]?.models ?? [];
+  const entry = catalog.find((saved) => saved.id === model);
+  // Custom endpoints often have no model list, so they take any id; every other service runs what it offers.
+  if (!entry && provider !== "custom") return "model_not_offered";
+  // The star follows the model: the old id means nothing on the new service.
+  const pins = peer ? parsePinnedModels(peer.pinnedModels) : [];
+  if (
+    parsePinnedModels(row.pinnedModels).includes(row.model) &&
+    !pins.includes(model) &&
+    pins.length < MAX_PINNED_MODELS
+  ) {
+    pins.push(model);
+  }
+  const pinnedModels = JSON.stringify(pins);
+  const context = typeof entry?.context === "number" && entry.context >= 1 ? entry.context : null;
+  const maxOutput = typeof entry?.maxOutput === "number" && entry.maxOutput >= 1 ? entry.maxOutput : null;
+  const capabilities =
+    entry?.capabilities && typeof entry.capabilities === "object"
+      ? (entry.capabilities as ModelParameterCapabilities)
+      : null;
+  await tx
+    .update(apiConnections)
+    .set({
+      ...takenFromAccount(account, provider),
+      provider,
+      baseUrl: account.baseUrl,
+      model,
+      // An automatic name (the old id) becomes the new model's name; a typed name stays.
+      name: row.name.trim() === row.model ? (entry?.name ?? model) : row.name,
+      ...(context ? { maxContext: context } : {}),
+      ...(maxOutput && row.maxTokensOverride && row.maxTokensOverride > maxOutput
+        ? { maxTokensOverride: maxOutput }
+        : {}),
+      defaultParameters: clampDefaultParameters(row.defaultParameters, {
+        provider,
+        model,
+        baseUrl: account.baseUrl,
+        capabilities,
+      }),
+      savedModels: null,
+      pinnedModels,
+      // Service-only settings: OpenRouter routing, Anthropic flags, the old host's embeddings, media fields.
+      openrouterProvider: null,
+      ...(provider === "anthropic" ? {} : { claudeFastMode: "false", anthropicExtendedCacheTtl: "false" }),
+      embeddingModel: null,
+      embeddingBaseUrl: null,
+      comfyuiWorkflow: null,
+      imageGenerationSource: null,
+      imageService: null,
+      imageEndpointId: null,
+      videoGenerationSource: null,
+      videoService: null,
+      audioSource: null,
+      decisionSource: null,
+      updatedAt: now(),
+    })
+    .where(eq(apiConnections.id, row.id));
+  // Stars are shared by the Connection's Models of one provider.
+  if (peer && pinnedModels !== peer.pinnedModels) {
+    await mirrorToAccountPeers(tx, { id: row.id, accountId: account.id, provider }, { pinnedModels });
+  }
+  const picks = await retargetChatPicks(tx, row.id, row.model, model, catalog);
+  if (picks.rewritten || picks.cleared) {
+    logger.info(
+      "[connections] Moved Model %s to another service: %d chat pick(s) rewritten, %d cleared",
+      row.id,
+      picks.rewritten,
+      picks.cleared,
+    );
+  }
+  return null;
+}
+
+/**
+ * A chat's catalog pick on a Model that changed service (its pick and its recent list). The old model becomes the
+ * new one; another old-catalog model is kept only when the target offers the same id (exact or without the gateway
+ * path, never a variant); else the pick is cleared and the chat runs the Model's new model. Agents and feature picks
+ * store only the Model id, so they need nothing.
+ */
+function retargetPick(
+  choice: unknown,
+  rowId: string,
+  oldModel: string,
+  newModel: string,
+  catalog: readonly SavedConnectionModel[],
+): { choice: unknown; change: "rewritten" | "cleared" | null } {
+  const pick = choice && typeof choice === "object" ? (choice as Record<string, unknown>) : null;
+  if (!pick || pick.connectionId !== rowId || typeof pick.model !== "string" || !pick.model) {
+    return { choice, change: null };
+  }
+  const target =
+    pick.model === oldModel
+      ? newModel
+      : rankModelMoveCandidates(pick.model, catalog).find((hit) => !hit.variant && hit.match !== "catalog")?.model.id;
+  if (!target) return { choice: null, change: "cleared" };
+  // The old catalog's limits do not apply to the new model; the target catalog's do.
+  const entry = catalog.find((saved) => saved.id === target);
+  return {
+    choice: {
+      connectionId: rowId,
+      model: target,
+      ...(entry?.name ? { name: entry.name } : {}),
+      ...(typeof entry?.context === "number" && entry.context >= 1 ? { maxContext: entry.context } : {}),
+    },
+    change: "rewritten",
+  };
+}
+
+// ponytail: reads every chat once per cross-service move (rare, user-started); batch like the reference sweep if
+// profiles with very many chats make the move slow.
+async function retargetChatPicks(
+  tx: DB,
+  rowId: string,
+  oldModel: string,
+  newModel: string,
+  catalog: readonly SavedConnectionModel[],
+): Promise<{ rewritten: number; cleared: number }> {
+  const counts = { rewritten: 0, cleared: 0 };
+  for (const chat of await tx.select().from(chats)) {
+    const raw = chat.metadata;
+    if (typeof raw !== "string" || !raw.includes(JSON.stringify(rowId))) continue;
+    const metadata = parseJson(raw);
+    if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) continue;
+    const record = metadata as Record<string, unknown>;
+    let changed = false;
+    const count = (change: "rewritten" | "cleared" | null) => {
+      if (change) counts[change] += 1;
+      changed ||= !!change;
+    };
+    if (CHAT_MODEL_OVERRIDE_KEY in record) {
+      const next = retargetPick(record[CHAT_MODEL_OVERRIDE_KEY], rowId, oldModel, newModel, catalog);
+      count(next.change);
+      record[CHAT_MODEL_OVERRIDE_KEY] = next.choice;
+    }
+    if (Array.isArray(record[CHAT_RECENT_MODELS_KEY])) {
+      record[CHAT_RECENT_MODELS_KEY] = (record[CHAT_RECENT_MODELS_KEY] as unknown[]).flatMap((entry) => {
+        const next = retargetPick(entry, rowId, oldModel, newModel, catalog);
+        count(next.change);
+        // A cleared recent entry becomes the Model itself.
+        return [next.change === "cleared" ? { connectionId: rowId } : next.choice];
+      });
+    }
+    if (changed) {
+      await tx
+        .update(chats)
+        .set({ metadata: JSON.stringify(record), updatedAt: now() })
+        .where(eq(chats.id, chat.id));
+    }
+  }
+  return counts;
 }
 
 /** API responses never carry the saved model list; `/connections/:id/models` serves it. */
@@ -122,9 +402,12 @@ export function readSavedModelList(row: { savedModels?: unknown } | null | undef
  * Whether a saved Model has settings of its own (decision 30): a name, tuning or limits the user set. Such a Model
  * stays in "Your models" without its star; a Model with only catalog values goes when its star is removed.
  */
-export function hasOwnModelSettings(row: Record<string, unknown>): boolean {
+export function hasOwnModelSettings(
+  row: Record<string, unknown>,
+  catalog: SavedConnectionModelList | null = readSavedModelList(row),
+): boolean {
   const model = typeof row.model === "string" ? row.model : "";
-  const entry = readSavedModelList(row)?.models.find((saved) => saved.id === model);
+  const entry = catalog?.models.find((saved) => saved.id === model);
   const name = typeof row.name === "string" ? row.name.trim() : "";
   if (name && name !== model && name !== entry?.name) return true;
   const set = (value: unknown) => value !== null && value !== undefined && value !== "";
@@ -132,7 +415,7 @@ export function hasOwnModelSettings(row: Record<string, unknown>): boolean {
   const params = typeof row.defaultParameters === "string" ? row.defaultParameters.trim() : row.defaultParameters;
   if (set(params) && params !== "{}" && params !== "null") return true;
   if ([row.promptPresetId, row.openrouterProvider, row.maxStateTokens, row.maxRequestsPerMinute].some(set)) return true;
-  if ([row.imagePath, row.embeddingModel, row.embeddingConnectionId].some(set)) return true;
+  if ([row.imagePath, row.icon, row.embeddingModel, row.embeddingConnectionId].some(set)) return true;
   if (on(row.enableCaching) || on(row.claudeFastMode)) return true;
   if (typeof row.maxParallelJobs === "number" && row.maxParallelJobs !== 1) return true;
   // Limits count only where the catalog tells what the model's own limit is.
@@ -162,13 +445,25 @@ export function createConnectionsStorage(db: DB) {
   return {
     async list() {
       const rows = await db.select().from(apiConnections).orderBy(desc(apiConnections.updatedAt));
+      const accounts = new Map(
+        ((await db.select().from(connectionAccounts)) as ConnectionAccountRow[]).map((account) => [
+          account.id,
+          account,
+        ]),
+      );
       // Mask API keys and management tokens in list response
       return rows.map(({ savedModels: _savedModels, ...r }: any) => ({
         ...r,
-        ownSettings: hasOwnModelSettings({ ...r, savedModels: _savedModels }),
+        ownSettings: hasOwnModelSettings(r, catalogOf({ ...r, savedModels: _savedModels }, accounts.get(r.accountId))),
+        billing: connectionBilling(r),
         apiKeyEncrypted: r.apiKeyEncrypted ? "••••••••" : "",
         managementTokenEncrypted: r.managementTokenEncrypted ? "••••••••" : "",
       }));
+    },
+
+    /** The catalog this Model reads (its Connection's, else its own). */
+    async readCatalog(row: ConnectionRow): Promise<SavedConnectionModelList | null> {
+      return catalogOf(row, row.accountId ? await getConnectionAccount(db, row.accountId) : null);
     },
 
     async getById(id: string) {
@@ -403,6 +698,7 @@ export function createConnectionsStorage(db: DB) {
         pinnedModels: JSON.stringify(parsePinnedModels(input.pinnedModels ?? [])),
         savedModels: null as string | null,
         imagePath: input.imagePath ?? null,
+        icon: input.icon ?? null,
         maxContext: input.maxContext ?? 128000,
         isDefault: String(takesChatDefaults(input.provider) && (input.isDefault ?? false)),
         fallbackForMain: String(providerCategory === "language" && (input.fallbackForMain ?? false)),
@@ -459,15 +755,12 @@ export function createConnectionsStorage(db: DB) {
         values.treatAsLocalEndpoint = account.treatAsLocalEndpoint;
         values.profileImportReviewRequired = account.profileImportReviewRequired;
         if (sameType) values.baseUrl = account.baseUrl;
-        // Models of one provider under an account share the saved catalog and the pins.
+        // Models of one provider under an account share the pins; the catalog lives on the account.
         const peer = (await db.select().from(apiConnections).where(eq(apiConnections.accountId, account.id)))
           .filter((row) => row.provider === input.provider)
           .sort((a, b) => (b.updatedAt ?? "").localeCompare(a.updatedAt ?? ""))[0];
-        if (peer) {
-          values.savedModels = peer.savedModels;
-          // The schema defaults the pins to [], so an empty list also takes the shared one.
-          if (!input.pinnedModels?.length) values.pinnedModels = peer.pinnedModels;
-        }
+        // The schema defaults the pins to [], so an empty list also takes the shared one.
+        if (peer && !input.pinnedModels?.length) values.pinnedModels = peer.pinnedModels;
       } else if (account) {
         logger.warn("[connections] Model endpoint is outside account %s: creating a standalone Model", account.id);
       }
@@ -639,6 +932,11 @@ export function createConnectionsStorage(db: DB) {
         updateFields.savedModels = null;
       }
       if (data.imagePath !== undefined) updateFields.imagePath = data.imagePath;
+      // One picture at a time: a chosen logo, letters or a reset replaces an uploaded image.
+      if (data.icon !== undefined) {
+        updateFields.icon = data.icon;
+        if (data.imagePath === undefined) updateFields.imagePath = null;
+      }
       if (data.maxContext !== undefined) updateFields.maxContext = data.maxContext;
       if (data.isDefault !== undefined) {
         updateFields.isDefault = String(data.isDefault);
@@ -849,6 +1147,7 @@ export function createConnectionsStorage(db: DB) {
         savedModels: source.savedModels,
         accountId: source.accountId,
         imagePath: source.imagePath,
+        icon: source.icon,
         maxContext: source.maxContext,
         isDefault: "false",
         fallbackForMain: "false",
@@ -969,11 +1268,47 @@ export function createConnectionsStorage(db: DB) {
         const [current] = await tx.select().from(apiConnections).where(eq(apiConnections.id, expected.id));
         if (!current || MODEL_LIST_SOURCE_FIELDS.some((field) => current[field] !== expected[field])) return null;
         const list: SavedConnectionModelList = { fetchedAt: now(), models: toSavedModels(models) };
+        const account = current.accountId ? await getConnectionAccount(tx, current.accountId) : null;
+        if (!account) {
+          await tx
+            .update(apiConnections)
+            .set({ savedModels: JSON.stringify(list) })
+            .where(eq(apiConnections.id, expected.id));
+          return list;
+        }
+        // One copy per Connection and provider: every linked Model of that provider reads it.
         await tx
-          .update(apiConnections)
-          .set({ savedModels: JSON.stringify(list) })
-          .where(eq(apiConnections.id, expected.id));
-        await mirrorToAccountPeers(tx, current, { savedModels: JSON.stringify(list) });
+          .update(connectionAccounts)
+          .set({ modelCatalogs: withAccountCatalog(account, current.provider, list) })
+          .where(eq(connectionAccounts.id, account.id));
+        if (current.savedModels) {
+          await tx.update(apiConnections).set({ savedModels: null }).where(eq(apiConnections.id, current.id));
+        }
+        return list;
+      });
+    },
+
+    /**
+     * Save a Connection's catalog for its own provider, fetched with its key before any linked Model of that provider
+     * read it (a move from another service). Null when the provider, address or key changed while it loaded.
+     */
+    async saveAccountCatalogIfUnchanged(
+      expected: ConnectionAccountRow,
+      models: readonly unknown[],
+    ): Promise<SavedConnectionModelList | null> {
+      return db.transaction(async (tx) => {
+        const current = await getConnectionAccount(tx, expected.id);
+        if (
+          !current ||
+          (["provider", "baseUrl", "apiKeyEncrypted"] as const).some((field) => current[field] !== expected[field])
+        ) {
+          return null;
+        }
+        const list: SavedConnectionModelList = { fetchedAt: now(), models: toSavedModels(models) };
+        await tx
+          .update(connectionAccounts)
+          .set({ modelCatalogs: withAccountCatalog(current, current.provider, list) })
+          .where(eq(connectionAccounts.id, current.id));
         return list;
       });
     },
@@ -1001,16 +1336,45 @@ export function createConnectionsStorage(db: DB) {
       });
     },
 
+    /** What a move needs, for the picker: the kind, and for another service the target's catalog for its provider. */
+    async planMove(
+      id: string,
+      accountId: string,
+    ): Promise<
+      | { kind: MoveKind; account: ConnectionAccountRow; row: ConnectionRow; catalog: SavedConnectionModelList | null }
+      | "not_found"
+      | "account_not_found"
+    > {
+      const row = (await this.getById(id)) as ConnectionRow | null;
+      if (!row) return "not_found";
+      const account = await getConnectionAccount(db, accountId);
+      if (!account) return "account_not_found";
+      const linked = (await db
+        .select()
+        .from(apiConnections)
+        .where(eq(apiConnections.accountId, account.id))) as ConnectionRow[];
+      const kind = moveKind(row, account, linked);
+      return { kind, account, row, catalog: readAccountCatalogs(account)[account.provider] ?? null };
+    },
+
     /**
      * "Move to connection…" (decision 28): the Model joins another Connection of the same service and endpoint and
      * takes that Connection's key, usage settings, review state and catalog. Its id stays, so chats, per-chat picks
      * and agents that point at it keep working. A Model under import review, one that borrows another row's key
      * or one that sends its key to a second host cannot move: that would hand a key across the review boundary.
+     *
+     * A chat Model can also move to a chat Connection of another service: then `model` (from the target catalog, any
+     * id on a custom endpoint) replaces its model id, the provider, address and key come from the target, the star
+     * moves to the new id, settings the target ignores are dropped, and service-only fields are reset. Media,
+     * decision and local-login (subscription) Models never change service this way.
      */
     async moveToAccount(
       id: string,
       accountId: string,
-    ): Promise<ConnectionRow | "not_found" | "account_not_found" | "mismatch" | "review"> {
+      model?: string,
+    ): Promise<
+      ConnectionRow | "not_found" | "account_not_found" | "mismatch" | "review" | "model_required" | "model_not_offered"
+    > {
       // Reads, checks and the write share one transaction, so a host change in between cannot slip past the checks.
       const refused = await db.transaction(async (tx) => {
         const [row] = (await tx.select().from(apiConnections).where(eq(apiConnections.id, id))) as ConnectionRow[];
@@ -1025,10 +1389,10 @@ export function createConnectionsStorage(db: DB) {
           .select()
           .from(apiConnections)
           .where(eq(apiConnections.accountId, account.id))) as ConnectionRow[];
-        // The account row has no media source, so a media account's vendor comes from its oldest linked row.
-        const representative = [...linked].sort(
-          (a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id),
-        )[0];
+        const kind = moveKind(row, account, linked);
+        if (kind === "mismatch") return "mismatch" as const;
+        if (kind === "cross") return moveAcrossServices(tx, row, account, linked, model);
+        const representative = representativeOf(linked);
         const peer = linked
           .filter(
             (candidate) =>
@@ -1041,36 +1405,26 @@ export function createConnectionsStorage(db: DB) {
           !!representative &&
           decryptApiKey(row.apiKeyEncrypted) === decryptApiKey(account.apiKeyEncrypted) &&
           sameEndpoint(row, representative);
-        if (
-          row.accountId === account.id ||
-          row.credentialsFromConnectionId ||
-          hasForeignEmbeddingHost(row) ||
-          credentialVendor(row) !== credentialVendor(representative ?? account) ||
-          credentialOrigin(row) !== credentialOrigin(account)
-        ) {
-          return "mismatch" as const;
+        // Another key can serve another model list. Without a same-kind peer the Model's catalog still applies when
+        // key and address are unchanged (the same server), so it becomes the Connection's catalog for that provider.
+        const ownCatalog = sameServer
+          ? catalogOf(row, row.accountId ? await getConnectionAccount(tx, row.accountId) : null)
+          : null;
+        const accountCatalog = readAccountCatalogs(account)[row.provider];
+        if (!peer && ownCatalog && (!accountCatalog || accountCatalog.fetchedAt < ownCatalog.fetchedAt)) {
+          await tx
+            .update(connectionAccounts)
+            .set({ modelCatalogs: withAccountCatalog(account, row.provider, ownCatalog) })
+            .where(eq(connectionAccounts.id, account.id));
         }
         await tx
           .update(apiConnections)
           .set({
-            accountId: account.id,
-            apiKeyEncrypted: account.apiKeyEncrypted,
-            managementTokenEncrypted: row.provider === "nanogpt" ? account.managementTokenEncrypted : "",
-            showUsageWidget: String(
-              supportsSubscriptionUsageWidget(row.provider) && account.showUsageWidget === "true",
-            ),
-            showUsageFiveHour: account.showUsageFiveHour,
-            showUsageWeekly: account.showUsageWeekly,
-            treatAsLocalEndpoint: account.treatAsLocalEndpoint,
-            profileImportReviewRequired: account.profileImportReviewRequired,
+            ...takenFromAccount(account, row.provider),
             ...(row.provider === account.provider ? { baseUrl: account.baseUrl } : {}),
-            // Another key can serve another model list; the new Connection's favorites apply. Without a same-kind
-            // peer the row keeps its catalog only when key and address are unchanged (the same server).
-            ...(peer
-              ? { savedModels: peer.savedModels, pinnedModels: peer.pinnedModels }
-              : sameServer
-                ? {}
-                : { savedModels: null }),
+            // The new Connection's catalog and favorites apply.
+            savedModels: null,
+            ...(peer ? { pinnedModels: peer.pinnedModels } : {}),
             updatedAt: now(),
           })
           .where(eq(apiConnections.id, id));

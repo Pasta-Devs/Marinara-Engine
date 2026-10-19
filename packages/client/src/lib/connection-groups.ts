@@ -18,6 +18,9 @@ export type ConnectionModelRow = {
   fallbackForMain?: unknown;
   fallbackForAgents?: unknown;
   useForRandom?: unknown;
+  /** The picture menu's choice and an uploaded picture. */
+  icon?: string | null;
+  imagePath?: string | null;
 };
 
 export type ConnectionGroup<R extends ConnectionModelRow = ConnectionModelRow> = {

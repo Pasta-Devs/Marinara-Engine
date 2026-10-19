@@ -1114,6 +1114,8 @@ interface UIState {
   connectionsUpgradeNoteDismissed: boolean;
   /** Ids of Connections folded shut in the Connections panel list; every other Connection shows its Models. */
   connectionsCollapsed: string[];
+  /** Model rows show what a model costs ("Included", "2x", "Free"). */
+  showCostBadges: boolean;
   /** The Chat Settings "drag to place it" tip was dismissed on this device. */
   chatSettingsMoveTipDismissed: boolean;
   /** The once-only chat window introduction was dismissed across chats and devices. */
@@ -1454,6 +1456,7 @@ interface UIState {
   dismissLinkApiBanner: () => void;
   dismissConnectionsUpgradeNote: () => void;
   toggleConnectionCollapsed: (id: string) => void;
+  setShowCostBadges: (v: boolean) => void;
   dismissChatSettingsMoveTip: () => void;
   dismissChatWindowIntro: () => void;
   toggleEchoChamber: () => void;
@@ -1687,6 +1690,7 @@ export function pickSyncedSettings(state: UIState) {
     linkApiBannerDismissed: state.linkApiBannerDismissed,
     connectionsUpgradeNoteDismissed: state.connectionsUpgradeNoteDismissed,
     connectionsCollapsed: state.connectionsCollapsed,
+    showCostBadges: state.showCostBadges,
     chatSettingsMoveTipDismissed: state.chatSettingsMoveTipDismissed,
     chatWindowIntroDismissed: state.chatWindowIntroDismissed,
     echoChamberOpen: state.echoChamberOpen,
@@ -1927,6 +1931,7 @@ export function pickPersistedUIState(state: UIState) {
     linkApiBannerDismissed: state.linkApiBannerDismissed,
     connectionsUpgradeNoteDismissed: state.connectionsUpgradeNoteDismissed,
     connectionsCollapsed: state.connectionsCollapsed,
+    showCostBadges: state.showCostBadges,
     chatSettingsMoveTipDismissed: state.chatSettingsMoveTipDismissed,
     chatWindowIntroDismissed: state.chatWindowIntroDismissed,
     echoChamberOpen: state.echoChamberOpen,
@@ -2231,6 +2236,7 @@ export const useUIStore = create<UIState>()(
         linkApiBannerDismissed: false,
         connectionsUpgradeNoteDismissed: false,
         connectionsCollapsed: [],
+        showCostBadges: true,
         chatSettingsMoveTipDismissed: false,
         chatWindowIntroDismissed: false,
         echoChamberOpen: true,
@@ -3303,6 +3309,7 @@ export const useUIStore = create<UIState>()(
               ? state.connectionsCollapsed.filter((other) => other !== id)
               : [...state.connectionsCollapsed, id],
           })),
+        setShowCostBadges: (v) => set({ showCostBadges: v }),
         dismissChatSettingsMoveTip: () => set({ chatSettingsMoveTipDismissed: true }),
         dismissChatWindowIntro: () => set({ chatWindowIntroDismissed: true }),
         toggleEchoChamber: () => set((s) => ({ echoChamberOpen: !s.echoChamberOpen })),

@@ -711,7 +711,8 @@ export function sanitizeProfileTableRows(tableName: string, rows: Array<Record<s
   }
   if (tableName === "connection_accounts") {
     // Accounts hold the shared key and management token, so they stay on this install like the rows above.
-    return rows.map((row) => ({ ...row, apiKeyEncrypted: "", managementTokenEncrypted: "" }));
+    // Their saved model lists are a cache too, like the rows' lists above.
+    return rows.map((row) => ({ ...row, apiKeyEncrypted: "", managementTokenEncrypted: "", modelCatalogs: null }));
   }
   if (tableName === "app_settings") {
     // The Tripo API key stays on this install too, like the connection keys blanked above.
@@ -874,6 +875,8 @@ export function quarantineProfileConnectionAccountRow(
     ...row,
     apiKeyEncrypted: trusted ? text(existing?.apiKeyEncrypted) : "",
     managementTokenEncrypted: trusted ? text(existing?.managementTokenEncrypted) : "",
+    // Like the key: the local saved model lists still apply only to the same endpoint.
+    modelCatalogs: trusted ? (existing?.modelCatalogs ?? null) : null,
     profileImportReviewRequired: trusted ? "false" : "true",
   };
 }

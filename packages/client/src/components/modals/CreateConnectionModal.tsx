@@ -4,7 +4,18 @@
 // full-screen sheet. Main and "use in this chat" are explicit choices on the last screen.
 // ────────────────────────────────────────────────
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { AlertCircle, Check, ChevronDown, ChevronLeft, ExternalLink, Eye, EyeOff, Loader2, Search } from "lucide-react";
+import {
+  AlertCircle,
+  Check,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  ExternalLink,
+  Eye,
+  EyeOff,
+  Loader2,
+  Search,
+} from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
@@ -206,12 +217,10 @@ type TestResult = { success: boolean; message?: string };
 
 const inputClass = "mari-chrome-field h-11 w-full px-3 text-xs md:h-9";
 const labelClass = "text-xs font-medium text-[var(--muted-foreground)]";
-const PRIMARY_CLASS =
-  "mari-panel-gradient-button mari-panel-gradient--connections px-4 text-xs max-md:min-h-11 disabled:opacity-50";
-const SECONDARY_CLASS = "mari-chrome-control mari-chrome-control--small px-3 text-xs max-md:min-h-11";
-const BADGE_CLASS = "mari-chrome-muted-badge px-1.5 py-0.5 text-[0.5625rem]";
-const HIGHLIGHT_BADGE_CLASS =
-  "mari-chrome-tag bg-[var(--marinara-chat-chrome-highlight-bg)] px-1.5 py-0.5 text-[0.5625rem] font-semibold text-[var(--marinara-chat-chrome-highlight-text)]";
+const PRIMARY_CLASS = "mari-connection-btn mari-connection-btn--primary";
+const SECONDARY_CLASS = "mari-connection-btn";
+const BADGE_CLASS = "mari-connection-pill";
+const HIGHLIGHT_BADGE_CLASS = "mari-connection-pill mari-connection-pill--blue";
 
 const hostOf = (url: string) => {
   try {
@@ -233,13 +242,13 @@ function failureReason(provider: APIProvider, message: string): "plan" | "key" |
 }
 
 /** The service tile: its white brand mark on the brand colour (decision 34c), else an icon or the initials. */
-function ServiceTile({ service, large = false }: { service: ServiceId; large?: boolean }) {
+function ServiceTile({ service }: { service: ServiceId }) {
   const media = mediaBackendOf(service);
   return (
     <ProviderIcon
       provider={media ? (media.image ? "image_generation" : "video_generation") : service}
       service={media?.source}
-      size={large ? "addLarge" : "add"}
+      size="add"
     />
   );
 }
@@ -318,7 +327,7 @@ function ServiceGroup({
   if (!collapsible) {
     return (
       <section className="flex flex-col gap-1.5">
-        <h4 className="px-1 text-[0.6875rem] font-medium text-[var(--muted-foreground)]">{title}</h4>
+        <h4 className="px-1 text-xs font-semibold text-[var(--muted-foreground)]">{title}</h4>
         {list}
       </section>
     );
@@ -542,10 +551,23 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
     return true;
   };
 
+  // Add model has no ready screen: with no Main model yet, the first model starred there becomes Main when the
+  // screen closes. The guided setup asks on its ready screen instead, where the box starts on.
+  const autoMain = async () => {
+    const row = !hasMain && firstPick ? allRows.find((candidate) => candidate.id === firstPick.connectionId) : null;
+    if (!row || !isChatProvider(row.provider ?? "")) return;
+    try {
+      await updateRow.mutateAsync({ id: row.id, isDefault: true, ...(hasAgents ? {} : { defaultForAgents: true }) });
+    } catch (error) {
+      toast.error(t("connections.switcher.defaultFailed", { error: errorText(error) }));
+    }
+  };
+
   const close = async (saveChoices = false) => {
     setFinishing(true);
     try {
       if (saveChoices && step === "ready" && !(await applyReadyChoices())) return;
+      if (modelsFor && !modelsFor.chat) await autoMain();
       await discard();
     } finally {
       setFinishing(false);
@@ -1051,7 +1073,7 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
 
   // ── Step 2: access for the chosen service ──
   const existing = connectedAccounts[0];
-  // Already connected: the user picks "Add models to it" or a second account before any field shows.
+  // Already connected: the user picks one of those connections or makes a new one before any field shows.
   const choosing = connectedAccounts.length > 0 && !target && !second;
   const keyUrl = selectedMedia ? undefined : def?.keyUrl;
   const failure = tested && !tested.success && provider ? failureReason(provider, tested.message ?? "") : null;
@@ -1090,7 +1112,7 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
           aria-pressed={showKey}
           aria-label={t("connections.add.showKey")}
           title={t("connections.add.showKey")}
-          className="mari-chrome-control h-11 w-11 shrink-0 p-0 md:h-9 md:w-9"
+          className="mari-connection-btn mari-connection-btn--icon"
         >
           {showKey ? <EyeOff size="0.875rem" aria-hidden /> : <Eye size="0.875rem" aria-hidden />}
         </button>
@@ -1181,35 +1203,50 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
         </div>
       </div>
 
-      {connectedAccounts.length > 0 && !target && (
-        <div
-          data-add-connection-existing
-          className="flex flex-col gap-2 rounded-xl border border-[var(--border)] bg-[var(--marinara-chat-chrome-highlight-bg)] p-3 text-xs"
-        >
-          <p>{t("connections.add.chooseExisting")}</p>
-          <div className="flex flex-col gap-2">
+      {choosing && (
+        <div data-add-connection-existing className="flex flex-col gap-3">
+          <ul className="flex flex-col gap-2">
             {connectedAccounts.map((account) => (
-              <button
-                key={account.id}
-                type="button"
-                onClick={() => void showModelsOf(account.id)}
-                className="mari-chrome-control mari-chrome-control--card flex min-h-11 items-center justify-between gap-3 px-3 py-2 text-left text-xs"
-              >
-                <ConnectionIdentity account={account} rows={accountRows(account.id)} size="sm" />
-                <span className={BADGE_CLASS}>{t("connections.add.addModelsTo")}</span>
-              </button>
+              <li key={account.id}>
+                <button
+                  type="button"
+                  data-add-connection-existing-account={account.id}
+                  onClick={() => void showModelsOf(account.id)}
+                  disabled={closeBlocked}
+                  className="mari-chrome-control mari-chrome-control--card flex min-h-14 w-full !flex-row !items-center gap-3 px-3 py-2 text-left text-xs disabled:opacity-50"
+                >
+                  {/* The same identity as the sidebar card header: name, then count, plan word and host. */}
+                  <ConnectionIdentity
+                    account={account}
+                    rows={accountRows(account.id)}
+                    count={t("connections.list.models", { count: accountRows(account.id).length })}
+                    state={account.state}
+                    stateLabel={t(`connections.accounts.state.${account.state}`)}
+                    billing={account.billing}
+                  />
+                  <ChevronRight size="1rem" className="shrink-0 text-[var(--muted-foreground)]" aria-hidden />
+                </button>
+              </li>
             ))}
-            {choosing && (
-              <button type="button" onClick={connectSecond} className={SECONDARY_CLASS}>
-                {t("connections.add.connectSecond")}
-              </button>
-            )}
-          </div>
+          </ul>
+          <button
+            type="button"
+            data-add-connection-make-new
+            onClick={connectSecond}
+            className={cn(SECONDARY_CLASS, "self-start")}
+          >
+            {t("connections.add.makeNew")}
+          </button>
         </div>
       )}
 
       {!choosing && (
         <>
+          {second && !keyless && (
+            <p className="text-xs text-[var(--muted-foreground)]">
+              {t(isLocal ? "connections.add.secondServer" : "connections.add.secondKey")}
+            </p>
+          )}
           {isLocal && (
             <div className="flex flex-col gap-1">
               <label htmlFor="add-connection-url" className={labelClass}>
@@ -1240,10 +1277,7 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
                       resetTest();
                     }}
                     aria-pressed={baseUrl.trim() === preset.url}
-                    className={cn(
-                      "mari-chrome-control h-8 min-h-8 px-2.5 text-[0.625rem] max-md:h-11 max-md:min-h-11",
-                      baseUrl.trim() === preset.url && "mari-chrome-control--selected",
-                    )}
+                    className="mari-connection-chip gap-1"
                   >
                     <BrandMark of={preset.label} className="h-3 w-3" />
                     {preset.label}
@@ -1482,11 +1516,13 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
       : step === 2
         ? device
           ? t("connections.add.heading.device", { service: serviceName(device) })
-          : isMedia || keyless
-            ? t("connections.add.heading.connect", { service: serviceName(service ?? provider!) })
-            : isLocal
-              ? t("connections.add.heading.local")
-              : t("connections.add.heading.key", { service: serviceName(service ?? provider!) })
+          : choosing
+            ? t("connections.add.heading.useExisting", { service: serviceName(service ?? provider!) })
+            : isMedia || keyless
+              ? t("connections.add.heading.connect", { service: serviceName(service ?? provider!) })
+              : isLocal
+                ? t("connections.add.heading.local")
+                : t("connections.add.heading.key", { service: serviceName(service ?? provider!) })
         : step === 3
           ? mediaEditorId
             ? t("connections.add.heading.mediaSetup", { name: targetName })
@@ -1505,13 +1541,15 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
         ? t(
             device
               ? "connections.add.sub.device"
-              : isMedia
-                ? "connections.add.sub.media"
-                : keyless
-                  ? "connections.add.sub.plan"
-                  : isLocal
-                    ? "connections.add.sub.local"
-                    : "connections.add.sub.key",
+              : choosing
+                ? "connections.add.sub.useExisting"
+                : isMedia
+                  ? "connections.add.sub.media"
+                  : keyless
+                    ? "connections.add.sub.plan"
+                    : isLocal
+                      ? "connections.add.sub.local"
+                      : "connections.add.sub.key",
           )
         : step === 3
           ? mediaEditorId
@@ -1605,7 +1643,7 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
         type="button"
         data-add-connection-done
         // Add model ends here: what has a star is added.
-        onClick={() => (picks.length > 0 && !modelsFor ? setStep("ready") : onClose())}
+        onClick={() => (picks.length > 0 && !modelsFor ? setStep("ready") : void close())}
         // A new Connection needs one model; without it the window throws the Connection away.
         disabled={target?.fresh && picks.length === 0}
         className={PRIMARY_CLASS}
@@ -1652,7 +1690,7 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
       mobileFullscreen
       opaque
       closeDisabled={closeBlocked}
-      panelClassName="sm:h-[min(90dvh,44rem)]"
+      panelClassName="mari-connection-scope sm:h-[min(90dvh,44rem)]"
       contentClassName="flex flex-col overflow-hidden! p-0!"
     >
       <div data-add-connection-step={step} className="flex min-h-0 flex-1 flex-col">
@@ -1667,7 +1705,7 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
                 disabled={closeBlocked}
                 aria-label={t("connections.add.back")}
                 title={t("connections.add.back")}
-                className="mari-chrome-control -ml-1.5 h-11 w-11 shrink-0 p-0 md:h-8 md:w-8 [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:w-11"
+                className="mari-connection-btn mari-connection-btn--ghost mari-connection-btn--icon -ms-2"
               >
                 <ChevronLeft size="1rem" aria-hidden />
               </button>
@@ -1772,7 +1810,7 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
             <section className="h-full min-h-0 overflow-y-auto overscroll-contain">
               <div className="mx-auto flex max-w-xl flex-col gap-3 p-4 md:p-5">
                 <div className="flex items-center gap-3 rounded-xl border border-[var(--marinara-chat-chrome-panel-divider)] p-3">
-                  {provider && <ServiceTile service={service ?? provider} large />}
+                  {provider && <ServiceTile service={service ?? provider} />}
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold">{targetName}</p>
                     <p className="text-xs text-[var(--muted-foreground)]">

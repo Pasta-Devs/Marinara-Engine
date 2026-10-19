@@ -207,6 +207,11 @@ test("the Connections menu lists, stars, picks, refreshes and types models witho
     let menu = await openMenu(page, testInfo);
     // The current model is visible immediately; catalogs open only through an explicit Browse action.
     await expect(menu.locator('[data-switcher-section="now"]')).toBeVisible();
+    // The current model's check is connection blue (#38bdf8), never the app accent.
+    await expect(menu.locator('[data-switcher-section="now"] svg.lucide-check').first()).toHaveCSS(
+      "color",
+      "rgb(56, 189, 248)",
+    );
     await expect(menu.locator("[data-connection-model-picker]")).toHaveCount(0);
     await expect(menu.locator(`[data-switcher-browse="${mainAccount}"]`)).toBeVisible();
     await expect(menu.locator(`[data-switcher-browse="${otherAccount}"]`)).toBeVisible();
@@ -502,10 +507,7 @@ test("the Connections menu lists, stars, picks, refreshes and types models witho
   }
 });
 
-test("catalog upstream filters, metadata and copying keep the chat choice unchanged", async ({
-  page,
-  request,
-}, testInfo) => {
+test("catalog upstream filters and metadata keep the chat choice unchanged", async ({ page, request }, testInfo) => {
   const { provider, main, chat, cleanup } = await setup(page, request, testInfo, "dark");
   provider.state.catalog.push({ id: "second/omega", name: "Omega", context_length: 128_000 });
   const accountId = (await connectionRow(request, main.id))!.accountId as string;
@@ -516,10 +518,7 @@ test("catalog upstream filters, metadata and copying keep the chat choice unchan
     await expect(omega.locator("[data-model-metadata]")).toContainText("128k");
     await expect(modelRow(picker, "all", "vendor/gamma").locator("[data-model-metadata]")).toContainText("output");
     const before = await chatState(request, chat.id);
-    await omega.locator("[data-model-copy]").click();
-    await expect(picker).toBeVisible();
-    await expect(omega.locator("[data-model-copy]")).toBeFocused();
-    expect((await chatState(request, chat.id)).model).toBe(before.model);
+    await expect(omega.locator("[data-model-copy]")).toHaveCount(0);
     await picker.locator('[data-model-upstream-filter="second"]').click();
     await expect(omega).toBeVisible();
     await expect(modelRow(picker, "all", "vendor/alpha")).toHaveCount(0);

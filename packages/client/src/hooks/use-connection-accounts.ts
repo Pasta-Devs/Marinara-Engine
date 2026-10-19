@@ -26,7 +26,7 @@ export const connectionAccountKeys = {
 
 const FEATURE_MODELS_PATH = `/app-settings/${FEATURE_MODEL_CONNECTIONS_SETTINGS_KEY}`;
 
-export type CatalogSearchHit = { accountId: string; model: string; name: string };
+export type CatalogSearchHit = { accountId: string; provider: string; model: string; name: string };
 
 export function useConnectionAccounts() {
   return useQuery({

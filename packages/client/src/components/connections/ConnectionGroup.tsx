@@ -1,22 +1,12 @@
 // ──────────────────────────────────────────────
-// ConnectionGroup — a provider/Connection heading with status, model count and account actions.
-// Each account has a full-width heading; only its mixed-kind model list is indented.
+// ConnectionGroup — a Connection card: a heading that folds the card (name, model count, host, one status
+// word), its ⋯ menu ("Edit connection" first) and its model well.
 // ──────────────────────────────────────────────
 import { useState, type ReactNode } from "react";
 import { ConnectionModelList } from "./ConnectionModelList";
 import { ConnectionIdentity } from "./ConnectionIdentity";
-import { getConnectionIdentity } from "../../lib/connection-identity";
-import {
-  ChevronDown,
-  ChevronRight,
-  ImageIcon,
-  MoreHorizontal,
-  Plus,
-  LayoutGrid,
-  Search,
-  Settings2,
-  Wifi,
-} from "lucide-react";
+import { getConnectionIdentity, modelSubtitle } from "../../lib/connection-identity";
+import { ChevronDown, ImageIcon, MoreHorizontal, Plus, Settings2, Wifi } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
@@ -26,7 +16,7 @@ import {
   type APIProvider,
   type ConnectionAccountListItem,
 } from "@marinara-engine/shared";
-import { useTestConnection } from "../../hooks/use-connections";
+import { useCachedCatalogFacts, useTestConnection, type CachedCatalogFacts } from "../../hooks/use-connections";
 import { useUpdateConnectionAccount } from "../../hooks/use-connection-accounts";
 import { starAnchorOf } from "../../hooks/use-model-star";
 import { sortByModelId } from "../../lib/connection-groups";
@@ -34,9 +24,10 @@ import { useUIStore } from "../../stores/ui.store";
 import { openAddModels } from "../../lib/add-connection";
 import { cn } from "../../lib/utils";
 import { ContextMenu } from "../ui/ContextMenu";
-import { SubscriptionUsageWidget } from "./SubscriptionUsageWidget";
+import { CompactUsageMeter } from "./SubscriptionUsageWidget";
+import { resolveUsageConnection } from "../../lib/connection-filters";
 import { SMALL_ACTION } from "./DeviceDetail";
-import { menuAt, modelSubtitle, ROW_BUTTON, type ConnectionRowData, type MenuAt } from "./ConnectionRow";
+import { menuAt, modelRoleLabels, ROW_BUTTON, type ConnectionRowData, type MenuAt } from "./ConnectionRow";
 
 /** A block in the Connections list: a tint and spacing, no outline. */
 export const GROUP_SURFACE = "rounded-xl bg-[color-mix(in_srgb,var(--foreground)_4%,transparent)]";
@@ -58,15 +49,18 @@ export function ConnectionGroup({
   open,
   onToggle,
   tile,
+  onPictureClick,
 }: {
   account: ConnectionAccountListItem;
   rows: ConnectionRowData[];
   /** The Models the filter and search keep; `rows` still picks the anchor Model for Add model and the stars. */
   visibleRows?: ConnectionRowData[];
-  renderRow: (row: ConnectionRowData, subtitle: string) => ReactNode;
+  renderRow: (row: ConnectionRowData, subtitle: string, catalog: CachedCatalogFacts) => ReactNode;
   open: boolean;
   onToggle: () => void;
   tile: ReactNode;
+  /** The heading's tile becomes its own button that opens the picture menu. */
+  onPictureClick?: (at: MenuAt) => void;
   /** Provider identity is part of each account heading, without an enclosing family header. */
   providerName?: string;
 }) {
@@ -75,6 +69,9 @@ export function ConnectionGroup({
   const updateAccount = useUpdateConnectionAccount();
   const test = useTestConnection();
   const [menu, setMenu] = useState<MenuAt | null>(null);
+  // Cost badges read the catalogs already cached for this Connection's Models; nothing is fetched for them.
+  const [catalog] = useCachedCatalogFacts([rows.map((row) => row.id)]);
+  const usage = resolveUsageConnection([account], account.id);
 
   // The anchor Model: Add model shows and keeps the Connection's stars on it.
   const chatRow = starAnchorOf(rows) ?? null;
@@ -85,6 +82,9 @@ export function ConnectionGroup({
     : undefined;
   const addImageModel = () => openAddModels({ accountId: account.id, kind: "image" });
   const addModel = () => openAddModels({ accountId: account.id });
+  // "Add model" and "Browse all models" were two doors to the same screen; the well's last row is the one.
+  const addModels = () => openAddModels({ accountId: account.id, connectionId: chatRow?.id });
+  const rolesOf = (row: ConnectionRowData) => modelRoleLabels(row, t);
   const editAccount = () => openModal("connection-account", { accountId: account.id });
   const runTest = () =>
     firstRow &&
@@ -103,17 +103,17 @@ export function ConnectionGroup({
   const endpoint = identity.endpoint;
   const count = t("connections.list.models", { count: visibleRows.length });
   const modelsId = `connection-models-${account.id}`;
-  const toggleLabel = t(open ? "connections.list.collapse" : "connections.list.expand", { name: account.name });
+  // One status word: Ready is plain text; Needs key and Off are the word itself as the fix.
   const fix =
     account.state === "needs_key"
       ? {
-          label: t("connections.accounts.addKey"),
+          label: state,
           aria: t("connections.list.addKeyFor", { name: account.name }),
           run: editAccount,
         }
       : account.state === "off"
         ? {
-            label: t("connections.defaults.fix.turnOn"),
+            label: state,
             aria: t("connections.list.turnOn", { name: account.name }),
             run: () => updateAccount.mutate({ id: account.id, enabled: true }),
           }
@@ -125,28 +125,59 @@ export function ConnectionGroup({
       data-connection-account-id={account.id}
       aria-label={account.name}
     >
-      <div className="flex min-w-0 items-center gap-0.5 rounded-lg">
+      <div className="mari-connection-card-head flex min-w-0 items-center rounded-lg">
+        {onPictureClick && (
+          <button
+            type="button"
+            onClick={(event) => onPictureClick(menuAt(event))}
+            aria-label={t("connections.picture.change", { name: account.name })}
+            title={t("connections.picture.change", { name: account.name })}
+            // The padding grows the hit area to 2.75rem; the negative margin keeps the tile on the card's edge.
+            className="-m-0.5 flex shrink-0 items-center justify-center rounded-xl p-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)]"
+          >
+            {tile}
+          </button>
+        )}
         <button
           type="button"
           data-connections-row={`account:${account.id}`}
           data-connection-group-heading
+          // The heading is the fold; its chevron is only a sign, so the name keeps line 1's width.
+          data-connections-toggle={account.id}
           onClick={onToggle}
           aria-expanded={open}
           aria-controls={modelsId}
-          aria-label={t("connections.list.rowLabel", {
-            name: [heading, accountLabel, endpoint, count].filter(Boolean).join(", "),
-            state,
-          })}
-          className="flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded-lg px-1 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)]"
+          aria-label={
+            account.state === "ok"
+              ? [heading, accountLabel, endpoint, count].filter(Boolean).join(", ")
+              : t("connections.list.rowLabel", {
+                  name: [heading, accountLabel, endpoint, count].filter(Boolean).join(", "),
+                  state,
+                })
+          }
+          className={cn(
+            "flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-lg py-1 pe-1 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)]",
+            // Header text starts on the rows' text column: 0.5rem card padding + 2.5rem tile + 0.75rem.
+            onPictureClick && "ps-3",
+          )}
         >
           <ConnectionIdentity
             account={account}
             rows={rows}
             count={count}
-            state={account.state}
+            state={fix ? undefined : account.state}
             stateLabel={state}
-            icon={tile}
+            billing={account.billing}
+            icon={onPictureClick ? false : tile}
             className="flex-1"
+          />
+          <ChevronDown
+            size="0.875rem"
+            aria-hidden
+            className={cn(
+              "shrink-0 text-[var(--muted-foreground)] transition-transform motion-reduce:transition-none",
+              !open && "-rotate-90",
+            )}
           />
         </button>
         {fix && (
@@ -165,18 +196,6 @@ export function ConnectionGroup({
         >
           <MoreHorizontal size="1rem" />
         </button>
-        <button
-          type="button"
-          data-connections-toggle={account.id}
-          onClick={onToggle}
-          aria-expanded={open}
-          aria-controls={modelsId}
-          aria-label={toggleLabel}
-          title={toggleLabel}
-          className={cn(ROW_BUTTON, "text-[var(--muted-foreground)] hover:text-[var(--foreground)]")}
-        >
-          <ChevronDown size="0.875rem" className={cn("transition-transform", !open && "-rotate-90")} />
-        </button>
         {menu && (
           <ContextMenu
             x={menu.x}
@@ -185,12 +204,16 @@ export function ConnectionGroup({
             onClose={() => setMenu(null)}
             items={[
               {
+                label: t("connections.accounts.editor.editTitle"),
+                icon: <Settings2 size="0.75rem" />,
+                onSelect: editAccount,
+              },
+              {
                 label: t("connections.accounts.test"),
                 icon: <Wifi size="0.75rem" />,
                 disabled: !firstRow || test.isPending,
                 onSelect: runTest,
               },
-              { label: t("connections.detail.edit"), icon: <Settings2 size="0.75rem" />, onSelect: editAccount },
               {
                 label: t("connections.accounts.addModel"),
                 icon: <Plus size="0.75rem" />,
@@ -205,24 +228,19 @@ export function ConnectionGroup({
                     },
                   ]
                 : []),
-              ...(chatRow
-                ? [
-                    {
-                      label: t("connections.detail.browseAll"),
-                      icon: <Search size="0.75rem" />,
-                      onSelect: () => openAddModels({ accountId: account.id, connectionId: chatRow.id, kind: "chat" }),
-                    },
-                  ]
-                : []),
             ]}
           />
         )}
       </div>
 
-      {open && account.showUsageWidget && firstRow && (
-        <div className="ps-8 pe-2 pb-2">
-          <SubscriptionUsageWidget connectionId={firstRow.id} variant="inline" />
-        </div>
+      {/* The meter stays when the card folds: it is the card's live state, not part of its model list. */}
+      {usage && firstRow && (
+        <CompactUsageMeter
+          connectionId={firstRow.id}
+          showFiveHour={usage.showUsageFiveHour}
+          showWeekly={usage.showUsageWeekly}
+          className="ps-[3.25rem] pe-2 pb-1.5"
+        />
       )}
       {open && (
         <ConnectionModelList
@@ -231,28 +249,15 @@ export function ConnectionGroup({
           provider={account.provider}
           rows={sortByModelId(visibleRows)}
           getKey={(row) => row.id}
-          renderRow={(row, upstream) =>
-            renderRow(row, upstream ? row.model.slice(row.model.indexOf("/") + 1) : modelSubtitle(row))
-          }
+          renderRow={(row, upstream) => renderRow(row, modelSubtitle(row, upstream), catalog)}
+          rolesOf={rolesOf}
+          // A search keeps every hit in view.
+          autoFold={visibleRows.length === rows.length}
+          onAddModels={addModels}
           empty={
             <p className="px-2 py-1 text-[0.6875rem] text-[var(--muted-foreground)]">
               {t("connections.accounts.noModels")}
             </p>
-          }
-          footer={
-            chatRow && (
-              <button
-                type="button"
-                onClick={() => openAddModels({ accountId: account.id, connectionId: chatRow.id, kind: "chat" })}
-                className="mari-connection-browse flex min-h-11 w-full items-center gap-3 px-4 text-left text-xs text-[var(--muted-foreground)] hover:bg-foreground/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)]"
-              >
-                <LayoutGrid size="1rem" className="shrink-0 text-[var(--muted-foreground)]" />
-                <span className="min-w-0 flex-1 text-[var(--muted-foreground)]">
-                  {t("connections.detail.browseAll")}
-                </span>
-                <ChevronRight size="0.875rem" className="shrink-0 text-[var(--muted-foreground)]" />
-              </button>
-            )
           }
         />
       )}

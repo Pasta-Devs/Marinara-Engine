@@ -9896,7 +9896,13 @@ assert.equal(({} as { tags?: string[] }).tags, undefined, "Background metadata m
     /opacity-0|group-hover:/u,
     "Connection rows must not hide actions behind hover",
   );
-  assert.match(connectionRowSource, /h-8 w-8[^"\n]*max-md:h-11 max-md:w-11 \[@media\(pointer:coarse\)\]:h-11/u);
+  // Row buttons use the shared mari-connection-btn icon class, which grows to 44 px on phones and touch screens.
+  assert.match(connectionRowSource, /ROW_BUTTON = "mari-connection-btn[^"]*mari-connection-btn--icon"/u);
+  const connectionStyles = readFileSync(join(REPOSITORY_ROOT, "packages/client/src/styles/globals.css"), "utf8");
+  assert.match(
+    connectionStyles,
+    /@media \(max-width: 47\.9375rem\), \(pointer: coarse\) \{[^}]*\.mari-connection-btn[^}]*min-height: 2\.75rem/u,
+  );
 
   const personasPanelSource = sidebarPanelSources.get("Personas")!;
   const charactersPanelSource = sidebarPanelSources.get("Characters")!;

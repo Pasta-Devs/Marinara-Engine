@@ -2,7 +2,8 @@
 // Connection Account Zod Schemas
 // ──────────────────────────────────────────────
 import { z } from "zod";
-import { apiProviderSchema, connectionModelIdSchema } from "./connection.schema.js";
+import { apiProviderSchema, connectionIconSchema, connectionModelIdSchema } from "./connection.schema.js";
+import type { ConnectionBilling } from "../constants/model-lists.js";
 
 // One account may hold BOTH chat and image/media Models sharing one key (concept decision 20),
 // so `provider` is the credential vendor/service and nothing here assumes a single Model type.
@@ -17,6 +18,8 @@ const accountFields = {
   enabled: z.boolean().default(true),
   maxRequestsPerMinute: z.number().int().min(1).max(600).nullable().default(null),
   maxParallelJobs: z.number().int().min(1).max(16).nullable().default(null),
+  /** Picture choice; any change clears the uploaded image (upload goes through `POST /:id/image`). */
+  icon: connectionIconSchema.default(null),
 };
 
 export const createConnectionAccountSchema = z.object({
@@ -49,6 +52,11 @@ export interface ConnectionAccountListItem {
   enabled: boolean;
   maxRequestsPerMinute: number | null;
   maxParallelJobs: number | null;
+  /** Picture: `icon` (brand/letters) or an uploaded `imagePath`; both null = the service logo. */
+  icon: string | null;
+  imagePath: string | null;
+  /** "plan" for plan services (Arli, subscriptions), "free" for Horde/Pollinations, else null. */
+  billing: ConnectionBilling;
   profileImportReviewRequired: boolean;
   modelCount: number;
   state: ConnectionAccountState;

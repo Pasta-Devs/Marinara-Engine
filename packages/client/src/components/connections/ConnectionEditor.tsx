@@ -96,7 +96,7 @@ import { AtlasCloudModelOptions } from "./AtlasCloudModelOptions";
 import { ConnectionIdentity } from "./ConnectionIdentity";
 import { BrandMark, ProviderIcon } from "./ProviderIcon";
 import { SubscriptionUsageWidget } from "./SubscriptionUsageWidget";
-import { SubscriptionCostPill } from "./SubscriptionCostPill";
+import { CostBadge } from "./CostBadge";
 import { HelpTooltip } from "../ui/HelpTooltip";
 import { SettingsCheckbox, SettingsSwitch } from "../panels/settings/SettingControls";
 import {
@@ -833,6 +833,7 @@ export function ConnectionEditor({
   );
 
   const filteredModels = useMemo(() => filterConnectionModelOptions(allModels, modelSearch), [allModels, modelSearch]);
+  const catalogShowsPaid = allModels.some((m) => m.cost === "included" || m.cost?.startsWith("multiplier:"));
 
   const selectedModelInfo = useMemo(() => {
     return allModels.find((m) => m.id === localModel) ?? null;
@@ -2007,7 +2008,7 @@ export function ConnectionEditor({
   return (
     <div
       className={cn(
-        "mari-editor-shell mari-editor-legacy-bridge flex flex-1 flex-col overflow-hidden",
+        "mari-editor-shell mari-editor-legacy-bridge mari-connection-scope flex flex-1 flex-col overflow-hidden",
         embedded && "min-h-0",
       )}
     >
@@ -2201,17 +2202,17 @@ export function ConnectionEditor({
                     size="sm"
                   />
                   {localModel && (
-                    <span className="truncate pl-9 font-mono text-[0.6875rem] text-[var(--muted-foreground)]">
+                    <span className="truncate pl-10 font-mono text-xs text-[var(--muted-foreground)]">
                       {localModel}
                     </span>
                   )}
                   {isConnectionFlagTrue(conn?.isDefault) && (
-                    <span className="pl-9 text-[0.625rem] text-[var(--muted-foreground)]">
+                    <span className="pl-10 text-xs text-[var(--muted-foreground)]">
                       {t("connections.defaults.role.main")}
                     </span>
                   )}
                   {localDefaultForAgents && isChatProvider(localProvider) && (
-                    <span className="pl-9 text-[0.625rem] text-[var(--muted-foreground)]">
+                    <span className="pl-10 text-xs text-[var(--muted-foreground)]">
                       {t("connections.editor.roleAgentsDefault")}
                     </span>
                   )}
@@ -2220,7 +2221,7 @@ export function ConnectionEditor({
                   <button
                     type="button"
                     onClick={() => openModal("connection-account", { accountId })}
-                    className="mari-chrome-control mari-chrome-control--small shrink-0 text-xs"
+                    className="mari-connection-btn shrink-0"
                   >
                     {t("connections.editor.editConnection")}
                   </button>
@@ -3191,7 +3192,7 @@ export function ConnectionEditor({
                                   {modelFetchSourceLabel}
                                 </span>
                               )}
-                              {localShowUsageWidget && <SubscriptionCostPill model={m} />}
+                              <CostBadge cost={m.cost} showPaid={catalogShowsPaid} />
                               {localModel === m.id && <Check size="0.75rem" className="text-sky-400" />}
                             </div>
                             <span className="text-[0.625rem] text-[var(--muted-foreground)]">{m.id}</span>

@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
-import type { ConnectionAccountState } from "@marinara-engine/shared";
+import { useTranslation } from "react-i18next";
+import type { ConnectionAccountState, ConnectionBilling } from "@marinara-engine/shared";
 import { getConnectionIdentity, type ConnectionIdentityRow } from "../../lib/connection-identity";
 import { cn } from "../../lib/utils";
 import { StateWord, type EngineTone } from "./DeviceDetail";
@@ -16,8 +17,9 @@ export function ConnectionIdentity({
   icon,
   className,
   size = "md",
+  billing,
 }: {
-  account: { name: string; provider: string; baseUrl?: string | null };
+  account: { name: string; provider: string; baseUrl?: string | null; icon?: string | null; imagePath?: string | null };
   rows: readonly ConnectionIdentityRow[];
   count?: ReactNode;
   state?: ConnectionAccountState;
@@ -25,56 +27,56 @@ export function ConnectionIdentity({
   icon?: ReactNode;
   className?: string;
   size?: "sm" | "md";
+  billing?: ConnectionBilling;
 }) {
+  const { t } = useTranslation();
   const identity = getConnectionIdentity(account, rows);
-  const details = [identity.accountLabel, identity.endpoint].filter(Boolean);
+  // Line 2 is facts, never a second name: count, plan word, host.
+  const details = [identity.endpoint].filter(Boolean);
+  const hasCount = count !== undefined && count !== null;
+  // One card-level cost word: a plan, or a free service.
+  const billingWord = billing ? t(`connections.list.billing.${billing}`) : null;
+  // A healthy Connection shows no status; only a problem shows its word.
+  const problem = state && state !== "ok" && stateLabel ? { state, label: stateLabel } : null;
 
   return (
-    <span className={cn("flex min-w-0 flex-1 items-center gap-3", className)}>
+    <span className={cn("flex min-w-0 flex-1 items-center", size === "md" ? "gap-3" : "gap-4", className)}>
       {icon ?? (
         <ProviderIcon
           provider={account.provider}
           baseUrl={account.baseUrl}
           service={identity.service}
           name={account.name}
+          icon={account.icon}
+          imagePath={account.imagePath}
           size="sm"
           className={cn(
-            "rounded-full bg-[var(--secondary)]/65 text-[var(--foreground)]",
+            "rounded-[0.5rem] bg-[var(--secondary)]/65 text-[var(--foreground)]",
             size === "md" ? "h-8 w-8" : "h-6 w-6",
           )}
         />
       )}
       <span className="min-w-0 flex-1">
-        <span className="mari-connection-heading-line">
-          <strong
-            className={cn(
-              "min-w-0 truncate font-semibold text-[var(--foreground)]",
-              size === "md" ? "text-base leading-5" : "text-xs",
-            )}
-          >
-            {identity.name}
-          </strong>
-          {count !== undefined && count !== null && (
-            <span
-              data-connection-group-count
-              className={cn(
-                "shrink-0 font-normal text-[var(--muted-foreground)]",
-                size === "md" ? "text-xs" : "text-[0.6875rem]",
-              )}
-            >
-              {count}
-            </span>
-          )}
-        </span>
-        {(details.length > 0 || (state && stateLabel)) && (
+        {/* Line 1 is the Connection's own name alone; the service shows in the tile and the tooltip. */}
+        <strong
+          className="block min-w-0 truncate text-[0.9375rem] font-semibold leading-5 text-[var(--foreground)]"
+          title={[identity.name, identity.accountLabel].filter(Boolean).join(" · ")}
+        >
+          {identity.title}
+        </strong>
+        {(hasCount || billingWord || details.length > 0 || problem) && (
           <span
-            className={cn(
-              "mt-0.5 flex min-w-0 items-center gap-2 text-[var(--muted-foreground)]",
-              size === "md" ? "text-xs" : "text-[0.6875rem]",
-            )}
+            data-connection-identity-meta
+            className="mt-0.5 flex min-w-0 items-center gap-2 text-xs text-[var(--muted-foreground)]"
           >
-            {details.length > 0 && <span className="min-w-0 truncate">{details.join(" · ")}</span>}
-            {state && stateLabel && <StateWord tone={STATE_TONE[state]} label={stateLabel} />}
+            <span className="min-w-0 truncate">
+              {hasCount && <span data-connection-group-count>{count}</span>}
+              {[billingWord, ...details]
+                .filter(Boolean)
+                .map((part, index) => (hasCount || index > 0 ? ` · ${part}` : part))
+                .join("")}
+            </span>
+            {problem && <StateWord tone={STATE_TONE[problem.state]} label={problem.label} />}
           </span>
         )}
       </span>

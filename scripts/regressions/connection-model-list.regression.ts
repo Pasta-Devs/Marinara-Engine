@@ -14,8 +14,10 @@ const { createConnectionsStorage } = await import("../../packages/server/src/ser
 const { createConnectionSchema } = await import("../../packages/shared/src/schemas/connection.schema.js");
 const { MAX_MODEL_ID_LENGTH, MAX_PINNED_MODELS, parsePinnedModels } =
   await import("../../packages/shared/src/types/connection.js");
-const { sanitizeProfileTableRows, quarantineProfileApiConnectionRow } =
+const { sanitizeProfileTableRows, quarantineProfileApiConnectionRow, quarantineProfileConnectionAccountRow } =
   await import("../../packages/server/src/routes/backup.routes.js");
+const { connectionAccounts } = await import("../../packages/server/src/db/schema/index.js");
+const { eq } = await import("../../packages/server/src/db/file-query.js");
 const { connectionsRoutes } = await import("../../packages/server/src/routes/connections.routes.js");
 const { createConnectionExportEnvelope, normalizeImportedConnectionEntry } =
   await import("../../packages/client/src/lib/connection-transfer.js");
@@ -276,10 +278,23 @@ try {
   await get(`/connections/${image.id}/models`);
   assert.equal((await storage.getById(image.id))!.savedModels, null);
 
+  // Creating a Model links standalone rows into Connections; the linked row's list moved onto its Connection.
+  const linked = (await storage.getById(legacy.id))!;
+  assert.ok(linked.accountId);
+  assert.equal(linked.savedModels, null, "a linked row keeps no copy");
+  const [account] = await db.select().from(connectionAccounts).where(eq(connectionAccounts.id, linked.accountId!));
+  assert.match(account!.modelCatalogs ?? "", /vendor\/gamma/u, "the Connection holds the list");
+  const [exportedAccount] = sanitizeProfileTableRows("connection_accounts", [account as never]);
+  assert.equal(exportedAccount!.modelCatalogs, null, "profile exports leave the Connection's lists out");
+  assert.equal(quarantineProfileConnectionAccountRow(exportedAccount!, account).modelCatalogs, account!.modelCatalogs);
+  assert.equal(quarantineProfileConnectionAccountRow({ ...account }).modelCatalogs, null);
+
   // Profile backups keep pins and leave the saved list out; an import only reuses the local list for the
-  // same endpoint, the way it reuses the local key.
-  const row = (await storage.getById(legacy.id))! as unknown as Record<string, unknown>;
-  assert.ok(row.savedModels);
+  // same endpoint, the way it reuses the local key. (A standalone row keeps its own list.)
+  const row = {
+    ...linked,
+    savedModels: JSON.stringify(await storage.readCatalog(linked)),
+  } as unknown as Record<string, unknown>;
   const [exportedRow] = sanitizeProfileTableRows("api_connections", [row]);
   assert.equal(exportedRow!.savedModels, null);
   assert.equal(exportedRow!.pinnedModels, JSON.stringify(["vendor/gamma"]));

@@ -96,32 +96,30 @@ test("Connections keep the established header, mixed models and compact role con
     await page.addInitScript((v) => localStorage.setItem("marinara:whats-new:seen-version", v), version);
     await page.goto("/");
     const panel = page.locator("[data-connections-panel]").filter({ visible: true });
-    const add = panel.getByRole("button", { name: "Create connection", exact: true });
-    const imp = panel.getByRole("button", { name: "Import connection", exact: true });
-    await expect(add).toBeVisible();
-    await expect(imp).toBeVisible();
-    const more = panel.getByRole("button", { name: "More actions", exact: true });
-    const sizes = await Promise.all([add.boundingBox(), imp.boundingBox(), more.boundingBox()]);
-    expect(Math.abs(sizes[0]!.width - sizes[1]!.width)).toBeLessThan(1);
-    expect(Math.abs(sizes[0]!.width - sizes[2]!.width)).toBeLessThan(1);
+    // One header row: Search, a labelled Add and More (Import and Export live in More).
+    await expect(panel.getByRole("button", { name: "Add connection", exact: true })).toBeVisible();
+    await expect(panel.getByRole("button", { name: "Import connection", exact: true })).toHaveCount(0);
+    await expect(panel.getByRole("button", { name: "More actions", exact: true })).toBeVisible();
     await expect(panel.getByRole("searchbox", { name: "Search models and connections" })).toBeVisible();
     const group = panel.locator(`[data-connection-account-id="${created.account.id}"]`);
     const singleProvider = panel.locator('[data-connection-provider="openai"]');
     const accountHeader = group.locator(`[data-connections-row="account:${created.account.id}"]`);
     // A singleton is one rich header, not a provider row plus another Connection card.
     await expect(singleProvider.locator(":scope > button")).toHaveCount(0);
-    await expect(accountHeader).toContainText("OpenAI");
-    await expect(accountHeader).toContainText("3 models");
-    await expect(accountHeader).toContainText(`Mixed studio ${info.project.name}`);
-    await expect(accountHeader).toContainText("Ready");
+    // Line 1 is the account's own name; the service stays in the tile and the accessible name.
+    await expect(accountHeader.locator("strong")).toHaveText(`Mixed studio ${info.project.name}`);
+    await expect(accountHeader.locator("[data-connection-identity-meta]")).toHaveText("3 models · 127.0.0.1:9");
+    await expect(accountHeader).toHaveAttribute("aria-label", new RegExp(`^OpenAI, Mixed studio ${info.project.name}`));
+    // A healthy Connection shows no status word.
+    await expect(accountHeader).not.toContainText("Ready");
     // Opening the merged header also clears a legacy account fold.
     await expect(accountHeader).toHaveAttribute("aria-expanded", "false");
     await accountHeader.press("Enter");
     await expect(accountHeader).toHaveAttribute("aria-expanded", "true");
     for (const id of ids.slice(0, 3)) await expect(group.locator(`[data-connection-id="${id}"]`)).toBeVisible();
-    await expect(group).toContainText("Chat");
+    // Chat rows carry no kind word; other kinds get a pill.
     await expect(group).toContainText("Image");
-    await expect(group).toContainText("Audio");
+    await expect(group).toContainText("Voice");
     // A keeps authored names and full IDs, while avoiding redundant/subordinate ID noise.
     await expect(
       group.locator(`[data-connection-id="${created.connectionId}"]`).getByText("gpt-5.5", { exact: true }),
@@ -129,7 +127,7 @@ test("Connections keep the established header, mixed models and compact role con
     const gatewayRow = panel.locator(`[data-connection-account-id="${gateway.account.id}"]`);
     await expect(gatewayRow.getByRole("button", { name: "Edit My GLM", exact: true })).toBeVisible();
     const nanoGroup = gatewayRow.locator('[data-connection-upstream="nanogpt"]');
-    await expect(nanoGroup.getByText("NanoGPT · 1", { exact: true })).toBeVisible();
+    await expect(nanoGroup.getByRole("button", { name: /^NanoGPT\s?1$/ })).toBeVisible();
     await expect(nanoGroup.getByRole("button", { name: "Edit My GLM", exact: true })).toBeVisible();
     await expect(nanoGroup.getByText("zai-org/glm-5.2", { exact: true })).toBeVisible();
     await expect(gatewayRow.locator("span[title]").filter({ hasText: "My GLM" })).toHaveAttribute(
@@ -157,9 +155,12 @@ test("Connections keep the established header, mixed models and compact role con
     ).toBeTruthy();
     // Refetch to observe the changed state; Repair stays on the same merged header.
     await page.reload();
-    await expect(accountHeader).toContainText("Off");
-    await group.getByRole("button", { name: `Turn on Mixed studio ${info.project.name}` }).click();
-    await expect(accountHeader).toContainText("Ready");
+    // The one status word is the fix itself, beside the heading.
+    const turnOn = group.getByRole("button", { name: `Turn on Mixed studio ${info.project.name}` });
+    await expect(turnOn).toHaveText("Off");
+    await turnOn.click();
+    await expect(turnOn).toHaveCount(0);
+    await expect(group.getByText("Ready", { exact: true })).toHaveCount(0);
     await accountHeader.press("Enter");
     await expect(group.locator("[data-connection-id]")).toHaveCount(3);
     const provider = panel.locator('[data-connection-provider="comfyui"]');
@@ -171,15 +172,17 @@ test("Connections keep the established header, mixed models and compact role con
     const comfyHeader = comfyAccount.locator(`[data-connections-row="account:${comfy[0]!.accountId}"]`);
     await expect(comfyHeader).toContainText("ComfyUI");
     await expect(comfyHeader).toContainText("2 models");
-    await expect(comfyHeader.getByText("127.0.0.1:8188", { exact: true })).toHaveCount(1);
-    const primaryBox = await accountHeader.boundingBox();
-    const headerBox = await comfyHeader.boundingBox();
+    await expect(comfyHeader).toContainText("2 models · 127.0.0.1:8188");
+    // The card head holds the picture tile (its own button) and the folding heading.
+    const comfyHead = comfyAccount.locator(".mari-connection-card-head");
+    const primaryBox = await group.locator(".mari-connection-card-head").boundingBox();
+    const headerBox = await comfyHead.boundingBox();
     expect(Math.abs(headerBox!.x - primaryBox!.x)).toBeLessThan(1);
     for (const entry of comfy) {
       const model = comfyAccount.locator(`[data-connection-id="${entry.id}"]`);
       await expect(model).toBeVisible();
       const modelBox = await model.locator(".mari-provider-icon").boundingBox();
-      const headerIconBox = await comfyHeader.locator(".mari-provider-icon").boundingBox();
+      const headerIconBox = await comfyHead.locator(".mari-provider-icon").boundingBox();
       const rowBox = await model.boundingBox();
       expect(Math.abs(rowBox!.x - headerBox!.x)).toBeLessThan(1);
       expect(modelBox!.x - headerIconBox!.x).toBeGreaterThanOrEqual(8);
@@ -192,10 +195,10 @@ test("Connections keep the established header, mixed models and compact role con
     await comfyHeader.press("Enter");
     await expect(comfyAccount.locator("[data-connection-id]")).toHaveCount(2);
     await comfyAccount.getByRole("button", { name: "Actions for ComfyUI · 127.0.0.1:8188", exact: true }).click();
-    await page.getByRole("menuitem", { name: "Edit", exact: true }).click();
+    await page.getByRole("menuitem", { name: "Edit connection", exact: true }).click();
     const accountDialog = page.getByRole("dialog");
     for (const entry of comfy)
-      await expect(accountDialog.getByRole("button", { name: entry.name, exact: true })).toBeVisible();
+      await expect(accountDialog.getByRole("button", { name: `Edit ${entry.name}`, exact: true })).toBeVisible();
     await page.keyboard.press("Escape");
     await page.mouse.move(0, 0);
     if (info.project.name === "desktop-chromium") {
@@ -215,12 +218,11 @@ test("Connections keep the established header, mixed models and compact role con
       await page.setViewportSize(originalViewport);
       await page.evaluate(() => document.documentElement.setAttribute("data-theme", "dark"));
     }
-    await panel.locator('[data-connections-row="defaults"]').click();
+    // The Defaults box starts unfolded; Main, Agents and Images always show.
     await expect(panel.locator('[data-defaults-tile="main"]')).toBeVisible();
     await expect(panel.locator('[data-defaults-tile="main"]')).toHaveAttribute("aria-expanded", "false");
     await panel.locator('[data-defaults-tile="main"]').click();
     await expect(panel.locator('[data-defaults-role="main"]')).toContainText("Fallback");
-    await panel.getByRole("button", { name: /Set up another role/ }).click();
     await expect(panel.locator('[data-defaults-tile="images"]')).toBeVisible();
     // A newly configured role must not remount while its controls are open.
     const images = panel.locator('[data-defaults-role="images"]');
@@ -236,9 +238,6 @@ test("Connections keep the established header, mixed models and compact role con
     await expect(imageDefault).toContainText("Studio Image");
     await expect(images).toHaveAttribute("data-retained-row", "true");
     await expect(imageDefault).toBeFocused();
-    await panel.getByRole("button", { name: /Set up another role/ }).click();
-    await expect(images.locator('[data-defaults-tile="images"]')).toHaveAttribute("aria-expanded", "false");
-    await images.locator('[data-defaults-tile="images"]').click();
     await imageDefault.focus();
     await imageDefault.press("Enter");
     await page
@@ -247,22 +246,15 @@ test("Connections keep the established header, mixed models and compact role con
       .click();
     await expect(imageDefault).toContainText("None");
     await images.locator('[data-defaults-tile="images"]').click();
-    await expect(panel.locator("[data-defaults-unused]")).toBeFocused();
-    // Account credentials remain hidden until requested, and opening access never changes the account.
+    await expect(images.locator('[data-defaults-tile="images"]')).toBeFocused();
+    // The saved key stays masked in the editor, and opening it never changes the connection.
     await group.getByRole("button", { name: `Actions for Mixed studio ${info.project.name}` }).click();
-    await page.getByRole("menuitem", { name: "Edit", exact: true }).click();
+    await page.getByRole("menuitem", { name: "Edit connection", exact: true }).click();
     const dialog = page.getByRole("dialog");
-    await expect(dialog.getByRole("button", { name: "Manage access" })).toBeVisible();
-    await expect(dialog.getByRole("button", { name: "Manage access" })).toHaveAttribute("aria-expanded", "false");
-    expect(await dialog.locator("[data-account-access]").evaluate((element) => !!element.closest("[inert]"))).toBe(
-      true,
-    );
-    await dialog.getByRole("button", { name: "Manage access" }).click();
-    await expect(dialog.locator("[data-account-access]")).toBeVisible();
-    expect(await dialog.locator("[data-account-access]").evaluate((element) => !!element.closest("[inert]"))).toBe(
-      false,
-    );
-    await expect(dialog.locator('[data-account-access] input[type="password"]')).toHaveCount(0);
+    await expect(dialog.locator("[data-account-address]")).toBeVisible();
+    await expect(dialog.getByRole("button", { name: "Replace", exact: true }).first()).toBeVisible();
+    // The API key shows masked, not as a field (the management token in More options may still be one).
+    await expect(dialog.getByLabel("API key", { exact: true })).toHaveCount(0);
     await page.keyboard.press("Escape");
     const after = (await (await request.get("/api/connection-accounts")).json()) as Array<{
       id: string;
@@ -280,5 +272,167 @@ test("Connections keep the established header, mixed models and compact role con
     await request.delete(`/api/connection-accounts/${created.account.id}`);
     for (const id of new Set(extraAccounts)) await request.delete(`/api/connection-accounts/${id}`);
     if (previousMain) await request.patch(`/api/connections/${previousMain.id}`, { data: { isDefault: true } });
+  }
+});
+
+test("Move to connection offers the same service first, then other services with a model step", async ({
+  page,
+  request,
+}, info) => {
+  const suffix = info.project.name;
+  const accounts: string[] = [];
+  const addAccount = async (provider: string, name: string, model: string) => {
+    const response = await request.post("/api/connection-accounts", {
+      data: {
+        provider,
+        name: `${name} ${suffix}`,
+        apiKey: "fixture-not-a-real-key",
+        baseUrl: "http://127.0.0.1:9/v1",
+        model,
+      },
+    });
+    expect(response.ok()).toBeTruthy();
+    const created = (await response.json()) as { account: { id: string }; connectionId: string };
+    accounts.push(created.account.id);
+    return created;
+  };
+  try {
+    const home = await addAccount("openai", "Move home", "gpt-5.5");
+    const twin = await addAccount("openai", "Move twin", "gpt-5.5-mini");
+    const router = await addAccount("openrouter", "Move router", "openai/gpt-4.1");
+    const empty = await addAccount("openrouter", "Move empty", "openai/gpt-4.1-mini");
+    const broken = await addAccount("openrouter", "Move broken", "openai/gpt-4o");
+    let brokenCalls = 0;
+    const modelName = `Move me ${suffix}`;
+    expect(
+      (await request.patch(`/api/connections/${home.connectionId}`, { data: { name: modelName } })).ok(),
+    ).toBeTruthy();
+
+    const moves: Array<{ accountId: string; model?: string }> = [];
+    await page.route(/\/api\/connections\/[^/]+\/move-candidates\?/, (route) => {
+      const target = new URL(route.request().url()).searchParams.get("accountId");
+      const base = { kind: "cross", provider: "openrouter", manualModelAllowed: false, catalogFetchedAt: null };
+      // The target's list fails to load once, then loads on Retry.
+      if (target === broken.account.id && brokenCalls++ === 0) {
+        return route.fulfill({ json: { ...base, catalogError: "Provider returned 503: down", candidates: [] } });
+      }
+      return route.fulfill({
+        json:
+          target === router.account.id || target === broken.account.id
+            ? {
+                ...base,
+                candidates: [
+                  { id: "openai/gpt-5.5", name: "OpenAI: GPT-5.5", match: "prefix", variant: false },
+                  { id: "openai/gpt-5.4", name: "OpenAI: GPT-5.4", match: "catalog", variant: false },
+                  { id: "openai/gpt-5.5:thinking", name: "OpenAI: GPT-5.5 Thinking", match: "prefix", variant: true },
+                ],
+              }
+            : { ...base, candidates: [] },
+      });
+    });
+    await page.route(/\/api\/connections\/[^/]+\/move$/, (route) => {
+      moves.push(route.request().postDataJSON());
+      return route.fulfill({ json: { id: home.connectionId } });
+    });
+    await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "" } }));
+    await seedUIState(page, {
+      hasCompletedOnboarding: true,
+      sidebarOpen: false,
+      rightPanelOpen: true,
+      rightPanel: "connections",
+      theme: "dark",
+    });
+    await page.addInitScript((v) => localStorage.setItem("marinara:whats-new:seen-version", v), version);
+    await page.goto("/");
+    const panel = page.locator("[data-connections-panel]").filter({ visible: true });
+    const openMove = async () => {
+      await panel.getByRole("searchbox", { name: "Search models and connections" }).fill(modelName);
+      await panel
+        .locator(`[data-connection-id="${home.connectionId}"]`)
+        .getByRole("button", { name: `Actions for ${modelName}`, exact: true })
+        .click();
+      await page.getByRole("menuitem", { name: /^Move to connection…/ }).click();
+      return page.getByRole("dialog", { name: "Move to connection" });
+    };
+
+    // Same service: listed above "Other services", and one tap moves without a model.
+    let dialog = await openMove();
+    const twinRow = dialog.locator(`[data-move-target="${twin.account.id}"]`);
+    const other = dialog.locator("[data-move-other]");
+    await expect(twinRow).toBeVisible();
+    await expect(other.getByRole("heading", { name: "Other services" })).toBeVisible();
+    await expect(other.locator(`[data-move-target="${router.account.id}"]`)).toBeVisible();
+    await expect(other.locator(`[data-move-target="${twin.account.id}"]`)).toHaveCount(0);
+    await twinRow.click();
+    await expect(page.getByText(`${modelName} moved to Move twin ${suffix}`)).toBeVisible();
+    await expect(dialog).toHaveCount(0);
+    expect(moves.at(-1)).toEqual({ accountId: twin.account.id });
+
+    // Another service: the best non-variant match is preselected; the variant is marked and not preselected.
+    dialog = await openMove();
+    await dialog.locator(`[data-move-target="${router.account.id}"]`).click();
+    const step = dialog.locator("[data-move-model-step]");
+    await expect(step.getByRole("heading", { name: `Choose the model on Move router ${suffix}` })).toBeVisible();
+    const best = step.locator('[data-move-candidate="openai/gpt-5.5"]');
+    await expect(best.getByRole("radio")).toBeChecked();
+    await expect(best).toContainText("Same model");
+    const variant = step.locator('[data-move-candidate="openai/gpt-5.5:thinking"]');
+    await expect(variant.getByRole("radio")).not.toBeChecked();
+    await expect(variant).toContainText("Thinking variant");
+    await expect(step.locator("[data-move-manual]")).toHaveCount(0);
+    await step.getByRole("button", { name: "Move", exact: true }).click();
+    await expect(page.getByText(`${modelName} moved to Move router ${suffix}`)).toBeVisible();
+    expect(moves.at(-1)).toEqual({ accountId: router.account.id, model: "openai/gpt-5.5" });
+
+    // No match and no free-form id: say so, keep the search, and leave Move off.
+    dialog = await openMove();
+    await dialog.locator(`[data-move-target="${empty.account.id}"]`).click();
+    await expect(dialog.locator("[data-move-not-offered]")).toHaveText(`Move empty ${suffix} doesn't offer this model`);
+    await expect(dialog.locator("[data-move-search]")).toBeVisible();
+    await expect(dialog.getByRole("button", { name: "Move", exact: true })).toBeDisabled();
+    // Back returns to the list of Connections.
+    await dialog.getByRole("button", { name: "Back", exact: true }).click();
+    await expect(dialog.locator("[data-move-targets]")).toBeVisible();
+
+    // A list that fails to load is not "doesn't offer": say so and offer Retry, which loads the candidates.
+    await dialog.locator(`[data-move-target="${broken.account.id}"]`).click();
+    const failed = dialog.locator("[data-move-catalog-error]");
+    await expect(failed).toContainText(`Couldn't load Move broken ${suffix}'s models`);
+    await expect(dialog.locator("[data-move-not-offered]")).toHaveCount(0);
+    await failed.getByRole("button", { name: "Retry", exact: true }).click();
+    await expect(dialog.locator('[data-move-candidate="openai/gpt-5.5"]').getByRole("radio")).toBeChecked();
+    await expect(failed).toHaveCount(0);
+    await dialog.getByRole("button", { name: "Back", exact: true }).click();
+    await expect(dialog.locator("[data-move-targets]")).toBeVisible();
+
+    // Proof screenshots of each step at phone and desktop width. A width change remounts the panel, so each width
+    // walks the steps again.
+    if (suffix === "desktop-chromium") {
+      await page.keyboard.press("Escape");
+      for (const width of [390, 1440]) {
+        await page.setViewportSize({ width, height: 900 });
+        dialog = await openMove();
+        await expect(dialog.locator("[data-move-targets]")).toBeVisible();
+        await page.waitForTimeout(400); // let the dialog finish its enter animation
+        await page.screenshot({ path: `.tmp/move-ui/targets-${width}-dark.png` });
+        await dialog.locator(`[data-move-target="${router.account.id}"]`).click();
+        await expect(dialog.locator('[data-move-candidate="openai/gpt-5.5"]')).toBeVisible();
+        await page.waitForTimeout(400); // let the dialog finish its enter animation
+        await page.screenshot({ path: `.tmp/move-ui/model-step-${width}-dark.png` });
+        await dialog.getByRole("button", { name: "Back", exact: true }).click();
+        await dialog.locator(`[data-move-target="${empty.account.id}"]`).click();
+        await expect(dialog.locator("[data-move-not-offered]")).toBeVisible();
+        await page.waitForTimeout(400); // let the dialog finish its enter animation
+        await page.screenshot({ path: `.tmp/move-ui/not-offered-${width}-dark.png` });
+        await page.keyboard.press("Escape");
+        await expect(dialog).toHaveCount(0);
+      }
+    }
+  } finally {
+    for (const id of accounts) {
+      const rows = (await (await request.get("/api/connections")).json()) as Array<{ id: string; accountId?: string }>;
+      for (const row of rows.filter((r) => r.accountId === id)) await request.delete(`/api/connections/${row.id}`);
+      await request.delete(`/api/connection-accounts/${id}`);
+    }
   }
 });

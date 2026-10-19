@@ -1,11 +1,24 @@
-import type { Key, ReactNode } from "react";
+import { useState, type Key, type ReactNode } from "react";
+import { ChevronDown, Plus } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { PROVIDERS, type APIProvider } from "@marinara-engine/shared";
 import { upstreamOf } from "../../lib/connection-groups";
+import { MODEL_KINDS, modelKindOf } from "../../lib/connection-identity";
 import { cn } from "../../lib/utils";
+import { BrandMark } from "./ProviderIcon";
 
-/** One model well, shared by connection cards, editors and pickers. Upstreams are labels, never folders. */
-export function ConnectionModelList<T extends { model?: string | null }>({
+/** A list longer than this starts folded: each upstream shows only its role (or starred) Models. */
+const FOLD_AT = 12;
+
+const ROW_FOCUS =
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)]";
+
+/**
+ * One model well, shared by connection cards, editors, the picker and the switcher. A proxy's upstreams are
+ * foldable headings; inside each, Models sort by kind (chat, image, video, voice, decision) and keep their order
+ * within a kind.
+ */
+export function ConnectionModelList<T extends { model?: string | null; provider?: string | null }>({
   provider,
   rows,
   getKey,
@@ -15,6 +28,11 @@ export function ConnectionModelList<T extends { model?: string | null }>({
   className,
   id,
   ariaLabel,
+  rolesOf,
+  isPinned,
+  autoFold = true,
+  onAddModels,
+  addLabel,
 }: {
   provider: string;
   rows: readonly T[];
@@ -25,8 +43,29 @@ export function ConnectionModelList<T extends { model?: string | null }>({
   className?: string;
   id?: string;
   ariaLabel?: string;
+  /** Localized role labels of a Model, for a folded upstream's hint. */
+  rolesOf?: (row: T) => readonly string[];
+  /** Stays visible in a folded upstream; a Model with a role by default. */
+  isPinned?: (row: T) => boolean;
+  /** Fold long lists; off while a search filters them. */
+  autoFold?: boolean;
+  /** The last row, "+ Add models". */
+  onAddModels?: () => void;
+  addLabel?: string;
 }) {
   const { t } = useTranslation();
+  const folding = autoFold && rows.length > FOLD_AT;
+  // Upstreams the user flipped from their starting state (open, or folded in a long list).
+  const [flipped, setFlipped] = useState<ReadonlySet<string>>(() => new Set());
+  const flip = (key: string) =>
+    setFlipped((keys) => {
+      const next = new Set(keys);
+      if (!next.delete(key)) next.add(key);
+      return next;
+    });
+  const pinned = (row: T) => (isPinned ? isPinned(row) : (rolesOf?.(row).length ?? 0) > 0);
+  const kindRank = (row: T) => MODEL_KINDS.indexOf(modelKindOf(row.provider));
+
   const sections = new Map<string, { label: string | null; rows: T[] }>();
   for (const row of rows) {
     const prefix = provider === "custom" ? upstreamOf(row.model)?.toLowerCase() : null;
@@ -41,25 +80,114 @@ export function ConnectionModelList<T extends { model?: string | null }>({
     sections.set(key, section);
   }
   const ordered = [...sections].sort(([a], [b]) => Number(!a) - Number(!b) || a.localeCompare(b));
+
+  // A folded upstream says what it hides: its roles, else its non-chat kinds.
+  const hintOf = (sectionRows: T[]) => {
+    const roles = [...new Set(sectionRows.flatMap((row) => rolesOf?.(row) ?? []))];
+    if (roles.length) return roles.join(", ");
+    const counts = new Map<string, number>();
+    for (const row of sectionRows) {
+      const kind = modelKindOf(row.provider);
+      if (kind !== "chat") counts.set(kind, (counts.get(kind) ?? 0) + 1);
+    }
+    return [...counts].map(([kind, count]) => t(`connections.accounts.kindCount.${kind}`, { count })).join(", ");
+  };
+
   return (
     <div id={id} aria-label={ariaLabel} className={cn("mari-connection-model-list min-w-0", className)}>
       {rows.length === 0 && empty}
-      {ordered.map(([upstream, section]) => (
-        <div key={upstream || "models"} data-connection-upstream={upstream || undefined} className="min-w-0">
-          {(section.label || ordered.length > 1) && (
-            <div className="px-4 pb-1 pt-2 text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
-              {section.label
-                ? t("connections.accounts.upstreamHeading", { upstream: section.label, count: section.rows.length })
-                : t("connections.accounts.section.other")}
-            </div>
+      {ordered.map(([upstream, section]) => {
+        const key = upstream || "models";
+        const headed = !!section.label || ordered.length > 1;
+        const open = folding === flipped.has(key);
+        const sorted = [...section.rows].sort((a, b) => kindRank(a) - kindRank(b));
+        const kept = open ? sorted : folding ? sorted.filter(pinned) : [];
+        // A heading folds on its own; a list without headings always offers "Show N more".
+        const hidden = sorted.length - kept.length;
+        const showMore = !open && hidden > 0 && (kept.length > 0 || !headed);
+        const hint = open ? "" : hintOf(sorted);
+        return (
+          <div key={key} data-connection-upstream={upstream || undefined} data-connection-section className="min-w-0">
+            {headed && (
+              <button
+                type="button"
+                aria-expanded={open}
+                onClick={() => flip(key)}
+                className={cn(
+                  // The 1rem mark sits centred in the rows' tile column; the label starts on the row text column.
+                  "mari-connection-model-section-head flex min-h-11 w-full min-w-0 items-center gap-2 ps-4 pe-2 text-left text-xs font-semibold text-[var(--foreground)] hover:bg-foreground/[0.04]",
+                  ROW_FOCUS,
+                )}
+              >
+                <span className="me-3 flex h-4 w-4 shrink-0 items-center justify-center" aria-hidden>
+                  {upstream && <BrandMark of={upstream} className="h-4 w-4" />}
+                </span>
+                <span className="min-w-0 truncate">{section.label ?? t("connections.accounts.section.other")}</span>
+                <span className="shrink-0 text-xs font-normal text-[var(--muted-foreground)]">
+                  {section.rows.length}
+                </span>
+                {hint && (
+                  <span className="min-w-0 truncate text-[0.6875rem] font-normal text-[var(--muted-foreground)]">
+                    <span aria-hidden>· </span>
+                    {hint}
+                  </span>
+                )}
+                <ChevronDown
+                  size="0.875rem"
+                  aria-hidden
+                  className={cn(
+                    "ms-auto shrink-0 text-[var(--muted-foreground)] transition-transform",
+                    !open && "-rotate-90",
+                  )}
+                />
+              </button>
+            )}
+            {kept.map((row) => (
+              <div key={getKey(row)} className="mari-connection-model-slot min-w-0">
+                {renderRow(row, upstream || null)}
+              </div>
+            ))}
+            {showMore && (
+              <div className="mari-connection-model-slot min-w-0">
+                <button
+                  type="button"
+                  aria-expanded={false}
+                  onClick={() => flip(key)}
+                  className={cn(
+                    "flex min-h-11 w-full items-center gap-3 ps-2 pe-2 text-left text-xs text-[var(--muted-foreground)] hover:bg-foreground/[0.04]",
+                    ROW_FOCUS,
+                  )}
+                >
+                  <span className="w-8 shrink-0" aria-hidden />
+                  <span className="min-w-0 flex-1 truncate">
+                    {t("connections.accounts.showMore", { count: hidden })}
+                  </span>
+                  <ChevronDown size="0.875rem" aria-hidden className="shrink-0" />
+                </button>
+              </div>
+            )}
+          </div>
+        );
+      })}
+      {onAddModels && (
+        <button
+          type="button"
+          data-add-models
+          onClick={onAddModels}
+          className={cn(
+            "mari-connection-browse mari-panel-gradient--connections flex min-h-12 w-full items-center gap-3 ps-2 pe-2 text-left text-sm font-semibold text-[var(--mari-connection-ink)] hover:bg-foreground/[0.04]",
+            ROW_FOCUS,
           )}
-          {section.rows.map((row) => (
-            <div key={getKey(row)} className="mari-connection-model-slot min-w-0">
-              {renderRow(row, upstream || null)}
-            </div>
-          ))}
-        </div>
-      ))}
+        >
+          <span
+            aria-hidden
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[0.5rem] bg-[var(--mari-connection-tint)]"
+          >
+            <Plus size="1rem" />
+          </span>
+          <span className="min-w-0 truncate">{addLabel ?? t("connections.accounts.addModels")}</span>
+        </button>
+      )}
       {footer}
     </div>
   );

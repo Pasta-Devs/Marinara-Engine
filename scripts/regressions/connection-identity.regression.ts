@@ -9,7 +9,13 @@ const comfy = getConnectionIdentity(
     { provider: "video_generation", videoGenerationSource: "comfyui" },
   ],
 );
-assert.deepEqual(comfy, { name: "ComfyUI", accountLabel: null, endpoint: "10.0.0.16:9000", service: "comfyui" });
+assert.deepEqual(comfy, {
+  name: "ComfyUI",
+  accountLabel: null,
+  title: "ComfyUI",
+  endpoint: "10.0.0.16:9000",
+  service: "comfyui",
+});
 assert.equal(
   getConnectionIdentity({ name: "My studio", provider: "image_generation", baseUrl: server }, [
     { provider: "image_generation", imageGenerationSource: "comfyui" },
@@ -27,6 +33,7 @@ const mixed = getConnectionIdentity(
 assert.equal(mixed.name, "OpenAI", "a media model does not rename a shared chat connection");
 assert.equal(mixed.service, null);
 assert.equal(mixed.accountLabel, "Work account");
+assert.equal(mixed.title, "Work account", "the title names the Connection, so two OpenAI Connections differ");
 const proxy = getConnectionIdentity({ name: "Bifrost Proxy", provider: "custom", baseUrl: "https://llm.example/v1" }, [
   { provider: "custom", model: "nanogpt/vendor/model" },
   { provider: "image_generation", imageGenerationSource: "openai" },
@@ -35,13 +42,13 @@ assert.equal(proxy.name, "Bifrost Proxy");
 assert.equal(proxy.accountLabel, null, "custom connection names are already the heading");
 assert.equal(proxy.service, null);
 assert.equal(proxy.endpoint, "llm.example");
-assert.equal(
-  getConnectionIdentity({ name: "NanoGPT · …55b5", provider: "nanogpt", baseUrl: "https://nano-gpt.com/api/v1" }, [
-    { provider: "nanogpt", model: "test" },
-  ]).accountLabel,
-  "…55b5",
-  "automatic key tails identify accounts without repeating their provider",
+assert.equal(proxy.title, "Bifrost Proxy");
+const tailed = getConnectionIdentity(
+  { name: "NanoGPT · …55b5", provider: "nanogpt", baseUrl: "https://nano-gpt.com/api/v1" },
+  [{ provider: "nanogpt", model: "test" }],
 );
+assert.equal(tailed.accountLabel, "…55b5", "automatic key tails identify accounts without repeating their provider");
+assert.equal(tailed.title, "NanoGPT · …55b5");
 const audio = getConnectionIdentity({ name: "Voice rig", provider: "audio" }, [
   { provider: "audio", audioSource: "pockettts", imageGenerationSource: "openai" },
 ]);

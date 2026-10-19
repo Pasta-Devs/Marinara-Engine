@@ -48,11 +48,10 @@ import { ProviderIcon } from "./ProviderIcon";
 
 const isLite = import.meta.env.VITE_MARINARA_LITE === "true";
 
-export const SMALL_ACTION =
-  "mari-chrome-control mari-chrome-control--small text-[0.6875rem] max-md:min-h-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)]";
+export const SMALL_ACTION = "mari-connection-btn";
 /** The facts and models card of a detail page, coloured from the Connections panel tokens. */
 export const DETAIL_CARD_CLASS =
-  "mari-panel-gradient--connections rounded-xl border border-[color-mix(in_srgb,var(--mari-panel-gradient-start)_20%,transparent)] bg-[linear-gradient(135deg,color-mix(in_srgb,var(--mari-panel-gradient-start)_5%,transparent),color-mix(in_srgb,var(--mari-panel-gradient-end)_5%,transparent))] p-3";
+  "mari-panel-gradient--connections rounded-xl bg-[linear-gradient(135deg,color-mix(in_srgb,var(--mari-panel-gradient-start)_5%,transparent),color-mix(in_srgb,var(--mari-panel-gradient-end)_5%,transparent))] p-3";
 
 export function formatBytes(bytes: number): string {
   if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(0)} MB`;
@@ -98,7 +97,7 @@ const QUANT_LABEL: Record<SidecarQuantization, string> = { q4_k_m: "Q4", q8_0: "
 export type EngineTone = "ok" | "warn" | "off";
 export const TONE_DOT: Record<EngineTone, string> = {
   ok: "bg-emerald-400",
-  warn: "bg-[var(--marinara-app-accent-static)]",
+  warn: "bg-amber-500",
   off: "bg-[var(--muted-foreground)]",
 };
 
@@ -108,7 +107,7 @@ export function StateWord({ tone, label }: { tone: EngineTone; label: string }) 
     <span
       className={cn(
         "inline-flex shrink-0 items-center gap-1",
-        tone === "warn" && "text-[var(--marinara-app-accent-static)]",
+        tone === "warn" && "text-[color-mix(in_srgb,var(--color-amber-500)_78%,var(--foreground)_22%)]",
       )}
     >
       <span aria-hidden className={cn("h-1.5 w-1.5 rounded-full", TONE_DOT[tone])} />

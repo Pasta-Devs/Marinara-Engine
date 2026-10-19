@@ -20,6 +20,8 @@ export type ConnectionIdentityValue = {
   name: string;
   /** A user-supplied Connection name. Generated service/endpoint names are omitted. */
   accountLabel: string | null;
+  /** The Connection's own name, the title of every view: what tells two OpenAI Connections apart. */
+  title: string;
   /** Host only, without scheme or path. */
   endpoint: string;
   /** Raw media source id for the service icon, or null for a chat Connection. */
@@ -58,7 +60,8 @@ function mediaServiceOf(rows: readonly ConnectionIdentityRow[]): string | null {
   return null;
 }
 
-function serviceName(service: string | null, provider: string): string {
+/** A service's display name: a media source's, else its provider's. */
+export function serviceName(service: string | null, provider: string): string {
   if (service) {
     if (provider === "audio" && AUDIO_SERVICE_NAMES[service]) return AUDIO_SERVICE_NAMES[service];
     const source = [...IMAGE_GENERATION_SOURCES, ...VIDEO_GENERATION_SOURCES].find((entry) => entry.id === service);
@@ -92,6 +95,7 @@ export function getConnectionIdentity(
     return {
       name,
       accountLabel: generatedTail,
+      title: generatedTail ? `${name} · ${generatedTail}` : name,
       endpoint: endpoint.localeCompare(name, undefined, { sensitivity: "accent" }) === 0 ? "" : endpoint,
       service: null,
     };
@@ -105,11 +109,43 @@ export function getConnectionIdentity(
     (candidate) => candidate && candidate.localeCompare(savedName, undefined, { sensitivity: "accent" }) === 0,
   );
 
+  const accountLabel = generatedTail ?? (savedName && !automatic ? savedName : null);
   return {
     name: providerName,
-    accountLabel: generatedTail ?? (savedName && !automatic ? savedName : null),
+    accountLabel,
+    title: generatedTail ? `${providerName} · ${generatedTail}` : (accountLabel ?? providerName),
     endpoint:
       endpoint && endpoint.localeCompare(providerName, undefined, { sensitivity: "accent" }) !== 0 ? endpoint : "",
     service,
   };
 }
+
+/** A model id without the gateway upstream its list already heads it with ("NanoGPT/glm" under nanogpt → "glm"). */
+export function modelIdLabel(model: string | null | undefined, upstream: string | null = null): string {
+  const id = model?.trim() ?? "";
+  return upstream && id.toLowerCase().startsWith(`${upstream.toLowerCase()}/`) ? id.slice(upstream.length + 1) : id;
+}
+
+/** The one line under a Model's name everywhere: its model id, else its media service. */
+export function modelSubtitle(row: ConnectionIdentityRow, upstream: string | null = null): string {
+  return (
+    modelIdLabel(row.model, upstream) ||
+    row.imageService ||
+    row.imageGenerationSource ||
+    row.videoService ||
+    row.videoGenerationSource ||
+    ""
+  );
+}
+
+export type ModelKind = "chat" | "image" | "video" | "voice" | "decision";
+/** The order kinds sort in inside a model list. */
+export const MODEL_KINDS: readonly ModelKind[] = ["chat", "image", "video", "voice", "decision"];
+const KIND_OF_PROVIDER: Record<string, ModelKind> = {
+  image_generation: "image",
+  video_generation: "video",
+  audio: "voice",
+  decision: "decision",
+};
+export const modelKindOf = (provider: string | null | undefined): ModelKind =>
+  KIND_OF_PROVIDER[provider ?? ""] ?? "chat";

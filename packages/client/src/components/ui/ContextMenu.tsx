@@ -16,6 +16,8 @@ export interface ContextMenuItem {
   hint?: string;
   /** Marks the current choice when the menu picks one value. */
   checked?: boolean;
+  /** An on/off setting: `checked` is its state, not the menu's one choice. */
+  toggle?: boolean;
 }
 
 interface ContextMenuProps {
@@ -69,23 +71,28 @@ export function ContextMenu({
     const onDown = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) onClose();
     };
+    // Escape is the menu's alone: captured before React's own listeners, so the panel or dialog under the
+    // menu does not close with it.
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key !== "Escape") return;
+      e.preventDefault();
+      e.stopPropagation();
+      onClose();
     };
     // A long menu scrolls itself; only scrolling the page behind it closes it.
     const onScroll = (e: Event) => {
       if (!ref.current?.contains(e.target as Node)) onClose();
     };
+    window.addEventListener("keydown", onKey, true);
     const raf = requestAnimationFrame(() => {
       document.addEventListener("mousedown", onDown);
-      document.addEventListener("keydown", onKey);
       window.addEventListener("scroll", onScroll, true);
       window.addEventListener("resize", onClose);
     });
     return () => {
       cancelAnimationFrame(raf);
       document.removeEventListener("mousedown", onDown);
-      document.removeEventListener("keydown", onKey);
+      window.removeEventListener("keydown", onKey, true);
       window.removeEventListener("scroll", onScroll, true);
       window.removeEventListener("resize", onClose);
     };
@@ -95,7 +102,8 @@ export function ContextMenu({
     <div
       ref={ref}
       role="menu"
-      style={{ position: "fixed", left: pos.left, top: pos.top, zIndex: 9999 }}
+      // Above a modal (z 10000), so a menu opened inside a dialog shows.
+      style={{ position: "fixed", left: pos.left, top: pos.top, zIndex: 10001 }}
       className="max-h-[calc(100dvh-0.5rem)] min-w-[12rem] max-w-[min(20rem,calc(100vw-0.5rem))] overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--card)] py-1 shadow-xl animate-fade-in-up"
       onContextMenu={(e) => e.preventDefault()}
     >
@@ -103,7 +111,7 @@ export function ContextMenu({
         <button
           key={`${item.label}-${i}`}
           type="button"
-          role={item.checked === undefined ? "menuitem" : "menuitemradio"}
+          role={item.toggle ? "menuitemcheckbox" : item.checked === undefined ? "menuitem" : "menuitemradio"}
           aria-checked={item.checked}
           disabled={item.disabled}
           onClick={() => {

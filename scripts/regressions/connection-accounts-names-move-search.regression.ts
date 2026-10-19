@@ -1,7 +1,9 @@
 // Connection accounts, decisions 27/28: an automatic name gets the key's last 4 when another Connection of the same
 // service exists (a typed name stays as typed; two custom hosts are already apart); "Move to connection…" moves a
 // Model to another Connection of the same service, takes its key and catalog, keeps the Model's id and respects the
-// review gate; the catalog search ranks starred, then saved, then prefix matches, then the rest, before the limit.
+// review gate; a move to another chat service needs a target catalog model (ranked candidates, variants flagged),
+// keeps the id, roles and chat picks, moves the star and resets service-only fields; the catalog search ranks starred, then saved, then prefix matches, then the rest, before the limit.
+// Picture menu: a Connection and a Model show one picture at a time (logo, letters, upload or the default).
 import assert from "node:assert/strict";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -11,7 +13,7 @@ const directory = mkdtempSync(join(tmpdir(), "marinara-connection-accounts-names
 process.env.DATA_DIR = directory;
 process.env.FILE_STORAGE_DIR = join(directory, "storage");
 const { getDB, closeDB } = await import("../../packages/server/src/db/connection.js");
-const { apiConnections, connectionAccounts } = await import("../../packages/server/src/db/schema/index.js");
+const { apiConnections, chats, connectionAccounts } = await import("../../packages/server/src/db/schema/index.js");
 const { eq } = await import("../../packages/server/src/db/file-query.js");
 const { decryptApiKey, encryptApiKey } = await import("../../packages/server/src/utils/crypto.js");
 const { createConnectionsStorage } = await import("../../packages/server/src/services/storage/connections.storage.js");
@@ -19,7 +21,8 @@ const { linkConnectionAccounts, createConnectionAccountsStorage } =
   await import("../../packages/server/src/services/storage/connection-accounts.storage.js");
 const { connectionAccountsRoutes } = await import("../../packages/server/src/routes/connection-accounts.routes.js");
 const { connectionsRoutes } = await import("../../packages/server/src/routes/connections.routes.js");
-const { rankModelMatch, withKeyTail } = await import("../../packages/shared/src/index.js");
+const { connectionIconSchema, parseConnectionIcon, rankModelMatch, rankModelMoveCandidates, withKeyTail } =
+  await import("../../packages/shared/src/index.js");
 const { default: Fastify } = await import("../../packages/server/node_modules/fastify/fastify.js");
 
 const db = await getDB();
@@ -132,7 +135,8 @@ try {
     "the key comes from the new Connection",
   );
   assert.deepEqual(JSON.parse(after.pinnedModels), ["starred-on-second"], "its favorites apply");
-  assert.match(after.savedModels ?? "", /from-second/u, "its catalog applies");
+  assert.equal(after.savedModels, null, "no copy on the row");
+  assert.match(JSON.stringify(await connections.readCatalog(after)), /from-second/u, "its catalog applies");
   assert.equal((await connections.getWithKey(model.id))?.id, model.id, "the id stays, so references keep working");
   assert.deepEqual(await linkConnectionAccounts(db), { created: 0, linked: 0, detached: 0 }, "the link is consistent");
 
@@ -207,7 +211,7 @@ try {
   assert.equal(video.accountId, imageAccountId);
   assert.equal(video.provider, "video_generation");
   assert.equal(video.baseUrl, "http://127.0.0.1:7100", "its own endpoint is untouched");
-  assert.match(video.savedModels ?? "", /"wf"/u, "no same-kind peer: its catalog stays");
+  assert.match(JSON.stringify(await connections.readCatalog(video)), /"wf"/u, "no same-kind peer: its catalog stays");
   assert.equal(video.pinnedModels, '["wf"]');
   assert.equal(video.comfyuiWorkflow, '{"node":{"inputs":{"text":"%prompt%"}}}', "workflow unchanged");
   // Shared settings edits reach both kinds, and the address edit does not detach the video Model.
@@ -270,6 +274,7 @@ try {
     200,
   );
   assert.equal((await rowOf(keyedVideo.id)).savedModels, null, "changed key clears old catalog");
+  assert.equal(await connections.readCatalog(await rowOf(keyedVideo.id)), null);
 
   // ── Catalog search order: starred, saved, prefix, substring; ranked before the limit ──
   const catalogRow = await rowOf(hostB.row);
@@ -296,6 +301,311 @@ try {
       .map((hit: { model: string }) => hit.model);
   assert.deepEqual(await search(30), ["v/zz-alphastar", "v/alpha-saved", "v/alpha-one", "v/zalpha"]);
   assert.deepEqual(await search(2), ["v/zz-alphastar", "v/alpha-saved"], "the limit cuts after ranking");
+
+  // ── Move to another service: ranked candidates, then the move keeps the id and roles and resets service fields ──
+  const ranked = rankModelMoveCandidates("nanogpt/deepseek-v3", [
+    { id: "deepseek-v3:thinking" },
+    { id: "other" },
+    { id: "deepseek/deepseek-v3" },
+    { id: "nanogpt/deepseek-v3" },
+    { id: "deepseek-v3" },
+  ]).map(({ model: hit, match, variant }) => `${hit.id}|${match}|${variant}`);
+  assert.deepEqual(ranked, [
+    "nanogpt/deepseek-v3|exact|false",
+    "deepseek/deepseek-v3|prefix|false",
+    "deepseek-v3|prefix|false",
+    "deepseek-v3:thinking|catalog|true",
+  ]);
+  assert.deepEqual(
+    rankModelMoveCandidates("openai/gpt-5:free", [{ id: "gpt-5" }]).map((hit) => hit.variant),
+    [true],
+    "a billing variant is flagged, never a plain match",
+  );
+  assert.deepEqual(
+    rankModelMoveCandidates("claude-sonnet-4-5[1m]", [{ id: "claude-sonnet-4-5" }]).map((hit) => hit.variant),
+    [true],
+    "a context variant is flagged",
+  );
+  assert.deepEqual(
+    rankModelMoveCandidates("claude-sonnet-4-5@20250929", [{ id: "claude-sonnet-4-5-20250929" }]).map((hit) => [
+      hit.match,
+      hit.variant,
+    ]),
+    [["catalog", false]],
+    "a Vertex date pin is the same model",
+  );
+
+  const anthropic = await addAccount({ provider: "anthropic", apiKey: "fixture-anthropic-key-8888" });
+  const router = await addAccount({ provider: "openrouter", apiKey: "fixture-router-key-9999" });
+  assert(
+    await connections.saveModelListIfUnchanged(await rowOf(router.row), [
+      { id: "openai/gpt-5", name: "GPT-5" },
+      { id: "anthropic/claude-sonnet-4.5:thinking", name: "Sonnet thinking" },
+      {
+        id: "anthropic/claude-sonnet-4.5",
+        name: "Claude Sonnet 4.5",
+        context: 1000000,
+        maxOutput: 64000,
+        pricing: { prompt: 3, completion: 15 },
+      },
+    ]),
+  );
+  await connections.setModelPinned(router.row, "openai/gpt-5", true);
+  const traveller = (await connections.create({
+    name: "claude-sonnet-4-5",
+    provider: "anthropic",
+    model: "claude-sonnet-4-5",
+    accountId: anthropic.id,
+  } as never))!;
+  await connections.setModelPinned(traveller.id, "claude-sonnet-4-5", true);
+  await db
+    .update(apiConnections)
+    .set({
+      isDefault: "true",
+      fallbackForAgents: "true",
+      claudeFastMode: "true",
+      anthropicExtendedCacheTtl: "true",
+      openrouterProvider: "Anthropic",
+      maxTokensOverride: 128000,
+      promptPresetId: "preset-1",
+      icon: "letters:CS",
+      folderId: "folder-1",
+      defaultParameters: JSON.stringify({ temperature: 0.5, topK: 40, enabledParameters: { topK: true } }),
+    })
+    .where(eq(apiConnections.id, traveller.id));
+  // Chat picks: the old model, a model the target offers under its gateway path, and one it does not offer.
+  const chatPicks = {
+    "chat-same": "claude-sonnet-4-5",
+    "chat-prefix": "gpt-5",
+    "chat-gone": "claude-opus-4-1",
+  } as const;
+  for (const [chatId, pickModel] of Object.entries(chatPicks)) {
+    await db.insert(chats).values({
+      id: chatId,
+      name: chatId,
+      mode: "conversation",
+      connectionId: traveller.id,
+      metadata: JSON.stringify({
+        modelOverride: { connectionId: traveller.id, model: pickModel, maxContext: 5 },
+        recentModels: [
+          { connectionId: traveller.id, model: pickModel },
+          { connectionId: "other-row", model: "x" },
+        ],
+      }),
+      createdAt: stamp,
+      updatedAt: stamp,
+    } as never);
+  }
+
+  const plan = await json("GET", `/connections/${traveller.id}/move-candidates?accountId=${router.id}`);
+  assert.equal(plan.status, 200, plan.body);
+  assert.equal(plan.data.kind, "cross");
+  assert.equal(plan.data.manualModelAllowed, false);
+  assert.deepEqual(
+    plan.data.candidates.map((hit: Record<string, unknown>) => [hit.id, hit.match, hit.variant, hit.cost ?? null]),
+    [
+      ["anthropic/claude-sonnet-4.5", "catalog", false, "paid"],
+      ["anthropic/claude-sonnet-4.5:thinking", "catalog", true, null],
+    ],
+  );
+  assert.equal(plan.data.candidates[0].context, 1000000);
+  assert.equal((await json("GET", `/connections/${traveller.id}/move-candidates`)).status, 400);
+  assert.equal(
+    (await json("GET", `/connections/${traveller.id}/move-candidates?accountId=${anthropic.id}`)).data.kind,
+    "mismatch",
+    "its own Connection",
+  );
+
+  // Refused: no model, a model the target does not offer, a media Connection.
+  assert.equal((await json("POST", `/connections/${traveller.id}/move`, { accountId: router.id })).status, 400);
+  assert.equal(
+    (await json("POST", `/connections/${traveller.id}/move`, { accountId: router.id, model: "x/not-offered" })).status,
+    400,
+  );
+  assert.equal(
+    (await json("POST", `/connections/${traveller.id}/move`, { accountId: imageAccountId, model: "m" })).status,
+    400,
+    "a chat Model never becomes a media Model",
+  );
+  assert.equal((await rowOf(traveller.id)).provider, "anthropic", "a refused move changes nothing");
+
+  const crossed = await json("POST", `/connections/${traveller.id}/move`, {
+    accountId: router.id,
+    model: "anthropic/claude-sonnet-4.5",
+  });
+  assert.equal(crossed.status, 200, crossed.body);
+  assert(!crossed.body.includes("fixture-"), "the response is masked");
+  const moved2 = await rowOf(traveller.id);
+  assert.equal(moved2.id, traveller.id, "the id stays");
+  assert.equal(moved2.accountId, router.id);
+  assert.equal(moved2.provider, "openrouter");
+  assert.equal(moved2.model, "anthropic/claude-sonnet-4.5");
+  assert.equal(moved2.baseUrl, (await rowOf(router.row)).baseUrl);
+  assert.equal(decryptApiKey(moved2.apiKeyEncrypted), "fixture-router-key-9999");
+  assert.equal(moved2.name, "Claude Sonnet 4.5", "an automatic name follows the model");
+  assert.equal(moved2.maxContext, 1000000);
+  assert.equal(moved2.maxTokensOverride, 64000, "clamped to the model's output limit");
+  assert.deepEqual(
+    [moved2.isDefault, moved2.fallbackForAgents, moved2.promptPresetId, moved2.icon, moved2.folderId],
+    ["true", "true", "preset-1", "letters:CS", "folder-1"],
+    "roles, preset, picture and folder stay",
+  );
+  assert.deepEqual(
+    [moved2.claudeFastMode, moved2.anthropicExtendedCacheTtl, moved2.openrouterProvider],
+    ["false", "false", null],
+    "service-only fields are reset",
+  );
+  assert.deepEqual(
+    JSON.parse(moved2.defaultParameters!),
+    { temperature: 0.5, enabledParameters: { topK: true } },
+    "top-k is dropped: the target never sends it for this model",
+  );
+  assert.deepEqual(JSON.parse(moved2.pinnedModels), ["openai/gpt-5", "anthropic/claude-sonnet-4.5"], "star moved");
+  assert.equal((await rowOf(router.row)).pinnedModels, moved2.pinnedModels, "the Connection's stars are shared");
+  const chatMeta = async (chatId: string) => {
+    const chat = (await db.select().from(chats).where(eq(chats.id, chatId)))[0]!;
+    assert.equal(chat.connectionId, traveller.id, "chats keep pointing at the Model");
+    return JSON.parse(chat.metadata);
+  };
+  const same = await chatMeta("chat-same");
+  assert.deepEqual(
+    same.modelOverride,
+    {
+      connectionId: traveller.id,
+      model: "anthropic/claude-sonnet-4.5",
+      name: "Claude Sonnet 4.5",
+      maxContext: 1000000,
+    },
+    "the old model becomes the new one, with the target's limits",
+  );
+  assert.equal(same.recentModels[0].model, "anthropic/claude-sonnet-4.5");
+  assert.deepEqual(same.recentModels[1], { connectionId: "other-row", model: "x" }, "other Models are untouched");
+  const prefixed = await chatMeta("chat-prefix");
+  assert.deepEqual(prefixed.modelOverride, { connectionId: traveller.id, model: "openai/gpt-5", name: "GPT-5" });
+  assert.equal(prefixed.recentModels[0].model, "openai/gpt-5");
+  const gone = await chatMeta("chat-gone");
+  assert.equal(gone.modelOverride, null, "a model the target lacks is cleared: the chat runs the Model's model");
+  assert.deepEqual(gone.recentModels[0], { connectionId: traveller.id }, "no old-provider id stays");
+
+  // A custom endpoint takes any model id.
+  const toCustom = await json("GET", `/connections/${traveller.id}/move-candidates?accountId=${hostA2.id}`);
+  assert.equal(toCustom.data.manualModelAllowed, true);
+  assert.equal(
+    (await json("POST", `/connections/${traveller.id}/move`, { accountId: hostA2.id, model: "my-local-model" })).status,
+    200,
+  );
+  assert.equal((await rowOf(traveller.id)).model, "my-local-model");
+  assert.equal((await rowOf(traveller.id)).baseUrl, "https://a.example/v1");
+
+  // A target with no saved list for its own provider: the list is fetched with the target's key and saved; a failed
+  // fetch is its own state (not "does not offer"), and the move itself fetches before it validates.
+  const lazy = await addAccount({ provider: "openai", baseUrl: "http://127.0.0.1:9/v1", apiKey: "fixture-lazy-4444" });
+  const accountCatalogs = async (id: string) =>
+    JSON.parse(
+      (await db.select().from(connectionAccounts).where(eq(connectionAccounts.id, id)))[0]!.modelCatalogs ?? "{}",
+    );
+  const realFetch = globalThis.fetch;
+  const fetched: string[] = [];
+  let modelsUp = false;
+  globalThis.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
+    fetched.push(`${String(url)} ${new Headers(init?.headers).get("authorization")}`);
+    return modelsUp
+      ? new Response(JSON.stringify({ data: [{ id: "gpt-5" }, { id: "gpt-5-mini" }] }), {
+          headers: { "content-type": "application/json" },
+        })
+      : new Response("down", { status: 503 });
+  }) as typeof fetch;
+  try {
+    const down = await json("GET", `/connections/${traveller.id}/move-candidates?accountId=${lazy.id}`);
+    assert.equal(down.status, 200, down.body);
+    assert.equal(down.data.catalogFetchedAt, null);
+    assert.match(down.data.catalogError, /503/);
+    assert.deepEqual(down.data.candidates, []);
+    assert.equal(fetched[0], "http://127.0.0.1:9/v1/models Bearer fixture-lazy-4444", "the target's own key");
+    const refused = await json("POST", `/connections/${traveller.id}/move`, { accountId: lazy.id, model: "gpt-5" });
+    assert.equal(refused.status, 502, "a failed list is not 'does not offer'");
+    assert.equal((await rowOf(traveller.id)).provider, "custom");
+    modelsUp = true;
+    const up = await json("GET", `/connections/${traveller.id}/move-candidates?accountId=${lazy.id}`);
+    assert.equal(up.data.catalogError, undefined);
+    assert.ok(up.data.catalogFetchedAt);
+    assert.deepEqual(
+      (await accountCatalogs(lazy.id)).openai.models.map((m: { id: string }) => m.id),
+      ["gpt-5", "gpt-5-mini"],
+      "saved to the Connection's catalog",
+    );
+    await db.update(connectionAccounts).set({ modelCatalogs: null }).where(eq(connectionAccounts.id, lazy.id));
+    const callsBefore = fetched.length;
+    const lazyMove = await json("POST", `/connections/${traveller.id}/move`, { accountId: lazy.id, model: "gpt-5" });
+    assert.equal(lazyMove.status, 200, lazyMove.body);
+    assert.equal(fetched.length, callsBefore + 1, "the move fetched the missing list");
+    assert.deepEqual([(await rowOf(traveller.id)).provider, (await rowOf(traveller.id)).model], ["openai", "gpt-5"]);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+
+  // An address change that detaches the last Model of a provider drops that provider's catalog too.
+  const shared = await addAccount({ provider: "custom", baseUrl: "https://c.example/v1", apiKey: "fixture-c-5555" });
+  const sideRow = (await connections.create({
+    name: "side",
+    provider: "image_generation",
+    model: "m",
+    baseUrl: "https://c.example/v1",
+  } as never))!;
+  await db.update(apiConnections).set({ accountId: shared.id }).where(eq(apiConnections.id, sideRow.id));
+  await db
+    .update(connectionAccounts)
+    .set({ modelCatalogs: JSON.stringify({ image_generation: { fetchedAt: "x", models: [{ id: "m" }] } }) })
+    .where(eq(connectionAccounts.id, shared.id));
+  assert.equal((await json("PATCH", `/accounts/${shared.id}`, { baseUrl: "https://d.example/v1" })).status, 200);
+  assert.equal((await rowOf(sideRow.id)).accountId, null, "the other-origin Model left");
+  assert.deepEqual(await accountCatalogs(shared.id), {}, "its catalog left with it");
+
+  // ── Picture: default, brand logo, letters, upload, reset (Connection and Model) ──
+  assert.equal(connectionIconSchema.parse("letters: ab "), "letters:ab", "letters are trimmed");
+  assert.equal(connectionIconSchema.parse("letters:👍🏽A"), "letters:👍🏽A", "two graphemes, not two code units");
+  for (const bad of ["letters:ABC", "letters:", "letters:a b", "brand:../x", "brand:", "emoji:x", "x".repeat(65)]) {
+    assert.equal(connectionIconSchema.safeParse(bad).success, false, bad);
+  }
+  assert.equal(parseConnectionIcon("brand:Bad Key"), null, "a stored malformed value reads as the default");
+  const png = `data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=`;
+  const accountPicture = async () => {
+    const item = (await json("GET", "/accounts")).data.find((a: { id: string }) => a.id === hostB.id);
+    return { icon: item.icon, imagePath: item.imagePath };
+  };
+  assert.deepEqual(await accountPicture(), { icon: null, imagePath: null }, "a new Connection shows its service logo");
+  assert.equal((await json("PATCH", `/accounts/${hostB.id}`, { icon: "brand:openai" })).data.icon, "brand:openai");
+  assert.equal((await json("PATCH", `/accounts/${hostB.id}`, { name: "Renamed" })).data.icon, "brand:openai");
+  assert.ok((await json("PATCH", `/accounts/${hostB.id}`, { icon: "letters:abc" })).status >= 400, "three letters");
+  assert.equal((await accountPicture()).icon, "brand:openai", "a refused icon changes nothing");
+  const uploaded = await json("POST", `/accounts/${hostB.id}/image`, { image: png });
+  assert.equal(uploaded.status, 200, uploaded.body);
+  assert.match(uploaded.data.imagePath, /^\/api\/connections\/images\/file\/connection-.+\.png$/);
+  assert.equal(uploaded.data.icon, null, "an upload replaces the chosen logo");
+  assert.equal((await json("POST", `/accounts/${hostB.id}/image`, { image: "bm90IGFuIGltYWdl" })).status, 400);
+  assert.equal((await json("POST", `/accounts/no-such-id/image`, { image: png })).status, 404);
+  const lettered = await json("PATCH", `/accounts/${hostB.id}`, { icon: "letters: R " });
+  assert.deepEqual([lettered.data.icon, lettered.data.imagePath], ["letters:R", null], "letters replace the upload");
+  await json("POST", `/accounts/${hostB.id}/image`, { image: png });
+  const accountReset = await json("PATCH", `/accounts/${hostB.id}`, { icon: null });
+  assert.deepEqual([accountReset.data.icon, accountReset.data.imagePath], [null, null], "reset clears both");
+
+  const modelPicture = async () => {
+    const row = await rowOf(hostB.row);
+    return { icon: row.icon, imagePath: row.imagePath };
+  };
+  assert.deepEqual(await modelPicture(), { icon: null, imagePath: null });
+  assert.equal((await json("PATCH", `/connections/${hostB.row}`, { icon: "letters:Ω" })).status, 200);
+  assert.deepEqual(await modelPicture(), { icon: "letters:Ω", imagePath: null });
+  assert.ok((await json("PATCH", `/connections/${hostB.row}`, { icon: "brand:a/b" })).status >= 400);
+  assert.equal((await json("POST", `/connections/${hostB.row}/image`, { image: png })).status, 200);
+  const modelUploaded = await modelPicture();
+  assert.equal(modelUploaded.icon, null, "a Model upload replaces its letters");
+  assert.ok(modelUploaded.imagePath, "and keeps the existing imagePath column");
+  await json("PATCH", `/connections/${hostB.row}`, { icon: "brand:claude" });
+  assert.deepEqual(await modelPicture(), { icon: "brand:claude", imagePath: null }, "a logo replaces the upload");
+  await json("PATCH", `/connections/${hostB.row}`, { icon: null });
+  assert.deepEqual(await modelPicture(), { icon: null, imagePath: null }, "reset clears both");
   console.log("connection-accounts-names-move-search: ok");
 } finally {
   await app.close();

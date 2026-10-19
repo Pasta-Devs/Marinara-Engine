@@ -1,14 +1,12 @@
 // ──────────────────────────────────────────────
-// Panel: Connections (concept A, the library). Staging's action row (Add, Import, ⋯), search and a filter (All,
-// Chat, Images & voice); then the Defaults block, one folding block per Connection with its Models of every kind,
-// and the engines set up on this device. Defaults unfolds in place on a narrow panel; a wide panel shows it, a
-// device or the other Models as a second column, a narrow one drills in. Search and the filter narrow the blocks in
-// place: a Connection that matches shows all its Models, and its fold still works.
+// Panel: Connections (concept A, the library). One header row (Search, Add, ⋯ with Import and Export); then the
+// Defaults box, one folding block per Connection with its Models of every kind, and the engines set up on this
+// device. A device or the other Models open as a second column on a wide panel; a narrow one drills in. Search
+// narrows the blocks in place: a Connection that matches shows all its Models, and its fold still works. With no
+// Connection yet the panel only teaches the first step.
 // ──────────────────────────────────────────────
-import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentProps, type ReactNode } from "react";
 import {
-  AlertTriangle,
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
   CloudOff,
@@ -20,9 +18,9 @@ import {
   Plus,
   RefreshCw,
   Search,
-  Settings2,
   Upload,
   X,
+  BadgeDollarSign,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
@@ -32,10 +30,11 @@ import {
   IMAGE_SOURCE_VENDOR,
   PROVIDERS,
   isChatProvider,
+  isLocalAuthProvider,
   parsePinnedModels,
   type APIProvider,
 } from "@marinara-engine/shared";
-import { useConnections, useMoveConnection, useUploadConnectionImage } from "../../hooks/use-connections";
+import { useConnections, type CachedCatalogFacts } from "../../hooks/use-connections";
 import { useConnectionAccounts } from "../../hooks/use-connection-accounts";
 import { starAnchorOf, useHiddenModelIds, useModelStar } from "../../hooks/use-model-star";
 import type { DeviceItem } from "../../hooks/use-device-setup";
@@ -53,13 +52,15 @@ import {
 import { groupModelsByAccount } from "../../lib/connection-groups";
 import { ConnectionRow, isMediaRow, mediaService, type ConnectionRowData } from "../connections/ConnectionRow";
 import { ConnectionGroup, GROUP_SURFACE, hostOf } from "../connections/ConnectionGroup";
-import { ConnectionDefaultsDetail, useConnectionDefaults } from "../connections/ConnectionDefaults";
+import { ConnectionDefaultsBox, DEFAULTS_FOLD_ID } from "../connections/ConnectionDefaults";
 import { DeviceDetail, SMALL_ACTION, StateWord, useDeviceEngines } from "../connections/DeviceDetail";
 import { BrandMark, ProviderIcon } from "../connections/ProviderIcon";
 import { openAddConnection } from "../../lib/add-connection";
 import { useChatModelPick } from "../connections/ConnectionSwitcherBody";
 import { PanelSection } from "../ui/PanelSection";
 import { ContextMenu } from "../ui/ContextMenu";
+import { PictureMenu } from "../connections/PictureMenu";
+import { MoveConnectionDialog } from "../connections/MoveConnectionDialog";
 
 /** Two columns from this panel width; below it a row drills in. */
 const WIDE_PANEL_PX = 768;
@@ -103,11 +104,9 @@ function ListRow({
   sub,
   label,
   fix,
-  expanded,
-  controls,
   onOpen,
 }: {
-  /** The page the row opens: "defaults", "device:<item>" or "other". */
+  /** The page the row opens: "device:<item>" or "other". */
   rowKey: string;
   selected: boolean;
   tile: ReactNode;
@@ -115,9 +114,6 @@ function ListRow({
   sub: ReactNode;
   label: string;
   fix?: { label: string; aria: string; run: () => void };
-  /** Set when the row unfolds its content in place instead of opening a page. */
-  expanded?: boolean;
-  controls?: string;
   onOpen: () => void;
 }) {
   return (
@@ -127,7 +123,7 @@ function ListRow({
       {selected && (
         <span
           aria-hidden
-          className="mari-chrome-accent-progress mari-accent-animated absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-full"
+          className="pointer-events-none absolute inset-y-2 left-0 w-0.5 rounded-full bg-[var(--mari-panel-gradient-start)]"
         />
       )}
       <button
@@ -135,42 +131,32 @@ function ListRow({
         data-connections-row={rowKey}
         onClick={onOpen}
         aria-current={selected || undefined}
-        aria-expanded={expanded}
-        aria-controls={expanded ? controls : undefined}
         aria-label={label}
         className={cn(
           "group flex min-h-12 min-w-0 flex-1 items-center gap-3 rounded-xl p-2 text-left transition-colors hover:bg-[var(--sidebar-accent)]",
-          rowKey === "defaults" && "mari-connection-defaults-row",
           FOCUS,
         )}
       >
         {tile}
         <span className="min-w-0 flex-1">
-          <span data-connection-list-title className="block break-words text-sm leading-5 text-[var(--foreground)]">
+          <span
+            data-connection-list-title
+            className="block break-words text-sm font-semibold leading-5 text-[var(--foreground)]"
+          >
             {title}
           </span>
           <span
             data-connection-list-subtitle
-            className="flex min-w-0 flex-wrap items-center gap-x-1.5 text-[0.6875rem] text-[var(--muted-foreground)]"
+            className="flex min-w-0 flex-wrap items-center gap-x-1.5 text-xs text-[var(--muted-foreground)]"
           >
             {sub}
           </span>
         </span>
-        {expanded !== undefined ? (
-          <ChevronDown
+        {!fix && (
+          <ChevronRight
             size="0.875rem"
-            className={cn(
-              "shrink-0 text-[var(--muted-foreground)] transition-transform motion-reduce:transition-none",
-              !expanded && "-rotate-90",
-            )}
+            className="shrink-0 text-[var(--muted-foreground)] opacity-60 group-hover:opacity-100"
           />
-        ) : (
-          !fix && (
-            <ChevronRight
-              size="0.875rem"
-              className="shrink-0 text-[var(--muted-foreground)] opacity-60 group-hover:opacity-100"
-            />
-          )
         )}
       </button>
       {fix && (
@@ -184,14 +170,6 @@ function ListRow({
   );
 }
 
-function SettingsTile() {
-  return (
-    <span className="flex h-8 w-8 shrink-0 items-center justify-center text-[var(--muted-foreground)]">
-      <Settings2 size="1.25rem" />
-    </span>
-  );
-}
-
 export function ConnectionsPanel() {
   const { t } = useTranslation();
   const connectionsQuery = useConnections();
@@ -199,8 +177,6 @@ export function ConnectionsPanel() {
   const { data: connections, isLoading } = connectionsQuery;
   const { data: accounts } = accountsQuery;
   const loadFailed = connectionsQuery.isError || accountsQuery.isError;
-  const uploadConnectionImage = useUploadConnectionImage();
-  const moveConnection = useMoveConnection();
   const activeChat = useChatStore((s) => s.activeChat);
   const chatPick = useChatModelPick(activeChat?.id ?? null);
   const modelStar = useModelStar();
@@ -210,12 +186,12 @@ export function ConnectionsPanel() {
   const dismissLinkApiBanner = useUIStore((s) => s.dismissLinkApiBanner);
   const collapsedConnections = useUIStore((s) => s.connectionsCollapsed);
   const toggleConnectionCollapsed = useUIStore((s) => s.toggleConnectionCollapsed);
+  const showCostBadges = useUIStore((s) => s.showCostBadges);
+  const setShowCostBadges = useUIStore((s) => s.setShowCostBadges);
 
   const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState<"all" | "chat" | "media">("all");
   /** Connections folded while a search runs; a new query unfolds every match again. */
   const [searchFolded, setSearchFolded] = useState<string[]>([]);
-  const [defaultsOpen, setDefaultsOpen] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
   const [headerMenu, setHeaderMenu] = useState<{ x: number; y: number; keyboard: boolean } | null>(null);
   const [wide, setWide] = useState(false);
@@ -223,8 +199,11 @@ export function ConnectionsPanel() {
   const backRef = useRef<HTMLButtonElement>(null);
   /** The row a narrow panel's "‹ Connections" returns focus to. */
   const returnKeyRef = useRef<string | null>(null);
-  const connectionImageInputRef = useRef<HTMLInputElement>(null);
-  const imageTargetConnectionIdRef = useRef<string | null>(null);
+  const [moving, setMoving] = useState<Omit<ComponentProps<typeof MoveConnectionDialog>, "onClose" | "rowsOf"> | null>(
+    null,
+  );
+  const [pictureMenu, setPictureMenu] = useState<Omit<ComponentProps<typeof PictureMenu>, "onClose"> | null>(null);
+  const closePictureMenu = useCallback(() => setPictureMenu(null), []);
 
   useEffect(() => {
     const element = rootRef.current;
@@ -239,7 +218,6 @@ export function ConnectionsPanel() {
     () => ((connections as ConnectionRowData[] | undefined) ?? []).filter((row) => !hiddenIds.has(row.id)),
     [connections, hiddenIds],
   );
-  const defaults = useConnectionDefaults(connectionsList);
   const engines = useDeviceEngines();
   const grouped = useMemo(() => {
     const { groups, standalone } = groupModelsByAccount(connectionsList, accounts ?? []);
@@ -254,8 +232,7 @@ export function ConnectionsPanel() {
 
   const query = search.trim().toLowerCase();
   const visible = useMemo(() => {
-    const kindShown = (row: ConnectionRowData) => filter === "all" || (filter === "media") === isMediaRow(row);
-    const rowShown = (row: ConnectionRowData) => kindShown(row) && connectionMatchesSearch(row, query);
+    const rowShown = (row: ConnectionRowData) => connectionMatchesSearch(row, query);
     const groups = grouped.all.flatMap((group) => {
       const { account } = group;
       const accountHit =
@@ -264,8 +241,8 @@ export function ConnectionsPanel() {
           .join(" ")
           .toLowerCase()
           .includes(query);
-      const visibleRows = group.rows.filter((row) => (accountHit ? kindShown(row) : rowShown(row)));
-      const showEmpty = group.rows.length === 0 && filter !== "media" && (!query || accountHit);
+      const visibleRows = accountHit ? group.rows : group.rows.filter(rowShown);
+      const showEmpty = group.rows.length === 0 && (!query || accountHit);
       if (visibleRows.length === 0 && !showEmpty) return [];
       return [{ ...group, visibleRows }];
     });
@@ -274,7 +251,7 @@ export function ConnectionsPanel() {
       standalone: grouped.standalone.filter(rowShown),
       engines: query ? engines.filter((engine) => engine.name.toLowerCase().includes(query)) : engines,
     };
-  }, [engines, filter, grouped, query]);
+  }, [engines, grouped, query]);
 
   // Provider families are visual only: separate endpoints and keys keep their account actions and rows.
   const providerGroups = useMemo(() => {
@@ -310,16 +287,13 @@ export function ConnectionsPanel() {
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [visible]);
 
-  // A wide panel always shows a page: the chosen one, else Defaults.
-  const firstKey = "defaults";
   const validKey = (key: string | null) => {
     if (!key) return false;
-    if (key === "defaults") return true;
     if (key === "other") return grouped.standalone.length > 0;
     if (key.startsWith("device:")) return engines.some((engine) => `device:${engine.item}` === key);
     return false;
   };
-  const current = validKey(selected) ? selected : wide ? firstKey : null;
+  const current = validKey(selected) ? selected : null;
 
   const select = useCallback(
     (key: string | null) => {
@@ -339,54 +313,6 @@ export function ConnectionsPanel() {
       returnKeyRef.current = null;
     }
   }, [current, wide]);
-
-  const handlePickConnectionImage = useCallback((connectionId: string) => {
-    imageTargetConnectionIdRef.current = connectionId;
-    if (connectionImageInputRef.current) {
-      connectionImageInputRef.current.value = "";
-      connectionImageInputRef.current.click();
-    }
-  }, []);
-
-  const handleConnectionImageSelected = useCallback(
-    (event: ChangeEvent<HTMLInputElement>) => {
-      const file = event.target.files?.[0];
-      const connectionId = imageTargetConnectionIdRef.current;
-      if (!file || !connectionId) return;
-
-      if (!file.type.startsWith("image/")) {
-        imageTargetConnectionIdRef.current = null;
-        toast.error(t("ui.panels.connectionspanel.chooseAnImageFileForTheConnectionPicture"));
-        return;
-      }
-
-      const reader = new FileReader();
-      reader.onload = async () => {
-        const image = typeof reader.result === "string" ? reader.result : "";
-        if (!image) {
-          toast.error(t("ui.panels.agentspanel.couldNotReadThatImage"));
-          return;
-        }
-
-        try {
-          await uploadConnectionImage.mutateAsync({ id: connectionId, image });
-          toast.success(t("ui.panels.connectionspanel.connectionPictureUpdated"));
-        } catch (error) {
-          toast.error(
-            error instanceof Error ? error.message : t("ui.panels.connectionspanel.failedToUploadConnectionPicture"),
-          );
-        } finally {
-          imageTargetConnectionIdRef.current = null;
-        }
-      };
-      reader.onerror = () => {
-        imageTargetConnectionIdRef.current = null;
-        toast.error(t("ui.panels.agentspanel.couldNotReadThatImage"));
-      };
-      reader.readAsDataURL(file);
-    },
-    [uploadConnectionImage, t],
-  );
 
   const exportConnections = async (connectionsToExport: ConnectionRowData[]) => {
     if (connectionsToExport.length === 0) return;
@@ -419,7 +345,12 @@ export function ConnectionsPanel() {
       );
   };
 
-  const renderRow = (row: ConnectionRowData, subtitle?: string, connectionName?: string) => {
+  const renderRow = (
+    row: ConnectionRowData,
+    subtitle?: string,
+    connectionName?: string,
+    catalog?: CachedCatalogFacts,
+  ) => {
     const account = row.accountId ? accountById.get(row.accountId) : undefined;
     const chatModel = isChatProvider(row.provider);
     // A Connection's stars live on its anchor Model; a standalone Model keeps its own.
@@ -428,22 +359,30 @@ export function ConnectionsPanel() {
     const starred = !!row.model && parsePinnedModels(anchor.pinnedModels).includes(row.model);
     // Media kinds can share access (for example ComfyUI image + video); the server verifies the vendor.
     const source = mediaService(row);
-    const moveTargets =
+    const sameTargets =
       account && !row.credentialsFromConnectionId
-        ? (accounts ?? [])
-            .filter(
-              (item) =>
-                item.id !== account.id &&
-                (item.provider === account.provider ||
-                  (source &&
-                    connectionsList.some(
-                      (candidate) => candidate.accountId === item.id && mediaService(candidate) === source,
-                    ))) &&
-                (!(account.provider === "custom" || isMediaRow(row)) ||
-                  originOf(item.baseUrl) === originOf(account.baseUrl)),
-            )
-            .map(({ id, name }) => ({ id, name }))
+        ? (accounts ?? []).filter(
+            (item) =>
+              item.id !== account.id &&
+              (item.provider === account.provider ||
+                (source &&
+                  connectionsList.some(
+                    (candidate) => candidate.accountId === item.id && mediaService(candidate) === source,
+                  ))) &&
+              (!(account.provider === "custom" || isMediaRow(row)) ||
+                originOf(item.baseUrl) === originOf(account.baseUrl)),
+          )
         : [];
+    // Mirrors the server: chat Models move to chat Connections of other services; media, decision and local-login
+    // (subscription) Models and Connections never change service.
+    const portable = (provider: string) => isChatProvider(provider) && !isLocalAuthProvider(provider);
+    const otherTargets =
+      account && !row.credentialsFromConnectionId && portable(row.provider) && portable(account.provider)
+        ? (accounts ?? []).filter(
+            (item) => item.id !== account.id && portable(item.provider) && !sameTargets.includes(item),
+          )
+        : [];
+    const moveTargets = [...sameTargets, ...otherTargets];
     return (
       <ConnectionRow
         key={row.id}
@@ -451,6 +390,7 @@ export function ConnectionsPanel() {
         account={account}
         subtitle={subtitle}
         connectionName={connectionName}
+        catalog={catalog}
         current={activeChat?.connectionId === row.id}
         starred={starred}
         onToggleStar={
@@ -472,23 +412,17 @@ export function ConnectionsPanel() {
                   )
             : undefined
         }
-        moveTargets={moveTargets}
-        onMove={(accountId, name) =>
-          moveConnection.mutate(
-            { id: row.id, accountId },
-            {
-              onSuccess: () =>
-                toast.success(t("connections.accounts.row.moved", { model: row.name, connection: name })),
-              onError: (error) =>
-                toast.error(
-                  t("connections.accounts.row.moveFailed", {
-                    error: error instanceof Error ? error.message : String(error ?? ""),
-                  }),
-                ),
-            },
-          )
+        moveTargets={moveTargets.map((item) => item.name)}
+        onMove={() => setMoving({ row, same: sameTargets, other: otherTargets })}
+        onPictureClick={(at) =>
+          setPictureMenu({
+            target: { kind: "model", id: row.id },
+            name: row.name,
+            icon: row.icon,
+            imagePath: row.imagePath,
+            at,
+          })
         }
-        onImagePick={() => handlePickConnectionImage(row.id)}
       />
     );
   };
@@ -509,7 +443,16 @@ export function ConnectionsPanel() {
             )
           : toggleConnectionCollapsed(account.id)
       }
-      renderRow={(row, subtitle) => renderRow(row, subtitle)}
+      renderRow={(row, subtitle, catalog) => renderRow(row, subtitle, undefined, catalog)}
+      onPictureClick={(at) =>
+        setPictureMenu({
+          target: { kind: "account", id: account.id },
+          name: account.name,
+          icon: account.icon,
+          imagePath: account.imagePath,
+          at,
+        })
+      }
       tile={
         <ProviderIcon
           size="sm"
@@ -517,6 +460,8 @@ export function ConnectionsPanel() {
           baseUrl={account.baseUrl}
           service={rows[0] && mediaService(rows[0])}
           name={account.name}
+          icon={account.icon}
+          imagePath={account.imagePath}
           dim={account.state === "off"}
         />
       }
@@ -528,49 +473,8 @@ export function ConnectionsPanel() {
     engines.some((engine) => engine.item === item)
       ? select(`device:${item}`)
       : openAddConnection({ category: "device", item });
-  const problemCount = defaults.problems.length;
-  const mainTile = defaults.tiles[0];
-  // A wide panel shows Defaults as its second column; a narrow one unfolds it here.
-  const defaultsCard = (
-    <div key="defaults" className={cn(GROUP_SURFACE, "mari-connection-defaults p-1")}>
-      <ListRow
-        rowKey="defaults"
-        selected={wide && current === "defaults"}
-        tile={<SettingsTile />}
-        title={t("connections.defaults.title")}
-        label={
-          problemCount
-            ? t("connections.list.defaultsLabelProblems", { model: defaults.mainLabel, count: problemCount })
-            : t("connections.list.defaultsLabel", { model: defaults.mainLabel })
-        }
-        sub={
-          <>
-            <span className="min-w-0 truncate">
-              {mainTile?.hint && !mainTile.muted
-                ? t("connections.defaults.summaryWithConnection", {
-                    model: defaults.mainLabel,
-                    connection: mainTile.hint,
-                  })
-                : t("connections.defaults.summary", { model: defaults.mainLabel })}
-            </span>
-            {problemCount > 0 && (
-              <span className="inline-flex shrink-0 items-center gap-1 text-[var(--marinara-app-accent-static)]">
-                <AlertTriangle size="0.6875rem" />
-                {t("connections.list.problems", { count: problemCount })}
-              </span>
-            )}
-          </>
-        }
-        expanded={wide ? undefined : defaultsOpen}
-        controls="connections-defaults"
-        onOpen={() => (wide ? select("defaults") : setDefaultsOpen((open) => !open))}
-      />
-      {!wide && defaultsOpen && (
-        <div id="connections-defaults" className="pb-1">
-          <ConnectionDefaultsDetail compact connectionsList={connectionsList} onOpenDevice={openDevice} />
-        </div>
-      )}
-    </div>
+  const defaultsBox = connectionsList.length > 0 && (
+    <ConnectionDefaultsBox key="defaults" connectionsList={connectionsList} onOpenDevice={openDevice} />
   );
   const deviceGroup = visible.engines.length > 0 && (
     <PanelSection title={t("connections.accounts.section.device")} icon={<HardDrive size="0.75rem" />}>
@@ -607,11 +511,9 @@ export function ConnectionsPanel() {
   );
 
   const noConnections = !isLoading && !loadFailed && connectionsList.length === 0 && (accounts?.length ?? 0) === 0;
-  // Only a search or a filter can hide everything; an unfiltered list is never "no match".
+  // Only a search can hide everything; the full list is never "no match".
   const nothingShown =
-    (query ? visible.engines.length === 0 : filter !== "all") &&
-    visible.groups.length === 0 &&
-    visible.standalone.length === 0;
+    !!query && visible.engines.length === 0 && visible.groups.length === 0 && visible.standalone.length === 0;
   const list = (
     <div className="flex flex-col gap-2">
       {loadFailed ? (
@@ -646,13 +548,49 @@ export function ConnectionsPanel() {
         </div>
       ) : noConnections ? (
         <>
-          {defaultsCard}
-          <div className="mt-1 flex flex-col items-start gap-2 rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-3">
-            <p className="text-sm font-medium text-[var(--foreground)]">{t("connections.list.emptyTitle")}</p>
-            <p className="text-[0.6875rem] text-[var(--muted-foreground)]">{t("connections.list.emptyHelp")}</p>
-          </div>
+          {/* One task, three steps, the same Add as the header row. */}
+          <section aria-labelledby="connections-empty-title" className="mari-connection-empty flex flex-col gap-3 p-4">
+            <span
+              aria-hidden
+              className="mari-panel-gradient-surface mari-panel-gradient--connections flex h-10 w-10 items-center justify-center rounded-xl"
+            >
+              <Link size="1.125rem" />
+            </span>
+            <div>
+              <h3 id="connections-empty-title" className="text-[0.9375rem] font-semibold text-[var(--foreground)]">
+                {t("connections.list.emptyTitle")}
+              </h3>
+              <p className="mt-1 text-xs text-[var(--muted-foreground)]">{t("connections.list.emptyHelp")}</p>
+            </div>
+            <ol className="flex list-decimal flex-col gap-1 pl-5 text-xs text-[var(--muted-foreground)]">
+              <li>{t("connections.list.emptyStep1")}</li>
+              <li>{t("connections.list.emptyStep2")}</li>
+              <li>{t("connections.list.emptyStep3")}</li>
+            </ol>
+            <button
+              type="button"
+              onClick={() => openModal("create-connection")}
+              className="mari-connection-btn mari-connection-btn--primary w-full"
+            >
+              <Plus size="0.875rem" />
+              {t("connections.list.addConnection")}
+            </button>
+          </section>
+          <p className="px-1 text-xs text-[var(--muted-foreground)]">
+            {t("connections.list.haveBackup")}{" "}
+            <button
+              type="button"
+              onClick={() => openModal("import-connection")}
+              className={cn(
+                "min-h-11 rounded text-[var(--primary)] underline underline-offset-2 md:min-h-0 [@media(pointer:coarse)]:min-h-11",
+                FOCUS,
+              )}
+            >
+              {t("connections.list.importConnections")}
+            </button>
+          </p>
           {!linkApiBannerDismissed && (
-            <div className="mt-1 flex flex-col gap-2 rounded-xl border border-sky-400/20 bg-gradient-to-br from-sky-400/5 to-blue-500/5 p-3">
+            <div className="mt-1 flex flex-col gap-2 rounded-xl bg-[color-mix(in_srgb,var(--foreground)_4%,transparent)] p-3">
               <p className="flex items-start gap-2 text-xs text-[var(--muted-foreground)]">
                 <BrandMark of="linkapi" color className="h-6 w-6" />
                 <span>
@@ -661,7 +599,7 @@ export function ConnectionsPanel() {
                     href="https://linkapi.ai/"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="font-medium text-sky-400 underline decoration-sky-400/30 transition-colors hover:text-sky-300"
+                    className="font-medium text-[var(--mari-connection-ink)] underline underline-offset-2"
                   >
                     {t("ui.panels.connectionspanel.linkapi")}
                   </a>
@@ -673,16 +611,12 @@ export function ConnectionsPanel() {
                   href="https://linkapi.ai/"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="mari-chrome-control mari-chrome-control--small w-full px-2 text-xs"
+                  className="mari-connection-btn w-full"
                 >
                   <ExternalLink size="0.75rem" className="shrink-0" />
                   <span>{t("ui.panels.connectionspanel.visitLinkapi")}</span>
                 </a>
-                <button
-                  type="button"
-                  onClick={dismissLinkApiBanner}
-                  className="mari-chrome-control mari-chrome-control--small w-full px-2 text-xs"
-                >
+                <button type="button" onClick={dismissLinkApiBanner} className="mari-connection-btn w-full">
                   <X size="0.75rem" className="shrink-0" />
                   <span>{t("ui.panels.connectionspanel.dismissPermanently")}</span>
                 </button>
@@ -692,16 +626,12 @@ export function ConnectionsPanel() {
         </>
       ) : (
         <>
-          {defaultsCard}
+          {defaultsBox}
           <p
             className={nothingShown ? "px-2 py-6 text-center text-xs text-[var(--muted-foreground)]" : "sr-only"}
             role="status"
           >
-            {nothingShown
-              ? query
-                ? t("connections.list.noMatch", { query: search.trim() })
-                : t("connections.list.noneOfKind")
-              : null}
+            {nothingShown ? t("connections.list.noMatch", { query: search.trim() }) : null}
           </p>
           {providerGroups.map((provider) => (
             // Provider ordering stays; accounts are peers and each folds by its own id.
@@ -738,18 +668,15 @@ export function ConnectionsPanel() {
   );
 
   let detail: ReactNode = null;
-  if (current === "defaults") {
-    detail = <ConnectionDefaultsDetail connectionsList={connectionsList} onOpenDevice={openDevice} />;
-  } else if (current?.startsWith("device:")) {
+  if (current?.startsWith("device:")) {
     detail = (
       <DeviceDetail
         key={current}
         item={current.slice("device:".length) as DeviceItem}
         onOpenDefaults={() => {
-          if (wide) return select("defaults");
-          // A narrow panel goes back to the list and unfolds Defaults there.
+          // Back to the list, with the Defaults box unfolded.
+          if (collapsedConnections.includes(DEFAULTS_FOLD_ID)) toggleConnectionCollapsed(DEFAULTS_FOLD_ID);
           returnKeyRef.current = "defaults";
-          setDefaultsOpen(true);
           setSelected(null);
         }}
       />
@@ -757,7 +684,7 @@ export function ConnectionsPanel() {
   } else if (current === "other") {
     detail = (
       <div className="flex flex-col gap-0.5">
-        <p className="px-1.5 pb-1 text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
+        <p className="px-1.5 pb-1 text-xs font-semibold text-[var(--muted-foreground)]">
           {t("connections.accounts.section.other")}
         </p>
         {grouped.standalone.map((row) => renderRow(row))}
@@ -765,67 +692,17 @@ export function ConnectionsPanel() {
     );
   }
 
-  const header = (
-    <>
-      {/* Staging's action row: Add, Import and More as equal icon buttons. */}
-      <div className="flex gap-2">
-        <button
-          type="button"
-          onClick={() => openModal("create-connection")}
-          className="mari-panel-gradient-button mari-panel-gradient--connections flex-1 text-xs"
-          title={t("ui.panels.connectionspanel.createConnection")}
-          aria-label={t("ui.panels.connectionspanel.createConnection")}
-        >
-          <Plus size="0.8125rem" />
-        </button>
-        <button
-          type="button"
-          onClick={() => openModal("import-connection")}
-          className="mari-chrome-control mari-chrome-control--primary flex-1 text-xs"
-          title={t("ui.panels.connectionspanel.importConnection")}
-          aria-label={t("ui.panels.connectionspanel.importConnection")}
-        >
-          <Download size="0.8125rem" />
-        </button>
-        <button
-          type="button"
-          onClick={(event) => {
-            const rect = event.currentTarget.getBoundingClientRect();
-            setHeaderMenu({ x: rect.right, y: rect.bottom + 4, keyboard: event.detail === 0 });
-          }}
-          className="mari-chrome-control mari-chrome-control--primary flex-1 text-xs"
-          title={t("connections.accounts.header.more")}
-          aria-label={t("connections.accounts.header.more")}
-          aria-haspopup="menu"
-          aria-expanded={!!headerMenu}
-        >
-          <MoreHorizontal size="0.875rem" />
-        </button>
-        {headerMenu && (
-          <ContextMenu
-            x={headerMenu.x}
-            y={headerMenu.y}
-            autoFocus={headerMenu.keyboard}
-            onClose={() => setHeaderMenu(null)}
-            items={[
-              {
-                label: t("connections.list.exportAll"),
-                icon: <Upload size="0.75rem" />,
-                disabled: connectionsList.length === 0,
-                onSelect: () => void exportConnections(connectionsList),
-              },
-            ]}
-          />
-        )}
-      </div>
-      <div className="relative">
+  // One row: Search, Add and ⋯ (Import, Export). An empty panel has nothing to search or export yet.
+  const header = !isLoading && !noConnections && (
+    <div className="flex gap-2">
+      <div className="relative min-w-0 flex-1">
         <Search
           size="0.8125rem"
           className="mari-chrome-field-icon pointer-events-none absolute left-3 top-1/2 -translate-y-1/2"
         />
         <input
           type="search"
-          placeholder={t("connections.list.search")}
+          placeholder={t("connections.list.searchModels", { count: connectionsList.length })}
           aria-label={t("connections.list.search")}
           value={search}
           onChange={(event) => {
@@ -836,80 +713,117 @@ export function ConnectionsPanel() {
           className="mari-chrome-field h-11 w-full py-0 pl-8 pr-3 text-xs md:h-9 [@media(pointer:coarse)]:h-11"
         />
       </div>
-      <div role="group" aria-label={t("connections.list.filterLabel")} className="mari-chrome-segmented !min-h-0">
-        {(
-          [
-            ["all", t("connections.list.filter.all")],
-            ["chat", t("connections.accounts.section.chat")],
-            ["media", t("connections.accounts.section.media")],
-          ] as const
-        ).map(([value, label]) => (
-          <button
-            key={value}
-            type="button"
-            aria-pressed={filter === value}
-            onClick={() => setFilter(value)}
-            className={cn(
-              "mari-chrome-segmented__button !min-h-9 truncate px-1.5 text-xs max-md:!min-h-11 motion-reduce:transition-none [@media(pointer:coarse)]:!min-h-11",
-              FOCUS,
-            )}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-    </>
+      <button
+        type="button"
+        onClick={() => openModal("create-connection")}
+        className="mari-connection-btn mari-connection-btn--primary"
+        aria-label={t("connections.list.addConnection")}
+      >
+        <Plus size="0.8125rem" aria-hidden />
+        {t("connections.list.add")}
+      </button>
+      <button
+        type="button"
+        onClick={(event) => {
+          const rect = event.currentTarget.getBoundingClientRect();
+          setHeaderMenu({ x: rect.right, y: rect.bottom + 4, keyboard: event.detail === 0 });
+        }}
+        className="mari-connection-btn mari-connection-btn--icon"
+        title={t("connections.accounts.header.more")}
+        aria-label={t("connections.accounts.header.more")}
+        aria-haspopup="menu"
+        aria-expanded={!!headerMenu}
+      >
+        <MoreHorizontal size="0.875rem" />
+      </button>
+      {headerMenu && (
+        <ContextMenu
+          x={headerMenu.x}
+          y={headerMenu.y}
+          autoFocus={headerMenu.keyboard}
+          onClose={() => setHeaderMenu(null)}
+          items={[
+            {
+              label: t("ui.panels.connectionspanel.importConnection"),
+              icon: <Download size="0.75rem" />,
+              onSelect: () => openModal("import-connection"),
+            },
+            {
+              label: t("connections.list.exportAll"),
+              icon: <Upload size="0.75rem" />,
+              disabled: connectionsList.length === 0,
+              onSelect: () => void exportConnections(connectionsList),
+            },
+            {
+              label: t("connections.list.showCostBadges"),
+              icon: <BadgeDollarSign size="0.75rem" />,
+              toggle: true,
+              checked: showCostBadges,
+              onSelect: () => setShowCostBadges(!showCostBadges),
+            },
+          ]}
+        />
+      )}
+    </div>
   );
 
-  const body = wide ? (
-    <>
-      {header}
-      <div className="flex min-h-0 gap-3">
-        <div className="w-80 shrink-0">{list}</div>
-        <div className="min-w-0 flex-1 border-l border-[var(--border)]/50 pl-3">
-          {detail ?? (
-            <p className="px-2 py-6 text-xs text-[var(--muted-foreground)]">{t("connections.list.nothingToShow")}</p>
-          )}
+  const body =
+    wide && detail ? (
+      <>
+        {header}
+        <div className="flex min-h-0 gap-3">
+          <div className="w-80 shrink-0">{list}</div>
+          <div className="min-w-0 flex-1 border-l border-[var(--border)]/50 pl-3">{detail}</div>
         </div>
-      </div>
-    </>
-  ) : current && detail ? (
-    <>
-      <button
-        ref={backRef}
-        type="button"
-        data-connections-back
-        onClick={() => {
-          returnKeyRef.current = current;
-          setSelected(null);
-        }}
-        className={cn(
-          "-ml-1 flex min-h-9 w-fit items-center gap-1 rounded-lg px-1 text-xs text-[var(--muted-foreground)] hover:text-[var(--foreground)] max-md:min-h-11",
-          FOCUS,
-        )}
-      >
-        <ChevronLeft size="0.875rem" />
-        {t("connections.list.back")}
-      </button>
-      {detail}
-    </>
-  ) : (
-    <>
-      {header}
-      {list}
-    </>
-  );
+      </>
+    ) : !wide && current && detail ? (
+      <>
+        <button
+          ref={backRef}
+          type="button"
+          data-connections-back
+          onClick={() => {
+            returnKeyRef.current = current;
+            setSelected(null);
+          }}
+          className={cn(
+            "-ml-1 flex min-h-9 w-fit items-center gap-1 rounded-lg px-1 text-xs text-[var(--muted-foreground)] hover:text-[var(--foreground)] max-md:min-h-11",
+            FOCUS,
+          )}
+        >
+          <ChevronLeft size="0.875rem" />
+          {t("connections.list.back")}
+        </button>
+        {detail}
+      </>
+    ) : (
+      <>
+        {header}
+        {list}
+      </>
+    );
 
   return (
-    <div ref={rootRef} className="flex min-h-full flex-col gap-2 p-3" data-connections-panel={wide ? "wide" : "narrow"}>
-      <input
-        ref={connectionImageInputRef}
-        type="file"
-        accept="image/*"
-        className="hidden"
-        onChange={handleConnectionImageSelected}
-      />
+    <div
+      ref={rootRef}
+      className="mari-connection-scope flex min-h-full flex-col gap-2 p-3"
+      data-connections-panel={wide ? "wide" : "narrow"}
+    >
       {body}
+      {pictureMenu && (
+        <PictureMenu
+          key={`${pictureMenu.target.kind}:${pictureMenu.target.id}`}
+          {...pictureMenu}
+          onClose={closePictureMenu}
+        />
+      )}
+      {moving && (
+        <MoveConnectionDialog
+          {...moving}
+          rowsOf={(accountId) => connectionsList.filter((candidate) => candidate.accountId === accountId)}
+          onClose={() => setMoving(null)}
+        />
+      )}
     </div>
   );
 }

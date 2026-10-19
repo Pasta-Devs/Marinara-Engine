@@ -107,6 +107,8 @@ const ALL: GenerationParameterKey[] = [
   "customThinkingTags",
   "customParameters",
 ];
+/** Every chat generation setting a Model's default parameters may hold. */
+export const GENERATION_PARAMETER_KEYS: readonly GenerationParameterKey[] = ALL;
 
 const SAMPLING: GenerationParameterKey[] = ["temperature", "topP", "topK", "frequencyPenalty", "presencePenalty"];
 

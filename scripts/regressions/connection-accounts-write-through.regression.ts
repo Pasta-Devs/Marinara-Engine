@@ -180,7 +180,9 @@ try {
   }
   assert.equal(await plainKey(miniId), KEY);
   assert.deepEqual(await rowOf(chatId), savedAfter, "the source row is never modified");
-  assert.notEqual(sourceBefore.savedModels, savedAfter.savedModels);
+  assert.equal(sourceBefore.savedModels, null);
+  assert.equal(savedAfter.savedModels, null, "the list is kept once, on the Connection");
+  assert.deepEqual(await connections.readCatalog(savedAfter), saved);
   const again = await json("POST", `/accounts/${accountId}/for-model`, { model: "gpt-5-mini", name: "Other" });
   assert.equal(again.status, 200, again.body);
   assert.equal(again.data.connectionId, miniId, "idempotent");
@@ -197,14 +199,16 @@ try {
   );
   assert.equal((await rowOf(chatId)).pinnedModels, '["gpt-5"]');
   assert.equal((await rowOf(image.id)).pinnedModels, "[]");
-  assert.equal((await rowOf(miniId)).savedModels, savedAfter.savedModels, "a new Model starts with the account's list");
+  assert.deepEqual(await connections.readCatalog(await rowOf(miniId)), saved, "a new Model reads the account's list");
   const fetched = await connections.saveModelListIfUnchanged((await connections.getById(miniId))!, [
     { id: "gpt-5", name: "GPT-5" },
   ]);
   assert(fetched);
-  assert.equal((await rowOf(chatId)).savedModels, (await rowOf(miniId)).savedModels);
-  assert.notEqual((await rowOf(chatId)).savedModels, savedAfter.savedModels, "the fresh list reached the peer");
-  assert.equal((await rowOf(image.id)).savedModels, null);
+  assert.deepEqual(await connections.readCatalog(await rowOf(chatId)), fetched, "the fresh list reached the peer");
+  assert.deepEqual(await connections.readCatalog(await rowOf(miniId)), fetched);
+  assert.equal((await rowOf(chatId)).savedModels, null);
+  assert.equal((await rowOf(miniId)).savedModels, null);
+  assert.equal(await connections.readCatalog(await rowOf(image.id)), null, "the image row has no chat list");
 
   const search = await json("GET", "/accounts/catalog-search?q=gpt-5&limit=5");
   assert.equal(search.status, 200);

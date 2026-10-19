@@ -10,6 +10,7 @@ import { Modal } from "../ui/Modal";
 import { ProviderIcon } from "./ProviderIcon";
 import { ConnectionIdentity } from "./ConnectionIdentity";
 import { ConnectionModelList } from "./ConnectionModelList";
+import { ModelRow } from "./ConnectionRow";
 import {
   choiceLabel,
   useConnectionChoices,
@@ -17,11 +18,13 @@ import {
   type ConnectionSelectKind,
 } from "./ConnectionSelect";
 import { accountStateLabel } from "../../lib/connection-groups";
+import { useCachedCatalogFacts, type CachedCatalogFacts } from "../../hooks/use-connections";
+import { modelKindOf, modelSubtitle } from "../../lib/connection-identity";
 import { cn } from "../../lib/utils";
 
 const ROW_CLASS =
   "relative flex min-h-11 w-full items-center gap-2 rounded-lg px-3 py-1.5 text-left text-xs outline-none transition-colors hover:bg-foreground/10 focus-visible:bg-foreground/10 focus-visible:ring-1 focus-visible:ring-foreground/25 disabled:cursor-not-allowed disabled:opacity-55 disabled:hover:bg-transparent md:min-h-9 [@media(pointer:coarse)]:min-h-11";
-const BADGE_CLASS = "mari-chrome-muted-badge shrink-0 rounded px-1 py-px text-[0.5625rem] font-normal leading-4";
+const BADGE_CLASS = "mari-connection-pill";
 const ICON_BOX = "flex h-6 w-6 shrink-0 items-center justify-center text-foreground/55";
 const OPTION = "[data-picker-option]:not(:disabled)";
 
@@ -132,49 +135,58 @@ export function ConnectionPicker({
       <span className="flex min-w-0 flex-1 flex-col">
         <span className="truncate">{label}</span>
         {hint && (
-          <span className="text-[0.625rem] font-normal text-foreground/50 [overflow-wrap:anywhere]">{hint}</span>
+          <span className="truncate text-[0.625rem] font-normal text-foreground/50" title={hint}>
+            {hint}
+          </span>
         )}
       </span>
       {badge && <span className={BADGE_CLASS}>{badge}</span>}
-      {selected && <Check size="0.75rem" className="shrink-0 text-[var(--marinara-chat-chrome-accent)]" aria-hidden />}
+      {selected && <Check size="0.75rem" className="shrink-0 text-[var(--mari-connection-ink)]" aria-hidden />}
     </button>
   );
 
-  const modelOption = (row: ConnectionChoiceRow) => {
+  const modelOption = (row: ConnectionChoiceRow, upstream: string | null = null, catalog?: CachedCatalogFacts) => {
     const { account, suffix } = choices.stateOf(row);
+    const facts = catalog?.of(row.model);
     const label = choiceLabel(row);
     const selected = row.id === value;
-    return option(row.id, {
-      selected,
-      // A broken Model is never picked; the current one may be re-confirmed, which changes nothing.
-      disabled: !!suffix && !selected,
-      onPick: () => pick(row.id),
-      icon: (
-        <ProviderIcon
-          provider={row.provider ?? account?.provider ?? "custom"}
-          model={row.model}
-          baseUrl={account?.baseUrl}
-          name={account?.name}
-          size="sm"
-          dim={!!suffix}
-        />
-      ),
-      label,
-      hint: row.model && row.model !== label ? row.model : null,
-      badge:
-        suffix ||
-        (kind === "all"
-          ? row.provider === "image_generation"
-            ? t("connections.accounts.kind.image")
-            : row.provider === "video_generation"
-              ? t("connections.accounts.kind.video")
-              : row.provider === "audio"
-                ? t("connections.accounts.kind.audio")
-                : row.provider === "decision"
-                  ? t("connections.decision.label")
-                  : t("connections.accounts.section.chat")
-          : undefined),
-    });
+    return (
+      <ModelRow
+        key={row.id}
+        data-picker-option
+        data-picker-value={row.id}
+        // A broken Model is never picked; the current one may be re-confirmed, which changes nothing.
+        disabled={!!suffix && !selected}
+        aria-current={selected || undefined}
+        onClick={() => pick(row.id)}
+        tile={
+          <ProviderIcon
+            provider={row.provider ?? account?.provider ?? "custom"}
+            model={row.model}
+            baseUrl={account?.baseUrl}
+            name={account?.name}
+            icon={row.icon}
+            imagePath={row.imagePath}
+            size="row"
+            dim={!!suffix}
+          />
+        }
+        title={label}
+        subtitle={modelSubtitle(row, upstream)}
+        // A picker for one capability does not repeat it on every row.
+        kind={kind === "all" ? modelKindOf(row.provider) : null}
+        status={suffix ? { label: suffix, state: account?.state } : null}
+        cost={facts?.cost}
+        showPaid={catalog?.showPaid}
+        retiring={facts}
+        current={selected}
+        dim={!!suffix}
+        className="rounded-lg"
+        trailing={
+          selected && <Check size="0.875rem" className="shrink-0 text-[var(--mari-connection-ink)]" aria-hidden />
+        }
+      />
+    );
   };
   const matches = (row: ConnectionChoiceRow) => {
     const account = choices.accountOf(row);
@@ -221,6 +233,8 @@ export function ConnectionPicker({
   const groups = (choices.accountsKnown ? choices.groups : [])
     .map((group) => ({ group, rows: group.rows.filter(matches) }))
     .filter(({ rows }) => rows.length > 0);
+  // Cost badges from the catalogs already cached for each Connection; nothing is fetched for them.
+  const catalogs = useCachedCatalogFacts(groups.map(({ group }) => group.rows.map((row) => row.id)));
   const standalone = choices.accountsKnown ? choices.standalone.filter(matches) : [];
   const localShown = choices.local && hit(t("connections.select.localModel"));
   const nothingShown = top.length === 0 && groups.length === 0 && standalone.length === 0 && !localShown;
@@ -262,7 +276,7 @@ export function ConnectionPicker({
       title={title ?? t("connections.switcher.chooseModel")}
       width="max-w-md"
       opaque
-      panelClassName="connection-picker-dialog"
+      panelClassName="connection-picker-dialog mari-connection-scope"
       closeButtonClassName="!min-h-11 !min-w-11"
       initialFocusRef={finePointer ? searchRef : undefined}
       restoreFocusRef={restoreFocusRef}
@@ -293,7 +307,7 @@ export function ConnectionPicker({
         aria-busy={choices.loading || undefined}
       >
         {top}
-        {groups.map(({ group, rows }) => (
+        {groups.map(({ group, rows }, index) => (
           <section key={group.account.id} className="mari-connection-group mt-1" aria-label={group.account.name}>
             <ConnectionIdentity
               account={group.account}
@@ -302,20 +316,21 @@ export function ConnectionPicker({
               state={group.account.state}
               stateLabel={t(accountStateLabel(group.account))}
               size="sm"
-              className="px-2 py-1.5"
+              className="py-1.5 ps-3 pe-2"
             />
             <ConnectionModelList
               provider={group.account.provider}
               rows={rows}
               getKey={(row) => row.id}
-              renderRow={modelOption}
+              renderRow={(row, upstream) => modelOption(row, upstream, catalogs[index])}
+              autoFold={words.length === 0}
             />
           </section>
         ))}
         {standalone.length > 0 && (
           <section className="mari-connection-group mt-1" aria-label={t("connections.select.standalone")}>
             {header(<ProviderIcon provider="custom" size="sm" />, t("connections.select.standalone"))}
-            {standalone.map(modelOption)}
+            {standalone.map((row) => modelOption(row))}
           </section>
         )}
         {localShown && (
@@ -341,11 +356,7 @@ export function ConnectionPicker({
         ) : choices.error ? (
           <div role="alert" className="flex flex-col items-center gap-2 px-3 py-4 text-center text-[0.6875rem]">
             <span className="text-foreground/60">{t("connections.picker.error")}</span>
-            <button
-              type="button"
-              onClick={choices.retry}
-              className="mari-chrome-control flex min-h-11 items-center gap-1.5 px-3 font-semibold md:min-h-9 [@media(pointer:coarse)]:min-h-11"
-            >
+            <button type="button" onClick={choices.retry} className="mari-connection-btn">
               <RefreshCw size="0.75rem" aria-hidden />
               {t("connections.picker.retry")}
             </button>

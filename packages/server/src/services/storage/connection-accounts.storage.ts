@@ -24,6 +24,7 @@ import {
   IMAGE_SOURCE_VENDOR,
   PROVIDERS,
   VIDEO_GENERATION_SOURCES,
+  connectionBilling,
   inferImageSource,
   inferVideoSource,
   isChatProvider,
@@ -38,8 +39,8 @@ import {
 import { setConnectionBudgetScope, setAccountRateLimit } from "../llm/connection-rate-limit-registry.js";
 import { setAccountParallelLimit } from "../llm/account-budget.js";
 import { logger } from "../../lib/logger.js";
-// A cycle with connections.storage, safe: the function is only called at request time.
-import { readSavedModelList } from "./connections.storage.js";
+// A cycle with connections.storage, safe: the functions are only called at request time.
+import { catalogOf, readAccountCatalogs, readSavedModelList, withAccountCatalog } from "./connections.storage.js";
 
 export type ConnectionRow = typeof apiConnections.$inferSelect;
 export type ConnectionAccountRow = typeof connectionAccounts.$inferSelect;
@@ -322,6 +323,9 @@ export function toAccountListItem(account: ConnectionAccountRow, modelCount: num
     enabled,
     maxRequestsPerMinute: account.maxRequestsPerMinute ?? null,
     maxParallelJobs: account.maxParallelJobs ?? null,
+    icon: account.icon ?? null,
+    imagePath: account.imagePath ?? null,
+    billing: connectionBilling(account),
     profileImportReviewRequired: review,
     modelCount,
     state: !enabled ? "off" : review || accountNeedsKey(account) ? "needs_key" : "ok",
@@ -387,6 +391,9 @@ function accountFromGroup(rows: ConnectionRow[], plainKey: string, hasSibling = 
     enabled: "true",
     maxRequestsPerMinute: null,
     maxParallelJobs: null,
+    icon: null,
+    imagePath: null,
+    modelCatalogs: null,
     profileImportReviewRequired: rows.some((row) => row.profileImportReviewRequired === "true") ? "true" : "false",
     createdAt: timestamp,
     updatedAt: timestamp,
@@ -483,8 +490,46 @@ export async function linkConnectionAccounts(db: DB): Promise<{ created: number;
     if (created || linked || detached) {
       logger.info("[connections] Linked %d Model(s) into %d new Connection(s), detached %d", linked, created, detached);
     }
+    await moveCatalogsToAccounts(tx);
     return { created, linked, detached };
   });
+}
+
+/**
+ * Idempotent: a linked Model's own saved model list moves onto its Connection (one catalog per provider), so the
+ * ~300 KB lists are kept once instead of once per Model. The newest list of a provider wins; Models of one Connection
+ * and provider carried the same mirrored list before, so nothing else is lost. Pins stay on the rows.
+ */
+export async function moveCatalogsToAccounts(tx: DB): Promise<number> {
+  const rows = ((await tx.select().from(apiConnections)) as ConnectionRow[]).filter(
+    (row) => row.accountId && row.savedModels,
+  );
+  if (!rows.length) return 0;
+  const accounts = new Map(
+    ((await tx.select().from(connectionAccounts)) as ConnectionAccountRow[]).map((account) => [account.id, account]),
+  );
+  const changed = new Map<string, ConnectionAccountRow>();
+  let moved = 0;
+  for (const row of rows) {
+    const account = changed.get(row.accountId!) ?? accounts.get(row.accountId!);
+    // A row whose account is gone keeps its list; linking detaches it first.
+    if (!account) continue;
+    const list = readSavedModelList(row);
+    const current = readAccountCatalogs(account)[row.provider];
+    if (list && (!current || current.fetchedAt < list.fetchedAt)) {
+      changed.set(account.id, { ...account, modelCatalogs: withAccountCatalog(account, row.provider, list) });
+    }
+    await tx.update(apiConnections).set({ savedModels: null }).where(eq(apiConnections.id, row.id));
+    moved++;
+  }
+  for (const account of changed.values()) {
+    await tx
+      .update(connectionAccounts)
+      .set({ modelCatalogs: account.modelCatalogs })
+      .where(eq(connectionAccounts.id, account.id));
+  }
+  logger.info("[connections] Moved %d saved model list(s) onto their Connection", moved);
+  return moved;
 }
 
 // ── Account storage ─────────────────────────────
@@ -520,6 +565,9 @@ export function createConnectionAccountsStorage(db: DB) {
         enabled: String(input.enabled ?? true),
         maxRequestsPerMinute: input.maxRequestsPerMinute ?? null,
         maxParallelJobs: input.maxParallelJobs ?? null,
+        icon: input.icon ?? null,
+        imagePath: null as string | null,
+        modelCatalogs: null as string | null,
         profileImportReviewRequired: "false",
         createdAt: timestamp,
         updatedAt: timestamp,
@@ -552,13 +600,19 @@ export function createConnectionAccountsStorage(db: DB) {
         if (input.enabled !== undefined) set.enabled = String(input.enabled);
         if (input.maxRequestsPerMinute !== undefined) set.maxRequestsPerMinute = input.maxRequestsPerMinute;
         if (input.maxParallelJobs !== undefined) set.maxParallelJobs = input.maxParallelJobs;
+        // One picture at a time: a chosen logo, letters or a reset replaces an uploaded image.
+        if (input.icon !== undefined) Object.assign(set, { icon: input.icon, imagePath: null });
         // Saving an endpoint or key is the explicit local review boundary (as for a single connection).
         if (credentialsTouched) set.profileImportReviewRequired = "false";
+        const keyChanged = input.apiKey !== undefined && input.apiKey !== plainOldKey;
+        const baseUrlChanged = input.baseUrl !== undefined && input.baseUrl !== account.baseUrl;
+        // A different key or address can serve a different model list. The address belongs to the account's
+        // own provider; other kinds keep their endpoint and so their list.
+        if (keyChanged) set.modelCatalogs = null;
+        else if (baseUrlChanged) set.modelCatalogs = withAccountCatalog(account, account.provider, null);
         await tx.update(connectionAccounts).set(set).where(eq(connectionAccounts.id, id));
         const updated: ConnectionAccountRow = { ...account, ...set };
 
-        const keyChanged = input.apiKey !== undefined && input.apiKey !== plainOldKey;
-        const baseUrlChanged = input.baseUrl !== undefined && input.baseUrl !== account.baseUrl;
         const accountOrigin = credentialOrigin(updated);
         const mirrored =
           input.apiKey !== undefined ||
@@ -570,6 +624,8 @@ export function createConnectionAccountsStorage(db: DB) {
           input.treatAsLocalEndpoint !== undefined;
         if (mirrored) {
           const rows = await tx.select().from(apiConnections).where(eq(apiConnections.accountId, id));
+          const detached = new Set<string>();
+          const kept = new Set<string>();
           const isMedia = (provider: string) => provider === "image_generation" || provider === "video_generation";
           // The account row has no media source: the oldest linked row stands for the account's service.
           const representative = [...(rows as ConnectionRow[])].sort(
@@ -596,8 +652,10 @@ export function createConnectionAccountsStorage(db: DB) {
               (input.apiKey !== undefined && foreignEndpoint)
             ) {
               await tx.update(apiConnections).set({ accountId: null }).where(eq(apiConnections.id, row.id));
+              detached.add(row.provider);
               continue;
             }
+            kept.add(row.provider);
             const rowSet: Partial<ConnectionRow> = { updatedAt: set.updatedAt! };
             if (input.apiKey !== undefined) rowSet.apiKeyEncrypted = updated.apiKeyEncrypted;
             if (input.managementToken !== undefined && row.provider === "nanogpt") {
@@ -616,9 +674,27 @@ export function createConnectionAccountsStorage(db: DB) {
             if (credentialsTouched && !foreignEndpoint) rowSet.profileImportReviewRequired = "false";
             await tx.update(apiConnections).set(rowSet).where(eq(apiConnections.id, row.id));
           }
+          // A provider whose last Model left the account leaves no reader for its catalog, which may be stale too.
+          const orphaned = [...detached].filter((provider) => !kept.has(provider));
+          if (orphaned.length) {
+            for (const provider of orphaned) updated.modelCatalogs = withAccountCatalog(updated, provider, null);
+            await tx
+              .update(connectionAccounts)
+              .set({ modelCatalogs: updated.modelCatalogs })
+              .where(eq(connectionAccounts.id, id));
+          }
         }
         return updated;
       });
+    },
+
+    /** Set an uploaded picture; it replaces a chosen logo or letters. */
+    async setImage(id: string, imagePath: string): Promise<ConnectionAccountRow | null> {
+      const account = await getConnectionAccount(db, id);
+      if (!account) return null;
+      const set = { icon: null, imagePath, updatedAt: now() };
+      await db.update(connectionAccounts).set(set).where(eq(connectionAccounts.id, id));
+      return { ...account, ...set };
     },
 
     /** Delete an account that has no Models. Returns the linked rows instead when it still has some. */
@@ -651,7 +727,7 @@ export function createConnectionAccountsStorage(db: DB) {
       const chatRows = linked.filter((row) => isChatProvider(row.provider)).sort(newerFirst);
       const provider = isChatProvider(account.provider) ? account.provider : chatRows[0]?.provider;
       if (!provider) return "not_chat";
-      const entry = linked.map((row) => readSavedModelList(row)?.models.find((m) => m.id === model)).find(Boolean);
+      const entry = linked.map((row) => catalogOf(row, account)?.models.find((m) => m.id === model)).find(Boolean);
       const positive = (value: unknown) => (typeof value === "number" && value >= 1 ? Math.floor(value) : undefined);
       const catalog: CatalogModelInfo = {
         ...(entry?.name ? { name: entry.name } : {}),

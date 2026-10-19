@@ -408,3 +408,138 @@ export function SubscriptionUsageWidget({
     </div>
   );
 }
+
+/** "14:20" today, "Mon 14:20" later: when a window resets, as a clock time. */
+function resetClock(resetAt: number, locale: string | undefined): string {
+  const date = new Date(resetAt);
+  const today = date.toDateString() === new Date().toDateString();
+  return date.toLocaleString(locale, {
+    ...(today ? {} : { weekday: "short" }),
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+type MeterWindow = { key: string; short: string; long: string; window: NanoGptQuotaWindow; limit: number | null };
+
+/**
+ * One compact line under a connection's header: "5h 42% · week 18%" with two small bars. Amber above 80%,
+ * red at the limit, where the text becomes the problem ("5h limit · resets 14:20"). Exact figures sit in the
+ * tooltip. It reads the same query as the full widget, so it adds no request.
+ */
+export function CompactUsageMeter({
+  connectionId,
+  showFiveHour = true,
+  showWeekly = true,
+  className,
+}: {
+  connectionId: string;
+  showFiveHour?: boolean;
+  showWeekly?: boolean;
+  className?: string;
+}) {
+  const { t, i18n } = useUiTranslation();
+  const { data } = useSubscriptionUsage(connectionId, true);
+  if (!data) return null;
+
+  const windows: MeterWindow[] =
+    "windows" in data
+      ? data.windows
+          .filter((entry) => (entry.id === "five_hour" ? showFiveHour : showWeekly))
+          .map((entry) => ({
+            key: entry.id,
+            short: t(entry.id === "five_hour" ? "connections.usage.fiveHourShort" : "connections.usage.weekShort"),
+            long: t(
+              entry.id === "five_hour"
+                ? "ui.connections.connectioneditor.planFiveHourWindow"
+                : "ui.connections.connectioneditor.planWeeklyWindow",
+            ),
+            window: entry,
+            limit: null,
+          }))
+      : [
+          data.dailyInputTokens && {
+            key: "day",
+            short: t("connections.usage.dayShort"),
+            long: t("ui.connections.connectioneditor.dailyInputTokens"),
+            window: data.dailyInputTokens,
+            limit: data.limits.dailyInputTokens,
+          },
+          data.weeklyInputTokens && {
+            key: "week",
+            short: t("connections.usage.weekShort"),
+            long: t("ui.connections.connectioneditor.weeklyInputTokens"),
+            window: data.weeklyInputTokens,
+            limit: data.limits.weeklyInputTokens,
+          },
+        ].filter((entry): entry is MeterWindow => !!entry);
+
+  const readings = windows.flatMap((entry) => {
+    const percent = quotaPercentForDisplay(entry.window.percentUsed);
+    if (percent === null) return [];
+    const atLimit = (entry.window.percentUsed ?? 0) >= 1;
+    const resets = entry.window.resetAt !== null ? resetClock(entry.window.resetAt, i18n.resolvedLanguage) : null;
+    const rounded = String(Math.round(percent));
+    const total = quotaTotalForDisplay(entry.window, entry.limit);
+    const figures =
+      total !== null && entry.window.used !== null
+        ? t("connections.usage.tooltipTokens", {
+            label: entry.long,
+            used: formatTokens(entry.window.used),
+            limit: formatTokens(total),
+            percent: rounded,
+          })
+        : t("connections.usage.tooltipPercent", { label: entry.long, percent: rounded });
+    return [
+      {
+        ...entry,
+        percent,
+        atLimit,
+        text: atLimit
+          ? resets
+            ? t("connections.usage.limitResets", { label: entry.short, time: resets })
+            : t("connections.usage.limit", { label: entry.short })
+          : t("connections.usage.reading", { label: entry.short, percent: rounded }),
+        tooltip: resets ? t("connections.usage.tooltipResets", { reading: figures, time: resets }) : figures,
+      },
+    ];
+  });
+  if (readings.length === 0) return null;
+  const tooltip = readings.map((reading) => reading.tooltip).join("\n");
+
+  return (
+    <p
+      data-connection-usage-meter
+      title={tooltip}
+      className={`flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-[0.6875rem] tabular-nums text-[var(--muted-foreground)] ${className ?? ""}`}
+    >
+      <span className="sr-only">{tooltip}</span>
+      {readings.map((reading, index) => (
+        <span
+          key={reading.key}
+          aria-hidden
+          data-usage-window={reading.key}
+          data-usage-level={reading.atLimit ? "limit" : reading.percent > 80 ? "high" : "ok"}
+          className={`inline-flex items-center gap-1.5 whitespace-nowrap ${
+            reading.atLimit
+              ? "font-medium text-red-500"
+              : reading.percent > 80
+                ? "text-[color-mix(in_srgb,var(--color-amber-500)_78%,var(--foreground)_22%)]"
+                : ""
+          }`}
+        >
+          {index > 0 && <span className="text-[var(--muted-foreground)]">·</span>}
+          <span className="h-1 w-8 overflow-hidden rounded-full bg-foreground/15">
+            <span
+              className={`block h-full rounded-full ${
+                reading.atLimit ? "bg-red-500" : reading.percent > 80 ? "bg-amber-400" : "bg-foreground/35"
+              }`}
+              style={{ width: `${reading.percent}%` }}
+            />
+          </span>
+          {reading.text}
+        </span>
+      ))}
+    </p>
+  );
+}

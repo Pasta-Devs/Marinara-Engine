@@ -1,8 +1,8 @@
 // ──────────────────────────────────────────────
-// ConnectionDefaults — "Who does what" (round 2): which Model or service each job uses, as one compact list. A set
-// job is one line (its Model, Connection and fallback) that unfolds its pickers in place; a job with a problem always
-// shows, with its fix. Jobs nobody set wait behind "Set up another role". The panel list shows the summary card
-// (Main and the problem count); on a narrow panel it unfolds this list in place (`compact`).
+// ConnectionDefaults — the Defaults box at the top of the Connections panel: which Model or service each job uses.
+// Main, Agents and Images always show as one line each (their Model, Connection and fallback) that unfolds its
+// pickers in place; a job with a problem always shows, with its fix. The other jobs wait behind one "N more roles"
+// line. The box folds, and the fold is remembered.
 // Device jobs (Voice, Speech to text) open their engine's page, or the Add window when the engine is not set up.
 // ──────────────────────────────────────────────
 import { useMemo, useState, type ReactNode } from "react";
@@ -20,8 +20,6 @@ import {
   MessageCircleQuestion,
   MessageSquareText,
   Mic,
-  Plus,
-  Settings2,
   Sparkles,
   VenetianMask,
   Volume2,
@@ -36,7 +34,12 @@ import {
   type ConnectionAccountListItem,
   type FeatureModelConnections,
 } from "@marinara-engine/shared";
-import { useDefaultEmbeddingConnection, useUpdateConnection } from "../../hooks/use-connections";
+import {
+  useCachedCatalogFacts,
+  useDefaultEmbeddingConnection,
+  useUpdateConnection,
+  type CachedCatalogFacts,
+} from "../../hooks/use-connections";
 import {
   useConnectionAccounts,
   useFeatureModels,
@@ -58,8 +61,9 @@ import { ConnectionSelect, type ConnectionSelectKind } from "./ConnectionSelect"
 import { MARI_QUICK_CONNECTION } from "../../lib/omnibar-aside-text";
 import { EmbeddingDefaultControl } from "./EmbeddingDefaultControl";
 import { DecisionDefaultControl } from "./DecisionDefaultControl";
-import { DETAIL_CARD_CLASS, DetailHero, SMALL_ACTION } from "./DeviceDetail";
-import type { ConnectionRowData } from "./ConnectionRow";
+import { SMALL_ACTION } from "./DeviceDetail";
+import { ProviderIcon } from "./ProviderIcon";
+import { ModelRow, mediaService, type ConnectionRowData } from "./ConnectionRow";
 
 type RoleField = "isDefault" | "defaultForAgents" | "fallbackForMain" | "fallbackForAgents";
 type FlagRoleKey = "main" | "agents" | "images" | "video" | "audio";
@@ -152,6 +156,8 @@ export type DefaultsTile = {
   /** An unset job reads quieter than a chosen one. */
   muted?: boolean;
   warning: Warning | null;
+  /** The chosen Model, for its picture. */
+  source?: ConnectionRowData;
   /** The engine this job needs is not set up: the tile leads to its set-up screen. */
   setup?: { item: DeviceItem; text: string };
   /** A device job opens its engine's page instead of pickers. */
@@ -178,7 +184,7 @@ export function useConnectionDefaults(connectionsList: ConnectionRowData[]) {
   /** The name the user gave the Model, with its Connection as the muted second line. */
   const describe = (row: ConnectionRowData) => {
     const account = row.accountId ? accountById.get(row.accountId) : undefined;
-    return { value: row.name?.trim() || row.model?.trim() || row.id, hint: account?.name };
+    return { value: row.name?.trim() || row.model?.trim() || row.id, hint: account?.name, source: row };
   };
   /** A broken Connection behind the chosen Model, and its one fix. */
   const accountWarning = (account: ConnectionAccountListItem | undefined): Warning | null => {
@@ -338,13 +344,7 @@ export function useConnectionDefaults(connectionsList: ConnectionRowData[]) {
   });
 
   const all = [...tiles, embeddings, decision, voice, ...(stt ? [stt] : [])];
-  const main = tiles[0]!;
-  return {
-    tiles: all,
-    features,
-    mainLabel: main.muted ? t("connections.defaults.notSet") : main.value,
-    problems: all.filter((tile) => tile.warning),
-  };
+  return { tiles: all, features, problems: all.filter((tile) => tile.warning) };
 }
 
 type Job = {
@@ -355,8 +355,21 @@ type Job = {
   onOpen?: () => void;
 };
 
+/** Main, Agents and Images always show; the other jobs wait behind "N more roles" unless they have a problem. */
+const PRIMARY_KEYS = new Set<TileKey>(["main", "agents", "images"]);
+
 /** One job as one line: its name, its Model with the Connection and fallback under it, then its problem and fix. */
-function JobRow({ job, open, onToggle }: { job: Job; open: boolean; onToggle: () => void }) {
+function JobRow({
+  job,
+  open,
+  onToggle,
+  catalog,
+}: {
+  job: Job;
+  open: boolean;
+  onToggle: () => void;
+  catalog?: CachedCatalogFacts;
+}) {
   const { t } = useTranslation();
   const { tile } = job;
   const controlsId = `connections-defaults-${tile.key}`;
@@ -366,67 +379,86 @@ function JobRow({ job, open, onToggle }: { job: Job; open: boolean; onToggle: ()
   ]
     .filter(Boolean)
     .join(" · ");
+  const facts = catalog?.of(tile.source?.model);
   return (
     <section data-defaults-role={tile.key} aria-label={tile.title}>
-      <button
-        type="button"
+      {/* The shared model row, with the job's name leading it. */}
+      <ModelRow
+        rowProps={{
+          className: cn("mari-connection-defaults-job rounded-xl pe-0", open && "mari-connection-defaults-job--open"),
+        }}
         data-defaults-tile={tile.key}
         onClick={job.onOpen ?? onToggle}
         aria-expanded={job.onOpen ? undefined : open}
         aria-controls={job.onOpen || !open ? undefined : controlsId}
         aria-label={t("connections.defaults.jobLabel", { role: tile.title, value: tile.value })}
         className={cn(
-          "flex min-h-11 w-full min-w-0 items-center gap-2.5 rounded-lg px-1.5 py-1.5 text-left transition-colors hover:bg-[var(--sidebar-accent)]/50 md:min-h-10 [@media(pointer:coarse)]:min-h-11",
-          open && "bg-[var(--sidebar-accent)]/30",
-          FOCUS,
+          "min-h-12 gap-2 rounded-xl py-1.5 pe-2 ps-2",
+          tile.muted && "[&_[data-model-title]]:font-normal [&_[data-model-title]]:italic",
         )}
-      >
-        <span
-          aria-hidden
-          className="mari-panel-gradient-surface mari-panel-gradient--connections flex h-6 w-6 shrink-0 items-center justify-center rounded-lg"
-        >
-          {tile.icon}
-        </span>
-        <span className="w-24 shrink-0 break-words text-xs font-semibold leading-4 text-[var(--foreground)]">
-          {tile.title}
-        </span>
-        <span className="min-w-0 flex-1">
-          <span
-            className={cn(
-              "block truncate text-xs leading-4",
-              tile.muted ? "text-[var(--muted-foreground)]" : "text-[var(--foreground)]",
-            )}
-          >
-            {tile.value}
+        lead={
+          <span className="mari-connection-defaults-role w-14 shrink-0 break-words text-xs font-semibold leading-4">
+            {tile.title}
           </span>
-          {sub && <span className="block truncate text-[0.625rem] text-[var(--muted-foreground)]">{sub}</span>}
-        </span>
-        {tile.warning && (
-          <AlertTriangle size="0.75rem" aria-hidden className="shrink-0 text-[var(--marinara-app-accent-static)]" />
-        )}
-        {job.onOpen ? (
-          tile.setup ? (
-            <span className="shrink-0 text-xs font-semibold text-[var(--primary)]">
-              {t("connections.defaults.setUpLink")}
-            </span>
+        }
+        tile={
+          tile.source ? (
+            <ProviderIcon
+              size="row"
+              provider={tile.source.provider}
+              baseUrl={tile.source.baseUrl}
+              service={mediaService(tile.source)}
+              model={tile.source.model}
+              name={tile.hint ?? tile.source.name}
+              icon={tile.source.icon}
+              imagePath={tile.source.imagePath}
+            />
           ) : (
-            <ChevronRight size="0.75rem" className="shrink-0 text-[var(--muted-foreground)]" />
+            <span
+              aria-hidden
+              data-defaults-empty-tile={tile.muted || undefined}
+              className={cn(
+                "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
+                tile.muted
+                  ? "border border-dashed border-foreground/25 text-[var(--muted-foreground)]"
+                  : "mari-panel-gradient-surface mari-panel-gradient--connections",
+              )}
+            >
+              {tile.icon}
+            </span>
           )
-        ) : (
-          <ChevronDown
-            size="0.75rem"
-            className={cn(
-              "shrink-0 text-[var(--muted-foreground)] transition-transform motion-reduce:transition-none",
-              open && "rotate-180",
+        }
+        title={tile.value}
+        subtitle={sub}
+        dim={tile.muted}
+        cost={facts?.cost}
+        showPaid={catalog?.showPaid}
+        retiring={facts}
+        trailing={
+          <>
+            {tile.warning && <AlertTriangle size="0.75rem" aria-hidden className="shrink-0 text-amber-500" />}
+            {job.onOpen ? (
+              tile.setup ? (
+                <span className="mari-panel-gradient--connections shrink-0 text-xs font-semibold text-[var(--mari-connection-ink)]">
+                  {t("connections.defaults.setUpLink")}
+                </span>
+              ) : (
+                <ChevronRight size="0.875rem" className="shrink-0 text-[var(--muted-foreground)]" />
+              )
+            ) : (
+              <ChevronDown
+                size="0.875rem"
+                className={cn(
+                  "shrink-0 text-[var(--muted-foreground)] transition-transform motion-reduce:transition-none",
+                  open && "rotate-180",
+                )}
+              />
             )}
-          />
-        )}
-      </button>
+          </>
+        }
+      />
       {tile.warning && (
-        <div
-          role="status"
-          className="mb-1 ml-10 flex items-center gap-2 rounded-lg bg-[var(--marinara-app-accent-static)]/10 px-2.5 py-1.5 text-[0.6875rem] text-[var(--marinara-app-accent-static)]"
-        >
+        <div role="status" className="mari-connection-defaults-problem">
           <span className="min-w-0 flex-1 break-words">{tile.warning.text}</span>
           {tile.warning.fix && (
             <button type="button" onClick={tile.warning.fix.run} className={cn(SMALL_ACTION, "shrink-0")}>
@@ -436,7 +468,7 @@ function JobRow({ job, open, onToggle }: { job: Job; open: boolean; onToggle: ()
         </div>
       )}
       {open && job.controls && (
-        <div id={controlsId} className="mb-2 ml-10 mt-0.5 flex flex-col gap-0.5">
+        <div id={controlsId} className="mb-2 ml-16 mt-0.5 flex flex-col gap-0.5">
           {job.controls}
         </div>
       )}
@@ -444,18 +476,20 @@ function JobRow({ job, open, onToggle }: { job: Job; open: boolean; onToggle: ()
   );
 }
 
-export function ConnectionDefaultsDetail({
+/** Persisted with the Connection folds; no Connection id is "defaults". */
+export const DEFAULTS_FOLD_ID = "defaults";
+
+export function ConnectionDefaultsBox({
   connectionsList,
   onOpenDevice,
-  compact = false,
 }: {
   connectionsList: ConnectionRowData[];
   onOpenDevice: (item: DeviceItem) => void;
-  /** Inline under the list's Defaults card: no page heading, no card of its own. */
-  compact?: boolean;
 }) {
   const { t } = useTranslation();
-  const { tiles, features: featureTiles } = useConnectionDefaults(connectionsList);
+  const { tiles, features: featureTiles, problems } = useConnectionDefaults(connectionsList);
+  const folded = useUIStore((s) => s.connectionsCollapsed.includes(DEFAULTS_FOLD_ID));
+  const toggleFold = useUIStore((s) => s.toggleConnectionCollapsed);
   const updateConnection = useUpdateConnection();
   const showPaidAgentConnectionWarning = useUIStore((s) => s.showPaidAgentConnectionWarning);
   const setShowPaidAgentConnectionWarning = useUIStore((s) => s.setShowPaidAgentConnectionWarning);
@@ -628,16 +662,30 @@ export function ConnectionDefaultsDetail({
       };
     }),
   ];
-  // A job counts as set once it has a Model, a fallback or a problem.
+  // Cost badges from the catalogs already cached for each chosen Model's Connection; nothing is fetched.
+  const catalogs = useCachedCatalogFacts(
+    jobs.map(({ tile }) =>
+      !tile.source
+        ? []
+        : tile.source.accountId
+          ? connectionsList.filter((row) => row.accountId === tile.source!.accountId).map((row) => row.id)
+          : [tile.source.id],
+    ),
+  );
   // Hold an open row in its original group while a picker changes its configuration. Moving it between
   // groups would remount the control and lose keyboard focus before the picker has finished closing.
-  const isSet = ({ tile }: Job) =>
-    tile.key === openKey ? !openInUnused : !tile.muted || !!tile.fallback || !!tile.warning;
-  const unused = jobs.filter((job) => !isSet(job));
+  const isShown = ({ tile }: Job) =>
+    tile.key === openKey ? !openInUnused : PRIMARY_KEYS.has(tile.key) || !!tile.warning;
+  const unused = jobs.filter((job) => !isShown(job));
+  const unusedNames = unused
+    .slice(0, 2)
+    .map((job) => job.tile.title)
+    .join(", ");
   const renderJob = (job: Job) => (
     <JobRow
       key={job.tile.key}
       job={job}
+      catalog={catalogs[jobs.indexOf(job)]}
       open={openKey === job.tile.key}
       onToggle={() => {
         if (openKey === job.tile.key) {
@@ -649,7 +697,7 @@ export function ConnectionDefaultsDetail({
             target?.focus();
           });
         } else {
-          setOpenInUnused(!isSet(job));
+          setOpenInUnused(!isShown(job));
           setOpenKey(job.tile.key);
         }
       }}
@@ -657,70 +705,76 @@ export function ConnectionDefaultsDetail({
   );
 
   return (
-    <div className="flex flex-col gap-3">
-      {!compact && (
-        <DetailHero
-          icon={
-            <span className="mari-panel-gradient-surface mari-panel-gradient--connections flex h-11 w-11 shrink-0 items-center justify-center rounded-xl shadow-sm">
-              <Settings2 size="1.25rem" />
-            </span>
-          }
-          title={t("connections.defaults.whoDoesWhat")}
-        >
-          <span>{t("connections.defaults.whoDoesWhatHelp")}</span>
-        </DetailHero>
-      )}
-      <div className={cn(!compact && DETAIL_CARD_CLASS, "flex flex-col gap-0.5 p-1")}>
-        {/* Scope: these apply to every chat; a chat's own pick lives on the chat. */}
-        <p className="flex min-w-0 items-center gap-1.5 px-1.5 pb-1 text-[0.6875rem] text-[var(--muted-foreground)]">
-          <span className="shrink-0 rounded-md bg-[var(--sidebar-accent)] px-1.5 text-[0.625rem] font-semibold uppercase leading-4 tracking-wide text-[var(--foreground)]">
-            {t("connections.defaults.global")}
+    <section
+      aria-labelledby="connections-defaults-title"
+      className="mari-connection-defaults-box mari-panel-gradient--connections p-1.5"
+    >
+      <button
+        type="button"
+        data-connections-row="defaults"
+        onClick={() => toggleFold(DEFAULTS_FOLD_ID)}
+        aria-expanded={!folded}
+        aria-controls={folded ? undefined : "connections-defaults"}
+        className={cn("flex min-h-11 w-full min-w-0 items-start gap-2 rounded-xl px-1.5 py-1 text-left", FOCUS)}
+      >
+        <span className="min-w-0 flex-1">
+          <span
+            id="connections-defaults-title"
+            className="block text-[0.9375rem] font-semibold leading-6 text-[var(--foreground)]"
+          >
+            {t("connections.defaults.title")}
           </span>
-          <span className="min-w-0">{t("connections.defaults.globalHelp")}</span>
-        </p>
-        {jobs.filter(isSet).map(renderJob)}
-        {unused.length > 0 && (
-          <>
-            <button
-              type="button"
-              data-defaults-unused
-              onClick={() => {
-                if (showUnused && openInUnused) setOpenKey(null);
-                setShowUnused((shown) => !shown);
-              }}
-              aria-expanded={showUnused}
-              className={cn(
-                "flex min-h-11 w-full min-w-0 items-center gap-2.5 rounded-lg px-1.5 py-1.5 text-left text-xs transition-colors hover:bg-[var(--sidebar-accent)]/50 md:min-h-10 [@media(pointer:coarse)]:min-h-11",
-                FOCUS,
-              )}
-            >
-              <span
-                aria-hidden
-                className="flex h-6 w-6 shrink-0 items-center justify-center text-[var(--muted-foreground)]"
-              >
-                <Plus size="0.875rem" />
-              </span>
-              <span className="min-w-0 flex-1 text-[var(--foreground)]">
-                {t("connections.defaults.setUpAnother")}
-                {!showUnused && (
-                  <span className="text-[var(--muted-foreground)]">
-                    {" · "}
-                    {unused.map((job) => job.tile.title).join(", ")}
-                  </span>
-                )}
-              </span>
-              <ChevronDown
-                size="0.75rem"
+          <span className="block text-xs text-[var(--muted-foreground)]">{t("connections.defaults.help")}</span>
+          {folded && problems.length > 0 && (
+            <span className="mt-0.5 inline-flex items-center gap-1 text-xs text-amber-500">
+              <AlertTriangle size="0.6875rem" aria-hidden />
+              {t("connections.list.problems", { count: problems.length })}
+            </span>
+          )}
+        </span>
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center text-[var(--muted-foreground)]">
+          <ChevronDown
+            size="1rem"
+            className={cn("transition-transform motion-reduce:transition-none", folded && "-rotate-90")}
+          />
+        </span>
+      </button>
+      {!folded && (
+        <div id="connections-defaults" className="flex flex-col gap-1 pt-0.5">
+          {jobs.filter(isShown).map(renderJob)}
+          {unused.length > 0 && (
+            <>
+              <button
+                type="button"
+                data-defaults-unused
+                onClick={() => {
+                  if (showUnused && openInUnused) setOpenKey(null);
+                  setShowUnused((shown) => !shown);
+                }}
+                aria-expanded={showUnused}
                 className={cn(
-                  "shrink-0 text-[var(--muted-foreground)] transition-transform motion-reduce:transition-none",
-                  showUnused && "rotate-180",
+                  "mari-connection-defaults-more flex min-h-11 w-full min-w-0 items-center gap-1.5 rounded-xl px-2 text-left text-xs",
+                  FOCUS,
                 )}
-              />
-            </button>
-            {showUnused && unused.map(renderJob)}
-          </>
-        )}
-      </div>
-    </div>
+              >
+                <span className="min-w-0 flex-1 truncate">
+                  {unused.length > 2
+                    ? t("connections.defaults.moreRoles", { names: unusedNames, count: unused.length - 2 })
+                    : unusedNames}
+                </span>
+                <ChevronDown
+                  size="0.875rem"
+                  className={cn(
+                    "shrink-0 transition-transform motion-reduce:transition-none",
+                    showUnused && "rotate-180",
+                  )}
+                />
+              </button>
+              {showUnused && unused.map(renderJob)}
+            </>
+          )}
+        </div>
+      )}
+    </section>
   );
 }

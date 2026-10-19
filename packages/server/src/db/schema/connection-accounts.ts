@@ -20,6 +20,14 @@ export const connectionAccounts = fileTable("connection_accounts", {
   maxRequestsPerMinute: integer("max_requests_per_minute"),
   /** Shared cap on parallel jobs across linked Models (null = none). */
   maxParallelJobs: integer("max_parallel_jobs"),
+  /** Picture: null = service logo, "brand:<key>", "letters:<XY>"; an upload sets `imagePath` instead. */
+  icon: text("icon"),
+  imagePath: text("image_path"),
+  /**
+   * The model lists last fetched for this Connection, one per row provider, as JSON
+   * `{ [provider]: { fetchedAt, models } }`. A re-fetchable cache shared by every linked Model of that provider.
+   */
+  modelCatalogs: text("model_catalogs"),
   /** Imported accounts stay unavailable until the user reviews and saves them locally. */
   profileImportReviewRequired: text("profile_import_review_required").notNull().default("false"),
   createdAt: text("created_at").notNull(),

@@ -17,7 +17,8 @@ import { eq } from "../../db/file-query.js";
 import type { DB } from "../../db/connection.js";
 import { agentConfigs, apiConnections, chats } from "../../db/schema/index.js";
 import { createAppSettingsStorage } from "../storage/app-settings.storage.js";
-import { hasOwnModelSettings } from "../storage/connections.storage.js";
+import { catalogOf, hasOwnModelSettings } from "../storage/connections.storage.js";
+import { getConnectionAccount } from "../storage/connection-accounts.storage.js";
 import { logger } from "../../lib/logger.js";
 
 type ConnectionRow = typeof apiConnections.$inferSelect;
@@ -46,7 +47,7 @@ export async function modelKeepReason(db: DB, row: ConnectionRow): Promise<Model
   if (!row.accountId || !isChatProvider(row.provider)) return "not_chat";
   if (parsePinnedModels(row.pinnedModels).includes(row.model)) return "starred";
   if (ROLE_FIELDS.some((field) => row[field] === "true")) return "role";
-  if (hasOwnModelSettings(row)) return "settings";
+  if (hasOwnModelSettings(row, catalogOf(row, await getConnectionAccount(db, row.accountId)))) return "settings";
   const peers = (await db.select().from(apiConnections).where(eq(apiConnections.accountId, row.accountId))).filter(
     (peer: ConnectionRow) => peer.id !== row.id,
   );

@@ -33,16 +33,16 @@ export async function showConnectionsList(page: Page) {
 export async function openDefaultsTile(page: Page, tile: "voice" | "stt") {
   await openConnectionsPanel(page);
   const tileButton = page.locator(`[data-defaults-tile="${tile}"]`).filter({ visible: true });
+  const mainTile = page.locator('[data-defaults-tile="main"]').filter({ visible: true });
   if (!(await tileButton.count())) {
     await showConnectionsList(page);
-    await page.locator('[data-connections-row="defaults"]').filter({ visible: true }).click();
+    // The Defaults box remembers its fold; unfold it only when it is folded.
+    if (!(await mainTile.count()))
+      await page.locator('[data-connections-row="defaults"]').filter({ visible: true }).click();
   }
-  await expect(page.locator('[data-defaults-tile="main"]').filter({ visible: true })).toBeVisible();
+  await expect(mainTile).toBeVisible();
   if (!(await tileButton.count())) {
-    await page
-      .getByRole("button", { name: /Set up another role/ })
-      .filter({ visible: true })
-      .click();
+    await page.locator("[data-defaults-unused]").filter({ visible: true }).click();
   }
   await expect(tileButton).toBeVisible();
   await tileButton.click();

@@ -49,7 +49,54 @@ export const connectionModelPinSchema = z.object({
 });
 
 /** Move a Model to another Connection (decision 28). */
-export const connectionMoveSchema = z.object({ accountId: z.string().trim().min(1).max(200) });
+/**
+ * "Move to connection…": the target Connection, and for a Connection of another service the model it runs there
+ * (from its catalog; a custom endpoint takes any id). A move within the same service ignores `model`.
+ */
+export const connectionMoveSchema = z.object({
+  accountId: z.string().trim().min(1).max(200),
+  model: connectionModelIdSchema.optional(),
+});
+
+/**
+ * The picture of a Connection or Model, besides an uploaded `imagePath`: null = the service logo,
+ * `brand:<key>` = a bundled provider logo, `letters:<XY>` = one or two typed characters.
+ */
+export type ConnectionIcon = { kind: "brand"; key: string } | { kind: "letters"; text: string };
+
+const CONNECTION_ICON_BRAND_KEY = /^[a-z0-9][a-z0-9_-]{0,39}$/;
+const graphemeSegmenter = new Intl.Segmenter(undefined, { granularity: "grapheme" });
+
+/** The stored icon value as a choice, or null for the default (also for a malformed value). */
+export function parseConnectionIcon(value: unknown): ConnectionIcon | null {
+  if (typeof value !== "string") return null;
+  if (value.startsWith("brand:")) {
+    const key = value.slice(6);
+    return CONNECTION_ICON_BRAND_KEY.test(key) ? { kind: "brand", key } : null;
+  }
+  if (value.startsWith("letters:")) {
+    const text = value.slice(8).trim();
+    const count = [...graphemeSegmenter.segment(text)].length;
+    // No whitespace or control characters inside: a picture tile has room for two visible characters.
+    return count >= 1 && count <= 2 && !/[\s\p{Cc}]/u.test(text) ? { kind: "letters", text } : null;
+  }
+  return null;
+}
+
+/** Trust-boundary shape of the icon value; letters are trimmed. */
+export const connectionIconSchema = z
+  .string()
+  .max(64)
+  .nullable()
+  .transform((value, ctx) => {
+    if (value === null) return null;
+    const icon = parseConnectionIcon(value);
+    if (!icon) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Use brand:<key> or letters:<1-2 characters>" });
+      return z.NEVER;
+    }
+    return icon.kind === "brand" ? `brand:${icon.key}` : `letters:${icon.text}`;
+  });
 
 export const connectionImageCaptioningDefaultsSchema = z.object({
   imageCaptioningEnabled: z.boolean().optional(),
@@ -80,6 +127,8 @@ export const createConnectionSchema = z.object({
   /** Model IDs shown first in this connection's model picker. */
   pinnedModels: z.array(connectionModelIdSchema).max(MAX_PINNED_MODELS).default([]),
   imagePath: z.string().nullable().default(null),
+  /** Picture choice; any change clears `imagePath` unless the same request sets it. */
+  icon: connectionIconSchema.default(null),
   maxContext: z.number().int().min(1).default(128000),
   isDefault: z.boolean().default(false),
   fallbackForMain: z.boolean().default(false),

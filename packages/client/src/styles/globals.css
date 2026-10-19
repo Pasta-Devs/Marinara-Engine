@@ -1508,7 +1508,7 @@
 
 /* Connection accounts share one quiet surface across the sidebar and model pickers. */
 .mari-connection-group {
-  border-radius: 0.75rem;
+  border-radius: 1rem;
   padding: 0.5rem;
   background-color: color-mix(in srgb, var(--foreground) 6%, transparent);
 }
@@ -1520,112 +1520,72 @@
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--foreground) 10%, transparent);
 }
 
-/* The reference uses one account card and one continuous, inset model list. */
-[data-connection-account-id].mari-connection-group {
-  padding: 0.5rem;
-  border-radius: 0.875rem;
-  container-type: inline-size;
-}
-[data-connection-group-heading] .mari-provider-icon {
-  width: 2rem;
-  height: 2rem;
-  border-radius: 50%;
+/* Tiles: header 2.5rem, row 2rem, upstream mark 1rem. Text columns: header text, upstream headings and row text all
+   start 3.75rem in from the card edge (card padding 0.5rem + tile column + 0.75rem gap). */
+.mari-connection-card-head .mari-provider-icon {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.625rem;
 }
 .mari-connection-model-list {
   margin-block-start: 0.25rem;
   overflow: hidden;
-  border-radius: 0.625rem;
+  /* Concentric with the card: 1rem card radius - 0.5rem padding. */
+  border-radius: 0.5rem;
   background: color-mix(in srgb, var(--foreground) 2.5%, transparent);
 }
+/* Every row of a well (models, upstream headings, Show more, Add models) sits under a hairline. */
 .mari-connection-model-slot + .mari-connection-model-slot,
-.mari-connection-model-list > .mari-connection-browse {
+.mari-connection-model-section-head + .mari-connection-model-slot,
+[data-connection-section] + [data-connection-section],
+.mari-connection-model-list > [data-connection-section] + .mari-connection-browse {
   border-block-start: 1px solid color-mix(in srgb, var(--foreground) 4%, transparent);
 }
-.mari-connection-model {
-  container-type: inline-size;
+/* Connections panel: the Defaults box and the empty state wear the connections tint, like .mari-suggestion-chip. */
+/* A tint, no frame: groups never wear an outline and a tint together. */
+.mari-connection-defaults-box,
+.mari-connection-empty {
+  border-radius: 0.875rem;
+  background:
+    linear-gradient(
+      160deg,
+      color-mix(in srgb, var(--mari-panel-gradient-start) 10%, transparent),
+      color-mix(in srgb, var(--mari-panel-gradient-end) 5%, transparent) 60%
+    ),
+    var(--card);
 }
-.mari-connection-model-choice {
-  display: grid;
-  grid-template-columns: 1.5rem minmax(0, 1fr) minmax(4rem, max-content) 4.5rem;
-  align-items: center;
-  column-gap: 0.625rem;
-  min-height: 2.75rem;
+.mari-connection-defaults-job {
+  background: color-mix(in srgb, var(--foreground) 4%, transparent);
+  transition: background-color 150ms ease;
 }
-.mari-connection-model-meta {
-  display: contents;
+.mari-connection-defaults-job:hover,
+.mari-connection-defaults-job--open {
+  background: color-mix(in srgb, var(--mari-panel-gradient-start) 10%, transparent);
 }
-.mari-connection-model [data-connection-role] > span {
-  white-space: normal;
-  overflow-wrap: anywhere;
+.mari-connection-defaults-role {
+  color: color-mix(in srgb, var(--mari-panel-gradient-start) 42%, var(--foreground) 58%);
 }
-.mari-connection-model .mari-provider-icon:not(:has(img)) {
-  background: none;
-  box-shadow: none;
+.mari-connection-defaults-more {
+  color: color-mix(in srgb, var(--mari-panel-gradient-start) 55%, var(--foreground) 45%);
 }
-.mari-connection-model .mari-provider-icon .brand-mark {
-  width: 87.5%;
-  height: 87.5%;
+.mari-connection-defaults-more:hover {
+  background: color-mix(in srgb, var(--mari-panel-gradient-start) 8%, transparent);
 }
-.mari-connection-model .mari-provider-icon > svg {
-  width: 1.25rem;
-  height: 1.25rem;
-}
-.mari-connection-defaults-row [data-connection-list-title] {
-  font-size: 1rem;
-  font-weight: 600;
-  line-height: 1.5rem;
-}
-.mari-connection-defaults-row [data-connection-list-subtitle] {
-  font-size: 0.75rem;
-  line-height: 1.125rem;
-}
-.mari-connection-defaults-row > svg {
-  width: 1rem;
-  height: 1rem;
-}
-
-/* Keep count and status secondary without taking the account name's room on narrow cards. */
-.mari-connection-heading-line {
+/* A problem reads as a quiet amber line under its role, never as an alarm. */
+.mari-connection-defaults-problem {
   display: flex;
-  min-width: 0;
-  align-items: baseline;
+  align-items: center;
   gap: 0.5rem;
+  margin: 0.25rem 0 0.25rem 4rem;
+  padding: 0.375rem 0.625rem;
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--color-amber-500) 10%, transparent);
+  color: color-mix(in srgb, var(--color-amber-500) 78%, var(--foreground) 22%);
+  font-size: 0.6875rem;
 }
-.mari-connection-defaults-row {
-  padding-block: 0.25rem;
-}
-@container (max-width: 360px) {
-  .mari-connection-heading-line {
-    flex-wrap: wrap;
-  }
-  .mari-connection-model-choice {
-    grid-template-columns: 1.5rem minmax(0, 1fr);
-    row-gap: 0.125rem;
-  }
-  .mari-connection-model-choice > :first-child {
-    grid-column: 1;
-    grid-row: 1;
-  }
-  .mari-connection-model-choice [data-connection-model-copy] {
-    grid-column: 2 / -1;
-    grid-row: 1;
-  }
-  .mari-connection-model-meta {
-    display: flex;
-    min-width: 0;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.25rem 0.5rem;
-    grid-column: 2;
-    grid-row: 2;
-  }
-  [data-connection-type] {
-    max-width: 100%;
-    white-space: normal;
-    overflow-wrap: anywhere;
-  }
-  [data-connection-role] {
-    max-width: 100%;
+@media (prefers-reduced-motion: reduce) {
+  .mari-connection-defaults-job {
+    transition: none;
   }
 }
 
@@ -1686,10 +1646,192 @@
   --mari-panel-gradient-text: #fbf7ff;
 }
 
-.mari-panel-gradient--connections {
+.mari-panel-gradient--connections,
+.mari-connection-scope {
   --mari-panel-gradient-start: #38bdf8;
   --mari-panel-gradient-end: #3b82f6;
   --mari-panel-gradient-text: #f0f9ff;
+  /* Connection blue for text, rails and selected chips; leaning on the foreground keeps it legible in light and dark. */
+  --mari-connection-ink: color-mix(in srgb, var(--mari-panel-gradient-end) 80%, var(--foreground) 20%);
+  --mari-connection-tint: color-mix(in srgb, var(--mari-panel-gradient-start) 14%, transparent);
+  --mari-connection-ring: color-mix(in srgb, var(--mari-panel-gradient-start) 55%, transparent);
+}
+
+/*
+ * Every connection surface (panel, Add window, editors, picker, switcher) carries .mari-connection-scope. It points the
+ * shared chrome tokens at connection blue and quiet neutrals, so no app accent (pink) leaks in: focus rings, the step
+ * bar, checks and selected cards turn blue; buttons and cards lose their accent outlines.
+ * The second selector outranks the accent-animation rule that pins .mari-editor-shell to the app accent.
+ */
+.mari-connection-scope,
+[data-marinara-accent-animation] .mari-connection-scope {
+  --marinara-chat-chrome-accent: var(--mari-panel-gradient-start);
+  --marinara-chat-chrome-focus-ring: var(--mari-connection-ring);
+  --marinara-chat-chrome-button-bg: color-mix(in srgb, var(--foreground) 6%, transparent);
+  --marinara-chat-chrome-button-bg-hover: color-mix(in srgb, var(--foreground) 10%, transparent);
+  --marinara-chat-chrome-button-bg-active: var(--mari-connection-tint);
+  --marinara-chat-chrome-button-border: transparent;
+  --marinara-chat-chrome-button-border-hover: transparent;
+  --marinara-chat-chrome-button-border-active: transparent;
+  --marinara-chat-chrome-button-text: var(--foreground);
+  --marinara-chat-chrome-button-text-hover: var(--foreground);
+  --marinara-chat-chrome-button-text-active: var(--mari-connection-ink);
+  --marinara-chat-chrome-highlight-bg: color-mix(in srgb, var(--mari-panel-gradient-start) 10%, transparent);
+  --marinara-chat-chrome-highlight-bg-hover: var(--mari-connection-tint);
+  --marinara-chat-chrome-highlight-text: var(--mari-connection-ink);
+  --marinara-chat-chrome-input-border: color-mix(in srgb, var(--foreground) 14%, transparent);
+  --marinara-chat-chrome-input-border-focus: color-mix(in srgb, var(--mari-panel-gradient-start) 70%, transparent);
+  --marinara-chat-chrome-panel-border: color-mix(in srgb, var(--foreground) 10%, transparent);
+  --marinara-chat-chrome-panel-divider: color-mix(in srgb, var(--foreground) 8%, transparent);
+  --marinara-editor-accent: var(--mari-panel-gradient-start);
+  --marinara-editor-focus-ring: var(--mari-connection-ring);
+  --marinara-editor-border: color-mix(in srgb, var(--foreground) 10%, transparent);
+  --marinara-editor-border-strong: color-mix(in srgb, var(--foreground) 16%, transparent);
+  --primary: var(--mari-connection-ink);
+  --ring: var(--mari-connection-ring);
+}
+/* Selection is a light blue tint, never a ring. */
+.mari-connection-scope .mari-chrome-control[aria-pressed="true"],
+.mari-connection-scope .mari-chrome-control--card[aria-pressed="true"] {
+  box-shadow: none;
+}
+
+/* Connection buttons: one height (2.25rem, 2.75rem on touch), one radius, one icon size. Quiet by default. */
+.mari-connection-btn {
+  display: inline-flex;
+  flex-shrink: 0;
+  min-height: 2.25rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  border: 0;
+  border-radius: 0.625rem;
+  padding: 0 0.75rem;
+  background: color-mix(in srgb, var(--foreground) 6%, transparent);
+  color: var(--foreground);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1rem;
+  white-space: nowrap;
+  transition:
+    background-color 150ms ease,
+    color 150ms ease,
+    filter 150ms ease,
+    transform 120ms ease;
+}
+.mari-connection-btn svg {
+  width: 0.875rem;
+  height: 0.875rem;
+  flex-shrink: 0;
+}
+.mari-connection-btn:hover {
+  background: color-mix(in srgb, var(--foreground) 10%, transparent);
+}
+.mari-connection-btn:active {
+  transform: scale(0.96);
+}
+.mari-connection-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--mari-connection-ring, color-mix(in srgb, #38bdf8 55%, transparent));
+}
+.mari-connection-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+  transform: none;
+}
+/* The one primary per surface: the connection-blue gradient. */
+.mari-connection-btn--primary,
+.mari-connection-btn--primary:hover {
+  background: linear-gradient(135deg, #38bdf8, #3b82f6);
+  color: #f0f9ff;
+}
+.mari-connection-btn--primary:hover {
+  filter: brightness(1.06);
+}
+/* Icon-only and in-row controls (⋯, back): no fill until hovered. */
+.mari-connection-btn--ghost {
+  background: transparent;
+  color: var(--muted-foreground);
+}
+.mari-connection-btn--ghost:hover {
+  background: color-mix(in srgb, var(--foreground) 6%, transparent);
+  color: var(--foreground);
+}
+.mari-connection-btn--icon {
+  width: 2.25rem;
+  padding: 0;
+}
+@media (max-width: 47.9375rem), (pointer: coarse) {
+  .mari-connection-btn {
+    min-height: 2.75rem;
+  }
+  .mari-connection-btn--icon {
+    width: 2.75rem;
+  }
+}
+
+/* Badges (role, kind, cost, status): one shape, no outline. */
+.mari-connection-pill {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.25rem;
+  border-radius: 0.375rem;
+  padding-inline: 0.375rem;
+  background: color-mix(in srgb, var(--foreground) 7%, transparent);
+  color: var(--muted-foreground);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  line-height: 1.125rem;
+  white-space: nowrap;
+}
+.mari-connection-pill svg {
+  width: 0.6875rem;
+  height: 0.6875rem;
+}
+.mari-connection-pill--strong {
+  background: color-mix(in srgb, var(--foreground) 9%, transparent);
+  color: var(--foreground);
+}
+.mari-connection-pill--blue {
+  background: color-mix(in srgb, #38bdf8 14%, transparent);
+  color: color-mix(in srgb, #3b82f6 80%, var(--foreground) 20%);
+}
+.mari-connection-pill--good {
+  background: color-mix(in srgb, var(--color-emerald-500) 13%, transparent);
+  color: color-mix(in srgb, var(--color-emerald-500) 70%, var(--foreground) 30%);
+}
+.mari-connection-pill--warn {
+  background: color-mix(in srgb, var(--color-amber-500) 14%, transparent);
+  color: color-mix(in srgb, var(--color-amber-500) 72%, var(--foreground) 28%);
+}
+
+/* Filter chip (the catalog's provider filter); selected = a soft blue tint, no outline. */
+.mari-connection-chip {
+  display: inline-flex;
+  height: 1.75rem;
+  flex-shrink: 0;
+  align-items: center;
+  border-radius: 9999px;
+  padding-inline: 0.625rem;
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+  transition:
+    background-color 120ms,
+    color 120ms;
+}
+.mari-connection-chip:hover {
+  background: color-mix(in srgb, var(--foreground) 5%, transparent);
+  color: var(--foreground);
+}
+.mari-connection-chip[aria-pressed="true"] {
+  background: var(--mari-connection-tint);
+  color: var(--mari-connection-ink);
+}
+@media (max-width: 47.9375rem), (pointer: coarse) {
+  .mari-connection-chip {
+    height: 2.25rem;
+  }
 }
 
 .mari-panel-gradient--agents {

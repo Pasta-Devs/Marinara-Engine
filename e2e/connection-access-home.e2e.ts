@@ -4,7 +4,7 @@ import { seedUIState } from "./ui-state-fixture.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 
-test("shared access home protects unsaved changes and names the saved-model test", async ({ page, request }) => {
+test("the connection editor protects unsaved changes and tests the connection", async ({ page, request }) => {
   const response = await request.post("/api/connection-accounts", {
     data: {
       name: "Studio proxy",
@@ -32,17 +32,24 @@ test("shared access home protects unsaved changes and names the saved-model test
     }, account.id);
     const editor = page.getByRole("dialog", { name: "Edit connection", exact: true });
     await expect(editor).toBeVisible();
-    await expect(editor.getByText("NanoGPT · 1", { exact: true })).toBeVisible();
-    await expect(editor.getByText("Saved model test", { exact: true })).toBeVisible();
+    // Name in the field; the line under it names the service and the model count, and no "Ready" word.
+    await expect(editor.getByText("Custom (OAI-Compatible) · 1 model", { exact: true })).toBeVisible();
+    await expect(editor.getByText("Ready", { exact: true })).toHaveCount(0);
+    // The proxy's models sit under their upstream heading, in the shared model row.
+    await expect(editor.locator('[data-connection-upstream="nanogpt"]')).toContainText("NanoGPT");
+    // Address and key show at once; model tests live in the model editor.
+    await expect(editor.locator("[data-account-address]")).toHaveValue("http://127.0.0.1:19093/v1");
+    await expect(editor.getByRole("button", { name: "Manage access", exact: true })).toHaveCount(0);
+    await expect(editor.getByRole("button", { name: "Test saved model", exact: true })).toHaveCount(0);
     const testCalls: string[] = [];
     await page.route(`**/api/connections/${connectionId}/test`, async (route) => {
       testCalls.push(route.request().url());
       await route.fulfill({ json: { success: true, message: "ok", latencyMs: 2, modelName: "Alpha" } });
     });
-    await editor.getByRole("button", { name: "Test saved model", exact: true }).click();
+    await editor.getByRole("button", { name: "Test connection", exact: true }).click();
     await expect.poll(() => testCalls.length).toBe(1);
-    await editor.getByRole("button", { name: "Manage access", exact: true }).click();
-    const name = editor.locator("[data-account-access] input").first();
+    await expect(editor.locator("[data-account-test-result]")).toHaveText("Ready · key works · 2 ms");
+    const name = editor.locator("[data-account-name]");
     await name.fill("Studio changed");
     await editor.locator(`[data-account-model-id="${connectionId}"]`).click();
     await page.getByRole("button", { name: "Keep editing", exact: true }).click();
@@ -70,7 +77,6 @@ test("shared access home protects unsaved changes and names the saved-model test
     await page.getByRole("button", { name: "Keep editing", exact: true }).click();
     await expect(name).toHaveValue("Studio changed");
     await name.fill("Studio proxy");
-    await editor.getByRole("button", { name: "Manage access", exact: true }).click();
     for (const width of [390, 768, 1440]) {
       await page.setViewportSize({ width, height: 960 });
       for (const theme of ["dark", "light"]) {
@@ -79,7 +85,10 @@ test("shared access home protects unsaved changes and names the saved-model test
           useUIStore.getState().setTheme(theme);
         }, theme);
         await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
-        await editor.screenshot({ animations: "disabled", path: `.tmp/connections-coherence/screenshots/edit-${width}-${theme}.png` });
+        await editor.screenshot({
+          animations: "disabled",
+          path: `.tmp/connections-coherence/screenshots/edit-${width}-${theme}.png`,
+        });
         expect(await editor.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
       }
     }

@@ -1,7 +1,7 @@
 // ──────────────────────────────────────────────
 // ProviderIcon — a service's tile: its bundled brand icon (decision 34c), else an icon or its initials
 // ──────────────────────────────────────────────
-import type { CSSProperties } from "react";
+import { useState, type CSSProperties } from "react";
 import {
   AudioLines,
   BrainCircuit,
@@ -14,7 +14,7 @@ import {
   Volume2,
   type LucideIcon,
 } from "lucide-react";
-import { PROVIDERS, type APIProvider } from "@marinara-engine/shared";
+import { PROVIDERS, parseConnectionIcon, type APIProvider } from "@marinara-engine/shared";
 import { cn } from "../../lib/utils";
 
 /** The bundled icons: Lobe Icons (MIT) plus Marinara-made marks; see assets/provider-icons/README.md. */
@@ -24,6 +24,32 @@ const FILES = import.meta.glob<string>("../../assets/provider-icons/*.{svg,png}"
   import: "default",
 });
 const fileUrl = (file: string) => FILES[`../../assets/provider-icons/${file}`];
+
+/** Bundled provider logos by key (the file name; colour variants left out), sorted by key: the picture menu's grid. */
+export const BRAND_MARKS: Record<string, string> = Object.fromEntries(
+  Object.entries(FILES)
+    .map(([path, url]) => [path.replace(/^.*\/|\.(svg|png)$/g, ""), url] as const)
+    .filter(([key]) => !key.endsWith("-color"))
+    .sort(([a], [b]) => a.localeCompare(b)),
+);
+
+export type ConnectionPicture =
+  | { kind: "image"; src: string }
+  | { kind: "brand"; key: string; url: string }
+  | { kind: "letters"; text: string }
+  | { kind: "default" };
+
+/** What a picture tile shows for a stored `{ icon, imagePath }`; "default" = the service logo. */
+export function resolveConnectionPicture(picture: {
+  icon?: string | null;
+  imagePath?: string | null;
+}): ConnectionPicture {
+  const icon = parseConnectionIcon(picture.icon);
+  if (icon?.kind === "letters") return icon;
+  if (icon?.kind === "brand" && BRAND_MARKS[icon.key]) return { ...icon, url: BRAND_MARKS[icon.key]! };
+  if (picture.imagePath) return { kind: "image", src: picture.imagePath };
+  return { kind: "default" };
+}
 
 /**
  * Service id → icon file. The keys are API providers, media services (image, video, speech) and local server
@@ -191,8 +217,11 @@ const SERVICE_ICONS: Partial<Record<string, LucideIcon>> = {
   decision: Scale,
 };
 
+// The small tiles keep a fixed radius: a theme's large --radius turns them into blobs.
 const SIZES = {
-  sm: { box: "h-6 w-6 rounded-lg text-[0.5625rem]", icon: "0.75rem" },
+  sm: { box: "h-6 w-6 rounded-[0.375rem] text-[0.5625rem]", icon: "0.75rem" },
+  /** The model row tile (32px). */
+  row: { box: "h-8 w-8 rounded-[0.5rem] text-xs", icon: "1rem" },
   md: { box: "h-9 w-9 rounded-xl text-xs", icon: "1rem" },
   lg: { box: "h-11 w-11 rounded-xl text-sm", icon: "1.25rem" },
   add: { box: "h-10 w-10 rounded-xl text-sm", icon: "1.0625rem" },
@@ -214,6 +243,8 @@ export function ProviderIcon({
   name,
   size = "md",
   dim = false,
+  icon: iconChoice,
+  imagePath,
   className,
 }: {
   /** An API provider, or a device engine / service id of the Add window. */
@@ -229,8 +260,15 @@ export function ProviderIcon({
   size?: keyof typeof SIZES;
   /** A Connection without a key, or off. */
   dim?: boolean;
+  /** The picture menu's choice: "brand:<key>" or "letters:<XY>"; null keeps the service logo. */
+  icon?: string | null;
+  /** An uploaded picture; the service logo shows when it fails to load. */
+  imagePath?: string | null;
   className?: string;
 }) {
+  const [failed, setFailed] = useState<string | null>(null);
+  const chosen = resolveConnectionPicture({ icon: iconChoice, imagePath });
+  const picture = chosen.kind === "image" && failed !== chosen.src ? chosen.src : null;
   const brand = brandIcon(
     brandName(service) ??
       modelBrand(model) ??
@@ -242,14 +280,29 @@ export function ProviderIcon({
     <span
       aria-hidden
       className={cn(
-        "mari-provider-icon flex shrink-0 items-center justify-center overflow-hidden font-semibold",
+        "mari-provider-icon flex shrink-0 items-center justify-center font-semibold",
         box,
+        // Only a picture is clipped; a clipped mask mark loses its edges at fractional sizes.
+        picture && "overflow-hidden",
         dim && "opacity-50",
         className,
       )}
     >
-      {brand ? (
-        <span className="brand-mark h-[60%] w-[60%]" style={maskStyle(brand.mono)} />
+      {picture ? (
+        <img
+          src={picture}
+          alt=""
+          className="h-full w-full object-cover"
+          draggable={false}
+          onError={() => setFailed(picture)}
+        />
+      ) : chosen.kind === "letters" ? (
+        chosen.text
+      ) : chosen.kind === "brand" || brand ? (
+        <span
+          className="brand-mark h-[70%] w-[70%]"
+          style={maskStyle(chosen.kind === "brand" ? chosen.url : brand!.mono)}
+        />
       ) : Icon ? (
         <Icon size={icon} />
       ) : provider === "custom" ? (

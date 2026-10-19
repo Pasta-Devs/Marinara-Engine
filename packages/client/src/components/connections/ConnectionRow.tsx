@@ -1,33 +1,53 @@
 // ──────────────────────────────────────────────
-// ConnectionRow — one saved Model in the Connections panel (variant D): a focusable row that opens the model
-// editor, its kind and role badges and the ⋯ menu. Every kind (chat, image, video, audio) uses the same row.
+// ConnectionRow — one saved Model in the Connections panel: the shared two-line ModelRow plus its ⋯ menu.
+// ModelRow is the one model row of the panel, the connection editor, the shared picker and the chat switcher;
+// only its end control differs (⋯, ›, ✓ and star).
 // ──────────────────────────────────────────────
-import { useState, type MouseEvent } from "react";
 import {
+  useId,
+  useState,
+  type ButtonHTMLAttributes,
+  type HTMLAttributes,
+  type MouseEvent,
+  type ReactNode,
+} from "react";
+import {
+  AudioLines,
   BadgeCheck,
   Camera,
   Check,
   Copy,
+  Film,
   GitBranch,
+  ImageIcon,
   KeyRound,
   MoreHorizontal,
   MoveRight,
   Pencil,
   Power,
+  Scale,
   Shuffle,
   SlidersHorizontal,
   Star,
   Trash2,
+  type LucideIcon,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { toast } from "sonner";
-import { DECISION_SOURCE_BASE_URLS, isChatProvider, type ConnectionAccountListItem } from "@marinara-engine/shared";
+import {
+  DECISION_SOURCE_BASE_URLS,
+  isChatProvider,
+  type ConnectionAccountListItem,
+  type ConnectionModelCost,
+} from "@marinara-engine/shared";
 import {
   useConnections,
   useCreateConnection,
   useDeleteConnection,
   useDuplicateConnection,
   useUpdateConnection,
+  type CachedCatalogFacts,
 } from "../../hooks/use-connections";
 import { useUIStore } from "../../stores/ui.store";
 import { showConfirmDialog } from "../../lib/app-dialogs";
@@ -35,8 +55,10 @@ import { cn } from "../../lib/utils";
 import { isConnectionFlagTrue, isLanguageGenerationConnection } from "../../lib/connection-filters";
 import { clearActiveChatResourceDrag, writeChatResourceDragPayload } from "../../lib/chat-resource-drag";
 import { roleBadges } from "../../lib/connection-groups";
+import { modelKindOf, modelSubtitle, type ModelKind } from "../../lib/connection-identity";
 import { ContextMenu, type ContextMenuItem } from "../ui/ContextMenu";
 import { ProviderIcon } from "./ProviderIcon";
+import { CostBadge, RetiringHint } from "./CostBadge";
 
 export type ConnectionRowData = {
   credentialsFromConnectionId?: string | null;
@@ -47,6 +69,7 @@ export type ConnectionRowData = {
   baseUrl?: string;
   model: string;
   imagePath?: string | null;
+  icon?: string | null;
   useForRandom?: string;
   isDefault?: boolean | string;
   fallbackForMain?: boolean | string;
@@ -92,13 +115,8 @@ export const isMediaRow = (row: Pick<ConnectionRowData, "provider">) => row.prov
 
 const FOCUS =
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)]";
-export const ROW_BUTTON = cn(
-  "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors hover:bg-[var(--sidebar)] active:scale-90 max-md:h-11 max-md:w-11 [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:w-11",
-  FOCUS,
-);
-
-/** A kind, role or state pill at the right of a Model's second line. */
-const BADGE = "shrink-0 whitespace-nowrap rounded-md px-1.5 text-[0.6875rem] font-medium leading-5";
+/** The ⋯ beside a row or card heading: the shared quiet icon button. */
+export const ROW_BUTTON = "mari-connection-btn mari-connection-btn--ghost mari-connection-btn--icon";
 
 export type MenuAt = { x: number; y: number; keyboard: boolean };
 export const menuAt = (event: MouseEvent<HTMLElement>): MenuAt => {
@@ -117,11 +135,213 @@ export const mediaService = (row: ConnectionRowData) =>
   row.audioSource ||
   null;
 
-/** The model id under the name; a gateway's upstream prefix is dropped when the list already groups by it. */
-export function modelSubtitle(row: ConnectionRowData, upstream: string | null = null): string {
-  const model = row.model?.trim() ?? "";
-  const id = upstream && model.startsWith(`${upstream}/`) ? model.slice(upstream.length + 1) : model;
-  return id || row.imageService || row.imageGenerationSource || row.videoService || row.videoGenerationSource || "";
+/** A Model's role labels: chat roles, or a media kind's Default and Fallback. */
+export function modelRoleLabels(row: ConnectionRowData, t: TFunction): string[] {
+  const media = row.provider in MEDIA_KIND;
+  return [
+    ...(isChatProvider(row.provider)
+      ? roleBadges(row)
+          .filter((role) => role !== "random")
+          .map((role) => t(`connections.switcher.role.${role}`))
+      : []),
+    ...(media && isConnectionFlagTrue(row.defaultForAgents) ? [t("connections.accounts.badge.default")] : []),
+    ...(media && isConnectionFlagTrue(row.fallbackForAgents) ? [t("connections.switcher.role.fallback")] : []),
+  ];
+}
+
+/** Kept for callers that import it from here; the formatter lives in lib/connection-identity. */
+export { modelSubtitle };
+
+const KIND_PILL: Record<Exclude<ModelKind, "chat">, { icon: LucideIcon; label: string }> = {
+  image: { icon: ImageIcon, label: "connections.accounts.kind.image" },
+  video: { icon: Film, label: "connections.accounts.kind.video" },
+  voice: { icon: AudioLines, label: "connections.add.kind.voice" },
+  decision: { icon: Scale, label: "connections.decision.label" },
+};
+
+type DataAttributes = { [key: `data-${string}`]: string | boolean | undefined };
+
+/**
+ * The one model row: line 1 tile, name, one role badge and "+N"; line 2 the kind pill (not for chat), the model id
+ * and the custom-settings glyph. `trailing` sits inside the row button (› or ✓); `end` holds sibling controls
+ * (⋯, star, fix), so no button nests in another. `onPictureClick` turns the tile into its own button.
+ */
+export function ModelRow({
+  tile,
+  title,
+  tooltip,
+  subtitle,
+  kind,
+  roles = [],
+  status,
+  customized = false,
+  cost,
+  showPaid,
+  retiring,
+  details,
+  lead,
+  current = false,
+  dim = false,
+  trailing,
+  end,
+  onPictureClick,
+  pictureLabel,
+  rowProps,
+  className,
+  ...button
+}: Omit<ButtonHTMLAttributes<HTMLButtonElement>, "title"> &
+  DataAttributes & {
+    tile: ReactNode;
+    title: string;
+    /** The name's tooltip; the name by default. */
+    tooltip?: string;
+    subtitle?: string | null;
+    /** Chat shows no pill. */
+    kind?: ModelKind | null;
+    /** Localized role labels; the first shows, the rest fold into "+N". */
+    roles?: readonly string[];
+    /** Why it cannot run now (its Connection needs a key or is off…); replaces the role badge. */
+    status?: { label: string; state?: string } | null;
+    customized?: boolean;
+    /** The cost badge at the end of line 2 (CostBadge decides whether it shows). */
+    cost?: ConnectionModelCost;
+    showPaid?: boolean;
+    /** The provider retires the model: a quiet amber hint on line 2. */
+    retiring?: { deprecated?: boolean; retiresAt?: string } | null;
+    /** More facts after the model id on line 2 (context size…). */
+    details?: ReactNode;
+    /** Before the tile inside the row button, such as a Defaults role name. */
+    lead?: ReactNode;
+    current?: boolean;
+    dim?: boolean;
+    trailing?: ReactNode;
+    end?: ReactNode;
+    /** Opens the picture menu at the tile. */
+    onPictureClick?: (at: MenuAt) => void;
+    pictureLabel?: string;
+    rowProps?: HTMLAttributes<HTMLDivElement> & DataAttributes;
+  }) {
+  const { t } = useTranslation();
+  const copyId = useId();
+  const pill = kind && kind !== "chat" ? KIND_PILL[kind] : null;
+  const rest = roles.slice(1);
+  const id = subtitle && subtitle.trim().toLowerCase() !== title.trim().toLowerCase() ? subtitle : null;
+  return (
+    <div
+      {...rowProps}
+      className={cn(
+        "mari-connection-model group relative flex min-w-0 items-center gap-1 pe-1 transition-colors hover:bg-foreground/[0.04]",
+        current && "bg-foreground/[0.06]",
+        rowProps?.className,
+      )}
+    >
+      {current && (
+        <span
+          aria-hidden
+          className="mari-panel-gradient--connections pointer-events-none absolute inset-y-2 left-0 w-0.5 rounded-full bg-[var(--mari-panel-gradient-start)]"
+        />
+      )}
+      {onPictureClick && (
+        <button
+          type="button"
+          onClick={(event) => onPictureClick(menuAt(event))}
+          aria-label={pictureLabel}
+          title={pictureLabel}
+          className={cn("ms-2 flex min-h-11 shrink-0 items-center justify-center rounded-lg", FOCUS)}
+        >
+          {tile}
+        </button>
+      )}
+      <button
+        type="button"
+        aria-describedby={button["aria-label"] ? copyId : undefined}
+        {...button}
+        className={cn(
+          // Text starts 3.25rem in: tile 0.5rem in and 2rem wide, then 0.75rem, with or without the picture button.
+          "mari-connection-model-choice flex min-h-14 min-w-0 flex-1 items-center gap-3 py-1.5 ps-2 text-left focus-visible:ring-inset disabled:cursor-not-allowed",
+          FOCUS,
+          className,
+        )}
+      >
+        {lead}
+        {!onPictureClick && tile}
+        <span id={copyId} data-connection-model-copy className="min-w-0 flex-1">
+          <span className="flex min-w-0 items-center gap-1.5">
+            <span
+              data-model-title
+              className={cn(
+                "min-w-0 truncate text-sm font-semibold leading-5",
+                dim ? "text-[var(--muted-foreground)]" : "text-[var(--foreground)]",
+              )}
+              title={tooltip ?? title}
+            >
+              {title}
+            </span>
+            {status ? (
+              <span
+                data-connection-role
+                className={cn(
+                  "mari-connection-pill ms-auto",
+                  status.state === "needs_key" && "mari-connection-pill--warn",
+                )}
+              >
+                {status.state === "needs_key" ? (
+                  <KeyRound size="0.5625rem" />
+                ) : status.state === "off" ? (
+                  <Power size="0.5625rem" />
+                ) : null}
+                {status.label}
+              </span>
+            ) : (
+              roles.length > 0 && (
+                <span
+                  data-connection-role
+                  className="ms-auto flex shrink-0 items-center gap-1"
+                  title={roles.join(", ")}
+                >
+                  <span className="mari-connection-pill mari-connection-pill--strong">{roles[0]}</span>
+                  {rest.length > 0 && (
+                    <span className="mari-connection-pill">
+                      <span aria-hidden>+{rest.length}</span>
+                      <span className="sr-only">{t("connections.row.moreRoles", { roles: rest.join(", ") })}</span>
+                    </span>
+                  )}
+                </span>
+              )
+            )}
+          </span>
+          {(pill || id || details || cost || retiring || customized) && (
+            <span className="mt-0.5 flex min-w-0 items-center gap-1.5 text-xs leading-[1.125rem] text-[var(--muted-foreground)]">
+              {pill && (
+                <span data-connection-type className="mari-connection-pill">
+                  <pill.icon size="0.6875rem" aria-hidden />
+                  {t(pill.label)}
+                </span>
+              )}
+              {id && (
+                <span className="min-w-0 truncate tabular-nums" title={id}>
+                  {id}
+                </span>
+              )}
+              {details}
+              <span className="ms-auto flex shrink-0 items-center gap-1.5">
+                {retiring && <RetiringHint deprecated={retiring.deprecated} retiresAt={retiring.retiresAt} />}
+                <CostBadge cost={cost} showPaid={showPaid} />
+              </span>
+              {customized && (
+                <span title={t("connections.row.customSettings")} className="shrink-0">
+                  <SlidersHorizontal size="0.75rem" aria-hidden />
+                  <span className="sr-only">{t("connections.row.customSettings")}</span>
+                </span>
+              )}
+            </span>
+          )}
+        </span>
+        {trailing}
+      </button>
+      {end}
+    </div>
+  );
 }
 
 export function ConnectionRow({
@@ -135,7 +355,8 @@ export function ConnectionRow({
   onUseInChat,
   moveTargets,
   onMove,
-  onImagePick,
+  onPictureClick,
+  catalog,
 }: {
   row: ConnectionRowData;
   /** The Connection the Model runs on; a Connection without a key, or off, makes the Model unavailable. */
@@ -149,12 +370,16 @@ export function ConnectionRow({
   starred?: boolean;
   onToggleStar?: () => void;
   onUseInChat?: () => void;
-  /** Other Connections of the same service the Model can move to. */
-  moveTargets?: { id: string; name: string }[];
-  onMove?: (accountId: string, name: string) => void;
-  onImagePick: () => void;
+  /** Names of the Connections the Model can move to (the menu hint); `onMove` opens the move dialog. */
+  moveTargets?: string[];
+  onMove?: () => void;
+  /** The tile, and "Change picture" in ⋯, open the picture menu. */
+  onPictureClick?: (at: MenuAt) => void;
+  /** Cost and retirement from the Connection's cached catalogs. */
+  catalog?: CachedCatalogFacts;
 }) {
   const { t } = useTranslation();
+  const facts = catalog?.of(row.model);
   const duplicateConnection = useDuplicateConnection();
   const deleteConnection = useDeleteConnection();
   const updateConnection = useUpdateConnection();
@@ -162,7 +387,7 @@ export function ConnectionRow({
   const { data: allConnections } = useConnections();
   const openConnectionDetail = useUIStore((s) => s.openConnectionDetail);
   const [menu, setMenu] = useState<MenuAt | null>(null);
-  // A pick closes the ⋯ menu, so "Make default for…" and "Move to connection…" open a second menu at its place.
+  // A pick closes the ⋯ menu, so "Make default for…" opens a second menu at its place.
   const [subMenu, setSubMenu] = useState<{ at: MenuAt; items: ContextMenuItem[] } | null>(null);
 
   const chatModel = isChatProvider(row.provider);
@@ -171,20 +396,7 @@ export function ConnectionRow({
   const inRandomPool = row.useForRandom === "true";
   const canShuffle = row.provider !== "audio" && row.provider !== "decision";
   const title = row.name?.trim() || row.model?.trim() || row.id;
-  const roles = chatModel ? roleBadges(row).filter((role) => role !== "random") : [];
-  // The kind reads quieter than the roles: it says what the Model is, a role says what it does.
-  const kindLabel = kind
-    ? t(`connections.accounts.kind.${kind}`)
-    : chatModel
-      ? t("connections.accounts.section.chat")
-      : row.provider === "decision"
-        ? t("connections.decision.label")
-        : null;
-  const badges = [
-    ...roles.map((role) => t(`connections.switcher.role.${role}`)),
-    ...(kind && isConnectionFlagTrue(row.defaultForAgents) ? [t("connections.accounts.badge.default")] : []),
-    ...(kind && isConnectionFlagTrue(row.fallbackForAgents) ? [t("connections.switcher.role.fallback")] : []),
-  ];
+  const badges = modelRoleLabels(row, t);
   // Display only: which Models show stays with the star, role and settings rules (decision 30).
   const customSettings = chatModel && !!row.ownSettings;
   const detail = subtitle ?? modelSubtitle(row);
@@ -280,16 +492,9 @@ export function ConnectionRow({
       ? [
           {
             label: t("connections.accounts.row.moveTo"),
-            hint: moveTargets.map((target) => target.name).join(", "),
+            hint: moveTargets.join(", "),
             icon: <MoveRight size="0.75rem" />,
-            onSelect: () =>
-              openSub(
-                moveTargets.map((target) => ({
-                  label: target.name,
-                  icon: <MoveRight size="0.75rem" />,
-                  onSelect: () => onMove(target.id, target.name),
-                })),
-              ),
+            onSelect: onMove,
           },
         ]
       : []),
@@ -315,13 +520,15 @@ export function ConnectionRow({
           },
         ]
       : []),
-    {
-      label: row.imagePath
-        ? t("ui.panels.connectionrow.replaceConnectionPicture")
-        : t("ui.panels.connectionrow.uploadConnectionPicture"),
-      icon: <Camera size="0.75rem" />,
-      onSelect: onImagePick,
-    },
+    ...(onPictureClick
+      ? [
+          {
+            label: t("connections.accounts.editor.picture"),
+            icon: <Camera size="0.75rem" />,
+            onSelect: () => menu && onPictureClick(menu),
+          },
+        ]
+      : []),
     {
       label: t("connections.row.remove"),
       icon: <Trash2 size="0.75rem" />,
@@ -333,153 +540,99 @@ export function ConnectionRow({
   const unavailableLabel = unavailable ? t(`connections.accounts.state.${unavailable}`) : "";
 
   return (
-    <div
-      data-connection-id={row.id}
-      // Desktop only: drag the Model onto a chat to use it there.
-      draggable
-      onDragStart={(event) => {
-        event.dataTransfer.effectAllowed = "copy";
-        writeChatResourceDragPayload(event.dataTransfer, {
-          version: 1,
-          kind: "connection",
-          ids: [row.id],
-          label: row.name,
-          ...(isLanguageGenerationConnection(row) ? {} : { unsupported: "connection-kind" as const }),
-        });
+    <ModelRow
+      rowProps={{
+        "data-connection-id": row.id,
+        // Desktop only: drag the Model onto a chat to use it there.
+        draggable: true,
+        onDragStart: (event) => {
+          event.dataTransfer.effectAllowed = "copy";
+          writeChatResourceDragPayload(event.dataTransfer, {
+            version: 1,
+            kind: "connection",
+            ids: [row.id],
+            label: row.name,
+            ...(isLanguageGenerationConnection(row) ? {} : { unsupported: "connection-kind" as const }),
+          });
+        },
+        onDragEnd: clearActiveChatResourceDrag,
       }}
-      onDragEnd={clearActiveChatResourceDrag}
-      className={cn(
-        "mari-connection-model group relative flex min-h-11 min-w-0 items-center gap-1 pr-1 transition-colors hover:bg-foreground/[0.04]",
-        current && "bg-foreground/[0.06]",
-      )}
-    >
-      {/* The row opens the editor; "…" sits beside it, never inside it. */}
-      <button
-        type="button"
-        onClick={openEditor}
-        aria-current={current ? "true" : undefined}
-        aria-label={
-          unavailable
-            ? t("connections.row.editUnavailable", { name: title, state: unavailableLabel })
-            : t("connections.row.edit", { name: title })
-        }
-        className={cn(
-          "mari-connection-model-choice min-h-11 min-w-0 flex-1 py-0.5 ps-4 text-left focus-visible:ring-inset",
-          FOCUS,
-        )}
-      >
-        {row.imagePath ? (
-          <span
-            aria-hidden
-            className={cn("h-6 w-6 shrink-0 overflow-hidden rounded-lg bg-[var(--muted)]", unavailable && "opacity-40")}
+      onClick={openEditor}
+      aria-current={current ? "true" : undefined}
+      aria-label={
+        unavailable
+          ? t("connections.row.editUnavailable", { name: title, state: unavailableLabel })
+          : t("connections.row.edit", { name: title })
+      }
+      tile={
+        <ProviderIcon
+          provider={row.provider === "decision" ? row.provider : (account?.provider ?? row.provider)}
+          baseUrl={account?.baseUrl ?? row.baseUrl}
+          service={mediaService(row)}
+          model={row.model}
+          name={account?.name ?? row.name}
+          icon={row.icon}
+          imagePath={row.imagePath}
+          size="row"
+          dim={!!unavailable}
+        />
+      }
+      onPictureClick={onPictureClick}
+      pictureLabel={t("connections.picture.change", { name: title })}
+      title={title}
+      // The full id, upstream prefix included, which the subtitle may drop.
+      tooltip={row.model && row.model !== title ? [title, row.model].join("\n") : title}
+      subtitle={sub}
+      kind={modelKindOf(row.provider)}
+      roles={badges}
+      status={unavailable ? { label: unavailableLabel, state: unavailable } : null}
+      customized={customSettings}
+      cost={facts?.cost}
+      showPaid={catalog?.showPaid}
+      retiring={facts}
+      current={current}
+      dim={!!unavailable}
+      end={
+        <>
+          {/* The row opens the editor; "…" sits beside it, never inside it. */}
+          <button
+            type="button"
+            onClick={(event) => {
+              stop(event);
+              setMenu(menuAt(event));
+            }}
+            className={cn(ROW_BUTTON, "text-[var(--muted-foreground)] hover:text-[var(--foreground)]")}
+            title={t("connections.accounts.row.actions", { name: title })}
+            aria-label={t("connections.accounts.row.actions", { name: title })}
+            aria-haspopup="menu"
+            aria-expanded={!!menu}
           >
-            <img src={row.imagePath} alt="" className="h-full w-full object-cover" draggable={false} />
-          </span>
-        ) : (
-          <ProviderIcon
-            provider={row.provider === "decision" ? row.provider : (account?.provider ?? row.provider)}
-            baseUrl={account?.baseUrl ?? row.baseUrl}
-            service={mediaService(row)}
-            model={row.model}
-            name={account?.name ?? row.name}
-            size="sm"
-            dim={!!unavailable}
-          />
-        )}
-        <span data-connection-model-copy className="min-w-0 flex-1">
-          <span
-            className={cn(
-              "line-clamp-2 break-words text-sm font-semibold leading-5",
-              unavailable ? "text-[var(--muted-foreground)]" : "text-[var(--foreground)]",
-            )}
-            title={row.model && row.model !== title ? [title, row.model].join("\n") : title}
-          >
-            {customSettings && (
-              <span title={t("connections.row.customSettings")} className="mr-1 inline-block align-[-0.125em]">
-                <SlidersHorizontal size="0.75rem" className="text-[var(--muted-foreground)]" aria-hidden />
-                <span className="sr-only">{t("connections.row.customSettings")}</span>
-              </span>
-            )}
-            {title}
-          </span>
-          {sub && (
-            <span className="block truncate text-xs leading-[1.125rem] text-[var(--muted-foreground)]" title={sub}>
-              {sub}
+            <MoreHorizontal size="1rem" />
+          </button>
+          {menu && (
+            <span onClick={stop} onKeyDown={stop}>
+              <ContextMenu
+                x={menu.x}
+                y={menu.y}
+                items={menuItems}
+                autoFocus={menu.keyboard}
+                onClose={() => setMenu(null)}
+              />
             </span>
           )}
-        </span>
-        <span className="mari-connection-model-meta">
-          <span
-            data-connection-type
-            className="min-w-0 whitespace-nowrap text-xs leading-4 text-[var(--muted-foreground)]"
-          >
-            {kindLabel}
-          </span>
-          <span data-connection-role className="flex min-w-0 flex-wrap items-center justify-start gap-1">
-            {current && <Check size="0.75rem" className="shrink-0 text-[var(--muted-foreground)]" aria-hidden />}
-            {unavailable ? (
-              <span
-                className={cn(
-                  BADGE,
-                  "inline-flex max-w-full items-center gap-1 border",
-                  unavailable === "needs_key"
-                    ? "border-[var(--marinara-app-accent-static)]/45 text-[var(--marinara-app-accent-static)]"
-                    : "border-[var(--border)] text-[var(--muted-foreground)]",
-                )}
-              >
-                {unavailable === "needs_key" ? <KeyRound size="0.5625rem" /> : <Power size="0.5625rem" />}
-                <span className="min-w-0">{unavailableLabel}</span>
-              </span>
-            ) : (
-              badges.map((badge) => (
-                <span
-                  key={badge}
-                  title={badge}
-                  className={cn(BADGE, "max-w-full whitespace-normal bg-foreground/[0.08] text-[var(--foreground)]")}
-                >
-                  {badge}
-                </span>
-              ))
-            )}
-          </span>
-        </span>
-      </button>
-      <button
-        type="button"
-        onClick={(event) => {
-          stop(event);
-          setMenu(menuAt(event));
-        }}
-        className={cn(ROW_BUTTON, "text-[var(--muted-foreground)] hover:text-[var(--foreground)]")}
-        title={t("connections.accounts.row.actions", { name: title })}
-        aria-label={t("connections.accounts.row.actions", { name: title })}
-        aria-haspopup="menu"
-        aria-expanded={!!menu}
-      >
-        <MoreHorizontal size="1rem" />
-      </button>
-      {menu && (
-        <span onClick={stop} onKeyDown={stop}>
-          <ContextMenu
-            x={menu.x}
-            y={menu.y}
-            items={menuItems}
-            autoFocus={menu.keyboard}
-            onClose={() => setMenu(null)}
-          />
-        </span>
-      )}
-      {subMenu && (
-        <span onClick={stop} onKeyDown={stop}>
-          <ContextMenu
-            x={subMenu.at.x}
-            y={subMenu.at.y}
-            items={subMenu.items}
-            autoFocus={subMenu.at.keyboard}
-            onClose={() => setSubMenu(null)}
-          />
-        </span>
-      )}
-    </div>
+          {subMenu && (
+            <span onClick={stop} onKeyDown={stop}>
+              <ContextMenu
+                x={subMenu.at.x}
+                y={subMenu.at.y}
+                items={subMenu.items}
+                autoFocus={subMenu.at.keyboard}
+                onClose={() => setSubMenu(null)}
+              />
+            </span>
+          )}
+        </>
+      }
+    />
   );
 }

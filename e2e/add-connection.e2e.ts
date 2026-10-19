@@ -135,7 +135,7 @@ test("a first run adds a connection from the empty new-chat gate and starts the 
     await expect(dialog.getByText("Choose models to star", { exact: true })).toBeVisible();
     await dialog.locator('[data-model-id="local/alpha"] [data-model-option]').click();
     // Merely starring a model does not change Main before the explicit Ready choice.
-    await expect(dialog.locator('[data-model-id="local/alpha"] [data-model-main]')).toHaveCount(0);
+    await expect(dialog.locator('[data-model-id="local/alpha"] [data-connection-role]')).toHaveCount(0);
     // A pick gets the star (decision 30).
     await expect(dialog.locator('[data-model-id="local/alpha"] [data-model-star]')).toHaveAttribute(
       "aria-pressed",
@@ -283,15 +283,9 @@ test("the panel list shows each Connection's Models open, and its row or toggle 
     await expect(model).toHaveCount(0);
     await toggle.click();
     await expect(model).toBeVisible();
-    await panel.getByRole("button", { name: "Images & voice", exact: true }).click();
-    await expect(row).toHaveCount(0);
-    await expect(panel.getByRole("status")).toContainText("E2E open models");
-    await panel.getByRole("button", { name: "Chat", exact: true }).click();
-    await expect(row).toBeVisible();
-    // A connection whose final Model was deleted still belongs under Chat, with its Add model action.
+    // A connection whose final Model was deleted still shows, with its Add model action.
     await request.delete(`/api/connections/${created.connectionId}`);
     await page.reload();
-    await panel.getByRole("button", { name: "Chat", exact: true }).click();
     await expect(row).toBeVisible();
   } finally {
     await request.delete(`/api/connections/${created.connectionId}`);
@@ -318,7 +312,7 @@ async function openCustomSetup(page: Page, baseUrl: string, chatId?: string) {
     openAddConnection({ provider: "custom" });
   }, chatId ?? null);
   const dialog = page.getByRole("dialog", { name: "Add connection", exact: true });
-  if (hasCustom) await dialog.getByRole("button", { name: "Connect a second account", exact: true }).click();
+  if (hasCustom) await dialog.getByRole("button", { name: "Make a new connection", exact: true }).click();
   await dialog.getByLabel("Server address", { exact: true }).fill(baseUrl);
   await dialog.locator("[data-add-connection-connect]").click();
   await expect(dialog.locator('[data-add-connection-step="3"]')).toBeVisible();

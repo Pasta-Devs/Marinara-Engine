@@ -213,6 +213,8 @@ export const PROVIDERS: Record<APIProvider, ProviderDefinition> = {
     usesAuthHeader: true,
     apiKeyHeader: null,
     keyUrl: "https://www.arliai.com/account",
+    // Flat monthly plans: every model is in the plan, the tier limits size and speed.
+    billing: "plan",
   },
   zai: {
     id: "zai",

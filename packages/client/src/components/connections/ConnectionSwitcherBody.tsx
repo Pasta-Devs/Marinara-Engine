@@ -7,7 +7,7 @@
 // saves a model, and removing it can remove the saved Model (decision 30).
 // ──────────────────────────────────────────────
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Check, ChevronLeft, Cpu, House, Search, Shuffle, SlidersHorizontal, Star } from "lucide-react";
+import { Check, ChevronLeft, Cpu, House, Search, Shuffle, Star } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -19,7 +19,12 @@ import {
   type ChatModelChoice,
   type ConnectionAccountListItem,
 } from "@marinara-engine/shared";
-import { connectionKeys, useConnections, useUpdateConnection } from "../../hooks/use-connections";
+import {
+  connectionKeys,
+  useCachedCatalogFacts,
+  useConnections,
+  useUpdateConnection,
+} from "../../hooks/use-connections";
 import { useChat, useChats, useSetChatModel } from "../../hooks/use-chats";
 import {
   useCatalogSearch,
@@ -39,6 +44,8 @@ import { cn } from "../../lib/utils";
 import { modelBrand, ProviderIcon } from "./ProviderIcon";
 import { ConnectionIdentity } from "./ConnectionIdentity";
 import { ConnectionModelList } from "./ConnectionModelList";
+import { ModelRow } from "./ConnectionRow";
+import { modelIdLabel } from "../../lib/connection-identity";
 import { ConnectionModelPicker } from "./ConnectionModelPicker";
 import { openAddModels } from "../../lib/add-connection";
 import { SubscriptionUsageWidget } from "./SubscriptionUsageWidget";
@@ -64,6 +71,8 @@ type SwitcherRow = {
   showUsageFiveHour?: unknown;
   showUsageWeekly?: unknown;
   profileImportReviewRequired?: unknown;
+  icon?: string | null;
+  imagePath?: string | null;
 };
 
 /** A Connection as the list shows it: an account with its chat Models, or a standalone Model on its own. */
@@ -263,6 +272,9 @@ export type EffectiveChatModel = {
   followsMain: boolean;
   /** The Connection needs a key or is off: the chat cannot run this model until it is fixed. */
   unavailable: ConnectionAccountListItem["state"] | null;
+  /** The saved Model's picture (none for a chat's own model override). */
+  icon?: string | null;
+  imagePath?: string | null;
 };
 
 export function useEffectiveChatModel(chatId: string | null): EffectiveChatModel | null {
@@ -306,6 +318,8 @@ export function useEffectiveChatModel(chatId: string | null): EffectiveChatModel
       connectionName: account?.name ?? rowLabel(row),
       followsMain,
       unavailable: account && account.state !== "ok" ? account.state : null,
+      icon: override ? null : row.icon,
+      imagePath: override ? null : row.imagePath,
     };
   }, [accounts, chat, connections, localName, t]);
 }
@@ -327,6 +341,8 @@ export function EffectiveModelIcon({
         baseUrl={effective.baseUrl}
         model={effective.model}
         name={effective.connectionName}
+        icon={effective.icon}
+        imagePath={effective.imagePath}
         size={size}
         dim={!!effective.unavailable}
         className={className}
@@ -347,8 +363,6 @@ export function EffectiveModelIcon({
     </span>
   );
 }
-
-const BADGE_CLASS = "mari-chrome-muted-badge shrink-0 rounded px-1 py-px text-[0.5625rem] font-normal leading-4";
 
 export function ConnectionSwitcherBody({
   current,
@@ -449,6 +463,10 @@ export function ConnectionSwitcherBody({
     [groups],
   );
 
+  // Cost badges from the catalogs already cached for each Connection; nothing is fetched for them.
+  const catalogs = useCachedCatalogFacts(groups.map((group) => group.rows.map((row) => row.id)));
+  const catalogOf = (group: SwitcherGroup | undefined) => (group ? catalogs[groups.indexOf(group)] : undefined);
+
   const mainRow = rows.find((row) => isConnectionFlagTrue(row.isDefault));
   const currentId = current?.connectionId ?? null;
   const currentRow = currentId ? rows.find((row) => row.id === currentId) : undefined;
@@ -507,7 +525,7 @@ export function ConnectionSwitcherBody({
         group.account?.state === "off" ? "connections.switcher.fixTurnOn" : "connections.switcher.fixAddKey",
         { connection: group.name },
       )}
-      className="flex min-h-9 shrink-0 items-center rounded-lg border border-foreground/15 px-2.5 text-[0.6875rem] font-semibold outline-none transition-colors hover:bg-foreground/10 focus-visible:ring-1 focus-visible:ring-foreground/25 max-md:min-h-11 [@media(pointer:coarse)]:min-h-11"
+      className="mari-connection-btn"
     >
       {fixLabel(group)}
     </button>
@@ -553,7 +571,7 @@ export function ConnectionSwitcherBody({
         title={t(starred ? "connections.favorite.remove" : "connections.favorite.add", { model: title })}
         onClick={() => void toggleStar(group, model, starred, title)}
         className={cn(
-          "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg outline-none transition-colors hover:bg-foreground/10 focus-visible:ring-1 focus-visible:ring-foreground/25 max-md:h-11 max-md:w-11 [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:w-11",
+          "flex h-11 w-11 shrink-0 items-center justify-center rounded-lg outline-none transition-colors hover:bg-foreground/10 focus-visible:ring-1 focus-visible:ring-foreground/25",
           starred ? "text-[var(--marinara-chat-chrome-accent)]" : "text-foreground/35 hover:text-foreground/70",
         )}
       >
@@ -711,74 +729,68 @@ export function ConnectionSwitcherBody({
     const showStar = !!group?.account && !!entry.model && (star === "all" || (star === "unstarred" && !starred));
     const stateLabel = unavailable ? t(accountStateLabel({ state: unavailable })) : null;
     const roleLabels = roles.map((role) => t(`connections.switcher.role.${role}`));
+    const local = entry.choice.connectionId === LOCAL_SIDECAR_CONNECTION_ID;
+    const typed = entry.key.startsWith("use:");
+    const catalog = catalogOf(group);
+    const facts = catalog?.of(entry.model);
     return (
-      <div key={entry.key} data-switcher-row className="flex items-center gap-0.5">
-        <button
-          type="button"
-          data-switcher-entry={entry.choice.model ?? entry.choice.connectionId}
-          aria-current={isCurrent ? "true" : undefined}
-          aria-label={[
-            entry.title,
-            entry.subtitle,
-            stateLabel ?? roleLabels.join(", "),
-            custom && t("connections.row.customSettings"),
-          ]
-            .filter(Boolean)
-            .join(", ")}
-          disabled={busy}
-          onClick={() => {
-            if (unavailable && group) return fix(group);
-            if (now) return onDone();
-            void apply(entry);
-          }}
-          onMouseEnter={index !== undefined ? () => setHighlight(index) : undefined}
-          className={cn(ROW_CLASS, isCurrent && "bg-foreground/[0.07]", highlighted && "bg-foreground/10")}
-        >
-          {isCurrent && <AccentBar />}
-          {entry.choice.connectionId === LOCAL_SIDECAR_CONNECTION_ID ? (
-            <ProviderIcon provider="local_model" size="sm" />
-          ) : entry.key.startsWith("use:") ? (
-            <Search size="0.875rem" className="mx-[0.3125rem] shrink-0 text-foreground/50" aria-hidden />
+      <ModelRow
+        key={entry.key}
+        rowProps={{ "data-switcher-row": true, className: "rounded-lg" }}
+        data-switcher-entry={entry.choice.model ?? entry.choice.connectionId}
+        aria-current={isCurrent ? "true" : undefined}
+        aria-label={[
+          entry.title,
+          entry.subtitle,
+          stateLabel ?? roleLabels.join(", "),
+          custom && t("connections.row.customSettings"),
+        ]
+          .filter(Boolean)
+          .join(", ")}
+        disabled={busy}
+        onClick={() => {
+          if (unavailable && group) return fix(group);
+          if (now) return onDone();
+          void apply(entry);
+        }}
+        onMouseEnter={index !== undefined ? () => setHighlight(index) : undefined}
+        className={cn("rounded-lg disabled:cursor-wait", highlighted && "bg-foreground/10")}
+        tile={
+          typed ? (
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center text-foreground/50">
+              <Search size="0.875rem" aria-hidden />
+            </span>
           ) : (
             <ProviderIcon
-              provider={entry.row?.provider ?? group?.account?.provider ?? "custom"}
-              baseUrl={group?.account?.baseUrl}
-              model={entry.model}
-              name={group?.name}
-              size="sm"
+              provider={local ? "local_model" : (entry.row?.provider ?? group?.account?.provider ?? "custom")}
+              baseUrl={local ? undefined : group?.account?.baseUrl}
+              model={local ? undefined : entry.model}
+              name={local ? undefined : group?.name}
+              icon={local ? undefined : entry.row?.icon}
+              imagePath={local ? undefined : entry.row?.imagePath}
+              size="row"
               dim={!!unavailable}
             />
-          )}
-          <span className="flex min-w-0 flex-1 flex-col">
-            <span className={cn("flex min-w-0 items-center gap-1", isCurrent && "font-semibold")}>
-              {custom && <SlidersHorizontal size="0.6875rem" className="shrink-0 text-foreground/50" aria-hidden />}
-              <span className="truncate">{entry.title}</span>
-            </span>
-            {(entry.subtitle || stateLabel || roles.length > 0) && (
-              <span className="flex min-w-0 items-center gap-1">
-                <span className="min-w-0 flex-1 truncate text-[0.625rem] font-normal text-foreground/50">
-                  {entry.subtitle}
-                </span>
-                {stateLabel ? (
-                  <span className={BADGE_CLASS}>{stateLabel}</span>
-                ) : (
-                  <>
-                    {roleLabels.slice(0, 2).map((label) => (
-                      <span key={label} className={BADGE_CLASS}>
-                        {label}
-                      </span>
-                    ))}
-                    {roles.length > 2 && <span className={BADGE_CLASS}>+{roles.length - 2}</span>}
-                  </>
-                )}
-              </span>
-            )}
-          </span>
-          {isCurrent && <Check size="0.75rem" className="shrink-0 text-[var(--marinara-chat-chrome-accent)]" />}
-        </button>
-        {now && unavailable && group && fixButton(group)}
-        {showStar && starButton(group!, entry.model!, entry.title, starred)}
-      </div>
+          )
+        }
+        title={entry.title}
+        subtitle={entry.subtitle}
+        roles={roleLabels}
+        status={stateLabel ? { label: stateLabel, state: unavailable ?? undefined } : null}
+        customized={custom}
+        cost={facts?.cost}
+        showPaid={catalog?.showPaid}
+        retiring={facts}
+        current={isCurrent}
+        dim={!!unavailable}
+        trailing={isCurrent && <Check size="0.875rem" className="shrink-0 text-[var(--marinara-chat-chrome-accent)]" />}
+        end={
+          <>
+            {now && unavailable && group && fixButton(group)}
+            {showStar && starButton(group!, entry.model!, entry.title, starred)}
+          </>
+        }
+      />
     );
   };
 
@@ -823,7 +835,7 @@ export function ConnectionSwitcherBody({
         data-switcher-section="connection"
         aria-label={group.name}
       >
-        <div data-connection-group={group.key} className="flex min-w-0 items-center gap-2 rounded-lg px-2 py-1.5">
+        <div data-connection-group={group.key} className="flex min-w-0 items-center gap-2 rounded-lg py-1.5 ps-3 pe-1">
           <ConnectionIdentity
             account={group.account}
             rows={group.rows}
@@ -840,7 +852,7 @@ export function ConnectionSwitcherBody({
               data-switcher-browse={group.key}
               onClick={() => browse(group)}
               aria-label={t("connections.switcher.browseConnection", { connection: group.name })}
-              className="mari-chrome-control mari-chrome-control--small flex min-h-9 shrink-0 items-center px-2 text-[0.6875rem] max-md:min-h-11 [@media(pointer:coarse)]:min-h-11"
+              className="mari-connection-btn"
             >
               {t("connections.switcher.browse")}
             </button>
@@ -851,13 +863,7 @@ export function ConnectionSwitcherBody({
           rows={shown}
           getKey={(entry) => entry.key}
           renderRow={(entry, upstream) =>
-            renderEntry(
-              {
-                ...entry,
-                subtitle: upstream && entry.model ? entry.model.slice(entry.model.indexOf("/") + 1) : entry.model,
-              },
-              { star: "all" },
-            )
+            renderEntry({ ...entry, subtitle: modelIdLabel(entry.model, upstream) }, { star: "all" })
           }
         />
       </section>
@@ -889,6 +895,8 @@ export function ConnectionSwitcherBody({
             provider={mainRow.provider ?? "custom"}
             model={mainRow.model}
             name={groupOfRow.get(mainRow.id)?.name}
+            icon={mainRow.icon}
+            imagePath={mainRow.imagePath}
             size="sm"
           />
         ) : (
@@ -1164,7 +1172,7 @@ export function ConnectionSwitcherBody({
             backFromCatalog();
           }
         }}
-        className={cn("flex min-h-0 min-w-0 flex-1 flex-col", className)}
+        className={cn("mari-connection-scope flex min-h-0 min-w-0 flex-1 flex-col", className)}
       >
         {list}
         {footer}
@@ -1172,7 +1180,7 @@ export function ConnectionSwitcherBody({
     );
   }
   return (
-    <div ref={rootRef} data-connection-switcher className={cn("contents", className)}>
+    <div ref={rootRef} data-connection-switcher className={cn("mari-connection-scope contents", className)}>
       {list}
       {models}
     </div>

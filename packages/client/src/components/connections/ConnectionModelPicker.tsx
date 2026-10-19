@@ -5,7 +5,7 @@
 // Add model and the setup flow (a pick saves a Model).
 // ──────────────────────────────────────────────
 import { useDeferredValue, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
-import { Check, Copy, Loader2, RefreshCw, Search, Star } from "lucide-react";
+import { Check, Loader2, RefreshCw, Search, Star } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
@@ -14,6 +14,7 @@ import {
   parsePinnedModels,
   type APIProvider,
   type ChatModelChoice,
+  type ConnectionModelCost,
   type ModelParameterCapabilities,
 } from "@marinara-engine/shared";
 import {
@@ -33,8 +34,10 @@ import { isConnectionFlagTrue } from "../../lib/connection-filters";
 import { formatCompactTokenCount } from "../../lib/professor-mari-context-budget";
 import { subgroupByUpstream, upstreamOf } from "../../lib/connection-groups";
 import { BrandMark, ProviderIcon } from "./ProviderIcon";
-import { SubscriptionCostPill } from "./SubscriptionCostPill";
-import { cn, copyToClipboard } from "../../lib/utils";
+import { ModelRow } from "./ConnectionRow";
+import { cn } from "../../lib/utils";
+import { formatRelativeContact } from "../../lib/relative-time";
+import { useUIStore } from "../../stores/ui.store";
 
 /** The connection row fields the picker reads. */
 export type ModelPickerConnection = {
@@ -46,12 +49,6 @@ export type ModelPickerConnection = {
   /** The Connection this Model belongs to; `applyPick` and saving a starred model need it. */
   accountId?: string | null;
   profileImportReviewRequired?: unknown;
-  /**
-   * NanoGPT: the connection's own "Show subscription usage" toggle. The cost
-   * pills ride on it so a pay-as-you-go user is not shown subscription costs.
-   * Stored as a "true"/"false" string, so it needs the shared flag helper.
-   */
-  showUsageWidget?: unknown;
 };
 
 /** Rows drawn at once in "All models"; searching narrows a longer list. */
@@ -66,6 +63,9 @@ type PickerRow = {
   subscriptionIncluded?: boolean;
   inputTokenMultiplier?: number;
   capabilities?: ModelParameterCapabilities;
+  cost?: ConnectionModelCost;
+  deprecated?: boolean;
+  retiresAt?: string;
 };
 
 const errorMessage = (error: unknown) => (error instanceof Error ? error.message : String(error ?? ""));
@@ -127,9 +127,6 @@ export function ConnectionModelPicker({
   const provider = (connection.provider ?? "") as APIProvider;
   const providerName = PROVIDERS[provider]?.name ?? connection.provider ?? "";
   const reviewRequired = isConnectionFlagTrue(connection.profileImportReviewRequired);
-  // The cost pills are quoted against a subscription, so they follow the same
-  // per-connection toggle as the usage meter itself.
-  const showSubscriptionCost = isConnectionFlagTrue(connection.showUsageWidget);
   const currentModel = connection.model?.trim() ?? "";
   const pinnedIds = useMemo(() => parsePinnedModels(connection.pinnedModels), [connection.pinnedModels]);
 
@@ -157,6 +154,8 @@ export function ConnectionModelPicker({
   // provider's own list they are noise. A custom endpoint never gets them: its built-in list is the OpenAI
   // and Z.AI catalog, which says nothing about what that server runs.
   const remoteModels = modelList.data?.models;
+  const fetchedAt = modelList.data?.fetchedAt;
+  const updated = fetchedAt ? formatRelativeContact(fetchedAt) : null;
   const options = useMemo(
     () =>
       mergeConnectionModelOptions(
@@ -164,6 +163,12 @@ export function ConnectionModelPicker({
         remoteModels?.length || modelList.isLoading || provider === "custom" ? [] : (MODEL_LISTS[provider] ?? []),
       ),
     [modelList.isLoading, provider, remoteModels],
+  );
+  // "Paid" only says something where the catalog also has models in the plan (NanoGPT).
+  const showCostBadges = useUIStore((s) => s.showCostBadges);
+  const showPaid = useMemo(
+    () => options.some((option) => option.cost === "included" || option.cost?.startsWith("multiplier:")),
+    [options],
   );
   const optionsById = useMemo(() => new Map(options.map((option) => [option.id, option])), [options]);
   const upstreams = useMemo(
@@ -336,99 +341,78 @@ export function ConnectionModelPicker({
   const renderRow = (row: PickerRow, pinned: boolean, section = pinned ? "favorites" : "all") => {
     const current = row.id === currentModel || !!addedIds?.includes(row.id);
     const label = row.name || row.id;
+    const reasoning = row.capabilities?.adaptiveThinking || !!row.capabilities?.effortLevels?.length;
+    const meta = [
+      row.context ? t("connections.add.context", { size: formatCompactTokenCount(row.context) }) : null,
+      row.maxOutput ? t("connections.modelPicker.maxOutput", { size: formatCompactTokenCount(row.maxOutput) }) : null,
+      reasoning ? t("connections.modelPicker.reasoning") : null,
+    ]
+      .filter(Boolean)
+      .join(" · ");
+    // A badge on a narrow row leaves the id no room: the facts move to the tooltip there.
+    const badged = showCostBadges && !!row.cost && (row.cost !== "paid" || showPaid);
+    // The one model row; its end holds the 44px star beside the row button, never inside it.
     return (
-      <div
+      <ModelRow
         key={`${section}:${row.id}`}
-        data-model-row
-        data-model-id={row.id}
-        className={cn("relative flex rounded-lg", current && "bg-foreground/[0.07]")}
-      >
-        <button
-          type="button"
-          data-model-option
-          aria-current={current ? "true" : undefined}
-          disabled={saving}
-          onClick={() => void pick(row)}
-          className={cn(
-            "flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-lg py-1.5 pl-3 pr-1 text-left outline-none transition-colors hover:bg-foreground/10 focus-visible:bg-foreground/10 focus-visible:ring-1 focus-visible:ring-foreground/25 disabled:cursor-wait",
-          )}
-        >
-          <ProviderIcon provider={provider || "custom"} model={row.id} name={connection.name ?? undefined} size="sm" />
-          <span className="flex min-w-0 flex-1 flex-col">
-            <span className="flex min-w-0 items-center gap-1.5">
-              <span className="truncate text-xs font-medium text-foreground/90">{label}</span>
-              {showSubscriptionCost && <SubscriptionCostPill model={row} />}
-              {row.id === mainModelId && (
-                <span data-model-main className="mari-chrome-muted-badge shrink-0 px-1.5 py-0.5 text-[0.5625rem]">
-                  {t("connections.add.mainBadge")}
-                </span>
-              )}
+        rowProps={{ "data-model-row": true, "data-model-id": row.id, className: "rounded-lg" }}
+        data-model-option
+        aria-current={current ? "true" : undefined}
+        disabled={saving}
+        onClick={() => void pick(row)}
+        className="rounded-lg disabled:cursor-wait"
+        tile={
+          <ProviderIcon provider={provider || "custom"} model={row.id} name={connection.name ?? undefined} size="row" />
+        }
+        title={label}
+        tooltip={[label, row.id, meta].filter(Boolean).join("\n")}
+        subtitle={row.id}
+        roles={row.id === mainModelId ? [t("connections.add.mainBadge")] : []}
+        details={
+          meta && (
+            <span data-model-metadata className={cn("min-w-0 shrink truncate", badged && "max-sm:hidden")}>
+              {meta}
             </span>
-            {label !== row.id && (
-              <span className="truncate font-mono text-[0.625rem] text-foreground/55">{row.id}</span>
-            )}
-            {(!!row.context ||
-              !!row.maxOutput ||
-              row.capabilities?.adaptiveThinking ||
-              !!row.capabilities?.effortLevels?.length) && (
-              <span data-model-metadata className="flex flex-wrap gap-x-2 text-[0.625rem] text-foreground/55">
-                {!!row.context && (
-                  <span>{t("connections.add.context", { size: formatCompactTokenCount(row.context) })}</span>
-                )}
-                {!!row.maxOutput && (
-                  <span>
-                    {t("connections.modelPicker.maxOutput", { size: formatCompactTokenCount(row.maxOutput) })}
-                  </span>
-                )}
-                {(row.capabilities?.adaptiveThinking || !!row.capabilities?.effortLevels?.length) && (
-                  <span>{t("connections.modelPicker.reasoning")}</span>
-                )}
-              </span>
-            )}
-          </span>
-          {current && (
+          )
+        }
+        cost={row.cost}
+        showPaid={showPaid}
+        retiring={row.deprecated || row.retiresAt ? row : null}
+        current={current}
+        trailing={
+          current && (
             <Check
               size="0.875rem"
-              className="shrink-0 text-foreground/80"
+              className="mari-panel-gradient--connections shrink-0 text-[var(--mari-connection-ink)]"
               aria-label={t("connections.modelPicker.current")}
             />
-          )}
-        </button>
-        <button
-          type="button"
-          data-model-copy
-          aria-label={t("connections.modelPicker.copyId", { model: label })}
-          title={t("connections.modelPicker.copyId", { model: label })}
-          onClick={async (event) => {
-            const trigger = event.currentTarget;
-            const copied = await copyToClipboard(row.id);
-            if (document.activeElement === document.body) trigger.focus({ preventScroll: true });
-            if (copied) toast.success(t("connections.modelPicker.copied"));
-            else toast.error(t("connections.modelPicker.copyFailed"));
-          }}
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-foreground/45 outline-none transition-colors hover:bg-foreground/10 hover:text-foreground/80 focus-visible:ring-1 focus-visible:ring-foreground/25"
-        >
-          <Copy size="0.8125rem" aria-hidden />
-        </button>
-        {/* A Model outside a Connection has nowhere to save a favorite; an old star there can still be removed. */}
-        {(connection.accountId || pinned) && (
-          <button
-            type="button"
-            data-model-star
-            aria-pressed={pinned}
-            // A toggle keeps one name; aria-pressed says whether it is a favorite.
-            aria-label={t("connections.favorite.toggle", { model: label })}
-            title={t(pinned ? "connections.favorite.remove" : "connections.favorite.add", { model: label })}
-            onClick={() => toggleStar(row, !pinned)}
-            className={cn(
-              "flex h-11 w-11 shrink-0 items-center justify-center rounded-lg outline-none transition-colors hover:bg-foreground/10 focus-visible:ring-1 focus-visible:ring-foreground/25",
-              pinned ? "text-[var(--marinara-chat-chrome-accent)]" : "text-foreground/35 hover:text-foreground/70",
+          )
+        }
+        end={
+          <>
+            {/* A Model outside a Connection has nowhere to save a favorite; an old star there can still be removed. */}
+            {(connection.accountId || pinned) && (
+              <button
+                type="button"
+                data-model-star
+                aria-pressed={pinned}
+                // A toggle keeps one name; aria-pressed says whether it is a favorite.
+                aria-label={t("connections.favorite.toggle", { model: label })}
+                title={t(pinned ? "connections.favorite.remove" : "connections.favorite.add", { model: label })}
+                onClick={() => toggleStar(row, !pinned)}
+                className={cn(
+                  "flex h-11 w-11 shrink-0 items-center justify-center rounded-lg outline-none transition-colors hover:bg-foreground/10 focus-visible:ring-1 focus-visible:ring-foreground/25",
+                  pinned
+                    ? "mari-panel-gradient--connections text-[var(--mari-connection-ink)]"
+                    : "text-foreground/35 hover:text-foreground/70",
+                )}
+              >
+                <Star size="0.875rem" fill={pinned ? "currentColor" : "none"} />
+              </button>
             )}
-          >
-            <Star size="0.875rem" fill={pinned ? "currentColor" : "none"} />
-          </button>
-        )}
-      </div>
+          </>
+        }
+      />
     );
   };
 
@@ -462,7 +446,8 @@ export function ConnectionModelPicker({
         <p className="px-3 pb-3 text-[0.6875rem] text-foreground/60">{t("connections.modelPicker.reviewFirst")}</p>
       ) : (
         <>
-          <div className="flex min-w-0 items-center gap-1.5 px-3 pb-1.5">
+          {/* The Add window's step title sits at its header edge (px-5, px-4 on phones); the search lines up with it. */}
+          <div className={cn("flex min-w-0 items-center gap-1.5 pb-1.5", addMode ? "px-5 max-md:px-4" : "px-3")}>
             <label className="flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-lg border sm:min-h-9 border-foreground/10 bg-foreground/[0.04] px-2.5 text-foreground/55 focus-within:border-foreground/25 [@media(pointer:coarse)]:min-h-11">
               <Search size="0.875rem" className="shrink-0" aria-hidden />
               <span className="sr-only">{t("connections.modelPicker.searchLabel")}</span>
@@ -492,7 +477,7 @@ export function ConnectionModelPicker({
               disabled={refresh.isPending || modelList.isFetching}
               aria-label={t("connections.modelPicker.refresh")}
               title={t("connections.modelPicker.refresh")}
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-foreground/10 sm:h-9 sm:w-9 text-foreground/55 outline-none transition-colors hover:bg-foreground/10 hover:text-foreground/80 focus-visible:ring-1 focus-visible:ring-foreground/25 disabled:opacity-60 [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:w-11"
+              className="mari-connection-btn mari-connection-btn--icon"
             >
               <RefreshCw
                 size="0.875rem"
@@ -501,6 +486,12 @@ export function ConnectionModelPicker({
               />
             </button>
           </div>
+
+          {addMode && updated && (
+            <p data-model-updated className="px-5 pb-1.5 text-[0.625rem] text-foreground/50 max-md:px-4">
+              {t("connections.modelPicker.updated", { when: updated })}
+            </p>
+          )}
 
           {upstreams.length > 1 && (
             <div
@@ -515,10 +506,7 @@ export function ConnectionModelPicker({
                   data-model-upstream-filter={value ?? "all"}
                   aria-pressed={upstream === value}
                   onClick={() => setUpstream(value)}
-                  className={cn(
-                    "mari-chrome-control mari-chrome-control--small shrink-0 !min-h-9 px-2 text-xs max-md:!min-h-11 [@media(pointer:coarse)]:!min-h-11",
-                    upstream === value && "mari-chrome-control--selected",
-                  )}
+                  className="mari-connection-chip mari-panel-gradient--connections gap-1"
                 >
                   {value && <BrandMark of={value} className="h-3 w-3" />}
                   {value ?? t("connections.modelPicker.allUpstreams")}

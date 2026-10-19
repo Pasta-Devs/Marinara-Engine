@@ -3,6 +3,7 @@
 import {
   rankModelMatch,
   type APIProvider,
+  type ConnectionModelCost,
   type KnownModel,
   type ModelParameterCapabilities,
 } from "@marinara-engine/shared";
@@ -18,6 +19,11 @@ export type RemoteConnectionModel = {
   subscriptionIncluded?: boolean;
   /** NanoGPT: input tokens charged per token of subscription quota (2 = 2x). */
   inputTokenMultiplier?: number;
+  /** The cost badge the server worked out; left out when unknown. */
+  cost?: Exclude<ConnectionModelCost, null>;
+  deprecated?: true;
+  /** When the provider retires the model (ISO date). */
+  retiresAt?: string;
 };
 
 export type ConnectionModelOption = {
@@ -28,6 +34,9 @@ export type ConnectionModelOption = {
   capabilities?: ModelParameterCapabilities;
   subscriptionIncluded?: boolean;
   inputTokenMultiplier?: number;
+  cost?: Exclude<ConnectionModelCost, null>;
+  deprecated?: true;
+  retiresAt?: string;
   /** Came from the provider's own list rather than Marinara's built-in one. */
   isRemote: boolean;
 };
@@ -73,6 +82,9 @@ export function mergeConnectionModelOptions(
       capabilities: model.capabilities,
       subscriptionIncluded: model.subscriptionIncluded,
       inputTokenMultiplier: model.inputTokenMultiplier,
+      cost: model.cost,
+      deprecated: model.deprecated,
+      retiresAt: model.retiresAt,
       isRemote: true,
     });
   }

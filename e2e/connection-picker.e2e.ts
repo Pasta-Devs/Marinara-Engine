@@ -120,7 +120,11 @@ test("package and Engine share typed selection without changing chats or default
     await trigger.click();
     const dialog = page.getByRole("dialog", { name: "Image model", exact: true });
     await expect(dialog).toBeVisible();
-    await expect(dialog).toContainText(`Picker studio ${info.project.name}`);
+    // The heading shows the account's own name; the tooltip pairs it with the service.
+    await expect(dialog.locator("strong", { hasText: `Picker studio ${info.project.name}` }).first()).toHaveAttribute(
+      "title",
+      `OpenAI · Picker studio ${info.project.name}`,
+    );
     await expect(dialog.getByRole("button", { name: /Fixture chat/ })).toHaveCount(0);
 
     mkdirSync(".tmp/shared-picker/screenshots", { recursive: true });
@@ -328,7 +332,10 @@ test("picker waits for account state and native controls keep their current valu
     failAccounts = false;
     await dialog.getByRole("button", { name: "Try again", exact: true }).click();
     await expect(dialog.locator('[data-picker-value="state-fixture"]')).toBeDisabled();
-    await expect(dialog).toContainText("State account");
+    await expect(dialog.locator("strong", { hasText: "State account" }).first()).toHaveAttribute(
+      "title",
+      "OpenAI · State account",
+    );
     await expect(current).toHaveValue("state-fixture");
   } finally {
     releaseAccounts();

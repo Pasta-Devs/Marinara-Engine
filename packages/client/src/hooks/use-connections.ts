@@ -7,11 +7,12 @@ import {
   DEFAULT_EMBEDDING_CONNECTION_SETTINGS_KEY,
   MAX_PINNED_MODELS,
   parsePinnedModels,
+  type ConnectionBilling,
   type ModelParameterCapabilities,
   type PlanUsage,
 } from "@marinara-engine/shared";
 import type { RemoteConnectionModel } from "../lib/connection-model-selection";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { skipToken, useQueries, useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 import { ApiError, api, isRequestTimeoutError, requestTimeoutSignal } from "../lib/api-client";
 import { useUIStore } from "../stores/ui.store";
@@ -198,14 +199,18 @@ export function useDuplicateConnection() {
 export function useMoveConnection() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, accountId }: { id: string; accountId: string }) =>
-      api.post(`/connections/${id}/move`, { accountId }),
+    // `model` is the target catalog's id on a move to another service.
+    mutationFn: ({ id, accountId, model }: { id: string; accountId: string; model?: string }) =>
+      api.post(`/connections/${id}/move`, { accountId, ...(model ? { model } : {}) }),
     onSuccess: (_data, variables) =>
       Promise.all([
         qc.invalidateQueries({ queryKey: connectionKeys.list() }),
         qc.invalidateQueries({ queryKey: connectionKeys.detail(variables.id) }),
         qc.invalidateQueries({ queryKey: connectionKeys.models(variables.id) }),
         qc.invalidateQueries({ queryKey: connectionAccountKeys.all }),
+        // A move to another service changes the model id that chats show for this Model.
+        qc.invalidateQueries({ queryKey: chatKeys.list() }),
+        qc.invalidateQueries({ queryKey: [...chatKeys.all, "detail"] }),
       ]),
   });
 }
@@ -341,7 +346,68 @@ export type ConnectionModelList = {
   models: RemoteConnectionModel[];
   loras?: RemoteConnectionModel[];
   fetchedAt?: string;
+  /** "plan" or "free" when one word says how the whole Connection is paid for. */
+  billing?: ConnectionBilling;
 };
+
+/** What the cached catalogs say about one model: its cost badge and whether it is retiring. */
+export type CachedModelFacts = Pick<RemoteConnectionModel, "cost" | "deprecated" | "retiresAt">;
+
+export type CachedCatalogFacts = {
+  of: (modelId: string | null | undefined) => CachedModelFacts | undefined;
+  /** The catalog mixes models in the plan with paid ones (NanoGPT), so "Paid" says something. */
+  showPaid: boolean;
+};
+
+type CatalogIndex = { byId: Map<string, CachedModelFacts>; showPaid: boolean };
+const catalogIndexes = new WeakMap<ConnectionModelList, CatalogIndex>();
+
+/** One catalog's facts, indexed once per fetched list. */
+function indexCatalog(list: ConnectionModelList): CatalogIndex {
+  let index = catalogIndexes.get(list);
+  if (index) return index;
+  index = { byId: new Map(), showPaid: false };
+  for (const model of list.models ?? []) {
+    if (model.cost === "included" || model.cost?.startsWith("multiplier:")) index.showPaid = true;
+    if (model.cost || model.deprecated || model.retiresAt) {
+      index.byId.set(model.id, { cost: model.cost, deprecated: model.deprecated, retiresAt: model.retiresAt });
+    }
+  }
+  catalogIndexes.set(list, index);
+  return index;
+}
+
+/**
+ * Cost and retirement facts from the model catalogs already in the cache, one result per group of Connection
+ * ids (a card's Models). It shares the pickers' query keys but never fetches: opening the panel does not load
+ * a catalog for every card.
+ */
+export function useCachedCatalogFacts(groups: ReadonlyArray<readonly string[]>): CachedCatalogFacts[] {
+  const ids = [...new Set(groups.flat())];
+  const results = useQueries({
+    queries: ids.map((id) => ({ queryKey: connectionKeys.models(id), queryFn: skipToken })),
+  });
+  const indexById = new Map(
+    ids.flatMap((id, i) => {
+      const data = results[i]?.data as ConnectionModelList | undefined;
+      return data ? [[id, indexCatalog(data)] as const] : [];
+    }),
+  );
+  return groups.map((group) => {
+    const indexes = group.flatMap((id) => indexById.get(id) ?? []);
+    return {
+      of: (modelId) => {
+        if (!modelId) return undefined;
+        for (const index of indexes) {
+          const facts = index.byId.get(modelId);
+          if (facts) return facts;
+        }
+        return undefined;
+      },
+      showPaid: indexes.some((index) => index.showPaid),
+    };
+  });
+}
 
 const connectionModelsPath = (id: string, refresh = false) =>
   `/connections/${encodeURIComponent(id)}/models${refresh ? "?refresh=true" : ""}`;
@@ -494,5 +560,15 @@ export function useSaveConnectionDefaults() {
         qc.invalidateQueries({ queryKey: connectionKeys.list() }),
         qc.invalidateQueries({ queryKey: connectionKeys.detail(variables.id) }),
       ]),
+  });
+}
+
+/** Upload a Connection's (account's) picture. Its icon and reset go through `useUpdateConnectionAccount` (`icon`). */
+export function useUploadConnectionAccountImage() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, image }: { id: string; image: string }) =>
+      api.post<Record<string, unknown>>(`/connection-accounts/${id}/image`, { image }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: connectionAccountKeys.all }),
   });
 }

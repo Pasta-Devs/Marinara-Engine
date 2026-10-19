@@ -24,6 +24,7 @@ import {
   MODEL_LISTS,
   VIDEO_DEFAULTS_STORAGE_KEY,
   connectionImageCaptioningDefaultsSchema,
+  connectionBilling,
   connectionModelPinSchema,
   connectionMoveSchema,
   createConnectionSchema,
@@ -42,15 +43,22 @@ import {
   isOpenAIGpt6Model,
   localAuthProviderBaseUrl,
   supportsSubscriptionUsageWidget,
+  modelCost,
+  rankModelMoveCandidates,
   normalizeVideoGenerationProfile,
   type AtlasCloudVideoModelSchemaResponse,
 } from "@marinara-engine/shared";
 import {
   connectionSavesModelList,
   createConnectionsStorage,
-  readSavedModelList,
   withoutSavedModels,
 } from "../services/storage/connections.storage.js";
+import { accountBlocksRows } from "../services/storage/connection-accounts.storage.js";
+import {
+  readCatalogModelMetadata,
+  registerModelCatalogRefresher,
+  type CatalogModelMetadata,
+} from "../services/connections/model-catalog.js";
 import {
   allowsDefaultChatModel,
   canRefreshLocalContext,
@@ -110,6 +118,28 @@ import {
 
 const CONNECTION_TEST_ERROR_PREVIEW_CHARS = 2000;
 const CONNECTION_IMAGES_DIR = join(DATA_DIR, "connections", "images");
+
+/** Store an uploaded picture (`{ image: dataUrl }`) of a Model or Connection; returns its served path. */
+export async function saveConnectionImage(
+  id: string,
+  body: unknown,
+): Promise<{ imagePath: string } | { error: string }> {
+  const image = (body as { image?: unknown } | null)?.image;
+  if (typeof image !== "string" || !image) return { error: "No image data provided" };
+
+  const { buffer, hintedExt } = parseImageUpload(image);
+  const imageInfo = isAllowedImageBuffer(buffer, `.${hintedExt}`);
+  if (!imageInfo) return { error: "Unsupported or invalid connection image" };
+
+  const ext = extensionFromImageMime(imageInfo.mimeType);
+  await mkdir(CONNECTION_IMAGES_DIR, { recursive: true });
+  const filename = `connection-${id.replace(/[^a-zA-Z0-9_-]/g, "-")}-${Date.now()}-${Math.random()
+    .toString(36)
+    .slice(2, 8)}.${ext}`;
+  const filepath = assertInsideDir(CONNECTION_IMAGES_DIR, join(CONNECTION_IMAGES_DIR, filename));
+  await writeFile(filepath, buffer);
+  return { imagePath: `/api/connections/images/file/${filename}` };
+}
 const SWARMUI_CONTROL_REQUEST_TIMEOUT_MS = 15_000;
 const DEFAULT_COMFYUI_VIDEO_BASE_URL = "http://127.0.0.1:8188";
 const DEFAULT_SWARMUI_VIDEO_BASE_URL = "http://127.0.0.1:7801";
@@ -561,22 +591,10 @@ export async function connectionsRoutes(app: FastifyInstance) {
     const connection = await storage.getById(req.params.id);
     if (!connection) return reply.status(404).send({ error: "Connection not found" });
 
-    const body = req.body as { image?: string };
-    if (!body.image) return reply.status(400).send({ error: "No image data provided" });
+    const saved = await saveConnectionImage(req.params.id, req.body);
+    if ("error" in saved) return reply.status(400).send(saved);
 
-    const { buffer, hintedExt } = parseImageUpload(body.image);
-    const imageInfo = isAllowedImageBuffer(buffer, `.${hintedExt}`);
-    if (!imageInfo) return reply.status(400).send({ error: "Unsupported or invalid connection image" });
-
-    const ext = extensionFromImageMime(imageInfo.mimeType);
-    await mkdir(CONNECTION_IMAGES_DIR, { recursive: true });
-    const filename = `connection-${req.params.id.replace(/[^a-zA-Z0-9_-]/g, "-")}-${Date.now()}-${Math.random()
-      .toString(36)
-      .slice(2, 8)}.${ext}`;
-    const filepath = assertInsideDir(CONNECTION_IMAGES_DIR, join(CONNECTION_IMAGES_DIR, filename));
-    await writeFile(filepath, buffer);
-
-    const updated = await storage.update(req.params.id, { imagePath: `/api/connections/images/file/${filename}` });
+    const updated = await storage.update(req.params.id, { imagePath: saved.imagePath, icon: null });
     if (!updated) return reply.status(404).send({ error: "Connection not found" });
     return maskConnection(updated);
   });
@@ -1525,40 +1543,164 @@ export async function connectionsRoutes(app: FastifyInstance) {
     }
   };
 
-  // A chat connection keeps the list it fetched, so later looks answer from it without asking the
-  // provider again. `refresh=true` (the Refresh and Fetch Models buttons) fetches and replaces it.
+  /** Each model gets its cost badge (left out when unknown), and the list the Connection's billing word. */
+  const withCosts = <T extends { models: Array<Record<string, unknown>> }>(
+    conn: Parameters<typeof connectionBilling>[0],
+    list: T,
+  ) => {
+    const billing = connectionBilling(conn);
+    const models = list.models.map((model) => {
+      const cost = modelCost(model, billing);
+      return cost ? { ...model, cost } : model;
+    });
+    return { ...list, billing, models };
+  };
+
+  // A chat connection keeps the list it fetched (one copy per Connection), so later looks answer from it without
+  // asking the provider again; a background job keeps it fresh. `refresh=true` (the Refresh and Fetch Models
+  // buttons) fetches and replaces it. A saved list carries `fetchedAt`.
   app.get<{ Params: { id: string }; Querystring: { refresh?: string } }>("/:id/models", async (req, reply) => {
     const conn = await storage.getWithKey(req.params.id);
     if (!conn) return unusableConnection(req.params.id, reply);
     const savesList = connectionSavesModelList(conn.provider);
     if (savesList && req.query.refresh !== "true") {
-      const saved = readSavedModelList(conn);
-      if (saved) return saved;
+      const saved = await storage.readCatalog(conn);
+      if (saved) return withCosts(conn, saved);
     }
     const discovered = await discoverConnectionModels(conn, reply);
     if ((discovered as unknown) === reply) return reply;
     const { builtIn, ...result } = discovered as Exclude<typeof discovered, FastifyReply>;
-    if (!savesList || builtIn) return result;
+    if (!savesList || builtIn) return withCosts(conn, result);
     const saved = await storage.saveModelListIfUnchanged(conn, result.models);
     // The provider, address or key changed while the list loaded, so it may belong to the old settings.
     // Don't hand it out as current; the client asks again.
     if (!saved) {
       return reply.status(409).send({ error: "The connection changed while its models were loading." });
     }
-    return saved;
+    return withCosts(conn, saved);
   });
+
+  /** The same fetch with the error reply captured instead of sent (background refresh, move catalogs). */
+  const discoverQuietly = async (conn: Parameters<typeof discoverConnectionModels>[0]) => {
+    const sink = {
+      code: 0,
+      body: undefined as unknown,
+      status(code: number) {
+        this.code = code;
+        return this;
+      },
+      send(body: unknown) {
+        this.body = body;
+        return this;
+      },
+    };
+    const discovered = await discoverConnectionModels(conn, sink as unknown as FastifyReply);
+    if ((discovered as unknown) === sink) {
+      const error = String((sink.body as { error?: unknown } | undefined)?.error ?? "Model list request failed");
+      // The provider's own status is inside the message ("Provider returned 429: ...").
+      const status = Number(/returned (\d{3})/.exec(error)?.[1] ?? sink.code) || undefined;
+      return { ok: false as const, status, error };
+    }
+    return { ok: true as const, ...(discovered as Exclude<typeof discovered, FastifyReply>) };
+  };
+
+  // The background refresh uses the same fetch and save.
+  registerModelCatalogRefresher(async (id) => {
+    const conn = await storage.getWithKey(id);
+    if (!conn) return { ok: false, error: "The connection is off, under review, or needs an API key." };
+    const discovered = await discoverQuietly(conn);
+    if (!discovered.ok) return discovered;
+    if (discovered.builtIn) return { ok: true };
+    return (await storage.saveModelListIfUnchanged(conn, discovered.models))
+      ? { ok: true }
+      : { ok: false, error: "The connection changed while its models were loading." };
+  });
+
+  /**
+   * A move to another service reads the target's catalog for its own provider. Without one (no linked Model of that
+   * provider yet, or a key change cleared it) it is fetched with the target's key and saved, like a Refresh.
+   */
+  const ensureMoveCatalog = async (plan: Exclude<Awaited<ReturnType<typeof storage.planMove>>, string>) => {
+    // A custom endpoint takes any id, so a missing list never blocks it (and often has no list to fetch).
+    if (plan.kind !== "cross" || plan.catalog || plan.account.provider === "custom") return { catalog: plan.catalog };
+    const { account, row } = plan;
+    if (accountBlocksRows(account))
+      return { catalog: null, error: "The connection is off, under review, or needs an API key." };
+    const discovered = await discoverQuietly({
+      ...row,
+      provider: account.provider as typeof row.provider,
+      baseUrl: account.baseUrl,
+      model: "",
+      accountId: account.id,
+      apiKeyEncrypted: account.apiKeyEncrypted,
+      apiKey: decryptApiKey(account.apiKeyEncrypted),
+      treatAsLocalEndpoint: account.treatAsLocalEndpoint,
+    });
+    if (!discovered.ok) return { catalog: null, error: discovered.error };
+    const catalog = await storage.saveAccountCatalogIfUnchanged(account, discovered.models);
+    return catalog ? { catalog } : { catalog: null, error: "The connection changed while its models were loading." };
+  };
+
+  // "Move to connection…" to another service: the target catalog models that serve this Model's model, best first.
+  // `variant` matches (`:thinking`, `:free`) are never auto-picked. Empty when the target does not offer it; a custom
+  // endpoint (`manualModelAllowed`) takes any id. `kind: "same"` needs no model; "mismatch" cannot move.
+  app.get<{ Params: { id: string }; Querystring: { accountId?: string } }>(
+    "/:id/move-candidates",
+    async (req, reply) => {
+      const accountId = typeof req.query.accountId === "string" ? req.query.accountId.trim() : "";
+      if (!accountId) return reply.status(400).send({ error: "Send the Connection to move the Model to." });
+      const plan = await storage.planMove(req.params.id, accountId);
+      if (plan === "not_found") return reply.status(404).send({ error: "Model not found" });
+      if (plan === "account_not_found") return reply.status(404).send({ error: "Connection not found" });
+      const billing = connectionBilling(plan.account);
+      const { catalog, error: catalogError } = await ensureMoveCatalog(plan);
+      const candidates =
+        plan.kind === "cross"
+          ? rankModelMoveCandidates(plan.row.model, catalog?.models ?? []).map(({ model, match, variant }) => {
+              const cost = modelCost(model as Parameters<typeof modelCost>[0], billing);
+              return {
+                id: model.id,
+                name: model.name,
+                ...(typeof model.context === "number" ? { context: model.context } : {}),
+                ...(cost ? { cost } : {}),
+                match,
+                variant,
+              };
+            })
+          : [];
+      return {
+        kind: plan.kind,
+        provider: plan.account.provider,
+        manualModelAllowed: plan.kind === "cross" && plan.account.provider === "custom",
+        catalogFetchedAt: catalog?.fetchedAt ?? null,
+        ...(catalogError ? { catalogError } : {}),
+        candidates,
+      };
+    },
+  );
 
   app.post<{ Params: { id: string } }>("/:id/move", async (req, reply) => {
     const parsed = connectionMoveSchema.safeParse(req.body);
     if (!parsed.success) return reply.status(400).send({ error: "Send the Connection to move the Model to." });
-    const result = await storage.moveToAccount(req.params.id, parsed.data.accountId);
+    const plan = await storage.planMove(req.params.id, parsed.data.accountId);
+    if (typeof plan !== "string" && parsed.data.model) {
+      const { error } = await ensureMoveCatalog(plan);
+      if (error) return reply.status(502).send({ error: `Couldn't load that Connection's models: ${error}` });
+    }
+    const result = await storage.moveToAccount(req.params.id, parsed.data.accountId, parsed.data.model);
     if (result === "not_found") return reply.status(404).send({ error: "Model not found" });
     if (result === "account_not_found") return reply.status(404).send({ error: "Connection not found" });
     if (result === "review") {
       return reply.status(409).send({ error: "Review this imported Model before you move it." });
     }
     if (result === "mismatch") {
-      return reply.status(400).send({ error: "A Model can only move to another Connection of the same service." });
+      return reply.status(400).send({ error: "This Model cannot move to that Connection." });
+    }
+    if (result === "model_required") {
+      return reply.status(400).send({ error: "Choose the model this Connection should run." });
+    }
+    if (result === "model_not_offered") {
+      return reply.status(400).send({ error: "That Connection does not offer this model." });
     }
     resetMemoryRecallVectorizerCache();
     return maskConnection(result);
@@ -1981,7 +2123,7 @@ export async function connectionsRoutes(app: FastifyInstance) {
 // ──────────────────────────────────────────────
 // Normalize models response from different providers
 // ──────────────────────────────────────────────
-interface RemoteModel {
+interface RemoteModel extends CatalogModelMetadata {
   id: string;
   name: string;
   context?: number;
@@ -2128,6 +2270,7 @@ function normalizeModelsResponse(provider: string, json: Record<string, unknown>
           id: m.id ?? "",
           name: m.display_name ?? m.id ?? "",
           ...readOpenAICompatibleModelLimits(m as Record<string, unknown>),
+          ...readCatalogModelMetadata(provider, m as Record<string, unknown>),
         }))
         .filter((m) => m.id);
     }
@@ -2181,6 +2324,7 @@ function normalizeModelsResponse(provider: string, json: Record<string, unknown>
             name: m.name ?? m.id ?? "",
             ...readOpenAICompatibleModelLimits(m),
             ...readSubscriptionMetadata(m),
+            ...readCatalogModelMetadata(provider, m),
             ...(capabilities ? { capabilities } : {}),
           };
         })

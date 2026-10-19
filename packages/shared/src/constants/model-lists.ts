@@ -4,6 +4,7 @@
 // https://github.com/SillyTavern/SillyTavern/blob/release/public/index.html
 // ──────────────────────────────────────────────────────────────
 import type { APIProvider } from "../types/connection.js";
+import { PROVIDERS } from "./providers.js";
 
 export interface KnownModel {
   id: string;
@@ -1367,7 +1368,7 @@ const PROXY_MODEL_SUFFIX_RE =
  * `:thinking`), no Bedrock wrapper (`us.anthropic.…-v1:0`), Vertex date pins as Anthropic's (`@20250805` is
  * `-20250805`), and hyphenated Claude versions (Poe and OpenRouter `claude-opus-4.6`).
  */
-function catalogModelId(modelId: string): string {
+export function catalogModelId(modelId: string): string {
   return (
     capabilityModelId(modelId.trim().replace(/@(\d{8})$/u, "-$1"))
       .split("/")
@@ -1404,6 +1405,59 @@ export function findKnownModel(provider: APIProvider, modelId: string): KnownMod
   }
 }
 
+/** How a target catalog model matches a Model that moves to another service: same id, same id after the gateway path, same catalog model. */
+export type ModelMoveMatch = "exact" | "prefix" | "catalog";
+export interface ModelMoveCandidate<T> {
+  model: T;
+  match: ModelMoveMatch;
+  /** Another behaviour or billing variant (`:thinking`, `:free`, `[1m]`, `@thinking:on`): the user must confirm it. */
+  variant: boolean;
+}
+
+/** The behaviour/billing tail of an id: its `:variant` and bracket or `@` modifiers. Vertex date pins are not variants. */
+function modelVariantTag(modelId: string): string {
+  const last =
+    modelId
+      .trim()
+      .toLowerCase()
+      .replace(/@(\d{8})$/u, "-$1")
+      .split("/")
+      .pop() ?? "";
+  const base = stripModifierSuffix(last);
+  const colon = base.indexOf(":");
+  return `${colon >= 0 ? base.slice(colon) : ""}${last.slice(base.length).replace(/\s+/gu, "")}`;
+}
+
+/**
+ * Target catalog models that serve the same model as `sourceId`, best first: the exact id, the id without its gateway
+ * path (`nanogpt/…`, Bifrost `vendor/…`), then the same catalog model (`catalogModelId`). A match with another variant
+ * tail is never a suggestion on its own: it is flagged and ranked after the plain matches.
+ */
+export function rankModelMoveCandidates<T extends { id: string }>(
+  sourceId: string,
+  models: readonly T[],
+): Array<ModelMoveCandidate<T>> {
+  const source = sourceId.trim();
+  const sourceLast = source.toLowerCase().split("/").pop() ?? "";
+  const sourceCatalog = catalogModelId(source);
+  const sourceTag = modelVariantTag(source);
+  const rank = { exact: 0, prefix: 1, catalog: 2 } as const;
+  const hits: Array<ModelMoveCandidate<T>> = [];
+  for (const model of models) {
+    const match: ModelMoveMatch | null =
+      model.id === source
+        ? "exact"
+        : model.id.toLowerCase().split("/").pop() === sourceLast
+          ? "prefix"
+          : sourceCatalog && catalogModelId(model.id) === sourceCatalog
+            ? "catalog"
+            : null;
+    if (match) hits.push({ model, match, variant: modelVariantTag(model.id) !== sourceTag });
+  }
+  // Stable sort: within one rank the catalog order stays.
+  return hits.sort((a, b) => Number(a.variant) - Number(b.variant) || rank[a.match] - rank[b.match]);
+}
+
 function normalizeProviderForCatalog(provider: APIProvider | string): APIProvider | null {
   const normalized = provider.replace(/-/g, "_");
   return normalized in MODEL_LISTS ? (normalized as APIProvider) : null;
@@ -1423,4 +1477,83 @@ export function shouldSuppressUnknownModelParameters(
   const catalog = MODEL_LISTS[normalizedProvider];
   if (!catalog || catalog.length === 0) return false;
   return !findKnownModel(normalizedProvider, modelId.trim());
+}
+
+// ── Cost badges ──
+
+/** How a whole Connection is paid for, when one word says it: a plan, or a free community service. */
+export type ConnectionBilling = "plan" | "free" | null;
+
+/** What one model of a catalog costs: in the subscription (with an input-token multiplier), free, paid, or unknown. */
+export type ConnectionModelCost = "included" | `multiplier:${number}` | "free" | "paid" | null;
+
+/** Model prices in USD per million tokens, as the provider's list gives them. */
+export interface ModelCatalogPricing {
+  prompt?: number;
+  completion?: number;
+}
+
+/** One model of a saved catalog as `GET /connections/:id/models` serves it. */
+export interface ConnectionCatalogModel {
+  id: string;
+  name: string;
+  context?: number;
+  maxOutput?: number;
+  capabilities?: unknown;
+  /** NanoGPT subscription: whether the model is in the plan, and its input-token multiplier. */
+  subscriptionIncluded?: boolean;
+  inputTokenMultiplier?: number;
+  pricing?: ModelCatalogPricing;
+  inputModalities?: string[];
+  outputModalities?: string[];
+  free?: true;
+  deprecated?: true;
+  /** When the provider retires the model (ISO date as the provider gives it). */
+  retiresAt?: string;
+  /** Left out when unknown. */
+  cost?: Exclude<ConnectionModelCost, null>;
+}
+
+/** Image sources run by volunteers or free for everyone: the whole Connection is free. */
+const FREE_IMAGE_SOURCES = new Set(["horde", "pollinations"]);
+
+export function connectionBilling(row: {
+  provider: string;
+  baseUrl?: string | null;
+  model?: string | null;
+  imageGenerationSource?: string | null;
+  imageService?: string | null;
+}): ConnectionBilling {
+  if (PROVIDERS[row.provider as APIProvider]?.billing === "plan") return "plan";
+  if (row.provider !== "image_generation") return null;
+  const source =
+    row.imageGenerationSource?.trim() ||
+    row.imageService?.trim() ||
+    inferImageSource(row.model ?? "", (row.baseUrl ?? "").trim());
+  return FREE_IMAGE_SOURCES.has(source) ? "free" : null;
+}
+
+/** The cost badge of one catalog model. Subscription coverage wins over price; a free Connection makes all free. */
+export function modelCost(
+  model: {
+    subscriptionIncluded?: unknown;
+    inputTokenMultiplier?: unknown;
+    free?: unknown;
+    pricing?: unknown;
+  },
+  billing: ConnectionBilling,
+): ConnectionModelCost {
+  if (model.subscriptionIncluded === true) {
+    const multiplier = model.inputTokenMultiplier;
+    return typeof multiplier === "number" && Number.isFinite(multiplier) && multiplier > 1
+      ? `multiplier:${multiplier}`
+      : "included";
+  }
+  if (billing === "free" || model.free === true) return "free";
+  if (model.subscriptionIncluded === false) return "paid";
+  const pricing = model.pricing as ModelCatalogPricing | null | undefined;
+  if (pricing && typeof pricing === "object" && ((pricing.prompt ?? 0) > 0 || (pricing.completion ?? 0) > 0)) {
+    return "paid";
+  }
+  return null;
 }
