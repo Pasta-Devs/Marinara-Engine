@@ -381,14 +381,18 @@ export function useConnectionDefaults(connectionsList: ConnectionRowData[]) {
     }
     if (extra) return { ...tile, value: t(extra.key) };
     if (value === LOCAL_SIDECAR_CONNECTION_ID) return { ...tile, value: sidecarName };
-    // A blocked Prof. Mari model: the server answers with the agents default, then Main.
-    if (row && key === "mariConnectionId")
+    // A blocked model names who answers instead, as the server falls back: Prof. Mari and Quick answers use the
+    // agents default, then Main; Impersonate uses the chat's model, which is Main in a new chat.
+    if (row)
       return {
         ...tile,
         ...describe(row),
-        warning: blockedWarning(row, tile.title, usable(agentsRow) ? agentsRow : mainRow),
+        warning: blockedWarning(
+          row,
+          tile.title,
+          key === "impersonateConnectionId" ? mainRow : usable(agentsRow) ? agentsRow : mainRow,
+        ),
       };
-    if (row) return { ...tile, ...describe(row) };
     return {
       ...tile,
       value: t("connections.defaults.missing"),
