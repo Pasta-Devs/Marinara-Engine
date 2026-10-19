@@ -426,6 +426,64 @@ export const ONBOARDING_CARD_FIELDS = [
   "scenario",
 ] as const satisfies readonly (keyof OnboardingCardFields)[];
 
+/** What a card's data tells onboarding: who it is, what it asks, and what its fields read. */
+export interface CardOnboarding {
+  name: string;
+  onboarding: CharacterOnboarding;
+  cardFields: OnboardingCardFields;
+}
+
+/**
+ * The onboarding block a card's data declares, plus the card name and the five
+ * fields the questions feed. `null` when the data cannot be read or carries no
+ * onboarding the schema accepts.
+ *
+ * `enabled` is deliberately NOT part of the gate: the seeding path writes only
+ * for an enabled block, the player-facing paths also require
+ * `hasOnboardingContent`, and a removal has to see a remaining card's
+ * declarations even when its onboarding is switched off (its fields can still
+ * read the name).
+ *
+ * Reads both shapes the app stores: the row's JSON string and an already-parsed
+ * object. Ids are made unique here because the editor, the questions window and
+ * the seeding all key by id, and cards saved before that rule (or written via
+ * the API) may still repeat one.
+ */
+export function readCardOnboarding(data: unknown): CardOnboarding | null {
+  let card: unknown = data;
+  if (typeof card === "string") {
+    try {
+      card = JSON.parse(card);
+    } catch {
+      return null;
+    }
+  }
+  if (!card || typeof card !== "object" || Array.isArray(card)) return null;
+  const record = card as Record<string, unknown>;
+  const rawExtensions = record.extensions;
+  if (!rawExtensions || typeof rawExtensions !== "object" || Array.isArray(rawExtensions)) return null;
+  const extensions = rawExtensions as Record<string, unknown>;
+  const parsed = characterOnboardingSchema.safeParse(extensions.onboarding);
+  if (!parsed.success) return null;
+  const topLevel = (key: string) => (typeof record[key] === "string" ? (record[key] as string) : undefined);
+  const extensionText = (key: string) =>
+    typeof extensions[key] === "string" ? (extensions[key] as string) : undefined;
+  return {
+    name: typeof record.name === "string" ? record.name : "",
+    onboarding: withUniqueOnboardingIds(parsed.data as CharacterOnboarding),
+    cardFields: {
+      description: topLevel("description"),
+      personality: topLevel("personality"),
+      // `backstory` and `appearance` live on `extensions`, NOT at the top level:
+      // reading them from the card root silently yields undefined, and a question
+      // whose only reference sits there is then never asked.
+      backstory: extensionText("backstory"),
+      appearance: extensionText("appearance"),
+      scenario: topLevel("scenario"),
+    },
+  };
+}
+
 function onboardingCardFieldTexts(card: OnboardingCardFields | null | undefined): string[] {
   if (!card) return [];
   return ONBOARDING_CARD_FIELDS.map((field) => card[field] ?? "");
@@ -553,6 +611,26 @@ function isStorableCardVariableName(name: string): boolean {
 }
 
 /**
+ * The variable names this card's character questions declare, in card order and
+ * de-duplicated. Only names a chat could actually store are included: a blank,
+ * reserved or malformed name can never be in `macroVariables`, so it can never
+ * need removing.
+ *
+ * NOT gated on `enabled`. A switched-off block declares nothing that was asked,
+ * but its card's own fields can still read the name, and the removal rule has to
+ * respect that on the side that stays in the chat. The caller that deletes does
+ * the `enabled` check.
+ */
+export function getCardVariableNames(onboarding: CharacterOnboarding | null | undefined): string[] {
+  const names = new Set<string>();
+  for (const variable of onboarding?.cardVariables ?? []) {
+    const name = variable.variableName.trim();
+    if (name && isStorableCardVariableName(name)) names.add(name);
+  }
+  return [...names];
+}
+
+/**
  * The chat variables the card questions resolve to: `name` → value, ready to be
  * written into the chat's `macroVariables`.
  *
@@ -604,6 +682,67 @@ export function resolveCardVariables(
 }
 
 /**
+ * Rebuild the answers a chat already holds, so a questions window opened after
+ * setup shows what the chat saved instead of every question's first option.
+ * Without this, saving an answer the player DID edit also rewrites the ones they
+ * did not touch (#7797 review).
+ *
+ * The stored string is what `resolveCardVariables` wrote: a free-text answer as
+ * typed, or a chosen option's VALUE (the label when the value is blank), joined by
+ * the separator for a multi-select. Matching both forms is what puts a choice back
+ * on its own option.
+ *
+ * A value the current options cannot express — the author edited the choices, or
+ * an option value is a macro whose expansion was stored — becomes an EMPTY choice,
+ * which renders unselected and writes nothing: the stored value survives an
+ * untouched save, and picking an option still replaces it. A single choice that
+ * allows an own answer takes that value as typed text instead, because that is
+ * where the window keeps player-written answers.
+ */
+export function answersFromStoredValues(
+  variables: readonly CharacterOnboardingVariable[],
+  stored: Record<string, string>,
+): OnboardingAnswers {
+  const answers: OnboardingAnswers = Object.create(null);
+  for (const variable of variables) {
+    const name = variable.variableName;
+    if (!name || !Object.prototype.hasOwnProperty.call(stored, name)) continue;
+    const value = stored[name] ?? "";
+    if (value.trim() === "") continue;
+    if (variable.options.length === 0) {
+      answers[name] = { text: value };
+      continue;
+    }
+    const parts = variable.multiSelect
+      ? value
+          .split(variable.separator)
+          .map((part) => part.trim())
+          .filter((part) => part !== "")
+      : [value.trim()];
+    // An empty separator joins multi-select values with nothing between them, so
+    // the parts cannot be recovered; treated as unmatchable on purpose.
+    const ids =
+      variable.multiSelect && variable.separator === "" ? [] : parts.map((part) => storedOptionId(variable, part));
+    if (ids.length > 0 && ids.every((id): id is string => id !== null)) {
+      answers[name] = { optionIds: [...new Set(ids)] };
+    } else if (!variable.multiSelect && variable.allowCustom) {
+      answers[name] = { text: value };
+    } else {
+      answers[name] = { optionIds: [] };
+    }
+  }
+  return answers;
+}
+
+/** The id of the option whose stored form is `part`, or null. */
+function storedOptionId(variable: CharacterOnboardingVariable, part: string): string | null {
+  // A blank option value means "same as the label" (see `answerContextFor`), which
+  // is the form this has to compare against.
+  const option = variable.options.find((entry) => (entry.value.trim() ? entry.value : entry.label).trim() === part);
+  return option ? option.id : null;
+}
+
+/**
  * The one map written to a chat when several cards ask their questions at once.
  *
  * Every card's answers share the chat's variables, so a name two cards declare is
@@ -631,6 +770,41 @@ export function mergeCardVariables(
     }
   });
   return merged;
+}
+
+/**
+ * The chat variables a roster change should remove: names the LEAVING cards'
+ * enabled character questions own, minus every name a card that stays declares.
+ *
+ * The leaving side is gated on `enabled` because that is the only state in which
+ * onboarding wrote these names (the seeding and the questions window both check
+ * it); a switched-off block owns nothing. The staying side is NOT gated: a card
+ * whose onboarding was switched off after its values were written can still read
+ * the name in its own fields, and deleting a value another card may read is the
+ * worse outcome.
+ *
+ * A staying card that only READS a name without declaring a question for it is
+ * not protected: a cross-card reference is not a declaration.
+ */
+export function cardVariableNamesToDrop(
+  removed: ReadonlyArray<CharacterOnboarding | null | undefined>,
+  remaining: ReadonlyArray<CharacterOnboarding | null | undefined>,
+): string[] {
+  const kept = new Set<string>();
+  for (const onboarding of remaining) {
+    for (const name of getCardVariableNames(onboarding)) kept.add(name);
+  }
+  const drop: string[] = [];
+  const seen = new Set<string>();
+  for (const onboarding of removed) {
+    if (!onboarding?.enabled) continue;
+    for (const name of getCardVariableNames(onboarding)) {
+      if (kept.has(name) || seen.has(name)) continue;
+      seen.add(name);
+      drop.push(name);
+    }
+  }
+  return drop;
 }
 
 /**

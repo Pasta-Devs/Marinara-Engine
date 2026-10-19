@@ -377,6 +377,8 @@ export const PROFESSOR_MARI_APP_DATA_ACTIONS = [
   "character.search",
   "character.create",
   "character.update",
+  "character.onboarding.get",
+  "character.onboarding.update",
   "character.folder.list",
   "character.moveToFolder",
   "persona.list",
@@ -796,6 +798,11 @@ export function buildQuickContextPayload(
   });
 }
 
+// Sent only while the client shows the dated raccoon pack (its window, minus a user opt-out). Flavor only: it
+// may color `say`, never what she does or the literal approval text.
+const MARI_RACCOON_SEASON_FLAVOR =
+  "Seasonal flavor: it is Halloween week and you are wearing your feral raccoon onesie. In `say` only, you may add one light, playful raccoon or Halloween touch (gnawing, rummaging, a tiny growl). Answers, facts, actions, `reason`, `authorization`, and approval, review, or diff text stay exactly as they would be any other day.";
+
 const MARI_SYSTEM_PROMPT = `You are Professor Mari, Marinara Engine's Home-screen local workspace helper.
 
 Voice:
@@ -871,10 +878,10 @@ export function workspaceCommandKnowledgePrompt() {
   return `${MARI_GUIDED_SEQUENCES}
 
 \`app_data\` quick reference:
-- Reads: \`chat.list|get|messages|search|diagnose\`, \`character.list|get|search|folder.list\`, \`persona.list|get|search\`, \`lorebook.list|get|entries|getEntry|search|testScan|folder.list|libraryFolder.list\`, \`theme.list|active|get\`, \`personal_extension.list|get|search\`, \`agent.list|get|search|runs\`, \`preset.list|get|search|sections|getSection|groups|getGroup|choiceBlocks|getChoiceBlock\`, \`home_widget.list|get\`, \`skill.list|get\`, \`instruction.list|get\`.
+- Reads: \`chat.list|get|messages|search|diagnose\`, \`character.list|get|search|folder.list|onboarding.get\`, \`persona.list|get|search\`, \`lorebook.list|get|entries|getEntry|search|testScan|folder.list|libraryFolder.list\`, \`theme.list|active|get\`, \`personal_extension.list|get|search\`, \`agent.list|get|search|runs\`, \`preset.list|get|search|sections|getSection|groups|getGroup|choiceBlocks|getChoiceBlock\`, \`home_widget.list|get\`, \`skill.list|get\`, \`instruction.list|get\`.
 - Chat reading: use \`chat.messages\` with \`chatId\`; preserve user-requested bounds with \`last\` or \`afterPost\`, and page only inside that range with \`limit\` and \`offset\`.
 - Oversized chat ranges elide \`messages\`; re-read one post with \`last: 1\` or \`afterPost\`, \`field: "messages[0].content"\`, and \`offset\`/\`limit\` content windows.
-- Writes: \`character.create|update|moveToFolder\`, \`persona.create|update\`, \`lorebook.create|update|addEntry|updateEntry|deleteEntry|folder.create|libraryFolder.create\`, \`theme.create|update|setActive\`, \`personal_extension.create|update\`, \`agent.create|update\`, \`preset.create|update|addSection|updateSection|deleteSection|addGroup|updateGroup|deleteGroup|addChoiceBlock|updateChoiceBlock|deleteChoiceBlock\`, \`home_widget.create|update|delete\`, \`instruction.remember|update|forget\`, \`chat.updateMessage\`.
+- Writes: \`character.create|update|moveToFolder|onboarding.update\`, \`persona.create|update\`, \`lorebook.create|update|addEntry|updateEntry|deleteEntry|folder.create|libraryFolder.create\`, \`theme.create|update|setActive\`, \`personal_extension.create|update\`, \`agent.create|update\`, \`preset.create|update|addSection|updateSection|deleteSection|addGroup|updateGroup|deleteGroup|addChoiceBlock|updateChoiceBlock|deleteChoiceBlock\`, \`home_widget.create|update|delete\`, \`instruction.remember|update|forget\`, \`chat.updateMessage\`.
 - Character folders: call \`character.folder.list\` to resolve the destination, then \`character.moveToFolder\` with \`characterId\` and either \`folderId\` or \`folderName\`. A move removes the character from its previous folder. When the user explicitly asks for the move, set \`apply:true\` - the result's \`readBack\` confirms it.
 - Lorebook folders are two separate things. Use \`lorebook.folder.list|create\` with \`lorebookId\` for folders that organize entries inside one book; pass \`parentFolderId\` only for a nested folder. Use \`lorebook.libraryFolder.list|create\` for folders shown in the main Lorebooks panel. Create requested folders with \`apply:true\` - the result's \`readBack\` confirms them.
 - Put write fields in \`data\` for creates and \`patch\` for updates. Use \`entryId\` for \`lorebook.updateEntry\`; use \`lorebookId\` only for a lorebook or for \`lorebook.addEntry\`.
@@ -900,6 +907,7 @@ export function workspaceCommandKnowledgePrompt() {
 - Deleting a lorebook entry: use \`lorebook.deleteEntry\` with the entry's \`entryId\` and \`apply:true\` — it removes that one entry and shows a change card. NEVER delete a lorebook entry with a raw \`mari db delete\`: its \`--where\` selector can match and permanently remove far more rows than you intend. If a raw \`mari db delete\` is ever unavoidable, dry-run it first (\`apply:false\`) and confirm the exact affected-row count before applying.
 - Fixing a broken reply (cut off, stray out-of-character lines, broken formatting; or a "fix the last reply"/⌘↵ handoff): \`chat.updateMessage\` with \`chatId\`, \`messageId\` (a search row id works), the full repaired \`content\`, \`reason\`, and \`apply:true\`. REPAIR, not rewrite: fix only the defect, keep the voice and every other word, never continue the scene. It saves a new swipe behind a change card; user messages and game chats are refused. Never patch \`messages\`/\`message_swipes\` with raw \`mari db\`.
 - For \`preset.create\`, put prompt sections in \`data.sections\` and preset variables in \`data.choiceBlocks\`. Each choice block needs \`variableName\`, \`question\`, and \`options\` with \`label\`/\`value\` pairs. A choice block does nothing on its own: its picked value only reaches the model where a section's \`content\` references it with the \`{{variableName}}\` macro. So whenever you define a variable you MUST also drop its \`{{variableName}}\` into at least one section's content (see the tone example below), or the user gets a picker in the preset UI that changes nothing. When you add a variable to an EXISTING preset with \`addChoiceBlock\`, also \`updateSection\` to weave \`{{variableName}}\` into a section's content for the same reason.
+- Interactive onboarding is a card's persona template plus questions the player answers when a Roleplay chat starts. Read it with \`character.onboarding.get\` (\`characterId\`; also returns its problems and a sample persona), write it with \`character.onboarding.update\` (\`characterId\`, \`onboarding\`, \`reason\`, \`apply\`). Update merges: keys you send replace, omitted keys stay, and a question list you send replaces that whole list (to change one question, read it, edit it, send the full list). Keys: \`enabled\` (set \`true\` when writing one), the template fields \`description\`, \`personality\`, \`backstory\`, \`appearance\`, \`scenario\` (written like a persona about the player; the answers turn them into a new persona), \`variables\` (persona questions), and \`cardVariables\` (character questions: answers are saved as chat variables that the card's OWN description, personality, backstory, appearance or scenario read). A question is \`{variableName, question, options}\`: no options = free text; options are labels or \`{label, value}\`, and the value is the exact text that lands in the sentence (give a mid-sentence answer a lowercase value with no article of its own, e.g. \`a {{origin}}\` with value \`human city\`); \`allowCustom: true\` also accepts the player's own answer; \`multiSelect: true\` picks several. Rules: names are case-sensitive letters, digits and \`_\`, never a built-in macro name; a persona question named \`player\` names the persona; every question needs its \`{{name}}\` in a template field (character questions: in the card's own field), and every \`{{name}}\` needs a question; conditions are \`{{#if name == value}}...{{else}}...{{/if}}\` with the \`#\`, and a question used only inside one is asked only when it is true; \`{{user}}\`/\`{{char}}\` stay macros. Give character questions options (a free-text one with no answer shows as a raw \`{{name}}\`). The template never changes the card itself: a character question exists to shape how the CHARACTER treats the player, so its \`{{name}}\` belongs in the card's own description, personality or scenario (not in the onboarding template), added with a separate \`character.update\` in the same response, before the onboarding. The server refuses a broken block and lists every problem: fix them and resend. \`docs_read docs/characters/interactive-onboarding.md\` for more.
 - Editing part of a preset: \`preset.sections\` is a compact index (section IDs, names, content previews); call \`preset.getSection\` before rewriting one. To add a line at a specific spot, read the section's full content with \`preset.getSection\`, splice your change into it, then \`preset.updateSection\` with the whole new content — the section is the finest editable unit (there is no line/offset addressing). \`preset.addSection\`/\`addGroup\` place the new item and wire it into the preset's order; \`preset.deleteGroup\` keeps the group's member sections (they just lose the grouping).
 - Custom image agents are supported by the live runtime. Use \`data.resultType: "image_prompt"\`, enable \`settings.customCapabilities.trigger_image_generation\`, and have the agent return \`shouldGenerate\` plus \`prompt\`. Marker-triggered agents should also set \`settings.activationKeywords\`. Do not claim that only Illustrator can generate image prompts.
 - Custom Home widgets are constrained text cards, never executable code. Before creating one, show its exact title, description, accent, and icon in \`say\`, include the \`home_widget.create\` command with \`apply:true\` in the SAME response, and set \`awaitingAuthorization\` to \`true\` so Marinara holds it for the user's Accept - one response, no preview round. Use \`home_widget.update\` or \`home_widget.delete\` only when the user explicitly asks for that change.
@@ -999,6 +1007,9 @@ Lorebook creation, then finding it for follow-up work (the create's readBack alr
 {"say":"","commands":[{"name":"app_data","arguments":{"action":"lorebook.search","query":"Nightfall Wallachia"}}],"stop":false}
 {"say":"Done — created the lorebook. Want me to do a fidelity pass on the entries?","commands":[],"stop":true}
 {"say":"","commands":[{"name":"app_data","arguments":{"action":"preset.create","data":{"name":"Test preset","sections":[{"name":"Main","content":"You are {{char}}. Speak in a {{tone}} tone.","role":"system"}],"choiceBlocks":[{"variableName":"tone","question":"Tone","options":[{"label":"Warm","value":"warm"},{"label":"Sharp","value":"sharp"}]}]},"reason":"Lets each chat pick a warm or sharp tone","apply":true}}],"stop":false}
+Writing a card's interactive onboarding (read the card first; a character question's \`{{name}}\` goes into the card's own field in the same response, before the onboarding):
+{"say":"","commands":[{"name":"app_data","arguments":{"action":"character.get","characterId":"ayrene-id"}}],"stop":false}
+{"say":"","commands":[{"name":"app_data","arguments":{"action":"character.update","characterId":"ayrene-id","patch":{"scenario":"...the existing scenario, plus: Ayrene treats {{user}} as her {{bond}}."},"reason":"Lets each chat decide what the player is to Ayrene","apply":true}},{"name":"app_data","arguments":{"action":"character.onboarding.update","characterId":"ayrene-id","onboarding":{"enabled":true,"description":"{{player}}, a {{origin}} newcomer to Queen Ayrene's court.{{#if origin == Northern}} Raised in the ice ports, unafraid of storms.{{/if}}","personality":"{{temper}}","variables":[{"variableName":"player","question":"What is your name?"},{"variableName":"origin","question":"Where do you come from?","options":["Northern","Southern"]},{"variableName":"temper","question":"How do you carry yourself at court?","options":["Bold and blunt","Careful and courteous"],"allowCustom":true}],"cardVariables":[{"variableName":"bond","question":"What are you to Ayrene?","options":["sworn knight","rival claimant"],"allowCustom":true}]},"reason":"Players build their newcomer with a few questions when a chat starts","apply":true}}],"stop":false}
 Editing one section of a preset (read the index, read the full section, then rewrite it):
 {"say":"","commands":[{"name":"app_data","arguments":{"action":"preset.sections","presetId":"preset-id"}}],"stop":false}
 {"say":"Found the section. I'll read its full content before editing.","commands":[{"name":"app_data","arguments":{"action":"preset.getSection","sectionId":"section-id"}}],"stop":false}
@@ -1172,6 +1183,12 @@ export function compactMutationResult(result: MariDbCommandResult): MariDbComman
   const readBackStatus =
     saved && isRecord(result.readBack) && typeof result.readBack.status === "string" ? result.readBack.status : null;
   const cardSentence = result.approval?.status === "pending" ? "Marinara is showing the user a change card. " : "";
+  // #7760: a save can pass with notices (an onboarding question nothing uses). Say so up front, or a
+  // matter-of-fact "applied" lets Mari report done with the problem still in the result.
+  const noticeSentence =
+    (result.validation?.notices.length ?? 0) > 0
+      ? " It saved with notices in validation.notices: read them, fix what you can, otherwise tell the user what still needs doing."
+      : "";
   return {
     ok: result.ok,
     mode: result.mode,
@@ -1182,10 +1199,10 @@ export function compactMutationResult(result: MariDbCommandResult): MariDbComman
         ? "Preview only: no changes were saved, and the user cannot see this preview - apply:false renders no card or diff in the UI. If the user already asked for this change, proceed per your Permissions Mode; if instead you asked them whether to apply, wait for their answer - never answer your own question."
         : saved
           ? readBackStatus === "verified"
-            ? `Applied and saved. ${cardSentence}The store read-back confirms the persisted rows match the intended change - no separate verification read is needed; report the outcome matter-of-factly.`
+            ? `Applied and saved.${noticeSentence} ${cardSentence}The store read-back confirms the persisted rows match the intended change - no separate verification read is needed; report the outcome matter-of-factly.`
             : readBackStatus === "mismatch"
               ? `Applied, but the post-apply store read-back does NOT match the intended change (see readBack.mismatches). ${cardSentence}Investigate with read commands and tell the user plainly - do not claim success.`
-              : `Applied and saved. ${cardSentence}Verify the resulting state with a read command before claiming user-visible success - matter-of-factly, never as an apology or correction. If no confirmatory read rides this same response, stage one now; commands run in order, so a same-response read verifies with no extra round.`
+              : `Applied and saved.${noticeSentence} ${cardSentence}Verify the resulting state with a read command before claiming user-visible success - matter-of-factly, never as an apology or correction. If no confirmatory read rides this same response, stage one now; commands run in order, so a same-response read verifies with no extra round.`
           : undefined,
     // readBack sits BEFORE the bulky summary so Mari sees the verification
     // detail even when compactOutput truncates the tail. The GUARD does not
@@ -3368,6 +3385,8 @@ export class ProfessorMariWorkspaceService {
     attachments?: ProfessorMariPromptAttachment[];
     existingUserMessageId?: string;
     context?: ProfessorMariAskContext;
+    /** The dated Mari pack the client is showing, if any; it only flavors her voice. */
+    seasonalPackId?: string;
     onEvent: PromptEventSink;
   }) {
     if (!this.enabled) throw new Error("Professor Mari workspace mode is disabled.");
@@ -3558,6 +3577,7 @@ export class ProfessorMariWorkspaceService {
         permissionsMode,
         handoffContextPrompt,
         runtime.active,
+        args.seasonalPackId,
       );
       const baseOptions: ChatOptions = {
         ...this.baseChatOptions(
@@ -4266,6 +4286,7 @@ export class ProfessorMariWorkspaceService {
     permissionsMode: MariPermissionsMode,
     handoffContextPrompt: string | null,
     runtime: MariRuntime = "classic",
+    seasonalPackId?: string,
   ): Promise<{
     messages: ChatMessage[];
     manualApprovalArmed: boolean;
@@ -4315,6 +4336,7 @@ export class ProfessorMariWorkspaceService {
       `Embedding model: ${embeddingModelConfigured ? "configured" : "none"}`,
       `permissionsMode: ${permissionsMode}`,
       `decisionAuthoring: ${JSON.stringify(decisionContext)}`,
+      ...(seasonalPackId === "raccoon" ? [MARI_RACCOON_SEASON_FLAVOR] : []),
       `</workspace_context>`,
     ].join("\n");
     const messages: ChatMessage[] = [

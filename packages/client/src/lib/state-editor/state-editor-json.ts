@@ -84,6 +84,47 @@ export function stateValuesEqual(left: unknown, right: unknown): boolean {
   return JSON.stringify(left) === JSON.stringify(right);
 }
 
+// ── Syntax colouring ──
+
+/** What a JSON token is drawn as. `punctuation` also covers the gaps between tokens. */
+export type StateJsonTokenKind = "key" | "string" | "number" | "literal" | "punctuation";
+
+export interface StateJsonToken {
+  text: string;
+  kind: StateJsonTokenKind;
+}
+
+// A string (with a trailing colon it is a key), a number, true/false/null, or one punctuator.
+// Everything else — including half-typed text — falls through as punctuation, so an invalid draft
+// still renders instead of vanishing behind the textarea.
+const JSON_TOKEN_PATTERN =
+  /("(?:\\.|[^"\\])*")(\s*:)?|(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)|\b(true|false|null)\b|([{}[\],:])/g;
+
+/**
+ * Splits JSON text into coloured tokens without parsing it. The token texts concatenate back to the
+ * exact input, which is what lets the highlight layer stay aligned behind the textarea while typing.
+ */
+export function tokenizeStateJson(text: string): StateJsonToken[] {
+  const tokens: StateJsonToken[] = [];
+  let cursor = 0;
+  for (let match = JSON_TOKEN_PATTERN.exec(text); match; match = JSON_TOKEN_PATTERN.exec(text)) {
+    if (match.index > cursor) tokens.push({ text: text.slice(cursor, match.index), kind: "punctuation" });
+    if (match[1] !== undefined) {
+      tokens.push({ text: match[1], kind: match[2] === undefined ? "string" : "key" });
+      if (match[2] !== undefined) tokens.push({ text: match[2], kind: "punctuation" });
+    } else if (match[3] !== undefined) {
+      tokens.push({ text: match[3], kind: "number" });
+    } else if (match[4] !== undefined) {
+      tokens.push({ text: match[4], kind: "literal" });
+    } else {
+      tokens.push({ text: match[5]!, kind: "punctuation" });
+    }
+    cursor = JSON_TOKEN_PATTERN.lastIndex;
+  }
+  if (cursor < text.length) tokens.push({ text: text.slice(cursor), kind: "punctuation" });
+  return tokens;
+}
+
 export type StateSectionDraftStatus =
   { kind: "clean" } | { kind: "changed"; value: unknown } | { kind: "invalid"; error: string };
 
@@ -105,6 +146,7 @@ export function collectStateChanges(
   const changes: StateEditorChange[] = [];
   const invalidSectionIds: string[] = [];
   for (const section of sections) {
+    if (section.readOnly) continue;
     const status = getStateSectionDraftStatus(section, drafts[section.id]);
     if (status.kind === "changed") changes.push({ sectionId: section.id, value: status.value });
     else if (status.kind === "invalid") invalidSectionIds.push(section.id);
@@ -225,6 +267,98 @@ export function setStateValueAtPath(root: unknown, path: StateEditorPath, next: 
     return { ...root, [head]: setStateValueAtPath(root[head], rest, next) };
   }
   return root;
+}
+
+/**
+ * A copy of `value` with nothing in it: what an added field or entry starts as. Cloning the shape
+ * instead of following a schema keeps it readable by the same tracker — the editor is never told what
+ * a section's entries look like, only what the entries already there look like.
+ */
+export function blankStateValueLike(value: unknown): unknown {
+  if (Array.isArray(value)) return [];
+  if (typeof value === "number") return 0;
+  if (typeof value === "boolean") return false;
+  if (isPlainRecord(value)) {
+    const blank: Record<string, unknown> = {};
+    for (const [key, item] of Object.entries(value)) blank[key] = blankStateValueLike(item);
+    return blank;
+  }
+  return "";
+}
+
+/** One Inventory Tracker row. `qty` is "at least one": the tracker stores it only above 1. */
+const INVENTORY_TRACKER_ROW = { name: "", qty: 1, description: "", location: "" };
+
+/**
+ * What an entry starts as when its list is empty and there is nothing to copy, keyed by the name the
+ * section uses for the list. The shapes are the ones `GameState` declares in the shared package. Only
+ * id-free shapes are here: characters and quests need ids the editor can't invent safely, so those lists
+ * keep the generic "add field" row.
+ */
+const EMPTY_STATE_ENTRIES: Record<string, unknown> = {
+  worldCustomFields: { name: "", value: "", icon: "" },
+  customTrackerFields: { name: "", value: "" },
+  stats: { name: "", value: 0, max: 0, color: "" },
+  // Persona Stats shows playerStats.inventory, whose rows count `quantity`.
+  inventory: { name: "", description: "", quantity: 1, location: "" },
+  currencies: INVENTORY_TRACKER_ROW,
+  equipped: INVENTORY_TRACKER_ROW,
+};
+
+/**
+ * The same list name can mean a different record in another section: `inventory` is `InventoryItem[]`
+ * in Persona Stats and an Inventory Tracker row list in the Inventory Tracker, where `playerStats.
+ * inventoryTracker*` is shown under that name. Sections that are objects build their own patch, so a row
+ * of the wrong contract would be stored as given.
+ */
+const SECTION_EMPTY_STATE_ENTRIES: Record<string, Record<string, unknown>> = {
+  "inventory-tracker": {
+    currencies: INVENTORY_TRACKER_ROW,
+    equipped: INVENTORY_TRACKER_ROW,
+    inventory: INVENTORY_TRACKER_ROW,
+  },
+};
+
+function emptyStateEntry(key?: string, sectionId?: string): unknown {
+  if (!key) return undefined;
+  return (sectionId ? SECTION_EMPTY_STATE_ENTRIES[sectionId]?.[key] : undefined) ?? EMPTY_STATE_ENTRIES[key];
+}
+
+/** Whether this list's entries have a declared shape, i.e. an entry card shows known fields. */
+export function hasDeclaredStateEntry(key?: string, sectionId?: string): boolean {
+  return emptyStateEntry(key, sectionId) !== undefined;
+}
+
+/**
+ * The entry an add control appends: the last item's shape, cleared; for an empty list, the shape its key
+ * declares in this section; and for a list of unknown shape, `{}` for the "add field" row to fill in
+ * (ponytail: a list of plain values that starts empty therefore gets an object; the JSON view is the way
+ * back).
+ */
+export function blankStateArrayItem(items: readonly unknown[], key?: string, sectionId?: string): unknown {
+  const shape = emptyStateEntry(key, sectionId);
+  if (items.length > 0) {
+    const blank = blankStateValueLike(items[items.length - 1]);
+    // The save path rejects a quantity below 1 (`findInvalidInventoryTrackerRow`), so a cleared row can't
+    // keep the 0 every other number clears to.
+    if (isPlainRecord(shape) && "qty" in shape && isPlainRecord(blank) && blank.qty === 0) blank.qty = 1;
+    return blank;
+  }
+  return shape === undefined ? {} : structuredClone(shape);
+}
+
+/**
+ * How the Fields view shows one entry: the keys its list declares, with the stored values on top, so an
+ * entry the trackers only half-filled still shows the rows it is missing. A missing key reads as `null`
+ * ("No value"), and nothing reaches the draft until one of those rows is edited.
+ */
+export function shapeStateEntry(item: unknown, key?: string, sectionId?: string): unknown {
+  if (!key || !isPlainRecord(item)) return item;
+  const template = emptyStateEntry(key, sectionId);
+  if (!template) return item;
+  const missing: Record<string, null> = {};
+  for (const declaredKey of Object.keys(template)) missing[declaredKey] = null;
+  return { ...missing, ...item };
 }
 
 /** "currentMood" and "current_mood" read as "Current mood", "maxHP" as "Max HP"; the raw key stays in the tooltip. */

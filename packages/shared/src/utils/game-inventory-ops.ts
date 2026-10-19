@@ -124,6 +124,12 @@ export const gameInventoryOpsRequestSchema = z
   .object({
     chatId: z.string().trim().min(1).max(200),
     ops: z.array(gameInventoryOpSchema).min(1).max(GAME_INVENTORY_MAX_OPS),
+    /**
+     * The stacks the ops touch as the caller read them (the State Editor, #7743), keyed by stack id;
+     * null for one the caller knew was absent. When any differs from what is stored as the change is
+     * made, nothing is applied and the answer is `stale`.
+     */
+    expected: z.record(z.string().min(1).max(200), z.unknown()).optional(),
   })
   .strict();
 

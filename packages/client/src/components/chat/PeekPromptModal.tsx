@@ -2,8 +2,9 @@
 // Peek Prompt Modal — collapsible section viewer
 // ──────────────────────────────────────────────
 import { useState, useMemo } from "react";
-import { X, ChevronRight, ChevronDown } from "lucide-react";
-import { cn } from "../../lib/utils";
+import { X, ChevronRight, ChevronDown, Copy } from "lucide-react";
+import { toast } from "sonner";
+import { cn, copyToClipboard } from "../../lib/utils";
 import { generationLevelLabel } from "../../lib/generation-level-label";
 import { describeGenerationFallback } from "../../lib/generation-fallback-notice";
 import { useBackdropDismiss } from "../../hooks/use-backdrop-dismiss";
@@ -586,6 +587,17 @@ export function PeekPromptModal({ data: originalData, onClose }: PeekPromptModal
     return PROMPT_TAG_CLASS;
   };
 
+  // Copies the messages this viewer shows (the saved request when it is exact), never a rebuild:
+  // each message verbatim, in send order, under a "[role]" line.
+  const handleCopyPrompt = async () => {
+    const text = data.messages.map((message) => `[${message.role}]\n${message.content}`).join("\n\n");
+    if (await copyToClipboard(text)) {
+      toast.success(localizeUi("ui.chat.peekpromptmodal.promptCopied"));
+    } else {
+      toast.error(localizeUi("ui.chat.peekpromptmodal.promptCopyFailed"));
+    }
+  };
+
   return (
     <div
       data-chat-floating-panel
@@ -619,13 +631,24 @@ export function PeekPromptModal({ data: originalData, onClose }: PeekPromptModal
               {fmtTokens(totalTokens)} {localizeUi("ui.agents.agenteditor.tokens")}
             </span>
           </div>
-          <button
-            onClick={onClose}
-            className="mari-chat-style-control mari-chrome-control mari-chrome-control--small p-1.5"
-            aria-label={localizeUi("ui.chat.peekpromptmodal.closeAssembledPrompt")}
-          >
-            <X size="1rem" />
-          </button>
+          <div className="flex shrink-0 items-center gap-1">
+            <button
+              type="button"
+              onClick={() => void handleCopyPrompt()}
+              className="mari-chat-style-control mari-chrome-control mari-chrome-control--small p-1.5"
+              title={localizeUi("ui.chat.peekpromptmodal.copyPromptHint")}
+              aria-label={localizeUi("ui.chat.peekpromptmodal.copyPrompt")}
+            >
+              <Copy size="1rem" />
+            </button>
+            <button
+              onClick={onClose}
+              className="mari-chat-style-control mari-chrome-control mari-chrome-control--small p-1.5"
+              aria-label={localizeUi("ui.chat.peekpromptmodal.closeAssembledPrompt")}
+            >
+              <X size="1rem" />
+            </button>
+          </div>
         </div>
         {!showTest && originalData.checkup && originalData.checkup.findings.length > 0 && (
           <div className={cn(NEUTRAL_PANEL_HEADER, "mari-reply-checkup shrink-0 px-5 pb-3")} data-peek-checkup>

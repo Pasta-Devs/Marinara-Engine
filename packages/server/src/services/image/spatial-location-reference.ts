@@ -27,6 +27,17 @@ export async function resolveSpatialLocationReferenceImage(args: {
 }): Promise<string | null> {
   const referenceImageId = args.projection?.useReferenceImage ? args.projection.referenceImageId?.trim() : "";
   if (!referenceImageId) return null;
+  return readSpatialLocationReferenceImageById({ db: args.db, chatId: args.chatId, referenceImageId });
+}
+
+/** Read a location reference by its stored id (chat gallery id or `global-gallery:<id>`). */
+export async function readSpatialLocationReferenceImageById(args: {
+  db: DB;
+  chatId: string;
+  referenceImageId: string;
+}): Promise<string | null> {
+  const referenceImageId = args.referenceImageId.trim();
+  if (!referenceImageId) return null;
 
   try {
     if (referenceImageId.startsWith(GLOBAL_GALLERY_SPATIAL_REFERENCE_PREFIX)) {

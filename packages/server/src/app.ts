@@ -75,6 +75,7 @@ import { logRateLimited } from "./lib/log-rate-limit.js";
 import { genRequestId, registerRequestLogging, RequestLogController } from "./lib/request-logging.js";
 import { startup } from "./lib/startup-timeline.js";
 import { openCodeSessionHook } from "./utils/opencode-session.js";
+import { isApiRequest } from "./utils/api-request.js";
 import { startMessageTrashMaintenance, sweepExpiredMessageTrash } from "./services/storage/message-trash.storage.js";
 
 const isLite = process.env.MARINARA_LITE === "true" || process.env.MARINARA_LITE === "1";
@@ -310,7 +311,7 @@ export async function buildApp(https?: { cert: Buffer; key: Buffer }) {
   // ── HTTP Basic Auth ──
   app.addHook("onRequest", basicAuthHook);
 
-  // ── CSRF / Origin protection for unsafe API requests ──
+  // ── CSRF / Origin protection for unsafe requests ──
   app.addHook("onRequest", csrfProtectionHook);
 
   // APK-managed Termux installs use a per-install secret so unrelated Android
@@ -323,7 +324,7 @@ export async function buildApp(https?: { cert: Buffer; key: Buffer }) {
   // This caused messages to vanish after generation because the refetch
   // returned a cached response without the newly saved message.
   app.addHook("onSend", async (req, reply, payload) => {
-    if (req.url.startsWith("/api/") && !reply.hasHeader("Cache-Control")) {
+    if (isApiRequest(req) && !reply.hasHeader("Cache-Control")) {
       reply.header("Cache-Control", "no-store");
     }
     return payload;

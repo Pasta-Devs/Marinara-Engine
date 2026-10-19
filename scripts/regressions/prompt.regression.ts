@@ -834,6 +834,7 @@ import {
   type WorkspaceCommandResult,
 } from "../../packages/server/src/services/professor-mari/workspace-agent.service.js";
 import { fitMessagesForModelAccess } from "../../packages/server/src/services/generation/model-access-policy.js";
+import { resolveRoleplayChatSummaryForPrompt } from "../../packages/server/src/services/generation/roleplay-summary-retrieval.js";
 import {
   resolveAdvancedMemoryPrompt,
   describeAdvancedMemoryPlacements,
@@ -3438,6 +3439,32 @@ const cases: RegressionCase[] = [
       );
       assert.equal(truncated, "x".repeat(16));
       assert.equal(budget.exceeded, true, "Callers must be able to refuse silently truncated macro output");
+    },
+  },
+  {
+    name: "macro output limits preserve authored text while bounding generated expansion",
+    run() {
+      const context: MacroContext = { user: "Mari", char: "Dottore", characters: ["Dottore"], variables: {} };
+      const literal = "Preserved summary detail. ".repeat(10_000);
+      const options = { trimResult: false };
+      assert.ok(
+        resolveMacros(literal, context, options) === literal,
+        "literal content must survive beyond 200k characters",
+      );
+      assert.ok(
+        resolveMacros(`${literal}${literal}{{char}}`, context, options) === `${literal}${literal}Dottore`,
+        "reusing options must size each authored template independently",
+      );
+      assert.equal(
+        resolveMacros(literal, context, { maxMacroOutputLength: 16 }),
+        literal.slice(0, 16),
+        "an explicit caller limit remains an absolute cap, including literal content",
+      );
+      const template = "{{user}}";
+      const budget = { expansions: 0, exceeded: false };
+      const expanded = resolveMacros(template, { ...context, user: "x".repeat(300_000) }, { macroBudget: budget });
+      assert.equal(expanded.length, template.length + 200_000, "the default still bounds text added by macros");
+      assert.equal(budget.exceeded, true, "a clipped expansion must report that its budget was exceeded");
     },
   },
   {
@@ -10063,6 +10090,114 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
       assert.equal(result.messages[1]?.contextKind, "history");
     },
   },
+  ...[false, true].map((explicitMarker): RegressionCase => ({
+    name: `95 manual roleplay summaries survive ${explicitMarker ? "explicit marker" : "fallback"} assembly with model room`,
+    async run() {
+      const entries = normalizeChatSummaryEntries([
+        ...Array.from({ length: 95 }, (_, index) => ({
+          id: `summary-${index + 1}`,
+          origin: "manual",
+          enabled: true,
+          content: `SUMMARY_${index + 1} {{char}} remembered ${"the laboratory detail. ".repeat(125)} END_${index + 1}`,
+          createdAt: new Date(Date.UTC(2026, 0, 1) + index * 60_000).toISOString(),
+        })),
+        { id: "disabled-summary", content: "DISABLED_SUMMARY_MUST_STAY_OUT", enabled: false },
+      ]);
+      const metadata = {
+        summaryEntries: entries,
+        summary: compileChatSummaryEntries(entries),
+        semanticSummaryRetrievalEnabled: false,
+      };
+      assert.ok(metadata.summary!.length > 200_000, "the fixture must cross the former macro output ceiling");
+      const activeSummary = await resolveRoleplayChatSummaryForPrompt({
+        chatMode: "roleplay",
+        chatMetadata: metadata,
+        messages: [{ role: "user", content: "Continue the scene." }],
+        vectorizerAvailable: true,
+      });
+      assert.equal(activeSummary, metadata.summary, "disabled semantic retrieval keeps every enabled summary");
+      const result = await assemblePrompt({
+        db: undefined as unknown as DB,
+        preset: {
+          id: "large-summary",
+          name: "Large Summary",
+          sectionOrder: JSON.stringify(explicitMarker ? ["main", "history", "summary"] : ["main", "history"]),
+          groupOrder: "[]",
+          wrapFormat: "xml",
+          parameters: "{}",
+          variableGroups: "[]",
+          variableValues: "{}",
+        },
+        sections: [
+          promptSection({ id: "main", identifier: "main", name: "Main", content: "Continue the scene." }),
+          promptSection({
+            id: "history",
+            identifier: "history",
+            name: "History",
+            isMarker: "true",
+            markerConfig: JSON.stringify({ type: "chat_history" }),
+            injectionOrder: 1,
+          }),
+          ...(explicitMarker
+            ? [
+                promptSection({
+                  id: "summary",
+                  identifier: "summary",
+                  name: "Chat Summary",
+                  isMarker: "true",
+                  markerConfig: JSON.stringify({ type: "chat_summary" }),
+                  injectionOrder: 2,
+                }),
+              ]
+            : []),
+        ],
+        groups: [],
+        choiceBlocks: [],
+        chatChoices: {},
+        chatId: "large-summary",
+        characterIds: [],
+        personaName: "Mari",
+        personaDescription: "",
+        chatMessages: [{ role: "user", content: "Continue." }],
+        chatSummary: activeSummary,
+        deferCharacterMacros: true,
+      });
+      const fitted = fitMessagesForModelAccess({
+        messages: result.messages.map((message) => ({
+          ...message,
+          content: resolveDeferredCharacterMacros(message.content, { name: "Dottore" }),
+        })),
+        policy: { suppressModelParameters: false, effectiveMaxContext: 1_000_000 },
+        maxTokens: 4096,
+      });
+      assert.equal(fitted.contextFit.trimmed, false, "the model has room for the complete summary and reply");
+      const text = fitted.messages.map((message) => message.content).join("\n");
+      for (let index = 1; index <= 95; index += 1) {
+        assert.ok(
+          text.includes(`SUMMARY_${index} Dottore remembered`),
+          `summary ${index} and its character macro survive`,
+        );
+        assert.ok(text.includes(`END_${index}`), `summary ${index} keeps its complete ending`);
+      }
+      assert.doesNotMatch(text, /DISABLED_SUMMARY_MUST_STAY_OUT/u);
+      const latestOnly = await resolveRoleplayChatSummaryForPrompt({
+        chatMode: "roleplay",
+        chatMetadata: {
+          ...metadata,
+          semanticSummaryRetrievalEnabled: true,
+          semanticSummaryRecentCount: 2,
+          semanticSummaryOlderCount: 0,
+        },
+        messages: [{ role: "user", content: "Continue the scene." }],
+        vectorizerAvailable: true,
+      });
+      assert.equal(
+        latestOnly,
+        compileChatSummaryEntries(entries.slice(93, 95)),
+        "enabled semantic retrieval still honors its recent-only selection",
+      );
+    },
+  })),
   {
     name: "preset-less roleplay summary creates a leading system block before history",
     run() {

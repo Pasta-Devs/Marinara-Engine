@@ -1,0 +1,214 @@
+/* ═══════════════════════════════════════════════
+   SEASONAL THEME: HALLOWEEN
+   Worn on October 31, local time, while <html> carries
+   data-seasonal-theme="halloween" (App.tsx, lib/seasonal-themes.ts).
+
+   The palette is defined once below and mapped onto the
+   app's tokens with !important, so for that one day it wins
+   over a custom accent, the accent pulse, a visual theme or
+   a custom theme. Removing the attribute hands every token
+   back to the user's own theme untouched.
+   ═══════════════════════════════════════════════ */
+
+:root[data-seasonal-theme="halloween"] {
+  /* Palette, dark */
+  --halloween-bg: #0c0812;
+  --halloween-surface: #1b1126;
+  --halloween-sidebar: var(--marinara-shell-surface, #1b1126);
+  --halloween-text: #f4ecf8;
+  --halloween-muted-text: #c0b0cf;
+  --halloween-pumpkin: #ff8c1a;
+  --halloween-on-pumpkin: #1c0d00;
+  --halloween-candle: #ffc56b;
+  --halloween-purple: #a05cf0;
+  --halloween-purple-surface: #26163a;
+  --halloween-purple-text: #f8dcc0;
+  --halloween-hover: #301b48;
+
+  /* Tokens */
+  --background: var(--halloween-bg) !important;
+  --marinara-app-background-paint: var(--halloween-bg) !important;
+  --foreground: var(--halloween-text) !important;
+  --card: color-mix(in srgb, var(--halloween-surface) 90%, transparent) !important;
+  --card-foreground: var(--halloween-text) !important;
+  --popover: color-mix(in srgb, var(--halloween-surface) 94%, transparent) !important;
+  --popover-foreground: var(--halloween-text) !important;
+  --primary: var(--halloween-pumpkin) !important;
+  --primary-foreground: var(--halloween-on-pumpkin) !important;
+  --secondary: var(--halloween-purple-surface) !important;
+  --secondary-foreground: var(--halloween-purple-text) !important;
+  --muted: var(--halloween-purple-surface) !important;
+  --muted-foreground: var(--halloween-muted-text) !important;
+  --accent: var(--halloween-hover) !important;
+  --accent-foreground: var(--halloween-text) !important;
+  --ring: var(--halloween-pumpkin) !important;
+  --sidebar: var(--halloween-sidebar) !important;
+  --sidebar-foreground: var(--halloween-text) !important;
+  --sidebar-accent: color-mix(in srgb, var(--halloween-pumpkin) 12%, transparent) !important;
+  --sidebar-accent-foreground: var(--halloween-pumpkin) !important;
+  --glow-primary: color-mix(in srgb, var(--halloween-pumpkin) 18%, transparent) !important;
+  --glow-accent: color-mix(in srgb, var(--halloween-purple) 16%, transparent) !important;
+  --marinara-app-accent-solid: var(--halloween-pumpkin) !important;
+  --marinara-app-accent-static: var(--halloween-pumpkin) !important;
+  --marinara-app-accent-gradient: linear-gradient(
+    90deg,
+    var(--halloween-pumpkin),
+    var(--halloween-candle),
+    var(--halloween-purple)
+  ) !important;
+  --marinara-app-accent-static-gradient: var(--marinara-app-accent-gradient) !important;
+  --marinara-chat-chrome-accent: var(--halloween-pumpkin) !important;
+  --marinara-chat-chrome-accent-gradient: var(--marinara-app-accent-gradient) !important;
+  --marinara-chat-chrome-text: var(--halloween-text) !important;
+}
+
+:root[data-seasonal-theme="halloween"][data-theme="light"] {
+  /* Palette, light */
+  --halloween-bg: #fff6ec;
+  --halloween-surface: #fffbf6;
+  --halloween-sidebar: #fdf0e4;
+  --halloween-text: #24112f;
+  --halloween-muted-text: #5c4669;
+  --halloween-pumpkin: #c2410c;
+  --halloween-on-pumpkin: #ffffff;
+  --halloween-candle: #e07a1f;
+  --halloween-purple: #6d28d9;
+  --halloween-purple-surface: #f3e6f7;
+  --halloween-purple-text: #4c1d70;
+  --halloween-hover: #fbe4d0;
+}
+
+/* ─── Home decorations: bats in the sky, pumpkins on the ground ─── */
+.mari-seasonal-home {
+  display: none;
+}
+
+:root[data-seasonal-theme="halloween"] .mari-seasonal-home {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  display: block;
+  overflow: hidden;
+  pointer-events: none;
+  container-type: size;
+}
+
+:root[data-seasonal-theme="halloween"] .mari-seasonal-home__sky {
+  position: absolute;
+  width: 2.5rem;
+  aspect-ratio: 8 / 5;
+  background: url("/seasonal/halloween/bat.webp") center / contain no-repeat;
+  animation:
+    mari-seasonal-drift 7s ease-in-out infinite alternate,
+    mari-seasonal-flap 0.9s ease-in-out infinite;
+}
+
+:root[data-seasonal-theme="halloween"] .mari-seasonal-home__sky:nth-child(1) {
+  top: 0.5rem;
+  left: 6%;
+}
+
+:root[data-seasonal-theme="halloween"] .mari-seasonal-home__sky:nth-child(2) {
+  top: 2.6rem;
+  left: 17%;
+  width: 1.75rem;
+  animation-duration: 9s, 1.1s;
+  animation-delay:
+    -3s,
+    -0.4s;
+}
+
+:root[data-seasonal-theme="halloween"] .mari-seasonal-home__sky:nth-child(3) {
+  top: 1.1rem;
+  right: 8%;
+  width: 2.25rem;
+  /* Mirrored to face the others; its flap keeps the mirror. */
+  scale: -1 1;
+  animation-name: mari-seasonal-drift, mari-seasonal-flap-mirrored;
+  animation-duration: 8s, 1s;
+  animation-delay:
+    -5s,
+    -0.2s;
+}
+
+:root[data-seasonal-theme="halloween"] .mari-seasonal-home__ground {
+  position: absolute;
+  top: 2.75rem;
+  right: 2%;
+  width: 4rem;
+  aspect-ratio: 480 / 276;
+  background: url("/seasonal/halloween/pumpkins.webp") center bottom / contain no-repeat;
+}
+
+/* Beside the logo under the right-hand bat, clear of the title and buttons below. */
+@container (min-width: 34rem) {
+  :root[data-seasonal-theme="halloween"] .mari-seasonal-home__ground {
+    right: 3%;
+    width: 5.5rem;
+  }
+}
+
+/* A wide hero has an empty bottom corner beside its centered text and buttons. */
+@container (min-width: 72rem) {
+  :root[data-seasonal-theme="halloween"] .mari-seasonal-home__ground {
+    top: auto;
+    right: 1rem;
+    bottom: 0.25rem;
+    width: 9.5rem;
+  }
+}
+
+/* Narrow Home: smaller bats, kept to the corners beside the logo. */
+@container (max-width: 34rem) {
+  :root[data-seasonal-theme="halloween"] .mari-seasonal-home__sky {
+    width: 1.6rem;
+  }
+
+  :root[data-seasonal-theme="halloween"] .mari-seasonal-home__sky:nth-child(1) {
+    left: 4%;
+  }
+
+  :root[data-seasonal-theme="halloween"] .mari-seasonal-home__sky:nth-child(2) {
+    display: none;
+  }
+
+  :root[data-seasonal-theme="halloween"] .mari-seasonal-home__sky:nth-child(3) {
+    right: 5%;
+    width: 1.4rem;
+  }
+}
+
+@keyframes mari-seasonal-drift {
+  from {
+    translate: 0 0;
+    rotate: -4deg;
+  }
+  to {
+    translate: 1.5rem -0.35rem;
+    rotate: 5deg;
+  }
+}
+
+@keyframes mari-seasonal-flap {
+  50% {
+    scale: 1 0.8;
+  }
+}
+
+@keyframes mari-seasonal-flap-mirrored {
+  50% {
+    scale: -1 0.8;
+  }
+}
+
+html[data-marinara-reduced-effects="true"] .mari-seasonal-home__sky,
+html[data-marinara-effects-paused="true"] .mari-seasonal-home__sky {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* !important: the per-bat rules above are more specific. */
+  .mari-seasonal-home__sky {
+    animation: none !important;
+  }
+}

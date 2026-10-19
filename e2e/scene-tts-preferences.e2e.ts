@@ -392,7 +392,15 @@ test("TTS playback filters keep compatible defaults and save independent choices
   request,
 }, testInfo) => {
   const original = await (await request.get("/api/tts/config")).json();
-  let config = { ...original, enabled: false, skipTagContent: false, skipCodeBlocks: true, skipBracketedText: false };
+  let config = {
+    ...original,
+    enabled: false,
+    skipTagContent: false,
+    skipCodeBlocks: true,
+    skipBracketedText: false,
+    roleplaySpeakerExtractorEnabled: false,
+    roleplaySpeakerExtractorEmotionsEnabled: false,
+  };
   await prepare(page, "dark");
   await page.route("**/api/tts/config", async (route) => {
     if (route.request().method() === "PUT") config = route.request().postDataJSON();
@@ -417,6 +425,22 @@ test("TTS playback filters keep compatible defaults and save independent choices
   await expect.poll(() => config.skipCodeBlocks).toBe(false);
   await card.getByText("Skip text inside square brackets", { exact: true }).click();
   await expect.poll(() => config.skipBracketedText).toBe(true);
+  await card.getByText("Roleplay speaker extractor", { exact: true }).click();
+  await card.getByText("Enable emotion indicators", { exact: true }).click();
+  await expect.poll(() => config.roleplaySpeakerExtractorEmotionsEnabled).toBe(true);
+  const speech = await page.evaluate(async () => {
+    const { splitTTSChunks } = (await import(
+      "/src/lib/tts-dialogue.ts" as string
+    )) as typeof import("../packages/client/src/lib/tts-dialogue");
+    const saved = await (await fetch("/api/tts/config")).json();
+    const text = "[Low, steady voice, restrained urgency] Stay close. [Brief pause] Keep moving.";
+    return {
+      on: splitTTSChunks(text, saved),
+      off: splitTTSChunks(text, { ...saved, roleplaySpeakerExtractorEmotionsEnabled: false }),
+    };
+  });
+  expect(speech.on).toEqual(["[Low, steady voice, restrained urgency] Stay close. [Brief pause] Keep moving."]);
+  expect(speech.off).toEqual(["Stay close. Keep moving."]);
   await brackets().scrollIntoViewIfNeeded();
   await page.screenshot({ path: testInfo.outputPath("tts-filters-dark.png") });
   await page.reload();
@@ -424,6 +448,7 @@ test("TTS playback filters keep compatible defaults and save independent choices
   await expect(tags()).toBeChecked();
   await expect(code()).not.toBeChecked();
   await expect(brackets()).toBeChecked();
+  await expect(card.getByLabel("Enable emotion indicators", { exact: true })).toBeChecked();
 });
 
 test("Game dice narration failures offer regeneration and Peek keeps planner usage separate", async ({

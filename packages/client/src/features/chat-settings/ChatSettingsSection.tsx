@@ -13,6 +13,8 @@ interface ChatSettingsSectionProps {
   initialOpen?: boolean;
   forceOpen?: boolean;
   contentClassName?: string;
+  /** Popped out, the content fills its window (see Drawer `fill`). */
+  fill?: boolean;
   children: ReactNode;
 }
 
@@ -26,6 +28,7 @@ export function ChatSettingsSection({
   initialOpen = false,
   forceOpen = false,
   contentClassName,
+  fill,
   children,
 }: ChatSettingsSectionProps) {
   const rememberedOpen = useUIStore((s) => (id ? s.chatSettingsExpandedSections[id] : undefined));
@@ -58,6 +61,7 @@ export function ChatSettingsSection({
       onOpenChange={setOpenRemembered}
       style={style}
       bodyClassName={contentClassName}
+      fill={fill}
       rootAttributes={{ "data-chat-settings-section": id }}
     >
       {children}

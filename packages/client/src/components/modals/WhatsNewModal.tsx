@@ -681,6 +681,7 @@ export function WhatsNewModal({
 }) {
   const { t: localizeUi } = useUiTranslation();
   const hasCompletedOnboarding = useUIStore((state) => state.hasCompletedOnboarding);
+  const whatsNewRequested = useUIStore((state) => state.whatsNewRequested);
   const [open, setOpen] = useState(false);
   const announcement = RELEASE_ANNOUNCEMENTS[APP_VERSION] ?? FALLBACK_ANNOUNCEMENT;
   const releaseUrl = `${RELEASES_URL}/tag/v${encodeURIComponent(APP_VERSION)}`;
@@ -696,6 +697,13 @@ export function WhatsNewModal({
     }
     onResolved?.();
   }, [hasCompletedOnboarding, presentationAllowed, onResolved]);
+
+  // Reopened on request (the Home widget): the same window, and the seen marker stays as it is.
+  useEffect(() => {
+    if (!whatsNewRequested) return;
+    useUIStore.getState().consumeWhatsNewRequest();
+    setOpen(true);
+  }, [whatsNewRequested]);
 
   useEffect(() => {
     onOpenChange?.(open);

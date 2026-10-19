@@ -1,4 +1,4 @@
-import { applyClockCommandTags, type RulesetClocks } from "@marinara-engine/shared";
+import { applyClockCommandTags, TTS_SETTINGS_KEY, type RulesetClocks } from "@marinara-engine/shared";
 import {
   currentRoomGeneration,
   resolveRoomGenerationPolicy,
@@ -147,6 +147,7 @@ import {
   parseManagedGenerationParameterDefinitions,
   normalizeGameStoryboardKeyframeCount,
   estimateTextTokens,
+  buildChatImageGenerationRecord,
   diffChatVariables,
   mergeChatVariableChanges,
   removeCopiedPromptGuidance,
@@ -197,7 +198,10 @@ import {
   materializeAssistantSpatialState,
 } from "../services/spatial-context/state-resolution.js";
 import { createConnectionsStorage } from "../services/storage/connections.storage.js";
-import { writeManualIllustratorPromptPlan } from "../services/generation/illustrator-manual-prompt-generation.js";
+import {
+  buildManualIllustratorCharacterPromptInstruction,
+  writeManualIllustratorPromptPlan,
+} from "../services/generation/illustrator-manual-prompt-generation.js";
 import {
   isRoleplayCommandEnabled,
   isRoleplayCommandAllowed,
@@ -367,6 +371,7 @@ import { createGalleryStorage } from "../services/storage/gallery.storage.js";
 import { resolveGalleryImagePath } from "../services/image/gallery-image-path.js";
 import { isSentSelfieAttachment } from "../services/generation/prompt-attachments.js";
 import { createAppSettingsStorage } from "../services/storage/app-settings.storage.js";
+import { gameTtsEmotionIndicatorsEnabled } from "../services/tts-emotion-guidance.js";
 import { getCustomAgentImportPolicy } from "../services/agents/custom-agent-import-policy.service.js";
 import { buildLorebookSemanticEmbeddingsById, warmLorebookEntryEmbeddings } from "../services/lorebook/embeddings.js";
 import { applyRegexScriptsToPromptMessages } from "../services/regex/regex-application.js";
@@ -5331,6 +5336,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             : undefined;
           const formatReminder = resolvePromptMacros(
             buildGmFormatReminder({
+              ttsEmotionIndicatorsEnabled: gameTtsEmotionIndicatorsEnabled(await appSettings.get(TTS_SETTINGS_KEY)),
               hasSceneModel,
               hudWidgets: gmCtx.hudWidgets,
               turnNumber: gameTurnNumber,
@@ -12382,6 +12388,14 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                     typeof agentContext.memory._illustratorImageStyleInstruction === "string"
                       ? agentContext.memory._illustratorImageStyleInstruction
                       : undefined,
+                  // Same NovelAI caption rules and appearance reference as the Illustration button.
+                  characterPromptInstruction: buildManualIllustratorCharacterPromptInstruction(
+                    context,
+                    typeof agentContext.memory._illustratorCharacterPromptInstruction === "string"
+                      ? agentContext.memory._illustratorCharacterPromptInstruction
+                      : undefined,
+                    agentContext.memory._illustratorCaptionAppearanceReference === true,
+                  ),
                 });
                 result = {
                   agentId: agent.id,
@@ -13798,12 +13812,12 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
 
                       // Collect optional character visual context. Prefer avatar
                       // portraits for references, then fall back to full-body sprites.
+                      // Illustrate commands follow the same reference switch as automatic and manual
+                      // illustrations; naming characters only narrows whose references are sent.
                       const useAvatarRefs =
-                        (commandTarget?.command.type === "illustrate" &&
-                          Boolean(commandTarget.command.characters?.length)) ||
-                        (usesChatIllustratorSettings && typeof chatMeta.illustratorUseAvatarReferences === "boolean"
+                        usesChatIllustratorSettings && typeof chatMeta.illustratorUseAvatarReferences === "boolean"
                           ? chatMeta.illustratorUseAvatarReferences
-                          : imagePromptAgent?.settings?.useAvatarReferences === true);
+                          : imagePromptAgent?.settings?.useAvatarReferences === true;
                       const includeCharacterAppearance =
                         usesChatIllustratorSettings &&
                         typeof chatMeta.illustratorIncludeCharacterAppearance === "boolean"
@@ -14032,6 +14046,17 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                           model: effectiveImageModel,
                           width: imgWidth,
                           height: imgHeight,
+                          generation: buildChatImageGenerationRecord({
+                            prompt: compiledPrompt.prompt,
+                            connectionId: imgConnFull.id,
+                            negativePrompt: finalNegativePrompt,
+                            characterPrompts: illustratorCharacterPrompts,
+                            referenceCharacterIds: useAvatarRefs ? referenceResolution.characterIds : [],
+                            referencePersonaId: useAvatarRefs ? referenceResolution.personaId : null,
+                            locationImageId: spatialLocationReferenceImage
+                              ? ownerSpatialProjection?.referenceImageId
+                              : null,
+                          }),
                         });
                         await persistGeneratedImageToEntityGalleries({
                           enabled: imageSettings.autoSaveToGalleries,

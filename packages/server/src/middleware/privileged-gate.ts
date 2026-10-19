@@ -1,7 +1,12 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { getAdminSecret, isAdminSecretRequiredOnLoopback } from "../config/runtime-config.js";
 import { isBasicAuthSatisfied } from "./basic-auth.js";
-import { isInIpAllowlist, isLoopbackIp, isTrustedInterfaceRequest } from "./ip-allowlist.js";
+import {
+  isForwardedLoopbackRequest,
+  isInIpAllowlist,
+  isLoopbackRequest,
+  isTrustedInterfaceRequest,
+} from "./ip-allowlist.js";
 import { safeCompareString } from "../utils/security.js";
 import { isRequestHostTrusted } from "./host-validation.js";
 
@@ -39,7 +44,10 @@ export function requirePrivilegedAccess(
     return false;
   }
 
-  if (options.loopbackOnly && !isLoopbackIp(request.ip)) {
+  // A reverse proxy or tunnel on this machine connects from loopback too; its
+  // forwarded visitors are remote clients, not the local user.
+  const localRequest = isLoopbackRequest(request);
+  if (options.loopbackOnly && !localRequest) {
     reply.status(403).send({
       error: "Privileged API is loopback-only",
       message: `${options.feature ?? "This feature"} is available only from loopback unless explicitly enabled.`,
@@ -47,11 +55,15 @@ export function requirePrivilegedAccess(
     return false;
   }
 
-  if (isLoopbackIp(request.ip) && !isAdminSecretRequiredOnLoopback()) {
+  if (localRequest && !isAdminSecretRequiredOnLoopback()) {
     return true;
   }
 
-  if (options.trustedNetwork && (isInIpAllowlist(request.ip) || isTrustedInterfaceRequest(request))) {
+  if (
+    options.trustedNetwork &&
+    !isForwardedLoopbackRequest(request) &&
+    (isInIpAllowlist(request.ip) || isTrustedInterfaceRequest(request))
+  ) {
     return true;
   }
 

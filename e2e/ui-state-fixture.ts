@@ -24,7 +24,17 @@ export async function seedUIState(
       }
       localStorage.setItem(name, JSON.stringify({ state: { ...previous, ...state }, version }));
     },
-    // Keep unrelated proofs clear of surprise visits and the one-time chat introduction.
-    { ...UI_PERSISTENCE, state: { chibiProfessorMariEnabled: false, chatWindowIntroDismissed: true, ...state }, mode },
+    // Keep unrelated proofs clear of surprise visits, the one-time chat introduction and, on its holiday, the
+    // seasonal theme greeting.
+    {
+      ...UI_PERSISTENCE,
+      state: {
+        chibiProfessorMariEnabled: false,
+        chatWindowIntroDismissed: true,
+        seasonalThemesDisabled: true,
+        ...state,
+      },
+      mode,
+    },
   );
 }

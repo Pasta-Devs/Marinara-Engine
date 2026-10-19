@@ -6283,6 +6283,124 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
     }
   }
 
+  /** A branch keeps completed preparation, but never inherits a running job or future context boundary. */
+  async function restoreBranchState(
+    chatId: string,
+    sourceChatId: string,
+    messageIds: ReadonlyMap<string, string>,
+    recordIds: ReadonlyMap<string, string> = new Map(),
+  ) {
+    const source = await context(sourceChatId);
+    const state = object(source.metadata.advancedMemoryState);
+    if (state.paused === true)
+      await chats.patchMetadata(
+        chatId,
+        { advancedMemoryState: { ...IDLE_JOB, status: "cancelled", paused: true } },
+        { touchUpdatedAt: false },
+      );
+    if (state.status !== "ready") return;
+    const ctx = await context(chatId);
+    const current = await records(chatId);
+    if (missingKnowledge(ctx).length) return;
+    // If every saved scene was rejected during copying, there is no prepared archive to resume.
+    if (ctx.messages.length && !current.some((record) => record.kind === "scene")) return;
+    const originalIds = new Map([...messageIds].map(([original, copied]) => [copied, original]));
+    const copiedSource = source.messages.filter((message) => messageIds.has(message.id));
+    // Dense branch swipe numbers identify the same selected content. Dropping a future automatic
+    // summary may also unhide turns that a hidden-history classifier already reviewed.
+    const checkpointSource = (messages: readonly AdvancedMemoryMessage[]) =>
+      messages.map((message) => ({
+        ...message,
+        activeSwipeIndex: undefined,
+        extra:
+          state.historyClassified === true && state.hiddenHistoryClassified === true
+            ? { ...object(message.extra), hiddenFromAI: undefined }
+            : message.extra,
+      }));
+    const unchanged =
+      advancedMemorySourceFingerprint(checkpointSource(copiedSource)) ===
+      advancedMemorySourceFingerprint(
+        checkpointSource(
+          ctx.messages.map((message) => ({ ...message, id: originalIds.get(message.id) ?? message.id })),
+        ),
+      );
+    const checkpoint = (id: unknown) => {
+      const index = source.messages.findIndex((message) => message.id === id);
+      if (index < 0) return undefined;
+      const original = source.messages
+        .slice(0, index + 1)
+        .filter((message) => messageIds.has(message.id))
+        .at(-1);
+      const copied = original ? messageIds.get(original.id) : undefined;
+      return copied ? ctx.messages.slice(0, ctx.messages.findIndex((message) => message.id === copied) + 1) : undefined;
+    };
+    const verifiedCheckpoint = (id: unknown, revision: unknown) => {
+      const index = source.messages.findIndex((message) => message.id === id);
+      return unchanged && index >= 0 && revision === fingerprint(source, source.messages.slice(0, index + 1), [])
+        ? checkpoint(id)
+        : undefined;
+    };
+    const processed = verifiedCheckpoint(state.processedMessageId, state.sourceFingerprint);
+    const classified = verifiedCheckpoint(state.classifiedMessageId, state.classifiedSourceFingerprint);
+    const checked = checkpoint(state.sceneCheckMessageId);
+    const contextStarts = Array.isArray(state.contextStarts)
+      ? state.contextStarts.flatMap((value) => {
+          const start = object(value);
+          const anchor = (id: unknown) => (typeof id === "string" ? messageIds.get(id) : null);
+          const messageId = anchor(start.messageId);
+          const sceneStartMessageId = anchor(start.sceneStartMessageId);
+          const manualStartMessageId = anchor(start.manualStartMessageId);
+          if (!messageId || sceneStartMessageId === undefined || manualStartMessageId === undefined) return [];
+          return [
+            {
+              messageId,
+              sceneStartMessageId,
+              manualStartMessageId,
+              audienceCharacterIds: strings(start.audienceCharacterIds),
+            },
+          ];
+        })
+      : [];
+    const active = current.find(
+      (record) => record.kind === "scene" && record.id === record.sceneId && record.status === "open",
+    );
+    await chats.patchMetadata(
+      chatId,
+      {
+        advancedMemoryState: {
+          ...IDLE_JOB,
+          status: state.paused === true ? "cancelled" : "ready",
+          stage: "ready",
+          paused: state.paused === true,
+          completed: processed?.length ?? 0,
+          total: ctx.messages.length,
+          activeSceneId: active?.id ?? null,
+          contextStarts,
+          constantSummarySceneIds: strings(state.constantSummarySceneIds).flatMap((id) => recordIds.get(id) ?? []),
+          // Saved scene boundaries survive ordinary edits, including interruption recovery while copying.
+          historyClassified: state.historyClassified === true,
+          hiddenHistoryClassified: state.hiddenHistoryClassified === true,
+          ...(processed
+            ? { processedMessageId: processed.at(-1)!.id, sourceFingerprint: fingerprint(ctx, processed, []) }
+            : {}),
+          ...(classified
+            ? {
+                classifiedMessageId: classified.at(-1)!.id,
+                classifiedSourceFingerprint: fingerprint(ctx, classified, []),
+              }
+            : {}),
+          ...(checked
+            ? {
+                sceneCheckMessageId: checked.at(-1)!.id,
+                sceneCheckSourceFingerprint: advancedMemorySourceFingerprint(checked),
+              }
+            : {}),
+        },
+      },
+      { touchUpdatedAt: false },
+    );
+  }
+
   async function exportMemory(chatId: string) {
     const ctx = await context(chatId);
     return {
@@ -6519,6 +6637,7 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
     validatePrepared,
     exportTransferRecords,
     refreshTransferredRecords,
+    restoreBranchState,
     exportMemory,
     importMemory,
     reindex,

@@ -8,7 +8,8 @@
 //
 // What profiles DO carry: connection, prompt preset selection, and most metadata
 // (agents, tools, lorebook settings, translation, advanced parameters,
-// context limit, memory recall, discord mirror, etc.).
+// context limit, memory recall, discord mirror, etc.). Exported profile files leave out the outside
+// addresses and keys (CHAT_METADATA_LOCAL_DESTINATION_KEYS), and imported ones never bring them.
 //
 // What profiles DO NOT carry: per-chat identity (name, characters,
 // persona, group, sprites, scene prompt, generated summaries, tags,
@@ -362,3 +363,22 @@ export function chatFollowsChatPreset(
 
 /** Top-level chat keys that CAN be saved into a profile. */
 export const CHAT_PRESET_INCLUDED_CHAT_KEYS: readonly string[] = ["connectionId", "promptPresetId"] as const;
+
+/**
+ * Chat settings that send chat text to an address outside the app, or hold the key for one. They stay
+ * on the install where the user entered them: profiles saved there keep them, but chat logs, settings
+ * profiles and full profiles are exported without them, and imports drop them.
+ */
+export const CHAT_METADATA_LOCAL_DESTINATION_KEYS: readonly string[] = [
+  "discordWebhookUrl", // Discord mirror
+  "translationDeeplxUrl", // DeepLX address
+  "translationDeeplApiKey", // DeepL key
+  "hapticIntifaceUrl", // Haptics: device server address
+] as const;
+
+/** A copy of chat metadata without the settings that stay on this install. */
+export function omitChatMetadataLocalDestinations<T extends object>(metadata: T): T {
+  const copy = { ...metadata } as Record<string, unknown>;
+  for (const key of CHAT_METADATA_LOCAL_DESTINATION_KEYS) delete copy[key];
+  return copy as T;
+}

@@ -1,4 +1,5 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
+import { PROXY_FORWARDING_HEADERS } from "../../middleware/ip-allowlist.js";
 
 type PromptPreviewBody = {
   prompt?: { messages: Array<{ role: string; content: string }>; advancedMemory?: unknown };
@@ -18,9 +19,11 @@ export async function forwardPromptPreview(
   };
   delete headers["content-length"];
   delete headers["transfer-encoding"];
-  delete headers["x-forwarded-for"];
-  delete headers.forwarded;
-  delete headers["x-real-ip"];
+  // The internal hop is a local call, not a proxied visitor, and the outer route already passed CSRF.
+  for (const header of PROXY_FORWARDING_HEADERS) delete headers[header];
+  delete headers.origin;
+  delete headers.referer;
+  delete headers["sec-fetch-site"];
   const response = await app.inject({
     method: "POST",
     url: "/api/generate/dryRun",

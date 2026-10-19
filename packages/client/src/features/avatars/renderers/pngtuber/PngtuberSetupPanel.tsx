@@ -26,7 +26,7 @@ import {
 } from "../../../../components/panels/settings/SettingControls";
 import type { AvatarKindSetupPanelProps } from "../../contract";
 import { resolveAvatarImage } from "../../stage/avatar-stage-logic";
-import { AVATAR_FEELING_LABEL_KEYS, buildPngtuberLayersFromSprites } from "./pngtuber-layers";
+import { AVATAR_FEELING_LABEL_KEYS, buildPngtuberLayersFromSprites, pngtuberFaceChoices } from "./pngtuber-layers";
 
 /** Labels of the six feelings, shared with the mesh avatar panel. */
 export const AVATAR_EMOTION_LABEL_KEYS: Readonly<Record<AvatarEmotion, string>> = {
@@ -80,6 +80,9 @@ export function PngtuberSetupPanel({ owner, config, onChanged }: AvatarKindSetup
   const fromSprites = useMemo(() => buildPngtuberLayersFromSprites(spriteList), [spriteList]);
   /** What the avatar shows now: the saved setup, or the sprites until one is saved. */
   const shown = stored ?? fromSprites;
+  /** Every face a feeling can be given, sprites made since the setup was saved too, past the first 64 sprites. */
+  const spriteFaces = useMemo(() => buildPngtuberLayersFromSprites(spriteList, Infinity), [spriteList]);
+  const faces = useMemo(() => pngtuberFaceChoices(shown, spriteFaces), [shown, spriteFaces]);
   const motion = motionDraft ?? shown?.motion ?? PNGTUBER_DEFAULT_MOTION;
   const busy = save.isPending || importFile.isPending || remove.isPending;
   /** Sprites can start a setup or refresh one built from sprites, never replace an imported or generated one. */
@@ -105,10 +108,16 @@ export function PngtuberSetupPanel({ owner, config, onChanged }: AvatarKindSetup
     );
   };
 
+  /** The setup with the chosen face among its faces. */
+  const withFace = (data: PngtuberAvatarData, target: string): PngtuberAvatarData =>
+    target && !Object.hasOwn(data.layers, target) && faces[target]
+      ? { ...data, layers: { ...data.layers, [target]: faces[target]! } }
+      : data;
+
   const chooseFace = (emotion: AvatarEmotion, target: string) => {
     if (!shown) return;
     store({
-      ...shown,
+      ...withFace(shown, target),
       expressionMap: {
         ...shown.expressionMap,
         [emotion]: { target: target || null, source: "user", confidence: 1 },
@@ -119,7 +128,7 @@ export function PngtuberSetupPanel({ owner, config, onChanged }: AvatarKindSetup
   const chooseFeelingFace = (feeling: AvatarExtraFeeling, target: string) => {
     if (!shown) return;
     store({
-      ...shown,
+      ...withFace(shown, target),
       feelingMap: {
         ...shown.feelingMap,
         [feeling]: { target: target || null, source: "user", confidence: 1 },
@@ -163,7 +172,7 @@ export function PngtuberSetupPanel({ owner, config, onChanged }: AvatarKindSetup
     });
   };
 
-  const faceKeys = shown ? Object.keys(shown.layers) : [];
+  const faceKeys = Object.keys(faces);
 
   return (
     <SettingsSection
@@ -186,7 +195,7 @@ export function PngtuberSetupPanel({ owner, config, onChanged }: AvatarKindSetup
           <div className="mb-1.5 text-[0.6875rem] font-semibold">{t("avatars.pngtuber.faces")}</div>
           <ul className="grid grid-cols-3 gap-2 sm:grid-cols-4" aria-label={t("avatars.pngtuber.faces")}>
             {faceKeys.map((key) => {
-              const set = shown.layers[key]!;
+              const set = faces[key]!;
               const url = resolveAvatarImage(owner, config ?? { updatedAt: "" }, spriteList, set.base);
               return (
                 <li

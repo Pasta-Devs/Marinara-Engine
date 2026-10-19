@@ -11,11 +11,13 @@ import {
 import { useUIStore } from "../stores/ui.store";
 import { useActivityOverview } from "./use-chat-insights";
 
-/** The pack that renders: the stored choice, or Basic while that choice is still locked (R12). */
+/** The pack that renders: an open dated pack, the stored choice, or Basic while that choice is locked (R12). */
 export function useMariAppearancePack() {
   const id = useUIStore((state) => state.mariAppearancePackId);
   const unlockedIds = useUIStore((state) => state.mariUnlockedPackIds);
-  return resolveMariAppearancePack(id, unlockedIds);
+  const seasonOptOut = useUIStore((state) => state.mariSeasonOptOut);
+  const seasonsOff = useUIStore((state) => state.seasonalThemesDisabled);
+  return resolveMariAppearancePack(id, unlockedIds, null, seasonOptOut, seasonsOff);
 }
 
 /**

@@ -193,6 +193,54 @@ assert.equal(legacyConfigWithoutDialoguePause.skipTagContent, false);
 assert.equal(legacyConfigWithoutDialoguePause.skipCodeBlocks, true);
 assert.equal(legacyConfigWithoutDialoguePause.skipBracketedText, false);
 const filteredConfig = ttsConfigSchema.parse({ skipTagContent: true, skipBracketedText: true });
+const detailedCue = "[Low, steady voice, restrained urgency] Stay close. [Brief pause] Keep moving.";
+const emotionalConfig = ttsConfigSchema.parse({
+  skipBracketedText: true,
+  roleplaySpeakerExtractorEmotionsEnabled: true,
+});
+assert.deepEqual(splitTTSChunks(detailedCue, emotionalConfig), [detailedCue]);
+for (const cue of [
+  "[Low, steady voice, restrained urgency]",
+  "[Quietly with controlled fear]",
+  "[Quietly. With controlled fear]",
+]) {
+  const line = `${"word ".repeat(177)}${cue} stay close.`;
+  const chunks = splitTTSChunks(line, emotionalConfig);
+  assert.ok(chunks.length > 1 && chunks.every((chunk) => chunk.length <= 900));
+  assert.ok(
+    chunks.some((chunk) => chunk.includes(cue)),
+    "a detailed cue must stay in one audio request",
+  );
+  assert.equal(chunks.join(" "), line.trim(), "chunking preserves the words and the complete delivery cue");
+}
+const unclosedBracketLine = `${"word ".repeat(181)}[unfinished cue`;
+const unclosedBracketChunks = splitTTSChunks(unclosedBracketLine, emotionalConfig);
+assert.ok(unclosedBracketChunks.length > 1 && unclosedBracketChunks.every((chunk) => chunk.length <= 900));
+assert.equal(
+  unclosedBracketChunks.join("").replace(/\s/g, ""),
+  unclosedBracketLine.replace(/\s/g, ""),
+  "splitting oversized speech retains an unclosed bracket and every non-whitespace character",
+);
+assert.deepEqual(splitTTSChunks(detailedCue, filteredConfig), ["Stay close. Keep moving."]);
+assert.equal(cleanTTSInputText("[main] [happy] Hello. [side]", emotionalConfig), "[happy] Hello.");
+assert.equal(
+  cleanTTSInputText("[Mari][main][angry]: [Quietly, with controlled fear] Stay.", emotionalConfig),
+  "[Quietly, with controlled fear] Stay.",
+  "speaker structure stays silent while descriptive delivery cues survive",
+);
+const detailedSource = '"Stay close. Keep moving."';
+const annotatedDialogue = '[Low, steady voice, restrained urgency] "Stay close. [Brief pause] Keep moving."';
+const detailedSegments = parseRoleplaySpeakerExtractorOutput(
+  JSON.stringify({ dialogue: [{ speaker: "Mari", text: detailedSource, speech: annotatedDialogue }] }),
+  detailedSource,
+  true,
+).segments;
+assert.equal(buildExtractedRoleplayTTSVoiceRequests(detailedSegments, emotionalConfig)[0]?.text, annotatedDialogue);
+assert.equal(
+  buildExtractedRoleplayTTSVoiceRequests(detailedSegments, filteredConfig)[0]?.text,
+  detailedSource,
+  "turning emotional cues off keeps the existing skip-brackets behavior",
+);
 // Exercise the component's cache helpers without mounting its browser-only combat surface.
 const combatSource = ts.createSourceFile(
   "GameCombatUI.tsx",
@@ -537,7 +585,7 @@ assert.match(
     messageAuthor: "Dottore",
     includeEmotions: true,
   }),
-  /\[irritated\].*\[sigh\]/s,
+  /\[Low, steady voice, restrained irritation\].*\[Firm, controlled impatience\].*\[sigh\]/s,
 );
 assert.match(
   buildRoleplaySpeakerExtractorPrompt({

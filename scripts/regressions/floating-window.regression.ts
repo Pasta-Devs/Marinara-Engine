@@ -374,6 +374,27 @@ for (const part of ['"mari-drawer"', "mari-drawer__header", "mari-drawer__title"
   assert.ok(drawer.includes(part), `Drawer must render ${part}`);
 }
 for (const attribute of ["data-drawer={id}", "data-detached="]) assert.ok(drawer.includes(attribute));
+// #7788: a popped-out Author's Notes window grows its text box with the window (a phone's whole sheet),
+// and the docked text box can still be resized by hand.
+assert.match(drawer, /sheetClassName=\{cn\(PHONE_SHEET_CLASS, fill && PHONE_FULL_SHEET_CLASS\)\}/u);
+assert.match(
+  drawer,
+  /cn\("mari-drawer", fill && "flex flex-auto flex-col", className\)[\s\S]*?cn\("mari-drawer__body", fill && "flex flex-auto flex-col"/u,
+);
+assert.match(
+  read("packages/client/src/features/chat-settings/ChatSettingsSection.tsx"),
+  /<Drawer\b[^>]*\bfill=\{fill\}/u,
+);
+assert.match(
+  read("packages/client/src/components/chat/ChatSettingsDrawer.tsx"),
+  /help=\{localizeUi\("chat\.settings\.authorNotesHelp"\)\}\s+fill\s*>/u,
+);
+const authorNotesPanel = read("packages/client/src/components/chat/ChatRoleplayPanels.tsx").split(
+  "export function AuthorNotesPanel",
+)[1]!;
+assert.match(authorNotesPanel, /wrapperClassName="mari-author-notes-field flex min-w-0 flex-auto flex-col"/u);
+assert.match(authorNotesPanel, /className="mari-chrome-field !min-h-24 flex-auto /u);
+assert.doesNotMatch(authorNotesPanel, /resize-none/u);
 const variables = [...globals.matchAll(/^\s+(--mari-(?:window|drawer)-[a-z-]+)\s/gmu)].map((match) => match[1]!);
 assert.ok(variables.length >= 30, "globals.css must document the window and drawer variables");
 for (const variable of variables) {

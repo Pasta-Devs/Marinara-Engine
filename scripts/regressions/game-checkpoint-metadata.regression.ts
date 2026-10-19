@@ -21,6 +21,7 @@ import { createGameStateStorage } from "../../packages/server/src/services/stora
 import {
   buildCheckpointGameMetadataRestore,
   captureCheckpointGameMetadata,
+  CHECKPOINT_CAPTURED_KEYS_FIELD,
   CHECKPOINT_GAME_METADATA_KEYS,
   createCheckpointService,
 } from "../../packages/server/src/services/game/checkpoint.service.js";
@@ -39,11 +40,19 @@ import { eq } from "../../packages/server/src/db/file-query.js";
   const captured = captureCheckpointGameMetadata(metadata);
   assert.deepEqual(
     captured,
-    { gameNpcs: metadata.gameNpcs, gameInventory: metadata.gameInventory },
-    "only allow-listed keys are captured",
+    {
+      gameNpcs: metadata.gameNpcs,
+      gameInventory: metadata.gameInventory,
+      [CHECKPOINT_CAPTURED_KEYS_FIELD]: [...CHECKPOINT_GAME_METADATA_KEYS],
+    },
+    "only allow-listed keys are captured, with the keys it covered",
   );
   assert.notEqual(captured!.gameNpcs, metadata.gameNpcs, "the capture is a copy, not a live reference");
-  assert.equal(captureCheckpointGameMetadata({ gameSystemPrompt: "x" }), null, "nothing to capture is null");
+  assert.deepEqual(
+    captureCheckpointGameMetadata({ gameSystemPrompt: "x" }),
+    { [CHECKPOINT_CAPTURED_KEYS_FIELD]: [...CHECKPOINT_GAME_METADATA_KEYS] },
+    "nothing to capture still names the keys it covered, so a load clears what came later",
+  );
 
   const current = {
     gameNpcs: [
@@ -64,6 +73,48 @@ import { eq } from "../../packages/server/src/db/file-query.js";
   assert.equal(patch.gamePartySheetRevision, 5, "the party sheet revision moves forward, never back");
   assert.equal(patch.gameInventoryTurn, null, "the turn record of replaced stacks is dropped");
   assert.equal(Object.hasOwn(patch, "gameMorale"), false, "a key absent then and now is left alone");
+
+  // The State Editor's story script and HUD widgets rewind with it (#7743), and the custom-widgets setting
+  // is restored as it was, not worked out from the widgets: setup can keep widgets with it off.
+  const widget = { id: "courage", type: "progress_bar", label: "Courage", position: "hud_left", config: {} };
+  const editorCaptured = captureCheckpointGameMetadata({
+    gameStory: { storyVersion: 1 },
+    gameWidgetState: [widget],
+    enableCustomWidgets: false,
+  })!;
+  const rewound = buildCheckpointGameMetadataRestore(editorCaptured, {
+    gameStory: { storyVersion: 1, events: ["added after the save"] },
+    gameWidgetState: [],
+    enableCustomWidgets: false,
+  });
+  assert.deepEqual(rewound.gameStory, { storyVersion: 1 }, "the story script is restored");
+  assert.deepEqual(rewound.gameWidgetState, [widget], "the widgets are restored");
+  assert.equal(rewound.enableCustomWidgets, false, "and the setting as it was, though it had widgets");
+  const cleared = buildCheckpointGameMetadataRestore(captureCheckpointGameMetadata({ gameNpcs: [] })!, {
+    gameWidgetState: [widget],
+    gameStory: { storyVersion: 1 },
+  });
+  assert.equal(cleared.gameWidgetState, null, "widgets added after the save are cleared");
+  assert.equal(Object.hasOwn(cleared, "enableCustomWidgets"), false, "the setting is left alone when it had none");
+  assert.equal(cleared.gameStory, null, "a story added after the save is cleared");
+
+  // A capture from before the State Editor's keys joined the list names no keys: it never saw a story
+  // or widgets, so a load must leave them as they are, not read them as added later and clear them.
+  const legacy = buildCheckpointGameMetadataRestore(
+    { gameNpcs: [] },
+    { gameNpcs: [{ id: "n9" }], gameStory: { storyVersion: 1 }, gameWidgetState: [widget], enableCustomWidgets: true },
+  );
+  assert.deepEqual(legacy.gameNpcs, [], "an older checkpoint still restores the keys it had");
+  assert.equal(Object.hasOwn(legacy, "gameStory"), false, "and leaves the current story untouched");
+  assert.equal(Object.hasOwn(legacy, "gameWidgetState"), false, "and the current widgets");
+  assert.equal(Object.hasOwn(legacy, "enableCustomWidgets"), false, "and their flag");
+  // A key it names but that later left the list is left alone too.
+  const named = buildCheckpointGameMetadataRestore(
+    { [CHECKPOINT_CAPTURED_KEYS_FIELD]: ["gameNpcs", "gameRetiredKey"] },
+    { gameNpcs: [{ id: "n9" }], gameRetiredKey: 1, gameStory: { storyVersion: 1 } },
+  );
+  assert.deepEqual(Object.keys(named), ["gameNpcs"], "only keys it covered that the list still has");
+  assert.equal(named.gameNpcs, null);
   for (const key of Object.keys(patch)) {
     assert.ok(
       (CHECKPOINT_GAME_METADATA_KEYS as readonly string[]).includes(key) ||
@@ -205,7 +256,11 @@ try {
     const { chatId, snapshot } = await seedGameChat("checkpoint empty capture", { gameSystemPrompt: "keep" });
     const checkpointId = await createCheckpoint(chatId, snapshot);
     const [row] = await db.select().from(gameCheckpoints).where(eq(gameCheckpoints.id, checkpointId));
-    assert.equal(row?.gameMetadataData, "{}", "an empty capture is stored as {}, not as a legacy null");
+    assert.deepEqual(
+      JSON.parse(row!.gameMetadataData!),
+      { [CHECKPOINT_CAPTURED_KEYS_FIELD]: [...CHECKPOINT_GAME_METADATA_KEYS] },
+      "an empty capture is stored with the keys it covered, not as a legacy null",
+    );
     await chats.patchMetadata(chatId, { gameJournal: { entries: ["after the save"] } });
 
     await loadCheckpoint(chatId, checkpointId);

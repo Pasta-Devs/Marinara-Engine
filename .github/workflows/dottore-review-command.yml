@@ -1,0 +1,176 @@
+name: Dottore Review Command
+
+on:
+  issue_comment:
+    types: [created, edited]
+
+permissions:
+  actions: write
+  contents: read
+  issues: write
+  pull-requests: read
+
+jobs:
+  dispatch:
+    name: Dottore dispatch
+    if: >
+      github.event.action == 'created' &&
+      github.event.issue.pull_request &&
+      startsWith(github.event.comment.body, '/dottore') &&
+      contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'),
+               github.event.comment.author_association)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch trusted Dottore reviewer
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUM: ${{ github.event.issue.number }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
+          COMMENT_AUTHOR: ${{ github.event.comment.user.login }}
+          DOTTORE_BASE_REFS: ${{ vars.DOTTORE_BASE_REFS || 'refactor,main,staging' }}
+        run: |
+          # Keep this bootstrap deliberately inert: it only authorizes the slash command
+          # and dispatches the trusted reviewer workflow on the PR base ref.
+          # It must not checkout, install, or execute code from the pull request.
+          REVIEW_MODE=auto
+          if ! [[ "$COMMENT_BODY" =~ ^/dottore([[:space:]]+(full|autofix|approve))?[[:space:]]*$ ]]; then
+            echo "No supported examination command; use /dottore, /dottore full, /dottore autofix or /dottore approve."
+            exit 0
+          fi
+          if [[ "$COMMENT_BODY" =~ ^/dottore[[:space:]]+full[[:space:]]*$ ]]; then
+            REVIEW_MODE=full
+          elif [[ "$COMMENT_BODY" =~ ^/dottore[[:space:]]+autofix[[:space:]]*$ ]]; then
+            REVIEW_MODE=autofix
+            # The same bar as the tick box: COLLABORATOR also covers read and triage access, and a repair pushes code.
+            PERMISSION=$(gh api "repos/${{ github.repository }}/collaborators/$COMMENT_AUTHOR/permission" --jq .permission || true)
+            case "$PERMISSION" in
+              admin|maintain|write) ;;
+              *) echo "$COMMENT_AUTHOR lacks write access ($PERMISSION); not dispatching."; exit 0 ;;
+            esac
+          elif [[ "$COMMENT_BODY" =~ ^/dottore[[:space:]]+approve[[:space:]]*$ ]]; then
+            REVIEW_MODE=approve
+          fi
+          TARGET_REF="$(gh pr view "$PR_NUM" --repo "${{ github.repository }}" --json baseRefName -q .baseRefName)"
+          if ! jq -en --arg refs "$DOTTORE_BASE_REFS" --arg ref "$TARGET_REF" '$refs | split(",") | index($ref) != null' >/dev/null; then
+            # Someone asked, so answer on the pull request; the job itself is not a failure.
+            gh pr comment "$PR_NUM" --repo "${{ github.repository }}" \
+              --body "🎭 Dottore examines pull requests into ${DOTTORE_BASE_REFS//,/, } only; this one targets $TARGET_REF."
+            exit 0
+          fi
+          gh api "repos/${{ github.repository }}/contents/.github/workflows/dottore-review.yml?ref=$TARGET_REF" --silent >/dev/null || {
+            echo "::error::Dottore trusted workflow not found on base ref $TARGET_REF"
+            exit 1
+          }
+
+          COMMENT_DISPLAY="$(printf '%s' "$COMMENT_BODY" | tr '\r\n' '  ' | sed -e 's/\\/\\\\/g' -e 's/`/\\`/g')"
+          if [ "${#COMMENT_DISPLAY}" -gt 180 ]; then
+            COMMENT_DISPLAY="${COMMENT_DISPLAY:0:177}..."
+          fi
+
+          status_body() {
+            local title="$1"
+            local detail="$2"
+            printf '%s\n' \
+              '<!-- dottore:command-status -->' \
+              "## 🎭 Dottore Review — $title" \
+              '' \
+              "Command: \`$COMMENT_DISPLAY\`" \
+              "Mode: \`$REVIEW_MODE\`" \
+              "Requested by: \`$COMMENT_AUTHOR\`" \
+              "Target ref: \`$TARGET_REF\`" \
+              "Status: $detail"
+          }
+
+          upsert_status() {
+            local title="$1"
+            local detail="$2"
+            local body
+            body="$(status_body "$title" "$detail")"
+            local comment_id
+            comment_id="$(gh api "repos/${{ github.repository }}/issues/$PR_NUM/comments?per_page=100" \
+              --paginate \
+              --jq '.[] | select(.user.login == "github-actions[bot]") | select(.body | contains("<!-- dottore:command-status -->")) | .id' \
+              | tail -n 1)"
+            if [ -n "$comment_id" ]; then
+              gh api \
+                --method PATCH \
+                "repos/${{ github.repository }}/issues/comments/$comment_id" \
+                -f body="$body" >/dev/null
+            else
+              gh api \
+                --method POST \
+                "repos/${{ github.repository }}/issues/$PR_NUM/comments" \
+                -f body="$body" >/dev/null
+            fi
+          }
+
+          # Repair and approval runs post no review, so they would never complete this status; each answers on its own.
+          if [ "$REVIEW_MODE" != autofix ] && [ "$REVIEW_MODE" != approve ]; then
+            upsert_status "Experiment in Progress" "Specimen admitted; dispatching the trusted examination." \
+              || echo "::warning::Unable to write Dottore command status before dispatch."
+          fi
+
+          set +e
+          DISPATCH_OUTPUT="$(gh workflow run dottore-review.yml \
+            --repo "${{ github.repository }}" \
+            --ref "$TARGET_REF" \
+            -f pr_number="$PR_NUM" \
+            -f comment_body="$COMMENT_BODY" \
+            -f review_mode="$REVIEW_MODE" \
+            -f requested_by="$COMMENT_AUTHOR" 2>&1)"
+          DISPATCH_RC=$?
+          set -e
+
+          if [ "$DISPATCH_RC" -ne 0 ]; then
+            upsert_status "Experiment Interrupted" "GitHub refused the examination. Inspect the Dottore Review Command run log." \
+              || echo "::warning::Unable to write Dottore command dispatch failure status."
+            echo "$DISPATCH_OUTPUT"
+            exit "$DISPATCH_RC"
+          fi
+
+          # The reviewer owns status updates after dispatch; do not overwrite a fast result.
+
+  # Ticking the autofix box in Dottore's walkthrough edits the bot's comment; the edit arrives with the person as sender.
+  # Edits Dottore makes with GITHUB_TOKEN start no workflow, so re-rendering the box cannot trigger this.
+  autofix:
+    name: Dottore repair dispatch
+    if: >
+      github.event.action == 'edited' &&
+      github.event.issue.pull_request &&
+      github.event.comment.user.login == 'github-actions[bot]' &&
+      contains(github.event.comment.body, '<!-- dottore:walkthrough -->')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch Dottore's repair when the box was ticked
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUM: ${{ github.event.issue.number }}
+          SENDER: ${{ github.event.sender.login }}
+          BODY: ${{ github.event.comment.body }}
+          PREVIOUS_BODY: ${{ github.event.changes.body.from }}
+          DOTTORE_BASE_REFS: ${{ vars.DOTTORE_BASE_REFS || 'refactor,main,staging' }}
+        run: |
+          # Inert like the command job: reads the event and dispatches the trusted workflow; runs no PR code.
+          box() { printf '%s\n' "$1" | grep -E -- '^- \[[ xX]\] .*<!-- dottore:autofix -->' | head -n 1 | cut -c4; }
+          if [ "$(box "$PREVIOUS_BODY")" != " " ] || ! [[ "$(box "$BODY")" =~ [xX] ]]; then
+            echo "The autofix box was not ticked by this edit."
+            exit 0
+          fi
+          PERMISSION=$(gh api "repos/${{ github.repository }}/collaborators/$SENDER/permission" --jq .permission || true)
+          case "$PERMISSION" in
+            admin|maintain|write) ;;
+            *) echo "$SENDER lacks write access ($PERMISSION); not dispatching."; exit 0 ;;
+          esac
+          TARGET_REF="$(gh pr view "$PR_NUM" --repo "${{ github.repository }}" --json baseRefName -q .baseRefName)"
+          if ! jq -en --arg refs "$DOTTORE_BASE_REFS" --arg ref "$TARGET_REF" '$refs | split(",") | index($ref) != null' >/dev/null; then
+            gh pr comment "$PR_NUM" --repo "${{ github.repository }}" \
+              --body "🩺 Dottore repairs pull requests into ${DOTTORE_BASE_REFS//,/, } only; this one targets $TARGET_REF."
+            exit 0
+          fi
+          gh workflow run dottore-review.yml \
+            --repo "${{ github.repository }}" \
+            --ref "$TARGET_REF" \
+            -f pr_number="$PR_NUM" \
+            -f comment_body="autofix box ticked" \
+            -f review_mode=autofix \
+            -f requested_by="$SENDER"

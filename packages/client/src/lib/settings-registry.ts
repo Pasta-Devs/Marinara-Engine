@@ -194,6 +194,16 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
     kind: "Toggle",
   },
   {
+    id: "disable-seasonal-themes",
+    sectionId: "application",
+    labelKey: "settings.controls.disableSeasonalThemes.label",
+    label: "Disable seasonal ME themes",
+    description: "Holiday themes won't turn on by themselves.",
+    descriptionKey: "settings.controls.disableSeasonalThemes.help",
+    aliases: ["seasonal themes", "holiday", "halloween", "christmas", "easter"],
+    kind: "Toggle",
+  },
+  {
     id: "music-player",
     sectionId: "application",
     labelKey: "settings.controls.musicPlayer.label",

@@ -396,6 +396,27 @@ try {
     const saved = await app.inject({ method: "PUT", url: `/api/game/${chatId}/story`, payload: { story: shorter } });
     assert.equal(saved.statusCode, 200, saved.body);
     assert.equal((await meta()).gameStory.events.length, 2);
+    // A maker screen sends the story it opened: one saved by another writer meanwhile is refused.
+    const storyStale = await app.inject({
+      method: "PUT",
+      url: `/api/game/${chatId}/story`,
+      payload: { story: story1, expected: { events: [] } },
+    });
+    assert.equal(storyStale.statusCode, 409, storyStale.body);
+    assert.equal(storyStale.json().reason, "stale");
+    assert.deepEqual(storyStale.json().story, shorter, "it comes with the story that is stored now");
+    assert.deepEqual((await meta()).gameStory, shorter, "and the refused draft changed nothing");
+    assert.equal(
+      (
+        await app.inject({
+          method: "PUT",
+          url: `/api/game/${chatId}/story`,
+          payload: { story: shorter, expected: shorter },
+        })
+      ).statusCode,
+      200,
+      "the story it opened saves",
+    );
     const refused = await app.inject({
       method: "PUT",
       url: `/api/game/${chatId}/story`,

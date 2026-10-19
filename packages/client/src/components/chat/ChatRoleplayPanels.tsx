@@ -456,7 +456,7 @@ export function AuthorNotesPanel({ chatId, chatMeta }: { chatId: string; chatMet
         placeholder={localizeUi("ui.chat.authornotespanel.eGKeepTheToneDarkAndSuspensefulThe")}
         rows={4}
         ariaLabel={localizeUi("ui.chat.authornotespanel.authorSNotes")}
-        wrapperClassName="mari-author-notes-field min-w-0"
+        wrapperClassName="mari-author-notes-field flex min-w-0 flex-auto flex-col"
         tokenCountFooter={
           <div className="flex items-center gap-2">
             <span className="shrink-0 text-[0.625rem] text-[var(--muted-foreground)]">
@@ -476,7 +476,7 @@ export function AuthorNotesPanel({ chatId, chatMeta }: { chatId: string; chatMet
             />
           </div>
         }
-        className="mari-chrome-field resize-none !rounded-md px-2.5 py-2 text-xs leading-relaxed"
+        className="mari-chrome-field !min-h-24 flex-auto !rounded-md px-2.5 py-2 text-xs leading-relaxed"
       />
 
       <p className="mt-1 text-[0.5625rem] text-[var(--muted-foreground)]/60">

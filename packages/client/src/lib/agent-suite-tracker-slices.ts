@@ -1,15 +1,84 @@
-import type { GameState, PlayerStats } from "@marinara-engine/shared";
+import type { GameState, InventoryTrackerRowProblem, PlayerStats } from "@marinara-engine/shared";
+import type { TOptions } from "i18next";
 import {
   excludeInventoryTrackerCarriedDuplicates,
-  findInvalidInventoryTrackerRow,
+  findInventoryTrackerRowProblem,
   normalizeInventoryTrackerRows,
 } from "@marinara-engine/shared";
+
+type InventoryTrackerGroup = "currencies" | "equipped" | "inventory";
+
+/** Why an edited tracker block doesn't fit its shape. `trackerSliceErrorMessage` words it for the user. */
+export type TrackerSliceError =
+  | { code: "notObject"; field: keyof typeof TRACKER_SLICE_ERROR_KEYS.notObject }
+  | { code: "notArray"; field: keyof typeof TRACKER_SLICE_ERROR_KEYS.notArray }
+  | { code: "missingInventoryGroups" }
+  | { code: "invalidInventoryRow"; group: InventoryTrackerGroup; problem: InventoryTrackerRowProblem };
+
+/** The English text of every key lives in en.json; the regression checks each one exists. */
+export const TRACKER_SLICE_ERROR_KEYS = {
+  notObject: {
+    worldState: "ui.trackerData.errors.notObject.worldState",
+    personaStats: "ui.trackerData.errors.notObject.personaStats",
+    inventoryTracker: "ui.trackerData.errors.notObject.inventoryTracker",
+  },
+  notArray: {
+    worldCustomFields: "ui.trackerData.errors.notArray.worldCustomFields",
+    presentCharacters: "ui.trackerData.errors.notArray.presentCharacters",
+    personaStats: "ui.trackerData.errors.notArray.personaStats",
+    inventory: "ui.trackerData.errors.notArray.inventory",
+    customTrackerFields: "ui.trackerData.errors.notArray.customTrackerFields",
+    activeQuests: "ui.trackerData.errors.notArray.activeQuests",
+  },
+  missingInventoryGroups: "ui.trackerData.errors.missingInventoryGroups",
+  invalidInventoryRow: {
+    notArray: "ui.trackerData.errors.inventoryRow.notArray",
+    rowNotObject: "ui.trackerData.errors.inventoryRow.rowNotObject",
+    missingName: "ui.trackerData.errors.inventoryRow.missingName",
+    emptyName: "ui.trackerData.errors.inventoryRow.emptyName",
+    nonStringField: "ui.trackerData.errors.inventoryRow.nonStringField",
+    nonNumericQty: "ui.trackerData.errors.inventoryRow.nonNumericQty",
+    qtyBelowOne: "ui.trackerData.errors.inventoryRow.qtyBelowOne",
+  } satisfies Record<InventoryTrackerRowProblem["code"], string>,
+} as const;
+
+/** Turns a slice error into the user's language. `localize` is react-i18next's `t`. */
+export function trackerSliceErrorMessage(
+  error: TrackerSliceError,
+  localize: (key: string, options?: TOptions) => unknown,
+): string {
+  switch (error.code) {
+    case "notObject":
+      return String(localize(TRACKER_SLICE_ERROR_KEYS.notObject[error.field]));
+    case "notArray":
+      return String(localize(TRACKER_SLICE_ERROR_KEYS.notArray[error.field]));
+    case "missingInventoryGroups":
+      return String(localize(TRACKER_SLICE_ERROR_KEYS.missingInventoryGroups));
+    case "invalidInventoryRow": {
+      const { problem } = error;
+      return String(
+        localize(TRACKER_SLICE_ERROR_KEYS.invalidInventoryRow[problem.code], {
+          group: error.group,
+          ...("index" in problem ? { index: problem.index } : {}),
+          ...("field" in problem ? { field: problem.field } : {}),
+        }),
+      );
+    }
+  }
+}
+
+/** The validation error `buildPatch` returned, or `null` when it built a patch (patches never have an `error` key). */
+export function trackerSlicePatchError(
+  result: ReturnType<AgentSuiteTrackerSlice["buildPatch"]>,
+): TrackerSliceError | null {
+  return "error" in result ? (result.error as TrackerSliceError) : null;
+}
 
 export type AgentSuiteTrackerSlice = {
   label: string;
   description: string;
   getValue: (gameState: GameState) => unknown;
-  buildPatch: (gameState: GameState, parsed: unknown) => Record<string, unknown> | { error: string };
+  buildPatch: (gameState: GameState, parsed: unknown) => Record<string, unknown> | { error: TrackerSliceError };
 };
 
 function createEmptyPlayerStats(): PlayerStats {
@@ -38,7 +107,7 @@ export const AGENT_SUITE_TRACKER_SLICES: Record<string, AgentSuiteTrackerSlice> 
     }),
     buildPatch: (_gameState, parsed) => {
       if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-        return { error: "Scene data must be a JSON object" };
+        return { error: { code: "notObject", field: "worldState" } };
       }
       const record = parsed as Record<string, unknown>;
       // Only send keys present in the edited JSON: a dropped key (e.g. from an
@@ -49,7 +118,7 @@ export const AGENT_SUITE_TRACKER_SLICES: Record<string, AgentSuiteTrackerSlice> 
       }
       if ("worldCustomFields" in record) {
         if (!Array.isArray(record.worldCustomFields)) {
-          return { error: "World custom fields must be a JSON array" };
+          return { error: { code: "notArray", field: "worldCustomFields" } };
         }
         patch.worldCustomFields = record.worldCustomFields;
       }
@@ -61,7 +130,9 @@ export const AGENT_SUITE_TRACKER_SLICES: Record<string, AgentSuiteTrackerSlice> 
     description: "Characters in the current scene with mood, appearance, outfit, and thoughts.",
     getValue: (gameState) => gameState.presentCharacters ?? [],
     buildPatch: (_gameState, parsed) =>
-      Array.isArray(parsed) ? { presentCharacters: parsed } : { error: "Present characters must be a JSON array" },
+      Array.isArray(parsed)
+        ? { presentCharacters: parsed }
+        : { error: { code: "notArray", field: "presentCharacters" } },
   },
   "persona-stats": {
     label: "Persona Stats",
@@ -72,16 +143,16 @@ export const AGENT_SUITE_TRACKER_SLICES: Record<string, AgentSuiteTrackerSlice> 
     }),
     buildPatch: (gameState, parsed) => {
       if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-        return { error: "Persona stats data must be a JSON object" };
+        return { error: { code: "notObject", field: "personaStats" } };
       }
       const record = parsed as Record<string, unknown>;
       const patch: Record<string, unknown> = {};
       if ("personaStats" in record) {
-        if (!Array.isArray(record.personaStats)) return { error: "Persona stats must be a JSON array" };
+        if (!Array.isArray(record.personaStats)) return { error: { code: "notArray", field: "personaStats" } };
         patch.personaStats = record.personaStats;
       }
       if ("inventory" in record) {
-        if (!Array.isArray(record.inventory)) return { error: "Inventory must be a JSON array" };
+        if (!Array.isArray(record.inventory)) return { error: { code: "notArray", field: "inventory" } };
         patch.playerStats = {
           ...(gameState.playerStats ?? createEmptyPlayerStats()),
           inventory: record.inventory,
@@ -102,7 +173,7 @@ export const AGENT_SUITE_TRACKER_SLICES: Record<string, AgentSuiteTrackerSlice> 
               customTrackerFields: parsed,
             },
           }
-        : { error: "Custom tracker fields must be a JSON array" },
+        : { error: { code: "notArray", field: "customTrackerFields" } },
   },
   "inventory-tracker": {
     label: "Inventory Tracker",
@@ -114,11 +185,11 @@ export const AGENT_SUITE_TRACKER_SLICES: Record<string, AgentSuiteTrackerSlice> 
     }),
     buildPatch: (gameState, parsed) => {
       if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-        return { error: "Inventory Tracker data must be a JSON object" };
+        return { error: { code: "notObject", field: "inventoryTracker" } };
       }
       const record = parsed as Record<string, unknown>;
       if (!Array.isArray(record.currencies) || !Array.isArray(record.equipped) || !Array.isArray(record.inventory)) {
-        return { error: "Inventory Tracker data must include currencies, equipped, and inventory arrays" };
+        return { error: { code: "missingInventoryGroups" } };
       }
       // Report malformed rows instead of normalizing them away. The shared normalizer
       // drops rows it cannot read, so `[{ "foo": 1 }]` would silently become `[]` and
@@ -128,8 +199,8 @@ export const AGENT_SUITE_TRACKER_SLICES: Record<string, AgentSuiteTrackerSlice> 
         ["equipped", record.equipped],
         ["inventory", record.inventory],
       ] as const) {
-        const problem = findInvalidInventoryTrackerRow(rows);
-        if (problem) return { error: `Inventory Tracker "${group}": ${problem}` };
+        const problem = findInventoryTrackerRowProblem(rows);
+        if (problem) return { error: { code: "invalidInventoryRow", group, problem } };
       }
 
       const currencies = normalizeInventoryTrackerRows(record.currencies);
@@ -157,6 +228,6 @@ export const AGENT_SUITE_TRACKER_SLICES: Record<string, AgentSuiteTrackerSlice> 
               activeQuests: parsed,
             },
           }
-        : { error: "Active quests must be a JSON array" },
+        : { error: { code: "notArray", field: "activeQuests" } },
   },
 };

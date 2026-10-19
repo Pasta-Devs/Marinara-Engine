@@ -18,6 +18,7 @@ import {
   Object3D,
   PerspectiveCamera,
   Scene,
+  TextureLoader,
   Vector3,
   WebGLRenderer,
 } from "three";
@@ -26,6 +27,7 @@ import { VRMLoaderPlugin, VRMMetaLoaderPlugin, VRMUtils, type VRM, type VRMCore 
 import { VRMAnimationLoaderPlugin, createVRMAnimationClip, type VRMAnimation } from "@pixiv/three-vrm-animation";
 import {
   AVATAR_EXPRESSION_SLOTS,
+  AVATAR_VISEMES,
   DEFAULT_AVATAR_FEATURE_FLAGS,
   avatarModelFilePath,
   type AvatarExpressionMap,
@@ -116,7 +118,13 @@ async function loadStoredGltf(
   const manager = new LoadingManager();
   manager.setURLModifier((url) => (/^(?:blob|data):/iu.test(url) ? url : "data:,"));
   const loader = new GLTFLoader(manager);
-  loader.register(plugin);
+  loader.register((parser) => {
+    // The model's pictures load as images, which the Engine's img-src allows from blob: and data: URLs.
+    // GLTFLoader's default ImageBitmapLoader reads them with fetch, which connect-src refuses for those URLs,
+    // so every texture failed quietly and the model drew plain white.
+    parser.textureLoader = new TextureLoader(manager);
+    return plugin(parser);
+  });
   return loader.parseAsync(bytes, "");
 }
 
@@ -175,6 +183,8 @@ class VrmAvatarRenderer implements AvatarRenderer {
   private mirror: 1 | -1 = 1;
   private bindings: AvatarExpressionMap = {};
   private mouthHolders: ReadonlySet<string> = new Set();
+  /** No mouth shape is bound (a generated body), so the body and head carry the life and the talking. */
+  private bodyOnly = false;
   private readonly weights = createExpressionWeights();
   private readonly blink = createBlinkTimer();
   private readonly idle = createIdleMotionState();
@@ -232,6 +242,7 @@ class VrmAvatarRenderer implements AvatarRenderer {
       if (binding?.target && vrm.expressionManager?.getExpression(binding.target)) this.bindings[slot] = binding;
     }
     this.mouthHolders = softenMouthOverrides(this.bindings, (name) => vrm.expressionManager?.getExpression(name));
+    this.bodyOnly = !AVATAR_VISEMES.some((slot) => this.bindings[slot]);
 
     // Measure the body at rest with the arms down, then frame it.
     this.applyPose(computeBodyPose(this.idle, 0, REST_FRAME, false, 0));
@@ -265,7 +276,7 @@ class VrmAvatarRenderer implements AvatarRenderer {
     const animate = this.features.idleMotion && !this.reducedMotion;
 
     if (this.mixer && animate) this.mixer.update(dt);
-    else this.applyPose(computeBodyPose(this.idle, this.time, frame, animate, dt));
+    else this.applyPose(computeBodyPose(this.idle, this.time, frame, animate, dt, this.bodyOnly));
 
     stepExpressionWeights(this.weights, this.bindings, frame, this.features, dt, this.mouthHolders);
     const expressions = vrm.expressionManager;

@@ -93,7 +93,9 @@ export async function askChoicesAsStatements(
   const expanded = questions.flatMap((question) =>
     (question.options ?? []).map((option, index) => ({
       id: `${question.id}\u0000${index}`,
-      instructions: `${question.instructions}: ${option}`,
+      instructions: question.criteria?.[index]
+        ? `${question.instructions}: ${option} (${question.criteria[index]})`
+        : `${question.instructions}: ${option}`,
     })),
   );
   const answers = (await ask(state, [...plain, ...expanded])) ?? new Map<string, number>();

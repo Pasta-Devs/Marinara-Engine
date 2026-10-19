@@ -2,6 +2,7 @@
 // Storage: Chat Gallery Images
 // ──────────────────────────────────────────────
 import { and, eq, desc, inArray } from "../../db/file-query.js";
+import type { ChatImageGenerationRecord } from "@marinara-engine/shared";
 import type { DB } from "../../db/connection.js";
 import { chatImages } from "../../db/schema/index.js";
 import { newId, now } from "../../utils/id-generator.js";
@@ -14,6 +15,7 @@ export interface CreateChatImageInput {
   model?: string;
   width?: number;
   height?: number;
+  generation?: ChatImageGenerationRecord | null;
 }
 
 export function createGalleryStorage(db: DB) {
@@ -57,6 +59,7 @@ export function createGalleryStorage(db: DB) {
         model: input.model ?? "",
         width: input.width ?? null,
         height: input.height ?? null,
+        generation: input.generation ? JSON.stringify(input.generation) : null,
         createdAt: now(),
       });
       return this.getById(id, input.chatId);

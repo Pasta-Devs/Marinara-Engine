@@ -865,7 +865,8 @@ function ShortcutIcon({ tone, children }: { tone: string; children: ReactNode })
 }
 
 export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProps) {
-  const { poses: mariPoses, portraits: mariPortraits } = useMariAppearancePack();
+  const { id: mariPackId, poses: mariPoses, portraits: mariPortraits } = useMariAppearancePack();
+  const mariRaccoon = mariPackId === "raccoon";
   const { t, i18n } = useTranslation();
   const installedChannel = useQuery<{ channel: "stable" | "staging" }>({
     queryKey: ["update-channel"],
@@ -2060,9 +2061,16 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
               <div className="relative z-[1] w-full p-[clamp(0.65rem,1vw,1.25rem)]">
                 <section
                   ref={heroRef}
-                  className="mari-home-hero flex min-w-0 flex-col items-center gap-2 px-[clamp(0.35rem,0.8vw,0.9rem)] pb-[clamp(0.7rem,1.1vw,1rem)] pt-[clamp(0.4rem,0.7vw,0.7rem)] text-center"
+                  className="mari-home-hero relative flex min-w-0 flex-col items-center gap-2 px-[clamp(0.35rem,0.8vw,0.9rem)] pb-[clamp(0.7rem,1.1vw,1rem)] pt-[clamp(0.4rem,0.7vw,0.7rem)] text-center"
                   data-tour="home-hub"
                 >
+                  {/* Painted only while a seasonal theme is on (styles/themes/seasonal-*.css). */}
+                  <div className="mari-seasonal-home" aria-hidden="true">
+                    <span className="mari-seasonal-home__sky" />
+                    <span className="mari-seasonal-home__sky" />
+                    <span className="mari-seasonal-home__sky" />
+                    <span className="mari-seasonal-home__ground" />
+                  </div>
                   <div className="min-w-0 max-w-5xl">
                     <div className="flex min-w-0 flex-col items-center">
                       <img
@@ -2156,7 +2164,9 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
                             className="mt-1 line-clamp-6 min-w-0 text-[clamp(0.56rem,2.4cqw,0.75rem)] leading-[1.3] text-[var(--muted-foreground)] sm:mt-1.5 sm:line-clamp-7"
                             data-home-professor-description
                           >
-                            {t("home.professorMari.widgetDescription", { mod: formatShortcutKey("Mod") })}
+                            {mariRaccoon
+                              ? t("home.professorMari.raccoon.widgetDescription")
+                              : t("home.professorMari.widgetDescription", { mod: formatShortcutKey("Mod") })}
                           </p>
                           <button
                             type="button"
@@ -2167,6 +2177,9 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
                             <MessageCircle size="0.8rem" className="mari-rgb-static-icon text-current" />{" "}
                             {t("home.professorMari.ask")}
                           </button>
+                          {mariRaccoon ? (
+                            <p className="mari-home-professor-greeting">{t("home.professorMari.raccoon.greeting")}</p>
+                          ) : null}
                         </div>
                         {/* Slice 85: the navigator's idle portrait with its blink on top, scaled to 192 px tall
                             and standing on the card's bottom border. */}
@@ -2256,6 +2269,16 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
                           <p className="text-xs leading-relaxed text-[var(--muted-foreground)]">
                             {t("home.whatsNew.description")}
                           </p>
+                        </div>
+                        {/* Full card width: on phones the 68% text column is too narrow for both actions on one line. */}
+                        <div className="flex flex-wrap items-center gap-x-3">
+                          <button
+                            type="button"
+                            onClick={() => useUIStore.getState().requestWhatsNew()}
+                            className="mt-2 inline-flex min-h-8 items-center text-xs font-bold text-[var(--home-module-accent)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--home-module-accent)]"
+                          >
+                            {t("home.whatsNew.open")}
+                          </button>
                           <a
                             href={ENGINE_RELEASE_URL}
                             target="_blank"

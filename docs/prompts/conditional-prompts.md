@@ -260,6 +260,16 @@ Kaelen is his usual self.
 
 Here the model chooses between "angry", "sad" and "none of these". The short form works too: `decision_choice:"The weather in the latest message" == "rain" || "snow"` offers both options. Write the statement as a subject, such as "Kaelen's mood in the latest message", and the options as short answers to it.
 
+To tell the model what an option means in your story, add criteria after it, separated by a colon:
+
+```
+{{#if decision_choice:"Kaelen's mood in the latest message" == "angry":"Kaelen raises his voice, makes threats or breaks something"}}
+Kaelen's lines are short and clipped.
+{{/if}}
+```
+
+The model reads the criteria as the option's description. It still answers "angry", and the comparison is still with "angry". Quote both parts with the same kind of quote. If the quotes differ, Marinara does not read "angry" as an option, and the comparison never matches it. Macros such as `{{char}}` work in criteria. Options without criteria are offered as before, and if one option is given different criteria in several places, the first ones are used.
+
 ### Sticky and cooldown
 
 A statement can keep its answer for a few turns instead of being asked every turn. Write `sticky:` and `cooldown:` after the statement:

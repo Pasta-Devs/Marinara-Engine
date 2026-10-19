@@ -37,6 +37,7 @@ import {
   type GenerationParameterSendMap,
   type ManagedGenerationParameterDefinition,
   CUSTOM_GENERATION_PARAMETERS_SETTINGS_KEY,
+  buildChatImageGenerationRecord,
   parseManagedGenerationParameterDefinitions,
   removeCopiedPromptGuidance,
 } from "@marinara-engine/shared";
@@ -143,7 +144,6 @@ import { createReplyFallbackNotifier } from "./fallback-notification.js";
 import { mediaProviderLanesEnabled } from "../../services/image/image-generation-queue.js";
 import { generateIllustratorImageVariants } from "../../services/image/illustrator-image-variants.js";
 import {
-  buildCharacterAppearanceReferenceBlock,
   buildUncaptionedCharacterAppearanceBlock,
   IMAGE_APPEARANCE_OVERRIDES_MEMORY_KEY,
   personaEntityId,
@@ -272,7 +272,10 @@ import {
   resolveIllustratorCharacterPromptInstruction,
   resolveIllustratorPromptStyle,
 } from "../../services/generation/illustrator-background-generation.js";
-import { writeManualIllustratorPromptPlan } from "../../services/generation/illustrator-manual-prompt-generation.js";
+import {
+  buildManualIllustratorCharacterPromptInstruction,
+  writeManualIllustratorPromptPlan,
+} from "../../services/generation/illustrator-manual-prompt-generation.js";
 import {
   isExclusiveIllustratorRetryTarget,
   parseIllustratorRetryTargets,
@@ -647,43 +650,16 @@ async function executeManualIllustratorPromptRequest(args: {
       typeof args.chatMeta.illustratorIncludeCharacterAppearance === "boolean"
         ? args.chatMeta.illustratorIncludeCharacterAppearance
         : args.illustratorEntry.resolved.settings.includeCharacterAppearance === true;
-    const manualCharacterPromptInstruction =
-      characterPromptInstruction && manualAttachCardAppearance
-        ? [
-            characterPromptInstruction,
-            buildCharacterAppearanceReferenceBlock([
-              ...args.agentContext.characters.map((char) => ({
-                name: char.name,
-                // #7053: the image override replaces the card appearance for the
-                // manual illustrator prompt only.
-                appearance:
-                  readIllustratorImageAppearanceOverride(args.agentContext.memory, char.id) ?? char.appearance ?? "",
-              })),
-              ...(args.agentContext.persona
-                ? [
-                    {
-                      name: args.agentContext.persona.name,
-                      // Personas are keyed by their own id, like characters (#7053).
-                      appearance:
-                        readIllustratorImageAppearanceOverride(
-                          args.agentContext.memory,
-                          personaEntityId(args.agentContext.memory),
-                        ) ??
-                        args.agentContext.persona.appearance ??
-                        "",
-                    },
-                  ]
-                : []),
-            ]),
-          ]
-            .filter(Boolean)
-            .join("\n")
-        : characterPromptInstruction;
+    const manualCharacterPromptInstruction = buildManualIllustratorCharacterPromptInstruction(
+      args.agentContext,
+      characterPromptInstruction,
+      manualAttachCardAppearance,
+    );
     const generated = await writeManualIllustratorPromptPlan({
       illustratorAgent: args.illustratorEntry.resolved,
       context: args.agentContext,
       styleInstruction,
-      characterPromptInstruction: manualCharacterPromptInstruction || undefined,
+      characterPromptInstruction: manualCharacterPromptInstruction,
       imagePromptInstructions: normalizeImagePromptInstructions(imageConnection?.imagePromptInstructions) ?? undefined,
       signal: args.agentContext.signal,
       debugLog: (message, ...values) => logDebugOverride(args.debugMode || isDebugAgentsEnabled(), message, ...values),
@@ -4089,6 +4065,15 @@ async function applyRetryResultEffects(args: {
                 model: effectiveImageModel,
                 width: imgWidth,
                 height: imgHeight,
+                generation: buildChatImageGenerationRecord({
+                  prompt: promptSubmission.prompt,
+                  connectionId: imgConnFull.id,
+                  negativePrompt: promptSubmission.negativePrompt,
+                  characterPrompts: illustratorCharacterPrompts,
+                  referenceCharacterIds: useAvatarRefs ? referenceResolution.characterIds : [],
+                  referencePersonaId: useAvatarRefs ? referenceResolution.personaId : null,
+                  locationImageId: spatialLocationReferenceImage ? retryOwnerSpatialProjection?.referenceImageId : null,
+                }),
               });
               assertRetryActive();
               await persistGeneratedImageToEntityGalleries({

@@ -692,8 +692,12 @@ export function useUpdateGameWidgets() {
   const qc = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ chatId, widgets }: { chatId: string; widgets: HudWidget[] }) =>
-      api.put<UpdateGameWidgetsResponse>(`/game/${chatId}/widgets`, { widgets }),
+    // `expected`: the widgets a caller opened (the State Editor); the save is refused when they changed since.
+    mutationFn: ({ chatId, widgets, expected }: { chatId: string; widgets: HudWidget[]; expected?: unknown }) =>
+      api.put<UpdateGameWidgetsResponse>(
+        `/game/${chatId}/widgets`,
+        expected === undefined ? { widgets } : { widgets, expected },
+      ),
     onMutate: (variables) => {
       clearPendingHudWidgetPersist(variables.chatId);
       registerPendingHudWidgetPersistence(variables.chatId, variables.widgets);

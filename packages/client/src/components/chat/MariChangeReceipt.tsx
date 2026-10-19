@@ -7,6 +7,7 @@ import { useState, type ReactNode } from "react";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { AlertTriangle, Check, ChevronDown, ExternalLink, Undo2 } from "lucide-react";
 import {
+  MARI_RECEIPT_LIMITS,
   mariReceiptReviewIds,
   mariReceiptState,
   type MariChangeExcerpt,
@@ -39,10 +40,12 @@ export interface MariReceiptControls {
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-/** "parameters.maxTokens" reads as "Parameters · Max tokens". */
+/** "parameters.maxTokens" reads as "Parameters · Max tokens"; a deeper path keeps every segment. */
 function label(field: string) {
-  const [parent, child] = field.split(".");
-  return child ? `${fieldLabel(parent!)} · ${fieldLabel(child)}` : fieldLabel(field);
+  return field
+    .split(".")
+    .map((part) => fieldLabel(part))
+    .join(" · ");
 }
 
 function words(text: string) {
@@ -87,7 +90,14 @@ export function receiptSummary(result: MariWorkspaceActionResult, t: Localize, l
     ].join(" · ");
   }
   // A nested setting names its parent once: "Parameters" for max tokens and temperature together.
-  const parts = [...new Set(result.changes.map((change) => change.field.split(".")[0]!))];
+  // A whole nested object names the thing itself ("onboarding"), not the container it sits in.
+  const part = (change: MariChangeExcerpt) => {
+    const segments = change.field.split(".");
+    return change.kind === "nested" ? segments.at(-1)! : segments[0]!;
+  };
+  const parts = [...new Set(result.changes.map(part))];
+  // A change the card cannot name (a list that only re-ordered) still says how many changed.
+  if (parts.length === 0) return t("ui.chat.marichangereceipt.labelMany", { count: Math.max(count, 1) });
   const shown = parts.slice(0, 3).map((field) => fieldLabel(field).toLocaleLowerCase(lang));
   return count > shown.length
     ? t("ui.chat.marichangereceipt.changedMore", { fields: shown.join(", "), count: count - shown.length })
@@ -212,6 +222,49 @@ function ListBody({ change }: { change: Extract<MariChangeExcerpt, { kind: "list
   );
 }
 
+/**
+ * A nested object the card cannot draw in full. Interactive onboarding says what it is the player's
+ * way ("On · 5 persona questions"); any other nested object lists the keys that changed.
+ */
+function NestedBody({ change }: { change: Extract<MariChangeExcerpt, { kind: "nested" }> }) {
+  const { t } = useUiTranslation();
+  const onboarding = change.onboarding;
+  // Both question counts always show, zero included: "On · 0 persona questions" says the onboarding is
+  // empty, which omitting them would hide.
+  const facts = onboarding
+    ? [
+        t(onboarding.enabled ? "ui.chat.marichangereceipt.onboardingOn" : "ui.chat.marichangereceipt.onboardingOff"),
+        t("ui.chat.marichangereceipt.onboardingPersonaQuestions", { count: onboarding.personaQuestions }),
+        t("ui.chat.marichangereceipt.onboardingCharacterQuestions", { count: onboarding.characterQuestions }),
+      ]
+    : [];
+  // The receipt keeps every changed key so merges stay exact; the card shows the first few and counts the rest.
+  const shownKeys = change.keys.slice(0, MARI_RECEIPT_LIMITS.nestedKeys);
+  const hidden = Math.max(0, change.count - shownKeys.length);
+  // The onboarding question arrays are the player's "persona questions" and "character questions".
+  const keyLabel = (key: string) => {
+    if (!onboarding) return label(key);
+    if (key === "variables") return t("ui.chat.marichangereceipt.onboardingPersonaQuestionsLabel");
+    if (key === "cardVariables") return t("ui.chat.marichangereceipt.onboardingCharacterQuestionsLabel");
+    return label(key);
+  };
+  return (
+    <div className="mari-receipt__entries">
+      {facts.length ? <span className="mari-receipt__entry-text">{facts.join(" · ")}</span> : null}
+      <div className="mari-receipt__chips">
+        {shownKeys.map((key) => (
+          <span key={key} className="mari-receipt__chip">
+            {keyLabel(key)}
+          </span>
+        ))}
+        {hidden > 0 ? (
+          <span className="mari-receipt__muted">{t("ui.chat.marichangereceipt.more", { count: hidden })}</span>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 /** One changed field. A created record's switches are grouped by the caller, not shown here. */
 function FieldView({ change, folded }: { change: MariChangeExcerpt; folded?: boolean }) {
   const name = label(change.field);
@@ -219,6 +272,13 @@ function FieldView({ change, folded }: { change: MariChangeExcerpt; folded?: boo
     return (
       <Field label={name} folded={folded}>
         <ListBody change={change} />
+      </Field>
+    );
+  }
+  if (change.kind === "nested") {
+    return (
+      <Field label={name} folded={folded}>
+        <NestedBody change={change} />
       </Field>
     );
   }

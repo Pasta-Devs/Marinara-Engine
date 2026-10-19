@@ -35,8 +35,8 @@ interface SpriteGenerationModalProps {
   defaultAppearance?: string;
   /** Pre-filled avatar (base64 data URL) for reference */
   defaultAvatarUrl?: string | null;
-  /** Callback after sprites are saved */
-  onSpritesGenerated?: () => void;
+  /** Callback after sprites are saved, with the label each was saved as and the face it was drawn as */
+  onSpritesGenerated?: (saved: Array<{ label: string; drawnAs?: string }>) => void;
   /** Expressions offered instead of the full list, in order; grids larger than the list are hidden. The
    *  default 6 (2×3) grid needs at least six, and the first six start chosen. Any number of them can be chosen;
    *  they are drawn in this order, as many pictures as they need. */
@@ -50,6 +50,8 @@ interface SpriteGenerationModalProps {
 
 interface SlicedCell {
   expression: string;
+  /** The expression it was drawn as, before any rename. */
+  drawnAs?: string;
   rawDataUrl: string;
   dataUrl: string;
   selected: boolean;
@@ -480,6 +482,7 @@ function createGeneratedSpritesFromResult(
     sheet,
     cells: result.cells.map((cell, index) => ({
       expression: cell.expression,
+      drawnAs: cell.expression,
       rawDataUrl: imageDataUrl(cell.base64, cell.mimeType),
       dataUrl: imageDataUrl(cell.base64, cell.mimeType),
       selected: true,
@@ -1963,7 +1966,7 @@ export function SpriteGenerationModal({
       const saved = saveTargets.filter((_, index) => results[index]?.status === "fulfilled");
 
       if (saved.length > 0) {
-        onSpritesGenerated?.();
+        onSpritesGenerated?.(saved.map(({ cell, expression }) => ({ label: expression, drawnAs: cell.drawnAs })));
       }
 
       if (failed.length > 0) {

@@ -3,6 +3,7 @@
 @import "./themes/sillytavern.css";
 @import "./themes/chat-widgets.css";
 @import "./themes/chat-widget-surfaces.css";
+@import "./themes/seasonal-halloween.css";
 
 /* World state & tracker widgets: equal flex sizing on mobile */
 @media (max-width: 767px) {
@@ -4138,6 +4139,21 @@ body {
   .mari-home-widget--community .mari-home-widget-shortcut-list {
     gap: 0.125rem;
   }
+}
+
+/* The dated costume pack's greeting under "Ask Professor Mari": hand-lettered, slightly crooked, dripping. */
+.mari-home-professor-greeting {
+  margin: 0.4rem 0 0 0.75rem;
+  transform: rotate(-2deg);
+  color: var(--marinara-chat-chrome-button-text-active);
+  font-family: "Chalkduster", "Papyrus", "Comic Sans MS", cursive;
+  font-size: clamp(0.62rem, 2.4cqw, 0.85rem);
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-shadow:
+    0 1px 0 color-mix(in oklab, currentColor 70%, transparent),
+    0 3px 2px color-mix(in oklab, currentColor 35%, transparent);
 }
 
 /* Slice 85: the Home Mari widget blinks on a 5.6 s loop. The blink frame sits on top of the idle frame. */

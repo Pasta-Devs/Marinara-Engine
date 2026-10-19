@@ -1,6 +1,7 @@
 import { IncomingMessage } from "node:http";
 import { brotliCompressSync, constants, gzipSync } from "node:zlib";
 import type { FastifyReply, FastifyRequest } from "fastify";
+import { isApiRequest } from "../utils/api-request.js";
 
 /** Below this a compressed body saves less than the headers cost. */
 const MIN_BYTES = 1024;
@@ -44,7 +45,7 @@ export function compressJsonHook(
 function compressJson(req: FastifyRequest, reply: FastifyReply, payload: unknown) {
   if (typeof payload !== "string" && !Buffer.isBuffer(payload)) return payload;
   if (!(req.raw instanceof IncomingMessage)) return payload;
-  if (!req.url.startsWith("/api/") || reply.hasHeader("content-encoding")) return payload;
+  if (!isApiRequest(req) || reply.hasHeader("content-encoding")) return payload;
   if (!String(reply.getHeader("content-type") ?? "").includes("application/json")) return payload;
   const bytes = Buffer.byteLength(payload);
   if (bytes < MIN_BYTES || bytes > MAX_BYTES) return payload;

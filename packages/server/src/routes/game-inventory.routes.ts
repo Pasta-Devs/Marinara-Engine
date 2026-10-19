@@ -3,6 +3,7 @@
 // inventory and the journal together, then answers with what the inventory now is.
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
+import { isDeepStrictEqual } from "node:util";
 import { applyGameInventoryOps, gameInventoryOpsRequestSchema } from "@marinara-engine/shared";
 import { commitGameInventoryChange, loadGameInventoryItemBook } from "../services/game/game-inventory.service.js";
 import { restGameRulesetCharacter, useGameRulesetItem } from "../services/game/game-item-use.service.js";
@@ -42,21 +43,46 @@ const startingGearRequestSchema = z
   })
   .strict();
 
+/** A value as JSON keeps it, so an absent field and an undefined one compare equal; null for none. */
+const plainValue = (value: unknown) => (value === undefined ? null : JSON.parse(JSON.stringify(value)));
+
 export async function gameInventoryRoutes(app: FastifyInstance) {
   app.post("/", async (req, reply) => {
     const parsed = gameInventoryOpsRequestSchema.safeParse(req.body);
     if (!parsed.success) {
       return reply.status(400).send({ error: "Invalid inventory change", issues: parsed.error.issues.slice(0, 10) });
     }
-    const { chatId, ops } = parsed.data;
+    const { chatId, ops, expected } = parsed.data;
     // The ruleset's items, read before the change so no catalog is read with the chat's queue held.
     const rules = await loadGameInventoryItemBook(app.db, { chatId }, "player");
+    let stale: string[] | null = null;
     const committed = await commitGameInventoryChange(app.db, chatId, (stacks) => {
+      // The stacks the caller read, compared inside the queue: one changed since is not overwritten.
+      if (expected) {
+        const changed = Object.entries(expected)
+          .filter(
+            ([id, was]) => !isDeepStrictEqual(plainValue(stacks.find((stack) => stack.id === id)), plainValue(was)),
+          )
+          .map(([id]) => id);
+        if (changed.length > 0) {
+          stale = changed;
+          return { stacks, journal: [], value: [] as ReturnType<typeof applyGameInventoryOps>["results"] };
+        }
+      }
       // The Engine's own dice, for an item that may break as a fight spends its last charge.
       const outcome = applyGameInventoryOps(stacks, ops, undefined, rules, rollDieSecurely);
       return { stacks: outcome.stacks, journal: outcome.journal, value: outcome.results };
     });
     if (!committed) return reply.status(404).send({ error: "Chat not found" });
+    // Read through a typed local: assigned only inside the change, so TS would narrow it to null here.
+    const staleIds = stale as string[] | null;
+    if (staleIds)
+      return reply.status(409).send({
+        reason: "stale",
+        error: "The inventory changed meanwhile.",
+        stacks: staleIds,
+        inventory: committed.stacks,
+      });
     return {
       inventory: committed.stacks,
       results: committed.value,

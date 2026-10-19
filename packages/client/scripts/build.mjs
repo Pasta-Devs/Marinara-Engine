@@ -3,7 +3,7 @@ import { spawnSync } from "node:child_process";
 import { createRequire } from "node:module";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { resolveClientBuildHeapMb } from "./build-heap.mjs";
+import { resolveClientBuildHeapMb, resolveDesktopClientBuildHeapMb } from "./build-heap.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PACKAGE_ROOT = resolve(__dirname, "..");
@@ -11,7 +11,9 @@ const packageRequire = createRequire(resolve(PACKAGE_ROOT, "package.json"));
 const TSC_CLI = packageRequire.resolve("typescript/bin/tsc");
 const VITE_CLI = resolve(dirname(packageRequire.resolve("vite/package.json")), "bin/vite.js");
 const LOW_MEMORY_BUILD = process.platform === "android" || process.env.MARINARA_LOW_MEMORY_BUILD === "1";
-const BUILD_HEAP_MB = resolveClientBuildHeapMb({ lowMemory: LOW_MEMORY_BUILD });
+const BUILD_HEAP_MB = LOW_MEMORY_BUILD
+  ? resolveClientBuildHeapMb({ lowMemory: true })
+  : resolveDesktopClientBuildHeapMb();
 // Marks the children as started by this script, so vite.config.ts does not hand them back here.
 const BUILD_ENV = { MARINARA_CLIENT_BUILD_SCRIPT: "1" };
 if (BUILD_HEAP_MB) {

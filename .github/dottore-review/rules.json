@@ -1,4 +1,7 @@
 {
+  "exclude_paths": [
+    ".github/plans/**"
+  ],
   "review_focus": [
     "correctness",
     "user-visible regressions",
@@ -16,17 +19,12 @@
     "low": "A small but actionable correctness, proof, or maintainability risk tied to changed behavior.",
     "nitpick": "Optional changed-line polish with no behavior risk, such as readability, naming, tiny duplication, stale comments, dead code, type clarity, or local consistency."
   },
-  "nitpick_policy": {
-    "max_count": 2,
-    "line_scope": "changed-line only",
-    "risk": "No behavior-risk requirement; use for optional polish only."
-  },
-  "control_warn_types": {
-    "Proof Gap": "Important changed behavior lacks focused proof.",
-    "Review Limitation": "Bunny lacked full packet/context to prove a suspected issue.",
-    "CI Timing": "Expected checks were missing, pending, or not yet observable when posted.",
-    "Non-blocking Coverage": "Useful coverage or context note that should not block merge by itself."
-  },
+  "repo_concerns": [
+    "Product behavior belongs in its owning package or mode; shared generation and prompt changes must not silently alter an unrelated mode.",
+    "Fake success states, silent catches, broad fallbacks, and response-shape drift are defects, not resilience.",
+    "Changed behavior with realistic regression risk needs focused tests or manual proof.",
+    "Persistence stays consistent wherever it happens: parent records take nothing from child rows that later skip or fail to persist, pre-scans use the write loop's eligibility criteria, and rollback or partial writes leave no inconsistent metadata."
+  ],
   "path_instructions": [
     {
       "name": "Shared contract package",
@@ -49,13 +47,15 @@
       ],
       "guidance": [
         "packages/client/.instructions.md",
-        "docs/development/frontend.md"
+        "docs/development/frontend.md",
+        "docs/development/localization.md"
       ],
       "checks": [
         "Server calls go through the @/lib/api-client wrapper (api.get/post/patch/delete/upload/download/streamEvents), never raw fetch().",
         "Async server access lives in React Query hooks; Zustand stores stay synchronous state plus actions. Only ui.store uses persist.",
         "Navigation is state-based via ui.store (no URL router), new editors are lazy-loaded in AppShell, and there are no barrel/index files.",
-        "console.* is acceptable in client code (the browser has no Pino and production builds strip console.log); do not flag it here as a logging violation."
+        "console.* is acceptable in client code (the browser has no Pino and production builds strip console.log); do not flag it here as a logging violation.",
+        "New or changed visible UI copy uses semantic localization keys and updates the canonical English catalog. Do not translate prompts or user-authored/generated content, and run pnpm localization:check."
       ]
     },
     {
@@ -65,13 +65,15 @@
       ],
       "guidance": [
         "AGENTS.md",
-        "CONTRIBUTING.md"
+        "CONTRIBUTING.md",
+        "docs/development/logging.md"
       ],
       "checks": [
         "Server code never uses console.log/warn/error. It imports the shared Pino logger from packages/server/src/lib/logger.ts and logs errors error-first: logger.error(err, \"message\").",
         "Multi-argument logs use Pino format specifiers (%s, %d, %j) or a single template literal, not comma-separated arguments that Pino silently drops.",
         "Fastify route files validate HTTP input and delegate domain decisions to services; storage, LLM, prompt, and game logic belong in services, not in route handlers.",
-        "Provider, storage, and transport changes preserve existing error contracts and self-hostable behavior; no fake success, silent catches, broad fallbacks, or response-shape drift."
+        "Provider, storage, and transport changes preserve existing error contracts and self-hostable behavior; no fake success, silent catches, broad fallbacks, or response-shape drift.",
+        "Prompt, model output, provider response bodies, and poll bodies stay at debug rather than warn or error; repeated failures use rate limiting and long-lived work does not retain an unrelated request context."
       ]
     },
     {
@@ -123,7 +125,7 @@
         "packages/server/src/services/import/"
       ],
       "guidance": [
-        "docs/development/file-storage-migration.md"
+        "docs/development/file-storage.md"
       ],
       "checks": [
         "Parent records must not collect IDs, metadata, counts, or relationships from child rows that later skip import or fail to persist.",
@@ -146,8 +148,7 @@
       ],
       "checks": [
         "Container and image changes must keep the app buildable and runnable; the pnpm-validate and container-build-test checks must still pass.",
-        "Workflow changes stay narrow, testable, and least-privilege; pull_request_target dispatchers must not check out or execute pull-request code.",
-        "If CI check-run names change, mirror them in .github/bunny-review/ci-checks.json so Bunny gates on the real checks."
+        "Workflow changes stay narrow, testable, and least-privilege; pull_request_target dispatchers must not check out or execute pull-request code."
       ]
     },
     {
@@ -169,5 +170,8 @@
         "Workflow and agent-guidance changes remain concrete, testable, and narrow."
       ]
     }
-  ]
+  ],
+  "autofix": {
+    "validate": "pnpm install --frozen-lockfile && pnpm check"
+  }
 }

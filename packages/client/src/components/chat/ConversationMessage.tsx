@@ -7,6 +7,7 @@ import { useMessagePresetVariables } from "../../hooks/use-message-preset-variab
 // ──────────────────────────────────────────────
 import { useState, useCallback, useRef, useEffect, memo, useMemo, type CSSProperties, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { ChatImageLightbox } from "./ChatImageLightbox";
 import { AlertTriangle, Phone, PhoneIncoming, PhoneOff, Trash2 } from "lucide-react";
 import { useQueryClient, type InfiniteData } from "@tanstack/react-query";
 import {
@@ -183,7 +184,11 @@ export const ConversationMessage = memo(function ConversationMessage({
   const [showThinking, setShowThinking] = useState(false);
   const [showGenerationReplay, setShowGenerationReplay] = useState(false);
   const [manuallyExpandedHidden, setManuallyExpandedHidden] = useState(false);
-  const [imageLightbox, setImageLightbox] = useState<{ url: string; prompt?: string | null } | null>(null);
+  const [imageLightbox, setImageLightbox] = useState<{
+    url: string;
+    prompt?: string | null;
+    galleryId?: string | null;
+  } | null>(null);
   const editRef = useRef<HTMLTextAreaElement>(null);
   const msgRef = useRef<HTMLDivElement>(null);
   const thinkingButtonRef = useRef<HTMLButtonElement>(null);
@@ -946,7 +951,7 @@ export const ConversationMessage = memo(function ConversationMessage({
     onCopy: handleCopy,
     onTranslate: handleTranslate,
     onStartEdit: handleStartEdit,
-    onImageOpen: (url, prompt) => setImageLightbox({ url, prompt }),
+    onImageOpen: (url, prompt, galleryId) => setImageLightbox({ url, prompt, galleryId }),
     onRemoveAttachment: handleRemoveAttachment,
     onSetActiveSwipe: handleSetActiveSwipe,
     onRegenerate,
@@ -1005,7 +1010,28 @@ export const ConversationMessage = memo(function ConversationMessage({
           onClose={() => setShowGenerationReplay(false)}
         />
       )}
+      {imageLightbox?.galleryId ? (
+        // Generated images saved to the chat gallery get the shared lightbox, which can regenerate them (#7767).
+        <ChatImageLightbox
+          image={{
+            id: imageLightbox.galleryId,
+            chatId: message.chatId,
+            filePath: "",
+            prompt: imageLightbox.prompt ?? "",
+            provider: "",
+            model: "",
+            width: null,
+            height: null,
+            createdAt: message.createdAt,
+            url: imageLightbox.url,
+          }}
+          pinEnabled={false}
+          regenerate={{ messageId: message.id }}
+          onClose={() => setImageLightbox(null)}
+        />
+      ) : null}
       {imageLightbox &&
+        !imageLightbox.galleryId &&
         createPortal(
           <ConversationMessageLightbox
             url={imageLightbox.url}

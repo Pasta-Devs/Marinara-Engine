@@ -4,6 +4,7 @@
 
 import type { PartyArc } from "@marinara-engine/shared";
 import type { CharacterSpriteInfo } from "./sprite.service.js";
+import { TTS_EMOTION_CUE_GUIDANCE } from "../tts-emotion-guidance.js";
 
 export interface PartyPromptContext {
   /** Character cards for each party member, optionally enriched with game-specific class/ability info. */
@@ -16,6 +17,7 @@ export interface PartyPromptContext {
   partyArcs?: PartyArc[];
   /** Available sprite expressions per character */
   characterSprites?: CharacterSpriteInfo[];
+  ttsEmotionIndicatorsEnabled?: boolean;
 }
 
 /** Build the system prompt for the Party Player agent. */
@@ -87,6 +89,11 @@ export function buildPartySystemPrompt(ctx: PartyPromptContext): string {
     `- Not every character needs to speak every turn — only those who would naturally react`,
     `- In [action] lines, ALWAYS address the player as "you" when describing something done to/around the player (e.g. "He gestures vaguely at your entire being")`,
     `- Dialogue text in [main], [side], and [whisper] should be in quotes`,
+    ...(ctx.ttsEmotionIndicatorsEnabled
+      ? [
+          `- Spoken dialogue text only: ${TTS_EMOTION_CUE_GUIDANCE} Put vocal cues inside the quoted dialogue after the colon; keep the [Name] [type] [expression]: prefix unchanged.`,
+        ]
+      : []),
     `- NEVER generate dialogue lines for the player (${ctx.playerName}). You control only party members, not the player.`,
     `</party_dialogue_format>`,
   );

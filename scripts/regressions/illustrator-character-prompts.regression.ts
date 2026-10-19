@@ -13,6 +13,8 @@ import {
   supportsNovelAiCharacterPrompts,
 } from "../../packages/server/src/services/image/character-prompts.js";
 import { resolveIllustratorCharacterPromptInstruction } from "../../packages/server/src/services/generation/illustrator-background-generation.js";
+import { buildManualIllustratorCharacterPromptInstruction } from "../../packages/server/src/services/generation/illustrator-manual-prompt-generation.js";
+import { readFileSync } from "node:fs";
 
 // Caption cap follows the model generation.
 assert.equal(resolveNovelAiCharacterPromptLimit("nai-diffusion-5-full"), 22);
@@ -492,3 +494,38 @@ assert.equal(
   "Briar's Appearance: blue hair",
   "an oversized entry does not discard later appearances that fit the budget",
 );
+
+// Illustrate commands write their prompt like the Illustration button, so they get the same
+// NovelAI caption rules and card appearance reference instead of a flattened appended block.
+{
+  const instruction = buildIllustratorCharacterPromptInstruction(22);
+  const context = {
+    characters: [{ id: "char-1", name: "Jayden", appearance: "1girl, black hair, black eyes" }],
+    persona: { name: "Fel", appearance: "1boy, green eyes" },
+    memory: {},
+  } as unknown as Parameters<typeof buildManualIllustratorCharacterPromptInstruction>[0];
+  assert.equal(buildManualIllustratorCharacterPromptInstruction(context, undefined, true), undefined);
+  assert.equal(buildManualIllustratorCharacterPromptInstruction(context, instruction, false), instruction);
+  const withAppearance = buildManualIllustratorCharacterPromptInstruction(context, instruction, true) ?? "";
+  assert.ok(withAppearance.startsWith(instruction));
+  assert.match(withAppearance, /<character_appearance_reference>/u);
+  assert.match(withAppearance, /\[Jayden\] 1girl, black hair, black eyes/u);
+  assert.match(withAppearance, /\[Fel\] 1boy, green eyes/u);
+
+  const generateRouteSource = readFileSync(
+    new URL("../../packages/server/src/routes/generate.routes.ts", import.meta.url),
+    "utf8",
+  );
+  const commandWriter = generateRouteSource.slice(
+    generateRouteSource.indexOf("const plan = await writeManualIllustratorPromptPlan({"),
+    generateRouteSource.indexOf(
+      "result = {",
+      generateRouteSource.indexOf("const plan = await writeManualIllustratorPromptPlan({"),
+    ),
+  );
+  assert.match(commandWriter, /characterPromptInstruction: buildManualIllustratorCharacterPromptInstruction\(/u);
+  assert.match(commandWriter, /_illustratorCharacterPromptInstruction/u);
+  assert.match(commandWriter, /_illustratorCaptionAppearanceReference === true/u);
+  // Naming characters in a command no longer forces avatar references past the chat's switch.
+  assert.doesNotMatch(generateRouteSource, /commandTarget\.command\.characters\?\.length/u);
+}

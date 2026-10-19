@@ -477,6 +477,18 @@ export function isDockerProxyAuthRequired() {
   return !isDisabledFlag(process.env.REQUIRE_AUTH_FOR_DOCKER_PROXY);
 }
 
+/**
+ * Treat loopback requests that carry reverse-proxy forwarding headers as the
+ * remote clients they represent, so a proxy or tunnel on this machine cannot
+ * pass every visitor off as the local user.
+ *
+ * Default: ON. Set REQUIRE_AUTH_FOR_LOOPBACK_PROXY=false only when the proxy
+ * itself requires a login from every client it forwards.
+ */
+export function isLoopbackProxyAuthRequired() {
+  return !isDisabledFlag(process.env.REQUIRE_AUTH_FOR_LOOPBACK_PROXY);
+}
+
 export function isDebugAgentsEnabled() {
   const value = normalizeEnvValue(process.env.DEBUG_AGENTS);
   return value === "1" || value?.toLowerCase() === "true";

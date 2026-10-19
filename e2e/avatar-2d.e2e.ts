@@ -6,8 +6,8 @@
 // VRM panel still reports a failed import after it closes, and making a mesh avatar starts from the
 // full-body neutral sprite (else the neutral one) until the user picks another.
 import { expect, test, type Page } from "@playwright/test";
-import { securityHeadersHook } from "../packages/server/src/middleware/security-headers.js";
 import { meshAvatarFiles, paintPng, solid, zipFiles } from "../scripts/regressions/fixtures/avatar-2d-fixtures.js";
+import { serveWithServerCsp } from "./server-csp-fixture.js";
 import { seedUIState } from "./ui-state-fixture.js";
 import { prepareViteFixtureDependencies } from "./vite-fixture-dependencies.js";
 
@@ -108,36 +108,6 @@ async function probeMeshAvatars(page: Page) {
       probe.violations.push(`${event.violatedDirective} ${event.blockedURI}`),
     );
   });
-}
-
-/** Serves the app page with the server's own connect-src and img-src (the directives the mesh renderer meets).
- *  Vite's dev page needs inline scripts the production build does not, so the other directives stay off. */
-async function serveWithServerCsp(page: Page) {
-  let policy = "";
-  securityHeadersHook(
-    {} as never,
-    {
-      header: (name: string, value: string) => {
-        if (name === "Content-Security-Policy") policy = value;
-      },
-    } as never,
-    () => {},
-  );
-  const directives = policy
-    .split(";")
-    .map((directive) => directive.trim())
-    .filter((directive) => /^(?:connect|img)-src\s/u.test(directive));
-  expect(directives, "the server sets both directives").toHaveLength(2);
-  await page.route(
-    (url) => url.pathname === "/",
-    async (route) => {
-      const response = await route.fetch();
-      await route.fulfill({
-        response,
-        headers: { ...response.headers(), "content-security-policy": directives.join("; ") },
-      });
-    },
-  );
 }
 
 /** Mounts renderers of one kind on fresh canvases (100 x 200 CSS px unless `sizes` says, ratio 1) and keeps
@@ -626,6 +596,91 @@ test("updating a PNGTuber setup from sprites keeps the faces the user chose for 
   expect(Object.keys((saved[0] as { kinds: { pngtuber: { layers: object } } }).kinds.pngtuber.layers)).toContain(
     "scared",
   );
+});
+
+test("a saved PNGTuber setup offers sprites made since, named after a feeling too, for every feeling", async ({
+  page,
+}) => {
+  // Older sprites in the saved setup, and new faces named after feelings made since.
+  await routeSprites(page, "e2e-new-faces", {
+    smirk: GRAY,
+    laughing: PINK,
+    neutral: BLUE,
+    happy: YELLOW,
+    happy_talk: GREEN,
+    fear: GREEN,
+  });
+  const saved: Record<string, unknown>[] = [];
+  await page.route("**/api/avatar-models/character/e2e-new-faces", (route) => {
+    saved.push(route.request().postDataJSON());
+    return route.fulfill({ json: {} });
+  });
+  await openApp(page);
+  const sprite = (label: string) => ({ base: { source: "sprite", label } });
+  const user = (target: string | null) => ({ target, source: "user", confidence: 1 });
+  await mountPanel(
+    page,
+    "/src/features/avatars/renderers/pngtuber/PngtuberSetupPanel.tsx",
+    "PngtuberSetupPanel",
+    "e2e-new-faces",
+    {
+      version: 1,
+      owner: { ownerType: "character", ownerId: "e2e-new-faces" },
+      enabled: true,
+      activeKind: "pngtuber",
+      features: FEATURES,
+      kinds: {
+        pngtuber: {
+          layers: { smirk: sprite("smirk"), laughing: sprite("laughing") },
+          expressionMap: {
+            neutral: user("smirk"),
+            happy: { target: "laughing", source: "sprite-label", confidence: 1 },
+          },
+          motion: { bounceOnTalk: true, bounceHeight: 0.06, blinkIntervalSeconds: 4.5 },
+          source: "sprites",
+        },
+      },
+      updatedAt: "2026-10-19T11:23:58.232Z",
+    },
+  );
+  const panel = page.locator("[data-avatar-panel]");
+
+  // Faces lists the new sprites, never their talk pictures.
+  await expect(panel.locator("[data-avatar-face]")).toHaveCount(5);
+  await expect(panel.locator('[data-avatar-face="happy"]')).toContainText("Talk");
+  await expect(panel.locator('[data-avatar-face="happy_talk"]')).toHaveCount(0);
+  const happy = panel.locator('[data-avatar-feeling="happy"]');
+  await expect(happy).toHaveValue("laughing");
+  await expect(happy.locator("option")).toHaveText(["Resting face", "smirk", "laughing", "neutral", "happy", "fear"]);
+
+  // Choosing a new face adds it to the setup with its talk picture; the old faces stay.
+  await happy.selectOption("happy");
+  await expect.poll(() => saved.length).toBe(1);
+  expect(saved[0]).toMatchObject({
+    kinds: {
+      pngtuber: {
+        layers: {
+          smirk: sprite("smirk"),
+          laughing: sprite("laughing"),
+          happy: { base: { source: "sprite", label: "happy" }, mouthOpen: { source: "sprite", label: "happy_talk" } },
+        },
+        expressionMap: { neutral: user("smirk"), happy: user("happy") },
+      },
+    },
+  });
+  expect(Object.keys((saved[0] as { kinds: { pngtuber: { layers: object } } }).kinds.pngtuber.layers)).toEqual([
+    "smirk",
+    "laughing",
+    "happy",
+  ]);
+
+  // The extra feelings offer them too.
+  await panel.locator("[data-avatar-more-feelings] > summary").click();
+  await panel.locator('[data-avatar-feeling="fear"]').selectOption("fear");
+  await expect.poll(() => saved.length).toBe(2);
+  expect(saved[1]).toMatchObject({
+    kinds: { pngtuber: { layers: { fear: sprite("fear") }, feelingMap: { fear: user("fear") } } },
+  });
 });
 
 test("the VRM setup still reports a rejected import after the panel closes", async ({ page }) => {

@@ -5,7 +5,11 @@ import { tmpdir, totalmem } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { checkClientBuild } from "../../check-client-build.mjs";
-import { resolveClientBuildHeapMb } from "../../../packages/client/scripts/build-heap.mjs";
+import {
+  resolveClientBuildHeapMb,
+  resolveDesktopClientBuildHeapMb,
+  splitNodeOptions,
+} from "../../../packages/client/scripts/build-heap.mjs";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 
@@ -19,7 +23,56 @@ assert.equal(buildHeap(3 * GiB), 1536);
 assert.equal(buildHeap(2.75 * GiB), 1408);
 assert.equal(buildHeap(2 * GiB), 1280, "a 2 GB phone still gets the heap the build needs");
 assert.equal(buildHeap(8 * GiB, { MARINARA_EXPLICIT_NODE_HEAP: "1" }), null, "a heap the user set wins");
-assert.equal(buildHeap(8 * GiB, {}, false), null, "desktop builds keep their heap");
+assert.equal(buildHeap(8 * GiB, {}, false), null, "desktop builds take their heap from the desktop rule below");
+
+// A desktop build type-checks the client too, which needs about 2.1 GiB: more than Node's default on a
+// 7 GiB machine (the macos-15 runners, about 2 GiB), so it gets 3072 MiB when half the memory allows.
+const desktopHeap = (totalMemoryBytes, defaultHeapMb, env = {}, constrainedMemoryBytes = 0) =>
+  resolveDesktopClientBuildHeapMb({ env, totalMemoryBytes, defaultHeapMb, constrainedMemoryBytes });
+assert.equal(desktopHeap(7 * GiB, 2048), 3072, "a 7 GiB machine gets the heap the type-check needs");
+assert.equal(desktopHeap(14 * GiB, 2048), 3072);
+assert.equal(desktopHeap(32 * GiB, 4192), null, "a default already above it is kept, never lowered");
+assert.equal(desktopHeap(4 * GiB, 2048), null, "never more than half the device's memory");
+assert.equal(
+  desktopHeap(7 * GiB, 2048, { NODE_OPTIONS: "--max-old-space-size=1800" }),
+  null,
+  "a heap the user set in NODE_OPTIONS wins",
+);
+assert.equal(desktopHeap(7 * GiB, 2048, { NODE_OPTIONS: "--max_old_space_size=1800" }), null, "however they spell it");
+assert.equal(
+  desktopHeap(7 * GiB, 2048, { NODE_OPTIONS: '--require "./hooks/--max-old-space-size.cjs"' }),
+  3072,
+  "the same words inside another option's value are not a heap",
+);
+assert.equal(
+  desktopHeap(7 * GiB, 2048, { NODE_OPTIONS: "--require ./x.cjs --max-old-space-size 1800" }),
+  null,
+  "the flag as its own option is (Node refuses a value after a space there; the build leaves it to Node)",
+);
+assert.equal(
+  desktopHeap(7 * GiB, 2048, { NODE_OPTIONS: '"--max-old-space-size=1024"' }),
+  null,
+  "and so is a quoted one, which Node reads as the same option",
+);
+assert.equal(
+  desktopHeap(7 * GiB, 2048, { NODE_OPTIONS: "--max-old-space-size-percentage=50" }),
+  null,
+  "and its percentage form, which sets the heap too",
+);
+// In a container, half of its memory limit, not of the machine's.
+assert.equal(desktopHeap(32 * GiB, 2048, {}, 4 * GiB), null, "a 4 GiB container never gets more than 2 GiB");
+assert.equal(desktopHeap(32 * GiB, 2048, {}, 8 * GiB), 3072, "an 8 GiB container gets the heap the build needs");
+assert.equal(desktopHeap(7 * GiB, 2048, {}, 2 ** 62), 3072, "a limit above the machine's memory is no limit");
+// NODE_OPTIONS read as Node reads it: quotes group an option, spaces included, and a backslash inside
+// them keeps the next character.
+assert.deepEqual(splitNodeOptions('--require "./my hooks/x.cjs"  --max-old-space-size=900'), [
+  "--require",
+  "./my hooks/x.cjs",
+  "--max-old-space-size=900",
+]);
+assert.deepEqual(splitNodeOptions('"--title=a \\"b\\""'), ['--title=a "b"']);
+assert.deepEqual(splitNodeOptions('  ""  '), [""], "an empty quoted option is still one");
+assert.deepEqual(splitNodeOptions(""), []);
 
 const fixture = mkdtempSync(join(tmpdir(), "marinara-termux-build-"));
 const write = (path, content) => {

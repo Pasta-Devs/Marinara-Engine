@@ -56,13 +56,11 @@ import { ChoiceSelectionModal } from "../presets/ChoiceSelectionModal";
 import { CharacterOnboardingModal, type OnboardingCardTarget } from "../characters/CharacterOnboardingModal";
 import { ActiveChatBackgroundPicker } from "../panels/settings/BackgroundPicker";
 import {
-  characterOnboardingSchema,
-  type CharacterOnboarding,
-  type OnboardingCardFields,
+  type CardOnboarding,
   hasOnboardingContent,
   canBuildPersona,
   getRelevantCardVariables,
-  withUniqueOnboardingIds,
+  readCardOnboarding,
   CONVERSATION_COMMAND_AGENT_IDS,
   CONVERSATION_COMMAND_KEYS,
   DEFAULT_CONVERSATION_PROMPT,
@@ -2634,40 +2632,13 @@ function RoleplaySetupWizard({ chat, onFinish, defaultsApplied, defaultsAction }
   // enabled-but-empty block is filtered out here, so the wizard never offers a
   // window with no questions and no field text behind it.
   const onboardingByCharacterId = useMemo(() => {
-    const byId = new Map<string, { name: string; onboarding: CharacterOnboarding; cardFields: OnboardingCardFields }>();
+    const byId = new Map<string, CardOnboarding>();
     for (const character of characters) {
-      try {
-        const data = typeof character.data === "string" ? JSON.parse(character.data) : character.data;
-        const parsed = characterOnboardingSchema.safeParse(data?.extensions?.onboarding);
-        if (parsed.success && parsed.data.enabled) {
-          // Cards saved before ids were made unique, or via the API, may still repeat one.
-          const onboarding = withUniqueOnboardingIds(parsed.data as CharacterOnboarding);
-          if (!hasOnboardingContent(onboarding)) continue;
-          // The card's own text decides which character questions are asked, so
-          // the wizard has to hand the modal the same fields the prompt reads.
-          // `backstory` and `appearance` live on `extensions`, NOT at the top
-          // level — reading them from `data` silently yields undefined, and a
-          // question is then never asked because nothing appears to read it.
-          const extensions = (data?.extensions ?? {}) as Record<string, unknown>;
-          const extensionText = (key: string) => {
-            const value = extensions[key];
-            return typeof value === "string" ? value : undefined;
-          };
-          byId.set(character.id, {
-            name: String(data?.name ?? ""),
-            onboarding,
-            cardFields: {
-              description: data?.description,
-              personality: data?.personality,
-              backstory: extensionText("backstory"),
-              appearance: extensionText("appearance"),
-              scenario: data?.scenario,
-            },
-          });
-        }
-      } catch {
-        /* unreadable card data: no onboarding */
-      }
+      // One parse for the wizard, the drawer and the server; unreadable card data
+      // comes back as null instead of throwing.
+      const entry = readCardOnboarding(character.data);
+      if (!entry?.onboarding.enabled || !hasOnboardingContent(entry.onboarding)) continue;
+      byId.set(character.id, entry);
     }
     return byId;
   }, [characters]);

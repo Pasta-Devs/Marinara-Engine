@@ -18,6 +18,8 @@ export interface NoulQuestion {
    * System One `choice` question, answered in `choices` rather than `answers`.
    */
   options?: string[];
+  /** For a Choice question: each option's criteria, by the same index ("" for none). */
+  criteria?: string[];
 }
 
 /** The option a Choice question adds so a turn that fits none of the others can say so. */
@@ -111,11 +113,13 @@ export async function askNoulQuestions(req: DecisionRequest): Promise<{
         req.questions.map((q) => {
           const instructions = buildDecisionInstructions(q.instructions, req.questionShape ?? "text");
           if (!q.options) return [q.id, { type: "noul", instructions }];
-          // The option name says it all, so only the added "none" option is described.
-          // The others get an empty description, not null: System One allows null, but
-          // some servers (Strands decider) accept only strings, and an empty string left
-          // every Open-Jev answer unchanged in testing (#6981).
-          const criteria: Record<string, string> = Object.fromEntries(q.options.map((option) => [option, ""]));
+          // An option is described only by the criteria its author wrote (#7791), plus the
+          // added "none" option. The others get an empty description, not null: System One
+          // allows null, but some servers (Strands decider) accept only strings, and an
+          // empty string left every Open-Jev answer unchanged in testing (#6981).
+          const criteria: Record<string, string> = Object.fromEntries(
+            q.options.map((option, index) => [option, q.criteria?.[index] ?? ""]),
+          );
           criteria[DECISION_CHOICE_NONE] = "None of the other options apply.";
           return [q.id, { type: "choice", instructions, criteria }];
         }),

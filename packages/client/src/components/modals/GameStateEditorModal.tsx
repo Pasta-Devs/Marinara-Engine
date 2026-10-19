@@ -17,6 +17,7 @@ import {
   buildGameStateEditorSections,
   findGameStateSectionsChangedSince,
 } from "../../lib/state-editor/game-state-editor-source";
+import { trackerSliceErrorMessage } from "../../lib/agent-suite-tracker-slices";
 import type { StateEditorChange } from "../../lib/state-editor/state-editor.types";
 import { chatKeys } from "../../hooks/use-chats";
 import { useChatStore } from "../../stores/chat.store";
@@ -26,6 +27,8 @@ interface GameStateEditorModalProps {
   open: boolean;
   onClose: () => void;
   chatId: string;
+  /** Opens on this section (a tracker window names its own), instead of the first one. */
+  initialSectionId?: string;
 }
 
 /** Section ids are agent types ("world-state"); localization keys are camelCase. */
@@ -141,7 +144,7 @@ function SnapshotLabel({ chatId, snapshot }: { chatId: string; snapshot: GameSta
   );
 }
 
-export function GameStateEditorModal({ open, onClose, chatId }: GameStateEditorModalProps) {
+export function GameStateEditorModal({ open, onClose, chatId, initialSectionId }: GameStateEditorModalProps) {
   const { t: localizeUi } = useUiTranslation();
   const qc = useQueryClient();
   const queryKey = useMemo(() => ["state-editor", "game-state", chatId] as const, [chatId]);
@@ -214,7 +217,9 @@ export function GameStateEditorModal({ open, onClose, chatId }: GameStateEditorM
       const result = buildGameStateEditorPatch(fresh, changes);
       if ("error" in result) {
         const section = sections.find((item) => item.id === result.sectionId);
-        const message = result.error ?? localizeUi("ui.stateEditor.gameState.unknownSection");
+        const message = result.error
+          ? trackerSliceErrorMessage(result.error, localizeUi)
+          : localizeUi("ui.stateEditor.gameState.unknownSection");
         throw new Error(section ? `${section.label}: ${message}` : message);
       }
       // Aim at the exact snapshot row, like the tracker panel's own patcher.
@@ -271,6 +276,7 @@ export function GameStateEditorModal({ open, onClose, chatId }: GameStateEditorM
         <StateEditor
           key={editorKey}
           sections={sections}
+          initialSectionId={initialSectionId}
           onSave={save}
           onDirtyChange={handleDirtyChange}
           reviewSubtitle={(count) => localizeUi("ui.stateEditor.gameState.reviewSubtitle", { count })}

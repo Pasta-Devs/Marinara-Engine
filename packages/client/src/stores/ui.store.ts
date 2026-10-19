@@ -4,7 +4,7 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { generateClientId } from "../lib/utils";
-import { getMariAppearancePack } from "../lib/mari-work-animations";
+import { activeSeasonalMariPack, getMariAppearancePack, mariSeasonKey } from "../lib/mari-work-animations";
 import {
   IMAGE_STYLE_PROFILES_STORAGE_KEY,
   normalizeImageStyleProfileSettings,
@@ -29,6 +29,7 @@ import { markOmnibarOpenStart } from "../lib/omnibar-open-timing";
 import { UI_PERSISTENCE } from "../lib/ui-persistence";
 import { normalizeChatWidgetFont } from "../lib/font-family";
 import type { ChatWizardDefaults, ChatWizardMode } from "../lib/chat-wizard-defaults";
+import { withSeasonalYear, type SeasonalThemeId, type SeasonalYears } from "../lib/seasonal-themes";
 
 export type Panel =
   | "chat"
@@ -688,6 +689,8 @@ interface UIState {
   settingsTargetSectionId: string | null;
   /** Not saved: a Home surface to open once Home mounts (see `requestHome`). */
   homeRequest: HomeRequest | null;
+  /** Not saved: the What's New window should open again (see `requestWhatsNew`). */
+  whatsNewRequested: boolean;
   modal: { type: string; props?: Record<string, unknown> } | null;
   /** Not saved: an Advanced Memory scene to open, or a Fix to start, once its Chat Settings section shows. */
   advancedMemoryRequest: { chatId: string; sceneId?: string; fix?: boolean } | null;
@@ -717,6 +720,8 @@ interface UIState {
   mariAppearancePackId: string;
   /** R12: packs whose play-time rule was met once; the one-time "unlocked" toast has been shown for them. */
   mariUnlockedPackIds: string[];
+  /** `mariSeasonKey` of the dated pack window the user picked another pack in; "" follows the dated pack. */
+  mariSeasonOptOut: string;
   chatBackground: string | null;
   /** Default background applied when a Roleplay chat has no saved background yet. */
   defaultRoleplayBackground: string;
@@ -974,6 +979,12 @@ interface UIState {
   omnibarSuggestionsEnabled: boolean;
   /** When true, achievements appear on Home and announce unlocks. Backend tracking stays silent either way. */
   achievementsEnabled: boolean;
+  /** When true, holiday looks such as Halloween never switch on by themselves (lib/seasonal-themes.ts). */
+  seasonalThemesDisabled: boolean;
+  /** Per seasonal theme, the year its greeting was last shown. */
+  seasonalGreetingYears: SeasonalYears;
+  /** Per seasonal theme, the year it was turned off from its greeting. */
+  seasonalThemeOffYears: SeasonalYears;
   /** When true, show the global Music Player surface. */
   musicPlayerEnabled: boolean;
   /** Which Music Player surface to show. */
@@ -1196,6 +1207,8 @@ interface UIState {
   setSettingsTargetControlId: (controlId: string | null) => void;
   requestHome: (request: HomeRequest) => void;
   consumeHomeRequest: () => void;
+  requestWhatsNew: () => void;
+  consumeWhatsNewRequest: () => void;
   setSettingsTargetSectionId: (sectionId: string | null) => void;
   openModal: (type: string, props?: Record<string, unknown>) => void;
   closeModal: () => void;
@@ -1368,6 +1381,9 @@ interface UIState {
   setCommandCenterMariEnabled: (v: boolean) => void;
   setOmnibarSuggestionsEnabled: (v: boolean) => void;
   setAchievementsEnabled: (v: boolean) => void;
+  setSeasonalThemesDisabled: (v: boolean) => void;
+  markSeasonalGreetingShown: (id: SeasonalThemeId, year: number) => void;
+  turnOffSeasonalTheme: (id: SeasonalThemeId, year: number) => void;
   setMusicPlayerEnabled: (v: boolean) => void;
   setMusicPlayerSource: (v: MusicPlayerSource) => void;
   setYoutubePlayerVolume: (v: number) => void;
@@ -1640,7 +1656,11 @@ export function pickSyncedSettings(state: UIState) {
     omnibarWindowHeightRem: normalizeOmnibarWindowHeightRem(state.omnibarWindowHeightRem),
     mariAppearancePackId: getMariAppearancePack(state.mariAppearancePackId).id,
     mariUnlockedPackIds: state.mariUnlockedPackIds,
+    mariSeasonOptOut: state.mariSeasonOptOut,
     achievementsEnabled: state.achievementsEnabled,
+    seasonalThemesDisabled: state.seasonalThemesDisabled,
+    seasonalGreetingYears: state.seasonalGreetingYears,
+    seasonalThemeOffYears: state.seasonalThemeOffYears,
     musicPlayerEnabled: state.musicPlayerEnabled,
     musicPlayerSource: state.musicPlayerSource,
     youtubePlayerVolume: state.youtubePlayerVolume,
@@ -1795,6 +1815,7 @@ export function pickPersistedUIState(state: UIState) {
     omnibarWindowHeightRem: normalizeOmnibarWindowHeightRem(state.omnibarWindowHeightRem),
     mariAppearancePackId: getMariAppearancePack(state.mariAppearancePackId).id,
     mariUnlockedPackIds: state.mariUnlockedPackIds,
+    mariSeasonOptOut: state.mariSeasonOptOut,
     chatBackground: state.chatBackground,
     defaultRoleplayBackground: state.defaultRoleplayBackground,
     chatBackgroundBlur: state.chatBackgroundBlur,
@@ -1878,6 +1899,9 @@ export function pickPersistedUIState(state: UIState) {
     commandCenterMariEnabled: state.commandCenterMariEnabled,
     omnibarSuggestionsEnabled: state.omnibarSuggestionsEnabled,
     achievementsEnabled: state.achievementsEnabled,
+    seasonalThemesDisabled: state.seasonalThemesDisabled,
+    seasonalGreetingYears: state.seasonalGreetingYears,
+    seasonalThemeOffYears: state.seasonalThemeOffYears,
     musicPlayerEnabled: state.musicPlayerEnabled,
     musicPlayerSource: state.musicPlayerSource,
     youtubePlayerVolume: state.youtubePlayerVolume,
@@ -2004,6 +2028,7 @@ export const useUIStore = create<UIState>()(
         lastAppError: null,
         settingsTargetControlId: null,
         homeRequest: null,
+        whatsNewRequested: false,
         settingsTargetSectionId: null,
         modal: null,
         advancedMemoryRequest: null,
@@ -2026,6 +2051,7 @@ export const useUIStore = create<UIState>()(
         omnibarWindowHeightRem: null,
         mariAppearancePackId: "basic",
         mariUnlockedPackIds: [],
+        mariSeasonOptOut: "",
         chatBackground: null,
         defaultRoleplayBackground: DEFAULT_ROLEPLAY_BACKGROUND_URL,
         chatBackgroundBlur: 0,
@@ -2164,6 +2190,9 @@ export const useUIStore = create<UIState>()(
         commandCenterMariEnabled: true,
         omnibarSuggestionsEnabled: true,
         achievementsEnabled: true,
+        seasonalThemesDisabled: false,
+        seasonalGreetingYears: {},
+        seasonalThemeOffYears: {},
         musicPlayerEnabled: true,
         musicPlayerSource: "youtube" as MusicPlayerSource,
         youtubePlayerVolume: 70,
@@ -2374,6 +2403,8 @@ export const useUIStore = create<UIState>()(
         setSettingsTargetControlId: (controlId) => set({ settingsTargetControlId: controlId }),
         requestHome: (homeRequest) => set({ homeRequest }),
         consumeHomeRequest: () => set({ homeRequest: null }),
+        requestWhatsNew: () => set({ whatsNewRequested: true }),
+        consumeWhatsNewRequest: () => set({ whatsNewRequested: false }),
         setSettingsTargetSectionId: (sectionId) => set({ settingsTargetSectionId: sectionId }),
         openModal: (type, props) => set({ modal: { type, props } }),
         closeModal: () => set({ modal: null }),
@@ -2394,7 +2425,13 @@ export const useUIStore = create<UIState>()(
         setMariWindowWidthRem: (width) => set({ mariWindowWidthRem: normalizeMariWindowWidthRem(width) }),
         setOmnibarWindowWidthRem: (width) => set({ omnibarWindowWidthRem: normalizeOmnibarWindowWidthRem(width) }),
         setOmnibarWindowHeightRem: (height) => set({ omnibarWindowHeightRem: normalizeOmnibarWindowHeightRem(height) }),
-        setMariAppearancePack: (packId) => set({ mariAppearancePackId: getMariAppearancePack(packId).id }),
+        // A dated pack is never stored: picking it clears the opt-out, so the user's own pick returns after its window.
+        setMariAppearancePack: (packId) => {
+          const pack = getMariAppearancePack(packId);
+          const seasonal = activeSeasonalMariPack(get().seasonalThemesDisabled);
+          if (pack.season) set({ mariSeasonOptOut: "" });
+          else set({ mariAppearancePackId: pack.id, ...(seasonal && { mariSeasonOptOut: mariSeasonKey(seasonal) }) });
+        },
         markMariPackUnlocked: (packId) =>
           set((state) =>
             state.mariUnlockedPackIds.includes(packId)
@@ -3054,6 +3091,13 @@ export const useUIStore = create<UIState>()(
         setCommandCenterMariEnabled: (v) => set({ commandCenterMariEnabled: v }),
         setOmnibarSuggestionsEnabled: (v) => set({ omnibarSuggestionsEnabled: v }),
         setAchievementsEnabled: (v) => set({ achievementsEnabled: v }),
+        // Switching seasonal themes back on also undoes a "Turn it off" from this year's greeting.
+        setSeasonalThemesDisabled: (v) =>
+          set(v ? { seasonalThemesDisabled: true } : { seasonalThemesDisabled: false, seasonalThemeOffYears: {} }),
+        markSeasonalGreetingShown: (id, year) =>
+          set((state) => ({ seasonalGreetingYears: withSeasonalYear(state.seasonalGreetingYears, id, year) })),
+        turnOffSeasonalTheme: (id, year) =>
+          set((state) => ({ seasonalThemeOffYears: withSeasonalYear(state.seasonalThemeOffYears, id, year) })),
         setMusicPlayerEnabled: (v) => set({ musicPlayerEnabled: v }),
         setMusicPlayerSource: (v) =>
           set({
@@ -3164,6 +3208,7 @@ export const useUIStore = create<UIState>()(
             omnibarWindowWidthRem: OMNIBAR_WINDOW_WIDTH_DEFAULT_REM,
             omnibarWindowHeightRem: null,
             mariAppearancePackId: "basic",
+            mariSeasonOptOut: "",
             chatBackground: null,
             defaultRoleplayBackground: DEFAULT_ROLEPLAY_BACKGROUND_URL,
             chatBackgroundBlur: 0,
@@ -4006,6 +4051,7 @@ export const useUIStore = create<UIState>()(
           mariUnlockedPackIds: Array.isArray(persisted.mariUnlockedPackIds)
             ? persisted.mariUnlockedPackIds.filter((id): id is string => typeof id === "string")
             : [],
+          mariSeasonOptOut: typeof persisted.mariSeasonOptOut === "string" ? persisted.mariSeasonOptOut : "",
           conversationBackgroundImageOpacity: normalizeConversationBackgroundImageOpacity(
             persisted.conversationBackgroundImageOpacity,
           ),

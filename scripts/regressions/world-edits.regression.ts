@@ -397,6 +397,27 @@ try {
     assert.equal(again.statusCode, 200, `a world saved again is checked as compiled: ${again.body}`);
     assert.equal((await save(additions)).statusCode, 200);
     assert.deepEqual((await meta()).gameWorld.edits, additions, "kept with the world");
+    // A maker screen sends the layer it opened: a save by another writer meanwhile is refused, not replaced.
+    const stale = await app.inject({
+      method: "PUT",
+      url: `/api/game/${chat.id}/world/edits`,
+      payload: { edits: additions, expected: { editsVersion: 1 } },
+    });
+    assert.equal(stale.statusCode, 409, stale.body);
+    assert.equal(stale.json().reason, "stale");
+    assert.deepEqual(stale.json().edits, additions, "it comes with the layer that is stored now");
+    assert.deepEqual((await meta()).gameWorld.edits, additions, "and the refused draft changed nothing");
+    assert.equal(
+      (
+        await app.inject({
+          method: "PUT",
+          url: `/api/game/${chat.id}/world/edits`,
+          payload: { edits: additions, expected: additions },
+        })
+      ).statusCode,
+      200,
+      "the layer it opened saves",
+    );
     assert.equal(
       gameWorldFromMetadata(await meta())!.world.places.find((place) => place.id === "e1")?.name,
       "Stonebridge",

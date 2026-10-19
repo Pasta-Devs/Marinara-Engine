@@ -19,7 +19,7 @@ import {
 import { getBuildBranch, getBuildCommit, getBuildLabel } from "../config/build-info.js";
 import { getFileStorageDir } from "../config/runtime-config.js";
 import { requirePrivilegedAccess } from "../middleware/privileged-gate.js";
-import { isLoopbackIp } from "../middleware/ip-allowlist.js";
+import { isLoopbackRequest } from "../middleware/ip-allowlist.js";
 import { UPDATE_CHANNEL_RATE_LIMIT } from "../middleware/rate-limit.js";
 import { noteSessionExitKind } from "../lib/session-postmortem.js";
 import { armShutdownDeadline } from "../lib/shutdown-deadline.js";
@@ -929,7 +929,7 @@ export async function updatesRoutes(app: FastifyInstance) {
       installType,
       serverPlatform,
       channel,
-      channelSwitch && isLoopbackIp(req.ip),
+      channelSwitch && isLoopbackRequest(req),
       gitInstall ? currentBranch : null,
     );
 
@@ -1054,7 +1054,7 @@ export async function updatesRoutes(app: FastifyInstance) {
       currentBranch = await getCurrentBranch(root);
       const currentChannel = await getUpdateChannelForCheckout(root, currentBranch);
       channel = await resolveUpdateChannel(root, req.body?.channel, currentBranch);
-      const localChannelSwitchRequested = currentChannel.id !== channel.id && isLoopbackIp(req.ip);
+      const localChannelSwitchRequested = currentChannel.id !== channel.id && isLoopbackRequest(req);
       const applyHardDisabled = isUpdatesApplyHardDisabled();
       const devBranchCheckout = !isChannelCheckoutBranch(currentBranch);
       if (applyHardDisabled || devBranchCheckout) {

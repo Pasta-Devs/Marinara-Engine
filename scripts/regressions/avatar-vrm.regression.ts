@@ -12,7 +12,9 @@
  *   - a `.vrma` attaches to an existing model, and a new model keeps the idle animation;
  *   - what the importer accepts loads in the stage's own loader (three + three-vrm, run here in Node);
  *   - the renderer's motion maths (expression smoothing, lip sync on faces that hold the mouth, blink timer,
- *     framing, VRM 0.x mirroring) behaves.
+ *     framing, VRM 0.x mirroring) behaves;
+ *   - a generated (body-only) model keeps its colour map when the page's connect-src refuses blob: URLs, sways
+ *     and nods visibly with no idle animation, and a model with a face moves exactly as before.
  * Models are synthetic: no VRM file is committed.
  */
 import assert from "node:assert/strict";
@@ -1018,6 +1020,129 @@ assert.ok(
   assert.equal(softened.blink, 1, "once happy has faded, its blink block no longer holds the eyes open");
   globalThis.fetch = realFetch;
   console.warn = realWarn;
+}
+
+// ── Generated models: colours under the Engine's CSP, and a body that visibly moves ──
+// A model with no mouth shapes shows life and speech with its body: it sways clearly more than a model with a
+// face, and nods with each phrase instead of averaging speech out. A model with a face moves as it always did.
+{
+  const idle = { emotion: "neutral", emotionWeight: 0, viseme: null, mouthOpen: 0, state: "idle" } as const;
+  const swing = (bodyOnly: boolean) => {
+    const state = motion.createIdleMotionState();
+    let min = Infinity;
+    let max = -Infinity;
+    for (let step = 0; step < 300; step += 1) {
+      const pose = motion.computeBodyPose(state, step / 30, idle, true, 1 / 30, bodyOnly);
+      const yaw = pose.hips[1] + pose.neck[1] + pose.head[1];
+      min = Math.min(min, yaw);
+      max = Math.max(max, yaw);
+    }
+    return max - min;
+  };
+  assert.ok(swing(true) > 2 * swing(false), "a body-only model sways visibly more");
+  assert.ok(swing(true) > 0.15, `the head turns several degrees over ten seconds (${swing(true).toFixed(3)} rad)`);
+  /** Talks for `frames` 30 fps frames at each loudness in turn, and returns where the head ends up. */
+  const nodAfter = (bodyOnly: boolean, phrases: Array<{ mouthOpen: number; frames: number }>) => {
+    const state = motion.createIdleMotionState();
+    let pose = motion.computeBodyPose(state, 0, idle, true, 0, bodyOnly);
+    for (const { mouthOpen, frames } of phrases) {
+      for (let step = 0; step < frames; step += 1) {
+        pose = motion.computeBodyPose(state, 0, { ...idle, mouthOpen, state: "talking" }, true, 1 / 30, bodyOnly);
+      }
+    }
+    return { nod: pose.head[0] + pose.neck[0], tilt: pose.head[2] };
+  };
+  const phrase = nodAfter(true, [{ mouthOpen: 1, frames: 6 }]).nod;
+  const pause = nodAfter(true, [
+    { mouthOpen: 1, frames: 6 },
+    { mouthOpen: 0, frames: 6 },
+  ]).nod;
+  assert.ok(phrase > 0.07, `a phrase nods the head within 0.2 s (${phrase.toFixed(3)} rad)`);
+  assert.ok(pause < 0.02, `a pause lifts it again within 0.2 s (${pause.toFixed(3)} rad)`);
+  const face = nodAfter(false, [{ mouthOpen: 1, frames: 6 }]);
+  // The nod a model with a face has always had: 0.04 rad at full voice, eased over 0.35 s.
+  assert.ok(Math.abs(face.nod - 0.04 * (1 - Math.exp(-0.2 / 0.35))) < 1e-12, "a model with a face nods as before");
+  assert.equal(face.tilt, 0, "and does not tilt its head while talking");
+  const off = motion.createIdleMotionState();
+  const still = motion.computeBodyPose(off, 3, { ...idle, mouthOpen: 1, state: "talking" }, false, 1 / 30, true);
+  assert.deepEqual(still.head, [0, 0, 0], "reduced motion keeps the body still");
+}
+// The browser loads a model's pictures through GLTFLoader. Here Node plays a browser whose connect-src refuses
+// blob: URLs, as the Engine's does: fetch() refuses them, and pictures load as images (img-src allows blob:).
+{
+  const { loadStoredVrm } = await import("../../packages/client/src/features/avatars/renderers/vrm/vrm-renderer.js");
+  const { generatedVrm } = await import("./fixtures/avatar-3d-fixtures.js");
+  const served = await generatedVrm([200, 60, 40]);
+  const pictures: string[] = [];
+  class PageImage extends EventTarget {
+    crossOrigin: string | null = null;
+    set src(url: string) {
+      pictures.push(url);
+      setTimeout(() => this.dispatchEvent(new Event("load")));
+    }
+  }
+  const page: Record<string, unknown> = {
+    self: globalThis,
+    document: { createElementNS: () => new PageImage() },
+    createImageBitmap: () => Promise.reject(new Error("Pictures never reach createImageBitmap here.")),
+  };
+  const realFetch = globalThis.fetch;
+  Object.assign(globalThis, page);
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    if (String(input instanceof Request ? input.url : input).startsWith("blob:")) {
+      throw new TypeError("Refused to connect because it violates the document's Content Security Policy.");
+    }
+    return new Response(served);
+  }) as typeof fetch;
+  try {
+    const gltf = await loadStoredVrm(owner, VRM_MODEL_FILE, new AbortController().signal);
+    const materials: Array<Record<string, { image?: unknown } | null>> = [];
+    gltf.scene.traverse((object) => {
+      const material = (object as { material?: Record<string, { image?: unknown } | null> }).material;
+      if (material) materials.push(material);
+    });
+    assert.equal(materials.length, 1, "the generated model has one material");
+    const [material] = materials;
+    assert.ok(material!.map?.image instanceof PageImage, "the colour map loads, as an image");
+    assert.ok(material!.normalMap && material!.roughnessMap, "so do the normal and roughness maps");
+    assert.equal(pictures.length, 3);
+    assert.ok(
+      pictures.every((url) => url.startsWith("blob:")),
+      "from the model's own bytes",
+    );
+
+    // No idle animation: the built-in idle pose turns the Mixamo head, through three-vrm's normalized bones.
+    const vrm = gltf.userData.vrm as {
+      humanoid: {
+        getNormalizedBoneNode(bone: string): { rotation: { set(x: number, y: number, z: number): void } } | null;
+        getRawBoneNode(bone: string): {
+          name: string;
+          getWorldQuaternion<T>(target: T): T;
+          quaternion: { clone(): { angleTo(other: unknown): number } };
+        } | null;
+      };
+      update(dt: number): void;
+    };
+    const head = vrm.humanoid.getRawBoneNode("head")!;
+    // three drops the colon from node names.
+    assert.equal(head.name, "mixamorigHead", "the head is the Mixamo joint itself");
+    const idle = { emotion: "neutral", emotionWeight: 0, viseme: null, mouthOpen: 0, state: "idle" } as const;
+    const state = motion.createIdleMotionState();
+    const turn = (step: number) => {
+      const pose = motion.computeBodyPose(state, step / 30, idle, true, 1 / 30, true);
+      for (const bone of motion.POSE_BONES) vrm.humanoid.getNormalizedBoneNode(bone)?.rotation.set(...pose[bone]);
+      vrm.update(1 / 30);
+      return head.getWorldQuaternion(head.quaternion.clone());
+    };
+    const start = turn(0);
+    let end = start;
+    for (let step = 1; step <= 60; step += 1) end = turn(step);
+    const turned = start.angleTo(end);
+    assert.ok(turned > 0.12, `the head visibly turns on its own within two seconds (${turned.toFixed(3)} rad)`);
+  } finally {
+    globalThis.fetch = realFetch;
+    for (const name of Object.keys(page)) delete (globalThis as Record<string, unknown>)[name];
+  }
 }
 
 console.log("avatar VRM regression passed");

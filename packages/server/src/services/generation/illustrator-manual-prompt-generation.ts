@@ -1,5 +1,10 @@
 import { DEFAULT_GENERATION_PARAMS, type AgentContext } from "@marinara-engine/shared";
-import { NOVELAI_V5_MAX_CHARACTER_PROMPTS } from "../image/character-prompts.js";
+import {
+  buildCharacterAppearanceReferenceBlock,
+  NOVELAI_V5_MAX_CHARACTER_PROMPTS,
+  personaEntityId,
+  readIllustratorImageAppearanceOverride,
+} from "../image/character-prompts.js";
 import { logger } from "../../lib/logger.js";
 import {
   agentRequestOptions,
@@ -163,6 +168,45 @@ function appendConversationMessage(messages: ChatMessage[], role: "user" | "assi
     return;
   }
   messages.push({ role, content: clean, contextKind: "history" });
+}
+
+/**
+ * NovelAI caption rules for a manual prompt writer, followed by the card and persona
+ * Appearance reference when Attach card appearance is on, so the writer turns them
+ * into per-character captions instead of the server appending them to the prompt.
+ */
+export function buildManualIllustratorCharacterPromptInstruction(
+  context: AgentContext,
+  characterPromptInstruction: string | undefined,
+  attachCardAppearance: boolean,
+): string | undefined {
+  if (!characterPromptInstruction) return undefined;
+  if (!attachCardAppearance) return characterPromptInstruction;
+  return [
+    characterPromptInstruction,
+    buildCharacterAppearanceReferenceBlock([
+      ...context.characters.map((char) => ({
+        name: char.name,
+        // #7053: the image override replaces the card appearance for the
+        // manual illustrator prompt only.
+        appearance: readIllustratorImageAppearanceOverride(context.memory, char.id) ?? char.appearance ?? "",
+      })),
+      ...(context.persona
+        ? [
+            {
+              name: context.persona.name,
+              // Personas are keyed by their own id, like characters (#7053).
+              appearance:
+                readIllustratorImageAppearanceOverride(context.memory, personaEntityId(context.memory)) ??
+                context.persona.appearance ??
+                "",
+            },
+          ]
+        : []),
+    ]),
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
 export function buildManualIllustratorPromptMessages(args: {

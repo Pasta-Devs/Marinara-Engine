@@ -21,6 +21,8 @@ export const MARI_RECEIPT_LIMITS = {
   value: 40,
   /** Names per list group (added / edited / removed), and entries per list's items. */
   names: 25,
+  /** Changed keys shown per nested object (an extension's settings, interactive onboarding). */
+  nestedKeys: 12,
   /** Characters per list name. */
   name: 60,
   /** Characters of a lorebook entry's text, shown under its name. */
@@ -194,54 +196,110 @@ function primitiveExcerpt(field: string, before: unknown, after: unknown): MariC
 }
 
 /**
+ * Interactive onboarding (`data.extensions.onboarding`): the facts the card can say in words. Absent
+ * or malformed keeps it a plain nested object; a removed onboarding reads as off with no questions.
+ */
+function onboardingFacts(
+  after: unknown,
+): { enabled: boolean; personaQuestions: number; characterQuestions: number } | undefined {
+  if (after === undefined || after === null) return { enabled: false, personaQuestions: 0, characterQuestions: 0 };
+  if (!isRecord(after) || (!Array.isArray(after.variables) && !Array.isArray(after.cardVariables))) return undefined;
+  const questions = (key: string) => (Array.isArray(after[key]) ? after[key].length : 0);
+  return {
+    enabled: after.enabled === true,
+    personaQuestions: questions("variables"),
+    characterQuestions: questions("cardVariables"),
+  };
+}
+
+/**
+ * A nested object the card cannot draw in full: its changed keys by name, so onboarding or an
+ * extension's settings are visible instead of only counted.
+ */
+function nestedExcerpt(field: string, before: unknown, after: unknown): Extract<MariChangeExcerpt, { kind: "nested" }> {
+  const onboarding = field === "extensions.onboarding" ? onboardingFacts(after) : undefined;
+  const oldObject = isRecord(before) ? before : {};
+  const newObject = isRecord(after) ? after : {};
+  // A key empty on both sides says nothing: a written onboarding's untouched prose fields must not
+  // read as changed just because the whole object is new.
+  const empty = (value: unknown) =>
+    value === undefined ||
+    value === null ||
+    value === "" ||
+    (Array.isArray(value) && value.length === 0) ||
+    (isRecord(value) && Object.keys(value).length === 0);
+  const changed = [...new Set([...Object.keys(oldObject), ...Object.keys(newObject)])]
+    .filter((key) => !NOISE_FIELDS.has(key))
+    .filter((key) => !(empty(oldObject[key]) && empty(newObject[key])))
+    .filter((key) => JSON.stringify(oldObject[key]) !== JSON.stringify(newObject[key]))
+    // The onboarding state word says whether it is on; the key would only repeat it.
+    .filter((key) => !(onboarding && key === "enabled"));
+  return {
+    field,
+    kind: "nested",
+    // Uncapped and unclipped, so two runs on the same object merge into the exact distinct union.
+    keys: changed,
+    count: changed.length,
+    ...(onboarding ? { onboarding } : {}),
+  };
+}
+
+/**
  * The excerpts of one changed field. A nested object (a preset's `parameters`, an extension's settings)
- * is read one level: each changed setting becomes its own `field.key` excerpt. Anything deeper is only
- * counted in `hidden`.
+ * is read one level: each changed setting becomes its own `field.key` excerpt. A deeper object becomes
+ * one `nested` excerpt with its changed keys, and a deeper list becomes a list excerpt. A child change
+ * the card cannot draw at all (a list whose only difference is its order) is counted in `undrawn`.
  */
 function fieldExcerpts(
   field: string,
   rawBefore: unknown,
   rawAfter: unknown,
-): { excerpts: MariChangeExcerpt[]; hidden: number } {
+  undrawn: { count: number } = { count: 0 },
+): MariChangeExcerpt[] {
   const before = parsedJson(rawBefore);
   const after = parsedJson(rawAfter);
   // JSON text swapped for plain text is a rewrite of the text, not a change of its keys.
   if (typeof before !== typeof after && (typeof before === "string" || typeof after === "string")) {
-    return { excerpts: [primitiveExcerpt(field, before, after)], hidden: 0 };
+    return [primitiveExcerpt(field, before, after)];
   }
   if (Array.isArray(before) || Array.isArray(after)) {
     const list = diffList(field, Array.isArray(before) ? before : [], Array.isArray(after) ? after : []);
-    return { excerpts: list ? [list] : [], hidden: 0 };
+    return list ? [list] : [];
   }
   if (isRecord(before) || isRecord(after)) {
     const oldEntries = entriesOf(before);
     const newEntries = entriesOf(after);
     if (oldEntries || newEntries) {
       const list = diffList(field, oldEntries ?? [], newEntries ?? []);
-      return { excerpts: list ? [list] : [], hidden: 0 };
+      return list ? [list] : [];
     }
     const oldObject = isRecord(before) ? before : {};
     const newObject = isRecord(after) ? after : {};
     const excerpts: MariChangeExcerpt[] = [];
-    let hidden = 0;
     for (const key of new Set([...Object.keys(oldObject), ...Object.keys(newObject)])) {
       const nestedBefore = oldObject[key];
       const nestedAfter = newObject[key];
       if (JSON.stringify(nestedBefore) === JSON.stringify(nestedAfter)) continue;
-      if (
-        isRecord(nestedBefore) ||
-        isRecord(nestedAfter) ||
-        Array.isArray(nestedBefore) ||
-        Array.isArray(nestedAfter)
-      ) {
-        hidden += 1;
+      if (Array.isArray(nestedBefore) || Array.isArray(nestedAfter)) {
+        const list = diffList(
+          `${field}.${key}`,
+          Array.isArray(nestedBefore) ? nestedBefore : [],
+          Array.isArray(nestedAfter) ? nestedAfter : [],
+        );
+        if (list) excerpts.push(list);
+        else undrawn.count += 1;
+      } else if (isRecord(nestedBefore) || isRecord(nestedAfter)) {
+        const nested = nestedExcerpt(`${field}.${key}`, nestedBefore, nestedAfter);
+        // Only noisy keys changed inside it (an id): nothing to draw, but the change still counts.
+        if (nested.count === 0 && !nested.onboarding) undrawn.count += 1;
+        else excerpts.push(nested);
       } else {
         excerpts.push(primitiveExcerpt(`${field}.${key}`, nestedBefore, nestedAfter));
       }
     }
-    return { excerpts, hidden };
+    return excerpts;
   }
-  return { excerpts: [primitiveExcerpt(field, before, after)], hidden: 0 };
+  return [primitiveExcerpt(field, before, after)];
 }
 
 function rowFields(row: Record<string, unknown> | null | undefined, nested: boolean) {
@@ -259,7 +317,7 @@ export function buildMariChangeExcerpts(input: {
   children?: ReadonlyArray<{ field: string; change: MariDbRowChange }>;
 }): { changes: MariChangeExcerpt[]; moreChanges: number } {
   const changes: MariChangeExcerpt[] = [];
-  let moreChanges = 0;
+  let unshown = 0;
   const direct = input.direct;
   if (direct?.after) {
     const nested = isRecord(direct.after.data);
@@ -272,9 +330,12 @@ export function buildMariChangeExcerpts(input: {
     const rank = (key: string) => (FIELD_ORDER.includes(key) ? FIELD_ORDER.indexOf(key) : FIELD_ORDER.length);
     keys.sort((a, b) => rank(a) - rank(b));
     for (const key of keys) {
-      const shown = fieldExcerpts(key, before?.[key], after[key]);
-      changes.push(...shown.excerpts);
-      moreChanges += shown.hidden;
+      const undrawn = { count: 0 };
+      const excerpts = fieldExcerpts(key, before?.[key], after[key], undrawn);
+      // A change the card cannot draw (a list whose only difference is its order) still counts, so
+      // the field never disappears from an applied receipt.
+      unshown += excerpts.length === 0 ? Math.max(1, undrawn.count) : undrawn.count;
+      changes.push(...excerpts);
     }
   }
   const lists = new Map<
@@ -297,7 +358,7 @@ export function buildMariChangeExcerpts(input: {
   }
   // A created record leads with its text and lists (what it is), then its switches and numbers.
   if (!direct?.before) changes.sort((a, b) => Number(a.kind === "value") - Number(b.kind === "value"));
-  return capChanges(changes, moreChanges);
+  return capChanges(changes, unshown);
 }
 
 function capChanges(changes: MariChangeExcerpt[], moreChanges: number) {
@@ -336,7 +397,12 @@ function mergeExcerpts(older: MariChangeExcerpt[], newer: MariChangeExcerpt[]): 
           },
         };
       }
-    } else if (prev.kind !== "list" && next.kind !== "list") {
+    } else if (prev.kind === "nested" && next.kind === "nested") {
+      // Both runs changed the same nested object: every key either of them touched, said once. The
+      // union is the exact count; the card decides how many of them to show.
+      const keys = [...new Set([...prev.keys, ...next.keys])];
+      merged[index] = { ...next, keys, count: Math.max(prev.count, next.count, keys.length) };
+    } else if (prev.kind !== "list" && prev.kind !== "nested" && next.kind !== "list" && next.kind !== "nested") {
       // First before, last after: the field from where the run found it to where it left it.
       merged[index] = { ...prev, after: next.after };
     }

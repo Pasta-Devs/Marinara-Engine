@@ -209,6 +209,245 @@ assert.deepEqual(
 );
 assert.equal(preset?.changes?.[0]?.kind === "value" && preset.changes[0].after, "1024");
 
+// ── #7771: a nested change is shown on the card, not only counted ────────────────────────────────
+// Interactive onboarding is the case that started this: it sits at `data.extensions.onboarding`, two
+// levels under the row, so the old builder only counted it in `moreChanges`.
+const question = (id: string, variableName: string) => ({
+  id,
+  variableName,
+  question: `Where is the ${variableName}?`,
+  options: [] as unknown[],
+  allowCustom: true,
+  multiSelect: false,
+  separator: ",",
+  displayMode: "text",
+  optionSort: "manual",
+});
+const emptyOnboarding = {
+  enabled: false,
+  description: "",
+  personality: "",
+  backstory: "",
+  appearance: "",
+  scenario: "",
+  variables: [] as unknown[],
+  cardVariables: [] as unknown[],
+};
+const personaQuestions = ["hometown", "family", "fear", "dream", "voice"].map((name, index) =>
+  question(`p${index}`, name),
+);
+const characterQuestion = question("c0", "title");
+const writtenOnboarding = {
+  ...emptyOnboarding,
+  enabled: true,
+  description: "A swamp ogre.",
+  variables: personaQuestions,
+  cardVariables: [characterQuestion],
+};
+const cardWith = (onboarding: unknown, personality = "Grumpy.") => ({
+  id: "ogre",
+  data: { name: "Ogre", personality, extensions: { onboarding } },
+});
+const onboarded = buildMariWorkspaceActionResult(
+  "character.update",
+  applied([
+    {
+      table: "characters",
+      id: "ogre",
+      action: "update",
+      before: cardWith(emptyOnboarding),
+      after: cardWith(writtenOnboarding, "Grumpy, but polite to guests."),
+    },
+  ]),
+  "So the chat can start with a persona.",
+);
+assert.ok(onboarded);
+const onboarding = onboarded.changes?.find((change) => change.field === "extensions.onboarding");
+assert.ok(onboarding?.kind === "nested", "the onboarding change is its own excerpt");
+assert.deepEqual(onboarding.onboarding, {
+  enabled: true,
+  personaQuestions: 5,
+  characterQuestions: 1,
+});
+assert.deepEqual(
+  onboarding.keys,
+  ["description", "variables", "cardVariables"],
+  "the changed keys; the state word says enabled",
+);
+assert.equal(onboarding.count, 3);
+assert.equal(onboarded.moreChanges, undefined, "a shown nested change is not counted away");
+
+// One question reworded: the same counts, and the questions array is named as what changed.
+const editedOnboarding = {
+  ...writtenOnboarding,
+  variables: [{ ...personaQuestions[0]!, question: "Where is the swamp, exactly?" }, ...personaQuestions.slice(1)],
+};
+const edited = buildMariWorkspaceActionResult(
+  "character.update",
+  applied([
+    {
+      table: "characters",
+      id: "ogre",
+      action: "update",
+      before: cardWith(writtenOnboarding),
+      after: cardWith(editedOnboarding),
+    },
+  ]),
+);
+const editedNested = edited?.changes?.find((change) => change.field === "extensions.onboarding");
+assert.ok(editedNested?.kind === "nested");
+assert.deepEqual(editedNested.keys, ["variables"], "only the questions changed");
+assert.equal(editedNested.onboarding?.personaQuestions, 5, "the counts still describe the onboarding");
+
+// A card that had no onboarding: only what she wrote is named, not the untouched empty prose fields.
+const addedOnboarding = buildMariWorkspaceActionResult(
+  "character.update",
+  applied([
+    {
+      table: "characters",
+      id: "ogre",
+      action: "update",
+      before: { id: "ogre", data: { name: "Ogre", personality: "Grumpy." } },
+      after: cardWith(writtenOnboarding),
+    },
+  ]),
+);
+const addedNested = addedOnboarding?.changes?.find((change) => change.field === "extensions.onboarding");
+assert.ok(addedNested?.kind === "nested");
+assert.deepEqual(addedNested.keys, ["description", "variables", "cardVariables"]);
+
+// A list whose only difference is its order cannot be drawn: it still counts, so the receipt is not empty.
+const reordered = buildMariWorkspaceActionResult(
+  "preset.update",
+  applied([
+    {
+      table: "prompt_presets",
+      id: "reorder",
+      action: "update",
+      before: { id: "reorder", name: "Reorder", parameters: { stopStrings: ["a", "b"] } },
+      after: { id: "reorder", name: "Reorder", parameters: { stopStrings: ["b", "a"] } },
+    },
+  ]),
+);
+assert.equal(reordered?.changes?.length, 0, "an order-only list change has no excerpt");
+assert.equal(reordered?.moreChanges, 1, "but it is still counted as changed");
+assert.match(
+  receiptSummary(reordered!, (key, options) => `${key}${options ? JSON.stringify(options) : ""}`, "en"),
+  /marichangereceipt\.labelMany\{"count":1\}/u,
+  "a receipt with nothing nameable still says how many changed",
+);
+
+// Inside a nested object, only noisy keys changed (an id): nothing to draw, and it still counts.
+const noiseOnly = buildMariWorkspaceActionResult(
+  "character.update",
+  applied([
+    {
+      table: "characters",
+      id: "ogre",
+      action: "update",
+      before: { id: "ogre", data: { name: "Ogre", extensions: { plugin_settings: { id: "one" } } } },
+      after: { id: "ogre", data: { name: "Ogre", extensions: { plugin_settings: { id: "two" } } } },
+    },
+  ]),
+);
+assert.equal(noiseOnly?.changes?.length, 0, "an id-only nested change draws nothing");
+assert.equal(noiseOnly?.moreChanges, 1, "but it is still counted as changed");
+
+// The same list beside a drawable setting: the setting shows, and the dropped list still counts.
+const reorderedBeside = buildMariWorkspaceActionResult(
+  "preset.update",
+  applied([
+    {
+      table: "prompt_presets",
+      id: "reorder",
+      action: "update",
+      before: { id: "reorder", name: "Reorder", parameters: { temperature: 0.8, stopStrings: ["a", "b"] } },
+      after: { id: "reorder", name: "Reorder", parameters: { temperature: 0.9, stopStrings: ["b", "a"] } },
+    },
+  ]),
+);
+assert.deepEqual(
+  reorderedBeside?.changes?.map((change) => change.field),
+  ["parameters.temperature"],
+  "the drawable setting is shown",
+);
+assert.equal(reorderedBeside?.moreChanges, 1, "the list that cannot be drawn is still counted");
+
+// Two lists that cannot be drawn in one field count as two, with or without a drawable sibling.
+const twoUndrawn = buildMariWorkspaceActionResult(
+  "preset.update",
+  applied([
+    {
+      table: "prompt_presets",
+      id: "two",
+      action: "update",
+      before: { id: "two", name: "Two", parameters: { stopStrings: ["a", "b"], otherList: ["x", "y"] } },
+      after: { id: "two", name: "Two", parameters: { stopStrings: ["b", "a"], otherList: ["y", "x"] } },
+    },
+  ]),
+);
+assert.equal(twoUndrawn?.moreChanges, 2, "each undrawn change counts once");
+
+// Nested keys are stored uncapped so a merge can count the exact union; the card caps what it shows.
+const keyRange = (offset: number) => Array.from({ length: 8 }, (_, index) => `key${offset + index}`);
+const nestedResult = (keys: string[]): MariWorkspaceActionResult => ({
+  status: "updated",
+  resource: { kind: "character", id: "merge-keys", label: "Merge" },
+  changedFields: ["extensions"],
+  summary: "Updated character.",
+  changes: [{ field: "extensions.settings", kind: "nested", keys, count: keys.length }],
+});
+const [mergedKeys] = mergeMariActionResults([nestedResult(keyRange(0)), nestedResult(keyRange(7))]);
+const mergedNested = mergedKeys?.changes?.[0];
+assert.ok(mergedNested?.kind === "nested");
+assert.equal(mergedNested.count, 15, "8 + 8 keys with one shared count 15 once");
+assert.equal(mergedNested.keys.length, 15, "keys are kept uncapped for the merge");
+assert.ok(mergedNested.keys.length > MARI_RECEIPT_LIMITS.nestedKeys, "more keys than the card shows");
+
+// Any other deeper object gets the general fallback: its changed keys by name.
+const plugin = buildMariWorkspaceActionResult(
+  "character.update",
+  applied([
+    {
+      table: "characters",
+      id: "ogre",
+      action: "update",
+      before: { id: "ogre", data: { name: "Ogre", extensions: { plugin_settings: { depth: 1, mode: "x" } } } },
+      after: { id: "ogre", data: { name: "Ogre", extensions: { plugin_settings: { depth: 2, mode: "x" } } } },
+    },
+  ]),
+);
+const settings = plugin?.changes?.find((change) => change.field === "extensions.plugin_settings");
+assert.ok(settings?.kind === "nested");
+assert.deepEqual(settings.keys, ["depth"]);
+assert.equal(settings.onboarding, undefined, "only the onboarding object gets the counts");
+assert.equal(plugin?.moreChanges, undefined);
+
+// A deeper list keeps its names (lorebook-style), instead of being counted.
+const deeperList = buildMariWorkspaceActionResult(
+  "preset.update",
+  applied([
+    {
+      table: "prompt_presets",
+      id: "pre",
+      action: "update",
+      before: { id: "pre", data: { name: "Preset", parameters: { stopStrings: ["</s>"] } } },
+      after: { id: "pre", data: { name: "Preset", parameters: { stopStrings: ["</s>", "\nUser:"] } } },
+    },
+  ]),
+);
+const stopStrings = deeperList?.changes?.find((change) => change.field === "parameters.stopStrings");
+assert.ok(stopStrings?.kind === "list");
+assert.deepEqual(stopStrings.added, ["User:"], "names are flattened and clipped like every list name");
+
+// The head line names the nested thing ("onboarding"), not the container ("extensions").
+{
+  const t = (key: string, options?: Record<string, unknown>) => `${key}${options ? JSON.stringify(options) : ""}`;
+  const summary = receiptSummary(onboarded!, t, "en");
+  assert.match(summary, /onboarding/u, "the summary says what changed");
+  assert.doesNotMatch(summary, /extensions/u);
+}
+
 // Boilerplate reasons say nothing and are dropped.
 assert.equal(mariReceiptReason("User asked to make Shrek less repetitive"), undefined);
 assert.equal(mariReceiptReason("Update requested by user"), undefined);
@@ -393,6 +632,11 @@ const card = readFileSync(
 assert.doesNotMatch(card, /mariappliededit\.keep|marichangereceipt\.keepAll|, true\)/u, "a change card has no Keep");
 assert.match(card, /marichangereceipt\.showAll/u, "every changed field is reachable from the card");
 assert.match(card, /marichangereceipt\.createdMany/u, "three new characters read as Created 3 characters");
+assert.match(
+  card,
+  /marichangereceipt\.onboardingOn/u,
+  "the card says whether onboarding is on, not just that a field changed",
+);
 
 // A new lorebook's head line counts its fields and its entries apart: "3 fields · 3 entries", not "6 fields".
 {

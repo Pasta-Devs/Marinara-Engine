@@ -32,10 +32,11 @@ registerPreloadErrorRecovery();
 // M16 tier 1: Home's first-paint Mari sprites start with the page instead of after the lazy Home
 // chunk renders. Selected pack only. Kept referenced, so the <img> tags reuse these images instead of
 // fetching (or revalidating) them again.
-const { mariAppearancePackId, mariUnlockedPackIds } = useUIStore.getState();
-const firstPaintMariImages = mariAssetUrls(resolveMariAppearancePack(mariAppearancePackId, mariUnlockedPackIds), 1).map(
-  (url) => Object.assign(new Image(), { fetchPriority: "high", src: url }),
-);
+const { mariAppearancePackId, mariUnlockedPackIds, mariSeasonOptOut, seasonalThemesDisabled } = useUIStore.getState();
+const firstPaintMariImages = mariAssetUrls(
+  resolveMariAppearancePack(mariAppearancePackId, mariUnlockedPackIds, null, mariSeasonOptOut, seasonalThemesDisabled),
+  1,
+).map((url) => Object.assign(new Image(), { fetchPriority: "high", src: url }));
 Object.assign(globalThis, { __marinaraFirstPaintMari: firstPaintMariImages });
 
 const queryClient = new QueryClient({

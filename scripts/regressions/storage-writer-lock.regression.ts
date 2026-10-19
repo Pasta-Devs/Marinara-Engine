@@ -12,7 +12,9 @@ import {
   STORAGE_WRITER_LEASE_FILENAME,
   STORAGE_WRITER_OWNER_FILENAME,
   StorageWriterLeaseError,
+  writerLeaseBootIdsMatch,
   writerLeaseStorageIsMachineLocal,
+  writerLeaseWindowsStorageIsMachineLocal,
 } from "../../packages/server/src/db/file-backed-store.js";
 import { appSettings, lorebookEntries, lorebooks } from "../../packages/server/src/db/schema/index.js";
 import { getMariDbService } from "../../packages/server/src/services/mari-db/mari-db.service.js";
@@ -455,6 +457,242 @@ try {
         "a lease naming a different machine is never reclaimed through the storage proof",
       );
       rmSync(leasePath(dir), { recursive: true });
+
+      // The mirror case (#7801): the lease recorded a machine ID, but this
+      // process could not read its own (a timed-out Windows probe), so the ID
+      // comparison can never match. On machine-local storage the writer ran
+      // here, so the PID checks decide: an exited writer's lease is
+      // reclaimed, a live one keeps it, and shared storage stays locked.
+      const unidentifiedSelf = {
+        ...localStorage,
+        writerLeaseHostId: null,
+        writerLeaseBootId: "writer-lock-current-boot",
+      };
+      const writeIdentifiedLease = (overrides: Partial<LeaseRecord>) =>
+        writeUnidentifiedLease({
+          version: 4,
+          pidNamespace,
+          hostId: "stable-id-recorded-by-the-previous-run",
+          bootId: "writer-lock-current-boot",
+          ...overrides,
+        });
+
+      writeIdentifiedLease({ pid: await exitedPid(), token: "identified-exited-pid-token" });
+      const afterProbeTimeout = await createFileNativeDB(unidentifiedSelf);
+      assert.notEqual(
+        readJson<LeaseRecord>(ownerPath(dir)).token,
+        "identified-exited-pid-token",
+        "an exited writer's lease is reclaimed when this process cannot read its own machine ID",
+      );
+      await afterProbeTimeout._fileStore.close();
+
+      writeIdentifiedLease({ pid: process.pid, token: "identified-live-pid-token" });
+      await assert.rejects(
+        createFileNativeDB(unidentifiedSelf),
+        StorageWriterLeaseError,
+        "a live writer keeps its lease when this process cannot read its own machine ID",
+      );
+      rmSync(leasePath(dir), { recursive: true });
+
+      writeIdentifiedLease({ pid: await exitedPid(), token: "identified-shared-storage-token" });
+      await assert.rejects(
+        createFileNativeDB({ ...unidentifiedSelf, writerLeaseStorageIsMachineLocal: false }),
+        StorageWriterLeaseError,
+        "without its own machine ID, this process still never reclaims a lease on shared storage",
+      );
+      rmSync(leasePath(dir), { recursive: true });
+
+      // Windows boot ids are LastBootUpTime timestamps that drift by seconds
+      // within one boot (#7801); only there do near values count as one boot.
+      const bootA = "2026-10-15T19:54:17.5000180Z";
+      const bootAJittered = "2026-10-15T19:54:23.2735070Z";
+      assert.equal(
+        writerLeaseBootIdsMatch(bootA, bootAJittered, "win32"),
+        true,
+        "Windows boot time jitter is one boot",
+      );
+      assert.equal(
+        writerLeaseBootIdsMatch(bootA, "2026-10-15T21:54:17.5000180Z", "win32"),
+        false,
+        "a Windows boot hours later is a different boot",
+      );
+      assert.equal(writerLeaseBootIdsMatch(bootA, bootAJittered, "linux"), false, "other platforms compare exactly");
+      assert.equal(
+        writerLeaseBootIdsMatch("writer-lock-previous-boot", "writer-lock-current-boot", "win32"),
+        false,
+        "non-timestamp boot ids compare exactly on Windows",
+      );
+
+      // Windows has no filesystem magic, so its storage proof (#7801) resolves
+      // the storage path and asks for the drive type. Only a Fixed drive
+      // counts. A share, a mapped network drive (it resolves to its share), any
+      // other drive type, and a failed or timed-out probe keep the lease locked.
+      const windowsStorage = "C:\\Users\\me\\Marinara-Engine\\packages\\server\\data\\storage";
+      let driveProbes: string[] = [];
+      const driveType = (type: string | null) => (driveRoot: string) => {
+        driveProbes.push(driveRoot);
+        return type;
+      };
+      const windowsLocal = (realpath: string, type: string | null) =>
+        writerLeaseWindowsStorageIsMachineLocal(dir, () => realpath, driveType(type));
+
+      assert.equal(windowsLocal(windowsStorage, "Fixed"), true, "a Fixed drive is machine-local");
+      assert.deepEqual(driveProbes, ["C:\\"], "the probe is asked about the storage path's drive root");
+      assert.equal(windowsLocal("d:\\Marinara\\storage", "Fixed"), true, "a lower-case drive letter is a drive path");
+      assert.equal(windowsLocal("\\\\?\\C:\\Marinara\\storage", "Fixed"), true, "a long-path prefix keeps its drive");
+      assert.deepEqual(driveProbes, ["C:\\", "D:\\", "C:\\"], "drive roots are passed upper-case");
+      driveProbes = [];
+      for (const notADrivePath of [
+        "\\\\nas\\marinara\\storage",
+        "\\\\?\\UNC\\nas\\marinara\\storage",
+        "\\\\?\\Volume{0b7a2a1e-0000-0000-0000-100000000000}\\storage",
+        "\\\\.\\C:\\Marinara\\storage",
+        "Marinara\\storage",
+      ]) {
+        assert.equal(windowsLocal(notADrivePath, "Fixed"), false, `${notADrivePath} is not machine-local`);
+      }
+      assert.deepEqual(driveProbes, [], "a path without a drive letter is never sent to the drive probe");
+      for (const type of ["Network", "Removable", "CDRom", "Ram", "Unknown", "NoRootDirectory", null]) {
+        assert.equal(
+          windowsLocal(windowsStorage, type),
+          false,
+          `a ${type ?? "failed or timed-out"} drive is not local`,
+        );
+      }
+      assert.equal(
+        writerLeaseWindowsStorageIsMachineLocal(
+          dir,
+          () => windowsStorage,
+          () => {
+            throw new Error("probe crashed");
+          },
+        ),
+        false,
+        "a probe that throws proves nothing",
+      );
+      assert.equal(
+        writerLeaseWindowsStorageIsMachineLocal(
+          dir,
+          () => {
+            throw Object.assign(new Error("gone"), { code: "ENOENT" });
+          },
+          driveType("Fixed"),
+        ),
+        false,
+        "storage whose path cannot be resolved is not local",
+      );
+
+      // Both remaining #7801 cases, on the Windows decision path:
+      // (a) this process's MachineGuid probe timed out (host id null), and the
+      //     lease recorded a machine ID;
+      // (b) the lease came from a process whose probe failed (hostId null, the
+      //     reporter's current lease), and this process has an ID.
+      // Windows has no PID namespaces, so once the drive proof holds, an exited
+      // PID frees the lease and a live one keeps it, even if possibly reused.
+      // Boot ids are the reporter's two values for one boot.
+      const windowsSelf = (hostId: string | null) => ({
+        writerLeasePlatform: "win32" as const,
+        writerLeaseRealpath: () => windowsStorage,
+        writerLeaseDriveType: driveType("Fixed"),
+        writerLeaseHostId: hostId,
+        writerLeaseBootId: bootAJittered,
+      });
+      const writeWindowsLease = (overrides: Partial<LeaseRecord>) =>
+        writeUnidentifiedLease({
+          version: 4,
+          bootId: bootA,
+          // Before this process started, so a PID-reuse check would call
+          // our own live PID reused (on Linux, where that check reads /proc).
+          acquiredAt: "2026-10-17T17:14:37.977Z",
+          ...overrides,
+        });
+      const windowsCases = [
+        {
+          label: "(a)",
+          self: windowsSelf(null),
+          recordedHostId: "5d914b1b1f5420a42c3fbb67f110ce87f8740085653b2e790c4114fb2c94ea5b",
+        },
+        { label: "(b)", self: windowsSelf("current-machine-guid-hash"), recordedHostId: null },
+      ];
+      for (const { label, self, recordedHostId } of windowsCases) {
+        writeWindowsLease({ hostId: recordedHostId, pid: await exitedPid(), token: `windows-${label}-exited` });
+        const afterWindowsCrash = await createFileNativeDB(self);
+        assert.notEqual(
+          readJson<LeaseRecord>(ownerPath(dir)).token,
+          `windows-${label}-exited`,
+          `case ${label}: an exited Windows writer's lease on a Fixed drive is reclaimed`,
+        );
+        await afterWindowsCrash._fileStore.close();
+
+        writeWindowsLease({ hostId: recordedHostId, pid: process.pid, token: `windows-${label}-live` });
+        await assert.rejects(
+          createFileNativeDB(self),
+          StorageWriterLeaseError,
+          `case ${label}: a live Windows writer keeps its lease, even if its PID might have been reused`,
+        );
+        rmSync(leasePath(dir), { recursive: true });
+
+        writeWindowsLease({ hostId: recordedHostId, pid: await exitedPid(), token: `windows-${label}-network` });
+        await assert.rejects(
+          createFileNativeDB({ ...self, writerLeaseDriveType: driveType("Network") }),
+          StorageWriterLeaseError,
+          `case ${label}: a lease on a network drive is never reclaimed`,
+        );
+        await assert.rejects(
+          createFileNativeDB({ ...self, writerLeaseRealpath: () => "\\\\nas\\marinara\\storage" }),
+          StorageWriterLeaseError,
+          `case ${label}: a mapped drive that resolves to a share is never reclaimed`,
+        );
+        await assert.rejects(
+          createFileNativeDB({ ...self, writerLeaseDriveType: driveType(null) }),
+          StorageWriterLeaseError,
+          `case ${label}: a failed or timed-out drive probe never reclaims`,
+        );
+        rmSync(leasePath(dir), { recursive: true });
+      }
+
+      // A Windows writer from an earlier boot of this machine is gone, whatever
+      // now runs under its PID.
+      writeWindowsLease({
+        hostId: null,
+        bootId: "2026-10-14T08:00:00.0000000Z",
+        pid: process.pid,
+        token: "windows-old",
+      });
+      const afterWindowsReboot = await createFileNativeDB(windowsSelf("current-machine-guid-hash"));
+      assert.notEqual(
+        readJson<LeaseRecord>(ownerPath(dir)).token,
+        "windows-old",
+        "a Windows writer from an earlier boot is reclaimed on a Fixed drive",
+      );
+      await afterWindowsReboot._fileStore.close();
+
+      // The Fixed drive proves where the files are, not who wrote them. A Linux
+      // writer on the same disk (WSL, Docker Desktop, a VM share) has its own
+      // PIDs and boot id, and another PC can reach this disk through a share;
+      // their leases stay locked, and the drive is not even probed for them.
+      // A lease without a Windows boot id cannot show that Windows wrote it,
+      // so it keeps the manual-recovery path too.
+      driveProbes = [];
+      for (const [foreignWriter, overrides] of [
+        ["a Linux writer", { bootId: "3f1c2d7e-8b6a-4c1e-9f0a-5d2b7e8c9a10", pidNamespace: "pid:[4026531836]" }],
+        ["a containerised writer", { bootId: "3f1c2d7e-8b6a-4c1e-9f0a-5d2b7e8c9a10", scopeId: "container-scope" }],
+        ["another PC", { hostname: `${leaseTemplate.hostname}-OTHER` }],
+        ["a writer whose boot id probe failed", { version: 2 as const, bootId: undefined }],
+      ] as const) {
+        writeWindowsLease({ hostId: null, pid: await exitedPid(), token: "foreign-writer", ...overrides });
+        await assert.rejects(
+          createFileNativeDB(windowsSelf("current-machine-guid-hash")),
+          StorageWriterLeaseError,
+          `the Windows storage proof never reclaims a lease from ${foreignWriter}`,
+        );
+        rmSync(leasePath(dir), { recursive: true });
+      }
+      assert.deepEqual(driveProbes, [], "the drive is probed only for a lease a native Windows writer left");
+
+      const freshWindowsStart = await createFileNativeDB(windowsSelf(null));
+      assert.deepEqual(driveProbes, [], "a start that finds no lease never probes the drive");
+      await freshWindowsStart._fileStore.close();
 
       if (linuxLikePlatform) {
         assert.equal(

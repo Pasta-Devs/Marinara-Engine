@@ -55,6 +55,10 @@ export const OMNIBAR_SETTINGS_TOGGLE_BINDINGS: Readonly<Record<string, OmnibarSe
     get: (state) => state.achievementsEnabled,
     set: (value) => useUIStore.getState().setAchievementsEnabled(value),
   },
+  "disable-seasonal-themes": {
+    get: (state) => state.seasonalThemesDisabled,
+    set: (value) => useUIStore.getState().setSeasonalThemesDisabled(value),
+  },
   "mini-mari": {
     get: (state) => state.chibiProfessorMariEnabled,
     set: (value) => useUIStore.getState().setChibiProfessorMariEnabled(value),

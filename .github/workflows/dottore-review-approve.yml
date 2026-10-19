@@ -1,0 +1,72 @@
+name: Dottore Approval Dispatch
+
+# When a check workflow finishes on a pull request head that Dottore discharged, ask the trusted reviewer whether it can
+# approve that head now. List here the workflows that report the base branch's required checks.
+on:
+  workflow_run:
+    workflows: [Pull Request Checks, CodeQL, Owner Approval Review Evaluator]
+    types: [completed]
+
+permissions:
+  actions: write
+  contents: read
+  issues: read
+  pull-requests: read
+
+concurrency:
+  group: dottore-approve-dispatch-${{ github.event.workflow_run.head_sha }}
+  cancel-in-progress: true
+
+jobs:
+  dispatch:
+    name: Dottore discharge dispatch
+    if: github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch Dottore's approval check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          PR_FROM_RUN: ${{ github.event.workflow_run.pull_requests[0].number }}
+          HEAD_OWNER: ${{ github.event.workflow_run.head_repository.owner.login }}
+          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          WORKFLOW_NAME: ${{ github.event.workflow_run.name }}
+          DOTTORE_BASE_REFS: ${{ vars.DOTTORE_BASE_REFS || 'refactor,main,staging' }}
+        run: |
+          # Inert: reads the event and PR metadata and dispatches the trusted workflow; runs no PR code.
+          PR_NUM="$PR_FROM_RUN"
+          if [ -z "$PR_NUM" ]; then
+            # A fork PR's run lists no pull requests, and the base repository's commit lookup does not know a fork's
+            # commit either; find the open PR from the run's head repository and branch. Its head is checked below.
+            PR_NUM=$(gh api --method GET "repos/${{ github.repository }}/pulls" -f state=open -f head="$HEAD_OWNER:$HEAD_BRANCH" \
+              --jq '.[0].number // empty')
+          fi
+          if [ -z "$PR_NUM" ]; then
+            echo "No open pull request has head $HEAD_SHA."
+            exit 0
+          fi
+          read -r STATE DRAFT PR_HEAD TARGET_REF < <(gh pr view "$PR_NUM" --repo "${{ github.repository }}" \
+            --json state,isDraft,headRefOid,baseRefName --jq '"\(.state) \(.isDraft) \(.headRefOid) \(.baseRefName)"')
+          if [ "$STATE" != OPEN ] || [ "$DRAFT" = true ] || [ "$PR_HEAD" != "$HEAD_SHA" ]; then
+            echo "PR #$PR_NUM is not an open, ready PR at $HEAD_SHA."
+            exit 0
+          fi
+          if ! jq -en --arg refs "$DOTTORE_BASE_REFS" --arg ref "$TARGET_REF" '$refs | split(",") | index($ref) != null' >/dev/null; then
+            echo "Base ref $TARGET_REF is not reviewed by Dottore."
+            exit 0
+          fi
+          # Only a head Dottore discharged can be approved; skip the dispatch for every other run. The markers are read
+          # from the walkthrough's leading marker lines only; the rest is model-written text.
+          WALKTHROUGH=$(gh api "repos/${{ github.repository }}/issues/$PR_NUM/comments?per_page=100" --paginate \
+            --jq '.[] | select(.user.login == "github-actions[bot]") | select(.body | contains("<!-- dottore:walkthrough -->")) | (.body | split("\n")) as $l | $l[:($l | map(startswith("<!-- dottore:") | not) | index(true) // length)] | .[]' )
+          if ! grep -q "<!-- dottore:last-reviewed-sha=$HEAD_SHA -->" <<<"$WALKTHROUGH" || ! grep -q "<!-- dottore:discharge -->" <<<"$WALKTHROUGH"; then
+            echo "Dottore has not discharged $HEAD_SHA."
+            exit 0
+          fi
+          gh workflow run dottore-review.yml \
+            --repo "${{ github.repository }}" \
+            --ref "$TARGET_REF" \
+            -f pr_number="$PR_NUM" \
+            -f comment_body="$WORKFLOW_NAME completed" \
+            -f review_mode=approve \
+            -f requested_by=github-actions

@@ -28,6 +28,7 @@ import {
   type TTSVoicesResponse,
 } from "@marinara-engine/shared";
 import { createAppSettingsStorage } from "../services/storage/app-settings.storage.js";
+import { TTS_EMOTION_CUE_GUIDANCE } from "../services/tts-emotion-guidance.js";
 import { createConnectionsStorage } from "../services/storage/connections.storage.js";
 import { encryptApiKey, decryptApiKey } from "../utils/crypto.js";
 import { getChatGenerationTimeoutMs, isTtsLocalUrlsEnabled } from "../config/runtime-config.js";
@@ -377,7 +378,7 @@ export function buildRoleplaySpeakerExtractorPrompt(input: {
     ? `This response was generated for ${input.messageAuthor}. Use that exact name for dialogue not explicitly attributed to a different speaker.`
     : "";
   const emotionInstruction = input.includeEmotions
-    ? 'In "speech", copy the exact dialogue and insert emotional indicators directly in [brackets] before the words they affect. You may use multiple bracketed emotional indicators within a dialogue line, including pauses, small sounds, sighs, and different intonations for different parts. Do not otherwise add, remove, reorder, or rewrite any dialogue.'
+    ? `In "speech", copy the exact dialogue and insert emotional indicators directly in [brackets] before the words they affect. ${TTS_EMOTION_CUE_GUIDANCE} Preserve every original word, punctuation mark, quote, and space; only insert bracketed cues and their separating spaces. Do not otherwise add, remove, reorder, or rewrite any dialogue.`
     : 'Do not add emotional indicators. Omit the "speech" field.';
 
   return `You are preparing a message for text-to-speech reading from a roleplay chat between ${roleplayName} and ${input.user}, but it is possible there are other characters involved and mentioned in the message itself.
@@ -396,7 +397,7 @@ A pregnant pause settles in the room.
 "Skill issue," Mari chuckles, crossing her arms.
 
 Example output:
-{"dialogue":[{"speaker":"Dottore","text":"\\\"I've had enough of your shenanigans,\\\""${input.includeEmotions ? ',"speech":"[irritated] \\\"I\'ve had enough of your shenanigans,\\\""' : ""}},{"speaker":"Dottore","text":"\\\"You're wasting my time, subject. This is your last chance to change my mind before I send you to Lab Thirteen.\\\""${input.includeEmotions ? ',"speech":"[irritated] \\\"You\'re wasting my time, subject. [sigh] This is your last chance to change my mind before I send you to Lab Thirteen.\\\""' : ""}},{"speaker":"Mari","text":"\\\"Skill issue,\\\""${input.includeEmotions ? ',"speech":"[chuckle] \\\"Skill issue,\\\""' : ""}}]}`;
+{"dialogue":[{"speaker":"Dottore","text":"\\\"I've had enough of your shenanigans,\\\""${input.includeEmotions ? ',"speech":"[Low, steady voice, restrained irritation] \\\"I\'ve had enough of your shenanigans,\\\""' : ""}},{"speaker":"Dottore","text":"\\\"You're wasting my time, subject. This is your last chance to change my mind before I send you to Lab Thirteen.\\\""${input.includeEmotions ? ',"speech":"[Firm, controlled impatience] \\\"You\'re wasting my time, subject. [sigh] This is your last chance to change my mind before I send you to Lab Thirteen.\\\""' : ""}},{"speaker":"Mari","text":"\\\"Skill issue,\\\""${input.includeEmotions ? ',"speech":"[Dry chuckle, faint amusement] \\\"Skill issue,\\\""' : ""}}]}`;
 }
 
 export function buildRoleplaySpeakerExtractorUserPrompt(message: string): string {

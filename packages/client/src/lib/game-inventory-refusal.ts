@@ -35,3 +35,45 @@ export function gameInventoryRefusalKeys(
     reason: `ui.game.gamesurfacecomponent.inventoryRefusedBecause.${reason.replace(/-([a-z])/g, (_, letter: string) => letter.toUpperCase())}`,
   };
 }
+
+type Localize = (key: string, values?: Record<string, string>) => string;
+
+/** What a refused inventory change says, by why it was refused. Shared by the inventory panel and the
+ *  State Editor's Game data inventory. `who` is the bag a weight was too much for: a name, "" for the
+ *  player's own, or absent when the whole party was asked. `fallbackKey` words any other reason. */
+export function describeGameInventoryRefusal(
+  localizeUi: Localize,
+  reason: string | undefined,
+  value1: string,
+  fallbackKey: string,
+  who?: string,
+): string {
+  switch (reason) {
+    case "not-ruleset-item":
+      return localizeUi("ui.game.gamesurfacecomponent.notARulesetItemValue1", { value1 });
+    case "too-heavy":
+      return who === undefined
+        ? localizeUi("ui.game.gamesurfacecomponent.nobodyCanCarryValue1", { value1 })
+        : who
+          ? localizeUi("ui.game.gamesurfacecomponent.whoCannotCarryValue1", { who, value1 })
+          : localizeUi("ui.game.gamesurfacecomponent.youCannotCarryValue1", { value1 });
+    case "cursed":
+      return localizeUi("ui.game.gamesurfacecomponent.cursedValue1", { value1 });
+    case "service":
+      return localizeUi("ui.game.gamesurfacecomponent.serviceValue1", { value1 });
+    case "no-slot":
+      return localizeUi("ui.game.gamesurfacecomponent.noSlotValue1", { value1 });
+    case "not-wearable":
+      return localizeUi("ui.game.gamesurfacecomponent.notWearableValue1", { value1 });
+    case "not-bindable":
+      return localizeUi("ui.game.gamesurfacecomponent.notBindableValue1", { value1 });
+    case "binding-full":
+      return localizeUi("ui.game.gamesurfacecomponent.bindingFullValue1", { value1 });
+    case "needs-worn":
+      return localizeUi("ui.game.gamesurfacecomponent.needsWornValue1", { value1 });
+    case "missing-stack":
+      return localizeUi("ui.game.gamesurfacecomponent.thatStackIsNoLongerInYourInventory");
+    default:
+      return localizeUi(fallbackKey, { value1 });
+  }
+}

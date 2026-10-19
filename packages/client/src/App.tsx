@@ -23,6 +23,7 @@ import { PersonalExtensionInjector } from "./components/layout/PersonalExtension
 import { ModelDownloadModal } from "./components/modals/ModelDownloadModal";
 import { WhatsNewModal } from "./components/modals/WhatsNewModal";
 import { StorageMigrationNoticeModal } from "./components/modals/StorageMigrationNoticeModal";
+import { SeasonalGreetingModal } from "./components/modals/SeasonalGreetingModal";
 import { AppDialogRenderer } from "./components/ui/AppDialogRenderer";
 import { ChibiProfessorMariEasterEgg } from "./components/ui/ChibiProfessorMariEasterEgg";
 import { CsrfOriginWarningBanner } from "./components/diagnostics/CsrfOriginWarningBanner";
@@ -59,6 +60,7 @@ import { getChatWidgetFontFamily, stripFontFamilyQuotes, toCssFontFamilyValue } 
 import { useLegacyThemeMigration, useThemes } from "./hooks/use-themes";
 import { useSettingsSync } from "./hooks/use-settings-sync";
 import { useStorageMigrationNotice } from "./hooks/use-storage-migration-notice";
+import { useSeasonalTheme } from "./hooks/use-seasonal-theme";
 import { useCustomNotificationSoundStatus } from "./hooks/use-custom-notification-sound";
 import { useReducedAmbientEffects } from "./hooks/use-reduced-ambient-effects";
 import { installLongTaskWarner } from "./lib/perf-diagnostics";
@@ -527,6 +529,8 @@ export function App() {
   const [agentUpdatesResolved, setAgentUpdatesResolved] = useState(false);
   const handleAgentUpdatesResolved = useCallback(() => setAgentUpdatesResolved(true), []);
   const [chatWindowIntroOpen, setChatWindowIntroOpen] = useState(false);
+  const seasonal = useSeasonalTheme();
+  const [seasonalGreetingOpen, setSeasonalGreetingOpen] = useState(false);
   const handleWhatsNewResolved = useCallback(() => setWhatsNewResolved(true), []);
   // Shares the modal's query via the cache; gating the prompter on the QUERY
   // (pending or a notice still waiting) instead of the modal's open state
@@ -702,7 +706,7 @@ export function App() {
     syncLiteralBackground();
     const frame = requestAnimationFrame(syncLiteralBackground);
     return () => cancelAnimationFrame(frame);
-  }, [activeCustomTheme?.css, appBackgroundColor, theme, visualTheme]);
+  }, [activeCustomTheme?.css, appBackgroundColor, seasonal.themeId, theme, visualTheme]);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -995,6 +999,12 @@ export function App() {
     }
   }, [visualTheme]);
 
+  // Seasonal look of the day (styles/themes/seasonal-*.css), layered over every theme until it ends.
+  useEffect(() => {
+    if (seasonal.themeId) document.documentElement.dataset.seasonalTheme = seasonal.themeId;
+    else delete document.documentElement.dataset.seasonalTheme;
+  }, [seasonal.themeId]);
+
   useEffect(() => {
     document.documentElement.style.fontSize = `${fontSize}px`;
   }, [fontSize]);
@@ -1199,6 +1209,7 @@ export function App() {
             !migrationNotice &&
             agentUpdatesResolved &&
             !agentUpdateOpen &&
+            !seasonalGreetingOpen &&
             (isLite || !showDownloadModal)
           }
           onChatWindowIntroOpenChange={setChatWindowIntroOpen}
@@ -1224,6 +1235,26 @@ export function App() {
           !whatsNewOpen &&
           !migrationNoticePending &&
           !migrationNotice &&
+          !chatWindowIntroOpen &&
+          !seasonalGreetingOpen &&
+          (isLite || !showDownloadModal)
+        }
+      />
+      <SeasonalGreetingModal
+        themeId={seasonal.themeId}
+        pending={seasonal.showGreeting}
+        onShown={seasonal.markGreeted}
+        onTurnOff={seasonal.turnOff}
+        onOpenChange={setSeasonalGreetingOpen}
+        presentationAllowed={
+          whatsNewResolved &&
+          !hasModalOpen &&
+          !hasAppDialogOpen &&
+          !whatsNewOpen &&
+          !migrationNoticePending &&
+          !migrationNotice &&
+          agentUpdatesResolved &&
+          !agentUpdateOpen &&
           !chatWindowIntroOpen &&
           (isLite || !showDownloadModal)
         }

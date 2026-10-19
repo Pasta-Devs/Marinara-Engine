@@ -108,6 +108,7 @@ try {
     db,
   );
   const { advancedMemoryRecords } = await import("../../packages/server/src/db/schema/advanced-memory.js");
+  const { chats: chatsTable, messages: messagesTable } = await import("../../packages/server/src/db/schema/chats.js");
   const { eq } = await import("../../packages/server/src/db/file-query.js");
   const { createAdvancedMemoryService } = await import("../../packages/server/src/services/advanced-memory.js");
   const { remapAdvancedMemoryMetadata } =
@@ -168,14 +169,15 @@ try {
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   });
-  await db
-    .insert(advancedMemoryRecords)
-    .values([
-      memoryFixture(`scene-${first.id}`, `scene-${first.id}`, [first.id], ""),
-      memoryFixture("edited-disabled-scene", `scene-${first.id}`, [first.id], "USER_CORRECTED_MEMORY", 0, 1),
-      memoryFixture(`scene-${middle.id}`, `scene-${middle.id}`, [middle.id, future.id], ""),
-      memoryFixture("future-scene-variant", `scene-${middle.id}`, [middle.id, future.id], "FUTURE_SECRET"),
-    ]);
+  await db.insert(advancedMemoryRecords).values([
+    memoryFixture(`scene-${first.id}`, `scene-${first.id}`, [first.id], ""),
+    memoryFixture("edited-disabled-scene", `scene-${first.id}`, [first.id], "USER_CORRECTED_MEMORY", 0, 1),
+    {
+      ...memoryFixture(`scene-${middle.id}`, `scene-${middle.id}`, [middle.id, future.id], ""),
+      timeline: "A future ending outside the fork",
+    },
+    memoryFixture("future-scene-variant", `scene-${middle.id}`, [middle.id, future.id], "FUTURE_SECRET"),
+  ]);
   await memoryService.refreshTransferredRecords(root.id);
   const memoryBranchResponse = await app.inject({
     method: "POST",
@@ -201,8 +203,510 @@ try {
   assert.equal(reopened?.status, "open", "a branch inside a scene must not inherit the future ending");
   assert.equal(reopened?.content, "");
   assert.equal(reopened?.endMessageId, memoryBranchMessages[1]!.id);
+  assert.equal(reopened?.timeline, null, "a clipped scene must not retain its future timeframe");
 
-  const { chats: chatsTable, messages: messagesTable } = await import("../../packages/server/src/db/schema/chats.js");
+  const preparedChat = await create("Prepared history branches without rebuilding");
+  const { ADVANCED_MEMORY_SCENE_AUDIENCE } = await import("../../packages/shared/src/types/advanced-memory.js");
+  const preparedMessages = [];
+  for (const content of [
+    "OUTDATED_FIRST_SWIPE",
+    "Where did we leave the brass compass?",
+    "FUTURE_COMPASS_SECRET: the compass was destroyed.",
+    "A later, separate journey begins.",
+  ])
+    preparedMessages.push(await addMessage(preparedChat.id, content, preparedMessages.length ? "user" : "assistant"));
+  await db
+    .update(messagesTable)
+    .set({
+      content: "The brass compass was entrusted to us.",
+      activeSwipeIndex: 3,
+      extra: JSON.stringify({ authoritativeTag: "selected-message-row", isConversationStart: false }),
+    })
+    .where(eq(messagesTable.id, preparedMessages[0].id));
+  assert.deepEqual(
+    (await chatStorage.getSwipes(preparedMessages[0].id)).map((swipe) => [swipe.index, swipe.content]),
+    [[0, "OUTDATED_FIRST_SWIPE"]],
+    "the selected current message has no matching saved swipe row",
+  );
+  await chatStorage.patchMetadata(preparedChat.id, {
+    advancedMemory: { enabled: true, knowledgeConfirmed: true, sceneCheckInterval: 2 },
+  });
+  const initialCheck = await memoryService.getSceneCheck(preparedChat.id, { force: true });
+  assert(initialCheck);
+  assert.equal(
+    await memoryService.commitSceneCheck(preparedChat.id, initialCheck, {
+      ends: [{ messageNumber: 1 }, { messageNumber: 3 }],
+    }),
+    true,
+  );
+  await db.insert(advancedMemoryRecords).values([
+    {
+      ...memoryFixture(
+        "retained-compass-summary",
+        `scene-${preparedMessages[0].id}`,
+        [preparedMessages[0].id],
+        "The brass compass was entrusted to us.",
+      ),
+      chatId: preparedChat.id,
+      dependencies: JSON.stringify([ADVANCED_MEMORY_SCENE_AUDIENCE]),
+    },
+    {
+      ...memoryFixture(
+        "future-compass-summary",
+        `scene-${preparedMessages[1].id}`,
+        [preparedMessages[1].id, preparedMessages[2].id],
+        "FUTURE_COMPASS_SECRET",
+      ),
+      chatId: preparedChat.id,
+      dependencies: JSON.stringify([ADVANCED_MEMORY_SCENE_AUDIENCE]),
+    },
+  ]);
+  await memoryService.refreshTransferredRecords(preparedChat.id);
+  await memoryService.initialize(preparedChat.id, { detectScenes: false, closedOnly: true });
+  assert.equal((await memoryService.status(preparedChat.id)).job.status, "ready");
+  assert.deepEqual((await memoryService.status(preparedChat.id)).unpreparedScenes, []);
+  await db.insert(advancedMemoryRecords).values({
+    ...memoryFixture(
+      "forked-scene-excerpt",
+      `scene-${preparedMessages[1].id}`,
+      [preparedMessages[1].id],
+      "FORK_SCENE_FINISHED",
+    ),
+    chatId: preparedChat.id,
+    kind: "excerpt",
+  });
+  await memoryService.refreshTransferredRecords(preparedChat.id);
+  await chatStorage.patchMetadata(preparedChat.id, (metadata) => ({
+    advancedMemoryState: {
+      ...(metadata.advancedMemoryState as Record<string, unknown>),
+      historyClassified: true,
+      hiddenHistoryClassified: true,
+      constantSummarySceneIds: ["retained-compass-summary", "future-compass-summary"],
+      contextStarts: [
+        {
+          messageId: preparedMessages[1].id,
+          sceneStartMessageId: preparedMessages[1].id,
+          manualStartMessageId: null,
+          audienceCharacterIds: [],
+        },
+        {
+          messageId: preparedMessages[3].id,
+          sceneStartMessageId: preparedMessages[3].id,
+          manualStartMessageId: null,
+          audienceCharacterIds: [],
+        },
+      ],
+    },
+  }));
+  const preparedSourceBefore = await chatStorage.getById(preparedChat.id);
+  const preparedSourceMessagesBefore = await chatStorage.listMessages(preparedChat.id);
+  const preparedRowsBefore = await db
+    .select()
+    .from(advancedMemoryRecords)
+    .where(eq(advancedMemoryRecords.chatId, preparedChat.id));
+  const preparedBranchResponse = await app.inject({
+    method: "POST",
+    url: `/api/chats/${preparedChat.id}/branch`,
+    payload: { upToMessageId: preparedMessages[1].id },
+  });
+  assert.equal(preparedBranchResponse.statusCode, 200);
+  const preparedBranch = preparedBranchResponse.json();
+  const preparedBranchMessages = await chatStorage.listMessages(preparedBranch.id);
+  const preparedBranchStatus = await memoryService.status(preparedBranch.id);
+  assert.equal(preparedBranchStatus.job.status, "ready", "branching prepared history must not require rebuilding");
+  assert.equal(preparedBranchMessages[0]!.content, "The brass compass was entrusted to us.");
+  assert.equal(preparedBranchMessages[0]!.activeSwipeIndex, 1);
+  assert.equal(JSON.parse(preparedBranchMessages[0]!.extra).authoritativeTag, "selected-message-row");
+  assert.deepEqual(
+    (await chatStorage.getSwipes(preparedBranchMessages[0]!.id)).map((swipe) => [swipe.index, swipe.content]),
+    [
+      [0, "OUTDATED_FIRST_SWIPE"],
+      [1, "The brass compass was entrusted to us."],
+    ],
+    "branching retains older swipes and synthesizes the authoritative selected swipe",
+  );
+  assert.deepEqual(preparedBranchStatus.unpreparedScenes, []);
+  assert.equal(preparedBranchStatus.settings.knowledgeConfirmed, true);
+  assert.equal(preparedBranchStatus.job.processedMessageId, preparedBranchMessages[1]!.id);
+  assert.deepEqual(
+    preparedBranchStatus.job.contextStarts,
+    [
+      {
+        messageId: preparedBranchMessages[1]!.id,
+        sceneStartMessageId: preparedBranchMessages[1]!.id,
+        manualStartMessageId: null,
+        audienceCharacterIds: [],
+      },
+    ],
+    "only automatic starts with retained anchors survive",
+  );
+  assert.equal(
+    await memoryService.getSceneCheck(preparedBranch.id),
+    null,
+    "the checked future checkpoint clamps to the copied prefix instead of rechecking old messages",
+  );
+  const branchRecall = await memoryService.prepare({
+    chatId: preparedBranch.id,
+    messages: preparedBranchMessages,
+    audienceCharacterIds: [],
+    budgetTokens: 4096,
+    readOnly: true,
+  });
+  assert.equal(branchRecall.receipt.reasons.includes("preparation-needed"), false);
+  assert.match(
+    branchRecall.recalledScenes ?? "",
+    /The brass compass was entrusted to us\./u,
+    "a valid retained summary is available to actual recall immediately",
+  );
+  assert.deepEqual(branchRecall.receipt.recalledSceneIds, [`scene-${preparedBranchMessages[0]!.id}`]);
+  assert.equal(
+    preparedBranchStatus.records.some((record) => record.content.includes("FUTURE_COMPASS_SECRET")),
+    false,
+  );
+  const preparedBranchRows = await db
+    .select()
+    .from(advancedMemoryRecords)
+    .where(eq(advancedMemoryRecords.chatId, preparedBranch.id));
+  const copiedCompassSummary = preparedBranchRows.find(
+    (record) => record.content === "The brass compass was entrusted to us.",
+  );
+  assert(copiedCompassSummary);
+  assert.deepEqual(
+    preparedBranch.metadata.advancedMemoryState.constantSummarySceneIds,
+    [copiedCompassSummary.id],
+    "handled Chat Summary markers retain only their copied scene recap IDs",
+  );
+  await memoryService.checkScenesAfterGeneration(preparedBranch.id, {
+    asOfMessageId: preparedBranchMessages.at(-1)!.id,
+  });
+  const postGenerationBranchMetadata = JSON.parse((await chatStorage.getById(preparedBranch.id))!.metadata);
+  assert.deepEqual(
+    postGenerationBranchMetadata.summaryEntries,
+    [],
+    "a deliberately deleted automatic Chat Summary must not be recreated after branching",
+  );
+  assert.equal(
+    preparedBranchRows.some((record) => record.content === "FORK_SCENE_FINISHED"),
+    false,
+    "a derived excerpt of the ongoing fork scene is discarded even when its own source messages survived",
+  );
+  assert.equal(
+    preparedBranchStatus.records.find((record) => record.sceneId === `scene-${preparedBranchMessages[1]!.id}`)?.status,
+    "open",
+  );
+  assert.deepEqual((await chatStorage.getById(preparedChat.id))?.metadata, preparedSourceBefore?.metadata);
+  assert.deepEqual(await chatStorage.listMessages(preparedChat.id), preparedSourceMessagesBefore);
+  assert.deepEqual(
+    await db.select().from(advancedMemoryRecords).where(eq(advancedMemoryRecords.chatId, preparedChat.id)),
+    preparedRowsBefore,
+    "branch preparation must not change the original archive",
+  );
+
+  const preparedChildResponse = await app.inject({
+    method: "POST",
+    url: `/api/chats/${preparedBranch.id}/branch`,
+    payload: {},
+  });
+  assert.equal(preparedChildResponse.statusCode, 200);
+  const preparedChild = preparedChildResponse.json();
+  const preparedChildMessages = await chatStorage.listMessages(preparedChild.id);
+  assert.equal((await memoryService.status(preparedChild.id)).job.status, "ready");
+  const childRecall = await memoryService.prepare({
+    chatId: preparedChild.id,
+    messages: preparedChildMessages,
+    audienceCharacterIds: [],
+    budgetTokens: 4096,
+    readOnly: true,
+  });
+  assert.equal(childRecall.receipt.reasons.includes("preparation-needed"), false);
+  assert.match(
+    childRecall.recalledScenes ?? "",
+    /The brass compass was entrusted to us\./u,
+    "branching a branch preserves the reusable archive",
+  );
+  await chatStorage.patchMetadata(preparedChild.id, (metadata) => ({
+    advancedMemoryState: { ...(metadata.advancedMemoryState as Record<string, unknown>), paused: true },
+  }));
+  const pausedArchiveResponse = await app.inject({
+    method: "POST",
+    url: `/api/chats/${preparedChild.id}/branch`,
+    payload: {},
+  });
+  assert.equal(pausedArchiveResponse.statusCode, 200);
+  const pausedArchiveId = pausedArchiveResponse.json().id;
+  const pausedArchiveStatus = await memoryService.status(pausedArchiveId);
+  assert.equal(pausedArchiveStatus.job.paused, true);
+  assert.equal(pausedArchiveStatus.job.status, "cancelled", "a prepared paused branch offers Resume");
+  assert.equal(await memoryService.getSceneCheck(pausedArchiveId, { force: true }), null);
+  const pausedArchiveRecall = await memoryService.prepare({
+    chatId: pausedArchiveId,
+    messages: await chatStorage.listMessages(pausedArchiveId),
+    audienceCharacterIds: [],
+    budgetTokens: 4096,
+    readOnly: true,
+  });
+  assert.match(
+    pausedArchiveRecall.recalledScenes ?? "",
+    /The brass compass was entrusted to us\./u,
+    "an explicit pause preserves the copied archive for recall",
+  );
+  await addMessage(preparedBranch.id, "One new message after the fork.");
+  assert.equal(await memoryService.getSceneCheck(preparedBranch.id), null);
+  await addMessage(preparedBranch.id, "Two new messages after the fork.");
+  assert(await memoryService.getSceneCheck(preparedBranch.id), "normal automatic scene cadence resumes on new turns");
+
+  const boundaryBranchResponse = await app.inject({
+    method: "POST",
+    url: `/api/chats/${preparedChat.id}/branch`,
+    payload: { upToMessageId: preparedMessages[2].id },
+  });
+  assert.equal(boundaryBranchResponse.statusCode, 200);
+  const boundaryBranch = boundaryBranchResponse.json();
+  const boundaryMessages = await chatStorage.listMessages(boundaryBranch.id);
+  const boundaryStatus = await memoryService.status(boundaryBranch.id);
+  assert.equal(boundaryStatus.job.status, "ready");
+  assert.deepEqual(boundaryStatus.unpreparedScenes, []);
+  const boundaryScene = boundaryStatus.records.find((record) => record.sceneId === `scene-${boundaryMessages[1]!.id}`);
+  assert.equal(boundaryScene?.status, "open", "a fork at a saved scene ending makes that scene ongoing");
+  assert.equal(
+    boundaryScene?.content,
+    "",
+    "the fork scene's old completed recap must not describe its new continuation",
+  );
+
+  const preparedTranscript = await app.inject({ method: "GET", url: `/api/chats/${preparedChat.id}/export` });
+  assert.equal(preparedTranscript.statusCode, 200);
+  const importedPrepared = await importSTChat(preparedTranscript.body, db, { mode: "roleplay" });
+  assert.equal(importedPrepared.success, true);
+  const importedPreparedStatus = await memoryService.status(importedPrepared.chatId!);
+  assert.equal(importedPreparedStatus.job.status, "idle", "transcript imports still require their own preparation");
+  assert.equal(importedPreparedStatus.settings.knowledgeConfirmed, false);
+
+  await chatStorage.updateMessageContent(preparedMessages[0].id, "The earlier compass source was edited.");
+  const editedSourceBranchResponse = await app.inject({
+    method: "POST",
+    url: `/api/chats/${preparedChat.id}/branch`,
+    payload: { upToMessageId: preparedMessages[1].id },
+  });
+  assert.equal(editedSourceBranchResponse.statusCode, 200);
+  const editedSourceBranch = editedSourceBranchResponse.json();
+  const editedSourceStatus = await memoryService.status(editedSourceBranch.id);
+  assert.equal(editedSourceStatus.job.status, "ready", "one changed historical scene must not reset the whole chat");
+  assert.equal(editedSourceBranch.metadata.advancedMemoryState.historyClassified, true);
+  assert.equal(editedSourceBranch.metadata.advancedMemoryState.hiddenHistoryClassified, true);
+  assert.equal(
+    editedSourceStatus.job.processedMessageId,
+    undefined,
+    "a changed source must not inherit an otherwise obsolete processed fingerprint",
+  );
+  assert.equal(
+    await memoryService.getSceneCheck(editedSourceBranch.id),
+    null,
+    "scene-check cadence still counts new IDs after an ordinary historical edit",
+  );
+  const editedSourceRecall = await memoryService.prepare({
+    chatId: editedSourceBranch.id,
+    messages: await chatStorage.listMessages(editedSourceBranch.id),
+    audienceCharacterIds: [],
+    budgetTokens: 4096,
+    readOnly: true,
+  });
+  assert.equal(editedSourceRecall.receipt.reasons.includes("preparation-needed"), false);
+
+  const individual = await chatStorage.create({
+    name: "Individual knowledge branch",
+    mode: "roleplay",
+    characterIds: ["knows-history", "joins-later", "joins-in-future"],
+  });
+  assert(individual);
+  const privateMessages = [];
+  for (const content of ["An earlier private event.", "The newcomer arrives.", "The future arrival."])
+    privateMessages.push(await addMessage(individual.id, content));
+  await chatStorage.patchMetadata(individual.id, {
+    groupChatMode: "individual",
+    advancedMemory: {
+      enabled: true,
+      knowledgeConfirmed: true,
+      knowledgeStarts: {
+        "knows-history": null,
+        "joins-later": privateMessages[1].id,
+        "joins-in-future": privateMessages[2].id,
+      },
+    },
+  });
+  const individualCheck = await memoryService.getSceneCheck(individual.id, { force: true });
+  assert(individualCheck);
+  assert.equal(await memoryService.commitSceneCheck(individual.id, individualCheck, { ends: [] }), true);
+  const individualBranchResponse = await app.inject({
+    method: "POST",
+    url: `/api/chats/${individual.id}/branch`,
+    payload: {},
+  });
+  assert.equal(individualBranchResponse.statusCode, 200);
+  const individualBranch = individualBranchResponse.json();
+  const individualMessages = await chatStorage.listMessages(individualBranch.id);
+  const individualStatus = await memoryService.status(individualBranch.id);
+  assert.equal(individualStatus.job.status, "ready");
+  assert.equal(individualStatus.settings.knowledgeConfirmed, true);
+  assert.deepEqual(individualStatus.settings.knowledgeStarts, {
+    "knows-history": null,
+    "joins-later": individualMessages[1]!.id,
+    "joins-in-future": individualMessages[2]!.id,
+  });
+  const newcomerContext = await memoryService.prepare({
+    chatId: individualBranch.id,
+    messages: individualMessages,
+    audienceCharacterIds: ["joins-later"],
+    budgetTokens: 4096,
+    readOnly: true,
+  });
+  assert.deepEqual(
+    newcomerContext.messageIds,
+    individualMessages.slice(1).map((message) => message.id),
+    "branching must not grant the newcomer access to earlier history",
+  );
+  await chatStorage.patchMetadata(individual.id, (metadata) => ({
+    advancedMemoryState: { ...(metadata.advancedMemoryState as Record<string, unknown>), paused: true },
+  }));
+  const beforeArrivalResponse = await app.inject({
+    method: "POST",
+    url: `/api/chats/${individual.id}/branch`,
+    payload: { upToMessageId: privateMessages[1].id },
+  });
+  assert.equal(beforeArrivalResponse.statusCode, 200);
+  const beforeArrivalStatus = await memoryService.status(beforeArrivalResponse.json().id);
+  assert.equal(beforeArrivalStatus.job.status, "needs_confirmation");
+  assert.equal(beforeArrivalStatus.job.paused, true, "a missing knowledge anchor must not clear an inherited pause");
+  assert.equal(beforeArrivalStatus.settings.knowledgeConfirmed, false);
+  assert.equal(
+    "joins-in-future" in beforeArrivalStatus.settings.knowledgeStarts,
+    false,
+    "an omitted future knowledge anchor must never become permission from the beginning",
+  );
+  assert.deepEqual(beforeArrivalStatus.missingKnowledgeCharacterIds, ["joins-in-future"]);
+
+  const paused = await create("Paused memory stays paused after branching");
+  await addMessage(paused.id, "A paused history.");
+  for (const status of ["cancelled", "ready"] as const) {
+    await chatStorage.patchMetadata(paused.id, {
+      advancedMemory: { enabled: true },
+      advancedMemoryState: { status, paused: true },
+    });
+    const pausedBranchResponse = await app.inject({
+      method: "POST",
+      url: `/api/chats/${paused.id}/branch`,
+      payload: {},
+    });
+    assert.equal(pausedBranchResponse.statusCode, 200);
+    const pausedBranchId = pausedBranchResponse.json().id;
+    assert.equal(
+      (await memoryService.status(pausedBranchId)).job.paused,
+      true,
+      `${status} preserves an explicit pause`,
+    );
+    assert.equal((await memoryService.status(pausedBranchId)).job.status, "cancelled");
+    assert.equal(await memoryService.getSceneCheck(pausedBranchId, { force: true }), null);
+  }
+
+  const sparse = await create("Sparse selected swipe branches densely", "game");
+  const sparseMessage = await addMessage(sparse.id, "OLDER_SPARSE_SWIPE", "assistant");
+  await db
+    .update(messagesTable)
+    .set({
+      content: "CURRENT_SPARSE_SWIPE",
+      activeSwipeIndex: 3,
+      extra: JSON.stringify({ authoritativeTag: "sparse-selected-row" }),
+    })
+    .where(eq(messagesTable.id, sparseMessage.id));
+  await engineStore.create({
+    chatId: sparse.id,
+    messageId: sparseMessage.id,
+    swipeIndex: 3,
+    gameType: "sparse-swipe-game",
+    schemaVersion: 1,
+    state: JSON.stringify({ turn: "selected-three" }),
+    committed: true,
+  });
+  const { createGameStateStorage } = await import("../../packages/server/src/services/storage/game-state.storage.js");
+  const trackerStore = createGameStateStorage(db);
+  await trackerStore.updateByMessage(
+    sparseMessage.id,
+    3,
+    sparse.id,
+    { location: "Selected swipe's location" },
+    undefined,
+    { baseSnapshot: null },
+  );
+  await chatStorage.patchMetadata(sparse.id, {
+    gameInventoryTurn: { messageId: sparseMessage.id, before: [], swipes: { "0": [], "3": [] } },
+  });
+  const sparseBranchResponse = await app.inject({ method: "POST", url: `/api/chats/${sparse.id}/branch`, payload: {} });
+  assert.equal(sparseBranchResponse.statusCode, 200);
+  const sparseBranch = sparseBranchResponse.json();
+  const [sparseBranchMessage] = await chatStorage.listMessages(sparseBranch.id);
+  assert(sparseBranchMessage);
+  assert.deepEqual(
+    sparseBranch.metadata.gameInventoryTurn,
+    {
+      messageId: sparseBranchMessage.id,
+      before: [],
+      swipes: { "0": [], "1": [] },
+    },
+    "the inventory record follows the same dense swipe mapping",
+  );
+  assert.equal(
+    sparseBranchMessage.activeSwipeIndex,
+    1,
+    "the synthesized selected swipe follows the retained older one",
+  );
+  assert.equal(sparseBranchMessage.content, "CURRENT_SPARSE_SWIPE");
+  assert.equal(JSON.parse(sparseBranchMessage.extra).authoritativeTag, "sparse-selected-row");
+  assert.deepEqual(
+    (await chatStorage.getSwipes(sparseBranchMessage.id)).map((swipe) => [swipe.index, swipe.content]),
+    [
+      [0, "OLDER_SPARSE_SWIPE"],
+      [1, "CURRENT_SPARSE_SWIPE"],
+    ],
+  );
+  assert.equal(
+    (await engineStore.getByChatAndMessage(sparseBranch.id, sparseBranchMessage.id, 1))?.state,
+    JSON.stringify({ turn: "selected-three" }),
+    "game state follows the remapped selected swipe",
+  );
+  assert.equal(
+    (await trackerStore.getByChatAndMessage(sparseBranch.id, sparseBranchMessage.id, 1))?.location,
+    "Selected swipe's location",
+    "tracker state follows the remapped selected swipe",
+  );
+  assert.deepEqual(await engineStore.listByChatAndMessage(sparseBranch.id, sparseBranchMessage.id, 3), []);
+  const sparseAddedSwipe = await app.inject({
+    method: "POST",
+    url: `/api/chats/${sparseBranch.id}/messages/${sparseBranchMessage.id}/swipes`,
+    payload: { content: "NEXT_BRANCH_ALTERNATIVE", silent: true },
+  });
+  assert.equal(sparseAddedSwipe.statusCode, 200);
+  assert.equal(sparseAddedSwipe.json().index, 2, "the next alternate is appended without an index gap");
+  const removedSelectedSparse = await app.inject({
+    method: "DELETE",
+    url: `/api/chats/${sparseBranch.id}/messages/${sparseBranchMessage.id}/swipes/1`,
+  });
+  assert.equal(removedSelectedSparse.statusCode, 200);
+  assert.equal(removedSelectedSparse.json().activeSwipeIndex, 1);
+  assert.equal(
+    removedSelectedSparse.json().content,
+    "NEXT_BRANCH_ALTERNATIVE",
+    "deleting the selected swipe shows the alternate that takes its new index",
+  );
+  assert.deepEqual(
+    (await chatStorage.getSwipes(sparseBranchMessage.id)).map((swipe) => [swipe.index, swipe.content]),
+    [
+      [0, "OLDER_SPARSE_SWIPE"],
+      [1, "NEXT_BRANCH_ALTERNATIVE"],
+    ],
+  );
+  assert.equal((await chatStorage.getMessage(sparseMessage.id))?.activeSwipeIndex, 3);
+  assert.equal((await chatStorage.getMessage(sparseMessage.id))?.content, "CURRENT_SPARSE_SWIPE");
+
   const rowIds = async (table: typeof chatsTable | typeof messagesTable | typeof advancedMemoryRecords) =>
     (await db.select().from(table)).map((row) => row.id).sort();
   const beforeFailedBranch = await Promise.all([

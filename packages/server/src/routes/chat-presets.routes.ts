@@ -7,6 +7,7 @@ import {
   createChatPresetSchema,
   updateChatPresetSchema,
   chatPresetSettingsSchema,
+  omitChatMetadataLocalDestinations,
   type ChatMode,
   type ChatPresetSettings,
   type ExportEnvelope,
@@ -27,6 +28,11 @@ interface ChatSettingsProfileExportPayload {
   name: string;
   mode: ChatMode | "visual_novel";
   settings: ChatPresetSettings;
+}
+
+/** Outside addresses and keys in a profile stay on this install: shared files neither carry nor bring them. */
+function withoutLocalDestinations(settings: ChatPresetSettings): ChatPresetSettings {
+  return settings.metadata ? { ...settings, metadata: omitChatMetadataLocalDestinations(settings.metadata) } : settings;
 }
 
 export async function chatPresetsRoutes(app: FastifyInstance) {
@@ -149,7 +155,7 @@ export async function chatPresetsRoutes(app: FastifyInstance) {
     const payload: ChatSettingsProfileExportPayload = {
       name: preset.name,
       mode: preset.mode,
-      settings: preset.settings,
+      settings: withoutLocalDestinations(preset.settings),
     };
     const envelope: ExportEnvelope<ChatSettingsProfileExportPayload> = {
       type: "marinara_chat_settings_profile",
@@ -190,7 +196,7 @@ export async function chatPresetsRoutes(app: FastifyInstance) {
     const created = await storage.create({
       name: data.name.trim().slice(0, 120),
       mode: modeParsed.data,
-      settings: settingsParsed.data,
+      settings: withoutLocalDestinations(settingsParsed.data),
     });
     return created;
   });

@@ -62,6 +62,7 @@ import {
   type SpriteInfo,
 } from "../../hooks/use-characters";
 import { ConvoProfileFields } from "./ConvoProfileFields";
+import { ONBOARDING_FIELD_COPY } from "./onboarding-field-copy";
 import { CharacterScheduleEditorModal } from "../chat/CharacterScheduleEditorModal";
 import { useUIStore } from "../../stores/ui.store";
 import { lorebookKeys, useLorebook, useUpdateLorebook } from "../../hooks/use-lorebooks";
@@ -260,46 +261,6 @@ const CHARACTER_ONBOARDING_SECTIONS = [
  * goes through `updateExtension` instead of `updateField`.
  */
 type CardVariableField = "description" | "personality" | "backstory" | "appearance" | "scenario";
-
-/**
- * The onboarding fields reuse the persona editor's Card copy: what the author
- * writes here becomes the player's persona, not part of this character.
- */
-const ONBOARDING_FIELD_COPY: Record<
-  OnboardingPersonaField,
-  { title: string; subtitle: string; placeholder: string; rows: number }
-> = {
-  description: {
-    title: "chat.settings.inlineEditor.fields.description",
-    subtitle: "ui.personas.descriptiontab.yourGeneralDescriptionThisIsSentInEveryPrompt",
-    placeholder: "ui.personas.descriptiontab.describeWhoYouAreYourRoleInTheStory",
-    rows: 12,
-  },
-  personality: {
-    title: "chat.settings.inlineEditor.fields.personality",
-    subtitle: "ui.personas.personacardtab.yourPersonalityTraitsTemperamentAndBehavioralPatterns",
-    placeholder: "ui.personas.personacardtab.calmAndAnalyticalButQuickToActWhenSomeone",
-    rows: 8,
-  },
-  backstory: {
-    title: "chat.settings.inlineEditor.fields.backstory",
-    subtitle: "ui.personas.personacardtab.yourCharacterSHistoryOriginStoryAndFormativeLife",
-    placeholder: "ui.personas.personacardtab.grewUpInAFrontierTownApprenticedUnderA",
-    rows: 12,
-  },
-  appearance: {
-    title: "chat.settings.inlineEditor.fields.appearance",
-    subtitle: "ui.personas.personacardtab.physicalDescriptionHeightBuildHairEyesClothingDistinguishingFeatures",
-    placeholder: "ui.personas.personacardtab.averageHeightDarkHairWornLoosePrefersPracticalClothing",
-    rows: 8,
-  },
-  scenario: {
-    title: "chat.settings.inlineEditor.fields.scenario",
-    subtitle: "ui.personas.personacardtab.yourDefaultSituationOrContextWithinRoleplays",
-    placeholder: "ui.personas.personacardtab.aWanderingAdventurerSeekingAnswersAboutAMysteriousArtifact",
-    rows: 8,
-  },
-};
 
 const ONBOARDING_ISSUE_KEYS: Record<Exclude<OnboardingIssue["code"], "plainIf" | "unknownName">, string> = {
   emptyName: "ui.characters.onboarding.issueEmptyName",

@@ -3,7 +3,7 @@
 // ──────────────────────────────────────────────
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api-client";
-import type { GeneratedSceneVideo } from "@marinara-engine/shared";
+import type { GeneratedSceneVideo, SceneIllustrationCharacterPrompt } from "@marinara-engine/shared";
 
 export interface ChatImage {
   id: string;
@@ -14,8 +14,20 @@ export interface ChatImage {
   model: string;
   width: number | null;
   height: number | null;
+  /** JSON ChatImageGenerationRecord (#7767); null for images saved before records existed. */
+  generation?: string | null;
   createdAt: string;
   url: string;
+}
+
+export interface RegenerateChatImageInput {
+  imageId: string;
+  prompt: string;
+  negativePrompt?: string;
+  characterPrompts?: SceneIllustrationCharacterPrompt[];
+  connectionId?: string;
+  messageId?: string;
+  debugMode?: boolean;
 }
 
 export interface ChatAssetBrowserItem {
@@ -33,7 +45,7 @@ export interface ChatAssetBrowserItem {
   cardUrl: string;
 }
 
-const galleryKeys = {
+export const galleryKeys = {
   all: ["gallery"] as const,
   chat: (chatId: string) => ["gallery", chatId] as const,
   assets: (chatId: string) => ["gallery", "assets", chatId] as const,

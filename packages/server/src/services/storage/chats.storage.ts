@@ -2013,9 +2013,9 @@ export function createChatsStorage(db: DB) {
       ) =>
         | { metadata: MetadataPatch; characterIds: string[] }
         | Promise<{ metadata: MetadataPatch; characterIds: string[] }>,
-      opts: { touchUpdatedAt?: boolean } = {},
+      opts: { touchUpdatedAt?: boolean; metadataQueueHeld?: boolean } = {},
     ) {
-      return withChatMetadataPatchQueue(id, async () => {
+      const apply = async () => {
         const existing = await this.getById(id);
         if (!existing) return null;
 
@@ -2048,7 +2048,10 @@ export function createChatsStorage(db: DB) {
           })
           .where(eq(chats.id, id));
         return this.getById(id);
-      });
+      };
+      // The caller may already hold the queue (a checkpoint load takes it before opening the
+      // transaction that also saves the world snapshot), and the queue is not reentrant.
+      return opts.metadataQueueHeld ? apply() : withChatMetadataPatchQueue(id, apply);
     },
 
     async markAutonomousUnread(id: string, input?: { characterId?: string | null; count?: number }) {
@@ -2631,7 +2634,11 @@ export function createChatsStorage(db: DB) {
     },
 
     /** Branch/JSONL copies retain receipts while replacing chat-local message/swipe identities. */
-    async remapRoleplayInterruptionTargets(chatId: string, messageIdMap: ReadonlyMap<string, string>) {
+    async remapRoleplayInterruptionTargets(
+      chatId: string,
+      messageIdMap: ReadonlyMap<string, string>,
+      swipeIndexMaps?: ReadonlyMap<string, ReadonlyMap<number, number>>,
+    ) {
       const rows = await this.listMessages(chatId);
       const swipesByMessageId = await this.getSwipesByMessageId(rows.map((row) => row.id));
       for (const owner of rows) {
@@ -2647,12 +2654,18 @@ export function createChatsStorage(db: DB) {
             if (!receipt) continue;
             changed = true;
             const targetId = messageIdMap.get(receipt.targetMessageId);
-            const targetSwipe = targetId
-              ? swipesByMessageId.get(targetId)?.find((row) => row.index === receipt.targetSwipeIndex)
-              : null;
+            const swipeIndexes = swipeIndexMaps?.get(receipt.targetMessageId);
+            const targetSwipeIndex = swipeIndexes
+              ? swipeIndexes.get(receipt.targetSwipeIndex)
+              : receipt.targetSwipeIndex;
+            const targetSwipe =
+              targetId && targetSwipeIndex !== undefined
+                ? swipesByMessageId.get(targetId)?.find((row) => row.index === targetSwipeIndex)
+                : null;
             item.interruption = {
               ...receipt,
               targetMessageId: targetId ?? receipt.targetMessageId,
+              targetSwipeIndex: targetSwipeIndex ?? receipt.targetSwipeIndex,
               targetSwipeId: targetSwipe?.id,
             };
             if (!targetId || !targetSwipe) {
@@ -3759,6 +3772,54 @@ export function createChatsStorage(db: DB) {
           .where(and(eq(messageSwipes.messageId, messageId), eq(messageSwipes.id, target.id)));
         return true;
       });
+    },
+
+    /**
+     * Point every attachment that shows a gallery image at its regenerated replacement (#7767),
+     * on the message mirror and on whichever swipe rows hold it. Other attachment fields are
+     * kept. Returns whether anything changed.
+     */
+    async replaceGalleryImageAttachment(
+      messageId: string,
+      oldGalleryId: string,
+      patch: { url: string; prompt: string; galleryId: string },
+    ): Promise<boolean> {
+      const swap = (extra: unknown): string | null => {
+        const existing = parseExtraRecord(extra);
+        if (!Array.isArray(existing.attachments)) return null;
+        let changed = false;
+        const attachments = existing.attachments.map((attachment) => {
+          if (!attachment || typeof attachment !== "object") return attachment;
+          if ((attachment as Record<string, unknown>).galleryId !== oldGalleryId) return attachment;
+          changed = true;
+          return { ...attachment, ...patch };
+        });
+        return changed ? JSON.stringify({ ...existing, attachments }) : null;
+      };
+      // Queue first, then the transaction (LOCK ORDER above), so the message and its swipe
+      // rows change together. Only plain reads/writes run inside the transaction.
+      return withPatchQueue(messageExtraPatchQueues, messageId, () =>
+        db.transaction(async (tx) => {
+          const msg = (await tx.select().from(messages).where(eq(messages.id, messageId)))[0];
+          if (!msg) return false;
+          let changed = false;
+          const nextMessageExtra = swap(msg.extra);
+          if (nextMessageExtra) {
+            await tx.update(messages).set({ extra: nextMessageExtra }).where(eq(messages.id, messageId));
+            changed = true;
+          }
+          for (const swipe of await tx.select().from(messageSwipes).where(eq(messageSwipes.messageId, messageId))) {
+            const nextSwipeExtra = swap(swipe.extra);
+            if (!nextSwipeExtra) continue;
+            await tx
+              .update(messageSwipes)
+              .set({ extra: nextSwipeExtra })
+              .where(and(eq(messageSwipes.messageId, messageId), eq(messageSwipes.id, swipe.id)));
+            changed = true;
+          }
+          return changed;
+        }),
+      );
     },
 
     // ── Chat Connections ──

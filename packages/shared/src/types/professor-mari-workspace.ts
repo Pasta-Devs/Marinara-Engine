@@ -284,6 +284,16 @@ export type MariChangeExcerpt =
       count: { added: number; edited: number; removed: number };
       /** Slice 87: the added and edited entries with their keys and text, for a lorebook. */
       items?: MariChangeListItem[];
+    }
+  | {
+      field: string;
+      kind: "nested";
+      /** The changed keys inside it, in object order (the card shows the first `MARI_RECEIPT_LIMITS.nestedKeys`). */
+      keys: string[];
+      /** How many of its keys changed; `keys` may show fewer. */
+      count: number;
+      /** Interactive onboarding: the state and question counts, said in words on the card. */
+      onboarding?: { enabled: boolean; personaQuestions: number; characterQuestions: number };
     };
 
 export interface MariChangeListItem {

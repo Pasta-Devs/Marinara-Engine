@@ -2283,6 +2283,8 @@ function GeneralSettings() {
   const setChatHelpButtonHidden = useUIStore((s) => s.setChatHelpButtonHidden);
   const achievementsEnabled = useUIStore((s) => s.achievementsEnabled);
   const setAchievementsEnabled = useUIStore((s) => s.setAchievementsEnabled);
+  const seasonalThemesDisabled = useUIStore((s) => s.seasonalThemesDisabled);
+  const setSeasonalThemesDisabled = useUIStore((s) => s.setSeasonalThemesDisabled);
   const messagesPerPage = useUIStore((s) => s.messagesPerPage);
   const setMessagesPerPage = useUIStore((s) => s.setMessagesPerPage);
   const boldDialogue = useUIStore((s) => s.boldDialogue);
@@ -2348,6 +2350,13 @@ function GeneralSettings() {
             checked={achievementsEnabled}
             onChange={setAchievementsEnabled}
             help={localizeUi("settings.controls.achievements.help")}
+          />
+          <ToggleSetting
+            anchorId={getSettingsControlAnchorId("disable-seasonal-themes")}
+            label={localizeUi("settings.controls.disableSeasonalThemes.label")}
+            checked={seasonalThemesDisabled}
+            onChange={setSeasonalThemesDisabled}
+            help={localizeUi("settings.controls.disableSeasonalThemes.help")}
           />
           <ToggleSetting
             anchorId={getSettingsControlAnchorId("music-player")}

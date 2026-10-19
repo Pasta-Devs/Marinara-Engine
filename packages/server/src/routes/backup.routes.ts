@@ -49,9 +49,11 @@ import { loadFeatureSettings } from "../services/features/feature-settings.js";
 import { TRIPO_API_KEY_SETTING } from "../services/avatars/generation/tripo-key.js";
 import {
   canReparentFolder,
+  CHAT_METADATA_LOCAL_DESTINATION_KEYS,
   isStockMarinaraUniversalPreset,
   MARINARA_UNIVERSAL_PRESET_SYSTEM_KEY,
   normalizePersonalExtensionCapabilities,
+  TRANSLATOR_DEFAULTS_SETTINGS_KEY,
   type ExportEnvelope,
   parseLorebookDecisionActivation,
   restoreBakedGreetingImages,
@@ -686,8 +688,56 @@ for (const candidate of Object.values(schema)) {
   }
 }
 
+/**
+ * Where profile rows hold the chat settings that stay on one install (CHAT_METADATA_LOCAL_DESTINATION_KEYS:
+ * the Discord mirror, translator address and key, haptics server): chat metadata, a settings profile's
+ * metadata and the translator defaults for new chats. Like the connection keys, profiles are exported
+ * without them and an import brings none; a row restored over this install's own keeps its values.
+ */
+const PROFILE_LOCAL_DESTINATION_ROWS: Record<string, { key: string; column: string }> = {
+  chats: { key: "id", column: "metadata" },
+  chat_presets: { key: "id", column: "settings" },
+  app_settings: { key: "key", column: "value" },
+};
+
+function readProfileLocalDestinations(tableName: string, row: Record<string, unknown> | undefined) {
+  const field = PROFILE_LOCAL_DESTINATION_ROWS[tableName];
+  if (!field || !row || (tableName === "app_settings" && row.key !== TRANSLATOR_DEFAULTS_SETTINGS_KEY)) return null;
+  const isRecord = (value: unknown): value is Record<string, unknown> =>
+    !!value && typeof value === "object" && !Array.isArray(value);
+  let parsed: unknown;
+  try {
+    const value = row[field.column];
+    // Copied, so the row it came from is never changed.
+    parsed = JSON.parse(typeof value === "string" ? value : (JSON.stringify(value) ?? ""));
+  } catch {
+    return null;
+  }
+  const holder = tableName === "chat_presets" && isRecord(parsed) ? parsed.metadata : parsed;
+  return isRecord(parsed) && isRecord(holder) ? { column: field.column, parsed, holder } : null;
+}
+
+/** `row` with `local`'s values for the settings that stay on one install, or none when there is no `local`. */
+export function withProfileLocalDestinations(
+  tableName: string,
+  row: Record<string, unknown>,
+  local?: Record<string, unknown>,
+): Record<string, unknown> {
+  const target = readProfileLocalDestinations(tableName, row);
+  if (!target) return row;
+  const kept = readProfileLocalDestinations(tableName, local)?.holder;
+  for (const key of CHAT_METADATA_LOCAL_DESTINATION_KEYS) {
+    if (kept && Object.prototype.hasOwnProperty.call(kept, key)) target.holder[key] = kept[key];
+    else delete target.holder[key];
+  }
+  return { ...row, [target.column]: JSON.stringify(target.parsed) };
+}
+
 export function sanitizeProfileTableRows(tableName: string, rows: Array<Record<string, unknown>>) {
   if (tableName === "noodler_fan_activity_state") return [];
+  if (PROFILE_LOCAL_DESTINATION_ROWS[tableName]) {
+    rows = rows.map((row) => withProfileLocalDestinations(tableName, row));
+  }
   if (tableName === "chats") {
     return rows.map((row) => {
       if (typeof row.metadata !== "string") return row;
@@ -1418,8 +1468,24 @@ async function importProfileStorageSnapshot(
           }
 
           emit("tables", `Importing ${tableName.replace(/_/g, " ")}`);
+          const localDestinationField = PROFILE_LOCAL_DESTINATION_ROWS[tableName];
+          const localDestinationRows = localDestinationField
+            ? new Map(
+                ((await tx.select().from(table as any)) as Array<Record<string, unknown>>).map((local) => [
+                  local[localDestinationField.key],
+                  local,
+                ]),
+              )
+            : null;
           for (const [rowIndex, row] of rows.entries()) {
             let cleanRow = { ...row };
+            if (localDestinationField && localDestinationRows) {
+              cleanRow = withProfileLocalDestinations(
+                tableName,
+                cleanRow,
+                localDestinationRows.get(cleanRow[localDestinationField.key]),
+              );
+            }
             // A pre-rename snapshot carries `visibility`/`publicAccountId`. Inserting it raw
             // lets the column default fill `platform: "noodle"`, putting a restored NoodleR
             // account and its posts on the Noodle timeline.

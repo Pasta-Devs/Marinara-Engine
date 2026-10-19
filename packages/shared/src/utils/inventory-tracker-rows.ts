@@ -152,29 +152,62 @@ export function normalizeInventoryTrackerPlayerStats(playerStats: unknown): unkn
   return next;
 }
 
+/** Why a group of Inventory Tracker rows can't be stored as typed. `index` is the 0-based row. */
+export type InventoryTrackerRowProblem =
+  | { code: "notArray" }
+  | { code: "rowNotObject"; index: number }
+  | { code: "missingName"; index: number }
+  | { code: "emptyName"; index: number }
+  | { code: "nonStringField"; index: number; field: "description" | "location" }
+  | { code: "nonNumericQty"; index: number }
+  | { code: "qtyBelowOne"; index: number };
+
 /**
- * Describe the first row a human would consider malformed, or `null` when the whole
- * array is usable.
+ * The first row a human would consider malformed, or `null` when the whole array is
+ * usable. Returns a code rather than a sentence, so editors can show it in the user's
+ * language.
  *
  * Exists because `normalizeInventoryTrackerRows` silently discards junk, which is the
  * right behaviour for an inline edit and the wrong behaviour for a JSON editor where
  * quietly emptying a hand-written group looks like data loss.
  */
-export function findInvalidInventoryTrackerRow(value: unknown): string | null {
-  if (!Array.isArray(value)) return "must be an array";
+export function findInventoryTrackerRowProblem(value: unknown): InventoryTrackerRowProblem | null {
+  if (!Array.isArray(value)) return { code: "notArray" };
   for (const [index, candidate] of value.entries()) {
-    if (!isPlainRecord(candidate)) return `row ${index} must be an object`;
-    if (typeof candidate.name !== "string") return `row ${index} is missing a string "name"`;
-    if (!normalizeInventoryTrackerName(candidate.name)) return `row ${index} has an empty "name"`;
+    if (!isPlainRecord(candidate)) return { code: "rowNotObject", index };
+    if (typeof candidate.name !== "string") return { code: "missingName", index };
+    if (!normalizeInventoryTrackerName(candidate.name)) return { code: "emptyName", index };
     for (const field of ["description", "location"] as const) {
       if (candidate[field] !== undefined && typeof candidate[field] !== "string") {
-        return `row ${index} has a non-string "${field}"`;
+        return { code: "nonStringField", index, field };
       }
     }
     if (candidate.qty === undefined || candidate.qty === null) continue;
     const numericQty = Number(candidate.qty);
-    if (!Number.isFinite(numericQty)) return `row ${index} has a non-numeric "qty"`;
-    if (numericQty < 1) return `row ${index} has a "qty" below 1`;
+    if (!Number.isFinite(numericQty)) return { code: "nonNumericQty", index };
+    if (numericQty < 1) return { code: "qtyBelowOne", index };
   }
   return null;
+}
+
+/** `findInventoryTrackerRowProblem` as an English sentence (server logs and errors), or `null`. */
+export function findInvalidInventoryTrackerRow(value: unknown): string | null {
+  const problem = findInventoryTrackerRowProblem(value);
+  if (!problem) return null;
+  switch (problem.code) {
+    case "notArray":
+      return "must be an array";
+    case "rowNotObject":
+      return `row ${problem.index} must be an object`;
+    case "missingName":
+      return `row ${problem.index} is missing a string "name"`;
+    case "emptyName":
+      return `row ${problem.index} has an empty "name"`;
+    case "nonStringField":
+      return `row ${problem.index} has a non-string "${problem.field}"`;
+    case "nonNumericQty":
+      return `row ${problem.index} has a non-numeric "qty"`;
+    case "qtyBelowOne":
+      return `row ${problem.index} has a "qty" below 1`;
+  }
 }

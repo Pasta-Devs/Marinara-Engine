@@ -1,0 +1,517 @@
+name: Dottore Review
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: Pull request number to review.
+        required: true
+      comment_body:
+        description: Slash command body that requested the review.
+        default: ""
+      review_mode:
+        description: Review mode for the requested pass.
+        type: choice
+        # autofix: no review; repair the open findings (the walkthrough box or /dottore autofix).
+        # approve: no review; approve the head if Dottore discharged it and its checks passed (CI or /dottore approve).
+        options: [auto, full, incremental, autofix, approve]
+        default: auto
+      requested_by:
+        description: GitHub login that requested the dispatch.
+        default: ""
+      last_reviewed_sha:
+        description: Explicit Dottore-reviewed head SHA from the dispatcher, when known.
+        default: ""
+  workflow_call:
+    inputs:
+      pr_number:
+        required: true
+        type: string
+      comment_body:
+        type: string
+        default: ""
+      review_mode:
+        type: string
+        default: auto
+      requested_by:
+        type: string
+        default: ""
+      last_reviewed_sha:
+        type: string
+        default: ""
+    secrets:
+      DOTTORE_SMALL_API_KEY:
+        required: true
+      DOTTORE_LARGE_API_KEY:
+        required: true
+      DOTTORE_APP_ID:
+        required: false
+      DOTTORE_APP_PRIVATE_KEY:
+        required: false
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+  statuses: write
+
+concurrency:
+  # A repair or approval run must not cancel a review, nor a review the repair it started.
+  group: dottore-review-${{ github.repository }}-${{ inputs.pr_number }}${{ contains(fromJSON('["autofix","approve"]'), inputs.review_mode) && format('-{0}', inputs.review_mode) || '' }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    name: Dottore examination
+    if: inputs.review_mode != 'approve'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    outputs:
+      resolve: ${{ steps.repairs.outputs.resolve }}
+      autofix: ${{ steps.autofix.outputs.autofix }}
+      head_sha: ${{ steps.autofix.outputs.head_sha }}
+      head_ref: ${{ steps.autofix.outputs.head_ref }}
+    env:
+      PR_NUM: ${{ inputs.pr_number }}
+      DOTTORE_COMMENT_BODY: ${{ inputs.comment_body }}
+      DOTTORE_REVIEW_MODE: ${{ inputs.review_mode || 'auto' }}
+      DOTTORE_LAST_REVIEWED_SHA: ${{ inputs.last_reviewed_sha }}
+      # Comma-separated exact refs; a single ref also works.
+      DOTTORE_BASE_REFS: ${{ vars.DOTTORE_BASE_REFS || 'refactor,main,staging' }}
+      # Never import modules from the untrusted PR working directory.
+      PYTHONSAFEPATH: "1"
+      DOTTORE_REVIEW_PROMPT_PATH: /tmp/dottore-review-tool/reviewer-prompt.md
+      DOTTORE_REVIEW_RULES_PATH: /tmp/dottore-review-tool/rules.json
+    steps:
+      - name: Validate trusted tooling reference
+        env:
+          TOOLING_SHA: ${{ job.workflow_sha }}
+          TOOLING_REPOSITORY: ${{ job.workflow_repository }}
+        run: |
+          [[ "$TOOLING_SHA" =~ ^[0-9a-f]{40}$ ]] || {
+            echo "::error::job.workflow_sha is unavailable, so Dottore cannot pin its own tooling."
+            exit 1
+          }
+          # The walkthrough serves Dottore's chibis raw from this same checkout.
+          echo "DOTTORE_TOOLING_REPOSITORY=$TOOLING_REPOSITORY" >> "$GITHUB_ENV"
+          echo "DOTTORE_TOOLING_SHA=$TOOLING_SHA" >> "$GITHUB_ENV"
+
+      - name: Checkout calling repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Checkout pinned Engine tooling
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # In workflow_call the github context belongs to the caller; job.workflow_*
+          # names the repository and commit of this workflow file itself.
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          path: .dottore-tooling
+          persist-credentials: false
+
+      - name: Preserve trusted tooling and base-branch rules
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          [[ "$PR_NUM" =~ ^[1-9][0-9]*$ ]] || exit 1
+          BASE=$(gh pr view "$PR_NUM" --repo "$GITHUB_REPOSITORY" --json baseRefName -q .baseRefName)
+          jq -en --arg refs "$DOTTORE_BASE_REFS" --arg ref "$BASE" '$refs | split(",") | index($ref) != null' >/dev/null || {
+            echo "::error::Unsupported Dottore review base ref: $BASE"
+            exit 1
+          }
+          echo "PR_BASE_REF=$BASE" >> "$GITHUB_ENV"
+          gh auth setup-git
+          git fetch --force origin "$BASE:refs/remotes/origin/$BASE"
+          mkdir -p /tmp/dottore-review-tool
+          cp .dottore-tooling/.github/dottore-review/{dottore_review.py,requirements.txt,reviewer-prompt.md} /tmp/dottore-review-tool/
+          # Caller-specific rules are trusted base content, never PR-head content. A repository without the file
+          # reviews with the defaults; one whose file cannot be read fails here, since an empty policy would let a
+          # repair through without its checks.
+          if git cat-file -e "origin/$BASE:.github/dottore-review/rules.json" 2>/dev/null; then
+            git show "origin/$BASE:.github/dottore-review/rules.json" > /tmp/dottore-review-tool/rules.json
+          else
+            echo '{}' > /tmp/dottore-review-tool/rules.json
+          fi
+          rm -rf .dottore-tooling
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Install trusted reviewer dependencies
+        run: pip install -r /tmp/dottore-review-tool/requirements.txt
+
+      # Repository search uses rg; without it the reviewer falls back to a slower Python walk.
+      - name: Install ripgrep
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends ripgrep
+
+      - name: Fetch review specimen without executing it
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh auth setup-git
+          git fetch --force origin "pull/$PR_NUM/head:refs/remotes/dottore-review/pr-$PR_NUM"
+          HEAD_SHA=$(git rev-parse "refs/remotes/dottore-review/pr-$PR_NUM")
+          git checkout --detach "$HEAD_SHA"
+          echo "PR_HEAD_SHA=$HEAD_SHA" >> "$GITHUB_ENV"
+
+      - name: Mark Dottore status in progress
+        if: inputs.review_mode != 'autofix'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh api --method POST "repos/$GITHUB_REPOSITORY/statuses/$PR_HEAD_SHA" \
+            -f state=pending -f context="Dottore Review" \
+            -f target_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
+            -f description="The specimen is on Dottore's observation table. Examination in progress." >/dev/null
+
+      - name: Run Dottore review
+        if: inputs.review_mode != 'autofix'
+        timeout-minutes: 40
+        env:
+          # The small model reads, the large one judges; .github/dottore-review/README.md describes each setting.
+          DOTTORE_SMALL_MODEL: ${{ vars.DOTTORE_SMALL_MODEL }}
+          DOTTORE_SMALL_API: ${{ vars.DOTTORE_SMALL_API }}
+          DOTTORE_SMALL_BASE_URL: ${{ vars.DOTTORE_SMALL_BASE_URL }}
+          DOTTORE_SMALL_EFFORT: ${{ vars.DOTTORE_SMALL_EFFORT }}
+          DOTTORE_SMALL_API_KEY: ${{ secrets.DOTTORE_SMALL_API_KEY }}
+          DOTTORE_LARGE_MODEL: ${{ vars.DOTTORE_LARGE_MODEL }}
+          DOTTORE_LARGE_API: ${{ vars.DOTTORE_LARGE_API }}
+          DOTTORE_LARGE_BASE_URL: ${{ vars.DOTTORE_LARGE_BASE_URL }}
+          DOTTORE_LARGE_EFFORT: ${{ vars.DOTTORE_LARGE_EFFORT }}
+          DOTTORE_LARGE_API_KEY: ${{ secrets.DOTTORE_LARGE_API_KEY }}
+          DOTTORE_CONCURRENCY: ${{ vars.DOTTORE_CONCURRENCY }}
+          DOTTORE_FINDERS: ${{ vars.DOTTORE_FINDERS }}
+          DOTTORE_COST_LIMIT_USD: ${{ vars.DOTTORE_COST_LIMIT_USD }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python /tmp/dottore-review-tool/dottore_review.py produce
+
+      - name: Render review
+        if: inputs.review_mode != 'autofix'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python /tmp/dottore-review-tool/dottore_review.py render
+
+      - name: Post the review
+        if: inputs.review_mode != 'autofix'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python /tmp/dottore-review-tool/dottore_review.py post
+
+      - name: Hand repaired threads to the resolve job
+        id: repairs
+        if: inputs.review_mode != 'autofix'
+        run: |
+          if jq -e '(.resolved_since_last_review // []) | length > 0' review.json >/dev/null 2>&1; then
+            mkdir -p /tmp/dottore-repairs
+            cp review.json /tmp/dottore-review-tool/dottore_review.py /tmp/dottore-repairs/
+            echo "resolve=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload repaired threads
+        if: steps.repairs.outputs.resolve == 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: dottore-repairs
+          path: /tmp/dottore-repairs
+          retention-days: 1
+
+      - name: Decide whether Dottore repairs this PR
+        id: autofix
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TRIGGER: ${{ inputs.review_mode == 'autofix' && 'asked' || 'review' }}
+          DOTTORE_SMALL_API: ${{ vars.DOTTORE_SMALL_API }}
+        run: |
+          python /tmp/dottore-review-tool/dottore_review.py autofix-prompt --trigger "$TRIGGER" >> "$GITHUB_OUTPUT"
+          if [ -f /tmp/dottore-autofix/meta.json ]; then
+            cp /tmp/dottore-review-tool/rules.json /tmp/dottore-autofix/
+            jq -r '"head_sha=\(.head_sha)", "head_ref=\(.head_ref)"' /tmp/dottore-autofix/meta.json >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload the repair request
+        if: steps.autofix.outputs.autofix == 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: dottore-autofix
+          path: /tmp/dottore-autofix
+          retention-days: 1
+
+      - name: Complete Dottore status
+        if: always() && inputs.review_mode != 'autofix'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          if [ -z "${PR_HEAD_SHA:-}" ]; then
+            PR_HEAD_SHA=$(gh pr view "$PR_NUM" --repo "$GITHUB_REPOSITORY" --json headRefOid -q .headRefOid)
+          fi
+          if [ -f /tmp/dottore-review-tool/dottore_review.py ]; then
+            STATUS_OUTPUT=$(python /tmp/dottore-review-tool/dottore_review.py status-state \
+              --review-json review.json --job-status "$JOB_STATUS")
+          else
+            STATUS_OUTPUT=$(printf '%s\n' 'state=failure' \
+              'description=The examination apparatus was unavailable. Inspect the trusted Dottore workflow run.')
+          fi
+          STATE=$(printf '%s\n' "$STATUS_OUTPUT" | sed -n 's/^state=//p')
+          DESCRIPTION=$(printf '%s\n' "$STATUS_OUTPUT" | sed -n 's/^description=//p')
+          gh api --method POST "repos/$GITHUB_REPOSITORY/statuses/$PR_HEAD_SHA" \
+            -f state="$STATE" -f context="Dottore Review" \
+            -f target_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
+            -f description="$DESCRIPTION" >/dev/null
+
+  # GitHub refuses resolveReviewThread to a token without contents: write, so resolving runs apart from the review:
+  # this job checks out nothing, runs only the trusted reviewer script the review job handed over, and holds no model
+  # key. A calling workflow (workflow_call) must grant contents: write too.
+  resolve:
+    name: Dottore repair check
+    needs: review
+    if: needs.review.outputs.resolve == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+    env:
+      PR_NUM: ${{ inputs.pr_number }}
+      PYTHONSAFEPATH: "1"
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: dottore-repairs
+          path: /tmp/dottore-repairs
+
+      - name: Resolve repaired threads
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 /tmp/dottore-repairs/dottore_review.py resolve --review-json /tmp/dottore-repairs/review.json
+
+  # Approval runs after resolve, so threads this review closed count as closed. It also runs after a failed review, to
+  # dismiss Dottore's approval of an earlier head; the walkthrough then names no examined head, so nothing is approved.
+  # GitHub accepts the approval only when the repository allows GitHub Actions to approve pull requests.
+  approve:
+    name: Dottore discharge
+    needs: [review, resolve]
+    if: >
+      !cancelled() && inputs.review_mode != 'autofix' && needs.resolve.result != 'failure' &&
+      (needs.review.result != 'skipped' || inputs.review_mode == 'approve')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: write
+    env:
+      PR_NUM: ${{ inputs.pr_number }}
+      PYTHONSAFEPATH: "1"
+    steps:
+      - name: Checkout pinned Engine tooling
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          path: .dottore-tooling
+          sparse-checkout: .github/dottore-review
+          persist-credentials: false
+
+      - name: Approve a discharged head
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TRIGGER: ${{ startsWith(inputs.comment_body, '/dottore') && 'asked' || 'auto' }}
+        run: |
+          [[ "$PR_NUM" =~ ^[1-9][0-9]*$ ]] || exit 1
+          python3 .dottore-tooling/.github/dottore-review/dottore_review.py approve --trigger "$TRIGGER"
+
+  # The repair: Claude Code edits the PR's files with the model key and no GitHub write token, and cannot run commands.
+  # The repository's own checks (rules.json autofix.validate) then run on the patch in a later step, without the key.
+  fix:
+    name: Dottore repair
+    needs: review
+    if: needs.review.outputs.autofix == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      contents: read
+    outputs:
+      result: ${{ steps.check.outputs.result }}
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: dottore-autofix
+          path: /tmp/dottore-autofix
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.review.outputs.head_sha }}
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+
+      - name: Install Claude Code
+        run: npm install -g @anthropic-ai/claude-code@2.1.295
+
+      - name: Repair the open findings
+        env:
+          # The small model repairs; the repair decision checked that it speaks Claude's Messages format.
+          ANTHROPIC_API_KEY: ${{ secrets.DOTTORE_SMALL_API_KEY }}
+          ANTHROPIC_BASE_URL: ${{ vars.DOTTORE_SMALL_BASE_URL }}
+          AUTOFIX_MODEL: ${{ vars.DOTTORE_SMALL_MODEL }}
+          AUTOFIX_EFFORT: ${{ vars.DOTTORE_SMALL_EFFORT }}
+          CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1"
+          DISABLE_TELEMETRY: "1"
+        run: |
+          mkdir -p /tmp/dottore-fix
+          claude -p "$(cat /tmp/dottore-autofix/prompt.md)" --model "$AUTOFIX_MODEL" ${AUTOFIX_EFFORT:+--effort "$AUTOFIX_EFFORT"} --max-turns 40 \
+            --allowedTools "Read,Edit,Write,Grep,Glob" --permission-mode acceptEdits --output-format json \
+            > /tmp/dottore-fix/claude.json || echo "::warning::Claude Code exited with an error."
+          jq -r '"Autofix: \(.subtype) turns=\(.num_turns) seconds=\(.duration_ms / 1000) list_usd=\(.total_cost_usd)"' \
+            /tmp/dottore-fix/claude.json || true
+          jq -r '.result // ""' /tmp/dottore-fix/claude.json > /tmp/dottore-fix/summary.md 2>/dev/null || true
+          git add -A -- . ':!.claude' && git diff --cached --binary > /tmp/dottore-fix/patch.diff
+          # The patch is pushed in public: refuse one that carries this step's key (a file read from the process).
+          if [ -n "$ANTHROPIC_API_KEY" ] && grep -qF -- "$ANTHROPIC_API_KEY" /tmp/dottore-fix/patch.diff /tmp/dottore-fix/summary.md; then
+            echo "::error::The repair contains a secret; discarding it."
+            : > /tmp/dottore-fix/patch.diff
+            echo "The repair was discarded because it contained a secret." > /tmp/dottore-fix/summary.md
+          fi
+          rm -f /tmp/dottore-fix/claude.json
+
+      - name: Run the repository's checks on the repair
+        id: check
+        run: |
+          if [ ! -s /tmp/dottore-fix/patch.diff ]; then
+            echo "result=unchanged" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          VALIDATE=$(jq -r '.autofix.validate // empty' /tmp/dottore-autofix/rules.json)
+          corepack enable
+          if [ -z "$VALIDATE" ] || timeout 25m bash -c "$VALIDATE" > /tmp/dottore-fix/validate.log 2>&1; then
+            echo "result=valid" >> "$GITHUB_OUTPUT"
+          else
+            echo "result=failed" >> "$GITHUB_OUTPUT"
+          fi
+          tail -c 3000 /tmp/dottore-fix/validate.log > /tmp/dottore-fix/validate-tail.txt 2>/dev/null || true
+          rm -f /tmp/dottore-fix/validate.log
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: dottore-fix
+          path: /tmp/dottore-fix
+          retention-days: 1
+
+  # Pushes the checked repair with the Dottore App's token, because a push made with GITHUB_TOKEN starts no CI and no
+  # review. It runs no PR code: it applies the patch, commits and pushes; the push starts Dottore's next review, whose
+  # repair check resolves the threads the code confirms. A calling workflow passes DOTTORE_APP_ID/_PRIVATE_KEY.
+  push:
+    name: Dottore repair push
+    needs: [review, fix]
+    if: always() && needs.review.outputs.autofix == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: write
+    env:
+      PR_NUM: ${{ inputs.pr_number }}
+      RESULT: ${{ needs.fix.outputs.result }}
+      HEAD_SHA: ${{ needs.review.outputs.head_sha }}
+      HEAD_REF: ${{ needs.review.outputs.head_ref }}
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        continue-on-error: true
+        with:
+          name: dottore-fix
+          path: /tmp/dottore-fix
+
+      - name: Report a repair Dottore could not push
+        if: env.RESULT != 'valid'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          {
+            case "$RESULT" in
+              unchanged) echo "🩺 Dottore examined the open findings but changed nothing." ;;
+              failed) echo "🩺 Dottore's repair failed this repository's checks, so it was not pushed." ;;
+              *) echo "🩺 Dottore's repair run did not finish ([run]($RUN_URL))." ;;
+            esac
+            if [ -s /tmp/dottore-fix/summary.md ]; then echo; head -c 1500 /tmp/dottore-fix/summary.md | sed 's/^/> /'; fi
+            if [ "$RESULT" = failed ] && [ -s /tmp/dottore-fix/validate-tail.txt ]; then
+              printf '\n<details><summary>Check output</summary>\n\n```text\n'
+              cat /tmp/dottore-fix/validate-tail.txt
+              printf '\n```\n</details>\n'
+            fi
+          } > /tmp/report.md
+          gh pr comment "$PR_NUM" --repo "$GITHUB_REPOSITORY" --body-file /tmp/report.md
+
+      - name: Create the Dottore App token
+        id: app
+        if: env.RESULT == 'valid'
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ secrets.DOTTORE_APP_ID }}
+          private-key: ${{ secrets.DOTTORE_APP_PRIVATE_KEY }}
+          permission-contents: write
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: env.RESULT == 'valid'
+        with:
+          ref: ${{ needs.review.outputs.head_ref }}
+          token: ${{ steps.app.outputs.token }}
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        if: env.RESULT == 'valid'
+        with:
+          name: dottore-autofix
+          path: /tmp/dottore-autofix
+
+      - name: Push the repair
+        if: env.RESULT == 'valid'
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          APP_SLUG: ${{ steps.app.outputs.app-slug }}
+        run: |
+          if [ "$(git rev-parse HEAD)" != "$HEAD_SHA" ]; then
+            gh pr comment "$PR_NUM" --repo "$GITHUB_REPOSITORY" \
+              --body "🩺 The branch moved while Dottore worked, so its repair was not pushed; the next review starts over."
+            exit 0
+          fi
+          git apply --index /tmp/dottore-fix/patch.diff
+          BOT_ID=$(gh api "users/${APP_SLUG}[bot]" --jq .id)
+          # The commit names the findings it repairs (data from meta.json, quoted by jq); the runner's own account of
+          # the change follows, without the trailers a runner may add; the Dottore-Autofix trailer counts the rounds.
+          META=/tmp/dottore-autofix/meta.json
+          COUNT=$(jq '.findings | length' "$META")
+          if [ "$COUNT" = 1 ]; then
+            TITLE="fix: repair Dottore's finding in $(jq -r '.findings[0].path | split("/") | last' "$META")"
+          else
+            TITLE="fix: repair $COUNT Dottore findings"
+          fi
+          {
+            echo "$TITLE"
+            echo
+            jq -r '.findings[] | "- \(.path):\(.line) \(.title)"' "$META"
+            echo
+            grep -v -E '^(Co-Authored-By|Signed-off-by|Co-authored-by):' /tmp/dottore-fix/summary.md | head -c 1500
+            echo
+            echo
+            echo "Dottore-Autofix: $GITHUB_RUN_ID"
+          } > /tmp/message.txt
+          git -c user.name="${APP_SLUG}[bot]" -c user.email="${BOT_ID}+${APP_SLUG}[bot]@users.noreply.github.com" \
+            commit -q -F /tmp/message.txt
+          # A rejected push (a repair editing a workflow file, which this token cannot push; a protected branch) is
+          # reported with git's reason, so the failure is not only in the run log.
+          if ! git push origin "HEAD:refs/heads/$HEAD_REF" 2> /tmp/push.err; then
+            {
+              echo "🩺 Dottore's repair could not be pushed, so the branch is unchanged. Git said:"
+              printf '\n```text\n'
+              tail -c 1200 /tmp/push.err
+              printf '\n```\n'
+            } > /tmp/report.md
+            gh pr comment "$PR_NUM" --repo "$GITHUB_REPOSITORY" --body-file /tmp/report.md
+            exit 1
+          fi

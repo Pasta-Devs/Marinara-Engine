@@ -1,4 +1,5 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
+import { isApiRequest } from "../utils/api-request.js";
 
 export type MarinaraRouteRateLimit = {
   readonly max: number;
@@ -351,7 +352,7 @@ function sweepExpired(now: number) {
 }
 
 export function rateLimitHook(request: FastifyRequest, reply: FastifyReply, done: () => void) {
-  if (!request.url.startsWith("/api/")) return done();
+  if (!isApiRequest(request)) return done();
   if (isE2ERateLimitDisabled) return done();
 
   const now = Date.now();

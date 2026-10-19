@@ -292,8 +292,19 @@ export type FileNativeStoreTestHooks = {
   onTableWriteSkipped?: (table: string) => void;
   writerLeaseScopeId?: string;
   writerLeaseBootId?: string;
-  /** Overrides the filesystem check behind writerLeaseStorageIsMachineLocal (#5744). */
+  /** Overrides this process's machine ID hash; null simulates a failed probe (#7801). */
+  writerLeaseHostId?: string | null;
+  /**
+   * Overrides the filesystem check behind writerLeaseStorageIsMachineLocal (#5744). When set, that
+   * proof also replaces the Windows proof on win32.
+   */
   writerLeaseStorageIsMachineLocal?: boolean;
+  /** Overrides the platform whose storage proof applies; "win32" selects the Windows proof (#7801). */
+  writerLeasePlatform?: NodeJS.Platform;
+  /** Overrides fs.realpathSync.native in the Windows storage proof (#7801). */
+  writerLeaseRealpath?: (path: string) => string;
+  /** Overrides the Windows drive type probe; null simulates a failed or timed-out probe (#7801). */
+  writerLeaseDriveType?: (driveRoot: string) => string | null;
   /** Overrides the PID namespace recorded in and compared against the lease (#5744). */
   writerLeasePidNamespace?: string;
   /**
@@ -1492,23 +1503,30 @@ function readStableMachineId() {
   }
 
   if (process.platform === "win32") {
-    try {
-      const executable = process.env.SystemRoot ? join(process.env.SystemRoot, "System32", "reg.exe") : "reg.exe";
-      const output = execFileSync(
-        executable,
-        ["query", "HKLM\\SOFTWARE\\Microsoft\\Cryptography", "/v", "MachineGuid"],
-        {
-          encoding: "utf8",
-          stdio: ["ignore", "pipe", "ignore"],
-          timeout: 1_000,
-          maxBuffer: 64 * 1024,
-          windowsHide: true,
-        },
-      );
-      return output.match(/MachineGuid\s+REG_SZ\s+([^\r\n]+)/i)?.[1]?.trim() ?? null;
-    } catch {
-      return null;
+    const executable = process.env.SystemRoot ? join(process.env.SystemRoot, "System32", "reg.exe") : "reg.exe";
+    // The first reg.exe launch in a process can take about 2 s on some
+    // machines, while later ones take milliseconds. Without a machine ID this
+    // process cannot prove that a crashed writer's lease is its own (#7801),
+    // so a timed-out probe gets one retry.
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const output = execFileSync(
+          executable,
+          ["query", "HKLM\\SOFTWARE\\Microsoft\\Cryptography", "/v", "MachineGuid"],
+          {
+            encoding: "utf8",
+            stdio: ["ignore", "pipe", "ignore"],
+            timeout: 2_000,
+            maxBuffer: 64 * 1024,
+            windowsHide: true,
+          },
+        );
+        return output.match(/MachineGuid\s+REG_SZ\s+([^\r\n]+)/i)?.[1]?.trim() ?? null;
+      } catch (err) {
+        if ((err as NodeJS.ErrnoException).code !== "ETIMEDOUT") return null;
+      }
     }
+    return null;
   }
 
   return (
@@ -1572,6 +1590,31 @@ function probeWindowsBootId(): string | null {
   }
 }
 
+// Windows prints LastBootUpTime from the current clock minus uptime, so one
+// boot can print values seconds apart once the clock is corrected (#7801).
+// Counting close values as one boot only skips the boot proof: the PID checks
+// still decide, so a wider window never reclaims a lease whose writer is alive.
+const WINDOWS_BOOT_ID_TOLERANCE_MS = 5 * 60_000;
+const WINDOWS_BOOT_ID_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/u;
+
+/** Whether a lease's recorded boot id names the same OS boot as `current`. */
+export function writerLeaseBootIdsMatch(
+  recorded: string | undefined,
+  current: string,
+  platform: NodeJS.Platform = process.platform,
+) {
+  if (recorded === current) return true;
+  if (platform !== "win32" || !recorded) return false;
+  if (!WINDOWS_BOOT_ID_PATTERN.test(recorded) || !WINDOWS_BOOT_ID_PATTERN.test(current)) return false;
+  const recordedMs = Date.parse(recorded);
+  const currentMs = Date.parse(current);
+  return (
+    Number.isFinite(recordedMs) &&
+    Number.isFinite(currentMs) &&
+    Math.abs(recordedMs - currentMs) <= WINDOWS_BOOT_ID_TOLERANCE_MS
+  );
+}
+
 const CURRENT_HOST_ID = (() => {
   const machineId = readStableMachineId();
   if (!machineId) return null;
@@ -1605,9 +1648,9 @@ const CURRENT_CLOCK_TICKS_PER_SECOND = (() => {
   }
 })();
 
-function writerLeaseBelongsToCurrentHost(record: StorageWriterLeaseRecord) {
+function writerLeaseBelongsToCurrentHost(record: StorageWriterLeaseRecord, hostId: string | null) {
   if (record.version === 2 || record.version === 4) {
-    return Boolean(CURRENT_HOST_ID && record.hostId === CURRENT_HOST_ID);
+    return Boolean(hostId && record.hostId === hostId);
   }
   if (CURRENT_LEGACY_HOST_ID && record.hostId === CURRENT_LEGACY_HOST_ID) return true;
 
@@ -1866,8 +1909,10 @@ const MACHINE_LOCAL_FILESYSTEM_MAGICS = new Set<number>([
  * and Podman container, and Linux hosts without /etc/machine-id — so the host
  * comparison can never match it. When the storage is machine-local, that
  * writer provably ran here and the same staleness proofs as a same-host lease
- * apply (#5744). Only Linux and Android expose the statfs magic reliably; other
- * platforms always have a stable machine ID and keep the strict path.
+ * apply (#5744). The same holds when this process is the one without an ID
+ * (#7801). Only Linux and Android expose the statfs magic reliably; Windows
+ * uses writerLeaseWindowsStorageIsMachineLocal instead, and other platforms
+ * keep the strict path.
  */
 export function writerLeaseStorageIsMachineLocal(rootDir: string) {
   if (process.platform !== "linux" && process.platform !== "android") return false;
@@ -1878,6 +1923,83 @@ export function writerLeaseStorageIsMachineLocal(rootDir: string) {
   } catch {
     return false;
   }
+}
+
+// Windows exposes no filesystem magic, so its proof asks for the drive type
+// (#7801). DriveType prints an enum name (Fixed, Network, Removable, CDRom,
+// Ram, NoRootDirectory, Unknown), which is never localized. The answer is
+// cached per drive for the life of the process, failures included.
+const windowsDriveTypes = new Map<string, string | null>();
+
+function probeWindowsDriveType(driveRoot: string): string | null {
+  try {
+    const executable = process.env.SystemRoot
+      ? join(process.env.SystemRoot, "System32", "WindowsPowerShell", "v1.0", "powershell.exe")
+      : "powershell.exe";
+    const output = execFileSync(
+      executable,
+      ["-NoProfile", "-NonInteractive", "-Command", `[System.IO.DriveInfo]::new('${driveRoot}').DriveType`],
+      {
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "ignore"],
+        timeout: 5_000,
+        maxBuffer: 8 * 1024,
+        windowsHide: true,
+      },
+    );
+    return output.trim() || null;
+  } catch (err) {
+    logger.warn(err, "[file-storage] Could not read the drive type of %s; treating it as shared storage.", driveRoot);
+    return null;
+  }
+}
+
+function cachedWindowsDriveType(driveRoot: string) {
+  if (!windowsDriveTypes.has(driveRoot)) windowsDriveTypes.set(driveRoot, probeWindowsDriveType(driveRoot));
+  return windowsDriveTypes.get(driveRoot) ?? null;
+}
+
+/**
+ * Whether a Windows storage directory sits on a fixed disk of this machine
+ * (#7801). The path is resolved first, so a mapped network drive or a link to
+ * a share shows up as the UNC path it really is. Only a resolved `X:\` path
+ * on a Fixed drive counts: UNC and volume GUID paths, network, removable,
+ * optical, RAM and unknown drives, and any failed or timed-out probe do not.
+ * The caller asks only when a lease blocks startup, never at module load.
+ */
+export function writerLeaseWindowsStorageIsMachineLocal(
+  rootDir: string,
+  realpath: (path: string) => string = realpathSync.native,
+  driveType: (driveRoot: string) => string | null = cachedWindowsDriveType,
+) {
+  try {
+    let storage = realpath(rootDir);
+    // `\\?\C:\...` is a drive path; `\\?\UNC\server\share\...` is a share.
+    if (storage.startsWith("\\\\?\\")) storage = storage.slice(4);
+    const drive = /^([a-z]):\\/iu.exec(storage)?.[1];
+    if (!drive) return false;
+    return driveType(`${drive.toUpperCase()}:\\`) === "Fixed";
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Whether a lease was written by a native Windows process on a machine with
+ * our name. Only probeWindowsBootId writes a LastBootUpTime boot id, while a
+ * Linux writer reaching the same disk (WSL, Docker Desktop, a VM share)
+ * records a UUID boot id and a PID namespace. The Windows storage proof
+ * covers only these records: the boot and PID checks it unlocks say nothing
+ * about a writer in another kernel or on another PC using a share (#7801).
+ */
+function writerLeaseWrittenByWindowsHere(record: StorageWriterLeaseRecord) {
+  return (
+    record.version === 4 &&
+    WINDOWS_BOOT_ID_PATTERN.test(record.bootId ?? "") &&
+    record.pidNamespace === undefined &&
+    record.scopeId === undefined &&
+    record.hostname === CURRENT_HOSTNAME
+  );
 }
 
 function fileStoreManifestExists(rootDir: string) {
@@ -2585,6 +2707,9 @@ class FileTableStore {
         ? createHash("sha256").update(`marinara-writer-lease-boot\n${writerBootId}`).digest("hex")
         : null);
     const writerPidNamespace = this.testHooks?.writerLeasePidNamespace ?? CURRENT_PID_NAMESPACE;
+    const writerHostId =
+      this.testHooks?.writerLeaseHostId !== undefined ? this.testHooks.writerLeaseHostId : CURRENT_HOST_ID;
+    const writerPlatform = this.testHooks?.writerLeasePlatform ?? process.platform;
     for (let attempt = 0; attempt < 10; attempt++) {
       const token = randomUUID();
       let created = false;
@@ -2605,7 +2730,7 @@ class FileTableStore {
           const record: StorageWriterLeaseRecord = {
             version: writerBootId ? 4 : liveness ? 3 : 2,
             pid: process.pid,
-            hostId: CURRENT_HOST_ID,
+            hostId: writerHostId,
             ...(liveness ? { scopeId: liveness.scopeId } : {}),
             ...(writerBootId ? { bootId: writerBootId } : {}),
             ...(writerPidNamespace ? { pidNamespace: writerPidNamespace } : {}),
@@ -2648,18 +2773,32 @@ class FileTableStore {
 
       let staleReason: "boot" | "liveness" | "pid" | "pid-reused" | null = null;
       // Same-host proof, in order of strength: the recorded machine ID matches
-      // ours; the storage is Termux's app-private HOME; or the writer could not
-      // identify its machine at all (hostId null) but left the lease on storage
-      // only this machine can mount (#5744). A lease that names a different
-      // machine never qualifies for the storage-based proof.
-      let hostProof: "host-id" | "termux-home" | "local-storage" | null = null;
-      if (writerLeaseBelongsToCurrentHost(existing.record)) hostProof = "host-id";
+      // ours; the storage is Termux's app-private HOME; or one side could not
+      // identify its machine (the writer left hostId null, #5744, or this
+      // process could not read its own ID, #7801) and the lease sits on
+      // storage only this machine can mount. A lease that names a machine
+      // other than our known one never qualifies for the storage-based proof.
+      // On Windows that storage is a Fixed drive, and the lease must come from
+      // a native Windows writer with our machine name (#7801).
+      let hostProof: "host-id" | "termux-home" | "local-storage" | "windows-local-storage" | null = null;
+      if (writerLeaseBelongsToCurrentHost(existing.record, writerHostId)) hostProof = "host-id";
       else if (isTermuxPrivateHomeStorage(this.rootDir)) hostProof = "termux-home";
-      else if (
-        existing.record.hostId === null &&
-        (this.testHooks?.writerLeaseStorageIsMachineLocal ?? writerLeaseStorageIsMachineLocal(this.rootDir))
-      ) {
-        hostProof = "local-storage";
+      else if (existing.record.hostId === null || writerHostId === null) {
+        const storageIsMachineLocal = this.testHooks?.writerLeaseStorageIsMachineLocal;
+        if (writerPlatform === "win32" && storageIsMachineLocal === undefined) {
+          if (
+            writerLeaseWrittenByWindowsHere(existing.record) &&
+            writerLeaseWindowsStorageIsMachineLocal(
+              this.rootDir,
+              this.testHooks?.writerLeaseRealpath,
+              this.testHooks?.writerLeaseDriveType,
+            )
+          ) {
+            hostProof = "windows-local-storage";
+          }
+        } else if (storageIsMachineLocal ?? writerLeaseStorageIsMachineLocal(this.rootDir)) {
+          hostProof = "local-storage";
+        }
       }
       const sameHost = hostProof !== null;
       // A machine-ID or Termux proof comes from a native process, so it shares
@@ -2667,11 +2806,18 @@ class FileTableStore {
       // containers on this host, whose PIDs are invisible to each other, so
       // the PID checks below additionally require the lease to record our own
       // namespace; older or foreign-namespace records rely on the boot and
-      // liveness proofs alone (#5744).
+      // liveness proofs alone (#5744). Windows has no PID namespaces, and its
+      // storage proof accepts only native Windows writers, so there the PID
+      // checks apply directly (#7801).
       const pidProofUsable =
         hostProof !== "local-storage" ||
         (writerPidNamespace !== null && existing.record.pidNamespace === writerPidNamespace);
-      if (existing.record.version === 4 && sameHost && writerBootId && existing.record.bootId !== writerBootId) {
+      if (
+        existing.record.version === 4 &&
+        sameHost &&
+        writerBootId &&
+        !writerLeaseBootIdsMatch(existing.record.bootId, writerBootId, writerPlatform)
+      ) {
         staleReason = "boot";
       } else if (existing.record.version === 3 || (existing.record.version === 4 && existing.record.scopeId)) {
         // A socket refusal is proof only within the same host kernel. Shared
@@ -2685,7 +2831,9 @@ class FileTableStore {
         }
       } else if (sameHost && pidProofUsable) {
         if (pidDefinitelyExited(existing.record.pid)) staleReason = "pid";
-        else if (pidWasReused(existing.record)) staleReason = "pid-reused";
+        // On the Windows storage proof a live PID keeps the lease even if it
+        // may have been reused: only an exited PID frees it (#7801).
+        else if (hostProof !== "windows-local-storage" && pidWasReused(existing.record)) staleReason = "pid-reused";
       }
       if (!staleReason) {
         throw new StorageWriterLeaseError(

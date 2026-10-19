@@ -32,7 +32,13 @@ import {
 } from "../../lib/floating-window-layout";
 import { isPhoneWindowLayout, PHONE_LAYOUT_QUERY, useFloatingWindowStore } from "../../stores/floating-window.store";
 import { useMatchMedia } from "../../hooks/use-match-media";
-import { FloatingWindow, focusWindowOpener, PHONE_SHEET_CLASS, readFloatingWindowBounds } from "./FloatingWindow";
+import {
+  FloatingWindow,
+  focusWindowOpener,
+  PHONE_FULL_SHEET_CLASS,
+  PHONE_SHEET_CLASS,
+  readFloatingWindowBounds,
+} from "./FloatingWindow";
 import { HelpTooltip } from "./HelpTooltip";
 import { useDrawerHost, type DrawerHost } from "./drawer-host";
 
@@ -49,6 +55,8 @@ export interface DrawerProps {
   banner?: ReactNode;
   /** Extra controls between the help tip and the arrow, before the pop-out button. */
   actions?: ReactNode;
+  /** Controls for the window a popped-out drawer opens in (its title bar), not shown in the drawer header. */
+  detachedHeaderControls?: ReactNode;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /** A chat control keeps its existing window id and content owner when leaving its docked section. */
@@ -59,6 +67,8 @@ export interface DrawerProps {
   style?: CSSProperties;
   /** Top spacing of the body; defaults to "pt-3". */
   bodyClassName?: string;
+  /** Popped out, the body is a column filling its window (a phone's whole sheet); `flex-auto` content grows with it. */
+  fill?: boolean;
   rootAttributes?: Record<`data-${string}`, string | undefined>;
   children: ReactNode;
 }
@@ -105,6 +115,7 @@ export function Drawer({
   summary,
   banner,
   actions,
+  detachedHeaderControls,
   open,
   onOpenChange,
   onPopOut,
@@ -112,6 +123,7 @@ export function Drawer({
   className,
   style,
   bodyClassName,
+  fill = false,
   rootAttributes,
   children,
 }: DrawerProps) {
@@ -137,8 +149,10 @@ export function Drawer({
         icon={icon}
         banner={banner}
         help={help}
+        headerControls={detachedHeaderControls}
         className={className}
         bodyClassName={bodyClassName}
+        fill={fill}
         rootAttributes={rootAttributes}
       >
         {children}
@@ -356,8 +370,11 @@ interface DetachedDrawerWindowProps {
   icon?: ReactNode;
   banner?: ReactNode;
   help?: string;
+  /** Buttons for this window's title bar, before minimize, pin, lock and close. */
+  headerControls?: ReactNode;
   className?: string;
   bodyClassName?: string;
+  fill: boolean;
   rootAttributes?: Record<`data-${string}`, string | undefined>;
   children: ReactNode;
 }
@@ -387,8 +404,10 @@ function DetachedDrawerWindow({
   icon,
   banner,
   help,
+  headerControls,
   className,
   bodyClassName,
+  fill,
   rootAttributes,
   children,
 }: DetachedDrawerWindowProps) {
@@ -437,6 +456,7 @@ function DetachedDrawerWindow({
             title={title}
             titleIcon={icon ? <span className="mari-drawer__icon flex shrink-0">{icon}</span> : undefined}
             titleAccessory={help ? <HelpTooltip text={help} side="bottom" /> : undefined}
+            headerControls={headerControls}
             closeLabel={t("window.controls.close")}
             closeAccessory={
               <button
@@ -451,7 +471,7 @@ function DetachedDrawerWindow({
               </button>
             }
             presentation={phone ? "sheet" : "window"}
-            sheetClassName={PHONE_SHEET_CLASS}
+            sheetClassName={cn(PHONE_SHEET_CLASS, fill && PHONE_FULL_SHEET_CLASS)}
             // The bubble shows the drawer's own icon (or banner) and is named after it.
             minimizable={{
               icon: icon ?? <ExternalLink size="0.875rem" />,
@@ -478,9 +498,11 @@ function DetachedDrawerWindow({
                 data-drawer={drawerId}
                 data-detached="true"
                 {...rootAttributes}
-                className={cn("mari-drawer", className)}
+                className={cn("mari-drawer", fill && "flex flex-auto flex-col", className)}
               >
-                <div className={cn("mari-drawer__body", bodyClassName ?? "pt-3")}>{children}</div>
+                <div className={cn("mari-drawer__body", fill && "flex flex-auto flex-col", bodyClassName ?? "pt-3")}>
+                  {children}
+                </div>
               </div>
             </div>
           </FloatingWindow>,

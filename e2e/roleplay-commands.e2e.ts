@@ -2230,8 +2230,9 @@ test("Roleplay commands require attached agents, enforce combat audience, and fo
     expect(contentOf(illustrationPlans[0])).toContain("IMAGE_CONNECTION_OVERRIDE");
     expect(contentOf(illustrationPlans[0])).toContain("Involved characters: Alice");
     expect(imageRequests).toHaveLength(1);
-    expect(imageRequests[0]!.url, imageRequests[0]!.data.toString("utf8")).toContain("/images/edits");
-    expect(imageRequests[0]!.data.includes(portrait)).toBe(true);
+    // Naming characters doesn't override the chat's reference switch, which is off here.
+    expect(imageRequests[0]!.url).not.toContain("/images/edits");
+    expect(imageRequests[0]!.data.includes(portrait)).toBe(false);
     const multipart = imageRequests[0]!.data.toString("utf8");
     expect(multipart).toContain("POSITIVE_OVERRIDE");
     expect(multipart).toContain("NEGATIVE_OVERRIDE");
@@ -2257,10 +2258,16 @@ test("Roleplay commands require attached agents, enforce combat audience, and fo
     await expect.poll(() => imageRequests.length).toBe(2);
 
     // A requested image bypasses the interval, and a due automatic image still runs on the same turn.
+    // With the reference switch on, the named character's avatar goes along.
+    await metadata({ illustratorUseAvatarReferences: true });
     output = 'She lifts her sword. [illustrate: subject="A duel" characters="Alice"]';
     await generate(alice);
     expect(automaticIllustrations).toHaveLength(1);
     expect(illustrationPlans).toHaveLength(2);
+    await expect.poll(() => imageRequests.length).toBe(3);
+    expect(imageRequests[2]!.url, imageRequests[2]!.data.toString("utf8")).toContain("/images/edits");
+    expect(imageRequests[2]!.data.includes(portrait)).toBe(true);
+    await metadata({ illustratorUseAvatarReferences: false });
     await interval(1);
     const combined = await generate(alice);
     expect(automaticIllustrations).toHaveLength(2);

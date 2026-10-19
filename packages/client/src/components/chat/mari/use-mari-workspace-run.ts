@@ -14,6 +14,7 @@ import { professorMariWorkspaceStatusKeys } from "../../../hooks/use-professor-m
 import { api, isPassiveStreamDisconnect } from "../../../lib/api-client";
 import { awaitMariPermissionsModeWrites } from "../../../lib/mari-permissions-write-chain";
 import { describeProfessorMariError } from "../../../lib/professor-mari-errors";
+import { resolveMariAppearancePack } from "../../../lib/mari-work-animations";
 import { RafThrottle, rafThrottle } from "../../../lib/raf-throttle";
 import { useChatStore } from "../../../stores/chat.store";
 import { useUIStore } from "../../../stores/ui.store";
@@ -180,6 +181,14 @@ export function useMariWorkspaceRun({
         document.addEventListener("visibilitychange", recordBackgroundedStream);
         window.addEventListener("pagehide", markPageHidden);
       }
+      const ui = useUIStore.getState();
+      const shownPack = resolveMariAppearancePack(
+        ui.mariAppearancePackId,
+        ui.mariUnlockedPackIds,
+        null,
+        ui.mariSeasonOptOut,
+        ui.seasonalThemesDisabled,
+      );
       try {
         for await (const event of api.streamEvents(
           "/professor-mari/workspace/prompt",
@@ -191,6 +200,8 @@ export function useMariWorkspaceRun({
             attachments,
             context: context ?? undefined,
             existingUserMessageId,
+            // Flavors her voice only while the dated pack is the one on screen.
+            seasonalPackId: shownPack.season ? shownPack.id : undefined,
           },
           controller.signal,
           // Backgrounding leaves the socket half-open; detach on resume. The

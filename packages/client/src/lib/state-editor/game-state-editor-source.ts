@@ -4,7 +4,11 @@
 // patch building stay in one place for both editors.
 // ──────────────────────────────────────────────
 import type { GameState } from "@marinara-engine/shared";
-import { AGENT_SUITE_TRACKER_SLICES } from "../agent-suite-tracker-slices";
+import {
+  AGENT_SUITE_TRACKER_SLICES,
+  trackerSlicePatchError,
+  type TrackerSliceError,
+} from "../agent-suite-tracker-slices";
 import { stateValuesEqual } from "./state-editor-json";
 import type { StateEditorChange, StateEditorSection } from "./state-editor.types";
 
@@ -40,7 +44,7 @@ export function buildGameStateEditorSections(
 export function buildGameStateEditorPatch(
   snapshot: GameState,
   changes: StateEditorChange[],
-): { patch: Record<string, unknown> } | { error: string | null; sectionId: string } {
+): { patch: Record<string, unknown> } | { error: TrackerSliceError | null; sectionId: string } {
   let working = snapshot;
   const patch: Record<string, unknown> = {};
   for (const change of changes) {
@@ -48,9 +52,8 @@ export function buildGameStateEditorPatch(
     // null: no tracker slice has this id; the modal words that message.
     if (!slice) return { error: null, sectionId: change.sectionId };
     const slicePatch = slice.buildPatch(working, change.value);
-    if ("error" in slicePatch && typeof slicePatch.error === "string") {
-      return { error: slicePatch.error, sectionId: change.sectionId };
-    }
+    const error = trackerSlicePatchError(slicePatch);
+    if (error) return { error, sectionId: change.sectionId };
     Object.assign(patch, slicePatch);
     working = { ...working, ...slicePatch } as GameState;
   }

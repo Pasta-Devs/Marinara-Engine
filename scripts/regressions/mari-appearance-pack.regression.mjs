@@ -9,8 +9,10 @@ import {
   MARI_SPRITE_VERSION,
   MARI_STORY_STATES,
   mariAssetUrls,
+  resolveMariAppearancePack,
   resolveMariRestStory,
   selectMariWorkAnimation,
+  visibleMariAppearancePacks,
 } from "../../packages/client/src/lib/mari-work-animations.ts";
 
 const pack = getMariAppearancePack("basic");
@@ -126,6 +128,23 @@ for (const [name, state] of [
 ]) {
   assert.equal(selectMariWorkAnimation({ activity: "", toolNames: [name], packId: "stale" }).id, state);
 }
+// Dated packs: shown by themselves inside their window (both ends inclusive), hidden outside it, and an
+// in-window pick of another pack wins for that year only. The user's own pick is never overwritten.
+const day = (iso) => new Date(`${iso}T12:00:00`);
+const ids = (now) => visibleMariAppearancePacks(false, now).map(({ id }) => id);
+assert.ok(!ids(day("2026-10-28")).includes("raccoon") && !ids(day("2026-11-02")).includes("raccoon"));
+assert.ok(ids(day("2026-10-29")).includes("raccoon") && ids(day("2026-11-01")).includes("raccoon"));
+assert.equal(resolveMariAppearancePack("safari", [], null, "", false, day("2026-10-31")).id, "raccoon");
+assert.equal(resolveMariAppearancePack("safari", [], null, "raccoon-2026", false, day("2026-10-31")).id, "safari");
+assert.equal(resolveMariAppearancePack("safari", [], null, "raccoon-2026", false, day("2027-10-31")).id, "raccoon");
+assert.equal(resolveMariAppearancePack("safari", [], null, "", false, day("2026-11-02")).id, "safari");
+assert.equal(resolveMariAppearancePack("raccoon", [], null, "", false, day("2026-06-15")).id, "basic");
+assert.equal(resolveMariAppearancePack("golden", [], null, "", false, day("2026-10-30")).id, "raccoon");
+// Settings → Disable seasonal ME themes: dated packs neither show by themselves nor appear in the chooser.
+assert.equal(resolveMariAppearancePack("safari", [], null, "", true, day("2026-10-31")).id, "safari");
+assert.equal(resolveMariAppearancePack("raccoon", [], null, "", true, day("2026-10-31")).id, "basic");
+assert.ok(!visibleMariAppearancePacks(true, day("2026-10-31")).some(({ id }) => id === "raccoon"));
+
 console.info(
   "Mari appearance pack: fallback, lifecycle outcomes, activity selection, per-pack isolation, loading tiers and all sprite assets passed.",
 );

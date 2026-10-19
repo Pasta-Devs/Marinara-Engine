@@ -356,6 +356,17 @@ const wizardSource = readFileSync(
   new URL("../../packages/client/src/components/chat/ChatSetupWizard.tsx", import.meta.url),
   "utf8",
 );
-assert.match(wizardSource, /withUniqueOnboardingIds\(parsed\.data/, "the wizard reads unique ids too");
+// The wizard used to parse the card itself and call `withUniqueOnboardingIds` on
+// the result. That parse moved into shared `readCardOnboarding` (#7795), which
+// makes the ids unique as part of reading, so the uniqueness proof lives where the
+// parse does (`onboarding-followups.regression.ts`). What has to hold HERE is that
+// the wizard still reads through it rather than hand-rolling a parse again — a
+// second parse is exactly how the wizard and the Chat Settings drawer could start
+// disagreeing about which cards offer questions.
+assert.match(
+  wizardSource,
+  /readCardOnboarding\(character\.data\)/,
+  "the wizard reads cards through the shared parse, which is where ids are made unique",
+);
 
 console.log("onboarding-s1: all assertions passed");

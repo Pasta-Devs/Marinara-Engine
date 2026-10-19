@@ -52,6 +52,8 @@ export interface PlannedDecision {
   key: string;
   /** For a Choice statement, every option it is compared with anywhere this turn. */
   options: string[];
+  /** Each option's criteria, resolved, by the same index ("" for none). Only set when an option has some. */
+  criteria?: string[];
   /** The longest `sticky:` and `cooldown:` written on any of its occurrences. */
   sticky?: number;
   cooldown?: number;
@@ -250,7 +252,8 @@ export function planPromptDecisions(
   options: { held?: HeldDecisions } = {},
 ): PromptDecisionPlan {
   const byKey = new Map<string, PlannedDecision>();
-  const optionKeys = new Map<string, Set<string>>();
+  // Each statement's options, normalized, with their criteria.
+  const optionCriteria = new Map<string, Map<string, string>>();
   // Each group is resolved in the context it will be evaluated in: an agent template
   // sees `{{char}}` as every character's name, a preset section as the responder's.
   for (const { texts, ctx, reachable } of groups)
@@ -260,17 +263,17 @@ export function planPromptDecisions(
         if (
           reachable &&
           !reachable.has(normalizeDecisionQuestion(collected.question)) &&
-          !variants.some((key) => reachable.has(key))
+          ![...variants.keys()].some((key) => reachable.has(key))
         )
           continue;
-        for (const key of variants) {
+        for (const [key, variantCtx] of variants) {
           const id = `${collected.kind}\u0000${key}`;
           let planned = byKey.get(id);
           const first = !planned;
           if (!planned) {
             planned = { kind: collected.kind, key, options: [] };
             byKey.set(id, planned);
-            optionKeys.set(id, new Set());
+            optionCriteria.set(id, new Map());
           }
           if (collected.sticky) planned.sticky = Math.max(planned.sticky ?? 0, collected.sticky);
           if (collected.cooldown) planned.cooldown = Math.max(planned.cooldown ?? 0, collected.cooldown);
@@ -287,16 +290,26 @@ export function planPromptDecisions(
           const priority = rank === 0 ? "high" : rank === 2 ? "low" : undefined;
           if (priority) planned.priority = priority;
           else delete planned.priority;
-          const seen = optionKeys.get(id)!;
-          for (const option of collected.options) {
+          const seen = optionCriteria.get(id)!;
+          for (const [index, option] of collected.options.entries()) {
             const normalized = normalizeDecisionQuestion(option).toLowerCase();
-            if (!normalized || seen.has(normalized)) continue;
-            seen.add(normalized);
-            planned.options.push(normalizeDecisionQuestion(option));
+            if (!normalized) continue;
+            if (!seen.has(normalized)) planned.options.push(normalizeDecisionQuestion(option));
+            // The first criteria written for an option are the ones it keeps.
+            const criteria = collected.criteria?.[index];
+            seen.set(
+              normalized,
+              seen.get(normalized) || (criteria ? resolveDecisionQuestionText(criteria, variantCtx) : ""),
+            );
           }
         }
       }
     }
+  for (const [id, planned] of byKey) {
+    const seen = optionCriteria.get(id)!;
+    const criteria = planned.options.map((option) => seen.get(normalizeDecisionQuestion(option).toLowerCase()) ?? "");
+    if (criteria.some(Boolean)) planned.criteria = criteria;
+  }
   // A Choice statement nobody compares with an option has nothing to choose between.
   const candidates = [...byKey.values()].filter((d) => d.kind === "noul" || d.options.length > 0);
   for (const decision of candidates) {
@@ -368,9 +381,12 @@ export class PromptDecisionTurnCache {
 
 export const promptDecisionTurnCache = new PromptDecisionTurnCache();
 
-/** A Choice answer is cached against its option set, which a later edit can change. */
+/** A Choice answer is cached against its options and their criteria, which a later edit can change. */
 function choiceCacheKey(decision: PlannedDecision): string {
-  return `${decision.key}\u0000${[...decision.options].sort().join("\u0001")}`;
+  const options = decision.options.map((option, index) =>
+    decision.criteria?.[index] ? `${option}\u0002${decision.criteria[index]}` : option,
+  );
+  return `${decision.key}\u0000${options.sort().join("\u0001")}`;
 }
 
 /** What is already known for this turn, without asking anything. For Peek Prompt. */
@@ -452,7 +468,9 @@ export async function answerPromptDecisions(args: {
     const questions: NoulQuestion[] = pending.map((decision, index) => ({
       id: `d${index}`,
       instructions: decision.key,
-      ...(decision.kind === "choice" ? { options: decision.options } : {}),
+      ...(decision.kind === "choice"
+        ? { options: decision.options, ...(decision.criteria ? { criteria: decision.criteria } : {}) }
+        : {}),
     }));
     try {
       const state = buildDecisionState(

@@ -45,6 +45,7 @@ import {
   mariImgLoading,
   playHoursFromMs,
   resolveMariAppearancePack,
+  visibleMariAppearancePacks,
 } from "../../../lib/mari-work-animations";
 import { useActivityOverview } from "../../../hooks/use-chat-insights";
 import { useFeatureModels, useSetFeatureModels } from "../../../hooks/use-connection-accounts";
@@ -334,10 +335,12 @@ function AppearancePacks() {
   const baseId = useId();
   const storedId = useUIStore((state) => state.mariAppearancePackId);
   const unlockedIds = useUIStore((state) => state.mariUnlockedPackIds);
+  const seasonOptOut = useUIStore((state) => state.mariSeasonOptOut);
+  const seasonsOff = useUIStore((state) => state.seasonalThemesDisabled);
   const selectPack = useUIStore((state) => state.setMariAppearancePack);
   const anyLocked = MARI_APPEARANCE_PACKS.some((pack) => !isMariPackUnlocked(pack, unlockedIds));
   const playHours = playHoursFromMs(useActivityOverview(anyLocked).data?.playTime.totalMs);
-  const selected = resolveMariAppearancePack(storedId, unlockedIds, playHours).id;
+  const selected = resolveMariAppearancePack(storedId, unlockedIds, playHours, seasonOptOut, seasonsOff).id;
   const gridRef = useRef<HTMLDivElement>(null);
   const [near, setNear] = useState(false);
   useEffect(() => {
@@ -361,7 +364,7 @@ function AppearancePacks() {
       role="radiogroup"
       aria-label={t("mari.appearancePacks.heading")}
     >
-      {MARI_APPEARANCE_PACKS.map((pack) => {
+      {visibleMariAppearancePacks(seasonsOff).map((pack) => {
         const nameId = `${baseId}-${pack.id}-name`;
         const descriptionId = `${baseId}-${pack.id}-description`;
         const locked = !isMariPackUnlocked(pack, unlockedIds, playHours);

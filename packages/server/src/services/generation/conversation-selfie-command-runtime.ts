@@ -1,5 +1,5 @@
 import type { DB } from "../../db/connection.js";
-import { readImageAppearanceOverride } from "@marinara-engine/shared";
+import { buildChatImageGenerationRecord, readImageAppearanceOverride } from "@marinara-engine/shared";
 import { isDebugAgentsEnabled } from "../../config/runtime-config.js";
 import { logger, logDebugOverride } from "../../lib/logger.js";
 import {
@@ -295,6 +295,7 @@ async function generateSelfie(
   );
   let finalSelfiePrompt = selfiePositivePrompt ? `${imagePrompt}, ${selfiePositivePrompt}` : imagePrompt;
   let selfieReferenceImages: string[] | undefined;
+  let selfieReferenceCharacterIds: string[] = [];
   let selfieResolvedCharacterIds = args.characterId ? [args.characterId] : [];
   const selfieUseAvatarReferences = args.chatMeta.selfieUseAvatarReferences === true;
   const selfieIncludeCharacterAppearance = args.chatMeta.selfieIncludeCharacterAppearance === true;
@@ -335,6 +336,7 @@ async function generateSelfie(
     }
     if (selfieUseAvatarReferences && referenceResolution.referenceImages.length > 0) {
       selfieReferenceImages = referenceResolution.referenceImages;
+      selfieReferenceCharacterIds = referenceResolution.characterIds;
       if (referenceResolution.referenceLine && !suppressReferencePromptLine) {
         finalSelfiePrompt += `\n\n${referenceResolution.referenceLine}`;
       }
@@ -418,6 +420,12 @@ async function generateSelfie(
       model: effectiveImageModel,
       width: selfieWidth,
       height: selfieHeight,
+      generation: buildChatImageGenerationRecord({
+        prompt: selfieSubmission.prompt,
+        connectionId: imgConnFull.id,
+        negativePrompt: selfieSubmission.negativePrompt,
+        referenceCharacterIds: selfieReferenceCharacterIds,
+      }),
     });
     await persistGeneratedImageToEntityGalleries({
       enabled: imageSettings.autoSaveToGalleries,

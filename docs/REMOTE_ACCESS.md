@@ -12,7 +12,7 @@ A quick word list used throughout this guide:
 
 To protect your data, a fresh Marinara install refuses connections from other devices until you set up access control. By default, only three kinds of client are trusted:
 
-1. Loopback (`127.0.0.1` or `::1`), the machine running the server itself.
+1. Loopback (`127.0.0.1` or `::1`), the machine running the server itself. Visitors that a reverse proxy or tunnel on the same machine passes along do not count; see [Reverse proxies and tunnels on the same computer](#reverse-proxies-and-tunnels-on-the-same-computer).
 2. Tailscale devices in your tailnet. Tailscale is a private network tool, and its addresses use the `100.64.0.0/10` range.
 3. Docker clients on the same host. Marinara recognizes the usual `172.16.0.0/12` bridge range and the container's exact default gateway, which also covers Docker Desktop and custom address pools.
 
@@ -75,9 +75,10 @@ By default, the browser prompt says **Marinara Engine**. You can change that tex
 
 Some clients skip the password even when Basic Auth is on:
 
-- Loopback (`127.0.0.1`, `::1`), so you never need a password on the host machine itself.
+- Loopback (`127.0.0.1`, `::1`), so you never need a password on the host machine itself. Visitors that a reverse proxy or tunnel on that machine passes along still need it.
 - Any address in `IP_ALLOWLIST`. Careful: setting an allowlist also blocks every unlisted address (see Option 2).
-- Tailscale (`100.64.0.0/10`) and same-host Docker bridge/gateway traffic, unless you turn their bypass off.
+- Direct Tailscale traffic (`100.64.0.0/10`), unless you turn its bypass off.
+- Docker bridge/gateway traffic, only when you set `BYPASS_AUTH_DOCKER=true`. With Basic Auth on, automatic Docker trust is off (see [Tailscale and Docker bypass](#tailscale-and-docker-bypass)).
 - The `/api/health` address, so uptime monitors keep working. Without a password it reports only basic status, not your local models or graphics card.
 
 Important: Basic Auth only encodes the password. It does not encrypt it. Anyone watching an unencrypted connection can read it. If you expose Marinara to the public internet, pair Basic Auth with HTTPS (see below).
@@ -95,8 +96,9 @@ The `/24` in the example is CIDR notation. CIDR is a short way to write a whole 
 How the IP allowlist behaves:
 
 - Any address not in the list is rejected with **403 Forbidden**.
-- Loopback is always allowed, so you cannot lock yourself out of local access.
-- Tailscale and same-host Docker bridge/gateway traffic also skips the list, unless you turn their bypass off (see below).
+- Loopback is always allowed, so you cannot lock yourself out of local access. Visitors that a reverse proxy or tunnel on the same machine passes along are not loopback, so the allowlist blocks them. Use Basic Auth behind a proxy.
+- On Docker Desktop, OrbStack, and rootless Docker, every device reaches the container from the same gateway address, so the allowlist cannot tell them apart. Use Basic Auth there.
+- Direct Tailscale traffic also skips the list, unless you turn its bypass off. Docker bridge/gateway traffic skips it only when you set `BYPASS_AUTH_DOCKER=true` (see [Tailscale and Docker bypass](#tailscale-and-docker-bypass)).
 - Invalid entries are ignored and logged. They do not crash the server.
 - The allowlist stays strict even with Basic Auth on. Listed addresses skip the password prompt. Every other address is still blocked with **403 Forbidden** and never gets a login prompt.
 
@@ -133,6 +135,8 @@ BYPASS_AUTH_DOCKER=
 
 Automatic mode trusts a Tailscale peer only when both ends of its direct socket use Tailnet addresses. It trusts Docker traffic only when Marinara is running in a container and the source matches a detected container interface or its exact gateway. This keeps the usual private Tailscale and same-host Docker setup working without treating unrelated CGNAT, LAN, host-network, or proxy traffic as authenticated.
 
+Automatic Docker trust applies only while neither Basic Auth nor `IP_ALLOWLIST` is set. Docker Desktop, OrbStack, and rootless Docker pass every device that opens a published port through the container's gateway, so Marinara cannot tell your own browser from a phone or a stranger on the network. Once you set a password or an allowlist, every Docker client must pass it, including the browser on the host. Set `BYPASS_AUTH_DOCKER=true` only if you trust every device that can reach the published port.
+
 Set a flag to `false` if you want normal Basic Auth and IP allowlist checks for those clients. Set it to `true` to retain the older broad bypass when automatic detection is unavailable: Tailscale then trusts all of `100.64.0.0/10`, while Docker also trusts its detected interfaces/gateway and the legacy `172.16.0.0/12` range. Use that compatibility mode only when every matching peer is trusted.
 
 For example, if your Tailnet includes less-trusted peers, turn the Tailscale bypass off:
@@ -147,7 +151,7 @@ If you do not want detected Docker peers to bypass authentication, turn the Dock
 BYPASS_AUTH_DOCKER=false
 ```
 
-Marinara may also sit behind a reverse proxy or tunnel container on the Docker bridge or detected gateway. Forwarding headers (`Forwarded`, `X-Forwarded-For`, `X-Real-IP`, `X-Forwarded-Host`, or `X-Forwarded-Proto`) indicate that the Docker peer represents another client, so Marinara applies its normal Basic Auth and IP allowlist checks by default:
+Marinara may also sit behind a reverse proxy or tunnel container on the Docker bridge or detected gateway. Forwarding headers, such as `Forwarded`, `X-Forwarded-For`, `X-Real-IP`, `X-Forwarded-Host`, or `X-Forwarded-Proto`, indicate that the Docker peer represents another client, so Marinara applies its normal Basic Auth and IP allowlist checks by default:
 
 ```env
 REQUIRE_AUTH_FOR_DOCKER_PROXY=true
@@ -156,6 +160,32 @@ REQUIRE_AUTH_FOR_DOCKER_PROXY=true
 To restore the legacy bypass, set this to `false`. Do that only when every client able to reach the proxy is trusted, because forwarded clients will inherit Docker's passwordless status.
 
 The server logs an `[auth-bypass]` warning the first time one of these bypasses lets a request through. That warning confirms the bypass is active.
+
+## Reverse proxies and tunnels on the same computer
+
+A reverse proxy or tunnel on the machine running Marinara, such as nginx, Caddy, Traefik, Cloudflare Tunnel, Tailscale Serve or Funnel, or ngrok, connects to Marinara from loopback. Marinara recognizes this from the forwarding headers the proxy adds: `Forwarded`, `X-Forwarded-For`, `X-Real-IP`, `X-Forwarded-Host`, `X-Forwarded-Proto`, `CF-Connecting-IP`, `True-Client-IP`, the Tailscale identity headers, or `Via`. It then treats each request as the remote visitor it is:
+
+- Basic Auth applies, so set `BASIC_AUTH_USER` and `BASIC_AUTH_PASS`. Without them, visitors see the setup page.
+- `IP_ALLOWLIST` blocks the forwarded visitors, because the proxy hides their real addresses.
+- Privileged actions need the admin secret, and loopback-only features stay unavailable.
+
+Your own browser on that machine, opened at `http://127.0.0.1:7860` or `http://localhost:7860`, stays passwordless.
+
+Caddy, Traefik, Cloudflare Tunnel, Tailscale, and ngrok add forwarding headers by default. For nginx, add this line to the `location` block:
+
+```nginx
+proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+```
+
+Tools that forward raw connections, such as `socat` or `ssh -R`, add no headers, so their traffic looks local. Do not use them to publish Marinara.
+
+If your proxy already makes every visitor log in before it forwards anything, you can skip Marinara's own checks for its traffic:
+
+```env
+REQUIRE_AUTH_FOR_LOOPBACK_PROXY=false
+```
+
+Visitors then get the same full access as the host machine, including privileged actions without the admin secret. Only do this when the proxy's own login protects every route.
 
 ## Serving over HTTPS
 
@@ -170,7 +200,7 @@ SSL_CERT=/path/to/cert.pem
 SSL_KEY=/path/to/key.pem
 ```
 
-2. Reverse proxy. Put Marinara behind nginx, Caddy, Traefik, or a Cloudflare Tunnel. The proxy handles the HTTPS part and forwards to Marinara over plain HTTP on the same machine.
+2. Reverse proxy. Put Marinara behind nginx, Caddy, Traefik, or a Cloudflare Tunnel. The proxy handles the HTTPS part and forwards to Marinara over plain HTTP on the same machine. Read [Reverse proxies and tunnels on the same computer](#reverse-proxies-and-tunnels-on-the-same-computer) first.
 
 You need a certificate and key before setting `SSL_CERT` and `SSL_KEY`. You can create one with a tool like `mkcert` for local use, or `certbot` for a public domain. If the files are missing or unreadable, the server stops on startup and names the exact paths it tried.
 

@@ -47,9 +47,9 @@ import {
   normalizeRpgStatPools,
   characterDataSchema,
   withoutUnreadableOnboarding,
-  characterOnboardingSchema,
+  readCardOnboarding,
   seedCardVariables,
-  withUniqueOnboardingIds,
+  cardVariableNamesToDrop,
   readGameInventoryTurn,
   rulesetLiveStatesSchema,
   applyContextMessageLimitWithPins,
@@ -72,9 +72,11 @@ import {
   chatModelPickSchema,
   isChatProvider,
   type ChatModelChoice,
+  omitChatMetadataLocalDestinations,
 } from "@marinara-engine/shared";
 import type {
   CharacterData,
+  CharacterOnboarding,
   ChatMemoryChunk,
   ChatMemoryRecallExportChunk,
   ChatMemoryRecallExportPayload,
@@ -696,17 +698,11 @@ async function buildNewChatCardVariableDefaults(
   for (const characterId of characterIds) {
     const row = await charactersStore.getById(characterId);
     if (!row) continue;
-    let data: CharacterData;
-    try {
-      data = (typeof row.data === "string" ? JSON.parse(row.data) : row.data) as CharacterData;
-    } catch {
-      continue;
-    }
-    const parsed = characterOnboardingSchema.safeParse((data.extensions ?? {})?.onboarding);
-    if (!parsed.success || !parsed.data.enabled) continue;
-    // Cards saved before ids were made unique repeat one; the seeding below is
-    // keyed by name, so this is only about reading a card the wizard reads too.
-    for (const [name, value] of Object.entries(seedCardVariables(withUniqueOnboardingIds(parsed.data)))) {
+    // The same parse the wizard and the drawer use, so a card is read once here
+    // and once there, never in two slightly different ways.
+    const entry = readCardOnboarding(row.data);
+    if (!entry?.onboarding.enabled) continue;
+    for (const [name, value] of Object.entries(seedCardVariables(entry.onboarding))) {
       if (!Object.prototype.hasOwnProperty.call(defaults, name)) defaults[name] = value;
     }
   }
@@ -752,6 +748,66 @@ async function seedNewChatCardVariables(app: FastifyInstance, chatId: string, ch
     if (Object.keys(missing).length === 0) return {};
     wrote = true;
     return { macroVariables: { ...saved, ...missing } };
+  });
+  return wrote ? updated : null;
+}
+
+/**
+ * Drop the chat variables the character questions of the cards that just LEFT a
+ * chat still own (#7795).
+ *
+ * Selecting a card seeds its question defaults the moment it joins (see above),
+ * but a removal used to leave those names in `metadata.macroVariables` forever,
+ * with no card left to read them. Only names that no remaining card declares are
+ * dropped; the ownership rule lives in `cardVariableNamesToDrop`, pinned by a
+ * regression, so this helper only reads cards and applies the result.
+ *
+ * Swallowed like seeding: a stranded variable is the behaviour that existed
+ * before, so it must never fail a roster change. Returns the updated row when it
+ * wrote something, so the client caches the cleanup instead of the stale map.
+ */
+async function dropRemovedChatCardVariables(app: FastifyInstance, chatId: string, removedIds: string[]) {
+  if (removedIds.length === 0) return null;
+  const chatsStore = createChatsStorage(app.db);
+  const charactersStore = createCharactersStorage(app.db);
+  const readOnboarding = async (characterId: string): Promise<CharacterOnboarding | null> => {
+    const row = await charactersStore.getById(characterId);
+    return row ? (readCardOnboarding(row.data)?.onboarding ?? null) : null;
+  };
+  const removed: Array<CharacterOnboarding | null> = [];
+  for (const characterId of removedIds) removed.push(await readOnboarding(characterId));
+  // A card whose onboarding is switched off owns nothing: seeding never wrote for
+  // it. Skip the remaining cards' reads in that case.
+  if (!removed.some((onboarding) => onboarding?.enabled)) return null;
+
+  // Same dynamic import as the seeding above, and for the same load-order reason.
+  const { normalizeChatMacroVariables } = await import("../services/prompt/index.js");
+  let wrote = false;
+  const updated = await chatsStore.patchMetadata(chatId, async (current) => {
+    // The roster is re-read HERE, inside this chat's metadata queue (#7799
+    // review). A concurrent PATCH can add a card between the route's roster write
+    // and this cleanup, and the names the route computed are stale by then; a name
+    // any card in the chat declares now has to be kept. A card added after this
+    // read is safe too, because its own seeding patch is queued behind this one:
+    // it writes the default instead of finding a value this cleanup removed.
+    //
+    // The live roster IS the remaining set: it must not be filtered against the
+    // ids this PATCH removed, because a concurrent PATCH may have re-added one of
+    // them, and that card's answers are live again.
+    const live = await chatsStore.getById(chatId);
+    const remaining: Array<CharacterOnboarding | null> = [];
+    for (const characterId of resolveChatCharacterIds(live?.characterIds)) {
+      remaining.push(await readOnboarding(characterId));
+    }
+    const drop = cardVariableNamesToDrop(removed, remaining);
+    if (drop.length === 0) return {};
+    const saved = normalizeChatMacroVariables(current.macroVariables);
+    const present = drop.filter((name) => Object.prototype.hasOwnProperty.call(saved, name));
+    if (present.length === 0) return {};
+    const next: Record<string, string> = { ...saved };
+    for (const name of present) delete next[name];
+    wrote = true;
+    return { macroVariables: next };
   });
   return wrote ? updated : null;
 }
@@ -1419,6 +1475,10 @@ export async function chatsRoutes(app: FastifyInstance) {
     // `{{relationshipToUser}}` into the prompt. Compared before/after like the
     // tracker below so re-sending an unchanged roster writes nothing.
     let cardVariableCharacterIdsToSeed: string[] = [];
+    // The other half (#7795): a card that leaves owns the chat variables its
+    // questions wrote, so they are dropped unless a card that stays declares the
+    // same name. Kept as before/after too, so an unchanged roster writes nothing.
+    let cardVariableCharacterIdsToDrop: string[] = [];
     if (data.characterIds !== undefined) {
       const previousIds = resolveChatCharacterIds(existing.characterIds);
       const nextIds = data.characterIds;
@@ -1428,6 +1488,7 @@ export async function chatsRoutes(app: FastifyInstance) {
       const addedIds = nextIds.filter((id) => !previousSet.has(id));
 
       cardVariableCharacterIdsToSeed = addedIds;
+      cardVariableCharacterIdsToDrop = removedIds;
 
       if (removedIds.length > 0 || addedIds.length > 0) {
         const existingMessages = await storage.listMessages(req.params.id);
@@ -1522,6 +1583,16 @@ export async function chatsRoutes(app: FastifyInstance) {
         updated = (await seedNewChatCardVariables(app, req.params.id, cardVariableCharacterIdsToSeed)) ?? updated;
       } catch (err) {
         logger.warn(err, "Failed to seed onboarding card variables for added chat characters");
+      }
+    }
+    // Same after-the-update placement and the same row-returning contract as the
+    // seeding: the client caches this response, so a cleanup it cannot see would
+    // leave the removed card's variables on screen until the next fetch.
+    if (updated && cardVariableCharacterIdsToDrop.length > 0) {
+      try {
+        updated = (await dropRemovedChatCardVariables(app, req.params.id, cardVariableCharacterIdsToDrop)) ?? updated;
+      } catch (err) {
+        logger.warn(err, "Failed to drop onboarding card variables for removed chat characters");
       }
     }
     if (updated && identityChanged) {
@@ -4682,7 +4753,8 @@ export async function chatsRoutes(app: FastifyInstance) {
     metadata: Record<string, unknown>,
     knownNpcNames: Set<string>,
   ): Record<string, unknown> => {
-    const sanitized = { ...metadata };
+    // Outside addresses and keys (Discord mirror, translator, haptics server) stay on this install.
+    const sanitized = omitChatMetadataLocalDestinations(metadata);
     delete sanitized.branchParentChatId;
     delete sanitized.branchParentMessageId;
     delete sanitized.branchMessageId;
@@ -5235,7 +5307,7 @@ export async function chatsRoutes(app: FastifyInstance) {
     // Preserve each message's original createdAt timestamp so ordering and
     // display times remain identical to the source chat.
     const sourceToBranchedMessageId = new Map<string, string>();
-    const sourceToCopiedSwipeIndexes = new Map<string, number[]>();
+    const sourceToCopiedSwipeIndexes = new Map<string, Map<number, number>>();
     const copiedSourceMessages: typeof msgs = [];
     const copiedMessageInputs: Parameters<typeof storage.createMessagesBatch>[1] = [];
 
@@ -5270,15 +5342,16 @@ export async function chatsRoutes(app: FastifyInstance) {
                 },
               ),
             )
-          : [
-              {
-                index: 0,
-                content: msg.content,
-                extra: messageExtra,
-                createdAt: msg.createdAt as string,
-              },
-            ];
-      const activeSwipe = copiedSwipes.find((swipe) => swipe.index === activeSwipeIndex) ?? copiedSwipes[0];
+          : [];
+      // The selected message row is authoritative even if its older swipe history is incomplete.
+      if (!copiedSwipes.some((swipe) => swipe.index === activeSwipeIndex))
+        copiedSwipes.push({
+          index: activeSwipeIndex,
+          content: msg.content,
+          extra: messageExtra,
+          createdAt: msg.createdAt as string,
+        });
+      const activeSwipe = copiedSwipes.find((swipe) => swipe.index === activeSwipeIndex)!;
       const copiedActiveSwipeIndex = activeSwipe?.index ?? 0;
 
       copiedMessageInputs.push({
@@ -5291,10 +5364,6 @@ export async function chatsRoutes(app: FastifyInstance) {
         createdAt: msg.createdAt as string,
       });
       copiedSourceMessages.push(msg);
-      sourceToCopiedSwipeIndexes.set(
-        msg.id,
-        copiedSwipes.map((swipe) => swipe.index),
-      );
     }
 
     // A branch ending before the interrupting response keeps the full preceding message.
@@ -5318,12 +5387,24 @@ export async function chatsRoutes(app: FastifyInstance) {
           }
         }
     }
+    // Swipe navigation and later additions use dense indexes. Keep source indexes for snapshots and receipts.
+    copiedMessageInputs.forEach((copied, index) => {
+      const swipeIndexes = new Map<number, number>();
+      copied.swipes
+        ?.sort((left, right) => left.index - right.index)
+        .forEach((swipe, copiedIndex) => {
+          swipeIndexes.set(swipe.index, copiedIndex);
+          swipe.index = copiedIndex;
+        });
+      copied.activeSwipeIndex = swipeIndexes.get(copied.activeSwipeIndex ?? 0) ?? 0;
+      sourceToCopiedSwipeIndexes.set(copiedSourceMessages[index]!.id, swipeIndexes);
+    });
     const branchedMessageIds = await storage.createMessagesBatch(newChat.id, copiedMessageInputs);
     copiedSourceMessages.forEach((msg, index) => {
       const branchedId = branchedMessageIds[index];
       if (branchedId) sourceToBranchedMessageId.set(msg.id, branchedId);
     });
-    await storage.remapRoleplayInterruptionTargets(newChat.id, sourceToBranchedMessageId);
+    await storage.remapRoleplayInterruptionTargets(newChat.id, sourceToBranchedMessageId, sourceToCopiedSwipeIndexes);
     const forkSourceMessage = copiedSourceMessages.at(-1);
 
     if (sourceChat.mode === "game" && settingsToKeep.gameJournal) {
@@ -5354,14 +5435,23 @@ export async function chatsRoutes(app: FastifyInstance) {
         ? sourceToBranchedMessageId.get(sourceMeta.lastAutomaticSummaryMessageId)
         : undefined;
     const branchCharacterIds = resolveChatCharacterIds(newChat.characterIds);
-    settingsToKeep = remapAdvancedMemoryMetadata(settingsToKeep, sourceToBranchedMessageId, branchCharacterIds);
-    // A game's record of one turn's tellings (#6774) follows that turn into the branch, whose copy
-    // keeps every swipe index. A branch that stops before the turn has nothing for it to follow.
+    settingsToKeep = remapAdvancedMemoryMetadata(settingsToKeep, sourceToBranchedMessageId, branchCharacterIds, true);
+    // A game's record of one turn's tellings (#6774) follows the copied turn and its swipe indexes.
     const inventoryTurn = readGameInventoryTurn(settingsToKeep.gameInventoryTurn);
     const branchedInventoryTurnId = inventoryTurn && sourceToBranchedMessageId.get(inventoryTurn.messageId);
-    if (branchedInventoryTurnId)
-      settingsToKeep.gameInventoryTurn = { ...inventoryTurn, messageId: branchedInventoryTurnId };
-    else delete settingsToKeep.gameInventoryTurn;
+    if (branchedInventoryTurnId) {
+      const swipeIndexes = sourceToCopiedSwipeIndexes.get(inventoryTurn.messageId)!;
+      settingsToKeep.gameInventoryTurn = {
+        ...inventoryTurn,
+        messageId: branchedInventoryTurnId,
+        swipes: Object.fromEntries(
+          Object.entries(inventoryTurn.swipes).flatMap(([index, stacks]) => {
+            const copiedIndex = swipeIndexes.get(Number(index));
+            return copiedIndex === undefined ? [] : [[String(copiedIndex), stacks]];
+          }),
+        ),
+      };
+    } else delete settingsToKeep.gameInventoryTurn;
     // #5406: `settingsToKeep` is the source metadata verbatim, which carries its
     // `metadataWriteOrdinals` mirror. Inherit the source's write-ordinal counter too, or the
     // branch's first allocation would come in BELOW the stamps it just copied and invert the
@@ -5398,7 +5488,7 @@ export async function chatsRoutes(app: FastifyInstance) {
     // for that specific message, not just the latest snapshot in the source chat.
     try {
       if (sourceChat.mode === "roleplay") {
-        await copyAdvancedMemoryRecords({
+        const copiedMemoryRecordIds = await copyAdvancedMemoryRecords({
           db: app.db,
           chatId: newChat.id,
           records: advancedMemoryTransfer,
@@ -5411,7 +5501,14 @@ export async function chatsRoutes(app: FastifyInstance) {
           messageIds: sourceToBranchedMessageId,
           characterIds: branchCharacterIds,
           metadata: { ...settingsToKeep, summaryEntries: inheritedEntries },
+          reopenSceneAtMessageId: firstOmittedMessage ? forkSourceMessage?.id : undefined,
         });
+        await createAdvancedMemoryService(app.db).restoreBranchState(
+          newChat.id,
+          sourceChat.id,
+          sourceToBranchedMessageId,
+          copiedMemoryRecordIds,
+        );
       }
       const spatialStore = createSpatialContextStorage();
       const spatialBootstrap = await spatialStore.getBootstrap(req.params.id);
@@ -5520,9 +5617,10 @@ export async function chatsRoutes(app: FastifyInstance) {
         for (const srcMsg of copiedSourceMessages) {
           const branchedMsgId = sourceToBranchedMessageId.get(srcMsg.id);
           if (!branchedMsgId) continue;
-          const swipeIndexes = sourceToCopiedSwipeIndexes.get(srcMsg.id) ?? [srcMsg.activeSwipeIndex ?? 0];
-          for (const swipeIndex of swipeIndexes) {
-            const spatialSnapshot = await spatialStore.getByAnchor(req.params.id, srcMsg.id, swipeIndex);
+          const swipeIndexes =
+            sourceToCopiedSwipeIndexes.get(srcMsg.id) ?? new Map([[srcMsg.activeSwipeIndex ?? 0, 0]]);
+          for (const [sourceSwipeIndex, swipeIndex] of swipeIndexes) {
+            const spatialSnapshot = await spatialStore.getByAnchor(req.params.id, srcMsg.id, sourceSwipeIndex);
             if (spatialSnapshot) {
               await spatialStore.create({
                 chatId: newChat.id,
@@ -5535,14 +5633,18 @@ export async function chatsRoutes(app: FastifyInstance) {
                 transitionPayloadHash: null,
               });
             }
-            const snapshot = await gameStateStore.getByChatAndMessage(req.params.id, srcMsg.id, swipeIndex);
+            const snapshot = await gameStateStore.getByChatAndMessage(req.params.id, srcMsg.id, sourceSwipeIndex);
             if (snapshot) {
               await copySnapshot(snapshot, branchedMsgId, swipeIndex);
             }
             if (gameEngineStore) {
               // One anchor can hold a row per gameType writer (a turn-game AND an
               // Experience, #5102) — branching must copy every one, not limit(1).
-              const engineSnapshots = await gameEngineStore.listByChatAndMessage(req.params.id, srcMsg.id, swipeIndex);
+              const engineSnapshots = await gameEngineStore.listByChatAndMessage(
+                req.params.id,
+                srcMsg.id,
+                sourceSwipeIndex,
+              );
               // Reads are newest-first; replay oldest-first so the source-effective row wins dedupe.
               for (const engineSnapshot of engineSnapshots.reverse()) {
                 await copyEngineSnapshot(engineSnapshot, branchedMsgId, swipeIndex);

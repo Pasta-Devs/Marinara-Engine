@@ -22,7 +22,7 @@ Every chat can store its own persona. You can use different personas in differen
 4. Click **Choose Persona**. This button reads **Change Persona** once a persona is set.
 5. Search in the picker (placeholder "Search personas...") and click a persona.
 
-To clear the per-chat persona, click the remove (X) button next to it, or pick **None** at the top of the picker.
+To clear the per-chat persona, click the remove (X) button next to it, or pick **None** in the picker.
 
 In Game Mode this section is framed as your in-game party, but it still uses the **Persona** label.
 
@@ -31,6 +31,8 @@ In Game Mode this section is framed as your in-game party, but it still uses the
 The New Chat setup wizard has a **Your Persona** field. It uses the same searchable picker and a **None** option. In the New Game Setup wizard, this field is labeled **Player's Persona** instead.
 
 In a Roleplay chat, a character card can offer **Create your persona** at the top of this picker. Pick it to answer the card's questions and get a new persona. See [Interactive Onboarding](interactive-onboarding.md).
+
+The same row is in the Chat Settings persona picker, so a persona can still be created after setup. Chat Settings → **Characters** also shows a card's onboarding marker, which reopens that card's character questions so you can change an answer or restore one you deleted.
 
 ## The Quick Persona Switcher
 

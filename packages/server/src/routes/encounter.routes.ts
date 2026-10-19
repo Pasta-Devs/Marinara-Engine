@@ -2,6 +2,7 @@ import { resolveStoredChatOptions, resolveStoredMaxTokens } from "../services/ge
 import { z } from "zod";
 import { resolveGameConnection as resolveEncounterConnection } from "../services/game/connection.service.js";
 import {
+  TTS_SETTINGS_KEY,
   combatAiHintsSchema,
   combatBossSchema,
   combatInterruptFields,
@@ -27,6 +28,8 @@ import type { FastifyInstance } from "fastify";
 import { createChatsStorage } from "../services/storage/chats.storage.js";
 import { createConnectionsStorage } from "../services/storage/connections.storage.js";
 import { createCharactersStorage } from "../services/storage/characters.storage.js";
+import { createAppSettingsStorage } from "../services/storage/app-settings.storage.js";
+import { gameTtsEmotionIndicatorsEnabled, TTS_EMOTION_CUE_GUIDANCE } from "../services/tts-emotion-guidance.js";
 import { resolveChatUserIdentity } from "../services/chat-user-identity.js";
 import { createGameStateStorage } from "../services/storage/game-state.storage.js";
 import { createLorebooksStorage } from "../services/storage/lorebooks.storage.js";
@@ -536,6 +539,7 @@ export function buildInitPrompt(
   elements?: WorldElementSet,
   /** The setting's own scenes and tile words (worldgen W6d), when its kit names them. */
   battlefields?: WorldBattlefields,
+  ttsEmotionIndicatorsEnabled = false,
 ): ChatMessage[] {
   const msgs: ChatMessage[] = [];
   // What an attack's element may be: one of the setting's own, none in a setting without them.
@@ -662,6 +666,9 @@ export function buildInitPrompt(
     : `- items: the game's ruleset says what its own items do in a fight, so give no itemEffects.\n`;
   inst += `- mechanics: use sparingly. Boss charge attacks should include interval, counterplay, effectType, and a matching dialogueCue with trigger "charge".\n`;
   inst += `- dialogueCues: optional, short, and only for named allies, named enemies, bosses, or important NPCs. Generic unnamed enemies should not get voiced lines.\n`;
+  if (ttsEmotionIndicatorsEnabled) {
+    inst += `- Inside spoken dialogueCues.content strings only: ${TTS_EMOTION_CUE_GUIDANCE} Keep the JSON structure and the speaker, type, expression, and trigger fields unchanged.\n`;
+  }
   inst += `- visuals: set isBossFight true only for bosses/story-significant enemies. backgroundPrompt/illustrationPrompt are optional and only for important fights.\n`;
   inst += `- visuals.encounterTier: classify the whole encounter — "common" for ordinary fights, "miniboss" for elites or named mid-tier threats, "boss" for true bosses, "special" for unique story encounters (rivals, scripted duels, otherworldly events). When unsure, use "common".\n`;
   if (tactical) {
@@ -962,6 +969,7 @@ export async function encounterRoutes(app: FastifyInstance) {
         items,
         gameWorldElementSet(chatMeta),
         gameWorldBattlefields(chatMeta),
+        gameTtsEmotionIndicatorsEnabled(await createAppSettingsStorage(app.db).get(TTS_SETTINGS_KEY)),
       );
       debugLog(
         "[debug/game/combat:init] request chatId=%s model=%s historyMessages=%d settings=%s",

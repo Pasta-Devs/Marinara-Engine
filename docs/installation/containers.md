@@ -113,7 +113,9 @@ environment:
 docker compose up -d
 ```
 
-Now other devices on your network can reach Marinara at `http://YOUR_COMPUTER_IP:7860` when `PORT` is unset. If you set `PORT`, replace `7860` with that host port. They must enter the username and password you set. To find good ways to allow only certain devices, and to learn what the admin secret does, read [Remote Access: Basic Auth and IP Allowlist](../REMOTE_ACCESS.md).
+Now other devices on your network can reach Marinara at `http://YOUR_COMPUTER_IP:7860` when `PORT` is unset. If you set `PORT`, replace `7860` with that host port. They must enter the username and password you set.
+
+On Docker Desktop, OrbStack, and rootless Docker, every device reaches the container from the same address, your own browser included. So once the login is set, this computer asks for it too, and an IP allowlist cannot tell devices apart. Never remove `127.0.0.1:` without the login: on these runtimes Marinara cannot tell other devices from this computer. To find good ways to allow only certain devices, and to learn what the admin secret does, read [Remote Access: Basic Auth and IP Allowlist](../REMOTE_ACCESS.md).
 
 ## Choosing an image: latest, staging, or lite
 

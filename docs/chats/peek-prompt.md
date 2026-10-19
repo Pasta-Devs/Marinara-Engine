@@ -20,6 +20,8 @@ Below the badge is a generation info panel. It can show the provider and model n
 
 The rest of the window is the prompt itself, split into collapsible sections. Each section has a label and its own rough token estimate. The chat messages are grouped under one **Chat History** section. For an exact saved request, the provider may have combined several chat turns into one provider block. Expand each block to inspect all model-visible text inside it. Click any section header to open or close it.
 
+To take the whole prompt somewhere else, click the copy button next to the close button at the top of the window. It copies every section and chat message as plain text, in the order they were sent, including sections you have not opened. Each message starts with a line naming its role, such as `[system]`, `[user]` or `[assistant]`. For an exact saved request, it copies that saved request as it was sent. Copying does not send anything to the model or change the prompt.
+
 ## Opening Peek Prompt
 
 There are two ways to open the viewer.

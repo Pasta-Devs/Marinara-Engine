@@ -151,6 +151,19 @@ function isMariChangeExcerpt(value: unknown): boolean {
   if (change.kind === "text" || change.kind === "value") {
     return typeof change.before === "string" && typeof change.after === "string";
   }
+  if (change.kind === "nested") {
+    const facts = asRecord(change.onboarding);
+    return (
+      Array.isArray(change.keys) &&
+      change.keys.every((key) => typeof key === "string") &&
+      typeof change.count === "number" &&
+      (change.onboarding === undefined ||
+        (!!facts &&
+          typeof facts.enabled === "boolean" &&
+          typeof facts.personaQuestions === "number" &&
+          typeof facts.characterQuestions === "number"))
+    );
+  }
   const count = asRecord(change.count);
   return (
     change.kind === "list" &&

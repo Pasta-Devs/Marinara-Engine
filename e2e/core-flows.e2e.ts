@@ -456,6 +456,63 @@ test("What's New opens once for each Marinara Engine version", async ({ page }) 
   await expect(announcement).toBeHidden();
 });
 
+test("the Home What's New widget reopens the window without resetting the seen version", async ({ page }, testInfo) => {
+  await page.goto("/api/health");
+  await page.evaluate(
+    ({ bypassKey, seenKey, version }) => {
+      sessionStorage.setItem(bypassKey, "true");
+      localStorage.setItem(seenKey, version);
+    },
+    { bypassKey: WHATS_NEW_E2E_BYPASS_KEY, seenKey: WHATS_NEW_SEEN_VERSION_KEY, version: APP_VERSION },
+  );
+  await page.goto("/");
+
+  const announcement = page.getByRole("dialog", { name: "What's New?" });
+  const widget = page.locator('[data-home-widget-id="whats-new"] > section');
+  const reopen = widget.getByRole("button", { name: "See what's new" });
+  const releaseNotes = widget.getByRole("link", { name: "Read release notes" });
+  await expect(reopen).toBeVisible({ timeout: 30_000 });
+  await expect(releaseNotes).toBeVisible();
+  await expect(announcement).toBeHidden();
+  // Both actions stay inside the card, down to the narrowest phone width.
+  const mobile = testInfo.project.name.includes("mobile");
+  for (const width of mobile ? [390, 320] : [1440, 900]) {
+    await page.setViewportSize({ width, height: mobile ? 844 : 900 });
+    await expect
+      .poll(
+        async () => {
+          const card = (await widget.boundingBox())!;
+          const actions = [await reopen.boundingBox(), await releaseNotes.boundingBox()];
+          return actions.every(
+            (box) =>
+              box !== null &&
+              box.x >= card.x &&
+              box.y >= card.y &&
+              box.x + box.width <= card.x + card.width &&
+              box.y + box.height <= card.y + card.height,
+          );
+        },
+        { message: `What's New actions at ${width}px` },
+      )
+      .toBe(true);
+  }
+
+  await reopen.click();
+  await expect(announcement).toBeVisible();
+  await expect(announcement.getByText(`Version ${APP_VERSION}`, { exact: true })).toBeVisible();
+  await expect(announcement.locator("[data-release-copy]").first()).not.toHaveText("");
+  await announcement.getByRole("button", { name: "Got it" }).click();
+  await expect(announcement).toBeHidden();
+  expect(await page.evaluate((key) => localStorage.getItem(key), WHATS_NEW_SEEN_VERSION_KEY)).toBe(APP_VERSION);
+
+  // The marker still holds, so a reload does not show it again; the button still works from the keyboard.
+  await page.reload();
+  await expect(reopen).toBeVisible({ timeout: 30_000 });
+  await expect(announcement).toBeHidden();
+  await reopen.press("Enter");
+  await expect(announcement).toBeVisible();
+});
+
 test("available app updates wait for confirmation before refreshing", async ({ page }) => {
   let mainFrameNavigations = 0;
   page.on("framenavigated", (frame) => {
@@ -2268,6 +2325,18 @@ for (const layout of ["Roleplay", "Classic Conversation", "Bubble Conversation"]
         const message = (await messageResponse.json()) as { id: string };
 
         await prepareFreshClient(page);
+        await page.addInitScript(() => {
+          let clipboardText = "";
+          Object.defineProperty(navigator, "clipboard", {
+            configurable: true,
+            value: {
+              readText: async () => clipboardText,
+              writeText: async (value: string) => {
+                clipboardText = String(value);
+              },
+            },
+          });
+        });
         await page.addInitScript((chatId) => localStorage.setItem("marinara-active-chat-id", chatId), chat.id);
         await page.goto("/");
         await page.evaluate(
@@ -2308,6 +2377,12 @@ for (const layout of ["Roleplay", "Classic Conversation", "Bubble Conversation"]
         await expect(peekPrompt).toBeAttached();
         await expect(peekPrompt).toHaveCSS("color", actionColor);
         await expect(copy).toHaveCSS("color", actionColor);
+        // The whole saved prompt is copied, collapsed sections included, one role line per message.
+        await page.getByRole("button", { name: "Copy assembled prompt", exact: true }).tap();
+        await expect(page.getByText("Prompt copied.", { exact: true })).toBeVisible();
+        await expect
+          .poll(() => page.evaluate(() => navigator.clipboard.readText()))
+          .toBe("[system]\nStay in character.\n\n[user]\nContinue the scene.");
 
         await testInfo.attach(`mobile-roleplay-peek-prompt-${testInfo.project.name}.png`, {
           body: await page.screenshot({ fullPage: true }),
@@ -19906,6 +19981,8 @@ test("Character of the Day stays vertically centered inside its mobile widget", 
 test("home browser hub scales cleanly and opens FAQ as a bookmark window", async ({ page }, testInfo) => {
   const errors = collectUnexpectedErrors(page);
   const mobile = testInfo.project.name.includes("mobile");
+  // It checks the default Home copy, which a dated Mari pack replaces inside its window; the fixture turns those off.
+  await seedUIState(page, {}, "merge");
   await page.addInitScript(() => {
     if (localStorage.getItem("marinara:home:widget-visibility:v2") !== null) return;
     localStorage.setItem(

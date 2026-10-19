@@ -19,6 +19,7 @@ import {
   readWorldLedger,
   worldFold,
   worldLedgerCarry,
+  omitChatMetadataLocalDestinations,
 } from "@marinara-engine/shared";
 import { copyAdvancedMemoryRecords, remapAdvancedMemoryMetadata } from "../advanced-memory-transfer.js";
 import {
@@ -268,7 +269,8 @@ function sanitizeImportedMarinaraMetadata(
   metadata: Record<string, unknown>,
   localGameId: string,
 ): Record<string, unknown> {
-  const sanitized = { ...metadata };
+  // Outside addresses (Discord mirror, translator, haptics server) stay on the install that set them.
+  const sanitized = omitChatMetadataLocalDestinations(metadata);
 
   // These are source-chat pointers. Keeping them after import can make the new
   // branch/session operate on the exported campaign or an already-closed scene.

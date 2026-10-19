@@ -64,7 +64,7 @@ export function buildExtractedRoleplayTTSVoiceRequests(
     const voice = resolveTTSVoiceForSpeaker(config, speaker, characterId, npcFallbackHint);
     if (config.source === "elevenlabs" && !voice) return [];
 
-    const chunks = splitTTSChunks(segment.text, { ...config, preserveEmotionIndicators: true });
+    const chunks = splitTTSChunks(segment.text, config);
     return chunks.map((text, chunkIndex) => ({
       text,
       speaker,

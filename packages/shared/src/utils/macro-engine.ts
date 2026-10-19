@@ -161,7 +161,7 @@ export interface ResolveMacroOptions {
   maxMacroDepth?: number;
   /** Maximum macro replacement operations in one resolution tree. */
   maxMacroExpansions?: number;
-  /** Maximum resolved output length. */
+  /** Absolute output cap; defaults to the input length plus 200,000 characters of expansion. */
   maxMacroOutputLength?: number;
 }
 
@@ -1162,6 +1162,59 @@ function decisionOperandTiming(raw: string): DecisionStatementModifiers {
 /** Comparisons that name one option. `contains` and the numeric operators do not. */
 const DECISION_CHOICE_OPERATORS = new Set(["==", "=", "is", "!=", "is not"]);
 
+/**
+ * An option written with criteria (#7791): `"angry":"Kaelen shouts or threatens someone"`.
+ * The criteria tell the Decision model what the option means; the option alone is what
+ * is chosen and compared. Both parts use the same kind of quote and escape like any
+ * other quoted value. Null for anything else, which keeps its old meaning.
+ */
+function splitChoiceCriteria(raw: string): { option: string; optionRaw: string; criteria: string } | null {
+  const trimmed = raw.trim();
+  if (stripOuterQuotes(trimmed) === null) return null;
+  const kind = quoteKind(trimmed[0]);
+  let escaped = false;
+  for (let index = 1; index < trimmed.length - 1; index += 1) {
+    const character = trimmed[index]!;
+    if (escaped) escaped = false;
+    else if (character === "\\") escaped = true;
+    else if (quoteKind(character) === kind) {
+      // The option's closing quote: criteria follow only after a colon and a new quote.
+      const separator = /^\s*:\s*/u.exec(trimmed.slice(index + 1));
+      const rest = separator ? trimmed.slice(index + 1 + separator[0].length) : "";
+      const criteria = quoteKind(rest[0]) === kind ? stripOuterQuotes(rest) : null;
+      if (criteria === null) return null;
+      const optionRaw = trimmed.slice(0, index + 1);
+      return { option: stripOuterQuotes(optionRaw)!, optionRaw, criteria };
+    }
+  }
+  return null;
+}
+
+/** A comparison with a Choice statement compares the option alone, never its criteria. */
+function withoutChoiceCriteria(parsed: ParsedConditionExpression): ParsedConditionExpression {
+  if (parsed.right === undefined || !DECISION_CHOICE_OPERATORS.has(parsed.operator)) return parsed;
+  if (decisionChoiceQuestionFromOperand(parsed.left) !== null) {
+    const right = splitChoiceCriteria(parsed.right)?.optionRaw;
+    return right ? { ...parsed, right } : parsed;
+  }
+  if (decisionChoiceQuestionFromOperand(parsed.right) !== null) {
+    const left = splitChoiceCriteria(parsed.left)?.optionRaw;
+    return left ? { ...parsed, left } : parsed;
+  }
+  return parsed;
+}
+
+/** Adds an option a Choice statement is compared with, and its criteria if it has any. */
+function addChoiceOption(question: CollectedDecisionQuestion, raw: string): void {
+  const withCriteria = splitChoiceCriteria(raw);
+  const option = (withCriteria?.option ?? stripOuterQuotes(raw))?.trim();
+  if (!option) return;
+  const criteria = withCriteria?.criteria.trim() ?? "";
+  if (criteria && !question.criteria) question.criteria = question.options.map(() => "");
+  question.criteria?.push(criteria);
+  question.options.push(option);
+}
+
 /** Whitespace-normalized, so a line break inside a statement does not change its key. */
 export function normalizeDecisionQuestion(text: string): string {
   return text.replace(/\s+/gu, " ").trim();
@@ -1182,6 +1235,8 @@ export interface CollectedDecisionQuestion extends DecisionStatementModifiers {
   question: string;
   /** For a Choice statement: the literals it is compared with, as written. */
   options: string[];
+  /** Each option's criteria, by the same index ("" for none). Only set when an option has some. */
+  criteria?: string[];
 }
 
 /**
@@ -1207,10 +1262,9 @@ export function collectDecisionQuestions(template: string): CollectedDecisionQue
       // parse as bare atoms, and belong to the Choice statement before them.
       let lastChoice: CollectedDecisionQuestion | null = null;
       for (const parsed of parseConditionComparisons(condition)) {
-        if (parsed.right === undefined) {
-          const literal = stripOuterQuotes(parsed.left);
-          if (literal !== null && lastChoice && literal.trim()) lastChoice.options.push(literal.trim());
-          if (literal !== null) continue;
+        if (parsed.right === undefined && stripOuterQuotes(parsed.left) !== null) {
+          if (lastChoice) addChoiceOption(lastChoice, parsed.left);
+          continue;
         }
         for (const [operand, other] of [
           [parsed.left, parsed.right],
@@ -1224,16 +1278,9 @@ export function collectDecisionQuestions(template: string): CollectedDecisionQue
           }
           const choice = decisionChoiceQuestionFromOperand(operand);
           if (!choice) continue;
-          const literal =
-            other !== undefined && DECISION_CHOICE_OPERATORS.has(parsed.operator.toLowerCase())
-              ? stripOuterQuotes(other)
-              : null;
-          lastChoice = {
-            kind: "choice",
-            question: choice,
-            options: literal?.trim() ? [literal.trim()] : [],
-            ...decisionOperandTiming(operand),
-          };
+          lastChoice = { kind: "choice", question: choice, options: [], ...decisionOperandTiming(operand) };
+          if (other !== undefined && DECISION_CHOICE_OPERATORS.has(parsed.operator.toLowerCase()))
+            addChoiceOption(lastChoice, other);
           questions.push(lastChoice);
         }
       }
@@ -1272,15 +1319,19 @@ export function containsDecisionStatements(value: unknown, depth = 0): boolean {
  * The resolved statements a template can ask in this context: one for the context
  * itself, plus one per character when the statement names `{{char}}` or another
  * character macro, because a group block or a per-responder pass asks it once per
- * character.
+ * character. Each comes with the context it was resolved in, so a Choice option's
+ * criteria name the same character as their statement.
  */
-export function resolveDecisionQuestionVariants(question: string, ctx: MacroContext): string[] {
-  const variants = new Set([resolveDecisionQuestionText(question, ctx)]);
+export function resolveDecisionQuestionVariants(question: string, ctx: MacroContext): Map<string, MacroContext> {
+  const variants = new Map<string, MacroContext>();
+  const contexts = [ctx];
   if (hasCharacterMacro(question))
-    for (const profile of ctx.characterProfiles ?? [])
-      variants.add(resolveDecisionQuestionText(question, macroContextForCharacterProfile(profile, ctx)));
-  variants.delete("");
-  return [...variants];
+    for (const profile of ctx.characterProfiles ?? []) contexts.push(macroContextForCharacterProfile(profile, ctx));
+  for (const context of contexts) {
+    const key = resolveDecisionQuestionText(question, context);
+    if (key && !variants.has(key)) variants.set(key, context);
+  }
+  return variants;
 }
 
 function normalizeConditionKey(value: string): string {
@@ -1758,10 +1809,11 @@ function resolveConditionMacros(condition: string, ctx: MacroContext, options: R
 }
 
 function evaluateParsedCondition(
-  parsed: ParsedConditionExpression,
+  written: ParsedConditionExpression,
   ctx: MacroContext,
   options: ResolveMacroOptions,
 ): boolean {
+  const parsed = withoutChoiceCriteria(written);
   const left = resolveConditionalOperand(parsed.left, ctx, options);
   if (parsed.operator === "truthy") return left.trim().length > 0 && !/^(false|0|no|off|null|undefined)$/i.test(left);
   const right = resolveConditionalOperand(parsed.right ?? "", ctx, options);
@@ -2254,6 +2306,7 @@ function planConditionAtom(
   } else if (equalityShorthand && parsed.operator === "truthy" && stripOuterQuotes(parsed.left) !== null) {
     effective = { ...equalityShorthand, right: parsed.left };
   }
+  effective = withoutChoiceCriteria(effective);
   const statements: string[] = [];
   const left = planConditionOperand(effective.left, statements, ctx, options);
   const right =
@@ -3202,12 +3255,18 @@ export function expandLorebookIncludes(
  *  - {{#if char == "Name" || "Other"}}...{{else}}...{{/if}} — conditional block with OR/AND logic
  */
 export function resolveMacros(template: string, ctx: MacroContext, options: ResolveMacroOptions = {}): string {
+  // Keep authored text intact. Bound additional expansion once per resolution tree,
+  // and share that limit with nested calls without pinning it on reused caller options.
+  options = {
+    ...options,
+    macroBudget: getMacroBudget(options),
+    maxMacroOutputLength: options.maxMacroOutputLength ?? template.length + MAX_MACRO_OUTPUT_LENGTH,
+  };
   const macroDepth = options.macroDepth ?? 0;
   if (macroDepth > macroLimit(options, "maxMacroDepth")) {
     getMacroBudget(options).exceeded = true;
     return clampMacroOutput(template, options);
   }
-  getMacroBudget(options);
   // #3104: content with no macro syntax has nothing to resolve. Every step below
   // is triggered by "{{" (live macros), the "\x1e" deferred-character token
   // sentinel, or the "\x00" trim-marker sentinel, so a template containing none

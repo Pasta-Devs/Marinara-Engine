@@ -28,6 +28,7 @@ import {
   type StoryScript,
 } from "@marinara-engine/shared";
 import type { CharacterSpriteInfo } from "./sprite.service.js";
+import { TTS_EMOTION_CUE_GUIDANCE } from "../tts-emotion-guidance.js";
 
 /**
  * The sheet names a one-request dice placeholder can actually resolve this turn (#6215).
@@ -1572,6 +1573,7 @@ export function buildGmFormatReminder(
     | "enableQuickTimeEvents"
     | "gameSpecialInstructions"
   > & {
+    ttsEmotionIndicatorsEnabled?: boolean;
     /** An Overworld RPG game (`gameStyleFromMetadata`): only it opens dungeon, cave and station maps
      *  with `[map:]`. Absent or false is Classic Game Mode, which never teaches the tag. */
     overworld?: boolean;
@@ -1749,6 +1751,11 @@ export function buildGmFormatReminder(
     `FORMAT:`,
     `- Narration: text - 1-4 sentences per beat, blank line between beats.`,
     `- Lines: [Name] [main|side|whisper:Target|thought] [neutral|happy|sad|angry|surprised|scared|disgusted|thinking|laughing|crying|blushing|smirk|embarrassed|determined|confused|sleepy|custom]: "Dialogue"|Thought - first bracket specifies the format, main is primary spoken line, side is a short aside like banter, cut-in, or interruption, whisper is quiet speech meant for one listener only, the thought is an internal monologue (no quotes for it), and the last bracket is the character's expression when delivering the line.`,
+    ...(ctx.ttsEmotionIndicatorsEnabled
+      ? [
+          `- Spoken dialogue text only: ${TTS_EMOTION_CUE_GUIDANCE} Put vocal cues inside the quoted dialogue after the colon; keep the [Name] [type] [expression]: prefix unchanged.`,
+        ]
+      : []),
     `- Party speaker labels must use the exact canonical names listed under PARTY. Never expand, combine, or replace a party member's name with a legal name, nickname, alias, title, or description-derived variant.`,
     ...(customSpriteLines.length
       ? [

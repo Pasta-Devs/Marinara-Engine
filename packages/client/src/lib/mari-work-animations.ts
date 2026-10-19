@@ -1,3 +1,18 @@
+/** A dated pack's window: inclusive local "MM-DD" dates. */
+export interface MariSeason {
+  from: string;
+  to: string;
+}
+
+const monthDay = (now: Date) =>
+  `${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+
+// ponytail: string compare, so a window cannot wrap New Year; split it in two if one ever must.
+export function isInMariSeason(season: MariSeason, now: Date = new Date()): boolean {
+  const today = monthDay(now);
+  return today >= season.from && today <= season.to;
+}
+
 export const MARI_STORY_STATES = [
   "thinking",
   "research",
@@ -51,6 +66,8 @@ export interface MariAppearancePack {
   poses: Record<MariPose, string>;
   /** R12: locked until the Activity overview's play time reaches this many hours. */
   unlock?: { playHours: number };
+  /** Dated pack: shown by itself inside its window and hidden everywhere outside it. */
+  season?: MariSeason;
 }
 
 /**
@@ -134,6 +151,22 @@ export const MARI_APPEARANCE_PACKS: readonly MariAppearancePack[] = [
     stories: packStories("safari"),
     poses: packPoses("safari"),
   },
+  {
+    id: "raccoon",
+    label: "Feral Raccoon Prof. Mari",
+    description: "A raccoon onesie, slightly chewed.",
+    portraits: {
+      idle: sprite("raccoon/portrait-idle.webp"),
+      blink: sprite("raccoon/portrait-blink.webp"),
+      shrug: sprite("raccoon/portrait-shrug.webp"),
+      drag: sprite("raccoon/portrait-drag.webp"),
+      hover: sprite("raccoon/portrait-hover.webp"),
+      pullHeads: sprite("raccoon/pull-heads.webp"),
+    },
+    stories: packStories("raccoon"),
+    poses: packPoses("raccoon"),
+    season: { from: "10-29", to: "11-01" },
+  },
 ];
 
 /**
@@ -216,15 +249,42 @@ export function isMariPackUnlocked(
 }
 
 /**
- * The pack that renders: the stored choice, or Basic while that choice is locked. The stored id is
- * never rewritten, so a locked pick returns by itself once it unlocks. Locked packs never load.
+ * Packs the chooser lists: every undated pack, and a dated one only inside its window. `seasonsOff` is
+ * Settings → General → Disable seasonal ME themes: then dated packs do not exist for the user at all.
+ */
+export function visibleMariAppearancePacks(seasonsOff = false, now: Date = new Date()): MariAppearancePack[] {
+  return MARI_APPEARANCE_PACKS.filter((pack) => !pack.season || (!seasonsOff && isInMariSeason(pack.season, now)));
+}
+
+/** The dated pack whose window is open now, if any. */
+export function activeSeasonalMariPack(seasonsOff = false, now: Date = new Date()): MariAppearancePack | undefined {
+  if (seasonsOff) return undefined;
+  return MARI_APPEARANCE_PACKS.find((pack) => pack.season && isInMariSeason(pack.season, now));
+}
+
+/** One key per window per year, so opting out this year does not opt out next year. */
+export function mariSeasonKey(pack: MariAppearancePack, now: Date = new Date()): string {
+  return `${pack.id}-${now.getFullYear()}`;
+}
+
+/**
+ * The pack that renders: an open dated pack unless the user picked another during this window
+ * (`seasonOptOut`), else the stored choice, or Basic while that choice is locked or out of season.
+ * The stored id is never rewritten, so a locked pick returns by itself once it unlocks and the
+ * user's own pick returns by itself once the window closes. Locked packs never load.
  */
 export function resolveMariAppearancePack(
   storedId: unknown,
   unlockedIds: readonly string[],
   playHours: number | null = null,
+  seasonOptOut = "",
+  seasonsOff = false,
+  now: Date = new Date(),
 ): MariAppearancePack {
+  const seasonal = activeSeasonalMariPack(seasonsOff, now);
+  if (seasonal && seasonOptOut !== mariSeasonKey(seasonal, now)) return seasonal;
   const pack = getMariAppearancePack(storedId);
+  if (pack.season && (seasonsOff || !isInMariSeason(pack.season, now))) return MARI_APPEARANCE_PACKS[0]!;
   return isMariPackUnlocked(pack, unlockedIds, playHours) ? pack : MARI_APPEARANCE_PACKS[0]!;
 }
 

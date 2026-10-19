@@ -607,6 +607,30 @@ test("2D Avatars makes faces from the avatar with sprite generation, also for an
     const saved = (await (await request.get(`/api/sprites/${character.id}`)).json()) as Array<{ expression: string }>;
     expect(saved.map((sprite) => sprite.expression)).toContain("neutral");
 
+    // ── A saved talking head shows the faces made again, over a face the user chose ──
+    const savedSetup = async () =>
+      (
+        (await (await request.get(`/api/avatar-models/character/${character.id}`)).json()) as {
+          kinds?: { pngtuber?: { expressionMap: Record<string, unknown>; layers: Record<string, unknown> } };
+        }
+      ).kinds?.pngtuber;
+    const userPick = (target: string) => ({ target, source: "user", confidence: 1 });
+    await setup.getByRole("button", { name: "Use my sprites", exact: true }).click();
+    await setup.locator('[data-avatar-feeling="happy"]').selectOption("angry");
+    await expect.poll(async () => (await savedSetup())?.expressionMap.happy).toEqual(userPick("angry"));
+    await makeFaces.click();
+    await useConnection(connection.id);
+    sheets.length = 0;
+    await dialog.getByRole("button", { name: "Generate Sheet", exact: true }).click();
+    await expect.poll(() => sheets.length).toBe(1);
+    await dialog.getByRole("button", { name: /^Save \d+ Sprites?$/u }).click();
+    await expect(dialog).toBeHidden();
+    await expect
+      .poll(async () => (await savedSetup())?.expressionMap)
+      .toMatchObject(Object.fromEntries(AVATAR_EMOTIONS.map((emotion) => [emotion, userPick(emotion)])));
+    expect(Object.keys((await savedSetup())?.layers ?? {}).sort()).toEqual([...AVATAR_EMOTIONS].sort());
+    await expect(setup.locator('[data-avatar-feeling="happy"]')).toHaveValue("happy");
+
     // ── All 29 faces, a 2x3 sheet at a time, main faces first ──
     const allFaces = [...AVATAR_EMOTIONS, ...AVATAR_EXTRA_FEELINGS];
     await makeFaces.click();

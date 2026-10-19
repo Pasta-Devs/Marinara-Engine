@@ -27,6 +27,7 @@
     "ruleset-layers-client.regression.ts",
     "nanogpt-usage-meter-gate.regression.ts",
     "game-inventory-refusal-client.regression.ts",
+    "onboarding-preview-highlight.regression.ts",
     "state-editor.regression.ts"
   ]
 }

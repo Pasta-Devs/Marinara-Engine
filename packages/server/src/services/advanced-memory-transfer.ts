@@ -38,6 +38,7 @@ export function remapAdvancedMemoryMetadata(
   metadata: Record<string, unknown>,
   messageIds: ReadonlyMap<string, string>,
   characterIds: readonly string[],
+  preserveKnowledgeConfirmation = false,
 ): Record<string, unknown> {
   const result = { ...metadata };
   delete result.advancedMemoryState;
@@ -53,7 +54,12 @@ export function remapAdvancedMemoryMetadata(
     result.advancedMemory = {
       ...settings,
       knowledgeStarts,
-      knowledgeConfirmed: false,
+      knowledgeConfirmed:
+        preserveKnowledgeConfirmation &&
+        settings.knowledgeConfirmed &&
+        Object.entries(settings.knowledgeStarts).every(
+          ([id, anchor]) => !characterIds.includes(id) || anchor === null || messageIds.has(anchor),
+        ),
       narratorCharacterId:
         settings.narratorCharacterId && characterIds.includes(settings.narratorCharacterId)
           ? settings.narratorCharacterId
@@ -91,11 +97,25 @@ export async function copyAdvancedMemoryRecords(input: {
   messageIds: ReadonlyMap<string, string>;
   characterIds: readonly string[];
   metadata: Record<string, unknown>;
-}): Promise<void> {
-  if (!Array.isArray(input.records)) return;
+  reopenSceneAtMessageId?: string;
+}): Promise<Map<string, string>> {
+  if (!Array.isArray(input.records)) return new Map();
   const sources = new Map(input.sourceMessages.map((message) => [message.id, message]));
   const summaryIds = new Set(normalizeChatSummaryEntries(input.metadata.summaryEntries).map((entry) => entry.id));
   const seenRecordIds = new Set<string>();
+  const reopenedSceneIds = new Set(
+    input.records.flatMap((value) => {
+      const parsed = transferRecordSchema.safeParse(value);
+      if (!parsed.success) return [];
+      const { record } = parsed.data;
+      return record.kind === "scene" &&
+        record.id === record.sceneId &&
+        input.reopenSceneAtMessageId &&
+        record.messageIds.includes(input.reopenSceneAtMessageId)
+        ? [record.sceneId]
+        : [];
+    }),
+  );
   const candidates = input.records.flatMap((value) => {
     const parsed = transferRecordSchema.safeParse(value);
     if (!parsed.success) return [];
@@ -109,6 +129,8 @@ export async function copyAdvancedMemoryRecords(input: {
       covered.every(Boolean) &&
       advancedMemorySourceFingerprint(covered as AdvancedMemoryMessage[]) === sourceDigest;
     const scaffold = record.kind === "scene" && record.id === record.sceneId && !record.content;
+    const reopened = reopenedSceneIds.has(record.sceneId);
+    if (reopened && !scaffold) return [];
     const retained = record.messageIds.filter((id) => input.messageIds.has(id));
     const complete =
       retained.length === record.messageIds.length &&
@@ -130,7 +152,8 @@ export async function copyAdvancedMemoryRecords(input: {
           id: scaffold ? sceneId : newId(),
           sceneId,
           chatId: input.chatId,
-          status: !complete ? ("open" as const) : record.status,
+          status: !complete || reopened ? ("open" as const) : record.status,
+          timeline: complete ? record.timeline : null,
           startMessageId: start,
           endMessageId: end,
           messageIds: retained.map((id) => input.messageIds.get(id)!),
@@ -178,4 +201,5 @@ export async function copyAdvancedMemoryRecords(input: {
     });
   }
   if (retained.length) await createAdvancedMemoryService(input.db).refreshTransferredRecords(input.chatId);
+  return recordIds;
 }
