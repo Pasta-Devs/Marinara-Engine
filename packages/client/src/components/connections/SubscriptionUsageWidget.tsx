@@ -520,7 +520,8 @@ export function CompactUsageMeter({
           aria-hidden
           data-usage-window={reading.key}
           data-usage-level={reading.atLimit ? "limit" : reading.percent > 80 ? "high" : "ok"}
-          className={`inline-flex items-center gap-1.5 whitespace-nowrap ${
+          // The text wraps under a narrow card instead of running past its edge ("limit reached · resets …").
+          className={`inline-flex min-w-0 items-center gap-1.5 ${
             reading.atLimit
               ? "font-medium text-red-500"
               : reading.percent > 80
@@ -528,7 +529,7 @@ export function CompactUsageMeter({
                 : ""
           }`}
         >
-          <span className="h-1 w-8 overflow-hidden rounded-full bg-foreground/15">
+          <span className="h-1 w-8 shrink-0 overflow-hidden rounded-full bg-foreground/15">
             <span
               className={`block h-full rounded-full ${
                 reading.atLimit ? "bg-red-500" : reading.percent > 80 ? "bg-amber-400" : "bg-foreground/35"
@@ -536,7 +537,7 @@ export function CompactUsageMeter({
               style={{ width: `${reading.percent}%` }}
             />
           </span>
-          {reading.text}
+          <span className="min-w-0">{reading.text}</span>
         </span>
       ))}
     </p>
