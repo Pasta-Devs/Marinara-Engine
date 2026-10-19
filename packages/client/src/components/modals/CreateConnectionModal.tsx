@@ -1202,7 +1202,10 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
         <ServiceTile service={service ?? provider} />
         <div className="min-w-0 flex-1 text-xs leading-snug text-[var(--muted-foreground)]">
           <p>{service ? serviceHint(service) : t(`connections.add.hint.${provider}`)}</p>
-          {def?.billing && <p className="mt-0.5 text-[0.6875rem]">{t(`connections.add.billingInfo.${def.billing}`)}</p>}
+          {/* The existing connections below show their own billing (a NanoGPT plan is not pay per use). */}
+          {def?.billing && !choosing && (
+            <p className="mt-0.5 text-[0.6875rem]">{t(`connections.add.billingInfo.${def.billing}`)}</p>
+          )}
         </div>
       </div>
 
