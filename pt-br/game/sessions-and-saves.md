@@ -57,6 +57,8 @@ Assim que a sessão atual está concluída, o mesmo botão vira **New Session** 
 2. Na linha da sessão atual, clique no botão **New Session** (o ícone de play).
 3. O GM retoma a história. Ele usa o resumo da sessão anterior e a nota para a próxima sessão que você escreveu ao encerrá-la.
 
+Em um jogo com mundo gerado, o mundo continua de onde a última sessão o deixou: os dias que passaram, os feitos e a reputação da equipe, os lugares e grupos que a história acrescentou e os lugares por onde a equipe andou seguem todos para a nova sessão.
+
 ## Ler as sessões anteriores
 
 A aba **Session History** lista as sessões concluídas, da mais recente para a mais antiga. Antes de você concluir a primeira, ela mostra **No completed sessions yet**.
@@ -124,7 +126,11 @@ Esses segredos também podem ser editados, o que funciona como um painel de trap
 
 Game Mode salva o progresso automaticamente. Não existe botão de salvar para apertar. Mundo, equipe, mapa, inventário, tempo dentro do jogo e resumos de sessão ficam todos salvos enquanto você joga.
 
-O aplicativo também registra checkpoints automáticos nos bastidores. Ele captura um checkpoint no início da sessão, no fim da sessão e quando um combate começa ou termina. Por enquanto não existe nenhuma tela no aplicativo para percorrer ou restaurar esses checkpoints. Ou seja, não conte com carregar um checkpoint antigo para desfazer um turno.
+O aplicativo também registra checkpoints automáticos nos bastidores. Ele captura um checkpoint no início da sessão, no fim da sessão, quando um combate começa ou termina, quando você chega a um lugar novo e em intervalos automáticos. O editor Game data também tenta criar um antes de cada salvamento, mas um jogo tão novo que ainda não teve o primeiro turno salvo ainda não tem nada para guardar em checkpoint. Abra **Game controls → Checkpoints** (controles do jogo → checkpoints) para vê-los, do mais recente para o mais antigo. **Load** (carregar) leva o jogo de volta àquele momento: o tracker, o mapa, as **World Edits** (edições do mundo) feitas no editor Game data e a história posterior a esse momento são restaurados, e uma mensagem de sistema marca o ponto em que o jogo voltou. **Delete** (excluir) remove o checkpoint de vez.
+
+Os checkpoints automáticos ficam limitados aos cinco mais recentes de cada tipo, então os mais antigos vão sendo removidos conforme você joga.
+
+Para desfazer um único turno ruim, use **Retry turn** (repetir o turno) em **Game controls** ou um swipe. Carregar um checkpoint também restaura a história àquele momento.
 
 Para manter sua própria cópia dos dados, use as ferramentas de backup do aplicativo. Veja [Fazer backup e restaurar Marinara](../data/backup-and-restore.md).
 

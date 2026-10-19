@@ -71,7 +71,7 @@ Roleplay 舞台指消息背后和四周的那片场景区域，主要由三部�
 - **Author's Notes**。每回合都加入提示词的一段自由文本。见下文。
 - **Gallery**(图库)。聊天的图片和视频，也能在这里生成插图或背景。
 
-这些区域都可以弹出，包括 Search。电脑上可保留为独立窗口，手机上可通过自己的按钮打开。旧聊天会把熟悉的工具图标保留为可移动按钮；打开工具，选择 **Put back in Chat Settings** 就能放回设置。见[聊天设置概览](../chats/chat-settings.md)。
+这些区域都可以弹出（包括 Search），保留为独立窗口。手机上，弹出的区域从三点 **Chat tools**(聊天工具) 菜单打开；追踪器按钮仍单独显示。旧聊天会把熟悉的工具保留在 Chat Settings 之外。打开其中一个，选择 **Put back in Chat Settings** 就能把它移进 Chat Settings。见[聊天设置概览](../chats/chat-settings.md)。
 
 ### Author's Notes
 
@@ -101,19 +101,17 @@ Author's Notes 在 Game Mode 和 Conversation 模式里的用法完全一样，�
 
 Narrative Director 在输入框上方有一个 **Push Story** 按钮，按下后只对下一条回复生效。Narrative Director 还能维护一条隐藏的长期故事线，叫 **Secret Plot**。两者详见 [Narrative Director 与 Secret Plot](narrative-director.md)。
 
-## 角色打断
+## 消息里的插图
 
-在 **Chat Settings → Agents → Roleplay Commands** 中启用 **Interruptions**(打断)，角色就可以在合理的言语或身体介入场景下，截断最新消息。默认关闭，不需要下载智能体。
+在 **Chat Settings → Agents → Roleplay Commands**(聊天设置 → 智能体 → Roleplay 命令) 中启用 **Illustrations**(插图)，角色就可以用 `[illustrate: subject="..." characters="..."]` 请求一张图片。图片使用这个聊天的 Illustrator 设置，显示在消息下方。
 
-模型使用 `[interrupt: part="a verbatim phrase of at least three words"]`。Marinara 只会在回复紧前面的那条消息中匹配这个原文片段，保留到片段末尾的内容，并将结尾改为表示打断的破折号。对话会保留右引号，动作不会被额外加上引号。没有匹配或匹配不唯一时，消息保持不变。
-
-打开回复的命令信息，选择 **Restore original message**(恢复原始消息)，即可恢复原文。重新生成时会先恢复完整的原始输入，让新回复重新决定是否打断。选择已有的备选回复时，会应用那条回复的打断，除非你已经明确恢复了原文。之后的手动编辑会保留，不会被旧的打断覆盖。
+在 **Illustrations** 下开启 **Render in-line**(内嵌显示)，每张图片就会改为显示在消息内部，位置就是角色写下这条命令的地方，比如两段文字之间。图片的控件照常保留：选中图片可以查看它的提示词，点 **X** 可以移除它。角色会被告知，可以把这条命令放在图片该出现的任何位置。这项设置只对新图片生效，聊天里已有的图片仍留在原处。Illustrator 自动生成的图片和 Visual Novel(视觉小说) 布局仍按原来的方式显示图片。
 
 <a id="whispers-and-secrets"></a>
 
 ## 耳语与秘密
 
-在 **Chat Settings → Agents → Roleplay Commands**(聊天设置 → 智能体 → Roleplay 命令) 中启用 **Whisper**(耳语)，即可在回复里加入私下的话、秘密或幻象。默认关闭。可以允许 **All**(所有) 角色使用，也可以只允许指定的 **Narrator**(旁白)。和 Personal Notes 一样，它需要单人聊天或 **Individual** 群聊生成。
+在 **Chat Settings → Agents → Roleplay Commands** 中启用 **Whisper**(耳语)，即可在回复里加入私下的话、秘密或幻象。默认关闭。可以允许 **All**(所有) 角色使用，也可以只允许指定的 **Narrator**(旁白)。和 Personal Notes 一样，它需要单人聊天或 **Individual** 群聊生成。
 
 命令是 `[whisper: character="name" text="the secret"]`。指定聊天里的一个角色或当前用户角色，且必须恰好对应一人。在角色当中，只有收件人和指定旁白会在提示词里收到文本。未知或有歧义的姓名会被忽略，不会泄露秘密。
 
@@ -136,6 +134,14 @@ Narrative Director 在输入框上方有一个 **Push Story** 按钮，按下后
 当一个角色被禁用或移出群组时，旁白也不再收到该角色的笔记。禁用不会删除已保存的笔记；重新启用角色后，笔记会再次可用。
 
 你也可以给单条消息保存笔记。在消息下方选择 **Bookmark, pin or note**(添加书签、固定或记笔记)，然后填写 **Private note**(私人笔记)。除非开启 **Show the note to the narrator character**(向旁白角色展示笔记) 并选定一个角色，否则笔记会保持私密，绝不会发送给模型。共享后，只有所选角色会收到附在该消息旁的笔记，其他角色不会收到。共享需要单角色聊天或 **Individual** 群组生成，因为合并群组回复会一次为所有角色生成内容。**Remove note**(删除笔记) 也会停止共享。
+
+## 角色打断
+
+在 **Chat Settings → Agents → Roleplay Commands** 中启用 **Interruptions**(打断)，角色就可以在合理的言语或身体介入场景下，截断最新消息。默认关闭，不需要下载智能体。
+
+模型使用 `[interrupt: part="a verbatim phrase of at least three words"]`。Marinara 只会在回复紧前面的那条消息中匹配这个原文片段，保留到片段末尾的内容，并将结尾改为表示打断的破折号。对话会保留右引号，动作不会被额外加上引号。没有匹配或匹配不唯一时，消息保持不变。
+
+打开回复的命令信息，选择 **Restore original message**(恢复原始消息)，即可恢复原文。重新生成时会先恢复完整的原始输入，让新回复重新决定是否打断。选择已有的备选回复时，会应用那条回复的打断，除非你已经明确恢复了原文。之后的手动编辑会保留，不会被旧的打断覆盖。
 
 ## Echo Chamber
 

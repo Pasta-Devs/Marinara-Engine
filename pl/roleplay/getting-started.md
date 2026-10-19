@@ -71,7 +71,7 @@ Narzędzia czatu są sekcjami w **Chat Settings**. Otwórz ustawienia przyciskie
 - **Author's Notes**. Dowolny tekst dopisywany do promptu w każdej turze. Opis poniżej.
 - **Gallery**. Obrazy i wideo tego czatu; można tu wygenerować ilustrację albo tło.
 
-Każdą z tych sekcji, także Search, możesz odłączyć do osobnego okna albo otwierać jej własnym przyciskiem na telefonie. Starsze czaty zachowują znajome ikony narzędzi jako ruchome przyciski. Otwórz taki przycisk i wybierz **Put back in Chat Settings**, żeby przenieść narzędzie do środka. Zobacz [Panel **Chat Settings** – przegląd](../chats/chat-settings.md).
+Każdą z tych sekcji, także Search, możesz wydzielić do osobnego okna. Na telefonie wydzielone sekcje otwierasz z menu **Chat tools** (narzędzia czatu) z trzema kropkami; przyciski trackerów pozostają osobno. Starsze czaty zachowują znajome narzędzia poza Chat Settings. Otwórz jedno z nich i wybierz **Put back in Chat Settings** (przeniesienie do Chat Settings), żeby przenieść je do środka. Zobacz [Panel **Chat Settings** – przegląd](../chats/chat-settings.md).
 
 <a id="authors-notes"></a>
 
@@ -103,11 +103,17 @@ Zapisany fragment można obejrzeć, edytować i uruchomić ponownie. Edycja zmie
 
 Nad polem czatu Narrative Director ma przycisk **Push Story**. Uzbraja on tego agenta wyłącznie na następną odpowiedź. Narrative Director może też prowadzić ukryty, długofalowy wątek o nazwie **Secret Plot**. Oba opisuje przewodnik [Narrative Director i Secret Plot](narrative-director.md).
 
+## Ilustracje w wiadomości
+
+W **Chat Settings → Agents → Roleplay Commands** (ustawienia czatu → agenci → komendy Roleplay) włącz **Illustrations** (ilustracje), aby postacie mogły zamówić obraz komendą `[illustrate: subject="..." characters="..."]`. Obraz korzysta z ustawień agenta Illustrator w tym czacie i pojawia się pod wiadomością.
+
+Włącz **Render in-line** (wyświetlanie w treści) pod **Illustrations**, aby każdy obraz pojawiał się zamiast tego wewnątrz wiadomości, w miejscu, w którym postać napisała komendę, na przykład między dwoma akapitami. Obraz zachowuje swoje kontrolki: zaznacz go, aby zobaczyć jego prompt, albo usuń go przyciskiem **X**. Postać dostaje informację, że może umieścić komendę tam, gdzie pasuje obraz. Ustawienie dotyczy nowych obrazów, więc obrazy, które już są w czacie, zostają na swoich miejscach. Automatyczne obrazy agenta Illustrator i układ visual novel wyświetlają obrazy tak jak wcześniej.
+
 <a id="whispers-and-secrets"></a>
 
 ## Szepty i sekrety
 
-W **Chat Settings → Agents → Roleplay Commands** (ustawienia czatu → agenci → komendy Roleplay) włącz **Whisper** (szept), aby pozwolić na prywatne uwagi, sekrety lub wizje w odpowiedzi. Domyślnie jest wyłączone. Wybierz, czy mogą używać go **All** (wszystkie) postacie, czy tylko wyznaczony **Narrator** (narrator). Jak Personal Notes wymaga czatu solo lub generowania grupowego **Individual**.
+W **Chat Settings → Agents → Roleplay Commands** włącz **Whisper** (szept), aby pozwolić na prywatne uwagi, sekrety lub wizje w odpowiedzi. Domyślnie jest wyłączone. Wybierz, czy mogą używać go **All** (wszystkie) postacie, czy tylko wyznaczony **Narrator** (narrator). Jak Personal Notes wymaga czatu solo lub generowania grupowego **Individual**.
 
 Komenda to `[whisper: character="name" text="the secret"]`. Wskaż dokładnie jedną postać czatu lub wybraną personę. Spośród postaci tylko odbiorca i wyznaczony narrator otrzymują tekst w promptach. Nieznane lub niejednoznaczne imię jest ignorowane bez ujawniania sekretu.
 

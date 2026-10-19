@@ -1,6 +1,6 @@
 # Pasek HUD i trackery w trybie Roleplay
 
-Ten przewodnik opisuje trackery w trybie Roleplay: ruchome przyciski i panele na telefonie oraz okno **Trackers** i Tracker Panel na komputerze. Dowiesz się, jak zmieniać i blokować ich wartości. Dotyczy trybu Roleplay w Marinara Engine.
+Ten przewodnik opisuje trackery w trybie Roleplay: ruchome przyciski i panele na telefonie oraz okno **Trackers** i Tracker Panel na komputerze. Dowiesz się, jak zmieniać i blokować ich wartości. Dotyczy trybu Roleplay w aplikacji Marinara Engine.
 
 ## Czym jest pasek HUD
 
@@ -141,12 +141,16 @@ Odpowiadają za to następujące ustawienia:
 
 **State Editor** pokazuje wszystkie trackery bieżącej tury w jednym oknie, więc możesz znaleźć wartość i ją poprawić bez otwierania każdego trackera z osobna. Działa także na telefonie.
 
-Aby go otworzyć, kliknij zębatkę (**Tracker panel settings**) w nagłówku Tracker Panel, a potem przycisk **{ }** (**Open in State Editor**). W **Agent Suite** nagłówek **Tracker Data** też ma link **Open in State Editor**.
+Aby go otworzyć, kliknij zębatkę (**Tracker panel settings**) w nagłówku Tracker Panel, a potem przycisk **{ }** (**Open in State Editor**). Przycisk **{ }** jest też na pasku tytułu okna **Trackers**. Ma go również każdy tracker wydzielony do osobnego okna. Na telefonie jest w panelach **World State** i **Player & Tracker**. Tam, gdzie kontrolka należy do jednego trackera, edytor otwiera się na sekcji tego trackera: World State na sekcji **Scene**, Present Characters na sekcji **Present Characters** i tak dalej. W **Agent Suite** nagłówek **Tracker Data** też ma link **Open in State Editor**. Otwiera on sekcję wybranego agenta.
 
-- **Którą turę edytujesz:** linia pod polem wyszukiwania podaje, do której wiadomości i którego swipe'a należy stan, na przykład „Editing message #12 · swipe 2 of 3”. **Latest** (najnowsza) oznacza najnowszą turę, a krótki fragment wiadomości pomaga dopasować ją do czatu. Każdy swipe ma własny stan, więc jeśli chcesz poprawić inny, najpierw przełącz swipe'a.
+- **Którą turę edytujesz:** linia pod polem wyszukiwania podaje, do której wiadomości i którego swipe'a należy stan, na przykład "Editing message #12 · swipe 2 of 3". **Latest** (najnowsza) oznacza najnowszą turę, a krótki fragment wiadomości pomaga dopasować ją do czatu. Każdy swipe ma własny stan, więc jeśli chcesz poprawić inny, najpierw przełącz swipe'a.
 - **Sekcje:** **Scene**, **Present Characters**, **Persona Stats**, **Inventory Tracker**, **Custom Tracker Fields** i **Active Quests**. Na telefonie są rzędem chipów nad edytorem. Kropka oznacza sekcję ze zmianami.
-- **Wyszukiwanie:** wpisz coś w pole wyszukiwania, aby znaleźć klucz lub wartość we wszystkich sekcjach naraz, na przykład `mood`. Każdy wynik pokazuje, gdzie się znajduje, na przykład „Present Characters › Gwendolyn”. Kliknij wynik, aby od razu do niego przejść.
-- **Fields i JSON:** każda sekcja otwiera się jako **Fields** (pola): tekst, liczby i wartości włącz/wyłącz jako pola do wpisywania, a każda postać, przedmiot i zadanie ma osobną kartę. Aby dodać lub usunąć wpis, przełącz się na **JSON** i edytuj tekst bezpośrednio. **Format** (formatuj) porządkuje JSON, a **Revert** (cofnij) cofa zmiany w jednej sekcji. Jeśli JSON się nie parsuje, sekcja jest oznaczona i nie można jej zapisać, dopóki tego nie naprawisz.
+- **Wyszukiwanie:** wpisz coś w pole wyszukiwania, aby znaleźć klucz lub wartość we wszystkich sekcjach naraz, na przykład `mood`. Każdy wynik pokazuje, gdzie się znajduje, na przykład "Present Characters › Gwendolyn". Kliknij wynik, aby od razu do niego przejść.
+- **Pola:** każda sekcja otwiera się jako **Fields** (pola). Tekst, liczby i wartości włącz/wyłącz pojawiają się jako pola do wpisywania, a każda postać, przedmiot i zadanie ma osobną kartę.
+- **Puste wartości:** pole, które trackery zostawiły puste, pokazuje **No value** (brak wartości) i wybór między **Text** (tekst), **Number** (liczba) i **On/off** (włącz/wyłącz), więc można je wypełnić bez JSON. Karta, którą trackery wypełniły tylko częściowo, pokazuje brakujące wiersze, więc można ją uzupełnić w ten sam sposób.
+- **Dodawanie i usuwanie:** **Add item** (dodanie elementu) dodaje wpis. Kopiuje wpis powyżej albo zaczyna od pól, które ma dany rodzaj wpisu – własne pole dostaje nazwę, wartość i ikonę. **×** obok wpisu go usuwa. **Add field** (dodanie pola) dodaje pole z nazwą i wartością do sekcji albo do karty, która jest jeszcze pusta, a **×** obok wartości przywraca ją do stanu bez wartości. Postacie i zadania należą do opowieści, więc nie da się tu dodawać ich kart; listy wewnątrz nich, na przykład statystyki postaci, już tak.
+- **JSON:** przełącz się na **JSON**, aby edytować surowe dane. Kolorowanie składni wyróżnia tam klucze, ciągi znaków, liczby oraz wartości `true`, `false` i `null`, a **Format** (formatuj) porządkuje JSON.
+- **Cofanie i błędy:** **Revert** (cofnij) cofa twoje zmiany w jednej sekcji. Jeśli JSON się nie parsuje, sekcja jest oznaczona i nie można jej zapisać, dopóki tego nie naprawisz.
 - **Zapisywanie:** **Review changes** (przejrzyj zmiany) pokazuje linia po linii, co dokładnie zmienia się w każdej sekcji. **Save changes** (zapisz zmiany) zapisuje je wszystkie naraz w turze, którą edytujesz. Do tego czasu szkice zostają w oknie, a przy zamykaniu okno pyta, zanim je odrzuci.
 
 Jeśli historia posuwa się naprzód, kiedy edytujesz, edytor jej nie nadpisze. Nowa odpowiedź lub swipe sprawia, że bieżąca staje się inna tura, a zapis zostaje odrzucony z przyciskiem **Reload** (wczytaj ponownie). To samo dzieje się, gdy agent trackera zaktualizuje sekcję, którą zmieniasz po otwarciu edytora. **Reload** pokazuje najnowszy stan i odrzuca szkice.

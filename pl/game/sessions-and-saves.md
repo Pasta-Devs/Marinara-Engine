@@ -57,6 +57,8 @@ Kiedy bieżąca sesja jest już zamknięta, ten sam przycisk zmienia się w **Ne
 2. W wierszu bieżącej sesji kliknij przycisk **New Session** (ikona odtwarzania).
 3. GM wznawia opowieść. Korzysta z podsumowania poprzedniej sesji oraz z notatki o kolejnej sesji, jeśli została wpisana przy jej kończeniu.
 
+W grze z wygenerowanym światem świat toczy się dalej od miejsca, w którym zostawiła go poprzednia sesja: dni, które minęły, czyny i reputacja drużyny, miejsca i grupy dodane przez opowieść oraz to, dokąd drużyna dotarła – wszystko to przechodzi do nowej sesji.
+
 ## Czytanie dawnych sesji
 
 Zakładka **Session History** wymienia zamknięte sesje, od najnowszej. Zanim któraś się skończy, widnieje tam napis **No completed sessions yet**.
@@ -124,7 +126,11 @@ Te sekrety da się też edytować, co działa jak panel oszustw mistrza gry. Kli
 
 Game Mode zapisuje postępy automatycznie. Nie trzeba naciskać żadnego przycisku zapisu. Świat, drużyna, mapa, ekwipunek, czas w grze i podsumowania sesji są przechowywane na bieżąco, w trakcie gry.
 
-Aplikacja odnotowuje też w tle automatyczne punkty kontrolne. Zapisuje punkt kontrolny na początku sesji, na jej końcu oraz w chwili rozpoczęcia i zakończenia walki. Na razie nie ma w aplikacji ekranu do przeglądania ani przywracania tych punktów kontrolnych. Nie licz więc na to, że wczytanie starego punktu kontrolnego cofnie turę.
+Aplikacja odnotowuje też w tle automatyczne punkty kontrolne. Zapisuje punkt kontrolny na początku sesji, na jej końcu, w chwili rozpoczęcia i zakończenia walki, po dotarciu do nowego miejsca oraz w automatycznych odstępach. Edytor Game data też próbuje utworzyć punkt kontrolny przed każdym zapisem, choć w grze tak nowej, że jej pierwsza tura nie została jeszcze zapisana, nie ma czego w nim zachować. Otwórz **Game controls → Checkpoints** (sterowanie grą, punkty kontrolne), żeby je zobaczyć, od najnowszego. **Load** (wczytanie) cofa grę do tamtej chwili: tracker, mapa, **World Edits** (ręczne zmiany świata) z edytora Game data i opowieść po tej chwili wracają do ówczesnego stanu, a komunikat systemowy oznacza miejsce, w którym grę cofnięto. **Delete** (usunięcie) usuwa punkt kontrolny na dobre.
+
+Z automatycznych punktów kontrolnych każdego rodzaju zostaje pięć najnowszych, więc starsze są w trakcie gry usuwane.
+
+Aby cofnąć pojedynczą nieudaną turę, użyj raczej **Retry turn** (ponowienie tury) w **Game controls** albo swipe'a. Wczytanie punktu kontrolnego przywraca też opowieść do tamtej chwili.
 
 Aby mieć własną kopię danych, skorzystaj z narzędzi do tworzenia kopii zapasowych w aplikacji. Zobacz [Kopia zapasowa i przywracanie danych aplikacji Marinara](../data/backup-and-restore.md).
 

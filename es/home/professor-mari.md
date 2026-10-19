@@ -31,7 +31,7 @@ Los elementos adjuntos aparecen como chips **Aware of** (Al tanto de) encima de 
 Pídele ayuda con cualquiera de estas tareas:
 
 - Explicar una configuración, un modo o un concepto antes de que cambies nada.
-- Crear o editar un personaje. Un personaje es una tarjeta que le da a la IA un nombre, una personalidad y una voz.
+- Crear o editar un personaje. Un personaje es una tarjeta que le da a la IA un nombre, una personalidad y una voz. También puede escribir el [onboarding interactivo](../characters/interactive-onboarding.md) de una tarjeta, es decir, las preguntas que responden los jugadores para crear su persona.
 - Crear o editar una persona. Una persona es la identidad con la que juegas en un chat, el "tú" de la historia.
 - Crear o editar un lorebook. Un lorebook (libro de trasfondo) es un conjunto de notas del mundo que la IA incorpora cuando son relevantes.
 - Crear o editar un tema, un agente, un preset de prompt o un borrador de Personal Extension (Extensión personal). Professor Mari es la única autora de extensiones predeterminada. Sus borradores permanecen desactivados hasta que inspeccionas el código en el entorno aislado, revisas los permisos activos de tarjeta de personaje o de persona que solicite, y apruebas el hash exacto en **Settings** (Configuración) > **Addons**.

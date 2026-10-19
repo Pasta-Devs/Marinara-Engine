@@ -71,7 +71,7 @@ As ferramentas são seções de **Chat Settings**. Abra pelo botão de controles
 - **Author's Notes**. Uma nota livre acrescentada ao prompt a cada turno. Veja abaixo.
 - **Gallery** (galeria). As imagens e os vídeos do chat, onde você pode gerar uma ilustração ou um plano de fundo.
 
-Você pode destacar qualquer uma dessas seções, inclusive Search, para mantê-la em uma janela própria ou abri-la pelo botão no celular. Chats antigos mantêm os ícones conhecidos como botões móveis: abra um e escolha **Put back in Chat Settings** para guardá-lo dentro. Veja [Visão geral de Chat Settings](../chats/chat-settings.md).
+Você pode destacar qualquer uma dessas seções, inclusive Search, para mantê-la em uma janela própria. No celular, abra as seções destacadas pelo menu de três pontos **Chat tools** (ferramentas do chat); os botões dos trackers continuam separados. Chats antigos mantêm as ferramentas habituais fora de Chat Settings. Abra uma delas e escolha **Put back in Chat Settings** para guardá-la dentro. Veja [Visão geral de Chat Settings](../chats/chat-settings.md).
 
 ### Author's Notes
 
@@ -100,6 +100,12 @@ A aba **Injections** só aparece quando o **Debug mode** (modo de depuração) e
 Você pode ver, editar e rodar de novo um trecho salvo. A edição muda só o que é usado quando você regenera aquela mesma resposta. Ela não altera a resposta que já está na tela. Assim a regeneração continua estável e repetível.
 
 O Narrative Director tem um botão **Push Story** acima da caixa de mensagem. Ele prepara o Director para a próxima resposta, e só para ela. O Narrative Director também pode guardar um arco de longo prazo escondido, chamado **Secret Plot**. Veja [Narrative Director e Secret Plot](narrative-director.md) para conhecer os dois.
+
+## Ilustrações na mensagem
+
+Em **Chat Settings → Agents → Roleplay Commands**, ative **Illustrations** (ilustrações) para permitir que os personagens peçam uma imagem com `[illustrate: subject="..." characters="..."]`. A imagem usa as configurações do Illustrator do chat e aparece abaixo da mensagem.
+
+Ative **Render in-line** (exibir no meio do texto) em **Illustrations** para mostrar cada imagem dentro da mensagem, no ponto em que o personagem escreveu o comando, por exemplo entre dois parágrafos. A imagem mantém os controles: selecione-a para ver o prompt dela ou use o **X** para removê-la. O personagem é avisado de que pode colocar o comando onde a imagem fizer sentido. A configuração vale para imagens novas, então as imagens que já estão no chat continuam onde estão. As imagens automáticas do Illustrator e o layout Visual Novel continuam mostrando as imagens como antes.
 
 <a id="whispers-and-secrets"></a>
 
@@ -135,7 +141,7 @@ Em **Chat Settings → Agents → Roleplay Commands**, ative **Interruptions** (
 
 O modelo usa `[interrupt: part="a verbatim phrase of at least three words"]`. Marinara procura essa frase literal somente na mensagem imediatamente anterior à resposta, mantém o texto até a frase inclusive e substitui o final por um travessão de interrupção. Diálogos mantêm as aspas de fechamento; ações não recebem aspas. Se não houver correspondência ou ela for ambígua, a mensagem não muda.
 
-Abra as informações de comandos da resposta e escolha **Restore original message** (restaurar mensagem original) para recuperar a mensagem inicial. Regenerar restaura primeiro a entrada original completa, para que a nova resposta decida se interrompe. Selecionar uma variante existente aplica a interrupção dela, a menos que você a tenha restaurado explicitamente. Edições manuais posteriores são preservadas em vez de serem sobrescritas por uma interrupção antiga.
+Abra as informações de comandos da resposta e escolha **Restore original message** (restaurar mensagem original) para recuperar a mensagem inicial. Regenerar restaura primeiro a entrada original completa, para que a nova resposta decida se interrompe. Selecionar um swipe existente aplica a interrupção desse swipe, a menos que você a tenha restaurado explicitamente. Edições manuais posteriores são preservadas em vez de serem sobrescritas por uma interrupção antiga.
 
 ## Echo Chamber
 

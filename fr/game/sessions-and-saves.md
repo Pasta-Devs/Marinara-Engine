@@ -57,9 +57,11 @@ Dès que la session en cours est conclue, ce même bouton devient **New Session*
 2. Sur la ligne de la session en cours, clique sur le bouton **New Session** (l'icône de lecture).
 3. Le GM reprend l'histoire. Il s'appuie sur le résumé de la session précédente et sur la note pour la session suivante que tu as éventuellement écrite en la terminant.
 
+Dans une partie avec un monde généré, le monde reprend là où la dernière session l'a laissé : les jours écoulés, les exploits et la réputation de l'équipe, les lieux et les groupes ajoutés par l'histoire, ainsi que les endroits où l'équipe est allée, passent tous dans la nouvelle session.
+
 ## Relire les sessions passées
 
-L'onglet **Session History** liste tes sessions conclues, de la plus récente à la plus ancienne. Tant que tu n'en as terminé aucune, il affiche "No completed sessions yet".
+L'onglet **Session History** liste tes sessions conclues, de la plus récente à la plus ancienne. Tant que tu n'en as terminé aucune, il affiche **No completed sessions yet**.
 
 Chaque ligne indique le numéro de session, la date et le nombre de découvertes enregistrées. Clique sur une ligne pour la déplier. Une session dépliée peut afficher les champs suivants :
 
@@ -124,7 +126,11 @@ Autre option : modifier ces secrets, un peu comme dans un panneau de triche rés
 
 Game Mode enregistre ta progression automatiquement. Aucun bouton de sauvegarde à presser. Le monde, l'équipe, la carte, l'inventaire, le temps de jeu et les résumés de session sont conservés au fil de la partie.
 
-L'application enregistre aussi des points de contrôle automatiques en coulisses. Elle en capture un au début de la session, à la fin de la session, ainsi qu'au début et à la fin d'un combat. Aucun écran de l'application ne permet pour l'instant de parcourir ou de restaurer ces points de contrôle. Ne compte donc pas sur le chargement d'un ancien point de contrôle pour annuler un tour.
+L'application enregistre aussi des points de contrôle automatiques en coulisses. Elle en capture un au début de la session, à la fin de la session, au début et à la fin d'un combat, quand tu atteins un nouveau lieu, et à intervalles automatiques. Le Game data editor (l'éditeur des données de jeu) essaie aussi d'en prendre un avant chaque enregistrement, mais une partie trop récente pour que son premier tour ait été enregistré n'a encore rien à mettre en point de contrôle. Ouvre **Game controls → Checkpoints** (contrôles du jeu → points de contrôle) pour les voir, du plus récent au plus ancien. **Load** (charger) ramène la partie à ce moment-là : le tracker, la carte, les **World Edits** (modifications du monde) faites dans le Game data editor et la suite de l'histoire sont restaurés, et un message système indique où la partie a été ramenée en arrière. **Delete** (supprimer) en supprime un définitivement.
+
+Les points de contrôle automatiques sont limités aux cinq plus récents de chaque type : les plus anciens sont donc nettoyés au fil de la partie.
+
+Pour annuler un seul mauvais tour, utilise plutôt **Retry turn** (relancer le tour) dans **Game controls** ou un swipe (une réponse alternative). Charger un point de contrôle restaure aussi l'histoire à ce moment-là.
 
 Pour conserver ta propre copie de tes données, utilise les outils de sauvegarde de l'application. Voir [Sauvegarde et restauration](../data/backup-and-restore.md).
 

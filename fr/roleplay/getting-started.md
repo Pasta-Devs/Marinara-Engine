@@ -71,7 +71,7 @@ Les outils sont des sections de **Chat Settings**. Ouvre-le avec le bouton de cu
 - **Author's Notes**. Une note libre ajoutée au prompt à chaque tour. Voir ci-dessous.
 - **Gallery** (galerie). Les images et vidéos du chat, où tu peux générer une illustration ou un arrière-plan.
 
-Tu peux détacher chacune de ces sections, y compris Search, pour la garder dans une fenêtre séparée ou l'ouvrir avec son bouton sur téléphone. Les anciens chats conservent leurs icônes familières comme boutons déplaçables : ouvre-en un et choisis **Put back in Chat Settings** pour le ranger. Consulte [Présentation de Chat Settings](../chats/chat-settings.md).
+Tu peux détacher chacune de ces sections, y compris Search, pour la garder dans une fenêtre séparée. Sur téléphone, ouvre les sections détachées depuis le menu à trois points **Chat tools** (outils du chat) ; les boutons des trackers restent à part. Les anciens chats gardent leurs outils familiers hors de Chat Settings. Ouvre-en un et choisis **Put back in Chat Settings** (remettre dans Chat Settings) pour le ranger à l'intérieur. Consulte [Présentation de Chat Settings](../chats/chat-settings.md).
 
 ### Author's Notes
 
@@ -100,6 +100,14 @@ Un onglet **Injections** n'apparaît que si le **Debug mode** (mode débogage) e
 Tu peux consulter, modifier et relancer un fragment enregistré. Une modification n'agit que sur ce qui sera utilisé quand tu régénéreras cette même réponse. Elle ne change pas la réponse déjà affichée. La régénération reste ainsi stable et reproductible.
 
 Le **Narrative Director** dispose d'un bouton **Push Story** au-dessus de la zone de saisie. Il n'arme le Director que pour la réponse suivante. Le **Narrative Director** peut aussi garder un arc caché à long terme, appelé **Secret Plot**. Voir [Narrative Director et Secret Plot](narrative-director.md) pour les deux.
+
+<a id="illustrations-in-the-message"></a>
+
+## Illustrations dans le message
+
+Dans **Chat Settings → Agents → Roleplay Commands**, active **Illustrations** (illustrations) pour permettre aux personnages de demander une image avec `[illustrate: subject="..." characters="..."]`. L'image utilise les réglages Illustrator du chat et apparaît sous le message.
+
+Active **Render in-line** (afficher dans le texte) sous **Illustrations** pour afficher plutôt chaque image à l'intérieur du message, à l'endroit où le personnage a écrit la commande, par exemple entre deux paragraphes. L'image garde ses contrôles : sélectionne-la pour voir son prompt, ou utilise le **X** pour la retirer. On indique au personnage qu'il peut placer la commande là où l'image a sa place. Le réglage s'applique aux nouvelles images : celles déjà présentes dans le chat restent où elles sont. Les images automatiques de l'agent Illustrator et la disposition Visual Novel continuent d'afficher les images comme avant.
 
 <a id="whispers-and-secrets"></a>
 
@@ -135,7 +143,7 @@ Dans **Chat Settings → Agents → Roleplay Commands**, active **Interruptions*
 
 Le modèle utilise `[interrupt: part="a verbatim phrase of at least three words"]`. Marinara cherche cette expression exacte uniquement dans le message précédant immédiatement la réponse, conserve le texte jusqu'à l'expression incluse et remplace la fin par un tiret d'interruption. Le dialogue garde son guillemet fermant ; les actions n'en reçoivent pas. Si la correspondance manque ou est ambiguë, le message reste intact.
 
-Ouvre les informations de commande de la réponse et choisis **Restore original message** (restaurer le message original) pour récupérer le message initial. La régénération restaure d'abord l'entrée originale complète, afin que la nouvelle réponse puisse choisir de l'interrompre ou non. Sélectionner une variante existante applique son interruption, sauf si tu as explicitement restauré le message. Les modifications manuelles ultérieures sont conservées au lieu d'être écrasées par une ancienne interruption.
+Ouvre les informations de commande de la réponse et choisis **Restore original message** (restaurer le message original) pour récupérer le message initial. La régénération restaure d'abord l'entrée originale complète, afin que la nouvelle réponse puisse choisir de l'interrompre ou non. Sélectionner un swipe existant applique l'interruption de ce swipe, sauf si tu as explicitement restauré le message. Les modifications manuelles ultérieures sont conservées au lieu d'être écrasées par une ancienne interruption.
 
 ## Echo Chamber
 

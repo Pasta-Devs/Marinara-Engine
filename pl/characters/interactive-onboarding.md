@@ -20,6 +20,10 @@ Onboarding korzysta z istniejącej składni makr. Nie uruchamia żadnych skrypt�
 
 Wyłączenie przełącznika ukrywa pola onboardingu, ale zachowuje ich treść.
 
+### Niech napisze go Professor Mari
+
+Możesz też poprosić asystentkę [Professor Mari](../home/professor-mari.md), żeby napisała onboarding, na przykład: "Napisz zabawny onboarding dla królowej Ayrene, z szablonem persony." Asystentka pisze pytania i pola persony, a potem włącza onboarding. Zanim jej praca zostanie zapisana, aplikacja ją sprawdza, więc literówka w nazwie, `{{name}}` bez pytania albo warunek bez znaku `#` wracają do niej do poprawki. Przy pytaniu o postać dodaje też jego `{{name}}` do jednego z własnych pól karty. Jej zmiany pojawiają się na karcie zmiany, którą możesz przejrzeć albo cofnąć, tak jak jej pozostałe edycje.
+
 ### Dodawanie pytań
 
 W sekcji **Persona Questions** (pytania o personę) kliknij **Add Question** (dodanie pytania). Każde pytanie działa jak zmienna presetu. Zobacz [Edytor presetów i menedżer promptów](../prompts/presets.md). Karta może mieć do 100 pytań.
@@ -50,10 +54,11 @@ Te pięć pól czyta model, więc tylko do nich może dotrzeć odpowiedź na pyt
 
 Odpowiedzi są przechowywane jako zmienne czatu, dlatego karta w każdym czacie czyta inną wartość i nigdy nie trzeba jej edytować. Pytanie karty jest zadawane zawsze, gdy karta jest w czacie, niezależnie od tego, czy gracz tworzy personę. Okno pokazuje sekcję **About you** (o tobie) tylko wtedy, gdy powstaje persona.
 
-Autor powinien znać dwie rzeczy:
+Autor powinien znać trzy rzeczy:
 
 - **Odpowiedź, która nigdy nie zostanie uzupełniona, zostaje dosłownym tagiem.** Pytanie otwarte bez wartości domyślnej nie jest wstępnie wypełniane, więc czat rozpoczęty bez kreatora pokazuje `{{name}}` dokładnie tak, jak zapisano. Pytania z wyborem wstępnie wypełniają pierwszą opcję, co wystarcza w większości kart.
 - **Jeśli dwie karty w jednym czacie deklarują tę samą nazwę, dzielą jedną wartość.** Czat przechowuje jedną odpowiedź na nazwę, więc obie karty czytają ostatnio zapisaną. Okno ostrzega o tym, gdy do tego dojdzie.
+- **Karta, która opuszcza czat, zabiera ze sobą swoje odpowiedzi.** Po usunięciu postaci z czatu zmienne czatu należące do jej pytań o postać zostają usunięte, chyba że inna postać, która nadal jest w czacie, deklaruje tę samą nazwę. Wspólna nazwa zostaje, bo pozostała karta może nadal ją czytać.
 
 ### Pisanie pól persony
 
@@ -85,9 +90,15 @@ Pytanie, które występuje tylko wewnątrz `{{#if}}`, pada tylko wtedy, gdy ten 
 2. Dodaj postać. Aby otrzymać z niej nową personę, wybierz wiersz **Create your persona** na górze pola **Your Persona** (twoja persona). Wiersz podaje nazwę karty, do której należy. Każdy inny wybór (albo **None**) pomija tworzenie persony i zostawia twoją.
 3. Kliknij **Next** (dalej). Okno z pytaniami otwiera się zawsze, gdy którakolwiek karta w czacie ma pytania o postać, niezależnie od tego, czy tworzysz personę.
 4. Odpowiedz na pytania. Najpierw idą **Character questions** (pytania o postać), po jednej sekcji na kartę, a potem **About you**, gdy powstaje persona. Pytania uzupełniające pojawiają się, gdy tylko twoje odpowiedzi sprawią, że nabiorą znaczenia.
-5. Kliknij **Create persona** (utworzenie persony) albo **Save answers** (zapisanie odpowiedzi), gdy nie tworzysz persony. Odpowiedzi na pytania o postać zapisują się w czacie, a kreator przechodzi dalej.
+5. Kliknij **Review persona** (przegląd persony), aby zobaczyć imię i pola, które powstaną z twoich odpowiedzi, dokładnie tak, jak zostaną zapisane. Fragmenty wypełnione twoimi odpowiedziami są wyróżnione. Podgląd niczego nie zapisuje; zapisuje dopiero **Create persona** (utworzenie persony).
+6. Kliknij **Create persona** albo **Save answers** (zapisanie odpowiedzi), gdy nie tworzysz persony. Odpowiedzi na pytania o postać zapisują się w czacie, a kreator przechodzi dalej.
 
 Pytania onboardingu są zadawane w kreatorze nowego czatu Roleplay. Quick Start, konfiguracja czatu Conversation i rozpoczęcie czatu prosto z karty postaci jeszcze ich nie zadają. Czat rozpoczęty w ten sposób nadal wypełnia pierwszą opcję każdego pytania, dzięki czemu `{{relationshipToUser}}` zamienia się na wartość zamiast pokazywać tag. Odpowiedź w kreatorze zastępuje tę wartość domyślną, tylko w tym czacie.
+
+Obie ścieżki działają też po zakończeniu konfiguracji, z panelu **Chat Settings** (ustawienia czatu):
+
+- Okno wyboru persony w sekcji **Persona** w czacie Roleplay pokazuje wiersz **Create your persona** dla każdej karty w czacie, która go oferuje. Skorzystaj z niego, gdy kreator został pominięty albo gdy później potrzebujesz nowej persony.
+- Znacznik onboardingu obok postaci w sekcji **Characters** (postacie) ponownie otwiera same pytania o postać z tej karty. Okno zaczyna od odpowiedzi, które czat już ma, więc zapisanie jednej zmiany zostawia pozostałe bez zmian; ponowny zapis przywraca też odpowiedź usuniętą z sekcji Chat Variables. Odpowiedzi innych kart pozostają nietknięte – z wyjątkiem nazwy wspólnej dla dwóch kart, która ma jedną wartość, więc obie karty czytają nową odpowiedź.
 
 ## Udostępnianie kart z onboardingiem
 

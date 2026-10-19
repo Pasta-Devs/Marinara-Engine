@@ -31,7 +31,7 @@ Dołączone elementy pojawiają się nad polem wiadomości jako kafelki **Aware 
 Poproś ją o pomoc przy dowolnej z tych rzeczy:
 
 - Wyjaśnienie ustawienia, trybu albo pojęcia, zanim cokolwiek zmienisz.
-- Utworzenie lub edycja postaci. Postać to karta, która nadaje AI imię, osobowość i sposób mówienia.
+- Utworzenie lub edycja postaci. Postać to karta, która nadaje AI imię, osobowość i sposób mówienia. Asystentka potrafi też napisać onboarding karty, czyli pytania, na które odpowiadają gracze, żeby zbudować swoją personę. Opisuje go przewodnik [Interaktywny onboarding](../characters/interactive-onboarding.md).
 - Utworzenie lub edycja persony. Persona to postać, w którą się wcielasz w czacie, czyli "ty" w opowieści.
 - Utworzenie lub edycja lorebooka. Lorebook to zbiór faktów o twoim świecie, które AI wciąga do rozmowy, kiedy pasują do sytuacji.
 - Utworzenie lub edycja motywu, agenta, presetu promptu albo szkicu rozszerzenia Personal Extension. Professor Mari jest jedyną domyślną autorką rozszerzeń. Jej szkice pozostają wyłączone, dopóki nie sprawdzisz kodu w piaskownicy i nie przejrzysz wymaganych uprawnień do aktywnej karty postaci lub persony. Na koniec zatwierdź dokładny skrót w **Settings** (Ustawienia) > **Addons**.

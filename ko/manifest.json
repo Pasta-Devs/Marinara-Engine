@@ -1,6 +1,6 @@
 {
   "language": "ko",
-  "sourceCommit": "5ae55e73c46f90bbc835b28bb52f0dfd8d813be7",
+  "sourceCommit": "a2e3f13d80f1a994cb1c10c56fef8be59672ed62",
   "files": [
     {
       "path": "CONFIGURATION.md",
@@ -104,8 +104,8 @@
     },
     {
       "path": "characters/choosing-your-persona.md",
-      "sha256": "14bae75fd322f43c883fa5c58386d17d6ee365368572f94b878befd015f5f833",
-      "bytes": 4648
+      "sha256": "1ad28fd566caa8e6fb54fec669212478023ccf63c42e5bfeda3d2b507bf051f3",
+      "bytes": 5037
     },
     {
       "path": "characters/colors-and-stats.md",
@@ -129,8 +129,8 @@
     },
     {
       "path": "characters/interactive-onboarding.md",
-      "sha256": "2e8886b960ed4f238e407071cc717b78b09a842775cb639d15aea565b9d54dd9",
-      "bytes": 10183
+      "sha256": "6ad27492a462ad64f5b0d716635b9d193ee4c831058aba0928dce80b955104d2",
+      "bytes": 12667
     },
     {
       "path": "characters/library-organization.md",
@@ -418,6 +418,11 @@
       "bytes": 17037
     },
     {
+      "path": "extending/writing-creature-packs.md",
+      "sha256": "770ca26ccdc81f18ce2aac57bff7b73bc00c0bf92acecd123bbc0d61df49187a",
+      "bytes": 6636
+    },
+    {
       "path": "extending/writing-personal-extensions.md",
       "sha256": "5fe931181ae51351aa00ede580ebe173587c6c248c52dbfc29890862f1a5b41c",
       "bytes": 13920
@@ -426,6 +431,11 @@
       "path": "extending/writing-rulesets.md",
       "sha256": "f240a3705558c160a89a343d09871839c9751b7df65d40cf214d90536b22b6bc",
       "bytes": 239852
+    },
+    {
+      "path": "extending/writing-story-scripts.md",
+      "sha256": "20d767c49410f260a2a7c64106633c22dc7e100230c255a43d8304b047a0245f",
+      "bytes": 14432
     },
     {
       "path": "game/combat.md",
@@ -469,8 +479,8 @@
     },
     {
       "path": "game/sessions-and-saves.md",
-      "sha256": "9a4d2871bfd374559db542ef9c58b363973ccae1c63d82e4341d0b88c2b95bc1",
-      "bytes": 11300
+      "sha256": "3674c5d12beff07ef9d951c334e038fb717226f269f31ee8f4870e0e7718cb9b",
+      "bytes": 12551
     },
     {
       "path": "game/storyboard.md",
@@ -484,8 +494,8 @@
     },
     {
       "path": "home/professor-mari.md",
-      "sha256": "7e5f2b61c989b0786782251992d21e5277c2cd443e9b8d4ab262c1324fb380f9",
-      "bytes": 33723
+      "sha256": "ec306c02c37666fb3f3ca3d21184c414725be0e6d2bbb263e94b2bcf7b82333b",
+      "bytes": 33904
     },
     {
       "path": "home/tutorial.md",
@@ -669,13 +679,13 @@
     },
     {
       "path": "roleplay/getting-started.md",
-      "sha256": "ef5bd3c668956f4a502c3be4d8d2ebe4ecd1cadf485f1baa9d4d5423fa5c6742",
-      "bytes": 24227
+      "sha256": "9d1d0c2a0db2176c1892bb0984ac2357492d167b055e40ddbe008b5b63d800f5",
+      "bytes": 25413
     },
     {
       "path": "roleplay/hud-and-trackers.md",
-      "sha256": "d5ae23016eeef195c76abcc2701c357c1bfc264d9cd410d7b8e68f4eb34ca5af",
-      "bytes": 22756
+      "sha256": "eba40bdf55d7069f8f25c739961a468ad87d5075bac7b167668197ab086b22fb",
+      "bytes": 24480
     },
     {
       "path": "roleplay/narrative-director.md",

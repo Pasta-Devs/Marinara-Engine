@@ -31,7 +31,7 @@ Les éléments joints apparaissent sous forme de pastilles **Aware of** (au cour
 Demande-lui de l'aide pour tout ceci :
 
 - Expliquer un réglage, un mode ou un concept avant que tu ne changes quoi que ce soit.
-- Créer ou modifier un personnage. Un personnage est une fiche qui donne à l'IA un nom, une personnalité et une voix.
+- Créer ou modifier un personnage. Un personnage est une fiche qui donne à l'IA un nom, une personnalité et une voix. Elle peut aussi écrire l'[accueil interactif](../characters/interactive-onboarding.md) d'une fiche, c'est-à-dire les questions auxquelles les joueurs répondent pour construire leur persona.
 - Créer ou modifier un persona. Le persona est l'identité que tu incarnes dans un chat, le "toi" de l'histoire.
 - Créer ou modifier un lorebook. Un lorebook est un recueil de notes sur ton univers, que l'IA reprend quand elles sont pertinentes.
 - Créer ou modifier un thème, un agent, un preset de prompt ou un brouillon de Personal Extension. Professor Mari est la seule autrice d'extension par défaut. Ses brouillons restent désactivés tant que tu n'as pas donné ton accord. Inspecte le code en bac à sable, puis examine les permissions actives demandées sur les fiches de personnage ou les personas. Approuve enfin le hash exact dans **Settings** > **Addons**.
@@ -99,7 +99,7 @@ Pour un déroulé complet, consulte le guide des connexions en fin de page.
 
 Professor Mari peut travailler de deux façons. **Classic** est le mode par défaut. **Pi** est un essai : elle réfléchit davantage avant d'agir et mène à bien des tâches plus longues.
 
-Pour changer, ouvre **Search and Professor Mari settings** (réglages de la recherche et de Professor Mari) et modifie **Runtime** (environnement d'exécution), sous **Permissions mode** (mode de permissions). Le changement s'applique dès sa prochaine réponse. Ton mode de permissions, les encarts de modification et **Undo** fonctionnent de la même façon dans les deux.
+Pour changer, ouvre **Search and Professor Mari settings** et modifie **Runtime** (environnement d'exécution), sous **Permissions mode** (mode de permissions). Le changement s'applique dès sa prochaine réponse. Ton mode de permissions, les encarts de modification et **Undo** fonctionnent de la même façon dans les deux.
 
 Pi fonctionne avec toutes les connexions, y compris le modèle local. Si Professor Mari se comporte de façon étrange avec Pi, reviens à Classic.
 
