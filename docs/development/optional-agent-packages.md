@@ -648,7 +648,9 @@ The base keeps the package manager, catalog client, generic agent pipeline contr
 
 The official catalog is a schema-validated, versioned JSON document fetched over HTTPS. Each release entry includes immutable artifact URLs, SHA-256 digests, byte sizes, engine compatibility, permissions, and whether its runtime requires a restart.
 
-At server startup, the host fetches the catalog once when at least one official package is installed, selects only newer versions compatible with the running Engine and capability API, verifies them through the normal installation pipeline, and installs them before package runtimes activate. Failures are isolated per package. Existing files and registry state remain usable when the catalog is offline or verification fails, and server-runtime readiness failures use the previous-version rollback path.
+Updates need the user's consent: apart from one-time migrations that keep an upgraded install's former built-ins (see [Compatibility migration](#compatibility-migration)), startup never downloads or installs a package. `GET /api/capability-packages/updates/pending` lists each installed official package whose catalog version is newer and compatible with the running Engine and capability API, leaving out a version the user already declined. The client shows them in one **Agent updates available** prompt. **Update all** installs each through the normal installation pipeline, pinned to the offered version and artifact SHA-256. **Not now** records the declined versions in `DATA_DIR/capability-packages/update-decisions-v1.json` (`POST /api/capability-packages/updates/decline`), so that version is not offered again, while a newer one is. **Update** stays available in **Download Agents** either way. Failures are isolated per package. Existing files and registry state remain usable when the catalog is offline or verification fails, and server-runtime readiness failures use the previous-version rollback path.
+
+Release notes are published as `notes.json` beside the `catalog.json` they describe, never inside a catalog entry or a manifest: an older Engine drops a catalog entry with a key it does not know. Each pending update carries, as `releaseNotes`, the notes of every version after the installed one up to the offered one, newest first, and `releaseHighlight` is true when any of them is marked as a change the user will notice. Notes are plain text and are never rendered as Markdown or HTML.
 
 The installer must:
 
@@ -693,7 +695,7 @@ Every uninstall requires confirmation. Affected chats fall back to their ordinar
 
 ## Catalog interface
 
-The Agents panel contains a `Download Agents` control matching the Card Browser's `Download Cards` affordance. It opens a full-screen responsive library with search, package kinds, compatibility information, install/update state, permissions, storage cost, documentation, and uninstall controls.
+The Agents panel contains a `Download Agents` control matching the `Download` button in the Characters and Personas panels, which opens the Card Browser. It opens a full-screen responsive library with search, package kinds, compatibility information, install/update state, permissions, storage cost, documentation, and uninstall controls.
 
 Desktop uses a browse list with an adjacent detail region. Mobile uses one pane with explicit back navigation and touch-sized actions. Empty, offline, incompatible, corrupt-download, interrupted-install, update, rollback, and restart-required states are first-class.
 
@@ -1069,9 +1071,11 @@ client half is `packages/client/src/features/avatars/contract.ts`. The user guid
 
 There is no new manifest field. An avatar package declares schema version 2 and Capability API 1.73,
 so an Engine without these surfaces refuses the install instead of listing an agent that shows
-nothing. The change that introduced 1.73 shipped these surfaces as inert stubs, so the packages are
-published, even to the preview catalog, only once the Engine's setup, stage and a renderer are on
-`staging`. The 2D agent's generation prompts ship as the `avatarGenerationTemplates` prompt template
+nothing. The change that introduced 1.73 shipped these surfaces as inert stubs; the Engine's setup,
+stage and renderers are now on `staging`, and the two packages are listed in the preview catalog.
+Their referenced artifact URLs must be published before installation works; a catalog entry alone
+is not proof that its downloadable artifact is available.
+The 2D agent's generation prompts ship as the `avatarGenerationTemplates` prompt template
 collection in its `defaultSettings`, with the ids in `AVATAR_PROMPT_TEMPLATE_IDS`; the Agent editor
 merges and resets them like any other built-in template collection.
 
@@ -1109,15 +1113,19 @@ hash-pinned asset.
 world's `snapshot`, the world as it was made (W11): an Engine whose world generator has changed since
 reads the world from it, exactly as it was made, so a pack keeps working across Engine updates. Write
 the files from a game's or library world's **Download** (or `GET /api/game/:chatId/world/file`), which
-include it. A pack file is still at most 2 MB, so a world whose file is larger (a big world's snapshot)
-cannot ship in a pack. With the Experience on, a new game is locked
+include it. A pack file is at most 8 MB, the largest share file the Engine reads (a tile pack keeps its
+own smaller limits), so a world whose file is larger (a very big world's snapshot) cannot ship in a pack. A world whose story sets an `intro`
+needs Capability API 1.339 (see [The intro message](../extending/writing-story-scripts.md#the-intro-message)).
+`tiles` may be an image tile pack (tile pack version 2: PNG sheets on a grid of cells, with sprites of
+several cells), which needs Capability API 1.80; the Engine decodes and checks its sheets once per
+package version. With the Experience on, a new game is locked
 to the pack's kit; if the pack ships worlds, the player picks one of them (story included) and makes
 no other. Turning the
 Experience off gives the player's own choices back. `POST /api/game/create` holds a game to the same
 lock. The game keeps its kit and world like any game, so it plays on if the package is removed, and
 draws its overworld and towns with the pack's tiles while the package is installed.
 
-The Engine reads the files through the verified asset path (declared size at most 2 MB each, hash
+The Engine reads the files through the verified asset path (declared size at most 8 MB each, hash
 re-checked) and checks them as it checks share files. A pack is refused whole, with the reason, when a
 file does not read, when a world was made with another kit or does not fit it, or when its bytes are
 not the ones installed; the Experience then cannot start a game. A ruleset is never part of a map

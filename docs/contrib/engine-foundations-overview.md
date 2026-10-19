@@ -267,6 +267,8 @@ This is an additive helper with no switch and no behaviour change on its own.
 
 These sections are short on purpose. Each pull request fills in its own section, with the same five parts, when it is opened.
 
+Status: PR A merged as #6647 and PR B as #6648. PR C (#6649) was closed without merging, and PRs D to H were not opened as separate pull requests. The sections for C to H below describe the plan as it was written; do not read them as features that shipped in this form.
+
 ## PR B: Dev MCP for coding assistants
 
 An optional Dev MCP server under `tools/dev-mcp` for coding assistants working on Marinara locally, outside the pnpm workspace and the Docker image. It uses the request id trail from A2 to follow a request through the logs. Setup and checks are in `tools/dev-mcp/README.md`, which PR B adds.

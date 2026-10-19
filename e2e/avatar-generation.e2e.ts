@@ -237,7 +237,7 @@ test("Cancel stops the picture being made, and avatars made from a sprite keep i
     await expect
       .poll(async () => {
         const config = await request.get(`/api/avatar-models/character/${characterId}`);
-        return config.ok() ? (await config.json()).kinds?.pngtuber?.layers?.neutral?.eyesClosed : undefined;
+        return config.ok() ? (await config.json())?.kinds?.pngtuber?.layers?.neutral?.eyesClosed : undefined;
       })
       .toMatchObject({ source: "file", path: expect.stringMatching(/^pngtuber\/.+\.png$/u) });
 
@@ -263,7 +263,7 @@ test("Cancel stops the picture being made, and avatars made from a sprite keep i
     await expect
       .poll(async () => {
         const config = await request.get(`/api/avatar-models/character/${characterId}`);
-        file = config.ok() ? (((await config.json()).kinds?.["mesh-avatar"]?.file as string | undefined) ?? "") : "";
+        file = config.ok() ? (((await config.json())?.kinds?.["mesh-avatar"]?.file as string | undefined) ?? "") : "";
         return file;
       })
       .toMatch(/^mesh-avatar\/.+\.mavatar$/u);

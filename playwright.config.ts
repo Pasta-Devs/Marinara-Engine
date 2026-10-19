@@ -29,8 +29,9 @@ const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? `http://127.0.0.1:${clientPor
 // device for the first AudioContext, such as the generation-complete sound, can block a headless
 // page's main thread for many seconds on a Linux audio stack; toasts, timers and Playwright's own
 // checks all stall with it, and a toast can be gone before it is checked. Audio still plays, to a
-// device nobody hears.
-const chromiumLaunchOptions = { args: ["--disable-audio-output"] };
+// device nobody hears, and --mute-audio keeps the tab silent as well. WebKit has neither switch:
+// seedUIState in e2e/ui-state-fixture.ts mutes its pages and turns the reply pings off.
+const chromiumLaunchOptions = { args: ["--disable-audio-output", "--mute-audio"] };
 const mobileBaseURL = process.env.PLAYWRIGHT_MOBILE_BASE_URL ?? `http://127.0.0.1:${mobileClientPort}`;
 
 export default defineConfig({

@@ -1772,6 +1772,15 @@ export function ChatRoleplaySurface({
               editing={spriteArrangeMode}
               onPlacementChange={onSpritePlacementChange}
               onFinishPlacement={onFinishSpritePlacement}
+              onToggleEditing={onToggleSpriteArrange}
+              onScaleChange={(ownerId, scale) =>
+                onSpriteVisualSettingsChange?.({
+                  characterOverrides: {
+                    ...spriteVisualSettings?.characterOverrides,
+                    [ownerId]: { ...spriteVisualSettings?.characterOverrides?.[ownerId], fullBodySpriteScale: scale },
+                  },
+                })
+              }
             />
           </Suspense>
         )}

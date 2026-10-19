@@ -30,9 +30,9 @@ When you create a Game Mode chat, a **setup wizard** opens. It has seven steps. 
 
 The seven steps are:
 
-1. **Connection.** Choose the **Game Mode**: **Overworld RPG** (the default) or **Classic**. See [Classic or Overworld RPG](#classic-or-overworld-rpg). Set the game name, pick the GM connection, and optionally set a scene-effects connection. Scene effects default to **Local Model (Gemma)**.
+1. **Connection.** Choose the **Game Mode**: **Overworld RPG** or **Classic**. Overworld RPG is not ready yet, so for now new games start as **Classic**. See [Classic or Overworld RPG](#classic-or-overworld-rpg). Set the game name, pick the GM connection, and optionally set a scene-effects connection. Scene effects default to **Local Model (Gemma)**.
 2. **World.** Set the genre, setting, tone, difficulty, content rating, and language. The ideas offered under the setting, and later under the goals, come from different kinds of setting, a new mix each time the wizard opens. Choose **Classic** or **Tactical** under **Combat Preference**. Tactical games also offer optional battlefield seed, size and terrain guidance. When a Game Mode ruleset is installed, a **Rules** choice appears below it: keep **Marinara's own rules**, or pick the ruleset. See [Choosing rules](#choosing-rules). On the Overworld RPG, below that are the **Setting kit** and **Your world**. See [Choosing a setting kit](#choosing-a-setting-kit) and [Making a world](#making-a-world).
-3. **Party.** Pick your persona (the character you play), the **Game Master Mode**, and any party members.
+3. **Party.** Pick your persona (the character you play), the **Game Master Mode**, and any party members. **GM intro message** sets the game's first message. See [The GM intro message](#the-gm-intro-message).
 4. **Goals.** Tell the GM what you want from the adventure.
 5. **Lorebooks.** Attach any lorebooks whose facts the GM should treat as canon. A lorebook is a set of background world facts. See [Lorebooks](../lorebooks/overview.md).
 6. **Features.** Turn on optional systems like Visual Generation, Music DJ, and HUD widgets. Installable Agents can be activated from Chat Settings after the Game is created.
@@ -46,10 +46,12 @@ For Tactical games, leaving the battlefield options blank lets the GM choose a s
 
 A new game is played in one of two Game Modes, chosen on the first step and kept for all of the game's sessions:
 
-- **Overworld RPG** (the default): a world made for your setting, walked on an overworld map, with towns to visit, places to explore and dungeons to go down into. It needs a setting kit and a world; until you pick a kit, the one for your first genre is taken (High fantasy for a genre without one), and a world is rolled for it.
+- **Overworld RPG** (the default once it is ready): a world made for your setting, walked on an overworld map, with towns to visit, places to explore and dungeons to go down into. It needs a setting kit and a world; until you pick a kit, the one for your first genre is taken (High fantasy for a genre without one), and a world is rolled for it.
 - **Classic**: Game Mode as it always was. The story is told scene by scene, with the scene map and battles, and no setting kit, world, overworld, towns or dungeon maps.
 
 A game made before the choice existed keeps playing as it did: with a world it is an Overworld game, without one a Classic game.
+
+Overworld RPG is still being finished. Until it is ready, its card is greyed out with the note "Overworld games, with a setting kit and a generated world, are not ready yet. New games start as Classic games." Every new game is then Classic, and the setting kit and world choices below do not appear. They describe Overworld RPG games.
 
 ### Choosing rules
 
@@ -122,11 +124,21 @@ A world file can also carry the world's **story**: the events and scenes a creat
 
 The hand edits and the story were made for that seed and brief, so they are left out if you change either. If a file cannot be read, it is refused and the wizard says why. A world file also carries the world as it was made, so a world made by another version of the world maker opens exactly as it was made. An older file without it is refused. If something in the file does not fit the setting kit, it is left out and the wizard says what.
 
-A game made without a world before the Game Mode choice existed can be given one later, only if you want it: the journal's **World** tab offers **Make a world for this game**, with the same setting kit and world choices as a new game. The world starts from the next turn; the game's past turns, map and people stay as they are.
+A game made without a world before the Game Mode choice existed can be given one later, only if you want it: the journal's **World** tab offers **Make a world for this game**, with the same setting kit and world choices as a new game. The world starts from the next turn; the game's past turns, map and people stay as they are. While Overworld RPG is not ready, the button is greyed out with the same note as the setup.
 
 A game keeps its world as it was made. The places, people, towns and history are saved with the game when it starts and whenever its hand edits are saved, so an update that changes how worlds are made never changes a world already in play. A new session, a branch and an exported chat keep the same world, and how the world moved on in earlier sessions (its fortunes, rulers and wars) is kept as it played out. A world made by an earlier version of the world generator plays on as it was made, but can no longer be edited.
 
 A game with a world opens on the **overworld**, the world drawn as a pixel map where you can walk the party from settlement to settlement along the world's ways and enter the town it is in; the scene view is a switch away. See [The overworld](map-time-weather.md#the-overworld).
+
+### The GM intro message
+
+**GM intro message**, on the **Party** step, decides how the game opens:
+
+- **None** (the default): the Game Master opens the game as it sees fit.
+- **Defined**: type the first message exactly as it should read. The game opens with exactly this message, and regenerating it gives the same text.
+- **Guided**: describe how the opening should go, such as where it starts, who is there and what happens first. The Game Master writes the opening from it.
+
+The text can be up to 8,000 characters. It cannot contain double curly braces, and **Guided** text cannot contain square brackets either. The field says when the text cannot be used. A world's story can bring its own intro. When the story locks it, the field shows it with "Set by this Experience and locked, so the game opens as its creator meant." and it cannot be changed.
 
 ### Defaults worth knowing
 
@@ -213,7 +225,11 @@ For the full parameter reference, see [Generation Parameters](../prompts/generat
 
 On a computer, the Game's controls open from buttons near the top right of the chat. On a phone, find them in the movable **Chat tools** three-dot menu:
 
-- **Game controls** (the circular arrow): **Retry turn**, **Retry scene analysis**, **Retry Music DJ** when Music DJ plays the Game's music, and **Retry assets image generation**. When a storyboard plays as the Game background, it also has replay, play/pause and mute.
+- **Game controls** (the game controller):
+  - **Retry turn**, **Retry scene analysis**, **Retry Music DJ** when Music DJ plays the Game's music, and **Retry assets image generation**.
+  - When a storyboard plays as the Game background, it also has replay, play/pause and mute.
+  - In a game with a world, **Show the scene** and **Show the overworld** switch views, and **Show the map** returns to an open dungeon, cave or station map.
+  - **Edit game data** fixes the game's saved data by hand (see [Editing game data by hand](sessions-and-saves.md#editing-game-data-by-hand)), and **Checkpoints** takes the game back to an earlier moment (see [How your game saves](sessions-and-saves.md#how-your-game-saves)).
 - **Session** (the feather): session history, the journal and session controls. See [Game Mode: Sessions and Saves](sessions-and-saves.md).
 - **Volume** (the speaker): the **Master**, **Music**, **Sound Effects**, **TTS** and **Ambient** volume.
 - **Game Assets** (the folder): scene media and the Asset Browser. See [Game Assets](game-assets.md).

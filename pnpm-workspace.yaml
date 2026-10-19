@@ -30,3 +30,8 @@ onlyBuiltDependencies:
   - onnxruntime-node
   - protobufjs
 
+# Dependencies whose install scripts are known no-ops. Listing them keeps pnpm from asking every
+# installer, launcher and updater run to "approve-builds", which would edit this tracked file.
+ignoredBuiltDependencies:
+  - "@google/genai"
+

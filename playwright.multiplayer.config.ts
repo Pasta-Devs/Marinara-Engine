@@ -11,8 +11,8 @@ export default defineConfig({
   reporter: "list",
   use: { screenshot: "only-on-failure", trace: "retain-on-failure" },
   projects: [
-    { name: "desktop-chromium", use: { ...devices["Desktop Chrome"] } },
-    { name: "mobile-chromium", use: { ...devices["Pixel 7"] } },
+    { name: "desktop-chromium", use: { ...devices["Desktop Chrome"], launchOptions: { args: ["--mute-audio"] } } },
+    { name: "mobile-chromium", use: { ...devices["Pixel 7"], launchOptions: { args: ["--mute-audio"] } } },
     { name: "mobile-webkit", use: { ...devices["iPhone 15 Pro"] } },
   ],
 });

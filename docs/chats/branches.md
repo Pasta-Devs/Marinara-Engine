@@ -24,6 +24,7 @@ Marinara copies the chat up to and including that message into a new branch. The
 - Keeps the same mode, characters, persona, prompt preset, and connection as the source chat.
 - Copies every message, including all swipes (alternate replies) and which swipe was active. See the [Message Actions guide](messages.md) for how swipes work.
 - Copies tracker and game state snapshots tied to the copied messages, so Roleplay and Game chats keep their state.
+- Keeps Advanced Memory's work in a Roleplay chat, so you do not have to prepare the copied history again. Memories of earlier, finished scenes stay ready to recall. The scene you branch from becomes the ongoing scene again, and its old memories are dropped. See [Memory Recall and Chat Summaries](../agents/memory.md).
 - Starts with the display name **New Branch**. You can rename it (see below).
 - Stays in the same chat folder as the source chat.
 
@@ -73,6 +74,7 @@ The **Chat Branches** section has export buttons at the top. They export the bra
 
 - **JSONL**: downloads the branch as a JSONL file. JSONL means one message per line of text, and this format is compatible with SillyTavern.
 - **Text**: downloads the branch as a plain text transcript.
+- **Markdown** and **Story**: download the branch as a readable Markdown file or a styled web page. See [File formats you will see](export-import.md#file-formats-you-will-see).
 
 For bulk export of many chats at once, see [Exporting and Importing Chats](export-import.md). That guide also covers the option to include the model's reasoning in exports.
 

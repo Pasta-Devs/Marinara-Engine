@@ -12,8 +12,8 @@ The **Card Browser** searches several public character-card sites from inside Ma
 
 There are two ways to open the **Card Browser**.
 
-1. Click the **Card Browser** icon in the top bar. It sits in the row of panel buttons on the right side.
-2. Or open the **Card Browser** panel in the right sidebar, then click the **Download Cards** button at the top of that panel.
+1. Open the **Characters** panel and click the **Download** button at the top. Its tooltip reads **Download character cards**.
+2. Or click the same **Download** button at the top of the **Personas** panel.
 
 Either way, the whole content area switches to the full **Card Browser** view. This view replaces the chat area. It is not a small pop-up window.
 
@@ -183,15 +183,6 @@ If the character carries an embedded lorebook, importing shows a small confirm b
 Click **Download as PNG** to save the character as a standard PNG character card file. The button shows **Building PNG...** while it works. This works for every source. The saved file is named after the character, for example `Some_Character.png`. You can share this file or import it into another app later.
 
 JSON and PNG are two common formats for the same character data. JSON is a plain text format. A PNG card is an image file with the character data stored inside it. Both hold the full character.
-
-## Your imported characters
-
-The **Card Browser** panel in the right sidebar keeps a separate list of characters you imported through the **Card Browser**. Characters you made by hand or imported another way do not appear here. All of them still appear in the main **Characters** library.
-
-- The **Download Cards** button opens the full **Card Browser** view.
-- The **Search imported...** box filters this list.
-- The sort dropdown offers **A-Z**, **Z-A**, **Newest**, and **Oldest**.
-- Right-click a row, or use its buttons, to find **Quick Start Roleplay** and **Quick Start Conversation**. These open a new chat with that character. You can also delete the character from this list here.
 
 ## Troubleshooting
 

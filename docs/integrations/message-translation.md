@@ -2,7 +2,7 @@
 
 Marinara Engine can translate chat messages between languages. This guide covers the four translation providers, the automatic translation toggles, the per-message Translate button, and the limits of each provider.
 
-Translation is set up per chat. Each chat keeps its own provider, target language, and keys. A setting you enter in one chat does not carry over to another.
+Translation is set up per chat. Each chat keeps its own provider, languages, and keys. To start new chats with the same settings, save them as [translator defaults](#translator-defaults-for-new-chats).
 
 ## Where to find translation settings
 
@@ -25,9 +25,12 @@ The **Provider** dropdown has four options:
 
 **Google Translate** is selected by default and needs no setup. Pick a different provider only if you need one of the features below.
 
-### Target Language
+### Model Language and My Language
 
-The **Target Language** field sets the language you translate into. The default is `en` (English).
+Two fields set the languages. Both default to `en` (English).
+
+- **Model Language**: your own messages are translated into this language before the AI reads them. **Translate My Messages** and **Translate draft** use it.
+- **My Language**: AI replies are translated into this language. **Auto-Translate Responses** and the per-message **Translate** button use it.
 
 The format depends on the provider:
 
@@ -64,27 +67,35 @@ A DeepLX server at a public internet address does not need this setting. Only lo
 
 ### AI translation setup
 
-When you pick **AI (via connection)**, Marinara uses one of your AI providers to translate. Two extra fields appear.
+When you pick **AI (via connection)**, Marinara uses one of your AI providers to translate. Three extra fields appear.
 
 The **Connection** dropdown lets you choose which AI connection does the translating. This field is required. If you leave it unset, translation fails with the message "Connection ID is required for AI translation". A connection is a saved link to an AI provider. See the connections guide below to set one up.
 
-The **AI Prompt** field is the instruction sent to the AI for translation. It is filled with a built-in default. You can edit it for this chat. Once you change it, a **Restore** button appears that resets the field to the built-in default. The default prompt is:
+The **Outgoing Message Prompt** and **Incoming Response Prompt** fields are the instructions sent to the AI when it translates your messages and the AI's replies. Both are filled with a built-in default, and you can edit each one for this chat. `{{targetLanguage}}` in a prompt becomes **Model Language** or **My Language**. Once you change a prompt, a **Restore** button appears that resets it to the built-in default. The default prompt is:
 
 ```
-You are a translator. Translate the given text accurately, preserving formatting, markdown, and any special characters like *asterisks* for actions. Output ONLY the translated text, nothing else -- no explanations, no extra commentary.
+You are a translator. Translate the given text accurately into {{targetLanguage}}, preserving formatting, markdown, and any special characters like *asterisks* for actions. Output ONLY the translated text, nothing else -- no explanations, no extra commentary.
 ```
 
 ## The automatic translation toggles
 
-Below the provider settings are three toggles. All three are off by default.
+Below the provider settings are four toggles. All four are off by default.
 
 **Auto-Translate Responses** translates every AI response automatically, right after it is generated. In Game mode, Marinara removes game-master-only tags from the narration before translating it.
 
-**Translate My Messages** translates your own message into the target language just before it is sent to the AI. The translation replaces your typed text. If the translation fails, Marinara sends your original text instead and shows an error message.
+**Translate My Messages** translates your own message into **Model Language** just before it is sent to the AI. The translation replaces your typed text. If the translation fails, Marinara sends your original text instead and shows an error message.
 
 **Show Draft Translate Button** adds a **Translate draft** button next to the **Send** button. This lets you translate your message and review or edit the result before you send it. This is the manual alternative to **Translate My Messages**, which translates on send with no chance to review.
 
+**Show Only Translation** shows a translated message's translation in its place, instead of the original and the translation together.
+
 In **Conversation**, you can always translate an unsent draft from the composer's smile button → **Tools → Translate draft**, on desktop or mobile. You do not need to enable **Show Draft Translate Button** or automatic translation. The action uses this chat's input translation settings and replaces the draft for you to review; it does not send a message. A failed translation leaves the draft intact.
+
+## Translator defaults for new chats
+
+Below the toggles, **Save translator defaults** saves this chat's translation settings for new chats in every mode. Settings from the setup wizard and from a settings profile come first. Existing chats keep their own settings. **Forget saved defaults** clears them. [Noodle](../noodle/settings.md#translation) uses the same defaults.
+
+The DeepL API key and the DeepLX URL stay on this Marinara install. Chat exports, exported settings profiles and **Export Profile** files leave them out, and importing any of them never sets them. Enter them again after you move a chat to another install.
 
 ## The per-message Translate button
 
@@ -92,12 +103,12 @@ Every chat message, whether from you or the AI, has a **Translate** button in it
 
 1. Move your pointer over a message to show its action bar.
 2. Click the **Translate** button.
-3. The translation appears below the message.
+3. The translation appears below the message, or in its place with **Show Only Translation** on.
 4. Click the same button again to hide the translation. Its hover text now reads **Hide translation**.
 
 A translation made this way is saved with the message. It survives a page refresh and stays when you switch chats and come back.
 
-The per-message button uses the same provider and target language you set in the **Translation** section.
+The per-message button uses the same provider and **My Language** you set in the **Translation** section.
 
 ## Provider limits
 

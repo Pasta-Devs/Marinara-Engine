@@ -276,6 +276,7 @@ The sanitizer strips these for security.
 | `@font-face` with external URLs | Only `data:` font sources are kept. The family name is auto-renamed so it cannot override app fonts. |
 | `@import` | No loading external stylesheets. |
 | `:has()` selectors | Cannot probe elements outside the chat. |
+| Nested rules and selectors that start with `~` or `+` | Dropped, so card CSS cannot reach outside its scope. Write them as ordinary selectors. |
 | HTML in `content:` | Decorative text is allowed, but `<` and `>` are stripped and the text is capped at 200 characters. `attr()` and `counter()` are allowed. |
 | `position: fixed` | Rewritten to `position: absolute`, so no full-screen overlays. |
 | `!important` | Stripped, so card CSS cannot force-override app styles. |

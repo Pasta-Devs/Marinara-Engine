@@ -32,11 +32,11 @@ For activation questions and prompt/lorebook statements, the model receives the 
 - Macros in the statement are filled in first, so `{{char}}` arrives as the character's name.
 - When the messages do not fit the model's budget, older messages are dropped first. See [Set up a Decision connection](#set-up-a-decision-connection) for the hosted budget.
 
-**Advanced Memory uses its own per-chat Decision model.** Scene checks read the relevant transcript window. Recall sends recent conversation text and up to 24 shortlisted archived recaps (more if **Maximum recalled scenes** is higher), then original messages from the scenes the model chose, after character access checks; it does not use the fixed last-5-message rule above. Hosted providers receive these texts, potentially in multiple bounded batches. Each recall pass falls back to ordinary recall after 10 seconds. See [Optional Decision model](../agents/memory.md#optional-decision-model).
+**Advanced Memory uses its own per-chat Decision model.** Scene checks read the relevant transcript window. Recall sends recent conversation text and up to 24 shortlisted archived recaps (more if **Maximum recalled scenes** is higher), then original messages from the scenes the model chose, after character access checks; it does not use the fixed last-5-message rule above. Hosted providers receive these texts, potentially in multiple bounded batches. Each recall pass normally gets 10 to 25 seconds, sized to the model's speed. Both passes share a limit of 40 seconds for each reply, so a pass can get less than 10 seconds when little time remains. Memories without an answer in time fall back to ordinary recall. See [Optional Decision model](../agents/memory.md#optional-decision-model).
 
 ## Choosing a Decision model
 
-Open **Connections**, then **Connection defaults**, and pick from **Decision model**. The list has three groups:
+Open **Connections**, then **Defaults**, and pick from **Decision model**. The list has three groups:
 
 - **None**, the default. Nothing is asked, and the activation question fields in the agent editor stay disabled.
 - **Local models**: the **Primary local model** or **Utility local model** you already run. Nothing is downloaded and nothing leaves your machine. The **Decision sidecar**, if you installed one, is listed here too.
@@ -67,7 +67,7 @@ When someone imports content that uses decisions, Marinara shows a notice with a
 
 If you have a local model in **Local Model**, you can use it for decisions and never create a connection or pay for a request.
 
-1. In **Connections**, open **Connection defaults** and set **Decision model** to **Primary local model**, or to **Utility local model** if you have one set up.
+1. In **Connections**, open **Defaults** and set **Decision model** to **Primary local model**, or to **Utility local model** if you have one set up.
 2. Click **Test**. A successful result shows the probability and request time, plus two things that are specific to a local model: whether log-probabilities were available, and whether the model answers directly.
 
 Marinara asks the model a single yes/no question, lets it produce one token, and reads the answer from that token's probabilities. No reply is written, so the request is short. A choice between several answers is asked as one yes/no question per answer. How many recent messages fit is worked out from the slot's own context size.

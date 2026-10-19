@@ -26,7 +26,6 @@ type RegexScriptLike = {
 };
 
 const warnedInvalidPlacementScripts = new Set<string>();
-const REGEX_REPLACE_TIMEOUT_MIN_LENGTH = 256;
 
 export type RegexMessageLike = {
   id?: string | null;
@@ -164,15 +163,15 @@ export function applyRegexScriptsToPromptText(
 
     const findRegex = typeof script.findRegex === "string" ? resolveFindPattern(script.findRegex, options) : "";
     if (!findRegex) continue;
-    // Skip ReDoS-prone patterns instead of compiling + running them against every
-    // prompt message with no timeout — mirrors the lorebook keyword-scan posture.
+    // The static check skips the common ReDoS shapes early; the timed guard below
+    // catches the ones it misses, on every message whatever its length.
     if (!isPatternSafe(findRegex)) continue;
 
     try {
       const flags = typeof script.flags === "string" ? script.flags : "";
       const re = new RegExp(findRegex, flags);
       const replacement = typeof script.replaceString === "string" ? script.replaceString : "";
-      if (result.length >= REGEX_REPLACE_TIMEOUT_MIN_LENGTH && !vmRegexReplaceGuard(re, result)) continue;
+      if (!vmRegexReplaceGuard(re, result)) continue;
       result = applyRegexReplacement(result, re, replacement, (value) => resolveScriptString(value, options));
       for (const trim of parseTrimStrings(script.trimStrings)) {
         const resolvedTrim = resolveScriptString(trim, options);

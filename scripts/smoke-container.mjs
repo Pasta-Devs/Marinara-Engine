@@ -22,13 +22,11 @@ function docker(args, options = {}) {
 // with Docker networking disabled. No model provider or download is involved.
 const probe = String.raw`
 import assert from "node:assert/strict";
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 const [phase, marker, variant, architecture] = process.argv.slice(2);
 assert.equal(process.arch, architecture === "amd64" ? "x64" : "arm64");
 assert.notEqual(process.getuid(), 0, "The runtime user must be able to use the image without root");
-const serverUid = Number(readFileSync("/proc/1/status", "utf8").match(/^Uid:\s+(\d+)/m)?.[1]);
-assert.equal(serverUid, process.getuid(), "The entrypoint must drop privileges before starting the server");
 const require = createRequire("/app/packages/server/package.json");
 const sharp = require("sharp");
 const png = await sharp({ create: { width: 1, height: 1, channels: 4, background: "#579ad8" } }).png().toBuffer();
@@ -49,6 +47,17 @@ while (Date.now() < deadline) {
   await new Promise((resolve) => setTimeout(resolve, 500));
 }
 assert.equal(health?.status, "ok", "The compiled API must become healthy");
+// On a new volume the entrypoint (PID 1) repairs data ownership as root before it drops privileges and starts the
+// server, so the users are read only once the API answers. Every uid (real, effective, saved, filesystem) counts.
+const uids = (pid) => readFileSync("/proc/" + pid + "/status", "utf8").match(/^Uid:\s+(.+)$/m)?.[1].trim().split(/\s+/).map(Number);
+const servers = readdirSync("/proc").filter((pid) => {
+  try { return /^\d+$/.test(pid) && readFileSync("/proc/" + pid + "/cmdline", "utf8").split("\0")[1]?.endsWith("packages/server/dist/index.js"); }
+  catch { return false; /* The process exited while the list was read. */ }
+});
+assert.ok(servers.length > 0, "The server process must be running");
+for (const pid of [...servers, "1"]) {
+  assert.deepEqual(uids(pid), Array(4).fill(process.getuid()), "The entrypoint must drop privileges before starting the server");
+}
 assert.equal(health.version, JSON.parse(readFileSync("/app/package.json", "utf8")).version);
 assert.ok(health.commit, "The image must report its baked build commit");
 const page = await fetch(base + "/");

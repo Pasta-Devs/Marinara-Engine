@@ -3,7 +3,7 @@ import { spawnSync } from "node:child_process";
 import { createRequire } from "node:module";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { resolveClientBuildHeapMb, resolveDesktopClientBuildHeapMb } from "./build-heap.mjs";
+import { resolveClientBuildHeapMb, resolveDesktopClientBuildHeapMb, typeCheckHeapHint } from "./build-heap.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PACKAGE_ROOT = resolve(__dirname, "..");
@@ -29,6 +29,9 @@ function run(script, args, options = {}) {
     stdio: "inherit",
   });
   if (result.status !== 0) {
+    // The heap a user set in NODE_OPTIONS is kept, so say when it is too small for the type-check.
+    const hint = script === TSC_CLI ? typeCheckHeapHint(result) : null;
+    if (hint) console.error(hint);
     process.exit(result.status ?? 1);
   }
 }

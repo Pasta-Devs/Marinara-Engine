@@ -128,17 +128,24 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
-  # Shard counts per lane (#6573): 10 desktop Chromium, 8 mobile Chromium, 10
-  # mobile WebKit. Matrix wall time is the slowest single shard, and at four
-  # every lane's slowest shard ran 27-29 minutes against the 30-minute timeout.
-  # Splitting the last green run's per-test durations the way --fully-parallel
-  # --shard does, plus ~2 minutes of setup and server boot per shard, puts the
-  # slowest shard at about 14 min (desktop), 16 (mobile Chromium) and 17
-  # (WebKit). Re-measure before changing a count.
+  # Shard counts per lane: 16 desktop Chromium, 14 mobile Chromium, 18 mobile
+  # WebKit. Matrix wall time is the slowest single shard. --fully-parallel
+  # --shard splits by test COUNT in file order (Playwright has no duration-based
+  # sharding), so the slow game-* specs land together in a few shards. At
+  # 10/8/10, run 39258556275 had 7 of 28 shards hit the old 30-minute timeout.
+  # Taking each test's cost from its shard log (the gap between consecutive
+  # results, failures included) and Playwright's own --list --shard
+  # assignment, plus ~2 minutes of setup and server boot per shard, the slowest
+  # shard is now about 25 min (desktop), 22 (mobile Chromium) and 24 (WebKit),
+  # and no boundary shift puts more than 27 min in one shard.
+  # The 40-minute budget starts before checkout and includes action setup.
+  # Playwright gets only the remaining time, leaving five minutes of the
+  # 45-minute job for reporting and failure evidence.
+  # Re-measure before changing a count.
   desktop-chromium-shards:
-    name: desktop-chromium ${{ matrix.shard }}/10
+    name: desktop-chromium ${{ matrix.shard }}/16
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     needs: revision
     if: needs.revision.outputs.full == 'true'
 
@@ -148,9 +155,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
 
     steps:
+      - name: Start shard budget
+        run: echo "PLAYWRIGHT_SHARD_STARTED_AT=$(date +%s)" >> "$GITHUB_ENV"
+
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -163,11 +173,12 @@ jobs:
           project: desktop-chromium
           browser: chromium
           shard: ${{ matrix.shard }}
-          total-shards: 10
+          total-shards: 16
           server-project: desktop
+          global-timeout-minutes: 40
 
       - name: Upload failure evidence
-        if: failure()
+        if: failure() || cancelled()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: playwright-desktop-chromium-shard-${{ matrix.shard }}-failure
@@ -176,9 +187,9 @@ jobs:
           retention-days: 7
 
   mobile-chromium-shards:
-    name: mobile-chromium ${{ matrix.shard }}/8
+    name: mobile-chromium ${{ matrix.shard }}/14
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     needs: revision
     if: needs.revision.outputs.full == 'true'
 
@@ -188,9 +199,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5, 6, 7, 8]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
 
     steps:
+      - name: Start shard budget
+        run: echo "PLAYWRIGHT_SHARD_STARTED_AT=$(date +%s)" >> "$GITHUB_ENV"
+
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -203,11 +217,12 @@ jobs:
           project: mobile-chromium
           browser: chromium
           shard: ${{ matrix.shard }}
-          total-shards: 8
+          total-shards: 14
           server-project: mobile
+          global-timeout-minutes: 40
 
       - name: Upload failure evidence
-        if: failure()
+        if: failure() || cancelled()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: playwright-mobile-chromium-shard-${{ matrix.shard }}-failure
@@ -217,9 +232,9 @@ jobs:
 
   mobile-webkit-shards:
     # WebKit-on-Linux is the slowest lane (#5637); see the shard count note above.
-    name: mobile-webkit ${{ matrix.shard }}/10
+    name: mobile-webkit ${{ matrix.shard }}/18
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     needs: revision
     if: needs.revision.outputs.full == 'true'
 
@@ -229,9 +244,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]
 
     steps:
+      - name: Start shard budget
+        run: echo "PLAYWRIGHT_SHARD_STARTED_AT=$(date +%s)" >> "$GITHUB_ENV"
+
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -244,11 +262,12 @@ jobs:
           project: mobile-webkit
           browser: webkit
           shard: ${{ matrix.shard }}
-          total-shards: 10
+          total-shards: 18
           server-project: mobile
+          global-timeout-minutes: 40
 
       - name: Upload failure evidence
-        if: failure()
+        if: failure() || cancelled()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: playwright-mobile-webkit-shard-${{ matrix.shard }}-failure

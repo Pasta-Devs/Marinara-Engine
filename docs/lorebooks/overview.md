@@ -30,11 +30,11 @@ Three icon buttons sit at the top of the panel. They show only an icon, with no 
 - **Import** (a downward arrow) opens the **Import Lorebook** window to load a lorebook file.
 - **Select** (a check mark) turns on multi-select mode so you can export or delete several lorebooks at once.
 
-Below the buttons is a search box with the placeholder text **Search lorebooks**. It filters the list by name, description, linked character or persona names, and tags. Next to it is a **Sort order** dropdown with these choices: **A-Z**, **Z-A**, **Newest**, **Oldest**, and **Token Budget**.
+Below the buttons is a search box with the placeholder text **Search lorebooks**. It filters the list by name, description, linked character or persona names, and tags. Next to it is a **Sort order** dropdown with these choices: **Manual order**, **A-Z**, **Z-A**, **Newest**, **Oldest**, and **Token Budget**. With **Manual order**, drag lorebooks into the order you want, or move one with Alt+Up and Alt+Down on the keyboard. Your order is kept.
 
 Each lorebook row shows a **Copy** button and a **Delete** button. The buttons appear when you hover over the row. On mobile they are always visible. **Copy** duplicates the lorebook. A lorebook that is turned off shows a small **OFF** badge. Click the picture to upload or replace it.
 
-You can also make library folders with the **New Folder** button. Drag a lorebook onto a folder to file it away. This keeps a large library tidy. These library folders are separate from the entry folders you can create inside a single lorebook.
+You can also make library folders with the **New Folder** button. Drag a lorebook onto a folder to file it away. This keeps a large library tidy. On a phone, hold a lorebook for a moment, then drag it. These library folders are separate from the entry folders you can create inside a single lorebook.
 
 ## Categories
 

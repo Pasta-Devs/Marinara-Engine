@@ -115,6 +115,34 @@ export const OFFICIAL_AGENT_KNOWLEDGE_ENTRIES: readonly OfficialAgentKnowledgeEn
     summary: "tracks currencies, equipped items, and carried inventory in separate structured lists",
   },
   {
+    id: "quartermaster",
+    name: "Quartermaster",
+    category: "tracker",
+    modes: "Roleplay",
+    summary: "keeps a character sheet, equipped gear, saved outfits, and inventory in step with the story",
+  },
+  {
+    id: "beholder",
+    name: "Beholder",
+    category: "tracker",
+    modes: "Roleplay",
+    summary: "tracks what each character wears and holds, plus injuries, on a paper doll",
+  },
+  {
+    id: "relationship-tracker",
+    name: "Relationship Tracker",
+    category: "tracker",
+    modes: "Roleplay",
+    summary: "tracks how characters and the player's persona feel about each other",
+  },
+  {
+    id: "memory-nag",
+    name: "Memory Nag",
+    category: "tracker",
+    modes: "Roleplay",
+    summary: "remembers promises, open questions, and other loose ends and reminds the AI when they matter",
+  },
+  {
     id: "hierarchical-maps",
     name: "World Maps",
     category: "tracker",
@@ -135,6 +163,20 @@ export const OFFICIAL_AGENT_KNOWLEDGE_ENTRIES: readonly OfficialAgentKnowledgeEn
     modes: "Home",
     summary:
       "adds the optional local Noodle timeline and NoodleR creator-and-fan roleplay feed in a dedicated Home tab",
+  },
+  {
+    id: "slurp2",
+    name: "Slurp",
+    category: "misc",
+    modes: "Home",
+    summary: "adds a private creator app with fictional followers, subscriptions, posts, comments, and messages",
+  },
+  {
+    id: "gacha-forge",
+    name: "Gacha Forge",
+    category: "misc",
+    modes: "Home",
+    summary: "builds a gacha game from a world description, with banners, characters, story chapters, and battles",
   },
   {
     id: "illustrator",

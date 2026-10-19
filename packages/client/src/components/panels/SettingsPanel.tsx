@@ -83,6 +83,7 @@ import {
   VIDEO_SCENE_DURATION_MAX,
   VIDEO_SCENE_DURATION_MIN,
   compileImagePrompt,
+  createImageStyleProfileId,
   normalizeImageStyleProfileSettings,
   normalizeVideoGenerationUserSettings,
   createFolderEntry,
@@ -869,12 +870,7 @@ function ImageStyleProfilesEditor({
   );
 
   const cloneSelected = useCallback(() => {
-    let suffix = 1;
-    let id = `${selected.id}-custom`;
-    while (settings.profiles.some((profile) => profile.id === id)) {
-      suffix += 1;
-      id = `${selected.id}-custom-${suffix}`;
-    }
+    const id = createImageStyleProfileId(selected.id, settings.profiles);
     const clone = { ...selected, id, name: `${selected.name} Custom`, builtIn: false };
     commit({ ...settings, profiles: [...settings.profiles, clone], defaultProfileId: id });
     setSelectedId(id);
@@ -2297,6 +2293,8 @@ function GeneralSettings() {
   const setQuoteFormat = useUIStore((s) => s.setQuoteFormat);
   const convertLatexSymbols = useUIStore((s) => s.convertLatexSymbols);
   const setConvertLatexSymbols = useUIStore((s) => s.setConvertLatexSymbols);
+  const loadRemoteMessageImages = useUIStore((s) => s.loadRemoteMessageImages);
+  const setLoadRemoteMessageImages = useUIStore((s) => s.setLoadRemoteMessageImages);
   const trimIncompleteModelOutput = useUIStore((s) => s.trimIncompleteModelOutput);
   const setTrimIncompleteModelOutput = useUIStore((s) => s.setTrimIncompleteModelOutput);
   const continueAddsNewline = useUIStore((s) => s.continueAddsNewline);
@@ -2616,6 +2614,13 @@ function GeneralSettings() {
             checked={convertLatexSymbols}
             onChange={setConvertLatexSymbols}
             help={localizeUi("ui.panels.generalsettings.turnsCommonModelWrittenLatexCommandsLikeRightarrowNeq")}
+          />
+          <ToggleSetting
+            anchorId={getSettingsControlAnchorId("load-remote-message-images")}
+            label={localizeUi("settings.controls.loadRemoteMessageImages.label")}
+            checked={loadRemoteMessageImages}
+            onChange={setLoadRemoteMessageImages}
+            help={localizeUi("settings.controls.loadRemoteMessageImages.help")}
           />
           <ToggleSetting
             anchorId={getSettingsControlAnchorId("color-inline-names")}

@@ -6,6 +6,7 @@ import { normalizeCardAssetImageSyntax, resolveCardAssetUrl } from "./card-asset
 import { convertBasicLatexSymbols, convertBasicLatexSymbolsInHtml } from "./latex-symbols";
 import { useUIStore } from "../stores/ui.store";
 import { DISCORD_SUBTEXT_RE, INLINE_MD_RE, MD_LINK_TARGET_SOURCE } from "./inline-markdown-regex";
+import { MessageImage } from "./remote-image-placeholder";
 
 // ─── Inline Markdown ────────────────────────────────────────────────────────
 
@@ -102,14 +103,11 @@ export function applyInlineMarkdown(text: string, keyPrefix: string, _depth = 0)
       const resolvedUrl = resolveCardAssetUrl(match[4]);
       if (match[0].startsWith("!")) {
         nodes.push(
-          <img
+          <MessageImage
             key={`${keyPrefix}img${key++}`}
             src={resolvedUrl}
             alt={decodeChatTextHtmlEntities(match[3] || "")}
             className="my-1 inline-block max-w-full rounded-lg align-bottom sm:max-w-md"
-            loading="lazy"
-            decoding="async"
-            referrerPolicy="no-referrer"
           />,
         );
       } else {
@@ -560,14 +558,11 @@ export function renderMarkdownBlocks(
     if (imgMatch) {
       flushAll();
       segments.push(
-        <img
+        <MessageImage
           key={`${keyBase}img${key++}`}
           src={resolveCardAssetUrl(imgMatch[2]!)}
           alt={imgMatch[1] || ""}
           className="my-1 max-w-full rounded-lg sm:max-w-md"
-          loading="lazy"
-          decoding="async"
-          referrerPolicy="no-referrer"
         />,
       );
       continue;

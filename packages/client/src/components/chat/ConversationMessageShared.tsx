@@ -14,6 +14,7 @@ import { cn } from "../../lib/utils";
 import { useBackdropDismiss } from "../../hooks/use-backdrop-dismiss";
 import type { ReactionSegmentTarget } from "../../lib/reactions";
 import { applyInlineMarkdown, renderMarkdownBlocks } from "../../lib/markdown";
+import { RemoteImageGate } from "../../lib/remote-image-placeholder";
 import { resolveSelfCardAssets, type ChatGalleryIndex } from "../../lib/card-asset-links";
 import { renderInlineWithCustomEmojis } from "../../lib/custom-emoji-render";
 import { renderWithStickerBlocks } from "../../lib/sticker-render";
@@ -431,22 +432,24 @@ export function MessageContent({
   if (IMAGE_URL_RE.test(resolved.trim())) {
     const url = resolved.trim();
     return (
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          onImageOpen(url);
-        }}
-        className="block cursor-zoom-in rounded-lg text-left"
-        title={localizeUi("ui.noodle.noodlepostcard.openImage")}
-      >
-        <img
-          src={url}
-          alt={localizeUi("ui.chat.messagecontent.gif")}
-          className="max-h-48 max-w-full sm:max-w-xs rounded-lg"
-          loading="lazy"
-        />
-      </button>
+      <RemoteImageGate src={url}>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onImageOpen(url);
+          }}
+          className="block cursor-zoom-in rounded-lg text-left"
+          title={localizeUi("ui.noodle.noodlepostcard.openImage")}
+        >
+          <img
+            src={url}
+            alt={localizeUi("ui.chat.messagecontent.gif")}
+            className="max-h-48 max-w-full sm:max-w-xs rounded-lg"
+            loading="lazy"
+          />
+        </button>
+      </RemoteImageGate>
     );
   }
   const compacted = resolved.replace(/\n{3,}/g, "\n\n");

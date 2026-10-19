@@ -18,6 +18,8 @@ To rename a folder, double-click the folder row, or double-tap it on a touch scr
 
 To file a connection into a folder, drag the connection row and drop it onto the folder. To take a connection back out, drag it onto the area below the folders. A hint reads **Drop here to move out of folder** while you drag.
 
+On a touch screen, press and hold a row to pick it up, then drag it. A normal swipe still scrolls the list.
+
 To collapse or expand a folder, click the folder row once. A small number on the folder row shows how many connections are inside.
 
 To delete a folder, click the trash icon on the folder row. If the folder still has connections inside, Marinara asks you to confirm with a **Delete Folder** dialog. An empty folder is deleted right away, with no confirmation prompt. Deleting a folder does not delete the connections inside it. Those connections move back to the unfiled area instead.
@@ -36,7 +38,7 @@ The **Sort order** dropdown next to the search box changes the list order. It ha
 | **Newest** | Newest connections first. |
 | **Oldest** | Oldest connections first. |
 
-To set a custom order, drag connection rows up or down. Dragging a connection switches the sort to **Custom** for you automatically.
+To set a custom order, drag connection rows up or down. Dragging a connection switches the sort to **Custom** for you automatically. You can also move a focused row with Alt+Up or Alt+Down.
 
 ## Duplicating and deleting
 
@@ -69,7 +71,7 @@ The **Quick Connection Switcher** is a faster way to change the connection, and 
 - Click the dice button at the top of the menu to turn the random pool on or off for this chat.
 - While the random pool is on, clicking a connection instead adds it to or removes it from the pool. A checkmark shows which connections are in the pool. The **Models** column is hidden, because the pool has no single connection.
 
-On a phone, tap the chevron next to the message box and open the **Connections** tab. Tapping a connection selects it and shows its models in the same menu; tap the back arrow to return to the connection list.
+On a phone, tap the chevron next to the message box and open the **Connections** tab. Tap a connection to switch the chat to it; the menu closes. To pick a model, tap the arrow at the right end of the connection's row instead. Its models open in the same menu, and the chat switches only when you pick one. Tap the back arrow to return to the connection list.
 
 **A model change applies everywhere the connection is used.** The note at the bottom of the menu, "Model changes are saved to this connection.", means agents, helpers and other chats that use the same connection switch to the new model too. Other model settings on the connection, such as its embedding model or image-captioning connection, do not change. If you want a different model for one purpose only, duplicate the connection and change the copy.
 

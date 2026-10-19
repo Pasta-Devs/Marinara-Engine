@@ -41,7 +41,7 @@ Current contents:
 - `schemas`: Zod schemas for persisted and shared entities.
 - `constants`: providers, defaults, chat modes, model lists, agent prompts.
 - `utils`: pure helpers such as macro expansion, XML wrapping, and music scoring.
-- `features`: agent manifests and registry, function-call definitions, folder packages, and turn-game engines for UNO, Chess, and Poker.
+- `features`: agent manifests and registry, function-call definitions, folder packages, turn-game engines for UNO, Chess, and Poker, Game Mode rulesets and their combat (`rulesets`, `ruleset-combat`, `tactical-combat` and the `combat-*` files), and the world generator with its share files (setting kits, worlds, tile, board and creature packs) in `world`.
 
 Rules:
 
@@ -61,7 +61,7 @@ Current top-level shape:
 - `components/chat`: mixed common chat, conversation, roleplay, scene, sprite, and encounter UI.
 - `components/game`: game-mode surface and panels.
 - `components/panels`, `components/modals`, entity editors: settings and resource management.
-- `features`: extracted feature modules, currently including chat-settings sections and tracker-panel pieces.
+- `features`: extracted feature modules, currently including chat-settings sections, tracker-panel pieces, multiplayer, and the avatar agents' contract, setup, stage and renderers (`features/avatars`).
 - `hooks`: React Query hooks and runtime hooks for most API features.
 - `lib`: browser and client helpers. This currently mixes common helpers with mode-specific game helpers.
 - `stores`: Zustand stores for UI, chat runtime, agents, game state, game mode, assets, sidecar, translation, gallery, encounters, and the turn games.
@@ -81,7 +81,7 @@ Fastify API, file-native storage, and provider integrations. It currently holds 
 Current top-level shape:
 
 - `app.ts`, `index.ts`: app factory, bootstrap, static serving, file-storage hydration, and seeders.
-- `routes`: many route files. Most are thin CRUD APIs, but `generate.routes.ts` and `game.routes.ts` are large orchestration files. A `routes/generate/` folder holds the first extracted pieces of the generation path.
+- `routes`: many route files. Most are thin CRUD APIs, but `generate.routes.ts` and `game.routes.ts` are large orchestration files. A `routes/generate/` folder holds the pieces extracted from the generation path so far, including the token output chain (`generation-stream-output.ts`), the tool-call rounds (`tool-rounds.ts`), reply command parsing and text cleanup, and the reply save (`save-generated-reply.ts`).
 - `services/storage`: storage facade layer for chats, characters, prompts, lorebooks, settings, assets, themes, game state.
 - `services/llm`: provider registry, base provider contract, OpenAI-compatible providers, local sidecar bridge.
 - `services/prompt`: shared prompt assembly for non-game generation.
@@ -89,7 +89,7 @@ Current top-level shape:
 - `services/game`: GM prompts, dice, combat, state machine, party prompts, maps, weather, time, sessions, checkpoints, reputation, assets.
 - `services/sidecar`: local runtime, model management, scene analysis, scene postprocessing.
 - `services/agents`: agent execution and knowledge routing.
-- Feature foundations: `services/import`, `services/lorebook`, `services/image`, `services/haptic`, `services/tools`, `services/regex`, `services/professor-mari`, `services/mari-db`, `services/turn-games`, `services/spotify`, `services/video`, `services/generation`, `services/chat-summary`, `services/achievements`, `services/prompt-overrides`, `services/setup`, `services/noodle`, `services/memory-recall`, and `discord-webhook.ts`.
+- Feature foundations: `services/import`, `services/lorebook`, `services/image`, `services/haptic`, `services/tools`, `services/regex`, `services/professor-mari`, `services/mari-db`, `services/turn-games`, `services/spotify`, `services/video`, `services/generation`, `services/chat-summary`, `services/achievements`, `services/prompt-overrides`, `services/setup`, `services/noodle`, `services/memory-recall`, `services/avatars` (avatar model storage, generation and the emotion classifier for the avatar agents), `speech-to-text.service.ts`, and `discord-webhook.ts`.
 - `db/schema`: file-table definitions for data stored under `DATA_DIR/storage`.
 - `db/file-schema.ts`, `db/file-query.ts`: native table metadata and query expressions.
 - `db/file-backed-store.ts`: in-memory table store, transaction boundary, crash recovery, and JSON snapshot persistence. See [File-Native Storage (Developers)](file-storage.md).
@@ -252,7 +252,7 @@ packages/shared/src/
   utils/
 ```
 
-The old flat `types`, `schemas`, and `constants` layout is no longer the whole story. `packages/shared/src/features/` now hosts agents, function calls, folder packages, and turn games. The first shared cleanup should still be type-level and incremental, not a mass file move.
+The old flat `types`, `schemas`, and `constants` layout is no longer the whole story. `packages/shared/src/features/` now hosts agents, function calls, folder packages, turn games, rulesets and combat, and the world generator. The first shared cleanup should still be type-level and incremental, not a mass file move.
 
 ## Migration rules
 
@@ -287,7 +287,7 @@ These are good first cleanup passes because they reduce coupling without changin
 4. Split `GameNarration.tsx` into command parsing and formatting plus display components.
 5. Split `game.routes.ts` by handler group.
    - Candidate groups: setup and session, turn generation, dice and skill and quick-time events, journal and inventory, map and travel and weather, combat, assets and scene analysis.
-6. Split `generate.routes.ts` into generation transport, agent pipeline handling, retry routes, and command and postprocess helpers.
+6. Split `generate.routes.ts` into generation transport, agent pipeline handling, retry routes, and command and postprocess helpers. Issue #7573 has started this: the token output chain, tool rounds, reply commands, reply text cleanup, the saved message's generation info, the hidden command anchor and the reply save now live in `routes/generate/`, each with its own regression.
 7. Split `ChatMetadata` into mode-specific metadata contracts.
 8. Move shared roleplay and game visuals out of `components/chat` before game imports more chat internals.
 

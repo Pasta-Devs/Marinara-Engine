@@ -1,21 +1,4 @@
-/** A dated window on the device's local clock: "MM-DD HH:mm", `from` inclusive, `to` exclusive. */
-export interface MariSeason {
-  from: string;
-  to: string;
-}
-
-const pad = (n: number) => String(n).padStart(2, "0");
-const monthDayTime = (now: Date) =>
-  `${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
-
-// ponytail: string compare, so a window cannot wrap New Year; split it in two if one ever must.
-export function isInMariSeason(season: MariSeason, now: Date = new Date()): boolean {
-  const today = monthDayTime(now);
-  return today >= season.from && today < season.to;
-}
-
-/** Halloween: October 30 00:00 until November 1 12:00. Shared by the seasonal theme and the dated pack. */
-export const HALLOWEEN_SEASON: MariSeason = { from: "10-30 00:00", to: "11-01 12:00" };
+import type { SeasonalThemeId } from "./seasonal-themes";
 
 export const MARI_STORY_STATES = [
   "thinking",
@@ -70,8 +53,12 @@ export interface MariAppearancePack {
   poses: Record<MariPose, string>;
   /** R12: locked until the Activity overview's play time reaches this many hours. */
   unlock?: { playHours: number };
-  /** Dated pack: shown by itself inside its window and hidden everywhere outside it. */
-  season?: MariSeason;
+  /**
+   * Dated pack: shown by itself while this seasonal theme is worn for the user (`seasonalThemeFor` in
+   * lib/seasonal-themes.ts) and hidden everywhere else, so it follows the theme's window, Settings toggle,
+   * greeting "Turn it off" and preview.
+   */
+  season?: SeasonalThemeId;
 }
 
 /**
@@ -169,7 +156,7 @@ export const MARI_APPEARANCE_PACKS: readonly MariAppearancePack[] = [
     },
     stories: packStories("raccoon"),
     poses: packPoses("raccoon"),
-    season: HALLOWEEN_SEASON,
+    season: "halloween",
   },
 ];
 
@@ -253,17 +240,16 @@ export function isMariPackUnlocked(
 }
 
 /**
- * Packs the chooser lists: every undated pack, and a dated one only inside its window. `seasonsOff` is
- * Settings → General → Disable seasonal ME themes: then dated packs do not exist for the user at all.
+ * Packs the chooser lists: every undated pack, and a dated one only while its seasonal theme is worn.
+ * `seasonalThemeId` is `seasonalThemeFor(...).themeId`: null when no theme is worn for the user.
  */
-export function visibleMariAppearancePacks(seasonsOff = false, now: Date = new Date()): MariAppearancePack[] {
-  return MARI_APPEARANCE_PACKS.filter((pack) => !pack.season || (!seasonsOff && isInMariSeason(pack.season, now)));
+export function visibleMariAppearancePacks(seasonalThemeId: SeasonalThemeId | null): MariAppearancePack[] {
+  return MARI_APPEARANCE_PACKS.filter((pack) => !pack.season || pack.season === seasonalThemeId);
 }
 
-/** The dated pack whose window is open now, if any. */
-export function activeSeasonalMariPack(seasonsOff = false, now: Date = new Date()): MariAppearancePack | undefined {
-  if (seasonsOff) return undefined;
-  return MARI_APPEARANCE_PACKS.find((pack) => pack.season && isInMariSeason(pack.season, now));
+/** The dated pack of the seasonal theme worn now, if any. */
+export function activeSeasonalMariPack(seasonalThemeId: SeasonalThemeId | null): MariAppearancePack | undefined {
+  return seasonalThemeId ? MARI_APPEARANCE_PACKS.find((pack) => pack.season === seasonalThemeId) : undefined;
 }
 
 /** One key per window per year, so opting out this year does not opt out next year. */
@@ -272,7 +258,7 @@ export function mariSeasonKey(pack: MariAppearancePack, now: Date = new Date()):
 }
 
 /**
- * The pack that renders: an open dated pack unless the user picked another during this window
+ * The pack that renders: the worn seasonal theme's dated pack unless the user picked another during it
  * (`seasonOptOut`), else the stored choice, or Basic while that choice is locked or out of season.
  * The stored id is never rewritten, so a locked pick returns by itself once it unlocks and the
  * user's own pick returns by itself once the window closes. Locked packs never load.
@@ -282,13 +268,13 @@ export function resolveMariAppearancePack(
   unlockedIds: readonly string[],
   playHours: number | null = null,
   seasonOptOut = "",
-  seasonsOff = false,
+  seasonalThemeId: SeasonalThemeId | null = null,
   now: Date = new Date(),
 ): MariAppearancePack {
-  const seasonal = activeSeasonalMariPack(seasonsOff, now);
+  const seasonal = activeSeasonalMariPack(seasonalThemeId);
   if (seasonal && seasonOptOut !== mariSeasonKey(seasonal, now)) return seasonal;
   const pack = getMariAppearancePack(storedId);
-  if (pack.season && (seasonsOff || !isInMariSeason(pack.season, now))) return MARI_APPEARANCE_PACKS[0]!;
+  if (pack.season && pack.season !== seasonalThemeId) return MARI_APPEARANCE_PACKS[0]!;
   return isMariPackUnlocked(pack, unlockedIds, playHours) ? pack : MARI_APPEARANCE_PACKS[0]!;
 }
 

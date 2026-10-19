@@ -25,6 +25,7 @@ import {
   type RulesetStartingGearSelection,
   type GameInventoryStack,
   type PlayerStats,
+  type SpritePlacement,
   type RulesetLiveStates,
   rulesetCardItems,
   rulesetReadsItems,
@@ -72,6 +73,13 @@ import {
   closeChatControlSheet,
 } from "../chat/ChatControlWindow";
 import type { ChatImage } from "../../hooks/use-gallery";
+import {
+  loadLocalSpriteVisualSettings,
+  saveLocalSpriteVisualSettings,
+  normalizeSpriteCharacterVisualSettingsMap,
+  type LocalSpriteVisualSettings,
+} from "../chat/local-sprite-visual-settings";
+import { normalizeSpritePlacements } from "../chat/sprite-placement";
 import { useGameStateStore } from "../../stores/game-state.store";
 import { useGalleryStore } from "../../stores/gallery.store";
 import { useAgentStore } from "../../stores/agent.store";
@@ -2432,6 +2440,73 @@ function GameSurfaceComponent({
   const dismissDiceRollResult = useGameModeStore((s) => s.dismissDiceRollResult);
   const weatherEffectsEnabled = useUIStore((s) => s.weatherEffects);
   const gameFullBodySpriteScale = useUIStore((s) => s.gameFullBodySpriteScale);
+  const [avatarArrangeMode, setAvatarArrangeMode] = useState(false);
+  const [avatarVisualSettings, setAvatarVisualSettings] = useState<LocalSpriteVisualSettings>(() =>
+    loadLocalSpriteVisualSettings(activeChatId),
+  );
+  const avatarVisualSettingsRef = useRef({ chatId: activeChatId, settings: avatarVisualSettings });
+  useEffect(() => {
+    const settings = loadLocalSpriteVisualSettings(activeChatId);
+    avatarVisualSettingsRef.current = { chatId: activeChatId, settings };
+    setAvatarArrangeMode(false);
+    setAvatarVisualSettings(settings);
+  }, [activeChatId]);
+  const avatarPlacements = useMemo(
+    () => normalizeSpritePlacements(avatarVisualSettings.spritePlacements ?? chatMeta.spritePlacements),
+    [avatarVisualSettings.spritePlacements, chatMeta.spritePlacements],
+  );
+  const avatarCharacterSettings = useMemo(
+    () =>
+      normalizeSpriteCharacterVisualSettingsMap(
+        avatarVisualSettings.characterOverrides ?? chatMeta.spriteCharacterVisualSettings,
+      ),
+    [avatarVisualSettings.characterOverrides, chatMeta.spriteCharacterVisualSettings],
+  );
+  const changeAvatarPlacement = useCallback(
+    (key: string, placement: SpritePlacement) => {
+      if (activeChatIdRef.current !== activeChatId) return;
+      const previous =
+        avatarVisualSettingsRef.current.chatId === activeChatId
+          ? avatarVisualSettingsRef.current.settings
+          : loadLocalSpriteVisualSettings(activeChatId);
+      const placements = normalizeSpritePlacements(previous.spritePlacements ?? chatMeta.spritePlacements);
+      const next = saveLocalSpriteVisualSettings(
+        activeChatId,
+        {
+          spritePlacements: { ...placements, [key]: placement },
+        },
+        previous,
+      );
+      avatarVisualSettingsRef.current = { chatId: activeChatId, settings: next };
+      setAvatarVisualSettings(next);
+    },
+    [activeChatId, chatMeta.spritePlacements],
+  );
+  const changeAvatarScale = useCallback(
+    (ownerId: string, scale: number) => {
+      if (activeChatIdRef.current !== activeChatId) return;
+      const previous =
+        avatarVisualSettingsRef.current.chatId === activeChatId
+          ? avatarVisualSettingsRef.current.settings
+          : loadLocalSpriteVisualSettings(activeChatId);
+      const characterOverrides = normalizeSpriteCharacterVisualSettingsMap(
+        previous.characterOverrides ?? chatMeta.spriteCharacterVisualSettings,
+      );
+      const next = saveLocalSpriteVisualSettings(
+        activeChatId,
+        {
+          characterOverrides: {
+            ...characterOverrides,
+            [ownerId]: { ...characterOverrides[ownerId], fullBodySpriteScale: scale },
+          },
+        },
+        previous,
+      );
+      avatarVisualSettingsRef.current = { chatId: activeChatId, settings: next };
+      setAvatarVisualSettings(next);
+    },
+    [activeChatId, chatMeta.spriteCharacterVisualSettings],
+  );
   const chatBackgroundBlur = useUIStore((s) => s.chatBackgroundBlur);
   const gameMiddleMouseNav = useUIStore((s) => s.gameMiddleMouseNav);
   const messagesPerPage = useUIStore((s) => s.messagesPerPage);
@@ -12838,7 +12913,14 @@ function GameSurfaceComponent({
                 participants={avatarParticipants}
                 enabledAgentIds={avatarAgentIds}
                 side="center"
-                scale={gameFullBodySpriteScale}
+                scale={avatarVisualSettings.fullBodySpriteScale ?? gameFullBodySpriteScale}
+                placements={avatarPlacements}
+                characterVisualSettings={avatarCharacterSettings}
+                editing={avatarArrangeMode}
+                onToggleEditing={() => setAvatarArrangeMode((previous) => !previous)}
+                onFinishPlacement={() => setAvatarArrangeMode(false)}
+                onPlacementChange={changeAvatarPlacement}
+                onScaleChange={changeAvatarScale}
               />
             </Suspense>
           )}

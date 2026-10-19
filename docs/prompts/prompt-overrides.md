@@ -27,7 +27,7 @@ You should see two collapsible editors there.
 
 Click an editor title to expand it.
 
-**Video Generation Prompt Overrides** edits reusable templates for Game and Gallery scene videos, Conversation Call character clips, and animated Expression portraits. Each video prompt template controls how one kind of clip is described to the video model.
+**Video Generation Prompt Overrides** edits reusable templates for Game and Gallery scene videos, Conversation video messages, Conversation Call character clips, and animated Expression portraits. Each video prompt template controls how one kind of clip is described to the video model.
 
 **Image Generation Prompt Overrides** edits the templates used by image, sprite, Game, and prompt-builder systems. This covers Conversation selfies, Game NPC portraits, scene art, storyboard prompts, the **Noodle Post Image** template for Noodle posts, and other registered image builders. Each image prompt template controls how one kind of picture is described to the image model.
 

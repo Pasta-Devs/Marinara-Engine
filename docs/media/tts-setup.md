@@ -186,6 +186,7 @@ This override is used only during Conversation audio and video calls. The regula
 ## Related guides
 
 - [Conversation Audio and Video Calls](../conversation/calls.md)
+- [Lip sync with text-to-speech](../agents/avatars.md#lip-sync-with-text-to-speech) for 2D and 3D avatars
 - [Roleplay Mode: Getting Started](../roleplay/getting-started.md)
 - [Game Mode: Getting Started](../game/getting-started.md)
 - [Supported AI Providers](../connections/providers-reference.md)

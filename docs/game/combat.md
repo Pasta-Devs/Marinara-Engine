@@ -4,7 +4,7 @@ This guide explains combat in Marinara Engine Game Mode. Choose **Classic** menu
 
 ## Tactical battles and terrain
 
-Tactical combat places your party and enemies on a battlefield. Select a party unit, inspect its movement range, choose a destination and action, then confirm. Each party unit can act before the enemy phase. Attack forecasts show expected consequences before you commit.
+Tactical combat places your party and enemies on a battlefield. Select a party unit, inspect its movement range, choose a destination and action, then confirm. Who acts when depends on the battle's **Turn order** (see [Turn order](#turn-order)). Attack forecasts show expected consequences before you commit.
 
 When creating a Tactical game, optional battlefield settings let you choose a seed, a size and terrain guidance for the GM. Leave the seed blank for a generated seed. A seed is a whole number from 0 to 4294967295, including zero. It reproduces the board when the encounter's combatants, terrain brief and other generation inputs are the same; it does not force the GM to generate the same story or enemies.
 
@@ -29,9 +29,24 @@ Units with an established flying or teleportation capability can move differentl
 - **Flying** crosses terrain and intervening units at one movement point per tile, including forests. A flying unit can hover over an otherwise blocked tile, but cannot finish on another unit.
 - **Teleportation** ignores intervening terrain and units. Its destination must be within movement range, unoccupied and walkable. It cannot end inside a wall, on a mountain tile or over unsupported water.
 
-Both special movement modes use the current movement allowance and orthogonal tile distance. They retain the destination terrain's defense/evasion bonuses. This is a simple flat-grid movement model; altitude, ceilings, spell-specific costs and spell-specific sight requirements are not modeled.
+Both special movement modes use the current movement allowance and orthogonal tile distance. They retain the destination terrain's defense/evasion bonuses. Both ignore height (see below). A flier's altitude, ceilings, spell-specific costs and spell-specific sight requirements are not modeled.
 
-Tactical combat uses party and enemy phases, rather than individual tabletop initiative. Movement-blocking walls do not yet block ranged attacks by line of sight. Cover, tabletop rule profiles and full summoning combat are separate future work.
+### Turn order
+
+A Tactical battle takes turns in one of two ways:
+
+- **One at a time, by initiative**: every unit gets a place in a rolled order, and only the unit whose turn it is can act. The board shows the turn order. New Overworld RPG games use this.
+- **Your whole party, then the enemies**: each party unit can act, then the enemy phase plays. Classic games use this.
+
+To change it, open **Chat Settings**, expand **Combat Style**, and pick a **Turn order**. It appears while the **Battle system** is Tactical, unless the game's ruleset runs its own fights. The change takes effect at the next battle; a battle already in progress keeps its order.
+
+### Sight, cover and height
+
+- **Sight.** Walls and mountains block sight. A unit can attack, use a skill or use an item only on a target it can see.
+- **Cover.** Something between the attacker and the target protects the target. A forest or ruins tile in the way, or a wall or mountain that blocks part of the view, gives half cover. A wall or mountain that blocks most of the view gives three-quarter cover. Half cover takes 15 percentage points off the hit chance and three-quarter cover 30. The target's own tile bonus and its cover do not add up: the better one counts.
+- **Height.** On a board with mountains, a mountain stands two levels high and the ground around it one level. Walking up one level costs one more movement point, and walking down costs nothing. A step of two levels or more is a cliff, which nobody can walk. Higher ground also blocks sight between two lower tiles. Attacking down from higher ground adds 10 to the hit chance, a ranged attack from higher ground reaches one tile farther, and low cover such as a forest does not hide a target from above. Hand-made battlefields can have cliffs of their own.
+
+Full summoning combat is separate future work.
 
 ## Classic battles
 
@@ -61,7 +76,7 @@ On that battlefield the ruleset's own numbers decide everything. How far a turn 
 
 The battlefield is on screen. Every square is its own button, so the board can be walked with the pointer or with the arrow keys, and each one says what it is, who is standing on it and what it would cost to walk there. Choosing **Move** lights up the squares you can reach with their cost in the ruleset's own distance, draws the way there as you hover or focus one, and marks in amber any square whose path someone would strike at, naming them under the board. Choosing something that needs a target lights up who may be chosen and lets you click them on the board as well as in the list, and an attack that reaches nobody says **Nobody is in reach. Move closer.** rather than offering a swing at nothing. Something that lands as a shape is aimed at a square: the squares it may be aimed at are lit, and the one under your pointer says who it would catch, friends included. Movement may be spent before and after an action, so the menu simply comes back with what is left, and the panel below shows it as **Movement** in the ruleset's own unit. Escape leaves a half-made choice and puts the keyboard back on the menu.
 
-Three-quarter cover, elevation, flying over obstacles, hiding, forced movement other than a contest's push (dragging somebody you hold, for one) and choosing whether to take a strike at somebody walking away are all separate future work.
+A ruleset can also use more of the battlefield: cover in degrees, up to three-quarter cover; higher ground that changes attacks and falls; creatures that fly, swim, climb or burrow; **Hide** and **Search** on the menu; and, when somebody breaks away from an opponent, a pause that asks the opponent whether to strike. Which of these a fight uses depends on the ruleset. Flying over obstacles, squeezing through tight spaces, mounts and dragging somebody you hold are separate future work.
 
 ### Games that use a ruleset
 

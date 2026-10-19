@@ -65,7 +65,7 @@ The review step confirms the same thing. It shows this note: "Animated portrait 
 
 Animated expressions take longer than still sprites. Marinara generates them one expression at a time, not in a batch. Picking many expressions at once can take a while, so start with a few.
 
-If you turned on **Expose media prompts before sending** (in **Settings**, in the **Image Generation** section), Marinara pauses at a prompt review step. You can read and edit each prompt before Marinara sends it to the provider. Leave this setting off to skip the review.
+If you turned on **Expose media prompts before sending** (in **Settings**, in the **Overall Generations** section), Marinara pauses at a prompt review step. You can read and edit each prompt before Marinara sends it to the provider. Leave this setting off to skip the review.
 
 ## Troubleshooting
 

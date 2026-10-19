@@ -872,7 +872,8 @@ export const AVATAR_API_PREFIXES = Object.freeze({
   generation: "/avatar-generation",
 } as const);
 
-/** `/avatar-models/<ownerType>/<ownerId>`: GET, PUT and DELETE of one owner's avatar. */
+/** `/avatar-models/<ownerType>/<ownerId>`: GET, PUT and DELETE of one owner's avatar. GET answers the
+ *  `AvatarConfig`, JSON `null` when the owner has no avatar yet, and 404 only when the owner does not exist. */
 export function avatarModelPath(owner: AvatarOwnerRef): string {
   return `${AVATAR_API_PREFIXES.models}/${owner.ownerType}/${encodeURIComponent(owner.ownerId)}`;
 }

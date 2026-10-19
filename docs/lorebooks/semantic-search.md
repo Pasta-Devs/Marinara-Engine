@@ -18,7 +18,7 @@ Keyword and semantic matches have equal priority when Marinara applies lorebook 
 
 Semantic search needs a model that can create embeddings. You have two options.
 
-Whichever you pick, you can make it the app-wide default: open **Connections**, then **Connection defaults**, and choose it under **Embeddings**. Every connection that does not set an embedding model or **Embedding Connection** of its own then uses it. A connection's own setting still wins, and the row tells you how many connections use their own settings instead. **None** keeps the built-in local model as the fallback.
+Whichever you pick, you can make it the app-wide default: open **Connections**, then **Defaults**, and choose it under **Embeddings**. Every connection that does not set an embedding model or **Embedding Connection** of its own then uses it. A connection's own setting still wins, and the row tells you how many connections use their own settings instead. **None** keeps the built-in local model as the fallback.
 
 Option 1: a connection with an embedding model.
 
@@ -27,6 +27,8 @@ Option 1: a connection with an embedding model.
 3. Find the **Semantic Search (Embeddings)** section.
 4. Type an embedding model name in the model field. A common value is `text-embedding-3-small`.
 5. Save the connection.
+
+A connection can also send its embedding requests through another connection's API key and address. In the same section, pick that connection under **Embedding Connection**. The default is **Same as this connection**. If the chosen connection has its own embedding model, Marinara uses it; otherwise it uses the model name typed here. This applies both when you vectorize and during chat.
 
 Not every provider offers embeddings. If the provider cannot do embeddings, the editor tells you to choose a dedicated embedding connection instead.
 
@@ -77,7 +79,7 @@ Vectorizing means building and storing the embedding for each entry. You must do
 3. Click the vectorize button. When some entries are missing a vector, the button reads **Vectorize N missing**, for example "Vectorize 5 missing".
 4. Wait for the run to finish. The status chip updates to show all entries vectorized.
 
-If no connection has an embedding model, the panel shows this note instead of the dropdown: "No connections with an embedding model configured. Set an Embedding Model on a connection first." Set up an embedding source first, using the steps above.
+If no connection has an embedding model or an **Embedding Connection**, the panel shows this note instead of the dropdown: "No connections with an embedding model configured. Set an Embedding Model on a connection first." Set up an embedding source first, using the steps above.
 
 When every entry already has a vector, the main button changes to **Re-vectorize N entries**. This rebuilds all stored vectors. It asks you to confirm before it overwrites them.
 
@@ -97,7 +99,7 @@ Rebuild every vector after you change the embedding model. Use **Re-vectorize N 
 
 Do not run only a partial vectorize after a model change. If a "missing only" run returns a different vector size than the stored vectors, the server refuses it with this message: "Embedding dimensions changed. Use Re-vectorize all entries instead of only missing entries before switching embedding models."
 
-There is one quiet failure mode to know about. At chat time, Marinara embeds your recent messages with a query model. The query model is the active connection's own embedding model, or the model from its **Embedding Connection** if it sets one. If the connection sets neither, Marinara uses the **Embeddings** default from **Connection defaults**, or the built-in local model when that is **None**. The query model may produce a different vector size than the model that vectorized your entries. Marinara then skips those entries in semantic matching. You do not see an error. To avoid this, vectorize your entries with the same embedding source you use during chat. Setting an **Embeddings** default helps: the vectorize picker starts on it unless you picked something else before, and connections without embedding settings of their own query with it. Re-vectorize after any model change.
+There is one quiet failure mode to know about. At chat time, Marinara embeds your recent messages with a query model. The query model is the active connection's own embedding model, or the model from its **Embedding Connection** if it sets one. If the connection sets neither, Marinara uses the **Embeddings** default under **Defaults** in **Connections**, or the built-in local model when that is **None**. The query model may produce a different vector size than the model that vectorized your entries. Marinara then skips those entries in semantic matching. You do not see an error. To avoid this, vectorize your entries with the same embedding source you use during chat. Setting an **Embeddings** default helps: the vectorize picker starts on it unless you picked something else before, and connections without embedding settings of their own query with it. Re-vectorize after any model change.
 
 ## How it feeds the Knowledge Router agent
 

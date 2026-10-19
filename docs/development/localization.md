@@ -179,6 +179,13 @@ intentionally excluded so commands, configuration, URLs, macros, and other machi
 Dynamic user-authored, generated, persisted, prompt, and protocol values must likewise remain outside the interface
 translator.
 
+Settings search, the omnibar and Professor Mari read setting names from `SETTINGS_SEARCHABLE_CONTROLS` in
+`packages/client/src/lib/settings-registry.ts`. Each control there carries a `labelKey` and a `descriptionKey` next to
+its English `label` and `description`. Reuse the control's existing key when its English text is the same; otherwise
+add `settings.search.<id>.label` or `.description` to `en.json`, with the control id in camelCase (for example
+`settings.search.hideChatHelpButton.description`). `pnpm localization:check` fails when a control has
+no key, when a key is missing from `en.json`, or when the registry English no longer matches the `en.json` text.
+
 ## Downloadable Agent interfaces
 
 Engine-owned Agent screens use canonical English plus the downloaded `docs-i18n/ui` packs. Downloadable capability clients own their translated copy in

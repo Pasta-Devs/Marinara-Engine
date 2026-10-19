@@ -11,6 +11,8 @@
 // SECURITY: this is the shared card-CSS sanitizer — keep it in sync with
 // upstream hardening of the same logic.
 
+import { neutralizeUnsafeImageSets, scopeCssRules } from "./chat-message-css";
+
 export type ChatModeFilter = "roleplay" | "conversation" | "game";
 
 const CHAT_MODE_RE = /@chat-mode\s+(roleplay|conversation|game)\s*\{/gi;
@@ -47,6 +49,11 @@ function findCssBlockEnd(css: string, bodyStart: number): { end: number; closed:
     }
     if (ch === "/" && next === "*") {
       inComment = true;
+      i += 2;
+      continue;
+    }
+    if (ch === "\\") {
+      // An escaped character is part of an identifier, never a quote or brace.
       i += 2;
       continue;
     }
@@ -178,6 +185,12 @@ function stripComments(css: string): string {
       if (escaped) escaped = false;
       else if (ch === "\\") escaped = true;
       else if (ch === quote) quote = null;
+      continue;
+    }
+    if (ch === "\\") {
+      // An escaped `/` cannot start a comment.
+      result += ch + (next ?? "");
+      index++;
       continue;
     }
     if (ch === '"' || ch === "'") {
@@ -354,45 +367,6 @@ function canonicalizeKeywordEscapes(css: string): string {
   });
 }
 
-function neutralizeUnsafeImageSets(css: string): string {
-  const startPattern = /(?:-webkit-)?image-set\s*\(/giu;
-  let result = "";
-  let cursor = 0;
-  for (let match = startPattern.exec(css); match; match = startPattern.exec(css)) {
-    let quote: '"' | "'" | null = null;
-    let escaped = false;
-    let depth = 1;
-    let index = startPattern.lastIndex;
-    for (; index < css.length && depth > 0; index++) {
-      const ch = css[index]!;
-      if (quote) {
-        if (escaped) escaped = false;
-        else if (ch === "\\") escaped = true;
-        else if (ch === quote) quote = null;
-        continue;
-      }
-      if (ch === '"' || ch === "'") quote = ch;
-      else if (ch === "(") depth++;
-      else if (ch === ")") depth--;
-    }
-    if (depth !== 0) break;
-    const expression = css.slice(match.index, index);
-    const sources = expression.match(/(?:url\s*\(\s*)?["']?data:image\/[^")'\s]+["']?\s*\)?/giu) ?? [];
-    const remainder = expression
-      .replace(/^(?:-webkit-)?image-set\s*\(/iu, "")
-      .replace(/\)$/u, "")
-      .replace(/(?:url\s*\(\s*)?["']?data:image\/[^")'\s]+["']?\s*\)?/giu, "")
-      .replace(/\btype\s*\([^)]*\)/giu, "")
-      .replace(/(?:\d+(?:\.\d+)?x|\d+dpi|\d+dpcm|\d+dppx)/giu, "")
-      .replace(/[\s,]/gu, "");
-    result += css.slice(cursor, match.index);
-    result += sources.length > 0 && remainder.length === 0 ? expression : "url(about:invalid)";
-    cursor = index;
-    startPattern.lastIndex = index;
-  }
-  return result + css.slice(cursor);
-}
-
 /**
  * Strip the CSS constructs that are dangerous no matter where the CSS is injected:
  * network exfiltration (url()/@import/@namespace/@font-face), script execution
@@ -517,118 +491,28 @@ function hashCss(input: string): string {
   return (h >>> 0).toString(36);
 }
 
-function findCssBlockStart(css: string, startIndex: number): number {
-  let quote: string | null = null;
-  let escaped = false;
-  let inComment = false;
+// Card CSS keeps fonts and animations (namespaced above) but never registers global @property names.
+const CARD_GLOBAL_AT_RULES: ReadonlySet<string> = new Set(["font-face", "keyframes"]);
 
-  for (let cursor = startIndex; cursor < css.length; cursor++) {
-    const ch = css[cursor]!;
-    const next = css[cursor + 1];
-    if (inComment) {
-      if (ch === "*" && next === "/") {
-        inComment = false;
-        cursor += 1;
-      }
-      continue;
-    }
-    if (quote) {
-      if (escaped) {
-        escaped = false;
-      } else if (ch === "\\") {
-        escaped = true;
-      } else if (ch === quote) {
-        quote = null;
-      }
-      continue;
-    }
-    if (ch === "/" && next === "*") {
-      inComment = true;
-      cursor += 1;
-      continue;
-    }
-    if (ch === '"' || ch === "'") {
-      quote = ch;
-      continue;
-    }
-    if (ch === "{") return cursor;
+function scopeCardSelector(selector: string, scopeSelector: string): string {
+  const withScope = () => scopeSelector;
+  // :root, html, body -> scopeSelector (targets the scope element itself)
+  if (/^(:root|html|body)$/i.test(selector)) return scopeSelector;
+  // Starts with :root, html, body (descendant or chained) -> replace prefix with scope
+  if (/^(:root|html|body)[\s:.[]/i.test(selector)) return selector.replace(/^(:root|html|body)/i, withScope);
+  // [data-card-css] alone -> scopeSelector (self-reference in exclusive mode)
+  if (/^\[data-card-css\]$/i.test(selector)) return scopeSelector;
+  // [data-card-css] with descendant -> replace with scope
+  if (/^\[data-card-css\]\s/i.test(selector)) return selector.replace(/^\[data-card-css\]/i, withScope);
+  // [data-card-css] with chained pseudo-classes or attribute selectors
+  // e.g. [data-card-css]:not([data-grouped]), [data-card-css][data-grouped]
+  // In exclusive mode the scope IS the element, so chain on it.
+  // In chat mode the scope is a container, so keep as descendant (default).
+  if (/^\[data-card-css\][:[.]/.test(selector) && scopeSelector.includes("[data-card-css=")) {
+    return selector.replace(/^\[data-card-css\]/i, withScope);
   }
-
-  return -1;
-}
-
-function splitCssRuleBlocks(css: string): Array<{ selector: string; body: string }> {
-  const blocks: Array<{ selector: string; body: string }> = [];
-  let cursor = 0;
-
-  while (cursor < css.length) {
-    const blockStart = findCssBlockStart(css, cursor);
-    if (blockStart === -1) break;
-
-    const selector = css.slice(cursor, blockStart).trim();
-    const bodyStart = blockStart + 1;
-    const block = findCssBlockEnd(css, bodyStart);
-    const body = css.slice(bodyStart, block.closed ? block.end - 1 : block.end);
-
-    if (selector) {
-      blocks.push({ selector, body });
-    }
-    cursor = block.end;
-  }
-
-  return blocks;
-}
-
-function scopeSanitizedCss(sanitized: string, scopeSelector: string): string {
-  const result: string[] = [];
-
-  for (const { selector, body } of splitCssRuleBlocks(sanitized)) {
-    // Skip @keyframes — already namespaced, don't prefix their contents
-    if (/^@keyframes\s/i.test(selector)) {
-      result.push(`${selector} {${body}}`);
-      continue;
-    }
-
-    // Skip @font-face — contains declarations, not nested rules
-    if (/^@font-face$/i.test(selector)) {
-      result.push(`${selector} {${body}}`);
-      continue;
-    }
-
-    // Handle @media and other at-rules that wrap rulesets, preserving any depth
-    // of nested conditional wrappers.
-    if (/^@/.test(selector)) {
-      const innerScoped = scopeSanitizedCss(body, scopeSelector);
-      result.push(`${selector} {${innerScoped}}`);
-      continue;
-    }
-
-    // Scope each selector in the comma-separated list
-    const scopedSelectors = selector.split(",").map((sel) => {
-      const s = sel.trim();
-      // :root, html, body -> scopeSelector (targets the scope element itself)
-      if (/^(:root|html|body)$/i.test(s)) return scopeSelector;
-      // Starts with :root, html, body (descendant or chained) -> replace prefix with scope
-      if (/^(:root|html|body)[\s:.[]/i.test(s)) return s.replace(/^(:root|html|body)/i, scopeSelector);
-      // [data-card-css] alone -> scopeSelector (self-reference in exclusive mode)
-      if (/^\[data-card-css\]$/i.test(s)) return scopeSelector;
-      // [data-card-css] with descendant -> replace with scope
-      if (/^\[data-card-css\]\s/i.test(s)) return s.replace(/^\[data-card-css\]/i, scopeSelector);
-      // [data-card-css] with chained pseudo-classes or attribute selectors
-      // e.g. [data-card-css]:not([data-grouped]), [data-card-css][data-grouped]
-      // In exclusive mode the scope IS the element, so chain on it.
-      // In chat mode the scope is a container, so keep as descendant (default).
-      if (/^\[data-card-css\][:[.]/.test(s) && scopeSelector.includes("[data-card-css=")) {
-        return s.replace(/^\[data-card-css\]/i, scopeSelector);
-      }
-      // Otherwise prefix
-      return `${scopeSelector} ${s}`;
-    });
-
-    result.push(`${scopedSelectors.join(", ")} {${body}}`);
-  }
-
-  return result.join("\n");
+  // Otherwise prefix
+  return `${scopeSelector} ${selector}`;
 }
 
 /**
@@ -724,5 +608,11 @@ export function scopeChatCss(css: string, scopeSelector: string): string {
     });
   }
 
-  return scopeSanitizedCss(sanitized, scopeSelector);
+  // Parse with the browser's tokenization (escapes included) so a rule body can never end
+  // earlier than the sanitizer thinks and expose unscoped rules.
+  return scopeCssRules(sanitized, scopeSelector, {
+    mapSelector: scopeCardSelector,
+    globalAtRules: CARD_GLOBAL_AT_RULES,
+    closeUnclosedBlocks: true,
+  });
 }

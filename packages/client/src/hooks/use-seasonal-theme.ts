@@ -2,12 +2,8 @@
 // Hook: the seasonal theme worn now, and its greeting
 // ──────────────────────────────────────────────
 import { useCallback, useEffect, useState } from "react";
-import {
-  readSeasonalPreview,
-  resolveSeasonalTheme,
-  withSeasonalYear,
-  type SeasonalYears,
-} from "../lib/seasonal-themes";
+import { useShallow } from "zustand/react/shallow";
+import { seasonalThemeFor } from "../lib/seasonal-themes";
 import { useUIStore } from "../stores/ui.store";
 
 const MINUTE_MS = 60_000;
@@ -28,34 +24,19 @@ export function useMinuteClock(): Date {
 }
 
 export function useSeasonalTheme() {
-  const disabled = useUIStore((state) => state.seasonalThemesDisabled);
-  const storedGreeted = useUIStore((state) => state.seasonalGreetingYears);
-  const storedOff = useUIStore((state) => state.seasonalThemeOffYears);
-  // The preview keeps its greeting and "Turn it off" in memory, so trying it never saves anything.
-  const [preview] = useState(() => readSeasonalPreview(window.location.search));
-  const [previewGreeted, setPreviewGreeted] = useState<SeasonalYears>({});
-  const [previewOff, setPreviewOff] = useState<SeasonalYears>({});
   const date = useMinuteClock();
   const year = date.getFullYear();
-  const { themeId, showGreeting } = resolveSeasonalTheme({
-    date,
-    disabled,
-    preview,
-    greeted: preview ? previewGreeted : storedGreeted,
-    turnedOff: preview ? previewOff : storedOff,
-  });
+  // The `?seasonalPreview=` page keeps its greeting and "Turn it off" in the store, unsaved, so trying it never
+  // saves anything and Professor Mari's dated pack sees them too.
+  const { themeId, showGreeting } = useUIStore(useShallow((state) => seasonalThemeFor(state, date)));
 
   const markGreeted = useCallback(() => {
-    if (!themeId) return;
-    if (preview) setPreviewGreeted((years) => withSeasonalYear(years, themeId, year));
-    else useUIStore.getState().markSeasonalGreetingShown(themeId, year);
-  }, [preview, themeId, year]);
+    if (themeId) useUIStore.getState().markSeasonalGreetingShown(themeId, year);
+  }, [themeId, year]);
 
   const turnOff = useCallback(() => {
-    if (!themeId) return;
-    if (preview) setPreviewOff((years) => withSeasonalYear(years, themeId, year));
-    else useUIStore.getState().turnOffSeasonalTheme(themeId, year);
-  }, [preview, themeId, year]);
+    if (themeId) useUIStore.getState().turnOffSeasonalTheme(themeId, year);
+  }, [themeId, year]);
 
   return { themeId, showGreeting, markGreeted, turnOff };
 }

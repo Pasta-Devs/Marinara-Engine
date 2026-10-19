@@ -83,7 +83,17 @@ try {
 
   // ── Config: none yet, validated owner ids, unknown owners ──
   assert.deepEqual((await app.inject({ method: "GET", url: "/api/avatar-models" })).json(), []);
-  assert.equal((await app.inject({ method: "GET", url: base })).statusCode, 404, "no avatar set up yet");
+  // No avatar set up yet is not an error (the browser would log one), but an owner that doesn't exist is.
+  const none = await app.inject({ method: "GET", url: base });
+  assert.equal(none.statusCode, 200, "no avatar set up yet");
+  assert.equal(none.payload, "null");
+  assert.match(String(none.headers["content-type"]), /^application\/json/u);
+  assert.equal(
+    (await app.inject({ method: "GET", url: "/api/avatar-models/character/missing-id" })).statusCode,
+    404,
+    "a character that doesn't exist",
+  );
+  assert.equal((await app.inject({ method: "GET", url: "/api/avatar-models/persona/missing-id" })).statusCode, 404);
   assert.equal((await app.inject({ method: "GET", url: "/api/avatar-models/npc/abc" })).statusCode, 400);
   assert.equal((await app.inject({ method: "GET", url: "/api/avatar-models/character/a.b" })).statusCode, 400);
   assert.equal(
@@ -307,10 +317,9 @@ try {
     createAvatarConfig({ ownerType: "character", ownerId: corruptOwner.id }, new Date().toISOString()),
   );
   writeFileSync(join(corruptDir, "avatar.json"), "{ not json");
-  assert.equal(
-    (await app.inject({ method: "GET", url: `/api/avatar-models/character/${corruptOwner.id}` })).statusCode,
-    404,
-  );
+  const corruptRead = await app.inject({ method: "GET", url: `/api/avatar-models/character/${corruptOwner.id}` });
+  assert.equal(corruptRead.statusCode, 200);
+  assert.equal(corruptRead.payload, "null");
   const listed = (await app.inject({ method: "GET", url: "/api/avatar-models" })).json() as Array<{
     owner: { ownerId: string };
     kinds: string[];

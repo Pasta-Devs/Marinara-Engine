@@ -85,6 +85,8 @@ After either mode plans its frames, shared formatters create the final provider 
 
 Each numbered stage has its own collapsed **Prompt library**, so Stage 2 owns image formatters, Stage 3 owns image-aware motion planners, and Stage 4 owns video passthrough formatters. The built-in image choices also include **Storyboard Illustration** and **Storyboard First Frame**. Video choices include **Anime Game Video**, **Comic Page Video**, and **Narration Passthrough**. Game and Roleplay chats can select different formatters without changing the underlying shared prompt collection.
 
+Stage 3's **Image-aware shot planning** also follows the video connection's **Video Prompting Instructions**. Use that field in the connection editor to say what your video model expects, such as camera wording, prompt length or sound cues.
+
 ### Global defaults and chat overrides
 
 Each chat can override the Agent defaults. Chat Settings marks inherited values as **Using agent default** and offers a reset control after you create an override.

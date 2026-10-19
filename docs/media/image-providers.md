@@ -54,7 +54,7 @@ The table below shows each service at a glance. Details and quirks follow in the
 
 ## OpenAI (DALL-E)
 
-Cloud service with the default Base URL `https://api.openai.com/v1`. It needs an API key from your OpenAI account. It offers DALL-E and GPT Image models. It accepts up to 16 reference images.
+Cloud service with the default Base URL `https://api.openai.com/v1`. It needs an API key from your OpenAI account. It offers DALL-E and GPT Image models. GPT Image models accept up to 16 reference images; DALL-E models take none.
 
 ## ChatGPT (Codex login)
 
@@ -212,7 +212,7 @@ A **reference image** is an existing picture you send along with your prompt. It
 
 | Provider | Reference images |
 | --- | --- |
-| OpenAI (DALL-E) | Up to 16 |
+| OpenAI (DALL-E) | Up to 16, GPT Image models only |
 | ChatGPT (Codex login) | Up to 16 |
 | NovelAI | Up to 16, V4.5 model only |
 | xAI / Grok Imagine | Up to 3 |
@@ -223,18 +223,21 @@ A **reference image** is an existing picture you send along with your prompt. It
 | NanoGPT | Up to 3 |
 | Stability AI | First image only, used as image to image |
 | Arli AI | First image only, used as image to image |
+| SD Web UI (AUTOMATIC1111 / Forge) and Draw Things | First image only, used as image to image |
 | OpenRouter Images | Supported, no fixed limit |
 | ComfyUI and RunPod Serverless (ComfyUI) | Up to 4, through workflow placeholders |
 | SwarmUI | Up to 4 |
-| Together AI, Pollinations, Stable Horde | Not supported |
+| Together AI, Pollinations, Stable Horde, fal.ai | Not supported |
 
 NovelAI precise reference images only work on a V4.5 model, such as `nai-diffusion-4-5-full`. NovelAI has not yet released Precise Reference for V5. If references are requested on another model, Marinara renders the image without them and records a warning in the server log.
 
-## Queue image generation requests
+## Queue media generation requests
 
-The **Queue image generation requests** toggle lives in **Settings**, then **Generations**, then **Image Generation**. It is on by default.
+The **Queue media generation requests** toggle lives in **Settings**, then **Generations**, then **Overall Generations**. It is on by default.
 
-When it is on, Marinara sends image jobs one at a time. Keep it on for services that reject two requests at once. Turn it off only if your service handles many requests at the same time and you want them faster.
+When it is on, Marinara sends image jobs to each image provider account one at a time, and video jobs to each video provider account one at a time, in separate queues. An image and a video for the same account can run together. This applies whichever feature asks for them: the Illustrator, trackers, commands, the Gallery, Game assets and downloaded agents such as Slurp. Two connections with the same address and API key share the corresponding queue. Different accounts and providers still work at the same time. NovelAI also gets a short pause between jobs. When NovelAI answers that it is busy, Marinara waits and tries again twice instead of failing the image.
+
+Keep it on for services that reject two requests at once. Turn it off only if your service handles many requests at the same time and you want them faster.
 
 ## Related guides
 

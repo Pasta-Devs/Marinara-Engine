@@ -8,7 +8,7 @@ import type {
 
 export const IMAGE_STYLE_PROFILES_STORAGE_KEY = "imageStyleProfiles";
 export const DEFAULT_IMAGE_STYLE_PROFILE_ID = "auto";
-const MAX_IMAGE_STYLE_PROFILES = 100;
+const CLONE_ID_SUFFIX = /(?:-custom(?:-\d+)?)+$/;
 
 const DEFAULT_RULES: ImageStyleProfileRules = {
   dedupeStrength: "normal",
@@ -219,7 +219,7 @@ export function normalizeImageStyleProfileSettings(raw: unknown): ImageStyleProf
   const defaults = createDefaultImageStyleProfileSettings();
   if (!isRecord(raw)) return defaults;
 
-  const rawProfiles = Array.isArray(raw.profiles) ? raw.profiles.slice(0, MAX_IMAGE_STYLE_PROFILES) : [];
+  const rawProfiles = Array.isArray(raw.profiles) ? raw.profiles : [];
   const customProfiles = rawProfiles
     .map((profile) => normalizeImageStyleProfile(profile))
     .filter((profile): profile is ImageStyleProfile => !!profile);
@@ -235,6 +235,20 @@ export function normalizeImageStyleProfileSettings(raw: unknown): ImageStyleProf
     : defaults.defaultProfileId;
 
   return { defaultProfileId, profiles };
+}
+
+/**
+ * An id for a copy of `sourceId` that no profile in `profiles` uses, in the exact form normalization stores.
+ * Copies are numbered from the original id ("anime-custom", "anime-custom-2"), so a copy of a copy never grows
+ * past the 80-character id limit, where cut-off ids used to collide and replace an existing profile.
+ */
+export function createImageStyleProfileId(sourceId: string, profiles: readonly ImageStyleProfile[]): string {
+  const taken = new Set(profiles.map((profile) => profile.id));
+  const base = slugId(slugId(sourceId).slice(0, 40)).replace(CLONE_ID_SUFFIX, "") || "custom";
+  for (let copy = 1; ; copy += 1) {
+    const id = slugId(copy === 1 ? `${base}-custom` : `${base}-custom-${copy}`);
+    if (!taken.has(id)) return id;
+  }
 }
 
 export function normalizeImageStyleProfile(raw: unknown): ImageStyleProfile | null {

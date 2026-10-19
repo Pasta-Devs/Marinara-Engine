@@ -622,6 +622,17 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
     kind: "Toggle",
   },
   {
+    id: "load-remote-message-images",
+    sectionId: "text-rules",
+    labelKey: "settings.controls.loadRemoteMessageImages.label",
+    label: "Load images from other websites in messages",
+    description: "Show images from other websites in messages without clicking Load image first.",
+    descriptionKey: "settings.search.loadRemoteMessageImages.description",
+    aliases: ["images", "pictures", "remote images", "external images", "html cards", "privacy"],
+    keywords: ["load image", "click to load", "blocked images", "missing images"],
+    kind: "Toggle",
+  },
+  {
     id: "quote-style",
     sectionId: "text-rules",
     labelKey: "settings.controls.quoteStyle.label",

@@ -4,7 +4,7 @@
 // Registered at /api/avatar-models (AVATAR_API_PREFIXES.models). `routes/avatars.routes.ts` is the
 // unrelated profile-picture route. Routes this plugin owns:
 //   GET    /                                        AvatarOwnerSummary[]
-//   GET    /:ownerType/:ownerId                     AvatarConfig (404 when none)
+//   GET    /:ownerType/:ownerId                     AvatarConfig | null (null when none, 404 for an unknown owner)
 //   PUT    /:ownerType/:ownerId                     AvatarConfigUpdate → AvatarConfig
 //   DELETE /:ownerType/:ownerId                     removes the owner's avatar folder
 //   DELETE /:ownerType/:ownerId/kinds/:kind         removes one kind → AvatarConfig | null
@@ -136,8 +136,10 @@ export async function avatarModelsRoutes(app: FastifyInstance) {
     const owner = parseOwner(req.params);
     if (!owner) return reply.status(400).send({ error: "Invalid character or persona" });
     const config = await readAvatarConfig(owner);
-    if (!config) return reply.status(404).send({ error: "No avatar set up" });
-    return config;
+    if (config) return config;
+    if (!(await ownerExists(owner))) return reply.status(404).send({ error: "Character or persona not found" });
+    // JSON null, not a 404: picking an owner without an avatar is normal, and the browser logs every 404.
+    return reply.type("application/json").send("null");
   });
 
   app.put<{ Params: OwnerParams; Body: AvatarConfigUpdate }>(

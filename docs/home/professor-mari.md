@@ -6,13 +6,15 @@ Professor Mari is Marinara Engine's built-in assistant on the Home screen. This 
 
 Professor Mari lives on the Home screen. The Home screen is what you see when no chat is open.
 
-Look for the card with her pixel art and the heading **Professor Mari**. A status line reads **Ready to help** when she is idle, or **Working on it...** while she is busy. Click the **Ask Prof. Mari** button to open her full chat window.
+Look for the **Professor Mari** widget with her pixel art, then click **Ask Professor Mari** to open her full chat window. The **Professor** tab at the top of Home opens it too. Her window opens inside Search, so you can also reach her from any screen: type in the Search field and pick **Ask Prof. Mari**, press Ctrl+J (Cmd+J on a Mac), or pull down from the top bar on a phone. A status line in her window's header reads **Ready to help** when she is idle, or **Working on it...** while she is busy.
 
-You talk to her in plain language. Type a message in the box, then press Enter to send. Press Shift and Enter together to add a new line instead.
+You talk to her in plain language. Type a message in the box, then press Enter to send. Press Shift and Enter together to add a new line instead. If you turn off **Enter sends to Professor Mari** in her settings, Enter adds a new line and Ctrl+Enter (Cmd+Enter on a Mac) sends.
 
 Sending your very first message to her unlocks the **Hello World** achievement.
 
-A thin line along the bottom of the app's top bar also shows her state from any screen: it wavers while she works, turns green when she finishes, gold while an approval waits, or red if the last run failed. It clears once you open her chat. (It is off while **Ask Professor Mari from Search** is turned off.) All of her settings are in the Search and Professor Mari settings: the gear in Search, or **Settings** > **General** > **Search and Professor Mari settings** > **Open**.
+A thin line along the bottom of the app's top bar also shows her state from any screen: it wavers while she works, turns green when she finishes, gold while an approval waits, or red if the last run failed. It clears once you open her chat. (It is off while **Ask Professor Mari from Search** is turned off.) While her window is closed, a small pill in the top bar shows the same state as **Working**, **Needs you**, **Done** or **Failed**. Click the pill to go back to her chat. All of her settings are in the Search and Professor Mari settings: the gear in Search, or **Settings** > **General** > **Search and Professor Mari settings** > **Open**.
+
+On a computer, you can change the size of her window there too. Use the **Height** and **Width** sliders under **Professor Mari window**. The sliders under **Search window** do the same for Search; its height starts at **Automatic**. On a phone, both windows always fill the screen.
 
 ## Ask Professor Mari from your current work
 
@@ -21,12 +23,12 @@ Professor Mari is more than a question box. She can explain the app, help you ge
 You can open Professor Mari from the place where you need help. These entry points create an editable draft and attach a small, typed context summary. The attached context is removable before you send the message.
 
 - **Character**, **Persona**, **Lorebook**, and **Preset** editors: ask about the open resource or a selected field.
-- **FAQ** answers: use **Ask Prof. Mari** to include the matched question and its written answer as the starting point.
+- **FAQ** answers: use **Ask Prof. Mari about this** to include the matched question and its written answer as the starting point.
 - **Search**: press `Cmd/Ctrl+K`, select a result, then use **Ask Prof. Mari** to include the selected result in the draft. Search does not send a model request by itself, unless a quick answer is on (see **Quick answers in Search** below).
-- **Recent Chats** and other error states: use **Ask Prof. Mari** beside **Retry** to send the error description and the requested repair action.
+- **Recent Chats** and other error states: use **Ask Professor Mari** beside **Try again** to send the error description and the requested repair action.
 - Normal Professor Mari character chat and Home workspace chat use the same handoff format.
 
-The attached items show as **Aware of** chips above her message box. Remove a context item when it is not relevant. Professor Mari resolves larger resource content on the server under the context budget after you send the message. She does not receive a full resource just because you opened an editor.
+The attached items show as **Context** chips above her message box. Remove a context item when it is not relevant. Professor Mari resolves larger resource content on the server under the context budget after you send the message. She does not receive a full resource just because you opened an editor.
 
 Ask her for help with any of these:
 
@@ -87,11 +89,11 @@ Most people never need this. It exists so she can inspect or repair the app itse
 
 Professor Mari needs a connection to think. A connection links Marinara to an AI provider using an API key. An API key is a secret code from that provider.
 
-Click the link icon next to the paperclip to open the **Connections** dropdown. Pick any text generation connection you have set up. If you have downloaded the built in local model, it appears here too as **Local Model (sidecar)**. If the app knows the model's name, that name shows in the parentheses instead. Your choice is remembered in your browser.
+Click the connection button next to the paperclip. It shows a link icon and the name of the connection she uses, or **Select connection** when none is picked. It opens the **Connections** list. Pick any text generation connection you have set up. If you have downloaded the built in local model, it appears here too as **Local Model (sidecar)**. If the app knows the model's name, that name shows in the parentheses instead. Your choice is saved with your app preferences.
 
-If you have no connections yet, the dropdown shows **Add a connection** instead. If you try to send a message with no connection, the **Connections** panel opens for you. You also see this pop-up message (called a toast):
+The same menu also lists the chosen connection's models. Click a model to use it. The model is saved to the connection, just like in a normal chat, so other chats that use that connection switch to it too. On a phone or in a narrow window, tap a connection to switch to it, or tap the arrow at the end of its row to see its models first. The built-in local model has no model list.
 
-> You haven't set up a connection yet! Click the link icon beside the paperclip to select one.
+If you have no connections yet, the list shows **Add a connection** instead. Click it to create one. If you try to send a message with no connection, the **Connections** list opens for you so you can pick one.
 
 For a full walkthrough, see the connection guide linked at the end.
 
@@ -103,6 +105,10 @@ To switch, open **Search and Professor Mari settings** and change **Runtime**, b
 
 Pi works with every connection, including the local model. If Professor Mari behaves oddly on Pi, switch back to Classic.
 
+## Changing how she looks
+
+Open **Search and Professor Mari settings** and scroll to **Appearance**. Pick a look for her, such as **Basic**, **Prof. Mari loves Dottore** or **Safari Prof. Mari**. Her new look shows in her chat, Search, Home and the top bar. Some looks unlock after enough play time. A locked look shows how many hours you have played so far.
+
 ## Attaching files
 
 Click the paperclip button, labeled **Attach files**, to add a file to your message.
@@ -113,7 +119,7 @@ To have her read an image, your selected connection's model must support image i
 
 ## Reviewing her changes
 
-When Professor Mari changes something, she saves the change at once and shows a change card under her answer. The card lists each field that changed. A text edit shows the old and the new words, and a lorebook shows its entries. Open **Show all** to see every field. **Technical details** shows the raw command.
+When Professor Mari changes something, she saves the change at once and shows a change card under her answer. The card lists each field that changed. A text edit shows the old and the new words, and a lorebook shows its entries. A change deeper inside an item, such as a card's onboarding, gets its own field that names what changed. Open **Show all** to see every field. **Technical details** shows the raw command.
 
 The card has one action:
 
@@ -189,29 +195,27 @@ To manage your memories, use the **Memories** panel, or just ask her: "what do y
 
 Professor Mari keeps her own separate chats. They do not appear in your normal chat list.
 
-Click the **Chats** button in her header to open your saved Professor Mari chats. The panel notes: "Restart saves the current chat here." You can click a saved chat to open it, rename it, or delete it.
+Click the **Chats** button in her header to open your saved Professor Mari chats. When the list is empty, the panel notes: "New chat keeps this one here." Use **Search Prof. Mari chats** to find one. You can click a saved chat to open it, rename it, or delete it.
 
-Click the **Restart** button to start a fresh conversation with her. Restart first saves your current chat into the **Chats** list. You can also type `/restart` in the message box to do the same thing. You see the message "Professor Mari's previous chat was saved."
+Click the **New chat** button to start a fresh conversation with her. It first saves your current chat into the **Chats** list. You can also type `/restart` in the message box to do the same thing. You see the message "Professor Mari's previous chat was saved."
 
-While she is working, a **Stop** button appears in the header. Click it to cancel the current task.
+While she is working, the send button turns into a **Stop** button. Click it to cancel the current task.
 
-## The floating chat bubble
+## Leaving her window
 
-If you leave her chat window open and then move to another page, Professor Mari can follow you as a small floating bubble.
-
-On a phone or a narrow screen, she becomes a small round avatar you can drag around. Tap it to reopen the full chat. On a wide screen, a small draggable **Ask Prof. Mari** window appears. Each version has a control to dismiss the bubble for the rest of your session.
+You can close her window and keep using the app while she works. The line and the pill in the top bar show how she is doing, as described in [Where to find her](#where-to-find-her). Click the pill to go back to her chat.
 
 ## Trust and recovery status
 
-Open **Aware of** in the Professor Mari header to see what goes with your next message, what stays in this Professor Mari chat, and how she works: the model she answers with, the context budget, and whether her shell commands run in a sandbox. The header also shows pending approvals, Skills, and Memories. Check these before a request when you need to know what Professor Mari can read.
+Open **Context** in the Professor Mari header to see what goes with your next message, what stays in this Professor Mari chat, and how she works: the model she answers with, the context budget, and whether her shell commands run in a sandbox. The header also shows pending approvals, Skills, and Memories. Check these before a request when you need to know what Professor Mari can read.
 
-Professor Mari keeps consequential workspace changes behind the existing server approval and review rules. **Aware of** does not grant extra access. Sensitive file changes, dependency changes, shell limits, and app-data validation remain server enforced.
+Professor Mari keeps consequential workspace changes behind the existing server approval and review rules. **Context** does not grant extra access. Sensitive file changes, dependency changes, shell limits, and app-data validation remain server enforced.
 
-When a request fails, the transcript keeps the failure reason and shows **Retry** when the request can be sent again. Fix the shown connection, sandbox, capability, or remote-access problem first, then retry. A retry does not silently start from a search, FAQ, or error state. It remains a user action.
+When a request fails, the transcript keeps the failure reason and shows **Retry** when the request can be sent again. Fix the shown connection, sandbox, capability, or remote-access problem first, then retry. If your question was not saved, it goes back into the message box with its files, so you can change it first. **Retry** and **Retry with another model** then send what is in the box. A retry does not silently start from a search, FAQ, or error state. It remains a user action.
 
 ## Her FAQ is separate from the chat
 
-Next to her chat card, the Home screen shows an **FAQ** panel. This is a fixed, written list of questions and answers. It is not the AI chat.
+Click the **FAQ** bookmark on the Home screen, or **Read FAQ** in the **Learn the engine** widget, to open **Professor Mari's FAQ**. This is a fixed, written list of questions and answers. It is not the AI chat.
 
 Type in the **Search FAQ** box to filter the questions. Each question has a colored category tag, such as **Setup**, **Connections**, or **Game Mode**. Tap a question to read its answer.
 
@@ -231,11 +235,11 @@ Professor Mari is a helper, not the full documentation. Keep these limits in min
 
 ## Troubleshooting
 
-- No reply at all: check the connection shown in **Aware of** or select one using the link icon. If none is set up, open the **Connections** panel and add one.
+- No reply at all: check the connection shown in **Context** or select one with the connection button. If none is set up, open the **Connections** panel and add one.
 - A handoff has the wrong item: remove the context item, restart or switch to the correct Professor Mari chat, and open the handoff again from the source surface. Context is scoped to the handoff and current Professor Mari chat.
 - A result does not appear in an editor: use **Open** on the result card. Professor Mari may have completed the command while the resource list was stale.
 - A request fails: read the failure status, correct the named setup problem, and use **Retry**. Ask Professor Mari again from the original source only when the context itself is no longer correct.
-- "You haven't set up a connection yet" pop-up message: pick a connection from the link icon dropdown, or add one first.
+- The **Connections** list opens when you press send: no connection is picked yet. Pick one from the list, or use **Add a connection** first.
 - She cannot read your attached image: your model must support image input. Switch to a connection whose model can see images.
 - Fandom lookups fail: these need an internet connection, since Fandom is an outside website.
 - Her actions are blocked with a permission error: you are reaching Marinara over a network, not from the same computer. Set up remote access first.

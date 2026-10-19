@@ -88,11 +88,11 @@ A few providers do not use an API key at all. The subscription options (Claude, 
 
 Marinara supports many providers. You pick one per connection.
 
-For chat and roleplay text, the choices are **OpenAI**, **OpenAI (ChatGPT)**, **Anthropic**, **Claude (Subscription)**, **Grok CLI (Subscription)**, **Google Gemini**, **Google Vertex AI**, **Mistral**, **Cohere**, **OpenRouter**, **NanoGPT**, **xAI / Grok**, and **Custom (OAI-Compatible)** for local or self-hosted models such as Ollama, LM Studio, and KoboldCpp.
+For chat and roleplay text, the choices are **OpenAI**, **OpenAI (ChatGPT)**, **Anthropic**, **Claude (Subscription)**, **Grok CLI (Subscription)**, **Google Gemini**, **Google Vertex AI**, **Mistral**, **Cohere**, **OpenRouter**, **NanoGPT**, **xAI / Grok**, **Arli AI**, **Z.AI**, **DeepSeek**, and **Custom (OAI-Compatible)** for local or self-hosted models such as Ollama, LM Studio, and KoboldCpp.
 
 For image generation, the choices include **OpenAI (DALL-E)**, **Stability AI**, **Together AI**, **NovelAI**, **OpenRouter Images**, **xAI / Grok Imagine**, **Venice.ai**, **Atlas Cloud**, **Pollinations**, **Stable Horde**, **SD Web UI (AUTOMATIC1111 / Forge)**, **ComfyUI**, **RunPod Serverless (ComfyUI)**, **Draw Things**, **NanoGPT**, and **Block Entropy**.
 
-For video generation, the choices are **Google AI Studio**, **xAI Imagine**, **OpenRouter Video**, **Atlas Cloud**, **Seedance 2.0**, and local **ComfyUI** API-format workflows.
+For video generation, the choices are **Google AI Studio**, **xAI Imagine**, **OpenRouter Video**, **NanoGPT**, **Atlas Cloud**, **Seedance 2.0**, and local **ComfyUI** API-format workflows.
 
 You can save many connections at once and assign a different one to each chat. See [Connecting to an AI Provider](connections/connecting-to-a-provider.md).
 
@@ -105,7 +105,7 @@ Some options cost nothing to try. **Pollinations** image generation needs no key
 ## Are my API keys safe?
 
 Yes. Every API key is encrypted with AES-256 before it is saved on disk. Connection and profile exports strip secret
-values. A full backup is different: it contains the encrypted records and, when present, the encryption-key file
+values. Chat and settings profile exports also leave out a chat's **DeepL API Key** and **Discord Mirror** webhook. A full backup is different: it contains the encrypted records and, when present, the encryption-key file
 needed to unlock them, so keep full backup ZIPs private.
 
 Because profile import intentionally leaves secret values out, you must re-enter each API key after importing a
@@ -172,7 +172,7 @@ Everything lives on the computer running Marinara, inside the `data` folder in y
 
 ## Will I lose my data when I update?
 
-No. Updating Marinara keeps your characters, chats, and settings in place. It is still smart to make a backup before a big update, just in case. For update steps on each platform, see [Upgrading](UPGRADING.md).
+No. Updating Marinara keeps your characters, chats, and settings in place. It is still smart to make a backup before a big update, just in case. For update steps on each platform, see [Upgrading](UPGRADING.md). Going back to an older version afterwards can lose data that only the newer version stores; see [Downgrading to an older version](UPGRADING.md#downgrading-to-an-older-version).
 
 ## What can Professor Mari do?
 
@@ -208,14 +208,14 @@ Yes. Add an image generation connection, for example **Pollinations** (needs no 
 
 Every install ships with the full set of guides. You can read them without leaving the app:
 
-- On the Home screen, click the **Documentation** button in the footer, next to **Replay Tutorial**.
+- On the Home screen, click **Documentation** in the bookmarks bar, next to **Tutorial**. On a phone, open the bookmarks menu first.
 - In the Home FAQ, open the documentation question and click **Open Documentation**.
 
 Both buttons open the same in-app viewer. It lists every guide and renders it inside Marinara.
 
 ## Where do I get help or report a bug?
 
-Start with [Troubleshooting](TROUBLESHOOTING.md), which is organized by symptom. On the Home screen footer, the **Discord** button opens the community chat and the **Support** button opens the project's support page. For bugs and feature requests, use the project's GitHub page.
+Start with [Troubleshooting](TROUBLESHOOTING.md), which is organized by symptom. In the Home screen's bookmarks bar, **Discord** opens the community chat and **Support** opens the project's support page. For bugs and feature requests, use the project's GitHub page.
 
 ## Related guides
 

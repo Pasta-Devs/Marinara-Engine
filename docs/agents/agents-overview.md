@@ -32,7 +32,7 @@ When upgrading from an Engine version that bundled these features, Marinara down
 
 ### Updating packages
 
-Marinara asks before it updates a package. When a newer compatible version of a package you installed is available, an **Agent updates available** window appears. It lists each update with its new version and whether it needs a restart. When the package publishes release notes, **What changed** shows them. A dot marks a change you will notice; updates without one are routine fixes.
+Marinara asks before it updates a package. When a newer compatible version of a package you installed is available, an **Agent updates available** window appears. It lists each update with its new version and whether it needs a restart. When the package publishes release notes, **What changed** shows them. If the update skips versions, **What changed** lists the notes of every version since yours, newest first, and shows how many there are. A long note is cut short; select **More** to read all of it. A dot marks a change you will notice; updates without one are routine fixes.
 
 - Click **Update all** to install every listed update. Restart Marinara Engine if it asks you to.
 - Click **Not now** to keep your current versions. Marinara does not ask again about a version you skipped.
@@ -85,7 +85,7 @@ You can add or remove compatible agents at any time.
 Some agents change something you can see right away. Others work quietly. Here is how to check.
 
 - Tracker agents write into the HUD and the tracker panels. If the time, location, mood, or stats updated, a tracker agent ran.
-- A floating status overlay shows short thinking messages from agents while they work, so you can watch them run in real time.
+- **Agent activity** in **Chat Settings** lists short notes from the agents. While they work, its icon turns into a spinner, and a dot appears on it when an agent fails. See [Agent activity](../roleplay/getting-started.md#agent-activity).
 - The **Prose Guardian** and **Continuity Checker** agents change the reply text itself. A cleaned-up or corrected reply is a sign they ran.
 - For a full trace, turn on **Debug mode** in **Settings**, then **Advanced**, then **Message Tools**. It logs the prompt and response for each agent to the server console. It also shows an **Agent Debug** overlay with per-agent calls, tokens, and timing.
 

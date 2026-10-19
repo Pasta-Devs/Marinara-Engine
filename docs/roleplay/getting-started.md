@@ -20,7 +20,7 @@ Create a new Roleplay chat to open the setup wizard. The wizard has five steps. 
 
 1. **Name & Connection**. Name the roleplay and choose which AI connection answers. You can leave the name blank.
 2. **Pick a Preset**. A preset controls the prompt structure and generation settings. The default preset works well for most chats.
-3. **Persona & Characters**. Choose the persona you play and which characters join the scene.
+3. **Persona & Characters**. Choose the persona you play and which characters join the scene. Some character cards can build a persona for you from a few questions: pick **Create your persona** and answer them. See [Interactive Onboarding](../characters/interactive-onboarding.md).
 4. **Attach Lorebooks**. A lorebook is a set of world facts that the AI reads when keywords appear. This step is optional.
 5. **Enable Agents**. Pick which agents run in this chat. You can add or remove agents later in **Chat Settings**, under **Agents**.
 
@@ -79,6 +79,8 @@ You can pop out any of these sections, including Search, to keep it in a separat
 
 Type your note in the box. For example: "Keep the tone dark and suspenseful. The villain is secretly an ally."
 
+For a longer note, make the box bigger. On a computer, drag its bottom corner. If you pop **Author's Notes** out into its own window, the box grows with the window.
+
 Below the note is an **Injection Depth** number field. It sets how far up the chat history the note is placed. The in-app help reads: "Depth 0 = after the latest message, 4 = four messages from the end." Depth 0 keeps the note closest to the newest reply.
 
 Author's Notes also works the same way in Game Mode and Conversation Mode. This guide is its main reference.
@@ -122,6 +124,8 @@ Once a whisper is visible, choose **Edit whisper**, change the text, then **Save
 You can also write `[whisper: character="name" text="the secret"]` in your own Roleplay message to whisper to one chat character. Your own whispers are visible to you immediately. This works in ordinary chats without enabling multiplayer.
 
 The same command works when you edit a character's or the narrator's message: after you save, it becomes that message's whisper. Whisper text can span several lines and quote dialogue as is, for example `text=""I love you.""`.
+
+A message that holds nothing but a whisper is left out entirely for the characters it does not reach, so they do not see that anyone whispered. Its recipient and the appointed narrator still get it. A character also receives the message if you shared a private note on it with that character.
 
 ### Your private notes
 

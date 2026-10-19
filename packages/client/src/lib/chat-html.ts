@@ -1,5 +1,7 @@
 import DOMPurify from "dompurify";
 import { sanitizeChatMessageCss } from "./chat-message-css";
+import { currentRemoteImagePolicy, holdRemoteImages } from "./remote-image-policy";
+import type { RemoteImagePolicy } from "./remote-images";
 
 const HTML_TAG_NAME_SOURCE =
   "div|span|style|table|p|br|img|a|ul|ol|li|h[1-6]|em|strong|b|i|pre|code|section|article|header|footer|nav|button|input|form|label|select|option|textarea|canvas|svg|video|audio|source|iframe|hr|blockquote|details|summary|figure|figcaption|main|aside|mark|small|sub|sup|del|ins|abbr|time|progress|meter|output|dialog|template|slot|ruby|rt|rp|bdi|bdo|wbr|area|map|track|embed|object|param|picture|portal|datalist|fieldset|legend|optgroup|caption|col|colgroup|thead|tbody|tfoot|th|td|dl|dt|dd|kbd|samp|var|cite|dfn|q|s|u|font|center";
@@ -113,7 +115,19 @@ const CHAT_HTML_ALLOWED_ATTR = [
   "title",
 ] as const;
 
-export function sanitizeChatHtml(html: string, options: { allowStyle?: boolean; allowLinks?: boolean } = {}): string {
+export type SanitizeChatHtmlOptions = {
+  allowStyle?: boolean;
+  allowLinks?: boolean;
+  /**
+   * Images and CSS sources on other websites. Defaults to the user's current setting and approvals.
+   * "keep" leaves them for a later pass over the same HTML; only use it when the result is
+   * sanitized again before display.
+   */
+  remoteImages?: RemoteImagePolicy | "keep";
+};
+
+export function sanitizeChatHtml(html: string, options: SanitizeChatHtmlOptions = {}): string {
+  const remoteImages = options.remoteImages === "keep" ? null : (options.remoteImages ?? currentRemoteImagePolicy());
   const allowedAttr = CHAT_HTML_ALLOWED_ATTR.filter(
     (attr) =>
       (options.allowStyle || attr !== "style") &&
@@ -133,7 +147,9 @@ export function sanitizeChatHtml(html: string, options: { allowStyle?: boolean; 
   }
   if (options.allowStyle) {
     for (const element of clean.querySelectorAll<HTMLElement>("[style]")) {
-      const style = sanitizeChatMessageCss(element.getAttribute("style") ?? "");
+      const style = sanitizeChatMessageCss(element.getAttribute("style") ?? "", {
+        remoteUrls: remoteImages?.loadAll !== false,
+      });
       if (style) element.setAttribute("style", style);
       else element.removeAttribute("style");
     }
@@ -141,6 +157,7 @@ export function sanitizeChatHtml(html: string, options: { allowStyle?: boolean; 
       media.setAttribute("referrerpolicy", "no-referrer");
     }
   }
+  if (remoteImages) holdRemoteImages(clean, remoteImages);
   const container = clean.ownerDocument.createElement("div");
   container.append(clean);
   return container.innerHTML;

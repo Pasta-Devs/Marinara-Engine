@@ -38,7 +38,7 @@ The profile dropdown sits at the top of **Chat Settings**. Its tooltip reads **A
 3. Open the **Profile** dropdown.
 4. Choose a profile by name.
 
-The chat updates immediately. When its current values do not match a saved profile, the dropdown shows **Custom settings profile**. If a previously applied profile no longer exists, it shows **Missing profile - choose a profile**.
+The chat updates immediately. If the profile turns **Hide summarised messages** on or off, the chat's summarised messages are hidden from the AI, or shown to it again, at the same moment. When its current values do not match a saved profile, the dropdown shows **Custom settings profile**. If a previously applied profile no longer exists, it shows **Missing profile - choose a profile**.
 
 ## Saving a profile
 
@@ -111,7 +111,7 @@ See [Choosing a layout for new chats](chat-settings.md#choosing-a-layout-for-new
 
 **Export settings profile (.json)** downloads a `.marinara-settings-profile.json` file that you can keep as a backup or share. **Import settings profile (.json)** creates a new profile from a compatible file without overwriting an existing one. Older profile exports remain importable.
 
-Profiles store settings, not provider secrets.
+Profiles store settings, not provider secrets. An exported or imported profile also leaves out the Discord mirror webhook, the DeepLX address, the DeepL key and the Intiface address. Profiles you save on this install keep them.
 
 ## The Default profile
 

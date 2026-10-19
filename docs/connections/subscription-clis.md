@@ -45,7 +45,7 @@ claude auth login
 3. In Marinara, open the **Connections** panel and click **New**.
 4. In the **Create Connection** modal, type a name and pick the **Claude (Subscription)** provider, then click **Create**.
 5. In the editor, notice there is no **API Key** or **Base URL** field. An info panel confirms they are not required.
-6. Choose a Claude model, such as an Opus or Sonnet model, from the **Model** dropdown.
+6. Choose a Claude model, such as an Opus or Sonnet model, from the **Model** dropdown. The list shows the models your Claude Code login offers when Claude Code has a list for it, otherwise a built-in list.
 7. Click **Save**, then click **Send Test Message**. A short reply means the login works.
 
 Claude subscription connections support text chat only. This connection has two extra controls, **Fast Mode** and **Diagnose Model Routing**, described below.
@@ -73,7 +73,7 @@ codex login
 
 Marinara reads your local Codex login file and refreshes the session when it can.
 
-To set how long Codex thinks before answering, open the connection, turn on **Use custom defaults for this connection** under **Default Chat Parameters**, and pick a **Reasoning Effort**; it starts at **Default**. A chat can pick its own level in **Advanced Parameters**. **Default** keeps the level Codex uses for the model. Codex uses that default until the connection or the chat picks a level; the level in your preset does not change it, and a Codex connection used as a fallback follows only its own level. Agents on the connection use the connection's level. The levels match the ones Codex offers for each model: GPT-5.5 goes up to **xhigh**, and GPT-5.6 and GPT-6 models go up to **max**.
+To set how long Codex thinks before answering, open the connection, turn on **Use custom defaults for this connection** under **Default Chat Parameters**, and pick a **Reasoning Effort**; it starts at **Default**. A chat can pick its own level in **Advanced Parameters**. **Default** keeps the level Codex uses for the model. Codex uses that default until the connection or the chat picks a level; the level in your preset does not change it, and a Codex connection used as a fallback follows only its own level. Agents on the connection use the connection's level. The levels match the ones Codex offers for each model: GPT-5.5 goes up to **Extra high**, and GPT-5.6 and GPT-6 models go up to **Max**.
 
 ## Grok CLI (Subscription)
 

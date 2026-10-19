@@ -4275,6 +4275,79 @@ strong {
   }
 }
 
+/* Image from another website waiting for "Load image" (lib/remote-image-policy.ts).
+   Every rule is !important so message and card CSS cannot hide, resize or relabel it. */
+.mari-remote-image,
+.mari-remote-image * {
+  all: revert !important;
+}
+.mari-remote-image::before,
+.mari-remote-image::after,
+.mari-remote-image *::before,
+.mari-remote-image *::after {
+  content: none !important;
+}
+.mari-remote-image {
+  display: inline-flex !important;
+  position: static !important;
+  max-width: 100% !important;
+  align-items: center !important;
+  gap: 0.5rem !important;
+  margin: 0.25rem 0 !important;
+  padding: 0.25rem 0.25rem 0.25rem 0.625rem !important;
+  border: 1px dashed var(--marinara-chat-chrome-panel-border) !important;
+  border-radius: 0.5rem !important;
+  background: var(--marinara-chat-chrome-highlight-bg) !important;
+  color: var(--marinara-chat-chrome-panel-text) !important;
+  font-size: 0.75rem !important;
+  font-weight: 500 !important;
+  line-height: 1.25rem !important;
+  letter-spacing: normal !important;
+  word-spacing: normal !important;
+  text-indent: 0 !important;
+  text-transform: none !important;
+  white-space: nowrap !important;
+  vertical-align: middle !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  transform: none !important;
+}
+.mari-remote-image-host {
+  min-width: 0 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+.mari-remote-image-load {
+  flex-shrink: 0 !important;
+  padding: 0 0.5rem !important;
+  border: 1px solid var(--marinara-chat-chrome-button-border) !important;
+  border-radius: 0.375rem !important;
+  background: var(--marinara-chat-chrome-button-bg) !important;
+  color: var(--marinara-chat-chrome-highlight-text) !important;
+  font: inherit !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  pointer-events: auto !important;
+}
+.mari-remote-image-load:hover {
+  border-color: var(--marinara-chat-chrome-button-border-hover) !important;
+  background: var(--marinara-chat-chrome-button-bg-hover) !important;
+}
+.mari-remote-image-load:focus-visible {
+  outline: 2px solid var(--marinara-chat-chrome-focus-ring) !important;
+  outline-offset: 1px !important;
+}
+.mari-remote-image-load:disabled {
+  cursor: progress !important;
+  opacity: 0.7 !important;
+}
+@media (pointer: coarse) {
+  .mari-remote-image-load {
+    min-height: 2.5rem !important;
+    padding: 0 0.75rem !important;
+  }
+}
+
 /* Markdown heading sizes inside chat messages — mirrors Discord / ST sizing */
 .mari-message-content h1.mari-md-heading,
 .mari-message-content h2.mari-md-heading,

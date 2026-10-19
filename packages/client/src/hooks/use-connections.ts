@@ -11,7 +11,7 @@ import {
   type PlanUsage,
 } from "@marinara-engine/shared";
 import type { RemoteConnectionModel } from "../lib/connection-model-selection";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { queryOptions, useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 import { ApiError, api, isRequestTimeoutError, requestTimeoutSignal } from "../lib/api-client";
 import { useUIStore } from "../stores/ui.store";
@@ -72,15 +72,18 @@ export function useRefreshLocalContext() {
   }, [qc]);
 }
 
+/** The connection list, for `useConnections` and for callers that must wait until it has loaded. */
+export const connectionListQuery = queryOptions({
+  queryKey: connectionKeys.list(),
+  // Deadline so a frozen host cannot leave isLoading true forever — this
+  // query gates the Support Diagnostics copy button alongside health (#5657).
+  queryFn: ({ signal }) => api.get<unknown[]>("/connections", { signal: requestTimeoutSignal(10_000, signal) }),
+  staleTime: 5 * 60_000,
+  retry: (failureCount, error) => !isRequestTimeoutError(error) && failureCount < 1,
+});
+
 export function useConnections() {
-  return useQuery({
-    queryKey: connectionKeys.list(),
-    // Deadline so a frozen host cannot leave isLoading true forever — this
-    // query gates the Support Diagnostics copy button alongside health (#5657).
-    queryFn: ({ signal }) => api.get<unknown[]>("/connections", { signal: requestTimeoutSignal(10_000, signal) }),
-    staleTime: 5 * 60_000,
-    retry: (failureCount, error) => !isRequestTimeoutError(error) && failureCount < 1,
-  });
+  return useQuery(connectionListQuery);
 }
 
 export function useConnection(id: string | null) {

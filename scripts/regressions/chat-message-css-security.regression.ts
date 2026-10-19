@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { createRequire } from "node:module";
+import { scopeChatCss } from "../../packages/client/src/lib/card-css.js";
 import { sanitizeChatMessageCss, scopeChatMessageCss } from "../../packages/client/src/lib/chat-message-css.js";
+
+const clientRequire = createRequire(new URL("../../packages/client/package.json", import.meta.url));
+const postcss = clientRequire("postcss") as typeof import("postcss").default;
 
 const importedCss = sanitizeChatMessageCss(`
   @import/* separator */url("https://example.invalid/theme.css");
@@ -146,6 +151,76 @@ assert.match(
   /font-family:\s*"mari-msg-font-[^"]+"/u,
   "every effective font-face family is namespaced even with duplicate declarations and brace-like strings",
 );
+
+// A top-level selector that starts with a sibling combinator would match elements next to the
+// message box (`.scope ~ x`) instead of inside it.
+const leadingCombinatorCss = scopeChatMessageCss(
+  "~ .after { color: red; } + .next { color: red; } || td { color: red; } > .child { color: green; } .kept, ~ .dropped { color: blue; }",
+  ".message-scope",
+);
+assert.doesNotMatch(leadingCombinatorCss, /\.message-scope\s*(?:~|\+|\|\|)/u, "selectors cannot reach siblings");
+assert.doesNotMatch(leadingCombinatorCss, /\.after|\.next|\btd\b|\.dropped/u, "sibling selectors are dropped");
+assert.match(leadingCombinatorCss, /\.message-scope > \.child\s*\{/u, "a child selector stays inside the message");
+assert.match(leadingCombinatorCss, /\.message-scope \.kept\s*\{/u, "the safe part of a selector list remains");
+
+const spacedImportant = sanitizeChatMessageCss(".a { color: red ! important; } .b { color: blue !/**/important; }");
+assert.doesNotMatch(spacedImportant, /!\s*important/iu, "spaced !important cannot force styles past the app's own");
+
+// Card creator-notes CSS goes into a document-wide <style>, so every rule must keep the card scope.
+function assertEveryRuleScoped(css: string, scope: string, message: string) {
+  const root = postcss.parse(css);
+  root.walkRules((rule) => {
+    if (rule.parent?.type === "atrule" && /keyframes$/iu.test((rule.parent as import("postcss").AtRule).name)) return;
+    for (const selector of rule.selectors) {
+      const rest = selector.slice(scope.length);
+      // The scope must end at a selector boundary: `.mari-card-css-other` is a different element.
+      assert.ok(selector.startsWith(scope) && /^(?:$|[\s>:[.#])/u.test(rest), `${message}: ${selector}`);
+      assert.doesNotMatch(rest, /^(?:[^\s~+>]*)\s*(?:~|\+|\|\|)/u, `${message}: ${selector}`);
+    }
+  });
+}
+assert.throws(
+  () => assertEveryRuleScoped(".mari-card-css-other .a { color: red }", ".mari-card-css", "prefix"),
+  assert.AssertionError,
+  "a class that only starts with the scope name is not inside the scope",
+);
+
+const escapedQuoteCardCss = scopeChatCss(
+  '.a { --x: \\"; } .probe { color: red } .b { color: blue; content: "\\"" } .after { color: green }',
+  ".mari-card-css",
+);
+assertEveryRuleScoped(escapedQuoteCardCss, ".mari-card-css", "an escaped quote cannot end a card rule early");
+assert.match(escapedQuoteCardCss, /\.mari-card-css \.probe\s*\{/u, "rules after an escaped quote stay scoped");
+
+for (const scope of [".mari-card-css", '.mari-card-css [data-card-css="card-1"]']) {
+  const siblingCardCss = scopeChatCss(
+    `~ .a { color: red } + .b { color: red } :root ~ .c { color: red } body:not(.x) + .d { color: red }
+     [data-card-css] ~ .e { color: red } [data-card-css]:hover + .f { color: red } > .child { color: green }
+     .g ~ .h { color: green } html .i { color: green }`,
+    scope,
+  );
+  assertEveryRuleScoped(siblingCardCss, scope, "card selectors cannot reach siblings of the scope");
+  assert.doesNotMatch(siblingCardCss, /\.[a-e]\s*\{/u, "sibling selectors are dropped");
+  // In Exclusive mode [data-card-css] is the scope element itself; in Chat mode it is a descendant.
+  if (scope.includes("[data-card-css=")) assert.doesNotMatch(siblingCardCss, /\.f\s*\{/u);
+  else assert.match(siblingCardCss, /\.mari-card-css \[data-card-css\]:hover \+ \.f\s*\{/u);
+  assert.match(siblingCardCss, /> \.child\s*\{/u, "child selectors remain");
+  assert.match(siblingCardCss, /\.g ~ \.h\s*\{/u, "siblings inside the scope remain");
+}
+
+const cardAtRules = scopeChatCss(
+  `@media (min-width: 1px) { .wide { color: red } }
+   @keyframes spin { from { opacity: 0 } }
+   @property --primary { syntax: "<color>"; inherits: false; initial-value: red; }
+   .spin { animation: spin 1s; }
+   .unclosed { color: red`,
+  ".mari-card-css",
+);
+assertEveryRuleScoped(cardAtRules, ".mari-card-css", "card at-rules keep their rules scoped");
+assert.match(cardAtRules, /@media[^{]*\{\s*\.mari-card-css \.wide/u, "card media queries remain");
+assert.match(cardAtRules, /@keyframes mc-spin/u, "card animations remain namespaced");
+assert.doesNotMatch(cardAtRules, /@property/u, "card CSS cannot register app-wide custom properties");
+assert.match(cardAtRules, /\.mari-card-css \.unclosed\s*\{\s*color: red\s*\}/u, "a block left open is closed");
 
 const chatMessageSource = readFileSync(
   new URL("../../packages/client/src/components/chat/ChatMessage.tsx", import.meta.url),

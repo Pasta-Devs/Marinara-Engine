@@ -300,6 +300,77 @@ try {
     }
     assert.equal(rim, 0, "and its own edge");
 
+    // The bust reaches the canvas bottom. A model can paint a white border there too, even though no
+    // see-through pixel exists below the canvas for the outline-distance calculation to find.
+    const stripe = await sharp({ create: { width: 600, height: 4, channels: 4, background: "#ffffff" } })
+      .png()
+      .toBuffer();
+    const striped = await sharp(marked)
+      .composite([{ input: stripe, left: 0, top: 716 }])
+      .png()
+      .toBuffer();
+    const restored = await applyAvatarSourceOutline(striped, await readAvatarSourceSprite(owner.ownerId, "clear"));
+    assert.deepEqual(
+      await pixelAt(restored, 300, 719),
+      await pixelAt(clearBust, 300, 719),
+      "the bust keeps its bottom edge",
+    );
+    await assertDrawnMark(restored, "the bottom-edge repair");
+
+    // A provider's pale fringe can extend beyond the soft alpha edge. Reproduce an inward fringe at
+    // the observed scale, without stripping intentional white hair or teeth farther inside the sprite.
+    const fringeAndFace = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="600" height="720">
+      <rect x="100" y="230" width="28" height="40" fill="white"/>
+      <rect x="145" y="240" width="12" height="20" fill="white"/>
+      <rect x="225" y="282" width="50" height="6" fill="#111"/>
+      <rect x="290" y="392" width="20" height="10" fill="white"/>
+    </svg>`);
+    const fringed = await sharp(opaqueBust)
+      .composite([{ input: fringeAndFace }])
+      .png()
+      .toBuffer();
+    const clean = await applyAvatarSourceOutline(fringed, await readAvatarSourceSprite(owner.ownerId, "clear"));
+    assert.deepEqual(
+      await pixelAt(clean, 125, 250),
+      await pixelAt(clearBust, 125, 250),
+      "the inward hair fringe is the source's own colour",
+    );
+    assert.deepEqual(await pixelAt(clean, 150, 250), [255, 255, 255, 255], "an interior white hair highlight stays");
+    assert.deepEqual(await pixelAt(clean, 250, 285), [17, 17, 17, 255], "the drawn closed eye stays");
+    assert.deepEqual(await pixelAt(clean, 300, 397), [255, 255, 255, 255], "the drawn white teeth stay");
+    const paleHair = await sharp(Buffer.from(bustSvg(null).toString().replace("#5a3a22", "#ffffff")))
+      .png()
+      .toBuffer();
+    const paleDrawn = await sharp(paleHair)
+      .composite([{ input: fringeAndFace }])
+      .png()
+      .toBuffer();
+    const pale = await applyAvatarSourceOutline(paleDrawn, { ...softSource, png: paleHair });
+    assert.deepEqual(await pixelAt(pale, 125, 250), [255, 255, 255, 255], "white source hair stays white");
+    assert.deepEqual(await pixelAt(pale, 250, 285), [17, 17, 17, 255], "white hair does not prevent the drawn blink");
+
+    // A small, closely cropped face still accepts edits near its eyes and mouth.
+    const smallFace = await sharp(
+      Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64">
+      <ellipse cx="32" cy="32" rx="31" ry="31" fill="${SKIN}"/>
+    </svg>`),
+    )
+      .png()
+      .toBuffer();
+    const smallEdits = await sharp(smallFace)
+      .composite([
+        {
+          input: Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64">
+      <rect x="10" y="24" width="12" height="3" fill="#111"/><rect x="28" y="48" width="8" height="4" fill="white"/>
+    </svg>`),
+        },
+      ])
+      .png()
+      .toBuffer();
+    const small = await applyAvatarSourceOutline(smallEdits, { ...softSource, png: smallFace, width: 64, height: 64 });
+    assert.deepEqual(await pixelAt(small, 13, 25), [17, 17, 17, 255], "a small cropped eye edit stays");
+    assert.deepEqual(await pixelAt(small, 32, 49), [255, 255, 255, 255], "a small cropped mouth edit stays");
+
     // Saving keeps the kept picture exactly. It already has the sprite's outline; giving it the outline again
     // lays it over the sprite once more, and inside a soft mask the open eyes would show through the blink.
     const { data: softer } = await rgba(clearBust);

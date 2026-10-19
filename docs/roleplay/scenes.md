@@ -10,6 +10,8 @@ Each scene is its own roleplay chat. It has its own background, its own characte
 
 A scene is temporary by design. While it is open, the original Conversation chat shows a small card that reads **A scene is in progress**. That card has a **Go to Scene** button that jumps you into the active scene.
 
+While the scene runs, its characters do not reply in the original Conversation chat, and a notice says they are in an active Scene. To let them answer you there anyway, turn on **Allow replies here** on the card. It starts off. With it on, scene characters reply when you message them, but they still do not send messages there on their own.
+
 When you finish, you choose what happens to the scene. You can save a summary back to the conversation, throw the scene away, or keep it as a permanent roleplay of its own. Those choices are explained below.
 
 ## Starting a scene

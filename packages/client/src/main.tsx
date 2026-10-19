@@ -8,8 +8,8 @@ import { registerPreloadErrorRecovery } from "./lib/browser-runtime";
 import { showAppUpdatePrompt } from "./lib/app-update-prompt";
 import { initializeLocalization } from "./localization/i18n";
 import { LocalizationProvider } from "./localization/LocalizationProvider";
-import { useUIStore } from "./stores/ui.store";
-import { mariAssetUrls, resolveMariAppearancePack } from "./lib/mari-work-animations";
+import { shownMariAppearancePack, useUIStore } from "./stores/ui.store";
+import { mariAssetUrls } from "./lib/mari-work-animations";
 import { APP_VERSION } from "@marinara-engine/shared";
 import { formatRuntimeBuild } from "./lib/runtime-build";
 import { recordClientReload, registerClientRuntimeDiagnostics } from "./lib/client-runtime-diagnostics";
@@ -32,11 +32,9 @@ registerPreloadErrorRecovery();
 // M16 tier 1: Home's first-paint Mari sprites start with the page instead of after the lazy Home
 // chunk renders. Selected pack only. Kept referenced, so the <img> tags reuse these images instead of
 // fetching (or revalidating) them again.
-const { mariAppearancePackId, mariUnlockedPackIds, mariSeasonOptOut, seasonalThemesDisabled } = useUIStore.getState();
-const firstPaintMariImages = mariAssetUrls(
-  resolveMariAppearancePack(mariAppearancePackId, mariUnlockedPackIds, null, mariSeasonOptOut, seasonalThemesDisabled),
-  1,
-).map((url) => Object.assign(new Image(), { fetchPriority: "high", src: url }));
+const firstPaintMariImages = mariAssetUrls(shownMariAppearancePack(useUIStore.getState()), 1).map((url) =>
+  Object.assign(new Image(), { fetchPriority: "high", src: url }),
+);
 Object.assign(globalThis, { __marinaraFirstPaintMari: firstPaintMariImages });
 
 const queryClient = new QueryClient({

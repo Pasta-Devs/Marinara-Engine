@@ -12,23 +12,26 @@ The tour also does more than talk. As you move forward, some steps open the matc
 
 ## The guided tour steps in order
 
-The tour has 15 steps. Here they are in order, with the exact title of each card and what it points at.
+The tour has 18 steps. Here they are in order, with the exact title of each card and what it points at.
 
 1. **Welcome to Marinara Engine!** A centered welcome card. Professor Mari waves and offers to show you around.
-2. **Card Browser** Highlights the **Card Browser** panel button, where you can click **Download Cards** to find and import ready-made characters.
-3. **Characters** Highlights the **Characters** panel button, where your characters live.
+2. **Characters** Highlights the **Characters** panel button, where your characters live.
+3. **Personas** Highlights the **Personas** panel button, where you define who you are in a chat.
 4. **Lorebooks** Highlights the **Lorebooks** panel button, which holds extra world and character details.
 5. **Presets** Highlights the **Presets** panel button, which controls how the prompt is built.
 6. **Connections** Highlights the **Connections** panel button. The card says connections are the first thing to set up before chatting.
-7. **Agents** Highlights the **Agents** panel button, which adds helpers on top of your chats.
-8. **Personas** Highlights the **Personas** panel button, where you define who you are in a chat.
-9. **Settings** Highlights the **Settings** panel button and opens **Settings** to the **General** tab.
-10. **Chats** Highlights the sidebar toggle and opens the chat sidebar, where your chats live.
-11. **Conversation Mode** Highlights the conversation tab in the chat sidebar. The tab itself is labeled **CONVO**.
-12. **Roleplay Mode** Highlights the roleplay tab in the chat sidebar. The tab itself is labeled **RP**.
-13. **Game Mode** Highlights the game tab in the chat sidebar. The tab itself is labeled **GM**.
-14. **Migrating from SillyTavern?** Highlights the **Settings** button again and opens **Settings** to the **Import** tab.
-15. **You're All Set!** Highlights the **Connections** panel button one more time. This is the closing card.
+7. **Agents** Highlights the **Agents** panel button, which adds helpers on top of your chats. The card points you to **Download Agents** to install them.
+8. **Settings** Highlights the **Settings** panel button and opens **Settings** to the **General** tab.
+9. **Chats** Highlights the sidebar toggle and opens the chat sidebar, where your chats live.
+10. **Conversation Mode** Highlights the conversation tab in the chat sidebar. The tab itself is labeled **CONVO**.
+11. **Roleplay Mode** Highlights the roleplay tab in the chat sidebar. The tab itself is labeled **RP**.
+12. **Game Mode** Highlights the game tab in the chat sidebar. The tab itself is labeled **GM**.
+13. **Home: Your Story Hub** Goes back to the Home screen and highlights its top part, with the buttons that start a new chat. The card explains that Home is where you continue a recent chat, start a new one and arrange your widgets.
+14. **Ask Me Where Things Are** Highlights the search bar at the top of Home. On a phone, the card tells you to pull down from the top bar instead.
+15. **Guides and Home Controls** Highlights the **Documentation**, **Tutorial**, **FAQ** and **Widgets** bookmarks on Home.
+16. **Migrating from SillyTavern?** Highlights the **Settings** button again and opens **Settings** to the **Imports** tab.
+17. **You're All Set!** Highlights the **Connections** panel button one more time.
+18. **One Last Thing: Guide Language** Highlights the **Documentation** bookmark. This closing card has a **Documentation** button and a **Documentation Language** list. Pick the language you want the in-app guides in. Guides that are not translated yet show in English.
 
 To move to the next card, click the **Next** button. On the last step, that button reads **Get Started** instead.
 
@@ -36,9 +39,9 @@ To move to the next card, click the **Next** button. On the last step, that butt
 
 You do not have to finish the whole tour. Every card has a skip button. On the first card it reads **Skip Tutorial**. On every card after that it reads **Skip**.
 
-Clicking **Skip** or **Skip Tutorial** ends the tour right away. Clicking **Get Started** on the last card also ends it. Both actions mark the tour as done, so it will not start on its own again. Finishing or skipping the tour can also unlock an achievement.
+Clicking **Skip** or **Skip Tutorial** ends the tour right away. Clicking **Get Started** on the last card also ends it. Both actions mark the tour as done, so it will not start on its own again. Only **Get Started** saves the guide language you picked on the last card; **Skip** leaves it as it was. You can change it later in **Settings** under **General**. Finishing or skipping the tour can also unlock an achievement.
 
-You can watch the tour again any time. Open the Home screen, then look in the footer for the **Replay Tutorial** button. Click it, and the guided tour starts over from the first step. This is handy if you skipped it early and want the full walk-through later.
+You can watch the tour again any time. On the Home screen, click the **Tutorial** bookmark, or **Replay tutorial** in the **Learn the engine** widget. The guided tour starts over from the first step. This is handy if you skipped it early and want the full walk-through later.
 
 ## Mobile differences
 

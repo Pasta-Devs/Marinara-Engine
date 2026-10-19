@@ -2,7 +2,7 @@
 //
 // The shared static check (isPatternSafe) catches the common ReDoS shapes before
 // compilation, but expert-crafted patterns can still pass that check and explode
-// on specific input. This wrapper runs the regex.test call inside a fresh V8 vm
+// on specific input. This wrapper runs the regex.test call inside a V8 vm
 // context with a hard timeout — the engine inserts interrupt checks during
 // regex execution, so catastrophic backtracking aborts instead of stalling the
 // event loop indefinitely.
@@ -19,18 +19,35 @@ import { logger } from "../../lib/logger.js";
 /** Default per-call timeout for a single regex.test against chat context, in ms. */
 export const DEFAULT_REGEX_TIMEOUT_MS = 50;
 
+const TEST_SCRIPT = new vm.Script("new RegExp(__pattern, __flags).test(__text)");
+const REPLACE_SCRIPT = new vm.Script("__text.replace(new RegExp(__pattern, __flags), '')");
+let regexContext: vm.Context | undefined;
+
+/**
+ * Runs one regex call in a reused vm context under a hard timeout. Building a fresh
+ * context costs about 0.7 ms; reusing one costs about 0.14 ms, which lets every prompt
+ * message go through the guard.
+ */
+function runRegexWithTimeout(script: vm.Script, regex: RegExp, text: string, timeoutMs: number): unknown {
+  regexContext ??= vm.createContext({});
+  const inputs = regexContext as Record<string, unknown>;
+  inputs.__pattern = regex.source;
+  inputs.__flags = regex.flags;
+  inputs.__text = text;
+  try {
+    return script.runInContext(regexContext, { timeout: timeoutMs, displayErrors: false });
+  } finally {
+    inputs.__text = "";
+  }
+}
+
 /** Build a regex executor that runs `regex.test(text)` under a vm timeout. */
 export function createTimeoutRegexExecutor(timeoutMs: number = DEFAULT_REGEX_TIMEOUT_MS) {
   return function vmRegexExecutor(regex: RegExp, text: string): boolean {
-    // The vm context only needs the regex + text; we recompile inside the vm so
-    // the interrupt check is wired through the new isolate's regex execution.
-    const context = vm.createContext({ __pattern: regex.source, __flags: regex.flags, __text: text });
+    // We recompile inside the vm so the interrupt check is wired through the
+    // vm context's regex execution.
     try {
-      const result = vm.runInContext("(new RegExp(__pattern, __flags)).test(__text)", context, {
-        timeout: timeoutMs,
-        displayErrors: false,
-      });
-      return Boolean(result);
+      return Boolean(runRegexWithTimeout(TEST_SCRIPT, regex, text, timeoutMs));
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       // V8 surfaces timeouts as "Script execution timed out." — log warn and skip the entry.
@@ -60,12 +77,8 @@ export const vmRegexExecutor = createTimeoutRegexExecutor();
 /** Build a guard that proves `text.replace(regex, "")` returns within a vm timeout. */
 export function createTimeoutRegexReplaceGuard(timeoutMs: number = DEFAULT_REGEX_TIMEOUT_MS) {
   return function vmRegexReplaceGuard(regex: RegExp, text: string): boolean {
-    const context = vm.createContext({ __pattern: regex.source, __flags: regex.flags, __text: text });
     try {
-      vm.runInContext("__text.replace(new RegExp(__pattern, __flags), '')", context, {
-        timeout: timeoutMs,
-        displayErrors: false,
-      });
+      runRegexWithTimeout(REPLACE_SCRIPT, regex, text, timeoutMs);
       return true;
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);

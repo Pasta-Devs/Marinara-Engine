@@ -22,11 +22,13 @@ export function resolveClientBuildHeapMb({ lowMemory, env = process.env, totalMe
   return Math.min(BUILD_HEAP_TARGET_MB, Math.max(BUILD_HEAP_FLOOR_MB, deviceCapMb));
 }
 
-// A desktop build also type-checks the client first, which needs about 2.1 GiB of heap. Node's
-// default heap scales with the machine's memory: about 4 GiB with 16 GiB or more, but only about
-// 2 GiB on a 7 GiB machine (the macos-15 runners), where the type-check runs out of memory. Give it
-// 3072 MiB when half the device's memory allows, and never less than Node would have given it.
+// A desktop build also type-checks the client first, which needs about 2.3 GiB of heap: it runs out
+// of memory at 2048 MiB and passes at 2304 MiB. Node's default heap scales with the machine's memory:
+// about 4 GiB with 16 GiB or more, but only about 2 GiB on a 7 GiB machine (the macos-15 runners),
+// where the type-check runs out of memory. Give it 3072 MiB when half the device's memory allows, and
+// never less than Node would have given it.
 const DESKTOP_BUILD_HEAP_TARGET_MB = 3072;
+const DESKTOP_TYPECHECK_HEAP_MB = 2304;
 
 /**
  * NODE_OPTIONS split into options as Node reads it: whitespace separates them, double quotes group
@@ -80,6 +82,30 @@ export function resolveDesktopClientBuildHeapMb({
   const deviceCapMb = Math.floor(memoryBytes / 1024 / 1024 / 2 / 128) * 128;
   const heapMb = Math.min(DESKTOP_BUILD_HEAP_TARGET_MB, deviceCapMb);
   return heapMb > defaultHeapMb ? heapMb : null;
+}
+
+/**
+ * The line to print when the desktop type-check stopped the way V8 stops when it runs out of heap
+ * (SIGABRT, or exit code 134 on Windows) under a smaller heap the user set in NODE_OPTIONS, which the
+ * build keeps; otherwise null. A percentage setting wins over absolute limits in either order;
+ * use V8's resolved heap for it. Otherwise Node reads the last --max-old-space-size it is given.
+ */
+export function typeCheckHeapHint({
+  status,
+  signal,
+  env = process.env,
+  heapLimitMb = Math.floor(getHeapStatistics().heap_size_limit / 1024 / 1024),
+}) {
+  if (signal !== "SIGABRT" && status !== 134) return null;
+  const options = splitNodeOptions(env.NODE_OPTIONS ?? "");
+  if (options.some((option) => /^--max[-_]old[-_]space[-_]size[-_]percentage(?:=|$)/u.test(option))) {
+    if (!(heapLimitMb < DESKTOP_TYPECHECK_HEAP_MB)) return null;
+    return `[build] The client type-check needs about 2.5 GiB of Node.js heap, but NODE_OPTIONS limits it to ${heapLimitMb} MiB with --max-old-space-size-percentage. Raise that percentage in NODE_OPTIONS, or remove it.`;
+  }
+  const heapOptions = options.filter((option) => /^--max[-_]old[-_]space[-_]size=/u.test(option));
+  const heapMb = Number(heapOptions.at(-1)?.split("=")[1]);
+  if (!(heapMb < DESKTOP_TYPECHECK_HEAP_MB)) return null;
+  return `[build] The client type-check needs about 2.5 GiB of Node.js heap, but NODE_OPTIONS limits it to ${heapMb} MiB. Raise --max-old-space-size in NODE_OPTIONS to 2560 or more, or remove it.`;
 }
 
 /**
