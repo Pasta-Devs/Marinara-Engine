@@ -207,9 +207,25 @@ export function useConnectionDefaults(connectionsList: ConnectionRowData[]) {
     };
   };
 
+  const primaryOf = (role: (typeof FLAG_ROLES)[number]) =>
+    connectionsList.find((row) => matchesKind(row, role.kind) && isConnectionFlagTrue(row[role.primary])) ?? null;
+  const mainRow = primaryOf(FLAG_ROLES.find((role) => role.key === "main")!);
+  const agentsRow = primaryOf(FLAG_ROLES.find((role) => role.key === "agents")!);
+  /** An unset job shows the model that really runs, and the job it comes from. */
+  const inherited = (row: ConnectionRowData | null, from: FlagRoleKey) =>
+    row
+      ? {
+          value: t("connections.defaults.fromRole", {
+            model: describe(row).value,
+            role: t(`connections.defaults.role.${from}`),
+          }),
+          source: row,
+          muted: true,
+        }
+      : null;
+
   const tiles: DefaultsTile[] = FLAG_ROLES.map((role) => {
-    const primary =
-      connectionsList.find((row) => matchesKind(row, role.kind) && isConnectionFlagTrue(row[role.primary])) ?? null;
+    const primary = primaryOf(role);
     const fallbackRow =
       connectionsList.find((row) => matchesKind(row, role.kind) && isConnectionFlagTrue(row[role.fallback])) ?? null;
     const isAgents = role.key === "agents";
@@ -228,7 +244,12 @@ export function useConnectionDefaults(connectionsList: ConnectionRowData[]) {
         warning: accountWarning(primary.accountId ? accountById.get(primary.accountId) : undefined),
       };
     }
-    if (isAgents) return { ...tile, value: t("connections.defaults.agentsFollowChat"), muted: true };
+    // Agents follow the chat's model; a new chat uses Main.
+    if (isAgents)
+      return {
+        ...tile,
+        ...(inherited(mainRow, "main") ?? { value: t("connections.defaults.agentsFollowChat"), muted: true }),
+      };
     return {
       ...tile,
       value: t("connections.defaults.notSet"),
@@ -332,7 +353,24 @@ export function useConnectionDefaults(connectionsList: ConnectionRowData[]) {
     const extra = FEATURE_EXTRA_OPTIONS[key]?.find((option) => option.value === value);
     const row = value ? connectionsList.find((entry) => entry.id === value) : undefined;
     const tile = { key, icon: FEATURE_ICONS[key], title: t(`connections.defaults.feature.${key}`), warning: null };
-    if (!value) return { ...tile, value: t(`connections.defaults.featureDefault.${key}`), muted: true };
+    if (!value) {
+      // What the server runs when unset: Quick answers use the built-in model; Prof. Mari the agents default, then
+      // Main; Impersonate the chat's model, which is Main in a new chat.
+      if (key === "omnibarAsideConnectionId") return { ...tile, value: sidecarName, muted: true };
+      const from =
+        key === "mariConnectionId"
+          ? sidecarAsAgentsDefault
+            ? {
+                value: t("connections.defaults.fromRole", {
+                  model: sidecarName,
+                  role: t("connections.defaults.role.agents"),
+                }),
+                muted: true,
+              }
+            : (inherited(agentsRow, "agents") ?? inherited(mainRow, "main"))
+          : inherited(mainRow, "main");
+      return { ...tile, ...(from ?? { value: t(`connections.defaults.featureDefault.${key}`), muted: true }) };
+    }
     if (extra) return { ...tile, value: t(extra.key) };
     if (value === LOCAL_SIDECAR_CONNECTION_ID) return { ...tile, value: sidecarName };
     if (row) return { ...tile, ...describe(row) };
