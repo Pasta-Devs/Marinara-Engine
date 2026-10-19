@@ -102,6 +102,7 @@ import {
 } from "../services/nanogpt/subscription-usage.js";
 import { fetchClaudePlanUsage } from "../services/llm/providers/claude-subscription/plan-usage.js";
 import { fetchOpenAIChatGPTPlanUsage } from "../services/llm/openai-chatgpt-usage.js";
+import { modelUsage } from "../services/connections/model-stars.js";
 import {
   buildAtlasCloudModelSchemaUrl,
   buildAtlasCloudTestReferenceImage,
@@ -644,6 +645,13 @@ export async function connectionsRoutes(app: FastifyInstance) {
       resetMemoryRecallVectorizerCache();
       return { success: true };
     });
+  });
+
+  // What uses a Model, so the delete dialog can say what changes.
+  app.get<{ Params: { id: string } }>("/:id/usage", async (req, reply) => {
+    const row = await storage.getById(req.params.id);
+    if (!row) return reply.status(404).send({ error: "Connection not found" });
+    return modelUsage(app.db, row);
   });
 
   app.delete<{ Params: { id: string } }>("/:id", async (req, reply) => {

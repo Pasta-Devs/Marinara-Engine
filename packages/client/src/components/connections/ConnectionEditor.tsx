@@ -94,6 +94,7 @@ import { DraftNumberInput } from "../ui/DraftNumberInput";
 import { decisionConnectionTestMessage } from "../../lib/decision-test-message";
 import { AtlasCloudModelOptions } from "./AtlasCloudModelOptions";
 import { ConnectionIdentity } from "./ConnectionIdentity";
+import { confirmModelDelete } from "./ConnectionRow";
 import { BrandMark, ProviderIcon } from "./ProviderIcon";
 import { SubscriptionUsageWidget } from "./SubscriptionUsageWidget";
 import { CostBadge } from "./CostBadge";
@@ -1144,14 +1145,11 @@ export function ConnectionEditor({
   const handleDelete = useCallback(async () => {
     if (!connectionDetailId) return;
     if (
-      !(await showConfirmDialog({
-        title: localizeUi("ui.connections.connectioneditor.deleteConnection_bb12f0e"),
-        message: localizeUi("dialog.delete.namedPermanent", {
-          name: conn?.name || localizeUi("ui.connections.connectioneditor.connection"),
-        }),
-        confirmLabel: localizeUi("lorebook.editor.batch.delete"),
-        tone: "destructive",
-      }))
+      !(await confirmModelDelete(
+        connectionDetailId,
+        String(conn?.name || localizeUi("ui.connections.connectioneditor.connection")),
+        localizeUi,
+      ))
     ) {
       return;
     }

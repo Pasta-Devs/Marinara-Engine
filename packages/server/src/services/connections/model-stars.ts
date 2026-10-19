@@ -68,6 +68,34 @@ export async function modelKeepReason(db: DB, row: ConnectionRow): Promise<Model
   return null;
 }
 
+export type ModelUsage = {
+  chats: Array<{ id: string; name: string }>;
+  agents: Array<{ id: string; name: string }>;
+  models: Array<{ id: string; name: string }>;
+  settings: Array<"embedding" | "features">;
+};
+
+/** Everything that names a saved Model: what a delete would change. Chats count their own pick too. */
+export async function modelUsage(db: DB, row: ConnectionRow): Promise<ModelUsage> {
+  const settings = createAppSettingsStorage(db);
+  const usage: ModelUsage = { chats: [], agents: [], models: [], settings: [] };
+  for (const other of (await db.select().from(apiConnections)) as ConnectionRow[]) {
+    if (other.id !== row.id && (other.embeddingConnectionId === row.id || other.credentialsFromConnectionId === row.id))
+      usage.models.push({ id: other.id, name: other.name });
+  }
+  if ((await settings.get(DEFAULT_EMBEDDING_CONNECTION_SETTINGS_KEY)) === row.id) usage.settings.push("embedding");
+  if (names(await settings.get(FEATURE_MODEL_CONNECTIONS_SETTINGS_KEY), row.id)) usage.settings.push("features");
+  for (const agent of await db.select().from(agentConfigs)) {
+    if (agent.connectionId === row.id || names(agent.settings, row.id))
+      usage.agents.push({ id: agent.id, name: agent.name });
+  }
+  for (const chat of await db.select().from(chats)) {
+    if (chat.connectionId === row.id || names(chat.metadata, row.id))
+      usage.chats.push({ id: chat.id, name: chat.name });
+  }
+  return usage;
+}
+
 const STARS_MIGRATION_MARKER_KEY = "connectionModelStarsMigrated";
 
 /**

@@ -12,7 +12,7 @@ process.env.FILE_STORAGE_DIR = join(directory, "storage");
 const { getDB, closeDB } = await import("../../packages/server/src/db/connection.js");
 const { apiConnections, chats } = await import("../../packages/server/src/db/schema/index.js");
 const { eq } = await import("../../packages/server/src/db/file-query.js");
-const { starSavedModels } = await import("../../packages/server/src/services/connections/model-stars.js");
+const { modelUsage, starSavedModels } = await import("../../packages/server/src/services/connections/model-stars.js");
 const { createAppSettingsStorage } = await import("../../packages/server/src/services/storage/app-settings.storage.js");
 const { connectionAccountsRoutes } = await import("../../packages/server/src/routes/connection-accounts.routes.js");
 const { CHAT_MODEL_OVERRIDE_KEY, FEATURE_MODEL_CONNECTIONS_SETTINGS_KEY, parsePinnedModels } =
@@ -94,6 +94,27 @@ try {
     JSON.stringify({ mariConnectionId: c }),
   );
   assert.equal((await json("DELETE", `/accounts/${account}/models/${c}`)).data.reason, "in_use");
+  // The delete dialog names everything that uses a Model: chats (their own pick too), models and settings.
+  await db.insert(chats).values({ id: "chat-c", name: "Uses C", mode: "conversation", connectionId: c });
+  await db.update(apiConnections).set({ credentialsFromConnectionId: c }).where(eq(apiConnections.id, a));
+  const usage = await modelUsage(db, (await rowOf(c))!);
+  assert.ok(
+    usage.chats.some((chat) => chat.name === "Uses C"),
+    "a chat on the model is listed",
+  );
+  assert.equal(
+    usage.chats.some((chat) => chat.name === "B"),
+    chat!.connectionId === c,
+    "the moved chat is listed only where it went",
+  );
+  assert.deepEqual(
+    usage.models.map((model) => model.id),
+    [a],
+  );
+  assert.deepEqual(usage.settings, ["features"]);
+  assert.deepEqual(usage.agents, []);
+  await db.update(apiConnections).set({ credentialsFromConnectionId: null }).where(eq(apiConnections.id, a));
+  await db.delete(chats).where(eq(chats.id, "chat-c"));
   await createAppSettingsStorage(db).set(FEATURE_MODEL_CONNECTIONS_SETTINGS_KEY, "{}");
   assert.equal((await json("DELETE", `/accounts/${account}/models/${c}`)).status, 204, "nothing keeps it any more");
   // The last chat Model carries the Connection's catalog and stars; it stays.

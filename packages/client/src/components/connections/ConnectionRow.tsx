@@ -50,6 +50,7 @@ import {
 } from "../../hooks/use-connections";
 import { useUIStore } from "../../stores/ui.store";
 import { showConfirmDialog } from "../../lib/app-dialogs";
+import { api } from "../../lib/api-client";
 import { cn } from "../../lib/utils";
 import { isConnectionFlagTrue, isLanguageGenerationConnection } from "../../lib/connection-filters";
 import { clearActiveChatResourceDrag, writeChatResourceDragPayload } from "../../lib/chat-resource-drag";
@@ -436,13 +437,7 @@ export function ConnectionRow({
       },
     );
   const remove = async () => {
-    const confirmed = await showConfirmDialog({
-      title: t("ui.panels.connectionrow.deleteConnection"),
-      message: t("ui.panels.characterspanel.deleteValue1ThisCannotBeUndone", { value1: title }),
-      confirmLabel: t("lorebook.editor.batch.delete"),
-      tone: "destructive",
-    });
-    if (confirmed) deleteConnection.mutate(row.id);
+    if (await confirmModelDelete(row.id, title, t)) deleteConnection.mutate(row.id);
   };
 
   // Media Models carry their kind's default in the agents flag.
@@ -635,4 +630,42 @@ export function ConnectionRow({
       }
     />
   );
+}
+
+type ModelUsage = {
+  chats: Array<{ name: string }>;
+  agents: Array<{ name: string }>;
+  models: Array<{ name: string }>;
+  settings: Array<"embedding" | "features">;
+};
+
+/** The delete question for a saved Model; it names the chats, agents, models and settings that use it. */
+export async function confirmModelDelete(id: string, title: string, t: TFunction): Promise<boolean> {
+  // A failed lookup still lets the user decide; the plain question stays.
+  const usage = await api.get<ModelUsage>(`/connections/${id}/usage`).catch(() => null);
+  const list = (names: string[]) =>
+    names.length > 5
+      ? t("connections.delete.more", { names: names.slice(0, 5).join(", "), count: names.length - 5 })
+      : names.join(", ");
+  const lines = usage
+    ? [
+        usage.chats.length ? t("connections.delete.chats", { names: list(usage.chats.map((c) => c.name)) }) : "",
+        usage.agents.length ? t("connections.delete.agents", { names: list(usage.agents.map((a) => a.name)) }) : "",
+        usage.models.length ? t("connections.delete.models", { names: list(usage.models.map((m) => m.name)) }) : "",
+        usage.settings.length
+          ? t("connections.delete.settings", {
+              names: usage.settings.map((key) => t(`connections.delete.setting.${key}`)).join(", "),
+            })
+          : "",
+      ].filter(Boolean)
+    : [];
+  return showConfirmDialog({
+    title: t("ui.panels.connectionrow.deleteConnection"),
+    message: [
+      t("ui.panels.characterspanel.deleteValue1ThisCannotBeUndone", { value1: title }),
+      ...(lines.length ? ["", t("connections.delete.usedBy"), ...lines, "", t("connections.delete.afterDelete")] : []),
+    ].join("\n"),
+    confirmLabel: t("lorebook.editor.batch.delete"),
+    tone: "destructive",
+  });
 }
