@@ -548,6 +548,7 @@ export function ConnectionAccountEditor({
                   saved={account.hasManagementToken}
                   value={managementToken}
                   onChange={setManagementToken}
+                  help={t("connections.accounts.editor.managementTokenHelp")}
                 />
               </section>
             </SmoothFolderContent>

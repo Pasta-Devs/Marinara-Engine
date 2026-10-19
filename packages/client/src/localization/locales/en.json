@@ -1574,6 +1574,7 @@
   "connections.accounts.editor.keyPlaceholder": "Paste a new key",
   "connections.accounts.editor.keySaved": "Saved on the computer that runs Marinara.",
   "connections.accounts.editor.managementToken": "Management key",
+  "connections.accounts.editor.managementTokenHelp": "Optional. A NanoGPT key that can only read usage. The usage meter uses it instead of your main key.",
   "connections.accounts.editor.maxParallelJobs": "Parallel requests",
   "connections.accounts.editor.maxRequestsPerMinute": "Requests per minute",
   "connections.accounts.editor.modelsHeading": "Models",
