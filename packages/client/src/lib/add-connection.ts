@@ -8,6 +8,8 @@ export type AddConnectionTarget = { category: "device"; item: DeviceItem } | { p
 /** The big model screen for one Connection. */
 export type ModelsFor = {
   accountId: string;
+  /** Optionally open a supported model kind directly. */
+  kind?: "chat" | "image" | "video";
   /** The Model whose stars the screen shows; the Connection's first chat Model by default. */
   connectionId?: string;
   /**

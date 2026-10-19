@@ -8,8 +8,13 @@ import { AlertCircle, Check, ChevronDown, ChevronLeft, ExternalLink, Eye, EyeOff
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
+  IMAGE_GENERATION_SOURCES,
+  IMAGE_SOURCE_VENDOR,
   MODEL_LISTS,
   PROVIDERS,
+  VIDEO_GENERATION_SOURCES,
+  inferImageSource,
+  inferVideoSource,
   isChatProvider,
   isLocalAuthProvider,
   withKeyTail,
@@ -17,9 +22,12 @@ import {
 } from "@marinara-engine/shared";
 import { Modal } from "../ui/Modal";
 import { SmoothFolderContent } from "../ui/SmoothFolderContent";
+import { ConnectionEditor } from "../connections/ConnectionEditor";
+import { ConnectionIdentity } from "../connections/ConnectionIdentity";
 import { ConnectionModelPicker } from "../connections/ConnectionModelPicker";
 import { BrandMark, ProviderIcon } from "../connections/ProviderIcon";
 import {
+  useCreateConnection,
   useConnectionModels,
   useConnections,
   useDeleteConnection,
@@ -33,7 +41,6 @@ import {
   useUpdateConnectionAccount,
 } from "../../hooks/use-connection-accounts";
 import { useSetChatModel } from "../../hooks/use-chats";
-import { useUIStore } from "../../stores/ui.store";
 import { useChatStore } from "../../stores/chat.store";
 import { useSidecarStore } from "../../stores/sidecar.store";
 import { useDeviceSetup, type DeviceItem } from "../../hooks/use-device-setup";
@@ -62,10 +69,54 @@ interface Props {
 
 /** "On this device" (decision 32): built-in parts set up with their own controls, listed here so people find them. */
 type DeviceService = "local_model" | "tts" | "stt";
-export type ServiceId = APIProvider | DeviceService;
+type MediaServiceId = `media:${string}`;
+export type ServiceId = APIProvider | DeviceService | MediaServiceId;
 const DEVICE_ITEMS: Record<DeviceService, DeviceItem> = { local_model: "local-model", tts: "tts", stt: "stt" };
 const isDevice = (service: ServiceId | null): service is DeviceService => !!service && service in DEVICE_ITEMS;
 type Kind = "chat" | "image" | "video" | "voice" | "local";
+type AddableKind = "chat" | "image" | "video";
+
+type MediaBackend = {
+  id: MediaServiceId;
+  source: string;
+  name: string;
+  description: string;
+  defaultBaseUrl: string;
+  requiresApiKey: boolean;
+  image: boolean;
+  video: boolean;
+};
+
+const VIDEO_SOURCE_VENDOR: Record<string, APIProvider> = {
+  google_ai_studio: "google",
+  xai: "xai",
+  openrouter: "openrouter",
+  nanogpt: "nanogpt",
+};
+
+/** Media backends without their own chat-service tile. Matching image/video ids share one access tile. */
+const MEDIA_BACKENDS: MediaBackend[] = (() => {
+  const bySource = new Map<string, MediaBackend>();
+  for (const source of [...IMAGE_GENERATION_SOURCES, ...VIDEO_GENERATION_SOURCES]) {
+    if (IMAGE_SOURCE_VENDOR[source.id] || VIDEO_SOURCE_VENDOR[source.id]) continue;
+    const current = bySource.get(source.id);
+    bySource.set(source.id, {
+      id: `media:${source.id}`,
+      source: source.id,
+      name: current?.name ?? source.name,
+      description: current?.description ?? source.description,
+      defaultBaseUrl: current?.defaultBaseUrl ?? source.defaultBaseUrl,
+      requiresApiKey: (current?.requiresApiKey ?? false) || source.requiresApiKey,
+      image: (current?.image ?? false) || IMAGE_GENERATION_SOURCES.some((candidate) => candidate.id === source.id),
+      video: (current?.video ?? false) || VIDEO_GENERATION_SOURCES.some((candidate) => candidate.id === source.id),
+    });
+  }
+  return [...bySource.values()];
+})();
+const mediaBackendOf = (service: ServiceId | null) =>
+  typeof service === "string" && service.startsWith("media:")
+    ? (MEDIA_BACKENDS.find((backend) => backend.id === service) ?? null)
+    : null;
 
 const SERVICE_KINDS: Partial<Record<ServiceId, Kind[]>> = {
   custom: ["chat", "local"],
@@ -78,7 +129,18 @@ const SERVICE_KINDS: Partial<Record<ServiceId, Kind[]>> = {
   // Decision answers yes/no questions for agents; it only shows under "All".
   decision: [],
 };
-const kindsOf = (service: ServiceId) => SERVICE_KINDS[service] ?? ["chat"];
+const kindsOf = (service: ServiceId): Kind[] => {
+  const media = mediaBackendOf(service);
+  if (media) return [...(media.image ? (["image"] as const) : []), ...(media.video ? (["video"] as const) : [])];
+  if (SERVICE_KINDS[service]) return SERVICE_KINDS[service]!;
+  if (isDevice(service)) return SERVICE_KINDS[service] ?? ["local"];
+  const provider = service as APIProvider;
+  return [
+    ...(isChatProvider(provider) ? (["chat"] as const) : []),
+    ...(Object.values(IMAGE_SOURCE_VENDOR).includes(provider) ? (["image"] as const) : []),
+    ...(Object.values(VIDEO_SOURCE_VENDOR).includes(provider) ? (["video"] as const) : []),
+  ];
+};
 const errorText = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
 /** Open groups are the paths most people take; the long vendor list folds behind a chevron. */
@@ -92,7 +154,7 @@ const SERVICE_GROUPS: Array<{ id: string; services: ServiceId[]; collapsed?: boo
     collapsed: true,
     services: ["openai", "anthropic", "google", "google_vertex", "mistral", "cohere", "xai", "zai", "deepseek", "arli"],
   },
-  { id: "media", services: ["image_generation", "video_generation", "audio", "decision"] },
+  { id: "media", services: [...MEDIA_BACKENDS.map((backend) => backend.id), "audio", "decision"] },
 ];
 
 /** Common ports of local servers; one tap fills the address. Brand names are not translated. */
@@ -114,15 +176,29 @@ const LOGIN_COMMANDS: Partial<Record<APIProvider, string>> = {
 const NO_RECOMMENDED = new Set<APIProvider>(["openrouter", "nanogpt", "custom", "arli"]);
 
 /** `autoName`: the name the server chose, when the user typed none. */
-type Target = { accountId: string; connectionId: string; fresh: boolean; autoName?: string };
+type Target = {
+  accountId: string;
+  connectionId: string;
+  fresh: boolean;
+  autoName?: string;
+  /** Empty Model created by this flow and safe to configure or remove on cancel. */
+  placeholderId?: string;
+  ownedPlaceholderIds?: string[];
+  accountBaseUrl?: string;
+};
 /** The key's end the server adds to an automatic name next to another Connection of the same service. */
 const KEY_TAIL = / · …\S{4}$/u;
 type ConnectionRowLite = {
   id: string;
   name?: string;
   provider?: string;
+  baseUrl?: string;
   accountId?: string | null;
   model?: string;
+  imageGenerationSource?: string | null;
+  imageService?: string | null;
+  videoGenerationSource?: string | null;
+  videoService?: string | null;
   createdAt?: string | null;
   pinnedModels?: unknown;
 };
@@ -158,7 +234,14 @@ function failureReason(provider: APIProvider, message: string): "plan" | "key" |
 
 /** The service tile: its white brand mark on the brand colour (decision 34c), else an icon or the initials. */
 function ServiceTile({ service, large = false }: { service: ServiceId; large?: boolean }) {
-  return <ProviderIcon provider={service} size={large ? "addLarge" : "add"} />;
+  const media = mediaBackendOf(service);
+  return (
+    <ProviderIcon
+      provider={media ? (media.image ? "image_generation" : "video_generation") : service}
+      service={media?.source}
+      size={large ? "addLarge" : "add"}
+    />
+  );
 }
 
 /** Choice card (Agent editor / Download Agents rows): tile, name with up to two badges, a 2-line hint. */
@@ -291,17 +374,28 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
   const deleteRow = useDeleteConnection();
   const updateRow = useUpdateConnection();
   const testConnection = useTestConnection();
+  const createRow = useCreateConnection();
   const setChatModel = useSetChatModel();
-  const openConnectionDetail = useUIStore((s) => s.openConnectionDetail);
   const activeChatId = useChatStore((s) => s.activeChatId);
   const deviceSetup = useDeviceSetup();
 
-  const startDevice = isDevice(initialService ?? null) ? (initialService as DeviceService) : null;
+  // Old image/video deep links now land on real backend discovery instead of a generic credential form.
+  const startingService =
+    initialService === "image_generation" || initialService === "video_generation" ? null : (initialService ?? null);
+  const startDevice = isDevice(startingService) ? (startingService as DeviceService) : null;
+  const startMedia = mediaBackendOf(startingService);
+  const [service, setService] = useState<ServiceId | null>(startingService);
   const [provider, setProvider] = useState<APIProvider | null>(
-    initialService && !startDevice ? (initialService as APIProvider) : null,
+    startingService && !startDevice && !startMedia
+      ? (startingService as APIProvider)
+      : startMedia
+        ? startMedia.image
+          ? "image_generation"
+          : "video_generation"
+        : null,
   );
   const [device, setDevice] = useState<DeviceService | null>(startDevice);
-  const [step, setStep] = useState<1 | 2 | 3 | "ready">(modelsFor ? 3 : initialService ? 2 : 1);
+  const [step, setStep] = useState<1 | 2 | 3 | "ready">(modelsFor ? 3 : startingService ? 2 : 1);
   const [target, setTarget] = useState<Target | null>(null);
   const [name, setName] = useState("");
   const [apiKey, setApiKey] = useState("");
@@ -312,6 +406,13 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
   const [tested, setTested] = useState<TestResult | null>(null);
   // The models starred in this setup, in order; the first one is what the ready screen offers.
   const [picks, setPicks] = useState<Array<{ connectionId: string; modelId: string }>>([]);
+  const [setupKind, setSetupKind] = useState<AddableKind | null>(null);
+  const [mediaEditorId, setMediaEditorId] = useState<string | null>(null);
+  const [mediaSaved, setMediaSaved] = useState(false);
+  const [mediaCreating, setMediaCreating] = useState(false);
+  const [editorBusy, setEditorBusy] = useState(false);
+  const [editorCloseRequest, setEditorCloseRequest] = useState(0);
+  const [editorExit, setEditorExit] = useState<"close" | "back">("close");
   const [query, setQuery] = useState("");
   const [vendorsOpen, setVendorsOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
@@ -335,11 +436,21 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
     setFirstRun(!modelsFor && !(rows as ConnectionRowLite[]).some((row) => isChatProvider(row.provider ?? "")));
   }, [firstRun, modelsFor, rows]);
 
+  const selectedMedia = mediaBackendOf(service);
   const def = provider ? PROVIDERS[provider] : null;
-  const keyless = !!provider && isLocalAuthProvider(provider);
+  const keyless = !!provider && (isLocalAuthProvider(provider) || (!!selectedMedia && !selectedMedia.requiresApiKey));
   const isLocal = provider === "custom";
   const isMedia = !!provider && !isChatProvider(provider);
   const busy = createAccount.isPending || updateAccount.isPending || testConnection.isPending;
+  const closeBlocked =
+    finishing ||
+    busy ||
+    mediaCreating ||
+    editorBusy ||
+    createRow.isPending ||
+    updateRow.isPending ||
+    deleteRow.isPending ||
+    deleteAccount.isPending;
   const shownRow = target ? allRows.find((row) => row.id === target.connectionId) : undefined;
   const starAnchor = target ? starAnchorOf(allRows.filter((row) => row.accountId === target.accountId)) : undefined;
   // Unstarring the original Model may remove it after another Model was added.
@@ -367,12 +478,17 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
     else if (step !== 3 || !fine) headingRef.current?.focus();
   }, [step, provider]);
 
-  const serviceName = (key: ServiceId) =>
-    isDevice(key)
-      ? t(`connections.add.device.${key}`)
-      : key === "decision"
-        ? t("connections.decision.label")
-        : (PROVIDERS[key]?.name ?? key);
+  const serviceName = (key: ServiceId) => {
+    const media = mediaBackendOf(key);
+    return media
+      ? media.name
+      : isDevice(key)
+        ? t(`connections.add.device.${key}`)
+        : key === "decision"
+          ? t("connections.decision.label")
+          : (PROVIDERS[key as APIProvider]?.name ?? key);
+  };
+  const serviceHint = (key: ServiceId) => mediaBackendOf(key)?.description ?? t(`connections.add.hint.${key}`);
   const kindsLabel = (key: ServiceId) =>
     kindsOf(key)
       .map((value) => t(`connections.add.kind.${value}`))
@@ -380,12 +496,16 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
 
   // Throw away the empty Model of a Connection that was created but never got a Model picked.
   const discard = async () => {
-    if (!target?.fresh || picks.length > 0) return;
+    if (!target || picks.length > 0) return;
     try {
-      for (const row of allRows.filter((row) => row.accountId === target.accountId)) {
-        await deleteRow.mutateAsync(row.id);
+      if (target.fresh && !mediaSaved) {
+        for (const row of allRows.filter((row) => row.accountId === target.accountId)) {
+          await deleteRow.mutateAsync(row.id);
+        }
+        await deleteAccount.mutateAsync(target.accountId);
+      } else {
+        for (const id of target.ownedPlaceholderIds ?? []) await deleteRow.mutateAsync(id);
       }
-      await deleteAccount.mutateAsync(target.accountId);
     } catch {
       /* the Connection stays; the user can delete it in the panel */
     }
@@ -433,6 +553,16 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
     onClose();
   };
 
+  const requestClose = () => {
+    if (closeBlocked) return;
+    if (mediaEditorId) {
+      setEditorExit("close");
+      setEditorCloseRequest((current) => current + 1);
+      return;
+    }
+    void close();
+  };
+
   const resetFields = () => {
     setTarget(null);
     setTested(null);
@@ -444,12 +574,23 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
     setMaxJobs("");
     setMoreOpen(false);
     setSecond(false);
+    setSetupKind(null);
+    setMediaEditorId(null);
+    setMediaSaved(false);
+    setMediaCreating(false);
+    setEditorBusy(false);
+    setEditorCloseRequest(0);
+    setEditorExit("close");
   };
 
   const chooseService = async (key: ServiceId) => {
     await discard();
     resetFields();
-    setProvider(isDevice(key) ? null : key);
+    const media = mediaBackendOf(key);
+    setService(key);
+    setProvider(
+      isDevice(key) ? null : media ? (media.image ? "image_generation" : "video_generation") : (key as APIProvider),
+    );
     setDevice(isDevice(key) ? key : null);
     setStep(2);
   };
@@ -458,6 +599,7 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
     await discard();
     resetFields();
     setProvider(null);
+    setService(null);
     setDevice(null);
     setStep(1);
   };
@@ -471,6 +613,7 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
     }
     resetFields();
     setProvider(null);
+    setService(null);
     setDevice(null);
     setPicks([]);
     setMakeMain(null);
@@ -487,7 +630,7 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
   const accountFields = () => ({
     ...(name.trim() || autoName ? { name: name.trim() || autoName } : {}),
     apiKey: keyless ? "" : apiKey.trim(),
-    baseUrl: baseUrl.trim() || (keyless ? "" : (def?.defaultBaseUrl ?? "")),
+    baseUrl: baseUrl.trim() || selectedMedia?.defaultBaseUrl || (keyless ? "" : (def?.defaultBaseUrl ?? "")),
     maxRequestsPerMinute: maxRpm ? Math.min(600, Math.max(1, Math.trunc(Number(maxRpm)))) : null,
     maxParallelJobs: maxJobs ? Math.min(16, Math.max(1, Math.trunc(Number(maxJobs)))) : null,
   });
@@ -510,41 +653,246 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
           accountId: created.account.id,
           connectionId: created.connectionId,
           fresh: true,
+          placeholderId: created.connectionId,
+          ownedPlaceholderIds: [created.connectionId],
+          accountBaseUrl: created.account.baseUrl,
           ...(name.trim() ? {} : { autoName: created.account.name }),
         };
         setTarget(current);
       }
       if (isMedia) {
-        // Image/video/audio/decision Models are tuned in the editor, not picked from a list.
-        onClose();
-        openConnectionDetail(current.connectionId);
+        // The existing media editor stays inside this guided shell; a real backend with both capabilities
+        // asks which Model/workflow to add before it opens.
+        if (provider === "audio" || provider === "decision") {
+          setSetupKind(null);
+          setMediaEditorId(current.connectionId);
+          setStep(3);
+          return;
+        }
+        const mediaKinds = selectedMedia
+          ? ([
+              ...(selectedMedia.image ? (["image"] as const) : []),
+              ...(selectedMedia.video ? (["video"] as const) : []),
+            ] as AddableKind[])
+          : ([provider === "video_generation" ? "video" : "image"] as AddableKind[]);
+        setSetupKind(mediaKinds.length === 1 ? mediaKinds[0]! : null);
+        setStep(3);
         return;
       }
       const result = await testConnection.mutateAsync(current.connectionId);
       setTested(result);
       // "Test and continue" is one press: a passing test opens the models.
-      if (result.success) setStep(3);
+      if (result.success) {
+        const available: AddableKind[] = service
+          ? kindsOf(service).filter((kind): kind is AddableKind => kind !== "local" && kind !== "voice")
+          : ["chat"];
+        setSetupKind(available.length === 1 ? available[0]! : null);
+        setStep(3);
+      }
     } catch (error) {
       setTested({ success: false, message: errorText(error) });
     }
   };
 
-  const showModelsOf = (accountId: string, connectionId?: string) => {
+  const showModelsOf = async (accountId: string, connectionId?: string) => {
     // A key shared by chat and image Models (decision 20): the models list belongs to a chat Model.
     const linked = allRows.filter((candidate) => candidate.accountId === accountId);
-    const row = linked.find((candidate) => candidate.id === connectionId) ?? starAnchorOf(linked) ?? linked[0];
-    if (!row) return;
+    let row = linked.find((candidate) => candidate.id === connectionId) ?? starAnchorOf(linked) ?? linked[0];
+    let placeholderId: string | undefined;
+    if (!row) {
+      const account = accounts?.find((candidate) => candidate.id === accountId);
+      if (!account) return;
+      const media = selectedMedia;
+      const mediaBaseUrl =
+        media && (media.source === "comfyui" || media.source === "swarmui")
+          ? account.baseUrl || media.defaultBaseUrl
+          : media?.defaultBaseUrl;
+      const rowProvider: APIProvider = media
+        ? media.image
+          ? "image_generation"
+          : "video_generation"
+        : (account.provider as APIProvider);
+      setMediaCreating(true);
+      try {
+        const created = (await createRow.mutateAsync({
+          name: media?.name ?? account.name,
+          provider: rowProvider,
+          apiKey: "",
+          baseUrl: mediaBaseUrl ?? account.baseUrl,
+          accountId,
+          ...(media?.image
+            ? { imageGenerationSource: media.source, imageService: media.source }
+            : media?.video
+              ? { videoGenerationSource: media.source, videoService: media.source }
+              : {}),
+        })) as { id?: string };
+        if (!created.id) return;
+        placeholderId = created.id;
+        row = {
+          id: created.id,
+          name: media?.name ?? account.name,
+          provider: rowProvider,
+          baseUrl: mediaBaseUrl ?? account.baseUrl,
+          accountId,
+          ...(media?.image
+            ? { imageGenerationSource: media.source, imageService: media.source }
+            : media?.video
+              ? { videoGenerationSource: media.source, videoService: media.source }
+              : {}),
+        };
+      } catch (error) {
+        toast.error(errorText(error));
+        return;
+      } finally {
+        setMediaCreating(false);
+      }
+    }
     resetFields();
-    setProvider((row.provider as APIProvider) ?? null);
-    setTarget({ accountId, connectionId: row.id, fresh: false });
+    const account = accounts?.find((candidate) => candidate.id === accountId);
+    let resolvedService = service;
+    if (!service) {
+      const source = row.imageGenerationSource || row.imageService || row.videoGenerationSource || row.videoService;
+      const inferredService = source ? (`media:${source}` as MediaServiceId) : (row.provider as APIProvider);
+      resolvedService = mediaBackendOf(inferredService)
+        ? inferredService
+        : account && isChatProvider(account.provider)
+          ? (account.provider as APIProvider)
+          : (row.provider as APIProvider);
+      setService(resolvedService);
+      setProvider(mediaBackendOf(resolvedService) ? (row.provider as APIProvider) : (resolvedService as APIProvider));
+    }
+    setTarget({
+      accountId,
+      connectionId: row.id,
+      fresh: false,
+      placeholderId,
+      ownedPlaceholderIds: placeholderId ? [placeholderId] : [],
+      accountBaseUrl: account?.baseUrl,
+    });
+    if (row.provider === "audio" || row.provider === "decision") setMediaEditorId(row.id);
+    const supportedKinds = resolvedService
+      ? kindsOf(resolvedService).filter(
+          (kind): kind is AddableKind => kind === "chat" || kind === "image" || kind === "video",
+        )
+      : [];
+    setSetupKind(
+      modelsFor?.kind ?? (modelsFor?.chat ? "chat" : supportedKinds.length === 1 ? supportedKinds[0]! : null),
+    );
     setStep(3);
   };
 
-  // Add model: open on the Connection's models once its rows are loaded.
+  // Creating an empty account's first placeholder invalidates rows before the account refresh can finish.
+  // Keep that refresh from starting another setup while the first one still owns its pending row.
+  const openingModels = useRef(false);
   useEffect(() => {
-    if (modelsFor && !target && rows) showModelsOf(modelsFor.accountId, modelsFor.connectionId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, when the rows arrive
-  }, [modelsFor, rows]);
+    if (!modelsFor || target || !rows || !accounts || openingModels.current) return;
+    openingModels.current = true;
+    void showModelsOf(modelsFor.accountId, modelsFor.connectionId).finally(() => {
+      openingModels.current = false;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- initialize once data is available; target ends setup
+  }, [modelsFor, rows, accounts]);
+
+  const mediaSourceFor = (kind: "image" | "video") => {
+    if (selectedMedia && selectedMedia[kind]) return selectedMedia.source;
+    const linked = target ? accountRows(target.accountId) : [];
+    const existing = linked.find((row) => row.provider === `${kind}_generation`);
+    const existingSource =
+      kind === "image"
+        ? existing?.imageGenerationSource ||
+          existing?.imageService ||
+          (existing ? inferImageSource(existing.model ?? "", existing.baseUrl ?? "") : "")
+        : existing?.videoGenerationSource ||
+          existing?.videoService ||
+          (existing ? inferVideoSource(existing.model ?? "", existing.baseUrl ?? "") : "");
+    if (existingSource) return existingSource;
+    if (provider && isChatProvider(provider)) {
+      if (kind === "image") return Object.entries(IMAGE_SOURCE_VENDOR).find(([, vendor]) => vendor === provider)?.[0];
+      return Object.entries(VIDEO_SOURCE_VENDOR).find(([, vendor]) => vendor === provider)?.[0];
+    }
+    return undefined;
+  };
+
+  const mediaSetupStarted = useRef("");
+  const beginMediaSetup = async (kind: "image" | "video") => {
+    if (!target) return;
+    const source = mediaSourceFor(kind);
+    if (!source) {
+      mediaSetupStarted.current = "";
+      setSetupKind(null);
+      toast.error(t("connections.add.mediaCreateFailed"));
+      return;
+    }
+    const rowProvider: APIProvider = kind === "image" ? "image_generation" : "video_generation";
+    const linked = accountRows(target.accountId);
+    const sourceDef = (kind === "image" ? IMAGE_GENERATION_SOURCES : VIDEO_GENERATION_SOURCES).find(
+      (candidate) => candidate.id === source,
+    );
+    const preserveAccountEndpoint = source === "comfyui" || source === "swarmui";
+    const siblingEndpoint = linked.find((row) => rowUsesMediaSource(row, source))?.baseUrl;
+    const endpoint = preserveAccountEndpoint
+      ? siblingEndpoint || target.accountBaseUrl || sourceDef?.defaultBaseUrl || ""
+      : sourceDef?.defaultBaseUrl || "";
+    setMediaCreating(true);
+    try {
+      const empty = linked.find(
+        (row) => row.id === target.placeholderId && row.provider === rowProvider && !row.model?.trim(),
+      );
+      let id: string;
+      if (empty) {
+        await updateRow.mutateAsync({
+          id: empty.id,
+          provider: rowProvider,
+          name: sourceDef?.name ?? source,
+          baseUrl: endpoint,
+          ...(kind === "image"
+            ? { imageGenerationSource: source, imageService: source }
+            : { videoGenerationSource: source, videoService: source }),
+        });
+        id = empty.id;
+      } else {
+        const created = (await createRow.mutateAsync({
+          name: sourceDef?.name ?? source,
+          provider: rowProvider,
+          apiKey: "",
+          baseUrl: endpoint,
+          accountId: target.accountId,
+          ...(kind === "image"
+            ? { imageGenerationSource: source, imageService: source }
+            : { videoGenerationSource: source, videoService: source }),
+        })) as { id?: string };
+        if (!created.id) throw new Error(t("connections.add.mediaCreateFailed"));
+        id = created.id;
+        setTarget((current) =>
+          current?.accountId === target.accountId
+            ? {
+                ...current,
+                placeholderId: id,
+                ownedPlaceholderIds: [...new Set([...(current.ownedPlaceholderIds ?? []), id])],
+              }
+            : current,
+        );
+      }
+      setSetupKind(kind);
+      setMediaEditorId(id);
+    } catch (error) {
+      toast.error(errorText(error));
+      setSetupKind(null);
+    } finally {
+      mediaSetupStarted.current = "";
+      setMediaCreating(false);
+    }
+  };
+
+  useEffect(() => {
+    if (step !== 3 || !target || mediaEditorId || (setupKind !== "image" && setupKind !== "video")) return;
+    const key = `${target.accountId}:${setupKind}`;
+    if (mediaSetupStarted.current === key) return;
+    mediaSetupStarted.current = key;
+    void beginMediaSetup(setupKind);
+    // The target/kind transition is the trigger; the helper reads the latest loaded rows.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, target?.accountId, setupKind, mediaEditorId]);
 
   const recordPick = (connectionId: string, modelId: string) =>
     setPicks((current) =>
@@ -568,9 +916,42 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
   };
 
   // ── Step 1: the service list ──
-  // A Connection without a Model yet has nothing to add models to; it does not count.
-  const ownAccounts = (accounts ?? []).filter((account) => account.id !== target?.accountId && account.modelCount > 0);
-  const connectedAccount = (service: ServiceId) => ownAccounts.find((account) => account.provider === service);
+  const ownAccounts = (accounts ?? []).filter((account) => account.id !== target?.accountId);
+  const accountRows = (accountId: string) => allRows.filter((row) => row.accountId === accountId);
+  const rowUsesMediaSource = (row: ConnectionRowLite, source: string) =>
+    (row.provider === "image_generation" &&
+      (row.imageGenerationSource || row.imageService || inferImageSource(row.model ?? "", row.baseUrl ?? "")) ===
+        source) ||
+    (row.provider === "video_generation" &&
+      (row.videoGenerationSource || row.videoService || inferVideoSource(row.model ?? "", row.baseUrl ?? "")) ===
+        source);
+  const compatibleAccounts = (key: ServiceId) => {
+    const media = mediaBackendOf(key);
+    if (media)
+      return ownAccounts.filter(
+        (account) =>
+          accountRows(account.id).some((row) => rowUsesMediaSource(row, media.source)) ||
+          (["image_generation", "video_generation"].includes(account.provider) &&
+            account.baseUrl.replace(/\/+$/u, "") === media.defaultBaseUrl.replace(/\/+$/u, "")),
+      );
+    if (isDevice(key)) return [];
+    const providerKey = key as APIProvider;
+    const imageSources = Object.entries(IMAGE_SOURCE_VENDOR)
+      .filter(([, vendor]) => vendor === providerKey)
+      .map(([source]) => source);
+    const videoSources = Object.entries(VIDEO_SOURCE_VENDOR)
+      .filter(([, vendor]) => vendor === providerKey)
+      .map(([source]) => source);
+    return ownAccounts.filter(
+      (account) =>
+        account.provider === providerKey ||
+        accountRows(account.id).some((row) =>
+          [...imageSources, ...videoSources].some((source) => rowUsesMediaSource(row, source)),
+        ),
+    );
+  };
+  const connectedAccounts = service ? compatibleAccounts(service) : [];
+  const connectedAccount = (key: ServiceId) => compatibleAccounts(key)[0];
   const badgesFor = (service: ServiceId) => {
     const badges: Array<{ label: string; highlight?: boolean }> = [];
     if (isDevice(service) && deviceSetup[DEVICE_ITEMS[service]].setUp)
@@ -579,7 +960,8 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
     else if (firstRun && service === "openrouter")
       badges.push({ label: t("connections.add.badge.recommended"), highlight: true });
     if (isDevice(service)) badges.push({ label: t("connections.add.badge.builtIn") });
-    const billing = isDevice(service) ? undefined : PROVIDERS[service]?.billing;
+    const billing =
+      isDevice(service) || mediaBackendOf(service) ? undefined : PROVIDERS[service as APIProvider]?.billing;
     if (billing) badges.push({ label: t(`connections.add.badge.${billing}`) });
     return badges.slice(0, 2);
   };
@@ -592,9 +974,7 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
         (!isDevice(key) || deviceSetup[DEVICE_ITEMS[key]].available) &&
         (!searching ||
           // The kinds are searchable too ("images", "voice"), so no separate filter row is needed.
-          [serviceName(key), t(`connections.add.hint.${key}`), kindsLabel(key)].some((text) =>
-            text.toLowerCase().includes(needle),
-          )),
+          [serviceName(key), serviceHint(key), kindsLabel(key)].some((text) => text.toLowerCase().includes(needle))),
     ),
   })).filter((group) => group.services.length > 0);
 
@@ -629,10 +1009,10 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
               key={key}
               service={key}
               name={serviceName(key)}
-              hint={t(`connections.add.hint.${key}`)}
+              hint={serviceHint(key)}
               kinds={kindsLabel(key)}
               badges={badgesFor(key)}
-              selected={provider === key || device === key}
+              selected={service === key}
               onClick={() => void chooseService(key)}
             />
           ))}
@@ -645,13 +1025,13 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
   );
 
   // ── Step 2: access for the chosen service ──
-  const existing = provider ? connectedAccount(provider) : undefined;
+  const existing = connectedAccounts[0];
   // Already connected: the user picks "Add models to it" or a second account before any field shows.
-  const choosing = !!existing && !target && !isMedia && !second;
-  const keyUrl = def?.keyUrl;
+  const choosing = connectedAccounts.length > 0 && !target && !second;
+  const keyUrl = selectedMedia ? undefined : def?.keyUrl;
   const failure = tested && !tested.success && provider ? failureReason(provider, tested.message ?? "") : null;
-  const connectDisabled =
-    busy || choosing || (isLocal && !baseUrl.trim()) || (!keyless && !isLocal && !isMedia && !apiKey.trim());
+  const requiresAccessKey = !keyless && !isLocal && (!isMedia || !!selectedMedia);
+  const connectDisabled = busy || choosing || (isLocal && !baseUrl.trim()) || (requiresAccessKey && !apiKey.trim());
   const resetTest = () => setTested(null);
   const connectSecond = () => {
     setSecond(true);
@@ -701,7 +1081,7 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
             rel="noopener noreferrer"
             className="inline-flex min-h-11 items-center gap-1 font-medium text-[var(--foreground)] underline decoration-[var(--muted-foreground)] underline-offset-2 hover:decoration-[var(--foreground)] md:min-h-0"
           >
-            {t("connections.add.getKey", { service: serviceName(provider!) })}
+            {t("connections.add.getKey", { service: serviceName(service ?? provider!) })}
             <ExternalLink size="0.6875rem" aria-hidden />
             <span className="sr-only">{t("connections.add.newTab")}</span>
           </a>
@@ -744,7 +1124,9 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
           <>
             <p className="text-sm font-medium">
               {t(`connections.add.error.${failure ?? "other"}`, {
-                host: hostOf(baseUrl.trim() || def?.defaultBaseUrl || "") || serviceName(provider!),
+                host:
+                  hostOf(baseUrl.trim() || selectedMedia?.defaultBaseUrl || def?.defaultBaseUrl || "") ||
+                  serviceName(service ?? provider!),
               })}
             </p>
             {tested.message && (
@@ -767,26 +1149,31 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
     <div className="flex flex-col gap-4 p-4 md:p-5">
       {/* The heading names the service; this row only says what it is and what it costs. */}
       <div className="flex items-center gap-3">
-        <ServiceTile service={provider} />
+        <ServiceTile service={service ?? provider} />
         <div className="min-w-0 flex-1 text-xs leading-snug text-[var(--muted-foreground)]">
-          <p>{t(`connections.add.hint.${provider}`)}</p>
+          <p>{service ? serviceHint(service) : t(`connections.add.hint.${provider}`)}</p>
           {def?.billing && <p className="mt-0.5 text-[0.6875rem]">{t(`connections.add.billingInfo.${def.billing}`)}</p>}
         </div>
       </div>
 
-      {existing && !target && !isMedia && (
+      {connectedAccounts.length > 0 && !target && (
         <div
           data-add-connection-existing
           className="flex flex-col gap-2 rounded-xl border border-[var(--border)] bg-[var(--marinara-chat-chrome-highlight-bg)] p-3 text-xs"
         >
-          <p>
-            {t("connections.add.alreadyHave", { name: existing.name })}{" "}
-            {second && !keyless && t(isLocal ? "connections.add.secondServer" : "connections.add.secondKey")}
-          </p>
-          <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={() => showModelsOf(existing.id)} className={PRIMARY_CLASS}>
-              {t("connections.add.addModelsTo")}
-            </button>
+          <p>{t("connections.add.chooseExisting")}</p>
+          <div className="flex flex-col gap-2">
+            {connectedAccounts.map((account) => (
+              <button
+                key={account.id}
+                type="button"
+                onClick={() => void showModelsOf(account.id)}
+                className="mari-chrome-control mari-chrome-control--card flex min-h-11 items-center justify-between gap-3 px-3 py-2 text-left text-xs"
+              >
+                <ConnectionIdentity account={account} rows={accountRows(account.id)} size="sm" />
+                <span className={BADGE_CLASS}>{t("connections.add.addModelsTo")}</span>
+              </button>
+            ))}
             {choosing && (
               <button type="button" onClick={connectSecond} className={SECONDARY_CLASS}>
                 {t("connections.add.connectSecond")}
@@ -841,13 +1228,13 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
               <p className="text-[0.6875rem] text-[var(--muted-foreground)]">{t("connections.add.noKeyNeeded")}</p>
             </div>
           )}
-          {!keyless && !isLocal && !isMedia && keyField(false)}
+          {requiresAccessKey && keyField(false)}
           {keyless && <p className="text-xs text-[var(--muted-foreground)]">{t("connections.add.keyless")}</p>}
           {isMedia && <p className="text-xs text-[var(--muted-foreground)]">{t("connections.add.mediaNext")}</p>}
 
           {resultCard}
 
-          {!isMedia && (
+          {(!isMedia || selectedMedia) && (
             <>
               <button
                 type="button"
@@ -874,7 +1261,7 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
                       className={inputClass}
                     />
                   </label>
-                  {!isLocal && !keyless && (
+                  {((!isLocal && !keyless) || selectedMedia) && (
                     <label className="flex flex-col gap-1">
                       <span className="text-xs text-[var(--muted-foreground)]">{t("connections.add.endpoint")}</span>
                       <input
@@ -883,7 +1270,7 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
                           setBaseUrl(e.target.value);
                           resetTest();
                         }}
-                        placeholder={def?.defaultBaseUrl}
+                        placeholder={selectedMedia?.defaultBaseUrl ?? def?.defaultBaseUrl}
                         inputMode="url"
                         className={cn(inputClass, "font-mono")}
                       />
@@ -950,14 +1337,111 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
 
   // ── Step 3: star models ──
   const chat = modelsFor?.chat;
+  const targetRows = target ? accountRows(target.accountId) : [];
+  const availableKinds = (() => {
+    const fromService = service
+      ? kindsOf(service).filter((kind): kind is AddableKind => kind === "chat" || kind === "image" || kind === "video")
+      : [];
+    if (fromService.length > 0) return fromService;
+    const inferred: AddableKind[] = [];
+    if (targetRows.some((row) => isChatProvider(row.provider ?? ""))) inferred.push("chat");
+    if (targetRows.some((row) => row.provider === "image_generation")) inferred.push("image");
+    if (targetRows.some((row) => row.provider === "video_generation")) inferred.push("video");
+    return inferred;
+  })();
   const inPlace = !!target?.fresh && !!shownRow && !shownRow.model?.trim() && picks.length === 0;
   const recommended = provider && !NO_RECOMMENDED.has(provider) ? (MODEL_LISTS[provider] ?? []).slice(0, 3) : [];
   const targetName =
-    (target && accounts?.find((account) => account.id === target.accountId)?.name) || serviceName(provider ?? "custom");
+    (target && accounts?.find((account) => account.id === target.accountId)?.name) ||
+    serviceName(service ?? provider ?? "custom");
   const modelName = (modelId: string) =>
     modelList.data?.models?.find((model) => model.id === modelId)?.name ||
     (provider && MODEL_LISTS[provider]?.find((model) => model.id === modelId)?.name) ||
     modelId;
+  const finishMediaSetup = async () => {
+    if (!target || !mediaEditorId) return;
+    const owned = new Set(target.ownedPlaceholderIds ?? []);
+    if (owned.size > 0) {
+      const unused = accountRows(target.accountId).filter((row) => {
+        if (row.id === mediaEditorId || row.model?.trim()) return false;
+        return owned.has(row.id);
+      });
+      for (const row of unused) {
+        try {
+          await deleteRow.mutateAsync(row.id);
+        } catch {
+          // The configured media Model is already saved; an unused placeholder can still be removed in the panel.
+        }
+      }
+    }
+    setMediaSaved(true);
+    onClose();
+  };
+  const cancelMediaSetup = async () => {
+    if (editorExit === "close") {
+      await close();
+      return;
+    }
+    setMediaCreating(true);
+    const removed = new Set<string>();
+    try {
+      // The anchor still powers the chat catalog when the user returns to choose another capability.
+      for (const id of target?.ownedPlaceholderIds ?? []) {
+        if (id === target?.connectionId) continue;
+        await deleteRow.mutateAsync(id);
+        removed.add(id);
+      }
+    } catch {
+      // Keep failed deletions owned, so closing the setup can retry their cleanup.
+    } finally {
+      setTarget((current) => {
+        if (!current) return current;
+        const ownedPlaceholderIds = (current.ownedPlaceholderIds ?? []).filter((id) => !removed.has(id));
+        return {
+          ...current,
+          ownedPlaceholderIds,
+          placeholderId:
+            current.placeholderId && !removed.has(current.placeholderId)
+              ? current.placeholderId
+              : ownedPlaceholderIds[0],
+        };
+      });
+      setMediaEditorId(null);
+      setSetupKind(null);
+      setEditorBusy(false);
+      setMediaCreating(false);
+    }
+  };
+  const requestEditorBack = () => {
+    if (closeBlocked) return;
+    setEditorExit("back");
+    setEditorCloseRequest((current) => current + 1);
+  };
+
+  const capabilityChooser = target && (
+    <div className="mx-auto flex max-w-xl flex-col gap-3 p-4 md:p-5">
+      <p className="text-xs text-[var(--muted-foreground)]">{t("connections.add.capabilityHelp")}</p>
+      <div className="grid gap-2 sm:grid-cols-2">
+        {availableKinds.map((kind) => (
+          <button
+            key={kind}
+            type="button"
+            data-add-connection-capability={kind}
+            onClick={() => {
+              if (!closeBlocked) setSetupKind(kind);
+            }}
+            disabled={closeBlocked}
+            className="mari-chrome-control mari-chrome-control--card min-h-16 px-3 py-3 text-left disabled:opacity-50"
+          >
+            <span className="block text-sm font-semibold">{t(`connections.add.capability.${kind}`)}</span>
+            <span className="mt-1 block text-[0.6875rem] text-[var(--muted-foreground)]">
+              {t(`connections.add.capabilityHint.${kind}`)}
+            </span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
 
   // ── Header: Back, the step's heading and "Step n of N" ──
   const heading =
@@ -967,12 +1451,18 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
         ? device
           ? t("connections.add.heading.device", { service: serviceName(device) })
           : isMedia || keyless
-            ? t("connections.add.heading.connect", { service: serviceName(provider!) })
+            ? t("connections.add.heading.connect", { service: serviceName(service ?? provider!) })
             : isLocal
               ? t("connections.add.heading.local")
-              : t("connections.add.heading.key", { service: serviceName(provider!) })
+              : t("connections.add.heading.key", { service: serviceName(service ?? provider!) })
         : step === 3
-          ? t(modelsFor ? "connections.add.heading.addModels" : "connections.add.heading.star", { name: targetName })
+          ? mediaEditorId
+            ? t("connections.add.heading.mediaSetup", { name: targetName })
+            : !setupKind
+              ? t("connections.add.heading.chooseCapability")
+              : t(modelsFor ? "connections.add.heading.addModels" : "connections.add.heading.star", {
+                  name: targetName,
+                })
           : t("connections.add.heading.ready", { name: targetName });
   const subtitle =
     step === 1
@@ -992,18 +1482,25 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
                     : "connections.add.sub.key",
           )
         : step === 3
-          ? t(modelsFor?.chat ? "connections.add.sub.modelsChat" : "connections.add.sub.models")
+          ? mediaEditorId
+            ? t("connections.add.sub.mediaEditor")
+            : !setupKind
+              ? t("connections.add.sub.capability")
+              : t(modelsFor?.chat ? "connections.add.sub.modelsChat" : "connections.add.sub.models")
           : "";
   const stepNumber = step === "ready" ? 4 : step;
   // Devices and media services end after their set-up screen.
-  const totalSteps = device || isMedia ? 2 : 4;
+  const pureMediaPath = setupKind === "image" || setupKind === "video" || (!!mediaEditorId && setupKind !== "chat");
+  const totalSteps = device ? 2 : isMedia || pureMediaPath ? 3 : 4;
   const goBack =
     step === 2
       ? backToList
       : step === 3 && !modelsFor && picks.length === 0
-        ? target?.fresh
-          ? () => setStep(2)
-          : backToList
+        ? mediaEditorId
+          ? requestEditorBack
+          : target?.fresh
+            ? () => setStep(2)
+            : backToList
         : step === "ready"
           ? () => setStep(3)
           : null;
@@ -1055,16 +1552,16 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
         >
           {busy && <Loader2 size="0.75rem" className="animate-spin" aria-hidden />}
           {t(
-            isMedia
-              ? "connections.add.continue"
-              : failure
-                ? "connections.add.tryAgain"
-                : "connections.add.testContinue",
+            isMedia ? "connections.add.connect" : failure ? "connections.add.tryAgain" : "connections.add.testContinue",
           )}
         </button>
       </div>
     );
-  } else if (step === 3) {
+  } else if (step === 3 && mediaEditorId) {
+    footerLeft = (
+      <p className="text-[0.6875rem] text-[var(--muted-foreground)]">{t("connections.add.incrementalSave")}</p>
+    );
+  } else if (step === 3 && setupKind === "chat") {
     footerLeft = picks.length > 0 && (
       <p role="status" className="flex items-center gap-1 text-xs text-[var(--muted-foreground)]">
         <Check size="0.75rem" className="text-[var(--primary)]" aria-hidden />
@@ -1084,7 +1581,7 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
         {t(picks.length > 0 && !modelsFor ? "connections.add.continue" : "connections.add.done")}
       </button>
     );
-  } else {
+  } else if (step === "ready") {
     footerLeft = (
       <button type="button" onClick={() => void addAnother()} disabled={finishing} className={SECONDARY_CLASS}>
         {t("connections.add.addAnother")}
@@ -1117,12 +1614,12 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
   return (
     <Modal
       open={open}
-      onClose={() => void close()}
+      onClose={requestClose}
       title={t(modelsFor ? "connections.accounts.addModel" : "connections.add.title")}
       width="max-w-3xl lg:max-w-4xl"
       mobileFullscreen
       opaque
-      closeDisabled={finishing}
+      closeDisabled={closeBlocked}
       panelClassName="sm:h-[min(90dvh,44rem)]"
       contentClassName="flex flex-col overflow-hidden! p-0!"
     >
@@ -1132,7 +1629,10 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
             {goBack && (
               <button
                 type="button"
-                onClick={() => void goBack()}
+                onClick={() => {
+                  if (!closeBlocked) void goBack();
+                }}
+                disabled={closeBlocked}
                 aria-label={t("connections.add.back")}
                 title={t("connections.add.back")}
                 className="mari-chrome-control -ml-1.5 h-11 w-11 shrink-0 p-0 md:h-8 md:w-8 [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:w-11"
@@ -1175,7 +1675,7 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
           {subtitle && <p className="mt-1.5 text-[0.6875rem] text-[var(--muted-foreground)]">{subtitle}</p>}
         </div>
 
-        <div key={String(step)} className="animate-fade-in-up min-h-0 flex-1">
+        <div key={String(step)} className="animate-fade-in-up flex min-h-0 flex-1 flex-col">
           {step === 1 && <div className="h-full min-h-0 overflow-y-auto overscroll-contain">{serviceList}</div>}
           {step === 2 && (
             <section className="h-full min-h-0 overflow-y-auto overscroll-contain">
@@ -1183,7 +1683,35 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
             </section>
           )}
 
-          {step === 3 && target && pickerRow && (
+          {step === 3 && target && !setupKind && !mediaEditorId && capabilityChooser}
+
+          {step === 3 && target && mediaEditorId && (
+            <div data-add-connection-media-editor className="flex min-h-0 flex-1 flex-col">
+              <ConnectionEditor
+                key={mediaEditorId}
+                connectionId={mediaEditorId}
+                embedded
+                onDone={() => void finishMediaSetup()}
+                onSaved={() => {
+                  setMediaSaved(true);
+                  setTarget((current) =>
+                    current
+                      ? {
+                          ...current,
+                          ownedPlaceholderIds: (current.ownedPlaceholderIds ?? []).filter((id) => id !== mediaEditorId),
+                          placeholderId: current.placeholderId === mediaEditorId ? undefined : current.placeholderId,
+                        }
+                      : current,
+                  );
+                }}
+                onCancel={() => void cancelMediaSetup()}
+                onBusyChange={setEditorBusy}
+                closeRequestToken={editorCloseRequest}
+              />
+            </div>
+          )}
+
+          {step === 3 && setupKind === "chat" && target && pickerRow && (
             <ConnectionModelPicker
               className="h-full"
               // From a chat's quick switch the check marks what that chat runs, and a tap chooses for it.
@@ -1212,7 +1740,7 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
             <section className="h-full min-h-0 overflow-y-auto overscroll-contain">
               <div className="mx-auto flex max-w-xl flex-col gap-3 p-4 md:p-5">
                 <div className="flex items-center gap-3 rounded-xl border border-[var(--marinara-chat-chrome-panel-divider)] p-3">
-                  {provider && <ServiceTile service={provider} large />}
+                  {provider && <ServiceTile service={service ?? provider} large />}
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold">{targetName}</p>
                     <p className="text-xs text-[var(--muted-foreground)]">

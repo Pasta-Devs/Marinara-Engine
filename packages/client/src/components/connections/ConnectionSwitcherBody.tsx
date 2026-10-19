@@ -37,6 +37,8 @@ import {
 import { accountStateLabel, groupModelsByAccount, recentModels, roleBadges } from "../../lib/connection-groups";
 import { cn } from "../../lib/utils";
 import { modelBrand, ProviderIcon } from "./ProviderIcon";
+import { ConnectionIdentity } from "./ConnectionIdentity";
+import { ConnectionModelList } from "./ConnectionModelList";
 import { ConnectionModelPicker } from "./ConnectionModelPicker";
 import { openAddModels } from "../../lib/add-connection";
 import { SubscriptionUsageWidget } from "./SubscriptionUsageWidget";
@@ -822,16 +824,15 @@ export function ConnectionSwitcherBody({
         aria-label={group.name}
       >
         <div data-connection-group={group.key} className="flex min-w-0 items-center gap-2 rounded-lg px-2 py-1.5">
-          <ProviderIcon
-            provider={group.account.provider}
-            baseUrl={group.account.baseUrl}
-            name={group.name}
+          <ConnectionIdentity
+            account={group.account}
+            rows={group.rows}
+            count={shown.length ? t("connections.list.models", { count: shown.length }) : undefined}
+            state={group.account.state}
+            stateLabel={t(accountStateLabel(group.account))}
             size="sm"
-            dim={!!unavailable}
-            className="!h-5 !w-5 !rounded-md"
+            className="flex-1"
           />
-          <span className="min-w-0 flex-1 truncate text-xs font-semibold text-foreground/85">{group.name}</span>
-          {unavailable && <span className={BADGE_CLASS}>{t(accountStateLabel(group.account))}</span>}
           {unavailable && fixButton(group)}
           {!unavailable && (
             <button
@@ -839,13 +840,26 @@ export function ConnectionSwitcherBody({
               data-switcher-browse={group.key}
               onClick={() => browse(group)}
               aria-label={t("connections.switcher.browseConnection", { connection: group.name })}
-              className="flex min-h-9 shrink-0 items-center rounded-lg px-2 text-[0.6875rem] text-foreground/60 outline-none transition-colors hover:bg-foreground/10 hover:text-foreground/85 focus-visible:ring-1 focus-visible:ring-foreground/25 max-md:min-h-11 [@media(pointer:coarse)]:min-h-11"
+              className="mari-chrome-control mari-chrome-control--small flex min-h-9 shrink-0 items-center px-2 text-[0.6875rem] max-md:min-h-11 [@media(pointer:coarse)]:min-h-11"
             >
               {t("connections.switcher.browse")}
             </button>
           )}
         </div>
-        <div className="ms-3">{shown.map((entry) => renderEntry(entry, { star: "all" }))}</div>
+        <ConnectionModelList
+          provider={group.account.provider}
+          rows={shown}
+          getKey={(entry) => entry.key}
+          renderRow={(entry, upstream) =>
+            renderEntry(
+              {
+                ...entry,
+                subtitle: upstream && entry.model ? entry.model.slice(entry.model.indexOf("/") + 1) : entry.model,
+              },
+              { star: "all" },
+            )
+          }
+        />
       </section>
     );
   };

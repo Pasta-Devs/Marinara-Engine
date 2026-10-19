@@ -93,6 +93,7 @@ import {
 import { DraftNumberInput } from "../ui/DraftNumberInput";
 import { decisionConnectionTestMessage } from "../../lib/decision-test-message";
 import { AtlasCloudModelOptions } from "./AtlasCloudModelOptions";
+import { ConnectionIdentity } from "./ConnectionIdentity";
 import { BrandMark, ProviderIcon } from "./ProviderIcon";
 import { SubscriptionUsageWidget } from "./SubscriptionUsageWidget";
 import { SubscriptionCostPill } from "./SubscriptionCostPill";
@@ -334,11 +335,40 @@ function EditorSection({ id, tabbed, children }: { id: TabId; tabbed: boolean; c
   );
 }
 
-export function ConnectionEditor() {
+interface ConnectionEditorProps {
+  /** Use a specific Model without changing the app-shell editor selection. */
+  connectionId?: string;
+  /** Render inside another guided surface, with one save-and-finish action. */
+  embedded?: boolean;
+  onDone?: () => void;
+  onSaved?: () => void;
+  onCancel?: () => void;
+  onBusyChange?: (busy: boolean) => void;
+  closeRequestToken?: number;
+}
+
+export function ConnectionEditor({
+  connectionId,
+  embedded = false,
+  onDone,
+  onSaved,
+  onCancel,
+  onBusyChange,
+  closeRequestToken = 0,
+}: ConnectionEditorProps = {}) {
   const { t: localizeUi } = useUiTranslation();
   const { t } = useTranslation();
-  const connectionDetailId = useUIStore((s) => s.connectionDetailId);
+  const storedConnectionDetailId = useUIStore((s) => s.connectionDetailId);
+  const connectionDetailId = connectionId ?? storedConnectionDetailId;
   const closeConnectionDetail = useUIStore((s) => s.closeConnectionDetail);
+  const closeEditor = useCallback(() => {
+    if (embedded) onCancel?.();
+    else closeConnectionDetail();
+  }, [closeConnectionDetail, embedded, onCancel]);
+  const finishEditor = useCallback(() => {
+    if (embedded) onDone?.();
+    else closeConnectionDetail();
+  }, [closeConnectionDetail, embedded, onDone]);
 
   const { data: conn, isLoading } = useConnection(connectionDetailId);
   const [activeTab, setActiveTab] = useState<TabId>("model");
@@ -367,11 +397,26 @@ export function ConnectionEditor() {
   const setEditorDirty = useUIStore((s) => s.setEditorDirty);
   const imageStyleProfiles = useUIStore((s) => s.imageStyleProfiles);
   useEffect(() => {
-    setEditorDirty(dirty);
-  }, [dirty, setEditorDirty]);
+    if (!embedded) setEditorDirty(dirty);
+  }, [dirty, embedded, setEditorDirty]);
   const [showUnsavedWarning, setShowUnsavedWarning] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [savedFlash, setSavedFlash] = useState(false);
+
+  const editorBusy =
+    isLoading ||
+    updateConnection.isPending ||
+    saveConnectionDefaults.isPending ||
+    testConnection.isPending ||
+    testMessage.isPending ||
+    testImageGeneration.isPending ||
+    testVideoGeneration.isPending ||
+    diagnoseClaudeSubscription.isPending ||
+    fetchModels.isPending;
+  useEffect(() => {
+    onBusyChange?.(editorBusy);
+  }, [editorBusy, onBusyChange]);
+  useEffect(() => () => onBusyChange?.(false), [onBusyChange]);
 
   // Local editable state
   const [localName, setLocalName] = useState("");
@@ -820,14 +865,17 @@ export function ConnectionEditor() {
       closeDropdown();
     };
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") closeDropdown();
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      event.stopPropagation();
+      closeDropdown();
     };
 
     window.addEventListener("pointerdown", handlePointerDown, true);
-    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keydown", handleKeyDown, true);
     return () => {
       window.removeEventListener("pointerdown", handlePointerDown, true);
-      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keydown", handleKeyDown, true);
     };
   }, [showModelDropdown]);
 
@@ -836,8 +884,15 @@ export function ConnectionEditor() {
       setShowUnsavedWarning(true);
       return;
     }
-    closeConnectionDetail();
-  }, [dirty, closeConnectionDetail]);
+    closeEditor();
+  }, [dirty, closeEditor]);
+
+  const lastCloseRequest = useRef(closeRequestToken);
+  useEffect(() => {
+    if (closeRequestToken === lastCloseRequest.current) return;
+    lastCloseRequest.current = closeRequestToken;
+    handleClose();
+  }, [closeRequestToken, handleClose]);
 
   const handleSave = useCallback(async () => {
     if (!connectionDetailId) return;
@@ -1009,6 +1064,7 @@ export function ConnectionEditor() {
         setLocalEmbeddingBaseUrl(embeddingBaseUrlValidation.value);
       }
       setDirty(false);
+      onSaved?.();
       setClearStoredApiKeyOnSave(false);
       // The token is only sent when retyped, so clear it after a successful
       // save; otherwise it would ride along on every later save.
@@ -1023,6 +1079,7 @@ export function ConnectionEditor() {
     }
   }, [
     accountId,
+    onSaved,
     connectionDetailId,
     localName,
     localProvider,
@@ -1948,20 +2005,40 @@ export function ConnectionEditor() {
   );
 
   return (
-    <div className="mari-editor-shell mari-editor-legacy-bridge flex flex-1 flex-col overflow-hidden">
+    <div
+      className={cn(
+        "mari-editor-shell mari-editor-legacy-bridge flex flex-1 flex-col overflow-hidden",
+        embedded && "min-h-0",
+      )}
+    >
       {/* ── Header ── */}
       <div className={cn("mari-editor-header", tabbed && "mari-editor-header--with-nav")}>
         <div className="mari-editor-header-main">
-          <button
-            onClick={handleClose}
-            className="mari-editor-action inline-flex shrink-0"
-            aria-label={localizeUi("connections.editor.back")}
-          >
-            <ArrowLeft size="1.125rem" />
-          </button>
-          <div className="mari-editor-icon-tile">
-            <Link size="1.125rem" />
-          </div>
+          {!embedded && (
+            <button
+              onClick={handleClose}
+              className="mari-editor-action inline-flex shrink-0"
+              aria-label={localizeUi("connections.editor.back")}
+            >
+              <ArrowLeft size="1.125rem" />
+            </button>
+          )}
+          <ProviderIcon
+            provider={localProvider}
+            baseUrl={localBaseUrl}
+            model={localModel}
+            service={
+              localProvider === "image_generation"
+                ? selectedImageService
+                : localProvider === "video_generation"
+                  ? selectedVideoProvider
+                  : localProvider === "audio"
+                    ? localAudioSource
+                    : null
+            }
+            name={localName}
+            size="sm"
+          />
           <input
             value={localName}
             onChange={(e) => {
@@ -1993,29 +2070,43 @@ export function ConnectionEditor() {
             </span>
           )}
           <button
-            onClick={handleSave}
+            onClick={async () => {
+              try {
+                await handleSave();
+                if (embedded) finishEditor();
+              } catch {
+                // The existing error banner explains what must be fixed; keep the editor open.
+              }
+            }}
             aria-label={localizeUi("ui.noodle.noodlehome.save")}
             disabled={updateConnection.isPending || saveConnectionDefaults.isPending || !!swarmUiWorkflowError}
             className="mari-editor-action mari-editor-action--primary inline-flex disabled:opacity-50"
           >
-            <Save size="0.8125rem" /> <span className="max-md:hidden">{localizeUi("ui.noodle.noodlehome.save")}</span>
+            <Save size="0.8125rem" />
+            <span className={embedded ? undefined : "max-md:hidden"}>
+              {embedded ? t("connections.add.saveFinish") : localizeUi("ui.noodle.noodlehome.save")}
+            </span>
           </button>
-          <button
-            onClick={handleExportConnection}
-            className="mari-editor-action inline-flex"
-            title={localizeUi("ui.connections.connectioneditor.exportConnection")}
-            aria-label={localizeUi("ui.connections.connectioneditor.exportConnection")}
-          >
-            <Upload size="0.9375rem" />
-          </button>
-          <button
-            onClick={handleDelete}
-            className="mari-editor-action inline-flex"
-            title={localizeUi("ui.connections.connectioneditor.deleteConnection")}
-            aria-label={localizeUi("ui.connections.connectioneditor.deleteConnection")}
-          >
-            <Trash2 size="0.9375rem" />
-          </button>
+          {!embedded && (
+            <>
+              <button
+                onClick={handleExportConnection}
+                className="mari-editor-action inline-flex"
+                title={localizeUi("ui.connections.connectioneditor.exportConnection")}
+                aria-label={localizeUi("ui.connections.connectioneditor.exportConnection")}
+              >
+                <Upload size="0.9375rem" />
+              </button>
+              <button
+                onClick={handleDelete}
+                className="mari-editor-action inline-flex"
+                title={localizeUi("ui.connections.connectioneditor.deleteConnection")}
+                aria-label={localizeUi("ui.connections.connectioneditor.deleteConnection")}
+              >
+                <Trash2 size="0.9375rem" />
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -2026,13 +2117,15 @@ export function ConnectionEditor() {
           <div className="flex gap-2">
             <button
               onClick={() => setShowUnsavedWarning(false)}
-              className="mari-editor-action mari-editor-action--compact inline-flex rounded-lg px-3 py-1"
+              disabled={editorBusy}
+              className="mari-editor-action mari-editor-action--compact inline-flex rounded-lg px-3 py-1 disabled:opacity-50"
             >
               {localizeUi("ui.connections.connectioneditor.keepEditing")}
             </button>
             <button
-              onClick={() => closeConnectionDetail()}
-              className="mari-editor-action mari-editor-action--accent mari-editor-action--compact inline-flex rounded-lg px-3 py-1"
+              onClick={closeEditor}
+              disabled={editorBusy}
+              className="mari-editor-action mari-editor-action--accent mari-editor-action--compact inline-flex rounded-lg px-3 py-1 disabled:opacity-50"
             >
               {localizeUi("ui.connections.connectioneditor.discard")}
             </button>
@@ -2040,12 +2133,13 @@ export function ConnectionEditor() {
               onClick={async () => {
                 try {
                   await handleSave();
-                  closeConnectionDetail();
+                  finishEditor();
                 } catch {
                   // Keep the editor open so the user can fix the failed save.
                 }
               }}
-              className="mari-editor-action mari-editor-action--primary mari-editor-action--compact inline-flex rounded-lg px-3 py-1"
+              disabled={editorBusy}
+              className="mari-editor-action mari-editor-action--primary mari-editor-action--compact inline-flex rounded-lg px-3 py-1 disabled:opacity-50"
             >
               {localizeUi("ui.connections.connectioneditor.saveClose")}
             </button>
@@ -2069,59 +2163,68 @@ export function ConnectionEditor() {
         <div className={cn("mari-editor-content-inner", !tabbed && "flex flex-col gap-6")}>
           <EditorSection id="model" tabbed={tabbed}>
             {/* ── Model Name ── */}
-            <FieldGroup
-              label={localizeUi("connections.editor.modelName")}
-              icon={<Tag size="0.875rem" className="text-sky-400" />}
-              help={localizeUi("connections.editor.modelNameHelp")}
-            >
-              <input
-                value={localName}
-                onChange={(e) => {
-                  setLocalName(e.target.value);
-                  markDirty();
-                }}
-                className="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
-                placeholder={localizeUi("ui.connections.connectioneditor.eGClaudeSonnetRp")}
-              />
-            </FieldGroup>
+            {!embedded && (
+              <FieldGroup
+                label={localizeUi("connections.editor.modelName")}
+                icon={<Tag size="0.875rem" className="text-sky-400" />}
+                help={localizeUi("connections.editor.modelNameHelp")}
+              >
+                <input
+                  value={localName}
+                  onChange={(e) => {
+                    setLocalName(e.target.value);
+                    markDirty();
+                  }}
+                  className="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+                  placeholder={localizeUi("ui.connections.connectioneditor.eGClaudeSonnetRp")}
+                />
+              </FieldGroup>
+            )}
 
             {/* ── Provider (or the Connection that owns the credentials) ── */}
             {accountLinked ? (
-              <div className="flex items-center justify-between gap-3 rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)]">
-                <ProviderIcon
-                  provider={localProvider}
-                  baseUrl={localBaseUrl}
-                  model={localModel}
-                  name={localName}
-                  size="sm"
-                />
-                <span className="flex min-w-0 flex-1 flex-col">
-                  <span className="truncate">
-                    {t("connections.editor.connectionLine", { name: linkedAccount?.name ?? "…" })}
-                  </span>
+              <div className="mari-connection-group flex items-center justify-between gap-3 text-sm">
+                <span className="flex min-w-0 flex-1 flex-col gap-1">
+                  <ConnectionIdentity
+                    account={linkedAccount ?? { name: "…", provider: localProvider, baseUrl: localBaseUrl }}
+                    rows={[
+                      {
+                        provider: localProvider,
+                        model: localModel,
+                        imageGenerationSource: localImageGenerationSource,
+                        imageService: localImageService,
+                        videoGenerationSource: localVideoGenerationSource,
+                        videoService: localVideoService,
+                        audioSource: localAudioSource,
+                      },
+                    ]}
+                    size="sm"
+                  />
                   {localModel && (
-                    <span className="truncate font-mono text-[0.6875rem] text-[var(--muted-foreground)]">
+                    <span className="truncate pl-9 font-mono text-[0.6875rem] text-[var(--muted-foreground)]">
                       {localModel}
                     </span>
                   )}
                   {isConnectionFlagTrue(conn?.isDefault) && (
-                    <span className="text-[0.625rem] text-[var(--muted-foreground)]">
+                    <span className="pl-9 text-[0.625rem] text-[var(--muted-foreground)]">
                       {t("connections.defaults.role.main")}
                     </span>
                   )}
                   {localDefaultForAgents && isChatProvider(localProvider) && (
-                    <span className="text-[0.625rem] text-[var(--muted-foreground)]">
+                    <span className="pl-9 text-[0.625rem] text-[var(--muted-foreground)]">
                       {t("connections.editor.roleAgentsDefault")}
                     </span>
                   )}
                 </span>
-                <button
-                  type="button"
-                  onClick={() => openModal("connection-account", { accountId })}
-                  className="mari-chrome-control mari-chrome-control--small shrink-0 text-xs"
-                >
-                  {t("connections.editor.editConnection")}
-                </button>
+                {!embedded && (
+                  <button
+                    type="button"
+                    onClick={() => openModal("connection-account", { accountId })}
+                    className="mari-chrome-control mari-chrome-control--small shrink-0 text-xs"
+                  >
+                    {t("connections.editor.editConnection")}
+                  </button>
+                )}
               </div>
             ) : (
               <FieldGroup
@@ -2540,7 +2643,7 @@ export function ConnectionEditor() {
                 )}
 
                 {/* ── Base URL ── */}
-                {(!accountLinked || hasOwnEndpoint) && (
+                {(!accountLinked || (!embedded && hasOwnEndpoint)) && (
                   <FieldGroup
                     label={localizeUi("ui.connections.connectioneditor.baseUrl")}
                     icon={<Globe size="0.875rem" className="text-sky-400" />}
@@ -2609,7 +2712,7 @@ export function ConnectionEditor() {
             )}
 
             {/* ── Image Service (only for image_generation provider) ── */}
-            {localProvider === "image_generation" && (
+            {!embedded && localProvider === "image_generation" && (
               <FieldGroup
                 label={localizeUi("ui.connections.connectioneditor.service")}
                 icon={<Globe size="0.875rem" className="text-sky-400" />}
@@ -2719,7 +2822,7 @@ export function ConnectionEditor() {
               </FieldGroup>
             )}
 
-            {localProvider === "video_generation" && (
+            {!embedded && localProvider === "video_generation" && (
               <FieldGroup
                 label={localizeUi("ui.connections.connectioneditor.videoService")}
                 icon={<Film size="0.875rem" className="text-sky-400" />}
@@ -3275,7 +3378,7 @@ export function ConnectionEditor() {
               </FieldGroup>
             )}
 
-            {localProvider === "image_generation" && (
+            {!embedded && localProvider === "image_generation" && (
               <FieldGroup
                 label={localizeUi("ui.connections.connectioneditor.imagePromptingInstructions")}
                 icon={<Sparkles size="0.875rem" className="text-sky-400" />}

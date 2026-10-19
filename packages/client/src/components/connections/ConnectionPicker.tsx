@@ -8,6 +8,8 @@ import { useTranslation } from "react-i18next";
 import { LOCAL_SIDECAR_CONNECTION_ID } from "@marinara-engine/shared";
 import { Modal } from "../ui/Modal";
 import { ProviderIcon } from "./ProviderIcon";
+import { ConnectionIdentity } from "./ConnectionIdentity";
+import { ConnectionModelList } from "./ConnectionModelList";
 import {
   choiceLabel,
   useConnectionChoices,
@@ -267,7 +269,7 @@ export function ConnectionPicker({
       contentClassName="flex flex-col !overflow-hidden !p-0"
     >
       <div className="shrink-0 px-3 pb-1 pt-3">
-        <label className="flex min-h-11 items-center gap-2 rounded-lg border border-foreground/10 bg-foreground/[0.04] px-2.5 text-foreground/55 focus-within:border-foreground/25 md:min-h-9 [@media(pointer:coarse)]:min-h-11">
+        <label className="mari-chrome-field flex min-h-11 items-center gap-2 px-2.5 text-foreground/55 focus-within:ring-1 focus-within:ring-[var(--ring)] md:min-h-9 [@media(pointer:coarse)]:min-h-11">
           <Search size="0.875rem" className="shrink-0" aria-hidden />
           <span className="sr-only">{t("connections.picker.searchLabel")}</span>
           <input
@@ -293,24 +295,26 @@ export function ConnectionPicker({
         {top}
         {groups.map(({ group, rows }) => (
           <section key={group.account.id} className="mari-connection-group mt-1" aria-label={group.account.name}>
-            {header(
-              <ProviderIcon
-                provider={group.account.provider}
-                baseUrl={group.account.baseUrl}
-                name={group.account.name}
-                size="sm"
-                dim={group.account.state !== "ok"}
-                className="!h-5 !w-5 !rounded-md"
-              />,
-              group.account.name,
-              group.account.state !== "ok" ? t(accountStateLabel(group.account)) : undefined,
-            )}
-            <div className="ms-3">{rows.map(modelOption)}</div>
+            <ConnectionIdentity
+              account={group.account}
+              rows={group.rows}
+              count={t("connections.list.models", { count: rows.length })}
+              state={group.account.state}
+              stateLabel={t(accountStateLabel(group.account))}
+              size="sm"
+              className="px-2 py-1.5"
+            />
+            <ConnectionModelList
+              provider={group.account.provider}
+              rows={rows}
+              getKey={(row) => row.id}
+              renderRow={modelOption}
+            />
           </section>
         ))}
         {standalone.length > 0 && (
           <section className="mari-connection-group mt-1" aria-label={t("connections.select.standalone")}>
-            {header(null, t("connections.select.standalone"))}
+            {header(<ProviderIcon provider="custom" size="sm" />, t("connections.select.standalone"))}
             {standalone.map(modelOption)}
           </section>
         )}
@@ -340,7 +344,7 @@ export function ConnectionPicker({
             <button
               type="button"
               onClick={choices.retry}
-              className="flex min-h-11 items-center gap-1.5 rounded-lg border border-foreground/15 px-3 font-semibold outline-none transition-colors hover:bg-foreground/10 focus-visible:ring-1 focus-visible:ring-foreground/25 md:min-h-9 [@media(pointer:coarse)]:min-h-11"
+              className="mari-chrome-control flex min-h-11 items-center gap-1.5 px-3 font-semibold md:min-h-9 [@media(pointer:coarse)]:min-h-11"
             >
               <RefreshCw size="0.75rem" aria-hidden />
               {t("connections.picker.retry")}

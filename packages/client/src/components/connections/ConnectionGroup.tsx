@@ -3,6 +3,9 @@
 // Each account has a full-width heading; only its mixed-kind model list is indented.
 // ──────────────────────────────────────────────
 import { useState, type ReactNode } from "react";
+import { ConnectionModelList } from "./ConnectionModelList";
+import { ConnectionIdentity } from "./ConnectionIdentity";
+import { getConnectionIdentity } from "../../lib/connection-identity";
 import {
   ChevronDown,
   ChevronRight,
@@ -23,22 +26,20 @@ import {
   type APIProvider,
   type ConnectionAccountListItem,
 } from "@marinara-engine/shared";
-import { useCreateConnection, useDuplicateConnection, useTestConnection } from "../../hooks/use-connections";
+import { useTestConnection } from "../../hooks/use-connections";
 import { useUpdateConnectionAccount } from "../../hooks/use-connection-accounts";
 import { starAnchorOf } from "../../hooks/use-model-star";
-import { sortByModelId, upstreamOf } from "../../lib/connection-groups";
+import { sortByModelId } from "../../lib/connection-groups";
 import { useUIStore } from "../../stores/ui.store";
 import { openAddModels } from "../../lib/add-connection";
 import { cn } from "../../lib/utils";
 import { ContextMenu } from "../ui/ContextMenu";
 import { SubscriptionUsageWidget } from "./SubscriptionUsageWidget";
-import { SMALL_ACTION, StateWord, type EngineTone } from "./DeviceDetail";
+import { SMALL_ACTION } from "./DeviceDetail";
 import { menuAt, modelSubtitle, ROW_BUTTON, type ConnectionRowData, type MenuAt } from "./ConnectionRow";
 
 /** A block in the Connections list: a tint and spacing, no outline. */
 export const GROUP_SURFACE = "rounded-xl bg-[color-mix(in_srgb,var(--foreground)_4%,transparent)]";
-
-const STATE_TONE: Record<ConnectionAccountListItem["state"], EngineTone> = { ok: "ok", off: "off", needs_key: "warn" };
 
 /** The host a Connection talks to. */
 export function hostOf(url: string | null | undefined): string {
@@ -57,7 +58,6 @@ export function ConnectionGroup({
   open,
   onToggle,
   tile,
-  providerName,
 }: {
   account: ConnectionAccountListItem;
   rows: ConnectionRowData[];
@@ -72,9 +72,6 @@ export function ConnectionGroup({
 }) {
   const { t } = useTranslation();
   const openModal = useUIStore((s) => s.openModal);
-  const openConnectionDetail = useUIStore((s) => s.openConnectionDetail);
-  const duplicate = useDuplicateConnection();
-  const createConnection = useCreateConnection();
   const updateAccount = useUpdateConnectionAccount();
   const test = useTestConnection();
   const [menu, setMenu] = useState<MenuAt | null>(null);
@@ -86,37 +83,8 @@ export function ConnectionGroup({
   const imageSource = chatRow
     ? IMAGE_GENERATION_SOURCES.find((source) => IMAGE_SOURCE_VENDOR[source.id] === account.provider)
     : undefined;
-  const openCreated = (data: unknown) => {
-    const id = (data as { id?: string } | undefined)?.id;
-    if (id) openConnectionDetail(id);
-  };
-  const addImageModel = () =>
-    imageSource &&
-    createConnection.mutate(
-      {
-        name: imageSource.name,
-        provider: "image_generation",
-        apiKey: "",
-        imageGenerationSource: imageSource.id,
-        accountId: account.id,
-      },
-      {
-        onSuccess: openCreated,
-        onError: (error) =>
-          toast.error(
-            t("connections.accounts.addImageModelFailed", {
-              error: error instanceof Error ? error.message : String(error ?? ""),
-            }),
-          ),
-      },
-    );
-  // Only a chat Model can seed the catalog pick; a media-only Connection copies its Model into the editor.
-  const addModel = () =>
-    chatRow
-      ? openAddModels({ accountId: account.id, connectionId: chatRow.id })
-      : firstRow
-        ? duplicate.mutate(firstRow.id, { onSuccess: openCreated })
-        : openModal("create-connection", { provider: account.provider });
+  const addImageModel = () => openAddModels({ accountId: account.id, kind: "image" });
+  const addModel = () => openAddModels({ accountId: account.id });
   const editAccount = () => openModal("connection-account", { accountId: account.id });
   const runTest = () =>
     firstRow &&
@@ -129,32 +97,11 @@ export function ConnectionGroup({
     });
   const service = PROVIDERS[account.provider as APIProvider]?.name ?? account.provider;
   const state = t(`connections.accounts.state.${account.state}`);
-  const host = hostOf(account.baseUrl);
-  // Generated names repeat the provider and endpoint; custom account names remain visible.
-  const automaticName =
-    providerName &&
-    [providerName, `${providerName} · ${host}`].some(
-      (name) => name.toLowerCase() === account.name.trim().toLowerCase(),
-    );
-  const heading = providerName ?? (automaticName && host ? host : account.name);
-  const accountLabel = providerName && !automaticName ? account.name : null;
-  const endpoint = host !== heading ? host : "";
+  const identity = getConnectionIdentity(account, rows);
+  const heading = identity.name;
+  const accountLabel = identity.accountLabel;
+  const endpoint = identity.endpoint;
   const count = t("connections.list.models", { count: visibleRows.length });
-  // A proxy's upstreams are labels within its one model list, never nested cards or folders.
-  const modelGroups = new Map<string, { label: string | null; rows: ConnectionRowData[] }>();
-  for (const row of sortByModelId(visibleRows)) {
-    const upstream = account.provider === "custom" ? upstreamOf(row.model)?.toLowerCase() : null;
-    const label = upstream
-      ? (PROVIDERS[upstream as APIProvider]?.name ??
-        ({ linkapi: "LinkAPI", arliai: "ArliAI" } as Record<string, string>)[upstream])
-      : null;
-    // Unrecognized prefixes may be model organizations, such as meta-llama, rather than proxy routes.
-    const key = label ? upstream! : "";
-    const group = modelGroups.get(key) ?? { label: label ?? null, rows: [] };
-    group.rows.push(row);
-    modelGroups.set(key, group);
-  }
-  const modelSections = [...modelGroups.entries()].sort(([a], [b]) => Number(!a) - Number(!b) || a.localeCompare(b));
   const modelsId = `connection-models-${account.id}`;
   const toggleLabel = t(open ? "connections.list.collapse" : "connections.list.expand", { name: account.name });
   const fix =
@@ -192,23 +139,15 @@ export function ConnectionGroup({
           })}
           className="flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded-lg px-1 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)]"
         >
-          {tile && <span className="shrink-0">{tile}</span>}
-          <span className="min-w-0 flex-1">
-            <span className="mari-connection-heading-line">
-              <span className="min-w-0 truncate text-base font-semibold leading-5 text-[var(--foreground)]">
-                {heading}
-              </span>
-              <span data-connection-group-count className="shrink-0 text-xs font-normal text-[var(--muted-foreground)]">
-                {count}
-              </span>
-            </span>
-            <span className="mt-0.5 flex min-w-0 items-center gap-2 text-xs text-[var(--muted-foreground)]">
-              {(accountLabel || endpoint) && (
-                <span className="min-w-0 truncate">{[accountLabel, endpoint].filter(Boolean).join(" · ")}</span>
-              )}
-              <StateWord tone={STATE_TONE[account.state]} label={state} />
-            </span>
-          </span>
+          <ConnectionIdentity
+            account={account}
+            rows={rows}
+            count={count}
+            state={account.state}
+            stateLabel={state}
+            icon={tile}
+            className="flex-1"
+          />
         </button>
         {fix && (
           <button type="button" onClick={fix.run} aria-label={fix.aria} className={cn(SMALL_ACTION, "shrink-0")}>
@@ -255,7 +194,6 @@ export function ConnectionGroup({
               {
                 label: t("connections.accounts.addModel"),
                 icon: <Plus size="0.75rem" />,
-                disabled: duplicate.isPending,
                 onSelect: addModel,
               },
               ...(imageSource
@@ -263,7 +201,6 @@ export function ConnectionGroup({
                     {
                       label: t("connections.accounts.addImageModel"),
                       icon: <ImageIcon size="0.75rem" />,
-                      disabled: createConnection.isPending,
                       onSelect: addImageModel,
                     },
                   ]
@@ -273,7 +210,7 @@ export function ConnectionGroup({
                     {
                       label: t("connections.detail.browseAll"),
                       icon: <Search size="0.75rem" />,
-                      onSelect: () => openAddModels({ accountId: account.id, connectionId: chatRow.id }),
+                      onSelect: () => openAddModels({ accountId: account.id, connectionId: chatRow.id, kind: "chat" }),
                     },
                   ]
                 : []),
@@ -288,44 +225,36 @@ export function ConnectionGroup({
         </div>
       )}
       {open && (
-        <div
+        <ConnectionModelList
           id={modelsId}
-          aria-label={t("ui.agents.featureagentdetailhost.value1Value2", { value1: account.name, value2: service })}
-          className="mari-connection-model-list flex min-w-0 flex-col"
-        >
-          {rows.length === 0 && (
+          ariaLabel={t("ui.agents.featureagentdetailhost.value1Value2", { value1: account.name, value2: service })}
+          provider={account.provider}
+          rows={sortByModelId(visibleRows)}
+          getKey={(row) => row.id}
+          renderRow={(row, upstream) =>
+            renderRow(row, upstream ? row.model.slice(row.model.indexOf("/") + 1) : modelSubtitle(row))
+          }
+          empty={
             <p className="px-2 py-1 text-[0.6875rem] text-[var(--muted-foreground)]">
               {t("connections.accounts.noModels")}
             </p>
-          )}
-          {modelSections.map(([upstream, section]) => (
-            <div key={upstream || "models"} data-connection-upstream={upstream || undefined} className="min-w-0">
-              {(section.label || modelSections.length > 1) && (
-                <div className="px-4 pb-1 pt-2 text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
-                  {section.label
-                    ? t("connections.accounts.upstreamHeading", { upstream: section.label, count: section.rows.length })
-                    : t("connections.accounts.section.other")}
-                </div>
-              )}
-              {section.rows.map((row) => (
-                <div key={row.id} className="mari-connection-model-slot min-w-0">
-                  {renderRow(row, section.label ? row.model.slice(row.model.indexOf("/") + 1) : modelSubtitle(row))}
-                </div>
-              ))}
-            </div>
-          ))}
-          {chatRow && (
-            <button
-              type="button"
-              onClick={() => openAddModels({ accountId: account.id, connectionId: chatRow.id })}
-              className="mari-connection-browse flex min-h-11 w-full items-center gap-3 px-4 text-left text-xs text-[var(--muted-foreground)] hover:bg-foreground/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)]"
-            >
-              <LayoutGrid size="1rem" className="shrink-0 text-[var(--muted-foreground)]" />
-              <span className="min-w-0 flex-1 text-[var(--muted-foreground)]">{t("connections.detail.browseAll")}</span>
-              <ChevronRight size="0.875rem" className="shrink-0 text-[var(--muted-foreground)]" />
-            </button>
-          )}
-        </div>
+          }
+          footer={
+            chatRow && (
+              <button
+                type="button"
+                onClick={() => openAddModels({ accountId: account.id, connectionId: chatRow.id, kind: "chat" })}
+                className="mari-connection-browse flex min-h-11 w-full items-center gap-3 px-4 text-left text-xs text-[var(--muted-foreground)] hover:bg-foreground/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)]"
+              >
+                <LayoutGrid size="1rem" className="shrink-0 text-[var(--muted-foreground)]" />
+                <span className="min-w-0 flex-1 text-[var(--muted-foreground)]">
+                  {t("connections.detail.browseAll")}
+                </span>
+                <ChevronRight size="0.875rem" className="shrink-0 text-[var(--muted-foreground)]" />
+              </button>
+            )
+          }
+        />
       )}
     </div>
   );
