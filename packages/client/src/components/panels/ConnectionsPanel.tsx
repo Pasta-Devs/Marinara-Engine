@@ -9,6 +9,8 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ComponentProps,
 import {
   ChevronLeft,
   ChevronRight,
+  ChevronsDownUp,
+  ChevronsUpDown,
   CloudOff,
   Download,
   ExternalLink,
@@ -21,6 +23,7 @@ import {
   Upload,
   X,
   BadgeDollarSign,
+  ListFilter,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
@@ -195,6 +198,8 @@ export function ConnectionsPanel() {
   const [search, setSearch] = useState("");
   /** Connections folded while a search runs; a new query unfolds every match again. */
   const [searchFolded, setSearchFolded] = useState<string[]>([]);
+  /** Only Connections that are Off or need a key (panel ⋯ menu). */
+  const [needsAttention, setNeedsAttention] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
   const [headerMenu, setHeaderMenu] = useState<{ x: number; y: number; keyboard: boolean } | null>(null);
   const [wide, setWide] = useState(false);
@@ -255,6 +260,7 @@ export function ConnectionsPanel() {
     const rowShown = (row: ConnectionRowData) => connectionMatchesSearch(row, query);
     const groups = grouped.all.flatMap((group) => {
       const { account } = group;
+      if (needsAttention && account.state === "ok") return [];
       const accountHit =
         !!query &&
         [account.name, PROVIDERS[account.provider as APIProvider]?.name ?? account.provider, hostOf(account.baseUrl)]
@@ -268,10 +274,15 @@ export function ConnectionsPanel() {
     });
     return {
       groups,
-      standalone: grouped.standalone.filter(rowShown),
-      engines: query ? engines.filter((engine) => engine.name.toLowerCase().includes(query)) : engines,
+      // Models without a Connection and on-device engines have no key to miss.
+      standalone: needsAttention ? [] : grouped.standalone.filter(rowShown),
+      engines: needsAttention
+        ? []
+        : query
+          ? engines.filter((engine) => engine.name.toLowerCase().includes(query))
+          : engines,
     };
-  }, [engines, grouped, query]);
+  }, [engines, grouped, needsAttention, query]);
 
   // Provider families are visual only: separate endpoints and keys keep their account actions and rows.
   const providerGroups = useMemo(() => {
@@ -543,7 +554,10 @@ export function ConnectionsPanel() {
   const noConnections = !isLoading && !loadFailed && connectionsList.length === 0 && (accounts?.length ?? 0) === 0;
   // Only a search can hide everything; the full list is never "no match".
   const nothingShown =
-    !!query && visible.engines.length === 0 && visible.groups.length === 0 && visible.standalone.length === 0;
+    (!!query || needsAttention) &&
+    visible.engines.length === 0 &&
+    visible.groups.length === 0 &&
+    visible.standalone.length === 0;
   const list = (
     <div className="flex flex-col gap-2">
       {loadFailed ? (
@@ -690,8 +704,27 @@ export function ConnectionsPanel() {
             className={nothingShown ? "px-2 py-6 text-center text-xs text-[var(--muted-foreground)]" : "sr-only"}
             role="status"
           >
-            {nothingShown ? t("connections.list.noMatch", { query: search.trim() }) : null}
+            {nothingShown
+              ? query
+                ? t("connections.list.noMatch", { query: search.trim() })
+                : t("connections.list.allReady")
+              : null}
           </p>
+          {needsAttention && (
+            <p
+              data-connections-attention-filter
+              className="flex items-center gap-2 px-1 text-[0.6875rem] text-[var(--muted-foreground)]"
+            >
+              {t("connections.list.attentionOnly")}
+              <button
+                type="button"
+                onClick={() => setNeedsAttention(false)}
+                className={cn("underline underline-offset-2 hover:text-[var(--foreground)]", FOCUS)}
+              >
+                {t("connections.list.showAll")}
+              </button>
+            </p>
+          )}
           {providerGroups.map((provider) => (
             // Provider ordering stays; accounts are peers and each folds by its own id.
             <div key={provider.key} data-connection-provider={provider.key} className="flex min-w-0 flex-col gap-3">
@@ -812,6 +845,31 @@ export function ConnectionsPanel() {
               icon: <Upload size="0.75rem" />,
               disabled: connectionsList.length === 0,
               onSelect: () => void exportConnections(connectionsList),
+            },
+            {
+              label: t("connections.list.foldAll"),
+              icon: <ChevronsDownUp size="0.75rem" />,
+              disabled: grouped.all.every((group) => collapsedConnections.includes(group.account.id)),
+              onSelect: () => {
+                for (const { account } of grouped.all)
+                  if (!collapsedConnections.includes(account.id)) toggleConnectionCollapsed(account.id);
+              },
+            },
+            {
+              label: t("connections.list.openAll"),
+              icon: <ChevronsUpDown size="0.75rem" />,
+              disabled: !grouped.all.some((group) => collapsedConnections.includes(group.account.id)),
+              onSelect: () => {
+                for (const { account } of grouped.all)
+                  if (collapsedConnections.includes(account.id)) toggleConnectionCollapsed(account.id);
+              },
+            },
+            {
+              label: t("connections.list.attentionFilter"),
+              icon: <ListFilter size="0.75rem" />,
+              toggle: true,
+              checked: needsAttention,
+              onSelect: () => setNeedsAttention(!needsAttention),
             },
             {
               label: t("connections.list.showCostBadges"),
