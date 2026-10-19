@@ -60,6 +60,7 @@ import type { ModelsFor } from "../../lib/add-connection";
 import { TTSConfigCard } from "../panels/settings/TTSConfigCard";
 import { SpeechToTextCard } from "../panels/settings/SpeechToTextCard";
 import { LocalWhisper } from "../connections/DeviceDetail";
+import { DecisionModelModal } from "./DecisionModelModal";
 import { starAnchorOf } from "../../hooks/use-model-star";
 import { isConnectionFlagTrue } from "../../lib/connection-filters";
 import { cn } from "../../lib/utils";
@@ -405,6 +406,7 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
         : null,
   );
   const [device, setDevice] = useState<DeviceService | null>(startDevice);
+  const [decisionOpen, setDecisionOpen] = useState(false);
   const [step, setStep] = useState<1 | 2 | 3 | "ready">(modelsFor ? 3 : startingService ? 2 : 1);
   const [target, setTarget] = useState<Target | null>(null);
   const [name, setName] = useState("");
@@ -1387,7 +1389,20 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
         </div>
       </div>
       {device === "local_model" && (
-        <p className="text-xs leading-relaxed text-[var(--muted-foreground)]">{t("connections.add.localModelInfo")}</p>
+        <>
+          <p className="text-xs leading-relaxed text-[var(--muted-foreground)]">
+            {t("connections.add.localModelInfo")}
+          </p>
+          {/* The decision sidecar is its own model and its own process, so it does not wait for a chat model. */}
+          <button
+            type="button"
+            onClick={() => setDecisionOpen(true)}
+            className="mari-chrome-control mari-chrome-control--compact w-full text-center"
+          >
+            {t("ui.panels.sidecarcard.decisionSidecar")}
+          </button>
+          <DecisionModelModal open={decisionOpen} onClose={() => setDecisionOpen(false)} />
+        </>
       )}
       {device === "tts" && <TTSConfigCard defaultExpanded />}
       {device === "stt" && <SpeechToTextCard defaultExpanded />}

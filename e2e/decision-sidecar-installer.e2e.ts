@@ -39,10 +39,10 @@ test("the decision installer warns, gates the model choice behind Enable, and ju
     useUIStore.getState().openRightPanel("connections");
   });
 
-  // The Built-in model card owns this, so the installer is reached from inside it.
-  const openCard = page.getByText("Built-in model", { exact: true }).first();
-  await expect(openCard).toBeVisible();
-  await openCard.click();
+  // Add connection → Built-in model: the installer sits on its set-up screen, reachable before anything is set up.
+  await page.getByRole("button", { name: "Add connection", exact: true }).filter({ visible: true }).first().click();
+  const addDialog = page.getByRole("dialog", { name: "Add connection", exact: true });
+  await addDialog.locator('[data-add-connection-service="local_model"]').click();
   // Not conditional: the decision sidecar is its own model and its own process, so
   // this must be reachable whether or not a chat model has been downloaded. Skipping
   // here would hide exactly the regression that put it behind one.
@@ -50,7 +50,7 @@ test("the decision installer warns, gates the model choice behind Enable, and ju
   await expect(openInstaller).toBeVisible();
   await openInstaller.click();
 
-  const dialog = page.getByRole("dialog");
+  const dialog = page.getByRole("dialog", { name: "Built-in decision model", exact: true });
   await expect(dialog).toBeVisible();
   // The warning is always visible, above anything that could start a download.
   await expect(dialog.getByText("Experimental. Most people do not need this.")).toBeVisible();
@@ -65,7 +65,7 @@ test("the decision installer warns, gates the model choice behind Enable, and ju
   // Nothing downloadable is on screen until the sidecar is enabled.
   await expect(dialog.getByRole("button", { name: "Download and install" })).toHaveCount(0);
   await expect(dialog.getByPlaceholder("owner/model-name")).toHaveCount(0);
-  await expect(dialog.getByRole("button", { name: /Enable decision sidecar/ })).toBeVisible();
+  await expect(dialog.getByRole("button", { name: /Use the built-in decision model/ })).toBeVisible();
 
   // A pasted repository is judged by what it declares, without installing anything.
   const refused = await (
