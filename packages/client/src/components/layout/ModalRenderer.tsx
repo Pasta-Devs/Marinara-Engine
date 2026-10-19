@@ -167,7 +167,13 @@ export function ModalRenderer() {
       content = <ImportConnectionModal open onClose={closeModal} />;
       break;
     case "connection-account":
-      content = <ConnectionAccountEditor accountId={(modal?.props?.accountId as string) ?? ""} onClose={closeModal} />;
+      content = (
+        <ConnectionAccountEditor
+          accountId={(modal?.props?.accountId as string) ?? ""}
+          replaceKey={modal?.props?.replaceKey === true}
+          onClose={closeModal}
+        />
+      );
       break;
     case "create-persona":
       content = (

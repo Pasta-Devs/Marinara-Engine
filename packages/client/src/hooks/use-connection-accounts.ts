@@ -61,7 +61,11 @@ export function useUpdateConnectionAccount() {
   const invalidate = useInvalidateConnections();
   return useMutation({
     mutationFn: ({ id, ...input }: UpdateConnectionAccountInput & { id: string }) =>
-      api.patch<ConnectionAccountListItem>(`/connection-accounts/${id}`, input),
+      // After a new key: the other Connections that still hold the old one.
+      api.patch<ConnectionAccountListItem & { sameKeyAccounts?: Array<{ id: string; name: string }> }>(
+        `/connection-accounts/${id}`,
+        input,
+      ),
     onSuccess: invalidate,
   });
 }

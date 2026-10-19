@@ -46,6 +46,7 @@ import {
   modelCost,
   rankModelMoveCandidates,
   normalizeVideoGenerationProfile,
+  updateConnectionAccountSchema,
   type AtlasCloudVideoModelSchemaResponse,
 } from "@marinara-engine/shared";
 import {
@@ -164,6 +165,18 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function readDebugMode(body: unknown): boolean {
   return isRecord(body) && body.debugMode === true;
+}
+
+/** A key or address typed in the editor but not saved yet, checked like a save; never logged or returned. */
+const testDraftSchema = updateConnectionAccountSchema.pick({ apiKey: true, baseUrl: true });
+function readTestDraft(body: unknown) {
+  if (!isRecord(body)) return {};
+  const parsed = testDraftSchema.safeParse({ apiKey: body.apiKey, baseUrl: body.baseUrl });
+  if (!parsed.success) return null;
+  const draft: { apiKey?: string; baseUrl?: string } = {};
+  if (parsed.data.apiKey) draft.apiKey = parsed.data.apiKey.trim();
+  if (parsed.data.baseUrl !== undefined) draft.baseUrl = parsed.data.baseUrl.trim();
+  return draft;
 }
 
 function trimProviderError(value: string, maxLen = CONNECTION_TEST_ERROR_PREVIEW_CHARS): string {
@@ -671,8 +684,11 @@ export async function connectionsRoutes(app: FastifyInstance) {
 
   // Test connection (sends a tiny ping to the API)
   app.post<{ Params: { id: string } }>("/:id/test", async (req, reply) => {
-    const conn = await storage.getWithKey(req.params.id);
-    if (!conn) return unusableConnection(req.params.id, reply);
+    const stored = await storage.getWithKey(req.params.id);
+    if (!stored) return unusableConnection(req.params.id, reply);
+    const draft = readTestDraft(req.body);
+    if (!draft) return reply.status(400).send({ error: "Invalid key or address" });
+    const conn = { ...stored, ...draft };
 
     const requestDebug = readDebugMode(req.body);
     const debugLog = (message: string, ...args: any[]) => logDebugOverride(requestDebug, message, ...args);

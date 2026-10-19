@@ -6,7 +6,7 @@ import { useState, type ReactNode } from "react";
 import { ConnectionModelList } from "./ConnectionModelList";
 import { ConnectionIdentity } from "./ConnectionIdentity";
 import { getConnectionIdentity, modelSubtitle } from "../../lib/connection-identity";
-import { ChevronDown, ImageIcon, MoreHorizontal, Plus, Power, Settings2, Wifi } from "lucide-react";
+import { ChevronDown, ImageIcon, KeyRound, MoreHorizontal, Plus, Power, Settings2, Wifi } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
@@ -85,6 +85,7 @@ export function ConnectionGroup({
   const addModels = () => openAddModels({ accountId: account.id, connectionId: chatRow?.id });
   const rolesOf = (row: ConnectionRowData) => modelRoleLabels(row, t);
   const editAccount = () => openModal("connection-account", { accountId: account.id });
+  const replaceKey = () => openModal("connection-account", { accountId: account.id, replaceKey: true });
   const runTest = () =>
     firstRow &&
     test.mutate(firstRow.id, {
@@ -210,6 +211,15 @@ export function ConnectionGroup({
                 icon: <Settings2 size="0.75rem" />,
                 onSelect: editAccount,
               },
+              ...(account.hasApiKey
+                ? [
+                    {
+                      label: t("connections.accounts.replaceKey"),
+                      icon: <KeyRound size="0.75rem" />,
+                      onSelect: replaceKey,
+                    },
+                  ]
+                : []),
               {
                 label: t("connections.accounts.test"),
                 icon: <Wifi size="0.75rem" />,

@@ -156,10 +156,19 @@ export async function connectionAccountsRoutes(app: FastifyInstance) {
 
   app.patch<{ Params: { id: string } }>("/:id", async (req, reply) => {
     const input = updateConnectionAccountSchema.parse(req.body);
+    const before = input.apiKey ? await accounts.getById(req.params.id) : null;
+    const oldKey = before ? decryptApiKey(before.apiKeyEncrypted) : "";
     const updated = await accounts.update(req.params.id, input);
     if (!updated) return reply.status(404).send({ error: "Connection not found" });
     if (input.apiKey !== undefined || input.baseUrl !== undefined) resetMemoryRecallVectorizerCache();
-    return listItem(updated);
+    // A new key: name the other Connections that still hold the old one, so the client can offer to update them.
+    const sameKey =
+      oldKey && oldKey !== input.apiKey
+        ? (await accounts.list())
+            .filter((other) => other.id !== updated.id && decryptApiKey(other.apiKeyEncrypted) === oldKey)
+            .map((other) => ({ id: other.id, name: other.name }))
+        : [];
+    return { ...(await listItem(updated)), ...(sameKey.length ? { sameKeyAccounts: sameKey } : {}) };
   });
 
   // Upload the Connection's picture (same checks and folder as a Model's). PATCH `icon` changes or resets it.

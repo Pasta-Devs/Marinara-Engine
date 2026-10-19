@@ -264,16 +264,25 @@ function recordConnectionFailure(id: string, action: string, error: unknown) {
   });
 }
 
+/** A Model id, or one with a key or address typed in an editor but not saved yet. */
+type TestInput = string | { id: string; apiKey?: string; baseUrl?: string };
+const testId = (input: TestInput) => (typeof input === "string" ? input : input.id);
+
 export function useTestConnection() {
   return useMutation({
-    mutationFn: (id: string) =>
-      api.post<ConnectionTestResult>(`/connections/${id}/test`, { debugMode: useUIStore.getState().debugMode }),
-    onError: (error, id) => recordConnectionFailure(id, "Test connection", error),
+    mutationFn: (input: TestInput) => {
+      const { id, ...draft } = typeof input === "string" ? { id: input } : input;
+      return api.post<ConnectionTestResult>(`/connections/${id}/test`, {
+        debugMode: useUIStore.getState().debugMode,
+        ...draft,
+      });
+    },
+    onError: (error, input) => recordConnectionFailure(testId(input), "Test connection", error),
     // A failed check still answers 200 with `success: false`.
-    onSuccess: (result, id) =>
+    onSuccess: (result, input) =>
       result.success
         ? useUIStore.getState().setLastAppError(null)
-        : recordConnectionFailure(id, "Test connection", result.message),
+        : recordConnectionFailure(testId(input), "Test connection", result.message),
   });
 }
 

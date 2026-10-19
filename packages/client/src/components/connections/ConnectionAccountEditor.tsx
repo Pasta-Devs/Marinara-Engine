@@ -115,7 +115,16 @@ function SecretField({
   );
 }
 
-export function ConnectionAccountEditor({ accountId, onClose }: { accountId: string; onClose: () => void }) {
+export function ConnectionAccountEditor({
+  accountId,
+  replaceKey = false,
+  onClose,
+}: {
+  accountId: string;
+  /** Opened from "Replace key": the key field starts empty and focused. */
+  replaceKey?: boolean;
+  onClose: () => void;
+}) {
   const { t } = useTranslation();
   const { data: accounts, isLoading } = useConnectionAccounts();
   const { data: rawRows } = useConnections();
@@ -158,8 +167,8 @@ export function ConnectionAccountEditor({ accountId, onClose }: { accountId: str
       maxRequestsPerMinute: account.maxRequestsPerMinute?.toString() ?? "",
       maxParallelJobs: account.maxParallelJobs?.toString() ?? "",
     });
-    if (!account.hasApiKey) setApiKey("");
-  }, [account, draft]);
+    if (!account.hasApiKey || replaceKey) setApiKey("");
+  }, [account, draft, replaceKey]);
 
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) =>
     setDraft((current) => (current ? { ...current, [key]: value } : current));
@@ -185,8 +194,23 @@ export function ConnectionAccountEditor({ accountId, onClose }: { accountId: str
   const save = async (close = true): Promise<boolean> => {
     if (!account || !dirty) return true;
     try {
-      await update.mutateAsync({ id: account.id, ...changes });
+      const saved = await update.mutateAsync({ id: account.id, ...changes });
       toast.success(t("connections.accounts.editor.saved"));
+      const others = saved.sameKeyAccounts ?? [];
+      if (changes.apiKey && others.length) {
+        const confirmed = await showConfirmDialog({
+          title: t("connections.accounts.editor.sameKeyTitle"),
+          message: t("connections.accounts.editor.sameKeyMessage", {
+            count: others.length,
+            names: others.map((other) => other.name).join(", "),
+          }),
+          confirmLabel: t("connections.accounts.editor.sameKeyUpdate", { count: others.length }),
+        });
+        if (confirmed) {
+          await Promise.all(others.map((other) => update.mutateAsync({ id: other.id, apiKey: changes.apiKey })));
+          toast.success(t("connections.accounts.editor.sameKeyUpdated", { count: others.length }));
+        }
+      }
       if (close) onClose();
       return true;
     } catch (error) {
@@ -269,7 +293,7 @@ export function ConnectionAccountEditor({ accountId, onClose }: { accountId: str
           : !testRow
             ? t("connections.accounts.addModelFirst")
             : accessDirty
-              ? t("connections.accounts.editor.testUsesSaved")
+              ? t("connections.accounts.editor.testUsesDraft")
               : "";
 
   const tile = account && (
@@ -361,7 +385,10 @@ export function ConnectionAccountEditor({ accountId, onClose }: { accountId: str
             <span className={labelClass}>{t("connections.accounts.editor.address")}</span>
             <input
               value={draft.baseUrl}
-              onChange={(event) => set("baseUrl", event.target.value)}
+              onChange={(event) => {
+                set("baseUrl", event.target.value);
+                test.reset();
+              }}
               placeholder={t("connections.accounts.editor.endpointPlaceholder")}
               inputMode="url"
               spellCheck={false}
@@ -376,15 +403,21 @@ export function ConnectionAccountEditor({ accountId, onClose }: { accountId: str
             saved={account.hasApiKey}
             last4={account.apiKeyLast4}
             value={apiKey}
-            onChange={setApiKey}
+            onChange={(value) => {
+              setApiKey(value);
+              test.reset();
+            }}
             help={t("connections.accounts.editor.keySaved")}
-            autoFocus={account.state === "needs_key"}
+            autoFocus={account.state === "needs_key" || replaceKey}
           />
 
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
             <button
               type="button"
-              onClick={() => testRow && test.mutate(testRow.id)}
+              // Tests the key and address as typed, so a wrong key is caught before it is saved.
+              onClick={() =>
+                testRow && test.mutate({ id: testRow.id, apiKey: changes.apiKey, baseUrl: changes.baseUrl })
+              }
               disabled={!testRow || test.isPending}
               className="mari-connection-btn"
             >
