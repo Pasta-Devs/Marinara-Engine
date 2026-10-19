@@ -385,7 +385,7 @@ function JobRow({
       {/* The shared model row, with the job's name leading it. */}
       <ModelRow
         rowProps={{
-          className: cn("mari-connection-defaults-job rounded-xl pe-0", open && "mari-connection-defaults-job--open"),
+          className: cn("mari-connection-defaults-job pe-0", open && "mari-connection-defaults-job--open"),
         }}
         data-defaults-tile={tile.key}
         onClick={job.onOpen ?? onToggle}
@@ -393,7 +393,7 @@ function JobRow({
         aria-controls={job.onOpen || !open ? undefined : controlsId}
         aria-label={t("connections.defaults.jobLabel", { role: tile.title, value: tile.value })}
         className={cn(
-          "min-h-12 gap-2 rounded-xl py-1.5 pe-2 ps-2",
+          "min-h-12 gap-2 py-1.5 pe-2 ps-2",
           tile.muted && "[&_[data-model-title]]:font-normal [&_[data-model-title]]:italic",
         )}
         lead={
@@ -704,10 +704,16 @@ export function ConnectionDefaultsBox({
     />
   );
 
+  const slot = (job: Job) => (
+    <div key={job.tile.key} className="mari-connection-model-slot min-w-0">
+      {renderJob(job)}
+    </div>
+  );
+
   return (
     <section
       aria-labelledby="connections-defaults-title"
-      className="mari-connection-defaults-box mari-panel-gradient--connections p-1.5"
+      className="mari-connection-group mari-connection-defaults-box"
     >
       <button
         type="button"
@@ -720,7 +726,7 @@ export function ConnectionDefaultsBox({
         <span className="min-w-0 flex-1">
           <span
             id="connections-defaults-title"
-            className="block text-[0.9375rem] font-semibold leading-6 text-[var(--foreground)]"
+            className="block text-base font-semibold leading-6 text-[var(--foreground)]"
           >
             {t("connections.defaults.title")}
           </span>
@@ -741,7 +747,8 @@ export function ConnectionDefaultsBox({
       </button>
       {!folded && (
         <div id="connections-defaults" className="flex flex-col gap-1 pt-0.5">
-          {jobs.filter(isShown).map(renderJob)}
+          {/* The same neutral well as a connection's models. */}
+          <div className="mari-connection-model-well">{jobs.filter(isShown).map(slot)}</div>
           {unused.length > 0 && (
             <>
               <button
@@ -770,7 +777,7 @@ export function ConnectionDefaultsBox({
                   )}
                 />
               </button>
-              {showUnused && unused.map(renderJob)}
+              {showUnused && <div className="mari-connection-model-well">{unused.map(slot)}</div>}
             </>
           )}
         </div>

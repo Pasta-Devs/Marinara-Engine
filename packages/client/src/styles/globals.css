@@ -1511,7 +1511,7 @@
 .mari-connection-group {
   border-radius: 1rem;
   padding: 0.5rem;
-  /* Connection blue carries the card heading; the model well below stays neutral. */
+  /* One box for the Defaults and every connection: headings on connection blue, rows in neutral wells. */
   background-color: color-mix(in srgb, var(--mari-panel-gradient-start) 10%, transparent);
 }
 
@@ -1530,32 +1530,30 @@
   border-radius: 0.625rem;
 }
 .mari-connection-model-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
   margin-block-start: 0.25rem;
+}
+/* Models sit in an inset well; a proxy gets one per upstream, its heading on the card above it. */
+.mari-connection-model-well {
   overflow: hidden;
   /* Concentric with the card: 1rem card radius - 0.5rem padding. */
   border-radius: 0.5rem;
-  background: color-mix(in srgb, var(--mari-panel-gradient-start) 6%, transparent);
+  background: color-mix(in srgb, var(--background) 45%, transparent);
 }
-/* Every row of a well (models, upstream headings, Show more, Add models) sits under a hairline. */
-.mari-connection-model-slot + .mari-connection-model-slot,
-.mari-connection-model-section-head + .mari-connection-model-slot,
-[data-connection-section] + [data-connection-section],
-.mari-connection-model-list > [data-connection-section] + .mari-connection-browse {
-  border-block-start: 1px solid color-mix(in srgb, var(--foreground) 4%, transparent);
+.mari-connection-model-slot + .mari-connection-model-slot {
+  border-block-start: 1px solid color-mix(in srgb, var(--foreground) 5%, transparent);
 }
-/* Connections panel: the Defaults box and the empty state wear the connections tint, like .mari-suggestion-chip. */
-/* A tint, no frame: groups never wear an outline and a tint together. */
-.mari-connection-defaults-box,
+/* The empty state wears the connections tint, like .mari-suggestion-chip. A tint, no frame. */
 .mari-connection-empty {
   border-radius: 0.875rem;
   /* Flat: one even connection-blue tint, no gradient. */
   background: color-mix(in srgb, var(--mari-panel-gradient-start) 7%, var(--card));
 }
 .mari-connection-defaults-job {
-  background: color-mix(in srgb, var(--foreground) 4%, transparent);
   transition: background-color 150ms ease;
 }
-.mari-connection-defaults-job:hover,
 .mari-connection-defaults-job--open {
   background: color-mix(in srgb, var(--mari-panel-gradient-start) 10%, transparent);
 }

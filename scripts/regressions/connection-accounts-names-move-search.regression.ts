@@ -552,7 +552,11 @@ try {
     model: "m",
     baseUrl: "https://c.example/v1",
   } as never))!;
-  await db.update(apiConnections).set({ accountId: shared.id }).where(eq(apiConnections.id, sideRow.id));
+  // Newer than the account's own row, so that row (not this image one) stands for the account's service.
+  await db
+    .update(apiConnections)
+    .set({ accountId: shared.id, createdAt: new Date(Date.now() + 60_000).toISOString() })
+    .where(eq(apiConnections.id, sideRow.id));
   await db
     .update(connectionAccounts)
     .set({ modelCatalogs: JSON.stringify({ image_generation: { fetchedAt: "x", models: [{ id: "m" }] } }) })

@@ -114,9 +114,9 @@ export function ConnectionModelList<T extends { model?: string | null; provider?
                 aria-expanded={open}
                 onClick={() => flip(key)}
                 className={cn(
-                  // A quiet section label under the card heading: small muted text, a softened 0.875rem mark centred
-                  // in the rows' tile column, its role badges at the row end like a model row's.
-                  "mari-connection-model-section-head flex min-h-10 w-full min-w-0 items-center gap-2 ps-[1.0625rem] pe-2 text-left text-xs font-semibold text-[var(--muted-foreground)] hover:bg-foreground/[0.04]",
+                  // A label on the card, above its own well: no tile and no hairline, so it never reads as a model
+                  // row. The 0.875rem mark is centred in the rows' tile column; role badges sit at the end.
+                  "mari-connection-model-section-head flex min-h-9 w-full min-w-0 items-center gap-2 rounded-lg ps-[1.0625rem] pe-2 text-left text-xs font-semibold text-[var(--foreground)] hover:bg-foreground/[0.04]",
                   ROW_FOCUS,
                 )}
               >
@@ -127,7 +127,9 @@ export function ConnectionModelList<T extends { model?: string | null; provider?
                   {upstream && <BrandMark of={upstream} className="h-3.5 w-3.5" />}
                 </span>
                 <span className="min-w-0 truncate">{section.label ?? t("connections.accounts.section.other")}</span>
-                <span className="shrink-0 font-normal tabular-nums">{section.rows.length}</span>
+                <span className="shrink-0 font-normal tabular-nums text-[var(--muted-foreground)]">
+                  {section.rows.length}
+                </span>
                 <span className="ms-auto flex min-w-0 items-center gap-1">
                   {hint?.roles[0] && (
                     <span className="flex shrink-0 items-center gap-1" title={hint.roles.join(", ")}>
@@ -151,28 +153,32 @@ export function ConnectionModelList<T extends { model?: string | null; provider?
                 />
               </button>
             )}
-            {kept.map((row) => (
-              <div key={getKey(row)} className="mari-connection-model-slot min-w-0">
-                {renderRow(row, upstream || null)}
-              </div>
-            ))}
-            {showMore && (
-              <div className="mari-connection-model-slot min-w-0">
-                <button
-                  type="button"
-                  aria-expanded={false}
-                  onClick={() => flip(key)}
-                  className={cn(
-                    "flex min-h-11 w-full items-center gap-3 ps-2 pe-2 text-left text-xs text-[var(--muted-foreground)] hover:bg-foreground/[0.04]",
-                    ROW_FOCUS,
-                  )}
-                >
-                  <span className="w-8 shrink-0" aria-hidden />
-                  <span className="min-w-0 flex-1 truncate">
-                    {t("connections.accounts.showMore", { count: hidden })}
-                  </span>
-                  <ChevronDown size="0.875rem" aria-hidden className="shrink-0" />
-                </button>
+            {(kept.length > 0 || showMore) && (
+              <div className={cn("mari-connection-model-well min-w-0", headed && "mt-0.5")}>
+                {kept.map((row) => (
+                  <div key={getKey(row)} className="mari-connection-model-slot min-w-0">
+                    {renderRow(row, upstream || null)}
+                  </div>
+                ))}
+                {showMore && (
+                  <div className="mari-connection-model-slot min-w-0">
+                    <button
+                      type="button"
+                      aria-expanded={false}
+                      onClick={() => flip(key)}
+                      className={cn(
+                        "flex min-h-11 w-full items-center gap-3 ps-2 pe-2 text-left text-xs text-[var(--muted-foreground)] hover:bg-foreground/[0.04]",
+                        ROW_FOCUS,
+                      )}
+                    >
+                      <span className="w-8 shrink-0" aria-hidden />
+                      <span className="min-w-0 flex-1 truncate">
+                        {t("connections.accounts.showMore", { count: hidden })}
+                      </span>
+                      <ChevronDown size="0.875rem" aria-hidden className="shrink-0" />
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -184,7 +190,7 @@ export function ConnectionModelList<T extends { model?: string | null; provider?
           data-add-models
           onClick={onAddModels}
           className={cn(
-            "mari-connection-browse mari-panel-gradient--connections flex min-h-12 w-full items-center gap-3 ps-2 pe-2 text-left text-sm font-semibold text-[var(--mari-connection-ink)] hover:bg-foreground/[0.04]",
+            "mari-connection-browse mari-panel-gradient--connections flex min-h-12 w-full items-center gap-3 rounded-lg ps-2 pe-2 text-left text-sm font-semibold text-[var(--mari-connection-ink)] hover:bg-foreground/[0.04]",
             ROW_FOCUS,
           )}
         >
