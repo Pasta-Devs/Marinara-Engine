@@ -13,7 +13,7 @@ import type { ConnectionAccountListItem } from "@marinara-engine/shared";
 import { api } from "../../lib/api-client";
 import { cn } from "../../lib/utils";
 import { useMoveConnection } from "../../hooks/use-connections";
-import { useCatalogSearch } from "../../hooks/use-connection-accounts";
+import { useCatalogSearch, useSplitModel } from "../../hooks/use-connection-accounts";
 import { Modal } from "../ui/Modal";
 import { ConnectionIdentity } from "./ConnectionIdentity";
 import type { ConnectionRowData } from "./ConnectionRow";
@@ -44,18 +44,42 @@ export function MoveConnectionDialog({
   same,
   other,
   rowsOf,
+  splitFrom,
   onClose,
 }: {
   row: ConnectionRowData;
   same: ConnectionAccountListItem[];
   other: ConnectionAccountListItem[];
+  /** The Model's own Connection when a copy of it may take the Model ("Move to a new connection"). */
+  splitFrom?: ConnectionAccountListItem | null;
   rowsOf: (accountId: string) => ConnectionRowData[];
   onClose: () => void;
 }) {
   const { t } = useTranslation();
   const move = useMoveConnection();
+  const split = useSplitModel();
+  const busy = move.isPending || split.isPending;
   const [target, setTarget] = useState<ConnectionAccountListItem | null>(null);
   const title = row.name?.trim() || row.model;
+
+  const splitOff = (from: ConnectionAccountListItem) => {
+    const name = t("connections.move.copyName", { name: from.name });
+    split.mutate(
+      { accountId: from.id, connectionId: row.id, name },
+      {
+        onSuccess: () => {
+          toast.success(t("connections.accounts.row.moved", { model: title, connection: name }));
+          onClose();
+        },
+        onError: (error) =>
+          toast.error(
+            t("connections.accounts.row.moveFailed", {
+              error: error instanceof Error ? error.message : String(error ?? ""),
+            }),
+          ),
+      },
+    );
+  };
 
   const run = (account: ConnectionAccountListItem, model?: string) =>
     move.mutate(
@@ -76,7 +100,7 @@ export function MoveConnectionDialog({
 
   const targetRow = (account: ConnectionAccountListItem, onPick: () => void) => (
     <li key={account.id}>
-      <button type="button" data-move-target={account.id} onClick={onPick} disabled={move.isPending} className={ROW}>
+      <button type="button" data-move-target={account.id} onClick={onPick} disabled={busy} className={ROW}>
         <ConnectionIdentity
           account={account}
           rows={rowsOf(account.id)}
@@ -94,7 +118,7 @@ export function MoveConnectionDialog({
     <Modal
       open
       onClose={onClose}
-      closeDisabled={move.isPending}
+      closeDisabled={busy}
       title={t("connections.move.title")}
       width="max-w-md"
       opaque
@@ -117,6 +141,23 @@ export function MoveConnectionDialog({
                 {other.map((account) => targetRow(account, () => setTarget(account)))}
               </ul>
             </section>
+          )}
+          {splitFrom && (
+            <button
+              type="button"
+              data-move-new-connection
+              onClick={() => splitOff(splitFrom)}
+              disabled={busy}
+              className={ROW}
+            >
+              <span className="flex min-w-0 flex-1 flex-col">
+                <span className="truncate font-semibold">{t("connections.move.newConnection")}</span>
+                <span className="text-[var(--muted-foreground)]">
+                  {t("connections.move.newConnectionHint", { name: splitFrom.name })}
+                </span>
+              </span>
+              <ChevronRight size="1rem" className="shrink-0 text-[var(--muted-foreground)]" aria-hidden />
+            </button>
           )}
         </div>
       )}

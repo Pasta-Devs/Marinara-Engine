@@ -74,6 +74,16 @@ export function useDeleteConnectionAccount() {
   });
 }
 
+/** "Move to a new connection": a copy of the Connection (same key, address and limits) takes the Model. */
+export function useSplitModel() {
+  const invalidate = useInvalidateConnections();
+  return useMutation({
+    mutationFn: ({ accountId, ...body }: { accountId: string; connectionId: string; name: string }) =>
+      api.post<{ account: ConnectionAccountListItem }>(`/connection-accounts/${accountId}/split`, body),
+    onSuccess: invalidate,
+  });
+}
+
 /** Finds or creates the Model for `model` under a Connection and returns its id. */
 export function usePickModel() {
   const invalidate = useInvalidateConnections();

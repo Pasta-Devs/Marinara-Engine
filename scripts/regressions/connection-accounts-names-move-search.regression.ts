@@ -610,6 +610,29 @@ try {
   assert.deepEqual(await modelPicture(), { icon: "brand:claude", imagePath: null }, "a logo replaces the upload");
   await json("PATCH", `/connections/${hostB.row}`, { icon: null });
   assert.deepEqual(await modelPicture(), { icon: null, imagePath: null }, "reset clears both");
+
+  // ── "Move to a new connection": a copy of the Connection (key, address, limits) takes the one Model ──
+  const splitSource = await addAccount({ provider: "openai", apiKey: "split-key-7777", name: "Split source" });
+  await json("PATCH", `/accounts/${splitSource.id}`, { maxRequestsPerMinute: 30 });
+  const split = await json("POST", `/accounts/${splitSource.id}/split`, {
+    connectionId: splitSource.row,
+    name: "Split copy",
+  });
+  assert.equal(split.status, 201, split.body);
+  const copyId = split.data.account.id as string;
+  assert.notEqual(copyId, splitSource.id);
+  assert.equal(split.data.account.name, "Split copy");
+  assert.equal(split.data.account.maxRequestsPerMinute, 30, "limits come along");
+  const [copyRow] = await db.select().from(connectionAccounts).where(eq(connectionAccounts.id, copyId));
+  assert.equal(decryptApiKey(copyRow!.apiKeyEncrypted), "split-key-7777", "the key comes along");
+  assert.equal((await rowOf(splitSource.row)).accountId, copyId, "the Model moved to the copy");
+  await linkConnectionAccounts(db);
+  assert.equal((await rowOf(splitSource.row)).accountId, copyId, "startup linking keeps the split");
+  assert.equal(
+    (await json("POST", `/accounts/${splitSource.id}/split`, { connectionId: splitSource.row, name: "Again" })).status,
+    404,
+    "a Model of another Connection cannot be split from this one",
+  );
   console.log("connection-accounts-names-move-search: ok");
 } finally {
   await app.close();

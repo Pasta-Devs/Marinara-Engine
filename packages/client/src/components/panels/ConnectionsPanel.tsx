@@ -382,6 +382,13 @@ export function ConnectionsPanel() {
             (item) => item.id !== account.id && portable(item.provider) && !sameTargets.includes(item),
           )
         : [];
+    // A Connection with more than one Model can give one to a copy of itself (same key), to split a grouping.
+    const splitFrom =
+      account &&
+      !row.credentialsFromConnectionId &&
+      connectionsList.filter((candidate) => candidate.accountId === account.id).length > 1
+        ? account
+        : null;
     const moveTargets = [...sameTargets, ...otherTargets];
     return (
       <ConnectionRow
@@ -412,8 +419,11 @@ export function ConnectionsPanel() {
                   )
             : undefined
         }
-        moveTargets={moveTargets.map((item) => item.name)}
-        onMove={() => setMoving({ row, same: sameTargets, other: otherTargets })}
+        moveTargets={[
+          ...moveTargets.map((item) => item.name),
+          ...(splitFrom ? [t("connections.move.newConnection")] : []),
+        ]}
+        onMove={() => setMoving({ row, same: sameTargets, other: otherTargets, splitFrom })}
         onPictureClick={(at) =>
           setPictureMenu({
             target: { kind: "model", id: row.id },

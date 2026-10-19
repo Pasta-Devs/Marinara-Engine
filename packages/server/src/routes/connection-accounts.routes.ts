@@ -10,6 +10,7 @@ import {
   parsePinnedModels,
   rankModelMatch,
   updateConnectionAccountSchema,
+  type CreateConnectionAccountInput,
   withKeyTail,
 } from "@marinara-engine/shared";
 import {
@@ -26,7 +27,9 @@ import { saveConnectionImage } from "./connections.routes.js";
 import { resetMemoryRecallVectorizerCache } from "../services/memory-recall-embedding.js";
 import { decryptApiKey } from "../utils/crypto.js";
 import { modelKeepReason } from "../services/connections/model-stars.js";
-import { apiConnections } from "../db/schema/index.js";
+import { apiConnections, connectionAccounts } from "../db/schema/index.js";
+import { eq } from "../db/file-query.js";
+import { logger } from "../lib/logger.js";
 
 const createAccountBodySchema = createConnectionAccountSchema.partial({ name: true }).extend({
   /** First Model under the new account. Empty keeps the picker open for the client. */
@@ -39,6 +42,11 @@ const forModelBodySchema = z.object({
   name: z.string().trim().min(1).max(200).optional(),
   maxContext: z.number().int().min(1).optional(),
   maxTokensOverride: z.number().int().min(1).optional(),
+});
+
+const splitBodySchema = z.object({
+  connectionId: z.string().min(1),
+  name: z.string().trim().min(1).max(200),
 });
 
 const catalogQuerySchema = z.object({
@@ -162,6 +170,44 @@ export async function connectionAccountsRoutes(app: FastifyInstance) {
     const updated = await accounts.setImage(req.params.id, saved.imagePath);
     if (!updated) return reply.status(404).send({ error: "Connection not found" });
     return listItem(updated);
+  });
+
+  // "Move to a new connection": a copy of this Connection (same service, address, key and limits) takes one Model.
+  // It splits what the upgrade grouped; the copy keeps its own models from then on.
+  app.post<{ Params: { id: string } }>("/:id/split", async (req, reply) => {
+    const body = splitBodySchema.parse(req.body);
+    const source = await accounts.getById(req.params.id);
+    if (!source || !(await linkedModel(source.id, body.connectionId))) {
+      return reply.status(404).send({ error: "Model not found in this Connection" });
+    }
+    const copy = await accounts.create({
+      name: body.name,
+      provider: source.provider as CreateConnectionAccountInput["provider"],
+      baseUrl: source.baseUrl,
+      apiKey: decryptApiKey(source.apiKeyEncrypted),
+      managementToken: decryptApiKey(source.managementTokenEncrypted),
+      showUsageWidget: source.showUsageWidget === "true",
+      showUsageFiveHour: source.showUsageFiveHour === "true",
+      showUsageWeekly: source.showUsageWeekly === "true",
+      treatAsLocalEndpoint: source.treatAsLocalEndpoint === "true",
+      enabled: source.enabled === "true",
+      maxRequestsPerMinute: source.maxRequestsPerMinute,
+      maxParallelJobs: source.maxParallelJobs,
+      icon: null,
+    });
+    // The copy serves the same model list, so the saved catalogs come along.
+    await app.db
+      .update(connectionAccounts)
+      .set({ modelCatalogs: source.modelCatalogs })
+      .where(eq(connectionAccounts.id, copy.id));
+    const moved = await connections.moveToAccount(body.connectionId, copy.id);
+    if (typeof moved === "string") {
+      await accounts.remove(copy.id);
+      logger.warn("Split of model %s from connection %s failed: %s", body.connectionId, source.id, moved);
+      return reply.status(409).send({ error: "This model cannot move to a new connection.", reason: moved });
+    }
+    reply.status(201);
+    return { account: await listItem(copy) };
   });
 
   app.delete<{ Params: { id: string } }>("/:id", async (req, reply) => {
