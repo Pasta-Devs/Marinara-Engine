@@ -157,9 +157,10 @@ export function Modal({
     return () => document.removeEventListener("keydown", handler);
   }, [open, onClose, closeDisabled]);
 
-  // Remove from DOM after exit animation completes
+  // Remove from DOM after exit animation completes. A reopen during the exit (focus is already back on the opener)
+  // keeps it: the late transitionend or the fallback below must not unmount an open dialog.
   const handleAnimationEnd = () => {
-    if (animating === "exit") {
+    if (animating === "exit" && !open) {
       setMounted(false);
       setAnimating(null);
     }
@@ -170,13 +171,13 @@ export function Modal({
   // backgrounded (e.g. a game starting auto-closes its setup). Without this
   // the overlay stays mounted forever and blocks clicks.
   useEffect(() => {
-    if (animating !== "exit") return;
+    if (animating !== "exit" || open) return;
     const timer = setTimeout(() => {
       setMounted(false);
       setAnimating(null);
     }, 400);
     return () => clearTimeout(timer);
-  }, [animating]);
+  }, [animating, open]);
 
   if (!mounted) return null;
 
