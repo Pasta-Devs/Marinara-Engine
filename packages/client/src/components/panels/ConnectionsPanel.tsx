@@ -664,6 +664,7 @@ export function ConnectionsPanel() {
             >
               <div className="min-w-0 flex-1 space-y-1">
                 <p>{t("connections.upgradeNote.grouped")}</p>
+                <p>{t("connections.upgradeNote.split")}</p>
                 {hadFolders && <p>{t("connections.upgradeNote.folders")}</p>}
                 <p>
                   <StarText text={t("connections.upgradeNote.picks")} />
