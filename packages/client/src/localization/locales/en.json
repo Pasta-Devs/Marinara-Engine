@@ -2308,6 +2308,7 @@
   "connections.switcher.followingDefault": "This chat now follows your Main model",
   "connections.switcher.followMain": "Follow Main",
   "connections.switcher.followMainHint": "{{model}} · changes when Main changes",
+  "connections.switcher.limitReached": "Limit reached",
   "connections.switcher.localModel": "Built-in model",
   "connections.switcher.localModelHint": "Helpers, not roleplay",
   "connections.switcher.madeDefault": "New chats will use {{model}}",

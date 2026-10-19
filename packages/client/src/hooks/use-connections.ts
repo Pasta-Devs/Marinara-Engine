@@ -548,6 +548,13 @@ export type NanoGptSubscriptionUsage = {
 
 export type SubscriptionUsage = NanoGptSubscriptionUsage | PlanUsage;
 
+/** Whether a plan window is used up. On NanoGPT only the models in the plan stop; paid ones still run. */
+export function usageAtLimit(usage: SubscriptionUsage | undefined): boolean {
+  if (!usage) return false;
+  const windows = "windows" in usage ? usage.windows : [usage.dailyInputTokens, usage.weeklyInputTokens];
+  return windows.some((window) => (window?.percentUsed ?? 0) >= 1);
+}
+
 /** Read a connection's subscription usage for the usage widget. */
 export function useSubscriptionUsage(connectionId: string | null, enabled: boolean) {
   return useQuery({

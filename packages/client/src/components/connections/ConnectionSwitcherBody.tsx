@@ -21,9 +21,11 @@ import {
 } from "@marinara-engine/shared";
 import {
   connectionKeys,
+  usageAtLimit,
   useCachedCatalogFacts,
   useConnections,
   useUpdateConnection,
+  type SubscriptionUsage,
 } from "../../hooks/use-connections";
 import { useChat, useChats, useSetChatModel } from "../../hooks/use-chats";
 import {
@@ -712,6 +714,20 @@ export function ConnectionSwitcherBody({
    * One model line: maker icon, name (a sliders icon first when it has its own settings), then where it runs at the
    * left of line two and its state or roles at the right. `now` keeps the host's state (Follow Main stays on).
    */
+  // ponytail: reads the usage meters' cached readings only (no fetch per row); a Connection whose meter never loaded
+  // shows no limit. A server-side "limited until" flag on the account if this needs to be exact.
+  const usageQueryClient = useQueryClient();
+  const limitReached = (group: SwitcherGroup | undefined, cost: string | null | undefined) => {
+    if (!group?.account) return false;
+    const usage = group.rows
+      .map((row) =>
+        usageQueryClient.getQueryData<SubscriptionUsage>([...connectionKeys.detail(row.id), "subscription-usage"]),
+      )
+      .find(Boolean);
+    if (usage && !("windows" in usage) && cost !== "included" && !cost?.startsWith("multiplier:")) return false;
+    return usageAtLimit(usage);
+  };
+
   const renderEntry = (
     entry: Entry,
     {
@@ -777,7 +793,13 @@ export function ConnectionSwitcherBody({
         title={entry.title}
         subtitle={entry.subtitle}
         roles={roleLabels}
-        status={stateLabel ? { label: stateLabel, state: unavailable ?? undefined } : null}
+        status={
+          stateLabel
+            ? { label: stateLabel, state: unavailable ?? undefined }
+            : limitReached(group, facts?.cost)
+              ? { label: t("connections.switcher.limitReached"), state: "limit" }
+              : null
+        }
         customized={custom}
         cost={facts?.cost}
         showPaid={catalog?.showPaid}
