@@ -1,7 +1,14 @@
 // ──────────────────────────────────────────────
 // Drag-to-place in the sprites' Arrange mode, shared by sprites and avatars
 // ──────────────────────────────────────────────
-import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type RefObject } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+  type RefObject,
+} from "react";
 import type { SpritePlacement } from "@marinara-engine/shared";
 import { clampSpritePlacement } from "./sprite-placement";
 
@@ -27,7 +34,7 @@ export function useSpritePlacementDrag({
   const [dragging, setDragging] = useState(false);
 
   // Follow the saved place by value (callers may build a new object each render) unless a drag is running.
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (dragging) return;
     currentRef.current = { x, y };
     setCurrent({ x, y });
@@ -88,5 +95,13 @@ export function useSpritePlacementDrag({
     setDragging(true);
   };
 
-  return { placement: current, dragging, onPointerDown };
+  const nudgePlacement = (delta: SpritePlacement) => {
+    const next = clampSpritePlacement({ x: currentRef.current.x + delta.x, y: currentRef.current.y + delta.y });
+    currentRef.current = next;
+    setCurrent(next);
+    onPlacementChange?.(placementKey, next);
+  };
+  const commitPlacement = () => onPlacementChange?.(placementKey, currentRef.current);
+
+  return { placement: current, dragging, onPointerDown, nudgePlacement, commitPlacement };
 }

@@ -185,7 +185,6 @@ for (const mode of ["roleplay", "game"] as const) {
         await expect(narration).toContainText("The workshop is quiet.");
         await expect(narration).not.toContainText("A bell rings outside.");
       }
-      const moved = await avatar.evaluate((node: HTMLElement) => ({ left: node.style.left, top: node.style.top }));
       const size = page.getByRole("slider", { name: "Maukie's avatar size" });
       await size.focus();
       await size.press("Home");
@@ -194,8 +193,18 @@ for (const mode of ["roleplay", "game"] as const) {
       await expect.poll(async () => (await canvas.boundingBox())!.height).toBeLessThan(before!.height * 0.8);
       const resized = await canvas.boundingBox();
       await page.screenshot({ path: info.outputPath(`${mode}-arranging.png`) });
+      // Native held-key repeats must accumulate before any DOM reads or the following Done click.
+      const beforeRepeats = await avatar.evaluate((node: HTMLElement) => Number.parseFloat(node.style.left));
+      const repeatCount = 20;
+      await canvas.focus();
+      for (let repeat = 0; repeat < repeatCount; repeat += 1) await page.keyboard.down("ArrowRight");
+      await page.keyboard.up("ArrowRight");
       await avatar.getByRole("button", { name: "Finish placing avatar" }).click();
       await expect(avatar).toHaveCSS("pointer-events", "none");
+      await expect
+        .poll(() => avatar.evaluate((node: HTMLElement) => Number.parseFloat(node.style.left)))
+        .toBeCloseTo(beforeRepeats + repeatCount, 5);
+      const moved = await avatar.evaluate((node: HTMLElement) => ({ left: node.style.left, top: node.style.top }));
       if (mode === "game") {
         await expect(narration).toContainText("The workshop is quiet.");
         const background = await page.evaluate(() => {

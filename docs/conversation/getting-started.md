@@ -169,7 +169,7 @@ Long chats fill the model's memory. Try a model with a larger context window, or
 
 ### A selfie does not look like the character
 
-Open the **Selfies** settings and turn on **Attach Card Appearance**. If your image provider supports reference images, also turn on **Send Avatar References**. See [Selfies](selfies.md) for details.
+Open the **Selfies** settings and set **Attach Card Appearance** to **Images only** or **Images and videos**. If your image provider supports reference images, also set **Send Avatar References**. See [Selfies](selfies.md) for details.
 
 ## Related guides
 

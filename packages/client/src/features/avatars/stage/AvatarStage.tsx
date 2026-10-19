@@ -395,6 +395,8 @@ function AvatarSlot({
     placement: current,
     dragging,
     onPointerDown,
+    nudgePlacement,
+    commitPlacement,
   } = useSpritePlacementDrag({
     placement,
     placementKey,
@@ -434,7 +436,7 @@ function AvatarSlot({
             onClick={(event) => {
               event.preventDefault();
               event.stopPropagation();
-              onPlacementChange?.(placementKey, current);
+              commitPlacement();
               onFinishPlacement?.();
             }}
             className="pointer-events-auto flex h-11 w-11 items-center justify-center rounded-lg border border-[var(--marinara-chat-chrome-button-border)] bg-[var(--marinara-chat-chrome-button-bg)] text-[var(--marinara-chat-chrome-button-text-hover)] shadow-lg backdrop-blur-md transition-colors hover:border-[var(--marinara-chat-chrome-button-border-hover)] hover:bg-[var(--marinara-chat-chrome-button-bg-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)]"
@@ -466,7 +468,7 @@ function AvatarSlot({
           if (!delta) return;
           event.preventDefault();
           event.stopPropagation();
-          onPlacementChange?.(placementKey, clampSpritePlacement({ x: current.x + delta.x, y: current.y + delta.y }));
+          nudgePlacement(delta);
         }}
         className={`${avatarSizeClass(count)} block aspect-[3/4] ${editing ? "outline-dashed outline-1 outline-[var(--marinara-chat-chrome-button-border)]" : ""}`}
       />

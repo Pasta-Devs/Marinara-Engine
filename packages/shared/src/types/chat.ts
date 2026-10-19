@@ -375,6 +375,8 @@ export interface ChatMetadata {
   illustratorIncludeCharacterAppearance?: boolean;
   /** Whether Illustrator should send matching character/persona avatar references to image providers. */
   illustratorUseAvatarReferences?: boolean;
+  /** Whether Roleplay video prompts get matched character appearance lines, like images with the setting above. */
+  illustratorVideoIncludeCharacterAppearance?: boolean;
   /** Optional per-chat LLM connection override used only to write Illustrator/selfie image prompts. */
   illustratorPromptConnectionId?: string | null;
   /** Optional per-chat image generation connection override used by Illustrator. */
@@ -392,6 +394,13 @@ export interface ChatMetadata {
   selfieUseAvatarReferences?: boolean;
   /** Whether Conversation selfie commands should append matched character card appearance text to image prompts. */
   selfieIncludeCharacterAppearance?: boolean;
+  /** Conversation video prompts get matched character appearance lines. */
+  selfieVideoIncludeCharacterAppearance?: boolean;
+  /**
+   * A Conversation video with no picture to start from (First frame: prompt only) sends the matched
+   * character's avatar or sprite as its reference image.
+   */
+  selfieVideoUseAvatarReferences?: boolean;
   /** Whether Game Mode scene illustrations should send matching character/persona avatar references. */
   gameImageUseAvatarReferences?: boolean;
   /** Whether Game Mode scene illustrations should append matched character-card appearance fields. */

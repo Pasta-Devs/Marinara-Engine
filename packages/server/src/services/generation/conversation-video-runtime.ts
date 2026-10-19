@@ -223,6 +223,16 @@ export async function generateConversationVideo(args: {
       );
     }
   }
+  // Matched once, from the writer's prompt; a reviewed prompt already carries the appearance lines.
+  const shown = await resolveVideoCharacters({
+    ...args,
+    characterName,
+    prompt,
+    picturePrompt: plan.kind === "gallery" ? plan.picturePrompt : undefined,
+  });
+  if (!args.promptOverride?.trim() && args.chatMeta.selfieVideoIncludeCharacterAppearance === true) {
+    if (shown.appearanceBlock) prompt = `${prompt}\n\n${shown.appearanceBlock}`;
+  }
   prompt = resolveSceneVideoPrompt({
     generatedPrompt: prompt,
     promptOverride: args.promptOverride ?? undefined,
@@ -250,12 +260,7 @@ export async function generateConversationVideo(args: {
       : await takeSelfieFrame(selfieArgs, plan.avatarFallback, () =>
           readAvatarFrame({ ...args, characterName, avatarPath: characterRow.avatarPath ?? null }),
         );
-  const characterIds = await resolveVideoCharacterIds({
-    ...args,
-    characterName,
-    prompt,
-    picturePrompt: plan.kind === "gallery" ? plan.picturePrompt : undefined,
-  });
+  const characterIds = shown.characterIds;
 
   const video = await generateAndSaveChatVideo(args.db, setup, {
     chatId: args.chatId,
@@ -289,7 +294,13 @@ async function planFirstFrame(
   }
 
   const mode = normalizeVideoFirstFrame(args.chatMeta.sceneVideoFirstFrame);
-  if (mode === "prompt_only") return { kind: "none", image: undefined, tag: null, path: null };
+  if (mode === "prompt_only") {
+    if (args.chatMeta.selfieVideoUseAvatarReferences !== true)
+      return { kind: "none", image: undefined, tag: null, path: null };
+    // With avatar references on for videos, a clip with no picture of its own starts from the avatar; without a
+    // readable one it stays a prompt-only clip.
+    return readAvatarFrame(args).catch(() => ({ kind: "none" as const, image: undefined, tag: null, path: null }));
+  }
   const selfiesOn = conversationSelfiesAvailable(args.chatMeta);
   // Selfies off or no Selfie Connection is a setting to fix, not a failed request.
   if (mode === "picture" && !selfiesOn) {
@@ -322,14 +333,17 @@ async function readAvatarFrame(
   return { kind: "avatar", image: reference, tag: `avatar:${args.characterId}`, path: null };
 }
 
-/** The same character matching a selfie uses to file itself into character galleries. */
-async function resolveVideoCharacterIds(
+/**
+ * The characters a clip shows, by the same matching a selfie uses to file itself into character
+ * galleries, and their appearance lines.
+ */
+async function resolveVideoCharacters(
   args: Parameters<typeof generateConversationVideo>[0] & {
     characterName: string;
     prompt: string;
     picturePrompt?: string;
   },
-): Promise<string[]> {
+): Promise<{ characterIds: string[]; appearanceBlock: string | null }> {
   // What people say in the clip names no one it shows ("Hey Jamie!"), and an animated picture keeps its characters.
   const context = [args.context, args.picturePrompt].map((text) => withoutQuotedSpeech(text ?? "")).join("\n");
   const prompt = withoutQuotedSpeech(args.prompt);
@@ -337,6 +351,8 @@ async function resolveVideoCharacterIds(
     [context, prompt].join("\n"),
     [...args.charInfo, ...(args.persona ? [args.persona] : [])].map(({ id, name }) => ({ id, name })),
   );
+  // The persona's appearance line joins only when the clip names them.
+  const namedPersona = args.persona?.id && mentioned.has(args.persona.id) ? args.persona : null;
   const resolution = await resolveIllustratorCharacterReferences({
     charactersStore: createCharactersStorage(args.db),
     chatCharacters: args.charInfo.map((character) => ({
@@ -345,7 +361,7 @@ async function resolveVideoCharacterIds(
       avatarPath: character.avatarPath,
       appearance: character.appearance,
     })),
-    persona: null,
+    persona: namedPersona,
     requestedNames: [
       ...resolveConversationSelfieRequestedNames({
         speakerName: args.characterName,
@@ -354,6 +370,7 @@ async function resolveVideoCharacterIds(
         imagePrompt: prompt,
       }),
       ...args.charInfo.filter((character) => mentioned.has(character.id)).map((character) => character.name),
+      ...(namedPersona ? [namedPersona.name] : []),
     ],
     // Names are matched above, by capitalised word, so a lowercase "rose" or "hazel" is not taken for a character.
     promptText: args.characterName,
@@ -363,7 +380,12 @@ async function resolveVideoCharacterIds(
   });
   // The persona is listed only when the clip names it, so it reaches the persona's gallery only when it is in it.
   const personaId = args.persona?.id && mentioned.has(args.persona.id) ? args.persona.id : null;
-  return Array.from(new Set([args.characterId, ...resolution.characterIds, ...(personaId ? [personaId] : [])]));
+  return {
+    characterIds: Array.from(
+      new Set([args.characterId, ...resolution.characterIds, ...(personaId ? [personaId] : [])]),
+    ),
+    appearanceBlock: resolution.appearanceBlock,
+  };
 }
 
 // Double quotes, curly quotes, guillemets and single quotes. A quote may wrap onto the next line but never crosses
