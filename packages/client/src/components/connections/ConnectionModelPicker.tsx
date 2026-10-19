@@ -170,6 +170,19 @@ export function ConnectionModelPicker({
     () => options.some((option) => option.cost === "included" || option.cost?.startsWith("multiplier:")),
     [options],
   );
+  // Add mode explains the cost words its catalog uses, so a badge never needs a hover to read.
+  const costLegend = showCostBadges
+    ? (["included", "multiplier", "free", "paid"] as const)
+        .filter((kind) =>
+          options.some((option) =>
+            kind === "multiplier"
+              ? option.cost?.startsWith("multiplier:")
+              : option.cost === kind && (kind !== "paid" || showPaid),
+          ),
+        )
+        .map((kind) => t(`connections.cost.legend.${kind}`))
+        .join(" · ")
+    : "";
   const optionsById = useMemo(() => new Map(options.map((option) => [option.id, option])), [options]);
   const upstreams = useMemo(
     () =>
@@ -380,13 +393,20 @@ export function ConnectionModelPicker({
         retiring={row.deprecated || row.retiresAt ? row : null}
         current={current}
         trailing={
-          current && (
+          current &&
+          (addMode && !onChoose ? (
+            // Adding: a visible word, not a bare check, says the model is in the connection now.
+            <span data-model-added className="mari-connection-pill mari-connection-pill--strong shrink-0">
+              <Check size="0.6875rem" aria-hidden />
+              {t("connections.modelPicker.added")}
+            </span>
+          ) : (
             <Check
               size="0.875rem"
               className="mari-panel-gradient--connections shrink-0 text-[var(--mari-connection-ink)]"
               aria-label={t("connections.modelPicker.current")}
             />
-          )
+          ))
         }
         end={
           <>
@@ -490,6 +510,11 @@ export function ConnectionModelPicker({
           {addMode && updated && (
             <p data-model-updated className="px-5 pb-1.5 text-[0.625rem] text-foreground/50 max-md:px-4">
               {t("connections.modelPicker.updated", { when: updated })}
+            </p>
+          )}
+          {addMode && costLegend && (
+            <p data-model-cost-legend className="px-5 pb-1.5 text-[0.625rem] text-foreground/50 max-md:px-4">
+              {costLegend}
             </p>
           )}
 
