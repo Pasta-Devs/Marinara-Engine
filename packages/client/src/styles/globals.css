@@ -1511,8 +1511,8 @@
 .mari-connection-group {
   border-radius: 1rem;
   padding: 0.5rem;
-  /* One box for the Defaults and every connection: headings on connection blue, rows in neutral wells. */
-  background-color: color-mix(in srgb, var(--mari-panel-gradient-start) 10%, transparent);
+  /* One grey box for the Defaults and every connection; rows sit in neutral wells inside it. */
+  background-color: color-mix(in srgb, var(--foreground) 6%, transparent);
 }
 
 /* Bundled marks use the theme's foreground; uploaded model pictures keep their own colours. */
@@ -1528,6 +1528,10 @@
   width: 2.5rem;
   height: 2.5rem;
   border-radius: 0.625rem;
+  /* The Connection's own tile wears the "+ Add" blue; Model and provider marks stay on grey tiles. */
+  background: linear-gradient(135deg, var(--mari-panel-gradient-start), var(--mari-panel-gradient-end));
+  color: var(--mari-panel-gradient-text);
+  box-shadow: none;
 }
 .mari-connection-model-list {
   display: flex;

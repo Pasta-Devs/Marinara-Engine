@@ -159,7 +159,8 @@ test("connections concept A reference renders without overflow", async ({ browse
       await expect(section.locator("[data-connection-id]")).toHaveCount(count);
     }
     await expect(proxy.getByRole("button", { name: /^Other models/ })).toBeVisible();
-    await expect(proxy.locator("[data-add-models]")).toHaveCount(1);
+    // No "Add models" row per card: "+ Add" at the top and the card's ⋯ menu are the doors.
+    await expect(panel.locator("[data-add-models]")).toHaveCount(0);
 
     // No "Chat" word: only the non-chat kinds get an outlined pill.
     const pills = panel.locator("[data-connection-id] [data-connection-type]");
@@ -380,7 +381,8 @@ for (const [size, theme] of [
     await expect(panel).toBeVisible();
 
     // The Add models catalog: shared rows with cost badges, a retiring hint and "Updated …".
-    await nano.locator("[data-add-models]").click();
+    await nano.getByRole("button", { name: "Actions for NanoGPT subscription with a long name" }).click();
+    await page.getByRole("menuitem", { name: "Add model", exact: true }).click();
     const catalog = page.getByRole("dialog", { name: "Add model", exact: true });
     // NanoGPT also offers image and video, so the screen asks which kind first.
     await catalog.locator('[data-add-connection-capability="chat"]').click();

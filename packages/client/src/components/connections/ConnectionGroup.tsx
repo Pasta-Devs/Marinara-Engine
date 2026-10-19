@@ -81,8 +81,7 @@ export function ConnectionGroup({
     ? IMAGE_GENERATION_SOURCES.find((source) => IMAGE_SOURCE_VENDOR[source.id] === account.provider)
     : undefined;
   const addImageModel = () => openAddModels({ accountId: account.id, kind: "image" });
-  const addModel = () => openAddModels({ accountId: account.id });
-  // "Add model" and "Browse all models" were two doors to the same screen; the well's last row is the one.
+  // The sidebar's main door is "+ Add" at the top; the card's ⋯ menu is the per-Connection one.
   const addModels = () => openAddModels({ accountId: account.id, connectionId: chatRow?.id });
   const rolesOf = (row: ConnectionRowData) => modelRoleLabels(row, t);
   const editAccount = () => openModal("connection-account", { accountId: account.id });
@@ -142,7 +141,7 @@ export function ConnectionGroup({
           type="button"
           data-connections-row={`account:${account.id}`}
           data-connection-group-heading
-          // The heading is the fold; its chevron is only a sign, so the name keeps line 1's width.
+          // The heading is the fold.
           data-connections-toggle={account.id}
           onClick={onToggle}
           aria-expanded={open}
@@ -171,14 +170,6 @@ export function ConnectionGroup({
             icon={onPictureClick ? false : tile}
             className="flex-1"
           />
-          <ChevronDown
-            size="0.875rem"
-            aria-hidden
-            className={cn(
-              "shrink-0 text-[var(--muted-foreground)] transition-transform motion-reduce:transition-none",
-              !open && "-rotate-90",
-            )}
-          />
         </button>
         {fix && (
           <button type="button" onClick={fix.run} aria-label={fix.aria} className={cn(SMALL_ACTION, "shrink-0")}>
@@ -195,6 +186,17 @@ export function ConnectionGroup({
           aria-expanded={!!menu}
         >
           <MoreHorizontal size="1rem" />
+        </button>
+        {/* Last, like the upstream headings' chevrons below it. The heading button is the keyboard and screen
+            reader fold; this is a second pointer target for the same toggle. */}
+        <button type="button" tabIndex={-1} aria-hidden onClick={onToggle} className={ROW_BUTTON}>
+          <ChevronDown
+            size="0.875rem"
+            className={cn(
+              "text-[var(--muted-foreground)] transition-transform motion-reduce:transition-none",
+              !open && "-rotate-90",
+            )}
+          />
         </button>
         {menu && (
           <ContextMenu
@@ -217,7 +219,7 @@ export function ConnectionGroup({
               {
                 label: t("connections.accounts.addModel"),
                 icon: <Plus size="0.75rem" />,
-                onSelect: addModel,
+                onSelect: addModels,
               },
               ...(imageSource
                 ? [
@@ -253,7 +255,6 @@ export function ConnectionGroup({
           rolesOf={rolesOf}
           // A search keeps every hit in view.
           autoFold={visibleRows.length === rows.length}
-          onAddModels={addModels}
           empty={
             <p className="px-2 py-1 text-[0.6875rem] text-[var(--muted-foreground)]">
               {t("connections.accounts.noModels")}
