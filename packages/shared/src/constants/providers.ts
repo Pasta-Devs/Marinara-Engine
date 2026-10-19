@@ -244,13 +244,13 @@ export const PROVIDERS: Record<APIProvider, ProviderDefinition> = {
   },
   custom: {
     id: "custom",
-    name: "Custom (OAI-Compatible)",
+    name: "OpenAI-compatible",
     defaultBaseUrl: "",
     modelsEndpoint: "/models",
     supportsStreaming: true,
     usesAuthHeader: true,
     apiKeyHeader: null,
-    billing: "local",
+    // No billing word: the address can be a free local server or a paid online service.
   },
   image_generation: {
     id: "image_generation",

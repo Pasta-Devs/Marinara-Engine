@@ -104,9 +104,9 @@ test("a first run adds a connection from the empty new-chat gate and starts the 
     // Stepped flow (decision 29b): screen 1 is the list alone, screen 2 the connect form alone, Back returns.
     await expect(dialog.getByLabel("API key", { exact: true })).toHaveCount(0);
     await dialog.getByRole("button", { name: "OpenRouter", exact: true }).click();
-    await expect(dialog.getByRole("button", { name: "Custom (OAI-Compatible)", exact: true })).toHaveCount(0);
+    await expect(dialog.getByRole("button", { name: "OpenAI-compatible address", exact: true })).toHaveCount(0);
     await dialog.getByRole("button", { name: "Back", exact: true }).click();
-    await expect(dialog.getByRole("button", { name: "Custom (OAI-Compatible)", exact: true })).toBeVisible();
+    await expect(dialog.getByRole("button", { name: "OpenAI-compatible address", exact: true })).toBeVisible();
     await expect(dialog.getByLabel("API key", { exact: true })).toHaveCount(0);
     await dialog.getByRole("button", { name: "OpenRouter", exact: true }).click();
     await expect(dialog.getByRole("link", { name: /Get your OpenRouter API key/ })).toHaveAttribute(
@@ -122,7 +122,7 @@ test("a first run adds a connection from the empty new-chat gate and starts the 
 
     // Back to the list (this throws the unused Connection away), then a local server.
     await dialog.getByRole("button", { name: "Back", exact: true }).click();
-    await dialog.getByRole("button", { name: "Custom (OAI-Compatible)", exact: true }).click();
+    await dialog.getByRole("button", { name: "OpenAI-compatible address", exact: true }).click();
     await dialog.getByLabel("Server address", { exact: true }).fill(`${provider.baseUrl}/offline`);
     await dialog.locator("[data-add-connection-connect]").click();
     await expect(dialog.locator('[data-add-connection-result="failed"]')).toBeVisible();

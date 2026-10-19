@@ -33,7 +33,7 @@ test("the connection editor protects unsaved changes and tests the connection", 
     const editor = page.getByRole("dialog", { name: "Edit connection", exact: true });
     await expect(editor).toBeVisible();
     // Name in the field; the line under it names the service and the model count, and no "Ready" word.
-    await expect(editor.getByText("Custom (OAI-Compatible) · 1 model", { exact: true })).toBeVisible();
+    await expect(editor.getByText("OpenAI-compatible · 1 model", { exact: true })).toBeVisible();
     await expect(editor.getByText("Ready", { exact: true })).toHaveCount(0);
     // The proxy's models sit under their upstream heading, in the shared model row.
     await expect(editor.locator('[data-connection-upstream="nanogpt"]')).toContainText("NanoGPT");

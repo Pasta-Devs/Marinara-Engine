@@ -159,7 +159,7 @@ const SERVICE_GROUPS: Array<{ id: string; services: ServiceId[]; collapsed?: boo
   { id: "start", services: ["openrouter", "nanogpt"] },
   { id: "plan", services: ["openai_chatgpt", "claude_subscription", "grok_subscription"] },
   { id: "device", services: ["local_model", "tts", "stt"] },
-  { id: "local", services: ["custom"] },
+  { id: "address", services: ["custom"] },
   {
     id: "vendors",
     collapsed: true,
@@ -493,8 +493,8 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
       ? media.name
       : isDevice(key)
         ? t(`connections.add.device.${key}`)
-        : key === "decision"
-          ? t("connections.decision.label")
+        : key === "decision" || key === "custom"
+          ? t(key === "custom" ? "connections.add.customName" : "connections.decision.label")
           : (PROVIDERS[key as APIProvider]?.name ?? key);
   };
   const serviceHint = (key: ServiceId) => mediaBackendOf(key)?.description ?? t(`connections.add.hint.${key}`);
