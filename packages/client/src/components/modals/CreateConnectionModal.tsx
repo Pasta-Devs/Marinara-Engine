@@ -698,20 +698,34 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
     // A key shared by chat and image Models (decision 20): the models list belongs to a chat Model.
     const linked = allRows.filter((candidate) => candidate.accountId === accountId);
     let row = linked.find((candidate) => candidate.id === connectionId) ?? starAnchorOf(linked) ?? linked[0];
+    const chatProvider = service && isChatProvider(service) ? (service as APIProvider) : null;
+    // A vendor key may have been set up for images first. Its chat catalog needs its own chat row.
+    if (chatProvider && row && !isChatProvider(row.provider ?? "")) row = undefined;
     let placeholderId: string | undefined;
     if (!row) {
       const account = accounts?.find((candidate) => candidate.id === accountId);
       if (!account) return;
       const media = selectedMedia;
-      const mediaBaseUrl =
-        media && (media.source === "comfyui" || media.source === "swarmui")
+      let chatBaseUrl = account.baseUrl;
+      if (chatProvider) {
+        const vendorBaseUrl = PROVIDERS[chatProvider]?.defaultBaseUrl;
+        try {
+          if (vendorBaseUrl && new URL(account.baseUrl).origin === new URL(vendorBaseUrl).origin)
+            chatBaseUrl = vendorBaseUrl;
+        } catch {
+          // Keep a custom endpoint intact; the service's test can explain an invalid address.
+        }
+      }
+      const mediaBaseUrl = chatProvider
+        ? chatBaseUrl
+        : media && (media.source === "comfyui" || media.source === "swarmui")
           ? account.baseUrl || media.defaultBaseUrl
           : media?.defaultBaseUrl;
       const rowProvider: APIProvider = media
         ? media.image
           ? "image_generation"
           : "video_generation"
-        : (account.provider as APIProvider);
+        : (chatProvider ?? (account.provider as APIProvider));
       setMediaCreating(true);
       try {
         const created = (await createRow.mutateAsync({
@@ -942,12 +956,21 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
     const videoSources = Object.entries(VIDEO_SOURCE_VENDOR)
       .filter(([, vendor]) => vendor === providerKey)
       .map(([source]) => source);
+    const sharesVendorOrigin = (accountUrl: string) => {
+      try {
+        return new URL(accountUrl).origin === new URL(PROVIDERS[providerKey].defaultBaseUrl).origin;
+      } catch {
+        return false;
+      }
+    };
     return ownAccounts.filter(
       (account) =>
         account.provider === providerKey ||
-        accountRows(account.id).some((row) =>
-          [...imageSources, ...videoSources].some((source) => rowUsesMediaSource(row, source)),
-        ),
+        (!isChatProvider(account.provider) &&
+          sharesVendorOrigin(account.baseUrl) &&
+          accountRows(account.id).some((row) =>
+            [...imageSources, ...videoSources].some((source) => rowUsesMediaSource(row, source)),
+          )),
     );
   };
   const connectedAccounts = service ? compatibleAccounts(service) : [];
@@ -1349,7 +1372,13 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
     if (targetRows.some((row) => row.provider === "video_generation")) inferred.push("video");
     return inferred;
   })();
-  const inPlace = !!target?.fresh && !!shownRow && !shownRow.model?.trim() && picks.length === 0;
+  const inPlace =
+    !!target &&
+    !!shownRow &&
+    isChatProvider(shownRow.provider ?? "") &&
+    !shownRow.model?.trim() &&
+    picks.length === 0 &&
+    (target.fresh || !!target.ownedPlaceholderIds?.includes(shownRow.id));
   const recommended = provider && !NO_RECOMMENDED.has(provider) ? (MODEL_LISTS[provider] ?? []).slice(0, 3) : [];
   const targetName =
     (target && accounts?.find((account) => account.id === target.accountId)?.name) ||
@@ -1408,6 +1437,7 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
       });
       setMediaEditorId(null);
       setSetupKind(null);
+      if (provider === "audio" || provider === "decision") setStep(2);
       setEditorBusy(false);
       setMediaCreating(false);
     }

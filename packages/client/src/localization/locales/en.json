@@ -1789,7 +1789,7 @@
   "connections.add.sub.key": "Paste your key. Marinara tests it and loads the models.",
   "connections.add.sub.local": "Enter the server address. Marinara tests it and loads the models.",
   "connections.add.sub.media": "Image, video and voice services are set up in the connection editor.",
-  "connections.add.sub.mediaEditor": "Use the service's real model and workflow settings, then save and finish.",
+  "connections.add.sub.mediaEditor": "Choose the model and workflow settings, then save and finish.",
   "connections.add.sub.models": "Tap a model or its star to add it. Starred models stay in this connection.",
   "connections.add.sub.modelsChat": "Tap a model to use it in this chat only. Star it to add it to this connection.",
   "connections.add.sub.modelsFirstRun": "Your first pick becomes your Main model. You can change it later in Defaults.",

@@ -1,5 +1,6 @@
 import { expect, test, type APIRequestContext, type Page, type Route } from "@playwright/test";
 import { mkdirSync, readFileSync } from "node:fs";
+import { PROVIDERS } from "../packages/shared/src/constants/providers.js";
 import { seedUIState } from "./ui-state-fixture.js";
 
 const APP_VERSION = (
@@ -200,15 +201,34 @@ test("guided ComfyUI setup adds distinct image and video workflows without chang
     for (const width of [390, 768, 1440]) {
       await page.setViewportSize({ width, height: 900 });
       for (const theme of ["dark", "light"]) {
-        await page.evaluate((nextTheme) => document.documentElement.setAttribute("data-theme", nextTheme), theme);
+        await page.evaluate(async (nextTheme) => {
+          const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+          useUIStore.getState().setTheme(nextTheme);
+        }, theme);
+        await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
         await page.screenshot({
           path: `.tmp/connections-media/screenshots/guided-image-${width}-${theme}.png`,
+        });
+        await info.attach(`control-colors-${width}-${theme}`, {
+          contentType: "application/json",
+          body: JSON.stringify(
+            await editor.locator("input, textarea").evaluateAll((fields) =>
+              fields.map((field) => ({
+                label: field.getAttribute("aria-label") || field.getAttribute("placeholder"),
+                color: getComputedStyle(field).color,
+                background: getComputedStyle(field).backgroundColor,
+              })),
+            ),
+          ),
         });
         expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
       }
     }
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.evaluate(() => document.documentElement.setAttribute("data-theme", "dark"));
+    await page.evaluate(async () => {
+      const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+      useUIStore.getState().setTheme("dark");
+    });
 
     // Hold the defaults write long enough to prove that Save disables every route out of the modal.
     const heldDefaultsPath = `/api/connections/${imageRow.id}/default-parameters`;
@@ -481,7 +501,11 @@ test("a fresh ComfyUI connection can finish as video without leaving its image p
   }
 });
 
-test("opening an empty connection initializes once while the account refresh is pending", async ({ page, request }) => {
+test("opening an empty connection initializes once while the account refresh is pending", async ({
+  page,
+  request,
+}, info) => {
+  test.skip(info.project.name !== "desktop-chromium", "One browser owns this initialization fixture.");
   const response = await request.post("/api/connection-accounts", {
     data: { name: "Empty setup", provider: "custom", baseUrl: "http://127.0.0.1:19094/v1", apiKey: "" },
   });
@@ -537,13 +561,9 @@ test("opening an empty connection initializes once while the account refresh is 
   }
 });
 
-test("Back from media setup keeps a fresh connection's chat catalog available", async ({ page, request }) => {
-  const before = new Set((await rows(request)).map((row) => row.id));
-  const initialAccounts = new Set(
-    ((await (await request.get("/api/connection-accounts")).json()) as Array<{ id: string }>).map(
-      (account) => account.id,
-    ),
-  );
+test("Back from media setup keeps a fresh connection's chat catalog available", async ({ page, request }, info) => {
+  test.skip(info.project.name !== "desktop-chromium", "One browser owns this fresh setup flow.");
+  let accountId: string | null = null;
   try {
     await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "" } }));
     await page.route("**/api/connections/*/test", (route) =>
@@ -566,21 +586,122 @@ test("Back from media setup keeps a fresh connection's chat catalog available", 
     const second = dialog.getByRole("button", { name: "Connect a second account", exact: true });
     if (await second.isVisible()) await second.click();
     await dialog.getByLabel("API key", { exact: true }).fill("fixture-not-real");
+    const createdAccount = page.waitForResponse(
+      (response) =>
+        response.ok() &&
+        response.request().method() === "POST" &&
+        new URL(response.url()).pathname === "/api/connection-accounts",
+    );
     await dialog.locator("[data-add-connection-connect]").click();
+    accountId = ((await (await createdAccount).json()) as { account: { id: string } }).account.id;
     await dialog.locator('[data-add-connection-capability="image"]').click();
     await expect(dialog.locator("[data-add-connection-media-editor]")).toBeVisible();
     await dialog.getByRole("button", { name: "Back", exact: true }).click();
     await dialog.locator('[data-add-connection-capability="chat"]').click();
     await expect(dialog.locator('[data-model-id="gpt-fixture"]')).toBeVisible();
-    const added = (await rows(request)).filter((row) => !before.has(row.id));
+    const added = (await rows(request)).filter((row) => row.accountId === accountId);
     expect(added).toHaveLength(1);
     expect(added[0]!.provider).toBe("openai");
     await dialog.getByRole("button", { name: "Close Add connection", exact: true }).click();
     await expect(dialog).toHaveCount(0);
-    await expect.poll(async () => (await rows(request)).filter((row) => !before.has(row.id)).length).toBe(0);
+    await expect.poll(async () => (await rows(request)).filter((row) => row.accountId === accountId).length).toBe(0);
   } finally {
-    for (const row of await rows(request)) if (!before.has(row.id)) await request.delete(`/api/connections/${row.id}`);
-    for (const account of (await (await request.get("/api/connection-accounts")).json()) as Array<{ id: string }>)
-      if (!initialAccounts.has(account.id)) await request.delete(`/api/connection-accounts/${account.id}`);
+    if (accountId) {
+      for (const row of await rows(request)) {
+        if (row.accountId === accountId) await request.delete(`/api/connections/${row.id}`);
+      }
+      await request.delete(`/api/connection-accounts/${accountId}`);
+    }
+  }
+});
+
+test("a vendor connection set up for images can open its chat catalog without retyping access", async ({
+  page,
+  request,
+}, info) => {
+  test.skip(info.project.name !== "desktop-chromium", "One browser owns the vendor fixture.");
+  const created = await request.post("/api/connections", {
+    data: {
+      name: "Original image",
+      provider: "image_generation",
+      imageGenerationSource: "openai",
+      imageService: "openai",
+      baseUrl: "https://api.openai.com/v1",
+      apiKey: "fixture-vendor-key",
+      model: "gpt-image-fixture",
+    },
+  });
+  expect(created.ok()).toBeTruthy();
+  const image = (await created.json()) as MediaRow;
+  expect(image.accountId).toBeTruthy();
+  try {
+    await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "" } }));
+    await page.route("**/api/connection-accounts", async (route) => {
+      if (route.request().method() !== "GET") {
+        await route.fallback();
+        return;
+      }
+      const response = await route.fetch();
+      await route.fulfill({
+        response,
+        json: ((await response.json()) as Array<{ id: string }>).filter((account) => account.id === image.accountId),
+      });
+    });
+    await page.route("**/api/connections/*/models*", (route) =>
+      route.fulfill({
+        json: {
+          models: [
+            { id: "gpt-fixture", name: "Fixture chat" },
+            { id: "gpt-fixture-two", name: "Second fixture chat" },
+          ],
+        },
+      }),
+    );
+    await seedUIState(page, { hasCompletedOnboarding: true, sidebarOpen: false, rightPanelOpen: false });
+    await page.addInitScript(
+      (version) => localStorage.setItem("marinara:whats-new:seen-version", version),
+      APP_VERSION,
+    );
+    await page.goto("/");
+    await page.evaluate(async () => {
+      const { openAddConnection } = await import("/src/lib/add-connection.ts" as string);
+      openAddConnection({ provider: "openai" });
+    });
+    const dialog = page.getByRole("dialog", { name: "Add connection", exact: true });
+    await dialog
+      .locator("[data-add-connection-existing]")
+      .getByRole("button", { name: /Add models to it/ })
+      .click();
+    await dialog.locator('[data-add-connection-capability="chat"]').click();
+    await expect(dialog.locator('[data-model-id="gpt-fixture"]')).toBeVisible();
+    await dialog.locator('[data-model-id="gpt-fixture"] [data-model-option]').click();
+    await dialog.locator('[data-model-id="gpt-fixture-two"] [data-model-option]').click();
+    const linked = (await rows(request)).filter((row) => row.accountId === image.accountId);
+    expect(linked).toHaveLength(3);
+    expect(linked.filter((row) => row.id !== image.id).every((row) => !!row.model?.trim())).toBe(true);
+    for (const row of linked.filter((row) => row.id !== image.id)) {
+      const detail = await (await request.get(`/api/connections/${row.id}`)).json();
+      expect(detail.apiKeyEncrypted).toBeTruthy();
+      expect(row.accountId).toBe(image.accountId);
+      expect(row.baseUrl || PROVIDERS[row.provider as keyof typeof PROVIDERS]?.defaultBaseUrl).toBe(
+        "https://api.openai.com/v1",
+      );
+    }
+    expect(linked.find((row) => row.id !== image.id)).toMatchObject({
+      provider: "openai",
+    });
+    expect(linked.find((row) => row.id === image.id)).toMatchObject({
+      provider: "image_generation",
+      model: "gpt-image-fixture",
+    });
+    await dialog.getByRole("button", { name: "Close Add connection", exact: true }).click();
+    await expect(dialog).toHaveCount(0);
+    await expect
+      .poll(async () => (await rows(request)).filter((row) => row.accountId === image.accountId).length)
+      .toBe(3);
+  } finally {
+    for (const row of await rows(request))
+      if (row.accountId === image.accountId) await request.delete(`/api/connections/${row.id}`);
+    await request.delete(`/api/connection-accounts/${image.accountId}`);
   }
 });
