@@ -697,7 +697,8 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
   const showModelsOf = async (accountId: string, connectionId?: string) => {
     // A key shared by chat and image Models (decision 20): the models list belongs to a chat Model.
     const linked = allRows.filter((candidate) => candidate.accountId === accountId);
-    let row = linked.find((candidate) => candidate.id === connectionId) ?? starAnchorOf(linked) ?? linked[0];
+    let row: ConnectionRowLite | undefined =
+      linked.find((candidate) => candidate.id === connectionId) ?? starAnchorOf(linked) ?? linked[0];
     const chatProvider = service && isChatProvider(service) ? (service as APIProvider) : null;
     // A vendor key may have been set up for images first. Its chat catalog needs its own chat row.
     if (chatProvider && row && !isChatProvider(row.provider ?? "")) row = undefined;
