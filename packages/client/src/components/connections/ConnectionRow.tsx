@@ -633,39 +633,86 @@ export function ConnectionRow({
 }
 
 type ModelUsage = {
-  chats: Array<{ name: string }>;
-  agents: Array<{ name: string }>;
-  models: Array<{ name: string }>;
+  chats: Array<{ id: string; name: string }>;
+  agents: Array<{ id: string; name: string }>;
+  models: Array<{ id: string; name: string }>;
   settings: Array<"embedding" | "features">;
 };
 
+const listNames = (names: string[], t: TFunction) =>
+  names.length > 5
+    ? t("connections.delete.more", { names: names.slice(0, 5).join(", "), count: names.length - 5 })
+    : names.join(", ");
+
+/** "Used by" lines for the delete questions: the chats, agents, models and settings that use these Models. */
+async function usageLines(ids: string[], skip: Set<string>, t: TFunction): Promise<string[]> {
+  // A failed lookup still lets the user decide; the plain question stays.
+  const all = await Promise.all(ids.map((id) => api.get<ModelUsage>(`/connections/${id}/usage`).catch(() => null)));
+  const unique = (items: Array<{ name: string; id?: string }>) => [
+    ...new Set(items.filter((item) => !item.id || !skip.has(item.id)).map((item) => item.name)),
+  ];
+  const chats = unique(all.flatMap((usage) => usage?.chats ?? []));
+  const agents = unique(all.flatMap((usage) => usage?.agents ?? []));
+  const models = unique(all.flatMap((usage) => usage?.models ?? []));
+  const settings = [...new Set(all.flatMap((usage) => usage?.settings ?? []))];
+  const lines = [
+    chats.length ? t("connections.delete.chats", { names: listNames(chats, t) }) : "",
+    agents.length ? t("connections.delete.agents", { names: listNames(agents, t) }) : "",
+    models.length ? t("connections.delete.models", { names: listNames(models, t) }) : "",
+    settings.length
+      ? t("connections.delete.settings", {
+          names: settings.map((key) => t(`connections.delete.setting.${key}`)).join(", "),
+        })
+      : "",
+  ].filter(Boolean);
+  return lines.length ? ["", t("connections.delete.usedBy"), ...lines, "", t("connections.delete.afterDelete")] : [];
+}
+
 /** The delete question for a saved Model; it names the chats, agents, models and settings that use it. */
 export async function confirmModelDelete(id: string, title: string, t: TFunction): Promise<boolean> {
-  // A failed lookup still lets the user decide; the plain question stays.
-  const usage = await api.get<ModelUsage>(`/connections/${id}/usage`).catch(() => null);
-  const list = (names: string[]) =>
-    names.length > 5
-      ? t("connections.delete.more", { names: names.slice(0, 5).join(", "), count: names.length - 5 })
-      : names.join(", ");
-  const lines = usage
-    ? [
-        usage.chats.length ? t("connections.delete.chats", { names: list(usage.chats.map((c) => c.name)) }) : "",
-        usage.agents.length ? t("connections.delete.agents", { names: list(usage.agents.map((a) => a.name)) }) : "",
-        usage.models.length ? t("connections.delete.models", { names: list(usage.models.map((m) => m.name)) }) : "",
-        usage.settings.length
-          ? t("connections.delete.settings", {
-              names: usage.settings.map((key) => t(`connections.delete.setting.${key}`)).join(", "),
-            })
-          : "",
-      ].filter(Boolean)
-    : [];
   return showConfirmDialog({
     title: t("ui.panels.connectionrow.deleteConnection"),
     message: [
       t("ui.panels.characterspanel.deleteValue1ThisCannotBeUndone", { value1: title }),
-      ...(lines.length ? ["", t("connections.delete.usedBy"), ...lines, "", t("connections.delete.afterDelete")] : []),
+      ...(await usageLines([id], new Set([id]), t)),
     ].join("\n"),
     confirmLabel: t("lorebook.editor.batch.delete"),
+    tone: "destructive",
+  });
+}
+
+/** Deletes a Connection's Models one by one, so the Connection itself can go after them. */
+export async function deleteAccountModels(models: Array<{ id: string }>) {
+  for (const row of models) await api.delete(`/connections/${row.id}`);
+}
+
+/**
+ * The delete question for a Connection, asked before anything is deleted: it names its Models and what uses them.
+ * True means: delete the Models, then the Connection.
+ */
+export async function confirmAccountDelete(
+  name: string,
+  models: Array<{ id: string; name?: string | null; model?: string | null }>,
+  t: TFunction,
+): Promise<boolean> {
+  const ids = models.map((row) => row.id);
+  const modelNames = models.map((row) => row.name?.trim() || row.model || row.id);
+  return showConfirmDialog({
+    title: t("connections.accounts.editor.delete"),
+    message: models.length
+      ? [
+          t("connections.accounts.editor.deleteWithModels", {
+            name,
+            count: models.length,
+            models: listNames(modelNames, t),
+          }),
+          t("connections.accounts.editor.deleteKeepHint"),
+          ...(await usageLines(ids, new Set(ids), t)),
+        ].join("\n")
+      : t("connections.accounts.editor.deleteConfirm", { name }),
+    confirmLabel: models.length
+      ? t("connections.accounts.editor.deleteAll", { count: models.length })
+      : t("connections.accounts.editor.delete"),
     tone: "destructive",
   });
 }

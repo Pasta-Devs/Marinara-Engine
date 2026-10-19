@@ -28,6 +28,8 @@ import { Modal } from "../ui/Modal";
 import { SmoothFolderContent } from "../ui/SmoothFolderContent";
 import { ConnectionModelList } from "./ConnectionModelList";
 import {
+  confirmAccountDelete,
+  deleteAccountModels,
   mediaService,
   menuAt,
   ModelRow,
@@ -239,14 +241,9 @@ export function ConnectionAccountEditor({
 
   const deleteAccount = async () => {
     if (!account) return;
-    const confirmed = await showConfirmDialog({
-      title: t("connections.accounts.editor.delete"),
-      message: t("connections.accounts.editor.deleteConfirm", { name: account.name }),
-      confirmLabel: t("connections.accounts.editor.delete"),
-      tone: "destructive",
-    });
-    if (!confirmed) return;
+    if (!(await confirmAccountDelete(account.name, models, t))) return;
     try {
+      await deleteAccountModels(models);
       await remove.mutateAsync(account.id);
       onClose();
     } catch (error) {

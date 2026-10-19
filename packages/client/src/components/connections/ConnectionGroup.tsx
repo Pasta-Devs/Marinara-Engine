@@ -6,7 +6,7 @@ import { useState, type ReactNode } from "react";
 import { ConnectionModelList } from "./ConnectionModelList";
 import { ConnectionIdentity } from "./ConnectionIdentity";
 import { getConnectionIdentity, modelSubtitle } from "../../lib/connection-identity";
-import { ChevronDown, ImageIcon, KeyRound, MoreHorizontal, Plus, Power, Settings2, Wifi } from "lucide-react";
+import { ChevronDown, ImageIcon, KeyRound, MoreHorizontal, Plus, Power, Settings2, Trash2, Wifi } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
@@ -17,7 +17,7 @@ import {
   type ConnectionAccountListItem,
 } from "@marinara-engine/shared";
 import { useCachedCatalogFacts, useTestConnection, type CachedCatalogFacts } from "../../hooks/use-connections";
-import { useUpdateConnectionAccount } from "../../hooks/use-connection-accounts";
+import { useDeleteConnectionAccount, useUpdateConnectionAccount } from "../../hooks/use-connection-accounts";
 import { starAnchorOf } from "../../hooks/use-model-star";
 import { sortByModelId } from "../../lib/connection-groups";
 import { useUIStore } from "../../stores/ui.store";
@@ -27,7 +27,15 @@ import { ContextMenu } from "../ui/ContextMenu";
 import { CompactUsageMeter } from "./SubscriptionUsageWidget";
 import { resolveUsageConnection } from "../../lib/connection-filters";
 import { SMALL_ACTION } from "./DeviceDetail";
-import { menuAt, modelRoleLabels, ROW_BUTTON, type ConnectionRowData, type MenuAt } from "./ConnectionRow";
+import {
+  confirmAccountDelete,
+  deleteAccountModels,
+  menuAt,
+  modelRoleLabels,
+  ROW_BUTTON,
+  type ConnectionRowData,
+  type MenuAt,
+} from "./ConnectionRow";
 
 /** A block in the Connections list: a tint and spacing, no outline. */
 export const GROUP_SURFACE = "rounded-xl bg-[color-mix(in_srgb,var(--foreground)_4%,transparent)]";
@@ -67,6 +75,7 @@ export function ConnectionGroup({
   const { t } = useTranslation();
   const openModal = useUIStore((s) => s.openModal);
   const updateAccount = useUpdateConnectionAccount();
+  const removeAccount = useDeleteConnectionAccount();
   const test = useTestConnection();
   const [menu, setMenu] = useState<MenuAt | null>(null);
   // Cost badges read the catalogs already cached for this Connection's Models; nothing is fetched for them.
@@ -95,6 +104,15 @@ export function ConnectionGroup({
           : toast.error(result.message || t("connections.accounts.testFailed")),
       onError: () => toast.error(t("connections.accounts.testFailed")),
     });
+  const deleteAccount = async () => {
+    if (!(await confirmAccountDelete(account.name, rows, t))) return;
+    try {
+      await deleteAccountModels(rows);
+      await removeAccount.mutateAsync(account.id);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : t("connections.accounts.editor.deleteFailed"));
+    }
+  };
   const service = PROVIDERS[account.provider as APIProvider]?.name ?? account.provider;
   const state = t(`connections.accounts.state.${account.state}`);
   const identity = getConnectionIdentity(account, rows);
@@ -245,6 +263,13 @@ export function ConnectionGroup({
                 label: t(account.enabled ? "connections.accounts.turnOff" : "connections.accounts.turnOn"),
                 icon: <Power size="0.75rem" />,
                 onSelect: () => updateAccount.mutate({ id: account.id, enabled: !account.enabled }),
+              },
+              {
+                label: t("connections.accounts.editor.delete"),
+                icon: <Trash2 size="0.75rem" />,
+                destructive: true,
+                disabled: removeAccount.isPending,
+                onSelect: () => void deleteAccount(),
               },
             ]}
           />
