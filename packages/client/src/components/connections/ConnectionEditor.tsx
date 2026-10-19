@@ -2166,7 +2166,7 @@ export function ConnectionEditor({
             {/* ── Model Name ── */}
             {!embedded && (
               <FieldGroup
-                label={localizeUi("connections.editor.modelName")}
+                label={localizeUi("connections.editor.name")}
                 icon={<Tag size="0.875rem" className="text-sky-400" />}
                 help={localizeUi("connections.editor.modelNameHelp")}
               >
@@ -2201,11 +2201,6 @@ export function ConnectionEditor({
                     ]}
                     size="sm"
                   />
-                  {localModel && (
-                    <span className="truncate pl-10 font-mono text-xs text-[var(--muted-foreground)]">
-                      {localModel}
-                    </span>
-                  )}
                   {isConnectionFlagTrue(conn?.isDefault) && (
                     <span className="pl-10 text-xs text-[var(--muted-foreground)]">
                       {t("connections.defaults.role.main")}
@@ -3509,70 +3504,6 @@ export function ConnectionEditor({
               />
             )}
 
-            <div className="grid gap-6 empty:hidden sm:grid-cols-2">
-              {/* ── Max Context ── */}
-              {!isMediaGenerationProvider && (
-                <FieldGroup
-                  label={localizeUi("ui.connections.connectioneditor.maxContextWindow")}
-                  icon={<Zap size="0.875rem" className="text-sky-400" />}
-                  help={localizeUi("ui.connections.connectioneditor.theMaximumNumberOfTokensThisModelCanProcess")}
-                >
-                  <div className="flex items-center gap-3">
-                    <DraftNumberInput
-                      value={localMaxContext}
-                      min={1}
-                      selectOnFocus
-                      onCommit={(nextValue) => {
-                        setLocalMaxContext(nextValue);
-                        markDirty();
-                      }}
-                      className="w-40 rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
-                    />
-                    <span className="text-xs text-[var(--muted-foreground)]">
-                      {formatContext(localMaxContext)} {localizeUi("ui.connections.connectioneditor.tokens")}
-                    </span>
-                  </div>
-                  <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
-                    {isGrokSubscriptionProvider
-                      ? localizeUi("ui.connections.connectioneditor.grokCliStartsAtASafer32kWindowBecause")
-                      : localizeUi("ui.connections.connectioneditor.thisIsAutoSetWhenSelectingAModelFrom")}
-                  </p>
-                </FieldGroup>
-              )}
-
-              {/* ── Max Output Tokens Override ── */}
-              {!isMediaGenerationProvider && !isLocalAuthProvider && (
-                <FieldGroup
-                  label={localizeUi("ui.connections.connectioneditor.maxOutputTokensOverride")}
-                  icon={<Zap size="0.875rem" className="text-[var(--marinara-chat-chrome-button-text-active)]" />}
-                  help={localizeUi("ui.connections.connectioneditor.hardCapOnMaxTokensForTheApiResponse")}
-                >
-                  <div className="flex items-center gap-3">
-                    <DraftNumberInput
-                      value={localMaxTokensOverride ?? 0}
-                      min={0}
-                      selectOnFocus
-                      onCommit={(nextValue) => {
-                        setLocalMaxTokensOverride(nextValue > 0 ? nextValue : null);
-                        markDirty();
-                      }}
-                      className="w-40 rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
-                    />
-                    <span className="text-xs text-[var(--muted-foreground)]">
-                      {localMaxTokensOverride
-                        ? localizeUi("ui.connections.connectioneditor.value1TokensMax", {
-                            value1: localMaxTokensOverride.toLocaleString(),
-                          })
-                        : t("connections.editor.maxOutputAutomatic")}
-                    </span>
-                  </div>
-                  <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
-                    {localizeUi("ui.connections.connectioneditor.setTo0OrLeaveEmptyToDisableWhen")}
-                  </p>
-                </FieldGroup>
-              )}
-            </div>
-
             {tabbed && testSection}
           </EditorSection>
 
@@ -3936,6 +3867,69 @@ export function ConnectionEditor({
           </EditorSection>
 
           <EditorSection id="limits" tabbed={tabbed}>
+            <div className="grid gap-6 empty:hidden sm:grid-cols-2">
+              {/* ── Max Context ── (a model's own size limits lead the Limits tab) */}
+              {!isMediaGenerationProvider && (
+                <FieldGroup
+                  label={localizeUi("ui.connections.connectioneditor.maxContextWindow")}
+                  icon={<Zap size="0.875rem" className="text-sky-400" />}
+                  help={localizeUi("ui.connections.connectioneditor.theMaximumNumberOfTokensThisModelCanProcess")}
+                >
+                  <div className="flex items-center gap-3">
+                    <DraftNumberInput
+                      value={localMaxContext}
+                      min={1}
+                      selectOnFocus
+                      onCommit={(nextValue) => {
+                        setLocalMaxContext(nextValue);
+                        markDirty();
+                      }}
+                      className="w-40 rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+                    />
+                    <span className="text-xs text-[var(--muted-foreground)]">
+                      {formatContext(localMaxContext)} {localizeUi("ui.connections.connectioneditor.tokens")}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
+                    {isGrokSubscriptionProvider
+                      ? localizeUi("ui.connections.connectioneditor.grokCliStartsAtASafer32kWindowBecause")
+                      : localizeUi("ui.connections.connectioneditor.thisIsAutoSetWhenSelectingAModelFrom")}
+                  </p>
+                </FieldGroup>
+              )}
+
+              {/* ── Max Output Tokens Override ── */}
+              {!isMediaGenerationProvider && !isLocalAuthProvider && (
+                <FieldGroup
+                  label={localizeUi("ui.connections.connectioneditor.maxOutputTokensOverride")}
+                  icon={<Zap size="0.875rem" className="text-[var(--marinara-chat-chrome-button-text-active)]" />}
+                  help={localizeUi("ui.connections.connectioneditor.hardCapOnMaxTokensForTheApiResponse")}
+                >
+                  <div className="flex items-center gap-3">
+                    <DraftNumberInput
+                      value={localMaxTokensOverride ?? 0}
+                      min={0}
+                      selectOnFocus
+                      onCommit={(nextValue) => {
+                        setLocalMaxTokensOverride(nextValue > 0 ? nextValue : null);
+                        markDirty();
+                      }}
+                      className="w-40 rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+                    />
+                    <span className="text-xs text-[var(--muted-foreground)]">
+                      {localMaxTokensOverride
+                        ? localizeUi("ui.connections.connectioneditor.value1TokensMax", {
+                            value1: localMaxTokensOverride.toLocaleString(),
+                          })
+                        : t("connections.editor.maxOutputAutomatic")}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
+                    {localizeUi("ui.connections.connectioneditor.setTo0OrLeaveEmptyToDisableWhen")}
+                  </p>
+                </FieldGroup>
+              )}
+            </div>
             <div className="grid gap-6 empty:hidden sm:grid-cols-2">
               {/* ── Agent Parallel Jobs ── */}
               {!isMediaGenerationProvider && (
