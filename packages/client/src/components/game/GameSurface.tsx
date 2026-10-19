@@ -65,7 +65,12 @@ import {
   useFloatingWindowStore,
 } from "../../stores/floating-window.store";
 import { useProvideChatGalleryActions } from "../../hooks/use-chat-gallery-actions";
-import { CHAT_CONTROL_WINDOW_IDS, ChatConnectedChatWindow, ChatControlWindow } from "../chat/ChatControlWindow";
+import {
+  CHAT_CONTROL_WINDOW_IDS,
+  ChatConnectedChatWindow,
+  ChatControlWindow,
+  closeChatControlSheet,
+} from "../chat/ChatControlWindow";
 import type { ChatImage } from "../../hooks/use-gallery";
 import { useGameStateStore } from "../../stores/game-state.store";
 import { useGalleryStore } from "../../stores/gallery.store";
@@ -8844,10 +8849,11 @@ function GameSurfaceComponent({
   const dungeonMapOpen = useMemo(() => gameDungeonMapFromMetadata(chatMeta) !== null, [chatMeta]);
   const dungeonShown =
     dungeonMapOpen && chatMeta.gameDungeonView !== "scene" && !experienceOwnsGame && !combatUiActive && !replayActive;
-  const handleToggleDungeonView = useCallback(
-    () => updateChatMetadata.mutate({ id: activeChatId, gameDungeonView: dungeonShown ? "scene" : "map" }),
-    [activeChatId, dungeonShown, updateChatMetadata],
-  );
+  // The view switches live in Game controls; on a phone its sheet covers the new view, so a switch closes it.
+  const handleToggleDungeonView = useCallback(() => {
+    updateChatMetadata.mutate({ id: activeChatId, gameDungeonView: dungeonShown ? "scene" : "map" });
+    closeChatControlSheet(CHAT_CONTROL_WINDOW_IDS.gameControls);
+  }, [activeChatId, dungeonShown, updateChatMetadata]);
   const overworldShown =
     !dungeonShown &&
     (gameWorld !== null || gameWorldPending) &&
@@ -8865,17 +8871,16 @@ function GameSurfaceComponent({
   // town. Another game's side is never carried over.
   const worldSideRef = useRef<{ chatId: string; side: "overworld" | "town" } | null>(null);
   if (overworldShown) worldSideRef.current = { chatId: activeChatId, side: townShown ? "town" : "overworld" };
-  const handleToggleWorldView = useCallback(
-    () =>
-      setWorldView(
-        overworldShown
-          ? "scene"
-          : worldSideRef.current?.chatId === activeChatId
-            ? worldSideRef.current.side
-            : "overworld",
-      ),
-    [activeChatId, overworldShown, setWorldView],
-  );
+  const handleToggleWorldView = useCallback(() => {
+    setWorldView(
+      overworldShown
+        ? "scene"
+        : worldSideRef.current?.chatId === activeChatId
+          ? worldSideRef.current.side
+          : "overworld",
+    );
+    closeChatControlSheet(CHAT_CONTROL_WINDOW_IDS.gameControls);
+  }, [activeChatId, overworldShown, setWorldView]);
   // Effective combat style: active encounter pin ?? runtime metadata override
   // (settings drawer) ?? wizard setup choice ?? legacy default "classic".
   const combatSetupConfig = chatMeta.gameSetupConfig as Record<string, unknown> | undefined;
