@@ -145,7 +145,7 @@ test("connections concept A reference renders without overflow", async ({ browse
     await expect(proxy.locator("[data-connection-id]")).toHaveCount(5);
     await expect(panel.locator("[data-connection-id]")).toHaveCount(6);
 
-    // A proxy's upstreams are foldable headings in one well; the unprefixed Decision model sits under "Other models".
+    // A proxy's upstreams are foldable headings in one well; the unprefixed Decision model sits under "Direct".
     await expect(proxy.locator("[data-connection-upstream]")).toHaveCount(3);
     for (const [upstream, label, count] of [
       ["nanogpt", "NanoGPT", 2],
@@ -158,7 +158,7 @@ test("connections concept A reference renders without overflow", async ({ browse
       await expect(heading).toHaveAttribute("aria-expanded", "true");
       await expect(section.locator("[data-connection-id]")).toHaveCount(count);
     }
-    await expect(proxy.getByRole("button", { name: /^Other models/ })).toBeVisible();
+    await expect(proxy.getByRole("button", { name: /^Direct/ })).toBeVisible();
     // No "Add models" row per card: "+ Add" at the top and the card's ⋯ menu are the doors.
     await expect(panel.locator("[data-add-models]")).toHaveCount(0);
 
@@ -200,7 +200,7 @@ test("connections concept A reference renders without overflow", async ({ browse
       const menu = page.getByRole("menu");
       await expect(menu.getByRole("menuitem")).toHaveText([
         "Upload image",
-        "Choose provider logo",
+        "Choose service logo",
         "Use letters",
         "Reset to default",
       ]);

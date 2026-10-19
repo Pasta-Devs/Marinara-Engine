@@ -478,8 +478,8 @@ test("Connections no longer offers Tripo", async ({ page, request }) => {
     useUIStore.getState().openModal("create-connection");
   });
   const dialog = page.getByRole("dialog");
-  // The vendors fold behind "All providers" in the Add window.
-  await dialog.getByRole("button", { name: /^All providers/ }).click({ timeout: FIRST_LOAD_TIMEOUT_MS });
+  // The vendors fold behind "All services" in the Add window.
+  await dialog.getByRole("button", { name: /^All services/ }).click({ timeout: FIRST_LOAD_TIMEOUT_MS });
   await expect(dialog.getByRole("button", { name: "OpenAI", exact: true })).toBeVisible();
   await expect(dialog.getByRole("button", { name: "Tripo", exact: true })).toHaveCount(0);
 });

@@ -131,7 +131,11 @@ export function ConnectionModelList<T extends { model?: string | null; provider?
                 >
                   {upstream ? <BrandMark of={upstream} className="h-3.5 w-3.5" /> : <Layers size="0.875rem" />}
                 </span>
-                <span className="min-w-0 truncate">{section.label ?? t("connections.accounts.section.other")}</span>
+                <span className="min-w-0 truncate">
+                  {section.label
+                    ? t("connections.accounts.section.via", { service: section.label })
+                    : t("connections.accounts.section.other")}
+                </span>
                 <span className="shrink-0 font-normal tabular-nums text-[var(--muted-foreground)]">
                   {section.rows.length}
                 </span>

@@ -424,7 +424,7 @@ test("the Connections menu lists, stars, picks, refreshes and types models witho
     menu = await openMenu(page, testInfo);
     const switcherSearch = menu.locator("[data-switcher-search]");
     await switcherSearch.fill("Delta");
-    await expect(menu.locator("[data-switcher-results]")).toContainText("In your catalogs · not starred");
+    await expect(menu.locator("[data-switcher-results]")).toContainText("More models · not favorites");
     await switcherSearch.press("Enter");
     await menuGone();
     await expect.poll(chatModel).toBe("vendor/delta");
