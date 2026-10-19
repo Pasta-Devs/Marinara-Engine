@@ -21,6 +21,7 @@ import { createAppSettingsStorage } from "../services/storage/app-settings.stora
 import { createChatsStorage } from "../services/storage/chats.storage.js";
 import { getProfessorMariWorkspaceService } from "../services/professor-mari/workspace-agent.service.js";
 import { getProfessorMariWorkspaceSkillsService } from "../services/professor-mari/workspace-skills.service.js";
+import { isBuiltinSkillId } from "../services/professor-mari/builtin-skills.js";
 import { getMariDbService } from "../services/mari-db/mari-db.service.js";
 import { renderMariEditPrompt } from "../services/professor-mari/workspace-edit-render.js";
 import { logger } from "../lib/logger.js";
@@ -319,6 +320,11 @@ export async function professorMariWorkspaceRoutes(app: FastifyInstance) {
 
   app.put<{ Params: { id: string } }>("/skills/:id", async (req, reply) => {
     if (!privileged(req, reply)) return;
+    // Shipped procedure: the app's own copy is the only source of truth, so neither
+    // editing nor toggling one is a server operation. Copy it into a user skill to change it.
+    if (isBuiltinSkillId(req.params.id)) {
+      return reply.code(403).send({ error: "Built-in skills are read-only. Copy it into a new skill to change it." });
+    }
     const input = skillUpdateSchema.parse(req.body);
     const skill = await getProfessorMariWorkspaceSkillsService().update(req.params.id, input);
     await getProfessorMariWorkspaceService(app).reset();
@@ -327,6 +333,9 @@ export async function professorMariWorkspaceRoutes(app: FastifyInstance) {
 
   app.delete<{ Params: { id: string } }>("/skills/:id", async (req, reply) => {
     if (!privileged(req, reply)) return;
+    if (isBuiltinSkillId(req.params.id)) {
+      return reply.code(403).send({ error: "Built-in skills are read-only." });
+    }
     await getProfessorMariWorkspaceSkillsService().delete(req.params.id);
     await getProfessorMariWorkspaceService(app).reset();
     return { ok: true };

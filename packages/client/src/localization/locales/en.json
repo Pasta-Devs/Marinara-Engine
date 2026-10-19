@@ -8537,6 +8537,8 @@
   "ui.chat.professormarimemoriesmenu.professorMariMemories": "Professor Mari memories",
   "ui.chat.professormarimemoriesmenu.searchPlaceholder": "Search memories",
   "ui.chat.professormariskillsmenu.active": "active /",
+  "ui.chat.professormariskillsmenu.builtIn": "Built-in",
+  "ui.chat.professormariskillsmenu.builtInHint": "This skill ships with Marinara and is always on. Copy its instructions into a new skill to change them.",
   "ui.chat.professormariskillsmenu.disableSkill": "Disable skill",
   "ui.chat.professormariskillsmenu.enableSkill": "Enable skill",
   "ui.chat.professormariskillsmenu.hint": "What Professor Mari can do beyond the basics.",

@@ -147,6 +147,9 @@ export function ProfessorMariSkillsMenu({
           ) : (
             (selectedSkill ? [selectedSkill] : displayed).map((skill) => {
               const active = selectedSkill?.id === skill.id;
+              // A shipped skill is read-only here: it is shown so the user can read (and copy) the
+              // procedure Mari follows, and cannot be edited, renamed, switched off or deleted.
+              const builtin = skill.origin === "builtin";
               return (
                 <div key={skill.id} className={cn("mari-edit__row w-full min-w-0", active && "bg-[var(--mari-hover)]")}>
                   <div className="flex w-full min-w-0 items-stretch gap-1">
@@ -164,8 +167,15 @@ export function ProfessorMariSkillsMenu({
                         )}
                       />
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate text-[0.8125rem] font-semibold text-[var(--foreground)]">
-                          {skill.name}
+                        <span className="flex min-w-0 items-center gap-1.5">
+                          <span className="truncate text-[0.8125rem] font-semibold text-[var(--foreground)]">
+                            {skill.name}
+                          </span>
+                          {skill.origin === "builtin" && (
+                            <span className="shrink-0 rounded border border-[var(--mari-divider)] px-1 py-px text-[0.55rem] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
+                              {localizeUi("ui.chat.professormariskillsmenu.builtIn")}
+                            </span>
+                          )}
                         </span>
                         {skill.description && (
                           <span className="mt-0.5 hidden truncate text-[0.65rem] text-[var(--muted-foreground)] md:block">
@@ -174,24 +184,27 @@ export function ProfessorMariSkillsMenu({
                         )}
                       </span>
                     </button>
-                    <span className="flex shrink-0 items-center pr-3">
-                      <SettingsSwitch
-                        ariaLabel={
-                          skill.enabled
-                            ? localizeUi("ui.chat.professormariskillsmenu.disableSkill")
-                            : localizeUi("ui.chat.professormariskillsmenu.enableSkill")
-                        }
-                        title={
-                          skill.enabled
-                            ? localizeUi("ui.noodle.noodlehome.enabled")
-                            : localizeUi("ui.agents.agenteditor.disabled")
-                        }
-                        checked={skill.enabled}
-                        onChange={() => onToggle(skill)}
-                        disabled={saving}
-                        className="p-0 hover:bg-transparent"
-                      />
-                    </span>
+                    {/* A built-in is always on and cannot be switched off: the switch is not shown at all. */}
+                    {skill.origin !== "builtin" && (
+                      <span className="flex shrink-0 items-center pr-3">
+                        <SettingsSwitch
+                          ariaLabel={
+                            skill.enabled
+                              ? localizeUi("ui.chat.professormariskillsmenu.disableSkill")
+                              : localizeUi("ui.chat.professormariskillsmenu.enableSkill")
+                          }
+                          title={
+                            skill.enabled
+                              ? localizeUi("ui.noodle.noodlehome.enabled")
+                              : localizeUi("ui.agents.agenteditor.disabled")
+                          }
+                          checked={skill.enabled}
+                          onChange={() => onToggle(skill)}
+                          disabled={saving}
+                          className="p-0 hover:bg-transparent"
+                        />
+                      </span>
+                    )}
                   </div>
                   {active && (
                     <div
@@ -204,6 +217,7 @@ export function ProfessorMariSkillsMenu({
                           value={draft.name}
                           onChange={(event) => onDraftChange({ ...draft, name: event.target.value })}
                           disabled={saving}
+                          readOnly={builtin}
                           className="mt-1 h-8 w-full rounded-md border border-[var(--border)] bg-[var(--card)] px-2 text-xs text-[var(--foreground)] outline-none transition-colors focus:border-[var(--primary)]/55 disabled:cursor-not-allowed disabled:opacity-70"
                         />
                       </label>
@@ -213,6 +227,7 @@ export function ProfessorMariSkillsMenu({
                           value={draft.description}
                           onChange={(event) => onDraftChange({ ...draft, description: event.target.value })}
                           disabled={saving}
+                          readOnly={builtin}
                           className="mt-1 h-8 w-full rounded-md border border-[var(--border)] bg-[var(--card)] px-2 text-xs text-[var(--foreground)] outline-none transition-colors focus:border-[var(--primary)]/55 disabled:cursor-not-allowed disabled:opacity-70"
                         />
                       </label>
@@ -222,25 +237,32 @@ export function ProfessorMariSkillsMenu({
                           value={draft.content}
                           onChange={(event) => onDraftChange({ ...draft, content: event.target.value })}
                           disabled={saving}
+                          readOnly={builtin}
                           rows={9}
                           className="mt-1 min-h-40 w-full resize-y rounded-md border border-[var(--border)] bg-[var(--card)] px-2 py-2 font-mono text-[0.6875rem] leading-relaxed text-[var(--foreground)] outline-none transition-colors focus:border-[var(--primary)]/55 disabled:cursor-not-allowed disabled:opacity-70"
                         />
                       </label>
-                      <div className="flex items-center justify-between gap-2">
-                        <button
-                          type="button"
-                          onClick={() => onDelete(skill.id)}
-                          disabled={saving}
-                          className="inline-flex h-8 items-center gap-1.5 rounded-md px-2 text-[0.6875rem] font-semibold text-[var(--destructive)] transition-colors hover:bg-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-45"
-                        >
-                          <Trash2 size="0.75rem" />
-                          {localizeUi("lorebook.editor.batch.delete")}
-                        </button>
-                        <button type="button" onClick={onSave} disabled={saving} className="mari-btn mari-btn--solid">
-                          {saving ? <Loader2 size="0.75rem" className="animate-spin" /> : <Save size="0.75rem" />}
-                          {localizeUi("ui.noodle.noodlehome.save")}
-                        </button>
-                      </div>
+                      {builtin ? (
+                        <p className="text-[0.65rem] leading-relaxed text-[var(--muted-foreground)]">
+                          {localizeUi("ui.chat.professormariskillsmenu.builtInHint")}
+                        </p>
+                      ) : (
+                        <div className="flex items-center justify-between gap-2">
+                          <button
+                            type="button"
+                            onClick={() => onDelete(skill.id)}
+                            disabled={saving}
+                            className="inline-flex h-8 items-center gap-1.5 rounded-md px-2 text-[0.6875rem] font-semibold text-[var(--destructive)] transition-colors hover:bg-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-45"
+                          >
+                            <Trash2 size="0.75rem" />
+                            {localizeUi("lorebook.editor.batch.delete")}
+                          </button>
+                          <button type="button" onClick={onSave} disabled={saving} className="mari-btn mari-btn--solid">
+                            {saving ? <Loader2 size="0.75rem" className="animate-spin" /> : <Save size="0.75rem" />}
+                            {localizeUi("ui.noodle.noodlehome.save")}
+                          </button>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

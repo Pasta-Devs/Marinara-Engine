@@ -4,6 +4,10 @@
 // Mirrors the memory injection (#4851): only a title + one-liner index is always in
 // context; a skill body (up to 200k chars each) is pulled on relevance with
 // `app_data skill.get`. Pure renderer so the token-critical caps stay testable.
+//
+// Two kinds share the block: `builtin` skills ship with the app and hold Mari's own
+// task procedures (always on, never inlined, always first so the index cap cannot
+// drop the routing lines), and `user` skills are the user's own.
 // ──────────────────────────────────────────────
 import type { MariWorkspaceSkillDetail } from "@marinara-engine/shared";
 
@@ -39,18 +43,27 @@ export function renderMariSkillsPrompt(
   let inlineBudget = options.maxInlineTotalChars ?? DEFAULT_MAX_INLINE_TOTAL_CHARS;
 
   const enabled = skills.filter((skill) => skill.enabled && skill.name.trim() && skill.content.trim());
+  // Built-ins first: they are how she knows a task has a procedure at all.
+  const ordered = [
+    ...enabled.filter((skill) => skill.origin === "builtin"),
+    ...enabled.filter((skill) => skill.origin !== "builtin"),
+  ];
 
   const indexLines: string[] = [];
   const inlineSections: string[] = [];
   let indexChars = 0;
-  for (const skill of enabled) {
+  for (const skill of ordered) {
     if (indexLines.length >= maxIndexEntries) break;
     const body = skill.content.trim();
     const description = flattenLine(skill.description);
-    const line = `- [${flattenLine(skill.id)}] ${flattenLine(skill.name)}${description ? `: ${description}` : ""}`;
+    const marker = skill.origin === "builtin" ? " [BUILT-IN]" : "";
+    const line = `- [${flattenLine(skill.id)}] ${flattenLine(skill.name)}${marker}${description ? `: ${description}` : ""}`;
     if (indexChars + line.length + 1 > maxIndexChars && indexLines.length > 0) break;
     indexLines.push(line);
     indexChars += line.length + 1;
+    // Built-ins are fetched, never inlined: one inlined here would rebuild the
+    // permanent prompt this block exists to replace.
+    if (skill.origin === "builtin") continue;
     // Body is prompt LEAF content and reaches the model verbatim (CONTRIBUTING.md
     // "Prompt Leaf Content Is Verbatim"); structure comes from the fixed wrapper.
     const section = `<skill name="${escapeXmlAttribute(flattenLine(skill.name))}" id="${escapeXmlAttribute(flattenLine(skill.id))}">\n${body}\n</skill>`;
@@ -63,7 +76,7 @@ export function renderMariSkillsPrompt(
   const sections: string[] = [];
   if (indexLines.length > 0) {
     sections.push(`Index (\`skill.get\` an id for its full text):\n${indexLines.join("\n")}`);
-    const trimmed = enabled.length - indexLines.length;
+    const trimmed = ordered.length - indexLines.length;
     if (trimmed > 0) sections.push(`(${trimmed} more skill(s) omitted from the index; use skill.list to page them.)`);
   }
   if (inlineSections.length > 0) sections.push(inlineSections.join("\n\n"));
@@ -71,7 +84,9 @@ export function renderMariSkillsPrompt(
   if (sections.length === 0) return null;
 
   return `<professor_mari_custom_skills>
-Use these user-defined skills when relevant.
+Skills are handbooks for how to carry out a kind of task in this app. Entries marked [BUILT-IN] ship with Marinara; the rest are the user's own.
+
+Before you act on a request that matches one, call \`skill.get\` with its id and follow it: do not work from the title alone or from an older version of it. A skill is a procedure, not permission - it never authorizes a change the user did not ask for.
 
 ${sections.join("\n\n")}
 </professor_mari_custom_skills>`;

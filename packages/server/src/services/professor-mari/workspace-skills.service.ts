@@ -9,6 +9,12 @@ import type {
 import { DATA_DIR } from "../../utils/data-dir.js";
 import { now } from "../../utils/id-generator.js";
 import { logger } from "../../lib/logger.js";
+import { BUILTIN_SKILL_ID_PREFIX, builtinSkillTimestamp, loadBuiltinSkills } from "./builtin-skills.js";
+import {
+  parseSkillFrontmatter as parseFrontmatter,
+  skillInstructions,
+  stripSkillFrontmatter as stripFrontmatter,
+} from "./skill-frontmatter.js";
 
 type SkillRecord = {
   id: string;
@@ -52,29 +58,6 @@ function skillDir(id: string) {
 
 function skillFilePath(id: string) {
   return join(skillDir(id), "SKILL.md");
-}
-
-function stripFrontmatter(content: string) {
-  return content.replace(/^---\s*\r?\n[\s\S]*?\r?\n---\s*/, "").trimStart();
-}
-
-function skillInstructions(content: string) {
-  return stripFrontmatter(content).trim();
-}
-
-function parseFrontmatter(content: string): Record<string, string> {
-  const match = content.match(/^---\s*\r?\n([\s\S]*?)\r?\n---\s*/);
-  if (!match?.[1]) return {};
-  const frontmatter: Record<string, string> = {};
-  for (const line of match[1].split(/\r?\n/)) {
-    const separator = line.indexOf(":");
-    if (separator < 0) continue;
-    const key = line.slice(0, separator).trim();
-    const raw = line.slice(separator + 1).trim();
-    if (!key) continue;
-    frontmatter[key] = raw.replace(/^["']|["']$/g, "");
-  }
-  return frontmatter;
 }
 
 function normalizeSkillName(value: string | null | undefined, fallback = "custom-skill") {
@@ -158,6 +141,7 @@ function summarizeRecord(record: SkillRecord, content: string): MariWorkspaceSki
     updatedAt: record.updatedAt,
     size: Buffer.byteLength(content, "utf8"),
     filePath: skillFilePath(record.id),
+    origin: "user",
   };
 }
 
@@ -167,6 +151,36 @@ export class ProfessorMariWorkspaceSkillsService {
     const records = await this.readRecords();
     const diagnostics: string[] = [];
     const skills: MariWorkspaceSkillDetail[] = [];
+
+    // Shipped skills come first: the prompt index is capped, and a built-in is how
+    // Mari knows a task has a procedure at all, so a long user list must not push
+    // one out. They are read from the app's assets, never from DATA_DIR, so an
+    // update replaces the text and a user cannot fork it by accident.
+    const builtins = await loadBuiltinSkills();
+    diagnostics.push(...builtins.diagnostics);
+    const userIds = new Set(records.map((record) => record.id));
+    for (const skill of builtins.skills) {
+      if (userIds.has(skill.id)) {
+        // Only reachable from a hand-edited or pre-existing index; say so instead of
+        // letting one skill silently win.
+        diagnostics.push(
+          `Built-in skill ${skill.name} is hidden by one of your own skills with the same id (${skill.id}).`,
+        );
+        continue;
+      }
+      skills.push({
+        id: skill.id,
+        name: skill.name,
+        description: skill.description,
+        enabled: true,
+        createdAt: builtinSkillTimestamp(),
+        updatedAt: builtinSkillTimestamp(),
+        size: Buffer.byteLength(skill.content, "utf8"),
+        filePath: skill.filePath,
+        origin: "builtin",
+        content: skill.content,
+      });
+    }
 
     for (const record of records) {
       try {
@@ -194,7 +208,7 @@ export class ProfessorMariWorkspaceSkillsService {
       input.name ?? frontmatter.name,
       titleFromBody(input.content) || titleFromFileName(input.fileName),
     );
-    const id = this.uniqueId(name, records);
+    const id = this.uniqueId(name.startsWith(BUILTIN_SKILL_ID_PREFIX) ? `user-${name}` : name, records);
     const description = normalizeDescription(input.description, input.content);
     const timestamp = now();
     const record: SkillRecord = {
@@ -214,6 +228,7 @@ export class ProfessorMariWorkspaceSkillsService {
 
   async update(id: string, input: SkillUpdate): Promise<MariWorkspaceSkillDetail> {
     await this.ensureStorage();
+    this.assertNotBuiltin(id);
     const safeId = assertSafeSkillId(id);
     const records = await this.readRecords();
     const index = records.findIndex((record) => record.id === safeId);
@@ -245,6 +260,7 @@ export class ProfessorMariWorkspaceSkillsService {
 
   async delete(id: string): Promise<void> {
     await this.ensureStorage();
+    this.assertNotBuiltin(id);
     const safeId = assertSafeSkillId(id);
     const records = await this.readRecords();
     const record = records.find((entry) => entry.id === safeId);
@@ -255,6 +271,13 @@ export class ProfessorMariWorkspaceSkillsService {
 
   private async ensureStorage() {
     await mkdir(rootDir(), { recursive: true });
+  }
+
+  /** A shipped skill has no record to edit; the app's own copy is the only source of truth. */
+  private assertNotBuiltin(id: string) {
+    if (id.startsWith(BUILTIN_SKILL_ID_PREFIX)) {
+      throw new Error("Built-in skills are read-only. Copy it into a new skill to change it.");
+    }
   }
 
   private async readRecords(): Promise<SkillRecord[]> {
