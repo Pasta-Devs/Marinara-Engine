@@ -1638,6 +1638,8 @@
   "connections.accounts.testFailed": "Test failed",
   "connections.accounts.testNamed": "Test {{name}}",
   "connections.accounts.testOk": "Works ({{latency}} ms)",
+  "connections.accounts.turnOff": "Turn off",
+  "connections.accounts.turnOn": "Turn on",
   "connections.accounts.view.cards": "Card view",
   "connections.accounts.view.folders": "Folder view",
   "connections.add.addAnother": "Add another connection",

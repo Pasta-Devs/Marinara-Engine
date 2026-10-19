@@ -6,7 +6,7 @@ import { useState, type ReactNode } from "react";
 import { ConnectionModelList } from "./ConnectionModelList";
 import { ConnectionIdentity } from "./ConnectionIdentity";
 import { getConnectionIdentity, modelSubtitle } from "../../lib/connection-identity";
-import { ChevronDown, ImageIcon, MoreHorizontal, Plus, Settings2, Wifi } from "lucide-react";
+import { ChevronDown, ImageIcon, MoreHorizontal, Plus, Power, Settings2, Wifi } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
@@ -230,6 +230,12 @@ export function ConnectionGroup({
                     },
                   ]
                 : []),
+              {
+                // Off in one step: its models stop running and chats fall back, without opening the editor.
+                label: t(account.enabled ? "connections.accounts.turnOff" : "connections.accounts.turnOn"),
+                icon: <Power size="0.75rem" />,
+                onSelect: () => updateAccount.mutate({ id: account.id, enabled: !account.enabled }),
+              },
             ]}
           />
         )}
