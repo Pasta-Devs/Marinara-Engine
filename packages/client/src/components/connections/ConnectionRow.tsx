@@ -266,49 +266,15 @@ export function ModelRow({
         {lead}
         {!onPictureClick && tile}
         <span id={copyId} data-connection-model-copy className="min-w-0 flex-1">
-          <span className="flex min-w-0 items-center gap-1.5">
-            <span
-              data-model-title
-              className={cn(
-                "min-w-0 truncate text-sm font-semibold leading-5",
-                dim ? "text-[var(--muted-foreground)]" : "text-[var(--foreground)]",
-              )}
-              title={tooltip ?? title}
-            >
-              {title}
-            </span>
-            {status ? (
-              <span
-                data-connection-role
-                className={cn(
-                  "mari-connection-pill ms-auto",
-                  status.state === "needs_key" && "mari-connection-pill--warn",
-                )}
-              >
-                {status.state === "needs_key" ? (
-                  <KeyRound size="0.5625rem" />
-                ) : status.state === "off" ? (
-                  <Power size="0.5625rem" />
-                ) : null}
-                {status.label}
-              </span>
-            ) : (
-              roles.length > 0 && (
-                <span
-                  data-connection-role
-                  className="ms-auto flex shrink-0 items-center gap-1"
-                  title={roles.join(", ")}
-                >
-                  <span className="mari-connection-pill mari-connection-pill--strong">{roles[0]}</span>
-                  {rest.length > 0 && (
-                    <span className="mari-connection-pill">
-                      <span aria-hidden>+{rest.length}</span>
-                      <span className="sr-only">{t("connections.row.moreRoles", { roles: rest.join(", ") })}</span>
-                    </span>
-                  )}
-                </span>
-              )
+          <span
+            data-model-title
+            className={cn(
+              "block min-w-0 truncate text-sm font-semibold leading-5",
+              dim ? "text-[var(--muted-foreground)]" : "text-[var(--foreground)]",
             )}
+            title={tooltip ?? title}
+          >
+            {title}
           </span>
           {(pill || id || details || cost || retiring || customized) && (
             <span className="mt-0.5 flex min-w-0 items-center gap-1.5 text-xs leading-[1.125rem] text-[var(--muted-foreground)]">
@@ -337,6 +303,35 @@ export function ModelRow({
             </span>
           )}
         </span>
+        {/* Role or status: its own column at the row end, centred on both lines. */}
+        {status ? (
+          <span
+            data-connection-role
+            className={cn(
+              "mari-connection-pill shrink-0",
+              status.state === "needs_key" && "mari-connection-pill--warn",
+            )}
+          >
+            {status.state === "needs_key" ? (
+              <KeyRound size="0.5625rem" />
+            ) : status.state === "off" ? (
+              <Power size="0.5625rem" />
+            ) : null}
+            {status.label}
+          </span>
+        ) : (
+          roles.length > 0 && (
+            <span data-connection-role className="flex shrink-0 items-center gap-1" title={roles.join(", ")}>
+              <span className="mari-connection-pill mari-connection-pill--strong">{roles[0]}</span>
+              {rest.length > 0 && (
+                <span className="mari-connection-pill">
+                  <span aria-hidden>+{rest.length}</span>
+                  <span className="sr-only">{t("connections.row.moreRoles", { roles: rest.join(", ") })}</span>
+                </span>
+              )}
+            </span>
+          )
+        )}
         {trailing}
       </button>
       {end}

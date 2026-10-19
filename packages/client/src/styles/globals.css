@@ -1511,7 +1511,8 @@
 .mari-connection-group {
   border-radius: 1rem;
   padding: 0.5rem;
-  background-color: color-mix(in srgb, var(--foreground) 6%, transparent);
+  /* Connection blue carries the card heading; the model well below stays neutral. */
+  background-color: color-mix(in srgb, var(--mari-panel-gradient-start) 10%, transparent);
 }
 
 /* Bundled marks use the theme's foreground; uploaded model pictures keep their own colours. */
@@ -1533,7 +1534,7 @@
   overflow: hidden;
   /* Concentric with the card: 1rem card radius - 0.5rem padding. */
   border-radius: 0.5rem;
-  background: color-mix(in srgb, var(--foreground) 2.5%, transparent);
+  background: color-mix(in srgb, var(--mari-panel-gradient-start) 6%, transparent);
 }
 /* Every row of a well (models, upstream headings, Show more, Add models) sits under a hairline. */
 .mari-connection-model-slot + .mari-connection-model-slot,
@@ -1547,13 +1548,8 @@
 .mari-connection-defaults-box,
 .mari-connection-empty {
   border-radius: 0.875rem;
-  background:
-    linear-gradient(
-      160deg,
-      color-mix(in srgb, var(--mari-panel-gradient-start) 10%, transparent),
-      color-mix(in srgb, var(--mari-panel-gradient-end) 5%, transparent) 60%
-    ),
-    var(--card);
+  /* Flat: one even connection-blue tint, no gradient. */
+  background: color-mix(in srgb, var(--mari-panel-gradient-start) 7%, var(--card));
 }
 .mari-connection-defaults-job {
   background: color-mix(in srgb, var(--foreground) 4%, transparent);

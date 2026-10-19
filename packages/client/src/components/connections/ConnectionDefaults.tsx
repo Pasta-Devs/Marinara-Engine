@@ -421,7 +421,7 @@ function JobRow({
                 "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
                 tile.muted
                   ? "border border-dashed border-foreground/25 text-[var(--muted-foreground)]"
-                  : "mari-panel-gradient-surface mari-panel-gradient--connections",
+                  : "mari-panel-gradient--connections bg-[var(--mari-connection-tint)] text-[var(--mari-connection-ink)]",
               )}
             >
               {tile.icon}
