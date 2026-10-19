@@ -107,16 +107,21 @@ export function ConnectionModelList<T extends { model?: string | null; provider?
         const showMore = !open && hidden > 0 && (kept.length > 0 || !headed);
         const hint = open ? null : hintOf(sorted);
         return (
-          <div key={key} data-connection-upstream={upstream || undefined} data-connection-section className="min-w-0">
+          <div
+            key={key}
+            data-connection-upstream={upstream || undefined}
+            data-connection-section
+            className="mari-connection-model-well min-w-0"
+          >
             {headed && (
               <button
                 type="button"
                 aria-expanded={open}
                 onClick={() => flip(key)}
                 className={cn(
-                  // A label on the card, above its own well: no tile and no hairline, so it never reads as a model
-                  // row. The 0.875rem mark is centred in the rows' tile column; role badges sit at the end.
-                  "mari-connection-model-section-head flex min-h-9 w-full min-w-0 items-center gap-2 rounded-lg ps-[1.0625rem] pe-2 text-left text-xs font-semibold text-[var(--foreground)] hover:bg-foreground/[0.04]",
+                  // The tinted top strip of its upstream's well: no tile, so it never reads as a model row. The
+                  // 0.875rem mark is centred in the rows' tile column; role badges sit at the end.
+                  "mari-connection-model-section-head flex min-h-9 w-full min-w-0 items-center gap-2 ps-[1.0625rem] pe-2 text-left text-xs font-semibold text-[var(--foreground)]",
                   ROW_FOCUS,
                 )}
               >
@@ -153,32 +158,28 @@ export function ConnectionModelList<T extends { model?: string | null; provider?
                 />
               </button>
             )}
-            {(kept.length > 0 || showMore) && (
-              <div className={cn("mari-connection-model-well min-w-0", headed && "mt-0.5")}>
-                {kept.map((row) => (
-                  <div key={getKey(row)} className="mari-connection-model-slot min-w-0">
-                    {renderRow(row, upstream || null)}
-                  </div>
-                ))}
-                {showMore && (
-                  <div className="mari-connection-model-slot min-w-0">
-                    <button
-                      type="button"
-                      aria-expanded={false}
-                      onClick={() => flip(key)}
-                      className={cn(
-                        "flex min-h-11 w-full items-center gap-3 ps-2 pe-2 text-left text-xs text-[var(--muted-foreground)] hover:bg-foreground/[0.04]",
-                        ROW_FOCUS,
-                      )}
-                    >
-                      <span className="w-8 shrink-0" aria-hidden />
-                      <span className="min-w-0 flex-1 truncate">
-                        {t("connections.accounts.showMore", { count: hidden })}
-                      </span>
-                      <ChevronDown size="0.875rem" aria-hidden className="shrink-0" />
-                    </button>
-                  </div>
-                )}
+            {kept.map((row) => (
+              <div key={getKey(row)} className="mari-connection-model-slot min-w-0">
+                {renderRow(row, upstream || null)}
+              </div>
+            ))}
+            {showMore && (
+              <div className="mari-connection-model-slot min-w-0">
+                <button
+                  type="button"
+                  aria-expanded={false}
+                  onClick={() => flip(key)}
+                  className={cn(
+                    "flex min-h-11 w-full items-center gap-3 ps-2 pe-2 text-left text-xs text-[var(--muted-foreground)] hover:bg-foreground/[0.04]",
+                    ROW_FOCUS,
+                  )}
+                >
+                  <span className="w-8 shrink-0" aria-hidden />
+                  <span className="min-w-0 flex-1 truncate">
+                    {t("connections.accounts.showMore", { count: hidden })}
+                  </span>
+                  <ChevronDown size="0.875rem" aria-hidden className="shrink-0" />
+                </button>
               </div>
             )}
           </div>
