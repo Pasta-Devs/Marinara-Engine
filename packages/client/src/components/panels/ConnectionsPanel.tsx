@@ -61,6 +61,7 @@ import { PanelSection } from "../ui/PanelSection";
 import { ContextMenu } from "../ui/ContextMenu";
 import { PictureMenu } from "../connections/PictureMenu";
 import { MoveConnectionDialog } from "../connections/MoveConnectionDialog";
+import { StarText } from "../connections/StarText";
 
 /** Two columns from this panel width; below it a row drills in. */
 const WIDE_PANEL_PX = 768;
@@ -184,6 +185,8 @@ export function ConnectionsPanel() {
   const openModal = useUIStore((s) => s.openModal);
   const linkApiBannerDismissed = useUIStore((s) => s.linkApiBannerDismissed);
   const dismissLinkApiBanner = useUIStore((s) => s.dismissLinkApiBanner);
+  const upgradeNoteDismissed = useUIStore((s) => s.connectionsUpgradeNoteDismissed);
+  const dismissUpgradeNote = useUIStore((s) => s.dismissConnectionsUpgradeNote);
   const collapsedConnections = useUIStore((s) => s.connectionsCollapsed);
   const toggleConnectionCollapsed = useUIStore((s) => s.toggleConnectionCollapsed);
   const showCostBadges = useUIStore((s) => s.showCostBadges);
@@ -219,6 +222,23 @@ export function ConnectionsPanel() {
     [connections, hiddenIds],
   );
   const engines = useDeviceEngines();
+  // ponytail: "had connections before" = a Connection created well after one of its Models, which only the upgrade
+  // grouping does (a Model saved without a Connection is linked in the same moment). A Model moved into a much
+  // newer Connection also counts; a server flag if that ever matters.
+  const upgradedFromModels = useMemo(
+    () =>
+      !!accounts?.some((account) =>
+        connectionsList.some(
+          (row) =>
+            row.accountId === account.id &&
+            !!row.createdAt &&
+            Date.parse(account.createdAt) - Date.parse(row.createdAt) > 60_000,
+        ),
+      ),
+    [accounts, connectionsList],
+  );
+  // Folders are gone from the panel; the folder data stays untouched on the rows.
+  const hadFolders = connectionsList.some((row) => !!row.folderId);
   const grouped = useMemo(() => {
     const { groups, standalone } = groupModelsByAccount(connectionsList, accounts ?? []);
     const sorted = [...groups].sort((a, b) => a.account.name.localeCompare(b.account.name));
@@ -636,6 +656,33 @@ export function ConnectionsPanel() {
         </>
       ) : (
         <>
+          {(upgradedFromModels || hadFolders) && !upgradeNoteDismissed && (
+            <div
+              role="note"
+              data-connections-upgrade-note
+              className="flex items-start gap-2 rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-3 text-xs text-[var(--muted-foreground)]"
+            >
+              <div className="min-w-0 flex-1 space-y-1">
+                <p>{t("connections.upgradeNote.grouped")}</p>
+                {hadFolders && <p>{t("connections.upgradeNote.folders")}</p>}
+                <p>
+                  <StarText text={t("connections.upgradeNote.picks")} />
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={dismissUpgradeNote}
+                className={cn(
+                  "-m-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-lg hover:bg-[var(--sidebar)] hover:text-[var(--foreground)]",
+                  FOCUS,
+                )}
+                aria-label={t("connections.upgradeNote.dismiss")}
+                title={t("connections.upgradeNote.dismiss")}
+              >
+                <X size="0.875rem" />
+              </button>
+            </div>
+          )}
           {defaultsBox}
           <p
             className={nothingShown ? "px-2 py-6 text-center text-xs text-[var(--muted-foreground)]" : "sr-only"}
