@@ -177,13 +177,13 @@ test("connections concept A reference renders without overflow", async ({ browse
       ).toBe(true);
     }
 
-    // One role badge, the rest folded into "+N" with the full list in its tooltip.
+    // Two role names show; a third or more folds into "+N" with the full list in its tooltip.
     await expect(panel.locator("[data-connection-role]")).toHaveCount(2);
     const glmRole = panel.locator('[data-connection-id="c-glm"] [data-connection-role]');
     await expect(glmRole).toHaveAttribute("title", "Main, Agents");
     await expect(glmRole.locator("> span")).toHaveCount(2);
     await expect(glmRole.locator("> span").first()).toHaveText("Main");
-    await expect(glmRole.locator("> span").nth(1)).toContainText("+1");
+    await expect(glmRole.locator("> span").nth(1)).toHaveText("Agents");
     await expect(panel.locator('[data-connection-id="c-arli"] [data-connection-role]')).toHaveText("Default");
     for (const role of await panel.locator("[data-connection-role] > span").all())
       expect(await role.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);

@@ -29,7 +29,6 @@ import {
   Shuffle,
   Star,
   Trash2,
-  Wrench,
   type LucideIcon,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -224,7 +223,8 @@ export function ModelRow({
   const { t } = useTranslation();
   const copyId = useId();
   const pill = kind && kind !== "chat" ? KIND_PILL[kind] : null;
-  const rest = roles.slice(1);
+  // Two role names fit; only a third or more folds into "+N" (a tooltip alone would hide them on touch).
+  const rest = roles.slice(2);
   const id = subtitle && subtitle.trim().toLowerCase() !== title.trim().toLowerCase() ? subtitle : null;
   return (
     <div
@@ -289,11 +289,14 @@ export function ModelRow({
                   {id}
                 </span>
               )}
-              {/* Custom settings: a quiet wrench right after the model id it adjusts. */}
+              {/* Custom settings: a quiet "Edited" word right after the model id it adjusts, readable on touch. */}
               {customized && (
-                <span data-model-customized title={t("connections.row.customSettings")} className="flex shrink-0">
-                  <Wrench size="0.6875rem" aria-hidden />
-                  <span className="sr-only">{t("connections.row.customSettings")}</span>
+                <span
+                  data-model-customized
+                  title={t("connections.row.customSettings")}
+                  className="mari-connection-pill shrink-0"
+                >
+                  {t("connections.row.edited")}
                 </span>
               )}
               {details}
@@ -324,6 +327,7 @@ export function ModelRow({
           roles.length > 0 && (
             <span data-connection-role className="flex shrink-0 items-center gap-1" title={roles.join(", ")}>
               <span className="mari-connection-pill mari-connection-pill--strong">{roles[0]}</span>
+              {roles[1] && <span className="mari-connection-pill">{roles[1]}</span>}
               {rest.length > 0 && (
                 <span className="mari-connection-pill">
                   <span aria-hidden>+{rest.length}</span>

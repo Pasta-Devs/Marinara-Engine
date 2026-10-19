@@ -2165,6 +2165,7 @@
   "connections.row.edit": "Edit {{name}}",
   "connections.row.editModel": "Edit model",
   "connections.row.editUnavailable": "Edit {{name}} ({{state}})",
+  "connections.row.edited": "Edited",
   "connections.row.makeDefaultFor": "Make default for…",
   "connections.row.moreRoles": "Also {{roles}}",
   "connections.row.remove": "Remove",
