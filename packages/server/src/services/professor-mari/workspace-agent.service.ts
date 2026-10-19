@@ -46,6 +46,7 @@ import { getFileStorageDir, getPort, getServerProtocol, isDebugAgentsEnabled } f
 import { apiConnections } from "../../db/schema/index.js";
 import { DATA_DIR } from "../../utils/data-dir.js";
 import { logger, logDebugOverride } from "../../lib/logger.js";
+import { notifyGenerationFallback } from "../generation/fallback-notification.js";
 import { tryParseJsonRecord } from "../../lib/json-repair.js";
 import {
   formatCapabilityAgentGroundingLines,
@@ -4681,7 +4682,8 @@ export class ProfessorMariWorkspaceService {
   /**
    * Request id → global feature setting (`mariConnectionId`, or the aside's for an unasked quick
    * answer) → agents default → default Model → local sidecar. Goes through connections storage
-   * so a Model blocked by its account is skipped and the throttle registry stays in sync.
+   * so a Model blocked by its account is skipped and the throttle registry stays in sync; a skipped
+   * chosen Model is reported, so the user sees which Model answers instead.
    */
   private async resolveConnection(
     connectionId?: string | null,
@@ -4692,23 +4694,66 @@ export class ProfessorMariWorkspaceService {
       feature === "aside" ? featureModels.omnibarAsideConnectionId : featureModels.mariConnectionId;
     const connections = createConnectionsStorage(this.app.db);
     const candidates = [connectionId, featureConnectionId];
+    // The first chosen Model that could not run: the user is told which Model answers instead.
+    let skipped: string | null = null;
     for (const id of candidates) {
       if (!id) continue;
       if (id === LOCAL_SIDECAR_CONNECTION_ID) return this.buildLocalSidecarConnection();
       const row = await connections.getWithKey(id);
       if (row && isChatProvider(row.provider)) return row;
+      skipped ??= id;
     }
+    const used = async <T extends WorkspaceConnection>(fallback: T, category: "main" | "agents"): Promise<T> => {
+      if (skipped) await this.reportConnectionFallback(connections, skipped, fallback, category);
+      return fallback;
+    };
+    const agentsRow = await connections.getDefaultForAgents();
+    if (agentsRow && isChatProvider(agentsRow.provider)) return used(agentsRow, "agents");
     const defaultRow = await connections.getDefault();
-    const fallback =
-      (await connections.getDefaultForAgents()) ?? (defaultRow && (await connections.getWithKey(defaultRow.id)));
-    if (fallback && isChatProvider(fallback.provider)) return fallback;
+    const mainRow = defaultRow && (await connections.getWithKey(defaultRow.id));
+    if (mainRow && isChatProvider(mainRow.provider)) return used(mainRow, "main");
     // No default yet (e.g. right after an import): any usable chat Model, as before.
     for (const row of await connections.list()) {
       if (!isChatProvider(row.provider)) continue;
       const usable = await connections.getWithKey(row.id);
-      if (usable) return usable;
+      if (usable) return used(usable, "main");
     }
-    return sidecarModelService.getConfiguredModelRef() ? this.buildLocalSidecarConnection() : null;
+    return sidecarModelService.getConfiguredModelRef() ? used(this.buildLocalSidecarConnection(), "main") : null;
+  }
+
+  /** Report a blocked Model and the one that answers instead, through the request's fallback channel. */
+  private async reportConnectionFallback(
+    connections: ReturnType<typeof createConnectionsStorage>,
+    skippedId: string,
+    fallback: WorkspaceConnection,
+    category: "main" | "agents",
+  ): Promise<void> {
+    const unavailable = await connections.unavailableReason(skippedId);
+    if (!unavailable) return;
+    logger.warn(
+      "[professor-mari] Model %s is unavailable (%s); using %s",
+      skippedId,
+      unavailable.reason,
+      fallback.id,
+    );
+    try {
+      await notifyGenerationFallback({
+        category,
+        connectionId: fallback.id,
+        connectionName: fallback.name?.trim() || fallback.id,
+        model: fallback.model,
+        reason: unavailable.reason,
+        unavailableConnectionId: skippedId,
+        ...(unavailable.row
+          ? {
+              unavailableName: unavailable.row.name?.trim() || unavailable.row.model,
+              ...(unavailable.row.accountId ? { unavailableAccountId: unavailable.row.accountId } : {}),
+            }
+          : {}),
+      });
+    } catch (error) {
+      logger.warn(error, "[professor-mari] Failed to report the model fallback");
+    }
   }
 }
 

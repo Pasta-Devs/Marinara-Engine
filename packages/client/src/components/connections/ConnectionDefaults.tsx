@@ -224,6 +224,18 @@ export function useConnectionDefaults(connectionsList: ConnectionRowData[]) {
         }
       : null;
 
+  const accountOf = (row: ConnectionRowData) => (row.accountId ? accountById.get(row.accountId) : undefined);
+  const usable = (row: ConnectionRowData | null | undefined) => !!row && (accountOf(row)?.state ?? "ok") === "ok";
+  /** A blocked job names the model that answers instead, as the server falls back to it; its fix stays. */
+  const blockedWarning = (row: ConnectionRowData, job: string, instead: ConnectionRowData | null | undefined) => {
+    const account = accountOf(row);
+    const warning = accountWarning(account);
+    if (!warning || !account || !usable(instead)) return warning;
+    const key =
+      account.state === "off" ? "connections.defaults.warning.offUses" : "connections.defaults.warning.needsKeyUses";
+    return { ...warning, text: t(key, { job, model: describe(instead!).value }) };
+  };
+
   const tiles: DefaultsTile[] = FLAG_ROLES.map((role) => {
     const primary = primaryOf(role);
     const fallbackRow =
@@ -238,11 +250,7 @@ export function useConnectionDefaults(connectionsList: ConnectionRowData[]) {
     };
     if (isAgents && sidecarAsAgentsDefault) return { ...tile, value: sidecarName };
     if (primary) {
-      return {
-        ...tile,
-        ...describe(primary),
-        warning: accountWarning(primary.accountId ? accountById.get(primary.accountId) : undefined),
-      };
+      return { ...tile, ...describe(primary), warning: blockedWarning(primary, tile.title, fallbackRow) };
     }
     // Agents follow the chat's model; a new chat uses Main.
     if (isAgents)
@@ -373,6 +381,13 @@ export function useConnectionDefaults(connectionsList: ConnectionRowData[]) {
     }
     if (extra) return { ...tile, value: t(extra.key) };
     if (value === LOCAL_SIDECAR_CONNECTION_ID) return { ...tile, value: sidecarName };
+    // A blocked Prof. Mari model: the server answers with the agents default, then Main.
+    if (row && key === "mariConnectionId")
+      return {
+        ...tile,
+        ...describe(row),
+        warning: blockedWarning(row, tile.title, usable(agentsRow) ? agentsRow : mainRow),
+      };
     if (row) return { ...tile, ...describe(row) };
     return {
       ...tile,
