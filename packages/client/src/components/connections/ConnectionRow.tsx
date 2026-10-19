@@ -24,10 +24,10 @@ import {
   MoreHorizontal,
   MoveRight,
   Pencil,
+  PencilLine,
   Power,
   Scale,
   Shuffle,
-  SlidersHorizontal,
   Star,
   Trash2,
   type LucideIcon,
@@ -266,17 +266,30 @@ export function ModelRow({
         {lead}
         {!onPictureClick && tile}
         <span id={copyId} data-connection-model-copy className="min-w-0 flex-1">
-          <span
-            data-model-title
-            className={cn(
-              "block min-w-0 truncate text-sm font-semibold leading-5",
-              dim ? "text-[var(--muted-foreground)]" : "text-[var(--foreground)]",
+          <span className="flex min-w-0 items-center gap-1">
+            <span
+              data-model-title
+              className={cn(
+                "min-w-0 truncate text-sm font-semibold leading-5",
+                dim ? "text-[var(--muted-foreground)]" : "text-[var(--foreground)]",
+              )}
+              title={tooltip ?? title}
+            >
+              {title}
+            </span>
+            {/* Edited: right after the name it belongs to, on the name's line. */}
+            {customized && (
+              <span
+                data-model-customized
+                title={t("connections.row.customSettings")}
+                className="flex shrink-0 text-[var(--muted-foreground)]"
+              >
+                <PencilLine size="0.75rem" aria-hidden />
+                <span className="sr-only">{t("connections.row.customSettings")}</span>
+              </span>
             )}
-            title={tooltip ?? title}
-          >
-            {title}
           </span>
-          {(pill || id || details || cost || retiring || customized) && (
+          {(pill || id || details || cost || retiring) && (
             <span className="mt-0.5 flex min-w-0 items-center gap-1.5 text-xs leading-[1.125rem] text-[var(--muted-foreground)]">
               {pill && (
                 <span data-connection-type className="mari-connection-pill">
@@ -294,12 +307,6 @@ export function ModelRow({
                 {retiring && <RetiringHint deprecated={retiring.deprecated} retiresAt={retiring.retiresAt} />}
                 <CostBadge cost={cost} showPaid={showPaid} />
               </span>
-              {customized && (
-                <span title={t("connections.row.customSettings")} className="shrink-0">
-                  <SlidersHorizontal size="0.75rem" aria-hidden />
-                  <span className="sr-only">{t("connections.row.customSettings")}</span>
-                </span>
-              )}
             </span>
           )}
         </span>

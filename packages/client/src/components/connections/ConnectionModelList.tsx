@@ -1,5 +1,5 @@
 import { useState, type Key, type ReactNode } from "react";
-import { ChevronDown, Plus } from "lucide-react";
+import { ChevronDown, Layers, Plus } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { PROVIDERS, type APIProvider } from "@marinara-engine/shared";
 import { upstreamOf } from "../../lib/connection-groups";
@@ -124,7 +124,7 @@ export function ConnectionModelList<T extends { model?: string | null; provider?
                   className="me-[0.8125rem] flex h-3.5 w-3.5 shrink-0 items-center justify-center opacity-80"
                   aria-hidden
                 >
-                  {upstream && <BrandMark of={upstream} className="h-3.5 w-3.5" />}
+                  {upstream ? <BrandMark of={upstream} className="h-3.5 w-3.5" /> : <Layers size="0.875rem" />}
                 </span>
                 <span className="min-w-0 truncate">{section.label ?? t("connections.accounts.section.other")}</span>
                 <span className="shrink-0 font-normal tabular-nums text-[var(--muted-foreground)]">
