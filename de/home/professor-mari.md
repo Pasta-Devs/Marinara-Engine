@@ -31,7 +31,7 @@ Die angehängten Elemente erscheinen als Chips **Aware of** (im Blick) über ihr
 Bei all dem kannst du sie um Hilfe bitten:
 
 - Eine Einstellung, einen Modus oder ein Konzept erklären, bevor du irgendetwas änderst.
-- Einen Charakter anlegen oder bearbeiten. Ein Charakter ist eine Karte, die der KI einen Namen, eine Persönlichkeit und eine Stimme gibt.
+- Einen Charakter anlegen oder bearbeiten. Ein Charakter ist eine Karte, die der KI einen Namen, eine Persönlichkeit und eine Stimme gibt. Sie kann auch das [interaktive Onboarding](../characters/interactive-onboarding.md) einer Karte schreiben, also die Fragen, die Spieler beantworten, um ihre Persona aufzubauen.
 - Eine Persona anlegen oder bearbeiten. Die Persona ist die Identität, die du im Chat spielst – das „Ich“ in der Geschichte.
 - Ein Lorebook anlegen oder bearbeiten. Ein Lorebook ist eine Sammlung von Weltwissen, die die KI heranzieht, sobald sie zum Thema passt.
 - Ein Theme, einen Agenten, ein Prompt-Preset oder einen Entwurf für eine **Personal Extension** (persönliche Erweiterung) anlegen oder bearbeiten. Professor Mari ist die einzige Erweiterungs-Autorin im Standard-Umfang. Ihre Entwürfe bleiben deaktiviert, bis du den Code in der Sandbox geprüft, alle angeforderten aktiven Berechtigungen für Charakterkarten oder Personas durchgesehen und den exakten Hash unter **Settings** > **Addons** freigegeben hast.

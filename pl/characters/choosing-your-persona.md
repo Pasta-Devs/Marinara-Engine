@@ -22,7 +22,7 @@ Każdy czat może mieć zapisaną własną personę. W różnych czatach możesz
 4. Kliknij przycisk **Choose Persona** (wybór persony). Po ustawieniu persony przycisk zmienia nazwę na **Change Persona**.
 5. Wyszukaj personę w oknie wyboru (tekst zastępczy "Search personas...") i kliknij ją.
 
-Żeby usunąć personę czatu, kliknij przycisk usuwania (X) obok niej albo wybierz opcję **None** na górze okna wyboru.
+Żeby usunąć personę czatu, kliknij przycisk usuwania (X) obok niej albo wybierz opcję **None** w oknie wyboru.
 
 W trybie Game Mode ta sekcja jest opisana jako drużyna w grze, ale etykieta pozostaje ta sama: **Persona**.
 
@@ -31,6 +31,8 @@ W trybie Game Mode ta sekcja jest opisana jako drużyna w grze, ale etykieta poz
 Kreator **New Chat** ma pole **Your Persona** (twoja persona). Działa w nim to samo okno wyboru z wyszukiwarką oraz opcja **None**. W kreatorze **New Game Setup** to samo pole nosi nazwę **Player's Persona**.
 
 W czacie Roleplay karta postaci może oferować na górze tego okna wyboru opcję **Create your persona** (utworzenie własnej persony). Wybierz ją, żeby odpowiedzieć na pytania karty i dostać nową personę. Zobacz [Interaktywny onboarding](interactive-onboarding.md).
+
+Ten sam wiersz jest w oknie wyboru persony w Chat Settings, więc personę da się utworzyć także po zakończeniu konfiguracji. W Chat Settings sekcja **Characters** (postacie) pokazuje też znacznik onboardingu karty. Ponownie otwiera on pytania o postać z tej karty, dzięki czemu możesz zmienić odpowiedź albo przywrócić usuniętą.
 
 ## Przełącznik **Quick Persona Switcher**
 

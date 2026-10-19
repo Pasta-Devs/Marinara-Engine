@@ -20,6 +20,12 @@ L'accueil interactif utilise la syntaxe de macro existante. Il n'exécute aucun 
 
 Désactiver l'interrupteur masque les champs de l'accueil interactif, mais conserve ce que tu as écrit.
 
+<a id="let-professor-mari-write-it"></a>
+
+### Laisser Professor Mari l'écrire
+
+Tu peux aussi demander à [Professor Mari](../home/professor-mari.md) d'écrire l'accueil interactif, par exemple : "Écris un accueil interactif amusant pour Queen Ayrene, avec un modèle de persona." Elle écrit les questions et les champs du persona, puis active l'accueil interactif. L'application vérifie son travail avant l'enregistrement : un nom mal orthographié, un `{{name}}` sans question ou une condition à laquelle il manque son `#` lui est renvoyé pour correction. Pour une question sur le personnage, elle ajoute aussi son `{{name}}` à l'un des champs propres à la fiche. Ses modifications apparaissent dans un encart de modification que tu peux examiner ou annuler, comme ses autres changements.
+
 ### Ajouter des questions
 
 Sous **Persona Questions** (questions du persona), clique sur **Add Question** (ajouter une question). Chaque question fonctionne comme une variable de preset. Voir [Presets](../prompts/presets.md). Une fiche peut compter jusqu'à 100 questions.
@@ -50,10 +56,11 @@ Ces cinq champs sont ceux que lit le modèle : ce sont donc les seuls qu'une ré
 
 Les réponses sont stockées comme variables du chat, si bien que la fiche lit une valeur différente dans chaque chat sans jamais avoir besoin d'être modifiée. Une question de fiche est posée dès que la fiche est dans le chat, que le joueur crée un persona ou non. La fenêtre n'affiche une section **About you** (à propos de toi) que lorsqu'un persona est en cours de création.
 
-Deux points à connaître pour un auteur :
+Trois points à connaître pour un auteur :
 
 - **Une réponse jamais renseignée reste une balise littérale.** Une question à texte libre sans valeur par défaut n'est pas préremplie, donc un chat lancé sans l'assistant affiche `{{name}}` tel quel. Les questions à choix préremplissent leur première option, ce qui couvre la plupart des fiches.
 - **Si deux fiches d'un même chat déclarent le même nom, elles partagent une seule valeur.** Un chat ne stocke qu'une réponse par nom : la dernière enregistrée est celle que lisent les deux fiches. La fenêtre t'en avertit quand cela arrive.
+- **Une fiche qui quitte un chat emporte ses réponses avec elle.** Quand un personnage est retiré, les variables du chat qui appartiennent à ses questions sur le personnage sont supprimées, sauf si un autre personnage encore présent dans le chat déclare le même nom. Un nom partagé reste, car la fiche restante peut encore le lire.
 
 ### Rédiger les champs du persona
 
@@ -85,9 +92,15 @@ La section **Rendered preview** (aperçu du rendu), en bas, montre le persona co
 2. Ajoute le personnage. Pour en tirer un nouveau persona, sélectionne la ligne **Create your persona** en haut de **Your Persona** (ton persona). Elle indique le nom de la fiche à laquelle elle appartient. Tout autre choix (ou **None**) ignore le persona et garde le tien.
 3. Clique sur **Next** (suivant). La fenêtre des questions s'ouvre dès qu'une fiche du chat comporte des questions sur le personnage, que tu crées un persona ou non.
 4. Réponds aux questions. Les **Character questions** (questions sur le personnage) viennent en premier, avec une section par fiche, puis **About you** quand un persona est en cours de création. Les questions de suivi apparaissent dès que tes réponses les rendent pertinentes.
-5. Clique sur **Create persona** (créer le persona), ou sur **Save answers** (enregistrer les réponses) si tu n'en crées pas. Les réponses sur le personnage sont enregistrées dans le chat, puis l'assistant continue.
+5. Clique sur **Review persona** (examiner le persona) pour voir le nom et les champs que produisent tes réponses, exactement tels qu'ils seront enregistrés. Les parties remplies par tes réponses sont surlignées. L'aperçu n'écrit rien ; seul **Create persona** (créer le persona) le fait.
+6. Clique sur **Create persona**, ou sur **Save answers** (enregistrer les réponses) si tu n'en crées pas. Les réponses sur le personnage sont enregistrées dans le chat, puis l'assistant continue.
 
 Les questions de l'accueil interactif sont posées dans l'assistant de nouveau chat Roleplay. Quick Start, la configuration Conversation et le lancement d'un chat directement depuis une fiche de personnage ne les posent pas encore. Un chat lancé ainsi préremplit tout de même la première option de chaque question, si bien que `{{relationshipToUser}}` est résolu au lieu d'afficher la balise. Répondre dans l'assistant remplace cette valeur par défaut, pour ce chat uniquement.
+
+Les deux parcours fonctionnent aussi après la configuration, depuis **Chat Settings** (réglages du chat) :
+
+- Dans un chat Roleplay, le sélecteur **Persona** liste **Create your persona** pour chaque fiche du chat qui en propose un. Sers-t'en si tu as sauté l'assistant ou si tu veux un nouveau persona plus tard.
+- Le marqueur d'accueil interactif à côté d'un personnage, dans **Characters** (personnages), rouvre uniquement les questions sur le personnage de cette fiche. Elles s'ouvrent sur les réponses que le chat contient déjà : enregistrer une modification laisse donc les autres telles quelles, et enregistrer de nouveau restaure aussi une réponse que tu as supprimée de Chat Variables (variables du chat). Les réponses des autres fiches ne sont pas touchées, sauf pour un nom que deux fiches partagent : c'est une seule valeur, donc les deux fiches lisent la nouvelle réponse.
 
 ## Partager des fiches avec accueil interactif
 

@@ -57,6 +57,8 @@ Sobald die aktuelle Sitzung abgeschlossen ist, heißt dieselbe Schaltfläche **N
 2. Klick in der Zeile der aktuellen Sitzung auf die Schaltfläche **New Session** (das Play-Symbol).
 3. Der GM nimmt die Geschichte wieder auf. Grundlage sind die Zusammenfassung der letzten Sitzung und die Notiz für die nächste Sitzung, die du beim Beenden hinterlassen hast.
 
+In einem Spiel mit generierter Welt geht die Welt dort weiter, wo die letzte Sitzung sie zurückgelassen hat: Die vergangenen Tage, die Taten und das Ansehen der Party, die Orte und Gruppen, die die Geschichte hinzugefügt hat, und wohin die Party gezogen ist – all das wird in die neue Sitzung übernommen.
+
 ## Frühere Sitzungen nachlesen
 
 Der Tab **Session History** listet die abgeschlossenen Sitzungen auf, die neueste zuerst. Solange keine einzige fertig ist, steht dort **No completed sessions yet** („noch keine abgeschlossenen Sitzungen“).
@@ -124,7 +126,11 @@ Diese Geheimnisse lassen sich auch bearbeiten – das wirkt wie ein Cheat-Panel 
 
 Game Mode speichert deinen Fortschritt automatisch. Eine Speichern-Schaltfläche brauchst du nicht. Welt, Party, Karte, Inventar, Spielzeit und Sitzungszusammenfassungen bleiben beim Spielen von selbst erhalten.
 
-Im Hintergrund legt die App außerdem automatische Checkpoints an – beim Start und beim Ende einer Sitzung sowie zu Beginn und am Ende eines Kampfes. Ein Bildschirm zum Durchsehen oder Wiederherstellen dieser Checkpoints fehlt derzeit. Verlass dich also nicht darauf, einen Zug über einen alten Checkpoint rückgängig zu machen.
+Im Hintergrund legt die App außerdem automatische Checkpoints an: beim Start und beim Ende einer Sitzung, zu Beginn und am Ende eines Kampfes, wenn du einen neuen Ort erreichst, und in automatischen Abständen. Auch der Spieldaten-Editor versucht, vor jedem Speichern einen anzulegen; ein Spiel, das so neu ist, dass sein erster Zug noch nicht gespeichert ist, hat allerdings noch nichts, was ein Checkpoint festhalten könnte. Unter **Game controls → Checkpoints** (Spielsteuerung → Checkpoints) siehst du sie, die neuesten zuerst. **Load** (laden) bringt das Spiel zu diesem Moment zurück: Der Tracker, die Karte, die **World Edits** (Weltbearbeitungen) aus dem Spieldaten-Editor und die Geschichte ab diesem Moment werden wiederhergestellt, und eine Systemnachricht markiert die Stelle, an der das Spiel zurückgesetzt wurde. **Delete** (löschen) entfernt einen Checkpoint endgültig.
+
+Von jeder Art automatischer Checkpoints bleiben nur die fünf neuesten erhalten, ältere werden beim Spielen also aufgeräumt.
+
+Um einen einzelnen misslungenen Zug rückgängig zu machen, nutze stattdessen **Retry turn** (Zug wiederholen) in **Game controls** oder einen Swipe. Das Laden eines Checkpoints setzt auch die Geschichte auf diesen Moment zurück.
 
 Für eine eigene Kopie der Daten nutzt du die Backup-Werkzeuge der App. Siehe [Backup und Wiederherstellung](../data/backup-and-restore.md).
 

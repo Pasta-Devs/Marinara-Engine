@@ -31,7 +31,7 @@ Os itens anexados aparecem como chips **Aware of** (ciente de) acima da caixa de
 Peça ajuda a ela em qualquer um destes casos:
 
 - Explicar uma configuração, um modo ou um conceito antes de você mudar qualquer coisa.
-- Criar ou editar um personagem. O personagem é um card que dá nome, personalidade e voz à IA.
+- Criar ou editar um personagem. O personagem é um card que dá nome, personalidade e voz à IA. Ela também pode escrever o [onboarding interativo](../characters/interactive-onboarding.md) de um card, as perguntas que os jogadores respondem para montar a persona deles.
 - Criar ou editar uma persona. A persona é a identidade que você interpreta no chat, o "você" da história.
 - Criar ou editar um lorebook. O lorebook é um conjunto de anotações do seu mundo que a IA usa quando fazem sentido.
 - Criar ou editar um tema, um agente, um preset de prompt ou um rascunho de Personal Extension. Professor Mari é a única autora de extensões que já vem no aplicativo. Os rascunhos dela ficam desativados até você inspecionar o código em ambiente isolado (sandbox), revisar as permissões ativas de card de personagem ou de persona que forem pedidas e aprovar o hash exato em **Settings** > **Addons**.

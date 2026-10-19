@@ -22,7 +22,7 @@ Chaque chat peut enregistrer son propre persona. Tu peux utiliser des personas d
 4. Clique sur le bouton **Choose Persona** (choisir un persona). Une fois un persona défini, ce bouton devient **Change Persona**.
 5. Cherche dans le sélecteur (texte indicatif "Search personas...") puis clique sur un persona.
 
-Pour retirer le persona propre au chat, clique sur le bouton de suppression (X) juste à côté, ou choisis **None** en haut du sélecteur.
+Pour retirer le persona propre au chat, clique sur le bouton de suppression (X) juste à côté, ou choisis **None** dans le sélecteur.
 
 En Game Mode, cette section est présentée comme ton équipe en jeu, mais elle garde l'étiquette **Persona**.
 
@@ -31,6 +31,8 @@ En Game Mode, cette section est présentée comme ton équipe en jeu, mais elle 
 L'assistant de configuration **New Chat** propose un champ **Your Persona** (ton persona). Il reprend le même sélecteur avec recherche et la même option **None**. Dans l'assistant **New Game Setup**, ce champ s'appelle **Player's Persona**.
 
 Dans un chat Roleplay, une fiche de personnage peut proposer **Create your persona** (créer ton persona) en haut de ce sélecteur. Choisis cette option pour répondre aux questions de la fiche et obtenir un nouveau persona. Voir [Accueil interactif](interactive-onboarding.md).
+
+La même ligne figure dans le sélecteur de persona de Chat Settings : tu peux donc encore créer un persona après la configuration. Chat Settings → **Characters** (personnages) affiche aussi le marqueur d'accueil interactif d'une fiche, qui rouvre les questions sur le personnage de cette fiche pour que tu puisses changer une réponse ou en restaurer une que tu as supprimée.
 
 ## Le Quick Persona Switcher
 
@@ -48,7 +50,7 @@ Sur téléphone, le changement de persona partage un menu avec le changement de 
 
 Le persona sélectionné pour le chat détermine ton identité. Si tu choisis **None**, l'IA t'appelle "User" et ne reçoit aucun détail de persona. Cela vaut pour Conversation, Roleplay et Game Mode.
 
-Dans Game Mode, tu choisis ton persona dans l'assistant New Game Setup. Le chat conserve cette sélection.
+En Game Mode, tu choisis ton persona dans l'assistant New Game Setup. Le chat conserve cette sélection.
 
 Changer de persona en cours de chat ne réécrit pas les messages précédents. Chaque message déjà envoyé garde le persona sous lequel il est parti.
 

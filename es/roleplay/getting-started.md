@@ -71,7 +71,7 @@ Las herramientas son secciones de **Chat Settings**. Ábrelo con el botón de co
 - **Author's Notes** (Notas del autor). Una nota de texto libre que se añade al prompt en cada turno. Consulta más abajo.
 - **Gallery** (Galería). Las imágenes y los videos del chat, donde puedes generar una ilustración o un fondo.
 
-Puedes sacar cualquiera de estas secciones, incluida Search, para mantenerla en una ventana propia o abrirla con su botón en un teléfono. Los chats antiguos conservan los iconos conocidos como botones móviles; abre uno y elige **Put back in Chat Settings** para guardarlo dentro. Consulta [Vista general de Chat Settings](../chats/chat-settings.md).
+Puedes sacar cualquiera de estas secciones, incluida Search, para mantenerla en una ventana propia. En un teléfono, abre las secciones que has sacado desde el menú de tres puntos **Chat tools** (Herramientas del chat); los botones de los trackers siguen separados. Los chats antiguos conservan sus herramientas habituales fuera de Chat Settings. Abre una y elige **Put back in Chat Settings** para guardarla dentro. Consulta [Vista general de Chat Settings](../chats/chat-settings.md).
 
 ### Author's Notes
 
@@ -100,6 +100,14 @@ Una pestaña **Injections** aparece solo cuando **Debug mode** (Modo de depuraci
 Puedes ver, editar y volver a ejecutar un fragmento guardado. Una edición cambia solo lo que se usa cuando regeneras esa misma respuesta. No cambia la respuesta que ya está en pantalla. Esto mantiene la regeneración estable y repetible.
 
 El Narrative Director tiene un botón **Push Story** encima del cuadro de chat. Prepara al Director solo para la siguiente respuesta. El Narrative Director también puede mantener un arco oculto a largo plazo llamado **Secret Plot**. Consulta [Narrative Director y Secret Plot](narrative-director.md) para conocer ambos.
+
+<a id="illustrations-in-the-message"></a>
+
+## Ilustraciones en el mensaje
+
+En **Chat Settings → Agents → Roleplay Commands**, activa **Illustrations** (Ilustraciones) para que los personajes puedan pedir una imagen con `[illustrate: subject="..." characters="..."]`. La imagen usa los ajustes de Illustrator del chat y aparece debajo del mensaje.
+
+Activa **Render in-line** (Mostrar en línea) en **Illustrations** para mostrar cada imagen dentro del mensaje en lugar de debajo, en el lugar donde el personaje escribió el comando, por ejemplo entre dos párrafos. La imagen conserva sus controles: selecciónala para ver su prompt o usa la **X** para quitarla. Al personaje se le indica que puede colocar el comando donde corresponda la imagen. El ajuste se aplica a las imágenes nuevas, así que las imágenes que ya están en el chat se quedan donde están. Las imágenes automáticas de Illustrator y el diseño de novela visual siguen mostrando las imágenes como antes.
 
 <a id="whispers-and-secrets"></a>
 

@@ -71,7 +71,7 @@ Die Chat-Tools sind Abschnitte in **Chat Settings**. Öffne die Einstellungen ü
 - **Author's Notes**. Eine freie Notiz, die in jedem Zug in den Prompt wandert. Mehr dazu unten.
 - **Gallery** (Galerie). Die Bilder und Videos des Chats; hier kannst du eine Illustration oder einen Hintergrund generieren.
 
-Jeder dieser Abschnitte, auch Search, lässt sich in ein eigenes Fenster herauslösen oder am Telefon über eine eigene Schaltfläche öffnen. Ältere Chats behalten ihre vertrauten Tool-Symbole als verschiebbare Schaltflächen. Öffne eines und wähle **Put back in Chat Settings**, um das Tool in die Einstellungen zu verschieben. Siehe [Chat Settings im Überblick](../chats/chat-settings.md).
+Jeder dieser Abschnitte, auch Search, lässt sich herauslösen und bleibt dann in einem eigenen Fenster. Am Telefon öffnest du herausgelöste Abschnitte über das Drei-Punkte-Menü **Chat tools** (Chat-Tools); die Tracker-Schaltflächen bleiben davon getrennt. Ältere Chats behalten ihre vertrauten Tools außerhalb von Chat Settings. Öffne eines und wähle **Put back in Chat Settings**, um das Tool in die Einstellungen zu verschieben. Siehe [Chat Settings im Überblick](../chats/chat-settings.md).
 
 <a id="authors-notes"></a>
 
@@ -102,6 +102,14 @@ Ein Tab **Injections** erscheint nur bei aktiviertem **Debug mode** (Debug-Modus
 Gespeicherte Schnipsel lassen sich ansehen, bearbeiten und erneut ausführen. Eine Bearbeitung wirkt nur auf das, was beim erneuten Generieren derselben Antwort verwendet wird. Die Antwort auf dem Bildschirm bleibt unverändert. So bleibt das neue Generieren nachvollziehbar und wiederholbar.
 
 Der Narrative Director bringt die Schaltfläche **Push Story** über dem Chatfeld mit. Sie aktiviert den Director nur für die nächste Antwort. Der Narrative Director kann außerdem einen verborgenen Langzeit-Handlungsbogen führen, den **Secret Plot**. Beides beschreibt [Narrative Director und Secret Plot](narrative-director.md).
+
+<a id="illustrations-in-the-message"></a>
+
+## Illustrationen in der Nachricht
+
+Aktiviere unter **Chat Settings → Agents → Roleplay Commands** die Option **Illustrations** (Illustrationen), damit Charaktere mit `[illustrate: subject="..." characters="..."]` ein Bild anfordern können. Das Bild nutzt die Illustrator-Einstellungen des Chats und erscheint unter der Nachricht.
+
+Schalte unter **Illustrations** die Option **Render in-line** (in der Nachricht anzeigen) ein, damit jedes Bild stattdessen innerhalb der Nachricht erscheint, und zwar an der Stelle, an der der Charakter den Befehl geschrieben hat, zum Beispiel zwischen zwei Absätzen. Das Bild behält seine Bedienelemente: Wähl es aus, um seinen Prompt zu sehen, oder entferne es mit dem **X**. Der Charakter erfährt, dass er den Befehl überall dort platzieren kann, wo das Bild hingehört. Die Einstellung gilt für neue Bilder; Bilder, die schon im Chat sind, bleiben, wo sie sind. Automatische Bilder des Illustrators und das Visual-Novel-Layout zeigen Bilder weiterhin wie bisher.
 
 <a id="whispers-and-secrets"></a>
 
@@ -137,7 +145,7 @@ Aktiviere unter **Chat Settings → Agents → Roleplay Commands** die Option **
 
 Das Modell verwendet `[interrupt: part="a verbatim phrase of at least three words"]`. Marinara sucht diese wörtliche Phrase nur in der Nachricht unmittelbar vor der Antwort, behält den Text bis einschließlich der Phrase und ersetzt das Ende durch einen Unterbrechungsstrich. Dialog behält sein schließendes Anführungszeichen; Aktionen erhalten keines. Fehlt eine eindeutige Übereinstimmung, bleibt die Nachricht unverändert.
 
-Öffne die Befehlsinformationen der Antwort und wähle **Restore original message** (Originalnachricht wiederherstellen), um die ursprüngliche Nachricht zurückzuholen. Eine Neugenerierung stellt zuerst die vollständige ursprüngliche Eingabe wieder her, damit die neue Antwort selbst über eine Unterbrechung entscheiden kann. Die Auswahl einer vorhandenen Variante wendet deren Unterbrechung an, sofern du sie nicht ausdrücklich wiederhergestellt hast. Spätere manuelle Änderungen bleiben erhalten und werden nicht von einer alten Unterbrechung überschrieben.
+Öffne die Befehlsinformationen der Antwort und wähle **Restore original message** (Originalnachricht wiederherstellen), um die ursprüngliche Nachricht zurückzuholen. Eine Neugenerierung stellt zuerst die vollständige ursprüngliche Eingabe wieder her, damit die neue Antwort selbst über eine Unterbrechung entscheiden kann. Die Auswahl eines vorhandenen Swipes wendet dessen Unterbrechung an, sofern du sie nicht ausdrücklich wiederhergestellt hast. Spätere manuelle Änderungen bleiben erhalten und werden nicht von einer alten Unterbrechung überschrieben.
 
 ## Echo Chamber
 
@@ -165,7 +173,7 @@ Für Agenten darf ein günstigeres Modell laufen als für den Chat. Viele Nutzen
 
 ## Fehlerbehebung
 
-**Ein HUD-Widget zeigt den falschen Wert.** Jedes Widget wird von einem Tracker gefüllt. Öffne das Widget-Panel und korrigiere den Wert von Hand. Driften die Werte immer wieder ab, stell die Agent-Verbindung auf ein stärkeres Modell um. Alternativ sperrst du ein Feld, damit der nächste automatische Durchlauf es nicht überschreibt.
+**Ein HUD-Widget zeigt den falschen Wert.** Jedes Widget wird von einem Tracker-Agenten gefüllt. Öffne das Widget-Panel und korrigiere den Wert von Hand. Driften die Werte immer wieder ab, stell die Agent-Verbindung auf ein stärkeres Modell um. Alternativ sperrst du ein Feld, damit der nächste automatische Durchlauf es nicht überschreibt.
 
 **Die Gesichtsausdrücke der Sprites ändern sich nicht.** Prüf, ob der Charakter eine hochgeladene Sprite-Bibliothek hat. Bildgenerierung brauchst du nur, wenn Marinara neue Sprites erzeugen soll. Ohne Sprites läuft der Agent zwar, hat aber nichts zum Anzeigen. Einen Gesichtsausdruck kannst du auch von Hand über **/emote** setzen.
 

@@ -22,7 +22,7 @@ Cada chat puede guardar su propia persona. Puedes usar distintas personas en dis
 4. Haz clic en **Choose Persona** (Elegir persona). Este botón muestra **Change Persona** (Cambiar persona) una vez que hay una persona establecida.
 5. Busca en el selector (marcador de posición "Search personas...") y haz clic en una persona.
 
-Para quitar la persona por chat, haz clic en el botón de quitar (X) que está a su lado, o elige **None** (Ninguna) en la parte superior del selector.
+Para quitar la persona por chat, haz clic en el botón de quitar (X) que está a su lado, o elige **None** (Ninguna) en el selector.
 
 En Game Mode esta sección se presenta como tu grupo dentro del juego, pero aún usa la etiqueta **Persona**.
 
@@ -31,6 +31,8 @@ En Game Mode esta sección se presenta como tu grupo dentro del juego, pero aún
 El asistente de configuración New Chat tiene un campo **Your Persona** (Tu persona). Usa el mismo selector con búsqueda y una opción **None**. En el asistente de configuración New Game Setup, este campo se llama **Player's Persona** (Persona del jugador).
 
 En un chat de Roleplay, una tarjeta de personaje puede ofrecer **Create your persona** (Crear tu persona) en la parte superior de este selector. Elige esa opción para responder a las preguntas de la tarjeta y obtener una persona nueva. Consulta [Onboarding interactivo](interactive-onboarding.md).
+
+La misma fila está en el selector de persona de Chat Settings, así que todavía puedes crear una persona después de la configuración. Chat Settings → **Characters** (Personajes) también muestra el marcador de onboarding de una tarjeta, que vuelve a abrir las preguntas de personaje de esa tarjeta para que puedas cambiar una respuesta o restaurar una que borraste.
 
 ## El Quick Persona Switcher
 

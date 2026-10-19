@@ -6,7 +6,7 @@ Diese Anleitung erklärt, wie du die Persona auswählst, die dich in einem Chat 
 
 Eine Persona ist deine eigene Charakterkarte – die Identität, mit der Marinara Engine dich darstellt. Sie liefert der KI deinen Namen und weitere Details, damit die KI weiß, mit wem sie spricht. Wie du eine anlegst, steht unter [Nutzer-Personas](personas.md).
 
-Wähle für jeden Chat eine Persona, wenn du dort eine verwenden möchtest. Die Auswahl gilt nur für diesen Chat. Mit **None** (keine) verwendest du keine Persona; die KI erhält den allgemeinen Namen "User" und keine Persona-Angaben.
+Wähle für jeden Chat eine Persona, wenn du dort eine verwenden möchtest. Die Auswahl gilt nur für diesen Chat. Mit **None** (keine) verwendest du keine Persona; die KI erhält den allgemeinen Namen „User“ und keine Persona-Angaben.
 
 Die frühere globale Einstellung der **aktiven Persona** wurde entfernt. Deine gespeicherten Personas und die bestehende Auswahl jedes Chats bleiben erhalten. Ein Chat ohne ausgewählte Persona bleibt anonym.
 
@@ -22,7 +22,7 @@ Jeder Chat kann seine eigene Persona speichern. Du kannst in verschiedenen Chats
 4. Klick auf **Choose Persona** (Persona wählen). Sobald eine Persona gesetzt ist, heißt die Schaltfläche **Change Persona**.
 5. Such im Auswahlfenster (Platzhalter „Search personas...“) und klick auf eine Persona.
 
-Zum Entfernen der Chat-Persona klick daneben auf die Schaltfläche X oder wähle oben im Auswahlfenster **None** (keine).
+Zum Entfernen der Chat-Persona klick daneben auf die Schaltfläche X oder wähle im Auswahlfenster **None**.
 
 Im Game Mode ist dieser Abschnitt als deine Ingame-Party formuliert, er trägt aber weiterhin die Beschriftung **Persona**.
 
@@ -31,6 +31,8 @@ Im Game Mode ist dieser Abschnitt als deine Ingame-Party formuliert, er trägt a
 Der Einrichtungsassistent **New Chat** hat ein Feld **Your Persona**. Es nutzt dasselbe durchsuchbare Auswahlfenster samt Option **None**. Im Assistenten **New Game Setup** heißt dieses Feld stattdessen **Player's Persona**.
 
 In einem Roleplay-Chat kann eine Charakterkarte oben in diesem Auswahlfenster **Create your persona** (deine Persona erstellen) anbieten. Wähl diesen Eintrag, um die Fragen der Karte zu beantworten und eine neue Persona zu erhalten. Siehe [Interaktives Onboarding](interactive-onboarding.md).
+
+Dieselbe Zeile steht auch im Persona-Auswahlfenster von Chat Settings, sodass du auch nach der Einrichtung noch eine Persona erstellen kannst. Unter Chat Settings → **Characters** (Charaktere) zeigt eine Karte außerdem ihre Onboarding-Markierung. Sie öffnet die Charakterfragen dieser Karte erneut, damit du eine Antwort ändern oder eine gelöschte wiederherstellen kannst.
 
 ## Der Quick Persona Switcher
 
@@ -46,7 +48,7 @@ Auf dem Handy teilt sich der Persona-Wechsel ein Menü mit dem Wechsel der Verbi
 
 ## Welche Persona gewinnt
 
-Die für den Chat ausgewählte Persona bestimmt deine Identität. Mit **None** spricht die KI dich als "User" an und erhält keine Persona-Angaben. Das gilt für Conversation, Roleplay und Game Mode.
+Die für den Chat ausgewählte Persona bestimmt deine Identität. Mit **None** spricht die KI dich als „User“ an und erhält keine Persona-Angaben. Das gilt für Conversation, Roleplay und Game Mode.
 
 Im Game Mode wählst du deine Persona im Assistenten New Game Setup. Der Chat behält diese Auswahl.
 

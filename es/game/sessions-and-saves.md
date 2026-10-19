@@ -57,6 +57,8 @@ Una vez que la sesión actual está concluida, el mismo botón cambia a **New Se
 2. En la fila de la sesión actual, haz clic en el botón **New Session** (el icono de reproducir).
 3. El GM reanuda la historia. Usa el resumen de la última sesión y cualquier nota para la próxima sesión que hayas escrito al terminarla.
 
+En un juego con un mundo generado, el mundo continúa desde donde lo dejó la última sesión: los días que pasaron, las hazañas y la reputación del grupo, los lugares y las agrupaciones que añadió la historia y los sitios a los que fue el grupo pasan todos a la nueva sesión.
+
 ## Leer sesiones pasadas
 
 La pestaña **Session History** lista tus sesiones concluidas, la más reciente primero. Antes de terminar una, muestra **No completed sessions yet** (Aún no hay sesiones completadas).
@@ -124,7 +126,11 @@ También puedes editar estos secretos, lo que funciona como un panel de trucos d
 
 Game Mode guarda tu progreso automáticamente. No necesitas pulsar un botón de guardar. Tu mundo, tu grupo, el mapa, el inventario, el tiempo dentro del juego y los resúmenes de sesión se conservan por ti mientras juegas.
 
-La app también registra puntos de control automáticos entre bastidores. Captura un punto de control al inicio de la sesión, al final de la sesión y cuando empieza o termina el combate. Actualmente no hay ninguna pantalla dentro de la app para explorar o restaurar estos puntos de control. Así que no cuentes con cargar un punto de control antiguo para deshacer un turno.
+La app también registra puntos de control automáticos entre bastidores. Captura un punto de control al inicio de la sesión, al final de la sesión, cuando empieza o termina el combate, cuando llegas a un lugar nuevo y a intervalos automáticos. El editor de datos del juego también intenta crear uno antes de cada guardado, aunque un juego tan nuevo que todavía no ha guardado su primer turno aún no tiene nada que guardar en un punto de control. Abre **Game controls → Checkpoints** (Controles del juego → Puntos de control) para verlos, del más reciente al más antiguo. **Load** (Cargar) devuelve el juego a ese momento: se restauran el tracker, el mapa, las **World Edits** (Ediciones del mundo) del editor de datos del juego y la historia a partir de ahí, y un mensaje del sistema marca el punto en que el juego retrocedió. **Delete** (Eliminar) borra uno para siempre.
+
+Los puntos de control automáticos se limitan a los cinco más recientes de cada tipo, así que los más antiguos se eliminan a medida que juegas.
+
+Para deshacer un solo turno malo, usa en su lugar **Retry turn** (Reintentar turno) en **Game controls** o un swipe (respuesta alternativa). Cargar un punto de control también restaura la historia a ese momento.
 
 Para conservar tu propia copia de tus datos, usa las herramientas de copia de seguridad de la app. Consulta [Copia de seguridad y restauración](../data/backup-and-restore.md).
 

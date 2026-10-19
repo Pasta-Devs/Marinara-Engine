@@ -20,6 +20,10 @@ O onboarding usa a sintaxe de macros que já existe. Ele não roda nenhum script
 
 Desativar o botão esconde os campos de onboarding, mas mantém o que você escreveu.
 
+### Deixar a Professor Mari escrever
+
+Você também pode pedir à [Professor Mari](../home/professor-mari.md) que escreva o onboarding, por exemplo: "Escreva um onboarding divertido para a Queen Ayrene, com uma persona modelo." Ela escreve as perguntas e os campos da persona e ativa o onboarding. O aplicativo confere o trabalho dela antes de salvar, então um nome com erro de digitação, um `{{name}}` sem pergunta ou uma condição sem o `#` volta para ela corrigir. Para uma pergunta do personagem, ela também coloca o `{{name}}` correspondente em um dos campos do próprio card. As mudanças dela aparecem em um card de mudança que você pode revisar ou desfazer, como as outras edições dela.
+
 ### Adicionar perguntas
 
 Em **Persona Questions** (perguntas da persona), clique em **Add Question** (adicionar pergunta). Cada pergunta funciona como uma variável de preset. Veja [Editor de presets e gerenciador de prompts](../prompts/presets.md). Um card pode ter até 100 perguntas.
@@ -50,10 +54,11 @@ Esses cinco campos são os que o modelo lê, então são os únicos que uma resp
 
 As respostas são guardadas como variáveis do chat, então o card lê um valor diferente em cada chat e nunca precisa ser editado. Uma pergunta do card é feita sempre que o card está no chat, quer o jogador crie uma persona, quer não. A janela mostra uma seção **About you** (sobre você) apenas quando uma persona está sendo criada.
 
-Há duas coisas que o autor deve saber:
+Há três coisas que o autor deve saber:
 
 - **Uma resposta que nunca é preenchida continua como uma tag literal.** Uma pergunta de texto livre sem valor padrão não é preenchida de antemão, então um chat iniciado sem o assistente mostra `{{name}}` exatamente como está escrito. As perguntas de escolha preenchem a primeira opção, o que cobre a maioria dos cards.
 - **Se dois cards no mesmo chat declararem o mesmo nome, eles compartilham um valor.** Um chat guarda uma resposta por nome, então a última salva é a que os dois cards leem. A janela avisa quando isso acontece.
+- **Um card que sai de um chat leva as respostas junto.** Quando um personagem é removido, as variáveis do chat que pertencem às perguntas do personagem dele são excluídas, a menos que outro personagem que continua no chat declare o mesmo nome. Um nome compartilhado permanece, porque o card que ficou ainda pode lê-lo.
 
 ### Escrever os campos da persona
 
@@ -85,9 +90,15 @@ A **Rendered preview** (prévia renderizada), no fim, mostra a persona montada a
 2. Adicione o personagem. Para obter uma nova persona a partir dele, selecione a linha **Create your persona** no topo de **Your Persona** (a sua persona). Ela mostra o nome do card a que pertence. Qualquer outra escolha (ou **None**) pula a persona e mantém a sua.
 3. Clique em **Next** (avançar). A janela de perguntas abre sempre que algum card do chat tiver perguntas do personagem, quer você crie uma persona, quer não.
 4. Responda às perguntas. As **Character questions** (perguntas do personagem) vêm primeiro, com uma seção por card, e depois **About you** quando uma persona está sendo criada. As perguntas de acompanhamento aparecem assim que as suas respostas as tornam relevantes.
-5. Clique em **Create persona** (criar persona) ou, se você não estiver criando uma, em **Save answers** (salvar respostas). As respostas do personagem são salvas no chat, e o assistente de configuração continua.
+5. Clique em **Review persona** (revisar persona) para ver o nome e os campos que as suas respostas produzem, exatamente como serão salvos. As partes que as suas respostas preencheram ficam destacadas. A prévia não grava nada; só **Create persona** (criar persona) grava.
+6. Clique em **Create persona** ou, se você não estiver criando uma, em **Save answers** (salvar respostas). As respostas do personagem são salvas no chat, e o assistente de configuração continua.
 
 As perguntas do onboarding são feitas no assistente de configuração de novo chat de Roleplay. Quick Start, a configuração do Conversation e começar um chat direto de um card de personagem ainda não as fazem. Um chat iniciado assim ainda preenche a primeira opção de cada pergunta, então `{{relationshipToUser}}` é resolvido em vez de mostrar a tag. Responder no assistente substitui esse valor padrão, apenas para aquele chat.
+
+Os dois caminhos também funcionam depois da configuração, em **Chat Settings** (configurações do chat):
+
+- O seletor **Persona** de um chat de Roleplay lista **Create your persona** para cada card do chat que oferece essa opção. Use quando tiver pulado o assistente ou quiser uma persona nova mais tarde.
+- O marcador de onboarding ao lado de um personagem em **Characters** (personagens) reabre só as perguntas do personagem daquele card. Ele abre com as respostas que o chat já guarda, então salvar uma mudança mantém as outras como estavam; salvar de novo também restaura uma resposta que você excluiu de Chat Variables (variáveis do chat). As respostas dos outros cards não são alteradas – exceto um nome que dois cards compartilham, que é um único valor, então os dois cards leem a nova resposta.
 
 ## Compartilhar cards com onboarding
 
