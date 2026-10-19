@@ -423,9 +423,9 @@ function resetClock(resetAt: number, locale: string | undefined): string {
 type MeterWindow = { key: string; short: string; long: string; window: NanoGptQuotaWindow; limit: number | null };
 
 /**
- * One compact line under a connection's header: "5h 42% · week 18%" with two small bars. Amber above 80%,
- * red at the limit, where the text becomes the problem ("5h limit · resets 14:20"). Exact figures sit in the
- * tooltip. It reads the same query as the full widget, so it adds no request.
+ * One compact line under a connection's header: "42% of 5-hour limit used · 18% of weekly limit used" with two
+ * small bars. Amber above 80%, red at the limit, where the text becomes the problem ("5-hour limit reached · resets
+ * 14:20"). Exact figures sit in the tooltip. It reads the same query as the full widget, so it adds no request.
  */
 export function CompactUsageMeter({
   connectionId,

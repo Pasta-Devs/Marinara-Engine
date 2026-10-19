@@ -353,12 +353,12 @@ for (const [size, theme] of [
 
     // The usage meter: two windows, the limit reads as the problem; still there with the card folded.
     const claudeMeter = claude.locator("[data-connection-usage-meter]");
-    await expect(claudeMeter.locator('[data-usage-window="five_hour"]')).toContainText("5h 42%");
+    await expect(claudeMeter.locator('[data-usage-window="five_hour"]')).toContainText("42% of 5-hour limit used");
     await expect(claudeMeter.locator('[data-usage-window="seven_day"]')).toContainText("week 18%");
     await expect(claudeMeter).toHaveAttribute("title", /5-hour window: 42% used, resets/);
     const nanoWeek = nano.locator('[data-connection-usage-meter] [data-usage-window="week"]');
     await expect(nanoWeek).toHaveAttribute("data-usage-level", "limit");
-    await expect(nanoWeek).toContainText(/week limit · resets/);
+    await expect(nanoWeek).toContainText(/weekly limit reached · resets/);
     await claude.locator("[data-connections-toggle]").click();
     await expect(claude.locator("[data-connection-id]")).toHaveCount(0);
     await expect(claudeMeter).toBeVisible();
