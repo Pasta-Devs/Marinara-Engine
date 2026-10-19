@@ -597,6 +597,7 @@ export function ConnectionsPanel() {
               <li>{t("connections.list.emptyStep2")}</li>
               <li>{t("connections.list.emptyStep3")}</li>
             </ol>
+            <p className="text-xs text-[var(--muted-foreground)]">{t("connections.list.emptyNoKey")}</p>
             <button
               type="button"
               onClick={() => openModal("create-connection")}

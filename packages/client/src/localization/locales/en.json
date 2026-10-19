@@ -2064,6 +2064,7 @@
   "connections.list.connectionsHeading_one": "Connections · {{count}}",
   "connections.list.connectionsHeading_other": "Connections · {{count}}",
   "connections.list.emptyHelp": "A connection is one key, sign-in or address. It holds models. Defaults pick a model for each job. Marinara needs one connection to write replies.",
+  "connections.list.emptyNoKey": "No key yet? An OpenRouter key is free and works with its free models. Or use a model server on your computer.",
   "connections.list.emptyStep1": "Add a connection and paste its key.",
   "connections.list.emptyStep2": "Pick the models you want.",
   "connections.list.emptyStep3": "Your first chat model becomes Main.",
