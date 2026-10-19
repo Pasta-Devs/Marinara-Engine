@@ -166,11 +166,15 @@ for (const [label, width, height] of [
   test(`${label}: a failed run keeps Mari beside the error card, with no frame without her`, async ({
     page,
     request,
+    browserName,
   }, testInfo) => {
     test.skip(
       label === "390" ? !testInfo.project.name.startsWith("mobile") : !testInfo.project.name.startsWith("desktop"),
       "390 runs on the phone emulation, 1440 on the desktop project.",
     );
+    // Linux WebKit's headless runs paint only a frame or two of requestAnimationFrame in the window sampled
+    // here, too few to judge every frame; the Chromium projects keep both widths covered.
+    test.skip(browserName === "webkit", "Too few animation frames on WebKit to sample the hand-over.");
     const provider = await startProvider();
     provider.state.fail = true;
     const connectionId = await openMariWithProvider(page, request, provider.baseUrl, width, height);
@@ -197,11 +201,15 @@ for (const [label, width, height] of [
   test(`${label}: a finished run hands her from the live line to her resting pose with no blank frame`, async ({
     page,
     request,
+    browserName,
   }, testInfo) => {
     test.skip(
       label === "390" ? !testInfo.project.name.startsWith("mobile") : !testInfo.project.name.startsWith("desktop"),
       "390 runs on the phone emulation, 1440 on the desktop project.",
     );
+    // Linux WebKit's headless runs paint only a frame or two of requestAnimationFrame in the window sampled
+    // here, too few to judge every frame; the Chromium projects keep both widths covered.
+    test.skip(browserName === "webkit", "Too few animation frames on WebKit to sample the hand-over.");
     const provider = await startProvider();
     const connectionId = await openMariWithProvider(page, request, provider.baseUrl, width, height);
     try {

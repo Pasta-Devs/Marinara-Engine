@@ -477,6 +477,9 @@ test("connection folder row dragging saves the server order and sort mode", asyn
     const panel = page.locator(`[data-component="RightPanel${mobile ? "Mobile" : "Desktop"}"]`);
     const source = panel.locator(`[data-drag-id="${ids[2]}"]`);
     const target = panel.locator(`[data-drag-id="${ids[1]}"]`);
+    // The folders sit below the fold on a short phone (the iPhone 15 Pro project is 659 px tall), where the drop
+    // point would land in the list's bottom auto-scroll band and the list would scroll away under the finger.
+    await source.evaluate((element) => element.scrollIntoView({ block: "center" }));
     const box = (await source.boundingBox())!;
     const finger: Finger = { identifier: 81, clientX: box.x + box.width / 2, clientY: box.y + box.height / 2 };
     if (mobile) {
