@@ -684,7 +684,7 @@ export function HomeProfessorMariChat({
       ...languageConnections,
       {
         id: LOCAL_SIDECAR_CONNECTION_ID,
-        name: sidecarModelDisplayName ? `Local Model (${sidecarModelDisplayName})` : "Local Model (sidecar)",
+        name: sidecarModelDisplayName ? `Built-in model (${sidecarModelDisplayName})` : "Built-in model",
         model: sidecarModelDisplayName ?? "local-sidecar",
         provider: "local_sidecar",
         isDefault: languageConnections.length === 0,

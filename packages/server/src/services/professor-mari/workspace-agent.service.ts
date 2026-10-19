@@ -4660,7 +4660,7 @@ export class ProfessorMariWorkspaceService {
     const status = sidecarModelService.getStatus();
     return {
       id: LOCAL_SIDECAR_CONNECTION_ID,
-      name: "Local Model (sidecar)",
+      name: "Built-in model",
       provider: "local_sidecar",
       model: status.modelDisplayName ?? LOCAL_SIDECAR_MODEL,
       baseUrl: "local-sidecar://runtime",

@@ -92,7 +92,7 @@ export function createLocalSidecarConnectionOption(modelDisplayName?: string | n
   const model = modelDisplayName?.trim() || "local-sidecar";
   return {
     id: LOCAL_SIDECAR_CONNECTION_ID,
-    name: modelDisplayName?.trim() ? `Local Model (${modelDisplayName.trim()})` : "Local Model (sidecar)",
+    name: modelDisplayName?.trim() ? `Built-in model (${modelDisplayName.trim()})` : "Built-in model",
     model,
     provider: "local_sidecar",
     isLocalSidecar: true,

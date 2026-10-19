@@ -39,14 +39,14 @@ test("the decision installer warns, gates the model choice behind Enable, and ju
     useUIStore.getState().openRightPanel("connections");
   });
 
-  // The Local Model card owns this, so the installer is reached from inside it.
-  const openCard = page.getByText("Local Model", { exact: true }).first();
+  // The Built-in model card owns this, so the installer is reached from inside it.
+  const openCard = page.getByText("Built-in model", { exact: true }).first();
   await expect(openCard).toBeVisible();
   await openCard.click();
   // Not conditional: the decision sidecar is its own model and its own process, so
   // this must be reachable whether or not a chat model has been downloaded. Skipping
   // here would hide exactly the regression that put it behind one.
-  const openInstaller = page.getByRole("button", { name: /Decision sidecar/ });
+  const openInstaller = page.getByRole("button", { name: /Built-in decision model/ });
   await expect(openInstaller).toBeVisible();
   await openInstaller.click();
 

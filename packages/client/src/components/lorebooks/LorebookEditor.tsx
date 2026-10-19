@@ -3235,7 +3235,7 @@ function VectorizeSection({
     return [
       {
         id: LOCAL_SIDECAR_CONNECTION_ID,
-        name: "Local Model (sidecar)",
+        name: "Built-in model",
         embeddingModel: sidecarModelDisplayName ?? "local-sidecar",
       },
     ];
