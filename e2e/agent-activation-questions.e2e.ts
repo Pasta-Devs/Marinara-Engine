@@ -383,7 +383,7 @@ test("OpenRouter decision shortcut links a key and warns before its deletion", a
     expect(linked).toMatchObject({ provider: "decision", defaultForAgents: "true", apiKeyEncrypted: "" });
     linkedId = linked.id;
     await open(source.id);
-    await page.getByRole("button", { name: "Delete connection", exact: true }).click();
+    await page.getByRole("button", { name: "Delete model", exact: true }).click();
     const firstDialog = page.getByRole("dialog");
     await firstDialog.getByRole("button", { name: "Delete", exact: true }).click();
     const linkedDialog = page.getByRole("dialog");

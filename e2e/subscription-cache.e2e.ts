@@ -43,7 +43,7 @@ test("Claude subscription cache duration saves and restores without enabling API
       await toggle.scrollIntoViewIfNeeded();
       await toggle.press("Space");
       await expect(toggle).toBeChecked({ checked: enabled });
-      await page.getByRole("button", { name: "Export connection", exact: true }).click();
+      await page.getByRole("button", { name: "Export model", exact: true }).click();
       const download = await downloadExport(page, () =>
         page.getByRole("dialog").getByRole("button", { name: "Export", exact: true }).click(),
       );

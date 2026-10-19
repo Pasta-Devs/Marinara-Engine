@@ -2078,6 +2078,7 @@ export function ConnectionEditor({
               }
             }}
             aria-label={localizeUi("ui.noodle.noodlehome.save")}
+            title={localizeUi("ui.noodle.noodlehome.save")}
             disabled={updateConnection.isPending || saveConnectionDefaults.isPending || !!swarmUiWorkflowError}
             className="mari-editor-action mari-editor-action--primary inline-flex disabled:opacity-50"
           >

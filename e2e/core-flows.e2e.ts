@@ -3348,7 +3348,7 @@ test("NovelAI generation defaults survive save and editor navigation", async ({ 
       .toBe(50);
 
     const downloadPromise = page.waitForEvent("download");
-    await editor.getByRole("button", { name: "Export connection" }).click();
+    await editor.getByRole("button", { name: "Export model" }).click();
     const exportDialog = page.getByRole("dialog", { name: "Export Connection Data" });
     await expect(exportDialog).toBeVisible();
     await exportDialog.getByRole("button", { name: "Export", exact: true }).click();

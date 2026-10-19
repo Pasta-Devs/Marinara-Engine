@@ -63,7 +63,7 @@ test("Image API custom parameters validate, save, export, and survive copying", 
     await page.screenshot({ path: testInfo.outputPath("image-custom-parameters.png") });
     if (testInfo.project.name === "desktop-chromium") {
       const downloaded = page.waitForEvent("download");
-      await editor.getByRole("button", { name: "Export connection" }).click();
+      await editor.getByRole("button", { name: "Export model" }).click();
       await page
         .getByRole("dialog", { name: "Export Connection Data" })
         .getByRole("button", { name: "Export", exact: true })
