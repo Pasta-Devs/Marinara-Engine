@@ -142,6 +142,25 @@ test("guided ComfyUI setup adds distinct image and video workflows without chang
     );
     await page.goto("/");
 
+    // Service discovery must reuse media access without creating a chat placeholder.
+    await page.evaluate(async () => {
+      const { openAddConnection } = await import("/src/lib/add-connection.ts" as string);
+      openAddConnection();
+    });
+    const serviceDialog = page.getByRole("dialog", { name: "Add connection", exact: true });
+    await serviceDialog.locator('[data-add-connection-service="media:comfyui"]').click();
+    await serviceDialog
+      .locator("[data-add-connection-existing]")
+      .getByRole("button", { name: /Add models to it/ })
+      .click();
+    await expect(serviceDialog.locator('[data-add-connection-capability="image"]')).toBeVisible();
+    await expect(serviceDialog.locator('[data-add-connection-capability="video"]')).toBeVisible();
+    expect((await rows(request)).filter((row) => row.accountId === accountId).map((row) => row.id)).toEqual([
+      original.id,
+    ]);
+    await page.keyboard.press("Escape");
+    await expect(serviceDialog).toHaveCount(0);
+
     await openAddModels(page, accountId);
     let dialog = page.getByRole("dialog", { name: "Add model", exact: true });
     await expect(dialog.locator('[data-add-connection-capability="image"]')).toBeVisible();
@@ -677,7 +696,9 @@ test("a vendor connection set up for images can open its chat catalog without re
     await expect(dialog.locator('[data-model-id="gpt-fixture"]')).toBeVisible();
     await dialog.locator('[data-model-id="gpt-fixture"] [data-model-option]').click();
     await dialog.locator('[data-model-id="gpt-fixture-two"] [data-model-option]').click();
-    await expect.poll(async () => (await rows(request)).filter((row) => row.accountId === image.accountId).length).toBe(3);
+    await expect
+      .poll(async () => (await rows(request)).filter((row) => row.accountId === image.accountId).length)
+      .toBe(3);
     const linked = (await rows(request)).filter((row) => row.accountId === image.accountId);
     expect(linked).toHaveLength(3);
     expect(linked.filter((row) => row.id !== image.id).every((row) => !!row.model?.trim())).toBe(true);

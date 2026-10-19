@@ -699,7 +699,8 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
     const linked = allRows.filter((candidate) => candidate.accountId === accountId);
     let row: ConnectionRowLite | undefined =
       linked.find((candidate) => candidate.id === connectionId) ?? starAnchorOf(linked) ?? linked[0];
-    const chatProvider = service && isChatProvider(service) ? (service as APIProvider) : null;
+    const chatProvider =
+      service && !selectedMedia && !isDevice(service) && isChatProvider(service) ? (service as APIProvider) : null;
     // A vendor key may have been set up for images first. Its chat catalog needs its own chat row.
     if (chatProvider && row && !isChatProvider(row.provider ?? "")) row = undefined;
     let placeholderId: string | undefined;
