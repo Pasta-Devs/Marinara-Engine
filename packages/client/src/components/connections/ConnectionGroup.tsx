@@ -10,6 +10,7 @@ import {
   ChevronDown,
   Copy,
   ImageIcon,
+  ListChecks,
   KeyRound,
   MoreHorizontal,
   Plus,
@@ -27,8 +28,15 @@ import {
   type APIProvider,
   type ConnectionAccountListItem,
 } from "@marinara-engine/shared";
-import { useCachedCatalogFacts, useTestConnection, type CachedCatalogFacts } from "../../hooks/use-connections";
 import {
+  useCachedCatalogFacts,
+  useDeleteConnection,
+  useMoveConnection,
+  useTestConnection,
+  type CachedCatalogFacts,
+} from "../../hooks/use-connections";
+import {
+  useConnectionAccounts,
   useDeleteConnectionAccount,
   useDuplicateConnectionAccount,
   useUpdateConnectionAccount,
@@ -39,6 +47,7 @@ import { useUIStore } from "../../stores/ui.store";
 import { openAddModels } from "../../lib/add-connection";
 import { cn } from "../../lib/utils";
 import { ContextMenu } from "../ui/ContextMenu";
+import { showChoiceDialog, showConfirmDialog } from "../../lib/app-dialogs";
 import { CompactUsageMeter } from "./SubscriptionUsageWidget";
 import { resolveUsageConnection } from "../../lib/connection-filters";
 import { SMALL_ACTION } from "./DeviceDetail";
@@ -92,6 +101,12 @@ export function ConnectionGroup({
   const updateAccount = useUpdateConnectionAccount();
   const removeAccount = useDeleteConnectionAccount();
   const duplicateAccount = useDuplicateConnectionAccount();
+  const { data: accounts } = useConnectionAccounts();
+  const moveModel = useMoveConnection();
+  const deleteModel = useDeleteConnection();
+  /** Select mode: the ids of the checked Models; null while the card shows its normal rows. */
+  const [picked, setPicked] = useState<Set<string> | null>(null);
+  const [bulkBusy, setBulkBusy] = useState(false);
   const test = useTestConnection();
   const [menu, setMenu] = useState<MenuAt | null>(null);
   // Cost badges read the catalogs already cached for this Connection's Models; nothing is fetched for them.
@@ -128,6 +143,48 @@ export function ConnectionGroup({
     } catch (error) {
       toast.error(error instanceof Error ? error.message : t("connections.accounts.editor.deleteFailed"));
     }
+  };
+  const pickedRows = picked ? rows.filter((row) => picked.has(row.id)) : [];
+  const nameOf = (row: ConnectionRowData) => row.name?.trim() || row.model || row.id;
+  // ponytail: same-service targets only (same host for custom); a move to another service needs a catalog model per
+  // Model, which the single-Model Move dialog asks for.
+  const moveTargets = (accounts ?? []).filter(
+    (item) =>
+      item.id !== account.id &&
+      item.provider === account.provider &&
+      (account.provider !== "custom" || hostOf(item.baseUrl) === hostOf(account.baseUrl)),
+  );
+  const runBulk = async (each: (row: ConnectionRowData) => Promise<unknown>) => {
+    setBulkBusy(true);
+    try {
+      for (const row of pickedRows) await each(row);
+      setPicked(null);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : String(error));
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+  const moveSelected = async () => {
+    const target = await showChoiceDialog({
+      title: t("connections.accounts.select.moveTitle", { count: pickedRows.length }),
+      message: t("connections.accounts.select.moveMessage"),
+      choices: moveTargets.map((item) => ({ key: item.id, label: item.name })),
+      cancelLabel: t("connections.accounts.editor.cancel"),
+    });
+    if (target) await runBulk((row) => moveModel.mutateAsync({ id: row.id, accountId: target }));
+  };
+  const deleteSelected = async () => {
+    const ok = await showConfirmDialog({
+      title: t("connections.accounts.select.deleteTitle", { count: pickedRows.length }),
+      message: t("connections.accounts.select.deleteMessage", {
+        count: pickedRows.length,
+        models: pickedRows.map(nameOf).join(", "),
+      }),
+      confirmLabel: t("lorebook.editor.batch.delete"),
+      tone: "destructive",
+    });
+    if (ok) await runBulk((row) => deleteModel.mutateAsync(row.id));
   };
   const service = PROVIDERS[account.provider as APIProvider]?.name ?? account.provider;
   const state = t(`connections.accounts.state.${account.state}`);
@@ -275,6 +332,12 @@ export function ConnectionGroup({
                   ]
                 : []),
               {
+                label: t("connections.accounts.select.start"),
+                icon: <ListChecks size="0.75rem" />,
+                disabled: rows.length < 2,
+                onSelect: () => setPicked(new Set()),
+              },
+              {
                 label: t("connections.accounts.duplicate"),
                 icon: <Copy size="0.75rem" />,
                 disabled: duplicateAccount.isPending,
@@ -313,7 +376,58 @@ export function ConnectionGroup({
           className="ps-[3.25rem] pe-2 pb-1.5"
         />
       )}
-      {open && (
+      {picked && (
+        <div data-connection-select className="flex flex-col gap-0.5 p-1">
+          {sortByModelId(rows).map((row) => (
+            <label
+              key={row.id}
+              className="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg px-2 hover:bg-[var(--accent)]"
+            >
+              <input
+                type="checkbox"
+                checked={picked.has(row.id)}
+                onChange={() =>
+                  setPicked((current) => {
+                    const next = new Set(current);
+                    if (!next.delete(row.id)) next.add(row.id);
+                    return next;
+                  })
+                }
+              />
+              <span className="min-w-0 flex-1 truncate text-xs">{nameOf(row)}</span>
+              {row.model && row.model !== nameOf(row) && (
+                <span className="min-w-0 truncate text-[0.625rem] text-[var(--muted-foreground)]">{row.model}</span>
+              )}
+            </label>
+          ))}
+          <div className="flex flex-wrap items-center gap-2 px-2 pt-1">
+            <span className="me-auto text-[0.6875rem] text-[var(--muted-foreground)]" role="status">
+              {t("connections.accounts.select.count", { count: pickedRows.length })}
+            </span>
+            <button
+              type="button"
+              className={SMALL_ACTION}
+              disabled={!pickedRows.length || !moveTargets.length || bulkBusy}
+              title={moveTargets.length ? undefined : t("connections.accounts.select.noTarget")}
+              onClick={() => void moveSelected()}
+            >
+              {t("connections.accounts.select.move")}
+            </button>
+            <button
+              type="button"
+              className={cn(SMALL_ACTION, "text-[var(--destructive)]")}
+              disabled={!pickedRows.length || bulkBusy}
+              onClick={() => void deleteSelected()}
+            >
+              {t("connections.accounts.select.delete")}
+            </button>
+            <button type="button" className={SMALL_ACTION} disabled={bulkBusy} onClick={() => setPicked(null)}>
+              {t("connections.accounts.editor.cancel")}
+            </button>
+          </div>
+        </div>
+      )}
+      {open && !picked && (
         <ConnectionModelList
           id={modelsId}
           ariaLabel={t("ui.agents.featureagentdetailhost.value1Value2", { value1: account.name, value2: service })}
