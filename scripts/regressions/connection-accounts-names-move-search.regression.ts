@@ -633,6 +633,16 @@ try {
     404,
     "a Model of another Connection cannot be split from this one",
   );
+
+  // A new key on one copy names the other Connection that still holds the old key; its key stays as it is.
+  const rotated = await json("PATCH", `/accounts/${splitSource.id}`, { apiKey: "split-key-8888" });
+  assert.equal(rotated.status, 200, rotated.body);
+  assert.deepEqual(rotated.data.sameKeyAccounts, [{ id: copyId, name: "Split copy" }]);
+  assert.doesNotMatch(rotated.body, /split-key/);
+  const [stillOld] = await db.select().from(connectionAccounts).where(eq(connectionAccounts.id, copyId));
+  assert.equal(decryptApiKey(stillOld!.apiKeyEncrypted), "split-key-7777");
+  const renamed = await json("PATCH", `/accounts/${splitSource.id}`, { name: "Split source 2" });
+  assert.equal(renamed.data.sameKeyAccounts, undefined, "no key change, no list");
   console.log("connection-accounts-names-move-search: ok");
 } finally {
   await app.close();
