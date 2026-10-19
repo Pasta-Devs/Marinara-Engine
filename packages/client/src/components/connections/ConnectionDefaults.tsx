@@ -421,11 +421,14 @@ function JobRow({
   open,
   onToggle,
   catalog,
+  about,
 }: {
   job: Job;
   open: boolean;
   onToggle: () => void;
   catalog?: CachedCatalogFacts;
+  /** The rarer jobs say in one plain line what they do. */
+  about?: boolean;
 }) {
   const { t } = useTranslation();
   const { tile } = job;
@@ -514,6 +517,11 @@ function JobRow({
           </>
         }
       />
+      {about && (
+        <p className="mb-1 ml-16 text-[0.6875rem] leading-4 text-[var(--muted-foreground)]">
+          {t(`connections.defaults.about.${tile.key}`)}
+        </p>
+      )}
       {tile.warning && (
         <div role="status" className="mari-connection-defaults-problem">
           <span className="min-w-0 flex-1 break-words">{tile.warning.text}</span>
@@ -743,6 +751,7 @@ export function ConnectionDefaultsBox({
       key={job.tile.key}
       job={job}
       catalog={catalogs[jobs.indexOf(job)]}
+      about={!isShown(job)}
       open={openKey === job.tile.key}
       onToggle={() => {
         if (openKey === job.tile.key) {
