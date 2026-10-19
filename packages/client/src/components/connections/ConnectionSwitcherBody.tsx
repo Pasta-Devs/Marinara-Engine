@@ -2,12 +2,12 @@
 // Connection Switcher Body — the one model chooser shared by the chat's
 // composer chip, the phone menu, Chat Settings and Professor Mari's composer.
 // One column: search, Now (pinned), Follow Main, Recent, then the starred
-// Models grouped by Connection. A catalog shows only on a search or when a
-// Connection's Browse is pressed. A pick applies to the chat only; the star
+// Models grouped by Connection. A catalog shows only on a search or from a
+// Connection's "All models" row. A pick applies to the chat only; the star
 // saves a model, and removing it can remove the saved Model (decision 30).
 // ──────────────────────────────────────────────
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Check, ChevronLeft, Cpu, House, Search, Shuffle, Star } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Cpu, House, Layers, Search, Shuffle, Star } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -846,17 +846,6 @@ export function ConnectionSwitcherBody({
             className="flex-1"
           />
           {unavailable && fixButton(group)}
-          {!unavailable && (
-            <button
-              type="button"
-              data-switcher-browse={group.key}
-              onClick={() => browse(group)}
-              aria-label={t("connections.switcher.browseConnection", { connection: group.name })}
-              className="mari-connection-btn"
-            >
-              {t("connections.switcher.browse")}
-            </button>
-          )}
         </div>
         <ConnectionModelList
           provider={group.account.provider}
@@ -864,6 +853,31 @@ export function ConnectionSwitcherBody({
           getKey={(entry) => entry.key}
           renderRow={(entry, upstream) =>
             renderEntry({ ...entry, subtitle: modelIdLabel(entry.model, upstream) }, { star: "all" })
+          }
+          footer={
+            // Favorites first; every other model of this Connection is one visible row away, not a header word.
+            !unavailable && (
+              <button
+                type="button"
+                data-switcher-browse={group.key}
+                onClick={() => browse(group)}
+                aria-label={t("connections.switcher.browseConnection", { connection: group.name })}
+                className={cn(
+                  ROW_CLASS,
+                  "mari-connection-model-well min-h-11 gap-3 ps-2 text-[var(--muted-foreground)] hover:text-[var(--foreground)]",
+                )}
+              >
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center" aria-hidden>
+                  <Layers size="0.875rem" />
+                </span>
+                <span className="min-w-0 flex-1 truncate">
+                  {catalogOf(group)?.count
+                    ? t("connections.switcher.allModelsCount", { count: catalogOf(group)!.count })
+                    : t("connections.switcher.allModels")}
+                </span>
+                <ChevronRight size="0.875rem" aria-hidden className="shrink-0" />
+              </button>
+            )
           }
         />
       </section>

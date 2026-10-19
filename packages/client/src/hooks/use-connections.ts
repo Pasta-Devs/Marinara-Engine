@@ -357,17 +357,20 @@ export type CachedCatalogFacts = {
   of: (modelId: string | null | undefined) => CachedModelFacts | undefined;
   /** The catalog mixes models in the plan with paid ones (NanoGPT), so "Paid" says something. */
   showPaid: boolean;
+  /** Models in the cached catalogs; undefined while none is cached. */
+  count?: number;
 };
 
-type CatalogIndex = { byId: Map<string, CachedModelFacts>; showPaid: boolean };
+type CatalogIndex = { byId: Map<string, CachedModelFacts>; ids: Set<string>; showPaid: boolean };
 const catalogIndexes = new WeakMap<ConnectionModelList, CatalogIndex>();
 
 /** One catalog's facts, indexed once per fetched list. */
 function indexCatalog(list: ConnectionModelList): CatalogIndex {
   let index = catalogIndexes.get(list);
   if (index) return index;
-  index = { byId: new Map(), showPaid: false };
+  index = { byId: new Map(), ids: new Set(), showPaid: false };
   for (const model of list.models ?? []) {
+    index.ids.add(model.id);
     if (model.cost === "included" || model.cost?.startsWith("multiplier:")) index.showPaid = true;
     if (model.cost || model.deprecated || model.retiresAt) {
       index.byId.set(model.id, { cost: model.cost, deprecated: model.deprecated, retiresAt: model.retiresAt });
@@ -405,6 +408,7 @@ export function useCachedCatalogFacts(groups: ReadonlyArray<readonly string[]>):
         return undefined;
       },
       showPaid: indexes.some((index) => index.showPaid),
+      count: indexes.length ? new Set(indexes.flatMap((index) => [...index.ids])).size : undefined,
     };
   });
 }
