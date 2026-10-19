@@ -1549,6 +1549,10 @@
 .mari-connection-model-slot + .mari-connection-model-slot {
   border-block-start: 1px solid color-mix(in srgb, var(--foreground) 5%, transparent);
 }
+/* The Defaults box is the one blue box: the same box as a card, in a flat connection-blue tint. */
+.mari-connection-group.mari-connection-defaults-box {
+  background-color: color-mix(in srgb, var(--mari-panel-gradient-start) 10%, transparent);
+}
 /* The empty state wears the connections tint, like .mari-suggestion-chip. A tint, no frame. */
 .mari-connection-empty {
   border-radius: 0.875rem;
