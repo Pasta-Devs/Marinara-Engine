@@ -32,7 +32,7 @@ import {
 } from "../../lib/connection-model-selection";
 import { isConnectionFlagTrue } from "../../lib/connection-filters";
 import { formatCompactTokenCount } from "../../lib/professor-mari-context-budget";
-import { subgroupByUpstream, upstreamOf } from "../../lib/connection-groups";
+import { knownPrefixName, subgroupByUpstream, upstreamOf } from "../../lib/connection-groups";
 import { BrandMark, ProviderIcon } from "./ProviderIcon";
 import { ModelRow } from "./ConnectionRow";
 import { cn } from "../../lib/utils";
@@ -353,6 +353,8 @@ export function ConnectionModelPicker({
 
   const renderRow = (row: PickerRow, pinned: boolean, section = pinned ? "favorites" : "all") => {
     const current = row.id === currentModel || !!addedIds?.includes(row.id);
+    // Adding: a model in the connection always shows a filled star, even before its favorite is saved.
+    const starred = pinned || (addMode && !onChoose && current);
     const label = row.name || row.id;
     const reasoning = row.capabilities?.adaptiveThinking || !!row.capabilities?.effortLevels?.length;
     const meta = [
@@ -393,41 +395,36 @@ export function ConnectionModelPicker({
         retiring={row.deprecated || row.retiresAt ? row : null}
         current={current}
         trailing={
+          // Adding: the filled star is the one sign that a model is in the connection.
           current &&
-          (addMode && !onChoose ? (
-            // Adding: a visible word, not a bare check, says the model is in the connection now.
-            <span data-model-added className="mari-connection-pill mari-connection-pill--strong shrink-0">
-              <Check size="0.6875rem" aria-hidden />
-              {t("connections.modelPicker.added")}
-            </span>
-          ) : (
+          !(addMode && !onChoose) && (
             <Check
               size="0.875rem"
               className="mari-panel-gradient--connections shrink-0 text-[var(--mari-connection-ink)]"
               aria-label={t("connections.modelPicker.current")}
             />
-          ))
+          )
         }
         end={
           <>
             {/* A Model outside a Connection has nowhere to save a favorite; an old star there can still be removed. */}
-            {(connection.accountId || pinned) && (
+            {(connection.accountId || starred) && (
               <button
                 type="button"
                 data-model-star
-                aria-pressed={pinned}
+                aria-pressed={starred}
                 // A toggle keeps one name; aria-pressed says whether it is a favorite.
                 aria-label={t("connections.favorite.toggle", { model: label })}
-                title={t(pinned ? "connections.favorite.remove" : "connections.favorite.add", { model: label })}
-                onClick={() => toggleStar(row, !pinned)}
+                title={t(starred ? "connections.favorite.remove" : "connections.favorite.add", { model: label })}
+                onClick={() => toggleStar(row, !starred)}
                 className={cn(
                   "flex h-11 w-11 shrink-0 items-center justify-center rounded-lg outline-none transition-colors hover:bg-foreground/10 focus-visible:ring-1 focus-visible:ring-foreground/25",
-                  pinned
+                  starred
                     ? "mari-panel-gradient--connections text-[var(--mari-connection-ink)]"
                     : "text-foreground/35 hover:text-foreground/70",
                 )}
               >
-                <Star size="0.875rem" fill={pinned ? "currentColor" : "none"} />
+                <Star size="0.875rem" fill={starred ? "currentColor" : "none"} />
               </button>
             )}
           </>
@@ -534,7 +531,7 @@ export function ConnectionModelPicker({
                   className="mari-connection-chip mari-panel-gradient--connections gap-1"
                 >
                   {value && <BrandMark of={value} className="h-3 w-3" />}
-                  {value ?? t("connections.modelPicker.allUpstreams")}
+                  {value ? (knownPrefixName(value) ?? value) : t("connections.modelPicker.allUpstreams")}
                 </button>
               ))}
             </div>
@@ -605,7 +602,7 @@ export function ConnectionModelPicker({
                     {group.upstream && (
                       <p className="flex items-center gap-1.5 px-3 pb-0.5 pt-1.5 text-[0.625rem] text-foreground/40">
                         <BrandMark of={group.upstream} className="h-3 w-3" />
-                        {group.upstream}
+                        {knownPrefixName(group.upstream) ?? group.upstream}
                       </p>
                     )}
                     {group.rows.map((row) => renderRow(row, false))}

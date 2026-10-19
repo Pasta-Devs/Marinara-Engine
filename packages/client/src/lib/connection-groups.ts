@@ -2,7 +2,7 @@
 // Connection groups: pure helpers that arrange saved Models (api_connections rows)
 // under their Connection (account) for the switcher, the panel and ConnectionSelect.
 // ──────────────────────────────────────────────
-import type { ConnectionAccountListItem } from "@marinara-engine/shared";
+import { PROVIDERS, type APIProvider, type ConnectionAccountListItem } from "@marinara-engine/shared";
 import { isConnectionFlagTrue } from "./connection-filters";
 
 /** The Model row fields these helpers read. Flags may be "true"/"false" strings or booleans. */
@@ -59,6 +59,30 @@ export function upstreamOf(modelId: string | null | undefined): string | null {
   const id = modelId?.trim() ?? "";
   const slash = id.indexOf("/");
   return slash > 0 ? id.slice(0, slash) : null;
+}
+
+/** Names for model-id prefixes that are not a Marinara service id. */
+const PREFIX_NAMES: Record<string, string> = {
+  linkapi: "LinkAPI",
+  arliai: "ArliAI",
+  "zai-org": "Z.AI",
+  "x-ai": "xAI",
+  "meta-llama": "Meta",
+  "deepseek-ai": "DeepSeek",
+  mistralai: "Mistral",
+  moonshotai: "Moonshot",
+  qwen: "Qwen",
+  google: "Google",
+  minimax: "MiniMax",
+  nousresearch: "Nous Research",
+  nvidia: "NVIDIA",
+  microsoft: "Microsoft",
+};
+
+/** The display name of a model-id prefix (a gateway route or a model maker), or undefined when it is not known. */
+export function knownPrefixName(prefix: string): string | undefined {
+  const key = prefix.toLowerCase();
+  return PROVIDERS[key as APIProvider]?.name ?? PREFIX_NAMES[key];
 }
 
 /**

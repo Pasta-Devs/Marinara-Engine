@@ -37,6 +37,7 @@ import { ConnectionEditor } from "../connections/ConnectionEditor";
 import { ConnectionIdentity } from "../connections/ConnectionIdentity";
 import { ConnectionModelPicker } from "../connections/ConnectionModelPicker";
 import { BrandMark, ProviderIcon } from "../connections/ProviderIcon";
+import { StarText } from "../connections/StarText";
 import {
   useCreateConnection,
   useConnectionModels,
@@ -1742,7 +1743,11 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
               ))}
             </div>
           )}
-          {subtitle && <p className="mt-1.5 text-[0.6875rem] text-[var(--muted-foreground)]">{subtitle}</p>}
+          {subtitle && (
+            <p className="mt-1.5 text-[0.6875rem] text-[var(--muted-foreground)]">
+              <StarText text={subtitle} />
+            </p>
+          )}
         </div>
 
         <div key={String(step)} className="animate-fade-in-up flex min-h-0 flex-1 flex-col">

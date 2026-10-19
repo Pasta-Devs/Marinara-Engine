@@ -48,6 +48,7 @@ import { ModelRow } from "./ConnectionRow";
 import { modelIdLabel } from "../../lib/connection-identity";
 import { ConnectionModelPicker } from "./ConnectionModelPicker";
 import { openAddModels } from "../../lib/add-connection";
+import { StarText } from "./StarText";
 import { SubscriptionUsageWidget } from "./SubscriptionUsageWidget";
 import { starAnchorOf, starsOfRows, useHiddenModelIds, useModelStar } from "../../hooks/use-model-star";
 
@@ -1170,7 +1171,7 @@ export function ConnectionSwitcherBody({
   // One footer line; the composer menu keeps the picker's own line.
   const footer = layout !== "container" && (
     <p className="shrink-0 border-t border-foreground/10 px-3 py-2 text-[0.625rem] text-foreground/50">
-      {pickerFooter ?? t("connections.switcher.appliesToChatStars")}
+      <StarText text={pickerFooter ?? t("connections.switcher.appliesToChatStars")} />
     </p>
   );
 
