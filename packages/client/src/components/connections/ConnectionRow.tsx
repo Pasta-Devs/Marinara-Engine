@@ -24,12 +24,12 @@ import {
   MoreHorizontal,
   MoveRight,
   Pencil,
-  PencilLine,
   Power,
   Scale,
   Shuffle,
   Star,
   Trash2,
+  Wrench,
   type LucideIcon,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -266,30 +266,17 @@ export function ModelRow({
         {lead}
         {!onPictureClick && tile}
         <span id={copyId} data-connection-model-copy className="min-w-0 flex-1">
-          <span className="flex min-w-0 items-center gap-1">
-            <span
-              data-model-title
-              className={cn(
-                "min-w-0 truncate text-sm font-semibold leading-5",
-                dim ? "text-[var(--muted-foreground)]" : "text-[var(--foreground)]",
-              )}
-              title={tooltip ?? title}
-            >
-              {title}
-            </span>
-            {/* Edited: right after the name it belongs to, on the name's line. */}
-            {customized && (
-              <span
-                data-model-customized
-                title={t("connections.row.customSettings")}
-                className="flex shrink-0 text-[var(--muted-foreground)]"
-              >
-                <PencilLine size="0.75rem" aria-hidden />
-                <span className="sr-only">{t("connections.row.customSettings")}</span>
-              </span>
+          <span
+            data-model-title
+            className={cn(
+              "block min-w-0 truncate text-[0.8125rem] font-semibold leading-5",
+              dim ? "text-[var(--muted-foreground)]" : "text-[var(--foreground)]",
             )}
+            title={tooltip ?? title}
+          >
+            {title}
           </span>
-          {(pill || id || details || cost || retiring) && (
+          {(pill || id || details || cost || retiring || customized) && (
             <span className="mt-0.5 flex min-w-0 items-center gap-1.5 text-xs leading-[1.125rem] text-[var(--muted-foreground)]">
               {pill && (
                 <span data-connection-type className="mari-connection-pill">
@@ -300,6 +287,13 @@ export function ModelRow({
               {id && (
                 <span className="min-w-0 truncate tabular-nums" title={id}>
                   {id}
+                </span>
+              )}
+              {/* Custom settings: a quiet wrench right after the model id it adjusts. */}
+              {customized && (
+                <span data-model-customized title={t("connections.row.customSettings")} className="flex shrink-0">
+                  <Wrench size="0.6875rem" aria-hidden />
+                  <span className="sr-only">{t("connections.row.customSettings")}</span>
                 </span>
               )}
               {details}
