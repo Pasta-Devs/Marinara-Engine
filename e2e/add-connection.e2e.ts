@@ -427,13 +427,15 @@ test("unstarring the first model after starring a second keeps the model screen 
     const dialog = await openCustomSetup(page, provider.baseUrl);
     // Alpha takes the new Connection's own Model; Beta gets a Model of its own.
     await dialog.locator('[data-model-id="local/alpha"] [data-model-option]').click();
+    const alphaStar = dialog.locator('[data-model-id="local/alpha"] [data-model-star]');
+    // A tap while Alpha still saves is ignored, so wait for its star.
+    await expect(alphaStar).toHaveAttribute("aria-pressed", "true");
     const betaStar = dialog.locator('[data-model-id="local/beta"] [data-model-star]');
     await betaStar.click();
     await expect(betaStar).toHaveAttribute("aria-pressed", "true");
     await expect(dialog.getByText("2 models added")).toBeVisible();
 
     // Taking Alpha's star off removes the Model the screen was opened on.
-    const alphaStar = dialog.locator('[data-model-id="local/alpha"] [data-model-star]');
     await alphaStar.click();
     await expect(alphaStar).toHaveAttribute("aria-pressed", "false");
     await expect.poll(addedModels, { timeout: 15_000 }).toEqual(["local/beta"]);

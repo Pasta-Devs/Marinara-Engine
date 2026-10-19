@@ -353,8 +353,8 @@ export function ConnectionModelPicker({
 
   const renderRow = (row: PickerRow, pinned: boolean, section = pinned ? "favorites" : "all") => {
     const current = row.id === currentModel || !!addedIds?.includes(row.id);
-    // Adding: a model in the connection always shows a filled star, even before its favorite is saved.
-    const starred = pinned || (addMode && !onChoose && current);
+    // Adding: a model added here shows a filled star, even before its favorite is saved.
+    const starred = pinned || (addMode && !onChoose && !!addedIds?.includes(row.id));
     const label = row.name || row.id;
     const reasoning = row.capabilities?.adaptiveThinking || !!row.capabilities?.effortLevels?.length;
     const meta = [
