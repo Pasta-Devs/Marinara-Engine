@@ -5865,6 +5865,7 @@
   "shortcuts.general.omnibar": "Open or close Search",
   "shortcuts.general.omnibarComplete": "Accept Search's suggested completion",
   "shortcuts.general.omnibarNavigate": "Move through and open Search results",
+  "shortcuts.general.quickPicker": "Open the model chooser in the message box",
   "shortcuts.groups.composer": "Chat input",
   "shortcuts.groups.editors": "Editors and browsers",
   "shortcuts.groups.game": "Game Mode",

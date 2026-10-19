@@ -17,6 +17,7 @@ import {
 import { createSystemCommandDefinitions } from "../../packages/client/src/lib/command-center-system-commands.js";
 import {
   formatShortcutKey,
+  isQuickPickerShortcut,
   isShortcutsHelpKey,
   isTypingTarget,
 } from "../../packages/client/src/lib/keyboard-shortcuts.js";
@@ -1287,6 +1288,13 @@ assert.ok(!("mariDetailId" in mariSession));
   assert.equal(isTypingTarget({ tagName: "BUTTON", closest: () => null }), false);
   assert.equal(formatShortcutKey("Mod", true), "⌘");
   assert.equal(formatShortcutKey("Mod", false), "Ctrl");
+  assert.equal(formatShortcutKey("Alt", true), "⌥");
+  // Alt+M opens the composer's model chooser, read from the key position (Option+M types "µ" on a Mac).
+  const keys = { key: "µ", code: "KeyM", altKey: true, ctrlKey: false, metaKey: false };
+  assert.equal(isQuickPickerShortcut(keys), true);
+  assert.equal(isQuickPickerShortcut({ ...keys, ctrlKey: true }), false);
+  assert.equal(isQuickPickerShortcut({ ...keys, shiftKey: true }), false, "Ctrl/Cmd+Shift+M stay with the browser");
+  assert.equal(isQuickPickerShortcut({ ...keys, altKey: false }), false);
 }
 
 {

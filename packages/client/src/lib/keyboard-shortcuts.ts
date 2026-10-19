@@ -32,6 +32,8 @@ export const KEYBOARD_SHORTCUT_GROUPS: readonly KeyboardShortcutGroup[] = [
       { keys: [["↑"], ["↓"], ["Enter"]], labelKey: "shortcuts.general.omnibarNavigate" },
       // GlobalOmnibar ghost completion
       { keys: [["Tab"]], labelKey: "shortcuts.general.omnibarComplete" },
+      // QuickConnectionSwitcher (the composer's model chip; not while a dialog is open)
+      { keys: [["Alt", "M"]], labelKey: "shortcuts.general.quickPicker" },
       // GlobalOmnibarHost (ignored while typing or while a dialog is open)
       { keys: [["?"]], labelKey: "shortcuts.general.help" },
       // Modal.tsx and every popover's Escape listener
@@ -106,6 +108,14 @@ export function isShortcutsHelpKey(event: HelpKeyEvent): boolean {
   return event.key === "?" && !event.ctrlKey && !event.metaKey && !event.altKey && !event.repeat;
 }
 
+/**
+ * Alt+M (Option+M on a Mac). Read from the key's position, since Option+M types "µ". Free in the browsers: Ctrl+M
+ * and Cmd+M minimize or mute, Ctrl+Shift+M opens Chrome's profile menu and Firefox's responsive view.
+ */
+export function isQuickPickerShortcut(event: HelpKeyEvent & { code?: string; shiftKey?: boolean }): boolean {
+  return event.code === "KeyM" && event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey && !event.repeat;
+}
+
 interface TargetLike {
   tagName?: string;
   isContentEditable?: boolean;
@@ -129,5 +139,6 @@ export function isTypingTarget(target: unknown): boolean {
 
 export function formatShortcutKey(key: string, apple = isApplePlatform()): string {
   if (key === "Mod") return apple ? "⌘" : "Ctrl";
+  if (key === "Alt") return apple ? "⌥" : "Alt";
   return key;
 }

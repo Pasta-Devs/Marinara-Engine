@@ -10,6 +10,9 @@ import { useUpdateChat, useChat } from "../../hooks/use-chats";
 import { useChatStore } from "../../stores/chat.store";
 import { useSidecarStore } from "../../stores/sidecar.store";
 import { cn } from "../../lib/utils";
+import { isQuickPickerShortcut } from "../../lib/keyboard-shortcuts";
+import { isModalOverlayOpen } from "../../lib/modal-overlay-registry";
+import { useUIStore } from "../../stores/ui.store";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import type { ProfessorMariContextBudget } from "../../lib/professor-mari-context-budget";
 import { ContextBudgetGauge, ContextBudgetIndicator } from "./ContextBudgetIndicator";
@@ -50,6 +53,19 @@ export function QuickConnectionSwitcher({
   const close = useCallback(() => {
     setOpen(false);
     btnRef.current?.focus();
+  }, []);
+
+  // Alt+M opens or closes the chooser of the composer on screen (a hidden composer's chip has no layout box).
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || event.isComposing || !isQuickPickerShortcut(event)) return;
+      const ui = useUIStore.getState();
+      if (ui.omnibarOpen || ui.modal || isModalOverlayOpen() || !btnRef.current?.offsetParent) return;
+      event.preventDefault();
+      setOpen((value) => !value);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
   useEffect(() => {
