@@ -24,6 +24,11 @@ import {
   X,
   BadgeDollarSign,
   ListFilter,
+  FolderX,
+  Layers,
+  Sparkles,
+  Split,
+  MousePointerClick,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
@@ -672,32 +677,45 @@ export function ConnectionsPanel() {
       ) : (
         <>
           {(upgradedFromModels || hadFolders) && !upgradeNoteDismissed && (
-            <div
-              role="note"
-              data-connections-upgrade-note
-              className="flex items-start gap-2 rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-3 text-xs text-[var(--muted-foreground)]"
-            >
-              <div className="min-w-0 flex-1 space-y-1">
-                <p>{t("connections.upgradeNote.grouped")}</p>
-                <p>{t("connections.upgradeNote.split")}</p>
-                {hadFolders && <p>{t("connections.upgradeNote.folders")}</p>}
-                <p>
-                  <StarText text={t("connections.upgradeNote.picks")} />
-                </p>
+            // The same box and well as a connection card: a heading, then one short line per change.
+            <section role="note" data-connections-upgrade-note className="mari-connection-group">
+              <div className="flex items-center gap-2 ps-2 pb-2">
+                <span
+                  aria-hidden
+                  className="mari-panel-gradient--connections flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[var(--mari-connection-tint)] text-[var(--mari-connection-ink)]"
+                >
+                  <Sparkles size="0.875rem" />
+                </span>
+                <h3 className="min-w-0 flex-1 truncate text-sm font-semibold">{t("connections.upgradeNote.title")}</h3>
+                <button
+                  type="button"
+                  onClick={dismissUpgradeNote}
+                  className={cn(
+                    "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[var(--muted-foreground)] hover:bg-foreground/[0.06] hover:text-[var(--foreground)]",
+                    FOCUS,
+                  )}
+                  aria-label={t("connections.upgradeNote.dismiss")}
+                  title={t("connections.upgradeNote.dismiss")}
+                >
+                  <X size="0.875rem" />
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={dismissUpgradeNote}
-                className={cn(
-                  "-m-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-lg hover:bg-[var(--sidebar)] hover:text-[var(--foreground)]",
-                  FOCUS,
-                )}
-                aria-label={t("connections.upgradeNote.dismiss")}
-                title={t("connections.upgradeNote.dismiss")}
-              >
-                <X size="0.875rem" />
-              </button>
-            </div>
+              <ul className="mari-connection-model-well text-xs text-[var(--muted-foreground)]">
+                {(
+                  [
+                    [Layers, t("connections.upgradeNote.grouped")],
+                    [Split, t("connections.upgradeNote.split")],
+                    ...(hadFolders ? ([[FolderX, t("connections.upgradeNote.folders")]] as const) : []),
+                    [MousePointerClick, <StarText key="picks" text={t("connections.upgradeNote.picks")} />],
+                  ] as const
+                ).map(([Icon, text], index) => (
+                  <li key={index} className="mari-connection-model-slot flex items-start gap-3 px-3 py-2.5">
+                    <Icon size="0.875rem" aria-hidden className="mt-px shrink-0 text-[var(--mari-connection-ink)]" />
+                    <span className="min-w-0 flex-1 leading-snug">{text}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
           )}
           {defaultsBox}
           <p
