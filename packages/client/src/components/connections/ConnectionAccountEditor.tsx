@@ -7,7 +7,6 @@ import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
   isChatProvider,
-  takesBalanceToken,
   type ConnectionAccountState,
   type UpdateConnectionAccountInput,
 } from "@marinara-engine/shared";
@@ -42,9 +41,7 @@ import {
 import { PICTURE_MENU_SELECTOR, PictureMenu } from "./PictureMenu";
 import { StateWord, type EngineTone } from "./DeviceDetail";
 import { ProviderIcon } from "./ProviderIcon";
-import { CompactUsageMeter } from "./SubscriptionUsageWidget";
-import { ConnectionBalanceBlock } from "./ConnectionBalance";
-import { resolveUsageConnection } from "../../lib/connection-filters";
+import { ConnectionUsageSection } from "./ConnectionBalance";
 import { starAnchorOf } from "../../hooks/use-model-star";
 
 type Draft = {
@@ -52,11 +49,8 @@ type Draft = {
   baseUrl: string;
   enabled: boolean;
   showUsageWidget: boolean;
-  showUsageFiveHour: boolean;
-  showUsageWeekly: boolean;
   maxRequestsPerMinute: string;
   maxParallelJobs: string;
-  balanceUserId: string;
 };
 
 const capValue = (value: string) => (value.trim() ? Number(value) : null);
@@ -145,8 +139,6 @@ export function ConnectionAccountEditor({
   );
   // The usage meter reads the same anchor as the card's, so both share one request.
   const usageAnchor = starAnchorOf(models) ?? models[0] ?? null;
-  // LinkAPI reads the account balance through a second, optional token (and user id).
-  const linkApi = !!account && takesBalanceToken(account);
   // The test checks the Connection's key and address through one of its Models; a chat Model asks the catalog.
   const testRow =
     models.find((row) => isChatProvider(row.provider)) ??
@@ -156,7 +148,6 @@ export function ConnectionAccountEditor({
 
   const [draft, setDraft] = useState<Draft | null>(null);
   const [apiKey, setApiKey] = useState<string | null>(null);
-  const [managementToken, setManagementToken] = useState<string | null>(null);
   const [more, setMore] = useState(false);
   const [pictureAt, setPictureAt] = useState<MenuAt | null>(null);
   const closePicture = useCallback(() => setPictureAt(null), []);
@@ -169,11 +160,8 @@ export function ConnectionAccountEditor({
       baseUrl: account.baseUrl,
       enabled: account.enabled,
       showUsageWidget: account.showUsageWidget,
-      showUsageFiveHour: account.showUsageFiveHour,
-      showUsageWeekly: account.showUsageWeekly,
       maxRequestsPerMinute: account.maxRequestsPerMinute?.toString() ?? "",
       maxParallelJobs: account.maxParallelJobs?.toString() ?? "",
-      balanceUserId: account.balanceUserId ?? "",
     });
     if (!account.hasApiKey || replaceKey) setApiKey("");
   }, [account, draft, replaceKey]);
@@ -187,16 +175,11 @@ export function ConnectionAccountEditor({
     if (draft.baseUrl.trim() !== account.baseUrl) changes.baseUrl = draft.baseUrl.trim();
     if (draft.enabled !== account.enabled) changes.enabled = draft.enabled;
     if (draft.showUsageWidget !== account.showUsageWidget) changes.showUsageWidget = draft.showUsageWidget;
-    if (draft.showUsageFiveHour !== account.showUsageFiveHour) changes.showUsageFiveHour = draft.showUsageFiveHour;
-    if (draft.showUsageWeekly !== account.showUsageWeekly) changes.showUsageWeekly = draft.showUsageWeekly;
     const rpm = capValue(draft.maxRequestsPerMinute);
     if (rpm !== account.maxRequestsPerMinute) changes.maxRequestsPerMinute = rpm;
     const parallel = capValue(draft.maxParallelJobs);
     if (parallel !== account.maxParallelJobs) changes.maxParallelJobs = parallel;
     if (apiKey) changes.apiKey = apiKey;
-    if (managementToken) changes.managementToken = managementToken;
-    if (draft.balanceUserId.trim() !== (account.balanceUserId ?? ""))
-      changes.balanceUserId = draft.balanceUserId.trim();
   }
   const dirty = Object.keys(changes).length > 0;
   const accessDirty = changes.apiKey !== undefined || changes.baseUrl !== undefined;
@@ -375,14 +358,6 @@ export function ConnectionAccountEditor({
                   <StateWord tone={STATE_TONE[state]} label={t(`connections.accounts.state.${state}`)} />
                 )}
               </p>
-              {usageAnchor && resolveUsageConnection([account], account.id) && (
-                <CompactUsageMeter
-                  connectionId={usageAnchor.id}
-                  showFiveHour={account.showUsageFiveHour}
-                  showWeekly={account.showUsageWeekly}
-                  className="mt-1"
-                />
-              )}
             </div>
           </div>
 
@@ -454,37 +429,13 @@ export function ConnectionAccountEditor({
             />
           </div>
 
-          {/* Plans show their usage meter instead; a local server has no account. */}
-          {account.billing !== "plan" && account.treatAsLocalEndpoint !== true && (
-            <div className="flex flex-col gap-3">
-              <ConnectionBalanceBlock accountId={account.id} />
-              {linkApi && (
-                <>
-                  <SecretField
-                    label={t("connections.balance.linkapiToken")}
-                    saved={account.hasManagementToken}
-                    value={managementToken}
-                    onChange={setManagementToken}
-                    help={t("connections.balance.linkapiTokenHelp")}
-                  />
-                  <label className="block">
-                    <span className={labelClass}>{t("connections.balance.linkapiUserId")}</span>
-                    <input
-                      value={draft.balanceUserId}
-                      onChange={(event) => set("balanceUserId", event.target.value.replace(/\D/g, ""))}
-                      inputMode="numeric"
-                      autoComplete="off"
-                      maxLength={20}
-                      className={fieldClass}
-                    />
-                    <span className="mt-1 block text-[0.6875rem] text-[var(--muted-foreground)]">
-                      {t("connections.balance.linkapiUserIdHelp")}
-                    </span>
-                  </label>
-                </>
-              )}
-            </div>
-          )}
+          <ConnectionUsageSection
+            account={account}
+            models={models}
+            usageAnchorId={usageAnchor?.id ?? null}
+            showOnCard={draft.showUsageWidget}
+            onShowOnCard={(checked) => set("showUsageWidget", checked)}
+          />
 
           <section>
             <h3 className="mb-2 flex items-baseline gap-1.5 px-1 text-xs font-semibold text-[var(--foreground)]">
@@ -562,36 +513,6 @@ export function ConnectionAccountEditor({
                   {capInput("maxRequestsPerMinute", 600, t("connections.accounts.editor.maxRequestsPerMinute"))}
                   {capInput("maxParallelJobs", 16, t("connections.accounts.editor.maxParallelJobs"))}
                 </div>
-                <div className="-mx-1.5">
-                  <ToggleSetting
-                    label={t("connections.accounts.editor.showUsage")}
-                    checked={draft.showUsageWidget}
-                    onChange={(checked) => set("showUsageWidget", checked)}
-                  />
-                  {draft.showUsageWidget && (
-                    <>
-                      <ToggleSetting
-                        label={t("connections.accounts.editor.showUsageFiveHour")}
-                        checked={draft.showUsageFiveHour}
-                        onChange={(checked) => set("showUsageFiveHour", checked)}
-                      />
-                      <ToggleSetting
-                        label={t("connections.accounts.editor.showUsageWeekly")}
-                        checked={draft.showUsageWeekly}
-                        onChange={(checked) => set("showUsageWeekly", checked)}
-                      />
-                    </>
-                  )}
-                </div>
-                {!linkApi && (
-                  <SecretField
-                    label={t("connections.accounts.editor.managementToken")}
-                    saved={account.hasManagementToken}
-                    value={managementToken}
-                    onChange={setManagementToken}
-                    help={t("connections.accounts.editor.managementTokenHelp")}
-                  />
-                )}
               </section>
             </SmoothFolderContent>
           </div>
