@@ -36,6 +36,7 @@ import {
 } from "../../hooks/use-connection-accounts";
 import { useSidecarStore } from "../../stores/sidecar.store";
 import { useUIStore } from "../../stores/ui.store";
+import { useConnectionFolders } from "../../hooks/use-connection-folders";
 import {
   filterLanguageGenerationConnections,
   isConnectionFlagTrue,
@@ -56,6 +57,7 @@ import { starAnchorOf, starsOfRows, useHiddenModelIds, useModelStar } from "../.
 
 type SwitcherRow = {
   id: string;
+  folderId?: string | null;
   name?: string | null;
   provider?: string | null;
   model?: string | null;
@@ -421,6 +423,9 @@ export function ConnectionSwitcherBody({
   const { data: chats } = useChats();
   const sidecarModelDisplayName = useSidecarStore((state) => state.modelDisplayName);
   const openModal = useUIStore((state) => state.openModal);
+  // The Connections panel's "Group by" choice applies here too.
+  const byFolder = useUIStore((state) => state.connectionsGroupBy) === "folder";
+  const { data: folders } = useConnectionFolders();
   const updateConnection = useUpdateConnection();
   const updateAccount = useUpdateConnectionAccount();
   const modelStar = useModelStar();
@@ -907,6 +912,39 @@ export function ConnectionSwitcherBody({
     );
   };
 
+  // Group by folder: each folder's saved Models, then the ones in none; a row names its Connection.
+  const folderSections = () => {
+    const known = new Set((folders ?? []).map((folder) => folder.id));
+    return [...(folders ?? []), null].map((folder) => {
+      const entries = rows
+        .filter((row) => (folder ? row.folderId === folder.id : !row.folderId || !known.has(row.folderId)))
+        .map((row) => entryOfRow(row, groupOfRow.get(row.id)))
+        .filter((entry) => !isNow(entry));
+      if (entries.length === 0) return null;
+      const name = folder?.name ?? t("connections.folders.none");
+      return (
+        <section
+          key={folder?.id ?? "none"}
+          className="mari-connection-group mt-1"
+          data-switcher-section="folder"
+          aria-label={name}
+        >
+          <div className="flex min-w-0 items-center gap-2 py-1.5 ps-3 pe-1">
+            <span
+              aria-hidden
+              className={cn("h-2 w-2 shrink-0 rounded-full", !folder?.color && "border border-foreground/40")}
+              style={folder?.color ? { backgroundColor: folder.color } : undefined}
+            />
+            <strong className="min-w-0 flex-1 truncate text-sm font-semibold">{name}</strong>
+          </div>
+          <div className="mari-connection-model-well">
+            {entries.map((entry) => renderEntry(entry, { star: "all" }))}
+          </div>
+        </section>
+      );
+    });
+  };
+
   // Follow Main: names the model the chat would follow. In Now while it does, else offered under it.
   const followRow = (active: boolean) =>
     followDefault && (
@@ -1147,7 +1185,7 @@ export function ConnectionSwitcherBody({
                 {recent.map((entry) => renderEntry(entry))}
               </section>
             )}
-            {listed.map(renderGroup)}
+            {byFolder ? folderSections() : listed.map(renderGroup)}
             {(showLocalModel || shuffleRow) && (
               <div className="mt-1 border-t border-foreground/10 pt-1">
                 {showLocalModel && currentId !== LOCAL_SIDECAR_CONNECTION_ID && renderEntry(localEntry)}

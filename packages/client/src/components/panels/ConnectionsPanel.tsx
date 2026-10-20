@@ -25,7 +25,7 @@ import {
   X,
   BadgeDollarSign,
   ListFilter,
-  FolderX,
+  Folder,
   Layers,
   Sparkles,
   Split,
@@ -58,7 +58,9 @@ import {
   createConnectionExportEnvelope,
   type ConnectionTransferRow,
 } from "../../lib/connection-transfer";
-import { groupModelsByAccount } from "../../lib/connection-groups";
+import { groupModelsByAccount, knownPrefixName, sortByModelId, upstreamOf } from "../../lib/connection-groups";
+import { modelSubtitle } from "../../lib/connection-identity";
+import { useConnectionFolders } from "../../hooks/use-connection-folders";
 import {
   ConnectionRow,
   ModelRow,
@@ -69,6 +71,7 @@ import {
 } from "../connections/ConnectionRow";
 import { ConnectionGroup, GROUP_SURFACE, hostOf } from "../connections/ConnectionGroup";
 import { ConnectionDefaultsBox, DEFAULTS_FOLD_ID } from "../connections/ConnectionDefaults";
+import { ConnectionFolderGroup, useFolderChooser } from "../connections/ConnectionFolderGroup";
 import { DeviceDetail, SMALL_ACTION, useDeviceEngines, useLocalModelUsedBy } from "../connections/DeviceDetail";
 import { BrandMark, ProviderIcon } from "../connections/ProviderIcon";
 import { openAddConnection } from "../../lib/add-connection";
@@ -211,6 +214,10 @@ export function ConnectionsPanel() {
   const showCostBadges = useUIStore((s) => s.showCostBadges);
   const setShowCostBadges = useUIStore((s) => s.setShowCostBadges);
   const nanoGptPlan = useNanoGptPlanBadges();
+  const byFolder = useUIStore((s) => s.connectionsGroupBy) === "folder";
+  const setGroupBy = useUIStore((s) => s.setConnectionsGroupBy);
+  const { data: folders } = useConnectionFolders();
+  const chooseFolder = useFolderChooser();
 
   const [search, setSearch] = useState("");
   /** Connections folded while a search runs; a new query unfolds every match again. */
@@ -260,7 +267,7 @@ export function ConnectionsPanel() {
       ),
     [accounts, connectionsList],
   );
-  // Folders are gone from the panel; the folder data stays untouched on the rows.
+  // Folders show under ⋯ › Group by › Folder; the upgrade note says where they went.
   const hadFolders = connectionsList.some((row) => !!row.folderId);
   const grouped = useMemo(() => {
     const { groups, standalone } = groupModelsByAccount(connectionsList, accounts ?? []);
@@ -301,6 +308,26 @@ export function ConnectionsPanel() {
           : engines,
     };
   }, [engines, grouped, needsAttention, query]);
+
+  // Group by folder: the user's folders in their order, then the Models in none. A search or the attention filter
+  // narrows the rows; an empty folder shows only without them.
+  const folderGroups = useMemo(() => {
+    if (!byFolder) return [];
+    const shown = (row: ConnectionRowData) =>
+      (!needsAttention || (!!row.accountId && (accountById.get(row.accountId)?.state ?? "ok") !== "ok")) &&
+      connectionMatchesSearch(row, query);
+    const known = new Set((folders ?? []).map((folder) => folder.id));
+    return [...(folders ?? []), null].flatMap((folder) => {
+      const rows = sortByModelId(
+        connectionsList.filter((row) =>
+          folder ? row.folderId === folder.id : !row.folderId || !known.has(row.folderId),
+        ),
+      );
+      const visibleRows = rows.filter(shown);
+      if (visibleRows.length === 0 && (query || needsAttention || !folder)) return [];
+      return [{ folder, key: `folder:${folder?.id ?? "none"}`, rows, visibleRows }];
+    });
+  }, [accountById, byFolder, connectionsList, folders, needsAttention, query]);
 
   // Provider families are visual only: separate endpoints and keys keep their account actions and rows.
   const providerGroups = useMemo(() => {
@@ -473,6 +500,10 @@ export function ConnectionsPanel() {
           ...(splitFrom ? [t("connections.move.newConnection")] : []),
         ]}
         onMove={() => setMoving({ row, same: sameTargets, other: otherTargets, splitFrom })}
+        folderName={
+          (folders ?? []).find((folder) => folder.id === row.folderId)?.name ?? t("connections.folders.noFolder")
+        }
+        onChooseFolder={() => void chooseFolder([row])}
         onPictureClick={(at) =>
           setPictureMenu({
             target: { kind: "model", id: row.id },
@@ -487,6 +518,18 @@ export function ConnectionsPanel() {
   };
 
   // ── List rows ──
+  // In a folder a row names where it runs: its Connection, and the gateway route for a proxy Model.
+  const folderRow = (row: ConnectionRowData) => {
+    const account = row.accountId ? accountById.get(row.accountId) : undefined;
+    const upstream = account?.provider === "custom" ? upstreamOf(row.model) : null;
+    const where = [
+      account?.name,
+      upstream && t("connections.accounts.section.via", { service: knownPrefixName(upstream) ?? upstream }),
+    ]
+      .filter(Boolean)
+      .join(" · ");
+    return renderRow(row, modelSubtitle(row, upstream), where || undefined);
+  };
   const accountRow = ({ account, rows, visibleRows }: (typeof visible.groups)[number], providerName: string) => (
     <ConnectionGroup
       key={account.id}
@@ -626,11 +669,11 @@ export function ConnectionsPanel() {
 
   const noConnections = !isLoading && !loadFailed && connectionsList.length === 0 && (accounts?.length ?? 0) === 0;
   // Only a search can hide everything; the full list is never "no match".
+  const foldIds = byFolder ? folderGroups.map((group) => group.key) : grouped.all.map((group) => group.account.id);
   const nothingShown =
     (!!query || needsAttention) &&
     visible.engines.length === 0 &&
-    visible.groups.length === 0 &&
-    visible.standalone.length === 0;
+    (byFolder ? folderGroups.length === 0 : visible.groups.length === 0 && visible.standalone.length === 0);
   const list = (
     <div className="flex flex-col gap-2">
       {loadFailed ? (
@@ -773,7 +816,7 @@ export function ConnectionsPanel() {
                   [
                     [Layers, t("connections.upgradeNote.grouped")],
                     [Split, t("connections.upgradeNote.split")],
-                    ...(hadFolders ? ([[FolderX, t("connections.upgradeNote.folders")]] as const) : []),
+                    ...(hadFolders ? ([[Folder, t("connections.upgradeNote.folders")]] as const) : []),
                     [MousePointerClick, <StarText key="picks" text={t("connections.upgradeNote.picks")} />],
                   ] as const
                 ).map(([Icon, text], index) => (
@@ -812,13 +855,30 @@ export function ConnectionsPanel() {
               </button>
             </p>
           )}
-          {providerGroups.map((provider) => (
-            // Provider ordering stays; accounts are peers and each folds by its own id.
-            <div key={provider.key} data-connection-provider={provider.key} className="flex min-w-0 flex-col gap-3">
-              {provider.groups.map((group) => accountRow(group, provider.name))}
-            </div>
-          ))}
-          {visible.standalone.length > 0 && (
+          {byFolder &&
+            folderGroups.map(({ folder, key, rows, visibleRows }) => (
+              <ConnectionFolderGroup
+                key={key}
+                folder={folder}
+                rows={rows}
+                visibleRows={visibleRows}
+                open={query ? !searchFolded.includes(key) : !collapsedConnections.includes(key)}
+                onToggle={() =>
+                  query
+                    ? setSearchFolded((ids) => (ids.includes(key) ? ids.filter((id) => id !== key) : [...ids, key]))
+                    : toggleConnectionCollapsed(key)
+                }
+                renderRow={folderRow}
+              />
+            ))}
+          {!byFolder &&
+            providerGroups.map((provider) => (
+              // Provider ordering stays; accounts are peers and each folds by its own id.
+              <div key={provider.key} data-connection-provider={provider.key} className="flex min-w-0 flex-col gap-3">
+                {provider.groups.map((group) => accountRow(group, provider.name))}
+              </div>
+            ))}
+          {!byFolder && visible.standalone.length > 0 && (
             <PanelSection title={t("connections.accounts.section.other")} icon={<Link size="0.75rem" />}>
               {query ? (
                 // A search lists the matching Models here; otherwise they wait on their own page.
@@ -935,20 +995,32 @@ export function ConnectionsPanel() {
             {
               label: t("connections.list.foldAll"),
               icon: <ChevronsDownUp size="0.75rem" />,
-              disabled: grouped.all.every((group) => collapsedConnections.includes(group.account.id)),
+              disabled: foldIds.every((id) => collapsedConnections.includes(id)),
               onSelect: () => {
-                for (const { account } of grouped.all)
-                  if (!collapsedConnections.includes(account.id)) toggleConnectionCollapsed(account.id);
+                for (const id of foldIds) if (!collapsedConnections.includes(id)) toggleConnectionCollapsed(id);
               },
             },
             {
               label: t("connections.list.openAll"),
               icon: <ChevronsUpDown size="0.75rem" />,
-              disabled: !grouped.all.some((group) => collapsedConnections.includes(group.account.id)),
+              disabled: !foldIds.some((id) => collapsedConnections.includes(id)),
               onSelect: () => {
-                for (const { account } of grouped.all)
-                  if (collapsedConnections.includes(account.id)) toggleConnectionCollapsed(account.id);
+                for (const id of foldIds) if (collapsedConnections.includes(id)) toggleConnectionCollapsed(id);
               },
+            },
+            {
+              label: t("connections.folders.groupByConnection"),
+              icon: <Layers size="0.75rem" />,
+              toggle: true,
+              checked: !byFolder,
+              onSelect: () => setGroupBy("connection"),
+            },
+            {
+              label: t("connections.folders.groupByFolder"),
+              icon: <Folder size="0.75rem" />,
+              toggle: true,
+              checked: byFolder,
+              onSelect: () => setGroupBy("folder"),
             },
             {
               label: t("connections.list.attentionFilter"),

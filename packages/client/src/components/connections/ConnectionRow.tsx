@@ -18,6 +18,7 @@ import {
   Check,
   Copy,
   Film,
+  Folder,
   GitBranch,
   ImageIcon,
   KeyRound,
@@ -357,6 +358,8 @@ export function ConnectionRow({
   onUseInChat,
   moveTargets,
   onMove,
+  folderName,
+  onChooseFolder,
   onPictureClick,
   catalog,
 }: {
@@ -375,6 +378,9 @@ export function ConnectionRow({
   /** Names of the Connections the Model can move to (the menu hint); `onMove` opens the move dialog. */
   moveTargets?: string[];
   onMove?: () => void;
+  /** The Model's folder (the menu hint); `onChooseFolder` asks for another. */
+  folderName?: string;
+  onChooseFolder?: () => void;
   /** The tile, and "Change picture" in ⋯, open the picture menu. */
   onPictureClick?: (at: MenuAt) => void;
   /** Cost and retirement from the Connection's cached catalogs. */
@@ -491,6 +497,16 @@ export function ConnectionRow({
             hint: moveTargets.join(", "),
             icon: <MoveRight size="0.75rem" />,
             onSelect: onMove,
+          },
+        ]
+      : []),
+    ...(onChooseFolder
+      ? [
+          {
+            label: t("connections.folders.folder"),
+            hint: folderName,
+            icon: <Folder size="0.75rem" />,
+            onSelect: onChooseFolder,
           },
         ]
       : []),

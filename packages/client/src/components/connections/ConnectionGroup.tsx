@@ -51,6 +51,7 @@ import { showChoiceDialog, showConfirmDialog } from "../../lib/app-dialogs";
 import { CompactUsageMeter } from "./SubscriptionUsageWidget";
 import { resolveUsageConnection } from "../../lib/connection-filters";
 import { SMALL_ACTION } from "./DeviceDetail";
+import { useFolderChooser } from "./ConnectionFolderGroup";
 import {
   confirmAccountDelete,
   deleteAccountModels,
@@ -107,6 +108,7 @@ export function ConnectionGroup({
   /** Select mode: the ids of the checked Models; null while the card shows its normal rows. */
   const [picked, setPicked] = useState<Set<string> | null>(null);
   const [bulkBusy, setBulkBusy] = useState(false);
+  const chooseFolder = useFolderChooser();
   const test = useTestConnection();
   const [menu, setMenu] = useState<MenuAt | null>(null);
   // Cost badges read this Connection's saved model list (one request per card, answered from the server's copy).
@@ -412,6 +414,14 @@ export function ConnectionGroup({
               onClick={() => void moveSelected()}
             >
               {t("connections.accounts.select.move")}
+            </button>
+            <button
+              type="button"
+              className={SMALL_ACTION}
+              disabled={!pickedRows.length || bulkBusy}
+              onClick={() => void chooseFolder(pickedRows).then((moved) => moved && setPicked(null))}
+            >
+              {t("connections.folders.moveSelected")}
             </button>
             <button
               type="button"
