@@ -7,7 +7,7 @@
 // Faces without a background come from sprite generation (SpriteGenerationModal, as in the character and
 // persona editors): it draws them from the avatar on a plain colour, removes it and saves them as sprites. A saved
 // talking head then shows each new face for its feeling.
-import { Suspense, lazy, useCallback, useMemo, useRef, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
 import { Wand2 } from "lucide-react";
@@ -140,6 +140,7 @@ export function AvatarGenerationPanel({ owner, config, onChanged }: AvatarKindSe
     reviewResolveRef.current = null;
     setReviewItems([]);
   }, []);
+  useEffect(() => () => closeReview(null), [closeReview, owner.ownerType, owner.ownerId]);
 
   const facesSaved = (saved: readonly SavedTalkingHeadFace[]) => {
     void queryClient.invalidateQueries({ queryKey: spriteKeys.list(owner.ownerId) });
@@ -237,6 +238,9 @@ export function AvatarGenerationPanel({ owner, config, onChanged }: AvatarKindSe
             owner={owner}
             sprites={sprites}
             languageConnections={languageConnections}
+            imageConnectionId={imageConnectionId}
+            reviewPrompts={reviewPrompts}
+            hasMesh={!!config?.kinds["mesh-avatar"]}
             onChanged={onChanged}
           />
         </>

@@ -4,7 +4,8 @@
 // sprite drawn on a flat background is used as it is: nothing is cut out of the blink picture or the saved
 // mesh avatar. An image connection that can't edit pictures draws a new face with its blink and talk
 // pictures in one sheet; they are offered, kept and saved together.
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { createAvatarConfig, type AvatarConfig } from "@marinara-engine/shared";
 import AdmZip from "adm-zip";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { sharp } from "../scripts/regressions/fixtures/avatar-2d-fixtures.js";
@@ -65,6 +66,7 @@ async function alphaAt(png: Buffer, x: number, y: number) {
 function fakeModels() {
   const state = {
     hold: true,
+    holdVisionOnly: false,
     held: [] as Array<{ url: string; respond: () => Promise<void> }>,
     closed: [] as string[],
     open: [] as ServerResponse[],
@@ -112,7 +114,7 @@ function fakeModels() {
       if (!res.writableFinished) state.closed.push(url);
     });
     const body = Buffer.concat(chunks);
-    if (state.hold) {
+    if (state.hold && (!state.holdVisionOnly || url.endsWith("/chat/completions"))) {
       state.held.push({ url, respond: () => answer(url, body, res) });
       state.open.push(res);
       return;
@@ -142,33 +144,36 @@ async function setSheet(body: Buffer) {
     .toBuffer();
 }
 
-async function mountGenerationPanel(page: Page, ownerId: string) {
+async function mountGenerationPanel(page: Page, ownerId: string, config: AvatarConfig | null = null) {
   await prepareViteFixtureDependencies(page);
-  await page.evaluate(async (ownerId) => {
-    const url = window.__viteFixtureDependencyUrl;
-    const { default: React } = await import(url("react"));
-    const { default: ReactDOM } = await import(url("react-dom_client"));
-    const { QueryClient, QueryClientProvider } = await import(url("@tanstack_react-query"));
-    const { AvatarGenerationPanel } = (await import(
-      "/src/features/avatars/generation/AvatarGenerationPanel.tsx" as string
-    )) as { AvatarGenerationPanel: unknown };
-    const mount = document.createElement("div");
-    mount.dataset.avatarGeneration = "true";
-    mount.style.cssText =
-      "position:fixed;inset:0;z-index:99999;overflow:auto;background:var(--background);color:var(--foreground);padding:12px";
-    document.body.append(mount);
-    ReactDOM.createRoot(mount).render(
-      React.createElement(
-        QueryClientProvider,
-        { client: new QueryClient({ defaultOptions: { queries: { retry: false } } }) },
-        React.createElement(AvatarGenerationPanel as never, {
-          owner: { ownerType: "character", ownerId },
-          config: null,
-          onChanged: () => {},
-        }),
-      ),
-    );
-  }, ownerId);
+  await page.evaluate(
+    async ({ ownerId, config }) => {
+      const url = window.__viteFixtureDependencyUrl;
+      const { default: React } = await import(url("react"));
+      const { default: ReactDOM } = await import(url("react-dom_client"));
+      const { QueryClient, QueryClientProvider } = await import(url("@tanstack_react-query"));
+      const { AvatarGenerationPanel } = (await import(
+        "/src/features/avatars/generation/AvatarGenerationPanel.tsx" as string
+      )) as { AvatarGenerationPanel: unknown };
+      const mount = document.createElement("div");
+      mount.dataset.avatarGeneration = "true";
+      mount.style.cssText =
+        "position:fixed;inset:0;z-index:99999;overflow:auto;background:var(--background);color:var(--foreground);padding:12px";
+      document.body.append(mount);
+      ReactDOM.createRoot(mount).render(
+        React.createElement(
+          QueryClientProvider,
+          { client: new QueryClient({ defaultOptions: { queries: { retry: false } } }) },
+          React.createElement(AvatarGenerationPanel as never, {
+            owner: { ownerType: "character", ownerId },
+            config,
+            onChanged: () => {},
+          }),
+        ),
+      );
+    },
+    { ownerId, config },
+  );
   return page.locator("[data-avatar-generation]");
 }
 
@@ -287,6 +292,9 @@ test("Cancel stops the picture being made, and avatars made from a sprite keep i
       .toMatchObject({ source: "file", path: expect.stringMatching(/^pngtuber\/.+\.png$/u) });
 
     // ── Cancel while the vision model looks at the sprite for the mesh avatar ──
+    // This fixture only draws closed eyes. Answer its unusable mesh mouth edit immediately so the
+    // supported fallback reaches the held vision call; keep the vision cancellation proof intact.
+    models.state.holdVisionOnly = true;
     await panel.getByLabel("Chat connection that can see pictures").selectOption(visionId);
     // The neutral sprite is picked for a mesh avatar until the user picks another.
     await expect(
@@ -324,6 +332,225 @@ test("Cancel stops the picture being made, and avatars made from a sprite keep i
     if (characterId) await request.delete(`/api/characters/${characterId}`);
   }
 });
+
+async function meshReviewOwner(request: APIRequestContext) {
+  const character = await request.post("/api/characters", { data: { data: { name: "Mesh review fixture" } } });
+  expect(character.ok(), await character.text()).toBeTruthy();
+  const { id } = (await character.json()) as { id: string };
+  const image = `data:image/png;base64,${(await bust()).toString("base64")}`;
+  const sprite = await request.post(`/api/sprites/${id}`, { data: { expression: "neutral", image } });
+  expect(sprite.ok(), await sprite.text()).toBeTruthy();
+  return { id, image };
+}
+
+// Generation responses are controlled here to exercise the browser's review/save boundary. The real image
+// model and archive paths above, and the mesh sprite regressions, cover building and storing the pictures.
+test("Mesh picture review uses the chosen image connection and keeps only the saved draft", async ({
+  page,
+  request,
+}, testInfo) => {
+  const { id, image } = await meshReviewOwner(request);
+  const owner = { ownerType: "character" as const, ownerId: id };
+  const config = createAvatarConfig(owner, new Date().toISOString());
+  config.kinds["mesh-avatar"] = { file: "mesh-avatar/existing.mavatar", expressionMap: {}, source: "generated" };
+  const previews: Record<string, unknown>[] = [];
+  const generations: Record<string, unknown>[] = [];
+  const saves: Record<string, unknown>[] = [];
+  let nextFails = false;
+  let made = 0;
+  const pictures = ["mouth_a", "mouth_i", "mouth_o", "mouth_a_half", "eyes_closed", "eyes_half", "eyes_smile"].map(
+    (key) => ({ key, image }),
+  );
+  try {
+    await page.route("**/api/app-settings/ui", (route) =>
+      route.fulfill({ json: route.request().method() === "GET" ? { value: null } : { success: true } }),
+    );
+    await page.route("**/api/connections", (route) =>
+      route.fulfill({
+        json: [
+          { id: "default-image", name: "Default image fixture", provider: "image_generation", defaultForAgents: true },
+          { id: "chosen-image", name: "Chosen image fixture", provider: "image_generation" },
+          { id: "sheet-image", name: "Sheet image fixture", provider: "image_generation" },
+          { id: "chosen-vision", name: "Vision fixture", provider: "custom" },
+        ],
+      }),
+    );
+    await page.route("**/api/avatar-generation/mesh-rig/preview", (route) => {
+      const body = route.request().postDataJSON() as Record<string, unknown>;
+      previews.push(body);
+      const sheet = body.imageConnectionId === "sheet-image";
+      return route.fulfill({
+        json: {
+          items: [
+            {
+              id: `mesh:neutral:${sheet ? "set" : "mouth_i"}`,
+              kind: "sprite",
+              title: "Unlocalized server title",
+              prompt: sheet ? "Draw a matching set." : "Draw a wide mouth.",
+            },
+          ],
+        },
+      });
+    });
+    await page.route("**/api/avatar-generation/mesh-rig", (route) => {
+      const body = route.request().postDataJSON() as Record<string, unknown>;
+      generations.push(body);
+      if (nextFails) {
+        nextFails = false;
+        return route.fulfill({ status: 400, json: { error: "Synthetic mesh retry failed." } });
+      }
+      return route.fulfill({
+        json: {
+          archive: Buffer.from(`mesh-draft-${++made}`).toString("base64"),
+          preview: image,
+          warnings: [],
+          pictures,
+          spriteStatus: "complete",
+          newFace: body.imageConnectionId === "sheet-image",
+        },
+      });
+    });
+    await page.route("**/api/avatar-generation/mesh-rig/save", (route) => {
+      saves.push(route.request().postDataJSON() as Record<string, unknown>);
+      return route.fulfill({ json: { kind: "mesh-avatar", config, files: [], warnings: [] } });
+    });
+    await seedUIState(page, { hasCompletedOnboarding: true, reviewImagePromptsBeforeSend: true });
+    await page.goto("/");
+    const panel = await mountGenerationPanel(page, id, config);
+    const mesh = panel.locator('section[aria-labelledby="avatar-generation-mesh"]');
+    await expect(mesh).toContainText("replace the current mesh avatar when you save");
+    await panel.getByLabel("Image connection", { exact: true }).selectOption("chosen-image");
+    await mesh.getByLabel("Chat connection that can see pictures").selectOption("chosen-vision");
+    await mesh.getByRole("button", { name: "Make mesh avatar", exact: true }).click();
+    const review = page.getByRole("dialog", { name: "Review Image Prompt", exact: true });
+    await expect(review).toBeVisible();
+    await expect(review.getByText("neutral: Wide mouth", { exact: true })).toBeVisible();
+    await expect(review.getByText("Unlocalized server title", { exact: true })).toHaveCount(0);
+    expect(previews).toEqual([
+      { owner, sourceLabel: "neutral", connectionId: "chosen-vision", imageConnectionId: "chosen-image" },
+    ]);
+    expect(generations).toHaveLength(0);
+    expect(saves).toHaveLength(0);
+    await review.getByRole("textbox").fill("Keep the face fixed and draw a wide mouth.");
+    await review.getByRole("button", { name: "Generate", exact: true }).click();
+    await expect(mesh.locator("[data-mesh-picture]")).toHaveCount(7);
+    await expect(mesh).toContainText("Drawn mouths and eyes are ready");
+    for (const name of [
+      "Mouth open",
+      "Wide mouth",
+      "Rounded mouth",
+      "Mouth half open",
+      "Eyes closed",
+      "Eyes half closed",
+      "Smiling eyes",
+    ]) {
+      await expect(mesh.getByRole("img", { name: `Mesh picture: ${name}`, exact: true })).toBeVisible();
+    }
+    expect(generations[0]).toMatchObject({
+      owner,
+      sourceLabel: "neutral",
+      connectionId: "chosen-vision",
+      imageConnectionId: "chosen-image",
+      promptOverrides: [{ id: "mesh:neutral:mouth_i", prompt: "Keep the face fixed and draw a wide mouth." }],
+    });
+    expect(saves).toHaveLength(0);
+    await page.screenshot({ path: testInfo.outputPath("mesh-seven-picture-review.png"), animations: "disabled" });
+
+    // Cancelling prompt review does not replace a draft or send a generation/save request.
+    await mesh.getByRole("button", { name: "Try again", exact: true }).click();
+    await expect(review).toBeVisible();
+    await review.getByRole("button", { name: "Cancel", exact: true }).click();
+    await expect(mesh.getByRole("button", { name: "Save as mesh avatar", exact: true })).toBeEnabled();
+    expect(generations).toHaveLength(1);
+    expect(saves).toHaveLength(0);
+
+    // A failed retry retains the draft; the next successful retry is the one Keep/Save submits.
+    nextFails = true;
+    await mesh.getByRole("button", { name: "Try again", exact: true }).click();
+    await review.getByRole("button", { name: "Generate", exact: true }).click();
+    await expect(mesh.getByRole("alert")).toContainText("Synthetic mesh retry failed.");
+    await expect(mesh.locator("[data-mesh-picture]")).toHaveCount(7);
+    expect(saves).toHaveLength(0);
+    await panel.getByLabel("Image connection", { exact: true }).selectOption("sheet-image");
+    await mesh.getByRole("button", { name: "Try again", exact: true }).click();
+    await expect(review.getByText("neutral: Matched mouth and eye pictures", { exact: true })).toBeVisible();
+    await review.getByRole("button", { name: "Generate", exact: true }).click();
+    await expect.poll(() => made).toBe(2);
+    const save = mesh.getByRole("button", { name: "Save as mesh avatar", exact: true });
+    await expect(save).toBeEnabled();
+    await expect(mesh).toContainText("your sprite and PNGTuber pictures stay as they are");
+    expect(generations.at(-1)).toMatchObject({
+      imageConnectionId: "sheet-image",
+      promptOverrides: [{ id: "mesh:neutral:set", prompt: "Draw a matching set." }],
+    });
+    expect(saves).toHaveLength(0);
+    await save.click();
+    await expect.poll(() => saves.length).toBe(1);
+    expect(saves[0]).toEqual({ owner, archive: Buffer.from("mesh-draft-2").toString("base64") });
+    await expect(mesh.locator("[data-mesh-picture]")).toHaveCount(0);
+  } finally {
+    await request.delete(`/api/characters/${id}`);
+  }
+});
+
+for (const spriteStatus of ["unavailable", undefined] as const) {
+  test(`A ${spriteStatus ?? "legacy"} mesh draft explains its fallback without an image connection`, async ({
+    page,
+    request,
+  }) => {
+    const { id, image } = await meshReviewOwner(request);
+    const bodies: Record<string, unknown>[] = [];
+    let saves = 0;
+    try {
+      await page.route("**/api/app-settings/ui", (route) =>
+        route.fulfill({ json: route.request().method() === "GET" ? { value: null } : { success: true } }),
+      );
+      await page.route("**/api/connections", (route) => route.fulfill({ json: [] }));
+      await page.route("**/api/avatar-generation/mesh-rig/preview", (route) => route.fulfill({ json: { items: [] } }));
+      await page.route("**/api/avatar-generation/mesh-rig", (route) => {
+        bodies.push(route.request().postDataJSON() as Record<string, unknown>);
+        return route.fulfill({
+          json: {
+            archive: "fallback",
+            preview: image,
+            warnings: [],
+            ...(spriteStatus ? { spriteStatus, spriteError: "Image connection unavailable." } : {}),
+          },
+        });
+      });
+      await page.route("**/api/avatar-generation/mesh-rig/save", (route) => {
+        saves += 1;
+        return route.fulfill({
+          json: {
+            kind: "mesh-avatar",
+            config: createAvatarConfig({ ownerType: "character", ownerId: id }, new Date().toISOString()),
+            files: [],
+            warnings: [],
+          },
+        });
+      });
+      await seedUIState(page, { hasCompletedOnboarding: true, reviewImagePromptsBeforeSend: true });
+      await page.goto("/");
+      const panel = await mountGenerationPanel(page, id);
+      const mesh = panel.locator('section[aria-labelledby="avatar-generation-mesh"]');
+      await mesh.getByRole("button", { name: "Make mesh avatar", exact: true }).click();
+      await expect(
+        mesh.getByText(
+          "Drawn mouth and eye pictures aren't available. This draft uses the usual mesh mouth and eyelids.",
+        ),
+      ).toBeVisible();
+      await expect(mesh.locator("[data-mesh-picture]")).toHaveCount(0);
+      await expect(mesh.getByText("Drawn mouths and eyes are ready", { exact: false })).toHaveCount(0);
+      await expect(page.getByRole("dialog", { name: "Review Image Prompt", exact: true })).toHaveCount(0);
+      expect(bodies[0]).toMatchObject({ imageConnectionId: null, connectionId: null, promptOverrides: [] });
+      expect(saves).toBe(0);
+      await mesh.getByRole("button", { name: "Save as mesh avatar", exact: true }).click();
+      await expect.poll(() => saves).toBe(1);
+    } finally {
+      await request.delete(`/api/characters/${id}`);
+    }
+  });
+}
 
 test("An image connection that can't edit draws a new face with its blink and talk pictures, kept together", async ({
   page,

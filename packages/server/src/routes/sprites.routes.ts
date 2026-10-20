@@ -773,15 +773,24 @@ export interface TalkingHeadSetConnection {
 export async function talkingHeadSetPrompt(
   db: DB,
   image: TalkingHeadSetConnection,
-  request: { face: string; appearance: string },
+  request: {
+    face: string;
+    appearance: string;
+    /** A complete matched mesh set; omitted keeps the three-picture PNGTuber sheet. */
+    pictures?: readonly { key: string; description: string }[];
+  },
 ): Promise<SpriteCompiledPrompt & { width: number; height: number }> {
   const model = image.conn.model || "";
   const face = formatSpriteLabelForPrompt(request.face);
+  const pictures = request.pictures;
+  const cols = pictures ? 4 : TALKING_HEAD_SET_CELLS.length;
   const body: SpriteGenerateSheetBody = {
     appearance: request.appearance,
-    expressions: [face, `${face}, eyes closed`, `${face}, mouth open`],
-    cols: TALKING_HEAD_SET_CELLS.length,
-    rows: 1,
+    expressions: pictures
+      ? pictures.map((picture) => `${face}, ${picture.description}`)
+      : [face, `${face}, eyes closed`, `${face}, mouth open`],
+    cols,
+    rows: pictures ? Math.ceil(pictures.length / cols) : 1,
     spriteType: "expressions",
     noBackground: true,
     nativeTransparentPng: false,
@@ -793,25 +802,36 @@ export async function talkingHeadSetPrompt(
     styleProfiles: imageSettings.styleProfiles,
     imageDefaults: resolveConnectionImageDefaults(image.conn),
   });
-  const prompt = withTalkingHeadSetContract(
-    withSpriteBackgroundContract(withSpriteSheetLayoutContract(compiled, plan), plan),
-    request.face,
-  );
+  const sheet = withSpriteBackgroundContract(withSpriteSheetLayoutContract(compiled, plan), plan);
+  const prompt = pictures
+    ? {
+        ...sheet,
+        prompt: [
+          sheet.prompt,
+          "MANDATORY MATCHED MESH SET: every cell is the identical picture, pose, framing, size, hair, outfit, lighting and colours. Change ONLY the named eyes or mouth. Read cells left to right, then top to bottom.",
+          ...pictures.map(
+            (picture, index) => `Cell ${index + 1}: ${picture.description}. Everything else is exactly cell 1.`,
+          ),
+        ].join("\n\n"),
+      }
+    : withTalkingHeadSetContract(sheet, request.face);
   return { ...prompt, width: plan.sheetWidth, height: plan.sheetHeight };
 }
 
 /** Draws a talking head's set in one picture with `prompt` (talkingHeadSetPrompt, or the reviewed one) and
  *  cuts it into the face and its eyes-closed and mouth-open cells, each without its background (PNG). The
  *  cells are drawn separately, so they still have to be lined up with the face. */
-export async function drawTalkingHeadSet(
+export async function drawTalkingHeadSet<C extends string = (typeof TALKING_HEAD_SET_CELLS)[number]>(
   image: TalkingHeadSetConnection,
   request: {
     prompt: SpriteCompiledPrompt & { width: number; height: number };
     signal?: AbortSignal;
     debug: boolean;
     logLabel: string;
+    cells?: readonly C[];
+    cols?: number;
   },
-): Promise<Record<(typeof TALKING_HEAD_SET_CELLS)[number], Buffer>> {
+): Promise<Record<C, Buffer>> {
   const { conn } = image;
   const model = conn.model || "";
   const source = conn.imageGenerationSource || model;
@@ -845,14 +865,16 @@ export async function drawTalkingHeadSet(
       debugMode: request.debug,
     },
   );
+  const names = (request.cells ?? TALKING_HEAD_SET_CELLS) as readonly C[];
+  const cols = request.cols ?? TALKING_HEAD_SET_CELLS.length;
   const { cells } = await cutSpriteSheet(
     Buffer.from(result.base64, "base64"),
-    { cols: TALKING_HEAD_SET_CELLS.length, rows: 1, expressions: [...TALKING_HEAD_SET_CELLS] },
+    { cols, rows: Math.ceil(names.length / cols), expressions: [...names] },
     { clean: true, cleanupStrength: 35 },
   );
-  const cell = (name: (typeof TALKING_HEAD_SET_CELLS)[number]) =>
-    Buffer.from(cells.find((entry) => entry.expression === name)!.base64, "base64");
-  return { face: cell("face"), "eyes-closed": cell("eyes-closed"), "mouth-open": cell("mouth-open") };
+  return Object.fromEntries(
+    names.map((name) => [name, Buffer.from(cells.find((entry) => entry.expression === name)!.base64, "base64")]),
+  ) as Record<C, Buffer>;
 }
 
 function withFullBodyCompositionContract(

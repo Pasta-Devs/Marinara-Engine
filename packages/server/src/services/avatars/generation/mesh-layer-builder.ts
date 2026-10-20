@@ -5,9 +5,9 @@
 // typed-array pixel work, with sharp only decoding and encoding PNGs: no Python, OpenCV or GPU. It cuts
 // each eye into its ball, lash, lower-lid and crease layers and fills the hole they leave in the base
 // picture. Hands, hanging accessories, buns and hair strands are not built: the rig leaves those optional
-// groups out, so the avatar's hair moves with its head. No drawn eye or mouth sprites are written:
-// mesh-avatar 0.1.1 treats any sprites.json as the full set (half-closed and smiling eyes, four mouth
-// shapes) and turns its own eyelids and mouth off, so a partial set leaves faces without eyes or a mouth.
+// groups out, so the avatar's hair moves with its head. Drawn sprites are added only as a complete set:
+// mesh-avatar 0.1.1 treats any sprites.json as the full set (closed, half-closed and smiling eyes, four
+// mouth shapes) and turns its own eyelids and mouth off, so a partial set leaves faces without eyes or a mouth.
 // The work runs on the server's main thread in short slices, so other requests and Cancel get through.
 import { createHash } from "node:crypto";
 import AdmZip from "adm-zip";
@@ -34,6 +34,21 @@ export interface MeshLayerSource {
 }
 
 export type MeshAvatarFiles = Map<string, Buffer>;
+
+/** Shared working-canvas ceiling for the rig, drawn pictures and layer pixel work. */
+export const MESH_SOURCE_MAX_SIDE = 2048;
+
+/** Whole-face pictures needed before mesh-avatar 0.1.1 can switch to drawn mouths and eyes. */
+export const MESH_DRAWN_PICTURE_KEYS = [
+  "mouth_a",
+  "mouth_i",
+  "mouth_o",
+  "mouth_a_half",
+  "eyes_closed",
+  "eyes_half",
+  "eyes_smile",
+] as const;
+export type MeshDrawnPictureKey = (typeof MESH_DRAWN_PICTURE_KEYS)[number];
 
 const LUMA = [0.3, 0.59, 0.11] as const;
 /** Room around an eye for the skin samples and the fill around the hole. */
@@ -555,6 +570,158 @@ export async function buildMeshAvatarLayers(
   };
   files.set("built/layers.json", Buffer.from(`${JSON.stringify(layersJson, null, 2)}\n`));
   return { files, rects, build };
+}
+
+/** Add the full drawn set without changing the base's rest mouth or the eight open-eye layers.
+ *  Pictures must already be aligned and composited to the final source canvas. A patch includes the
+ *  original feature and every changed pixel, plus unchanged skin around it: it covers the old lips or
+ *  eye during the runtime's crossfade without clipping a mouth larger than the rest-mouth box.
+ *  All files are staged locally; missing, unusable or cancelled pictures leave `built` untouched. */
+export async function addMeshAvatarDrawnSprites(
+  source: MeshLayerSource,
+  rig: MeshRig,
+  built: BuiltMeshLayers,
+  pictures: Partial<Record<MeshDrawnPictureKey, Buffer>>,
+  signal?: AbortSignal,
+): Promise<BuiltMeshLayers> {
+  signal?.throwIfAborted();
+  for (const key of MESH_DRAWN_PICTURE_KEYS) {
+    if (!Buffer.isBuffer(pictures[key]) || !pictures[key]!.length) {
+      throw new MeshLayerError(`The drawn mesh picture ${key} is missing.`);
+    }
+  }
+  const image = await decodeRgba(source.png);
+  if (
+    image.width !== source.width ||
+    image.height !== source.height ||
+    image.width !== rig.image.width ||
+    image.height !== rig.image.height
+  ) {
+    throw new MeshLayerError("The rig and the picture are different sizes.");
+  }
+  solidifyAlpha(image.data);
+  const eyeCoverage = [new Uint8Array(image.width * image.height), new Uint8Array(image.width * image.height)];
+  const eyeParts = ["ball", "low", "crease", "lash"] as const;
+  for (const index of [0, 1]) {
+    for (const part of eyeParts) {
+      await pause(signal);
+      const name = `eye${index}_${part}`;
+      const [left, top] = built.rects[name]!;
+      const layer = await decodeRgba(built.files.get(`built/${name}.png`)!);
+      for (let y = 0; y < layer.height; y += 1) {
+        for (let x = 0; x < layer.width; x += 1) {
+          if (layer.data[(y * layer.width + x) * 4 + 3]) eyeCoverage[index]![(top + y) * image.width + left + x] = 1;
+        }
+      }
+    }
+  }
+  const split = Math.ceil(
+    (Math.max(...rig.eyes[0]!.roi.map(([x]) => x)) + Math.min(...rig.eyes[1]!.roi.map(([x]) => x))) / 2,
+  );
+  const staged: MeshAvatarFiles = new Map();
+  const rects: Record<string, Rect> = {};
+  const hash = createHash("sha256").update(built.build);
+  for (const key of MESH_DRAWN_PICTURE_KEYS) {
+    await pause(signal);
+    const png = pictures[key]!;
+    let picture: Pixels;
+    try {
+      picture = await decodeRgba(png);
+    } catch {
+      throw new MeshLayerError(`The drawn mesh picture ${key} is not a readable picture.`);
+    }
+    if (picture.width !== image.width || picture.height !== image.height) {
+      throw new MeshLayerError(`The drawn mesh picture ${key} is not aligned to the base picture's size.`);
+    }
+    solidifyAlpha(picture.data);
+    const eyes = key.startsWith("eyes_");
+    const changes = Array.from({ length: eyes ? 2 : 1 }, () => ({
+      left: image.width,
+      top: image.height,
+      right: -1,
+      bottom: -1,
+    }));
+    const changedPixels = new Uint8Array(image.width * image.height);
+    let sliceStart = performance.now();
+    for (let y = 0; y < image.height; y += 1) {
+      if (performance.now() - sliceStart > SLICE_MS) {
+        await pause(signal);
+        sliceStart = performance.now();
+      }
+      for (let x = 0; x < image.width; x += 1) {
+        const at = (y * image.width + x) * 4;
+        if (picture.data[at + 3] !== image.data[at + 3]) {
+          throw new MeshLayerError(`The drawn mesh picture ${key} does not keep the base picture's transparency.`);
+        }
+        if (
+          !image.data[at + 3] ||
+          (picture.data[at] === image.data[at] &&
+            picture.data[at + 1] === image.data[at + 1] &&
+            picture.data[at + 2] === image.data[at + 2])
+        )
+          continue;
+        changedPixels[y * image.width + x] = 1;
+        const bounds = changes[eyes && x >= split ? 1 : 0]!;
+        bounds.left = Math.min(bounds.left, x);
+        bounds.top = Math.min(bounds.top, y);
+        bounds.right = Math.max(bounds.right, x);
+        bounds.bottom = Math.max(bounds.bottom, y);
+      }
+    }
+    for (const [index, changed] of changes.entries()) {
+      if (changed.right < changed.left)
+        throw new MeshLayerError(
+          `The drawn mesh picture ${key} has no changed ${eyes ? `eye ${index + 1}` : "mouth"}.`,
+        );
+      const { cx, cy, rx, ry, angle } = rig.mouth.area;
+      const reachX = Math.hypot(rx * Math.cos(angle), ry * Math.sin(angle));
+      const reachY = Math.hypot(rx * Math.sin(angle), ry * Math.cos(angle));
+      const original: Point[] = eyes
+        ? [
+            ...rig.eyes[index]!.roi,
+            ...eyeParts.flatMap((part): Point[] => {
+              const [x, y, width, height] = built.rects[`eye${index}_${part}`]!;
+              return [
+                [x, y],
+                [x + width, y + height],
+              ];
+            }),
+          ]
+        : [
+            [cx - reachX, cy - reachY],
+            [cx + reachX, cy + reachY],
+          ];
+      const area = workArea(picture, [...original, [changed.left, changed.top], [changed.right, changed.bottom]], 3);
+      // A wink must never paint its neighbour's eye, even when the eye regions sit close together.
+      const left = eyes && index === 1 ? Math.max(area.x, split) : area.x;
+      const right = eyes && index === 0 ? Math.min(area.x + area.width, split) : area.x + area.width;
+      const patch = crop(area, left, area.y, right - left, area.height);
+      const mask = new Uint8Array(patch.width * patch.height);
+      for (let row = 0; row < patch.height; row += 1) {
+        for (let col = 0; col < patch.width; col += 1) {
+          const at = (patch.y + row) * image.width + patch.x + col;
+          // The runtime hides its open-eye layers: unchanged iris or lash pixels must be kept too.
+          mask[row * patch.width + col] = changedPixels[at] || (eyes ? eyeCoverage[index]![at] : 0) ? 1 : 0;
+        }
+      }
+      // Native blush affects the base, not sprite layers. Feather the actual feature rather than a
+      // rectangle of unchanged skin, while keeping the old-eye/lip covering pixels fully opaque.
+      const alpha = softEdge(dilate(mask, patch.width, patch.height, 2), patch.width, patch.height);
+      const cut = cropLayer(patch, (pixel) => alpha[pixel]!, 3);
+      const name = eyes ? `${key}_${index}` : key;
+      staged.set(`built/sprites/${name}.png`, await encodePng(cut.pixels));
+      rects[name] = cut.rect;
+    }
+    hash.update(key).update(png);
+  }
+  await pause(signal);
+  staged.set(
+    "built/sprites/sprites.json",
+    Buffer.from(`${JSON.stringify({ version: 1, build: hash.digest("hex").slice(0, 12), layers: rects }, null, 2)}\n`),
+  );
+  const files = new Map([...built.files].filter(([path]) => !path.startsWith("built/sprites/")));
+  for (const [path, bytes] of staged) files.set(path, bytes);
+  return { ...built, files };
 }
 
 // ── The archive ──

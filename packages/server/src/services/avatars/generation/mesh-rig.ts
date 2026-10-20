@@ -4,7 +4,8 @@
 // The user's vision model reads the sprite with the 2D agent's `avatar-mesh-rig-layout` template and
 // answers with the layout JSON (`layoutSchema`, mesh-rig-layout.ts); a JavaScript layer builder on sharp
 // (mesh-layer-builder.ts) cuts the layers, and the result is packed as a `.mavatar` that blinks and talks
-// with mesh-avatar's own eyelids and mouth. Generating returns a draft and stores nothing; saving checks
+// with a complete set of drawn face pictures, or the runtime's own eyelids and mouth when pictures cannot
+// be completed. Generating returns a draft and stores nothing; saving checks
 // the archive with the 2D importer (formats/mavatar.ts) like any import and stores it through
 // services/avatars/storage.ts. No Python, OpenCV or GPU. Every prompt is logged with logDebugOverride
 // (debugMode / DEBUG_AGENTS).
@@ -12,11 +13,10 @@ import {
   AVATAR_PROMPT_TEMPLATE_IDS,
   AvatarImportError,
   type AvatarGenerationResponse,
-  type AvatarMeshRigRequest,
   type AvatarOwnerRef,
 } from "@marinara-engine/shared";
 import type { DB } from "../../../db/connection.js";
-import { logDebugOverride } from "../../../lib/logger.js";
+import { logger, logDebugOverride } from "../../../lib/logger.js";
 import { resolveBaseUrl } from "../../generation/connection-base-url.js";
 import { applyProviderMaxTokensOverride } from "../../generation/generation-parameters.js";
 import { redactImageCaptionMessagesForLog } from "../../generation/image-captioning-runtime.js";
@@ -32,6 +32,7 @@ import {
   readAvatarAgentSettings,
   readAvatarOwnerInfo,
   readAvatarSourceSprite,
+  plainErrorText,
   renderAvatarPromptTemplate,
   resolveAvatarVisionConnection,
   withAvatarGenerationJob,
@@ -39,7 +40,19 @@ import {
   type AvatarOwnerInfo,
   type AvatarSourceSprite,
 } from "./generation-context.js";
-import { MeshLayerError, buildMeshAvatarLayers, meshWorkScale, packMeshAvatar } from "./mesh-layer-builder.js";
+import {
+  MeshLayerError,
+  MESH_SOURCE_MAX_SIDE,
+  addMeshAvatarDrawnSprites,
+  buildMeshAvatarLayers,
+  meshWorkScale,
+  packMeshAvatar,
+} from "./mesh-layer-builder.js";
+import {
+  generateMeshDrawnPictures,
+  type MeshDrawnPictures,
+  type MeshRigGenerateRequest,
+} from "./mesh-sprite-generation.js";
 import {
   MESH_RIG_LAYOUT_SCHEMA_TEXT,
   checkMeshRigLayout,
@@ -58,6 +71,10 @@ export interface MeshRigDraft {
   /** The sprite with the face parts the vision model found, as a data URL, to check before saving. */
   preview: string;
   warnings: string[];
+  spriteStatus: "complete" | "unavailable";
+  spriteError?: string;
+  pictures?: Array<{ key: string; image: string }>;
+  newFace?: boolean;
 }
 
 export interface MeshRigSaveRequest {
@@ -65,8 +82,6 @@ export interface MeshRigSaveRequest {
   archive: string;
 }
 
-/** Mesh avatars don't need more than this; a bigger sprite is scaled down first. */
-const MESH_SOURCE_MAX_SIDE = 2048;
 /** The vision model sees a copy at most this big, and answers in its pixels. */
 const VISION_MAX_SIDE = 1024;
 const VISION_MAX_TOKENS = 1500;
@@ -240,7 +255,7 @@ function assertMeshImporterReady() {
 /** Builds a mesh avatar from one sprite and returns it as a draft. */
 export async function generateMeshRig(
   db: DB,
-  request: AvatarMeshRigRequest,
+  request: MeshRigGenerateRequest,
   options: AvatarGenerationOptions = {},
 ): Promise<MeshRigDraft> {
   assertMeshImporterReady();
@@ -249,32 +264,78 @@ export async function generateMeshRig(
     const [owner, agent] = await Promise.all([readAvatarOwnerInfo(db, request.owner), readAvatarAgentSettings(db)]);
     const sprite = await readAvatarSourceSprite(request.owner.ownerId, request.sourceLabel);
     signal.throwIfAborted();
-    let source = await meshSource(sprite);
-    let layout = await requestMeshRigLayout({
-      ...(await meshRigVisionProvider(db, request.connectionId, agent)),
-      template: agent.template(AVATAR_PROMPT_TEMPLATE_IDS.meshRigLayout),
-      owner,
-      source,
-      signal,
-      debug,
-    });
-    // Very big eyes (a close-up, or a careless answer) are built from a smaller copy of the sprite.
-    const shrink = meshWorkScale(layout.eyes.map((eye) => eye.region as [number, number, number, number]));
-    if (shrink < 1) {
-      const full = source;
-      source = await meshSource(sprite, (shrink * full.width) / sprite.width);
-      layout = scaleMeshRigLayout(layout, source.width / full.width);
-    }
-    const rig = deriveMeshRig(layout, source.width, source.height);
-    const files = new Map<string, Buffer>();
+    // Refuse a missing vision connection before paying for any new image.
+    const vision = await meshRigVisionProvider(db, request.connectionId, agent);
+    let drawn: MeshDrawnPictures | undefined;
+    let spriteError: string | undefined;
     try {
-      for (const [path, bytes] of (await buildMeshAvatarLayers(source, rig, signal)).files) {
-        files.set(path, bytes);
-      }
+      drawn = await generateMeshDrawnPictures(db, request, sprite, signal, debug);
     } catch (error) {
-      if (error instanceof MeshLayerError) throw new AvatarGenerationError(422, error.message, { cause: error });
-      throw error;
+      signal.throwIfAborted();
+      logger.warn(error, "[avatars] Could not complete the drawn mesh pictures; keeping the original mesh behavior");
+      spriteError = plainErrorText(error, "The complete mouth and eye pictures could not be made.");
     }
+    const build = async (pictureSource: AvatarSourceSprite) => {
+      let source = await meshSource(pictureSource);
+      let layout = await requestMeshRigLayout({
+        ...vision,
+        template: agent.template(AVATAR_PROMPT_TEMPLATE_IDS.meshRigLayout),
+        owner,
+        source,
+        signal,
+        debug,
+      });
+      // Very big eyes are built from a smaller copy, with all drawn pictures resized identically below.
+      const shrink = meshWorkScale(layout.eyes.map((eye) => eye.region as [number, number, number, number]));
+      if (shrink < 1) {
+        const full = source;
+        source = await meshSource(pictureSource, (shrink * full.width) / pictureSource.width);
+        layout = scaleMeshRigLayout(layout, source.width / full.width);
+      }
+      const rig = deriveMeshRig(layout, source.width, source.height);
+      try {
+        return { source, rig, built: await buildMeshAvatarLayers(source, rig, signal) };
+      } catch (error) {
+        if (error instanceof MeshLayerError) throw new AvatarGenerationError(422, error.message, { cause: error });
+        throw error;
+      }
+    };
+    let mesh;
+    try {
+      mesh = await build(drawn?.source ?? sprite);
+    } catch (error) {
+      signal.throwIfAborted();
+      if (!drawn?.newFace) throw error;
+      logger.warn(error, "[avatars] Could not rig the new matched face; keeping the original mesh behavior");
+      spriteError = plainErrorText(error, "The new matched face could not be used.");
+      drawn = undefined;
+      mesh = await build(sprite);
+    }
+    if (drawn) {
+      try {
+        const sharp = await getSharp();
+        const pictures = Object.fromEntries(
+          await Promise.all(
+            Object.entries(drawn.pictures).map(async ([key, png]) => [
+              key,
+              await sharp(png).resize(mesh.source.width, mesh.source.height, { fit: "fill" }).png().toBuffer(),
+            ]),
+          ),
+        );
+        mesh.built = await addMeshAvatarDrawnSprites(mesh.source, mesh.rig, mesh.built, pictures, signal);
+      } catch (error) {
+        signal.throwIfAborted();
+        logger.warn(
+          error,
+          "[avatars] Could not pack the complete drawn mesh pictures; keeping the original mesh behavior",
+        );
+        spriteError = plainErrorText(error, "The complete mouth and eye pictures could not be made.");
+        if (drawn.newFace) mesh = await build(sprite);
+        drawn = undefined;
+      }
+    }
+    const { source, rig } = mesh;
+    const files = mesh.built.files;
     files.set("rig.json", Buffer.from(`${JSON.stringify(rig, null, 2)}\n`));
     files.set(
       "avatar.json",
@@ -286,7 +347,18 @@ export async function generateMeshRig(
       archive: archive.toString("base64"),
       preview: await layoutPreview(source, rig),
       warnings: extracted.warnings,
-    };
+      spriteStatus: drawn ? "complete" : "unavailable",
+      ...(spriteError ? { spriteError } : {}),
+      ...(drawn
+        ? {
+            newFace: drawn.newFace,
+            pictures: Object.entries(drawn.pictures).map(([key, png]) => ({
+              key,
+              image: `data:image/png;base64,${png.toString("base64")}`,
+            })),
+          }
+        : {}),
+    } satisfies MeshRigDraft;
   };
   return withAvatarGenerationJob(request.owner, "mesh-avatar", job, options.signal);
 }

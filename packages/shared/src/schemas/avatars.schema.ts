@@ -225,6 +225,7 @@ export const avatarMeshRigRequestSchema = z
     owner: avatarOwnerRefSchema,
     sourceLabel: z.string().min(1).max(64),
     connectionId: z.string().min(1).max(128).nullable().optional(),
+    imageConnectionId: z.string().min(1).max(128).nullable().optional(),
     debugMode: z.boolean().optional(),
   })
   .strict() satisfies z.ZodType<AvatarMeshRigRequest>;

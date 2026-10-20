@@ -29,6 +29,7 @@ import {
   cancelAvatarGenerationJob,
   plainErrorText,
 } from "../services/avatars/generation/generation-context.js";
+import { previewMeshSpritePrompts } from "../services/avatars/generation/mesh-sprite-generation.js";
 import { generateMeshRig, saveMeshRig } from "../services/avatars/generation/mesh-rig.js";
 import {
   generatePngtuberVariants,
@@ -73,6 +74,8 @@ const pngtuberSaveBodySchema = z
       .max(128),
   })
   .strict();
+
+const meshGenerateBodySchema = avatarMeshRigRequestSchema.extend({ promptOverrides: promptOverridesSchema });
 
 const meshSaveBodySchema = z.object({ owner: avatarOwnerRefSchema, archive: z.string().min(1) }).strict();
 
@@ -128,9 +131,17 @@ export async function avatarGenerationRoutes(app: FastifyInstance) {
     }
   });
 
+  app.post("/mesh-rig/preview", async (req, reply) => {
+    try {
+      return { items: await previewMeshSpritePrompts(app.db, avatarMeshRigRequestSchema.parse(req.body)) };
+    } catch (error) {
+      return sendFailure(reply, error, "Mesh picture preview");
+    }
+  });
+
   app.post("/mesh-rig", async (req, reply) => {
     try {
-      const body = avatarMeshRigRequestSchema.parse(req.body);
+      const body = meshGenerateBodySchema.parse(req.body);
       return await generateMeshRig(app.db, body, { signal: abortOnClose(reply) });
     } catch (error) {
       return sendFailure(reply, error, "Mesh avatar generation");

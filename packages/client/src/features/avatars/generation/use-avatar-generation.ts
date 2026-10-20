@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import {
   AVATAR_API_PREFIXES,
   type AvatarGenerationResponse,
+  type AvatarMeshRigRequest,
   type AvatarOwnerRef,
   type AvatarPngtuberVariant,
 } from "@marinara-engine/shared";
@@ -45,7 +46,17 @@ export interface MeshRigDraft {
   /** The sprite with the face parts the vision model found. */
   preview: string;
   warnings: string[];
+  pictures?: Array<{ key: string; image: string }>;
+  /** Absent on older servers: never assume that a legacy draft has drawn pictures. */
+  spriteStatus?: "complete" | "unavailable";
+  spriteError?: string;
+  /** A connection without image editing drew a matched face for this mesh only. */
+  newFace?: boolean;
 }
+
+export type MeshRigRunOptions = Omit<AvatarMeshRigRequest, "owner"> & {
+  promptOverrides?: ImagePromptOverride[];
+};
 
 export interface VariantJobItem {
   id: string;
@@ -133,6 +144,10 @@ export function previewVariantPrompts(
     variants,
     connectionId,
   });
+}
+
+export function previewMeshRigPrompts(owner: AvatarOwnerRef, options: Omit<MeshRigRunOptions, "promptOverrides">) {
+  return api.post<{ items: ImagePromptReviewItem[] }>(`${PREFIX}/mesh-rig/preview`, { owner, ...options });
 }
 
 /** Makes blink and talk pictures one at a time, so each can be checked, kept or tried again, and Cancel
@@ -352,7 +367,7 @@ export function useMeshRigJob(owner: AvatarOwnerRef) {
   }, [owner.ownerType, owner.ownerId]);
 
   const start = useCallback(
-    async (body: { sourceLabel: string; connectionId: string | null }) => {
+    async (body: MeshRigRunOptions) => {
       if (runningRef.current) return;
       runningRef.current = true;
       setRunning(true);

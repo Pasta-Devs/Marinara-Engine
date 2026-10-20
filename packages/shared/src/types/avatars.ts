@@ -826,6 +826,8 @@ export interface AvatarMeshRigRequest {
   sourceLabel: string;
   /** Vision-capable chat connection; omitted uses the chat's or the default connection. */
   connectionId?: string | null;
+  /** Image connection for missing drawn mouth and eye pictures; omitted uses the default image connection. */
+  imageConnectionId?: string | null;
   debugMode?: boolean;
 }
 
