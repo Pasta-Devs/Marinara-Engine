@@ -79,6 +79,22 @@ Narrative Director는 Roleplay Mode에서만 동작합니다. 혼자서는 아�
 
 숨은 전개는 **Narrative Director** 에이전트에 저장됩니다. 채팅의 에이전트 실행 기록과 기억을 지워도 전개는 사라지지 않습니다. 전개가 삭제되는 시점은 채팅에서 **Narrative Director** 에이전트를 제거할 때뿐입니다. 에이전트를 제거하려고 하면 숨은 전개가 지워지며 되돌릴 수 없다는 경고가 표시됩니다.
 
+### Secret Plot 프롬프트
+
+**Secret Plot Prompt**(비밀 플롯 프롬프트)에는 Narrative Director가 숨은 전개를 쓰고 갱신할 때 따르는 지침이 들어 있습니다. 기본 제공 프롬프트는 각 전개를 풀어야 할 수수께끼로 짭니다. 모험이나 음모 이야기에는 잘 맞지만, 캐릭터가 이끌어 가는 이야기에는 맞지 않을 수 있습니다.
+
+직접 쓴 지침을 사용하려면 다음 순서를 따르세요.
+
+1. **Agents**를 열고 **Narrative Director**를 편집하세요.
+2. **Secret Plot** 섹션에서 **Copy default to edit**(기본값을 복사하여 편집)를 클릭하세요.
+3. 텍스트를 고친 뒤 에이전트를 저장하세요.
+
+기본 제공 프롬프트로 돌아가려면 **Reset to default**(기본값으로 초기화)를 클릭한 다음 에이전트를 저장하세요.
+
+프롬프트 끝에 있는 JSON 답변 형식은 그대로 두세요. `description`, `protagonistArc`, 선택 항목인 `characterArc`, `completed`를 담은 `overarchingArc` 객체입니다. 이 형식이 없으면 전개를 읽을 수 없습니다.
+
+이 프롬프트는 에이전트에 저장되므로, 그 Narrative Director를 사용하는 모든 채팅에 적용됩니다.
+
 ## 관련 가이드
 
 - [다운로드 가능한 에이전트 레퍼런스](../agents/built-in-agents.md)

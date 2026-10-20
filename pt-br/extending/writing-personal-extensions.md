@@ -98,7 +98,7 @@ Use este `extension.css` para estilizar a janela iframe restrita que o botão ab
 Depois, importe e execute a extensão:
 
 1. Abra **Settings** > **Addons** > **External Extensions**.
-2. Escolha **Import Folder** e selecione `Hello Panel`, ou compacte a pasta e importe o ZIP.
+2. Escolha **Import Extension Folder** (importar pasta de extensão) e selecione `Hello Panel`, ou compacte a pasta e importe o ZIP com **Import Extension File** (importar arquivo de extensão).
 3. Abra o rascunho desativado e inspecione o manifesto e o JavaScript.
 4. Escolha **Review and Run** e aprove o hash exato exibido.
 5. Abra o menu Extensions e selecione **Hello Panel**.

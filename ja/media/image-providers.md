@@ -54,7 +54,7 @@
 
 ## OpenAI (DALL-E)
 
-デフォルトのBase URLが`https://api.openai.com/v1`のクラウドサービスです。OpenAIアカウントのAPIキーが必要です。DALL-EとGPT Imageのモデルを利用できます。参照画像は最大16枚まで受け付けます。
+デフォルトのBase URLが`https://api.openai.com/v1`のクラウドサービスです。OpenAIアカウントのAPIキーが必要です。DALL-EとGPT Imageのモデルを利用できます。GPT Imageのモデルは参照画像を最大16枚まで受け付けますが、DALL-Eのモデルは受け付けません。
 
 ## ChatGPT (Codex login)
 
@@ -100,7 +100,7 @@ APIキーの代わりにChatGPTのプランを使うクラウドサービスで�
 
 ## Atlas Cloud
 
-デフォルトの Base URL が `https://api.atlascloud.ai/api/v1` のクラウドサービスです。Atlas Cloud の API キーが必要です。**Fetch Models**（モデルを取得）は、Atlas Cloud の最新のテキストから画像・画像から画像のモデル一覧を読み込みます。一覧を取得できない場合は、Nano Banana、Gemini Flash Image、FLUX 1.1 Pro の初期リストを表示します。Atlas Cloud の画像モデル ID を正確に直接入力することもできます。処理は非同期で行われ、Marinara は生成を開始した後、画像が完成するまで Atlas Cloud に状態を問い合わせます。一般的なテキストから画像の設定は自動で対応付けられます。参照画像は、ID が image-to-image、編集、Kontext の機能を示すモデルに送信されます。モデルごとにスキーマが異なるため、別の ID を使う場合は、そのモデルの Atlas Cloud ドキュメントを確認してください。
+デフォルトのBase URLが`https://api.atlascloud.ai/api/v1`のクラウドサービスです。Atlas CloudのAPIキーが必要です。**Fetch Models**(モデルを取得)は、Atlas Cloudの最新のテキストから画像・画像から画像のモデル一覧を読み込みます。一覧を取得できない場合は、Nano Banana、Gemini Flash Image、FLUX 1.1 Proの初期リストを表示します。Atlas Cloudの画像モデルIDを正確に直接入力することもできます。処理は非同期で行われ、Marinaraは生成を開始した後、画像が完成するまでAtlas Cloudに状態を問い合わせます。一般的なテキストから画像の設定は自動で対応付けられます。参照画像は、IDがimage-to-image、編集、Kontextの機能を示すモデルに送信されます。モデルごとにスキーマが異なるため、別のIDを使う場合は、そのモデルのAtlas Cloudドキュメントを確認してください。
 
 ## fal.ai
 
@@ -212,7 +212,7 @@ Marinaraはプレースホルダーを使ってワークフローを埋めます
 
 | プロバイダー | 参照画像 |
 | --- | --- |
-| OpenAI (DALL-E) | 最大16枚 |
+| OpenAI (DALL-E) | 最大16枚、GPT Imageのモデルのみ |
 | ChatGPT (Codex login) | 最大16枚 |
 | NovelAI | 最大16枚、V4.5系モデルのみ |
 | xAI / Grok Imagine | 最大3枚 |
@@ -223,18 +223,21 @@ Marinaraはプレースホルダーを使ってワークフローを埋めます
 | NanoGPT | 最大3枚 |
 | Stability AI | 1枚目のみ、image to imageとして使用 |
 | Arli AI | 1枚目のみ、image to imageとして使用 |
+| SD Web UI (AUTOMATIC1111 / Forge)とDraw Things | 1枚目のみ、image to imageとして使用 |
 | OpenRouter Images | 対応、枚数の上限なし |
 | ComfyUIとRunPod Serverless (ComfyUI) | 最大4枚、ワークフローのプレースホルダー経由 |
 | SwarmUI | 最大4枚 |
-| Together AI、Pollinations、Stable Horde | 非対応 |
+| Together AI、Pollinations、Stable Horde、fal.ai | 非対応 |
 
 NovelAIの精密な参照画像は、`nai-diffusion-4-5-full`のようなV4.5系モデルでしか動作しません。NovelAIはV5向けのPrecise Referenceをまだ公開していません。ほかのモデルで参照画像を指定すると、Marinaraは参照画像なしで画像を生成し、サーバーログに警告を記録します。
 
-## 画像生成リクエストを順番に処理
+## メディア生成リクエストを順番に処理
 
-**Queue image generation requests**(画像生成リクエストを順番に処理)トグルは、**Settings**(設定) → **Generations** → **Image Generation**にあります。デフォルトはオンです。
+**Queue media generation requests**(メディア生成リクエストを順番に処理)トグルは、**Settings**(設定) → **Generations** → **Overall Generations**にあります。デフォルトはオンです。
 
-オンのときは、Marinaraが画像のジョブを1件ずつ送ります。同時に2件のリクエストを受け付けないサービスでは、オンのままにしてください。同時に多くのリクエストを処理できるサービスを使っていて、生成を速くしたい場合だけオフにします。
+オンのとき、Marinaraは画像のジョブを画像プロバイダーのアカウントごとに1件ずつ、動画のジョブを動画プロバイダーのアカウントごとに1件ずつ、別々のキューで送ります。同じアカウントでも、画像と動画は同時に処理できます。これは、依頼元の機能にかかわらず適用されます。対象は、Illustrator、トラッカー、コマンド、Gallery、Gameのアセット、Slurpのようなダウンロードしたエージェントです。アドレスとAPIキーが同じ2つの接続は、対応するキューを共有します。異なるアカウントやプロバイダーは、引き続き同時に処理されます。NovelAIでは、ジョブの間に短い間隔も空けます。NovelAIが混雑していると応答した場合は、画像を失敗させずに、待ってから2回まで再試行します。
+
+同時に2件のリクエストを受け付けないサービスでは、オンのままにしてください。同時に多くのリクエストを処理できるサービスを使っていて、生成を速くしたい場合だけオフにします。
 
 ## 関連ガイド
 

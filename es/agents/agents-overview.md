@@ -36,7 +36,7 @@ Cuando actualizas desde una versión del Engine que incluía estas funciones, Ma
 
 ### Actualizar paquetes
 
-Marinara pregunta antes de actualizar un paquete. Cuando hay disponible una versión compatible más reciente de un paquete que instalaste, aparece una ventana **Agent updates available** (Actualizaciones de agentes disponibles). Enumera cada actualización con su nueva versión e indica si necesita un reinicio. Cuando el paquete publica notas de la versión, **What changed** (Qué cambió) las muestra. Un punto marca un cambio que vas a notar; las actualizaciones sin punto son correcciones rutinarias.
+Marinara pregunta antes de actualizar un paquete. Cuando hay disponible una versión compatible más reciente de un paquete que instalaste, aparece una ventana **Agent updates available** (Actualizaciones de agentes disponibles). Enumera cada actualización con su nueva versión e indica si necesita un reinicio. Cuando el paquete publica notas de la versión, **What changed** (Qué cambió) las muestra. Si la actualización se salta versiones, **What changed** enumera las notas de todas las versiones desde la tuya, de la más reciente a la más antigua, y muestra cuántas hay. Una nota larga se recorta; selecciona **More** (Más) para leerla completa. Un punto marca un cambio que vas a notar; las actualizaciones sin punto son correcciones rutinarias.
 
 - Haz clic en **Update all** (Actualizar todo) para instalar todas las actualizaciones de la lista. Reinicia Marinara Engine si te lo pide.
 - Haz clic en **Not now** (Ahora no) para conservar tus versiones actuales. Marinara no vuelve a preguntar por una versión que omitiste.
@@ -89,7 +89,7 @@ Puedes añadir o quitar agentes compatibles en cualquier momento.
 Algunos agentes cambian algo que puedes ver de inmediato. Otros trabajan en silencio. Así puedes comprobarlo.
 
 - Los trackers escriben en el HUD y en los paneles de tracker. Si la hora, la ubicación, el estado de ánimo o las estadísticas se actualizaron, un tracker se ejecutó.
-- Una superposición de estado flotante muestra mensajes cortos de pensamiento de los agentes mientras trabajan, así puedes verlos ejecutarse en tiempo real.
+- **Agent activity** (Actividad de los agentes) en **Chat Settings** enumera notas breves de los agentes. Mientras trabajan, su icono se convierte en un indicador de carga, y aparece un punto en él cuando un agente falla. Consulta [Agent activity](../roleplay/getting-started.md#agent-activity).
 - Los agentes **Prose Guardian** y **Continuity Checker** cambian el texto de la respuesta en sí. Una respuesta limpiada o corregida es señal de que se ejecutaron.
 - Para un rastro completo, activa **Debug mode** (Modo de depuración) en **Settings** (Configuración), luego **Advanced** (Avanzado), luego **Message Tools** (Herramientas de mensaje). Registra el prompt y la respuesta de cada agente en la consola del servidor. También muestra una superposición **Agent Debug** con las llamadas, tokens y tiempos de cada agente.
 

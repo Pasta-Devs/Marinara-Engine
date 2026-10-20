@@ -65,13 +65,13 @@ Marinara 接受这些文件类型：
 |---|---|---|
 | **Enable streaming** | On | 回复一边生成一边逐词显示 |
 | **Streaming speed** | 50 | 决定流式文字在屏幕上渲染的快慢 |
-| **Trim incomplete model endings** | Off | 保存前删掉结尾没写完的那句话 |
+| **Trim incomplete sentences from the response** | Off | 保存前删掉结尾没写完的那句话 |
 
 **Streaming speed** 是一个 1 到 100 的滑块。数值越低，打字机效果越慢，方便边出边读；数值越高，文字几乎瞬间显示。模型写字时输出常常是一阵一阵的，Marinara 会先把这种节奏抹平，再按选定的速度把回复显示完。这项设置不会改变模型本身的书写速度。
 
 **Enable streaming** 关闭时，模型写完之后整段回复会一次性出现。
 
-**Trim incomplete model endings** 只影响保存下来的消息。开启后，Marinara 会删掉回复结尾那句没写完的话，完整的回复和命令式结尾则原样保留。
+**Trim incomplete sentences from the response** 只影响保存下来的消息。开启后，Marinara 会删掉回复结尾那句没写完的话，完整的回复和命令式结尾则原样保留。
 
 ## 输入中和进度提示
 
@@ -95,7 +95,7 @@ Marinara 接受这些文件类型：
 
 有些模型会给出一段隐藏的推理内容，通常叫“thinking”。Marinara 会把它和可见的回复分开存放。
 
-一条回复带有思考内容时，这条消息上会出现 **View thoughts**(查看思考) 操作，图标是一个大脑图案。点击它就能打开面板，看到捕获到的推理文字。
+一条回复带有思考内容时，这条消息上会出现 **View model thoughts**(查看模型思考过程) 操作，图标是一个大脑图案。点击它就能打开面板，看到捕获到的推理文字。
 
 推理内容要能显示出来，前提是模型确实返回了它。有些模型用纯文本标签把推理包起来，遇到这类模型，就在连接上设置自定义的 **Thinking Tags**(思考标签)，Marinara 才能把隐藏的推理和可见的回复拆开。几种常见的标签组合已经内置识别。**Thinking Tags** 的具体设置方法见文末的生成参数指南。
 

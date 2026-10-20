@@ -10,7 +10,16 @@ Noodle은 Marinara Engine에 들어 있는 앱 내 소셜 미디어 타임라인
 2. 왼쪽 사이드바에서 **Settings**(설정) 버튼(톱니바퀴 아이콘)을 클릭하세요.
 3. 패널 머리글에는 **Noodle settings**라고 표시됩니다.
 
+설정은 네 페이지로 나뉩니다. 머리글 아래의 버튼으로 페이지를 고르세요.
+
+- **General**(일반): [Refresh](#refresh)와 [Translation](#translation).
+- **Timeline**(타임라인): [Activity](#activity)와 [Image Generation](#image-generation).
+- **Participants**(참가자): [Invites](#invites), **Ambient Profiles**(앰비언트 프로필, [Random users](#random-users) 참고), [Active Accounts](#active-accounts).
+- **Advanced**(고급): **Noodle Prompt**(Noodle 프롬프트), [Image Understanding](#image-understanding), [Timeline Writing](#timeline-writing), [World / Lore](#world--lore), [Carryover](#carryover), [Reset Noodle](#reset-noodle).
+
 Noodle 설정은 모두 전역 설정입니다. 채팅 하나가 아니라 모든 페르소나와 모든 채팅에 적용됩니다. 바꾼 내용은 그 즉시 저장됩니다.
+
+<a id="invites"></a>
 
 ## Invites(초대)
 
@@ -26,6 +35,8 @@ Noodle 설정은 모두 전역 설정입니다. 채팅 하나가 아니라 모�
 
 폴더에서 초대하는 것은 그때 한 번뿐인 일괄 작업입니다. 실시간 동기화가 아닙니다. 나중에 그 폴더에 추가한 캐릭터는 자동으로 초대되지 않습니다.
 
+<a id="refresh"></a>
+
 ## Refresh(새로고침)
 
 **Refresh** 섹션에서는 Noodle이 글을 쓸 때 사용할 AI 연결과, Noodle이 스스로 새로 고치는 주기를 설정합니다.
@@ -39,6 +50,8 @@ Noodle 설정은 모두 전역 설정입니다. 채팅 하나가 아니라 모�
 
 자동 새로고침은 Marinara 서버 안에서 실행됩니다. Noodle 페이지를 계속 열어 둘 필요는 없지만, Marinara 자체는 실행 중이어야 합니다. 새로고침이 실패하면 스케줄에 오류를 표시하고 나중에 다시 시도하며, 실패가 거듭되면 더 오래 기다립니다. 예정된 시각을 여러 번 놓쳤을 때는 타임라인이 넘치지 않도록 성공한 만회 새로고침 한 번으로 대신합니다.
 
+<a id="translation"></a>
+
 ## Translation(번역)
 
 **Translation** 섹션에는 스위치가 하나 있습니다. Noodle 1.5.0 이상이 필요합니다.
@@ -46,6 +59,8 @@ Noodle 설정은 모두 전역 설정입니다. 채팅 하나가 아니라 모�
 - **Translate posts automatically**(게시물 자동 번역): 토글이고 기본값은 **off**입니다. 켜면 내 페르소나가 쓰지 않은 모든 게시물과 댓글 아래에 번역을 표시하므로, 하나하나 **Translate**(번역)를 클릭할 필요가 없습니다. Noodle은 채팅의 **Translation** 설정에서 **Save translator defaults**(번역기 기본값 저장)로 저장한 번역기 기본값을 사용합니다. 저장된 기본값이 없으면 Google Translate를 사용해 영어로 번역합니다. 이미 대상 언어로 쓰인 글에는 번역을 따로 붙이지 않고, 직접 숨긴 번역은 계속 숨겨 둡니다. 스위치를 끄면 아직 대기 중인 번역을 중단합니다.
 
 번역은 자동으로 만든 것이든 **Translate**로 만든 것이든 이 브라우저에 저장됩니다. 타임라인을 새로 고치거나, Noodle에서 나갔다가 돌아오거나, 페이지를 다시 불러와도 번역을 새로 하지 않고 저장된 번역을 그대로 보여 줍니다. 다른 기기나 데이터를 삭제한 브라우저에서는 처음부터 다시 번역합니다. **Reset Noodle Timeline**(Noodle 타임라인 초기화)도 저장된 번역을 지웁니다.
+
+<a id="active-accounts"></a>
 
 ## Active Accounts(활성 계정)
 
@@ -60,6 +75,8 @@ Noodle 설정은 모두 전역 설정입니다. 채팅 하나가 아니라 모�
 
 Noodle은 첫 프로필을 준비하기 전에 활성 계정을 먼저 정합니다. 생성된 Noodle 프로필이 아직 없는 활성 캐릭터만 프로필 생성 요청을 받고, 초대되어 있어도 참여하지 않는 캐릭터는 포함하지 않습니다. 타임라인을 쓰는 요청에도 그 새로고침에 선택된 계정의 캐릭터 카드만 전달합니다.
 
+<a id="activity"></a>
+
 ## Activity(활동)
 
 **Activity** 섹션에서는 새로고침 한 번이 만들 수 있는 양을 제한합니다. 각 입력란은 새로고침 한 번당 상한입니다.
@@ -73,23 +90,40 @@ Noodle은 첫 프로필을 준비하기 전에 활성 계정을 먼저 정합니
 
 입력란을 0으로 두면 AI가 그 종류의 활동을 만들지 않습니다.
 
+<a id="image-generation"></a>
+
 ## Image Generation(이미지 생성)
 
 **Image Generation** 섹션을 쓰면 Noodle이 일부 게시물에 AI가 만든 이미지를 붙일 수 있습니다. 여기에는 이미지 생성용 연결, 즉 그림을 만들도록 설정한 연결이 필요합니다. [지원하는 AI 제공자](../connections/providers-reference.md)를 참고하세요.
 
-- **Image generation**(이미지 생성): 토글이고 기본값은 **off**입니다. 켜면 AI가 게시물 이미지를 생성합니다.
+- **Noodle image generation**(Noodle 이미지 생성): 토글이고 기본값은 **off**입니다. 켜면 AI가 게시물 이미지를 생성합니다.
 - 켜면 항목이 더 나타납니다.
-  - **Image generation connection**(이미지 생성 연결): 드롭다운이고 기본값은 **Default image generation connection**입니다. Default로 두면 **Connections**(연결) 패널에서 이미지 생성 기본값으로 지정한 연결을 사용합니다.
-  - **Prompt instructions**(프롬프트 지침): 기본 문구가 들어 있는 텍스트 상자이고 4000자까지 쓸 수 있습니다. 여기에 적은 추가 메모는 이미지 프롬프트에 합쳐집니다.
+  - **Image width**(이미지 너비)와 **Image height**(이미지 높이): 생성되는 게시물 이미지의 크기로, 64에서 4096픽셀까지입니다. 기본값은 너비 **1024**, 높이 **1536**입니다.
+  - **Noodle image generation connection**(Noodle 이미지 생성 연결): 드롭다운이고 기본값은 **Default image generation connection**입니다. Default로 두면 **Connections**(연결) 패널에서 이미지 생성 기본값으로 지정한 연결을 사용합니다. 캐릭터가 자체 연결을 대신 쓸 수도 있습니다. [프로필과 팔로우](overview.md#profiles-and-following)를 참고하세요.
+  - **Image instructions (sent to your LLM)**(프롬프트 지침): 기본 문구가 들어 있는 텍스트 상자이고 4000자까지 쓸 수 있습니다. 타임라인 모델은 각 게시물의 이미지 설명을 쓸 때 이 지침을 따르므로, 이미지 태그가 아니라 지시문으로 쓰세요. 이미지 모델에 그대로 보내는 스타일 태그는 이미지 스타일 프로필을 대신 쓰세요.
   - **Use avatar references**(아바타 참조 사용): 토글이고 기본값은 **on**입니다. 캐릭터의 아바타나 참조 이미지를 이미지 모델에 보냅니다.
   - **Interpret image prompts**(이미지 프롬프트 해석): 토글이고 기본값은 **on**입니다. 텍스트 모델이 이미지 연결의 **Image Prompting Instructions**(이미지 프롬프트 지시문)와 스타일 프로필의 Style text(스타일 텍스트)를 따라 각 이미지 프롬프트를 다시 씁니다. 끄면 Image Prompting Instructions는 쓰이지 않고 Style text가 적힌 그대로 추가됩니다.
   - **Include descriptions**(설명 포함): 토글이고 기본값은 **on**입니다. 캐릭터의 외모 설명 글을 이미지 프롬프트에 추가합니다. **Interpret image prompts**가 켜져 있으면 텍스트 모델이 설명을 그대로 붙여 넣지 않고 프롬프트에 자연스럽게 녹여 넣습니다.
   - **Images/refresh**(새로고침당 이미지 수): 0에서 50까지의 숫자이고 기본값은 **3**입니다. 수동이든 자동이든 새로고침마다 생성하는 게시물 이미지 수를 따로 제한합니다.
-- **Attach gallery images**(갤러리 이미지 첨부): 별개의 토글이고 기본값은 **off**입니다. **Image generation**이 꺼져 있어도 계속 보입니다. 새 이미지를 만드는 대신, 그 캐릭터의 갤러리나 그 캐릭터가 등장하는 채팅에 있는 이미지를 게시물에 다시 쓸 수 있게 합니다.
+- **Attach gallery images**(갤러리 이미지 첨부): 별개의 토글이고 기본값은 **off**입니다. **Noodle image generation**이 꺼져 있어도 계속 보입니다. 새 이미지를 만드는 대신, 그 캐릭터의 갤러리나 그 캐릭터가 등장하는 채팅에 있는 이미지를 게시물에 다시 쓸 수 있게 합니다.
 
-**Image generation**을 켰는데 쓸 수 있는 이미지 연결이 없으면 새로고침이 막힙니다. "Choose an image generation connection for Noodle first." 메시지가 표시됩니다. 이미지 생성에 실패하면 한 번 다시 시도합니다. 두 번째도 실패하면 쓰이지 않은 이미지 프롬프트를 노출하지 않고, 텍스트만 있는 게시물을 대신 공개하며 새로고침을 이어 갑니다.
+**Noodle image generation**을 켰는데 쓸 수 있는 이미지 연결이 없으면 새로고침이 막힙니다. "Choose an image generation connection for Noodle first." 메시지가 표시됩니다. 이미지 생성에 실패하면 한 번 다시 시도합니다. 두 번째도 실패하면 쓰이지 않은 이미지 프롬프트를 노출하지 않고, 텍스트만 있는 게시물을 대신 공개하며 새로고침을 이어 갑니다.
 
-Noodle이 이런 이미지 프롬프트를 쓸 때 사용하는 템플릿 이름은 **Noodle Post Image**입니다. **Settings** > **Generations**(생성) > **Image Generation Prompt Overrides**(이미지 생성 프롬프트 재정의)에서 편집할 수 있습니다. **Prompt instructions**에 적은 글은 이 템플릿으로 전달되고, 그 결과는 평소 쓰는 이미지 스타일 프로필을 거칩니다. [이미지와 동영상을 위한 Prompt Overrides](../prompts/prompt-overrides.md)와 [이미지 스타일 프로필](../media/style-profiles.md)을 참고하세요. Professor Mari는 캐릭터 카드가 없어서 이미지 게시물에 내장 아바타와 참조 그림을 대신 사용합니다.
+Noodle이 이런 이미지 프롬프트를 쓸 때 사용하는 템플릿 이름은 **Noodle Post Image**입니다. **Settings** > **Generations**(생성) > **Image Generation Prompt Overrides**(이미지 생성 프롬프트 재정의)에서 편집할 수 있습니다. **Image instructions (sent to your LLM)**에 적은 글은 이 템플릿으로 전달되고, 그 결과는 평소 쓰는 이미지 스타일 프로필을 거칩니다. [이미지와 동영상을 위한 Prompt Overrides](../prompts/prompt-overrides.md)와 [이미지 스타일 프로필](../media/style-profiles.md)을 참고하세요. Professor Mari는 캐릭터 카드가 없어서 이미지 게시물에 내장 아바타와 참조 그림을 대신 사용합니다.
+
+<a id="image-understanding"></a>
+
+## Image Understanding(이미지 이해)
+
+**Image Understanding** 섹션에서는 타임라인 작성 모델이 이미 타임라인에 있는 그림을 어떻게 볼지 정합니다.
+
+- **Show images to the writer**(작성 모델에 이미지 보여 주기): 토글이고 기본값은 **on**입니다. 작성 모델이 그림을 받을 수 있으면 최근 타임라인 이미지를 최대 8장까지 받습니다. 끄면 작성 모델은 타임라인 이미지를 받지 않습니다.
+- **Image captioning**(이미지 캡션 생성): 토글입니다. 이미지를 이해하는 연결이 작성 모델을 위해 타임라인 이미지를 설명하므로, 텍스트 전용 작성 모델도 이미지를 따라갈 수 있습니다. 직접 바꾸기 전까지는 Noodle **Generation connection**의 캡셔닝 설정을 따르며, **Use connection default**(연결 기본값 사용)를 누르면 그 설정으로 돌아갑니다.
+- **Captioning connection**(캡션 연결): 캡셔닝을 켜면 나타납니다. **Use Noodle generation connection**(Noodle 생성 연결 사용)은 **Generation connection**을 씁니다. 그 모델이 이미지를 볼 수 없다면 다른 연결을 고르세요.
+
+**Show images to the writer**가 꺼져 있어도 이미지 캡셔닝은 타임라인 이미지를 캡셔닝 연결로 보냅니다.
+
+<a id="timeline-writing"></a>
 
 ## Timeline Writing(타임라인 작성)
 
@@ -104,11 +138,15 @@ Noodle에서 새로고침 글을 쓰는 부분은 내장된 어조와 창작 자
 
 이 재정의가 다루는 것은 어조뿐입니다. 새로고침 결과를 올바르게 유지하는 규칙(어떤 구조화된 동작이 허용되는지, 상호작용 대상을 어떻게 지정해야 하는지 등)은 이 글에 들어 있지 않고 항상 그대로 적용되므로, 어조를 다시 써도 새로고침이 망가지지 않습니다.
 
+<a id="world--lore"></a>
+
 ## World / Lore(세계와 로어)
 
 **World / Lore** 섹션을 쓰면 채팅 생성에서 쓰는 것과 같은 로어북 구조로 새로고침이 로어북 항목을 가져올 수 있습니다.
 
 - **Lorebook context**(로어북 컨텍스트): 토글이고 기본값은 **off**입니다. 켜면 새로 고칠 때마다 최근 Noodle 게시물과 답글 문구, 그리고 활성 캐릭터의 프로필에서 로어북 키워드가 맞는지 살피고, 맞는 항목을 그 새로고침에 참여하는 계정용 세계 및 로어 컨텍스트로 함께 넣습니다. 작동할 수 있는 것은 활성 캐릭터에 연결된 로어북이나 전역으로 표시한 로어북뿐입니다. 작동한 세계 및 로어 내용에는 새로고침 한 번당 8,192 토큰이라는 고정 상한이 있습니다. 기본값이 꺼짐이라서 켜기 전까지 기존 타임라인은 달라지지 않습니다.
+
+<a id="carryover"></a>
 
 ## Carryover(반영)
 
@@ -121,6 +159,8 @@ Noodle에서 새로고침 글을 쓰는 부분은 내장된 어조와 창작 자
 반영되는 활동은 Noodle에 초대된 캐릭터와 그 채팅에서 사용 중인 페르소나의 것뿐입니다. 여기서는 폴더로만 포함된 상태로는 부족합니다.
 하나로 묶인 전체 반영 블록에는 채팅 생성 한 번당 8,192 토큰이라는 별도의 고정 상한이 있습니다. 개수 제한이 이 상한을 넘길 것 같으면 Marinara는 들어갈 수 있는 만큼 최신 요약을 남기고 시간순으로 정렬해 보여 줍니다.
 
+<a id="reset-noodle"></a>
+
 ## Reset Noodle(Noodle 초기화)
 
 **Reset Noodle** 섹션은 계정과 설정은 남긴 채 타임라인만 지웁니다.
@@ -131,11 +171,15 @@ Noodle에서 새로고침 글을 쓰는 부분은 내장된 어조와 창작 자
 
 여기서 지우는 것은 타임라인 내용뿐입니다. 계정, 핸들, 소개, 팔로우, 초대, 그리고 모든 Noodle 설정은 그대로 남습니다.
 
+<a id="random-users"></a>
+
 ## Random users(랜덤 유저)
 
 랜덤 유저는 라이브러리에 없는 내장 계정 6개입니다. Thread Countess, Packet Soup, Orbit Notice, Glass Bulletin, Moth Hour, Brine Index이며 각각 짧은 소개 글이 붙어 있습니다.
 
 켜는 곳은 **Invites** 섹션의 **Characters** 목록 맨 위에 있는 **Random users** 행입니다. 기본값은 **off**입니다. 켜면 부제가 **Enabled**로, 꺼져 있으면 **Ambient fake profiles**로 표시됩니다. 켜 두면 이 계정들은 새로고침 동안 게시물, 좋아요, 리포스트, 답글, 팔로우를 할 수 있습니다. 프로필에서 이 계정들을 팔로우할 수는 없습니다.
+
+**Participants** 페이지의 **Ambient Profiles** 섹션에서 이 계정들의 정체성을 편집하거나 다른 세트를 생성할 수 있습니다. 다시 생성하면 게시물과 관계는 유지되지만 프로필 이미지는 지워집니다.
 
 ## Noodle과 채팅 연결하기
 
@@ -153,7 +197,7 @@ Noodle 활동을 채팅에 나타나게 하려면 해당하는 **Carryover to ch
 - **자동 새로고침이 실행되지 않을 때**: **Refreshes/day**를 0보다 크게 설정하고, Marinara 서버를 계속 실행해 두고, **Automatic schedule** 아래의 예정 시각과 시간대를 확인하세요. 스케줄에 오류가 보이면 연결이나 요청 제한 문제를 해결하고 재시도를 기다리세요.
 - **게시물이 최근 채팅을 언급하지 않을 때**: 그 채팅 설정에서 **Allow Noodle references**를 켜고, 캐릭터가 초대되어 있는지 확인하세요. 채팅 컨텍스트는 AI에게 주는 참고 자료일 뿐 보장은 아닙니다.
 - **Noodle 활동이 채팅에 나타나지 않을 때**: 해당하는 **Carryover to chats** 모드를 켜고, 활동이 너무 오래됐다면 **Carry hours**를 늘리세요.
-- **게시물에 이미지가 없을 때**: **Image generation**을 켜고, 작동하는 이미지 연결을 고르고, **Images/refresh** 상한을 확인하세요.
+- **게시물에 이미지가 없을 때**: **Noodle image generation**을 켜고, 작동하는 이미지 연결을 고르고, **Images/refresh** 상한을 확인하세요.
 
 ## 설정과 기본값
 
@@ -173,14 +217,20 @@ Noodle 활동을 채팅에 나타나게 하려면 해당하는 **Carryover to ch
 | **Replies** | 12 | 0에서 200 |
 | **Reposts** | 4 | 0에서 100 |
 | **Likes** | 18 | 0에서 500 |
-| **Image generation** | off | on 또는 off |
-| **Image generation connection** | Default | 이미지 생성 연결 전체 |
-| **Prompt instructions** | 내장 문구 | 4000자까지 |
+| **Noodle image generation** | off | on 또는 off |
+| **Image width** | 1024 | 64에서 4096 |
+| **Image height** | 1536 | 64에서 4096 |
+| **Noodle image generation connection** | Default | 이미지 생성 연결 전체 |
+| **Image instructions (sent to your LLM)** | 내장 문구 | 4000자까지 |
 | **Use avatar references** | on | on 또는 off |
 | **Interpret image prompts** | on | on 또는 off |
 | **Include descriptions** | on | on 또는 off |
 | **Images/refresh** | 3 | 0에서 50 |
 | **Attach gallery images** | off | on 또는 off |
+| **Show images to the writer** | on | on 또는 off |
+| **Image captioning** | Generation connection을 따름 | on 또는 off |
+| **Captioning connection** | Use Noodle generation connection | 이미지를 이해하는 연결 전체 |
+| **Use connection default** | on | on 또는 off. Generation connection의 캡셔닝 설정을 되돌립니다 |
 | **Lorebook context** | off | on 또는 off |
 | **Enhanced tone & continuity** | off | on 또는 off |
 | **Carryover: Conversations** | off | on 또는 off |

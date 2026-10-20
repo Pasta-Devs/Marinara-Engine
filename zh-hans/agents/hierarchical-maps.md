@@ -91,6 +91,7 @@ World Maps 页面会显示已安装的包版本和就绪状态，提供账号级
 - **Create with AI** 会先生成一份层级结构供你过目。
 - **Use template** 会在 Game 创建之前打开世界资源库。
 - **Build manually** 从一个可编辑的空层级结构开始。
+- **From the world**(来自世界) 会在 Game 创建世界时出现（见[创建世界](../game/getting-started.md#making-a-world)）。它把那个世界铺成地图：世界的地区、聚落和地点，以及它们之间的通路和路程时间。保存之前你可以先审查一遍。它不需要 AI 生成，地图上的地点就是世界里的地点。游玩时两者保持同步。Game Master 和市场使用地图上队伍所在的地点。Game Master 说出某个世界地点时，地图会把队伍移到那里。World Maps 1.6.0 或更高版本会走最短路线；更早的版本只移动一步：移到里面的某个地点、外围的地点，或者有通路相连的地点。
 
 选了 **Use template** 之后，选择器会先列 **Shared worlds**，再列 **Independent templates**：
 

@@ -41,6 +41,10 @@
 
 **SwarmUI**를 고르면 Marinara가 로컬 주소 `http://127.0.0.1:7801`을 채웁니다. API 형식의 동영상 워크플로를 **ComfyUI Workflow**에 붙여넣으세요. 워크플로는 필수입니다. SwarmUI는 `%reference_image_name%` 플레이스홀더를 쓸 수 없으므로 참조 이미지에는 대신 `%reference_image%`를 쓰세요. SwarmUI 서버에 계정이 필요하다면 **API Key**(API 키)에 Swarm Auth Token을 붙여넣으세요. **Fetch Models from API**를 사용하면 SwarmUI 서버에 있는 모델 목록을 볼 수 있습니다.
 
+### Video Prompting Instructions
+
+Video Generation 연결에는 **Video Prompting Instructions**(동영상 프롬프트 지시문) 상자가 있습니다. 카메라 움직임, 프롬프트 길이, 소리처럼 사용하는 동영상 모델이 기대하는 내용을 동영상 프롬프트를 쓰는 AI에게 알려 줄 때 쓰세요. 이 지시문은 Roleplay **Gallery** 애니메이션, Conversation 동영상 메시지, Storyboard의 **Image-aware shot planning**(이미지 인식 샷 기획)에 적용됩니다. AI가 지시문의 문장을 통째로 동영상 프롬프트에 옮겨 쓰면 Marinara가 그 문장을 지웁니다. Game Mode 장면 동영상, 통화 클립, 애니메이션 표정은 프롬프트를 따로 만들므로 **Video Prompting Instructions**의 영향을 받지 않습니다.
+
 ### 기본 동영상 연결로 지정하기
 
 Video Generation 연결의 연결 편집기에는 **Default for Videos**(동영상 기본값) 그룹이 있습니다. **Use as default video connection**(기본 동영상 연결로 사용)을 켜면 채팅에 자체 동영상 연결이 없을 때 Marinara가 이 연결을 씁니다. 기본 동영상 연결은 하나만 지정하세요.

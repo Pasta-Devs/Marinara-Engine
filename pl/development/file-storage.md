@@ -50,6 +50,14 @@ Każdy zapis oznacza zmienione tabele jako wymagające utrwalenia. Krótkie opó
 
 Marinara zapisuje każdą migawkę do pliku tymczasowego, opróżnia bufor i atomowo zmienia nazwę pliku. Przed podmianą odświeża poprzednią zdrową migawkę jako plik `.bak`. Przy starcie odtwarza nieczytelny plik główny z kopii, o ile to możliwe. Jeśli żadna z kopii nie nadaje się do użytku, Marinara odsuwa uszkodzone pliki, dodając do nazwy znacznik czasu, i startuje z pustą tylko tą jedną tabelą, żeby interfejs pozostał dostępny i dało się naprawić dane.
 
+## Dzierżawa zapisu
+
+Tylko jeden proces serwera naraz zapisuje do katalogu przechowywania. Przy starcie magazyn tworzy w nim katalog `.writer-lease` z plikiem `owner.json`, który zapisuje PID procesu zapisującego, identyfikator maszyny, identyfikator rozruchu, przestrzeń nazw PID, nazwę hosta i losowy token, a przy zamykaniu usuwa ten katalog. Drugi proces, który znajdzie dzierżawę, odmawia startu z błędem `StorageWriterLeaseError`, chyba że potrafi udowodnić, że poprzedni proces zapisujący już nie działa.
+
+Dowód wymaga najpierw tej samej maszyny: zgodnego identyfikatora maszyny, prywatnego katalogu domowego środowiska Termux albo, gdy jedna ze stron nie ma identyfikatora maszyny, pamięci masowej dostępnej tylko z tej maszyny. W systemach Linux i Android jest to lokalny system plików. W systemie Windows jest to dysk typu `Fixed` (a nie ścieżka sieciowa, wymienna ani UNC), a dzierżawa musi pochodzić od natywnego procesu zapisującego systemu Windows z nazwą tego komputera. Dzierżawa na tej samej maszynie jest odzyskiwana, gdy należy do wcześniejszego rozruchu (w systemie Windows czasy rozruchu różniące się najwyżej o 5 minut liczą się jako ten sam rozruch), gdy jej gniazdo sprawdzania aktywności przestało odpowiadać (Docker i Termux) albo gdy jej PID zakończył działanie lub (poza dowodem dla dysku Windows) należy teraz do nowszego procesu. Współdzielona lub sieciowa pamięć masowa pozostaje zablokowana, a błąd wskazuje dzierżawę do ręcznego usunięcia po zatrzymaniu wszystkich procesów.
+
+Dowody obejmuje `scripts/regressions/storage-writer-lock.regression.ts`.
+
 ## Transakcje
 
 Transakcje działają na migawkach kopiowanych przy zapisie (copy-on-write), a ich zasięg wyznacza `AsyncLocalStorage`. Tabela jest klonowana dopiero wtedy, gdy dana transakcja pierwszy raz ją zmienia. Jeśli funkcja zwrotna zgłosi błąd, przywracane są tylko tabele zmienione przez tę transakcję, a równoległe zapisy w innych tabelach zostają nienaruszone.

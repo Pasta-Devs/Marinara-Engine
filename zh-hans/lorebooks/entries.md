@@ -43,6 +43,8 @@
 - **Secondary Keys**(次关键词)：只有条目类型是 **Selective** 时才会用到的额外关键词，见下面的条目类型一节。
 - **Description**(描述)：条目的简短说明。只有 **Knowledge Router** 智能体会读它，用来判断要不要注入这个条目，它永远不会作为内容发给主 AI。参见[知识源：Knowledge Retrieval 与 Knowledge Router 智能体](../agents/knowledge-sources.md)。
 
+关键词超过 10 个时，列表只显示前 10 个。点击 **Show N more**(再显示 N 个)，比如 **Show 5 more**，可以查看其余的关键词；点击 **Collapse**(收起) 可以再把它们藏起来。添加关键词时会展开整个列表。被藏起来的关键词照常参与匹配。
+
 举个简单的例子。
 
 - 名称：`Silverhaven`
@@ -160,6 +162,8 @@ Decision 激活适用于聊天回合。Game 设置、体验生成，以及智能
 
 面板里还有一个 **Context filters & matching sources**(上下文筛选与匹配来源) 分区。在那里可以把条目限定到特定角色、角色标签或生成类型，也可以让条目的关键词额外扫描角色卡的其他字段（比如角色描述）。
 
+<a id="authoring-strategy-choosing-the-right-entry"></a>
+
 ## 编写策略：怎样选对条目
 
 上面几节讲的是每个控件各自做什么。这一节把它们和你写世界书时要做的判断对应起来：选哪种类型、什么时候把关键词收紧、怎样让提示词不臃肿。先问自己一个问题：*AI 应该在什么时候看到这条事实？*
@@ -193,6 +197,8 @@ Decision 激活适用于聊天回合。Game 设置、体验生成，以及智能
 - **只服务于一个故事的设定**，打开这次聊天的设置，把世界书固定到当前这次聊天。
 
 世界书如何生效，参见[世界书总览](overview.md)；关联、作用范围和嵌入这几个控件，参见[把世界书关联到角色和用户角色](linking-to-characters.md)。
+
+<a id="worked-example-a-small-setting"></a>
 
 ## 实例演练：一个小型世界观
 

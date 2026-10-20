@@ -54,7 +54,7 @@
 
 ## OpenAI (DALL-E)
 
-云端服务，默认 Base URL 是 `https://api.openai.com/v1`。需要 OpenAI 账号的 API 密钥。提供 DALL-E 和 GPT Image 系列模型。最多接受 16 张参考图。
+云端服务，默认 Base URL 是 `https://api.openai.com/v1`。需要 OpenAI 账号的 API 密钥。提供 DALL-E 和 GPT Image 系列模型。GPT Image 模型最多接受 16 张参考图；DALL-E 模型不接受参考图。
 
 ## ChatGPT (Codex login)
 
@@ -212,7 +212,7 @@ Marinara 通过占位符往工作流里填内容。把下面这些文本标记�
 
 | 服务商 | 参考图 |
 | --- | --- |
-| OpenAI (DALL-E) | 最多 16 张 |
+| OpenAI (DALL-E) | 最多 16 张，仅限 GPT Image 模型 |
 | ChatGPT (Codex login) | 最多 16 张 |
 | NovelAI | 最多 16 张，仅限 V4.5 模型 |
 | xAI / Grok Imagine | 最多 3 张 |
@@ -223,18 +223,21 @@ Marinara 通过占位符往工作流里填内容。把下面这些文本标记�
 | NanoGPT | 最多 3 张 |
 | Stability AI | 只取第一张，按图生图使用 |
 | Arli AI | 只取第一张，按图生图使用 |
+| SD Web UI (AUTOMATIC1111 / Forge) 和 Draw Things | 只取第一张，按图生图使用 |
 | OpenRouter Images | 支持，无固定上限 |
 | ComfyUI 和 RunPod Serverless (ComfyUI) | 最多 4 张，通过工作流占位符传入 |
 | SwarmUI | 最多 4 张 |
-| Together AI、Pollinations、Stable Horde | 不支持 |
+| Together AI、Pollinations、Stable Horde、fal.ai | 不支持 |
 
 NovelAI 的精确参考图只能在 V4.5 模型上使用，比如 `nai-diffusion-4-5-full`。NovelAI 尚未为 V5 发布 Precise Reference。在其他模型上请求参考图时，Marinara 会在不使用参考图的情况下生成图像，并在服务器日志中记录警告。
 
-## 图像生成请求排队
+## 媒体生成请求排队
 
-**Queue image generation requests**(图像生成请求排队) 开关位于 **Settings**(设置)，然后 **Generations**(生成)，然后 **Image Generation**。默认开启。
+**Queue media generation requests**(媒体生成请求排队) 开关位于 **Settings**(设置)，然后 **Generations**(生成)，然后 **Overall Generations**(总体生成)。默认开启。
 
-开启时，Marinara 一次只发一个图像任务。如果服务不接受同时两个请求，就保持开启。只有当服务能同时处理多个请求、而你又想快一点时，才关掉它。
+开启时，Marinara 会分成两条队列：每个图像服务商账号的图像任务一次只发一个，每个视频服务商账号的视频任务也一次只发一个。同一个账号的图像和视频可以同时进行。无论请求来自哪个功能都是如此：Illustrator、追踪器、命令、Gallery、Game 素材，以及 Slurp 等下载的智能体。地址和 API 密钥都相同的两个连接共用对应的队列。不同的账号和服务商仍然可以同时工作。NovelAI 的任务之间还会稍作停顿。NovelAI 回复正忙时，Marinara 会等一会儿再重试两次，而不是直接让这张图失败。
+
+如果服务不接受同时两个请求，就保持开启。只有当服务能同时处理多个请求、而你又想快一点时，才关掉它。
 
 ## 相关指南
 

@@ -28,6 +28,8 @@ Define cada color con el campo de color, o escribe un valor:
 
 Un color semitransparente deja ver parte del fondo a través de la burbuja. El formato `rgba` es rojo, verde, azul y un valor alfa que va de 0 (transparente) a 1 (sólido).
 
+<a id="where-your-colors-show"></a>
+
 ## Dónde se muestran tus colores
 
 Cada color afecta a una parte diferente del chat:
@@ -61,28 +63,34 @@ El segundo bloque es **RPG Attributes** (Atributos RPG), que se activa con **Ena
 
 ### Fichas de conjuntos de reglas
 
-Si instalas un conjunto como 5e (SRD 5.1), ambos paneles **Stats** incluyen **Ruleset sheets** (fichas de conjuntos de reglas), con una sección desplegable por conjunto. También aparece si la tarjeta conserva una ficha de un conjunto que ya no está instalado.
+Cuando hay instalado un conjunto de reglas de Game Mode, como 5e (SRD 5.1), ambas pestañas **Stats** incluyen un bloque **Ruleset sheets** (Fichas de conjuntos de reglas) debajo de las secciones anteriores. Tiene una entrada desplegable por cada conjunto de reglas instalado. El bloque también aparece cuando una tarjeta todavía conserva una ficha de un conjunto de reglas que ya no tienes.
 
-1. Abre una sección y pulsa **Add a sheet** para cargar sus valores predeterminados.
-2. Edita atributos, campos, listas de ataques o conjuros, entrenamiento y bonificaciones adicionales de habilidades y salvaciones. El conjunto decide la estructura. Los valores calculados, como competencia o Percepción pasiva, cambian al editar y son de solo lectura.
-3. Guarda el personaje o la persona como siempre.
+1. Abre la entrada y haz clic en **Add a sheet** (Añadir una ficha). Obtienes una ficha en blanco con cada valor en el predeterminado del conjunto de reglas.
+2. Rellénala. El diseño lo define el propio conjunto de reglas: puntuaciones de características con sus modificadores, campos agrupados por sección, listas como ataques y conjuros, y las habilidades y salvaciones, cada una con un nivel de entrenamiento y una bonificación adicional. Los valores calculados, como una bonificación por competencia o la Percepción pasiva, se actualizan mientras escribes y no se pueden editar.
+3. Guarda el personaje o la persona como de costumbre.
 
-Esta es la configuración inicial. Las partidas nuevas copian la ficha; los cambios en ellas no modifican la tarjeta. **Add from catalog** abre un selector con búsqueda de conjuros, ataques y capacidades preparados. Las filas añadidas son copias editables.
+Una ficha aquí es la **configuración inicial** de ese personaje para ese conjunto de reglas. Una partida nueva con ese conjunto de reglas toma una copia. Los cambios hechos dentro de una partida se quedan en esa partida y nunca vuelven a la tarjeta.
 
-Los valores que dependen del nivel o de atributos son de solo lectura, indican "Set by the ruleset" y se recalculan al editar. Si el catálogo contiene texto más reciente, **Review** muestra los textos guardado y nuevo, uno junto al otro. **Update selected** actualiza solo el texto de las filas elegidas. Conserva números, interruptores, otras columnas y filas no seleccionadas.
+Algunos conjuntos de reglas incluyen conjuros, ataques y rasgos ya preparados. Las listas que rellenan tienen un botón **Add from catalog** (Añadir desde el catálogo) que abre un selector con búsqueda, y las filas que añade son copias que puedes editar como cualquier otra. De eso se derivan dos cosas:
 
-Una ficha cuyo conjunto falta sigue guardada, se exporta con la tarjeta y no se envía a la IA. Podrás editarla al reinstalarlo o borrarla con **Remove**. Cada ficha admite hasta 64 KB. Una ficha ilegible de una versión más reciente también se conserva; solo ofrece **Remove this sheet**, para evitar que una nueva la sobrescriba por accidente.
+- Una celda que el conjunto de reglas mantiene por ti, como los usos que dependen de una puntuación de característica o un recurso de clase que crece con tu nivel, se muestra en su sitio pero no se puede escribir en ella, con la nota "Set by the ruleset". Se calcula a partir del resto de la ficha cada vez que la editas.
+- Cuando el texto propio del conjunto de reglas para una de esas filas ha cambiado desde que la elegiste, una línea debajo de la lista indica cuántas filas tienen texto más reciente, con un botón **Review** (Revisar). La revisión muestra cada fila con lo que contiene tu ficha junto a lo que dice el conjunto de reglas, y una casilla por fila. **Update selected** (Actualizar seleccionadas) escribe las filas marcadas y nada más. Solo se compara el texto: los números, los interruptores y todo lo que escribiste en otra columna no se tocan, y tampoco ninguna fila que desmarques.
 
-Estas fichas son independientes de **Enable RPG Stats** y **Enable RPG Attributes**. Las reglas propias de Marinara Engine las ignoran; una partida con conjunto las usa en lugar de los atributos habituales para sus pruebas.
+Una ficha de un conjunto de reglas que no tienes instalado se conserva, no se borra. Se muestra como una sola línea con un botón **Remove** (Quitar), nunca se envía a la IA y vuelve a ser editable cuando instalas ese conjunto de reglas. También viaja con la tarjeta cuando la exportas. Cada ficha tiene un límite de 64 KB.
+
+Una ficha de un conjunto de reglas instalado que esta versión de Marinara no puede leer, por ejemplo una guardada por una versión más reciente, también se conserva tal cual. Su entrada solo ofrece **Remove this sheet** (Quitar esta ficha), así que añadir una ficha nueva nunca puede sobrescribirla por accidente.
+
+Las fichas de conjuntos de reglas son independientes de **Enable RPG Stats** y **Enable RPG Attributes**. Una partida que usa las reglas propias de Marinara las ignora, y una partida con un conjunto de reglas las usa en lugar de los Attributes de arriba para sus pruebas.
 
 ## Cómo los agentes actualizan tus estadísticas
 
-Los valores de la pestaña **Stats** son solo los valores predeterminados iniciales. Para que las estadísticas cambien durante un chat, activa el agente correspondiente. Un agente es un ayudante de IA que se ejecuta junto a tu chat.
+Los valores de la pestaña **Stats** se convierten en el estado inicial del chat. Los agentes pueden actualizar los valores de los trackers que se describen abajo. Los RPG Attributes como STR y DEX son contexto de la tarjeta, no valores de tracker gestionados por agentes.
 
-- El agente **Character Tracker** ajusta las estadísticas RPG del personaje y los **RPG Attributes** de la persona según el combate, la curación y los eventos de la historia.
+- El agente **Character Tracker** ajusta las estadísticas registradas del personaje, incluidas las Pools como HP, según el combate, la curación y los eventos de la historia. No registra la persona del jugador.
 - El agente **Persona Stats** ajusta tus **Persona Status Bars** después de cada mensaje, según lo que pasa en la historia.
+- Los **RPG Attributes** del personaje y de la persona se envían con su tarjeta para el combate y Game Mode, y para las tiradas opcionales en Roleplay o Game Mode. Los agentes no actualizan esos Attributes.
 
-Si no activas el agente correspondiente, los valores se quedan en los predeterminados que definiste. La pestaña **Stats** por sí sola no actualiza nada por su cuenta. Consulta la guía de agentes integrados para activar estos agentes.
+Si no activas el agente de tracker correspondiente, los valores de los trackers se quedan en los predeterminados que definiste. La pestaña **Stats** por sí sola no actualiza nada por su cuenta. Consulta la guía de agentes integrados para activar estos agentes.
 
 ## Cómo se muestran las estadísticas en el HUD
 

@@ -26,6 +26,7 @@ Obrazy, dźwięki i inne pliki multimedialne mają własne foldery, a nazwa każ
 | --- | --- |
 | `avatars` | Awatary postaci i person |
 | `sprites` | Sprite'y postaci |
+| `avatar-models` | Pliki agentów **2D Avatars** i **3D Avatars**, na przykład obrazki PNGTuber i modele 3D |
 | `backgrounds` | Wgrane tła czatów |
 | `gallery` | Obrazy z galerii |
 | `fonts` | Dodane własne czcionki |

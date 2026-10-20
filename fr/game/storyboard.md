@@ -85,6 +85,8 @@ Une fois les images planifiées, quel que soit le mode, des formateurs partagés
 
 Chaque étape numérotée a sa propre **Prompt library** repliée : Stage 2 contient les formateurs d'image, Stage 3 les planificateurs de mouvement qui tiennent compte de l'image, et Stage 4 les formateurs qui transmettent le prompt vidéo sans modification. Les choix d'image intégrés comprennent aussi **Storyboard Illustration** et **Storyboard First Frame**. Côté vidéo : **Anime Game Video**, **Comic Page Video** et **Narration Passthrough**. Les chats Game et Roleplay peuvent choisir des formateurs différents sans modifier la collection de prompts partagée.
 
+Dans Stage 3, **Image-aware shot planning** (planification des plans à partir de l'image) suit aussi les **Video Prompting Instructions** (instructions de prompt vidéo) de la connexion vidéo. Remplis ce champ dans l'éditeur de connexion pour indiquer ce que ton modèle vidéo attend, par exemple le vocabulaire de caméra, la longueur du prompt ou les indications sonores.
+
 ### Valeurs par défaut globales et remplacements par chat
 
 Chaque chat peut remplacer les valeurs par défaut de l'agent. Dans **Chat Settings**, les valeurs héritées portent la mention **Using agent default**, et un bouton de réinitialisation apparaît dès que tu crées un remplacement.

@@ -20,12 +20,13 @@ El panel **Personas** es tu biblioteca de personas. Ábrelo desde el icono de pe
 
 El panel te ofrece estos controles:
 
-- **Open Full Library** (Abrir biblioteca completa) abre la Persona Library de página completa y adaptable. Usa el mismo diseño de cuadrícula y vista previa que la Character Library, con descripciones de personas, secciones de tarjeta, etiquetas y estimaciones de tokens (los tokens son fragmentos de texto).
+- **Download** (Descargar) abre el [Card Browser](bot-browser.md), donde también puedes encontrar personas en PlotLight.
+- **Open Library** (Abrir biblioteca) abre la Persona Library de página completa y adaptable. Usa el mismo diseño de cuadrícula y vista previa que la Character Library, con descripciones de personas, secciones de tarjeta, etiquetas y estimaciones de tokens (los tokens son fragmentos de texto).
 - **New** (Nuevo) crea una persona.
 - **Import** (Importar) abre la ventana **Import Persona**.
 - **Select** (Seleccionar) activa el modo de selección múltiple para que puedas actuar sobre muchas personas a la vez.
 - El cuadro de búsqueda, con el texto de ejemplo **Search personas** (Buscar personas), coincide con el nombre, la descripción, el comentario y las etiquetas.
-- El menú desplegable de orden ofrece **A-Z**, **Z-A**, **Newest** (Más recientes), **Oldest** (Más antiguas) y **Tokens** (tamaño estimado del prompt).
+- El menú desplegable de orden ofrece **Manual order** (Orden manual), **A-Z**, **Z-A**, **Newest** (Más recientes), **Oldest** (Más antiguas) y **Tokens** (tamaño estimado del prompt). **Manual order** conserva el orden que tú fijes: arrastra una fila hacia arriba o hacia abajo, o pulsa Alt+Arriba o Alt+Abajo en una fila con el foco. En una pantalla táctil, mantén pulsada una fila para tomarla.
 - **New Folder** (Nueva carpeta) crea una carpeta para organizar personas.
 - El chip **Tags** (Etiquetas) despliega la lista de etiquetas para filtrar.
 
@@ -82,7 +83,7 @@ La pestaña **Card** (Tarjeta) es donde escribes los campos centrales de la pers
 - **Personality** (Personalidad): tu temperamento, comportamiento, hábitos de habla y patrones emocionales.
 - **Backstory** (Trasfondo): tu historia, origen, relaciones y eventos formativos.
 - **Appearance** (Apariencia): descripción física, ropa y detalles visuales que el modelo debe recordar.
-- **Image Appearance Override** (Apariencia alternativa para imágenes): un interruptor opcional debajo de **Appearance**, desactivado de forma predeterminada. Actívalo para mostrar un segundo cuadro donde puedas escribir una descripción de tu persona pensada para generar imágenes. Si está activado y el cuadro contiene texto, los prompts de imagen usan ese texto en lugar de **Appearance**. Si está desactivado o el cuadro está vacío, siguen usando **Appearance**. El narrador siempre recibe el texto completo de **Appearance**.
+- **Image Appearance Override** (Apariencia alternativa para imágenes): un interruptor opcional debajo de **Appearance**, desactivado de forma predeterminada. Actívalo para mostrar un segundo cuadro para etiquetas de imagen breves que describan a tu persona, como la palabra de activación de una LoRA. Si está activado y el cuadro contiene texto, los prompts de imagen usan esas etiquetas tal como están escritas y mantienen **Appearance** como contexto de fondo. El narrador siempre recibe el texto completo de **Appearance**.
 - **Scenario** (Escenario): tu situación o contexto predeterminado para los roleplays. Úsalo para establecer dónde empieza tu persona.
 
 Estos cuadros de texto admiten macros. Los caracteres de comilla que escribes se formatean automáticamente para coincidir con el estilo de comillas de tu app.
@@ -119,11 +120,11 @@ Deja cualquiera de estos en blanco para usar los colores del tema predeterminado
 La pestaña **Stats** (Estadísticas) tiene dos bloques separados. Ambos alimentan la pantalla de estadísticas en pantalla (HUD, la barra de estado en pantalla) durante el chat.
 
 - **Enable Persona Stats** (Activar estadísticas de la persona) activa barras de estado para necesidades como hambre, energía y ánimo. Cuando lo activas de nuevo, obtienes barras iniciales para Satiety (Saciedad), Energy (Energía), Hygiene (Higiene) y Mood (Ánimo), cada una en 100 de 100. El agente **Persona Stats** ajusta estos valores a medida que avanza la historia.
-- **Enable RPG Attributes** (Activar atributos RPG) activa las estadísticas estilo RPG y los HP. Cuando lo activas de nuevo, obtienes atributos iniciales STR, DEX, CON, INT, WIS y CHA, cada uno en 10. El agente **Character Tracker** puede ajustarlos a partir de eventos de combate y de la narrativa.
+- **Enable RPG Attributes** (Activar atributos RPG) activa los Pools y los Attributes de estilo RPG. Cuando lo activas de nuevo, obtienes Pools iniciales de HP y MP en 100 de 100 y Attributes iniciales STR, DEX, CON, INT, WIS y CHA en 10. Estos valores se envían con la tarjeta de la persona para el combate y Game Mode, y para las tiradas opcionales en Roleplay o Game Mode. Los agentes de seguimiento no los actualizan.
 
-Los valores que estableces aquí son los predeterminados de inicio para los chats nuevos. No se actualizan por sí solos. Las actualizaciones automáticas necesitan que el agente correspondiente esté activado para el chat. Para la explicación completa, consulta [Colores de personaje y estadísticas RPG](colors-and-stats.md).
+Cuando hay instalado un conjunto de reglas de Game Mode, o la persona todavía conserva una ficha de un conjunto de reglas que ya no tienes, aparece un bloque **Ruleset sheets** (Fichas de conjuntos de reglas) debajo de estos dos. Contiene la configuración inicial de tu persona para cada conjunto de reglas, que copia cada partida nueva con ese conjunto de reglas. Consulta [Fichas de conjuntos de reglas](colors-and-stats.md#ruleset-sheets).
 
-Cuando hay un conjunto de reglas de Game Mode instalado, o la persona conserva una de sus fichas, aparece **Ruleset sheets** debajo de ambas secciones. Es la configuración inicial por conjunto que se copia a cada partida nueva. Consulta [Fichas de conjuntos de reglas](colors-and-stats.md#ruleset-sheets).
+Los valores que estableces aquí son los predeterminados de inicio para los chats nuevos. Las Persona Status Bars pueden actualizarse automáticamente cuando el agente Persona Stats está activado; los Pools y los Attributes RPG de la persona no los gestiona ningún agente. Para la explicación completa, consulta [Colores de personaje y estadísticas RPG](colors-and-stats.md).
 
 ## Historial de versiones
 
@@ -165,8 +166,8 @@ Cada archivo muestra un icono de éxito o de fallo y un mensaje. Una línea de r
 
 Puedes exportar desde el icono **Export persona** en el **Persona Editor**, o con la acción en bloque **Export** en el modo de selección del panel. La ventana **Export Persona** ofrece dos formatos:
 
-- **Native** (Nativo): conserva todos los datos de persona de Marinara, los sprites y los lorebooks adjuntos. Usa esto para mover una persona entre instalaciones de Marinara.
-- **Compatible**: exporta solo los campos simples de la persona. Usa esto para otras herramientas que no entienden el formato de Marinara.
+- **Marinara Native** (Nativo de Marinara): conserva todos los datos de persona de Marinara, los sprites y los lorebooks adjuntos. Usa esto para mover una persona entre instalaciones de Marinara.
+- **Compatible JSON** (JSON compatible): exporta solo los campos simples de la persona. Usa esto para otras herramientas que no entienden el formato de Marinara.
 
 Una exportación en bloque descarga un solo archivo zip con un archivo por cada persona seleccionada.
 

@@ -1,6 +1,6 @@
 # Zarządzanie listą czatów
 
-Z tego przewodnika dowiesz się, jak działa lista czatów w aplikacji Marinara Engine. Opisuje on trzy zakładki trybów oraz tworzenie, importowanie, zmianę nazwy, usuwanie, porządkowanie, wyszukiwanie i zbiorcze zarządzanie czatami. Znajdziesz tu też opis wiersza z ostatnimi czatami na ekranie startowym.
+Z tego przewodnika dowiesz się, jak działa lista czatów w aplikacji Marinara Engine. Opisuje on trzy zakładki trybów oraz tworzenie, importowanie, zmianę nazwy, usuwanie, porządkowanie, wyszukiwanie i zbiorcze zarządzanie czatami. Znajdziesz tu też opis widgetu z ostatnimi czatami na ekranie startowym.
 
 ## Lista czatów i zakładki trybów
 
@@ -81,7 +81,7 @@ Aby zmienić nazwę folderu, kliknij go dwukrotnie, dotknij dwukrotnie albo zazn
 
 Aby usunąć folder, kliknij przycisk kosza w jego wierszu. Potwierdza to okno o tytule **Delete Folder**. Usunięcie folderu nigdy nie usuwa czatów, które są w środku. Te czaty wracają na poziom główny.
 
-Aby zmienić kolejność folderów, przeciągaj je w górę i w dół za uchwyt.
+Aby zmienić kolejność folderów, przeciągnij wiersz folderu w górę lub w dół. W miejscu, w którym wyląduje, otwiera się luka. Menu sortowania przełącza się wtedy na **Custom** (własna), które zachowuje twoją kolejność folderów.
 
 Aby przenieść czat do folderu, przeciągnij jego wiersz na ten folder. Aby wyjąć czat ze wszystkich folderów, przeciągnij go na pusty obszar pod folderami. Na ekranie dotykowym naciśnij i przytrzymaj czat przez mniej więcej pół sekundy, żeby zacząć przeciąganie. Gdy zaznaczonych jest kilka czatów, przeciągnięcie jednego z nich przenosi całe zaznaczenie.
 
@@ -91,10 +91,13 @@ Czaty, które nie należą do żadnego folderu, są na zwykłej liście pod fold
 
 Każda zakładka trybu ma własne pole wyszukiwania u góry listy. Tekst zastępczy zmienia się zależnie od zakładki: **Search conversations...**, **Search roleplays...** albo **Search games...**. Wyszukiwanie obejmuje nazwę czatu, jego tagi oraz imiona postaci. Nie przeszukuje treści wiadomości.
 
-Obok pola wyszukiwania jest menu sortowania z podpowiedzią **Sort chats**. Ma cztery opcje:
+Obok pola wyszukiwania jest menu sortowania z podpowiedzią **Sort chats**. Ma takie opcje:
 
-- **Newest**, opcja domyślna, pokazuje najpierw czaty ostatnio aktywne.
-- **Oldest** pokazuje najpierw te najdawniej aktywne.
+- **Custom** zachowuje foldery w kolejności, w jakiej je przeciągnięto.
+- **Manual order** (kolejność ręczna) pozwala ułożyć czaty we własnej kolejności przez przeciąganie. Z klawiatury ustaw fokus na czacie i naciśnij Alt+strzałka w górę albo Alt+strzałka w dół.
+- **Recent** (ostatnie), opcja domyślna, pokazuje najpierw czaty ostatnio aktywne.
+- **Newest** pokazuje najpierw czaty utworzone najpóźniej.
+- **Oldest** pokazuje najpierw najstarsze czaty.
 - **A-Z** sortuje nazwy od A do Z.
 - **Z-A** sortuje nazwy od Z do A.
 
@@ -118,7 +121,7 @@ Aby wyjść z trybu zaznaczania bez żadnej akcji, kliknij przycisk wyboru ponow
 
 ## Ostatnie czaty na ekranie startowym
 
-Ekran startowy pokazuje kompaktowy wiersz **Recent Chats** (ostatnie czaty) z trzema ostatnio aktywnymi czatami. Każdy czat to mały kafelek z awatarem, plakietką trybu i nazwą czatu. Kliknij kafelek, żeby otworzyć ten czat. Gdy nie ma jeszcze żadnych czatów, w wierszu widnieje **No chats yet**.
+Ekran startowy ma widget **Recent chats** (ostatnie czaty) z ostatnio aktywnymi czatami. Każdy czat pokazuje swoją nazwę, plakietkę trybu i ostatnią wiadomość. Kliknij czat, żeby go otworzyć, albo kliknij puste miejsce widgetu, żeby otworzyć listę czatów. Gdy nie ma jeszcze żadnych czatów, widget pokazuje napis **Your chats will show here**. Zobacz [Widgety ekranu głównego](../home/welcome.md#home-widgets).
 
 ## Powiązane przewodniki
 

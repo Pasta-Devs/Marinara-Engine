@@ -40,14 +40,14 @@ Para resolver, abra o painel **Connections** (conexões), expanda a seção **De
 
 ## A seção Gallery
 
-A **Gallery** tem duas abas, **Images** e **Videos**. Cada aba mostra a quantidade de itens que guarda. A aba **Videos** só aparece quando os vídeos de cena estão ativados para o chat.
+A **Gallery** tem duas abas, **Images** e **Videos**. Cada aba mostra a quantidade de itens que guarda. A aba **Videos** guarda os vídeos de cena nos chats de Roleplay e de Game, e as mensagens de vídeo nos chats de Conversation.
 
 No topo da seção, os botões de ação aparecem apenas quando o recurso correspondente se aplica ao chat:
 
 - **Illustrate**: executa o agente Illustrator para uma imagem avulsa da cena. Veja [Agente Illustrator](illustrator-agent.md).
 - **Selfie**: gera uma selfie do personagem no Conversation Mode.
 - **Background**: gera e aplica um plano de fundo de cena, como descrito acima.
-- **Video**: cria um vídeo de cena a partir da última ilustração.
+- **Video**: cria um vídeo de cena a partir da última ilustração. No Conversation Mode, ele envia uma mensagem de vídeo de um personagem; veja [Mensagens de vídeo](../conversation/selfies.md#video-messages).
 - **Create storyboard**: gera os quadros-chave do último turno do Game Mode ou de um episódio de Roleplay concluído, quando o Storyboard está ativo.
 - **Browse Images**: abre um navegador das imagens salvas para inserir.
 - **View storyboard**: abre o storyboard mais recente do Game Mode.
@@ -59,17 +59,30 @@ Abaixo dos botões fica a área **Upload Images** (enviar imagens). Arraste imag
 Passe o ponteiro sobre qualquer imagem da aba **Images**, ou toque nela no celular, para revelar as ações:
 
 - Abrir a imagem em tamanho real (**Open gallery image**).
-- **Pin to chat**: fixa a imagem no chat.
+- **Pin to chat**: fixa a imagem no chat como uma imagem flutuante. Arraste-a para movê-la e use a alça do canto para redimensioná-la. Ela mantém o lugar e o tamanho quando você recarrega a página neste navegador. O botão de trava ao lado do botão de dispensar impede que ela seja movida ou redimensionada até você destravá-la.
 - **Download image**: salva a imagem no dispositivo.
 - **Animate illustration**: transforma essa imagem em um vídeo de cena.
 - **Copy prompt**: copia o prompt salvo da imagem, ou seja, o texto que Marinara envia para a IA. Se a imagem não tiver um prompt salvo, aparece **No prompt saved** e o botão fica desativado.
 - **Delete gallery image**: exclui a imagem depois da sua confirmação.
 
+<a id="regenerating-an-image"></a>
+
+### Gerar uma imagem de novo
+
+Você pode gerar de novo uma imagem sem gerar de novo a resposta a que ela pertence. Isso funciona com as imagens da galeria do chat que têm um prompt salvo, como ilustrações, selfies e quadros de storyboard.
+
+1. Abra a imagem em tamanho real, pela galeria ou pela mensagem em que ela está.
+2. Clique em **Regenerate image** (gerar a imagem de novo), o botão de seta circular no canto superior direito da imagem.
+3. Mude o que quiser nas caixas abaixo da imagem: **Prompt**, **Negative prompt** (prompt negativo), uma caixa para cada personagem em **Character prompts** (prompts de personagem), quando a imagem os tinha, e a **Image connection** (conexão de imagem).
+4. Clique em **Generate image** (gerar imagem), ou em **Cancel** (cancelar) para deixar a imagem como está.
+
+A imagem nova substitui a antiga na mensagem. A antiga continua na galeria, então você pode fixá-la de novo. As imagens de referência são enviadas de novo a partir dos avatares atuais dos personagens. Algumas imagens mais antigas não salvaram o prompt negativo e os prompts de personagem; o editor avisa quando é o caso.
+
 ## Revisar o prompt antes do envio
 
 Você pode conferir e editar o prompt antes que o Marinara envie o pedido de plano de fundo ao provedor de imagens.
 
-1. Abra **Settings**, depois **Generations**, depois **Image Generation**.
+1. Abra **Settings**, depois **Generations**, depois **Overall Generations**.
 2. Ative a opção **Expose media prompts before sending**.
 
 Com essa configuração ativada, a janela **Review Image Prompt** abre antes de cada pedido ser enviado. O texto de ajuda dela diz: "Edit the prompt below before Marinara sends the image request to your provider."

@@ -115,7 +115,7 @@ O mesmo indicador aparece abaixo do indicador de contexto no seletor de conexão
 - Onde conseguir a chave: `https://console.x.ai`
 - URL base padrão: `https://api.x.ai/v1`
 
-**xAI / Grok** mantém os modelos Grok. Ao escolher esse provedor na janela **Create Connection**, Marinara já preenche o modelo com Grok 4.5. Você pode trocar o modelo depois. Grok 4.6 e 4.7 oferecem uma janela de contexto de 500.000 tokens e raciocínio até **Maximum** (`xhigh`). Eles têm suporte às ferramentas existentes do chat, incluindo **Web Search** (pesquisa na web), para que os resultados de pesquisa possam ser usados na resposta final.
+**xAI / Grok** mantém os modelos Grok. Ao escolher esse provedor na janela **Create Connection**, Marinara já preenche o modelo com Grok 4.5. Você pode trocar o modelo depois. Grok 4.6 e 4.7 oferecem uma janela de contexto de 500.000 tokens e raciocínio até **Extra high** (`xhigh`). Eles têm suporte às ferramentas existentes do chat, incluindo **Web Search** (pesquisa na web), para que os resultados de pesquisa possam ser usados na resposta final.
 
 ## Arli AI
 
@@ -138,7 +138,7 @@ O mesmo indicador aparece abaixo do indicador de contexto no seletor de conexão
 
 **DeepSeek** oferece os próprios modelos de chat, `deepseek-flash` e `deepseek-v4-pro`. Depois de colar a chave, o menu suspenso **Model** lista esses modelos, e **Fetch Models from API** atualiza a lista a partir da sua conta.
 
-A DeepSeek usa raciocínio por padrão. Nesse provedor, o ajuste **Reasoning Effort** usa os níveis próprios da DeepSeek – **Low**, **High** e **Maximum** – e **Off** (desativado) desliga o raciocínio naquela requisição. Não existe **Medium**: a DeepSeek trata uma requisição de nível médio como High, então Marinara oferece High em vez de um segundo botão que faria a mesma coisa. O raciocínio aparece na resposta, exibido da forma habitual.
+A DeepSeek usa raciocínio por padrão. Nesse provedor, o ajuste **Reasoning Effort** usa os níveis próprios da DeepSeek – **Low**, **High** e **Max** – e **Off** (desativado) desliga o raciocínio naquela requisição. Não existe **Medium**: a DeepSeek trata uma requisição de nível médio como High, então Marinara oferece High em vez de um segundo botão que faria a mesma coisa. O raciocínio aparece na resposta, exibido da forma habitual.
 
 Alguns ajustes do painel de parâmetros não se aplicam à DeepSeek, por isso o painel os deixa de fora em vez de fingir que funcionam. **Verbosity**, **Top K** e as penalidades estão entre eles: a DeepSeek descontinuou esses ajustes e os ignora. **Temperature** (temperatura) e **Top P** formam um par – a DeepSeek só usa um de cada vez, dependendo de estar raciocinando ou não – e por isso você vê **Temperature** quando o raciocínio está desativado e **Top P** quando está ativado.
 
@@ -234,7 +234,7 @@ O que um modelo de decisão faz, como escolher um e a configuração completa es
 - **PocketTTS**: um servidor de voz gratuito que roda no seu próprio computador.
 - **xAI Voice**: o serviço de voz da xAI.
 
-Cada fonte preenche uma URL base e um modelo padrão. **Default Voice** (voz padrão) é a voz usada quando nada mais específico, como uma voz por personagem, está definido. Para escolher qual conexão de áudio Marinara usa por padrão, abra o painel **Connections**, expanda **Defaults** (padrões) e escolha a conexão em **Audio**.
+Cada fonte preenche uma URL base e um modelo padrão. **Default Voice** (voz padrão) é a voz usada quando nada mais específico, como uma voz por personagem, está definido. **Request timeout (seconds)** (tempo limite da requisição, em segundos) é quanto tempo Marinara espera por uma fala, 60 segundos por padrão; aumente esse valor para um servidor de voz lento. Para escolher qual conexão de áudio Marinara usa por padrão, abra o painel **Connections**, expanda **Defaults** (padrões) e escolha a conexão em **Audio**. Para ler mensagens em voz alta com uma delas, escolha-a como **Source** (origem) no card **Text to Speech**. Veja [Usar uma conexão de áudio](../media/tts-setup.md#use-an-audio-connection).
 
 Com a fonte **ElevenLabs**, aparecem mais dois botões liga/desliga: **Game sound effects** (efeitos sonoros do jogo) e **Game music** (música do jogo). Eles permitem que o Game Mode crie efeitos sonoros e música com essa conexão. Veja [Efeitos sonoros e música gerados](../game/game-assets.md#generated-sound-effects-and-music). Para vozes e leitura de mensagens em voz alta, veja [Configuração de Text to Speech (TTS)](../media/tts-setup.md).
 
@@ -243,6 +243,8 @@ Com a fonte **ElevenLabs**, aparecem mais dois botões liga/desliga: **Game soun
 Os embeddings são a base da busca semântica dos lorebooks e do **Memory Recall**. Eles transformam texto em listas de números, e assim Marinara encontra as entradas relacionadas. Na maioria dos provedores de chat, você define um **Embedding Model** (modelo de embedding) e, se quiser, uma **Embedding Endpoint URL** (URL do endpoint de embedding) no editor de conexão.
 
 Alguns provedores não geram embeddings. **Anthropic**, **Claude (Subscription)**, **OpenAI (ChatGPT)** e **Grok CLI (Subscription)** não oferecem esse recurso. Nesses casos, use o menu suspenso **Embedding Connection** (conexão de embedding) para emprestar outra conexão, como uma compatível com OpenAI, **Google Gemini** ou o **Local Model** embutido.
+
+Para usar uma mesma fonte de embedding em todas as conexões que não têm configurações de embedding próprias, abra o painel **Connections**, expanda **Defaults** e escolha a fonte em **Embeddings**. **None (built-in local model)** (nenhuma: modelo local embutido) mantém o modelo local de embedding embutido. O modelo de embedding próprio de uma conexão, ou a **Embedding Connection** dela, continua tendo prioridade. Vetorize de novo os seus lorebooks e memórias depois de mudar essa opção. Veja [Busca semântica para lorebooks](../lorebooks/semantic-search.md).
 
 ## Guias relacionados
 

@@ -303,6 +303,8 @@ node scripts/run-regressions.mjs --filter startup-inject-gate
 
 의도적으로 짧은 절입니다. 각 PR을 열 때 같은 다섯 부분으로 채웁니다.
 
+상태: PR A는 #6647로, PR B는 #6648로 병합되었습니다. PR C(#6649)는 병합되지 않고 닫혔으며, PR D부터 H까지는 별도 pull request로 열리지 않았습니다. 아래 C부터 H까지의 절은 작성 당시의 계획을 설명하므로, 이 형태 그대로 출시된 기능으로 읽지 마세요.
+
 <a id="pr-b-dev-mcp-for-coding-assistants"></a>
 
 ## PR B: 코딩 도우미용 Dev MCP

@@ -72,12 +72,12 @@ packages/client/src/localization/locales/en.json
 只是改几个措辞的话，用 GitHub 的网页编辑器就够了：
 
 1. 打开
-   [`ui/`](https://github.com/Pasta-Devs/Marinara-Engine/tree/docs-i18n/ui) 里的语言文件。
+   [`docs-i18n` 上的 `ui/`](https://github.com/Pasta-Devs/Marinara-Engine/tree/docs-i18n/ui) 里的语言文件。
 2. 点击铅笔图标编辑文件。需要时 GitHub 会提示先创建一个 fork。
 3. 只改译文的值。键名、`{{name}}` 这类对标点敏感的标记以及 JSON
    语法都要原样保留。
 4. 把改动提交到 fork 里一个专门的分支上。
-5. 使用下面的命令刷新语言包清单并验证，然后向 **`docs-i18n`** 发起拉取请求，不要以 `staging` 或 `main` 为目标。 ([`validate-packs.mjs`](#%E6%8F%90%E4%BA%A4%E4%B8%80%E7%A7%8D%E6%96%B0%E8%AF%AD%E8%A8%80%E7%9A%84%E7%BF%BB%E8%AF%91))
+5. 使用下面的命令刷新语言包清单并验证，然后向 **`docs-i18n`** 发起拉取请求，不要以 `staging` 或 `main` 为目标。
 6. 在 PR 描述里写明语言、修正后的含义，以及自己是母语者还是借助了机器翻译。
 
 标题写成 `Improve French UI translation` 这样的形式。同一种语言的多处相关修正可以合并到一个 PR 里。无关的代码改动要单独提。
@@ -85,8 +85,6 @@ packages/client/src/localization/locales/en.json
 ## 提交一种新语言的翻译
 
 添加新语言时，请保留一份 Engine 的 `staging` 工作副本作为英语源文件，并在 `docs-i18n` 上工作：
-
-`/path/to/Engine` 指已存在的独立 `staging` 分支工作副本，其中包含 `packages/client/src/localization/locales/en.json`。以下命令会另行创建用于翻译的工作副本。
 
 ```bash
 git clone https://github.com/YOUR-NAME/Marinara-Engine.git
@@ -140,6 +138,8 @@ pnpm localization:ui-check
 ```
 
 检查范围包括可见的 JSX、直接插值的标签和提示、无障碍名称、占位文字、加载和空状态、toast 提示以及确认框。`code`、`pre`、`script` 和 `style` 元素内部的字面内容有意不在检查范围内，这样命令、配置、URL、宏和其他面向机器的示例才能保持精确。动态的用户创作内容、生成内容、持久化内容、提示词和协议值，同样必须留在界面翻译器之外。
+
+设置搜索、omnibar 和 Professor Mari 从 `packages/client/src/lib/settings-registry.ts` 的 `SETTINGS_SEARCHABLE_CONTROLS` 读取设置名称。那里的每个控件都在英文 `label` 和 `description` 旁边带有 `labelKey` 和 `descriptionKey`。如果控件的英文文字相同，就复用它已有的键；否则在 `en.json` 里添加 `settings.search.<id>.label` 或 `.description`，控件 id 用 camelCase(例如 `settings.search.hideChatHelpButton.description`)。如果某个控件没有键、某个键在 `en.json` 里缺失，或者注册表里的英文与 `en.json` 的文字不再一致，`pnpm localization:check` 就会失败。
 
 ## 可下载智能体的界面
 

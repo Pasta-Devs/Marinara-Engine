@@ -25,7 +25,26 @@ TTS를 켜기만 해서는 아무것도 말하지 않습니다. 각 메시지의
 
 기본 Source는 **OpenAI-compatible**입니다. Marinara는 Source마다 별도의 프로필을 저장하며, 암호화된 API 키, 엔드포인트, 모델, 목소리, 제공자 파라미터가 모두 여기에 들어갑니다. Source를 바꾸면 그 Source에서 쓰던 설정이 그대로 되살아납니다. 아직 설정한 적 없는 Source는 기본값에서 시작합니다.
 
+<a id="use-an-audio-connection"></a>
+
+### 오디오 연결 사용하기
+
+**Audio**(오디오) 연결을 이미 설정했다면([지원하는 AI 제공자](../connections/providers-reference.md#audio) 참고) 여기서 연결 정보를 다시 입력할 필요가 없습니다. 오디오 연결은 **Source** 드롭다운의 **Audio connections**(오디오 연결) 아래에 나열되며, 각 연결 옆 괄호 안에 소스 종류가 표시됩니다.
+
+1. **Source** 드롭다운을 열고 연결을 고르세요.
+2. 평소처럼 아래에서 목소리와 나머지 설정을 고르세요.
+
+그러면 Marinara는 그 연결의 Base URL, API 키, 모델, **Request timeout (seconds)**를 사용해 말하므로 카드에서는 이 입력란들이 숨겨집니다. 키는 연결 안에 머뭅니다. 카드 설정으로 복사되지 않고 브라우저로 보내지지도 않습니다. 새 키처럼 연결에서 바꾼 내용은 바로 반영됩니다.
+
+목소리, 속도, 그 밖의 음성 설정은 연결마다 따로 저장됩니다. OpenAI-compatible 서버 두 개처럼 종류가 같은 연결끼리도 이 설정을 공유하지 않습니다. 일반 Source 4가지의 설정은 그대로 남아 있으므로 언제든 되돌아갈 수 있습니다. 카드 헤더의 스위치로는 여전히 TTS를 켜고 끄며, 게임 자체의 오디오 연결은 여전히 그 게임의 효과음과 음악을 만듭니다.
+
+고른 연결이 삭제되었거나 쓸 수 없으면 카드에 **Missing Audio connection**(오디오 연결 없음)이 표시되고, 다른 Source를 고를 때까지 아무것도 읽지 않습니다. Marinara는 절대 다른 연결로 알아서 바꾸지 않습니다.
+
+연결이 목소리 목록을 제공하면, 저장된 목소리 중 그 목록에 없는 것이 있을 때 카드가 그 이름을 알려 주므로 연결이 제공하는 목소리를 고를 수 있습니다.
+
 ## 2단계: Base URL, API Key, Model 입력하기
+
+Source로 오디오 연결을 골랐다면 이 단계는 건너뛰세요. Marinara가 연결 자체의 설정을 사용합니다.
 
 Source마다 웹 주소가 필요하고, 대부분은 API 키도 필요합니다. API 키는 제공자가 발급하는 비밀 문자열로, 그 요청이 본인의 것임을 증명합니다.
 
@@ -49,6 +68,16 @@ Source별 기본값은 다음과 같습니다.
 PocketTTS는 Marinara Engine에 내장되지 않았습니다. [공식 PocketTTS 서버](https://github.com/kyutai-labs/pocket-tts)를 별도로 설치한 뒤 `uvx pocket-tts serve`로 시작하세요. Marinara가 대신 다운로드하거나 관리하지 않습니다.
 
 공식 서버는 기본적으로 `http://localhost:8000`을 사용합니다. 호스트나 포트를 바꾸지 않았다면 **Base URL**을 그대로 두세요. Marinara가 공식 multipart `/tts` API를 자동 감지합니다. [OpenAI 호환 PocketTTS 래퍼](https://github.com/teddybear082/pocket-tts-openai_streaming_server)에 쓰던 사용자 지정 URL도 계속 지원합니다.
+
+<a id="request-timeout"></a>
+
+### 요청 타임아웃
+
+기본적으로 Marinara는 읽어 줄 대사 한 줄마다 최대 60초를 기다립니다. 내 컴퓨터, 특히 노트북에서 돌아가는 음성 서버는 긴 대사를 처리하는 데 시간이 더 걸릴 수 있습니다. 더 오래 기다리게 하려면 카드의 **Model** 아래에 있는 **Request timeout (seconds)**(요청 타임아웃, 초) 값을 늘리세요. 10초에서 3,600초까지 설정할 수 있습니다.
+
+오디오 연결에는 연결 편집기의 **Default Voice**(기본 음성) 아래에 따로 **Request timeout (seconds)** 입력란이 있습니다. 카드의 **Source**로 고른 연결을 포함해, 채팅이 오디오 연결을 통해 말할 때는 그 연결의 한도를 사용합니다. 카드의 한도는 **Preview** 버튼을 포함해 카드 자체 설정으로 읽는 음성에 적용됩니다.
+
+대사 한 줄이 너무 오래 걸리면 오류 메시지에 Marinara가 몇 초를 기다렸는지와 어떤 설정을 늘려야 하는지가 나옵니다.
 
 ## 3단계: 목소리 고르기(Voice Option)
 
@@ -168,15 +197,18 @@ TTS를 켜면 캐릭터 메시지와 서술 메시지 아래 도구 모음에 **
 
 ## 문제 해결
 
+- 카드에 **Missing Audio connection**이 표시될 때: Source로 고른 오디오 연결이 삭제되었거나 쓸 수 없습니다. 다른 Source를 고르세요. [오디오 연결 사용하기](#use-an-audio-connection)를 참고하세요.
 - 아무 소리도 나지 않을 때: 먼저 **Enable TTS** 스위치가 켜져 있는지 확인하세요. 그다음 해당 모드의 **Auto-play** 토글을 확인하거나 메시지별 **Speak** 버튼을 쓰세요. **Speak** 버튼과 자동 재생 항목은 TTS를 켠 뒤에만 나타납니다.
 - 드롭다운에 목소리가 없을 때: TTS를 켜고, 제공자가 키를 요구한다면 올바른 API 키를 넣은 상태로 카드를 저장한 다음 **Refresh voices**를 클릭하세요. 공식 PocketTTS 서버는 목소리 목록 엔드포인트가 없으므로 Marinara의 내장 목록을 사용합니다. 호환 PocketTTS 래퍼라면 `<Base URL>/v1/voices`가 응답하는지 확인하세요.
 - ElevenLabs가 말하지 않을 때: "Select an ElevenLabs voice" 자리표시자가 아니라 실제 목소리를 골랐는지 확인하세요. **Model**이 ID에 `ttv`가 들어간 목소리 디자인 모델이 아니라 음성 합성 모델인지도 확인하세요.
+- 대사가 **No audio after 60 s**로 멈출 때: 음성 서버에 시간이 더 필요합니다. 메시지가 알려 주는 곳에서 **Request timeout (seconds)** 값을 늘리세요. [요청 타임아웃](#request-timeout)을 참고하세요.
 - 로컬 주소의 자체 TTS 서버가 차단될 때: 서버 설정 `TTS_LOCAL_URLS_ENABLED`를 켜세요. 이 설정을 켜면 앱이 OpenAI-compatible 방식이나 ElevenLabs 방식 서버의 로컬 주소, 사설 주소에 접근할 수 있습니다. PocketTTS에는 이 설정이 필요 없습니다. [서버 설정 참고 문서](../CONFIGURATION.md)를 참고하세요.
 - 설정을 빠르게 시험해 보려면: 카드의 **Preview**(미리 듣기) 버튼을 클릭해 현재 설정으로 짧은 예시 문장을 재생해 보세요.
 
 ## 관련 가이드
 
 - [Conversation 음성 통화와 영상 통화](../conversation/calls.md)
+- 2D와 3D 아바타를 위한 [음성 합성과 립싱크](../agents/avatars.md#lip-sync-with-text-to-speech)
 - [Roleplay Mode: 시작하기](../roleplay/getting-started.md)
 - [Game Mode: 시작하기](../game/getting-started.md)
 - [지원하는 AI 제공자](../connections/providers-reference.md)

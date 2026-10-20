@@ -16,6 +16,8 @@ Pakiety językowe interfejsu pobiera się osobno i ręcznie. Przy pierwszej aktu
 
 Gdzie leżą dane i jak zapisać ich kopię, opisuje przewodnik [Kopia zapasowa i przywracanie danych aplikacji Marinara](data/backup-and-restore.md).
 
+<a id="back-up-first"></a>
+
 ## Najpierw kopia zapasowa
 
 Aktualizacje są bezpieczne, ale kopia zapasowa to tania polisa. Warto ją zrobić przed każdym większym skokiem między wersjami.
@@ -29,6 +31,14 @@ Aktualizacje są bezpieczne, ale kopia zapasowa to tania polisa. Warto ją zrobi
 Na czas pracy napis na przycisku zmienia się na **Creating backup…**. Po zakończeniu przeglądarka zapisuje archiwum `.zip` z danymi.
 
 Pełne kroki tworzenia i przywracania kopii zapasowej znajdziesz w przewodniku [Kopia zapasowa i przywracanie danych aplikacji Marinara](data/backup-and-restore.md).
+
+## Aktualizacja z wersji 2.5.0
+
+Kroki dla poszczególnych platform poniżej są takie same jak wcześniej. Kilka zmian może jednak dotyczyć serwera, z którego korzystają inne urządzenia lub inne osoby:
+
+- **Odwrotne proxy albo tunel na tym samym komputerze.** Domyślnie goście, których nginx, Caddy, Cloudflare Tunnel, Tailscale Serve lub ngrok przekazują do aplikacji Marinara Engine, liczą się teraz jako zdalni. Bez Basic Auth widzą stronę konfiguracyjną, a kopie zapasowe i inne chronione działania wymagają sekretu administratora. Zobacz [Odwrotne proxy i tunele na tym samym komputerze](REMOTE_ACCESS.md#reverse-proxies-and-tunnels-on-the-same-computer).
+- **Docker z hasłem albo listą dozwolonych adresów.** Przy ustawionym Basic Auth przeglądarka na komputerze z serwerem też prosi teraz o logowanie. Przy samym `IP_ALLOWLIST` przeglądarka na tym komputerze jest odrzucana, chyba że dopiszesz do listy bramę kontenera, więc zamiast tego użyj Basic Auth. Zobacz [Pominięcie dla sieci Tailscale i kontenerów Docker](REMOTE_ACCESS.md#tailscale-and-docker-bypass).
+- **Czaty i profile przeniesione do innej instalacji.** Zapis czatu, profil ustawień ani pełny profil nie przenoszą już do innej instalacji wartości **Discord Mirror**, **DeepLX URL** (adres DeepLX), **DeepL API Key** (klucz API DeepL) ani **Intiface URL** (adres Intiface). Wpisz je tam ponownie. Twoje własne profile ustawień oraz pełny profil przywrócony w tej samej instalacji je zachowują.
 
 ## Aktualizacja według platformy
 
@@ -155,7 +165,7 @@ Przycisk **Apply Update** (instalacja aktualizacji) pojawia się tylko wtedy, gd
 - Instalacja oparta na Git (instalacje Docker i pakietowe nie potrafią tego zrobić).
 - Właściciel serwera ustawił `UPDATES_APPLY_ENABLED=true` w pliku `.env` serwera. Plik `.env` przechowuje ustawienia serwera.
 
-Jeśli klikasz przycisk **Apply Update** na urządzeniu, które uruchamia serwer, to wystarczy. Żaden sekret nie jest tam potrzebny.
+Jeśli klikasz przycisk **Apply Update** na urządzeniu, które uruchamia serwer, to wystarczy. Żaden sekret nie jest tam potrzebny. Chodzi o otwarcie aplikacji Marinara Engine pod adresem `http://127.0.0.1:7860` albo `http://localhost:7860`; to samo dotyczy opisanej wyżej zmiany kanału. Domyślnie adres udostępniany przez odwrotne proxy lub tunel liczy się jako inne urządzenie, nawet na tym samym komputerze. Ustawienie `REQUIRE_AUTH_FOR_LOOPBACK_PROXY=false` traktuje takich przekazanych gości jak lokalnych, łącznie z lokalnym pominięciem sekretu administratora; przy publicznym proxy lub tunelu zostaw tę ochronę włączoną.
 
 Instalowanie aktualizacji z innego urządzenia jest domyślnie wyłączone. Wymaga wszystkich trzech poniższych warunków.
 
@@ -183,11 +193,21 @@ Użyj przycisku **Refresh App**, kiedy aplikacja wygląda na nieodświeżoną al
 
 Na czas pracy przycisk pokazuje **Refreshing…**, a potem aplikacja przeładowuje się.
 
+<a id="downgrading-to-an-older-version"></a>
+
 ## Powrót do starszej wersji
 
 Aktualizacje są zawsze bezpieczne, ale bezpośredni powrót nie zawsze jest możliwy. Nowsze wersje Marinara Engine zapisują wiadomości czatu w nowszym formacie na dysku, którego wersja starsza niż format danych nie potrafi odczytać. Aby chronić historię czatów, program uruchamiający pomija automatyczne aktualizacje prowadzące do niezgodnej wersji, a aktualizator w aplikacji odmawia ich zastosowania.
 
 Jeśli mimo to potrzebujesz starszej wersji, jedno polecenie konwertujące najpierw przywróci stary format danych. Instrukcję znajdziesz w sekcji [Po przejściu na starszą wersję czaty nie pokazują wiadomości](TROUBLESHOOTING.md#chats-show-no-messages-after-switching-to-an-older-version).
+
+<a id="going-back-to-250"></a>
+
+### Powrót do wersji 2.5.0
+
+Wersja 2.5.0 używa tego samego formatu przechowywania danych co kolejne wersje, więc powrót do niej nie jest blokowany, a czaty otwierają się normalnie. Nie zna jednak danych dodanych przez nowsze funkcje: części ustawień połączeń, szczegółów potrzebnych do ponownego generowania obrazów w czacie oraz części punktów kontrolnych gry, zegarów zestawów zasad i wideo ze scen. Gdy wersja 2.5.0 zapisuje czat lub połączenie, na przykład gdy wysyłasz wiadomość, rozgrywasz turę gry, tworzysz obraz albo zmieniasz połączenie, usuwa te nowsze dane z całego czatu lub połączenia. Ponowna aktualizacja ich nie przywraca.
+
+Żeby móc wrócić dokładnie do obecnego stanu, zrób kopię zapasową przed aktualizacją. Zobacz [Najpierw kopia zapasowa](#back-up-first) i [Kopia zapasowa i przywracanie danych aplikacji Marinara](data/backup-and-restore.md).
 
 ## Gdy aktualizacja się nie powiedzie
 

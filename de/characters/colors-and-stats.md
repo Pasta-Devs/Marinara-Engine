@@ -28,6 +28,8 @@ Stell jede Farbe über das Farbfeld ein oder tippe einen Wert ein:
 
 Eine halbtransparente Farbe lässt den Hintergrund teilweise durch die Sprechblase scheinen. Das Format `rgba` steht für Rot, Grün, Blau und einen Alpha-Wert von 0 (durchsichtig) bis 1 (deckend).
 
+<a id="where-your-colors-show"></a>
+
 ## Wo die Farben auftauchen
 
 Jede Farbe wirkt an einer anderen Stelle im Chat:
@@ -61,28 +63,34 @@ Der zweite Block heißt **RPG Attributes** und wird über **Enable RPG Attribute
 
 ### Regelsatzbögen
 
-Mit einem installierten Regelsatz, etwa 5e (SRD 5.1), erscheint in beiden **Stats**-Reitern **Ruleset sheets** (Regelsatzbögen), mit einem aufklappbaren Eintrag je Regelsatz. Der Bereich bleibt auch sichtbar, wenn die Karte einen Bogen eines inzwischen fehlenden Regelsatzes enthält.
+Ist ein Game Mode-Regelsatz installiert, etwa 5e (SRD 5.1), bekommen beide **Stats**-Tabs unter den Bereichen oben einen Block **Ruleset sheets** (Regelsatzbögen). Er hat einen aufklappbaren Eintrag je installiertem Regelsatz. Der Block erscheint auch, wenn eine Karte noch einen Bogen für einen Regelsatz enthält, den du nicht mehr hast.
 
-1. Klapp einen Eintrag auf und klick auf **Add a sheet** (Bogen hinzufügen), um die Standardwerte zu übernehmen.
-2. Bearbeite Attribute, Abschnittsfelder, Angriffs- oder Zauberlisten sowie Ausbildung und Zusatzboni für Fertigkeiten und Rettungswürfe. Der Regelsatz bestimmt den Aufbau. Berechnete Werte wie Übungsbonus oder passive Wahrnehmung aktualisieren sich beim Bearbeiten und sind schreibgeschützt.
+1. Klapp den Eintrag auf und klick auf **Add a sheet** (Bogen hinzufügen). Du bekommst einen leeren Bogen, in dem jeder Wert auf dem Standard des Regelsatzes steht.
+2. Füll ihn aus. Der Aufbau kommt vom Regelsatz selbst: Attributswerte mit ihren Modifikatoren, nach Abschnitten gruppierte Felder, Listen wie Angriffe und Zauber sowie Fertigkeiten und Rettungswürfe mit je einer Ausbildungsstufe und einem Zusatzbonus. Berechnete Werte wie ein Übungsbonus oder die passive Wahrnehmung aktualisieren sich beim Tippen und lassen sich nicht bearbeiten.
 3. Speichere Charakter oder Persona wie gewohnt.
 
-Das ist die Startkonfiguration. Neue Spiele kopieren den Bogen; Änderungen im Spiel ändern die Karte nicht. **Add from catalog** (Aus Katalog hinzufügen) öffnet durchsuchbare Vorlagen für Zauber, Angriffe und Fähigkeiten. Hinzugefügte Zeilen sind bearbeitbare Kopien.
+Ein Bogen hier ist die **Startkonfiguration** des Charakters für diesen Regelsatz. Ein neues Spiel mit dem Regelsatz übernimmt eine Kopie davon. Änderungen im Spiel bleiben in diesem Spiel und gelangen nie zurück auf die Karte.
 
-Zahlen, die von Stufe oder Attributen abhängen, sind mit "Set by the ruleset" gekennzeichnet und werden beim Bearbeiten neu berechnet. Bei neueren Katalogtexten zeigt **Review** (Prüfen) gespeicherten und neuen Text nebeneinander. Mit **Update selected** (Auswahl aktualisieren) änderst du nur den Text ausgewählter Zeilen. Zahlen, Schalter, andere Spalten und nicht ausgewählte Zeilen bleiben erhalten.
+Manche Regelsätze bringen fertige Zauber, Angriffe und Merkmale mit. Listen, die sie füllen, haben eine Schaltfläche **Add from catalog** (Aus Katalog hinzufügen), die eine durchsuchbare Auswahl öffnet. Die Zeilen, die sie hinzufügt, sind Kopien, die du wie jede andere bearbeiten kannst. Daraus folgen zwei Dinge:
 
-Bögen fehlender Regelsätze bleiben gespeichert und werden mit der Karte exportiert, aber nicht an die KI geschickt. Nach erneuter Installation kannst du sie wieder bearbeiten; **Remove** entfernt sie. Ein Bogen darf höchstens 64 KB groß sein. Auch ein unlesbarer Bogen aus einer neueren Version bleibt erhalten. Dort gibt es nur **Remove this sheet**, damit ein neuer Bogen ihn nicht versehentlich überschreibt.
+- Eine Zelle, die der Regelsatz für dich verwaltet, etwa Anwendungen, die einem Attributswert folgen, oder eine Klassenressource, die mit deiner Stufe wächst, wird an Ort und Stelle angezeigt, lässt sich aber nicht bearbeiten und trägt den Hinweis „Set by the ruleset“. Sie wird bei jeder Bearbeitung aus dem Rest des Bogens neu berechnet.
+- Hat sich der Text des Regelsatzes für eine dieser Zeilen geändert, seit du sie ausgewählt hast, nennt eine Zeile unter der Liste, wie viele Zeilen neueren Text haben, zusammen mit der Schaltfläche **Review** (Prüfen). Die Prüfung zeigt jede Zeile mit dem Inhalt deines Bogens neben dem, was der Regelsatz sagt, und mit einem Häkchen pro Zeile. **Update selected** (Auswahl aktualisieren) schreibt nur die angehakten Zeilen. Verglichen wird nur Text: Zahlen, Schalter und alles, was du in eine andere Spalte getippt hast, bleiben unberührt, ebenso jede Zeile, deren Häkchen du entfernst.
 
-Bögen sind unabhängig von **Enable RPG Stats** und **Enable RPG Attributes**. Die eigenen Regeln von Marinara Engine ignorieren sie; Spiele mit Regelsatz verwenden sie anstelle der normalen Attribute für Proben.
+Ein Bogen für einen Regelsatz, den du nicht installiert hast, bleibt erhalten und wird nicht gelöscht. Er erscheint als eine Zeile mit der Schaltfläche **Remove** (Entfernen), wird nie an die KI geschickt und lässt sich wieder bearbeiten, sobald du den Regelsatz installierst. Beim Export reist er außerdem mit der Karte mit. Jeder Bogen darf höchstens 64 KB groß sein.
+
+Ein Bogen für einen installierten Regelsatz, den diese Version von Marinara nicht lesen kann – etwa einer, den eine neuere Version gespeichert hat –, bleibt ebenfalls unverändert erhalten. Sein Eintrag bietet nur **Remove this sheet** (diesen Bogen entfernen) an, damit ein neuer Bogen ihn nie versehentlich überschreibt.
+
+Regelsatzbögen sind unabhängig von **Enable RPG Stats** und **Enable RPG Attributes**. Ein Spiel mit den eigenen Regeln von Marinara ignoriert sie, und ein Spiel mit Regelsatz nutzt sie für seine Proben statt der Attribute oben.
 
 ## Wie Agenten die Werte aktualisieren
 
-Die Angaben im Tab **Stats** sind nur die Startwerte. Damit sich Werte während eines Chats ändern, schaltest du den passenden Agenten ein. Ein Agent ist ein KI-Helfer, der neben dem Chat mitläuft.
+Die Werte im Tab **Stats** werden zum Startzustand des Chats. Agenten können die unten beschriebenen Werte aktualisieren, die zu einem Tracker gehören. RPG Attributes wie STR und DEX sind Kontext der Karte und keine Tracker-Werte, die Agenten verwalten.
 
-- Der Agent **Character Tracker** passt die RPG-Werte des Charakters und die **RPG Attributes** der Persona an – abhängig von Kämpfen, Heilung und Ereignissen der Geschichte.
+- Der Agent **Character Tracker** passt die verfolgten Stats des Charakters an, einschließlich Pools wie HP – abhängig von Kämpfen, Heilung und Ereignissen der Geschichte. Die Persona des Spielers verfolgt er nicht.
 - Der Agent **Persona Stats** passt nach jeder Nachricht die **Persona Status Bars** an, je nachdem, was in der Geschichte passiert.
+- Die **RPG Attributes** von Charakteren und Personas werden mit ihrer Karte für Combat und Game Mode mitgeschickt sowie für optionale Würfe in Roleplay oder Game Mode. Agenten aktualisieren diese Attribute nicht.
 
-Ohne den passenden Agenten bleiben die Werte auf dem eingestellten Stand. Der Tab **Stats** allein aktualisiert nichts von selbst. Wie du diese Agenten einschaltest, steht in der Anleitung zu den mitgelieferten Agenten.
+Ohne den passenden Tracker-Agenten bleiben die Tracker-Werte auf dem eingestellten Stand. Der Tab **Stats** allein aktualisiert nichts von selbst. Wie du diese Agenten einschaltest, steht in der Anleitung zu den mitgelieferten Agenten.
 
 ## Wie die Werte im HUD erscheinen
 

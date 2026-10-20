@@ -262,6 +262,16 @@ Kaelen is his usual self.
 
 この例では「angry」「sad」「none of these」から選びます。短縮形も使え、`decision_choice:"The weather in the latest message" == "rain" || "snow"`は両方の選択肢を提示します。判定文は「Kaelen's mood in the latest message」のような主題として書き、選択肢はそれへの短い回答にしてください。
 
+選択肢が物語の中で何を意味するかをモデルに伝えるには、選択肢の後にコロンで区切って基準を加えます。
+
+```
+{{#if decision_choice:"Kaelen's mood in the latest message" == "angry":"Kaelen raises his voice, makes threats or breaks something"}}
+Kaelen's lines are short and clipped.
+{{/if}}
+```
+
+モデルは、基準を選択肢の説明として読みます。答えは引き続き「angry」で、比較の対象も「angry」のままです。2つの部分は同じ種類の引用符で囲んでください。引用符が異なると、Marinaraは「angry」を選択肢として読み取らず、比較は決して一致しません。基準の中では`{{char}}`などのマクロが使えます。基準のない選択肢はこれまでどおり提示されます。1つの選択肢に複数の場所で異なる基準を付けた場合は、最初のものが使われます。
+
 <a id="sticky-and-cooldown"></a>
 
 ### StickyとCooldown

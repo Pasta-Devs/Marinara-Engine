@@ -14,7 +14,7 @@ Scene background generation is available in Roleplay and Game modes.
 
 ## Galleryから背景を生成して適用する
 
-**Gallery**には、チャットの画像と動画が保存されます。**Chat Settings**(チャット設定)内のセクションなので、Chat Settingsを開いて**Gallery**を展開してください。コンピューターでは、独立したウィンドウとして切り離すこともできます([チャット設定の概要](../chats/chat-settings.md#popping-a-section-out-into-its-own-window)を参照)。**Background**(背景)ボタンを押すと、現在のシーンに合わせた背景を生成できます。
+**Gallery**には、チャットの画像と動画が保存されます。**Chat Settings**(チャット設定)内のセクションなので、Chat Settingsを開いて**Gallery**を展開してください。コンピューターでは、独立したウィンドウとして切り離すこともできます([Chat Settingsの概要](../chats/chat-settings.md#popping-a-section-out-into-its-own-window)を参照)。**Background**(背景)ボタンを押すと、現在のシーンに合わせた背景を生成できます。
 
 Roleplayでは、**Illustrator**エージェントをインストールした時点で**Background**ボタンが表示されます。チャットに追加する必要も、エージェントをオンにする必要もありません。**Illustrate**(イラスト生成)と同じく1回だけ動き、自動実行は始まりません。
 
@@ -40,14 +40,14 @@ Choose an image generation connection for the Illustrator agent, or mark one as 
 
 ## Galleryセクション
 
-**Gallery**には**Images**と**Videos**の2つのタブがあります。各タブには保持している項目数が表示されます。**Videos**タブは、そのチャットでシーン動画が有効なときだけ表示されます。
+**Gallery**には**Images**と**Videos**の2つのタブがあります。各タブには保持している項目数が表示されます。**Videos**タブには、RoleplayとGameのチャットではシーン動画が、Conversationのチャットでは動画メッセージが入ります。
 
 セクション上部の操作ボタンは、対応する機能がそのチャットで使えるときだけ表示されます。
 
 - **Illustrate**(イラスト生成): Illustratorエージェントを実行し、その場かぎりのシーン画像を作ります。[Illustratorエージェント](illustrator-agent.md)を参照してください。
 - **Selfie**(自撮り): Conversationモードでキャラクターの自撮り写真を生成します。
 - **Background**: 上で説明したとおり、シーン背景を生成して適用します。
-- **Video**(動画): 最新のイラストからシーン動画を作ります。
+- **Video**(動画): 最新のイラストからシーン動画を作ります。Conversationモードでは、代わりにキャラクターから動画メッセージを送ります。[動画メッセージ](../conversation/selfies.md#video-messages)を参照してください。
 - **Create storyboard**(絵コンテの作成): 絵コンテが有効なときに、Game Modeの最新のターン、または完了したRoleplayのエピソードのキーフレームを生成します。
 - **Browse Images**(画像を参照): 保存済みの画像を挿入するためのブラウザーを開きます。
 - **View storyboard**(絵コンテを表示): 最新のGame Modeの絵コンテを開きます。
@@ -59,17 +59,30 @@ Choose an image generation connection for the Illustrator agent, or mark one as 
 **Images**タブの画像にポインターを重ねる、またはモバイルでタップすると、その画像の操作が表示されます。
 
 - 画像を原寸で開く(**Open gallery image**)。
-- **Pin to chat**: 画像をチャットに固定します。
+- **Pin to chat**: 画像を浮かぶ写真としてチャットに固定します。ドラッグして動かし、角のハンドルで大きさを変えられます。このブラウザーでページを再読み込みしても、位置と大きさは保たれます。閉じるボタンの隣にあるロックのボタンを押すと、ロックを解除するまで動かしたり大きさを変えたりできなくなります。
 - **Download image**: 画像をデバイスに保存します。
 - **Animate illustration**: その画像をシーン動画にします。
 - **Copy prompt**: 保存されている画像のプロンプトをコピーします。プロンプトが保存されていない画像では**No prompt saved**と表示され、この操作は無効になります。
 - **Delete gallery image**: 確認したうえで画像を削除します。
 
+<a id="regenerating-an-image"></a>
+
+### 画像を再生成する
+
+生成した画像は、それが属する返信を再生成しなくても作り直せます。イラスト、自撮り写真、絵コンテのフレームなど、プロンプトが保存されているチャットのGalleryの画像が対象です。
+
+1. Galleryか、画像が入っているメッセージから、画像を原寸で開きます。
+2. **Regenerate image**(画像を再生成)をクリックします。画像の右上にある円形の矢印のボタンです。
+3. 画像の下の欄で、変えたいところを変更します。**Prompt**(プロンプト)、**Negative prompt**(ネガティブプロンプト)、画像にキャラクターごとのプロンプトがあった場合は**Character prompts**(キャラクターのプロンプト)の下にあるキャラクターごとの欄、**Image connection**(画像用の接続)を変更できます。
+4. **Generate image**(画像を生成)をクリックします。画像をそのままにする場合は**Cancel**(キャンセル)をクリックします。
+
+新しい画像がメッセージ内の古い画像と置き換わります。古い画像はGalleryに残るので、もう一度固定できます。参照画像は、キャラクターの現在のアバターから改めて送られます。古い画像の中には、ネガティブプロンプトとキャラクターごとのプロンプトが保存されていないものがあります。その場合は、エディターにそのことが表示されます。
+
 ## 送信前にプロンプトを確認する
 
 Marinaraが背景の生成リクエストを画像のプロバイダーへ送る前に、プロンプトを確認して編集できます。
 
-1. **Settings**、**Generations**、**Image Generation**の順に開きます。
+1. **Settings**、**Generations**、**Overall Generations**の順に開きます。
 2. **Expose media prompts before sending**(送信前にメディアのプロンプトを表示)をオンにします。
 
 この設定をオンにすると、リクエストを送る前に毎回**Review Image Prompt**ウィンドウが開きます。説明文は次のとおりです: 「Edit the prompt below before Marinara sends the image request to your provider.」

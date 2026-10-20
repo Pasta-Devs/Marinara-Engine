@@ -26,6 +26,7 @@ Marinara에서 만든 모든 것은 서버가 돌아가는 컴퓨터의 폴더 �
 | --- | --- |
 | `avatars` | 캐릭터와 페르소나의 아바타 |
 | `sprites` | 캐릭터 스프라이트 이미지 |
+| `avatar-models` | **2D Avatars**(2D 아바타)와 **3D Avatars**(3D 아바타) 에이전트의 파일. PNGTuber 그림과 3D 모델 등 |
 | `backgrounds` | 업로드한 채팅 배경 |
 | `gallery` | 갤러리 이미지 |
 | `fonts` | 추가한 사용자 지정 글꼴 |

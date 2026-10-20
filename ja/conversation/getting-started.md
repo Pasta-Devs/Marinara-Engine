@@ -12,6 +12,8 @@ Conversationモードには、続いていくメッセンジャーの関係だ�
 
 こうしたConversationモード専用の機能は、RoleplayやGame Modeでは働きません。同じキャラクターカードを使い回した場合も同じです。
 
+反対に、Conversationモードでは働かないカードの項目もあります。Conversationのチャットは、カードの**First Message**(最初のメッセージ)やほかの挨拶メッセージから始まりません。挨拶メッセージから始まるのはRoleplayのチャットだけです。また、カードの**Dialogue Highlight Color**(セリフの強調色)と**Message Box Color**(メッセージボックスの色)も使いません。**Name Display Color**(名前の表示色)は引き続き、各メッセージの上に表示されるキャラクター名の色になります。[色が反映される場所](../characters/colors-and-stats.md#where-your-colors-show)を参照してください。
+
 ### Conversationモードを選ぶ場面
 
 次のどれかに当てはまるときは、Conversationモードを選びます。
@@ -167,7 +169,7 @@ Conversationチャットのキャラクターには、それぞれ週間スケ�
 
 ### 自撮り写真がキャラクターに似ない
 
-**Selfies**の設定を開き、**Attach Card Appearance**(カードの外見を添付)をオンにします。使っている画像生成プロバイダーが参照画像に対応しているなら、**Send Avatar References**(アバターを参照画像として送信)もオンにしてください。詳しくは[自撮り写真](selfies.md)を参照してください。
+**Selfies**の設定を開き、**Attach Card Appearance**(カードの外見情報を添付)を**Images only**(画像のみ)か**Images and videos**(画像と動画)に設定します。使っている画像生成プロバイダーが参照画像に対応しているなら、**Send Avatar References**(アバターの参照画像を送信)も設定してください。詳しくは[自撮り写真](selfies.md)を参照してください。
 
 ## 関連ガイド
 

@@ -59,9 +59,9 @@ Marinara Engine – это приложение для чата с ИИ, в ко
 
 ### Хранилища Zustand (состояние клиента)
 
-Состояние интерфейса и среды выполнения клиент держит в наборе хранилищ Zustand в `packages/client/src/stores/`. Из них сохраняется на диск только `ui.store.ts`. Остальные держат состояние времени выполнения для чатов, агентов, игр, локального движка моделей, перевода, диалогов, дозаполнения и настольных игр.
+Состояние интерфейса и среды выполнения клиент держит в наборе хранилищ Zustand в `packages/client/src/stores/`. Из них сохраняется на диск только `ui.store.ts`. Остальные держат состояние времени выполнения для чатов, агентов, игр, локального движка моделей, перевода, диалогов и дозаполнения.
 
-Сейчас файлов хранилищ столько: `agent.store.ts`, `backfill.store.ts`, `chat.store.ts`, `chess-game.store.ts`, `dialog.store.ts`, `encounter.store.ts`, `gallery.store.ts`, `game-asset.store.ts`, `game-mode.store.ts`, `game-state.store.ts`, `poker-game.store.ts`, `sidecar.store.ts`, `translation.store.ts`, `ui.store.ts` и `uno-game.store.ts`.
+Сейчас файлов хранилищ столько: `agent.store.ts`, `backfill.store.ts`, `chat-tools-menu.store.ts`, `chat.store.ts`, `conversation-games.store.ts`, `dialog.store.ts`, `encounter.store.ts`, `floating-window.store.ts`, `gallery.store.ts`, `game-asset.store.ts`, `game-mode.store.ts`, `game-state.store.ts`, `sidecar.store.ts`, `translation.store.ts` и `ui.store.ts`. Хранилища настольных игр переехали в их скачиваемые пакеты; `conversation-games.store.ts` отслеживает только выбор и настройку игры в Conversation.
 
 #### `ui.store.ts`: настройки и обвязка интерфейса
 
@@ -489,6 +489,9 @@ Personal Extensions – это изолированный код, который
 | `/api/translate`          | POST                             | Перевод текста             |
 | `/api/game`               | CRUD и действия                 | Сессии и состояние Game Mode |
 | `/api/game-assets`        | CRUD и загрузка                 | Игровые ресурсы                  |
+| `/api/game-rulesets`      | импорт, схема, источник, удаление | Импортированные наборы правил Game Mode |
+| `/api/game-worlds`        | CRUD библиотеки и правка миров  | Библиотека миров для новых игр и пакетов карт |
+| `/api/game-tile-packs`    | пакеты тайлов, а также `/creatures` и `/boards` | Пакеты изображений для карт, существ и боевых полей |
 | `/api/turn-games`         | Маршруты Chess, UNO, Poker         | Настольные игры в режиме Conversation     |
 | `/api/conversation-calls` | Маршруты звонков и сессий          | Аудиозвонки в режиме Conversation     |
 
@@ -503,6 +506,10 @@ Personal Extensions – это изолированный код, который
 | `/api/gallery/:chatId`        | Изображения галереи для чата      |
 | `/api/global-gallery`         | Изображения общей галереи        |
 | `/api/tts`                    | Маршруты синтеза речи        |
+| `/api/speech-to-text`         | Настройки и проверка сервера Speech to Text |
+| `/api/avatar-models`          | 2D- и 3D-модели аватаров для агентов аватаров |
+| `/api/avatar-generation`      | Черновики аватаров из спрайтов и ключ Tripo |
+| `/api/avatar-classify`        | Классификатор эмоций аватара и его локальная модель |
 | `/api/youtube`                | Маршруты YouTube DJ              |
 | `/api/custom-emojis`          | Свои эмодзи          |
 | `/api/custom-stickers`        | Свои наклейки        |
@@ -539,8 +546,10 @@ Personal Extensions – это изолированный код, который
 | `/api/connection-folders`       | Папки подключений                      |
 | `/api/prompt-overrides`         | Переопределения встроенных промптов               |
 | `/api/achievements`             | Открытые достижения                     |
-| `/api/noodle`                   | Социальная лента Noodle                  |
+| `/api/capability-packages`      | Каталог агентов, установки, обновления, примечания к выпускам и ресурсы пакетов |
+| `/api/noodle`                   | Социальная лента Noodle (регистрируется пакетом Noodle) |
 | `/api/professor-mari/workspace` | Операции с рабочей областью Professor Mari     |
+| `/api/professor-mari/quick`     | Быстрые ответы Professor Mari и применение предложенных в них правок |
 
 ## Поддержка PWA
 
@@ -586,6 +595,10 @@ Personal Extensions – это изолированный код, который
 | `persona-stats`          | post_processing | Отслеживает изменения характеристик персоны игрока                                |
 | `custom-tracker`         | post_processing | Отслеживает состояние по вашим собственным правилам                                |
 | `inventory-tracker`      | post_processing | Отслеживает валюту, надетое снаряжение и переносимые предметы                       |
+| `quartermaster`          | post_processing | Ведет лист персонажа Roleplay, надетое снаряжение и наряды        |
+| `beholder`               | post_processing | Отслеживает, что каждый персонаж носит и держит, и его ранения    |
+| `relationship-tracker`   | post_processing | Отслеживает, как персонажи и персона относятся друг к другу       |
+| `memory-nag`             | post_processing | Запоминает незакрытые дела вроде обещаний и напоминает о них модели |
 | `illustrator`            | post_processing | Создает промпты для изображений сцены и запросы к медиа                  |
 | `lorebook-keeper`        | post_processing | Сам создает и обновляет записи лорбуков                                |
 | `card-evolution-auditor` | post_processing | Проверяет карточки персонажей и предлагает их развитие                    |
@@ -600,7 +613,9 @@ Personal Extensions – это изолированный код, который
 | `storyboard` | post_processing | Планирует статичные и анимированные раскадровки Game и Roleplay |
 | `conversation-calls`     | feature         | Добавляет аудио- и видеозвонки в режиме Conversation и связанные настройки          |
 | `hierarchical-maps`      | feature         | Добавляет карты, пространственный контекст и перемещение в Roleplay и Game Mode             |
-| `noodle` | feature | Добавляет локальные социальные ленты Noodle и Slurp на Home |
+| `noodle` | feature | Добавляет локальную социальную ленту Noodle на Home |
+| `slurp2` | feature | Добавляет на Home Slurp – закрытое приложение-конструктор для персонажей |
+| `gacha-forge` | feature | Добавляет на Home игровой режим гачи |
 | `uno`                    | feature         | Добавляет стол UNO в режиме Conversation                              |
 | `chess`                  | feature         | Добавляет шахматную доску в режиме Conversation                             |
 | `poker`                  | feature         | Добавляет стол Texas Hold'em в режиме Conversation                         |
@@ -612,7 +627,7 @@ Personal Extensions – это изолированный код, который
 
 Агенты выдают типизированные результаты, которые обрабатывает клиент. Объединение `AgentResultType` в `packages/shared/src/types/agent.ts` включает:
 
-`game_state_update`, `text_rewrite`, `sprite_change`, `echo_message`, `quest_update`, `image_prompt`, `context_injection`, `continuity_check`, `director_event`, `lorebook_update`, `character_card_update`, `background_change`, `character_tracker_update`, `persona_stats_update`, `custom_tracker_update`, `inventory_tracker_update`, `spotify_control`, `youtube_control`, `local_music_control`, `haptic_command`, `cyoa_choices`, `secret_plot`, `game_master_narration`, `party_action`, `game_map_update`, `game_state_transition`, `prompt_patch`, `frontend_theme_update` и `about_me_update`.
+`game_state_update`, `text_rewrite`, `sprite_change`, `echo_message`, `quest_update`, `image_prompt`, `context_injection`, `continuity_check`, `director_event`, `lorebook_update`, `character_card_update`, `character_card_create`, `background_change`, `character_tracker_update`, `persona_stats_update`, `custom_tracker_update`, `inventory_tracker_update`, `spotify_control`, `youtube_control`, `local_music_control`, `haptic_command`, `cyoa_choices`, `secret_plot`, `game_master_narration`, `party_action`, `game_map_update`, `game_state_transition`, `prompt_patch`, `character_activity_update`, `frontend_theme_update`, `about_me_update` и `memory_nag`.
 
 ## Режимы чата
 

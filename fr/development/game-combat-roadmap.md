@@ -4,7 +4,7 @@ Ce document consigne la direction convenue pour [le terrain hybride #6265](https
 
 ## Séparer la participation des règles du champ de bataille
 
-Les valeurs actuelles de `combatStyle` sont `classic` et `tactical`. Conserve-les. Les invocations futures relèvent d'un réglage de participation distinct, avec le combat en groupe par défaut pour les anciennes configurations et sauvegardes. Les préréglages de création peuvent définir les deux valeurs sans ajouter une autre énumération de mode persistante :
+Les valeurs actuelles de `combatStyle` sont `classic` et `tactical`. Conserve-les. Les invocations futures relèvent d'un réglage de participation distinct, avec le combat en groupe par défaut pour les anciennes configurations et sauvegardes. Les presets de création peuvent définir les deux valeurs sans ajouter une autre énumération de mode persistante :
 
 | Préréglage | Participation | Champ de bataille |
 | --- | --- | --- |
@@ -21,7 +21,7 @@ Le GM fournit une petite description structurée fondée sur la scène. Le moteu
 
 Le traitement de l'environnement et des formations prend en charge une taille de carte facultative et des repères de scène. Les indications de terrain appartiennent à chaque rencontre ; les graines des cartes sont internes à chaque rencontre, sans champ de graine dans la configuration de la campagne. Les anciennes configurations doivent rester valides. Enregistre la grille acceptée et la provenance de sa génération afin qu'un changement de générateur ne redessine pas un combat existant. Les graines reproduisent la génération pour une même description et les mêmes combattants ; elles ne rendent pas déterministes des sorties arbitraires du modèle.
 
-Le terrain généré peut être corrigé pour assurer les connexions, mais les contraintes de l'auteur ne doivent pas disparaître silencieusement. Borne la sortie du modèle, le nombre de cases et d'unités, et les dimensions des éléments. Refuse les dispositions impossibles avec une explication exploitable et propose explicitement un terrain généré de remplacement. Un éditeur complet de peinture et de placement et les cartes arbitraires viendront plus tard, avec les mêmes règles de validation.
+Le terrain généré peut être corrigé pour assurer les connexions, mais les contraintes de l'auteur ne doivent pas disparaître silencieusement. Borne la sortie du modèle, le nombre de cases et d'unités, et les dimensions des éléments. Refuse les dispositions impossibles avec une explication exploitable et propose explicitement un terrain généré de remplacement. Les plateaux peints à la main pour les lieux d'un monde (worldgen W9g, dans un outil de création comme Pixelforge) obéissent aux mêmes règles : leurs bandes de déploiement deviennent des plaines et chaque case libre reste reliée, si bien qu'on y combat exactement tel qu'ils ont été peints.
 
 ### Capacités de déplacement
 
@@ -29,7 +29,7 @@ Marche, vol et téléportation exigent des règles explicites. Vol et téléport
 
 Un mode omis signifie marche pour les anciennes rencontres. Un mode explicitement demandé mais non pris en charge est refusé avec une erreur ; ne remplace pas silencieusement la capacité par la marche. Ce contrat vaut pour les plans générés et les entrées de l'API tactique.
 
-Sépare traversée, destinations autorisées et occupation. Traverser un mur par téléportation ne permet pas d'y terminer. La grille plane initiale ne représente ni altitude, ni plafonds, ni visibilité propre aux sorts, ni durée de vol limitée. Documente ces limites au lieu d'annoncer des règles de déplacement sur table complètes. Réutilise les mêmes contrôles pour les aperçus, la résolution, l'animation des trajets et l'IA ennemie.
+Sépare traversée, destinations autorisées et occupation. Traverser un mur par téléportation ne permet pas d'y terminer. La grille a une hauteur depuis combat C6b (escalade, falaises, crêtes qui bloquent la ligne de vue, positions en hauteur), mais elle ne représente ni plafonds, ni visibilité propre aux sorts, ni durée de vol limitée. Documente ces limites au lieu d'annoncer des règles de déplacement sur table complètes. Réutilise les mêmes contrôles pour les aperçus, la résolution, l'animation des trajets et l'IA ennemie.
 
 ## Règles sur table : profils intégrés et outils de référence pour le GM
 
@@ -41,7 +41,7 @@ Le moteur doit gérer les vrais jets, les cibles autorisées, les déplacements,
 
 Commence par des primitives de test, de tour et de ressources prises en charge. Un profil d20 et un profil à réserve de d10 demandent des règles de résolution différentes ; l'un n'est pas une version renommée de l'autre. La couverture future devrait inclure initiative, tests opposés, dégâts et réduction, états et utilisation des ressources. Documente les cas non pris en charge et rends l'arbitrage du GM explicite.
 
-Le jeu tactique sur table nécessite aussi des règles communes de ligne de vue et de couverture. La grille actuelle bloque le déplacement à travers les murs, mais les attaques à distance fondées sur la distance peuvent les franchir. Mets à jour ensemble résolution, IA, contre-attaques, prévisions et indications de menace. Conserve les phases actuelles du groupe et des ennemis ; l'initiative individuelle est un profil de règles distinct à sélectionner.
+La ligne de vue commune est en place (combat C6) : un mur ou une montagne la bloque aussi bien dans le résolveur que dans l'IA, les contre-attaques, les zones, les prévisions et les indications de menace. Les niveaux de couverture reposent sur le même test. L'initiative individuelle est un réglage de partie (combat C6c) : les nouvelles parties tirent un ordre une fois par combat et jouent le tour d'une seule unité à la fois, dans le moteur comme dans le directeur de combat ; les anciennes parties gardent les phases de l'équipe et des ennemis.
 
 ## Invocations : conserver le concept, reporter le système complet
 

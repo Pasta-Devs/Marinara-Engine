@@ -99,10 +99,22 @@ Game Mode 会自己读取这个素材库，根据场景自动挑选音乐、环�
 允许的取值是：
 
 - State：`exploration`、`dialogue`、`combat`、`travel_rest`。
-- Genre：`fantasy`、`horror`、`romance`、`mystery`、`scifi`、`modern`、`slice_of_life`、`adventure`、`drama`、`custom`。
+- Genre：`fantasy`、`horror`、`romance`、`mystery`、`scifi`、`modern`、`slice_of_life`、`adventure`、`drama`、`custom`，或者某个设定的类别（见下文），例如 `wuxia`。
 - Intensity：`calm`、`tense`、`intense`。
 
 Game Mode 正是靠这套结构判断什么时候播哪首曲子。环境音、音效、立绘和背景的文件夹没有这条限制，子文件夹可以随意命名。
+
+<a id="a-settings-own-art-and-music"></a>
+
+### 设定自己的美术和音乐
+
+用设定包开始的游戏有一个美术类别，修改设定包用词时显示在 **Art and music**(美术与音乐) 下：`fantasy`、`scifi`、`modern`、`wuxia`、`jazz_age`、`wasteland`，或者设定包自己的类别。游戏会使用以它的类别命名的文件夹，以及所有不以类别命名的文件夹，而不使用其他类别的文件夹，所以赛博朋克游戏绝不会播放奇幻战斗音乐，也不会显示魔法森林。如果它自己类别的文件夹和共享文件夹里都没有合适的，就什么也不播放，而不是换用其他类别的曲目。
+
+- **音乐**：把设定的曲目放在 `music/<state>/<family>/<intensity>` 里，例如 `combat/wuxia/intense`。它们会优先于共享曲目播放。
+- **背景**：`backgrounds/<family>`。用设定包进行的游戏中生成的背景也会保存在这里。
+- **战斗音效**：`sfx/combat/<family>` 里与某个自带音效同名的音效，例如 `sword-swing`，会在该类别的游戏中替换它。自带的战斗音效是奇幻风格的，所以在你添加其他类别自己的音效之前，那些类别的战斗是安静的。
+
+自带的入门背景算作共享背景，但奇幻的那几张（`ancient_library`、`castle_cliff`、`enchanted_forest`）和现代的 `city_night` 除外。没有设定包的游戏照旧使用所有文件夹。在美术类别出现之前保存的设定包仍然可用：由入门设定包制作的使用该入门设定包的类别，其他的则在你于 **Art and music** 下选定类别之前使用所有文件夹。[限定某个游戏能用哪些素材](#choosing-which-assets-a-game-can-use)中介绍的选择栏会显示当前打开的游戏的类别。
 
 ## 整理素材
 
@@ -134,6 +146,8 @@ Game Mode 正是靠这套结构判断什么时候播哪首曲子。环境音、�
 Marinara 内部维护着一份素材清单，好让 Game Mode 快速找到文件。通过应用上传时，这份清单会自动更新。
 
 如果直接在电脑上把文件复制进游戏素材文件夹，绕开了应用，应用不会立刻察觉。点击 **Rescan** 按钮，它就会重新读取文件夹、收录新文件。**Rescan** 在 **Asset Browser** 工具栏和 **Settings** 下的 **Game Assets** 部分都有。
+
+<a id="choosing-which-assets-a-game-can-use"></a>
 
 ## 限定某个游戏能用哪些素材
 

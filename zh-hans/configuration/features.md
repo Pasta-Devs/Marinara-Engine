@@ -12,6 +12,8 @@
 | --- | --- | --- | --- |
 | **Stable lorebook picks**(固定世界书选择) | `stableLorebookGroupPicks` | 关闭 | `LOREBOOK_STABLE_GROUP_WINNERS` |
 | **Retry failed provider calls**(重试失败的服务商调用) | `providerRetry` | 关闭 | `PROVIDER_RETRY_TRANSIENT_ERRORS` |
+| **Lorebook activation stats**(世界书激活统计) | `usageAndActivationStats` | 关闭 | 无 |
+| **Recover deleted chat messages**(恢复已删除的聊天消息) | `messageTrash` | 关闭 | 无 |
 
 在设置中搜索 `features` 可找到此部分。
 
@@ -48,6 +50,22 @@ API 是 `GET` 和 `PUT /api/app-settings/features`。`PUT` 替换整个对象，
 开启：连接被拒绝或不可达、网关 502/503 时，经过带随机抖动的短暂等待后最多重试两次，且只在任何文本到达前进行。504 或已中断连接绝不重试。连接有 fallback 时不使用此机制，而是立即尝试 fallback。
 
 关闭：与之前一样，只重试限流错误。
+
+### 世界书激活统计
+
+设置键：`usageAndActivationStats`。没有环境变量。
+
+开启：每条回复成功保存后，Marinara 会记录哪些世界书条目被激活了，这样你就能在世界书编辑器里按使用情况排序和筛选条目。Continue 生成的续写片段不会增加激活记录。
+
+关闭：不记录任何内容，世界书编辑器也会隐藏激活统计。
+
+### 恢复已删除的聊天消息
+
+设置键：`messageTrash`。没有环境变量。
+
+开启：删除的聊天消息会进入聊天搜索里的 **Trash**(回收站) 选项卡。30 天内可以在那里用 **Restore**(恢复) 找回；超过 30 天就会被永久删除。Game 消息和回滚造成的删除仍然是永久的。
+
+关闭：删除的消息会立即移除。
 
 <a id="precedence"></a>
 

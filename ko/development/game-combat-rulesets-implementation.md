@@ -28,7 +28,7 @@ Cautious Mage는 어느 표현 방식에서도 신중해야 합니다. 규칙 �
 
 - `packages/shared/src/types/game.ts`: `Combatant`, `CombatSkill`, Classic 결과와 스냅샷입니다. 현재 능력치는 일반 숫자이며, `speed`는 테이블탑 Dexterity 점수나 피트 단위 이동 거리가 아닙니다.
 - `packages/server/src/services/game/combat.service.ts`: Classic은 라운드마다 우선권을 굴리고 참여자당 명령 하나를 판정하며 일반 피해 공식을 사용합니다. 레거시 게임은 클라이언트를 거쳐 상태를 주고받고, 설정 마법사로 만든 새 게임은 서버 소유 전투 디렉터 원장을 사용합니다.
-- `packages/shared/src/features/tactical-combat/{engine,math,types}.ts`: 파티와 적 페이즈가 교대하며 클래스별 사거리, 속도 기반 이동, 반격이 있고 속도 후속 공격은 아직 없습니다.
+- `packages/shared/src/features/tactical-combat/{engine,math,types}.ts`: 파티와 적 페이즈, 또는 게임이 그렇게 정하면 시드 기반 우선권 순서에 따라 한 번에 유닛 하나(combat C6c)로 진행하며, 클래스별 사거리, 속도 기반 이동, 반격이 있고 속도 후속 공격은 아직 없습니다.
 - `packages/shared/src/features/combat-ai.ts` 및 모드 어댑터: 가능한 행동의 우선순위입니다. 일반 AI의 정보 경계는 유지됩니다. GM 보스는 예측을 위해 파티 시트와 자원을 받지만, 어느 쪽도 미래 굴림이나 선언 전 플레이어 선택을 보지 못합니다.
 - `packages/server/src/routes/combat-director.routes.ts` 및 `services/game/combat-director.service.ts`: 버전이 지정된 권위 있는 조우 상태, 활성화 커서, 대기 반응, 전설 행동 예산, 중복 및 오래된 응답 방지입니다. 두 번째 원장을 만들지 말고 확정 행동 경로를 규칙 집합 어댑터에 맞게 확장하세요. 현재 Counterspell 확률, 슬롯 지불과 취소 비용은 일반 Engine 정책이며 5e 규칙이 아닙니다.
 - `packages/server/src/routes/game.routes.ts`: 레거시 라운드, 시작, 행동 검증입니다. `GameCombatUI`, `TacticalCombatUI`, `use-game.ts`: 입력, 미리 보기, 확정 결과와 저장입니다.
@@ -76,7 +76,7 @@ type RulesetRef = {
 | 규칙 | 제안하는 v1 동작 |
 |---|---|
 | 우선권 | 유효 Speed 내림차순, 동률은 안정된 조우 순서 유지; 동률이나 높은 속도에 추가 활성화 없음 |
-| Tactical 일정 | 파티 페이즈 다음 적 페이즈; 플레이어는 미행동 파티 유닛을 선택할 수 있고 자동 유닛은 속도순 사용 |
+| Tactical 일정 | 진영순: 파티 페이즈 다음 적 페이즈이며, 플레이어가 미행동 파티 유닛 중에서 선택. 우선권순(combat C6c): 전투마다 한 번 굴린 순서에 따라 한 번에 유닛 하나 |
 | Classic 일정 | 통합된 유효 Speed 내림차순; UI가 수동 명령을 대기열에 넣고 각 차례에 현재 적법한 대상을 판정 |
 | 이동 | Speed와 독립된 명시적 이동 예산; 기본 4칸에 제한된 클래스와 능력 조정 제안 |
 | Attack Speed | 명시적으로 모델링한 불이익과 보너스만 적용한 유효 Speed; 가상의 무기 무게 없음 |

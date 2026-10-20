@@ -99,10 +99,22 @@ Musik folgt einem strikten Ordnerschema. Jeder Musiktitel muss in einem dreistuf
 Erlaubt sind diese Werte:
 
 - State: `exploration`, `dialogue`, `combat`, `travel_rest`.
-- Genre: `fantasy`, `horror`, `romance`, `mystery`, `scifi`, `modern`, `slice_of_life`, `adventure`, `drama`, `custom`.
+- Genre: `fantasy`, `horror`, `romance`, `mystery`, `scifi`, `modern`, `slice_of_life`, `adventure`, `drama`, `custom` oder die Familie eines Settings (siehe unten), zum Beispiel `wuxia`.
 - Intensity: `calm`, `tense`, `intense`.
 
 An diesem Schema erkennt der Game Mode, wann er welchen Titel abspielt. Für Ambient-, Soundeffekt-, Sprite- und Hintergrund-Ordner gilt die Regel nicht – deren Unterordner darfst du frei benennen.
+
+<a id="a-settings-own-art-and-music"></a>
+
+### Eigene Grafik und Musik eines Settings
+
+Ein Spiel, das mit einem Setting-Kit gestartet wurde, hat eine Stilfamilie für Grafik und Musik. Du siehst sie unter **Art and music** (Grafik und Musik), wenn du die Wörter des Kits änderst: `fantasy`, `scifi`, `modern`, `wuxia`, `jazz_age`, `wasteland` oder eine eigene Familie des Kits. Das Spiel nutzt die Ordner, die nach seiner Familie benannt sind, und jeden Ordner, der nach keiner Familie benannt ist. Die Ordner der anderen Familien lässt es weg. So spielt ein Cyberpunk-Spiel nie Fantasy-Kampfmusik und zeigt nie den verzauberten Wald. Passt nichts aus der eigenen Familie oder den gemeinsamen Ordnern, läuft lieber gar nichts als ein Titel einer anderen Familie.
+
+- **Music**: Lege die Titel des Settings unter `music/<state>/<family>/<intensity>` ab, zum Beispiel `combat/wuxia/intense`. Sie haben Vorrang vor gemeinsamen Titeln.
+- **Backgrounds**: `backgrounds/<family>`. Hintergründe, die während eines Spiels mit Setting-Kit generiert werden, landen ebenfalls dort.
+- **Kampfgeräusche**: Ein Geräusch in `sfx/combat/<family>`, das genauso heißt wie ein mitgeliefertes, etwa `sword-swing`, ersetzt dieses in Spielen dieser Familie. Die mitgelieferten Kampfgeräusche sind Fantasy. Die Kämpfe einer anderen Familie bleiben deshalb still, bis du eigene Geräusche für sie hinzufügst.
+
+Die mitgelieferten Starter-Hintergründe gelten als gemeinsam, außer den Fantasy-Hintergründen (`ancient_library`, `castle_cliff`, `enchanted_forest`) und dem modernen `city_night`. Ein Spiel ohne Setting-Kit nutzt wie bisher jeden Ordner. Ein Setting-Kit, das gespeichert wurde, bevor es Stilfamilien gab, funktioniert weiter: Eines, das aus einem Starter-Kit entstanden ist, nutzt die Familie dieses Starter-Kits. Jedes andere nutzt jeden Ordner, bis du unter **Art and music** eine Familie auswählst. Die Auswahlleiste aus [Auswählen, welche Assets ein Spiel nutzen darf](#choosing-which-assets-a-game-can-use) nennt die Familie des geöffneten Spiels.
 
 ## Assets organisieren
 
@@ -134,6 +146,8 @@ Denk daran: Mitgelieferte Starter-Dateien sind geschützt. Umbenennen und Kopier
 Marinara führt intern eine Liste der Assets, damit der Game Mode sie schnell findet. Beim Upload über die App aktualisiert sich diese Liste von selbst.
 
 Kopierst du Dateien direkt am Computer in den Game-Asset-Ordner, also außerhalb der App, bekommt die App davon zunächst nichts mit. Ein Klick auf **Rescan** liest den Ordner neu ein und nimmt die neuen Dateien auf. **Rescan** findest du sowohl in der Werkzeugleiste des **Asset Browser** als auch im Bereich **Game Assets** unter **Settings**.
+
+<a id="choosing-which-assets-a-game-can-use"></a>
 
 ## Auswählen, welche Assets ein Spiel nutzen darf
 

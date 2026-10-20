@@ -38,7 +38,7 @@ O menu suspenso de perfis fica no topo da seção **Chat Settings**. A dica dele
 3. Abra o menu suspenso **Profile**.
 4. Escolha um perfil pelo nome.
 
-O chat muda na hora. Quando os valores atuais não batem com nenhum perfil salvo, o menu mostra **Custom settings profile**. Se um perfil aplicado antes não existe mais, aparece **Missing profile - choose a profile**.
+O chat muda na hora. Se o perfil liga ou desliga **Hide summarised messages** (ocultar as mensagens resumidas), as mensagens resumidas do chat ficam ocultas para a IA, ou voltam a aparecer para ela, no mesmo momento. Quando os valores atuais não batem com nenhum perfil salvo, o menu mostra **Custom settings profile**. Se um perfil aplicado antes não existe mais, aparece **Missing profile - choose a profile**.
 
 ## Como salvar um perfil
 
@@ -111,7 +111,7 @@ Veja os passos em [Escolher um layout para novos chats](chat-settings.md#choosin
 
 A ação **Export settings profile (.json)** baixa um arquivo `.marinara-settings-profile.json`, que serve como backup ou para compartilhar. A ação **Import settings profile (.json)** cria um perfil novo a partir de um arquivo compatível, sem sobrescrever nenhum perfil existente. Os perfis exportados em versões antigas ainda podem ser importados.
 
-Os perfis salvam configurações, nunca os segredos do provedor.
+Os perfis salvam configurações, nunca os segredos do provedor. Um perfil exportado ou importado também deixa de fora o webhook do espelhamento no Discord, o endereço do DeepLX, a chave do DeepL e o endereço do Intiface. Os perfis que você salva nesta instalação mantêm esses dados.
 
 ## O perfil Default
 

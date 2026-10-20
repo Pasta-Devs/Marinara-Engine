@@ -27,7 +27,7 @@ Deux éditeurs repliables y apparaissent.
 
 Clique sur le titre d'un éditeur pour le déplier.
 
-**Video Generation Prompt Overrides** gère les gabarits réutilisables des vidéos de scène de Game Mode et de la galerie, des clips de personnage des appels en mode Conversation, et des portraits d'expression animés. Chaque gabarit de prompt vidéo détermine la façon dont un type de clip est décrit au modèle de vidéo.
+**Video Generation Prompt Overrides** gère les gabarits réutilisables des vidéos de scène de Game Mode et de la galerie, des messages vidéo en mode Conversation, des clips de personnage des appels en mode Conversation, et des portraits d'expression animés. Chaque gabarit de prompt vidéo détermine la façon dont un type de clip est décrit au modèle de vidéo.
 
 **Image Generation Prompt Overrides** gère les gabarits employés par les systèmes d'image, de sprite, de Game Mode et de construction de prompts. Cela couvre les selfies du mode Conversation, les portraits de PNJ (personnages non-joueurs) de Game Mode, les illustrations de scène, les prompts de storyboard, le gabarit **Noodle Post Image** des publications Noodle, ainsi que les autres générateurs d'images enregistrés. Chaque gabarit de prompt d'image détermine la façon dont un type d'image est décrit au modèle d'image.
 

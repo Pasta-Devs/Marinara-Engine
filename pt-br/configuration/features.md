@@ -12,6 +12,8 @@ As alterações valem imediatamente, sem reiniciar o servidor nem recarregar a p
 | --- | --- | --- | --- |
 | **Stable lorebook picks** (seleções estáveis de lorebook) | `stableLorebookGroupPicks` | Desligada | `LOREBOOK_STABLE_GROUP_WINNERS` |
 | **Retry failed provider calls** (repetir chamadas de provedor que falharam) | `providerRetry` | Desligada | `PROVIDER_RETRY_TRANSIENT_ERRORS` |
+| **Lorebook activation stats** (estatísticas de ativação de lorebook) | `usageAndActivationStats` | Desligada | nenhuma |
+| **Recover deleted chat messages** (recuperar mensagens de chat excluídas) | `messageTrash` | Desligada | nenhuma |
 
 Pesquisar `features` nas configurações leva à seção.
 
@@ -48,6 +50,26 @@ Identificador: `providerRetry`. Variável de ambiente: `PROVIDER_RETRY_TRANSIENT
 Ligada: conexão recusada ou inacessível, ou erro de gateway 502/503, é repetido até duas vezes após breve espera com variação aleatória, somente antes de qualquer texto chegar. Um 504 ou conexão interrompida nunca é repetido. Se a conexão tem fallback, ele é tentado imediatamente em vez disso.
 
 Desligada: apenas limites de taxa são repetidos, como antes.
+
+<a id="lorebook-activation-stats"></a>
+
+### Estatísticas de ativação de lorebook
+
+Identificador: `usageAndActivationStats`. Sem variável de ambiente.
+
+Ligada: depois que uma resposta é salva com sucesso, Marinara registra quais entradas de lorebook foram ativadas, para você poder ordenar e filtrar as entradas pelo uso no editor de lorebooks. Os trechos de Continue não acrescentam registros de ativação.
+
+Desligada: nada é registrado, e o editor de lorebooks esconde as estatísticas de ativação.
+
+<a id="recover-deleted-chat-messages"></a>
+
+### Recuperar mensagens de chat excluídas
+
+Identificador: `messageTrash`. Sem variável de ambiente.
+
+Ligada: as mensagens de chat excluídas vão para a aba **Trash** (lixeira) da busca do chat. Use **Restore** (restaurar) ali em até 30 dias; depois disso, elas são removidas de vez. As mensagens de Game e as exclusões por rollback continuam permanentes.
+
+Desligada: as mensagens excluídas são removidas na hora.
 
 <a id="precedence"></a>
 

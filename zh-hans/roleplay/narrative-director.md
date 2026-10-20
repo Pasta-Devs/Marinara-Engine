@@ -79,6 +79,22 @@ Narrative Director 只在 Roleplay 模式下生效，而且不会自作主张。
 
 隐藏剧情线保存在 **Narrative Director** 智能体身上。清空聊天的智能体运行记录和记忆不会把它抹掉。只有把 **Narrative Director** 智能体从聊天里移除，剧情线才会删除。移除智能体时会有一条警告，提示隐藏剧情线会一并清除，且无法撤销。
 
+### Secret Plot 提示词
+
+**Secret Plot Prompt**(秘密剧情提示词) 保存的是 Narrative Director 编写和更新隐藏剧情线时遵循的指令。内置提示词把每条剧情线都写成一个有待揭开的谜团。这适合冒险和阴谋类故事，但不一定适合由角色驱动的故事。
+
+想使用自己的指令，按下面的步骤操作。
+
+1. 打开 **Agents**(智能体)，编辑 **Narrative Director**。
+2. 在 **Secret Plot**(秘密剧情) 一节里，点击 **Copy default to edit**(复制默认值以编辑)。
+3. 修改文字，然后保存智能体。
+
+点击 **Reset to default**(重置为默认值) 可以回到内置提示词，之后再保存智能体。
+
+请保留提示词末尾的 JSON 回复格式：一个 `overarchingArc` 对象，包含 `description`、`protagonistArc`、可选的 `characterArc` 以及 `completed`。没有它，剧情线就无法读取。
+
+这个提示词保存在智能体上，所以会作用于所有使用这个 Narrative Director 的聊天。
+
 ## 相关指南
 
 - [可下载智能体参考](../agents/built-in-agents.md)

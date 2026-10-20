@@ -42,7 +42,7 @@ Roleplayのスライダーボタンの横にある小さな案内は、一度閉
 - **Lock**(ロック)は、ウィンドウの移動とサイズ変更を止め、ボタンの位置も固定します。ボタンをクリックしてウィンドウを開くことはできます。ウィンドウのロックを解除すると、どちらも再び移動できます。
 - **Close**(閉じる、**X**)は、ウィンドウを非表示にします。
 
-ブラウザーのサイズを変えたりサイドバーを開いたりしても、ウィンドウはチャット領域内に収まります。
+ブラウザーのサイズを変えたりサイドバーを開いたりしても、ウィンドウはチャット領域内に収まります。コンピューターでは、ウィンドウやボタンを、メッセージ入力欄の横の空きスペースにチャットの一番下まで置けます。メッセージ入力欄そのものを覆うことはありません。
 
 スマートフォンでは、Chat Settingsは画面幅いっぱいのパネルとして開きます。入力中は、キーボードより上に収まります。
 
@@ -185,11 +185,11 @@ Marinaraでは、**preset**という言葉はプロンプトプリセットの�
 
 - **Search messages**(メッセージ検索)は、設定プロファイルの下、上部付近にある展開できるセクションです。語句、または`#`とメッセージ番号を入力して検索できます。**Bookmarks**と**Trash**タブには、ブックマークしたメッセージと削除したメッセージが並びます。ほかのセクションと同じように、独立したウィンドウに切り離せます。Gameのチャットにはありません。
 - **Chat Branches**(チャットの分岐)は、**Chat Name**の下にあり、このチャットの分岐の切り替え、名前変更、エクスポート、インポートができます。[チャットの分岐](branches.md)を参照してください。
-- **Chat Summary**(チャットの要約)は、**Lorebooks**の下にあり、Roleplayチャットの要約を確認、作成できます。[記憶の呼び出しとチャット要約](../agents/memory.md#chat-summary-roleplay)を参照してください。
+- **Chat Summary**(チャットの要約)は、**Lorebooks**の下にあり、Roleplayチャットの要約を確認、作成できます。[Memory Recallとチャットの要約](../agents/memory.md#chat-summary-roleplay)を参照してください。
 - **Active Context**(有効なコンテキスト)は、**Chat Summary**の下にあり、このチャットで有効なロアブックとコンテキストを表示します。[トークン予算と再帰](../lorebooks/token-budgets.md#seeing-skipped-entries-in-active-context)を参照してください。
 - **Agent activity**(エージェントの動作)は、エージェントまたはAdvanced Memoryを使うRoleplayチャットで、**Agents**のすぐ下に表示されます。エージェントが行った処理を確認し、トラッカーの再実行、エージェントの再試行や停止、トラッカーの消去ができます。[エージェントの動作](../roleplay/getting-started.md#agent-activity)を参照してください。
-- **Author's Notes**(作者ノート)は、**Agents**の下にあり、Roleplayチャットで毎ターンAIが読むメモを保存します。[Author's Notes](../roleplay/getting-started.md#authors-notes)を参照してください。
-- **Gallery**(ギャラリー)には、チャットの画像と動画が保存されます。[シーン背景とGallery](../media/scene-backgrounds.md)を参照してください。
+- **Author's Notes**(作者ノート)は、**Agents**の下にあり、Roleplayチャットで毎ターンAIが読むメモを保存します。別ウィンドウに切り離すと、テキスト欄がウィンドウに合わせて大きくなります。スマートフォンでは画面いっぱいに広がります。[Author's Notes](../roleplay/getting-started.md#authors-notes)を参照してください。
+- **Gallery**(ギャラリー)には、チャットの画像と動画が保存されます。[シーン背景とギャラリー](../media/scene-backgrounds.md)を参照してください。
 
 ## パネルのそのほかのセクション
 

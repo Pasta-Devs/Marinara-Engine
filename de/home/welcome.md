@@ -8,15 +8,44 @@ Marinara Engine ist eine lokale App zum Chatten und Rollenspielen mit KI-Charakt
 
 ## Der Home-Bildschirm im Überblick
 
-Den Home-Bildschirm siehst du immer dann, wenn kein Chat geöffnet ist. Von oben nach unten besteht er aus diesen Teilen:
+Den Home-Bildschirm siehst du immer dann, wenn kein Chat geöffnet ist. Er erinnert ein wenig an einen Webbrowser: oben Tabs und Lesezeichen, darunter ein Schreibtisch voller Widgets.
 
-- Das App-Logo, der Schriftzug **Marinara Engine** und darunter die Versionsnummer.
-- Eine Reihe der zuletzt geöffneten Chats: bis zu drei, dargestellt als anklickbare Chips. Solange es keine gibt, steht dort „No chats yet“ (noch keine Chats).
-- Die Karte **Ask Professor Mari** (Professor Mari fragen): ein Chatfenster für die eingebaute Assistentin, die die App erklärt und bei der Einrichtung hilft. Daneben sitzt eine kurze **FAQ** mit häufigen Fragen und Antworten.
-- Eine Schaltfläche **Achievements** (Errungenschaften), die nur erscheint, wenn die Achievements-Einstellung aktiviert ist.
-- Eine Fußzeile mit diesen Schaltflächen: **Discord**, **Support**, **Credits**, **Documentation** und **Replay Tutorial**.
+Oben findest du diese Teile:
+
+- **Tabs.** **Home** (Startseite) ist die Hauptseite. **Professor** öffnet Professor Mari, die eingebaute Assistentin, die die App erklärt und bei der Einrichtung hilft. Manche installierten Agenten fügen einen eigenen Tab hinzu.
+- **Suchleiste.** Am Computer klickst du auf die Leiste unter den Tabs oder drückst Strg+K (Cmd+K auf dem Mac), um Chats, Charaktere, Einstellungen und mehr zu finden.
+- **Lesezeichen.** Schnelllinks zu **Discord**, **Support**, **Credits**, **Documentation** (Dokumentation), **Tutorial**, **FAQ**, **Achievements** (Errungenschaften) und **Widgets**. **Achievements** erscheint nur, wenn die Achievements-Einstellung aktiviert ist. Auf dem Handy tippst du links neben den Tabs auf die Lesezeichen-Schaltfläche, um sie als Liste zu sehen.
+
+In der Mitte siehst du das App-Logo, den Schriftzug **Marinara Engine** und die Versionsnummer. Darunter startet jede der Schaltflächen **Conversation**, **Roleplay** und **Game** einen neuen Chat im jeweiligen Modus.
 
 Beim allerersten Start führt dich eine kurze Tour zu den wichtigsten Schaltflächen und Chat-Modi. Den kompletten Durchlauf beschreibt [Das Tutorial beim ersten Start](tutorial.md).
+
+<a id="home-widgets"></a>
+
+## Home-Widgets
+
+Der restliche Home-Bildschirm besteht aus Widgets: kleinen Karten, die du ein- und ausblenden und verschieben kannst. Diese Widgets bringt die App mit:
+
+| Widget | Was es tut | Anfangs sichtbar |
+| --- | --- | --- |
+| **Professor Mari** | Klick auf **Ask Professor Mari** (Professor Mari fragen), um ihren Chat zu öffnen. | Ja |
+| **Recent chats** (Letzte Chats) | Zeigt deine neuesten Chats mit ihrer letzten Nachricht. Klick auf einen, um ihn wieder zu öffnen. Hast du noch keine, steht dort **Your chats will show here**. | Ja |
+| **Learn the engine** (die Engine kennenlernen) | Links zu **Documentation**, **Replay tutorial** (Tutorial wiederholen) und **Read FAQ** (FAQ lesen). | Ja |
+| **What's New** (Neuigkeiten) | **See what's new** (Neuigkeiten ansehen) öffnet das Fenster What's New für diese Version erneut, auch wenn du es schon geschlossen hattest. **Read release notes** (Release Notes lesen) öffnet die vollständigen Release Notes im Web. | Ja |
+| **Community** | Links zu **Discord**, **Support** und **Credits**. | Ja |
+| **Character Library** (Charakterbibliothek) | Jeden Tag eine neue Auswahl deiner Charaktere. | Nein |
+| **Discovery desk** (Entdeckungstisch) | Schlägt Agenten vor, die du noch nicht installiert hast. Mit den Pfeilen siehst du weitere, mit **Browse agents** (Agenten durchsuchen) öffnest du den Katalog. | Nein |
+| **Character of the Day** (Charakter des Tages) | Ein Charakter aus deiner Bibliothek, mit **Start a chat** (Chat starten) und **View character** (Charakter ansehen). | Nein |
+| **Clock & calendar** (Uhr und Kalender) | Das heutige Datum und die Uhrzeit. | Nein |
+| **Achievements** | Deine zuletzt freigeschalteten und deine fast erreichten Errungenschaften. Nur verfügbar, wenn die Achievements-Einstellung aktiviert ist. | Nein |
+
+Manche installierten Agenten fügen ebenfalls Widgets hinzu. Professor Mari kann dir außerdem ein persönliches Widget bauen, wenn du sie darum bittest.
+
+Um deine Widgets auszuwählen, klick in den Lesezeichen auf **Widgets**. Das Fenster **Home Widgets** (Home-Widgets) listet sie unter **Built-in** (eingebaut), **Agents** (Agenten) und **Personal** (persönlich) auf. Klick auf die Augen-Schaltfläche neben einem Widget, um es ein- oder auszublenden. Ein wieder eingeblendetes Widget kommt an den ersten freien Platz auf Home. Persönliche Widgets haben außerdem Schaltflächen zum Bearbeiten und Löschen.
+
+Um ein Widget zu verschieben, ziehst du den Griff in seiner oberen rechten Ecke. Am Computer erscheint der Griff, wenn du auf das Widget zeigst. Mit der Tastatur fokussierst du den Griff und nutzt die Pfeiltasten. Deine Widget-Anordnung wird in diesem Browser gespeichert.
+
+Unten im Fenster **Home Widgets** hat **Browser chrome** (Browser-Rahmen) drei Schalter: **Show URL bar** (URL-Leiste anzeigen) blendet die Suchleiste ein oder aus, und **Other-tab bookmarks (desktop)** und **Other-tab bookmarks (mobile)** lassen die Lesezeichen auch auf anderen Tabs als **Home** sichtbar.
 
 ## Deine ersten Schritte
 
@@ -43,8 +72,8 @@ Hilfe findest du an mehreren Stellen, ganz ohne die App zu verlassen:
 
 - Frag **Professor Mari** auf dem Home-Bildschirm nach Unterstützung bei der Einrichtung und nach Antworten auf Wie-geht-das-Fragen.
 - Lies die **FAQ** auf dem Home-Bildschirm, dort stehen schnelle Antworten auf häufige Fragen.
-- Öffne die Anleitungen in der App über die Schaltfläche **Documentation** (Dokumentation) in der Fußzeile des Home-Bildschirms.
-- Klick in der Fußzeile auf **Discord**, um zur Community zu kommen, oder auf **Support**, um das Projekt zu unterstützen.
+- Öffne die Anleitungen in der App über das Lesezeichen **Documentation** auf dem Home-Bildschirm.
+- Klick auf das Lesezeichen **Discord**, um zur Community zu kommen, oder auf **Support**, um das Projekt zu unterstützen.
 
 Wenn etwas kaputt ist oder nicht funktioniert, hilft [Fehlerbehebung in Marinara Engine](../TROUBLESHOOTING.md) weiter.
 

@@ -20,7 +20,7 @@ Utwórz nowy czat w trybie Roleplay, a otworzy się kreator konfiguracji. Kreato
 
 1. **Name & Connection**. Nadaj nazwę czatowi i wybierz, które połączenie AI ma odpowiadać. Nazwę można zostawić pustą.
 2. **Pick a Preset**. Preset, czyli zapisany szablon promptu, steruje strukturą promptu i ustawieniami generowania. Domyślny preset sprawdza się w większości czatów.
-3. **Persona & Characters**. Wybierz personę, w którą się wcielasz, oraz postacie, które dołączają do sceny.
+3. **Persona & Characters**. Wybierz personę, w którą się wcielasz, oraz postacie, które dołączają do sceny. Niektóre karty postaci potrafią zbudować dla ciebie personę na podstawie kilku pytań: wybierz **Create your persona** (utworzenie własnej persony) i odpowiedz na nie. Zobacz [Interaktywny onboarding](../characters/interactive-onboarding.md).
 4. **Attach Lorebooks**. Lorebook to zbiór faktów o twoim świecie, które AI czyta, gdy pojawią się słowa kluczowe. Ten krok jest opcjonalny.
 5. **Enable Agents**. Wybierz agentów, którzy działają w tym czacie. Agentów da się dodać lub usunąć później w panelu **Chat Settings** (ustawienia czatu), w sekcji **Agents**.
 
@@ -81,6 +81,8 @@ Każdą z tych sekcji, także Search, możesz wydzielić do osobnego okna. Na te
 
 Wpisz notatkę w polu tekstowym. Na przykład: "Utrzymuj mroczny, pełen napięcia ton. Złoczyńca jest w tajemnicy sojusznikiem."
 
+Przy dłuższej notatce powiększ pole. Na komputerze przeciągnij jego dolny róg. Jeśli otworzysz **Author's Notes** w osobnym oknie, pole rośnie razem z oknem.
+
 Pod notatką jest pole liczbowe **Injection Depth**. Decyduje ono, jak wysoko w historii czatu trafia notatka. Pomoc w aplikacji brzmi: "Depth 0 = after the latest message, 4 = four messages from the end." Wartość 0 trzyma notatkę najbliżej najnowszej odpowiedzi.
 
 **Author's Notes** działa tak samo w trybie Game Mode i w trybie Conversation. Ten przewodnik jest jego głównym opisem.
@@ -128,6 +130,8 @@ Gdy szept jest już widoczny, wybierz **Edit whisper** (edytuj szept), zmień te
 Możesz też wpisać `[whisper: character="name" text="the secret"]` we własnej wiadomości Roleplay, aby wyszeptać coś jednej postaci w czacie. Własne szepty widzisz od razu. Działa to w zwykłych czatach, bez włączania trybu wieloosobowego.
 
 Ta sama komenda działa też wtedy, gdy edytujesz wiadomość postaci lub narratora: po zapisaniu staje się szeptem tej wiadomości. Tekst szeptu może zajmować kilka wierszy i zawierać wypowiedzi w cudzysłowie bez zmian, na przykład `text=""I love you.""`.
+
+Wiadomość, która zawiera wyłącznie szept, jest w całości pomijana dla postaci, do których szept nie dociera, więc nie widzą one, że ktokolwiek szeptał. Odbiorca i wyznaczony narrator nadal ją dostają. Postać otrzymuje tę wiadomość także wtedy, gdy udostępnisz jej prywatną notatkę dołączoną do tej wiadomości.
 
 ### Twoje prywatne notatki
 

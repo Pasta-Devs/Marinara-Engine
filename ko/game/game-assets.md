@@ -99,10 +99,22 @@ Marinara는 서버를 처음 시작할 때 무료 시작용 라이브러리를 �
 사용할 수 있는 값은 다음과 같습니다.
 
 - State: `exploration`, `dialogue`, `combat`, `travel_rest`.
-- Genre: `fantasy`, `horror`, `romance`, `mystery`, `scifi`, `modern`, `slice_of_life`, `adventure`, `drama`, `custom`.
+- Genre: `fantasy`, `horror`, `romance`, `mystery`, `scifi`, `modern`, `slice_of_life`, `adventure`, `drama`, `custom`, 또는 `wuxia` 같은 세계관의 계열(아래 참고).
 - Intensity: `calm`, `tense`, `intense`.
 
 Game Mode는 이 구조를 보고 각 트랙을 언제 재생할지 판단합니다. 앰비언트, 효과음, 스프라이트, 배경 폴더에는 이 규칙이 없습니다. 하위 폴더 이름은 자유롭게 지어도 됩니다.
+
+<a id="a-settings-own-art-and-music"></a>
+
+### 세계관 고유의 아트와 음악
+
+세계관 키트로 시작한 게임에는 아트 계열이 있습니다. 아트 계열은 키트의 용어를 바꿀 때 **Art and music**(아트와 음악) 아래에 표시되며, `fantasy`, `scifi`, `modern`, `wuxia`, `jazz_age`, `wasteland` 중 하나이거나 키트가 직접 정한 계열입니다. 게임은 자기 계열 이름이 붙은 폴더와 어떤 계열 이름도 붙지 않은 모든 폴더를 사용하고, 다른 계열의 폴더는 제외합니다. 그래서 사이버펑크 게임에서 판타지 전투 음악이 나오거나 마법의 숲이 보이는 일은 없습니다. 자기 계열이나 공유 폴더에 맞는 것이 없으면 다른 계열의 트랙을 트는 대신 아무것도 재생하지 않습니다.
+
+- **Music**: 세계관의 트랙은 `music/<state>/<family>/<intensity>`에 넣으세요. 예를 들면 `combat/wuxia/intense`입니다. 이 트랙은 공유 트랙보다 먼저 재생됩니다.
+- **Backgrounds**: `backgrounds/<family>`. 세계관 키트가 있는 게임에서 생성한 배경도 이곳에 저장됩니다.
+- **Combat sounds**(전투 효과음): `sword-swing`처럼 기본 제공 효과음과 이름이 같은 소리를 `sfx/combat/<family>`에 넣으면 그 계열의 게임에서 기본 소리를 대신합니다. 기본 제공 전투 효과음은 판타지용이므로, 다른 계열의 전투는 그 계열의 소리를 추가하기 전까지 조용합니다.
+
+기본 제공 시작용 배경은 공유 폴더로 취급됩니다. 단, 판타지 배경(`ancient_library`, `castle_cliff`, `enchanted_forest`)과 현대 배경 `city_night`는 예외입니다. 세계관 키트가 없는 게임은 이전처럼 모든 폴더를 사용합니다. 아트 계열이 생기기 전에 저장한 세계관 키트도 계속 작동합니다. 시작용 키트로 만든 키트는 그 시작용 키트의 계열을 쓰고, 그 밖의 키트는 **Art and music**에서 계열을 고르기 전까지 모든 폴더를 사용합니다. [게임마다 사용할 에셋 고르기](#choosing-which-assets-a-game-can-use)에서 설명한 선택 막대에는 열려 있는 게임의 계열이 표시됩니다.
 
 ## 에셋 정리하기
 
@@ -134,6 +146,8 @@ Game Mode는 이 구조를 보고 각 트랙을 언제 재생할지 판단합니
 Marinara는 Game Mode가 에셋을 빠르게 찾을 수 있도록 내부 목록을 관리합니다. 앱에서 업로드하면 이 목록은 자동으로 업데이트됩니다.
 
 앱을 거치지 않고 컴퓨터에서 게임 에셋 폴더에 파일을 직접 복사하면 앱이 곧바로 알아채지 못합니다. 이때는 **Rescan** 버튼을 클릭해 폴더를 다시 읽고 새 파일을 인식하게 하세요. **Rescan**은 **Asset Browser** 툴바와 **Settings**의 **Game Assets** 섹션 양쪽에 있습니다.
+
+<a id="choosing-which-assets-a-game-can-use"></a>
 
 ## 게임마다 사용할 에셋 고르기
 

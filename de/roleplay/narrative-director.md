@@ -79,6 +79,22 @@ Willst du den aktuellen Handlungsbogen verwerfen und die KI einen neuen schreibe
 
 Der verborgene Handlungsbogen wird beim Agenten **Narrative Director** gespeichert. Löschst du die Agentenläufe und das Gedächtnis des Chats, bleibt er erhalten. Erst wenn du den Agenten **Narrative Director** aus dem Chat entfernst, verschwindet auch der Bogen. Vor dem Entfernen warnt dich Marinara: Der verborgene Handlungsbogen wird gelöscht, und das lässt sich nicht rückgängig machen.
 
+### Der Secret-Plot-Prompt
+
+Der **Secret Plot Prompt** (Prompt für den Secret Plot) enthält die Anweisungen, denen der Narrative Director folgt, wenn er den verborgenen Handlungsbogen schreibt und aktualisiert. Der eingebaute Prompt legt jeden Bogen als Rätsel an, das es aufzudecken gilt. Das passt zu Abenteuer und Intrige, aber womöglich nicht zu einer Geschichte, die von den Charakteren getragen wird.
+
+So nutzt du eigene Anweisungen:
+
+1. Öffne **Agents** (Agenten) und bearbeite den **Narrative Director**.
+2. Klick im Abschnitt **Secret Plot** auf **Copy default to edit** (Standard zum Bearbeiten kopieren).
+3. Ändere den Text und speichere dann den Agenten.
+
+Klick auf **Reset to default** (auf Standard zurücksetzen), um zum eingebauten Prompt zurückzukehren, und speichere dann den Agenten.
+
+Behalte das JSON-Antwortformat am Ende des Prompts bei: ein Objekt `overarchingArc` mit `description`, `protagonistArc`, einem optionalen `characterArc` und `completed`. Ohne dieses Format lässt sich der Handlungsbogen nicht lesen.
+
+Dieser Prompt wird beim Agenten gespeichert und gilt daher für jeden Chat, der diesen Narrative Director nutzt.
+
 ## Verwandte Anleitungen
 
 - [Referenz der herunterladbaren Agenten](../agents/built-in-agents.md)

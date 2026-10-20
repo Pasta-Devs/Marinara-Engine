@@ -10,15 +10,15 @@ Cette section ne propose ni action New Draft, ni contrôle d'import. Demande à 
 
 Pour écrire et importer ton propre paquet, consulte le [guide de création des extensions personnelles](writing-personal-extensions.md). Les paquets que tu écris passent par le flux Extensions externes, protégé séparément.
 
-## Estimer les tokens d’un texte
+## Estimer les tokens d'un texte
 
-Les extensions personnelles Browser, Full page access et Server peuvent utiliser l’estimateur de tokens de texte intégré à Marinara :
+Les extensions personnelles Browser, Full page access et Server peuvent utiliser l'estimateur de tokens de texte intégré à Marinara :
 
 ```js
 const tokens = marinara.estimateTextTokens(text);
 ```
 
-La signature est `estimateTextTokens(text: string): number`. Elle est aussi décrite par le type `PersonalExtensionTokenApi`, exporté depuis `@marinara-engine/shared`. L’appel est synchrone, ne demande aucune permission supplémentaire et renvoie l’estimation de tokens de Marinara, indépendante du modèle, plutôt que le résultat exact d’un tokenizer. Sur une ancienne version d’Engine, vérifie `typeof marinara.estimateTextTokens === "function"` avant d’appeler la fonction.
+La signature est `estimateTextTokens(text: string): number`. Elle est aussi décrite par le type `PersonalExtensionTokenApi`, exporté depuis `@marinara-engine/shared`. L'appel est synchrone, ne demande aucune permission supplémentaire et renvoie l'estimation de tokens de Marinara, indépendante du modèle, plutôt que le résultat exact d'un tokenizer. Sur une ancienne version d'Engine, vérifie `typeof marinara.estimateTextTokens === "function"` avant d'appeler la fonction.
 
 ## Relire et activer
 
@@ -33,6 +33,8 @@ Une extension navigateur (Browser Extension) tourne dans un Worker dédié, à l
 Une extension peut ajouter des actions dans la barre supérieure, des entrées au menu Extensions et des panneaux persistants sur le côté droit, via `marinara.ui.registerContribution(...)`. Marinara affiche ces surfaces avec le thème actif et un jeu fixe de contrôles : titres, texte, sortie préformatée, boutons, champs de saisie, listes de sélection, interrupteurs, curseurs, sélecteurs de couleur et espaceurs. Une extension fournit du contenu et un état, jamais de HTML, de CSS, d'URL, de composants React ni de gestionnaires d'événements de l'hôte.
 
 Ces capacités d'interface et ces règles sont identiques pour toutes les extensions navigateur en bac à sable, quelle que soit leur provenance. Une extension tierce importée (External Extension) utilise ce runtime sûr, sauf si son paquet demande explicitement l'option **Full page access** (accès à la page entière) ou emploie le format `marinara.extension` antérieur au bac à sable, décrit plus bas.
+
+<a id="add-a-marinara-rendered-panel"></a>
 
 ### Ajouter un panneau affiché par Marinara
 
@@ -105,6 +107,8 @@ marinara.ui.registerContribution({
 ```
 
 Un outil complexe peut construire une interface en plusieurs étapes en mettant à jour les éléments du panneau après un événement. Garde l'état de l'application dans `marinara.storage` ; ne l'encode pas dans le balisage.
+
+<a id="use-active-chat-context"></a>
 
 ### Utiliser le contexte du chat actif
 
@@ -180,6 +184,8 @@ Les deux verrous des extensions externes et l'approbation de l'empreinte exacte 
 L'ancienne API `marinara.ui.showWindow(...)` reste disponible pour ouvrir une fenêtre temporaire dans l'iframe à origine opaque. Elle emploie les mêmes contrôles fixes et renvoie les références `update(...)` et `close()`. Privilégie les contributions quand l'outil doit rester accessible par la navigation habituelle de Marinara.
 
 Une extension serveur (Server Extension) tourne dans un processus Node distinct, aux permissions restreintes, sous macOS Seatbelt ou Linux Bubblewrap. Elle n'a accès ni aux fichiers de Marinara, ni à tes fichiers, ni aux secrets hérités du serveur, ni au réseau, ni aux processus enfants, ni aux workers, ni aux modules natifs. Si Marinara ne parvient pas à mettre en place un bac à sable pris en charge par le système, les extensions serveur restent désactivées.
+
+<a id="platform-support"></a>
 
 ### Plateformes prises en charge
 

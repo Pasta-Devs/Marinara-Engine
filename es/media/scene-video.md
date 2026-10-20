@@ -41,6 +41,10 @@ Para **ComfyUI**, usa la dirección local habitual `http://127.0.0.1:8188` y peg
 
 Para **SwarmUI**, Marinara rellena la dirección local `http://127.0.0.1:7801`. Pega un flujo de trabajo de video en formato API en **ComfyUI Workflow**. El flujo de trabajo es obligatorio. SwarmUI no puede usar los marcadores de posición `%reference_image_name%`, así que usa `%reference_image%` para la imagen de referencia. Si tu servidor de SwarmUI requiere una cuenta, pega un Swarm Auth Token en **API Key**. **Fetch Models from API** enumera los modelos de tu servidor de SwarmUI.
 
+### Instrucciones para los prompts de video
+
+Una conexión de Video Generation tiene un cuadro **Video Prompting Instructions** (Instrucciones para los prompts de video). Úsalo para indicarle a la IA que escribe tus prompts de video lo que espera tu modelo de video, como movimientos de cámara, la longitud del prompt o el sonido. Guía las animaciones de la Gallery de Roleplay, los mensajes de video de Conversation y el **Image-aware shot planning** (Planificación de tomas según la imagen) de Storyboard. Si la IA copia una frase completa de él en el prompt de video, Marinara elimina esa frase. Los videos de escena de Game Mode, los clips de llamada y las expresiones animadas crean sus prompts por separado. **Video Prompting Instructions** no les afecta.
+
 ### Convertirla en la conexión de video predeterminada
 
 El editor de conexión para una conexión de Video Generation muestra un grupo **Default for Videos** (Predeterminada para videos). Activa **Use as default video connection** (Usar como conexión de video predeterminada) para que Marinara pueda usar esta conexión cuando un chat no tenga una conexión de video propia. Marca solo una conexión como la conexión de video predeterminada.
@@ -80,7 +84,7 @@ Los ocho servicios hacen clips cortos a partir de tu imagen. Se diferencian en v
 - **xAI Imagine**: clips de 1 a 15 segundos. Usa un límite de prompt más corto que los demás servicios.
 - **OpenRouter Video**: de 1 a 60 segundos, y te deja escribir cualquier modelo de video que admita tu cuenta de OpenRouter.
 - **NanoGPT**: de 1 a 60 segundos. No tiene modelo predeterminado, así que carga los modelos de video de NanoGPT con **Fetch Models from API** y elige uno.
-- **Atlas Cloud**: **Fetch Models** (Obtener modelos) carga el catálogo actual de vídeo de Atlas Cloud, con los modelos de imagen a vídeo primero y el precio inicial por segundo de vídeo de cada uno. Si el catálogo no está disponible, Marinara muestra los modelos iniciales Veo 3.1 y Seedance 2.0. También puedes escribir el identificador exacto de un modelo de vídeo de Atlas Cloud; siguen aplicándose sus límites de duración, resolución e imágenes de referencia.
+- **Atlas Cloud**: **Fetch Models** (Obtener modelos) carga el catálogo actual de video de Atlas Cloud, con los modelos de imagen a video primero y el precio inicial por segundo de video de cada uno. Si el catálogo no está disponible, Marinara muestra los modelos iniciales Veo 3.1 y Seedance 2.0. También puedes escribir el identificador exacto de un modelo de video de Atlas Cloud; siguen aplicándose sus límites de duración, resolución e imágenes de referencia.
 - **Seedance 2.0**: clips de 4 a 15 segundos con modos de primer fotograma, y de primer y último fotograma. Necesita un enlace público a tu imagen de referencia.
 - **ComfyUI**: generación local a través de tu propio flujo de trabajo en formato API. Marinara sube la imagen de referencia directamente a ComfyUI cuando el flujo de trabajo usa `%reference_image_name%`.
 - **SwarmUI**: generación local a través de tu propio flujo de trabajo en formato API, enviado a través de tu servidor de SwarmUI. La imagen de referencia entra en el flujo de trabajo mediante `%reference_image%`.
@@ -98,21 +102,21 @@ Los modelos de Atlas Cloud no aceptan todos los mismos ajustes. Antes de cada so
 
 El registro del servidor enumera los valores modificados en una línea que empieza por `[video-gen/atlas-cloud] fitted request`. Si no se puede leer el esquema, Marinara envía la misma solicitud general que antes.
 
-Elige un modelo **image-to-video** (imagen a vídeo) para los vídeos de escena. Un modelo de texto a vídeo no tiene campo de imagen: ignora tu ilustración y crea un clip independiente solo a partir del prompt. El servidor lo indica en el registro.
+Elige un modelo **image-to-video** (imagen a video) para los videos de escena. Un modelo de texto a video no tiene campo de imagen: ignora tu ilustración y crea un clip independiente solo a partir del prompt. El servidor lo indica en el registro.
 
-**Test Video** (Probar vídeo) envía un degradado sencillo como primer fotograma cuando el modelo de Atlas Cloud elegido requiere una imagen. Así, los modelos de imagen a vídeo pueden superar la prueba de conexión.
+**Test Video** (Probar video) envía un degradado sencillo como primer fotograma cuando el modelo de Atlas Cloud elegido requiere una imagen. Así, los modelos de imagen a video pueden superar la prueba de conexión.
 
 ### Opciones de los modelos de Atlas Cloud
 
 Muchos modelos de Atlas Cloud tienen entradas propias, como `negative_prompt`, `seed`, `generate_audio`, `shot_type`, `enable_prompt_expansion` o listas de LoRA. El editor de conexiones las muestra para el modelo seleccionado:
 
 1. Abre la conexión de Atlas Cloud y elige o escribe un modelo.
-2. Despliega **Video Defaults** (Valores predeterminados de vídeo) y luego **Atlas Cloud setup** (Configuración de Atlas Cloud).
+2. Despliega **Video Defaults** (Valores predeterminados de video) y luego **Atlas Cloud setup** (Configuración de Atlas Cloud).
 3. Busca **Model options** (Opciones del modelo) debajo de los controles de duración, relación de aspecto y resolución.
 
-La parte superior de **Model options** enumera las duraciones, resoluciones, tamaños de fotograma y relaciones de aspecto que acepta el modelo. Los modelos de texto a vídeo también muestran un aviso ahí porque no pueden usar la imagen de tu galería.
+La parte superior de **Model options** enumera las duraciones, resoluciones, tamaños de fotograma y relaciones de aspecto que acepta el modelo. Los modelos de texto a video también muestran un aviso ahí porque no pueden usar la imagen de tu galería.
 
-Cada opción conserva exactamente el nombre y la descripción de Atlas Cloud. Todas empiezan en **Model default** (Valor predeterminado del modelo), con el valor del proveedor entre paréntesis. Una opción que se deja en **Model default** no se envía: decide Atlas Cloud. Cambia una opción para enviar tu valor con cada vídeo de esta conexión, incluido **Test Video**. Las entradas de listas y objetos, como las LoRA, aceptan JSON.
+Cada opción conserva exactamente el nombre y la descripción de Atlas Cloud. Todas empiezan en **Model default** (Valor predeterminado del modelo), con el valor del proveedor entre paréntesis. Una opción que se deja en **Model default** no se envía: decide Atlas Cloud. Cambia una opción para enviar tu valor con cada video de esta conexión, incluido **Test Video**. Las entradas de listas y objetos, como las LoRA, aceptan JSON.
 
 Las elecciones se guardan por modelo. Si cambias a otro modelo y vuelves, se conservan las opciones de cada uno. **Reset model options** (Restablecer opciones del modelo) borra las elecciones del modelo actual. Pulsa **Save** (Guardar) en la conexión para conservar tus cambios.
 
@@ -148,7 +152,7 @@ Si intentas hacer un video sin ninguna imagen en el chat, Marinara muestra este 
 
 ## Video de escena en Game Mode
 
-Game Mode ofrece otro lugar para crear videos de escena: **Game Assets**. Toca o haz clic en su botón de carpeta, que empieza arriba a la derecha. Se abre como ventana en computadora o panel de ancho completo en teléfono. Si lo guardaste con **Put back in Chat Settings**, abre la sección **Game Assets** de Chat Settings.
+Game Mode ofrece otro lugar para crear videos de escena: **Game Assets**. Toca o haz clic en su botón de carpeta, que empieza arriba a la derecha. Se abre como ventana en computadora o panel de ancho completo en teléfono. Si lo moviste a Chat Settings, abre allí la sección **Game Assets**.
 
 1. Abre **Game Assets**.
 2. Haz clic en **Generate video** (Generar video). Su tooltip (texto de ayuda) dice **Generate a scene video from the latest illustration** (Generar un video de escena a partir de la última ilustración).

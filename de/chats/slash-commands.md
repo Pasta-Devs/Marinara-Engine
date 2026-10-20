@@ -29,7 +29,7 @@ Diese Befehle helfen dir beim Verwalten des Chats und seiner Nachrichten. Sie fu
 | Befehl | Auch als | Was er macht |
 |---|---|---|
 | `/help` | | Listet alle Slash-Befehle auf. |
-| `/send [message]` | | Postet eine Nachricht im Namen deiner Persona, ohne eine Generierung auszulösen. |
+| `/send [message]` | | Postet eine Nachricht im Namen deiner Persona, ohne eine Generierung auszulösen. Sie wird genauso gespeichert wie mit **Send** (Senden), mit eingesetzten Makros. |
 | `/continue` | `/cont` | Hängt weiteren Text an die letzte KI-Antwort an, ohne eine neue Nachricht zu senden. Die Option **Add a new line before /continue text** unter **Settings → General → Responses** legt fest, ob der Text nach einer Leerzeile beginnt oder direkt an der Abbruchstelle. |
 | `/goto [number]` | `/jump`, `/scroll` | Springt im Chat zu einer Nachricht mit der angegebenen Nummer. |
 | `/hide [range] [name (optional)]` | | Blendet eine oder mehrere Nachrichten für die KI aus, sodass sie in kommenden Zügen unsichtbar bleiben. |

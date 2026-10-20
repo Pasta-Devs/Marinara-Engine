@@ -113,7 +113,9 @@ environment:
 docker compose up -d
 ```
 
-Agora os outros dispositivos da rede alcançam Marinara em `http://YOUR_COMPUTER_IP:7860`, desde que a variável `PORT` não esteja definida. Se você definir a variável `PORT`, troque `7860` por essa porta do host. Cada pessoa precisa digitar o usuário e a senha que você configurou. Para conhecer boas formas de liberar apenas certos dispositivos e entender para que serve o segredo de administrador, leia [Acesso remoto: Basic Auth e lista de IPs permitidos](../REMOTE_ACCESS.md).
+Agora os outros dispositivos da rede alcançam Marinara em `http://YOUR_COMPUTER_IP:7860`, desde que a variável `PORT` não esteja definida. Se você definir a variável `PORT`, troque `7860` por essa porta do host. Cada pessoa precisa digitar o usuário e a senha que você configurou.
+
+No Docker Desktop, no OrbStack e no Docker sem root, todo dispositivo chega ao contêiner pelo mesmo endereço, inclusive o seu próprio navegador. Por isso, depois que o login é definido, este computador também passa a pedi-lo, e uma lista de IPs permitidos não consegue diferenciar os dispositivos. Nunca remova `127.0.0.1:` sem o login: nesses ambientes, Marinara não consegue diferenciar os outros dispositivos deste computador. Para conhecer boas formas de liberar apenas certos dispositivos e entender para que serve o segredo de administrador, leia [Acesso remoto: Basic Auth e lista de IPs permitidos](../REMOTE_ACCESS.md).
 
 ## Escolher a imagem: latest, staging ou lite
 
@@ -142,6 +144,7 @@ A imagem lite remove os recursos que dependem de arquivos locais grandes:
 | Modelo local de embedding | Sem embeddings de texto no dispositivo. |
 | Memory Recall (busca semântica) | Depende do modelo local de embedding. |
 | Entrada de voz com Whisper local | A conversão de fala em texto nas chamadas de Conversation deixa de existir. |
+| Leitor de humor dos avatares | Os 2D Avatars e 3D Avatars escolhem os rostos por uma lista de palavras, em vez do pequeno modelo local de emoções. |
 
 Todo o resto funciona igual: chat, roleplay, Game Mode, agentes, lorebooks, personagens e conexões com provedores de IA remotos. Para usar qualquer recurso de IA com a imagem lite, você precisa conectar um provedor externo (por exemplo OpenRouter, OpenAI ou um modelo hospedado por você). Veja [Conectando a um provedor de IA](../connections/connecting-to-a-provider.md).
 
@@ -155,7 +158,7 @@ Algumas imagens lite mais antigas travam no Raspberry Pi 4 e em computadores ARM
 
 ## Atualizar
 
-As imagens de contêiner não se atualizam sozinhas. Você baixa uma imagem mais nova e reinicia o contêiner na mão.
+As imagens de contêiner não se atualizam sozinhas. Você baixa uma imagem mais nova e reinicia o contêiner na mão. Faça um backup antes, para poder voltar exatamente ao ponto em que estava. Veja [Fazer backup e restaurar Marinara](../data/backup-and-restore.md).
 
 No Docker Compose, rode este único comando:
 
@@ -170,6 +173,8 @@ podman compose pull && podman compose up -d
 ```
 
 A versão também pode ser conferida dentro do aplicativo. Abra **Settings** (Configurações), vá até a aba **Advanced** e localize a seção **Updates**. Clique em **Check for Updates**. Em instalações por contêiner, Marinara percebe que está rodando no Docker e mostra a tag da imagem de lançamento junto com o comando a rodar no host. A atualização não pode ser aplicada pelo navegador, então você ainda roda o comando acima no host.
+
+Para voltar a uma versão anterior, coloque a tag dessa versão na linha `image:` do `docker-compose.yml`, por exemplo `ghcr.io/pasta-devs/marinara-engine:2.5.0`, e depois rode `docker compose up -d`. Voltar para a 2.5.0 funciona e os seus chats abrem normalmente, mas a 2.5.0 não conhece as configurações e os dados de jogo que os recursos mais novos acrescentaram. Todo chat ou conexão que a 2.5.0 salvar perde esses dados, e atualizar de novo não os traz de volta. Veja [Voltar para a 2.5.0](../UPGRADING.md#going-back-to-250).
 
 ## Podman
 

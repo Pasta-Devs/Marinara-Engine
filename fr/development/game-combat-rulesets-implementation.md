@@ -31,7 +31,7 @@ Les multiplicateurs actuels de dégâts ennemis de l'Engine, Casual 0,6, Normal 
 
 - `packages/shared/src/types/game.ts` : `Combatant`, `CombatSkill`, résultats et instantanés Classic. Les caractéristiques actuelles sont des nombres génériques ; `speed` n'est ni la Dextérité d'un jeu de rôle sur table, ni un mouvement en pieds.
 - `packages/server/src/services/game/combat.service.ts` : Classic lance l'initiative à chaque round, résout une commande par participant et utilise des formules génériques de dégâts. Les anciennes parties font transiter l'état par le client ; les nouvelles parties de l'assistant utilisent le registre du directeur de combat détenu par le serveur.
-- `packages/shared/src/features/tactical-combat/{engine,math,types}.ts` : phases groupe/ennemis alternées, portée liée à la classe et mouvement dérivé de la vitesse, contre-attaques, sans frappe supplémentaire de vitesse pour l'instant.
+- `packages/shared/src/features/tactical-combat/{engine,math,types}.ts` : phases groupe/ennemis, ou une unité à la fois dans un ordre d'initiative avec graine quand la partie le demande (combat C6c), portée liée à la classe et mouvement dérivé de la vitesse, contre-attaques, sans frappe supplémentaire de vitesse pour l'instant.
 - `packages/shared/src/features/combat-ai.ts` et adaptateurs de mode : priorités parmi les actions disponibles. L'IA ordinaire conserve sa limite d'information ; les boss GM reçoivent fiches/ressources du groupe pour anticiper, mais aucun ne voit les jets futurs ou les choix du joueur avant leur déclaration.
 - `packages/server/src/routes/combat-director.routes.ts` et `services/game/combat-director.service.ts` : état de rencontre versionné faisant autorité, curseur d'activation, réactions en attente, budgets légendaires et protection contre les réponses dupliquées/périmées. Étends ce circuit d'actions acceptées aux adaptateurs plutôt que de créer un second registre. Chance de Counterspell, paiement des emplacements et coût d'annulation sont actuellement des politiques génériques de l'Engine, pas des règles 5e.
 - `packages/server/src/routes/game.routes.ts` : validation ancienne des rounds/démarrages/actions. `GameCombatUI`, `TacticalCombatUI` et `use-game.ts` : saisies, prévisions, résultats acceptés et persistance.
@@ -79,7 +79,7 @@ Conserve les fiches propres aux règles dans une union discriminée. Ne ramène 
 | Règle | Comportement v1 proposé |
 | --- | --- |
 | Initiative | Vitesse effective décroissante, ordre stable de rencontre en cas d'égalité ; aucune activation supplémentaire pour égalité ou vitesse élevée |
-| Déroulement Tactical | Phase du groupe puis ennemis ; le joueur choisit les unités n'ayant pas agi, les unités automatiques suivent la vitesse |
+| Déroulement Tactical | Par camp : phase du groupe, puis phase ennemie, le joueur choisissant parmi les unités du groupe qui n'ont pas agi. Par initiative (combat C6c) : une unité à la fois, dans un ordre tiré une fois par combat |
 | Déroulement Classic | Ordre commun par vitesse effective décroissante ; l'interface met les commandes manuelles en file puis résout les cibles légales actuelles à chaque position |
 | Mouvement | Budget explicite indépendant de la vitesse. Valeur proposée : 4 cases avec ajustements bornés de classe/capacité |
 | Vitesse d'attaque | Vitesse effective avec seulement les pénalités/bonus explicitement modélisés ; aucun poids d'arme fictif |

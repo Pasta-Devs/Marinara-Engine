@@ -262,6 +262,16 @@ Kaelen is his usual self.
 
 这里模型从“angry”“sad”和“none of these”中选择。也支持简写：`decision_choice:"The weather in the latest message" == "rain" || "snow"` 会提供两个选项。陈述写成主题，例如“Kaelen's mood in the latest message”，选项写成简短答案。
 
+想告诉模型某个选项在你的故事里是什么意思，就在选项后面加上判断标准，用冒号隔开：
+
+```
+{{#if decision_choice:"Kaelen's mood in the latest message" == "angry":"Kaelen raises his voice, makes threats or breaks something"}}
+Kaelen's lines are short and clipped.
+{{/if}}
+```
+
+模型会把判断标准当作这个选项的说明来读。它仍然回答“angry”，比较的也仍然是“angry”。两部分要用同一种引号。引号不一致时，Marinara 不会把“angry”识别为选项，比较也永远匹配不上它。判断标准里可以用 `{{char}}` 之类的宏。没有判断标准的选项照旧提供；如果同一个选项在几处给了不同的判断标准，以最先出现的那组为准。
+
 <a id="sticky-and-cooldown"></a>
 
 ### Sticky 与 Cooldown

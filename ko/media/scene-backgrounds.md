@@ -40,14 +40,14 @@ Choose an image generation connection for the Illustrator agent, or mark one as 
 
 ## Gallery 섹션
 
-**Gallery**에는 **Images**와 **Videos**(동영상) 두 개의 탭이 있습니다. 각 탭에는 담긴 항목 수가 함께 표시됩니다. **Videos** 탭은 해당 채팅에서 장면 동영상이 활성화되어 있을 때만 나타납니다.
+**Gallery**에는 **Images**와 **Videos**(동영상) 두 개의 탭이 있습니다. 각 탭에는 담긴 항목 수가 함께 표시됩니다. **Videos** 탭에는 Roleplay와 Game 채팅의 장면 동영상, Conversation 채팅의 동영상 메시지가 담깁니다.
 
 섹션 위쪽의 동작 버튼은 그 기능을 현재 채팅에서 쓸 수 있을 때만 나타납니다.
 
 - **Illustrate**: Illustrator 에이전트를 실행해 장면 이미지를 한 장 만듭니다. [Illustrator 에이전트](illustrator-agent.md)를 참고하세요.
 - **Selfie**(셀카): Conversation에서 캐릭터의 셀카를 생성합니다.
 - **Background**: 위에서 설명한 대로 장면 배경을 생성하고 적용합니다.
-- **Video**(비디오): 가장 최근 삽화로 장면 동영상을 만듭니다.
+- **Video**(비디오): 가장 최근 삽화로 장면 동영상을 만듭니다. Conversation에서는 대신 캐릭터의 동영상 메시지를 보냅니다. [동영상 메시지](../conversation/selfies.md#video-messages)를 참고하세요.
 - **Create storyboard**(스토리보드 만들기): Storyboard가 켜져 있을 때 가장 최근 Game Mode 턴이나 완료된 Roleplay 에피소드의 키프레임을 생성합니다.
 - **Browse Images**(이미지 찾아보기): 저장해 둔 이미지를 골라 넣을 수 있는 브라우저를 엽니다.
 - **View storyboard**(스토리보드 보기): 가장 최근 Game Mode 스토리보드를 엽니다.
@@ -59,17 +59,30 @@ Choose an image generation connection for the Illustrator agent, or mark one as 
 **Images** 탭에서 이미지 위에 포인터를 올리거나, 모바일에서는 이미지를 탭하면 사용할 수 있는 동작이 나타납니다.
 
 - 이미지를 원래 크기로 열기(**Open gallery image**).
-- **Pin to chat**(채팅에 고정): 이미지를 채팅에 고정합니다.
+- **Pin to chat**(채팅에 고정): 이미지를 떠 있는 그림으로 채팅에 고정합니다. 끌어서 옮기고 모서리 핸들로 크기를 바꿀 수 있습니다. 이 브라우저에서 페이지를 다시 불러와도 위치와 크기가 유지됩니다. 닫기 버튼 옆의 잠금 버튼을 누르면 잠금을 풀 때까지 옮기거나 크기를 바꿀 수 없습니다.
 - **Download image**(이미지 다운로드): 이미지를 기기에 저장합니다.
 - **Animate illustration**(삽화 애니메이션 만들기): 그 이미지를 장면 동영상으로 만듭니다.
 - **Copy prompt**(프롬프트 복사): 저장된 이미지 프롬프트를 복사합니다. 저장된 프롬프트가 없으면 **No prompt saved**로 표시되고 사용할 수 없습니다.
 - **Delete gallery image**(갤러리 이미지 삭제): 확인을 거친 뒤 이미지를 삭제합니다.
 
+<a id="regenerating-an-image"></a>
+
+### 이미지 다시 만들기
+
+생성된 이미지를, 그 이미지가 속한 응답을 재생성하지 않고 다시 만들 수 있습니다. 삽화, 셀카, 스토리보드 프레임처럼 프롬프트가 저장되어 있는, 채팅 Gallery의 이미지에서 쓸 수 있습니다.
+
+1. Gallery나 이미지가 들어 있는 메시지에서 이미지를 원래 크기로 여세요.
+2. **Regenerate image**(이미지 재생성)를 클릭하세요(그림 오른쪽 위의 원형 화살표 버튼).
+3. 그림 아래 입력란에서 바꾸고 싶은 내용을 바꾸세요. **Prompt**(프롬프트), **Negative prompt**(부정 프롬프트), 이미지에 캐릭터 프롬프트가 있었다면 **Character prompts**(캐릭터 프롬프트) 아래의 캐릭터별 입력란, 그리고 **Image connection**(이미지 연결)이 있습니다.
+4. **Generate image**(이미지 생성)를 클릭하세요. 이미지를 그대로 두려면 **Cancel**(취소)을 클릭하세요.
+
+새 이미지가 메시지의 예전 이미지를 대신합니다. 예전 이미지는 Gallery에 남으므로 다시 고정할 수 있습니다. 참조 그림은 캐릭터의 현재 아바타로 다시 보냅니다. 일부 예전 이미지는 부정 프롬프트와 캐릭터 프롬프트를 저장하지 않았으며, 그런 경우 편집기에 그 사실이 표시됩니다.
+
 ## 전송 전에 프롬프트 확인하기
 
 Marinara가 이미지 제공자에게 배경 요청을 보내기 전에 프롬프트를 확인하고 고칠 수 있습니다.
 
-1. **Settings** → **Generations** → **Image Generation**을 여세요.
+1. **Settings** → **Generations** → **Overall Generations**(전체 생성)를 여세요.
 2. **Expose media prompts before sending**(전송 전에 미디어 프롬프트 표시)을 켜세요.
 
 이 설정을 켜면 요청을 보내기 전에 **Review Image Prompt** 창이 열립니다. 창의 안내 문구는 "Edit the prompt below before Marinara sends the image request to your provider."입니다.

@@ -41,6 +41,10 @@ Pour **ComfyUI**, utilise l'adresse locale habituelle `http://127.0.0.1:8188` et
 
 Pour **SwarmUI**, Marinara remplit l'adresse locale `http://127.0.0.1:7801`. Colle un workflow vidéo au format API dans le champ **ComfyUI Workflow**. Ce workflow est obligatoire. SwarmUI ne peut pas utiliser les balises de remplacement `%reference_image_name%` : utilise plutôt `%reference_image%` pour l'image de référence. Si ton serveur SwarmUI exige un compte, colle un Swarm Auth Token dans **API Key** (clé API). **Fetch Models from API** liste les modèles de ton serveur SwarmUI.
 
+### Video Prompting Instructions
+
+Une connexion Video Generation dispose d'un champ **Video Prompting Instructions** (instructions pour les prompts vidéo). Utilise-le pour dire à l'IA qui écrit tes prompts vidéo ce qu'attend ton modèle vidéo, comme les mouvements de caméra, la longueur du prompt ou le son. Il guide les animations de la galerie en Roleplay, les messages vidéo en Conversation et l'option **Image-aware shot planning** de Storyboard. Si l'IA en recopie une phrase entière dans le prompt vidéo, Marinara retire cette phrase. Les vidéos de scène de Game Mode, les clips d'appel et les expressions animées créent leurs prompts séparément. **Video Prompting Instructions** n'a pas d'effet sur eux.
+
 ### En faire la connexion vidéo par défaut
 
 L'éditeur d'une connexion Video Generation affiche un groupe **Default for Videos** (connexion vidéo par défaut). Active l'interrupteur **Use as default video connection** pour que Marinara puisse s'appuyer sur cette connexion quand un chat n'a pas la sienne. Ne marque qu'une seule connexion comme connexion vidéo par défaut.
@@ -148,7 +152,7 @@ Si tu tentes de créer une vidéo alors que le chat ne contient aucune image, Ma
 
 ## La vidéo de scène en Game Mode
 
-Game Mode propose aussi **Game Assets** pour créer des vidéos de scène. Clique ou appuie sur son bouton de dossier, qui commence en haut à droite. Il ouvre une fenêtre sur ordinateur ou un panneau sur toute la largeur sur téléphone. Si tu l'as rangé avec **Put back in Chat Settings**, ouvre la section **Game Assets** dans Chat Settings.
+Game Mode propose aussi **Game Assets** pour créer des vidéos de scène. Clique ou appuie sur son bouton de dossier, placé au départ près du coin supérieur droit du chat. Il s'ouvre dans une fenêtre sur ordinateur, ou dans un panneau sur toute la largeur sur téléphone. Si tu l'as déplacé dans Chat Settings, ouvre plutôt la section **Game Assets** à cet endroit.
 
 1. Ouvre **Game Assets**.
 2. Clique sur **Generate video** (générer une vidéo). Son infobulle indique "Generate a scene video from the latest illustration."

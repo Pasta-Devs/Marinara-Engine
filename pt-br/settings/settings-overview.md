@@ -4,7 +4,7 @@ Este guia mostra o painel **Settings** (Configurações) do Marinara Engine: as 
 
 ## O painel Settings e suas seis abas
 
-Abra **Settings** pelo ícone de engrenagem na barra superior. No topo do painel fica a caixa **Search settings** (buscar nas configurações). Digite qualquer palavra (como `delete`, `streaming` ou `quotes`) e Marinara leva você direto para a seção correspondente.
+Abra **Settings** pelo ícone de engrenagem na barra superior. No topo do painel fica a caixa **Search settings** (buscar nas configurações). Digite qualquer palavra (como `delete`, `streaming` ou `quotes`) e Marinara leva você direto para a seção correspondente. A busca encontra uma configuração pelo nome no idioma da sua interface ou em inglês.
 
 O painel tem seis abas. A tabela abaixo mostra o que cada aba controla.
 
@@ -24,7 +24,7 @@ Onde ler mais sobre cada aba:
 - **Generations**: veja [Perfis de estilo](../media/style-profiles.md) e [Vídeo de cena](../media/scene-video.md).
 - **Addons**: veja [Extensões pessoais](../extending/personal-extensions.md) e [Temas de CSS personalizados](../appearance/custom-css-themes.md).
 - **Imports**: veja [Importando do SillyTavern](../data/importing-from-sillytavern.md) e [Fazer backup e restaurar Marinara](../data/backup-and-restore.md).
-- **Advanced**: veja a seção **Message Tools** abaixo, além de [Atualizando Marinara Engine](../UPGRADING.md), [Acesso remoto](../REMOTE_ACCESS.md) e [Limpar ou zerar os seus dados](../data/clearing-data.md). [Chaves de recursos](../configuration/features.md).
+- **Advanced**: veja a seção **Message Tools** abaixo e [Chaves de recursos](../configuration/features.md), além de [Atualizando Marinara Engine](../UPGRADING.md), [Acesso remoto](../REMOTE_ACCESS.md) e [Limpar ou zerar os seus dados](../data/clearing-data.md).
 
 ## Settings, aba General
 
@@ -48,9 +48,20 @@ Esta seção fica em **Settings** > **General** > **App Behavior**. Ela controla
   idioma, veja [Localização da interface](../development/localization.md).
 - **Documentation Language**: escolha o idioma dos guias internos do Marinara, separado do idioma da interface acima. O inglês já vem embutido e nunca precisa ser baixado. Ao escolher um idioma diferente do inglês, aparece o botão **Download & Replace** (baixar e substituir), que baixa aquele pacote de idioma uma vez e remove o pacote anterior, então só um idioma baixado fica guardado. Os guias ainda não traduzidos abrem em inglês com um pequeno selo `EN`, e a busca da documentação funciona no idioma ativo no momento. A sua escolha continua valendo depois das atualizações, e o pacote se renova sozinho depois de uma atualização, quando as traduções dele mudaram. Se os guias baixados sumirem ou ficarem danificados, aparece o botão **Fix documentation** (corrigir a documentação): ele baixa o pacote de novo e devolve os guias para o inglês quando a fonte do download não puder ser acessada.
 - **Confirm before deleting**: ativado por padrão. Quando está ativo, Marinara pergunta antes de excluir para sempre um chat, um personagem ou outro item. Mantenha ativo para evitar exclusões por engano.
-- **Achievements**: ativado por padrão. Quando está ativo, a tela inicial mostra o botão de conquistas e os avisos de conquista desbloqueada. Quando está desativado, o acompanhamento continua em silêncio. Veja [Conquistas](../home/achievements.md).
-- **Music Player**: ativado por padrão. Quando está ativo, o player de música compacto aparece. Veja [Música](../media/music.md).
-- **Search and Professor Mari settings**: selecione **Open** (abrir) para ir à página dessas configurações. Todas as configurações da busca e da Professor Mari ficam ali, em cinco grupos: **Search** (busca: oferecer melhorias para um campo, histórico de buscas), **Quick answers** (respostas rápidas: **Quick answers in Search**, **Answer with**, **Wait after typing**), **Professor Mari** (Ask Professor Mari from Search, modo de permissões, sugestões de resposta, como os cards de mudança abrem, Enter sends to Professor Mari), **Around the app** (pelo aplicativo: Mini Professor Mari visits) e **Appearance** (aparência: o visual dela; cada pacote mostra o retrato dela, o que está em uso mostra **In use** e um pacote bloqueado mostra o seu tempo de jogo para desbloqueá-lo). A engrenagem da busca abre a mesma página, e buscar qualquer uma dessas configurações, pelo nome novo ou pelo antigo, leva você direto até ela.
+- **Hide chat Help button** (esconder o botão de ajuda do chat): desativado por padrão. Quando está ativo, o botão **Help** (ajuda) some dos chats de Conversation, Roleplay e Game.
+- **Show Android status bar** (mostrar a barra de status do Android): desativado por padrão, e só funciona no aplicativo Android do Marinara Engine. Quando está ativo, a hora, o nível da bateria e os ícones de notificação continuam visíveis acima do Marinara.
+- **Achievements**: ativado por padrão. Quando está ativo, a tela inicial mostra o favorito **Achievements** e os avisos de conquista desbloqueada. O widget opcional **Achievements** aparece se você o adicionou ao layout da tela inicial. Quando está desativado, o acompanhamento continua em silêncio. Veja [Conquistas](../home/achievements.md).
+- **Music Player**: ativado por padrão. Quando está ativo, o player de música compacto aparece. Ele precisa do agente **Music DJ**, de **Agents** > **Download Agents**, e o botão fica esmaecido até você instalá-lo. Veja [Música](../media/music.md).
+- **Search and Professor Mari settings**: selecione **Open** (abrir) para ir à página dessas configurações. Todas as configurações da busca e da Professor Mari ficam ali, nestes grupos:
+
+  - **Search** (busca): oferecer melhorias para um campo e histórico de buscas.
+  - **Quick answers** (respostas rápidas): **Quick answers in Search**, **Answer with** e **Wait after typing**.
+  - **Search window** (janela da busca) e **Professor Mari window** (janela da Professor Mari): cada janela tem as configurações **Height** (altura) e **Width** (largura). Esses grupos não aparecem no celular.
+  - **Professor Mari**: Ask Professor Mari from Search, modo de permissões, **Runtime** (ambiente de execução), sugestões de resposta, como os cards de mudança abrem e Enter sends to Professor Mari.
+  - **Around the app** (pelo aplicativo): Mini Professor Mari visits.
+  - **Appearance** (aparência): o visual dela. Cada pacote mostra o retrato dela. O que está em uso mostra **In use**. Um pacote bloqueado mostra o seu tempo de jogo para desbloqueá-lo.
+
+  A engrenagem da busca abre a mesma página. Buscar qualquer uma dessas configurações, pelo nome novo ou pelo antigo, leva você direto até ela.
 
 ## Text Rules
 
@@ -77,6 +88,10 @@ Define como as aspas são padronizadas. Diferente das duas regras acima, esta mu
 - **Straight**: mantém as aspas retas de máquina de escrever, como em `"Hello," it's me.` É o padrão.
 - **Typographic**: troca as aspas retas por aspas e apóstrofos curvos.
 
+### Load images from other websites in messages
+
+Desativado por padrão. Quando está desativado, uma imagem de outro site em uma mensagem, em uma saudação ou na prévia de um card mostra o nome do site e um botão **Load image** (carregar imagem) no lugar, para que uma mensagem não consiga contatar outros sites sozinha. Selecione **Load image** para mostrar essa imagem; Marinara se lembra disso em todos os seus dispositivos. Ative a configuração para mostrar todas as imagens na hora. As imagens guardadas no Marinara, como as fotos da galeria, os avatares e os sprites, sempre aparecem.
+
 ## Responses e Input & Editing
 
 Essas duas seções da aba **General** ajustam como as respostas chegam e como você digita e edita. Veja os controles, com links para os guias completos.
@@ -85,7 +100,8 @@ A seção **Responses** controla:
 
 - **Enable streaming**: mostrar o texto da IA palavra por palavra conforme ele é gerado.
 - **Streaming speed**: a velocidade com que o texto em streaming aparece.
-- **Trim incomplete model endings**: cortar uma frase inacabada no final antes de salvar.
+- **Trim incomplete sentences from the response**: cortar uma frase inacabada no final antes de salvar.
+- **Add a new line before /continue text**: começar o texto acrescentado por `/continue` depois de uma linha em branco. Ativado por padrão.
 - **Messages per page**: quantas mensagens são carregadas de uma vez.
 
 Saiba mais em [Enviar mensagens e streaming](../chats/sending-and-streaming.md).
@@ -94,6 +110,8 @@ A seção **Input & Editing** controla:
 
 - **Send on Enter**: escolha em quais modos a tecla Enter envia a mensagem.
 - **Keep guidance after regenerating**: manter a direção digitada na caixa de mensagem depois de uma regeneração guiada. Ativado por padrão.
+- **Add CYOA choices to the message box instead of sending them**: uma escolha CYOA clicada vai para a sua caixa de mensagem, para você poder editá-la antes de enviar.
+- **Quick replies**: acrescentar ações de rascunho alternativas ao lado do botão Send. Veja [Geração guiada e Impersonate](../chats/guided-and-impersonate.md).
 - **Speech-to-text microphone**: mostrar um botão de microfone nos campos de mensagem.
 - **Intuitive swipe navigation**: usar as setas do teclado ou o deslizar do dedo para alternar entre as respostas alternativas.
 - **Reroll past the newest swipe**: gerar uma resposta nova ao passar do swipe mais recente.
@@ -104,18 +122,20 @@ Saiba mais em [Ações de mensagem](../chats/messages.md).
 
 ## Message Tools
 
-A seção **Message Tools** fica em **Settings** > **Advanced** > **Message Tools**. Ela reúne botões liga/desliga de exibição e de correção. Todos os botões abaixo vêm desativados por padrão, exceto **Show "older messages not sent" note** (mostrar o aviso de mensagens antigas não enviadas), que vem ativado. A tabela mostra o que cada um faz e onde ler mais.
+A seção **Message Tools** fica em **Settings** > **Advanced** > **Message Tools**. Ela reúne botões liga/desliga de exibição e de correção. Todos os botões abaixo vêm desativados por padrão, exceto **Show context usage** (mostrar o uso do contexto) e **Show "older messages not sent" note** (mostrar o aviso de mensagens antigas não enviadas), que vêm ativados. A tabela mostra o que cada um faz e onde ler mais.
 
 | Botão liga/desliga | O que faz | Guia completo |
 | --- | --- | --- |
 | **Show message timestamps** | Mostra a data e a hora em cada mensagem. | [Ações de mensagem](../chats/messages.md) |
+| **Show characters in Persona pickers** | Lista os seus personagens nos seletores de persona, para você poder jogar como um deles. | [Personas](../characters/personas.md) |
 | **Show model name on messages** | Mostra qual modelo de IA escreveu cada resposta. | [Ações de mensagem](../chats/messages.md) |
 | **Show token usage on messages** | Mostra a contagem de tokens de prompt e de resposta por mensagem. | [Ações de mensagem](../chats/messages.md) |
+| **Show context usage** | Mostra o quanto o contexto do modelo estava cheio na última requisição medida, nos seletores de conexão e nas configurações do chat de Game. | [Organizando as conexões](../connections/organizing-connections.md#the-random-pool-and-quick-connection-switcher) |
 | **Show message numbers** | Mostra um número em cada mensagem do chat. | [Ações de mensagem](../chats/messages.md) |
 | **Show "older messages not sent" note** | Mostra um aviso abaixo da resposta mais recente quando as mensagens mais antigas não couberam no prompt. Desative para esconder esse aviso em chats longos. Uma resposta cortada ou vazia continua mostrando o próprio aviso. | [Peek Prompt](../chats/peek-prompt.md) |
 | **Guide swipes/regens with chat input** | Usa o rascunho atual como direção quando você regenera. | [Geração guiada e Impersonate](../chats/guided-and-impersonate.md) |
-| **Quick replies** | Acrescenta ações de rascunho alternativas ao lado do botão Send. | [Geração guiada e Impersonate](../chats/guided-and-impersonate.md) |
 | **Include reasoning in exports** | Inclui o raciocínio oculto nas exportações de chat. | [Exportar e importar chats](../chats/export-import.md) |
+| **Include private notes in exports** | Acrescenta as suas notas privadas de mensagem às exportações de chat em JSONL e em texto. Mantenha desativado quando for compartilhar uma transcrição. | [Exportar e importar chats](../chats/export-import.md) |
 | **Debug mode** | Registra no console do servidor o que é enviado ao modelo, para dar suporte. | [Solução de problemas do Marinara Engine](../TROUBLESHOOTING.md) |
 
 O resto da aba **Advanced** é explicado em outros guias. Veja [Atualizando Marinara Engine](../UPGRADING.md) para **Updates**, [Acesso remoto](../REMOTE_ACCESS.md) para **Admin Access**, [Fazer backup e restaurar Marinara](../data/backup-and-restore.md) para **Backup & Export** e [Limpar ou zerar os seus dados](../data/clearing-data.md) para **Danger Zone**.

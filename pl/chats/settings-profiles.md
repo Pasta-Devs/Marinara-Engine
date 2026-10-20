@@ -23,9 +23,9 @@ Profil zapisuje sposób, w jaki czat rozmawia z AI:
 - Tłumaczenie
 - Memory Recall
 - Advanced Parameters
-- Pozostałe wielokrotnie używane opcje czatu
 - Układ okien i przycisków: pozycje i rozmiary okien, przypięcia i blokady, narzędzia wewnątrz Chat Settings lub w osobnych oknach, otwarte okna kontrolek oraz pozycje przycisków na komputerze i telefonie. Profile bez zapisanego układu, takie jak **Default**, zachowują obecny układ czatu.
 - Widoczność wskazówek dotyczących układu w Chat Settings. Zastosowanie **Default** lub starszego profilu bez tej opcji pokazuje wskazówki ponownie.
+- Pozostałe wielokrotnie używane opcje czatu
 
 Profil nie zastępuje treści należących do czatu, czyli postaci, persony (postaci, w którą się wcielasz), lorebooków (zbiorów faktów o twoim świecie), sprite'ów (obrazków postaci na obszarze sceny), podsumowania, tagów ani promptu sceny. Nie zawiera też historii czatu ani bieżącego stanu czatu, takiego jak jego zmienne makr, postacie wyłączone w nim przez ciebie czy jego pokój gry wieloosobowej.
 
@@ -38,7 +38,7 @@ Lista rozwijana z profilami znajduje się na górze panelu **Chat Settings**. Je
 3. Rozwiń listę **Profile**.
 4. Wybierz profil po nazwie.
 
-Czat zmienia się od razu. Kiedy jego bieżące wartości nie odpowiadają żadnemu zapisanemu profilowi, lista pokazuje **Custom settings profile**. Jeśli wcześniej zastosowany profil już nie istnieje, widnieje tam **Missing profile - choose a profile**.
+Czat zmienia się od razu. Jeśli profil włącza albo wyłącza **Hide summarised messages** (ukrywanie podsumowanych wiadomości), podsumowane wiadomości czatu w tej samej chwili zostają ukryte przed AI albo znów stają się dla niego widoczne. Kiedy bieżące wartości czatu nie odpowiadają żadnemu zapisanemu profilowi, lista pokazuje **Custom settings profile**. Jeśli wcześniej zastosowany profil już nie istnieje, widnieje tam **Missing profile - choose a profile**.
 
 ## Zapisywanie profilu
 
@@ -111,7 +111,7 @@ Instrukcję znajdziesz w sekcji [Wybór układu dla nowych czatów](chat-setting
 
 Przycisk **Export settings profile (.json)** pobiera plik `.marinara-settings-profile.json`, który można zachować jako kopię zapasową albo udostępnić dalej. Przycisk **Import settings profile (.json)** tworzy nowy profil ze zgodnego pliku, nie nadpisując żadnego z istniejących. Starsze wyeksportowane profile nadal da się importować.
 
-Profile przechowują ustawienia, a nie tajne dane dostawców.
+Profile przechowują ustawienia, a nie tajne dane dostawców. Eksportowany albo importowany profil pomija też webhook kopii czatu w serwisie Discord, adres DeepLX, klucz DeepL i adres Intiface. Profile zapisane w tej instalacji je zachowują.
 
 ## Profil Default
 

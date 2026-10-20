@@ -41,7 +41,7 @@
 - `schemas`: 저장되거나 공유되는 엔티티의 Zod 스키마.
 - `constants`: 제공자, 기본값, 채팅 모드, 모델 목록, 에이전트 프롬프트.
 - `utils`: 매크로 확장, XML 래핑, 음악 점수 계산 같은 순수 헬퍼.
-- `features`: 에이전트 매니페스트와 레지스트리, 함수 호출 정의, 폴더 패키지, 그리고 UNO, Chess, Poker의 턴제 게임 엔진.
+- `features`: 에이전트 매니페스트와 레지스트리, 함수 호출 정의, 폴더 패키지, UNO, Chess, Poker의 턴제 게임 엔진, Game Mode 규칙 집합과 그 전투(`rulesets`, `ruleset-combat`, `tactical-combat`, `combat-*` 파일), 그리고 `world`에 있는 월드 생성기와 그 공유 파일(세계관 키트, 세계, 타일 팩, 보드 팩, 크리처 팩).
 
 규칙:
 
@@ -61,7 +61,7 @@ React 19와 Vite PWA를 씁니다. 현재 소스 파일이 수백 개 있습니�
 - `components/chat`: 공통 채팅, conversation, roleplay, 장면, 스프라이트, 인카운터 UI가 섞여 있습니다.
 - `components/game`: Game Mode 화면과 패널.
 - `components/panels`, `components/modals`, 엔티티 편집기: 설정과 리소스 관리.
-- `features`: 따로 떼어낸 기능 모듈입니다. 현재는 채팅 설정 섹션과 트래커 패널 조각이 들어 있습니다.
+- `features`: 따로 떼어낸 기능 모듈입니다. 현재는 채팅 설정 섹션, 트래커 패널 조각, 멀티플레이어, 그리고 아바타 에이전트의 계약, 설정, 스테이지, 렌더러(`features/avatars`)가 들어 있습니다.
 - `hooks`: 대부분의 API 기능을 위한 React Query 훅과 런타임 훅.
 - `lib`: 브라우저 및 클라이언트 헬퍼. 현재는 공통 헬퍼와 게임 전용 헬퍼가 섞여 있습니다.
 - `stores`: UI, 채팅 런타임, 에이전트, 세계 상태, Game Mode, 에셋, 사이드카, 번역, 갤러리, 인카운터, 턴제 게임을 위한 Zustand 스토어.
@@ -81,7 +81,7 @@ Fastify API, 파일 네이티브 저장소, 제공자 연동을 담당합니다.
 현재 최상위 구성:
 
 - `app.ts`, `index.ts`: 앱 팩토리, 부트스트랩, 정적 파일 서빙, 파일 저장소 하이드레이션, 시더.
-- `routes`: 라우트 파일이 많습니다. 대부분은 얇은 CRUD API지만 `generate.routes.ts`와 `game.routes.ts`는 덩치 큰 오케스트레이션 파일입니다. `routes/generate/` 폴더에는 생성 경로에서 가장 먼저 떼어낸 조각들이 들어 있습니다.
+- `routes`: 라우트 파일이 많습니다. 대부분은 얇은 CRUD API지만 `generate.routes.ts`와 `game.routes.ts`는 덩치 큰 오케스트레이션 파일입니다. `routes/generate/` 폴더에는 지금까지 생성 경로에서 떼어낸 조각들이 들어 있습니다. 토큰 출력 체인(`generation-stream-output.ts`), 도구 호출 라운드(`tool-rounds.ts`), 답변 명령 파싱과 텍스트 정리, 답변 저장(`save-generated-reply.ts`)이 여기에 포함됩니다.
 - `services/storage`: 채팅, 캐릭터, 프롬프트, 로어북, 설정, 에셋, 테마, 세계 상태를 위한 저장소 파사드 계층.
 - `services/llm`: 제공자 레지스트리, 기본 제공자 계약, OpenAI 호환 제공자, 로컬 사이드카 브리지.
 - `services/prompt`: 게임 외 생성에 쓰는 공통 프롬프트 조립.
@@ -89,7 +89,7 @@ Fastify API, 파일 네이티브 저장소, 제공자 연동을 담당합니다.
 - `services/game`: GM 프롬프트, 주사위, 전투, 상태 머신, 파티 프롬프트, 지도, 날씨, 시간, 세션, 체크포인트, 평판, 에셋.
 - `services/sidecar`: 로컬 런타임, 모델 관리, 장면 분석, 장면 후처리.
 - `services/agents`: 에이전트 실행과 지식 라우팅.
-- 기능 기반: `services/import`, `services/lorebook`, `services/image`, `services/haptic`, `services/tools`, `services/regex`, `services/professor-mari`, `services/mari-db`, `services/turn-games`, `services/spotify`, `services/video`, `services/generation`, `services/chat-summary`, `services/achievements`, `services/prompt-overrides`, `services/setup`, `services/noodle`, `services/memory-recall`, `discord-webhook.ts`.
+- 기능 기반: `services/import`, `services/lorebook`, `services/image`, `services/haptic`, `services/tools`, `services/regex`, `services/professor-mari`, `services/mari-db`, `services/turn-games`, `services/spotify`, `services/video`, `services/generation`, `services/chat-summary`, `services/achievements`, `services/prompt-overrides`, `services/setup`, `services/noodle`, `services/memory-recall`, `services/avatars`(아바타 에이전트용 아바타 모델 저장, 생성, 감정 분류기), `speech-to-text.service.ts`, `discord-webhook.ts`.
 - `db/schema`: `DATA_DIR/storage` 아래에 저장되는 데이터의 파일 테이블 정의.
 - `db/file-schema.ts`, `db/file-query.ts`: 네이티브 테이블 메타데이터와 쿼리 표현식.
 - `db/file-backed-store.ts`: 인메모리 테이블 스토어, 트랜잭션 경계, 크래시 복구, JSON 스냅샷 영속화. [파일 네이티브 저장소](file-storage.md) 문서를 참고하세요.
@@ -252,7 +252,7 @@ packages/shared/src/
   utils/
 ```
 
-예전의 평평한 `types`, `schemas`, `constants` 구성만으로는 더 이상 전체를 설명하지 못합니다. 지금은 `packages/shared/src/features/`가 에이전트, 함수 호출, 폴더 패키지, 턴제 게임을 담고 있습니다. 공통 패키지의 첫 정리는 파일을 대거 옮기는 대신 타입 수준에서 조금씩 진행하는 편이 좋습니다.
+예전의 평평한 `types`, `schemas`, `constants` 구성만으로는 더 이상 전체를 설명하지 못합니다. 지금은 `packages/shared/src/features/`가 에이전트, 함수 호출, 폴더 패키지, 턴제 게임, 규칙 집합과 전투, 월드 생성기를 담고 있습니다. 공통 패키지의 첫 정리는 파일을 대거 옮기는 대신 타입 수준에서 조금씩 진행하는 편이 좋습니다.
 
 ## 이동 규칙
 
@@ -287,7 +287,7 @@ packages/shared/src/
 4. `GameNarration.tsx`를 명령 파싱 및 서식 처리와 표시 컴포넌트로 나눕니다.
 5. `game.routes.ts`를 핸들러 묶음별로 나눕니다.
    - 묶음 후보: 설정과 세션, 턴 생성, 주사위와 스킬 판정과 퀵타임 이벤트, 저널과 인벤토리, 지도와 이동과 날씨, 전투, 에셋과 장면 분석.
-6. `generate.routes.ts`를 생성 전송, 에이전트 파이프라인 처리, 재시도 라우트, 명령 및 후처리 헬퍼로 나눕니다.
+6. `generate.routes.ts`를 생성 전송, 에이전트 파이프라인 처리, 재시도 라우트, 명령 및 후처리 헬퍼로 나눕니다. 이슈 #7573에서 이 작업을 시작했습니다. 토큰 출력 체인, 도구 라운드, 답변 명령, 답변 텍스트 정리, 저장된 메시지의 생성 정보, 숨은 명령 앵커, 답변 저장이 이제 `routes/generate/`에 있으며 각각 자체 회귀 테스트가 있습니다.
 7. `ChatMetadata`를 모드별 메타데이터 계약으로 나눕니다.
 8. 게임 쪽이 채팅 내부를 더 많이 가져다 쓰기 전에, 공통으로 쓰는 roleplay 및 게임 시각 요소를 `components/chat` 밖으로 옮깁니다.
 

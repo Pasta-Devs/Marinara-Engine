@@ -41,6 +41,10 @@ Przy **ComfyUI** użyj zwykłego adresu lokalnego `http://127.0.0.1:8188` i wkle
 
 Przy **SwarmUI** Marinara wpisuje adres lokalny `http://127.0.0.1:7801`. Wklej workflow wideo w formacie API do pola **ComfyUI Workflow**. Workflow jest wymagany. SwarmUI nie obsługuje symboli zastępczych `%reference_image_name%`, więc do obrazu referencyjnego użyj zamiast nich `%reference_image%`. Jeśli twój serwer SwarmUI wymaga konta, wklej Swarm Auth Token do pola **API Key**. Przycisk **Fetch Models from API** wyświetla listę modeli z twojego serwera SwarmUI.
 
+### Instrukcje do promptów wideo
+
+Połączenie typu Video Generation ma pole **Video Prompting Instructions** (instrukcje do promptów wideo). Napisz w nim AI, które tworzy twoje prompty wideo, czego oczekuje twój model wideo, na przykład ruchów kamery, długości promptu albo dźwięku. Te instrukcje kierują animacjami z panelu Gallery w trybie Roleplay, wiadomościami wideo w trybie Conversation oraz opcją **Image-aware shot planning** (planowanie ujęć z uwzględnieniem obrazu) agenta Storyboard. Jeśli AI skopiuje z nich do promptu wideo całe zdanie, Marinara je usuwa. Wideo scen w trybie Game Mode, klipy z rozmów i animowane wyrazy twarzy tworzą prompty osobno, więc pole **Video Prompting Instructions** na nie nie wpływa.
+
 ### Ustawienie domyślnego połączenia wideo
 
 Edytor połączenia typu Video Generation pokazuje grupę **Default for Videos**. Włącz przełącznik **Use as default video connection**, żeby Marinara mogła sięgać po to połączenie, gdy czat nie ma własnego połączenia wideo. Jako domyślne połączenie wideo oznacz tylko jedno połączenie.

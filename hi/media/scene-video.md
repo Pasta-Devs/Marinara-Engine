@@ -41,6 +41,10 @@
 
 **SwarmUI** के लिए Marinara लोकल पता `http://127.0.0.1:7801` भर देता है। **ComfyUI Workflow** में API फ़ॉर्मैट वाला वीडियो वर्कफ़्लो पेस्ट करें। वर्कफ़्लो देना ज़रूरी है। SwarmUI `%reference_image_name%` प्लेसहोल्डर इस्तेमाल नहीं कर सकता, इसलिए रेफ़रेंस इमेज के लिए उनकी जगह `%reference_image%` इस्तेमाल करें। अगर आपके SwarmUI सर्वर पर अकाउंट ज़रूरी है, तो **API Key** में Swarm Auth Token पेस्ट करें। **Fetch Models from API** आपके SwarmUI सर्वर पर मौजूद मॉडल की सूची दिखाता है।
 
+### Video Prompting Instructions
+
+Video Generation कनेक्शन में एक **Video Prompting Instructions** (वीडियो प्रॉम्प्ट के निर्देश) बॉक्स होता है। इससे आपके वीडियो प्रॉम्प्ट लिखने वाले AI को बताएँ कि आपका वीडियो मॉडल क्या चाहता है, जैसे कैमरे की चाल, प्रॉम्प्ट की लंबाई या आवाज़। यह Roleplay Gallery के एनिमेशन, Conversation के वीडियो संदेश और Storyboard की **Image-aware shot planning** को दिशा देता है। अगर AI इसका कोई पूरा वाक्य वीडियो प्रॉम्प्ट में कॉपी कर दे, तो Marinara वह वाक्य हटा देता है। Game Mode के सीन वीडियो, कॉल क्लिप और एनिमेटेड एक्सप्रेशन अपने प्रॉम्प्ट अलग से बनाते हैं। **Video Prompting Instructions** का उन पर कोई असर नहीं पड़ता।
+
 ### इसे डिफ़ॉल्ट वीडियो कनेक्शन बनाएँ
 
 Video Generation कनेक्शन के एडिटर में **Default for Videos** नाम का ग्रुप दिखता है। **Use as default video connection** चालू करें, ताकि जिस चैट का अपना वीडियो कनेक्शन न हो, वहाँ Marinara यही कनेक्शन इस्तेमाल कर सके। डिफ़ॉल्ट वीडियो कनेक्शन सिर्फ़ एक ही रखें।

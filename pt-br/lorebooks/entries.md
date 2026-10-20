@@ -43,6 +43,8 @@ Expanda uma entrada para editar os campos principais.
 - **Secondary Keys** (chaves secundárias): palavras-chave extras, usadas só quando o tipo da entrada é **Selective**. Veja a seção sobre tipos de entrada abaixo.
 - **Description** (descrição): um resumo curto da entrada. Só o agente **Knowledge Router** lê esse campo, para decidir se insere a entrada. Ele nunca vai como conteúdo para a IA principal. Veja [Fontes de conhecimento](../agents/knowledge-sources.md).
 
+Uma lista com mais de 10 chaves mostra só as 10 primeiras. Clique em **Show N more** (mostrar mais N), por exemplo **Show 5 more**, para ver o resto, e em **Collapse** (recolher) para escondê-las de novo. Acrescentar uma chave abre a lista inteira. As chaves escondidas continuam correspondendo normalmente.
+
 Veja um exemplo simples.
 
 - Nome: `Silverhaven`
@@ -160,6 +162,8 @@ O painel lateral expandido tem mais alguns campos.
 
 O painel lateral também tem a seção **Context filters & matching sources** (filtros de contexto e fontes de correspondência). Nela você limita a entrada a determinados personagens, tags de personagem ou tipos de geração. Também é possível varrer campos extras do card de personagem (a descrição do personagem, por exemplo) atrás das palavras-chave da entrada.
 
+<a id="authoring-strategy-choosing-the-right-entry"></a>
+
 ## Estratégia de escrita: escolher a entrada certa
 
 As seções acima descrevem o que cada controle faz. Esta seção liga esses controles às decisões que você toma ao escrever um lorebook: qual tipo escolher, quando restringir uma palavra-chave e como manter o prompt enxuto. Comece por uma pergunta: *quando a IA deve ver este fato?*
@@ -193,6 +197,8 @@ O lugar onde o lorebook fica decide quais chats enxergam esse lorebook. Escolha 
 - **Lore de uma história só**: fixe o lorebook naquele chat pelas configurações do próprio chat.
 
 Veja a [Visão geral dos lorebooks](overview.md) para entender como funciona a ativação, e [Vincular lorebooks a personagens e personas](linking-to-characters.md) para conhecer os controles que atribuem, delimitam e embutem o lorebook.
+
+<a id="worked-example-a-small-setting"></a>
 
 ## Exemplo prático: uma ambientação pequena
 

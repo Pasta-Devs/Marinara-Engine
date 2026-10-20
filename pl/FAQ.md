@@ -68,6 +68,16 @@ Każdy tryb ma własny przewodnik na start. Zacznij od trybu, który cię intere
 
 Otwórz czat w trybie Conversation i wybierz opcję **Schedule timezone** (strefa czasowa harmonogramu) w panelu **Chat Settings** (ustawienia czatu). Można ją też wskazać przy tworzeniu harmonogramów w kreatorze trybu Conversation. Marinara zaczyna od strefy czasowej zgłoszonej przez urządzenie, ale da się wskazać dowolną obsługiwaną strefę IANA albo wybrać opcję **Use device**, żeby wrócić do ustawienia urządzenia. To jedno globalne ustawienie dla wszystkich czatów w trybie Conversation, w tym dla wiadomości autonomicznych po stronie serwera. Synchronizuje się też z innymi urządzeniami podłączonymi do tego samego serwera Marinara Engine.
 
+## Czy każdy czat w trybie Conversation ma własny harmonogram?
+
+Nie. Harmonogram należy do postaci i każdy czat w trybie Conversation z tą postacią używa tego samego. Edytuj go w **Character Editor -> Convo -> Weekly schedule** (edytor postaci, Convo, harmonogram tygodniowy) albo w kontrolkach harmonogramu w panelu Chat Settings; w obu przypadkach zmiana obowiązuje wszędzie.
+
+Żeby w jednym czacie dostawać odpowiedzi od razu, otwórz jego panel Chat Settings i wyłącz **Conversation schedules** (harmonogramy w trybie Conversation). Ten przełącznik działa osobno dla każdego czatu. Postać pozostaje w tym czacie dostępna, zachowuje swój harmonogram, a pozostałe czaty się nie zmieniają. Aktywne ręczne nadpisanie statusu nadal ma pierwszeństwo i obowiązuje w tym czacie, także nadpisanie w rodzaju **dnd**.
+
+Istniejące czaty, które nigdy nie używały harmonogramów, mają je wyłączone, dopóki ich nie włączysz. Nowe czaty z postacią, która ma harmonogram, używają go od początku.
+
+Ręczne nadpisanie statusu również należy do postaci. Jeśli w jednym czacie ustawisz postać na **online**, będzie online we wszystkich czatach. Użyj **clear**, żeby usunąć nadpisanie.
+
 ## Czy do korzystania z aplikacji Marinara Engine potrzebny jest klucz API?
 
 Prawie zawsze tak. **Połączenie** to zapisany skrót, który mówi aplikacji Marinara Engine, jak dotrzeć do jednej usługi AI: który dostawca, który model i jakie są dane logowania. **Klucz API** to tajny kod, trochę jak hasło. Wydaje go dostawca AI, żeby Marinara mogła w twoim imieniu rozmawiać z tym dostawcą.
@@ -80,11 +90,11 @@ Kilku dostawców w ogóle nie używa klucza API. Opcje subskrypcyjne (Claude, Ch
 
 Marinara obsługuje wielu dostawców. Do każdego połączenia wybiera się jednego.
 
-Do tekstu w czacie i w trybie Roleplay dostępne są: **OpenAI**, **OpenAI (ChatGPT)**, **Anthropic**, **Claude (Subscription)**, **Grok CLI (Subscription)**, **Google Gemini**, **Google Vertex AI**, **Mistral**, **Cohere**, **OpenRouter**, **NanoGPT**, **xAI / Grok** oraz **Custom (OAI-Compatible)** dla modeli lokalnych i uruchamianych samodzielnie, takich jak Ollama, LM Studio i KoboldCpp.
+Do tekstu w czacie i w trybie Roleplay dostępne są: **OpenAI**, **OpenAI (ChatGPT)**, **Anthropic**, **Claude (Subscription)**, **Grok CLI (Subscription)**, **Google Gemini**, **Google Vertex AI**, **Mistral**, **Cohere**, **OpenRouter**, **NanoGPT**, **xAI / Grok**, **Arli AI**, **Z.AI**, **DeepSeek** oraz **Custom (OAI-Compatible)** dla modeli lokalnych i uruchamianych samodzielnie, takich jak Ollama, LM Studio i KoboldCpp.
 
 Do generowania obrazów dostępne są między innymi: **OpenAI (DALL-E)**, **Stability AI**, **Together AI**, **NovelAI**, **OpenRouter Images**, **xAI / Grok Imagine**, **Venice.ai**, **Atlas Cloud**, **Pollinations**, **Stable Horde**, **SD Web UI (AUTOMATIC1111 / Forge)**, **ComfyUI**, **RunPod Serverless (ComfyUI)**, **Draw Things**, **NanoGPT** i **Block Entropy**.
 
-Do generowania wideo dostępne są: **Google AI Studio**, **xAI Imagine**, **OpenRouter Video**, **Atlas Cloud**, **Seedance 2.0** oraz lokalne przepływy pracy **ComfyUI** w formacie API.
+Do generowania wideo dostępne są: **Google AI Studio**, **xAI Imagine**, **OpenRouter Video**, **NanoGPT**, **Atlas Cloud**, **Seedance 2.0** oraz lokalne przepływy pracy **ComfyUI** w formacie API.
 
 Można zapisać wiele połączeń naraz i przypisać każdemu czatowi inne. Zobacz [Łączenie z dostawcą AI](connections/connecting-to-a-provider.md).
 
@@ -97,7 +107,7 @@ Część opcji nic nie kosztuje na start. Generowanie obrazów przez **Pollinati
 ## Czy klucze API są bezpieczne?
 
 Tak. Marinara szyfruje każdy klucz API algorytmem AES-256, zanim zapisze go na dysku. Eksport połączeń i profilu usuwa tajne
-wartości. Pełna kopia zapasowa działa inaczej: zawiera zaszyfrowane rekordy oraz, jeśli istnieje, plik klucza szyfrującego
+wartości. Eksport czatów i profili ustawień pomija też należące do czatu **DeepL API Key** (klucz API DeepL) i webhook **Discord Mirror**. Pełna kopia zapasowa działa inaczej: zawiera zaszyfrowane rekordy oraz, jeśli istnieje, plik klucza szyfrującego
 potrzebny do ich odblokowania, więc pliki ZIP z pełną kopią zapasową trzymaj prywatnie.
 
 Import profilu celowo pomija tajne wartości, więc po zaimportowaniu profilu trzeba wpisać każdy klucz API od nowa,
@@ -124,7 +134,7 @@ Cała funkcja jest opisana w przewodniku [Lorebooki](lorebooks/overview.md).
 
 ## Jak skonfigurować Noodle?
 
-Noodle to lokalna, fikcyjna sieć społecznościowa aplikacji Marinara Engine, przeznaczona dla twoich postaci. Otwórz zakładkę **Noodle** i przejdź do jej panelu **Settings** (ustawienia). Zaproś postacie albo foldery postaci, wybierz połączenie do generowania w sekcji **Refresh** (odświeżanie), a potem kliknij przycisk **Refresh now**, żeby wygenerować pierwszą aktywność. Da się też ustawić automatyczne godziny odświeżania, generowanie obrazów, losowych użytkowników i przeniesienie do twoich czatów.
+Noodle to lokalna, fikcyjna sieć społecznościowa aplikacji Marinara Engine, przeznaczona dla twoich postaci. Najpierw otwórz **Agents** → **Download Agents** i zainstaluj **Noodle**, a gdy pojawi się prośba, uruchom aplikację Marinara Engine ponownie. Otwórz **Home** (ekran główny) → **Noodle** i przejdź do panelu **Settings** (ustawienia). Zaproś postacie albo foldery postaci, wybierz połączenie do generowania w sekcji **Refresh** (odświeżanie), a potem kliknij przycisk **Refresh now**, żeby wygenerować pierwszą aktywność. Da się też ustawić automatyczne godziny odświeżania, generowanie obrazów, losowych użytkowników i przeniesienie do twoich czatów.
 
 Pełne przewodniki: [Noodle: wbudowana oś czasu społecznościowa](noodle/overview.md) oraz [Ustawienia Noodle i przeniesienie do czatów](noodle/settings.md).
 
@@ -164,7 +174,7 @@ Wszystko zostaje na komputerze, na którym działa Marinara Engine, w folderze `
 
 ## Czy aktualizacja skasuje moje dane?
 
-Nie. Aktualizacja aplikacji Marinara Engine zostawia postacie, czaty i ustawienia na miejscu. Mimo to przed dużą aktualizacją warto zrobić kopię zapasową, na wszelki wypadek. Kroki aktualizacji dla każdej platformy opisuje przewodnik [Aktualizacja](UPGRADING.md).
+Nie. Aktualizacja aplikacji Marinara Engine zostawia postacie, czaty i ustawienia na miejscu. Mimo to przed dużą aktualizacją warto zrobić kopię zapasową, na wszelki wypadek. Kroki aktualizacji dla każdej platformy opisuje przewodnik [Aktualizacja](UPGRADING.md). Późniejszy powrót do starszej wersji może spowodować utratę danych, które zapisuje tylko nowsza wersja; zobacz [Powrót do starszej wersji](UPGRADING.md#downgrading-to-an-older-version).
 
 ## Co potrafi Professor Mari?
 
@@ -200,14 +210,14 @@ Tak. Dodaj połączenie do generowania obrazów, na przykład **Pollinations** (
 
 Każda instalacja zawiera komplet przewodników. Da się je czytać bez wychodzenia z aplikacji:
 
-- Na ekranie głównym kliknij przycisk **Documentation** w stopce, obok przycisku **Replay Tutorial**.
+- Na ekranie głównym kliknij **Documentation** na pasku skrótów, obok **Tutorial**. Na telefonie najpierw otwórz menu skrótów.
 - W sekcji FAQ na ekranie głównym otwórz pytanie o dokumentację i kliknij przycisk **Open Documentation**.
 
 Oba przyciski otwierają ten sam wbudowany podgląd dokumentacji. Wypisuje on wszystkie przewodniki i wyświetla je wewnątrz aplikacji Marinara Engine.
 
 ## Gdzie szukać pomocy albo zgłosić błąd?
 
-Zacznij od przewodnika [Rozwiązywanie problemów](TROUBLESHOOTING.md), uporządkowanego według objawów. W stopce ekranu głównego przycisk **Discord** otwiera czat społeczności, a przycisk **Support** – stronę wsparcia projektu. Błędy i propozycje funkcji zgłaszaj na stronie projektu w serwisie GitHub.
+Zacznij od przewodnika [Rozwiązywanie problemów](TROUBLESHOOTING.md), uporządkowanego według objawów. Na pasku skrótów ekranu głównego **Discord** otwiera czat społeczności, a **Support** – stronę wsparcia projektu. Błędy i propozycje funkcji zgłaszaj na stronie projektu w serwisie GitHub.
 
 ## Powiązane przewodniki
 

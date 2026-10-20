@@ -45,7 +45,7 @@ claude auth login
 3. Marinara에서 **Connections**(연결) 패널을 열고 **New**(새로 만들기)를 클릭하세요.
 4. **Create Connection**(연결 만들기) 창에서 이름을 입력하고 제공자로 **Claude (Subscription)**을 고른 다음 **Create**(만들기)를 클릭하세요.
 5. 편집기에 **API Key**(API 키) 입력란과 **Base URL**(기본 URL) 입력란이 없는 것을 확인하세요. 필요 없다는 안내 패널이 함께 표시됩니다.
-6. **Model**(모델) 드롭다운에서 Opus나 Sonnet 계열 같은 Claude 모델을 고르세요.
+6. **Model**(모델) 드롭다운에서 Opus나 Sonnet 계열 같은 Claude 모델을 고르세요. Claude Code 로그인에 맞는 목록이 Claude Code에 있으면 그 로그인에서 쓸 수 있는 모델이 표시되고, 없으면 내장 목록이 표시됩니다.
 7. **Save**(저장)를 클릭한 다음 **Send Test Message**(테스트 메시지 전송)를 클릭하세요. 짧은 답변이 돌아오면 로그인이 정상입니다.
 
 Claude 구독 연결은 텍스트 채팅만 지원합니다. 이 연결에는 **Fast Mode**(빠른 모드)와 **Diagnose Model Routing**(모델 라우팅 진단)이라는 두 가지 추가 컨트롤이 있으며, 아래에서 설명합니다.
@@ -73,7 +73,7 @@ codex login
 
 Marinara는 로컬에 저장된 Codex 로그인 파일을 읽고, 가능한 경우 세션을 자동으로 갱신합니다.
 
-Codex가 답하기 전에 생각하는 시간을 정하려면 연결을 열고 **Default Chat Parameters**(기본 채팅 파라미터) 아래의 **Use custom defaults for this connection**(이 연결에 사용자 지정 기본값 사용)을 켠 다음 **Reasoning Effort**(추론 강도)를 고르세요. 처음 값은 **Default**(기본값)입니다. 채팅에서는 **Advanced Parameters**(고급 매개변수)에서 따로 단계를 고를 수 있습니다. **Default**는 Codex가 그 모델에 쓰는 단계를 그대로 유지합니다. 연결이나 채팅에서 단계를 고르기 전까지 Codex는 이 기본값을 사용합니다. 프리셋에 지정한 단계는 이 값을 바꾸지 않으며, 폴백으로 쓰이는 Codex 연결은 자신의 단계만 따릅니다. 그 연결의 에이전트는 연결에 설정한 단계를 사용합니다. 단계는 Codex가 모델별로 제공하는 단계와 같습니다. GPT-5.5는 **xhigh**까지, GPT-5.6과 GPT-6 모델은 **max**까지 올라갑니다.
+Codex가 답하기 전에 생각하는 시간을 정하려면 연결을 열고 **Default Chat Parameters**(기본 채팅 파라미터) 아래의 **Use custom defaults for this connection**(이 연결에 사용자 지정 기본값 사용)을 켠 다음 **Reasoning Effort**(추론 강도)를 고르세요. 처음 값은 **Default**(기본값)입니다. 채팅에서는 **Advanced Parameters**(고급 매개변수)에서 따로 단계를 고를 수 있습니다. **Default**는 Codex가 그 모델에 쓰는 단계를 그대로 유지합니다. 연결이나 채팅에서 단계를 고르기 전까지 Codex는 이 기본값을 사용합니다. 프리셋에 지정한 단계는 이 값을 바꾸지 않으며, 폴백으로 쓰이는 Codex 연결은 자신의 단계만 따릅니다. 그 연결의 에이전트는 연결에 설정한 단계를 사용합니다. 단계는 Codex가 모델별로 제공하는 단계와 같습니다. GPT-5.5는 **Extra high**까지, GPT-5.6과 GPT-6 모델은 **Max**까지 올라갑니다.
 
 ## Grok CLI (Subscription)
 
@@ -103,6 +103,8 @@ Grok 모델 목록을 불러오려면 **Model** 섹션의 **Fetch Models from Gr
 ## Claude 프롬프트 캐시 유지 시간
 
 Claude 연결 편집기의 **Prompt Caching → Extended token caching (1 hour)** 옵션은 메시지 사이에 긴 간격을 둘 수 있도록 1시간 캐시를 요청합니다. Claude Code **2.1.242 이상**이 필요합니다. Marinara는 저장된 Claude 설정을 바꾸지 않고 해당 요청에만 설정을 전달합니다.
+
+이 옵션은 Claude가 채팅을 얼마나 재사용할 수 있는지도 바꿉니다. 켜면 Claude는 이전 채팅 기록을 재사용하고 가장 새로운 부분만 다시 처리합니다. 끄면 Claude는 앞부분의 지시문만 재사용하고 메시지마다 채팅 기록 전체를 다시 처리합니다. 긴 채팅에서는 끈 상태가 요금제 사용량을 더 많이 소모합니다.
 
 옵션을 끄면 기본 대화와 Agent SDK 요청은 Claude의 기본 동작을 따릅니다. 현재 구독 요금제 한도 내 사용은 1시간이며, 추가 사용, 크레딧 또는 API 과금은 5분입니다. Claude Code 자체의 하위 에이전트는 별도로 설정하지 않으면 5분을 사용하며, 서버가 제어하는 일부 보조 요청은 1시간을 사용할 수 있습니다. 이 값을 덮어쓰는 기존 CLI 환경 변수는 계속 우선 적용됩니다. [Claude Code 프롬프트 캐싱](https://code.claude.com/docs/en/prompt-caching)을 참고하세요.
 

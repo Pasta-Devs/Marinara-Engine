@@ -24,6 +24,7 @@ Ciclo de vida e armazenamento dos pacotes:
 - **Atualizações:** Marinara verifica se os pacotes oficiais já instalados têm atualizações compatíveis e pergunta antes de baixar cada versão nova. Ao escolher **No**, a versão atual continua em uso e a ação manual **Update** permanece disponível em Download Agents. Uma instalação nova fica vazia até você escolher os pacotes.
 - **Plataformas:** o comportamento é o mesmo no computador, no Docker e no Android com Termux. No iOS e em outros clientes de navegador, valem os pacotes instalados no servidor Marinara que os hospeda.
 - **Persistência:** os pacotes ficam em `DATA_DIR/capability-packages`. Volumes do Docker, pastas de dados personalizadas, backups e atualizações normais preservam esses arquivos.
+- **Uso de disco:** Marinara mantém a versão atual de cada pacote e a anterior, para que uma atualização que falhe possa voltar atrás. As versões mais antigas e as cópias temporárias em `DATA_DIR/capability-runtime-snapshots` são excluídas automaticamente. Os dados dos pacotes nunca são excluídos.
 - **Resistência offline:** os pacotes existentes continuam funcionando na versão instalada quando o acesso HTTPS ao GitHub está indisponível, quando você recusa uma atualização ou quando uma atualização falha na verificação.
 
 ### Importação de agentes personalizados
@@ -38,7 +39,9 @@ Toda importação mostra as capacidades solicitadas pelo agente antes de salvar 
 
 Os repositórios personalizados vêm desativados por padrão, porque os prompts e as ferramentas deles são conteúdo de terceiros sem revisão. Defina `ENABLE_CUSTOM_AGENT_REPOS=true`, ative a opção **Allow custom Agent imports** na Danger Zone e abra **Agents → Download Agents → Custom Sources** para pré-visualizar um repositório público do GitHub. Adicionar uma fonte e aplicar qualquer mudança de conteúdo posterior exigem confirmação explícita. A sincronização é manual: Marinara não clona repositórios nem os consulta em segundo plano.
 
-Um repositório pode publicar agentes, conjuntos de regras de Game Mode ou ambos; pelo menos um tipo é necessário. O arquivo opcional `agents.json` na raiz contém um array no formato de definições de agentes baixáveis. Exemplo mínimo:
+Um repositório pode publicar agentes, conjuntos de regras de Game Mode ou ambos; pelo menos um tipo é necessário.
+
+O arquivo opcional `agents.json` na raiz contém um array no formato de definições de agentes baixáveis. Exemplo mínimo:
 
 ```json
 [
@@ -54,9 +57,9 @@ Um repositório pode publicar agentes, conjuntos de regras de Game Mode ou ambos
 ]
 ```
 
-A pasta raiz `rulesets` aceita até 32 arquivos `.json`, cada um com um conjunto de até 256 KB. Subpastas são ignoradas. A prévia mostra nome, versão e cobertura. As orientações do GM vão para o modelo em cada partida que usa o conjunto; instale apenas conteúdo de autores confiáveis.
+A raiz do repositório também pode conter uma pasta `rulesets` com um conjunto de regras de Game Mode por arquivo `.json`, até 32 arquivos de 512 KB cada. Só os arquivos que ficam diretamente dentro de `rulesets` são lidos, então tudo o que estiver em uma subpasta é ignorado. A prévia lista cada conjunto com nome, versão e o que ele cobre. O texto de Game Master de um conjunto vai para o modelo em toda partida que o usa, então instale apenas conjuntos de pessoas em quem você confia.
 
-Os IDs incluem o proprietário, como `alice/my-5e`, sem substituir conjuntos oficiais nem o `v20` de outro autor. Cada versão importada é preservada e cada partida usa exatamente sua versão fixada. Conteúdo diferente com a mesma versão não substitui a instalação: o aplicativo pede uma versão nova. Arquivos inválidos são ignorados com explicação; o restante pode ser instalado.
+Um conjunto importado recebe o nome do dono do repositório, como `alice/my-5e`, então ele nunca pode tomar o nome de um conjunto oficial, e dois autores podem publicar um conjunto chamado `v20`. Toda versão importada é mantida, e uma partida sempre roda na versão exata em que foi criada. Se a mesma versão chegar de novo com conteúdo diferente, Marinara mantém a instalada e avisa para você pedir ao autor que aumente o número da versão. Um arquivo que Marinara não consegue ler aparece na lista com o motivo e é ignorado; o restante do repositório é instalado normalmente.
 
 Apenas URLs da raiz de repositórios GitHub são aceitas. O aplicativo verifica tamanho do arquivo compactado e definições antes da prévia. A sincronização substitui prompts, configurações e ferramentas gerenciados pelo repositório pelos valores da prévia; conexões e imagens continuam locais. Um agente removido da origem permanece como agente local comum, sem vínculo ao repositório. Remover a fonte também desfaz o vínculo, mas mantém os conjuntos instalados para partidas existentes.
 
@@ -117,9 +120,13 @@ BASIC_AUTH_PASS=correct-horse-battery-staple
 
 O servidor lê o arquivo `.env` sozinho, não importa como você o inicia. Isso vale inclusive para o comando `pnpm start` direto. Os inicializadores de shell (`start.bat`, `start.sh`, `start-termux.sh`) acrescentam duas coisas. Eles definem `HOST=0.0.0.0`, para que outros dispositivos alcancem o servidor, e abrem o navegador para você. Com o comando `pnpm start` puro, o servidor escuta só neste computador, a não ser que você mesmo defina a variável `HOST`.
 
+<a id="restart-or-hot-reload"></a>
+
 ## Reiniciar ou recarregar na hora
 
-Marinara observa o arquivo `.env` enquanto está em execução. Quando você salva uma mudança, a maioria das configurações passa a valer em cerca de 2 segundos, sem reiniciar. O servidor escreve uma linha de log começando com `[env-watcher]` a cada mudança aplicada.
+Marinara observa o arquivo `.env` enquanto está em execução. Quando você salva uma mudança, a maioria das configurações passa a valer quase na hora, sem reiniciar. O servidor escreve uma linha de log começando com `[env-watcher]` a cada mudança aplicada. Se não for possível observar o arquivo no seu sistema de arquivos, o servidor passa a conferir o arquivo a cada 30 segundos e avisa isso no log.
+
+Uma ressalva: em algumas configurações, a observação começa bem, mas os eventos de mudança nunca chegam – em geral quando o arquivo é editado de _outra máquina ou outro contexto_, como por um compartilhamento de rede ou do host para um bind mount de contêiner. Se as suas edições no `.env` não estiverem sendo detectadas, defina `MARINARA_ENV_WATCH=poll` para o servidor conferir o arquivo a cada 30 segundos; assim ele vê toda gravação. Para desligar a observação de vez, defina `MARINARA_ENV_WATCH=0` (no ambiente do shell ou no próprio `.env`, antes de iniciar) – aí as mudanças passam a exigir reinício. As duas são opções avançadas; a recarga na hora é o caminho pelo qual as mudanças de controle de acesso passam a valer sem interrupção, então mantenha o padrão, a não ser que você tenha um motivo específico.
 
 Um grupo pequeno de configurações de baixo nível fica travado no momento em que o servidor inicia. Mudar essas configurações exige reinício completo. São elas:
 
@@ -127,7 +134,7 @@ Um grupo pequeno de configurações de baixo nível fica travado no momento em q
 - `SSL_CERT`, `SSL_KEY`
 - `DATA_DIR`, `FILE_STORAGE_DIR`
 - `ENCRYPTION_KEY`
-- `MARINARA_ENV_FILE`
+- `MARINARA_ENV_FILE`, `MARINARA_ENV_WATCH`
 - `TZ`
 - `AUTO_OPEN_BROWSER`, `AUTO_UPDATE_ENABLED`, `AUTO_CREATE_DEFAULT_CONNECTION`
 - `LOG_DISABLE_REQUEST_LOGGING`
@@ -155,14 +162,15 @@ As principais configurações de controle de acesso são:
 | `BASIC_AUTH_USER` | vazio | Nome de usuário para a solicitação de senha. Defina junto com `BASIC_AUTH_PASS` para exigir login. |
 | `BASIC_AUTH_PASS` | vazio | Senha da solicitação de login. Deixe qualquer um dos dois campos vazio para desligar o login. |
 | `BASIC_AUTH_REALM` | `Marinara Engine` | Texto exibido na caixa de senha do navegador. |
-| `IP_ALLOWLIST` | vazio | IPs ou faixas CIDR separados por vírgula que têm acesso sempre liberado. Loopback é sempre permitido. |
+| `IP_ALLOWLIST` | vazio | IPs ou faixas CIDR separados por vírgula que têm acesso sempre liberado. O loopback direto é sempre permitido; um proxy reverso na mesma máquina, não. |
 | `IP_ALLOWLIST_ENABLED` | `true` | Defina como `false` para manter a lista, mas pausar a aplicação dela. |
 | `ALLOW_UNAUTHENTICATED_PRIVATE_NETWORK` | `false` | Devolve o acesso sem senha a partir de redes privadas quando nenhum login está definido. |
 | `ALLOW_UNAUTHENTICATED_REMOTE` | `false` | Libera o acesso sem senha de qualquer endereço, inclusive da internet pública. Não recomendado. |
 | `TRUSTED_PRIVATE_NETWORKS` | padrões internos | Substitui as faixas de rede privada padrão. Inclua também os padrões que você quiser manter. |
 | `BYPASS_AUTH_TAILSCALE` | automático | Quando vazio, confia em sockets diretos do Tailscale somente se as duas pontas usam endereços da tailnet. Defina como `true` para manter a liberação antiga de toda a faixa `100.64.0.0/10` ou como `false` para exigir o controle de acesso normal. |
-| `BYPASS_AUTH_DOCKER` | automático | Quando vazio, confia somente em uma interface de contêiner detectada e no seu gateway exato. Defina como `true` para manter a compatibilidade com redes antigas ou personalizadas, ou como `false` para exigir o controle de acesso normal. |
+| `BYPASS_AUTH_DOCKER` | automático | Quando vazio, confia somente em uma interface de contêiner detectada e no seu gateway exato, e só enquanto nenhum Basic Auth ou `IP_ALLOWLIST` estiver definido. Defina como `true` para manter a compatibilidade com redes antigas ou personalizadas, ou como `false` para exigir o controle de acesso normal. |
 | `REQUIRE_AUTH_FOR_DOCKER_PROXY` | `true` | Exige as verificações normais de login e de lista de permissões para o tráfego do Docker encaminhado por proxy. Defina como `false` só quando todo cliente na frente do servidor for confiável. |
+| `REQUIRE_AUTH_FOR_LOOPBACK_PROXY` | `true` | Trata como visitantes remotos as requisições que um proxy reverso ou túnel na mesma máquina encaminha. Defina como `false` só quando o próprio proxy exigir login de todo visitante. |
 | `TRUSTED_HOSTS` | vazio | Nomes de host públicos ou de proxy reverso adicionais que Marinara pode atender. IP direto, localhost, `.local`, `.home.arpa` e nomes de rede local de rótulo único funcionam sozinhos. |
 | `SSL_CERT` | vazio | Caminho de um arquivo de certificado TLS. Defina junto com `SSL_KEY` para servir HTTPS diretamente. |
 | `SSL_KEY` | vazio | Caminho do arquivo de chave privada TLS. |
@@ -183,7 +191,7 @@ As configurações de armazenamento controlam onde ficam os dados locais. Esses 
 | `DATA_DIR` | `packages/server/data` | Pasta raiz de todos os dados do usuário. As imagens Docker usam `/app/data`. |
 | `FILE_STORAGE_DIR` | a pasta `storage` dentro de `DATA_DIR` | Substitui a pasta de armazenamento de arquivos. |
 | `ENCRYPTION_KEY` | vazio | Chave usada para criptografar as chaves de API salvas. Gere uma com o comando abaixo. |
-| `MARINARA_MAX_RESIDENT_CHATS` | `0` (ilimitado) | Limita quantos chats o servidor mantém em memória ao mesmo tempo. Os chats são carregados quando você os abre pela primeira vez; passado o limite, o chat usado menos recentemente e sem alterações não salvas é descartado da memória (nunca do disco) depois de cada salvamento. O inicializador do Termux usa `8` por padrão para proteger a memória do celular. Valores positivos abaixo de `2` são elevados para `2`; `0` (ou não definido) desativa o descarte. |
+| `MARINARA_MAX_RESIDENT_CHATS` | `0` (ilimitado); `8` no SteamOS/Termux | Limita quantos chats o servidor mantém em memória ao mesmo tempo. Os chats são carregados quando você os abre pela primeira vez; passado o limite, o chat usado menos recentemente e sem alterações não salvas é descartado da memória (nunca do disco) depois de cada salvamento. No Termux (Android) e no SteamOS (Steam Deck), o servidor usa `8` por padrão – a memória do celular é limitada, e no Deck os jogos ocupam a maior parte da RAM compartilhada. Defina um número inteiro não negativo válido para substituir o padrão da plataforma – um texto inválido gera um aviso e volta a esse padrão; valores positivos abaixo de `2` são elevados para `2`; um `0` explícito desativa o descarte (deixar a variável não definida só desativa o descarte nas plataformas sem essa limitação). |
 | `MARINARA_EAGER_STORAGE` | desligado | Defina como `1` para carregar todos os chats em memória já na inicialização, restaurando o comportamento anterior à versão 2.4.5. Usa muito mais memória em perfis grandes; para mudar, é preciso reiniciar. |
 
 Marinara guarda os dados como arquivos JSON simples. Assim fica fácil copiar e conferir os backups.
@@ -195,6 +203,8 @@ openssl rand -hex 32
 ```
 
 Para saber o que cada pasta de dados guarda, veja [Onde Marinara salva os seus dados](data/where-data-is-stored.md).
+
+<a id="logging-levels"></a>
 
 ## Níveis de log
 
@@ -229,11 +239,11 @@ O log do navegador é separado e não obedece a `LOG_LEVEL`.
 
 ## Tempos limite
 
-Um tempo limite é o tempo máximo que o servidor espera por uma tarefa lenta antes de desistir. Tarefas de mídia, como a geração de imagens e de vídeos, podem demorar, então os tempos limite delas já vêm generosos. Todos os valores de tempo limite são em milissegundos, salvo quando o nome diz outra coisa.
-
 Abra **Settings → Advanced → Request timeouts** para ajustar em segundos os limites de texto, agentes, prompts de imagem do Game, imagens, vídeos, ComfyUI e embeddings. Limites maiores dão mais tempo para backends locais lentos terminarem, mas não podem substituir um limite imposto pelo próprio provedor. É preciso ter acesso de administração do servidor para salvar.
 
 Essas configurações valem para todos os perfis e são salvas ao lado do `.env` ativo como `.env.timeouts.json` (ou `<custom-env-path>.timeouts.json`). Elas têm prioridade sobre as variáveis de ambiente correspondentes sem reescrever seu `.env`. Mudanças de texto, agentes, prompts de imagem do Game e embeddings valem para novas solicitações. Reinicie o servidor para aplicar mudanças de mídia e atualizar os pacotes de agentes instalados. Para voltar à configuração do ambiente, remova o arquivo de tempos limite e reinicie o servidor.
+
+Um tempo limite é o tempo máximo que o servidor espera por uma tarefa lenta antes de desistir. Tarefas de mídia, como a geração de imagens e de vídeos, podem demorar, então os tempos limite delas já vêm generosos. Todos os valores de tempo limite são em milissegundos, salvo quando o nome diz outra coisa.
 
 | Variável | Padrão | O que faz |
 | --- | --- | --- |
@@ -262,7 +272,7 @@ Defina um valor longo e aleatório para `ADMIN_SECRET` no servidor:
 ADMIN_SECRET=replace-this-with-a-long-random-secret
 ```
 
-Na máquina em que o servidor roda (loopback), essas ações costumam funcionar sem o segredo. De outro dispositivo, o aplicativo precisa enviar o segredo. Cole o mesmo valor no aplicativo em **Settings**, depois **Advanced**, depois **Admin Access** (acesso de administrador). A partir daí, o aplicativo envia o segredo por você.
+Na máquina em que o servidor roda (loopback), essas ações costumam funcionar sem o segredo. Por padrão, as requisições que um proxy reverso ou túnel nessa máquina repassa contam como remotas. Se você definir de propósito `REQUIRE_AUTH_FOR_LOOPBACK_PROXY=false`, essas requisições encaminhadas são tratadas como locais e a dispensa do segredo no loopback passa a valer para elas também. Mantenha essa proteção ligada para um proxy ou túnel público. Requisições diretas de outro dispositivo continuam precisando do segredo. Cole o mesmo valor no aplicativo em **Settings**, depois **Advanced**, depois **Admin Access** (acesso de administrador). A partir daí, o aplicativo envia o segredo por você.
 
 Configurações privilegiadas relacionadas:
 
@@ -275,7 +285,9 @@ Configurações privilegiadas relacionadas:
 | `UPDATES_ALLOW_REMOTE_APPLY` | `false` | Permite que um dispositivo remoto aplique atualizações, com um segredo válido. |
 | `HAPTICS_ALLOW_REMOTE` | `false` | Permite ações de dispositivo háptico a partir de um dispositivo remoto, com um segredo válido. |
 | `CUSTOM_TOOL_SCRIPT_ENABLED` | `false` | Ativa as ferramentas de script personalizadas. Mantenha desligado no caso de ferramentas importadas ou não confiáveis. |
+| `MARI_DB_ALLOW_UNSAFE_TRANSFORMS` | `false` | Permite que os scripts de transformação de banco de dados da Professor Mari rodem em hosts sem sandbox do sistema operacional (macOS Seatbelt ou Linux Bubblewrap, usados automaticamente quando existem). Mantenha desligado, a não ser que você mesmo tenha revisado o script. |
 | `ENABLE_CUSTOM_AGENT_REPOS` | `false` | Ativa a pré-visualização e a sincronização manual de repositórios de agentes do GitHub no Agents Manager. Agentes de terceiros não passam por revisão e exigem confirmação explícita antes da importação ou da atualização. |
+| `MARINARA_OVERWORLD_GAMES` | `false` | Permite que os jogadores criem partidas Overworld (um kit de cenário e um mundo gerado) e transformem uma partida antiga em uma delas. Desligado, o assistente oferece só partidas Classic. |
 | `ENABLE_EXTERNAL_EXTENSIONS` | `false` | Primeira das duas travas para importar extensões de terceiros. O usuário também precisa consentir em Settings → Advanced → Danger Zone. |
 | `IMPORT_ALLOWED_ROOTS` | vazio | Pastas do sistema de arquivos que a importação em massa pode ler sem token de seleção. |
 | `PROFILE_EXPORT_JSON_LIMIT_BYTES` | `268435456` (256 MiB) | Maior exportação de perfil em JSON, em um arquivo só, que o servidor monta. |
@@ -320,6 +332,9 @@ Esta seção lista as configurações restantes, agrupadas por finalidade. As ta
 | `AUTO_OPEN_BROWSER` | `true` | Define se os inicializadores de shell abrem a URL do aplicativo para você. Use `false` para desativar isso. A configuração gerenciada pelo APK desativa a abertura automática do navegador pelo shell. O APK cuida separadamente da escolha salva entre aplicativo e navegador e da autenticação. |
 | `AUTO_UPDATE_ENABLED` | `true` | Define se os inicializadores baseados em Git para Windows, macOS/Linux e Termux buscam e aplicam atualizações do Engine antes de iniciar. Defina como `false` para desligar de vez; isso passa a valer no próximo início. O inicializador ainda faz uma checagem somente leitura de versões publicadas mais novas e imprime um lembrete de download quando existe uma, enquanto as checagens manuais, a aplicação dentro do aplicativo, as atualizações de pacotes e as atualizações de modelos continuam disponíveis. Use `--skip-update` para pular as duas checagens do inicializador em um único início. |
 | `MARINARA_ENV_FILE` | o arquivo `.env` na raiz do projeto | Caminho alternativo, opcional, para o arquivo `.env`. Defina antes de iniciar. |
+| `MARINARA_MEDIA_GENERATION_CONCURRENCY` | `4` | Teto, para o processo inteiro, de requisições simultâneas a provedores de imagem e vídeo, em todas as áreas (galerias, storyboards, recursos de jogo, sprites, avatares). Aumente para uma GPU local potente ou para um provedor com limites generosos; diminua para 1-2 se um ComfyUI/SwarmUI local ficar sem VRAM durante lotes; `0` desativa o teto por completo. Valores inválidos são ignorados com um aviso no log. Tarefas em lote ou automáticas nunca ocupam a última vaga, então sempre sobra uma permissão para as requisições interativas. Vale além da opção **Queue media generation requests** (enfileirar requisições de geração de mídia), em **Settings → Generations → Overall Generations** (Configurações → Gerações → Gerações em geral), ligada por padrão, que enfileira as tarefas de imagem e as de vídeo separadamente para cada conta de provedor. |
+| `MARINARA_MEDIA_GENERATION_WAIT_TIMEOUT_MS` | `600000` | Quanto tempo uma requisição de geração pode esperar por uma vaga livre antes de falhar com um erro claro, em vez de ficar travada (10 minutos por padrão; `0` espera para sempre). |
+| `MARINARA_ENV_WATCH` | `1` | Como o servidor observa o `.env` em busca de mudanças ao vivo. Padrão: eventos de mudança (aplicados depois de uma espera de cerca de 250 ms), com recurso automático a uma checagem do arquivo a cada 30 segundos se não for possível observar o arquivo. `poll` usa sempre a checagem de 30 segundos (para montagens de rede ou bind mounts editados de fora). `0` desliga a observação; aí as mudanças exigem reinício. Veja [Reiniciar ou recarregar na hora](#restart-or-hot-reload). |
 | `TZ` | padrão do sistema | Fuso horário de reserva do host para as tarefas no servidor. As agendas do Conversation Mode usam o fuso horário global escolhido nos controles de agenda, quando já houver um salvo. Deixe `TZ` sem valor para herdar o fuso do host; um `TZ=` vazio também conta como não definido. |
 | `CORS_ORIGINS` | `http://localhost:5173,http://127.0.0.1:5173` | Origens de navegador com permissão para fazer requisições entre origens diferentes. |
 | `AUTO_CREATE_DEFAULT_CONNECTION` | `true` | Opção antiga. As versões atuais não trazem chave inicial embutida, então isso não cria nada. Adicione a sua conexão dentro do aplicativo. |
@@ -399,6 +414,19 @@ Todos estes ajustes vêm desligados para preservar o comportamento anterior, e c
 | `SSL_KEY` | vazio | Caminho de uma chave privada TLS. Veja a seção Controle de acesso, acima. |
 
 Sobre a chave do Giphy, vale lembrar: a busca de GIFs fica indisponível até você definir `GIPHY_API_KEY` e reiniciar. Sobre o modelo local embutido, veja [Como configurar o Local Model](connections/local-model.md).
+
+<a id="outbound-http-proxy"></a>
+
+### Proxy HTTP de saída
+
+Algumas redes só chegam à internet por um proxy HTTP, por exemplo o v2rayN sem o modo TUN. Marinara pode enviar por esse proxy as requisições aos provedores de IA, aos serviços de imagem, aos servidores de embedding e ao catálogo de agentes. Defina estas variáveis no ambiente que inicia Marinara ou no `.env` e depois reinicie Marinara.
+
+| Variável | Padrão | O que faz |
+| --- | --- | --- |
+| `NODE_USE_ENV_PROXY` | não definido | Defina como `1` para usar o proxy abaixo. Sem isso, Marinara ignora as configurações de proxy, como o Node.js faz, então um proxy definido só para outras ferramentas não muda nada. |
+| `HTTP_PROXY` | vazio | Endereço do proxy, como `http://127.0.0.1:10809`. Usado em toda requisição quando `HTTPS_PROXY` não está definido. |
+| `HTTPS_PROXY` | vazio | Proxy para endereços `https://`, quando for diferente de `HTTP_PROXY`. |
+| `NO_PROXY` | vazio | Hosts separados por vírgula que não passam pelo proxy. Adicione aqui os servidores de modelo da sua rede local. `localhost`, `127.0.0.1` e `::1` sempre ficam fora do proxy, então os modelos locais continuam funcionando. |
 
 ## Guias relacionados
 

@@ -9,9 +9,7 @@ erscheint deshalb der englische Text – und nicht ein Schlüsselname oder ein l
 
 Die Oberflächensprache wählst du unter **Settings > General > App Behavior > Language** (Einstellungen > Allgemein >
 App-Verhalten > Sprache). Die Auswahl wirkt sich auf Marinaras Bedienelemente und Hinweistexte aus, nicht auf
-Prompts, selbst verfasste Inhalte oder Chat-Nachrichten.
-
-Wählst du eine andere Sprache als Englisch, wird ihr Paket bei Bedarf heruntergeladen. **Refresh language pack** (Sprachpaket aktualisieren) lädt neue Übersetzungen. Heruntergeladene Pakete liegen unter `DATA_DIR/ui-packs` und funktionieren offline. Schlägt der Download fehl, bleiben die aktuelle Sprache und das installierte Paket unverändert. Beim Start oder Update werden Pakete nie automatisch heruntergeladen.
+Prompts, selbst verfasste Inhalte oder Chat-Nachrichten. Wählst du eine andere Sprache als Englisch, wird ihr Paket bei Bedarf heruntergeladen. **Refresh language pack** (Sprachpaket aktualisieren) lädt neue Übersetzungen. Heruntergeladene Pakete liegen unter `DATA_DIR/ui-packs` und funktionieren offline. Schlägt der Download fehl, bleiben die aktuelle Sprache und das installierte Paket unverändert. Beim Start oder Update werden Pakete nie automatisch heruntergeladen.
 
 Beim ersten Update von einer Version mit mitgelieferten Übersetzungen fällt eine zuvor gewählte andere Sprache auf Englisch zurück. Wähle die Sprache erneut, um sie herunterzuladen. Eigene Inhalte und andere Einstellungen bleiben unverändert.
 
@@ -80,12 +78,12 @@ auf dem Handy durchsehen.
 Für eine kleine Formulierungskorrektur genügt der Web-Editor von GitHub:
 
 1. Öffne das Locale unter
-   [`ui/`](https://github.com/Pasta-Devs/Marinara-Engine/tree/docs-i18n/ui).
+   [`ui/` auf `docs-i18n`](https://github.com/Pasta-Devs/Marinara-Engine/tree/docs-i18n/ui).
 2. Klick auf das Stiftsymbol, um die Datei zu bearbeiten. GitHub bietet dir bei Bedarf an, einen Fork anzulegen.
 3. Ändere nur den übersetzten Wert. Der Schlüssel, zeichengenaue Platzhalter wie `{{name}}` und die JSON-Syntax
    bleiben erhalten.
 4. Committe die Änderung in deinem Fork auf einen eng umrissenen Branch.
-5. Aktualisiere das Paketmanifest und validiere es mit dem folgenden Befehl. Öffne dann einen Pull Request gegen **`docs-i18n`**, nicht gegen `staging` oder `main`. ([`validate-packs.mjs`](#eine-neue-lokalisierung-einreichen))
+5. Aktualisiere das Paketmanifest und validiere es mit dem folgenden Befehl. Öffne dann einen Pull Request gegen **`docs-i18n`**, nicht gegen `staging` oder `main`.
 6. Nenne in der PR-Beschreibung die Sprache, erläutere die korrigierte Bedeutung und gib an, ob du die Sprache
    fließend beherrschst oder maschinell nachgeholfen hast.
 
@@ -95,8 +93,6 @@ sich einen PR teilen. Unabhängige Codeänderungen gehören separat.
 ## Eine neue Lokalisierung einreichen
 
 Behalte für eine neue Sprache einen Engine-Checkout von `staging` als englische Quelle und arbeite auf `docs-i18n`:
-
-`/path/to/Engine` bezeichnet einen separaten, vorhandenen Checkout des Branches `staging`, der `packages/client/src/localization/locales/en.json` enthält. Die folgenden Befehle erstellen den zusätzlichen Checkout für Übersetzungen.
 
 ```bash
 git clone https://github.com/YOUR-NAME/Marinara-Engine.git
@@ -166,6 +162,14 @@ Lade- und Leerzustände, Toasts sowie Bestätigungen. Literale Inhalte in den El
 `style` bleiben bewusst außen vor, damit Befehle, Konfigurationen, URLs, Makros und andere maschinennahe Beispiele
 exakt erhalten bleiben. Dynamische Werte aus Nutzerhand, generierte, gespeicherte, Prompt- und Protokollwerte
 gehören ebenfalls nicht in den Oberflächen-Übersetzer.
+
+Die Einstellungssuche, die Omnibar und Professor Mari lesen die Namen der Einstellungen aus `SETTINGS_SEARCHABLE_CONTROLS` in
+`packages/client/src/lib/settings-registry.ts`. Jedes Bedienelement dort trägt neben seinem englischen `label` und seiner
+`description` einen `labelKey` und einen `descriptionKey`. Verwende den vorhandenen Schlüssel des Bedienelements weiter, wenn
+sein englischer Text gleich ist; andernfalls ergänze `settings.search.<id>.label` oder `.description` in `en.json`, mit der
+ID des Bedienelements in camelCase (zum Beispiel `settings.search.hideChatHelpButton.description`). `pnpm localization:check`
+schlägt fehl, wenn ein Bedienelement keinen Schlüssel hat, wenn ein Schlüssel in `en.json` fehlt oder wenn das Englisch der
+Registry nicht mehr mit dem Text in `en.json` übereinstimmt.
 
 ## Oberflächen herunterladbarer Agenten
 

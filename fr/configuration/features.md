@@ -12,6 +12,8 @@ Les changements s'appliquent immédiatement, sans redémarrage du serveur ni rec
 | --- | --- | --- | --- |
 | **Stable lorebook picks** (sélections stables du lorebook) | `stableLorebookGroupPicks` | Désactivé | `LOREBOOK_STABLE_GROUP_WINNERS` |
 | **Retry failed provider calls** (réessayer les appels fournisseur échoués) | `providerRetry` | Désactivé | `PROVIDER_RETRY_TRANSIENT_ERRORS` |
+| **Lorebook activation stats** (statistiques d'activation du lorebook) | `usageAndActivationStats` | Désactivé | aucune |
+| **Recover deleted chat messages** (récupérer les messages de chat supprimés) | `messageTrash` | Désactivé | aucune |
 
 Recherche `features` dans les réglages pour ouvrir cette section.
 
@@ -48,6 +50,26 @@ Clé : `providerRetry`. Variable d'environnement : `PROVIDER_RETRY_TRANSIENT_ERR
 Activé : connexion refusée ou inaccessible, ou erreur de passerelle 502/503, réessayée au plus deux fois après une courte attente à variation aléatoire, uniquement avant la réception du moindre texte. Une 504 ou une connexion interrompue n'est jamais réessayée. Si la connexion possède un fallback, celui-ci est essayé immédiatement à la place.
 
 Désactivé : seules les limites de fréquence sont réessayées, comme avant.
+
+<a id="lorebook-activation-stats"></a>
+
+### Statistiques d'activation du lorebook
+
+Clé : `usageAndActivationStats`. Aucune variable d'environnement.
+
+Activé : une fois qu'une réponse est bien enregistrée, Marinara note les entrées de lorebook qui ont été activées. Tu peux ainsi trier et filtrer les entrées selon leur utilisation dans l'éditeur de lorebook. Les morceaux ajoutés en prolongeant une réponse (Continue) ne créent pas d'enregistrement d'activation.
+
+Désactivé : rien n'est enregistré, et l'éditeur de lorebook masque ses statistiques d'activation.
+
+<a id="recover-deleted-chat-messages"></a>
+
+### Récupérer les messages de chat supprimés
+
+Clé : `messageTrash`. Aucune variable d'environnement.
+
+Activé : les messages de chat supprimés vont dans l'onglet **Trash** (corbeille) de la recherche des chats. Utilise **Restore** (restaurer) dans cet onglet sous 30 jours ; passé ce délai, ils sont supprimés définitivement. Les messages de Game Mode et les suppressions par retour en arrière restent définitifs.
+
+Désactivé : les messages supprimés disparaissent immédiatement.
 
 <a id="precedence"></a>
 

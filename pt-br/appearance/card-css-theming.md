@@ -276,6 +276,7 @@ O sanitizador remove estes itens por segurança.
 | `@font-face` com URLs externas | Só ficam as fontes de origem `data:`. O nome da família é renomeado automaticamente, para não sobrepor as fontes do aplicativo. |
 | `@import` | Nada de carregar folhas de estilo externas. |
 | Seletores `:has()` | Não podem sondar elementos fora do chat. |
+| Regras aninhadas e seletores que começam com `~` ou `+` | Descartados, para que o Card CSS não alcance nada fora do próprio escopo. Escreva-os como seletores comuns. |
 | HTML em `content:` | Texto decorativo é permitido, mas `<` e `>` são removidos e o texto fica limitado a 200 caracteres. `attr()` e `counter()` são permitidos. |
 | `position: fixed` | Vira `position: absolute`, então não há sobreposições em tela cheia. |
 | `!important` | Removido, para que o Card CSS não force a sobreposição dos estilos do aplicativo. |

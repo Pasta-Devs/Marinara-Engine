@@ -27,7 +27,7 @@
 
 点击编辑器标题即可展开。
 
-**Video Generation Prompt Overrides**(视频生成提示词覆盖) 编辑的是可复用的视频模板，涵盖 Game 和 Gallery(图库) 的场景视频、Conversation Call 的角色片段，以及会动的 Expression(表情) 肖像。每个视频提示词模板决定一类片段该怎么描述给视频模型。
+**Video Generation Prompt Overrides**(视频生成提示词覆盖) 编辑的是可复用的视频模板，涵盖 Game 和 Gallery(图库) 的场景视频、Conversation 的视频消息、Conversation Call 的角色片段，以及会动的 Expression(表情) 肖像。每个视频提示词模板决定一类片段该怎么描述给视频模型。
 
 **Image Generation Prompt Overrides**(图像生成提示词覆盖) 编辑的是图像、立绘、Game 以及提示词构建系统所用的模板，包括 Conversation 自拍、Game 的 NPC 肖像、场景美术、分镜提示词、Noodle 帖子用的 **Noodle Post Image** 模板，还有其他已注册的图像构建器。每个图像提示词模板决定一类图片该怎么描述给图像模型。
 

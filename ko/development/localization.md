@@ -7,9 +7,7 @@ Marinara Engine은 앱 인터페이스 문구만 번역합니다. 모델 프롬�
 아니라 영어 문구가 표시됩니다.
 
 인터페이스 언어는 **Settings > General > App Behavior > Language**(설정 > 일반 > 앱 동작 > 언어)에서
-고릅니다. 여기서 바뀌는 것은 Marinara의 조작 요소와 안내 문구이며, 모델 프롬프트나 직접 작성한 콘텐츠, 채팅 메시지는 그대로입니다.
-
-영어 이외의 언어를 선택하면 필요한 경우 해당 언어 팩을 다운로드합니다. **Refresh language pack**(언어 팩 새로 고침)으로 최신 번역을 받을 수 있습니다. 다운로드한 팩은 `DATA_DIR/ui-packs`에 저장되며 오프라인에서도 작동합니다. 다운로드에 실패해도 현재 언어와 설치된 팩은 바뀌지 않습니다. 시작하거나 업데이트할 때 팩을 자동으로 다운로드하지 않습니다.
+고릅니다. 여기서 바뀌는 것은 Marinara의 조작 요소와 안내 문구이며, 모델 프롬프트나 직접 작성한 콘텐츠, 채팅 메시지는 그대로입니다. 영어 이외의 언어를 선택하면 필요한 경우 해당 언어 팩을 다운로드합니다. **Refresh language pack**(언어 팩 새로고침)으로 최신 번역을 받을 수 있습니다. 다운로드한 팩은 `DATA_DIR/ui-packs`에 저장되며 오프라인에서도 작동합니다. 다운로드에 실패해도 현재 언어와 설치된 팩은 바뀌지 않습니다. 시작하거나 업데이트할 때 팩을 자동으로 다운로드하지 않습니다.
 
 번역을 함께 제공하던 버전에서 처음 업그레이드하면 이전에 선택한 영어 이외의 언어가 영어로 돌아갑니다. 해당 언어를 다시 선택하여 다운로드하세요. 사용자 콘텐츠와 다른 설정은 바뀌지 않습니다.
 
@@ -76,13 +74,13 @@ packages/client/src/localization/locales/en.json
 
 문구를 조금 고치는 정도라면 GitHub 웹 편집기만으로 충분합니다.
 
-1. [`ui/`](https://github.com/Pasta-Devs/Marinara-Engine/tree/docs-i18n/ui)에서
+1. [`docs-i18n`의 `ui/`](https://github.com/Pasta-Devs/Marinara-Engine/tree/docs-i18n/ui)에서
    해당 로케일 파일을 여세요.
 2. 연필 아이콘을 눌러 파일을 편집하세요. 필요하면 GitHub가 포크 생성을 제안합니다.
 3. 번역된 값만 바꾸세요. 키, `{{name}}`처럼 문장 부호에 민감한 토큰, JSON 문법은 그대로
    두어야 합니다.
 4. 포크에 만든 전용 브랜치에 변경을 커밋하세요.
-5. 아래 명령으로 팩 매니페스트를 갱신하고 검증한 다음, `staging`이나 `main`이 아닌 **`docs-i18n`**을 대상으로 풀 리퀘스트를 여세요. ([`validate-packs.mjs`](#%EC%83%88-%EC%96%B8%EC%96%B4-%EB%B2%88%EC%97%AD-%EC%A0%9C%EC%B6%9C%ED%95%98%EA%B8%B0))
+5. 아래 명령으로 팩 매니페스트를 갱신하고 검증한 다음, `staging`이나 `main`이 아닌 **`docs-i18n`**을 대상으로 풀 리퀘스트를 여세요.
 6. PR 설명에는 언어, 어떤 의미를 바로잡았는지, 그리고 해당 언어에 능숙한 사람인지 기계 번역을 썼는지
    적으세요.
 
@@ -92,8 +90,6 @@ packages/client/src/localization/locales/en.json
 ## 새 언어 번역 제출하기
 
 새 언어를 추가할 때는 영어 원문을 참조할 Engine `staging` 체크아웃을 준비하고 `docs-i18n`에서 작업하세요:
-
-`/path/to/Engine`은 `packages/client/src/localization/locales/en.json`이 있는 별도의 기존 `staging` 브랜치 체크아웃을 뜻합니다. 다음 명령은 번역 작업용 체크아웃을 추가로 만듭니다.
 
 ```bash
 git clone https://github.com/YOUR-NAME/Marinara-Engine.git
@@ -157,6 +153,13 @@ pnpm localization:ui-check
 상태, 토스트, 확인 문구를 살핍니다. `code`, `pre`, `script`, `style` 요소 안의 리터럴 내용은 일부러
 제외했습니다. 명령어, 설정 값, URL, 매크로처럼 기계가 읽는 예시는 원문 그대로여야 하기 때문입니다.
 사용자가 작성한 값, 생성된 값, 저장된 값, 프롬프트 값, 프로토콜 값도 마찬가지로 인터페이스 번역기 바깥에 두어야 합니다.
+
+설정 검색, 옴니바, Professor Mari는 `packages/client/src/lib/settings-registry.ts`의 `SETTINGS_SEARCHABLE_CONTROLS`에서
+설정 이름을 읽습니다. 그곳의 각 컨트롤에는 영어 `label`, `description`과 함께 `labelKey`, `descriptionKey`가 붙어 있습니다.
+영어 텍스트가 같으면 컨트롤의 기존 키를 재사용하세요. 그렇지 않으면 컨트롤 ID를 camelCase로 써서
+`settings.search.<id>.label` 또는 `.description`을 `en.json`에 추가하세요(예: `settings.search.hideChatHelpButton.description`).
+컨트롤에 키가 없거나, 키가 `en.json`에 없거나, 레지스트리의 영어가 `en.json` 텍스트와 더 이상 일치하지 않으면
+`pnpm localization:check`가 실패합니다.
 
 ## 다운로드형 에이전트 인터페이스
 

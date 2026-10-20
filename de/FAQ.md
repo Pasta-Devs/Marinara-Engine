@@ -68,6 +68,16 @@ Jeder Modus hat seine eigene Einstiegsanleitung. Fang mit dem Modus an, der dich
 
 Öffne einen Conversation-Chat und wähle in den **Chat Settings** (Chat-Einstellungen) den Punkt **Schedule timezone** (Zeitzone für Zeitpläne). Alternativ legst du sie beim Anlegen der Zeitpläne im Conversation-Einrichtungsablauf fest. Marinara übernimmt zunächst die Zeitzone des Geräts; du kannst jede unterstützte IANA-Zeitzone auswählen oder mit **Use device** auf die Gerätezeitzone zurückspringen. Diese Einstellung gilt global für alle Conversation-Chats, auch für autonome Nachrichten vom Server, und sie synchronisiert sich auf alle Geräte am selben Marinara-Server.
 
+## Hat jeder Conversation-Chat einen eigenen Zeitplan?
+
+Nein. Ein Zeitplan gehört zum Charakter, und jeder Conversation-Chat mit diesem Charakter nutzt denselben. Du bearbeitest ihn unter **Character Editor -> Convo -> Weekly schedule** (Charakter-Editor -> Convo -> Wochenplan) oder über die Zeitplan-Bedienelemente in den Chat-Einstellungen; so oder so gilt die Änderung überall.
+
+Für sofortige Antworten in einem einzelnen Chat öffnest du dessen Chat-Einstellungen und schaltest **Conversation schedules** (Conversation-Zeitpläne) aus. Dieser Schalter gilt pro Chat. Der Charakter bleibt in diesem Chat erreichbar und behält seinen Zeitplan, und deine anderen Chats ändern sich nicht. Eine aktive manuelle Statusüberschreibung hat trotzdem Vorrang und gilt auch in diesem Chat, etwa eine Überschreibung wie **dnd**.
+
+Bestehende Chats, die nie Zeitpläne genutzt haben, bleiben aus, bis du sie einschaltest. Neue Chats mit einem Charakter, der einen Zeitplan hat, nutzen ihn von Anfang an.
+
+Auch eine manuelle Statusüberschreibung gehört zum Charakter. Setzt du einen Charakter in einem Chat auf **online**, ist er in jedem Chat online. Mit **clear** entfernst du die Überschreibung.
+
 ## Brauche ich einen API-Key für Marinara?
 
 Fast immer ja. Eine **Verbindung** ist ein gespeicherter Eintrag, der Marinara den Weg zu genau einem KI-Dienst zeigt: welcher Anbieter, welches Modell und die Zugangsdaten dafür. Ein **API-Key** ist ein geheimer Zugangscode, ähnlich einem Passwort. Du bekommst ihn von einem KI-Anbieter, damit Marinara in deinem Namen mit diesem Anbieter sprechen kann.
@@ -80,11 +90,11 @@ Ein paar Anbieter kommen ganz ohne API-Key aus. Die Abo-Optionen (Claude, ChatGP
 
 Marinara unterstützt viele Anbieter. Pro Verbindung wählst du genau einen aus.
 
-Für Chat- und Roleplay-Text stehen zur Wahl: **OpenAI**, **OpenAI (ChatGPT)**, **Anthropic**, **Claude (Subscription)**, **Grok CLI (Subscription)**, **Google Gemini**, **Google Vertex AI**, **Mistral**, **Cohere**, **OpenRouter**, **NanoGPT**, **xAI / Grok** sowie **Custom (OAI-Compatible)** für lokale oder selbst gehostete Modelle wie Ollama, LM Studio und KoboldCpp.
+Für Chat- und Roleplay-Text stehen zur Wahl: **OpenAI**, **OpenAI (ChatGPT)**, **Anthropic**, **Claude (Subscription)**, **Grok CLI (Subscription)**, **Google Gemini**, **Google Vertex AI**, **Mistral**, **Cohere**, **OpenRouter**, **NanoGPT**, **xAI / Grok**, **Arli AI**, **Z.AI**, **DeepSeek** sowie **Custom (OAI-Compatible)** für lokale oder selbst gehostete Modelle wie Ollama, LM Studio und KoboldCpp.
 
 Für die Bildgenerierung stehen unter anderem zur Wahl: **OpenAI (DALL-E)**, **Stability AI**, **Together AI**, **NovelAI**, **OpenRouter Images**, **xAI / Grok Imagine**, **Venice.ai**, **Atlas Cloud**, **Pollinations**, **Stable Horde**, **SD Web UI (AUTOMATIC1111 / Forge)**, **ComfyUI**, **RunPod Serverless (ComfyUI)**, **Draw Things**, **NanoGPT** und **Block Entropy**.
 
-Für die Videogenerierung stehen zur Wahl: **Google AI Studio**, **xAI Imagine**, **OpenRouter Video**, **Atlas Cloud**, **Seedance 2.0** und lokale ComfyUI-Workflows im API-Format.
+Für die Videogenerierung stehen zur Wahl: **Google AI Studio**, **xAI Imagine**, **OpenRouter Video**, **NanoGPT**, **Atlas Cloud**, **Seedance 2.0** und lokale **ComfyUI**-Workflows im API-Format.
 
 Du kannst beliebig viele Verbindungen gleichzeitig speichern und jedem Chat eine andere zuweisen. Siehe [Mit einem KI-Anbieter verbinden](connections/connecting-to-a-provider.md).
 
@@ -97,7 +107,7 @@ Manche Optionen kosten im Test gar nichts. Die Bildgenerierung über **Pollinati
 ## Sind meine API-Keys sicher?
 
 Ja. Marinara verschlüsselt jeden API-Key mit AES-256, bevor er auf die Festplatte geschrieben wird. Beim Export von
-Verbindungen und Profilen bleiben geheime Werte außen vor. Ein vollständiges Backup ist etwas anderes: Es enthält die
+Verbindungen und Profilen bleiben geheime Werte außen vor. Exporte von Chats und Einstellungsprofilen lassen außerdem den **DeepL API Key** (DeepL-API-Key) eines Chats und seinen Webhook für **Discord Mirror** weg. Ein vollständiges Backup ist etwas anderes: Es enthält die
 verschlüsselten Datensätze und, falls vorhanden, die Schlüsseldatei zum Entsperren – behandle Backup-ZIPs also vertraulich.
 
 Weil der Profil-Import geheime Werte absichtlich ausspart, musst du nach dem Import jeden API-Key neu eintragen – auch
@@ -120,11 +130,11 @@ Alles zur Funktion steht unter [Lorebooks](lorebooks/overview.md).
 
 ## Was ist ein Agent?
 
-Ein **Agent** ist ein optionaler KI-Helfer, der während eines Chats eine eng umrissene Aufgabe übernimmt. Er führt zum Beispiel die aktuelle Szene mit, achtet auf die Schreibqualität, ergänzt Karten oder Anrufe oder leitet ein Tischspiel im Conversation Mode. Neue Installationen bringen keine optionalen Agenten mit. Öffne das Panel **Agents** (Agenten), klick auf **Download Agents** (Agenten herunterladen), lies dir die Details eines Eintrags durch und installiere ihn. Danach aktivierst du passende Agenten pro Chat in den **Chat Settings**. Gibt es für ein installiertes offizielles Paket ein kompatibles Update, fragt Marinara vor dem Herunterladen nach. Mit **No** bleibt die aktuelle Version bestehen, und **Update** steht in Download Agents weiterhin für später bereit. Ist der Host offline oder schlägt die Prüfung fehl, läuft die installierte Version einfach weiter. Der Katalog kann Pakete auch vollständig entfernen. Siehe [Agenten](agents/agents-overview.md) und das öffentliche [Marinara-Agents-Repository](https://github.com/Pasta-Devs/Marinara-Agents).
+Ein **Agent** ist ein optionaler KI-Helfer, der während eines Chats eine eng umrissene Aufgabe übernimmt. Er führt zum Beispiel die aktuelle Szene mit, achtet auf die Schreibqualität, ergänzt Karten oder Anrufe oder leitet ein Tischspiel im Conversation Mode. Neue Installationen bringen keine optionalen Agenten mit. Öffne das Panel **Agents** (Agenten), klick auf **Download Agents** (Agenten herunterladen), lies dir die Details eines Eintrags durch und installiere ihn. Danach aktivierst du passende Agenten pro Chat in den **Chat Settings**. Gibt es für ein installiertes offizielles Paket ein kompatibles Update, fragt Marinara vor dem Herunterladen nach. Veröffentlicht das Paket Release Notes, listet Marinara auf, was sich mit jedem Update geändert hat. Ein Punkt markiert eine Version, die der Herausgeber als spürbare Änderung gekennzeichnet hat. Mit **No** bleibt die aktuelle Version bestehen, und **Update** steht in Download Agents weiterhin für später bereit. Ist der Host offline oder schlägt die Prüfung fehl, läuft die installierte Version einfach weiter. Der Katalog kann Pakete auch vollständig entfernen. Siehe [Agenten](agents/agents-overview.md) und das öffentliche [Marinara-Agents-Repository](https://github.com/Pasta-Devs/Marinara-Agents).
 
 ## Wie richte ich Noodle ein?
 
-Noodle ist das lokale, fiktive soziale Netzwerk von Marinara für deine Charaktere. Öffne den Tab **Noodle** und darin die **Settings** (Einstellungen). Lade Charaktere oder Charakter-Ordner ein, wähle unter **Refresh** (Aktualisieren) eine Verbindung für die Generierung und starte mit **Refresh now** (Jetzt aktualisieren) die erste Aktivität. Einstellbar sind außerdem automatische Aktualisierungszeiten, Bildgenerierung, Zufallsnutzende und die Übernahme in deine Chats.
+Noodle ist das lokale, fiktive soziale Netzwerk von Marinara für deine Charaktere. Öffne zuerst **Agents** → **Download Agents**, installiere **Noodle** und starte Marinara neu, sobald du dazu aufgefordert wirst. Öffne dann **Home** → **Noodle** und darin die **Settings** (Einstellungen). Lade Charaktere oder Charakter-Ordner ein, wähle unter **Refresh** (Aktualisieren) eine Verbindung für die Generierung und starte mit **Refresh now** (Jetzt aktualisieren) die erste Aktivität. Einstellbar sind außerdem automatische Aktualisierungszeiten, Bildgenerierung, Zufallsnutzende und die Übernahme in deine Chats.
 
 Die vollständigen Anleitungen findest du unter [Noodle: die In-App-Timeline](noodle/overview.md) und [Noodle-Einstellungen und Chat-Übernahme](noodle/settings.md).
 
@@ -164,7 +174,7 @@ Alles bleibt auf dem Computer, auf dem Marinara läuft, und zwar im Ordner `data
 
 ## Verliere ich beim Update meine Daten?
 
-Nein. Ein Update von Marinara lässt Charaktere, Chats und Einstellungen unangetastet. Vor einem großen Update ist ein Backup trotzdem klug – sicher ist sicher. Die Update-Schritte je Plattform stehen unter [Aktualisieren](UPGRADING.md).
+Nein. Ein Update von Marinara lässt Charaktere, Chats und Einstellungen unangetastet. Vor einem großen Update ist ein Backup trotzdem klug – sicher ist sicher. Die Update-Schritte je Plattform stehen unter [Aktualisieren](UPGRADING.md). Kehrst du danach zu einer älteren Version zurück, können Daten verloren gehen, die nur die neuere Version speichert; siehe [Downgrade auf eine ältere Version](UPGRADING.md#downgrading-to-an-older-version).
 
 ## Was kann Professor Mari?
 
@@ -174,7 +184,7 @@ Professor Mari ist die eingebaute Assistentin auf dem Home-Bildschirm. Du öffne
 
 Ändert sie deine Daten, erscheint eine Prüfkarte mit den Schaltflächen **Keep** (Behalten) und **Restore** (Wiederherstellen) – alles Unerwünschte lässt sich also zurücknehmen. Sie ist eine Hilfe, aber kein Ersatz für diese Anleitungen, sobald es um Versionsspezifisches geht. Die vollständige Liste ihrer Fähigkeiten steht unter [Professor Mari](home/professor-mari.md).
 
-Professor Mari darf weiterhin gewöhnliche Marinara-Quelldateien bearbeiten. Abhängigkeitsdateien, Starter, Installer und CI-Workflows warten dagegen auf eine ausdrückliche Freigabe. Braucht ihre Änderung eine öffentliche npm-Bibliothek, zeigt Marinara vor der Installation die exakt aufgelöste Version und die Registry-Integrität an – und installiert dann mit deaktivierten Lifecycle-Skripten.
+Professor Mari darf weiterhin gewöhnliche Marinara-Quelldateien bearbeiten. Abhängigkeitsdateien, Launcher, Installer und CI-Workflows warten dagegen auf eine ausdrückliche Freigabe. Braucht ihre Änderung eine öffentliche npm-Bibliothek, zeigt Marinara vor der Installation die exakt aufgelöste Version und die Registry-Integrität an – und installiert dann mit deaktivierten Lifecycle-Skripten.
 
 Hinweis: Über eine gewöhnliche entfernte Adresse brauchen die datenändernden Aktionen von Professor Mari sowohl Basic Auth als auch ein Admin-Geheimnis. Vertrauenswürdige Netzwerkrouten und solche auf der Allowlist können die Ausnahmen nutzen, die [Fernzugriff](REMOTE_ACCESS.md) beschreibt.
 
@@ -200,14 +210,14 @@ Ja. Leg eine Verbindung für Bildgenerierung an, etwa **Pollinations** (braucht 
 
 Jede Installation bringt sämtliche Anleitungen mit. Lesen kannst du sie, ohne die App zu verlassen:
 
-- Klick auf dem Home-Bildschirm in der Fußzeile auf die Schaltfläche **Documentation** (Dokumentation), direkt neben **Replay Tutorial**.
+- Klick auf dem Home-Bildschirm in der Lesezeichenleiste auf **Documentation** (Dokumentation), direkt neben **Tutorial**. Auf dem Handy öffnest du zuerst das Lesezeichenmenü.
 - Öffne in der FAQ auf dem Home-Bildschirm die Frage zur Dokumentation und klick auf **Open Documentation** (Dokumentation öffnen).
 
 Beide Schaltflächen öffnen denselben Betrachter in der App. Er listet jede Anleitung auf und stellt sie direkt in Marinara dar.
 
 ## Wo bekomme ich Hilfe oder melde einen Fehler?
 
-Fang mit [Fehlerbehebung](TROUBLESHOOTING.md) an – dort ist alles nach Symptomen sortiert. In der Fußzeile des Home-Bildschirms öffnet die Schaltfläche **Discord** den Community-Chat und die Schaltfläche **Support** die Support-Seite des Projekts. Fehler und Funktionswünsche gehören auf die GitHub-Seite des Projekts.
+Fang mit [Fehlerbehebung](TROUBLESHOOTING.md) an – dort ist alles nach Symptomen sortiert. In der Lesezeichenleiste des Home-Bildschirms öffnet **Discord** den Community-Chat und **Support** die Support-Seite des Projekts. Fehler und Funktionswünsche gehören auf die GitHub-Seite des Projekts.
 
 ## Verwandte Anleitungen
 

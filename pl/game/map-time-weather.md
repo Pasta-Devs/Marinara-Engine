@@ -6,9 +6,55 @@ Z tego przewodnika dowiesz się, jak działa panel mapy w trybie Game Mode i sys
 
 Game Mode pokazuje na ekranie gry niewielki panel mapy. Panel podaje nazwę bieżącej mapy, dzień gry i ikonę nieba oznaczającą porę dnia.
 
-Na komputerze mapa jest wbudowanym panelem, który widać od razu. Na telefonie dotknij ikony mapy w lewym górnym rogu. Przycisk nosi nazwę **Open map** (otwarcie mapy) i pokazuje mapę w panelu podręcznym.
+Na komputerze mapa jest wbudowanym panelem, który widać od razu. Panel da się przeciągać i zablokować w wybranym miejscu. Zasady działania przeciąganych paneli opisuje przewodnik o widgetach HUD, do którego link znajdziesz niżej.
 
-Panel da się przeciągać i zablokować w wybranym miejscu. Zasady działania przeciąganych paneli opisuje przewodnik o widgetach HUD, do którego link znajdziesz niżej.
+Na telefonie dotknij **Map** (Mapa), żeby otworzyć panel mapy. Jego przycisk zaczyna w pobliżu lewego górnego rogu i można go przeciągać po czacie. Użyj przycisku **Lock window** (Zablokuj okno) w panelu, żeby przycisk mapy pozostał na miejscu; **Close** (Zamknij) przywraca ten przycisk. Położenie zapisuje się razem z czatem. Mapa na telefonie korzysta ze stylu widgetów czatu z **Settings → Appearance → App** (Ustawienia, Wygląd, aplikacja), a jej przycisk pozostaje osobno, poza menu **Chat tools** (narzędzia czatu) z trzema kropkami.
+
+<a id="the-overworld"></a>
+
+## Mapa świata
+
+Gra z wygenerowanym światem (zobacz [Tworzenie świata](getting-started.md#making-a-world)) otwiera się na **mapie świata** (overworld): ziemi świata narysowanej jako mapa pikselowa za narracją, z lasami, wzgórzami, wybrzeżami i morzami, drogami i duktami między osadami, każdą osadą narysowaną według jej wielkości oraz twoją drużyną. Na mapie są podpisane większe miejsca, a także to, w którym jesteś. Przeciągnij mapę, żeby się rozejrzeć.
+
+Dotknij albo kliknij osadę albo wybierz ją z listy **Places** (miejsca; najbliższe są na początku, z czasem drogi), żeby zobaczyć jej wielkość i podróż z miejsca, w którym jesteś: ile dni albo godzin zajmuje droga i którędy prowadzi. **Walk there** (przejście tam) wysyła drużynę do niej drogami świata, najszybszą trasą, a dni marszu od razu mijają na zegarze. Od tej chwili drużyna jest na miejscu, a **twoja następna tura informuje postać Game Master**, dokąd drużyna przeszła, ile to trwało i którędy, żeby GM mógł opisać przybycie. Razem z tym mijają własne dni świata, tak jak wtedy, gdy Game Master mówi, że upływa czas. Drugi marsz przed twoją następną turą zaczyna się tam, gdzie skończył się pierwszy.
+
+Jaskinie, kopalnie, krypty i ruiny kilka kroków za osadą są rysowane na mapie świata jako **lokacje**: nowy świat ma jedną albo dwie w każdym regionie, nazwane od sąsiedniej osady ("Hollin Caves", "Ashby Ruins"), a twórca świata może dodać kolejne, z taką nazwą albo z mapą przygotowaną specjalnie dla nich. Świat utworzony, zanim pojawiły się lokacje, zachowuje swoje miejsca bez zmian. **Walk there** prowadzi do lokacji tak jak do osady: drogami świata do jej osady, a potem pieszo poza drogą. W lokacji jej karta oferuje **Enter** (wejście), które otwiera mapę lokacji (zobacz [Lochy, jaskinie i stacje](#dungeons-caves-and-stations)); wyjście z niej przenosi drużynę z powrotem na mapę świata, do lokacji. Lokacja ważna dla fabuły gry pozostaje **zamknięta** (narysowana wyblakłymi kolorami, bez podróży do niej i bez wejścia), dopóki Game Master nie otworzy jej, gdy opowieść do niej dotrze; twórca świata może też do tego czasu ukryć lokację na mapie albo udostępnić ją od początku.
+
+Zrujnowane miejsce jest rysowane jako ruina. Po zmroku mapa ciemnieje, a w oknach osad zapalają się światła. Każda rodzina stylistyczna settingu ma własne kafelki: fantasy, wuxia, współczesność, lata dwudzieste XX wieku, science fiction i pustkowia mają własne kolory i budynki. Zestaw settingu bez rodziny rysuje zwykłe kafelki.
+
+Mapa świata to widok, a widok sceny (tła gry i grafika postaci) jest o jedno przełączenie dalej: **Show the scene** (pokazanie sceny) w **Game controls** (Kontrolki gry; na telefonie w menu **Chat tools** z trzema kropkami) oraz **Show the overworld** (pokazanie mapy świata), żeby wrócić. Gra pamięta, który widok wybrano. Walka i odtwarzanie sesji korzystają z własnych ekranów.
+
+### Pakiety kafelków
+
+Mapa świata i miasta są rysowane z **pakietów kafelków**: palety i każdego kafelka (każdego rodzaju gruntu, osad według wielkości, drużyny oraz ulic, dachów i mieszkańców miasta) zapisanego jako rzędy pikseli. Każda rodzina stylistyczna settingu ma własny wbudowany pakiet. Otwórz panel **Agents** (Agenci) i znajdź **Tile packs** (pakiety kafelków), żeby:
+
+- wybrać, którym pakietem rysowany jest każdy setting (**Built in** (wbudowany) to jego własny pakiet);
+- zaimportować pakiet przyciskiem **Import a tile pack** (import pakietu kafelków) z pliku `.tilepack.json`, który ktoś udostępnił;
+- wyeksportować pakiet przyciskiem **Export** (eksport), żeby go udostępnić, albo usunąć go przyciskiem **Remove** (usunięcie), co przywraca każdemu settingowi rysowanemu tym pakietem jego własne kafelki.
+
+Pakiet potrzebuje tylko tych kafelków, które zmienia: wszystko, czego nie zawiera, jest rysowane w zwykły sposób. Pakiet, który podaje kafelek nierysowany przez aplikację Marinara Engine, zachowuje resztę i informuje, co pominął.
+
+<a id="the-town"></a>
+
+### Miasto
+
+Gdy drużyna jest w osadzie, wybierz ją na mapie świata i kliknij **Enter**, żeby zobaczyć miasto. Jego układ wynika ze świata: ulice i plac, miejsca, które ma w nim świat albo opowieść (podpisane na budynkach), ratusz w większej miejscowości, warsztaty rzemiosł, z których miasto słynie, oraz domy. Mieszkańcy są tam, gdzie o tej godzinie powinni być: w pracy za dnia, na placu o zmierzchu, w domu nocą.
+
+Miasto można też **ułożyć ręcznie** w edytorze takim jak Pixelforge, w ramach ręcznych zmian świata: przenieść budynki na inne działki (budynek przeniesiony na działkę innego zamienia się z nim miejscami, a każdy budynek nadal stoi frontem do ulicy) i pomalować grunt ulicami, brukiem, otwartym terenem, drzewami albo studnią (nigdy pod budynkiem ani przed jego drzwiami, na środku placu ani pod straganem). To, kto gdzie mieszka i pracuje, nigdy się nie zmienia, a czas dojścia do przeniesionego budynku liczy się od jego nowych drzwi. Edytor odrzuca układ, który nie pasuje do miasta, i podaje powód; miejsca dodane przez opowieść w trakcie gry nadal znajdują działkę. Układ może też stawiać budynki poza działkami, malować pola, polne drogi, wodę z mostami i żywopłoty oraz rozmieszczać ozdoby w mieście; widok miasta rysuje je wszystkie (ozdoby tylko z pakietem obrazów, który je zawiera).
+
+Wybierz budynek albo plac albo wybierz miejsce z listy **Places in town** (miejsca w mieście), żeby zobaczyć, kto tam teraz jest i ile minut zajmie dojście. **Walk there** prowadzi drużynę przez miasto ulicami, wokół budynków (oraz wokół drzew, studni, wody i żywopłotów namalowanych w ręcznym układzie, przez jego mosty): minuty drogi mijają na zegarze, a **twoja następna tura informuje postać Game Master**, dokąd poszła drużyna i kto tam jest. Wizyta w nazwanym miejscu, na przykład w gospodzie dodanej przez opowieść, sprawia, że drużyna jest właśnie w tym miejscu. **Leave town** (opuszczenie miasta) wraca na mapę świata. Gra pamięta, w którym widoku jesteś.
+
+<a id="dungeons-caves-and-stations"></a>
+
+### Lochy, jaskinie i stacje
+
+W grze Overworld RPG (zobacz [Classic czy Overworld RPG](getting-started.md#classic-or-overworld-rpg)), gdy opowieść schodzi pod ziemię albo na pokład, Game Master może otworzyć **mapę miejsca**: loch, jaskinię albo stację, narysowaną nad sceną. Każda jest układana na podstawie gry i nazwy miejsca, więc to samo miejsce ma zawsze te same pomieszczenia, a powrót do miejsca, w którym drużyna już jest, zachowuje mapę taką, jaka była. Game Master wybiera też jej wygląd spośród jedenastu: jaskinie skalne, lodowe, kryształowe i lawowe; krypta, kanały i świątynia; a także korytarze stacji, laboratorium, pokład maszynowni i hydroponika. Gdy w bibliotece pakietów kafelków jest pakiet do tego wyglądu, mapa jest rysowana z jego grafiką; bez niego – zwykłymi kolorami.
+
+Miejsce w mieście, do którego drużyna może zejść (jaskinia, kopalnia, krypta, kanały albo ruina, sądząc po nazwie; w settingu science fiction wrak albo bunkier), ma przycisk **Go down** (zejście w dół), gdy drużyna tam jest. Otwiera on mapę tego miejsca w ten sam sposób, za każdym razem tę samą, a wyjście z niej przenosi drużynę z powrotem do miasta, tam, gdzie zeszła. Gdy drużyna jest na innej mapie, najpierw ją opuść. Miejsce może też mieć mapę **przygotowaną ręcznie** w edytorze takim jak Pixelforge: wtedy Go down otwiera tę mapę, niezależnie od nazwy miejsca, rysowaną pakietem, który wskazuje. Na takiej mapie wyjście jest tam, gdzie drużyna weszła, jej rekwizyty nigdy nie zagradzają drogi, a ludzie stoją w nazwanych punktach o godzinach, które podaje mapa; Game Master dowiaduje się, kto tam jest.
+
+Kliknij miejsce na mapie albo użyj klawiszy strzałek, żeby przejść tam najkrótszą drogą. Minuty mijają na zegarze (mniej więcej minuta na każde trzydzieści kroków), a **twoja następna tura informuje postać Game Master**, z którego obszaru do którego przeszła drużyna. Etykieta u góry podaje, w którym obszarze jest drużyna. **Show the scene** i **Show the map** (pokazanie mapy) w **Game controls** przełączają między mapą a sceną; gra pamięta, w którym widoku jesteś.
+
+Aby wyjść, wróć do wyjścia (schodów, drabiny albo włazu, zależnie od wyglądu miejsca) i wybierz **Leave** (wyjście). Game Master może też zamknąć mapę, gdy opowieść opuszcza to miejsce. Ponowne wygenerowanie tury, w której otwarto mapę, przechodzono po niej albo ją opuszczono, przywraca mapę do stanu sprzed tej tury. Gry bez mapy działają jak dotąd.
 
 ## Widok siatki i widok węzłów
 
@@ -73,6 +119,12 @@ Zegar gry chodzi sam. Opiera się na sztywnych obliczeniach, a nie na AI, więc 
 | Podróż | 2 godziny |
 
 Kiedy zegar minie północ, numer dnia rośnie o jeden.
+
+W grze ze światem czas płynie też sam:
+
+- Gdy na pierwszym planie jest mapa świata, a gra czeka na ciebie, co pięć sekund rzeczywistych mija minuta gry. Zegar staje, gdy Game Master pisze, zanim przeczytasz jego odpowiedź, gdy na pierwszym planie jest widok sceny i gdy aplikacja działa w tle.
+- Marsz po mapie świata trwa tyle dni, ile wymaga jego trasa.
+- Gdy Game Master mówi, że mijają dni (podróż, długi odpoczynek, oczekiwanie), zegar też przesuwa się o te dni. Ponownie wygenerowana odpowiedź nie przesuwa go drugi raz; jeśli nowa wersja opowieści zajmuje inny czas, ustaw dzień ręcznie.
 
 ## Pogoda
 

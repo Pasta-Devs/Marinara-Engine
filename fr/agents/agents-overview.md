@@ -22,7 +22,7 @@ Chaque agent se déclenche à l'un des trois moments qui entourent la réponse. 
 
 Ouvre le panneau **Agents** depuis les onglets du panneau de droite (l'icône Sparkles). C'est là que tu parcours, crées et organises les agents. C'est ta bibliothèque, pas l'interrupteur qui active un agent dans un chat précis.
 
-Clique sur le bouton **Download Agents**, en haut, pour ouvrir le catalogue officiel en plein écran. Il fonctionne sur ordinateur comme sur téléphone. Sélectionne un élément pour lire sa description, le type de fonctionnalité pris en charge, la taille du téléchargement, les permissions, la compatibilité des versions et la documentation. Clique sur le bouton **Install** (installer) pour l'ajouter ; le même écran propose des mises à jour manuelles immédiates et un bouton **Uninstall** (désinstaller) pour les packages déjà présents.
+Clique sur le bouton **Download Agents**, en haut, pour ouvrir le catalogue officiel en plein écran. Il fonctionne sur ordinateur comme sur téléphone. Sélectionne un élément pour lire sa description, le type de fonctionnalité pris en charge, la taille du téléchargement, les permissions, la compatibilité des versions et la documentation. Clique sur le bouton **Install** (installer) pour l'ajouter ; le même écran propose des mises à jour manuelles immédiates et un bouton **Uninstall** (désinstaller) pour les packages déjà présents. Quand le package publie des notes de version, une section **Version history** (historique des versions) liste ce que chaque version a changé.
 
 Le catalogue intégré s'appuie sur le [dépôt public Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents). Tu peux y inspecter chaque package et chaque fichier, mais mieux vaut passer par le bouton **Download Agents** : Marinara valide alors la compatibilité, les permissions, les empreintes, le contenu des archives et les redémarrages nécessaires.
 
@@ -36,7 +36,7 @@ Si tu viens d'une version de l'Engine qui intégrait ces fonctionnalités, Marin
 
 ### Mettre à jour les packages
 
-Marinara te demande ton accord avant de mettre à jour un package. Quand une version compatible plus récente d'un package que tu as installé est disponible, une fenêtre **Agent updates available** (mises à jour d'agents disponibles) s'affiche. Elle liste chaque mise à jour avec sa nouvelle version et indique si elle demande un redémarrage. Quand le package publie des notes de version, **What changed** (ce qui a changé) les affiche. Un point signale un changement que tu remarqueras ; les mises à jour sans point sont des correctifs de routine.
+Marinara te demande ton accord avant de mettre à jour un package. Quand une version compatible plus récente d'un package que tu as installé est disponible, une fenêtre **Agent updates available** (mises à jour d'agents disponibles) s'affiche. Elle liste chaque mise à jour avec sa nouvelle version et indique si elle demande un redémarrage. Quand le package publie des notes de version, **What changed** (ce qui a changé) les affiche. Si la mise à jour saute des versions, **What changed** liste les notes de chaque version depuis la tienne, de la plus récente à la plus ancienne, et indique leur nombre. Une note longue est tronquée ; sélectionne **More** (plus) pour la lire en entier. Un point signale un changement que tu remarqueras ; les mises à jour sans point sont des correctifs de routine.
 
 - Clique sur **Update all** (tout mettre à jour) pour installer toutes les mises à jour listées. Redémarre Marinara Engine si cela t'est demandé.
 - Clique sur **Not now** (pas maintenant) pour garder tes versions actuelles. Marinara ne te reposera pas la question pour une version que tu as ignorée.
@@ -89,7 +89,7 @@ Tu peux ajouter ou retirer des agents compatibles à tout moment.
 Certains agents changent quelque chose de visible immédiatement. D'autres travaillent en silence. Voici comment vérifier.
 
 - Les trackers écrivent dans le HUD et dans les panneaux de tracker. Si l'heure, le lieu, l'humeur ou les caractéristiques ont changé, un tracker est passé.
-- Un bandeau d'état flottant affiche de courts messages de réflexion pendant que les agents travaillent : tu les vois donc tourner en direct.
+- **Agent activity** (activité des agents), dans **Chat Settings**, liste de courtes notes des agents. Pendant qu'ils travaillent, son icône se change en roue de chargement, et un point y apparaît quand un agent échoue. Voir [Agent activity](../roleplay/getting-started.md#agent-activity).
 - Les agents **Prose Guardian** et **Continuity Checker** modifient le texte de la réponse lui-même. Une réponse nettoyée ou corrigée montre qu'ils sont passés.
 - Pour une trace complète, active **Debug mode** (mode débogage) dans **Settings** (Paramètres), puis **Advanced**, puis **Message Tools**. Le prompt et la réponse de chaque agent sont alors écrits dans la console du serveur. Un panneau **Agent Debug** affiche aussi les appels, les tokens et les temps de chaque agent.
 

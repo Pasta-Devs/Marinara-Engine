@@ -91,7 +91,7 @@ Impersonate 有一组设置，对你运行的每一次 `/impersonate` 都生效�
 - **Preset**(预设)：只为 impersonate 回复指定一个提示词预设。预设就是保存好的一组提示词设置，详见[预设](../prompts/presets.md)。默认值是 **Use chat default**。预设只在 Roleplay 里生效。
 - **Connection**(连接)：把 impersonate 回复交给指定的连接处理，比如更便宜或更快的模型。连接就是保存下来的一套 AI 服务接入信息，详见[连接 AI 服务商](../connections/connecting-to-a-provider.md)。默认值是 **Use chat default**，也可以选 **Random**。
 - **Skip agents**(跳过智能体)：开启后，Marinara 在 impersonate 期间会跳过智能体流水线，包括追踪器、世界书路由等各类辅助智能体。这样 impersonate 更快，也不会改动世界状态。默认关闭。详见[智能体](../agents/agents-overview.md)。
-- **Use CYOA as direction**(把 CYOA 选项当作方向说明)：开启后，点击一个 CYOA 选项会把它当成 impersonate 的方向说明，而不是作为普通消息发出去。CYOA 指的是自选冒险，也就是某些聊天在回复之后给出的一组可点击选项。这个设置默认关闭。
+- **Use CYOA as direction**(把 CYOA 选项当作方向说明)：开启后，点击一个 CYOA 选项会把它当成 impersonate 的方向说明，而不是作为普通消息发出去。CYOA 指的是自选冒险，也就是某些聊天在回复之后给出的一组可点击选项。这个设置默认关闭。如果在 **Settings** > **General** > **Input & Editing**(设置 > 常规 > 输入与编辑) 里开启了 **Add CYOA choices to the message box instead of sending them**(把 CYOA 选项加入消息框而不是直接发送)，点击选项只会把它的文字加进你的消息框，这个设置也就不起作用。
 
 ### 为单个聊天设置自定义 impersonate 提示词
 

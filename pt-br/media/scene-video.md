@@ -41,6 +41,10 @@ No caso do **ComfyUI**, use o endereço local de sempre, `http://127.0.0.1:8188`
 
 No caso do **SwarmUI**, Marinara preenche o endereço local `http://127.0.0.1:7801`. Cole um fluxo de trabalho de vídeo em formato de API no campo **ComfyUI Workflow**. O fluxo de trabalho é obrigatório. O SwarmUI não consegue usar os marcadores `%reference_image_name%`, então use `%reference_image%` para a imagem de referência. Se o seu servidor SwarmUI exigir uma conta, cole um Swarm Auth Token em **API Key** (chave de API). **Fetch Models from API** lista os modelos do seu servidor SwarmUI.
 
+### Video Prompting Instructions
+
+Uma conexão de Video Generation tem uma caixa **Video Prompting Instructions** (instruções de prompt de vídeo). Use-a para dizer à IA que escreve os seus prompts de vídeo o que o seu modelo de vídeo espera, como movimentos de câmera, tamanho do prompt ou som. Ela orienta as animações da galeria do Roleplay, as mensagens de vídeo do Conversation e o **Image-aware shot planning** (planejamento de tomadas com base na imagem) do Storyboard. Se a IA copiar uma frase inteira dela para o prompt de vídeo, Marinara remove essa frase. Os vídeos de cena do Game Mode, os clipes das chamadas e as expressões animadas criam os prompts deles separadamente. **Video Prompting Instructions** não os afeta.
+
 ### Definir como conexão de vídeo padrão
 
 O editor de uma conexão de Video Generation mostra o grupo **Default for Videos**. Ative a opção **Use as default video connection** para que Marinara use essa conexão quando o chat não tiver uma conexão de vídeo própria. Marque apenas uma conexão como conexão de vídeo padrão.

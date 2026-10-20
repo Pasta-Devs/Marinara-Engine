@@ -120,7 +120,7 @@ O lado esquerdo ou direito da condição aceita qualquer um destes elementos:
 3. O nome de uma variável de preset, como `length`. A variável de preset é um valor com nome que você define em um preset de prompt. Veja [Variáveis de preset](preset-variables.md).
 4. Uma consulta explícita de variável, escrita como `var:name` ou `var.name`.
 5. Outra macro, cujo valor é resolvido primeiro e só depois comparado.
-6. Perguntas e opções Decision, como `decision:"..."` e `decision_choice:"..."`. Elas pedem um julgamento rápido ao Decision model selecionado antes de montar o prompt. Veja [Perguntar ao modelo de decisão](#asking-the-decision-model).
+6. Uma pergunta para o seu modelo de decisão, escrita como `decision:"..."` ou `decision_choice:"..."`. Veja [Perguntar ao modelo de decisão](#asking-the-decision-model).
 
 Se você escrever uma palavra solta que não seja palavra-chave, Marinara a trata como nome de variável. Quando não existe variável com esse nome, a própria palavra vira texto simples. Colocar os valores literais entre aspas evita essa confusão, então use aspas sempre que tiver dúvida.
 
@@ -261,6 +261,16 @@ Kaelen is his usual self.
 ```
 
 Aqui o modelo escolhe entre "angry", "sad" e "none of these". A forma curta também funciona: `decision_choice:"The weather in the latest message" == "rain" || "snow"` oferece as duas opções. Escreva a declaração como um tema, como "Kaelen's mood in the latest message", e as opções como respostas curtas.
+
+Para dizer ao modelo o que uma opção significa na sua história, acrescente critérios depois dela, separados por dois-pontos:
+
+```
+{{#if decision_choice:"Kaelen's mood in the latest message" == "angry":"Kaelen raises his voice, makes threats or breaks something"}}
+Kaelen's lines are short and clipped.
+{{/if}}
+```
+
+O modelo lê os critérios como a descrição da opção. Ele continua respondendo "angry", e a comparação continua sendo com "angry". Coloque as duas partes entre o mesmo tipo de aspas. Se as aspas forem diferentes, Marinara não lê "angry" como uma opção, e a comparação nunca corresponde a ela. Macros como `{{char}}` funcionam nos critérios. As opções sem critérios são oferecidas como antes, e, se uma opção receber critérios diferentes em vários lugares, valem os primeiros.
 
 <a id="sticky-and-cooldown"></a>
 

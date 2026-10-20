@@ -1,6 +1,6 @@
 # Game Mode: Sesiones y partidas guardadas
 
-Esta guía explica cómo Marinara Engine registra tu progreso en Game Mode (modo de juego) a lo largo de las sesiones de juego. Cubre cómo terminar y empezar una sesión y cómo leer sesiones pasadas en **Session History** (Historial de sesiones). También cubre la vista **Show Spoilers** (Mostrar spoilers) y cómo el juego guarda tus datos.
+Esta guía explica cómo Marinara Engine registra tu progreso en Game Mode (modo de juego) a lo largo de las sesiones de juego. Cubre cómo terminar y empezar una sesión y cómo leer sesiones pasadas en **Session History** (Historial de sesiones). También cubre la vista **Show Spoilers** (Mostrar spoilers), cómo corregir a mano los datos del juego y cómo el juego guarda tus datos.
 
 ## Qué es una sesión
 
@@ -122,11 +122,41 @@ Para ocultar las notas de nuevo, haz clic en el mismo botón. Ahora dice **Hide 
 
 También puedes editar estos secretos, lo que funciona como un panel de trucos de director del juego. Haz clic en **Edit Spoilers** (Editar spoilers), cambia el texto, luego haz clic en **Save Spoilers** (Guardar spoilers). Algunos campos se muestran como JSON, un formato de texto estructurado. Edita los campos JSON solo si entiendes el formato, ya que un JSON incorrecto no se guardará.
 
+<a id="editing-game-data-by-hand"></a>
+
+## Editar los datos del juego a mano
+
+Cuando el Game Master se equivoca en algo, como la reputación de un NPC o una misión que sigue abierta, puedes corregir tú mismo los datos guardados del juego.
+
+1. Abre **Game controls** (Controles del juego) y elige **Edit game data** (Editar datos del juego). En un teléfono, **Game controls** está en el menú de tres puntos **Chat tools** (Herramientas del chat).
+2. Se abre la ventana **Game Data** (Datos del juego). Un aviso en la parte superior dice: "Hand edits can break a game. Every change is checked before it saves, and names can't change here." (Las ediciones a mano pueden romper una partida. Cada cambio se comprueba antes de guardarse y aquí no se pueden cambiar los nombres.)
+3. Elige una sección de la lista, o de la fila de chips en un teléfono. También puedes escribir en el cuadro de búsqueda para encontrar un valor en todas las secciones a la vez.
+4. Cambia los valores en **Fields** (Campos), o cambia a **JSON** para editar los datos sin procesar.
+5. Haz clic en **Review changes** (Revisar cambios) para ver exactamente qué cambia y luego haz clic en **Save changes** (Guardar cambios).
+
+Puedes cambiar **Party Cards** (Tarjetas del grupo), **Party Sheet** (Ficha del grupo), **NPCs**, **Journal** (Diario), **Player Notes** (Notas del jugador), **Inventory** (Inventario), **Story** (Historia), **Session Summaries** (Resúmenes de sesión), **World Edits** (Ediciones del mundo), **Story Script** (Guion de historia) y **HUD Widgets** (Widgets del HUD). Una sección solo aparece cuando el juego tiene esos datos, así que un juego sin mundo no tiene **World Edits**. Las demás secciones, como **World** (Mundo), **Maps & Position** (Mapas y posición), **Time, Weather & Morale** (Hora, clima y moral), **Combat** (Combate) y **Settings** (Configuración), están marcadas como **Read-only** (Solo lectura). Puedes leerlas y buscar en ellas, pero el juego las mantiene por su cuenta. Las preferencias de prompts, imágenes, música y dados se cambian en **Chat Settings** (Ajustes del chat).
+
+Cada cambio se comprueba antes de guardarse:
+
+- Los nombres no se pueden cambiar, porque las tarjetas, los NPC, el grupo y las bolsas se encuentran entre sí por el nombre. Aquí no se pueden añadir ni quitar miembros del grupo.
+- La reputación de un NPC va de -100 a 100.
+- En **Inventory**, puedes cambiar la cantidad, el apodo y el portador de un objeto, y si se lleva puesto, está sintonizado o está activado. Deja fuera una pila para quitarla, o añade una sin id para añadir un objeto.
+- En **Session Summaries**, solo se puede cambiar el texto de una sesión.
+- **World Edits** guarda tus ediciones a mano sobre el mundo, como lugares renombrados o personas añadidas. El mundo en sí nunca cambia.
+
+Cuando un cambio no se puede guardar, el editor te dice por qué, y esa sección conserva tu borrador para que puedas corregirlo. Si el juego cambió los mismos datos mientras editabas, el guardado se rechaza para que no deshaga el cambio del juego. **Reload** (Recargar) muestra la versión del juego y descarta tus borradores.
+
+Antes de cada guardado, el juego intenta crear un punto de control, marcado como **Before a State Editor save** (Antes de un guardado del State Editor) en **Checkpoints** (Puntos de control). Si una edición sale mal, carga ese punto de control para deshacerla (ver más abajo).
+
+La ventana funciona como el State Editor de Roleplay. Consulta [El State Editor](../roleplay/hud-and-trackers.md#the-state-editor).
+
+<a id="how-your-game-saves"></a>
+
 ## Cómo se guarda tu juego
 
 Game Mode guarda tu progreso automáticamente. No necesitas pulsar un botón de guardar. Tu mundo, tu grupo, el mapa, el inventario, el tiempo dentro del juego y los resúmenes de sesión se conservan por ti mientras juegas.
 
-La app también registra puntos de control automáticos entre bastidores. Captura un punto de control al inicio de la sesión, al final de la sesión, cuando empieza o termina el combate, cuando llegas a un lugar nuevo y a intervalos automáticos. El editor de datos del juego también intenta crear uno antes de cada guardado, aunque un juego tan nuevo que todavía no ha guardado su primer turno aún no tiene nada que guardar en un punto de control. Abre **Game controls → Checkpoints** (Controles del juego → Puntos de control) para verlos, del más reciente al más antiguo. **Load** (Cargar) devuelve el juego a ese momento: se restauran el tracker, el mapa, las **World Edits** (Ediciones del mundo) del editor de datos del juego y la historia a partir de ahí, y un mensaje del sistema marca el punto en que el juego retrocedió. **Delete** (Eliminar) borra uno para siempre.
+La app también registra puntos de control automáticos entre bastidores. Captura un punto de control al inicio de la sesión, al final de la sesión, cuando empieza o termina el combate, cuando llegas a un lugar nuevo y a intervalos automáticos. El [editor de datos del juego](#editing-game-data-by-hand) también intenta crear uno antes de cada guardado, aunque un juego tan nuevo que todavía no ha guardado su primer turno aún no tiene nada que guardar en un punto de control. Abre **Game controls → Checkpoints** (Controles del juego → Puntos de control) para verlos, del más reciente al más antiguo. **Load** (Cargar) devuelve el juego a ese momento: se restauran el tracker, el mapa, las **World Edits** (Ediciones del mundo) del editor de datos del juego y la historia a partir de ahí, y un mensaje del sistema marca el punto en que el juego retrocedió. Las tarjetas y las fichas del grupo, los NPC, el diario, tus notas, el inventario, los resúmenes de sesión, los planes de historia del GM, los widgets del HUD y la hora, el clima y la moral también vuelven a ese momento. Tus ajustes se quedan como están. **Delete** (Eliminar) borra uno para siempre.
 
 Los puntos de control automáticos se limitan a los cinco más recientes de cada tipo, así que los más antiguos se eliminan a medida que juegas.
 

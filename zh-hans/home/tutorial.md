@@ -12,23 +12,26 @@
 
 ## 引导教程的完整步骤
 
-教程一共 15 步。下面按顺序列出，每条都给出卡片的确切标题和它指向的位置。
+教程一共 18 步。下面按顺序列出，每条都给出卡片的确切标题和它指向的位置。
 
 1. **Welcome to Marinara Engine!** 屏幕正中的欢迎卡片。Professor Mari 挥手打招呼，提出带你逛一圈。
-2. **Card Browser** 高亮 **Card Browser**(角色卡浏览器) 面板按钮，在那里点 **Download Cards**(下载角色卡) 就能找到并导入现成的角色。
-3. **Characters** 高亮 **Characters**(角色) 面板按钮，角色都放在这里。
+2. **Characters** 高亮 **Characters**(角色) 面板按钮，角色都放在这里。
+3. **Personas** 高亮 **Personas**(用户角色) 面板按钮，在这里定义你在聊天里的身份。
 4. **Lorebooks** 高亮 **Lorebooks**(世界书) 面板按钮，里面存放额外的世界设定和角色细节。
 5. **Presets** 高亮 **Presets**(预设) 面板按钮，它决定提示词怎么拼装。提示词就是 Marinara Engine 发给 AI 的那段文字。
 6. **Connections** 高亮 **Connections** 面板按钮。卡片上写明，开始聊天前第一件要设置的就是连接。
-7. **Agents** 高亮 **Agents**(智能体) 面板按钮，智能体能在聊天之上再加一层帮手。
-8. **Personas** 高亮 **Personas**(用户角色) 面板按钮，在这里定义你在聊天里的身份。
-9. **Settings** 高亮 **Settings** 面板按钮，并打开 **Settings** 的 **General** 选项卡。
-10. **Chats** 高亮侧边栏开关，并打开聊天侧边栏，聊天都放在那里。
-11. **Conversation Mode** 高亮聊天侧边栏里的 Conversation(对话模式) 选项卡。选项卡本身显示为 **CONVO**。
-12. **Roleplay Mode** 高亮聊天侧边栏里的 Roleplay(角色扮演) 选项卡。选项卡本身显示为 **RP**。
-13. **Game Mode** 高亮聊天侧边栏里的 Game Mode(游戏模式) 选项卡。选项卡本身显示为 **GM**。
-14. **Migrating from SillyTavern?** 再次高亮 **Settings** 按钮，并打开 **Settings** 的 **Import**(导入) 选项卡。
-15. **You're All Set!** 最后再高亮一次 **Connections** 面板按钮。这是收尾卡片。
+7. **Agents** 高亮 **Agents**(智能体) 面板按钮，智能体能在聊天之上再加一层帮手。卡片会指引你到 **Download Agents**(下载智能体) 安装它们。
+8. **Settings** 高亮 **Settings** 面板按钮，并打开 **Settings** 的 **General** 选项卡。
+9. **Chats** 高亮侧边栏开关，并打开聊天侧边栏，聊天都放在那里。
+10. **Conversation Mode** 高亮聊天侧边栏里的 Conversation(对话模式) 选项卡。选项卡本身显示为 **CONVO**。
+11. **Roleplay Mode** 高亮聊天侧边栏里的 Roleplay(角色扮演) 选项卡。选项卡本身显示为 **RP**。
+12. **Game Mode** 高亮聊天侧边栏里的 Game Mode(游戏模式) 选项卡。选项卡本身显示为 **GM**。
+13. **Home: Your Story Hub** 回到主页，高亮它的顶部，也就是新建聊天的那几个按钮所在的位置。卡片会说明，主页是你继续最近的聊天、开始新聊天和摆放小组件的地方。
+14. **Ask Me Where Things Are** 高亮主页顶部的搜索栏。在手机上，卡片会改为提示你从顶栏往下拉。
+15. **Guides and Home Controls** 高亮主页上的 **Documentation**(文档)、**Tutorial**(教程)、**FAQ**(常见问题) 和 **Widgets**(小组件) 书签。
+16. **Migrating from SillyTavern?** 再次高亮 **Settings** 按钮，并打开 **Settings** 的 **Imports**(导入) 选项卡。
+17. **You're All Set!** 最后再高亮一次 **Connections** 面板按钮。
+18. **One Last Thing: Guide Language** 高亮 **Documentation** 书签。这张收尾卡片上有一个 **Documentation** 按钮和一个 **Documentation Language**(文档语言) 列表。选择你希望应用内指南使用的语言。还没翻译的指南会以英文显示。
 
 点 **Next**(下一步) 按钮进入下一张卡片。到了最后一步，这个按钮会变成 **Get Started**(开始使用)。
 
@@ -36,9 +39,9 @@
 
 教程不一定非要走完，每张卡片上都有跳过按钮。第一张卡片上写的是 **Skip Tutorial**(跳过教程)，之后每一张写的都是 **Skip**(跳过)。
 
-点 **Skip** 或 **Skip Tutorial** 会立刻结束教程，在最后一张卡片上点 **Get Started** 也一样。两种做法都会把教程标记为已完成，之后不会再自动开始。走完或跳过教程还可能解锁一个成就。
+点 **Skip** 或 **Skip Tutorial** 会立刻结束教程，在最后一张卡片上点 **Get Started** 也一样。两种做法都会把教程标记为已完成，之后不会再自动开始。只有 **Get Started** 会保存你在最后一张卡片上选的指南语言；**Skip** 会保持原样。之后可以在 **Settings** 的 **General** 下修改。走完或跳过教程还可能解锁一个成就。
 
-教程随时都能重看。打开主页，在页脚找到 **Replay Tutorial**(重看教程) 按钮，点一下，引导教程就从第一步重新开始。早早跳过、后来又想完整看一遍的话，用这个正合适。
+教程随时都能重看。在主页上点击 **Tutorial** 书签，或者 **Learn the engine**(了解引擎) 小组件里的 **Replay tutorial**(重看教程)。引导教程就会从第一步重新开始。早早跳过、后来又想完整看一遍的话，用这个正合适。
 
 ## 手机上的不同
 

@@ -17,7 +17,7 @@ So legst du eine Bildverbindung an:
 5. Füge den **API Key** ein, falls der Dienst einen braucht. Kostenlose und lokale Dienste kommen ohne aus.
 6. Wähle ein **Model** (Modell) aus der Liste oder tippe eine Modell-ID ein. Manche Dienste bieten **Fetch Models from API** (Modelle über die API laden) an, um die aktuelle Liste zu holen.
 7. Klick auf **Save** (Speichern).
-8. Klick auf **Test Image** (Testbild), um die Verbindung zu prüfen. Marinara generiert dann ein kleines Testbild. Bei fal.ai verbraucht das Credits; **Test Connection** (Verbindung testen) prüft dagegen nur die Konfiguration.
+8. Klick auf **Test Image** (Testbild), um die Verbindung zu prüfen. Marinara generiert dann ein kleines Testbild.
 
 Liefert **Test Image** ein Bild, ist die Verbindung einsatzbereit. Schlägt der Test fehl, prüfe API-Key und Base URL.
 
@@ -54,13 +54,13 @@ Die Tabelle zeigt alle Dienste auf einen Blick. Details und Eigenheiten folgen w
 
 ## OpenAI (DALL-E)
 
-Cloud-Dienst mit der Standard-Base-URL `https://api.openai.com/v1`. Nötig ist ein API-Key aus dem OpenAI-Konto. Zur Auswahl stehen DALL-E- und GPT-Image-Modelle. Bis zu 16 Referenzbilder sind möglich.
+Cloud-Dienst mit der Standard-Base-URL `https://api.openai.com/v1`. Nötig ist ein API-Key aus dem OpenAI-Konto. Zur Auswahl stehen DALL-E- und GPT-Image-Modelle. GPT-Image-Modelle nehmen bis zu 16 Referenzbilder an, DALL-E-Modelle keine.
 
 ## ChatGPT (Codex login)
 
 Cloud-Dienst, der statt eines API-Keys deinen ChatGPT-Tarif nutzt. Für Bilder brauchst du also kein API-Guthaben bei OpenAI. Installiere auf dem Rechner, auf dem der Marinara-Server läuft, die Codex CLI und führ einmal `codex login` aus. Es ist dieselbe Anmeldung, die auch die Chat-Verbindung **OpenAI (ChatGPT)** verwendet; die einzelnen Schritte beschreibt [Abo-Verbindungen für Claude, ChatGPT und Grok](../connections/subscription-clis.md#openai-chatgpt). Einen API-Key oder eine Base URL musst du nicht eintragen. Marinara trägt das Modell `gpt-image-2` ein, das auch Codex selbst für Bilder verwendet.
 
-**Test Connection** prüft nur, ob Marinara deine Codex-Anmeldung lesen kann. **Test Image** erzeugt ein echtes Bild und wird auf deine Bildlimits bei ChatGPT angerechnet. Sind Referenzbilder dabei, sendet Marinara eine Bearbeitungsanfrage mit bis zu 16 davon. ChatGPT liefert unter Umständen eine andere Pixelgröße als die angeforderte, deshalb nennt Marinara das gewünschte Seitenverhältnis zusätzlich im Prompt.
+**Test Connection** (Verbindung testen) prüft nur, ob Marinara deine Codex-Anmeldung lesen kann. **Test Image** erzeugt ein echtes Bild und wird auf deine Bildlimits bei ChatGPT angerechnet. Sind Referenzbilder dabei, sendet Marinara eine Bearbeitungsanfrage mit bis zu 16 davon. ChatGPT liefert unter Umständen eine andere Pixelgröße als die angeforderte, deshalb nennt Marinara das gewünschte Seitenverhältnis zusätzlich im Prompt.
 
 Dieser Dienst spricht nicht mit der öffentlichen OpenAI-API, sondern mit dem Bild-Endpunkt von ChatGPT, den auch Codex nutzt. OpenAI kann ihn deshalb ohne Vorankündigung ändern.
 
@@ -100,17 +100,17 @@ Cloud-Dienst mit der Standard-Base-URL `https://api.z.ai/api/paas/v4`. Nötig is
 
 ## Atlas Cloud
 
-Cloud-Dienst mit der Standard-Base-URL `https://api.atlascloud.ai/api/v1`. Du brauchst einen API-Schlüssel von Atlas Cloud. **Fetch Models** (Modelle abrufen) lädt den aktuellen Katalog für Text-zu-Bild und Bild-zu-Bild von Atlas Cloud. Ist der Katalog nicht erreichbar, zeigt Marinara stattdessen eine kleine Startliste mit Nano Banana, Gemini Flash Image und FLUX 1.1 Pro. Du kannst jederzeit eine genaue Atlas Cloud-Bildmodell-ID eingeben. Aufträge laufen asynchron: Marinara startet die Generierung und fragt Atlas Cloud ab, bis das Bild fertig ist. Übliche Text-zu-Bild-Einstellungen werden automatisch zugeordnet; Referenzbilder werden an Modell-IDs gesendet, die Bild-zu-Bild, Bearbeitung oder Kontext-Verhalten ausweisen. Da sich die Schemas unterscheiden können, prüf bei einer anderen Modell-ID die Atlas Cloud-Dokumentation des gewählten Modells.
+Cloud-Dienst mit der Standard-Base-URL `https://api.atlascloud.ai/api/v1`. Nötig ist ein API-Key von Atlas Cloud. **Fetch Models** (Modelle abrufen) lädt den aktuellen Katalog von Atlas Cloud für Text-to-Image und Image-to-Image. Ist der Katalog nicht erreichbar, zeigt Marinara stattdessen eine kleine Startliste mit Nano Banana, Gemini Flash Image und FLUX 1.1 Pro. Du kannst jederzeit die genaue ID eines Bildmodells von Atlas Cloud eingeben. Aufträge laufen asynchron: Marinara startet die Generierung und fragt Atlas Cloud ab, bis das Bild fertig ist. Übliche Einstellungen für Text-to-Image werden automatisch zugeordnet; Referenzbilder werden an Modell-IDs gesendet, die Image-to-Image, Bearbeitung oder Kontext-Verhalten ausweisen. Da sich die Schemas unterscheiden können, prüf bei einer anderen Modell-ID die Dokumentation von Atlas Cloud zum gewählten Modell.
 
 ## fal.ai
 
-Cloud-Dienst mit der standardmäßigen **Base URL** `https://fal.run`. Erstelle bei [fal.ai](https://fal.ai/dashboard/keys) einen API-Schlüssel und wähle **fal.ai** im Raster der Bilddienste. Die anfängliche **Model**-Liste bietet `fal-ai/flux/schnell` und `fal-ai/flux/dev`; du kannst eine andere Text-zu-Bild-Endpunkt-ID mit kompatiblem Ein- und Ausgabeschema eingeben. **Test Connection** prüft nur die Konfiguration. **Test Image** sendet eine echte Generierungsanfrage und verbraucht dein fal.ai-Guthaben.
+Cloud-Dienst mit der standardmäßigen **Base URL** `https://fal.run`. Erstelle bei [fal.ai](https://fal.ai/dashboard/keys) einen API-Key und wähle **fal.ai** im Raster der Bilddienste. Die anfängliche **Model**-Liste bietet `fal-ai/flux/schnell` und `fal-ai/flux/dev`; du kannst die ID eines anderen Text-to-Image-Endpunkts mit kompatiblem Ein- und Ausgabeschema eingeben. **Test Connection** prüft nur die Konfiguration. **Test Image** sendet eine echte Generierungsanfrage und verbraucht dein fal.ai-Guthaben.
 
-Marinara sendet den Prompt und die gewünschten Abmessungen und lädt dann das erste zurückgegebene Bild in den bestehenden Bildablauf herunter. Negative Prompts werden als Textanweisungen angehängt. Nutze **Custom Parameters** (benutzerdefinierte Parameter) für modellspezifische Optionen wie `seed`, `num_inference_steps` oder `image_size`. Die Integration nutzt synchrone Text-zu-Bild-Anfragen; sie sendet keine Referenzbilder und setzt unterbrochene Aufträge nicht fort. Prüfe die unterstützten Eingaben auf der API-Seite deines gewählten Modells oder eigenen Endpunkts, etwa in der [API-Referenz für flux/schnell](https://fal.ai/models/fal-ai/flux/schnell/api).
+Marinara sendet den Prompt und die gewünschten Abmessungen und lädt dann das erste zurückgegebene Bild in den bestehenden Bildablauf herunter. Negative Prompts werden als Textanweisungen angehängt. Nutze **Custom Parameters** (benutzerdefinierte Parameter) für modellspezifische Optionen wie `seed`, `num_inference_steps` oder `image_size`. Die Integration nutzt synchrone Text-to-Image-Anfragen; sie sendet keine Referenzbilder und setzt unterbrochene Aufträge nicht fort. Welche Eingaben das gewählte Modell unterstützt, steht in seiner [API-Referenz](https://fal.ai/models/fal-ai/flux/schnell/api).
 
 ## SpicyAPI
 
-Cloud-Dienst mit der standardmäßigen **Base URL** `https://api.spicyapi.ai/api/v1`. Erstelle in der [SpicyAPI-Konsole](https://spicyapi.ai/console/keys) einen API-Schlüssel und wähle dann **SpicyAPI** im Raster der Bilddienste. Marinara trägt das Modell `alibaba/z-image-spicy-pro/text-to-image` ein. Klick auf **Fetch Models from API**, um alle Text-zu-Bild- und Edit-Modelle von SpicyAPI zu laden, oder gib eine Modell-ID wie `bytedance/seedream-5.0-pro/text-to-image` ein. **Test Connection** prüft deinen Schlüssel, indem die Modellliste abgerufen wird; das kostet nichts. **Test Image** erzeugt ein echtes Bild und verbraucht dein SpicyAPI-Guthaben.
+Cloud-Dienst mit der standardmäßigen **Base URL** `https://api.spicyapi.ai/api/v1`. Erstelle in der [SpicyAPI-Konsole](https://spicyapi.ai/console/keys) einen API-Key und wähle dann **SpicyAPI** im Raster der Bilddienste. Marinara trägt das Modell `alibaba/z-image-spicy-pro/text-to-image` ein. Klick auf **Fetch Models from API**, um alle Text-to-Image- und Edit-Modelle von SpicyAPI zu laden, oder gib eine Modell-ID wie `bytedance/seedream-5.0-pro/text-to-image` ein. **Test Connection** prüft deinen Key, indem die Modellliste abgerufen wird; das kostet nichts. **Test Image** erzeugt ein echtes Bild und verbraucht dein SpicyAPI-Guthaben.
 
 Wähl den Dienst **SpicyAPI**. Nutze weder **OpenAI (DALL-E)** noch eine Verbindung vom Typ **Custom (OAI-Compatible)** mit einer SpicyAPI-Adresse. Die Adresse im OpenAI-Stil von SpicyAPI verarbeitet nur Text, deshalb können diese Verbindungen keine Bilder erzeugen.
 
@@ -212,7 +212,7 @@ Ein **Referenzbild** ist ein vorhandenes Bild, das du zusammen mit dem Prompt sc
 
 | Anbieter | Referenzbilder |
 | --- | --- |
-| OpenAI (DALL-E) | Bis zu 16 |
+| OpenAI (DALL-E) | Bis zu 16, nur GPT-Image-Modelle |
 | ChatGPT (Codex login) | Bis zu 16 |
 | NovelAI | Bis zu 16, nur V4.5-Modell |
 | xAI / Grok Imagine | Bis zu 3 |
@@ -223,18 +223,21 @@ Ein **Referenzbild** ist ein vorhandenes Bild, das du zusammen mit dem Prompt sc
 | NanoGPT | Bis zu 3 |
 | Stability AI | Nur das erste Bild, als Image-to-Image genutzt |
 | Arli AI | Nur das erste Bild, als Image-to-Image genutzt |
+| SD Web UI (AUTOMATIC1111 / Forge) und Draw Things | Nur das erste Bild, als Image-to-Image genutzt |
 | OpenRouter Images | Unterstützt, ohne feste Obergrenze |
 | ComfyUI und RunPod Serverless (ComfyUI) | Bis zu 4, über Workflow-Platzhalter |
 | SwarmUI | Bis zu 4 |
-| Together AI, Pollinations, Stable Horde | Nicht unterstützt |
+| Together AI, Pollinations, Stable Horde, fal.ai | Nicht unterstützt |
 
 Präzise Referenzbilder funktionieren bei NovelAI nur auf einem V4.5-Modell, etwa `nai-diffusion-4-5-full`. NovelAI hat Precise Reference für V5 noch nicht veröffentlicht. Forderst du Referenzen auf einem anderen Modell an, erzeugt Marinara das Bild ohne sie und schreibt eine Warnung ins Server-Log.
 
-## Bildanfragen in die Warteschlange stellen
+## Anfragen zur Mediengenerierung in die Warteschlange stellen
 
-Der Schalter **Queue image generation requests** (Bildanfragen in die Warteschlange stellen) sitzt unter **Settings** (Einstellungen), dann **Generations**, dann **Image Generation**. Standardmäßig ist er aktiv.
+Der Schalter **Queue media generation requests** (Anfragen zur Mediengenerierung in die Warteschlange stellen) sitzt unter **Settings** (Einstellungen), dann **Generations**, dann **Overall Generations**. Standardmäßig ist er aktiv.
 
-Ist er aktiv, schickt Marinara die Bildaufträge einzeln nacheinander. Lass ihn an bei Diensten, die zwei gleichzeitige Anfragen ablehnen. Schalte ihn nur aus, wenn dein Dienst viele Anfragen parallel verkraftet und es schneller gehen soll.
+Ist er aktiv, schickt Marinara Bildaufträge an jedes Konto bei einem Bildanbieter einzeln nacheinander und Videoaufträge an jedes Konto bei einem Videoanbieter ebenso, jeweils in einer eigenen Warteschlange. Ein Bild und ein Video für dasselbe Konto können gleichzeitig laufen. Das gilt unabhängig davon, welche Funktion sie anfordert: der Illustrator, Tracker, Befehle, die Galerie, Game-Assets und heruntergeladene Agenten wie Slurp. Zwei Verbindungen mit derselben Adresse und demselben API-Key teilen sich die jeweilige Warteschlange. Verschiedene Konten und Anbieter arbeiten weiterhin gleichzeitig. Bei NovelAI kommt außerdem eine kurze Pause zwischen den Aufträgen hinzu. Antwortet NovelAI, dass es ausgelastet ist, wartet Marinara und versucht es noch zweimal, statt das Bild scheitern zu lassen.
+
+Lass ihn an bei Diensten, die zwei gleichzeitige Anfragen ablehnen. Schalte ihn nur aus, wenn dein Dienst viele Anfragen parallel verkraftet und es schneller gehen soll.
 
 ## Verwandte Anleitungen
 

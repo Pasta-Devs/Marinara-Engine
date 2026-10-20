@@ -303,6 +303,8 @@ Añadido sin interruptor ni cambio de comportamiento por sí solo.
 
 Estas secciones son breves a propósito. Cada PR añade las mismas cinco partes al abrirse.
 
+Estado: el PR A se fusionó como #6647 y el PR B como #6648. El PR C (#6649) se cerró sin fusionarse, y los PR D a H no se abrieron como pull requests separados. Las secciones de C a H de abajo describen el plan tal como se escribió; no las interpretes como funciones que se publicaron en esta forma.
+
 <a id="pr-b-dev-mcp-for-coding-assistants"></a>
 
 ## PR B: Dev MCP para asistentes de programación

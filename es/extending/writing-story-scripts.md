@@ -166,6 +166,8 @@ momento. Por eso, el Game Master conoce desde el principio una escena de pasos q
 la reproduzca un evento del motor. Como se le entregan en cada turno, los pasos de todos los eventos `gm` juntos se
 limitan a 16.000 caracteres.
 
+<a id="the-intro-message"></a>
+
 ### El mensaje de introducción
 
 `intro` (Capability API 1.339) define cómo empieza la partida, la misma elección que ofrece la configuración del GM a cualquier partida:

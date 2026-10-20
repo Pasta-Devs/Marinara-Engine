@@ -20,6 +20,8 @@ Unter dem Badge liegt ein Panel mit Infos zur Generierung. Dort stehen Anbieter 
 
 Der Rest des Fensters ist der Prompt selbst, aufgeteilt in ausklappbare Abschnitte. Jeder Abschnitt hat eine Beschriftung und eine eigene grobe Token-Schätzung. Die Chat-Nachrichten stehen gesammelt im Abschnitt **Chat History**. Bei einer exakt gespeicherten Anfrage kann der Anbieter mehrere Chat-Züge zu einem einzigen Block zusammengefasst haben. Klapp jeden Block auf, um den gesamten für das Modell sichtbaren Text darin zu prüfen. Ein Klick auf die Abschnittsüberschrift öffnet oder schließt sie.
 
+Willst du den ganzen Prompt woanders verwenden, klick oben im Fenster auf die Kopier-Schaltfläche neben der Schaltfläche zum Schließen. Sie kopiert jeden Abschnitt und jede Chat-Nachricht als reinen Text, in der Reihenfolge, in der sie gesendet wurden, auch Abschnitte, die du nicht aufgeklappt hast. Jede Nachricht beginnt mit einer Zeile, die ihre Rolle nennt, etwa `[system]`, `[user]` oder `[assistant]`. Bei einer exakt gespeicherten Anfrage kopiert sie diese gespeicherte Anfrage so, wie sie gesendet wurde. Das Kopieren schickt nichts an das Modell und ändert den Prompt nicht.
+
 ## Peek Prompt öffnen
 
 Es gibt zwei Wege zum Fenster.

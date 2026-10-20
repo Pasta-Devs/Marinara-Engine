@@ -98,7 +98,7 @@ Usa este `extension.css` para aplicar estilos a la ventana iframe limitada que a
 Después, importa y ejecuta la extensión:
 
 1. Abre **Settings** > **Addons** > **External Extensions**.
-2. Elige **Import Folder** y selecciona `Hello Panel`, o comprime la carpeta e importa el ZIP.
+2. Elige **Import Extension Folder** (Importar carpeta de extensión) y selecciona `Hello Panel`, o comprime la carpeta e importa el ZIP con **Import Extension File** (Importar archivo de extensión).
 3. Abre el borrador desactivado e inspecciona su manifiesto y su JavaScript.
 4. Elige **Review and Run** y aprueba el hash exacto que se muestra.
 5. Abre el menú Extensions y selecciona **Hello Panel**.

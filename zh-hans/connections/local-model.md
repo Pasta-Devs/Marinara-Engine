@@ -182,6 +182,8 @@ Local Model 也可以为世界书的语义搜索提供支持。在世界书的�
 
 录下来的音频不会离开本机，只有转写出来的文字会发给你选定的聊天连接。要在通话中使用它，把通话的音频输入模式设为 Local Whisper 选项。参见 [Conversation 音频和视频通话](../conversation/calls.md)。
 
+如果你在 Connections 里开启了 **Speech to Text**(语音识别) 卡片，这种通话模式就会把你的语音发送到你在那里填写的服务器，而不是 Local Whisper。见[使用自己的语音转文字服务器](../conversation/calls.md#use-your-own-speech-to-text-server)。
+
 ## 故障排查
 
 **"Sidecar runtime install is disabled."** 安装或重装运行时属于受保护操作。Windows 一键安装版会自动开启这项权限。在 macOS、Linux 和 Docker 上有两种办法。一是在服务器的 `.env` 文件里设置 `SIDECAR_RUNTIME_INSTALL_ENABLED=true`，例如：

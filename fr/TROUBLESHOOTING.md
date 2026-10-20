@@ -18,7 +18,7 @@ Si tu demandes de l'aide à l'équipe, active d'abord le **Debug mode** (mode d�
 - **Commandes indisponibles :** vérifie `MULTIPLAYER_ENABLED=true` dans le `.env` du bon Engine, redémarre-le, puis active Settings séparément. Un réglage enregistré ne remplace pas une variable absente/invalide. L'enveloppe Android native ne peut délibérément pas rejoindre.
 - **Hôte indisponible :** utilise un port HTTPS de salon distinct et joignable, une chaîne de certificat/un nom d'hôte valides et l'empreinte correspondante de l'invitation. Ne désactive pas TLS, n'ajoute pas `null` aux origines de confiance, n'expose pas l'API Engine ordinaire et n'ouvre pas de client fourni par l'hôte pour contourner l'erreur.
 - **En attente d'approbation :** l'hôte doit approuver dans Players. Aucun historique n'est disponible avant. Demande une nouvelle invitation si elle a expiré ou été révoquée.
-- **Déconnecté :** garde l'Engine de l'invité en marche. Le client se reconnecte au même hôte épinglé tant que la session explicite est active ; les brouillons non envoyés restent dans la vue actuelle. Un redémarrage invalide les identifiants et impose une nouvelle admission. Stop/Leave restent accessibles en cas de panne réseau.
+- **Déconnecté :** garde l'Engine de l'invité en marche. Le client se reconnecte au même hôte épinglé tant que la session explicite est active ; les brouillons non envoyés restent dans la vue actuelle. Un redémarrage invalide les identifiants et impose une nouvelle admission ; pour garder ensuite le même nom de persona, demande d'abord à l'hôte de retirer ton ancienne place. Stop/Leave restent accessibles en cas de panne réseau.
 - **Game attend :** vérifie Players. Les participants déconnectés ne passent pas automatiquement. L'hôte peut explicitement choisir Pass/Kick ou Pause. Soumettre une seule des deux actions requises ne doit pas lancer le GM.
 - **Génération interrompue :** ne soumets pas le tour à répétition. L'hôte doit vérifier narration/état enregistrés et reprendre explicitement vers l'avant, ou arrêter le salon. Le multijoueur ne rejoue pas silencieusement une requête au résultat ambigu et n'applique pas deux fois ses effets.
 - **Commande restreinte ou média absent :** le protocole initial transporte volontairement du texte uniquement. Consulte la [matrice de compatibilité](development/multiplayer.md#command-and-feature-compatibility) ; n'installe pas de fichier ou d'extension d'un pair pour contourner cette limite.
@@ -32,6 +32,10 @@ Pour signaler une erreur, indique le mode, la plateforme, le message visible et 
 Si Vite s'arrête avec `Reached heap limit` ou `JavaScript heap out of memory`, le tas mémoire de Node.js est insuffisant pour compiler le client. Ce n'est pas une absence de binaire natif Rollup. Mets à jour puis relance `start-termux.sh` : la compilation du client, y compris pendant les mises à jour depuis l'application, dispose désormais de son propre tas de 1536 MiB, sans dépasser la moitié de la RAM connue de l'appareil, mais jamais en dessous des 1280 MiB dont elle a besoin. Le plafond lié à la RAM est arrondi vers le bas par pas de 128 MiB. Le serveur conserve son plafond plus bas lié au profil. Une limite explicite dans `NODE_OPTIONS` prime pour les deux processus ; vérifie qu'une ancienne limite de 1024 MiB n'est pas restée configurée : le client ne peut plus se compiler avec 1024 MiB.
 
 Ferme les autres applications avant de réessayer. Sur un téléphone avec moins de 3 Go de RAM environ, la compilation peut encore manquer de mémoire ou être arrêtée par Android ; conserve toute la sortie du lanceur pour le signaler. Ne supprime ni chats ni profil pour réparer une compilation.
+
+### Ordinateur : mémoire insuffisante pendant la vérification des types du client
+
+Si la compilation du client s'arrête avec `JavaScript heap out of memory`, puis indique `The client type-check needs about 2.5 GiB of Node.js heap`, la limite du tas mémoire définie dans ton `NODE_OPTIONS` est trop basse. La compilation conserve une limite que tu as définie au lieu de la relever. Si `NODE_OPTIONS` contient `--max-old-space-size-percentage`, augmente ce pourcentage ; il prend le pas sur `--max-old-space-size`. Si tu utilises seulement `--max-old-space-size`, monte-le à 2560 ou plus. Tu peux aussi retirer ces options pour que la compilation choisisse sa propre limite. Relance ensuite le lanceur. Tes chats et tes réglages restent intacts.
 
 ### Termux : fichier du client invité multijoueur manquant
 
@@ -95,7 +99,7 @@ npm install -g pnpm@10.34.5
 
 Marinara v2.4.1 passe son gestionnaire de paquets épinglé à pnpm 10.34.5. Un lanceur existant en 10.33.2 peut effectuer ce transfert unique pendant la même exécution ; le lanceur actualisé sélectionnera ensuite 10.34.5 lors des prochains démarrages. Corepack vérifie la version à l'aide de l'empreinte SHA-512 épinglée dans `package.json`, et la solution de repli npm demande elle aussi exactement 10.34.5 plutôt qu'une version latest non épinglée.
 
-Si une ancienne build staging de v2.4.1 s'est déjà arrêtée avec `Expected version: >=10.34.5` et `Got: 10.33.2`, relancez le lanceur : cette build a téléchargé le lanceur actualisé avant de s'arrêter. S'il ne parvient toujours pas à obtenir automatiquement la version épinglée, installez la version exacte et relancez-le :
+Si une ancienne build staging de v2.4.1 s'est déjà arrêtée avec `Expected version: >=10.34.5` et `Got: 10.33.2`, relance le lanceur : cette build a téléchargé le lanceur actualisé avant de s'arrêter. S'il ne parvient toujours pas à obtenir automatiquement la version épinglée, installe la version exacte et relance-le :
 
 ```bash
 npm install -g pnpm@10.34.5
@@ -110,6 +114,10 @@ rm -rf node_modules .pnpm .pnpm-store
 ```
 
 Redémarre ensuite Marinara avec `./start.sh`. Si tu installes à la main, lance `pnpm install` après avoir supprimé ces dossiers.
+
+### L'installation affiche "Ignored build scripts: @google/genai"
+
+Cet avis est sans danger : le script d'installation de ce paquet ne fait rien, et Marinara n'en a pas besoin. Ne lance pas `pnpm approve-builds` : cette commande modifie un fichier suivi par Marinara, et chaque mise à jour ultérieure doit alors mettre cette modification de côté. Les versions actuelles n'affichent plus cet avis. Si une installation qui l'affichait déjà continue de l'afficher après la mise à jour, supprime le fichier `node_modules/.modules.yaml` dans ton dossier Marinara, puis relance le lanceur. Tes chats et tes réglages restent intacts.
 
 ### ERR_PNPM_TRUST_DOWNGRADE pendant l'installation
 
@@ -136,6 +144,8 @@ Si une carte ou un appel installé n'apparaît pas, ferme complètement Marinara
 
 Si une installation plus ancienne n'arrive pas à terminer sa première migration de paquets, ne supprime ni le dossier `data/capability-packages` ni tes données de chat. Marinara laisse la migration inachevée et retente au démarrage suivant. Les sélections et les réglages de chat existants restent enregistrés tant que le catalogue est injoignable.
 
+Si `data/capability-runtime-snapshots` ou `data/capability-packages/versions` a beaucoup grossi, inutile de faire le ménage à la main. Marinara supprime les anciennes copies au démarrage et ne garde que la version actuelle et la précédente de chaque agent.
+
 Les téléchargements de paquets sont refusés quand leur somme de contrôle, la liste de fichiers déclarée, la plage de versions du moteur ou les chemins de l'archive ne correspondent pas au catalogue officiel. Mets d'abord Marinara Engine à jour, actualise le catalogue et réessaie. N'extrais jamais un artefact à la main dans le dossier de données.
 
 Les mises à jour d'agents ne sont jamais appliquées au démarrage. Quand une version plus récente et compatible existe, Marinara te demande si tu veux l'appliquer. Choisis **No** pour conserver la version installée ; le bouton **Update** reste disponible dans **Agents → Download Agents**. Une mise à jour échouée laisse elle aussi la version installée enregistrée, et un environnement d'exécution serveur fraîchement mis à jour qui rate son autodiagnostic de démarrage revient à la version précédente.
@@ -147,7 +157,8 @@ Si tu n'arrives pas à joindre Marinara depuis un téléphone, une tablette ou u
 - Fais écouter le serveur sur une adresse joignable. Par défaut, il écoute sur `127.0.0.1` (la boucle locale, ta machine et rien d'autre). Les lanceurs shell définissent `HOST=0.0.0.0` pour toi. Si tu as démarré à la main avec `pnpm start`, commence par définir `HOST=0.0.0.0` dans le fichier `.env`.
 - Vérifie que les deux appareils sont sur le même réseau Wi-Fi.
 - Vérifie qu'aucun pare-feu ne bloque le port. Le port par défaut est `7860`, ou celui que tu as défini dans `PORT`.
-- Mets en place un contrôle d'accès. Pour les clients ordinaires du réseau ou publics, définis `BASIC_AUTH_USER` et `BASIC_AUTH_PASS` dans le fichier `.env`. La boucle locale reste sans mot de passe. Le trafic direct passant par Tailscale et par le pont Docker local, ou par une passerelle de conteneur détectée, est approuvé par défaut ; le trafic Docker relayé par un proxy exige une autorisation normale, sauf si tu définis explicitement `REQUIRE_AUTH_FOR_DOCKER_PROXY=false`.
+- Mets en place un contrôle d'accès. Pour les clients ordinaires du réseau ou publics, définis `BASIC_AUTH_USER` et `BASIC_AUTH_PASS` dans le fichier `.env`. La boucle locale reste sans mot de passe, mais les visiteurs transmis par un reverse proxy ou un tunnel sur la même machine doivent s'identifier. Le trafic Tailscale direct est approuvé par défaut. Le trafic du pont Docker local ou de sa passerelle n'est approuvé que tant que tu n'as pas défini Basic Auth ou `IP_ALLOWLIST` ; le trafic Docker relayé par un proxy exige une autorisation normale, sauf si tu définis explicitement `REQUIRE_AUTH_FOR_DOCKER_PROXY=false`.
+- Si l'appareil affiche **Too many wrong passwords**, attends 15 minutes, puis connecte-toi avec le bon mot de passe Basic Auth. Redémarrer le serveur lui permet aussi de réessayer.
 - Pour les actions privilégiées depuis cet appareil (sauvegardes, effacement de données, mises à jour), définis `ADMIN_SECRET` dans le fichier `.env` du serveur. Colle ensuite la même valeur dans **Settings** > **Advanced** > **Admin Access** sur cet appareil et clique sur **Save**.
 - Si tu passes par un domaine public ou un proxy inverse et que tu vois **Untrusted request host**, ajoute son nom d'hôte exact à `TRUSTED_HOSTS` dans le fichier `.env`. Les adresses IP directes utilisées par les téléphones, les ordinateurs du réseau local et les pairs Tailscale restent acceptées automatiquement.
 
@@ -181,6 +192,7 @@ Les erreurs de génération apparaissent sous forme de notification en bas de l'
 - **The AI returned an empty response. Try sending your message again.** : renvoie ton message. Si le problème persiste, essaie un autre modèle ou une autre connexion.
 - **A generation is already in progress for this chat** : une réponse est encore en cours de streaming, c'est-à-dire d'affichage au fil de l'écriture. Attends la fin ou clique sur le bouton Stop, puis réessaie.
 - **No connections are marked for the random pool** : tu as activé le routage aléatoire des connexions sans désigner la moindre connexion pour le pool. Ajoute au moins une connexion au pool, ou désactive le routage aléatoire.
+- Chaque message échoue avec une erreur réseau, et ton ordinateur n'accède à Internet que par un proxy (par exemple v2rayN sans le mode TUN) : indique ce proxy à Marinara. Voir [Proxy HTTP sortant](CONFIGURATION.md#outbound-http-proxy).
 
 ## Problèmes de Local Model
 
@@ -211,7 +223,7 @@ Pour la configuration complète, voir [Configurer le Local Model](connections/lo
 1. Ouvre **Chat Settings** > **Memory Recall** et vérifie que **Enable Memory Recall** est activé.
 2. Ouvre **Access memories for this chat**. Dans la fenêtre **Memories for This Chat**, regarde le statut de chaque fragment.
 3. Le statut **Waiting for vector** signifie que le souvenir est encore en cours de traitement. Attends, puis reprends le chat.
-4. Le statut **Embedding unavailable** signifie qu'aucune source d'embedding ne fonctionne. Un embedding est une représentation numérique du texte. Configure une connexion d'embedding, ou laisse le modèle local intégré se charger. Voir [Configurer le Local Model](connections/local-model.md).
+4. Le statut **Embedding unavailable** signifie qu'aucune source d'embedding ne fonctionne. Un embedding est une représentation numérique du texte. Configure une connexion d'embedding, ou laisse le modèle local intégré se charger. Voir [Configurer le Local Model](connections/local-model.md). Pour utiliser une même source d'embeddings pour chaque chat, choisis-la sous **Embeddings** dans la section **Defaults** (valeurs par défaut) du panneau **Connections**.
 
 Un souvenir a besoin d'au moins 5 nouveaux messages pour être créé. Le rappel n'affiche par ailleurs que les souvenirs qui correspondent étroitement à ton nouveau message : il peut donc ne rien renvoyer alors même que des souvenirs existent.
 
@@ -238,7 +250,7 @@ Les résumés de chat ont besoin d'une connexion texte fonctionnelle pour être 
 
 ## Problèmes de Card Browser
 
-Le **Card Browser** te permet de chercher des personnages sur les sites publics et de les importer. Ouvre-le depuis l'icône **Card Browser** dans la barre du haut, puis clique sur **Download Cards**.
+Le **Card Browser** te permet de chercher des personnages sur les sites publics et de les importer. Ouvre-le avec le bouton **Download** (télécharger) en haut du panneau **Characters** ou **Personas**.
 
 - Si une recherche JannyAI ou une page de personnage échoue sur un blocage Cloudflare, Marinara affiche un message. Il te demande de visiter une fois le site JannyAI dans le même navigateur pour passer la vérification Cloudflare, puis de réessayer.
 - Si tes identifiants Pygmalion cessent de fonctionner après un redémarrage du serveur, c'est normal. Ces identifiants ne vivent que dans la mémoire du serveur et disparaissent au redémarrage. Ouvre la fenêtre de connexion et recolle ton token.
@@ -286,7 +298,8 @@ Si le lancement d'une partie échoue parce que le modèle a renvoyé du JSON inv
 ## Voix, appels et TTS
 
 - Si les personnages ne parlent pas pendant un appel, c'est que Text to Speech (la synthèse vocale) n'est pas configuré. Ouvre **Connections** > **Text to Speech**, active la fonctionnalité, choisis une source, saisis ta clé, choisis une voix et enregistre. Un personnage sans voix apparaît uniquement en texte.
-- Si le microphone ne fonctionne pas, il te faut peut-être le modèle de reconnaissance vocale local. Installe **Calls** depuis **Agents > Download Agents**, puis ouvre **Connections** > **Local Model**, déplie la fiche, repère **Local Speech Model**, choisis un modèle Whisper et clique sur **Download Whisper**. Firefox en a particulièrement besoin, car il ne propose pas de reconnaissance vocale intégrée au navigateur. Désinstaller Calls supprime ses modèles Whisper pour libérer de l'espace disque.
+- Si la voix s'arrête avec **No audio after 60 s**, ton serveur vocal est plus lent que le délai d'attente de Marinara. C'est souvent le cas d'un serveur local sur un portable. Augmente **Request timeout (seconds)** (délai d'attente des requêtes, en secondes) dans **Connections** > **Text to Speech**, ou dans la connexion audio que nomme le message. Voir [Délai d'attente des requêtes](media/tts-setup.md#request-timeout).
+- Si le microphone ne fonctionne pas, il te faut peut-être le modèle de reconnaissance vocale local. Installe **Calls** depuis **Agents > Download Agents**, puis ouvre **Connections** > **Local Model**, déplie la fiche, repère **Local Speech Model**, choisis un modèle Whisper et clique sur **Download Whisper**. Firefox en a particulièrement besoin, car il ne propose pas de reconnaissance vocale intégrée au navigateur. Désinstaller Calls supprime ses modèles Whisper pour libérer de l'espace disque. Tu peux aussi utiliser ton propre serveur de reconnaissance vocale depuis la carte **Speech to Text** de **Connections** ; voir [Utiliser ton propre serveur de reconnaissance vocale](conversation/calls.md#use-your-own-speech-to-text-server).
 - Sur une version Lite, le message **Local Whisper is disabled in Lite mode** signifie que cette version allégée ne peut pas faire tourner le modèle de reconnaissance vocale local. Utilise plutôt une installation complète de Marinara.
 
 ### La connexion Spotify du Music DJ échoue sur une installation distante ou réseau
@@ -310,9 +323,9 @@ Ne lance pas un autre serveur sur le même répertoire de données tant que l'an
 
 ### Le démarrage indique qu'un autre processus utilise peut-être le répertoire de données
 
-Marinara n'autorise qu'un seul serveur en cours d'exécution à écrire dans un répertoire de données local. Si le démarrage signale **Another Marinara Engine process ... may be using** le répertoire, fermez l'autre processus Marinara et recommencez.
+Marinara n'autorise qu'un seul serveur en cours d'exécution à écrire dans un répertoire de données local. Si le démarrage signale **Another Marinara Engine process ... may be using** le répertoire, ferme l'autre processus Marinara et recommence.
 
-Après un plantage ou le déplacement d'un volume de données Docker, le démarrage peut plutôt signaler **The storage writer lease ... is incomplete or invalid** ou désigner un processus qui n'existe plus sur cette machine. Vérifiez d'abord que tous les processus et conteneurs Marinara utilisant ce répertoire sont arrêtés. Supprimez ensuite uniquement le répertoire `.writer-lease` indiqué dans l'erreur, puis redémarrez Marinara. Ne supprimez pas le répertoire `storage` qui l'entoure ni aucun fichier de table. Sur les hôtes Linux, Android et conteneurisés dont le répertoire de données se trouve sur un disque local, Marinara récupère de lui-même un bail d'écriture laissé par un processus planté ou tué de force, y compris après un redémarrage ; l'étape manuelle reste le repli pour le stockage réseau ou partagé.
+Après un plantage ou le déplacement d'un volume de données Docker, le démarrage peut plutôt signaler **The storage writer lease ... is incomplete or invalid** ou désigner un processus qui n'existe plus sur cette machine. Vérifie d'abord que tous les processus et conteneurs Marinara utilisant ce répertoire sont arrêtés. Supprime ensuite uniquement le répertoire `.writer-lease` indiqué dans l'erreur, puis redémarre Marinara. Ne supprime pas le répertoire `storage` qui l'entoure ni aucun fichier de table. Sur les hôtes Linux, Android et conteneurisés dont le répertoire de données se trouve sur un disque local, Marinara récupère de lui-même un bail d'écriture laissé par un processus planté ou tué de force, y compris après un redémarrage ; l'étape manuelle reste le repli pour le stockage réseau ou partagé. Windows fait de même quand le répertoire de données se trouve sur l'un des disques de l'ordinateur lui-même. Sous Windows, l'étape manuelle reste le repli pour un lecteur réseau, un dossier partagé, un lecteur amovible comme une clé USB, ou un ordinateur renommé après le plantage.
 
 ### Des données semblent manquer après une mise à jour
 
@@ -325,6 +338,8 @@ Cherche un dossier `storage` à ces deux emplacements locaux :
 
 Le serveur affiche au démarrage les dossiers de données et de stockage qu'il a retenus.
 
+<a id="chats-show-no-messages-after-switching-to-an-older-version"></a>
+
 ### Les chats n'affichent aucun message après un retour à une ancienne version
 
 Les versions récentes de Marinara stockent les données de chaque chat (messages, swipes, souvenirs, images et autres enregistrements propres au chat) dans des fichiers distincts plutôt que dans un gros fichier par table, ce qui accélère fortement l'enregistrement des longs chats. Les anciennes versions ne comprennent pas cette organisation. Après un retour à une ancienne version, les chats paraissent vides : les données sont toujours sur le disque, mais cette version ne peut pas les lire.
@@ -333,22 +348,22 @@ Marinara refuse de lui-même les downgrades évidents : le lanceur ignore une mi
 
 Pour revenir malgré tout à une ancienne version :
 
-1. Arrêtez le serveur Marinara.
-2. Depuis le dossier Marinara, exécutez :
+1. Arrête le serveur Marinara.
+2. Depuis le dossier Marinara, exécute :
 
    ```bash
    node scripts/protect-launcher-data.mjs unshard
    ```
 
-3. Passez à l'ancienne version et démarrez-la normalement.
+3. Passe à l'ancienne version et démarre-la normalement.
 
 La commande reconstruit l'ancienne organisation à fichier unique à partir des fichiers propres à chaque chat. Rien n'est supprimé : ces fichiers restent à côté de chaque fichier reconstruit dans des dossiers nommés `<table>.post-unshard-<timestamp>` (par exemple `messages.post-unshard-…`), et les originaux antérieurs à la migration restent sous forme de fichiers `.pre-shard`. Lors d'une future mise à niveau, Marinara reconvertira automatiquement les données.
 
-Docker et Podman conservent les données dans le volume `marinara-data`. Exécutez donc la commande dans un conteneur ponctuel : arrêtez le conteneur actif, lancez `docker compose run --rm marinara node scripts/protect-launcher-data.mjs unshard`, puis démarrez l'ancienne image.
+Docker et Podman conservent les données dans le volume `marinara-data`. Exécute donc la commande dans un conteneur ponctuel : arrête le conteneur actif, lance `docker compose run --rm marinara node scripts/protect-launcher-data.mjs unshard`, puis démarre l'ancienne image.
 
 ### Backup ou Export renvoie une erreur 403
 
-Les sessions en boucle locale peuvent créer des sauvegardes sans secret administrateur. Depuis un autre appareil, une adresse réseau ou Docker, les sauvegardes et les exports de profil en demandent davantage. Définis `ADMIN_SECRET` sur le serveur et enregistre la même valeur dans **Settings** > **Advanced** > **Admin Access**. Si tu veux que la boucle locale exige elle aussi le secret, définis `MARINARA_REQUIRE_ADMIN_SECRET_ON_LOOPBACK=true`.
+Les sessions en boucle locale peuvent créer des sauvegardes sans secret administrateur. Par défaut, les requêtes venant d'un autre appareil, d'une adresse réseau, de Docker, ou d'un reverse proxy ou d'un tunnel sur le même ordinateur en demandent davantage pour les sauvegardes et les exports de profil. Définis `ADMIN_SECRET` sur le serveur et enregistre la même valeur dans **Settings** > **Advanced** > **Admin Access**. Si tu veux que la boucle locale exige elle aussi le secret, définis `MARINARA_REQUIRE_ADMIN_SECRET_ON_LOOPBACK=true`. Si `REQUIRE_AUTH_FOR_LOOPBACK_PROXY=false`, les visiteurs transmis profitent eux aussi du contournement local ; garde cette protection activée pour un proxy ou un tunnel public.
 
 ### L'import indique que le fichier n'est pas une archive ZIP lisible
 
@@ -409,7 +424,7 @@ Pour limiter le problème : exclus Termux de l'optimisation de la batterie et au
 
 L'application Marinara compilée ne pèse pas plusieurs gigaoctets, et Noodle ne télécharge pas ses propres modèles d'IA. Une empreinte temporaire importante pendant une mise à jour vient en général du magasin de dépendances de pnpm et de son magasin virtuel, surtout après plusieurs versions ou une réinstallation forcée interrompue.
 
-Le lanceur actuel élague les paquets hérités des versions précédentes et évite de reconstruire le magasin de dépendances plus d'une fois pour une même mise à jour. Si un ancien lanceur a déjà rempli l'appareil, mets le lanceur à jour et libère son cache non référencé avant de réessayer :
+Le lanceur actuel élague les paquets hérités des versions précédentes et évite de reconstruire le magasin de dépendances plus d'une fois pour une même mise à jour. Les mises à jour depuis l'application, dans **Settings** > **Advanced** > **Updates**, n'installent désormais que les paquets pour Android, au lieu de copies pour toutes les autres plateformes. Si un ancien lanceur a déjà rempli l'appareil, mets le lanceur à jour et libère son cache non référencé avant de réessayer :
 
 ```bash
 cd Marinara-Engine
@@ -471,9 +486,11 @@ Si un ancien paquet a été réexporté avec une liste de capacités expliciteme
 
 Après avoir désactivé une extension à accès complet, recharge Marinara s'il reste un élément de la barre d'outils, une surcouche, un écouteur ou un changement visuel. Le nettoyage se fait au mieux, car le code de la page peut produire des effets de bord en dehors de l'API de compatibilité suivie par Marinara.
 
+<a id="a-server-extension-says-no-supported-sandbox-is-available"></a>
+
 ### Une Server Extension signale qu'aucun bac à sable pris en charge n'est disponible
 
-Les Server Extensions et les commandes shell brutes de Professor Mari ne fonctionnent qu'avec Seatbelt de macOS ou Bubblewrap de Linux. L'image Docker officielle inclut déjà Bubblewrap, mais le conteneur par défaut reste au moindre privilège et ne peut pas créer ses espaces de noms et montages imbriqués. Marinara détecte cet état et désactive les fonctions de bac à sable du système au lieu de lancer des commandes vouées à l'échec.
+Les Server Extensions et les commandes shell brutes de Professor Mari ne fonctionnent qu'avec Seatbelt de macOS ou Bubblewrap de Linux. Installe `bwrap` sur un hôte Linux natif, puis redémarre Marinara. L'image Docker officielle inclut déjà Bubblewrap, mais le conteneur par défaut reste au moindre privilège et ne peut pas créer ses espaces de noms et montages imbriqués. Marinara détecte cet état et désactive les fonctions de bac à sable du système au lieu de lancer des commandes vouées à l'échec.
 
 Si tu acceptes des privilèges plus larges et as besoin de ces fonctions dans Docker, enregistre ceci comme `docker-compose.override.yml` à côté de `docker-compose.yml` :
 
@@ -488,9 +505,9 @@ services:
       - apparmor=unconfined
 ```
 
-Recrée le conteneur. Le serveur doit rester root pour que la capacité ne soit pas perdue quand le point d'entrée de Marinara bascule normalement vers l'utilisateur `node`. root avec `SYS_ADMIN` constitue une importante élévation de privilèges, et désactiver AppArmor affaiblit encore la limite externe. Ne l'active pas uniquement pour faire disparaître le message. Un réglage global `seccomp=unconfined` ne devrait pas être nécessaire avec Docker actuel.
+Recrée le conteneur après avoir ajouté ce fichier de surcharge. Le processus serveur doit rester en root ici, pour que la capacité ajoutée ne soit pas perdue quand le point d'entrée de Marinara bascule normalement vers l'utilisateur `node`. Faire tourner le serveur en root avec `SYS_ADMIN` constitue une importante élévation de privilèges, et désactiver le profil AppArmor du conteneur affaiblit encore sa limite de sécurité externe ; ne l'active pas uniquement pour faire disparaître le message de bac à sable indisponible. Le profil seccomp par défaut de Docker s'adapte aux capacités ajoutées : un réglage global `seccomp=unconfined` ne devrait donc pas être nécessaire avec les versions actuelles de Docker.
 
-Les Server Extensions ne s'exécutent qu'avec Seatbelt sur macOS ou Bubblewrap sur Linux. Installe `bwrap` sur l'hôte Linux, puis redémarre Marinara. Windows, Android et les autres hôtes non pris en charge refusent délibérément d'exécuter une Server Extension plutôt que de se rabattre sur le processus serveur principal. Les Browser Extensions peuvent toujours utiliser leur bac à sable Worker à origine opaque.
+Windows, Android et les autres hôtes non pris en charge refusent délibérément d'exécuter une Server Extension plutôt que de se rabattre sur le processus serveur principal. Les Browser Extensions peuvent toujours utiliser leur bac à sable Worker à origine opaque.
 
 ## Obtenir de l'aide
 

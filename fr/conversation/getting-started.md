@@ -12,6 +12,8 @@ Le mode Conversation ajoute des fonctionnalités qui n'ont de sens que dans une 
 
 Aucune de ces fonctionnalités propres au mode Conversation ne s'applique dans le mode Roleplay ou dans Game Mode, même si tu y réutilises la même fiche de personnage.
 
+À l'inverse, certains champs de la fiche ne s'appliquent pas en mode Conversation. Un chat Conversation ne commence pas par le **First Message** (premier message) de la fiche ni par une autre salutation ; seuls les chats Roleplay le font. Il n'utilise pas non plus la **Dialogue Highlight Color** (couleur de surbrillance des dialogues) ni la **Message Box Color** (couleur de la bulle de message) de la fiche. La **Name Display Color** (couleur d'affichage du nom) colore toujours le nom du personnage au-dessus de chaque message. Consulte [Où les couleurs apparaissent](../characters/colors-and-stats.md#where-your-colors-show).
+
 ### Quand choisir le mode Conversation
 
 Choisis le mode Conversation si tu veux l'une de ces choses :
@@ -167,7 +169,7 @@ Les chats longs saturent la mémoire du modèle. Essaie un modèle avec une fen�
 
 ### Un selfie ne ressemble pas au personnage
 
-Ouvre les réglages **Selfies** et active **Attach Card Appearance**. Si ton fournisseur d'images prend en charge les images de référence, active aussi **Send Avatar References**. Voir [Selfies](selfies.md) pour le détail.
+Ouvre les réglages **Selfies** et règle **Attach Card Appearance** (joindre l'apparence de la fiche) sur **Images only** (images seulement) ou **Images and videos** (images et vidéos). Si ton fournisseur d'images prend en charge les images de référence, règle aussi **Send Avatar References** (envoyer l'avatar en référence). Voir [Selfies](selfies.md) pour le détail.
 
 ## Guides associés
 

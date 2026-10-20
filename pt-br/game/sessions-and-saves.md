@@ -1,6 +1,6 @@
 # Game Mode: sessões e saves
 
-Este guia explica como Marinara Engine acompanha seu progresso no Game Mode ao longo das sessões de jogo. Aqui você vê como encerrar e iniciar uma sessão e como ler as sessões anteriores em **Session History** (histórico de sessões). O guia também explica a visualização **Show Spoilers** (mostrar spoilers) e como o jogo salva os dados.
+Este guia explica como Marinara Engine acompanha seu progresso no Game Mode ao longo das sessões de jogo. Aqui você vê como encerrar e iniciar uma sessão e como ler as sessões anteriores em **Session History** (histórico de sessões). O guia também explica a visualização **Show Spoilers** (mostrar spoilers), como corrigir os dados do jogo à mão e como o jogo salva os dados.
 
 ## O que é uma sessão
 
@@ -122,11 +122,41 @@ Para esconder as anotações de novo, clique no mesmo botão. Agora ele mostra *
 
 Esses segredos também podem ser editados, o que funciona como um painel de trapaça do mestre. Clique em **Edit Spoilers**, altere o texto e clique em **Save Spoilers**. Alguns campos aparecem em JSON, um formato de texto estruturado. Só edite campos em JSON se você conhecer o formato, porque um JSON inválido não é salvo.
 
+<a id="editing-game-data-by-hand"></a>
+
+## Editar os dados do jogo à mão
+
+Quando o Game Master erra alguma coisa, como a reputação de um NPC ou uma missão que continua aberta, você mesmo pode corrigir os dados salvos do jogo.
+
+1. Abra **Game controls** (controles do jogo) e escolha **Edit game data** (editar dados do jogo). No celular, **Game controls** fica no menu de três pontos **Chat tools** (ferramentas do chat).
+2. A janela **Game Data** (dados do jogo) se abre. Um aviso no topo diz: "Hand edits can break a game. Every change is checked before it saves, and names can't change here."
+3. Escolha uma seção na lista, ou na fileira de chips no celular. Você também pode digitar na caixa de busca para achar um valor em todas as seções de uma vez.
+4. Altere os valores em **Fields** (campos) ou mude para **JSON** para editar os dados brutos.
+5. Clique em **Review changes** (revisar alterações) para ver exatamente o que muda e depois clique em **Save changes** (salvar alterações).
+
+Você pode alterar **Party Cards**, **Party Sheet**, **NPCs**, **Journal**, **Player Notes**, **Inventory**, **Story**, **Session Summaries**, **World Edits**, **Story Script** e **HUD Widgets**. Uma seção só aparece quando o jogo tem esses dados, então um jogo sem mundo não tem **World Edits** (edições do mundo). As outras seções, como **World**, **Maps & Position**, **Time, Weather & Morale**, **Combat** e **Settings**, são marcadas como **Read-only** (somente leitura). Você pode lê-las e buscar nelas, mas o próprio jogo cuida delas. Preferências de prompt, imagem, música e rolagem de dados são alteradas em **Chat Settings** (configurações do chat).
+
+Toda alteração é verificada antes de ser salva:
+
+- Os nomes não podem mudar, porque cards, NPCs, a equipe e as bolsas se encontram pelo nome. Não dá para adicionar nem remover integrantes da equipe aqui.
+- A reputação de um NPC vai de -100 a 100.
+- Em **Inventory**, você pode alterar a quantidade, o apelido e o portador de um item, e se ele está vestido, sintonizado ou ligado. Deixe uma pilha de fora para removê-la, ou adicione uma sem id para adicionar um item.
+- Em **Session Summaries**, só o texto de uma sessão pode mudar.
+- **World Edits** guarda as suas edições manuais sobre o mundo, como lugares renomeados ou pessoas adicionadas. O mundo em si nunca é alterado.
+
+Quando uma alteração não pode ser salva, o editor diz por quê, e aquela seção mantém o seu rascunho para você corrigi-lo. Se o jogo alterou os mesmos dados enquanto você editava, o salvamento é recusado para não desfazer a alteração do jogo. **Reload** (recarregar) mostra a versão do jogo e descarta os seus rascunhos.
+
+Antes de cada salvamento, o jogo tenta criar um checkpoint, marcado como **Before a State Editor save** (antes de salvar no State Editor) em **Checkpoints**. Se uma edição der errado, carregue esse checkpoint para desfazê-la (veja abaixo).
+
+A janela funciona como o State Editor do Roleplay. Veja [O State Editor](../roleplay/hud-and-trackers.md#the-state-editor).
+
+<a id="how-your-game-saves"></a>
+
 ## Como o jogo salva
 
 Game Mode salva o progresso automaticamente. Não existe botão de salvar para apertar. Mundo, equipe, mapa, inventário, tempo dentro do jogo e resumos de sessão ficam todos salvos enquanto você joga.
 
-O aplicativo também registra checkpoints automáticos nos bastidores. Ele captura um checkpoint no início da sessão, no fim da sessão, quando um combate começa ou termina, quando você chega a um lugar novo e em intervalos automáticos. O editor Game data também tenta criar um antes de cada salvamento, mas um jogo tão novo que ainda não teve o primeiro turno salvo ainda não tem nada para guardar em checkpoint. Abra **Game controls → Checkpoints** (controles do jogo → checkpoints) para vê-los, do mais recente para o mais antigo. **Load** (carregar) leva o jogo de volta àquele momento: o tracker, o mapa, as **World Edits** (edições do mundo) feitas no editor Game data e a história posterior a esse momento são restaurados, e uma mensagem de sistema marca o ponto em que o jogo voltou. **Delete** (excluir) remove o checkpoint de vez.
+O aplicativo também registra checkpoints automáticos nos bastidores. Ele captura um checkpoint no início da sessão, no fim da sessão, quando um combate começa ou termina, quando você chega a um lugar novo e em intervalos automáticos. O [editor Game data](#editing-game-data-by-hand) também tenta criar um antes de cada salvamento, mas um jogo tão novo que ainda não teve o primeiro turno salvo ainda não tem nada para guardar em checkpoint. Abra **Game controls → Checkpoints** (controles do jogo → checkpoints) para vê-los, do mais recente para o mais antigo. **Load** (carregar) leva o jogo de volta àquele momento: o tracker, o mapa, as **World Edits** feitas no editor Game data e a história posterior a esse momento são restaurados, e uma mensagem de sistema marca o ponto em que o jogo voltou. Os cards e as fichas da equipe, os NPCs, o diário, as suas anotações, o inventário, os resumos de sessão, os planos de história do GM, os widgets do HUD e o tempo, o clima e o moral também voltam àquele momento. As suas configurações continuam como estão. **Delete** (excluir) remove o checkpoint de vez.
 
 Os checkpoints automáticos ficam limitados aos cinco mais recentes de cada tipo, então os mais antigos vão sendo removidos conforme você joga.
 

@@ -30,9 +30,11 @@ El aislamiento en un sandbox reduce los permisos; no hace que un código arbitra
 
 Una extensión de navegador (Browser Extension) se ejecuta en un Worker dedicado dentro de un iframe con sandbox de origen opaco. No puede acceder a la página de Marinara, ni al DOM, cookies, almacenamiento del navegador, APIs de origen o red. Sus capacidades son: almacenamiento privado de la extensión, registro, temporizadores gestionados, registro de limpieza, ventanas restringidas, espacios seguros de contribución al host y una instantánea de solo lectura del chat activo y de los IDs de personaje. Puede recibir campos seleccionados de las tarjetas de personaje activas o de la persona seleccionada solo cuando los permisos correspondientes están declarados y aprobados.
 
-Las extensiones pueden añadir acciones a la barra superior, elementos al menú Extensions y paneles persistentes en el lado derecho con `marinara.ui.registerContribution(...)`. Marinara representa estas superficies usando el tema activo y un conjunto fijo de controles: encabezados, texto, salida preformateada, botones, campos de texto, selectores, interruptores, controles deslizantes, controles de color y espaciadores. Una extensión aporta contenido y estado, nunca HTML, CSS, URLs, componentes de React ni manejadores de eventos del host.
+Las extensiones pueden añadir acciones a la barra superior o a los paneles laterales, elementos al menú Extensions y paneles persistentes en el lado derecho con `marinara.ui.registerContribution(...)`. Marinara representa estas superficies usando el tema activo y un conjunto fijo de controles: encabezados, texto, salida preformateada, botones, campos de texto, selectores, interruptores, controles deslizantes, controles de color y espaciadores. Una extensión aporta contenido y estado, nunca HTML, CSS, URLs, componentes de React ni manejadores de eventos del host.
 
 Estas capacidades y reglas de interfaz son idénticas para toda extensión de navegador en sandbox, sin importar su origen. Una extensión de terceros (External) importada usa este entorno de ejecución seguro, salvo que su paquete solicite explícitamente **Full page access** (Acceso a la página completa) o use el formato `marinara.extension` previo al sandbox que se describe más abajo.
+
+<a id="add-a-marinara-rendered-panel"></a>
 
 ### Añadir un panel representado por Marinara
 
@@ -105,6 +107,8 @@ marinara.ui.registerContribution({
 ```
 
 Las herramientas complejas pueden construir interfaces de varios pasos actualizando los elementos del panel después de un evento. Mantén el estado de la aplicación en `marinara.storage`; no lo codifiques en el marcado.
+
+<a id="use-active-chat-context"></a>
 
 ### Usar el contexto del chat activo
 
@@ -181,6 +185,8 @@ La API más antigua `marinara.ui.showWindow(...)` sigue disponible para una vent
 
 Una extensión de servidor (Server Extension) se ejecuta en un proceso de Node aparte, con permisos restringidos, dentro de macOS Seatbelt o Linux Bubblewrap. No puede acceder a los archivos de Marinara, a los archivos del usuario, a los secretos heredados del servidor, a la red, a procesos hijos, a workers ni a complementos nativos. Si Marinara no puede establecer un sandbox del sistema operativo compatible, las extensiones de servidor permanecen desactivadas.
 
+<a id="platform-support"></a>
+
 ### Compatibilidad de plataformas
 
 Las extensiones de navegador las aísla el propio navegador en un sandbox, así que funcionan en todas partes. Las extensiones de servidor necesitan un sandbox del sistema operativo compatible; donde no existe, permanecen desactivadas y no se pueden activar; Marinara nunca recurre a ejecutarlas sin sandbox.
@@ -190,7 +196,7 @@ Las extensiones de navegador las aísla el propio navegador en un sandbox, así 
 | macOS                   | ✅ En sandbox                 | ⚠️ Requiere confianza explícita    | ✅ En sandbox (Seatbelt)               |
 | Linux (con Bubblewrap) | ✅ En sandbox                 | ⚠️ Requiere confianza explícita    | ✅ En sandbox (Bubblewrap)             |
 | Linux (sin `bwrap`) | ✅ En sandbox                 | ⚠️ Requiere confianza explícita    | ⛔ Desactivadas; instala `bwrap`         |
-| Docker (por defecto) | ✅ En sandbox | ⚠️ Requiere confianza explícita | ⛔ Desactivadas – permisos del contenedor |
+| Docker (predeterminado) | ✅ En sandbox | ⚠️ Requiere confianza explícita | ⛔ Desactivadas; permisos del contenedor |
 | Windows                 | ✅ En sandbox                 | ⚠️ Requiere confianza explícita    | ⛔ Desactivadas; usa una extensión de navegador |
 | Android                 | ✅ En sandbox                 | ⚠️ Requiere confianza explícita    | ⛔ Desactivadas; usa una extensión de navegador |
 

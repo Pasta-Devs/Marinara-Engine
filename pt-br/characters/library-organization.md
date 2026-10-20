@@ -6,7 +6,8 @@ Este guia explica o **Characters panel** (painel de personagens), a barra latera
 
 O **Characters panel** é a lista de personagens dentro do painel lateral. Ele reúne todos os personagens que você criou ou importou. No topo do painel, você tem estas opções:
 
-- Clique em **Open Full Library** (abrir a biblioteca completa) para ver os mesmos personagens em uma grade de página inteira.
+- Clique em **Download** (baixar) para abrir o [Card Browser](bot-browser.md) e encontrar personagens em sites públicos.
+- Clique em **Open Library** (abrir a biblioteca) para ver os mesmos personagens em uma grade de página inteira.
 - Clique no botão **New** (o ícone de mais) para abrir a janela **Create Character**.
 - Clique no botão **Import** (o ícone de download) para importar um arquivo de personagem.
 - Clique no botão **Select** (o ícone de check) para ligar o modo de seleção múltipla e agir em lote.
@@ -43,11 +44,14 @@ Ao lado da caixa de busca fica o menu suspenso de ordenação. Escolha uma desta
 
 | Opção         | O que faz                              |
 | ------------- | -------------------------------------- |
+| **Manual order** | A ordem que você mesmo definiu.     |
 | **A-Z**       | Nomes de A a Z.                        |
 | **Z-A**       | Nomes de Z a A.                        |
 | **Newest**    | Os criados mais recentemente primeiro. |
 | **Oldest**    | Os criados há mais tempo primeiro.     |
 | **Favorites** | Favoritos primeiro, depois o resto.    |
+
+Para definir uma ordem manual, arraste a linha de um personagem para cima ou para baixo. Também dá para apertar Alt+Up ou Alt+Down em uma linha selecionada. Qualquer um dos dois muda a ordenação para **Manual order** (ordem manual).
 
 ## Pastas
 
@@ -62,6 +66,8 @@ Para criar uma pasta:
 Para renomear uma pasta, dê um duplo clique nela, toque duas vezes ou selecione a pasta e aperte a tecla F2. Digite o novo nome e aperte Enter.
 
 Para colocar um personagem numa pasta, arraste a linha do personagem e solte sobre a pasta. Assim que existir pelo menos uma pasta, uma linha de ajuda mostra **Drag and drop characters to folders, double-click or double-tap to rename**. Para tirar o personagem de lá, passe o mouse sobre a linha dele dentro da pasta e clique no botão de remover da pasta, ou arraste-o para fora.
+
+Em uma tela sensível ao toque, mantenha uma linha pressionada para pegá-la e depois arraste. Um swipe normal continua rolando a lista. Enquanto segura uma linha, toque em outras linhas com um segundo dedo para levá-las junto como uma pilha e depois solte a pilha sobre uma pasta.
 
 Clique na pasta para expandir ou recolher. O número ao lado do nome da pasta indica quantos personagens estão dentro dela.
 

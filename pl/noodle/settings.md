@@ -10,6 +10,13 @@ Noodle to wbudowana w aplikację Marinara Engine oś czasu w stylu mediów społ
 2. Na pasku bocznym po lewej kliknij przycisk **Settings** (Ustawienia) z ikoną koła zębatego.
 3. W nagłówku panelu widnieje napis **Noodle settings**.
 
+Ustawienia są podzielone na cztery strony. Wybierz jedną z nich przyciskami pod nagłówkiem:
+
+- **General** (ogólne): [Refresh](#refresh) i [Translation](#translation).
+- **Timeline** (oś czasu): [Activity](#activity) i [Image Generation](#image-generation).
+- **Participants** (uczestnicy): [Invites](#invites), **Ambient Profiles** (profile tła; zobacz [Losowi użytkownicy](#random-users)) i [Active Accounts](#active-accounts).
+- **Advanced** (zaawansowane): **Noodle Prompt** (prompt Noodle), [Image Understanding](#image-understanding), [Timeline Writing](#timeline-writing), [World / Lore](#world--lore), [Carryover](#carryover) i [Reset Noodle](#reset-noodle).
+
 Wszystkie ustawienia Noodle są globalne. Obejmują każdą personę i każdy czat, a nie pojedynczy czat. Zmiany zapisują się od razu.
 
 ## Invites
@@ -77,19 +84,30 @@ Ustaw pole na 0, żeby AI w ogóle nie tworzyło tego rodzaju aktywności.
 
 Sekcja **Image Generation** (generowanie obrazów) pozwala Noodle dołączać do części wpisów obrazy stworzone przez AI. Potrzebne jest do tego połączenie skonfigurowane pod generowanie obrazów. Zobacz [Obsługiwani dostawcy AI](../connections/providers-reference.md).
 
-- **Image generation**: przełącznik, domyślnie **off**. Włącz go, żeby AI mogło generować obrazy do wpisów.
+- **Noodle image generation** (generowanie obrazów Noodle): przełącznik, domyślnie **off**. Włącz go, żeby AI mogło generować obrazy do wpisów.
 - Po włączeniu pojawiają się kolejne kontrolki:
-  - **Image generation connection**: lista rozwijana, domyślnie **Default image generation connection**. Pozostawienie wartości Default oznacza użycie tego połączenia, które w panelu Connections jest oznaczone jako domyślne do generowania obrazów.
-  - **Prompt instructions**: pole tekstowe z wbudowanym tekstem domyślnym, do 4000 znaków. Te dodatkowe uwagi trafiają do promptu obrazu.
+  - **Image width** (szerokość obrazu) i **Image height** (wysokość obrazu): rozmiar generowanych obrazów do wpisów, od 64 do 4096 pikseli. Domyślnie **1024** na **1536**.
+  - **Noodle image generation connection** (połączenie do generowania obrazów Noodle): lista rozwijana, domyślnie **Default image generation connection**. Pozostawienie wartości Default oznacza użycie tego połączenia, które w panelu Connections jest oznaczone jako domyślne do generowania obrazów. Postać może zamiast tego używać własnego połączenia; zobacz [Profile i obserwowanie](overview.md#profiles-and-following).
+  - **Image instructions (sent to your LLM)** (instrukcje obrazów wysyłane do modelu językowego): pole tekstowe z wbudowanym tekstem domyślnym, do 4000 znaków. Model osi czasu stosuje się do tych instrukcji, gdy pisze opis obrazu do każdego wpisu, więc pisz je jako wskazówki, a nie jako tagi obrazu. Tagi stylu wysyłane bezpośrednio do modelu obrazów umieść zamiast tego w profilu stylu obrazów.
   - **Use avatar references**: przełącznik, domyślnie **on**. Wysyła awatar postaci albo jej obrazy referencyjne do modelu obrazów.
   - **Interpret image prompts** (interpretowanie promptów obrazów): przełącznik, domyślnie **on**. Model tekstowy przepisuje każdy prompt obrazu zgodnie z treścią pola **Image Prompting Instructions** (instrukcje promptowania obrazów) w twoim połączeniu do obrazów oraz pola Style text w twoim profilu stylu. Po wyłączeniu przełącznika pole Image Prompting Instructions nie jest używane, a treść pola Style text zostaje dodana dosłownie.
   - **Include descriptions**: przełącznik, domyślnie **on**. Dodaje do promptu obrazu opisowe notatki o wyglądzie postaci. Przy włączonym przełączniku **Interpret image prompts** model tekstowy wplata je w prompt, zamiast je wklejać.
   - **Images/refresh**: liczba od 0 do 50, domyślnie **3**. Ogranicza liczbę generowanych obrazów osobno dla każdego ręcznego i automatycznego odświeżenia.
-- **Attach gallery images**: osobny przełącznik, domyślnie **off**. Pozostaje widoczny nawet przy wyłączonym **Image generation**. Zamiast tworzyć nowy obraz, pozwala wpisowi wykorzystać obraz z galerii danej postaci albo z czatu, w którym ta postać występuje.
+- **Attach gallery images**: osobny przełącznik, domyślnie **off**. Pozostaje widoczny nawet przy wyłączonym **Noodle image generation**. Zamiast tworzyć nowy obraz, pozwala wpisowi wykorzystać obraz z galerii danej postaci albo z czatu, w którym ta postać występuje.
 
-Jeśli **Image generation** jest włączone, ale nie ma sprawnego połączenia do obrazów, odświeżenie zostaje zablokowane. Pojawia się wtedy komunikat "Choose an image generation connection for Noodle first." Nieudany obraz jest ponawiany raz. Jeśli druga próba też zawiedzie, odświeżenie idzie dalej i publikuje czysty wpis tekstowy, zamiast pokazywać niewykorzystany prompt obrazu.
+Jeśli **Noodle image generation** jest włączone, ale nie ma sprawnego połączenia do obrazów, odświeżenie zostaje zablokowane. Pojawia się wtedy komunikat "Choose an image generation connection for Noodle first." Nieudany obraz jest ponawiany raz. Jeśli druga próba też zawiedzie, odświeżenie idzie dalej i publikuje czysty wpis tekstowy, zamiast pokazywać niewykorzystany prompt obrazu.
 
-Szablon, którym Noodle pisze te prompty obrazów, nazywa się **Noodle Post Image**. Można go edytować w **Settings** > **Generations** > **Image Generation Prompt Overrides**. Tekst z pola **Prompt instructions** trafia do tego szablonu, a wynik przechodzi następnie przez zwykły profil stylu obrazów. Zobacz [Prompt Overrides dla obrazów i wideo](../prompts/prompt-overrides.md) oraz [Profile stylu obrazów](../media/style-profiles.md). Professor Mari nie ma karty postaci, więc jej wpisy z obrazami korzystają z wbudowanego awatara i wbudowanych grafik referencyjnych.
+Szablon, którym Noodle pisze te prompty obrazów, nazywa się **Noodle Post Image**. Można go edytować w **Settings** > **Generations** > **Image Generation Prompt Overrides**. Tekst z pola **Image instructions (sent to your LLM)** trafia do tego szablonu, a wynik przechodzi następnie przez zwykły profil stylu obrazów. Zobacz [Prompt Overrides dla obrazów i wideo](../prompts/prompt-overrides.md) oraz [Profile stylu obrazów](../media/style-profiles.md). Professor Mari nie ma karty postaci, więc jej wpisy z obrazami korzystają z wbudowanego awatara i wbudowanych grafik referencyjnych.
+
+## Image Understanding
+
+Sekcja **Image Understanding** (rozumienie obrazów) decyduje, jak autor osi czasu widzi obrazy, które już są na osi czasu.
+
+- **Show images to the writer** (pokazywanie obrazów autorowi): przełącznik, domyślnie **on**. Model autora dostaje do ośmiu ostatnich obrazów z osi czasu, jeśli przyjmuje obrazy. Po wyłączeniu przełącznika autor nie dostaje żadnych obrazów z osi czasu.
+- **Image captioning** (opisywanie obrazów): przełącznik. Połączenie obsługujące obrazy opisuje obrazy z osi czasu dla autora, więc może za nimi nadążyć także model autora, który obsługuje tylko tekst. Dopóki go nie zmienisz, przełącznik podąża za ustawieniem opisywania obrazów w połączeniu **Generation connection** Noodle, a **Use connection default** (domyślne ustawienie połączenia) przywraca to zachowanie.
+- **Captioning connection** (połączenie do opisywania obrazów): pojawia się, gdy opisywanie obrazów jest włączone. **Use Noodle generation connection** (połączenie do generowania Noodle) używa połączenia **Generation connection**; wybierz inne połączenie, gdy model tamtego połączenia nie widzi obrazów.
+
+Opisywanie obrazów nadal wysyła obrazy z osi czasu do połączenia opisującego, nawet gdy **Show images to the writer** jest wyłączone.
 
 ## Timeline Writing
 
@@ -131,11 +149,15 @@ Sekcja **Reset Noodle** (wyczyszczenie Noodle) czyści oś czasu, zachowując ko
 
 Usuwa to wyłącznie treść osi czasu. Konta, identyfikatory, opisy, obserwacje, zaproszenia i każde ustawienie Noodle zostają na miejscu.
 
+<a id="random-users"></a>
+
 ## Losowi użytkownicy
 
 Losowi użytkownicy to sześć wbudowanych kont tła spoza twojej biblioteki: Thread Countess, Packet Soup, Orbit Notice, Glass Bulletin, Moth Hour i Brine Index. Każde ma krótki, klimatyczny opis.
 
 Włącza się ich wierszem **Random users** na górze listy **Characters** w sekcji **Invites**. Domyślnie jest **off**. Podpis wiersza brzmi **Enabled**, kiedy funkcja jest włączona, albo **Ambient fake profiles**, kiedy jest wyłączona. Po włączeniu te konta mogą podczas odświeżenia publikować, polubiać, udostępniać, odpowiadać i obserwować. Nigdy nie da się ich obserwować z poziomu profilu.
+
+Sekcja **Ambient Profiles** na stronie **Participants** pozwala edytować te tożsamości albo wygenerować inny zestaw. Ponowne losowanie zachowuje wpisy i relacje, ale usuwa zdjęcia profilowe.
 
 ## Łączenie Noodle z czatami
 
@@ -153,7 +175,7 @@ Noodle i czaty mogą dzielić się kontekstem w dwie strony. To dwie osobne funk
 - **Automatyczne odświeżenia się nie odbywają**: ustaw **Refreshes/day** powyżej 0, zostaw uruchomiony serwer Marinara i sprawdź zaplanowane godziny oraz strefę czasową w sekcji **Automatic schedule**. Jeśli harmonogram pokazuje błąd, napraw problem z połączeniem albo z limitem zapytań i pozwól ponowić próbę.
 - **Wpisy nie wspominają o niedawnym czacie**: włącz **Allow Noodle references** w ustawieniach tego czatu i sprawdź, czy postać jest zaproszona. Kontekst czatu jest dla AI wskazówką, a nie gwarancją.
 - **Aktywność z Noodle nie pojawia się w czatach**: włącz odpowiedni tryb w **Carryover to chats** i zwiększ **Carry hours**, jeśli aktywność jest zbyt stara.
-- **Wpisy nie mają obrazów**: włącz **Image generation**, wybierz działające połączenie do obrazów i sprawdź limit **Images/refresh**.
+- **Wpisy nie mają obrazów**: włącz **Noodle image generation**, wybierz działające połączenie do obrazów i sprawdź limit **Images/refresh**.
 
 ## Ustawienia i wartości domyślne
 
@@ -173,14 +195,20 @@ Ta tabela wypisuje każde ustawienie Noodle razem z wartością domyślną i zak
 | **Replies** | 12 | 0 do 200 |
 | **Reposts** | 4 | 0 do 100 |
 | **Likes** | 18 | 0 do 500 |
-| **Image generation** | off | on lub off |
-| **Image generation connection** | Default | dowolne połączenie do generowania obrazów |
-| **Prompt instructions** | tekst wbudowany | do 4000 znaków |
+| **Noodle image generation** | off | on lub off |
+| **Image width** | 1024 | 64 do 4096 |
+| **Image height** | 1536 | 64 do 4096 |
+| **Noodle image generation connection** | Default | dowolne połączenie do generowania obrazów |
+| **Image instructions (sent to your LLM)** | tekst wbudowany | do 4000 znaków |
 | **Use avatar references** | on | on lub off |
 | **Interpret image prompts** | on | on lub off |
 | **Include descriptions** | on | on lub off |
 | **Images/refresh** | 3 | 0 do 50 |
 | **Attach gallery images** | off | on lub off |
+| **Show images to the writer** | on | on lub off |
+| **Image captioning** | zgodnie z połączeniem Generation connection | on lub off |
+| **Captioning connection** | Use Noodle generation connection | dowolne połączenie obsługujące obrazy |
+| **Use connection default** | on | on lub off; przywraca ustawienie opisywania obrazów z połączenia Generation connection |
 | **Lorebook context** | off | on lub off |
 | **Enhanced tone & continuity** | off | on lub off |
 | **Carryover: Conversations** | off | on lub off |

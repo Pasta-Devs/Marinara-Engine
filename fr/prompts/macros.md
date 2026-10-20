@@ -271,6 +271,8 @@ Chaque champ compatible avec les macros porte deux petits boutons dans son coin 
 - Le bouton **Expand editor** (agrandir l'éditeur) ouvre une fenêtre d'édition plus grande pour ce champ.
 - Le bouton **Macro reference** (référence des macros) ouvre une fenêtre intitulée **Macro reference** qui liste toutes les macros intégrées par catégorie, chacune avec sa syntaxe exacte. Cette liste est générée à partir de la source utilisée par le moteur : elle est donc toujours juste.
 
+Ces champs complètent aussi les noms de macros pour toi. Tape `{{ch` à la fin d'une ligne et la suite, `ar}}`, apparaît en texte pâle. Appuie sur Tab, ou touche le texte pâle, pour l'accepter. Continue de taper pour l'ignorer. Pour une macro qui prend une valeur, comme `{{getvar::`, la complétion s'arrête là où tu saisis la valeur.
+
 Autre option : saisir `/macros` dans le champ de saisie du chat (la forme courte `/macro` marche aussi). La liste complète des macros s'affiche directement dans le chat, en guise de pense-bête.
 
 Les blocs conditionnels peuvent combiner des comparaisons avec `||` (OU), `&&` (ET) et des parenthèses. Les listes d'égalité acceptent la forme compacte `{{#if character == "Maukie" || "Pantalone"}}`. Voir [Prompts conditionnels](conditional-prompts.md) pour la priorité des opérateurs, des exemples en chat de groupe et la liste complète.

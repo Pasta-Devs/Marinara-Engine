@@ -54,7 +54,7 @@
 
 ## OpenAI (DALL-E)
 
-기본 Base URL이 `https://api.openai.com/v1`인 클라우드 서비스입니다. OpenAI 계정에서 발급한 API 키가 필요합니다. DALL-E와 GPT Image 모델을 제공합니다. 참조 이미지는 최대 16장까지 받습니다.
+기본 Base URL이 `https://api.openai.com/v1`인 클라우드 서비스입니다. OpenAI 계정에서 발급한 API 키가 필요합니다. DALL-E와 GPT Image 모델을 제공합니다. GPT Image 모델은 참조 이미지를 최대 16장까지 받으며, DALL-E 모델은 받지 않습니다.
 
 ## ChatGPT (Codex login)
 
@@ -212,7 +212,7 @@ Marinara는 플레이스홀더를 이용해 워크플로를 채웁니다. 값이
 
 | 제공자 | 참조 이미지 |
 | --- | --- |
-| OpenAI (DALL-E) | 최대 16장 |
+| OpenAI (DALL-E) | 최대 16장, GPT Image 모델에서만 |
 | ChatGPT (Codex login) | 최대 16장 |
 | NovelAI | 최대 16장, V4.5 모델에서만 |
 | xAI / Grok Imagine | 최대 3장 |
@@ -223,18 +223,21 @@ Marinara는 플레이스홀더를 이용해 워크플로를 채웁니다. 값이
 | NanoGPT | 최대 3장 |
 | Stability AI | 첫 번째 이미지만, image to image 방식으로 사용 |
 | Arli AI | 첫 번째 이미지만, image to image 방식으로 사용 |
+| SD Web UI (AUTOMATIC1111 / Forge) 및 Draw Things | 첫 번째 이미지만, image to image 방식으로 사용 |
 | OpenRouter Images | 지원, 장수 제한 없음 |
 | ComfyUI 및 RunPod Serverless (ComfyUI) | 최대 4장, 워크플로 플레이스홀더를 통해 |
 | SwarmUI | 최대 4장 |
-| Together AI, Pollinations, Stable Horde | 지원하지 않음 |
+| Together AI, Pollinations, Stable Horde, fal.ai | 지원하지 않음 |
 
 NovelAI의 정밀 참조 이미지는 `nai-diffusion-4-5-full` 같은 V4.5 모델에서만 작동합니다. NovelAI는 아직 V5용 Precise Reference를 출시하지 않았습니다. 다른 모델에 참조 이미지를 요청하면 Marinara는 참조 이미지 없이 이미지를 생성하고 서버 로그에 경고를 남깁니다.
 
-## 이미지 생성 요청을 순서대로 처리하기
+## 미디어 생성 요청을 순서대로 처리하기
 
-**Queue image generation requests**(이미지 생성 요청 대기열 처리) 토글은 **Settings**(설정) → **Generations**(생성) → **Image Generation**에 있습니다. 기본값은 켜짐입니다.
+**Queue media generation requests**(미디어 생성 요청 대기열 사용) 토글은 **Settings**(설정) → **Generations**(생성) → **Overall Generations**(전체 생성)에 있습니다. 기본값은 켜짐입니다.
 
-켜져 있으면 Marinara가 이미지 작업을 하나씩 순서대로 보냅니다. 요청 2개를 동시에 받으면 거부하는 서비스라면 켠 채로 두세요. 사용 중인 서비스가 여러 요청을 동시에 처리할 수 있고 결과를 더 빨리 받고 싶을 때만 끄세요.
+켜져 있으면 Marinara는 이미지 작업은 이미지 제공자 계정마다, 동영상 작업은 동영상 제공자 계정마다 별도의 대기열에서 하나씩 순서대로 보냅니다. 같은 계정의 이미지와 동영상은 함께 실행될 수 있습니다. 어떤 기능이 요청하든 마찬가지이며, Illustrator, 트래커, 명령, Gallery, Game 에셋, Slurp 같은 다운로드한 에이전트가 모두 여기에 해당합니다. 주소와 API 키가 같은 연결 두 개는 해당 대기열을 공유합니다. 서로 다른 계정과 제공자는 여전히 동시에 작업합니다. NovelAI는 작업 사이에 짧게 쉬기도 합니다. NovelAI가 바쁘다고 응답하면 Marinara는 이미지를 실패로 처리하지 않고 기다렸다가 두 번 다시 시도합니다.
+
+요청 2개를 동시에 받으면 거부하는 서비스라면 켠 채로 두세요. 사용 중인 서비스가 여러 요청을 동시에 처리할 수 있고 결과를 더 빨리 받고 싶을 때만 끄세요.
 
 ## 관련 가이드
 

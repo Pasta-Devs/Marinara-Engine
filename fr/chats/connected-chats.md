@@ -74,7 +74,7 @@ Si aucun personnage n'a encore enregistré de note, la section explique que les 
 
 ## Passer d'un chat connecté à l'autre
 
-Quand un chat a un chat lié, un bouton déplaçable **Connected chat**, avec une double flèche, apparaît en haut à droite. Tu peux le déplacer sur un ordinateur ou un téléphone. Clique ou appuie dessus pour ouvrir une petite fenêtre, puis choisis **Switch to** suivi du nom de l'autre chat.
+Quand un chat a un chat lié, un petit bouton **Connected chat**, avec une double flèche, apparaît en haut à droite sur ordinateur. Tu peux le déplacer ailleurs. Sur téléphone, **Connected chat** se trouve dans le menu à trois points **Chat tools** (outils du chat). Ouvre la commande, puis choisis **Switch to** suivi du nom de l'autre chat.
 
 Cette action ouvre directement le chat connecté, sans avoir à le chercher dans la liste. Le bouton apparaît des deux côtés du lien, en Conversation comme en Roleplay.
 

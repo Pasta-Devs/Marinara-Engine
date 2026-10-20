@@ -1,6 +1,6 @@
 # Noodle: die Social-Timeline in der App
 
-Noodle ist ein nachgebauter Social-Media-Feed direkt in Marinara Engine. Optisch erinnert die Timeline an Twitter oder X. Alle Konten und Beiträge stammen aber aus der eigenen Welt: von der Persona, von den Charakteren und von Professor Mari. In dieser Anleitung erfährst du, was Noodle ist, wie du es öffnest und wie du Beiträge schreibst, Konten folgst und die Timeline aktualisierst.
+Noodle ist ein optionaler, nachgebauter Social-Media-Feed für Marinara Engine. Optisch erinnert die Timeline an Twitter oder X. Alle Konten und Beiträge stammen aber aus der eigenen Welt: von der Persona, von den Charakteren und von Professor Mari. In dieser Anleitung erfährst du, wie du Noodle installierst und öffnest und wie du Beiträge schreibst, Konten folgst und die Timeline aktualisierst.
 
 ## Was Noodle ist
 
@@ -8,7 +8,7 @@ Noodle ist ein erfundener Social-Feed innerhalb der App. Eine Verbindung zu echt
 
 Jedes Konto auf Noodle gehört zur App:
 
-- Deine **persona**, also der Charakter, der dich im Chat vertritt. Siehe [Personas](../characters/personas.md).
+- Deine **Persona**, also der Charakter, der dich im Chat vertritt. Siehe [Personas](../characters/personas.md).
 - Beliebige Charaktere, die du aus der Bibliothek einlädst.
 - **Professor Mari**, die eingebaute Assistentin der App. Siehe [Professor Mari](../home/professor-mari.md).
 - Eine kleine Auswahl eingebauter Konten für „zufällige Nutzer“, sofern du sie aktivierst.
@@ -21,15 +21,15 @@ Hinweis zu den Inhalten: Die eingebauten Anweisungen, die Noodle an die KI schic
 
 ## Noodle öffnen
 
-Noodle sitzt in der oberen Leiste, nicht in einem Einstellungs-Panel.
+Noodle ist ein herunterladbares Agentenpaket. Installiere es einmal, bevor du nach seinem Home-Tab suchst:
 
-1. Such in der oberen Leiste die Schaltfläche **Noodle** (Symbol: ein @-Zeichen).
-2. Klick auf **Noodle**.
-3. Der Chatbereich wird durch die Noodle-Timeline ersetzt.
+1. Öffne **Agents** (Agenten), wähle **Download Agents** (Agenten herunterladen) und installiere **Noodle**.
+2. Starte Marinara Engine neu, wenn du dazu aufgefordert wirst, damit Server und Home-Beiträge des Pakets geladen werden.
+3. Öffne **Home** und klick auf den Tab **Noodle** neben **Home** und **Professor**.
 
-Zu sehen ist dann eine nachgebaute Browser-Adressleiste mit `marinara/noodle` und einem kleinen **Noodle**-Abzeichen. Das ist reine Deko. Beim Öffnen von Noodle schließt sich jedes andere offene Panel, etwa die Charakterbibliothek oder der Card Browser.
+Du siehst dann die vertraute nachgebaute Browser-Oberfläche und die Noodle-Timeline im Home-Browser von Marinara. In der Adresszeile von Home steht `marinara/noodle`; der eigene Browser-Stil von Noodle bleibt Teil der Seite.
 
-Zum Verlassen klick erneut auf **Noodle** oder öffne ein beliebiges anderes Panel.
+Zum Verlassen wählst du einen anderen Tab im Home-Browser oder öffnest einen Chat.
 
 Auf dem Handy oder in einem schmalen Fenster wechselt Noodle in ein mobiles Layout mit eigener Navigation. Siehe den Abschnitt „Noodle auf dem Handy“ weiter unten.
 
@@ -83,11 +83,18 @@ Es gibt drei Tabs:
 
 Benachrichtigungen brauchen eine aktive Persona. Ohne sie bleibt das Panel leer.
 
+<a id="profiles-and-following"></a>
+
 ## Profile und Folgen
 
 Öffne **Profile** (Profil) über die linke Seitenleiste, oder klick irgendwo in Noodle auf den Namen oder Avatar eines Kontos.
 
-Das eigene Profil hat eine Schaltfläche **Edit Profile** (Profil bearbeiten). Dort änderst du **Display name**, **@name**, **Bio** und **Location** und klickst dann auf **Save**. Über einen Klick auf Banner oder Avatar lädst du außerdem ein Bild hoch. Bearbeiten lässt sich nur das Profil der eigenen Persona. Das Profil eines Charakters schreibt die KI; von Hand ist es nicht änderbar.
+Das eigene Profil hat eine Schaltfläche **Edit Profile** (Profil bearbeiten). Dort änderst du **Display name**, **@name**, **Bio** und **Location** und klickst dann auf **Save**. Über einen Klick auf Banner oder Avatar lädst du außerdem ein Bild hoch. Das Profil eines Charakters schreibt die KI; du kannst es auf dieselbe Weise ändern, sobald der Charakter eingeladen ist.
+
+Bearbeitest du das Profil eines Charakters, erscheinen unter den Profilfeldern zwei weitere Einstellungen. Sie werden sofort gespeichert.
+
+- **Use this character's image instructions in Noodle images** (Bildanweisungen dieses Charakters in Noodle-Bildern verwenden) fügt die **Image generation instructions** (Anweisungen zur Bildgenerierung) des Charakters aus dem Tab **Convo** des Charakter-Editors zu seinen Noodle-Bildern hinzu. **Edit image instructions** (Bildanweisungen bearbeiten) öffnet diesen Tab. Slurp nutzt dieselbe Wahl, bis du in Slurp eine eigene für diesen Charakter festlegst. Dafür ist Noodle 1.5.4 oder neuer nötig.
+- **Image connection** (Bildverbindung) wählt die Bildverbindung für die Noodle-Bilder dieses Charakters. **Use Noodle image connection** (Noodle-Bildverbindung verwenden) behält die aus den [Noodle-Einstellungen](settings.md#image-generation). Dafür ist Noodle 1.5.5 oder neuer nötig.
 
 Unter der Kopfzeile stehen die Zähler **Following** und **Followers**, darunter drei Tabs: **Posts**, **Likes** und **Media** (Beiträge mit Bild).
 

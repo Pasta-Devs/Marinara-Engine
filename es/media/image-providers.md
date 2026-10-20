@@ -54,7 +54,7 @@ La tabla de abajo muestra cada servicio de un vistazo. Los detalles y peculiarid
 
 ## OpenAI (DALL-E)
 
-Servicio en la nube con la Base URL predeterminada `https://api.openai.com/v1`. Necesita una API key de tu cuenta de OpenAI. Ofrece modelos DALL-E y GPT Image. Acepta hasta 16 imágenes de referencia.
+Servicio en la nube con la Base URL predeterminada `https://api.openai.com/v1`. Necesita una API key de tu cuenta de OpenAI. Ofrece modelos DALL-E y GPT Image. Los modelos GPT Image aceptan hasta 16 imágenes de referencia; los modelos DALL-E no aceptan ninguna.
 
 ## ChatGPT (Codex login)
 
@@ -212,7 +212,7 @@ Una **imagen de referencia** es una imagen existente que envías junto con tu pr
 
 | Proveedor | Imágenes de referencia |
 | --- | --- |
-| OpenAI (DALL-E) | Hasta 16 |
+| OpenAI (DALL-E) | Hasta 16, solo modelos GPT Image |
 | ChatGPT (Codex login) | Hasta 16 |
 | NovelAI | Hasta 16, solo modelo V4.5 |
 | xAI / Grok Imagine | Hasta 3 |
@@ -223,18 +223,21 @@ Una **imagen de referencia** es una imagen existente que envías junto con tu pr
 | NanoGPT | Hasta 3 |
 | Stability AI | Solo la primera imagen, usada como imagen a imagen |
 | Arli AI | Solo la primera imagen, usada como imagen a imagen |
+| SD Web UI (AUTOMATIC1111 / Forge) y Draw Things | Solo la primera imagen, usada como imagen a imagen |
 | OpenRouter Images | Compatible, sin límite fijo |
 | ComfyUI y RunPod Serverless (ComfyUI) | Hasta 4, mediante marcadores de posición del flujo de trabajo |
 | SwarmUI | Hasta 4 |
-| Together AI, Pollinations, Stable Horde | No compatible |
+| Together AI, Pollinations, Stable Horde, fal.ai | No compatible |
 
 Las imágenes de referencia precisas de NovelAI solo funcionan en un modelo V4.5, como `nai-diffusion-4-5-full`. NovelAI todavía no ha publicado Precise Reference para V5. Si solicitas referencias en otro modelo, Marinara genera la imagen sin ellas y registra una advertencia en el log del servidor.
 
-## Poner en cola las solicitudes de generación de imágenes
+## Poner en cola las solicitudes de generación de medios
 
-El interruptor **Queue image generation requests** vive en **Settings** (Configuración), luego **Generations** (Generaciones), luego **Image Generation** (Generación de imágenes). Está activado de forma predeterminada.
+El interruptor **Queue media generation requests** (Poner en cola las solicitudes de generación de medios) vive en **Settings** (Configuración), luego **Generations** (Generaciones), luego **Overall Generations** (Generaciones generales). Está activado de forma predeterminada.
 
-Cuando está activado, Marinara envía los trabajos de imagen de uno en uno. Mantenlo activado para los servicios que rechazan dos solicitudes a la vez. Desactívalo solo si tu servicio maneja muchas solicitudes al mismo tiempo y quieres que sean más rápidas.
+Cuando está activado, Marinara envía los trabajos de imagen a cada cuenta de proveedor de imágenes de uno en uno, y los trabajos de video a cada cuenta de proveedor de video de uno en uno, en colas separadas. Una imagen y un video para la misma cuenta pueden ejecutarse a la vez. Esto se aplica sea cual sea la función que los pida: el Illustrator, los trackers, los comandos, la Gallery, los recursos de Game y los agentes descargados como Slurp. Dos conexiones con la misma dirección y la misma API key comparten la cola correspondiente. Las cuentas y los proveedores distintos siguen trabajando al mismo tiempo. NovelAI recibe además una breve pausa entre trabajos. Cuando NovelAI responde que está ocupado, Marinara espera y lo vuelve a intentar dos veces en lugar de dar la imagen por fallida.
+
+Mantenlo activado para los servicios que rechazan dos solicitudes a la vez. Desactívalo solo si tu servicio maneja muchas solicitudes al mismo tiempo y quieres que sean más rápidas.
 
 ## Guías relacionadas
 

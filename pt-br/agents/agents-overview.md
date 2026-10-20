@@ -36,7 +36,7 @@ Ao atualizar de uma versão da Engine que já trazia esses recursos embutidos, M
 
 ### Como atualizar pacotes
 
-Marinara pergunta antes de atualizar um pacote. Quando há uma versão compatível mais nova de um pacote que você instalou, aparece a janela **Agent updates available** (atualizações de agentes disponíveis). Ela lista cada atualização com a nova versão e informa se é preciso reiniciar. Quando o pacote publica notas de versão, **What changed** (o que mudou) mostra essas notas. Um ponto marca uma mudança que você vai perceber; as atualizações sem ponto são correções de rotina.
+Marinara pergunta antes de atualizar um pacote. Quando há uma versão compatível mais nova de um pacote que você instalou, aparece a janela **Agent updates available** (atualizações de agentes disponíveis). Ela lista cada atualização com a nova versão e informa se é preciso reiniciar. Quando o pacote publica notas de versão, **What changed** (o que mudou) mostra essas notas. Se a atualização pula versões, **What changed** lista as notas de todas as versões desde a sua, da mais nova para a mais antiga, e mostra quantas são. Uma nota longa aparece cortada; selecione **More** (mais) para ler a nota inteira. Um ponto marca uma mudança que você vai perceber; as atualizações sem ponto são correções de rotina.
 
 - Clique em **Update all** (atualizar tudo) para instalar todas as atualizações da lista. Reinicie o Marinara Engine se ele pedir.
 - Clique em **Not now** (agora não) para manter as versões atuais. Marinara não pergunta de novo sobre uma versão que você pulou.
@@ -89,7 +89,7 @@ Agentes compatíveis podem ser adicionados ou removidos a qualquer momento.
 Alguns agentes mudam algo que você vê na hora. Outros trabalham em silêncio. Veja como conferir.
 
 - Os tracker agents escrevem no HUD e nos painéis de tracker. Se a hora, o local, o humor ou os status mudaram, um tracker rodou.
-- Uma faixa de status flutuante mostra mensagens curtas dos agentes enquanto eles trabalham, então você acompanha tudo em tempo real.
+- **Agent activity** (atividade dos agentes), em **Chat Settings**, lista notas curtas dos agentes. Enquanto eles trabalham, o ícone vira um indicador giratório, e aparece um ponto nele quando um agente falha. Veja [Agent activity](../roleplay/getting-started.md#agent-activity).
 - Os agentes **Prose Guardian** e **Continuity Checker** mudam o próprio texto da resposta. Uma resposta mais limpa ou corrigida é sinal de que eles rodaram.
 - Para ver o rastro completo, ative o **Debug mode** (modo de depuração) em **Settings** (Configurações), depois **Advanced**, depois **Message Tools**. Ele registra o prompt e a resposta de cada agente no console do servidor. Também mostra uma sobreposição **Agent Debug** com as chamadas, os tokens e o tempo de cada agente.
 

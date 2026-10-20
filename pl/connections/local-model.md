@@ -181,6 +181,8 @@ Aby go skonfigurować:
 
 Nagrany dźwięk nigdy nie opuszcza twojego komputera. Do wybranego połączenia czatu trafia wyłącznie tekst transkrypcji. Żeby użyć go w rozmowie, ustaw tryb wejścia audio rozmowy na opcję Local Whisper. Zobacz [Rozmowy audio i wideo w trybie Conversation](../conversation/calls.md).
 
+Jeśli w Connections włączysz sekcję **Speech to Text** (zamiana mowy na tekst), ten tryb rozmowy zamiast do Local Whisper wysyła twoją mowę na wpisany tam serwer. Zobacz [Korzystanie z własnego serwera zamiany mowy na tekst](../conversation/calls.md#use-your-own-speech-to-text-server).
+
 ## Rozwiązywanie problemów
 
 **"Sidecar runtime install is disabled."** Instalacja i ponowna instalacja środowiska uruchomieniowego to działanie chronione. Instalacje jednym kliknięciem na Windows włączają je za ciebie. Na macOS, Linux i w kontenerze Docker masz dwie możliwości. Ustaw `SIDECAR_RUNTIME_INSTALL_ENABLED=true` w pliku `.env` serwera, na przykład:

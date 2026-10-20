@@ -59,9 +59,9 @@ Marinara Engine 是一个 AI 聊天应用，提供 Conversation(对话模式)、
 
 ### Zustand store(客户端状态)
 
-客户端在 `packages/client/src/stores/` 下放了一组 Zustand store，用来管理界面和运行时状态。只有 `ui.store.ts` 会持久化，其余保存的是聊天、智能体、游戏、本地模型运行时、翻译、窗口、回填和桌面游戏的运行时状态。
+客户端在 `packages/client/src/stores/` 下放了一组 Zustand store，用来管理界面和运行时状态。只有 `ui.store.ts` 会持久化，其余保存的是聊天、智能体、游戏、本地模型运行时、翻译、窗口和回填的运行时状态。
 
-现有的 store 文件有：`agent.store.ts`、`backfill.store.ts`、`chat.store.ts`、`chess-game.store.ts`、`dialog.store.ts`、`encounter.store.ts`、`gallery.store.ts`、`game-asset.store.ts`、`game-mode.store.ts`、`game-state.store.ts`、`poker-game.store.ts`、`sidecar.store.ts`、`translation.store.ts`、`ui.store.ts` 和 `uno-game.store.ts`。
+现有的 store 文件有：`agent.store.ts`、`backfill.store.ts`、`chat-tools-menu.store.ts`、`chat.store.ts`、`conversation-games.store.ts`、`dialog.store.ts`、`encounter.store.ts`、`floating-window.store.ts`、`gallery.store.ts`、`game-asset.store.ts`、`game-mode.store.ts`、`game-state.store.ts`、`sidecar.store.ts`、`translation.store.ts` 和 `ui.store.ts`。桌面游戏的 store 已经移进各自的可下载包里；`conversation-games.store.ts` 只记录 Conversation 游戏选择器和设置。
 
 #### `ui.store.ts`：设置与界面外壳
 
@@ -489,6 +489,9 @@ Personal Extensions(个人扩展) 是存在服务器上、按精确哈希审批�
 | `/api/translate` | POST | 文本翻译 |
 | `/api/game` | 增删改查和各类动作 | Game Mode 的会话与状态 |
 | `/api/game-assets` | 增删改查和上传 | 游戏素材 |
+| `/api/game-rulesets` | 导入、schema、源文件、移除 | 导入的 Game Mode 规则集 |
+| `/api/game-worlds` | 世界库增删改查和世界编辑 | 新游戏和地图包所用的世界库 |
+| `/api/game-tile-packs` | 地块包，以及 `/creatures` 和 `/boards` | 地图、生物和战斗棋盘美术包 |
 | `/api/turn-games` | Chess、UNO、Poker 路由 | Conversation 桌面游戏 |
 | `/api/conversation-calls` | 通话和会话路由 | Conversation 语音通话 |
 
@@ -503,6 +506,10 @@ Personal Extensions(个人扩展) 是存在服务器上、按精确哈希审批�
 | `/api/gallery/:chatId` | 单个聊天的图库图片 |
 | `/api/global-gallery` | 全局图库图片 |
 | `/api/tts` | 语音合成路由 |
+| `/api/speech-to-text` | Speech to Text 服务器设置与测试 |
+| `/api/avatar-models` | 虚拟形象智能体使用的 2D 和 3D 虚拟形象模型 |
+| `/api/avatar-generation` | 根据立绘生成虚拟形象草稿，以及 Tripo 密钥 |
+| `/api/avatar-classify` | 虚拟形象情绪分类器及其本地模型 |
 | `/api/youtube` | YouTube DJ 路由 |
 | `/api/custom-emojis` | 自定义表情素材 |
 | `/api/custom-stickers` | 自定义贴纸素材 |
@@ -539,8 +546,10 @@ Personal Extensions(个人扩展) 是存在服务器上、按精确哈希审批�
 | `/api/connection-folders` | 连接文件夹 |
 | `/api/prompt-overrides` | 内置提示词覆盖 |
 | `/api/achievements` | 成就解锁 |
-| `/api/noodle` | Noodle 社交时间线 |
+| `/api/capability-packages` | 智能体目录、安装、更新、更新日志和包素材 |
+| `/api/noodle` | Noodle 社交时间线（由 Noodle 包注册） |
 | `/api/professor-mari/workspace` | Professor Mari 工作区操作 |
+| `/api/professor-mari/quick` | Professor Mari 快速回答，以及应用它们提出的修改 |
 
 ## PWA 支持
 
@@ -586,6 +595,10 @@ Personal Extensions(个人扩展) 是存在服务器上、按精确哈希审批�
 | `persona-stats` | post_processing | 追踪玩家用户角色的属性变化 |
 | `custom-tracker` | post_processing | 追踪自定义的结构化状态 |
 | `inventory-tracker` | post_processing | 追踪货币、已装备物品和随身库存 |
+| `quartermaster` | post_processing | 维护 Roleplay 人物卡、已装备的装备和服装 |
+| `beholder` | post_processing | 追踪每个角色穿着和拿着什么，以及他们的伤势 |
+| `relationship-tracker` | post_processing | 追踪角色和用户角色彼此之间的感情 |
+| `memory-nag` | post_processing | 记住承诺之类的未了之事，并提醒模型 |
 | `illustrator` | post_processing | 生成场景图像提示词和媒体请求 |
 | `lorebook-keeper` | post_processing | 自动创建和更新世界书条目 |
 | `card-evolution-auditor` | post_processing | 审查角色卡，给出演进建议 |
@@ -600,7 +613,9 @@ Personal Extensions(个人扩展) 是存在服务器上、按精确哈希审批�
 | `storyboard` | post_processing | 规划 Game 和 Roleplay 的静态或动画分镜 |
 | `conversation-calls` | feature | 添加 Conversation 语音/视频通话及相关设置 |
 | `hierarchical-maps` | feature | 添加 Roleplay/Game 地图、空间上下文和移动 |
-| `noodle` | feature | 在 Home 中添加本地 Noodle 和 Slurp 社交动态 |
+| `noodle` | feature | 在 Home 中添加本地 Noodle 社交动态 |
+| `slurp2` | feature | 在 Home 中添加 Slurp，一个面向角色的私人创作者应用 |
+| `gacha-forge` | feature | 在 Home 中添加扭蛋游戏模式 |
 | `uno` | feature | 添加 Conversation 的 UNO 牌桌 |
 | `chess` | feature | 添加 Conversation 的国际象棋棋盘 |
 | `poker` | feature | 添加 Conversation 的德州扑克牌桌 |
@@ -612,7 +627,7 @@ Personal Extensions(个人扩展) 是存在服务器上、按精确哈希审批�
 
 智能体产出带类型的结果，由前端负责处理。`packages/shared/src/types/agent.ts` 里的 `AgentResultType` 联合类型包括：
 
-`game_state_update`、`text_rewrite`、`sprite_change`、`echo_message`、`quest_update`、`image_prompt`、`context_injection`、`continuity_check`、`director_event`、`lorebook_update`、`character_card_update`、`background_change`、`character_tracker_update`、`persona_stats_update`、`custom_tracker_update`、`inventory_tracker_update`、`spotify_control`、`youtube_control`、`local_music_control`、`haptic_command`、`cyoa_choices`、`secret_plot`、`game_master_narration`、`party_action`、`game_map_update`、`game_state_transition`、`prompt_patch`、`frontend_theme_update` 和 `about_me_update`。
+`game_state_update`、`text_rewrite`、`sprite_change`、`echo_message`、`quest_update`、`image_prompt`、`context_injection`、`continuity_check`、`director_event`、`lorebook_update`、`character_card_update`、`character_card_create`、`background_change`、`character_tracker_update`、`persona_stats_update`、`custom_tracker_update`、`inventory_tracker_update`、`spotify_control`、`youtube_control`、`local_music_control`、`haptic_command`、`cyoa_choices`、`secret_plot`、`game_master_narration`、`party_action`、`game_map_update`、`game_state_transition`、`prompt_patch`、`character_activity_update`、`frontend_theme_update`、`about_me_update` 和 `memory_nag`。
 
 ## 聊天模式
 

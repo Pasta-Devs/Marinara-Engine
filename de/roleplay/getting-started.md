@@ -20,7 +20,7 @@ Leg einen neuen Roleplay-Chat an, dann öffnet sich der Einrichtungsassistent. E
 
 1. **Name & Connection** (Name und Verbindung). Benenne die Rollenspielrunde und wähle die KI-Verbindung aus, die antwortet. Das Namensfeld darf leer bleiben.
 2. **Pick a Preset** (Preset wählen). Ein Preset ist eine gespeicherte Prompt-Vorlage und steuert den Aufbau des Prompts sowie die Einstellungen für die Generierung. Für die meisten Chats passt das Standard-Preset.
-3. **Persona & Characters** (Persona und Charaktere). Wähle die Persona, die du spielst, und die Charaktere, die in der Szene mitspielen.
+3. **Persona & Characters** (Persona und Charaktere). Wähle die Persona, die du spielst, und die Charaktere, die in der Szene mitspielen. Manche Charakterkarten können dir anhand einiger Fragen eine Persona bauen: Wähle **Create your persona** (deine Persona erstellen) und beantworte sie. Siehe [Interaktives Onboarding](../characters/interactive-onboarding.md).
 4. **Attach Lorebooks** (Lorebooks anhängen). Ein Lorebook ist eine Sammlung von Weltwissen, die die KI liest, sobald bestimmte Schlüsselwörter auftauchen. Dieser Schritt ist optional.
 5. **Enable Agents** (Agenten aktivieren). Wähle die Agenten aus, die in diesem Chat laufen. Später lassen sich Agenten unter **Chat Settings** (Chat-Einstellungen) im Bereich **Agents** ergänzen oder entfernen.
 
@@ -81,6 +81,8 @@ Jeder dieser Abschnitte, auch Search, lässt sich herauslösen und bleibt dann i
 
 Schreib die Notiz in das Feld. Zum Beispiel: „Halte den Ton düster und spannungsgeladen. Der Bösewicht ist insgeheim ein Verbündeter.“
 
+Für eine längere Notiz machst du das Feld größer. Am Computer ziehst du dazu an seiner unteren Ecke. Löst du **Author's Notes** in ein eigenes Fenster heraus, wächst das Feld mit dem Fenster mit.
+
 Darunter liegt das Zahlenfeld **Injection Depth**. Es legt fest, wie weit oben im Chatverlauf die Notiz landet. Die Hilfe in der App sagt: „Depth 0 = after the latest message, 4 = four messages from the end.“ Bei Tiefe 0 sitzt die Notiz am dichtesten an der neuesten Antwort.
 
 **Author's Notes** funktioniert in Game Mode und Conversation Mode genauso. Diese Anleitung ist die zentrale Referenz dazu.
@@ -130,6 +132,8 @@ Sobald eine Flüsternachricht sichtbar ist, wähle **Edit whisper** (Flüsternac
 Du kannst auch `[whisper: character="name" text="the secret"]` in deine eigene Roleplay-Nachricht schreiben, um einem Charakter im Chat etwas zuzuflüstern. Deine eigenen Flüsternachrichten siehst du sofort. Das funktioniert in gewöhnlichen Chats ohne aktivierten Mehrspielermodus.
 
 Derselbe Befehl funktioniert auch, wenn du die Nachricht eines Charakters oder des Erzählers bearbeitest: Nach dem Speichern wird daraus eine Flüsternachricht, die zu dieser Nachricht gehört. Der Text einer Flüsternachricht darf sich über mehrere Zeilen ziehen und wörtliche Rede unverändert zitieren, zum Beispiel `text=""I love you.""`.
+
+Eine Nachricht, die nur aus einer Flüsternachricht besteht, fehlt für die Charaktere, die sie nicht erreicht, vollständig, sodass sie nicht bemerken, dass überhaupt jemand geflüstert hat. Ihr Empfänger und der ernannte Erzähler bekommen sie trotzdem. Ein Charakter erhält die Nachricht außerdem, wenn du eine private Notiz zu ihr mit diesem Charakter geteilt hast.
 
 ### Deine privaten Notizen
 

@@ -85,6 +85,8 @@ Stage 1 안의 접힌 **Prompt library**(프롬프트 라이브러리)를 열어
 
 번호가 붙은 각 단계에는 접힌 **Prompt library**가 있습니다. Stage 2는 이미지 포맷터, Stage 3는 이미지를 참고하는 움직임 플래너, Stage 4는 동영상 전달 포맷터를 담당합니다. 내장 이미지 옵션에는 **Storyboard Illustration**과 **Storyboard First Frame**도 있습니다. 동영상 옵션에는 **Anime Game Video**, **Comic Page Video**, **Narration Passthrough**가 있습니다. Game과 Roleplay 채팅은 공유 프롬프트 모음을 바꾸지 않고 서로 다른 포맷터를 선택할 수 있습니다.
 
+Stage 3의 **Image-aware shot planning**(이미지 인식 샷 기획)은 동영상 연결의 **Video Prompting Instructions**(동영상 프롬프트 지시문)도 따릅니다. 연결 편집기의 이 필드에 카메라 표현, 프롬프트 길이, 소리 신호처럼 동영상 모델이 기대하는 내용을 적으세요.
+
 ### 전역 기본값과 채팅별 재정의
 
 채팅마다 에이전트 기본값을 재정의할 수 있습니다. **Chat Settings**는 물려받은 값에 **Using agent default**(에이전트 기본값 사용 중) 표시를 붙이고, 값을 직접 지정하고 나면 되돌리기 버튼을 함께 보여 줍니다.

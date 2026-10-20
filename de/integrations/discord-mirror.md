@@ -28,7 +28,7 @@ Behandle diese URL vertraulich. Wer sie hat, kann in deinen Discord-Kanal schrei
 
 ## Den Mirror einschalten
 
-Die Webhook-Einstellung steckt in den Einstellungen des jeweiligen Chats, im Bereich **Connected Chats** (verbundene Chats). Das Eingabefeld hat keine eigene Beschriftung – erkennbar ist es am Platzhaltertext `https://discord.com/api/webhooks/...`.
+Die Webhook-Einstellung steckt in den Einstellungen des jeweiligen Chats, im Bereich **Connected Chats** (verbundene Chats). Das Eingabefeld ist mit **Discord Mirror** beschriftet, sein Platzhaltertext lautet `https://discord.com/api/webhooks/...`.
 
 1. Öffne den Chat, den du spiegeln willst.
 2. Öffne **Chat Settings** (Chat-Einstellungen).
@@ -38,6 +38,8 @@ Die Webhook-Einstellung steckt in den Einstellungen des jeweiligen Chats, im Ber
 Damit ist der Mirror für diesen Chat aktiv. Zum Ausschalten leerst du das Eingabefeld einfach wieder.
 
 Ist die URL kein gültiger Discord-Webhook, erscheint unter dem Feld der rote Hinweis „Invalid webhook URL format“. Korrigiere die URL, dann wird der Mirror gespeichert. Marinara prüft die URL beim Speichern zusätzlich auf dem Server.
+
+Die Webhook-URL bleibt in dieser Marinara-Installation. Chat-Exporte, exportierte Einstellungsprofile und Dateien aus **Export Profile** (Profil exportieren) lassen sie weg, und der Import dieser Dateien schaltet nie einen Mirror ein. Um einen Chat zu spiegeln, den du in eine andere Installation umgezogen hast, füge die URL dort erneut ein. Ein Einstellungsprofil, das du in dieser Installation gespeichert hast, setzt deinen Mirror beim Anwenden weiterhin.
 
 ## Was gesendet wird
 

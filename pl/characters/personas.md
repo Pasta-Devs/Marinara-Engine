@@ -20,12 +20,13 @@ Panel **Personas** to biblioteka person. Otwiera go ikona osoby na górnym pasku
 
 Panel udostępnia takie kontrolki:
 
-- **Open Full Library** (otwarcie pełnej biblioteki) otwiera responsywną, pełnoekranową bibliotekę person. Ma ten sam układ siatki z podglądem co biblioteka postaci: opisy person, sekcje karty, tagi i szacowaną liczbę tokenów (małych kawałków tekstu).
+- **Download** (pobranie) otwiera [Card Browser](bot-browser.md), w którym znajdziesz też persony z serwisu PlotLight.
+- **Open Library** (otwarcie biblioteki) otwiera responsywną, pełnoekranową bibliotekę person. Ma ten sam układ siatki z podglądem co biblioteka postaci: opisy person, sekcje karty, tagi i szacowaną liczbę tokenów (małych kawałków tekstu).
 - **New** (nowa) tworzy personę.
 - **Import** (import) otwiera okno **Import Persona**.
 - **Select** (zaznaczanie) włącza tryb zaznaczania zbiorczego, dzięki czemu da się działać na wielu personach naraz.
 - Pole wyszukiwania z tekstem zastępczym **Search personas** przeszukuje nazwę, opis, komentarz i tagi.
-- Lista rozwijana sortowania oferuje **A-Z**, **Z-A**, **Newest**, **Oldest** oraz **Tokens** (szacowany rozmiar promptu).
+- Lista rozwijana sortowania oferuje **Manual order** (kolejność ręczna), **A-Z**, **Z-A**, **Newest**, **Oldest** oraz **Tokens** (szacowany rozmiar promptu). **Manual order** zachowuje ustawioną przez ciebie kolejność: przeciągnij wiersz w górę lub w dół albo naciśnij Alt+strzałka w górę lub Alt+strzałka w dół na wierszu, który ma fokus. Na ekranie dotykowym naciśnij i przytrzymaj wiersz, żeby go podnieść.
 - **New Folder** (nowy folder) tworzy folder do porządkowania person.
 - Kafelek **Tags** rozwija listę tagów do filtrowania.
 
@@ -82,7 +83,7 @@ W zakładce **Card** wpisujesz najważniejsze pola persony. Każde pole to duże
 - **Personality**: temperament, zachowanie, nawyki językowe i wzorce emocjonalne.
 - **Backstory**: historia, pochodzenie, relacje i wydarzenia, które ukształtowały postać.
 - **Appearance**: wygląd fizyczny, ubiór i szczegóły wizualne, o których model ma pamiętać.
-- **Image Appearance Override** (osobny opis wyglądu do obrazów): opcjonalny przełącznik pod polem **Appearance**, domyślnie wyłączony. Włącz go, aby pokazać drugie pole na opis persony przygotowany dla modelu graficznego. Gdy przełącznik jest włączony, a pole wypełnione, prompty obrazów korzystają z tego tekstu zamiast z **Appearance**. Narrator zawsze otrzymuje pełny opis z **Appearance**.
+- **Image Appearance Override** (osobny opis wyglądu do obrazów): opcjonalny przełącznik pod polem **Appearance**, domyślnie wyłączony. Włącz go, aby pokazać drugie pole na krótkie tagi obrazu opisujące twoją personę, na przykład słowo wyzwalające LoRA. Gdy przełącznik jest włączony, a pole wypełnione, prompty obrazów używają tych tagów dokładnie w zapisanej formie, a treść **Appearance** zostaje jako kontekst w tle. Narrator zawsze otrzymuje pełny opis z **Appearance**.
 - **Scenario**: domyślna sytuacja albo kontekst dla roleplayu. Ustal tu, w jakim miejscu startuje persona.
 
 Te okna tekstowe obsługują makra. Wpisywane cudzysłowy formatują się automatycznie zgodnie ze stylem cudzysłowów ustawionym w aplikacji.
@@ -119,11 +120,11 @@ Zostaw dowolne z tych pól puste, aby użyć domyślnych kolorów motywu aplikac
 Zakładka **Stats** dzieli się na dwa osobne bloki. Oba zasilają ekranowy pasek statystyk (HUD) w trakcie czatu.
 
 - **Enable Persona Stats** włącza paski stanu dla potrzeb takich jak głód, energia i nastrój. Przy pierwszym włączeniu dostajesz startowe paski Satiety, Energy, Hygiene i Mood, każdy z wartością 100 na 100. Wartościami tymi steruje w miarę rozwoju historii agent **Persona Stats**.
-- **Enable RPG Attributes** włącza statystyki w stylu RPG oraz HP. Przy pierwszym włączeniu dostajesz startowe atrybuty STR, DEX, CON, INT, WIS i CHA, każdy z wartością 10. Agent **Character Tracker** potrafi zmieniać je na podstawie walki i wydarzeń fabularnych.
-
-Ustawione tu wartości są domyślnymi wartościami startowymi dla nowych czatów. Same się nie aktualizują. Automatyczne zmiany wymagają włączenia w czacie odpowiedniego agenta. Pełne wyjaśnienie zawiera przewodnik [Kolory postaci i statystyki RPG](colors-and-stats.md).
+- **Enable RPG Attributes** włącza statystyki w stylu RPG: pule (Pools) i atrybuty (Attributes). Przy pierwszym włączeniu dostajesz startowe pule HP i MP z wartością 100 na 100 oraz startowe atrybuty STR, DEX, CON, INT, WIS i CHA, każdy z wartością 10. Te wartości są wysyłane razem z kartą persony na potrzeby walki (Combat) i trybu Game Mode oraz opcjonalnych rzutów w trybie Roleplay lub Game Mode. Agenci trackerów ich nie aktualizują.
 
 Gdy jest zainstalowany zestaw zasad Game Mode lub persona nadal przechowuje jego arkusz, pod obiema sekcjami pojawia się **Ruleset sheets** (arkusze zestawów zasad). To konfiguracja początkowa persony dla każdego zestawu, kopiowana do nowej gry. Zobacz [Arkusze zestawów zasad](colors-and-stats.md#ruleset-sheets).
+
+Ustawione tu wartości są domyślnymi wartościami startowymi dla nowych czatów. Paski stanu persony (Persona Status Bars) mogą aktualizować się automatycznie, gdy włączony jest agent Persona Stats; pule i atrybuty RPG persony nie są zarządzane przez agentów. Pełne wyjaśnienie zawiera przewodnik [Kolory postaci i statystyki RPG](colors-and-stats.md).
 
 ## Historia wersji
 
@@ -165,8 +166,8 @@ Przy każdym pliku widać ikonę powodzenia albo niepowodzenia oraz komunikat. L
 
 Eksport uruchamiasz ikoną **Export persona** w edytorze **Persona Editor** albo zbiorczą akcją **Export** w trybie zaznaczania w panelu. Okno **Export Persona** oferuje dwa formaty:
 
-- **Native**: zachowuje wszystkie szczegóły persony, sprite'y i przypisane lorebooki. Użyj tego formatu do przenoszenia persony między instalacjami aplikacji Marinara Engine.
-- **Compatible**: eksportuje wyłącznie podstawowe pola persony. Użyj tego formatu dla innych narzędzi, które nie znają formatu aplikacji Marinara Engine.
+- **Marinara Native**: zachowuje wszystkie szczegóły persony, sprite'y i przypisane lorebooki. Użyj tego formatu do przenoszenia persony między instalacjami aplikacji Marinara Engine.
+- **Compatible JSON**: eksportuje wyłącznie podstawowe pola persony. Użyj tego formatu dla innych narzędzi, które nie znają formatu aplikacji Marinara Engine.
 
 Eksport zbiorczy pobiera jeden plik zip z osobnym plikiem dla każdej zaznaczonej persony.
 

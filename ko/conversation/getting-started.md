@@ -12,6 +12,8 @@ Conversation 모드에는 메신저로 관계를 이어 갈 때만 의미가 있
 
 이런 Conversation 전용 기능은 Roleplay나 Game Mode에서는 동작하지 않습니다. 같은 캐릭터 카드를 그대로 가져다 써도 마찬가지입니다.
 
+반대로 동작하는 카드 필드도 있습니다. Conversation 채팅은 카드의 **First Message**(첫 메시지)나 다른 인사말로 시작하지 않습니다. 인사말로 시작하는 것은 Roleplay 채팅뿐입니다. 카드의 **Dialogue Highlight Color**(대사 하이라이트 색상)와 **Message Box Color**(메시지 말풍선 색상)도 쓰지 않습니다. **Name Display Color**(이름 색상)는 여전히 각 메시지 위의 캐릭터 이름에 색을 입힙니다. [색상이 적용되는 곳](../characters/colors-and-stats.md#where-your-colors-show)을 참고하세요.
+
 ### Conversation 모드가 어울릴 때
 
 다음 중 하나라도 원한다면 Conversation 모드를 고르세요.
@@ -167,7 +169,7 @@ Conversation 채팅의 캐릭터마다 주간 스케줄을 둘 수 있습니다.
 
 ### 셀카가 캐릭터처럼 보이지 않습니다
 
-**Selfies** 설정을 열고 **Attach Card Appearance**(카드 외형 첨부)를 켜세요. 사용 중인 이미지 제공자가 참조 이미지를 지원한다면 **Send Avatar References**(아바타 참조 전송)도 함께 켜세요. 자세한 내용은 [셀카](selfies.md)를 참고하세요.
+**Selfies** 설정을 열고 **Attach Card Appearance**(카드 외형 첨부)를 **Images only**(이미지만)나 **Images and videos**(이미지와 동영상)로 설정하세요. 사용 중인 이미지 제공자가 참조 이미지를 지원한다면 **Send Avatar References**(아바타 참조 전송)도 함께 설정하세요. 자세한 내용은 [셀카](selfies.md)를 참고하세요.
 
 ## 관련 가이드
 

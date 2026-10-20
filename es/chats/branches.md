@@ -24,6 +24,7 @@ Marinara copia el chat hasta ese mensaje inclusive en una rama nueva. La rama nu
 - Mantiene el mismo modo, personajes, persona, preset de prompt y conexión que el chat de origen.
 - Copia todos los mensajes, incluidos todos los swipes (respuestas alternativas) y cuál swipe estaba activo. Consulta la [guía de Acciones de mensaje](messages.md) para saber cómo funcionan los swipes.
 - Copia las instantáneas de estado del tracker y del estado del juego ligadas a los mensajes copiados, así los chats de Roleplay y de Game mantienen su estado.
+- Conserva el trabajo de Advanced Memory en un chat de Roleplay, así que no tienes que volver a preparar el historial copiado. Las memorias de escenas anteriores ya terminadas siguen listas para recuperarse. La escena desde la que creas la rama vuelve a ser la escena en curso, y sus memorias anteriores se eliminan. Consulta [Memory Recall y resúmenes del chat](../agents/memory.md).
 - Empieza con el nombre para mostrar **New Branch** (Rama nueva). Puedes renombrarla (ver más abajo).
 - Se queda en la misma carpeta de chats que el chat de origen.
 
@@ -73,6 +74,7 @@ La sección **Chat Branches** tiene botones de exportación en la parte superior
 
 - **JSONL**: descarga la rama como un archivo JSONL. JSONL significa un mensaje por línea de texto, y este formato es compatible con SillyTavern.
 - **Text**: descarga la rama como una transcripción de texto sin formato.
+- **Markdown** y **Story**: descargan la rama como un archivo Markdown legible o como una página web con estilo. Consulta [Formatos de archivo que verás](export-import.md#file-formats-you-will-see).
 
 Para exportar en bloque muchos chats a la vez, consulta [Exportar e importar chats](export-import.md). Esa guía también cubre la opción de incluir el razonamiento del modelo en las exportaciones.
 

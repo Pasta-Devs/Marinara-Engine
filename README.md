@@ -39,6 +39,10 @@ downloadable packs.
 [Chat window guide catch-up](audits/2026-10-04-chat-window-guides.md) tracks the
 in-progress #7054 update across all ten packs, including widget color controls.
 
+[2026-10-19 release catch-up](audits/2026-10-19-release-catchup.md) records the
+release inventory, the late English changes, the integration fixes, the UI pack
+coverage and the validation for all ten documentation packs and eleven UI packs.
+
 ## UI language packs
 
 `ui/<BCP-47>.json` contains community interface translations, separate from documentation folders.

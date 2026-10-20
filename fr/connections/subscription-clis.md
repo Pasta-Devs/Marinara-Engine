@@ -45,7 +45,7 @@ claude auth login
 3. Dans Marinara, ouvre le panneau **Connections** (Connexions) et clique sur **New** (Nouveau).
 4. Dans la fenêtre **Create Connection** (créer une connexion), saisis un nom, choisis le fournisseur **Claude (Subscription)**, puis clique sur **Create**.
 5. Dans l'éditeur, tu remarques qu'il n'y a ni champ **API Key** ni champ **Base URL**. Un panneau d'information confirme qu'ils ne sont pas nécessaires.
-6. Choisis un modèle Claude, par exemple un modèle Opus ou Sonnet, dans le menu déroulant **Model**.
+6. Choisis un modèle Claude, par exemple un modèle Opus ou Sonnet, dans le menu déroulant **Model**. La liste affiche les modèles que ta session Claude Code propose quand Claude Code en fournit une liste, sinon une liste intégrée.
 7. Clique sur **Save** (Enregistrer), puis sur **Send Test Message** (envoyer un message de test). Une courte réponse signifie que l'identification fonctionne.
 
 Les connexions Claude par abonnement gèrent uniquement le chat textuel. Cette connexion propose deux réglages supplémentaires, **Fast Mode** et **Diagnose Model Routing**, décrits plus bas.
@@ -73,7 +73,7 @@ codex login
 
 Marinara lit le fichier d'identification local de Codex et rafraîchit la session quand c'est possible.
 
-Pour régler le temps de réflexion de Codex avant qu'il réponde, ouvre la connexion, active l'interrupteur **Use custom defaults for this connection** (utiliser des valeurs par défaut propres à cette connexion) sous **Default Chat Parameters** (paramètres de chat par défaut), puis choisis un niveau dans **Reasoning Effort** (effort de raisonnement) ; il démarre sur **Default**. Un chat peut choisir son propre niveau dans **Advanced Parameters** (paramètres avancés). **Default** garde le niveau que Codex utilise pour le modèle. Codex s'en tient à cette valeur par défaut tant que la connexion ou le chat n'a pas choisi de niveau ; le niveau défini dans ton preset ne la change pas, et une connexion Codex utilisée comme connexion de secours ne suit que son propre niveau. Les agents qui utilisent cette connexion suivent le niveau de la connexion. Les niveaux correspondent à ceux que Codex propose pour chaque modèle : GPT-5.5 monte jusqu'à **xhigh**, et les modèles GPT-5.6 et GPT-6 jusqu'à **max**.
+Pour régler le temps de réflexion de Codex avant qu'il réponde, ouvre la connexion, active l'interrupteur **Use custom defaults for this connection** (utiliser des valeurs par défaut propres à cette connexion) sous **Default Chat Parameters** (paramètres de chat par défaut), puis choisis un niveau dans **Reasoning Effort** (effort de raisonnement) ; il démarre sur **Default**. Un chat peut choisir son propre niveau dans **Advanced Parameters** (paramètres avancés). **Default** garde le niveau que Codex utilise pour le modèle. Codex s'en tient à cette valeur par défaut tant que la connexion ou le chat n'a pas choisi de niveau ; le niveau défini dans ton preset ne la change pas, et une connexion Codex utilisée comme connexion de secours ne suit que son propre niveau. Les agents qui utilisent cette connexion suivent le niveau de la connexion. Les niveaux correspondent à ceux que Codex propose pour chaque modèle : GPT-5.5 monte jusqu'à **Extra high**, et les modèles GPT-5.6 et GPT-6 jusqu'à **Max**.
 
 ## Grok CLI (Subscription)
 
@@ -103,6 +103,8 @@ Pour charger les modèles Grok, utilise le bouton **Fetch Models from Grok CLI**
 ## Durée du cache de prompts Claude
 
 Dans l'éditeur de connexion Claude, **Prompt Caching → Extended token caching (1 hour)** demande un cache d'une heure pour permettre des pauses plus longues entre les messages. Il faut Claude Code **2.1.242 ou une version ultérieure**. Marinara transmet ce réglage pour la requête sans modifier tes paramètres Claude enregistrés.
+
+Ce réglage change aussi la part d'un chat que Claude peut réutiliser. Quand il est activé, Claude réutilise l'historique précédent du chat et ne traite de nouveau que la partie la plus récente. Quand il est désactivé, Claude ne réutilise que les instructions du début et traite de nouveau tout l'historique du chat à chaque message. Sur les longs chats, le réglage désactivé consomme une plus grande part de ton forfait.
 
 Quand l'option est désactivée, les conversations principales et les requêtes de l'Agent SDK conservent le comportement par défaut de Claude : actuellement une heure pour l'usage par abonnement dans les limites du forfait, et cinq minutes pour l'usage supplémentaire, les crédits ou la facturation API. Les sous-agents de Claude Code utilisent cinq minutes sans configuration distincte ; certaines requêtes auxiliaires contrôlées par le serveur peuvent utiliser une heure. Les variables d'environnement du CLI qui remplacent cette valeur restent prioritaires. Consulte [le cache de prompts de Claude Code](https://code.claude.com/docs/en/prompt-caching).
 

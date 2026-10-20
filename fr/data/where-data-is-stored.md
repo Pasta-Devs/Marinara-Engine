@@ -26,6 +26,7 @@ Les images, les fichiers audio et les autres médias occupent leurs propres doss
 | --- | --- |
 | `avatars` | Avatars des personnages et des personas |
 | `sprites` | Sprites des personnages |
+| `avatar-models` | Fichiers des agents **2D Avatars** et **3D Avatars**, comme les images PNGTuber et les modèles 3D |
 | `backgrounds` | Arrière-plans de chat que tu as téléversés |
 | `gallery` | Images de la galerie |
 | `fonts` | Polices personnalisées que tu as ajoutées |

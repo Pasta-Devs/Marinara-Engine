@@ -34,6 +34,8 @@ const tokens = marinara.estimateTextTokens(text);
 
 不管来源是什么，所有沙箱内的浏览器扩展都适用同一套界面能力和规则。导入的第三方（外部）扩展默认也跑在这个安全运行时里，除非它的扩展包明确申请 **Full page access**(整页访问权限)，或者用了下面讲到的沙箱之前的 `marinara.extension` 格式。
 
+<a id="add-a-marinara-rendered-panel"></a>
+
 ### 添加由 Marinara 渲染的面板
 
 ```js
@@ -105,6 +107,8 @@ marinara.ui.registerContribution({
 ```
 
 复杂工具可以在事件发生后更新面板元素，做出多步骤界面。应用状态放在 `marinara.storage` 里，不要编码进标记结构。
+
+<a id="use-active-chat-context"></a>
 
 ### 使用当前聊天的上下文
 
@@ -180,6 +184,8 @@ Marinara 会把不带显式 `capabilities` 字段的旧版 `kind: "marinara.exte
 旧的 `marinara.ui.showWindow(...)` API 仍然可用，它会在不透明源 iframe 里开一个临时窗口，用的是同一组固定控件，返回 `update(...)` 和 `close()` 句柄。如果希望这个工具能从 Marinara 的常规导航里进入，优先用界面贡献。
 
 服务器扩展跑在一个独立的、权限受限的 Node 进程里，外面套着 macOS Seatbelt 或 Linux Bubblewrap。它访问不到 Marinara 的文件、用户文件、继承来的服务器密钥、网络、子进程、Worker 和原生插件。如果 Marinara 建立不起受支持的操作系统沙箱，服务器扩展就一直保持禁用。
+
+<a id="platform-support"></a>
 
 ### 平台支持
 

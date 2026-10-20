@@ -271,6 +271,8 @@ Każde pole obsługujące makra ma w rogu dwa małe przyciski:
 - Przycisk **Expand editor** otwiera większe okno edycji tego pola.
 - Przycisk **Macro reference** otwiera okno o tytule **Macro reference**, w którym są wszystkie wbudowane makra podzielone na kategorie, każde z dokładną składnią. Lista powstaje z tego samego źródła, którego używa silnik, więc zawsze jest aktualna.
 
+Te pola same też dokańczają nazwy makr. Wpisz `{{ch` na końcu wiersza, a reszta, `ar}}`, pojawi się bladym tekstem. Naciśnij Tab albo dotknij bladego tekstu, żeby go przyjąć. Pisz dalej, żeby go zignorować. W makrze, które przyjmuje wartość, na przykład `{{getvar::`, uzupełnienie kończy się w miejscu, w którym wpisujesz wartość.
+
 Można też wpisać `/macros` w polu czatu (krótsza forma `/macro` również działa). Pełna lista makr wypisuje się wtedy wprost na czacie, jako szybka ściągawka.
 
 Bloki warunkowe łączą porównania operatorami `||` (LUB) i `&&` (ORAZ) oraz nawiasami. Listy równości można zapisać zwięźle: `{{#if character == "Maukie" || "Pantalone"}}`. Kolejność działań, przykłady dla czatu grupowego i pełną listę operatorów opisuje przewodnik [Prompty warunkowe](conditional-prompts.md).

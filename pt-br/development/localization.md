@@ -77,12 +77,12 @@ alguém com fluência no idioma precisa revisar a terminologia, o tom, os textos
 Para uma pequena correção de redação, o editor web do GitHub já resolve:
 
 1. Abra o locale em
-   [`ui/`](https://github.com/Pasta-Devs/Marinara-Engine/tree/docs-i18n/ui).
+   [`ui/` na branch `docs-i18n`](https://github.com/Pasta-Devs/Marinara-Engine/tree/docs-i18n/ui).
 2. Clique no ícone de lápis para editar o arquivo. Se precisar, o GitHub oferece a criação de um fork.
 3. Mude apenas o valor traduzido. Preserve a chave, os marcadores sensíveis à pontuação, como `{{name}}`, e a sintaxe
    JSON.
 4. Faça o commit da mudança em uma branch focada dentro do seu fork.
-5. Atualize o manifesto e valide o pacote com o comando abaixo. Depois abra um pull request para **`docs-i18n`**, não para `staging` ou `main`. ([`validate-packs.mjs`](#enviar-uma-localiza%C3%A7%C3%A3o-nova))
+5. Atualize o manifesto e valide o pacote com o comando abaixo. Depois abra um pull request para **`docs-i18n`**, não para `staging` ou `main`.
 6. Na descrição do PR, diga qual é o idioma, explique o sentido corrigido e informe se você tem fluência no idioma
    ou usou ajuda de máquina.
 
@@ -92,8 +92,6 @@ Deixe mudanças de código não relacionadas em outro lugar.
 ## Enviar uma localização nova
 
 Para um idioma novo, mantenha um checkout de Engine em `staging` como fonte em inglês e trabalhe em `docs-i18n`:
-
-`/path/to/Engine` indica um checkout existente e separado da branch `staging`, que contém `packages/client/src/localization/locales/en.json`. Os comandos a seguir criam o checkout adicional para as traduções.
 
 ```bash
 git clone https://github.com/YOUR-NAME/Marinara-Engine.git
@@ -160,6 +158,13 @@ vazio, os avisos e as confirmações. O conteúdo literal dentro dos elementos `
 propósito, para que comandos, configuração, URLs, macros e outros exemplos voltados à máquina continuem exatos.
 Valores dinâmicos criados por você, gerados, gravados, de prompt e de protocolo também precisam ficar fora do
 tradutor da interface.
+
+A busca das configurações, a omnibar e a Professor Mari leem os nomes das configurações em `SETTINGS_SEARCHABLE_CONTROLS`, em
+`packages/client/src/lib/settings-registry.ts`. Cada controle ali tem uma `labelKey` e uma `descriptionKey` ao lado
+do `label` e da `description` em inglês. Reutilize a chave existente do controle quando o texto em inglês for o mesmo; caso contrário,
+acrescente `settings.search.<id>.label` ou `.description` ao `en.json`, com o id do controle em camelCase (por exemplo,
+`settings.search.hideChatHelpButton.description`). `pnpm localization:check` falha quando um controle não tem
+chave, quando falta uma chave no `en.json` ou quando o inglês do registro não corresponde mais ao texto do `en.json`.
 
 ## Interfaces de Agentes que você baixa
 

@@ -12,6 +12,8 @@ Manche Serververhaltensweisen sind optional. Du aktivierst sie unter **Settings 
 | --- | --- | --- | --- |
 | **Stable lorebook picks** (stabile Lorebook-Auswahl) | `stableLorebookGroupPicks` | Aus | `LOREBOOK_STABLE_GROUP_WINNERS` |
 | **Retry failed provider calls** (fehlgeschlagene Anbieteraufrufe wiederholen) | `providerRetry` | Aus | `PROVIDER_RETRY_TRANSIENT_ERRORS` |
+| **Lorebook activation stats** (Lorebook-Aktivierungsstatistik) | `usageAndActivationStats` | Aus | keine |
+| **Recover deleted chat messages** (gelöschte Chat-Nachrichten wiederherstellen) | `messageTrash` | Aus | keine |
 
 Die Einstellungssuche nach `features` führt zu diesem Bereich.
 
@@ -48,6 +50,26 @@ Einstellungsschlüssel: `providerRetry`. Umgebungsvariable: `PROVIDER_RETRY_TRAN
 An: Abgelehnte oder nicht erreichbare Verbindungen sowie Gateway-Fehler 502/503 werden höchstens zweimal nach einer kurzen zufällig variierten Wartezeit wiederholt, und nur bevor Text bei dir angekommen ist. 504 und abgebrochene Verbindungen werden nie wiederholt. Hat die Verbindung einen Fallback, wird stattdessen sofort dieser versucht.
 
 Aus: Wie bisher werden nur Anfragen mit Ratenbegrenzung wiederholt.
+
+<a id="lorebook-activation-stats"></a>
+
+### Lorebook-Aktivierungsstatistik
+
+Einstellungsschlüssel: `usageAndActivationStats`. Keine Umgebungsvariable.
+
+An: Sobald eine Antwort erfolgreich gespeichert ist, hält Marinara fest, welche Lorebook-Einträge aktiviert wurden, sodass du Einträge im Lorebook-Editor nach ihrer Nutzung sortieren und filtern kannst. Textstücke, die über Continue angehängt werden, legen keine Aktivierungseinträge an.
+
+Aus: Es wird nichts festgehalten, und der Lorebook-Editor blendet seine Aktivierungsstatistik aus.
+
+<a id="recover-deleted-chat-messages"></a>
+
+### Gelöschte Chat-Nachrichten wiederherstellen
+
+Einstellungsschlüssel: `messageTrash`. Keine Umgebungsvariable.
+
+An: Gelöschte Chat-Nachrichten landen im Tab **Trash** (Papierkorb) der Chat-Suche. Dort holst du sie innerhalb von 30 Tagen mit **Restore** (Wiederherstellen) zurück; danach werden sie endgültig entfernt. Game-Nachrichten und Löschungen durch ein Zurücksetzen bleiben weiterhin endgültig.
+
+Aus: Gelöschte Nachrichten werden sofort entfernt.
 
 <a id="precedence"></a>
 

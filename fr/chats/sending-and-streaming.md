@@ -65,13 +65,13 @@ Le streaming affiche la réponse mot après mot pendant la génération, au lieu
 |---|---|---|
 | **Enable streaming** | On | Affiche la réponse mot après mot pendant la génération |
 | **Streaming speed** | 50 | Règle la vitesse d'affichage du texte à l'écran |
-| **Trim incomplete model endings** | Off | Coupe une phrase inachevée en fin de réponse avant l'enregistrement |
+| **Trim incomplete sentences from the response** | Off | Coupe une phrase inachevée en fin de réponse avant l'enregistrement |
 
 **Streaming speed** est un curseur de 1 à 100. Une valeur basse donne un effet machine à écrire plus lent, pratique pour lire en même temps. Une valeur haute affiche le texte presque instantanément. Marinara lisse l'arrivée irrégulière des tokens – ces petits morceaux de texte – pendant que le modèle écrit, puis termine la réponse à la vitesse choisie. Ce réglage ne change rien à la vitesse d'écriture du modèle lui-même.
 
 Quand **Enable streaming** est désactivé, la réponse complète apparaît d'un seul coup, une fois le modèle arrivé au bout.
 
-**Trim incomplete model endings** n'agit que sur le message enregistré. Une fois activé, Marinara supprime une phrase inachevée en fin de réponse. Les réponses complètes et les fins en style commande restent intactes.
+**Trim incomplete sentences from the response** n'agit que sur le message enregistré. Une fois activé, Marinara supprime une phrase inachevée en fin de réponse. Les réponses complètes et les fins en style commande restent intactes.
 
 ## Indicateurs de saisie et de progression
 
@@ -95,7 +95,7 @@ Si le statut de présence d'un personnage indique qu'il est occupé ou absent, u
 
 Certains modèles exposent une trace de raisonnement cachée, souvent appelée "thinking". Marinara la garde à part de la réponse visible.
 
-Quand une réponse comporte une trace de réflexion, une action **View thoughts** (voir les pensées), symbolisée par un cerveau, apparaît sur ce message. Clique dessus pour ouvrir un panneau qui affiche le texte du raisonnement capturé.
+Quand une réponse comporte une trace de réflexion, une action **View model thoughts** (voir les pensées du modèle), symbolisée par un cerveau, apparaît sur ce message. Clique dessus pour ouvrir un panneau qui affiche le texte du raisonnement capturé.
 
 Encore faut-il que le modèle renvoie effectivement ce raisonnement. Certains modèles l'encadrent avec des balises en texte brut. Dans ce cas, définis des **Thinking Tags** (balises de réflexion) personnalisées sur la connexion : Marinara pourra ainsi séparer le raisonnement caché de la réponse visible. Plusieurs paires de balises courantes sont déjà reconnues. Le guide des paramètres de génération, plus bas, explique comment renseigner les **Thinking Tags**.
 

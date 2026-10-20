@@ -18,6 +18,8 @@ Aby zmienić nazwę folderu, kliknij dwukrotnie wiersz folderu, a na ekranie dot
 
 Aby wrzucić połączenie do folderu, przeciągnij wiersz połączenia i upuść go na folderze. Aby wyjąć połączenie z powrotem, przeciągnij je na obszar pod folderami. W trakcie przeciągania widać podpowiedź **Drop here to move out of folder**.
 
+Na ekranie dotykowym naciśnij i przytrzymaj wiersz, żeby go podnieść, a potem go przeciągnij. Zwykłe przesunięcie palcem nadal przewija listę.
+
 Aby zwinąć lub rozwinąć folder, kliknij jego wiersz raz. Mała liczba w wierszu folderu pokazuje, ile połączeń jest w środku.
 
 Aby usunąć folder, kliknij ikonę kosza w jego wierszu. Jeśli w folderze wciąż są połączenia, Marinara prosi o potwierdzenie w oknie **Delete Folder** (usunięcie folderu). Pusty folder znika od razu, bez pytania o potwierdzenie. Usunięcie folderu nie usuwa połączeń, które są w środku. Te połączenia wracają do obszaru poza folderami.
@@ -36,7 +38,7 @@ Lista rozwijana **Sort order** (kolejność sortowania) obok pola wyszukiwania z
 | **Newest** | Najnowsze połączenia na górze. |
 | **Oldest** | Najstarsze połączenia na górze. |
 
-Aby ustawić własną kolejność, przeciągaj wiersze połączeń w górę lub w dół. Przeciągnięcie połączenia automatycznie przełącza sortowanie na **Custom**.
+Aby ustawić własną kolejność, przeciągaj wiersze połączeń w górę lub w dół. Przeciągnięcie połączenia automatycznie przełącza sortowanie na **Custom**. Wiersz, który ma fokus, możesz też przesunąć skrótem Alt+strzałka w górę albo Alt+strzałka w dół.
 
 ## Duplikowanie i usuwanie
 
@@ -58,6 +60,8 @@ Aby dodać połączenie do puli losowej, kliknij ikonę tasowania w jego wierszu
 
 Aby czat korzystał z puli losowej, otwórz **Chat Settings** (ustawienia czatu), znajdź sekcję **Connection** i wybierz z listy rozwijanej opcję **🎲 Random**. W trybie Game Mode ta lista rozwijana nosi nazwę **GM / Party Model**. Każda odpowiedź losuje wtedy połączenie z puli.
 
+Jeśli połączenie wylosowane dla odpowiedzi zawiedzie, a dla **Main** ustawiono połączenie zapasowe (fallback), odpowiedź pisze połączenie zapasowe. Powiadomienie podaje połączenie, które zawiodło, jego model i krótki powód, na przykład "key rejected", "rate limited" albo "not found", dzięki czemu wiadomo, które połączenie z puli wymaga poprawy. Odpowiedź zachowuje małą etykietę **Fallback** (połączenie zapasowe); dotknij jej albo wskaż ją kursorem, żeby znów zobaczyć tę samą informację.
+
 Panel **Quick Connection Switcher** to szybszy sposób na zmianę połączenia w otwartym czacie, a także jego modelu. Kliknij ikonę ogniwa w polu wpisywania wiadomości, żeby go otworzyć. Po lewej stronie widać połączenia, a po prawej kolumnę **Models** (modele) wybranego połączenia:
 
 - Kliknij połączenie, żeby od razu użyć go w bieżącym czacie. Menu zostaje otwarte, więc zaraz potem da się wybrać jeden z modeli tego połączenia.
@@ -69,7 +73,7 @@ Panel **Quick Connection Switcher** to szybszy sposób na zmianę połączenia w
 - Kliknij przycisk z kością u góry menu, żeby włączyć lub wyłączyć pulę losową dla tego czatu.
 - Gdy pula losowa jest włączona, kliknięcie połączenia dodaje je do puli albo z niej usuwa. Znacznik pokazuje, które połączenia są w puli. Kolumna **Models** jest wtedy ukryta, bo pula nie ma jednego połączenia.
 
-Na telefonie dotknij strzałki obok pola wiadomości i otwórz zakładkę **Connections**. Dotknięcie połączenia wybiera je i pokazuje jego modele w tym samym menu; strzałka wstecz wraca do listy połączeń.
+Na telefonie dotknij strzałki obok pola wiadomości i otwórz zakładkę **Connections**. Dotknij połączenia, żeby przełączyć na nie czat; menu się zamyka. Żeby wybrać model, dotknij zamiast tego strzałki na prawym końcu wiersza połączenia. Jego modele otwierają się w tym samym menu, a czat przełącza się dopiero po wybraniu jednego z nich. Strzałka wstecz wraca do listy połączeń.
 
 **Zmiana modelu obowiązuje wszędzie, gdzie używane jest to połączenie.** Napis u dołu menu, "Model changes are saved to this connection.", oznacza, że agenci, funkcje pomocnicze i inne czaty korzystające z tego samego połączenia też przechodzą na nowy model. Pozostałe ustawienia modeli w połączeniu, takie jak model embeddingu czy połączenie do opisywania obrazów, się nie zmieniają. Jeśli inny model jest potrzebny tylko do jednego zadania, zduplikuj połączenie i zmień kopię.
 

@@ -6,7 +6,8 @@ In dieser Anleitung erfährst du alles über das **Characters panel** (Charakter
 
 Das **Characters panel** ist die Charakterliste im Seiten-Panel. Dort landet jeder Charakter, den du erstellt oder importiert hast. Am oberen Rand des Panels stehen dir diese Möglichkeiten offen:
 
-- **Open Full Library** (Vollständige Bibliothek öffnen) zeigt dieselben Charaktere in einer größeren Rasteransicht über die ganze Seite.
+- **Download** (Herunterladen) öffnet den [Card Browser](bot-browser.md), mit dem du Charaktere auf öffentlichen Seiten findest.
+- **Open Library** (Bibliothek öffnen) zeigt dieselben Charaktere in einer größeren Rasteransicht über die ganze Seite.
 - Die Schaltfläche **New** (Neu, das Plus-Symbol) öffnet das Fenster **Create Character** (Charakter erstellen).
 - Die Schaltfläche **Import** (Importieren, das Download-Symbol) importiert eine Charakterdatei.
 - Die Schaltfläche **Select** (Auswählen, das Haken-Symbol) schaltet den Mehrfachauswahl-Modus für Sammelaktionen ein.
@@ -43,11 +44,14 @@ Neben dem Suchfeld sitzt das Sortier-Dropdown-Menü. Zur Wahl stehen diese Reihe
 
 | Option        | Wirkung                              |
 | ------------- | ------------------------------------ |
+| **Manual order** (manuelle Reihenfolge) | Die Reihenfolge, die du selbst festlegst. |
 | **A-Z**       | Namen von A bis Z.                   |
 | **Z-A**       | Namen von Z bis A.                   |
 | **Newest**    | Zuletzt erstellte zuerst.            |
 | **Oldest**    | Zuerst erstellte zuerst.             |
 | **Favorites** | Favoriten zuerst, dann der Rest.     |
+
+Für eine manuelle Reihenfolge ziehst du eine Charakterzeile nach oben oder unten. Du kannst auch auf einer fokussierten Zeile Alt+Pfeil nach oben oder Alt+Pfeil nach unten drücken. Beides stellt die Sortierung auf **Manual order** um.
 
 ## Ordner
 
@@ -61,7 +65,9 @@ So legst du einen Ordner an:
 
 Zum Umbenennen machst du einen Doppelklick auf den Ordner, tippst zweimal darauf oder wählst ihn aus und drückst F2. Tipp den neuen Namen ein und drück Enter.
 
-Um einen Charakter in einen Ordner zu legen, zieh die Charakterzeile auf den Ordner und lass sie dort los. Sobald mindestens ein Ordner existiert, erscheint der Hinweis **Drag and drop characters to folders, double-click or double-tap to rename**. Wieder heraus kommt ein Charakter, indem du im Ordner auf seine Zeile zeigst und auf die Schaltfläche zum Entfernen aus dem Ordner klickst – oder indem du ihn herauszieht.
+Um einen Charakter in einen Ordner zu legen, zieh die Charakterzeile auf den Ordner und lass sie dort los. Sobald mindestens ein Ordner existiert, erscheint der Hinweis **Drag and drop characters to folders, double-click or double-tap to rename**. Wieder heraus kommt ein Charakter, indem du im Ordner auf seine Zeile zeigst und auf die Schaltfläche zum Entfernen aus dem Ordner klickst – oder indem du ihn herausziehst.
+
+Auf einem Touchscreen hältst du eine Zeile gedrückt, um sie aufzunehmen, und ziehst sie dann. Eine normale Wischbewegung scrollt weiterhin die Liste. Während du eine Zeile hältst, tippst du mit einem zweiten Finger auf weitere Zeilen, um sie als Stapel mitzunehmen, und lässt den Stapel dann auf einem Ordner los.
 
 Ein Klick auf den Ordner klappt ihn auf oder zu. Die Zahl neben dem Ordnernamen zeigt, wie viele Charaktere darin liegen.
 

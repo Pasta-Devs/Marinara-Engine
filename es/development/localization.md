@@ -72,11 +72,11 @@ Las traducciones producidas por máquina son bienvenidas como un borrador inicia
 Para una pequeña corrección de redacción, el editor web de GitHub es suficiente:
 
 1. Abre la configuración regional en
-   [`ui/`](https://github.com/Pasta-Devs/Marinara-Engine/tree/docs-i18n/ui).
+   [`ui/` de `docs-i18n`](https://github.com/Pasta-Devs/Marinara-Engine/tree/docs-i18n/ui).
 2. Selecciona el icono de lápiz para editar el archivo. GitHub te ofrecerá crear una bifurcación si hace falta.
 3. Cambia solo el valor traducido. Conserva su clave, los tokens sensibles a la puntuación como `{{name}}` y la sintaxis JSON.
 4. Confirma el cambio en una rama enfocada de tu bifurcación.
-5. Actualiza el manifiesto y valida el paquete con el comando siguiente. Después abre un pull request contra **`docs-i18n`**, no contra `staging` ni `main`. ([`validate-packs.mjs`](#enviar-una-nueva-localizaci%C3%B3n))
+5. Actualiza el manifiesto y valida el paquete con el comando siguiente. Después abre un pull request contra **`docs-i18n`**, no contra `staging` ni `main`.
 6. En la descripción del PR, indica el idioma, explica el significado corregido y di si eres un hablante fluido o si usaste asistencia de máquina.
 
 Usa un título como `Improve French UI translation`. Varias correcciones relacionadas de una misma configuración regional pueden compartir un PR. Mantén separados los cambios de código no relacionados.
@@ -84,8 +84,6 @@ Usa un título como `Improve French UI translation`. Varias correcciones relacio
 ## Enviar una nueva localización
 
 Para un idioma nuevo, conserva una copia de trabajo de Engine en `staging` como fuente en inglés y trabaja en `docs-i18n`:
-
-`/path/to/Engine` es una copia de trabajo existente y separada de la rama `staging`, que contiene `packages/client/src/localization/locales/en.json`. Los siguientes comandos crean la copia adicional para las traducciones.
 
 ```bash
 git clone https://github.com/YOUR-NAME/Marinara-Engine.git
@@ -139,6 +137,8 @@ pnpm localization:ui-check
 ```
 
 Cubre el JSX visible, las etiquetas y los avisos interpolados directamente, los nombres accesibles, los marcadores de posición, los estados de carga y vacíos, los toasts y las confirmaciones. El contenido literal dentro de los elementos `code`, `pre`, `script` y `style` se excluye a propósito para que los comandos, la configuración, las URLs, las macros y otros ejemplos orientados a la máquina se mantengan exactos. Los valores dinámicos creados por el usuario, generados, persistidos, de prompt y de protocolo deben mantenerse igualmente fuera del traductor de la interfaz.
+
+La búsqueda de ajustes, el omnibar y Professor Mari leen los nombres de los ajustes de `SETTINGS_SEARCHABLE_CONTROLS` en `packages/client/src/lib/settings-registry.ts`. Cada control ahí lleva un `labelKey` y un `descriptionKey` junto a su `label` y su `description` en inglés. Reutiliza la clave existente del control cuando su texto en inglés es el mismo; si no, añade `settings.search.<id>.label` o `.description` a `en.json`, con el id del control en camelCase (por ejemplo, `settings.search.hideChatHelpButton.description`). `pnpm localization:check` falla cuando un control no tiene clave, cuando falta una clave en `en.json` o cuando el inglés del registro ya no coincide con el texto de `en.json`.
 
 ## Interfaces de Agentes descargables
 

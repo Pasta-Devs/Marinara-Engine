@@ -20,12 +20,13 @@
 
 面板里有这些控件：
 
-- **Open Full Library**(打开完整库) 会打开自适应的整页 Persona Library。它和 Character Library 用的是同一套网格加预览的布局，会显示用户角色描述、卡片分区、标签、Token(模型切分文本的最小单位) 估算量。
+- **Download**(下载) 会打开 [Card Browser](bot-browser.md)，在那里也能找到 PlotLight 上的用户角色。
+- **Open Library**(打开资料库) 会打开自适应的整页 Persona Library。它和 Character Library 用的是同一套网格加预览的布局，会显示用户角色描述、卡片分区、标签、Token(模型切分文本的最小单位) 估算量。
 - **New**(新建) 用于创建用户角色。
 - **Import**(导入) 会打开 **Import Persona**(导入用户角色) 窗口。
 - **Select**(选择) 开启批量选择模式，可以一次处理多个用户角色。
 - 搜索框的占位文字是 **Search personas**，能匹配名称、描述、备注和标签。
-- 排序下拉菜单提供 **A-Z**、**Z-A**、**Newest**、**Oldest** 和 **Tokens**(估算的提示词长度)。
+- 排序下拉菜单提供 **Manual order**(手动排序)、**A-Z**、**Z-A**、**Newest**、**Oldest** 和 **Tokens**(估算的提示词长度)。**Manual order** 会保持你设定的顺序：把某一行向上或向下拖动，或者在选中的行上按 Alt+Up 或 Alt+Down。在触屏上，长按某一行即可把它拿起来。
 - **New Folder**(新建文件夹) 用于建文件夹，方便整理用户角色。
 - 点 **Tags** 按钮可以展开用于筛选的标签列表。
 
@@ -82,7 +83,7 @@
 - **Personality**：性情、行为方式、说话习惯和情绪特点。
 - **Backstory**：经历、出身、人际关系和关键事件。
 - **Appearance**：外貌描述、穿着，以及希望模型记住的视觉细节。
-- **Image Appearance Override**(图像专用外貌)：位于 **Appearance** 下方，是一个可选开关，默认关闭。打开后会显示第二个输入框，用来填写适合图像提示词的用户角色外貌描述。开关打开且输入框有内容时，图像提示词会用这段文字代替 **Appearance**。关闭开关或留空输入框，就会使用 **Appearance**。负责写旁白的模型始终会收到 **Appearance** 的完整内容。
+- **Image Appearance Override**(图像专用外貌)：位于 **Appearance** 下方，是一个可选开关，默认关闭。打开后会显示第二个输入框，用来填写描述你的用户角色的简短图像标签，例如 LoRA 触发词。开关打开且输入框有内容时，图像提示词会原样使用这些标签，**Appearance** 则作为背景信息保留。负责写旁白的模型始终会收到 **Appearance** 的完整内容。
 - **Scenario**：角色扮演时的默认处境或情境，用来交代用户角色从哪里开场。
 
 这些文本框支持宏。输入的引号会自动调整成应用设置的引号样式。
@@ -119,11 +120,11 @@
 **Stats** 选项卡分成两块，两块都会送到聊天时屏幕上的属性显示区（HUD，即聊天上方的信息条）。
 
 - **Enable Persona Stats**(启用用户角色属性) 会开启饥饿、精力、心情这类需求的状态条。第一次启用时会得到 Satiety、Energy、Hygiene 和 Mood 四条初始状态条，数值都是 100，满值 100。**Persona Stats** 智能体会随着剧情推进调整这些数值。
-- **Enable RPG Attributes**(启用 RPG 属性值) 会开启 RPG 式属性和 HP。第一次启用时会得到 STR、DEX、CON、INT、WIS、CHA 六项初始属性，数值都是 10。**Character Tracker** 智能体可以根据战斗和剧情事件调整它们。
+- **Enable RPG Attributes**(启用 RPG 属性值) 会开启 RPG 式的 Pools 和 Attributes。第一次启用时会得到 HP 和 MP 两个初始 Pools，数值都是 100，满值 100，以及 STR、DEX、CON、INT、WIS、CHA 六项初始 Attributes，数值都是 10。这些数值会随用户角色卡一起发送，用于 Combat 和 Game Mode，以及 Roleplay 或 Game Mode 中的可选掷骰。追踪器智能体不会更新它们。
 
-这里设置的数值是新聊天的起始默认值，本身不会自动变化。想让它们自动更新，需要在聊天里启用对应的智能体。完整说明见[角色颜色与 RPG 属性](colors-and-stats.md)。
+安装了 Game Mode 规则集，或者用户角色仍保存着你已经没有的规则集的人物卡时，这两部分下方会出现 **Ruleset sheets**(规则集人物卡) 区块。它保存你的用户角色在每个规则集下的初始配置，使用该规则集的新游戏会复制一份。见[规则集人物卡](colors-and-stats.md#ruleset-sheets)。
 
-安装了 Game Mode 规则集，或 Persona 仍保存其角色表时，两部分下方会出现 **Ruleset sheets**。这是 Persona 在各规则集下的初始配置，会复制到新游戏中。参见[规则集角色表](colors-and-stats.md#ruleset-sheets)。
+这里设置的数值是新聊天的起始默认值。启用 Persona Stats 智能体后，Persona Status Bars 可以自动更新；用户角色的 RPG Pools 和 Attributes 不由智能体管理。完整说明见[角色颜色与 RPG 属性](colors-and-stats.md)。
 
 ## 版本历史
 
@@ -165,8 +166,8 @@
 
 可以点 **Persona Editor** 里的 **Export persona** 图标导出，也可以在面板的选择模式下用批量 **Export**(导出) 操作。**Export Persona**(导出用户角色) 窗口提供两种格式：
 
-- **Native**：保留全部 Marinara 用户角色细节、立绘和挂载的世界书。在两个 Marinara 安装之间搬用户角色时用这个。
-- **Compatible**：只导出普通的用户角色字段。给不认识 Marinara 格式的其他工具用。
+- **Marinara Native**：保留全部 Marinara 用户角色细节、立绘和挂载的世界书。在两个 Marinara 安装之间搬用户角色时用这个。
+- **Compatible JSON**：只导出普通的用户角色字段。给不认识 Marinara 格式的其他工具用。
 
 批量导出会下载一个 zip 文件，里面每个选中的用户角色各占一个文件。
 

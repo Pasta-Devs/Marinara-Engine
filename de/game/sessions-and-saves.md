@@ -1,6 +1,6 @@
 # Game Mode: Sitzungen und Spielstände
 
-In dieser Anleitung erfährst du, wie Marinara Engine deinen Fortschritt im Game Mode über mehrere Sitzungen hinweg mitführt. Es geht ums Beenden und Starten einer Sitzung und ums Nachlesen früherer Sitzungen in **Session History** (Sitzungsverlauf). Außerdem lernst du die Ansicht **Show Spoilers** (Spoiler anzeigen) kennen und erfährst, wie das Spiel deine Daten speichert.
+In dieser Anleitung erfährst du, wie Marinara Engine deinen Fortschritt im Game Mode über mehrere Sitzungen hinweg mitführt. Es geht ums Beenden und Starten einer Sitzung und ums Nachlesen früherer Sitzungen in **Session History** (Sitzungsverlauf). Außerdem lernst du die Ansicht **Show Spoilers** (Spoiler anzeigen) kennen und erfährst, wie du die Daten des Spiels von Hand korrigierst und wie das Spiel deine Daten speichert.
 
 ## Was eine Sitzung ist
 
@@ -122,11 +122,41 @@ Ein erneuter Klick auf dieselbe Schaltfläche blendet die Notizen wieder aus. Si
 
 Diese Geheimnisse lassen sich auch bearbeiten – das wirkt wie ein Cheat-Panel für den Game Master. Klick auf **Edit Spoilers**, ändere den Text und klick dann auf **Save Spoilers**. Manche Felder erscheinen als JSON, ein strukturiertes Textformat. Bearbeite JSON-Felder nur, wenn du das Format kennst: Fehlerhaftes JSON lässt sich nicht speichern.
 
+<a id="editing-game-data-by-hand"></a>
+
+## Spieldaten von Hand bearbeiten
+
+Wenn der Game Master etwas falsch macht, etwa beim Ruf eines NPC oder bei einer Quest, die offen bleibt, kannst du die gespeicherten Daten des Spiels selbst korrigieren.
+
+1. Öffne **Game controls** (Spielsteuerung) und wähle **Edit game data** (Spieldaten bearbeiten). Am Telefon steckt **Game controls** im Drei-Punkte-Menü **Chat tools**.
+2. Das Fenster **Game Data** (Spieldaten) öffnet sich. Oben steht die Warnung „Hand edits can break a game. Every change is checked before it saves, and names can't change here.“ Sie bedeutet: Änderungen von Hand können ein Spiel kaputt machen, jede Änderung wird vor dem Speichern geprüft, und Namen lassen sich hier nicht ändern.
+3. Wähl einen Abschnitt aus der Liste oder am Telefon aus der Reihe von Chips. Du kannst auch etwas in das Suchfeld eingeben, um einen Wert in allen Abschnitten gleichzeitig zu finden.
+4. Ändere Werte unter **Fields** (Felder) oder wechsle zu **JSON**, um die Rohdaten zu bearbeiten.
+5. Klick auf **Review changes** (Änderungen prüfen), um genau zu sehen, was sich ändert, und dann auf **Save changes** (Änderungen speichern).
+
+Ändern kannst du **Party Cards**, **Party Sheet**, **NPCs**, **Journal**, **Player Notes**, **Inventory**, **Story**, **Session Summaries**, **World Edits** (Weltbearbeitungen), **Story Script** und **HUD Widgets**. Ein Abschnitt erscheint nur, wenn das Spiel diese Daten hat. Ein Spiel ohne Welt hat also keine **World Edits**. Die übrigen Abschnitte, etwa **World**, **Maps & Position**, **Time, Weather & Morale**, **Combat** und **Settings**, sind als **Read-only** markiert. Du kannst sie lesen und durchsuchen, aber das Spiel pflegt sie selbst. Einstellungen für Prompts, Bilder, Musik und Würfel änderst du in **Chat Settings** (Chat-Einstellungen).
+
+Jede Änderung wird vor dem Speichern geprüft:
+
+- Namen lassen sich nicht ändern, weil Karten, NPCs, die Party und Taschen einander über den Namen finden. Partymitglieder lassen sich hier weder hinzufügen noch entfernen.
+- Der Ruf eines NPC reicht von -100 bis 100.
+- Unter **Inventory** kannst du bei einem Gegenstand Menge, Spitznamen und Träger ändern und festlegen, ob er getragen, eingestimmt oder eingeschaltet ist. Lass einen Stapel weg, um ihn zu entfernen, oder füg einen ohne ID hinzu, um einen Gegenstand hinzuzufügen.
+- Unter **Session Summaries** lässt sich nur der Text einer Sitzung ändern.
+- **World Edits** enthält deine Änderungen von Hand an der Welt, etwa umbenannte Orte oder hinzugefügte Personen. Die Welt selbst wird nie verändert.
+
+Lässt sich eine Änderung nicht speichern, nennt der Editor den Grund, und der Abschnitt behält deinen Entwurf, damit du ihn korrigieren kannst. Hat das Spiel dieselben Daten geändert, während du bearbeitet hast, wird das Speichern abgelehnt, damit es die Änderung des Spiels nicht rückgängig macht. **Reload** (neu laden) zeigt die Fassung des Spiels und verwirft deine Entwürfe.
+
+Vor jedem Speichern versucht das Spiel, einen Checkpoint anzulegen. Er ist unter **Checkpoints** mit **Before a State Editor save** markiert. Geht eine Änderung schief, lade diesen Checkpoint, um sie rückgängig zu machen (siehe unten).
+
+Das Fenster funktioniert wie der State Editor in Roleplay. Siehe [Der State Editor](../roleplay/hud-and-trackers.md#the-state-editor).
+
+<a id="how-your-game-saves"></a>
+
 ## Wie das Spiel speichert
 
 Game Mode speichert deinen Fortschritt automatisch. Eine Speichern-Schaltfläche brauchst du nicht. Welt, Party, Karte, Inventar, Spielzeit und Sitzungszusammenfassungen bleiben beim Spielen von selbst erhalten.
 
-Im Hintergrund legt die App außerdem automatische Checkpoints an: beim Start und beim Ende einer Sitzung, zu Beginn und am Ende eines Kampfes, wenn du einen neuen Ort erreichst, und in automatischen Abständen. Auch der Spieldaten-Editor versucht, vor jedem Speichern einen anzulegen; ein Spiel, das so neu ist, dass sein erster Zug noch nicht gespeichert ist, hat allerdings noch nichts, was ein Checkpoint festhalten könnte. Unter **Game controls → Checkpoints** (Spielsteuerung → Checkpoints) siehst du sie, die neuesten zuerst. **Load** (laden) bringt das Spiel zu diesem Moment zurück: Der Tracker, die Karte, die **World Edits** (Weltbearbeitungen) aus dem Spieldaten-Editor und die Geschichte ab diesem Moment werden wiederhergestellt, und eine Systemnachricht markiert die Stelle, an der das Spiel zurückgesetzt wurde. **Delete** (löschen) entfernt einen Checkpoint endgültig.
+Im Hintergrund legt die App außerdem automatische Checkpoints an: beim Start und beim Ende einer Sitzung, zu Beginn und am Ende eines Kampfes, wenn du einen neuen Ort erreichst, und in automatischen Abständen. Auch der [Spieldaten-Editor](#editing-game-data-by-hand) versucht, vor jedem Speichern einen anzulegen; ein Spiel, das so neu ist, dass sein erster Zug noch nicht gespeichert ist, hat allerdings noch nichts, was ein Checkpoint festhalten könnte. Unter **Game controls → Checkpoints** siehst du sie, die neuesten zuerst. **Load** (laden) bringt das Spiel zu diesem Moment zurück: Der Tracker, die Karte, die **World Edits** aus dem Spieldaten-Editor und die Geschichte ab diesem Moment werden wiederhergestellt, und eine Systemnachricht markiert die Stelle, an der das Spiel zurückgesetzt wurde. Auch die Karten und Bögen der Party, die NPCs, das Journal, deine Notizen, das Inventar, die Sitzungszusammenfassungen, die Story-Pläne des GM, die HUD-Widgets sowie Zeit, Wetter und Moral kehren zu diesem Moment zurück. Deine Einstellungen bleiben, wie sie sind. **Delete** (löschen) entfernt einen Checkpoint endgültig.
 
 Von jeder Art automatischer Checkpoints bleiben nur die fünf neuesten erhalten, ältere werden beim Spielen also aufgeräumt.
 

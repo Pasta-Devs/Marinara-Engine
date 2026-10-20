@@ -29,7 +29,7 @@
 | 명령어 | 별칭 | 동작 |
 |---|---|---|
 | `/help` | | 모든 슬래시 명령어를 보여 줍니다. |
-| `/send [message]` | | 생성을 시작하지 않고 페르소나 이름으로 메시지를 게시합니다. |
+| `/send [message]` | | 생성을 시작하지 않고 페르소나 이름으로 메시지를 게시합니다. **Send**와 같은 방식으로 저장되며, 매크로도 채워집니다. |
 | `/continue` | `/cont` | 새 메시지를 보내지 않고 마지막 AI 답변을 이어서 씁니다. 이어 쓰는 글이 빈 줄 다음에서 시작할지, 끊긴 지점에 바로 붙을지는 **Settings → General → Responses**의 **Add a new line before /continue text** 옵션이 결정합니다. |
 | `/goto [number]` | `/jump`, `/scroll` | 지정한 번호의 메시지 위치로 채팅을 스크롤합니다. |
 | `/hide [range] [name (optional)]` | | 이후 턴에서 AI가 보지 못하도록 메시지를 하나 이상 숨깁니다. |

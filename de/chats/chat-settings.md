@@ -42,7 +42,7 @@ Am Computer schwebt **Chat Settings** über dem Chat und passt seinen Inhalt an 
 - **Lock** (sperren) verhindert Verschieben und Größenänderungen und hält auch die Schaltfläche an ihrem Platz. Sie öffnet das Fenster weiterhin. Entsperre das Fenster, um es oder seine Schaltfläche wieder zu bewegen.
 - **Close** (schließen, **X**) blendet das Fenster aus.
 
-Die Fenster bleiben im Chatbereich, wenn du die Browsergröße änderst oder eine Seitenleiste öffnest.
+Die Fenster bleiben im Chatbereich, wenn du die Browsergröße änderst oder eine Seitenleiste öffnest. Am Computer kann ein Fenster oder eine Schaltfläche im Bereich neben dem Nachrichtenfeld sitzen, bis ganz hinunter zum unteren Rand des Chats. Das Nachrichtenfeld selbst verdeckt es nie.
 
 Am Telefon öffnet sich **Chat Settings** als Panel über die ganze Breite und bleibt beim Tippen oberhalb der Tastatur.
 
@@ -188,7 +188,7 @@ Auch die Chat-Tools sind Abschnitte in **Chat Settings**. Welche verfügbar sind
 - **Chat Summary** (Chat-Zusammenfassung) unter **Lorebooks** zeigt und erstellt Zusammenfassungen eines Roleplay-Chats. Siehe [Memory Recall und Chat-Zusammenfassungen](../agents/memory.md#chat-summary-roleplay).
 - **Active Context** (aktiver Kontext) unter **Chat Summary** zeigt die Lorebooks und den Kontext dieses Chats. Siehe [Token-Budgets und Rekursion bei Lorebooks](../lorebooks/token-budgets.md#seeing-skipped-entries-in-active-context).
 - **Agent activity** (Agentenaktivität) direkt unter **Agents** zeigt die Arbeit der Agenten in Roleplay-Chats mit Agenten oder Advanced Memory. Hier kannst du Tracker neu ausführen, fehlgeschlagene Agenten erneut starten, laufende Agenten stoppen und Tracker leeren. Siehe [Roleplay Mode: Erste Schritte](../roleplay/getting-started.md#agent-activity).
-- **Author's Notes** (Autorennotizen) unter **Agents** enthält eine Notiz, die die KI bei jedem Roleplay-Zug liest. Siehe [Roleplay Mode: Erste Schritte](../roleplay/getting-started.md#authors-notes).
+- **Author's Notes** (Autorennotizen) unter **Agents** enthält eine Notiz, die die KI bei jedem Roleplay-Zug liest. Löst du den Abschnitt heraus, wächst sein Textfeld mit dem Fenster mit; auf dem Handy füllt es den Bildschirm. Siehe [Roleplay Mode: Erste Schritte](../roleplay/getting-started.md#authors-notes).
 - **Gallery** (Galerie) enthält Bilder und Videos des Chats. Siehe [Szenen-Hintergründe und die Gallery](../media/scene-backgrounds.md).
 
 ## Weitere Abschnitte im Panel

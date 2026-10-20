@@ -271,6 +271,8 @@ Jedes Feld mit Makro-Unterstützung hat zwei kleine Schaltflächen in der Ecke:
 - **Expand editor** (Editor vergrößern) öffnet ein größeres Bearbeitungsfenster für das Feld.
 - **Macro reference** (Makro-Referenz) öffnet ein Fenster mit dem Titel **Macro reference**, das alle eingebauten Makros nach Kategorie auflistet, jeweils mit der exakten Syntax. Die Liste stammt aus derselben Quelle, die auch die Engine nutzt, und stimmt deshalb immer.
 
+Diese Felder vervollständigen außerdem Makronamen für dich. Tippst du `{{ch` am Ende einer Zeile, erscheint der Rest, `ar}}`, in blasser Schrift. Drück Tab oder tipp auf den blassen Text, um ihn zu übernehmen. Tipp einfach weiter, um ihn zu ignorieren. Bei einem Makro, das einen Wert erwartet, etwa `{{getvar::`, hört die Ergänzung dort auf, wo du den Wert eintippst.
+
 Alternativ tippst du `/macros` ins Chatfeld (die Kurzform `/macro` geht ebenfalls). Der Befehl gibt die vollständige Makro-Liste direkt im Chat aus, als schnelles Nachschlagewerk.
 
 In bedingten Blöcken lassen sich Vergleiche mit `||` (ODER), `&&` (UND) und Klammern verknüpfen. Für Gleichheitslisten gibt es die kompakte Form `{{#if character == "Maukie" || "Pantalone"}}`. Vorrangregeln, Beispiele für Gruppenchats und die vollständige Operatorenliste findest du unter [Bedingte Prompts](conditional-prompts.md).

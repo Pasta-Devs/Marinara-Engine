@@ -18,6 +18,8 @@ Pour renommer un dossier, double-clique sur la ligne du dossier, ou touche-la de
 
 Pour ranger une connexion dans un dossier, fais glisser la ligne de la connexion et dépose-la sur le dossier. Pour l'en ressortir, fais-la glisser vers la zone située sous les dossiers. Pendant le glissement, une indication affiche **Drop here to move out of folder**.
 
+Sur écran tactile, appuie longuement sur une ligne pour la saisir, puis fais-la glisser. Un balayage normal fait toujours défiler la liste.
+
 Pour replier ou déplier un dossier, clique une fois sur sa ligne. Un petit nombre sur la ligne du dossier indique combien de connexions il contient.
 
 Pour supprimer un dossier, clique sur l'icône de corbeille sur sa ligne. S'il contient encore des connexions, Marinara demande confirmation avec une fenêtre **Delete Folder** (supprimer le dossier). Un dossier vide est supprimé aussitôt, sans confirmation. Supprimer un dossier ne supprime pas les connexions qu'il contient : elles retournent simplement dans la zone des connexions non classées.
@@ -36,7 +38,7 @@ Le menu déroulant **Sort order** (ordre de tri), à côté du champ de recherch
 | **Newest** | Les connexions les plus récentes d'abord. |
 | **Oldest** | Les connexions les plus anciennes d'abord. |
 
-Pour définir un ordre personnalisé, fais glisser les lignes de connexions vers le haut ou vers le bas. Dès que tu déplaces une connexion, le tri bascule automatiquement sur **Custom**.
+Pour définir un ordre personnalisé, fais glisser les lignes de connexions vers le haut ou vers le bas. Dès que tu déplaces une connexion, le tri bascule automatiquement sur **Custom**. Tu peux aussi déplacer une ligne sélectionnée avec Alt+Up ou Alt+Down.
 
 ## Dupliquer et supprimer
 
@@ -58,6 +60,8 @@ Pour ajouter une connexion au pool aléatoire, clique sur l'icône de mélange s
 
 Pour qu'un chat utilise le pool aléatoire, ouvre la section **Chat Settings** (réglages du chat), va dans la section **Connection**, et choisis **🎲 Random** dans le menu déroulant. En Game Mode, ce menu déroulant s'appelle **GM / Party Model**. Chaque réponse pioche alors une connexion au hasard dans le pool.
 
+Si la connexion choisie pour une réponse échoue et que tu as défini une connexion de secours pour **Main**, c'est la connexion de secours qui écrit la réponse. Un avis nomme la connexion qui a échoué, son modèle et une courte raison, comme "key rejected", "rate limited" ou "not found", pour que tu saches quelle connexion du pool doit être réparée. La réponse garde une petite étiquette **Fallback** (secours) ; touche-la, ou pointe dessus, pour revoir la même ligne.
+
 Le **Quick Connection Switcher** est un moyen plus rapide de changer la connexion du chat en cours, ainsi que son modèle. Clique sur l'icône de lien dans la zone de saisie du chat pour l'ouvrir. Il affiche tes connexions à gauche et les **Models** (modèles) de la connexion choisie à droite :
 
 - Clique sur une connexion pour l'utiliser immédiatement dans le chat en cours. Le menu reste ouvert pour que tu puisses ensuite choisir l'un de ses modèles.
@@ -69,7 +73,7 @@ Le **Quick Connection Switcher** est un moyen plus rapide de changer la connexio
 - Clique sur le bouton de dé en haut du menu pour activer ou désactiver le pool aléatoire pour ce chat.
 - Quand le pool aléatoire est actif, cliquer sur une connexion l'ajoute au pool ou l'en retire. Une coche indique quelles connexions font partie du pool. La colonne **Models** est masquée, car le pool n'a pas de connexion unique.
 
-Sur téléphone, touche le chevron à côté de la zone de saisie et ouvre l'onglet **Connections**. Toucher une connexion la sélectionne et affiche ses modèles dans le même menu ; touche la flèche de retour pour revenir à la liste des connexions.
+Sur téléphone, touche le chevron à côté de la zone de saisie et ouvre l'onglet **Connections**. Touche une connexion pour y basculer le chat ; le menu se ferme. Pour choisir un modèle, touche plutôt la flèche au bout à droite de la ligne de la connexion. Ses modèles s'ouvrent dans le même menu, et le chat ne bascule que lorsque tu en choisis un. Touche la flèche de retour pour revenir à la liste des connexions.
 
 **Un changement de modèle s'applique partout où la connexion est utilisée.** La note en bas du menu, "Model changes are saved to this connection.", signifie que les agents, les fonctions auxiliaires et les autres chats qui utilisent la même connexion passent eux aussi au nouveau modèle. Les autres réglages de modèle de la connexion, comme son modèle d'embedding ou sa connexion de description des images, ne changent pas. Si tu veux un modèle différent pour un seul usage, duplique la connexion et modifie la copie.
 

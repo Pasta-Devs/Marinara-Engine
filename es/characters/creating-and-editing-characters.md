@@ -55,7 +55,7 @@ La pestaña **Metadata** contiene los detalles de identidad y organización. Est
 - **Creator**. La persona que creó la tarjeta, para dar crédito cuando la compartes.
 - **Version**. Un número de versión que tú defines, como `1.0`.
 - **Talkativeness**. Un control deslizante del 0 al 100 por ciento. Define con qué frecuencia habla este personaje en los chats grupales. El valor predeterminado es 50 por ciento.
-- **Tags**. Escribe una o más etiquetas en el campo de añadir etiqueta y pulsa Enter o haz clic en **Add** (Añadir). Puedes añadir varias a la vez separadas por comas. Quita una etiqueta con su X, o bórralas todas con **Remove All** (Quitar todas).
+- **Tags**. Escribe una o más etiquetas en el campo de añadir etiqueta y pulsa Enter o haz clic en **Add** (Añadir). Puedes añadir varias a la vez separadas por comas. El campo también sugiere etiquetas que tu biblioteca ya usa, primero las más usadas, con cuántos personajes tiene cada una. Al escribir, la lista se acota. Haz clic en una sugerencia, o elígela con las flechas del teclado y Enter. Quita una etiqueta con su X, o bórralas todas con **Remove All** (Quitar todas).
 - **Creator Notes**. Notas privadas que nunca se envían a la IA. Aun así aparecen como un resumen en tu biblioteca.
 
 El panel **Version history** (Historial de versiones) también vive en esta pestaña. Se cubre en la sección Guardado e historial de versiones más abajo.
@@ -68,7 +68,7 @@ La pestaña **Card** es el espacio de escritura principal. Contiene los campos q
 - **Personality**. Un breve resumen del temperamento, los hábitos de habla y los patrones de comportamiento.
 - **Backstory**. Historia, origen y relaciones importantes.
 - **Appearance**. Descripción física, ropa y detalles visuales. Marinara también usa este texto para generar un prompt de avatar de IA.
-- **Image Appearance Override** (Apariencia alternativa para imágenes). Un interruptor opcional debajo de **Appearance**, desactivado de forma predeterminada. Actívalo para mostrar un segundo cuadro donde puedas escribir una descripción del personaje pensada para generar imágenes. Si está activado y el cuadro contiene texto, los prompts de imagen usan ese texto en lugar de **Appearance**; también sirve de base para el prompt de avatar de IA. El narrador siempre recibe el texto completo de **Appearance**. Si lo dejas desactivado o el cuadro está vacío, se sigue usando **Appearance** como antes.
+- **Image Appearance Override** (Apariencia alternativa para imágenes). Un interruptor opcional debajo de **Appearance**, desactivado de forma predeterminada. Actívalo para mostrar un segundo cuadro para etiquetas de imagen breves que describan al personaje, como la palabra de activación de una LoRA. Si está activado y el cuadro contiene texto, los prompts de imagen usan esas etiquetas tal como están escritas y mantienen **Appearance** como contexto de fondo; también sirven de base para el prompt de avatar de IA. El narrador siempre recibe el texto completo de **Appearance**. Si lo dejas desactivado o el cuadro está vacío, se sigue usando **Appearance** como antes.
 - **Scenario**. El entorno predeterminado para los nuevos chats con este personaje.
 
 La sección **Dialogue & Greetings** (Diálogo y saludos iniciales) define cómo se abre un chat y cómo suena el personaje:

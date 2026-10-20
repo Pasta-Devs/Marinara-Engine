@@ -54,7 +54,7 @@ A tabela abaixo mostra cada serviço de relance. Os detalhes e as particularidad
 
 ## OpenAI (DALL-E)
 
-Serviço de nuvem com a Base URL padrão `https://api.openai.com/v1`. Exige uma chave de API da sua conta OpenAI. Oferece os modelos DALL-E e GPT Image. Aceita até 16 imagens de referência.
+Serviço de nuvem com a Base URL padrão `https://api.openai.com/v1`. Exige uma chave de API da sua conta OpenAI. Oferece os modelos DALL-E e GPT Image. Os modelos GPT Image aceitam até 16 imagens de referência; os modelos DALL-E não aceitam nenhuma.
 
 ## ChatGPT (Codex login)
 
@@ -212,7 +212,7 @@ Uma **imagem de referência** é uma figura já existente que você envia junto 
 
 | Provedor | Imagens de referência |
 | --- | --- |
-| OpenAI (DALL-E) | Até 16 |
+| OpenAI (DALL-E) | Até 16, só nos modelos GPT Image |
 | ChatGPT (Codex login) | Até 16 |
 | NovelAI | Até 16, somente no modelo V4.5 |
 | xAI / Grok Imagine | Até 3 |
@@ -223,18 +223,23 @@ Uma **imagem de referência** é uma figura já existente que você envia junto 
 | NanoGPT | Até 3 |
 | Stability AI | Somente a primeira imagem, usada como imagem para imagem |
 | Arli AI | Somente a primeira imagem, usada como imagem para imagem |
+| SD Web UI (AUTOMATIC1111 / Forge) e Draw Things | Somente a primeira imagem, usada como imagem para imagem |
 | OpenRouter Images | Com suporte, sem limite fixo |
 | ComfyUI e RunPod Serverless (ComfyUI) | Até 4, por meio dos marcadores do fluxo de trabalho |
 | SwarmUI | Até 4 |
-| Together AI, Pollinations, Stable Horde | Sem suporte |
+| Together AI, Pollinations, Stable Horde, fal.ai | Sem suporte |
 
 As imagens de referência precisas da NovelAI só funcionam em um modelo V4.5, como `nai-diffusion-4-5-full`. A NovelAI ainda não lançou o Precise Reference para o V5. Se você pedir referências em outro modelo, Marinara gera a imagem sem elas e registra um aviso no log do servidor.
 
-## Enfileirar as requisições de geração de imagens
+<a id="queue-media-generation-requests"></a>
 
-O botão liga/desliga **Queue image generation requests** fica em **Settings** (Configurações), depois **Generations**, depois **Image Generation**. Ele vem ativado por padrão.
+## Enfileirar as requisições de geração de mídia
 
-Com ele ativado, Marinara envia os trabalhos de imagem um de cada vez. Mantenha assim nos serviços que recusam duas requisições simultâneas. Desative apenas se o serviço aguentar muitas requisições ao mesmo tempo e você quiser mais velocidade.
+O botão liga/desliga **Queue media generation requests** (enfileirar requisições de geração de mídia) fica em **Settings** (Configurações), depois **Generations**, depois **Overall Generations**. Ele vem ativado por padrão.
+
+Com ele ativado, Marinara envia os trabalhos de imagem para cada conta de provedor de imagem um de cada vez, e os trabalhos de vídeo para cada conta de provedor de vídeo um de cada vez, em filas separadas. Uma imagem e um vídeo da mesma conta podem rodar juntos. Isso vale seja qual for o recurso que os pede: o Illustrator, os trackers, os comandos, a galeria, os recursos de Game e os agentes baixados, como o Slurp. Duas conexões com o mesmo endereço e a mesma chave de API dividem a fila correspondente. Contas e provedores diferentes continuam funcionando ao mesmo tempo. A NovelAI também ganha uma pequena pausa entre os trabalhos. Quando a NovelAI responde que está ocupada, Marinara espera e tenta de novo duas vezes, em vez de deixar a imagem falhar.
+
+Mantenha a opção ligada nos serviços que recusam duas requisições simultâneas. Desative apenas se o serviço aguentar muitas requisições ao mesmo tempo e você quiser mais velocidade.
 
 ## Guias relacionados
 

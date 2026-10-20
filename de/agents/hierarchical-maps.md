@@ -31,11 +31,14 @@ World Maps 1.3.1 bietet:
 - kontoweite Kartenvorlagen, die von Hand, mit KI oder per Import entstehen;
 - KI-gestützte Kartenentwürfe und Erweiterungen auf Basis der Einrichtung oder ausgewählter Lore;
 - öffentliche Ortsbeschreibungen, privates Modellgedächtnis und Lore für genau einen Ort;
+- portable Exporte mit optional verknüpften Einträgen oder vollständigen Lorebooks;
+- geprüften Lore-Import mit exakter Zuordnung, ausdrücklichen Entscheidungen bei Mehrdeutigkeit und kollisionssicheren separaten Kopien;
 - ein optionales Referenzbild je Ort aus der **Gallery** (Galerie) des Chats oder aus der **Global Gallery**;
 - einen eigenen Hintergrund je positionierter Unterkarte, ebenfalls aus Chat- oder Global Gallery;
 - geprüfte Stapelgenerierung für fehlende Ortsgrafiken;
 - eine globale, variablenbasierte Überschreibung für den Grafik-Prompt von Maps;
 - Unterstützung für Ortsreferenzen in Roleplay-Illustrationen und Game-Storyboards;
+- eine einzelne kontrollierte Formatreparatur für fehlerhaftes KI-Karten-JSON, mit eigenen Hinweisen für Ausgaben, die am Token-Limit abgeschnitten wurden;
 - Import, Export, Archivierung, verlaufsbewusstes Bearbeiten und Bindungen zur Game-Karte; und
 - globale Prompt-Bibliotheken für den KI-Kartenbau und den Ortseinschub zur Laufzeit.
 
@@ -91,6 +94,17 @@ Wähl während der Game-Einrichtung World Maps aus und danach eine seiner Einric
 - **Create with AI** bereitet eine generierte Hierarchie zur Prüfung vor.
 - **Use template** öffnet die Weltbibliothek, bevor das Game entsteht.
 - **Build manually** startet mit einer leeren, bearbeitbaren Hierarchie.
+- **From the world** erscheint, wenn das Game eine Welt erstellt (siehe
+  [Eine Welt erstellen](../game/getting-started.md#making-a-world)). Es legt
+  diese Welt als Karte an: ihre Regionen, Siedlungen und Orte sowie die Wege
+  dazwischen mit ihren Reisezeiten. Du prüfst die Karte, bevor sie gespeichert
+  wird. Eine KI-Generierung ist nicht nötig, und die Orte der Karte sind die
+  Orte der Welt. Im Spiel bleiben beide im Gleichschritt. Der Game Master und
+  die Märkte nutzen den Ort, an dem die Karte die Party verortet. Nennt der
+  Game Master einen Ort der Welt, bewegt die Karte die Party dorthin. Ab World
+  Maps 1.6.0 nimmt sie dabei den kürzesten Weg. Frühere Versionen gehen nur
+  einen Schritt: zu einem Ort darin, zum Ort darum herum oder zu einem Ort, mit
+  dem ein Weg verbindet.
 
 Nach **Use template** zeigt das Auswahlfenster zuerst **Shared worlds** und danach **Independent templates**:
 
@@ -129,6 +143,8 @@ Wähl **Link to chat**, um den Chat anzuhängen, den die Zielchat-Anzeige der Bi
 Verknüpfte Chats teilen sich nur die Kartendefinition und die Grafiken der Global Gallery. Nicht geteilt werden Nachrichten, aktuelle Orte, Reise-Snapshots, Spielzustand, Bindungen zur Game-Karte, Verbindungen zu Anbietern und Zugangsdaten.
 
 Änderungen und Entdeckungen innerhalb eines verknüpften Chats landen als unveröffentlichter Entwurf bei diesem Chat. An der kanonischen Welt und an anderen Chats ändert sich nichts, bis du **Publish** wählst. Alternativ verwirfst du den Entwurf mit **Discard** oder beendest das Teilen mit **Detach and keep copy** und behältst die aktuelle Fassung des Chats. Ändert sich die kanonische Welt, während ein Entwurf offen ist, meldet Maps einen Konflikt. Dann ist ein Lösen oder Verwerfen nötig – stillschweigend überschrieben wird keine der beiden Fassungen.
+
+Beim Veröffentlichen werden saubere Editoren verknüpfter Chats, die in diesem Browser-Tab zwischengespeichert sind, auf die neue kanonische Revision aktualisiert. Editoren mit ungespeicherter Arbeit behalten ihren Entwurf und zeigen einen Konflikt, statt überschrieben zu werden. Öffne verknüpfte Chats in anderen Browser-Tabs oder -Fenstern erneut, um dort die neue Revision zu laden.
 
 Bearbeitest du eine gemeinsame Welt aus der Bibliothek heraus, ändert das die kanonische Definition direkt. Der Editor für gemeinsame Welten bietet kein endgültiges Löschen von Orten an; archiviere Orte stattdessen, damit ihre stabilen IDs verfügbar bleiben. Auch ein verknüpfter Chat kann keinen Ort endgültig löschen, solange du nicht **Detach and keep copy** wählst. Und eine gemeinsame Welt selbst lässt sich erst löschen, wenn alle verknüpften Chats gelöst oder neu verknüpft sind.
 
@@ -200,6 +216,8 @@ Wähl eine Größe:
 
 Die Generierung erzeugt einen Entwurf, keine gespeicherte Karte. Durchsuche die vollständige Vorschau oder klapp sie auf, wähl Orte aus und prüf ihre Pfade, Beschreibungen, das private Modellgedächtnis und die Herkunft aus der Lore. Nutze **Edit prompt**, **Regenerate** oder **Discard draft**, bevor es weitergeht.
 
+Liefert das Modell fehlerhaftes, aber vollständiges JSON, unternimmt World Maps genau einen Reparaturversuch, der nur das Format betrifft. Die Reparaturanfrage weist das Modell an, jeden generierten Ort und jeden Wert beizubehalten und nur die JSON-Syntax zu korrigieren. Eine unvollständige Antwort geht nicht in die Reparatur. Stattdessen bittet Maps dich, die **Max Output Tokens** der Verbindung zu erhöhen oder eine kleinere Kartengröße zu wählen, bevor du es erneut versuchst.
+
 Klick auf **Continue to editor** für eine neue Karte oder auf **Add to working map** für eine Erweiterung. Sobald der Kampagnenverlauf auf Orts-IDs verweist, schützt Maps diese Verweise: Erlaubt ist dann nur noch das Erweitern, nicht der vollständige Austausch durch etwas Fremdes.
 
 ## Eine Karte von Hand bauen oder bearbeiten
@@ -245,6 +263,8 @@ In einem Schritt erreichbar sind:
 
 Pro Zug lässt sich nur ein hierarchischer Schritt übernehmen. Über das X am vorgemerkten Ziel brichst du es ab. Ändert sich vor dem Absenden die Kartenrevision oder der aktuelle Ort, wechselt die vorgemerkte Bewegung auf **Needs review**.
 
+Geführte Generierung, Regenerierung und Fortsetzung erzeugen keinen neuen Nutzerzug und verbrauchen daher kein vorgemerktes Ziel und keinen Routenschritt. **Impersonate** erzeugt dagegen eine Nutzernachricht. Ein erfolgreicher Impersonate-Zug übernimmt seine vorgemerkte Bewegung also einmal; ein Fehler beim Anbieter übernimmt nichts, und eine veraltete Bewegung geht zurück in die Prüfung, statt den Ort zu ändern.
+
 ### Eine Route über mehrere Züge planen
 
 Wähl auf der Weltkarte einen weiter entfernten aktiven Ort. Gibt es im Graph aus über- und untergeordneten Orten und verfügbaren Verknüpfungen einen Weg, zeigt Maps die kürzeste Route und bietet **Plan route** an.
@@ -263,6 +283,8 @@ Für automatische Kartenänderungen ist deine letzte Nachricht maßgeblich:
 - Absichten für später, gescheiterte oder abgebrochene Reisen, bloße Erwähnungen, Bewegungen reiner NPCs (Nicht-Spieler-Charaktere), vorgestellte Orte, Lager auf Zeit, Flure, Fahrzeuge und andere flüchtige Details erzeugen und bewegen keine Orte.
 
 Trotzdem muss das Modell deine Formulierung deuten und einen verborgenen Maps-Befehl ausgeben, den die App anschließend prüft. Bei mehrdeutiger Prosa können sich Sprachmodelle unterschiedlich verhalten. Nimm **Set destination** für eine eindeutige Bewegung im nächsten Zug oder **Set current story location**, um bereits gespeicherten Zustand zu korrigieren.
+
+Mit Marinara Engine **2.4.1** oder neuer werden vollständige Bewegungs- und Entdeckungsanweisungen von Maps aus gestreamtem Text und gespeicherten Nachrichten entfernt. Gewöhnliche Prosa in Klammern und ihre Abstände bleiben unverändert. Erscheint eine rohe Maps-Anweisung in einer Nachricht, aktualisiere Marinara Engine und World Maps, starte bei Aufforderung neu und regeneriere oder entferne die betroffene Nachricht, damit sie in späterem Kontext nicht erneut auftaucht.
 
 Eine geprüfte, von dir angestoßene Ankunft darf die Ein-Schritt-Regel umgehen: Maps trägt dafür bei Bedarf eine verfügbare Direktverknüpfung vom aktuellen Ort ein. War bereits ein Ziel vorgemerkt, wird diese Bewegung zuerst mit deiner Nachricht gespeichert; die von dir angestoßene Ankunft wird dann zum endgültigen Ort an der KI-Antwort, und die einmalige Vormerkung ist erledigt. Auf einer geplanten Route rückt die Ankunft am nächsten geplanten Schritt normal vor. Eine Ankunft anderswo – auch ein Sprung zu einem späteren Routenschritt – setzt die Route auf **Needs review**, damit Maps den Plan nicht stillschweigend umschreibt. Brich die Route dann ab oder plane sie vom neuen aktuellen Ort aus neu.
 
@@ -326,6 +348,8 @@ Wähl im Editor einen Ort aus und öffne **Location reference image**.
 
 Für einen übergeordneten Ort mit der Darstellung Map öffnest du **Child map background** getrennt davon. Wähl ein Galeriebild und positioniere es hinter den Markern der untergeordneten Orte. Dieses Bild geht nie an einen Anbieter, nur weil es auf der Karte zu sehen ist. Verwende quadratische Bilder, zum Beispiel 1024 × 1024 px, passend zum Koordinatenraster von 100 × 100. Editor und Laufzeitansicht verwenden dieselbe quadratische Zeichenfläche.
 
+Füllt ein Galeriebild beide Rollen, behält **Remove reference only** es als Unterkarten-Hintergrund. Nutze **Reject both and create replacement**, wenn das Bild für beide Rollen falsch ist. Nach der Generierung weist **Use for both** das neue Bild in einem Schritt als Ortsreferenz und als Unterkarten-Hintergrund zu.
+
 ### Fehlende Ortsgrafiken im Stapel generieren
 
 Der Abschnitt **Location artwork** im Editor findet Orte ohne Referenzbild oder ohne Unterkarten-Hintergrund.
@@ -338,6 +362,8 @@ Der Abschnitt **Location artwork** im Editor findet Orte ohne Referenzbild oder 
 6. Sieh dir die generierten Grafiken in der Arbeitskarte an und klick auf **Save**.
 
 Jedes einzelne fehlende Bild ist eine eigene Anfrage beim Anbieter. Große Welten werden dadurch langsam oder teuer; deshalb bleibt die Prüfung scrollbar und zeigt die Anzahl der Anfragen dauerhaft an. Vorhandene Grafiken werden nach Möglichkeit ohne weitere Anfrage wiederverwendet. Ein neues Bild wird zur Ortsreferenz und zusätzlich zum Unterkarten-Hintergrund, falls diese Karte einen braucht.
+
+Als fehlend gilt auch ein gespeicherter Galerie-Link, dessen Bild nicht mehr existiert. Bearbeitest du den Ort, während die Generierung läuft, wendet Maps das Ergebnis nur auf die Grafikrollen an, die noch fehlen. Eine neu gewählte Ersatzgrafik, die Referenzoption, die Hintergrundposition, der Archivierungsstatus und andere Entwurfsänderungen werden von der abgeschlossenen Anfrage nicht überschrieben.
 
 An den Anbieter gehen genau die bearbeiteten positiven und negativen Prompts aus der Prüfung. Material aus dem positiven Prompt landet dabei nicht im negativen.
 
@@ -378,7 +404,7 @@ World Maps nutzt Lore auf zwei Arten:
 
 Zum Anhängen von Lore zur Laufzeit wählst du den Ort aus, öffnest **Linked lore**, durchsuchst die verfügbaren Einträge, hängst die gewünschten an und speicherst.
 
-Öffnest du einen verknüpften Lorebook-Eintrag, verlässt du den Karteneditor. Speichere die Karte vorher, wenn du andere offene Änderungen behalten willst – oder bestätige bewusst, dass sie verworfen werden dürfen. World Maps 1.3.1 warnt dich, bevor diese Aktion ungespeicherte Kartenänderungen verwerfen kann.
+Wähl bei einem verknüpften Eintrag **Open**, um den Kartenarbeitsbereich zu verlassen und sein Lorebook zu öffnen. Ein sauberer Arbeitsbereich schließt sich direkt. Hat die Karte ungespeicherte Änderungen, speicherst du zuerst oder bestätigst ausdrücklich, dass der Entwurf verworfen werden darf; World Maps öffnet das Lorebook nie hinter dem noch sichtbaren Karteneditor.
 
 Verknüpfte Einträge werden nicht von oben nach unten vererbt. Lore, die an Brinewatch hängt, wird im Tideglass Inn nicht aktiv, solange sie nicht auch dort hängt.
 
@@ -407,7 +433,9 @@ Nutze **Export** im Editor eines Chats, einer Vorlage oder einer gemeinsamen Wel
 | **Map + linked entries** | Nur von der Karte verknüpfte Einträge sowie die benötigten Ordnerpfade. Dies ist die empfohlene portable Option. |
 | **Map + complete lorebooks** | Alle Einträge und Ordner jedes verknüpften Lorebooks, auch Material ohne Kartenbezug. |
 
-Prüfe vor dem Teilen die aufgelisteten Lorebooks, die Eintragszahl, die geschätzte Größe und die ausklappbare Ortszuordnung. Vollständige Lorebooks können private oder unbeteiligte Notizen enthalten. Lass **Include map artwork** aktiv, damit referenzierte Ortsbilder und Unterkarten-Hintergründe in derselben Datei landen. Schalte es für ein kleineres Backup aus. Ältere `.hierarchical-map.json`-Dateien lassen sich weiterhin importieren.
+Prüfe vor dem Teilen die aufgelisteten Lorebooks, die Eintragszahl, die geschätzte Größe und die ausklappbare Ortszuordnung. Vollständige Lorebooks können private oder unbeteiligte Notizen enthalten.
+
+Lass **Include map artwork** aktiv, damit referenzierte Ortsbilder und Unterkarten-Hintergründe in derselben Datei landen. Schalte es für ein kleineres Backup aus. Ältere `.hierarchical-map.json`-Dateien lassen sich weiterhin importieren.
 
 ### Eine Karte importieren und portable Lore wiederherstellen
 
@@ -422,7 +450,9 @@ Wähle nach der Vorschau eine Gesamtstrategie:
 
 Danach nennt Maps die konkret wiederverwendeten und erstellten Lorebooks. Erstellte Kopien bleiben in der Bibliothek, wenn die Karte später gelöscht wird. Engine **2.4.1** oder neuer aktualisiert die Lorebooks-Ansicht sofort; unter **2.3.5 bis 2.4.0** lade Marinara nach der Wiederherstellung einmal neu.
 
-Mitgelieferte Grafiken werden ebenfalls wiederhergestellt und neu zugeordnet. Chat-eigene Grafiken landen in der Galerie des Zielchats; gemeinsame Grafiken werden aus der Global Gallery wiederverwendet oder dort einmal ergänzt. Prüf das Ergebnis und klick auf **Save**, damit es maßgeblich wird. Der Import speichert nicht sofort. Ein **Map only**-Export erhält lesbare Herkunft und vorhandene genaue ID-Verknüpfungen, kann gelöschte Lorebooks oder Einträge ohne deren Inhalt aber nicht wiederherstellen.
+Mitgelieferte Grafiken werden ebenfalls wiederhergestellt und neu zugeordnet. Chat-eigene Grafiken landen in der Galerie des Zielchats; gemeinsame Grafiken werden aus der Global Gallery wiederverwendet, wenn dasselbe Bild dort schon existiert, oder dort einmal ergänzt, wenn eine Vorlage oder ein gemeinsamer Verweis es braucht.
+
+Prüf das Ergebnis und klick auf **Save**, damit es maßgeblich wird. Der Import speichert nicht sofort. Ein **Map only**-Export erhält lesbare Herkunft und vorhandene genaue ID-Verknüpfungen, kann gelöschte Lorebooks oder Einträge ohne deren Inhalt aber nicht wiederherstellen.
 
 Sobald der Kampagnenverlauf auf eine Karte verweist, müssen importierte Änderungen die vorhandenen Orts-IDs beibehalten. Ergänze oder aktualisiere Orte, statt die Hierarchie durch fremde IDs zu ersetzen.
 
@@ -522,15 +552,9 @@ Vergewissere dich, dass World Maps für den Chat aktiv ist, die Hierarchie auf *
 
 ### Verknüpfte Lore wird nicht aktiv
 
-Vergewissere dich, dass der Eintrag an genau dem aktuellen Ort hängt. Prüf außerdem, ob Eintrag und Lorebook aktiviert sind und das Lorebook nicht vom Chat ausgeschlossen ist.
+Vergewissere dich, dass der Eintrag an genau dem aktuellen Ort hängt. Prüf außerdem, ob Eintrag und Lorebook aktiviert sind und das Lorebook nicht vom Chat ausgeschlossen ist. Verknüpfte Lore eines übergeordneten Ortes wird nicht an untergeordnete Orte vererbt.
 
-**Weitere Regeln in World Maps 1.3.1:** Geführte Generierung, Regenerierung und Fortsetzung erzeugen keinen neuen Nutzerzug und verbrauchen daher kein vorgemerktes Ziel oder Routensegment. **Impersonate** erzeugt eine Nutzernachricht: Ein erfolgreicher Zug übernimmt die Bewegung einmal, ein Providerfehler übernimmt nichts, und eine veraltete Bewegung wechselt zu **Needs review**.
-
-Mit Marinara Engine **2.4.1** oder neuer werden vollständige Bewegungs- und Entdeckungsanweisungen von Maps aus gestreamtem Text und gespeicherten Nachrichten entfernt, ohne gewöhnliche Klammertexte oder Abstände zu verändern. Erscheint eine rohe Maps-Anweisung, aktualisiere Engine und World Maps, starte bei Aufforderung neu und regeneriere oder entferne die betroffene Nachricht.
-
-Verwendet ein Galerie-Bild beide Grafikrollen, behält **Remove reference only** es als Unterkarten-Hintergrund; **Reject both and create replacement** ersetzt beide, und **Use for both** weist ein neues Bild beiden Rollen zu. Als fehlend gilt auch ein gespeicherter Galerie-Link, dessen Bild nicht mehr existiert. Ergebnisse einer laufenden Generierung füllen nur weiterhin fehlende Rollen und überschreiben keine inzwischen gewählte Grafik, Referenzoption, Hintergrundposition, Archivierung oder andere Entwurfsänderung.
-
-**Open** bei verknüpfter Lore verlässt den Kartenarbeitsbereich und öffnet das Lorebook. Bei einem sauberen Entwurf schließt er direkt; bei ungespeicherten Änderungen musst du zuerst speichern oder das Verwerfen ausdrücklich bestätigen. Wird importierte Lore nicht aktiviert, prüfe die Importzusammenfassung: **Map only** enthält keine wiederherstellbaren Inhalte. Verwende **Map + linked entries** oder **Map + complete lorebooks** und wähle den vorgesehenen exakten Treffer, das mehrdeutige Ziel oder eine getrennte Kopie. Verknüpfte Lore eines übergeordneten Ortes wird nicht an untergeordnete Orte vererbt.
+Prüf bei einer importierten Karte die Importzusammenfassung. **Map only** bringt eine lesbare Herkunft mit, aber keinen Lorebook-Inhalt, und kann ein fehlendes Buch daher nicht wiederherstellen. Importiere eine Datei, die mit **Map + linked entries** oder **Map + complete lorebooks** exportiert wurde, und wähl dann den vorgesehenen exakten Treffer, das mehrdeutige Ziel oder eine getrennte Kopie. Unter Engine **2.3.5 bis 2.4.0** lädst du Marinara nach der Wiederherstellung portabler Lore einmal neu, damit das erstellte Lorebook in der Lorebooks-Ansicht erscheint. Engine **2.4.1** oder neuer aktualisiert sie sofort.
 
 ## Verwandte Anleitungen
 

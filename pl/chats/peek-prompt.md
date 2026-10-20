@@ -16,9 +16,11 @@ Na górze, obok tytułu, siedzi kafelek ze źródłem. Mówi, którą wersję pr
 - **Prompt Preview**: ogólny podgląd.
 - **Decision test preview**: prompt złożony z odpowiedzi uzyskanych w jawnie uruchomionym teście decyzji. Nie został wysłany do modelu czatu.
 
-Pod kafelkiem znajduje się panel informacji o generowaniu. Może pokazać dostawcę i nazwę modelu, szacowaną liczbę tokenów, a po zakończeniu odpowiedzi także rzeczywistą liczbę tokenów promptu. Token to mały kawałek tekstu – modele liczą właśnie tokeny, a nie słowa. Ten panel wyświetla też małe kafelki z użytymi wartościami, takimi jak **Temperature**, **Max Output Tokens**, **Thinking**, **Reasoning**, **Verbosity**, **Service Tier** i **Assistant Prefill**. Mogą się tu pojawić również wartości próbkowania: **Top P**, **Top K** i **Min P**.
+Pod kafelkiem znajduje się panel informacji o generowaniu. Może pokazać dostawcę i nazwę modelu, szacowaną liczbę tokenów, a po zakończeniu odpowiedzi także rzeczywistą liczbę tokenów promptu. Token to mały kawałek tekstu – modele liczą właśnie tokeny, a nie słowa. Ten panel wyświetla też małe kafelki z użytymi wartościami, takimi jak **Temperature**, **Max Output Tokens**, **Thinking**, **Reasoning**, **Verbosity**, **Service Tier** i **Assistant Prefill**. Mogą się tu pojawić również wartości próbkowania: **Top P**, **Top K** i **Min P**. Jeśli połączenie, dla którego była przeznaczona odpowiedź, zawiodło i zamiast niego napisało ją twoje połączenie zapasowe, panel podaje też nazwę połączenia, które zawiodło, jego model i krótki powód, na przykład "key rejected" albo "rate limited".
 
 Reszta okna to sam prompt, podzielony na zwijane sekcje. Każda sekcja ma etykietę i własne zgrubne oszacowanie liczby tokenów. Wiadomości czatu trafiają razem do jednej sekcji **Chat History**. W zapisanym dosłownym zapytaniu dostawca mógł połączyć kilka tur czatu w jeden blok. Rozwiń każdy blok, żeby obejrzeć cały widoczny dla modelu tekst w środku. Kliknij nagłówek dowolnej sekcji, aby ją otworzyć lub zamknąć.
+
+Żeby przenieść cały prompt gdzie indziej, kliknij przycisk kopiowania obok przycisku zamykania u góry okna. Kopiuje on każdą sekcję i wiadomość czatu jako zwykły tekst, w kolejności wysłania, łącznie z sekcjami, których nie otwarto. Każda wiadomość zaczyna się od linii z nazwą jej roli, na przykład `[system]`, `[user]` albo `[assistant]`. Przy zapisanym dosłownym zapytaniu kopiowane jest to zapytanie w takiej postaci, w jakiej je wysłano. Kopiowanie niczego nie wysyła do modelu ani nie zmienia promptu.
 
 ## Otwieranie funkcji Peek Prompt
 

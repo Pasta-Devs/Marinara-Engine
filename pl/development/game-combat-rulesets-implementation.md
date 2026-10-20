@@ -32,7 +32,7 @@ Obecne mnożniki obrażeń przeciwników w silniku (Casual 0.6, Normal 1, Hard 1
 
 - `packages/shared/src/types/game.ts`: `Combatant`, `CombatSkill`, wyniki i migawki Classic. Obecne statystyki są ogólnymi liczbami; `speed` nie jest wartością Zręczności z gry stołowej ani odległością ruchu w stopach.
 - `packages/server/src/services/game/combat.service.ts`: Classic rzuca na inicjatywę co rundę, rozstrzyga jedno polecenie na uczestnika i używa ogólnych wzorów obrażeń. Starsze gry przekazują stan przez klienta; nowe gry z kreatora używają rejestru reżysera walki należącego do serwera.
-- `packages/shared/src/features/tactical-combat/{engine,math,types}.ts`: naprzemienne fazy drużyny i przeciwników, zasięg zależny od klasy, ruch wyprowadzany z szybkości, kontrataki, jeszcze bez dodatkowego uderzenia od szybkości.
+- `packages/shared/src/features/tactical-combat/{engine,math,types}.ts`: fazy drużyny i przeciwników albo, gdy tak stanowi gra, po jednej jednostce naraz w kolejności inicjatywy losowanej z ziarnem (combat C6c), zasięg zależny od klasy, ruch wyprowadzany z szybkości, kontrataki, jeszcze bez dodatkowego uderzenia od szybkości.
 - `packages/shared/src/features/combat-ai.ts` i adaptery trybów: priorytety dostępnych akcji. Zwykła AI zachowuje granice dostępu do informacji; bossowie GM otrzymują karty drużyny i zasoby do przewidywania, ale żaden kontroler nie widzi przyszłych rzutów ani wyborów gracza przed ich zadeklarowaniem.
 - `packages/server/src/routes/combat-director.routes.ts` i `services/game/combat-director.service.ts`: wersjonowany autorytatywny stan starcia, kursor aktywacji, oczekujące reakcje, limity akcji legendarnych i ochrona przed powtórzonymi lub nieaktualnymi odpowiedziami. Rozszerz tę ścieżkę zaakceptowanych akcji na adaptery zasad zamiast tworzyć drugi rejestr. Obecne prawdopodobieństwo Counterspell, opłacanie komórek i koszt anulowania są ogólnymi zasadami silnika, a nie zasadami 5e.
 - `packages/server/src/routes/game.routes.ts`: walidacja rund, rozpoczęcia i akcji w starszej ścieżce. `GameCombatUI`, `TacticalCombatUI` i `use-game.ts`: sterowanie, podglądy, zaakceptowane wyniki i trwały zapis.
@@ -80,7 +80,7 @@ Proponowany początkowy balans:
 | Zasada | Proponowane działanie v1 |
 | --- | --- |
 | Inicjatywa | Malejąca efektywna szybkość, stała kolejność remisów w starciu; brak dodatkowej aktywacji za remis lub wysoką szybkość |
-| Kolejność Tactical | Faza drużyny, następnie faza przeciwników; gracz wybiera członków drużyny, którzy jeszcze nie działali, a jednostki automatyczne używają kolejności szybkości |
+| Kolejność Tactical | Według stron: faza drużyny, następnie faza przeciwników, a gracz wybiera spośród członków drużyny, którzy jeszcze nie działali. Według inicjatywy (combat C6c): po jednej jednostce naraz w kolejności losowanej raz na walkę |
 | Kolejność Classic | Wspólna kolejność malejącej efektywnej szybkości; interfejs kolejkuje ręczne polecenia, a następnie rozstrzyga aktualnie legalne cele w każdym miejscu kolejki |
 | Ruch | Jawny limit ruchu niezależny od szybkości. Sugerowana wartość domyślna: 4 pola, z ograniczonymi modyfikacjami klasy i zdolności |
 | Szybkość ataku | Efektywna szybkość, tylko z jawnie modelowanymi karami i premiami; bez wymyślonej masy broni |

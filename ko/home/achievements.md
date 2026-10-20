@@ -12,35 +12,36 @@
 
 ## Achievements 패널 열기
 
-**Achievements**(업적) 버튼은 홈 화면에 있습니다. 홈 화면은 채팅을 하나도 열지 않았을 때 보이는 화면입니다. 버튼은 Professor Mari 채팅 상자 바로 아래에 있고 트로피 아이콘이 붙어 있습니다.
+**Achievements**(업적) 북마크는 홈 화면에 있습니다. 홈 화면은 채팅을 하나도 열지 않았을 때 보이는 화면입니다. 북마크는 맨 위의 북마크 줄에 있고 트로피 아이콘이 붙어 있습니다. 휴대폰에서는 탭 왼쪽의 북마크 버튼을 탭하면 찾을 수 있습니다.
 
-버튼에는 라벨 아래로 **12 of 23 unlocked**처럼 현재 개수가 실시간으로 표시됩니다. 아직 불러오는 중일 때는 대신 **Checking the collection...**이 나옵니다.
+홈에 **Achievements** 위젯을 추가할 수도 있습니다. 북마크에서 **Widgets**(위젯)를 클릭하고 켜세요. 위젯에는 **12 of 24 unlocked**처럼 현재 개수가 실시간으로 표시되고, **Last obtained**(최근 획득) 업적과 **Closest next**(다음 업적까지) 업적도 나옵니다. 아직 불러오는 중일 때는 개수 대신 **Checking the collection...**이 나옵니다. 위젯을 클릭하면 패널이 열립니다. [홈 위젯](welcome.md#home-widgets)을 참고하세요.
 
 패널은 다음 순서로 엽니다.
 
 1. 홈 화면으로 이동하세요.
-2. Professor Mari 채팅 상자 아래에서 **Achievements** 버튼을 찾으세요.
-3. 버튼을 클릭하세요.
+2. 맨 위에서 **Achievements** 북마크를 찾으세요.
+3. 북마크를 클릭하세요.
 
-**Achievements** 창이 열립니다. 맨 위에는 **12 of 23 achievements unlocked in this profile.** 같은 요약 문구가 있고, 그 아래로 업적 카드가 격자로 늘어섭니다.
+**Achievements** 창이 열립니다. 맨 위에는 **12 of 24 achievements unlocked in this profile.** 같은 요약 문구가 있고, 그 아래로 업적 카드가 격자로 늘어섭니다.
 
 카드마다 배지 아이콘과 제목, 카테고리 라벨, 짧은 설명이 들어 있습니다. 아직 잠긴 카드는 제목이 **?????**로 나오고 아이콘도 자물쇠입니다. 열기 전까지는 어떤 업적인지 알 수 없습니다. 배지를 얻으면 카드에 **unlocked** 표시가 붙습니다. 목표치가 있는 카드에는 **Progress**(진행 상황) 줄과 진행 막대도 함께 나옵니다.
 
-버튼과 패널은 **Achievements** 설정이 켜져 있을 때만 나타납니다. 아래 설정 항목을 참고하세요. 업적을 볼 수 있는 다른 메뉴나 화면은 없습니다.
+북마크, 위젯, 패널은 **Achievements** 설정이 켜져 있을 때만 나타납니다. 아래 설정 항목을 참고하세요. 업적을 볼 수 있는 다른 메뉴나 화면은 없습니다.
 
-## 업적 23가지
+## 업적 24가지
 
-업적은 모두 23가지이고 **Milestone**(마일스톤), **Community**(커뮤니티), **Creation**(창작), **Collection**(컬렉션) 네 카테고리로 나뉩니다.
+업적은 모두 24가지이고 **Milestone**(마일스톤), **Community**(커뮤니티), **Creation**(창작), **Collection**(컬렉션) 네 카테고리로 나뉩니다.
 
 한 번에 끝나는 업적도 있습니다. **Creation**과 **Collection** 쪽은 등급제라서 **I**, **II**, **III** 세 단계로 나뉩니다. 각각 5개, 25개, 100개에서 열립니다. 그래서 두 번째 단계에 도달하면 배지 제목이 **Hoarder II**처럼 바뀝니다.
 
 | 업적 | 카테고리 | 여는 방법 |
 |---|---|---|
 | **Diligent Student** | Milestone | 첫 실행 튜토리얼을 끝내거나 건너뜁니다. |
-| **Hello World** | Milestone | 홈 화면에서 Professor Mari에게 첫 메시지를 보냅니다. |
-| **One Of Us** | Community | 홈 화면 아래쪽의 **Discord** 링크를 클릭합니다. |
-| **Based Backer** | Community | 홈 화면 아래쪽의 **Support** 링크를 클릭합니다(Ko-fi가 열립니다). |
-| **Backseat Appreciator** | Community | 홈 화면 아래쪽의 **Credits** 버튼을 클릭합니다. |
+| **Hello World** | Milestone | Professor Mari에게 첫 메시지를 보냅니다. |
+| **Please Handle With Care** | Milestone | Professor Mari의 그림을 화면 여기저기로 끌어 옮깁니다. |
+| **One Of Us** | Community | **Discord** 북마크나 홈의 **Community** 위젯에 있는 **Discord** 링크를 클릭합니다. |
+| **Based Backer** | Community | 홈 북마크나 **Community** 위젯에서 **Support**를 클릭합니다(Ko-fi가 열립니다). |
+| **Backseat Appreciator** | Community | 홈 북마크나 **Community** 위젯에서 **Credits**(크레딧)를 클릭합니다. |
 | **Who Needs IRL Friends** | Creation | Conversation 모드 채팅을 만듭니다(5, 25, 100). |
 | **They Feel Real To Me** | Creation | Roleplay 채팅을 만듭니다(5, 25, 100). |
 | **I Have No Other Hobbies** | Creation | Game Mode 채팅을 만듭니다(5, 25, 100). |
@@ -68,18 +69,16 @@
 
 토글 하나로 기능 전체를 켜고 끌 수 있습니다. **Settings**(설정)를 열고 **General**(일반) 탭으로 이동한 다음 **App Behavior**(앱 동작) 항목을 찾으세요. 토글 이름은 **Achievements**이고 기본값은 켜짐입니다.
 
-도움말에는 이렇게 적혀 있습니다. "Shows the Home achievements button and unlock notifications. Tracking stays silent in the current profile when this is off."
-
 토글에 따라 달라지는 점은 다음과 같습니다.
 
-- 켜짐: 홈 화면에 **Achievements** 버튼과 창이 나타나고, 업적이 열릴 때마다 알림이 뜹니다.
-- 꺼짐: 버튼이 숨겨지고 알림도 뜨지 않습니다. 그래도 앱은 배경에서 조용히 기록을 계속 남깁니다.
+- 켜짐: 홈 화면의 **Achievements** 북마크와 창을 쓸 수 있고, 업적이 열릴 때마다 알림이 뜹니다. 선택 사항인 **Achievements** 위젯은 홈 레이아웃에 추가한 경우에만 나타납니다.
+- 꺼짐: 북마크와 위젯이 숨겨지고 알림도 뜨지 않습니다. 그래도 앱은 배경에서 조용히 기록을 계속 남깁니다.
 
 설정이 꺼져 있어도 기록은 이어지므로 진행 상황이 사라지지 않습니다. 나중에 다시 켜면 그동안 얻은 업적이 그대로 들어 있습니다.
 
 ## 업적이 열리는 방식
 
-Marinara는 등급제 업적을 현재 개수와 실시간으로 대조합니다. 이 대조는 채팅을 만들거나 아래쪽 링크를 클릭하는 등 기록 대상 동작이 일어날 때 실행됩니다. Achievements 패널을 열 때도 실행됩니다.
+Marinara는 등급제 업적을 현재 개수와 실시간으로 대조합니다. 이 대조는 채팅을 만들거나 홈 북마크를 클릭하는 등 기록 대상 동작이 일어날 때 실행됩니다. Achievements 패널을 열 때도 실행됩니다.
 
 어떤 동작으로 업적이 열렸고 설정도 켜져 있다면 작은 알림이 뜹니다. 알림 제목은 **Achievement unlocked**(업적 잠금 해제됨)이고, **Hoarder II**나 **One Of Us**처럼 배지 이름이 함께 표시됩니다.
 

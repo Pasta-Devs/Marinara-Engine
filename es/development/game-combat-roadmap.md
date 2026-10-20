@@ -21,7 +21,7 @@ El GM aporta una descripción pequeña y estructurada basada en la escena. El mo
 
 El flujo de entorno y formación admite un tamaño de mapa opcional y puntos de referencia de la escena. Las indicaciones de terreno pertenecen a cada encuentro; las semillas del mapa son internas para cada encuentro y no tienen un control en la configuración de la campaña. Conserva la validez de las configuraciones antiguas. Guarda la cuadrícula aceptada y la procedencia del generador para que cambios futuros no redibujen batallas existentes. Las semillas guardadas reproducen la generación con la misma descripción y combatientes; no vuelven determinista cualquier salida del modelo.
 
-El terreno generado puede repararse para mantener la conectividad, pero las restricciones del autor no deben desaparecer silenciosamente. Limita la salida del modelo, las cantidades de casillas y unidades y las dimensiones de los elementos. Rechaza distribuciones imposibles con una razón que permita actuar y ofrece una alternativa generada explícita. El editor completo para pintar y colocar y los mapas arbitrarios son trabajos posteriores y deben usar las mismas validaciones.
+El terreno generado puede repararse para mantener la conectividad, pero las restricciones del autor no deben desaparecer silenciosamente. Limita la salida del modelo, las cantidades de casillas y unidades y las dimensiones de los elementos. Rechaza distribuciones imposibles con una razón que permita actuar y ofrece una alternativa generada explícita. Los tableros pintados a mano para los lugares de un mundo (worldgen W9g, en un creador como Pixelforge) pasan las mismas reglas: franjas de despliegue en llanura y todas las casillas abiertas conectadas, así que se combate en ellos exactamente como se pintaron.
 
 ### Capacidades de movimiento
 
@@ -29,7 +29,7 @@ Caminar, volar y teletransportarse necesitan reglas explícitas. Vuelo y teletra
 
 Omitir el modo implica caminar para los encuentros antiguos. Un modo no compatible indicado explícitamente se rechaza con un error; no sustituyas silenciosamente una capacidad solicitada por caminar. Este contrato se aplica a los planos generados y a las entradas de la API táctica.
 
-Separa tránsito, destinos legales y ocupación. Teletransportarse a través de un muro no permite terminar dentro de él. La cuadrícula plana inicial no representa altitud, techos, requisitos de visión de hechizos ni duración limitada del vuelo; documenta ese límite en lugar de afirmar compatibilidad con todas las reglas de mesa. Reutiliza la misma legalidad de movimiento en vistas previas, resolución, animación de rutas e IA enemiga.
+Separa tránsito, destinos legales y ocupación. Teletransportarse a través de un muro no permite terminar dentro de él. La cuadrícula tiene altura desde combat C6b (escalar, acantilados, crestas que bloquean la visión, terreno elevado), pero no representa techos, requisitos de visión de hechizos ni duración limitada del vuelo; documenta ese límite en lugar de afirmar compatibilidad con todas las reglas de mesa. Reutiliza la misma legalidad de movimiento en vistas previas, resolución, animación de rutas e IA enemiga.
 
 ## Reglas de mesa: perfiles integrados y herramientas de referencia del GM
 
@@ -41,7 +41,7 @@ El motor debe gestionar tiradas reales, objetivos legales, movimiento, presupues
 
 Empieza por primitivas compatibles de pruebas, turnos y recursos. Un perfil de d20 y uno de reservas de d10 requieren reglas de resolución distintas; uno no es el otro con nuevo nombre. La cobertura futura debe incluir iniciativa, pruebas enfrentadas, daño y mitigación, estados y recursos. Documenta casos no compatibles y deja explícito el arbitraje del GM.
 
-El juego táctico de mesa también necesita reglas comunes de línea de visión y cobertura. La cuadrícula actual bloquea el movimiento por muros, pero los ataques a distancia basados en distancia pueden atravesarlos. Actualiza juntos resolvedor, IA, contraataques, previsiones e indicadores de amenaza. Conserva las fases actuales del grupo y del enemigo; la iniciativa individual es un perfil de reglas seleccionable separado.
+La línea de visión compartida ya está implementada (combat C6): un muro o una montaña la bloquea por igual en el resolvedor, la IA, los contraataques, las áreas, las previsiones y los indicadores de amenaza. Los niveles de cobertura se basan en la misma prueba. La iniciativa individual es un ajuste del juego (combat C6c): los juegos nuevos tiran un orden una vez por combate y juegan el turno de una sola unidad cada vez, tanto en el motor como en el director de combate; los juegos antiguos conservan las fases del grupo y del enemigo.
 
 ## Invocaciones: conservar el diseño, posponer el sistema mayor
 

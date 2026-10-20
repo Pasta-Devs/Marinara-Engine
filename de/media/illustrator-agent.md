@@ -8,7 +8,7 @@ Ein Agent ist ein kleiner KI-Helfer, der automatisch in einem einzelnen Chat mit
 
 Der Illustrator zeichnet nicht zu jeder Nachricht. Standardmäßig wartet er nach einem Bild 5 angenommene Nachrichten von dir und der KI ab, bevor das nächste entstehen kann. Jeder Roleplay-Chat kann diese Zahl ändern. Swipes oder neu generierte Fassungen derselben Antwort zählen dabei nicht mit. Hält er einen Moment nicht für bildwürdig, überspringt er ihn und erzeugt kein Bild. Jedes fertige Bild landet in der **Gallery** (Galerie) des Chats.
 
-Einsetzen lässt sich der Illustrator in **Roleplay**- und **Game Mode**-Chats; installiert schaltet er außerdem die Selfies im Conversation Mode frei. Die Kurzbeschreibung in der App lautet: „Responsible for image and video generations.“ Die Einrichtungsschritte und Einstellungen in dieser Anleitung beziehen sich auf Roleplay-Chats. Game Mode arbeitet stattdessen mit einem einzigen Schalter – dazu weiter unten der Abschnitt zum Game Mode.
+Einsetzen lässt sich der Illustrator in **Roleplay**- und **Game Mode**-Chats; installiert schaltet er außerdem die Selfies und [Videonachrichten](../conversation/selfies.md#video-messages) im Conversation Mode frei. Die Kurzbeschreibung in der App lautet: „Responsible for image and video generations.“ Die Einrichtungsschritte und Einstellungen in dieser Anleitung beziehen sich auf Roleplay-Chats. Game Mode arbeitet stattdessen mit einem einzigen Schalter – dazu weiter unten der Abschnitt zum Game Mode.
 
 ## Bevor du loslegst
 
@@ -61,17 +61,24 @@ Die Bild-Verbindung ist der Bild-Anbieter, der das fertige Bild zeichnet. Einges
 
 ## Attach Card Appearance und Send Avatar References
 
-Zwei Schalter auf der Illustrator-Karte sorgen dafür, dass Charaktere durchgängig gleich aussehen. Beide sind standardmäßig aus.
+Zwei Einstellungen auf der Illustrator-Karte sorgen dafür, dass Charaktere durchgängig gleich aussehen. Beide sind standardmäßig aus.
 
-**Attach Card Appearance** (Aussehen der Karte anhängen) hängt den gespeicherten Aussehen-Text jedes sichtbaren Charakters an den Prompt für das Bild an. Der Hilfetext lautet: „Append matched character appearance lines to image prompts, using only visible/generated names.“ Aktiviere den Schalter, wenn das Bild dazu passen soll, wie ein Charakter beschrieben ist.
+Bei Bildern hängt **Attach Card Appearance** (Aussehen der Karte anhängen) den gespeicherten Aussehen-Text jedes sichtbaren Charakters an den Prompt für das Bild an. Video-Prompts bekommen ihn nur, wenn du Videos einschließt, wie unten beschrieben. Der Hilfetext lautet: „Append matched character appearance lines to image prompts, using only visible/generated names.“ Schalte die Einstellung ein, wenn das Bild dazu passen soll, wie ein Charakter beschrieben ist.
+
+In den **Chat Settings** eines Roleplay-Chats ist **Attach Card Appearance** ein Auswahlmenü mit vier Optionen:
+
+- **Off** (aus)
+- **Images only** (nur Bilder), das übliche Verhalten.
+- **Videos only** (nur Videos). Ein Clip aus der Galerie bekommt den Aussehen-Text der Charaktere, die seine Bewegungsanweisung nennt.
+- **Images and videos** (Bilder und Videos) macht beides.
 
 Wenn **Attach Card Appearance** eingeschaltet ist, liefern Karten und Personas mit aktiviertem **Image Appearance Override** (eigene Aussehensbeschreibung für Bilder) diesen Text statt **Appearance**. Das hilft, wenn **Appearance** für den Erzähler geschrieben ist, das Bildmodell den Text aber schlecht umsetzt: Lass die ausführliche Beschreibung in **Appearance** und schreibe eine kürzere Fassung mit Tags in das zusätzliche Feld. Ist der Schalter aus oder das Feld leer, verwenden Bild-Prompts weiterhin **Appearance**. Der Erzähler bekommt in beiden Fällen den vollständigen Text aus **Appearance**. Der Schalter steht unter **Appearance** im Charakter- und Persona-Editor.
 
-**Send Avatar References** (Avatar-Referenzen senden) schickt die Avatare von Charakteren und Personas – oder deren Sprites – als Referenzbilder an den Bild-Anbieter. Der Hilfetext lautet: „Send matching character and persona avatars or sprites as reference images when the provider supports them.“ So kann das Bildmodell ein Gesicht oder ein Outfit übernehmen. Nicht jeder Anbieter akzeptiert Referenzbilder; die Wirkung hängt also vom gewählten Anbieter ab.
+**Send Avatar References** (Avatar-Referenzen senden) schickt die Avatare von Charakteren und Personas – oder deren Sprites – als Referenzbilder an den Bild-Anbieter. Der Hilfetext lautet: „Send matching character and persona avatars or sprites as reference images when the provider supports them.“ So kann das Bildmodell ein Gesicht oder ein Outfit übernehmen. Nicht jeder Anbieter akzeptiert Referenzbilder; die Wirkung hängt also vom gewählten Anbieter ab. In Roleplay bleibt es ein Schalter und wirkt nur auf Bilder, weil ein Roleplay-Clip ohnehin mit einem Bild beginnt.
 
 ## Mehrere Figuren mit NovelAI
 
-Nutzt die Bild-Verbindung des Illustrators NovelAI mit einem V4-, V4.5- oder V5-Modell, soll das promptschreibende Modell für jede sichtbare Figur eine zusätzliche Beschreibung erstellen. Jede Beschreibung enthält das Aussehen, den Gesichtsausdruck, die Pose und die ungefähre Position dieser Figur im Bild. Marinara gleicht die Beschreibungen mit der Figurenliste der Szene ab, verwirft nicht zuordenbare Einträge und sendet die übrigen als native Figuren-Prompts zusammen mit dem Haupt-Prompt der Szene an NovelAI. So vermischen sich Haare, Kleidung und andere Merkmale in Gruppenszenen nicht zwischen den Figuren.
+Nutzt die Bild-Verbindung des Illustrators NovelAI mit einem V4-, V4.5- oder V5-Modell, soll das promptschreibende Modell für jede sichtbare Figur eine zusätzliche Beschreibung erstellen. Jede Beschreibung enthält das Aussehen, den Gesichtsausdruck, die Pose und die ungefähre Position dieser Figur im Bild. Marinara gleicht die Beschreibungen mit der Figurenliste der Szene ab, verwirft nicht zuordenbare Einträge und sendet die übrigen als native Figuren-Prompts zusammen mit dem Haupt-Prompt der Szene an NovelAI. So vermischen sich Haare, Kleidung und andere Merkmale in Gruppenszenen nicht zwischen den Figuren. Bilder über die Schaltfläche **Illustrate** (Illustrieren) und über den Befehl `[illustrate]` eines Charakters bekommen dieselben Beschreibungen.
 
 Die Zahl der Beschreibungen hängt vom Modell ab. V5 unterstützt bis zu 22 Figuren, V4 und V4.5 bis zu 6. Sind mehr Figuren sichtbar, bleiben die wichtigsten erhalten; die übrigen werden als namenloser Hintergrund behandelt.
 
@@ -79,7 +86,7 @@ Das promptschreibende Modell erhält auch Vorgaben dazu, woher die Details komme
 
 Bei aktiviertem **Attach Card Appearance** (Aussehen aus der Karte anhängen) erhält das Modell außerdem den vollständigen Appearance-Text jeder Karte und Persona im Chat als Referenz, damit lange Karten und Karten mit mehreren Figuren nicht gekürzt werden. Karten, die mehrere Figuren in einem Appearance-Feld als `[NAME] tags | [NAME] tags` beschreiben, werden nach Figuren aufgeteilt. Das Modell entscheidet, was es verwendet: Es kopiert feste Merkmale in die passende Beschreibung, behandelt Kleidungs-Tags aus der Karte als Vorgabe, die der Tracker oder die Szene überschreiben kann, und ignoriert Figuren, die nicht in der Szene vorkommen. Liefert das Modell Figurenbeschreibungen zurück, hängt Marinara nichts mehr an den Prompt an. Liefert es keine zurück, wie bei einer einzelnen Figur, wird die übliche Aussehenszeile wie bisher an den Haupt-Prompt angehängt.
 
-Du musst dafür nichts einstellen. Die Beschreibungen werden nur bei einer NovelAI-Verbindung zum eigenen Host des Anbieters verwendet; Proxys und andere Anbieter sind nicht betroffen. Ist **Review image prompts before sending** (Bild-Prompts vor dem Senden prüfen) aktiviert, zeigt der Prüfdialog die Beschreibungen unter dem Haupt-Prompt an, damit du siehst, was gesendet wird. Dort sind sie schreibgeschützt; den Haupt-Prompt kannst du wie gewohnt bearbeiten.
+Du musst dafür nichts einstellen. Die Beschreibungen werden nur bei einer NovelAI-Verbindung zum eigenen Host des Anbieters verwendet; Proxys und andere Anbieter sind nicht betroffen. Ist **Expose media prompts before sending** (Medien-Prompts vor dem Senden anzeigen) aktiviert, zeigt der Prüfdialog die Beschreibungen unter dem Haupt-Prompt an, damit du siehst, was gesendet wird. Dort sind sie schreibgeschützt; den Haupt-Prompt kannst du wie gewohnt bearbeiten.
 
 ## Weitere Einstellungen und manueller Start
 
@@ -89,13 +96,15 @@ Jeder Roleplay-Chat hat auf der Illustrator-Karte in **Chat Settings** ein eigen
 
 Setze **Run Interval** auf **0**, um ausschließlich manuell zu generieren. Damit stoppst du automatische Illustrator-Läufe einschließlich automatischer Szenenhintergründe. Der Agent bleibt installiert und für Galerieaktionen verfügbar. Ein positiver Wert aktiviert automatische Läufe wieder.
 
-Ein Bild lässt sich auch jederzeit von Hand erzeugen, statt darauf zu warten. Öffne dazu den Abschnitt **Gallery** in **Chat Settings** und klick auf die Schaltfläche **Illustrate** (Illustrieren). Der Illustrator läuft dann sofort einmal durch, währenddessen steht auf der Schaltfläche **Generating...**. Praktisch, wenn du ein Bild vom aktuellen Moment willst und der Agent noch keines gezeichnet hat.
+Ein Bild lässt sich auch jederzeit von Hand erzeugen, statt darauf zu warten. Öffne dazu den Abschnitt **Gallery** in **Chat Settings** und klick auf die Schaltfläche **Illustrate**. Der Illustrator läuft dann sofort einmal durch, währenddessen steht auf der Schaltfläche **Generating...**. Praktisch, wenn du ein Bild vom aktuellen Moment willst und der Agent noch keines gezeichnet hat.
 
 ## Galeriespeicherung und Prompt-Ansicht
 
 Unter **Settings → Generations → Image Generation** (Einstellungen → Generierung → Bilderzeugung) ist **Automatically save generated images to character galleries** (Erzeugte Bilder automatisch in Charaktergalerien speichern) standardmäßig aktiv. Schalte es aus, um Chat-Illustrationen und Selfies nicht mehr automatisch in die Galerien der dargestellten Charaktere und Personas aufzunehmen. Die Bilder bleiben im Gespräch und in der Chat-Galerie sichtbar; ausdrückliches Speichern in einer Galerie bleibt möglich. Vorhandene Einträge ändern sich nicht. Galerien teilen sich die Bilddateien: Die Einstellung steuert die Galeriezuordnung und löscht keine Bilddatei des Chats.
 
 Bei neuen, von Illustrator mit NovelAI erzeugten Illustrationen zeigt die Bildansicht den Szenen- oder Stilprompt und anschließend die positiven Charakterbeschreibungen, getrennt durch ` | `. Das gilt auch für den gespeicherten Galerieprompt.
+
+Um eine Illustration mit geändertem Prompt neu zu zeichnen, ohne die Antwort neu zu generieren, öffne sie und nutze **Regenerate image** (Bild neu generieren). Siehe [Ein Bild neu generieren](scene-backgrounds.md#regenerating-an-image).
 
 Für eine frühere Roleplay-Nachricht oder einen Bereich nutze `/illustrate range=12` oder `/illustrate range=12-18`. Nummerierung und Grenzen stehen unter [Slash-Befehle](../chats/slash-commands.md).
 

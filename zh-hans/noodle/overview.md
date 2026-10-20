@@ -1,6 +1,6 @@
 # Noodle：应用内的社交时间线
 
-Noodle 是 Marinara Engine 内置的一个模拟社交媒体信息流，界面很像 Twitter 或者 X 的时间线。但上面的每个账号、每条帖子都来自你自己的世界：用户角色、角色，还有 Professor Mari。本指南介绍 Noodle 是什么、怎么打开，以及如何发帖、关注和刷新时间线。
+Noodle 是 Marinara Engine 的一个可选的模拟社交媒体信息流，界面很像 Twitter 或者 X 的时间线。但上面的每个账号、每条帖子都来自你自己的世界：用户角色、角色，还有 Professor Mari。本指南介绍怎么安装和打开 Noodle，以及如何发帖、关注和刷新时间线。
 
 ## Noodle 是什么
 
@@ -21,15 +21,15 @@ Noodle 的活动是可选的，默认关闭。在邀请角色（或者开启随�
 
 ## 打开 Noodle
 
-Noodle 在顶栏里，不在设置面板中。
+Noodle 是一个可下载的智能体包。先安装一次，再去找它在主页上的标签页：
 
-1. 在顶栏找到 **Noodle** 按钮（一个 @ 符号图标）。
-2. 点击 **Noodle**。
-3. 主聊天区会被 Noodle 时间线取代。
+1. 打开 **Agents**(智能体)，选择 **Download Agents**(下载智能体)，安装 **Noodle**。
+2. 按提示重启 Marinara Engine，让它的服务器部分和主页内容能够加载。
+3. 打开 **Home**(主页)，点击 **Home** 和 **Professor**(教授) 旁边的 **Noodle** 标签页。
 
-这时应该能看到一个假的浏览器地址栏，上面写着 `marinara/noodle`，旁边有一个小小的 **Noodle** 标记。这纯粹是氛围装饰。打开 Noodle 会关闭其他已打开的面板，比如角色库或者 Card Browser。
+这时应该能在 Marinara 的主页浏览器里看到熟悉的仿真浏览器界面和 Noodle 时间线。主页的地址栏写着 `marinara/noodle`；Noodle 自己的浏览器样式仍然是页面的一部分。
 
-想退出 Noodle，再次点击 **Noodle** 按钮，或者打开任意其他面板。
+想退出 Noodle，选择主页浏览器的另一个标签页，或者打开一个聊天。
 
 在手机上或者窗口较窄时，Noodle 会切换成移动端布局，带有自己的一套导航。参见下面的“手机上的 Noodle”一节。
 
@@ -83,11 +83,18 @@ Noodle 在顶栏里，不在设置面板中。
 
 通知需要有一个启用中的用户角色。没有的话，这个面板会一直是空的。
 
+<a id="profiles-and-following"></a>
+
 ## 个人资料和关注
 
 从左侧边栏打开 **Profile**(个人资料)，或者点击 Noodle 里任意位置的账号名称、头像。
 
-自己的个人资料页上有一个 **Edit Profile**(编辑个人资料) 按钮。点击它可以修改 **Display name**(显示名称)、**@name**(账号名)、**Bio**(简介) 和 **Location**(所在地)，改完点击 **Save**(保存)。也可以点击横幅或头像上传图片。只有自己用户角色的资料能编辑，角色的资料由 AI 撰写，不能手动改。
+自己的个人资料页上有一个 **Edit Profile**(编辑个人资料) 按钮。点击它可以修改 **Display name**(显示名称)、**@name**(账号名)、**Bio**(简介) 和 **Location**(所在地)，改完点击 **Save**(保存)。也可以点击横幅或头像上传图片。角色的资料由 AI 撰写，角色被邀请之后，你也可以用同样的方式修改它。
+
+编辑角色的资料时，资料字段下方还会多出两项设置。它们会立即保存。
+
+- **Use this character's image instructions in Noodle images**(在 Noodle 图片中使用这个角色的图片指令) 会把角色编辑器 **Convo** 选项卡里该角色的 **Image generation instructions**(图片生成指令) 加到他的 Noodle 图片中。**Edit image instructions**(编辑图片指令) 会打开那个选项卡。在你于 Slurp 里为这个角色单独设置之前，Slurp 也会沿用这个选择。这需要 Noodle 1.5.4 或更高版本。
+- **Image connection**(图像连接) 为这个角色的 Noodle 图片选择图像连接。**Use Noodle image connection**(使用 Noodle 的图像连接) 会沿用 [Noodle 设置](settings.md#image-generation)里的那个。这需要 Noodle 1.5.5 或更高版本。
 
 页头下方是 **Following** 和 **Followers**(粉丝) 的数量，再往下是三个选项卡：**Posts**(帖子)、**Likes** 和 **Media**(媒体，即带图片的帖子)。
 

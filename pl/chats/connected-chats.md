@@ -74,7 +74,7 @@ Jeśli żadna postać nie zapisała jeszcze notatki, sekcja wyjaśnia, że notat
 
 ## Przeskakiwanie między połączonymi czatami
 
-Kiedy czat ma swój odpowiednik, w prawym górnym rogu czatu pojawia się mały przycisk **Connected chat** z ikoną podwójnej strzałki. Możesz przeciągnąć go w inne miejsce na komputerze lub telefonie. Kliknij go lub dotknij, żeby otworzyć małe okno, a następnie wybierz **Switch to** z nazwą drugiego czatu.
+Kiedy czat ma swój odpowiednik, na komputerze w prawym górnym rogu czatu pojawia się mały przycisk **Connected chat** z ikoną podwójnej strzałki. Możesz przeciągnąć go w inne miejsce. Na telefonie **Connected chat** znajdziesz w menu **Chat tools** (narzędzia czatu) z trzema kropkami. Otwórz tę kontrolkę, a następnie wybierz **Switch to** z nazwą drugiego czatu.
 
 Od razu przejdziesz do połączonego czatu. Przycisk działa po obu stronach połączenia.
 

@@ -182,6 +182,8 @@ un événement `gm` est donc connue du Game Master dès le départ, même quand 
 joue aussi. Comme ils lui sont transmis à chaque tour, les temps forts de tous les événements `gm` sont
 limités ensemble à 16 000 caractères.
 
+<a id="the-intro-message"></a>
+
 ### Le message d'introduction
 
 `intro` (Capability API 1.339) définit l'ouverture de la partie, le même choix que la configuration du

@@ -27,7 +27,7 @@ Dort warten zwei aufklappbare Editoren.
 
 Ein Klick auf den Titel eines Editors klappt ihn auf.
 
-**Video Generation Prompt Overrides** enthält die wiederverwendbaren Vorlagen für Szenenvideos in Game und Galerie, für Charakter-Clips in Conversation-Anrufen und für animierte Ausdrucksporträts. Jede Video-Prompt-Vorlage bestimmt, wie eine Art von Clip dem Videomodell beschrieben wird.
+**Video Generation Prompt Overrides** enthält die wiederverwendbaren Vorlagen für Szenenvideos in Game und Galerie, für Videonachrichten in Conversation, für Charakter-Clips in Conversation-Anrufen und für animierte Ausdrucksporträts. Jede Video-Prompt-Vorlage bestimmt, wie eine Art von Clip dem Videomodell beschrieben wird.
 
 **Image Generation Prompt Overrides** enthält die Vorlagen für Bild-, Sprite-, Game- und Prompt-Builder-Systeme. Dazu zählen Selfies in Conversation, NPC-Porträts im Game Mode, Szenenkunst, Storyboard-Prompts, die Vorlage **Noodle Post Image** für Noodle-Beiträge und weitere registrierte Bild-Builder. Jede Bild-Prompt-Vorlage bestimmt, wie eine Art von Bild dem Bildmodell beschrieben wird.
 

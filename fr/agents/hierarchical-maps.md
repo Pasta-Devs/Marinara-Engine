@@ -48,11 +48,14 @@ World Maps 1.3.1 apporte :
 - des modèles de carte valables pour tout le compte, créés à la main, avec l'IA ou par import ;
 - des brouillons et extensions de carte assistés par l'IA, ancrés dans la configuration ou le lore sélectionné ;
 - des descriptions de lieu publiques, une mémoire privée pour le modèle et du lore attaché au lieu exact ;
+- des exports portables, avec en option les entrées liées ou des lorebooks complets ;
+- un import de lore avec revue, avec correspondance exacte, choix explicites en cas d'ambiguïté et copies séparées sans risque de collision ;
 - une image de référence facultative pour chaque lieu, prise dans la galerie du chat ou dans la galerie globale ;
 - un arrière-plan distinct, pris dans la galerie du chat ou dans la galerie globale, pour chaque carte d'enfants positionnée ;
 - une génération par lots, avec revue, des illustrations de lieu manquantes ;
 - une redéfinition globale du prompt d'illustration des cartes, à base de variables ;
 - la prise en charge de la référence de lieu pour les illustrations Roleplay et les Storyboards de Game ;
+- une seule réparation de mise en forme, contrôlée, pour un JSON de carte mal formé produit par l'IA, avec des conseils distincts pour une sortie tronquée par la limite de tokens ;
 - l'import, l'export, l'archivage, l'édition respectueuse de l'historique et les liaisons avec la carte de Game ;
 - des bibliothèques de prompts globales pour la construction de cartes par l'IA et pour l'insert de lieu à l'exécution.
 
@@ -145,6 +148,16 @@ l'une de ses voies de configuration :
 - **Create with AI** prépare une hiérarchie générée, prête à être vérifiée.
 - **Use template** ouvre la bibliothèque de mondes avant la création de la partie Game.
 - **Build manually** démarre sur une hiérarchie vierge et modifiable.
+- **From the world** (à partir du monde) apparaît quand la partie Game crée un monde (voir
+  [Créer un monde](../game/getting-started.md#making-a-world)). Cette option dispose ce
+  monde en carte : ses régions, ses agglomérations et ses lieux, ainsi que les chemins
+  qui les relient, avec leurs temps de trajet. Tu la vérifies avant qu'elle soit enregistrée. Elle
+  ne demande aucune génération par l'IA, et les lieux de la carte sont ceux du monde.
+  En jeu, les deux restent synchronisés. Le Game Master et les marchés utilisent le lieu
+  où la carte place l'équipe. Quand le Game Master nomme un lieu du monde, la
+  carte y déplace l'équipe. Avec World Maps 1.6.0 ou ultérieur, elle prend l'itinéraire
+  le plus court. Les versions antérieures ne la déplacent que d'une étape : un lieu intérieur, le
+  lieu qui l'entoure, ou un lieu relié par un chemin.
 
 Après avoir choisi **Use template**, le sélecteur affiche d'abord
 **Shared worlds**, puis **Independent templates** (modèles indépendants) :
@@ -221,6 +234,13 @@ option : **Discard** (abandonner) jette le brouillon, et **Detach and keep copy*
 du moment. Si le monde canonique change alors qu'un brouillon est en attente,
 Maps signale un conflit et impose un détachement ou un abandon, plutôt que
 d'écraser une version en silence.
+
+Quand tu publies, les éditeurs de chats reliés sans travail en attente, gardés
+en cache dans cet onglet du navigateur, passent à la nouvelle révision
+canonique. Les éditeurs qui contiennent du travail non enregistré gardent leur
+brouillon et signalent un conflit au lieu d'être écrasés. Rouvre les chats
+reliés dans les autres onglets ou fenêtres du navigateur pour y charger la
+nouvelle révision.
 
 Modifier un monde partagé depuis la bibliothèque met à jour directement la
 définition canonique. L'éditeur de monde partagé ne propose pas de suppression
@@ -349,6 +369,14 @@ descriptions, mémoire privée pour le modèle et provenance du lore. Utilise
 **Edit prompt** (modifier le prompt), **Regenerate** (régénérer) ou **Discard
 draft** (abandonner le brouillon) avant de continuer.
 
+Si le modèle renvoie un JSON complet mais mal formé, World Maps fait une seule
+tentative de réparation qui ne porte que sur la mise en forme. La demande de
+réparation impose au modèle de conserver chaque lieu et chaque valeur générés
+en ne corrigeant que la syntaxe JSON. Une réponse incomplète n'est pas envoyée
+en réparation. Maps te demande plutôt d'augmenter le réglage
+**Max Output Tokens** (nombre maximal de tokens en sortie) de la connexion ou de
+choisir une taille de carte plus petite avant de réessayer.
+
 Clique sur **Continue to editor** (passer à l'éditeur) pour une nouvelle carte,
 ou sur **Add to working map** (ajouter à la carte de travail) pour une
 extension. Dès que l'historique de campagne renvoie à des identifiants de lieu,
@@ -424,6 +452,13 @@ destination en attente pour l'annuler. Si la révision de la carte ou le lieu
 actuel change avant l'envoi, le déplacement en attente passe en **Needs review**
 (à vérifier).
 
+La génération guidée, la régénération et la continuation ne créent pas de
+nouveau tour utilisateur : elles ne consomment donc ni destination en attente
+ni étape d'itinéraire. **Impersonate** crée bien un message utilisateur. Un tour
+réussi avec **Impersonate** valide donc une seule fois son déplacement en
+attente ; un échec du fournisseur ne valide rien, et un déplacement périmé
+repasse en vérification au lieu de changer le lieu.
+
 ### Planifier un itinéraire sur plusieurs tours
 
 Sélectionne un lieu actif éloigné sur la carte du monde. Si le graphe des
@@ -466,6 +501,14 @@ réagissent pas tous pareil à une prose ambiguë. Utilise **Set destination**
 (définir la destination) pour un déplacement certain au tour suivant, ou
 **Set current story location** (définir le lieu d'histoire actuel) pour corriger
 un état déjà enregistré.
+
+Avec Marinara Engine **2.4.1** ou ultérieur, les directives complètes de
+déplacement et de découverte de Maps sont retirées du texte en cours de
+streaming et des messages enregistrés. La prose ordinaire entre crochets et ses
+espaces restent inchangées. Si une directive Maps brute apparaît dans un
+message, mets à jour Marinara Engine et World Maps, redémarre quand
+l'application te le demande, puis régénère ou supprime le message concerné pour
+qu'il ne soit pas rejoué dans le contexte suivant.
 
 Une arrivée validée menée par l'utilisateur peut contourner la règle du pas
 unique : Maps enregistre au besoin un lien direct disponible depuis le lieu
@@ -581,6 +624,15 @@ Pour un parent en présentation Map, ouvre séparément **Child map background**
 place-la derrière les marqueurs des enfants. Cette image n'est jamais envoyée à
 un fournisseur du simple fait qu'elle s'affiche sur la carte. Utilise une image carrée, par exemple de 1024 × 1024 px, pour correspondre à la grille de coordonnées de 100 × 100. L'éditeur et la vue pendant le chat utilisent le même canevas carré.
 
+Quand une même image de la galerie remplit les deux rôles,
+**Remove reference only** (retirer uniquement la référence) la conserve comme
+arrière-plan de la carte d'enfants. Utilise
+**Reject both and create replacement** (rejeter les deux et créer un
+remplacement) quand l'image ne convient à aucun des deux rôles.
+Après la génération, **Use for both** (utiliser pour les deux) attribue en une
+seule étape la nouvelle image comme référence du lieu et comme arrière-plan de
+la carte d'enfants.
+
 ### Générer par lots les illustrations de lieu manquantes
 
 La section **Location artwork** de l'éditeur repère les lieux dépourvus de
@@ -597,9 +649,16 @@ référence ou d'arrière-plan de carte d'enfants.
 Chaque image manquante représente une requête distincte chez le fournisseur. Les
 grands mondes peuvent être lents ou coûteux : la revue peut donc défiler
 entièrement et garde le nombre de demandes sous les yeux. Une illustration
-existante est réutilisée sans nouvelle requête quand c'est possible. Une image
-devient la référence du lieu, ainsi que l'arrière-plan de la carte d'enfants
-quand cette carte en a besoin.
+existante est réutilisée sans nouvelle requête quand c'est possible. Une nouvelle
+image devient la référence du lieu, ainsi que l'arrière-plan de la carte
+d'enfants quand cette carte en a besoin.
+
+Un lien de galerie enregistré dont l'image n'existe plus compte aussi comme
+manquant. Si tu modifies le lieu pendant la génération, Maps n'applique le
+résultat qu'aux rôles d'illustration encore vacants. Un remplacement que tu
+viens de choisir, l'interrupteur de référence, la position de l'arrière-plan,
+l'état d'archive et les modifications du brouillon sans rapport ne sont pas
+écrasés par la requête terminée.
 
 Ce sont les prompts positifs et négatifs exactement tels qu'affichés dans la
 revue, modifications comprises, qui partent chez le fournisseur. Le contenu du
@@ -636,9 +695,9 @@ Personnalisations fréquentes :
 
 - Retire `${genreLine}` si le genre de Game ne doit pas apparaître dans les
   illustrations de carte automatiques.
-- Ne garde `${campaignArtStyleLine}` que si l'interrupteur **Use campaign art
-  style**, propre à chaque chat, doit piloter ce contenu. Quand l'interrupteur
-  est désactivé, la variable est vide.
+- Ne garde `${campaignArtStyleLine}` que si l'interrupteur
+  **Use campaign art style**, propre à chaque chat, doit piloter ce contenu.
+  Quand l'interrupteur est désactivé, la variable est vide.
 - N'ajoute `${parentLocationName}`, `${parentLocationDescription}` ou
   `${locationPath}` que si le fournisseur a besoin de ce contexte plus large.
 - Utilise **Reset to default** (rétablir la valeur par défaut) pour retrouver le
@@ -663,11 +722,12 @@ Pour rattacher du lore à l'exécution, sélectionne le lieu, ouvre **Linked lor
 (lore rattaché), cherche parmi les entrées disponibles, rattache celles que tu
 veux et enregistre.
 
-Ouvrir une entrée de lorebook rattachée fait quitter l'éditeur de carte.
-Enregistre d'abord la carte si tu veux garder les autres modifications en cours,
-ou confirme en connaissance de cause qu'elles peuvent être abandonnées. World
-Maps 1.3.1 prévient avant que cette action ne fasse perdre des modifications de
-carte non enregistrées.
+Choisis **Open** (ouvrir) sur une entrée rattachée pour quitter l'espace de
+travail de la carte et ouvrir son lorebook. Un espace de travail sans
+modification en attente se ferme directement. Si la carte a des modifications
+non enregistrées, enregistre d'abord ou confirme explicitement que le brouillon
+peut être abandonné ; World Maps n'ouvre jamais le lorebook derrière l'éditeur
+de carte encore visible.
 
 Les entrées rattachées ne passent pas du parent à l'enfant. Le lore rattaché à
 Brinewatch ne s'active pas à Tideglass Inn s'il n'y est pas rattaché lui aussi.
@@ -716,27 +776,60 @@ télécharger la hiérarchie sous forme de fichier `.world-map.json`. Avant le t
 | **Map + linked entries** | Seulement les entrées liées par la carte et les chemins de dossiers nécessaires. C'est l'option portable recommandée. |
 | **Map + complete lorebooks** | Toutes les entrées et tous les dossiers de chaque lorebook lié, y compris le contenu sans rapport avec la carte. |
 
-Avant de partager, vérifie les lorebooks listés, le nombre d'entrées, la taille estimée et la correspondance dépliable entre lieux et lore. Les lorebooks complets peuvent contenir des notes privées ou sans rapport. Laisse **Include map artwork** activé pour regrouper
-dans le même fichier les images de référence des lieux et les arrière-plans des
-cartes d'enfants. Désactive cette option pour obtenir une sauvegarde plus petite,
-et non plus seulement une sauvegarde de définition. Les anciens fichiers `.hierarchical-map.json` restent
-importables.
+Avant de partager le fichier, vérifie les lorebooks listés, le nombre d'entrées,
+la taille estimée et la correspondance dépliable entre lieux et lore. Les
+lorebooks complets peuvent contenir des notes privées ou sans rapport.
+
+Laisse **Include map artwork** (inclure les illustrations de la carte) activé
+pour regrouper dans le même fichier les images de lieu référencées et les
+arrière-plans des cartes d'enfants. Désactive-le quand tu veux une sauvegarde
+plus petite. Les anciens fichiers `.hierarchical-map.json` restent importables.
 
 ### Importer une carte et restaurer son lore portable
 
 Utilise **Import** pour charger une hiérarchie dans la copie de travail d'un
-chat, un modèle indépendant ou un monde partagé. Si le fichier contient des lorebooks, **Restore portable map lore** affiche quatre groupes : **Exact IDs**, **Unique content**, **Need a choice** et **New entries**.
+chat, un modèle indépendant ou un monde partagé. Si le fichier contient du
+contenu de lorebook, **Restore portable map lore** (restaurer le lore portable
+de la carte) prévisualise quatre groupes : **Exact IDs** (identifiants exacts),
+**Unique content** (contenu unique), **Need a choice** (choix nécessaire) et
+**New entries** (nouvelles entrées).
 
-Un identifiant exact ne fait autorité que dans le lorebook de destination. Un identifiant provenant d'une autre source est ambigu : choisis la ligne précise `Lorebook → Entry (ID)` ou **Import a new copy**. Sans identifiant, World Maps ne réutilise une entrée que si l'intégralité de son contenu portable et de ses réglages n'a qu'une correspondance ; le nom seul ne suffit jamais.
+Un identifiant d'entrée exact ne fait autorité que s'il appartient au lorebook
+de destination. Un identifiant provenant d'une autre source est ambigu et ne
+vaut pas correspondance automatique : choisis la ligne de destination exacte
+`Lorebook → Entry (ID)` ou **Import a new copy** (importer une nouvelle copie).
+Sinon, World Maps ne réutilise une entrée que si l'intégralité de son contenu
+portable et de ses réglages a une seule correspondance. Un nom seul ne suffit
+jamais.
 
-Après la prévisualisation, choisis une stratégie globale :
+Choisis la stratégie d'import globale après avoir examiné le résultat attendu :
 
-- **Import separate copies** ne réutilise aucune entrée et crée des lorebooks indépendants comme `Original Lorebook - Map Name (World Map)`, avec **(copy)** ou **(copy N)** pour éviter les collisions.
-- **Reuse matches & import the rest** conserve les correspondances exactes et uniques, applique tes choix ambigus et crée de nouveaux lorebooks uniquement pour le reste.
+- **Import separate copies** (importer des copies séparées) ne réutilise aucune
+  entrée. Cette option crée des lorebooks indépendants, étiquetés avec leur
+  provenance, comme `Original Lorebook - Map Name (World Map)`, en ajoutant
+  **(copy)** ou **(copy N)** pour éviter un conflit de nom dans la bibliothèque.
+- **Reuse matches & import the rest** (réutiliser les correspondances et
+  importer le reste) conserve les correspondances exactes et uniques, applique
+  tes choix pour les lignes ambiguës et ne crée de nouveaux lorebooks que pour
+  les entrées qui restent à importer.
 
-Maps liste ensuite les lorebooks réutilisés et créés. Les copies créées restent dans la bibliothèque même si la carte est supprimée. Engine **2.4.1** ou ultérieur actualise Lorebooks immédiatement ; avec **2.3.5 à 2.4.0**, actualise Marinara une fois après la restauration.
+Après l'import, Maps liste précisément les lorebooks réutilisés et créés. Les
+copies créées restent dans la bibliothèque Lorebooks même si la carte est
+supprimée plus tard. Avec Engine **2.4.1** ou ultérieur, la vue principale
+Lorebooks s'actualise immédiatement. Avec Engine **2.3.5 à 2.4.0**, actualise
+Marinara une fois après avoir restauré le lore portable.
 
-Les illustrations sont également restaurées et remappées. Celles du chat reviennent dans sa galerie ; les illustrations partagées sont réutilisées depuis la galerie globale ou y sont ajoutées une fois. Vérifie le résultat puis clique sur **Save**. L'import n'enregistre rien immédiatement. Un export **Map only** conserve la provenance lisible et les liens d'identifiants exacts existants, mais ne peut recréer un lorebook ou une entrée supprimés sans leur contenu.
+Les illustrations incluses sont aussi restaurées, et leurs liens d'image sont
+remappés. Les illustrations appartenant au chat reviennent dans la galerie du
+chat de destination. Les illustrations partagées sont réutilisées depuis la
+galerie globale quand la même image y existe déjà, ou y sont ajoutées une seule
+fois quand un modèle ou une référence partagée en a besoin.
+
+Vérifie la carte importée et clique sur **Save** pour qu'elle fasse autorité.
+L'import n'enregistre rien immédiatement. Un export **Map only** peut conserver
+la provenance lisible du lore et les liens d'identifiants exacts existants, mais
+il ne peut pas recréer des lorebooks ou des entrées supprimés, car leur contenu
+n'est pas dans le fichier.
 
 Dès que l'historique de campagne renvoie à une carte, les modifications
 importées doivent conserver les identifiants de lieu existants. Ajoute ou mets à
@@ -820,9 +913,15 @@ lore, sélectionne au moins un lorebook activé et non exclu.
 
 ### La génération par IA signale un JSON incomplet ou mal formé
 
-Si la réponse s'est terminée avant d'obtenir un JSON complet, augmente **Max Output Tokens** pour la connexion ou choisis une carte plus petite, puis relance la génération. World Maps ne dépense pas une autre requête pour réparer une réponse incomplète.
+Si Maps indique que la réponse s'est terminée avant qu'un JSON complet soit
+disponible, augmente le réglage **Max Output Tokens** de la connexion ou choisis
+une taille de carte plus petite, puis relance la génération. World Maps ne
+dépense pas une autre requête pour tenter de réparer une réponse incomplète.
 
-Si le JSON est mal formé, une réparation de syntaxe a déjà été tentée. Relance la génération ; si le modèle échoue plusieurs fois, change de connexion ou de modèle. **Max Output Tokens** vise uniquement le cas incomplet.
+Si Maps signale un JSON mal formé, il a déjà tenté une réparation portant
+uniquement sur la syntaxe. Relance la génération. Si le même modèle renvoie sans
+cesse une sortie mal formée, utilise une autre connexion ou un autre modèle ;
+modifier **Max Output Tokens** sert au cas d'une sortie incomplète.
 
 ### Le lieu actuel n'a pas suivi un message
 
@@ -916,14 +1015,16 @@ avancé, sers-toi de l'aperçu résolu de **Turn prompt insert**.
 
 Vérifie que l'entrée est bien rattachée au lieu actuel exact. Contrôle que
 l'entrée et le lorebook sont activés, et que le lorebook n'est pas exclu du chat.
+Le lore rattaché à un parent n'est pas hérité par les lieux enfants.
 
-**Autres règles de World Maps 1.3.1 :** la génération guidée, la régénération et la continuation ne créent pas de tour utilisateur et ne consomment donc aucune destination ni étape d'itinéraire en attente. **Impersonate** crée bien un message utilisateur : un tour réussi valide le déplacement une fois, un échec du fournisseur ne valide rien et un déplacement périmé passe à **Needs review**.
-
-Avec Marinara Engine **2.4.1** ou ultérieur, les directives complètes de déplacement et de découverte de Maps sont retirées du texte diffusé et des messages enregistrés, sans modifier le texte ordinaire entre crochets ni ses espaces. Si une directive brute apparaît, mets à jour Engine et World Maps, redémarre quand c'est demandé, puis régénère ou supprime le message concerné.
-
-Quand une image de galerie remplit les deux rôles, **Remove reference only** la conserve comme arrière-plan de carte enfant ; **Reject both and create replacement** remplace les deux et **Use for both** attribue une nouvelle image aux deux. Un lien de galerie enregistré dont le fichier a disparu est également considéré comme manquant. Un résultat terminé pendant une modification ne remplit que les rôles encore vacants et n'écrase ni une nouvelle image, ni l'option de référence, ni la position d'arrière-plan, ni l'état d'archive, ni d'autres changements du brouillon.
-
-**Open** sur une entrée liée quitte la carte et ouvre son lorebook. Un brouillon propre se ferme directement ; avec des changements non enregistrés, enregistre d'abord ou confirme leur abandon. Si le lore importé ne s'active pas, consulte le résumé : **Map only** ne contient rien à restaurer. Utilise **Map + linked entries** ou **Map + complete lorebooks**, puis choisis la correspondance exacte, la destination ambiguë ou une copie séparée. Le lore lié au parent n'est pas hérité par les lieux enfants.
+Pour une carte importée, consulte le récapitulatif de l'import. **Map only**
+contient la provenance lisible, mais aucun contenu de lorebook : il ne peut donc
+pas restaurer un lorebook manquant. Importe un fichier exporté avec
+**Map + linked entries** ou **Map + complete lorebooks**, puis choisis la
+correspondance exacte, la destination ambiguë ou la copie séparée voulue. Avec
+Engine **2.3.5 à 2.4.0**, actualise Marinara une fois après avoir restauré le
+lore portable, pour que le lorebook créé apparaisse dans la vue principale
+Lorebooks. Engine **2.4.1** ou ultérieur l'actualise immédiatement.
 
 ## Guides associés
 

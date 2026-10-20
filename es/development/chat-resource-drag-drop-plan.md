@@ -2,7 +2,7 @@
 
 ## Estado
 
-Las fases 1 a 4 están implementadas en `drag-me-baby-one-more-time`.
+Las fases 1 a 4 se implementaron en `drag-me-baby-one-more-time` y están fusionadas en `staging`. Un trabajo posterior (#7362) permite arrastrar filas de la biblioteca sin asa, permite que un usuario táctil reúna una pila de recursos compatibles con toques de un segundo dedo y muestra huecos de inserción al reordenar.
 
 La cobertura automatizada del resolutor (el módulo que decide qué acción es válida) está activa. Se añadió cobertura de Playwright en computadora para la asignación de personajes y el reemplazo de persona, pero la ejecución local en el contenedor de desarrollo actual está bloqueada porque Chromium no puede cargar `libnspr4.so`; esos casos de navegador debe ejecutarlos CI o un entorno con las dependencias de sistema de Playwright.
 

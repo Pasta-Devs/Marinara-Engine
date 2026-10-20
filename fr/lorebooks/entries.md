@@ -43,6 +43,8 @@ Déplie une entrée pour modifier ses champs principaux.
 - **Secondary Keys** (clés secondaires) : des mots-clés supplémentaires, utilisés uniquement quand le type d'entrée est **Selective**. Voir la section sur les types d'entrée plus bas.
 - **Description** : un court résumé de l'entrée. Seul l'agent **Knowledge Router** le lit, pour décider s'il faut insérer l'entrée. Ce texte n'est jamais envoyé à l'IA principale comme contenu. Voir [Sources de connaissances](../agents/knowledge-sources.md).
 
+Une liste de plus de 10 clés n'affiche que les 10 premières. Clique sur **Show N more** (en afficher N de plus), par exemple **Show 5 more**, pour voir le reste, et sur **Collapse** (replier) pour les masquer de nouveau. Ajouter une clé déplie toute la liste. Les clés masquées continuent de correspondre comme d'habitude.
+
 Voici un exemple simple.
 
 - Nom : `Silverhaven`
@@ -160,6 +162,8 @@ Le panneau latéral déplié contient encore quelques champs.
 
 Le panneau latéral comporte aussi une section **Context filters & matching sources** (filtres de contexte et sources analysées). Elle permet de limiter une entrée à certains personnages, à certains tags de personnage ou à certains types de génération. Tu peux aussi y analyser des champs supplémentaires de la fiche de personnage (la description du personnage, par exemple) à la recherche des mots-clés de l'entrée.
 
+<a id="authoring-strategy-choosing-the-right-entry"></a>
+
 ## Stratégie de rédaction : choisir la bonne entrée
 
 Les sections précédentes décrivent le rôle de chaque contrôle. Celle-ci les relie aux décisions que tu prends en écrivant un lorebook : quel type choisir, quand resserrer un mot-clé, comment garder le prompt léger. Pars d'une seule question : *quand l'IA doit-elle voir ce fait ?*
@@ -193,6 +197,8 @@ L'endroit où vit un lorebook décide quels chats le voient. Choisis donc le con
 - **Le lore d'une seule histoire** : épingle le lorebook à ce chat précis, depuis ses réglages.
 
 Le fonctionnement de l'activation est détaillé dans [Vue d'ensemble des lorebooks](overview.md), et les contrôles d'affectation, de portée et d'intégration dans [Lier des lorebooks à des personnages et des personas](linking-to-characters.md).
+
+<a id="worked-example-a-small-setting"></a>
 
 ## Exemple complet : un petit univers
 

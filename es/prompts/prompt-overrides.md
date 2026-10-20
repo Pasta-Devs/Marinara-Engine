@@ -27,7 +27,7 @@ Deberías ver ahí dos editores plegables.
 
 Haz clic en el título de un editor para expandirlo.
 
-**Video Generation Prompt Overrides** edita plantillas reutilizables para los videos de escena de Game y de la galería, los clips de personaje de Conversation Call y los retratos animados de expresiones. Cada plantilla de prompt de video controla cómo se describe un tipo de clip al modelo de video.
+**Video Generation Prompt Overrides** edita plantillas reutilizables para los videos de escena de Game y de la galería, los mensajes de video de Conversation, los clips de personaje de Conversation Call y los retratos animados de expresiones. Cada plantilla de prompt de video controla cómo se describe un tipo de clip al modelo de video.
 
 **Image Generation Prompt Overrides** edita las plantillas que usan los sistemas de imagen, sprite, Game y de construcción de prompts. Esto abarca los selfies de Conversation, los retratos de NPC (personaje no jugador) de Game, el arte de escena, los prompts de storyboard, la plantilla **Noodle Post Image** para las publicaciones de Noodle y otros constructores de imágenes registrados. Cada plantilla de prompt de imagen controla cómo se describe un tipo de imagen al modelo de imagen.
 

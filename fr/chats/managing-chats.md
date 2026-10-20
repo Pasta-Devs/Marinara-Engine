@@ -1,6 +1,6 @@
 # Gérer la liste des chats
 
-Ce guide explique la liste des chats de Marinara Engine, autrement dit tes conversations enregistrées. Au programme : les trois onglets de mode, puis la façon de créer, importer, renommer, supprimer, organiser, rechercher et gérer en lot les chats. Il présente aussi la rangée des chats récents sur l'écran d'accueil.
+Ce guide explique la liste des chats de Marinara Engine, autrement dit tes conversations enregistrées. Au programme : les trois onglets de mode, puis la façon de créer, importer, renommer, supprimer, organiser, rechercher et gérer en lot les chats. Il présente aussi le widget des chats récents sur l'écran d'accueil.
 
 ## La liste des chats et les onglets de mode
 
@@ -81,7 +81,7 @@ Pour renommer un dossier, double-clique dessus, double-tape dessus, ou sélectio
 
 Pour supprimer un dossier, clique sur le bouton en forme de corbeille sur la ligne du dossier. Une boîte de dialogue intitulée **Delete Folder** demande confirmation. Supprimer un dossier ne supprime jamais les chats qu'il contient. Ces chats remontent au niveau supérieur.
 
-Pour réordonner les dossiers, fais-les glisser vers le haut ou vers le bas par la poignée.
+Pour réordonner les dossiers, fais glisser une ligne de dossier vers le haut ou vers le bas. Un espace s'ouvre à l'endroit où il va se placer. Le menu de tri passe alors sur **Custom** (personnalisé), qui garde l'ordre de tes dossiers.
 
 Pour déplacer un chat dans un dossier, fais glisser sa ligne sur le dossier. Pour le sortir de tout dossier, fais-le glisser sur la zone vide sous les dossiers. Sur écran tactile, appuie sur un chat pendant une demi-seconde environ pour lancer le glisser-déposer. Si plusieurs chats sont sélectionnés, en faire glisser un déplace toute la sélection.
 
@@ -91,10 +91,13 @@ Les chats qui ne sont rangés dans aucun dossier apparaissent dans une simple li
 
 Chaque onglet de mode a son propre champ de recherche en haut de la liste. Le texte indicatif change selon l'onglet : **Search conversations...**, **Search roleplays...** ou **Search games...**. La recherche porte sur le nom du chat, ses tags et les noms de ses personnages. Elle ne cherche pas dans le texte des messages.
 
-À côté du champ de recherche, un menu de tri porte l'infobulle **Sort chats**. Il propose quatre options :
+À côté du champ de recherche, un menu de tri porte l'infobulle **Sort chats**. Il propose ces options :
 
-- **Newest**, l'option par défaut, place les chats les plus récemment actifs en tête.
-- **Oldest** place les moins récemment actifs en tête.
+- **Custom** garde tes dossiers dans l'ordre où tu les as fait glisser.
+- **Manual order** (ordre manuel) te laisse placer les chats dans ton propre ordre en les faisant glisser. Au clavier, sélectionne un chat et appuie sur Alt+Up ou Alt+Down.
+- **Recent** (récents), l'option par défaut, place les chats les plus récemment actifs en tête.
+- **Newest** place les chats créés le plus récemment en tête.
+- **Oldest** place les chats les plus anciens en tête.
 - **A-Z** trie par nom, de A à Z.
 - **Z-A** trie par nom, de Z à A.
 
@@ -118,7 +121,7 @@ Pour quitter le mode sélection sans rien faire, clique de nouveau sur le bouton
 
 ## Les chats récents sur l'écran d'accueil
 
-L'écran d'accueil affiche une rangée compacte **Recent Chats** (chats récents) avec les trois chats les plus récemment actifs. Chaque chat y prend la forme d'une petite pastille avec un avatar, un badge de mode et le nom du chat. Clique sur une pastille pour ouvrir le chat correspondant. Sans aucun chat, la rangée affiche "No chats yet".
+L'écran d'accueil comporte un widget **Recent chats** (chats récents) avec tes chats les plus récemment actifs. Chaque chat affiche son nom, un badge de mode et son dernier message. Clique sur un chat pour l'ouvrir, ou clique sur une partie vide du widget pour ouvrir la liste des chats. Sans aucun chat, le widget affiche **Your chats will show here**. Consulte [Les widgets de l'accueil](../home/welcome.md#home-widgets).
 
 ## Guides associés
 

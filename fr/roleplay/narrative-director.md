@@ -79,6 +79,24 @@ Pour jeter l'arc actuel et demander à l'IA d'en écrire un nouveau, clique sur 
 
 L'arc caché est enregistré avec l'agent **Narrative Director**. Vider les exécutions d'agents et la mémoire de ton chat ne l'efface pas. L'arc n'est supprimé que si tu retires l'agent **Narrative Director** du chat. Si tu retires l'agent, un avertissement te prévient que l'arc caché sera effacé, sans retour en arrière possible.
 
+<a id="secret-plot-prompt"></a>
+
+### Le prompt Secret Plot
+
+Le **Secret Plot Prompt** (prompt de l'intrigue secrète) contient les instructions que le Narrative Director suit quand il écrit et met à jour l'arc caché. Le prompt intégré présente chaque arc comme un mystère à découvrir. Cela convient à l'aventure et à l'intrigue, mais peut ne pas convenir à une histoire portée par les personnages.
+
+Pour utiliser tes propres instructions, procède ainsi :
+
+1. Ouvre **Agents** et modifie le **Narrative Director**.
+2. Dans la section **Secret Plot**, clique sur **Copy default to edit** (copier la valeur par défaut pour la modifier).
+3. Modifie le texte, puis enregistre l'agent.
+
+Clique sur **Reset to default** (rétablir la valeur par défaut) pour revenir au prompt intégré, puis enregistre l'agent.
+
+Garde le format de réponse JSON à la fin du prompt : un objet `overarchingArc` avec `description`, `protagonistArc`, un `characterArc` facultatif et `completed`. Sans lui, l'arc ne peut pas être lu.
+
+Ce prompt est enregistré sur l'agent : il s'applique donc à tous les chats qui utilisent ce Narrative Director.
+
 ## Guides associés
 
 - [Référence des agents téléchargeables](../agents/built-in-agents.md)

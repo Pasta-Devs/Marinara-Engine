@@ -21,7 +21,7 @@ GM dostarcza niewielki opis strukturalny wynikający ze sceny. Silnik ustala dok
 
 Przepływ środowiska i formacji obsługuje opcjonalny rozmiar mapy i charakterystyczne miejsca sceny. Wskazówki dotyczące terenu należą do poszczególnych starć; ziarna map są wewnętrzne dla każdego starcia, bez ustawienia ziarna w konfiguracji kampanii. Zachowaj zgodność starszych konfiguracji. Zapisuj zaakceptowaną siatkę i informacje o generatorze, aby jego przyszła zmiana nie przerysowała istniejącej bitwy. Zapisane ziarno odtwarza generowanie dla tego samego opisu i uczestników; nie czyni dowolnej odpowiedzi modelu deterministyczną.
 
-Wygenerowany teren można naprawiać, by zapewnić połączenia, lecz ograniczenia autora nie mogą znikać bez ostrzeżenia. Ogranicz rozmiar odpowiedzi modelu, liczbę pól i jednostek oraz wymiary elementów. Odrzucaj niewykonalny układ z wyjaśnieniem pozwalającym zareagować i proponuj jawny wariant z wygenerowanym terenem. Pełny edytor malowania i rozmieszczania oraz dowolne autorskie mapy to późniejsze prace, podlegające tym samym zasadom walidacji.
+Wygenerowany teren można naprawiać, by zapewnić połączenia, lecz ograniczenia autora nie mogą znikać bez ostrzeżenia. Ogranicz rozmiar odpowiedzi modelu, liczbę pól i jednostek oraz wymiary elementów. Odrzucaj niewykonalny układ z wyjaśnieniem pozwalającym zareagować i proponuj jawny wariant z wygenerowanym terenem. Plansze malowane ręcznie dla miejsc świata (worldgen W9g, w edytorze takim jak Pixelforge) podlegają tym samym zasadom: ich pasy rozstawienia są równinami, a wszystkie otwarte pola są połączone, więc walczy się na nich dokładnie tak, jak je namalowano.
 
 ### Możliwości ruchu
 
@@ -29,7 +29,7 @@ Ruch pieszy, lot i teleportacja wymagają jednoznacznych zasad. Lot i teleportac
 
 Brak rodzaju ruchu oznacza ruch pieszy w starszych starciach. Jawnie podany nieobsługiwany rodzaj jest odrzucany z błędem; nie zastępuj go po cichu ruchem pieszym. Ta walidacja dotyczy generowanych planów i danych wejściowych taktycznego API.
 
-Oddziel przemieszczanie, dozwolone cele i zajętość pól. Teleportacja przez ścianę nie pozwala zakończyć ruchu w jej wnętrzu. Początkowa płaska siatka nie odwzorowuje wysokości, sufitów, wymogów widoczności zaklęć ani ograniczonego czasu lotu; opisz to ograniczenie zamiast deklarować pełne zasady gier stołowych. Używaj tych samych reguł legalności ruchu w podglądach, rozstrzyganiu, animacji ścieżki i AI wrogów.
+Oddziel przemieszczanie, dozwolone cele i zajętość pól. Teleportacja przez ścianę nie pozwala zakończyć ruchu w jej wnętrzu. Od combat C6b siatka ma wysokość (wspinaczka, urwiska, grzbiety blokujące widzenie, wyższy teren), ale nie odwzorowuje sufitów, wymogów widoczności zaklęć ani ograniczonego czasu lotu; opisz to ograniczenie zamiast deklarować pełne zasady gier stołowych. Używaj tych samych reguł legalności ruchu w podglądach, rozstrzyganiu, animacji ścieżki i AI wrogów.
 
 ## Zasady gier stołowych: wbudowane profile i narzędzia referencyjne dla GM-a
 
@@ -41,7 +41,7 @@ Silnik powinien odpowiadać za rzeczywiste rzuty, legalne cele, ruch, pule akcji
 
 Zacznij od obsługiwanych podstaw testów, tur i zasobów. Profil oparty na d20 i profil puli d10 potrzebują różnych zasad rozstrzygania; jeden nie jest drugim pod nową nazwą. Przyszły zakres powinien obejmować inicjatywę, testy przeciwstawne, obrażenia i ich redukcję, stany oraz zużycie zasobów. Dokumentuj nieobsługiwane przypadki i jawnie pozostawiaj decyzję GM-a.
 
-Taktyczna gra stołowa potrzebuje też wspólnych zasad linii widzenia i osłon. Obecna siatka blokuje ruch przez ściany, lecz ataki dystansowe oparte na odległości mogą je przekraczać. Aktualizuj wspólnie mechanizm rozstrzygania, AI, kontrataki, prognozy i nakładki zagrożeń. Zachowaj obecne fazy drużyny i wroga; indywidualna inicjatywa to osobny wybierany profil zasad.
+Wspólna linia widzenia już działa (combat C6): ściana albo góra blokuje ją jednakowo w mechanizmie rozstrzygania, AI, kontratakach, obszarach, prognozach i nakładkach zagrożeń. Stopnie osłony opierają się na tym samym teście. Indywidualna inicjatywa to ustawienie gry (combat C6c): nowe gry losują kolejność raz na walkę i rozgrywają turę jednej jednostki naraz, zarówno w silniku, jak i w reżyserze walki; starsze gry zachowują fazy drużyny i wroga.
 
 ## Przywoływanie: zachowaj projekt, odłóż większy system
 

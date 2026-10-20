@@ -68,6 +68,16 @@ Cada modo tem o próprio guia de primeiros passos. Comece pelo modo que você qu
 
 Abra um chat Conversation e escolha **Schedule timezone** (fuso horário da agenda) em Chat Settings (configurações do chat). A escolha também aparece durante a criação de agendas no fluxo de configuração do Conversation Mode. Marinara começa com o fuso horário informado pelo dispositivo, mas você pode selecionar qualquer fuso IANA compatível ou escolher **Use device** para voltar ao padrão. Essa é uma preferência global para todos os chats Conversation, inclusive para as mensagens autônomas geradas no servidor, e ela sincroniza com os outros dispositivos ligados ao mesmo servidor Marinara.
 
+## Cada chat Conversation tem a própria agenda?
+
+Não. A agenda pertence ao personagem, e todo chat Conversation com esse personagem usa a mesma. Edite-a em **Character Editor -> Convo -> Weekly schedule** (editor de personagens -> Convo -> agenda semanal) ou pelos controles de agenda em Chat Settings; de qualquer jeito, a mudança vale em todos os lugares.
+
+Para receber respostas instantâneas em um chat, abra as Chat Settings dele e desligue **Conversation schedules** (agendas do Conversation). Essa opção é por chat. O personagem continua disponível nesse chat, mantém a agenda, e os seus outros chats não mudam. Uma substituição manual de status ativa ainda tem prioridade e vale nesse chat, inclusive uma substituição como **dnd**.
+
+Os chats existentes que nunca usaram agendas ficam com elas desligadas até você ligá-las. Os chats novos que você começa com um personagem que tem agenda já a usam desde o início.
+
+A substituição manual de status também pertence ao personagem. Se você define um personagem como **online** em um chat, ele fica online em todos os chats. Use **clear** para remover a substituição.
+
 ## Preciso de uma chave de API para usar Marinara?
 
 Quase sempre, sim. Uma **conexão** é um vínculo salvo que informa a Marinara como chegar a um serviço de IA: qual provedor, qual modelo e o seu login nele. Uma **chave de API** é um código secreto, parecido com uma senha. Você pega esse código com um provedor de IA para que Marinara converse com esse provedor em seu nome.
@@ -80,11 +90,11 @@ Alguns poucos provedores não usam chave de API. As opções por assinatura (Cla
 
 Marinara é compatível com vários provedores. Você escolhe um por conexão.
 
-Para o texto de chat e de roleplay, as opções são **OpenAI**, **OpenAI (ChatGPT)**, **Anthropic**, **Claude (Subscription)**, **Grok CLI (Subscription)**, **Google Gemini**, **Google Vertex AI**, **Mistral**, **Cohere**, **OpenRouter**, **NanoGPT**, **xAI / Grok** e **Custom (OAI-Compatible)**, esta última para modelos locais ou hospedados por você, como Ollama, LM Studio e KoboldCpp.
+Para o texto de chat e de roleplay, as opções são **OpenAI**, **OpenAI (ChatGPT)**, **Anthropic**, **Claude (Subscription)**, **Grok CLI (Subscription)**, **Google Gemini**, **Google Vertex AI**, **Mistral**, **Cohere**, **OpenRouter**, **NanoGPT**, **xAI / Grok**, **Arli AI**, **Z.AI**, **DeepSeek** e **Custom (OAI-Compatible)**, esta última para modelos locais ou hospedados por você, como Ollama, LM Studio e KoboldCpp.
 
 Para a geração de imagens, as opções incluem **OpenAI (DALL-E)**, **Stability AI**, **Together AI**, **NovelAI**, **OpenRouter Images**, **xAI / Grok Imagine**, **Venice.ai**, **Atlas Cloud**, **Pollinations**, **Stable Horde**, **SD Web UI (AUTOMATIC1111 / Forge)**, **ComfyUI**, **RunPod Serverless (ComfyUI)**, **Draw Things**, **NanoGPT** e **Block Entropy**.
 
-Para a geração de vídeos, as opções são **Google AI Studio**, **xAI Imagine**, **OpenRouter Video**, **Atlas Cloud**, **Seedance 2.0** e fluxos de trabalho locais no formato de API do **ComfyUI**.
+Para a geração de vídeos, as opções são **Google AI Studio**, **xAI Imagine**, **OpenRouter Video**, **NanoGPT**, **Atlas Cloud**, **Seedance 2.0** e fluxos de trabalho locais no formato de API do **ComfyUI**.
 
 Você pode salvar várias conexões ao mesmo tempo e usar uma diferente em cada chat. Veja [Conectando a um provedor de IA](connections/connecting-to-a-provider.md).
 
@@ -97,7 +107,7 @@ Algumas opções não custam nada para testar. A geração de imagens do **Polli
 ## Minhas chaves de API estão seguras?
 
 Sim. Marinara criptografa toda chave de API com AES-256 antes de salvá-la no disco. As exportações de conexão e de perfil removem os
-valores secretos. Um backup completo é diferente: ele contém os registros criptografados e, quando existe, o arquivo da chave de criptografia
+valores secretos. As exportações de chat e de perfil de configurações também deixam de fora a **DeepL API Key** (chave de API do DeepL) e o webhook do **Discord Mirror** de um chat. Um backup completo é diferente: ele contém os registros criptografados e, quando existe, o arquivo da chave de criptografia
 necessário para abri-los. Por isso, mantenha os ZIPs de backup completo em sigilo.
 
 Como a importação de perfil deixa os valores secretos de fora de propósito, você precisa digitar de novo cada chave de API depois de importar um
@@ -124,7 +134,7 @@ Um **agente** é um ajudante de IA opcional que trabalha durante o chat com uma 
 
 ## Como configuro Noodle?
 
-Noodle é a rede social fictícia e local do Marinara para os seus personagens. Abra a aba **Noodle** e entre em **Settings** (configurações). Convide personagens ou pastas de personagens, escolha uma conexão de geração em **Refresh** e selecione **Refresh now** para gerar a primeira atividade. Também é possível definir horários de atualização automática, geração de imagens, usuários aleatórios e o aproveitamento do conteúdo nos seus chats.
+Noodle é a rede social fictícia e local do Marinara para os seus personagens. Primeiro abra **Agents** → **Download Agents** (agentes → baixar agentes) e instale o **Noodle**; depois reinicie Marinara quando o aplicativo pedir. Abra **Home** → **Noodle** e entre em **Settings** (configurações). Convide personagens ou pastas de personagens, escolha uma conexão de geração em **Refresh** e selecione **Refresh now** para gerar a primeira atividade. Também é possível definir horários de atualização automática, geração de imagens, usuários aleatórios e o aproveitamento do conteúdo nos seus chats.
 
 Os guias completos são [Noodle: a linha do tempo social dentro do aplicativo](noodle/overview.md) e [Configurações do Noodle e transferência para os chats](noodle/settings.md).
 
@@ -164,7 +174,7 @@ Tudo fica no computador que executa Marinara, dentro da pasta `data` da sua inst
 
 ## Vou perder meus dados ao atualizar?
 
-Não. A atualização do Marinara preserva os personagens, os chats e as configurações. Ainda assim, é prudente fazer um backup antes de uma atualização grande, por precaução. Os passos de atualização em cada plataforma estão em [Atualizando Marinara Engine](UPGRADING.md).
+Não. A atualização do Marinara preserva os personagens, os chats e as configurações. Ainda assim, é prudente fazer um backup antes de uma atualização grande, por precaução. Os passos de atualização em cada plataforma estão em [Atualizando Marinara Engine](UPGRADING.md). Voltar depois para uma versão anterior pode fazer você perder dados que só a versão mais nova armazena; veja [Como voltar para uma versão anterior](UPGRADING.md#downgrading-to-an-older-version).
 
 ## O que Professor Mari faz?
 
@@ -200,14 +210,14 @@ Sim. Adicione uma conexão de geração de imagens, por exemplo **Pollinations**
 
 Toda instalação já vem com o conjunto completo de guias. Você lê tudo sem sair do aplicativo:
 
-- Na tela Home, clique no botão **Documentation** no rodapé, ao lado de **Replay Tutorial**.
+- Na tela Home, clique em **Documentation** na barra de favoritos, ao lado de **Tutorial**. No celular, abra primeiro o menu de favoritos.
 - No FAQ da tela Home, abra a pergunta sobre documentação e clique em **Open Documentation**.
 
 Os dois botões abrem o mesmo leitor interno. Ele lista todos os guias e exibe o conteúdo dentro do Marinara.
 
 ## Onde consigo ajuda ou relato um problema?
 
-Comece por [Solução de problemas do Marinara Engine](TROUBLESHOOTING.md), que está organizado por sintoma. No rodapé da tela Home, o botão **Discord** abre o chat da comunidade e o botão **Support** abre a página de suporte do projeto. Para relatar bugs e pedir recursos novos, use a página do projeto no GitHub.
+Comece por [Solução de problemas do Marinara Engine](TROUBLESHOOTING.md), que está organizado por sintoma. Na barra de favoritos da tela Home, **Discord** abre o chat da comunidade e **Support** abre a página de suporte do projeto. Para relatar bugs e pedir recursos novos, use a página do projeto no GitHub.
 
 ## Guias relacionados
 

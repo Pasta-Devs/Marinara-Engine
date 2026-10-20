@@ -12,8 +12,8 @@ El **Card Browser** busca en varios sitios públicos de tarjetas de personaje de
 
 Hay dos formas de abrir el **Card Browser**.
 
-1. Haz clic en el icono de **Card Browser** en la barra superior. Está en la fila de botones de panel del lado derecho.
-2. O abre el panel **Card Browser** en la barra lateral derecha y luego haz clic en el botón **Download Cards** (Descargar tarjetas) en la parte de arriba de ese panel.
+1. Abre el panel **Characters** (Personajes) y haz clic en el botón **Download** (Descargar) en la parte de arriba. Su tooltip dice **Download character cards** (Descargar tarjetas de personaje).
+2. O haz clic en el mismo botón **Download** en la parte de arriba del panel **Personas**.
 
 De cualquier forma, toda el área de contenido cambia a la vista completa del **Card Browser**. Esta vista reemplaza el área de chat. No es una pequeña ventana emergente.
 
@@ -183,15 +183,6 @@ Si el personaje lleva un lorebook incrustado, al importarlo aparece un pequeño 
 Haz clic en **Download as PNG** para guardar el personaje como un archivo de tarjeta de personaje PNG estándar. El botón muestra **Building PNG...** (Creando PNG...) mientras trabaja. Esto funciona en todas las fuentes. El archivo guardado lleva el nombre del personaje, por ejemplo `Some_Character.png`. Puedes compartir este archivo o importarlo a otra app más adelante.
 
 JSON y PNG son dos formatos comunes para los mismos datos de personaje. JSON es un formato de texto plano. Una tarjeta PNG es un archivo de imagen con los datos del personaje guardados dentro. Ambos contienen el personaje completo.
-
-## Tus personajes importados
-
-El panel **Card Browser** en la barra lateral derecha mantiene una lista separada de los personajes que importaste a través del **Card Browser**. Los personajes que hiciste a mano o importaste de otra manera no aparecen aquí. Todos ellos siguen apareciendo en la biblioteca principal **Characters**.
-
-- El botón **Download Cards** abre la vista completa del **Card Browser**.
-- El cuadro **Search imported...** (Buscar importados...) filtra esta lista.
-- El menú desplegable de orden ofrece **A-Z**, **Z-A**, **Newest** y **Oldest**.
-- Haz clic derecho en una fila, o usa sus botones, para encontrar **Quick Start Roleplay** y **Quick Start Conversation**. Estos abren un chat nuevo con ese personaje. También puedes eliminar el personaje de esta lista aquí.
 
 ## Solución de problemas
 

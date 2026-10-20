@@ -42,7 +42,7 @@ Podpowiedź przy przycisku **Push Story** mówi, który tryb jest uzbrojony. W t
 
 ## Secret Plot
 
-**Secret Plot** to ukryty, długofalowy wątek fabularny twojego roleplayu. AI prowadzi wtedy sekretny plan na dalszy ciąg historii. Plan trafia do promptu (tekstu, który Marinara wysyła do AI), ale pozostaje przed tobą ukryty, dopóki sam go nie odsłonisz. Domyślnie funkcja jest wyłączona.
+**Secret Plot** to ukryty, długofalowy wątek fabularny twojego roleplayu. AI prowadzi wtedy sekretny plan na dalszy ciąg historii. Plan trafia do promptu (tekstu, który Marinara wysyła do AI), ale pozostaje przed tobą ukryty, dopóki go nie odsłonisz. Domyślnie funkcja jest wyłączona.
 
 Przycisk **Push Story** działa raz, a **Secret Plot** – przez wiele odpowiedzi. W miarę trwania czatu agent aktualizuje ukryty plan w stałych odstępach.
 
@@ -78,6 +78,22 @@ Po edycji pola zapisz zmiany przyciskiem zapisu.
 ### Wątek zostaje przy agencie
 
 Ukryty wątek jest zapisany razem z agentem **Narrative Director**. Wyczyszczenie uruchomień agentów i pamięci czatu go nie kasuje. Wątek znika dopiero wtedy, gdy usuniesz agenta **Narrative Director** z czatu. Przy usuwaniu agenta pojawia się ostrzeżenie, że ukryty wątek zostanie skasowany bezpowrotnie.
+
+### Prompt funkcji Secret Plot
+
+**Secret Plot Prompt** (prompt funkcji Secret Plot) zawiera instrukcje, według których agent Narrative Director pisze i aktualizuje ukryty wątek. Wbudowany prompt przedstawia każdy wątek jako zagadkę do odkrycia. Pasuje to do przygód i intryg, ale może nie pasować do historii napędzanej przez postacie.
+
+Aby użyć własnych instrukcji, wykonaj te kroki.
+
+1. Otwórz panel **Agents** i edytuj agenta **Narrative Director**.
+2. W sekcji **Secret Plot** kliknij **Copy default to edit** (skopiowanie domyślnego tekstu do edycji).
+3. Zmień tekst, a potem zapisz agenta.
+
+Kliknij **Reset to default** (przywrócenie domyślnego), żeby wrócić do wbudowanego promptu, a potem zapisz agenta.
+
+Zachowaj format odpowiedzi JSON na końcu promptu: obiekt `overarchingArc` z polami `description`, `protagonistArc`, opcjonalnym `characterArc` oraz `completed`. Bez niego wątku nie da się odczytać.
+
+Ten prompt jest zapisywany w agencie, więc dotyczy każdego czatu, który korzysta z tego agenta Narrative Director.
 
 ## Powiązane przewodniki
 

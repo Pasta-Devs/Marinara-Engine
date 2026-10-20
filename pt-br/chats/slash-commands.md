@@ -29,7 +29,7 @@ Estes comandos ajudam a cuidar do chat e das mensagens dele. Funcionam nos chats
 | Comando | Também funciona como | O que faz |
 |---|---|---|
 | `/help` | | Lista todos os comandos de barra. |
-| `/send [message]` | | Publica uma mensagem no papel da sua persona sem iniciar uma geração. |
+| `/send [message]` | | Publica uma mensagem no papel da sua persona sem iniciar uma geração. Ela é salva do mesmo jeito que pelo **Send**, com as macros preenchidas. |
 | `/continue` | `/cont` | Acrescenta mais texto à última resposta da IA, sem enviar uma mensagem nova. A opção **Add a new line before /continue text** em **Settings → General → Responses** define se esse texto começa depois de uma linha em branco ou direto no ponto em que parou. |
 | `/goto [number]` | `/jump`, `/scroll` | Rola o chat até uma mensagem pelo número dela. |
 | `/hide [range] [name (optional)]` | | Esconde uma ou mais mensagens da IA nos turnos seguintes. |

@@ -10,13 +10,13 @@ Alle Werkzeuge zum Löschen sitzen an einer Stelle.
 2. Wechsle zum Tab **Advanced** (Erweitert).
 3. Scroll ganz nach unten zum Abschnitt **Danger Zone**.
 
-Die Beschreibung der **Danger Zone** lautet: "Permanently clear selected categories of local data. Professor Mari is always preserved."
+Die Beschreibung der **Danger Zone** lautet: „Permanently clear selected categories of local data. Professor Mari is always preserved.“
 
 Greifst du von einem anderen Gerät auf Marinara zu – also nicht vom Computer, auf dem die App läuft –, brauchst du Admin-Rechte fürs Löschen. Wie du das einrichtest, steht unter [Fernzugriff](../REMOTE_ACCESS.md).
 
 ## Vorher ein Backup anlegen
 
-Gelöschte Daten lassen sich nicht zurückholen. Es gibt weder Papierkorb noch Zwischenablage. Nach der Bestätigung sind die Daten weg.
+Gelöschte Daten lassen sich nicht zurückholen. Es gibt keinen Papierkorb, aus dem du etwas zurückholen könntest. Nach der Bestätigung sind die Daten weg.
 
 Leg vorher ein Backup an, damit du es dir später noch anders überlegen kannst. Siehe [Marinara sichern und wiederherstellen](backup-and-restore.md).
 
@@ -35,7 +35,7 @@ Die **Danger Zone** zeigt eine Liste mit acht Kategorien zum Ankreuzen. Jede dav
 | **Automation & Addons** | Agenten, Tools, Regex-Skripte, synchronisierte Themes und den Automatisierungszustand. |
 | **Media & Assets** | Hintergründe, Avatare, Sprites, Galerie-Objekte, Schriften und Dateien von Wissensquellen. |
 
-Einige Kategorien löschen mehr als nur Datenbankeinträge. **Chats & Messages** entfernt zusätzlich den kompletten Galerie-Ordner auf der Festplatte samt allen Szenen-Videodateien. Betroffen sind auch die Galeriebilder von Charakteren und Personas, selbst wenn du **Characters** oder **Personas** gar nicht angekreuzt hast. **Media & Assets** löscht die Ordner auf der Festplatte für Hintergründe, Avatare, Sprites, Galerien, Szenen-Videodateien, Schriften und Dateien von Wissensquellen. **Connections** leert außerdem die gespeicherten Einstellungen für Text to Speech (TTS, Sprachausgabe) und Speech to Text (Spracherkennung), denn die hängen an einer Verbindung. Auch den Tripo-API-Key, der auf der Seite **3D Avatars** (3D-Avatare) gespeichert ist, entfernt diese Kategorie.
+Einige Kategorien löschen mehr als nur Datenbankeinträge. **Chats & Messages** entfernt zusätzlich den kompletten Galerie-Ordner auf der Festplatte samt allen Szenen-Videodateien. Betroffen sind auch die Galeriebilder von Charakteren und Personas, selbst wenn du **Characters** oder **Personas** gar nicht angekreuzt hast. **Media & Assets** löscht die Ordner auf der Festplatte für Hintergründe, Avatare, Sprites, Dateien für 2D- und 3D-Avatare, Galerien, Szenen-Videodateien, Schriften und Dateien von Wissensquellen. **Connections** leert außerdem die gespeicherten Einstellungen für Text to Speech (TTS, Sprachausgabe) und Speech to Text (Spracherkennung), denn die hängen an einer Verbindung. Auch einen Tripo-API-Key, der früher auf der Seite **3D Avatars** (3D-Avatare) gespeichert wurde, entfernt diese Kategorie.
 
 ## Ausgewählte Kategorien löschen
 
@@ -54,7 +54,7 @@ Hat alles geklappt, erscheint eine Bestätigungsmeldung. Sie besagt, dass die ge
 Nimm diesen Weg, um alle acht Kategorien in einem Schritt zu leeren.
 
 1. Klick auf **Clear All Data** (Alle Daten löschen). Vorher etwas anzukreuzen ist nicht nötig.
-2. Ein Warnfenster fragt: "Delete all supported data categories except Professor Mari? There is no undo."
+2. Ein Warnfenster fragt: „Delete all supported data categories except Professor Mari? There is no undo.“
 3. Klick auf **Cancel**, um abzubrechen, oder auf **Confirm Delete**, um alles zu löschen.
 
 Das Ergebnis ist dasselbe, als würdest du jedes Kästchen ankreuzen und gemeinsam löschen.

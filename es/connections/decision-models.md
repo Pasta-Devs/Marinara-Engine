@@ -35,11 +35,11 @@ Para las preguntas de activación y las declaraciones de prompts/lorebooks, el m
 - Las macros de la declaración se completan primero, así que `{{char}}` llega como el nombre del personaje.
 - Cuando los mensajes no caben en el presupuesto del modelo, se descartan primero los más antiguos. Consulta [Configurar una conexión Decision](#set-up-a-decision-connection) para el presupuesto alojado.
 
-**Advanced Memory usa su propio modelo de decisión por chat.** Las comprobaciones de escena leen la ventana pertinente del historial. La recuperación envía conversación reciente y hasta 24 resúmenes archivados preseleccionados, o más si **Maximum recalled scenes** (máximo de escenas recuperadas) es mayor, y luego mensajes originales de las escenas que eligió el modelo, tras comprobar el acceso de los personajes; no usa la regla fija de las últimas 5 intervenciones. Los proveedores alojados reciben esos textos, a veces en varios lotes limitados. Cada pasada de recuperación recurre a la recuperación habitual tras 10 segundos. Consulta [Modelo de decisión opcional](../agents/memory.md#optional-decision-model).
+**Advanced Memory usa su propio modelo de decisión por chat.** Las comprobaciones de escena leen la ventana pertinente del historial. La recuperación envía conversación reciente y hasta 24 resúmenes archivados preseleccionados, o más si **Maximum recalled scenes** (máximo de escenas recuperadas) es mayor, y luego mensajes originales de las escenas que eligió el modelo, tras comprobar el acceso de los personajes; no usa la regla fija de las últimas 5 intervenciones. Los proveedores alojados reciben esos textos, a veces en varios lotes limitados. Cada pasada de recuperación recibe normalmente entre 10 y 25 segundos, según la velocidad del modelo. Las dos pasadas comparten un límite de 40 segundos por respuesta, así que una pasada puede recibir menos de 10 segundos cuando queda poco tiempo. Las memorias que no reciben respuesta a tiempo recurren a la recuperación habitual. Consulta [Modelo de decisión opcional](../agents/memory.md#optional-decision-model).
 
 ## Elegir un modelo de decisión
 
-Abre **Connections** (Conexiones), después **Connection defaults** (valores predeterminados de conexión) y elige en **Decision model**. La lista tiene tres grupos:
+Abre **Connections** (Conexiones), después **Defaults** (Valores predeterminados) y elige en **Decision model**. La lista tiene tres grupos:
 
 - **None** (ninguno), el predeterminado. No se pregunta nada y los campos de preguntas de activación del editor de agentes permanecen desactivados.
 - **Local models** (modelos locales): el **Primary local model** (modelo local principal) o **Utility local model** (modelo local auxiliar) que ya ejecutas. No se descarga nada y nada sale de tu computadora. Aquí también aparece **Decision sidecar** (proceso auxiliar de decisiones), si lo instalaste.
@@ -72,7 +72,7 @@ Cuando alguien importa contenido que usa decisiones, Marinara muestra un aviso c
 
 Si tienes un modelo local en **Local Model**, puedes usarlo para decisiones sin crear una conexión ni pagar por una solicitud.
 
-1. En **Connections**, abre **Connection defaults** y establece **Decision model** en **Primary local model**, o en **Utility local model** si tienes uno configurado.
+1. En **Connections**, abre **Defaults** y establece **Decision model** en **Primary local model**, o en **Utility local model** si tienes uno configurado.
 2. Haz clic en **Test**. Un resultado correcto muestra la probabilidad y la duración de la solicitud, además de dos datos específicos de los modelos locales: si había log-probabilidades disponibles y si el modelo responde directamente.
 
 Marinara hace una sola pregunta de sí/no al modelo, le permite producir un token y lee la respuesta a partir de las probabilidades de ese token. No se escribe ninguna respuesta de chat, así que la solicitud es corta. Una elección entre varias respuestas se formula como una pregunta de sí/no por respuesta. La cantidad de mensajes recientes que caben se calcula a partir del tamaño de contexto de la propia ranura.

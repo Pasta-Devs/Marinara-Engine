@@ -30,11 +30,11 @@ Tres botones de icono están en la parte superior del panel. Solo muestran un ic
 - **Import** (Importar) (una flecha hacia abajo) abre la ventana **Import Lorebook** (Importar lorebook) para cargar un archivo de lorebook.
 - **Select** (Seleccionar) (una marca de verificación) activa el modo de selección múltiple para que puedas exportar o eliminar varios lorebooks a la vez.
 
-Debajo de los botones hay un cuadro de búsqueda con el texto de marcador de posición **Search lorebooks** (Buscar lorebooks). Filtra la lista por nombre, descripción, nombres de personaje o persona vinculados y etiquetas. Junto a él hay un menú desplegable **Sort order** (Orden) con estas opciones: **A-Z**, **Z-A**, **Newest**, **Oldest** y **Token Budget**.
+Debajo de los botones hay un cuadro de búsqueda con el texto de marcador de posición **Search lorebooks** (Buscar lorebooks). Filtra la lista por nombre, descripción, nombres de personaje o persona vinculados y etiquetas. Junto a él hay un menú desplegable **Sort order** (Orden) con estas opciones: **Manual order** (Orden manual), **A-Z**, **Z-A**, **Newest**, **Oldest** y **Token Budget**. Con **Manual order**, arrastra los lorebooks al orden que quieras, o mueve uno con Alt+Arriba y Alt+Abajo en el teclado. Tu orden se conserva.
 
 Cada fila de lorebook muestra un botón **Copy** (Copiar) y un botón **Delete** (Eliminar). Los botones aparecen cuando pasas el cursor sobre la fila. En el teléfono están siempre visibles. **Copy** duplica el lorebook. Un lorebook que está desactivado muestra una pequeña insignia **OFF**. Haz clic en la imagen para subir o reemplazarla.
 
-También puedes crear carpetas de biblioteca con el botón **New Folder** (Nueva carpeta). Arrastra un lorebook sobre una carpeta para archivarlo. Esto mantiene ordenada una biblioteca grande. Estas carpetas de biblioteca son distintas de las carpetas de entradas que puedes crear dentro de un solo lorebook.
+También puedes crear carpetas de biblioteca con el botón **New Folder** (Nueva carpeta). Arrastra un lorebook sobre una carpeta para archivarlo. Esto mantiene ordenada una biblioteca grande. En un teléfono, mantén pulsado un lorebook un momento y luego arrástralo. Estas carpetas de biblioteca son distintas de las carpetas de entradas que puedes crear dentro de un solo lorebook.
 
 ## Categorías
 

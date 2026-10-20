@@ -28,6 +28,8 @@ Règle chaque couleur avec le champ de couleur, ou saisis une valeur :
 
 Une couleur semi-transparente laisse voir une partie de l'arrière-plan à travers la bulle. Le format `rgba` correspond au rouge, au vert, au bleu, puis à une valeur alpha allant de 0 (transparent) à 1 (opaque).
 
+<a id="where-your-colors-show"></a>
+
 ## Où les couleurs apparaissent
 
 Chaque couleur agit sur une partie différente du chat :
@@ -61,28 +63,34 @@ Le second bloc, **RPG Attributes**, s'active avec **Enable RPG Attributes**. Il 
 
 ### Fiches d'ensembles de règles
 
-Avec un ensemble installé, comme 5e (SRD 5.1), les deux onglets **Stats** présentent **Ruleset sheets** (fiches d'ensembles de règles), avec une entrée dépliable par ensemble. Le bloc reste visible si la carte contient la fiche d'un ensemble désormais absent.
+Quand un ensemble de règles de Game Mode est installé, comme 5e (SRD 5.1), les deux onglets **Stats** gagnent un bloc **Ruleset sheets** (fiches d'ensembles de règles) sous les sections ci-dessus. Il contient une entrée dépliable par ensemble de règles installé. Le bloc apparaît aussi quand une fiche de personnage contient encore une fiche pour un ensemble de règles que tu n'as plus.
 
-1. Déplie une entrée et clique sur **Add a sheet** pour charger les valeurs par défaut.
-2. Renseigne caractéristiques, champs, listes d'attaques ou de sorts, entraînement et bonus de compétences et sauvegardes. L'ensemble détermine la structure. Les valeurs calculées, comme la maîtrise ou la Perception passive, changent pendant la saisie et restent en lecture seule.
-3. Enregistre le personnage ou la persona normalement.
+1. Déplie l'entrée et clique sur **Add a sheet** (ajouter une fiche). Tu obtiens une fiche vierge dont chaque valeur est celle par défaut de l'ensemble de règles.
+2. Remplis-la. La disposition vient de l'ensemble de règles lui-même : les valeurs de caractéristiques avec leurs modificateurs, les champs regroupés par section, les listes comme les attaques et les sorts, et les compétences et sauvegardes, chacune avec un niveau d'entraînement et un bonus supplémentaire. Les valeurs calculées, comme un bonus de maîtrise ou la Perception passive, se mettent à jour pendant la saisie et ne sont pas modifiables.
+3. Enregistre le personnage ou le persona comme d'habitude.
 
-Il s'agit de la configuration initiale. Une nouvelle partie copie la fiche ; les changements en jeu ne modifient pas la carte. **Add from catalog** ouvre un sélecteur avec recherche de sorts, attaques et capacités prêts à l'emploi. Les lignes ajoutées sont des copies modifiables.
+Une fiche ici est la **configuration de départ** de ce personnage pour cet ensemble de règles. Une nouvelle partie sur cet ensemble de règles en prend une copie. Les changements faits pendant une partie restent dans cette partie et ne reviennent jamais sur la fiche de personnage.
 
-Les nombres liés au niveau ou aux caractéristiques sont en lecture seule, avec "Set by the ruleset", et recalculés à la modification. Quand le catalogue propose un texte plus récent, **Review** affiche les textes enregistré et nouveau côte à côte. **Update selected** ne remplace que le texte des lignes choisies. Nombres, interrupteurs, autres colonnes et lignes non choisies restent intacts.
+Certains ensembles de règles fournissent des sorts, des attaques et des capacités tout prêts. Les listes qu'ils remplissent ont un bouton **Add from catalog** (ajouter depuis le catalogue) qui ouvre un sélecteur avec recherche, et les lignes ajoutées sont des copies que tu peux modifier comme les autres. Il en découle deux choses :
 
-Une fiche dont l'ensemble manque reste enregistrée et exportée avec la carte, sans être envoyée à l'IA. Réinstalle l'ensemble pour la modifier ou utilise **Remove**. La limite est de 64 KB par fiche. Une fiche illisible provenant d'une version plus récente reste aussi conservée ; seul **Remove this sheet** est proposé pour éviter son écrasement accidentel.
+- Une cellule que l'ensemble de règles gère pour toi, comme des utilisations qui suivent une valeur de caractéristique ou une ressource de classe qui augmente avec ton niveau, s'affiche à sa place mais ne peut pas être saisie, avec la note "Set by the ruleset". Elle est recalculée à partir du reste de la fiche à chaque modification.
+- Quand le texte propre à l'ensemble de règles pour l'une de ces lignes a changé depuis que tu l'as choisie, une ligne sous la liste indique combien de lignes ont un texte plus récent, avec un bouton **Review** (examiner). L'examen montre chaque ligne avec ce que contient ta fiche à côté de ce que dit l'ensemble de règles, et une case à cocher par ligne. **Update selected** (mettre à jour la sélection) écrit les lignes cochées et rien d'autre. Seul le texte est comparé : les nombres, les interrupteurs et tout ce que tu as saisi dans une autre colonne restent intacts, tout comme chaque ligne que tu décoches.
 
-Ces fiches sont indépendantes de **Enable RPG Stats** et **Enable RPG Attributes**. Les règles propres à Marinara Engine les ignorent ; une partie avec ensemble les utilise à la place des attributs habituels pour ses tests.
+Une fiche pour un ensemble de règles que tu n'as pas installé est conservée, pas supprimée. Elle s'affiche sur une seule ligne avec un bouton **Remove** (retirer), elle n'est jamais envoyée à l'IA, et elle redevient modifiable quand tu installes cet ensemble de règles. Elle accompagne aussi la fiche de personnage quand tu l'exportes. Chaque fiche est limitée à 64 KB.
+
+Une fiche pour un ensemble de règles installé que cette version de Marinara ne sait pas lire, par exemple une fiche enregistrée par une version plus récente, est elle aussi conservée telle quelle. Son entrée ne propose que **Remove this sheet** (retirer cette fiche) : ajouter une nouvelle fiche ne peut donc jamais l'écraser par accident.
+
+Les fiches d'ensembles de règles sont indépendantes de **Enable RPG Stats** et de **Enable RPG Attributes**. Une partie qui utilise les règles propres à Marinara les ignore, et une partie sur un ensemble de règles les utilise à la place des Attributes ci-dessus pour ses tests.
 
 ## Comment les agents mettent à jour les caractéristiques
 
-Les valeurs de l'onglet **Stats** ne sont que des valeurs de départ. Pour que les caractéristiques évoluent pendant un chat, active l'agent correspondant. Un agent est une IA qui travaille en parallèle du chat.
+Les valeurs de l'onglet **Stats** deviennent l'état de départ du chat. Les agents peuvent mettre à jour les valeurs gérées par les trackers, décrites ci-dessous. Les **RPG Attributes** comme STR et DEX servent de contexte de fiche, et ne sont pas des valeurs de tracker gérées par les agents. Un agent est une IA qui travaille en parallèle du chat.
 
-- L'agent **Character Tracker** ajuste les caractéristiques RPG des personnages et les **RPG Attributes** du persona selon les combats, les soins et les événements de l'histoire.
-- L'agent **Persona Stats** ajuste les **Persona Status Bars** après chaque message, selon ce qui se passe dans l'histoire.
+- L'agent **Character Tracker** ajuste les caractéristiques suivies des personnages, y compris les Pools comme les HP, selon les combats, les soins et les événements de l'histoire. Il ne suit pas le persona du joueur.
+- L'agent **Persona Stats** ajuste tes **Persona Status Bars** après chaque message, selon ce qui se passe dans l'histoire.
+- Les **RPG Attributes** des personnages et du persona sont envoyés avec leur fiche pour le combat et le Game Mode, ainsi que pour les jets facultatifs en Roleplay ou en Game Mode. Les agents ne mettent pas à jour ces Attributes.
 
-Sans l'agent correspondant, les valeurs restent celles que tu as définies. À lui seul, l'onglet **Stats** ne met rien à jour. Voir le guide des agents intégrés pour activer ces agents.
+Si tu n'actives pas l'agent tracker correspondant, les valeurs gérées par les trackers restent celles que tu as définies par défaut. À lui seul, l'onglet **Stats** ne met rien à jour. Voir le guide des agents intégrés pour activer ces agents.
 
 ## Affichage des caractéristiques dans le HUD
 

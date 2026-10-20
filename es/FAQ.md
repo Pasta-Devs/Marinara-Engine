@@ -68,6 +68,16 @@ Cada modo tiene su propia guía de inicio. Empieza con el modo que quieras y lue
 
 Abre una Conversation y elige **Schedule timezone** (Zona horaria del horario) en Chat Settings, o elígela mientras creas horarios en el flujo de configuración de Conversation. Marinara empieza con la zona horaria que informa tu dispositivo, pero puedes seleccionar cualquier zona horaria IANA compatible o elegir **Use device** (Usar dispositivo) para restablecerla. Esta es una preferencia global para todos los chats de Conversation, incluidos los mensajes autónomos del lado del servidor, y se sincroniza con otros dispositivos conectados al mismo servidor de Marinara.
 
+## ¿Cada chat de Conversation tiene su propio horario?
+
+No. Un horario pertenece al personaje, y todos los chats de Conversation con ese personaje usan el mismo. Edítalo en **Character Editor -> Convo -> Weekly schedule** (Editor de personajes -> Convo -> Horario semanal), o desde los controles de horario en Chat Settings; de cualquier forma, el cambio se aplica en todas partes.
+
+Para recibir respuestas instantáneas en un chat, abre su Chat Settings y desactiva **Conversation schedules** (Horarios de Conversation). Ese interruptor es por chat. El personaje sigue disponible en ese chat, conserva su horario y tus otros chats no cambian. Una anulación manual de estado activa sigue teniendo prioridad y se aplica en ese chat, incluida una anulación como **dnd** (no molestar).
+
+Los chats existentes que nunca usaron horarios siguen con ellos desactivados hasta que los actives. Los chats nuevos que empieces con un personaje que tenga horario lo usan desde el principio.
+
+Una anulación manual de estado también pertenece al personaje. Si pones a un personaje en **online** (en línea) en un chat, el personaje está en línea en todos los chats. Usa **clear** (borrar) para quitar la anulación.
+
 ## ¿Necesito una API key para usar Marinara?
 
 Casi siempre, sí. Una **connection** (conexión) es un enlace guardado que le dice a Marinara cómo alcanzar un servicio de IA: qué proveedor, qué modelo y tu acceso a él. Una **API key** (clave de API) es un código secreto, un poco como una contraseña. La obtienes de un proveedor de IA para que Marinara pueda hablar con ese proveedor por ti.
@@ -80,11 +90,11 @@ Algunos proveedores no usan una API key en absoluto. Las opciones de suscripció
 
 Marinara admite muchos proveedores. Eliges uno por conexión.
 
-Para texto de chat y roleplay, las opciones son **OpenAI**, **OpenAI (ChatGPT)**, **Anthropic**, **Claude (Subscription)**, **Grok CLI (Subscription)**, **Google Gemini**, **Google Vertex AI**, **Mistral**, **Cohere**, **OpenRouter**, **NanoGPT**, **xAI / Grok** y **Custom (OAI-Compatible)** para modelos locales o autoalojados como Ollama, LM Studio y KoboldCpp.
+Para texto de chat y roleplay, las opciones son **OpenAI**, **OpenAI (ChatGPT)**, **Anthropic**, **Claude (Subscription)**, **Grok CLI (Subscription)**, **Google Gemini**, **Google Vertex AI**, **Mistral**, **Cohere**, **OpenRouter**, **NanoGPT**, **xAI / Grok**, **Arli AI**, **Z.AI**, **DeepSeek** y **Custom (OAI-Compatible)** para modelos locales o autoalojados como Ollama, LM Studio y KoboldCpp.
 
 Para generación de imágenes, las opciones incluyen **OpenAI (DALL-E)**, **Stability AI**, **Together AI**, **NovelAI**, **OpenRouter Images**, **xAI / Grok Imagine**, **Venice.ai**, **Atlas Cloud**, **Pollinations**, **Stable Horde**, **SD Web UI (AUTOMATIC1111 / Forge)**, **ComfyUI**, **RunPod Serverless (ComfyUI)**, **Draw Things**, **NanoGPT** y **Block Entropy**.
 
-Para generación de video, las opciones son **Google AI Studio**, **xAI Imagine**, **OpenRouter Video**, **Atlas Cloud**, **Seedance 2.0** y flujos de trabajo locales en formato de API de **ComfyUI**.
+Para generación de video, las opciones son **Google AI Studio**, **xAI Imagine**, **OpenRouter Video**, **NanoGPT**, **Atlas Cloud**, **Seedance 2.0** y flujos de trabajo locales en formato de API de **ComfyUI**.
 
 Puedes guardar muchas conexiones a la vez y asignar una distinta a cada chat. Consulta [Conectarse a un proveedor de IA](connections/connecting-to-a-provider.md).
 
@@ -97,7 +107,7 @@ Algunas opciones no cuestan nada para probar. La generación de imágenes de **P
 ## ¿Mis API keys están seguras?
 
 Sí. Cada API key se cifra con AES-256 antes de guardarse en el disco. Las exportaciones de conexión y de perfil eliminan los valores
-secretos. Una copia de seguridad completa es distinta: contiene los registros cifrados y, cuando está presente, el archivo de clave de cifrado
+secretos. Las exportaciones de chats y de perfiles de ajustes también dejan fuera la **DeepL API Key** (API key de DeepL) y el webhook de **Discord Mirror** de un chat. Una copia de seguridad completa es distinta: contiene los registros cifrados y, cuando está presente, el archivo de clave de cifrado
 necesario para desbloquearlos, así que mantén privados los ZIP de copia de seguridad completa.
 
 Como la importación de perfil deja los valores secretos fuera a propósito, debes volver a ingresar cada API key después de importar un
@@ -124,7 +134,7 @@ Un **agent** (agente) es un ayudante de IA opcional que se ejecuta durante un ch
 
 ## ¿Cómo configuro Noodle?
 
-Noodle es la red social ficticia y local de Marinara para tus personajes. Abre la pestaña **Noodle** y abre sus **Settings** (Configuración). Invita personajes o carpetas de personajes, elige una conexión de generación en **Refresh** (Actualizar), y luego selecciona **Refresh now** (Actualizar ahora) para generar la primera actividad. También puedes configurar horarios de actualización automática, generación de imágenes, usuarios aleatorios y traspaso a tus chats.
+Noodle es la red social ficticia y local de Marinara para tus personajes. Primero abre **Agents** → **Download Agents** e instala **Noodle**; luego reinicia Marinara cuando se te pida. Abre **Home** (Inicio) → **Noodle** y entra en sus **Settings** (Configuración). Invita personajes o carpetas de personajes, elige una conexión de generación en **Refresh** (Actualizar), y luego selecciona **Refresh now** (Actualizar ahora) para generar la primera actividad. También puedes configurar horarios de actualización automática, generación de imágenes, usuarios aleatorios y traspaso a tus chats.
 
 Consulta [Noodle: la línea de tiempo social dentro de la app](noodle/overview.md) y [Configuración de Noodle y traspaso al chat](noodle/settings.md) para las guías completas.
 
@@ -164,7 +174,7 @@ Todo vive en la computadora que ejecuta Marinara, dentro de la carpeta `data` de
 
 ## ¿Perderé mis datos cuando actualice?
 
-No. Actualizar Marinara mantiene tus personajes, chats y configuración en su lugar. Aun así es inteligente hacer una copia de seguridad antes de una actualización grande, por si acaso. Para los pasos de actualización en cada plataforma, consulta [Actualizar](UPGRADING.md).
+No. Actualizar Marinara mantiene tus personajes, chats y configuración en su lugar. Aun así es inteligente hacer una copia de seguridad antes de una actualización grande, por si acaso. Para los pasos de actualización en cada plataforma, consulta [Actualizar](UPGRADING.md). Volver después a una versión anterior puede hacer que pierdas datos que solo guarda la versión más nueva; consulta [Volver a una versión anterior](UPGRADING.md#downgrading-to-an-older-version).
 
 ## ¿Qué puede hacer Professor Mari?
 
@@ -200,14 +210,14 @@ Sí. Agrega una conexión de generación de imágenes, por ejemplo **Pollination
 
 Cada instalación incluye el conjunto completo de guías. Puedes leerlas sin salir de la app:
 
-- En la pantalla de inicio, haz clic en el botón **Documentation** (Documentación) en el pie de página, junto a **Replay Tutorial** (Repetir tutorial).
+- En la pantalla de inicio, haz clic en **Documentation** (Documentación) en la barra de marcadores, junto a **Tutorial**. En un teléfono, abre primero el menú de marcadores.
 - En el FAQ de la pantalla de inicio, abre la pregunta de documentación y haz clic en **Open Documentation** (Abrir documentación).
 
 Ambos botones abren el mismo visor dentro de la app. Enumera cada guía y la muestra dentro de Marinara.
 
 ## ¿Dónde consigo ayuda o reporto un error?
 
-Empieza con [Solución de problemas](TROUBLESHOOTING.md), que está organizada por síntoma. En el pie de página de la pantalla de inicio, el botón **Discord** abre el chat de la comunidad y el botón **Support** (Soporte) abre la página de soporte del proyecto. Para errores y solicitudes de funciones, usa la página de GitHub del proyecto.
+Empieza con [Solución de problemas](TROUBLESHOOTING.md), que está organizada por síntoma. En la barra de marcadores de la pantalla de inicio, **Discord** abre el chat de la comunidad y **Support** (Soporte) abre la página de soporte del proyecto. Para errores y solicitudes de funciones, usa la página de GitHub del proyecto.
 
 ## Guías relacionadas
 

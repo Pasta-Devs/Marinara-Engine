@@ -4,7 +4,7 @@
 
 ## Settings 面板和它的六个选项卡
 
-点击顶栏的齿轮图标打开 **Settings**。面板顶部有一个 **Search settings**(搜索设置) 输入框，随便输入一个词（比如 `delete`、`streaming` 或 `quotes`），Marinara 就会直接跳到对应的部分。
+点击顶栏的齿轮图标打开 **Settings**。面板顶部有一个 **Search settings**(搜索设置) 输入框，随便输入一个词（比如 `delete`、`streaming` 或 `quotes`），Marinara 就会直接跳到对应的部分。按你的界面语言或英语里的设置名称都能找到对应的设置。
 
 面板共有六个选项卡。下表列出每个选项卡管什么。
 
@@ -24,7 +24,7 @@
 - **Generations**：见[风格方案](../media/style-profiles.md)和[场景视频](../media/scene-video.md)。
 - **Addons**：见[个人扩展](../extending/personal-extensions.md)和[自定义 CSS 主题](../appearance/custom-css-themes.md)。
 - **Imports**：见[从 SillyTavern 导入](../data/importing-from-sillytavern.md)和[备份与恢复](../data/backup-and-restore.md)。
-- **Advanced**：见下面的 **Message Tools**(消息工具) 一节，以及[升级 Marinara Engine](../UPGRADING.md)、[远程访问](../REMOTE_ACCESS.md)和[清除或重置数据](../data/clearing-data.md)。 [功能开关](../configuration/features.md)。
+- **Advanced**：见下面的 **Message Tools**(消息工具) 一节、[功能开关](../configuration/features.md)，以及[升级 Marinara Engine](../UPGRADING.md)、[远程访问](../REMOTE_ACCESS.md)和[清除或重置数据](../data/clearing-data.md)。
 
 ## Settings 的 General 选项卡
 
@@ -48,9 +48,20 @@
   见[界面本地化](../development/localization.md)。
 - **Documentation Language**(文档语言)：为 Marinara 内置的指南单独选一种语言，和上面的界面语言互不相干。英语是内置的，永远不需要下载。选英语以外的语言会出现 **Download & Replace**(下载并替换)，点它会下载一次该语言包并删掉上一个语言包，所以本地始终只保留一个下载好的语言。尚未翻译的指南会以英语打开，并带一个小小的 `EN` 徽章；文档搜索按当前生效的语言工作。选择结果在更新后依然保留，语言包的译文有变动时也会在更新后自动刷新。万一下载好的指南丢失或损坏，界面上会出现 **Fix documentation**(修复文档) 按钮：它会重新下载语言包，如果连不上下载源，就把指南恢复成英语。
 - **Confirm before deleting**(删除前确认)：默认开启。开启时，Marinara 在永久删除聊天、角色或其他条目之前会先确认一次。建议保持开启，免得误删。
-- **Achievements**(成就)：默认开启。开启时，主页会显示成就按钮和解锁提示。关闭后，成就仍在后台记录，只是不再提示。见[成就](../home/achievements.md)。
-- **Music Player**(音乐播放器)：默认开启。开启时会显示紧凑的音乐播放器。见[音乐](../media/music.md)。
-- **Search and Professor Mari settings**(Search 与 Professor Mari 设置)：选择 **Open**(打开) 进入它们的设置页面。所有 Search(搜索栏) 和 Professor Mari 的设置都在那里，分成五组：**Search**(搜索)，包括提议改进字段和搜索历史；**Quick answers**(快速回答)，包括 **Quick answers in Search**(Search 中的快速回答)、**Answer with**(回答使用) 和 **Wait after typing**(输入后等待)；**Professor Mari**，包括 Ask Professor Mari from Search(从 Search 问问 Professor Mari)、权限模式、回复建议按钮、改动卡片的打开方式和 Enter sends to Professor Mari(按 Enter 发送给 Professor Mari)；**Around the app**(应用各处)，包括 Mini Professor Mari visits(迷你 Professor Mari 来访)；**Appearance**(外观)，也就是她的形象：每个形象包都会显示她的肖像，正在使用的那个标着 **In use**(使用中)，锁定的形象包会显示你为解锁它累计的游玩时间。Search 里的齿轮图标也能打开同一个页面；搜索其中任何一项设置，无论用新名字还是旧名字，都会直接跳到它。
+- **Hide chat Help button**(隐藏聊天帮助按钮)：默认关闭。开启后，Conversation、Roleplay 和 Game 聊天里的 **Help**(帮助) 按钮会消失。
+- **Show Android status bar**(显示 Android 状态栏)：默认关闭，只在 Marinara Engine 的 Android 应用里起作用。开启后，时间、电量和通知图标会一直显示在 Marinara 上方。
+- **Achievements**(成就)：默认开启。开启时，主页会显示 **Achievements** 书签和解锁提示。如果你把可选的 **Achievements** 小组件加入了主页布局，它也会显示。关闭后，成就仍在后台记录，只是不再提示。见[成就](../home/achievements.md)。
+- **Music Player**(音乐播放器)：默认开启。开启时会显示紧凑的音乐播放器。它需要从 **Agents** > **Download Agents** 安装 **Music DJ** 智能体，安装之前这个开关会一直是灰色的。见[音乐](../media/music.md)。
+- **Search and Professor Mari settings**(Search 与 Professor Mari 设置)：选择 **Open**(打开) 进入它们的设置页面。所有 Search(搜索栏) 和 Professor Mari 的设置都在那里，分成这几组：
+
+  - **Search**(搜索)：提议改进字段和搜索历史。
+  - **Quick answers**(快速回答)：**Quick answers in Search**(Search 中的快速回答)、**Answer with**(回答使用) 和 **Wait after typing**(输入后等待)。
+  - **Search window**(Search 窗口) 和 **Professor Mari window**(Professor Mari 窗口)：每个窗口都有 **Height**(高度) 和 **Width**(宽度) 设置。手机上不显示这两组。
+  - **Professor Mari**：Ask Professor Mari from Search(从 Search 问问 Professor Mari)、权限模式、**Runtime**(运行时)、回复建议按钮、改动卡片的打开方式和 Enter sends to Professor Mari(按 Enter 发送给 Professor Mari)。
+  - **Around the app**(应用各处)：Mini Professor Mari visits(迷你 Professor Mari 来访)。
+  - **Appearance**(外观)：她的形象。每个形象包都会显示她的肖像。正在使用的那个标着 **In use**(使用中)。锁定的形象包会显示你为解锁它累计的游玩时间。
+
+  Search 里的齿轮图标也能打开同一个页面。搜索其中任何一项设置，无论用新名字还是旧名字，都会直接跳到它。
 
 ## Text Rules
 
@@ -77,6 +88,10 @@
 - **Straight**：保留普通的直引号，例如 `"Hello," it's me.` 这是默认值。
 - **Typographic**：把直引号换成弯引号和弯撇号。
 
+### Load images from other websites in messages
+
+默认关闭。关闭时，消息、开场白或卡片预览里来自其他网站的图片会改为显示该网站的名称和一个 **Load image**(加载图片) 按钮，这样消息就无法自行联系其他网站。选择 **Load image** 即可显示那张图片；Marinara 会在你所有的设备上记住这个选择。打开这项设置，所有图片都会立刻显示。保存在 Marinara 里的图片，例如图库图片、头像和立绘，始终会显示。
+
 ## Responses 和 Input & Editing
 
 **General** 里的这两个部分负责调整回复的呈现方式，以及输入和编辑的手感。下面列出各个控件，并给出完整指南的链接。
@@ -85,7 +100,8 @@
 
 - **Enable streaming**(启用流式输出)：AI 文字边生成边逐词显示。
 - **Streaming speed**(流式速度)：流式文字出现的快慢。
-- **Trim incomplete model endings**(裁掉模型残缺的结尾)：保存前把末尾没写完的句子裁掉。
+- **Trim incomplete sentences from the response**(裁掉回复中不完整的句子)：保存前把末尾没写完的句子裁掉。
+- **Add a new line before /continue text**(在 /continue 文本前添加新行)：让 `/continue` 添加的文字在一个空行之后开始。默认开启。
 - **Messages per page**(每页消息数)：一次加载多少条消息。
 
 详见[发送消息与流式输出](../chats/sending-and-streaming.md)。
@@ -94,6 +110,8 @@
 
 - **Send on Enter**(按 Enter 发送)：选择哪些模式下按 Enter 直接发送。
 - **Keep guidance after regenerating**(重新生成后保留引导)：引导式重新生成之后，把方向说明留在消息输入框里。默认开启。
+- **Add CYOA choices to the message box instead of sending them**(把 CYOA 选项加入消息框而不是直接发送)：点击的 CYOA 选项会进入你的消息框，你可以先编辑再发送。
+- **Quick replies**(快捷回复)：在 Send 按钮旁边加上几个备选草稿动作。见[引导生成与 Impersonate](../chats/guided-and-impersonate.md)。
 - **Speech-to-text microphone**(语音识别麦克风)：在聊天输入框里显示麦克风按钮。
 - **Intuitive swipe navigation**(直觉式备选回复导航)：用方向键或触屏滑动在备选回复之间切换。
 - **Reroll past the newest swipe**(滑过最新备选回复时重新生成)：滑过最新的一条备选回复时，生成一条新回复。
@@ -104,18 +122,20 @@
 
 ## Message Tools
 
-**Message Tools** 这一节在 **Settings** > **Advanced** > **Message Tools**，集中放着一批显示类和修复类开关。下面的开关默认都是关闭的，只有 **Show "older messages not sent" note**(显示“较早消息未发送”提示) 默认开启。表格列出各自的作用和延伸阅读。
+**Message Tools** 这一节在 **Settings** > **Advanced** > **Message Tools**，集中放着一批显示类和修复类开关。下面的开关默认都是关闭的，只有 **Show context usage**(显示上下文用量) 和 **Show "older messages not sent" note**(显示“较早消息未发送”提示) 默认开启。表格列出各自的作用和延伸阅读。
 
 | 开关 | 作用 | 完整指南 |
 | --- | --- | --- |
 | **Show message timestamps** | 在每条消息上显示日期和时间。 | [消息操作](../chats/messages.md) |
+| **Show characters in Persona pickers** | 在用户角色选择器里列出你的角色，这样你就可以扮演其中一个。 | [用户角色](../characters/personas.md) |
 | **Show model name on messages** | 显示每条回复由哪个 AI 模型写成。 | [消息操作](../chats/messages.md) |
 | **Show token usage on messages** | 显示每条消息的提示词和补全 Token 数。 | [消息操作](../chats/messages.md) |
+| **Show context usage** | 在连接切换器和 Game 聊天设置里，显示最近一次测量的请求占用了模型上下文的多少。 | [整理连接](../connections/organizing-connections.md#the-random-pool-and-quick-connection-switcher) |
 | **Show message numbers** | 在聊天里的每条消息上显示编号。 | [消息操作](../chats/messages.md) |
 | **Show "older messages not sent" note** | 较早的消息放不进提示词时，在最新一条回复下方显示一条提示。关闭它，就能在长聊天里隐藏这条提示。回复被截断或为空时，仍会显示它自己的提示。 | [Peek Prompt](../chats/peek-prompt.md) |
 | **Guide swipes/regens with chat input** | 重新生成时，把输入框里的草稿当作方向指引。 | [引导生成与 Impersonate](../chats/guided-and-impersonate.md) |
-| **Quick replies** | 在 Send 按钮旁边加上几个备选草稿动作。 | [引导生成与 Impersonate](../chats/guided-and-impersonate.md) |
 | **Include reasoning in exports** | 把隐藏的思考过程一并写入聊天导出文件。 | [导出与导入聊天](../chats/export-import.md) |
+| **Include private notes in exports** | 把你的私人消息笔记加进 JSONL 和文本格式的聊天导出。分享聊天记录时请保持关闭。 | [导出与导入聊天](../chats/export-import.md) |
 | **Debug mode** | 在服务器控制台记录发给模型的内容，方便求助排查。 | [故障排查](../TROUBLESHOOTING.md) |
 
 **Advanced** 选项卡的其余内容在别处介绍：**Updates** 见[升级 Marinara Engine](../UPGRADING.md)，**Admin Access** 见[远程访问](../REMOTE_ACCESS.md)，**Backup & Export** 见[备份与恢复](../data/backup-and-restore.md)，**Danger Zone** 见[清除或重置数据](../data/clearing-data.md)。

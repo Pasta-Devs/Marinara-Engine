@@ -24,7 +24,9 @@
 
 - **Apply preset font**(应用预设字体) 将所选组件字体用于消息、输入框和聊天控件。
 - **Apply preset shape**(应用预设形状) 将所选边框形状用于经典布局和视觉小说布局中的 Roleplay 消息、Game 对话框、输入框和控件。Conversation 消息保留自己的形状。
-- **Apply preset colors**(应用预设颜色) 将组件的边框、背景和文字颜色用于这些区域，也包括 Conversation 消息。自定义颜色和渐变同样适用。引号内的对白仍保留每个角色或用户角色自己的 Dialogue Highlight Color。
+- **Apply preset colors**(应用预设颜色) 将组件的边框、背景和文字颜色用于这些区域，也包括 Conversation 消息。自定义颜色和渐变同样适用。引号内的对白仍保留每个角色或用户角色自己的 Dialogue Highlight Color。由 HTML 构成的消息，例如智能体生成的样式卡片，会保留它自己设置的文字颜色。
+
+加载更早或更新消息的按钮，例如 **Load More**(加载更多) 和 **Show older**(显示更早内容)，也和其他聊天控件一样遵循这些开关。
 
 在 Game Mode 中，这些开关还作用于补充发言、HUD 组件、地图面板、角色表、日志、物品栏、战斗面板和弹窗。
 
@@ -232,6 +234,8 @@
 | Conversation 消息（仅字体和颜色） | `.mari-chat-style-conversation` |
 | 无边框的 Conversation 消息文字 | `.mari-chat-style-text` |
 | 聊天控件，包括 Calls 和 Conversation 群聊控件 | `.mari-chat-style-control` |
+| 历史按钮：**Load More**、**Show older**、**Show newer**(显示更新内容)、**Latest**(最新)，以及 Game 日志的 **Older**(更早)、**All**(全部) 和 **Show more older logs**(显示更多早期记录)。它们同时也带有 `.mari-chat-style-control` | `.mari-chat-history-pager` |
+| 由 HTML 构成的消息，例如智能体生成的样式卡片。开启 **Apply preset colors** 时，会保留它内部设置的文字颜色 | `.mari-html-content` |
 
 | 变量 | 控制内容 |
 | --- | --- |

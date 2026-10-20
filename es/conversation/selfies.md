@@ -49,13 +49,16 @@ Para saber más sobre estilos, consulta [Perfiles de estilo de imagen](../media/
 
 ### Send Avatar References
 
-**Send Avatar References** (Enviar referencias de avatar) es un interruptor que está desactivado de forma predeterminada. Cuando está activado, Marinara envía el avatar o el sprite (imagen del personaje) del personaje al servicio de imagen como imagen de referencia. Esto ayuda a que el selfie se parezca al personaje. Solo funciona cuando el proveedor de imagen admite imágenes de referencia.
+**Send Avatar References** (Enviar referencias de avatar) es un menú desplegable que está en **Off** (desactivado) de forma predeterminada. Está debajo de la sección **Video messages** (Mensajes de video), y cada opción indica a qué se aplica: **Images only** (Solo imágenes), **Videos only** (Solo videos) o **Images and videos** (Imágenes y videos).
+
+- Para las imágenes, Marinara envía el avatar o el sprite (imagen del personaje) del personaje al servicio de imagen como imagen de referencia. Esto ayuda a que el selfie se parezca al personaje. Solo funciona cuando el proveedor de imagen admite imágenes de referencia.
+- Para los videos, un mensaje de video cuyo **First frame** (Primer fotograma) es **Prompt only** (Solo prompt) empieza desde el avatar o el sprite del personaje en lugar de hacerlo sin imagen. Los servicios de video aceptan una sola imagen inicial, así que los demás primeros fotogramas, que ya empiezan desde una imagen del personaje, no se ven afectados.
 
 ### Attach Card Appearance
 
-**Attach Card Appearance** (Adjuntar apariencia de la tarjeta) es un interruptor que está desactivado de forma predeterminada. Cuando está activado, Marinara agrega el texto de apariencia de la tarjeta de personaje a la descripción del selfie. Esto le da al modelo más detalle sobre cómo se ve el personaje.
+**Attach Card Appearance** (Adjuntar apariencia de la tarjeta) es un menú desplegable que está en **Off** de forma predeterminada, con las mismas opciones **Images only**, **Videos only** e **Images and videos**. Agrega el texto de apariencia de la tarjeta de cada personaje que nombra el prompt al prompt del selfie, al prompt de video o a ambos. Esto le da al modelo más detalle sobre cómo se ve el personaje.
 
-Si la tarjeta o la persona también tiene **Image Appearance Override** (Apariencia alternativa para imágenes) activado y su cuadro contiene texto, Marinara envía ese texto en lugar de **Appearance**. Actívalo debajo de **Appearance** en el editor de personajes o de personas cuando la descripción completa esté pensada para el narrador y no para un modelo de imágenes. El narrador sigue recibiendo la descripción completa. Si desactivas la opción o dejas el cuadro vacío, las imágenes vuelven a usar **Appearance**.
+Si la tarjeta o la persona también tiene **Image Appearance Override** (Apariencia alternativa para imágenes) activado, Marinara envía esa alternativa en lugar del texto de **Appearance**. Actívalo debajo de **Appearance** en el editor de personajes o de personas cuando la descripción completa de **Appearance** esté pensada para el narrador y no para un modelo de imágenes. La IA que escribe la descripción del selfie también sigue leyendo la **Appearance** de la tarjeta. Conserva las palabras de la alternativa exactamente como están escritas y usa el texto de **Appearance** solo para completar otros detalles.
 
 ### Resolution
 
@@ -74,7 +77,7 @@ Las opciones de tamaño son:
 
 ## Cómo un personaje envía un selfie
 
-Una vez configurados los selfies, un personaje puede decidir enviar uno durante el chat por su cuenta. Tú no escribes ningún comando. El personaje elige el momento, y Marinara genera la imagen y la publica en el chat.
+Una vez configurados los selfies, un personaje puede decidir enviar uno durante el chat por su cuenta. Tú no escribes ningún comando. El personaje elige el momento, y Marinara genera la imagen y la publica en el chat. Las respuestas posteriores ven una nota breve con lo que mostraba el selfie, así que el personaje recuerda haberlo enviado.
 
 La respuesta del modelo usa `[selfie]`, opcionalmente con contexto:
 
@@ -92,16 +95,24 @@ También puedes solicitar un selfie tú mismo en lugar de esperar al personaje.
 1. Abre **Chat Settings** y despliega **Gallery** (Galería).
 2. Haz clic en el botón **Selfie** (el icono de cámara).
 3. Si el chat tiene más de un personaje, elige quién debe tomar el selfie en la lista de personajes que hay junto al botón.
-4. Si **Expose media prompts before sending** (Mostrar los prompts de medios antes de enviar) está activado en **Settings** (Configuración), **Generations** (Generaciones), **Image Generation** (Generación de imágenes), revisa o edita el prompt final compilado del selfie y haz clic en **Generate** (Generar). Cancelar la revisión no envía ninguna solicitud de imagen.
+4. Si **Expose media prompts before sending** (Mostrar los prompts de medios antes de enviar) está activado en **Settings** (Configuración), **Generations** (Generaciones), **Overall Generations** (Generaciones generales), revisa o edita el prompt final compilado del selfie y haz clic en **Generate** (Generar). Cancelar la revisión no envía ninguna solicitud de imagen.
 5. Espera mientras el botón muestra **Generating...** (Generando...).
 
 Cuando el selfie esté listo, deberías ver un mensaje **Selfie generated.** (Selfie generado.), y la imagen aparece en el chat. Esta solicitud manual también usa la **Selfie Connection** que elegiste, así que también usa una solicitud de generación de imágenes.
+
+<a id="making-a-selfie-again"></a>
+
+## Volver a crear un selfie
+
+¿No te gusta una imagen? Haz clic en un selfie del chat para abrirlo y luego haz clic en **Regenerate image** (Regenerar imagen; la flecha circular junto al botón de fijar). Puedes editar el prompt, el prompt negativo y cualquier prompt de personaje, y elegir una **Image connection** (Conexión de imagen). Haz clic en **Generate image** (Generar imagen). La imagen nueva reemplaza a la anterior en el mensaje, y la anterior se queda en la Gallery. Cada intento usa una solicitud de generación de imágenes.
+
+Las imágenes creadas antes de que existiera esta opción también se pueden volver a crear. Usan la conexión de selfies del chat, y sus prompts negativos y de personaje no se guardaron.
 
 <a id="video-messages"></a>
 
 ## Mensajes de video
 
-Un personaje también puede enviarte un clip de video corto. Escribe `/video`, o `/video Aster` para elegir un personaje, o haz clic en **Video** en la **Gallery** del chat (el icono de película), que usa el personaje elegido en la Gallery. **Video** funciona siempre que Illustrator esté instalado, incluso con los selfies desactivados. El clip llega como un mensaje nuevo de ese personaje y se reproduce en el chat. Cuando pides un clip de esta forma, muestra el momento más reciente de la conversación: la IA que lo escribe lee tantos mensajes recientes como los que lee Illustrator para una imagen (el tamaño de contexto de su **Agent Budget**). Un selfie usado como primer fotograma lee los mismos mensajes, así que el clip también empieza en ese momento. Las respuestas posteriores ven una nota breve con lo que muestra el clip. También puedes animar una imagen desde la Gallery: el clip continúa esa imagen, lo envía el personaje elegido en la Gallery y se añade a la respuesta más reciente. Si un clip no se puede añadir al chat, se guarda igualmente en la pestaña **Videos** de la Gallery.
+Un personaje también puede enviarte un clip de video corto. Escribe `/video`, o `/video Aster` para elegir un personaje, o haz clic en **Video** en la **Gallery** del chat (el icono de película), que usa el personaje elegido en la Gallery. **Video** funciona siempre que Illustrator esté instalado, incluso con los selfies desactivados. El clip llega como un mensaje nuevo de ese personaje y se reproduce en el chat. Cuando pides un clip de esta forma, muestra el momento más reciente de la conversación: la IA que lo escribe lee tantos mensajes recientes como los que lee Illustrator para una imagen (el tamaño de contexto de su **Agent Budget**). Un selfie usado como primer fotograma lee los mismos mensajes, así que el clip también empieza en ese momento. Las respuestas posteriores ven una nota breve con lo que muestra el clip. También puedes animar una imagen desde la Gallery: el clip continúa esa imagen, lo envía el personaje elegido en la Gallery y se añade a la respuesta más reciente. Si un clip no se puede añadir al chat, se guarda igualmente en la pestaña **Videos** de la Gallery. La galería propia de un personaje muestra un mensaje de video solo cuando el clip muestra a ese personaje; consulta [Galerías de personajes y personas](../characters/galleries.md).
 
 Configúralo en **Chat Settings**, **Agents**, **Illustrator Settings**, en la sección **Video messages** (Mensajes de video):
 
@@ -110,7 +121,7 @@ Configúralo en **Chat Settings**, **Agents**, **Illustrator Settings**, en la s
   - **New selfie, or the avatar if no selfie connection** (Nuevo selfie, o el avatar si no hay conexión de selfie), la opción predeterminada, crea un selfie nuevo cuando los selfies están activados y hay una **Selfie Connection** configurada; si no, usa el avatar.
   - **New selfie, then animate it** (Nuevo selfie y luego animarlo) siempre crea primero un selfie nuevo. Necesita los selfies activados y una **Selfie Connection**, y el selfie también se guarda en la Gallery. Con **Expose media prompts before sending** activado, revisas el prompt del selfie junto con el del clip.
   - **Avatar or sprite** (Avatar o sprite) empieza desde el avatar del personaje, o desde un sprite de cuerpo entero cuando no hay avatar.
-  - **Prompt only (no picture)** (Solo prompt: sin imagen) no envía ninguna imagen, así que el modelo de video trabaja solo a partir del prompt. Algunos flujos de trabajo de ComfyUI necesitan una imagen y fallan sin ella.
+  - **Prompt only (no picture)** (Solo prompt: sin imagen) no envía ninguna imagen, así que el modelo de video trabaja solo a partir del prompt. Algunos flujos de trabajo de ComfyUI necesitan una imagen y fallan sin ella. Cuando **Send Avatar References** incluye los videos, esta opción dice **Prompt only (avatar from Send Avatar References)** (Solo prompt: avatar de Send Avatar References) y el clip empieza desde el avatar.
 
 Las imágenes en otros formatos, como WebP, se convierten para el servicio de video. Un mensaje de video usa una solicitud de video, más una solicitud de imagen cuando empieza desde un selfie nuevo. La IA que escribe el prompt es tu **Prompt Model**, y sus instrucciones están en **Settings**, **Generations**, **Video Generation Prompt Overrides** (Anulaciones del prompt de generación de video), **Conversation Video Message** (Mensaje de video de Conversation).
 

@@ -41,7 +41,7 @@
 - `schemas`：持久化实体和共享实体的 Zod schema。
 - `constants`：服务商、默认值、聊天模式、模型列表、智能体提示词。
 - `utils`：宏展开、XML 包装、音乐评分之类的纯函数。
-- `features`：智能体清单与注册表、函数调用定义、文件夹包，以及 UNO、Chess、Poker 的回合制游戏引擎。
+- `features`：智能体清单与注册表、函数调用定义、文件夹包、UNO、Chess、Poker 的回合制游戏引擎、Game Mode 规则集及其战斗（`rulesets`、`ruleset-combat`、`tactical-combat` 以及 `combat-*` 文件），还有 `world` 里的世界生成器及其分享文件（设定包、世界、地块包、棋盘包和生物包）。
 
 规则：
 
@@ -61,7 +61,7 @@ React 19 加 Vite PWA，目前有好几百个源文件。
 - `components/chat`：通用聊天、conversation、roleplay、场景、立绘、遭遇战 UI 混在一起。
 - `components/game`：Game Mode 的主界面和各个面板。
 - `components/panels`、`components/modals`、实体编辑器：设置与资源管理。
-- `features`：已抽出的功能模块，目前包括聊天设置的各个分区和追踪器面板的组成部分。
+- `features`：已抽出的功能模块，目前包括聊天设置的各个分区、追踪器面板的组成部分、多人模式，以及虚拟形象智能体的契约、设置、舞台和渲染器（`features/avatars`）。
 - `hooks`：大部分 API 功能的 React Query hook 和运行时 hook。
 - `lib`：浏览器和客户端辅助函数。目前通用辅助函数和 Game Mode 专用辅助函数混在一起。
 - `stores`：UI、聊天运行时、智能体、game state、game mode、素材、sidecar、翻译、图库、遭遇战和回合制游戏的 Zustand store。
@@ -81,7 +81,7 @@ Fastify API、文件原生存储和服务商集成，目前有好几百个源文
 当前顶层结构：
 
 - `app.ts`、`index.ts`：应用工厂、启动流程、静态资源服务、文件存储水合、种子数据。
-- `routes`：路由文件很多。大部分是薄薄一层 CRUD API，但 `generate.routes.ts` 和 `game.routes.ts` 是体量很大的编排文件。`routes/generate/` 文件夹里放的是生成路径中最先抽出来的那部分。
+- `routes`：路由文件很多。大部分是薄薄一层 CRUD API，但 `generate.routes.ts` 和 `game.routes.ts` 是体量很大的编排文件。`routes/generate/` 文件夹里放的是目前为止从生成路径中抽出来的部分，包括 Token 输出链（`generation-stream-output.ts`）、工具调用轮次（`tool-rounds.ts`）、回复命令解析和文本清理，以及回复保存（`save-generated-reply.ts`）。
 - `services/storage`：聊天、角色、提示词、世界书、设置、素材、主题、game state 的存储门面层。
 - `services/llm`：服务商注册表、基础服务商契约、OpenAI 兼容服务商、本地 sidecar 桥接。
 - `services/prompt`：非 Game Mode 生成路径共用的提示词组装逻辑。
@@ -89,7 +89,7 @@ Fastify API、文件原生存储和服务商集成，目前有好几百个源文
 - `services/game`：GM 提示词、骰子、战斗、状态机、队伍提示词、地图、天气、时间、会话、检查点、声望、素材。
 - `services/sidecar`：本地运行时、模型管理、场景分析、场景后处理。
 - `services/agents`：智能体执行与知识路由。
-- 功能基础层：`services/import`、`services/lorebook`、`services/image`、`services/haptic`、`services/tools`、`services/regex`、`services/professor-mari`、`services/mari-db`、`services/turn-games`、`services/spotify`、`services/video`、`services/generation`、`services/chat-summary`、`services/achievements`、`services/prompt-overrides`、`services/setup`、`services/noodle`、`services/memory-recall`，以及 `discord-webhook.ts`。
+- 功能基础层：`services/import`、`services/lorebook`、`services/image`、`services/haptic`、`services/tools`、`services/regex`、`services/professor-mari`、`services/mari-db`、`services/turn-games`、`services/spotify`、`services/video`、`services/generation`、`services/chat-summary`、`services/achievements`、`services/prompt-overrides`、`services/setup`、`services/noodle`、`services/memory-recall`、`services/avatars`(虚拟形象智能体的虚拟形象模型存储、生成和情绪分类器)、`speech-to-text.service.ts`，以及 `discord-webhook.ts`。
 - `db/schema`：存放在 `DATA_DIR/storage` 下的数据所对应的文件表定义。
 - `db/file-schema.ts`、`db/file-query.ts`：原生表元数据和查询表达式。
 - `db/file-backed-store.ts`：内存表存储、事务边界、崩溃恢复和 JSON 快照持久化。参见[文件原生存储](file-storage.md)。
@@ -252,7 +252,7 @@ packages/shared/src/
   utils/
 ```
 
-过去那套扁平的 `types`、`schemas`、`constants` 布局已经不能概括全部了。`packages/shared/src/features/` 现在还装着智能体、函数调用、文件夹包和回合制游戏。共享包的第一轮清理仍然应该停留在类型层面、小步推进，不要搞大规模文件搬迁。
+过去那套扁平的 `types`、`schemas`、`constants` 布局已经不能概括全部了。`packages/shared/src/features/` 现在还装着智能体、函数调用、文件夹包、回合制游戏、规则集和战斗，以及世界生成器。共享包的第一轮清理仍然应该停留在类型层面、小步推进，不要搞大规模文件搬迁。
 
 ## 迁移规则
 
@@ -287,7 +287,7 @@ packages/shared/src/
 4. 把 `GameNarration.tsx` 拆成命令解析与格式化，再加上展示组件。
 5. 按处理器分组拆分 `game.routes.ts`。
    - 候选分组：初始化与会话，回合生成，骰子、技能与快速反应事件，日志与物品栏，地图、旅行与天气，战斗，素材与场景分析。
-6. 把 `generate.routes.ts` 拆成生成传输、智能体流水线处理、重试路由，以及命令与后处理辅助逻辑。
+6. 把 `generate.routes.ts` 拆成生成传输、智能体流水线处理、重试路由，以及命令与后处理辅助逻辑。Issue #7573 已经开始做这件事：Token 输出链、工具轮次、回复命令、回复文本清理、已保存消息的生成信息、隐藏的命令锚点和回复保存，现在都放在 `routes/generate/` 里，各自带有回归测试。
 7. 把 `ChatMetadata` 拆成各模式专属的元数据契约。
 8. 趁 Game Mode 还没引入更多聊天内部实现，先把共享的 Roleplay 和 Game Mode 视觉模块从 `components/chat` 里挪出去。
 

@@ -102,11 +102,11 @@ Wenn du ein NanoGPT-Abonnement hast, kann diese Verbindung dein aktuelles Kontin
 Das Widget liest den Nutzungsendpunkt von NanoGPT und zeigt deine wöchentlichen und täglichen Eingabetoken-Kontingente. Zwei Zugangsdaten können darauf zugreifen:
 
 - **Management Token** (empfohlen): Erstelle unter `https://nano-gpt.com/settings#management-api-tokens` einen Token mit dem Berechtigungsumfang **Usage only** (nur Nutzung). Er kann Kontingente lesen, aber keine Modelle ausführen oder dein Guthaben ausgeben und ist deshalb die sicherere Wahl für eine Verbrauchsanzeige. Marinara speichert ihn verschlüsselt und sendet ihn nur an den Verwaltungsendpunkt von NanoGPT.
-- **Dein API-Schlüssel**: Wird automatisch verwendet, wenn kein Verwaltungstoken gespeichert ist. Das funktioniert, aber die Abfrage verwendet dann dieselben Zugangsdaten, mit denen dein Guthaben ausgegeben werden kann.
+- **Dein API-Key**: Wird automatisch verwendet, wenn kein Verwaltungstoken gespeichert ist. Das funktioniert, aber die Abfrage verwendet dann dieselben Zugangsdaten, mit denen dein Guthaben ausgegeben werden kann.
 
 Unter jedem Balken steht, was noch übrig ist und wann das Zeitfenster zurückgesetzt wird, zum Beispiel `42M remaining · resets in 4d`.
 
-Ein Kontingent, das NanoGPT gerade nicht melden kann, erscheint als **unbekannt** statt als ungenutzt. Ein inaktives Abonnement wird ausdrücklich gekennzeichnet, statt ein vollständig verfügbares Kontingent anzuzeigen. Mit der Aktualisierungsschaltfläche aktualisierst du das Widget bei Bedarf.
+Ein Kontingent, das NanoGPT gerade nicht melden kann, erscheint als **unknown** statt als ungenutzt. Ein inaktives Abonnement wird ausdrücklich gekennzeichnet, statt ein vollständig verfügbares Kontingent anzuzeigen. Mit der Aktualisierungsschaltfläche aktualisierst du das Widget bei Bedarf.
 
 Dieselbe Anzeige erscheint unter der Kontextanzeige in der Verbindungsauswahl eines Chats und in dessen **Connection**-Einstellungen (Verbindung). So kannst du dein Kontingent verfolgen, ohne den Chat zu verlassen. Sie folgt der aktiven Verbindung: Sie erscheint nur bei einer NanoGPT-Verbindung mit aktiviertem **Show subscription usage** und nicht bei **Random**, das keine einzelne Verbindung zum Abfragen hat. In der Auswahl passt sie optisch zum Kontextbalken darüber und wird genauso gelesen: Verbrauch im Verhältnis zum Wochenkontingent, etwa `8.9M / 60M tokens`, mit der Zurücksetzzeit neben dem Prozentwert.
 
@@ -115,7 +115,7 @@ Dieselbe Anzeige erscheint unter der Kontextanzeige in der Verbindungsauswahl ei
 - Key bekommst du hier: `https://console.x.ai`
 - Standard-Base-URL: `https://api.x.ai/v1`
 
-**xAI / Grok** betreibt die Grok-Modelle. Wählst du diesen Anbieter im Fenster **Create Connection**, trägt Marinara Grok 4.5 als Modell vor. Ändern lässt sich das jederzeit. Grok 4.6 und 4.7 bieten ein Kontextfenster von 500.000 Tokens und Reasoning bis **Maximum** (`xhigh`). Sie unterstützen die vorhandenen Chat-Tools einschließlich **Web Search** (Websuche), sodass Suchergebnisse in die fertige Antwort einfließen können.
+**xAI / Grok** betreibt die Grok-Modelle. Wählst du diesen Anbieter im Fenster **Create Connection**, trägt Marinara Grok 4.5 als Modell vor. Ändern lässt sich das jederzeit. Grok 4.6 und 4.7 bieten ein Kontextfenster von 500.000 Tokens und Reasoning bis **Extra high** (`xhigh`). Sie unterstützen die vorhandenen Chat-Tools einschließlich **Web Search** (Websuche), sodass Suchergebnisse in die fertige Antwort einfließen können.
 
 ## Arli AI
 
@@ -129,7 +129,7 @@ Dieselbe Anzeige erscheint unter der Kontextanzeige in der Verbindungsauswahl ei
 - Key bekommst du hier: `https://z.ai/manage-apikey/apikey-list`
 - Standard-Base-URL: `https://api.z.ai/api/paas/v4`
 
-**Z.AI** stellt die GLM-Modelle (GLM 5.3, GLM 5.3 Flash und frühere) über eine eigene API bereit. Die Dropdown-Liste **Model** zeigt die aktuellen GLM-Modelle; **Fetch Models from API** aktualisiert sie anhand deines Kontos. Modelle der Reihe GLM 5.3 nutzen immer Reasoning: **Reasoning Effort** (Denkaufwand) in deinem Preset wird auf die drei von Z.AI unterstützten Stufen abgebildet: **Low** (niedrig), **High** (hoch) und **Maximum** (maximal). Lässt du die Einstellung offen, gilt der Standard von Z.AI: **Maximum**. Die Standard-Base-URL führt zum nutzungsabhängig abgerechneten Endpoint. Der Coding Plan von Z.AI verwendet einen anderen Endpoint, den die Nutzungsrichtlinie den Tools auf der Liste des Anbieters vorbehält. Ein Key für den Coding Plan funktioniert hier daher voraussichtlich nicht.
+**Z.AI** stellt die GLM-Modelle (GLM 5.3, GLM 5.3 Flash und frühere) über eine eigene API bereit. Die Dropdown-Liste **Model** zeigt die aktuellen GLM-Modelle; **Fetch Models from API** aktualisiert sie anhand deines Kontos. Modelle der Reihe GLM 5.3 nutzen immer Reasoning: **Reasoning Effort** (Denkaufwand) in deinem Preset wird auf die drei von Z.AI unterstützten Stufen abgebildet: **Low** (niedrig), **High** (hoch) und **Maximum** (maximal). Lässt du die Einstellung offen, gilt der Standard von Z.AI: **Maximum**. Die Standard-Base-URL führt zum nutzungsabhängig abgerechneten Endpunkt. Der Coding Plan von Z.AI verwendet einen anderen Endpunkt, den die Nutzungsrichtlinie den Tools auf der Liste des Anbieters vorbehält. Ein Key für den Coding Plan funktioniert hier daher voraussichtlich nicht.
 
 ## DeepSeek
 
@@ -138,7 +138,7 @@ Dieselbe Anzeige erscheint unter der Kontextanzeige in der Verbindungsauswahl ei
 
 **DeepSeek** stellt seine eigenen Chat-Modelle bereit, `deepseek-flash` und `deepseek-v4-pro`. Nach dem Einfügen deines Keys listet das Dropdown-Menü **Model** sie auf, und **Fetch Models from API** aktualisiert die Liste anhand deines Kontos.
 
-DeepSeek denkt standardmäßig nach. **Reasoning Effort** nutzt hier die eigenen Stufen von DeepSeek – **Low**, **High** und **Maximum** –, und **Off** (aus) schaltet das Nachdenken für diese Anfrage ab. **Medium** gibt es nicht: DeepSeek behandelt eine Anfrage mit mittlerer Stufe wie High, deshalb bietet Marinara gleich High an statt einer zweiten Schaltfläche, die dasselbe täte. Seine Gedanken erscheinen in der Antwort und werden wie gewohnt angezeigt.
+DeepSeek denkt standardmäßig nach. **Reasoning Effort** nutzt hier die eigenen Stufen von DeepSeek – **Low**, **High** und **Max** –, und **Off** (aus) schaltet das Nachdenken für diese Anfrage ab. **Medium** gibt es nicht: DeepSeek behandelt eine Anfrage mit mittlerer Stufe wie High, deshalb bietet Marinara gleich High an statt einer zweiten Schaltfläche, die dasselbe täte. Seine Gedanken erscheinen in der Antwort und werden wie gewohnt angezeigt.
 
 Manche Einstellungen im Parameter-Panel gelten für DeepSeek nicht. Das Panel lässt sie deshalb weg, statt so zu tun, als würden sie wirken. Dazu gehören **Verbosity**, **Top K** und die Wiederholungsstrafen: DeepSeek hat sie abgeschafft und ignoriert sie. **Temperature** und **Top P** bilden ein Paar – DeepSeek nutzt immer nur einen der beiden, je nachdem, ob es gerade nachdenkt. Deshalb siehst du **Temperature**, wenn das Nachdenken aus ist, und **Top P**, wenn es an ist.
 
@@ -234,7 +234,7 @@ Was ein Decision-Modell tut, wie du eines auswählst und wie die vollständige E
 - **PocketTTS**: ein kostenloser Sprachserver, den du auf dem eigenen Rechner betreibst.
 - **xAI Voice**: der Sprachdienst von xAI.
 
-Jede Quelle trägt eine Standard-Base-URL und ein Standardmodell ein. **Default Voice** (Standardstimme) ist die Stimme, die gilt, solange nichts Spezifischeres festgelegt ist, etwa eine eigene Stimme pro Charakter. Welche Audioverbindung Marinara standardmäßig nutzt, legst du so fest: Öffne das Panel **Connections**, klapp **Defaults** auf und wähle sie unter **Audio** aus.
+Jede Quelle trägt eine Standard-Base-URL und ein Standardmodell ein. **Default Voice** (Standardstimme) ist die Stimme, die gilt, solange nichts Spezifischeres festgelegt ist, etwa eine eigene Stimme pro Charakter. **Request timeout (seconds)** (Zeitlimit für Anfragen in Sekunden) legt fest, wie lange Marinara auf eine gesprochene Zeile wartet, standardmäßig 60 Sekunden; erhöhe den Wert bei einem langsamen Sprachserver. Welche Audioverbindung Marinara standardmäßig nutzt, legst du so fest: Öffne das Panel **Connections**, klapp **Defaults** (Standardwerte) auf und wähle sie unter **Audio** aus. Um damit Nachrichten vorlesen zu lassen, wähle sie in der Karte **Text to Speech** als **Source** (Quelle). Siehe [Eine Audioverbindung verwenden](../media/tts-setup.md#use-an-audio-connection).
 
 Mit der Quelle **ElevenLabs** erscheinen zwei weitere Schalter: **Game sound effects** (Soundeffekte im Spiel) und **Game music** (Musik im Spiel). Damit erzeugt der Game Mode über diese Verbindung Soundeffekte und Musik. Siehe [Generierte Soundeffekte und Musik](../game/game-assets.md#generated-sound-effects-and-music). Für Stimmen und das Vorlesen von Nachrichten siehe [Text to Speech (TTS) einrichten](../media/tts-setup.md).
 
@@ -243,6 +243,8 @@ Mit der Quelle **ElevenLabs** erscheinen zwei weitere Schalter: **Game sound eff
 Embeddings treiben die semantische Suche in Lorebooks und Memory Recall an. Sie verwandeln Text in Zahlenlisten, damit Marinara passende Einträge findet. Bei den meisten Chat-Anbietern kannst du im Verbindungs-Editor ein **Embedding Model** und optional eine **Embedding Endpoint URL** angeben.
 
 Manche Anbieter liefern keine Embeddings. **Anthropic**, **Claude (Subscription)**, **OpenAI (ChatGPT)** und **Grok CLI (Subscription)** bieten sie nicht. Nutze dort das Dropdown-Menü **Embedding Connection**, um eine andere Verbindung mitzuverwenden – etwa eine OpenAI-kompatible, **Google Gemini** oder das eingebaute **Local Model**.
+
+Um eine Embedding-Quelle für jede Verbindung ohne eigene Embedding-Einstellungen zu nutzen, öffne das Panel **Connections**, klapp **Defaults** auf und wähle sie unter **Embeddings** aus. **None (built-in local model)** behält das eingebaute lokale Embedding-Modell bei. Das eigene Embedding-Modell oder die **Embedding Connection** einer Verbindung hat weiterhin Vorrang. Vektorisiere deine Lorebooks und Erinnerungen neu, nachdem du die Quelle geändert hast. Siehe [Semantische Suche für Lorebooks](../lorebooks/semantic-search.md).
 
 ## Verwandte Anleitungen
 

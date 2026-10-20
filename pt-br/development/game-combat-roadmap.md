@@ -21,7 +21,7 @@ O GM fornece uma descrição pequena e estruturada baseada na cena. O motor reso
 
 O fluxo de ambiente e formação oferece tamanho opcional do mapa e pontos de referência da cena. As orientações de terreno pertencem a cada encontro; as sementes do mapa são internas a cada encontro, sem um controle de semente na configuração da campanha. Mantenha configurações antigas válidas. Salve a grade aceita e a procedência da geração para que uma mudança futura do gerador não redesenhe uma batalha existente. Sementes salvas reproduzem a geração com a mesma descrição e combatentes; não tornam determinística qualquer saída do modelo.
 
-O terreno gerado pode ser reparado para garantir conectividade, mas restrições autorais não podem desaparecer silenciosamente. Limite saída do modelo, quantidade de casas e unidades e dimensões dos elementos. Rejeite disposições impossíveis com uma razão que indique como agir e ofereça uma alternativa gerada explícita. Um editor completo de pintura e posicionamento e mapas autorais arbitrários ficam para depois e devem usar as mesmas validações.
+O terreno gerado pode ser reparado para garantir conectividade, mas restrições autorais não podem desaparecer silenciosamente. Limite saída do modelo, quantidade de casas e unidades e dimensões dos elementos. Rejeite disposições impossíveis com uma razão que indique como agir e ofereça uma alternativa gerada explícita. Tabuleiros pintados à mão para os lugares de um mundo (worldgen W9g, em um editor como o Pixelforge) passam pelas mesmas regras: as faixas de posicionamento inicial viram planície e todas as casas abertas ficam conectadas, então a luta acontece neles exatamente como foram pintados.
 
 ### Capacidades de movimento
 
@@ -29,7 +29,7 @@ Caminhada, voo e teletransporte precisam de regras explícitas. Voo e teletransp
 
 Um modo omitido usa caminhada nos encontros antigos. Um modo explicitamente solicitado e não suportado deve ser rejeitado com erro; não o substitua silenciosamente por caminhada. Esse contrato vale para planos gerados e entradas da API tática.
 
-Separe travessia, destinos legais e ocupação. Teletransportar através de uma parede não permite terminar dentro dela. A grade plana inicial não representa altitude, tetos, exigências de visão das magias ou duração limitada do voo. Documente esse limite em vez de alegar regras completas de mesa. Reutilize a mesma verificação de movimento em prévias, resolução, animação de trajetos e IA inimiga.
+Separe travessia, destinos legais e ocupação. Teletransportar através de uma parede não permite terminar dentro dela. A grade tem altura desde o combate C6b (escalada, penhascos, cristas que bloqueiam a visão, terreno elevado), mas não representa tetos, exigências de visão das magias ou duração limitada do voo. Documente esse limite em vez de alegar regras completas de mesa. Reutilize a mesma verificação de movimento em prévias, resolução, animação de trajetos e IA inimiga.
 
 ## Regras de mesa: perfis integrados e ferramentas de referência para o GM
 
@@ -41,7 +41,7 @@ O motor deve controlar rolagens reais, alvos legais, movimento, limites de açõ
 
 Comece pelas primitivas suportadas de testes, turnos e recursos. Um perfil d20 e um perfil de pool de dados d10 exigem regras de resolução diferentes; um não é apenas o outro renomeado. A cobertura futura deve incluir iniciativa, testes opostos, dano e mitigação, condições e uso de recursos. Documente casos não suportados e deixe explícita a arbitragem do GM.
 
-O jogo tático de mesa também exige regras compartilhadas de linha de visão e cobertura. A grade atual bloqueia movimento por paredes, mas ataques à distância baseados em distância podem atravessá-las. Atualize resolução, IA, contra-ataques, previsões e sobreposições de ameaça juntos. Preserve as fases atuais de grupo e inimigos; iniciativa individual é um perfil de regras selecionável separado.
+A linha de visão compartilhada já existe (combate C6): uma parede ou uma montanha a bloqueia igualmente na resolução, na IA, nos contra-ataques, nas áreas, nas previsões e nas sobreposições de ameaça. Os níveis de cobertura se baseiam no mesmo teste. A iniciativa individual é uma configuração do jogo (combate C6c): jogos novos rolam uma ordem uma única vez por luta e jogam o turno de uma unidade por vez, tanto no motor quanto no diretor de combate; jogos mais antigos mantêm as fases de grupo e inimigos.
 
 ## Invocações: preservar o projeto, adiar o sistema maior
 

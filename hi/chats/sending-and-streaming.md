@@ -55,7 +55,7 @@ Attachment AI के *देखने* के लिए हैं। Gallery ref
 
 Roleplay Mode में chat asset browser यह link डाल सकता है। इसे messages, greetings और example dialogue जैसी text लिखने वाली जगहों पर paste भी कर सकते हैं।
 
-**Character की अपनी gallery** की image के लिए portable रूप `card://self/gallery/<filename>` बेहतर है; character को export और import करने के बाद भी यह चलता है। Character gallery का **Copy image reference** बटन इसे बनाता है। विवरण के लिए [Character galleries → गैलरी इमेज को संदेशों और greetings में दोबारा इस्तेमाल करना](../characters/galleries.md#reuse-a-gallery-image-in-messages-and-greetings) देखें।
+**Character की अपनी gallery** की image के लिए portable रूप `card://self/gallery/<filename>` बेहतर है; character को export और import करने के बाद भी यह चलता है। Character gallery का **Copy image reference** बटन इसे बनाता है। विवरण के लिए [Character galleries → गैलरी इमेज को संदेशों और ग्रीटिंग में दोबारा इस्तेमाल करना](../characters/galleries.md#reuse-a-gallery-image-in-messages-and-greetings) देखें।
 
 ## जवाब की स्ट्रीमिंग
 
@@ -65,13 +65,13 @@ Roleplay Mode में chat asset browser यह link डाल सकता �
 |---|---|---|
 | **Enable streaming** | On | जवाब बनते-बनते शब्द-दर-शब्द दिखाता है |
 | **Streaming speed** | 50 | स्ट्रीम हुआ टेक्स्ट स्क्रीन पर कितनी तेज़ी से बनता है, यह तय करती है |
-| **Trim incomplete model endings** | Off | सेव करने से पहले आखिर का अधूरा वाक्य हटा देती है |
+| **Trim incomplete sentences from the response** | Off | सेव करने से पहले आखिर का अधूरा वाक्य हटा देती है |
 
 **Streaming speed** 1 से 100 तक का स्लाइडर है। कम वैल्यू पर टाइपराइटर जैसा धीमा असर मिलता है, जिससे साथ-साथ पढ़ सकते हैं। ज़्यादा वैल्यू पर टेक्स्ट लगभग तुरंत दिख जाता है। मॉडल जब लिख रहा होता है तो टोकन झटकों में आते हैं, और Marinara उस रफ़्तार को एक-सा कर देता है, फिर आपकी चुनी हुई स्पीड से जवाब पूरा करता है। इस सेटिंग से मॉडल की अपनी लिखने की रफ़्तार नहीं बदलती।
 
 **Enable streaming** बंद हो तो मॉडल के लिख चुकने के बाद पूरा जवाब एक साथ दिखता है।
 
-**Trim incomplete model endings** का असर सिर्फ़ सेव हुए संदेश पर पड़ता है। चालू होने पर Marinara जवाब के आखिर का अधूरा वाक्य हटा देता है। पूरे जवाब और कमांड जैसी समाप्ति को यह छेड़ता नहीं।
+**Trim incomplete sentences from the response** का असर सिर्फ़ सेव हुए संदेश पर पड़ता है। चालू होने पर Marinara जवाब के आखिर का अधूरा वाक्य हटा देता है। पूरे जवाब और कमांड जैसी समाप्ति को यह छेड़ता नहीं।
 
 ## टाइपिंग और प्रोग्रेस के संकेत
 
@@ -95,7 +95,7 @@ Roleplay Mode में chat asset browser यह link डाल सकता �
 
 कुछ मॉडल अपनी छिपी हुई तर्क-प्रक्रिया दिखाते हैं, जिसे अक्सर "thinking" कहा जाता है। Marinara इसे दिखने वाले जवाब से अलग रखता है।
 
-जिस जवाब के साथ thinking जुड़ी हो, उस संदेश पर **View thoughts** (सोच देखें) वाला विकल्प, यानी दिमाग का आइकन, दिखता है। उस पर क्लिक करने से एक पैनल खुलता है जिसमें दर्ज की गई तर्क-प्रक्रिया का टेक्स्ट होता है।
+जिस जवाब के साथ thinking जुड़ी हो, उस संदेश पर **View model thoughts** (मॉडल की सोच देखें) वाला विकल्प, यानी दिमाग का आइकन, दिखता है। उस पर क्लिक करने से एक पैनल खुलता है जिसमें दर्ज की गई तर्क-प्रक्रिया का टेक्स्ट होता है।
 
 यह तभी दिखेगा जब मॉडल इसे सचमुच लौटाए। कुछ मॉडल अपनी तर्क-प्रक्रिया को सादे टेक्स्ट टैग में लपेटकर भेजते हैं। ऐसे मॉडल के लिए कनेक्शन पर अपने हिसाब से **Thinking Tags** (थिंकिंग टैग) सेट करें, ताकि Marinara छिपी तर्क-प्रक्रिया को दिखने वाले जवाब से अलग कर सके। कई आम टैग जोड़े पहले से पहचाने जाते हैं। **Thinking Tags** सेट करने का तरीका नीचे दी गई जेनरेशन पैरामीटर वाली गाइड में है।
 

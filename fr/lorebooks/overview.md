@@ -30,11 +30,11 @@ Trois boutons-icônes se trouvent en haut du panneau. Ils n'affichent qu'une ic�
 - Le bouton **Import** (importer), une flèche vers le bas, ouvre la fenêtre **Import Lorebook** pour charger un fichier de lorebook.
 - Le bouton **Select** (sélectionner), une coche, active la sélection multiple pour exporter ou supprimer plusieurs lorebooks d'un coup.
 
-Sous les boutons, un champ de recherche affiche le texte indicatif **Search lorebooks**. Il filtre la liste par nom, description, nom du personnage ou du persona lié, et tags. À côté, le menu déroulant **Sort order** (ordre de tri) propose ces choix : **A-Z**, **Z-A**, **Newest**, **Oldest** et **Token Budget**.
+Sous les boutons, un champ de recherche affiche le texte indicatif **Search lorebooks**. Il filtre la liste par nom, description, nom du personnage ou du persona lié, et tags. À côté, le menu déroulant **Sort order** (ordre de tri) propose ces choix : **Manual order** (ordre manuel), **A-Z**, **Z-A**, **Newest**, **Oldest** et **Token Budget**. Avec **Manual order**, fais glisser les lorebooks dans l'ordre que tu veux, ou déplaces-en un avec Alt+Up et Alt+Down au clavier. Ton ordre est conservé.
 
 Chaque ligne de lorebook comporte un bouton **Copy** (copier) et un bouton **Delete** (supprimer). Ces boutons apparaissent au survol de la ligne. Sur mobile, ils restent toujours visibles. Le bouton **Copy** duplique le lorebook. Un lorebook désactivé porte un petit badge **OFF**. Clique sur l'image pour la téléverser ou la remplacer.
 
-Autre possibilité : créer des dossiers de bibliothèque avec le bouton **New Folder** (nouveau dossier). Fais glisser un lorebook sur un dossier pour l'y ranger. Une grande bibliothèque reste ainsi bien ordonnée. Ces dossiers de bibliothèque n'ont rien à voir avec les dossiers d'entrées que tu peux créer à l'intérieur d'un lorebook.
+Autre possibilité : créer des dossiers de bibliothèque avec le bouton **New Folder** (nouveau dossier). Fais glisser un lorebook sur un dossier pour l'y ranger. Une grande bibliothèque reste ainsi bien ordonnée. Sur téléphone, maintiens un lorebook appuyé un instant, puis fais-le glisser. Ces dossiers de bibliothèque n'ont rien à voir avec les dossiers d'entrées que tu peux créer à l'intérieur d'un lorebook.
 
 ## Les catégories
 

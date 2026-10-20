@@ -91,7 +91,7 @@ Impersonate에는 모든 채팅에서 실행하는 모든 `/impersonate`에 적�
 - **Preset**(프리셋): Impersonate 답장에만 특정 프롬프트 프리셋을 사용합니다. 프리셋은 프롬프트 설정을 저장해 둔 묶음입니다. [Preset Editor와 프롬프트 관리](../prompts/presets.md)를 참고하세요. 기본값은 **Use chat default**(채팅 기본값 사용)입니다. 프리셋은 Roleplay에서만 적용됩니다.
 - **Connection**(연결): Impersonate 답장을 더 저렴하거나 빠른 모델처럼 특정 연결로 보냅니다. 연결은 AI 제공자에 접속하는 데 필요한 정보를 저장해 둔 것입니다. [AI 제공자에 연결하기](../connections/connecting-to-a-provider.md)를 참고하세요. 기본값은 **Use chat default**입니다. **Random**(무작위)도 선택할 수 있습니다.
 - **Skip agents**(에이전트 생략): 켜면 Impersonate 도중에 Marinara가 에이전트 파이프라인(트래커, 로어북 라우터를 비롯한 보조 기능)을 건너뜁니다. 덕분에 Impersonate가 빨라지고 세계 상태도 바뀌지 않습니다. 기본값은 꺼짐입니다. [에이전트](../agents/agents-overview.md)를 참고하세요.
-- **Use CYOA as direction**(CYOA를 지침으로 사용): 켜면 CYOA 선택지를 클릭했을 때 그 내용이 일반 메시지로 올라가지 않고 Impersonate 방향으로 쓰입니다. CYOA는 choose your own adventure의 약자로, 일부 채팅이 답장 뒤에 보여 주는 클릭 가능한 선택지 묶음입니다. 이 설정은 기본값이 꺼짐입니다.
+- **Use CYOA as direction**(CYOA를 지침으로 사용): 켜면 CYOA 선택지를 클릭했을 때 그 내용이 일반 메시지로 올라가지 않고 Impersonate 방향으로 쓰입니다. CYOA는 choose your own adventure의 약자로, 일부 채팅이 답장 뒤에 보여 주는 클릭 가능한 선택지 묶음입니다. 이 설정은 기본값이 꺼짐입니다. **Settings**(설정) > **General**(일반) > **Input & Editing**(입력 및 편집)에서 **Add CYOA choices to the message box instead of sending them**이 켜져 있으면 선택지를 클릭해도 그 텍스트가 메시지 입력란에 추가되기만 하며, 이 설정은 효과가 없습니다.
 
 ### 채팅별 Impersonate 프롬프트 지정하기
 

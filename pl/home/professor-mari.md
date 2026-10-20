@@ -2,17 +2,21 @@
 
 Professor Mari to wbudowana asystentka aplikacji Marinara Engine, dostępna na ekranie głównym. Z tego przewodnika dowiesz się, gdzie ją znaleźć, co potrafi, jak zostawia sobie możliwość cofnięcia zmian i jak rozwiązać typowe problemy.
 
+<a id="where-to-find-her"></a>
+
 ## Gdzie ją znaleźć
 
 Professor Mari mieszka na ekranie głównym. Ekran główny to widok, który pojawia się wtedy, gdy żaden czat nie jest otwarty.
 
-Poszukaj karty z jej pikselowym obrazkiem i nagłówkiem **Professor Mari**. Linia stanu pokazuje **Ready to help**, kiedy asystentka czeka, albo **Working on it...**, kiedy pracuje. Kliknij przycisk **Ask Prof. Mari** (zapytaj Professor Mari), żeby otworzyć pełne okno czatu.
+Poszukaj widgetu **Professor Mari** z jej pikselowym obrazkiem, a potem kliknij **Ask Professor Mari** (zapytaj Professor Mari), żeby otworzyć pełne okno czatu. Otwiera je też zakładka **Professor** u góry ekranu głównego. Jej okno otwiera się wewnątrz wyszukiwarki Search, więc możesz do niej dotrzeć z każdego ekranu: wpisz coś w polu Search i wybierz **Ask Prof. Mari** (zapytaj Professor Mari), naciśnij Ctrl+J (Cmd+J na Macu) albo na telefonie pociągnij w dół od górnego paska. Linia stanu w nagłówku jej okna pokazuje **Ready to help**, kiedy asystentka czeka, albo **Working on it...**, kiedy pracuje.
 
-Rozmawiasz z nią zwykłym językiem. Wpisz wiadomość w polu, a potem naciśnij Enter, żeby ją wysłać. Shift i Enter razem dodają nową linię.
+Rozmawiasz z nią zwykłym językiem. Wpisz wiadomość w polu, a potem naciśnij Enter, żeby ją wysłać. Shift i Enter razem dodają nową linię. Jeśli w jej ustawieniach wyłączysz **Enter sends to Professor Mari** (wysyłanie do Professor Mari klawiszem Enter), Enter doda nową linię, a wiadomość wyśle Ctrl+Enter (Cmd+Enter na Macu).
 
 Wysłanie pierwszej wiadomości odblokowuje osiągnięcie **Hello World**.
 
-Jej stan pokazuje też na każdym ekranie cienka linia wzdłuż dolnej krawędzi górnego paska aplikacji: faluje, kiedy asystentka pracuje, robi się zielona, kiedy skończy, złota, kiedy coś czeka na zatwierdzenie, albo czerwona, jeśli ostatnie zadanie się nie powiodło. Znika po otwarciu jej czatu. Linia jest wyłączona, gdy wyłączony jest przełącznik **Ask Professor Mari from Search** (pytania do Professor Mari z wyszukiwarki). Wszystkie jej ustawienia znajdują się w ustawieniach wyszukiwarki Search i asystentki Professor Mari: otwiera je ikona koła zębatego w wyszukiwarce Search albo ścieżka **Settings** (Ustawienia) > **General** > **Search and Professor Mari settings** (ustawienia wyszukiwarki i asystentki Professor Mari) > **Open** (otwarcie).
+Jej stan pokazuje też na każdym ekranie cienka linia wzdłuż dolnej krawędzi górnego paska aplikacji: faluje, kiedy asystentka pracuje, robi się zielona, kiedy skończy, złota, kiedy coś czeka na zatwierdzenie, albo czerwona, jeśli ostatnie zadanie się nie powiodło. Znika po otwarciu jej czatu. Linia jest wyłączona, gdy wyłączony jest przełącznik **Ask Professor Mari from Search** (pytania do Professor Mari z wyszukiwarki). Gdy jej okno jest zamknięte, mała plakietka na górnym pasku pokazuje ten sam stan jako **Working** (pracuje), **Needs you** (czeka na ciebie), **Done** (gotowe) albo **Failed** (niepowodzenie). Kliknij plakietkę, żeby wrócić do jej czatu. Wszystkie jej ustawienia znajdują się w ustawieniach wyszukiwarki Search i asystentki Professor Mari: otwiera je ikona koła zębatego w wyszukiwarce Search albo ścieżka **Settings** (Ustawienia) > **General** > **Search and Professor Mari settings** (ustawienia wyszukiwarki i asystentki Professor Mari) > **Open** (otwarcie).
+
+Na komputerze możesz tam też zmienić rozmiar jej okna. Użyj suwaków **Height** (wysokość) i **Width** (szerokość) w sekcji **Professor Mari window** (okno Professor Mari). Suwaki w sekcji **Search window** (okno wyszukiwarki) robią to samo dla wyszukiwarki Search; jej wysokość zaczyna od **Automatic** (automatycznie). Na telefonie oba okna zawsze wypełniają ekran.
 
 ## Pytanie do Professor Mari prosto z bieżącej pracy
 
@@ -21,12 +25,12 @@ Professor Mari to coś więcej niż okienko na pytania. Wyjaśnia działanie apl
 Asystentkę Professor Mari możesz otworzyć z miejsca, w którym potrzebujesz pomocy. Te punkty wejścia tworzą szkic do edycji i dołączają krótkie podsumowanie kontekstu z oznaczonym typem. Dołączony kontekst da się usunąć przed wysłaniem wiadomości.
 
 - Edytory **Character**, **Persona**, **Lorebook** i **Preset**: zapytaj o otwarty zasób albo o wybrane pole.
-- Odpowiedzi w **FAQ**: użyj **Ask Prof. Mari**, żeby dołączyć dopasowane pytanie i jego spisaną odpowiedź jako punkt wyjścia.
+- Odpowiedzi w **FAQ**: użyj **Ask Prof. Mari about this** (zapytaj o to Professor Mari), żeby dołączyć dopasowane pytanie i jego spisaną odpowiedź jako punkt wyjścia.
 - **Search** (wyszukiwarka): naciśnij `Cmd/Ctrl+K`, wybierz wynik, a potem użyj **Ask Prof. Mari**, żeby dołączyć wybrany wynik do szkicu. Sama wyszukiwarka Search nie wysyła żądania do modelu, chyba że włączona jest szybka odpowiedź – zobacz niżej sekcję **Quick answers in Search** (szybkie odpowiedzi w wyszukiwarce).
-- **Recent Chats** (ostatnie czaty) i inne stany błędu: użyj **Ask Prof. Mari** obok **Retry** (ponów), żeby wysłać opis błędu i żądaną naprawę.
+- **Recent Chats** (ostatnie czaty) i inne stany błędu: użyj **Ask Professor Mari** obok **Try again** (ponowna próba), żeby wysłać opis błędu i żądaną naprawę.
 - Zwykły czat z postacią Professor Mari i czat przestrzeni roboczej na ekranie głównym używają tego samego formatu przekazania.
 
-Dołączone elementy pojawiają się nad polem wiadomości jako kafelki **Aware of** (o czym wie). Usuń element kontekstu, jeśli nie ma związku z prośbą. Większą treść zasobu Professor Mari pobiera na serwerze w ramach budżetu kontekstu, już po wysłaniu wiadomości. Nie dostaje pełnego zasobu tylko dlatego, że masz otwarty edytor.
+Dołączone elementy pojawiają się nad polem wiadomości jako kafelki **Context** (kontekst). Usuń element kontekstu, jeśli nie ma związku z prośbą. Większą treść zasobu Professor Mari pobiera na serwerze w ramach budżetu kontekstu, już po wysłaniu wiadomości. Nie dostaje pełnego zasobu tylko dlatego, że masz otwarty edytor.
 
 Poproś ją o pomoc przy dowolnej z tych rzeczy:
 
@@ -87,11 +91,11 @@ Większość osób nigdy tego nie potrzebuje. Ta możliwość istnieje po to, ż
 
 Do myślenia Professor Mari potrzebuje połączenia. Połączenie łączy aplikację Marinara Engine z dostawcą AI za pomocą klucza API. Klucz API to tajny kod od tego dostawcy, trochę jak hasło.
 
-Kliknij ikonę ogniwa obok spinacza, żeby otworzyć listę rozwijaną **Connections** (Połączenia). Wybierz dowolne skonfigurowane połączenie do generowania tekstu. Pobrany wbudowany model lokalny też się tu pojawia, jako **Local Model (sidecar)**. Jeśli aplikacja zna nazwę modelu, w nawiasie widnieje właśnie ta nazwa. Wybór zapamiętuje się w przeglądarce.
+Kliknij przycisk połączenia obok spinacza. Pokazuje on ikonę ogniwa i nazwę połączenia, którego używa asystentka, albo **Select connection** (wybór połączenia), gdy żadne nie jest wybrane. Otwiera listę **Connections** (Połączenia). Wybierz dowolne skonfigurowane połączenie do generowania tekstu. Pobrany wbudowany model lokalny też się tu pojawia, jako **Local Model (sidecar)**. Jeśli aplikacja zna nazwę modelu, w nawiasie widnieje właśnie ta nazwa. Wybór zapisuje się razem z preferencjami aplikacji.
 
-Kiedy nie ma jeszcze żadnych połączeń, lista rozwijana pokazuje **Add a connection**. Próba wysłania wiadomości bez połączenia otwiera panel **Connections**. Pojawia się też komunikat wyskakujący (nazywany toastem):
+To samo menu wymienia też modele wybranego połączenia. Kliknij model, żeby go użyć. Model zapisuje się w połączeniu tak jak w zwykłym czacie, więc inne czaty korzystające z tego połączenia też się na niego przełączają. Na telefonie albo w wąskim oknie dotknij połączenia, żeby się na nie przełączyć, albo dotknij strzałki na końcu jego wiersza, żeby najpierw zobaczyć jego modele. Wbudowany model lokalny nie ma listy modeli.
 
-> You haven't set up a connection yet! Click the link icon beside the paperclip to select one.
+Kiedy nie ma jeszcze żadnych połączeń, lista pokazuje **Add a connection** (dodanie połączenia). Kliknij tę pozycję, żeby utworzyć połączenie. Próba wysłania wiadomości bez połączenia otwiera listę **Connections**, żeby można było jakieś wybrać.
 
 Pełny opis krok po kroku znajdziesz w przewodniku o połączeniach, podlinkowanym na końcu.
 
@@ -103,6 +107,10 @@ Professor Mari może działać na dwa sposoby. **Classic** (klasyczny) jest usta
 
 Pi działa z każdym połączeniem, także z modelem lokalnym. Jeśli Professor Mari dziwnie się zachowuje w trybie Pi, wróć do ustawienia Classic.
 
+## Zmiana jej wyglądu
+
+Otwórz **Search and Professor Mari settings** i przewiń do sekcji **Appearance** (wygląd). Wybierz jej wygląd, na przykład **Basic** (podstawowy), **Prof. Mari loves Dottore** albo **Safari Prof. Mari**. Nowy wygląd pokazuje się w jej czacie, w wyszukiwarce Search, na ekranie głównym i na górnym pasku. Niektóre wyglądy odblokowują się po odpowiednio długim czasie gry. Zablokowany wygląd pokazuje, ile godzin gry masz już za sobą.
+
 ## Dołączanie plików
 
 Kliknij przycisk spinacza, opisany jako **Attach files** (dołączenie plików), żeby dodać plik do wiadomości.
@@ -113,7 +121,7 @@ Asystentka przyjmuje obrazy, pliki PDF i popularne pliki tekstowe, takie jak `.t
 
 ## Sprawdzanie jej zmian
 
-Kiedy Professor Mari coś zmienia, od razu zapisuje zmianę i pokazuje pod swoją odpowiedzią kartę zmiany. Karta wymienia każde zmienione pole. Edycja tekstu pokazuje stare i nowe słowa, a lorebook pokazuje swoje wpisy. Otwórz **Show all** (pokaż wszystko), żeby zobaczyć każde pole. **Technical details** (szczegóły techniczne) pokazuje surowe polecenie.
+Kiedy Professor Mari coś zmienia, od razu zapisuje zmianę i pokazuje pod swoją odpowiedzią kartę zmiany. Karta wymienia każde zmienione pole. Edycja tekstu pokazuje stare i nowe słowa, a lorebook pokazuje swoje wpisy. Zmiana głębiej wewnątrz elementu, na przykład w onboardingu karty, dostaje własne pole z nazwą tego, co się zmieniło. Otwórz **Show all** (pokaż wszystko), żeby zobaczyć każde pole. **Technical details** (szczegóły techniczne) pokazuje surowe polecenie.
 
 Karta ma jedną akcję:
 
@@ -189,29 +197,27 @@ Wspomnieniami zarządzaj w panelu **Memories** albo poproś o to asystentkę: "c
 
 Professor Mari prowadzi własne, osobne czaty. Nie pojawiają się one na zwykłej liście czatów.
 
-Kliknij przycisk **Chats** w jej nagłówku, żeby otworzyć zapisane czaty z Professor Mari. Panel informuje: "Restart saves the current chat here." Zapisany czat da się kliknąć, żeby go otworzyć, zmienić mu nazwę albo go usunąć.
+Kliknij przycisk **Chats** w jej nagłówku, żeby otworzyć zapisane czaty z Professor Mari. Gdy lista jest pusta, panel informuje: "New chat keeps this one here." Użyj pola **Search Prof. Mari chats** (szukaj w czatach z Professor Mari), żeby znaleźć czat. Zapisany czat da się kliknąć, żeby go otworzyć, zmienić mu nazwę albo go usunąć.
 
-Kliknij przycisk **Restart** (zacznij od nowa), żeby zacząć z nią czat od zera. Restart najpierw zapisuje bieżący czat na liście **Chats**. To samo robi wpisanie `/restart` w polu wiadomości. Widać wtedy komunikat "Professor Mari's previous chat was saved."
+Kliknij przycisk **New chat** (nowy czat), żeby zacząć z nią czat od zera. Najpierw zapisuje on bieżący czat na liście **Chats**. To samo robi wpisanie `/restart` w polu wiadomości. Widać wtedy komunikat "Professor Mari's previous chat was saved."
 
-Kiedy asystentka pracuje, w nagłówku pojawia się przycisk **Stop**. Kliknięcie go anuluje bieżące zadanie.
+Kiedy asystentka pracuje, przycisk wysyłania zmienia się w przycisk **Stop**. Kliknięcie go anuluje bieżące zadanie.
 
-## Pływający dymek czatu
+## Wychodzenie z jej okna
 
-Jeśli okno jej czatu zostaje otwarte, a ty przechodzisz na inną stronę, Professor Mari może podążać za tobą jako mały pływający dymek.
-
-Na telefonie albo wąskim ekranie zmienia się w mały okrągły awatar, który da się przeciągać. Dotknięcie go otwiera pełny czat z powrotem. Na szerokim ekranie pojawia się małe przeciągalne okno **Ask Prof. Mari**. Każda wersja ma element sterujący, który chowa dymek do końca sesji.
+Możesz zamknąć jej okno i dalej korzystać z aplikacji, kiedy ona pracuje. Linia i plakietka na górnym pasku pokazują, jak jej idzie, zgodnie z opisem w sekcji [Gdzie ją znaleźć](#where-to-find-her). Kliknij plakietkę, żeby wrócić do jej czatu.
 
 ## Zaufanie i odzyskiwanie po błędach
 
-Otwórz **Aware of** w nagłówku czatu z Professor Mari, żeby zobaczyć, co zostanie dołączone do następnej wiadomości, co zostaje w tym czacie z Professor Mari i jak asystentka działa: jakim modelem odpowiada, jaki ma budżet kontekstu i czy jej polecenia powłoki działają w piaskownicy. Nagłówek pokazuje też oczekujące zatwierdzenia, dokumenty Skill i wspomnienia. Sprawdź je przed prośbą, kiedy potrzebujesz wiedzieć, co Professor Mari może przeczytać.
+Otwórz **Context** w nagłówku czatu z Professor Mari, żeby zobaczyć, co zostanie dołączone do następnej wiadomości, co zostaje w tym czacie z Professor Mari i jak asystentka działa: jakim modelem odpowiada, jaki ma budżet kontekstu i czy jej polecenia powłoki działają w piaskownicy. Nagłówek pokazuje też oczekujące zatwierdzenia, dokumenty Skill i wspomnienia. Sprawdź je przed prośbą, kiedy potrzebujesz wiedzieć, co Professor Mari może przeczytać.
 
-Professor Mari wprowadza istotne zmiany w przestrzeni roboczej wyłącznie w ramach istniejących reguł zatwierdzania i przeglądu po stronie serwera. **Aware of** nie daje dodatkowego dostępu. Zmiany plików wrażliwych, zmiany zależności, limity powłoki i walidację danych aplikacji nadal egzekwuje serwer.
+Professor Mari wprowadza istotne zmiany w przestrzeni roboczej wyłącznie w ramach istniejących reguł zatwierdzania i przeglądu po stronie serwera. **Context** nie daje dodatkowego dostępu. Zmiany plików wrażliwych, zmiany zależności, limity powłoki i walidację danych aplikacji nadal egzekwuje serwer.
 
-Kiedy prośba się nie uda, zapis rozmowy zachowuje przyczynę błędu i pokazuje **Retry**, jeśli prośbę da się wysłać ponownie. Najpierw usuń wskazany problem z połączeniem, piaskownicą, możliwościami albo dostępem zdalnym, a potem ponów prośbę. Ponowienie nie uruchamia się po cichu z wyszukiwania, FAQ ani stanu błędu. Zawsze wymaga twojego działania.
+Kiedy prośba się nie uda, zapis rozmowy zachowuje przyczynę błędu i pokazuje **Retry**, jeśli prośbę da się wysłać ponownie. Najpierw usuń wskazany problem z połączeniem, piaskownicą, możliwościami albo dostępem zdalnym, a potem ponów prośbę. Jeśli twoje pytanie nie zostało zapisane, wraca do pola wiadomości razem z plikami, więc możesz je najpierw zmienić. **Retry** i **Retry with another model** (ponów z innym modelem) wysyłają wtedy to, co jest w polu. Ponowienie nie uruchamia się po cichu z wyszukiwania, FAQ ani stanu błędu. Zawsze wymaga twojego działania.
 
 ## Sekcja FAQ działa osobno od czatu
 
-Obok karty czatu ekran główny pokazuje panel **FAQ**. To stała, spisana lista pytań i odpowiedzi. To nie jest czat z AI.
+Kliknij skrót **FAQ** na ekranie głównym albo **Read FAQ** (przeczytaj FAQ) w widgecie **Learn the engine** (poznaj aplikację), żeby otworzyć **Professor Mari's FAQ**. To stała, spisana lista pytań i odpowiedzi. To nie jest czat z AI.
 
 Wpisz coś w polu **Search FAQ**, żeby przefiltrować pytania. Każde pytanie ma kolorowy tag kategorii, na przykład **Setup**, **Connections** albo **Game Mode**. Dotknij pytania, żeby przeczytać odpowiedź.
 
@@ -231,11 +237,11 @@ Professor Mari to asystentka, a nie pełna dokumentacja. Pamiętaj o tych ograni
 
 ## Rozwiązywanie problemów
 
-- Brak jakiejkolwiek odpowiedzi: sprawdź połączenie pokazane w **Aware of** albo wybierz je przy ikonie ogniwa. Jeśli żadnego nie ma, otwórz panel **Connections** i dodaj jedno.
+- Brak jakiejkolwiek odpowiedzi: sprawdź połączenie pokazane w **Context** albo wybierz je przyciskiem połączenia. Jeśli żadnego nie ma, otwórz panel **Connections** i dodaj jedno.
 - Przekazanie zawiera niewłaściwy element: usuń element kontekstu, zacznij od nowa albo przełącz się na właściwy czat z Professor Mari i otwórz przekazanie ponownie z miejsca, z którego pochodzi. Kontekst obejmuje tylko dane przekazanie i bieżący czat z Professor Mari.
 - Wynik nie pojawia się w edytorze: użyj **Open** na karcie wyniku. Professor Mari mogła wykonać polecenie, kiedy lista zasobów była nieaktualna.
 - Prośba się nie udaje: przeczytaj stan błędu, popraw wskazany problem z konfiguracją i użyj **Retry**. Zapytaj Professor Mari ponownie z pierwotnego źródła tylko wtedy, gdy sam kontekst nie jest już poprawny.
-- Komunikat wyskakujący "You haven't set up a connection yet": wybierz połączenie z listy rozwijanej pod ikoną ogniwa albo najpierw jakieś dodaj.
+- Po naciśnięciu przycisku wysyłania otwiera się lista **Connections**: nie wybrano jeszcze połączenia. Wybierz je z listy albo najpierw użyj **Add a connection**.
 - Asystentka nie odczytuje dołączonego obrazu: model musi obsługiwać obrazy na wejściu. Przełącz się na połączenie, którego model widzi obrazy.
 - Wyszukiwanie w Fandom nie działa: wymaga ono dostępu do internetu, bo Fandom to zewnętrzna strona.
 - Jej działania blokuje błąd uprawnień: aplikacja Marinara Engine jest otwierana przez sieć, a nie z tego samego komputera. Najpierw skonfiguruj dostęp zdalny.

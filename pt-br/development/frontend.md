@@ -59,9 +59,9 @@ Os editores principais e os componentes pesados são carregados sob demanda em `
 
 ### Stores Zustand (estado do cliente)
 
-O cliente usa um conjunto de stores Zustand em `packages/client/src/stores/` para o estado da interface e de execução. A `ui.store.ts` é a única store persistida. As outras guardam o estado de execução de chats, agentes, jogos, runtime de modelo local, tradução, janelas, backfill e jogos de mesa.
+O cliente usa um conjunto de stores Zustand em `packages/client/src/stores/` para o estado da interface e de execução. A `ui.store.ts` é a única store persistida. As outras guardam o estado de execução de chats, agentes, jogos, runtime de modelo local, tradução, janelas e backfill.
 
-Os arquivos de store atuais são: `agent.store.ts`, `backfill.store.ts`, `chat.store.ts`, `chess-game.store.ts`, `dialog.store.ts`, `encounter.store.ts`, `gallery.store.ts`, `game-asset.store.ts`, `game-mode.store.ts`, `game-state.store.ts`, `poker-game.store.ts`, `sidecar.store.ts`, `translation.store.ts`, `ui.store.ts` e `uno-game.store.ts`.
+Os arquivos de store atuais são: `agent.store.ts`, `backfill.store.ts`, `chat-tools-menu.store.ts`, `chat.store.ts`, `conversation-games.store.ts`, `dialog.store.ts`, `encounter.store.ts`, `floating-window.store.ts`, `gallery.store.ts`, `game-asset.store.ts`, `game-mode.store.ts`, `game-state.store.ts`, `sidecar.store.ts`, `translation.store.ts` e `ui.store.ts`. As stores dos jogos de mesa foram para os pacotes para download deles; `conversation-games.store.ts` só acompanha o seletor e a configuração de jogos do Conversation.
 
 #### `ui.store.ts`: configurações e elementos de interface
 
@@ -489,6 +489,9 @@ As ferramentas de memória dos agentes usam `/api/agents/memory/:agentType/:chat
 | `/api/translate`          | POST                             | Tradução de texto             |
 | `/api/game`               | CRUD e ações                 | Sessões e estado do Game Mode |
 | `/api/game-assets`        | CRUD e upload                 | Recursos de jogo                  |
+| `/api/game-rulesets` | import, schema, source, remove | Conjuntos de regras do Game Mode importados |
+| `/api/game-worlds` | CRUD da biblioteca e edição de mundos | Biblioteca de mundos para jogos novos e pacotes de mapa |
+| `/api/game-tile-packs` | pacotes de tiles, mais `/creatures` e `/boards` | Pacotes de arte de mapa, de criaturas e de tabuleiros de luta |
 | `/api/turn-games`         | Rotas de Chess, UNO e Poker         | Jogos de mesa do Conversation     |
 | `/api/conversation-calls` | Rotas de chamada e de sessão           | Chamadas de áudio do Conversation      |
 
@@ -503,6 +506,10 @@ As ferramentas de memória dos agentes usam `/api/agents/memory/:agentType/:chat
 | `/api/gallery/:chatId`        | Imagens da galeria de cada chat      |
 | `/api/global-gallery`         | Imagens da galeria global        |
 | `/api/tts`                    | Rotas de Text to Speech (conversão de texto em voz)        |
+| `/api/speech-to-text` | Configurações e teste do servidor de Speech to Text |
+| `/api/avatar-models` | Modelos de avatar 2D e 3D dos agentes de avatar |
+| `/api/avatar-generation` | Rascunhos de avatar a partir de sprites e a chave do Tripo |
+| `/api/avatar-classify` | Classificador de emoções dos avatares e o modelo local dele |
 | `/api/youtube`                | Rotas do YouTube DJ           |
 | `/api/custom-emojis`          | Recursos de emojis personalizados          |
 | `/api/custom-stickers`        | Recursos de stickers personalizados        |
@@ -539,8 +546,10 @@ As ferramentas de memória dos agentes usam `/api/agents/memory/:agentType/:chat
 | `/api/connection-folders`       | Pastas de conexões                      |
 | `/api/prompt-overrides`         | Sobrescritas dos prompts nativos               |
 | `/api/achievements`             | Desbloqueio de conquistas                     |
-| `/api/noodle`                   | Linha do tempo social do Noodle                  |
+| `/api/capability-packages` | Catálogo de agentes, instalações, atualizações, notas de versão e recursos dos pacotes |
+| `/api/noodle`                   | Linha do tempo social do Noodle (registrada pelo pacote Noodle) |
 | `/api/professor-mari/workspace` | Operações do espaço de trabalho da Professor Mari     |
+| `/api/professor-mari/quick` | Respostas rápidas da Professor Mari e aplicação das propostas de edição delas |
 
 ## Suporte a PWA
 
@@ -586,6 +595,10 @@ A Engine, na versão leve, vem com o registro de agentes em tempo de execução 
 | `persona-stats`          | post_processing | Acompanha as mudanças de atributos da persona do jogador                                |
 | `custom-tracker`         | post_processing | Acompanha o estado estruturado definido pelo usuário                                |
 | `inventory-tracker`      | post_processing | Acompanha moedas, equipamentos em uso e itens carregados                            |
+| `quartermaster` | post_processing | Mantém a ficha de personagem do Roleplay, o equipamento em uso e as roupas |
+| `beholder` | post_processing | Acompanha o que cada personagem veste e carrega, e os ferimentos dele |
+| `relationship-tracker` | post_processing | Acompanha o que os personagens e a persona sentem uns pelos outros |
+| `memory-nag` | post_processing | Lembra pontas soltas, como promessas, e as recorda ao modelo |
 | `illustrator`            | post_processing | Gera prompts de imagem de cena e pedidos de mídia                  |
 | `lorebook-keeper`        | post_processing | Cria e atualiza entradas de lorebook automaticamente                    |
 | `card-evolution-auditor` | post_processing | Audita os cards de personagem e sugere evoluções                    |
@@ -600,7 +613,9 @@ A Engine, na versão leve, vem com o registro de agentes em tempo de execução 
 | `storyboard` | post_processing | Planeja storyboards estáticos ou animados de Game e Roleplay |
 | `conversation-calls`     | feature         | Acrescenta chamadas de áudio e vídeo ao Conversation, além das configurações relacionadas          |
 | `hierarchical-maps`      | feature         | Acrescenta mapas, contexto espacial e movimentação ao Roleplay e ao Game Mode             |
-| `noodle` | feature | Adiciona os feeds sociais locais Noodle e Slurp à Home |
+| `noodle` | feature | Adiciona o feed social local do Noodle à Home |
+| `slurp2` | feature | Adiciona à Home o Slurp, um aplicativo privado de criadores para personagens |
+| `gacha-forge` | feature | Adiciona à Home um modo de jogo gacha |
 | `uno`                    | feature         | Acrescenta a mesa de UNO ao Conversation                                |
 | `chess`                  | feature         | Acrescenta o tabuleiro de Chess ao Conversation                             |
 | `poker`                  | feature         | Acrescenta a mesa de Texas Hold'em ao Conversation                         |
@@ -612,7 +627,7 @@ A Engine, na versão leve, vem com o registro de agentes em tempo de execução 
 
 Os agentes produzem resultados tipados que o frontend sabe tratar. A união `AgentResultType`, em `packages/shared/src/types/agent.ts`, inclui:
 
-`game_state_update`, `text_rewrite`, `sprite_change`, `echo_message`, `quest_update`, `image_prompt`, `context_injection`, `continuity_check`, `director_event`, `lorebook_update`, `character_card_update`, `background_change`, `character_tracker_update`, `persona_stats_update`, `custom_tracker_update`, `inventory_tracker_update`, `spotify_control`, `youtube_control`, `local_music_control`, `haptic_command`, `cyoa_choices`, `secret_plot`, `game_master_narration`, `party_action`, `game_map_update`, `game_state_transition`, `prompt_patch`, `frontend_theme_update` e `about_me_update`.
+`game_state_update`, `text_rewrite`, `sprite_change`, `echo_message`, `quest_update`, `image_prompt`, `context_injection`, `continuity_check`, `director_event`, `lorebook_update`, `character_card_update`, `character_card_create`, `background_change`, `character_tracker_update`, `persona_stats_update`, `custom_tracker_update`, `inventory_tracker_update`, `spotify_control`, `youtube_control`, `local_music_control`, `haptic_command`, `cyoa_choices`, `secret_plot`, `game_master_narration`, `party_action`, `game_map_update`, `game_state_transition`, `prompt_patch`, `character_activity_update`, `frontend_theme_update`, `about_me_update` e `memory_nag`.
 
 ## Modos de chat
 

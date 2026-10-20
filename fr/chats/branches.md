@@ -24,6 +24,7 @@ Marinara copie le chat jusqu'à ce message inclus dans une nouvelle branche. Cet
 - Conserve le même mode, les mêmes personnages, le même persona (le personnage que tu incarnes), le même preset de prompt (modèle de prompt enregistré) et la même connexion que le chat d'origine.
 - Copie tous les messages, y compris tous les swipes (les réponses alternatives) et celui qui était actif. Le [guide des actions sur les messages](messages.md) explique le fonctionnement des swipes.
 - Copie les instantanés des trackers (agents de suivi) et de l'état du jeu liés aux messages copiés : les chats en mode Roleplay et Game Mode gardent ainsi leur état.
+- Conserve le travail d'Advanced Memory dans un chat Roleplay : tu n'as pas à préparer de nouveau l'historique copié. Les souvenirs des scènes antérieures, déjà terminées, restent prêts à être rappelés. La scène à partir de laquelle tu crées la branche redevient la scène en cours, et ses anciens souvenirs sont supprimés. Consulte [Mémoire et résumés de chat](../agents/memory.md).
 - Porte au départ le nom d'affichage **New Branch**. Tu peux la renommer, voir plus bas.
 - Reste dans le même dossier de chats que le chat d'origine.
 
@@ -73,6 +74,7 @@ La section **Chat Branches** propose des boutons d'export en haut. Ils exportent
 
 - **JSONL** : télécharge la branche dans un fichier JSONL. JSONL signifie un message par ligne de texte, et ce format est compatible avec SillyTavern.
 - **Text** : télécharge la branche sous forme de transcription en texte brut.
+- **Markdown** et **Story** : télécharge la branche sous forme de fichier Markdown lisible ou de page web mise en forme. Consulte [Les formats de fichier que tu vas croiser](export-import.md#file-formats-you-will-see).
 
 Pour exporter plusieurs chats d'un coup, consulte [Exporter et importer des chats](export-import.md). Ce guide décrit aussi l'option qui inclut le raisonnement du modèle dans les exports.
 

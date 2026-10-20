@@ -233,7 +233,7 @@ Seguindo CONTRIBUTING, passam a warn o parsing do cabeçalho SillyTavern em `imp
 
 Correção sempre ativa, não uma opção.
 
-**O que existe.** `buildApp()` em `packages/server/src/app.ts` registra rotas centrais, aguarda `capabilityModuleRuntime.start(app)`, que ativa pacotes via `activateOne()` em `services/capability-packages/capability-module-runtime.service.ts`, e inicia depois `startServerAutonomousScheduler(app)`. Chamadas internas `app.inject()` vêm dos pacotes por `runCapabilityInternalRoute()` em `capability-route-registration.service.ts`, do agendador autônomo em `server-autonomous-scheduler.service.ts` e de `routes/generate/prompt-preview.ts`. O primeiro `inject()` inicia toda a instância Fastify; depois não é possível adicionar rotas, hooks ou plugins. Um timer/worker precoce durante `buildApp()` fazia os pacotes seguintes falharem com "Root plugin has already booted", e o próximo `addHook` parava o servidor. O `catch` de `activateOne()` registra e executa `capabilityPackageManager.rollbackRuntime()` ou persiste status e prontidão `"error"`. Assim, um pacote saudável podia continuar revertido ou `"error"` nos próximos inícios.
+**O que existe.** `buildApp()` em `packages/server/src/app.ts` registra rotas centrais, aguarda `capabilityModuleRuntime.start(app)`, que ativa pacotes via `activateOne()` em `services/capability-packages/capability-module-runtime.service.ts`, e inicia depois `startServerAutonomousScheduler(app)`. Chamadas internas `app.inject()` vêm dos pacotes por `runCapabilityInternalRoute()` em `capability-route-registration.service.ts`, do agendador autônomo em `server-autonomous-scheduler.service.ts` e de `routes/generate/prompt-preview.ts`. O primeiro `inject()` inicia toda a instância Fastify; depois não é possível adicionar rotas, hooks ou plugins. Se uma tarefa de fundo (um timer de pacote ou um worker iniciado cedo) chamasse `inject()` durante `buildApp()`, todos os pacotes seguintes falhavam com "Root plugin has already booted", e o próximo `addHook` lançava um erro e parava o servidor. O `catch` de `activateOne()` registra e executa `capabilityPackageManager.rollbackRuntime()` ou persiste status e prontidão `"error"`. Assim, um pacote saudável podia continuar revertido ou `"error"` nos próximos inícios.
 
 **O que é adicionado.**
 
@@ -243,7 +243,7 @@ Correção sempre ativa, não uma opção.
 - `isHostLifecycleActivationError()` em `capability-module-runtime.service.ts` reconhece `AVV_ERR_ROOT_PLG_BOOTED` ("Root plugin has already booted") e `FST_ERR_INSTANCE_ALREADY_LISTENING` ("Fastify instance is already listening"). Não reverte nem persiste status/prontidão `"error"`; versão e estado ficam, ativando normalmente no próximo início. Um warn, com registro no diagnóstico. Outros erros mantêm error, reversão e `"error"`.
 - Regressão: `startup-inject-gate`.
 
-**O que fica igual.** Após `buildApp()`, `app.inject()` volta ao Fastify original sem wrapper. Forma encadeada sem argumentos nunca espera. Ordem, rotas, `runCapabilityInternalRoute()`, agendador e ativação/atualização após início continuam iguais. Um caso no servidor ativo: pacote ativado pela interface que adiciona nova rota ainda recebe `FST_ERR_INSTANCE_ALREADY_LISTENING`, mas a nova versão fica instalada para o próximo início, sem reversão. O chamador ainda recebe o erro.
+**O que fica igual.** Após `buildApp()`, `app.inject()` volta ao Fastify original sem wrapper. A forma encadeada (`app.inject()` sem argumentos) nunca fica retida. Ordem, rotas, `runCapabilityInternalRoute()`, agendador e ativação/atualização após início continuam iguais. Um caso no servidor ativo: pacote ativado pela interface que adiciona nova rota ainda recebe `FST_ERR_INSTANCE_ALREADY_LISTENING`, mas a nova versão fica instalada para o próximo início, sem reversão. O chamador ainda recebe o erro.
 
 **Como verificar.**
 
@@ -302,6 +302,8 @@ Acréscimo sem controle nem mudança de comportamento por si só.
 # Próximos pull requests
 
 Seções propositalmente curtas. Cada PR completa sua seção com as mesmas cinco partes quando aberto.
+
+Situação: o PR A foi mesclado como #6647 e o PR B como #6648. O PR C (#6649) foi fechado sem ser mesclado, e os PRs D a H não foram abertos como pull requests separados. As seções de C a H abaixo descrevem o plano como foi escrito; não as leia como recursos lançados dessa forma.
 
 <a id="pr-b-dev-mcp-for-coding-assistants"></a>
 

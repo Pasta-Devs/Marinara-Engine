@@ -68,6 +68,18 @@ Chaque mode a son propre guide de démarrage. Commence par le mode qui t'intére
 
 Ouvre un chat Conversation et choisis **Schedule timezone** (fuseau horaire des emplois du temps) dans **Chat Settings** (réglages du chat). Autre option : le choisir pendant la création des emplois du temps, dans l'assistant de configuration Conversation. Marinara part du fuseau horaire indiqué par l'appareil, mais tu peux sélectionner n'importe quel fuseau IANA pris en charge, ou choisir **Use device** pour revenir à celui de l'appareil. Ce réglage est global pour tous les chats Conversation, y compris les messages autonomes générés côté serveur, et il se synchronise avec les autres appareils connectés au même serveur Marinara.
 
+<a id="does-each-conversation-chat-have-its-own-schedule"></a>
+
+## Chaque chat Conversation a-t-il son propre emploi du temps ?
+
+Non. Un emploi du temps appartient au personnage, et tous les chats Conversation avec ce personnage utilisent le même. Modifie-le dans **Character Editor -> Convo -> Weekly schedule** (éditeur de personnage -> Convo -> emploi du temps hebdomadaire), ou depuis les commandes d'emploi du temps de **Chat Settings** ; dans les deux cas, le changement s'applique partout.
+
+Pour obtenir des réponses immédiates dans un seul chat, ouvre ses **Chat Settings** et désactive **Conversation schedules** (emplois du temps Conversation). Cet interrupteur est propre à chaque chat. Le personnage reste disponible dans ce chat, garde son emploi du temps, et tes autres chats ne changent pas. Un forçage manuel du statut, s'il est actif, reste prioritaire et s'applique dans ce chat, y compris un forçage comme **dnd**.
+
+Les chats existants qui n'ont jamais utilisé d'emploi du temps restent désactivés tant que tu ne les actives pas. Les nouveaux chats que tu lances avec un personnage qui a un emploi du temps l'utilisent dès le départ.
+
+Un forçage manuel du statut appartient lui aussi au personnage. Si tu règles un personnage sur **online** dans un chat, il est en ligne dans tous les chats. Utilise **clear** pour retirer le forçage.
+
 ## Ai-je besoin d'une clé API pour utiliser Marinara ?
 
 Presque toujours, oui. Une **connexion** est un lien enregistré qui indique à Marinara comment joindre un service d'IA : quel fournisseur, quel modèle et tes identifiants. Une **clé API** est un code secret, un peu comme un mot de passe. Un fournisseur d'IA te la fournit pour que Marinara puisse dialoguer avec lui à ta place.
@@ -80,11 +92,11 @@ Quelques fournisseurs n'utilisent pas de clé API du tout. Les options par abonn
 
 Marinara prend en charge de nombreux fournisseurs. Tu en choisis un par connexion.
 
-Pour le texte des chats et du roleplay, les choix sont **OpenAI**, **OpenAI (ChatGPT)**, **Anthropic**, **Claude (Subscription)**, **Grok CLI (Subscription)**, **Google Gemini**, **Google Vertex AI**, **Mistral**, **Cohere**, **OpenRouter**, **NanoGPT**, **xAI / Grok**, ainsi que **Custom (OAI-Compatible)** pour les modèles locaux ou auto-hébergés comme Ollama, LM Studio et KoboldCpp.
+Pour le texte des chats et du roleplay, les choix sont **OpenAI**, **OpenAI (ChatGPT)**, **Anthropic**, **Claude (Subscription)**, **Grok CLI (Subscription)**, **Google Gemini**, **Google Vertex AI**, **Mistral**, **Cohere**, **OpenRouter**, **NanoGPT**, **xAI / Grok**, **Arli AI**, **Z.AI**, **DeepSeek**, ainsi que **Custom (OAI-Compatible)** pour les modèles locaux ou auto-hébergés comme Ollama, LM Studio et KoboldCpp.
 
 Pour la génération d'images, les choix comprennent **OpenAI (DALL-E)**, **Stability AI**, **Together AI**, **NovelAI**, **OpenRouter Images**, **xAI / Grok Imagine**, **Venice.ai**, **Atlas Cloud**, **Pollinations**, **Stable Horde**, **SD Web UI (AUTOMATIC1111 / Forge)**, **ComfyUI**, **RunPod Serverless (ComfyUI)**, **Draw Things**, **NanoGPT** et **Block Entropy**.
 
-Pour la génération de vidéos, les choix sont **Google AI Studio**, **xAI Imagine**, **OpenRouter Video**, **Atlas Cloud**, **Seedance 2.0**, ainsi que les workflows locaux au format API de **ComfyUI**.
+Pour la génération de vidéos, les choix sont **Google AI Studio**, **xAI Imagine**, **OpenRouter Video**, **NanoGPT**, **Atlas Cloud**, **Seedance 2.0**, ainsi que les workflows locaux au format API de **ComfyUI**.
 
 Tu peux enregistrer plusieurs connexions à la fois et en attribuer une différente à chaque chat. Voir [Se connecter à un fournisseur d'IA](connections/connecting-to-a-provider.md).
 
@@ -97,7 +109,7 @@ Certaines options ne coûtent rien à l'essai. La génération d'images **Pollin
 ## Mes clés API sont-elles en sécurité ?
 
 Oui. Marinara chiffre chaque clé API en AES-256 avant de l'enregistrer sur le disque. Les exports de connexions et de
-profils retirent les valeurs secrètes. Une sauvegarde complète, c'est différent : elle contient les enregistrements chiffrés et, s'il existe, le fichier de clé de
+profils retirent les valeurs secrètes. Les exports de chats et de profils de réglages laissent aussi de côté la **DeepL API Key** (clé API DeepL) et le webhook **Discord Mirror** (miroir Discord) d'un chat. Une sauvegarde complète, c'est différent : elle contient les enregistrements chiffrés et, s'il existe, le fichier de clé de
 chiffrement qui permet de les déverrouiller. Garde donc les ZIP de sauvegarde complète pour toi.
 
 Comme l'import de profil laisse volontairement les valeurs secrètes de côté, tu dois ressaisir chaque clé API après avoir importé un
@@ -120,11 +132,11 @@ Pour la fonctionnalité complète, voir [Lorebooks](lorebooks/overview.md).
 
 ## Qu'est-ce qu'un agent ?
 
-Un **agent** est une aide IA facultative qui tourne pendant un chat pour accomplir une tâche précise. Par exemple : suivre la scène en cours, surveiller la qualité d'écriture, ajouter des cartes ou des appels, ou animer un jeu de table en mode Conversation. Une installation neuve ne contient aucun agent facultatif. Ouvre le panneau **Agents**, clique sur **Download Agents** (télécharger des agents), lis le détail d'un élément, puis installe-le. Active ensuite les agents compatibles chat par chat dans **Chat Settings**. Quand un package officiel installé reçoit une mise à jour compatible, Marinara demande confirmation avant de la télécharger. Si tu réponds **No**, la version actuelle est conservée et le bouton **Update** (mettre à jour) reste disponible dans Download Agents pour plus tard. Si l'hôte est hors ligne ou si la vérification échoue, la version installée continue de fonctionner. Le catalogue gère aussi la suppression complète d'un package. Voir [Agents : des aides IA pour tes chats](agents/agents-overview.md) et le [dépôt public Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents).
+Un **agent** est une aide IA facultative qui tourne pendant un chat pour accomplir une tâche précise. Par exemple : suivre la scène en cours, surveiller la qualité d'écriture, ajouter des cartes ou des appels, ou animer un jeu de table en mode Conversation. Une installation neuve ne contient aucun agent facultatif. Ouvre le panneau **Agents**, clique sur **Download Agents** (télécharger des agents), lis le détail d'un élément, puis installe-le. Active ensuite les agents compatibles chat par chat dans **Chat Settings**. Quand un package officiel installé reçoit une mise à jour compatible, Marinara demande confirmation avant de la télécharger et liste ce que chaque mise à jour a changé quand le package publie des notes de version. Un point signale une version que l'éditeur a marquée comme un changement que tu remarqueras. Si tu réponds **No**, la version actuelle est conservée et le bouton **Update** (mettre à jour) reste disponible dans Download Agents pour plus tard. Si l'hôte est hors ligne ou si la vérification échoue, la version installée continue de fonctionner. Le catalogue gère aussi la suppression complète d'un package. Voir [Agents : des aides IA pour tes chats](agents/agents-overview.md) et le [dépôt public Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents).
 
 ## Comment configurer Noodle ?
 
-Noodle est le réseau social local et fictif de Marinara, réservé à tes personnages. Ouvre l'onglet **Noodle**, puis ouvre ses **Settings** (Paramètres). Invite des personnages ou des dossiers de personnages, choisis une connexion de génération sous **Refresh**, puis sélectionne **Refresh now** pour générer la première activité. Tu peux aussi régler des horaires d'actualisation automatique, la génération d'images, des utilisateurs aléatoires et la reprise dans tes chats.
+Noodle est le réseau social local et fictif de Marinara, réservé à tes personnages. Ouvre d'abord **Agents** → **Download Agents**, installe **Noodle**, puis redémarre Marinara quand on te le demande. Ouvre **Home** (accueil) → **Noodle**, puis ses **Settings** (Paramètres). Invite des personnages ou des dossiers de personnages, choisis une connexion de génération sous **Refresh**, puis sélectionne **Refresh now** pour générer la première activité. Tu peux aussi régler des horaires d'actualisation automatique, la génération d'images, des utilisateurs aléatoires et la reprise dans tes chats.
 
 Voir [Noodle : le fil social intégré](noodle/overview.md) et [Réglages de Noodle et reprise dans les chats](noodle/settings.md) pour les guides complets.
 
@@ -164,7 +176,7 @@ Tout reste sur l'ordinateur qui fait tourner Marinara, dans le dossier `data` de
 
 ## Vais-je perdre mes données en mettant à jour ?
 
-Non. La mise à jour de Marinara conserve tes personnages, tes chats et tes réglages en place. Mieux vaut quand même faire une sauvegarde avant une grosse mise à jour, au cas où. Pour les étapes de mise à jour sur chaque plateforme, voir [Mettre à jour](UPGRADING.md).
+Non. La mise à jour de Marinara conserve tes personnages, tes chats et tes réglages en place. Mieux vaut quand même faire une sauvegarde avant une grosse mise à jour, au cas où. Pour les étapes de mise à jour sur chaque plateforme, voir [Mettre à jour](UPGRADING.md). Revenir ensuite à une version plus ancienne peut faire perdre des données que seule la version plus récente enregistre ; voir [Revenir à une ancienne version](UPGRADING.md#downgrading-to-an-older-version).
 
 ## Que peut faire Professor Mari ?
 
@@ -174,7 +186,7 @@ Elle affiche aussi des pastilles de suggestion de réponse rapide au-dessus du c
 
 Quand elle modifie tes données, une carte de revue apparaît avec les boutons **Keep** (garder) et **Restore** (restaurer) : tu peux ainsi annuler ce que tu ne veux pas. C'est une aide, pas un remplacement de ces guides quand une question dépend de la version. Pour la liste complète de ce qu'elle sait faire, voir [Professor Mari](home/professor-mari.md).
 
-Professor Mari peut aussi modifier les fichiers source ordinaires de Marinara. En revanche, les fichiers de dépendances, les lanceurs, les installeurs et les workflows CI attendent une revue explicite. Si sa modification nécessite une bibliothèque npm publique, Marinara affiche la version résolue exacte et l'intégrité du registre avant de l'installer, scripts de cycle de vie désactivés.
+Professor Mari peut toujours modifier les fichiers source ordinaires de Marinara. En revanche, les fichiers de dépendances, les lanceurs, les installeurs et les workflows CI attendent une revue explicite. Si sa modification nécessite une bibliothèque npm publique, Marinara affiche la version résolue exacte et l'intégrité du registre avant de l'installer, scripts de cycle de vie désactivés.
 
 À noter : sur une adresse distante ordinaire, les actions de Professor Mari qui modifient des données exigent à la fois Basic Auth et un secret d'administration. Les routes réseau de confiance ou autorisées peuvent utiliser les contournements décrits dans [Accès à distance](REMOTE_ACCESS.md).
 
@@ -200,14 +212,14 @@ Oui. Ajoute une connexion de génération d'images, par exemple **Pollinations**
 
 Chaque installation embarque l'intégralité des guides. Tu peux les lire sans quitter l'application :
 
-- Sur l'écran d'accueil, clique sur le bouton **Documentation** dans le pied de page, à côté de **Replay Tutorial**.
+- Sur l'écran d'accueil, clique sur **Documentation** dans la barre des marque-pages, à côté de **Tutorial** (tutoriel). Sur téléphone, ouvre d'abord le menu des marque-pages.
 - Dans la FAQ de l'écran d'accueil, ouvre la question sur la documentation et clique sur **Open Documentation**.
 
 Les deux boutons ouvrent la même visionneuse intégrée. Elle liste tous les guides et les affiche dans Marinara.
 
 ## Où trouver de l'aide ou signaler un bug ?
 
-Commence par [Résoudre les problèmes de Marinara Engine](TROUBLESHOOTING.md), qui est organisé par symptôme. Dans le pied de page de l'écran d'accueil, le bouton **Discord** ouvre le chat de la communauté et le bouton **Support** ouvre la page de support du projet. Pour les bugs et les demandes de fonctionnalités, utilise la page GitHub du projet.
+Commence par [Résoudre les problèmes de Marinara Engine](TROUBLESHOOTING.md), qui est organisé par symptôme. Dans la barre des marque-pages de l'écran d'accueil, **Discord** ouvre le chat de la communauté et **Support** ouvre la page de support du projet. Pour les bugs et les demandes de fonctionnalités, utilise la page GitHub du projet.
 
 ## Guides associés
 

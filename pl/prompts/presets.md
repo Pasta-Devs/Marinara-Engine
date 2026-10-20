@@ -20,7 +20,7 @@ Na górze panelu są trzy przyciski:
 - **Import** (ikona pobierania): wczytanie presetu z pliku `.json`.
 - **Select** (ikona ptaszka): zaznaczenie kilku presetów naraz do eksportu lub usunięcia.
 
-Pod przyciskami jest pole **Search presets** i menu sortowania z opcjami **A-Z**, **Z-A**, **Newest** i **Oldest**. Presety da się grupować w folderach – służy do tego przycisk **New Folder** (nowy folder). Przeciągnij preset na folder, żeby go przenieść. Zmień nazwę folderu podwójnym kliknięciem lub podwójnym stuknięciem.
+Pod przyciskami jest pole **Search presets** i menu sortowania z opcjami **Manual order** (kolejność ręczna), **A-Z**, **Z-A**, **Newest** i **Oldest**. **Manual order** zachowuje ustawioną przez ciebie kolejność: przeciągnij wiersz presetu w górę lub w dół albo naciśnij Alt+Up lub Alt+Down na zaznaczonym wierszu. Presety da się grupować w folderach – służy do tego przycisk **New Folder** (nowy folder). Przeciągnij preset na folder, żeby go przenieść. Na ekranie dotykowym naciśnij i przytrzymaj wiersz, żeby go podnieść. Zmień nazwę folderu podwójnym kliknięciem lub podwójnym stuknięciem.
 
 Wiersz każdego presetu pokazuje nazwę, format opakowania, liczbę sekcji i autora. Preset oznaczony gwiazdką jako domyślny ma plakietkę **DEFAULT**. Kliknij wiersz presetu, żeby otworzyć go w panelu **Preset Editor**.
 
@@ -40,13 +40,15 @@ Edytor nie zapisuje sam z siebie. Zmiany zostają zachowane dopiero po kliknięc
 
 Żeby wyeksportować preset, otwórz go i kliknij przycisk eksportu (ikona strzałki w górę) na górnym pasku. Przy niezapisanych zmianach Marinara najpierw prosi o zapisanie. Preset usuniesz ikoną kosza na górnym pasku.
 
-## Zakładki Overview, Sections i Prompts
+## Pięć zakładek panelu Preset Editor
 
-Panel **Preset Editor** ma trzy zakładki.
+Panel **Preset Editor** ma pięć zakładek.
 
 - **Overview**: nazwa presetu, opis, format opakowania i autor.
 - **Sections**: właściwa struktura promptu, zbudowana z bloków i znaczników.
 - **Prompts**: prompty trybów używane przez czaty Conversation i Game.
+- **Parameters** (parametry): początkowe ustawienia generowania dla czatów korzystających z tego presetu. Zobacz [Parametry generowania](generation-parameters.md).
+- **Regex**: skrypty regex powiązane z tym presetem oraz **Scoped regex default** (domyślny tryb skryptów regex przypisanych do postaci). Zobacz [Skrypty regex](../extending/regex-scripts.md).
 
 ### Zakładka Overview
 

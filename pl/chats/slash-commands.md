@@ -29,7 +29,7 @@ Te komendy pomagają zarządzać czatem i jego wiadomościami. Działają w czat
 | Komenda | Działa też jako | Co robi |
 |---|---|---|
 | `/help` | | Wypisuje wszystkie komendy slash. |
-| `/send [message]` | | Wysyła wiadomość w imieniu twojej persony bez uruchamiania generowania. |
+| `/send [message]` | | Wysyła wiadomość w imieniu twojej persony bez uruchamiania generowania. Zapisuje się ona tak samo jak po kliknięciu **Send**, z wypełnionymi makrami. |
 | `/continue` | `/cont` | Dopisuje tekst do ostatniej odpowiedzi AI, bez wysyłania nowej wiadomości. Opcja **Add a new line before /continue text** w **Settings → General → Responses** decyduje o tym, czy ten tekst zacznie się po pustej linii, czy dokładnie w miejscu przerwania. |
 | `/goto [number]` | `/jump`, `/scroll` | Przewija czat do wiadomości o podanym numerze. |
 | `/hide [range] [name (optional)]` | | Ukrywa jedną wiadomość lub więcej przed AI w kolejnych turach. |

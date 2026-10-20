@@ -262,6 +262,16 @@ Kaelen is his usual self.
 
 여기서는 "angry", "sad", "none of these" 중 하나를 고릅니다. 축약형도 가능합니다. `decision_choice:"The weather in the latest message" == "rain" || "snow"`는 두 옵션을 모두 제시합니다. 문장은 "Kaelen's mood in the latest message" 같은 주제로 쓰고 옵션은 짧은 답으로 작성하세요.
 
+옵션이 이야기에서 무엇을 뜻하는지 모델에 알려 주려면 옵션 뒤에 콜론으로 구분해 기준을 덧붙이세요.
+
+```
+{{#if decision_choice:"Kaelen's mood in the latest message" == "angry":"Kaelen raises his voice, makes threats or breaks something"}}
+Kaelen's lines are short and clipped.
+{{/if}}
+```
+
+모델은 기준을 옵션의 설명으로 읽습니다. 답은 여전히 "angry"이고, 비교 대상도 여전히 "angry"입니다. 두 부분은 같은 종류의 따옴표로 감싸세요. 따옴표가 다르면 Marinara는 "angry"를 옵션으로 읽지 않으며, 비교는 그 옵션과 절대 일치하지 않습니다. 기준 안에서도 `{{char}}` 같은 매크로를 쓸 수 있습니다. 기준이 없는 옵션은 예전처럼 제시되며, 한 옵션에 여러 곳에서 서로 다른 기준을 주면 처음 것을 사용합니다.
+
 <a id="sticky-and-cooldown"></a>
 
 ### Sticky와 Cooldown
@@ -467,7 +477,7 @@ Decision 모델 미설정, 시간 내 응답 실패, 처리 실패 등 답이 �
 4. **해당 계획 단계의 문장이 너무 많아** 허용량을 넘었습니다.
 5. **답은 하지만 임계값 미만임.** 보통 표현이나 예상보다 해당 턴을 낮게 평가하는 모델이 원인입니다.
 
-어떤 Decision 모델을 선택했고 **Test**가 무엇을 보고하는지 사용자에게 확인하세요. **Peek Prompt**는 실제 보낸 분기를 보여 줍니다. 새 미리보기를 만들 때는 아직 답이 없는 문장을 나열하며 거기서는 아니요로 읽습니다. 로그 수준이 debug이면 각 문장, 답, 예로 읽혔는지를 기록합니다. [로그 수준](../CONFIGURATION.md#logging-levels)을 참고하세요.
+어떤 Decision 모델을 선택했고 **Test**가 무엇을 보고하는지 사용자에게 확인하세요. **Peek Prompt**는 실제 보낸 분기를 보여 줍니다. 새 미리보기를 만들 때는 아직 답이 없는 문장을 나열하며 거기서는 아니요로 읽습니다. 로그 레벨이 debug이면 각 문장, 답, 예로 읽혔는지를 기록합니다. [로그 레벨](../CONFIGURATION.md#logging-levels)을 참고하세요.
 
 프리셋 자체를 고쳐야 하는 경우는 드뭅니다. 그런 경우에는 보통 표현이나 프롬프트에 필수인 내용을 담은 분기가 문제입니다.
 

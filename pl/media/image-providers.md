@@ -54,7 +54,7 @@ Tabela poniżej pokazuje wszystkie usługi w skrócie. Szczegóły i haczyki opi
 
 ## OpenAI (DALL-E)
 
-Usługa w chmurze z domyślnym adresem `https://api.openai.com/v1` w polu **Base URL**. Wymaga klucza API z konta OpenAI. Udostępnia modele DALL-E oraz GPT Image. Przyjmuje do 16 obrazów referencyjnych.
+Usługa w chmurze z domyślnym adresem `https://api.openai.com/v1` w polu **Base URL**. Wymaga klucza API z konta OpenAI. Udostępnia modele DALL-E oraz GPT Image. Modele GPT Image przyjmują do 16 obrazów referencyjnych; modele DALL-E nie przyjmują żadnych.
 
 ## ChatGPT (Codex login)
 
@@ -212,7 +212,7 @@ Każda usługa ma też pola tekstowe **Prompt Prefix** oraz **Negative Prefix**.
 
 | Dostawca | Obrazy referencyjne |
 | --- | --- |
-| OpenAI (DALL-E) | Do 16 |
+| OpenAI (DALL-E) | Do 16, tylko modele GPT Image |
 | ChatGPT (Codex login) | Do 16 |
 | NovelAI | Do 16, tylko model V4.5 |
 | xAI / Grok Imagine | Do 3 |
@@ -223,18 +223,21 @@ Każda usługa ma też pola tekstowe **Prompt Prefix** oraz **Negative Prefix**.
 | NanoGPT | Do 3 |
 | Stability AI | Tylko pierwszy obraz, użyty do zamiany obrazu na obraz |
 | Arli AI | Tylko pierwszy obraz, użyty do zamiany obrazu na obraz |
+| SD Web UI (AUTOMATIC1111 / Forge) i Draw Things | Tylko pierwszy obraz, użyty do zamiany obrazu na obraz |
 | OpenRouter Images | Obsługiwane, bez stałego limitu |
 | ComfyUI i RunPod Serverless (ComfyUI) | Do 4, przez znaczniki w workflow |
 | SwarmUI | Do 4 |
-| Together AI, Pollinations, Stable Horde | Nieobsługiwane |
+| Together AI, Pollinations, Stable Horde, fal.ai | Nieobsługiwane |
 
 Precyzyjne obrazy referencyjne w usłudze NovelAI działają wyłącznie na modelu V4.5, na przykład `nai-diffusion-4-5-full`. Usługa NovelAI nie udostępniła jeszcze funkcji Precise Reference dla V5. Przy żądaniu obrazów referencyjnych na innym modelu Marinara Engine generuje obraz bez nich i zapisuje ostrzeżenie w logu serwera.
 
-## Kolejkowanie żądań generowania obrazów
+## Kolejkowanie żądań generowania mediów
 
-Przełącznik **Queue image generation requests** (kolejkowanie żądań generowania obrazów) znajdziesz w **Settings** (Ustawienia), dalej **Generations**, dalej **Image Generation**. Domyślnie jest włączony.
+Przełącznik **Queue media generation requests** (Kolejkuj żądania generowania mediów) znajdziesz w **Settings** (Ustawienia), dalej **Generations**, dalej **Overall Generations**. Domyślnie jest włączony.
 
-Kiedy jest włączony, Marinara wysyła zadania graficzne pojedynczo. Zostaw go włączonego przy usługach, które odrzucają dwa żądania naraz. Wyłącz go tylko wtedy, gdy usługa obsługuje wiele żądań jednocześnie, a zależy ci na szybszym efekcie.
+Kiedy jest włączony, Marinara wysyła zadania graficzne do każdego konta u dostawcy obrazów pojedynczo, a zadania wideo do każdego konta u dostawcy wideo również pojedynczo, w osobnych kolejkach. Obraz i wideo dla tego samego konta mogą powstawać jednocześnie. Dotyczy to każdej funkcji, która je zleca: agenta Illustrator, trackerów, komend, galerii, zasobów gier i pobranych agentów, takich jak Slurp. Dwa połączenia z tym samym adresem i kluczem API dzielą odpowiednią kolejkę. Różne konta i różni dostawcy nadal działają jednocześnie. Usługa NovelAI dostaje też krótką przerwę między zadaniami. Gdy NovelAI odpowiada, że jest zajęta, Marinara czeka i próbuje jeszcze dwa razy, zamiast zgłosić błąd obrazu.
+
+Zostaw go włączonego przy usługach, które odrzucają dwa żądania naraz. Wyłącz go tylko wtedy, gdy usługa obsługuje wiele żądań jednocześnie, a zależy ci na szybszym efekcie.
 
 ## Powiązane przewodniki
 

@@ -8,15 +8,44 @@ Marinara Engine es una app local para chatear y hacer roleplay con personajes de
 
 ## La pantalla de inicio de un vistazo
 
-La pantalla de inicio es lo que ves cuando no hay ningún chat abierto. De arriba abajo, muestra estas partes:
+La pantalla de inicio es lo que ves cuando no hay ningún chat abierto. Se parece un poco a un navegador web: pestañas y marcadores arriba, y debajo un escritorio de widgets.
 
-- El logo de la app, las palabras **Marinara Engine** y el número de versión debajo.
-- Una fila con tus chats más recientes: hasta tres, mostrados como fichas en las que puedes hacer clic para reabrirlos. Si todavía no tienes ninguno, esta fila muestra "No chats yet" (Aún no hay chats).
-- La tarjeta **Ask Professor Mari** (Pregúntale a Professor Mari): un cuadro de chat para el asistente integrado, que puede explicarte la app y ayudarte a configurar todo. Junto a ella hay una breve **FAQ** con preguntas y respuestas comunes.
-- Un botón **Achievements** (Logros), que aparece solo cuando la opción de logros está activada.
-- Un pie de página con estos botones: **Discord**, **Support** (Apoyo), **Credits** (Créditos), **Documentation** (Documentación) y **Replay Tutorial** (Repetir el tutorial).
+En la parte superior encuentras estas partes:
+
+- **Pestañas.** **Home** (Inicio) es la página principal. **Professor** abre Professor Mari, el asistente integrado que puede explicarte la app y ayudarte a configurar todo. Algunos agentes instalados añaden una pestaña propia.
+- **Barra de búsqueda.** En una computadora, haz clic en la barra debajo de las pestañas, o pulsa Ctrl+K (Cmd+K en un Mac), para encontrar chats, personajes, ajustes y más.
+- **Marcadores.** Enlaces rápidos a **Discord**, **Support** (Apoyo), **Credits** (Créditos), **Documentation** (Documentación), **Tutorial**, **FAQ**, **Achievements** (Logros) y **Widgets**. **Achievements** solo aparece cuando la opción de logros está activada. En un teléfono, toca el botón de marcadores a la izquierda de las pestañas para verlos como una lista.
+
+En el centro ves el logo de la app, las palabras **Marinara Engine** y el número de versión. Debajo, los botones **Conversation**, **Roleplay** y **Game** empiezan cada uno un chat nuevo en ese modo.
 
 La primera vez que abres Marinara, un breve recorrido guiado te señala los botones principales y los modos de chat. Para el recorrido completo, consulta [El tutorial de la primera vez](tutorial.md).
+
+<a id="home-widgets"></a>
+
+## Widgets de inicio
+
+El resto de la pantalla de inicio está formado por widgets: tarjetas pequeñas que puedes mostrar, ocultar y mover. Estos widgets vienen con la app:
+
+| Widget | Qué hace | Visible al principio |
+| --- | --- | --- |
+| **Professor Mari** | Haz clic en **Ask Professor Mari** (Pregúntale a Professor Mari) para abrir su chat. | Sí |
+| **Recent chats** (Chats recientes) | Muestra tus últimos chats con su último mensaje. Haz clic en uno para reabrirlo. Si todavía no tienes ninguno, dice **Your chats will show here** (Tus chats aparecerán aquí). | Sí |
+| **Learn the engine** (Aprende a usar el motor) | Enlaces a **Documentation**, **Replay tutorial** (Repetir tutorial) y **Read FAQ** (Leer la FAQ). | Sí |
+| **What's New** (Novedades) | **See what's new** (Ver las novedades) vuelve a abrir la ventana What's New de esta versión, aunque la hayas cerrado antes. **Read release notes** (Leer las notas de la versión) abre las notas completas de la versión en la web. | Sí |
+| **Community** (Comunidad) | Enlaces a **Discord**, **Support** y **Credits**. | Sí |
+| **Character Library** (Biblioteca de personajes) | Una selección nueva de tus personajes cada día. | No |
+| **Discovery desk** (Mesa de descubrimientos) | Sugiere agentes que todavía no has instalado. Usa las flechas para ver más, o **Browse agents** (Explorar agentes) para abrir el catálogo. | No |
+| **Character of the Day** (Personaje del día) | Un personaje de tu biblioteca, con **Start a chat** (Empezar un chat) y **View character** (Ver personaje). | No |
+| **Clock & calendar** (Reloj y calendario) | La fecha y la hora de hoy. | No |
+| **Achievements** | Tus logros más recientes y los más cercanos. Solo está disponible cuando la opción de logros está activada. | No |
+
+Algunos agentes instalados también añaden widgets. Professor Mari también puede crearte un widget personal si se lo pides.
+
+Para elegir tus widgets, haz clic en **Widgets** en los marcadores. La ventana **Home Widgets** (Widgets de inicio) los enumera en **Built-in** (Integrados), **Agents** (Agentes) y **Personal**. Haz clic en el botón del ojo junto a un widget para mostrarlo u ocultarlo. Un widget que vuelves a mostrar va al primer lugar libre de la pantalla de inicio. Los widgets personales también tienen botones para editarlos o eliminarlos.
+
+Para mover un widget, arrastra el tirador de su esquina superior derecha. En una computadora, el tirador aparece cuando pasas el puntero sobre el widget. Con el teclado, pon el foco en el tirador y usa las teclas de flecha. La disposición de tus widgets se guarda en este navegador.
+
+En la parte inferior de la ventana **Home Widgets**, **Browser chrome** (Apariencia del navegador) tiene tres interruptores: **Show URL bar** (Mostrar la barra de direcciones) muestra u oculta la barra de búsqueda, y **Other-tab bookmarks (desktop)** (Marcadores en otras pestañas, escritorio) y **Other-tab bookmarks (mobile)** (Marcadores en otras pestañas, móvil) mantienen visibles los marcadores en las pestañas distintas de **Home**.
 
 ## Tus primeros pasos
 
@@ -43,8 +72,8 @@ Tienes varias formas de conseguir ayuda sin salir de la app:
 
 - Pregúntale a **Professor Mari** en la pantalla de inicio para ayuda con la configuración y respuestas de cómo hacer las cosas.
 - Lee la **FAQ** en la pantalla de inicio para respuestas rápidas a preguntas comunes.
-- Abre las guías dentro de la app con el botón **Documentation** en el pie de la pantalla de inicio.
-- Haz clic en **Discord** en el pie de página para llegar a la comunidad, o en **Support** para apoyar el proyecto.
+- Abre las guías dentro de la app con el marcador **Documentation** de la pantalla de inicio.
+- Haz clic en el marcador **Discord** para llegar a la comunidad, o en **Support** para apoyar el proyecto.
 
 Si algo está roto o no funciona, consulta [Solución de problemas de Marinara Engine](../TROUBLESHOOTING.md).
 

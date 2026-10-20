@@ -12,35 +12,36 @@ Tu progreso se guarda de forma local, dentro del perfil que estás usando. Un pe
 
 ## Abrir el panel de logros
 
-El botón **Achievements** (Logros) está en la pantalla de inicio. La pantalla de inicio es lo que ves cuando no hay ningún chat abierto. El botón está justo debajo del cuadro de chat de Professor Mari, y muestra un icono de trofeo.
+El marcador **Achievements** (Logros) está en la pantalla de inicio. La pantalla de inicio es lo que ves cuando no hay ningún chat abierto. El marcador está en la fila de marcadores de la parte superior, y muestra un icono de trofeo. En un teléfono, toca el botón de marcadores a la izquierda de las pestañas para encontrarlo.
 
-Debajo de la etiqueta, el botón muestra un contador en vivo, como **12 of 23 unlocked** (12 de 23 desbloqueados). Mientras aún está cargando, muestra **Checking the collection...** (Revisando la colección...) en su lugar.
+También puedes añadir el widget **Achievements** a la pantalla de inicio. Haz clic en **Widgets** en los marcadores y actívalo. El widget muestra un contador en vivo, como **12 of 24 unlocked** (12 de 24 desbloqueados), además de tus logros **Last obtained** (Último obtenido) y **Closest next** (Siguiente más cercano). Mientras aún está cargando, el contador muestra **Checking the collection...** (Revisando la colección...) en su lugar. Haz clic en el widget para abrir el panel. Consulta [Widgets de inicio](welcome.md#home-widgets).
 
 Para abrir el panel, sigue estos pasos:
 
 1. Ve a la pantalla de inicio.
-2. Busca el botón **Achievements** debajo del cuadro de chat de Professor Mari.
+2. Busca el marcador **Achievements** en la parte superior.
 3. Haz clic en él.
 
-Deberías ver que se abre la ventana **Achievements**. En la parte superior muestra una línea de resumen, como **12 of 23 achievements unlocked in this profile.** (12 de 23 logros desbloqueados en este perfil.). Debajo hay una cuadrícula de tarjetas de logros.
+Deberías ver que se abre la ventana **Achievements**. En la parte superior muestra una línea de resumen, como **12 of 24 achievements unlocked in this profile.** (12 de 24 logros desbloqueados en este perfil.). Debajo hay una cuadrícula de tarjetas de logros.
 
 Cada tarjeta muestra un icono de insignia, un título, una etiqueta de categoría y una descripción corta. Si una tarjeta está bloqueada, el título muestra **?????** y el icono es un candado. No puedes leer qué es hasta que la desbloqueas. Una vez que ganas una tarjeta, muestra una etiqueta **unlocked** (desbloqueado). Las tarjetas con una meta también muestran una fila **Progress** (Progreso) y una barra de progreso.
 
-El botón y el panel solo aparecen cuando el ajuste **Achievements** está activado. Consulta la sección del ajuste más abajo. No hay ningún otro menú o página que muestre los logros.
+El marcador, el widget y el panel solo aparecen cuando el ajuste **Achievements** está activado. Consulta la sección del ajuste más abajo. No hay ningún otro menú o página que muestre los logros.
 
-## Los 23 logros
+## Los 24 logros
 
-Hay 23 logros, repartidos en cuatro categorías: **Milestone** (Hito), **Community** (Comunidad), **Creation** (Creación) y **Collection** (Colección).
+Hay 24 logros, repartidos en cuatro categorías: **Milestone** (Hito), **Community** (Comunidad), **Creation** (Creación) y **Collection** (Colección).
 
 Algunos logros son de un solo desbloqueo. Los de **Creation** y **Collection** tienen rangos, con tres niveles marcados **I**, **II** y **III**. Los niveles se desbloquean a los 5, luego a los 25 y luego a los 100. Así, el título de la insignia puede mostrar algo como **Hoarder II** cuando alcanzas el segundo nivel.
 
 | Logro | Categoría | Cómo se desbloquea |
 |---|---|---|
 | **Diligent Student** | Milestone | Termina u omite el tutorial inicial. |
-| **Hello World** | Milestone | Envía tu primer mensaje a Professor Mari desde la pantalla de inicio. |
-| **One Of Us** | Community | Haz clic en el enlace **Discord** del pie de página de la pantalla de inicio. |
-| **Based Backer** | Community | Haz clic en el enlace **Support** (abre Ko-fi) del pie de página de la pantalla de inicio. |
-| **Backseat Appreciator** | Community | Haz clic en el botón **Credits** del pie de página de la pantalla de inicio. |
+| **Hello World** | Milestone | Envía tu primer mensaje a Professor Mari. |
+| **Please Handle With Care** | Milestone | Arrastra la imagen de Professor Mari por la pantalla. |
+| **One Of Us** | Community | Haz clic en el marcador **Discord** o en el enlace **Discord** del widget **Community** (Comunidad) de la pantalla de inicio. |
+| **Based Backer** | Community | Haz clic en **Support** (abre Ko-fi) en los marcadores de la pantalla de inicio o en el widget **Community**. |
+| **Backseat Appreciator** | Community | Haz clic en **Credits** en los marcadores de la pantalla de inicio o en el widget **Community**. |
 | **Who Needs IRL Friends** | Creation | Crea chats en modo Conversation (5, 25, 100). |
 | **They Feel Real To Me** | Creation | Crea chats de Roleplay (5, 25, 100). |
 | **I Have No Other Hobbies** | Creation | Crea chats en modo Game (5, 25, 100). |
@@ -68,18 +69,16 @@ El contador en la parte superior de la ventana incluye los logros de los agentes
 
 Puedes activar o desactivar toda la función con un solo interruptor. Abre **Settings** (Configuración), ve a la pestaña **General** y busca la sección **App Behavior** (Comportamiento de la app). El interruptor se llama **Achievements**, y está activado de forma predeterminada.
 
-El texto de ayuda dice: "Shows the Home achievements button and unlock notifications. Tracking stays silent in the current profile when this is off." (Muestra el botón de logros de la pantalla de inicio y las notificaciones de desbloqueo. El seguimiento sigue en silencio en el perfil actual cuando esto está desactivado.)
-
 Esto es lo que hace el interruptor:
 
-- Activado: aparecen el botón **Achievements** y la ventana de la pantalla de inicio, y recibes un aviso emergente cuando algo se desbloquea.
-- Desactivado: el botón se oculta y los avisos emergentes se detienen. La app sigue registrando tus desbloqueos en silencio en segundo plano.
+- Activado: el marcador **Achievements** de la pantalla de inicio y la ventana están disponibles, y recibes un aviso emergente cuando algo se desbloquea. El widget opcional **Achievements** solo aparece si lo añadiste a la disposición de tu pantalla de inicio.
+- Desactivado: el marcador y el widget se ocultan y los avisos emergentes se detienen. La app sigue registrando tus desbloqueos en silencio en segundo plano.
 
 Como el seguimiento continúa mientras el ajuste está desactivado, tu progreso no se pierde. Si vuelves a activar el ajuste más tarde, todo lo que ganaste mientras tanto ya está ahí.
 
 ## Cómo funciona el desbloqueo
 
-Marinara compara los logros con rangos frente a tus contadores en vivo actuales. Esta comprobación se ejecuta cuando ocurre una acción con seguimiento, como crear un chat o hacer clic en un enlace del pie de página. También se ejecuta cuando abres el panel de logros.
+Marinara compara los logros con rangos frente a tus contadores en vivo actuales. Esta comprobación se ejecuta cuando ocurre una acción con seguimiento, como crear un chat o hacer clic en un marcador de la pantalla de inicio. También se ejecuta cuando abres el panel de logros.
 
 Cuando una acción activa un desbloqueo y el ajuste está activado, aparece un pequeño aviso emergente. Su título es **Achievement unlocked** (Logro desbloqueado), y nombra la insignia, por ejemplo **Hoarder II** o **One Of Us**.
 

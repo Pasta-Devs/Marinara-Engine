@@ -8,15 +8,44 @@ Marinara Engine é um aplicativo local para conversar e fazer roleplay com perso
 
 ## A tela inicial em resumo
 
-A tela inicial é o que aparece quando nenhum chat está aberto. De cima para baixo, ela mostra estas partes:
+A tela inicial é o que aparece quando nenhum chat está aberto. Ela lembra um pouco um navegador da web: abas e favoritos no topo e, abaixo, uma mesa de widgets.
 
-- O logotipo do aplicativo, as palavras **Marinara Engine** e o número da versão logo abaixo.
-- Uma linha com os chats mais recentes: até três, exibidos como etiquetas que reabrem o chat com um clique. Se ainda não houver nenhum, a linha mostra "No chats yet".
-- O card **Ask Professor Mari** (perguntar à Professor Mari): uma caixa de chat com a assistente integrada, que explica o aplicativo e ajuda na configuração. Ao lado dele fica um **FAQ** curto, com perguntas e respostas comuns.
-- Um botão **Achievements** (conquistas), que aparece só quando a configuração Achievements está ativada.
-- Um rodapé com estes botões: **Discord**, **Support**, **Credits**, **Documentation** e **Replay Tutorial**.
+No topo ficam estas partes:
+
+- **Abas.** **Home** é a página principal. **Professor** abre a Professor Mari, a assistente integrada que explica o aplicativo e ajuda na configuração. Alguns agentes instalados acrescentam uma aba própria.
+- **Barra de busca.** No computador, clique na barra abaixo das abas, ou aperte Ctrl+K (Cmd+K no Mac), para encontrar chats, personagens, configurações e mais.
+- **Favoritos.** Atalhos para **Discord**, **Support**, **Credits**, **Documentation**, **Tutorial**, **FAQ**, **Achievements** e **Widgets**. **Achievements** só aparece quando a configuração Achievements está ativada. No celular, toque no botão de favoritos à esquerda das abas para vê-los como uma lista.
+
+No meio ficam o logotipo do aplicativo, as palavras **Marinara Engine** e o número da versão. Abaixo deles, os botões **Conversation**, **Roleplay** e **Game** começam cada um um chat novo nesse modo.
 
 Na primeira vez que você abre Marinara, um tour guiado curto aponta os principais botões e os modos de chat. Para ver o passo a passo completo, leia [O tutorial da primeira vez](tutorial.md).
+
+<a id="home-widgets"></a>
+
+## Widgets da tela inicial
+
+O resto da tela inicial é feito de widgets: pequenos cards que você pode mostrar, esconder e mover. Estes widgets vêm com o aplicativo:
+
+| Widget | O que faz | Aparece no início |
+| --- | --- | --- |
+| **Professor Mari** | Clique em **Ask Professor Mari** (falar com a Professor Mari) para abrir o chat com ela. | Sim |
+| **Recent chats** (chats recentes) | Mostra os seus chats mais recentes com a última mensagem. Clique em um para reabri-lo. Se ainda não houver nenhum, ele mostra **Your chats will show here** (os seus chats vão aparecer aqui). | Sim |
+| **Learn the engine** (conhecer o Engine) | Links para **Documentation**, **Replay tutorial** (repetir o tutorial) e **Read FAQ** (ler o FAQ). | Sim |
+| **What's New** (novidades) | **See what's new** (ver as novidades) abre de novo a janela What's New desta versão, mesmo que você a tenha fechado antes. **Read release notes** (ler as notas de versão) abre as notas de versão completas na web. | Sim |
+| **Community** (comunidade) | Links para **Discord**, **Support** e **Credits**. | Sim |
+| **Character Library** (biblioteca de personagens) | Uma seleção nova dos seus personagens a cada dia. | Não |
+| **Discovery desk** (mesa de descobertas) | Sugere agentes que você ainda não instalou. Use as setas para ver mais, ou **Browse agents** (navegar pelos agentes) para abrir o catálogo. | Não |
+| **Character of the Day** (personagem do dia) | Um personagem da sua biblioteca, com **Start a chat** (começar um chat) e **View character** (ver o personagem). | Não |
+| **Clock & calendar** (relógio e calendário) | A data e a hora de hoje. | Não |
+| **Achievements** (conquistas) | As suas conquistas mais recentes e as mais perto de sair. Só disponível quando a configuração Achievements está ativada. | Não |
+
+Alguns agentes instalados também acrescentam widgets. A Professor Mari também pode criar um widget pessoal para você, se você pedir.
+
+Para escolher os widgets, clique em **Widgets** nos favoritos. A janela **Home Widgets** (widgets da tela inicial) os lista em **Built-in** (integrados), **Agents** (agentes) e **Personal** (pessoais). Clique no botão de olho ao lado de um widget para mostrá-lo ou escondê-lo. Um widget que você volta a mostrar vai para o primeiro lugar livre da tela inicial. Os widgets pessoais também têm botões para editá-los ou excluí-los.
+
+Para mover um widget, arraste a alça no canto superior direito dele. No computador, a alça aparece quando você aponta para o widget. Pelo teclado, dê foco à alça e use as setas. O layout dos widgets fica salvo neste navegador.
+
+Na parte de baixo da janela **Home Widgets**, **Browser chrome** (moldura do navegador) tem três botões liga/desliga: **Show URL bar** (mostrar a barra de endereço) mostra ou esconde a barra de busca, e **Other-tab bookmarks (desktop)** e **Other-tab bookmarks (mobile)** (favoritos nas outras abas, no computador e no celular) mantêm os favoritos visíveis nas abas que não são **Home**.
 
 ## Seus primeiros passos
 
@@ -43,8 +72,8 @@ Há várias formas de conseguir ajuda sem sair do aplicativo:
 
 - Pergunte à **Professor Mari** na tela inicial para tirar dúvidas de configuração e de como usar o aplicativo.
 - Leia o **FAQ** na tela inicial para respostas rápidas às dúvidas mais comuns.
-- Abra os guias dentro do aplicativo pelo botão **Documentation**, no rodapé da tela inicial.
-- Clique em **Discord**, no rodapé, para falar com a comunidade, ou em **Support** para apoiar o projeto.
+- Abra os guias dentro do aplicativo pelo favorito **Documentation** da tela inicial.
+- Clique no favorito **Discord** para falar com a comunidade, ou em **Support** para apoiar o projeto.
 
 Se algo quebrar ou não funcionar, veja [Solução de problemas do Marinara Engine](../TROUBLESHOOTING.md).
 

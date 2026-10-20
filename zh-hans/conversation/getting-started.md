@@ -12,6 +12,8 @@ Conversation 模式还加了一些只有长期聊天关系才用得上的功能�
 
 以上这些功能在 Roleplay 和 Game Mode 里都不生效，哪怕你在那边用的是同一张角色卡。
 
+有些卡片字段则正好相反。Conversation 聊天不会以角色卡的 **First Message**(首条消息) 或其他开场白开始，只有 Roleplay 聊天才会。它也不使用角色卡的 **Dialogue Highlight Color**(对白高亮颜色) 和 **Message Box Color**(消息框颜色)。**Name Display Color**(名字显示颜色) 仍然会给每条消息上方的角色名字上色。见[这些颜色分别用在哪里](../characters/colors-and-stats.md#where-your-colors-show)。
+
 ### 什么时候该选 Conversation 模式
 
 有下面这些需求时就选 Conversation 模式：
@@ -167,7 +169,7 @@ Conversation 聊天里的每个角色都可以有一份每周日程。日程在�
 
 ### 自拍不像那个角色
 
-打开 **Selfies** 设置，开启 **Attach Card Appearance**(附带角色卡外貌)。如果图像服务商支持参考图，再开启 **Send Avatar References**(发送头像参考图)。细节见[自拍](selfies.md)。
+打开 **Selfies** 设置，把 **Attach Card Appearance**(附带角色卡外貌) 设为 **Images only**(仅图片) 或 **Images and videos**(图片和视频)。如果图像服务商支持参考图，再设置 **Send Avatar References**(发送头像参考图)。细节见[自拍](selfies.md)。
 
 ## 相关指南
 

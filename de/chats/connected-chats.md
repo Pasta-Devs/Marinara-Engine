@@ -74,7 +74,7 @@ Hat noch kein Charakter eine Notiz gespeichert, erklärt der Abschnitt, dass hie
 
 ## Zwischen verknüpften Chats wechseln
 
-Hat ein Chat eine Verknüpfung, erscheint oben rechts im Chat eine kleine Schaltfläche **Connected chat** (verknüpfter Chat) mit einem Doppelpfeil. Du kannst sie am Computer oder Telefon an eine andere Stelle ziehen. Klick oder tippe darauf, um ein kleines Fenster zu öffnen. Wähle darin **Switch to**, gefolgt vom Namen des anderen Chats.
+Hat ein Chat eine Verknüpfung, erscheint am Computer oben rechts eine kleine Schaltfläche **Connected chat** (verknüpfter Chat) mit einem Doppelpfeil. Du kannst sie an eine andere Stelle ziehen. Auf dem Handy findest du **Connected chat** im Drei-Punkte-Menü **Chat tools** (Chat-Tools). Öffne die Steuerung und wähle dann **Switch to**, gefolgt vom Namen des anderen Chats.
 
 So gelangst du direkt in den verknüpften Chat. Die Schaltfläche erscheint auf beiden Seiten der Verknüpfung.
 

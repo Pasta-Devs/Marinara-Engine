@@ -16,6 +16,8 @@ Marinara 把数据存在运行服务器的那台机器上的本地数据文件�
 
 数据存放在哪里、怎么另存一份副本，见[备份与恢复 Marinara](data/backup-and-restore.md)。
 
+<a id="back-up-first"></a>
+
 ## 先做备份
 
 升级本身是安全的，但备份成本很低，值得一做。跨版本大幅升级前先备份一次。
@@ -29,6 +31,14 @@ Marinara 把数据存在运行服务器的那台机器上的本地数据文件�
 处理过程中按钮会变成 **Creating backup…**。完成后，浏览器会保存一个包含数据的 `.zip` 压缩包。
 
 备份和恢复的完整步骤见[备份与恢复 Marinara](data/backup-and-restore.md)。
+
+## 从 2.5.0 更新
+
+下面各平台的步骤和以前一样。有几处变化可能会影响供其他设备或其他人使用的服务器：
+
+- **同一台电脑上的反向代理或隧道。**默认情况下，nginx、Caddy、Cloudflare Tunnel、Tailscale Serve 或 ngrok 转发给 Marinara 的访客现在算作远程访客。没有 Basic Auth 时，他们看到的是设置页面，备份和其他受保护的操作也需要管理员密钥。见[同一台电脑上的反向代理和隧道](REMOTE_ACCESS.md#reverse-proxies-and-tunnels-on-the-same-computer)。
+- **设置了密码或允许列表的 Docker。**设置了 Basic Auth 后，主机上的浏览器现在也会要求登录。如果只设置了 `IP_ALLOWLIST`，主机浏览器会被拒绝，除非你把容器的网关列进去，所以请改用 Basic Auth。见 [Tailscale 与 Docker 放行](REMOTE_ACCESS.md#tailscale-and-docker-bypass)。
+- **迁移到另一个安装的聊天和档案。**聊天记录、设置方案或完整档案不会再把它的 **Discord Mirror**(Discord 镜像)、**DeepLX URL**(DeepLX 地址)、**DeepL API Key**(DeepL API 密钥) 或 **Intiface URL**(Intiface 地址) 带到另一个安装里，需要在那边重新填写。你自己的设置方案，以及在同一个安装上恢复的完整档案，会保留这些值。
 
 ## 按平台升级
 
@@ -155,7 +165,7 @@ Marinara 可以在应用内向 GitHub 检查有没有新版本。部分安装方
 - 是基于 git 的安装（Docker 和打包安装用不了这种方式）。
 - 服务器所有者在服务器的 `.env` 文件里设置了 `UPDATES_APPLY_ENABLED=true`。`.env` 文件里存放的是服务器设置。
 
-在运行服务器的那台机器上点击 **Apply Update**，条件到此为止，不需要任何密钥。
+在运行服务器的那台机器上点击 **Apply Update**，条件到此为止，不需要任何密钥。这指的是用 `http://127.0.0.1:7860` 或 `http://localhost:7860` 打开 Marinara，上面的通道切换也是如此。默认情况下，由反向代理或隧道提供的地址算作另一台设备，即使在同一台电脑上也一样。设置 `REQUIRE_AUTH_FOR_LOOPBACK_PROXY=false` 会把这些转发过来的访客当作本地访客，包括本地免管理员密钥的放行；公开的代理或隧道请保持开启。
 
 从别的设备应用更新默认是关闭的，需要同时满足以下三点。
 
@@ -183,11 +193,21 @@ Marinara 可以在应用内向 GitHub 检查有没有新版本。部分安装方
 
 运行期间按钮显示 **Refreshing…**，随后应用重新加载。
 
+<a id="downgrading-to-an-older-version"></a>
+
 ## 降级到旧版本
 
 升级始终是安全的，但不一定能直接回退。新版 Marinara 会使用更新的磁盘格式保存聊天消息，早于数据格式的版本无法读取它。为了保护聊天记录，启动器会跳过会落到不兼容版本的自动更新，应用内更新器也会拒绝应用它。
 
 如果仍然需要旧版本，可以先用一条转换命令把数据恢复为旧格式。步骤请参阅[切换到旧版本后聊天不显示消息](TROUBLESHOOTING.md#chats-show-no-messages-after-switching-to-an-older-version)。
+
+<a id="going-back-to-250"></a>
+
+### 回到 2.5.0
+
+2.5.0 与之后的版本使用相同的存储格式，所以回到它不会被拦下，它也能正常打开你的聊天。不过它不认识新功能添加的数据：一些连接设置、重新生成聊天图像所用的细节，以及游戏检查点、规则集时钟和场景视频的部分内容。2.5.0 保存聊天或连接时，例如你发送消息、玩一个游戏回合、生成图像或修改连接时，它会把这些较新的数据从整个聊天或连接中丢弃。再次更新也找不回来。
+
+如果想能原样回到之前的状态，更新前先做一次备份。见[先做备份](#back-up-first)和[备份与恢复 Marinara](data/backup-and-restore.md)。
 
 ## 升级失败怎么办
 

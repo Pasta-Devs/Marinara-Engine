@@ -262,6 +262,16 @@ Kaelen is his usual self.
 
 Ici, le modèle choisit entre "angry", "sad" et "none of these". La forme courte fonctionne aussi : `decision_choice:"The weather in the latest message" == "rain" || "snow"` propose les deux options. Écris l'énoncé comme un sujet, par exemple "Kaelen's mood in the latest message", et les options comme de courtes réponses.
 
+Pour dire au modèle ce qu'une option signifie dans ton histoire, ajoute des critères après elle, séparés par deux-points :
+
+```
+{{#if decision_choice:"Kaelen's mood in the latest message" == "angry":"Kaelen raises his voice, makes threats or breaks something"}}
+Kaelen's lines are short and clipped.
+{{/if}}
+```
+
+Le modèle lit les critères comme la description de l'option. Il répond toujours "angry", et la comparaison se fait toujours avec "angry". Mets les deux parties entre le même type de guillemets. Si les guillemets diffèrent, Marinara ne lit pas "angry" comme une option, et la comparaison ne correspond jamais. Les macros comme `{{char}}` fonctionnent dans les critères. Les options sans critères sont proposées comme avant, et si une option reçoit des critères différents à plusieurs endroits, ce sont les premiers qui sont utilisés.
+
 <a id="sticky-and-cooldown"></a>
 
 ### Sticky et cooldown

@@ -55,7 +55,7 @@ Zakładka **Metadata** zbiera dane o tożsamości karty i jej porządkowaniu. Po
 - **Creator**. Osoba, która stworzyła kartę, do podania przy udostępnianiu.
 - **Version**. Numer wersji, który ustawiasz samodzielnie, na przykład `1.0`.
 - **Talkativeness**. Suwak od 0 do 100 procent. Decyduje o tym, jak często ta postać odzywa się na czatach grupowych. Domyślnie 50 procent.
-- **Tags**. Wpisz jeden lub więcej tagów w polu dodawania tagu i naciśnij Enter albo kliknij przycisk **Add**. Kilka tagów naraz rozdziel przecinkami. Pojedynczy tag usuwa jego X, a wszystkie naraz przycisk **Remove All**.
+- **Tags**. Wpisz jeden lub więcej tagów w polu dodawania tagu i naciśnij Enter albo kliknij przycisk **Add**. Kilka tagów naraz rozdziel przecinkami. Pole podpowiada też tagi używane już w bibliotece, od najczęściej używanych, z liczbą postaci, które mają każdy z nich. Wpisywanie zawęża listę. Kliknij podpowiedź albo wybierz ją strzałkami i klawiszem Enter. Pojedynczy tag usuwa jego X, a wszystkie naraz przycisk **Remove All**.
 - **Creator Notes**. Prywatne notatki, które nigdy nie trafiają do AI. W bibliotece widać je za to jako krótkie podsumowanie.
 
 Na tej samej zakładce mieszka panel **Version history**. Opisuje go sekcja o zapisywaniu i historii wersji poniżej.
@@ -68,7 +68,7 @@ Zakładka **Card** to główne miejsce pisania. Zbiera pola, które AI czyta, ż
 - **Personality**. Krótkie podsumowanie temperamentu, sposobu mówienia i typowych zachowań.
 - **Backstory**. Historia, pochodzenie i ważne relacje.
 - **Appearance**. Opis fizyczny, ubiór i szczegóły wyglądu. Marinara używa tego tekstu również jako zalążka promptu do awatara AI.
-- **Image Appearance Override** (osobny opis wyglądu do obrazów). Opcjonalny przełącznik pod polem **Appearance**, domyślnie wyłączony. Włącz go, aby pokazać drugie pole na opis postaci przygotowany dla modelu graficznego. Gdy przełącznik jest włączony, a pole wypełnione, prompty obrazów korzystają z tego tekstu zamiast z **Appearance**. Ten tekst służy też do wstępnego wypełnienia promptu awatara AI. Narrator zawsze otrzymuje pełny opis z **Appearance**. Zostaw przełącznik wyłączony, aby zachować dotychczasowe działanie.
+- **Image Appearance Override** (osobny opis wyglądu do obrazów). Opcjonalny przełącznik pod polem **Appearance**, domyślnie wyłączony. Włącz go, aby pokazać drugie pole na krótkie tagi obrazu opisujące postać, na przykład słowo wyzwalające LoRA. Gdy przełącznik jest włączony, a pole wypełnione, prompty obrazów używają tych tagów dokładnie w zapisanej formie, a treść **Appearance** zostaje jako kontekst w tle. Ten tekst służy też do wstępnego wypełnienia promptu awatara AI. Narrator zawsze otrzymuje pełny opis z **Appearance**. Zostaw przełącznik wyłączony, aby zachować dotychczasowe działanie.
 - **Scenario**. Domyślna sytuacja wyjściowa nowych czatów z tą postacią.
 
 Sekcja **Dialogue & Greetings** ustala, jak zaczyna się czat i jak brzmi postać:

@@ -2,7 +2,7 @@
 
 Marinara Engine übersetzt Chat-Nachrichten zwischen Sprachen. In dieser Anleitung erfährst du, welche vier Übersetzungs-Anbieter zur Auswahl stehen, wie die automatischen Schalter arbeiten, was die **Translate**-Schaltfläche an jeder Nachricht tut und wo die Grenzen der einzelnen Anbieter liegen.
 
-Die Übersetzung wird pro Chat eingerichtet. Jeder Chat hat einen eigenen Anbieter, eine eigene Zielsprache und eigene API-Keys. Eine Einstellung aus einem Chat gilt nicht automatisch in einem anderen.
+Die Übersetzung wird pro Chat eingerichtet. Jeder Chat hat einen eigenen Anbieter, eigene Sprachen und eigene API-Keys. Damit neue Chats mit denselben Einstellungen beginnen, speicherst du sie als [Übersetzungs-Standardwerte](#translator-defaults-for-new-chats).
 
 ## Wo die Übersetzungseinstellungen liegen
 
@@ -25,9 +25,12 @@ Das Dropdown-Menü **Provider** (Anbieter) bietet vier Optionen:
 
 **Google Translate** ist standardmäßig ausgewählt und braucht keine Einrichtung. Wähle nur dann einen anderen Anbieter, wenn du eine der folgenden Eigenschaften brauchst.
 
-### Target Language
+### Model Language und My Language
 
-Im Feld **Target Language** (Zielsprache) legst du fest, in welche Sprache übersetzt wird. Der Standard ist `en` (Englisch).
+Zwei Felder legen die Sprachen fest. Beide stehen standardmäßig auf `en` (Englisch).
+
+- **Model Language** (Sprache des Modells): Deine eigenen Nachrichten werden in diese Sprache übersetzt, bevor die KI sie liest. **Translate My Messages** (eigene Nachrichten übersetzen) und **Translate draft** nutzen sie.
+- **My Language** (meine Sprache): KI-Antworten werden in diese Sprache übersetzt. **Auto-Translate Responses** (KI-Antworten automatisch übersetzen) und die Schaltfläche **Translate** an jeder Nachricht nutzen sie.
 
 Das Format hängt vom Anbieter ab:
 
@@ -64,27 +67,37 @@ Ein DeepLX-Server unter einer öffentlichen Internetadresse braucht diese Einste
 
 ### KI-Übersetzung einrichten
 
-Wählst du **AI (via connection)**, übersetzt Marinara über einen deiner KI-Anbieter. Dafür erscheinen zwei zusätzliche Felder.
+Wählst du **AI (via connection)**, übersetzt Marinara über einen deiner KI-Anbieter. Dafür erscheinen drei zusätzliche Felder.
 
 Im Dropdown-Menü **Connection** (Verbindung) legst du fest, welche KI-Verbindung die Übersetzung übernimmt. Das Feld ist Pflicht. Bleibt es leer, schlägt die Übersetzung mit der Meldung „Connection ID is required for AI translation“ fehl. Eine Verbindung ist ein gespeicherter Eintrag für einen KI-Anbieter. Wie du eine anlegst, steht in der Verbindungs-Anleitung weiter unten.
 
-Das Feld **AI Prompt** enthält den Prompt für die Übersetzung – also den Text, den Marinara an die KI schickt. Ein eingebauter Standardtext steht bereits darin, den du für diesen Chat anpassen kannst. Sobald du etwas änderst, erscheint die Schaltfläche **Restore** (Wiederherstellen) und setzt das Feld auf den eingebauten Standard zurück. Der Standard-Prompt lautet:
+Die Felder **Outgoing Message Prompt** (Prompt für ausgehende Nachrichten) und **Incoming Response Prompt** (Prompt für eingehende Antworten) enthalten die Anweisungen, die an die KI gehen, wenn sie deine Nachrichten und die Antworten der KI übersetzt – ein Prompt ist der Text, den Marinara an die KI schickt. In beiden steht bereits ein eingebauter Standardtext, den du für diesen Chat jeweils anpassen kannst. `{{targetLanguage}}` in einem Prompt wird zu **Model Language** oder **My Language**. Sobald du einen Prompt änderst, erscheint die Schaltfläche **Restore** (Wiederherstellen) und setzt ihn auf den eingebauten Standard zurück. Der Standard-Prompt lautet:
 
 ```
-You are a translator. Translate the given text accurately, preserving formatting, markdown, and any special characters like *asterisks* for actions. Output ONLY the translated text, nothing else -- no explanations, no extra commentary.
+You are a translator. Translate the given text accurately into {{targetLanguage}}, preserving formatting, markdown, and any special characters like *asterisks* for actions. Output ONLY the translated text, nothing else -- no explanations, no extra commentary.
 ```
 
 ## Die Schalter für die automatische Übersetzung
 
-Unter den Anbieter-Einstellungen sitzen drei Schalter. Alle drei sind standardmäßig aus.
+Unter den Anbieter-Einstellungen sitzen vier Schalter. Alle vier sind standardmäßig aus.
 
-**Auto-Translate Responses** (KI-Antworten automatisch übersetzen) übersetzt jede KI-Antwort direkt nach der Generierung. Im Game Mode entfernt Marinara vor dem Übersetzen die Tags aus der Erzählung, die nur für den Game Master bestimmt sind.
+**Auto-Translate Responses** übersetzt jede KI-Antwort direkt nach der Generierung. Im Game Mode entfernt Marinara vor dem Übersetzen die Tags aus der Erzählung, die nur für den Game Master bestimmt sind.
 
-**Translate My Messages** (eigene Nachrichten übersetzen) übersetzt deine Nachricht in die Zielsprache, kurz bevor sie an die KI geht. Die Übersetzung ersetzt deinen getippten Text. Scheitert sie, schickt Marinara stattdessen den Originaltext und zeigt eine Fehlermeldung.
+**Translate My Messages** übersetzt deine Nachricht in die **Model Language**, kurz bevor sie an die KI geht. Die Übersetzung ersetzt deinen getippten Text. Scheitert sie, schickt Marinara stattdessen den Originaltext und zeigt eine Fehlermeldung.
 
 **Show Draft Translate Button** (Schaltfläche zum Übersetzen des Entwurfs anzeigen) setzt neben die Schaltfläche **Send** eine Schaltfläche **Translate draft**. So kannst du deine Nachricht übersetzen und das Ergebnis vor dem Absenden prüfen oder bearbeiten. Das ist die manuelle Alternative zu **Translate My Messages**, das beim Absenden übersetzt, ohne dass du noch einmal draufschauen kannst.
 
+**Show Only Translation** (nur Übersetzung anzeigen) zeigt bei einer übersetzten Nachricht die Übersetzung an ihrer Stelle statt Original und Übersetzung zusammen.
+
 In **Conversation** kannst du einen noch nicht gesendeten Entwurf jederzeit über die Smiley-Schaltfläche im Eingabefeld → **Tools → Translate draft** (Werkzeuge → Entwurf übersetzen) übersetzen, am Desktop wie auf dem Smartphone. **Show Draft Translate Button** und automatische Übersetzung müssen dafür nicht aktiv sein. Die Aktion nutzt die Eingabe-Übersetzungseinstellungen des Chats und ersetzt den Entwurf zur Prüfung; sie sendet keine Nachricht. Bei einem Fehler bleibt der Entwurf unverändert.
+
+<a id="translator-defaults-for-new-chats"></a>
+
+## Übersetzungs-Standardwerte für neue Chats
+
+Unter den Schaltern speichert **Save translator defaults** (Übersetzungs-Standardwerte speichern) die Übersetzungseinstellungen dieses Chats für neue Chats in jedem Modus. Einstellungen aus dem Einrichtungsassistenten und aus einem Einstellungsprofil haben Vorrang. Bestehende Chats behalten ihre eigenen Einstellungen. **Forget saved defaults** (gespeicherte Standardwerte vergessen) löscht sie. [Noodle](../noodle/settings.md#translation) nutzt dieselben Standardwerte.
+
+Der DeepL-API-Key und die DeepLX-URL bleiben in dieser Marinara-Installation. Chat-Exporte, exportierte Einstellungsprofile und Dateien aus **Export Profile** (Profil exportieren) lassen sie weg, und der Import dieser Dateien setzt sie nie. Trag sie erneut ein, nachdem du einen Chat in eine andere Installation umgezogen hast.
 
 ## Die Translate-Schaltfläche an jeder Nachricht
 
@@ -92,12 +105,12 @@ Jede Chat-Nachricht hat in ihrer Aktionsleiste eine Schaltfläche **Translate** 
 
 1. Zeig mit dem Mauszeiger auf eine Nachricht, damit ihre Aktionsleiste erscheint.
 2. Klick auf die Schaltfläche **Translate**.
-3. Die Übersetzung erscheint unter der Nachricht.
+3. Die Übersetzung erscheint unter der Nachricht oder, mit eingeschaltetem **Show Only Translation**, an ihrer Stelle.
 4. Ein Klick auf dieselbe Schaltfläche blendet die Übersetzung wieder aus. Der Kurzhinweis beim Draufzeigen lautet dann **Hide translation**.
 
 Eine so erzeugte Übersetzung wird mit der Nachricht gespeichert. Sie übersteht ein Neuladen der Seite und ist noch da, wenn du den Chat wechselst und später zurückkommst.
 
-Die Schaltfläche an der Nachricht nutzt denselben Anbieter und dieselbe Zielsprache wie im Abschnitt **Translation**.
+Die Schaltfläche an der Nachricht nutzt denselben Anbieter und dieselbe **My Language** wie im Abschnitt **Translation**.
 
 ## Grenzen der Anbieter
 

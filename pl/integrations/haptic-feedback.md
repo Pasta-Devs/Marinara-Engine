@@ -49,9 +49,7 @@ Aby połączyć się ręcznie, kliknij przycisk **Connect** (połączenie). Jeś
 
 Jeśli się nie uda, zobaczysz komunikat o nieudanym połączeniu. Prosi on o sprawdzenie, czy aplikacja **Intiface Central** działa i czy jej serwer jest uruchomiony. W komunikacie jest też link do strony aplikacji **Intiface Central**.
 
-Po nawiązaniu połączenia karta pokazuje liczbę wykrytych urządzeń. Widnieje tam "No devices found", gdy nie ma żadnego, albo liczba urządzeń, gdy jakieś są. Kliknij przycisk **Scan for devices** (skanowanie w poszukiwaniu urządzeń), aby wyszukać ponownie. W trakcie skanowania przycisk pokazuje "Scanning...". Karta wymienia każde urządzenie z nazwą i obsługiwanymi akcjami, na przykład wibracją lub obrotem.
-
-Marinara przekazuje agentowi Haptic Agent także dokładną nazwę z Intiface, rodzaj zabawki określony na podstawie możliwości oraz obsługiwane działania. Dzięki temu agent wybiera właściwe urządzenie i działanie, zamiast zakładać, że każda zabawka jest wibratorem.
+Po nawiązaniu połączenia karta pokazuje liczbę wykrytych urządzeń. Widnieje tam "No devices found", gdy nie ma żadnego, albo liczba urządzeń, gdy jakieś są. Kliknij przycisk **Scan for devices** (skanowanie w poszukiwaniu urządzeń), aby wyszukać ponownie. W trakcie skanowania przycisk pokazuje "Scanning...". Karta wymienia każde urządzenie z jego dokładną nazwą z Intiface i obsługiwanymi działaniami. Marinara przekazuje też agentowi Haptic Agent tę nazwę, rodzaj zabawki określony na podstawie możliwości oraz obsługiwane działania. Dzięki temu agent wybiera właściwe urządzenie i działanie, zamiast zakładać, że każda zabawka jest wibratorem.
 
 ## Obsługiwane działania i wzorce
 
@@ -67,7 +65,9 @@ W polu **Intiface URL** znajduje się adres sieciowy serwera aplikacji **Intifac
 ws://127.0.0.1:12345
 ```
 
-Adres `127.0.0.1` oznacza "ten sam komputer". Jeśli zostawisz pole puste, Marinara użyje wartości domyślnej serwera. Marinara zapamiętuje też adres w przeglądarce, więc jest on używany ponownie w kolejnych czatach i na kolejnych urządzeniach.
+Adres `127.0.0.1` oznacza "ten sam komputer". Jeśli zostawisz pole puste, Marinara użyje wartości domyślnej serwera. Marinara zapisuje adres razem z czatem i zapamiętuje go też w tej przeglądarce, więc inne czaty otwierane tutaj zaczynają z tym adresem.
+
+Adres pozostaje w tej instalacji aplikacji Marinara Engine. Eksporty czatów, eksportowane profile ustawień i pliki **Export Profile** (eksport profilu) go pomijają, a import żadnego z nich go nie ustawia. Po przeniesieniu czatu do innej instalacji wpisz adres ponownie.
 
 Jeśli uruchamiasz aplikację Marinara Engine w kontenerze Docker albo otwierasz ją w przeglądarce na innym urządzeniu, adres `127.0.0.1` nie trafi do aplikacji **Intiface Central**. Wpisz wtedy adres komputera, na którym działa aplikacja **Intiface Central**. Wygląda on jak w przykładzie niżej, w którym liczby zastępuje się prawdziwym adresem tego komputera.
 

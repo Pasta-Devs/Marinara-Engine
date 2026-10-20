@@ -146,7 +146,7 @@ La structure du chat repose sur le même squelette en Roleplay et en Conversatio
 | `[data-card-css] .mari-message-avatar` | La colonne de l'avatar. |
 | `[data-card-css] .mari-message-narrator` | Les messages du narrateur (roleplay). |
 | `[data-card-css] .mari-message-user` | Les messages de l'utilisateur. Utilise `.mari-message-assistant` pour les messages du personnage. |
-| `[data-card-css] p`, `... span` | Les paragraphes et les blocs `span` en ligne dans le texte. |
+| `[data-card-css] p`, `... span` | Les paragraphes et les éléments span en ligne dans le texte. |
 | `[data-grouped]` | Les messages qui prolongent le même personnage. Mode Conversation uniquement : les lignes du roleplay ne le portent jamais. Utilise `[data-card-css]:not([data-grouped])` pour le premier message d'un groupe. |
 
 **Bubbles face à Linear.** La mise en page **Bubbles** est celle que vise `.mari-message-bubble`. La mise en page **Linear** n'a pas d'élément de bulle : stylise plutôt `.mari-message-content` (le texte) et `[data-card-css]` (la ligne). Change de mise en page dans **Settings** (Paramètres), puis **Appearance**, puis la section **Conversation Display**, puis **Chat Layout**. Le roleplay a toujours une bulle.
@@ -276,6 +276,7 @@ Le nettoyage retire les éléments suivants, pour des raisons de sécurité.
 | `@font-face` avec des URL externes | Seules les sources de police en `data:` sont conservées. Le nom de la famille est renommé automatiquement, pour qu'il ne puisse pas remplacer les polices de l'application. |
 | `@import` | Aucun chargement de feuille de style externe. |
 | Sélecteurs `:has()` | Impossible de sonder des éléments hors du chat. |
+| Règles imbriquées et sélecteurs qui commencent par `~` ou `+` | Supprimés, pour que le CSS de la fiche ne puisse pas sortir de sa portée. Écris-les comme des sélecteurs ordinaires. |
 | HTML dans `content:` | Le texte décoratif est autorisé, mais `<` et `>` sont retirés et le texte est limité à 200 caractères. `attr()` et `counter()` sont autorisés. |
 | `position: fixed` | Réécrit en `position: absolute`, donc pas de surcouche plein écran. |
 | `!important` | Retiré, pour que le CSS de fiche ne puisse pas forcer le remplacement des styles de l'application. |

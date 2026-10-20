@@ -20,7 +20,7 @@ Crie um chat de Roleplay para abrir o assistente de configuração. O assistente
 
 1. **Name & Connection** (nome e conexão). Dê um nome ao roleplay e escolha qual conexão de IA responde. O nome pode ficar em branco.
 2. **Pick a Preset** (escolher um preset). O preset controla a estrutura do prompt e as configurações de geração. O preset padrão funciona bem na maioria dos chats.
-3. **Persona & Characters** (persona e personagens). Escolha a persona que você interpreta e quais personagens entram na cena.
+3. **Persona & Characters** (persona e personagens). Escolha a persona que você interpreta e quais personagens entram na cena. Alguns cards de personagem conseguem montar uma persona para você a partir de algumas perguntas: escolha **Create your persona** (criar a sua persona) e responda. Veja [Onboarding interativo](../characters/interactive-onboarding.md).
 4. **Attach Lorebooks** (anexar lorebooks). O lorebook é um conjunto de fatos do seu mundo que a IA lê quando as palavras-chave aparecem. Esta etapa é opcional.
 5. **Enable Agents** (ativar agentes). Escolha quais agentes rodam neste chat. Os agentes podem ser adicionados ou removidos depois na seção **Chat Settings** (configurações do chat), em **Agents**.
 
@@ -79,6 +79,8 @@ Você pode destacar qualquer uma dessas seções, inclusive Search, para mantê-
 
 Digite a nota na caixa. Por exemplo: "Keep the tone dark and suspenseful. The villain is secretly an ally."
 
+Para uma nota mais longa, aumente a caixa. No computador, arraste o canto inferior dela. Se você destacar **Author's Notes** em uma janela própria, a caixa cresce junto com a janela.
+
 Abaixo da nota fica o campo numérico **Injection Depth** (profundidade de inserção). Ele define a que altura do histórico do chat a nota é colocada. A ajuda dentro do aplicativo diz: "Depth 0 = after the latest message, 4 = four messages from the end." A profundidade 0 mantém a nota o mais perto possível da resposta mais recente.
 
 As **Author's Notes** funcionam do mesmo jeito no Game Mode e no Conversation Mode. Este guia é a referência principal do recurso.
@@ -126,6 +128,8 @@ Depois que um sussurro estiver visível, escolha **Edit whisper** (editar sussur
 Você também pode escrever `[whisper: character="name" text="the secret"]` na própria mensagem de Roleplay para sussurrar a um personagem do chat. Seus próprios sussurros ficam visíveis para você imediatamente. Isso funciona em chats comuns sem ativar o modo multijogador.
 
 O mesmo comando funciona quando você edita a mensagem de um personagem ou do narrador: ao salvar, ele vira o sussurro dessa mensagem. O texto do sussurro pode ocupar várias linhas e incluir falas entre aspas do jeito que estão, por exemplo `text=""I love you.""`.
+
+Uma mensagem que contém apenas um sussurro fica totalmente de fora para os personagens que ele não alcança, então eles não percebem que alguém sussurrou. O destinatário e o narrador designado continuam recebendo a mensagem. Um personagem também recebe a mensagem se você compartilhou com ele uma nota privada sobre ela.
 
 ### Suas notas privadas
 

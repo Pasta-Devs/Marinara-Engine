@@ -1,6 +1,6 @@
 # Noodle: 앱 안의 소셜 타임라인
 
-Noodle은 Marinara Engine에 들어 있는 가상의 소셜 미디어 피드입니다. 화면은 Twitter나 X 같은 타임라인처럼 생겼습니다. 다만 모든 계정과 게시물은 자기만의 세계에서 나옵니다. 페르소나, 캐릭터, 그리고 Professor Mari가 그 주인공입니다. 이 가이드에서는 Noodle이 어떤 기능이고, 어떻게 열고, 게시물을 올리고 팔로우하고 타임라인을 새로 고치는 방법을 설명합니다.
+Noodle은 Marinara Engine에서 선택해 설치하는 가상의 소셜 미디어 피드입니다. 화면은 Twitter나 X 같은 타임라인처럼 생겼습니다. 다만 모든 계정과 게시물은 자기만의 세계에서 나옵니다. 페르소나, 캐릭터, 그리고 Professor Mari가 그 주인공입니다. 이 가이드에서는 Noodle을 설치하고 여는 방법과 게시물을 올리고 팔로우하고 타임라인을 새로 고치는 방법을 설명합니다.
 
 ## Noodle이란
 
@@ -21,15 +21,15 @@ Noodle 활동은 선택 기능이며 기본값은 꺼짐입니다. 캐릭터를 
 
 ## Noodle 열기
 
-Noodle은 설정 패널이 아니라 상단 바에 있습니다.
+Noodle은 내려받아 설치하는 에이전트 패키지입니다. Home 탭을 찾기 전에 한 번 설치하세요.
 
-1. 상단 바에서 **Noodle** 버튼(@ 기호 아이콘)을 찾으세요.
-2. **Noodle**을 클릭하세요.
-3. 메인 채팅 영역이 Noodle 타임라인으로 바뀝니다.
+1. **Agents**(에이전트)를 열고 **Download Agents**(에이전트 다운로드)를 선택한 다음 **Noodle**을 설치하세요.
+2. 안내가 나오면 Marinara Engine을 다시 시작하세요. 그래야 Noodle의 서버 기능과 Home 구성 요소가 불러와집니다.
+3. **Home**(홈)을 열고 **Home**과 **Professor**(교수님) 옆에 있는 **Noodle** 탭을 클릭하세요.
 
-`marinara/noodle`이라고 적힌 가짜 브라우저 주소창과 작은 **Noodle** 배지가 보입니다. 분위기를 살리는 장식일 뿐입니다. Noodle을 열면 캐릭터 라이브러리나 Card Browser처럼 열려 있던 다른 패널은 닫힙니다.
+Marinara의 Home 브라우저 안에 익숙한 가짜 브라우저 화면과 Noodle 타임라인이 나타납니다. Home 주소 줄에는 `marinara/noodle`이 표시되며, Noodle 자체의 브라우저 스타일도 페이지의 일부로 그대로 남아 있습니다.
 
-Noodle에서 나가려면 **Noodle** 버튼을 다시 클릭하거나 다른 패널을 열면 됩니다.
+Noodle에서 나가려면 Home 브라우저의 다른 탭을 선택하거나 채팅을 여세요.
 
 휴대폰이나 폭이 좁은 창에서는 Noodle이 전용 내비게이션을 갖춘 모바일 레이아웃으로 바뀝니다. 아래 "휴대폰에서 쓰는 Noodle" 절을 참고하세요.
 
@@ -83,11 +83,18 @@ Noodle에서 나가려면 **Noodle** 버튼을 다시 클릭하거나 다른 패
 
 알림에는 활성 페르소나가 필요합니다. 페르소나가 없으면 패널은 비어 있습니다.
 
+<a id="profiles-and-following"></a>
+
 ## 프로필과 팔로우
 
 왼쪽 사이드바에서 **Profile**(프로필)을 열거나, Noodle 어디에서든 계정 이름이나 아바타를 클릭하세요.
 
-내 프로필에는 **Edit Profile**(프로필 편집) 버튼이 있습니다. 이 버튼을 클릭하면 **Display name**(표시 이름), **@name**, **Bio**(소개), **Location**(장소)을 바꾼 뒤 **Save**(저장)를 클릭할 수 있습니다. 배너나 아바타를 클릭해 이미지를 업로드할 수도 있습니다. 편집할 수 있는 것은 자기 페르소나의 프로필뿐입니다. 캐릭터의 프로필은 AI가 작성하며 직접 고칠 수 없습니다.
+내 프로필에는 **Edit Profile**(프로필 편집) 버튼이 있습니다. 이 버튼을 클릭하면 **Display name**(표시 이름), **@name**, **Bio**(소개), **Location**(장소)을 바꾼 뒤 **Save**(저장)를 클릭할 수 있습니다. 배너나 아바타를 클릭해 이미지를 업로드할 수도 있습니다. 캐릭터의 프로필은 AI가 작성하며, 캐릭터를 초대한 뒤에는 같은 방법으로 바꿀 수 있습니다.
+
+캐릭터의 프로필을 편집하면 프로필 입력란 아래에 설정 두 개가 더 나타납니다. 이 설정은 바로 저장됩니다.
+
+- **Use this character's image instructions in Noodle images**(Noodle 이미지에 이 캐릭터의 이미지 지침 사용)는 캐릭터 편집기 **Convo** 탭의 **Image generation instructions**(이미지 생성 지침)를 그 캐릭터의 Noodle 이미지에 더합니다. **Edit image instructions**(이미지 지침 편집)를 누르면 그 탭이 열립니다. Slurp에서 이 캐릭터의 선택을 따로 정하기 전까지는 Slurp도 같은 선택을 씁니다. Noodle 1.5.4 이상이 필요합니다.
+- **Image connection**(이미지 연결)은 이 캐릭터의 Noodle 이미지에 쓸 이미지 연결을 고릅니다. **Use Noodle image connection**(Noodle 이미지 연결 사용)을 고르면 [Noodle 설정](settings.md#image-generation)의 연결을 그대로 씁니다. Noodle 1.5.5 이상이 필요합니다.
 
 헤더 아래에는 **Following**과 **Followers** 수가 보이고, 그 아래에 **Posts**(게시물), **Likes**, **Media**(이미지가 있는 게시물) 탭 3개가 있습니다.
 

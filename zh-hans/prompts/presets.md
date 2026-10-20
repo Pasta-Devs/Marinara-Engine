@@ -20,7 +20,7 @@
 - **Import**(导入，下载图标)：从 `.json` 文件加载预设。
 - **Select**(选择，对勾图标)：一次选中多个预设，批量导出或删除。
 
-按钮下面是 **Search presets** 搜索框和排序菜单，排序方式有 **A-Z**、**Z-A**、**Newest** 和 **Oldest**。**New Folder**(新建文件夹) 按钮可以把预设归到文件夹里。把预设拖到文件夹上就能移进去。双击文件夹可以给它改名，触屏上则连点两下。
+按钮下面是 **Search presets** 搜索框和排序菜单，排序方式有 **Manual order**(手动排序)、**A-Z**、**Z-A**、**Newest** 和 **Oldest**。**Manual order** 会保留你自己排好的顺序：把预设行上下拖动，或者在选中的行上按 Alt+Up 或 Alt+Down。**New Folder**(新建文件夹) 按钮可以把预设归到文件夹里。把预设拖到文件夹上就能移进去。在触屏上，长按一行就能把它拿起来。双击文件夹可以给它改名，触屏上则连点两下。
 
 每一行预设会显示名称、包装格式、小节数量和作者。如果这个预设是加星的默认预设，行上会有一个 **DEFAULT** 标记。点击预设行，就能在 **Preset Editor** 里打开它。
 
@@ -40,13 +40,15 @@
 
 要导出预设，打开它，点顶栏的导出按钮（向上箭头图标）。如果有未保存的改动，Marinara 会先问要不要保存。要删除预设，用顶栏的垃圾桶图标。
 
-## Overview、Sections、Prompts 三个选项卡
+## Preset Editor 的五个选项卡
 
-**Preset Editor** 有三个选项卡。
+**Preset Editor** 有五个选项卡。
 
 - **Overview**(概览)：预设名称、描述、包装格式和作者。
 - **Sections**：提示词的实际结构，由块和标记搭成。
 - **Prompts**：Conversation 和 Game 聊天用的模式提示词。
+- **Parameters**(参数)：使用这个预设的聊天的初始生成设置。见[生成参数](generation-parameters.md)。
+- **Regex**(正则)：关联到这个预设的正则脚本，以及 **Scoped regex default**(限定正则默认模式)。见[正则脚本](../extending/regex-scripts.md)。
 
 ### Overview 选项卡
 

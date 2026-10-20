@@ -33,7 +33,13 @@ Um personagem ou uma persona com sprites de expressão já tem um avatar PNGTube
 
 **Show this avatar in chats** (mostrar este avatar nos chats) liga ou desliga o avatar sem excluí-lo. **Movement** (movimento) tem três botões liga/desliga que valem para todos os tipos. **Lip sync** (sincronia labial) mexe a boca. **Blinking** (piscar) faz o avatar piscar a cada poucos segundos. **Idle motion** (movimento de espera) faz o avatar respirar e balançar enquanto espera. Se um personagem tem mais de um tipo de avatar, **Show this one** (mostrar este) escolhe o tipo que os chats usam. Quando o agente desse tipo está desligado em um chat, o chat mostra outro tipo cujo agente está ligado. Remover um tipo exclui os arquivos dele; os seus sprites ficam, e um avatar que você desligou continua desligado.
 
-Um avatar aparece em um chat de Roleplay, Visual Novel ou Game quando o chat tem os agentes ativados e o agente correspondente adicionado. Ele funciona com ou sem o Expression Engine. O avatar não esconde o sprite de corpo inteiro, então desligue esse sprite você mesmo se o avatar for substituí-lo. Os avatares ficam onde o sprite de corpo inteiro ficaria e têm o mesmo tamanho dele. Para movê-los, use o modo **Arrange** (organizar) dos sprites nas configurações de sprite do Expression Engine.
+Um avatar aparece em um chat de Roleplay, Visual Novel ou Game quando o chat tem os agentes ativados e o agente correspondente adicionado. Ele funciona com ou sem o Expression Engine. O avatar não esconde o sprite de corpo inteiro, então desligue esse sprite você mesmo se o avatar for substituí-lo. Os avatares ficam onde o sprite de corpo inteiro ficaria e têm o mesmo tamanho dele.
+
+Para mover ou redimensionar os avatares, abra **Chat Settings** (configurações do chat), vá até **Agents** e abra **Avatars**. Escolha um avatar na lista e use o controle deslizante de tamanho dele para deixá-lo maior ou menor. Selecione **Arrange** (organizar) para mover os avatares: enquanto essa opção está ligada, arraste-os para qualquer lugar do chat com o mouse ou com o dedo, ou foque um deles e use as setas do teclado (segure Shift para mover mais longe). Selecione **Done** (concluído) quando terminar; os avatares ficam onde você os colocou, e os cliques voltam a ir para o chat. **Reset** (redefinir) devolve todos os avatares ao lugar de sempre.
+
+Um avatar 3D também tem a opção **Framing** (enquadramento): **Portrait** (retrato) mostra a cabeça e os ombros (o padrão), **Half body** (meio corpo) mostra até os quadris, e **Full body** (corpo inteiro) mostra o modelo inteiro, da cabeça aos pés. O avatar mantém o tamanho; um enquadramento mais alto mostra mais do modelo no mesmo espaço. Os avatares 2D não têm enquadramento.
+
+Isso funciona sem o Expression Engine em Roleplay, Visual Novel e Game. O layout é salvo para aquele chat neste dispositivo e continua depois de recarregar a página; ele não sincroniza com outros dispositivos. O botão **Arrange** do próprio Expression Engine também move os avatares.
 
 Os arquivos importados são verificados antes de serem armazenados, e não há um limite de tamanho específico para avatares abaixo do limite normal de upload do servidor. Os arquivos de avatar ficam na pasta de dados, em `avatar-models/<character or persona>/<id>/`, ao lado de um `avatar.json` com as configurações. Os backups e as exportações de perfil incluem essa pasta. Excluir um personagem ou uma persona exclui o avatar correspondente, inclusive quando a Danger Zone (zona de perigo) das configurações limpa a categoria **Characters** ou **Personas** inteira, e limpar a categoria **Media & Assets** ali esvazia a pasta. As exportações de card de personagem nunca incluem avatares.
 
@@ -50,7 +56,7 @@ Os arquivos importados são verificados antes de serem armazenados, e não há u
 Um personagem ou uma persona com sprites de expressão já tem um avatar PNGTuber: os sprites são os rostos, sem nada para configurar. Os sprites de retrato são usados quando existem, e os de corpo inteiro nos outros casos, então um avatar nunca mistura os dois.
 
 - **Imagens de fala e de piscada.** Adicione sprites com o nome de um rosto mais `_talk` para a boca aberta e `_blink` para os olhos fechados, por exemplo `happy_talk` e `happy_blink`, e `happy_blink_talk` para os dois. `_talking`, `_speak`, `_mouth_open`, `_blinking` e `_eyes_closed` também funcionam. Um rosto sem essas imagens ainda dá pulinhos enquanto fala.
-- **Rosto de cada sentimento.** Escolha qual rosto aparece para Neutral, Happy, Angry, Sad, Relaxed e Surprised (neutro, feliz, bravo, triste, relaxado e surpreso). **Resting face** (rosto em repouso) usa o rosto Neutral. Quando o Expression Engine ou o Game Master escolhe um sprite que você tem, esse rosto exato aparece.
+- **Rosto de cada sentimento.** Escolha qual rosto aparece para Neutral, Happy, Angry, Sad, Relaxed e Surprised (neutro, feliz, bravo, triste, relaxado e surpreso). **Resting face** (rosto em repouso) usa o rosto Neutral. Todo sprite é oferecido, inclusive os adicionados depois que você salvou o avatar, até 64 rostos. Uma importação do PNGTuber Plus oferece só os próprios rostos. Quando o Expression Engine ou o Game Master escolhe um sprite que você tem, esse rosto exato aparece.
 - **Mais sentimentos.** Em **Face for each feeling** (rosto de cada sentimento), abra **More feelings** (mais sentimentos) para escolher um rosto para 23 sentimentos mais específicos, agrupados nos seis: Curiosity (curiosidade) em Neutral; Admiration (admiração), Amusement (diversão), Desire (desejo), Embarrassment (constrangimento), Excitement (empolgação), Gratitude (gratidão), Optimism (otimismo) e Pride (orgulho) em Happy; Annoyance (irritação), Disapproval (desaprovação) e Disgust (nojo) em Angry; Disappointment (decepção), Grief (luto), Nervousness (nervosismo) e Remorse (remorso) em Sad; Approval (aprovação), Caring (carinho), Love (amor) e Relief (alívio) em Relaxed; e Confusion (confusão), Fear (medo) e Realization (percepção súbita) em Surprised. Eles são opcionais. Cada um usa o rosto do seu sentimento principal até você escolher outro. Um sprite com o nome de um deles, como `fear`, `amusement` ou uma palavra como `scared` ou `laughing`, é usado para esse sentimento sem nenhuma configuração.
 - **Movimento.** **Hop while talking** (pular enquanto fala) e **Hop height** (altura do pulo) definem o pulinho no estilo PNGTuber. **Time between blinks** (tempo entre piscadas) é a média; cada piscada vem um pouco antes ou um pouco depois, para nunca parecer mecânica. Com a redução de movimento ativada no seu dispositivo, o avatar não pula nem respira, mas o rosto e a boca continuam mudando.
 - **Os sprites aparecem como são.** Um sprite desenhado sobre um fundo aparece com ele, e os seus arquivos de sprite nunca são alterados. Para rostos sem fundo, use [Rostos a partir do avatar](#faces-from-the-avatar).
@@ -81,7 +87,7 @@ Os avatares de malha precisam de WebGL2, que os navegadores atuais têm. Sem ele
 
 **3D Avatars** mostra modelos VRM, o formato que o VRoid Studio, o add-on VRM para o Blender e o UniVRM para Unity exportam. Arquivos VRM 1.0 e VRM 0.x funcionam.
 
-Você também pode criar um modelo VRM a partir de um sprite de corpo inteiro com o Tripo, usando a sua própria conta do Tripo. Veja [Criar um modelo 3D com o Tripo](#make-a-3d-model-with-tripo).
+Ainda não tem um modelo? [Crie um no VRoid Studio](#get-a-3d-model), um aplicativo gratuito, e importe-o.
 
 1. Abra **3D Avatars** no editor de agentes e escolha o personagem ou a persona.
 2. Em **VRM model**, selecione **Import VRM** (importar VRM) e escolha um arquivo `.vrm`.
@@ -91,7 +97,7 @@ Você também pode criar um modelo VRM a partir de um sprite de corpo inteiro co
 
 **Replace model** (substituir modelo) mantém a animação de espera, porque as animações VRM servem em qualquer modelo VRM. **Remove model** (remover modelo) exclui o modelo e a animação de espera dele.
 
-Enquanto um chat roda, o modelo olha para você, pisca sozinho quando tem uma expressão de piscada e inclina a cabeça enquanto pensa ou escuta. A cabeça fica perto do topo do espaço reservado ao modelo: um espaço largo mostra a cabeça e os ombros, e um mais estreito mostra mais do corpo. Alguns modelos VRM 1.0 mantêm a boca parada enquanto mostram um rosto; enquanto um modelo assim fala, esse rosto aparece com intensidade parcial para que a boca ainda possa se mexer. Com a redução de movimento ativada, o rosto e a boca continuam mudando, mas o modelo para de balançar, de respirar e de tocar a animação de espera.
+Enquanto um chat roda, o modelo olha para você, pisca sozinho quando tem uma expressão de piscada e inclina a cabeça enquanto pensa ou escuta. Com o enquadramento padrão **Portrait**, a cabeça fica perto do topo do espaço reservado ao modelo: um espaço largo mostra a cabeça e os ombros, e um mais estreito mostra mais do corpo. Os enquadramentos **Half body** e **Full body**, nas configurações de Avatars do chat, mostram mais do modelo. Alguns modelos VRM 1.0 mantêm a boca parada enquanto mostram um rosto; enquanto um modelo assim fala, esse rosto aparece com intensidade parcial para que a boca ainda possa se mexer. Com a redução de movimento ativada, o rosto e a boca continuam mudando, mas o modelo para de balançar, de respirar e de tocar a animação de espera.
 
 Alguns arquivos não podem ser usados, e a importação explica o motivo:
 
@@ -107,8 +113,6 @@ Não há limite de tamanho além do limite normal de upload do aplicativo, mas m
 
 Se o personagem ou a persona ainda não tem um modelo VRM, crie um com o VRoid Studio. É um aplicativo gratuito da pixiv para Windows, macOS e iPad, e os modelos que você cria nele são seus para usar. Alguns dos itens embutidos dele e as texturas que você comprar têm termos próprios, então confira esses termos antes. Os modelos dele vêm com os seis rostos, os cinco formatos de boca e a piscada, então os rostos e a sincronia labial funcionam logo de cara.
 
-Ou deixe o Tripo criar um a partir de um sprite de corpo inteiro, com a sua própria conta do Tripo: veja [Criar um modelo 3D com o Tripo](#make-a-3d-model-with-tripo). Isso custa créditos do Tripo, e o rosto do modelo não se mexe.
-
 Na página do **3D Avatars**, escolha o personagem ou a persona. Em **Get a 3D model** (obter um modelo 3D), **Read the guide** (ler o guia) abre esta seção e **Copy prompt** (copiar prompt) copia uma descrição da aparência do personagem ou da persona.
 
 1. Baixe o [VRoid Studio](https://vroid.com/en/studio) e instale-o.
@@ -121,33 +125,7 @@ Na página do **3D Avatars**, escolha o personagem ou a persona. Em **Get a 3D m
 
 **O que se mexe.** O rosto acompanha a resposta, e a boca se mexe com o texto ou com a voz quando o modelo tem expressões para isso. Um VRM de outra ferramenta pode ter menos expressões ou nenhuma, e **Faces and mouth shapes** mostra quais ele tem. Alguns sites dizem criar um VRM com expressões faciais a partir de uma imagem ou de uma descrição, mas nenhum pôde ser confirmado quando este guia foi escrito (outubro de 2026), então este guia não recomenda nenhum.
 
-<a id="make-a-3d-model-with-tripo"></a>
-
-### Criar um modelo 3D com o Tripo
-
-O Tripo é um serviço pago que cria modelos 3D a partir de imagens. Na página do **3D Avatars**, **Make 3D model** (criar modelo 3D), em **Get a 3D model**, transforma um sprite de corpo inteiro em um modelo VRM com a sua própria conta do Tripo. Um modelo custa cerca de 60 créditos do Tripo (cerca de US$ 0,60) e leva cerca de 3 minutos.
-
-1. Entre na sua conta do Tripo e crie uma chave de API na [página de chaves do Tripo](https://developers.tripo3d.ai/en/keys). Compre créditos lá também.
-2. Abra **3D Avatars** em **Agents** e escolha o personagem ou a persona. Em **Get a 3D model**, cole a chave em **Tripo API key** (chave de API do Tripo) e selecione **Save** (salvar). **Get a key** (obter uma chave), ao lado, abre a página de chaves do Tripo. A chave vale para todos os personagens e personas, então você só precisa colá-la uma vez. **Remove** a exclui.
-3. Com a chave salva, o seu saldo do Tripo aparece. O sprite neutro de corpo inteiro já vem escolhido; você pode escolher outro. Use um sprite de corpo inteiro em que o personagem apareça por completo: um busto ou um sprite cortado gera um modelo sem pernas, e esse modelo é recusado.
-4. Confira o saldo e o custo e depois selecione **Make 3D model**. Cada etapa aparece quando termina, com os créditos gastos até ali: o Tripo desenha o sprite em pé na pose em T (5 créditos), cria o modelo 3D (30 créditos) e acrescenta um esqueleto (25 créditos), e depois Marinara Engine o transforma em um arquivo VRM.
-5. Olhe as imagens e depois selecione **Save as the VRM model** (salvar como o modelo VRM) ou **Discard** (descartar). Salvar substitui o modelo VRM atual do personagem ou da persona.
-
-**Só o corpo.** Um modelo do Tripo mexe o corpo, os braços e a cabeça, mas o rosto dele não se mexe: ele não tem expressões faciais, então não consegue sorrir, piscar nem mexer a boca. **Faces and mouth shapes** avisa isso em vez de oferecer rostos para escolher. O cabelo, os casacos e as caudas fazem parte do corpo e não balançam, e as mãos não têm dedos para dobrar.
-
-**Cancel** (cancelar) para de esperar na hora. O Tripo não consegue interromper uma etapa que já começou, então ele ainda pode terminar essa etapa e cobrar por ela. O Tripo devolve os créditos de uma etapa que falha.
-
-Se algo der errado, a configuração diz o que fazer:
-
-- **Chave não aceita:** cole uma chave que funcione em **Tripo API key** na página do **3D Avatars** e selecione **Save**. **Get a key** abre a página de chaves do Tripo.
-- **Créditos insuficientes:** recarregue os créditos no Tripo. O saldo é verificado antes de qualquer coisa começar, então nada é gasto.
-- **Política de conteúdo:** o Tripo recusou a imagem. Tente outro sprite.
-- **Ocupado:** tente de novo em um minuto.
-- **Braços abaixados ou sem pernas:** o modelo não consegue se mexer como um avatar, então é recusado antes de qualquer coisa ser salva. Tente outro sprite de corpo inteiro.
-
-**O que é enviado.** O seu sprite vai para o Tripo, com o fundo removido antes, quando ele tem um. A chave é armazenada criptografada no servidor, é enviada só para a API do Tripo e nunca é mostrada no aplicativo, gravada em um log nem incluída em uma exportação de perfil. Com o modo de depuração ligado, o log do servidor mostra as configurações e os números de tarefa de cada requisição ao Tripo.
-
-**Quem pode usar o modelo.** Pelos termos do Tripo, os modelos criados por usuários pagantes pertencem a eles, e o Tripo fica com os direitos dos modelos criados de graça. A arte do seu sprite também pode pertencer a outra pessoa. Por isso, o arquivo do modelo declara só o uso pessoal e não comercial por você, pede crédito, diz para não compartilhar o arquivo e traz um link para os [termos do Tripo](https://developers.tripo3d.ai/en/terms). **The author's terms** mostra essas informações. Confira-as antes de compartilhar o modelo.
+Um modelo criado antes com o gerador do Tripo, que foi removido, ainda carrega e mexe o corpo, mas o rosto dele não se mexe.
 
 ## Como os rostos e as bocas acompanham a resposta
 
@@ -160,6 +138,8 @@ Os avatares reagem sozinhos; não há nada para configurar nesta parte.
 - O rosto só volta ao estado calmo depois de duas frases calmas seguidas.
 - Cerca de quatro segundos depois do fim da resposta, o rosto relaxa e volta ao estado calmo.
 
+Quando a conversão de texto em voz lê a resposta em voz alta, os rostos acompanham a voz; veja **Quando a resposta é lida em voz alta** abaixo.
+
 Um avatar PNGTuber com rostos para [mais sentimentos](#pngtuber-sprites) também pode mostrar o sentimento mais específico que uma frase transmite, como Amusement quando a frase é alegre. Esse rosto segue as mesmas regras: precisa de uma leitura clara e fica pelo menos dois segundos, e um sentimento sem rosto próprio mostra o rosto do seu sentimento principal. As escolhas do Expression Engine e do Game Master funcionam do mesmo jeito: quando o avatar não tem um rosto com o nome escolhido, como `scared`, ele mostra o rosto desse sentimento, aqui Fear. Os avatares 3D e de malha mostram só os seis sentimentos.
 
 **Como o humor é lido.** A sua conexão de chat não é consultada. O texto do seu chat fica no seu próprio Marinara Engine e nunca é enviado a um serviço externo.
@@ -169,20 +149,31 @@ Um avatar PNGTuber com rostos para [mais sentimentos](#pngtuber-sprites) também
 
 **Rostos no Game Mode.** Cada fala que o Game Master mostra vem com uma expressão, e o avatar do personagem que fala assume essa expressão. Os pensamentos internos de um personagem mudam o rosto, mas não a boca.
 
-**O Expression Engine.** Quando ele está ativado no chat, a escolha dele depois da resposta é o rosto final dessa resposta. Uma escolha que chega depois que você mandou a próxima mensagem fica com a resposta a que se referia. Os avatares também funcionam sem ele.
+**O Expression Engine.** Quando ele está ativado no chat, a escolha dele depois da resposta é o rosto final dessa resposta. Uma escolha que chega depois que você mandou a próxima mensagem fica com a resposta a que se referia. Quando a conversão de texto em voz lê a resposta em voz alta, a escolha aparece quando a voz termina. Os avatares também funcionam sem ele.
 
 **Bocas.** Pelo texto, a boca só se mexe nos diálogos (palavras entre aspas, linhas `[Name]:` e marcações de quem fala), não na narração, mais ou menos no ritmo da fala. Se o texto aparecer mais rápido do que alguém conseguiria falar, a boca acelera e depois pula adiante para acompanhar as palavras na tela. Com o streaming desligado, o diálogo de uma resposta é falado em até oito segundos. Quando a conversão de texto em voz lê uma fala, é a voz que mexe a boca, então a narração de um personagem lida na voz dele também mexe a boca dele.
+
+**Quando a resposta é lida em voz alta.** Com a conversão de texto em voz e o **Auto-play** (leitura automática) ligados no Roleplay, a voz costuma começar alguns segundos depois que a resposta apareceu, então o avatar espera por ela:
+
+- Enquanto a resposta aparece, o avatar pisca e se mexe como sempre, mas a boca fica fechada e o rosto ainda não muda.
+- Quando a voz começa, a boca se mexe com a voz, e o rosto muda à medida que a voz chega a cada frase.
+- O rosto relaxa cerca de quatro segundos depois do fim da voz, não do texto. Pausas curtas entre as falas não o fazem relaxar.
+- Se a voz falhar ou não começar poucos segundos depois da resposta, o avatar reproduz uma vez os rostos e a boca da resposta a partir do texto. Se ela falhar mais tarde, o avatar só mostra o último humor da resposta e depois relaxa.
+- Depois de 30 segundos sem a voz, o avatar para de esperar. Uma voz que começa mais tarde ainda mexe a boca.
 
 **Corpo.** Um avatar fica pensando desde o momento em que você envia até as primeiras palavras dele, fala enquanto a boca se mexe, escuta enquanto outro fala ou enquanto você digita e fica em repouso no resto do tempo.
 
 **Chats em grupo.** Em um grupo Individual, quem fala é o membro que está respondendo, inclusive quando você dá swipe na mensagem de um membro. Em um grupo Merged, cada parágrafo pertence ao primeiro personagem que ele cita, ou ao personagem do parágrafo anterior. Enquanto um parágrafo que não cita ninguém ainda está aparecendo, o diálogo dele espera até que um nome ou o fim do parágrafo mostre quem fala. Com o streaming desligado em um grupo Individual, por enquanto só a resposta do último membro mexe um avatar.
 
+<a id="lip-sync-with-text-to-speech"></a>
+
 ## Sincronia labial com a conversão de texto em voz
 
-Quando a conversão de texto em voz lê uma resposta de Roleplay, o avatar do personagem que está falando mexe a boca com a voz. A boca abre mais nos sons altos e fecha nas pausas. Ela também muda de formato: fica arredondada em sons escuros como "u" e mostra os dentes em sons como "s". Não há nada extra para configurar. Ative a conversão de texto em voz como explica o guia [Configuração de Text to Speech (TTS)](../media/tts-setup.md), e a sincronia labial funciona com **Auto-play** (leitura automática) e com o botão **Speak** (falar) de uma mensagem, inclusive no layout de visual novel.
+Quando a conversão de texto em voz lê uma resposta de Roleplay, o avatar do personagem que está falando mexe a boca com a voz. A boca abre mais nos sons altos e fecha nas pausas. Ela também muda de formato: fica arredondada em sons escuros como "u" e mostra os dentes em sons como "s". Não há nada extra para configurar. Ative a conversão de texto em voz como explica o guia [Configuração de Text to Speech (TTS)](../media/tts-setup.md), e a sincronia labial funciona com **Auto-play** e com o botão **Speak** (falar) de uma mensagem, inclusive no layout de visual novel.
 
 - **Quem fala:** a boca que se mexe é a do personagem cuja voz lê a fala, o mesmo personagem para quem a **Voice Option** (opção de voz) escolhe uma voz. Quando uma resposta tem vários falantes, a boca de cada personagem só se mexe nas próprias falas. As falas lidas na voz do narrador, e os falantes que não são personagens do chat, não mexem nenhuma boca. Com **Only read dialogues** (ler só os diálogos) desligado, a narração do próprio personagem é lida na voz dele, então a boca dele também se mexe nela.
 - **Pausar, parar e trocar de chat:** pausar ou parar a voz para a boca. Se você trocar para outro chat enquanto uma resposta ainda está sendo lida, os avatares de lá ficam parados. Volte ao primeiro chat enquanto a voz ainda toca, e o avatar dele retoma a voz.
+- **Rostos:** o rosto muda à medida que a voz chega a cada frase, com **Auto-play** e com o botão **Speak**, a menos que o Expression Engine já tenha escolhido o rosto dessa resposta.
 - **Volume:** o controle deslizante **Line volume** (volume da fala) muda o volume da voz, não o quanto a boca abre.
 - **Personas:** a boca de uma persona não se mexe nas suas próprias mensagens, com ou sem conversão de texto em voz.
 - **Game Mode:** a narração do Game toca pelo áudio próprio do Game Mode, então, por enquanto, no Game Mode as bocas dos avatares acompanham o texto.
@@ -199,16 +190,25 @@ Na página do agente **2D Avatars** no editor de agentes, escolha um personagem 
 
 ### Rostos a partir do avatar
 
-**Make faces from the avatar** (criar rostos a partir do avatar) cria rostos sem fundo, inclusive para um personagem ou uma persona que ainda não tem sprites. Ele abre a geração de sprites, a mesma dos editores de personagem e de persona, com o avatar marcado como referência. Ele começa pelos seis rostos principais, Neutral, Happy, Angry, Sad, Relaxed e Surprised, e oferece mais 23 sentimentos, como Pride, Grief e Realization. Cada sentimento extra fica na linha do rosto principal que ele mostra até ter um rosto próprio. Escolha **All faces** (todos os rostos) para os 29, **Main faces** (rostos principais) para os seis, ou os rostos que quiser. Os rostos são desenhados em lotes, primeiro os principais, com tantos rostos em cada imagem quanto a grade comporta; os modelos GPT Image mais antigos desenham um rosto por imagem. Uma imagem que falha é tentada de novo uma vez; se falhar de novo, a execução para com **Retry picture** (tentar a imagem novamente), e **Cancel** mantém os rostos já criados. Com **Expose media prompts before sending** ligado, você revisa os prompts de todas as imagens de uma vez antes de a primeira ser enviada. Todo rosto é desenhado com os olhos abertos e a boca fechada, para que as imagens de piscada e de fala dele tenham o que fechar e abrir. Ele desenha novos sprites de expressão a partir do avatar sobre uma cor lisa, remove essa cor e os salva como os sprites do personagem ou da persona. Um sprite novo substitui o que tem o mesmo nome, então renomeie-o no último passo para manter o antigo. É preciso ter um avatar e uma conexão de geração de imagens.
+**Make faces from the avatar** (criar rostos a partir do avatar) cria rostos sem fundo, inclusive para um personagem ou uma persona que ainda não tem sprites. Ele abre a geração de sprites, a mesma dos editores de personagem e de persona, com o avatar marcado como referência.
+
+1. Ele começa pelos seis rostos principais, Neutral, Happy, Angry, Sad, Relaxed e Surprised, e oferece mais 23 sentimentos, como Pride, Grief e Realization. Cada sentimento extra fica na linha do rosto principal que ele mostra até ter um rosto próprio. Escolha **All faces** (todos os rostos) para os 29, **Main faces** (rostos principais) para os seis, ou os rostos que quiser.
+2. Os rostos são desenhados em lotes, primeiro os principais, com tantos rostos em cada imagem quanto a grade comporta; os modelos GPT Image mais antigos desenham um rosto por imagem. Uma imagem que falha é tentada de novo uma vez; se falhar de novo, a execução para com **Retry picture** (tentar a imagem novamente), e **Cancel** mantém os rostos já criados.
+3. Com **Expose media prompts before sending** ligado, você revisa os prompts de todas as imagens de uma vez antes de a primeira ser enviada. Todo rosto é desenhado com os olhos abertos e a boca fechada, para que as imagens de piscada e de fala dele tenham o que fechar e abrir.
+4. Ele desenha novos sprites de expressão a partir do avatar sobre uma cor lisa, remove essa cor e os salva como os sprites do personagem ou da persona. Um sprite novo substitui o que tem o mesmo nome, então renomeie-o no último passo para manter o antigo. Quando o avatar já está salvo, cada rosto novo vira o rosto do sentimento para o qual foi desenhado, mesmo que você o tenha renomeado; os seus outros sprites continuam, e você pode escolhê-los de novo em **Face for each feeling**. Um rosto refeito começa sem imagens de piscada e de fala, porque as antigas não combinariam com ele; crie novas em [Imagens de piscada e de fala](#blink-and-talk-pictures). Uma importação do PNGTuber Plus mantém os próprios rostos. É preciso ter um avatar e uma conexão de geração de imagens.
+
+<a id="blink-and-talk-pictures"></a>
 
 ### Imagens de piscada e de fala
 
 1. Cada rosto que o avatar mostra para um sentimento é uma linha, com o nome dos sentimentos que o mostram. Ao lado do **Face** (rosto) ficam as imagens **Eyes closed** (olhos fechados) e **Mouth open** (boca aberta) dele: as que você salvou, os sprites `_blink` e `_talk` que você adicionou ou imagens novas. Quando o personagem ou a persona tem sprites de retrato, só eles são usados, porque o avatar nunca mistura rostos de retrato e de corpo inteiro. Um rosto que não é um dos seus sprites, como um que veio de uma importação do PNGTuber Plus, mostra as imagens dele, mas não é possível desenhar imagens novas para ele.
-2. Confira a **Image connection** (conexão de imagem); a sua conexão de imagem padrão já vem escolhida. **Make** (criar) desenha uma imagem que falta, e **Make pictures** (criar imagens) desenha todas. Cada imagem é uma solicitação de imagem. Com a opção **Expose media prompts before sending** ligada em **Settings** (Configurações), você vê cada prompt antes e pode editá-lo.
+2. Confira a **Image connection** (conexão de imagem); a sua conexão de imagem padrão já vem escolhida. **Make** (criar) desenha uma imagem que falta, e **Make pictures** (criar imagens) desenha todas. Cada imagem é uma solicitação de imagem; uma conexão que não consegue editar imagens desenha as duas imagens de um rosto em uma única solicitação (veja abaixo). Com a opção **Expose media prompts before sending** ligada em **Settings** (Configurações), você vê cada prompt antes e pode editá-lo.
 3. As imagens novas aparecem uma de cada vez. Selecione **Keep** (manter) nas que ficaram boas e **Try again** (tentar de novo) nas outras; **Try again** também redesenha uma imagem que você já tem. A imagem que está sendo redesenhada fica esmaecida, com um indicador de carregamento, até a nova chegar. **Cancel** interrompe a imagem que está sendo criada, também no servidor, e descarta as imagens que ainda não foram criadas. Se **Try again** falhar, a imagem antiga fica. Para refazer uma imagem mantida, selecione **Kept** (mantida) para liberá-la antes.
-4. Selecione **Save kept pictures** (salvar as imagens mantidas). Elas viram as imagens de piscada e de fala do avatar PNGTuber para essas expressões, ao lado de uma cópia do sprite a partir do qual foram desenhadas, para ficarem sempre alinhadas. Se o avatar ainda mostrava os seus sprites como estão, ele mantém todos e ganha as imagens novas. Se você substituir um sprite antes de salvar, crie as imagens dele de novo.
+4. Selecione **Save kept pictures** (salvar as imagens mantidas). Elas viram as imagens de piscada e de fala do avatar PNGTuber para essas expressões, ao lado de uma cópia do sprite a partir do qual foram desenhadas, ou do rosto novo desenhado junto com elas, para ficarem sempre alinhadas. Se o avatar ainda mostrava os seus sprites como estão, ele mantém todos e ganha as imagens novas. Se você substituir um sprite antes de salvar, crie as imagens dele de novo.
 
-Os modelos de imagem que editam imagens funcionam melhor, porque recebem o seu sprite como a única referência, com um prompt que pede para mudar só os olhos ou a boca. O seu sprite é enviado no tamanho e no formato que o modelo aceita, como um recorte sobre um fundo branco, e recortado de volta a partir do resultado com o contorno do próprio sprite, então um modelo que mantém a imagem no lugar gera imagens alinhadas. Se uma imagem mudar mais do que os olhos ou a boca, o avatar dá um salto quando pisca ou fala; tente essa imagem de novo.
+Com uma conexão de imagem que aceita uma imagem de referência, o seu sprite é enviado como a única referência, no tamanho e no formato que o modelo aceita (um recorte sobre um fundo branco), com um prompt que pede para mudar só os olhos ou a boca. Os modelos movem, redimensionam ou acrescentam margens à imagem que devolvem, então ela primeiro é alinhada com o seu sprite, e depois só os olhos (para a piscada) ou a boca (para a fala) são aproveitados dela. Todo o resto, inclusive o contorno, as roupas e um busto cortado na borda de baixo, continua com os pixels do próprio sprite, então o avatar não dá um salto quando pisca ou fala. Se o modelo não fechou os olhos ou não abriu a boca, ou moveu a imagem demais para que ela pudesse ser alinhada, a imagem falha com uma mensagem que explica isso; tente de novo.
+
+Algumas conexões não conseguem editar imagens, como Pollinations, Together AI, Horde, DALL-E ou um fluxo de trabalho do ComfyUI sem espaço para uma imagem de referência. Com uma delas, **Make** desenha um rosto novo a partir da aparência do personagem ou da persona junto com as imagens de piscada e de fala dele, em uma única imagem para que as três combinem, sobre uma cor lisa que depois é removida, como faz [Rostos a partir do avatar](#faces-from-the-avatar). A linha mostra esse resultado como **New face** (rosto novo). **Keep** mantém o rosto novo e as duas imagens dele juntos, e ao salvar, o rosto novo vira o rosto daquele sentimento no avatar; o seu sprite em si não muda. Isso exige uma aparência ou uma descrição no personagem ou na persona.
 
 <a id="mesh-avatar"></a>
 
@@ -221,7 +221,7 @@ Os modelos de imagem que editam imagens funcionam melhor, porque recebem o seu s
 
 Um avatar de malha gerado mexe a cabeça, os olhos, as sobrancelhas e a boca, e pisca e fala com as próprias pálpebras e a própria boca. O cabelo se mexe junto com a cabeça; as mãos, as mechas soltas de cabelo e os acessórios pendurados não são articulados. Quando o rosto ocupa a maior parte de um sprite grande, o avatar é montado a partir de uma cópia menor, para a criação continuar rápida.
 
-O seu sprite é enviado à conexão de imagem para as imagens de piscada e de fala (e à conexão de imagem de reserva dessa conexão, se ela falhar e houver uma definida), e à conexão de chat para um avatar de malha. Os prompts vêm com o agente 2D Avatars. Com **Expose media prompts before sending** ligado, você pode ler e mudar o prompt de cada imagem antes do envio. Com o modo de depuração ligado, todo prompt é gravado no log do servidor.
+O seu sprite é enviado à conexão de imagem para as imagens de piscada e de fala (e à conexão de imagem de reserva dessa conexão, se ela falhar, se houver uma definida e se ela aceitar uma imagem de referência), e à conexão de chat para um avatar de malha. Uma conexão que não consegue editar imagens recebe só o prompt, que inclui a aparência. Os prompts vêm com o agente 2D Avatars. Com **Expose media prompts before sending** ligado, você pode ler e mudar o prompt de cada imagem antes do envio. Com o modo de depuração ligado, todo prompt é gravado no log do servidor.
 
 ## Faça o seu próprio modelo
 

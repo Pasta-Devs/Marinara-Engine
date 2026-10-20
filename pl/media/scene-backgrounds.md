@@ -12,7 +12,7 @@ Scene background generation is available in Roleplay and Game modes.
 
 Do wygenerowania tła potrzebne jest połączenie **Image Generation** (generowanie obrazów). Jeśli takiego jeszcze nie ma, skonfiguruj je najpierw. Zobacz [Dostawcy generowania obrazów i konfiguracja](image-providers.md).
 
-## Generowanie i ustawianie tła z poziomu panelu Gallery
+## Generowanie i ustawianie tła z poziomu sekcji Gallery
 
 **Gallery** zbiera obrazy i wideo z danego czatu. Jest sekcją w **Chat Settings**: otwórz Chat Settings i rozwiń **Gallery**. Na komputerze możesz otworzyć ją w osobnym oknie (zobacz [Panel **Chat Settings** – przegląd](../chats/chat-settings.md#popping-a-section-out-into-its-own-window)). Przycisk **Background** (tło) generuje grafikę tła dla bieżącej sceny.
 
@@ -40,36 +40,49 @@ Aby to naprawić, otwórz panel **Connections** (połączenia), rozwiń sekcję 
 
 ## Sekcja Gallery
 
-Panel **Gallery** ma dwie zakładki: **Images** i **Videos**. Każda z nich pokazuje liczbę elementów, które zawiera. Zakładka **Videos** jest dostępna tylko wtedy, gdy dla czatu włączono wideo ze scen.
+Sekcja **Gallery** ma dwie zakładki: **Images** i **Videos**. Każda z nich pokazuje liczbę elementów, które zawiera. Zakładka **Videos** zawiera wideo ze scen w czatach Roleplay i Game oraz wiadomości wideo w czatach Conversation.
 
 Na górze sekcji przyciski akcji pojawiają się tylko wtedy, gdy dana funkcja dotyczy tego czatu:
 
 - **Illustrate**: uruchamia agenta Illustrator i tworzy pojedynczy obraz sceny. Zobacz [Agent Illustrator](illustrator-agent.md).
 - **Selfie**: generuje selfie postaci w trybie Conversation.
 - **Background**: generuje i ustawia tło sceny, tak jak opisano wyżej.
-- **Video**: tworzy wideo ze sceny na podstawie najnowszej ilustracji.
+- **Video**: tworzy wideo ze sceny na podstawie najnowszej ilustracji. W trybie Conversation zamiast tego wysyła wiadomość wideo od postaci; zobacz [Wiadomości wideo](../conversation/selfies.md#video-messages).
 - **Create storyboard**: generuje klatki kluczowe dla ostatniej tury w trybie Game Mode albo dla zakończonego odcinka w trybie Roleplay, gdy storyboard jest aktywny.
 - **Browse Images**: otwiera przeglądarkę zapisanych obrazów do wstawienia.
 - **View storyboard**: otwiera najnowszy storyboard z trybu Game Mode.
 
-Pod przyciskami znajduje się pole **Upload Images** (wgrywanie obrazów). Przeciągnij na nie obrazy, żeby dodać własne zdjęcia do panelu **Gallery** tego czatu.
+Pod przyciskami znajduje się pole **Upload Images** (wgrywanie obrazów). Przeciągnij na nie obrazy, żeby dodać własne zdjęcia do sekcji **Gallery** tego czatu.
 
 ### Akcje dla pojedynczego obrazu
 
 Najedź kursorem na dowolny obraz w zakładce **Images** – albo dotknij go na telefonie – żeby pokazać dostępne akcje:
 
 - Otwarcie obrazu w pełnym rozmiarze (**Open gallery image**).
-- **Pin to chat**: przypina obraz do czatu.
+- **Pin to chat**: przypina obraz do czatu jako pływający obrazek. Przeciągnij go, żeby go przesunąć, a uchwytem w rogu zmień jego rozmiar. Po ponownym wczytaniu strony w tej przeglądarce zachowuje swoje miejsce i rozmiar. Przycisk kłódki obok przycisku zamykania blokuje przesuwanie i zmianę rozmiaru, dopóki go nie odblokujesz.
 - **Download image**: zapisuje obraz na urządzeniu.
 - **Animate illustration**: zamienia ten obraz w wideo ze sceny.
 - **Copy prompt**: kopiuje zapisany prompt obrazu, czyli tekst wysłany do AI. Jeśli obraz nie ma zapisanego promptu, przycisk jest nieaktywny i pokazuje **No prompt saved**.
 - **Delete gallery image**: usuwa obraz po potwierdzeniu.
 
+<a id="regenerating-an-image"></a>
+
+### Ponowne generowanie obrazu
+
+Wygenerowany obraz da się utworzyć jeszcze raz bez ponownego generowania odpowiedzi, do której należy. Działa to w przypadku obrazów z galerii czatu, które mają zapisany prompt, na przykład ilustracji, selfie i klatek storyboardu.
+
+1. Otwórz obraz w pełnym rozmiarze – z galerii albo z wiadomości, w której się znajduje.
+2. Kliknij **Regenerate image** (ponowne wygenerowanie obrazu, przycisk z okrągłą strzałką w prawym górnym rogu obrazu).
+3. Zmień, co chcesz, w polach pod obrazem: **Prompt**, **Negative prompt** (prompt negatywny), osobne pole dla każdej postaci w sekcji **Character prompts** (prompty postaci), jeśli obraz je miał, oraz **Image connection** (połączenie do generowania obrazów).
+4. Kliknij **Generate image** (wygenerowanie obrazu) albo **Cancel** (anuluj), żeby zostawić obraz bez zmian.
+
+Nowy obraz zastępuje stary w wiadomości. Stary zostaje w galerii, więc możesz go ponownie przypiąć. Obrazy referencyjne są wysyłane jeszcze raz na podstawie aktualnych awatarów postaci. Niektóre starsze obrazy nie zapisały promptu negatywnego ani promptów postaci; edytor informuje o tym w takim przypadku.
+
 ## Sprawdzanie promptu przed wysłaniem
 
 Prompt da się sprawdzić i poprawić, zanim Marinara wyśle żądanie tła do dostawcy obrazów.
 
-1. Otwórz **Settings**, dalej **Generations**, dalej **Image Generation**.
+1. Otwórz **Settings**, dalej **Generations**, dalej **Overall Generations**.
 2. Włącz opcję **Expose media prompts before sending**.
 
 Przy włączonej opcji przed każdym żądaniem otwiera się okno **Review Image Prompt**. Tekst pomocy brzmi: "Edit the prompt below before Marinara sends the image request to your provider."
@@ -96,4 +109,4 @@ Biblioteką zarządza się w ustawieniach wyglądu – tam też ustawisz tło dl
 - [Tła w trybie Roleplay](../roleplay/backgrounds.md): agent, który sam dobiera tło w każdej turze.
 - [Agent Illustrator](illustrator-agent.md): ilustracje scen w trybie Roleplay i w trybie Game Mode.
 - [Dostawcy generowania obrazów i konfiguracja](image-providers.md): konfiguracja połączenia do obrazów.
-- [Generowanie wideo sceny](scene-video.md): zamiana obrazu z panelu **Gallery** w wideo.
+- [Generowanie wideo sceny](scene-video.md): zamiana obrazu z galerii w wideo.

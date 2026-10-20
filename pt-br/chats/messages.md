@@ -20,7 +20,7 @@ Os botões abaixo aparecem nas mensagens. Alguns só surgem em situações espec
 | **Peek prompt** (espiar o prompt) | Mostra o prompt exato que a IA recebeu para esta resposta. | Só na mensagem mais recente da IA |
 | **Stored guidance** (orientação salva) | Mostra a direção que guiou esta resposta. | Só se a resposta usou uma direção guiada ou veio do Impersonate |
 | **Branch from here** (ramificar a partir daqui) | Copia o chat até esta mensagem para uma nova ramificação. | Sempre |
-| **View thoughts** (ver o raciocínio) | Abre o texto de raciocínio oculto do modelo. | Só se o modelo devolveu o raciocínio |
+| **View model thoughts** (ver o raciocínio do modelo) | Abre o texto de raciocínio oculto do modelo. | Só se o modelo devolveu o raciocínio |
 | **Delete** (excluir) | Exclui a mensagem. Veja abaixo. | Sempre |
 | **Pause speaking** / **Resume speaking** / **Restart speaking** (pausar / retomar / reiniciar a fala) | Controla o áudio falado de uma mensagem. | Só quando Text to Speech está ativado e falando |
 
@@ -99,6 +99,8 @@ Dois botões liga/desliga mudam os detalhes extras exibidos nas mensagens. Os do
 - **Show token usage on messages**: acrescenta a contagem de tokens de cada resposta da IA. Um token é um pedacinho de texto que a IA lê e escreve. A contagem mostra os tokens do prompt e os tokens da resposta. Quando a informação existe, ela também mostra os acertos de cache e quanto tempo a resposta levou.
 
 Há ainda um botão liga/desliga relacionado na mesma seção **Message Tools**, o **Show model name on messages**, que acrescenta o nome do modelo de IA que escreveu cada resposta. Ele também vem desativado por padrão.
+
+Quando foi preciso deixar mensagens antigas fora do prompt para ele caber, um aviso curto abaixo da resposta diz quantas, por exemplo "1109 older messages not sent". Para esconder esse aviso abaixo da resposta, desligue **Show "older messages not sent" note** (mostrar o aviso de mensagens antigas não enviadas) na mesma seção. O Checkup ainda pode mostrá-lo quando é aberto. A opção vem ligada por padrão. Os avisos sobre uma resposta que foi cortada ou que voltou vazia continuam aparecendo.
 
 ## Guias relacionados
 

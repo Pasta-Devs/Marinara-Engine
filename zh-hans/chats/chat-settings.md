@@ -42,7 +42,7 @@ Roleplay 中滑块按钮旁的小提示只需关闭一次。点击它的 **X** �
 - **Lock**(锁定) 阻止窗口移动或调整大小，也固定它的按钮位置。按钮仍能打开窗口。解锁窗口后，两者才能再次移动。
 - **Close**(关闭)，也就是 **X**，会隐藏窗口。
 
-调整浏览器大小或打开侧边栏时，窗口仍会留在聊天区域内。
+调整浏览器大小或打开侧边栏时，窗口仍会留在聊天区域内。在电脑上，窗口或按钮可以放在消息框旁边的空间里，一直到聊天区域的最底部，但永远不会盖住消息框本身。
 
 手机上，Chat Settings 是全宽面板，输入时会调整到键盘上方。
 
@@ -188,7 +188,7 @@ Game Mode 里没有方案控件。
 - **Chat Summary** 在 **Lorebooks** 下方，用来查看和生成 Roleplay 聊天摘要。见[记忆功能与聊天摘要](../agents/memory.md#chat-summary-roleplay)。
 - **Active Context** 在 **Chat Summary** 下方，显示当前聊天启用的世界书和上下文。见 [Token 预算与递归](../lorebooks/token-budgets.md#seeing-skipped-entries-in-active-context)。
 - **Agent activity** 紧挨着 **Agents** 下方，在使用智能体或 Advanced Memory 的 Roleplay 聊天中显示智能体做了什么。也可以重新运行追踪器、重试或停止智能体，以及清空追踪器。见[智能体活动](../roleplay/getting-started.md#agent-activity)。
-- **Author's Notes** 在 **Agents** 下方，保存 AI 在 Roleplay 每轮都会读取的笔记。见[作者笔记](../roleplay/getting-started.md#authors-notes)。
+- **Author's Notes** 在 **Agents** 下方，保存 AI 在 Roleplay 每轮都会读取的笔记。把它弹出为独立窗口时，文本框会随窗口一起变大；在手机上则会占满屏幕。见[作者笔记](../roleplay/getting-started.md#authors-notes)。
 - **Gallery** 保存聊天的图片和视频。见[场景背景与图库](../media/scene-backgrounds.md)。
 
 ## 面板中的其他部分

@@ -36,7 +36,7 @@ Les formats d'image courants passent sans problème : JPG, PNG, GIF, WebP et AVI
 3. Fais glisser des fichiers vidéo sur la zone **Upload Character Videos** (téléverser des vidéos de personnage), ou clique dessus pour choisir des fichiers. Dans un persona, cette zone s'appelle **Upload Persona Videos**.
 4. Attends la fin du téléversement.
 
-Les formats vidéo pris en charge sont MP4, WebM et MOV. Le sous-onglet **Videos** liste également les vidéos de scène générées dans les chats avec ce personnage, ainsi que les extraits d'appel vidéo. Les plus récents arrivent en premier.
+Les formats vidéo pris en charge sont MP4, WebM et MOV. Le sous-onglet **Videos** liste également les vidéos de scène générées dans les chats avec ce personnage, ainsi que les extraits d'appel vidéo. Les plus récents arrivent en premier. Un message vidéo de Conversation n'est listé que pour les personnages qu'il montre : le personnage qui l'a envoyé et toute personne qu'il nomme. Un prénom suffit quand personne d'autre dans le chat ne le porte, à condition qu'il soit écrit avec une majuscule. Tout le monde dans le chat est inclus quand le texte demande une photo ou un selfie de groupe. Les noms prononcés entre guillemets ne comptent pas. La galerie de ton persona ne liste le clip que s'il nomme ton persona. Les vidéos plus anciennes, et celles des chats Roleplay et Game Mode, sont listées pour chaque personnage et pour le persona de leur chat.
 
 ## Marquer une image de la galerie comme emoji ou sticker personnalisé
 
@@ -68,6 +68,8 @@ Un emoji ou un sticker marqué dans la galerie reste rattaché à ce seul person
 
 Si un nom de la galerie correspond à un nom de la collection globale, c'est la version de la galerie qui l'emporte dans ce chat. L'unicité des noms n'est pas vérifiée. Choisis un nom distinct pour chaque image afin d'éviter les mauvaises surprises.
 
+<a id="reuse-a-gallery-image-in-messages-and-greetings"></a>
+
 ## Réutiliser une image de galerie dans les messages et les salutations
 
 Toute image de la galerie d'un personnage peut s'afficher dans le texte du chat : une salutation, un message d'exemple ou un message envoyé par le personnage. Survolez l'image et cliquez sur **Copy image reference** (l'icône de lien). Un court fragment Markdown est copié et peut être collé partout où le personnage parle :
@@ -78,9 +80,17 @@ Toute image de la galerie d'un personnage peut s'afficher dans le texte du chat 
 
 Une seule règle : **`self` désigne le personnage qui prononce ce message.** Au rendu, Marinara remplace `self` par ce personnage et affiche l'image de sa galerie.
 
-Cela fonctionne dans **First Message**, **Alternate Greetings** et **Example Dialogue** sur la fiche, dans tout message envoyé par un personnage en Roleplay comme en Conversation, et dans les chats de groupe. Pour une réponse à plusieurs intervenants, `self` est résolu séparément pour chacun. Si sa galerie ne contient pas le fichier, Marinara le cherche dans celles des autres personnages du chat.
+Là où cela fonctionne :
 
-Par conception, cela ne fonctionne pas dans vos propres messages, qui n'ont pas de personnage locuteur, ni dans les messages système, qui n'affichent pas les images Markdown. Pour publier vous-même une image, utilisez le navigateur de ressources du chat, qui écrit la forme complète `card://characters/<id>/...`. Les galeries de persona utilisent `card://personas/<id>/gallery/<file>`.
+- **First Message**, **Alternate Greetings** et **Example Dialogue** sur la fiche de personnage. L'aperçu Markdown du champ affiche l'image pendant que tu modifies le texte.
+- Tout message envoyé par un personnage, en mode **Roleplay** comme en mode **Conversation**.
+- **Les chats de groupe** : dans une réponse à plusieurs intervenants, `self` est résolu séparément pour chacun, si bien que la réplique de chaque personnage affiche l'image de sa propre galerie. Si la galerie de l'intervenant ne contient pas le fichier, Marinara le cherche dans les galeries des autres personnages du chat : la bonne image s'affiche donc même quand une réponse est fusionnée sous un seul intervenant.
+
+Là où cela ne fonctionne pas, par conception :
+
+- **Tes propres messages.** Ils n'ont pas de personnage locuteur : une référence `self` s'affiche donc comme une image cassée. Si tu veux publier toi-même l'image de galerie d'un personnage, utilise l'insertion du navigateur de ressources du chat, qui écrit la forme complète `card://characters/<id>/...`.
+- **Les messages système.** Ils n'affichent pas du tout la syntaxe d'image Markdown : une référence s'y affiche donc comme du texte brut.
+- **Les galeries de persona.** Les images de persona apparaissent dans tes messages, qui n'ont pas d'intervenant. Utilise plutôt la forme de persona `card://personas/<id>/gallery/<file>`.
 
 Si deux personnages ont une image portant le même nom de fichier, celle du locuteur l'emporte toujours. S'il ne la possède pas, la première correspondance selon l'ordre des personnages du chat est utilisée. Choisissez des noms distincts si vous voulez une version précise.
 

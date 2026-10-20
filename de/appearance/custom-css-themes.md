@@ -24,7 +24,9 @@ Mit den drei Schaltern unter den Farbwählern überträgst du den Stil auf den r
 
 - **Apply preset font** (Preset-Schrift anwenden) nutzt die gewählte Widget-Schrift für Nachrichten, Eingabefelder und Chat-Bedienelemente.
 - **Apply preset shape** (Preset-Form anwenden) nutzt die gewählte Rahmenform für Roleplay-Nachrichten im klassischen und im Visual-Novel-Layout, das Game-Dialogfeld sowie Eingabefelder und Bedienelemente. Conversation-Nachrichten behalten ihre eigene Form.
-- **Apply preset colors** (Preset-Farben anwenden) nutzt die Rahmen-, Hintergrund- und Textfarben des Widgets für diese Bereiche, einschließlich Conversation-Nachrichten. Auch deine eigenen Farben und Farbverläufe gelten dort. Wörtliche Rede behält die eigene Dialogue Highlight Color des jeweiligen Charakters oder der jeweiligen Persona.
+- **Apply preset colors** (Preset-Farben anwenden) nutzt die Rahmen-, Hintergrund- und Textfarben des Widgets für diese Bereiche, einschließlich Conversation-Nachrichten. Auch deine eigenen Farben und Farbverläufe gelten dort. Wörtliche Rede behält die eigene Dialogue Highlight Color des jeweiligen Charakters oder der jeweiligen Persona. Eine Nachricht aus HTML, etwa die gestaltete Karte eines Agenten, behält die Textfarben, die sie selbst festlegt.
+
+Die Schaltflächen, die ältere oder neuere Nachrichten laden, etwa **Load More** (Mehr laden) und **Show older** (Ältere anzeigen), folgen diesen Schaltern wie die anderen Chat-Bedienelemente.
 
 In Game Mode gelten die Schalter außerdem für Randbemerkungen, HUD-Widgets, das Kartenpanel, Charakterbögen, Protokolle, das Inventar, Kampfpanels und Dialogfenster.
 
@@ -232,6 +234,8 @@ Mit den drei **Apply preset**-Schaltern kann auch ein eigenes Theme das Widget-D
 | Conversation-Nachrichten (nur Schrift und Farben) | `.mari-chat-style-conversation` |
 | Conversation-Nachrichtentext ohne Rahmen | `.mari-chat-style-text` |
 | Chat-Bedienelemente, einschließlich Calls und Conversation-Gruppensteuerung | `.mari-chat-style-control` |
+| Verlaufsschaltflächen: **Load More**, **Show older**, **Show newer**, **Latest** sowie **Older**, **All** und **Show more older logs** in den Game-Protokollen. Sie haben zusätzlich `.mari-chat-style-control` | `.mari-chat-history-pager` |
+| Eine Nachricht aus HTML, etwa die gestaltete Karte eines Agenten. Darin gesetzte Textfarben bleiben erhalten, wenn **Apply preset colors** an ist | `.mari-html-content` |
 
 | Variable | Wirkung |
 | --- | --- |

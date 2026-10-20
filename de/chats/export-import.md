@@ -2,6 +2,8 @@
 
 In dieser Anleitung erfährst du, wie du einen Chat als Datei speicherst und wieder in Marinara Engine lädst. Exportieren lässt sich ein einzelner Chat oder gleich mehrere auf einmal, und einen einzelnen Chat kannst du auch als lesbare Geschichte zum Weitergeben speichern. Importieren kannst du außerdem Chat-Dateien aus Marinara selbst oder aus SillyTavern (eine andere Roleplay-Chat-App).
 
+<a id="file-formats-you-will-see"></a>
+
 ## Diese Dateiformate begegnen dir
 
 Marinara kann einen Chat in vier Formaten speichern.
@@ -14,6 +16,8 @@ Marinara kann einen Chat in vier Formaten speichern.
 **Markdown**- und **Story**-Dateien lassen Systemnachrichten und vor dir verborgene Nachrichten weg.
 
 Der Chat-Import akzeptiert ausschließlich `.jsonl`-Dateien. Wenn du einen Chat später erneut einlesen willst, exportiere ihn als **JSONL** und nicht als **Text**, **Markdown** oder **Story**.
+
+Eine **JSONL**-Datei lässt ein paar Adressen weg, die mit dem Chat gespeichert sind: den Webhook des Discord-Mirrors, die DeepLX-Adresse, den DeepL-Key und die Intiface-Adresse. Auch beim Import eines Chats kommen sie nie mit. Wenn du sie nutzt, trag sie in den **Chat Settings** (Chat-Einstellungen) des importierten Chats neu ein.
 
 ## Einen einzelnen Chat exportieren
 

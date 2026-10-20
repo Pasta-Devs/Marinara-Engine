@@ -40,14 +40,14 @@ Zur Abhilfe öffnest du das **Connections**-Panel (Verbindungen), klappst **Defa
 
 ## Der Gallery-Abschnitt
 
-Die **Gallery** hat zwei Tabs: **Images** und **Videos**. Jeder Tab zeigt an, wie viele Einträge er enthält. Den Tab **Videos** gibt es nur, wenn für den Chat Szenenvideos aktiviert sind.
+Die **Gallery** hat zwei Tabs: **Images** und **Videos**. Jeder Tab zeigt an, wie viele Einträge er enthält. Der Tab **Videos** enthält in Roleplay- und Game-Chats die Szenenvideos und in Conversation-Chats die Videonachrichten.
 
 Oben im Abschnitt erscheinen Schaltflächen jeweils nur dann, wenn die passende Funktion für den Chat infrage kommt:
 
 - **Illustrate**: startet den Agenten Illustrator für ein einzelnes Szenenbild. Siehe [Illustrator-Agent](illustrator-agent.md).
 - **Selfie**: erzeugt ein Selfie eines Charakters im Modus Conversation.
 - **Background**: generiert einen Szenen-Hintergrund und wendet ihn an, wie oben beschrieben.
-- **Video**: macht aus der neuesten Illustration ein Szenenvideo.
+- **Video**: macht aus der neuesten Illustration ein Szenenvideo. Im Conversation Mode schickt es stattdessen eine Videonachricht von einem Charakter; siehe [Videonachrichten](../conversation/selfies.md#video-messages).
 - **Create storyboard**: erzeugt Keyframes für den letzten Game-Mode-Zug oder eine abgeschlossene Roleplay-Episode, sofern Storyboard aktiv ist.
 - **Browse Images**: öffnet eine Übersicht gespeicherter Bilder zum Einfügen.
 - **View storyboard**: öffnet das neueste Game-Mode-Storyboard.
@@ -59,17 +59,30 @@ Unter den Schaltflächen liegt die Ablagefläche **Upload Images** (Bilder hochl
 Zeig mit dem Mauszeiger auf ein Bild im Tab **Images** oder tipp es auf dem Handy an – schon erscheinen die zugehörigen Aktionen:
 
 - Bild in voller Größe öffnen (**Open gallery image**).
-- **Pin to chat**: heftet das Bild an den Chat.
+- **Pin to chat**: heftet das Bild als schwebendes Bild an den Chat. Zieh es, um es zu verschieben, und nutze den Griff an seiner Ecke, um die Größe zu ändern. Es behält Platz und Größe, wenn du die Seite in diesem Browser neu lädst. Die Schloss-Schaltfläche neben der Schaltfläche zum Schließen verhindert, dass es sich verschieben oder in der Größe ändern lässt, bis du es entsperrst.
 - **Download image**: speichert das Bild auf dem Gerät.
 - **Animate illustration**: macht aus dem Bild ein Szenenvideo.
 - **Copy prompt**: kopiert den gespeicherten Bild-Prompt, also den Text, den Marinara an die KI geschickt hat. Fehlt ein gespeicherter Prompt, steht dort **No prompt saved** und die Aktion ist deaktiviert.
 - **Delete gallery image**: löscht das Bild nach einer Rückfrage.
 
+<a id="regenerating-an-image"></a>
+
+### Ein Bild neu generieren
+
+Du kannst ein generiertes Bild neu erstellen, ohne die Antwort neu zu generieren, zu der es gehört. Das klappt bei Bildern in der Galerie des Chats, die einen gespeicherten Prompt haben, etwa Illustrationen, Selfies und Storyboard-Frames.
+
+1. Öffne das Bild in voller Größe, aus der Galerie oder aus der Nachricht, in der es steht.
+2. Klick auf **Regenerate image** (Bild neu generieren, die Schaltfläche mit dem Kreispfeil oben rechts am Bild).
+3. Ändere, was du willst, in den Feldern unter dem Bild: **Prompt**, **Negative prompt** (negativer Prompt), ein Feld für jeden Charakter unter **Character prompts** (Charakter-Prompts), falls das Bild welche hatte, und die **Image connection** (Bildverbindung).
+4. Klick auf **Generate image** (Bild generieren) oder auf **Cancel** (Abbrechen), um das Bild so zu lassen, wie es ist.
+
+Das neue Bild ersetzt das alte in der Nachricht. Das alte bleibt in der Galerie, sodass du es wieder anheften kannst. Referenzbilder werden erneut aus den aktuellen Avataren der Charaktere geschickt. Manche älteren Bilder haben ihren negativen Prompt und ihre Charakter-Prompts nicht gespeichert; der Editor weist dann darauf hin.
+
 ## Den Prompt vor dem Senden prüfen
 
 Du kannst den Prompt kontrollieren und bearbeiten, bevor Marinara die Hintergrund-Anfrage an den Bild-Anbieter schickt.
 
-1. Öffne **Settings**, dann **Generations**, dann **Image Generation**.
+1. Öffne **Settings**, dann **Generations**, dann **Overall Generations**.
 2. Aktiviere **Expose media prompts before sending**.
 
 Ist die Einstellung aktiv, öffnet sich vor jeder Anfrage das Fenster **Review Image Prompt**. Der Hilfetext lautet: "Edit the prompt below before Marinara sends the image request to your provider."

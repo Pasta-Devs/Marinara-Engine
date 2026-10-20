@@ -16,7 +16,7 @@ Ses réponses contrôlent le comportement de Marinara ; elles ne sont pas publi�
 - Les **[énoncés dans les prompts](../prompts/conditional-prompts.md#asking-the-decision-model)** choisissent du texte lors de la préparation du prompt d'un chat ou d'un agent. Sans réponse, la décision vaut non : un bloc de décision simple utilise donc sa branche `{{else}}`, si elle existe.
 - Les **[champs Decision des lorebooks](../lorebooks/entries.md#decision-activation)** vérifient Require ou Trigger pendant l'analyse des lorebooks du chat. Sans réponse, Require ne peut pas admettre une nouvelle entrée et Trigger n'ajoute aucune voie d'activation. Les maintiens Sticky existants et les voies ordinaires d'activation des entrées Trigger s'appliquent toujours.
 - L'**[ordre de réponse Smart](../chats/group-chats.md#response-order-individual-only)** évalue qui doit parler ensuite dans un chat de groupe, si l'option est activée. Sans réponse, l'ordre Smart effectue son appel IA habituel.
-- **[Advanced Memory Recall](../agents/memory.md#optional-decision-model)** peut utiliser un modèle local ou une connexion de décision choisis séparément pour les limites de scène et la sélection de souvenirs en Roleplay. Active **Use Decision model** dans les réglages Advanced Memory de cette discussion. Les résumés restent rédigés par le modèle auxiliaire. Les décisions échouées reviennent au rappel ou aux vérifications de scène habituels.
+- **[Advanced Memory Recall](../agents/memory.md#optional-decision-model)** peut utiliser un modèle local ou une connexion de décision choisis séparément pour les limites de scène et la sélection de souvenirs en Roleplay. Active **Use Decision model** dans les réglages Advanced Memory de ce chat. Les résumés restent rédigés par le modèle auxiliaire. Les décisions échouées reviennent au rappel ou aux vérifications de scène habituels.
 
 Une question d'activation contrôle l'exécution d'un agent ; un énoncé de décision dans son prompt contrôle les instructions reçues par cet agent pendant son exécution. Utilise `{{#if decision:"..."}}` pour une condition de prompt oui/non et `{{#if decision_choice:"..." == "..."}}` pour choisir entre plusieurs réponses.
 
@@ -35,11 +35,11 @@ Pour les questions d'activation et les énoncés des prompts/lorebooks, le modè
 - Les macros de l'énoncé sont d'abord résolues : `{{char}}` arrive donc sous forme du nom du personnage.
 - Si les messages dépassent le budget du modèle, les plus anciens sont supprimés en premier. Consulte [Configurer une connexion Decision](#set-up-a-decision-connection) pour le budget hébergé.
 
-**Advanced Memory utilise son propre modèle de décision par discussion.** Les vérifications de scène lisent la fenêtre concernée de l'historique. Le rappel envoie la conversation récente et jusqu'à 24 résumés archivés présélectionnés, ou davantage si le réglage **Maximum recalled scenes** (maximum de scènes rappelées) est plus élevé, puis les messages originaux des scènes choisies par le modèle, après vérification de l'accès des personnages ; la règle fixe des 5 derniers messages ne s'applique pas. Les services hébergés reçoivent ces textes, parfois en plusieurs lots limités. Chaque passe de rappel revient au rappel habituel après 10 secondes. Consulte [Modèle de décision facultatif](../agents/memory.md#optional-decision-model).
+**Advanced Memory utilise son propre modèle de décision par chat.** Les vérifications de scène lisent la fenêtre concernée de l'historique. Le rappel envoie la conversation récente et jusqu'à 24 résumés archivés présélectionnés, ou davantage si le réglage **Maximum recalled scenes** (maximum de scènes rappelées) est plus élevé, puis les messages originaux des scènes choisies par le modèle, après vérification de l'accès des personnages ; la règle fixe des 5 derniers messages ne s'applique pas. Les services hébergés reçoivent ces textes, parfois en plusieurs lots limités. Chaque passe de rappel dispose normalement de 10 à 25 secondes, selon la vitesse du modèle. Les deux passes partagent une limite de 40 secondes pour chaque réponse : une passe peut donc disposer de moins de 10 secondes quand il reste peu de temps. Les souvenirs sans réponse à temps reviennent au rappel habituel. Consulte [Modèle de décision facultatif](../agents/memory.md#optional-decision-model).
 
 ## Choisir un modèle de décision
 
-Ouvre **Connections** (connexions), puis **Connection defaults** (connexions par défaut), et fais ton choix sous **Decision model**. La liste comprend trois groupes :
+Ouvre **Connections** (connexions), puis **Defaults** (valeurs par défaut), et fais ton choix sous **Decision model**. La liste comprend trois groupes :
 
 - **None** (aucun), le choix par défaut. Rien n'est demandé et les champs des questions d'activation restent désactivés dans l'éditeur d'agents.
 - **Local models** (modèles locaux) : le **Primary local model** (modèle local principal) ou le **Utility local model** (modèle local auxiliaire) que tu exécutes déjà. Aucun téléchargement et rien ne quitte ta machine. Le **Decision sidecar** (processus auxiliaire de décision), si tu en as installé un, figure aussi ici.
@@ -72,7 +72,7 @@ Lorsqu'une personne importe du contenu utilisant des décisions, Marinara affich
 
 Si tu disposes d'un modèle local dans **Local Model**, tu peux l'utiliser pour les décisions sans créer de connexion ni payer de requête.
 
-1. Dans **Connections**, ouvre **Connection defaults** et règle **Decision model** sur **Primary local model**, ou **Utility local model** si tu en as configuré un.
+1. Dans **Connections**, ouvre **Defaults** et règle **Decision model** sur **Primary local model**, ou **Utility local model** si tu en as configuré un.
 2. Clique sur **Test**. Un résultat réussi affiche la probabilité et la durée de la requête, plus deux informations propres aux modèles locaux : la disponibilité des log-probabilités et le fait que le modèle réponde directement ou non.
 
 Marinara pose une seule question oui/non au modèle, le laisse produire un token et lit la réponse dans les probabilités de ce token. Aucune réponse de chat n'est écrite : la requête est donc courte. Un choix entre plusieurs réponses devient une question oui/non par réponse. Le nombre de messages récents pouvant tenir est calculé à partir de la taille de contexte du créneau lui-même.
@@ -220,7 +220,7 @@ Pour des exemples concrets de formulation et une méthode de test sur tes chats,
 - **Un agent avec une question d'activation s'exécute à chaque tour.** Aucun Decision model n'est défini, ou il ne répond pas ; l'agent s'exécute donc comme s'il n'avait aucune question. Vérifie **Test**.
 - **Une branche de décision n'apparaît jamais dans un prompt.** Consulte [Quand une branche de décision n'apparaît jamais](../prompts/conditional-prompts.md#when-a-decision-branch-never-appears).
 - **L'ordre de réponse Smart fait toujours son appel IA habituel.** L'interrupteur est désactivé ou le Decision model n'a pas répondu à ce tour.
-- **Pour voir les scores et sorties des décisions pendant la génération**, active Debug Mode ou le niveau de journalisation debug. Les journaux des décisions de prompt incluent seuils, résultats et réponses réutilisées ou maintenues par les règles temporelles. Voir [Niveaux de journalisation](../CONFIGURATION.md#logging-levels).
+- **Pour voir les scores et sorties des décisions pendant la génération**, active Debug Mode ou règle le niveau de log sur debug. Les logs des décisions de prompt incluent seuils, résultats et réponses réutilisées ou maintenues par les règles temporelles. Voir [Niveaux de log](../CONFIGURATION.md#logging-levels).
 - **Pour tester tes énoncés sans générer de réponse**, ouvre **Peek Prompt → Decision diagnostics → Test decisions** (Peek Prompt → diagnostic des décisions → tester les décisions). Les aperçus d'entrée sont passifs ; les tests explicites appellent le modèle sélectionné et peuvent entraîner des frais d'hébergement. Voir [Tester les énoncés de décision](../chats/peek-prompt.md#testing-decision-statements).
 
 ## Guides associés

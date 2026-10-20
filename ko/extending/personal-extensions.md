@@ -30,9 +30,11 @@ const tokens = marinara.estimateTextTokens(text);
 
 Browser Extension은 불투명 출처(opaque origin) 샌드박스 iframe 안의 전용 Worker에서 실행됩니다. Marinara의 페이지, DOM, 쿠키, 브라우저 저장소, 출처 API, 네트워크에는 접근할 수 없습니다. 쓸 수 있는 기능은 전용 확장 저장소, 로깅, 관리형 타이머, 정리 콜백 등록, 제한된 창, 안전한 호스트 기여 슬롯, 그리고 현재 채팅과 캐릭터 ID의 읽기 전용 스냅샷뿐입니다. 현재 채팅의 캐릭터 카드나 선택된 페르소나에서 일부 필드를 받아 볼 수도 있지만, 해당 권한을 매니페스트에 선언하고 승인받은 경우에만 가능합니다.
 
-확장은 `marinara.ui.registerContribution(...)`으로 상단 막대 동작, Extensions 메뉴 항목, 오른쪽에 고정되는 패널을 추가할 수 있습니다. 이런 화면 요소는 Marinara가 현재 테마와 정해진 컨트롤 묶음으로 그립니다. 제목, 텍스트, 서식이 고정된 출력, 버튼, 텍스트 입력란, 선택 목록, 토글, 슬라이더, 색상 컨트롤, 여백입니다. 확장이 넘기는 것은 내용과 상태뿐이며, HTML, CSS, URL, React 컴포넌트, 호스트 이벤트 핸들러는 넘길 수 없습니다.
+확장은 `marinara.ui.registerContribution(...)`으로 상단 막대나 사이드 패널 동작, Extensions 메뉴 항목, 오른쪽에 고정되는 패널을 추가할 수 있습니다. 이런 화면 요소는 Marinara가 현재 테마와 정해진 컨트롤 묶음으로 그립니다. 제목, 텍스트, 서식이 고정된 출력, 버튼, 텍스트 입력란, 선택 목록, 토글, 슬라이더, 색상 컨트롤, 여백입니다. 확장이 넘기는 것은 내용과 상태뿐이며, HTML, CSS, URL, React 컴포넌트, 호스트 이벤트 핸들러는 넘길 수 없습니다.
 
 이 UI 기능과 규칙은 출처와 상관없이 샌드박스에서 실행되는 모든 Browser Extension에 똑같이 적용됩니다. 가져온 서드파티 확장(External Extension)도 이 안전한 런타임을 씁니다. 패키지가 **Full page access**(페이지 전체 접근)를 명시적으로 요청하거나 아래에서 설명하는 샌드박스 이전 형식인 `marinara.extension`을 쓰는 경우만 예외입니다.
+
+<a id="add-a-marinara-rendered-panel"></a>
 
 ### Marinara가 그리는 패널 추가하기
 
@@ -105,6 +107,8 @@ marinara.ui.registerContribution({
 ```
 
 복잡한 도구라면 이벤트가 발생한 뒤 패널 요소를 갱신하는 식으로 여러 단계짜리 화면을 만들 수 있습니다. 앱의 상태는 `marinara.storage`에 두세요. 마크업 안에 상태를 심지 마세요.
+
+<a id="use-active-chat-context"></a>
 
 ### 현재 채팅 컨텍스트 사용하기
 
@@ -181,6 +185,8 @@ External Extension의 두 단계 안전장치와 정확한 해시 승인은 이 
 
 Server Extension은 macOS Seatbelt나 Linux Bubblewrap 안에서 권한이 제한된 별도의 Node 프로세스로 실행됩니다. Marinara 파일, 사용자 파일, 상속된 서버 비밀 정보, 네트워크, 자식 프로세스, 워커, 네이티브 애드온에는 접근할 수 없습니다. 지원되는 운영체제 샌드박스를 Marinara가 마련하지 못하면 Server Extension은 계속 비활성화 상태로 남습니다.
 
+<a id="platform-support"></a>
+
 ### 플랫폼 지원
 
 Browser Extension은 브라우저 자체가 격리해 주므로 어디서나 동작합니다. Server Extension에는 지원되는 운영체제 샌드박스가 필요합니다. 샌드박스가 없는 환경에서는 비활성화 상태로 남아 켤 수 없습니다. Marinara는 샌드박스 없이 실행하는 방식으로 물러서지 않습니다.
@@ -190,7 +196,7 @@ Browser Extension은 브라우저 자체가 격리해 주므로 어디서나 동
 | macOS                      | ✅ 샌드박스 적용           | ⚠️ 명시적 신뢰 필요            | ✅ 샌드박스 적용(Seatbelt)             |
 | Linux(Bubblewrap 있음)     | ✅ 샌드박스 적용           | ⚠️ 명시적 신뢰 필요            | ✅ 샌드박스 적용(Bubblewrap)           |
 | Linux(`bwrap` 없음)        | ✅ 샌드박스 적용           | ⚠️ 명시적 신뢰 필요            | ⛔ 비활성화. `bwrap`을 설치하세요      |
-| Docker(기본값) | ✅ 샌드박스 적용 | ⚠️ 명시적 신뢰 필요 | ⛔ 비활성화 – 컨테이너 권한 제한 |
+| Docker(기본값) | ✅ 샌드박스 적용 | ⚠️ 명시적 신뢰 필요 | ⛔ 비활성화. 컨테이너 권한 제한 |
 | Windows                    | ✅ 샌드박스 적용           | ⚠️ 명시적 신뢰 필요            | ⛔ 비활성화. Browser Extension을 쓰세요 |
 | Android                    | ✅ 샌드박스 적용           | ⚠️ 명시적 신뢰 필요            | ⛔ 비활성화. Browser Extension을 쓰세요 |
 

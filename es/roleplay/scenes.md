@@ -10,6 +10,8 @@ Cada escena es su propio chat de roleplay. Tiene su propio fondo, sus propios pe
 
 Una escena es temporal por diseño. Mientras está abierta, el chat original de **Conversation** muestra una tarjeta pequeña que dice **A scene is in progress** (Hay una escena en curso). Esa tarjeta tiene un botón **Go to Scene** (Ir a la escena) que te lleva de un salto a la escena activa.
 
+Mientras la escena está en curso, sus personajes no responden en el chat de Conversation original, y un aviso indica que están en una Scene activa. Para que te respondan allí de todos modos, activa **Allow replies here** (Permitir respuestas aquí) en la tarjeta. Empieza desactivado. Con él activado, los personajes de la escena responden cuando les escribes, pero siguen sin enviar mensajes allí por su cuenta.
+
 Cuando terminas, eliges qué pasa con la escena. Puedes guardar un resumen de vuelta en la conversación, desechar la escena o conservarla como un roleplay permanente propio. Esas opciones se explican más abajo.
 
 ## Iniciar una escena

@@ -1,6 +1,6 @@
 # Game Mode : sessions et sauvegardes
 
-Ce guide explique comment Marinara Engine suit ta progression en Game Mode d'une session de jeu à l'autre. Au programme : terminer une session, en démarrer une nouvelle et relire les sessions passées dans **Session History** (historique des sessions). Tu découvres aussi la vue **Show Spoilers** (afficher les spoilers) et la façon dont le jeu enregistre tes données.
+Ce guide explique comment Marinara Engine suit ta progression en Game Mode d'une session de jeu à l'autre. Au programme : terminer une session, en démarrer une nouvelle et relire les sessions passées dans **Session History** (historique des sessions). Tu découvres aussi la vue **Show Spoilers** (afficher les spoilers), la correction à la main des données de la partie et la façon dont le jeu enregistre tes données.
 
 ## Ce qu'est une session
 
@@ -122,11 +122,41 @@ Pour masquer à nouveau ces notes, clique sur le même bouton. Il affiche désor
 
 Autre option : modifier ces secrets, un peu comme dans un panneau de triche réservé au maître du jeu. Clique sur **Edit Spoilers** (modifier les spoilers), change le texte, puis clique sur **Save Spoilers** (enregistrer les spoilers). Certains champs s'affichent en JSON, un format de texte structuré. Ne touche aux champs JSON que si tu maîtrises ce format : un JSON incorrect ne sera pas enregistré.
 
+<a id="editing-game-data-by-hand"></a>
+
+## Modifier les données de la partie à la main
+
+Quand le Game Master se trompe, par exemple sur la réputation d'un PNJ ou sur une quête qui reste ouverte, tu peux corriger toi-même les données enregistrées de la partie.
+
+1. Ouvre **Game controls** (contrôles du jeu) et choisis **Edit game data** (modifier les données de jeu). Sur téléphone, **Game controls** se trouve dans le menu à trois points **Chat tools** (outils du chat).
+2. La fenêtre **Game Data** (données de jeu) s'ouvre. En haut, un avertissement rappelle que les modifications à la main peuvent casser une partie : "Hand edits can break a game. Every change is checked before it saves, and names can't change here."
+3. Choisis une section dans la liste, ou dans la rangée de pastilles sur téléphone. Tu peux aussi taper dans le champ de recherche pour trouver une valeur dans toutes les sections à la fois.
+4. Modifie les valeurs dans **Fields** (champs), ou passe en **JSON** pour modifier les données brutes.
+5. Clique sur **Review changes** (relire les changements) pour voir exactement ce qui change, puis sur **Save changes** (enregistrer les changements).
+
+Tu peux modifier **Party Cards**, **Party Sheet**, **NPCs**, **Journal**, **Player Notes**, **Inventory**, **Story**, **Session Summaries**, **World Edits**, **Story Script** et **HUD Widgets**. Une section n'apparaît que si la partie contient ces données : une partie sans monde n'a donc pas de **World Edits**. Les autres sections, comme **World**, **Maps & Position**, **Time, Weather & Morale**, **Combat** et **Settings**, portent la mention **Read-only** : tu peux les lire et y faire des recherches, mais c'est le jeu qui les gère. Les préférences de prompt, d'image, de musique et de dés se changent dans **Chat Settings** (réglages du chat).
+
+Chaque changement est vérifié avant l'enregistrement :
+
+- Les noms ne peuvent pas changer, car les fiches, les PNJ, l'équipe et les sacs se retrouvent les uns les autres par leur nom. Il est impossible d'ajouter ou de retirer des membres de l'équipe ici.
+- La réputation d'un PNJ va de -100 à 100.
+- Dans **Inventory**, tu peux changer la quantité d'un objet, son surnom et la personne qui le transporte, et indiquer s'il est équipé, harmonisé ou allumé. Omets une pile pour la supprimer, ou ajoutes-en une sans identifiant pour ajouter un objet.
+- Dans **Session Summaries**, seul le texte d'une session peut changer.
+- **World Edits** contient tes modifications à la main par-dessus le monde, comme des lieux renommés ou des personnes ajoutées. Le monde lui-même n'est jamais modifié.
+
+Quand un changement ne peut pas être enregistré, l'éditeur explique pourquoi, et la section garde ton brouillon pour que tu puisses le corriger. Si la partie a modifié les mêmes données pendant que tu les modifiais, l'enregistrement est refusé pour ne pas annuler le changement de la partie. **Reload** (recharger) affiche la version de la partie et abandonne tes brouillons.
+
+Avant chaque enregistrement, le jeu essaie de prendre un point de contrôle, marqué **Before a State Editor save** dans **Checkpoints** (points de contrôle). Si une modification tourne mal, charge ce point de contrôle pour l'annuler (voir plus bas).
+
+La fenêtre fonctionne comme le State Editor de Roleplay. Voir [Le State Editor](../roleplay/hud-and-trackers.md#the-state-editor).
+
+<a id="how-your-game-saves"></a>
+
 ## Comment ta partie s'enregistre
 
 Game Mode enregistre ta progression automatiquement. Aucun bouton de sauvegarde à presser. Le monde, l'équipe, la carte, l'inventaire, le temps de jeu et les résumés de session sont conservés au fil de la partie.
 
-L'application enregistre aussi des points de contrôle automatiques en coulisses. Elle en capture un au début de la session, à la fin de la session, au début et à la fin d'un combat, quand tu atteins un nouveau lieu, et à intervalles automatiques. Le Game data editor (l'éditeur des données de jeu) essaie aussi d'en prendre un avant chaque enregistrement, mais une partie trop récente pour que son premier tour ait été enregistré n'a encore rien à mettre en point de contrôle. Ouvre **Game controls → Checkpoints** (contrôles du jeu → points de contrôle) pour les voir, du plus récent au plus ancien. **Load** (charger) ramène la partie à ce moment-là : le tracker, la carte, les **World Edits** (modifications du monde) faites dans le Game data editor et la suite de l'histoire sont restaurés, et un message système indique où la partie a été ramenée en arrière. **Delete** (supprimer) en supprime un définitivement.
+L'application enregistre aussi des points de contrôle automatiques en coulisses. Elle en capture un au début de la session, à la fin de la session, au début et à la fin d'un combat, quand tu atteins un nouveau lieu, et à intervalles automatiques. Le [Game data editor](#editing-game-data-by-hand) (l'éditeur des données de jeu) essaie aussi d'en prendre un avant chaque enregistrement, mais une partie trop récente pour que son premier tour ait été enregistré n'a encore rien à mettre en point de contrôle. Ouvre **Game controls → Checkpoints** (contrôles du jeu → points de contrôle) pour les voir, du plus récent au plus ancien. **Load** (charger) ramène la partie à ce moment-là : le tracker, la carte, les **World Edits** (modifications du monde) faites dans le Game data editor et la suite de l'histoire sont restaurés, et un message système indique où la partie a été ramenée en arrière. Les fiches et les feuilles de l'équipe, les PNJ, le journal, tes notes, l'inventaire, les résumés de session, les plans du GM pour l'histoire, les widgets du HUD ainsi que le temps, la météo et le moral reviennent aussi à ce moment-là. Tes réglages restent tels quels. **Delete** (supprimer) en supprime un définitivement.
 
 Les points de contrôle automatiques sont limités aux cinq plus récents de chaque type : les plus anciens sont donc nettoyés au fil de la partie.
 

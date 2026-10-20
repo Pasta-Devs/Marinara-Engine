@@ -276,6 +276,7 @@ Der Sanitizer – die Sicherheitsprüfung für CSS – entfernt Folgendes.
 | `@font-face` mit externen URLs | Erhalten bleiben nur Schriftquellen mit `data:`. Der Familienname wird automatisch umbenannt und kann so die App-Schriften nicht überschreiben. |
 | `@import` | Externe Stylesheets werden nicht geladen. |
 | `:has()`-Selektoren | Damit ließen sich Elemente außerhalb des Chats ausspähen. |
+| Verschachtelte Regeln und Selektoren, die mit `~` oder `+` beginnen | Werden verworfen, damit Card CSS nicht über seinen Geltungsbereich hinausgreift. Schreib sie als gewöhnliche Selektoren. |
 | HTML in `content:` | Dekorativer Text ist erlaubt, aber `<` und `>` fliegen raus, und bei 200 Zeichen ist Schluss. `attr()` und `counter()` sind erlaubt. |
 | `position: fixed` | Wird zu `position: absolute` umgeschrieben, damit keine bildschirmfüllenden Overlays entstehen. |
 | `!important` | Wird entfernt, damit Card CSS die App-Stile nicht erzwungen überschreibt. |

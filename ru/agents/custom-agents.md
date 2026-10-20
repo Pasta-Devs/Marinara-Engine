@@ -266,8 +266,8 @@ Marinara читает `editedText` и подставляет его в отве�
 
 ## Смежные руководства
 
-- [Модели решений](../connections/decision-models.md)
 - [Агенты: помощники ИИ в чатах](agents-overview.md)
+- [Модели решений](../connections/decision-models.md)
 - [Справочник агентов для скачивания](built-in-agents.md)
 - [Собственные инструменты и вызов функций](../extending/custom-tools.md)
 - [Макросы промптов](../prompts/macros.md)

@@ -55,7 +55,7 @@ A aba **Metadata** guarda os dados de identidade e organização. Eles ajudam a 
 - **Creator**. Quem fez o card, para dar os créditos quando você compartilhar.
 - **Version**. Um número de versão definido por você, como `1.0`.
 - **Talkativeness**. Um controle deslizante de 0 a 100 por cento. Ele define com que frequência este personagem fala nos chats em grupo. O padrão é 50 por cento.
-- **Tags**. Digite uma ou mais tags no campo de adicionar tag e pressione Enter ou clique em **Add**. É possível adicionar várias de uma vez, separadas por vírgula. Remova uma tag pelo X dela ou limpe todas com o botão **Remove All**.
+- **Tags**. Digite uma ou mais tags no campo de adicionar tag e pressione Enter ou clique em **Add**. É possível adicionar várias de uma vez, separadas por vírgula. O campo também sugere as tags que a sua biblioteca já usa, das mais usadas para as menos usadas, com quantos personagens têm cada uma. Digitar filtra a lista. Clique em uma sugestão ou escolha-a com as setas e Enter. Remova uma tag pelo X dela ou limpe todas com o botão **Remove All**.
 - **Creator Notes**. Anotações privadas que nunca são enviadas para a IA. Mesmo assim, elas aparecem como resumo na sua biblioteca.
 
 O painel **Version history** também fica nesta aba. Ele é explicado na seção sobre salvamento e histórico de versões, mais abaixo.
@@ -68,7 +68,7 @@ A aba **Card** é o espaço principal de escrita. Ela reúne os campos que a IA 
 - **Personality**. Um resumo curto do temperamento, dos hábitos de fala e dos padrões de comportamento.
 - **Backstory**. História, origem e relações importantes.
 - **Appearance**. Descrição física, roupas e detalhes visuais. Marinara também usa este texto como base para o prompt de avatar gerado por IA.
-- **Image Appearance Override** (aparência alternativa para imagens). Um botão liga/desliga opcional abaixo de **Appearance**, desativado por padrão. Ative para mostrar um segundo campo onde você pode escrever uma descrição do personagem voltada à geração de imagens. Quando a opção está ativada e o campo contém texto, os prompts de imagem usam esse texto no lugar de **Appearance**; ele também serve de base para o prompt de avatar gerado por IA. O narrador sempre recebe o texto completo de **Appearance**. Se a opção estiver desativada ou o campo vazio, **Appearance** continua sendo usado como antes.
+- **Image Appearance Override** (aparência alternativa para imagens). Um botão liga/desliga opcional abaixo de **Appearance**, desativado por padrão. Ative para mostrar um segundo campo para tags curtas de imagem que descrevem o personagem, como a palavra-gatilho de uma LoRA. Quando a opção está ativada e o campo contém texto, os prompts de imagem usam essas tags exatamente como estão escritas, com **Appearance** mantido como contexto; o campo também serve de base para o prompt de avatar gerado por IA. O narrador sempre recebe o texto completo de **Appearance**. Se a opção estiver desativada ou o campo vazio, **Appearance** continua sendo usado como antes.
 - **Scenario**. O cenário padrão dos chats novos com este personagem.
 
 A seção **Dialogue & Greetings** define como o chat começa e como o personagem soa:

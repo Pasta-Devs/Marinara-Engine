@@ -12,7 +12,7 @@
 
 ## 在哪里找到它们
 
-基础值在 **Presets > Parameters**(预设 → 参数) 中编辑，连接值在 **Connections > Default Parameters**(连接 → 默认参数) 中编辑。聊天覆盖值在 **Chat Settings > Advanced Parameters**(聊天设置 → 高级参数) 中设置。
+基础值在 **Presets > Parameters**(预设 → 参数) 中编辑，连接值在 **Connections > Default Chat Parameters**(连接 → 默认聊天参数) 中编辑。聊天覆盖值在 **Chat Settings > Advanced Parameters**(聊天设置 → 高级参数) 中设置。
 
 1. 打开要修改的聊天。
 2. 打开 **Chat Settings**(聊天设置)（点击聊天里的 **Chat Settings** 按钮；除非移动过，否则它在右上角）。
@@ -40,9 +40,9 @@
 
 **Frequency** 和 **Presence** 合起来就是重复惩罚。
 
-**Reasoning Effort**(推理强度) 告诉具备思考能力的模型，在回答之前要推理到什么程度。所谓具备思考能力的模型，就是会先在隐藏步骤里把问题想一遍的模型。可选项有 **None**、**Low**、**Medium**、**High**、**Xhigh** 和 **Maximum**。如果模型不支持选中的档位，Marinara 会自动降到该模型允许的最高档。
+**Reasoning Effort**(推理强度) 告诉具备思考能力的模型，在回答之前要推理到什么程度。所谓具备思考能力的模型，就是会先在隐藏步骤里把问题想一遍的模型。可选项有 **Off**(关闭)、**Low**、**Medium**、**High**、**Extra high** 和 **Maximum**。如果模型不支持选中的档位，Marinara 会自动降到该模型允许的最高档。选定连接之后，按钮会以该模型实际得到的级别命名，所以 **Maximum** 可能显示为 **Max**、**Extra high** 或 **High**，发送内容相同的几个级别会合并成一个按钮。
 
-参数开关开启时，**None** 会明确要求服务商关闭思考，而不只是省略强度设置。这个关闭指令是各家服务商专有的，Marinara 只会把它发给已知支持的模型。有些模型强制推理，思考关不掉，仍然可能返回推理内容；确实不想要思考过程，就换一个不带推理的模型。把参数开关本身关闭是另一回事：那样不会发送任何推理偏好，服务商的默认行为保持不变。
+参数开关开启时，**Off** 会明确要求服务商关闭思考，而不只是省略强度设置。这个关闭指令是各家服务商专有的，Marinara 只会把它发给已知支持的模型。有些模型强制推理，思考关不掉，仍然可能返回推理内容；确实不想要思考过程，就换一个不带推理的模型。把参数开关本身关闭是另一回事：那样不会发送任何推理偏好，服务商的默认行为保持不变。
 
 **Verbosity**(详细度) 控制回复应该多长、多详细。可选项有 **None**、**Low**、**Medium** 和 **High**。**Low** 让回复保持简短，**High** 鼓励更长、描写更多的回复。只有部分模型会用到这项设置。
 
@@ -89,7 +89,7 @@
 
 ## Thinking Tags
 
-**Thinking Tags**(思考标签) 告诉 Marinara，某个模型在纯文本里是怎么标记隐藏推理的。有些模型会用标签把推理包起来。Marinara 认得这些标签，就能把推理藏到 **View thoughts**(查看思考) 操作后面，而不是直接显示在回复里。
+**Thinking Tags**(思考标签) 告诉 Marinara，某个模型在纯文本里是怎么标记隐藏推理的。有些模型会用标签把推理包起来。Marinara 认得这些标签，就能把推理藏到 **View model thoughts**(查看模型思考过程) 操作后面，而不是直接显示在回复里。
 
 每行写一组包裹标记，中间留一个位置放隐藏文字。think、thinking、thought、pipe、channel 以及成对括号这些常见写法已经内置识别。只有用了少见包裹方式的模型才需要填这个框。
 
@@ -101,9 +101,9 @@
 
 这是个高级选项。键写错会让服务商直接拒绝整个请求。对象里必须用小写的 `true`、`false` 和 `null`。除非某家服务商的文档明确要求加某个键，否则留空。
 
-## OpenRouter Service Tier
+## Service Tier
 
-**OpenRouter Service Tier**(OpenRouter 服务档位) 只在聊天所用的连接是 OpenRouter 服务商时才出现。它决定 OpenRouter 怎么路由你的请求。可选项有 **Default**、**Flex** 和 **Priority**。**Flex** 可能更便宜、更慢，**Priority** 可能更快、更贵。**Default** 不发送任何档位。
+**Service Tier**(服务档位) 只在聊天所用的连接是 OpenRouter 或 NanoGPT 服务商时才出现。它决定服务商怎么路由你的请求。可选项有 **Default**、**Flex** 和 **Priority**。**Flex** 可能更便宜、更慢，**Priority** 可能更快、更贵。**Default** 不发送任何档位。
 
 ## 上下文消息数限制
 
@@ -144,7 +144,7 @@
 参数按字段逐项确定，顺序如下：
 
 1. 所选预设的 **Parameters**(参数)；不使用预设时，采用内置生成默认值（温度 `1`，最大输出 `4096`）。在 Roleplay 中，连接的预设覆盖设置优先于聊天选择的预设。
-2. 连接的 **Default Parameters**(默认参数)。
+2. 连接的 **Default Chat Parameters**(默认聊天参数)。
 3. 当前聊天的 **Advanced Parameters**。
 4. 模式规则：正在进行的场景聊天将输出设为 `8192`、推理设为 **Maximum**、详细程度设为 **High**。Game 使用连接和聊天保存的参数，不强制设置采样、推理或最小输出长度。辅助调用也遵循保存的参数，只有未配置的值才采用任务默认值。
 5. 输出限制：Game 应用模型已知的输出上限，连接的 **Max Output Tokens override** 在所有模式下限制请求。可用上下文还可能进一步减少输出预算。
@@ -157,9 +157,9 @@
 
 ## 智能体参数
 
-智能体调用使用其运行连接上保存的 **Default Parameters**：有专用连接时使用智能体的连接，否则使用聊天的连接。Marinara 按照与聊天回复相同的规则应用这些值，包括 Send 开关和下文的模型限制。除了下面的温度规则，预设和聊天的 **Advanced Parameters** 不会改变智能体调用。
+智能体调用使用其运行连接上保存的 **Default Chat Parameters**：有专用连接时使用智能体的连接，否则使用聊天的连接。Marinara 按照与聊天回复相同的规则应用这些值，包括 Send 开关和下文的模型限制。除了下面的温度规则，预设和聊天的 **Advanced Parameters** 不会改变智能体调用。
 
-- **发送给智能体的设置**：Temperature、Top P、Top K、Frequency、Presence、Reasoning Effort、Verbosity、OpenRouter Service Tier、Custom Parameters、自定义请求头，以及依次打开 **Settings**(设置)、**Advanced**(高级)、**Parameters** 后添加的额外参数（例如 Top A 或种子）。Send 开关关闭的参数不会发送。
+- **发送给智能体的设置**：Temperature、Top P、Top K、Frequency、Presence、Reasoning Effort、Verbosity、Service Tier、Custom Parameters、自定义请求头，以及依次打开 **Settings**(设置)、**Advanced**(高级)、**Parameters** 后添加的额外参数（例如 Top A 或种子）。Send 开关关闭的参数不会发送。
 - **不发送给智能体的设置**：Max Output Tokens、停止序列、预填文本、Thinking Tags 和其他提示词格式设置。每个智能体保留自己的 **Max Output Tokens**。
 - **Temperature**：智能体使用连接的温度；没有保存值时使用 `0.7`。Beholder 始终使用 `0`，Illustrator 的提示词编写器使用自己的值。生成聊天回复时，与聊天共用连接的智能体仍沿用聊天最终确定的温度和 Send 开关，但连接上关闭的参数依然不会发送。重试使用连接保存的值和 Send 开关，而不是聊天的设置。
 - **Reasoning Effort**：选择的级别或 **Off**(关闭)，会应用到该连接上所有使用支持 Reasoning Effort 模型的智能体。开启 **Use custom defaults for this connection**(为此连接使用自定义默认值) 后，大多数连接的 Reasoning Effort 初始为 **Maximum**（Codex 为 **Default**(默认)），因此该连接上的智能体会以模型的最高级别思考，速度更慢，费用也更高。如果希望智能体少思考一些，选择较低级别，或关闭它的 Send 开关。没有保存级别时（自定义默认值关闭，或 Codex 连接选择了 **Default**），以 JSON 作答的智能体会请求关闭思考，其他智能体则保留模型的默认行为。

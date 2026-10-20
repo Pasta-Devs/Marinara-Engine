@@ -91,7 +91,7 @@ Impersonateには専用の設定欄があり、ここでの設定はすべての
 - **Preset**: impersonateの返信にだけ特定のプロンプトプリセットを使います。プリセットとは、保存したプロンプト設定のひとまとまりです。[Preset Editorとプロンプトの管理](../prompts/presets.md)を参照してください。デフォルトは**Use chat default**です。プリセットが効くのはRoleplayだけです。
 - **Connection**: impersonateの返信を、より安価なモデルや高速なモデルなど、特定の接続に振り分けます。接続とは、AIプロバイダーへの接続情報を保存したものです。[AIプロバイダーへの接続](../connections/connecting-to-a-provider.md)を参照してください。デフォルトは**Use chat default**です。**Random**を選ぶこともできます。
 - **Skip agents**: オンにすると、impersonateの実行中はエージェントの処理(トラッカー、ロアブックの振り分け、そのほかの補助機能)をMarinaraが省略します。impersonateが速くなり、世界の状態も変化しません。デフォルトではオフです。[エージェント](../agents/agents-overview.md)を参照してください。
-- **Use CYOA as direction**: オンにすると、CYOAの選択肢をクリックしたときに、それが通常のメッセージとして投稿される代わりにimpersonateの指示として使われます。CYOAはchoose your own adventureの略で、返信の後に表示されるクリック可能な選択肢のことです。この設定はデフォルトではオフです。
+- **Use CYOA as direction**: オンにすると、CYOAの選択肢をクリックしたときに、それが通常のメッセージとして投稿される代わりにimpersonateの指示として使われます。CYOAはchoose your own adventureの略で、返信の後に表示されるクリック可能な選択肢のことです。この設定はデフォルトではオフです。**Settings** > **General** > **Input & Editing**で**Add CYOA choices to the message box instead of sending them**(CYOAの選択肢を送信せずにメッセージ欄に追加する)がオンの場合、選択肢をクリックしてもその文章がメッセージ欄に追加されるだけで、この設定は効果がありません。
 
 ### impersonateのプロンプトを個別に設定する
 

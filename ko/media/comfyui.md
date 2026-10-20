@@ -33,6 +33,8 @@ ComfyUI를 설치하고, 워크플로에 필요한 체크포인트와 사용자 
 
 API 형식 워크플로는 평소 편집기에서 보는 워크플로와 다릅니다. 최상위 키가 노드 ID이고, 각 노드는 보통 `class_type`과 `inputs`를 담고 있습니다. 반드시 API 버전을 내보내세요. 편집기의 화면 배치 정보가 들어 있는 일반 워크플로 파일을 붙여넣으면 안 됩니다.
 
+<a id="comfyui-video-workflows"></a>
+
 ## ComfyUI 동영상 워크플로
 
 **Video Generation**(동영상 생성) 연결을 만들고 **ComfyUI**를 고른 다음, 필수 항목인 **ComfyUI Workflow** 입력란에 API 형식 워크플로를 붙여넣으세요. 같은 워크플로가 ComfyUI에서 그대로 돌아가고 코어의 **SaveVideo** 같은 출력 노드로 MP4를 저장하기만 하면, WAN 2.2를 비롯한 로컬 동영상 그래프를 쓸 수 있습니다.
@@ -164,6 +166,7 @@ RunPod 워크플로는 base64 원본 플레이스홀더를 지원합니다. 파�
 | 작업은 끝났는데 Marinara가 이미지를 받지 못합니다 | 연결된 **SaveImage** 출력을 추가하고, ComfyUI에서 워크플로를 직접 다시 테스트하세요.                                                                                                                                          |
 | 참조 이미지 노드가 실패합니다                    | 일반적인 로컬 **LoadImage** 노드라면 `%reference_image_name...%` 플레이스홀더를 쓰세요. base64 원본은 그 형식을 위해 만들어진 노드에서만 쓰고, Marinara 기능이 참조 이미지를 실제로 넘겼는지 확인하세요.                      |
 | 원격이나 LAN의 ComfyUI 주소가 차단됩니다         | 이미지 연결이라면 `IMAGE_LOCAL_URLS_ENABLED`를 켜세요. ComfyUI가 네트워크 인터페이스에서 대기하도록 하고 호스트 방화벽을 확인하세요. 인증 없는 ComfyUI 서버를 공개 인터넷에 노출하지 마세요.                                   |
+| 오류: `Outbound response exceeded N bytes`      | 응답이 설정된 한도를 넘었습니다. 한도의 기본값은 30 MiB입니다. 워크플로나 참조 이미지 메타데이터가 파일에 포함되면 이런 일이 생길 수 있습니다. ComfyUI에서 메타데이터를 끄거나, Marinara의 `.env`에서 `IMAGE_GEN_MAX_RESPONSE_BYTES`를 늘리고 Marinara를 다시 시작하세요. |
 | 오래 걸리는 이미지 생성이 시간 초과로 끊깁니다   | Marinara의 `.env`에서 `COMFYUI_GEN_TIMEOUT`을 늘리세요. 단위는 초이고 기본값은 `2400`입니다.                                                                                                                                  |
 | 오래 걸리는 동영상 생성이 시간 초과로 끊깁니다   | Marinara의 `.env`에서 `VIDEO_GEN_TIMEOUT_MS`를 늘리세요. 단위는 밀리초이고 기본값은 `1800000`(30분)입니다.                                                                                                                    |
 | 생성 중 GPU 메모리가 부족합니다                  | 이미지 크기나 모델 크기를 줄이거나, 로컬 언어 모델을 내리거나, 원격 언어 모델을 쓰거나, ComfyUI를 다른 기기로 옮기세요.                                                                                                       |

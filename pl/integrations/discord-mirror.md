@@ -28,7 +28,7 @@ Zachowaj ten adres dla siebie. Każdy, kto go zna, może publikować wiadomości
 
 ## Włączanie kopiowania wiadomości
 
-Ustawienie webhooka znajduje się w ustawieniach każdego czatu, w sekcji **Connected Chats** (połączone czaty). Samo pole nie ma podpisu. Rozpoznasz je po tekście zastępczym `https://discord.com/api/webhooks/...`.
+Ustawienie webhooka znajduje się w ustawieniach każdego czatu, w sekcji **Connected Chats** (połączone czaty). Pole ma podpis **Discord Mirror** (kopiowanie wiadomości na Discord), a jego tekst zastępczy to `https://discord.com/api/webhooks/...`.
 
 1. Otwórz czat, którego wiadomości mają być kopiowane.
 2. Otwórz panel **Chat Settings** (ustawienia czatu).
@@ -38,6 +38,8 @@ Ustawienie webhooka znajduje się w ustawieniach każdego czatu, w sekcji **Conn
 Od tej chwili kopiowanie działa w tym czacie. Aby je wyłączyć, wyczyść pole do końca.
 
 Jeśli adres nie jest poprawnym adresem webhooka Discord, pod polem pojawia się czerwony napis "Invalid webhook URL format". Popraw adres, a ustawienie się zapisze. Marinara sprawdza adres jeszcze raz na serwerze podczas zapisu.
+
+Adres webhooka zostaje w tej instalacji aplikacji Marinara Engine. Eksporty czatów, wyeksportowane profile ustawień i pliki z **Export Profile** (Eksportuj profil) go pomijają, a import żadnego z nich nigdy nie włącza kopiowania. Żeby kopiować czat przeniesiony do innej instalacji, wklej tam adres jeszcze raz. Profil ustawień zapisany w tej instalacji nadal ustawia kopiowanie, gdy go zastosujesz.
 
 ## Co trafia na Discord
 

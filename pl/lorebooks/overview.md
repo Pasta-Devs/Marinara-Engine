@@ -30,11 +30,11 @@ Na górze panelu są trzy przyciski z ikonami. Mają samą ikonę, bez podpisu. 
 - Przycisk **Import** (import, strzałka w dół) otwiera okno **Import Lorebook** i służy do wczytania lorebooka z pliku.
 - Przycisk **Select** (wybór, znak zaznaczenia) włącza tryb wielokrotnego wyboru, dzięki czemu da się naraz wyeksportować lub usunąć kilka lorebooków.
 
-Pod przyciskami jest pole wyszukiwania z tekstem zastępczym **Search lorebooks**. Filtruje ono listę po nazwie, opisie, nazwach powiązanych postaci i person oraz po tagach. Obok stoi lista rozwijana **Sort order** z opcjami: **A-Z**, **Z-A**, **Newest**, **Oldest** i **Token Budget**.
+Pod przyciskami jest pole wyszukiwania z tekstem zastępczym **Search lorebooks**. Filtruje ono listę po nazwie, opisie, nazwach powiązanych postaci i person oraz po tagach. Obok stoi lista rozwijana **Sort order** z opcjami: **Manual order** (kolejność ręczna), **A-Z**, **Z-A**, **Newest**, **Oldest** i **Token Budget**. Przy opcji **Manual order** przeciągnij lorebooki w wybranej kolejności albo przesuń jeden z nich klawiszami Alt+strzałka w górę i Alt+strzałka w dół. Ustawiona kolejność zostaje zachowana.
 
 W wierszu każdego lorebooka są przyciski **Copy** (kopiowanie) i **Delete** (usunięcie). Pojawiają się po najechaniu myszą na wiersz, a na urządzeniach mobilnych widać je zawsze. Przycisk **Copy** tworzy kopię lorebooka. Wyłączony lorebook ma małą plakietkę **OFF**. Kliknij obrazek, żeby go wgrać albo podmienić.
 
-Bibliotekę da się też podzielić na foldery przyciskiem **New Folder** (nowy folder). Przeciągnij lorebook na folder, żeby go tam schować. W dużej bibliotece pomaga to utrzymać porządek. Te foldery biblioteki to co innego niż foldery wpisów wewnątrz pojedynczego lorebooka.
+Bibliotekę da się też podzielić na foldery przyciskiem **New Folder** (nowy folder). Przeciągnij lorebook na folder, żeby go tam schować. W dużej bibliotece pomaga to utrzymać porządek. Na telefonie przytrzymaj chwilę lorebook, a potem go przeciągnij. Te foldery biblioteki to co innego niż foldery wpisów wewnątrz pojedynczego lorebooka.
 
 ## Kategorie
 

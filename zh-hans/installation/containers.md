@@ -113,7 +113,9 @@ environment:
 docker compose up -d
 ```
 
-这样，在没有设置 `PORT` 时，网络里的其他设备就能通过 `http://YOUR_COMPUTER_IP:7860` 访问 Marinara。如果设置了 `PORT`，把 `7860` 换成对应的宿主机端口。他们必须输入你设定的用户名和密码。想知道怎么把访问限制在特定设备上，以及管理员密钥的作用，读[远程访问：Basic Auth 与 IP 允许列表](../REMOTE_ACCESS.md)。
+这样，在没有设置 `PORT` 时，网络里的其他设备就能通过 `http://YOUR_COMPUTER_IP:7860` 访问 Marinara。如果设置了 `PORT`，把 `7860` 换成对应的宿主机端口。他们必须输入你设定的用户名和密码。
+
+在 Docker Desktop、OrbStack 和 rootless Docker 上，每台设备都从同一个地址访问容器，包括你自己的浏览器。所以一旦设置了登录，这台电脑也会要求登录，IP 允许列表也无法区分不同的设备。没有设置登录时，千万不要去掉 `127.0.0.1:`：在这些运行环境上，Marinara 分不清其他设备和这台电脑。想知道怎么把访问限制在特定设备上，以及管理员密钥的作用，读[远程访问：Basic Auth 与 IP 允许列表](../REMOTE_ACCESS.md)。
 
 ## 选哪个镜像：latest、staging 还是 lite
 
@@ -142,6 +144,7 @@ lite 镜像去掉了需要大体积本地文件的那些功能：
 | 本地嵌入模型 | 没有本地的文本嵌入。 |
 | Memory Recall(记忆功能) | 依赖本地嵌入模型。 |
 | 本地 Whisper 语音输入 | Conversation 通话的语音识别功能不在了。 |
+| 虚拟形象情绪识别 | 2D 和 3D 虚拟形象改为根据词表挑选表情，而不是使用小型本地情绪模型。 |
 
 其余一切照旧：聊天、角色扮演、Game Mode、智能体、世界书、角色，以及连接远程 AI 服务商。用 lite 镜像时，想使用任何 AI 功能都必须接一个外部服务商（比如 OpenRouter、OpenAI，或自己搭的模型）。见[连接 AI 服务商](../connections/connecting-to-a-provider.md)。
 
@@ -155,7 +158,7 @@ docker run -d --name marinara-lite -p 127.0.0.1:7860:7860 -v marinara-data:/app/
 
 ## 更新
 
-容器镜像不会自己更新，需要手动拉取新镜像并重启容器。
+容器镜像不会自己更新，需要手动拉取新镜像并重启容器。先做一次备份，这样就能原样回到之前的状态。参见[备份与恢复 Marinara](../data/backup-and-restore.md)。
 
 用 Docker Compose 的话，执行这一条命令：
 
@@ -170,6 +173,8 @@ podman compose pull && podman compose up -d
 ```
 
 也可以在应用里查看版本。打开 **Settings**(设置)，切到 **Advanced**(高级) 选项卡，找到 **Updates**(更新) 一节，点击 **Check for Updates**(检查更新)。对于容器安装，Marinara 会识别出自己跑在 Docker 里，显示发布版镜像标签和需要在宿主机上执行的命令。它没法从浏览器里直接完成更新，所以还是要在宿主机上跑上面那条命令。
+
+要回到较早的发布版本，在 `docker-compose.yml` 的 `image:` 一行里写上它的版本标签，例如 `ghcr.io/pasta-devs/marinara-engine:2.5.0`，然后运行 `docker compose up -d`。回到 2.5.0 是可以的，你的聊天也能正常打开，但 2.5.0 不认识新功能添加的设置和游戏数据。2.5.0 保存的任何聊天或连接都会丢失这些数据，再次更新也找不回来。参见[回到 2.5.0](../UPGRADING.md#going-back-to-250)。
 
 ## Podman
 

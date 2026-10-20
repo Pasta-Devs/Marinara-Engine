@@ -34,6 +34,8 @@ As extensões podem acrescentar ações na barra superior, itens no menu Extensi
 
 Esses recursos e regras de interface são idênticos para toda Browser Extension em sandbox, venha ela de onde vier. Uma External Extension importada de terceiros usa esse ambiente seguro, a menos que o pacote dela peça explicitamente a permissão **Full page access** (acesso à página inteira) ou use o formato `marinara.extension` anterior ao sandbox, descrito mais abaixo.
 
+<a id="add-a-marinara-rendered-panel"></a>
+
 ### Adicionar um painel desenhado por Marinara
 
 ```js
@@ -105,6 +107,8 @@ marinara.ui.registerContribution({
 ```
 
 Ferramentas complexas montam interfaces de várias etapas atualizando os elementos do painel depois de um evento. Mantenha o estado da aplicação em `marinara.storage`; não o codifique na marcação.
+
+<a id="use-active-chat-context"></a>
 
 ### Usar o contexto do chat ativo
 
@@ -180,6 +184,8 @@ As duas travas das External Extensions e a aprovação por hash exato continuam 
 A API mais antiga `marinara.ui.showWindow(...)` continua disponível para abrir uma janela temporária dentro do iframe de origem opaca. Ela usa os mesmos controles fixos e devolve os identificadores `update(...)` e `close()`. Prefira as contribuições quando a ferramenta precisar estar ao alcance da navegação normal do Marinara.
 
 Uma Server Extension roda em um processo Node separado, com permissões restritas, dentro do Seatbelt no macOS ou do Bubblewrap no Linux. Ela não tem acesso aos arquivos do Marinara, aos arquivos do usuário, aos segredos herdados do servidor, à rede, a processos filhos, a workers nem a addons nativos. Se Marinara não conseguir estabelecer um sandbox de sistema compatível, as Server Extensions ficam desativadas.
+
+<a id="platform-support"></a>
 
 ### Plataformas compatíveis
 

@@ -27,7 +27,7 @@ Dwa pojęcia będą się powtarzać:
 - Skąd wziąć klucz: `https://console.anthropic.com/settings/keys`
 - Domyślny adres bazowy: `https://api.anthropic.com/v1`
 
-**Anthropic** udostępnia modele Claude. Obsługuje buforowanie promptu, które potrafi obniżyć koszt długich czatów. Włącza je przełącznik **Enable prompt caching** (włączenie buforowania promptu) w edytorze połączenia.
+**Anthropic** udostępnia modele Claude. Obsługuje zapisywanie promptu w pamięci podręcznej (prompt caching), które potrafi obniżyć koszt długich czatów. Włącza je przełącznik **Enable prompt caching** (włączenie zapisywania promptu w pamięci podręcznej) w edytorze połączenia.
 
 **Anthropic** nie oferuje embeddingów. Embedding to liczbowa reprezentacja tekstu, dzięki której Marinara przeszukuje lorebooki i pamięć. Do tych funkcji użyj osobnego połączenia embeddingowego (patrz sekcja o embeddingach niżej).
 
@@ -79,7 +79,7 @@ Odpowiedź modelu Argon może zająć kilka minut na każdym z dwóch połącze�
 **OpenRouter** to agregator. Jeden klucz otwiera dostęp do wielu modeli od wielu firm. W edytorze połączenia dochodzą dwie dodatkowe opcje:
 
 - **Preferred Provider** (preferowany dostawca): pole tekstowe, które zmusza usługę **OpenRouter** do kierowania zapytań na jedno wskazane zaplecze. Nazwa musi się zgadzać z tą ze strony modeli OpenRouter. Puste pole oznacza dobór automatyczny.
-- **Enable prompt caching**: wysyła wskazówki o buforowaniu dla modeli Claude kierowanych przez usługę **OpenRouter**. Większość pozostałych modeli w **OpenRouter** buforuje samodzielnie i tego nie potrzebuje.
+- **Enable prompt caching**: wysyła wskazówki dotyczące pamięci podręcznej dla modeli Claude kierowanych przez usługę **OpenRouter**. Większość pozostałych modeli w **OpenRouter** korzysta z pamięci podręcznej samodzielnie i tego nie potrzebuje.
 
 ## NanoGPT
 
@@ -99,14 +99,14 @@ Jeśli masz subskrypcję NanoGPT, połączenie może pokazywać jej bieżące zu
 1. Włącz **Show subscription usage** (pokaż zużycie subskrypcji) w edytorze połączenia i zapisz.
 2. Opcjonalnie najpierw wklej **Management Token** (token zarządzania).
 
-Widżet odczytuje punkt końcowy zużycia NanoGPT i pokazuje tygodniowy oraz dzienny limit tokenów wejściowych. Dostęp można uwierzytelnić na dwa sposoby:
+Widget odczytuje punkt końcowy zużycia NanoGPT i pokazuje tygodniowy oraz dzienny limit tokenów wejściowych. Dostęp można uwierzytelnić na dwa sposoby:
 
 - **Management Token** (zalecany): utwórz go pod adresem `https://nano-gpt.com/settings#management-api-tokens` z zakresem **Usage only** (tylko odczyt zużycia). Pozwala odczytywać limity, ale nie uruchamia modeli ani nie wydaje środków z salda, więc jest bezpieczniejszym wyborem do wyświetlania zużycia. Marinara zapisuje go w postaci zaszyfrowanej i wysyła tylko do punktu końcowego zarządzania NanoGPT.
 - **Twój klucz API**: używany automatycznie, gdy nie zapisano tokenu zarządzania. To działa, ale odczyt zużycia korzysta wtedy z tych samych danych uwierzytelniających, które pozwalają wydawać środki z salda.
 
-Pod każdym paskiem widżet podaje, ile zostało i kiedy okno się resetuje, na przykład `42M remaining · resets in 4d`.
+Pod każdym paskiem widget podaje, ile zostało i kiedy okno się resetuje, na przykład `42M remaining · resets in 4d`.
 
-Limit, którego NanoGPT nie może obecnie podać, jest oznaczony jako **nieznany**, a nie jako niewykorzystany. Nieaktywna subskrypcja jest wyraźnie oznaczona, zamiast pokazywać pełny dostępny limit. Przycisk odświeżania aktualizuje widżet na żądanie.
+Limit, którego NanoGPT nie może obecnie podać, jest oznaczony jako **nieznany**, a nie jako niewykorzystany. Nieaktywna subskrypcja jest wyraźnie oznaczona, zamiast pokazywać pełny dostępny limit. Przycisk odświeżania aktualizuje widget na żądanie.
 
 Ten sam wskaźnik znajduje się pod wskaźnikiem kontekstu w selektorze połączenia czatu oraz w ustawieniach **Connection** (połączenie), więc możesz śledzić zużycie bez opuszczania czatu. Dotyczy aktywnego połączenia: pojawia się tylko dla połączenia NanoGPT z włączonym **Show subscription usage** i nie pojawia się przy **Random**, które nie wskazuje jednego połączenia do odczytu. W selektorze wygląda podobnie do paska kontekstu powyżej i odczytuje się go tak samo: zużycie względem tygodniowego limitu, np. `8.9M / 60M tokens`, a obok wartości procentowej widać czas resetu.
 
@@ -115,7 +115,7 @@ Ten sam wskaźnik znajduje się pod wskaźnikiem kontekstu w selektorze połącz
 - Skąd wziąć klucz: `https://console.x.ai`
 - Domyślny adres bazowy: `https://api.x.ai/v1`
 
-**xAI / Grok** udostępnia modele Grok. Po wybraniu tego dostawcy w oknie **Create Connection** Marinara od razu wpisuje model Grok 4.5. Model można potem zmienić. Modele Grok 4.6 i 4.7 mają okno kontekstu wynoszące 500 000 tokenów i obsługują rozumowanie do poziomu **Maximum** (`xhigh`). Obsługują istniejące narzędzia czatu, w tym **Web Search** (wyszukiwanie w internecie), więc wyniki wyszukiwania mogą zostać wykorzystane w końcowej odpowiedzi.
+**xAI / Grok** udostępnia modele Grok. Po wybraniu tego dostawcy w oknie **Create Connection** Marinara od razu wpisuje model Grok 4.5. Model można potem zmienić. Modele Grok 4.6 i 4.7 mają okno kontekstu wynoszące 500 000 tokenów i obsługują rozumowanie do poziomu **Extra high** (bardzo wysoki, `xhigh`). Obsługują istniejące narzędzia czatu, w tym **Web Search** (wyszukiwanie w internecie), więc wyniki wyszukiwania mogą zostać wykorzystane w końcowej odpowiedzi.
 
 ## Arli AI
 
@@ -138,7 +138,7 @@ Ten sam wskaźnik znajduje się pod wskaźnikiem kontekstu w selektorze połącz
 
 **DeepSeek** udostępnia własne modele czatu, `deepseek-flash` i `deepseek-v4-pro`. Po wklejeniu klucza lista rozwijana **Model** zawiera oba te modele, a przycisk **Fetch Models from API** odświeża ją na podstawie twojego konta.
 
-Usługa DeepSeek domyślnie korzysta z myślenia. Ustawienie **Reasoning Effort** używa tu własnych poziomów usługi DeepSeek – **Low**, **High** i **Maximum** – a **Off** (wyłączone) wyłącza myślenie w danym zapytaniu. Poziomu **Medium** (średni) nie ma: zapytanie o średni poziom usługa DeepSeek obsługuje jak **High**, więc Marinara oferuje **High** zamiast drugiego przycisku, który robiłby to samo. Myślenie modelu widać w odpowiedzi, w zwykłym podglądzie myśli.
+Usługa DeepSeek domyślnie korzysta z myślenia. Ustawienie **Reasoning Effort** używa tu własnych poziomów usługi DeepSeek – **Low**, **High** i **Max** – a **Off** (wyłączone) wyłącza myślenie w danym zapytaniu. Poziomu **Medium** (średni) nie ma: zapytanie o średni poziom usługa DeepSeek obsługuje jak **High**, więc Marinara oferuje **High** zamiast drugiego przycisku, który robiłby to samo. Myślenie modelu widać w odpowiedzi, w zwykłym podglądzie myśli.
 
 Część ustawień w panelu parametrów nie dotyczy usługi DeepSeek, więc panel je pomija, zamiast udawać, że działają. Należą do nich ustawienia **Verbosity** i **Top K** oraz kary za powtórzenia: usługa DeepSeek wycofała je i ignoruje. Parametry **Temperature** (losowość) i **Top P** tworzą parę – usługa DeepSeek używa naraz tylko jednego z nich, zależnie od tego, czy myśli – więc przy wyłączonym myśleniu widzisz **Temperature**, a przy włączonym **Top P**.
 
@@ -164,9 +164,9 @@ Każde okno ma pasek z procentem zużycia i czasem resetu, na przykład `58% · 
 
 Warto wiedzieć:
 
-- Paski liczą wszystko na twoim planie Claude, na przykład Claude Code i claude.ai, nie tylko Marinarę.
+- Paski liczą wszystko na twoim planie Claude, na przykład Claude Code i claude.ai, nie tylko aplikację Marinara Engine.
 - Claude podaje procent dla każdego okna i nie podaje liczby tokenów, więc żadna nie jest pokazywana.
-- Odczyt prosi narzędzie Claude Code na hoście Marinary o te same dane, które pokazuje jego polecenie `/usage`. Nie wysyła żadnej wiadomości do Claude i nie zużywa nic z twojego planu. Trwa sekundę lub dwie, a przycisk odświeżania czyta dane ponownie.
+- Odczyt prosi narzędzie Claude Code na hoście aplikacji Marinara Engine o te same dane, które pokazuje jego polecenie `/usage`. Nie wysyła żadnej wiadomości do Claude i nie zużywa nic z twojego planu. Trwa sekundę lub dwie, a przycisk odświeżania czyta dane ponownie.
 - Nazwa planu obok tytułu, na przykład **Pro**, to ta, którą Claude podaje dla zalogowanego konta.
 - Claude Code oznacza te dane o użyciu jako eksperymentalne. Jeśli przyszła wersja je zmieni, paski pokażą błąd z przyciskiem ponowienia zamiast błędnej liczby.
 
@@ -184,9 +184,9 @@ To połączenie może pokazać, jaka część limitów Codex twojego planu ChatG
 
 Warto wiedzieć:
 
-- Paski liczą całe użycie Codex na twoim planie ChatGPT, na przykład w Codex CLI, nie tylko Marinarę. Czaty na chatgpt.com mają własne limity i nie wchodzą do tych pasków.
+- Paski liczą całe użycie Codex na twoim planie ChatGPT, na przykład w Codex CLI, nie tylko aplikację Marinara Engine. Czaty na chatgpt.com mają własne limity i nie wchodzą do tych pasków.
 - ChatGPT podaje procent dla każdego okna i nie podaje liczby tokenów, więc żadna nie jest pokazywana.
-- Odczyt prosi ChatGPT o te same dane, które Codex CLI pokazuje jako swoje limity, używając logowania Codex na hoście Marinary. Nie wysyła żadnej wiadomości do modelu i nie zużywa nic z twojego planu.
+- Odczyt prosi ChatGPT o te same dane, które Codex CLI pokazuje jako swoje limity, używając logowania Codex na hoście aplikacji Marinara Engine. Nie wysyła żadnej wiadomości do modelu i nie zużywa nic z twojego planu.
 - Plan z tylko jednym z dwóch okien pokazuje jeden pasek.
 
 ## Grok CLI (Subscription)
@@ -234,7 +234,7 @@ Czym jest model decyzyjny, jak go wybrać i jak go w pełni skonfigurować, wyja
 - **PocketTTS**: darmowy serwer głosowy uruchamiany na własnym komputerze.
 - **xAI Voice**: usługa głosowa xAI.
 
-Każde źródło wpisuje domyślny adres bazowy i model. **Default Voice** (domyślny głos) to głos używany wtedy, gdy nie ustawiono nic bardziej szczegółowego, na przykład głosu dla konkretnej postaci. Żeby wybrać połączenie audio, którego Marinara używa domyślnie, otwórz panel **Connections**, rozwiń sekcję **Defaults** (ustawienia domyślne) i wybierz je w polu **Audio**.
+Każde źródło wpisuje domyślny adres bazowy i model. **Default Voice** (domyślny głos) to głos używany wtedy, gdy nie ustawiono nic bardziej szczegółowego, na przykład głosu dla konkretnej postaci. **Request timeout (seconds)** (limit czasu żądania w sekundach) to czas, przez jaki Marinara czeka na jedną wypowiadaną kwestię; domyślnie 60 sekund. Przy wolnym serwerze głosu zwiększ tę wartość. Żeby wybrać połączenie audio, którego Marinara używa domyślnie, otwórz panel **Connections**, rozwiń sekcję **Defaults** (ustawienia domyślne) i wybierz je w polu **Audio**. Żeby czytać nim wiadomości na głos, wybierz je jako **Source** (źródło) w sekcji **Text to Speech**. Zobacz [Korzystanie z połączenia Audio](../media/tts-setup.md#use-an-audio-connection).
 
 Przy źródle **ElevenLabs** pojawiają się dwa dodatkowe przełączniki: **Game sound effects** (efekty dźwiękowe w grze) i **Game music** (muzyka w grze). Dzięki nim Game Mode tworzy przez to połączenie efekty dźwiękowe i muzykę. Zobacz [Generowane efekty dźwiękowe i muzyka](../game/game-assets.md#generated-sound-effects-and-music). Głosy i czytanie wiadomości na głos opisuje przewodnik [Konfiguracja syntezy mowy (TTS)](../media/tts-setup.md).
 
@@ -243,6 +243,8 @@ Przy źródle **ElevenLabs** pojawiają się dwa dodatkowe przełączniki: **Gam
 Embeddingi napędzają wyszukiwanie znaczeniowe w lorebookach oraz funkcję **Memory Recall**. Zamieniają tekst na listy liczb, dzięki czemu Marinara znajduje powiązane wpisy. Przy większości dostawców czatu w edytorze połączenia da się ustawić pole **Embedding Model** oraz opcjonalne **Embedding Endpoint URL**.
 
 Część dostawców nie potrafi tworzyć embeddingów. Nie oferują ich **Anthropic**, **Claude (Subscription)**, **OpenAI (ChatGPT)** ani **Grok CLI (Subscription)**. W ich przypadku skorzystaj z listy rozwijanej **Embedding Connection**, żeby pożyczyć inne połączenie – na przykład zgodne z OpenAI, **Google Gemini** albo wbudowany **Local Model**.
+
+Żeby używać jednego źródła embeddingów dla każdego połączenia bez własnych ustawień embeddingów, otwórz panel **Connections**, rozwiń **Defaults** (ustawienia domyślne) i wybierz je w polu **Embeddings** (embeddingi). Opcja **None (built-in local model)** (brak, wbudowany model lokalny) zachowuje wbudowany lokalny model embeddingów. Własny model embeddingów połączenia albo jego **Embedding Connection** nadal ma pierwszeństwo. Po zmianie ponownie zwektoryzuj lorebooki i wspomnienia. Zobacz [Wyszukiwanie semantyczne w lorebookach](../lorebooks/semantic-search.md).
 
 ## Powiązane przewodniki
 

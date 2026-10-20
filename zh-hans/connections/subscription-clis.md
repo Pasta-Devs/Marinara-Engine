@@ -45,7 +45,7 @@ claude auth login
 3. 在 Marinara 里打开 **Connections**(连接) 面板，点击 **New**(新建)。
 4. 在 **Create Connection**(创建连接) 窗口里填一个名称，选择 **Claude (Subscription)** 服务商，然后点击 **Create**(创建)。
 5. 进入编辑器后会发现没有 **API Key** 和 **Base URL** 输入框。一个信息面板会说明这两项并不需要。
-6. 从 **Model**(模型) 下拉菜单里挑一个 Claude 模型，比如 Opus 或 Sonnet 系列。
+6. 从 **Model**(模型) 下拉菜单里挑一个 Claude 模型，比如 Opus 或 Sonnet 系列。如果 Claude Code 能为你的登录提供模型列表，列表里显示的就是你的 Claude Code 登录可用的模型；否则显示内置列表。
 7. 点击 **Save**(保存)，再点击 **Send Test Message**(发送测试消息)。收到一句简短回复就说明登录可用。
 
 Claude 订阅连接只支持文字聊天。这个连接还多出两项控件，**Fast Mode** 和 **Diagnose Model Routing**(诊断模型路由)，下文分别说明。
@@ -73,7 +73,7 @@ codex login
 
 Marinara 会读取本机的 Codex 登录文件，并在条件允许时刷新会话。
 
-要设置 Codex 回答前思考多久，打开该连接，在 **Default Chat Parameters**(默认聊天参数) 下开启 **Use custom defaults for this connection**(为此连接使用自定义默认值)，然后在 **Reasoning Effort**(推理强度) 里选一个级别；初始值是 **Default**(默认)。单个聊天可以在 **Advanced Parameters**(高级参数) 里选自己的级别。**Default** 沿用 Codex 对该模型使用的级别。在连接或聊天选定级别之前，Codex 一直使用这个默认级别；预设里的级别不会改变它，作为备用连接使用的 Codex 连接也只遵循它自己的级别。该连接上的智能体使用连接自身的级别。可选级别与 Codex 为各个模型提供的一致：GPT-5.5 最高到 **xhigh**，GPT-5.6 和 GPT-6 系列模型最高到 **max**。
+要设置 Codex 回答前思考多久，打开该连接，在 **Default Chat Parameters**(默认聊天参数) 下开启 **Use custom defaults for this connection**(为此连接使用自定义默认值)，然后在 **Reasoning Effort**(推理强度) 里选一个级别；初始值是 **Default**(默认)。单个聊天可以在 **Advanced Parameters**(高级参数) 里选自己的级别。**Default** 沿用 Codex 对该模型使用的级别。在连接或聊天选定级别之前，Codex 一直使用这个默认级别；预设里的级别不会改变它，作为备用连接使用的 Codex 连接也只遵循它自己的级别。该连接上的智能体使用连接自身的级别。可选级别与 Codex 为各个模型提供的一致：GPT-5.5 最高到 **Extra high**(超高)，GPT-5.6 和 GPT-6 系列模型最高到 **Max**(最高)。
 
 ## Grok CLI (Subscription)
 
@@ -103,6 +103,8 @@ Grok CLI 有两点比较特别。一是它不支持流式输出，回复会一�
 ## Claude 提示词缓存时长
 
 Claude 连接编辑器中的 **Prompt Caching → Extended token caching (1 hour)** 会请求保留 1 小时的缓存，方便在消息之间暂停更长时间。需要 Claude Code **2.1.242 或更高版本**。Marinara 只为当前请求传入这个设置，不会修改已保存的 Claude 设置。
+
+这个设置还会影响 Claude 能复用多少聊天内容。开启时，Claude 会复用之前的聊天记录，只重新处理最新的部分。关闭时，Claude 只复用开头的指令，每条消息都要把整段聊天记录重新处理一遍。在长聊天里，关闭这个设置会消耗更多的套餐额度。
 
 关闭后，主对话和 Agent SDK 请求沿用 Claude 的默认行为：目前，订阅套餐额度内的使用保留 1 小时，额外用量、积分或 API 计费保留 5 分钟。Claude Code 自身的子代理在未单独配置时使用 5 分钟；部分由服务器控制的辅助请求可能使用 1 小时。覆盖这个值的现有 CLI 环境变量仍然优先。参见 [Claude Code 提示词缓存](https://code.claude.com/docs/en/prompt-caching)。
 

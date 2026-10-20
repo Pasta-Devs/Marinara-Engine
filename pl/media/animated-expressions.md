@@ -65,7 +65,7 @@ Krok przeglądu wyników potwierdza to samo. Pokazuje taką informację: "Animat
 
 Animowane wyrazy twarzy powstają dłużej niż nieruchome sprite'y. Marinara generuje je po jednym, a nie partiami. Zaznaczenie wielu wyrazów twarzy naraz potrafi trwać, więc zacznij od kilku.
 
-Jeśli opcja **Expose media prompts before sending** jest włączona (w panelu **Settings**, w sekcji **Image Generation**), Marinara zatrzymuje się na kroku przeglądu promptów. Każdy prompt można wtedy przeczytać i poprawić, zanim Marinara wyśle go do dostawcy. Zostaw to ustawienie wyłączone, żeby pominąć przegląd.
+Jeśli opcja **Expose media prompts before sending** jest włączona (w panelu **Settings**, w sekcji **Overall Generations**), Marinara zatrzymuje się na kroku przeglądu promptów. Każdy prompt można wtedy przeczytać i poprawić, zanim Marinara wyśle go do dostawcy. Zostaw to ustawienie wyłączone, żeby pominąć przegląd.
 
 ## Rozwiązywanie problemów
 

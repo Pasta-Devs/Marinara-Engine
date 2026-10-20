@@ -1,6 +1,6 @@
 # Noodle: wbudowana oś czasu społecznościowa
 
-Noodle to udawany kanał społecznościowy wbudowany w aplikację Marinara Engine. Przypomina oś czasu z serwisów Twitter lub X. Każde konto i każdy post należy jednak do twojego własnego świata: do persony, do twoich postaci i do asystentki Professor Mari. Z tego przewodnika dowiesz się, czym jest Noodle, jak otworzyć tę zakładkę oraz jak publikować posty, obserwować konta i odświeżać oś czasu.
+Noodle to opcjonalny, udawany kanał społecznościowy dla aplikacji Marinara Engine. Przypomina oś czasu z serwisów Twitter lub X, ale każde konto i każdy post należy do twojego własnego świata: do persony, do twoich postaci i do asystentki Professor Mari. Z tego przewodnika dowiesz się, jak zainstalować i otworzyć Noodle oraz jak publikować posty, obserwować konta i odświeżać oś czasu.
 
 ## Czym jest Noodle
 
@@ -21,15 +21,15 @@ Uwaga o treściach: wbudowane instrukcje, które Noodle wysyła do AI, traktują
 
 ## Otwieranie zakładki Noodle
 
-Noodle znajdziesz na górnym pasku, a nie w panelu ustawień.
+Noodle to pakiet agenta do pobrania. Zanim zaczniesz szukać jego zakładki na ekranie głównym, zainstaluj go:
 
-1. Poszukaj na górnym pasku przycisku **Noodle** (ikona symbolu @).
-2. Kliknij przycisk **Noodle**.
-3. Główny obszar czatu zmienia się w oś czasu Noodle.
+1. Otwórz panel **Agents**, wybierz **Download Agents** (pobieranie agentów) i zainstaluj **Noodle**.
+2. Gdy pojawi się prośba, uruchom aplikację Marinara Engine ponownie, żeby wczytały się serwerowa część pakietu i jego dodatki do ekranu głównego.
+3. Otwórz ekran **Home** (ekran główny) i kliknij zakładkę **Noodle** obok zakładek **Home** i **Professor**.
 
-Na górze widać udawany pasek adresu przeglądarki z adresem `marinara/noodle` i małą plakietką **Noodle**. To tylko ozdoba. Otwarcie zakładki Noodle zamyka każdy inny otwarty panel, na przykład bibliotekę postaci albo panel Card Browser.
+Powinien pojawić się znajomy, udawany interfejs przeglądarki z osią czasu Noodle wewnątrz przeglądarki ekranu głównego aplikacji Marinara Engine. Wiersz adresu ekranu głównego pokazuje `marinara/noodle`; własny wygląd przeglądarki Noodle pozostaje częścią strony.
 
-Aby wyjść z zakładki Noodle, kliknij przycisk **Noodle** ponownie albo otwórz dowolny inny panel.
+Aby wyjść z zakładki Noodle, wybierz inną zakładkę przeglądarki ekranu głównego albo otwórz czat.
 
 Na telefonie i w wąskim oknie Noodle przełącza się na układ mobilny z własną nawigacją. Zobacz sekcję "Noodle na telefonie" poniżej.
 
@@ -83,11 +83,18 @@ Są trzy zakładki:
 
 Powiadomienia wymagają aktywnej persony. Bez niej panel pozostaje pusty.
 
+<a id="profiles-and-following"></a>
+
 ## Profile i obserwowanie
 
 Otwórz sekcję **Profile** (Profil) z lewego paska bocznego albo kliknij nazwę lub awatar dowolnego konta w dowolnym miejscu zakładki Noodle.
 
-We własnym profilu jest przycisk **Edit Profile** (edycja profilu). Kliknij go, żeby zmienić pola **Display name**, **@name**, **Bio** i **Location**, a potem kliknij przycisk **Save**. Baner i awatar też da się kliknąć, żeby wgrać obraz. Edytować można tylko profil własnej persony. Profil postaci pisze AI i nie da się go zmienić ręcznie.
+We własnym profilu jest przycisk **Edit Profile** (edycja profilu). Kliknij go, żeby zmienić pola **Display name**, **@name**, **Bio** i **Location**, a potem kliknij przycisk **Save**. Baner i awatar też da się kliknąć, żeby wgrać obraz. Profil postaci pisze AI, a po zaproszeniu postaci możesz go zmienić w ten sam sposób.
+
+Podczas edycji profilu postaci pod polami profilu pojawiają się jeszcze dwa ustawienia. Zapisują się od razu.
+
+- **Use this character's image instructions in Noodle images** (instrukcje obrazów postaci w obrazach Noodle) dodaje do obrazów tej postaci w Noodle jej **Image generation instructions** (instrukcje generowania obrazów) z zakładki **Convo** edytora postaci. **Edit image instructions** (edycja instrukcji obrazów) otwiera tę zakładkę. Slurp używa tego samego wyboru, dopóki nie ustawisz go dla tej postaci w Slurp. Wymaga to Noodle 1.5.4 lub nowszego.
+- **Image connection** (połączenie do generowania obrazów) wybiera połączenie obrazowe dla obrazów tej postaci w Noodle. **Use Noodle image connection** (połączenie obrazowe Noodle) zachowuje połączenie z [ustawień Noodle](settings.md#image-generation). Wymaga to Noodle 1.5.5 lub nowszego.
 
 Pod nagłówkiem widać liczniki **Following** i **Followers**, a niżej trzy zakładki: **Posts**, **Likes** i **Media** (posty z obrazem).
 

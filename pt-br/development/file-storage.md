@@ -50,6 +50,14 @@ As escritas marcam como sujas as tabelas afetadas. Um debounce curto agrupa as m
 
 Marinara escreve cada snapshot em um arquivo temporário, força a gravação em disco e renomeia o arquivo de forma atômica. Antes da substituição, o snapshot íntegro anterior é atualizado como um arquivo `.bak`. Na inicialização, se o arquivo principal estiver ilegível, Marinara o recupera a partir do backup sempre que possível. Se nenhuma das duas cópias servir, Marinara põe os arquivos corrompidos em quarentena com um sufixo de data e hora e inicia vazia apenas aquela tabela, para que a interface continue acessível e a recuperação seja possível.
 
+## Concessão de gravação
+
+Só um processo do servidor grava em uma pasta de armazenamento por vez. Na inicialização, o store cria nela a pasta `.writer-lease`, com um `owner.json` que registra o PID do gravador, o ID da máquina, o ID de boot, o namespace de PID, o nome do host e um token aleatório, e a remove no desligamento. Um segundo processo que encontra uma concessão se recusa a iniciar com um `StorageWriterLeaseError`, a não ser que consiga provar que o gravador anterior não existe mais.
+
+A prova exige primeiro a mesma máquina: um ID de máquina igual, a home privada do aplicativo Termux ou, quando um dos lados não tem ID de máquina, um armazenamento que só esta máquina alcança. No Linux e no Android, isso é um sistema de arquivos local. No Windows, é uma unidade `Fixed` (não um caminho de rede, removível ou UNC), e a concessão precisa vir de um gravador nativo do Windows com o nome deste computador. Uma concessão na mesma máquina é recuperada quando pertence a um boot anterior (no Windows, horários de boot com até 5 minutos de diferença contam como o mesmo boot), quando o socket de atividade dela não responde mais (Docker e Termux) ou quando o PID dela terminou ou (exceto na prova da unidade do Windows) agora pertence a um processo mais novo. O armazenamento compartilhado ou em rede continua travado, e o erro indica a concessão a remover manualmente depois que todos os processos forem parados.
+
+`scripts/regressions/storage-writer-lock.regression.ts` cobre essas provas.
+
 ## Transações
 
 As transações usam snapshots copy-on-write delimitados por `AsyncLocalStorage`. A tabela só é clonada quando a transação a altera pela primeira vez. Se o callback lançar um erro, apenas as tabelas alteradas por aquela transação são restauradas; as escritas concorrentes de outras partes continuam valendo.

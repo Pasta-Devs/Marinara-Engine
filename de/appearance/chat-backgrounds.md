@@ -51,7 +51,7 @@ Ordner sortieren die Bibliothek, ohne die dahinterliegenden Bilddateien zu versc
 
 1. Klick auf **New Folder** (Neuer Ordner). Marinara legt einen Ordner mit eindeutigem Namen an.
 2. Ein Doppelklick oder Doppeltipp auf den Ordnernamen benennt ihn um. Alternativ fokussierst du ihn und drückst F2.
-3. Am Rechner ziehst du eine Hintergrund-Zeile in einen Ordner. Auf Handy oder Tablet ziehst du sie am sichtbaren Griff.
+3. Am Rechner ziehst du eine Hintergrund-Zeile in einen Ordner. Auf Handy oder Tablet hältst du die Zeile gedrückt und ziehst sie dann.
 4. Zieh einen Hintergrund zurück in den Bereich ohne Ordner, um ihn aus seinem Ordner zu nehmen.
 
 Marinara speichert Ordner und Zuordnungen auf dem Server und nimmt sie in Backups mit auf. Löschst du einen Ordner, wandern seine Hintergründe zurück in die Liste ohne Ordner – die Bilder selbst bleiben erhalten. Such- und Tag-Filter zeigen passende Einträge automatisch auch innerhalb der Ordner an.

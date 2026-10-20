@@ -266,8 +266,8 @@ Marinara `editedText` पढ़ता है और उसे जवाब म�
 
 ## मिलती-जुलती गाइड
 
-- [निर्णय मॉडल](../connections/decision-models.md)
 - [एजेंट: आपकी चैट में मदद करने वाले AI](agents-overview.md)
+- [निर्णय मॉडल](../connections/decision-models.md)
 - [डाउनलोड किए जाने वाले एजेंट का रेफ़रेंस](built-in-agents.md)
 - [कस्टम टूल](../extending/custom-tools.md)
 - [मैक्रो](../prompts/macros.md)

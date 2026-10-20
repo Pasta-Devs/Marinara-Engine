@@ -181,6 +181,8 @@ Pour supprimer uniquement le modèle sélectionné, clique sur le bouton corbeil
 
 Ton audio enregistré ne quitte jamais ta machine. Seul le texte transcrit part vers la connexion de chat que tu as choisie. Pour t'en servir pendant un appel, règle le mode d'entrée audio de l'appel sur l'option Local Whisper. Voir [Appels audio et vidéo en Conversation](../conversation/calls.md).
 
+Si tu actives la carte **Speech to Text** (reconnaissance vocale) dans Connections, ce mode d'appel envoie ta voix au serveur que tu y as saisi au lieu de Local Whisper. Voir [Utiliser ton propre serveur de reconnaissance vocale](../conversation/calls.md#use-your-own-speech-to-text-server).
+
 ## Dépannage
 
 **"Sidecar runtime install is disabled."** Installer ou réinstaller le runtime est une action protégée. Les installations Windows en un clic l'activent pour toi. Sur macOS, Linux et Docker, tu as deux options. Définis `SIDECAR_RUNTIME_INSTALL_ENABLED=true` dans le fichier `.env` du serveur, par exemple :

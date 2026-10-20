@@ -35,11 +35,11 @@ Bei Aktivierungsfragen und Aussagen in Prompts oder Lorebooks erhält das Modell
 - Makros in der Aussage werden zuerst aufgelöst; `{{char}}` kommt also als Charaktername an.
 - Passen die Nachrichten nicht in das Budget des Modells, werden zuerst ältere entfernt. Das Budget gehosteter Verbindungen steht unter [Eine Decision-Verbindung einrichten](#set-up-a-decision-connection).
 
-**Advanced Memory verwendet ein eigenes Decision-Modell pro Chat.** Szenenprüfungen lesen das betreffende Transkriptfenster. Der Abruf sendet nach Prüfung des Charakterzugriffs aktuelle Gesprächsteile und bis zu 24 vorausgewählte archivierte Zusammenfassungen – mehr, wenn **Maximum recalled scenes** (maximal abgerufene Szenen) höher ist –, danach Originalnachrichten aus den Szenen, die das Modell gewählt hat; die feste Regel der letzten 5 Nachrichten gilt hier nicht. Gehostete Anbieter erhalten diese Texte gegebenenfalls in mehreren begrenzten Paketen. Jeder Abrufdurchgang greift nach 10 Sekunden auf den normalen Abruf zurück. Siehe [Optionales Decision-Modell](../agents/memory.md#optional-decision-model).
+**Advanced Memory verwendet ein eigenes Decision-Modell pro Chat.** Szenenprüfungen lesen das betreffende Transkriptfenster. Der Abruf sendet nach Prüfung des Charakterzugriffs aktuelle Gesprächsteile und bis zu 24 vorausgewählte archivierte Zusammenfassungen – mehr, wenn **Maximum recalled scenes** (maximal abgerufene Szenen) höher ist –, danach Originalnachrichten aus den Szenen, die das Modell gewählt hat; die feste Regel der letzten 5 Nachrichten gilt hier nicht. Gehostete Anbieter erhalten diese Texte gegebenenfalls in mehreren begrenzten Paketen. Jeder Abrufdurchgang bekommt normalerweise 10 bis 25 Sekunden, je nach Geschwindigkeit des Modells. Beide Durchgänge teilen sich ein Limit von 40 Sekunden pro Antwort, sodass ein Durchgang auch weniger als 10 Sekunden bekommen kann, wenn nur noch wenig Zeit bleibt. Erinnerungen ohne rechtzeitige Antwort fallen auf den normalen Abruf zurück. Siehe [Optionales Decision-Modell](../agents/memory.md#optional-decision-model).
 
 ## Ein Decision-Modell auswählen
 
-Öffne **Connections** (Verbindungen), dann **Connection defaults** (Standardverbindungen), und wähle unter **Decision model**. Die Liste hat drei Gruppen:
+Öffne **Connections** (Verbindungen), dann **Defaults** (Standardwerte), und wähle unter **Decision model**. Die Liste hat drei Gruppen:
 
 - **None** (keines), der Standard. Es wird nichts gefragt, und die Felder für Aktivierungsfragen im Agenten-Editor bleiben deaktiviert.
 - **Local models** (lokale Modelle): das bereits laufende **Primary local model** (primäres lokales Modell) oder **Utility local model** (lokales Hilfsmodell). Nichts wird heruntergeladen und nichts verlässt deinen Rechner. Auch ein installierter **Decision sidecar** steht hier.
@@ -72,7 +72,7 @@ Beim Import von Inhalten mit Decisions zeigt Marinara einen Hinweis mit Link zu 
 
 Ein lokales Modell unter **Local Model** kannst du für Decisions verwenden, ohne eine Verbindung anzulegen oder Anfragen zu bezahlen.
 
-1. Öffne unter **Connections** die **Connection defaults** und setze **Decision model** auf **Primary local model** oder, falls eingerichtet, **Utility local model**.
+1. Öffne unter **Connections** die **Defaults** und setze **Decision model** auf **Primary local model** oder, falls eingerichtet, **Utility local model**.
 2. Klick auf **Test**. Bei Erfolg siehst du Wahrscheinlichkeit und Anfragezeit sowie zwei Angaben speziell für lokale Modelle: ob Log-Wahrscheinlichkeiten verfügbar waren und ob das Modell direkt antwortet.
 
 Marinara stellt eine einzelne Ja/Nein-Frage, lässt das Modell ein Token erzeugen und liest die Antwort aus dessen Wahrscheinlichkeiten. Es wird keine Chat-Antwort geschrieben, daher bleibt die Anfrage kurz. Eine Auswahl zwischen mehreren Antworten wird als eine Ja/Nein-Frage pro Antwort gestellt. Wie viele jüngste Nachrichten hineinpassen, richtet sich nach der Kontextgröße des jeweiligen Modellplatzes.

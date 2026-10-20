@@ -158,7 +158,7 @@ node scripts/run-regressions.mjs --filter logging-
 
 ### A4b. Windows起動
 
-**既存の仕組み。** 書き込みリースは`file-backed-store.ts`の`readBootId()`でOS起動を識別し、毎回PowerShell（Windowsで約1.5〜2秒）と`reg.exe`による識別照会を実行します。
+**既存の仕組み。** 書き込みリースは`file-backed-store.ts`の`readBootId()`でOS起動を識別し、毎回PowerShell（Windowsで約1.5～2秒）と`reg.exe`による識別照会を実行します。
 
 **追加内容。**
 
@@ -197,7 +197,7 @@ node scripts/run-regressions.mjs --filter logging-
 
 **既存の仕組み。** `packages/server/src/services/llm/rate-limit-aware-provider.ts`の`RateLimitAwareProvider`はレート制限を`MAX_RATE_LIMIT_RETRIES`までバックオフ付きで再試行し、`Retry-After`を尊重します。`connection-fallback-provider.ts`は代替接続へ切り替えます。両方正常ですが、接続拒否や502は生成失敗になっていました。
 
-**追加内容。** 接続拒否・到達不能、502/503を最大2回、0.5〜2秒のランダム待機で再試行します（`Retry-After`は最大5秒）。本文も推論もユーザーに届く前のみです。504やソケットリセットは対象外です。有効な代替を持つ主接続（`transientRetry: false`）には適用せず、切り替え速度を維持します。能力パッケージが`llm.withFallback`へ渡すような独自ラッパー付き主接続も除外します。A6以降は**Retry failed provider calls**（失敗したプロバイダー呼び出しを再試行）も使え、環境変数が優先します。
+**追加内容。** 接続拒否・到達不能、502/503を最大2回、0.5～2秒のランダム待機で再試行します（`Retry-After`は最大5秒）。本文も推論もユーザーに届く前のみです。504やソケットリセットは対象外です。有効な代替を持つ主接続（`transientRetry: false`）には適用せず、切り替え速度を維持します。能力パッケージが`llm.withFallback`へ渡すような独自ラッパー付き主接続も除外します。A6以降は**Retry failed provider calls**（失敗したプロバイダー呼び出しを再試行）も使え、環境変数が優先します。
 
 **変わらない点。** レート制限のスケジュール、ジッターなし、コールバックは同じです。`isRateLimitError`と`base-provider.ts`は変更しません。
 
@@ -233,7 +233,7 @@ CONTRIBUTINGの規則に従い、`import.routes.ts`のSillyTavernチャットヘ
 
 常時有効なバグ修正で、設定ではありません。
 
-**既存の仕組み。** `packages/server/src/app.ts`の`buildApp()`は主要ルートを登録し、`services/capability-packages/capability-module-runtime.service.ts`の`activateOne()`で各パッケージを有効化する`capabilityModuleRuntime.start(app)`を待ち、その後`startServerAutonomousScheduler(app)`を開始します。内部`app.inject()`は、`capability-route-registration.service.ts`の`runCapabilityInternalRoute()`経由のパッケージ、`server-autonomous-scheduler.service.ts`の自律スケジューラー、`routes/generate/prompt-preview.ts`で使います。最初の`inject()`でFastify全体が起動し、以後ルート、フック、プラグインを追加できません。`buildApp()`中に早期タイマーやワーカーが呼ぶと、後続パッケージが"Root plugin has already booted"で失敗し、次の`addHook`でサーバーも止まりました。`activateOne()`の`catch`は記録後`capabilityPackageManager.rollbackRuntime()`で戻すか、状態と準備状態`"error"`を保存します。正常なパッケージまで次回以降も旧版や`"error"`のままになる可能性がありました。
+**既存の仕組み。** `packages/server/src/app.ts`の`buildApp()`は主要ルートを登録し、`services/capability-packages/capability-module-runtime.service.ts`の`activateOne()`で各パッケージを有効化する`capabilityModuleRuntime.start(app)`を待ち、その後`startServerAutonomousScheduler(app)`を開始します。内部`app.inject()`は、`capability-route-registration.service.ts`の`runCapabilityInternalRoute()`経由のパッケージ、`server-autonomous-scheduler.service.ts`の自律スケジューラー、`routes/generate/prompt-preview.ts`で使います。最初の`inject()`でFastify全体が起動し、以後ルート、フック、プラグインを追加できません。`buildApp()`の登録中に、パッケージのタイマーや早く始まったワーカーなどのバックグラウンド処理が`inject()`を呼ぶと、後続パッケージが"Root plugin has already booted"で失敗し、次の`addHook`でサーバーも止まりました。`activateOne()`の`catch`は記録後`capabilityPackageManager.rollbackRuntime()`で戻すか、状態と準備状態`"error"`を保存します。正常なパッケージまで次回以降も旧版や`"error"`のままになる可能性がありました。
 
 **追加内容。**
 
@@ -243,7 +243,7 @@ CONTRIBUTINGの規則に従い、`import.routes.ts`のSillyTavernチャットヘ
 - `capability-module-runtime.service.ts`の`isHostLifecycleActivationError()`は`AVV_ERR_ROOT_PLG_BOOTED`（"Root plugin has already booted"）と`FST_ERR_INSTANCE_ALREADY_LISTENING`（"Fastify instance is already listening"）を認識します。これらではロールバックや状態／準備状態`"error"`の永続化をせず、版と状態を維持して次回通常どおり有効化します。warnは1回で、診断にも残します。他の失敗はerror、ロールバック、`"error"`を維持します。
 - 回帰テスト：`startup-inject-gate`。
 
-**変わらない点。** `buildApp()`後は`app.inject()`がラッパーなしのFastify本来の呼び出しに戻ります。引数なしのチェーン形式は保留しません。登録順、ルート、`runCapabilityInternalRoute()`、スケジューラー、起動後の有効化／更新は同じです。稼働中の例外は、UIから有効化したパッケージが新規ルートを加える場合です。`FST_ERR_INSTANCE_ALREADY_LISTENING`は従来どおり返しますが、新版は取り消さず次回起動用にインストールを維持します。呼び出し元はエラーを受け取ります。
+**変わらない点。** `buildApp()`後は`app.inject()`がラッパーなしのFastify本来の呼び出しに戻ります。引数なしのチェーン形式(`app.inject()`)は保留しません。登録順、ルート、`runCapabilityInternalRoute()`、スケジューラー、起動後の有効化／更新は同じです。稼働中の例外は、UIから有効化したパッケージが新規ルートを加える場合です。`FST_ERR_INSTANCE_ALREADY_LISTENING`は従来どおり返しますが、新版は取り消さず次回起動用にインストールを維持します。呼び出し元はエラーを受け取ります。
 
 **確認方法。**
 
@@ -304,6 +304,8 @@ node scripts/run-regressions.mjs --filter startup-inject-gate
 意図的に短い節です。各PRを開くときに同じ5項目で補います。
 
 <a id="pr-b-dev-mcp-for-coding-assistants"></a>
+
+Status: PR Aは#6647、PR Bは#6648としてマージされました。PR C(#6649)はマージされずにクローズされ、PR DからHは個別のプルリクエストとして作成されませんでした。以下のCからHの節は、書かれた時点の計画を説明したものです。この形で出荷された機能として読まないでください。
 
 ## PR B：コーディング支援用Dev MCP
 

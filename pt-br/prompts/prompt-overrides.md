@@ -27,7 +27,7 @@ Dois editores retráteis aparecem ali.
 
 Clique no título de um editor para expandi-lo.
 
-O editor **Video Generation Prompt Overrides** cuida dos modelos reaproveitáveis dos vídeos de cena do Game e da galeria, dos clipes de personagem das chamadas em Conversation e dos retratos animados de expressão. Cada modelo de prompt de vídeo controla como um tipo de clipe é descrito para o modelo de vídeo.
+O editor **Video Generation Prompt Overrides** cuida dos modelos reaproveitáveis dos vídeos de cena do Game e da galeria, das mensagens de vídeo do Conversation, dos clipes de personagem das chamadas em Conversation e dos retratos animados de expressão. Cada modelo de prompt de vídeo controla como um tipo de clipe é descrito para o modelo de vídeo.
 
 O editor **Image Generation Prompt Overrides** cuida dos modelos usados pelos sistemas de imagem, de sprite, do Game e do construtor de prompts. Isso inclui as selfies de Conversation, os retratos de NPC do Game, a arte de cena, os prompts de storyboard, o modelo **Noodle Post Image** para as publicações do Noodle e os demais construtores de imagem registrados. Cada modelo de prompt de imagem controla como um tipo de figura é descrito para o modelo de imagem.
 

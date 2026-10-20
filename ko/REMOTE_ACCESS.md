@@ -12,7 +12,7 @@
 
 Marinara는 데이터를 보호하기 위해, 접근 제어를 설정하기 전까지 새로 설치한 상태에서 다른 기기의 접속을 거부합니다. 기본적으로 신뢰하는 클라이언트는 3가지뿐입니다.
 
-1. 루프백(`127.0.0.1` 또는 `::1`), 즉 서버를 실행하는 컴퓨터 자신입니다.
+1. 루프백(`127.0.0.1` 또는 `::1`), 즉 서버를 실행하는 컴퓨터 자신입니다. 같은 컴퓨터의 리버스 프록시나 터널이 전달한 방문자는 여기에 포함되지 않습니다. [같은 컴퓨터의 리버스 프록시와 터널](#reverse-proxies-and-tunnels-on-the-same-computer)을 참고하세요.
 2. tailnet 안의 Tailscale 기기입니다. Tailscale은 사설 네트워크 도구이고, 주소는 `100.64.0.0/10` 범위를 씁니다.
 3. 같은 호스트의 Docker 클라이언트입니다. Marinara는 흔히 쓰는 `172.16.0.0/12` 브리지 범위와 컨테이너의 기본 게이트웨이 주소를 정확히 알아보며, 여기에는 Docker Desktop과 사용자 지정 주소 풀도 포함됩니다.
 
@@ -71,13 +71,16 @@ openssl rand -base64 24
 2. 브라우저가 물어보면 설정해 둔 사용자 이름과 비밀번호를 입력하세요.
 3. 앱이 열립니다. 브라우저는 세션이 끝날 때까지 로그인 정보를 기억합니다.
 
+15분 안에 서로 다른 잘못된 비밀번호를 10번 입력하면, Marinara는 15분이 지날 때까지 그 주소의 로그인을 **429 Too Many Requests**로 거부합니다. 그 전에 올바른 비밀번호를 입력하면 횟수가 초기화됩니다. 호스트의 리버스 프록시나 터널이 전달한 방문자는 횟수를 하나로 함께 세며, 그중 한 명이 로그인해도 횟수는 초기화되지 않습니다. 서버를 재시작해도 초기화됩니다. 전에 로그인한 적이 있는 브라우저는 올바른 비밀번호로 계속 들어올 수 있으므로, 다른 사람이 잘못된 비밀번호를 입력해도 이미 쓰고 있는 기기에서 잠기는 일은 없습니다.
+
 브라우저 입력창에는 기본적으로 **Marinara Engine**이 표시됩니다. 이 문구는 `BASIC_AUTH_REALM`으로 바꿀 수 있습니다.
 
 Basic Auth를 켜 두어도 비밀번호를 건너뛰는 클라이언트가 있습니다.
 
-- 루프백(`127.0.0.1`, `::1`)입니다. 그래서 서버를 돌리는 컴퓨터 자체에서는 비밀번호가 전혀 필요 없습니다.
+- 루프백(`127.0.0.1`, `::1`)입니다. 그래서 서버를 돌리는 컴퓨터 자체에서는 비밀번호가 전혀 필요 없습니다. 그 컴퓨터의 리버스 프록시나 터널이 전달한 방문자에게는 여전히 비밀번호가 필요합니다.
 - `IP_ALLOWLIST`에 들어 있는 주소입니다. 주의하세요. 허용 목록을 설정하면 목록에 없는 주소는 전부 차단됩니다(선택지 2 참고).
-- Tailscale(`100.64.0.0/10`)과 같은 호스트의 Docker 브리지/게이트웨이 트래픽입니다. 우회를 끄지 않는 한 그렇습니다.
+- 직접 들어오는 Tailscale 트래픽(`100.64.0.0/10`)입니다. 우회를 끄지 않는 한 그렇습니다.
+- Docker 브리지/게이트웨이 트래픽입니다. 단, `BYPASS_AUTH_DOCKER=true`를 설정했을 때만 그렇습니다. Basic Auth를 켜면 Docker 자동 신뢰는 꺼집니다([Tailscale과 Docker 우회](#tailscale-and-docker-bypass) 참고).
 - `/api/health` 주소입니다. 가동 상태 모니터가 계속 동작하도록 하기 위해서입니다. 비밀번호 없이 요청하면 기본 상태만 알려 주며, 로컬 모델이나 그래픽 카드 정보는 알려 주지 않습니다.
 
 중요: Basic Auth는 비밀번호를 인코딩할 뿐 암호화하지는 않습니다. 암호화되지 않은 통신을 들여다보는 사람은 비밀번호를 그대로 읽을 수 있습니다. Marinara를 공용 인터넷에 공개한다면 Basic Auth와 HTTPS를 함께 쓰세요(아래 참고).
@@ -95,8 +98,9 @@ IP_ALLOWLIST=192.168.1.0/24,203.0.113.42
 IP 허용 목록의 동작 방식입니다.
 
 - 목록에 없는 주소는 **403 Forbidden**으로 거부됩니다.
-- 루프백은 항상 허용되므로, 로컬 접근까지 막혀 스스로 갇히는 일은 없습니다.
-- Tailscale과 같은 호스트의 Docker 브리지/게이트웨이 트래픽도 목록을 건너뜁니다. 우회를 끄지 않는 한 그렇습니다(아래 참고).
+- 루프백은 항상 허용되므로, 로컬 접근까지 막혀 스스로 갇히는 일은 없습니다. 같은 컴퓨터의 리버스 프록시나 터널이 전달한 방문자는 루프백이 아니므로 허용 목록이 차단합니다. 프록시 뒤에서는 Basic Auth를 쓰세요.
+- Docker Desktop, OrbStack, rootless Docker에서는 모든 기기가 같은 게이트웨이 주소에서 컨테이너에 접근하므로 허용 목록으로 기기를 구분할 수 없습니다. 이런 환경에서는 Basic Auth를 쓰세요.
+- 직접 들어오는 Tailscale 트래픽도 목록을 건너뜁니다. 우회를 끄지 않는 한 그렇습니다. Docker 브리지/게이트웨이 트래픽은 `BYPASS_AUTH_DOCKER=true`를 설정했을 때만 목록을 건너뜁니다([Tailscale과 Docker 우회](#tailscale-and-docker-bypass) 참고).
 - 잘못된 항목은 무시하고 로그에 남깁니다. 서버가 멈추지는 않습니다.
 - Basic Auth를 켜도 허용 목록은 그대로 엄격하게 동작합니다. 목록에 있는 주소는 비밀번호 입력을 건너뜁니다. 나머지 주소는 여전히 **403 Forbidden**으로 차단되며 로그인 입력창조차 뜨지 않습니다.
 
@@ -122,6 +126,8 @@ ALLOW_UNAUTHENTICATED_PRIVATE_NETWORK=true
 
 범위가 더 넓은 `ALLOW_UNAUTHENTICATED_REMOTE=true` 플래그도 있습니다. 공용 인터넷을 포함해 어떤 주소에서든 비밀번호 없이 접근할 수 있게 만듭니다. 이 설정은 켜지 마세요. 공개 접근이 정말로 필요하다면 Basic Auth와 HTTPS를 함께 쓰거나, 로그인을 처리하는 리버스 프록시를 앞에 두세요.
 
+<a id="tailscale-and-docker-bypass"></a>
+
 ## Tailscale과 Docker 우회
 
 플래그 2개를 쓰면 Tailscale과 Docker에서 직접 오는 트래픽이 루프백처럼 IP 허용 목록과 Basic Auth를 모두 건너뜁니다. 자동 감지를 쓰려면 두 값을 비워 두세요.
@@ -132,6 +138,8 @@ BYPASS_AUTH_DOCKER=
 ```
 
 자동 모드는 직접 연결된 Tailscale 소켓의 양 끝이 모두 tailnet 주소를 쓸 때만 해당 피어를 신뢰합니다. Docker 트래픽은 Marinara가 컨테이너에서 실행 중이고 출처가 감지된 컨테이너 인터페이스나 그 인터페이스의 정확한 게이트웨이와 일치할 때만 신뢰합니다. 따라서 일반적인 비공개 Tailscale과 같은 호스트의 Docker 구성은 계속 작동하지만, 관련 없는 CGNAT, LAN, 호스트 네트워크, 프록시 트래픽을 인증된 것으로 처리하지 않습니다.
+
+Docker 자동 신뢰는 Basic Auth와 `IP_ALLOWLIST`가 모두 설정되지 않은 동안에만 적용됩니다. Docker Desktop, OrbStack, rootless Docker는 공개된 포트를 여는 모든 기기를 컨테이너의 게이트웨이를 통해 전달하므로, Marinara는 내 브라우저와 네트워크에 있는 휴대폰이나 낯선 사람을 구분할 수 없습니다. 비밀번호나 허용 목록을 설정하면 호스트의 브라우저를 포함한 모든 Docker 클라이언트가 그 검사를 통과해야 합니다. 공개된 포트에 닿을 수 있는 모든 기기를 신뢰할 때만 `BYPASS_AUTH_DOCKER=true`를 설정하세요.
 
 해당 클라이언트에도 일반적인 Basic Auth와 IP 허용 목록 검사를 적용하려면 플래그를 `false`로 설정하세요. 자동 감지를 쓸 수 없을 때 예전의 넓은 우회를 유지하려면 `true`로 설정하세요. 그러면 Tailscale은 `100.64.0.0/10` 전체를 신뢰하고 Docker는 감지된 인터페이스와 게이트웨이뿐 아니라 예전 `172.16.0.0/12` 범위도 신뢰합니다. 일치하는 모든 피어를 신뢰할 수 있을 때만 이 호환 모드를 쓰세요.
 
@@ -147,7 +155,7 @@ BYPASS_AUTH_TAILSCALE=false
 BYPASS_AUTH_DOCKER=false
 ```
 
-Docker 브리지나 감지된 게이트웨이에 있는 리버스 프록시 또는 터널 컨테이너 뒤에 Marinara를 두는 경우도 있습니다. 전달 헤더(`Forwarded`, `X-Forwarded-For`, `X-Real-IP`, `X-Forwarded-Host`, `X-Forwarded-Proto`)가 붙어 있으면 그 Docker 피어가 다른 클라이언트를 대신하고 있다는 뜻입니다. 그래서 Marinara는 기본적으로 평소대로 Basic Auth와 IP 허용 목록을 검사합니다.
+Docker 브리지나 감지된 게이트웨이에 있는 리버스 프록시 또는 터널 컨테이너 뒤에 Marinara를 두는 경우도 있습니다. `Forwarded`, `X-Forwarded-For`, `X-Real-IP`, `X-Forwarded-Host`, `X-Forwarded-Proto` 같은 전달 헤더가 붙어 있으면 그 Docker 피어가 다른 클라이언트를 대신하고 있다는 뜻입니다. 그래서 Marinara는 기본적으로 평소대로 Basic Auth와 IP 허용 목록을 검사합니다.
 
 ```env
 REQUIRE_AUTH_FOR_DOCKER_PROXY=true
@@ -156,6 +164,34 @@ REQUIRE_AUTH_FOR_DOCKER_PROXY=true
 예전 방식의 우회로 되돌리려면 이 값을 `false`로 설정하세요. 전달된 클라이언트는 Docker의 비밀번호 없는 상태를 그대로 물려받으므로, 프록시에 닿을 수 있는 모든 클라이언트를 신뢰할 수 있을 때만 그렇게 하세요.
 
 이 우회로 요청이 처음 통과하면 서버가 `[auth-bypass]` 경고를 로그에 남깁니다. 이 경고는 우회가 동작 중이라는 뜻입니다.
+
+<a id="reverse-proxies-and-tunnels-on-the-same-computer"></a>
+
+## 같은 컴퓨터의 리버스 프록시와 터널
+
+nginx, Caddy, Traefik, Cloudflare Tunnel, Tailscale Serve 또는 Funnel, ngrok처럼 Marinara를 실행하는 컴퓨터에 있는 리버스 프록시나 터널은 루프백에서 Marinara에 연결합니다. Marinara는 프록시가 추가하는 전달 헤더를 보고 이를 알아봅니다. 이런 헤더에는 `Forwarded`, `X-Forwarded-For`, `X-Real-IP`, `X-Forwarded-Host`, `X-Forwarded-Proto`, `CF-Connecting-IP`, `True-Client-IP`, Tailscale 신원 헤더, `Via`가 있습니다. 그러면 Marinara는 각 요청을 실제 그대로 원격 방문자로 취급합니다.
+
+- Basic Auth가 적용되므로 `BASIC_AUTH_USER`와 `BASIC_AUTH_PASS`를 설정하세요. 설정하지 않으면 방문자에게 설정 안내 페이지가 표시됩니다.
+- 프록시가 실제 주소를 가리므로 `IP_ALLOWLIST`는 전달된 방문자를 차단합니다.
+- 권한이 필요한 동작에는 관리자 시크릿이 필요하고, 루프백 전용 기능은 계속 쓸 수 없습니다.
+
+그 컴퓨터에서 `http://127.0.0.1:7860`이나 `http://localhost:7860`으로 연 내 브라우저는 계속 비밀번호 없이 쓸 수 있습니다.
+
+Caddy, Traefik, Cloudflare Tunnel, Tailscale, ngrok은 기본적으로 전달 헤더를 추가합니다. nginx라면 `location` 블록에 다음 줄을 추가하세요.
+
+```nginx
+proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+```
+
+`socat`이나 `ssh -R`처럼 연결을 그대로 전달하는 도구는 헤더를 추가하지 않으므로 그 트래픽이 로컬처럼 보입니다. 이런 도구로 Marinara를 공개하지 마세요.
+
+프록시가 전달하기 전에 이미 모든 방문자에게 로그인을 요구한다면, 그 트래픽에 대한 Marinara 자체 검사를 건너뛸 수 있습니다.
+
+```env
+REQUIRE_AUTH_FOR_LOOPBACK_PROXY=false
+```
+
+이렇게 하면 방문자는 호스트 컴퓨터와 똑같은 전체 접근 권한을 얻으며, 관리자 시크릿 없이 권한이 필요한 동작도 할 수 있습니다. 프록시 자체 로그인이 모든 경로를 보호할 때만 이렇게 하세요.
 
 ## HTTPS로 서비스하기
 
@@ -170,7 +206,7 @@ SSL_CERT=/path/to/cert.pem
 SSL_KEY=/path/to/key.pem
 ```
 
-2. 리버스 프록시입니다. nginx, Caddy, Traefik, Cloudflare Tunnel 뒤에 Marinara를 둡니다. 프록시가 HTTPS를 처리하고, 같은 컴퓨터 안에서 일반 HTTP로 Marinara에 전달합니다.
+2. 리버스 프록시입니다. nginx, Caddy, Traefik, Cloudflare Tunnel 뒤에 Marinara를 둡니다. 프록시가 HTTPS를 처리하고, 같은 컴퓨터 안에서 일반 HTTP로 Marinara에 전달합니다. 먼저 [같은 컴퓨터의 리버스 프록시와 터널](#reverse-proxies-and-tunnels-on-the-same-computer)을 읽어 보세요.
 
 `SSL_CERT`와 `SSL_KEY`를 설정하려면 먼저 인증서와 키가 있어야 합니다. 로컬에서 쓸 때는 `mkcert`, 공개 도메인에는 `certbot` 같은 도구로 만들 수 있습니다. 파일이 없거나 읽을 수 없으면 서버가 시작하다가 멈추고, 어떤 경로를 찾아봤는지 정확히 알려 줍니다.
 

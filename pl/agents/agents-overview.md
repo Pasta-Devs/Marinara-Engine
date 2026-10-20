@@ -36,7 +36,7 @@ Przy aktualizacji z wersji, która miała te funkcje wbudowane, Marinara pobiera
 
 ### Aktualizowanie pakietów
 
-Marinara pyta, zanim zaktualizuje pakiet. Gdy jest dostępna nowsza zgodna wersja zainstalowanego pakietu, pojawia się okno **Agent updates available** (dostępne aktualizacje agentów). Wymienia każdą aktualizację z jej nową wersją i informacją, czy wymaga restartu. Jeśli pakiet publikuje informacje o zmianach, pokazuje je sekcja **What changed** (co się zmieniło). Kropka oznacza zmianę, którą zauważysz; aktualizacje bez kropki to rutynowe poprawki.
+Marinara pyta, zanim zaktualizuje pakiet. Gdy jest dostępna nowsza zgodna wersja zainstalowanego pakietu, pojawia się okno **Agent updates available** (dostępne aktualizacje agentów). Wymienia każdą aktualizację z jej nową wersją i informacją, czy wymaga restartu. Jeśli pakiet publikuje informacje o zmianach, pokazuje je sekcja **What changed** (co się zmieniło). Jeśli aktualizacja przeskakuje wersje, **What changed** wymienia informacje o zmianach z każdej wersji od twojej, zaczynając od najnowszej, i pokazuje, ile ich jest. Długa informacja jest skracana; wybierz **More** (więcej), żeby przeczytać całość. Kropka oznacza zmianę, którą zauważysz; aktualizacje bez kropki to rutynowe poprawki.
 
 - Kliknij przycisk **Update all** (aktualizacja wszystkich), żeby zainstalować wszystkie wymienione aktualizacje. Gdy pojawi się prośba o restart, uruchom ponownie aplikację Marinara Engine.
 - Kliknij przycisk **Not now** (nie teraz), żeby zachować obecne wersje. Marinara nie pyta ponownie o pominiętą wersję.
@@ -89,7 +89,7 @@ Zgodnych agentów da się dodawać i usuwać w każdej chwili.
 Część agentów zmienia coś od razu widocznego. Inni pracują po cichu. Oto sposoby na sprawdzenie.
 
 - Agenci trackerów zapisują dane na pasku HUD i w panelach trackerów. Jeśli godzina, miejsce, nastrój albo statystyki się zmieniły, tracker zadziałał.
-- Pływający pasek stanu pokazuje krótkie komunikaty agentów w trakcie pracy, więc ich działanie widać na bieżąco.
+- Sekcja **Agent activity** (Aktywność agentów) w **Chat Settings** wymienia krótkie notatki od agentów. W trakcie ich pracy jej ikona zmienia się we wskaźnik ładowania, a gdy któryś agent zawiedzie, pojawia się na niej kropka. Zobacz [Agent activity](../roleplay/getting-started.md#agent-activity).
 - Agenci **Prose Guardian** i **Continuity Checker** zmieniają sam tekst odpowiedzi. Oczyszczona albo poprawiona odpowiedź to znak, że zadziałali.
 - Pełny ślad daje przełącznik **Debug mode** (tryb diagnostyczny) w **Settings** (Ustawienia), dalej **Advanced**, dalej **Message Tools**. Zapisuje on prompt i odpowiedź każdego agenta w konsoli serwera. Pokazuje też nakładkę **Agent Debug** z wywołaniami, tokenami i czasami dla poszczególnych agentów.
 

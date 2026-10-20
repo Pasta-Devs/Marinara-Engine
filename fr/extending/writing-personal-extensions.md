@@ -98,7 +98,7 @@ Utilise ce fichier `extension.css` pour mettre en forme la fenêtre iframe restr
 Importe ensuite l'extension et exécute-la :
 
 1. Ouvre **Settings** > **Addons** > **External Extensions**.
-2. Choisis **Import Folder** et sélectionne `Hello Panel`, ou compresse le dossier et importe le fichier ZIP.
+2. Choisis **Import Extension Folder** (importer un dossier d'extension) et sélectionne `Hello Panel`, ou compresse le dossier et importe le fichier ZIP avec **Import Extension File** (importer un fichier d'extension).
 3. Ouvre le brouillon désactivé et examine son manifeste et son code JavaScript.
 4. Choisis **Review and Run** et approuve l'empreinte exacte affichée.
 5. Ouvre le menu Extensions et sélectionne **Hello Panel**.

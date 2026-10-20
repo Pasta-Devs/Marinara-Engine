@@ -27,7 +27,7 @@ Widać tam dwa zwijane edytory.
 
 Kliknij tytuł edytora, żeby go rozwinąć.
 
-Edytor **Video Generation Prompt Overrides** obsługuje szablony wideo ze scen w trybie Game Mode i w galerii, klipów postaci z rozmów w trybie Conversation oraz animowanych portretów z wyrazem twarzy. Każdy szablon promptu wideo decyduje o tym, jak opisujemy modelowi wideo jeden rodzaj klipu.
+Edytor **Video Generation Prompt Overrides** obsługuje szablony wideo ze scen w trybie Game Mode i w galerii, wiadomości wideo w trybie Conversation, klipów postaci z rozmów w trybie Conversation oraz animowanych portretów z wyrazem twarzy. Każdy szablon promptu wideo decyduje o tym, jak opisujemy modelowi wideo jeden rodzaj klipu.
 
 Edytor **Image Generation Prompt Overrides** obsługuje szablony używane przez systemy obrazów, sprite'ów, trybu Game Mode i kreatora promptów. Obejmuje to selfie z trybu Conversation, portrety postaci NPC w trybie Game Mode, grafiki scen, prompty do storyboardów, szablon **Noodle Post Image** dla postów w sieci Noodle oraz pozostałe zarejestrowane generatory obrazów. Każdy szablon promptu obrazu decyduje o tym, jak opisujemy modelowi graficznemu jeden rodzaj obrazka.
 

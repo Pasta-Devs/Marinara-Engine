@@ -20,7 +20,7 @@ El panel tiene tres botones en la parte superior:
 - **Import** (Importar; icono de descarga): carga un preset desde un archivo `.json`.
 - **Select** (Seleccionar; icono de marca): elige varios presets para exportarlos o borrarlos a la vez.
 
-Debajo de los botones hay una casilla **Search presets** (Buscar presets) y un menú de orden con **A-Z**, **Z-A**, **Newest** y **Oldest**. Un botón **New Folder** (Nueva carpeta) te deja agrupar presets en carpetas. Arrastra un preset sobre una carpeta para moverlo. Haz doble clic o doble toque en una carpeta para cambiarle el nombre.
+Debajo de los botones hay una casilla **Search presets** (Buscar presets) y un menú de orden con **Manual order** (Orden manual), **A-Z**, **Z-A**, **Newest** y **Oldest**. **Manual order** conserva el orden que tú fijes: arrastra la fila de un preset hacia arriba o hacia abajo, o pulsa Alt+Arriba o Alt+Abajo en una fila con el foco. Un botón **New Folder** (Nueva carpeta) te deja agrupar presets en carpetas. Arrastra un preset sobre una carpeta para moverlo. En una pantalla táctil, mantén pulsada una fila para tomarla. Haz doble clic o doble toque en una carpeta para cambiarle el nombre.
 
 Cada fila de preset muestra su nombre, formato de envoltura, número de secciones y autor. Aparece una insignia **DEFAULT** si el preset es el predeterminado marcado con estrella. Haz clic en una fila de preset para abrirlo en el **Preset Editor**.
 
@@ -40,13 +40,15 @@ El editor no guarda por su cuenta. Tus cambios solo se conservan después de que
 
 Para exportar un preset, ábrelo y haz clic en el botón de exportar (icono de flecha hacia arriba) en la barra superior. Marinara te pide guardar primero si tienes ediciones sin guardar. Para borrar un preset, usa el icono de papelera en la barra superior.
 
-## Las pestañas Overview, Sections y Prompts
+## Las cinco pestañas del Preset Editor
 
-El **Preset Editor** tiene tres pestañas.
+El **Preset Editor** tiene cinco pestañas.
 
 - **Overview** (Resumen): el nombre del preset, la descripción, el formato de envoltura y el autor.
 - **Sections**: la estructura real del prompt, construida a partir de bloques y marcadores.
 - **Prompts**: los prompts de modo que usan los chats de Conversation y Game.
+- **Parameters** (Parámetros): los ajustes de generación iniciales para los chats que usan este preset. Consulta [Parámetros de generación](generation-parameters.md).
+- **Regex**: los scripts de regex vinculados a este preset y el **Scoped regex default** (Valor predeterminado de los regex limitados). Consulta [Scripts de regex](../extending/regex-scripts.md).
 
 ### Pestaña Overview
 

@@ -65,7 +65,7 @@ El paso de revisión confirma lo mismo. Muestra esta nota: "Animated portrait sp
 
 Las expresiones animadas tardan más que los sprites fijos. Marinara las genera una expresión a la vez, no en lote. Elegir muchas expresiones a la vez puede tardar un rato, así que empieza con unas pocas.
 
-Si activaste **Expose media prompts before sending** (en **Settings**, en la sección **Image Generation**), Marinara se detiene en un paso de revisión del prompt. Puedes leer y editar cada prompt antes de que Marinara lo envíe al proveedor. Deja este ajuste desactivado para saltarte la revisión.
+Si activaste **Expose media prompts before sending** (en **Settings**, en la sección **Overall Generations** (Generaciones generales)), Marinara se detiene en un paso de revisión del prompt. Puedes leer y editar cada prompt antes de que Marinara lo envíe al proveedor. Deja este ajuste desactivado para saltarte la revisión.
 
 ## Solución de problemas
 

@@ -33,6 +33,8 @@ Puede que un modelo de lenguaje local y un modelo de imagen no quepan al mismo t
 
 Un flujo de trabajo en formato API es diferente del flujo de trabajo normal del editor visual. Sus claves de nivel superior son IDs de nodo, y cada nodo normalmente contiene `class_type` e `inputs`. Exporta la versión API; no pegues el archivo del flujo de trabajo normal que contiene el diseño visual del editor.
 
+<a id="comfyui-video-workflows"></a>
+
 ## Flujos de trabajo de video de ComfyUI
 
 Crea una conexión de **Video Generation** (Generación de video), elige **ComfyUI** y pega un flujo de trabajo en formato API en el campo obligatorio **ComfyUI Workflow**. WAN 2.2 y otros grafos de video locales son compatibles siempre que el mismo flujo de trabajo se ejecute en ComfyUI y guarde un MP4 mediante una salida como el nodo central **SaveVideo**.
@@ -164,6 +166,7 @@ Esto puede producir resultados más consistentes que un solo flujo de trabajo ge
 | El trabajo se completa pero Marinara no recibe ninguna imagen | Agrega una salida **SaveImage** conectada y prueba de nuevo el flujo de trabajo directamente en ComfyUI.                                                                                                                     |
 | Un nodo de imagen de referencia falla             | Para un nodo **LoadImage** local normal, usa un marcador de posición `%reference_image_name...%`. Usa base64 sin procesar solo con un nodo diseñado para ello, y confirma que la función de Marinara realmente proporcionó una referencia. |
 | Una URL de ComfyUI remota o de LAN está bloqueada | Para las conexiones de imagen, activa `IMAGE_LOCAL_URLS_ENABLED`. Haz que ComfyUI escuche en la interfaz de red y revisa el firewall del host. No expongas un servidor de ComfyUI sin autenticación a la internet pública.    |
+| Error: `Outbound response exceeded N bytes`      | La respuesta superó el límite configurado, que es de 30 MiB de forma predeterminada. Los metadatos incrustados del flujo de trabajo o de las imágenes de referencia pueden causarlo. Desactiva los metadatos en ComfyUI, o sube `IMAGE_GEN_MAX_RESPONSE_BYTES` en el `.env` de Marinara y reinicia Marinara. |
 | Una generación de imagen larga agota el tiempo de espera | Aumenta `COMFYUI_GEN_TIMEOUT` en el `.env` de Marinara. El valor se mide en segundos y es `2400` de forma predeterminada.                                                                                                     |
 | Una generación de video larga agota el tiempo de espera | Aumenta `VIDEO_GEN_TIMEOUT_MS` en el `.env` de Marinara. El valor se mide en milisegundos y es `1800000` (30 minutos) de forma predeterminada.                                                                                |
 | La generación se queda sin memoria de GPU         | Reduce las dimensiones de la imagen o el tamaño del modelo, descarga el modelo de lenguaje local, usa un modelo de lenguaje remoto, o mueve ComfyUI a otro dispositivo.                                                       |

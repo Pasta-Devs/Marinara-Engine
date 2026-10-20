@@ -12,8 +12,8 @@ El Local Model es pequeño a propósito. Está pensado para trabajo de ayudante 
 - Efectos de escena en el Game Mode, como fondos, música y clima.
 - Embeddings (representación numérica del texto) de lorebooks para la búsqueda semántica.
 - Transcripción del micrófono en las llamadas de Conversation, a través de un modelo de voz aparte.
-
 - Responder preguntas de activación y declaraciones de decisión, si lo eliges como tu Decision model. Consulta [Modelos de decisión](decision-models.md).
+
 La ventana de configuración lo llama **Local AI Model**. Los menús desplegables de conexión lo llaman **Local Model (sidecar)**. Son la misma función.
 
 No deberías usar el Local Model para el chat principal, el roleplay, la narración del Game Master ni las ediciones de Professor Mari. Es demasiado pequeño para dar buenos resultados ahí. Usa una conexión más potente para esas tareas. Consulta [Conectarse a un proveedor de IA](connecting-to-a-provider.md).
@@ -180,6 +180,8 @@ Para configurarlo:
 Para quitar solo el modelo seleccionado, haz clic en el botón de papelera titulado **Delete Local Whisper**. Desinstalar Calls quita todas las opciones de Whisper descargadas y su selección guardada automáticamente para recuperar su espacio en disco. Si reinstalas Calls más tarde, los controles del Local Speech Model regresan y puedes descargar Whisper de nuevo.
 
 Tu audio grabado nunca sale de tu máquina. Solo el texto transcrito se envía a la conexión de chat que elijas. Para usarlo en una llamada, ajusta el modo de entrada de audio de la llamada a la opción Local Whisper. Consulta [Llamadas de audio y video de Conversation](../conversation/calls.md).
+
+Si activas la tarjeta **Speech to Text** (Voz a texto) en Connections, ese modo de llamada envía tu voz al servidor que indicaste allí en lugar de a Local Whisper. Consulta [Usar tu propio servidor de voz a texto](../conversation/calls.md#use-your-own-speech-to-text-server).
 
 ## Solución de problemas
 

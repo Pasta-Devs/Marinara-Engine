@@ -16,6 +16,8 @@ Los paquetes de idioma de la interfaz se descargan por separado y de forma manua
 
 Para saber dónde viven tus datos y cómo guardar una copia, consulta [Copia de seguridad y restauración de Marinara](data/backup-and-restore.md).
 
+<a id="back-up-first"></a>
+
 ## Haz primero una copia de seguridad
 
 Las actualizaciones son seguras, pero una copia de seguridad es un seguro barato. Haz una antes de cualquier salto grande entre versiones.
@@ -29,6 +31,14 @@ Las actualizaciones son seguras, pero una copia de seguridad es un seguro barato
 Deberías ver que el botón cambia a **Creating backup…** mientras trabaja. Cuando termina, tu navegador guarda un archivo `.zip` con tus datos.
 
 Los pasos completos para copias de seguridad y restauración están en [Copia de seguridad y restauración de Marinara](data/backup-and-restore.md).
+
+## Actualizar desde 2.5.0
+
+Los pasos para cada plataforma de abajo son los mismos que antes. Algunos cambios pueden afectar a un servidor que usan otros dispositivos u otras personas:
+
+- **Un proxy inverso o un túnel en la misma computadora.** De forma predeterminada, los visitantes que nginx, Caddy, Cloudflare Tunnel, Tailscale Serve o ngrok pasan a Marinara ahora cuentan como remotos. Sin Basic Auth ven la página de configuración, y las copias de seguridad y otras acciones protegidas necesitan el secreto de administrador. Consulta [Proxies inversos y túneles en la misma computadora](REMOTE_ACCESS.md#reverse-proxies-and-tunnels-on-the-same-computer).
+- **Docker con contraseña o con lista permitida.** Con Basic Auth configurado, el navegador de la computadora host ahora también pide el inicio de sesión. Si solo está configurado `IP_ALLOWLIST`, el navegador del host se rechaza salvo que añadas a la lista la puerta de enlace del contenedor, así que usa Basic Auth en su lugar. Consulta [Bypass de Tailscale y Docker](REMOTE_ACCESS.md#tailscale-and-docker-bypass).
+- **Chats y perfiles llevados a otra instalación.** Un registro de chat, un perfil de ajustes o un perfil completo ya no lleva su **Discord Mirror**, **DeepLX URL** (URL de DeepLX), **DeepL API Key** (API key de DeepL) ni **Intiface URL** (URL de Intiface) a otra instalación. Vuelve a introducirlos allí. Tus propios perfiles de ajustes, y un perfil completo restaurado en la misma instalación, los conservan.
 
 ## Actualizar según la plataforma
 
@@ -155,7 +165,7 @@ El botón **Apply Update** (Aplicar actualización) aparece solo cuando tu insta
 - Una instalación basada en git (Docker y las instalaciones empaquetadas no pueden actualizar de esta forma).
 - El propietario del servidor definió `UPDATES_APPLY_ENABLED=true` en el archivo `.env` del servidor. Un archivo `.env` contiene la configuración del servidor.
 
-Si haces clic en **Apply Update** en la máquina que ejecuta el servidor, con esto basta. Ahí no se necesita ningún secreto.
+Si haces clic en **Apply Update** en la máquina que ejecuta el servidor, con esto basta. Ahí no se necesita ningún secreto. Esto significa abrir Marinara en `http://127.0.0.1:7860` o `http://localhost:7860`, y lo mismo vale para el cambio de canal de arriba. De forma predeterminada, una dirección servida por un proxy inverso o un túnel cuenta como otro dispositivo, aunque esté en la misma computadora. Si configuras `REQUIRE_AUTH_FOR_LOOPBACK_PROXY=false`, esos visitantes reenviados se tratan como locales, incluida la excepción local del secreto de administrador; mantenlo activado para un proxy o un túnel públicos.
 
 Aplicar desde un dispositivo distinto está desactivado de forma predeterminada. Necesita las tres condiciones siguientes.
 
@@ -183,11 +193,21 @@ Usa **Refresh App** cuando la app se ve desactualizada o muestra una pantalla en
 
 El botón muestra **Refreshing…** mientras trabaja, y luego la app se vuelve a cargar.
 
+<a id="downgrading-to-an-older-version"></a>
+
 ## Volver a una versión anterior
 
 Actualizar siempre es seguro, pero no siempre es posible volver atrás directamente. Las versiones nuevas de Marinara guardan los mensajes de chat en un formato de disco más reciente, y una versión anterior al formato de tus datos no puede leerlos. Para proteger tu historial, el lanzador omite las actualizaciones automáticas que llevarían a una versión incompatible y el actualizador de la app se niega a aplicarlas.
 
 Si necesitas una versión anterior de todos modos, un comando de conversión devuelve primero tus datos al formato antiguo. Consulta [Los chats no muestran mensajes después de cambiar a una versión anterior](TROUBLESHOOTING.md#chats-show-no-messages-after-switching-to-an-older-version) para ver los pasos.
+
+<a id="going-back-to-250"></a>
+
+### Volver a 2.5.0
+
+La versión 2.5.0 usa el mismo formato de almacenamiento que las versiones posteriores, así que volver a ella no está bloqueado y abre tus chats con normalidad. Sin embargo, no conoce los datos que añadieron las funciones más nuevas: algunos ajustes de conexión, los detalles que se usan para regenerar las imágenes del chat, y partes de los puntos de control de las partidas, de los relojes de los conjuntos de reglas y de los videos de escena. Cuando 2.5.0 guarda un chat o una conexión, por ejemplo cuando envías un mensaje, juegas un turno de una partida, creas una imagen o cambias una conexión, elimina esos datos más nuevos de todo el chat o de toda la conexión. Volver a actualizar no los recupera.
+
+Para poder volver exactamente adonde estabas, haz una copia de seguridad antes de actualizar. Consulta [Haz primero una copia de seguridad](#back-up-first) y [Copia de seguridad y restauración de Marinara](data/backup-and-restore.md).
 
 ## Si una actualización falla
 

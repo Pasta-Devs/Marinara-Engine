@@ -98,7 +98,7 @@ marinara.onCleanup(() => panel.remove());
 이제 확장 기능을 가져와 실행하세요.
 
 1. **Settings** > **Addons** > **External Extensions**를 여세요.
-2. **Import Folder**를 선택해 `Hello Panel`을 지정하거나, 폴더를 ZIP으로 압축해 가져오세요.
+2. **Import Extension Folder**(확장 폴더 가져오기)를 선택해 `Hello Panel`을 지정하거나, 폴더를 ZIP으로 압축한 뒤 **Import Extension File**(확장 파일 가져오기)로 가져오세요.
 3. 비활성화된 초안을 열어 매니페스트와 JavaScript를 검사하세요.
 4. **Review and Run**을 선택하고 표시된 정확한 해시를 승인하세요.
 5. Extensions 메뉴를 열고 **Hello Panel**을 선택하세요.

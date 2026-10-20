@@ -13,7 +13,7 @@ Marinara Engine의 기본 배포본은 선택 설치 에이전트와 기능 구�
 에이전트 패키지 하나는 선언형 에이전트를 하나 이상 제공할 수 있고, 신뢰된 실행 코드 기능을 함께 담을 수도 있습니다:
 
 - 라우트, 수명 주기 훅, 프롬프트 제공, 결과 처리, 저장소 마이그레이션을 담당하는 서버 진입점;
-- 패널, 채팅 화면, 설정 섹션, 설정 마법사 선택지, 실행 중 표시를 담당하는 클라이언트 진입점;
+- 패널, 채팅 화면, 설정 섹션, 설정 마법사 선택지, 실행 중 표시, 전체 Game Mode 화면을 담당하는 클라이언트 진입점;
 - 공유 JSON 스키마와 안정적인 통신 규약;
 - 패키지가 소유하는 리소스, 문서, Professor Mari 지식 조각.
 
@@ -44,6 +44,72 @@ Capability API 1.2에서는 트랜잭션 범위의 채팅/메시지 작업, 좁�
 조건에 맞는 로어 항목 선택, JSON 형태의 응답 파싱, 해석이 끝난 언어
 모델 호출도 사용할 수 있습니다. 연결 자격 증명, 제공자 구현, 데이터베이스
 핸들, 저장소 객체는 엔진 전용으로 남습니다.
+
+### 호스트 클라이언트 네임스페이스
+
+Engine은 자체 클라이언트 상태와 라이브러리를 소유하며, 에이전트 패키지 클라이언트는 사본을 번들에 넣지 않고 이를 그대로 사용합니다. 사본은 자기만의 상태를 따로 가집니다. UI 설정 스토어를 번들에 넣은 패키지 클라이언트는 불러올 때마다 그 스토어의 오래된 버전으로 Engine 설정을 덮어썼고(Pasta-Devs/Marinara-Agents#1478), 번들에 넣은 채팅 스토어는 저마다 페이지를 불러올 때 열려 있던 채팅을 계속 붙들고 있었습니다.
+
+Engine은 첫 패키지 클라이언트를 가져오기 전에 전역 변수 하나를 정의합니다.
+
+```ts
+globalThis.__MARINARA_HOST__ = {
+  version: 1,
+  capabilityApi,
+  stores,
+  services,
+  modules,
+  queryClient,
+  components,
+  data,
+  api,
+};
+```
+
+이 속성은 쓰기도 재정의도 할 수 없으며, 네임스페이스와 그 안의 `stores`, `services`, `modules`, `components`, `data` 객체는 동결되어 있습니다. 패키지 로더(`useCapabilityClientModules`)는 패키지 클라이언트를 가져오기 전에 `import()`로 `lib/marinara-host.ts`를 불러오고 `ensureMarinaraHost()`를 기다리므로, 패키지 모듈이 평가될 때는 네임스페이스가 이미 완성되어 있습니다. 패키지 클라이언트가 없는 Engine은 이 파일을 아예 불러오지 않습니다. 이 파일을 불러오지 못하면(예: 업데이트 뒤에 남은 오래된 청크) 각 패키지는 기존의 로드 오류를 표시하고, Engine의 나머지 부분은 계속 동작합니다. TypeScript 타입은 `packages/client/src/lib/marinara-host-contract.ts`의 `MarinaraHostV1`이며, 이 페이지의 목록도 같은 파일에 함께 있습니다. 패키지 빌드는 Engine 소스를 가져오지 않고, 이에 맞는 구조적 타입을 직접 선언합니다.
+
+| 멤버 | 값 |
+| --- | --- |
+| `version` | `1`. 형태가 호환되지 않게 바뀔 때만 바뀝니다. |
+| `capabilityApi` | Engine의 `supportedCapabilityApi`입니다. 예: `{ major: 1, minor: 341 }`. |
+| `stores` | 실제로 동작 중인 zustand 스토어 `ui`, `chat`, `agent`, `sidecar`, `dialog`, `gallery`, `encounter`, `gameState`, `backfill`입니다. `chat`에는 대기 중인 공간 전환 슬라이스가 포함됩니다. |
+| `services.tts` | `lib/tts-service.ts` 모듈(`ttsService`, `playWhenAvailable`, ...)입니다. |
+| `services.dialogs` | `lib/app-dialogs.ts` 모듈(`showAlertDialog`, `showConfirmDialog`, `showPromptDialog`, `showChoiceDialog`)입니다. |
+| `modules` | 베어 지정자를 키로 하는 라이브러리 모듈입니다(아래 참고). |
+| `queryClient` | Engine이 렌더링에 쓰는 단 하나의 React Query `QueryClient`입니다. |
+| `components.Modal` | 오버레이 순서, Escape 키와 뒤로 가기 버튼 처리를 갖춘 Engine의 `Modal`입니다. |
+| `data.emojiCatalog` | `lib/emoji-catalog.generated.ts` 모듈입니다. |
+| `api` | `lib/api-client.ts` 모듈(`api`, `ApiError`, `getApiErrorMessage`, ...)입니다. |
+
+패키지는 멤버를 확인한 뒤에만 읽습니다. 예를 들면
+`const host = globalThis.__MARINARA_HOST__; if (host?.version === 1 && typeof host.stores?.ui?.getState === "function")`처럼 확인합니다.
+네임스페이스는 늘어나기만 합니다. 새 멤버는 Capability API 마이너 버전과 함께 추가되며, 그 멤버가 필요한 패키지는 해당 마이너 버전을 요구합니다. 네임스페이스에 맞춰 빌드한 패키지는 네임스페이스를 추가한 Capability API 버전을 요구하므로, 오래된 Engine은 이런 패키지를 설치하지 않고 이미 있는 버전을 유지합니다. 그래도 멤버가 없으면, 패키지는 상태를 가진 Engine 서비스의 번들 사본으로 절대 대체하지 않습니다. `ui`와 `chat` 스토어는 절대 쓰지 않는 읽기 전용 사본이 되고, 나머지 멤버는 모두 이 기능에 더 새로운 Marinara Engine이 필요하다고 알립니다.
+
+**호스트 모듈.** `modules[specifier]`는 Engine 자체 빌드에서 `import * as m from "<specifier>"`가 반환하는 것과 정확히 같으며, 라이브러리에 `default`가 있으면 그것도 포함합니다. 지정자는 `react`, `react/jsx-runtime`, `react-dom`, `react-dom/client`, `@tanstack/react-query`, `zustand`, `zustand/middleware`, `sonner`, `zod`, `i18next`, `react-i18next`, `framer-motion`, `tailwind-merge`, `clsx`입니다. 패키지 빌드는 이 지정자를 네임스페이스를 읽는 shim으로 연결하므로, 패키지는 Engine의 단 하나뿐인 React로 렌더링하고 Engine의 React Query 캐시와 토스트를 공유합니다.
+
+- 패키지는 `<Toaster>`를 렌더링하지 않고 `QueryClient`도 만들지 않습니다. `sonner`의 `toast`는 사용자가 정한 토스트 위치에 표시됩니다. 쿼리가 자체 옵션을 지정하지 않으면 Engine의 쿼리 기본값(30초 `staleTime`, 재시도 1회, 창 포커스 시 다시 가져오기 없음)이 적용되며, 패키지가 소유하는 새 쿼리 키는 패키지 ID로 시작합니다.
+- 패키지는 `<I18nextProvider>` 안에서 `i18next.createInstance()`로 만든 자체 i18next 인스턴스를 유지합니다. Engine의 인스턴스를 바꿔 버리는 `initReactI18next`, `setI18n`, `setDefaults`는 절대 쓰지 않습니다.
+- `lucide-react`, `chess.js`, `scheduler`, `@marinara-engine/shared`는 호스트 모듈이 아닙니다. 패키지는 이 중 사용하는 부분을 번들에 넣습니다.
+- 패키지는 다음 메이저 버전에 맞춰 빌드합니다. `react` 19, `react-dom` 19, `@tanstack/react-query` 5, `zustand` 5, `sonner` 2, `zod` 3, `i18next` 26, `react-i18next` 17, `framer-motion` 13, `tailwind-merge` 3, `clsx` 2. Engine에서 이 중 하나의 메이저 버전을 올리면(첫 대상은 React) 이전 메이저 버전으로 빌드한 모든 패키지가 깨지므로, Capability API **메이저** 버전이 필요합니다. `scripts/regressions/marinara-host-namespace.regression.ts`는 `packages/client/package.json`의 메이저 버전이 바뀌었는데 계약이 바뀌지 않으면 실패합니다.
+
+**패키지가 읽는 스토어 필드.** 현재 게시된 패키지는 다음 필드를 읽습니다. Engine은 이 필드를 모두 유지하며, 하나라도 없애거나 이름을 바꾸려면 Capability API 메이저 버전이 필요합니다(`MARINARA_HOST_STORE_FIELDS`가 `Pick<>`으로 고정합니다).
+
+| 스토어 | 필드 |
+| --- | --- |
+| `ui` | `achievementsEnabled`, `debugMode`, `includeReasoningInExports`, `enableStreaming`, `userStatus`, `enterToSendConvo`, `conversationCallVoiceVolume`, `conversationCallVoiceMuted`, `setConversationCallVoiceVolume`, `setConversationCallVoiceMuted`, `conversationTimeZone`, `noodleNavigation`, `setNoodleNavigation`, `noodleSelectedPersonaId`, `setNoodleSelectedPersonaId`, `reviewImagePromptsBeforeSend`, `musicPlayerEnabled`, `musicPlayerSource`, `sidebarOpen`, `setSidebarOpen`, `chatBackground`, `setChatBackground`, `characterDetailId`, `lorebookDetailId`, `presetDetailId`, `connectionDetailId`, `agentDetailId`, `toolDetailId`, `personaDetailId`, `regexDetailId`, `characterLibraryOpen`, `botBrowserOpen`, `gameAssetsBrowserOpen`, `modal`, `rightPanelOpen`, `closeModal`, `closeRightPanel`, `closeBotBrowser`, `closeAllDetails` |
+| `chat` | `activeChatId`, `activeChat`, `isStreaming`, `streamingChatId`, `abortControllers`, `reset`, `pendingSpatialTransitions`, `setPendingSpatialTransition`, `clearPendingSpatialTransition`, `setPendingSpatialTransitionStatus` |
+| `agent` | `setYoutubePlay`, `reset` |
+| `sidecar` | `modelDownloaded`, `modelDisplayName`, `fetchStatus` |
+| `dialog` | `dialog`, `openDialog`, `closeDialog` |
+| `gallery` | `pinImage`, `pinVideo` |
+| `encounter` | `reset` |
+| `gameState` | `current`, `setGameState`, `reset` |
+| `backfill` | `resetBackfill` |
+
+**Engine이 소유하는 브라우저 저장소.** 패키지는 다음 키를 읽을 수는 있지만 절대 쓰거나 지우지 않습니다. `marinara-engine-ui`, `marinara-engine-ui:host`, `marinara-active-chat-id`, `marinara-input-drafts`(로컬 저장소와 세션 저장소), `marinara-pending-spatial-transitions`, `marinara-pinned-gallery-images`, `marinara_sidecar_prompted`. IndexedDB 데이터베이스 `marinara-tts-audio-cache`도 절대 열지 않습니다. 설정을 바꾸려면 패키지는 스토어의 액션을 호출합니다. 예를 들어 `host.stores.ui.getState().setConversationCallVoiceMuted(true)`를 호출하면 Engine이 그 설정을 저장합니다.
+
+**앱 대화 상자.** Engine은 알림, 확인, 입력, 선택 대화 상자를 가장 위의 레이어인 명령 바의 레이어에 렌더링합니다. 그래서 패키지가 연 대화 상자는 패키지 자체 오버레이 위에 표시되고 포커스를 가져갑니다.
+
+**네임스페이스 이전의 패키지 빌드.** 이런 빌드는 버전 74인 UI 스토어 사본을 자체 번들에 넣고 있으며, 그 사본이 아는 설정만으로 `marinara-engine-ui`를 덮어씁니다. Engine은 쓸 때마다 호스트 전용 사본인 `marinara-engine-ui:host`에도 저장하고, 불러올 때 그 사본이 현재 버전이면 자기 버전보다 오래된 저장 데이터는 무시합니다. Engine은 클래식 JSX 런타임을 쓰는 설치된 번들을 위해 여전히 `globalThis.React`와 `globalThis.ReactDOM`을 설정합니다.
 
 ### Capability API 1.7의 채팅 분기
 
@@ -252,7 +318,7 @@ export async function activate({ api }) {
 
 도구를 작성하기 전에 다음 규칙을 확인하세요.
 
-- 이름은 `<packageId>_<name>` 형식이며 `-`는 `_`로 바뀝니다. `world-clock`의 `set_time`은 `world_clock_set_time`으로 모델에 전달됩니다. 다른 패키지가 사용 중인 이름은 거부됩니다. 기본 도구와 활성화된 사용자 지정 도구는 충돌하는 이름을 유지하며 패키지 정의는 생략됩니다. 전체 이름은 **64자** 이하여야 합니다. 정의와 실행 모두 기본, 사용자 지정, 패키지 순서로 우선합니다.
+- 이름은 `<packageId>_<name>` 형식의 이름 공간을 가지며 `-`는 `_`로 바뀝니다. 따라서 `world-clock`의 `set_time`은 `world_clock_set_time`으로 모델에 전달됩니다. 다른 패키지가 이미 사용 중인 전체 이름은 거부됩니다. 기본 도구와 활성화된 사용자 지정 도구는 충돌하는 이름의 소유권을 유지하며, 패키지 정의는 생략되고 기본 도구나 사용자 지정 도구의 핸들러가 실행됩니다. 전체 이름은 제공자 한도인 **64자** 이하여야 합니다. 모델에 보여 주는 정의와 실행부 모두 기본, 사용자 지정, 패키지 순서로 이름을 해석하므로, 호출은 항상 그 이름의 소유자가 실행합니다.
 - 패키지가 활성 상태인 동안 도구는 항상 추가됩니다. 기본 도구와 달리 채팅별로 별도 스위치가 없습니다. 권한 선언과 등록이 사용 결정입니다. 선택한 제공자는 네이티브 도구 호출을 지원해야 합니다.
 - 매개변수 스키마는 등록할 때 복사하고 컴파일합니다. Engine이 컴파일할 수 없다면 턴 중간이 아니라 개발 중 확인할 수 있는 활성화 단계에서 실패합니다.
 - 핸들러가 예외를 던지면 호출 실패를 모델에 알리고 기록하지만 예외 메시지는 전달하지 않습니다. **10초** 안에 완료되지 않아도 턴은 기다리기를 중단합니다. 핸들러는 계속 실행되지만 턴을 계속 막지는 않습니다.
@@ -319,7 +385,9 @@ Engine 전투는 일반 적의 행동을 자체 결정합니다. GM 쪽의 보�
 
 공식 카탈로그는 스키마로 검증하고 버전을 매긴 JSON 문서이며 HTTPS로 다운로드합니다. 릴리스 항목마다 변하지 않는 아티팩트 URL, SHA-256 다이제스트, 바이트 크기, 엔진 호환 정보, 권한, 실행에 다시 시작이 필요한지 여부가 들어 있습니다.
 
-서버를 시작할 때 공식 패키지가 하나라도 설치되어 있으면 호스트가 카탈로그를 한 번 가져옵니다. 그리고 실행 중인 엔진과 Capability API에 맞는 더 새로운 버전만 골라 일반 설치 파이프라인으로 검증한 뒤, 패키지 런타임이 활성화되기 전에 설치합니다. 실패는 패키지 단위로 격리합니다. 카탈로그에 연결하지 못하거나 검증에 실패해도 이미 있는 파일과 레지스트리 상태는 그대로 쓸 수 있고, 서버 런타임 준비에 실패하면 이전 버전으로 되돌리는 경로를 탑니다.
+업데이트에는 사용자의 동의가 필요합니다. 업그레이드한 설치의 예전 내장 기능을 유지하는 일회성 마이그레이션([호환성 마이그레이션](#compatibility-migration) 참고)을 제외하면, 시작할 때 패키지를 다운로드하거나 설치하는 일은 없습니다. `GET /api/capability-packages/updates/pending`은 카탈로그 버전이 더 새롭고 실행 중인 엔진 및 Capability API와 호환되는 설치된 공식 패키지를 나열하되, 사용자가 이미 거절한 버전은 뺍니다. 클라이언트는 이를 **Agent updates available**(에이전트 업데이트 있음) 안내 하나로 보여 줍니다. **Update all**(모두 업데이트)은 각 패키지를 제시된 버전과 아티팩트 SHA-256에 고정해 일반 설치 파이프라인으로 설치합니다. **Not now**(나중에)는 거절한 버전을 `DATA_DIR/capability-packages/update-decisions-v1.json`에 기록하므로(`POST /api/capability-packages/updates/decline`) 그 버전은 다시 제시되지 않지만, 더 새 버전은 제시됩니다. 어느 쪽이든 **Download Agents**의 **Update**는 계속 쓸 수 있습니다. 실패는 패키지 단위로 격리합니다. 카탈로그에 연결하지 못하거나 검증에 실패해도 이미 있는 파일과 레지스트리 상태는 그대로 쓸 수 있고, 서버 런타임 준비에 실패하면 이전 버전으로 되돌리는 경로를 탑니다.
+
+릴리스 노트는 설명 대상인 `catalog.json` 옆에 `notes.json`으로 게시하며, 카탈로그 항목이나 매니페스트 안에는 절대 넣지 않습니다. 오래된 엔진은 모르는 키가 있는 카탈로그 항목을 버리기 때문입니다. 대기 중인 각 업데이트에는 설치된 버전 다음부터 제시된 버전까지 모든 버전의 노트가 최신순으로 `releaseNotes`에 담기며, 그중 하나라도 사용자가 알아챌 변경으로 표시되어 있으면 `releaseHighlight`가 true입니다. 노트는 일반 텍스트이며 Markdown이나 HTML로 렌더링하지 않습니다.
 
 설치 프로그램은 다음을 지켜야 합니다:
 
@@ -344,6 +412,17 @@ Engine 전투는 일반 적의 행동을 자체 결정합니다. GM 쪽의 보�
 
 턴제 게임 패키지는 즉시 다시 불러올 수 있습니다. 설치하면 서버 엔진과 수동 슬래시 실행 명령어가 바로 등록되고, 제거하면 엔진을 다시 시작하지 않아도 런타임이 분리됩니다. 채팅별 **Conversation Commands**(Conversation 명령어) 설정은 캐릭터가 패키지의 숨은 명령을 내보낼 수 있는지만 제어할 뿐, 직접 입력하는 슬래시 실행 명령어까지 막지는 않습니다. 현재 공식 턴제 게임 매니페스트는 엔진 2.x 호환을 위해 예전의 다시 시작 표시를 보수적으로 그대로 두고 있습니다. 엔진 3.x는 `turn-game` 종류를 인식해 안전하게 즉시 활성화하고, 패키지를 바로 쓸 수 있는 활성 상태로 반환합니다.
 
+### 디스크 사용량: 런타임 사본과 보관 버전
+
+패키지 서버는 `DATA_DIR/capability-packages/versions/<id>/<version>`에서 직접 실행되지 않습니다. 활성화할 때마다 설치된 파일을 검증하고, `DATA_DIR/capability-runtime-snapshots` 아래의 새 폴더로 복사한 다음 그 사본을 가져옵니다. 사본은 해당 런타임이 멈출 때 삭제됩니다.
+
+- **런타임 사본.** 사본에는 클라이언트 진입점을 제외한, 검증된 매니페스트 파일이 모두 들어 있습니다. 서버는 클라이언트 진입점을 불러오지 않으며, 브라우저는 `versions/`에서 받아 갑니다. 자산은 남겨 두므로, Quartermaster가 `icons/`를 읽듯이 서버는 자기 `server.mjs` 옆의 파일을 읽을 수 있습니다. 복사한 파일은 읽기 전용입니다.
+- **시작 시 정리.** 크래시나 강제 종료가 일어나면 사본 정리를 건너뜁니다. Engine은 시작할 때마다, 어떤 패키지도 활성화하기 전에 공유 `node_modules` 링크를 제외한 `capability-runtime-snapshots`의 모든 항목을 삭제합니다. 그중 어느 것도 새 프로세스가 쓰고 있을 수 없기 때문입니다. 먼저 읽기 전용 파일을 쓰기 가능하게 바꾸며(Windows에서 필요합니다), 링크는 절대 따라가지 않습니다. 저장소 쓰기 임대(writer lease)를 가진 프로세스만 이 단계에 도달하므로, 같은 데이터 폴더로 시작한 두 번째 Engine은 저장소를 열 때 멈추고 실행 중인 Engine의 사본을 절대 삭제하지 않습니다.
+- **보관 버전.** `versions/<id>`는 현재 버전과, 새 서버 런타임이 시작에 실패할 때 롤백으로 복원하는 `previousVersion`을 보관합니다. 그보다 오래된 버전과, 업데이트에 실패해 롤백된 새 버전은 활성화나 업데이트가 성공한 뒤와 시작할 때 삭제됩니다. 업데이트가 다시 시작을 기다리는 패키지(`restart-required`)나 런타임이 아직 시작되지 않은 패키지(`readiness: "pending"`)는 시작될 때까지 모든 버전을 보관합니다.
+- **절대 삭제하지 않는 것:** 패키지 데이터(`DATA_DIR/long-term-memory` 같은 폴더와 `storage` 안의 패키지 테이블), 채팅, 설정, `installed.json`, 업데이트 결정, `.install-*` 폴더, 레지스트리에 없는 ID의 `versions/` 폴더. 제거할 때도 여전히 패키지 코드만 지우고 데이터는 유지합니다.
+
+<a id="compatibility-migration"></a>
+
 ## 호환성 마이그레이션
 
 업그레이드 후 처음 실행할 때는 다음과 같이 동작합니다:
@@ -364,7 +443,7 @@ Engine 전투는 일반 적의 행동을 자체 결정합니다. GM 쪽의 보�
 
 ## 카탈로그 화면
 
-**Agents**(에이전트) 패널에는 Card Browser의 `Download Cards`에 대응하는 `Download Agents` 컨트롤이 있습니다. 이 컨트롤을 누르면 전체 화면 라이브러리가 열리고, 검색, 패키지 종류, 호환 정보, 설치/업데이트 상태, 권한, 저장 공간 사용량, 문서, 제거 컨트롤을 화면 크기에 맞춰 보여 줍니다.
+**Agents**(에이전트) 패널에는 Characters 패널과 Personas 패널에서 Card Browser를 여는 `Download` 버튼에 대응하는 `Download Agents` 컨트롤이 있습니다. 이 컨트롤을 누르면 전체 화면 라이브러리가 열리고, 검색, 패키지 종류, 호환 정보, 설치/업데이트 상태, 권한, 저장 공간 사용량, 문서, 제거 컨트롤을 화면 크기에 맞춰 보여 줍니다.
 
 데스크톱에서는 목록과 그 옆의 상세 영역을 함께 보여 줍니다. 모바일에서는 한 화면씩 보여 주고, 뒤로 가기와 손가락으로 누르기 쉬운 크기의 조작 버튼을 제공합니다. 비어 있음, 오프라인, 호환되지 않음, 다운로드 손상, 설치 중단, 업데이트, 롤백, 다시 시작 필요 상태도 모두 정식 상태로 처리합니다.
 
@@ -449,7 +528,7 @@ difficulty?, onSuccess: "none" | "half" } }`입니다. 각각 따로 굴리고 �
 
 ### Capability API 1.26: 규칙 집합 전투
 
-API 1.26은 굴림, 대상, 행동 예산, 공격과 능력 목록, 상태, 집중, 체력 0 규칙, 피해 유형, 적의 위협 단계를 정하는 `combat`을 추가합니다. 카탈로그 `mechanics`는 대상, 확정 명중, 상태, 임시 점수, 시트 연동, 예산 소모를 설명할 수 있습니다.
+규칙 집합은 선택적 최상위 `combat` 블록으로 전투를 자체 숫자로 어떻게 판정하는지 정할 수 있습니다. 무엇을 무엇에 맞서 굴리는지, 행동 경제, 시트의 어느 목록이 공격이고 어느 목록이 능력인지, 상태가 어떤 효과를 내는지, 집중, 캐릭터가 0이 되면 어떻게 되는지, 어떤 피해 유형이 있는지, 상대를 고르는 위협 단계의 척도를 정합니다. 같은 릴리스에서 카탈로그 항목의 `mechanics`는 대상을 몇 명 고르는지, 항상 명중하는지, 어떤 상태를 적용하는지, 임시 점수를 얼마나 주는지, 시트에 따라 어떻게 커지는지, 어떤 예산을 소모하는지 정할 수 있습니다.
 
 ```json
 {
@@ -481,7 +560,7 @@ API 1.26은 굴림, 대상, 행동 예산, 공격과 능력 목록, 상태, 집�
 
 ### Capability API 1.24: 주사위 풀
 
-`resolution`은 `"dice-sum"` 대신 `"kind": "dice-pool"`을 선언할 수 있습니다. 시트 값이 주사위 수가 되며 기준 이상인 결과를 셉니다. 집합은 두 배 성공, 폭발, 취소, 대실패, 뛰어난 성공과 GM의 상황별 조정 범위를 지정할 수 있습니다.
+규칙 집합의 `resolution`은 `"dice-sum"` 대신 `"kind": "dice-pool"`을 선언할 수 있습니다. 그러면 판정에서 캐릭터 시트에 적힌 수만큼 주사위를 던지고 목표값에 도달한 주사위를 셉니다. 선택적으로 두 배로 세는 면, 폭발하는 면, 상쇄하는 면, 대실패, 뛰어난 성공을 정할 수 있고, Game Master가 판정 하나에 더하거나 뺄 수 있는 상황별 주사위의 범위도 정할 수 있습니다.
 
 ```json
 {
@@ -491,11 +570,13 @@ API 1.26은 굴림, 대상, 행동 예산, 공격과 능력 목록, 상태, 집�
 }
 ```
 
-시트는 그대로이며 합계 수정치가 주사위 수가 됩니다. 새 시트 요소, 편집기 슬롯, 패키지 코드는 없습니다. 검증된 `ruleset.json`의 `dice-pool`은 API 1.24가 필요합니다. `dice-sum`만 지원하는 이전 Engine은 전체를 거부하기 때문입니다. 새 권한이나 합계 방식 집합의 변경은 없습니다.
+시트는 같은 시트입니다. `dice-sum`에서 굴림에 더하는 값이 여기서는 주사위 수가 됩니다. 그래서 이 방식에는 새 시트 어휘도, 편집기 슬롯도, 패키지 코드도 없습니다.
+
+1.20~1.23과 같은 이유로 유연한 인터페이스가 아닙니다. `dice-sum`만 아는 Engine은 규칙 집합 파일 전체를 거부하므로, 설치는 `ruleset.json`의 검증된 바이트를 읽어 오래된 선언 아래의 `dice-pool` 판정을 거부합니다. 권한은 필요 없으며 주사위를 합산하는 규칙 집합은 변하지 않습니다.
 
 ### Capability API 1.23: 연동되는 카탈로그 값
 
-`scaled`는 행 자체의 숫자 열을 최대 4개까지 집합이 관리하게 합니다. 기존 값 참조와 선택적인 단계 표를 사용해 레벨별 자원이나 능력치별 횟수를 표현하며 새 산술 연산은 추가하지 않습니다.
+카탈로그 항목의 행은 선택적 `scaled` 맵을 담을 수 있습니다. 플레이어가 아니라 규칙 집합이 값을 관리하는, 그 행 자체의 숫자 열을 최대 4개까지 지정합니다. 각각은 선택적 단계 표가 붙은 일반 값 참조이므로, 형식에 새 산술 연산을 추가하지 않고도 직업 자원이 레벨을 따르고 기능의 사용 횟수가 능력치를 따르게 할 수 있습니다.
 
 ```json
 {
@@ -509,11 +590,11 @@ API 1.26은 굴림, 대상, 행동 예산, 공격과 능력 목록, 상태, 집�
 
 연동 행은 `ruleset.json` 안이나 `catalogs/<id>.json` 자산에 놓을 수 있습니다. 매니페스트는 둘을 자산으로 선언하지만 내부 키를 보여 주지 못하므로 설치가 양쪽 검증된 바이트를 읽어 1.23보다 오래된 선언의 `scaled` 키를 거부합니다. 1.21의 `catalogs`, 1.22의 `battle`과 같은 방식입니다. 오래된 Engine의 엄격한 스키마도 파일 전체를 거부합니다. 권한은 필요 없으며 연동 항목 없는 카탈로그를 가진 규칙 집합은 변하지 않습니다.
 
-`[sheet: op="use" name="..."]`는 `mechanics.cost`와 항목이 만든 각 행 풀의 사용 횟수 1회를 지불합니다. 이미 지원하는 카탈로그를 읽으므로 새 선언이 필요하지 않습니다.
+같은 릴리스는 `[sheet: op="use" name="..."]` 명령도 추가합니다. 이 명령은 카탈로그 항목의 `mechanics.cost`와, 그 항목이 만든 모든 행 풀의 사용 횟수 1회를 지불합니다. 선언은 필요 없습니다. Engine이 이미 제공하는 카탈로그를 읽기 때문입니다.
 
 ### Capability API 1.22: battle 블록
 
-선택적인 `battle`은 체력, 선택적인 MP, 주문 슬롯 풀, 카탈로그 행을 `CombatSkill`로 바꿀 목록을 지정합니다. 전투가 끝나면 플레이어 버튼과 같은 시트 작업으로 값을 돌려줍니다.
+규칙 집합은 선택적 `battle` 블록을 담을 수 있습니다. 이 블록은 캐릭터 시트의 숫자를 전투에 빌려 줍니다. 체력이 되는 라이브 풀, MP가 되는 선택적 풀, 주문 슬롯이 되는 풀, 그리고 카탈로그 표시가 붙은 행이 Engine 자체의 `CombatSkill`이 되는 시트 목록을 지정합니다. 전투가 끝나면 소모한 체력, 기력, 슬롯을 플레이어 버튼이 쓰는 것과 같은 시트 작업으로 다시 기록합니다.
 
 ```json
 {
@@ -523,11 +604,13 @@ API 1.26은 굴림, 대상, 행동 예산, 공격과 능력 목록, 상태, 집�
 }
 ```
 
-Engine 전투와 데이터를 연결하는 기능이며 완전한 테이블톱 어댑터는 아닙니다. 내장 계산은 `attackRoll`, `save`, `concentration`, `perCostStep`을 읽지 않습니다. 정확한 시스템 규칙은 별도 어댑터 연결에서 다룹니다. `coverage.combat`는 독립된 의미를 유지하며 이 연결에서는 읽지 않습니다. 검증된 `ruleset.json`의 `battle`은 API 1.22가 필요하며 `catalogs`의 1.21 제한과 같습니다. 새 권한이나 블록이 없는 집합의 변경은 없습니다.
+이것은 전투 어댑터가 아닙니다. 피해 계산은 계속 Engine이 하며, 카탈로그 항목의 `attackRoll`, `save`, `concentration`, `perCostStep`은 아무도 읽지 않습니다. 규칙에 정확한 판정은 전투 인계 작업의 규칙 집합별 어댑터가 맡습니다. `coverage.combat`는 독자적인 의미를 유지하며 이 연결은 그 값을 절대 읽지 않습니다.
+
+블록은 매니페스트가 보여 줄 수 없는 `ruleset.json` 안에 있으므로, 설치는 검증된 바이트를 읽어 1.22보다 오래된 선언 아래의 `battle` 키를 거부합니다. 1.21 아래의 `catalogs`와 똑같은 방식입니다. 오래된 Engine의 엄격한 스키마도 어차피 규칙 집합 파일 전체를 거부합니다. 권한은 필요 없으며 `battle` 블록이 없는 규칙 집합은 변하지 않습니다.
 
 ### Capability API 1.21: 카탈로그
 
-카탈로그는 시트 편집기에 준비된 주문, 직업 능력, 장비를 제공합니다. 헤더는 `ruleset.json`의 `catalogs`에 두며 항목은 인라인 또는 예약 파일로 저장합니다.
+규칙 집합은 **카탈로그**를 담을 수 있습니다. 카탈로그는 미리 만들어 둔 항목(주문, 직업 능력, 장비)의 이름 붙은 모음으로, 시트 편집기가 선택기로 제공하므로 플레이어가 목록을 한 행씩 입력하지 않아도 됩니다. 헤더는 `ruleset.json`의 `catalogs` 아래에 두고, 항목은 그 헤더 안에 인라인으로 두거나 카탈로그마다 파일 하나씩인 전용 예약 자산에 둡니다.
 
 ```json
 {
@@ -541,13 +624,15 @@ Engine 전투와 데이터를 연결하는 기능이며 완전한 테이블톱 �
 }
 ```
 
-`catalogs/<id>.json`은 해당 카탈로그 ID와 일치해야 하며 다른 카탈로그를 가리킬 수 없습니다. `files[]`의 해시와 선언한 `ruleset.json`이 필요합니다. 선언 크기 1 MB 초과는 읽기 전에 거부합니다. 인라인과 파일 항목은 같은 시트에 대해 검증합니다. 집합당 12개 카탈로그, 카탈로그당 2000개 항목이 한도입니다.
+`catalogs/<id>.json`은 예약 자산 계열입니다. 파일 이름이 카탈로그 자체의 ID이므로 Engine은 규칙 집합만 보고 파일을 찾을 수 있고, 어떤 카탈로그도 다른 카탈로그의 파일을 지정할 수 없습니다. 카탈로그 자산은 다른 선언 자산처럼 `files[]`에서 해시로 고정되고, 그것을 선언한 `ruleset.json` 옆에만 함께 배포되며, 선언 크기가 2 MB를 넘으면 읽기 전에 거부됩니다(Capability API 1.340 이전에는 1 MB이며, 1 MB를 넘는 카탈로그 파일이 있는 패키지는 1.340을 선언합니다). 내용은 인라인 항목과 같은 시트를 기준으로 같은 검사를 거치므로 카탈로그는 시트가 담을 수 없는 행을 절대 쓸 수 없습니다. 규칙 집합당 카탈로그는 최대 12개, 카탈로그당 항목은 최대 2000개입니다.
 
-클라이언트는 선택기를 열 때 `GET /api/capability-packages/rulesets/catalog?rulesetId=&catalogId=&version=`로 내용을 불러옵니다. 설치 목록에는 개수만 포함됩니다. 카탈로그 글은 프롬프트에 자동으로 들어가지 않으며 GM은 `gm.sheetSummary`가 고른 정보만 봅니다. 리소스와 검증된 파일의 `catalogs` 필드는 API 1.21이 필요합니다. 이전 엄격한 스키마는 전체 파일을 거부하기 때문입니다. 권한은 필요하지 않습니다.
+클라이언트는 선택기가 열릴 때만 `GET /api/capability-packages/rulesets/catalog?rulesetId=&catalogId=&version=`로 카탈로그를 가져옵니다. 설치된 규칙 집합 목록은 시트 편집기가 열릴 때마다 읽으므로 인라인 항목은 담지 않고 개수만 담습니다. 카탈로그 글은 프롬프트에 들어가지 않습니다. Game Master는 여전히 `gm.sheetSummary`가 지정한 내용만 보므로 카탈로그는 토큰을 쓰지 않습니다.
+
+1.20과 마찬가지로 유연한 인터페이스가 아니며, 카탈로그가 매니페스트가 아니라 규칙 집합 파일 안에 있으므로 검사도 두 부분으로 나뉩니다. `catalogs/<id>.json` 자산을 선언하려면 1.21이 필요하고, `catalogs` 키가 있는 `ruleset.json`은 매니페스트가 그보다 낮게 선언하면 설치 시 거부됩니다. 오래된 Engine의 엄격한 스키마도 어차피 규칙 집합 파일 전체를 거부하기 때문입니다. 이전처럼 권한은 필요 없습니다.
 
 ### Capability API 1.20: Game Mode 규칙 집합
 
-규칙 집합은 검증된 데이터입니다. Engine이 지원하는 판정 방식, 정해진 요소로 만든 시트, 휴식, GM 지침을 제공합니다. 예약 리소스 `ruleset.json`은 `gm-verbs.json`처럼 `contributions.assets.paths`에 등록하고 `files[]`에 해시를 둡니다.
+규칙 집합은 검증된 데이터로 표현한 게임 규칙입니다. Engine이 이미 구현한 판정 방식, 정해진 기본 요소 집합으로 선언한 캐릭터 시트, 휴식, Game Master 프롬프트용 지침으로 이루어집니다. 패키지는 이를 예약 파일명 자산 `ruleset.json`으로 배포하며, `gm-verbs.json`과 똑같이 관례로 찾습니다. `contributions.assets.paths`에 나열하고 `files[]`에서 해시로 고정합니다.
 
 ```json
 {
@@ -562,17 +647,21 @@ Engine 전투와 데이터를 연결하는 기능이며 완전한 테이블톱 �
 }
 ```
 
-예시는 관련 필드만 보여 줍니다. `name`, `version`, `description`, `engine`, `builtAgainst`는 여전히 필수입니다. 권한, 에이전트, 클라이언트나 서버 진입점은 필요하지 않습니다. `ruleset` 종류와 `ruleset.json`은 서로를 요구합니다. 코드나 문자열 표현식을 실행하지 않으므로 새 판정 방식에는 Engine 변경이 필요합니다. 형식과 5e 예시는 [`game-rulesets-and-sheets-implementation.md`](game-rulesets-and-sheets-implementation.md)에 있습니다.
+예시는 규칙 집합에 중요한 키만 보여 줍니다. 일반 매니페스트 필드(`name`, `version`, `description`, `engine`, `builtAgainst`)는 여전히 필수입니다.
 
-매니페스트는 API 1.20을 선언해야 하며 이전 Engine은 설치를 거부합니다. 선언 크기 256 KB 초과는 읽기 전에 거부하고 설치 해시를 다시 확인한 뒤 엄격한 `packages/shared/src/schemas/ruleset.schema.ts`로 검증합니다. 잘못된 파일은 건너뛰고 패키지와 처음 몇 개의 `path: message` 오류를 로그 한 건에 기록합니다. ID가 겹치면 패키지 ID 순서상 첫 패키지가 우선하며 다른 패키지는 로그와 함께 제외합니다. `engine-legacy`와 `traditional`은 예약 ID입니다.
+규칙 집합 패키지에는 권한, 서버나 클라이언트 진입점, 에이전트가 필요 없습니다. 종류와 자산은 함께 갑니다. `ruleset` 종류의 패키지는 `ruleset.json`을 나열해야 하고, `ruleset.json`을 나열한 패키지는 그 종류를 선언해야 하므로, 규칙 집합이 다른 종류에 섞여 들어올 수 없습니다. 파일 안의 어떤 것도 실행되지 않습니다. 표현식 문자열이 없으며, 어떤 판정 방식으로도 표현할 수 없는 메커니즘은 규칙 집합이 할 수 있는 일이 아니라 새 판정 방식을 추가하는 Engine 변경입니다. 형식, 공식 5e 파일, 그 구조를 택한 이유는 [`game-rulesets-and-sheets-implementation.md`](game-rulesets-and-sheets-implementation.md)에 있습니다.
 
-선택은 `chat.metadata.gameRuleset`에 한 번 저장합니다. 고정 정보가 없으면 기존 규칙입니다. 패키지가 없거나 정의가 오래되면 사용할 수 없는 상태로 두며 다른 규칙을 대신 쓰지 않습니다. 집합 ID와 제공 패키지를 함께 검사해 같은 ID의 다른 패키지가 게임을 가져가지 못하게 합니다.
+유연한 인터페이스가 아닙니다. 규칙 집합 패키지는 그것을 읽지 못하는 Engine에서 아무 일도 하지 않으므로, `ruleset.json`을 나열한 매니페스트는 Capability API 1.20을 선언해야 하며 오래된 Engine은 설치를 명확하게 거부합니다.
+
+Engine은 선언 크기가 512 KB를 넘는 자산을 읽기 전에 거부하고(Capability API 1.340 이전에는 256 KB이며, 규칙 집합이 256 KB를 넘는 패키지는 1.340을 선언합니다), 설치 시점의 해시로 다시 검증한 뒤, 엄격한 공용 스키마(`packages/shared/src/schemas/ruleset.schema.ts`)로 검증합니다. 쓸 수 없는 파일은 패키지 이름과 처음 몇 개의 `path: message` 문제를 적은 로그 한 줄과 함께 제외합니다. 같은 규칙 집합 ID를 선언한 패키지가 둘이면 패키지 ID 순서상 첫 번째로 정해지며, 나머지는 로그와 함께 제외합니다. `engine-legacy`와 `traditional`은 Engine이 소유한 ID라 파일이 사용할 수 없습니다.
+
+게임은 만들 때 한 번 규칙 집합을 `chat.metadata.gameRuleset`으로 고정합니다. 고정이 없으면 이전과 똑같이 Engine 자체 규칙을 씁니다. 설치 환경이 지킬 수 없는 고정(패키지가 없거나 설치된 정의가 고정된 버전보다 오래됨)은 사용할 수 없음으로 보고되며 다른 규칙 집합으로 재해석하지 않습니다. 고정은 규칙 집합 ID와 그것을 제공한 패키지로 함께 대조하므로, 같은 ID를 주장하는 다른 패키지가 기존 게임을 가져가지 않습니다.
 
 ### Capability API 1.73: 아바타 에이전트
 
 Engine은 두 아바타 에이전트 `2d-avatars`(PNGTuber 스프라이트와 메시 아바타)와 `3d-avatars`(VRM 모델)를 호스팅합니다. 패키지는 얇게 유지합니다. 각각 에이전트 정의 하나, 기본 프롬프트, 로케일, 카탈로그 항목만 담습니다. 나머지는 모두 Engine이 소유합니다. `DATA_DIR/avatar-models/` 아래의 소유자별 저장소, 가져오기, 지연 로드되는 렌더러, 각 에이전트의 에이전트 편집기 페이지에 있는 설정, 스트림 디렉터, 표정 분류기, 생성 라우트가 여기에 속합니다. 공유 계약은 `packages/shared/src/types/avatars.ts`(스키마는 `schemas/avatars.schema.ts`)이고, 클라이언트 쪽 절반은 `packages/client/src/features/avatars/contract.ts`입니다. 사용자 가이드는 [`docs/agents/avatars.md`](../agents/avatars.md)입니다.
 
-새 매니페스트 필드는 없습니다. 아바타 패키지는 스키마 버전 2와 Capability API 1.73을 선언하므로, 이 화면이 없는 Engine은 아무것도 보여 주지 않는 에이전트를 목록에 올리는 대신 설치를 거부합니다. 1.73을 도입한 변경은 이 화면을 아무 동작도 하지 않는 스텁으로 넣었습니다. 그래서 패키지는 Engine의 설정, 스테이지, 렌더러 하나가 `staging`에 들어온 뒤에야 공개하며, 미리보기 카탈로그도 예외가 아닙니다. 2D 에이전트의 생성 프롬프트는 `defaultSettings` 안의 `avatarGenerationTemplates` 프롬프트 템플릿 모음으로 제공되며, ID는 `AVATAR_PROMPT_TEMPLATE_IDS`에 있습니다. 에이전트 편집기는 다른 내장 템플릿 모음과 똑같이 이 템플릿을 병합하고 초기화합니다.
+새 매니페스트 필드는 없습니다. 아바타 패키지는 스키마 버전 2와 Capability API 1.73을 선언하므로, 이 화면이 없는 Engine은 아무것도 보여 주지 않는 에이전트를 목록에 올리는 대신 설치를 거부합니다. 1.73을 도입한 변경은 이 화면을 아무 동작도 하지 않는 스텁으로 넣었습니다. 이제 Engine의 설정, 스테이지, 렌더러가 `staging`에 들어왔고, 두 패키지는 미리보기 카탈로그에 올라 있습니다. 설치가 동작하려면 두 패키지가 참조하는 아티팩트 URL이 먼저 게시되어야 합니다. 카탈로그 항목만으로는 다운로드할 아티팩트가 실제로 있다는 증거가 되지 않습니다. 2D 에이전트의 생성 프롬프트는 `defaultSettings` 안의 `avatarGenerationTemplates` 프롬프트 템플릿 모음으로 제공되며, ID는 `AVATAR_PROMPT_TEMPLATE_IDS`에 있습니다. 에이전트 편집기는 다른 내장 템플릿 모음과 똑같이 이 템플릿을 병합하고 초기화합니다.
 
 ### Capability API 1.72: Experience의 지도 팩
 
@@ -599,9 +688,9 @@ Game 마법사로 설정하는 `game-surface` 패키지(`gameSurface.setup`, 1.1
 }
 ```
 
-`worlds`(최대 32개)와 `tiles`는 선택 사항입니다. 월드 파일에는 그 월드의 스토리 스크립트(worldgen W10)가 들어 있을 수 있으며, 스토리 스크립트는 지도의 일부로 함께 배포됩니다. 버전 2 월드 파일에는 월드를 만든 당시 모습인 `snapshot`(W11)도 들어 있습니다. 그 뒤로 월드 생성기가 바뀐 Engine도 이 스냅샷에서 월드를 만든 그대로 읽으므로, 팩은 Engine을 업데이트해도 계속 동작합니다. 파일은 게임이나 라이브러리 월드의 **Download**(또는 `GET /api/game/:chatId/world/file`)로 만드세요. 이렇게 만든 파일에는 스냅샷이 들어 있습니다. 팩 파일은 여전히 최대 2 MB이므로, 파일이 그보다 큰 월드(큰 월드의 스냅샷)는 팩에 넣어 배포할 수 없습니다. Experience를 켜면 새 게임은 팩의 키트로 고정됩니다. 팩에 월드가 있으면 플레이어는 그중 하나를(스토리 포함) 고르고 다른 월드는 만들지 않습니다. Experience를 끄면 플레이어가 다시 직접 고를 수 있습니다. `POST /api/game/create`도 게임에 같은 고정을 적용합니다. 게임은 여느 게임처럼 키트와 월드를 보관하므로 패키지를 제거해도 계속 플레이할 수 있고, 패키지가 설치되어 있는 동안에는 오버월드와 마을을 팩의 타일로 그립니다.
+`worlds`(최대 32개)와 `tiles`는 선택 사항입니다. 월드 파일에는 그 월드의 스토리 스크립트(worldgen W10)가 들어 있을 수 있으며, 스토리 스크립트는 지도의 일부로 함께 배포됩니다. 버전 2 월드 파일에는 월드를 만든 당시 모습인 `snapshot`(W11)도 들어 있습니다. 그 뒤로 월드 생성기가 바뀐 Engine도 이 스냅샷에서 월드를 만든 그대로 읽으므로, 팩은 Engine을 업데이트해도 계속 동작합니다. 파일은 게임이나 라이브러리 월드의 **Download**(또는 `GET /api/game/:chatId/world/file`)로 만드세요. 이렇게 만든 파일에는 스냅샷이 들어 있습니다. 팩 파일은 최대 8 MB로, Engine이 읽는 가장 큰 공유 파일 크기입니다(타일 팩은 자체적으로 더 작은 한도를 유지합니다). 따라서 파일이 그보다 큰 월드(아주 큰 월드의 스냅샷)는 팩에 넣어 배포할 수 없습니다. 스토리에서 `intro`를 설정하는 월드는 Capability API 1.339가 필요합니다([도입 메시지](../extending/writing-story-scripts.md#the-intro-message) 참고). `tiles`는 이미지 타일 팩(타일 팩 버전 2: 셀 격자 위의 PNG 시트이며, 여러 셀에 걸친 스프라이트를 포함할 수 있음)일 수도 있으며, 이 경우 Capability API 1.80이 필요합니다. Engine은 패키지 버전마다 한 번 시트를 디코딩하고 검사합니다. Experience를 켜면 새 게임은 팩의 키트로 고정됩니다. 팩에 월드가 있으면 플레이어는 그중 하나를(스토리 포함) 고르고 다른 월드는 만들지 않습니다. Experience를 끄면 플레이어가 다시 직접 고를 수 있습니다. `POST /api/game/create`도 게임에 같은 고정을 적용합니다. 게임은 여느 게임처럼 키트와 월드를 보관하므로 패키지를 제거해도 계속 플레이할 수 있고, 패키지가 설치되어 있는 동안에는 오버월드와 마을을 팩의 타일로 그립니다.
 
-Engine은 검증된 에셋 경로로 파일을 읽고(파일마다 선언 크기 최대 2 MB, 해시 재확인), 공유 파일을 검사하는 방식 그대로 검사합니다. 파일을 읽을 수 없거나, 월드가 다른 키트로 만들어졌거나 키트에 맞지 않거나, 바이트가 설치된 것과 다르면 팩 전체를 이유와 함께 거부합니다. 그러면 그 Experience로는 게임을 시작할 수 없습니다. 규칙 집합은 지도 팩에 절대 들어가지 않습니다. 자체 규칙이 필요한 Experience는 별도의 규칙 집합 패키지를 배포합니다.
+Engine은 검증된 에셋 경로로 파일을 읽고(파일마다 선언 크기 최대 8 MB, 해시 재확인), 공유 파일을 검사하는 방식 그대로 검사합니다. 파일을 읽을 수 없거나, 월드가 다른 키트로 만들어졌거나 키트에 맞지 않거나, 바이트가 설치된 것과 다르면 팩 전체를 이유와 함께 거부합니다. 그러면 그 Experience로는 게임을 시작할 수 없습니다. 규칙 집합은 지도 팩에 절대 들어가지 않습니다. 자체 규칙이 필요한 Experience는 별도의 규칙 집합 패키지를 배포합니다.
 
 ### Capability API 1.18: Game 마법사 안에서 Experience 설정
 
@@ -617,13 +706,13 @@ Engine은 검증된 에셋 경로로 파일을 읽고(파일마다 선언 크기
 }
 ```
 
-세 필드는 모두 선택 사항입니다. 선언한 시드는 선택한 Experience 아래에 **Randomize**(무작위 생성) 버튼과 함께 표시됩니다. 비어 있거나 유한한 숫자가 아닌 입력은 **Start**(시작)를 차단합니다. 호스트는 숫자 시드와 선언된 상수를 `experienceConfig`에 씁니다. `config`에는 시드 키를 포함할 수 없습니다. 상수는 직렬화한 결과가 8,000자 이하여야 합니다. 시드 레이블은 패키지 작성자가 제공하는 표시 텍스트입니다. 생략하면 Engine의 현지화된 레이블을 사용합니다.
+세 필드는 모두 선택 사항입니다. 선언한 시드는 선택한 Experience 아래에 **Randomize**(무작위 생성) 버튼과 함께 표시됩니다. 시드는 0부터 4294967295까지의 부호 없는 정수입니다. 비어 있거나, 소수, 음수, 지수, 16진수 입력은 **Start**(시작)를 차단합니다. 호스트는 숫자 시드와 선언된 상수를 `experienceConfig`에 씁니다. `config`에는 시드 키를 포함할 수 없습니다. 상수는 직렬화한 결과가 8,000자 이하여야 합니다. 시드 레이블은 패키지 작성자가 제공하는 표시 텍스트입니다. 생략하면 Engine의 현지화된 레이블을 사용합니다.
 
-선언된 위젯 요구 사항은 플레이어가 해당 컨트롤을 변경하기 전까지만 기본값을 제공합니다. Experience를 끄면 일반 기본값으로 돌아가지만 플레이어가 명시적으로 선택한 값은 그대로 유지됩니다. 컨트롤은 Experience가 기대하는 설정을 설명하며 계속 편집할 수 있습니다. 이러한 Experiences에서는 공간 지도 설정 컨트롤을 숨기므로 별도의 지도 초안, 템플릿 또는 빌더를 실행하지 않습니다.
+선언된 위젯 요구 사항은 Experience가 활성인 동안 강제로 적용됩니다. 호스트는 컨트롤을 선언된 값으로 설정해 잠그고, 어떤 Experience가 그렇게 설정했는지 설명합니다. 설정 파일을 가져와도 선언된 값을 바꿀 수 없습니다. 플레이어가 이전에 직접 고른 값은 건드리지 않고 보관했다가 Experience를 끄는 즉시 복원합니다. 이러한 Experiences에서는 공간 지도 설정 컨트롤을 숨기므로 별도의 지도 초안, 템플릿 또는 빌더를 실행하지 않습니다.
 
-**Lorebooks**(로어북) 단계에서는 연결되지 않은 책의 항목을 포함해 활성화된 개별 항목을 최대 100개 선택할 수 있습니다. 비활성화된 책과 항목, 채팅 제외 설정을 준수합니다. 이 ID는 `GameSetupConfig.activeLorebookEntryIds`로 전달됩니다. `/game/setup`에서는 추가 강제 항목으로 확률 판정을 건너뛰지만 일반 토큰 제한은 유지합니다. 전역 로어, 캐릭터에 연결된 로어, 첨부된 로어는 계속 일반 스캔에 참여합니다. 패키지도 설정에서 동일한 선택 ID를 읽어 자체 월드 생성 요청에 사용할 수 있습니다.
+**Lorebooks**(로어북) 단계에서는 연결되지 않은 책의 항목을 포함해 활성화된 개별 항목을 최대 100개 선택할 수 있습니다. 비활성화된 책과 항목, 채팅 제외 설정을 준수합니다. 이 ID는 `GameSetupConfig.activeLorebookEntryIds`로 전달됩니다. `/game/setup`에서는 추가 강제 항목으로 확률 판정을 건너뛰지만 일반 토큰 제한은 유지합니다. 전역 로어, 캐릭터에 연결된 로어, 첨부된 로어는 계속 일반 스캔에 참여합니다. 패키지도 설정에서 동일한 선택 ID를 읽어 자체 월드 생성 요청에 사용할 수 있습니다. 이 기기에 없는 가져온 항목 ID는 알린 뒤 건너뜁니다.
 
-설정 파일을 가져오면 설치된 호환 Experience와 유효한 숫자 시드를 복원하지만 임의의 패키지 설정은 버립니다. 현재 매니페스트가 상수를 다시 제공합니다. 기존 게임은 이유를 설명하고 Experience 가져오기를 건너뜁니다. 생성 스냅샷은 설정 요약을 위해 Experience 이름과 시드를 보관합니다.
+설정 파일을 가져오면 설치된 호환 Experience와 유효한 숫자 시드를 복원하지만 임의의 패키지 설정은 버립니다. 현재 매니페스트가 상수를 다시 제공합니다. 쓸 수 있는 Experience 시드가 없는 파일은 미리 채워진 무작위 시드를 그대로 둡니다. 기존 게임은 이유를 설명하고 Experience 가져오기를 건너뜁니다. 생성 스냅샷은 설정 요약을 위해 Experience 이름과 시드를 보관합니다.
 
 첫 턴 전에 월드를 준비해야 한다면 기존 시작 준비 선언을 별도로 사용하세요. 패키지의 최소 버전으로 API 1.18을 선언하세요. 이전 호스트는 이 설정 선언을 해석하지 못합니다.
 
@@ -659,6 +748,51 @@ const memoryVectors = await embeddings.embed(memoryTexts, signal); // documents
 ```ts
 if (typeof props.openCharacter === "function") props.openCharacter(characterId, { tab: "convo" });
 ```
+
+### Capability API 1.66: 패키지 스레드에서 시작하는 장면
+
+Roleplay 장면은 보통 Conversation에서 분기합니다(`/scene`). 새 `scenes` 권한을 가진 패키지는 다이렉트 메시지 스레드 같은 자체 스레드를 대신 출발점으로 삼을 수 있습니다. 장면은 일반 장면 채팅입니다. 같은 플래너, 프롬프트 선호 대화 상자, 장면 지침, End Scene, Discard, Convert 컨트롤을 쓰며, 결말이 나면 같은 캐릭터 기억을 남깁니다. 스레드 쪽은 패키지가 소유합니다. 플래너가 읽는 내용, 장면이 진행되는 동안의 잠금, 요약을 어떻게 처리할지를 패키지가 정합니다.
+
+```ts
+export async function activate({ api }) {
+  api.registerSceneOrigin({
+    // Planning context, or null when the thread no longer exists.
+    getContext: async (threadId) => ({
+      characterIds: [creatorCharacterId],
+      personaId,
+      connectionId: null, // the Engine's default connection
+      transcript: [{ speaker: "Mina", content: "Come to my shoot tonight?" }],
+      notes: "Stage persona, limits and anything else the scene writer must respect.",
+    }),
+    // Lock the thread. Return false when it already has an active scene.
+    claim: async (threadId, { sceneChatId, characterIds }) => lockThread(threadId, sceneChatId),
+    // Unlock and receive the outcome.
+    release: async (threadId, end) => {
+      if (!(await holdsLock(threadId, end.sceneChatId))) return;
+      if (end.kind === "concluded") await saveRecap(threadId, end.summary);
+      await unlockThread(threadId);
+    },
+  });
+}
+```
+
+브라우저 뷰(`home-browser-tab`)는 다음 속성을 받습니다.
+
+- `startScene({ originId, prompt?, planHint?, plan?, data?, initiatorCharacterId?, initiatorName? })`는 장면 프롬프트 선호 대화 상자를 열고, 장면을 계획해 만든 다음 그 채팅을 엽니다. 장면을 직접 작성하려면 `plan`(이름, 설명, 숨겨진 시나리오, 첫 메시지, 장면 시스템 프롬프트, 등급, 관계 이력, 참여 안내, 배경, 출연진을 담은 `SceneFullPlan`)을 넘기세요. 그러면 대화 상자와 Engine 플래너를 건너뛰고 계획한 그대로 장면을 만듭니다. 결과는 `{ chatId }`이며, 사용자가 취소하거나 생성에 실패하면 `null`입니다(사용자에게는 이유가 표시됩니다). 이 헬퍼는 항상 패키지 자체 ID를 씁니다. 편의 기능일 뿐 경계가 아닙니다. 장면 라우트는 어떤 패키지 ID든 받으므로 `getContext`는 어차피 그 스레드에서 플레이어가 볼 수 있는 내용만 반환해야 합니다.
+- `openChat(chatId)`는 채팅으로 이동합니다. 잠긴 스레드의 "Go to scene" 버튼에 씁니다.
+- `focusSceneOriginId`는 사용자가 장면에서 돌아올 때(Back, End Scene, Discard) 보여 줄 스레드입니다. 보여 준 뒤에는 `onFocusSceneOriginHandled()`를 호출하세요.
+
+알아 둘 규칙은 다음과 같습니다.
+
+- `data`는 이 장면의 자체 설정이며, 최대 4,000자의 평범한 JSON 객체입니다. Engine은 이를 장면과 함께 보관하고 `claim(originId, { sceneChatId, characterIds, data })`와 `release`의 `end.data`로 전달합니다. 그래서 장면마다 스스로 결정할 수 있습니다. `claim`은 잠그지 않고 장면을 허용할 수 있고(`true`를 반환하고 아무것도 저장하지 않음), `release`는 요약을 받지 않고 잠금만 풀거나 장면이 요청한 범위로 요약을 받을 수 있습니다.
+- 필수는 `getContext`뿐입니다. 장면을 시작하기만 하려는 패키지는 `claim`과 `release`를 생략합니다. 그러면 아무것도 잠기지 않고, 같은 출발점에서 장면을 몇 개든 실행할 수 있으며, 장면이 끝나도 아무것도 전달되지 않습니다(**Back**은 여전히 패키지로 돌아갑니다). 결과를 받지 않고 잠그기만 하려면 `release`만, 잠그지 않고 결과만 받으려면 `claim`만 생략하세요.
+- 제공자는 패키지당 하나입니다. 다시 등록하면 교체되고, 비활성화하면 제거됩니다.
+- `characterIds`는 Engine 캐릭터여야 합니다. 알 수 없는 ID는 버리며, 알려진 캐릭터가 하나도 없는 컨텍스트는 거부합니다. 알 수 없는 `personaId`는 없는 것으로 처리합니다. `notes`는 8,000자에서 잘리며, 숨겨진 컨텍스트로 플래너에 전달되고 대화 기록과 함께 장면 작성자에게도 전달됩니다.
+- `claim`은 장면 채팅이 만들어진 뒤에 실행됩니다. `false`를 반환하면 409로, 예외를 던지면 503으로 장면 채팅을 버립니다. `getContext`, `claim`, `release`에는 각각 8초가 주어집니다. 늦은 `getContext`나 `claim`은 실패로 처리하고(503, 장면 채팅 제거), 늦은 `release`는 기록한 뒤 버립니다.
+- `release`는 `concluded`(`summary`, `description`, `scenario`, `rating`, 출연진 포함), `abandoned`, `deleted`, `converted` 중 하나를 받습니다. 멱등이어야 하며 잠금을 가지고 있지 않은 장면은 무시해야 합니다. 예외를 던지거나 패키지가 비활성 상태일 때 도착한 release는 기록한 뒤 버립니다. 어느 쪽이든 장면 채팅은 끝난 상태로 남으므로, 오래된 잠금은 `chat-read`로 장면 채팅을 읽어 맞추세요. 그 메타데이터에는 `sceneStatus`가 있고, 결말이 난 장면에는 `sceneSummary`도 있습니다.
+- Engine은 패키지 출발점에 대해 Conversation에 아무것도 쓰지 않습니다. 캐릭터 기억은 결말이 날 때 Conversation 장면과 똑같이 저장됩니다.
+
+`capabilityApi`를 1.66보다 오래된 버전으로 선언한 매니페스트에서는 `scenes`를 거부합니다.
 
 <a id="capability-api-150-professor-mari-actions"></a>
 

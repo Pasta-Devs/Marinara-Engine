@@ -38,7 +38,7 @@ Le menu déroulant des profils se trouve en haut de la section **Chat Settings**
 3. Ouvre le menu déroulant **Profile**.
 4. Choisis un profil par son nom.
 
-Le chat se met à jour aussitôt. Quand ses valeurs actuelles ne correspondent à aucun profil enregistré, le menu déroulant affiche **Custom settings profile**. Si un profil appliqué auparavant n'existe plus, il affiche **Missing profile - choose a profile**.
+Le chat se met à jour aussitôt. Si le profil active ou désactive **Hide summarised messages** (masquer les messages résumés), les messages résumés du chat sont masqués à l'IA, ou lui sont de nouveau montrés, au même moment. Quand ses valeurs actuelles ne correspondent à aucun profil enregistré, le menu déroulant affiche **Custom settings profile**. Si un profil appliqué auparavant n'existe plus, il affiche **Missing profile - choose a profile**.
 
 ## Enregistrer un profil
 
@@ -111,7 +111,7 @@ Consulte les étapes dans [Choisir une disposition pour les nouveaux chats](chat
 
 Le bouton **Export settings profile (.json)** télécharge un fichier `.marinara-settings-profile.json` que tu peux garder en sauvegarde ou partager. Le bouton **Import settings profile (.json)** crée un profil à partir d'un fichier compatible, sans écraser un profil existant. Les exports de profils plus anciens restent importables.
 
-Les profils enregistrent des réglages, pas les secrets des fournisseurs.
+Les profils enregistrent des réglages, pas les secrets des fournisseurs. Un profil exporté ou importé laisse aussi de côté le webhook du miroir Discord, l'adresse DeepLX, la clé DeepL et l'adresse Intiface. Les profils que tu enregistres sur cette installation les conservent.
 
 ## Le profil Default
 

@@ -85,6 +85,8 @@ Depois que o modo escolhido planeja os quadros, os formatadores compartilhados m
 
 Cada etapa numerada tem sua própria **Prompt library** recolhida: Stage 2 contém os formatadores de imagem, Stage 3 os planejadores de movimento que consideram a imagem, e Stage 4 os formatadores que repassam o prompt de vídeo sem alterações. As opções nativas de imagem incluem também **Storyboard Illustration** e **Storyboard First Frame**. Entre as de vídeo estão **Anime Game Video**, **Comic Page Video** e **Narration Passthrough**. Os chats de Game e de Roleplay podem usar formatadores diferentes sem mexer na coleção de prompts compartilhada.
 
+O **Image-aware shot planning** (planejamento de tomadas com base na imagem) de Stage 3 também segue as **Video Prompting Instructions** (instruções de prompt de vídeo) da conexão de vídeo. Use esse campo no editor da conexão para dizer o que o seu modelo de vídeo espera, como termos de câmera, tamanho do prompt ou indicações de som.
+
 ### Padrões globais e ajustes de cada chat
 
 Cada chat pode substituir os padrões do agente. No painel Chat Settings, os valores herdados aparecem com a marca **Using agent default**, e um botão de redefinição surge assim que você cria um ajuste próprio.
