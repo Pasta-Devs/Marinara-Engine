@@ -37,7 +37,6 @@ import {
 } from "@marinara-engine/shared";
 import { Modal } from "../ui/Modal";
 import { SmoothFolderContent } from "../ui/SmoothFolderContent";
-import { ConnectionEditor } from "../connections/ConnectionEditor";
 import { ConnectionIdentity } from "../connections/ConnectionIdentity";
 import { ConnectionModelPicker } from "../connections/ConnectionModelPicker";
 import { BrandMark, ProviderIcon } from "../connections/ProviderIcon";
@@ -59,6 +58,7 @@ import {
 import { useSetChatModel } from "../../hooks/use-chats";
 import { useChatStore } from "../../stores/chat.store";
 import { useSidecarStore } from "../../stores/sidecar.store";
+import { useUIStore } from "../../stores/ui.store";
 import { useDeviceSetup, type DeviceItem } from "../../hooks/use-device-setup";
 import { flashConnectionCard, type ModelsFor } from "../../lib/add-connection";
 import { TTSConfigCard } from "../panels/settings/TTSConfigCard";
@@ -489,14 +489,12 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
   const [maxJobs, setMaxJobs] = useState("");
   const [tested, setTested] = useState<TestResult | null>(null);
   // The models starred in this setup, in order; the first one is what the ready screen offers.
-  const [picks, setPicks] = useState<Array<{ connectionId: string; modelId: string }>>([]);
+  const [picks, setPicks] = useState<Array<{ connectionId: string; modelId: string; kind: AddableKind }>>([]);
   const [setupKind, setSetupKind] = useState<AddableKind | null>(null);
-  const [mediaEditorId, setMediaEditorId] = useState<string | null>(null);
+  // The image or video Model row whose models step 3 lists; its workflow and options are set later with Edit.
+  const [mediaRowId, setMediaRowId] = useState<string | null>(null);
   const [mediaSaved, setMediaSaved] = useState(false);
   const [mediaCreating, setMediaCreating] = useState(false);
-  const [editorBusy, setEditorBusy] = useState(false);
-  const [editorCloseRequest, setEditorCloseRequest] = useState(0);
-  const [editorExit, setEditorExit] = useState<"close" | "back">("close");
   const [query, setQuery] = useState("");
   const [showAllVendors, setShowAllVendors] = useState(false);
   const [otherOpen, setOtherOpen] = useState(false);
@@ -534,7 +532,6 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
     finishing ||
     busy ||
     mediaCreating ||
-    editorBusy ||
     createRow.isPending ||
     updateRow.isPending ||
     deleteRow.isPending ||
@@ -593,9 +590,16 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
 
   // Throw away the empty Model of a Connection that was created but never got a Model picked.
   const discard = async () => {
-    if (!target || picks.length > 0) return;
+    if (!target) return;
     try {
-      if (target.fresh && !mediaSaved) {
+      if (picks.length > 0) {
+        // A kind looked at but left without a model leaves an empty placeholder behind.
+        const picked = new Set(picks.map((pick) => pick.connectionId));
+        for (const id of target.ownedPlaceholderIds ?? []) {
+          if (picked.has(id) || allRows.find((row) => row.id === id)?.model?.trim()) continue;
+          await deleteRow.mutateAsync(id);
+        }
+      } else if (target.fresh && !mediaSaved) {
         for (const row of allRows.filter((row) => row.accountId === target.accountId)) {
           await deleteRow.mutateAsync(row.id);
         }
@@ -610,7 +614,7 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
 
   // Done applies the footer's choices. With no Main model yet the first model added becomes Main (its box starts
   // on); next to a Main model "Set as Main" acts at once instead.
-  const firstPick = picks[0];
+  const firstPick = picks.find((pick) => pick.kind === "chat");
   const firstPickRow = firstPick && allRows.find((row) => row.id === firstPick.connectionId);
   const alreadyMain = isConnectionFlagTrue((firstPickRow as Record<string, unknown> | undefined)?.isDefault);
   const makeMainOn = makeMain ?? !hasMain;
@@ -665,11 +669,6 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
 
   const requestClose = () => {
     if (closeBlocked) return;
-    if (mediaEditorId) {
-      setEditorExit("close");
-      setEditorCloseRequest((current) => current + 1);
-      return;
-    }
     void close();
   };
 
@@ -685,12 +684,20 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
     setMoreOpen(false);
     setSecond(false);
     setSetupKind(null);
-    setMediaEditorId(null);
+    setMediaRowId(null);
     setMediaSaved(false);
     setMediaCreating(false);
-    setEditorBusy(false);
-    setEditorCloseRequest(0);
-    setEditorExit("close");
+  };
+
+  // Step 3 opens on the kind chosen in the list, else on the service's first kind.
+  const startKind = (kinds: AddableKind[]) =>
+    kindFilter && kinds.includes(kindFilter as AddableKind) ? (kindFilter as AddableKind) : (kinds[0] ?? null);
+
+  // Voices and the decision model have no model list to pick from: their editor opens over the panel instead.
+  const editInstead = (accountId: string, connectionId: string) => {
+    onClose();
+    flashConnectionCard(accountId);
+    useUIStore.getState().openConnectionDetail(connectionId);
   };
 
   const chooseService = async (key: ServiceId) => {
@@ -765,12 +772,8 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
         setTarget(current);
       }
       if (isMedia) {
-        // The existing media editor stays inside this guided shell; a real backend with both capabilities
-        // asks which Model/workflow to add before it opens.
         if (provider === "audio" || provider === "decision") {
-          setSetupKind(null);
-          setMediaEditorId(current.connectionId);
-          setStep(3);
+          editInstead(current.accountId, current.connectionId);
           return;
         }
         const mediaKinds = selectedMedia
@@ -779,7 +782,7 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
               ...(selectedMedia.video ? (["video"] as const) : []),
             ] as AddableKind[])
           : ([provider === "video_generation" ? "video" : "image"] as AddableKind[]);
-        setSetupKind(mediaKinds.length === 1 ? mediaKinds[0]! : null);
+        setSetupKind(startKind(mediaKinds));
         setStep(3);
         return;
       }
@@ -790,7 +793,7 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
         const available: AddableKind[] = service
           ? kindsOf(service).filter((kind): kind is AddableKind => kind !== "local" && kind !== "voice")
           : ["chat"];
-        setSetupKind(available.length === 1 ? available[0]! : null);
+        setSetupKind(startKind(available));
         setStep(3);
       }
     } catch (error) {
@@ -889,15 +892,13 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
       ownedPlaceholderIds: placeholderId ? [placeholderId] : [],
       accountBaseUrl: account?.baseUrl,
     });
-    if (row.provider === "audio" || row.provider === "decision") setMediaEditorId(row.id);
+    if (row.provider === "audio" || row.provider === "decision") return editInstead(accountId, row.id);
     const supportedKinds = resolvedService
       ? kindsOf(resolvedService).filter(
           (kind): kind is AddableKind => kind === "chat" || kind === "image" || kind === "video",
         )
       : [];
-    setSetupKind(
-      modelsFor?.kind ?? (modelsFor?.chat ? "chat" : supportedKinds.length === 1 ? supportedKinds[0]! : null),
-    );
+    setSetupKind(modelsFor?.kind ?? (modelsFor?.chat ? "chat" : startKind(supportedKinds)));
     setStep(3);
   };
 
@@ -996,7 +997,7 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
         );
       }
       setSetupKind(kind);
-      setMediaEditorId(id);
+      setMediaRowId(id);
     } catch (error) {
       toast.error(friendlyError(error));
       setSetupKind(null);
@@ -1007,18 +1008,23 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
   };
 
   useEffect(() => {
-    if (step !== 3 || !target || mediaEditorId || (setupKind !== "image" && setupKind !== "video")) return;
+    if (step !== 3 || !target || mediaRowId || (setupKind !== "image" && setupKind !== "video")) return;
     const key = `${target.accountId}:${setupKind}`;
     if (mediaSetupStarted.current === key) return;
     mediaSetupStarted.current = key;
     void beginMediaSetup(setupKind);
     // The target/kind transition is the trigger; the helper reads the latest loaded rows.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, target?.accountId, setupKind, mediaEditorId]);
+  }, [step, target?.accountId, setupKind, mediaRowId]);
 
-  const recordPick = (connectionId: string, modelId: string) =>
+  // A chat pick adds a Model; an image or video pick sets the one model of its row.
+  const recordPick = (connectionId: string, modelId: string, kind: AddableKind = "chat") =>
     setPicks((current) =>
-      current.some((pick) => pick.modelId === modelId) ? current : [...current, { connectionId, modelId }],
+      kind !== "chat"
+        ? [...current.filter((pick) => pick.connectionId !== connectionId), { connectionId, modelId, kind }]
+        : current.some((pick) => pick.modelId === modelId)
+          ? current
+          : [...current, { connectionId, modelId, kind }],
     );
 
   // A star taken off here: the model is no longer added. The star hook removes the Model (decision 30).
@@ -1574,92 +1580,7 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
     modelList.data?.models?.find((model) => model.id === modelId)?.name ||
     (provider && MODEL_LISTS[provider]?.find((model) => model.id === modelId)?.name) ||
     modelId;
-  const finishMediaSetup = async () => {
-    if (!target || !mediaEditorId) return;
-    const owned = new Set(target.ownedPlaceholderIds ?? []);
-    if (owned.size > 0) {
-      const unused = accountRows(target.accountId).filter((row) => {
-        if (row.id === mediaEditorId || row.model?.trim()) return false;
-        return owned.has(row.id);
-      });
-      for (const row of unused) {
-        try {
-          await deleteRow.mutateAsync(row.id);
-        } catch {
-          // The configured media Model is already saved; an unused placeholder can still be removed in the panel.
-        }
-      }
-    }
-    setMediaSaved(true);
-    onClose();
-    flashConnectionCard(target.accountId);
-  };
-  const cancelMediaSetup = async () => {
-    if (editorExit === "close") {
-      await close();
-      return;
-    }
-    setMediaCreating(true);
-    const removed = new Set<string>();
-    try {
-      // The anchor still powers the chat catalog when the user returns to choose another capability.
-      for (const id of target?.ownedPlaceholderIds ?? []) {
-        if (id === target?.connectionId) continue;
-        await deleteRow.mutateAsync(id);
-        removed.add(id);
-      }
-    } catch {
-      // Keep failed deletions owned, so closing the setup can retry their cleanup.
-    } finally {
-      setTarget((current) => {
-        if (!current) return current;
-        const ownedPlaceholderIds = (current.ownedPlaceholderIds ?? []).filter((id) => !removed.has(id));
-        return {
-          ...current,
-          ownedPlaceholderIds,
-          placeholderId:
-            current.placeholderId && !removed.has(current.placeholderId)
-              ? current.placeholderId
-              : ownedPlaceholderIds[0],
-        };
-      });
-      setMediaEditorId(null);
-      setSetupKind(null);
-      if (provider === "audio" || provider === "decision") setStep(2);
-      setEditorBusy(false);
-      setMediaCreating(false);
-    }
-  };
-  const requestEditorBack = () => {
-    if (closeBlocked) return;
-    setEditorExit("back");
-    setEditorCloseRequest((current) => current + 1);
-  };
-
-  const capabilityChooser = target && (
-    <div className="mx-auto flex max-w-xl flex-col gap-3 p-4 md:p-5">
-      <p className="text-xs text-[var(--muted-foreground)]">{t("connections.add.capabilityHelp")}</p>
-      <div className="grid gap-2 sm:grid-cols-2">
-        {availableKinds.map((kind) => (
-          <button
-            key={kind}
-            type="button"
-            data-add-connection-capability={kind}
-            onClick={() => {
-              if (!closeBlocked) setSetupKind(kind);
-            }}
-            disabled={closeBlocked}
-            className="mari-chrome-control mari-chrome-control--card min-h-16 px-3 py-3 text-left disabled:opacity-50"
-          >
-            <span className="block text-sm font-semibold">{t(`connections.add.capability.${kind}`)}</span>
-            <span className="mt-1 block text-[0.6875rem] text-[var(--muted-foreground)]">
-              {t(`connections.add.capabilityHint.${kind}`)}
-            </span>
-          </button>
-        ))}
-      </div>
-    </div>
-  );
+  const mediaRow = mediaRowId ? allRows.find((row) => row.id === mediaRowId) : undefined;
 
   // ── Header: Back, the step's heading and "Step n of N" ──
   const heading =
@@ -1676,11 +1597,7 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
                 ? t("connections.add.heading.local")
                 : t("connections.add.heading.key", { service: serviceName(service ?? provider!) })
         : step === 3
-          ? mediaEditorId
-            ? t("connections.add.heading.mediaSetup", { name: targetName })
-            : !setupKind
-              ? t("connections.add.heading.chooseCapability")
-              : t("connections.add.heading.addModels", { name: targetName })
+          ? t("connections.add.heading.addModels", { name: targetName })
           : "";
   const subtitle =
     step === 1
@@ -1702,11 +1619,13 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
                       : "connections.add.sub.key",
           )
         : step === 3
-          ? mediaEditorId
-            ? t("connections.add.sub.mediaEditor")
-            : !setupKind
-              ? t("connections.add.sub.capability")
-              : t(modelsFor?.chat ? "connections.add.sub.modelsChat" : "connections.add.sub.models")
+          ? t(
+              setupKind === "image" || setupKind === "video"
+                ? "connections.add.sub.mediaModels"
+                : modelsFor?.chat
+                  ? "connections.add.sub.modelsChat"
+                  : "connections.add.sub.models",
+            )
           : "";
   const stepNumber = step;
   // Every path has the same three steps, so the bar never jumps; a device ends on its set-up screen.
@@ -1715,11 +1634,9 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
     step === 2
       ? backToList
       : step === 3 && !modelsFor && picks.length === 0
-        ? mediaEditorId
-          ? requestEditorBack
-          : target?.fresh
-            ? () => setStep(2)
-            : backToList
+        ? target?.fresh
+          ? () => setStep(2)
+          : backToList
         : null;
 
   // ── Footer: one primary per step ──
@@ -1774,11 +1691,7 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
         </button>
       </div>
     );
-  } else if (step === 3 && mediaEditorId) {
-    footerLeft = (
-      <p className="text-[0.6875rem] text-[var(--muted-foreground)]">{t("connections.add.incrementalSave")}</p>
-    );
-  } else if (step === 3 && setupKind === "chat") {
+  } else if (step === 3 && setupKind) {
     footerLeft = picks.length > 0 && (
       <p role="status" className="flex items-center gap-1 text-xs text-[var(--muted-foreground)]">
         <Check size="0.75rem" className="text-[var(--primary)]" aria-hidden />
@@ -1894,32 +1807,49 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
             </section>
           )}
 
-          {step === 3 && target && !setupKind && !mediaEditorId && capabilityChooser}
-
-          {step === 3 && target && mediaEditorId && (
-            <div data-add-connection-media-editor className="flex min-h-0 flex-1 flex-col">
-              <ConnectionEditor
-                key={mediaEditorId}
-                connectionId={mediaEditorId}
-                embedded
-                onDone={() => void finishMediaSetup()}
-                onSaved={() => {
-                  setMediaSaved(true);
-                  setTarget((current) =>
-                    current
-                      ? {
-                          ...current,
-                          ownedPlaceholderIds: (current.ownedPlaceholderIds ?? []).filter((id) => id !== mediaEditorId),
-                          placeholderId: current.placeholderId === mediaEditorId ? undefined : current.placeholderId,
-                        }
-                      : current,
-                  );
-                }}
-                onCancel={() => void cancelMediaSetup()}
-                onBusyChange={setEditorBusy}
-                closeRequestToken={editorCloseRequest}
-              />
+          {step === 3 && target && availableKinds.length > 1 && !chat && (
+            <div
+              role="group"
+              aria-label={t("connections.add.kindFilter")}
+              className="flex shrink-0 flex-wrap gap-1.5 px-5 pt-3 max-md:px-4"
+            >
+              {availableKinds.map((kind) => {
+                const Icon = KIND_ICONS[kind];
+                return (
+                  <button
+                    key={kind}
+                    type="button"
+                    data-add-connection-capability={kind}
+                    aria-pressed={setupKind === kind}
+                    disabled={closeBlocked}
+                    onClick={() => {
+                      if (setupKind === kind) return;
+                      setMediaRowId(null);
+                      setSetupKind(kind);
+                    }}
+                    className="mari-connection-chip"
+                  >
+                    <Icon size="0.75rem" aria-hidden />
+                    {t(`connections.add.kind.${kind}`)}
+                  </button>
+                );
+              })}
             </div>
+          )}
+
+          {step === 3 && (setupKind === "image" || setupKind === "video") && mediaRow && (
+            <ConnectionModelPicker
+              className="h-full"
+              // No account here: a model taken back off stays on its row instead of removing the row.
+              connection={{ ...mediaRow, accountId: undefined }}
+              accountName={targetName}
+              onPicked={(modelId) => recordPick(mediaRow.id, modelId, setupKind)}
+              addedIds={addedIds}
+              addMode
+              onUnstar={unstar}
+              footer={null}
+              autoFocusSearch
+            />
           )}
 
           {step === 3 && setupKind === "chat" && target && pickerRow && (

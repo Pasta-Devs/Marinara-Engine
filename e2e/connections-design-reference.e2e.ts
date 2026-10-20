@@ -384,8 +384,8 @@ for (const [size, theme] of [
     await nano.getByRole("button", { name: "Actions for NanoGPT subscription with a long name" }).click();
     await page.getByRole("menuitem", { name: "Add model", exact: true }).click();
     const catalog = page.getByRole("dialog", { name: "Add model", exact: true });
-    // NanoGPT also offers image and video, so the screen asks which kind first.
-    await catalog.locator('[data-add-connection-capability="chat"]').click();
+    // NanoGPT also offers image and video: the screen opens on Chat, and its chips switch kinds.
+    await expect(catalog.locator('[data-add-connection-capability="chat"]')).toHaveAttribute("aria-pressed", "true");
     await expect(catalog.locator('[data-model-id="zai-org/glm-5.2"] [data-model-cost="included"]')).toHaveText(
       "Included",
     );

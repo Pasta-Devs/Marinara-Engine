@@ -336,12 +336,28 @@ async function removeAdded(request: APIRequestContext, before: Row[]) {
 const getRows = async (request: APIRequestContext) =>
   (await (await request.get("/api/connections")).json()) as Array<Row & { model?: string }>;
 
+/** Gives the server a Main model when it has none, so Main shows as the quiet "Set as Main" link. Returns a cleanup. */
+async function ensureMain(request: APIRequestContext) {
+  if ((await getRows(request)).some((row) => isTrue(row.isDefault))) return async () => undefined;
+  const created = await request.post("/api/connections", {
+    data: { name: "E2E Main", provider: "custom", baseUrl: "http://127.0.0.1:9/v1", apiKey: "", model: "e2e-main" },
+  });
+  expect(created.ok()).toBeTruthy();
+  const { id, accountId } = (await created.json()) as { id: string; accountId?: string | null };
+  expect((await request.patch(`/api/connections/${id}`, { data: { isDefault: true } })).ok()).toBeTruthy();
+  return async () => {
+    await request.delete(`/api/connections/${id}`).catch(() => undefined);
+    if (accountId) await request.delete(`/api/connection-accounts/${accountId}`).catch(() => undefined);
+  };
+}
+
 for (const dismiss of ["Escape", "the close button"] as const) {
   test(`closing the model screen with ${dismiss} saves neither Main nor the chat's model`, async ({
     page,
     request,
   }) => {
     const provider = await startProvider();
+    const dropMain = await ensureMain(request);
     const before = await getRows(request);
     const chatResponse = await request.post("/api/chats", {
       data: { name: "E2E ready dismiss", mode: "conversation", characterIds: [] },
@@ -370,6 +386,7 @@ for (const dismiss of ["Escape", "the close button"] as const) {
     } finally {
       await request.delete(`/api/chats/${chat.id}?force=true`).catch(() => undefined);
       await removeAdded(request, before);
+      await dropMain();
       await provider.close();
     }
   });
@@ -377,6 +394,7 @@ for (const dismiss of ["Escape", "the close button"] as const) {
 
 test("a failed Set as Main keeps the model screen open, and the next try works", async ({ page, request }) => {
   const provider = await startProvider();
+  const dropMain = await ensureMain(request);
   const before = await getRows(request);
   try {
     const dialog = await openCustomSetup(page, provider.baseUrl);
@@ -403,6 +421,7 @@ test("a failed Set as Main keeps the model screen open, and the next try works",
     expect(added.map((row) => [row.model, isTrue(row.isDefault)])).toEqual([["local/alpha", true]]);
   } finally {
     await removeAdded(request, before);
+    await dropMain();
     await provider.close();
   }
 });

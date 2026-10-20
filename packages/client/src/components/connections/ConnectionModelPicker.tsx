@@ -415,8 +415,9 @@ export function ConnectionModelPicker({
     ]
       .filter(Boolean)
       .join(" · ");
-    // Adding: the end button says "Added" (a check), never ★ or "favorite"; one word for one thing.
-    const adding = addMode && !!connection.accountId;
+    // Adding: the end button says "Added" (a check), never ★ or "favorite"; one word for one thing. An image or
+    // video row being set up has no account here, but its pick is still an add.
+    const adding = addMode && (!!connection.accountId || !!onPicked);
     // A badge on a narrow row leaves the id no room: the facts move to the tooltip there.
     const badged = showCostBadges && !!row.cost && (row.cost !== "paid" || showPaid);
     // The one model row; its end holds the 44px star beside the row button, never inside it.
