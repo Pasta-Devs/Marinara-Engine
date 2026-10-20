@@ -3,7 +3,45 @@ import type { APIProvider, ChatModelChoice } from "@marinara-engine/shared";
 import type { DeviceItem } from "../hooks/use-device-setup";
 import { useUIStore } from "../stores/ui.store";
 
-export type AddConnectionTarget = { category: "device"; item: DeviceItem } | { provider: APIProvider };
+export type AddConnectionTarget = { category: "device"; item: DeviceItem } | { provider: APIProvider } | AddFor;
+
+/** The jobs the Add window can start from ("For a job…"); each filters the services to one kind. */
+export const ADD_JOBS = [
+  "main",
+  "mari",
+  "images",
+  "vision",
+  "voice",
+  "decision",
+  "embeddings",
+  "video",
+  "agents",
+] as const;
+export type AddJob = (typeof ADD_JOBS)[number];
+export type AddKind = "chat" | "image" | "video" | "voice" | "decision";
+export const ADD_JOB_KIND: Record<AddJob, AddKind> = {
+  main: "chat",
+  mari: "chat",
+  agents: "chat",
+  vision: "chat",
+  embeddings: "chat",
+  images: "image",
+  video: "video",
+  voice: "voice",
+  decision: "decision",
+};
+
+/**
+ * Add for a job (a job picker's "Add a model for this…", a feature with no model yet): the window starts filtered
+ * to the job's kind, and Done sets the new Model for it with an Undo toast. `assign` is the picker's own setter
+ * (`previous` is what Undo puts back); without it the window sets the job's own default where it has one.
+ */
+export type AddFor = {
+  job?: AddJob;
+  kind?: AddKind;
+  assign?: (connectionId: string | null) => void;
+  previous?: string | null;
+};
 
 /** The big model screen for one Connection. */
 export type ModelsFor = {
@@ -23,6 +61,10 @@ const DEVICE_SERVICES = { "local-model": "local_model", tts: "tts", stt: "stt" }
 
 /** Opens the Add window, on one service's set-up screen when a target is given. */
 export function openAddConnection(target?: AddConnectionTarget) {
+  if (target && !("item" in target) && !("provider" in target)) {
+    useUIStore.getState().openModal("create-connection", { forJob: target });
+    return;
+  }
   const service = !target ? undefined : "item" in target ? DEVICE_SERVICES[target.item] : target.provider;
   useUIStore.getState().openModal("create-connection", service ? { service } : undefined);
 }

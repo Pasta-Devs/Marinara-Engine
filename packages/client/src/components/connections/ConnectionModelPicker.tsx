@@ -20,6 +20,7 @@ import { toast } from "sonner";
 import {
   MODEL_LISTS,
   PROVIDERS,
+  catalogModelId,
   parsePinnedModels,
   type APIProvider,
   type ChatModelChoice,
@@ -128,6 +129,7 @@ export function ConnectionModelPicker({
   onUnstar,
   addedIds,
   mainModelId,
+  preselect,
 }: {
   connection: ModelPickerConnection;
   /** Name the connection beside its provider, where the connection list is out of sight. */
@@ -160,6 +162,11 @@ export function ConnectionModelPicker({
   addedIds?: readonly string[];
   /** The model that became the Main model, marked with a badge. */
   mainModelId?: string | null;
+  /**
+   * A model chosen before this screen (the Add window's model search): once the list loads, the one row with that
+   * id or catalog id is picked; with none or several the search shows them instead.
+   */
+  preselect?: string;
 }) {
   const { t } = useTranslation();
   const [search, setSearch] = useState("");
@@ -362,6 +369,19 @@ export function ConnectionModelPicker({
       toast.error(t("connections.modelPicker.saveFailed", { error: errorMessage(error) }));
     }
   };
+
+  const preselected = useRef(false);
+  useEffect(() => {
+    if (!preselect || preselected.current || modelList.isLoading) return;
+    preselected.current = true;
+    const key = catalogModelId(preselect).toLowerCase();
+    const matches = options.filter((option) => catalogModelId(option.id).toLowerCase() === key);
+    const row = options.find((option) => option.id === preselect) ?? (matches.length === 1 ? matches[0] : undefined);
+    if (row) void pick(row);
+    else setSearch(key);
+    // Runs once, when the list is there; pick reads the latest state.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [preselect, modelList.isLoading, options]);
 
   // The star (decision 30): a star saves the model; taking it off removes the saved Model unless something keeps it.
   const toggleStar = (row: PickerRow, starred: boolean) => {

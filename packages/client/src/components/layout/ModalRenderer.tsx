@@ -4,7 +4,7 @@
 import { lazy, Suspense } from "react";
 import { useUIStore } from "../../stores/ui.store";
 import type { ServiceId } from "../modals/CreateConnectionModal";
-import type { ModelsFor } from "../../lib/add-connection";
+import type { AddFor, ModelsFor } from "../../lib/add-connection";
 import {
   normalizeAvatarCrop,
   type LorebookCategory,
@@ -160,6 +160,7 @@ export function ModalRenderer() {
           onClose={closeModal}
           initialService={(modal?.props?.service ?? modal?.props?.provider) as ServiceId | undefined}
           modelsFor={modal?.props?.modelsFor as ModelsFor | undefined}
+          forJob={modal?.props?.forJob as AddFor | undefined}
         />
       );
       break;
