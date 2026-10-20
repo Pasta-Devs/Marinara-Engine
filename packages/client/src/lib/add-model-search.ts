@@ -24,6 +24,8 @@ export function buildOfflineModelIndex(services: readonly APIProvider[]): ModelE
       if (!key || DATE_PIN.test(key)) continue;
       let entry = byKey.get(key);
       if (!entry) byKey.set(key, (entry = { key, name: model.name, kind: "chat", routes: [] }));
+      // A list that names the model ("Claude Opus 5.5") beats one that repeats its id.
+      else if (entry.name === model.id && model.name !== model.id) entry.name = model.name;
       if (!entry.routes.some((route) => "service" in route && route.service === service))
         entry.routes.push({ service, model: model.id });
     }

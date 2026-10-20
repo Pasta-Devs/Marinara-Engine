@@ -17,6 +17,11 @@ const services = (key: string) =>
 assert.deepEqual(services("claude-opus-5-5"), ["anthropic", "claude_subscription", "openrouter", "nanogpt"]);
 // Date pins repeat the model they pin; the index keeps the plain id only.
 assert.ok(!offline.some((entry) => /-\d{8}$/u.test(entry.key)));
+assert.equal(
+  offline.find((entry) => entry.key === "claude-opus-5-5")?.name,
+  "Claude Opus 5.5",
+  "a named list beats a list of ids",
+);
 // A gateway id resolves to the same key as the vendor id.
 assert.equal(modelKey("anthropic/claude-opus-5-5"), "claude-opus-5-5");
 
