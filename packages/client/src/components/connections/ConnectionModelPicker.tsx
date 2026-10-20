@@ -130,6 +130,7 @@ export function ConnectionModelPicker({
   addedIds,
   mainModelId,
   preselect,
+  only,
 }: {
   connection: ModelPickerConnection;
   /** Name the connection beside its provider, where the connection list is out of sight. */
@@ -167,6 +168,8 @@ export function ConnectionModelPicker({
    * id or catalog id is picked; with none or several the search shows them instead.
    */
   preselect?: string;
+  /** Lists only the rows a job can use (the Add window's voice step lists speech models). */
+  only?: (row: PickerRow) => boolean;
 }) {
   const { t } = useTranslation();
   const [search, setSearch] = useState("");
@@ -261,7 +264,9 @@ export function ConnectionModelPicker({
     if (costFilter && !costKinds.includes(costFilter)) setCostFilter(null);
   }, [costFilter, costKinds]);
   const inFilter = (row: PickerRow) =>
-    (!upstream || upstreamOf(row.id) === upstream) && (!costFilter || costKind(row) === costFilter);
+    (!only || only(row)) &&
+    (!upstream || upstreamOf(row.id) === upstream) &&
+    (!costFilter || costKind(row) === costFilter);
   const filtering = !!upstream || !!costFilter;
 
   const { pinnedAll, othersAll, recommendedAll } = useMemo(() => {
@@ -291,8 +296,8 @@ export function ConnectionModelPicker({
       otherRows: filteredOthers.slice(0, MAX_LISTED_MODELS),
       totalOther: filteredOthers.length,
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- inFilter reads only upstream and costFilter
-  }, [costFilter, deferredSearch, othersAll, pinnedAll, recommendedAll, sort, upstream]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- inFilter reads only `only`, upstream and costFilter
+  }, [costFilter, deferredSearch, only, othersAll, pinnedAll, recommendedAll, sort, upstream]);
 
   // What Enter does with the search text: an exact ID or name picks that model, a search with a single match
   // picks it, and only text that matches nothing is used as a model ID. Several matches wait for a choice.
@@ -311,8 +316,8 @@ export function ConnectionModelPicker({
       (matches.length === 1 ? matches[0]! : null) ??
       (matches.length === 0 && !filtering ? { id: typedId, name: typedId } : null);
     return { exactId: byId, enterTarget: target, enterUsesTyped: matches.length === 0 && !filtering };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- inFilter reads only upstream and costFilter
-  }, [costFilter, othersAll, pinnedAll, recommendedAll, typedId, upstream]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- inFilter reads only `only`, upstream and costFilter
+  }, [costFilter, only, othersAll, pinnedAll, recommendedAll, typedId, upstream]);
   // The typed text can always be used as it is from its own row; Enter uses it only when nothing matches.
   const showTypedRow = !!typedId && (!exactId || (filtering && !inFilter(exactId)));
 

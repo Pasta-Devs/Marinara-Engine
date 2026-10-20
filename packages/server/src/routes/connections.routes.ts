@@ -1,4 +1,4 @@
-import { resolveDecisionConnection } from "../services/decision/decision-connection.js";
+import { resolveDecisionConnection, type DecisionConnectionRow } from "../services/decision/decision-connection.js";
 import { askNoulQuestions } from "../services/decision/system-one.client.js";
 import { connectionChatTarget, probeDecisionSlot } from "../services/decision/sidecar-decision.backend.js";
 import {
@@ -48,6 +48,7 @@ import {
   rankModelMoveCandidates,
   normalizeVideoGenerationProfile,
   updateConnectionAccountSchema,
+  speaksOpenAIChat,
   type AtlasCloudVideoModelSchemaResponse,
 } from "@marinara-engine/shared";
 import {
@@ -1079,7 +1080,9 @@ export async function connectionsRoutes(app: FastifyInstance) {
     conn: NonNullable<Awaited<ReturnType<typeof storage.getWithKey>>>,
     reply: FastifyReply,
   ): Promise<{ models: Array<{ id: string; name: string }>; loras?: unknown[]; builtIn?: true } | FastifyReply> => {
-    if (conn.provider === "decision") {
+    // A decision Model under a chat service's Connection picks from that service's list.
+    const decisionVendor = (conn as { account?: DecisionConnectionRow["account"] }).account?.provider;
+    if (conn.provider === "decision" && !speaksOpenAIChat(decisionVendor)) {
       // Jev is only the default of the System One sources; a chat server needs the
       // model name the user entered.
       const model = conn.model || (conn.decisionSource === "openai_compatible" ? "" : "jev-latest");
@@ -1147,7 +1150,7 @@ export async function connectionsRoutes(app: FastifyInstance) {
       }
 
       const { PROVIDERS } = await import("@marinara-engine/shared");
-      const provider = PROVIDERS[conn.provider as keyof typeof PROVIDERS];
+      const provider = PROVIDERS[(decisionVendor ?? conn.provider) as keyof typeof PROVIDERS];
       let baseUrl = conn.baseUrl || provider?.defaultBaseUrl || "";
 
       if (!baseUrl) {

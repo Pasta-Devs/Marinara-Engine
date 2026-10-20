@@ -40,8 +40,11 @@ import {
   inferVideoSource,
   isChatProvider,
   isLocalAuthProvider,
+  speaksOpenAIChat,
   withKeyTail,
   type APIProvider,
+  type ChatModelChoice,
+  type TTSVoicesResponse,
 } from "@marinara-engine/shared";
 import { Modal } from "../ui/Modal";
 import { SmoothFolderContent } from "../ui/SmoothFolderContent";
@@ -69,7 +72,6 @@ import {
 import { useSetChatModel } from "../../hooks/use-chats";
 import { useChatStore } from "../../stores/chat.store";
 import { useSidecarStore } from "../../stores/sidecar.store";
-import { useUIStore } from "../../stores/ui.store";
 import { useDeviceSetup, type DeviceItem } from "../../hooks/use-device-setup";
 import {
   ADD_JOBS,
@@ -96,6 +98,9 @@ import { DecisionModelModal } from "./DecisionModelModal";
 import { starAnchorOf } from "../../hooks/use-model-star";
 import { isConnectionFlagTrue } from "../../lib/connection-filters";
 import { cn } from "../../lib/utils";
+import { api } from "../../lib/api-client";
+import { decisionConnectionTestMessage } from "../../lib/decision-test-message";
+import { ttsService } from "../../lib/tts-service";
 
 type ChatMode = "conversation" | "roleplay" | "game";
 
@@ -127,7 +132,7 @@ const isLinkApiUrl = (url: string) => /^https?:\/\/(?:[^/]*\.)?linkapi\.ai(?:[:/
 const DEVICE_ITEMS: Record<DeviceService, DeviceItem> = { local_model: "local-model", tts: "tts", stt: "stt" };
 const isDevice = (service: ServiceId | null): service is DeviceService => !!service && service in DEVICE_ITEMS;
 type Kind = "chat" | "image" | "video" | "voice" | "decision" | "local";
-type AddableKind = "chat" | "image" | "video";
+type AddableKind = "chat" | "image" | "video" | "decision" | "voice";
 
 type MediaBackend = {
   id: MediaServiceId;
@@ -186,16 +191,26 @@ const SERVICE_KINDS: Partial<Record<ServiceId, Kind[]>> = {
   decision: ["decision"],
   decision_builtin: ["decision"],
 };
+/** A speech model id, for the voice step's list (any id can still be typed). */
+const isSpeechModel = (row: { id: string }) => /tts|speech|voice/i.test(row.id);
+/** Speech a chat service's own key buys, as the audio source that speaks to its address. */
+const SPEECH_SOURCE: Partial<Record<APIProvider, string>> = { openai: "openai", xai: "xai", nanogpt: "openai" };
+/** Jobs a chat service's Connection also does with its key: decision (chat with log-probabilities) and voice. */
+const jobKindsOf = (service: ServiceId): Kind[] => [
+  ...(speaksOpenAIChat(service) ? (["decision"] as const) : []),
+  ...(SPEECH_SOURCE[service as APIProvider] ? (["voice"] as const) : []),
+];
 const kindsOf = (service: ServiceId): Kind[] => {
   const media = mediaBackendOf(service);
   if (media) return [...(media.image ? (["image"] as const) : []), ...(media.video ? (["video"] as const) : [])];
-  if (SERVICE_KINDS[service]) return SERVICE_KINDS[service]!;
+  if (SERVICE_KINDS[service]) return [...SERVICE_KINDS[service]!, ...jobKindsOf(service)];
   if (isDevice(service)) return SERVICE_KINDS[service] ?? ["local"];
   const provider = service as APIProvider;
   return [
     ...(isChatProvider(provider) ? (["chat"] as const) : []),
     ...(Object.values(IMAGE_VENDOR).includes(provider) ? (["image"] as const) : []),
     ...(Object.values(VIDEO_SOURCE_VENDOR).includes(provider) ? (["video"] as const) : []),
+    ...jobKindsOf(provider),
   ];
 };
 const errorText = (error: unknown) => (error instanceof Error ? error.message : String(error));
@@ -252,6 +267,8 @@ const JOB_FLAG: Partial<Record<AddJob, "isDefault" | "defaultForAgents">> = {
   agents: "defaultForAgents",
   images: "defaultForAgents",
   video: "defaultForAgents",
+  decision: "defaultForAgents",
+  voice: "defaultForAgents",
 };
 const JOB_FEATURE = { mari: "mariConnectionId", vision: "visionConnectionId" } as const;
 /** Vendors and plans with an offline model list, in the order "A specific model…" picks from. */
@@ -324,6 +341,7 @@ type ConnectionRowLite = {
   videoService?: string | null;
   createdAt?: string | null;
   pinnedModels?: unknown;
+  audioVoice?: string | null;
 };
 type TestResult = { success: boolean; message?: string };
 
@@ -586,6 +604,10 @@ export function CreateConnectionModal({
   const [mediaRowId, setMediaRowId] = useState<string | null>(null);
   const [mediaSaved, setMediaSaved] = useState(false);
   const [mediaCreating, setMediaCreating] = useState(false);
+  // The decision and voice steps test for the job; only a pass adds the Model, so a decision
+  // model without log-probabilities is never saved.
+  const [jobTest, setJobTest] = useState<{ ok: boolean; message: string } | null>(null);
+  const [jobTesting, setJobTesting] = useState(false);
   const [query, setQuery] = useState("");
   const [showAllVendors, setShowAllVendors] = useState(false);
   const [otherOpen, setOtherOpen] = useState(false);
@@ -683,7 +705,10 @@ export function CreateConnectionModal({
   const serviceHint = (key: ServiceId) => mediaBackendOf(key)?.description ?? t(`connections.add.hint.${key}`);
   const kindItems = (key: ServiceId) =>
     kindsOf(key).flatMap((kind) =>
-      kind in KIND_ICONS ? [{ kind: kind as ChipKind, label: t(`connections.add.kind.${kind}`) }] : [],
+      // A chat service's decision and voice jobs show only when that job is searched for.
+      kind in KIND_ICONS && (kind === kindFilter || !jobKindsOf(key).includes(kind))
+        ? [{ kind: kind as ChipKind, label: t(`connections.add.kind.${kind}`) }]
+        : [],
     );
 
   // Throw away the empty Model of a Connection that was created but never got a Model picked.
@@ -694,7 +719,10 @@ export function CreateConnectionModal({
         // A kind looked at but left without a model leaves an empty placeholder behind.
         const picked = new Set(picks.map((pick) => pick.connectionId));
         for (const id of target.ownedPlaceholderIds ?? []) {
-          if (picked.has(id) || allRows.find((row) => row.id === id)?.model?.trim()) continue;
+          if (picked.has(id)) continue;
+        // A decision or voice Model stays only after its test passed (runJobTest records the pick).
+        const row = allRows.find((candidate) => candidate.id === id);
+        if (row?.model?.trim() && row.provider !== "decision" && row.provider !== "audio") continue;
           await deleteRow.mutateAsync(id);
         }
       } else if (target.fresh && !mediaSaved) {
@@ -841,19 +869,13 @@ export function CreateConnectionModal({
     setMediaRowId(null);
     setMediaSaved(false);
     setMediaCreating(false);
+    setJobTest(null);
   };
 
   // Step 3 opens on the kind of the model chosen in the search, else the kind chosen in the list, else the first.
   const startKind = (kinds: AddableKind[]) => {
     const preferred = want?.kind ?? kindFilter;
     return preferred && kinds.includes(preferred as AddableKind) ? (preferred as AddableKind) : (kinds[0] ?? null);
-  };
-
-  // Voices and the decision model have no model list to pick from: their editor opens over the panel instead.
-  const editInstead = (accountId: string, connectionId: string) => {
-    onClose();
-    flashConnectionCard(accountId);
-    useUIStore.getState().openConnectionDetail(connectionId);
   };
 
   const chooseService = async (key: ServiceId) => {
@@ -930,7 +952,8 @@ export function CreateConnectionModal({
       }
       if (isMedia) {
         if (provider === "audio" || provider === "decision") {
-          editInstead(current.accountId, current.connectionId);
+          setSetupKind(provider === "audio" ? "voice" : "decision");
+          setStep(3);
           return;
         }
         const mediaKinds = selectedMedia
@@ -948,7 +971,7 @@ export function CreateConnectionModal({
       // "Test and continue" is one press: a passing test opens the models.
       if (result.success) {
         const available: AddableKind[] = service
-          ? kindsOf(service).filter((kind): kind is AddableKind => kind !== "local" && kind !== "voice")
+          ? kindsOf(service).filter((kind): kind is AddableKind => kind !== "local")
           : ["chat"];
         setSetupKind(startKind(available));
         setStep(3);
@@ -1049,11 +1072,13 @@ export function CreateConnectionModal({
       ownedPlaceholderIds: placeholderId ? [placeholderId] : [],
       accountBaseUrl: account?.baseUrl,
     });
-    if (row.provider === "audio" || row.provider === "decision") return editInstead(accountId, row.id);
+    if (row.provider === "audio" || row.provider === "decision") {
+      setSetupKind(row.provider === "audio" ? "voice" : "decision");
+      setStep(3);
+      return;
+    }
     const supportedKinds = resolvedService
-      ? kindsOf(resolvedService).filter(
-          (kind): kind is AddableKind => kind === "chat" || kind === "image" || kind === "video",
-        )
+      ? kindsOf(resolvedService).filter((kind): kind is AddableKind => kind !== "local")
       : [];
     setSetupKind(kind ?? modelsFor?.kind ?? (modelsFor?.chat ? "chat" : startKind(supportedKinds)));
     setStep(3);
@@ -1164,12 +1189,51 @@ export function CreateConnectionModal({
     }
   };
 
+  // A decision or voice Model is its own row under the Connection. The old Decision and Audio
+  // services made it as their first Model; a chat service gets one at its own address, which
+  // shares the Connection's key.
+  const beginJobSetup = async (kind: "decision" | "voice") => {
+    const account = target ? accounts?.find((candidate) => candidate.id === target.accountId) : undefined;
+    if (!account) return;
+    const rowProvider = kind === "decision" ? "decision" : "audio";
+    const vendor = account.provider as APIProvider;
+    if (!isChatProvider(vendor)) {
+      const own = accountRows(account.id).find((row) => row.provider === rowProvider);
+      if (own) setMediaRowId(own.id);
+      return;
+    }
+    setMediaCreating(true);
+    try {
+      const created = (await createRow.mutateAsync({
+        name: account.name,
+        provider: rowProvider,
+        apiKey: "",
+        baseUrl: account.baseUrl || PROVIDERS[vendor]?.defaultBaseUrl || "",
+        accountId: account.id,
+        ...(kind === "decision" ? { decisionSource: "openai_compatible" } : { audioSource: SPEECH_SOURCE[vendor] }),
+      })) as { id?: string };
+      if (!created.id) throw new Error(t("connections.add.mediaCreateFailed"));
+      const id = created.id;
+      setTarget((current) =>
+        current?.accountId === account.id
+          ? { ...current, ownedPlaceholderIds: [...new Set([...(current.ownedPlaceholderIds ?? []), id])] }
+          : current,
+      );
+      setMediaRowId(id);
+    } catch (error) {
+      mediaSetupStarted.current = "";
+      toast.error(friendlyError(error));
+    } finally {
+      setMediaCreating(false);
+    }
+  };
+
   useEffect(() => {
-    if (step !== 3 || !target || mediaRowId || (setupKind !== "image" && setupKind !== "video")) return;
+    if (step !== 3 || !target || mediaRowId || !setupKind || setupKind === "chat") return;
     const key = `${target.accountId}:${setupKind}`;
     if (mediaSetupStarted.current === key) return;
     mediaSetupStarted.current = key;
-    void beginMediaSetup(setupKind);
+    void (setupKind === "image" || setupKind === "video" ? beginMediaSetup(setupKind) : beginJobSetup(setupKind));
     // The target/kind transition is the trigger; the helper reads the latest loaded rows.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, target?.accountId, setupKind, mediaRowId]);
@@ -1185,6 +1249,46 @@ export function CreateConnectionModal({
     );
 
   // A star taken off here: the model is no longer added. The star hook removes the Model (decision 30).
+  const chooseJobModel = async (choice: ChatModelChoice) => {
+    if (!mediaRowId) return;
+    setJobTest(null);
+    setPicks((current) => current.filter((pick) => pick.connectionId !== mediaRowId));
+    await updateRow.mutateAsync({ id: mediaRowId, model: choice.model, name: choice.name || choice.model });
+  };
+  const runJobTest = async () => {
+    const row = mediaRowId ? allRows.find((candidate) => candidate.id === mediaRowId) : undefined;
+    if (!row || (setupKind !== "decision" && setupKind !== "voice")) return;
+    setJobTesting(true);
+    try {
+      let result: { ok: boolean; message: string };
+      if (setupKind === "decision") {
+        const tested = await testConnection.mutateAsync(row.id);
+        result =
+          tested.success && tested.logprobs === false
+            ? { ok: false, message: t("connections.add.decisionNoLogprobs") }
+            : { ...decisionConnectionTestMessage(t, tested), ok: tested.success };
+      } else {
+        // The default voice is the first one the service lists.
+        if (!row.audioVoice?.trim()) {
+          const { voices } = await api.get<TTSVoicesResponse>(`/tts/voices?connectionId=${encodeURIComponent(row.id)}`);
+          if (voices[0]) await updateRow.mutateAsync({ id: row.id, audioVoice: voices[0] });
+        }
+        ttsService.preparePlayback();
+        await ttsService.speak(t("connections.add.voiceTestSentence"), "add-connection-voice-test", {
+          throwOnError: true,
+          audioConnectionId: row.id,
+        });
+        result = { ok: true, message: t("connections.add.voiceTestPassed") };
+      }
+      setJobTest(result);
+      if (result.ok) recordPick(row.id, row.model ?? "", setupKind);
+    } catch (error) {
+      setJobTest({ ok: false, message: errorText(error) });
+    } finally {
+      setJobTesting(false);
+    }
+  };
+
   const unstar = (modelId: string) => setPicks((current) => current.filter((pick) => pick.modelId !== modelId));
 
   const startChatting = async () => {
@@ -1911,6 +2015,9 @@ export function CreateConnectionModal({
     (provider && MODEL_LISTS[provider]?.find((model) => model.id === modelId)?.name) ||
     modelId;
   const mediaRow = mediaRowId ? allRows.find((row) => row.id === mediaRowId) : undefined;
+  const isJobKind = setupKind === "decision" || setupKind === "voice";
+  // A chat service lists its own models for the job; the old Decision and Audio services keep theirs.
+  const jobPicker = isJobKind && !!pickerRow && !!mediaRow && isChatProvider(pickerRow.provider ?? "");
 
   // ── Header: Back, the step's heading and "Step n of N" ──
   const heading =
@@ -1954,9 +2061,13 @@ export function CreateConnectionModal({
           ? t(
               setupKind === "image" || setupKind === "video"
                 ? "connections.add.sub.mediaModels"
-                : modelsFor?.chat
-                  ? "connections.add.sub.modelsChat"
-                  : "connections.add.sub.models",
+                : setupKind === "decision"
+                  ? "connections.add.sub.decision"
+                  : setupKind === "voice"
+                    ? "connections.add.sub.voice"
+                    : modelsFor?.chat
+                      ? "connections.add.sub.modelsChat"
+                      : "connections.add.sub.models",
             )
           : "";
   const stepNumber = step;
@@ -2031,7 +2142,18 @@ export function CreateConnectionModal({
       </p>
     );
     footerRight =
-      onStartChat && firstPick ? (
+      isJobKind && !jobTest?.ok ? (
+        <button
+          type="button"
+          data-add-connection-job-test-run
+          onClick={() => void runJobTest()}
+          disabled={jobTesting || !mediaRow || (jobPicker && !mediaRow.model?.trim())}
+          className={PRIMARY_CLASS}
+        >
+          {jobTesting && <Loader2 size="0.75rem" className="animate-spin" aria-hidden />}
+          {t(setupKind === "decision" ? "connections.add.testDecision" : "connections.add.testVoice")}
+        </button>
+      ) : onStartChat && firstPick ? (
         <button
           type="button"
           onClick={() => void startChatting()}
@@ -2139,7 +2261,7 @@ export function CreateConnectionModal({
             </section>
           )}
 
-          {step === 3 && target && availableKinds.length > 1 && !chat && (
+          {step === 3 && target && availableKinds.length > 1 && !chat && !isJobKind && (
             <div
               role="group"
               aria-label={t("connections.add.kindFilter")}
@@ -2183,6 +2305,47 @@ export function CreateConnectionModal({
               footer={null}
               autoFocusSearch
             />
+          )}
+
+          {step === 3 && isJobKind && target && (
+            <div className="flex h-full min-h-0 flex-col">
+              {jobPicker && pickerRow && mediaRow && (
+                <ConnectionModelPicker
+                  className="min-h-0 flex-1"
+                  // The service's own list; a tap sets the model of the new decision or voice row.
+                  connection={{ ...pickerRow, model: mediaRow.model ?? "" }}
+                  accountName={targetName}
+                  onChoose={chooseJobModel}
+                  only={setupKind === "voice" ? isSpeechModel : undefined}
+                  footer={null}
+                  autoFocusSearch
+                />
+              )}
+              {jobTest && (
+                <div
+                  role="status"
+                  data-add-connection-job-test={jobTest.ok ? "ok" : "failed"}
+                  className={cn(
+                    "mx-5 my-3 flex shrink-0 items-start gap-3 rounded-xl border p-3 max-md:mx-4",
+                    jobTest.ok
+                      ? "border-emerald-500/30 bg-emerald-500/5"
+                      : "border-[var(--destructive)]/40 bg-[var(--destructive)]/5",
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
+                      jobTest.ok
+                        ? "bg-emerald-500/15 text-emerald-500"
+                        : "bg-[var(--destructive)]/15 text-[var(--destructive)]",
+                    )}
+                  >
+                    {jobTest.ok ? <Check size="1rem" aria-hidden /> : <AlertCircle size="1rem" aria-hidden />}
+                  </span>
+                  <p className="min-w-0 flex-1 self-center break-words text-sm">{jobTest.message}</p>
+                </div>
+              )}
+            </div>
           )}
 
           {step === 3 && setupKind === "chat" && target && pickerRow && (

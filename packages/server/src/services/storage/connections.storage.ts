@@ -431,12 +431,22 @@ export function withoutSavedModels<T extends Record<string, unknown>>(row: T): O
 export function createConnectionsStorage(db: DB) {
   /** Decrypt for use, and keep the throttle and shared-account budget registries in sync with the row. */
   const withKey = async <
-    T extends { id: string; apiKeyEncrypted: string; accountId?: string | null; maxRequestsPerMinute?: number | null },
+    T extends {
+      id: string;
+      provider?: string;
+      apiKeyEncrypted: string;
+      accountId?: string | null;
+      maxRequestsPerMinute?: number | null;
+    },
   >(
     row: T,
   ) => {
     await syncAccountBudget(db, row);
-    return withDecryptedKey(row);
+    const keyed = withDecryptedKey(row);
+    // A decision Model speaks the protocol of its Connection's vendor (resolveDecisionConnection).
+    if (row.provider !== "decision" || !row.accountId) return keyed;
+    const account = await getConnectionAccount(db, row.accountId);
+    return { ...keyed, account: account ? { provider: account.provider, baseUrl: account.baseUrl } : null };
   };
 
   return {

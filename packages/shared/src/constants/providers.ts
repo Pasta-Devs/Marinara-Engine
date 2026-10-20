@@ -17,6 +17,8 @@ export interface ProviderDefinition {
   keyUrl?: string;
   /** How the service is paid for, shown as a badge when adding a connection. No prices: they change. */
   billing?: ProviderBilling;
+  /** Set when it serves OpenAI-style `/chat/completions`; a decision Model on it reads log-probabilities there. */
+  protocol?: "openai_chat";
 }
 
 export type ProviderBilling = "pay_per_use" | "plan" | "local" | "free_tier";
@@ -32,6 +34,11 @@ export function isChatProvider(provider: unknown): boolean {
 /** Whether a connection keeps its fetched model list. Claude (Subscription) answers from a built-in list. */
 export function connectionSavesModelList(provider: string): boolean {
   return isChatProvider(provider) && provider !== "claude_subscription";
+}
+
+/** Whether a Connection of this provider answers OpenAI-style `/chat/completions` requests. */
+export function speaksOpenAIChat(provider: string | null | undefined): boolean {
+  return PROVIDERS[provider as APIProvider]?.protocol === "openai_chat";
 }
 
 export const LOCAL_AUTH_PROVIDERS = ["openai_chatgpt", "claude_subscription", "grok_subscription"] as const;
@@ -74,6 +81,7 @@ export function localAuthProviderBaseUrl(provider: string | null | undefined): s
 export const PROVIDERS: Record<APIProvider, ProviderDefinition> = {
   openai: {
     id: "openai",
+    protocol: "openai_chat",
     name: "OpenAI",
     defaultBaseUrl: "https://api.openai.com/v1",
     modelsEndpoint: "/models",
@@ -155,6 +163,7 @@ export const PROVIDERS: Record<APIProvider, ProviderDefinition> = {
   },
   mistral: {
     id: "mistral",
+    protocol: "openai_chat",
     name: "Mistral",
     defaultBaseUrl: "https://api.mistral.ai/v1",
     modelsEndpoint: "/models",
@@ -166,6 +175,7 @@ export const PROVIDERS: Record<APIProvider, ProviderDefinition> = {
   },
   cohere: {
     id: "cohere",
+    protocol: "openai_chat",
     name: "Cohere",
     defaultBaseUrl: "https://api.cohere.ai/compatibility/v1",
     modelsEndpoint: "/models",
@@ -177,6 +187,7 @@ export const PROVIDERS: Record<APIProvider, ProviderDefinition> = {
   },
   openrouter: {
     id: "openrouter",
+    protocol: "openai_chat",
     name: "OpenRouter",
     defaultBaseUrl: "https://openrouter.ai/api/v1",
     modelsEndpoint: "/models",
@@ -188,6 +199,7 @@ export const PROVIDERS: Record<APIProvider, ProviderDefinition> = {
   },
   nanogpt: {
     id: "nanogpt",
+    protocol: "openai_chat",
     name: "NanoGPT",
     defaultBaseUrl: "https://nano-gpt.com/api/v1",
     // Detailed catalog: the plain one omits context_length and max_output_tokens.
@@ -200,6 +212,7 @@ export const PROVIDERS: Record<APIProvider, ProviderDefinition> = {
   },
   xai: {
     id: "xai",
+    protocol: "openai_chat",
     name: "xAI / Grok",
     defaultBaseUrl: "https://api.x.ai/v1",
     modelsEndpoint: "/models",
@@ -211,6 +224,7 @@ export const PROVIDERS: Record<APIProvider, ProviderDefinition> = {
   },
   arli: {
     id: "arli",
+    protocol: "openai_chat",
     name: "Arli AI",
     defaultBaseUrl: "https://api.arliai.com/v1",
     modelsEndpoint: "/models",
@@ -223,6 +237,7 @@ export const PROVIDERS: Record<APIProvider, ProviderDefinition> = {
   },
   zai: {
     id: "zai",
+    protocol: "openai_chat",
     name: "Z.AI",
     // Pay-as-you-go endpoint. The Coding Plan endpoint (/api/coding/paas/v4)
     // is licensed for Z.AI's listed tools only, so it is not the default here.
@@ -236,6 +251,7 @@ export const PROVIDERS: Record<APIProvider, ProviderDefinition> = {
   },
   deepseek: {
     id: "deepseek",
+    protocol: "openai_chat",
     name: "DeepSeek",
     // The OpenAI-format endpoint. DeepSeek also serves an Anthropic-format
     // endpoint at /anthropic, which this provider does not use.
@@ -249,6 +265,7 @@ export const PROVIDERS: Record<APIProvider, ProviderDefinition> = {
   },
   custom: {
     id: "custom",
+    protocol: "openai_chat",
     name: "OpenAI-compatible",
     defaultBaseUrl: "",
     modelsEndpoint: "/models",
