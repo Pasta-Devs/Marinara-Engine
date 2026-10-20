@@ -85,13 +85,14 @@ function UsageRow({
         {subtitle && <div className="mt-0.5 text-[0.6875rem] text-[var(--muted-foreground)]">{subtitle}</div>}
         {children}
       </div>
-      {(value || detail) && (
-        <div className="shrink-0 text-right">
+      {(value || detail || action) && (
+        // Value and action share one column, so the text keeps its width on a phone.
+        <div className="flex shrink-0 flex-col items-end gap-1 text-right">
           {value && <p className="text-xs font-semibold tabular-nums text-[var(--foreground)]">{value}</p>}
           {detail && <p className="text-[0.6875rem] tabular-nums text-[var(--muted-foreground)]">{detail}</p>}
+          {action}
         </div>
       )}
-      {action && <div className="shrink-0 self-center">{action}</div>}
     </li>
   );
 }
