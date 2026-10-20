@@ -1,3 +1,4 @@
+import { openAddConnection } from "../../lib/add-connection";
 import { useMariAppearancePack } from "../../hooks/use-mari-appearance-pack";
 import {
   lazy,
@@ -1266,7 +1267,7 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
       !(
         definition.availability.status === "requires-capability" &&
         definition.availability.setupTarget &&
-        definition.action.kind === "navigate"
+        (definition.action.kind === "navigate" || definition.action.kind === "modal")
       )
     )
       return false;
@@ -1488,6 +1489,9 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
     if (action.kind === "undo-setting") {
       lastSettingFlip?.undo();
       setSettingUndoVersion((current) => current + 1);
+    } else if (action.kind === "add-connection") {
+      openAddConnection({ job: action.job });
+      onClose();
     } else if (action.kind === "find-setting") {
       setMariChatOpen(false);
       setPane("results");

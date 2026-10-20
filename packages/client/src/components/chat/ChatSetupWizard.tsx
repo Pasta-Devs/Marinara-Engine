@@ -37,6 +37,7 @@ import { useChatPresets, useApplyChatPreset } from "../../hooks/use-chat-presets
 import { useAgentConfigs, useCreateAgent, useUpdateAgent, type AgentConfigRow } from "../../hooks/use-agents";
 import { useCapabilityAgentRegistry } from "../../hooks/use-capability-packages";
 import { useUIStore } from "../../stores/ui.store";
+import { openAddConnection } from "../../lib/add-connection";
 import { useChatStore } from "../../stores/chat.store";
 import { useSidecarStore } from "../../stores/sidecar.store";
 import { api } from "../../lib/api-client";
@@ -1571,7 +1572,7 @@ function ConversationQuickSetup({ chat, onFinish, defaultsApplied, defaultsActio
         {connectionOptions.length === 0 && (
           <button
             onClick={() => {
-              openRightPanel("connections");
+              openAddConnection({ job: "main" });
               onFinish();
             }}
             className={WIZARD_SECONDARY_BUTTON_CLASS}
@@ -2998,7 +2999,7 @@ function RoleplaySetupWizard({ chat, onFinish, defaultsApplied, defaultsAction }
         {connectionOptions.length === 0 && (
           <button
             onClick={() => {
-              openRightPanel("connections");
+              openAddConnection({ job: "main" });
               onFinish();
             }}
             className={WIZARD_SECONDARY_BUTTON_CLASS}

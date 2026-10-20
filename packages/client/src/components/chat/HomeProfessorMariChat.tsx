@@ -2736,7 +2736,9 @@ export function HomeProfessorMariChat({
             bare
             chips={data.cards}
             onSelect={(card, draft) =>
-              card.action?.kind === "find-setting" || card.action?.kind === "undo-setting"
+              card.action?.kind === "find-setting" ||
+              card.action?.kind === "undo-setting" ||
+              card.action?.kind === "add-connection"
                 ? onArrivalAction?.(card.action)
                 : handleSuggestionSelect(
                     card as MariSuggestionChip,

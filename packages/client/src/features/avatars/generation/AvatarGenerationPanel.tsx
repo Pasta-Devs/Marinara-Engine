@@ -29,7 +29,7 @@ import {
   usePersona,
   useSpriteCapabilities,
 } from "../../../hooks/use-characters";
-import { useUIStore } from "../../../stores/ui.store";
+import { openAddConnection } from "../../../lib/add-connection";
 import {
   ImagePromptReviewModal,
   type ImagePromptOverride,
@@ -214,9 +214,9 @@ export function AvatarGenerationPanel({ owner, config, onChanged }: AvatarKindSe
               <button
                 type="button"
                 className="text-[var(--primary)] underline"
-                onClick={() => useUIStore.getState().openRightPanel("connections")}
+                onClick={() => openAddConnection({ job: "images" })}
               >
-                {t("avatars.generation.openConnections")}
+                {t("avatars.generation.addImageModel")}
               </button>
             </p>
           )}
