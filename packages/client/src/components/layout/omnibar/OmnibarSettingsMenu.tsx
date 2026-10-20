@@ -617,6 +617,7 @@ export function OmnibarSettingsSheet({
             <ConnectionSelect
               id={connectionSelectId}
               value={asideConnectionId}
+              disabled={!asideEnabled}
               onChange={(id) => setAsideConnectionId(id ?? LOCAL_SIDECAR_CONNECTION_ID)}
               includeLocalSidecar
               extraOptions={

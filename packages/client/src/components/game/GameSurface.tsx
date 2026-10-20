@@ -12228,6 +12228,7 @@ function GameSurfaceComponent({
                 </span>
                 <ConnectionSelect
                   value={chat.connectionId || null}
+                  disabled={isStreaming || startGame.isPending || updateChat.isPending}
                   onChange={(id) => handleStartScreenConnectionChange(id ?? "")}
                   defaultLabel={localizeUi("ui.game.gamesurfacecomponent.none")}
                   extraOptions={[{ value: "random", label: localizeUi("ui.game.gamesurfacecomponent.random") }]}

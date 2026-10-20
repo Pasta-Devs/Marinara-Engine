@@ -144,6 +144,7 @@ export function NewChatConnectionGate({ mode, onClose }: NewChatConnectionGatePr
                 </label>
                 <ConnectionSelect
                   value={connectionId || null}
+                  disabled={createChat.isPending}
                   onChange={(id) => setConnectionId(id ?? "")}
                   defaultLabel={localizeUi("ui.chat.customemojiselectionsettings.selectAConnection")}
                 />
