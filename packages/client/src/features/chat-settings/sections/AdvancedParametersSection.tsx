@@ -66,6 +66,10 @@ interface AdvancedParametersSectionProps {
   }) => void;
 }
 
+/** The on-device model cannot read images, so it never captions. */
+const canCaption = (connection: AdvancedConnection) =>
+  isLanguageGenerationConnection(connection) && connection.isLocalSidecar !== true;
+
 export function AdvancedParametersSection({
   forceOpen,
   metadata,
@@ -117,11 +121,11 @@ export function AdvancedParametersSection({
     typeof metadata.imageCaptioningPrompt === "string" && metadata.imageCaptioningPrompt.trim()
       ? metadata.imageCaptioningPrompt
       : "";
-  const chatConnectionCanCaption = !!conn && isLanguageGenerationConnection(conn);
+  const chatConnectionCanCaption = !!conn && canCaption(conn);
   const connectionOptions = useMemo(
     () =>
       connections.flatMap((connection) => {
-        if (!isLanguageGenerationConnection(connection)) return [];
+        if (!canCaption(connection)) return [];
         const id = typeof connection.id === "string" ? connection.id : "";
         if (!id) return [];
         const name = typeof connection.name === "string" && connection.name.trim() ? connection.name.trim() : id;

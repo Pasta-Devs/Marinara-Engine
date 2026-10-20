@@ -33,13 +33,15 @@ import { createMariWorkspaceContextStorage } from "../storage/mari-workspace-con
 import { renderMariWorkspaceContextPrompt } from "./mari-workspace-context-prompt.js";
 import { isMemoryRecallVectorizerAvailable } from "../memory-recall-embedding.js";
 import { mergeCustomParameters, normalizeServiceTier } from "../../routes/generate/generate-route-utils.js";
+import { getAttachmentFilename, type PromptAttachment } from "../generation/prompt-attachments.js";
 import {
-  appendReadableAttachmentsToContent,
-  extractFileAttachmentInputs,
-  extractImageAttachmentDataUrls,
-  getAttachmentFilename,
-  type PromptAttachment,
-} from "../generation/prompt-attachments.js";
+  DISABLED_IMAGE_CAPTIONING,
+  resolveImageCaptioningRuntime,
+  resolvePromptAttachmentInputs,
+  resolveVisionCaptioningRuntime,
+  withImageCaptionFallback,
+  type ImageCaptioningRuntime,
+} from "../generation/image-captioning-runtime.js";
 import { resolveBaseUrl } from "../generation/connection-base-url.js";
 import { MARI_GUIDED_SEQUENCES } from "./guided-sequences.js";
 import { getFileStorageDir, getPort, getServerProtocol, isDebugAgentsEnabled } from "../../config/runtime-config.js";
@@ -1093,8 +1095,9 @@ function normalizeProfessorMariAttachments(value: unknown): ProfessorMariPromptA
     .filter((attachment): attachment is ProfessorMariPromptAttachment => attachment !== null);
 }
 
+/** `content` already carries the readable files and image captions; this adds one name line per attachment. */
 function appendProfessorMariAttachmentNames(content: string, attachments: ProfessorMariPromptAttachment[]): string {
-  const withReadableFiles = appendReadableAttachmentsToContent(content, attachments);
+  const withReadableFiles = content;
   if (attachments.length === 0) return withReadableFiles;
   const names = attachments
     .map((attachment) => {
@@ -3565,7 +3568,17 @@ export class ProfessorMariWorkspaceService {
       controller.signal.throwIfAborted();
       this.activeRunPermissionsMode = permissionsMode;
       this.activeDecisionContext = { db: this.app.db, chatId: args.chatId, userMessageId: userMessage.id };
-      const provider = createProviderForConnection(connection);
+      const provider = withImageCaptionFallback(
+        createProviderForConnection(connection),
+        async () =>
+          resolveVisionCaptioningRuntime({
+            chatMeta: {},
+            fallbackConnectionId: connection.id,
+            connections: createConnectionsStorage(this.app.db),
+            visionConnectionId: (await readFeatureModelConnections(this.app.db)).visionConnectionId,
+          }),
+        args.debugMode === true,
+      );
       const runtime = await this.readRuntime(connection);
       const usePi = runtime.active === "pi";
       if (runtime.note) {
@@ -3579,6 +3592,8 @@ export class ProfessorMariWorkspaceService {
         handoffContextPrompt,
         runtime.active,
         args.seasonalPackId,
+        controller.signal,
+        args.debugMode === true,
       );
       const baseOptions: ChatOptions = {
         ...this.baseChatOptions(
@@ -4288,6 +4303,8 @@ export class ProfessorMariWorkspaceService {
     handoffContextPrompt: string | null,
     runtime: MariRuntime = "classic",
     seasonalPackId?: string,
+    signal: AbortSignal = new AbortController().signal,
+    debugMode = false,
   ): Promise<{
     messages: ChatMessage[];
     manualApprovalArmed: boolean;
@@ -4383,6 +4400,8 @@ export class ProfessorMariWorkspaceService {
       });
     }
 
+    // Same captioning as chats: the Model's own switch, else Automatic with the Image reading default.
+    let imageCaptioning: ImageCaptioningRuntime | null = null;
     for (const row of history) {
       const extra = parseExtra(row.extra);
       if (extra.hiddenFromAI === true) continue;
@@ -4390,17 +4409,35 @@ export class ProfessorMariWorkspaceService {
       if (!content.trim()) continue;
       const role = roleForMessage(row);
       const attachments = role === "user" ? normalizeProfessorMariAttachments(extra.attachments) : [];
-      const images = extractImageAttachmentDataUrls(attachments);
-      const files = extractFileAttachmentInputs(attachments);
+      if (attachments.some((attachment) => attachment.type?.startsWith("image/"))) {
+        imageCaptioning ??= await resolveImageCaptioningRuntime({
+          chatMeta: {},
+          fallbackConnectionId: connection.id,
+          connections: createConnectionsStorage(this.app.db),
+          visionConnectionId: (await readFeatureModelConnections(this.app.db)).visionConnectionId,
+        });
+      }
+      const resolved = await resolvePromptAttachmentInputs({
+        content,
+        attachments,
+        imageCaptioning: imageCaptioning ?? DISABLED_IMAGE_CAPTIONING,
+        signal,
+        debugMode,
+      });
+      if (resolved.updatedAttachments) {
+        await chatStorage.updateMessageExtra(row.id, { attachments: resolved.updatedAttachments }).catch((error) => {
+          logger.warn(error, "[image-captioning] Failed to cache image captions for message %s", row.id);
+        });
+      }
       messages.push({
         role,
         content:
           role === "assistant" && runtime === "classic"
             ? assistantHistoryContentFromVisibleText(content)
-            : appendProfessorMariAttachmentNames(content, attachments),
+            : appendProfessorMariAttachmentNames(resolved.content, attachments),
         contextKind: "history",
-        ...(role === "user" && images.length > 0 ? { images } : {}),
-        ...(role === "user" && files.length > 0 ? { files } : {}),
+        ...(role === "user" && resolved.images.length > 0 ? { images: resolved.images } : {}),
+        ...(role === "user" && resolved.files.length > 0 ? { files: resolved.files } : {}),
       });
     }
     // #5073: user-attached reference context (chat-history slices). contextKind:'injection' so the
@@ -4730,12 +4767,7 @@ export class ProfessorMariWorkspaceService {
   ): Promise<void> {
     const unavailable = await connections.unavailableReason(skippedId);
     if (!unavailable) return;
-    logger.warn(
-      "[professor-mari] Model %s is unavailable (%s); using %s",
-      skippedId,
-      unavailable.reason,
-      fallback.id,
-    );
+    logger.warn("[professor-mari] Model %s is unavailable (%s); using %s", skippedId, unavailable.reason, fallback.id);
     try {
       await notifyGenerationFallback({
         category,

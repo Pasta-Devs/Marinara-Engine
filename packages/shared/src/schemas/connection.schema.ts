@@ -164,6 +164,8 @@ export const createConnectionSchema = z.object({
     .max(DECISION_CONNECTION_TIMEOUT_BOUNDS_MS.max)
     .nullable()
     .default(null),
+  /** null = Automatic: the Model's catalog decides whether it reads images. */
+  imageInput: z.enum(["reads", "text"]).nullable().default(null),
   audioVoice: z.string().nullable().default(null),
   /** Milliseconds; null keeps the default. */
   audioTimeoutMs: z

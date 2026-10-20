@@ -38,6 +38,7 @@ export function ConnectionPicker({
   includeDefault = true,
   includeLocalSidecar = false,
   extraOptions = [],
+  rowFilter,
   title,
   restoreFocusRef,
 }: {
@@ -54,6 +55,8 @@ export function ConnectionPicker({
   /** Offer the on-device Local Model (chat kind only). */
   includeLocalSidecar?: boolean;
   extraOptions?: ReadonlyArray<{ value: string; label: string }>;
+  /** Hides Models this slot cannot use; the current value stays listed. */
+  rowFilter?: (row: ConnectionChoiceRow) => boolean;
   title?: string;
   /** Where focus goes back on close; the opener by default. */
   restoreFocusRef?: RefObject<HTMLElement | null>;
@@ -65,6 +68,7 @@ export function ConnectionPicker({
     defaultLabel: defaultLabel ?? t("connections.select.default"),
     includeLocalSidecar,
     extraOptions,
+    rowFilter,
   });
   const [query, setQuery] = useState("");
   const [wasOpen, setWasOpen] = useState(open);

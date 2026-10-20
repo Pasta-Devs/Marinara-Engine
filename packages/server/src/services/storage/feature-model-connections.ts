@@ -15,6 +15,7 @@ export const DEFAULT_FEATURE_MODEL_CONNECTIONS: FeatureModelConnections = {
   mariConnectionId: null,
   omnibarAsideConnectionId: LOCAL_SIDECAR_CONNECTION_ID,
   impersonateConnectionId: null,
+  visionConnectionId: null,
 };
 
 /** The stored choices with defaults filled in. A missing or unreadable value is the defaults. */
@@ -28,6 +29,7 @@ export async function readFeatureModelConnections(db: DB): Promise<FeatureModelC
       // A cleared aside choice (e.g. its Model was deleted) goes back to the local model.
       omnibarAsideConnectionId: stored.omnibarAsideConnectionId ?? LOCAL_SIDECAR_CONNECTION_ID,
       impersonateConnectionId: stored.impersonateConnectionId ?? null,
+      visionConnectionId: stored.visionConnectionId ?? null,
     };
   } catch (error) {
     logger.warn(error, "Ignoring invalid stored feature-model-connections setting");

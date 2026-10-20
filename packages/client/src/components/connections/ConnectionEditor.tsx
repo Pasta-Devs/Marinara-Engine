@@ -66,6 +66,7 @@ import {
   ChevronDown,
   ExternalLink,
   ImageIcon,
+  Eye,
   Film,
   Music,
   RotateCcw,
@@ -463,6 +464,8 @@ export function ConnectionEditor({
   const [localAudioSoundEffects, setLocalAudioSoundEffects] = useState(false);
   const [localAudioMusic, setLocalAudioMusic] = useState(false);
   const [localMaxTokensOverride, setLocalMaxTokensOverride] = useState<number | null>(null);
+  /** "" = Automatic (the catalog decides), else "reads" or "text". */
+  const [localImageInput, setLocalImageInput] = useState<"" | "reads" | "text">("");
   const [localClaudeFastMode, setLocalClaudeFastMode] = useState(false);
   const [localTreatAsLocalEndpoint, setLocalTreatAsLocalEndpoint] = useState(false);
   const [localDefaultParametersEnabled, setLocalDefaultParametersEnabled] = useState(false);
@@ -605,6 +608,7 @@ export function ConnectionEditor({
     setLocalAudioSoundEffects(c.audioSoundEffects === "true" || c.audioSoundEffects === true);
     setLocalAudioMusic(c.audioMusic === "true" || c.audioMusic === true);
     setLocalMaxTokensOverride(typeof c.maxTokensOverride === "number" ? (c.maxTokensOverride as number) : null);
+    setLocalImageInput(c.imageInput === "reads" || c.imageInput === "text" ? c.imageInput : "");
     setLocalClaudeFastMode(c.claudeFastMode === "true" || c.claudeFastMode === true);
     setLocalTreatAsLocalEndpoint(c.treatAsLocalEndpoint === "true" || c.treatAsLocalEndpoint === true);
     const imageCaptioningDefaults = parseConnectionImageCaptioningDefaults(c.defaultParameters);
@@ -961,6 +965,7 @@ export function ConnectionEditor({
           : selectedVideoDefaultsService
         : null,
       maxTokensOverride: localMaxTokensOverride ?? null,
+      imageInput: isChatProvider(localProvider) ? localImageInput || null : null,
       claudeFastMode: localClaudeFastMode,
       treatAsLocalEndpoint: canTreatAsLocalEndpoint ? localTreatAsLocalEndpoint : false,
       decisionSource: localProvider === "decision" ? localDecisionSource : null,
@@ -1116,6 +1121,7 @@ export function ConnectionEditor({
     localVideoPromptInstructions,
     effectiveImageGenerationQuality,
     localMaxTokensOverride,
+    localImageInput,
     localClaudeFastMode,
     localTreatAsLocalEndpoint,
     localDefaultParametersEnabled,
@@ -3240,6 +3246,29 @@ export function ConnectionEditor({
                 </div>
               )}
             </FieldGroup>
+
+            {/* ── Image reading ── */}
+            {isChatProvider(localProvider) && (
+              <FieldGroup
+                label={t("connections.editor.imageInput.label")}
+                icon={<Eye size="0.875rem" className="text-sky-400" />}
+                help={t("connections.editor.imageInput.help")}
+              >
+                <select
+                  value={localImageInput}
+                  aria-label={t("connections.editor.imageInput.label")}
+                  onChange={(event) => {
+                    setLocalImageInput(event.target.value as "" | "reads" | "text");
+                    markDirty();
+                  }}
+                  className="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm outline-none ring-1 ring-[var(--border)] transition-shadow focus:ring-sky-400/50"
+                >
+                  <option value="">{t("connections.editor.imageInput.auto")}</option>
+                  <option value="reads">{t("connections.editor.imageInput.reads")}</option>
+                  <option value="text">{t("connections.editor.imageInput.text")}</option>
+                </select>
+              </FieldGroup>
+            )}
 
             {/* ── RunPod Endpoint ID ── */}
             {localProvider === "image_generation" && selectedImageService === "runpod_comfyui" && (

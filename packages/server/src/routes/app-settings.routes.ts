@@ -92,6 +92,8 @@ export async function appSettingsRoutes(app: FastifyInstance) {
       mariConnectionId: [LOCAL_SIDECAR_CONNECTION_ID],
       omnibarAsideConnectionId: [LOCAL_SIDECAR_CONNECTION_ID, "mari"],
       impersonateConnectionId: [LOCAL_SIDECAR_CONNECTION_ID, "random"],
+      // The local model cannot read images.
+      visionConnectionId: [],
     };
     const changes: Partial<FeatureModelConnections> = {};
     for (const [key, id] of Object.entries(input) as Array<[keyof FeatureModelConnections, string | null]>) {

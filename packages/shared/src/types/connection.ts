@@ -169,6 +169,8 @@ export interface APIConnection {
   maxStateTokens?: number | null;
   /** How long a Decision connection may take to answer, in milliseconds; null is the default. */
   decisionTimeoutMs?: number | null;
+  /** Whether this chat Model reads images; null (Automatic) lets its catalog decide. */
+  imageInput?: "reads" | "text" | null;
   /** Default voice id/name for speech synthesis on this audio connection. */
   audioVoice: string | null;
   /** How long a speech request on this audio connection may take, in milliseconds; null is the default. */

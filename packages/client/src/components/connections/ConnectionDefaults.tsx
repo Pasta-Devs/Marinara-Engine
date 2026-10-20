@@ -13,6 +13,7 @@ import {
   ChevronDown,
   ChevronRight,
   Database,
+  Eye,
   Film,
   GraduationCap,
   ImageIcon,
@@ -32,6 +33,7 @@ import {
   isAgentConfigDeleted,
   isChatProvider,
   isRetiredBuiltInAgentId,
+  modelReadsImages,
   type ConnectionAccountListItem,
   type FeatureModelConnections,
 } from "@marinara-engine/shared";
@@ -127,6 +129,7 @@ const FEATURE_KEYS: Array<keyof FeatureModelConnections> = [
   "mariConnectionId",
   "omnibarAsideConnectionId",
   "impersonateConnectionId",
+  "visionConnectionId",
 ];
 /** Feature values that are not a Model: quick answers can follow Professor Mari, Impersonate can shuffle. */
 const FEATURE_EXTRA_OPTIONS: Partial<Record<keyof FeatureModelConnections, Array<{ value: string; key: string }>>> = {
@@ -138,6 +141,7 @@ const FEATURE_ICONS: Record<keyof FeatureModelConnections, ReactNode> = {
   mariConnectionId: <GraduationCap size="0.6875rem" />,
   omnibarAsideConnectionId: <MessageCircleQuestion size="0.6875rem" />,
   impersonateConnectionId: <VenetianMask size="0.6875rem" />,
+  visionConnectionId: <Eye size="0.6875rem" />,
 };
 
 const FOCUS =
@@ -361,6 +365,9 @@ export function useConnectionDefaults(connectionsList: ConnectionRowData[]) {
       // What the server runs when unset: Quick answers use the built-in model; Prof. Mari the agents default, then
       // Main; Impersonate the chat's model, which is Main in a new chat.
       if (key === "omnibarAsideConnectionId") return { ...tile, value: sidecarName, muted: true };
+      if (key === "visionConnectionId") {
+        return { ...tile, value: t("connections.defaults.featureDefault.visionConnectionId"), muted: true };
+      }
       const from =
         key === "mariConnectionId"
           ? sidecarAsAgentsDefault
@@ -380,7 +387,13 @@ export function useConnectionDefaults(connectionsList: ConnectionRowData[]) {
         warning: blockedWarning(
           row,
           tile.title,
-          key === "impersonateConnectionId" ? mainRow : usable(agentsRow) ? agentsRow : mainRow,
+          key === "impersonateConnectionId"
+            ? mainRow
+            : key === "visionConnectionId"
+              ? null
+              : usable(agentsRow)
+                ? agentsRow
+                : mainRow,
         ),
       };
     return {
@@ -410,7 +423,7 @@ const JOB_GROUPS: Array<{ key: string; jobs: TileKey[] }> = [
   { key: "chat", jobs: ["main", "agents", "impersonateConnectionId"] },
   { key: "omnibar", jobs: ["mariConnectionId", "omnibarAsideConnectionId"] },
   { key: "media", jobs: ["images", "video", "audio", "voice", "stt"] },
-  { key: "background", jobs: ["decision", "embeddings"] },
+  { key: "background", jobs: ["decision", "embeddings", "visionConnectionId"] },
 ];
 
 /** A job nothing is chosen for, or whose engine is not set up: a dashed tile. */
@@ -669,6 +682,19 @@ export function ConnectionDefaultsBox({
     );
   };
 
+  // Image reading offers the Models that read images or may (their catalog does not say).
+  const chatRows = connectionsList.filter((row) => isChatProvider(row.provider));
+  const chatRowCatalogs = useCachedCatalogFacts(
+    chatRows.map((row) =>
+      row.accountId ? chatRows.filter((peer) => peer.accountId === row.accountId).map((peer) => peer.id) : [row.id],
+    ),
+  );
+  const mayReadImages = (row: { id: string; model?: string | null }) => {
+    const index = chatRows.findIndex((entry) => entry.id === row.id);
+    const chatRow = chatRows[index];
+    return !chatRow || modelReadsImages(chatRow, chatRowCatalogs[index]?.of(row.model)) !== false;
+  };
+
   const features = featureModels.data;
   const jobs: Job[] = [
     ...tiles.map((tile) =>
@@ -707,7 +733,8 @@ export function ConnectionDefaultsBox({
               value: extra.value,
               label: t(extra.key),
             }))}
-            includeLocalSidecar={!lite}
+            includeLocalSidecar={!lite && key !== "visionConnectionId"}
+            rowFilter={key === "visionConnectionId" ? mayReadImages : undefined}
             className={cn(!features && "opacity-60")}
             aria-label={t(`connections.defaults.feature.${key}`)}
           />

@@ -36,7 +36,12 @@ try {
   }
   assert.deepEqual(
     JSON.parse(stored.get("marinara:legacy-feature-models") ?? "null"),
-    { mariConnectionId: "mari-connection", omnibarAsideConnectionId: "quick-model", impersonateConnectionId: null },
+    {
+      mariConnectionId: "mari-connection",
+      omnibarAsideConnectionId: "quick-model",
+      impersonateConnectionId: null,
+      visionConnectionId: null,
+    },
     "the migration stages the old picks (Mari's old browser key included) for the one-time server copy",
   );
 

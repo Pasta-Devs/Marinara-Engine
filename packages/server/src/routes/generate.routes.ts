@@ -642,6 +642,8 @@ import {
   captionSentSelfies,
   normalizePromptAttachments,
   resolveImageCaptioningRuntime,
+  resolveVisionCaptioningRuntime,
+  withImageCaptionFallback,
   resolvePromptAttachmentInputs,
   type ImageCaptioningRuntime,
 } from "./generate/image-captioning-runtime.js";
@@ -1685,11 +1687,13 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
     const promptNow = toZonedWallClockDate(new Date(), promptTimeZone);
     const excludePastReasoning = chatMeta.excludePastReasoning !== false;
     let encryptedReasoningItems: unknown[] | undefined;
-    const imageCaptioningRuntime: ImageCaptioningRuntime = await resolveImageCaptioningRuntime({
+    const imageCaptioningArgs = {
       chatMeta,
       fallbackConnectionId: connId,
       connections,
-    });
+      visionConnectionId: (await readFeatureModelConnections(app.db).catch(() => null))?.visionConnectionId ?? null,
+    };
+    const imageCaptioningRuntime: ImageCaptioningRuntime = await resolveImageCaptioningRuntime(imageCaptioningArgs);
     let memoryRecallEmbeddingSource: Awaited<ReturnType<typeof resolveMemoryRecallEmbeddingSource>> | null = null;
     try {
       memoryRecallEmbeddingSource = await resolveMemoryRecallEmbeddingSource(app.db, {
@@ -4501,11 +4505,15 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
         };
         const providerRuntime = resolveGenerationProviderRuntime({
           wrapProvider: (provider) =>
-            withLorebookImageCompatibility(
-              provider,
-              lorebookReferenceImages,
-              () => notifyLorebookImages("unsupported"),
-              new Set(finalMessages.flatMap((message) => message.images ?? [])),
+            withImageCaptionFallback(
+              withLorebookImageCompatibility(
+                provider,
+                lorebookReferenceImages,
+                () => notifyLorebookImages("unsupported"),
+                new Set(finalMessages.flatMap((message) => message.images ?? [])),
+              ),
+              () => resolveVisionCaptioningRuntime(imageCaptioningArgs),
+              requestDebug,
             ),
           connectionId: connId ?? "",
           connection: conn,

@@ -8,6 +8,8 @@ export const featureModelConnectionsSchema = z.object({
   mariConnectionId: z.string().min(1).nullable(),
   omnibarAsideConnectionId: z.string().min(1).nullable(),
   impersonateConnectionId: z.string().min(1).nullable(),
+  /** Reads images for chat Models that cannot (Image reading default). */
+  visionConnectionId: z.string().min(1).nullable(),
 });
 
 export type FeatureModelConnections = z.infer<typeof featureModelConnectionsSchema>;

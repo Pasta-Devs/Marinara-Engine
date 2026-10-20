@@ -43,12 +43,15 @@ export function useConnectionChoices({
   defaultLabel,
   includeLocalSidecar,
   extraOptions,
+  rowFilter,
 }: {
   kind: ConnectionSelectKind;
   value: string | null;
   defaultLabel?: string;
   includeLocalSidecar: boolean;
   extraOptions: ReadonlyArray<{ value: string; label: string }>;
+  /** Hides Models this slot cannot use; the current value stays listed. */
+  rowFilter?: (row: ConnectionModelRow) => boolean;
 }) {
   const { t } = useTranslation();
   const connections = useConnections();
@@ -58,7 +61,9 @@ export function useConnectionChoices({
 
   const view = useMemo(() => {
     const allRows = (rawRows ?? []) as ConnectionChoiceRow[];
-    const rows = allRows.filter((row) => matchesKind(row, kind));
+    const offered = (row: ConnectionChoiceRow) =>
+      matchesKind(row, kind) && (!rowFilter || row.id === value || rowFilter(row));
+    const rows = allRows.filter(offered);
     const accountById = new Map((accounts ?? []).map((account) => [account.id, account]));
     const rowById = new Map(allRows.map((row) => [row.id, row]));
     // A Model that borrows credentials (a decision row) belongs to, and is only as usable as, its lender's
@@ -69,14 +74,14 @@ export function useConnectionChoices({
       return accountId ? accountById.get(accountId) : undefined;
     };
     const all = groupModelsByAccount(allRows, accounts ?? []);
-    const groups = all.groups.map((group) => ({ ...group, rows: group.rows.filter((row) => matchesKind(row, kind)) }));
-    const standalone = all.standalone.filter((row) => matchesKind(row, kind));
+    const groups = all.groups.map((group) => ({ ...group, rows: group.rows.filter(offered) }));
+    const standalone = all.standalone.filter(offered);
     // Image, video and audio Models default through the agents flag, not the chat one.
     const defaultFlag = kind === "image" || kind === "video" || kind === "audio" ? "defaultForAgents" : "isDefault";
     const resolved = rows.find((row) => isConnectionFlagTrue(row[defaultFlag])) ?? null;
     const resolvedAccount = resolved ? accountOf(resolved) : undefined;
     return { rows, groups, standalone, resolved, resolvedAccount, accountOf };
-  }, [accounts, kind, rawRows]);
+  }, [accounts, kind, rawRows, rowFilter, value]);
 
   const defaultText =
     defaultLabel ??
@@ -151,6 +156,7 @@ export function ConnectionSelect({
   defaultLabel,
   includeLocalSidecar = false,
   extraOptions = [],
+  rowFilter,
   variant = "picker",
   label: rowLabel,
   title,
@@ -167,6 +173,8 @@ export function ConnectionSelect({
   includeLocalSidecar?: boolean;
   /** Values that are not Models but valid for this slot, such as "random"; listed after the first option. */
   extraOptions?: ReadonlyArray<{ value: string; label: string }>;
+  /** Hides Models this slot cannot use; the current value stays listed. */
+  rowFilter?: (row: ConnectionModelRow) => boolean;
   /**
    * `picker` (default): a field that opens the searchable picker. `menu`: a Settings-style label/value row that
    * opens the same picker. `native`: a native select, for callers that need one.
@@ -185,7 +193,7 @@ export function ConnectionSelect({
   const [opened, setOpened] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const valueId = useId();
-  const choices = useConnectionChoices({ kind, value, defaultLabel, includeLocalSidecar, extraOptions });
+  const choices = useConnectionChoices({ kind, value, defaultLabel, includeLocalSidecar, extraOptions, rowFilter });
 
   if (variant === "native") {
     const option = (row: ConnectionChoiceRow) => {
@@ -296,6 +304,7 @@ export function ConnectionSelect({
             defaultLabel={choices.defaultText}
             includeLocalSidecar={includeLocalSidecar}
             extraOptions={extraOptions}
+            rowFilter={rowFilter}
             title={title}
             restoreFocusRef={triggerRef}
           />

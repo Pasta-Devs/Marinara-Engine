@@ -48,8 +48,6 @@ import {
 } from "../../services/storage/game-state.storage.js";
 import {
   appendReadableAttachmentsToContent,
-  extractFileAttachmentInputs,
-  extractImageAttachmentDataUrls,
   parseExtra,
   type PromptAttachment,
 } from "../../services/generation/prompt-attachments.js";
@@ -1174,46 +1172,12 @@ export function buildUserMessageRegenerationInstruction(message: { content?: unk
   ].join("\n");
 }
 
-export function buildUserMessageRegenerationPrompt(message: { content?: unknown; extra?: unknown }): SimpleMessage {
-  const attachments = parsePromptAttachments(message.extra);
-  const images = extractImageAttachmentDataUrls(attachments);
-  const files = extractFileAttachmentInputs(attachments);
-  return {
-    role: "user",
-    content: buildUserMessageRegenerationInstruction(message),
-    ...(images.length ? { images } : {}),
-    ...(files.length ? { files } : {}),
-  };
-}
-
 export function buildUserMessageRegenerationPromptFromSource(source: SimpleMessage): SimpleMessage {
   return {
     role: "user",
     content: buildUserMessageRegenerationInstruction({ content: source.content }),
     ...(source.images?.length ? { images: source.images } : {}),
     ...(source.files?.length ? { files: source.files } : {}),
-  };
-}
-
-/**
- * Build the context-facing version of a user message being regenerated.
- * This preserves the original user text and attachments for prompt shaping
- * without adding the provider-facing rewrite instruction.
- */
-export function buildUserMessageRegenerationSourceMessage(message: {
-  content?: unknown;
-  extra?: unknown;
-}): SimpleMessage {
-  const original = typeof message.content === "string" ? message.content : "";
-  const attachments = parsePromptAttachments(message.extra);
-  const content = appendReadableAttachmentsToContent(original, attachments);
-  const images = extractImageAttachmentDataUrls(attachments);
-  const files = extractFileAttachmentInputs(attachments);
-  return {
-    role: "user",
-    content,
-    ...(images.length ? { images } : {}),
-    ...(files.length ? { files } : {}),
   };
 }
 

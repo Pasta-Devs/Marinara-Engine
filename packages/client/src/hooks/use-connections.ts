@@ -136,6 +136,7 @@ export type CreateConnectionPayload = {
   audioMusic?: boolean;
   promptPresetId?: string | null;
   maxTokensOverride?: number | null;
+  imageInput?: "reads" | "text" | null;
   maxParallelJobs?: number;
   maxRequestsPerMinute?: number | null;
   treatAsLocalEndpoint?: boolean;
@@ -361,8 +362,8 @@ export type ConnectionModelList = {
   billing?: ConnectionBilling;
 };
 
-/** What the cached catalogs say about one model: its cost badge and whether it is retiring. */
-export type CachedModelFacts = Pick<RemoteConnectionModel, "cost" | "deprecated" | "retiresAt">;
+/** What the cached catalogs say about one model: its cost badge, whether it is retiring, what it reads. */
+export type CachedModelFacts = Pick<RemoteConnectionModel, "cost" | "deprecated" | "retiresAt" | "inputModalities">;
 
 export type CachedCatalogFacts = {
   of: (modelId: string | null | undefined) => CachedModelFacts | undefined;
@@ -383,8 +384,13 @@ function indexCatalog(list: ConnectionModelList): CatalogIndex {
   for (const model of list.models ?? []) {
     index.ids.add(model.id);
     if (model.cost === "included" || model.cost?.startsWith("multiplier:")) index.showPaid = true;
-    if (model.cost || model.deprecated || model.retiresAt) {
-      index.byId.set(model.id, { cost: model.cost, deprecated: model.deprecated, retiresAt: model.retiresAt });
+    if (model.cost || model.deprecated || model.retiresAt || model.inputModalities?.length) {
+      index.byId.set(model.id, {
+        cost: model.cost,
+        deprecated: model.deprecated,
+        retiresAt: model.retiresAt,
+        inputModalities: model.inputModalities,
+      });
     }
   }
   catalogIndexes.set(list, index);

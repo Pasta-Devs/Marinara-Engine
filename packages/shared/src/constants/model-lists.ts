@@ -5,6 +5,7 @@
 // ──────────────────────────────────────────────────────────────
 import type { APIProvider } from "../types/connection.js";
 import { PROVIDERS } from "./providers.js";
+import { LOCAL_SIDECAR_CONNECTION_ID } from "./defaults.js";
 
 export interface KnownModel {
   id: string;
@@ -1512,6 +1513,25 @@ export interface ConnectionCatalogModel {
   retiresAt?: string;
   /** Left out when unknown. */
   cost?: Exclude<ConnectionModelCost, null>;
+}
+
+/** A Model's own answer to "can it read images?"; null (Automatic) lets its catalog decide. */
+export const MODEL_IMAGE_INPUTS = ["reads", "text"] as const;
+export type ModelImageInput = (typeof MODEL_IMAGE_INPUTS)[number];
+
+/**
+ * Whether a Model reads images: its own setting first, then the catalog's input modalities. null means unknown,
+ * and the images are then sent as they are. The on-device model never reads images.
+ */
+export function modelReadsImages(
+  row: { id?: string | null; imageInput?: string | null },
+  catalogModel?: { inputModalities?: readonly string[] } | null,
+): boolean | null {
+  if (row.id === LOCAL_SIDECAR_CONNECTION_ID) return false;
+  if (row.imageInput === "reads") return true;
+  if (row.imageInput === "text") return false;
+  const modalities = catalogModel?.inputModalities;
+  return modalities?.length ? modalities.includes("image") : null;
 }
 
 /**

@@ -27,6 +27,8 @@ export type RemoteConnectionModel = {
   deprecated?: true;
   /** When the provider retires the model (ISO date). */
   retiresAt?: string;
+  /** What the model accepts ("text", "image", ...), when the provider says. */
+  inputModalities?: string[];
 };
 
 export type ConnectionModelOption = {

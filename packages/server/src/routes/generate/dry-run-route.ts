@@ -147,12 +147,10 @@ import { applyAllSegmentEdits } from "../../services/game/segment-edits.js";
 import { applyRegexScriptsToPromptMessages } from "../../services/regex/regex-application.js";
 import { sendSseEvent, startSseReply } from "./sse.js";
 import {
-  appendReadableAttachmentsToContent,
   postProcessMessages,
   buildGenerationGuideInstruction,
   createLocalSidecarGenerationConnection,
   dedupeLastMessageWrappers,
-  extractFileAttachmentInputs,
   extractImageAttachmentDataUrls,
   findTrackerContextInsertIndex,
   formatConversationInstructionsForWrap,
@@ -206,6 +204,13 @@ import {
   resolveChatConnectionOrFallback,
 } from "../../services/generation/connection-resolution.js";
 import { readFeatureModelConnections } from "../../services/storage/feature-model-connections.js";
+import {
+  DISABLED_IMAGE_CAPTIONING,
+  resolveImageCaptioningRuntime,
+  resolvePromptAttachmentInputs,
+  resolveVisionCaptioningRuntime,
+  withImageCaptionFallback,
+} from "../../services/generation/image-captioning-runtime.js";
 import { createReplyFallbackNotifier } from "./fallback-notification.js";
 import { resolveGameGmPromptTemplate } from "../../services/generation/game-gm-prompt-runtime.js";
 
@@ -861,36 +866,49 @@ export async function registerDryRunRoute(app: FastifyInstance) {
       conn.model,
     );
     const latestReplyUserMessageId = [...chatMessages].reverse().find((message) => message.role === "user")?.id;
-    let mappedMessages: DryRunPromptMessage[] = chatMessages.map((m: any) => {
+    // Images are captioned as in a real turn; captions are not saved (a dry run has no side effects).
+    const imageCaptioningArgs = {
+      chatMeta,
+      fallbackConnectionId: connId ?? null,
+      connections,
+      visionConnectionId: (await readFeatureModelConnections(app.db)).visionConnectionId,
+    };
+    const imageCaptioning = chatMessages.some(
+      (m: any) => extractImageAttachmentDataUrls(parseExtra(m.extra).attachments as PromptAttachment[]).length,
+    )
+      ? await resolveImageCaptioningRuntime(imageCaptioningArgs)
+      : DISABLED_IMAGE_CAPTIONING;
+    // ponytail: captions are not tied to the dry-run abort; link them if long caption runs need cancelling.
+    const captionSignal = new AbortController().signal;
+    let mappedMessages: DryRunPromptMessage[] = [];
+    for (const m of chatMessages as any[]) {
       const extra = parseExtra(m.extra);
       const personaSnapshotName = m.role === "user" ? readPersonaSnapshotName(extra) : null;
       const attachments = extra.attachments as PromptAttachment[] | undefined;
-      const images = extractImageAttachmentDataUrls(attachments);
-      const files = extractFileAttachmentInputs(attachments);
+      const { content, images, files } = await resolvePromptAttachmentInputs({
+        content:
+          chatMode === "roleplay" ? conversationPromptHistoryContent(m, chatMode) : ((m.content as string) ?? ""),
+        attachments,
+        imageCaptioning,
+        signal: captionSignal,
+      });
       const hiddenFromAICharacterIds = getMessageHiddenFromAICharacterIds(m);
       const conversationStartForCharacterIds = getMessageConversationStartCharacterIds(m);
       const providerMetadata = pastReasoning.get(m.id);
-      return {
+      mappedMessages.push({
         id: typeof m.id === "string" ? m.id : null,
         role: m.role === "narrator" ? ("system" as const) : (m.role as "user" | "assistant" | "system"),
-        content: withLatestMessageReply(
-          appendReadableAttachmentsToContent(
-            chatMode === "roleplay" ? conversationPromptHistoryContent(m, chatMode) : ((m.content as string) ?? ""),
-            attachments,
-          ),
-          extra.replyTo,
-          m.role === "user" && m.id === latestReplyUserMessageId,
-        ),
+        content: withLatestMessageReply(content, extra.replyTo, m.role === "user" && m.id === latestReplyUserMessageId),
         contextKind: "history" as const,
         characterId: typeof m.characterId === "string" && m.characterId ? m.characterId : null,
         ...(personaSnapshotName ? { personaSnapshotName } : {}),
         ...(hiddenFromAICharacterIds.length ? { hiddenFromAICharacterIds } : {}),
         ...(conversationStartForCharacterIds.length ? { conversationStartForCharacterIds } : {}),
-        ...(images?.length ? { images } : {}),
+        ...(images.length ? { images } : {}),
         ...(files.length ? { files } : {}),
         ...(providerMetadata ? { providerMetadata } : {}),
-      };
-    });
+      });
+    }
 
     // Game mode prompt preview must mirror real generation: segment edits/deletes
     // made in the VN log are model-visible overlays, even though raw DB messages
@@ -2370,11 +2388,14 @@ export async function registerDryRunRoute(app: FastifyInstance) {
     await appendLorebookImageMessages(finalMessages, lorebookImageEntries, {
       rememberImage: (dataUrl) => referenceImages.add(dataUrl),
     });
-    const provider = withLorebookImageCompatibility(
-      rawProvider,
-      referenceImages,
-      () => logger.warn("Dry-run model rejected lorebook reference images; retrying with text"),
-      chatImages,
+    const provider = withImageCaptionFallback(
+      withLorebookImageCompatibility(
+        rawProvider,
+        referenceImages,
+        () => logger.warn("Dry-run model rejected lorebook reference images; retrying with text"),
+        chatImages,
+      ),
+      () => resolveVisionCaptioningRuntime(imageCaptioningArgs),
     );
 
     // ── Mirror /api/generate: normalize + fit prompt to context ──

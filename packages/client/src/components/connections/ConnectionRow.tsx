@@ -92,6 +92,8 @@ export type ConnectionRowData = {
   videoService?: string | null;
   audioSource?: string | null;
   defaultParameters?: string | null;
+  /** Whether this chat Model reads images; null lets its catalog decide. */
+  imageInput?: string | null;
   promptPresetId?: string | null;
   maxContext?: number;
   maxTokensOverride?: number | null;

@@ -189,6 +189,7 @@ try {
     mariConnectionId: null,
     omnibarAsideConnectionId: LOCAL_SIDECAR_CONNECTION_ID,
     impersonateConnectionId: null,
+    visionConnectionId: null,
   });
   const stale = await putFeatureModels({
     mariConnectionId: "no-such-model",
@@ -199,6 +200,7 @@ try {
     mariConnectionId: null,
     omnibarAsideConnectionId: LOCAL_SIDECAR_CONNECTION_ID,
     impersonateConnectionId: primary.connectionId,
+    visionConnectionId: null,
   });
   // This bare app has no error handler, so a schema failure is a 500 here and a 400 in the server.
   assert.notEqual((await putFeatureModels({ mariConnectionId: "" })).statusCode, 200, "empty ids are rejected");
@@ -208,6 +210,7 @@ try {
     mariConnectionId: backup.connectionId,
     omnibarAsideConnectionId: LOCAL_SIDECAR_CONNECTION_ID,
     impersonateConnectionId: primary.connectionId,
+    visionConnectionId: null,
   };
   assert.deepEqual(merged.json(), chosen, "one field changes, the others stay");
   assert.deepEqual(await getFeatureModels(), chosen);
@@ -219,6 +222,11 @@ try {
     '"Same as Prof. Mari" and "Random" are kept',
   );
   assert.equal((await putFeatureModels({ mariConnectionId: "random" })).json().mariConnectionId, null);
+  assert.equal(
+    (await putFeatureModels({ visionConnectionId: LOCAL_SIDECAR_CONNECTION_ID })).json().visionConnectionId,
+    null,
+    "the local model cannot read images",
+  );
   await putFeatureModels(chosen);
 
   // Mari resolver: request id, then the setting, then the defaults; blocked Models are skipped.
@@ -248,6 +256,7 @@ try {
     mariConnectionId: null,
     omnibarAsideConnectionId: LOCAL_SIDECAR_CONNECTION_ID,
     impersonateConnectionId: primary.connectionId,
+    visionConnectionId: null,
   });
   await connections.remove(primary.connectionId);
   assert.equal((await getFeatureModels()).impersonateConnectionId, null);
