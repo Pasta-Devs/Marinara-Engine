@@ -2,7 +2,7 @@
 // ConnectionSelect — picks a Model, grouped by Connection: a field (or a Settings label/value row) that opens
 // the searchable ConnectionPicker, or a native <select> where a caller asks for one.
 // ──────────────────────────────────────────────
-import { lazy, Suspense, useId, useMemo, useRef, useState, type ReactNode } from "react";
+import { lazy, Suspense, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { LOCAL_SIDECAR_CONNECTION_ID, isChatProvider, type ConnectionPickerKind } from "@marinara-engine/shared";
@@ -10,12 +10,23 @@ import { useConnections } from "../../hooks/use-connections";
 import { useConnectionAccounts } from "../../hooks/use-connection-accounts";
 import { groupModelsByAccount, type ConnectionModelRow } from "../../lib/connection-groups";
 import { isConnectionFlagTrue } from "../../lib/connection-filters";
+import { openAddConnection, type AddJob, type AddKind } from "../../lib/add-connection";
 import { cn } from "../../lib/utils";
 
 // The window loads on first open, so a screen of compact fields does not pull it into startup.
 const ConnectionPicker = lazy(() => import("./ConnectionPicker").then((m) => ({ default: m.ConnectionPicker })));
 
 export type ConnectionSelectKind = ConnectionPickerKind;
+
+/** The Add window's filter for a slot's kind. */
+const ADD_KIND: Record<ConnectionSelectKind, AddKind | undefined> = {
+  chat: "chat",
+  image: "image",
+  video: "video",
+  audio: "voice",
+  decision: "decision",
+  all: undefined,
+};
 
 const KIND_PROVIDER: Record<Exclude<ConnectionSelectKind, "chat" | "all">, string> = {
   image: "image_generation",
@@ -161,6 +172,7 @@ export function ConnectionSelect({
   label: rowLabel,
   title,
   className,
+  addJob,
   ...aria
 }: {
   /** A Model id, or `null` for "Default". */
@@ -185,6 +197,8 @@ export function ConnectionSelect({
   /** The picker window's title. */
   title?: string;
   className?: string;
+  /** The job this slot is, for "Add a model for this…" (the Add window names it and sets Defaults by it). */
+  addJob?: AddJob;
   id?: string;
   "aria-label"?: string;
 }) {
@@ -194,6 +208,11 @@ export function ConnectionSelect({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const valueId = useId();
   const choices = useConnectionChoices({ kind, value, defaultLabel, includeLocalSidecar, extraOptions, rowFilter });
+  // "Add a model for this…" sets the new Model through the latest onChange, and its Undo through the one after it.
+  const onChangeRef = useRef(onChange);
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  });
 
   if (variant === "native") {
     const option = (row: ConnectionChoiceRow) => {
@@ -307,6 +326,14 @@ export function ConnectionSelect({
             rowFilter={rowFilter}
             title={title}
             restoreFocusRef={triggerRef}
+            onAdd={() =>
+              openAddConnection({
+                job: addJob,
+                kind: ADD_KIND[kind],
+                assign: (id) => onChangeRef.current(id),
+                previous: value,
+              })
+            }
           />
         </Suspense>
       )}
