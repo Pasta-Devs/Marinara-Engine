@@ -846,9 +846,13 @@ export function createConnectionsStorage(db: DB) {
       // editor writes them through. `baseUrl` is the account's only on rows of the account's own type.
       const account = existing.accountId ? await getConnectionAccount(db, existing.accountId) : null;
       const data = { ...input };
+      // A TypeSafe Decision row may be given another address that serves TypeSafe's API (#7084). The user
+      // chooses that address for this row and it keeps its own key, so the address is saved on the row.
+      const keepsKeyOnMove =
+        existing.provider === "decision" && (data.decisionSource ?? existing.decisionSource) === "typesafe";
       if (account) {
         for (const key of ACCOUNT_MIRRORED_INPUT_KEYS) delete data[key];
-        if (existing.provider === account.provider) delete data.baseUrl;
+        if (existing.provider === account.provider && !keepsKeyOnMove) delete data.baseUrl;
       }
 
       const effectiveProvider = data.provider ?? existing.provider;
@@ -911,7 +915,9 @@ export function createConnectionsStorage(db: DB) {
       // As on create, the account's credentials never go to another host: a Model that moves off its account
       // keeps only what this save sends.
       if (movedOffAccount) {
-        updateFields.apiKeyEncrypted = encryptApiKey(input.apiKey ?? "");
+        updateFields.apiKeyEncrypted = encryptApiKey(
+          input.apiKey ?? (keepsKeyOnMove ? decryptApiKey(existing.apiKeyEncrypted) : ""),
+        );
         updateFields.managementTokenEncrypted = encryptApiKey(
           effectiveProvider === "nanogpt" ? (input.managementToken ?? "") : "",
         );

@@ -75,7 +75,7 @@ test("a Custom connection's chat model becomes a Decision connection in one clic
     await page
       .locator("[data-connections-panel]")
       .filter({ visible: true })
-      .getByRole("textbox", { name: "Search models and connections" })
+      .getByRole("searchbox", { name: "Search models and connections" })
       .fill(name);
     const actions = page.getByRole("button", { name: `Actions for ${name}`, exact: true });
     await actions.scrollIntoViewIfNeeded();

@@ -298,6 +298,22 @@ try {
   await connections.update(keyedImage!.id, { baseUrl: "https://proxy2.example/v1", apiKey: "proxy-key" });
   assert.equal(await plainKey(keyedImage!.id), "proxy-key", "a key sent with the move is the one kept");
 
+  // A TypeSafe Decision row given another address (#7084) keeps its own key; the address is saved on the row.
+  const typesafe = await connections.create(
+    createConnectionSchema.parse({
+      name: "TypeSafe",
+      provider: "decision",
+      decisionSource: "typesafe",
+      baseUrl: "https://api.typesafe.ai",
+      apiKey: "fixture-typesafe-key",
+      model: "jev-latest",
+    }),
+  );
+  assert(typesafe?.accountId, "the Decision row is linked to an account");
+  await connections.update(typesafe!.id, { baseUrl: "https://mirror.example" });
+  assert.equal((await rowOf(typesafe!.id)).baseUrl, "https://mirror.example");
+  assert.equal(await plainKey(typesafe!.id), "fixture-typesafe-key", "the TypeSafe key stays on the row");
+
   console.log("connection-accounts-write-through regression passed");
 } finally {
   await app.close();
