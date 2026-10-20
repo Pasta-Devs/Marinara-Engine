@@ -5,7 +5,7 @@
 // Add model and the setup flow (a pick saves a Model).
 // ──────────────────────────────────────────────
 import { useDeferredValue, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
-import { Check, Loader2, RefreshCw, Search, Star } from "lucide-react";
+import { Check, Loader2, Plus, RefreshCw, Search, Star } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
@@ -415,6 +415,8 @@ export function ConnectionModelPicker({
     ]
       .filter(Boolean)
       .join(" · ");
+    // Adding: the end button says "Added" (a check), never ★ or "favorite"; one word for one thing.
+    const adding = addMode && !!connection.accountId;
     // A badge on a narrow row leaves the id no room: the facts move to the tooltip there.
     const badged = showCostBadges && !!row.cost && (row.cost !== "paid" || showPaid);
     // The one model row; its end holds the 44px star beside the row button, never inside it.
@@ -459,24 +461,46 @@ export function ConnectionModelPicker({
         end={
           <>
             {/* A Model outside a Connection has nowhere to save a favorite; an old star there can still be removed. */}
-            {(connection.accountId || starred) && (
+            {adding ? (
               <button
                 type="button"
                 data-model-star
                 aria-pressed={starred}
-                // A toggle keeps one name; aria-pressed says whether it is a favorite.
-                aria-label={t("connections.favorite.toggle", { model: label })}
-                title={t(starred ? "connections.favorite.remove" : "connections.favorite.add", { model: label })}
+                aria-label={t("connections.modelPicker.addToggle", { model: label })}
+                title={t(starred ? "connections.modelPicker.removeAdded" : "connections.modelPicker.addToggle", {
+                  model: label,
+                })}
                 onClick={() => toggleStar(row, !starred)}
                 className={cn(
-                  "flex h-11 w-11 shrink-0 items-center justify-center rounded-lg outline-none transition-colors hover:bg-foreground/10 focus-visible:ring-1 focus-visible:ring-foreground/25",
+                  "flex h-11 min-w-11 shrink-0 items-center justify-center gap-1 rounded-lg px-2 text-[0.6875rem] font-medium outline-none transition-colors hover:bg-foreground/10 focus-visible:ring-1 focus-visible:ring-foreground/25",
                   starred
                     ? "mari-panel-gradient--connections text-[var(--mari-connection-ink)]"
-                    : "text-foreground/35 hover:text-foreground/70",
+                    : "text-foreground/45 hover:text-foreground/80",
                 )}
               >
-                <Star size="0.875rem" fill={starred ? "currentColor" : "none"} />
+                {starred ? <Check size="0.875rem" aria-hidden /> : <Plus size="0.875rem" aria-hidden />}
+                {starred && <span>{t("connections.modelPicker.added")}</span>}
               </button>
+            ) : (
+              (connection.accountId || starred) && (
+                <button
+                  type="button"
+                  data-model-star
+                  aria-pressed={starred}
+                  // A toggle keeps one name; aria-pressed says whether it is a favorite.
+                  aria-label={t("connections.favorite.toggle", { model: label })}
+                  title={t(starred ? "connections.favorite.remove" : "connections.favorite.add", { model: label })}
+                  onClick={() => toggleStar(row, !starred)}
+                  className={cn(
+                    "flex h-11 w-11 shrink-0 items-center justify-center rounded-lg outline-none transition-colors hover:bg-foreground/10 focus-visible:ring-1 focus-visible:ring-foreground/25",
+                    starred
+                      ? "mari-panel-gradient--connections text-[var(--mari-connection-ink)]"
+                      : "text-foreground/35 hover:text-foreground/70",
+                  )}
+                >
+                  <Star size="0.875rem" fill={starred ? "currentColor" : "none"} />
+                </button>
+              )
             )}
           </>
         }
@@ -664,11 +688,11 @@ export function ConnectionModelPicker({
 
             {pinnedRows.length > 0 && (
               <section
-                aria-label={t("connections.switcher.favourites")}
+                aria-label={t(addMode ? "connections.modelPicker.added" : "connections.switcher.favourites")}
                 data-model-section="favorites"
                 className={cn(recommendedRows.length > 0 && "mt-2")}
               >
-                {sectionLabel(t("connections.switcher.favourites"))}
+                {sectionLabel(t(addMode ? "connections.modelPicker.added" : "connections.switcher.favourites"))}
                 {pinnedRows.map((row) => renderRow(row, true))}
               </section>
             )}

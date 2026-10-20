@@ -446,8 +446,8 @@ test("unstarring the first model after starring a second keeps the model screen 
     await expect(dialog.getByText("1 model added")).toBeVisible();
     await dialog.getByRole("button", { name: "Continue", exact: true }).click();
     const ready = dialog.locator('[data-add-connection-step="ready"]');
-    await expect(ready.getByRole("list", { name: "Favorite models" })).toContainText("Beta");
-    await expect(ready.getByRole("list", { name: "Favorite models" })).not.toContainText("Alpha");
+    await expect(ready.getByRole("list", { name: "Added models" })).toContainText("Beta");
+    await expect(ready.getByRole("list", { name: "Added models" })).not.toContainText("Alpha");
 
     // Back on the models, Beta's star goes too: nothing is starred, so closing throws the new Connection away,
     // even though the Model the screen was opened on is already gone.
