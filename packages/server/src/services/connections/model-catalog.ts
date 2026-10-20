@@ -49,21 +49,30 @@ function date(value: unknown): string | undefined {
 }
 
 /**
- * Prices in USD per million tokens. OpenRouter sends USD per token as strings; NanoGPT sends USD per million
- * (`unit`, `currency`). A non-USD price is left out rather than shown wrong.
+ * Prices in USD per million tokens. OpenRouter sends USD per token as strings (cache prices as
+ * `input_cache_read`/`input_cache_write`); NanoGPT sends USD per million (`unit`, `currency`); Together sends
+ * `input`/`output` per million. A non-USD price is left out rather than shown wrong.
  */
 function readPricing(provider: string, model: Record<string, unknown>): ModelCatalogPricing | undefined {
   const pricing = record(model.pricing);
   if (!pricing) return undefined;
   if (typeof pricing.currency === "string" && pricing.currency.trim().toUpperCase() !== "USD") return undefined;
   const unit = typeof pricing.unit === "string" ? pricing.unit : "";
-  const perMillion = /million|mtok|\b1m\b/i.test(unit) || (!/token/i.test(unit) && provider === "nanogpt");
+  const together = pricing.prompt === undefined && pricing.input !== undefined;
+  const perMillion = together || /million|mtok|\b1m\b/i.test(unit) || (!/token/i.test(unit) && provider === "nanogpt");
   const scale = (value: number | undefined) =>
     value === undefined ? undefined : perMillion ? value : Math.round(value * 1e6 * 1e6) / 1e6;
-  const prompt = scale(price(pricing.prompt));
-  const completion = scale(price(pricing.completion));
+  const prompt = scale(price(together ? pricing.input : pricing.prompt));
+  const completion = scale(price(together ? pricing.output : pricing.completion));
   if (prompt === undefined && completion === undefined) return undefined;
-  return { ...(prompt !== undefined ? { prompt } : {}), ...(completion !== undefined ? { completion } : {}) };
+  const cacheRead = scale(price(pricing.input_cache_read));
+  const cacheWrite = scale(price(pricing.input_cache_write));
+  return {
+    ...(prompt !== undefined ? { prompt } : {}),
+    ...(completion !== undefined ? { completion } : {}),
+    ...(cacheRead !== undefined ? { cacheRead } : {}),
+    ...(cacheWrite !== undefined ? { cacheWrite } : {}),
+  };
 }
 
 /** Pricing, modalities, the free flag and deprecation, from whichever of these fields the provider sends. */

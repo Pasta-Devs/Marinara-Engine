@@ -7,6 +7,7 @@ import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
   isChatProvider,
+  takesBalanceToken,
   type ConnectionAccountState,
   type UpdateConnectionAccountInput,
 } from "@marinara-engine/shared";
@@ -42,6 +43,7 @@ import { PICTURE_MENU_SELECTOR, PictureMenu } from "./PictureMenu";
 import { StateWord, type EngineTone } from "./DeviceDetail";
 import { ProviderIcon } from "./ProviderIcon";
 import { CompactUsageMeter } from "./SubscriptionUsageWidget";
+import { ConnectionBalanceBlock } from "./ConnectionBalance";
 import { resolveUsageConnection } from "../../lib/connection-filters";
 import { starAnchorOf } from "../../hooks/use-model-star";
 
@@ -54,6 +56,7 @@ type Draft = {
   showUsageWeekly: boolean;
   maxRequestsPerMinute: string;
   maxParallelJobs: string;
+  balanceUserId: string;
 };
 
 const capValue = (value: string) => (value.trim() ? Number(value) : null);
@@ -142,6 +145,8 @@ export function ConnectionAccountEditor({
   );
   // The usage meter reads the same anchor as the card's, so both share one request.
   const usageAnchor = starAnchorOf(models) ?? models[0] ?? null;
+  // LinkAPI reads the account balance through a second, optional token (and user id).
+  const linkApi = !!account && takesBalanceToken(account);
   // The test checks the Connection's key and address through one of its Models; a chat Model asks the catalog.
   const testRow =
     models.find((row) => isChatProvider(row.provider)) ??
@@ -168,6 +173,7 @@ export function ConnectionAccountEditor({
       showUsageWeekly: account.showUsageWeekly,
       maxRequestsPerMinute: account.maxRequestsPerMinute?.toString() ?? "",
       maxParallelJobs: account.maxParallelJobs?.toString() ?? "",
+      balanceUserId: account.balanceUserId ?? "",
     });
     if (!account.hasApiKey || replaceKey) setApiKey("");
   }, [account, draft, replaceKey]);
@@ -189,6 +195,8 @@ export function ConnectionAccountEditor({
     if (parallel !== account.maxParallelJobs) changes.maxParallelJobs = parallel;
     if (apiKey) changes.apiKey = apiKey;
     if (managementToken) changes.managementToken = managementToken;
+    if (draft.balanceUserId.trim() !== (account.balanceUserId ?? ""))
+      changes.balanceUserId = draft.balanceUserId.trim();
   }
   const dirty = Object.keys(changes).length > 0;
   const accessDirty = changes.apiKey !== undefined || changes.baseUrl !== undefined;
@@ -446,6 +454,38 @@ export function ConnectionAccountEditor({
             />
           </div>
 
+          {/* Plans show their usage meter instead; a local server has no account. */}
+          {account.billing !== "plan" && account.treatAsLocalEndpoint !== true && (
+            <div className="flex flex-col gap-3">
+              <ConnectionBalanceBlock accountId={account.id} />
+              {linkApi && (
+                <>
+                  <SecretField
+                    label={t("connections.balance.linkapiToken")}
+                    saved={account.hasManagementToken}
+                    value={managementToken}
+                    onChange={setManagementToken}
+                    help={t("connections.balance.linkapiTokenHelp")}
+                  />
+                  <label className="block">
+                    <span className={labelClass}>{t("connections.balance.linkapiUserId")}</span>
+                    <input
+                      value={draft.balanceUserId}
+                      onChange={(event) => set("balanceUserId", event.target.value.replace(/\D/g, ""))}
+                      inputMode="numeric"
+                      autoComplete="off"
+                      maxLength={20}
+                      className={fieldClass}
+                    />
+                    <span className="mt-1 block text-[0.6875rem] text-[var(--muted-foreground)]">
+                      {t("connections.balance.linkapiUserIdHelp")}
+                    </span>
+                  </label>
+                </>
+              )}
+            </div>
+          )}
+
           <section>
             <h3 className="mb-2 flex items-baseline gap-1.5 px-1 text-xs font-semibold text-[var(--foreground)]">
               {t("connections.accounts.editor.modelsHeading")}
@@ -543,13 +583,15 @@ export function ConnectionAccountEditor({
                     </>
                   )}
                 </div>
-                <SecretField
-                  label={t("connections.accounts.editor.managementToken")}
-                  saved={account.hasManagementToken}
-                  value={managementToken}
-                  onChange={setManagementToken}
-                  help={t("connections.accounts.editor.managementTokenHelp")}
-                />
+                {!linkApi && (
+                  <SecretField
+                    label={t("connections.accounts.editor.managementToken")}
+                    saved={account.hasManagementToken}
+                    value={managementToken}
+                    onChange={setManagementToken}
+                    help={t("connections.accounts.editor.managementTokenHelp")}
+                  />
+                )}
               </section>
             </SmoothFolderContent>
           </div>

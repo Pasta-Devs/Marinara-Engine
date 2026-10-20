@@ -45,7 +45,7 @@ import { formatCompactTokenCount } from "../../lib/professor-mari-context-budget
 import { knownPrefixName, subgroupByUpstream, upstreamOf } from "../../lib/connection-groups";
 import { BrandMark, ProviderIcon } from "./ProviderIcon";
 import { ModelRow } from "./ConnectionRow";
-import { CostBadge } from "./CostBadge";
+import { CostBadge, costBadgeShows } from "./CostBadge";
 import { cn } from "../../lib/utils";
 import { formatRelativeContact } from "../../lib/relative-time";
 import { useUIStore } from "../../stores/ui.store";
@@ -431,7 +431,7 @@ export function ConnectionModelPicker({
     // video row being set up has no account here, but its pick is still an add.
     const adding = addMode && (!!connection.accountId || !!onPicked);
     // A badge on a narrow row leaves the id no room: the facts move to the tooltip there.
-    const badged = showCostBadges && !!row.cost && (row.cost !== "paid" || showPaid);
+    const badged = showCostBadges && costBadgeShows(row.cost, showPaid, row.pricing);
     // The one model row; its end holds the 44px star beside the row button, never inside it.
     return (
       <ModelRow
@@ -462,6 +462,7 @@ export function ConnectionModelPicker({
           )
         }
         cost={row.cost}
+        pricing={row.pricing}
         showPaid={showPaid}
         retiring={row.deprecated || row.retiresAt ? row : null}
         current={current}

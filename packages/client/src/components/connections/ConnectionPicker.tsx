@@ -181,6 +181,7 @@ export function ConnectionPicker({
         kind={kind === "all" ? modelKindOf(row.provider) : null}
         status={suffix ? { label: suffix, state: account?.state } : null}
         cost={facts?.cost}
+        pricing={facts?.pricing}
         showPaid={catalog?.showPaid}
         retiring={facts}
         current={selected}

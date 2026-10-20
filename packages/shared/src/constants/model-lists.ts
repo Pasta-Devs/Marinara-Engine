@@ -1488,10 +1488,21 @@ export type ConnectionBilling = "plan" | "free" | null;
 /** What one model of a catalog costs: in the subscription (with an input-token multiplier), free, paid, or unknown. */
 export type ConnectionModelCost = "included" | `multiplier:${number}` | "free" | "paid" | null;
 
-/** Model prices in USD per million tokens, as the provider's list gives them. */
+/** Model prices per million tokens, as the provider's list or the price catalog gives them (USD unless `currency`). */
 export interface ModelCatalogPricing {
   prompt?: number;
   completion?: number;
+  cacheRead?: number;
+  cacheWrite?: number;
+  /** A price per request instead of per token (LinkAPI per-call models). */
+  perCall?: number;
+  /** ISO code when not USD (LinkAPI prices in its display unit). */
+  currency?: string;
+  /** Where a catalog price came from, and when it was read; left out for the provider's own list. */
+  source?: "openrouter" | "linkapi" | "models.dev";
+  fetchedAt?: string;
+  /** LinkAPI: the base price, because the key's price group is not known. */
+  beforeGroupDiscount?: true;
 }
 
 /** One model of a saved catalog as `GET /connections/:id/models` serves it. */
@@ -1540,6 +1551,12 @@ export function modelReadsImages(
  */
 export const NANOGPT_PLAN_BADGES_SETTINGS_KEY = "nanogpt-plan-badges";
 
+/**
+ * Price badges from outside price lists (LinkAPI's and OpenRouter's public lists, models.dev): "on" reads them
+ * (no key is sent), "off" keeps the badges without prices; unset, the Connections panel asks once.
+ */
+export const PRICE_CATALOG_SETTINGS_KEY = "price-catalog";
+
 /** Image sources run by volunteers or free for everyone: the whole Connection is free. */
 const FREE_IMAGE_SOURCES = new Set(["horde", "pollinations"]);
 
@@ -1578,7 +1595,11 @@ export function modelCost(
   if (billing === "free" || model.free === true) return "free";
   if (model.subscriptionIncluded === false) return "paid";
   const pricing = model.pricing as ModelCatalogPricing | null | undefined;
-  if (pricing && typeof pricing === "object" && ((pricing.prompt ?? 0) > 0 || (pricing.completion ?? 0) > 0)) {
+  if (
+    pricing &&
+    typeof pricing === "object" &&
+    ((pricing.prompt ?? 0) > 0 || (pricing.completion ?? 0) > 0 || (pricing.perCall ?? 0) > 0)
+  ) {
     return "paid";
   }
   return null;

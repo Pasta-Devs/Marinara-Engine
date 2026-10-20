@@ -6,6 +6,7 @@ import { showConfirmDialog } from "../lib/app-dialogs";
 import {
   DEFAULT_EMBEDDING_CONNECTION_SETTINGS_KEY,
   NANOGPT_PLAN_BADGES_SETTINGS_KEY,
+  PRICE_CATALOG_SETTINGS_KEY,
   connectionSavesModelList,
   MAX_PINNED_MODELS,
   parsePinnedModels,
@@ -362,8 +363,11 @@ export type ConnectionModelList = {
   billing?: ConnectionBilling;
 };
 
-/** What the cached catalogs say about one model: its cost badge, whether it is retiring, what it reads. */
-export type CachedModelFacts = Pick<RemoteConnectionModel, "cost" | "deprecated" | "retiresAt" | "inputModalities">;
+/** What the cached catalogs say about one model: its cost badge and price, whether it is retiring, what it reads. */
+export type CachedModelFacts = Pick<
+  RemoteConnectionModel,
+  "cost" | "pricing" | "deprecated" | "retiresAt" | "inputModalities"
+>;
 
 export type CachedCatalogFacts = {
   of: (modelId: string | null | undefined) => CachedModelFacts | undefined;
@@ -387,6 +391,7 @@ function indexCatalog(list: ConnectionModelList): CatalogIndex {
     if (model.cost || model.deprecated || model.retiresAt || model.inputModalities?.length) {
       index.byId.set(model.id, {
         cost: model.cost,
+        pricing: model.pricing,
         deprecated: model.deprecated,
         retiresAt: model.retiresAt,
         inputModalities: model.inputModalities,
@@ -451,39 +456,44 @@ export function useCachedCatalogFacts(groups: ReadonlyArray<readonly string[]>):
   });
 }
 
-const NANOGPT_PLAN_PATH = `/app-settings/${NANOGPT_PLAN_BADGES_SETTINGS_KEY}`;
-const nanoGptPlanKey = [...connectionKeys.all, "nanogpt-plan"] as const;
-
 /**
- * Plan badges for a proxy's `nanogpt/…` models: "on", "off", or null while the user has not chosen. Asking
- * explains that the server reads NanoGPT's public model list and sends no key; a choice reloads the model lists.
+ * A one-time yes for an outside public read: "on", "off", or null while the user has not chosen. Asking explains
+ * what the server reads (`connections.<copy>.*`); a choice reloads the model lists.
  */
-export function useNanoGptPlanBadges() {
+function useOutsideReadSetting(key: string, copy: "nanogptPlan" | "priceCatalog") {
   const { t } = useTranslation();
   const qc = useQueryClient();
+  const path = `/app-settings/${key}`;
+  const queryKey = [...connectionKeys.all, "setting", key];
   const query = useQuery({
-    queryKey: nanoGptPlanKey,
-    queryFn: async () => (await api.get<{ value: string | null }>(NANOGPT_PLAN_PATH)).value,
+    queryKey,
+    queryFn: async () => (await api.get<{ value: string | null }>(path)).value,
     staleTime: Infinity,
   });
   const save = useMutation({
-    mutationFn: (value: "on" | "off") => api.put(NANOGPT_PLAN_PATH, { value }),
+    mutationFn: (value: "on" | "off") => api.put(path, { value }),
     onSuccess: (_data, value) => {
-      qc.setQueryData(nanoGptPlanKey, value);
+      qc.setQueryData(queryKey, value);
       void qc.invalidateQueries({ queryKey: [...connectionKeys.all, "models"] });
     },
   });
   const ask = async () => {
     const allowed = await showConfirmDialog({
-      title: t("connections.nanogptPlan.title"),
-      message: t("connections.nanogptPlan.message"),
-      confirmLabel: t("connections.nanogptPlan.allow"),
-      cancelLabel: t("connections.nanogptPlan.notNow"),
+      title: t(`connections.${copy}.title`),
+      message: t(`connections.${copy}.message`),
+      confirmLabel: t(`connections.${copy}.allow`),
+      cancelLabel: t(`connections.${copy}.notNow`),
     });
     save.mutate(allowed ? "on" : "off");
   };
   return { value: query.isSuccess ? (query.data ?? null) : undefined, ask, turnOff: () => save.mutate("off") };
 }
+
+/** Plan badges for a proxy's `nanogpt/…` models; the server reads NanoGPT's public model list and sends no key. */
+export const useNanoGptPlanBadges = () => useOutsideReadSetting(NANOGPT_PLAN_BADGES_SETTINGS_KEY, "nanogptPlan");
+
+/** Price badges from public price lists (LinkAPI, models.dev); no key is sent. */
+export const usePriceCatalog = () => useOutsideReadSetting(PRICE_CATALOG_SETTINGS_KEY, "priceCatalog");
 
 /** A model list stays fresh for six hours; Refresh asks sooner. */
 const MODEL_LIST_TTL = 6 * 60 * 60_000;

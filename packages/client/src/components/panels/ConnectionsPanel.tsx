@@ -43,7 +43,12 @@ import {
   parsePinnedModels,
   type APIProvider,
 } from "@marinara-engine/shared";
-import { useConnections, useNanoGptPlanBadges, type CachedCatalogFacts } from "../../hooks/use-connections";
+import {
+  useConnections,
+  useNanoGptPlanBadges,
+  usePriceCatalog,
+  type CachedCatalogFacts,
+} from "../../hooks/use-connections";
 import { useConnectionAccounts } from "../../hooks/use-connection-accounts";
 import { starAnchorOf, useHiddenModelIds, useModelStar } from "../../hooks/use-model-star";
 import type { DeviceItem } from "../../hooks/use-device-setup";
@@ -214,6 +219,7 @@ export function ConnectionsPanel() {
   const showCostBadges = useUIStore((s) => s.showCostBadges);
   const setShowCostBadges = useUIStore((s) => s.setShowCostBadges);
   const nanoGptPlan = useNanoGptPlanBadges();
+  const priceCatalog = usePriceCatalog();
   const byFolder = useUIStore((s) => s.connectionsGroupBy) === "folder";
   const setGroupBy = useUIStore((s) => s.setConnectionsGroupBy);
   const { data: folders } = useConnectionFolders();
@@ -1047,6 +1053,18 @@ export function ConnectionsPanel() {
                     toggle: true,
                     checked: nanoGptPlan.value === "on",
                     onSelect: () => (nanoGptPlan.value === "on" ? nanoGptPlan.turnOff() : void nanoGptPlan.ask()),
+                  },
+                ]
+              : []),
+            // Prices for pay-per-use models: the first turn-on asks before the server reads public price lists.
+            ...(priceCatalog.value !== undefined
+              ? [
+                  {
+                    label: t("connections.priceCatalog.toggle"),
+                    icon: <BadgeDollarSign size="0.75rem" />,
+                    toggle: true,
+                    checked: priceCatalog.value === "on",
+                    onSelect: () => (priceCatalog.value === "on" ? priceCatalog.turnOff() : void priceCatalog.ask()),
                   },
                 ]
               : []),

@@ -8,6 +8,7 @@ import {
   FEATURE_MODEL_CONNECTIONS_SETTINGS_KEY,
   LOCAL_SIDECAR_CONNECTION_ID,
   type ConnectionAccountListItem,
+  type ConnectionBalanceResponse,
   type CreateConnectionAccountInput,
   type FeatureModelConnections,
   type UpdateConnectionAccountInput,
@@ -22,6 +23,7 @@ export const connectionAccountKeys = {
   list: () => [...connectionAccountKeys.all, "list"] as const,
   catalog: (query: string, limit: number) => [...connectionAccountKeys.all, "catalog", query, limit] as const,
   featureModels: () => [...connectionKeys.all, "feature-models"] as const,
+  balance: (id: string) => [...connectionAccountKeys.all, "balance", id] as const,
 };
 
 const FEATURE_MODELS_PATH = `/app-settings/${FEATURE_MODEL_CONNECTIONS_SETTINGS_KEY}`;
@@ -34,6 +36,27 @@ export function useConnectionAccounts() {
     queryFn: () => api.get<ConnectionAccountListItem[]>("/connection-accounts"),
     staleTime: 5 * 60_000,
   });
+}
+
+/**
+ * What is left on a Connection's account, for services with a balance endpoint (`balance: null` for the rest).
+ * The server keeps a read 5 minutes; `refresh` asks the service again.
+ */
+export function useConnectionBalance(id: string | null | undefined, enabled = true) {
+  const qc = useQueryClient();
+  const query = useQuery({
+    queryKey: connectionAccountKeys.balance(id ?? ""),
+    queryFn: () => api.get<ConnectionBalanceResponse>(`/connection-accounts/${encodeURIComponent(id ?? "")}/balance`),
+    enabled: enabled && !!id,
+    staleTime: 5 * 60_000,
+    retry: false,
+  });
+  const refresh = useMutation({
+    mutationFn: () =>
+      api.get<ConnectionBalanceResponse>(`/connection-accounts/${encodeURIComponent(id ?? "")}/balance?refresh=true`),
+    onSuccess: (data) => qc.setQueryData(connectionAccountKeys.balance(id ?? ""), data),
+  });
+  return { ...query, refresh };
 }
 
 /** Account edits write through to Model rows, so both key families reload. */

@@ -10,7 +10,10 @@ export const connectionAccounts = fileTable("connection_accounts", {
   provider: text("provider").notNull(),
   baseUrl: text("base_url").notNull().default(""),
   apiKeyEncrypted: text("api_key_encrypted").notNull().default(""),
+  /** NanoGPT: the usage-only management token. LinkAPI: the dashboard access token for the account balance. */
   managementTokenEncrypted: text("management_token_encrypted").notNull().default(""),
+  /** LinkAPI: the dashboard user id sent as `New-Api-User` with that token. Null on older rows. */
+  balanceUserId: text("balance_user_id"),
   showUsageWidget: text("show_usage_widget").notNull().default("false"),
   showUsageFiveHour: text("show_usage_five_hour").notNull().default("true"),
   showUsageWeekly: text("show_usage_weekly").notNull().default("true"),

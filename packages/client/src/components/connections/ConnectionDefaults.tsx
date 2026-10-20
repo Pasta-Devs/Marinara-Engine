@@ -493,6 +493,7 @@ function JobRow({
           </span>
         }
         cost={facts?.cost}
+        pricing={facts?.pricing}
         showPaid={catalog?.showPaid}
         retiring={facts}
         trailing={

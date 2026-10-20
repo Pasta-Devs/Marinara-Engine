@@ -41,6 +41,7 @@ import {
   isChatProvider,
   type ConnectionAccountListItem,
   type ConnectionModelCost,
+  type ModelCatalogPricing,
 } from "@marinara-engine/shared";
 import {
   useConnections,
@@ -60,7 +61,7 @@ import { roleBadges } from "../../lib/connection-groups";
 import { modelKindOf, modelSubtitle, type ModelKind } from "../../lib/connection-identity";
 import { ContextMenu, type ContextMenuItem } from "../ui/ContextMenu";
 import { ProviderIcon } from "./ProviderIcon";
-import { CostBadge, RetiringHint } from "./CostBadge";
+import { CostBadge, RetiringHint, costBadgeShows } from "./CostBadge";
 
 export type ConnectionRowData = {
   credentialsFromConnectionId?: string | null;
@@ -182,7 +183,8 @@ export function ModelRow({
   status,
   customized = false,
   cost,
-  showPaid,
+  showPaid = false,
+  pricing,
   retiring,
   details,
   lead,
@@ -216,6 +218,8 @@ export function ModelRow({
     /** The cost badge at the end of line 2 (CostBadge decides whether it shows). */
     cost?: ConnectionModelCost;
     showPaid?: boolean;
+    /** A pay-per-use model's price, shown instead of "Paid" when known. */
+    pricing?: ModelCatalogPricing;
     /** The provider retires the model: a quiet amber hint on line 2. */
     retiring?: { deprecated?: boolean; retiresAt?: string } | null;
     /** More facts after the model id on line 2 (context size…). */
@@ -239,7 +243,7 @@ export function ModelRow({
   const id = subtitle && subtitle.trim().toLowerCase() !== title.trim().toLowerCase() ? subtitle : null;
   const line2 = !!(pill || id || details || retiring || customized);
   // CostBadge's own rule, so the third line never shows empty.
-  const costShown = useUIStore((s) => s.showCostBadges) && !!cost && (cost !== "paid" || showPaid);
+  const costShown = useUIStore((s) => s.showCostBadges) && costBadgeShows(cost, showPaid, pricing);
   // Role or status, as before: a status (Needs key, Off) replaces the role badge.
   const badge = status ? (
     <span
@@ -346,7 +350,7 @@ export function ModelRow({
           {badgesBelow && (badge || costShown) && (
             <span data-connection-badges className="mt-1 flex flex-wrap items-center gap-1">
               {badge}
-              <CostBadge cost={cost} showPaid={showPaid} />
+              <CostBadge cost={cost} showPaid={showPaid} pricing={pricing} />
             </span>
           )}
         </span>
@@ -357,7 +361,7 @@ export function ModelRow({
             <span className={cn("flex items-center", (line2 || cost) && "min-h-5")}>{badge}</span>
             {(line2 || cost) && (
               <span className="mt-0.5 flex min-h-[1.125rem] items-center">
-                <CostBadge cost={cost} showPaid={showPaid} />
+                <CostBadge cost={cost} showPaid={showPaid} pricing={pricing} />
               </span>
             )}
           </span>
@@ -624,6 +628,7 @@ export function ConnectionRow({
       status={unavailable ? { label: unavailableLabel, state: unavailable } : null}
       customized={customSettings}
       cost={facts?.cost}
+      pricing={facts?.pricing}
       showPaid={catalog?.showPaid}
       retiring={facts}
       current={current}
