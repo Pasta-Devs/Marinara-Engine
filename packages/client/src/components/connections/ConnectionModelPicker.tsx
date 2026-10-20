@@ -23,6 +23,7 @@ import {
   catalogModelId,
   parsePinnedModels,
   type APIProvider,
+  type KnownModel,
   type ChatModelChoice,
   type ConnectionModelCost,
   type ModelCatalogPricing,
@@ -130,6 +131,7 @@ export function ConnectionModelPicker({
   addedIds,
   mainModelId,
   preselect,
+  builtInModels,
 }: {
   connection: ModelPickerConnection;
   /** Name the connection beside its provider, where the connection list is out of sight. */
@@ -167,6 +169,8 @@ export function ConnectionModelPicker({
    * id or catalog id is picked; with none or several the search shows them instead.
    */
   preselect?: string;
+  /** Replaces the provider's built-in list (an image service such as NovelAI lists only its own models). */
+  builtInModels?: readonly KnownModel[];
 }) {
   const { t } = useTranslation();
   const [search, setSearch] = useState("");
@@ -216,9 +220,11 @@ export function ConnectionModelPicker({
     () =>
       mergeConnectionModelOptions(
         remoteModels ?? [],
-        remoteModels?.length || modelList.isLoading || provider === "custom" ? [] : (MODEL_LISTS[provider] ?? []),
+        remoteModels?.length || modelList.isLoading || provider === "custom"
+          ? []
+          : (builtInModels ?? MODEL_LISTS[provider] ?? []),
       ),
-    [modelList.isLoading, provider, remoteModels],
+    [builtInModels, modelList.isLoading, provider, remoteModels],
   );
   // "Paid" only says something where the catalog also has models in the plan (NanoGPT).
   const showCostBadges = useUIStore((s) => s.showCostBadges);
@@ -275,7 +281,10 @@ export function ConnectionModelPicker({
       currentModel && !pinnedSet.has(currentModel) && !optionsById.has(currentModel)
         ? [{ id: currentModel, name: currentModel }]
         : [];
-    for (const option of options) if (!pinnedSet.has(option.id) && !recommendedSet.has(option.id)) others.push(option);
+    // The saved model leads the list (and so its upstream group), past the row cap of a long catalog.
+    for (const option of options)
+      if (!pinnedSet.has(option.id) && !recommendedSet.has(option.id))
+        others[option.id === currentModel ? "unshift" : "push"](option);
     return {
       pinnedAll: pinnedIds.map((id): PickerRow => optionsById.get(id) ?? { id, name: id }),
       othersAll: others,

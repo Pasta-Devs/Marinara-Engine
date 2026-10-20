@@ -1477,21 +1477,6 @@ export function ConnectionEditor({
     setDirty(true);
   }, []);
 
-  const handleManualModelChange = useCallback(
-    (model: string) => {
-      setLocalModel(model);
-      if (localProvider === "video_generation") {
-        const provider = videoSourceToProviderOption(
-          localVideoGenerationSource || localVideoService || inferVideoSource(model, localBaseUrl),
-        );
-        setLocalVideoGenerationSource(provider);
-        setLocalVideoService(videoProviderServiceForModel(provider, model, localBaseUrl));
-      }
-      markDirty();
-    },
-    [localBaseUrl, localProvider, localVideoGenerationSource, localVideoService, markDirty],
-  );
-
   const handleJumpToJsonError = useCallback(() => {
     const ta = comfyWorkflowTextareaRef.current;
     if (!ta || !comfyWorkflowValidation || !comfyWorkflowValidation.parseError) return;
@@ -1702,7 +1687,9 @@ export function ConnectionEditor({
               ? t("connections.mediaSources.fal.testHelp")
               : isCodexImageService
                 ? t("connections.mediaSources.codexChatgpt.testHelp")
-                : localizeUi("ui.connections.connectioneditor.verifiesYourApiKeyAgainstTheProviderCatalogOr")}{" "}
+                : localProvider === "image_generation"
+                  ? localizeUi("ui.connections.connectioneditor.checksThatTheImageServiceAnswers")
+                  : localizeUi("ui.connections.connectioneditor.verifiesYourApiKeyAgainstTheProviderCatalogOr")}{" "}
           </>
         )}
         {!isMediaGenerationProvider && (
@@ -2940,19 +2927,9 @@ export function ConnectionEditor({
                   accountId,
                 }}
                 accountName={linkedAccount?.name}
+                builtInModels={providerModels}
                 onChoose={async (choice) => selectModel(choice)}
                 footer={null}
-              />
-              <input
-                value={localModel}
-                onChange={(e) => handleManualModelChange(e.target.value)}
-                aria-label={localizeUi("ui.connections.connectioneditor.model")}
-                className="mari-chrome-field mt-2 h-11 w-full px-3 font-mono text-xs md:h-9"
-                placeholder={
-                  isGrokSubscriptionProvider
-                    ? localizeUi("ui.connections.connectioneditor.optionalTypeAGrokCliModelIdOrLeave")
-                    : localizeUi("ui.connections.connectioneditor.orTypeModelIdDirectly")
-                }
               />
               {!!selectedModelInfo?.context && (
                 <p className="mt-2 flex flex-wrap gap-x-4 text-[0.6875rem] text-[var(--muted-foreground)]">
