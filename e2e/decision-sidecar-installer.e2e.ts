@@ -39,14 +39,14 @@ test("the decision installer warns, gates the model choice behind Enable, and ju
     useUIStore.getState().openRightPanel("connections");
   });
 
-  // Add connection → Built-in model: the installer sits on its set-up screen, reachable before anything is set up.
+  // Add connection → Other: the installer has its own tile, reachable before anything is set up.
   await page.getByRole("button", { name: "Add connection", exact: true }).filter({ visible: true }).first().click();
   const addDialog = page.getByRole("dialog", { name: "Add connection", exact: true });
-  await addDialog.locator('[data-add-connection-service="local_model"]').click();
+  await addDialog.getByRole("button", { name: /^Other/ }).click();
   // Not conditional: the decision sidecar is its own model and its own process, so
   // this must be reachable whether or not a chat model has been downloaded. Skipping
   // here would hide exactly the regression that put it behind one.
-  const openInstaller = page.getByRole("button", { name: /Built-in decision model/ });
+  const openInstaller = addDialog.locator('[data-add-connection-service="decision_builtin"]');
   await expect(openInstaller).toBeVisible();
   await openInstaller.click();
 

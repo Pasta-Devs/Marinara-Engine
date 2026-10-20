@@ -1742,6 +1742,7 @@
   "connections.add.hint.cohere": "Command models from Cohere",
   "connections.add.hint.custom": "Your own server, a proxy or any online service with an OpenAI-style API",
   "connections.add.hint.decision": "Answers yes/no questions for prompts and agents",
+  "connections.add.hint.decision_builtin": "Experimental. A small yes/no model on this device. Most people do not need it.",
   "connections.add.hint.deepseek": "DeepSeek chat and reasoning models",
   "connections.add.hint.google": "Gemini models with an AI Studio key",
   "connections.add.hint.google_vertex": "Gemini on your Google Cloud project",

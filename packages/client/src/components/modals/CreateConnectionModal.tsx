@@ -87,7 +87,9 @@ interface Props {
 /** "On this device" (decision 32): built-in parts set up with their own controls, listed here so people find them. */
 type DeviceService = "local_model" | "tts" | "stt";
 type MediaServiceId = `media:${string}`;
-export type ServiceId = APIProvider | DeviceService | MediaServiceId | typeof LINKAPI_SERVICE;
+export type ServiceId = APIProvider | DeviceService | MediaServiceId | typeof LINKAPI_SERVICE | typeof DECISION_BUILTIN;
+/** The experimental built-in decision model: its tile under "Other" opens its own installer. */
+const DECISION_BUILTIN = "decision_builtin";
 /** LinkAPI (Marinara's sponsor): an OpenAI-compatible gateway, set up as a custom address with its own key. */
 const LINKAPI_SERVICE = "linkapi";
 const LINKAPI = { name: "LinkAPI", baseUrl: "https://linkapi.ai/v1", keyUrl: "https://linkapi.ai/" };
@@ -152,6 +154,7 @@ const SERVICE_KINDS: Partial<Record<ServiceId, Kind[]>> = {
   audio: ["voice"],
   // Decision answers yes/no questions for agents; it only shows under "All".
   decision: [],
+  decision_builtin: [],
 };
 const kindsOf = (service: ServiceId): Kind[] => {
   const media = mediaBackendOf(service);
@@ -187,7 +190,7 @@ const SERVICE_GROUPS: Array<{ id: string; services: ServiceId[]; sorted?: boolea
     services: ["custom", ...MEDIA_BACKENDS.filter((backend) => SELF_HOSTED.has(backend.source)).map((b) => b.id)],
   },
   { id: "device", services: ["local_model", "tts", "stt"] },
-  { id: "other", folded: true, services: ["decision", "audio"] },
+  { id: "other", folded: true, services: ["decision", DECISION_BUILTIN, "audio"] },
 ];
 const VENDORS_SHOWN = 4;
 /** Old names people still search for. */
@@ -292,6 +295,7 @@ function ServiceTile({ service }: { service: ServiceId }) {
   // A custom address: its brand comes from the URL.
   if (service === LINKAPI_SERVICE)
     return <ProviderIcon provider="custom" baseUrl={LINKAPI.baseUrl} name={LINKAPI.name} size="add" />;
+  if (service === DECISION_BUILTIN) return <ProviderIcon provider="decision" size="add" />;
   return (
     <ProviderIcon
       provider={media ? (media.image ? "image_generation" : "video_generation") : service}
@@ -570,9 +574,11 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
         ? t(`connections.add.device.${key}`)
         : key === LINKAPI_SERVICE
           ? LINKAPI.name
-          : key === "decision" || key === "custom"
-            ? t(key === "custom" ? "connections.add.customName" : "connections.decision.label")
-            : (PROVIDERS[key as APIProvider]?.name ?? key);
+          : key === DECISION_BUILTIN
+            ? t("ui.panels.sidecarcard.decisionSidecar")
+            : key === "decision" || key === "custom"
+              ? t(key === "custom" ? "connections.add.customName" : "connections.decision.label")
+              : (PROVIDERS[key as APIProvider]?.name ?? key);
   };
   // A network failure reads as one plain sentence, never a raw "Failed to fetch".
   const friendlyError = (error: unknown) =>
@@ -1086,11 +1092,11 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
     else if (connectedAccount(service)) badges.push({ label: t("connections.add.badge.connected"), highlight: true });
     // The group already says "Recommended"; LinkAPI says why it is first.
     if (service === LINKAPI_SERVICE) badges.push({ label: t("connections.add.badge.sponsor"), highlight: true });
-    if (isDevice(service)) badges.push({ label: t("connections.add.badge.builtIn") });
+    if (isDevice(service) || service === DECISION_BUILTIN) badges.push({ label: t("connections.add.badge.builtIn") });
     const billing =
       service === LINKAPI_SERVICE
         ? "pay_per_use"
-        : isDevice(service) || mediaBackendOf(service)
+        : isDevice(service) || mediaBackendOf(service) || service === DECISION_BUILTIN
           ? undefined
           : PROVIDERS[service as APIProvider]?.billing;
     // NanoGPT has a monthly plan too, so "Pay per use" alone would be wrong.
@@ -1190,7 +1196,7 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
                 badges={badgesFor(key)}
                 rail={group.id === "start"}
                 selected={service === key}
-                onClick={() => void chooseService(key)}
+                onClick={() => (key === DECISION_BUILTIN ? setDecisionOpen(true) : void chooseService(key))}
               />
             ))}
           </ServiceGroup>
@@ -1531,20 +1537,7 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
         </div>
       </div>
       {device === "local_model" && (
-        <>
-          <p className="text-xs leading-relaxed text-[var(--muted-foreground)]">
-            {t("connections.add.localModelInfo")}
-          </p>
-          {/* The decision sidecar is its own model and its own process, so it does not wait for a chat model. */}
-          <button
-            type="button"
-            onClick={() => setDecisionOpen(true)}
-            className="mari-chrome-control mari-chrome-control--compact w-full text-center"
-          >
-            {t("ui.panels.sidecarcard.decisionSidecar")}
-          </button>
-          <DecisionModelModal open={decisionOpen} onClose={() => setDecisionOpen(false)} />
-        </>
+        <p className="text-xs leading-relaxed text-[var(--muted-foreground)]">{t("connections.add.localModelInfo")}</p>
       )}
       {device === "tts" && <TTSConfigCard defaultExpanded />}
       {device === "stt" && <SpeechToTextCard defaultExpanded />}
@@ -2011,6 +2004,8 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
           {footerRight}
         </div>
       </div>
+      {/* The decision sidecar is its own model and process; its experimental installer opens from "Other". */}
+      <DecisionModelModal open={decisionOpen} onClose={() => setDecisionOpen(false)} />
     </Modal>
   );
 }
